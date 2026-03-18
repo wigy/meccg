@@ -6,7 +6,6 @@
   "types": "./dist/index.d.ts",
   "scripts": {
     "build": "tsc",
-    "check": "tsc --noEmit",
-    "test": "vitest run"
+    "check": "tsc --noEmit"
   }
 }
