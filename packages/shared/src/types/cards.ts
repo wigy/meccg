@@ -7,10 +7,10 @@ import {
   MarshallingCategory,
 } from './common.js';
 
-// ---- Character ----
+// ---- Hero Character ----
 
-export interface CharacterCard {
-  readonly cardType: 'character';
+export interface HeroCharacterCard {
+  readonly cardType: 'hero-character';
   readonly id: CardDefinitionId;
   readonly name: string;
   readonly unique: true;
@@ -18,7 +18,7 @@ export interface CharacterCard {
   readonly skills: readonly Skill[];
   readonly prowess: number;
   readonly body: number;
-  readonly mind: number;
+  readonly mind: number | null;
   readonly directInfluence: number;
   readonly marshallingPoints: number;
   readonly marshallingCategory: MarshallingCategory.Character;
@@ -26,12 +26,12 @@ export interface CharacterCard {
   readonly homesite: string;
 }
 
-// ---- Resources ----
+// ---- Hero Resources ----
 
 export type ItemSubtype = 'minor' | 'major' | 'greater' | 'gold-ring' | 'special';
 
 export interface ItemCard {
-  readonly cardType: 'resource-item';
+  readonly cardType: 'hero-resource-item';
   readonly id: CardDefinitionId;
   readonly name: string;
   readonly unique: boolean;
@@ -45,7 +45,7 @@ export interface ItemCard {
 }
 
 export interface FactionCard {
-  readonly cardType: 'resource-faction';
+  readonly cardType: 'hero-resource-faction';
   readonly id: CardDefinitionId;
   readonly name: string;
   readonly unique: true;
@@ -57,7 +57,7 @@ export interface FactionCard {
 }
 
 export interface AllyCard {
-  readonly cardType: 'resource-ally';
+  readonly cardType: 'hero-resource-ally';
   readonly id: CardDefinitionId;
   readonly name: string;
   readonly unique: boolean;
@@ -68,8 +68,8 @@ export interface AllyCard {
   readonly playableAt: readonly SiteType[];
 }
 
-export interface ResourceEventCard {
-  readonly cardType: 'resource-event';
+export interface HeroResourceEventCard {
+  readonly cardType: 'hero-resource-event';
   readonly id: CardDefinitionId;
   readonly name: string;
   readonly unique: boolean;
@@ -145,15 +145,15 @@ export interface RegionCard {
 
 // ---- Union types ----
 
-export type ResourceCard = ItemCard | FactionCard | AllyCard | ResourceEventCard;
+export type HeroResourceCard = ItemCard | FactionCard | AllyCard | HeroResourceEventCard;
 export type HazardCard = CreatureCard | HazardEventCard | CorruptionCard;
-export type PlayDeckCard = ResourceCard | HazardCard;
+export type PlayDeckCard = HeroResourceCard | HazardCard;
 export type CardDefinition =
-  | CharacterCard
+  | HeroCharacterCard
   | ItemCard
   | FactionCard
   | AllyCard
-  | ResourceEventCard
+  | HeroResourceEventCard
   | CreatureCard
   | HazardEventCard
   | CorruptionCard

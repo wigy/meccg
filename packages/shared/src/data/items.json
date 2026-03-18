@@ -1,6 +1,6 @@
 [
   {
-    "cardType": "resource-item",
+    "cardType": "hero-resource-item",
     "id": "tw-244",
     "name": "Glamdring",
     "unique": true,
@@ -13,7 +13,7 @@
     "playableAt": ["ruins-and-lairs", "shadow-hold", "dark-hold"]
   },
   {
-    "cardType": "resource-item",
+    "cardType": "hero-resource-item",
     "id": "tw-333",
     "name": "Sting",
     "unique": true,
@@ -26,7 +26,7 @@
     "playableAt": ["ruins-and-lairs", "shadow-hold", "dark-hold"]
   },
   {
-    "cardType": "resource-item",
+    "cardType": "hero-resource-item",
     "id": "tw-347",
     "name": "The One Ring",
     "unique": true,
@@ -39,7 +39,7 @@
     "playableAt": []
   },
   {
-    "cardType": "resource-item",
+    "cardType": "hero-resource-item",
     "id": "tw-345",
     "name": "The Mithril-coat",
     "unique": true,

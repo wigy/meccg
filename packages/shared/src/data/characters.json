@@ -1,6 +1,6 @@
 [
   {
-    "cardType": "character",
+    "cardType": "hero-character",
     "id": "tw-156",
     "name": "Gandalf",
     "unique": true,
@@ -8,7 +8,7 @@
     "skills": ["warrior", "scout", "sage", "diplomat"],
     "prowess": 6,
     "body": 9,
-    "mind": 0,
+    "mind": null,
     "directInfluence": 10,
     "marshallingPoints": 0,
     "marshallingCategory": "character",
@@ -16,7 +16,7 @@
     "homesite": ""
   },
   {
-    "cardType": "character",
+    "cardType": "hero-character",
     "id": "tw-120",
     "name": "Aragorn II",
     "unique": true,
@@ -32,7 +32,7 @@
     "homesite": "Bree"
   },
   {
-    "cardType": "character",
+    "cardType": "hero-character",
     "id": "tw-168",
     "name": "Legolas",
     "unique": true,
@@ -48,7 +48,7 @@
     "homesite": "Thranduil's Halls"
   },
   {
-    "cardType": "character",
+    "cardType": "hero-character",
     "id": "tw-159",
     "name": "Gimli",
     "unique": true,
@@ -64,7 +64,7 @@
     "homesite": "Iron Hill Dwarf-hold"
   },
   {
-    "cardType": "character",
+    "cardType": "hero-character",
     "id": "tw-152",
     "name": "Frodo",
     "unique": true,
@@ -80,7 +80,7 @@
     "homesite": "Bag End"
   },
   {
-    "cardType": "character",
+    "cardType": "hero-character",
     "id": "tw-149",
     "name": "Faramir",
     "unique": true,

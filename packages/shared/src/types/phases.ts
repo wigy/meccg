@@ -35,7 +35,7 @@ export const LEGAL_ACTIONS_BY_PHASE: Readonly<Record<Phase, readonly GameAction[
   ],
 
   [Phase.Site]: [
-    'play-resource',
+    'play-hero-resource',
     'influence-attempt',
     'play-minor-item',
     'corruption-check',

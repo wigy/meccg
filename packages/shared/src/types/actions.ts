@@ -77,8 +77,8 @@ export interface SupportStrikeAction {
 
 // ---- Site phase ----
 
-export interface PlayResourceAction {
-  readonly type: 'play-resource';
+export interface PlayHeroResourceAction {
+  readonly type: 'play-hero-resource';
   readonly player: PlayerId;
   readonly cardInstanceId: CardInstanceId;
   readonly companyId: CompanyId;
@@ -149,7 +149,7 @@ export type GameAction =
   | AssignStrikeAction
   | ResolveStrikeAction
   | SupportStrikeAction
-  | PlayResourceAction
+  | PlayHeroResourceAction
   | InfluenceAttemptAction
   | PlayMinorItemAction
   | CorruptionCheckAction
