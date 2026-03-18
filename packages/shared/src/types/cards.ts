@@ -153,6 +153,14 @@ export interface RegionCard {
   readonly text: string;
 }
 
+// ---- Deck ----
+
+export interface Deck {
+  readonly pool: readonly CardDefinitionId[];
+  readonly playDeck: readonly CardDefinitionId[];
+  readonly sideboard: readonly CardDefinitionId[];
+}
+
 // ---- Union types ----
 
 export type HeroResourceCard = ItemCard | FactionCard | AllyCard | HeroResourceEventCard;
