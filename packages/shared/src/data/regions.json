@@ -4,27 +4,31 @@
     "id": "tw-482",
     "name": "Rhudaur",
     "regionType": "wilderness",
-    "adjacentRegions": ["Angmar", "Arthedain", "Cardolan", "High Pass", "Hollin"]
+    "adjacentRegions": ["Angmar", "Arthedain", "Cardolan", "High Pass", "Hollin"],
+    "text": ""
   },
   {
     "cardType": "region",
     "id": "tw-466",
     "name": "Hollin",
     "regionType": "wilderness",
-    "adjacentRegions": ["Cardolan", "Dunland", "Redhorn Gate", "Rhudaur"]
+    "adjacentRegions": ["Cardolan", "Dunland", "Redhorn Gate", "Rhudaur"],
+    "text": ""
   },
   {
     "cardType": "region",
     "id": "tw-483",
     "name": "Rohan",
     "regionType": "border",
-    "adjacentRegions": ["Anórien", "Fangorn", "Gap of Isen", "Wold & Foothills"]
+    "adjacentRegions": ["Anórien", "Fangorn", "Gap of Isen", "Wold & Foothills"],
+    "text": ""
   },
   {
     "cardType": "region",
     "id": "tw-470",
     "name": "Ithilien",
     "regionType": "wilderness",
-    "adjacentRegions": ["Anórien", "Dagorlad", "Harondor", "Imlad Morgul"]
+    "adjacentRegions": ["Anórien", "Dagorlad", "Harondor", "Imlad Morgul"],
+    "text": ""
   }
 ]

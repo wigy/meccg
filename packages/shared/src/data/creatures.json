@@ -13,7 +13,8 @@
         "regionTypes": ["wilderness"],
         "siteTypes": ["ruins-and-lairs"]
       }
-    ]
+    ],
+    "text": "Dragon. Two strikes. Attacker chooses defending characters."
   },
   {
     "cardType": "hazard-creature",
@@ -29,7 +30,8 @@
         "regionTypes": ["wilderness", "shadow", "dark"],
         "siteTypes": ["ruins-and-lairs", "shadow-hold", "dark-hold"]
       }
-    ]
+    ],
+    "text": "Orcs. Three strikes."
   },
   {
     "cardType": "hazard-creature",
@@ -45,6 +47,7 @@
         "regionTypes": ["shadow", "dark"],
         "siteTypes": ["shadow-hold", "dark-hold"]
       }
-    ]
+    ],
+    "text": "Undead. One strike. After the attack, each character wounded by Barrow-wight makes a corruption check modified by -2."
   }
 ]

@@ -10,7 +10,8 @@
     "corruptionPoints": 1,
     "prowessModifier": 3,
     "bodyModifier": 0,
-    "playableAt": ["ruins-and-lairs", "shadow-hold", "dark-hold"]
+    "playableAt": ["ruins-and-lairs", "shadow-hold", "dark-hold"],
+    "text": "Unique. Weapon. +3 to prowess to a maximum of 8 (a maximum of 9 against Orcs)."
   },
   {
     "cardType": "hero-resource-item",
@@ -23,7 +24,8 @@
     "corruptionPoints": 1,
     "prowessModifier": 1,
     "bodyModifier": 0,
-    "playableAt": ["ruins-and-lairs", "shadow-hold", "dark-hold"]
+    "playableAt": ["ruins-and-lairs", "shadow-hold", "dark-hold"],
+    "text": "Unique. Weapon. +1 to prowess to a maximum of 8, +2 to a Hobbit's prowess to a maximum of 8."
   },
   {
     "cardType": "hero-resource-item",
@@ -36,7 +38,8 @@
     "corruptionPoints": 6,
     "prowessModifier": 5,
     "bodyModifier": 5,
-    "playableAt": []
+    "playableAt": [],
+    "text": "Unique. The One Ring. Playable only with a Gold Ring and after a test indicates The One Ring. +5 prowess (to a maximum of double the bearer's starting prowess). +5 to body (to a maximum of 10). +5 to direct influence. Bearer may make a corruption check modified by -2 to cancel a strike against himself; this does not work against Undead and Nazgûl strikes. +1 corruption point to every character in the bearer's company."
   },
   {
     "cardType": "hero-resource-item",
@@ -49,6 +52,7 @@
     "corruptionPoints": 2,
     "prowessModifier": 0,
     "bodyModifier": 3,
-    "playableAt": ["ruins-and-lairs", "shadow-hold", "dark-hold"]
+    "playableAt": ["ruins-and-lairs", "shadow-hold", "dark-hold"],
+    "text": "Unique. Armor. +3 to body (to a maximum of 10)."
   }
 ]

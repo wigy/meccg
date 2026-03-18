@@ -13,7 +13,8 @@
     "marshallingPoints": 0,
     "marshallingCategory": "character",
     "corruptionModifier": 1,
-    "homesite": ""
+    "homesite": "",
+    "text": "Unique. +1 to all of his corruption checks. Gandalf may tap to test a gold ring in his company."
   },
   {
     "cardType": "hero-character",
@@ -29,7 +30,8 @@
     "marshallingPoints": 3,
     "marshallingCategory": "character",
     "corruptionModifier": 0,
-    "homesite": "Bree"
+    "homesite": "Bree",
+    "text": "Unique. +2 direct influence against the Rangers of the North faction. -3 marshalling points if eliminated."
   },
   {
     "cardType": "hero-character",
@@ -45,7 +47,8 @@
     "marshallingPoints": 2,
     "marshallingCategory": "character",
     "corruptionModifier": 0,
-    "homesite": "Thranduil's Halls"
+    "homesite": "Thranduil's Halls",
+    "text": "Unique. +2 direct influence against the Wood-elves faction."
   },
   {
     "cardType": "hero-character",
@@ -61,7 +64,8 @@
     "marshallingPoints": 2,
     "marshallingCategory": "character",
     "corruptionModifier": 0,
-    "homesite": "Iron Hill Dwarf-hold"
+    "homesite": "Iron Hill Dwarf-hold",
+    "text": "Unique. +2 direct influence against the Iron Hill Dwarves faction, +2 prowess against Orcs. +1 direct influence against Elves and Elf factions."
   },
   {
     "cardType": "hero-character",
@@ -77,7 +81,8 @@
     "marshallingPoints": 2,
     "marshallingCategory": "character",
     "corruptionModifier": 4,
-    "homesite": "Bag End"
+    "homesite": "Bag End",
+    "text": "Unique. Unless he is one of the starting characters, he may only be brought into play at his home site. All of his corruption checks are modified by +4. -2 marshalling points if eliminated."
   },
   {
     "cardType": "hero-character",
@@ -93,7 +98,8 @@
     "marshallingPoints": 2,
     "marshallingCategory": "character",
     "corruptionModifier": 0,
-    "homesite": "Henneth Annûn"
+    "homesite": "Henneth Annûn",
+    "text": "Unique. +2 direct influence against the Rangers of Ithilien faction."
   },
   {
     "cardType": "hero-character",
@@ -109,6 +115,7 @@
     "marshallingPoints": 2,
     "marshallingCategory": "character",
     "corruptionModifier": 4,
-    "homesite": "Bag End"
+    "homesite": "Bag End",
+    "text": "Unique. Unless he is one of the starting characters, he may only be brought into play at his home site. All of his corruption checks are modified by +4. -2 marshalling points if eliminated."
   }
 ]

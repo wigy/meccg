@@ -7,7 +7,8 @@
     "sitePath": [],
     "nearestHaven": "",
     "playableResources": [],
-    "automaticAttack": null
+    "automaticAttacks": [],
+    "text": "Site Path From Lórien: Wilderness/Border-land/Wilderness/Wilderness. Site Path From Grey Havens: Free-domain/Wilderness/Wilderness."
   },
   {
     "cardType": "hero-site",
@@ -17,7 +18,8 @@
     "sitePath": [],
     "nearestHaven": "",
     "playableResources": [],
-    "automaticAttack": null
+    "automaticAttacks": [],
+    "text": "Site Path From Rivendell: Wilderness/Wilderness/Border-land/Wilderness. Site Path From Edhellond: Wilderness/Border-land/Free-domain/Free-domain/Border-land/Wilderness."
   },
   {
     "cardType": "hero-site",
@@ -27,7 +29,8 @@
     "sitePath": ["wilderness", "wilderness"],
     "nearestHaven": "Lórien",
     "playableResources": ["minor", "major", "greater", "gold-ring"],
-    "automaticAttack": { "strikes": 4, "prowess": 7 }
+    "automaticAttacks": [{ "creatureType": "Orcs", "strikes": 4, "prowess": 7 }],
+    "text": "Playable: Items (minor, major, greater, gold ring). Automatic-attacks: Orcs — 4 strikes with 7 prowess."
   },
   {
     "cardType": "hero-site",
@@ -37,7 +40,8 @@
     "sitePath": ["wilderness", "border", "free"],
     "nearestHaven": "Lórien",
     "playableResources": ["faction"],
-    "automaticAttack": null
+    "automaticAttacks": [],
+    "text": ""
   },
   {
     "cardType": "hero-site",
@@ -47,6 +51,7 @@
     "sitePath": ["wilderness", "border", "free", "wilderness", "shadow", "dark"],
     "nearestHaven": "Lórien",
     "playableResources": [],
-    "automaticAttack": null
+    "automaticAttacks": [],
+    "text": "Any company moving to this site has its hazard limit increased by 2 and hazard creatures may always be played keyed to the site regardless of any other cards played."
   }
 ]

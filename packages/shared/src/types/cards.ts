@@ -24,6 +24,7 @@ export interface HeroCharacterCard {
   readonly marshallingCategory: MarshallingCategory.Character;
   readonly corruptionModifier: number;
   readonly homesite: string;
+  readonly text: string;
 }
 
 // ---- Hero Resources ----
@@ -42,6 +43,7 @@ export interface ItemCard {
   readonly prowessModifier: number;
   readonly bodyModifier: number;
   readonly playableAt: readonly SiteType[];
+  readonly text: string;
 }
 
 export interface FactionCard {
@@ -54,6 +56,7 @@ export interface FactionCard {
   readonly influenceNumber: number;
   readonly race: Race;
   readonly playableAt: string;
+  readonly text: string;
 }
 
 export interface AllyCard {
@@ -66,6 +69,7 @@ export interface AllyCard {
   readonly marshallingPoints: number;
   readonly marshallingCategory: MarshallingCategory.Ally;
   readonly playableAt: readonly SiteType[];
+  readonly text: string;
 }
 
 export interface HeroResourceEventCard {
@@ -76,6 +80,7 @@ export interface HeroResourceEventCard {
   readonly eventType: 'short' | 'long' | 'permanent';
   readonly marshallingPoints: number;
   readonly marshallingCategory: MarshallingCategory.Misc;
+  readonly text: string;
 }
 
 // ---- Hazards ----
@@ -96,6 +101,7 @@ export interface CreatureCard {
   readonly body: number | null;
   readonly killMarshallingPoints: number;
   readonly keyedTo: readonly CreatureKeyRestriction[];
+  readonly text: string;
 }
 
 export interface HazardEventCard {
@@ -104,6 +110,7 @@ export interface HazardEventCard {
   readonly name: string;
   readonly unique: boolean;
   readonly eventType: 'short' | 'long' | 'permanent';
+  readonly text: string;
 }
 
 export interface CorruptionCard {
@@ -112,6 +119,7 @@ export interface CorruptionCard {
   readonly name: string;
   readonly unique: boolean;
   readonly corruptionPoints: number;
+  readonly text: string;
 }
 
 // ---- Sites & Regions ----
@@ -133,6 +141,7 @@ export interface HeroSiteCard {
   readonly nearestHaven: string;
   readonly playableResources: readonly PlayableResourceType[];
   readonly automaticAttacks: readonly AutomaticAttack[];
+  readonly text: string;
 }
 
 export interface RegionCard {
@@ -141,6 +150,7 @@ export interface RegionCard {
   readonly name: string;
   readonly regionType: RegionType;
   readonly adjacentRegions: readonly string[];
+  readonly text: string;
 }
 
 // ---- Union types ----
