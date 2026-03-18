@@ -6,7 +6,6 @@ import {
   formatGameState,
   Phase,
   CharacterStatus,
-  WizardName,
   HAND_SIZE,
 } from '@meccg/shared';
 import type { PlayerId, CardDefinitionId } from '@meccg/shared';
@@ -29,7 +28,7 @@ function makeTestConfig(seed = 42): GameConfig {
     players: [
       {
         id: pid('p1'),
-        wizard: WizardName.Gandalf,
+        name: 'Alice',
         startingCharacters: [did('tw-120'), did('tw-131')], // Aragorn II, Bilbo
         playDeck,
         siteDeck: [did('tw-413'), did('tw-412'), did('tw-414')], // Moria, Minas Tirith, Mount Doom
@@ -37,7 +36,7 @@ function makeTestConfig(seed = 42): GameConfig {
       },
       {
         id: pid('p2'),
-        wizard: WizardName.Saruman,
+        name: 'Bob',
         startingCharacters: [did('tw-168'), did('tw-159')], // Legolas, Gimli
         playDeck,
         siteDeck: [did('tw-413'), did('tw-412')],
@@ -51,11 +50,13 @@ function makeTestConfig(seed = 42): GameConfig {
 describe('createGame', () => {
   const pool = loadCardPool();
 
-  it('creates valid initial state with correct wizards', () => {
+  it('creates valid initial state with player names and no wizard', () => {
     const state = createGame(makeTestConfig(), pool);
 
-    expect(state.players[0].wizard).toBe(WizardName.Gandalf);
-    expect(state.players[1].wizard).toBe(WizardName.Saruman);
+    expect(state.players[0].name).toBe('Alice');
+    expect(state.players[1].name).toBe('Bob');
+    expect(state.players[0].wizard).toBeNull();
+    expect(state.players[1].wizard).toBeNull();
     expect(state.players[0].id).toBe('p1');
     expect(state.players[1].id).toBe('p2');
   });
@@ -153,6 +154,8 @@ describe('createGame', () => {
     console.log(output);
 
     expect(output).toContain('Turn 1');
+    expect(output).toContain('Alice');
+    expect(output).toContain('Bob');
     expect(output).toContain('Aragorn II');
     expect(output).toContain('Bilbo');
     expect(output).toContain('Rivendell');

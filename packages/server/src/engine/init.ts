@@ -10,7 +10,6 @@ import type {
   CardInstanceId,
   CompanyId,
   CardDefinitionId,
-  WizardName,
 } from '@meccg/shared';
 import {
   Phase,
@@ -24,7 +23,7 @@ import {
 
 export interface PlayerConfig {
   readonly id: PlayerId;
-  readonly wizard: WizardName;
+  readonly name: string;
   readonly startingCharacters: readonly CardDefinitionId[];
   readonly playDeck: readonly CardDefinitionId[];
   readonly siteDeck: readonly CardDefinitionId[];
@@ -149,7 +148,8 @@ function initPlayer(
 
   const playerState: PlayerState = {
     id: config.id,
-    wizard: config.wizard,
+    name: config.name,
+    wizard: null,
     hand,
     playDeck: remainingDeck,
     discardPile: [],

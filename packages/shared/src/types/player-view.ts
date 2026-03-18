@@ -42,7 +42,8 @@ export interface OpponentCompanyView {
 
 export interface OpponentView {
   readonly id: PlayerId;
-  readonly wizard: WizardName;
+  readonly name: string;
+  readonly wizard: WizardName | null;
   readonly handSize: number;
   readonly playDeckSize: number;
   readonly discardPile: readonly RevealedCard[];
@@ -57,7 +58,8 @@ export interface OpponentView {
 
 export interface SelfView {
   readonly id: PlayerId;
-  readonly wizard: WizardName;
+  readonly name: string;
+  readonly wizard: WizardName | null;
   readonly hand: readonly RevealedCard[];
   readonly playDeckSize: number;
   readonly discardPile: readonly RevealedCard[];

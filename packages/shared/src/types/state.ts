@@ -52,7 +52,8 @@ export interface EventInPlay {
 
 export interface PlayerState {
   readonly id: PlayerId;
-  readonly wizard: WizardName;
+  readonly name: string;
+  readonly wizard: WizardName | null;
   readonly hand: readonly CardInstanceId[];
   readonly playDeck: readonly CardInstanceId[];
   readonly discardPile: readonly CardInstanceId[];

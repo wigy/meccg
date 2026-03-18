@@ -211,7 +211,8 @@ function formatPlayer(
   const lines: string[] = [];
   const isActive = player.id === state.activePlayer;
   const activeMarker = isActive ? ' ←' : '';
-  lines.push(`Player ${playerIndex + 1} (${player.wizard}):${activeMarker}`);
+  const wizardLabel = player.wizard ? ` (${player.wizard})` : '';
+  lines.push(`${player.name}${wizardLabel}:${activeMarker}`);
   lines.push(`  hand: ${player.hand.length} cards`);
   lines.push(`  deck: ${player.playDeck.length} | discard: ${player.discardPile.length}`);
 
@@ -234,7 +235,8 @@ export function formatGameState(state: GameState): string {
   const { defOf, instOf } = makeLookups(state);
   const lines: string[] = [];
 
-  lines.push(`Turn ${state.turnNumber} — Phase: ${state.phaseState.phase} — Active: Player ${state.players[0].id === state.activePlayer ? 1 : 2}`);
+  const activePlayer = state.players.find(p => p.id === state.activePlayer);
+  lines.push(`Turn ${state.turnNumber} — Phase: ${state.phaseState.phase} — Active: ${activePlayer?.name ?? '???'}`);
 
   for (let i = 0; i < state.players.length; i++) {
     lines.push(...formatPlayer(state.players[i], i, state, defOf, instOf));
@@ -260,7 +262,8 @@ export function formatPlayerView(view: PlayerView): string {
 
   // Self
   const self = view.self;
-  lines.push(`You (${self.wizard}):`);
+  const selfWizard = self.wizard ? ` (${self.wizard})` : '';
+  lines.push(`${self.name}${selfWizard}:`);
   lines.push(`  hand: ${self.hand.length} cards`);
   lines.push(`  deck: ${self.playDeckSize} | discard: ${self.discardPile.length}`);
 
@@ -283,7 +286,8 @@ export function formatPlayerView(view: PlayerView): string {
 
   // Opponent
   const opp = view.opponent;
-  lines.push(`Opponent (${opp.wizard}):`);
+  const oppWizard = opp.wizard ? ` (${opp.wizard})` : '';
+  lines.push(`${opp.name}${oppWizard}:`);
   lines.push(`  hand: ${opp.handSize} cards`);
   lines.push(`  deck: ${opp.playDeckSize} | discard: ${opp.discardPile.length}`);
 
