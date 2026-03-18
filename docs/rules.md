@@ -140,4 +140,4 @@ Triggered by: transferring items, certain card effects, Free Council tiebreaker,
 Roll **2d6** + character's corruption modifier:
 - Roll **> corruption points** → safe
 - Roll **= CP or CP−1** → character and all their items are **discarded** (removed from play)
-- Roll **≤ CP−2** → character is **eliminated** and placed in opponent's MP pile (opponent gains those character MPs)
+- Roll **≤ CP−2** → character is **eliminated** (removed from the game along with all their items)
