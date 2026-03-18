@@ -1,4 +1,4 @@
-import type { CardDefinition, HeroCharacterCard, ItemCard, AllyCard, CreatureCard, HeroSiteCard } from './types/cards.js';
+import type { CardDefinition, HeroCharacterCard, HeroItemCard, HeroAllyCard, CreatureCard, HeroSiteCard } from './types/cards.js';
 import type { GameState, PlayerState, Company, CharacterInPlay, EventInPlay, CombatState } from './types/state.js';
 import type { PlayerView } from './types/player-view.js';
 import { CharacterStatus } from './types/common.js';
@@ -74,7 +74,7 @@ function formatItemLine(instId: CardInstanceId, defOf: CardLookup, instOf: Insta
   if (!def || def.cardType !== 'hero-resource-item') {
     return colorize(`??? [${instId}]`, 'hero-resource-item');
   }
-  const item = def as ItemCard;
+  const item = def as HeroItemCard;
   const name = colorize(item.name, 'hero-resource-item');
   const pMod = item.prowessModifier >= 0 ? `+${item.prowessModifier}` : `${item.prowessModifier}`;
   const bMod = item.bodyModifier >= 0 ? `+${item.bodyModifier}` : `${item.bodyModifier}`;
@@ -86,7 +86,7 @@ function formatAllyLine(instId: CardInstanceId, defOf: CardLookup, instOf: Insta
   if (!def || def.cardType !== 'hero-resource-ally') {
     return colorize(`??? [${instId}]`, 'hero-resource-ally');
   }
-  const ally = def as AllyCard;
+  const ally = def as HeroAllyCard;
   const name = colorize(ally.name, 'hero-resource-ally');
   return `${name} [${ally.prowess}/${ally.body}] (${ally.marshallingPoints} MP)`;
 }

@@ -31,7 +31,7 @@ export interface HeroCharacterCard {
 
 export type ItemSubtype = 'minor' | 'major' | 'greater' | 'gold-ring' | 'special';
 
-export interface ItemCard {
+export interface HeroItemCard {
   readonly cardType: 'hero-resource-item';
   readonly id: CardDefinitionId;
   readonly name: string;
@@ -46,7 +46,7 @@ export interface ItemCard {
   readonly text: string;
 }
 
-export interface FactionCard {
+export interface HeroFactionCard {
   readonly cardType: 'hero-resource-faction';
   readonly id: CardDefinitionId;
   readonly name: string;
@@ -59,7 +59,7 @@ export interface FactionCard {
   readonly text: string;
 }
 
-export interface AllyCard {
+export interface HeroAllyCard {
   readonly cardType: 'hero-resource-ally';
   readonly id: CardDefinitionId;
   readonly name: string;
@@ -163,14 +163,14 @@ export interface Deck {
 
 // ---- Union types ----
 
-export type HeroResourceCard = ItemCard | FactionCard | AllyCard | HeroResourceEventCard;
+export type HeroResourceCard = HeroItemCard | HeroFactionCard | HeroAllyCard | HeroResourceEventCard;
 export type HazardCard = CreatureCard | HazardEventCard | CorruptionCard;
 export type PlayDeckCard = HeroResourceCard | HazardCard;
 export type CardDefinition =
   | HeroCharacterCard
-  | ItemCard
-  | FactionCard
-  | AllyCard
+  | HeroItemCard
+  | HeroFactionCard
+  | HeroAllyCard
   | HeroResourceEventCard
   | CreatureCard
   | HazardEventCard
