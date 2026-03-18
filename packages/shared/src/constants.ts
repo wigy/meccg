@@ -1,0 +1,15 @@
+export const GENERAL_INFLUENCE = 20;
+export const HAND_SIZE = 8;
+export const MIN_PLAY_DECK_RESOURCES = 30;
+export const MIN_PLAY_DECK_HAZARDS = 30;
+export const MIN_CREATURES = 12;
+export const MAX_CARD_COPIES = 3;
+export const MIN_SIDEBOARD = 15;
+export const MAX_SIDEBOARD = 30;
+export const MAX_REGION_MOVEMENT = 4;
+export const MIN_HAZARD_LIMIT = 2;
+export const FREE_COUNCIL_MP_THRESHOLD = 25;
+export const UNTAPPED_NO_TAP_PROWESS_PENALTY = -3;
+export const TAPPED_PROWESS_PENALTY = -1;
+export const WOUNDED_PROWESS_PENALTY = -2;
+export const SUPPORT_PROWESS_BONUS = 1;

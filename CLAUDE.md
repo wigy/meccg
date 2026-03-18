@@ -16,11 +16,18 @@ MECCG is a web-based implementation of the Middle-Earth Collectible Card Game (M
 
 ## Build & Development Commands
 
-*To be filled in as tooling is set up (package manager, bundler, test framework, etc.)*
+- **Install dependencies:** `npm install`
+- **Type-check all packages:** `npx tsc --build packages/server/tsconfig.json packages/client/tsconfig.json`
+- **Type-check shared only:** `npx tsc --noEmit -p packages/shared/tsconfig.json`
 
 ## Architecture
 
-*To be updated as the codebase evolves.*
+- **Monorepo** using npm workspaces: `packages/shared`, `packages/server`, `packages/client`
+- **`@meccg/shared`** — Pure TypeScript types (cards, game state, actions, phases, player view) and constants. No runtime dependencies.
+- **`@meccg/server`** — Game engine built as a pure reducer: `(state, action) → state`. Phase handlers in `src/engine/phases/`.
+- **`@meccg/client`** — Browser UI (placeholder).
+- **State model:** Full game state (server-only) → projection function → player view (per-player, hidden info redacted).
+- Project references: server and client reference shared via `tsconfig.json` references + path mappings.
 
 ### Key Design Principles
 
