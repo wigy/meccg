@@ -1,0 +1,50 @@
+[
+  {
+    "cardType": "hazard-creature",
+    "id": "tw-020",
+    "name": "Cave-drake",
+    "unique": false,
+    "strikes": 2,
+    "prowess": 10,
+    "body": null,
+    "killMarshallingPoints": 1,
+    "keyedTo": [
+      {
+        "regionTypes": ["wilderness"],
+        "siteTypes": ["ruins-and-lairs"]
+      }
+    ]
+  },
+  {
+    "cardType": "hazard-creature",
+    "id": "tw-074",
+    "name": "Orc-patrol",
+    "unique": false,
+    "strikes": 3,
+    "prowess": 6,
+    "body": null,
+    "killMarshallingPoints": 1,
+    "keyedTo": [
+      {
+        "regionTypes": ["wilderness", "shadow", "dark"],
+        "siteTypes": ["ruins-and-lairs", "shadow-hold", "dark-hold"]
+      }
+    ]
+  },
+  {
+    "cardType": "hazard-creature",
+    "id": "tw-015",
+    "name": "Barrow-wight",
+    "unique": false,
+    "strikes": 1,
+    "prowess": 12,
+    "body": null,
+    "killMarshallingPoints": 1,
+    "keyedTo": [
+      {
+        "regionTypes": ["shadow", "dark"],
+        "siteTypes": ["shadow-hold", "dark-hold"]
+      }
+    ]
+  }
+]

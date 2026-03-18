@@ -1,0 +1,52 @@
+[
+  {
+    "cardType": "site",
+    "id": "tw-421",
+    "name": "Rivendell",
+    "siteType": "haven",
+    "sitePath": [],
+    "nearestHaven": "",
+    "playableResources": [],
+    "automaticAttack": null
+  },
+  {
+    "cardType": "site",
+    "id": "tw-408",
+    "name": "Lorien",
+    "siteType": "haven",
+    "sitePath": [],
+    "nearestHaven": "",
+    "playableResources": [],
+    "automaticAttack": null
+  },
+  {
+    "cardType": "site",
+    "id": "tw-413",
+    "name": "Moria",
+    "siteType": "shadow-hold",
+    "sitePath": ["wilderness", "wilderness"],
+    "nearestHaven": "Lorien",
+    "playableResources": ["minor", "major", "greater", "gold-ring"],
+    "automaticAttack": { "strikes": 4, "prowess": 7 }
+  },
+  {
+    "cardType": "site",
+    "id": "tw-412",
+    "name": "Minas Tirith",
+    "siteType": "free-hold",
+    "sitePath": ["wilderness", "border", "free"],
+    "nearestHaven": "Lorien",
+    "playableResources": ["faction"],
+    "automaticAttack": null
+  },
+  {
+    "cardType": "site",
+    "id": "tw-414",
+    "name": "Mount Doom",
+    "siteType": "shadow-hold",
+    "sitePath": ["wilderness", "border", "free", "wilderness", "shadow", "dark"],
+    "nearestHaven": "Lorien",
+    "playableResources": [],
+    "automaticAttack": null
+  }
+]

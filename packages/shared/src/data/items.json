@@ -1,0 +1,54 @@
+[
+  {
+    "cardType": "resource-item",
+    "id": "tw-244",
+    "name": "Glamdring",
+    "unique": true,
+    "subtype": "major",
+    "marshallingPoints": 2,
+    "marshallingCategory": "item",
+    "corruptionPoints": 1,
+    "prowessModifier": 3,
+    "bodyModifier": 0,
+    "playableAt": ["ruins-and-lairs", "shadow-hold", "dark-hold"]
+  },
+  {
+    "cardType": "resource-item",
+    "id": "tw-333",
+    "name": "Sting",
+    "unique": true,
+    "subtype": "minor",
+    "marshallingPoints": 0,
+    "marshallingCategory": "item",
+    "corruptionPoints": 1,
+    "prowessModifier": 1,
+    "bodyModifier": 0,
+    "playableAt": ["ruins-and-lairs", "shadow-hold", "dark-hold"]
+  },
+  {
+    "cardType": "resource-item",
+    "id": "tw-347",
+    "name": "The One Ring",
+    "unique": true,
+    "subtype": "special",
+    "marshallingPoints": 6,
+    "marshallingCategory": "item",
+    "corruptionPoints": 6,
+    "prowessModifier": 5,
+    "bodyModifier": 5,
+    "playableAt": []
+  },
+  {
+    "cardType": "resource-item",
+    "id": "tw-345",
+    "name": "The Mithril-coat",
+    "unique": true,
+    "subtype": "greater",
+    "marshallingPoints": 4,
+    "marshallingCategory": "item",
+    "corruptionPoints": 2,
+    "prowessModifier": 0,
+    "bodyModifier": 3,
+    "playableAt": ["ruins-and-lairs", "shadow-hold", "dark-hold"]
+  }
+]
