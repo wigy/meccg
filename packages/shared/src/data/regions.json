@@ -18,13 +18,13 @@
     "id": "tw-483",
     "name": "Rohan",
     "regionType": "border",
-    "adjacentRegions": ["Anorien", "Fangorn", "Gap of Isen", "Wold & Foothills"]
+    "adjacentRegions": ["Anórien", "Fangorn", "Gap of Isen", "Wold & Foothills"]
   },
   {
     "cardType": "region",
     "id": "tw-470",
     "name": "Ithilien",
     "regionType": "wilderness",
-    "adjacentRegions": ["Anorien", "Dagorlad", "Harondor", "Imlad Morgul"]
+    "adjacentRegions": ["Anórien", "Dagorlad", "Harondor", "Imlad Morgul"]
   }
 ]

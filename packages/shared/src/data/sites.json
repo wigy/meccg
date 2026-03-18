@@ -12,7 +12,7 @@
   {
     "cardType": "site",
     "id": "tw-408",
-    "name": "Lorien",
+    "name": "Lórien",
     "siteType": "haven",
     "sitePath": [],
     "nearestHaven": "",
@@ -25,7 +25,7 @@
     "name": "Moria",
     "siteType": "shadow-hold",
     "sitePath": ["wilderness", "wilderness"],
-    "nearestHaven": "Lorien",
+    "nearestHaven": "Lórien",
     "playableResources": ["minor", "major", "greater", "gold-ring"],
     "automaticAttack": { "strikes": 4, "prowess": 7 }
   },
@@ -35,7 +35,7 @@
     "name": "Minas Tirith",
     "siteType": "free-hold",
     "sitePath": ["wilderness", "border", "free"],
-    "nearestHaven": "Lorien",
+    "nearestHaven": "Lórien",
     "playableResources": ["faction"],
     "automaticAttack": null
   },
@@ -45,7 +45,7 @@
     "name": "Mount Doom",
     "siteType": "shadow-hold",
     "sitePath": ["wilderness", "border", "free", "wilderness", "shadow", "dark"],
-    "nearestHaven": "Lorien",
+    "nearestHaven": "Lórien",
     "playableResources": [],
     "automaticAttack": null
   }
