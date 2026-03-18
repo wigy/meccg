@@ -124,8 +124,8 @@ export interface AutomaticAttack {
   readonly prowess: number;
 }
 
-export interface SiteCard {
-  readonly cardType: 'site';
+export interface HeroSiteCard {
+  readonly cardType: 'hero-site';
   readonly id: CardDefinitionId;
   readonly name: string;
   readonly siteType: SiteType;
@@ -157,5 +157,5 @@ export type CardDefinition =
   | CreatureCard
   | HazardEventCard
   | CorruptionCard
-  | SiteCard
+  | HeroSiteCard
   | RegionCard;

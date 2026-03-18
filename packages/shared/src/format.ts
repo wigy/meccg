@@ -1,4 +1,4 @@
-import type { CardDefinition, HeroCharacterCard, ItemCard, AllyCard, CreatureCard, SiteCard } from './types/cards.js';
+import type { CardDefinition, HeroCharacterCard, ItemCard, AllyCard, CreatureCard, HeroSiteCard } from './types/cards.js';
 import type { GameState, PlayerState, Company, CharacterInPlay, EventInPlay, CombatState } from './types/state.js';
 import type { PlayerView } from './types/player-view.js';
 import { CharacterStatus } from './types/common.js';
@@ -19,7 +19,7 @@ const COLORS: Record<string, string> = {
   'hazard-creature': '\x1b[31m',              // red
   'hazard-event': '\x1b[35m',                 // magenta
   'hazard-corruption': `${DIM}\x1b[35m`,      // magenta dim
-  'site': '\x1b[37m',                           // white
+  'hero-site': '\x1b[37m',                      // white
   'region': `${DIM}\x1b[34m`,                 // blue dim
 };
 
@@ -102,10 +102,10 @@ function formatCorruptionCardLine(instId: CardInstanceId, defOf: CardLookup, ins
 
 function formatSiteName(instId: CardInstanceId, defOf: CardLookup, instOf: InstanceLookup): string {
   const def = resolve(instId, instOf, defOf);
-  if (!def || def.cardType !== 'site') {
+  if (!def || def.cardType !== 'hero-site') {
     return `??? [${instId}]`;
   }
-  return colorize(def.name, 'site');
+  return colorize(def.name, 'hero-site');
 }
 
 // ---- Company formatting ----

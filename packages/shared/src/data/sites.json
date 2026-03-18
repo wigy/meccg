@@ -1,6 +1,6 @@
 [
   {
-    "cardType": "site",
+    "cardType": "hero-site",
     "id": "tw-421",
     "name": "Rivendell",
     "siteType": "haven",
@@ -10,7 +10,7 @@
     "automaticAttack": null
   },
   {
-    "cardType": "site",
+    "cardType": "hero-site",
     "id": "tw-408",
     "name": "Lórien",
     "siteType": "haven",
@@ -20,7 +20,7 @@
     "automaticAttack": null
   },
   {
-    "cardType": "site",
+    "cardType": "hero-site",
     "id": "tw-413",
     "name": "Moria",
     "siteType": "shadow-hold",
@@ -30,7 +30,7 @@
     "automaticAttack": { "strikes": 4, "prowess": 7 }
   },
   {
-    "cardType": "site",
+    "cardType": "hero-site",
     "id": "tw-412",
     "name": "Minas Tirith",
     "siteType": "free-hold",
@@ -40,7 +40,7 @@
     "automaticAttack": null
   },
   {
-    "cardType": "site",
+    "cardType": "hero-site",
     "id": "tw-414",
     "name": "Mount Doom",
     "siteType": "shadow-hold",
