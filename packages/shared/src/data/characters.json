@@ -94,5 +94,21 @@
     "marshallingCategory": "character",
     "corruptionModifier": 0,
     "homesite": "Henneth Annûn"
+  },
+  {
+    "cardType": "hero-character",
+    "id": "tw-131",
+    "name": "Bilbo",
+    "unique": true,
+    "race": "hobbit",
+    "skills": ["scout", "sage"],
+    "prowess": 1,
+    "body": 9,
+    "mind": 5,
+    "directInfluence": 1,
+    "marshallingPoints": 2,
+    "marshallingCategory": "character",
+    "corruptionModifier": 4,
+    "homesite": "Bag End"
   }
 ]

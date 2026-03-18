@@ -11,7 +11,7 @@ const BOLD = '\x1b[1m';
 const DIM = '\x1b[2m';
 
 const COLORS: Record<string, string> = {
-  'hero-character': `${BOLD}\x1b[97m`,       // bright white bold
+  'hero-character': `${BOLD}\x1b[34m`,       // blue bold
   'hero-resource-item': '\x1b[33m',           // yellow
   'hero-resource-faction': '\x1b[36m',        // cyan
   'hero-resource-ally': '\x1b[32m',           // green
@@ -19,7 +19,7 @@ const COLORS: Record<string, string> = {
   'hazard-creature': '\x1b[31m',              // red
   'hazard-event': '\x1b[35m',                 // magenta
   'hazard-corruption': `${DIM}\x1b[35m`,      // magenta dim
-  'site': '\x1b[34m',                         // blue
+  'site': '\x1b[37m',                           // white
   'region': `${DIM}\x1b[34m`,                 // blue dim
 };
 

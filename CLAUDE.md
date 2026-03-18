@@ -19,6 +19,7 @@ MECCG is a web-based implementation of the Middle-Earth Collectible Card Game (M
 - **Install dependencies:** `npm install`
 - **Type-check all packages:** `npx tsc --build packages/server/tsconfig.json packages/client/tsconfig.json`
 - **Type-check shared only:** `npx tsc --noEmit -p packages/shared/tsconfig.json`
+- **Run tests:** `npm test`
 
 ## Architecture
 
