@@ -104,7 +104,7 @@ export interface MovementHazardPhaseState {
 export interface SitePhaseState {
   readonly phase: Phase.Site;
   readonly activeCompanyIndex: number;
-  readonly automaticAttackResolved: boolean;
+  readonly automaticAttacksResolved: number;
   readonly resourcePlayed: boolean;
   readonly combat: CombatState | null;
 }
@@ -138,7 +138,7 @@ export type PhaseState =
 
 export type AttackSource =
   | { readonly type: 'creature'; readonly instanceId: CardInstanceId }
-  | { readonly type: 'automatic-attack'; readonly siteInstanceId: CardInstanceId };
+  | { readonly type: 'automatic-attack'; readonly siteInstanceId: CardInstanceId; readonly attackIndex: number };
 
 export interface StrikeAssignment {
   readonly characterId: CardInstanceId;

@@ -119,6 +119,7 @@ export interface CorruptionCard {
 export type PlayableResourceType = ItemSubtype | 'faction' | 'ally' | 'information';
 
 export interface AutomaticAttack {
+  readonly creatureType: string;
   readonly strikes: number;
   readonly prowess: number;
 }
@@ -131,7 +132,7 @@ export interface SiteCard {
   readonly sitePath: readonly RegionType[];
   readonly nearestHaven: string;
   readonly playableResources: readonly PlayableResourceType[];
-  readonly automaticAttack: AutomaticAttack | null;
+  readonly automaticAttacks: readonly AutomaticAttack[];
 }
 
 export interface RegionCard {
