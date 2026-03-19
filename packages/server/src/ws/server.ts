@@ -1,28 +1,39 @@
 /**
  * @module server
  *
- * WebSocket server entry point for the MECCG game server.
+ * WebSocket server entry point for a single MECCG game.
  *
- * Starts a `ws` WebSocket server on the configured port (default 3000,
- * overridable via the `PORT` environment variable) and delegates all
- * incoming connections to a single {@link GameSession} instance.
+ * Takes two player names as arguments. Only those names can be players;
+ * everyone else is a spectator. Once the game ends, the server exits.
+ * In future, a master server will spawn one of these per game.
  *
- * On SIGTERM, SIGINT, or SIGUSR2 (from tsx watch), the server performs
- * a graceful shutdown: saves the game, sends a "restart" message to all
- * connected clients, closes the WebSocket server, then exits.
+ * Usage: npx tsx src/ws/server.ts <player1> <player2> [--debug]
  */
 
 import { WebSocketServer } from 'ws';
 import { GameSession } from './game-session.js';
 
+const args = process.argv.filter(a => !a.startsWith('--'));
+const PLAYER1_NAME = args[2];
+const PLAYER2_NAME = args[3];
+
+if (!PLAYER1_NAME || !PLAYER2_NAME) {
+  console.error('Usage: server <player1> <player2> [--debug]');
+  process.exit(1);
+}
+
 const PORT = parseInt(process.env.PORT ?? '3000', 10);
 const DEBUG = process.argv.includes('--debug') || process.env.DEBUG === '1';
 
 const wss = new WebSocketServer({ port: PORT });
-const session = new GameSession({ debug: DEBUG });
+const session = new GameSession({
+  debug: DEBUG,
+  playerNames: [PLAYER1_NAME, PLAYER2_NAME],
+});
 
 console.log(`MECCG server listening on port ${PORT}`);
-console.log('Waiting for two players to connect...');
+console.log(`Players: ${PLAYER1_NAME} vs ${PLAYER2_NAME}`);
+console.log('Waiting for players to connect...');
 
 wss.on('connection', (ws) => {
   console.log('Client connected');
@@ -31,7 +42,6 @@ wss.on('connection', (ws) => {
 
 let shuttingDown = false;
 
-/** Graceful shutdown: save game, notify clients, close server, exit. */
 function shutdown() {
   if (shuttingDown) return;
   shuttingDown = true;
@@ -39,13 +49,11 @@ function shutdown() {
   console.log('\nServer shutting down...');
   session.gracefulShutdown();
 
-  // Close the WebSocket server to release the port
   wss.close(() => {
     console.log('Server closed');
     process.exit(0);
   });
 
-  // Force exit after 3 seconds if close hangs
   setTimeout(() => process.exit(0), 3000);
 }
 
