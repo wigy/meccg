@@ -326,6 +326,8 @@ export interface CharacterDeckDraftPlayerState {
   readonly remainingPool: readonly CardDefinitionId[];
   /** Whether this player has finished adding characters. */
   readonly done: boolean;
+  /** Whether this player has shuffled their play deck after adding characters. */
+  readonly shuffled: boolean;
 }
 
 /**

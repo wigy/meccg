@@ -436,8 +436,8 @@ function handleItemDraft(state: GameState, action: GameAction): ReducerResult {
 /**
  * Handles the character deck draft phase where players add remaining pool
  * characters to their play deck (max 10 non-avatar characters).
- * Both players act simultaneously. When both are done, the play decks
- * are reshuffled and the game transitions to Untap (turn 1).
+ * Both players act simultaneously. After finishing, each must shuffle
+ * their play deck before the game transitions to Untap (turn 1).
  */
 function handleCharacterDeckDraft(state: GameState, action: GameAction): ReducerResult {
   if (state.phaseState.phase !== Phase.CharacterDeckDraft) {
@@ -447,18 +447,59 @@ function handleCharacterDeckDraft(state: GameState, action: GameAction): Reducer
   const playerIndex = state.players[0].id === action.player ? 0 : 1;
   const deckDraft = state.phaseState.deckDraftState[playerIndex];
 
-  if (deckDraft.done) {
-    return { state, error: 'You have already finished adding characters' };
+  if (deckDraft.shuffled) {
+    return { state, error: 'You have already finished this phase' };
   }
 
-  // Pass: done adding characters
+  // Shuffle: finalize this player's deck
+  if (action.type === 'shuffle-play-deck') {
+    if (!deckDraft.done) {
+      return { state, error: 'Finish adding characters before shuffling' };
+    }
+
+    const player = state.players[playerIndex];
+    let rng = state.rng;
+    let shuffled: CardInstanceId[];
+    [shuffled, rng] = shuffle([...player.playDeck], rng);
+
+    const newPlayers = [...state.players] as unknown as [typeof state.players[0], typeof state.players[1]];
+    newPlayers[playerIndex] = { ...player, playDeck: shuffled };
+
+    const newDeckDraftState = [...state.phaseState.deckDraftState] as [CharacterDeckDraftPlayerState, CharacterDeckDraftPlayerState];
+    newDeckDraftState[playerIndex] = { ...deckDraft, shuffled: true };
+
+    // Both shuffled → transition to Untap
+    if (newDeckDraftState[0].shuffled && newDeckDraftState[1].shuffled) {
+      return {
+        state: {
+          ...state,
+          players: newPlayers as unknown as readonly [typeof state.players[0], typeof state.players[1]],
+          activePlayer: newPlayers[0].id,
+          phaseState: { phase: Phase.Untap },
+          turnNumber: 1,
+          rng,
+        },
+      };
+    }
+
+    return {
+      state: {
+        ...state,
+        players: newPlayers as unknown as readonly [typeof state.players[0], typeof state.players[1]],
+        phaseState: { ...state.phaseState, deckDraftState: newDeckDraftState },
+        rng,
+      },
+    };
+  }
+
+  if (deckDraft.done) {
+    return { state, error: 'You must shuffle your play deck' };
+  }
+
+  // Pass: done adding characters, must shuffle next
   if (action.type === 'pass') {
     const newDeckDraftState = [...state.phaseState.deckDraftState] as [CharacterDeckDraftPlayerState, CharacterDeckDraftPlayerState];
-    newDeckDraftState[playerIndex] = { remainingPool: [], done: true };
-
-    if (newDeckDraftState[0].done && newDeckDraftState[1].done) {
-      return { state: finalizeCharacterDeckDraft(state) };
-    }
+    newDeckDraftState[playerIndex] = { remainingPool: [], done: true, shuffled: false };
 
     return {
       state: {
@@ -509,43 +550,16 @@ function handleCharacterDeckDraft(state: GameState, action: GameAction): Reducer
   newDeckDraftState[playerIndex] = {
     remainingPool: newPool,
     done: newPool.length === 0,
+    shuffled: false,
   };
-
-  const newState: GameState = {
-    ...state,
-    players: newPlayers as unknown as readonly [typeof state.players[0], typeof state.players[1]],
-    instanceMap: newInstanceMap,
-    phaseState: { ...state.phaseState, deckDraftState: newDeckDraftState },
-  };
-
-  if (newDeckDraftState[0].done && newDeckDraftState[1].done) {
-    return { state: finalizeCharacterDeckDraft(newState) };
-  }
-
-  return { state: newState };
-}
-
-/**
- * Reshuffles both play decks (since characters were added) and transitions
- * to Untap phase (turn 1).
- */
-function finalizeCharacterDeckDraft(state: GameState): GameState {
-  let rng = state.rng;
-  const newPlayers = [...state.players] as unknown as [typeof state.players[0], typeof state.players[1]];
-
-  for (let i = 0; i < 2; i++) {
-    let shuffled: CardInstanceId[];
-    [shuffled, rng] = shuffle([...newPlayers[i].playDeck], rng);
-    newPlayers[i] = { ...newPlayers[i], playDeck: shuffled };
-  }
 
   return {
-    ...state,
-    players: newPlayers as unknown as readonly [typeof state.players[0], typeof state.players[1]],
-    activePlayer: newPlayers[0].id,
-    phaseState: { phase: Phase.Untap },
-    turnNumber: 1,
-    rng,
+    state: {
+      ...state,
+      players: newPlayers as unknown as readonly [typeof state.players[0], typeof state.players[1]],
+      instanceMap: newInstanceMap,
+      phaseState: { ...state.phaseState, deckDraftState: newDeckDraftState },
+    },
   };
 }
 

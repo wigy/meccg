@@ -3,7 +3,7 @@
  *
  * Legal actions during the character deck draft phase. Each player may add
  * remaining pool characters to their play deck, up to 10 non-avatar
- * characters total in the deck.
+ * characters total in the deck. After finishing, they must shuffle.
  */
 
 import type { GameState, PlayerId, GameAction } from '@meccg/shared';
@@ -32,7 +32,12 @@ export function characterDeckDraftActions(state: GameState, playerId: PlayerId):
   const playerIndex = state.players[0].id === playerId ? 0 : 1;
   const deckDraft = state.phaseState.deckDraftState[playerIndex];
 
-  if (deckDraft.done) return [];
+  if (deckDraft.shuffled) return [];
+
+  // After done adding characters, must shuffle
+  if (deckDraft.done) {
+    return [{ type: 'shuffle-play-deck', player: playerId }];
+  }
 
   const actions: GameAction[] = [];
   const nonAvatarCount = countNonAvatarInDeck(state, playerIndex);

@@ -79,6 +79,16 @@ export interface AddCharacterToDeckAction {
   readonly characterDefId: CardDefinitionId;
 }
 
+/**
+ * Shuffle the player's play deck. Required after adding characters to the
+ * deck, and reusable in other phases that modify the deck contents.
+ */
+export interface ShufflePlayDeckAction {
+  readonly type: 'shuffle-play-deck';
+  /** The player shuffling their deck. */
+  readonly player: PlayerId;
+}
+
 // ---- Organization phase ----
 
 /**
@@ -423,6 +433,7 @@ export type GameAction =
   | DraftStopAction
   | AssignStartingItemAction
   | AddCharacterToDeckAction
+  | ShufflePlayDeckAction
   | PlayCharacterAction
   | SplitCompanyAction
   | MergeCompaniesAction

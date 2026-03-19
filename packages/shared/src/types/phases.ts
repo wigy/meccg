@@ -74,6 +74,7 @@ export const LEGAL_ACTIONS_BY_PHASE: Readonly<Record<Phase, readonly GameAction[
 
   [Phase.CharacterDeckDraft]: [
     'add-character-to-deck',
+    'shuffle-play-deck',
     'pass',
   ],
 

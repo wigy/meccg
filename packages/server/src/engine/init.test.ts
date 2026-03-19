@@ -330,10 +330,14 @@ describe('character draft', () => {
     // All items assigned → transitions to character deck draft (remaining pool has characters)
     expect(state.phaseState.phase).toBe(Phase.CharacterDeckDraft);
 
-    // Both players pass to skip adding characters to deck
+    // Both players pass to skip adding characters, then shuffle
     result = reduce(state, { type: 'pass', player: PLAYER_1 });
     state = result.state;
     result = reduce(state, { type: 'pass', player: PLAYER_2 });
+    state = result.state;
+    result = reduce(state, { type: 'shuffle-play-deck', player: PLAYER_1 });
+    state = result.state;
+    result = reduce(state, { type: 'shuffle-play-deck', player: PLAYER_2 });
     state = result.state;
 
     expect(state.phaseState.phase).toBe(Phase.Untap);
@@ -445,6 +449,10 @@ describe('character draft', () => {
       result = reduce(state, { type: 'pass', player: PLAYER_1 });
       state = result.state;
       result = reduce(state, { type: 'pass', player: PLAYER_2 });
+      state = result.state;
+      result = reduce(state, { type: 'shuffle-play-deck', player: PLAYER_1 });
+      state = result.state;
+      result = reduce(state, { type: 'shuffle-play-deck', player: PLAYER_2 });
       state = result.state;
     }
     expect(state.phaseState.phase).toBe(Phase.Untap);
