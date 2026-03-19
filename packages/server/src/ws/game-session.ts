@@ -67,7 +67,7 @@ export class GameSession {
   }
 
   addConnection(ws: WebSocket): void {
-    ws.on('message', (raw) => {
+    ws.on('message', (raw: Buffer) => {
       try {
         const data = raw.toString();
         if (this.debug) {

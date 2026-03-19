@@ -20,6 +20,7 @@ MECCG is a web-based implementation of the Middle-Earth Collectible Card Game (M
 - **Type-check all packages:** `npx tsc --build packages/server/tsconfig.json packages/client-text/tsconfig.json`
 - **Type-check shared only:** `npx tsc --noEmit -p packages/shared/tsconfig.json`
 - **Run tests:** `npm test`
+- **Lint:** `npm run lint` (auto-fix: `npm run lint:fix`)
 - **Start server:** `npm run start -w @meccg/server -- <player1> <player2>` (two player names required)
 - **Start text client:** `npm run start -w @meccg/client-text -- <name>`
 - **Hot reload:** Use `dev` instead of `start` (e.g. `npm run dev -w @meccg/server -- Alice Bob`)

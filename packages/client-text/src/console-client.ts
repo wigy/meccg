@@ -108,7 +108,7 @@ function connect(): void {
     socket.send(JSON.stringify(defaultJoin));
   });
 
-  socket.on('message', (raw) => {
+  socket.on('message', (raw: Buffer) => {
     const data = raw.toString();
     if (DEBUG) {
       console.log(colorDebug(`<< ${data}`));

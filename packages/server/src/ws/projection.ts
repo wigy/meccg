@@ -210,15 +210,17 @@ function redactPhaseForPlayer(phaseState: PhaseState, selfIndex: number): PhaseS
 function redactPhaseForSpectator(phaseState: PhaseState): PhaseState {
   if (phaseState.phase !== 'character-draft') return phaseState;
 
+  const redact = (d: DraftPlayerState): DraftPlayerState => ({
+    ...d,
+    pool: d.pool.map(() => UNKNOWN_CARD),
+    // drafted stays visible — it's public after reveal
+    currentPick: null,
+    startingMinorItems: [],
+  });
+
   return {
     ...phaseState,
-    draftState: phaseState.draftState.map(d => ({
-      ...d,
-      pool: d.pool.map(() => UNKNOWN_CARD),
-      // drafted stays visible — it's public after reveal
-      currentPick: null,
-      startingMinorItems: [],
-    })) as any,
+    draftState: [redact(phaseState.draftState[0]), redact(phaseState.draftState[1])],
   };
 }
 
