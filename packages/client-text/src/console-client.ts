@@ -27,7 +27,8 @@ import {
   RIVENDELL, MORIA, MINAS_TIRITH, MOUNT_DOOM,
   loadCardPool,
   formatPlayerView,
-  formatDefName,
+  formatCardName,
+  describeAction,
 } from '@meccg/shared';
 import { parseAction } from './action-parser.js';
 
@@ -106,7 +107,7 @@ function connect(): void {
         if (msg.view.phaseState.phase === 'character-draft') {
           const draft = msg.view.phaseState;
           const colorNames = (ids: readonly CardDefinitionId[]) =>
-            ids.map(id => formatDefName(id, cardPool)).join(', ');
+            ids.map(id => formatCardName(cardPool[id as string])).join(', ');
           console.log(`Draft round: ${draft.round}`);
           console.log(`Your pool: ${colorNames(draft.draftState[0].pool) || '(empty)'}`);
           console.log(`Your drafted: ${colorNames(draft.draftState[0].drafted) || '(none)'}`);
@@ -120,10 +121,8 @@ function connect(): void {
         if (lastLegalActions.length > 0) {
           console.log('Legal actions:');
           for (let i = 0; i < lastLegalActions.length; i++) {
-            const action = lastLegalActions[i];
-            const { type, player: _p, ...args } = action;
-            const argsStr = Object.keys(args).length > 0 ? ' ' + Object.values(args).join(' ') : '';
-            console.log(`  [${i + 1}] ${type}${argsStr}`);
+            const desc = describeAction(lastLegalActions[i], cardPool);
+            console.log(`  [${i + 1}] ${desc}`);
           }
         }
         console.log('');

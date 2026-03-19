@@ -17,6 +17,7 @@
 import type { CardDefinition, HeroCharacterCard, HeroItemCard, HeroAllyCard } from './types/cards.js';
 import type { GameState, PlayerState, Company, CharacterInPlay, EventInPlay, CombatState, PhaseState } from './types/state.js';
 import type { PlayerView, OpponentCompanyView } from './types/player-view.js';
+import type { GameAction } from './types/actions.js';
 import { CharacterStatus } from './types/common.js';
 import type { CardInstanceId, CardDefinitionId, PlayerId } from './types/common.js';
 
@@ -424,4 +425,70 @@ export function formatPlayerView(
     defOf,
     instOf,
   });
+}
+
+// ---- Action description ----
+
+/**
+ * Returns a human-readable description of a game action, resolving card
+ * definition IDs to colored names where possible.
+ */
+export function describeAction(
+  action: GameAction,
+  cardPool: Readonly<Record<string, CardDefinition>>,
+): string {
+  const defName = (id: CardDefinitionId) => {
+    const def = cardPool[id as string];
+    return def ? formatCardName(def) : `${id}`;
+  };
+  const instName = (id: CardInstanceId) => `{${id}}`;
+
+  switch (action.type) {
+    case 'draft-pick':
+      return `Draft ${defName(action.characterDefId)}`;
+    case 'draft-stop':
+      return 'Stop drafting and keep current selections';
+    case 'play-character':
+      return `Play character ${instName(action.characterInstanceId)} at site ${instName(action.atSite)}`;
+    case 'split-company':
+      return `Split characters from company ${action.sourceCompanyId}`;
+    case 'merge-companies':
+      return `Merge company ${action.sourceCompanyId} into ${action.targetCompanyId}`;
+    case 'transfer-item':
+      return `Transfer item ${instName(action.itemInstanceId)} from ${instName(action.fromCharacterId)} to ${instName(action.toCharacterId)}`;
+    case 'plan-movement':
+      return `Move company ${action.companyId} to site ${instName(action.destinationSite)}`;
+    case 'cancel-movement':
+      return `Cancel movement for company ${action.companyId}`;
+    case 'play-hazard':
+      return `Play hazard ${instName(action.cardInstanceId)} against company ${action.targetCompanyId}`;
+    case 'assign-strike':
+      return `Assign strike to ${instName(action.characterId)}`;
+    case 'resolve-strike':
+      return action.tapToFight ? 'Resolve strike (tap to fight)' : 'Resolve strike (stay untapped, -3 prowess)';
+    case 'support-strike':
+      return `Tap ${instName(action.supportingCharacterId)} to support ${instName(action.targetCharacterId)} (+1 prowess)`;
+    case 'play-hero-resource':
+      return `Play resource ${instName(action.cardInstanceId)} at company ${action.companyId}`;
+    case 'influence-attempt':
+      return `Influence faction ${instName(action.factionInstanceId)} with ${instName(action.influencingCharacterId)}`;
+    case 'play-minor-item':
+      return `Play minor item ${instName(action.cardInstanceId)} on ${instName(action.attachToCharacterId)}`;
+    case 'corruption-check':
+      return `Corruption check for ${instName(action.characterId)}`;
+    case 'draw-cards':
+      return `Draw ${action.count} card${action.count !== 1 ? 's' : ''}`;
+    case 'discard-card':
+      return `Discard ${instName(action.cardInstanceId)}`;
+    case 'pass':
+      return 'Pass (end your actions this phase)';
+    case 'call-free-council':
+      return 'Call the Free Council (trigger endgame)';
+    case 'fetch-from-sideboard':
+      return `Fetch ${instName(action.cardInstanceId)} from sideboard`;
+    default: {
+      const _exhaustive: never = action;
+      return `Unknown action`;
+    }
+  }
 }
