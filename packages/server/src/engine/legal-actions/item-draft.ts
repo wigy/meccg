@@ -18,13 +18,21 @@ export function itemDraftActions(state: GameState, playerId: PlayerId): GameActi
   const player = state.players[playerIndex];
   const allCharIds = player.companies.flatMap(c => c.characters);
 
+  // Deduplicate by definition ID: multiple instances of the same item
+  // (e.g. two Daggers of Westernesse) produce only one action per character.
+  const seenDefIds = new Set<string>();
   const actions: GameAction[] = [];
   for (const itemId of itemDraft.unassignedItems) {
+    const inst = state.instanceMap[itemId as string];
+    if (!inst) continue;
+    const defId = inst.definitionId;
+    if (seenDefIds.has(defId as string)) continue;
+    seenDefIds.add(defId as string);
     for (const charId of allCharIds) {
       actions.push({
         type: 'assign-starting-item',
         player: playerId,
-        itemInstanceId: itemId,
+        itemDefId: defId,
         characterInstanceId: charId,
       });
     }

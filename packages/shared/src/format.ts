@@ -526,7 +526,7 @@ export function describeAction(
     case 'draft-stop':
       return 'Stop drafting and keep current selections';
     case 'assign-starting-item':
-      return `Assign item ${instName(action.itemInstanceId)} to ${instName(action.characterInstanceId)}`;
+      return `Assign item ${defName(action.itemDefId)} to ${instName(action.characterInstanceId)}`;
     case 'play-character':
       return `Play character ${instName(action.characterInstanceId)} at site ${instName(action.atSite)}`;
     case 'split-company':

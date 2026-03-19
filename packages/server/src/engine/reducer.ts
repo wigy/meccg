@@ -371,8 +371,12 @@ function handleItemDraft(state: GameState, action: GameAction): ReducerResult {
     return { state, error: `Unexpected action in item draft: ${action.type}` };
   }
 
-  // Validate item is in unassigned list
-  if (!itemDraft.unassignedItems.includes(action.itemInstanceId)) {
+  // Resolve definition ID to the first matching unassigned instance
+  const itemInstanceId = itemDraft.unassignedItems.find(instId => {
+    const inst = state.instanceMap[instId as string];
+    return inst && inst.definitionId === action.itemDefId;
+  });
+  if (!itemInstanceId) {
     return { state, error: 'Item is not in your unassigned items' };
   }
 
@@ -392,13 +396,13 @@ function handleItemDraft(state: GameState, action: GameAction): ReducerResult {
 
   const updatedChar: CharacterInPlay = {
     ...existingChar,
-    items: [...existingChar.items, action.itemInstanceId],
+    items: [...existingChar.items, itemInstanceId],
   };
   const updatedCharacters = { ...player.characters, [charKey]: updatedChar };
   const updatedPlayer = { ...player, characters: updatedCharacters };
 
   // Remove item from unassigned list
-  const newUnassigned = itemDraft.unassignedItems.filter(id => id !== action.itemInstanceId);
+  const newUnassigned = itemDraft.unassignedItems.filter(id => id !== itemInstanceId);
   const newItemDraft: ItemDraftPlayerState = {
     unassignedItems: newUnassigned,
     done: newUnassigned.length === 0,

@@ -314,16 +314,16 @@ describe('character draft', () => {
     expect(p2Items).toHaveLength(1); // Bob has 1 dagger
 
     // Alice assigns both daggers to Aragorn
-    result = reduce(state, { type: 'assign-starting-item', player: PLAYER_1, itemInstanceId: p1Items[0], characterInstanceId: p1Char });
+    result = reduce(state, { type: 'assign-starting-item', player: PLAYER_1, itemDefId: DAGGER_OF_WESTERNESSE, characterInstanceId: p1Char });
     expect(result.error).toBeUndefined();
     state = result.state;
 
-    result = reduce(state, { type: 'assign-starting-item', player: PLAYER_1, itemInstanceId: p1Items[1], characterInstanceId: p1Char });
+    result = reduce(state, { type: 'assign-starting-item', player: PLAYER_1, itemDefId: DAGGER_OF_WESTERNESSE, characterInstanceId: p1Char });
     expect(result.error).toBeUndefined();
     state = result.state;
 
     // Bob assigns his dagger to Legolas
-    result = reduce(state, { type: 'assign-starting-item', player: PLAYER_2, itemInstanceId: p2Items[0], characterInstanceId: p2Char });
+    result = reduce(state, { type: 'assign-starting-item', player: PLAYER_2, itemDefId: DAGGER_OF_WESTERNESSE, characterInstanceId: p2Char });
     expect(result.error).toBeUndefined();
     state = result.state;
 

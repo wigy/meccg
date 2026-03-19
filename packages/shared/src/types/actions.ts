@@ -57,8 +57,8 @@ export interface AssignStartingItemAction {
   readonly type: 'assign-starting-item';
   /** The player assigning the item. */
   readonly player: PlayerId;
-  /** The minor item instance to assign. */
-  readonly itemInstanceId: CardInstanceId;
+  /** The minor item definition to assign (resolved to an instance by the reducer). */
+  readonly itemDefId: CardDefinitionId;
   /** The character instance that will carry the item. */
   readonly characterInstanceId: CardInstanceId;
 }
