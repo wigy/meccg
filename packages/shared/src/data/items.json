@@ -54,5 +54,19 @@
     "bodyModifier": 3,
     "playableAt": ["ruins-and-lairs", "shadow-hold", "dark-hold"],
     "text": "Unique. Armor. +3 to body (to a maximum of 10)."
+  },
+  {
+    "cardType": "hero-resource-item",
+    "id": "tw-206",
+    "name": "Dagger of Westernesse",
+    "unique": false,
+    "subtype": "minor",
+    "marshallingPoints": 0,
+    "marshallingCategory": "item",
+    "corruptionPoints": 1,
+    "prowessModifier": 1,
+    "bodyModifier": 0,
+    "playableAt": [],
+    "text": "Weapon. +1 to prowess to a maximum of 8."
   }
 ]

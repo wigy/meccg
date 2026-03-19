@@ -25,7 +25,8 @@ import {
 export interface PlayerConfig {
   readonly id: PlayerId;
   readonly name: string;
-  readonly draftPool: readonly CardDefinitionId[];    // up to 10 characters for the draft
+  readonly draftPool: readonly CardDefinitionId[];           // up to 10 characters for the draft
+  readonly startingMinorItems: readonly CardDefinitionId[];  // up to 2 non-unique minor items
   readonly playDeck: readonly CardDefinitionId[];
   readonly siteDeck: readonly CardDefinitionId[];
   readonly startingHaven: CardDefinitionId;
@@ -71,8 +72,8 @@ export function createGame(
   }) as unknown as readonly [PlayerState, PlayerState];
 
   const draftState: [DraftPlayerState, DraftPlayerState] = [
-    { pool: [...config.players[0].draftPool], drafted: [], currentPick: null, stopped: false },
-    { pool: [...config.players[1].draftPool], drafted: [], currentPick: null, stopped: false },
+    { pool: [...config.players[0].draftPool], drafted: [], startingMinorItems: [...config.players[0].startingMinorItems], currentPick: null, stopped: false },
+    { pool: [...config.players[1].draftPool], drafted: [], startingMinorItems: [...config.players[1].startingMinorItems], currentPick: null, stopped: false },
   ];
 
   return {
@@ -157,21 +158,32 @@ export function applyDraftResults(
 
   const newPlayers = state.players.map((player, index) => {
     const drafted = draftState[index].drafted;
+    const startingMinorItems = draftState[index].startingMinorItems;
     const config = { id: player.id, startingHaven: findPlayerHaven(state, player) };
 
     // Mint haven instance
     const havenInstanceId = mint(minter, config.startingHaven);
 
+    // Mint starting minor items
+    const minorItemInstanceIds: CardInstanceId[] = [];
+    for (const itemDefId of startingMinorItems) {
+      minorItemInstanceIds.push(mint(minter, itemDefId));
+    }
+
     // Mint characters and create CharacterInPlay entries
     const characters: Record<string, CharacterInPlay> = {};
     const characterInstanceIds: CardInstanceId[] = [];
     let generalInfluenceUsed = 0;
+    let firstCharInstanceId: string | null = null;
 
     for (const charDefId of drafted) {
       const charDef = state.cardPool[charDefId as string];
       if (!charDef || charDef.cardType !== 'hero-character') continue;
       const instanceId = mint(minter, charDefId);
       characterInstanceIds.push(instanceId);
+      if (firstCharInstanceId === null) {
+        firstCharInstanceId = instanceId as string;
+      }
       characters[instanceId as string] = {
         instanceId,
         definitionId: charDefId,
@@ -185,6 +197,14 @@ export function applyDraftResults(
       if (charDef.mind !== null) {
         generalInfluenceUsed += charDef.mind;
       }
+    }
+
+    // Assign starting minor items to first character
+    if (firstCharInstanceId !== null && minorItemInstanceIds.length > 0) {
+      characters[firstCharInstanceId] = {
+        ...characters[firstCharInstanceId],
+        items: minorItemInstanceIds,
+      };
     }
 
     const company: Company = {

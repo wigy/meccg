@@ -86,10 +86,11 @@ export enum Phase {
 // ---- Draft state ----
 
 export interface DraftPlayerState {
-  readonly pool: readonly CardDefinitionId[];           // up to 10 characters available to draft
-  readonly drafted: readonly CardDefinitionId[];        // characters successfully drafted
-  readonly currentPick: CardDefinitionId | null;        // face-down pick for current round
-  readonly stopped: boolean;                            // player has stopped drafting
+  readonly pool: readonly CardDefinitionId[];              // up to 10 characters available to draft
+  readonly drafted: readonly CardDefinitionId[];           // characters successfully drafted
+  readonly startingMinorItems: readonly CardDefinitionId[]; // up to 2 non-unique minor items
+  readonly currentPick: CardDefinitionId | null;           // face-down pick for current round
+  readonly stopped: boolean;                               // player has stopped drafting
 }
 
 // ---- Phase-specific state ----

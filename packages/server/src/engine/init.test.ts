@@ -57,6 +57,7 @@ function makeDraftConfig(seed = 42): GameConfig {
         id: pid('p1'),
         name: 'Alice',
         draftPool: [did('tw-120'), did('tw-131'), did('tw-152')], // Aragorn, Bilbo, Frodo
+        startingMinorItems: [did('tw-206'), did('tw-206')], // 2x Dagger of Westernesse
         playDeck: makePlayDeck(),
         siteDeck: [did('tw-413'), did('tw-412'), did('tw-414')],
         startingHaven: did('tw-421'),
@@ -65,6 +66,7 @@ function makeDraftConfig(seed = 42): GameConfig {
         id: pid('p2'),
         name: 'Bob',
         draftPool: [did('tw-168'), did('tw-159'), did('tw-149')], // Legolas, Gimli, Faramir
+        startingMinorItems: [did('tw-206')], // 1x Dagger of Westernesse
         playDeck: makePlayDeck(),
         siteDeck: [did('tw-413'), did('tw-412')],
         startingHaven: did('tw-408'),
@@ -199,6 +201,7 @@ describe('character draft', () => {
         {
           id: pid('p1'), name: 'Alice',
           draftPool: [did('tw-120'), did('tw-131')],
+          startingMinorItems: [],
           playDeck: makePlayDeck(),
           siteDeck: [did('tw-413')],
           startingHaven: did('tw-421'),
@@ -206,6 +209,7 @@ describe('character draft', () => {
         {
           id: pid('p2'), name: 'Bob',
           draftPool: [did('tw-120'), did('tw-168')],
+          startingMinorItems: [],
           playDeck: makePlayDeck(),
           siteDeck: [did('tw-413')],
           startingHaven: did('tw-408'),
@@ -254,6 +258,44 @@ describe('character draft', () => {
     console.log(formatGameState(state));
   });
 
+  it('assigns starting minor items to first drafted character', () => {
+    let state = createGame(makeDraftConfig(), pool);
+
+    // Alice drafts Aragorn, Bob drafts Legolas
+    let result = reduce(state, { type: 'draft-pick', player: pid('p1'), characterDefId: did('tw-120') });
+    state = result.state;
+    result = reduce(state, { type: 'draft-pick', player: pid('p2'), characterDefId: did('tw-168') });
+    state = result.state;
+
+    // Both stop
+    result = reduce(state, { type: 'draft-stop', player: pid('p1') });
+    state = result.state;
+    result = reduce(state, { type: 'draft-stop', player: pid('p2') });
+    state = result.state;
+
+    expect(state.phaseState.phase).toBe(Phase.Untap);
+
+    // Alice's Aragorn should have 2 Daggers of Westernesse
+    const p1 = state.players[0];
+    const company = p1.companies[0];
+    const firstCharId = company.characters[0];
+    const firstChar = p1.characters[firstCharId as string];
+    expect(firstChar.items).toHaveLength(2);
+
+    // Verify they are Daggers
+    for (const itemId of firstChar.items) {
+      const inst = state.instanceMap[itemId as string];
+      expect(inst.definitionId).toBe('tw-206');
+    }
+
+    // Bob's Legolas should have 1 Dagger
+    const p2 = state.players[1];
+    const firstChar2 = p2.characters[p2.companies[0].characters[0] as string];
+    expect(firstChar2.items).toHaveLength(1);
+
+    console.log(formatGameState(state));
+  });
+
   it('rejects picks that would exceed mind limit of 20', () => {
     // Aragorn has mind 9 — two of those would be 18, third would depend
     const config: GameConfig = {
@@ -261,6 +303,7 @@ describe('character draft', () => {
         {
           id: pid('p1'), name: 'Alice',
           draftPool: [did('tw-120'), did('tw-168'), did('tw-159')], // Aragorn(9) + Legolas(6) + Gimli(6) = 21
+          startingMinorItems: [],
           playDeck: makePlayDeck(),
           siteDeck: [did('tw-413')],
           startingHaven: did('tw-421'),
@@ -268,6 +311,7 @@ describe('character draft', () => {
         {
           id: pid('p2'), name: 'Bob',
           draftPool: [did('tw-149')],
+          startingMinorItems: [],
           playDeck: makePlayDeck(),
           siteDeck: [did('tw-413')],
           startingHaven: did('tw-408'),
