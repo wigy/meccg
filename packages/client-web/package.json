@@ -1,6 +1,6 @@
 {
   "name": "@meccg/client-web",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "private": true,
   "scripts": {
     "build": "esbuild src/browser/app.ts --bundle --outfile=public/bundle.js --format=iife --platform=browser",
