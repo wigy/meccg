@@ -35,17 +35,17 @@ export const FRODO = did('tw-152');
 export const FARAMIR = did('tw-149');
 /** Bilbo — hobbit, scout skill, good at corruption checks. */
 export const BILBO = did('tw-131');
-/** Sam Gamgee — hobbit, cheap mind cost (1), helps with corruption checks. */
-export const SAM_GAMGEE = did('tw-185');
-/** Beorn — man, strong warrior (prowess 7), mid mind cost (4). */
-export const BEORN = did('tw-128');
-/** Théoden — man, warrior/sage, mind 6, Rohan leader. */
-export const THEODEN = did('tw-188');
-/** Elrond — elf, expensive mind cost (8), powerful healer and leader. */
-export const ELROND = did('tw-148');
-/** Glorfindel II — elf warrior, mind 6, strong against undead. */
-export const GLORFINDEL_II = did('tw-160');
-/** Celeborn — elf, mind 7, Lórien leader. */
+/** Sam Gamgee — hobbit, mind 4, scout/ranger, corruption checks +3. */
+export const SAM_GAMGEE = did('tw-180');
+/** Beorn — man, strong warrior (prowess 7), mind 7. */
+export const BEORN = did('tw-126');
+/** Théoden — man, warrior/diplomat, mind 6, Rohan leader. */
+export const THEODEN = did('tw-182');
+/** Elrond — elf, expensive mind cost (10), powerful leader. */
+export const ELROND = did('tw-145');
+/** Glorfindel II — elf warrior/sage, prowess 8, mind 8. */
+export const GLORFINDEL_II = did('tw-161');
+/** Celeborn — elf, mind 6, Lórien leader, +5 DI against Galadriel. */
 export const CELEBORN = did('tw-136');
 
 // ---- Items ----
