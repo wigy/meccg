@@ -1,3 +1,24 @@
+/**
+ * @module game-session
+ *
+ * Manages the lifecycle of a single MECCG game over WebSocket connections.
+ *
+ * {@link GameSession} acts as the bridge between the transport layer
+ * (WebSocket messages) and the pure game engine (reducer). It handles:
+ *
+ * - **Player registration**: clients send a "join" message with their name,
+ *   deck lists, and draft pool. The session queues them until two are present.
+ * - **Game creation**: once two players have joined, the game state is
+ *   initialised via {@link createGame} and initial state is broadcast.
+ * - **Action routing**: incoming "action" messages are enriched with the
+ *   sender's player ID, run through the reducer, and — if valid — the
+ *   resulting state is projected and broadcast to each player.
+ * - **Disconnection cleanup**: departed players are removed from the
+ *   pending queue or active roster.
+ *
+ * The session does not handle reconnection or spectating yet.
+ */
+
 import type WebSocket from 'ws';
 import type {
   GameState,
@@ -16,23 +37,44 @@ import type { PlayerConfig, GameConfig } from '../engine/init.js';
 import { reduce } from '../engine/reducer.js';
 import { projectPlayerView } from './projection.js';
 
+/** A client that has sent a "join" message but is waiting for an opponent. */
 interface PendingPlayer {
   ws: WebSocket;
   join: JoinMessage;
   playerId: PlayerId;
 }
 
+/**
+ * Orchestrates a single two-player MECCG game.
+ *
+ * Typical flow:
+ * 1. Two clients connect and call {@link addConnection}.
+ * 2. Each sends a `join` message; the session queues them as pending.
+ * 3. When both are ready, {@link startGame} creates the game state.
+ * 4. Subsequent `action` messages are processed through the reducer.
+ * 5. After each valid action, updated player views are broadcast.
+ */
 export class GameSession {
+  /** The authoritative game state, or `null` before the game starts. */
   private state: GameState | null = null;
+  /** Active players keyed by player ID string. */
   private players: Map<string, { ws: WebSocket; playerId: PlayerId }> = new Map();
+  /** Clients waiting for an opponent. */
   private pending: PendingPlayer[] = [];
+  /** Immutable card definition dictionary, loaded once at construction. */
   private cardPool: Readonly<Record<string, CardDefinition>>;
+  /** Monotonic counter for generating unique player IDs ("p1", "p2", ...). */
   private playerCounter = 0;
 
   constructor() {
     this.cardPool = loadCardPool();
   }
 
+  /**
+   * Registers a new WebSocket connection. Sets up message and close
+   * handlers. The client is not yet a "player" until it sends a "join"
+   * message.
+   */
   addConnection(ws: WebSocket): void {
     ws.on('message', (data) => {
       try {
@@ -56,6 +98,7 @@ export class GameSession {
     });
   }
 
+  /** Top-level message dispatcher: routes to join or action handlers. */
   private handleMessage(ws: WebSocket, msg: ClientMessage): void {
     switch (msg.type) {
       case 'join':
@@ -67,6 +110,10 @@ export class GameSession {
     }
   }
 
+  /**
+   * Processes a "join" message: assigns a player ID, queues the client,
+   * and starts the game if two players are now ready.
+   */
   private handleJoin(ws: WebSocket, msg: JoinMessage): void {
     if (this.state !== null) {
       this.send(ws, { type: 'error', message: 'Game already in progress' });
@@ -88,6 +135,11 @@ export class GameSession {
     this.startGame();
   }
 
+  /**
+   * Initialises the game state from the two pending players' configurations,
+   * promotes them to active players, and broadcasts the initial state.
+   * Uses `Date.now()` as the RNG seed for non-deterministic live games.
+   */
   private startGame(): void {
     const [p1, p2] = this.pending;
 
@@ -111,6 +163,7 @@ export class GameSession {
     this.broadcastState();
   }
 
+  /** Converts a pending player's join message into the engine's PlayerConfig shape. */
   private toPlayerConfig(p: PendingPlayer): PlayerConfig {
     return {
       id: p.playerId,
@@ -123,6 +176,13 @@ export class GameSession {
     };
   }
 
+  /**
+   * Processes a game action from a connected client.
+   *
+   * Looks up the player ID by WebSocket reference, injects it into the
+   * action (so clients cannot impersonate each other), runs the reducer,
+   * and broadcasts the updated state on success or sends an error on failure.
+   */
   private handleAction(ws: WebSocket, action: GameAction): void {
     if (!this.state) {
       this.send(ws, { type: 'error', message: 'Game not started' });
@@ -159,6 +219,11 @@ export class GameSession {
     this.broadcastState();
   }
 
+  /**
+   * Sends each active player their own projected view of the game state.
+   * Hidden information (opponent's hand, face-down cards, etc.) is stripped
+   * by {@link projectPlayerView} before transmission.
+   */
   private broadcastState(): void {
     if (!this.state) return;
 
@@ -168,6 +233,7 @@ export class GameSession {
     }
   }
 
+  /** Serialises and sends a message if the socket is still open. */
   private send(ws: WebSocket, msg: ServerMessage): void {
     if (ws.readyState === ws.OPEN) {
       ws.send(JSON.stringify(msg));

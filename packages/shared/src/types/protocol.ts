@@ -1,45 +1,133 @@
+/**
+ * @module protocol
+ *
+ * WebSocket protocol message types for client-server communication.
+ *
+ * The MECCG architecture uses WebSockets for real-time bidirectional
+ * communication between the browser client and the game server. This
+ * module defines the message types for both directions:
+ *
+ * **Client -> Server (`ClientMessage`):**
+ * - `JoinMessage` -- Sent once when connecting, with the player's deck configuration.
+ * - `ActionMessage` -- Sent during gameplay to submit a game action.
+ *
+ * **Server -> Client (`ServerMessage`):**
+ * - `AssignedMessage` -- Confirms the player's ID assignment after joining.
+ * - `StateMessage` -- Delivers the projected `PlayerView` after each state change.
+ * - `ErrorMessage` -- Reports illegal actions or other errors.
+ * - `WaitingMessage` -- Indicates the server is waiting for the other player.
+ *
+ * All messages are discriminated by a `type` field for easy dispatching.
+ */
+
 import type { PlayerId, CardDefinitionId } from './common.js';
 import type { GameAction } from './actions.js';
 import type { PlayerView } from './player-view.js';
 
 // ---- Client → Server ----
 
+/**
+ * Sent by the client when first connecting to a game session.
+ *
+ * Contains the player's display name and complete deck configuration,
+ * including the character draft pool, starting minor items, the main
+ * play deck, the site deck for movement destinations, and the haven
+ * where the player's initial company begins.
+ */
 export interface JoinMessage {
+  /** Message type discriminant. */
   readonly type: 'join';
+  /** The player's chosen display name. */
   readonly name: string;
+  /** Character definition IDs available for the pre-game draft (up to 10). */
   readonly draftPool: readonly CardDefinitionId[];
+  /** Up to 2 non-unique minor item definition IDs chosen as starting equipment. */
   readonly startingMinorItems: readonly CardDefinitionId[];
+  /** Resource and hazard card definition IDs forming the main shuffled draw pile. */
   readonly playDeck: readonly CardDefinitionId[];
+  /** Site card definition IDs the player brings for movement destinations. */
   readonly siteDeck: readonly CardDefinitionId[];
+  /** The haven where the player's first company starts the game. */
   readonly startingHaven: CardDefinitionId;
 }
 
+/**
+ * Sent by the client to submit a game action during play.
+ *
+ * The server validates the action against the current game state and phase
+ * before applying it. If the action is illegal, an `ErrorMessage` is sent back.
+ */
 export interface ActionMessage {
+  /** Message type discriminant. */
   readonly type: 'action';
+  /** The game action to apply. See `GameAction` for all possible action types. */
   readonly action: GameAction;
 }
 
+/**
+ * Union of all messages the client can send to the server.
+ * Discriminated by the `type` field.
+ */
 export type ClientMessage = JoinMessage | ActionMessage;
 
 // ---- Server → Client ----
 
+/**
+ * Sent by the server after a client successfully joins a game session.
+ *
+ * Confirms the player's unique ID, which is used to identify the player
+ * in all subsequent actions and state views.
+ */
 export interface AssignedMessage {
+  /** Message type discriminant. */
   readonly type: 'assigned';
+  /** The unique player ID assigned to this client for the game session. */
   readonly playerId: PlayerId;
 }
 
+/**
+ * Sent by the server after each state change to deliver the updated game view.
+ *
+ * Contains the full projected `PlayerView` with hidden information redacted
+ * for this specific player. The client should replace its entire local state
+ * with this view on receipt.
+ */
 export interface StateMessage {
+  /** Message type discriminant. */
   readonly type: 'state';
+  /** The projected game state for this player, with opponent's hidden info redacted. */
   readonly view: PlayerView;
 }
 
+/**
+ * Sent by the server when the client submits an illegal action or
+ * another error occurs.
+ *
+ * The client should display the error message to the player and not
+ * optimistically update local state -- the previous `StateMessage`
+ * remains the authoritative view.
+ */
 export interface ErrorMessage {
+  /** Message type discriminant. */
   readonly type: 'error';
+  /** Human-readable description of what went wrong. */
   readonly message: string;
 }
 
+/**
+ * Sent by the server when it is waiting for another player to act.
+ *
+ * This lets the client display a "waiting for opponent" indicator.
+ * Common scenarios: waiting for the second player to join, waiting
+ * for the opponent's draft pick, or waiting for hazard plays.
+ */
 export interface WaitingMessage {
+  /** Message type discriminant. */
   readonly type: 'waiting';
 }
 
+/**
+ * Union of all messages the server can send to the client.
+ * Discriminated by the `type` field.
+ */
 export type ServerMessage = AssignedMessage | StateMessage | ErrorMessage | WaitingMessage;

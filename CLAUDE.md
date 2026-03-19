@@ -34,3 +34,10 @@ MECCG is a web-based implementation of the Middle-Earth Collectible Card Game (M
 
 - The server is the authority on game state — clients never modify state directly
 - Game rules are enforced server-side; the client is a presentation layer
+
+### Code Documentation Policy
+
+- All modules must have a `@module` JSDoc comment explaining their purpose and how they fit into the architecture.
+- All exported interfaces, types, enums, functions, and constants must have JSDoc comments.
+- Comments should explain the "why" (game mechanics context, architectural decisions) not just the "what".
+- Focus on how pieces fit together and what game rules motivate the design.

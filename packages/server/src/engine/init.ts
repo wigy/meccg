@@ -1,3 +1,24 @@
+/**
+ * @module init
+ *
+ * Game initialisation and character draft setup. This module is responsible
+ * for turning player configurations into a fully-formed {@link GameState}
+ * ready for play.
+ *
+ * Two creation paths are provided:
+ *
+ * 1. **{@link createGame}** — the standard flow. Players start in the
+ *    {@link Phase.CharacterDraft} phase where they simultaneously pick
+ *    starting characters from their draft pools before play begins.
+ *
+ * 2. **{@link createGameQuickStart}** — a shortcut that places characters
+ *    directly and skips the draft. Primarily used in tests and scripted
+ *    scenarios.
+ *
+ * Both paths share the same instance-minting system to ensure every card
+ * in the game receives a globally unique {@link CardInstanceId}.
+ */
+
 import type {
   GameState,
   PlayerState,
@@ -22,6 +43,10 @@ import {
 
 // ---- Config types ----
 
+/**
+ * Per-player configuration for a standard game with character draft.
+ * Supplied by the client at join time.
+ */
 export interface PlayerConfig {
   readonly id: PlayerId;
   readonly name: string;
@@ -32,23 +57,40 @@ export interface PlayerConfig {
   readonly startingHaven: CardDefinitionId;
 }
 
+/**
+ * Top-level game configuration. Requires exactly two player configs and a
+ * seed for the deterministic RNG.
+ */
 export interface GameConfig {
   readonly players: readonly [PlayerConfig, PlayerConfig];
+  /** Seed for the pseudo-random number generator (e.g. `Date.now()`). */
   readonly seed: number;
 }
 
 // ---- Instance minting ----
 
+/**
+ * Mutable helper that stamps out unique {@link CardInstanceId}s and records
+ * the definition→instance mapping. Passed through initialisation functions
+ * so that every card in the game — across both players — gets a distinct ID.
+ */
 interface InstanceMinter {
   instanceMap: Record<string, CardInstance>;
   counter: number;
   prefix: string;
 }
 
+/** Creates a fresh minter with the given ID prefix (typically "i"). */
 function createMinter(prefix: string): InstanceMinter {
   return { instanceMap: {}, counter: 0, prefix };
 }
 
+/**
+ * Mints a new {@link CardInstanceId} for a given definition, records the
+ * mapping in the minter's instance map, and increments the counter.
+ *
+ * @returns The newly created instance ID (e.g. "i-0", "i-1", ...).
+ */
 function mint(minter: InstanceMinter, definitionId: CardDefinitionId): CardInstanceId {
   const instanceId = `${minter.prefix}-${minter.counter}` as CardInstanceId;
   minter.instanceMap[instanceId as string] = { instanceId, definitionId };
@@ -58,6 +100,18 @@ function mint(minter: InstanceMinter, definitionId: CardDefinitionId): CardInsta
 
 // ---- Game creation: starts in character draft phase ----
 
+/**
+ * Creates a new game that begins in the {@link Phase.CharacterDraft} phase.
+ *
+ * Each player's play deck is minted, shuffled, and stored, but no hand is
+ * dealt and no characters are placed yet — those happen when the draft
+ * completes via {@link applyDraftResults}. The draft state is initialised
+ * from each player's `draftPool` (up to 10 character definition IDs).
+ *
+ * @param config - Two-player game configuration including RNG seed.
+ * @param cardPool - The full card definition dictionary.
+ * @returns A brand-new {@link GameState} in the CharacterDraft phase.
+ */
 export function createGame(
   config: GameConfig,
   cardPool: Readonly<Record<string, CardDefinition>>,
@@ -95,8 +149,18 @@ export function createGame(
 }
 
 /**
- * Initialize player state before the draft — decks are set up,
- * but no characters are in play yet.
+ * Initialises a single player's state before the character draft.
+ *
+ * The play deck is minted and shuffled but the hand is empty — cards are
+ * dealt only after draft completion. The site deck is minted but not
+ * shuffled (site order is player-controlled). No companies or characters
+ * exist yet.
+ *
+ * @param config - This player's configuration.
+ * @param cardPool - The full card definition dictionary (for validation).
+ * @param minter - Shared instance minter across both players.
+ * @param rng - Current RNG state (threaded for determinism).
+ * @returns A tuple of `[playerState, nextRng]`.
  */
 function initPlayerPreDraft(
   config: PlayerConfig,
@@ -139,8 +203,16 @@ function initPlayerPreDraft(
 }
 
 /**
- * Called by the reducer when the draft is complete.
- * Places drafted characters at their starting havens and transitions to Untap.
+ * Finalises the character draft by placing each player's drafted characters
+ * into a single starting company at their haven, equipping starting minor
+ * items on the first character, dealing initial hands from the play deck,
+ * and advancing the game to {@link Phase.Untap} (turn 1).
+ *
+ * Called by the reducer once both players have finished drafting.
+ *
+ * @param state - The game state at the end of the draft phase.
+ * @param draftState - The final draft results for both players.
+ * @returns A new {@link GameState} ready for the first real turn.
  */
 export function applyDraftResults(
   state: GameState,
@@ -235,6 +307,12 @@ export function applyDraftResults(
   };
 }
 
+/**
+ * Locates the haven site in a player's site deck.
+ * Falls back to the first haven in the card pool if none is found.
+ *
+ * @throws If no haven exists at all (should never happen with valid data).
+ */
 function findPlayerHaven(state: GameState, player: PlayerState): CardDefinitionId {
   // Find the haven from the player's site deck — first haven-type site
   for (const siteInstId of player.siteDeck) {
@@ -257,6 +335,10 @@ function findPlayerHaven(state: GameState, player: PlayerState): CardDefinitionI
 
 // ---- Convenience: skip draft and start with specific characters ----
 
+/**
+ * Simplified player configuration that skips the draft — characters are
+ * specified directly rather than chosen from a pool.
+ */
 export interface QuickStartPlayerConfig {
   readonly id: PlayerId;
   readonly name: string;
@@ -266,6 +348,7 @@ export interface QuickStartPlayerConfig {
   readonly startingHaven: CardDefinitionId;
 }
 
+/** Game configuration for the quick-start (draft-free) path. */
 export interface QuickStartGameConfig {
   readonly players: readonly [QuickStartPlayerConfig, QuickStartPlayerConfig];
   readonly seed: number;
@@ -301,6 +384,12 @@ export function createGameQuickStart(
   };
 }
 
+/**
+ * Initialises a player with characters already in play (quick-start path).
+ * Creates a single company at the starting haven, mints all characters and
+ * their instances, shuffles and deals the play deck, and tallies general
+ * influence usage.
+ */
 function initPlayerWithCharacters(
   config: QuickStartPlayerConfig,
   cardPool: Readonly<Record<string, CardDefinition>>,

@@ -1,13 +1,46 @@
+/**
+ * @module reducer
+ *
+ * The core game state reducer implementing the pure `(state, action) → state`
+ * pattern. Every game mutation flows through {@link reduce}, which validates
+ * the action, checks phase legality, and dispatches to the appropriate
+ * phase handler.
+ *
+ * Currently the character draft phase is fully implemented; the remaining
+ * phase handlers (Untap, Organisation, Long-Event, Movement/Hazard, Site,
+ * End-of-Turn, Free Council) are stubs awaiting implementation.
+ *
+ * The reducer never mutates its input — it always returns a new state object
+ * (or the original state plus an error string if the action was illegal).
+ */
+
 import type { GameState, DraftPlayerState, CardDefinitionId } from '@meccg/shared';
 import type { GameAction } from '@meccg/shared';
 import { Phase, LEGAL_ACTIONS_BY_PHASE } from '@meccg/shared';
 import { applyDraftResults } from './init.js';
 
+/**
+ * Result of applying a {@link GameAction} to a {@link GameState}.
+ * If `error` is present, `state` is returned unchanged.
+ */
 export interface ReducerResult {
   readonly state: GameState;
+  /** Human-readable error message if the action was rejected. */
   readonly error?: string;
 }
 
+/**
+ * Applies a single game action to the current state.
+ *
+ * Validation pipeline:
+ * 1. Verify the action comes from a player allowed to act in the current context.
+ * 2. Verify the action type is legal for the current phase.
+ * 3. Dispatch to the phase-specific handler for domain logic.
+ *
+ * @param state - The current authoritative game state.
+ * @param action - The player action to apply.
+ * @returns A {@link ReducerResult} with the new state or an error.
+ */
 export function reduce(state: GameState, action: GameAction): ReducerResult {
   // 1. Validate action is from the correct player for the current context
   const validationError = validateActionPlayer(state, action);
@@ -47,6 +80,17 @@ export function reduce(state: GameState, action: GameAction): ReducerResult {
   }
 }
 
+/**
+ * Checks whether the player submitting the action is allowed to act in the
+ * current game context.
+ *
+ * - During the character draft, both players act simultaneously.
+ * - During movement/hazard, the *non-active* player plays hazards.
+ * - In all other phases, only the active player may act.
+ *
+ * @returns An error message if the player is not allowed to act, or
+ *          `undefined` if the action is permitted.
+ */
 function validateActionPlayer(state: GameState, action: GameAction): string | undefined {
   const phase = state.phaseState.phase;
 
@@ -73,6 +117,16 @@ function validateActionPlayer(state: GameState, action: GameAction): string | un
 
 // ---- Character draft handler ----
 
+/**
+ * Handles actions during the simultaneous character draft phase.
+ *
+ * Both players secretly choose one character per round (`draft-pick`) or
+ * stop drafting (`draft-stop`). When both have submitted for a round, picks
+ * are revealed: if they chose the same character, neither gets it (set aside).
+ * The draft ends when both players stop or hit the 5-character / 20-mind
+ * limit, at which point {@link applyDraftResults} places characters on the
+ * board and transitions to the first Untap phase.
+ */
 function handleCharacterDraft(state: GameState, action: GameAction): ReducerResult {
   if (state.phaseState.phase !== Phase.CharacterDraft) {
     return { state, error: 'Not in character draft phase' };
@@ -165,6 +219,14 @@ function handleCharacterDraft(state: GameState, action: GameAction): ReducerResu
   }
 }
 
+/**
+ * Resolves a completed draft round after both players have submitted picks.
+ *
+ * If both players picked the same character, it is set aside and neither
+ * receives it. Otherwise each player adds their pick to their drafted list.
+ * Players who hit the 5-character limit, exhaust their pool, or reach 20
+ * total mind are auto-stopped. If both are stopped, the draft is finalised.
+ */
 function resolveDraftRound(
   state: GameState,
   draftState: [DraftPlayerState, DraftPlayerState],
@@ -224,6 +286,10 @@ function resolveDraftRound(
   };
 }
 
+/**
+ * Delegates to {@link applyDraftResults} to place drafted characters on the
+ * board and transition the game to the Untap phase.
+ */
 function finalizeDraft(
   state: GameState,
   draftState: readonly [DraftPlayerState, DraftPlayerState],
@@ -234,37 +300,46 @@ function finalizeDraft(
 }
 
 // ---- Phase handler stubs ----
+// Each stub below corresponds to a game phase that is not yet implemented.
+// They accept the action but return the state unmodified.
 
+/** Stub: untap all characters, heal wounded at havens. */
 function handleUntap(state: GameState, _action: GameAction): ReducerResult {
   // TODO: untap all cards, heal wounded at havens, advance to organization
   return { state };
 }
 
+/** Stub: play characters, split/merge companies, transfer items, plan movement. */
 function handleOrganization(state: GameState, _action: GameAction): ReducerResult {
   // TODO: play characters, split/merge companies, transfer items, plan movement
   return { state };
 }
 
+/** Stub: resolve long events, then advance to movement/hazard. */
 function handleLongEvent(state: GameState, _action: GameAction): ReducerResult {
   // TODO: resolve long events, advance to movement/hazard
   return { state };
 }
 
+/** Stub: reveal destinations, opponent plays hazards, resolve combat. */
 function handleMovementHazard(state: GameState, _action: GameAction): ReducerResult {
   // TODO: reveal destinations, hazard play, combat resolution
   return { state };
 }
 
+/** Stub: automatic attacks at site, resource play, influence attempts. */
 function handleSite(state: GameState, _action: GameAction): ReducerResult {
   // TODO: automatic attacks, resource play, influence attempts
   return { state };
 }
 
+/** Stub: draw/discard to hand size, check Free Council trigger. */
 function handleEndOfTurn(state: GameState, _action: GameAction): ReducerResult {
   // TODO: draw/discard to hand size, check free council trigger
   return { state };
 }
 
+/** Stub: tally marshalling points, run tiebreaker corruption checks. */
 function handleFreeCouncil(state: GameState, _action: GameAction): ReducerResult {
   // TODO: tally MPs, tiebreaker corruption checks
   return { state };

@@ -1,3 +1,20 @@
+/**
+ * @module format
+ *
+ * Text-based renderer for game state, designed for the console client and
+ * server-side debug logging. Outputs human-readable, ANSI-coloured summaries
+ * of the full {@link GameState} (server view) or redacted {@link PlayerView}
+ * (per-player view).
+ *
+ * Colour coding follows a consistent scheme — hero characters are blue,
+ * items yellow, allies/resources green, hazard creatures red, etc. — so a
+ * player can quickly scan the terminal for relevant information.
+ *
+ * The two main entry points are {@link formatGameState} (omniscient, for
+ * server logs) and {@link formatPlayerView} (information-limited, for the
+ * console client).
+ */
+
 import type { CardDefinition, HeroCharacterCard, HeroItemCard, HeroAllyCard, CreatureCard, HeroSiteCard } from './types/cards.js';
 import type { GameState, PlayerState, Company, CharacterInPlay, EventInPlay, CombatState } from './types/state.js';
 import type { PlayerView } from './types/player-view.js';
@@ -10,6 +27,7 @@ const RESET = '\x1b[0m';
 const BOLD = '\x1b[1m';
 const DIM = '\x1b[2m';
 
+/** Map from card type to its ANSI escape prefix. */
 const COLORS: Record<string, string> = {
   'hero-character': `${BOLD}\x1b[34m`,       // blue bold
   'hero-resource-item': '\x1b[33m',           // yellow
@@ -23,6 +41,7 @@ const COLORS: Record<string, string> = {
   'region': `${DIM}\x1b[34m`,                 // blue dim
 };
 
+/** Wraps `text` in the ANSI colour escape for `cardType`, with a reset suffix. */
 function colorize(text: string, cardType: string): string {
   const color = COLORS[cardType] ?? '';
   return color ? `${color}${text}${RESET}` : text;
@@ -30,9 +49,17 @@ function colorize(text: string, cardType: string): string {
 
 // ---- Lookup helpers ----
 
+/** Resolves a card definition ID to its full definition. */
 type CardLookup = (id: CardDefinitionId) => CardDefinition | undefined;
+
+/** Resolves a card instance ID to its underlying definition ID. */
 type InstanceLookup = (id: CardInstanceId) => CardDefinitionId | undefined;
 
+/**
+ * Builds a pair of lookup closures from the game state's card pool and
+ * instance map, so that formatting functions can resolve IDs without
+ * threading the full state object everywhere.
+ */
 function makeLookups(state: GameState): { defOf: CardLookup; instOf: InstanceLookup } {
   return {
     defOf: (id) => state.cardPool[id as string],
@@ -43,6 +70,10 @@ function makeLookups(state: GameState): { defOf: CardLookup; instOf: InstanceLoo
   };
 }
 
+/**
+ * Two-step resolution: instance ID → definition ID → full card definition.
+ * Returns `undefined` if either lookup fails (e.g. stale ID).
+ */
 function resolve(instId: CardInstanceId, instOf: InstanceLookup, defOf: CardLookup): CardDefinition | undefined {
   const defId = instOf(instId);
   return defId ? defOf(defId) : undefined;
@@ -50,6 +81,7 @@ function resolve(instId: CardInstanceId, instOf: InstanceLookup, defOf: CardLook
 
 // ---- Card formatting ----
 
+/** Returns a parenthesised status suffix like " (tapped)" or "" for untapped characters. */
 function statusMarker(status: CharacterStatus): string {
   switch (status) {
     case CharacterStatus.Tapped: return ' (tapped)';
@@ -58,6 +90,10 @@ function statusMarker(status: CharacterStatus): string {
   }
 }
 
+/**
+ * Formats a single character line: coloured name, prowess/body stats,
+ * skill keywords, marshalling points, and current status.
+ */
 function formatCharacterLine(char: CharacterInPlay, defOf: CardLookup, instOf: InstanceLookup): string {
   const def = resolve(char.instanceId, instOf, defOf);
   if (!def || def.cardType !== 'hero-character') {
@@ -69,6 +105,10 @@ function formatCharacterLine(char: CharacterInPlay, defOf: CardLookup, instOf: I
   return `${name} [${c.prowess}/${c.body}] ${skills} (${c.marshallingPoints} MP)${statusMarker(char.status)}`;
 }
 
+/**
+ * Formats an item line: name, prowess/body modifiers (with +/- sign),
+ * item subtype, marshalling points, and corruption points.
+ */
 function formatItemLine(instId: CardInstanceId, defOf: CardLookup, instOf: InstanceLookup): string {
   const def = resolve(instId, instOf, defOf);
   if (!def || def.cardType !== 'hero-resource-item') {
@@ -81,6 +121,7 @@ function formatItemLine(instId: CardInstanceId, defOf: CardLookup, instOf: Insta
   return `${name} [${pMod}/${bMod}] ${item.subtype} (${item.marshallingPoints} MP, ${item.corruptionPoints} CP)`;
 }
 
+/** Formats an ally line: name, prowess/body, and marshalling points. */
 function formatAllyLine(instId: CardInstanceId, defOf: CardLookup, instOf: InstanceLookup): string {
   const def = resolve(instId, instOf, defOf);
   if (!def || def.cardType !== 'hero-resource-ally') {
@@ -91,6 +132,7 @@ function formatAllyLine(instId: CardInstanceId, defOf: CardLookup, instOf: Insta
   return `${name} [${ally.prowess}/${ally.body}] (${ally.marshallingPoints} MP)`;
 }
 
+/** Formats a corruption card (hazard) attached to a character: name and CP value. */
 function formatCorruptionCardLine(instId: CardInstanceId, defOf: CardLookup, instOf: InstanceLookup): string {
   const def = resolve(instId, instOf, defOf);
   if (!def || def.cardType !== 'hazard-corruption') {
@@ -100,6 +142,7 @@ function formatCorruptionCardLine(instId: CardInstanceId, defOf: CardLookup, ins
   return `${name} (${def.corruptionPoints} CP)`;
 }
 
+/** Resolves a site instance ID to its coloured display name. */
 function formatSiteName(instId: CardInstanceId, defOf: CardLookup, instOf: InstanceLookup): string {
   const def = resolve(instId, instOf, defOf);
   if (!def || def.cardType !== 'hero-site') {
@@ -110,6 +153,11 @@ function formatSiteName(instId: CardInstanceId, defOf: CardLookup, instOf: Insta
 
 // ---- Company formatting ----
 
+/**
+ * Renders a full company block: site location (or planned destination),
+ * each character with their items, allies, corruption cards, and followers.
+ * Returns an array of indented lines for composition into the overall output.
+ */
 function formatCompany(
   company: Company,
   index: number,
@@ -169,6 +217,11 @@ function formatCompany(
 
 // ---- Combat formatting ----
 
+/**
+ * Renders the current combat encounter: attacker identity, total strikes,
+ * prowess, combat phase, and per-strike assignment/result lines.
+ * The active strike is marked with '>'.
+ */
 function formatCombat(combat: CombatState, defOf: CardLookup, instOf: InstanceLookup, indent: string): string[] {
   const lines: string[] = [];
   let attackerName: string;
@@ -190,6 +243,10 @@ function formatCombat(combat: CombatState, defOf: CardLookup, instOf: InstanceLo
 
 // ---- Event formatting ----
 
+/**
+ * Formats a long/short event currently in play: coloured name, owner,
+ * and optional attachment target.
+ */
 function formatEvent(event: EventInPlay, defOf: CardLookup, instOf: InstanceLookup): string {
   const def = resolve(event.instanceId, instOf, defOf);
   if (!def) return `??? [${event.instanceId}]`;
@@ -201,6 +258,11 @@ function formatEvent(event: EventInPlay, defOf: CardLookup, instOf: InstanceLook
 
 // ---- Player formatting ----
 
+/**
+ * Renders a complete player summary: name, wizard identity, hand/deck/discard
+ * counts, all companies, and any active combat for the active player.
+ * The active player is annotated with a '←' marker.
+ */
 function formatPlayer(
   player: PlayerState,
   playerIndex: number,
@@ -231,6 +293,17 @@ function formatPlayer(
 
 // ---- Main exports ----
 
+/**
+ * Formats the complete, omniscient {@link GameState} as a multi-line
+ * ANSI-coloured string. Intended for server-side debug logging — it
+ * reveals all hidden information (hands, deck contents, etc.).
+ *
+ * Output includes: turn/phase header, both players with their companies,
+ * and all events currently in play.
+ *
+ * @param state - The full authoritative game state.
+ * @returns A newline-joined, terminal-ready string.
+ */
 export function formatGameState(state: GameState): string {
   const { defOf, instOf } = makeLookups(state);
   const lines: string[] = [];
@@ -255,6 +328,16 @@ export function formatGameState(state: GameState): string {
   return lines.join('\n');
 }
 
+/**
+ * Formats a redacted {@link PlayerView} as a multi-line string.
+ * Used by the console client to display what a single player is allowed
+ * to see — their own hand contents, deck sizes, and the opponent's
+ * public information (hand count, not hand contents; planned movement
+ * flag, not destination).
+ *
+ * @param view - The per-player projected view of the game.
+ * @returns A newline-joined, terminal-ready string.
+ */
 export function formatPlayerView(view: PlayerView): string {
   const lines: string[] = [];
 

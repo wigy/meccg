@@ -1,3 +1,26 @@
+/**
+ * @module console-client
+ *
+ * Interactive text-based MECCG client that connects to the game server over
+ * WebSocket and presents the game state in the terminal.
+ *
+ * Usage:
+ * ```
+ * node console-client.js [playerName]
+ * ```
+ *
+ * Environment variables:
+ * - `SERVER_URL` — WebSocket URL (default `ws://localhost:3000`).
+ *
+ * On startup the client automatically sends a "join" message with a
+ * hard-coded default deck (useful for quick testing). The user then types
+ * commands (parsed by {@link parseAction}) which are sent as game actions.
+ *
+ * Server messages are printed to stdout: game state summaries after each
+ * action, draft status during the character draft, and error messages for
+ * illegal actions.
+ */
+
 import WebSocket from 'ws';
 import * as readline from 'readline';
 import type { PlayerId, ServerMessage, ClientMessage, JoinMessage, CardDefinitionId } from '@meccg/shared';
@@ -9,9 +32,18 @@ import {
 } from '@meccg/shared';
 import { parseAction } from './action-parser.js';
 
+/** WebSocket server URL, configurable via the `SERVER_URL` env var. */
 const SERVER_URL = process.env.SERVER_URL ?? 'ws://localhost:3000';
+/** Player display name, taken from the first CLI argument or defaulting to "Player". */
 const PLAYER_NAME = process.argv[2] ?? 'Player';
 
+/**
+ * Builds a simple test play deck by repeating a small set of resource and
+ * hazard cards. The resulting deck is large enough to pass minimum deck size
+ * requirements for testing, but is not competitively constructed.
+ *
+ * @returns An array of card definition IDs forming a minimal valid play deck.
+ */
 function buildDefaultPlayDeck(): CardDefinitionId[] {
   const resources = [GLAMDRING, STING, THE_MITHRIL_COAT, THE_ONE_RING];
   const hazards = [CAVE_DRAKE, ORC_PATROL, BARROW_WIGHT];
@@ -22,7 +54,11 @@ function buildDefaultPlayDeck(): CardDefinitionId[] {
   return deck;
 }
 
-// Default test deck config
+/**
+ * Default join message sent automatically on connection. Contains a small
+ * draft pool (Aragorn, Bilbo, Frodo), a starter item, a repeating test
+ * deck, and Rivendell as the starting haven.
+ */
 const defaultJoin: JoinMessage = {
   type: 'join',
   name: PLAYER_NAME,
@@ -35,6 +71,7 @@ const defaultJoin: JoinMessage = {
 
 // ---- Connection ----
 
+/** The player ID assigned by the server after the "join" handshake. */
 let playerId: PlayerId | null = null;
 
 const ws = new WebSocket(SERVER_URL);
@@ -108,6 +145,8 @@ ws.on('error', (err) => {
 });
 
 // ---- Input handling ----
+// Readline processes user commands, parses them via parseAction, and sends
+// the resulting GameAction to the server as a JSON-encoded ClientMessage.
 
 rl.on('line', (line) => {
   const input = line.trim();

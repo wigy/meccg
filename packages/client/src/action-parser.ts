@@ -1,17 +1,40 @@
+/**
+ * @module action-parser
+ *
+ * Translates human-typed text commands into strongly-typed {@link GameAction}
+ * objects that the server's reducer can process.
+ *
+ * This is the console client's input layer — it splits a raw line of text
+ * on whitespace, matches the first token against known action types, and
+ * assembles the remaining tokens into the action's payload fields. The
+ * player ID is always injected by the caller (the console client), not
+ * typed by the user.
+ *
+ * If the input does not match any known command format, `null` is returned
+ * so the caller can display a help message.
+ */
+
 import type { GameAction, PlayerId, CardInstanceId, CardDefinitionId, CompanyId } from '@meccg/shared';
 
 /**
- * Parse a text command into a GameAction.
- * Player ID is injected automatically.
+ * Parses a single line of user input into a {@link GameAction}.
  *
- * Supported formats:
- *   draft-pick <defId>
- *   draft-stop
- *   pass
- *   play-character <instId> <siteInstId>
- *   plan-movement <companyId> <siteInstId>
- *   play-hazard <instId> <companyId>
- *   play-hero-resource <instId> <companyId>
+ * Supported command formats:
+ * | Command                                  | Description                                 |
+ * |------------------------------------------|---------------------------------------------|
+ * | `draft-pick <defId>`                     | Pick a character during the draft phase      |
+ * | `draft-stop`                             | Stop drafting (keep current selections)      |
+ * | `pass`                                   | Pass priority in the current phase           |
+ * | `play-character <instId> <siteInstId>`   | Play a character at a site                   |
+ * | `plan-movement <companyId> <siteInstId>` | Plan a company's movement to a destination   |
+ * | `play-hazard <instId> <companyId>`       | Play a hazard against an opponent's company  |
+ * | `play-hero-resource <instId> <companyId>`| Play a resource card on a company            |
+ * | `discard-card <instId>`                  | Discard a card from hand                     |
+ * | `call-free-council`                      | Trigger the Free Council endgame             |
+ *
+ * @param input - Raw text from the user's terminal (e.g. "draft-pick tw-120").
+ * @param playerId - The authenticated player ID to inject into the action.
+ * @returns A typed {@link GameAction} or `null` if the input is unrecognised.
  */
 export function parseAction(input: string, playerId: PlayerId): GameAction | null {
   const parts = input.trim().split(/\s+/);
