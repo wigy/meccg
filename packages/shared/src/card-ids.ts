@@ -1,11 +1,6 @@
-import type { PlayerId, CardDefinitionId } from '@meccg/shared';
+import type { CardDefinitionId } from './types/common.js';
 
 const did = (s: string) => s as CardDefinitionId;
-
-// ---- Players ----
-
-export const PLAYER_1 = 'p1' as PlayerId;
-export const PLAYER_2 = 'p2' as PlayerId;
 
 // ---- Characters ----
 

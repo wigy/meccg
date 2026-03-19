@@ -1,41 +1,37 @@
 import WebSocket from 'ws';
 import * as readline from 'readline';
 import type { PlayerId, ServerMessage, ClientMessage, JoinMessage, CardDefinitionId } from '@meccg/shared';
+import {
+  ARAGORN, BILBO, FRODO,
+  GLAMDRING, STING, THE_MITHRIL_COAT, THE_ONE_RING, DAGGER_OF_WESTERNESSE,
+  CAVE_DRAKE, ORC_PATROL, BARROW_WIGHT,
+  RIVENDELL, MORIA, MINAS_TIRITH, MOUNT_DOOM,
+} from '@meccg/shared';
 import { parseAction } from './action-parser.js';
 
 const SERVER_URL = process.env.SERVER_URL ?? 'ws://localhost:3000';
 const PLAYER_NAME = process.argv[2] ?? 'Player';
 
-// Default test deck config
-const defaultJoin: JoinMessage = {
-  type: 'join',
-  name: PLAYER_NAME,
-  draftPool: [
-    'tw-120' as CardDefinitionId, // Aragorn
-    'tw-131' as CardDefinitionId, // Bilbo
-    'tw-152' as CardDefinitionId, // Frodo
-  ],
-  startingMinorItems: [
-    'tw-206' as CardDefinitionId, // Dagger of Westernesse
-  ],
-  playDeck: buildDefaultPlayDeck(),
-  siteDeck: [
-    'tw-413' as CardDefinitionId, // Moria
-    'tw-412' as CardDefinitionId, // Minas Tirith
-    'tw-414' as CardDefinitionId, // Mount Doom
-  ],
-  startingHaven: 'tw-421' as CardDefinitionId, // Rivendell
-};
-
 function buildDefaultPlayDeck(): CardDefinitionId[] {
-  const resources = ['tw-244', 'tw-333', 'tw-345', 'tw-347'] as CardDefinitionId[];
-  const hazards = ['tw-020', 'tw-074', 'tw-015'] as CardDefinitionId[];
+  const resources = [GLAMDRING, STING, THE_MITHRIL_COAT, THE_ONE_RING];
+  const hazards = [CAVE_DRAKE, ORC_PATROL, BARROW_WIGHT];
   const deck: CardDefinitionId[] = [];
   for (let i = 0; i < 5; i++) {
     deck.push(...resources, ...hazards);
   }
   return deck;
 }
+
+// Default test deck config
+const defaultJoin: JoinMessage = {
+  type: 'join',
+  name: PLAYER_NAME,
+  draftPool: [ARAGORN, BILBO, FRODO],
+  startingMinorItems: [DAGGER_OF_WESTERNESSE],
+  playDeck: buildDefaultPlayDeck(),
+  siteDeck: [MORIA, MINAS_TIRITH, MOUNT_DOOM],
+  startingHaven: RIVENDELL,
+};
 
 // ---- Connection ----
 

@@ -10,13 +10,16 @@ import {
   HAND_SIZE,
 } from '@meccg/shared';
 import type { DraftPickAction, DraftStopAction } from '@meccg/shared';
+import type { PlayerId } from '@meccg/shared';
 import {
-  PLAYER_1, PLAYER_2,
   ARAGORN, BILBO, FRODO, LEGOLAS, GIMLI, FARAMIR,
   GLAMDRING, STING, THE_MITHRIL_COAT, THE_ONE_RING, DAGGER_OF_WESTERNESSE,
   CAVE_DRAKE, ORC_PATROL, BARROW_WIGHT,
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH, MOUNT_DOOM,
-} from '../test-constants.js';
+} from '@meccg/shared';
+
+const PLAYER_1 = 'p1' as PlayerId;
+const PLAYER_2 = 'p2' as PlayerId;
 
 const pool = loadCardPool();
 
