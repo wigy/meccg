@@ -125,6 +125,40 @@ export interface EventInPlay {
   readonly attachedTo?: CardInstanceId;
 }
 
+// ---- Marshalling Points ----
+
+/**
+ * Breakdown of a player's marshalling points (victory points) by category.
+ *
+ * In MECCG, points are scored from characters in play, items, factions,
+ * allies, and creature kills. At the Free Council, the doubling rule applies:
+ * each category is capped so it cannot exceed the total of all other categories.
+ */
+export interface MarshallingPointTotals {
+  /** Points from hero characters in play. */
+  readonly character: number;
+  /** Points from items controlled by characters. */
+  readonly item: number;
+  /** Points from successfully influenced factions. */
+  readonly faction: number;
+  /** Points from allies attached to characters. */
+  readonly ally: number;
+  /** Points from defeating enemy creatures and automatic attacks. */
+  readonly kill: number;
+  /** Points from miscellaneous sources (events, special abilities). */
+  readonly misc: number;
+}
+
+/** An empty marshalling point totals object, used for initialization. */
+export const ZERO_MARSHALLING_POINTS: MarshallingPointTotals = {
+  character: 0,
+  item: 0,
+  faction: 0,
+  ally: 0,
+  kill: 0,
+  misc: 0,
+};
+
 // ---- Per-player state ----
 
 /**
@@ -159,6 +193,11 @@ export interface PlayerState {
   readonly companies: readonly Company[];
   /** All characters this player has in play, keyed by their CardInstanceId for fast lookup. */
   readonly characters: Readonly<Record<string, CharacterInPlay>>;
+  /**
+   * Current marshalling point (victory point) totals broken down by category.
+   * Updated whenever cards enter or leave play. Used for display and Free Council scoring.
+   */
+  readonly marshallingPoints: MarshallingPointTotals;
   /**
    * How much of the player's 20-point general influence pool is currently committed
    * to controlling characters. Characters whose mind value exceeds remaining GI cannot be played.

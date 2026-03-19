@@ -37,6 +37,7 @@ import {
   Phase,
   CharacterStatus,
   HAND_SIZE,
+  ZERO_MARSHALLING_POINTS,
   createRng,
   shuffle,
 } from '@meccg/shared';
@@ -196,6 +197,7 @@ function initPlayerPreDraft(
     sideboard: [],
     companies: [],
     characters: {},
+    marshallingPoints: ZERO_MARSHALLING_POINTS,
     generalInfluenceUsed: 0,
     deckExhaustionCount: 0,
     freeCouncilCalled: false,
@@ -244,6 +246,8 @@ export function applyDraftResults(
     const characters: Record<string, CharacterInPlay> = {};
     const characterInstanceIds: CardInstanceId[] = [];
     let generalInfluenceUsed = 0;
+    let characterMPs = 0;
+    let itemMPs = 0;
     let firstCharInstanceId: string | null = null;
 
     for (const charDefId of drafted) {
@@ -267,6 +271,7 @@ export function applyDraftResults(
       if (charDef.mind !== null) {
         generalInfluenceUsed += charDef.mind;
       }
+      characterMPs += charDef.marshallingPoints;
     }
 
     // Assign starting minor items to first character
@@ -275,6 +280,12 @@ export function applyDraftResults(
         ...characters[firstCharInstanceId],
         items: minorItemInstanceIds,
       };
+      for (const itemDefId of startingMinorItems) {
+        const itemDef = state.cardPool[itemDefId as string];
+        if (itemDef && 'marshallingPoints' in itemDef) {
+          itemMPs += itemDef.marshallingPoints;
+        }
+      }
     }
 
     const company: Company = {
@@ -296,6 +307,11 @@ export function applyDraftResults(
       playDeck: remainingDeck,
       companies: [company],
       characters,
+      marshallingPoints: {
+        ...ZERO_MARSHALLING_POINTS,
+        character: characterMPs,
+        item: itemMPs,
+      },
       generalInfluenceUsed,
     } satisfies PlayerState;
   }) as unknown as readonly [PlayerState, PlayerState];
@@ -412,6 +428,7 @@ function initPlayerWithCharacters(
   const characters: Record<string, CharacterInPlay> = {};
   const characterInstanceIds: CardInstanceId[] = [];
   let generalInfluenceUsed = 0;
+  let characterMPs = 0;
 
   for (const charDefId of config.startingCharacters) {
     const charDef = cardPool[charDefId as string];
@@ -433,6 +450,7 @@ function initPlayerWithCharacters(
     if (charDef.mind !== null) {
       generalInfluenceUsed += charDef.mind;
     }
+    characterMPs += charDef.marshallingPoints;
   }
 
   const company: Company = {
@@ -464,6 +482,7 @@ function initPlayerWithCharacters(
     sideboard: [],
     companies: [company],
     characters,
+    marshallingPoints: { ...ZERO_MARSHALLING_POINTS, character: characterMPs },
     generalInfluenceUsed,
     deckExhaustionCount: 0,
     freeCouncilCalled: false,

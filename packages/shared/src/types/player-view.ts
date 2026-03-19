@@ -29,6 +29,7 @@ import type {
   EventInPlay,
   Company,
   CharacterInPlay,
+  MarshallingPointTotals,
 } from './state.js';
 import type { GameAction } from './actions.js';
 
@@ -125,6 +126,8 @@ export interface OpponentView {
   readonly companies: readonly OpponentCompanyView[];
   /** The opponent's characters in play (public information). */
   readonly characters: Readonly<Record<string, CharacterInPlay>>;
+  /** The opponent's current marshalling point totals (public information). */
+  readonly marshallingPoints: MarshallingPointTotals;
   /** How much of the opponent's general influence is committed (public information). */
   readonly generalInfluenceUsed: number;
   /** How many times the opponent has exhausted their play deck (relevant for Free Council trigger). */
@@ -163,6 +166,8 @@ export interface SelfView {
   readonly companies: readonly Company[];
   /** All characters this player has in play. */
   readonly characters: Readonly<Record<string, CharacterInPlay>>;
+  /** Current marshalling point totals by category. */
+  readonly marshallingPoints: MarshallingPointTotals;
   /** How much general influence is currently committed to controlling characters. */
   readonly generalInfluenceUsed: number;
   /** How many times this player's play deck has been exhausted. */

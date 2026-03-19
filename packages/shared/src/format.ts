@@ -15,7 +15,7 @@
  */
 
 import type { CardDefinition } from './types/cards.js';
-import type { GameState, Company, CharacterInPlay, EventInPlay, CombatState, PhaseState } from './types/state.js';
+import type { GameState, Company, CharacterInPlay, EventInPlay, CombatState, PhaseState, MarshallingPointTotals } from './types/state.js';
 import type { PlayerView, OpponentCompanyView } from './types/player-view.js';
 import type { GameAction } from './types/actions.js';
 import { CharacterStatus } from './types/common.js';
@@ -332,6 +332,7 @@ interface RenderPlayerInput {
   readonly handCount: number;
   readonly deckCount: number;
   readonly discardCount: number;
+  readonly marshallingPoints: MarshallingPointTotals;
   readonly companies: readonly Company[];
   readonly opponentCompanies?: readonly OpponentCompanyView[];
   readonly characters: Readonly<Record<string, CharacterInPlay>>;
@@ -360,7 +361,9 @@ function renderState(input: RenderInput): string {
   for (const player of input.players) {
     const wizardLabel = player.wizard ? ` (${player.wizard})` : '';
     const activeMarker = player.isActive ? ' ←' : '';
-    lines.push(`${player.name}${wizardLabel}:${activeMarker}`);
+    const mp = player.marshallingPoints;
+    const totalMP = mp.character + mp.item + mp.faction + mp.ally + mp.kill + mp.misc;
+    lines.push(`${player.name}${wizardLabel}: ${totalMP} MP${activeMarker}`);
     lines.push(`  hand: ${player.handCount} cards`);
     lines.push(`  deck: ${player.deckCount} | discard: ${player.discardCount}`);
 
@@ -421,6 +424,7 @@ export function formatGameState(state: GameState): string {
       handCount: p.hand.length,
       deckCount: p.playDeck.length,
       discardCount: p.discardPile.length,
+      marshallingPoints: p.marshallingPoints,
       companies: p.companies,
       characters: p.characters,
     })) as [RenderPlayerInput, RenderPlayerInput],
@@ -456,6 +460,7 @@ export function formatPlayerView(
         handCount: view.self.hand.length,
         deckCount: view.self.playDeckSize,
         discardCount: view.self.discardPile.length,
+        marshallingPoints: view.self.marshallingPoints,
         companies: view.self.companies,
         characters: view.self.characters,
       },
@@ -466,6 +471,7 @@ export function formatPlayerView(
         handCount: view.opponent.handSize,
         deckCount: view.opponent.playDeckSize,
         discardCount: view.opponent.discardPile.length,
+        marshallingPoints: view.opponent.marshallingPoints,
         companies: [],
         opponentCompanies: view.opponent.companies,
         characters: view.opponent.characters,

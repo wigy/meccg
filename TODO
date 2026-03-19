@@ -7,11 +7,10 @@ FIXES
 FEATS
 -----
 
-- Player score similar to the generalInfluenceUsed.
-
 EPICS
 -----
 
+- Crude web client but card images.
 - Finalize preparation step.
 - Deck format and conversion to the JSON.
 

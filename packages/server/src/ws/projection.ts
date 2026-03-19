@@ -65,6 +65,7 @@ function buildSelfView(state: GameState, player: PlayerState): SelfView {
     sideboard: player.sideboard.map(id => resolveCard(state, id)),
     companies: player.companies,
     characters: player.characters,
+    marshallingPoints: player.marshallingPoints,
     generalInfluenceUsed: player.generalInfluenceUsed,
     deckExhaustionCount: player.deckExhaustionCount,
   };
@@ -96,6 +97,7 @@ function buildOpponentView(player: PlayerState): OpponentView {
     siteDiscardPile: [],
     companies,
     characters: player.characters,
+    marshallingPoints: player.marshallingPoints,
     generalInfluenceUsed: player.generalInfluenceUsed,
     deckExhaustionCount: player.deckExhaustionCount,
   };
@@ -160,6 +162,7 @@ export function projectSpectatorView(state: GameState): PlayerView {
       sideboard: [],
       companies: p1.companies,
       characters: p1.characters,
+      marshallingPoints: p1.marshallingPoints,
       generalInfluenceUsed: p1.generalInfluenceUsed,
       deckExhaustionCount: p1.deckExhaustionCount,
     },
