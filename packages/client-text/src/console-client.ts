@@ -29,14 +29,18 @@ import {
   formatPlayerView,
   formatCardName,
   describeAction,
+  colorDebug,
+  setShowDebugIds,
 } from '@meccg/shared';
 import { parseAction } from './action-parser.js';
 
 const SERVER_URL = process.env.SERVER_URL ?? 'ws://localhost:3000';
-const PLAYER_NAME = process.argv[2] ?? 'Player';
+const DEBUG = process.argv.includes('--debug');
+const PLAYER_NAME = process.argv.filter(a => a !== '--debug')[2] ?? 'Player';
 const RECONNECT_DELAY_MS = 2000;
 
 const cardPool = loadCardPool();
+setShowDebugIds(DEBUG);
 
 function buildDefaultPlayDeck(): CardDefinitionId[] {
   const resources = [GLAMDRING, STING, THE_MITHRIL_COAT, THE_ONE_RING];
@@ -107,7 +111,10 @@ function connect(): void {
         if (msg.view.phaseState.phase === 'character-draft') {
           const draft = msg.view.phaseState;
           const colorNames = (ids: readonly CardDefinitionId[]) =>
-            ids.map(id => formatCardName(cardPool[id as string])).join(', ');
+            ids.map(id => {
+              const name = formatCardName(cardPool[id as string]);
+              return DEBUG ? `${name} ${colorDebug(`{${id}}`)}` : name;
+            }).join(', ');
           console.log(`Draft round: ${draft.round}`);
           console.log(`Your pool: ${colorNames(draft.draftState[0].pool) || '(empty)'}`);
           console.log(`Your drafted: ${colorNames(draft.draftState[0].drafted) || '(none)'}`);
@@ -122,7 +129,12 @@ function connect(): void {
           console.log('Legal actions:');
           for (let i = 0; i < lastLegalActions.length; i++) {
             const desc = describeAction(lastLegalActions[i], cardPool);
-            console.log(`  [${i + 1}] ${desc}`);
+            if (DEBUG) {
+              const { player: _p, ...payload } = lastLegalActions[i];
+              console.log(`  [${i + 1}] ${desc}  ${colorDebug(JSON.stringify(payload))}`);
+            } else {
+              console.log(`  [${i + 1}] ${desc}`);
+            }
           }
         }
         console.log('');
@@ -199,6 +211,9 @@ rl.on('line', (line) => {
     return;
   }
 
+  if (DEBUG) {
+    console.log(colorDebug(`>> ${JSON.stringify(action)}`));
+  }
   const msg: ClientMessage = { type: 'action', action };
   ws.send(JSON.stringify(msg));
 });

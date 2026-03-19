@@ -40,6 +40,26 @@ const COLORS: Record<string, string> = {
   'region': `${DIM}\x1b[34m`,
 };
 
+/** Color for debug information (IDs, raw JSON). */
+const DEBUG_COLOR = `${DIM}\x1b[90m`;
+
+/** Wraps text in the debug color (dim grey). For IDs and raw action JSON. */
+export function colorDebug(text: string): string {
+  return `${DEBUG_COLOR}${text}${RESET}`;
+}
+
+/**
+ * Controls whether instance/definition IDs are shown in formatted output.
+ * Set to true to show `{i-3}` and `{tw-120}` after card names.
+ * Default is false (clean output for normal play).
+ */
+export let showDebugIds = false;
+
+/** Enable or disable debug ID display in formatted output. */
+export function setShowDebugIds(value: boolean): void {
+  showDebugIds = value;
+}
+
 /** Color for unknown/hidden cards. */
 const UNKNOWN_COLOR = `${DIM}\x1b[90m`;
 
@@ -85,7 +105,7 @@ export function formatCardName(
 function formatInstanceName(instId: CardInstanceId, defOf: CardLookup, instOf: InstanceLookup): string {
   const def = resolve(instId, instOf, defOf);
   const name = formatCardName(def);
-  return `${name} ${DIM}{${instId}}${RESET}`;
+  return showDebugIds ? `${name} ${colorDebug(`{${instId}}`)}` : name;
 }
 
 /**
@@ -99,7 +119,7 @@ export function formatDefName(
 ): string {
   const def = cardPool[defId as string];
   const name = formatCardName(def);
-  return `${name} ${DIM}{${defId}}${RESET}`;
+  return showDebugIds ? `${name} ${colorDebug(`{${defId}}`)}` : name;
 }
 
 // ---- Card detail formatting ----
@@ -115,7 +135,7 @@ function statusMarker(status: CharacterStatus): string {
 function formatCharacterLine(char: CharacterInPlay, defOf: CardLookup, instOf: InstanceLookup): string {
   const def = resolve(char.instanceId, instOf, defOf);
   if (!def || def.cardType !== 'hero-character') {
-    return colorizeUnknown(`[unknown character] ${DIM}{${char.instanceId}}${RESET}`);
+    return showDebugIds ? colorizeUnknown(`[unknown character] {${char.instanceId}}`) : colorizeUnknown('[unknown character]');
   }
   const c = def as HeroCharacterCard;
   const skills = c.skills.join('/');
@@ -126,7 +146,7 @@ function formatCharacterLine(char: CharacterInPlay, defOf: CardLookup, instOf: I
 function formatItemLine(instId: CardInstanceId, defOf: CardLookup, instOf: InstanceLookup): string {
   const def = resolve(instId, instOf, defOf);
   if (!def || def.cardType !== 'hero-resource-item') {
-    return colorizeUnknown(`[unknown item] ${DIM}{${instId}}${RESET}`);
+    return showDebugIds ? colorizeUnknown(`[unknown item] {${instId}}`) : colorizeUnknown('[unknown item]');
   }
   const item = def as HeroItemCard;
   const label = formatInstanceName(instId, defOf, instOf);
@@ -138,7 +158,7 @@ function formatItemLine(instId: CardInstanceId, defOf: CardLookup, instOf: Insta
 function formatAllyLine(instId: CardInstanceId, defOf: CardLookup, instOf: InstanceLookup): string {
   const def = resolve(instId, instOf, defOf);
   if (!def || def.cardType !== 'hero-resource-ally') {
-    return colorizeUnknown(`[unknown ally] ${DIM}{${instId}}${RESET}`);
+    return showDebugIds ? colorizeUnknown(`[unknown ally] {${instId}}`) : colorizeUnknown('[unknown ally]');
   }
   const ally = def as HeroAllyCard;
   const label = formatInstanceName(instId, defOf, instOf);
@@ -148,7 +168,7 @@ function formatAllyLine(instId: CardInstanceId, defOf: CardLookup, instOf: Insta
 function formatCorruptionCardLine(instId: CardInstanceId, defOf: CardLookup, instOf: InstanceLookup): string {
   const def = resolve(instId, instOf, defOf);
   if (!def || def.cardType !== 'hazard-corruption') {
-    return colorizeUnknown(`[unknown corruption] ${DIM}{${instId}}${RESET}`);
+    return showDebugIds ? colorizeUnknown(`[unknown corruption] {${instId}}`) : colorizeUnknown('[unknown corruption]');
   }
   const label = formatInstanceName(instId, defOf, instOf);
   return `${label} (${def.corruptionPoints} CP)`;
