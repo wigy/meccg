@@ -166,6 +166,16 @@ document.addEventListener('DOMContentLoaded', () => {
   const connectBtn = document.getElementById('connect-btn') as HTMLButtonElement;
   const connectForm = document.getElementById('connect-form') as HTMLElement;
   const disconnectBtn = document.getElementById('disconnect-btn') as HTMLButtonElement;
+  const viewToggleBtn = document.getElementById('view-toggle-btn') as HTMLButtonElement;
+  const debugView = document.getElementById('debug-view') as HTMLElement;
+  const visualView = document.getElementById('visual-view') as HTMLElement;
+
+  viewToggleBtn.addEventListener('click', () => {
+    const isDebug = !debugView.classList.contains('hidden');
+    debugView.classList.toggle('hidden', isDebug);
+    visualView.classList.toggle('hidden', !isDebug);
+    viewToggleBtn.textContent = isDebug ? 'Debug' : 'Visual';
+  });
 
   function startGame(name: string): void {
     savePlayerName(name);

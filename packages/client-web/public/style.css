@@ -62,10 +62,11 @@ h2 {
 #toolbar {
   display: flex;
   justify-content: flex-end;
+  gap: 0.5rem;
   margin-bottom: 0.5rem;
 }
 
-#disconnect-btn {
+#toolbar button {
   padding: 0.3rem 0.75rem;
   font-size: 0.8rem;
   background: transparent;
@@ -75,7 +76,7 @@ h2 {
   cursor: pointer;
 }
 
-#disconnect-btn:hover {
+#toolbar button:hover {
   color: #e0e0e0;
   border-color: #c4a35a;
 }

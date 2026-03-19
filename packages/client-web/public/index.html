@@ -16,26 +16,33 @@
 
   <div id="game" class="hidden">
     <div id="toolbar">
+      <button id="view-toggle-btn">Visual</button>
       <button id="disconnect-btn">Disconnect</button>
     </div>
-    <div id="main">
-      <div id="left-panel">
-        <h2>Game State</h2>
-        <pre id="state"></pre>
 
-        <h2>Draft</h2>
-        <pre id="draft"></pre>
+    <div id="debug-view">
+      <div id="main">
+        <div id="left-panel">
+          <h2>Game State</h2>
+          <pre id="state"></pre>
+
+          <h2>Draft</h2>
+          <pre id="draft"></pre>
+        </div>
+
+        <div id="right-panel">
+          <h2>Actions</h2>
+          <div id="actions"></div>
+        </div>
       </div>
 
-      <div id="right-panel">
-        <h2>Actions</h2>
-        <div id="actions"></div>
+      <div id="log-panel">
+        <h2>Log</h2>
+        <div id="log"></div>
       </div>
     </div>
 
-    <div id="log-panel">
-      <h2>Log</h2>
-      <div id="log"></div>
+    <div id="visual-view" class="hidden">
     </div>
   </div>
 
