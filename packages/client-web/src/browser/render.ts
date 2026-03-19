@@ -132,7 +132,7 @@ export function renderActions(
 export function renderLog(message: string): void {
   const el = $('log');
   const line = document.createElement('div');
-  line.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+  line.innerHTML = ansiToHtml(`[${new Date().toLocaleTimeString()}] ${message}`);
   el.appendChild(line);
   el.scrollTop = el.scrollHeight;
 }
