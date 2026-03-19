@@ -350,7 +350,6 @@ interface RenderPlayerInput {
 interface RenderInput {
   readonly turnNumber: number;
   readonly phaseState: PhaseState;
-  readonly activePlayerName: string;
   readonly players: readonly [RenderPlayerInput, RenderPlayerInput];
   readonly eventsInPlay: readonly EventInPlay[];
   readonly defOf: CardLookup;
@@ -365,13 +364,13 @@ function renderState(input: RenderInput): string {
   const { defOf, instOf } = input;
   const lines: string[] = [];
 
-  lines.push(`Turn ${input.turnNumber} — Phase: ${input.phaseState.phase} — Active: ${input.activePlayerName}`);
+  lines.push(`Turn ${input.turnNumber} — Phase: ${input.phaseState.phase}`);
 
   for (const player of input.players) {
     const wizardLabel = player.wizard ? ` (${player.wizard})` : '';
-    const activeMarker = player.isActive ? ' ←' : '';
     const mp = player.marshallingPoints;
     const totalMP = mp.character + mp.item + mp.faction + mp.ally + mp.kill + mp.misc;
+    const activeMarker = player.isActive ? ` \x1b[31m◀\x1b[0m` : '';
     lines.push(`${player.name} [${player.alignment}]${wizardLabel}: ${totalMP} MP${activeMarker}`);
     lines.push(`  hand: ${player.handCount} cards`);
     lines.push(`  deck: ${player.deckCount} | discard: ${player.discardCount}`);
@@ -425,7 +424,6 @@ export function formatGameState(state: GameState): string {
   return stripCardMarkers(renderState({
     turnNumber: state.turnNumber,
     phaseState: state.phaseState,
-    activePlayerName: activePlayer?.name ?? '(simultaneous)',
     players: state.players.map(p => ({
       name: p.name,
       alignment: p.alignment,
@@ -461,7 +459,6 @@ export function formatPlayerView(
   return renderState({
     turnNumber: view.turnNumber,
     phaseState: view.phaseState,
-    activePlayerName: view.activePlayer === null ? '(simultaneous)' : (view.self.id === view.activePlayer ? view.self.name : view.opponent.name),
     players: [
       {
         name: view.self.name,
