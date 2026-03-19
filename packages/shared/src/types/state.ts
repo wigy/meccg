@@ -25,6 +25,7 @@ import {
   CardDefinitionId,
   CharacterStatus,
   WizardName,
+  Alignment,
 } from './common.js';
 import { CardDefinition } from './cards.js';
 
@@ -175,6 +176,8 @@ export interface PlayerState {
   readonly id: PlayerId;
   /** Display name chosen by the player. */
   readonly name: string;
+  /** The alignment of this player's wizard (hero, minion, fallen-wizard, balrog). */
+  readonly alignment: Alignment;
   /** The wizard (Istari) this player controls, or null before wizard selection. */
   readonly wizard: WizardName | null;
   /** Card instance IDs currently in the player's hand (hidden from opponent). */

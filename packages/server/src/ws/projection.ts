@@ -56,6 +56,7 @@ function buildSelfView(state: GameState, player: PlayerState): SelfView {
   return {
     id: player.id,
     name: player.name,
+    alignment: player.alignment,
     wizard: player.wizard,
     hand: player.hand.map(id => resolveCard(state, id)),
     playDeckSize: player.playDeck.length,
@@ -90,6 +91,7 @@ function buildOpponentView(player: PlayerState): OpponentView {
   return {
     id: player.id,
     name: player.name,
+    alignment: player.alignment,
     wizard: player.wizard,
     handSize: player.hand.length,
     playDeckSize: player.playDeck.length,
@@ -153,6 +155,7 @@ export function projectSpectatorView(state: GameState): PlayerView {
     self: {
       id: p1.id,
       name: p1.name,
+      alignment: p1.alignment,
       wizard: p1.wizard,
       hand: [],
       playDeckSize: p1.playDeck.length,

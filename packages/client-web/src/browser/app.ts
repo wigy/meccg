@@ -8,7 +8,7 @@
 
 import type { ServerMessage, ClientMessage, JoinMessage, GameAction, CardDefinitionId } from '@meccg/shared';
 import {
-  loadCardPool, describeAction,
+  loadCardPool, describeAction, Alignment,
   ARAGORN, BILBO, FRODO, LEGOLAS, GIMLI, SAM_GAMGEE, ELROND, CELEBORN, THEODEN, BEORN,
   GLAMDRING, STING, THE_MITHRIL_COAT, THE_ONE_RING, DAGGER_OF_WESTERNESSE,
   CAVE_DRAKE, ORC_PATROL, BARROW_WIGHT,
@@ -35,6 +35,7 @@ function buildJoinMessage(name: string): JoinMessage {
   return {
     type: 'join',
     name,
+    alignment: Alignment.Hero,
     draftPool: [ARAGORN, BILBO, FRODO, LEGOLAS, GIMLI, SAM_GAMGEE, ELROND, CELEBORN, THEODEN, BEORN],
     startingMinorItems: [DAGGER_OF_WESTERNESSE],
     playDeck: buildDefaultPlayDeck(),

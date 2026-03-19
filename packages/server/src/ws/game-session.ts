@@ -231,6 +231,7 @@ export class GameSession {
     return {
       id: playerId,
       name,
+      alignment: p.join.alignment,
       draftPool: p.join.draftPool,
       startingMinorItems: p.join.startingMinorItems,
       playDeck: p.join.playDeck,

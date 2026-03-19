@@ -335,6 +335,7 @@ function formatEvent(event: EventInPlay, defOf: CardLookup, instOf: InstanceLook
  */
 interface RenderPlayerInput {
   readonly name: string;
+  readonly alignment: string;
   readonly wizard: string | null;
   readonly isActive: boolean;
   readonly handCount: number;
@@ -371,7 +372,7 @@ function renderState(input: RenderInput): string {
     const activeMarker = player.isActive ? ' ←' : '';
     const mp = player.marshallingPoints;
     const totalMP = mp.character + mp.item + mp.faction + mp.ally + mp.kill + mp.misc;
-    lines.push(`${player.name}${wizardLabel}: ${totalMP} MP${activeMarker}`);
+    lines.push(`${player.name} [${player.alignment}]${wizardLabel}: ${totalMP} MP${activeMarker}`);
     lines.push(`  hand: ${player.handCount} cards`);
     lines.push(`  deck: ${player.deckCount} | discard: ${player.discardCount}`);
 
@@ -427,6 +428,7 @@ export function formatGameState(state: GameState): string {
     activePlayerName: activePlayer?.name ?? '(simultaneous)',
     players: state.players.map(p => ({
       name: p.name,
+      alignment: p.alignment,
       wizard: p.wizard,
       isActive: state.activePlayer !== null && p.id === state.activePlayer,
       handCount: p.hand.length,
@@ -463,6 +465,7 @@ export function formatPlayerView(
     players: [
       {
         name: view.self.name,
+        alignment: view.self.alignment,
         wizard: view.self.wizard,
         isActive: view.activePlayer !== null && view.self.id === view.activePlayer,
         handCount: view.self.hand.length,
@@ -474,6 +477,7 @@ export function formatPlayerView(
       },
       {
         name: view.opponent.name,
+        alignment: view.opponent.alignment,
         wizard: view.opponent.wizard,
         isActive: view.activePlayer !== null && view.opponent.id === view.activePlayer,
         handCount: view.opponent.handSize,

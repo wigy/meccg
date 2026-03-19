@@ -20,7 +20,7 @@
  * All messages are discriminated by a `type` field for easy dispatching.
  */
 
-import type { PlayerId, CardDefinitionId } from './common.js';
+import type { PlayerId, CardDefinitionId, Alignment } from './common.js';
 import type { GameAction } from './actions.js';
 import type { PlayerView } from './player-view.js';
 
@@ -39,6 +39,8 @@ export interface JoinMessage {
   readonly type: 'join';
   /** The player's chosen display name. */
   readonly name: string;
+  /** The alignment of the player's wizard (hero, minion, fallen-wizard, balrog). */
+  readonly alignment: Alignment;
   /** Character definition IDs available for the pre-game draft (up to 10). */
   readonly draftPool: readonly CardDefinitionId[];
   /** Up to 2 non-unique minor item definition IDs chosen as starting equipment. */

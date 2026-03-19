@@ -33,6 +33,7 @@ import {
   colorDebug,
   setShowDebugIds,
   stripCardMarkers,
+  Alignment,
 } from '@meccg/shared';
 import { parseAction } from './action-parser.js';
 import { loadAiStrategy, sampleWeighted } from './ai/index.js';
@@ -78,6 +79,7 @@ function buildDefaultPlayDeck(): CardDefinitionId[] {
 const defaultJoin: JoinMessage = {
   type: 'join',
   name: PLAYER_NAME,
+  alignment: Alignment.Hero,
   draftPool: [ARAGORN, BILBO, FRODO, LEGOLAS, GIMLI, SAM_GAMGEE, ELROND, CELEBORN, THEODEN, BEORN],
   startingMinorItems: [DAGGER_OF_WESTERNESSE],
   playDeck: buildDefaultPlayDeck(),

@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { createGame, createGameQuickStart } from './init.js';
 import type { GameConfig, QuickStartGameConfig } from './init.js';
 import { reduce } from './reducer.js';
-import { loadCardPool, Phase } from '@meccg/shared';
+import { loadCardPool, Phase, Alignment } from '@meccg/shared';
 import type { PlayerId, CardDefinitionId } from '@meccg/shared';
 import {
   ARAGORN, BILBO, FRODO, LEGOLAS, GIMLI, FARAMIR,
@@ -29,14 +29,14 @@ function makeQuickStartConfig(seed = 42): QuickStartGameConfig {
   return {
     players: [
       {
-        id: PLAYER_1, name: 'Alice',
+        id: PLAYER_1, name: 'Alice', alignment: Alignment.Hero,
         startingCharacters: [ARAGORN, BILBO],
         playDeck: makePlayDeck(),
         siteDeck: [MORIA, MINAS_TIRITH, MOUNT_DOOM],
         startingHavens: [RIVENDELL],
       },
       {
-        id: PLAYER_2, name: 'Bob',
+        id: PLAYER_2, name: 'Bob', alignment: Alignment.Hero,
         startingCharacters: [LEGOLAS, GIMLI],
         playDeck: makePlayDeck(),
         siteDeck: [MORIA, MINAS_TIRITH],
@@ -51,7 +51,7 @@ function makeDraftConfig(seed = 42): GameConfig {
   return {
     players: [
       {
-        id: PLAYER_1, name: 'Alice',
+        id: PLAYER_1, name: 'Alice', alignment: Alignment.Hero,
         draftPool: [ARAGORN, BILBO, FRODO],
         startingMinorItems: [DAGGER_OF_WESTERNESSE],
         playDeck: makePlayDeck(),
@@ -59,7 +59,7 @@ function makeDraftConfig(seed = 42): GameConfig {
         startingHavens: [RIVENDELL],
       },
       {
-        id: PLAYER_2, name: 'Bob',
+        id: PLAYER_2, name: 'Bob', alignment: Alignment.Hero,
         draftPool: [LEGOLAS, GIMLI, FARAMIR],
         startingMinorItems: [],
         playDeck: makePlayDeck(),

@@ -36,6 +36,7 @@ import type {
 import {
   Phase,
   CharacterStatus,
+  Alignment,
   HAND_SIZE,
   ZERO_MARSHALLING_POINTS,
   createRng,
@@ -52,6 +53,7 @@ import { recomputeDerived } from './recompute-derived.js';
 export interface PlayerConfig {
   readonly id: PlayerId;
   readonly name: string;
+  readonly alignment: Alignment;
   readonly draftPool: readonly CardDefinitionId[];           // up to 10 characters for the draft
   readonly startingMinorItems: readonly CardDefinitionId[];  // up to 2 non-unique minor items
   readonly playDeck: readonly CardDefinitionId[];
@@ -189,6 +191,7 @@ function initPlayerPreDraft(
   const playerState: PlayerState = {
     id: config.id,
     name: config.name,
+    alignment: config.alignment,
     wizard: null,
     hand: [],
     playDeck: shuffledDeck,
@@ -344,6 +347,7 @@ function findPlayerHaven(state: GameState, player: PlayerState): CardDefinitionI
 export interface QuickStartPlayerConfig {
   readonly id: PlayerId;
   readonly name: string;
+  readonly alignment: Alignment;
   readonly startingCharacters: readonly CardDefinitionId[];
   readonly playDeck: readonly CardDefinitionId[];
   readonly siteDeck: readonly CardDefinitionId[];
@@ -451,6 +455,7 @@ function initPlayerWithCharacters(
   const playerState: PlayerState = {
     id: config.id,
     name: config.name,
+    alignment: config.alignment,
     wizard: null,
     hand,
     playDeck: remainingDeck,

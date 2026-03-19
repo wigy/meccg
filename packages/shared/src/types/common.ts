@@ -95,6 +95,17 @@ export enum MarshallingCategory {
   Misc = 'misc',
 }
 
+/**
+ * The alignment of a player's wizard, determining which card pool
+ * (hero, minion, fallen-wizard, or balrog) they draw from.
+ */
+export enum Alignment {
+  Hero = 'hero',
+  Minion = 'minion',
+  FallenWizard = 'fallen-wizard',
+  Balrog = 'balrog',
+}
+
 /** The five Istari (Wizards) that serve as player avatars in the game. */
 export enum WizardName {
   Gandalf = 'gandalf',
