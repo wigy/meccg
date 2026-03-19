@@ -95,6 +95,50 @@ describe('computeLegalActions', () => {
       expect(actions).toHaveLength(0);
     });
 
+    it('excludes characters already drafted by the opponent', () => {
+      // Both players have Aragorn. Bob drafts Aragorn first.
+      const config: GameConfig = {
+        players: [
+          {
+            id: PLAYER_1, name: 'Alice',
+            draftPool: [ARAGORN, BILBO],
+            startingMinorItems: [],
+            playDeck: makePlayDeck(),
+            siteDeck: [MORIA],
+            startingHavens: [RIVENDELL],
+          },
+          {
+            id: PLAYER_2, name: 'Bob',
+            draftPool: [ARAGORN, LEGOLAS],
+            startingMinorItems: [],
+            playDeck: makePlayDeck(),
+            siteDeck: [MORIA],
+            startingHavens: [LORIEN],
+          },
+        ],
+        seed: 42,
+      };
+
+      let state = createGame(config, pool);
+
+      // Alice picks Bilbo, Bob picks Aragorn — no collision, both succeed
+      let result = reduce(state, { type: 'draft-pick', player: PLAYER_1, characterDefId: BILBO });
+      state = result.state;
+      result = reduce(state, { type: 'draft-pick', player: PLAYER_2, characterDefId: ARAGORN });
+      state = result.state;
+
+      // Now Alice still has Aragorn in her pool, but Bob already drafted him
+      // Aragorn should NOT appear in Alice's legal actions
+      const actions = computeLegalActions(state, PLAYER_1);
+      const pickDefIds = actions
+        .filter((a): a is GameAction & { type: 'draft-pick' } => a.type === 'draft-pick')
+        .map(a => a.characterDefId);
+
+      expect(pickDefIds).not.toContain(ARAGORN);
+      // draft-stop should still be available
+      expect(actions.find(a => a.type === 'draft-stop')).toBeDefined();
+    });
+
     it('excludes characters that would exceed mind limit of 20', () => {
       // Aragorn has mind 9 — after drafting him + Legolas (6), total is 15
       // Next pick: Gimli (6) would make 21 — should be excluded

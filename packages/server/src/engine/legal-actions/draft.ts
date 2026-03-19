@@ -22,6 +22,14 @@ export function draftActions(state: GameState, playerId: PlayerId): GameAction[]
 
   const actions: GameAction[] = [];
 
+  // Characters already drafted by the opponent are unavailable (unique)
+  const opponentIndex = 1 - playerIndex;
+  const opponentDrafted = new Set(
+    state.phaseState.phase === 'character-draft'
+      ? state.phaseState.draftState[opponentIndex].drafted.map(id => id as string)
+      : [],
+  );
+
   // Calculate current total mind
   const currentMind = draft.drafted.reduce((sum, defId) => {
     const def = state.cardPool[defId as string];
@@ -32,6 +40,9 @@ export function draftActions(state: GameState, playerId: PlayerId): GameAction[]
   for (const charDefId of draft.pool) {
     const charDef = state.cardPool[charDefId as string];
     if (!charDef || charDef.cardType !== 'hero-character') continue;
+
+    // Unique characters already drafted by opponent are unavailable
+    if (charDef.unique && opponentDrafted.has(charDefId as string)) continue;
 
     // Check mind constraint
     if (charDef.mind !== null && currentMind + charDef.mind > GENERAL_INFLUENCE) continue;
