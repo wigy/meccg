@@ -32,6 +32,7 @@ import {
   describeAction,
   colorDebug,
   setShowDebugIds,
+  stripCardMarkers,
 } from '@meccg/shared';
 import { parseAction } from './action-parser.js';
 import { loadAiStrategy, sampleWeighted } from './ai/index.js';
@@ -47,6 +48,12 @@ const AI_ACTION_DELAY_MS = 1000;
 
 const cardPool = loadCardPool();
 setShowDebugIds(DEBUG);
+
+// Strip STX card-ID markers from all console output (used by web client only)
+const originalLog = console.log.bind(console);
+console.log = (...args: unknown[]) => {
+  originalLog(...args.map(a => typeof a === 'string' ? stripCardMarkers(a) : a));
+};
 
 let aiStrategy: AiStrategy | null = null;
 if (AI_MODE) {

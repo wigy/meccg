@@ -20,7 +20,7 @@ import type {
   JoinMessage,
   GameAction,
 } from '@meccg/shared';
-import { formatGameState, loadCardPool, colorDebug } from '@meccg/shared';
+import { formatGameState, loadCardPool, colorDebug, stripCardMarkers } from '@meccg/shared';
 import { createGame } from '../engine/init.js';
 import type { PlayerConfig, GameConfig } from '../engine/init.js';
 import { reduce } from '../engine/reducer.js';
@@ -195,7 +195,7 @@ export class GameSession {
     this.registerPlayers(p1, p1Id, name1, p2, p2Id, name2);
 
     console.log('New game started!');
-    console.log('\n' + formatGameState(this.state));
+    console.log('\n' + stripCardMarkers(formatGameState(this.state)));
 
     this.broadcastState();
   }
@@ -210,7 +210,7 @@ export class GameSession {
     this.registerPlayers(p1, p1Id, name1, p2, p2Id, name2);
 
     console.log('Game restored from save!');
-    console.log('\n' + formatGameState(this.state));
+    console.log('\n' + stripCardMarkers(formatGameState(this.state)));
 
     this.broadcastState();
   }
@@ -278,7 +278,7 @@ export class GameSession {
     const { type: _type, player: _player, ...args } = actionWithPlayer;
     const argsStr = Object.keys(args).length > 0 ? ' ' + JSON.stringify(args) : '';
     console.log(`Action: ${actionWithPlayer.type} by ${playerId}${argsStr}`);
-    console.log('\n' + formatGameState(this.state));
+    console.log('\n' + stripCardMarkers(formatGameState(this.state)));
 
     // Detect draft round reveal
     if (prevDraft) {

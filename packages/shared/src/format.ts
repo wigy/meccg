@@ -48,6 +48,11 @@ export function colorDebug(text: string): string {
   return `${DEBUG_COLOR}${text}${RESET}`;
 }
 
+/** Strip STX card-ID markers (\x02id\x02) from formatted output. */
+export function stripCardMarkers(text: string): string {
+  return text.replace(/\x02[^\x02]*\x02/g, '');
+}
+
 /**
  * Controls whether instance/definition IDs are shown in formatted output.
  * Set to true to show `{i-3}` and `{tw-120}` after card names.
@@ -94,7 +99,7 @@ export function formatCardName(
 ): string {
   if (!def) return colorizeUnknown('a card');
   // Placeholder cards (unknown-card, unknown-site) render in unknown color
-  if ((def.id as string).startsWith('unknown-')) return colorizeUnknown(def.name);
+  if ((def.id as string).startsWith('unknown-')) return colorizeUnknown(`\x02${def.id}\x02${def.name}`);
   // Embed card definition ID as \x02id\x02 marker before the name.
   // Terminals ignore STX characters; the web client parses them into data attributes.
   return colorize(`\x02${def.id}\x02${def.name}`, def.cardType);

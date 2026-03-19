@@ -92,7 +92,7 @@ function getCardIdToImage(cardPool: Readonly<Record<string, CardDefinition>>): M
   if (cardIdToImage) return cardIdToImage;
   cardIdToImage = new Map();
   for (const card of Object.values(cardPool)) {
-    const imgPath = cardImageProxyPath(card);
+    const imgPath = cardImageProxyPath(card) ?? (card.image || undefined);
     if (imgPath) {
       cardIdToImage.set(card.id as string, imgPath);
     }
