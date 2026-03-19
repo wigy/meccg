@@ -31,14 +31,10 @@ Each player takes on the role of a **Wizard** (Gandalf, Saruman, Radagast, Alata
 
 ## Game Setup: Character Draft
 
-Before the game begins, players draft their starting characters using an iterated simultaneous-reveal procedure:
-
-### Wizard Draft
-1. Each player places up to **3 Wizard cards** face down.
-2. **Simultaneous reveal** — any duplicated Wizards go into the play deck. This determines which Wizard each player will use, but the Wizard does **not** start in play.
+Before the game begins, players draft their starting characters using an iterated simultaneous-reveal procedure. There is no separate wizard draft — wizard cards are in the play deck and the first player to draw and play one claims it.
 
 ### Character Draft
-1. Each player prepares a **pool of up to 10 characters**.
+1. Each player prepares a **pool of up to 10 characters** (no wizards).
 2. Each round, both players select **1 character** from their pool and place it **face down**.
 3. **Simultaneous reveal**:
    - If both revealed the **same unique character**: both copies are **set aside** — neither player gets it.
@@ -57,7 +53,7 @@ A player stops drafting when:
 - Starting company is placed at **Rivendell** (hero alignment).
 - Each player may assign up to **2 non-unique minor items** to starting characters.
 - Remaining characters from the pool (up to 10 total) may be added to the **play deck**.
-- The **Wizard** enters play later during an Organization Phase at any Haven.
+- The **Wizard** is in the play deck — first player to draw and play it claims it.
 
 ## Turn Structure
 
