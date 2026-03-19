@@ -88,18 +88,23 @@ h2 {
   border-color: #c4a35a;
 }
 
-#main {
+#debug-view {
   display: flex;
   gap: 1rem;
-  margin-bottom: 1rem;
 }
 
 #left-panel {
   flex: 2;
+  min-width: 0;
 }
 
 #right-panel {
   flex: 1;
+  min-width: 0;
+  max-height: 100vh;
+  overflow-y: auto;
+  position: sticky;
+  top: 0;
 }
 
 #state, #draft {
@@ -143,8 +148,7 @@ h2 {
 }
 
 #log-panel {
-  border-top: 1px solid #334;
-  padding-top: 0.75rem;
+  margin-top: 0.5rem;
 }
 
 #log {
