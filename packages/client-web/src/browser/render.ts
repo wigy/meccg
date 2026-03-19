@@ -197,13 +197,14 @@ export function renderActions(
   actions: readonly GameAction[],
   cardPool: Readonly<Record<string, CardDefinition>>,
   onClick: (action: GameAction) => void,
+  instanceLookup?: Readonly<Record<string, CardDefinitionId>>,
 ): void {
   const el = $('actions');
   el.innerHTML = '';
 
   for (const action of actions) {
     const btn = document.createElement('button');
-    btn.innerHTML = ansiToHtml(describeAction(action, cardPool));
+    btn.innerHTML = ansiToHtml(describeAction(action, cardPool, instanceLookup));
     tagCardImages(btn, cardPool);
     btn.addEventListener('click', () => onClick(action));
     el.appendChild(btn);

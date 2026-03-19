@@ -39,7 +39,7 @@ function buildJoinMessage(name: string): JoinMessage {
     alignment: Alignment.Wizard,
     draftPool: [ARAGORN, BILBO, FRODO, SAM_GAMGEE, ELROND, CELEBORN, THEODEN,
       EOWYN, BEREGOND, ANBORN],
-    startingMinorItems: [DAGGER_OF_WESTERNESSE],
+    startingMinorItems: [DAGGER_OF_WESTERNESSE, DAGGER_OF_WESTERNESSE],
     playDeck: buildDefaultPlayDeck(),
     siteDeck: [MORIA, MINAS_TIRITH, MOUNT_DOOM],
     startingHavens: [RIVENDELL],
@@ -84,7 +84,7 @@ function connect(name: string): void {
         renderLog(`State update: turn ${msg.view.turnNumber}, phase ${msg.view.phaseState.phase}`);
         renderState(msg.view, cardPool);
         renderDraft(msg.view, cardPool);
-        renderActions(msg.view.legalActions, cardPool, sendAction);
+        renderActions(msg.view.legalActions, cardPool, sendAction, msg.view.visibleInstances);
         break;
 
       case 'draft-reveal': {

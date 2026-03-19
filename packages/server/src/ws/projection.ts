@@ -252,6 +252,11 @@ export function projectPlayerView(state: GameState, playerId: PlayerId): PlayerV
     }
   };
 
+  // Item draft: unassigned items are visible to their owner
+  if (state.phaseState.phase === 'item-draft') {
+    for (const id of state.phaseState.itemDraftState[selfIndex].unassignedItems) addInstance(id);
+  }
+
   // Own cards: hand, discard, site deck, sideboard, companies, characters + their attachments
   for (const id of selfPlayer.hand) addInstance(id);
   for (const id of selfPlayer.discardPile) addInstance(id);

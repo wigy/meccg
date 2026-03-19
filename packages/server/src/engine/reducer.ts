@@ -14,7 +14,7 @@
  * (or the original state plus an error string if the action was illegal).
  */
 
-import type { GameState, DraftPlayerState, CardDefinitionId } from '@meccg/shared';
+import type { GameState, DraftPlayerState, ItemDraftPlayerState, CardDefinitionId, CharacterInPlay } from '@meccg/shared';
 import type { GameAction } from '@meccg/shared';
 import { Phase, LEGAL_ACTIONS_BY_PHASE } from '@meccg/shared';
 import { applyDraftResults } from './init.js';
@@ -61,6 +61,9 @@ export function reduce(state: GameState, action: GameAction): ReducerResult {
   switch (phase) {
     case Phase.CharacterDraft:
       result = handleCharacterDraft(state, action);
+      break;
+    case Phase.ItemDraft:
+      result = handleItemDraft(state, action);
       break;
     case Phase.Untap:
       result = handleUntap(state, action);
@@ -315,6 +318,91 @@ function finalizeDraft(
 ): ReducerResult {
   return {
     state: applyDraftResults(state, draftState),
+  };
+}
+
+// ---- Item draft handler ----
+
+/**
+ * Handles the item draft phase where players assign their starting minor
+ * items to characters in their starting company. Both players act
+ * simultaneously. When all items are assigned, the game transitions to
+ * the first Untap phase.
+ */
+function handleItemDraft(state: GameState, action: GameAction): ReducerResult {
+  if (state.phaseState.phase !== Phase.ItemDraft) {
+    return { state, error: 'Not in item draft phase' };
+  }
+
+  if (action.type !== 'assign-starting-item') {
+    return { state, error: `Unexpected action in item draft: ${action.type}` };
+  }
+
+  const playerIndex = state.players[0].id === action.player ? 0 : 1;
+  const itemDraft = state.phaseState.itemDraftState[playerIndex];
+
+  if (itemDraft.done) {
+    return { state, error: 'You have already assigned all items' };
+  }
+
+  // Validate item is in unassigned list
+  if (!itemDraft.unassignedItems.includes(action.itemInstanceId)) {
+    return { state, error: 'Item is not in your unassigned items' };
+  }
+
+  // Validate character belongs to this player's company
+  const player = state.players[playerIndex];
+  const allCharIds = player.companies.flatMap(c => c.characters);
+  if (!allCharIds.includes(action.characterInstanceId)) {
+    return { state, error: 'Character is not in your starting company' };
+  }
+
+  // Assign the item to the character
+  const charKey = action.characterInstanceId as string;
+  const existingChar = player.characters[charKey];
+  if (!existingChar) {
+    return { state, error: 'Character not found' };
+  }
+
+  const updatedChar: CharacterInPlay = {
+    ...existingChar,
+    items: [...existingChar.items, action.itemInstanceId],
+  };
+  const updatedCharacters = { ...player.characters, [charKey]: updatedChar };
+  const updatedPlayer = { ...player, characters: updatedCharacters };
+
+  // Remove item from unassigned list
+  const newUnassigned = itemDraft.unassignedItems.filter(id => id !== action.itemInstanceId);
+  const newItemDraft: ItemDraftPlayerState = {
+    unassignedItems: newUnassigned,
+    done: newUnassigned.length === 0,
+  };
+
+  const newItemDraftState = [...state.phaseState.itemDraftState] as [ItemDraftPlayerState, ItemDraftPlayerState];
+  newItemDraftState[playerIndex] = newItemDraft;
+
+  const newPlayers = [...state.players] as unknown as [typeof state.players[0], typeof state.players[1]];
+  newPlayers[playerIndex] = updatedPlayer;
+
+  // If both players are done, transition to Untap
+  if (newItemDraftState[0].done && newItemDraftState[1].done) {
+    return {
+      state: {
+        ...state,
+        players: newPlayers as unknown as readonly [typeof state.players[0], typeof state.players[1]],
+        activePlayer: newPlayers[0].id,
+        phaseState: { phase: Phase.Untap },
+        turnNumber: 1,
+      },
+    };
+  }
+
+  return {
+    state: {
+      ...state,
+      players: newPlayers as unknown as readonly [typeof state.players[0], typeof state.players[1]],
+      phaseState: { ...state.phaseState, itemDraftState: newItemDraftState },
+    },
   };
 }
 

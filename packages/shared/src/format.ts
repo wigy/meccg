@@ -500,22 +500,36 @@ export function formatPlayerView(
 /**
  * Returns a human-readable description of a game action, resolving card
  * definition IDs to colored names where possible.
+ *
+ * @param instanceLookup - Optional map from instance ID to definition ID,
+ *   used to resolve instance IDs to colored card names. Without it, instance
+ *   IDs are shown as raw `{id}`. Matches the shape of
+ *   {@link PlayerView.visibleInstances}.
  */
 export function describeAction(
   action: GameAction,
   cardPool: Readonly<Record<string, CardDefinition>>,
+  instanceLookup?: Readonly<Record<string, CardDefinitionId>>,
 ): string {
   const defName = (id: CardDefinitionId) => {
     const def = cardPool[id as string];
     return def ? formatCardName(def) : `${id}`;
   };
-  const instName = (id: CardInstanceId) => `{${id}}`;
+  const instName = (id: CardInstanceId) => {
+    if (instanceLookup) {
+      const defId = instanceLookup[id as string];
+      if (defId) return defName(defId);
+    }
+    return `{${id}}`;
+  };
 
   switch (action.type) {
     case 'draft-pick':
       return `Draft ${defName(action.characterDefId)}`;
     case 'draft-stop':
       return 'Stop drafting and keep current selections';
+    case 'assign-starting-item':
+      return `Assign item ${instName(action.itemInstanceId)} to ${instName(action.characterInstanceId)}`;
     case 'play-character':
       return `Play character ${instName(action.characterInstanceId)} at site ${instName(action.atSite)}`;
     case 'split-company':

@@ -227,6 +227,8 @@ export interface PlayerState {
 export enum Phase {
   /** Pre-game phase where players alternate selecting characters from their draft pool. */
   CharacterDraft = 'character-draft',
+  /** Pre-game phase where players assign starting minor items to drafted characters. */
+  ItemDraft = 'item-draft',
   /** Characters are untapped (refreshed) and wounded characters at havens may heal. */
   Untap = 'untap',
   /** Players reorganize companies, recruit characters, transfer items, and plan movement. */
@@ -283,6 +285,30 @@ export interface CharacterDraftPhaseState {
   readonly draftState: readonly [DraftPlayerState, DraftPlayerState];
   /** Character definition IDs removed from the draft due to both players picking the same character. */
   readonly setAside: readonly CardDefinitionId[];
+}
+
+/**
+ * Per-player state during the item draft phase.
+ *
+ * After the character draft completes, each player assigns their starting
+ * minor items to any character in their starting company.
+ */
+export interface ItemDraftPlayerState {
+  /** Minor item instance IDs not yet assigned to a character. */
+  readonly unassignedItems: readonly CardInstanceId[];
+  /** Whether this player has finished assigning items (or had none). */
+  readonly done: boolean;
+}
+
+/**
+ * State for the item draft phase, where players assign starting minor
+ * items to their drafted characters before the game begins.
+ */
+export interface ItemDraftPhaseState {
+  /** Phase discriminant. */
+  readonly phase: Phase.ItemDraft;
+  /** Item assignment state for each player (indexed by player order). */
+  readonly itemDraftState: readonly [ItemDraftPlayerState, ItemDraftPlayerState];
 }
 
 /**
@@ -394,6 +420,7 @@ export interface GameOverPhaseState {
  */
 export type PhaseState =
   | CharacterDraftPhaseState
+  | ItemDraftPhaseState
   | UntapPhaseState
   | OrganizationPhaseState
   | LongEventPhaseState

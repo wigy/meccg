@@ -268,7 +268,7 @@ describe('character draft', () => {
     }
   });
 
-  it('transitions to untap phase when both players stop', () => {
+  it('transitions to item-draft phase when both players stop and have items', () => {
     let state = createGame(makeDraftConfig(), pool);
 
     let result = reduce(state, { type: 'draft-pick', player: PLAYER_1, characterDefId: ARAGORN });
@@ -281,15 +281,13 @@ describe('character draft', () => {
     result = reduce(state, { type: 'draft-stop', player: PLAYER_2 });
     state = result.state;
 
-    expect(state.phaseState.phase).toBe(Phase.Untap);
-    expect(state.turnNumber).toBe(1);
+    // Both players have starting items, so we're in item-draft
+    expect(state.phaseState.phase).toBe(Phase.ItemDraft);
     expect(state.players[0].companies).toHaveLength(1);
     expect(state.players[1].companies).toHaveLength(1);
-
-    console.log(formatGameState(state));
   });
 
-  it('assigns starting minor items to first drafted character', () => {
+  it('assigns starting minor items to characters during item draft', () => {
     let state = createGame(makeDraftConfig(), pool);
 
     let result = reduce(state, { type: 'draft-pick', player: PLAYER_1, characterDefId: ARAGORN });
@@ -302,21 +300,46 @@ describe('character draft', () => {
     result = reduce(state, { type: 'draft-stop', player: PLAYER_2 });
     state = result.state;
 
-    expect(state.phaseState.phase).toBe(Phase.Untap);
+    expect(state.phaseState.phase).toBe(Phase.ItemDraft);
 
-    // Alice's Aragorn should have 2 Daggers
-    const p1 = state.players[0];
-    const firstCharId = p1.companies[0].characters[0];
-    const firstChar = p1.characters[firstCharId as string];
-    expect(firstChar.items).toHaveLength(2);
-    for (const itemId of firstChar.items) {
+    // Get character and item instance IDs
+    const p1Char = state.players[0].companies[0].characters[0];
+    const p2Char = state.players[1].companies[0].characters[0];
+
+    if (state.phaseState.phase !== Phase.ItemDraft) throw new Error('wrong phase');
+    const p1Items = state.phaseState.itemDraftState[0].unassignedItems;
+    const p2Items = state.phaseState.itemDraftState[1].unassignedItems;
+
+    expect(p1Items).toHaveLength(2); // Alice has 2 daggers
+    expect(p2Items).toHaveLength(1); // Bob has 1 dagger
+
+    // Alice assigns both daggers to Aragorn
+    result = reduce(state, { type: 'assign-starting-item', player: PLAYER_1, itemInstanceId: p1Items[0], characterInstanceId: p1Char });
+    expect(result.error).toBeUndefined();
+    state = result.state;
+
+    result = reduce(state, { type: 'assign-starting-item', player: PLAYER_1, itemInstanceId: p1Items[1], characterInstanceId: p1Char });
+    expect(result.error).toBeUndefined();
+    state = result.state;
+
+    // Bob assigns his dagger to Legolas
+    result = reduce(state, { type: 'assign-starting-item', player: PLAYER_2, itemInstanceId: p2Items[0], characterInstanceId: p2Char });
+    expect(result.error).toBeUndefined();
+    state = result.state;
+
+    // All items assigned → transitions to Untap
+    expect(state.phaseState.phase).toBe(Phase.Untap);
+    expect(state.turnNumber).toBe(1);
+
+    // Verify items are on the characters
+    const p1CharState = state.players[0].characters[p1Char as string];
+    expect(p1CharState.items).toHaveLength(2);
+    for (const itemId of p1CharState.items) {
       expect(state.instanceMap[itemId as string].definitionId).toBe(DAGGER_OF_WESTERNESSE);
     }
 
-    // Bob's Legolas should have 1 Dagger
-    const p2 = state.players[1];
-    const firstChar2 = p2.characters[p2.companies[0].characters[0] as string];
-    expect(firstChar2.items).toHaveLength(1);
+    const p2CharState = state.players[1].characters[p2Char as string];
+    expect(p2CharState.items).toHaveLength(1);
 
     console.log(formatGameState(state));
   });

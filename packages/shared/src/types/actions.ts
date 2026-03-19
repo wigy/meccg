@@ -44,6 +44,25 @@ export interface DraftStopAction {
   readonly player: PlayerId;
 }
 
+// ---- Item draft phase ----
+
+/**
+ * Assign a starting minor item to a character in the starting company.
+ *
+ * After the character draft completes, each player assigns their starting
+ * minor items to any character in their starting company. Both players
+ * assign simultaneously.
+ */
+export interface AssignStartingItemAction {
+  readonly type: 'assign-starting-item';
+  /** The player assigning the item. */
+  readonly player: PlayerId;
+  /** The minor item instance to assign. */
+  readonly itemInstanceId: CardInstanceId;
+  /** The character instance that will carry the item. */
+  readonly characterInstanceId: CardInstanceId;
+}
+
 // ---- Organization phase ----
 
 /**
@@ -386,6 +405,7 @@ export interface FetchFromSideboardAction {
 export type GameAction =
   | DraftPickAction
   | DraftStopAction
+  | AssignStartingItemAction
   | PlayCharacterAction
   | SplitCompanyAction
   | MergeCompaniesAction

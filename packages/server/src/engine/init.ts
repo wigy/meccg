@@ -26,6 +26,7 @@ import type {
   CharacterInPlay,
   CardInstance,
   DraftPlayerState,
+  ItemDraftPlayerState,
   RngState,
   CardDefinition,
   PlayerId,
@@ -232,7 +233,7 @@ export function applyDraftResults(
     prefix: 'i',
   };
 
-  const newPlayers = state.players.map((player, index) => {
+  const results = state.players.map((player, index) => {
     const drafted = draftState[index].drafted;
     const startingMinorItems = draftState[index].startingMinorItems;
     const startingHaven = findPlayerHaven(state, player);
@@ -249,16 +250,12 @@ export function applyDraftResults(
     // Mint characters and create CharacterInPlay entries
     const characters: Record<string, CharacterInPlay> = {};
     const characterInstanceIds: CardInstanceId[] = [];
-    let firstCharInstanceId: string | null = null;
 
     for (const charDefId of drafted) {
       const charDef = state.cardPool[charDefId as string];
       if (!charDef || charDef.cardType !== 'hero-character') continue;
       const instanceId = mint(minter, charDefId);
       characterInstanceIds.push(instanceId);
-      if (firstCharInstanceId === null) {
-        firstCharInstanceId = instanceId as string;
-      }
       characters[instanceId as string] = {
         instanceId,
         definitionId: charDefId,
@@ -268,14 +265,6 @@ export function applyDraftResults(
         corruptionCards: [],
         followers: [],
         controlledBy: 'general',
-      };
-    }
-
-    // Assign starting minor items to first character
-    if (firstCharInstanceId !== null && minorItemInstanceIds.length > 0) {
-      characters[firstCharInstanceId] = {
-        ...characters[firstCharInstanceId],
-        items: minorItemInstanceIds,
       };
     }
 
@@ -294,21 +283,42 @@ export function applyDraftResults(
 
     // GI and MP are left at zero — recomputeDerived() runs after the reducer
     return {
-      ...player,
-      hand,
-      playDeck: remainingDeck,
-      companies: [company],
-      characters,
-    } satisfies PlayerState;
-  }) as unknown as readonly [PlayerState, PlayerState];
+      player: {
+        ...player,
+        hand,
+        playDeck: remainingDeck,
+        companies: [company],
+        characters,
+      } satisfies PlayerState,
+      unassignedItems: minorItemInstanceIds,
+    };
+  });
+
+  const newPlayers = [results[0].player, results[1].player] as unknown as readonly [PlayerState, PlayerState];
+  const itemDraftState: readonly [ItemDraftPlayerState, ItemDraftPlayerState] = [
+    { unassignedItems: results[0].unassignedItems, done: results[0].unassignedItems.length === 0 },
+    { unassignedItems: results[1].unassignedItems, done: results[1].unassignedItems.length === 0 },
+  ];
+
+  // If neither player has items to assign, skip directly to Untap
+  if (itemDraftState[0].done && itemDraftState[1].done) {
+    return {
+      ...state,
+      players: newPlayers,
+      activePlayer: newPlayers[0].id,
+      instanceMap: minter.instanceMap,
+      phaseState: { phase: Phase.Untap },
+      turnNumber: 1,
+    };
+  }
 
   return {
     ...state,
     players: newPlayers,
-    activePlayer: newPlayers[0].id,
+    activePlayer: null,
     instanceMap: minter.instanceMap,
-    phaseState: { phase: Phase.Untap },
-    turnNumber: 1,
+    phaseState: { phase: Phase.ItemDraft, itemDraftState },
+    turnNumber: 0,
   };
 }
 
