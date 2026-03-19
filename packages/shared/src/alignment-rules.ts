@@ -7,19 +7,23 @@
  */
 
 import { Alignment } from './types/common.js';
+import type { CardDefinitionId } from './types/common.js';
+import { RIVENDELL } from './card-ids.js';
 
 /** Per-alignment rule constants. */
 export interface AlignmentRules {
   /** Maximum number of characters allowed in the starting company. */
   readonly maxStartingCompanySize: number;
+  /** Default starting haven site(s) for this alignment. */
+  readonly defaultStartingSites: readonly CardDefinitionId[];
 }
 
 /** Alignment-specific rules, keyed by alignment value. */
 const ALIGNMENT_RULES: { readonly [K in Alignment]: AlignmentRules } = {
-  'wizard': { maxStartingCompanySize: 5 },
-  'ringwraith': { maxStartingCompanySize: 6 },
-  'fallen-wizard': { maxStartingCompanySize: 5 },
-  'balrog': { maxStartingCompanySize: 5 },
+  'wizard': { maxStartingCompanySize: 5, defaultStartingSites: [RIVENDELL] },
+  'ringwraith': { maxStartingCompanySize: 6, defaultStartingSites: [] },
+  'fallen-wizard': { maxStartingCompanySize: 5, defaultStartingSites: [] },
+  'balrog': { maxStartingCompanySize: 5, defaultStartingSites: [] },
 };
 
 /** Returns the alignment-specific rules for the given alignment. */
