@@ -33,14 +33,29 @@ import {
   setShowDebugIds,
 } from '@meccg/shared';
 import { parseAction } from './action-parser.js';
+import { loadAiStrategy } from './ai/index.js';
+import type { AiStrategy } from './ai/index.js';
 
 const SERVER_URL = process.env.SERVER_URL ?? 'ws://localhost:3000';
 const DEBUG = process.argv.includes('--debug') || process.env.DEBUG === '1';
-const PLAYER_NAME = process.argv.filter(a => a !== '--debug')[2] ?? 'Player';
+const AI_MODE = process.argv.includes('--ai') ? (process.argv[process.argv.indexOf('--ai') + 1] ?? 'random') : null;
+const PLAYER_NAME = process.argv.filter(a => !a.startsWith('--') && a !== 'random')[2] ?? 'Player';
 const RECONNECT_DELAY_MS = 2000;
+/** Delay before AI submits an action (ms), so humans can read the output. */
+const AI_ACTION_DELAY_MS = 1000;
 
 const cardPool = loadCardPool();
 setShowDebugIds(DEBUG);
+
+let aiStrategy: AiStrategy | null = null;
+if (AI_MODE) {
+  aiStrategy = loadAiStrategy(AI_MODE);
+  if (!aiStrategy) {
+    console.error(`Unknown AI strategy: ${AI_MODE}`);
+    console.error('Available: random');
+    process.exit(1);
+  }
+}
 
 function buildDefaultPlayDeck(): CardDefinitionId[] {
   const resources = [GLAMDRING, STING, THE_MITHRIL_COAT, THE_ONE_RING];
@@ -88,7 +103,7 @@ function connect(): void {
   ws = socket;
 
   socket.on('open', () => {
-    console.log(`Connected to ${SERVER_URL} as "${PLAYER_NAME}"`);
+    console.log(`Connected to ${SERVER_URL} as "${PLAYER_NAME}"${AI_MODE ? ` (AI: ${AI_MODE})` : ''}`);
     socket.send(JSON.stringify(defaultJoin));
   });
 
@@ -157,7 +172,23 @@ function connect(): void {
           }
         }
         console.log('');
-        rl.prompt();
+
+        // AI mode: auto-pick an action after a short delay
+        if (aiStrategy && lastLegalActions.length > 0) {
+          setTimeout(() => {
+            if (!ws || ws.readyState !== WebSocket.OPEN || !aiStrategy || lastLegalActions.length === 0) return;
+            const action = aiStrategy.pickAction({ view: msg.view, cardPool, legalActions: lastLegalActions });
+            const desc = describeAction(action, cardPool);
+            console.log(`AI (${aiStrategy.name}) picks: ${desc}`);
+            if (DEBUG) {
+              console.log(colorDebug(`>> ${JSON.stringify(action)}`));
+            }
+            const outMsg: ClientMessage = { type: 'action', action };
+            ws.send(JSON.stringify(outMsg));
+          }, AI_ACTION_DELAY_MS);
+        } else {
+          rl.prompt();
+        }
         break;
 
       case 'draft-reveal': {
