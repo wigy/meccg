@@ -422,7 +422,7 @@ export function formatGameState(state: GameState): string {
 
   const activePlayer = state.activePlayer ? state.players.find(p => p.id === state.activePlayer) : null;
 
-  return renderState({
+  return stripCardMarkers(renderState({
     turnNumber: state.turnNumber,
     phaseState: state.phaseState,
     activePlayerName: activePlayer?.name ?? '(simultaneous)',
@@ -441,7 +441,7 @@ export function formatGameState(state: GameState): string {
     eventsInPlay: state.eventsInPlay,
     defOf,
     instOf,
-  });
+  }));
 }
 
 /**
@@ -458,7 +458,7 @@ export function formatPlayerView(
     return defId ?? undefined;
   };
 
-  return renderState({
+  return stripCardMarkers(renderState({
     turnNumber: view.turnNumber,
     phaseState: view.phaseState,
     activePlayerName: view.activePlayer === null ? '(simultaneous)' : (view.self.id === view.activePlayer ? view.self.name : view.opponent.name),
@@ -492,7 +492,7 @@ export function formatPlayerView(
     eventsInPlay: view.eventsInPlay,
     defOf,
     instOf,
-  });
+  }));
 }
 
 // ---- Action description ----

@@ -14,6 +14,7 @@ import type { DraftPickAction } from '@meccg/shared';
 import type { PlayerId } from '@meccg/shared';
 import {
   ARAGORN, BILBO, FRODO, LEGOLAS, GIMLI, FARAMIR,
+  EOWYN, BEREGOND, BERGIL, BARD_BOWMAN, ANBORN, SAM_GAMGEE,
   GLAMDRING, STING, THE_MITHRIL_COAT, THE_ONE_RING, DAGGER_OF_WESTERNESSE,
   CAVE_DRAKE, ORC_PATROL, BARROW_WIGHT,
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH, MOUNT_DOOM,
@@ -361,5 +362,62 @@ describe('character draft', () => {
     // Pick Gimli (mind 6, total 21) — rejected
     result = reduce(state, { type: 'draft-pick', player: PLAYER_1, characterDefId: GIMLI });
     expect(result.error).toContain('mind limit');
+  });
+
+  it('rejects 6th pick for hero alignment (max 5 characters)', () => {
+    const config: GameConfig = {
+      players: [
+        {
+          id: PLAYER_1, name: 'Alice', alignment: Alignment.Hero,
+          // 6 low-mind characters (all mind 2) — total mind 12, well under 20
+          draftPool: [EOWYN, BEREGOND, BERGIL, BARD_BOWMAN, ANBORN, SAM_GAMGEE],
+          startingMinorItems: [],
+          playDeck: makePlayDeck(),
+          siteDeck: [MORIA],
+          startingHavens: [RIVENDELL],
+        },
+        {
+          id: PLAYER_2, name: 'Bob', alignment: Alignment.Hero,
+          draftPool: [FARAMIR],
+          startingMinorItems: [],
+          playDeck: makePlayDeck(),
+          siteDeck: [MORIA],
+          startingHavens: [LORIEN],
+        },
+      ],
+      seed: 42,
+    };
+
+    let state = createGame(config, pool);
+
+    // Round 1: both pick
+    let result = reduce(state, { type: 'draft-pick', player: PLAYER_1, characterDefId: EOWYN });
+    expect(result.error).toBeUndefined();
+    state = result.state;
+    result = reduce(state, { type: 'draft-pick', player: PLAYER_2, characterDefId: FARAMIR });
+    expect(result.error).toBeUndefined();
+    state = result.state;
+
+    // Bob has exhausted his pool — auto-stopped. Alice picks 4 more.
+    const remaining = [BEREGOND, BERGIL, BARD_BOWMAN, ANBORN];
+    for (const charId of remaining) {
+      result = reduce(state, { type: 'draft-pick', player: PLAYER_1, characterDefId: charId });
+      expect(result.error).toBeUndefined();
+      state = result.state;
+    }
+
+    // Alice now has 5 characters (mind 2 each = 10 total, well under 20)
+    // But hero max is 5, so she should be auto-stopped after the 5th pick.
+    // Both players stopped → draft ends, game transitions to untap.
+    expect(state.phaseState.phase).toBe(Phase.Untap);
+
+    // Verify Alice has exactly 5 characters in play
+    const p1 = state.players[0];
+    const allCharIds = p1.companies.flatMap(c => c.characters);
+    expect(allCharIds).toHaveLength(5);
+
+    // Attempting a 6th draft-pick is rejected (wrong phase now)
+    result = reduce(state, { type: 'draft-pick', player: PLAYER_1, characterDefId: SAM_GAMGEE });
+    expect(result.error).toBeDefined();
   });
 });
