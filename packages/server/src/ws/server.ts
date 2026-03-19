@@ -16,9 +16,10 @@ import { WebSocketServer } from 'ws';
 import { GameSession } from './game-session.js';
 
 const PORT = parseInt(process.env.PORT ?? '3000', 10);
+const DEBUG = process.argv.includes('--debug');
 
 const wss = new WebSocketServer({ port: PORT });
-const session = new GameSession();
+const session = new GameSession({ debug: DEBUG });
 
 console.log(`MECCG server listening on port ${PORT}`);
 console.log('Waiting for two players to connect...');

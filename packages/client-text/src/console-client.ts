@@ -93,6 +93,9 @@ function connect(): void {
   });
 
   socket.on('message', (data) => {
+    if (DEBUG) {
+      console.log(colorDebug(`<< ${data.toString()}`));
+    }
     const msg: ServerMessage = JSON.parse(data.toString());
 
     switch (msg.type) {

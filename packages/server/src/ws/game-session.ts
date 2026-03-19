@@ -22,7 +22,7 @@ import type {
   JoinMessage,
   GameAction,
 } from '@meccg/shared';
-import { formatGameState, loadCardPool } from '@meccg/shared';
+import { formatGameState, loadCardPool, colorDebug } from '@meccg/shared';
 import { createGame } from '../engine/init.js';
 import type { PlayerConfig, GameConfig } from '../engine/init.js';
 import { reduce } from '../engine/reducer.js';
@@ -63,8 +63,10 @@ export class GameSession {
   /** Maps player name → PlayerId for the current game. */
   private nameToPlayerId: Record<string, string> = {};
   private playerCounter = 0;
+  private debug: boolean;
 
-  constructor() {
+  constructor(options?: { debug?: boolean }) {
+    this.debug = options?.debug ?? false;
     this.cardPool = loadCardPool();
     fs.mkdirSync(SAVE_DIR, { recursive: true });
   }
@@ -105,6 +107,9 @@ export class GameSession {
   addConnection(ws: WebSocket): void {
     ws.on('message', (data) => {
       try {
+        if (this.debug) {
+          console.log(colorDebug(`<< ${data.toString()}`));
+        }
         const msg: ClientMessage = JSON.parse(data.toString());
         this.handleMessage(ws, msg);
       } catch {
@@ -433,7 +438,11 @@ export class GameSession {
 
   private send(ws: WebSocket, msg: ServerMessage): void {
     if (ws.readyState === ws.OPEN) {
-      ws.send(JSON.stringify(msg));
+      const json = JSON.stringify(msg);
+      if (this.debug) {
+        console.log(colorDebug(`>> ${json}`));
+      }
+      ws.send(json);
     }
   }
 }
