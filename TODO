@@ -4,14 +4,23 @@ TODO
 FIXES
 -----
 
+- One can have more than one starting haven(?)
+
 FEATS
 -----
 
-- Different Error class for valid game errors.
-- Maybe have big collection of constants in tests like DAGGER_OF_WESTERNESS = did('tw-206')
+- Autosaving and restart when code changes.
+- In client, put card name in parenthesis after its id.
+- Figure out all possible continuations based on the state and list them in the client.
+- Send player views to clients and print them after each action.
+- Any client beyond 2 is spectator and actions will be reflected as player who does not know either player's cards in hand for example.
 
 EPICS
 -----
 
-- Server and lient with text only UI.
 - Deck format and conversion to the JSON.
+
+
+We can assume that player names are unique. If client disconnects, server saves the game state to the file. Then informs the other client that opponent disconnected and disconnects. When the same players reconnects, the game save is loaded automatically.
+
+When code change is detected, the server must save the game and disconnect players. Similarly client relaunches on code change. Add protocol for that to do smooth restart for server and clients.
