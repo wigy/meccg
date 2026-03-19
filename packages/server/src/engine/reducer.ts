@@ -94,9 +94,9 @@ export function reduce(state: GameState, action: GameAction): ReducerResult {
 function validateActionPlayer(state: GameState, action: GameAction): string | undefined {
   const phase = state.phaseState.phase;
 
-  // During character draft, both players act simultaneously
-  if (phase === 'character-draft') {
-    return undefined; // both players can submit picks
+  // No active player during simultaneous phases (e.g. draft)
+  if (state.activePlayer === null) {
+    return undefined;
   }
 
   // During movement/hazard phase, the non-active player plays hazards
@@ -142,7 +142,7 @@ function handleCharacterDraft(state: GameState, action: GameAction): ReducerResu
         return { state, error: 'You have already stopped drafting' };
       }
       if (playerDraft.currentPick !== null) {
-        return { state, error: 'You already have a pick for this round' };
+        return { state, error: 'Waiting for opponent to pick' };
       }
       if (!playerDraft.pool.includes(action.characterDefId)) {
         return { state, error: 'Character not in your draft pool' };
@@ -244,8 +244,10 @@ function resolveDraftRound(
   ];
 
   if (pick0 !== null && pick1 !== null && pick0 === pick1) {
-    // Duplicate! Neither gets it
+    // Duplicate! Neither gets it — also remove from both pools
     newSetAside.push(pick0);
+    newDraft[0] = { ...newDraft[0], pool: newDraft[0].pool.filter(id => id !== pick0) };
+    newDraft[1] = { ...newDraft[1], pool: newDraft[1].pool.filter(id => id !== pick0) };
   } else {
     if (pick0 !== null) {
       newDraft[0] = { ...newDraft[0], drafted: [...newDraft[0].drafted, pick0] };

@@ -180,23 +180,46 @@ describe('character draft', () => {
   it('accepts picks from both players and resolves round', () => {
     let state = createGame(makeDraftConfig(), pool);
 
+    // Player 1 picks — not yet revealed
     const pick1: DraftPickAction = { type: 'draft-pick', player: PLAYER_1, characterDefId: ARAGORN };
     let result = reduce(state, pick1);
     expect(result.error).toBeUndefined();
     state = result.state;
 
+    // Still in draft, pick is face-down, not yet in drafted
     expect(state.phaseState.phase).toBe(Phase.CharacterDraft);
+    if (state.phaseState.phase === Phase.CharacterDraft) {
+      expect(state.phaseState.draftState[0].currentPick).toBe(ARAGORN);
+      expect(state.phaseState.draftState[0].drafted).not.toContain(ARAGORN);
+    }
 
+    // Player 2 picks — both revealed, round resolves
     const pick2: DraftPickAction = { type: 'draft-pick', player: PLAYER_2, characterDefId: LEGOLAS };
     result = reduce(state, pick2);
     expect(result.error).toBeUndefined();
     state = result.state;
 
+    // Different picks: both succeed, picks cleared, round advances
     if (state.phaseState.phase === Phase.CharacterDraft) {
       expect(state.phaseState.draftState[0].drafted).toContain(ARAGORN);
       expect(state.phaseState.draftState[1].drafted).toContain(LEGOLAS);
+      expect(state.phaseState.draftState[0].currentPick).toBeNull();
+      expect(state.phaseState.draftState[1].currentPick).toBeNull();
       expect(state.phaseState.round).toBe(2);
     }
+  });
+
+  it('rejects second pick while waiting for opponent', () => {
+    let state = createGame(makeDraftConfig(), pool);
+
+    // Player 1 picks Aragorn
+    let result = reduce(state, { type: 'draft-pick', player: PLAYER_1, characterDefId: ARAGORN });
+    expect(result.error).toBeUndefined();
+    state = result.state;
+
+    // Player 1 tries to pick again — rejected, waiting for opponent
+    result = reduce(state, { type: 'draft-pick', player: PLAYER_1, characterDefId: BILBO });
+    expect(result.error).toContain('Waiting for opponent');
   });
 
   it('sets aside duplicate picks', () => {
@@ -224,15 +247,25 @@ describe('character draft', () => {
 
     let state = createGame(config, pool);
 
+    // Both pick Aragorn face-down
     let result = reduce(state, { type: 'draft-pick', player: PLAYER_1, characterDefId: ARAGORN });
-    state = result.state;
-    result = reduce(state, { type: 'draft-pick', player: PLAYER_2, characterDefId: ARAGORN });
+    expect(result.error).toBeUndefined();
     state = result.state;
 
+    result = reduce(state, { type: 'draft-pick', player: PLAYER_2, characterDefId: ARAGORN });
+    expect(result.error).toBeUndefined();
+    state = result.state;
+
+    // Reveal: collision — Aragorn set aside, neither player gets him
     if (state.phaseState.phase === Phase.CharacterDraft) {
       expect(state.phaseState.draftState[0].drafted).not.toContain(ARAGORN);
       expect(state.phaseState.draftState[1].drafted).not.toContain(ARAGORN);
+      expect(state.phaseState.draftState[0].currentPick).toBeNull();
+      expect(state.phaseState.draftState[1].currentPick).toBeNull();
       expect(state.phaseState.setAside).toContain(ARAGORN);
+      // Aragorn also removed from both pools
+      expect(state.phaseState.draftState[0].pool).not.toContain(ARAGORN);
+      expect(state.phaseState.draftState[1].pool).not.toContain(ARAGORN);
     }
   });
 

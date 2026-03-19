@@ -239,7 +239,9 @@ export class GameSession {
     }
 
     this.state = result.state;
-    console.log(`Action: ${action.type} by ${playerId}`);
+    const { type: _type, player: _player, ...args } = actionWithPlayer;
+    const argsStr = Object.keys(args).length > 0 ? ' ' + JSON.stringify(args) : '';
+    console.log(`Action: ${actionWithPlayer.type} by ${playerId}${argsStr}`);
     console.log('\n' + formatGameState(this.state));
 
     this.broadcastState();

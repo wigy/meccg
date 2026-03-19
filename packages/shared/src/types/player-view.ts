@@ -185,7 +185,8 @@ export interface PlayerView {
   /** The opponent's state with hidden information redacted. */
   readonly opponent: OpponentView;
   /** Which player's turn it currently is. */
-  readonly activePlayer: PlayerId;
+  /** The player whose turn it currently is, or null during simultaneous phases. */
+  readonly activePlayer: PlayerId | null;
   /** The current phase and its associated bookkeeping state. */
   readonly phaseState: PhaseState;
   /** Long-duration and permanent events currently in play on the table. */

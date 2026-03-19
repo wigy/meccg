@@ -357,16 +357,16 @@ export function formatGameState(state: GameState): string {
     return inst?.definitionId;
   };
 
-  const activePlayer = state.players.find(p => p.id === state.activePlayer);
+  const activePlayer = state.activePlayer ? state.players.find(p => p.id === state.activePlayer) : null;
 
   return renderState({
     turnNumber: state.turnNumber,
     phaseState: state.phaseState,
-    activePlayerName: activePlayer?.name ?? '???',
+    activePlayerName: activePlayer?.name ?? '(simultaneous)',
     players: state.players.map(p => ({
       name: p.name,
       wizard: p.wizard,
-      isActive: p.id === state.activePlayer,
+      isActive: state.activePlayer !== null && p.id === state.activePlayer,
       handCount: p.hand.length,
       deckCount: p.playDeck.length,
       discardCount: p.discardPile.length,
@@ -396,12 +396,12 @@ export function formatPlayerView(
   return renderState({
     turnNumber: view.turnNumber,
     phaseState: view.phaseState,
-    activePlayerName: view.self.id === view.activePlayer ? view.self.name : view.opponent.name,
+    activePlayerName: view.activePlayer === null ? '(simultaneous)' : (view.self.id === view.activePlayer ? view.self.name : view.opponent.name),
     players: [
       {
         name: view.self.name,
         wizard: view.self.wizard,
-        isActive: view.self.id === view.activePlayer,
+        isActive: view.activePlayer !== null && view.self.id === view.activePlayer,
         handCount: view.self.hand.length,
         deckCount: view.self.playDeckSize,
         discardCount: view.self.discardPile.length,
@@ -411,7 +411,7 @@ export function formatPlayerView(
       {
         name: view.opponent.name,
         wizard: view.opponent.wizard,
-        isActive: view.opponent.id === view.activePlayer,
+        isActive: view.activePlayer !== null && view.opponent.id === view.activePlayer,
         handCount: view.opponent.handSize,
         deckCount: view.opponent.playDeckSize,
         discardCount: view.opponent.discardPile.length,

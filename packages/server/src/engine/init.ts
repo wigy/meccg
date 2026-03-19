@@ -132,7 +132,7 @@ export function createGame(
 
   return {
     players,
-    activePlayer: config.players[0].id,
+    activePlayer: null,
     phaseState: {
       phase: Phase.CharacterDraft,
       round: 1,
@@ -303,6 +303,7 @@ export function applyDraftResults(
   return {
     ...state,
     players: newPlayers,
+    activePlayer: newPlayers[0].id,
     instanceMap: minter.instanceMap,
     phaseState: { phase: Phase.Untap },
     turnNumber: 1,
