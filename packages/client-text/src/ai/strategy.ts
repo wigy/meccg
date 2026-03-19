@@ -1,10 +1,9 @@
 /**
  * @module ai/strategy
  *
- * Interface for AI strategies. Each strategy implements a single method
- * that picks an action from the list of legal actions. New strategies
- * can be added by creating a new file in this directory and registering
- * it in the strategy loader.
+ * Interface for AI strategies. Each strategy computes a probability
+ * distribution over legal actions, then the runner samples from it.
+ * The probabilities are displayed to the user before the AI acts.
  */
 
 import type { GameAction, PlayerView, CardDefinition } from '@meccg/shared';
@@ -19,10 +18,41 @@ export interface AiContext {
   readonly legalActions: readonly GameAction[];
 }
 
-/** An AI strategy picks one action from the available legal actions. */
+/** An action with its assigned probability weight. */
+export interface WeightedAction {
+  /** The action. */
+  readonly action: GameAction;
+  /** Probability weight (0 = never, higher = more likely). Need not sum to 1. */
+  readonly weight: number;
+}
+
+/** An AI strategy assigns probability weights to each legal action. */
 export interface AiStrategy {
   /** Human-readable name of this strategy. */
   readonly name: string;
-  /** Select an action to play. */
-  pickAction(context: AiContext): GameAction;
+  /**
+   * Compute probability weights for each legal action.
+   * Weights need not sum to 1 — they are normalized by the runner.
+   * A weight of 0 means the action will never be chosen.
+   */
+  weighActions(context: AiContext): WeightedAction[];
+}
+
+/**
+ * Sample one action from the weighted distribution.
+ * Normalizes weights and picks using a uniform random value.
+ */
+export function sampleWeighted(weighted: WeightedAction[]): GameAction {
+  const totalWeight = weighted.reduce((sum, w) => sum + w.weight, 0);
+  if (totalWeight <= 0) {
+    // Fallback: uniform random if all weights are zero
+    return weighted[Math.floor(Math.random() * weighted.length)].action;
+  }
+
+  let r = Math.random() * totalWeight;
+  for (const w of weighted) {
+    r -= w.weight;
+    if (r <= 0) return w.action;
+  }
+  return weighted[weighted.length - 1].action;
 }

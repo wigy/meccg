@@ -34,8 +34,8 @@ import {
   setShowDebugIds,
 } from '@meccg/shared';
 import { parseAction } from './action-parser.js';
-import { loadAiStrategy } from './ai/index.js';
-import type { AiStrategy } from './ai/index.js';
+import { loadAiStrategy, sampleWeighted } from './ai/index.js';
+import type { AiStrategy, WeightedAction } from './ai/index.js';
 
 const SERVER_URL = process.env.SERVER_URL ?? 'ws://localhost:3000';
 const DEBUG = process.argv.includes('--debug') || process.env.DEBUG === '1';
@@ -157,27 +157,24 @@ function connect(): void {
           }
         }
 
-        // Display numbered legal actions for quick selection
         lastLegalActions = [...msg.view.legalActions];
-        if (lastLegalActions.length > 0) {
-          console.log('Legal actions:');
-          for (let i = 0; i < lastLegalActions.length; i++) {
-            const desc = describeAction(lastLegalActions[i], cardPool);
-            if (DEBUG) {
-              const { player: _p, ...payload } = lastLegalActions[i];
-              console.log(`  [${i + 1}] ${desc}  ${colorDebug(JSON.stringify(payload))}`);
-            } else {
-              console.log(`  [${i + 1}] ${desc}`);
-            }
-          }
-        }
-        console.log('');
 
-        // AI mode: auto-pick an action after a short delay
+        // AI mode: compute weights, display probabilities, sample and send
         if (aiStrategy && lastLegalActions.length > 0) {
+          const weighted = aiStrategy.weighActions({ view: msg.view, cardPool, legalActions: lastLegalActions });
+          const totalWeight = weighted.reduce((sum, w) => sum + w.weight, 0);
+
+          // Display probabilities
+          console.log(`AI (${aiStrategy.name}) thinking:`);
+          for (let i = 0; i < weighted.length; i++) {
+            const pct = totalWeight > 0 ? (weighted[i].weight / totalWeight * 100).toFixed(0) : '0';
+            const desc = describeAction(weighted[i].action, cardPool);
+            console.log(`  [${i + 1}] ${pct}% ${desc}`);
+          }
+
           setTimeout(() => {
             if (!ws || ws.readyState !== WebSocket.OPEN || !aiStrategy || lastLegalActions.length === 0) return;
-            const action = aiStrategy.pickAction({ view: msg.view, cardPool, legalActions: lastLegalActions });
+            const action = sampleWeighted(weighted);
             const desc = describeAction(action, cardPool);
             console.log(`AI (${aiStrategy.name}) picks: ${desc}`);
             if (DEBUG) {
@@ -187,6 +184,20 @@ function connect(): void {
             ws.send(JSON.stringify(outMsg));
           }, AI_ACTION_DELAY_MS);
         } else {
+          // Human mode: display numbered legal actions for quick selection
+          if (lastLegalActions.length > 0) {
+            console.log('Legal actions:');
+            for (let i = 0; i < lastLegalActions.length; i++) {
+              const desc = describeAction(lastLegalActions[i], cardPool);
+              if (DEBUG) {
+                const { player: _p, ...payload } = lastLegalActions[i];
+                console.log(`  [${i + 1}] ${desc}  ${colorDebug(JSON.stringify(payload))}`);
+              } else {
+                console.log(`  [${i + 1}] ${desc}`);
+              }
+            }
+          }
+          console.log('');
           rl.prompt();
         }
         break;

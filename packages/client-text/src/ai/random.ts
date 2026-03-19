@@ -1,18 +1,27 @@
 /**
  * @module ai/random
  *
- * The simplest possible AI: picks a uniformly random legal action.
- * Useful as a baseline and for smoke-testing the game loop.
+ * The simplest AI: uniform random over all legal actions,
+ * except pass gets zero weight when other actions are available
+ * during the draft phase.
  */
 
-import type { AiStrategy, AiContext } from './strategy.js';
-import type { GameAction } from '@meccg/shared';
+import type { AiStrategy, AiContext, WeightedAction } from './strategy.js';
 
 export const randomStrategy: AiStrategy = {
   name: 'random',
 
-  pickAction(context: AiContext): GameAction {
-    const idx = Math.floor(Math.random() * context.legalActions.length);
-    return context.legalActions[idx];
+  weighActions(context: AiContext): WeightedAction[] {
+    const { legalActions, view } = context;
+    const isDraft = view.phaseState.phase === 'character-draft';
+    const hasNonPass = legalActions.some(a => a.type !== 'draft-stop' && a.type !== 'pass');
+
+    return legalActions.map(action => {
+      // During draft, don't stop if there are characters to pick
+      if (isDraft && action.type === 'draft-stop' && hasNonPass) {
+        return { action, weight: 0 };
+      }
+      return { action, weight: 1 };
+    });
   },
 };
