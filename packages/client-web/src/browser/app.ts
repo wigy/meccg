@@ -109,13 +109,54 @@ function connect(name: string): void {
   };
 
   ws.onclose = () => {
-    renderLog('Disconnected. Reconnecting in 2s...');
-    setTimeout(() => connect(name), 2000);
+    if (autoReconnect) {
+      renderLog('Disconnected. Reconnecting in 2s...');
+      setTimeout(() => connect(name), 2000);
+    }
   };
 
   ws.onerror = () => {
     // Will trigger onclose
   };
+}
+
+// ---- LocalStorage ----
+
+const STORAGE_KEY = 'meccg-player-name';
+
+function savePlayerName(name: string): void {
+  localStorage.setItem(STORAGE_KEY, name);
+}
+
+function loadPlayerName(): string | null {
+  return localStorage.getItem(STORAGE_KEY);
+}
+
+function clearPlayerName(): void {
+  localStorage.removeItem(STORAGE_KEY);
+}
+
+// ---- Disconnect ----
+
+let autoReconnect = true;
+
+function disconnect(): void {
+  autoReconnect = false;
+  clearPlayerName();
+  if (ws) {
+    ws.close();
+    ws = null;
+  }
+  playerId = null;
+
+  // Reset UI to connect form
+  document.getElementById('connect-form')!.style.display = '';
+  document.getElementById('game')!.classList.add('hidden');
+  (document.getElementById('name-input') as HTMLInputElement).value = '';
+  document.getElementById('state')!.textContent = '';
+  document.getElementById('draft')!.textContent = '';
+  document.getElementById('actions')!.innerHTML = '';
+  document.getElementById('log')!.innerHTML = '';
 }
 
 // ---- UI Setup ----
@@ -124,16 +165,33 @@ document.addEventListener('DOMContentLoaded', () => {
   const nameInput = document.getElementById('name-input') as HTMLInputElement;
   const connectBtn = document.getElementById('connect-btn') as HTMLButtonElement;
   const connectForm = document.getElementById('connect-form') as HTMLElement;
+  const disconnectBtn = document.getElementById('disconnect-btn') as HTMLButtonElement;
+
+  function startGame(name: string): void {
+    savePlayerName(name);
+    autoReconnect = true;
+    connectForm.style.display = 'none';
+    document.getElementById('game')!.classList.remove('hidden');
+    connect(name);
+  }
 
   connectBtn.addEventListener('click', () => {
     const name = nameInput.value.trim();
     if (!name) return;
-    connectForm.style.display = 'none';
-    document.getElementById('game')!.classList.remove('hidden');
-    connect(name);
+    startGame(name);
   });
 
   nameInput.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') connectBtn.click();
   });
+
+  disconnectBtn.addEventListener('click', () => {
+    disconnect();
+  });
+
+  // Auto-connect if name is stored from a previous session
+  const savedName = loadPlayerName();
+  if (savedName) {
+    startGame(savedName);
+  }
 });
