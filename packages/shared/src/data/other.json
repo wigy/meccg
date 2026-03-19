@@ -1,0 +1,25 @@
+[
+  {
+    "cardType": "hero-resource-event",
+    "id": "unknown-card",
+    "name": "a card",
+    "image": "/images/card-back.jpg",
+    "unique": false,
+    "eventType": "short",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "text": ""
+  },
+  {
+    "cardType": "hero-site",
+    "id": "unknown-site",
+    "name": "a site",
+    "image": "/images/site-back.jpg",
+    "siteType": "haven",
+    "sitePath": [],
+    "nearestHaven": "",
+    "playableResources": [],
+    "automaticAttacks": [],
+    "text": ""
+  }
+]

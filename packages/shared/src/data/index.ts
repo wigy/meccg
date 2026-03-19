@@ -12,13 +12,12 @@
  */
 
 import type { CardDefinition } from '../types/cards.js';
-import { SiteType, MarshallingCategory, RegionType } from '../types/common.js';
-import { UNKNOWN_CARD, UNKNOWN_SITE } from '../card-ids.js';
 import characters from './characters.json';
 import items from './items.json';
 import creatures from './creatures.json';
 import sites from './sites.json';
 import regions from './regions.json';
+import other from './other.json';
 
 /**
  * Pre-merged array of every card definition across all categories.
@@ -31,6 +30,7 @@ const allCards: readonly CardDefinition[] = [
   ...(creatures as unknown as CardDefinition[]),
   ...(sites as unknown as CardDefinition[]),
   ...(regions as unknown as CardDefinition[]),
+  ...(other as unknown as CardDefinition[]),
 ];
 
 /**
@@ -42,42 +42,9 @@ const allCards: readonly CardDefinition[] = [
  *
  * @returns A frozen record mapping definition ID → card definition.
  */
-/**
- * Placeholder card definitions for face-down / unknown cards.
- * Used by the formatter and client to display card backs instead of `???`.
- */
-const placeholderCards: readonly CardDefinition[] = [
-  {
-    cardType: 'hero-resource-event',
-    id: UNKNOWN_CARD,
-    name: 'a card',
-    image: '',
-    unique: false,
-    eventType: 'short',
-    marshallingPoints: 0,
-    marshallingCategory: MarshallingCategory.Misc,
-    text: '',
-  },
-  {
-    cardType: 'hero-site',
-    id: UNKNOWN_SITE,
-    name: 'a site',
-    image: '',
-    siteType: SiteType.Haven,
-    sitePath: [] as readonly RegionType[],
-    nearestHaven: '',
-    playableResources: [],
-    automaticAttacks: [],
-    text: '',
-  },
-];
-
 export function loadCardPool(): Readonly<Record<string, CardDefinition>> {
   const pool: Record<string, CardDefinition> = {};
   for (const card of allCards) {
-    pool[card.id] = card;
-  }
-  for (const card of placeholderCards) {
     pool[card.id as string] = card;
   }
   return pool;
