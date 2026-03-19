@@ -3,11 +3,11 @@ import { computeLegalActions } from './legal-actions/index.js';
 import { createGame, createGameQuickStart } from './init.js';
 import type { GameConfig, QuickStartGameConfig } from './init.js';
 import { reduce } from './reducer.js';
-import { loadCardPool, Phase, HAND_SIZE } from '@meccg/shared';
+import { loadCardPool, Phase } from '@meccg/shared';
 import type { PlayerId, CardDefinitionId, GameAction } from '@meccg/shared';
 import {
   ARAGORN, BILBO, FRODO, LEGOLAS, GIMLI, FARAMIR,
-  SAM_GAMGEE, BEORN, THEODEN, ELROND, GLORFINDEL_II, CELEBORN,
+  SAM_GAMGEE, THEODEN, ELROND, GLORFINDEL_II, CELEBORN,
   GLAMDRING, STING, THE_MITHRIL_COAT, THE_ONE_RING, DAGGER_OF_WESTERNESSE,
   CAVE_DRAKE, ORC_PATROL, BARROW_WIGHT,
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH, MOUNT_DOOM,

@@ -67,12 +67,13 @@ export class GameSession {
   }
 
   addConnection(ws: WebSocket): void {
-    ws.on('message', (data) => {
+    ws.on('message', (raw) => {
       try {
+        const data = raw.toString();
         if (this.debug) {
-          console.log(colorDebug(`<< ${data.toString()}`));
+          console.log(colorDebug(`<< ${data}`));
         }
-        const msg: ClientMessage = JSON.parse(data.toString());
+        const msg: ClientMessage = JSON.parse(data) as ClientMessage;
         this.handleMessage(ws, msg);
       } catch {
         this.send(ws, { type: 'error', message: 'Invalid message format' });

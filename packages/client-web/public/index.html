@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MECCG</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <h1>Middle-Earth CCG</h1>
+
+  <div id="connect-form">
+    <input type="text" id="name-input" placeholder="Enter your name" autofocus>
+    <button id="connect-btn">Connect</button>
+  </div>
+
+  <div id="game" class="hidden">
+    <div id="main">
+      <div id="left-panel">
+        <h2>Game State</h2>
+        <pre id="state"></pre>
+
+        <h2>Draft</h2>
+        <pre id="draft"></pre>
+      </div>
+
+      <div id="right-panel">
+        <h2>Actions</h2>
+        <div id="actions"></div>
+      </div>
+    </div>
+
+    <div id="log-panel">
+      <h2>Log</h2>
+      <div id="log"></div>
+    </div>
+  </div>
+
+  <script src="bundle.js"></script>
+</body>
+</html>

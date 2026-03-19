@@ -14,12 +14,12 @@
  * adapt the engine's data structures into {@link RenderInput}.
  */
 
-import type { CardDefinition, HeroCharacterCard, HeroItemCard, HeroAllyCard } from './types/cards.js';
-import type { GameState, PlayerState, Company, CharacterInPlay, EventInPlay, CombatState, PhaseState } from './types/state.js';
+import type { CardDefinition } from './types/cards.js';
+import type { GameState, Company, CharacterInPlay, EventInPlay, CombatState, PhaseState } from './types/state.js';
 import type { PlayerView, OpponentCompanyView } from './types/player-view.js';
 import type { GameAction } from './types/actions.js';
 import { CharacterStatus } from './types/common.js';
-import type { CardInstanceId, CardDefinitionId, PlayerId } from './types/common.js';
+import type { CardInstanceId, CardDefinitionId } from './types/common.js';
 
 // ---- ANSI colors ----
 
@@ -167,7 +167,7 @@ function formatCharacterLine(char: CharacterInPlay, defOf: CardLookup, instOf: I
   if (!def || def.cardType !== 'hero-character') {
     return showDebugIds ? colorizeUnknown(`a character {${char.instanceId}}`) : colorizeUnknown('a character');
   }
-  const c = def as HeroCharacterCard;
+  const c = def;
   const skills = c.skills.join('/');
   const label = formatInstanceName(char.instanceId, defOf, instOf);
   return `${label} [${c.prowess}/${c.body}] ${skills} (${c.marshallingPoints} MP)${statusMarker(char.status)}`;
@@ -178,7 +178,7 @@ function formatItemLine(instId: CardInstanceId, defOf: CardLookup, instOf: Insta
   if (!def || def.cardType !== 'hero-resource-item') {
     return showDebugIds ? colorizeUnknown(`an item {${instId}}`) : colorizeUnknown('an item');
   }
-  const item = def as HeroItemCard;
+  const item = def;
   const label = formatInstanceName(instId, defOf, instOf);
   const pMod = item.prowessModifier >= 0 ? `+${item.prowessModifier}` : `${item.prowessModifier}`;
   const bMod = item.bodyModifier >= 0 ? `+${item.bodyModifier}` : `${item.bodyModifier}`;
@@ -190,7 +190,7 @@ function formatAllyLine(instId: CardInstanceId, defOf: CardLookup, instOf: Insta
   if (!def || def.cardType !== 'hero-resource-ally') {
     return showDebugIds ? colorizeUnknown(`an ally {${instId}}`) : colorizeUnknown('an ally');
   }
-  const ally = def as HeroAllyCard;
+  const ally = def;
   const label = formatInstanceName(instId, defOf, instOf);
   return `${label} [${ally.prowess}/${ally.body}] (${ally.marshallingPoints} MP)`;
 }

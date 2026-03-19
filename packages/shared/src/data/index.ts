@@ -12,7 +12,6 @@
  */
 
 import type { CardDefinition } from '../types/cards.js';
-import type { CardDefinitionId } from '../types/common.js';
 import { SiteType, MarshallingCategory, RegionType } from '../types/common.js';
 import { UNKNOWN_CARD, UNKNOWN_SITE } from '../card-ids.js';
 import characters from './characters.json';

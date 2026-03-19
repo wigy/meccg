@@ -76,7 +76,7 @@ export function reduce(state: GameState, action: GameAction): ReducerResult {
     case Phase.GameOver:
       return { state, error: 'Game is over' };
     default:
-      return { state, error: `Unknown phase: ${phase satisfies never}` };
+      return { state, error: `Unknown phase: ${String(phase satisfies never)}` };
   }
 }
 

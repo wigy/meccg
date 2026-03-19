@@ -1,0 +1,17 @@
+{
+  "name": "@meccg/client-web",
+  "version": "0.0.1",
+  "private": true,
+  "scripts": {
+    "build": "esbuild src/browser/app.ts --bundle --outfile=public/bundle.js --format=iife --platform=browser",
+    "start": "npm run build && npx tsx src/server/serve.ts",
+    "dev": "nodemon --watch src --watch ../shared/src --ext ts,json,html,css --exec 'npm run build && npx tsx src/server/serve.ts'"
+  },
+  "dependencies": {
+    "@meccg/shared": "*",
+    "ws": "^8.19.0"
+  },
+  "devDependencies": {
+    "esbuild": "^0.25.0"
+  }
+}

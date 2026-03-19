@@ -35,7 +35,7 @@ import {
 } from '@meccg/shared';
 import { parseAction } from './action-parser.js';
 import { loadAiStrategy, sampleWeighted } from './ai/index.js';
-import type { AiStrategy, WeightedAction } from './ai/index.js';
+import type { AiStrategy } from './ai/index.js';
 
 const SERVER_URL = process.env.SERVER_URL ?? 'ws://localhost:3000';
 const DEBUG = process.argv.includes('--debug') || process.env.DEBUG === '1';
@@ -90,7 +90,7 @@ const rl = readline.createInterface({
 
 let playerId: PlayerId | null = null;
 let ws: WebSocket | null = null;
-let shouldReconnect = false;
+// TODO: gate auto-reconnect on whether the server sent 'restart'
 /** Last received legal actions, indexed for quick selection by number. */
 let lastLegalActions: GameAction[] = [];
 
@@ -98,7 +98,7 @@ let lastLegalActions: GameAction[] = [];
 
 function connect(): void {
   playerId = null;
-  shouldReconnect = false;
+  // shouldReconnect = false;
 
   const socket = new WebSocket(SERVER_URL);
   ws = socket;
@@ -108,11 +108,12 @@ function connect(): void {
     socket.send(JSON.stringify(defaultJoin));
   });
 
-  socket.on('message', (data) => {
+  socket.on('message', (raw) => {
+    const data = raw.toString();
     if (DEBUG) {
-      console.log(colorDebug(`<< ${data.toString()}`));
+      console.log(colorDebug(`<< ${data}`));
     }
-    const msg: ServerMessage = JSON.parse(data.toString());
+    const msg: ServerMessage = JSON.parse(data) as ServerMessage;
 
     switch (msg.type) {
       case 'assigned':
@@ -227,7 +228,7 @@ function connect(): void {
 
       case 'restart':
         console.log(`\n${msg.message}`);
-        shouldReconnect = true;
+        // shouldReconnect = true;
         break;
     }
   });
@@ -271,12 +272,9 @@ rl.on('line', (line) => {
 
   // Try number shortcut first
   const num = parseInt(input, 10);
-  let action: GameAction | null = null;
-  if (!isNaN(num) && num >= 1 && num <= lastLegalActions.length) {
-    action = lastLegalActions[num - 1];
-  } else {
-    action = parseAction(input, playerId);
-  }
+  const action: GameAction | null = (!isNaN(num) && num >= 1 && num <= lastLegalActions.length)
+    ? lastLegalActions[num - 1]
+    : parseAction(input, playerId);
 
   if (!action) {
     console.log(`Unknown command: ${input}`);

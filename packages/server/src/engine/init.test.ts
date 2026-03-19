@@ -9,7 +9,7 @@ import {
   CharacterStatus,
   HAND_SIZE,
 } from '@meccg/shared';
-import type { DraftPickAction, DraftStopAction } from '@meccg/shared';
+import type { DraftPickAction } from '@meccg/shared';
 import type { PlayerId } from '@meccg/shared';
 import {
   ARAGORN, BILBO, FRODO, LEGOLAS, GIMLI, FARAMIR,

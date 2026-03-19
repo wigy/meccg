@@ -27,6 +27,7 @@ import type {
   CardInstanceId,
   CardDefinitionId,
   PhaseState,
+  DraftPlayerState,
 } from '@meccg/shared';
 import { UNKNOWN_CARD } from '@meccg/shared';
 import { computeLegalActions } from '../engine/legal-actions/index.js';
@@ -120,7 +121,7 @@ export function projectSpectatorView(state: GameState): PlayerView {
   const p1 = state.players[0];
   const p2 = state.players[1];
 
-  const self = buildOpponentView(p1);
+  const _self = buildOpponentView(p1);
   const opponent = buildOpponentView(p2);
 
   // Spectators see only public cards: characters, items, company sites, discard piles
@@ -186,7 +187,10 @@ function redactPhaseForPlayer(phaseState: PhaseState, selfIndex: number): PhaseS
   if (phaseState.phase !== 'character-draft') return phaseState;
 
   const opponentIndex = 1 - selfIndex;
-  const newDraftState = [...phaseState.draftState] as any;
+  const newDraftState: [DraftPlayerState, DraftPlayerState] = [
+    phaseState.draftState[0],
+    phaseState.draftState[1],
+  ];
   const oppPool = phaseState.draftState[opponentIndex].pool;
   newDraftState[opponentIndex] = {
     ...phaseState.draftState[opponentIndex],
