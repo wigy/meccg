@@ -7,7 +7,6 @@ FIXES
 FEATS
 -----
 
-- Figure out all possible continuations based on the state and list them in the client.
 - Any client beyond 2 is spectator and actions will be reflected as player who does not know either player's cards in hand for example.
 
 EPICS
@@ -18,4 +17,4 @@ EPICS
 QUEUE
 -----
 
-
+- Figure out all possible continuations including action parameters based on the state and list them in the client.
