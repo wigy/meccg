@@ -176,6 +176,31 @@ export function projectSpectatorView(state: GameState): PlayerView {
  * pools, picks, and starting minor items are hidden — spectators only see
  * the round number, what's been drafted (public after reveal), and set-aside.
  */
+/**
+ * Redacts draft state for a player: own pool/drafted visible,
+ * opponent's pool and pick hidden, but opponent's drafted visible
+ * (public info after reveal).
+ */
+function redactPhaseForPlayer(phaseState: PhaseState, selfIndex: number): PhaseState {
+  if (phaseState.phase !== 'character-draft') return phaseState;
+
+  const opponentIndex = 1 - selfIndex;
+  const newDraftState = [...phaseState.draftState] as any;
+  newDraftState[opponentIndex] = {
+    ...phaseState.draftState[opponentIndex],
+    pool: [],
+    currentPick: null,
+    startingMinorItems: [],
+    // drafted stays visible — it's public after reveal
+  };
+
+  return { ...phaseState, draftState: newDraftState };
+}
+
+/**
+ * Redacts draft state for spectators: both players' drafted and
+ * set-aside are visible, but pools, picks, and starting items are hidden.
+ */
 function redactPhaseForSpectator(phaseState: PhaseState): PhaseState {
   if (phaseState.phase !== 'character-draft') return phaseState;
 
@@ -184,7 +209,7 @@ function redactPhaseForSpectator(phaseState: PhaseState): PhaseState {
     draftState: phaseState.draftState.map(d => ({
       ...d,
       pool: [],
-      drafted: [],
+      // drafted stays visible — it's public after reveal
       currentPick: null,
       startingMinorItems: [],
     })) as any,
@@ -248,7 +273,7 @@ export function projectPlayerView(state: GameState, playerId: PlayerId): PlayerV
     self,
     opponent,
     activePlayer: state.activePlayer,
-    phaseState: state.phaseState,
+    phaseState: redactPhaseForPlayer(state.phaseState, selfIndex),
     eventsInPlay: state.eventsInPlay,
     turnNumber: state.turnNumber,
     legalActions,

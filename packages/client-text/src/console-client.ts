@@ -119,8 +119,24 @@ function connect(): void {
               return DEBUG ? `${name} ${colorDebug(`{${id}}`)}` : name;
             }).join(', ');
           console.log(`Draft round: ${draft.round}`);
-          console.log(`Your pool: ${colorNames(draft.draftState[0].pool) || '(empty)'}`);
-          console.log(`Your drafted: ${colorNames(draft.draftState[0].drafted) || '(none)'}`);
+
+          const isSpectator = playerId === 'spectator';
+          if (isSpectator) {
+            // Spectator: show both players' drafted + set aside
+            console.log(`${msg.view.self.name} drafted: ${colorNames(draft.draftState[0].drafted) || '(none)'}`);
+            console.log(`${msg.view.opponent.name} drafted: ${colorNames(draft.draftState[1].drafted) || '(none)'}`);
+          } else {
+            // Player: show own pool + drafted, opponent's drafted
+            // Find self index: the one with a non-empty pool (opponent's pool is redacted)
+            const selfIdx = draft.draftState[0].pool.length > 0 ? 0
+              : draft.draftState[1].pool.length > 0 ? 1
+              : 0; // both empty = both stopped
+            const oppIdx = 1 - selfIdx;
+            console.log(`Your pool: ${colorNames(draft.draftState[selfIdx].pool) || '(empty)'}`);
+            console.log(`Your drafted: ${colorNames(draft.draftState[selfIdx].drafted) || '(none)'}`);
+            console.log(`Opponent drafted: ${colorNames(draft.draftState[oppIdx].drafted) || '(none)'}`);
+          }
+
           if (draft.setAside.length > 0) {
             console.log(`Set aside: ${colorNames(draft.setAside)}`);
           }
