@@ -1,0 +1,17 @@
+TODO
+====
+
+FIXES
+-----
+
+FEATS
+-----
+
+- Different Error class for valid game errors.
+- Maybe have big collection of constants in tests like DAGGER_OF_WESTERNESS = did('tw-206')
+
+EPICS
+-----
+
+- Server and lient with text only UI.
+- Deck format and conversion to the JSON.
