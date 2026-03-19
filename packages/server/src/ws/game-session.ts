@@ -208,7 +208,7 @@ export class GameSession {
       startingMinorItems: p.join.startingMinorItems,
       playDeck: p.join.playDeck,
       siteDeck: p.join.siteDeck,
-      startingHaven: p.join.startingHaven,
+      startingHavens: p.join.startingHavens,
     };
   }
 

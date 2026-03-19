@@ -54,7 +54,7 @@ const defaultJoin: JoinMessage = {
   startingMinorItems: [DAGGER_OF_WESTERNESSE],
   playDeck: buildDefaultPlayDeck(),
   siteDeck: [MORIA, MINAS_TIRITH, MOUNT_DOOM],
-  startingHaven: RIVENDELL,
+  startingHavens: [RIVENDELL],
 };
 
 // ---- Readline (shared across connections) ----

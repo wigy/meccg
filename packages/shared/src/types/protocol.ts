@@ -47,8 +47,8 @@ export interface JoinMessage {
   readonly playDeck: readonly CardDefinitionId[];
   /** Site card definition IDs the player brings for movement destinations. */
   readonly siteDeck: readonly CardDefinitionId[];
-  /** The haven where the player's first company starts the game. */
-  readonly startingHaven: CardDefinitionId;
+  /** The havens where the player's starting companies begin. */
+  readonly startingHavens: readonly CardDefinitionId[];
 }
 
 /**

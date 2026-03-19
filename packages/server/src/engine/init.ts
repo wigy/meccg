@@ -54,7 +54,7 @@ export interface PlayerConfig {
   readonly startingMinorItems: readonly CardDefinitionId[];  // up to 2 non-unique minor items
   readonly playDeck: readonly CardDefinitionId[];
   readonly siteDeck: readonly CardDefinitionId[];
-  readonly startingHaven: CardDefinitionId;
+  readonly startingHavens: readonly CardDefinitionId[];
 }
 
 /**
@@ -168,10 +168,12 @@ function initPlayerPreDraft(
   minter: InstanceMinter,
   rng: RngState,
 ): [PlayerState, RngState] {
-  // Validate haven
-  const havenDef = cardPool[config.startingHaven as string];
-  if (!havenDef || havenDef.cardType !== 'hero-site') {
-    throw new Error(`Starting haven '${config.startingHaven}' not found or not a hero-site`);
+  // Validate havens
+  for (const havenId of config.startingHavens) {
+    const havenDef = cardPool[havenId as string];
+    if (!havenDef || havenDef.cardType !== 'hero-site') {
+      throw new Error(`Starting haven '${havenId}' not found or not a hero-site`);
+    }
   }
 
   // Mint and shuffle play deck (no hand dealt yet — that happens after draft)
@@ -227,10 +229,10 @@ export function applyDraftResults(
   const newPlayers = state.players.map((player, index) => {
     const drafted = draftState[index].drafted;
     const startingMinorItems = draftState[index].startingMinorItems;
-    const config = { id: player.id, startingHaven: findPlayerHaven(state, player) };
+    const startingHaven = findPlayerHaven(state, player);
 
     // Mint haven instance
-    const havenInstanceId = mint(minter, config.startingHaven);
+    const havenInstanceId = mint(minter, startingHaven);
 
     // Mint starting minor items
     const minorItemInstanceIds: CardInstanceId[] = [];
@@ -345,7 +347,7 @@ export interface QuickStartPlayerConfig {
   readonly startingCharacters: readonly CardDefinitionId[];
   readonly playDeck: readonly CardDefinitionId[];
   readonly siteDeck: readonly CardDefinitionId[];
-  readonly startingHaven: CardDefinitionId;
+  readonly startingHavens: readonly CardDefinitionId[];
 }
 
 /** Game configuration for the quick-start (draft-free) path. */
@@ -396,11 +398,15 @@ function initPlayerWithCharacters(
   minter: InstanceMinter,
   rng: RngState,
 ): [PlayerState, RngState] {
-  const havenDef = cardPool[config.startingHaven as string];
-  if (!havenDef || havenDef.cardType !== 'hero-site') {
-    throw new Error(`Starting haven '${config.startingHaven}' not found or not a hero-site`);
+  const firstHaven = config.startingHavens[0];
+  if (!firstHaven) {
+    throw new Error('No starting havens specified');
   }
-  const havenInstanceId = mint(minter, config.startingHaven);
+  const havenDef = cardPool[firstHaven as string];
+  if (!havenDef || havenDef.cardType !== 'hero-site') {
+    throw new Error(`Starting haven '${firstHaven}' not found or not a hero-site`);
+  }
+  const havenInstanceId = mint(minter, firstHaven);
 
   const characters: Record<string, CharacterInPlay> = {};
   const characterInstanceIds: CardInstanceId[] = [];
