@@ -95,7 +95,9 @@ export function formatCardName(
   if (!def) return colorizeUnknown('a card');
   // Placeholder cards (unknown-card, unknown-site) render in unknown color
   if ((def.id as string).startsWith('unknown-')) return colorizeUnknown(def.name);
-  return colorize(def.name, def.cardType);
+  // Embed card definition ID as \x02id\x02 marker before the name.
+  // Terminals ignore STX characters; the web client parses them into data attributes.
+  return colorize(`\x02${def.id}\x02${def.name}`, def.cardType);
 }
 
 /**

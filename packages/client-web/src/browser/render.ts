@@ -48,8 +48,10 @@ function ansiToHtml(text: string): string {
 
   for (let i = 0; i < parts.length; i++) {
     if (i % 2 === 0) {
-      // Text content
-      result += parts[i];
+      // Text content — parse \x02id\x02name markers into data-card-id spans
+      result += parts[i].replace(/\x02([^\x02]+)\x02([^\x02]*)/g,
+        (_m, id: string, name: string) =>
+          `<span class="card-name" data-card-id="${id}">${name}</span>`);
     } else {
       // ANSI code(s)
       const codes = parts[i].split(';').filter(c => c !== '');
@@ -82,34 +84,34 @@ function ansiToHtml(text: string): string {
 
 // ---- Card image hover ----
 
-/** Map from card name to image proxy path, built once from the card pool. */
-let cardImageMap: Map<string, string> | null = null;
+/** Map from card definition ID to image proxy path. Built once from the card pool. */
+let cardIdToImage: Map<string, string> | null = null;
 
-/** Build (or return cached) card name → image path map. */
-function getCardImageMap(cardPool: Readonly<Record<string, CardDefinition>>): Map<string, string> {
-  if (cardImageMap) return cardImageMap;
-  cardImageMap = new Map();
+/** Build (or return cached) card ID → image path map. */
+function getCardIdToImage(cardPool: Readonly<Record<string, CardDefinition>>): Map<string, string> {
+  if (cardIdToImage) return cardIdToImage;
+  cardIdToImage = new Map();
   for (const card of Object.values(cardPool)) {
     const imgPath = cardImageProxyPath(card);
     if (imgPath) {
-      cardImageMap.set(card.name, imgPath);
+      cardIdToImage.set(card.id as string, imgPath);
     }
   }
-  return cardImageMap;
+  return cardIdToImage;
 }
 
 /**
- * Walk an element's colored spans and tag any whose text matches a card name
- * with a data-card-image attribute for the hover handler.
+ * Walk an element's .card-name spans (created by ansiToHtml from \x02 markers)
+ * and resolve their data-card-id to an image proxy path for the hover handler.
  */
-function tagCardNames(el: HTMLElement, cardPool: Readonly<Record<string, CardDefinition>>): void {
-  const map = getCardImageMap(cardPool);
-  const spans = el.querySelectorAll('span[style]');
+function tagCardImages(el: HTMLElement, cardPool: Readonly<Record<string, CardDefinition>>): void {
+  const map = getCardIdToImage(cardPool);
+  const spans = el.querySelectorAll('.card-name[data-card-id]');
   for (const span of spans) {
-    const text = span.textContent ?? '';
-    if (text && map.has(text) && !span.children.length) {
-      (span as HTMLElement).dataset.cardImage = map.get(text)!;
-      (span as HTMLElement).classList.add('card-name');
+    const id = (span as HTMLElement).dataset.cardId ?? '';
+    const imgPath = map.get(id);
+    if (imgPath) {
+      (span as HTMLElement).dataset.cardImage = imgPath;
     }
   }
 }
@@ -159,7 +161,7 @@ document.addEventListener('mousemove', (e) => {
 export function renderState(view: PlayerView, cardPool: Readonly<Record<string, CardDefinition>>): void {
   const el = $('state');
   el.innerHTML = ansiToHtml(formatPlayerView(view, cardPool));
-  tagCardNames(el, cardPool);
+  tagCardImages(el, cardPool);
 }
 
 /** Render draft-specific information with colored card names. */
@@ -185,7 +187,7 @@ export function renderDraft(view: PlayerView, cardPool: Readonly<Record<string, 
   }
 
   el.innerHTML = ansiToHtml(lines.join('\n'));
-  tagCardNames(el, cardPool);
+  tagCardImages(el, cardPool);
 }
 
 /** Render action buttons. */
@@ -200,7 +202,7 @@ export function renderActions(
   for (const action of actions) {
     const btn = document.createElement('button');
     btn.innerHTML = ansiToHtml(describeAction(action, cardPool));
-    tagCardNames(btn, cardPool);
+    tagCardImages(btn, cardPool);
     btn.addEventListener('click', () => onClick(action));
     el.appendChild(btn);
   }
