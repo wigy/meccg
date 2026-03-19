@@ -6,7 +6,7 @@
  */
 
 import type { GameState, PlayerId, GameAction } from '@meccg/shared';
-import { GENERAL_INFLUENCE } from '@meccg/shared';
+import { GENERAL_INFLUENCE, getAlignmentRules } from '@meccg/shared';
 
 export function draftActions(state: GameState, playerId: PlayerId): GameAction[] {
   if (state.phaseState.phase !== 'character-draft') return [];
@@ -17,8 +17,8 @@ export function draftActions(state: GameState, playerId: PlayerId): GameAction[]
   // Already stopped or already picked this round (waiting for opponent)
   if (draft.stopped || draft.currentPick !== null) return [];
 
-  // Already at 5 characters
-  if (draft.drafted.length >= 5) return [];
+  const { maxStartingCompanySize } = getAlignmentRules(state.players[playerIndex].alignment);
+  if (draft.drafted.length >= maxStartingCompanySize) return [];
 
   const actions: GameAction[] = [];
 

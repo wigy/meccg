@@ -16,7 +16,7 @@
 
 import type { GameState, DraftPlayerState, ItemDraftPlayerState, CardDefinitionId, CharacterInPlay } from '@meccg/shared';
 import type { GameAction } from '@meccg/shared';
-import { Phase, LEGAL_ACTIONS_BY_PHASE } from '@meccg/shared';
+import { Phase, LEGAL_ACTIONS_BY_PHASE, getAlignmentRules } from '@meccg/shared';
 import { applyDraftResults } from './init.js';
 import { recomputeDerived } from './recompute-derived.js';
 
@@ -179,8 +179,9 @@ function handleCharacterDraft(state: GameState, action: GameAction): ReducerResu
       if (charDef.mind !== null && currentMind + charDef.mind > 20) {
         return { state, error: 'Would exceed mind limit of 20' };
       }
-      if (playerDraft.drafted.length >= 5) {
-        return { state, error: 'Already have 5 starting characters' };
+      const { maxStartingCompanySize } = getAlignmentRules(state.players[playerIndex].alignment);
+      if (playerDraft.drafted.length >= maxStartingCompanySize) {
+        return { state, error: `Already have ${maxStartingCompanySize} starting characters` };
       }
 
       // Set the pick
@@ -284,7 +285,8 @@ function resolveDraftRound(
         const def = state.cardPool[defId as string];
         return sum + (def && def.cardType === 'hero-character' && def.mind !== null ? def.mind : 0);
       }, 0);
-      if (newDraft[i].drafted.length >= 5 || newDraft[i].pool.length === 0 || mind >= 20) {
+      const { maxStartingCompanySize: max } = getAlignmentRules(state.players[i].alignment);
+      if (newDraft[i].drafted.length >= max || newDraft[i].pool.length === 0 || mind >= 20) {
         newDraft[i] = { ...newDraft[i], stopped: true };
       }
     }

@@ -5,3 +5,5 @@ export { formatGameState, formatPlayerView, formatCardName, formatDefName, forma
 export { createRng, nextRng, nextInt, shuffle } from './rng.js';
 export * from './card-ids.js';
 export { cardImageProxyPath, cardImageRawUrl } from './card-images.js';
+export { getAlignmentRules } from './alignment-rules.js';
+export type { AlignmentRules } from './alignment-rules.js';

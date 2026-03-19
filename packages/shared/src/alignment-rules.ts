@@ -1,0 +1,28 @@
+/**
+ * @module alignment-rules
+ *
+ * Static per-alignment rules data. Different alignments (wizard, ringwraith,
+ * fallen-wizard, balrog) have different limits and constraints that affect
+ * deck construction, draft, and gameplay.
+ */
+
+import { Alignment } from './types/common.js';
+
+/** Per-alignment rule constants. */
+export interface AlignmentRules {
+  /** Maximum number of characters allowed in the starting company. */
+  readonly maxStartingCompanySize: number;
+}
+
+/** Alignment-specific rules, keyed by alignment value. */
+const ALIGNMENT_RULES: { readonly [K in Alignment]: AlignmentRules } = {
+  'wizard': { maxStartingCompanySize: 5 },
+  'ringwraith': { maxStartingCompanySize: 6 },
+  'fallen-wizard': { maxStartingCompanySize: 5 },
+  'balrog': { maxStartingCompanySize: 5 },
+};
+
+/** Returns the alignment-specific rules for the given alignment. */
+export function getAlignmentRules(alignment: Alignment): AlignmentRules {
+  return ALIGNMENT_RULES[alignment];
+}
