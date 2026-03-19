@@ -36,7 +36,7 @@ function buildJoinMessage(name: string): JoinMessage {
   return {
     type: 'join',
     name,
-    alignment: Alignment.Hero,
+    alignment: Alignment.Wizard,
     draftPool: [ARAGORN, BILBO, FRODO, SAM_GAMGEE, ELROND, CELEBORN, THEODEN,
       EOWYN, BEREGOND, ANBORN],
     startingMinorItems: [DAGGER_OF_WESTERNESSE],

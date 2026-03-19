@@ -41,7 +41,7 @@ function makeQuickStartConfig(seed = 42): QuickStartGameConfig {
       {
         id: PLAYER_1,
         name: 'Alice',
-        alignment: Alignment.Hero,
+        alignment: Alignment.Wizard,
         startingCharacters: [ARAGORN, BILBO],
         playDeck: makePlayDeck(),
         siteDeck: [MORIA, MINAS_TIRITH, MOUNT_DOOM],
@@ -50,7 +50,7 @@ function makeQuickStartConfig(seed = 42): QuickStartGameConfig {
       {
         id: PLAYER_2,
         name: 'Bob',
-        alignment: Alignment.Hero,
+        alignment: Alignment.Wizard,
         startingCharacters: [LEGOLAS, GIMLI],
         playDeck: makePlayDeck(),
         siteDeck: [MORIA, MINAS_TIRITH],
@@ -67,7 +67,7 @@ function makeDraftConfig(seed = 42): GameConfig {
       {
         id: PLAYER_1,
         name: 'Alice',
-        alignment: Alignment.Hero,
+        alignment: Alignment.Wizard,
         draftPool: [ARAGORN, BILBO, FRODO],
         startingMinorItems: [DAGGER_OF_WESTERNESSE, DAGGER_OF_WESTERNESSE],
         playDeck: makePlayDeck(),
@@ -77,7 +77,7 @@ function makeDraftConfig(seed = 42): GameConfig {
       {
         id: PLAYER_2,
         name: 'Bob',
-        alignment: Alignment.Hero,
+        alignment: Alignment.Wizard,
         draftPool: [LEGOLAS, GIMLI, FARAMIR],
         startingMinorItems: [DAGGER_OF_WESTERNESSE],
         playDeck: makePlayDeck(),
@@ -225,7 +225,7 @@ describe('character draft', () => {
     const config: GameConfig = {
       players: [
         {
-          id: PLAYER_1, name: 'Alice', alignment: Alignment.Hero,
+          id: PLAYER_1, name: 'Alice', alignment: Alignment.Wizard,
           draftPool: [ARAGORN, BILBO],
           startingMinorItems: [],
           playDeck: makePlayDeck(),
@@ -233,7 +233,7 @@ describe('character draft', () => {
           startingHavens: [RIVENDELL],
         },
         {
-          id: PLAYER_2, name: 'Bob', alignment: Alignment.Hero,
+          id: PLAYER_2, name: 'Bob', alignment: Alignment.Wizard,
           draftPool: [ARAGORN, LEGOLAS],
           startingMinorItems: [],
           playDeck: makePlayDeck(),
@@ -325,7 +325,7 @@ describe('character draft', () => {
     const config: GameConfig = {
       players: [
         {
-          id: PLAYER_1, name: 'Alice', alignment: Alignment.Hero,
+          id: PLAYER_1, name: 'Alice', alignment: Alignment.Wizard,
           draftPool: [ARAGORN, LEGOLAS, GIMLI], // 9 + 6 + 6 = 21
           startingMinorItems: [],
           playDeck: makePlayDeck(),
@@ -333,7 +333,7 @@ describe('character draft', () => {
           startingHavens: [RIVENDELL],
         },
         {
-          id: PLAYER_2, name: 'Bob', alignment: Alignment.Hero,
+          id: PLAYER_2, name: 'Bob', alignment: Alignment.Wizard,
           draftPool: [FARAMIR],
           startingMinorItems: [],
           playDeck: makePlayDeck(),
@@ -368,7 +368,7 @@ describe('character draft', () => {
     const config: GameConfig = {
       players: [
         {
-          id: PLAYER_1, name: 'Alice', alignment: Alignment.Hero,
+          id: PLAYER_1, name: 'Alice', alignment: Alignment.Wizard,
           // 6 low-mind characters (all mind 2) — total mind 12, well under 20
           draftPool: [EOWYN, BEREGOND, BERGIL, BARD_BOWMAN, ANBORN, SAM_GAMGEE],
           startingMinorItems: [],
@@ -377,7 +377,7 @@ describe('character draft', () => {
           startingHavens: [RIVENDELL],
         },
         {
-          id: PLAYER_2, name: 'Bob', alignment: Alignment.Hero,
+          id: PLAYER_2, name: 'Bob', alignment: Alignment.Wizard,
           draftPool: [FARAMIR],
           startingMinorItems: [],
           playDeck: makePlayDeck(),

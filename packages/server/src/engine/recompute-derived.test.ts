@@ -29,14 +29,14 @@ function makeQuickStartConfig(seed = 42): QuickStartGameConfig {
   return {
     players: [
       {
-        id: PLAYER_1, name: 'Alice', alignment: Alignment.Hero,
+        id: PLAYER_1, name: 'Alice', alignment: Alignment.Wizard,
         startingCharacters: [ARAGORN, BILBO],
         playDeck: makePlayDeck(),
         siteDeck: [MORIA, MINAS_TIRITH, MOUNT_DOOM],
         startingHavens: [RIVENDELL],
       },
       {
-        id: PLAYER_2, name: 'Bob', alignment: Alignment.Hero,
+        id: PLAYER_2, name: 'Bob', alignment: Alignment.Wizard,
         startingCharacters: [LEGOLAS, GIMLI],
         playDeck: makePlayDeck(),
         siteDeck: [MORIA, MINAS_TIRITH],
@@ -51,7 +51,7 @@ function makeDraftConfig(seed = 42): GameConfig {
   return {
     players: [
       {
-        id: PLAYER_1, name: 'Alice', alignment: Alignment.Hero,
+        id: PLAYER_1, name: 'Alice', alignment: Alignment.Wizard,
         draftPool: [ARAGORN, BILBO, FRODO],
         startingMinorItems: [DAGGER_OF_WESTERNESSE],
         playDeck: makePlayDeck(),
@@ -59,7 +59,7 @@ function makeDraftConfig(seed = 42): GameConfig {
         startingHavens: [RIVENDELL],
       },
       {
-        id: PLAYER_2, name: 'Bob', alignment: Alignment.Hero,
+        id: PLAYER_2, name: 'Bob', alignment: Alignment.Wizard,
         draftPool: [LEGOLAS, GIMLI, FARAMIR],
         startingMinorItems: [],
         playDeck: makePlayDeck(),

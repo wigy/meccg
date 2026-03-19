@@ -39,7 +39,7 @@ export interface JoinMessage {
   readonly type: 'join';
   /** The player's chosen display name. */
   readonly name: string;
-  /** The alignment of the player's wizard (hero, minion, fallen-wizard, balrog). */
+  /** The alignment of the player's wizard (wizard, ringwraith, fallen-wizard, balrog). */
   readonly alignment: Alignment;
   /** Character definition IDs available for the pre-game draft (up to 10). */
   readonly draftPool: readonly CardDefinitionId[];

@@ -176,7 +176,7 @@ export interface PlayerState {
   readonly id: PlayerId;
   /** Display name chosen by the player. */
   readonly name: string;
-  /** The alignment of this player's wizard (hero, minion, fallen-wizard, balrog). */
+  /** The alignment of this player's wizard (wizard, ringwraith, fallen-wizard, balrog). */
   readonly alignment: Alignment;
   /** The wizard (Istari) this player controls, or null before wizard selection. */
   readonly wizard: WizardName | null;

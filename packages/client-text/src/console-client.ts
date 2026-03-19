@@ -80,7 +80,7 @@ function buildDefaultPlayDeck(): CardDefinitionId[] {
 const defaultJoin: JoinMessage = {
   type: 'join',
   name: PLAYER_NAME,
-  alignment: Alignment.Hero,
+  alignment: Alignment.Wizard,
   draftPool: [ARAGORN, BILBO, FRODO, SAM_GAMGEE, ELROND, CELEBORN, THEODEN,
     EOWYN, BEREGOND, ANBORN],
   startingMinorItems: [DAGGER_OF_WESTERNESSE],

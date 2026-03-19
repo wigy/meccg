@@ -113,7 +113,7 @@ export interface OpponentView {
   readonly id: PlayerId;
   /** The opponent's display name. */
   readonly name: string;
-  /** The opponent's alignment (hero, minion, fallen-wizard, balrog). */
+  /** The opponent's alignment (wizard, ringwraith, fallen-wizard, balrog). */
   readonly alignment: Alignment;
   /** The opponent's wizard identity, or null if not yet chosen. */
   readonly wizard: WizardName | null;
@@ -151,7 +151,7 @@ export interface SelfView {
   readonly id: PlayerId;
   /** The player's display name. */
   readonly name: string;
-  /** The player's alignment (hero, minion, fallen-wizard, balrog). */
+  /** The player's alignment (wizard, ringwraith, fallen-wizard, balrog). */
   readonly alignment: Alignment;
   /** The player's wizard identity, or null if not yet chosen. */
   readonly wizard: WizardName | null;

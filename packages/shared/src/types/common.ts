@@ -97,11 +97,11 @@ export enum MarshallingCategory {
 
 /**
  * The alignment of a player's wizard, determining which card pool
- * (hero, minion, fallen-wizard, or balrog) they draw from.
+ * (wizard, ringwraith, fallen-wizard, or balrog) they draw from.
  */
 export enum Alignment {
-  Hero = 'hero',
-  Minion = 'minion',
+  Wizard = 'wizard',
+  Ringwraith = 'ringwraith',
   FallenWizard = 'fallen-wizard',
   Balrog = 'balrog',
 }

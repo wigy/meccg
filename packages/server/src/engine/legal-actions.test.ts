@@ -31,7 +31,7 @@ function makeDraftConfig(seed = 42): GameConfig {
   return {
     players: [
       {
-        id: PLAYER_1, name: 'Alice', alignment: Alignment.Hero,
+        id: PLAYER_1, name: 'Alice', alignment: Alignment.Wizard,
         draftPool: [ARAGORN, BILBO, FRODO],
         startingMinorItems: [DAGGER_OF_WESTERNESSE],
         playDeck: makePlayDeck(),
@@ -39,7 +39,7 @@ function makeDraftConfig(seed = 42): GameConfig {
         startingHavens: [RIVENDELL],
       },
       {
-        id: PLAYER_2, name: 'Bob', alignment: Alignment.Hero,
+        id: PLAYER_2, name: 'Bob', alignment: Alignment.Wizard,
         draftPool: [LEGOLAS, GIMLI, FARAMIR],
         startingMinorItems: [],
         playDeck: makePlayDeck(),
@@ -101,7 +101,7 @@ describe('computeLegalActions', () => {
       const config: GameConfig = {
         players: [
           {
-            id: PLAYER_1, name: 'Alice', alignment: Alignment.Hero,
+            id: PLAYER_1, name: 'Alice', alignment: Alignment.Wizard,
             draftPool: [ARAGORN, BILBO],
             startingMinorItems: [],
             playDeck: makePlayDeck(),
@@ -109,7 +109,7 @@ describe('computeLegalActions', () => {
             startingHavens: [RIVENDELL],
           },
           {
-            id: PLAYER_2, name: 'Bob', alignment: Alignment.Hero,
+            id: PLAYER_2, name: 'Bob', alignment: Alignment.Wizard,
             draftPool: [ARAGORN, LEGOLAS],
             startingMinorItems: [],
             playDeck: makePlayDeck(),
@@ -146,7 +146,7 @@ describe('computeLegalActions', () => {
       const config: GameConfig = {
         players: [
           {
-            id: PLAYER_1, name: 'Alice', alignment: Alignment.Hero,
+            id: PLAYER_1, name: 'Alice', alignment: Alignment.Wizard,
             draftPool: [ARAGORN, LEGOLAS, GIMLI, BILBO],
             startingMinorItems: [],
             playDeck: makePlayDeck(),
@@ -154,7 +154,7 @@ describe('computeLegalActions', () => {
             startingHavens: [RIVENDELL],
           },
           {
-            id: PLAYER_2, name: 'Bob', alignment: Alignment.Hero,
+            id: PLAYER_2, name: 'Bob', alignment: Alignment.Wizard,
             draftPool: [FARAMIR],
             startingMinorItems: [],
             playDeck: makePlayDeck(),
@@ -195,7 +195,7 @@ describe('computeLegalActions', () => {
       const config: GameConfig = {
         players: [
           {
-            id: PLAYER_1, name: 'Alice', alignment: Alignment.Hero,
+            id: PLAYER_1, name: 'Alice', alignment: Alignment.Wizard,
             draftPool: [ELROND, CELEBORN, THEODEN, GLORFINDEL_II],
             startingMinorItems: [],
             playDeck: makePlayDeck(),
@@ -203,7 +203,7 @@ describe('computeLegalActions', () => {
             startingHavens: [RIVENDELL],
           },
           {
-            id: PLAYER_2, name: 'Bob', alignment: Alignment.Hero,
+            id: PLAYER_2, name: 'Bob', alignment: Alignment.Wizard,
             draftPool: [SAM_GAMGEE],
             startingMinorItems: [],
             playDeck: makePlayDeck(),
@@ -243,7 +243,7 @@ describe('computeLegalActions', () => {
       const config: GameConfig = {
         players: [
           {
-            id: PLAYER_1, name: 'Alice', alignment: Alignment.Hero,
+            id: PLAYER_1, name: 'Alice', alignment: Alignment.Wizard,
             draftPool: [ELROND, CELEBORN, THEODEN, SAM_GAMGEE],
             startingMinorItems: [],
             playDeck: makePlayDeck(),
@@ -251,7 +251,7 @@ describe('computeLegalActions', () => {
             startingHavens: [RIVENDELL],
           },
           {
-            id: PLAYER_2, name: 'Bob', alignment: Alignment.Hero,
+            id: PLAYER_2, name: 'Bob', alignment: Alignment.Wizard,
             draftPool: [FARAMIR],
             startingMinorItems: [],
             playDeck: makePlayDeck(),
@@ -301,14 +301,14 @@ describe('computeLegalActions', () => {
       const config: QuickStartGameConfig = {
         players: [
           {
-            id: PLAYER_1, name: 'Alice', alignment: Alignment.Hero,
+            id: PLAYER_1, name: 'Alice', alignment: Alignment.Wizard,
             startingCharacters: [ARAGORN],
             playDeck: makePlayDeck(),
             siteDeck: [MORIA],
             startingHavens: [RIVENDELL],
           },
           {
-            id: PLAYER_2, name: 'Bob', alignment: Alignment.Hero,
+            id: PLAYER_2, name: 'Bob', alignment: Alignment.Wizard,
             startingCharacters: [LEGOLAS],
             playDeck: makePlayDeck(),
             siteDeck: [MORIA],
