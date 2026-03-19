@@ -7,12 +7,9 @@ FIXES
 FEATS
 -----
 
-Add also available GI next to MP in the text client.
-
 EPICS
 -----
 
-- Crude web client but card images.
 - Finalize preparation step.
 - Deck format and conversion to the JSON.
 
