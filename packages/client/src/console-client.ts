@@ -137,25 +137,12 @@ function connect(): void {
 
   socket.on('close', () => {
     ws = null;
-    if (shouldReconnect) {
-      console.log(`Reconnecting in ${RECONNECT_DELAY_MS / 1000}s...`);
-      setTimeout(connect, RECONNECT_DELAY_MS);
-    } else {
-      console.log('Disconnected from server');
-      process.exit(0);
-    }
+    console.log(`Reconnecting in ${RECONNECT_DELAY_MS / 1000}s...`);
+    setTimeout(connect, RECONNECT_DELAY_MS);
   });
 
-  socket.on('error', (err) => {
-    if (shouldReconnect) {
-      // Connection refused during reconnect — server not ready yet, retry
-      console.log('Server not ready, retrying...');
-      ws = null;
-      setTimeout(connect, RECONNECT_DELAY_MS);
-    } else {
-      console.error('Connection error:', err.message);
-      process.exit(1);
-    }
+  socket.on('error', () => {
+    // Connection refused or dropped — will retry on 'close' event
   });
 }
 
