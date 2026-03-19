@@ -63,8 +63,9 @@ function connect(name: string): void {
     ws!.send(JSON.stringify(buildJoinMessage(name)));
   };
 
-  ws.onmessage = (event) => {
-    const msg: ServerMessage = JSON.parse(event.data as string) as ServerMessage;
+  ws.onmessage = async (event) => {
+    const raw = event.data instanceof Blob ? await event.data.text() : event.data as string;
+    const msg: ServerMessage = JSON.parse(raw) as ServerMessage;
 
     switch (msg.type) {
       case 'assigned':

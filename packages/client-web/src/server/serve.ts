@@ -11,7 +11,9 @@ import * as http from 'http';
 import * as fs from 'fs';
 import * as path from 'path';
 import { WebSocketServer, WebSocket } from 'ws';
+import { colorDebug } from '@meccg/shared';
 
+const DEBUG = process.argv.includes('--debug') || process.env.DEBUG === '1';
 const PORT = parseInt(process.env.PORT ?? '8080', 10);
 const GAME_SERVER = process.env.GAME_SERVER ?? 'ws://localhost:3000';
 const PUBLIC_DIR = path.join(__dirname, '../../public');
@@ -59,20 +61,33 @@ wss.on('connection', (browserWs) => {
   console.log('Browser connected, proxying to game server...');
 
   const gameWs = new WebSocket(GAME_SERVER);
+  const pendingMessages: Buffer[] = [];
 
   gameWs.on('open', () => {
     console.log('Connected to game server');
+    for (const msg of pendingMessages) {
+      gameWs.send(msg);
+    }
+    pendingMessages.length = 0;
   });
 
-  // Proxy: browser → game server
+  // Proxy: browser → game server (buffer until upstream is open)
   browserWs.on('message', (data) => {
+    if (DEBUG) {
+      console.log(colorDebug(`browser >> ${data.toString()}`));
+    }
     if (gameWs.readyState === WebSocket.OPEN) {
       gameWs.send(data);
+    } else {
+      pendingMessages.push(Buffer.from(data as ArrayBuffer));
     }
   });
 
   // Proxy: game server → browser
   gameWs.on('message', (data) => {
+    if (DEBUG) {
+      console.log(colorDebug(`server >> ${data.toString()}`));
+    }
     if (browserWs.readyState === WebSocket.OPEN) {
       browserWs.send(data);
     }
