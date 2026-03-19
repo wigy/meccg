@@ -47,6 +47,8 @@ export interface HeroCharacterCard {
   readonly id: CardDefinitionId;
   /** Display name (e.g. "Aragorn II", "Legolas"). */
   readonly name: string;
+  /** Full URL to the card's remastered image in the meccg-remaster repository. */
+  readonly image: string;
   /** Characters are always unique -- only one copy can be in play at a time. */
   readonly unique: true;
   /** The character's race, which affects faction influence and certain card interactions. */
@@ -104,6 +106,8 @@ export interface HeroItemCard {
   readonly id: CardDefinitionId;
   /** Display name (e.g. "Glamdring", "Mithril Coat"). */
   readonly name: string;
+  /** Full URL to the card's remastered image in the meccg-remaster repository. */
+  readonly image: string;
   /** Whether only one copy of this item can be in play across all players. */
   readonly unique: boolean;
   /** Item tier, determining which sites it can be played at. */
@@ -139,6 +143,8 @@ export interface HeroFactionCard {
   readonly id: CardDefinitionId;
   /** Display name (e.g. "Riders of Rohan", "Rangers of the North"). */
   readonly name: string;
+  /** Full URL to the card's remastered image in the meccg-remaster repository. */
+  readonly image: string;
   /** Factions are always unique -- only one player can control each faction. */
   readonly unique: true;
   /** Victory points scored at the Free Council for controlling this faction. */
@@ -169,6 +175,8 @@ export interface HeroAllyCard {
   readonly id: CardDefinitionId;
   /** Display name (e.g. "Tom Bombadil", "Goldberry"). */
   readonly name: string;
+  /** Full URL to the card's remastered image in the meccg-remaster repository. */
+  readonly image: string;
   /** Whether only one copy of this ally can be in play across all players. */
   readonly unique: boolean;
   /** The ally's combat strength when fighting or defending. */
@@ -202,6 +210,8 @@ export interface HeroResourceEventCard {
   readonly id: CardDefinitionId;
   /** Display name (e.g. "Dark Quarrels", "A Short Rest"). */
   readonly name: string;
+  /** Full URL to the card's remastered image in the meccg-remaster repository. */
+  readonly image: string;
   /** Whether only one copy of this event can be in play. Mainly relevant for long/permanent events. */
   readonly unique: boolean;
   /** Duration class determining when this event is removed from play. */
@@ -248,6 +258,8 @@ export interface CreatureCard {
   readonly id: CardDefinitionId;
   /** Display name (e.g. "Cave-drake", "Orc-patrol"). */
   readonly name: string;
+  /** Full URL to the card's remastered image in the meccg-remaster repository. */
+  readonly image: string;
   /** Whether only one copy can be in play (relevant for unique named creatures like dragons). */
   readonly unique: boolean;
   /** Number of strikes the creature delivers -- each must be assigned to a different character if possible. */
@@ -281,6 +293,8 @@ export interface HazardEventCard {
   readonly id: CardDefinitionId;
   /** Display name (e.g. "Doors of Night", "Twilight"). */
   readonly name: string;
+  /** Full URL to the card's remastered image in the meccg-remaster repository. */
+  readonly image: string;
   /** Whether only one copy can be in play (relevant for long/permanent events). */
   readonly unique: boolean;
   /** Duration class determining when this event is removed from play. */
@@ -305,6 +319,8 @@ export interface CorruptionCard {
   readonly id: CardDefinitionId;
   /** Display name (e.g. "Lure of Expedience", "Lure of Nature"). */
   readonly name: string;
+  /** Full URL to the card's remastered image in the meccg-remaster repository. */
+  readonly image: string;
   /** Whether only one copy can be in play. */
   readonly unique: boolean;
   /** Additional corruption points imposed on the targeted character. */
@@ -354,6 +370,8 @@ export interface HeroSiteCard {
   readonly id: CardDefinitionId;
   /** Display name (e.g. "Rivendell", "Moria", "Mount Doom"). */
   readonly name: string;
+  /** Full URL to the card's remastered image in the meccg-remaster repository. */
+  readonly image: string;
   /** Classification determining the site's danger level and playable resources. */
   readonly siteType: SiteType;
   /**
@@ -386,6 +404,8 @@ export interface RegionCard {
   readonly id: CardDefinitionId;
   /** Display name (e.g. "Eriador", "Rohan", "Mordor"). */
   readonly name: string;
+  /** Full URL to the card's remastered image in the meccg-remaster repository. */
+  readonly image: string;
   /** Terrain classification that determines which creatures can be played here. */
   readonly regionType: RegionType;
   /** Names of bordering regions, defining the map's connectivity graph for pathfinding. */
