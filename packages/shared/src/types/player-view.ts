@@ -193,8 +193,8 @@ export interface PlayerView {
   readonly eventsInPlay: readonly EventInPlay[];
   /** Current turn number (1-based). */
   readonly turnNumber: number;
-  /** Action types the player can legally submit right now, based on phase and game state. */
-  readonly legalActions: readonly GameAction['type'][];
+  /** Complete list of concrete actions the player can legally submit right now, with all arguments. */
+  readonly legalActions: readonly GameAction[];
   /**
    * Map from CardInstanceId to CardDefinitionId for all cards visible to this player.
    * Includes own hand, discard piles, characters, items, sites, and public opponent cards.

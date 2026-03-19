@@ -27,7 +27,7 @@ import type {
   CardInstanceId,
   CardDefinitionId,
 } from '@meccg/shared';
-import { LEGAL_ACTIONS_BY_PHASE } from '@meccg/shared';
+import { computeLegalActions } from '../engine/legal-actions/index.js';
 
 /**
  * Resolves a card instance to a {@link RevealedCard} containing both the
@@ -180,7 +180,7 @@ export function projectPlayerView(state: GameState, playerId: PlayerId): PlayerV
   const self = buildSelfView(state, selfPlayer);
   const opponent = buildOpponentView(opponentPlayer);
 
-  const legalActions = LEGAL_ACTIONS_BY_PHASE[state.phaseState.phase];
+  const legalActions = computeLegalActions(state, playerId);
 
   // Build visible instances map: all cards this player can see
   const visibleInstances: Record<string, CardDefinitionId> = {};

@@ -19,7 +19,7 @@
 
 import WebSocket from 'ws';
 import * as readline from 'readline';
-import type { PlayerId, ServerMessage, ClientMessage, JoinMessage, CardDefinitionId } from '@meccg/shared';
+import type { PlayerId, ServerMessage, ClientMessage, JoinMessage, CardDefinitionId, GameAction } from '@meccg/shared';
 import {
   ARAGORN, BILBO, FRODO,
   GLAMDRING, STING, THE_MITHRIL_COAT, THE_ONE_RING, DAGGER_OF_WESTERNESSE,
@@ -70,6 +70,8 @@ const rl = readline.createInterface({
 let playerId: PlayerId | null = null;
 let ws: WebSocket | null = null;
 let shouldReconnect = false;
+/** Last received legal actions, indexed for quick selection by number. */
+let lastLegalActions: GameAction[] = [];
 
 // ---- Connect / Reconnect ----
 
@@ -113,7 +115,17 @@ function connect(): void {
           }
         }
 
-        console.log(`Legal actions: ${msg.view.legalActions.join(', ')}`);
+        // Display numbered legal actions for quick selection
+        lastLegalActions = [...msg.view.legalActions];
+        if (lastLegalActions.length > 0) {
+          console.log('Legal actions:');
+          for (let i = 0; i < lastLegalActions.length; i++) {
+            const action = lastLegalActions[i];
+            const { type, player: _p, ...args } = action;
+            const argsStr = Object.keys(args).length > 0 ? ' ' + Object.values(args).join(' ') : '';
+            console.log(`  [${i + 1}] ${type}${argsStr}`);
+          }
+        }
         console.log('');
         rl.prompt();
         break;
@@ -172,10 +184,18 @@ rl.on('line', (line) => {
     return;
   }
 
-  const action = parseAction(input, playerId);
+  // Try number shortcut first
+  const num = parseInt(input, 10);
+  let action: GameAction | null = null;
+  if (!isNaN(num) && num >= 1 && num <= lastLegalActions.length) {
+    action = lastLegalActions[num - 1];
+  } else {
+    action = parseAction(input, playerId);
+  }
+
   if (!action) {
     console.log(`Unknown command: ${input}`);
-    console.log('Commands: draft-pick <id>, draft-stop, pass, quit');
+    console.log('Type a number to pick a legal action, or: draft-pick <id>, draft-stop, pass, quit');
     rl.prompt();
     return;
   }
