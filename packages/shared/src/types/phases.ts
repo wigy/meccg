@@ -69,6 +69,7 @@ export const LEGAL_ACTIONS_BY_PHASE: Readonly<Record<Phase, readonly GameAction[
 
   [Phase.ItemDraft]: [
     'assign-starting-item',
+    'pass',
   ],
 
   [Phase.Untap]: ['pass'],

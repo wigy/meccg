@@ -30,5 +30,8 @@ export function itemDraftActions(state: GameState, playerId: PlayerId): GameActi
     }
   }
 
+  // Can always pass (skip remaining item assignments)
+  actions.push({ type: 'pass', player: playerId });
+
   return actions;
 }

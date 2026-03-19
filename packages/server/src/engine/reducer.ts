@@ -334,15 +334,39 @@ function handleItemDraft(state: GameState, action: GameAction): ReducerResult {
     return { state, error: 'Not in item draft phase' };
   }
 
-  if (action.type !== 'assign-starting-item') {
-    return { state, error: `Unexpected action in item draft: ${action.type}` };
-  }
-
   const playerIndex = state.players[0].id === action.player ? 0 : 1;
   const itemDraft = state.phaseState.itemDraftState[playerIndex];
 
   if (itemDraft.done) {
-    return { state, error: 'You have already assigned all items' };
+    return { state, error: 'You have already finished item assignment' };
+  }
+
+  // Pass: skip remaining item assignments
+  if (action.type === 'pass') {
+    const newItemDraftState = [...state.phaseState.itemDraftState] as [ItemDraftPlayerState, ItemDraftPlayerState];
+    newItemDraftState[playerIndex] = { unassignedItems: [], done: true };
+
+    if (newItemDraftState[0].done && newItemDraftState[1].done) {
+      return {
+        state: {
+          ...state,
+          activePlayer: state.players[0].id,
+          phaseState: { phase: Phase.Untap },
+          turnNumber: 1,
+        },
+      };
+    }
+
+    return {
+      state: {
+        ...state,
+        phaseState: { ...state.phaseState, itemDraftState: newItemDraftState },
+      },
+    };
+  }
+
+  if (action.type !== 'assign-starting-item') {
+    return { state, error: `Unexpected action in item draft: ${action.type}` };
   }
 
   // Validate item is in unassigned list
