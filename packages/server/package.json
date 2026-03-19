@@ -7,9 +7,11 @@
   "scripts": {
     "build": "tsc",
     "check": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "start": "npx tsx src/ws/server.ts"
   },
   "dependencies": {
-    "@meccg/shared": "*"
+    "@meccg/shared": "*",
+    "ws": "^8.19.0"
   }
 }

@@ -4,3 +4,4 @@ export * from './state.js';
 export * from './actions.js';
 export * from './phases.js';
 export * from './player-view.js';
+export * from './protocol.js';
