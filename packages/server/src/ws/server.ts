@@ -16,7 +16,7 @@ import { WebSocketServer } from 'ws';
 import { GameSession } from './game-session.js';
 
 const PORT = parseInt(process.env.PORT ?? '3000', 10);
-const DEBUG = process.argv.includes('--debug');
+const DEBUG = process.argv.includes('--debug') || process.env.DEBUG === '1';
 
 const wss = new WebSocketServer({ port: PORT });
 const session = new GameSession({ debug: DEBUG });

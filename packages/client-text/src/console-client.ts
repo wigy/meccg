@@ -35,7 +35,7 @@ import {
 import { parseAction } from './action-parser.js';
 
 const SERVER_URL = process.env.SERVER_URL ?? 'ws://localhost:3000';
-const DEBUG = process.argv.includes('--debug');
+const DEBUG = process.argv.includes('--debug') || process.env.DEBUG === '1';
 const PLAYER_NAME = process.argv.filter(a => a !== '--debug')[2] ?? 'Player';
 const RECONNECT_DELAY_MS = 2000;
 
