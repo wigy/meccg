@@ -5,7 +5,7 @@
   "scripts": {
     "build": "esbuild src/browser/app.ts --bundle --outfile=public/bundle.js --format=iife --platform=browser",
     "start": "npm run build && npx tsx src/server/serve.ts",
-    "dev": "nodemon --watch src --watch ../shared/src --ext ts,json,html,css --exec 'npm run build && npx tsx src/server/serve.ts'"
+    "dev": "npm run build && (esbuild src/browser/app.ts --bundle --outfile=public/bundle.js --format=iife --platform=browser --watch=forever & npx tsx src/server/serve.ts --dev)"
   },
   "dependencies": {
     "@meccg/shared": "*",

@@ -16,6 +16,7 @@ import { WebSocketServer, WebSocket } from 'ws';
 import { colorDebug, cardImageRawUrl } from '@meccg/shared';
 
 const DEBUG = process.argv.includes('--debug') || process.env.DEBUG === '1';
+const DEV = process.argv.includes('--dev') || process.env.DEV === '1';
 const PORT = parseInt(process.env.PORT ?? '8080', 10);
 const GAME_SERVER = process.env.GAME_SERVER ?? 'ws://localhost:3000';
 const PUBLIC_DIR = path.join(__dirname, '../../public');
@@ -120,9 +121,50 @@ async function handleImageRequest(
   return true;
 }
 
+// ---- Live reload (dev mode only) ----
+
+/** Connected SSE clients waiting for reload signals. */
+const reloadClients = new Set<http.ServerResponse>();
+
+/** Small script injected before </body> in dev mode to auto-reload on changes. */
+const RELOAD_SCRIPT = `<script>
+(function() {
+  var es = new EventSource('/__livereload');
+  es.onmessage = function(e) { if (e.data === 'reload') location.reload(); };
+})();
+</script>`;
+
+if (DEV) {
+  let reloadTimeout: ReturnType<typeof setTimeout> | null = null;
+  fs.watch(PUBLIC_DIR, { recursive: true }, (_event, filename) => {
+    if (!filename || filename.endsWith('~')) return;
+    // Debounce: wait 100ms for writes to settle
+    if (reloadTimeout) clearTimeout(reloadTimeout);
+    reloadTimeout = setTimeout(() => {
+      console.log(`File changed: ${filename}, signaling reload...`);
+      for (const client of reloadClients) {
+        client.write('data: reload\n\n');
+      }
+    }, 100);
+  });
+}
+
 /** Serve static files from the public/ directory, with card image proxy. */
 const server = http.createServer((req, res) => {
   const urlPath = req.url === '/' ? '/index.html' : req.url ?? '/index.html';
+
+  // Live reload SSE endpoint (dev mode)
+  if (DEV && urlPath === '/__livereload') {
+    res.writeHead(200, {
+      'Content-Type': 'text/event-stream',
+      'Cache-Control': 'no-cache',
+      'Connection': 'keep-alive',
+    });
+    res.write('data: connected\n\n');
+    reloadClients.add(res);
+    req.on('close', () => reloadClients.delete(res));
+    return;
+  }
 
   // Card image proxy route
   if (urlPath.startsWith('/cards/images/')) {
@@ -152,6 +194,13 @@ const server = http.createServer((req, res) => {
     if (err) {
       res.writeHead(404);
       res.end('Not found');
+      return;
+    }
+    // In dev mode, inject live-reload script into HTML responses
+    if (DEV && ext === '.html') {
+      const html = data.toString().replace('</body>', `${RELOAD_SCRIPT}</body>`);
+      res.writeHead(200, { 'Content-Type': contentType });
+      res.end(html);
       return;
     }
     res.writeHead(200, { 'Content-Type': contentType });
