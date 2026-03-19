@@ -67,6 +67,33 @@ export class GameSession {
     fs.mkdirSync(SAVE_DIR, { recursive: true });
   }
 
+  /**
+   * Graceful shutdown: saves the game if in progress, sends "restart"
+   * to all connected clients so they can auto-reconnect, and closes
+   * all WebSocket connections.
+   */
+  gracefulShutdown(): void {
+    if (this.state) {
+      this.saveGame();
+    }
+
+    const restartMsg: ServerMessage = { type: 'restart', message: 'Server restarting. Reconnecting...' };
+
+    for (const p of this.pending) {
+      this.send(p.ws, restartMsg);
+      p.ws.close();
+    }
+    this.pending = [];
+
+    for (const [, { ws }] of this.players.entries()) {
+      this.send(ws, restartMsg);
+      ws.close();
+    }
+    this.players.clear();
+
+    this.state = null;
+  }
+
   addConnection(ws: WebSocket): void {
     ws.on('message', (data) => {
       try {

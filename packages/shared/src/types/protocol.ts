@@ -142,4 +142,15 @@ export interface DisconnectedMessage {
   readonly message: string;
 }
 
-export type ServerMessage = AssignedMessage | StateMessage | ErrorMessage | WaitingMessage | DisconnectedMessage;
+/**
+ * Sent by the server before shutting down for a code reload.
+ * Clients should automatically reconnect after a short delay.
+ */
+export interface RestartMessage {
+  /** Message type discriminant. */
+  readonly type: 'restart';
+  /** Human-readable explanation. */
+  readonly message: string;
+}
+
+export type ServerMessage = AssignedMessage | StateMessage | ErrorMessage | WaitingMessage | DisconnectedMessage | RestartMessage;

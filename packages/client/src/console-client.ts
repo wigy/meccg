@@ -6,19 +6,15 @@
  *
  * Usage:
  * ```
- * node console-client.js [playerName]
+ * npx tsx src/console-client.ts [playerName]
  * ```
  *
  * Environment variables:
  * - `SERVER_URL` — WebSocket URL (default `ws://localhost:3000`).
  *
- * On startup the client automatically sends a "join" message with a
- * hard-coded default deck (useful for quick testing). The user then types
- * commands (parsed by {@link parseAction}) which are sent as game actions.
- *
- * Server messages are printed to stdout: game state summaries after each
- * action, draft status during the character draft, and error messages for
- * illegal actions.
+ * Supports auto-reconnect: when the server sends a "restart" message
+ * (e.g. due to code reload), the client waits briefly and reconnects
+ * with the same player name and deck config.
  */
 
 import WebSocket from 'ws';
@@ -35,18 +31,12 @@ import {
 } from '@meccg/shared';
 import { parseAction } from './action-parser.js';
 
-/** WebSocket server URL, configurable via the `SERVER_URL` env var. */
 const SERVER_URL = process.env.SERVER_URL ?? 'ws://localhost:3000';
-/** Player display name, taken from the first CLI argument or defaulting to "Player". */
 const PLAYER_NAME = process.argv[2] ?? 'Player';
+const RECONNECT_DELAY_MS = 2000;
 
-/**
- * Builds a simple test play deck by repeating a small set of resource and
- * hazard cards. The resulting deck is large enough to pass minimum deck size
- * requirements for testing, but is not competitively constructed.
- *
- * @returns An array of card definition IDs forming a minimal valid play deck.
- */
+const cardPool = loadCardPool();
+
 function buildDefaultPlayDeck(): CardDefinitionId[] {
   const resources = [GLAMDRING, STING, THE_MITHRIL_COAT, THE_ONE_RING];
   const hazards = [CAVE_DRAKE, ORC_PATROL, BARROW_WIGHT];
@@ -57,11 +47,6 @@ function buildDefaultPlayDeck(): CardDefinitionId[] {
   return deck;
 }
 
-/**
- * Default join message sent automatically on connection. Contains a small
- * draft pool (Aragorn, Bilbo, Frodo), a starter item, a repeating test
- * deck, and Rivendell as the starting haven.
- */
 const defaultJoin: JoinMessage = {
   type: 'join',
   name: PLAYER_NAME,
@@ -72,15 +57,7 @@ const defaultJoin: JoinMessage = {
   startingHaven: RIVENDELL,
 };
 
-// ---- Connection ----
-
-/** The card pool for resolving card names in the formatter. */
-const cardPool = loadCardPool();
-
-/** The player ID assigned by the server after the "join" handshake. */
-let playerId: PlayerId | null = null;
-
-const ws = new WebSocket(SERVER_URL);
+// ---- Readline (shared across connections) ----
 
 const rl = readline.createInterface({
   input: process.stdin,
@@ -88,70 +65,101 @@ const rl = readline.createInterface({
   prompt: '> ',
 });
 
-ws.on('open', () => {
-  console.log(`Connected to ${SERVER_URL} as "${PLAYER_NAME}"`);
-  ws.send(JSON.stringify(defaultJoin));
-});
+// ---- Connection state ----
 
-ws.on('message', (data) => {
-  const msg: ServerMessage = JSON.parse(data.toString());
+let playerId: PlayerId | null = null;
+let ws: WebSocket | null = null;
+let shouldReconnect = false;
 
-  switch (msg.type) {
-    case 'assigned':
-      playerId = msg.playerId;
-      console.log(`Assigned player ID: ${playerId}`);
-      break;
+// ---- Connect / Reconnect ----
 
-    case 'waiting':
-      console.log('Waiting for opponent to connect...');
-      break;
+function connect(): void {
+  playerId = null;
+  shouldReconnect = false;
 
-    case 'state':
-      console.log('\n' + formatPlayerView(msg.view, cardPool));
+  const socket = new WebSocket(SERVER_URL);
+  ws = socket;
 
-      // Show draft-specific info
-      if (msg.view.phaseState.phase === 'character-draft') {
-        const draft = msg.view.phaseState;
-        const colorNames = (ids: readonly CardDefinitionId[]) =>
-          ids.map(id => formatDefName(id, cardPool)).join(', ');
-        console.log(`Draft round: ${draft.round}`);
-        console.log(`Your pool: ${colorNames(draft.draftState[0].pool) || '(empty)'}`);
-        console.log(`Your drafted: ${colorNames(draft.draftState[0].drafted) || '(none)'}`);
-        if (draft.setAside.length > 0) {
-          console.log(`Set aside: ${colorNames(draft.setAside)}`);
+  socket.on('open', () => {
+    console.log(`Connected to ${SERVER_URL} as "${PLAYER_NAME}"`);
+    socket.send(JSON.stringify(defaultJoin));
+  });
+
+  socket.on('message', (data) => {
+    const msg: ServerMessage = JSON.parse(data.toString());
+
+    switch (msg.type) {
+      case 'assigned':
+        playerId = msg.playerId;
+        console.log(`Assigned player ID: ${playerId}`);
+        break;
+
+      case 'waiting':
+        console.log('Waiting for opponent to connect...');
+        break;
+
+      case 'state':
+        console.log('\n' + formatPlayerView(msg.view, cardPool));
+
+        if (msg.view.phaseState.phase === 'character-draft') {
+          const draft = msg.view.phaseState;
+          const colorNames = (ids: readonly CardDefinitionId[]) =>
+            ids.map(id => formatDefName(id, cardPool)).join(', ');
+          console.log(`Draft round: ${draft.round}`);
+          console.log(`Your pool: ${colorNames(draft.draftState[0].pool) || '(empty)'}`);
+          console.log(`Your drafted: ${colorNames(draft.draftState[0].drafted) || '(none)'}`);
+          if (draft.setAside.length > 0) {
+            console.log(`Set aside: ${colorNames(draft.setAside)}`);
+          }
         }
-      }
 
-      console.log(`Legal actions: ${msg.view.legalActions.join(', ')}`);
-      console.log('');
-      rl.prompt();
-      break;
+        console.log(`Legal actions: ${msg.view.legalActions.join(', ')}`);
+        console.log('');
+        rl.prompt();
+        break;
 
-    case 'error':
-      console.log(`ERROR: ${msg.message}`);
-      rl.prompt();
-      break;
+      case 'error':
+        console.log(`ERROR: ${msg.message}`);
+        rl.prompt();
+        break;
 
-    case 'disconnected':
-      console.log(`\n${msg.message}`);
-      console.log('Reconnect to resume the game.');
-      break;
-  }
-});
+      case 'disconnected':
+        console.log(`\n${msg.message}`);
+        console.log('Reconnect to resume the game.');
+        break;
 
-ws.on('close', () => {
-  console.log('Disconnected from server');
-  process.exit(0);
-});
+      case 'restart':
+        console.log(`\n${msg.message}`);
+        shouldReconnect = true;
+        break;
+    }
+  });
 
-ws.on('error', (err) => {
-  console.error('Connection error:', err.message);
-  process.exit(1);
-});
+  socket.on('close', () => {
+    ws = null;
+    if (shouldReconnect) {
+      console.log(`Reconnecting in ${RECONNECT_DELAY_MS / 1000}s...`);
+      setTimeout(connect, RECONNECT_DELAY_MS);
+    } else {
+      console.log('Disconnected from server');
+      process.exit(0);
+    }
+  });
+
+  socket.on('error', (err) => {
+    if (shouldReconnect) {
+      // Connection refused during reconnect — server not ready yet, retry
+      console.log('Server not ready, retrying...');
+      ws = null;
+      setTimeout(connect, RECONNECT_DELAY_MS);
+    } else {
+      console.error('Connection error:', err.message);
+      process.exit(1);
+    }
+  });
+}
 
 // ---- Input handling ----
-// Readline processes user commands, parses them via parseAction, and sends
-// the resulting GameAction to the server as a JSON-encoded ClientMessage.
 
 rl.on('line', (line) => {
   const input = line.trim();
@@ -161,8 +169,14 @@ rl.on('line', (line) => {
   }
 
   if (input === 'quit' || input === 'exit') {
-    ws.close();
+    ws?.close();
     process.exit(0);
+  }
+
+  if (!ws || ws.readyState !== WebSocket.OPEN) {
+    console.log('Not connected to server');
+    rl.prompt();
+    return;
   }
 
   if (!playerId) {
@@ -184,6 +198,10 @@ rl.on('line', (line) => {
 });
 
 rl.on('close', () => {
-  ws.close();
+  ws?.close();
   process.exit(0);
 });
+
+// ---- Start ----
+
+connect();

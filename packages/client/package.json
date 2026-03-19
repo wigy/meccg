@@ -5,7 +5,8 @@
   "scripts": {
     "build": "tsc",
     "check": "tsc --noEmit",
-    "start": "npx tsx src/console-client.ts"
+    "start": "npx tsx src/console-client.ts",
+    "dev": "nodemon --watch src --watch ../shared/src --ext ts,json --exec 'npx tsx src/console-client.ts'"
   },
   "dependencies": {
     "@meccg/shared": "*",
