@@ -9,41 +9,45 @@ import {
   CharacterStatus,
   HAND_SIZE,
 } from '@meccg/shared';
-import type { PlayerId, CardDefinitionId, DraftPickAction, DraftStopAction } from '@meccg/shared';
-
-const pid = (s: string) => s as PlayerId;
-const did = (s: string) => s as CardDefinitionId;
+import type { DraftPickAction, DraftStopAction } from '@meccg/shared';
+import {
+  PLAYER_1, PLAYER_2,
+  ARAGORN, BILBO, FRODO, LEGOLAS, GIMLI, FARAMIR,
+  GLAMDRING, STING, THE_MITHRIL_COAT, THE_ONE_RING, DAGGER_OF_WESTERNESSE,
+  CAVE_DRAKE, ORC_PATROL, BARROW_WIGHT,
+  RIVENDELL, LORIEN, MORIA, MINAS_TIRITH, MOUNT_DOOM,
+} from '../test-constants.js';
 
 const pool = loadCardPool();
 
-function makePlayDeck(): CardDefinitionId[] {
-  const resourceIds = [did('tw-244'), did('tw-333'), did('tw-345'), did('tw-347')];
-  const hazardIds = [did('tw-020'), did('tw-074'), did('tw-015')];
-  const playDeck: CardDefinitionId[] = [];
+function makePlayDeck() {
+  const resources = [GLAMDRING, STING, THE_MITHRIL_COAT, THE_ONE_RING];
+  const hazards = [CAVE_DRAKE, ORC_PATROL, BARROW_WIGHT];
+  const deck = [];
   for (let i = 0; i < 5; i++) {
-    playDeck.push(...resourceIds, ...hazardIds);
+    deck.push(...resources, ...hazards);
   }
-  return playDeck;
+  return deck;
 }
 
 function makeQuickStartConfig(seed = 42): QuickStartGameConfig {
   return {
     players: [
       {
-        id: pid('p1'),
+        id: PLAYER_1,
         name: 'Alice',
-        startingCharacters: [did('tw-120'), did('tw-131')], // Aragorn II, Bilbo
+        startingCharacters: [ARAGORN, BILBO],
         playDeck: makePlayDeck(),
-        siteDeck: [did('tw-413'), did('tw-412'), did('tw-414')],
-        startingHaven: did('tw-421'), // Rivendell
+        siteDeck: [MORIA, MINAS_TIRITH, MOUNT_DOOM],
+        startingHaven: RIVENDELL,
       },
       {
-        id: pid('p2'),
+        id: PLAYER_2,
         name: 'Bob',
-        startingCharacters: [did('tw-168'), did('tw-159')], // Legolas, Gimli
+        startingCharacters: [LEGOLAS, GIMLI],
         playDeck: makePlayDeck(),
-        siteDeck: [did('tw-413'), did('tw-412')],
-        startingHaven: did('tw-408'), // Lórien
+        siteDeck: [MORIA, MINAS_TIRITH],
+        startingHaven: LORIEN,
       },
     ],
     seed,
@@ -54,22 +58,22 @@ function makeDraftConfig(seed = 42): GameConfig {
   return {
     players: [
       {
-        id: pid('p1'),
+        id: PLAYER_1,
         name: 'Alice',
-        draftPool: [did('tw-120'), did('tw-131'), did('tw-152')], // Aragorn, Bilbo, Frodo
-        startingMinorItems: [did('tw-206'), did('tw-206')], // 2x Dagger of Westernesse
+        draftPool: [ARAGORN, BILBO, FRODO],
+        startingMinorItems: [DAGGER_OF_WESTERNESSE, DAGGER_OF_WESTERNESSE],
         playDeck: makePlayDeck(),
-        siteDeck: [did('tw-413'), did('tw-412'), did('tw-414')],
-        startingHaven: did('tw-421'),
+        siteDeck: [MORIA, MINAS_TIRITH, MOUNT_DOOM],
+        startingHaven: RIVENDELL,
       },
       {
-        id: pid('p2'),
+        id: PLAYER_2,
         name: 'Bob',
-        draftPool: [did('tw-168'), did('tw-159'), did('tw-149')], // Legolas, Gimli, Faramir
-        startingMinorItems: [did('tw-206')], // 1x Dagger of Westernesse
+        draftPool: [LEGOLAS, GIMLI, FARAMIR],
+        startingMinorItems: [DAGGER_OF_WESTERNESSE],
         playDeck: makePlayDeck(),
-        siteDeck: [did('tw-413'), did('tw-412')],
-        startingHaven: did('tw-408'),
+        siteDeck: [MORIA, MINAS_TIRITH],
+        startingHaven: LORIEN,
       },
     ],
     seed,
@@ -93,7 +97,7 @@ describe('createGameQuickStart', () => {
 
     expect(state.turnNumber).toBe(1);
     expect(state.phaseState.phase).toBe(Phase.Untap);
-    expect(state.activePlayer).toBe('p1');
+    expect(state.activePlayer).toBe(PLAYER_1);
   });
 
   it('deals HAND_SIZE cards to each player', () => {
@@ -120,7 +124,7 @@ describe('createGameQuickStart', () => {
     }
 
     const havenInstance = state.instanceMap[company.currentSite as string];
-    expect(havenInstance.definitionId).toBe('tw-421');
+    expect(havenInstance.definitionId).toBe(RIVENDELL);
   });
 
   it('calculates general influence used from starting characters', () => {
@@ -171,48 +175,43 @@ describe('character draft', () => {
   it('accepts picks from both players and resolves round', () => {
     let state = createGame(makeDraftConfig(), pool);
 
-    // Player 1 picks Aragorn
-    const pick1: DraftPickAction = { type: 'draft-pick', player: pid('p1'), characterDefId: did('tw-120') };
+    const pick1: DraftPickAction = { type: 'draft-pick', player: PLAYER_1, characterDefId: ARAGORN };
     let result = reduce(state, pick1);
     expect(result.error).toBeUndefined();
     state = result.state;
 
-    // Still in draft, waiting for player 2
     expect(state.phaseState.phase).toBe(Phase.CharacterDraft);
 
-    // Player 2 picks Legolas
-    const pick2: DraftPickAction = { type: 'draft-pick', player: pid('p2'), characterDefId: did('tw-168') };
+    const pick2: DraftPickAction = { type: 'draft-pick', player: PLAYER_2, characterDefId: LEGOLAS };
     result = reduce(state, pick2);
     expect(result.error).toBeUndefined();
     state = result.state;
 
-    // Round resolved, different picks so both get their character
     if (state.phaseState.phase === Phase.CharacterDraft) {
-      expect(state.phaseState.draftState[0].drafted).toContain(did('tw-120'));
-      expect(state.phaseState.draftState[1].drafted).toContain(did('tw-168'));
+      expect(state.phaseState.draftState[0].drafted).toContain(ARAGORN);
+      expect(state.phaseState.draftState[1].drafted).toContain(LEGOLAS);
       expect(state.phaseState.round).toBe(2);
     }
   });
 
   it('sets aside duplicate picks', () => {
-    // Both players have Aragorn in their pool
     const config: GameConfig = {
       players: [
         {
-          id: pid('p1'), name: 'Alice',
-          draftPool: [did('tw-120'), did('tw-131')],
+          id: PLAYER_1, name: 'Alice',
+          draftPool: [ARAGORN, BILBO],
           startingMinorItems: [],
           playDeck: makePlayDeck(),
-          siteDeck: [did('tw-413')],
-          startingHaven: did('tw-421'),
+          siteDeck: [MORIA],
+          startingHaven: RIVENDELL,
         },
         {
-          id: pid('p2'), name: 'Bob',
-          draftPool: [did('tw-120'), did('tw-168')],
+          id: PLAYER_2, name: 'Bob',
+          draftPool: [ARAGORN, LEGOLAS],
           startingMinorItems: [],
           playDeck: makePlayDeck(),
-          siteDeck: [did('tw-413')],
-          startingHaven: did('tw-408'),
+          siteDeck: [MORIA],
+          startingHaven: LORIEN,
         },
       ],
       seed: 42,
@@ -220,38 +219,33 @@ describe('character draft', () => {
 
     let state = createGame(config, pool);
 
-    // Both pick Aragorn
-    let result = reduce(state, { type: 'draft-pick', player: pid('p1'), characterDefId: did('tw-120') });
+    let result = reduce(state, { type: 'draft-pick', player: PLAYER_1, characterDefId: ARAGORN });
     state = result.state;
-    result = reduce(state, { type: 'draft-pick', player: pid('p2'), characterDefId: did('tw-120') });
+    result = reduce(state, { type: 'draft-pick', player: PLAYER_2, characterDefId: ARAGORN });
     state = result.state;
 
     if (state.phaseState.phase === Phase.CharacterDraft) {
-      expect(state.phaseState.draftState[0].drafted).not.toContain(did('tw-120'));
-      expect(state.phaseState.draftState[1].drafted).not.toContain(did('tw-120'));
-      expect(state.phaseState.setAside).toContain(did('tw-120'));
+      expect(state.phaseState.draftState[0].drafted).not.toContain(ARAGORN);
+      expect(state.phaseState.draftState[1].drafted).not.toContain(ARAGORN);
+      expect(state.phaseState.setAside).toContain(ARAGORN);
     }
   });
 
   it('transitions to untap phase when both players stop', () => {
     let state = createGame(makeDraftConfig(), pool);
 
-    // Both pick one character each
-    let result = reduce(state, { type: 'draft-pick', player: pid('p1'), characterDefId: did('tw-120') });
+    let result = reduce(state, { type: 'draft-pick', player: PLAYER_1, characterDefId: ARAGORN });
     state = result.state;
-    result = reduce(state, { type: 'draft-pick', player: pid('p2'), characterDefId: did('tw-168') });
+    result = reduce(state, { type: 'draft-pick', player: PLAYER_2, characterDefId: LEGOLAS });
     state = result.state;
 
-    // Both stop
-    result = reduce(state, { type: 'draft-stop', player: pid('p1') });
+    result = reduce(state, { type: 'draft-stop', player: PLAYER_1 });
     state = result.state;
-    result = reduce(state, { type: 'draft-stop', player: pid('p2') });
+    result = reduce(state, { type: 'draft-stop', player: PLAYER_2 });
     state = result.state;
 
     expect(state.phaseState.phase).toBe(Phase.Untap);
     expect(state.turnNumber).toBe(1);
-
-    // Characters should be placed at havens
     expect(state.players[0].companies).toHaveLength(1);
     expect(state.players[1].companies).toHaveLength(1);
 
@@ -261,31 +255,25 @@ describe('character draft', () => {
   it('assigns starting minor items to first drafted character', () => {
     let state = createGame(makeDraftConfig(), pool);
 
-    // Alice drafts Aragorn, Bob drafts Legolas
-    let result = reduce(state, { type: 'draft-pick', player: pid('p1'), characterDefId: did('tw-120') });
+    let result = reduce(state, { type: 'draft-pick', player: PLAYER_1, characterDefId: ARAGORN });
     state = result.state;
-    result = reduce(state, { type: 'draft-pick', player: pid('p2'), characterDefId: did('tw-168') });
+    result = reduce(state, { type: 'draft-pick', player: PLAYER_2, characterDefId: LEGOLAS });
     state = result.state;
 
-    // Both stop
-    result = reduce(state, { type: 'draft-stop', player: pid('p1') });
+    result = reduce(state, { type: 'draft-stop', player: PLAYER_1 });
     state = result.state;
-    result = reduce(state, { type: 'draft-stop', player: pid('p2') });
+    result = reduce(state, { type: 'draft-stop', player: PLAYER_2 });
     state = result.state;
 
     expect(state.phaseState.phase).toBe(Phase.Untap);
 
-    // Alice's Aragorn should have 2 Daggers of Westernesse
+    // Alice's Aragorn should have 2 Daggers
     const p1 = state.players[0];
-    const company = p1.companies[0];
-    const firstCharId = company.characters[0];
+    const firstCharId = p1.companies[0].characters[0];
     const firstChar = p1.characters[firstCharId as string];
     expect(firstChar.items).toHaveLength(2);
-
-    // Verify they are Daggers
     for (const itemId of firstChar.items) {
-      const inst = state.instanceMap[itemId as string];
-      expect(inst.definitionId).toBe('tw-206');
+      expect(state.instanceMap[itemId as string].definitionId).toBe(DAGGER_OF_WESTERNESSE);
     }
 
     // Bob's Legolas should have 1 Dagger
@@ -297,24 +285,23 @@ describe('character draft', () => {
   });
 
   it('rejects picks that would exceed mind limit of 20', () => {
-    // Aragorn has mind 9 — two of those would be 18, third would depend
     const config: GameConfig = {
       players: [
         {
-          id: pid('p1'), name: 'Alice',
-          draftPool: [did('tw-120'), did('tw-168'), did('tw-159')], // Aragorn(9) + Legolas(6) + Gimli(6) = 21
+          id: PLAYER_1, name: 'Alice',
+          draftPool: [ARAGORN, LEGOLAS, GIMLI], // 9 + 6 + 6 = 21
           startingMinorItems: [],
           playDeck: makePlayDeck(),
-          siteDeck: [did('tw-413')],
-          startingHaven: did('tw-421'),
+          siteDeck: [MORIA],
+          startingHaven: RIVENDELL,
         },
         {
-          id: pid('p2'), name: 'Bob',
-          draftPool: [did('tw-149')],
+          id: PLAYER_2, name: 'Bob',
+          draftPool: [FARAMIR],
           startingMinorItems: [],
           playDeck: makePlayDeck(),
-          siteDeck: [did('tw-413')],
-          startingHaven: did('tw-408'),
+          siteDeck: [MORIA],
+          startingHaven: LORIEN,
         },
       ],
       seed: 42,
@@ -323,20 +310,20 @@ describe('character draft', () => {
     let state = createGame(config, pool);
 
     // Pick Aragorn (mind 9) — OK
-    let result = reduce(state, { type: 'draft-pick', player: pid('p1'), characterDefId: did('tw-120') });
+    let result = reduce(state, { type: 'draft-pick', player: PLAYER_1, characterDefId: ARAGORN });
     state = result.state;
-    result = reduce(state, { type: 'draft-pick', player: pid('p2'), characterDefId: did('tw-149') });
+    result = reduce(state, { type: 'draft-pick', player: PLAYER_2, characterDefId: FARAMIR });
     state = result.state;
 
     // Pick Legolas (mind 6, total 15) — OK
-    result = reduce(state, { type: 'draft-pick', player: pid('p1'), characterDefId: did('tw-168') });
+    result = reduce(state, { type: 'draft-pick', player: PLAYER_1, characterDefId: LEGOLAS });
     expect(result.error).toBeUndefined();
     state = result.state;
-    result = reduce(state, { type: 'draft-stop', player: pid('p2') });
+    result = reduce(state, { type: 'draft-stop', player: PLAYER_2 });
     state = result.state;
 
-    // Pick Gimli (mind 6, total 21) — should be rejected
-    result = reduce(state, { type: 'draft-pick', player: pid('p1'), characterDefId: did('tw-159') });
+    // Pick Gimli (mind 6, total 21) — rejected
+    result = reduce(state, { type: 'draft-pick', player: PLAYER_1, characterDefId: GIMLI });
     expect(result.error).toContain('mind limit');
   });
 });
