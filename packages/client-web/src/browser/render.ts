@@ -6,7 +6,7 @@
  */
 
 import type { PlayerView, GameAction, CardDefinition, CardDefinitionId } from '@meccg/shared';
-import { describeAction, formatPlayerView, formatCardList } from '@meccg/shared';
+import { describeAction, formatPlayerView, formatCardList, cardImageProxyPath } from '@meccg/shared';
 
 /** Get an element by ID, throwing if not found. */
 function $(id: string): HTMLElement {
@@ -80,10 +80,86 @@ function ansiToHtml(text: string): string {
   return result;
 }
 
+// ---- Card image hover ----
+
+/** Map from card name to image proxy path, built once from the card pool. */
+let cardImageMap: Map<string, string> | null = null;
+
+/** Build (or return cached) card name → image path map. */
+function getCardImageMap(cardPool: Readonly<Record<string, CardDefinition>>): Map<string, string> {
+  if (cardImageMap) return cardImageMap;
+  cardImageMap = new Map();
+  for (const card of Object.values(cardPool)) {
+    const imgPath = cardImageProxyPath(card);
+    if (imgPath) {
+      cardImageMap.set(card.name, imgPath);
+    }
+  }
+  return cardImageMap;
+}
+
+/**
+ * Walk an element's colored spans and tag any whose text matches a card name
+ * with a data-card-image attribute for the hover handler.
+ */
+function tagCardNames(el: HTMLElement, cardPool: Readonly<Record<string, CardDefinition>>): void {
+  const map = getCardImageMap(cardPool);
+  const spans = el.querySelectorAll('span[style]');
+  for (const span of spans) {
+    const text = span.textContent ?? '';
+    if (text && map.has(text) && !span.children.length) {
+      (span as HTMLElement).dataset.cardImage = map.get(text)!;
+      (span as HTMLElement).classList.add('card-name');
+    }
+  }
+}
+
+/** Floating image element for card hover preview. */
+let hoverImg: HTMLImageElement | null = null;
+
+function getHoverImg(): HTMLImageElement {
+  if (hoverImg) return hoverImg;
+  hoverImg = document.createElement('img');
+  hoverImg.id = 'card-hover-img';
+  document.body.appendChild(hoverImg);
+  return hoverImg;
+}
+
+/** Set up global hover handlers for card name elements. */
+document.addEventListener('mouseover', (e) => {
+  const target = (e.target as HTMLElement).closest?.('[data-card-image]');
+  if (!target) return;
+  const img = getHoverImg();
+  img.src = (target as HTMLElement).dataset.cardImage!;
+  img.style.display = 'block';
+});
+
+document.addEventListener('mouseout', (e) => {
+  const target = (e.target as HTMLElement).closest?.('[data-card-image]');
+  if (!target) return;
+  const img = getHoverImg();
+  img.style.display = 'none';
+});
+
+document.addEventListener('mousemove', (e) => {
+  if (!hoverImg || hoverImg.style.display === 'none') return;
+  const imgW = hoverImg.offsetWidth || 350;
+  const imgH = hoverImg.offsetHeight || 500;
+  const vw = window.innerWidth;
+  const vh = window.innerHeight;
+  let x = e.clientX + 16;
+  let y = e.clientY + 16;
+  if (x + imgW > vw) x = e.clientX - imgW - 16;
+  if (y + imgH > vh) y = vh - imgH;
+  hoverImg.style.left = `${x}px`;
+  hoverImg.style.top = `${y}px`;
+});
+
 /** Render the game state using the shared ANSI formatter, converted to HTML. */
 export function renderState(view: PlayerView, cardPool: Readonly<Record<string, CardDefinition>>): void {
   const el = $('state');
   el.innerHTML = ansiToHtml(formatPlayerView(view, cardPool));
+  tagCardNames(el, cardPool);
 }
 
 /** Render draft-specific information with colored card names. */
@@ -109,6 +185,7 @@ export function renderDraft(view: PlayerView, cardPool: Readonly<Record<string, 
   }
 
   el.innerHTML = ansiToHtml(lines.join('\n'));
+  tagCardNames(el, cardPool);
 }
 
 /** Render action buttons. */
@@ -123,6 +200,7 @@ export function renderActions(
   for (const action of actions) {
     const btn = document.createElement('button');
     btn.innerHTML = ansiToHtml(describeAction(action, cardPool));
+    tagCardNames(btn, cardPool);
     btn.addEventListener('click', () => onClick(action));
     el.appendChild(btn);
   }

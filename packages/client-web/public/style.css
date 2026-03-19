@@ -180,3 +180,20 @@ h2 {
   border-radius: 8px;
   box-shadow: 0 4px 24px rgba(0, 0, 0, 0.6);
 }
+
+/* Card name hover preview */
+
+.card-name {
+  cursor: pointer;
+  border-bottom: 1px dotted currentColor;
+}
+
+#card-hover-img {
+  display: none;
+  position: fixed;
+  pointer-events: none;
+  z-index: 200;
+  height: 500px;
+  border-radius: 6px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.8);
+}
