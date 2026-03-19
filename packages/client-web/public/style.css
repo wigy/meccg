@@ -109,23 +109,30 @@ h2 {
 #actions {
   display: flex;
   flex-direction: column;
-  gap: 0.25rem;
+  gap: 0.35rem;
 }
 
 #actions button {
-  padding: 0.4rem 0.75rem;
+  padding: 0.5rem 0.85rem;
   font-size: 0.85rem;
-  background: #16213e;
+  background: #1a2a4a;
   color: #e0e0e0;
-  border: 1px solid #334;
+  border: 1px solid #c4a35a44;
+  border-left: 3px solid #c4a35a;
   border-radius: 4px;
   cursor: pointer;
   text-align: left;
+  transition: background 0.15s, border-color 0.15s;
 }
 
 #actions button:hover {
-  background: #1a3a5e;
+  background: #1e3a60;
   border-color: #c4a35a;
+  border-left-color: #d4b36a;
+}
+
+#actions button:active {
+  background: #254a70;
 }
 
 #log-panel {
