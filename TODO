@@ -7,11 +7,10 @@ FIXES
 FEATS
 -----
 
-- After characters are on the table, assign minor items on them.
-
 EPICS
 -----
 
+- Finalize preparation step.
 - Deck format and conversion to the JSON.
 
 QUEUE

@@ -61,7 +61,7 @@ export function setShowDebugIds(value: boolean): void {
 }
 
 /** Color for unknown/hidden cards. */
-const UNKNOWN_COLOR = `${DIM}\x1b[90m`;
+const UNKNOWN_COLOR = `${DIM}\x1b[0;90m`;
 
 function colorize(text: string, cardType: string): string {
   const color = COLORS[cardType] ?? '';
@@ -92,7 +92,9 @@ function resolve(instId: CardInstanceId, instOf: InstanceLookup, defOf: CardLook
 export function formatCardName(
   def: CardDefinition | undefined,
 ): string {
-  if (!def) return colorizeUnknown('[unknown]');
+  if (!def) return colorizeUnknown('a card');
+  // Placeholder cards (unknown-card, unknown-site) render in unknown color
+  if ((def.id as string).startsWith('unknown-')) return colorizeUnknown(def.name);
   return colorize(def.name, def.cardType);
 }
 
@@ -106,6 +108,34 @@ function formatInstanceName(instId: CardInstanceId, defOf: CardLookup, instOf: I
   const def = resolve(instId, instOf, defOf);
   const name = formatCardName(def);
   return showDebugIds ? `${name} ${colorDebug(`{${instId}}`)}` : name;
+}
+
+/**
+ * Formats a list of card definition IDs as a comma-separated string,
+ * grouping duplicates with a count prefix (e.g. "3 x a card").
+ * Returns '(empty)' for empty lists.
+ */
+export function formatCardList(
+  ids: readonly CardDefinitionId[],
+  cardPool: Readonly<Record<string, CardDefinition>>,
+): string {
+  if (ids.length === 0) return '(empty)';
+
+  // Count occurrences of each rendered name
+  const counts = new Map<string, { name: string; count: number }>();
+  for (const id of ids) {
+    const name = formatCardName(cardPool[id as string]);
+    const existing = counts.get(name);
+    if (existing) {
+      existing.count++;
+    } else {
+      counts.set(name, { name, count: 1 });
+    }
+  }
+
+  return [...counts.values()]
+    .map(({ name, count }) => count > 1 ? `${count} x ${name}` : name)
+    .join(', ');
 }
 
 /**
@@ -135,7 +165,7 @@ function statusMarker(status: CharacterStatus): string {
 function formatCharacterLine(char: CharacterInPlay, defOf: CardLookup, instOf: InstanceLookup): string {
   const def = resolve(char.instanceId, instOf, defOf);
   if (!def || def.cardType !== 'hero-character') {
-    return showDebugIds ? colorizeUnknown(`[unknown character] {${char.instanceId}}`) : colorizeUnknown('[unknown character]');
+    return showDebugIds ? colorizeUnknown(`a character {${char.instanceId}}`) : colorizeUnknown('a character');
   }
   const c = def as HeroCharacterCard;
   const skills = c.skills.join('/');
@@ -146,7 +176,7 @@ function formatCharacterLine(char: CharacterInPlay, defOf: CardLookup, instOf: I
 function formatItemLine(instId: CardInstanceId, defOf: CardLookup, instOf: InstanceLookup): string {
   const def = resolve(instId, instOf, defOf);
   if (!def || def.cardType !== 'hero-resource-item') {
-    return showDebugIds ? colorizeUnknown(`[unknown item] {${instId}}`) : colorizeUnknown('[unknown item]');
+    return showDebugIds ? colorizeUnknown(`an item {${instId}}`) : colorizeUnknown('an item');
   }
   const item = def as HeroItemCard;
   const label = formatInstanceName(instId, defOf, instOf);
@@ -158,7 +188,7 @@ function formatItemLine(instId: CardInstanceId, defOf: CardLookup, instOf: Insta
 function formatAllyLine(instId: CardInstanceId, defOf: CardLookup, instOf: InstanceLookup): string {
   const def = resolve(instId, instOf, defOf);
   if (!def || def.cardType !== 'hero-resource-ally') {
-    return showDebugIds ? colorizeUnknown(`[unknown ally] {${instId}}`) : colorizeUnknown('[unknown ally]');
+    return showDebugIds ? colorizeUnknown(`an ally {${instId}}`) : colorizeUnknown('an ally');
   }
   const ally = def as HeroAllyCard;
   const label = formatInstanceName(instId, defOf, instOf);
@@ -168,7 +198,7 @@ function formatAllyLine(instId: CardInstanceId, defOf: CardLookup, instOf: Insta
 function formatCorruptionCardLine(instId: CardInstanceId, defOf: CardLookup, instOf: InstanceLookup): string {
   const def = resolve(instId, instOf, defOf);
   if (!def || def.cardType !== 'hazard-corruption') {
-    return showDebugIds ? colorizeUnknown(`[unknown corruption] {${instId}}`) : colorizeUnknown('[unknown corruption]');
+    return showDebugIds ? colorizeUnknown(`a corruption {${instId}}`) : colorizeUnknown('a corruption');
   }
   const label = formatInstanceName(instId, defOf, instOf);
   return `${label} (${def.corruptionPoints} CP)`;

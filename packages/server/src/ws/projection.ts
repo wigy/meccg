@@ -28,6 +28,7 @@ import type {
   CardDefinitionId,
   PhaseState,
 } from '@meccg/shared';
+import { UNKNOWN_CARD } from '@meccg/shared';
 import { computeLegalActions } from '../engine/legal-actions/index.js';
 
 /**
@@ -186,9 +187,10 @@ function redactPhaseForPlayer(phaseState: PhaseState, selfIndex: number): PhaseS
 
   const opponentIndex = 1 - selfIndex;
   const newDraftState = [...phaseState.draftState] as any;
+  const oppPool = phaseState.draftState[opponentIndex].pool;
   newDraftState[opponentIndex] = {
     ...phaseState.draftState[opponentIndex],
-    pool: [],
+    pool: oppPool.map(() => UNKNOWN_CARD),
     currentPick: null,
     startingMinorItems: [],
     // drafted stays visible — it's public after reveal
@@ -208,7 +210,7 @@ function redactPhaseForSpectator(phaseState: PhaseState): PhaseState {
     ...phaseState,
     draftState: phaseState.draftState.map(d => ({
       ...d,
-      pool: [],
+      pool: d.pool.map(() => UNKNOWN_CARD),
       // drafted stays visible — it's public after reveal
       currentPick: null,
       startingMinorItems: [],

@@ -28,6 +28,7 @@ import {
   loadCardPool,
   formatPlayerView,
   formatCardName,
+  formatCardList,
   describeAction,
   colorDebug,
   setShowDebugIds,
@@ -128,32 +129,31 @@ function connect(): void {
 
         if (msg.view.phaseState.phase === 'character-draft') {
           const draft = msg.view.phaseState;
-          const colorNames = (ids: readonly CardDefinitionId[]) =>
-            ids.map(id => {
-              const name = formatCardName(cardPool[id as string]);
-              return DEBUG ? `${name} ${colorDebug(`{${id}}`)}` : name;
-            }).join(', ');
+          const list = (ids: readonly CardDefinitionId[]) => formatCardList(ids, cardPool);
           console.log(`Draft round: ${draft.round}`);
 
           const isSpectator = playerId === 'spectator';
           if (isSpectator) {
-            // Spectator: show both players' drafted + set aside
-            console.log(`${msg.view.self.name} drafted: ${colorNames(draft.draftState[0].drafted) || '(none)'}`);
-            console.log(`${msg.view.opponent.name} drafted: ${colorNames(draft.draftState[1].drafted) || '(none)'}`);
+            console.log(`${msg.view.self.name} pool: ${list(draft.draftState[0].pool)}`);
+            console.log(`${msg.view.self.name} drafted: ${list(draft.draftState[0].drafted)}`);
+            console.log(`${msg.view.opponent.name} pool: ${list(draft.draftState[1].pool)}`);
+            console.log(`${msg.view.opponent.name} drafted: ${list(draft.draftState[1].drafted)}`);
           } else {
-            // Player: show own pool + drafted, opponent's drafted
-            // Find self index: the one with a non-empty pool (opponent's pool is redacted)
-            const selfIdx = draft.draftState[0].pool.length > 0 ? 0
-              : draft.draftState[1].pool.length > 0 ? 1
-              : 0; // both empty = both stopped
+            // Self pool has real card IDs; opponent pool has 'unknown-card' placeholders
+            const hasRealCards = (pool: readonly CardDefinitionId[]) =>
+              pool.length > 0 && (pool[0] as string) !== 'unknown-card';
+            const selfIdx = hasRealCards(draft.draftState[0].pool) ? 0
+              : hasRealCards(draft.draftState[1].pool) ? 1
+              : 0;
             const oppIdx = 1 - selfIdx;
-            console.log(`Your pool: ${colorNames(draft.draftState[selfIdx].pool) || '(empty)'}`);
-            console.log(`Your drafted: ${colorNames(draft.draftState[selfIdx].drafted) || '(none)'}`);
-            console.log(`Opponent drafted: ${colorNames(draft.draftState[oppIdx].drafted) || '(none)'}`);
+            console.log(`Your pool: ${list(draft.draftState[selfIdx].pool)}`);
+            console.log(`Your drafted: ${list(draft.draftState[selfIdx].drafted)}`);
+            console.log(`Opponent pool: ${list(draft.draftState[oppIdx].pool)}`);
+            console.log(`Opponent drafted: ${list(draft.draftState[oppIdx].drafted)}`);
           }
 
           if (draft.setAside.length > 0) {
-            console.log(`Set aside: ${colorNames(draft.setAside)}`);
+            console.log(`Set aside: ${list(draft.setAside)}`);
           }
         }
 

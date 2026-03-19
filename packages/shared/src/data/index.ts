@@ -51,7 +51,7 @@ const placeholderCards: readonly CardDefinition[] = [
   {
     cardType: 'hero-resource-event',
     id: UNKNOWN_CARD,
-    name: '[face-down card]',
+    name: 'a card',
     unique: false,
     eventType: 'short',
     marshallingPoints: 0,
@@ -61,7 +61,7 @@ const placeholderCards: readonly CardDefinition[] = [
   {
     cardType: 'hero-site',
     id: UNKNOWN_SITE,
-    name: '[face-down site]',
+    name: 'a site',
     siteType: SiteType.Haven,
     sitePath: [] as readonly RegionType[],
     nearestHaven: '',
