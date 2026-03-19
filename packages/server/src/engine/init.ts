@@ -110,14 +110,10 @@ function initPlayerPreDraft(
     throw new Error(`Starting haven '${config.startingHaven}' not found or not a hero-site`);
   }
 
-  // Mint and shuffle play deck
+  // Mint and shuffle play deck (no hand dealt yet — that happens after draft)
   const playDeckDefIds = config.playDeck.map(defId => mint(minter, defId));
   let shuffledDeck: CardInstanceId[];
   [shuffledDeck, rng] = shuffle(playDeckDefIds, rng);
-
-  // Deal hand
-  const hand = shuffledDeck.slice(0, HAND_SIZE);
-  const remainingDeck = shuffledDeck.slice(HAND_SIZE);
 
   // Mint site deck
   const siteDeckIds = config.siteDeck.map(defId => mint(minter, defId));
@@ -126,8 +122,8 @@ function initPlayerPreDraft(
     id: config.id,
     name: config.name,
     wizard: null,
-    hand,
-    playDeck: remainingDeck,
+    hand: [],
+    playDeck: shuffledDeck,
     discardPile: [],
     siteDeck: siteDeckIds,
     siteDiscardPile: [],
@@ -216,8 +212,14 @@ export function applyDraftResults(
       moved: false,
     };
 
+    // Deal hand from play deck
+    const hand = player.playDeck.slice(0, HAND_SIZE);
+    const remainingDeck = player.playDeck.slice(HAND_SIZE);
+
     return {
       ...player,
+      hand,
+      playDeck: remainingDeck,
       companies: [company],
       characters,
       generalInfluenceUsed,

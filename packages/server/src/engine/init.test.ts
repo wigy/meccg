@@ -168,6 +168,8 @@ describe('character draft', () => {
 
     expect(state.phaseState.phase).toBe(Phase.CharacterDraft);
     expect(state.turnNumber).toBe(0);
+    expect(state.players[0].hand).toHaveLength(0);
+    expect(state.players[1].hand).toHaveLength(0);
     expect(state.players[0].companies).toHaveLength(0);
     expect(state.players[1].companies).toHaveLength(0);
   });
