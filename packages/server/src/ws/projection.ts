@@ -110,6 +110,66 @@ function buildOpponentView(player: PlayerState): OpponentView {
  * @param playerId - The player requesting their view.
  * @returns A redacted {@link PlayerView} safe to send to the client.
  */
+/**
+ * Projects the game state for a spectator who sees both players as opponents.
+ * No hands, site decks, or sideboards are visible — only public information.
+ */
+export function projectSpectatorView(state: GameState): PlayerView {
+  const p1 = state.players[0];
+  const p2 = state.players[1];
+
+  const self = buildOpponentView(p1);
+  const opponent = buildOpponentView(p2);
+
+  // Spectators see only public cards: characters, items, company sites, discard piles
+  const visibleInstances: Record<string, CardDefinitionId> = {};
+  const addInstance = (id: CardInstanceId) => {
+    const inst = state.instanceMap[id as string];
+    if (inst) {
+      visibleInstances[id as string] = inst.definitionId;
+    }
+  };
+
+  for (const player of state.players) {
+    for (const id of player.discardPile) addInstance(id);
+    for (const id of player.siteDiscardPile) addInstance(id);
+    for (const company of player.companies) {
+      addInstance(company.currentSite);
+    }
+    for (const char of Object.values(player.characters)) {
+      addInstance(char.instanceId);
+      for (const id of char.items) addInstance(id);
+      for (const id of char.allies) addInstance(id);
+      for (const id of char.corruptionCards) addInstance(id);
+    }
+  }
+
+  return {
+    self: {
+      id: p1.id,
+      name: p1.name,
+      wizard: p1.wizard,
+      hand: [],
+      playDeckSize: p1.playDeck.length,
+      discardPile: [],
+      siteDeck: [],
+      siteDiscardPile: [],
+      sideboard: [],
+      companies: [],
+      characters: p1.characters,
+      generalInfluenceUsed: p1.generalInfluenceUsed,
+      deckExhaustionCount: p1.deckExhaustionCount,
+    },
+    opponent,
+    activePlayer: state.activePlayer,
+    phaseState: state.phaseState,
+    eventsInPlay: state.eventsInPlay,
+    turnNumber: state.turnNumber,
+    legalActions: [],
+    visibleInstances,
+  };
+}
+
 export function projectPlayerView(state: GameState, playerId: PlayerId): PlayerView {
   const selfIndex = state.players[0].id === playerId ? 0 : 1;
   const opponentIndex = 1 - selfIndex;

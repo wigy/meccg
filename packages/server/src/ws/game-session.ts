@@ -26,7 +26,7 @@ import { formatGameState, loadCardPool } from '@meccg/shared';
 import { createGame } from '../engine/init.js';
 import type { PlayerConfig, GameConfig } from '../engine/init.js';
 import { reduce } from '../engine/reducer.js';
-import { projectPlayerView } from './projection.js';
+import { projectPlayerView, projectSpectatorView } from './projection.js';
 
 /** Directory where game save files are stored. */
 const SAVE_DIR = process.env.SAVE_DIR ?? path.join(process.cwd(), 'saves');
@@ -56,6 +56,8 @@ interface GameSave {
 export class GameSession {
   private state: GameState | null = null;
   private players: Map<string, { ws: WebSocket; playerId: PlayerId; name: string }> = new Map();
+  /** Connected spectators — receive state updates but cannot submit actions. */
+  private spectators: Set<WebSocket> = new Set();
   private pending: PendingPlayer[] = [];
   private cardPool: Readonly<Record<string, CardDefinition>>;
   /** Maps player name → PlayerId for the current game. */
@@ -91,6 +93,12 @@ export class GameSession {
     }
     this.players.clear();
 
+    for (const ws of this.spectators) {
+      this.send(ws, restartMsg);
+      ws.close();
+    }
+    this.spectators.clear();
+
     this.state = null;
   }
 
@@ -121,7 +129,7 @@ export class GameSession {
   }
 
   private handleJoin(ws: WebSocket, msg: JoinMessage): void {
-    // Reject if this name is already connected
+    // Reject if this name is already connected as a player
     for (const [, player] of this.players.entries()) {
       if (player.name === msg.name) {
         this.send(ws, { type: 'error', message: `Player "${msg.name}" is already connected` });
@@ -129,11 +137,16 @@ export class GameSession {
       }
     }
 
+    // If game is already in progress, join as spectator
+    if (this.state) {
+      this.addSpectator(ws, msg.name);
+      return;
+    }
+
     this.pending.push({ ws, join: msg });
     console.log(`${msg.name} joined`);
 
     if (this.pending.length < 2) {
-      // Check if there's a save waiting for this player + an active player
       this.send(ws, { type: 'waiting' });
       return;
     }
@@ -146,6 +159,18 @@ export class GameSession {
       this.restoreGame(save, p1, p2);
     } else {
       this.startNewGame(p1, p2);
+    }
+  }
+
+  private addSpectator(ws: WebSocket, name: string): void {
+    this.spectators.add(ws);
+    console.log(`${name} joined as spectator`);
+    this.send(ws, { type: 'assigned', playerId: 'spectator' as PlayerId });
+
+    // Send current state immediately
+    if (this.state) {
+      const view = projectSpectatorView(this.state);
+      this.send(ws, { type: 'state', view });
     }
   }
 
@@ -213,6 +238,11 @@ export class GameSession {
   }
 
   private handleAction(ws: WebSocket, action: GameAction): void {
+    if (this.spectators.has(ws)) {
+      this.send(ws, { type: 'error', message: 'Spectators cannot submit actions' });
+      return;
+    }
+
     if (!this.state) {
       this.send(ws, { type: 'error', message: 'Game not started' });
       return;
@@ -250,6 +280,12 @@ export class GameSession {
   // ---- Disconnect / Save / Restore ----
 
   private handleDisconnect(ws: WebSocket): void {
+    // Remove spectator
+    if (this.spectators.delete(ws)) {
+      console.log('Spectator disconnected');
+      return;
+    }
+
     // Remove from pending
     const wasPending = this.pending.length;
     this.pending = this.pending.filter(p => p.ws !== ws);
@@ -342,9 +378,18 @@ export class GameSession {
   private broadcastState(): void {
     if (!this.state) return;
 
+    // Players get their own projected view
     for (const [, { ws, playerId }] of this.players.entries()) {
       const view = projectPlayerView(this.state, playerId);
       this.send(ws, { type: 'state', view });
+    }
+
+    // Spectators get a view with both players' hands hidden
+    if (this.spectators.size > 0) {
+      const spectatorView = projectSpectatorView(this.state);
+      for (const ws of this.spectators) {
+        this.send(ws, { type: 'state', view: spectatorView });
+      }
     }
   }
 
