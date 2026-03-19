@@ -130,4 +130,16 @@ export interface WaitingMessage {
  * Union of all messages the server can send to the client.
  * Discriminated by the `type` field.
  */
-export type ServerMessage = AssignedMessage | StateMessage | ErrorMessage | WaitingMessage;
+/**
+ * Sent by the server when the opponent disconnects.
+ * The game state has been saved to disk and can be resumed
+ * when both players reconnect.
+ */
+export interface DisconnectedMessage {
+  /** Message type discriminant. */
+  readonly type: 'disconnected';
+  /** Human-readable explanation. */
+  readonly message: string;
+}
+
+export type ServerMessage = AssignedMessage | StateMessage | ErrorMessage | WaitingMessage | DisconnectedMessage;

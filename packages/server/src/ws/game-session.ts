@@ -3,28 +3,19 @@
  *
  * Manages the lifecycle of a single MECCG game over WebSocket connections.
  *
- * {@link GameSession} acts as the bridge between the transport layer
- * (WebSocket messages) and the pure game engine (reducer). It handles:
- *
- * - **Player registration**: clients send a "join" message with their name,
- *   deck lists, and draft pool. The session queues them until two are present.
- * - **Game creation**: once two players have joined, the game state is
- *   initialised via {@link createGame} and initial state is broadcast.
- * - **Action routing**: incoming "action" messages are enriched with the
- *   sender's player ID, run through the reducer, and — if valid — the
- *   resulting state is projected and broadcast to each player.
- * - **Disconnection cleanup**: departed players are removed from the
- *   pending queue or active roster.
- *
- * The session does not handle reconnection or spectating yet.
+ * Handles player registration, game creation, action routing, and
+ * save/restore on disconnect. When a player disconnects mid-game, the
+ * state is saved to a JSON file keyed by the sorted pair of player names.
+ * When both players reconnect with the same names, the game resumes
+ * automatically.
  */
 
+import * as fs from 'fs';
+import * as path from 'path';
 import type WebSocket from 'ws';
 import type {
   GameState,
-  PlayerView,
   PlayerId,
-  CardDefinitionId,
   CardDefinition,
   ClientMessage,
   ServerMessage,
@@ -37,68 +28,60 @@ import type { PlayerConfig, GameConfig } from '../engine/init.js';
 import { reduce } from '../engine/reducer.js';
 import { projectPlayerView } from './projection.js';
 
+/** Directory where game save files are stored. */
+const SAVE_DIR = process.env.SAVE_DIR ?? path.join(process.cwd(), 'saves');
+
 /** A client that has sent a "join" message but is waiting for an opponent. */
 interface PendingPlayer {
   ws: WebSocket;
   join: JoinMessage;
-  playerId: PlayerId;
+}
+
+/** Persisted game save: state + mapping from player names to player IDs. */
+interface GameSave {
+  state: GameState;
+  nameToPlayerId: Record<string, string>;
 }
 
 /**
- * Orchestrates a single two-player MECCG game.
+ * Orchestrates a single two-player MECCG game with save/restore support.
  *
- * Typical flow:
- * 1. Two clients connect and call {@link addConnection}.
- * 2. Each sends a `join` message; the session queues them as pending.
- * 3. When both are ready, {@link startGame} creates the game state.
- * 4. Subsequent `action` messages are processed through the reducer.
- * 5. After each valid action, updated player views are broadcast.
+ * Flow:
+ * 1. Two clients connect and send "join" messages.
+ * 2. If a save file exists for these two player names, the game resumes.
+ * 3. Otherwise a new game is created starting in the character draft phase.
+ * 4. On disconnect: state is saved to disk, opponent is notified and disconnected.
+ * 5. When both players reconnect, the save is loaded and play continues.
  */
 export class GameSession {
-  /** The authoritative game state, or `null` before the game starts. */
   private state: GameState | null = null;
-  /** Active players keyed by player ID string. */
-  private players: Map<string, { ws: WebSocket; playerId: PlayerId }> = new Map();
-  /** Clients waiting for an opponent. */
+  private players: Map<string, { ws: WebSocket; playerId: PlayerId; name: string }> = new Map();
   private pending: PendingPlayer[] = [];
-  /** Immutable card definition dictionary, loaded once at construction. */
   private cardPool: Readonly<Record<string, CardDefinition>>;
-  /** Monotonic counter for generating unique player IDs ("p1", "p2", ...). */
+  /** Maps player name → PlayerId for the current game. */
+  private nameToPlayerId: Record<string, string> = {};
   private playerCounter = 0;
 
   constructor() {
     this.cardPool = loadCardPool();
+    fs.mkdirSync(SAVE_DIR, { recursive: true });
   }
 
-  /**
-   * Registers a new WebSocket connection. Sets up message and close
-   * handlers. The client is not yet a "player" until it sends a "join"
-   * message.
-   */
   addConnection(ws: WebSocket): void {
     ws.on('message', (data) => {
       try {
         const msg: ClientMessage = JSON.parse(data.toString());
         this.handleMessage(ws, msg);
-      } catch (e) {
+      } catch {
         this.send(ws, { type: 'error', message: 'Invalid message format' });
       }
     });
 
     ws.on('close', () => {
-      // Remove from pending or active players
-      this.pending = this.pending.filter(p => p.ws !== ws);
-      for (const [key, val] of this.players.entries()) {
-        if (val.ws === ws) {
-          this.players.delete(key);
-          console.log(`Player ${val.playerId} disconnected`);
-          break;
-        }
-      }
+      this.handleDisconnect(ws);
     });
   }
 
-  /** Top-level message dispatcher: routes to join or action handlers. */
   private handleMessage(ws: WebSocket, msg: ClientMessage): void {
     switch (msg.type) {
       case 'join':
@@ -110,63 +93,89 @@ export class GameSession {
     }
   }
 
-  /**
-   * Processes a "join" message: assigns a player ID, queues the client,
-   * and starts the game if two players are now ready.
-   */
   private handleJoin(ws: WebSocket, msg: JoinMessage): void {
-    if (this.state !== null) {
-      this.send(ws, { type: 'error', message: 'Game already in progress' });
-      return;
+    // Reject if this name is already connected
+    for (const [, player] of this.players.entries()) {
+      if (player.name === msg.name) {
+        this.send(ws, { type: 'error', message: `Player "${msg.name}" is already connected` });
+        return;
+      }
     }
 
-    const playerId = `p${++this.playerCounter}` as PlayerId;
-    this.pending.push({ ws, join: msg, playerId });
-    this.send(ws, { type: 'assigned', playerId });
-
-    console.log(`${msg.name} joined as ${playerId}`);
+    this.pending.push({ ws, join: msg });
+    console.log(`${msg.name} joined`);
 
     if (this.pending.length < 2) {
+      // Check if there's a save waiting for this player + an active player
       this.send(ws, { type: 'waiting' });
       return;
     }
 
-    // Two players ready — start the game
-    this.startGame();
+    // Two players ready — try to restore or start new game
+    const [p1, p2] = this.pending;
+    const save = this.loadSave(p1.join.name, p2.join.name);
+
+    if (save) {
+      this.restoreGame(save, p1, p2);
+    } else {
+      this.startNewGame(p1, p2);
+    }
   }
 
-  /**
-   * Initialises the game state from the two pending players' configurations,
-   * promotes them to active players, and broadcasts the initial state.
-   * Uses `Date.now()` as the RNG seed for non-deterministic live games.
-   */
-  private startGame(): void {
-    const [p1, p2] = this.pending;
+  private startNewGame(p1: PendingPlayer, p2: PendingPlayer): void {
+    const p1Id = `p${++this.playerCounter}` as PlayerId;
+    const p2Id = `p${++this.playerCounter}` as PlayerId;
+
+    this.nameToPlayerId = {
+      [p1.join.name]: p1Id as string,
+      [p2.join.name]: p2Id as string,
+    };
 
     const config: GameConfig = {
       players: [
-        this.toPlayerConfig(p1),
-        this.toPlayerConfig(p2),
+        this.toPlayerConfig(p1, p1Id),
+        this.toPlayerConfig(p2, p2Id),
       ],
       seed: Date.now(),
     };
 
     this.state = createGame(config, this.cardPool);
 
-    this.players.set(p1.playerId as string, { ws: p1.ws, playerId: p1.playerId });
-    this.players.set(p2.playerId as string, { ws: p2.ws, playerId: p2.playerId });
-    this.pending = [];
+    this.registerPlayers(p1, p1Id, p2, p2Id);
 
-    console.log('Game started!');
+    console.log('New game started!');
     console.log('\n' + formatGameState(this.state));
 
     this.broadcastState();
   }
 
-  /** Converts a pending player's join message into the engine's PlayerConfig shape. */
-  private toPlayerConfig(p: PendingPlayer): PlayerConfig {
+  private restoreGame(save: GameSave, p1: PendingPlayer, p2: PendingPlayer): void {
+    this.state = save.state;
+    this.nameToPlayerId = save.nameToPlayerId;
+
+    const p1Id = save.nameToPlayerId[p1.join.name] as PlayerId;
+    const p2Id = save.nameToPlayerId[p2.join.name] as PlayerId;
+
+    this.registerPlayers(p1, p1Id, p2, p2Id);
+
+    console.log('Game restored from save!');
+    console.log('\n' + formatGameState(this.state));
+
+    this.broadcastState();
+  }
+
+  private registerPlayers(p1: PendingPlayer, p1Id: PlayerId, p2: PendingPlayer, p2Id: PlayerId): void {
+    this.players.set(p1Id as string, { ws: p1.ws, playerId: p1Id, name: p1.join.name });
+    this.players.set(p2Id as string, { ws: p2.ws, playerId: p2Id, name: p2.join.name });
+    this.pending = [];
+
+    this.send(p1.ws, { type: 'assigned', playerId: p1Id });
+    this.send(p2.ws, { type: 'assigned', playerId: p2Id });
+  }
+
+  private toPlayerConfig(p: PendingPlayer, playerId: PlayerId): PlayerConfig {
     return {
-      id: p.playerId,
+      id: playerId,
       name: p.join.name,
       draftPool: p.join.draftPool,
       startingMinorItems: p.join.startingMinorItems,
@@ -176,20 +185,12 @@ export class GameSession {
     };
   }
 
-  /**
-   * Processes a game action from a connected client.
-   *
-   * Looks up the player ID by WebSocket reference, injects it into the
-   * action (so clients cannot impersonate each other), runs the reducer,
-   * and broadcasts the updated state on success or sends an error on failure.
-   */
   private handleAction(ws: WebSocket, action: GameAction): void {
     if (!this.state) {
       this.send(ws, { type: 'error', message: 'Game not started' });
       return;
     }
 
-    // Find the player for this websocket
     let playerId: PlayerId | null = null;
     for (const [, val] of this.players.entries()) {
       if (val.ws === ws) {
@@ -203,9 +204,7 @@ export class GameSession {
       return;
     }
 
-    // Inject playerId into the action
     const actionWithPlayer = { ...action, player: playerId };
-
     const result = reduce(this.state, actionWithPlayer);
     if (result.error) {
       this.send(ws, { type: 'error', message: result.error });
@@ -219,11 +218,98 @@ export class GameSession {
     this.broadcastState();
   }
 
-  /**
-   * Sends each active player their own projected view of the game state.
-   * Hidden information (opponent's hand, face-down cards, etc.) is stripped
-   * by {@link projectPlayerView} before transmission.
-   */
+  // ---- Disconnect / Save / Restore ----
+
+  private handleDisconnect(ws: WebSocket): void {
+    // Remove from pending
+    const wasPending = this.pending.length;
+    this.pending = this.pending.filter(p => p.ws !== ws);
+    if (this.pending.length < wasPending) {
+      console.log('Pending player disconnected');
+      return;
+    }
+
+    // Find the disconnected active player
+    let disconnectedName: string | null = null;
+    let disconnectedId: string | null = null;
+    for (const [key, val] of this.players.entries()) {
+      if (val.ws === ws) {
+        disconnectedName = val.name;
+        disconnectedId = key;
+        break;
+      }
+    }
+
+    if (!disconnectedId || !disconnectedName) return;
+
+    console.log(`${disconnectedName} disconnected`);
+
+    // Save the game if one is in progress
+    if (this.state) {
+      this.saveGame();
+    }
+
+    // Notify the other player and disconnect them
+    this.players.delete(disconnectedId);
+    for (const [key, val] of this.players.entries()) {
+      this.send(val.ws, { type: 'disconnected', message: `${disconnectedName} disconnected. Game saved.` });
+      val.ws.close();
+      this.players.delete(key);
+    }
+
+    // Reset session for next pair
+    this.state = null;
+    this.nameToPlayerId = {};
+  }
+
+  /** Generates a deterministic save file path from two player names. */
+  private saveFilePath(name1: string, name2: string): string {
+    const key = [name1, name2].sort().join('_vs_');
+    return path.join(SAVE_DIR, `${key}.json`);
+  }
+
+  private saveGame(): void {
+    if (!this.state) return;
+
+    const names = Object.keys(this.nameToPlayerId);
+    if (names.length !== 2) return;
+
+    const savePath = this.saveFilePath(names[0], names[1]);
+    const save: GameSave = {
+      state: this.state,
+      nameToPlayerId: this.nameToPlayerId,
+    };
+
+    fs.writeFileSync(savePath, JSON.stringify(save), 'utf-8');
+    console.log(`Game saved to ${savePath}`);
+  }
+
+  private loadSave(name1: string, name2: string): GameSave | null {
+    const savePath = this.saveFilePath(name1, name2);
+    if (!fs.existsSync(savePath)) return null;
+
+    try {
+      const data = fs.readFileSync(savePath, 'utf-8');
+      const save = JSON.parse(data) as GameSave;
+
+      // Verify both player names are in the save
+      if (!(name1 in save.nameToPlayerId) || !(name2 in save.nameToPlayerId)) {
+        return null;
+      }
+
+      // Restore the card pool (it's not serialised — always loaded fresh)
+      save.state = { ...save.state, cardPool: this.cardPool };
+
+      // Delete the save file after loading (one-time restore)
+      fs.unlinkSync(savePath);
+      console.log(`Loaded save from ${savePath}`);
+
+      return save;
+    } catch {
+      return null;
+    }
+  }
+
   private broadcastState(): void {
     if (!this.state) return;
 
@@ -233,7 +319,6 @@ export class GameSession {
     }
   }
 
-  /** Serialises and sends a message if the socket is still open. */
   private send(ws: WebSocket, msg: ServerMessage): void {
     if (ws.readyState === ws.OPEN) {
       ws.send(JSON.stringify(msg));

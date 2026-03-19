@@ -131,6 +131,11 @@ ws.on('message', (data) => {
       console.log(`ERROR: ${msg.message}`);
       rl.prompt();
       break;
+
+    case 'disconnected':
+      console.log(`\n${msg.message}`);
+      console.log('Reconnect to resume the game.');
+      break;
   }
 });
 
