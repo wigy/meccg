@@ -50,6 +50,7 @@ export function colorDebug(text: string): string {
 
 /** Strip STX card-ID markers (\x02id\x02) from formatted output. */
 export function stripCardMarkers(text: string): string {
+  // eslint-disable-next-line no-control-regex
   return text.replace(/\x02[^\x02]*\x02/g, '');
 }
 

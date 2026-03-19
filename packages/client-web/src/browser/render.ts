@@ -44,11 +44,13 @@ function ansiToHtml(text: string): string {
   let openSpans = 0;
 
   // Match ANSI escape sequences: ESC[ followed by semicolon-separated numbers, ending with 'm'
+  // eslint-disable-next-line no-control-regex
   const parts = escaped.split(/\x1b\[([0-9;]*)m/);
 
   for (let i = 0; i < parts.length; i++) {
     if (i % 2 === 0) {
       // Text content — parse \x02id\x02name markers into data-card-id spans
+      // eslint-disable-next-line no-control-regex
       result += parts[i].replace(/\x02([^\x02]+)\x02([^\x02]*)/g,
         (_m, id: string, name: string) =>
           `<span class="card-name" data-card-id="${id}">${name}</span>`);
