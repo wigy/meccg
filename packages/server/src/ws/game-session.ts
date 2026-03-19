@@ -262,6 +262,10 @@ export class GameSession {
     }
 
     const actionWithPlayer = { ...action, player: playerId };
+
+    // Capture draft state before the action for reveal detection
+    const prevDraft = this.state.phaseState.phase === 'character-draft' ? this.state.phaseState : null;
+
     const result = reduce(this.state, actionWithPlayer);
     if (result.error) {
       this.send(ws, { type: 'error', message: result.error });
@@ -273,6 +277,30 @@ export class GameSession {
     const argsStr = Object.keys(args).length > 0 ? ' ' + JSON.stringify(args) : '';
     console.log(`Action: ${actionWithPlayer.type} by ${playerId}${argsStr}`);
     console.log('\n' + formatGameState(this.state));
+
+    // Detect draft round reveal: round advanced or draft ended
+    if (prevDraft) {
+      const newDraft = this.state.phaseState.phase === 'character-draft' ? this.state.phaseState : null;
+      const roundAdvanced = newDraft && newDraft.round > prevDraft.round;
+      const draftEnded = !newDraft; // transitioned out of draft phase
+
+      if (roundAdvanced || draftEnded) {
+        const pick0 = prevDraft.draftState[0].currentPick;
+        const pick1 = prevDraft.draftState[1].currentPick;
+        const collision = pick0 !== null && pick1 !== null && pick0 === pick1;
+
+        const revealMsg: ServerMessage = {
+          type: 'draft-reveal',
+          player1Name: this.state.players[0].name,
+          player1Pick: pick0,
+          player2Name: this.state.players[1].name,
+          player2Pick: pick1,
+          collision,
+        };
+
+        this.broadcastToAll(revealMsg);
+      }
+    }
 
     this.broadcastState();
   }
@@ -390,6 +418,16 @@ export class GameSession {
       for (const ws of this.spectators) {
         this.send(ws, { type: 'state', view: spectatorView });
       }
+    }
+  }
+
+  /** Sends a message to all players and spectators. */
+  private broadcastToAll(msg: ServerMessage): void {
+    for (const [, { ws }] of this.players.entries()) {
+      this.send(ws, msg);
+    }
+    for (const ws of this.spectators) {
+      this.send(ws, msg);
     }
   }
 

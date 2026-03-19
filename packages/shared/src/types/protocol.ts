@@ -153,4 +153,23 @@ export interface RestartMessage {
   readonly message: string;
 }
 
-export type ServerMessage = AssignedMessage | StateMessage | ErrorMessage | WaitingMessage | DisconnectedMessage | RestartMessage;
+/**
+ * Sent by the server after a draft round is revealed, describing what
+ * each player picked and whether there was a collision (set aside).
+ */
+export interface DraftRevealMessage {
+  /** Message type discriminant. */
+  readonly type: 'draft-reveal';
+  /** Player 1's name. */
+  readonly player1Name: string;
+  /** What player 1 picked (definition ID), or null if they stopped. */
+  readonly player1Pick: CardDefinitionId | null;
+  /** Player 2's name. */
+  readonly player2Name: string;
+  /** What player 2 picked (definition ID), or null if they stopped. */
+  readonly player2Pick: CardDefinitionId | null;
+  /** Whether the picks collided (both picked the same character). */
+  readonly collision: boolean;
+}
+
+export type ServerMessage = AssignedMessage | StateMessage | ErrorMessage | WaitingMessage | DisconnectedMessage | RestartMessage | DraftRevealMessage;

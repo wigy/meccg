@@ -141,6 +141,19 @@ function connect(): void {
         rl.prompt();
         break;
 
+      case 'draft-reveal': {
+        const pick1 = msg.player1Pick ? formatCardName(cardPool[msg.player1Pick as string]) : 'stopped';
+        const pick2 = msg.player2Pick ? formatCardName(cardPool[msg.player2Pick as string]) : 'stopped';
+        console.log('');
+        console.log(`  ${msg.player1Name} reveals: ${pick1}`);
+        console.log(`  ${msg.player2Name} reveals: ${pick2}`);
+        if (msg.collision) {
+          const collisionName = msg.player1Pick ? formatCardName(cardPool[msg.player1Pick as string]) : '???';
+          console.log(`  Collision! ${collisionName} is set aside — neither player gets it.`);
+        }
+        break;
+      }
+
       case 'error':
         console.log(`ERROR: ${msg.message}`);
         rl.prompt();

@@ -26,6 +26,7 @@ import type {
   PlayerId,
   CardInstanceId,
   CardDefinitionId,
+  PhaseState,
 } from '@meccg/shared';
 import { computeLegalActions } from '../engine/legal-actions/index.js';
 
@@ -155,18 +156,38 @@ export function projectSpectatorView(state: GameState): PlayerView {
       siteDeck: [],
       siteDiscardPile: [],
       sideboard: [],
-      companies: [],
+      companies: p1.companies,
       characters: p1.characters,
       generalInfluenceUsed: p1.generalInfluenceUsed,
       deckExhaustionCount: p1.deckExhaustionCount,
     },
     opponent,
     activePlayer: state.activePlayer,
-    phaseState: state.phaseState,
+    phaseState: redactPhaseForSpectator(state.phaseState),
     eventsInPlay: state.eventsInPlay,
     turnNumber: state.turnNumber,
     legalActions: [],
     visibleInstances,
+  };
+}
+
+/**
+ * Redacts phase-specific state for spectators. During the character draft,
+ * pools, picks, and starting minor items are hidden — spectators only see
+ * the round number, what's been drafted (public after reveal), and set-aside.
+ */
+function redactPhaseForSpectator(phaseState: PhaseState): PhaseState {
+  if (phaseState.phase !== 'character-draft') return phaseState;
+
+  return {
+    ...phaseState,
+    draftState: phaseState.draftState.map(d => ({
+      ...d,
+      pool: [],
+      drafted: [],
+      currentPick: null,
+      startingMinorItems: [],
+    })) as any,
   };
 }
 
