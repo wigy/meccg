@@ -70,6 +70,9 @@ export interface PlayerState {
 // ---- Phases ----
 
 export enum Phase {
+  // Pre-game draft phases
+  CharacterDraft = 'character-draft',
+  // Game phases
   Untap = 'untap',
   Organization = 'organization',
   LongEvent = 'long-event',
@@ -80,7 +83,23 @@ export enum Phase {
   GameOver = 'game-over',
 }
 
+// ---- Draft state ----
+
+export interface DraftPlayerState {
+  readonly pool: readonly CardDefinitionId[];           // up to 10 characters available to draft
+  readonly drafted: readonly CardDefinitionId[];        // characters successfully drafted
+  readonly currentPick: CardDefinitionId | null;        // face-down pick for current round
+  readonly stopped: boolean;                            // player has stopped drafting
+}
+
 // ---- Phase-specific state ----
+
+export interface CharacterDraftPhaseState {
+  readonly phase: Phase.CharacterDraft;
+  readonly round: number;
+  readonly draftState: readonly [DraftPlayerState, DraftPlayerState];
+  readonly setAside: readonly CardDefinitionId[];       // duplicates neither player gets
+}
 
 export interface UntapPhaseState {
   readonly phase: Phase.Untap;
@@ -126,6 +145,7 @@ export interface GameOverPhaseState {
 }
 
 export type PhaseState =
+  | CharacterDraftPhaseState
   | UntapPhaseState
   | OrganizationPhaseState
   | LongEventPhaseState

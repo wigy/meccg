@@ -29,6 +29,36 @@ Each player takes on the role of a **Wizard** (Gandalf, Saruman, Radagast, Alata
 - **Sideboard**: 15–30 extra cards accessible via special mechanics (e.g. tapping a Wizard).
 - **Starting company**: characters placed at a Haven (typically Rivendell) at game start. The Wizard does not need to start in play.
 
+## Game Setup: Character Draft
+
+Before the game begins, players draft their starting characters using an iterated simultaneous-reveal procedure:
+
+### Wizard Draft
+1. Each player places up to **3 Wizard cards** face down.
+2. **Simultaneous reveal** — any duplicated Wizards go into the play deck. This determines which Wizard each player will use, but the Wizard does **not** start in play.
+
+### Character Draft
+1. Each player prepares a **pool of up to 10 characters**.
+2. Each round, both players select **1 character** from their pool and place it **face down**.
+3. **Simultaneous reveal**:
+   - If both revealed the **same unique character**: both copies are **set aside** — neither player gets it.
+   - If different: each character joins that player's starting company.
+4. Repeat until a player **stops** (voluntarily, or by reaching a limit).
+5. If one player stops, the other may **continue** revealing one at a time.
+
+### Stopping Conditions
+A player stops drafting when:
+- They have **5 characters** in their starting company.
+- Total **mind** of starting characters reaches **20** (or next character would exceed 20).
+- They exhaust their 10-character pool.
+- They **voluntarily stop**.
+
+### After the Draft
+- Starting company is placed at **Rivendell** (hero alignment).
+- Each player may assign up to **2 non-unique minor items** to starting characters.
+- Remaining characters from the pool (up to 10 total) may be added to the **play deck**.
+- The **Wizard** enters play later during an Organization Phase at any Haven.
+
 ## Turn Structure
 
 1. **Untap Phase** — Refresh all tapped cards. Heal wounded characters at Havens.

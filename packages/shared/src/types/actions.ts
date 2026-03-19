@@ -1,4 +1,17 @@
-import { PlayerId, CardInstanceId, CompanyId } from './common.js';
+import { PlayerId, CardInstanceId, CardDefinitionId, CompanyId } from './common.js';
+
+// ---- Character draft phase ----
+
+export interface DraftPickAction {
+  readonly type: 'draft-pick';
+  readonly player: PlayerId;
+  readonly characterDefId: CardDefinitionId;
+}
+
+export interface DraftStopAction {
+  readonly type: 'draft-stop';
+  readonly player: PlayerId;
+}
 
 // ---- Organization phase ----
 
@@ -139,6 +152,8 @@ export interface FetchFromSideboardAction {
 // ---- Discriminated union ----
 
 export type GameAction =
+  | DraftPickAction
+  | DraftStopAction
   | PlayCharacterAction
   | SplitCompanyAction
   | MergeCompaniesAction

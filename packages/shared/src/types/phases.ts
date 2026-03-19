@@ -11,6 +11,11 @@ export const PHASE_ORDER: readonly Phase[] = [
 ];
 
 export const LEGAL_ACTIONS_BY_PHASE: Readonly<Record<Phase, readonly GameAction['type'][]>> = {
+  [Phase.CharacterDraft]: [
+    'draft-pick',
+    'draft-stop',
+  ],
+
   [Phase.Untap]: ['pass'],
 
   [Phase.Organization]: [
