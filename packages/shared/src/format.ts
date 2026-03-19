@@ -458,7 +458,7 @@ export function formatPlayerView(
     return defId ?? undefined;
   };
 
-  return stripCardMarkers(renderState({
+  return renderState({
     turnNumber: view.turnNumber,
     phaseState: view.phaseState,
     activePlayerName: view.activePlayer === null ? '(simultaneous)' : (view.self.id === view.activePlayer ? view.self.name : view.opponent.name),
@@ -492,7 +492,7 @@ export function formatPlayerView(
     eventsInPlay: view.eventsInPlay,
     defOf,
     instOf,
-  }));
+  });
 }
 
 // ---- Action description ----
