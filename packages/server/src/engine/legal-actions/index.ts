@@ -11,6 +11,7 @@
 import type { GameState, PlayerId, GameAction } from '@meccg/shared';
 import { draftActions } from './draft.js';
 import { itemDraftActions } from './item-draft.js';
+import { characterDeckDraftActions } from './character-deck-draft.js';
 import { untapActions } from './untap.js';
 import { organizationActions } from './organization.js';
 import { longEventActions } from './long-event.js';
@@ -28,6 +29,7 @@ export function computeLegalActions(state: GameState, playerId: PlayerId): GameA
   switch (state.phaseState.phase) {
     case 'character-draft':   return draftActions(state, playerId);
     case 'item-draft':        return itemDraftActions(state, playerId);
+    case 'character-deck-draft': return characterDeckDraftActions(state, playerId);
     case 'untap':             return untapActions(state, playerId);
     case 'organization':      return organizationActions(state, playerId);
     case 'long-event':        return longEventActions(state, playerId);

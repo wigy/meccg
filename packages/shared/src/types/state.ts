@@ -229,6 +229,8 @@ export enum Phase {
   CharacterDraft = 'character-draft',
   /** Pre-game phase where players assign starting minor items to drafted characters. */
   ItemDraft = 'item-draft',
+  /** Pre-game phase where players choose which remaining pool characters go into the play deck. */
+  CharacterDeckDraft = 'character-deck-draft',
   /** Characters are untapped (refreshed) and wounded characters at havens may heal. */
   Untap = 'untap',
   /** Players reorganize companies, recruit characters, transfer items, and plan movement. */
@@ -309,6 +311,32 @@ export interface ItemDraftPhaseState {
   readonly phase: Phase.ItemDraft;
   /** Item assignment state for each player (indexed by player order). */
   readonly itemDraftState: readonly [ItemDraftPlayerState, ItemDraftPlayerState];
+  /** Characters remaining in each player's draft pool after the character draft. */
+  readonly remainingPool: readonly [readonly CardDefinitionId[], readonly CardDefinitionId[]];
+}
+
+/**
+ * Per-player state during the character deck draft phase.
+ *
+ * After item assignment, each player chooses which remaining pool characters
+ * to add to their play deck (max 10 non-avatar characters in the deck).
+ */
+export interface CharacterDeckDraftPlayerState {
+  /** Remaining pool characters available to add to the play deck. */
+  readonly remainingPool: readonly CardDefinitionId[];
+  /** Whether this player has finished adding characters. */
+  readonly done: boolean;
+}
+
+/**
+ * State for the character deck draft phase, where players add undrafted
+ * characters from their pool into the play deck.
+ */
+export interface CharacterDeckDraftPhaseState {
+  /** Phase discriminant. */
+  readonly phase: Phase.CharacterDeckDraft;
+  /** Deck draft state for each player (indexed by player order). */
+  readonly deckDraftState: readonly [CharacterDeckDraftPlayerState, CharacterDeckDraftPlayerState];
 }
 
 /**
@@ -421,6 +449,7 @@ export interface GameOverPhaseState {
 export type PhaseState =
   | CharacterDraftPhaseState
   | ItemDraftPhaseState
+  | CharacterDeckDraftPhaseState
   | UntapPhaseState
   | OrganizationPhaseState
   | LongEventPhaseState

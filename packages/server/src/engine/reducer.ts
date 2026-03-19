@@ -14,10 +14,10 @@
  * (or the original state plus an error string if the action was illegal).
  */
 
-import type { GameState, DraftPlayerState, ItemDraftPlayerState, CardDefinitionId, CharacterInPlay } from '@meccg/shared';
+import type { GameState, DraftPlayerState, ItemDraftPlayerState, CharacterDeckDraftPlayerState, CardDefinitionId, CardInstanceId, CharacterInPlay, CardInstance } from '@meccg/shared';
 import type { GameAction } from '@meccg/shared';
-import { Phase, LEGAL_ACTIONS_BY_PHASE, getAlignmentRules } from '@meccg/shared';
-import { applyDraftResults } from './init.js';
+import { Phase, LEGAL_ACTIONS_BY_PHASE, getAlignmentRules, shuffle } from '@meccg/shared';
+import { applyDraftResults, transitionAfterItemDraft } from './init.js';
 import { recomputeDerived } from './recompute-derived.js';
 
 /**
@@ -64,6 +64,9 @@ export function reduce(state: GameState, action: GameAction): ReducerResult {
       break;
     case Phase.ItemDraft:
       result = handleItemDraft(state, action);
+      break;
+    case Phase.CharacterDeckDraft:
+      result = handleCharacterDeckDraft(state, action);
       break;
     case Phase.Untap:
       result = handleUntap(state, action);
@@ -350,12 +353,7 @@ function handleItemDraft(state: GameState, action: GameAction): ReducerResult {
 
     if (newItemDraftState[0].done && newItemDraftState[1].done) {
       return {
-        state: {
-          ...state,
-          activePlayer: state.players[0].id,
-          phaseState: { phase: Phase.Untap },
-          turnNumber: 1,
-        },
+        state: transitionAfterItemDraft(state, state.phaseState.remainingPool),
       };
     }
 
@@ -414,16 +412,13 @@ function handleItemDraft(state: GameState, action: GameAction): ReducerResult {
   const newPlayers = [...state.players] as unknown as [typeof state.players[0], typeof state.players[1]];
   newPlayers[playerIndex] = updatedPlayer;
 
-  // If both players are done, transition to Untap
+  // If both players are done, transition to character deck draft (or Untap)
   if (newItemDraftState[0].done && newItemDraftState[1].done) {
     return {
-      state: {
-        ...state,
-        players: newPlayers as unknown as readonly [typeof state.players[0], typeof state.players[1]],
-        activePlayer: newPlayers[0].id,
-        phaseState: { phase: Phase.Untap },
-        turnNumber: 1,
-      },
+      state: transitionAfterItemDraft(
+        { ...state, players: newPlayers as unknown as readonly [typeof state.players[0], typeof state.players[1]] },
+        state.phaseState.remainingPool,
+      ),
     };
   }
 
@@ -433,6 +428,124 @@ function handleItemDraft(state: GameState, action: GameAction): ReducerResult {
       players: newPlayers as unknown as readonly [typeof state.players[0], typeof state.players[1]],
       phaseState: { ...state.phaseState, itemDraftState: newItemDraftState },
     },
+  };
+}
+
+// ---- Character deck draft handler ----
+
+/**
+ * Handles the character deck draft phase where players add remaining pool
+ * characters to their play deck (max 10 non-avatar characters).
+ * Both players act simultaneously. When both are done, the play decks
+ * are reshuffled and the game transitions to Untap (turn 1).
+ */
+function handleCharacterDeckDraft(state: GameState, action: GameAction): ReducerResult {
+  if (state.phaseState.phase !== Phase.CharacterDeckDraft) {
+    return { state, error: 'Not in character deck draft phase' };
+  }
+
+  const playerIndex = state.players[0].id === action.player ? 0 : 1;
+  const deckDraft = state.phaseState.deckDraftState[playerIndex];
+
+  if (deckDraft.done) {
+    return { state, error: 'You have already finished adding characters' };
+  }
+
+  // Pass: done adding characters
+  if (action.type === 'pass') {
+    const newDeckDraftState = [...state.phaseState.deckDraftState] as [CharacterDeckDraftPlayerState, CharacterDeckDraftPlayerState];
+    newDeckDraftState[playerIndex] = { remainingPool: [], done: true };
+
+    if (newDeckDraftState[0].done && newDeckDraftState[1].done) {
+      return { state: finalizeCharacterDeckDraft(state) };
+    }
+
+    return {
+      state: {
+        ...state,
+        phaseState: { ...state.phaseState, deckDraftState: newDeckDraftState },
+      },
+    };
+  }
+
+  if (action.type !== 'add-character-to-deck') {
+    return { state, error: `Unexpected action in character deck draft: ${action.type}` };
+  }
+
+  // Validate character is in remaining pool
+  if (!deckDraft.remainingPool.includes(action.characterDefId)) {
+    return { state, error: 'Character is not in your remaining pool' };
+  }
+
+  // Validate non-avatar limit
+  const def = state.cardPool[action.characterDefId as string];
+  if (def && def.cardType === 'hero-character' && def.mind !== null) {
+    let nonAvatarCount = 0;
+    for (const instId of state.players[playerIndex].playDeck) {
+      const inst = state.instanceMap[instId as string];
+      if (!inst) continue;
+      const d = state.cardPool[inst.definitionId as string];
+      if (d && d.cardType === 'hero-character' && d.mind !== null) nonAvatarCount++;
+    }
+    if (nonAvatarCount >= 10) {
+      return { state, error: 'Already have 10 non-avatar characters in play deck' };
+    }
+  }
+
+  // Mint instance and add to play deck
+  const counter = Object.keys(state.instanceMap).length;
+  const instanceId = `i-${counter}` as CardInstanceId;
+  const newInstance: CardInstance = { instanceId, definitionId: action.characterDefId };
+  const newInstanceMap = { ...state.instanceMap, [instanceId as string]: newInstance };
+
+  const player = state.players[playerIndex];
+  const newPlayDeck = [...player.playDeck, instanceId];
+  const newPlayers = [...state.players] as unknown as [typeof state.players[0], typeof state.players[1]];
+  newPlayers[playerIndex] = { ...player, playDeck: newPlayDeck };
+
+  // Remove from remaining pool
+  const newPool = deckDraft.remainingPool.filter(id => id !== action.characterDefId);
+  const newDeckDraftState = [...state.phaseState.deckDraftState] as [CharacterDeckDraftPlayerState, CharacterDeckDraftPlayerState];
+  newDeckDraftState[playerIndex] = {
+    remainingPool: newPool,
+    done: newPool.length === 0,
+  };
+
+  const newState: GameState = {
+    ...state,
+    players: newPlayers as unknown as readonly [typeof state.players[0], typeof state.players[1]],
+    instanceMap: newInstanceMap,
+    phaseState: { ...state.phaseState, deckDraftState: newDeckDraftState },
+  };
+
+  if (newDeckDraftState[0].done && newDeckDraftState[1].done) {
+    return { state: finalizeCharacterDeckDraft(newState) };
+  }
+
+  return { state: newState };
+}
+
+/**
+ * Reshuffles both play decks (since characters were added) and transitions
+ * to Untap phase (turn 1).
+ */
+function finalizeCharacterDeckDraft(state: GameState): GameState {
+  let rng = state.rng;
+  const newPlayers = [...state.players] as unknown as [typeof state.players[0], typeof state.players[1]];
+
+  for (let i = 0; i < 2; i++) {
+    let shuffled: CardInstanceId[];
+    [shuffled, rng] = shuffle([...newPlayers[i].playDeck], rng);
+    newPlayers[i] = { ...newPlayers[i], playDeck: shuffled };
+  }
+
+  return {
+    ...state,
+    players: newPlayers as unknown as readonly [typeof state.players[0], typeof state.players[1]],
+    activePlayer: newPlayers[0].id,
+    phaseState: { phase: Phase.Untap },
+    turnNumber: 1,
+    rng,
   };
 }
 

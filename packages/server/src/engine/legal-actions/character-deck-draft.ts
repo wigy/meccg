@@ -1,0 +1,52 @@
+/**
+ * @module legal-actions/character-deck-draft
+ *
+ * Legal actions during the character deck draft phase. Each player may add
+ * remaining pool characters to their play deck, up to 10 non-avatar
+ * characters total in the deck.
+ */
+
+import type { GameState, PlayerId, GameAction } from '@meccg/shared';
+
+/** Maximum number of non-avatar characters allowed in the play deck. */
+const MAX_NON_AVATAR_IN_DECK = 10;
+
+/** Count non-avatar characters (mind !== null) among a player's play deck cards. */
+function countNonAvatarInDeck(state: GameState, playerIndex: number): number {
+  const player = state.players[playerIndex];
+  let count = 0;
+  for (const instId of player.playDeck) {
+    const inst = state.instanceMap[instId as string];
+    if (!inst) continue;
+    const def = state.cardPool[inst.definitionId as string];
+    if (def && def.cardType === 'hero-character' && def.mind !== null) {
+      count++;
+    }
+  }
+  return count;
+}
+
+export function characterDeckDraftActions(state: GameState, playerId: PlayerId): GameAction[] {
+  if (state.phaseState.phase !== 'character-deck-draft') return [];
+
+  const playerIndex = state.players[0].id === playerId ? 0 : 1;
+  const deckDraft = state.phaseState.deckDraftState[playerIndex];
+
+  if (deckDraft.done) return [];
+
+  const actions: GameAction[] = [];
+  const nonAvatarCount = countNonAvatarInDeck(state, playerIndex);
+
+  for (const charDefId of deckDraft.remainingPool) {
+    const def = state.cardPool[charDefId as string];
+    if (!def || def.cardType !== 'hero-character') continue;
+    // Non-avatar characters count toward the limit
+    if (def.mind !== null && nonAvatarCount >= MAX_NON_AVATAR_IN_DECK) continue;
+    actions.push({ type: 'add-character-to-deck', player: playerId, characterDefId: charDefId });
+  }
+
+  // Can always pass (done adding characters)
+  actions.push({ type: 'pass', player: playerId });
+
+  return actions;
+}

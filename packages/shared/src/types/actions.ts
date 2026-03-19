@@ -63,6 +63,22 @@ export interface AssignStartingItemAction {
   readonly characterInstanceId: CardInstanceId;
 }
 
+// ---- Character deck draft phase ----
+
+/**
+ * Add a remaining pool character to the play deck.
+ *
+ * After item assignment, players may add undrafted characters from their
+ * pool to the play deck, up to a total of 10 non-avatar characters.
+ */
+export interface AddCharacterToDeckAction {
+  readonly type: 'add-character-to-deck';
+  /** The player adding the character. */
+  readonly player: PlayerId;
+  /** The character definition to add to the play deck. */
+  readonly characterDefId: CardDefinitionId;
+}
+
 // ---- Organization phase ----
 
 /**
@@ -406,6 +422,7 @@ export type GameAction =
   | DraftPickAction
   | DraftStopAction
   | AssignStartingItemAction
+  | AddCharacterToDeckAction
   | PlayCharacterAction
   | SplitCompanyAction
   | MergeCompaniesAction

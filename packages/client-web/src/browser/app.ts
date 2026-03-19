@@ -11,6 +11,7 @@ import {
   loadCardPool, describeAction, Alignment,
   ARAGORN, BILBO, FRODO, LEGOLAS, GIMLI, SAM_GAMGEE, ELROND, CELEBORN, THEODEN, BEORN,
   EOWYN, BEREGOND, BERGIL, BARD_BOWMAN, ANBORN,
+  FARAMIR, GLORFINDEL_II,
   GLAMDRING, STING, THE_MITHRIL_COAT, THE_ONE_RING, DAGGER_OF_WESTERNESSE,
   CAVE_DRAKE, ORC_PATROL, BARROW_WIGHT,
   RIVENDELL, MORIA, MINAS_TIRITH, MOUNT_DOOM,
@@ -23,9 +24,10 @@ let ws: WebSocket | null = null;
 let playerId: string | null = null;
 
 function buildDefaultPlayDeck(): CardDefinitionId[] {
+  const characters = [LEGOLAS, GIMLI, FARAMIR, BEORN, GLORFINDEL_II];
   const resources = [GLAMDRING, STING, THE_MITHRIL_COAT, THE_ONE_RING];
   const hazards = [CAVE_DRAKE, ORC_PATROL, BARROW_WIGHT];
-  const deck: CardDefinitionId[] = [];
+  const deck: CardDefinitionId[] = [...characters];
   for (let i = 0; i < 5; i++) {
     deck.push(...resources, ...hazards);
   }

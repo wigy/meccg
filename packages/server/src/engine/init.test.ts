@@ -327,7 +327,15 @@ describe('character draft', () => {
     expect(result.error).toBeUndefined();
     state = result.state;
 
-    // All items assigned → transitions to Untap
+    // All items assigned → transitions to character deck draft (remaining pool has characters)
+    expect(state.phaseState.phase).toBe(Phase.CharacterDeckDraft);
+
+    // Both players pass to skip adding characters to deck
+    result = reduce(state, { type: 'pass', player: PLAYER_1 });
+    state = result.state;
+    result = reduce(state, { type: 'pass', player: PLAYER_2 });
+    state = result.state;
+
     expect(state.phaseState.phase).toBe(Phase.Untap);
     expect(state.turnNumber).toBe(1);
 
@@ -431,7 +439,14 @@ describe('character draft', () => {
 
     // Alice now has 5 characters (mind 2 each = 10 total, well under 20)
     // But hero max is 5, so she should be auto-stopped after the 5th pick.
-    // Both players stopped → draft ends, game transitions to untap.
+    // Both players stopped → draft ends → no items → character deck draft
+    // (Alice's pool is empty since she drafted all 5; Bob has remaining pool)
+    if (state.phaseState.phase === Phase.CharacterDeckDraft) {
+      result = reduce(state, { type: 'pass', player: PLAYER_1 });
+      state = result.state;
+      result = reduce(state, { type: 'pass', player: PLAYER_2 });
+      state = result.state;
+    }
     expect(state.phaseState.phase).toBe(Phase.Untap);
 
     // Verify Alice has exactly 5 characters in play

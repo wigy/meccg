@@ -295,21 +295,18 @@ export function applyDraftResults(
   });
 
   const newPlayers = [results[0].player, results[1].player] as unknown as readonly [PlayerState, PlayerState];
+  const remainingPool: readonly [readonly CardDefinitionId[], readonly CardDefinitionId[]] = [
+    draftState[0].pool,
+    draftState[1].pool,
+  ];
   const itemDraftState: readonly [ItemDraftPlayerState, ItemDraftPlayerState] = [
     { unassignedItems: results[0].unassignedItems, done: results[0].unassignedItems.length === 0 },
     { unassignedItems: results[1].unassignedItems, done: results[1].unassignedItems.length === 0 },
   ];
 
-  // If neither player has items to assign, skip directly to Untap
+  // If neither player has items to assign, skip to character deck draft (or Untap)
   if (itemDraftState[0].done && itemDraftState[1].done) {
-    return {
-      ...state,
-      players: newPlayers,
-      activePlayer: newPlayers[0].id,
-      instanceMap: minter.instanceMap,
-      phaseState: { phase: Phase.Untap },
-      turnNumber: 1,
-    };
+    return transitionAfterItemDraft({ ...state, players: newPlayers, instanceMap: minter.instanceMap }, remainingPool);
   }
 
   return {
@@ -317,8 +314,39 @@ export function applyDraftResults(
     players: newPlayers,
     activePlayer: null,
     instanceMap: minter.instanceMap,
-    phaseState: { phase: Phase.ItemDraft, itemDraftState },
+    phaseState: { phase: Phase.ItemDraft, itemDraftState, remainingPool },
     turnNumber: 0,
+  };
+}
+
+/**
+ * Transitions the game after item draft completes. If either player has
+ * remaining pool characters, enters the character deck draft phase.
+ * Otherwise skips directly to Untap (turn 1).
+ */
+export function transitionAfterItemDraft(
+  state: GameState,
+  remainingPool: readonly [readonly CardDefinitionId[], readonly CardDefinitionId[]],
+): GameState {
+  if (remainingPool[0].length > 0 || remainingPool[1].length > 0) {
+    return {
+      ...state,
+      activePlayer: null,
+      phaseState: {
+        phase: Phase.CharacterDeckDraft,
+        deckDraftState: [
+          { remainingPool: remainingPool[0], done: remainingPool[0].length === 0 },
+          { remainingPool: remainingPool[1], done: remainingPool[1].length === 0 },
+        ],
+      },
+      turnNumber: 0,
+    };
+  }
+  return {
+    ...state,
+    activePlayer: state.players[0].id,
+    phaseState: { phase: Phase.Untap },
+    turnNumber: 1,
   };
 }
 

@@ -72,6 +72,11 @@ export const LEGAL_ACTIONS_BY_PHASE: Readonly<Record<Phase, readonly GameAction[
     'pass',
   ],
 
+  [Phase.CharacterDeckDraft]: [
+    'add-character-to-deck',
+    'pass',
+  ],
+
   [Phase.Untap]: ['pass'],
 
   [Phase.Organization]: [
