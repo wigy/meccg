@@ -1,24 +1,26 @@
 /**
  * @module ai/random
  *
- * The simplest AI: uniform random over all legal actions,
- * except pass gets zero weight when other actions are available
- * during the draft phase.
+ * The simplest AI: uniform random over all legal actions.
+ * Pass/stop actions get zero weight when substantive actions exist,
+ * ensuring the AI always prefers to do something over passing.
+ * When pass/stop is the only option, it gets 100%.
  */
 
 import type { AiStrategy, AiContext, WeightedAction } from './strategy.js';
+
+/** Action types that represent "doing nothing" — zero weight when alternatives exist. */
+const PASS_ACTIONS = new Set(['pass', 'draft-stop']);
 
 export const randomStrategy: AiStrategy = {
   name: 'random',
 
   weighActions(context: AiContext): WeightedAction[] {
-    const { legalActions, view } = context;
-    const isDraft = view.phaseState.phase === 'character-draft';
-    const hasNonPass = legalActions.some(a => a.type !== 'draft-stop' && a.type !== 'pass');
+    const { legalActions } = context;
+    const hasSubstantiveAction = legalActions.some(a => !PASS_ACTIONS.has(a.type));
 
     return legalActions.map(action => {
-      // During draft, don't stop if there are characters to pick
-      if (isDraft && action.type === 'draft-stop' && hasNonPass) {
+      if (PASS_ACTIONS.has(action.type) && hasSubstantiveAction) {
         return { action, weight: 0 };
       }
       return { action, weight: 1 };
