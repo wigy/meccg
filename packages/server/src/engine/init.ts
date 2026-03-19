@@ -41,6 +41,7 @@ import {
   createRng,
   shuffle,
 } from '@meccg/shared';
+import { recomputeDerived } from './recompute-derived.js';
 
 // ---- Config types ----
 
@@ -245,9 +246,6 @@ export function applyDraftResults(
     // Mint characters and create CharacterInPlay entries
     const characters: Record<string, CharacterInPlay> = {};
     const characterInstanceIds: CardInstanceId[] = [];
-    let generalInfluenceUsed = 0;
-    let characterMPs = 0;
-    let itemMPs = 0;
     let firstCharInstanceId: string | null = null;
 
     for (const charDefId of drafted) {
@@ -268,10 +266,6 @@ export function applyDraftResults(
         followers: [],
         controlledBy: 'general',
       };
-      if (charDef.mind !== null) {
-        generalInfluenceUsed += charDef.mind;
-      }
-      characterMPs += charDef.marshallingPoints;
     }
 
     // Assign starting minor items to first character
@@ -280,12 +274,6 @@ export function applyDraftResults(
         ...characters[firstCharInstanceId],
         items: minorItemInstanceIds,
       };
-      for (const itemDefId of startingMinorItems) {
-        const itemDef = state.cardPool[itemDefId as string];
-        if (itemDef && 'marshallingPoints' in itemDef) {
-          itemMPs += itemDef.marshallingPoints;
-        }
-      }
     }
 
     const company: Company = {
@@ -301,18 +289,13 @@ export function applyDraftResults(
     const hand = player.playDeck.slice(0, HAND_SIZE);
     const remainingDeck = player.playDeck.slice(HAND_SIZE);
 
+    // GI and MP are left at zero — recomputeDerived() runs after the reducer
     return {
       ...player,
       hand,
       playDeck: remainingDeck,
       companies: [company],
       characters,
-      marshallingPoints: {
-        ...ZERO_MARSHALLING_POINTS,
-        character: characterMPs,
-        item: itemMPs,
-      },
-      generalInfluenceUsed,
     } satisfies PlayerState;
   }) as unknown as readonly [PlayerState, PlayerState];
 
@@ -390,7 +373,7 @@ export function createGameQuickStart(
     return playerState;
   }) as unknown as readonly [PlayerState, PlayerState];
 
-  return {
+  return recomputeDerived({
     players,
     activePlayer: config.players[0].id,
     phaseState: { phase: Phase.Untap },
@@ -400,14 +383,14 @@ export function createGameQuickStart(
     turnNumber: 1,
     pendingEffects: [],
     rng,
-  };
+  });
 }
 
 /**
  * Initialises a player with characters already in play (quick-start path).
  * Creates a single company at the starting haven, mints all characters and
- * their instances, shuffles and deals the play deck, and tallies general
- * influence usage.
+ * their instances, and shuffles and deals the play deck. Derived values
+ * (GI usage, MPs) are left at zero and recomputed by {@link recomputeDerived}.
  */
 function initPlayerWithCharacters(
   config: QuickStartPlayerConfig,
@@ -427,8 +410,6 @@ function initPlayerWithCharacters(
 
   const characters: Record<string, CharacterInPlay> = {};
   const characterInstanceIds: CardInstanceId[] = [];
-  let generalInfluenceUsed = 0;
-  let characterMPs = 0;
 
   for (const charDefId of config.startingCharacters) {
     const charDef = cardPool[charDefId as string];
@@ -447,10 +428,6 @@ function initPlayerWithCharacters(
       followers: [],
       controlledBy: 'general',
     };
-    if (charDef.mind !== null) {
-      generalInfluenceUsed += charDef.mind;
-    }
-    characterMPs += charDef.marshallingPoints;
   }
 
   const company: Company = {
@@ -470,6 +447,7 @@ function initPlayerWithCharacters(
   const remainingDeck = shuffledDeck.slice(HAND_SIZE);
   const siteDeckIds = config.siteDeck.map(defId => mint(minter, defId));
 
+  // GI and MP are left at zero — recomputeDerived() is called on the final state
   const playerState: PlayerState = {
     id: config.id,
     name: config.name,
@@ -482,8 +460,8 @@ function initPlayerWithCharacters(
     sideboard: [],
     companies: [company],
     characters,
-    marshallingPoints: { ...ZERO_MARSHALLING_POINTS, character: characterMPs },
-    generalInfluenceUsed,
+    marshallingPoints: ZERO_MARSHALLING_POINTS,
+    generalInfluenceUsed: 0,
     deckExhaustionCount: 0,
     freeCouncilCalled: false,
   };

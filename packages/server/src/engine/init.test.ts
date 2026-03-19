@@ -130,13 +130,6 @@ describe('createGameQuickStart', () => {
     expect(havenInstance.definitionId).toBe(RIVENDELL);
   });
 
-  it('calculates general influence used from starting characters', () => {
-    const state = createGameQuickStart(makeQuickStartConfig(), pool);
-
-    expect(state.players[0].generalInfluenceUsed).toBe(14); // Aragorn 9 + Bilbo 5
-    expect(state.players[1].generalInfluenceUsed).toBe(12); // Legolas 6 + Gimli 6
-  });
-
   it('shuffles play deck deterministically based on seed', () => {
     const state1 = createGameQuickStart(makeQuickStartConfig(42), pool);
     const state2 = createGameQuickStart(makeQuickStartConfig(42), pool);

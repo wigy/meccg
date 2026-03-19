@@ -293,6 +293,7 @@ describe('computeLegalActions', () => {
         expect(action.player).toBe(PLAYER_1);
       }
     });
+
   });
 
   describe('untap phase', () => {

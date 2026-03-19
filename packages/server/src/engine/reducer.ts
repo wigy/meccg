@@ -18,6 +18,7 @@ import type { GameState, DraftPlayerState, CardDefinitionId } from '@meccg/share
 import type { GameAction } from '@meccg/shared';
 import { Phase, LEGAL_ACTIONS_BY_PHASE } from '@meccg/shared';
 import { applyDraftResults } from './init.js';
+import { recomputeDerived } from './recompute-derived.js';
 
 /**
  * Result of applying a {@link GameAction} to a {@link GameState}.
@@ -56,28 +57,44 @@ export function reduce(state: GameState, action: GameAction): ReducerResult {
   }
 
   // 3. Dispatch to phase handler
+  let result: ReducerResult;
   switch (phase) {
     case Phase.CharacterDraft:
-      return handleCharacterDraft(state, action);
+      result = handleCharacterDraft(state, action);
+      break;
     case Phase.Untap:
-      return handleUntap(state, action);
+      result = handleUntap(state, action);
+      break;
     case Phase.Organization:
-      return handleOrganization(state, action);
+      result = handleOrganization(state, action);
+      break;
     case Phase.LongEvent:
-      return handleLongEvent(state, action);
+      result = handleLongEvent(state, action);
+      break;
     case Phase.MovementHazard:
-      return handleMovementHazard(state, action);
+      result = handleMovementHazard(state, action);
+      break;
     case Phase.Site:
-      return handleSite(state, action);
+      result = handleSite(state, action);
+      break;
     case Phase.EndOfTurn:
-      return handleEndOfTurn(state, action);
+      result = handleEndOfTurn(state, action);
+      break;
     case Phase.FreeCouncil:
-      return handleFreeCouncil(state, action);
+      result = handleFreeCouncil(state, action);
+      break;
     case Phase.GameOver:
       return { state, error: 'Game is over' };
     default:
       return { state, error: `Unknown phase: ${String(phase satisfies never)}` };
   }
+
+  // 4. Recompute derived values (MPs, general influence) from ground truth
+  if (!result.error) {
+    result = { state: recomputeDerived(result.state) };
+  }
+
+  return result;
 }
 
 /**
