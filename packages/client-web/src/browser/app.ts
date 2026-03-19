@@ -123,6 +123,7 @@ function connect(name: string): void {
 // ---- LocalStorage ----
 
 const STORAGE_KEY = 'meccg-player-name';
+const VIEW_KEY = 'meccg-view-mode';
 
 function savePlayerName(name: string): void {
   localStorage.setItem(STORAGE_KEY, name);
@@ -170,12 +171,21 @@ document.addEventListener('DOMContentLoaded', () => {
   const debugView = document.getElementById('debug-view') as HTMLElement;
   const visualView = document.getElementById('visual-view') as HTMLElement;
 
+  function setViewMode(visual: boolean): void {
+    debugView.classList.toggle('hidden', visual);
+    visualView.classList.toggle('hidden', !visual);
+    viewToggleBtn.textContent = visual ? 'Debug' : 'Visual';
+    localStorage.setItem(VIEW_KEY, visual ? 'visual' : 'debug');
+  }
+
   viewToggleBtn.addEventListener('click', () => {
-    const isDebug = !debugView.classList.contains('hidden');
-    debugView.classList.toggle('hidden', isDebug);
-    visualView.classList.toggle('hidden', !isDebug);
-    viewToggleBtn.textContent = isDebug ? 'Debug' : 'Visual';
+    setViewMode(!debugView.classList.contains('hidden'));
   });
+
+  // Restore saved view mode
+  if (localStorage.getItem(VIEW_KEY) === 'visual') {
+    setViewMode(true);
+  }
 
   function startGame(name: string): void {
     savePlayerName(name);
