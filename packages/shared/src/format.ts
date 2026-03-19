@@ -1,25 +1,24 @@
 /**
  * @module format
  *
- * Text-based renderer for game state, designed for the console client and
- * server-side debug logging. Outputs human-readable, ANSI-coloured summaries
- * of the full {@link GameState} (server view) or redacted {@link PlayerView}
- * (per-player view).
+ * Single text-based renderer for game state. Outputs ANSI-coloured,
+ * YAML-like indented text showing players, companies, characters, items,
+ * combat, and events.
  *
- * Colour coding follows a consistent scheme — hero characters are blue,
- * items yellow, allies/resources green, hazard creatures red, etc. — so a
- * player can quickly scan the terminal for relevant information.
+ * There is ONE rendering function: {@link renderState}. It accepts a
+ * {@link RenderInput} — a simple bag of data that both {@link GameState}
+ * and {@link PlayerView} can provide. Known cards are rendered in
+ * type-specific colours; unknown/hidden cards are rendered in dim grey.
  *
- * The two main entry points are {@link formatGameState} (omniscient, for
- * server logs) and {@link formatPlayerView} (information-limited, for the
- * console client).
+ * Convenience wrappers {@link formatGameState} and {@link formatPlayerView}
+ * adapt the engine's data structures into {@link RenderInput}.
  */
 
-import type { CardDefinition, HeroCharacterCard, HeroItemCard, HeroAllyCard, CreatureCard, HeroSiteCard } from './types/cards.js';
-import type { GameState, PlayerState, Company, CharacterInPlay, EventInPlay, CombatState } from './types/state.js';
-import type { PlayerView } from './types/player-view.js';
+import type { CardDefinition, HeroCharacterCard, HeroItemCard, HeroAllyCard } from './types/cards.js';
+import type { GameState, PlayerState, Company, CharacterInPlay, EventInPlay, CombatState, PhaseState } from './types/state.js';
+import type { PlayerView, OpponentCompanyView } from './types/player-view.js';
 import { CharacterStatus } from './types/common.js';
-import type { CardInstanceId, CardDefinitionId } from './types/common.js';
+import type { CardInstanceId, CardDefinitionId, PlayerId } from './types/common.js';
 
 // ---- ANSI colors ----
 
@@ -27,61 +26,83 @@ const RESET = '\x1b[0m';
 const BOLD = '\x1b[1m';
 const DIM = '\x1b[2m';
 
-/** Map from card type to its ANSI escape prefix. */
 const COLORS: Record<string, string> = {
-  'hero-character': `${BOLD}\x1b[34m`,       // blue bold
-  'hero-resource-item': '\x1b[33m',           // yellow
-  'hero-resource-faction': '\x1b[36m',        // cyan
-  'hero-resource-ally': '\x1b[32m',           // green
-  'hero-resource-event': '\x1b[32m',          // green
-  'hazard-creature': '\x1b[31m',              // red
-  'hazard-event': '\x1b[35m',                 // magenta
-  'hazard-corruption': `${DIM}\x1b[35m`,      // magenta dim
-  'hero-site': '\x1b[37m',                      // white
-  'region': `${DIM}\x1b[34m`,                 // blue dim
+  'hero-character': `${BOLD}\x1b[34m`,
+  'hero-resource-item': '\x1b[33m',
+  'hero-resource-faction': '\x1b[36m',
+  'hero-resource-ally': '\x1b[32m',
+  'hero-resource-event': '\x1b[32m',
+  'hazard-creature': '\x1b[31m',
+  'hazard-event': '\x1b[35m',
+  'hazard-corruption': `${DIM}\x1b[35m`,
+  'hero-site': '\x1b[37m',
+  'region': `${DIM}\x1b[34m`,
 };
 
-/** Wraps `text` in the ANSI colour escape for `cardType`, with a reset suffix. */
+/** Color for unknown/hidden cards. */
+const UNKNOWN_COLOR = `${DIM}\x1b[90m`;
+
 function colorize(text: string, cardType: string): string {
   const color = COLORS[cardType] ?? '';
   return color ? `${color}${text}${RESET}` : text;
 }
 
-// ---- Lookup helpers ----
-
-/** Resolves a card definition ID to its full definition. */
-type CardLookup = (id: CardDefinitionId) => CardDefinition | undefined;
-
-/** Resolves a card instance ID to its underlying definition ID. */
-type InstanceLookup = (id: CardInstanceId) => CardDefinitionId | undefined;
-
-/**
- * Builds a pair of lookup closures from the game state's card pool and
- * instance map, so that formatting functions can resolve IDs without
- * threading the full state object everywhere.
- */
-function makeLookups(state: GameState): { defOf: CardLookup; instOf: InstanceLookup } {
-  return {
-    defOf: (id) => state.cardPool[id as string],
-    instOf: (id) => {
-      const inst = state.instanceMap[id as string];
-      return inst?.definitionId;
-    },
-  };
+function colorizeUnknown(text: string): string {
+  return `${UNKNOWN_COLOR}${text}${RESET}`;
 }
 
-/**
- * Two-step resolution: instance ID → definition ID → full card definition.
- * Returns `undefined` if either lookup fails (e.g. stale ID).
- */
+// ---- Resolve helpers ----
+
+type CardLookup = (defId: CardDefinitionId) => CardDefinition | undefined;
+type InstanceLookup = (instId: CardInstanceId) => CardDefinitionId | undefined;
+
 function resolve(instId: CardInstanceId, instOf: InstanceLookup, defOf: CardLookup): CardDefinition | undefined {
   const defId = instOf(instId);
   return defId ? defOf(defId) : undefined;
 }
 
-// ---- Card formatting ----
+// ---- Card name formatting ----
 
-/** Returns a parenthesised status suffix like " (tapped)" or "" for untapped characters. */
+/**
+ * Formats a card name in the correct type-specific color.
+ * If the card definition is not found, returns dim grey "[unknown]".
+ * This is THE function for rendering any card name with color.
+ */
+export function formatCardName(
+  def: CardDefinition | undefined,
+): string {
+  if (!def) return colorizeUnknown('[unknown]');
+  return colorize(def.name, def.cardType);
+}
+
+/**
+ * Resolves an instance ID through the lookup chain and formats
+ * the card name in color, followed by the instance ID in braces
+ * so the user can reference it in actions. E.g. "Aragorn II {i-3}".
+ * Unknown instances render as dim grey.
+ */
+function formatInstanceName(instId: CardInstanceId, defOf: CardLookup, instOf: InstanceLookup): string {
+  const def = resolve(instId, instOf, defOf);
+  const name = formatCardName(def);
+  return `${name} ${DIM}{${instId}}${RESET}`;
+}
+
+/**
+ * Formats a card definition ID (not instance) by looking it up
+ * directly in the card pool, followed by the definition ID in braces.
+ * Used for draft pools where the user needs the ID for draft-pick commands.
+ */
+export function formatDefName(
+  defId: CardDefinitionId,
+  cardPool: Readonly<Record<string, CardDefinition>>,
+): string {
+  const def = cardPool[defId as string];
+  const name = formatCardName(def);
+  return `${name} ${DIM}{${defId}}${RESET}`;
+}
+
+// ---- Card detail formatting ----
+
 function statusMarker(status: CharacterStatus): string {
   switch (status) {
     case CharacterStatus.Tapped: return ' (tapped)';
@@ -90,74 +111,54 @@ function statusMarker(status: CharacterStatus): string {
   }
 }
 
-/**
- * Formats a single character line: coloured name, prowess/body stats,
- * skill keywords, marshalling points, and current status.
- */
 function formatCharacterLine(char: CharacterInPlay, defOf: CardLookup, instOf: InstanceLookup): string {
   const def = resolve(char.instanceId, instOf, defOf);
   if (!def || def.cardType !== 'hero-character') {
-    return colorize(`??? [${char.instanceId}]`, 'hero-character');
+    return colorizeUnknown(`[unknown character] ${DIM}{${char.instanceId}}${RESET}`);
   }
   const c = def as HeroCharacterCard;
   const skills = c.skills.join('/');
-  const name = colorize(c.name, 'hero-character');
-  return `${name} [${c.prowess}/${c.body}] ${skills} (${c.marshallingPoints} MP)${statusMarker(char.status)}`;
+  const label = formatInstanceName(char.instanceId, defOf, instOf);
+  return `${label} [${c.prowess}/${c.body}] ${skills} (${c.marshallingPoints} MP)${statusMarker(char.status)}`;
 }
 
-/**
- * Formats an item line: name, prowess/body modifiers (with +/- sign),
- * item subtype, marshalling points, and corruption points.
- */
 function formatItemLine(instId: CardInstanceId, defOf: CardLookup, instOf: InstanceLookup): string {
   const def = resolve(instId, instOf, defOf);
   if (!def || def.cardType !== 'hero-resource-item') {
-    return colorize(`??? [${instId}]`, 'hero-resource-item');
+    return colorizeUnknown(`[unknown item] ${DIM}{${instId}}${RESET}`);
   }
   const item = def as HeroItemCard;
-  const name = colorize(item.name, 'hero-resource-item');
+  const label = formatInstanceName(instId, defOf, instOf);
   const pMod = item.prowessModifier >= 0 ? `+${item.prowessModifier}` : `${item.prowessModifier}`;
   const bMod = item.bodyModifier >= 0 ? `+${item.bodyModifier}` : `${item.bodyModifier}`;
-  return `${name} [${pMod}/${bMod}] ${item.subtype} (${item.marshallingPoints} MP, ${item.corruptionPoints} CP)`;
+  return `${label} [${pMod}/${bMod}] ${item.subtype} (${item.marshallingPoints} MP, ${item.corruptionPoints} CP)`;
 }
 
-/** Formats an ally line: name, prowess/body, and marshalling points. */
 function formatAllyLine(instId: CardInstanceId, defOf: CardLookup, instOf: InstanceLookup): string {
   const def = resolve(instId, instOf, defOf);
   if (!def || def.cardType !== 'hero-resource-ally') {
-    return colorize(`??? [${instId}]`, 'hero-resource-ally');
+    return colorizeUnknown(`[unknown ally] ${DIM}{${instId}}${RESET}`);
   }
   const ally = def as HeroAllyCard;
-  const name = colorize(ally.name, 'hero-resource-ally');
-  return `${name} [${ally.prowess}/${ally.body}] (${ally.marshallingPoints} MP)`;
+  const label = formatInstanceName(instId, defOf, instOf);
+  return `${label} [${ally.prowess}/${ally.body}] (${ally.marshallingPoints} MP)`;
 }
 
-/** Formats a corruption card (hazard) attached to a character: name and CP value. */
 function formatCorruptionCardLine(instId: CardInstanceId, defOf: CardLookup, instOf: InstanceLookup): string {
   const def = resolve(instId, instOf, defOf);
   if (!def || def.cardType !== 'hazard-corruption') {
-    return colorize(`??? [${instId}]`, 'hazard-corruption');
+    return colorizeUnknown(`[unknown corruption] ${DIM}{${instId}}${RESET}`);
   }
-  const name = colorize(def.name, 'hazard-corruption');
-  return `${name} (${def.corruptionPoints} CP)`;
+  const label = formatInstanceName(instId, defOf, instOf);
+  return `${label} (${def.corruptionPoints} CP)`;
 }
 
-/** Resolves a site instance ID to its coloured display name. */
 function formatSiteName(instId: CardInstanceId, defOf: CardLookup, instOf: InstanceLookup): string {
-  const def = resolve(instId, instOf, defOf);
-  if (!def || def.cardType !== 'hero-site') {
-    return `??? [${instId}]`;
-  }
-  return colorize(def.name, 'hero-site');
+  return formatInstanceName(instId, defOf, instOf);
 }
 
 // ---- Company formatting ----
 
-/**
- * Renders a full company block: site location (or planned destination),
- * each character with their items, allies, corruption cards, and followers.
- * Returns an array of indented lines for composition into the overall output.
- */
 function formatCompany(
   company: Company,
   index: number,
@@ -168,40 +169,28 @@ function formatCompany(
 ): string[] {
   const lines: string[] = [];
 
-  // Company header with site info
   const siteName = formatSiteName(company.currentSite, defOf, instOf);
-  let header: string;
   if (company.destinationSite) {
     const destName = formatSiteName(company.destinationSite, defOf, instOf);
-    header = `${indent}Company ${index + 1} → ${destName} (from ${siteName}):`;
+    lines.push(`${indent}Company ${index + 1} → ${destName} (from ${siteName}):`);
   } else {
-    header = `${indent}Company ${index + 1} @ ${siteName}:`;
+    lines.push(`${indent}Company ${index + 1} @ ${siteName}:`);
   }
-  lines.push(header);
 
-  // Characters
   for (const charId of company.characters) {
     const char = characters[charId as string];
     if (!char) continue;
 
     lines.push(`${indent}  ${formatCharacterLine(char, defOf, instOf)}`);
-
-    // Items
     for (const itemId of char.items) {
       lines.push(`${indent}    ${formatItemLine(itemId, defOf, instOf)}`);
     }
-
-    // Allies
     for (const allyId of char.allies) {
       lines.push(`${indent}    ${formatAllyLine(allyId, defOf, instOf)}`);
     }
-
-    // Corruption cards
     for (const ccId of char.corruptionCards) {
       lines.push(`${indent}    ${formatCorruptionCardLine(ccId, defOf, instOf)}`);
     }
-
-    // Followers (recursive-ish, one level)
     for (const followerId of char.followers) {
       const follower = characters[followerId as string];
       if (!follower) continue;
@@ -215,19 +204,49 @@ function formatCompany(
   return lines;
 }
 
+function formatOpponentCompany(
+  company: OpponentCompanyView,
+  index: number,
+  characters: Readonly<Record<string, CharacterInPlay>>,
+  defOf: CardLookup,
+  instOf: InstanceLookup,
+  indent: string,
+): string[] {
+  const lines: string[] = [];
+
+  const siteName = formatSiteName(company.currentSite, defOf, instOf);
+  if (company.hasPlannedMovement) {
+    lines.push(`${indent}Company ${index + 1} → ${colorizeUnknown('(planned)')} (from ${siteName}):`);
+  } else {
+    lines.push(`${indent}Company ${index + 1} @ ${siteName}:`);
+  }
+
+  for (const charId of company.characters) {
+    const char = characters[charId as string];
+    if (!char) continue;
+
+    lines.push(`${indent}  ${formatCharacterLine(char, defOf, instOf)}`);
+    for (const itemId of char.items) {
+      lines.push(`${indent}    ${formatItemLine(itemId, defOf, instOf)}`);
+    }
+    for (const allyId of char.allies) {
+      lines.push(`${indent}    ${formatAllyLine(allyId, defOf, instOf)}`);
+    }
+    for (const ccId of char.corruptionCards) {
+      lines.push(`${indent}    ${formatCorruptionCardLine(ccId, defOf, instOf)}`);
+    }
+  }
+
+  return lines;
+}
+
 // ---- Combat formatting ----
 
-/**
- * Renders the current combat encounter: attacker identity, total strikes,
- * prowess, combat phase, and per-strike assignment/result lines.
- * The active strike is marked with '>'.
- */
 function formatCombat(combat: CombatState, defOf: CardLookup, instOf: InstanceLookup, indent: string): string[] {
   const lines: string[] = [];
   let attackerName: string;
   if (combat.attackSource.type === 'creature') {
-    const def = resolve(combat.attackSource.instanceId, instOf, defOf);
-    attackerName = def ? colorize(def.name, 'hazard-creature') : '???';
+    attackerName = formatInstanceName(combat.attackSource.instanceId, defOf, instOf);
   } else {
     attackerName = 'Automatic attack';
   }
@@ -243,82 +262,80 @@ function formatCombat(combat: CombatState, defOf: CardLookup, instOf: InstanceLo
 
 // ---- Event formatting ----
 
-/**
- * Formats a long/short event currently in play: coloured name, owner,
- * and optional attachment target.
- */
 function formatEvent(event: EventInPlay, defOf: CardLookup, instOf: InstanceLookup): string {
-  const def = resolve(event.instanceId, instOf, defOf);
-  if (!def) return `??? [${event.instanceId}]`;
-  const cardType = def.cardType;
-  const name = colorize(def.name, cardType);
-  const attached = event.attachedTo ? ` → ${event.attachedTo}` : '';
+  const name = formatInstanceName(event.instanceId, defOf, instOf);
+  const attached = event.attachedTo ? ` → ${formatInstanceName(event.attachedTo, defOf, instOf)}` : '';
   return `${name} (owner: ${event.owner})${attached}`;
 }
 
-// ---- Player formatting ----
+// ---- Shared rendering core ----
 
 /**
- * Renders a complete player summary: name, wizard identity, hand/deck/discard
- * counts, all companies, and any active combat for the active player.
- * The active player is annotated with a '←' marker.
+ * Input for the shared renderer. Both GameState and PlayerView
+ * are adapted into this shape by the convenience wrappers.
  */
-function formatPlayer(
-  player: PlayerState,
-  playerIndex: number,
-  state: GameState,
-  defOf: CardLookup,
-  instOf: InstanceLookup,
-): string[] {
-  const lines: string[] = [];
-  const isActive = player.id === state.activePlayer;
-  const activeMarker = isActive ? ' ←' : '';
-  const wizardLabel = player.wizard ? ` (${player.wizard})` : '';
-  lines.push(`${player.name}${wizardLabel}:${activeMarker}`);
-  lines.push(`  hand: ${player.hand.length} cards`);
-  lines.push(`  deck: ${player.playDeck.length} | discard: ${player.discardPile.length}`);
+interface RenderPlayerInput {
+  readonly name: string;
+  readonly wizard: string | null;
+  readonly isActive: boolean;
+  readonly handCount: number;
+  readonly deckCount: number;
+  readonly discardCount: number;
+  readonly companies: readonly Company[];
+  readonly opponentCompanies?: readonly OpponentCompanyView[];
+  readonly characters: Readonly<Record<string, CharacterInPlay>>;
+}
 
-  for (let i = 0; i < player.companies.length; i++) {
-    lines.push(...formatCompany(player.companies[i], i, player.characters, defOf, instOf, '  '));
+interface RenderInput {
+  readonly turnNumber: number;
+  readonly phaseState: PhaseState;
+  readonly activePlayerName: string;
+  readonly players: readonly [RenderPlayerInput, RenderPlayerInput];
+  readonly eventsInPlay: readonly EventInPlay[];
+  readonly defOf: CardLookup;
+  readonly instOf: InstanceLookup;
+}
+
+/**
+ * The single rendering function. Formats everything it can resolve in color,
+ * and everything it cannot resolve in dim grey.
+ */
+function renderState(input: RenderInput): string {
+  const { defOf, instOf } = input;
+  const lines: string[] = [];
+
+  lines.push(`Turn ${input.turnNumber} — Phase: ${input.phaseState.phase} — Active: ${input.activePlayerName}`);
+
+  for (const player of input.players) {
+    const wizardLabel = player.wizard ? ` (${player.wizard})` : '';
+    const activeMarker = player.isActive ? ' ←' : '';
+    lines.push(`${player.name}${wizardLabel}:${activeMarker}`);
+    lines.push(`  hand: ${player.handCount} cards`);
+    lines.push(`  deck: ${player.deckCount} | discard: ${player.discardCount}`);
+
+    // Full companies (own view or omniscient server view)
+    for (let i = 0; i < player.companies.length; i++) {
+      lines.push(...formatCompany(player.companies[i], i, player.characters, defOf, instOf, '  '));
+    }
+
+    // Opponent companies (redacted destination)
+    if (player.opponentCompanies) {
+      for (let i = 0; i < player.opponentCompanies.length; i++) {
+        lines.push(...formatOpponentCompany(player.opponentCompanies[i], i, player.characters, defOf, instOf, '  '));
+      }
+    }
   }
 
-  // Phase-specific combat
-  const ps = state.phaseState;
-  if (isActive && ('combat' in ps) && ps.combat) {
+  // Combat
+  const ps = input.phaseState;
+  if ('combat' in ps && ps.combat) {
     lines.push(...formatCombat(ps.combat, defOf, instOf, '  '));
   }
 
-  return lines;
-}
-
-// ---- Main exports ----
-
-/**
- * Formats the complete, omniscient {@link GameState} as a multi-line
- * ANSI-coloured string. Intended for server-side debug logging — it
- * reveals all hidden information (hands, deck contents, etc.).
- *
- * Output includes: turn/phase header, both players with their companies,
- * and all events currently in play.
- *
- * @param state - The full authoritative game state.
- * @returns A newline-joined, terminal-ready string.
- */
-export function formatGameState(state: GameState): string {
-  const { defOf, instOf } = makeLookups(state);
-  const lines: string[] = [];
-
-  const activePlayer = state.players.find(p => p.id === state.activePlayer);
-  lines.push(`Turn ${state.turnNumber} — Phase: ${state.phaseState.phase} — Active: ${activePlayer?.name ?? '???'}`);
-
-  for (let i = 0; i < state.players.length; i++) {
-    lines.push(...formatPlayer(state.players[i], i, state, defOf, instOf));
-  }
-
-  // Events in play
-  if (state.eventsInPlay.length > 0) {
+  // Events
+  if (input.eventsInPlay.length > 0) {
     lines.push('Events in play:');
-    for (const event of state.eventsInPlay) {
+    for (const event of input.eventsInPlay) {
       lines.push(`  ${formatEvent(event, defOf, instOf)}`);
     }
   } else {
@@ -328,15 +345,43 @@ export function formatGameState(state: GameState): string {
   return lines.join('\n');
 }
 
+// ---- Public API: convenience wrappers ----
+
 /**
- * Formats a redacted {@link PlayerView} as a multi-line string.
- * Used by the console client to display what a single player is allowed
- * to see — their own hand contents, deck sizes, and the opponent's
- * public information (hand count, not hand contents; planned movement
- * flag, not destination).
- *
- * @param view - The per-player projected view of the game.
- * @returns A newline-joined, terminal-ready string.
+ * Formats the full omniscient GameState. Used by server logs and unit tests.
+ */
+export function formatGameState(state: GameState): string {
+  const defOf: CardLookup = (id) => state.cardPool[id as string];
+  const instOf: InstanceLookup = (id) => {
+    const inst = state.instanceMap[id as string];
+    return inst?.definitionId;
+  };
+
+  const activePlayer = state.players.find(p => p.id === state.activePlayer);
+
+  return renderState({
+    turnNumber: state.turnNumber,
+    phaseState: state.phaseState,
+    activePlayerName: activePlayer?.name ?? '???',
+    players: state.players.map(p => ({
+      name: p.name,
+      wizard: p.wizard,
+      isActive: p.id === state.activePlayer,
+      handCount: p.hand.length,
+      deckCount: p.playDeck.length,
+      discardCount: p.discardPile.length,
+      companies: p.companies,
+      characters: p.characters,
+    })) as [RenderPlayerInput, RenderPlayerInput],
+    eventsInPlay: state.eventsInPlay,
+    defOf,
+    instOf,
+  });
+}
+
+/**
+ * Formats a per-player PlayerView. Used by the console client.
+ * Known cards are colored; unknown/hidden cards are dim grey.
  */
 export function formatPlayerView(
   view: PlayerView,
@@ -348,43 +393,35 @@ export function formatPlayerView(
     return defId ?? undefined;
   };
 
-  const lines: string[] = [];
-
-  lines.push(`Turn ${view.turnNumber} — Phase: ${view.phaseState.phase}`);
-
-  // Self
-  const self = view.self;
-  const selfWizard = self.wizard ? ` (${self.wizard})` : '';
-  lines.push(`${self.name}${selfWizard}:`);
-  lines.push(`  hand: ${self.hand.length} cards`);
-  lines.push(`  deck: ${self.playDeckSize} | discard: ${self.discardPile.length}`);
-
-  for (let i = 0; i < self.companies.length; i++) {
-    lines.push(...formatCompany(self.companies[i], i, self.characters, defOf, instOf, '  '));
-  }
-
-  // Opponent
-  const opp = view.opponent;
-  const oppWizard = opp.wizard ? ` (${opp.wizard})` : '';
-  lines.push(`${opp.name}${oppWizard}:`);
-  lines.push(`  hand: ${opp.handSize} cards`);
-  lines.push(`  deck: ${opp.playDeckSize} | discard: ${opp.discardPile.length}`);
-
-  for (let i = 0; i < opp.companies.length; i++) {
-    const company = opp.companies[i];
-    const siteName = formatSiteName(company.currentSite, defOf, instOf);
-    if (company.hasPlannedMovement) {
-      lines.push(`  Company ${i + 1} → (planned) (from ${siteName}):`);
-    } else {
-      lines.push(`  Company ${i + 1} @ ${siteName}:`);
-    }
-    for (const charId of company.characters) {
-      const char = opp.characters[charId as string];
-      if (char) {
-        lines.push(`    ${formatCharacterLine(char, defOf, instOf)}`);
-      }
-    }
-  }
-
-  return lines.join('\n');
+  return renderState({
+    turnNumber: view.turnNumber,
+    phaseState: view.phaseState,
+    activePlayerName: view.self.id === view.activePlayer ? view.self.name : view.opponent.name,
+    players: [
+      {
+        name: view.self.name,
+        wizard: view.self.wizard,
+        isActive: view.self.id === view.activePlayer,
+        handCount: view.self.hand.length,
+        deckCount: view.self.playDeckSize,
+        discardCount: view.self.discardPile.length,
+        companies: view.self.companies,
+        characters: view.self.characters,
+      },
+      {
+        name: view.opponent.name,
+        wizard: view.opponent.wizard,
+        isActive: view.opponent.id === view.activePlayer,
+        handCount: view.opponent.handSize,
+        deckCount: view.opponent.playDeckSize,
+        discardCount: view.opponent.discardPile.length,
+        companies: [],
+        opponentCompanies: view.opponent.companies,
+        characters: view.opponent.characters,
+      },
+    ],
+    eventsInPlay: view.eventsInPlay,
+    defOf,
+    instOf,
+  });
 }

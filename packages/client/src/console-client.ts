@@ -31,6 +31,7 @@ import {
   RIVENDELL, MORIA, MINAS_TIRITH, MOUNT_DOOM,
   loadCardPool,
   formatPlayerView,
+  formatDefName,
 } from '@meccg/shared';
 import { parseAction } from './action-parser.js';
 
@@ -111,13 +112,13 @@ ws.on('message', (data) => {
       // Show draft-specific info
       if (msg.view.phaseState.phase === 'character-draft') {
         const draft = msg.view.phaseState;
-        const resolveNames = (ids: readonly CardDefinitionId[]) =>
-          ids.map(id => cardPool[id as string]?.name ?? id).join(', ');
+        const colorNames = (ids: readonly CardDefinitionId[]) =>
+          ids.map(id => formatDefName(id, cardPool)).join(', ');
         console.log(`Draft round: ${draft.round}`);
-        console.log(`Your pool: ${resolveNames(draft.draftState[0].pool) || '(empty)'}`);
-        console.log(`Your drafted: ${resolveNames(draft.draftState[0].drafted) || '(none)'}`);
+        console.log(`Your pool: ${colorNames(draft.draftState[0].pool) || '(empty)'}`);
+        console.log(`Your drafted: ${colorNames(draft.draftState[0].drafted) || '(none)'}`);
         if (draft.setAside.length > 0) {
-          console.log(`Set aside: ${resolveNames(draft.setAside)}`);
+          console.log(`Set aside: ${colorNames(draft.setAside)}`);
         }
       }
 

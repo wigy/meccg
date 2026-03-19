@@ -158,7 +158,7 @@ export class GameSession {
     this.pending = [];
 
     console.log('Game started!');
-    console.log(formatGameState(this.state));
+    console.log('\n' + formatGameState(this.state));
 
     this.broadcastState();
   }
@@ -214,7 +214,7 @@ export class GameSession {
 
     this.state = result.state;
     console.log(`Action: ${action.type} by ${playerId}`);
-    console.log(formatGameState(this.state));
+    console.log('\n' + formatGameState(this.state));
 
     this.broadcastState();
   }
