@@ -12,6 +12,9 @@
  */
 
 import type { CardDefinition } from '../types/cards.js';
+import type { CardDefinitionId } from '../types/common.js';
+import { SiteType, MarshallingCategory, RegionType } from '../types/common.js';
+import { UNKNOWN_CARD, UNKNOWN_SITE } from '../card-ids.js';
 import characters from './characters.json';
 import items from './items.json';
 import creatures from './creatures.json';
@@ -40,10 +43,41 @@ const allCards: readonly CardDefinition[] = [
  *
  * @returns A frozen record mapping definition ID → card definition.
  */
+/**
+ * Placeholder card definitions for face-down / unknown cards.
+ * Used by the formatter and client to display card backs instead of `???`.
+ */
+const placeholderCards: readonly CardDefinition[] = [
+  {
+    cardType: 'hero-resource-event',
+    id: UNKNOWN_CARD,
+    name: '[face-down card]',
+    unique: false,
+    eventType: 'short',
+    marshallingPoints: 0,
+    marshallingCategory: MarshallingCategory.Misc,
+    text: '',
+  },
+  {
+    cardType: 'hero-site',
+    id: UNKNOWN_SITE,
+    name: '[face-down site]',
+    siteType: SiteType.Haven,
+    sitePath: [] as readonly RegionType[],
+    nearestHaven: '',
+    playableResources: [],
+    automaticAttacks: [],
+    text: '',
+  },
+];
+
 export function loadCardPool(): Readonly<Record<string, CardDefinition>> {
   const pool: Record<string, CardDefinition> = {};
   for (const card of allCards) {
     pool[card.id] = card;
+  }
+  for (const card of placeholderCards) {
+    pool[card.id as string] = card;
   }
   return pool;
 }

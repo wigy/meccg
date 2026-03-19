@@ -114,10 +114,54 @@ export function projectPlayerView(state: GameState, playerId: PlayerId): PlayerV
   const selfIndex = state.players[0].id === playerId ? 0 : 1;
   const opponentIndex = 1 - selfIndex;
 
-  const self = buildSelfView(state, state.players[selfIndex]);
-  const opponent = buildOpponentView(state.players[opponentIndex]);
+  const selfPlayer = state.players[selfIndex];
+  const opponentPlayer = state.players[opponentIndex];
+
+  const self = buildSelfView(state, selfPlayer);
+  const opponent = buildOpponentView(opponentPlayer);
 
   const legalActions = LEGAL_ACTIONS_BY_PHASE[state.phaseState.phase];
+
+  // Build visible instances map: all cards this player can see
+  const visibleInstances: Record<string, CardDefinitionId> = {};
+
+  const addInstance = (id: CardInstanceId) => {
+    const inst = state.instanceMap[id as string];
+    if (inst) {
+      visibleInstances[id as string] = inst.definitionId;
+    }
+  };
+
+  // Own cards: hand, discard, site deck, sideboard, companies, characters + their attachments
+  for (const id of selfPlayer.hand) addInstance(id);
+  for (const id of selfPlayer.discardPile) addInstance(id);
+  for (const id of selfPlayer.siteDeck) addInstance(id);
+  for (const id of selfPlayer.siteDiscardPile) addInstance(id);
+  for (const id of selfPlayer.sideboard) addInstance(id);
+  for (const company of selfPlayer.companies) {
+    addInstance(company.currentSite);
+    if (company.destinationSite) addInstance(company.destinationSite);
+    for (const id of company.movementPath) addInstance(id);
+  }
+  for (const char of Object.values(selfPlayer.characters)) {
+    addInstance(char.instanceId);
+    for (const id of char.items) addInstance(id);
+    for (const id of char.allies) addInstance(id);
+    for (const id of char.corruptionCards) addInstance(id);
+  }
+
+  // Opponent's public cards: discard piles, characters + attachments, company sites
+  for (const id of opponentPlayer.discardPile) addInstance(id);
+  for (const id of opponentPlayer.siteDiscardPile) addInstance(id);
+  for (const company of opponentPlayer.companies) {
+    addInstance(company.currentSite);
+  }
+  for (const char of Object.values(opponentPlayer.characters)) {
+    addInstance(char.instanceId);
+    for (const id of char.items) addInstance(id);
+    for (const id of char.allies) addInstance(id);
+    for (const id of char.corruptionCards) addInstance(id);
+  }
 
   return {
     self,
@@ -127,5 +171,6 @@ export function projectPlayerView(state: GameState, playerId: PlayerId): PlayerV
     eventsInPlay: state.eventsInPlay,
     turnNumber: state.turnNumber,
     legalActions,
+    visibleInstances,
   };
 }

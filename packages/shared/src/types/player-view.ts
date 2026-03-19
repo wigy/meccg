@@ -194,4 +194,10 @@ export interface PlayerView {
   readonly turnNumber: number;
   /** Action types the player can legally submit right now, based on phase and game state. */
   readonly legalActions: readonly GameAction['type'][];
+  /**
+   * Map from CardInstanceId to CardDefinitionId for all cards visible to this player.
+   * Includes own hand, discard piles, characters, items, sites, and public opponent cards.
+   * Used by the formatter to resolve instance IDs to card names.
+   */
+  readonly visibleInstances: Readonly<Record<string, CardDefinitionId>>;
 }

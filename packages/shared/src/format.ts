@@ -338,7 +338,16 @@ export function formatGameState(state: GameState): string {
  * @param view - The per-player projected view of the game.
  * @returns A newline-joined, terminal-ready string.
  */
-export function formatPlayerView(view: PlayerView): string {
+export function formatPlayerView(
+  view: PlayerView,
+  cardPool: Readonly<Record<string, CardDefinition>>,
+): string {
+  const defOf: CardLookup = (id) => cardPool[id as string];
+  const instOf: InstanceLookup = (id) => {
+    const defId = view.visibleInstances[id as string];
+    return defId ?? undefined;
+  };
+
   const lines: string[] = [];
 
   lines.push(`Turn ${view.turnNumber} — Phase: ${view.phaseState.phase}`);
@@ -351,20 +360,7 @@ export function formatPlayerView(view: PlayerView): string {
   lines.push(`  deck: ${self.playDeckSize} | discard: ${self.discardPile.length}`);
 
   for (let i = 0; i < self.companies.length; i++) {
-    const company = self.companies[i];
-    // For self view, we don't have full lookup — use inline info from characters record
-    const siteName = `site:${company.currentSite}`;
-    if (company.destinationSite) {
-      lines.push(`  Company ${i + 1} → site:${company.destinationSite} (from ${siteName}):`);
-    } else {
-      lines.push(`  Company ${i + 1} @ ${siteName}:`);
-    }
-    for (const charId of company.characters) {
-      const char = self.characters[charId as string];
-      if (char) {
-        lines.push(`    ${charId}${statusMarker(char.status)}`);
-      }
-    }
+    lines.push(...formatCompany(self.companies[i], i, self.characters, defOf, instOf, '  '));
   }
 
   // Opponent
@@ -376,14 +372,17 @@ export function formatPlayerView(view: PlayerView): string {
 
   for (let i = 0; i < opp.companies.length; i++) {
     const company = opp.companies[i];
-    const siteName = `site:${company.currentSite}`;
+    const siteName = formatSiteName(company.currentSite, defOf, instOf);
     if (company.hasPlannedMovement) {
       lines.push(`  Company ${i + 1} → (planned) (from ${siteName}):`);
     } else {
       lines.push(`  Company ${i + 1} @ ${siteName}:`);
     }
     for (const charId of company.characters) {
-      lines.push(`    ${charId}`);
+      const char = opp.characters[charId as string];
+      if (char) {
+        lines.push(`    ${formatCharacterLine(char, defOf, instOf)}`);
+      }
     }
   }
 

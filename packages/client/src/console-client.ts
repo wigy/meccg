@@ -29,6 +29,8 @@ import {
   GLAMDRING, STING, THE_MITHRIL_COAT, THE_ONE_RING, DAGGER_OF_WESTERNESSE,
   CAVE_DRAKE, ORC_PATROL, BARROW_WIGHT,
   RIVENDELL, MORIA, MINAS_TIRITH, MOUNT_DOOM,
+  loadCardPool,
+  formatPlayerView,
 } from '@meccg/shared';
 import { parseAction } from './action-parser.js';
 
@@ -71,6 +73,9 @@ const defaultJoin: JoinMessage = {
 
 // ---- Connection ----
 
+/** The card pool for resolving card names in the formatter. */
+const cardPool = loadCardPool();
+
 /** The player ID assigned by the server after the "join" handshake. */
 let playerId: PlayerId | null = null;
 
@@ -101,25 +106,19 @@ ws.on('message', (data) => {
       break;
 
     case 'state':
-      console.log('\n--- Game State ---');
-      console.log(`Phase: ${msg.view.phaseState.phase} | Turn: ${msg.view.turnNumber}`);
-      console.log(`You: ${msg.view.self.name} | Hand: ${msg.view.self.hand.length} cards`);
-      console.log(`Opponent: ${msg.view.opponent.name} | Hand: ${msg.view.opponent.handSize} cards`);
+      console.log('\n' + formatPlayerView(msg.view, cardPool));
 
-      // Show draft state if in draft phase
+      // Show draft-specific info
       if (msg.view.phaseState.phase === 'character-draft') {
         const draft = msg.view.phaseState;
+        const resolveNames = (ids: readonly CardDefinitionId[]) =>
+          ids.map(id => cardPool[id as string]?.name ?? id).join(', ');
         console.log(`Draft round: ${draft.round}`);
-        console.log(`Your pool: ${draft.draftState[0].pool.join(', ') || '(empty)'}`);
-        console.log(`Your drafted: ${draft.draftState[0].drafted.join(', ') || '(none)'}`);
+        console.log(`Your pool: ${resolveNames(draft.draftState[0].pool) || '(empty)'}`);
+        console.log(`Your drafted: ${resolveNames(draft.draftState[0].drafted) || '(none)'}`);
         if (draft.setAside.length > 0) {
-          console.log(`Set aside: ${draft.setAside.join(', ')}`);
+          console.log(`Set aside: ${resolveNames(draft.setAside)}`);
         }
-      }
-
-      // Show companies
-      for (const company of msg.view.self.companies) {
-        console.log(`  Company @ ${company.currentSite}: ${company.characters.join(', ')}`);
       }
 
       console.log(`Legal actions: ${msg.view.legalActions.join(', ')}`);

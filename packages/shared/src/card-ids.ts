@@ -81,3 +81,10 @@ export const HOLLIN = did('tw-466');
 export const ROHAN = did('tw-483');
 /** Ithilien — shadow-land region east of Minas Tirith. */
 export const ITHILIEN = did('tw-470');
+
+// ---- Placeholder cards for unknown/hidden cards ----
+
+/** Placeholder definition ID for a face-down play deck card (resource or hazard). */
+export const UNKNOWN_CARD = did('unknown-card');
+/** Placeholder definition ID for a face-down site card. */
+export const UNKNOWN_SITE = did('unknown-site');
