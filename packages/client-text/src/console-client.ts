@@ -22,6 +22,7 @@ import * as readline from 'readline';
 import type { PlayerId, ServerMessage, ClientMessage, JoinMessage, CardDefinitionId, GameAction } from '@meccg/shared';
 import {
   ARAGORN, BILBO, FRODO, LEGOLAS, GIMLI, SAM_GAMGEE, ELROND, CELEBORN, THEODEN, BEORN,
+  EOWYN, BEREGOND, BERGIL, BARD_BOWMAN, ANBORN,
   GLAMDRING, STING, THE_MITHRIL_COAT, THE_ONE_RING, DAGGER_OF_WESTERNESSE,
   CAVE_DRAKE, ORC_PATROL, BARROW_WIGHT,
   RIVENDELL, MORIA, MINAS_TIRITH, MOUNT_DOOM,
@@ -80,7 +81,8 @@ const defaultJoin: JoinMessage = {
   type: 'join',
   name: PLAYER_NAME,
   alignment: Alignment.Hero,
-  draftPool: [ARAGORN, BILBO, FRODO, LEGOLAS, GIMLI, SAM_GAMGEE, ELROND, CELEBORN, THEODEN, BEORN],
+  draftPool: [ARAGORN, BILBO, FRODO, SAM_GAMGEE, ELROND, CELEBORN, THEODEN,
+    EOWYN, BEREGOND, ANBORN],
   startingMinorItems: [DAGGER_OF_WESTERNESSE],
   playDeck: buildDefaultPlayDeck(),
   siteDeck: [MORIA, MINAS_TIRITH, MOUNT_DOOM],

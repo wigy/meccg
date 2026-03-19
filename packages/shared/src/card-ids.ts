@@ -47,6 +47,16 @@ export const ELROND = did('tw-145');
 export const GLORFINDEL_II = did('tw-161');
 /** Celeborn — elf, mind 6, Lórien leader, +5 DI against Galadriel. */
 export const CELEBORN = did('tw-136');
+/** Éowyn — woman of Rohan, mind 2, anti-Nazgûl prowess bonus. */
+export const EOWYN = did('tw-147');
+/** Beregond — Dúnadan warrior, mind 2, Minas Tirith. */
+export const BEREGOND = did('tw-127');
+/** Bergil — Dúnadan warrior/scout, mind 2, Minas Tirith. */
+export const BERGIL = did('tw-129');
+/** Bard Bowman — Man warrior/scout, mind 2, Lake-town. */
+export const BARD_BOWMAN = did('tw-124');
+/** Anborn — Dúnadan scout/ranger, mind 2, Pelargir. */
+export const ANBORN = did('tw-118');
 
 // ---- Items ----
 
