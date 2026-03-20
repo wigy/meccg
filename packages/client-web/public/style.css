@@ -177,17 +177,66 @@ h2 {
 
 /* Visual view */
 
+#visual-view {
+  background: url('images/visual-bg.png') center/cover no-repeat fixed;
+  min-height: 100vh;
+  margin: -1rem;
+  padding: 1rem;
+}
+
 #visual-board {
   display: flex;
   justify-content: center;
-  align-items: center;
+  align-items: flex-start;
   gap: 2rem;
+  padding-top: 4rem;
   min-height: 80vh;
 }
 
 .card-image {
+  max-height: 30vh;
   border-radius: 8px;
   box-shadow: 0 4px 24px rgba(0, 0, 0, 0.6);
+}
+
+.card-art-wrap {
+  position: relative;
+  filter:
+    drop-shadow(0 2px 6px rgba(0, 0, 0, 0.6))
+    drop-shadow(0 8px 24px rgba(0, 0, 0, 0.4));
+}
+
+.card-art-frame {
+  clip-path: inset(3% 11% 17% 18% round 6px);
+  background: rgb(160, 130, 60);
+  padding: 4px;
+}
+
+.card-art {
+  display: block;
+  max-height: 30vh;
+  object-fit: cover;
+  object-position: center 25%;
+  aspect-ratio: 4 / 3;
+  border-radius: 2px;
+  cursor: pointer;
+}
+
+.card-art-wrap .card-full {
+  display: none;
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  max-height: 70vh;
+  border-radius: 8px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.8);
+  z-index: 50;
+  pointer-events: none;
+}
+
+.card-art-wrap:hover .card-full {
+  display: block;
 }
 
 /* Card name hover preview */
