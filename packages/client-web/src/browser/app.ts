@@ -8,7 +8,7 @@
 
 import type { ServerMessage, ClientMessage, GameAction, CardDefinitionId } from '@meccg/shared';
 import { loadCardPool, describeAction, SAMPLE_DECKS } from '@meccg/shared';
-import { renderState, renderDraft, renderActions, renderLog } from './render.js';
+import { renderState, renderDraft, renderActions, renderLog, renderHand } from './render.js';
 import { rollDice } from './dice.js';
 
 const cardPool = loadCardPool();
@@ -59,6 +59,7 @@ function connect(name: string): void {
         renderState(msg.view, cardPool);
         renderDraft(msg.view, cardPool);
         renderActions(msg.view.legalActions, cardPool, sendAction, msg.view.visibleInstances);
+        renderHand(msg.view, cardPool);
         break;
 
       case 'draft-reveal': {

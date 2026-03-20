@@ -1,3 +1,8 @@
+:root {
+  --card-height: 28vh;
+  --card-zoom: 2;
+}
+
 * {
   box-sizing: border-box;
   margin: 0;
@@ -237,6 +242,40 @@ h2 {
 
 .card-art-wrap:hover .card-full {
   display: block;
+}
+
+/* Hand arc — cards fanned at the bottom of the visual view */
+
+#hand-arc {
+  --total: 8;
+  --spread: 6deg;
+  --lift: 60%;
+  position: fixed;
+  bottom: -10vh;
+  left: 10vw;
+  right: 10vw;
+  display: flex;
+  justify-content: center;
+  z-index: 10;
+}
+
+.hand-card {
+  height: var(--card-height);
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.7);
+  margin: 0 var(--card-margin, -2.5vh);
+  transform-origin: bottom center;
+  transform: rotate(calc((var(--i) - (var(--total) - 1) / 2) * var(--spread)))
+             translateY(calc(pow(var(--i) - (var(--total) - 1) / 2, 2) * 1.5%));
+  transition: transform 0.2s ease, z-index 0s;
+  cursor: pointer;
+  position: relative;
+}
+
+.hand-card:hover {
+  transform: rotate(0deg) translateY(-8vh) scale(var(--card-zoom));
+  z-index: 20;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.9);
 }
 
 /* Card name hover preview */

@@ -220,6 +220,50 @@ export function renderActions(
   }
 }
 
+/** Get the list of card definition IDs to display in the hand arc. */
+function getHandCards(view: PlayerView): CardDefinitionId[] {
+  // During character draft, show the player's draft pool instead of hand
+  if (view.phaseState.phase === 'setup' && view.phaseState.setupStep.step === 'character-draft') {
+    const draft = view.phaseState.setupStep;
+    // Own pool has real card IDs; opponent's pool has 'unknown-card' placeholders
+    const hasRealCards = (pool: readonly CardDefinitionId[]) =>
+      pool.length > 0 && (pool[0] as string) !== 'unknown-card';
+    const selfIdx = hasRealCards(draft.draftState[0].pool) ? 0
+      : hasRealCards(draft.draftState[1].pool) ? 1
+      : 0;
+    return [...draft.draftState[selfIdx].pool];
+  }
+  return view.self.hand.map(c => c.definitionId);
+}
+
+/** Render the player's hand (or draft pool) as an arc of card images in the visual view. */
+export function renderHand(view: PlayerView, cardPool: Readonly<Record<string, CardDefinition>>): void {
+  const el = document.getElementById('hand-arc');
+  if (!el) return;
+  el.innerHTML = '';
+
+  const cards = getHandCards(view);
+  const total = cards.length;
+  el.style.setProperty('--total', String(total));
+  // Overlap cards more when there are many
+  const margin = total > 7 ? -4 : -2.5;
+  el.style.setProperty('--card-margin', `${margin}vh`);
+
+  for (let i = 0; i < total; i++) {
+    const def = cardPool[cards[i] as string];
+    if (!def) continue;
+    const imgPath = cardImageProxyPath(def);
+    if (!imgPath) continue;
+
+    const img = document.createElement('img');
+    img.src = imgPath;
+    img.alt = def.name;
+    img.className = 'hand-card';
+    img.style.setProperty('--i', String(i));
+    el.appendChild(img);
+  }
+}
+
 /** Append a message to the log. Auto-scrolls to bottom. */
 export function renderLog(message: string, cardPool?: Readonly<Record<string, CardDefinition>>): void {
   const el = $('log');
