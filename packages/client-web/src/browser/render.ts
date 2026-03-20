@@ -225,15 +225,37 @@ function getHandCards(view: PlayerView): CardDefinitionId[] {
   // During character draft, show the player's draft pool instead of hand
   if (view.phaseState.phase === 'setup' && view.phaseState.setupStep.step === 'character-draft') {
     const draft = view.phaseState.setupStep;
-    // Own pool has real card IDs; opponent's pool has 'unknown-card' placeholders
-    const hasRealCards = (pool: readonly CardDefinitionId[]) =>
-      pool.length > 0 && (pool[0] as string) !== 'unknown-card';
-    const selfIdx = hasRealCards(draft.draftState[0].pool) ? 0
-      : hasRealCards(draft.draftState[1].pool) ? 1
-      : 0;
+    const selfIdx = getSelfDraftIndex(draft.draftState);
     return [...draft.draftState[selfIdx].pool];
   }
+  // During character deck draft, show remaining pool characters
+  if (view.phaseState.phase === 'setup' && view.phaseState.setupStep.step === 'character-deck-draft') {
+    const deckDraft = view.phaseState.setupStep.deckDraftState;
+    // Self pool has real card IDs
+    const selfIdx = deckDraft[0].remainingPool.length > 0
+      && (deckDraft[0].remainingPool[0] as string) !== 'unknown-card' ? 0 : 1;
+    return [...deckDraft[selfIdx].remainingPool];
+  }
+  // During item draft, show unassigned starting items
+  if (view.phaseState.phase === 'setup' && view.phaseState.setupStep.step === 'item-draft') {
+    const itemDraft = view.phaseState.setupStep.itemDraftState;
+    // Self items are in visibleInstances, opponent's are not
+    const selfIdx = itemDraft[0].unassignedItems.length > 0
+      && view.visibleInstances[itemDraft[0].unassignedItems[0] as string] ? 0 : 1;
+    return itemDraft[selfIdx].unassignedItems.map(
+      instId => view.visibleInstances[instId as string],
+    ).filter((id): id is CardDefinitionId => id !== undefined);
+  }
   return view.self.hand.map(c => c.definitionId);
+}
+
+/** Find which draft state index belongs to self (has real card IDs, not unknown-card). */
+function getSelfDraftIndex(draftState: readonly [{ pool: readonly CardDefinitionId[] }, { pool: readonly CardDefinitionId[] }]): number {
+  const hasRealCards = (pool: readonly CardDefinitionId[]) =>
+    pool.length > 0 && (pool[0] as string) !== 'unknown-card';
+  return hasRealCards(draftState[0].pool) ? 0
+    : hasRealCards(draftState[1].pool) ? 1
+    : 0;
 }
 
 /** Render the player's hand (or draft pool) as an arc of card images in the visual view. */
