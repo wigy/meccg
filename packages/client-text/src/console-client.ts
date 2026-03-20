@@ -36,6 +36,7 @@ import {
   setShowDebugIds,
   stripCardMarkers,
   Alignment,
+  DEBUG_JSON_COMPACT_LIMIT,
 } from '@meccg/shared';
 import { loadAiStrategy, sampleWeighted } from './ai/index.js';
 import type { AiStrategy } from './ai/index.js';
@@ -56,6 +57,12 @@ const originalLog = console.log.bind(console);
 console.log = (...args: unknown[]) => {
   originalLog(...args.map(a => typeof a === 'string' ? stripCardMarkers(a) : a));
 };
+
+/** Format an object as JSON, using pretty-print if longer than 40 characters. */
+function formatJson(obj: unknown): string {
+  const compact = JSON.stringify(obj);
+  return compact.length > DEBUG_JSON_COMPACT_LIMIT ? JSON.stringify(obj, null, 2) : compact;
+}
 
 let aiStrategy: AiStrategy | null = null;
 if (AI_MODE) {
@@ -122,10 +129,11 @@ function connect(): void {
 
   socket.on('message', (raw: Buffer) => {
     const data = raw.toString();
-    if (DEBUG) {
-      console.log(colorDebug(`<< ${data}`));
-    }
     const msg: ServerMessage = JSON.parse(data) as ServerMessage;
+    if (DEBUG) {
+      const display = data.length > DEBUG_JSON_COMPACT_LIMIT ? JSON.stringify(msg, null, 2) : data;
+      console.log(colorDebug(`<< ${display}`));
+    }
 
     switch (msg.type) {
       case 'assigned':
@@ -192,7 +200,7 @@ function connect(): void {
             const desc = describeAction(action, cardPool, instances);
             console.log(`AI (${aiStrategy.name}) picks: ${desc}`);
             if (DEBUG) {
-              console.log(colorDebug(`>> ${JSON.stringify(action)}`));
+              console.log(colorDebug(`>> ${formatJson(action)}`));
             }
             const outMsg: ClientMessage = { type: 'action', action };
             ws.send(JSON.stringify(outMsg));
@@ -205,7 +213,7 @@ function connect(): void {
               const desc = describeAction(lastLegalActions[i], cardPool, instances);
               if (DEBUG) {
                 const { player: _p, ...payload } = lastLegalActions[i];
-                console.log(`  [${i + 1}] ${desc}  ${colorDebug(JSON.stringify(payload))}`);
+                console.log(`  [${i + 1}] ${desc}  ${colorDebug(formatJson(payload))}`);
               } else {
                 console.log(`  [${i + 1}] ${desc}`);
               }
@@ -300,7 +308,7 @@ rl.on('line', (line) => {
   const action = lastLegalActions[num - 1];
 
   if (DEBUG) {
-    console.log(colorDebug(`>> ${JSON.stringify(action)}`));
+    console.log(colorDebug(`>> ${formatJson(action)}`));
   }
   const msg: ClientMessage = { type: 'action', action };
   ws.send(JSON.stringify(msg));

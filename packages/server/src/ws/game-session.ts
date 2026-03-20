@@ -20,7 +20,7 @@ import type {
   JoinMessage,
   GameAction,
 } from '@meccg/shared';
-import { formatGameState, loadCardPool, colorDebug } from '@meccg/shared';
+import { formatGameState, loadCardPool, colorDebug, DEBUG_JSON_COMPACT_LIMIT } from '@meccg/shared';
 import { createGame } from '../engine/init.js';
 import type { PlayerConfig, GameConfig } from '../engine/init.js';
 import { reduce } from '../engine/reducer.js';
@@ -71,7 +71,8 @@ export class GameSession {
       try {
         const data = raw.toString();
         if (this.debug) {
-          console.log(colorDebug(`<< ${data}`));
+          const display = data.length > DEBUG_JSON_COMPACT_LIMIT ? JSON.stringify(JSON.parse(data), null, 2) : data;
+          console.log(colorDebug(`<< ${display}`));
         }
         const msg: ClientMessage = JSON.parse(data) as ClientMessage;
         this.handleMessage(ws, msg);
@@ -510,7 +511,8 @@ export class GameSession {
     if (ws.readyState === ws.OPEN) {
       const json = JSON.stringify(msg);
       if (this.debug) {
-        console.log(colorDebug(`>> ${json}`));
+        const display = json.length > DEBUG_JSON_COMPACT_LIMIT ? JSON.stringify(msg, null, 2) : json;
+        console.log(colorDebug(`>> ${display}`));
       }
       ws.send(json);
     }

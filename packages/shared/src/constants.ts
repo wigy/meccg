@@ -95,3 +95,9 @@ export const WOUNDED_PROWESS_PENALTY = -2;
  * untapped companion in the same company (+1 per supporter).
  */
 export const SUPPORT_PROWESS_BONUS = 1;
+
+/**
+ * JSON strings shorter than this are printed on one line in debug output.
+ * Longer strings are pretty-printed with indentation.
+ */
+export const DEBUG_JSON_COMPACT_LIMIT = 80;
