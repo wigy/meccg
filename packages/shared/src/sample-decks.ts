@@ -29,6 +29,8 @@ import {
   THE_MOUTH, LIEUTENANT_OF_DOL_GULDUR, GORBAG, SHAGRAT, PERCHEN, MIONID,
   // Minion sites
   DOL_GULDUR, MINAS_MORGUL, ETTENMOORS, THE_WHITE_TOWERS_MINION, WEATHERTOP,
+  // Fallen-wizard sites
+  THE_WHITE_TOWERS, ETTENMOORS_HERO, THE_WHITE_TOWERS_HERO,
 } from './card-ids.js';
 
 /** A named sample deck that can be selected before connecting. */
@@ -91,8 +93,29 @@ const minionDeck: SampleDeck = {
   },
 };
 
+/** Fallen-wizard deck — a corrupted Istari using both hero and minion resources. */
+const fallenWizardDeck: SampleDeck = {
+  id: 'fw',
+  label: 'Fallen Wizard',
+  buildJoinMessage(playerName: string): JoinMessage {
+    const characters = [LEGOLAS, GIMLI, FARAMIR, BEORN, GLORFINDEL_II];
+    const hazards = [CAVE_DRAKE, ORC_PATROL, BARROW_WIGHT];
+    return {
+      type: 'join',
+      name: playerName,
+      alignment: Alignment.FallenWizard,
+      draftPool: [MIONID, PERCHEN, THEODEN, BEREGOND, ANBORN],
+      startingMinorItems: [DAGGER_OF_WESTERNESSE, SAW_TOOTHED_BLADE],
+      playDeck: [...characters, ...repeatCards(hazards, 10)],
+      siteDeck: [THE_WHITE_TOWERS, ETTENMOORS_HERO, THE_WHITE_TOWERS_HERO, MORIA, MINAS_TIRITH,
+        DOL_GULDUR, MINAS_MORGUL, ETTENMOORS, THE_WHITE_TOWERS_MINION, WEATHERTOP],
+      startingHavens: [THE_WHITE_TOWERS],
+    };
+  },
+};
+
 /** All available sample decks, in display order. */
-export const SAMPLE_DECKS: readonly SampleDeck[] = [heroDeck, minionDeck];
+export const SAMPLE_DECKS: readonly SampleDeck[] = [heroDeck, minionDeck, fallenWizardDeck];
 
 /**
  * Find a sample deck by its short ID (case-insensitive).
