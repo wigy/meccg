@@ -249,6 +249,25 @@ function getHandCards(view: PlayerView): CardDefinitionId[] {
   return view.self.hand.map(c => c.definitionId);
 }
 
+/** Sum all marshalling point categories into a total score. */
+function totalMP(mp: { character: number; item: number; faction: number; ally: number; kill: number; misc: number }): number {
+  return mp.character + mp.item + mp.faction + mp.ally + mp.kill + mp.misc;
+}
+
+/** Render player names and scores in the visual view. */
+export function renderPlayerNames(view: PlayerView): void {
+  const selfEl = document.getElementById('self-name');
+  const oppEl = document.getElementById('opponent-name');
+  const selfScore = totalMP(view.self.marshallingPoints);
+  const oppScore = totalMP(view.opponent.marshallingPoints);
+  if (selfEl) {
+    selfEl.innerHTML = `${view.self.name} <span class="score">${selfScore}</span>`;
+  }
+  if (oppEl) {
+    oppEl.innerHTML = `${view.opponent.name} <span class="score">${oppScore}</span>`;
+  }
+}
+
 /** Find which draft state index belongs to self (has real card IDs, not unknown-card). */
 function getSelfDraftIndex(draftState: readonly [{ pool: readonly CardDefinitionId[] }, { pool: readonly CardDefinitionId[] }]): number {
   const hasRealCards = (pool: readonly CardDefinitionId[]) =>
