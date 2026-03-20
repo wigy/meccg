@@ -44,6 +44,7 @@ import {
   ZERO_EFFECTIVE_STATS,
   createRng,
   shuffle,
+  isCharacterCard,
 } from '@meccg/shared';
 import { recomputeDerived } from './recompute-derived.js';
 
@@ -253,7 +254,7 @@ export function applyDraftResults(
 
     for (const charDefId of drafted) {
       const charDef = state.cardPool[charDefId as string];
-      if (!charDef || charDef.cardType !== 'hero-character') continue;
+      if (!isCharacterCard(charDef)) continue;
       const instanceId = mint(minter, charDefId);
       characterInstanceIds.push(instanceId);
       characters[instanceId as string] = {
@@ -459,8 +460,8 @@ function initPlayerWithCharacters(
 
   for (const charDefId of config.startingCharacters) {
     const charDef = cardPool[charDefId as string];
-    if (!charDef || charDef.cardType !== 'hero-character') {
-      throw new Error(`Starting character '${charDefId}' not found or not a hero-character`);
+    if (!isCharacterCard(charDef)) {
+      throw new Error(`Starting character '${charDefId}' not found or not a character`);
     }
     const instanceId = mint(minter, charDefId);
     characterInstanceIds.push(instanceId);

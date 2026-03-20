@@ -6,16 +6,8 @@
  * renders game state, and sends actions on button click.
  */
 
-import type { ServerMessage, ClientMessage, JoinMessage, GameAction, CardDefinitionId } from '@meccg/shared';
-import {
-  loadCardPool, describeAction, Alignment,
-  ARAGORN, BILBO, FRODO, LEGOLAS, GIMLI, SAM_GAMGEE, ELROND, CELEBORN, THEODEN, BEORN,
-  EOWYN, BEREGOND, ANBORN,
-  FARAMIR, GLORFINDEL_II,
-  GLAMDRING, STING, THE_MITHRIL_COAT, THE_ONE_RING, DAGGER_OF_WESTERNESSE, HORN_OF_ANOR,
-  CAVE_DRAKE, ORC_PATROL, BARROW_WIGHT,
-  RIVENDELL, LORIEN, MORIA, MINAS_TIRITH, MOUNT_DOOM,
-} from '@meccg/shared';
+import type { ServerMessage, ClientMessage, GameAction, CardDefinitionId } from '@meccg/shared';
+import { loadCardPool, describeAction, SAMPLE_DECKS } from '@meccg/shared';
 import { renderState, renderDraft, renderActions, renderLog } from './render.js';
 import { rollDice } from './dice.js';
 
@@ -24,31 +16,7 @@ const cardPool = loadCardPool();
 let ws: WebSocket | null = null;
 let playerId: string | null = null;
 let lastVisibleInstances: Readonly<Record<string, CardDefinitionId>> = {};
-
-function buildDefaultPlayDeck(): CardDefinitionId[] {
-  const characters = [LEGOLAS, GIMLI, FARAMIR, BEORN, GLORFINDEL_II];
-  const resources = [GLAMDRING, STING, THE_MITHRIL_COAT, THE_ONE_RING];
-  const hazards = [CAVE_DRAKE, ORC_PATROL, BARROW_WIGHT];
-  const deck: CardDefinitionId[] = [...characters];
-  for (let i = 0; i < 5; i++) {
-    deck.push(...resources, ...hazards);
-  }
-  return deck;
-}
-
-function buildJoinMessage(name: string): JoinMessage {
-  return {
-    type: 'join',
-    name,
-    alignment: Alignment.Wizard,
-    draftPool: [ARAGORN, BILBO, FRODO, SAM_GAMGEE, ELROND, CELEBORN, THEODEN,
-      EOWYN, BEREGOND, ANBORN],
-    startingMinorItems: [DAGGER_OF_WESTERNESSE, HORN_OF_ANOR],
-    playDeck: buildDefaultPlayDeck(),
-    siteDeck: [RIVENDELL, LORIEN, MORIA, MINAS_TIRITH, MOUNT_DOOM],
-    startingHavens: [RIVENDELL],
-  };
-}
+let selectedDeckIndex = 0;
 
 function sendAction(action: GameAction): void {
   if (!ws || ws.readyState !== WebSocket.OPEN) return;
@@ -67,7 +35,8 @@ function connect(name: string): void {
 
   ws.onopen = () => {
     renderLog('Connected. Sending join...');
-    ws!.send(JSON.stringify(buildJoinMessage(name)));
+    const deck = SAMPLE_DECKS[selectedDeckIndex];
+    ws!.send(JSON.stringify(deck.buildJoinMessage(name)));
   };
 
   ws.onmessage = async (event) => {
@@ -139,6 +108,7 @@ function connect(name: string): void {
 
 const STORAGE_KEY = 'meccg-player-name';
 const VIEW_KEY = 'meccg-view-mode';
+const DECK_KEY = 'meccg-deck-index';
 
 function savePlayerName(name: string): void {
   localStorage.setItem(STORAGE_KEY, name);
@@ -179,9 +149,33 @@ function disconnect(): void {
 
 document.addEventListener('DOMContentLoaded', () => {
   const nameInput = document.getElementById('name-input') as HTMLInputElement;
+  const deckSelect = document.getElementById('deck-select') as HTMLSelectElement;
   const connectBtn = document.getElementById('connect-btn') as HTMLButtonElement;
   const connectForm = document.getElementById('connect-form') as HTMLElement;
   const disconnectBtn = document.getElementById('disconnect-btn') as HTMLButtonElement;
+
+  // Populate deck selector
+  for (let i = 0; i < SAMPLE_DECKS.length; i++) {
+    const opt = document.createElement('option');
+    opt.value = String(i);
+    opt.textContent = SAMPLE_DECKS[i].label;
+    deckSelect.appendChild(opt);
+  }
+
+  // Restore saved deck selection
+  const savedDeck = localStorage.getItem(DECK_KEY);
+  if (savedDeck !== null) {
+    const idx = parseInt(savedDeck, 10);
+    if (idx >= 0 && idx < SAMPLE_DECKS.length) {
+      selectedDeckIndex = idx;
+      deckSelect.value = String(idx);
+    }
+  }
+
+  deckSelect.addEventListener('change', () => {
+    selectedDeckIndex = parseInt(deckSelect.value, 10);
+    localStorage.setItem(DECK_KEY, String(selectedDeckIndex));
+  });
   const saveBtn = document.getElementById('save-btn') as HTMLButtonElement;
   const loadBtn = document.getElementById('load-btn') as HTMLButtonElement;
   const resetBtn = document.getElementById('reset-btn') as HTMLButtonElement;

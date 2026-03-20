@@ -6,7 +6,7 @@
  */
 
 import type { GameState, PlayerId, GameAction } from '@meccg/shared';
-import { GENERAL_INFLUENCE, getAlignmentRules } from '@meccg/shared';
+import { GENERAL_INFLUENCE, getAlignmentRules, isCharacterCard } from '@meccg/shared';
 import { logDetail } from './log.js';
 
 export function draftActions(state: GameState, playerId: PlayerId): GameAction[] {
@@ -46,7 +46,7 @@ export function draftActions(state: GameState, playerId: PlayerId): GameAction[]
   // Calculate current total mind
   const currentMind = draft.drafted.reduce((sum, defId) => {
     const def = state.cardPool[defId as string];
-    return sum + (def && def.cardType === 'hero-character' && def.mind !== null ? def.mind : 0);
+    return sum + (isCharacterCard(def) && def.mind !== null ? def.mind : 0);
   }, 0);
 
   logDetail(`Current total mind: ${currentMind}/${GENERAL_INFLUENCE}, pool size: ${draft.pool.length}`);
@@ -54,8 +54,8 @@ export function draftActions(state: GameState, playerId: PlayerId): GameAction[]
   // One draft-pick per eligible character in the pool
   for (const charDefId of draft.pool) {
     const charDef = state.cardPool[charDefId as string];
-    if (!charDef || charDef.cardType !== 'hero-character') {
-      logDetail(`Skipping ${charDefId as string}: not a hero-character`);
+    if (!isCharacterCard(charDef)) {
+      logDetail(`Skipping ${charDefId as string}: not a character`);
       continue;
     }
 

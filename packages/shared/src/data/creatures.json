@@ -1,7 +1,6 @@
 [
   {
     "cardType": "hazard-creature",
-    "alignment": "wizard",
     "id": "tw-020",
     "name": "Cave-drake",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Cavedrake.jpg",
@@ -30,7 +29,6 @@
   },
   {
     "cardType": "hazard-creature",
-    "alignment": "wizard",
     "id": "tw-074",
     "name": "Orc-patrol",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Orcpatrol.jpg",
@@ -57,7 +55,6 @@
   },
   {
     "cardType": "hazard-creature",
-    "alignment": "wizard",
     "id": "tw-015",
     "name": "Barrow-wight",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Barrowwight.jpg",

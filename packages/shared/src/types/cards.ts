@@ -276,8 +276,6 @@ export interface CreatureKeyRestriction {
 export interface CreatureCard {
   /** Discriminant for the card type union. */
   readonly cardType: 'hazard-creature';
-  /** Which alignment this card belongs to. */
-  readonly alignment: Alignment;
   /** Unique identifier in the static card pool. */
   readonly id: CardDefinitionId;
   /** Display name (e.g. "Cave-drake", "Orc-patrol"). */
@@ -315,8 +313,6 @@ export interface CreatureCard {
 export interface HazardEventCard {
   /** Discriminant for the card type union. */
   readonly cardType: 'hazard-event';
-  /** Which alignment this card belongs to. */
-  readonly alignment: Alignment;
   /** Unique identifier in the static card pool. */
   readonly id: CardDefinitionId;
   /** Display name (e.g. "Doors of Night", "Twilight"). */
@@ -345,8 +341,6 @@ export interface HazardEventCard {
 export interface CorruptionCard {
   /** Discriminant for the card type union. */
   readonly cardType: 'hazard-corruption';
-  /** Which alignment this card belongs to. */
-  readonly alignment: Alignment;
   /** Unique identifier in the static card pool. */
   readonly id: CardDefinitionId;
   /** Display name (e.g. "Lure of Expedience", "Lure of Nature"). */

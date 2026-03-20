@@ -6,8 +6,11 @@
  *
  * Usage:
  * ```
- * npx tsx src/console-client.ts [playerName]
+ * npx tsx src/console-client.ts [playerName] [--deck <id>]
  * ```
+ *
+ * If `--deck` is omitted, the first sample deck (hero) is used.
+ * Pass an invalid deck name to see the list of available decks.
  *
  * Environment variables:
  * - `SERVER_URL` — WebSocket URL (default `ws://localhost:3000`).
@@ -19,14 +22,8 @@
 
 import WebSocket from 'ws';
 import * as readline from 'readline';
-import type { PlayerId, ServerMessage, ClientMessage, JoinMessage, CardDefinitionId, GameAction } from '@meccg/shared';
+import type { PlayerId, ServerMessage, ClientMessage, CardDefinitionId, GameAction } from '@meccg/shared';
 import {
-  ARAGORN, BILBO, FRODO, LEGOLAS, GIMLI, SAM_GAMGEE, ELROND, CELEBORN, THEODEN, BEORN,
-  EOWYN, BEREGOND, ANBORN,
-  FARAMIR, GLORFINDEL_II,
-  GLAMDRING, STING, THE_MITHRIL_COAT, THE_ONE_RING, DAGGER_OF_WESTERNESSE, HORN_OF_ANOR,
-  CAVE_DRAKE, ORC_PATROL, BARROW_WIGHT,
-  RIVENDELL, LORIEN, MORIA, MINAS_TIRITH, MOUNT_DOOM,
   loadCardPool,
   formatPlayerView,
   formatCardName,
@@ -36,8 +33,9 @@ import {
   setShowDebugIds,
   stripCardMarkers,
   STATE_DIVIDER,
-  Alignment,
   DEBUG_JSON_COMPACT_LIMIT,
+  SAMPLE_DECKS,
+  findSampleDeck,
 } from '@meccg/shared';
 import { loadAiStrategy, sampleWeighted } from './ai/index.js';
 import type { AiStrategy } from './ai/index.js';
@@ -45,7 +43,19 @@ import type { AiStrategy } from './ai/index.js';
 const SERVER_URL = process.env.SERVER_URL ?? 'ws://localhost:3000';
 const DEBUG = process.argv.includes('--debug') || process.env.DEBUG === '1';
 const AI_MODE = process.argv.includes('--ai') ? (process.argv[process.argv.indexOf('--ai') + 1] ?? 'random') : null;
-const PLAYER_NAME = process.argv.filter(a => !a.startsWith('--') && a !== 'random')[2] ?? 'Player';
+const DECK_ARG = process.argv.includes('--deck') ? (process.argv[process.argv.indexOf('--deck') + 1] ?? null) : null;
+/** Extract the player name: skip flags, flag values (--ai X, --deck X), and 'random'. */
+const PLAYER_NAME = (() => {
+  const args = process.argv.slice(2);
+  const positional: string[] = [];
+  for (let i = 0; i < args.length; i++) {
+    if (args[i] === '--debug') continue;
+    if (args[i] === '--ai' || args[i] === '--deck') { i++; continue; }
+    if (args[i].startsWith('--')) continue;
+    positional.push(args[i]);
+  }
+  return positional[0] ?? 'Player';
+})();
 const RECONNECT_DELAY_MS = 2000;
 /** Delay before AI submits an action (ms), so humans can read the output. */
 const AI_ACTION_DELAY_MS = 1000;
@@ -75,28 +85,21 @@ if (AI_MODE) {
   }
 }
 
-function buildDefaultPlayDeck(): CardDefinitionId[] {
-  const characters = [LEGOLAS, GIMLI, FARAMIR, BEORN, GLORFINDEL_II];
-  const resources = [GLAMDRING, STING, THE_MITHRIL_COAT, THE_ONE_RING];
-  const hazards = [CAVE_DRAKE, ORC_PATROL, BARROW_WIGHT];
-  const deck: CardDefinitionId[] = [...characters];
-  for (let i = 0; i < 5; i++) {
-    deck.push(...resources, ...hazards);
+// Resolve the sample deck (--deck <id>, or default to first)
+if (DECK_ARG !== null) {
+  const deck = findSampleDeck(DECK_ARG);
+  if (!deck) {
+    console.error(`Unknown deck: ${DECK_ARG}`);
+    console.error('Available decks:');
+    for (const d of SAMPLE_DECKS) {
+      console.error(`  ${d.id}  — ${d.label}`);
+    }
+    process.exit(1);
   }
-  return deck;
 }
 
-const defaultJoin: JoinMessage = {
-  type: 'join',
-  name: PLAYER_NAME,
-  alignment: Alignment.Wizard,
-  draftPool: [ARAGORN, BILBO, FRODO, SAM_GAMGEE, ELROND, CELEBORN, THEODEN,
-    EOWYN, BEREGOND, ANBORN],
-  startingMinorItems: [DAGGER_OF_WESTERNESSE, HORN_OF_ANOR],
-  playDeck: buildDefaultPlayDeck(),
-  siteDeck: [RIVENDELL, LORIEN, MORIA, MINAS_TIRITH, MOUNT_DOOM],
-  startingHavens: [RIVENDELL],
-};
+const selectedDeck = DECK_ARG ? findSampleDeck(DECK_ARG)! : SAMPLE_DECKS[0];
+const defaultJoin = selectedDeck.buildJoinMessage(PLAYER_NAME);
 
 // ---- Readline (shared across connections) ----
 
@@ -124,7 +127,7 @@ function connect(): void {
   ws = socket;
 
   socket.on('open', () => {
-    console.log(`Connected to ${SERVER_URL} as "${PLAYER_NAME}"${AI_MODE ? ` (AI: ${AI_MODE})` : ''}`);
+    console.log(`Connected to ${SERVER_URL} as "${PLAYER_NAME}" [${selectedDeck.label}]${AI_MODE ? ` (AI: ${AI_MODE})` : ''}`);
     socket.send(JSON.stringify(defaultJoin));
   });
 

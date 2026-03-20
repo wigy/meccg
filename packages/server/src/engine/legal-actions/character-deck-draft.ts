@@ -7,6 +7,7 @@
  */
 
 import type { GameState, PlayerId, GameAction } from '@meccg/shared';
+import { isCharacterCard } from '@meccg/shared';
 import { logDetail } from './log.js';
 
 /** Maximum number of non-avatar characters allowed in the play deck. */
@@ -20,7 +21,7 @@ function countNonAvatarInDeck(state: GameState, playerIndex: number): number {
     const inst = state.instanceMap[instId as string];
     if (!inst) continue;
     const def = state.cardPool[inst.definitionId as string];
-    if (def && def.cardType === 'hero-character' && def.mind !== null) {
+    if (def && isCharacterCard(def) && def.mind !== null) {
       count++;
     }
   }
@@ -45,7 +46,7 @@ export function characterDeckDraftActions(state: GameState, playerId: PlayerId):
   for (const charDefId of deckDraft.remainingPool) {
     const def = state.cardPool[charDefId as string];
     if (!def || def.cardType !== 'hero-character') {
-      logDetail(`Skipping ${charDefId as string}: not a hero-character`);
+      logDetail(`Skipping ${charDefId as string}: not a character`);
       continue;
     }
     // Non-avatar characters count toward the limit

@@ -22,9 +22,9 @@ import type {
   CharacterInPlay,
   CardDefinition,
   CardInstanceId,
-  HeroCharacterCard,
+  CharacterCard,
 } from '@meccg/shared';
-import { MarshallingCategory, ZERO_MARSHALLING_POINTS } from '@meccg/shared';
+import { MarshallingCategory, ZERO_MARSHALLING_POINTS, isCharacterCard } from '@meccg/shared';
 import {
   collectCharacterEffects,
   resolveStatModifiers,
@@ -57,7 +57,7 @@ function addMP(
 /**
  * Builds a {@link ResolverContext} for computing a character's effective stats.
  */
-function buildEffectiveStatsContext(charDef: HeroCharacterCard): ResolverContext {
+function buildEffectiveStatsContext(charDef: CharacterCard): ResolverContext {
   return {
     reason: 'effective-stats',
     bearer: {
@@ -81,7 +81,7 @@ function buildEffectiveStatsContext(charDef: HeroCharacterCard): ResolverContext
 function computeEffectiveStats(
   state: GameState,
   char: CharacterInPlay,
-  charDef: HeroCharacterCard,
+  charDef: CharacterCard,
 ): EffectiveStats {
   const context = buildEffectiveStatsContext(charDef);
   const collected = collectCharacterEffects(state, char, context);
@@ -151,7 +151,7 @@ function recomputePlayer(state: GameState, player: PlayerState): PlayerState {
 
   for (const [key, char] of Object.entries(player.characters)) {
     const charDef = resolveDef(state, char.instanceId);
-    if (!charDef || charDef.cardType !== 'hero-character') {
+    if (!isCharacterCard(charDef)) {
       newCharacters[key] = char;
       continue;
     }

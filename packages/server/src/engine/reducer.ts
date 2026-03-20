@@ -16,7 +16,7 @@
 
 import type { GameState, DraftPlayerState, ItemDraftPlayerState, CharacterDeckDraftPlayerState, SetupStepState, CardDefinitionId, CardInstanceId, CompanyId, CharacterInPlay, CardInstance } from '@meccg/shared';
 import type { GameAction } from '@meccg/shared';
-import { Phase, SetupStep, LEGAL_ACTIONS_BY_PHASE, getAlignmentRules, shuffle, nextInt, CardStatus } from '@meccg/shared';
+import { Phase, SetupStep, LEGAL_ACTIONS_BY_PHASE, getAlignmentRules, shuffle, nextInt, CardStatus, isCharacterCard } from '@meccg/shared';
 import { logHeading, logDetail } from './legal-actions/log.js';
 import type { TwoDiceSix, DieRoll, GameEffect } from '@meccg/shared';
 import { applyDraftResults, transitionAfterItemDraft, enterSiteSelection, startFirstTurn } from './init.js';
@@ -198,12 +198,12 @@ function handleCharacterDraft(
       }
       // Check mind constraint
       const charDef = state.cardPool[action.characterDefId as string];
-      if (!charDef || charDef.cardType !== 'hero-character') {
+      if (!isCharacterCard(charDef)) {
         return { state, error: 'Invalid character' };
       }
       const currentMind = playerDraft.drafted.reduce((sum, defId) => {
         const def = state.cardPool[defId as string];
-        return sum + (def && def.cardType === 'hero-character' && def.mind !== null ? def.mind : 0);
+        return sum + (isCharacterCard(def) && def.mind !== null ? def.mind : 0);
       }, 0);
       if (charDef.mind !== null && currentMind + charDef.mind > 20) {
         return { state, error: 'Would exceed mind limit of 20' };
@@ -312,7 +312,7 @@ function resolveDraftRound(
     if (!newDraft[i].stopped) {
       const mind = newDraft[i].drafted.reduce((sum, defId) => {
         const def = state.cardPool[defId as string];
-        return sum + (def && def.cardType === 'hero-character' && def.mind !== null ? def.mind : 0);
+        return sum + (isCharacterCard(def) && def.mind !== null ? def.mind : 0);
       }, 0);
       const { maxStartingCompanySize: max } = getAlignmentRules(state.players[i].alignment);
       if (newDraft[i].drafted.length >= max || newDraft[i].pool.length === 0 || mind >= 20) {
@@ -508,13 +508,13 @@ function handleCharacterDeckDraft(
 
   // Validate non-avatar limit
   const def = state.cardPool[action.characterDefId as string];
-  if (def && def.cardType === 'hero-character' && def.mind !== null) {
+  if (isCharacterCard(def) && def.mind !== null) {
     let nonAvatarCount = 0;
     for (const instId of state.players[playerIndex].playDeck) {
       const inst = state.instanceMap[instId as string];
       if (!inst) continue;
       const d = state.cardPool[inst.definitionId as string];
-      if (d && d.cardType === 'hero-character' && d.mind !== null) nonAvatarCount++;
+      if (isCharacterCard(d) && d.mind !== null) nonAvatarCount++;
     }
     if (nonAvatarCount >= 10) {
       return { state, error: 'Already have 10 non-avatar characters in play deck' };
