@@ -176,10 +176,12 @@ function formatCharacterLine(char: CharacterInPlay, defOf: CardLookup, instOf: I
     return showDebugIds ? colorizeUnknown(`a character {${char.instanceId}}`) : colorizeUnknown('a character');
   }
   const c = def;
+  const s = char.effectiveStats;
   const skills = c.skills.join('/');
   const label = formatInstanceName(char.instanceId, defOf, instOf);
   const mindLabel = c.mind !== null ? `${c.mind} Mind, ` : '';
-  return `${label} [${c.prowess}/${c.body}] ${skills} (${mindLabel}${c.directInfluence} DI, ${c.marshallingPoints} MP)${statusMarker(char.status)}`;
+  const cpLabel = s.corruptionPoints > 0 ? `, ${s.corruptionPoints} CP` : '';
+  return `${label} [${s.prowess}/${s.body}] ${skills} (${mindLabel}${s.directInfluence} DI, ${c.marshallingPoints} MP${cpLabel})${statusMarker(char.status)}`;
 }
 
 function formatItemLine(instId: CardInstanceId, defOf: CardLookup, instOf: InstanceLookup): string {

@@ -55,6 +55,24 @@ export interface CardInstance {
  * direct influence. The `controlledBy` field tracks the influence chain:
  * either under general influence or under a specific character's direct influence.
  */
+/**
+ * Computed effective stats for a character, including modifiers from
+ * equipped items and attached corruption cards. Recomputed after every
+ * action by {@link recomputeDerived}. Combat-time modifiers (tapped
+ * penalty, support bonus) are NOT included — those are applied locally
+ * during combat resolution.
+ */
+export interface EffectiveStats {
+  /** Base prowess + sum of item prowess modifiers. */
+  readonly prowess: number;
+  /** Base body + sum of item body modifiers. */
+  readonly body: number;
+  /** Base direct influence (item DI modifiers not yet implemented). */
+  readonly directInfluence: number;
+  /** Sum of corruption points from all items and corruption cards. */
+  readonly corruptionPoints: number;
+}
+
 export interface CharacterInPlay {
   /** The card instance ID of this character. */
   readonly instanceId: CardInstanceId;
@@ -76,6 +94,8 @@ export interface CharacterInPlay {
    * - A `CardInstanceId` -- Under the direct influence of another character.
    */
   readonly controlledBy: 'general' | CardInstanceId;
+  /** Computed stats including item modifiers. Recomputed after every action. */
+  readonly effectiveStats: EffectiveStats;
 }
 
 // ---- Company ----
@@ -150,6 +170,14 @@ export interface MarshallingPointTotals {
   /** Points from miscellaneous sources (events, special abilities). */
   readonly misc: number;
 }
+
+/** Zero effective stats, used for initialization before recomputeDerived runs. */
+export const ZERO_EFFECTIVE_STATS: EffectiveStats = {
+  prowess: 0,
+  body: 0,
+  directInfluence: 0,
+  corruptionPoints: 0,
+};
 
 /** An empty marshalling point totals object, used for initialization. */
 export const ZERO_MARSHALLING_POINTS: MarshallingPointTotals = {

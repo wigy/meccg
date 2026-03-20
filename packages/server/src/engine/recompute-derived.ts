@@ -14,6 +14,8 @@ import type {
   GameState,
   PlayerState,
   MarshallingPointTotals,
+  EffectiveStats,
+  CharacterInPlay,
   CardDefinition,
   CardInstanceId,
 } from '@meccg/shared';
@@ -51,13 +53,57 @@ function addMP(
  * - {@link PlayerState.marshallingPoints} — per-category MP totals from
  *   characters, items, allies, and other in-play scoring cards.
  */
+/**
+ * Computes effective stats for a character from base card definition
+ * plus modifiers from equipped items and attached corruption cards.
+ */
+function computeEffectiveStats(
+  state: GameState,
+  char: CharacterInPlay,
+  charDef: { prowess: number; body: number; directInfluence: number },
+): EffectiveStats {
+  let prowess = charDef.prowess;
+  let body = charDef.body;
+  const directInfluence = charDef.directInfluence;
+  let corruptionPoints = 0;
+
+  for (const itemId of char.items) {
+    const itemDef = resolveDef(state, itemId);
+    if (itemDef && itemDef.cardType === 'hero-resource-item') {
+      prowess += itemDef.prowessModifier;
+      body += itemDef.bodyModifier;
+      corruptionPoints += itemDef.corruptionPoints;
+    }
+  }
+
+  for (const ccId of char.corruptionCards) {
+    const ccDef = resolveDef(state, ccId);
+    if (ccDef && ccDef.cardType === 'hazard-corruption') {
+      corruptionPoints += ccDef.corruptionPoints;
+    }
+  }
+
+  return { prowess, body, directInfluence, corruptionPoints };
+}
+
+/** Returns true if two EffectiveStats are identical. */
+function statsEqual(a: EffectiveStats, b: EffectiveStats): boolean {
+  return a.prowess === b.prowess && a.body === b.body &&
+    a.directInfluence === b.directInfluence && a.corruptionPoints === b.corruptionPoints;
+}
+
 function recomputePlayer(state: GameState, player: PlayerState): PlayerState {
   let generalInfluenceUsed = 0;
   let mp = ZERO_MARSHALLING_POINTS;
+  let charactersChanged = false;
+  const newCharacters: Record<string, CharacterInPlay> = {};
 
-  for (const char of Object.values(player.characters)) {
+  for (const [key, char] of Object.entries(player.characters)) {
     const charDef = resolveDef(state, char.instanceId);
-    if (!charDef || charDef.cardType !== 'hero-character') continue;
+    if (!charDef || charDef.cardType !== 'hero-character') {
+      newCharacters[key] = char;
+      continue;
+    }
 
     // General influence: only characters under GI count
     if (char.controlledBy === 'general' && charDef.mind !== null) {
@@ -78,10 +124,20 @@ function recomputePlayer(state: GameState, player: PlayerState): PlayerState {
       const allyDef = resolveDef(state, allyId);
       if (allyDef) mp = addMP(mp, allyDef);
     }
+
+    // Effective stats
+    const newStats = computeEffectiveStats(state, char, charDef);
+    if (statsEqual(char.effectiveStats, newStats)) {
+      newCharacters[key] = char;
+    } else {
+      newCharacters[key] = { ...char, effectiveStats: newStats };
+      charactersChanged = true;
+    }
   }
 
   // Skip update if nothing changed
   if (
+    !charactersChanged &&
     player.generalInfluenceUsed === generalInfluenceUsed &&
     player.marshallingPoints === mp
   ) {
@@ -90,6 +146,7 @@ function recomputePlayer(state: GameState, player: PlayerState): PlayerState {
 
   return {
     ...player,
+    characters: charactersChanged ? newCharacters : player.characters,
     generalInfluenceUsed,
     marshallingPoints: mp,
   };

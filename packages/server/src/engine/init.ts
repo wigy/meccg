@@ -41,6 +41,7 @@ import {
   Alignment,
   HAND_SIZE,
   ZERO_MARSHALLING_POINTS,
+  ZERO_EFFECTIVE_STATS,
   createRng,
   shuffle,
 } from '@meccg/shared';
@@ -264,6 +265,7 @@ export function applyDraftResults(
         corruptionCards: [],
         followers: [],
         controlledBy: 'general',
+        effectiveStats: ZERO_EFFECTIVE_STATS,
       };
     }
 
@@ -471,6 +473,7 @@ function initPlayerWithCharacters(
       corruptionCards: [],
       followers: [],
       controlledBy: 'general',
+      effectiveStats: ZERO_EFFECTIVE_STATS,
     };
   }
 
