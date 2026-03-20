@@ -438,6 +438,29 @@ h2 {
   transform: translateY(-3px);
 }
 
+#pass-btn {
+  position: fixed;
+  right: 2rem;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 15;
+  font-family: 'MedievalSharp', cursive;
+  font-size: 1.4rem;
+  color: rgba(220, 200, 140, 0.9);
+  background: rgba(0, 0, 0, 0.5);
+  border: 2px solid rgba(196, 163, 90, 0.5);
+  border-radius: 8px;
+  padding: 0.6rem 2rem;
+  cursor: pointer;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.8);
+  transition: background 0.2s ease, border-color 0.2s ease;
+}
+
+#pass-btn:hover {
+  background: rgba(196, 163, 90, 0.3);
+  border-color: rgba(196, 163, 90, 0.8);
+}
+
 /* Card arcs — fanned cards at top and bottom of the visual view */
 
 #hand-arc, #opponent-arc {

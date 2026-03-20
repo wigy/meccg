@@ -330,6 +330,35 @@ export function renderInstructions(view: PlayerView): void {
   el.textContent = text ?? '';
 }
 
+/** Render the pass/stop button in the visual view if a pass-like action is available. */
+export function renderPassButton(view: PlayerView, onAction: (action: GameAction) => void): void {
+  const btn = document.getElementById('pass-btn') as HTMLButtonElement | null;
+  if (!btn) return;
+
+  // Find a pass-like action
+  const passAction = view.legalActions.find(a => a.type === 'pass' || a.type === 'draft-stop');
+  if (!passAction) {
+    btn.classList.add('hidden');
+    return;
+  }
+
+  // Choose label based on action type and phase
+  let label = 'Done';
+  if (passAction.type === 'draft-stop') {
+    label = 'Done';
+  } else if (view.phaseState.phase === 'setup') {
+    const step = view.phaseState.setupStep.step;
+    if (step === 'item-draft') label = 'Skip Items';
+    else if (step === 'character-deck-draft') label = 'Done';
+    else if (step === 'starting-site-selection') label = 'Continue';
+    else label = 'Pass';
+  }
+
+  btn.textContent = label;
+  btn.classList.remove('hidden');
+  btn.onclick = () => onAction(passAction);
+}
+
 /** Render drafted characters on the visual board during character draft. */
 export function renderDrafted(view: PlayerView, cardPool: Readonly<Record<string, CardDefinition>>): void {
   const selfEl = document.getElementById('drafted-self');

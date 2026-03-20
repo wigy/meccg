@@ -8,7 +8,7 @@
 
 import type { ServerMessage, ClientMessage, GameAction, CardDefinitionId } from '@meccg/shared';
 import { loadCardPool, describeAction, SAMPLE_DECKS } from '@meccg/shared';
-import { renderState, renderDraft, renderActions, renderLog, renderHand, renderOpponentHand, renderPlayerNames, renderInstructions, renderDrafted } from './render.js';
+import { renderState, renderDraft, renderActions, renderLog, renderHand, renderOpponentHand, renderPlayerNames, renderInstructions, renderDrafted, renderPassButton } from './render.js';
 import { rollDice, clearDice, restoreDice } from './dice.js';
 
 const cardPool = loadCardPool();
@@ -64,6 +64,7 @@ function connect(name: string): void {
         renderPlayerNames(msg.view);
         renderInstructions(msg.view);
         renderDrafted(msg.view, cardPool);
+        renderPassButton(msg.view, sendAction);
         break;
 
       case 'draft-reveal': {
