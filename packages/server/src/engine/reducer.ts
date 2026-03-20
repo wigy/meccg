@@ -17,7 +17,7 @@
 import type { GameState, DraftPlayerState, ItemDraftPlayerState, CharacterDeckDraftPlayerState, SetupStepState, CardDefinitionId, CardInstanceId, CharacterInPlay, CardInstance } from '@meccg/shared';
 import type { GameAction } from '@meccg/shared';
 import { Phase, SetupStep, LEGAL_ACTIONS_BY_PHASE, getAlignmentRules, shuffle } from '@meccg/shared';
-import { applyDraftResults, transitionAfterItemDraft } from './init.js';
+import { applyDraftResults, transitionAfterItemDraft, startFirstTurn } from './init.js';
 import { recomputeDerived } from './recompute-derived.js';
 
 /**
@@ -481,17 +481,14 @@ function handleCharacterDeckDraft(
     const newDeckDraftState = [...stepState.deckDraftState] as [CharacterDeckDraftPlayerState, CharacterDeckDraftPlayerState];
     newDeckDraftState[playerIndex] = { ...deckDraft, shuffled: true };
 
-    // Both shuffled → transition to Untap
+    // Both shuffled → deal hands and transition to Untap
     if (newDeckDraftState[0].shuffled && newDeckDraftState[1].shuffled) {
       return {
-        state: {
+        state: startFirstTurn({
           ...state,
           players: newPlayers as unknown as readonly [typeof state.players[0], typeof state.players[1]],
-          activePlayer: newPlayers[0].id,
-          phaseState: { phase: Phase.Untap },
-          turnNumber: 1,
           rng,
-        },
+        }),
       };
     }
 

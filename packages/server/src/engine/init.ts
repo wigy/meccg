@@ -281,16 +281,11 @@ export function applyDraftResults(
       moved: false,
     };
 
-    // Deal hand from play deck
-    const hand = player.playDeck.slice(0, HAND_SIZE);
-    const remainingDeck = player.playDeck.slice(HAND_SIZE);
-
     // GI and MP are left at zero — recomputeDerived() runs after the reducer
+    // Hand is not dealt yet — that happens when setup completes (entering turn 1)
     return {
       player: {
         ...player,
-        hand,
-        playDeck: remainingDeck,
         companies: [company],
         characters,
       } satisfies PlayerState,
@@ -349,6 +344,14 @@ export function transitionAfterItemDraft(
       turnNumber: 0,
     };
   }
+  return startFirstTurn(state);
+}
+
+/**
+ * Transitions to the first Untap phase (turn 1).
+ * Called once all setup steps are complete.
+ */
+export function startFirstTurn(state: GameState): GameState {
   return {
     ...state,
     activePlayer: state.players[0].id,
