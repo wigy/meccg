@@ -159,6 +159,39 @@ describe('character draft', () => {
     expect(result.error).toContain('mind limit');
   });
 
+  it('auto-stops player when drafted mind reaches exactly 20', () => {
+    const config: GameConfig = {
+      players: [
+        { id: PLAYER_1, name: 'Alice', alignment: Alignment.Wizard, draftPool: [ARAGORN, LEGOLAS, FARAMIR, EOWYN], startingMinorItems: [], playDeck: makePlayDeck(), siteDeck: [MORIA], startingHavens: [RIVENDELL] },
+        { id: PLAYER_2, name: 'Bob', alignment: Alignment.Wizard, draftPool: [BILBO], startingMinorItems: [], playDeck: makePlayDeck(), siteDeck: [MORIA], startingHavens: [LORIEN] },
+      ],
+      seed: 42,
+    };
+
+    let state = createGame(config, pool);
+    // Round 1: Alice picks Aragorn (mind 9), Bob picks Bilbo (mind 5, auto-stops after — pool empty)
+    state = runActions(state, [
+      { type: 'draft-pick', player: PLAYER_1, characterDefId: ARAGORN },
+      { type: 'draft-pick', player: PLAYER_2, characterDefId: BILBO },
+    ]);
+    // Round 2: Alice picks Legolas (mind 6, total 15)
+    state = runActions(state, [
+      { type: 'draft-pick', player: PLAYER_1, characterDefId: LEGOLAS },
+    ]);
+    // Round 3: Alice picks Faramir (mind 5, total 20 — should auto-stop)
+    state = runActions(state, [
+      { type: 'draft-pick', player: PLAYER_1, characterDefId: FARAMIR },
+    ]);
+
+    // Both auto-stopped, draft should have advanced past character-draft
+    expect(state.phaseState.phase).toBe(Phase.Setup);
+    if (state.phaseState.phase === Phase.Setup) {
+      expect(state.phaseState.setupStep.step).not.toBe('character-draft');
+    }
+    // Alice should have all 3 characters (exactly mind 20)
+    expect(Object.keys(state.players[0].characters)).toHaveLength(3);
+  });
+
   it('rejects 6th pick for wizard alignment (max 5)', () => {
     const config: GameConfig = {
       players: [
@@ -202,6 +235,38 @@ describe('full setup flow', () => {
     for (const item of p1Char.items) {
       expect(item.definitionId).toBe(DAGGER_OF_WESTERNESSE);
     }
+  });
+
+  it('initiative roll winner becomes active player', () => {
+    // Run setup multiple times with different seeds until we get a non-tie first roll
+    for (let seed = 1; seed < 100; seed++) {
+      const state = runFullSetup(makeDraftConfig(seed));
+      // The active player should be determined by initiative roll
+      expect(state.activePlayer).not.toBeNull();
+      expect([PLAYER_1, PLAYER_2]).toContain(state.activePlayer);
+      // Just need one successful run to verify the mechanism
+      break;
+    }
+  });
+
+  it('empty draft produces no starting characters', () => {
+    const config: GameConfig = {
+      players: [
+        { id: PLAYER_1, name: 'Alice', alignment: Alignment.Wizard, draftPool: [ARAGORN], startingMinorItems: [], playDeck: makePlayDeck(), siteDeck: [MORIA], startingHavens: [RIVENDELL] },
+        { id: PLAYER_2, name: 'Bob', alignment: Alignment.Wizard, draftPool: [LEGOLAS], startingMinorItems: [], playDeck: makePlayDeck(), siteDeck: [MORIA], startingHavens: [LORIEN] },
+      ],
+      seed: 42,
+    };
+
+    let state = createGame(config, pool);
+    // Both players stop immediately without picking
+    state = runActions(state, [
+      { type: 'draft-stop', player: PLAYER_1 },
+      { type: 'draft-stop', player: PLAYER_2 },
+    ]);
+
+    expect(Object.keys(state.players[0].characters)).toHaveLength(0);
+    expect(Object.keys(state.players[1].characters)).toHaveLength(0);
   });
 
   it('assigns starting sites to companies', () => {

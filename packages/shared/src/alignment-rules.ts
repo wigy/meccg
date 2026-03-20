@@ -20,12 +20,22 @@ export interface AlignmentRules {
   readonly maxStartingSites: number;
 }
 
-/** Alignment-specific rules, keyed by alignment value. */
+/**
+ * Alignment-specific rules, keyed by alignment value.
+ *
+ * NOTE: `defaultStartingSites` currently uses Rivendell for all alignments
+ * because we only have hero site cards in the pool so far. Per the rules:
+ * - Wizard: Rivendell
+ * - Ringwraith: Minas Morgul and/or Dol Guldur
+ * - Fallen-wizard: White Towers or specific Ruins & Lairs
+ * - Balrog: Moria and/or Under-gates
+ * Update these once the corresponding minion/dark-domain site cards are added.
+ */
 const ALIGNMENT_RULES: { readonly [K in Alignment]: AlignmentRules } = {
   'wizard': { maxStartingCompanySize: 5, defaultStartingSites: [RIVENDELL], maxStartingSites: 1 },
   'ringwraith': { maxStartingCompanySize: 6, defaultStartingSites: [RIVENDELL], maxStartingSites: 2 },
   'fallen-wizard': { maxStartingCompanySize: 5, defaultStartingSites: [RIVENDELL], maxStartingSites: 1 },
-  'balrog': { maxStartingCompanySize: 5, defaultStartingSites: [RIVENDELL], maxStartingSites: 2 },
+  'balrog': { maxStartingCompanySize: 6, defaultStartingSites: [RIVENDELL], maxStartingSites: 2 },
 };
 
 /** Returns the alignment-specific rules for the given alignment. */

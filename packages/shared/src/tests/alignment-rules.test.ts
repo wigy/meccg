@@ -15,9 +15,9 @@ describe('getAlignmentRules', () => {
     expect(rules.maxStartingSites).toBe(2);
   });
 
-  it('balrog has max 5 starting characters and 2 starting sites', () => {
+  it('balrog has max 6 starting characters and 2 starting sites', () => {
     const rules = getAlignmentRules(Alignment.Balrog);
-    expect(rules.maxStartingCompanySize).toBe(5);
+    expect(rules.maxStartingCompanySize).toBe(6);
     expect(rules.maxStartingSites).toBe(2);
   });
 
