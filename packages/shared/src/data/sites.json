@@ -90,5 +90,50 @@
     "playableResources": [],
     "automaticAttacks": [],
     "text": "Any company moving to this site has its hazard limit increased by 2 and hazard creatures may always be played keyed to the site regardless of any other cards played."
+  },
+  {
+    "cardType": "hero-site",
+    "alignment": "wizard",
+    "id": "tw-395",
+    "name": "Ettenmoors",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Ettenmoors.jpg",
+    "siteType": "ruins-and-lairs",
+    "sitePath": [
+      "wilderness"
+    ],
+    "nearestHaven": "Rivendell",
+    "playableResources": [
+      "minor"
+    ],
+    "automaticAttacks": [
+      {
+        "creatureType": "Trolls",
+        "strikes": 1,
+        "prowess": 9
+      }
+    ],
+    "text": "Playable: Items (minor). Automatic-attacks: Troll — 1 strike with 9 prowess."
+  },
+  {
+    "cardType": "hero-site",
+    "alignment": "wizard",
+    "id": "tw-430",
+    "name": "The White Towers",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/TheWhiteTowers.jpg",
+    "siteType": "ruins-and-lairs",
+    "sitePath": [
+      "wilderness",
+      "wilderness"
+    ],
+    "nearestHaven": "Rivendell",
+    "playableResources": [],
+    "automaticAttacks": [
+      {
+        "creatureType": "Wolves",
+        "strikes": 2,
+        "prowess": 6
+      }
+    ],
+    "text": "Automatic-attacks: Wolves — 2 strikes with 6 prowess."
   }
 ]

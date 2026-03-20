@@ -1,0 +1,30 @@
+[
+  {
+    "cardType": "balrog-site",
+    "alignment": "balrog",
+    "id": "ba-93",
+    "name": "Moria",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/ba/Moria.jpg",
+    "siteType": "haven",
+    "sitePath": [],
+    "nearestHaven": "",
+    "playableResources": [],
+    "automaticAttacks": [],
+    "underDeeps": false,
+    "text": "Any gold ring stored at this site is automatically tested (modify the roll by -2). Creatures keyed to this site are detainment. If one of your companies is at this site, all attacks against it are canceled."
+  },
+  {
+    "cardType": "balrog-site",
+    "alignment": "balrog",
+    "id": "ba-100",
+    "name": "The Under-gates",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/ba/TheUndergates.jpg",
+    "siteType": "haven",
+    "sitePath": [],
+    "nearestHaven": "",
+    "playableResources": [],
+    "automaticAttacks": [],
+    "underDeeps": true,
+    "text": "Any gold ring stored at this site is automatically tested (modify the roll by -2). Creatures keyed to this site attack as detainment. If one of your companies is at this site, all attacks against it are canceled."
+  }
+]

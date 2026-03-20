@@ -689,6 +689,43 @@ export interface FallenWizardSiteCard {
   readonly text: string;
 }
 
+/**
+ * A balrog site card from The Balrog expansion.
+ *
+ * Balrog sites include the surface darkhaven Moria and the Under-deeps
+ * network beneath it. Under-deeps sites use adjacency lists instead of
+ * region paths and introduce special movement rules.
+ */
+export interface BalrogSiteCard {
+  /** Discriminant for the card type union. */
+  readonly cardType: 'balrog-site';
+  /** Which alignment this card belongs to. */
+  readonly alignment: Alignment;
+  /** Unique identifier in the static card pool. */
+  readonly id: CardDefinitionId;
+  /** Display name (e.g. "Moria", "The Under-gates"). */
+  readonly name: string;
+  /** Full URL to the card's remastered image in the meccg-remaster repository. */
+  readonly image: string;
+  /** Classification determining the site's danger level and playable resources. */
+  readonly siteType: SiteType;
+  /**
+   * Ordered sequence of region types traversed when traveling from the nearest haven.
+   * Empty for havens and Under-deeps sites (which use adjacency instead).
+   */
+  readonly sitePath: readonly RegionType[];
+  /** The haven from which this site's path originates. Empty for havens and Under-deeps. */
+  readonly nearestHaven: string;
+  /** Which resource types can be played at this site. */
+  readonly playableResources: readonly PlayableResourceType[];
+  /** Built-in attacks that companies face upon entering the site. */
+  readonly automaticAttacks: readonly AutomaticAttack[];
+  /** Whether this is an Under-deeps site (underground network below Middle-earth). */
+  readonly underDeeps: boolean;
+  /** Flavor/rules text with additional site-specific conditions. */
+  readonly text: string;
+}
+
 // ---- Deck ----
 
 /**
@@ -758,10 +795,10 @@ export function isCharacterCard(card: CardDefinition | undefined): card is Chara
  * Union of all site card types (hero, minion, and fallen-wizard). Use this
  * when code needs to handle sites generically regardless of alignment.
  */
-export type SiteCard = HeroSiteCard | MinionSiteCard | FallenWizardSiteCard;
+export type SiteCard = HeroSiteCard | MinionSiteCard | FallenWizardSiteCard | BalrogSiteCard;
 
 /** Site card type discriminants — the set of `cardType` values that represent sites. */
-export const SITE_CARD_TYPES: ReadonlySet<string> = new Set(['hero-site', 'minion-site', 'fallen-wizard-site']);
+export const SITE_CARD_TYPES: ReadonlySet<string> = new Set(['hero-site', 'minion-site', 'fallen-wizard-site', 'balrog-site']);
 
 /**
  * Type guard that narrows a CardDefinition to {@link SiteCard}.
@@ -792,4 +829,5 @@ export type CardDefinition =
   | MinionAllyCard
   | MinionSiteCard
   | FallenWizardSiteCard
+  | BalrogSiteCard
   | RegionCard;

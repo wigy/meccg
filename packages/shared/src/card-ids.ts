@@ -95,6 +95,10 @@ export const MORIA = did('tw-413');
 export const MINAS_TIRITH = did('tw-412');
 /** Mount Doom — the only site where The One Ring can be destroyed. */
 export const MOUNT_DOOM = did('tw-414');
+/** Ettenmoors — hero ruins-and-lairs in Rhudaur, nearest haven Rivendell. */
+export const ETTENMOORS_HERO = did('tw-395');
+/** The White Towers — hero ruins-and-lairs in Arthedain, nearest haven Rivendell. */
+export const THE_WHITE_TOWERS_HERO = did('tw-430');
 
 // ---- Regions ----
 
@@ -153,6 +157,13 @@ export const THE_WHITE_TOWERS_MINION = did('le-412');
 
 /** The White Towers — fallen-wizard haven in Arthedain. */
 export const THE_WHITE_TOWERS = did('wh-58');
+
+// ---- The Balrog — Balrog Sites ----
+
+/** Moria — balrog darkhaven (surface), starting site for balrog players. */
+export const MORIA_BALROG = did('ba-93');
+/** The Under-gates — balrog darkhaven (Under-deeps), adjacent to Moria. */
+export const THE_UNDER_GATES = did('ba-100');
 
 // ---- Placeholder cards for unknown/hidden cards ----
 

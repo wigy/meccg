@@ -8,7 +8,10 @@
 
 import { Alignment } from './types/common.js';
 import type { CardDefinitionId } from './types/common.js';
-import { RIVENDELL } from './card-ids.js';
+import {
+  RIVENDELL, MINAS_MORGUL, DOL_GULDUR, THE_WHITE_TOWERS, MORIA_BALROG, THE_UNDER_GATES,
+  ETTENMOORS, ETTENMOORS_HERO, THE_WHITE_TOWERS_MINION, THE_WHITE_TOWERS_HERO,
+} from './card-ids.js';
 
 /** Per-alignment rule constants. */
 export interface AlignmentRules {
@@ -23,19 +26,17 @@ export interface AlignmentRules {
 /**
  * Alignment-specific rules, keyed by alignment value.
  *
- * NOTE: `defaultStartingSites` currently uses Rivendell for all alignments
- * because we only have hero site cards in the pool so far. Per the rules:
- * - Wizard: Rivendell
- * - Ringwraith: Minas Morgul and/or Dol Guldur
- * - Fallen-wizard: White Towers or specific Ruins & Lairs
- * - Balrog: Moria and/or Under-gates
- * Update these once the corresponding minion/dark-domain site cards are added.
+ * Starting sites per the CRF:
+ * - Wizard: Rivendell (1 haven)
+ * - Ringwraith: Minas Morgul and/or Dol Guldur (up to 2 darkhavens)
+ * - Fallen-wizard: any version of The White Towers or Ettenmoors (1 site)
+ * - Balrog: Moria and/or The Under-gates (up to 2 darkhavens)
  */
 const ALIGNMENT_RULES: { readonly [K in Alignment]: AlignmentRules } = {
   'wizard': { maxStartingCompanySize: 5, defaultStartingSites: [RIVENDELL], maxStartingSites: 1 },
-  'ringwraith': { maxStartingCompanySize: 6, defaultStartingSites: [RIVENDELL], maxStartingSites: 2 },
-  'fallen-wizard': { maxStartingCompanySize: 5, defaultStartingSites: [RIVENDELL], maxStartingSites: 1 },
-  'balrog': { maxStartingCompanySize: 6, defaultStartingSites: [RIVENDELL], maxStartingSites: 2 },
+  'ringwraith': { maxStartingCompanySize: 6, defaultStartingSites: [MINAS_MORGUL, DOL_GULDUR], maxStartingSites: 2 },
+  'fallen-wizard': { maxStartingCompanySize: 5, defaultStartingSites: [THE_WHITE_TOWERS, THE_WHITE_TOWERS_HERO, THE_WHITE_TOWERS_MINION, ETTENMOORS, ETTENMOORS_HERO], maxStartingSites: 1 },
+  'balrog': { maxStartingCompanySize: 6, defaultStartingSites: [MORIA_BALROG, THE_UNDER_GATES], maxStartingSites: 2 },
 };
 
 /** Returns the alignment-specific rules for the given alignment. */

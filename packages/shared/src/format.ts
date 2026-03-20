@@ -15,6 +15,7 @@
  */
 
 import type { CardDefinition } from './types/cards.js';
+import { isCharacterCard } from './types/cards.js';
 import type { GameState, Company, CharacterInPlay, ItemInPlay, AllyInPlay, EventInPlay, CombatState, PhaseState, MarshallingPointTotals } from './types/state.js';
 import type { PlayerView, OpponentCompanyView } from './types/player-view.js';
 import type { GameAction } from './types/actions.js';
@@ -37,6 +38,10 @@ const COLORS: Record<string, string> = {
   'hazard-event': '\x1b[35m',
   'hazard-corruption': `${DIM}\x1b[35m`,
   'hero-site': '\x1b[37m',
+  'minion-character': `${BOLD}\x1b[35m`,
+  'minion-site': '\x1b[37m',
+  'balrog-site': '\x1b[37m',
+  'fallen-wizard-site': '\x1b[37m',
   'region': `${DIM}\x1b[34m`,
 };
 
@@ -177,7 +182,7 @@ function statusSymbol(status: CardStatus): string {
 
 function formatCharacterLine(char: CharacterInPlay, defOf: CardLookup, instOf: InstanceLookup): string {
   const def = resolve(char.instanceId, instOf, defOf);
-  if (!def || def.cardType !== 'hero-character') {
+  if (!isCharacterCard(def)) {
     return showDebugIds ? colorizeUnknown(`a character {${char.instanceId}}`) : colorizeUnknown('a character');
   }
   const c = def;

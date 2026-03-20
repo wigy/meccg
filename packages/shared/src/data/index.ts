@@ -31,6 +31,9 @@ import leSites from './le-sites.json';
 // ---- The White Hand (WH) — fallen-wizard expansion ----
 import whSites from './wh-sites.json';
 
+// ---- The Balrog (BA) — balrog expansion ----
+import baSites from './ba-sites.json';
+
 /**
  * Pre-merged array of every card definition across all categories and sets.
  * The `as unknown as CardDefinition[]` casts are needed because TypeScript
@@ -52,6 +55,8 @@ const allCards: readonly CardDefinition[] = [
   ...(leSites as unknown as CardDefinition[]),
   // The White Hand
   ...(whSites as unknown as CardDefinition[]),
+  // The Balrog
+  ...(baSites as unknown as CardDefinition[]),
 ];
 
 /**
