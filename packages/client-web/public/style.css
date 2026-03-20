@@ -387,7 +387,8 @@ h2 {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(0, 0, 0, 0.7);
+  background: transparent;
+  pointer-events: none;
   animation: dice-fade-in 0.2s ease-out;
 }
 
@@ -410,6 +411,14 @@ h2 {
   flex-direction: column;
   align-items: center;
   gap: 2rem;
+}
+
+.dice-position-red {
+  transform: translateY(50px);
+}
+
+.dice-position-black {
+  transform: translateY(-50px);
 }
 
 .dice-row {

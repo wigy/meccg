@@ -183,14 +183,16 @@ document.addEventListener('DOMContentLoaded', () => {
   const loadBtn = document.getElementById('load-btn') as HTMLButtonElement;
   const resetBtn = document.getElementById('reset-btn') as HTMLButtonElement;
   const viewToggleBtn = document.getElementById('view-toggle-btn') as HTMLButtonElement;
-  const diceBtn = document.getElementById('dice-btn') as HTMLButtonElement;
+  const diceRedBtn = document.getElementById('dice-red-btn') as HTMLButtonElement;
+  const diceBlackBtn = document.getElementById('dice-black-btn') as HTMLButtonElement;
   const debugView = document.getElementById('debug-view') as HTMLElement;
   const visualView = document.getElementById('visual-view') as HTMLElement;
 
   function setViewMode(visual: boolean): void {
     debugView.classList.toggle('hidden', visual);
     visualView.classList.toggle('hidden', !visual);
-    diceBtn.classList.toggle('hidden', !visual);
+    diceRedBtn.classList.toggle('hidden', !visual);
+    diceBlackBtn.classList.toggle('hidden', !visual);
     viewToggleBtn.textContent = visual ? 'Debug' : 'Visual';
     localStorage.setItem(VIEW_KEY, visual ? 'visual' : 'debug');
     saveBtn.classList.toggle('hidden', visual);
@@ -229,11 +231,18 @@ document.addEventListener('DOMContentLoaded', () => {
     if (e.key === 'Enter') connectBtn.click();
   });
 
-  diceBtn.addEventListener('click', () => {
+  diceRedBtn.addEventListener('click', () => {
     const d1 = Math.floor(Math.random() * 6) + 1;
     const d2 = Math.floor(Math.random() * 6) + 1;
-    renderLog(`Dice roll: ${d1} + ${d2} = ${d1 + d2}`);
-    rollDice(d1, d2);
+    renderLog(`Red dice: ${d1} + ${d2} = ${d1 + d2}`);
+    rollDice(d1, d2, 'red');
+  });
+
+  diceBlackBtn.addEventListener('click', () => {
+    const d1 = Math.floor(Math.random() * 6) + 1;
+    const d2 = Math.floor(Math.random() * 6) + 1;
+    renderLog(`Black dice: ${d1} + ${d2} = ${d1 + d2}`);
+    rollDice(d1, d2, 'black');
   });
 
   disconnectBtn.addEventListener('click', () => {

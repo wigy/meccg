@@ -130,14 +130,14 @@ function dismiss(): void {
 }
 
 /**
- * Show a dice roll animation overlay styled after the MECCG Lidless Eye
- * dice set. Die 1 (red) and die 2 (black) tumble and land on the given
- * predetermined results.
+ * Show a dice roll animation overlay. Both dice use the same color
+ * variant: red pair for self, black pair for opponent.
  *
  * @param die1 - Result for the first die (1–6).
  * @param die2 - Result for the second die (1–6).
+ * @param variant - Color variant for both dice ('red' or 'black').
  */
-export function rollDice(die1: number, die2: number): void {
+export function rollDice(die1: number, die2: number, variant: 'red' | 'black' = 'red'): void {
   // Remove existing if any
   if (overlay) {
     overlay.remove();
@@ -151,13 +151,13 @@ export function rollDice(die1: number, die2: number): void {
   });
 
   const container = document.createElement('div');
-  container.className = 'dice-container';
+  container.className = `dice-container dice-position-${variant}`;
 
   const diceRow = document.createElement('div');
   diceRow.className = 'dice-row';
 
-  const dieEl1 = createDie('red');
-  const dieEl2 = createDie('black');
+  const dieEl1 = createDie(variant);
+  const dieEl2 = createDie(variant);
   diceRow.appendChild(dieEl1);
   diceRow.appendChild(dieEl2);
 
@@ -169,6 +169,35 @@ export function rollDice(die1: number, die2: number): void {
   animateDie(dieEl1, die1, 0);
   animateDie(dieEl2, die2, 100);
 
-  // Auto-dismiss after animation settles
-  setTimeout(dismiss, 3000);
+  // After roll animation, slide dice to sit next to the player name
+  setTimeout(() => {
+    const targetId = variant === 'red' ? 'self-name' : 'opponent-name';
+    const target = document.getElementById(targetId);
+    if (target && container) {
+      // Capture current center position
+      const contRect = container.getBoundingClientRect();
+      const startX = contRect.left + contRect.width / 2;
+      const startY = contRect.top + contRect.height / 2;
+
+      // Set initial fixed position at current location
+      container.style.position = 'fixed';
+      container.style.left = `${startX}px`;
+      container.style.top = `${startY}px`;
+      container.style.transform = 'translate(-50%, -50%)';
+
+      // Force layout, then animate to target
+      void container.offsetWidth;
+      container.style.transformOrigin = 'left center';
+      const nameRect = target.getBoundingClientRect();
+      container.style.transition = 'left 0.6s ease-in-out, top 0.6s ease-in-out, transform 0.6s ease-in-out';
+      container.style.left = `${nameRect.left}px`;
+      if (variant === 'red') {
+        container.style.top = `${nameRect.top}px`;
+        container.style.transform = 'translate(0, -90%) scale(0.35)';
+      } else {
+        container.style.top = `${nameRect.bottom}px`;
+        container.style.transform = 'translate(0, -15%) scale(0.35)';
+      }
+    }
+  }, 1800);
 }
