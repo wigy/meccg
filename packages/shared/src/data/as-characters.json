@@ -1,0 +1,56 @@
+[
+  {
+    "cardType": "minion-character",
+    "alignment": "ringwraith",
+    "id": "as-4",
+    "name": "Perchen",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/as/Perchen.jpg",
+    "unique": true,
+    "race": "man",
+    "skills": ["scout", "diplomat"],
+    "prowess": 3,
+    "body": 9,
+    "mind": 5,
+    "directInfluence": 2,
+    "marshallingPoints": 2,
+    "marshallingCategory": "character",
+    "corruptionModifier": 0,
+    "homesite": "Dunnish Clan-hold",
+    "effects": [
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": 3,
+        "when": { "reason": "faction-influence-check", "faction.playableAt": "Dunnish Clan-hold" }
+      }
+    ],
+    "text": "Unique. +3 direct influence against any faction playable at Dunnish Clan-hold."
+  },
+  {
+    "cardType": "minion-character",
+    "alignment": "ringwraith",
+    "id": "as-3",
+    "name": "Mionid",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/as/Mionid.jpg",
+    "unique": true,
+    "race": "man",
+    "skills": ["warrior", "ranger"],
+    "prowess": 5,
+    "body": 8,
+    "mind": 4,
+    "directInfluence": 0,
+    "marshallingPoints": 1,
+    "marshallingCategory": "character",
+    "corruptionModifier": 0,
+    "homesite": "Variag Camp",
+    "effects": [
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": 2,
+        "when": { "reason": "faction-influence-check", "faction.playableAt": "Variag Camp" }
+      }
+    ],
+    "text": "Unique. +2 direct influence against any faction playable at Variag Camp."
+  }
+]

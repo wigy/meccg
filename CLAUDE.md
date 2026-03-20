@@ -58,8 +58,8 @@ All server-side logic must include detailed logging so that the game's decision-
 
 - Card data lives in `packages/shared/src/data/` as JSON files, aggregated by `index.ts`.
 - **Separate files per extension set:** Each expansion set uses its own data files with a set prefix:
-  - `characters.json`, `items.json`, `creatures.json`, `sites.json`, `regions.json` — The Wizards (TW, base set)
-  - `as-sites.json` — Against the Shadow (AS, minion expansion)
+  - `tw-characters.json`, `tw-items.json`, `tw-creatures.json`, `tw-sites.json`, `tw-regions.json`, `tw-other.json` — The Wizards (TW, base set)
+  - `as-characters.json`, `as-sites.json` — Against the Shadow (AS, minion expansion)
   - `le-characters.json`, `le-resources.json`, `le-sites.json` — The Lidless Eye (LE, minion expansion)
   - `wh-sites.json` — The White Hand (WH, fallen-wizard expansion)
   - `ba-sites.json` — The Balrog (BA, balrog expansion)

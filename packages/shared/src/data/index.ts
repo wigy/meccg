@@ -13,14 +13,15 @@
 
 import type { CardDefinition } from '../types/cards.js';
 // ---- The Wizards (TW) — base set ----
-import characters from './characters.json';
-import items from './items.json';
-import creatures from './creatures.json';
-import sites from './sites.json';
-import regions from './regions.json';
-import other from './other.json';
+import twCharacters from './tw-characters.json';
+import twItems from './tw-items.json';
+import twCreatures from './tw-creatures.json';
+import twSites from './tw-sites.json';
+import twRegions from './tw-regions.json';
+import twOther from './tw-other.json';
 
 // ---- Against the Shadow (AS) — minion expansion ----
+import asCharacters from './as-characters.json';
 import asSites from './as-sites.json';
 
 // ---- The Lidless Eye (LE) — minion expansion ----
@@ -41,13 +42,14 @@ import baSites from './ba-sites.json';
  */
 const allCards: readonly CardDefinition[] = [
   // The Wizards (base set)
-  ...(characters as unknown as CardDefinition[]),
-  ...(items as unknown as CardDefinition[]),
-  ...(creatures as unknown as CardDefinition[]),
-  ...(sites as unknown as CardDefinition[]),
-  ...(regions as unknown as CardDefinition[]),
-  ...(other as unknown as CardDefinition[]),
+  ...(twCharacters as unknown as CardDefinition[]),
+  ...(twItems as unknown as CardDefinition[]),
+  ...(twCreatures as unknown as CardDefinition[]),
+  ...(twSites as unknown as CardDefinition[]),
+  ...(twRegions as unknown as CardDefinition[]),
+  ...(twOther as unknown as CardDefinition[]),
   // Against the Shadow
+  ...(asCharacters as unknown as CardDefinition[]),
   ...(asSites as unknown as CardDefinition[]),
   // The Lidless Eye
   ...(leCharacters as unknown as CardDefinition[]),

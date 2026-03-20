@@ -26,7 +26,7 @@ import {
   // Hero sites
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH, MOUNT_DOOM,
   // Minion characters
-  THE_MOUTH, LIEUTENANT_OF_DOL_GULDUR, GORBAG, SHAGRAT,
+  THE_MOUTH, LIEUTENANT_OF_DOL_GULDUR, GORBAG, SHAGRAT, PERCHEN, MIONID,
   // Minion sites
   DOL_GULDUR, MINAS_MORGUL, ETTENMOORS, THE_WHITE_TOWERS_MINION, WEATHERTOP,
 } from './card-ids.js';
@@ -82,7 +82,7 @@ const minionDeck: SampleDeck = {
       type: 'join',
       name: playerName,
       alignment: Alignment.Ringwraith,
-      draftPool: [THE_MOUTH, LIEUTENANT_OF_DOL_GULDUR, GORBAG, SHAGRAT],
+      draftPool: [THE_MOUTH, LIEUTENANT_OF_DOL_GULDUR, GORBAG, SHAGRAT, PERCHEN, MIONID],
       startingMinorItems: [SAW_TOOTHED_BLADE, ORC_DRAUGHTS],
       playDeck: repeatCards(hazards, 10),
       siteDeck: [DOL_GULDUR, MINAS_MORGUL, ETTENMOORS, THE_WHITE_TOWERS_MINION, WEATHERTOP],

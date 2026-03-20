@@ -111,6 +111,13 @@ export const ROHAN = did('tw-483');
 /** Ithilien — shadow-land region east of Minas Tirith. */
 export const ITHILIEN = did('tw-470');
 
+// ---- Against the Shadow — Minion Characters ----
+
+/** Perchen — man scout/diplomat, +3 DI against factions at Dunnish Clan-hold. */
+export const PERCHEN = did('as-4');
+/** Mionid — man warrior/ranger, +2 DI against factions at Variag Camp. */
+export const MIONID = did('as-3');
+
 // ---- Against the Shadow — Minion Sites ----
 
 /** Weathertop — minion ruins-and-lairs in Arthedain, nearest darkhaven Carn Dûm. */
