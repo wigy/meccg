@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
-import { createGame, createGameQuickStart } from './init.js';
-import type { GameConfig, QuickStartGameConfig } from './init.js';
-import { reduce } from './reducer.js';
+import { createGame, createGameQuickStart } from '../engine/init.js';
+import type { GameConfig, QuickStartGameConfig } from '../engine/init.js';
+import { reduce } from '../engine/reducer.js';
 import { loadCardPool, Phase, Alignment } from '@meccg/shared';
 import type { PlayerId, CardDefinitionId } from '@meccg/shared';
 import {
