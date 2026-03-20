@@ -293,6 +293,38 @@ function isCardPlayable(defId: CardDefinitionId, legalActions: readonly GameActi
   return false;
 }
 
+/**
+ * Returns instruction text for the current game phase, or null if none is needed.
+ * Displayed in the center of the visual board to guide the player.
+ */
+function getInstructionText(view: PlayerView): string | null {
+  if (view.phaseState.phase === 'setup') {
+    switch (view.phaseState.setupStep.step) {
+      case 'character-draft':
+        return 'Character Draft — Pick a character from your pool. Both players reveal simultaneously. Collisions set the character aside.';
+      case 'item-draft':
+        return 'Starting Items — Assign your minor items to characters in your starting company.';
+      case 'character-deck-draft':
+        return 'Deck Building — Add remaining pool characters to your play deck, or pass to finish.';
+      case 'starting-site-selection':
+        return 'Site Selection — Choose your starting site from your site deck.';
+      case 'character-placement':
+        return 'Character Placement — Assign characters to your starting companies.';
+      case 'initiative-roll':
+        return 'Initiative — Roll dice to determine who goes first.';
+    }
+  }
+  return null;
+}
+
+/** Render instruction text in the visual board. */
+export function renderInstructions(view: PlayerView): void {
+  const el = document.getElementById('instruction-text');
+  if (!el) return;
+  const text = getInstructionText(view);
+  el.textContent = text ?? '';
+}
+
 /** Render the player's hand (or draft pool) as an arc of card images in the visual view. */
 export function renderHand(view: PlayerView, cardPool: Readonly<Record<string, CardDefinition>>): void {
   const el = document.getElementById('hand-arc');

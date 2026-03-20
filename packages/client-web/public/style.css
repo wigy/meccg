@@ -214,6 +214,24 @@ h2 {
   pointer-events: none;
 }
 
+#instruction-text {
+  font-family: 'MedievalSharp', cursive;
+  font-size: 1.4rem;
+  color: rgba(220, 200, 140, 0.9);
+  text-align: center;
+  text-shadow: 0 2px 6px rgba(0, 0, 0, 0.8);
+  padding: 1rem 2rem;
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 5;
+}
+
+#instruction-text:empty {
+  display: none;
+}
+
 #visual-board {
   display: flex;
   justify-content: center;
@@ -344,11 +362,20 @@ h2 {
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.7) !important;
 }
 
-.hand-card:hover {
+.hand-card-dimmed:hover {
   transform: rotate(0deg) translateY(-8vh) scale(var(--card-zoom));
   z-index: 20;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.9);
   filter: none;
+}
+
+.hand-card-playable:hover {
+  transform: rotate(0deg) translateY(-8vh) scale(var(--card-zoom));
+  z-index: 20;
+  box-shadow:
+    0 0 16px rgba(255, 215, 100, 1),
+    0 0 40px rgba(255, 215, 100, 0.7),
+    0 8px 32px rgba(0, 0, 0, 0.9);
 }
 
 .opponent-card {
