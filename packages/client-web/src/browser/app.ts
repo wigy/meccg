@@ -59,7 +59,7 @@ function connect(name: string): void {
         renderState(msg.view, cardPool);
         renderDraft(msg.view, cardPool);
         renderActions(msg.view.legalActions, cardPool, sendAction, msg.view.visibleInstances);
-        renderHand(msg.view, cardPool);
+        renderHand(msg.view, cardPool, sendAction);
         renderOpponentHand(msg.view, cardPool);
         renderPlayerNames(msg.view);
         renderInstructions(msg.view);

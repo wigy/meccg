@@ -278,19 +278,24 @@ function getSelfDraftIndex(draftState: readonly [{ pool: readonly CardDefinition
 }
 
 /**
- * Check if a card (by definition ID) is playable given the current legal actions.
- * During character draft: playable if there's a draft-pick action for this character.
- * During character deck draft: playable if there's an add-character-to-deck action.
- * During item draft: playable if there's an assign-starting-item action for this item.
- * Otherwise: always false (hand cards don't have direct play actions yet).
+ * Find the legal action associated with a card in the hand arc, if any.
+ *
+ * Actions that need no extra parameters beyond identifying the card are
+ * returned directly — clicking the card sends them immediately. Actions
+ * that require additional arguments (e.g. assign-starting-item needs a
+ * target character) return null for now; they'll need a separate target
+ * selection step in the future.
  */
-function isCardPlayable(defId: CardDefinitionId, legalActions: readonly GameAction[]): boolean {
+function findCardAction(defId: CardDefinitionId, legalActions: readonly GameAction[]): GameAction | null {
   for (const action of legalActions) {
-    if (action.type === 'draft-pick' && action.characterDefId === defId) return true;
-    if (action.type === 'add-character-to-deck' && action.characterDefId === defId) return true;
-    if (action.type === 'assign-starting-item' && action.itemDefId === defId) return true;
+    // Zero-parameter actions: clicking the card is sufficient
+    if (action.type === 'draft-pick' && action.characterDefId === defId) return action;
+    if (action.type === 'add-character-to-deck' && action.characterDefId === defId) return action;
+    // Multi-parameter actions: card is playable (highlighted) but needs more info
+    // For now, return the first matching action (e.g. first character target)
+    if (action.type === 'assign-starting-item' && action.itemDefId === defId) return action;
   }
-  return false;
+  return null;
 }
 
 /**
@@ -326,7 +331,11 @@ export function renderInstructions(view: PlayerView): void {
 }
 
 /** Render the player's hand (or draft pool) as an arc of card images in the visual view. */
-export function renderHand(view: PlayerView, cardPool: Readonly<Record<string, CardDefinition>>): void {
+export function renderHand(
+  view: PlayerView,
+  cardPool: Readonly<Record<string, CardDefinition>>,
+  onAction?: (action: GameAction) => void,
+): void {
   const el = document.getElementById('hand-arc');
   if (!el) return;
   el.innerHTML = '';
@@ -344,12 +353,15 @@ export function renderHand(view: PlayerView, cardPool: Readonly<Record<string, C
     const imgPath = cardImageProxyPath(def);
     if (!imgPath) continue;
 
+    const action = findCardAction(cards[i], view.legalActions);
     const img = document.createElement('img');
     img.src = imgPath;
     img.alt = def.name;
-    const playable = isCardPlayable(cards[i], view.legalActions);
-    img.className = playable ? 'hand-card hand-card-playable' : 'hand-card hand-card-dimmed';
+    img.className = action ? 'hand-card hand-card-playable' : 'hand-card hand-card-dimmed';
     img.style.setProperty('--i', String(i));
+    if (action && onAction) {
+      img.addEventListener('click', () => onAction(action));
+    }
     el.appendChild(img);
   }
 }
