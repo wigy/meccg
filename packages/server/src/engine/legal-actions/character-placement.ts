@@ -2,7 +2,8 @@
  * @module legal-actions/character-placement
  *
  * Legal actions during the character placement step. Each player assigns
- * their drafted characters to one of their starting companies.
+ * their drafted characters to one of their starting companies, then
+ * shuffles their play deck.
  */
 
 import type { GameState, PlayerId, GameAction } from '@meccg/shared';
@@ -11,14 +12,20 @@ export function characterPlacementActions(state: GameState, playerId: PlayerId):
   if (state.phaseState.phase !== 'setup' || state.phaseState.setupStep.step !== 'character-placement') return [];
 
   const playerIndex = state.players[0].id === playerId ? 0 : 1;
-  if (state.phaseState.setupStep.placementDone[playerIndex]) return [];
+  const stepState = state.phaseState.setupStep;
+
+  if (stepState.shuffled[playerIndex]) return [];
+
+  // After placement done, must shuffle
+  if (stepState.placementDone[playerIndex]) {
+    return [{ type: 'shuffle-play-deck', player: playerId }];
+  }
 
   const player = state.players[playerIndex];
   const actions: GameAction[] = [];
 
   // For each character, offer placing in any company they're not already in
   for (const charId of Object.keys(player.characters)) {
-    // Find which company this character is currently in
     const currentCompanyId = player.companies.find(c =>
       c.characters.includes(charId as never))?.id;
 
@@ -33,7 +40,7 @@ export function characterPlacementActions(state: GameState, playerId: PlayerId):
     }
   }
 
-  // Can pass when done placing (all characters are somewhere)
+  // Can pass when done placing
   actions.push({ type: 'pass', player: playerId });
 
   return actions;

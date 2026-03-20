@@ -333,17 +333,13 @@ describe('character draft', () => {
     // All items assigned → transitions to character deck draft (remaining pool has characters)
     expect(state.phaseState.phase).toBe(Phase.Setup);
 
-    // Both players pass to skip adding characters, then shuffle
+    // Both players pass to skip adding characters
     result = reduce(state, { type: 'pass', player: PLAYER_1 });
     state = result.state;
     result = reduce(state, { type: 'pass', player: PLAYER_2 });
     state = result.state;
-    result = reduce(state, { type: 'shuffle-play-deck', player: PLAYER_1 });
-    state = result.state;
-    result = reduce(state, { type: 'shuffle-play-deck', player: PLAYER_2 });
-    state = result.state;
 
-    // Site selection: pick first site, then pass
+    // Site selection: pick first site, pass
     const p1Site = state.players[0].siteDeck[0];
     const p2Site = state.players[1].siteDeck[0];
     result = reduce(state, { type: 'select-starting-site', player: PLAYER_1, siteInstanceId: p1Site });
@@ -353,6 +349,16 @@ describe('character draft', () => {
     result = reduce(state, { type: 'select-starting-site', player: PLAYER_2, siteInstanceId: p2Site });
     state = result.state;
     result = reduce(state, { type: 'pass', player: PLAYER_2 });
+    state = result.state;
+
+    // Character placement: pass (single site), then shuffle
+    result = reduce(state, { type: 'pass', player: PLAYER_1 });
+    state = result.state;
+    result = reduce(state, { type: 'pass', player: PLAYER_2 });
+    state = result.state;
+    result = reduce(state, { type: 'shuffle-play-deck', player: PLAYER_1 });
+    state = result.state;
+    result = reduce(state, { type: 'shuffle-play-deck', player: PLAYER_2 });
     state = result.state;
 
     expect(state.phaseState.phase).toBe(Phase.Untap);
@@ -465,11 +471,7 @@ describe('character draft', () => {
       state = result.state;
       result = reduce(state, { type: 'pass', player: PLAYER_2 });
       state = result.state;
-      result = reduce(state, { type: 'shuffle-play-deck', player: PLAYER_1 });
-      state = result.state;
-      result = reduce(state, { type: 'shuffle-play-deck', player: PLAYER_2 });
-      state = result.state;
-      // Site selection: pick first site from each player's site deck, then pass
+      // Site selection: pick first site, pass
       const p1Site = state.players[0].siteDeck[0];
       const p2Site = state.players[1].siteDeck[0];
       result = reduce(state, { type: 'select-starting-site', player: PLAYER_1, siteInstanceId: p1Site });
@@ -479,6 +481,15 @@ describe('character draft', () => {
       result = reduce(state, { type: 'select-starting-site', player: PLAYER_2, siteInstanceId: p2Site });
       state = result.state;
       result = reduce(state, { type: 'pass', player: PLAYER_2 });
+      state = result.state;
+      // Character placement: pass, then shuffle
+      result = reduce(state, { type: 'pass', player: PLAYER_1 });
+      state = result.state;
+      result = reduce(state, { type: 'pass', player: PLAYER_2 });
+      state = result.state;
+      result = reduce(state, { type: 'shuffle-play-deck', player: PLAYER_1 });
+      state = result.state;
+      result = reduce(state, { type: 'shuffle-play-deck', player: PLAYER_2 });
       state = result.state;
     }
     expect(state.phaseState.phase).toBe(Phase.Untap);

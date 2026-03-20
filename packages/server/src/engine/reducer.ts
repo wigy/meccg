@@ -462,56 +462,19 @@ function handleCharacterDeckDraft(
   const playerIndex = state.players[0].id === action.player ? 0 : 1;
   const deckDraft = stepState.deckDraftState[playerIndex];
 
-  if (deckDraft.shuffled) {
-    return { state, error: 'You have already finished this phase' };
-  }
-
-  // Shuffle: finalize this player's deck
-  if (action.type === 'shuffle-play-deck') {
-    if (!deckDraft.done) {
-      return { state, error: 'Finish adding characters before shuffling' };
-    }
-
-    const player = state.players[playerIndex];
-    let rng = state.rng;
-    const [shuffled, nextRng] = shuffle([...player.playDeck], rng);
-    rng = nextRng;
-
-    const newPlayers = [...state.players] as unknown as [typeof state.players[0], typeof state.players[1]];
-    newPlayers[playerIndex] = { ...player, playDeck: shuffled };
-
-    const newDeckDraftState = [...stepState.deckDraftState] as [CharacterDeckDraftPlayerState, CharacterDeckDraftPlayerState];
-    newDeckDraftState[playerIndex] = { ...deckDraft, shuffled: true };
-
-    // Both shuffled → enter starting site selection
-    if (newDeckDraftState[0].shuffled && newDeckDraftState[1].shuffled) {
-      return {
-        state: enterSiteSelection({
-          ...state,
-          players: newPlayers as unknown as readonly [typeof state.players[0], typeof state.players[1]],
-          rng,
-        }),
-      };
-    }
-
-    return {
-      state: {
-        ...state,
-        players: newPlayers as unknown as readonly [typeof state.players[0], typeof state.players[1]],
-        phaseState: setupPhase({ ...stepState, deckDraftState: newDeckDraftState }),
-        rng,
-      },
-    };
-  }
-
   if (deckDraft.done) {
-    return { state, error: 'You must shuffle your play deck' };
+    return { state, error: 'You have already finished adding characters' };
   }
 
-  // Pass: done adding characters, must shuffle next
+  // Pass: done adding characters
   if (action.type === 'pass') {
     const newDeckDraftState = [...stepState.deckDraftState] as [CharacterDeckDraftPlayerState, CharacterDeckDraftPlayerState];
-    newDeckDraftState[playerIndex] = { remainingPool: [], done: true, shuffled: false };
+    newDeckDraftState[playerIndex] = { remainingPool: [], done: true };
+
+    // Both done → enter site selection
+    if (newDeckDraftState[0].done && newDeckDraftState[1].done) {
+      return { state: enterSiteSelection(state) };
+    }
 
     return {
       state: {
@@ -562,7 +525,6 @@ function handleCharacterDeckDraft(
   newDeckDraftState[playerIndex] = {
     remainingPool: newPool,
     done: newPool.length === 0,
-    shuffled: false,
   };
 
   return {
@@ -693,24 +655,20 @@ function finalizeSiteSelection(
     players: newPlayers as unknown as readonly [typeof state.players[0], typeof state.players[1]],
   };
 
-  // If either player has 2 companies, enter character placement step
-  const needsPlacement = newPlayers.some(p => p.companies.length > 1);
-  if (needsPlacement) {
-    return {
-      ...newState,
-      activePlayer: null,
-      phaseState: setupPhase({
-        step: SetupStep.CharacterPlacement,
-        placementDone: [
-          newPlayers[0].companies.length <= 1,
-          newPlayers[1].companies.length <= 1,
-        ],
-      }),
-      turnNumber: 0,
-    };
-  }
-
-  return startFirstTurn(cleanupEmptyCompanies(newState));
+  // Enter character placement step (placement skipped for single-site, but shuffle required)
+  return {
+    ...newState,
+    activePlayer: null,
+    phaseState: setupPhase({
+      step: SetupStep.CharacterPlacement,
+      placementDone: [
+        newPlayers[0].companies.length <= 1,
+        newPlayers[1].companies.length <= 1,
+      ],
+      shuffled: [false, false],
+    }),
+    turnNumber: 0,
+  };
 }
 
 /**
@@ -747,17 +705,55 @@ function handleCharacterPlacement(
 ): ReducerResult {
   const playerIndex = state.players[0].id === action.player ? 0 : 1;
 
+  if (stepState.shuffled[playerIndex]) {
+    return { state, error: 'You have already finished this step' };
+  }
+
+  // Shuffle: after placement is done
+  if (action.type === 'shuffle-play-deck') {
+    if (!stepState.placementDone[playerIndex]) {
+      return { state, error: 'Finish placing characters before shuffling' };
+    }
+
+    const player = state.players[playerIndex];
+    let rng = state.rng;
+    const [shuffled, nextRng] = shuffle([...player.playDeck], rng);
+    rng = nextRng;
+
+    const newPlayers = [...state.players] as unknown as [typeof state.players[0], typeof state.players[1]];
+    newPlayers[playerIndex] = { ...player, playDeck: shuffled };
+
+    const newShuffled = [...stepState.shuffled] as [boolean, boolean];
+    newShuffled[playerIndex] = true;
+
+    // Both shuffled → finalize
+    if (newShuffled[0] && newShuffled[1]) {
+      return {
+        state: startFirstTurn(cleanupEmptyCompanies({
+          ...state,
+          players: newPlayers as unknown as readonly [typeof state.players[0], typeof state.players[1]],
+          rng,
+        })),
+      };
+    }
+
+    return {
+      state: {
+        ...state,
+        players: newPlayers as unknown as readonly [typeof state.players[0], typeof state.players[1]],
+        phaseState: setupPhase({ ...stepState, shuffled: newShuffled }),
+        rng,
+      },
+    };
+  }
+
   if (stepState.placementDone[playerIndex]) {
-    return { state, error: 'You have already finished placing characters' };
+    return { state, error: 'You must shuffle your play deck' };
   }
 
   if (action.type === 'pass') {
     const newDone = [...stepState.placementDone] as [boolean, boolean];
     newDone[playerIndex] = true;
-
-    if (newDone[0] && newDone[1]) {
-      return { state: startFirstTurn(cleanupEmptyCompanies(state)) };
-    }
 
     return {
       state: {

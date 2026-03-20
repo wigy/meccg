@@ -331,8 +331,8 @@ export function transitionAfterItemDraft(
         setupStep: {
           step: SetupStep.CharacterDeckDraft,
           deckDraftState: [
-            { remainingPool: remainingPool[0], done: remainingPool[0].length === 0, shuffled: false },
-            { remainingPool: remainingPool[1], done: remainingPool[1].length === 0, shuffled: false },
+            { remainingPool: remainingPool[0], done: remainingPool[0].length === 0 },
+            { remainingPool: remainingPool[1], done: remainingPool[1].length === 0 },
           ],
         },
       },

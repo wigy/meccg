@@ -32,12 +32,7 @@ export function characterDeckDraftActions(state: GameState, playerId: PlayerId):
   const playerIndex = state.players[0].id === playerId ? 0 : 1;
   const deckDraft = state.phaseState.setupStep.deckDraftState[playerIndex];
 
-  if (deckDraft.shuffled) return [];
-
-  // After done adding characters, must shuffle
-  if (deckDraft.done) {
-    return [{ type: 'shuffle-play-deck', player: playerId }];
-  }
+  if (deckDraft.done) return [];
 
   const actions: GameAction[] = [];
   const nonAvatarCount = countNonAvatarInDeck(state, playerIndex);

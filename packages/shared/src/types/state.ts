@@ -303,8 +303,6 @@ export interface CharacterDeckDraftPlayerState {
   readonly remainingPool: readonly CardDefinitionId[];
   /** Whether this player has finished adding characters. */
   readonly done: boolean;
-  /** Whether this player has shuffled their play deck after adding characters. */
-  readonly shuffled: boolean;
 }
 
 /**
@@ -353,6 +351,8 @@ export type SetupStepState =
       readonly step: SetupStep.CharacterPlacement;
       /** Whether each player has finished placing characters. */
       readonly placementDone: readonly [boolean, boolean];
+      /** Whether each player has shuffled their play deck. */
+      readonly shuffled: readonly [boolean, boolean];
     };
 
 /**
