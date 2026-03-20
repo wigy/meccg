@@ -271,6 +271,14 @@ rl.on('line', (line) => {
     process.exit(0);
   }
 
+  if (input === 'reset') {
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      const msg: ClientMessage = { type: 'reset' };
+      ws.send(JSON.stringify(msg));
+    }
+    return;
+  }
+
   if (!ws || ws.readyState !== WebSocket.OPEN) {
     console.log('Not connected to server');
     rl.prompt();

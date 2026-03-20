@@ -121,6 +121,9 @@ export class GameSession {
       case 'action':
         this.handleAction(ws, msg.action);
         break;
+      case 'reset':
+        this.handleReset();
+        break;
     }
   }
 
@@ -308,6 +311,42 @@ export class GameSession {
     }
 
     this.broadcastState();
+  }
+
+  private handleReset(): void {
+    // Delete save file
+    const savePath = this.saveFilePath();
+    if (fs.existsSync(savePath)) {
+      fs.unlinkSync(savePath);
+      console.log(`Deleted save: ${savePath}`);
+    }
+
+    // Clear game state
+    this.state = null;
+
+    // Force all clients to reconnect
+    const restartMsg: ServerMessage = { type: 'restart', message: 'Game reset. Reconnecting...' };
+
+    for (const [, { ws }] of this.pending.entries()) {
+      this.send(ws, restartMsg);
+      ws.close();
+    }
+    this.pending.clear();
+
+    for (const [, { ws }] of this.players.entries()) {
+      this.send(ws, restartMsg);
+      ws.close();
+    }
+    this.players.clear();
+
+    for (const ws of this.spectators) {
+      this.send(ws, restartMsg);
+      ws.close();
+    }
+    this.spectators.clear();
+
+    this.nameToPlayerId = {};
+    console.log('Game reset');
   }
 
   // ---- Disconnect / Save / Restore ----

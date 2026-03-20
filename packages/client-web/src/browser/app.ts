@@ -173,6 +173,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const connectBtn = document.getElementById('connect-btn') as HTMLButtonElement;
   const connectForm = document.getElementById('connect-form') as HTMLElement;
   const disconnectBtn = document.getElementById('disconnect-btn') as HTMLButtonElement;
+  const resetBtn = document.getElementById('reset-btn') as HTMLButtonElement;
   const viewToggleBtn = document.getElementById('view-toggle-btn') as HTMLButtonElement;
   const diceBtn = document.getElementById('dice-btn') as HTMLButtonElement;
   const debugView = document.getElementById('debug-view') as HTMLElement;
@@ -184,6 +185,7 @@ document.addEventListener('DOMContentLoaded', () => {
     diceBtn.classList.toggle('hidden', !visual);
     viewToggleBtn.textContent = visual ? 'Debug' : 'Visual';
     localStorage.setItem(VIEW_KEY, visual ? 'visual' : 'debug');
+    resetBtn.classList.toggle('hidden', visual);
   }
 
   viewToggleBtn.addEventListener('click', () => {
@@ -222,6 +224,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
   disconnectBtn.addEventListener('click', () => {
     disconnect();
+  });
+
+  resetBtn.addEventListener('click', () => {
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      const msg: ClientMessage = { type: 'reset' };
+      ws.send(JSON.stringify(msg));
+    }
   });
 
   // Auto-connect if name is stored from a previous session

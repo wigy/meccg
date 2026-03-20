@@ -67,10 +67,19 @@ export interface ActionMessage {
 }
 
 /**
+ * Sent by a client to request a full game reset. The server deletes the
+ * save file and forces all clients to reconnect with a fresh game.
+ */
+export interface ResetMessage {
+  /** Message type discriminant. */
+  readonly type: 'reset';
+}
+
+/**
  * Union of all messages the client can send to the server.
  * Discriminated by the `type` field.
  */
-export type ClientMessage = JoinMessage | ActionMessage;
+export type ClientMessage = JoinMessage | ActionMessage | ResetMessage;
 
 // ---- Server → Client ----
 
