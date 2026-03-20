@@ -392,6 +392,16 @@ h2 {
   position: relative;
 }
 
+.hand-card-played {
+  animation: card-played 0.5s ease-out forwards;
+}
+
+@keyframes card-played {
+  0% { filter: brightness(1); transform: rotate(0deg) translateY(-8vh) scale(var(--card-zoom)); }
+  20% { filter: brightness(2); transform: rotate(0deg) translateY(-8vh) scale(var(--card-zoom)); }
+  100% { filter: brightness(0.8); opacity: 0; transform: translate(var(--fly-x, 0), var(--fly-y, -40vh)) scale(0.5); }
+}
+
 .hand-card-dimmed {
   filter: brightness(0.4);
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.7) !important;

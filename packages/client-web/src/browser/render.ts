@@ -392,7 +392,16 @@ export function renderHand(
     img.className = action ? 'hand-card hand-card-playable' : 'hand-card hand-card-dimmed';
     img.style.setProperty('--i', String(i));
     if (action && onAction) {
-      img.addEventListener('click', () => onAction(action));
+      img.addEventListener('click', () => {
+        // Calculate offset to fly toward screen center
+        const rect = img.getBoundingClientRect();
+        const dx = window.innerWidth / 2 - (rect.left + rect.width / 2);
+        const dy = window.innerHeight * 0.35 - (rect.top + rect.height / 2);
+        img.style.setProperty('--fly-x', `${dx}px`);
+        img.style.setProperty('--fly-y', `${dy}px`);
+        img.className = 'hand-card hand-card-played';
+        img.addEventListener('animationend', () => onAction(action), { once: true });
+      });
     }
     el.appendChild(img);
   }
