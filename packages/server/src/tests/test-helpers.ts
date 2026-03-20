@@ -30,13 +30,19 @@ export const PLAYER_2 = 'p2' as PlayerId;
 export const pool = loadCardPool();
 
 export function makePlayDeck(): CardDefinitionId[] {
-  const resources = [GLAMDRING, STING, THE_MITHRIL_COAT, THE_ONE_RING];
-  const hazards = [CAVE_DRAKE, ORC_PATROL, BARROW_WIGHT];
-  const deck: CardDefinitionId[] = [];
-  for (let i = 0; i < 5; i++) {
-    deck.push(...resources, ...hazards);
-  }
-  return deck;
+  // Unique items: 1 copy each
+  const uniqueResources = [GLAMDRING, STING, THE_MITHRIL_COAT, THE_ONE_RING];
+  // Non-unique items: up to 3 copies each
+  const nonUniqueResources = [
+    DAGGER_OF_WESTERNESSE, DAGGER_OF_WESTERNESSE, DAGGER_OF_WESTERNESSE,
+  ];
+  // Non-unique hazard creatures: 3 copies each
+  const hazards = [
+    CAVE_DRAKE, CAVE_DRAKE, CAVE_DRAKE,
+    ORC_PATROL, ORC_PATROL, ORC_PATROL,
+    BARROW_WIGHT,
+  ];
+  return [...uniqueResources, ...nonUniqueResources, ...hazards];
 }
 
 export function makeQuickStartConfig(seed = 42): QuickStartGameConfig {
