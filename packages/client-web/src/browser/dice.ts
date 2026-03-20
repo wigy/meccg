@@ -118,6 +118,15 @@ function animateDie(scene: HTMLElement, target: number, delay: number): void {
 }
 
 const overlays: Record<string, HTMLElement> = {};
+const lastRolls: Record<string, { die1: number; die2: number }> = {};
+
+/** Remove all dice overlays. */
+export function clearDice(): void {
+  for (const key of Object.keys(overlays)) {
+    overlays[key].remove();
+    delete overlays[key];
+  }
+}
 
 /** Remove a specific dice overlay by variant. */
 function dismiss(variant: string): void {
@@ -139,6 +148,8 @@ function dismiss(variant: string): void {
  * @param variant - Color variant for both dice ('red' or 'black').
  */
 export function rollDice(die1: number, die2: number, variant: 'red' | 'black' = 'red'): void {
+  lastRolls[variant] = { die1, die2 };
+
   // Remove existing overlay for this variant only
   if (overlays[variant]) {
     overlays[variant].remove();
@@ -202,4 +213,60 @@ export function rollDice(die1: number, die2: number, variant: 'red' | 'black' = 
       }
     }
   }, 1800);
+}
+
+/**
+ * Restore previously rolled dice at their resting positions (no animation).
+ * Called when switching back to visual mode.
+ */
+export function restoreDice(): void {
+  for (const variant of ['red', 'black'] as const) {
+    const roll = lastRolls[variant];
+    if (!roll) continue;
+    if (overlays[variant]) continue; // already visible
+
+    const targetId = variant === 'red' ? 'self-name' : 'opponent-name';
+    const target = document.getElementById(targetId);
+    if (!target) continue;
+
+    const overlay = document.createElement('div');
+    overlay.className = 'dice-overlay';
+    overlays[variant] = overlay;
+
+    const container = document.createElement('div');
+    container.className = `dice-container`;
+
+    const diceRow = document.createElement('div');
+    diceRow.className = 'dice-row';
+
+    const dieEl1 = createDie(variant);
+    const dieEl2 = createDie(variant);
+    diceRow.appendChild(dieEl1);
+    diceRow.appendChild(dieEl2);
+
+    container.appendChild(diceRow);
+    overlay.appendChild(container);
+    document.body.appendChild(overlay);
+
+    // Set dice to their final values immediately
+    const cube1 = dieEl1.querySelector('.dice-cube') as HTMLElement;
+    const cube2 = dieEl2.querySelector('.dice-cube') as HTMLElement;
+    const [x1, y1] = FACE_ROTATIONS[roll.die1];
+    const [x2, y2] = FACE_ROTATIONS[roll.die2];
+    cube1.style.transform = `rotateX(${x1}deg) rotateY(${y1}deg)`;
+    cube2.style.transform = `rotateX(${x2}deg) rotateY(${y2}deg)`;
+
+    // Position at resting spot immediately
+    const nameRect = target.getBoundingClientRect();
+    container.style.position = 'fixed';
+    container.style.transformOrigin = 'left center';
+    container.style.left = `${nameRect.left}px`;
+    if (variant === 'red') {
+      container.style.top = `${nameRect.top}px`;
+      container.style.transform = 'translate(0, -90%) scale(0.35)';
+    } else {
+      container.style.top = `${nameRect.bottom}px`;
+      container.style.transform = 'translate(0, -15%) scale(0.35)';
+    }
+  }
 }

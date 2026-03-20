@@ -9,7 +9,7 @@
 import type { ServerMessage, ClientMessage, GameAction, CardDefinitionId } from '@meccg/shared';
 import { loadCardPool, describeAction, SAMPLE_DECKS } from '@meccg/shared';
 import { renderState, renderDraft, renderActions, renderLog, renderHand, renderOpponentHand, renderPlayerNames } from './render.js';
-import { rollDice } from './dice.js';
+import { rollDice, clearDice, restoreDice } from './dice.js';
 
 const cardPool = loadCardPool();
 
@@ -201,6 +201,9 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!visual) {
       const log = document.getElementById('log')!;
       log.scrollTop = log.scrollHeight;
+      clearDice();
+    } else {
+      restoreDice();
     }
   }
 
