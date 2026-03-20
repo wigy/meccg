@@ -389,6 +389,15 @@ export function renderDrafted(view: PlayerView, cardPool: Readonly<Record<string
 
   renderRow(selfEl, draft.draftState[selfIdx].drafted);
 
+  // Show face-down pick if player has picked this round
+  if (draft.draftState[selfIdx].currentPick !== null) {
+    const faceDown = document.createElement('img');
+    faceDown.src = '/images/card-back.jpg';
+    faceDown.alt = 'Your pick (face down)';
+    faceDown.className = 'drafted-card drafted-card-facedown';
+    selfEl.appendChild(faceDown);
+  }
+
   // Show total mind next to self drafted characters
   const selfMind = draft.draftState[selfIdx].drafted.reduce((sum, defId) => {
     const def = cardPool[defId as string];
@@ -401,6 +410,15 @@ export function renderDrafted(view: PlayerView, cardPool: Readonly<Record<string
     selfEl.appendChild(badge);
   }
   renderRow(oppEl, draft.draftState[oppIdx].drafted);
+
+  // Show face-down pick if opponent has picked this round
+  if (draft.draftState[oppIdx].currentPick !== null) {
+    const faceDown = document.createElement('img');
+    faceDown.src = '/images/card-back.jpg';
+    faceDown.alt = 'Opponent pick (face down)';
+    faceDown.className = 'drafted-card drafted-card-facedown';
+    oppEl.appendChild(faceDown);
+  }
 
   // Show remaining GI for opponent
   const oppMind = draft.draftState[oppIdx].drafted.reduce((sum, defId) => {

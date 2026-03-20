@@ -334,6 +334,13 @@ h2 {
   letter-spacing: 0.05em;
 }
 
+.drafted-card-facedown {
+  opacity: 0.8;
+  box-shadow:
+    0 0 10px rgba(255, 215, 100, 0.6),
+    0 4px 16px rgba(0, 0, 0, 0.7);
+}
+
 #drafted-self .drafted-card:hover {
   transform: scale(var(--hover-scale, var(--card-zoom)));
   transform-origin: center bottom;
