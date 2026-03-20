@@ -197,9 +197,6 @@ document.addEventListener('DOMContentLoaded', () => {
     diceBlackBtn.classList.toggle('hidden', !visual);
     viewToggleBtn.textContent = visual ? 'Debug' : 'Visual';
     localStorage.setItem(VIEW_KEY, visual ? 'visual' : 'debug');
-    saveBtn.classList.toggle('hidden', visual);
-    loadBtn.classList.toggle('hidden', visual);
-    resetBtn.classList.toggle('hidden', visual);
     if (!visual) {
       const log = document.getElementById('log')!;
       log.scrollTop = log.scrollHeight;

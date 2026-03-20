@@ -238,6 +238,10 @@ h2 {
   z-index: 5;
 }
 
+.drafted-row:hover {
+  z-index: 100;
+}
+
 .drafted-row:empty {
   display: none;
 }
@@ -260,7 +264,7 @@ h2 {
 
 .drafted-card:hover {
   transform: scale(var(--card-zoom));
-  z-index: 20;
+  z-index: 100;
 }
 
 #instruction-text:empty {
