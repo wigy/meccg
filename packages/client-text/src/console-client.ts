@@ -37,7 +37,6 @@ import {
   stripCardMarkers,
   Alignment,
 } from '@meccg/shared';
-import { parseAction } from './action-parser.js';
 import { loadAiStrategy, sampleWeighted } from './ai/index.js';
 import type { AiStrategy } from './ai/index.js';
 
@@ -284,18 +283,13 @@ rl.on('line', (line) => {
     return;
   }
 
-  // Try number shortcut first
   const num = parseInt(input, 10);
-  const action: GameAction | null = (!isNaN(num) && num >= 1 && num <= lastLegalActions.length)
-    ? lastLegalActions[num - 1]
-    : parseAction(input, playerId);
-
-  if (!action) {
-    console.log(`Unknown command: ${input}`);
-    console.log('Type a number to pick a legal action, or: draft-pick <id>, draft-stop, pass, quit');
+  if (isNaN(num) || num < 1 || num > lastLegalActions.length) {
+    console.log(`Type a number (1-${lastLegalActions.length}) to pick a legal action, or quit`);
     rl.prompt();
     return;
   }
+  const action = lastLegalActions[num - 1];
 
   if (DEBUG) {
     console.log(colorDebug(`>> ${JSON.stringify(action)}`));
