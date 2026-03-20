@@ -24,7 +24,7 @@ import type {
   CardInstanceId,
   CharacterCard,
 } from '@meccg/shared';
-import { MarshallingCategory, ZERO_MARSHALLING_POINTS, isCharacterCard } from '@meccg/shared';
+import { MarshallingCategory, ZERO_MARSHALLING_POINTS, isCharacterCard, isItemCard } from '@meccg/shared';
 import {
   collectCharacterEffects,
   resolveStatModifiers,
@@ -118,7 +118,7 @@ function computeEffectiveStats(
   // (these are structural fields, not DSL effects)
   for (const item of char.items) {
     const itemDef = resolveDef(state, item.instanceId);
-    if (itemDef && itemDef.cardType === 'hero-resource-item') {
+    if (isItemCard(itemDef)) {
       if (!hasAnyEffects) {
         prowess += itemDef.prowessModifier;
         body += itemDef.bodyModifier;

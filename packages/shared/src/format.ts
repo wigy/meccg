@@ -15,7 +15,7 @@
  */
 
 import type { CardDefinition } from './types/cards.js';
-import { isCharacterCard } from './types/cards.js';
+import { isCharacterCard, isItemCard } from './types/cards.js';
 import type { GameState, Company, CharacterInPlay, ItemInPlay, AllyInPlay, EventInPlay, CombatState, PhaseState, MarshallingPointTotals } from './types/state.js';
 import type { PlayerView, OpponentCompanyView } from './types/player-view.js';
 import type { GameAction } from './types/actions.js';
@@ -39,6 +39,9 @@ const COLORS: Record<string, string> = {
   'hazard-corruption': `${DIM}\x1b[35m`,
   'hero-site': '\x1b[37m',
   'minion-character': `${BOLD}\x1b[35m`,
+  'minion-resource-item': '\x1b[90m',
+  'minion-resource-faction': '\x1b[90m',
+  'minion-resource-ally': '\x1b[90m',
   'minion-site': '\x1b[37m',
   'balrog-site': '\x1b[37m',
   'fallen-wizard-site': '\x1b[37m',
@@ -196,7 +199,7 @@ function formatCharacterLine(char: CharacterInPlay, defOf: CardLookup, instOf: I
 
 function formatItemLine(item: ItemInPlay, defOf: CardLookup, instOf: InstanceLookup): string {
   const def = resolve(item.instanceId, instOf, defOf);
-  if (!def || def.cardType !== 'hero-resource-item') {
+  if (!isItemCard(def)) {
     return showDebugIds ? colorizeUnknown(`an item {${item.instanceId}}`) : colorizeUnknown('an item');
   }
   const label = formatInstanceName(item.instanceId, defOf, instOf);

@@ -16,9 +16,11 @@ import {
   // Hero characters
   ARAGORN, BILBO, FRODO, SAM_GAMGEE, ELROND, CELEBORN, THEODEN,
   EOWYN, BEREGOND, ANBORN,
-  LEGOLAS, GIMLI, FARAMIR, BEORN, GLORFINDEL_II,
-  // Items
+  GANDALF, LEGOLAS, GIMLI, FARAMIR, BEORN, GLORFINDEL_II,
+  // Hero items
   GLAMDRING, STING, THE_MITHRIL_COAT, THE_ONE_RING, DAGGER_OF_WESTERNESSE, HORN_OF_ANOR,
+  // Minion items
+  SAW_TOOTHED_BLADE, ORC_DRAUGHTS,
   // Creatures
   CAVE_DRAKE, ORC_PATROL, BARROW_WIGHT,
   // Hero sites
@@ -53,7 +55,7 @@ const heroDeck: SampleDeck = {
   id: 'hero',
   label: 'Gandalf\'s Company (Hero)',
   buildJoinMessage(playerName: string): JoinMessage {
-    const characters = [LEGOLAS, GIMLI, FARAMIR, BEORN, GLORFINDEL_II];
+    const characters = [GANDALF, LEGOLAS, GIMLI, FARAMIR, BEORN, GLORFINDEL_II];
     const resources = [GLAMDRING, STING, THE_MITHRIL_COAT, THE_ONE_RING];
     const hazards = [CAVE_DRAKE, ORC_PATROL, BARROW_WIGHT];
     return {
@@ -81,7 +83,7 @@ const minionDeck: SampleDeck = {
       name: playerName,
       alignment: Alignment.Ringwraith,
       draftPool: [THE_MOUTH, LIEUTENANT_OF_DOL_GULDUR, GORBAG, SHAGRAT],
-      startingMinorItems: [],
+      startingMinorItems: [SAW_TOOTHED_BLADE, ORC_DRAUGHTS],
       playDeck: repeatCards(hazards, 10),
       siteDeck: [DOL_GULDUR, MINAS_MORGUL, ETTENMOORS, THE_WHITE_TOWERS_MINION, WEATHERTOP],
       startingHavens: [DOL_GULDUR],

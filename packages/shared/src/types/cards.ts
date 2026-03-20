@@ -792,6 +792,23 @@ export function isCharacterCard(card: CardDefinition | undefined): card is Chara
 }
 
 /**
+ * Union of all item card types (hero and minion). Use this when code
+ * needs to handle items generically regardless of alignment.
+ */
+export type ItemCard = HeroItemCard | MinionItemCard;
+
+/** Item card type discriminants — the set of `cardType` values that represent items. */
+export const ITEM_CARD_TYPES: ReadonlySet<string> = new Set(['hero-resource-item', 'minion-resource-item']);
+
+/**
+ * Type guard that narrows a CardDefinition to {@link ItemCard}.
+ * Works for both hero and minion items.
+ */
+export function isItemCard(card: CardDefinition | undefined): card is ItemCard {
+  return card !== undefined && ITEM_CARD_TYPES.has(card.cardType);
+}
+
+/**
  * Union of all site card types (hero, minion, and fallen-wizard). Use this
  * when code needs to handle sites generically regardless of alignment.
  */
