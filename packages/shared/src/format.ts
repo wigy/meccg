@@ -339,6 +339,8 @@ interface RenderPlayerInput {
   readonly alignment: string;
   readonly wizard: string | null;
   readonly isActive: boolean;
+  /** Card instance IDs in hand (own view), or undefined for opponent. */
+  readonly handCards?: readonly CardInstanceId[];
   readonly handCount: number;
   readonly deckCount: number;
   readonly siteDeckCount: number;
@@ -385,7 +387,14 @@ function renderState(input: RenderInput): string {
     const totalMP = mp.character + mp.item + mp.faction + mp.ally + mp.kill + mp.misc;
     const activeMarker = player.isActive ? ` \x1b[31m◀\x1b[0m` : '';
     lines.push(`${player.name} [${player.alignment}]${wizardLabel}: ${totalMP} MP${activeMarker}`);
-    lines.push(`  Hand: ${player.handCount} cards`);
+    if (player.handCards && player.handCards.length > 0) {
+      const handNames = player.handCards.map(id => formatInstanceName(id, defOf, instOf));
+      lines.push(`  Hand: ${handNames.join(', ')}`);
+    } else if (player.handCount > 0) {
+      lines.push(`  Hand: ${player.handCount} x ${colorizeUnknown('a card')}`);
+    } else {
+      lines.push(`  Hand: (empty)`);
+    }
     lines.push(`  Deck: ${player.deckCount} | Sites: ${player.siteDeckCount} | Discard: ${player.discardCount}`);
 
     // Full companies (own view or omniscient server view)
@@ -440,6 +449,7 @@ export function formatGameState(state: GameState): string {
       alignment: p.alignment,
       wizard: p.wizard,
       isActive: state.activePlayer !== null && p.id === state.activePlayer,
+      handCards: p.hand,
       handCount: p.hand.length,
       deckCount: p.playDeck.length,
       siteDeckCount: p.siteDeck.length,
@@ -477,6 +487,7 @@ export function formatPlayerView(
         alignment: view.self.alignment,
         wizard: view.self.wizard,
         isActive: view.activePlayer !== null && view.self.id === view.activePlayer,
+        handCards: view.self.hand.map(c => c.instanceId),
         handCount: view.self.hand.length,
         deckCount: view.self.playDeckSize,
         siteDeckCount: view.self.siteDeck.length,
