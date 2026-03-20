@@ -116,6 +116,16 @@ export interface PlaceCharacterAction {
   readonly companyId: CompanyId;
 }
 
+/**
+ * Roll 2d6 for initiative to determine who goes first.
+ * The server resolves the roll using the game's RNG.
+ */
+export interface RollInitiativeAction {
+  readonly type: 'roll-initiative';
+  /** The player rolling. */
+  readonly player: PlayerId;
+}
+
 // ---- Organization phase ----
 
 /**
@@ -463,6 +473,7 @@ export type GameAction =
   | ShufflePlayDeckAction
   | SelectStartingSiteAction
   | PlaceCharacterAction
+  | RollInitiativeAction
   | PlayCharacterAction
   | SplitCompanyAction
   | MergeCompaniesAction

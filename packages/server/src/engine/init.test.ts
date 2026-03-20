@@ -365,6 +365,14 @@ describe('character draft', () => {
     result = reduce(state, { type: 'draw-cards', player: PLAYER_2, count: 8 });
     state = result.state;
 
+    // Initiative roll (may need rerolls on ties)
+    while (state.phaseState.phase === Phase.Setup) {
+      result = reduce(state, { type: 'roll-initiative', player: PLAYER_1 });
+      state = result.state;
+      result = reduce(state, { type: 'roll-initiative', player: PLAYER_2 });
+      state = result.state;
+    }
+
     expect(state.phaseState.phase).toBe(Phase.Untap);
     expect(state.turnNumber).toBe(1);
 
@@ -499,6 +507,13 @@ describe('character draft', () => {
       state = result.state;
       result = reduce(state, { type: 'draw-cards', player: PLAYER_2, count: 8 });
       state = result.state;
+      // Initiative roll (may need rerolls on ties)
+      while (state.phaseState.phase === Phase.Setup) {
+        result = reduce(state, { type: 'roll-initiative', player: PLAYER_1 });
+        state = result.state;
+        result = reduce(state, { type: 'roll-initiative', player: PLAYER_2 });
+        state = result.state;
+      }
     }
     expect(state.phaseState.phase).toBe(Phase.Untap);
 

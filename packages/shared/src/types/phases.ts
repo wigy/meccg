@@ -71,6 +71,7 @@ export const LEGAL_ACTIONS_BY_PHASE: Readonly<Record<Phase, readonly GameAction[
     'select-starting-site',
     'place-character',
     'draw-cards',
+    'roll-initiative',
     'pass',
   ],
 

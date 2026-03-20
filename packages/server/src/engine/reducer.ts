@@ -16,7 +16,8 @@
 
 import type { GameState, DraftPlayerState, ItemDraftPlayerState, CharacterDeckDraftPlayerState, SetupStepState, CardDefinitionId, CardInstanceId, CompanyId, CharacterInPlay, CardInstance } from '@meccg/shared';
 import type { GameAction } from '@meccg/shared';
-import { Phase, SetupStep, LEGAL_ACTIONS_BY_PHASE, getAlignmentRules, shuffle } from '@meccg/shared';
+import { Phase, SetupStep, LEGAL_ACTIONS_BY_PHASE, getAlignmentRules, shuffle, nextInt } from '@meccg/shared';
+import type { TwoDiceSix, DieRoll } from '@meccg/shared';
 import { applyDraftResults, transitionAfterItemDraft, enterSiteSelection, startFirstTurn } from './init.js';
 import { recomputeDerived } from './recompute-derived.js';
 
@@ -150,6 +151,8 @@ function handleSetup(state: GameState, action: GameAction): ReducerResult {
       return handleStartingSiteSelection(state, action, state.phaseState.setupStep);
     case SetupStep.CharacterPlacement:
       return handleCharacterPlacement(state, action, state.phaseState.setupStep);
+    case SetupStep.InitiativeRoll:
+      return handleInitiativeRoll(state, action, state.phaseState.setupStep);
     default:
       return { state, error: 'Unknown setup step' };
   }
@@ -726,13 +729,19 @@ function handleCharacterPlacement(
     const newDrawn = [...stepState.drawn] as [boolean, boolean];
     newDrawn[playerIndex] = true;
 
-    // Both drawn → finalize
+    // Both drawn → initiative roll
     if (newDrawn[0] && newDrawn[1]) {
       return {
-        state: startFirstTurn(cleanupEmptyCompanies({
-          ...state,
-          players: newPlayers as unknown as readonly [typeof state.players[0], typeof state.players[1]],
-        })),
+        state: {
+          ...cleanupEmptyCompanies({
+            ...state,
+            players: newPlayers as unknown as readonly [typeof state.players[0], typeof state.players[1]],
+          }),
+          phaseState: setupPhase({
+            step: SetupStep.InitiativeRoll,
+            rolls: [null, null],
+          }),
+        },
       };
     }
 
@@ -825,6 +834,73 @@ function handleCharacterPlacement(
       ...state,
       players: newPlayers as unknown as readonly [typeof state.players[0], typeof state.players[1]],
     },
+  };
+}
+
+// ---- Initiative roll handler ----
+
+/**
+ * Handles the initiative roll step. Each player rolls 2d6. Results are
+ * shown immediately (no waiting for opponent). If tied, both rolls are
+ * cleared for a reroll. The higher roller goes first.
+ */
+function handleInitiativeRoll(
+  state: GameState,
+  action: GameAction,
+  stepState: SetupStepState & { step: SetupStep.InitiativeRoll },
+): ReducerResult {
+  if (action.type !== 'roll-initiative') {
+    return { state, error: `Unexpected action in initiative roll: ${action.type}` };
+  }
+
+  const playerIndex = state.players[0].id === action.player ? 0 : 1;
+  if (stepState.rolls[playerIndex] !== null) {
+    return { state, error: 'You have already rolled' };
+  }
+
+  // Roll 2d6
+  let rng = state.rng;
+  let d1raw: number;
+  let d2raw: number;
+  [d1raw, rng] = nextInt(rng, 6);
+  [d2raw, rng] = nextInt(rng, 6);
+  const d1 = d1raw + 1;
+  const d2 = d2raw + 1;
+  const roll: TwoDiceSix = { die1: d1 as DieRoll, die2: d2 as DieRoll };
+
+  const newRolls = [...stepState.rolls] as [TwoDiceSix | null, TwoDiceSix | null];
+  newRolls[playerIndex] = roll;
+
+  // If opponent hasn't rolled yet, just record and wait
+  if (newRolls[0] === null || newRolls[1] === null) {
+    return {
+      state: {
+        ...state,
+        phaseState: setupPhase({ ...stepState, rolls: newRolls }),
+        rng,
+      },
+    };
+  }
+
+  // Both rolled — compare
+  const total0 = newRolls[0].die1 + newRolls[0].die2;
+  const total1 = newRolls[1].die1 + newRolls[1].die2;
+
+  if (total0 === total1) {
+    // Tie — clear rolls for reroll
+    return {
+      state: {
+        ...state,
+        phaseState: setupPhase({ ...stepState, rolls: [null, null] }),
+        rng,
+      },
+    };
+  }
+
+  // Winner goes first
+  const firstPlayer = total0 > total1 ? state.players[0].id : state.players[1].id;
+  return {
+    state: startFirstTurn({ ...state, activePlayer: firstPlayer, rng }),
   };
 }
 

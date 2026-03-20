@@ -11,6 +11,7 @@ import { itemDraftActions } from './item-draft.js';
 import { characterDeckDraftActions } from './character-deck-draft.js';
 import { startingSiteSelectionActions } from './starting-site-selection.js';
 import { characterPlacementActions } from './character-placement.js';
+import { initiativeRollActions } from './initiative-roll.js';
 
 export function setupActions(state: GameState, playerId: PlayerId): GameAction[] {
   if (state.phaseState.phase !== 'setup') return [];
@@ -21,6 +22,7 @@ export function setupActions(state: GameState, playerId: PlayerId): GameAction[]
     case 'character-deck-draft':    return characterDeckDraftActions(state, playerId);
     case 'starting-site-selection': return startingSiteSelectionActions(state, playerId);
     case 'character-placement':     return characterPlacementActions(state, playerId);
+    case 'initiative-roll':         return initiativeRollActions(state, playerId);
     default:                        return [];
   }
 }

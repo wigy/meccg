@@ -371,7 +371,8 @@ export function enterSiteSelection(state: GameState): GameState {
 export function startFirstTurn(state: GameState): GameState {
   return {
     ...state,
-    activePlayer: state.players[0].id,
+    // activePlayer should already be set by initiative roll
+    activePlayer: state.activePlayer ?? state.players[0].id,
     phaseState: { phase: Phase.Untap },
     turnNumber: 1,
   };

@@ -26,6 +26,7 @@ import {
   CharacterStatus,
   WizardName,
   Alignment,
+  TwoDiceSix,
 } from './common.js';
 import { CardDefinition } from './cards.js';
 
@@ -262,6 +263,8 @@ export enum SetupStep {
   StartingSiteSelection = 'starting-site-selection',
   /** Players assign characters to starting companies (only when 2 sites selected). */
   CharacterPlacement = 'character-placement',
+  /** Players roll 2d6 to determine who goes first. Reroll on tie. */
+  InitiativeRoll = 'initiative-roll',
 }
 
 /**
@@ -355,6 +358,11 @@ export type SetupStepState =
       readonly shuffled: readonly [boolean, boolean];
       /** Whether each player has drawn their initial hand. */
       readonly drawn: readonly [boolean, boolean];
+    }
+  | {
+      readonly step: SetupStep.InitiativeRoll;
+      /** Each player's 2d6 roll result, or null if not yet rolled. */
+      readonly rolls: readonly [TwoDiceSix | null, TwoDiceSix | null];
     };
 
 /**

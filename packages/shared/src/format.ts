@@ -371,6 +371,7 @@ function renderState(input: RenderInput): string {
     'character-deck-draft': 'Select Deck Characters',
     'starting-site-selection': 'Select Starting Sites',
     'character-placement': 'Place Characters',
+    'initiative-roll': 'Roll for Initiative',
   };
   const phaseLabel = input.phaseState.phase === 'setup'
     ? `Setup / ${SETUP_STEP_LABELS[input.phaseState.setupStep.step] ?? input.phaseState.setupStep.step}`
@@ -549,6 +550,8 @@ export function describeAction(
       const companyNum = action.companyId.endsWith('-0') ? 'first' : 'second';
       return `Move ${instName(action.characterInstanceId)} to ${companyNum} company`;
     }
+    case 'roll-initiative':
+      return 'Roll 2d6 for initiative';
     case 'play-character':
       return `Play character ${instName(action.characterInstanceId)} at site ${instName(action.atSite)}`;
     case 'split-company':
