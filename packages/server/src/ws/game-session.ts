@@ -124,6 +124,13 @@ export class GameSession {
       case 'reset':
         this.handleReset();
         break;
+      case 'save':
+        this.saveGame();
+        this.saveBackup();
+        break;
+      case 'load':
+        this.handleLoad();
+        break;
     }
   }
 
@@ -419,6 +426,37 @@ export class GameSession {
 
     fs.writeFileSync(savePath, JSON.stringify(save), 'utf-8');
     console.log(`Game saved to ${savePath}`);
+  }
+
+  private handleLoad(): void {
+    const savePath = this.saveFilePath();
+    const backupPath = savePath.replace(/\.json$/, '-saved.json');
+    if (!fs.existsSync(backupPath)) {
+      console.log('No backup save found');
+      return;
+    }
+    fs.copyFileSync(backupPath, savePath);
+    console.log(`Loaded backup from ${backupPath}`);
+
+    // Clear state and restart all clients so they reconnect and load the save
+    this.state = null;
+    const restartMsg: ServerMessage = { type: 'restart', message: 'Loading saved game. Reconnecting...' };
+    for (const [, { ws }] of this.pending.entries()) { this.send(ws, restartMsg); ws.close(); }
+    this.pending.clear();
+    for (const [, { ws }] of this.players.entries()) { this.send(ws, restartMsg); ws.close(); }
+    this.players.clear();
+    for (const ws of this.spectators) { this.send(ws, restartMsg); ws.close(); }
+    this.spectators.clear();
+    this.nameToPlayerId = {};
+  }
+
+  private saveBackup(): void {
+    const savePath = this.saveFilePath();
+    const backupPath = savePath.replace(/\.json$/, '-saved.json');
+    if (fs.existsSync(savePath)) {
+      fs.copyFileSync(savePath, backupPath);
+      console.log(`Backup saved to ${backupPath}`);
+    }
   }
 
   private loadSave(name1: string, name2: string): GameSave | null {

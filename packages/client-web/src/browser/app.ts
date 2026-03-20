@@ -173,6 +173,8 @@ document.addEventListener('DOMContentLoaded', () => {
   const connectBtn = document.getElementById('connect-btn') as HTMLButtonElement;
   const connectForm = document.getElementById('connect-form') as HTMLElement;
   const disconnectBtn = document.getElementById('disconnect-btn') as HTMLButtonElement;
+  const saveBtn = document.getElementById('save-btn') as HTMLButtonElement;
+  const loadBtn = document.getElementById('load-btn') as HTMLButtonElement;
   const resetBtn = document.getElementById('reset-btn') as HTMLButtonElement;
   const viewToggleBtn = document.getElementById('view-toggle-btn') as HTMLButtonElement;
   const diceBtn = document.getElementById('dice-btn') as HTMLButtonElement;
@@ -185,6 +187,8 @@ document.addEventListener('DOMContentLoaded', () => {
     diceBtn.classList.toggle('hidden', !visual);
     viewToggleBtn.textContent = visual ? 'Debug' : 'Visual';
     localStorage.setItem(VIEW_KEY, visual ? 'visual' : 'debug');
+    saveBtn.classList.toggle('hidden', visual);
+    loadBtn.classList.toggle('hidden', visual);
     resetBtn.classList.toggle('hidden', visual);
   }
 
@@ -224,6 +228,21 @@ document.addEventListener('DOMContentLoaded', () => {
 
   disconnectBtn.addEventListener('click', () => {
     disconnect();
+  });
+
+  saveBtn.addEventListener('click', () => {
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      const msg: ClientMessage = { type: 'save' };
+      ws.send(JSON.stringify(msg));
+      renderLog('Game saved.');
+    }
+  });
+
+  loadBtn.addEventListener('click', () => {
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      const msg: ClientMessage = { type: 'load' };
+      ws.send(JSON.stringify(msg));
+    }
   });
 
   resetBtn.addEventListener('click', () => {

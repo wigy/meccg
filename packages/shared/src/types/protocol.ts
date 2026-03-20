@@ -76,10 +76,26 @@ export interface ResetMessage {
 }
 
 /**
+ * Sent by a client to request the server to save the current game state.
+ */
+export interface SaveMessage {
+  /** Message type discriminant. */
+  readonly type: 'save';
+}
+
+/**
  * Union of all messages the client can send to the server.
  * Discriminated by the `type` field.
  */
-export type ClientMessage = JoinMessage | ActionMessage | ResetMessage;
+/**
+ * Sent by a client to request the server to load the backup save file.
+ */
+export interface LoadMessage {
+  /** Message type discriminant. */
+  readonly type: 'load';
+}
+
+export type ClientMessage = JoinMessage | ActionMessage | ResetMessage | SaveMessage | LoadMessage;
 
 // ---- Server → Client ----
 
