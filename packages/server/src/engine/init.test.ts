@@ -11,7 +11,7 @@ import {
   HAND_SIZE,
 } from '@meccg/shared';
 import type { DraftPickAction } from '@meccg/shared';
-import type { PlayerId, CardInstanceId } from '@meccg/shared';
+import type { PlayerId } from '@meccg/shared';
 import {
   ARAGORN, BILBO, FRODO, LEGOLAS, GIMLI, FARAMIR,
   EOWYN, BEREGOND, BERGIL, BARD_BOWMAN, ANBORN, SAM_GAMGEE,

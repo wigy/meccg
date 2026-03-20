@@ -8,7 +8,7 @@
 
 import { Alignment } from './types/common.js';
 import type { CardDefinitionId } from './types/common.js';
-import { RIVENDELL, LORIEN } from './card-ids.js';
+import { RIVENDELL } from './card-ids.js';
 
 /** Per-alignment rule constants. */
 export interface AlignmentRules {

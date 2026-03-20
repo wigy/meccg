@@ -145,7 +145,7 @@ function connect(): void {
         console.log('Waiting for opponent to connect...');
         break;
 
-      case 'state':
+      case 'state': {
         console.log('\n' + formatPlayerView(msg.view, cardPool));
 
         if (msg.view.phaseState.phase === 'setup' && msg.view.phaseState.setupStep.step === 'character-draft') {
@@ -223,6 +223,7 @@ function connect(): void {
           rl.prompt();
         }
         break;
+      }
 
       case 'draft-reveal': {
         const pick1 = msg.player1Pick ? formatCardName(cardPool[msg.player1Pick as string]) : 'stopped';

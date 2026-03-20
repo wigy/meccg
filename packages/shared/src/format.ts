@@ -430,8 +430,6 @@ export function formatGameState(state: GameState): string {
     return inst?.definitionId;
   };
 
-  const activePlayer = state.activePlayer ? state.players.find(p => p.id === state.activePlayer) : null;
-
   return stripCardMarkers(renderState({
     turnNumber: state.turnNumber,
     phaseState: state.phaseState,

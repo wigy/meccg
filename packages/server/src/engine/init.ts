@@ -377,32 +377,6 @@ export function startFirstTurn(state: GameState): GameState {
   };
 }
 
-/**
- * Locates the haven site in a player's site deck.
- * Falls back to the first haven in the card pool if none is found.
- *
- * @throws If no haven exists at all (should never happen with valid data).
- */
-function findPlayerHaven(state: GameState, player: PlayerState): CardDefinitionId {
-  // Find the haven from the player's site deck — first haven-type site
-  for (const siteInstId of player.siteDeck) {
-    const inst = state.instanceMap[siteInstId as string];
-    if (inst) {
-      const def = state.cardPool[inst.definitionId as string];
-      if (def && def.cardType === 'hero-site' && def.siteType === 'haven') {
-        return inst.definitionId;
-      }
-    }
-  }
-  // Fallback: use Rivendell if available
-  for (const [id, def] of Object.entries(state.cardPool)) {
-    if (def.cardType === 'hero-site' && def.siteType === 'haven') {
-      return id as CardDefinitionId;
-    }
-  }
-  throw new Error('No haven found for player');
-}
-
 // ---- Convenience: skip draft and start with specific characters ----
 
 /**
