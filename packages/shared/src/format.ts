@@ -364,7 +364,15 @@ function renderState(input: RenderInput): string {
   const { defOf, instOf } = input;
   const lines: string[] = [];
 
-  lines.push(`Turn ${input.turnNumber} — Phase: ${input.phaseState.phase}`);
+  const SETUP_STEP_LABELS: Record<string, string> = {
+    'character-draft': 'Character Draft',
+    'item-draft': 'Select Minor Items',
+    'character-deck-draft': 'Select Deck Characters',
+  };
+  const phaseLabel = input.phaseState.phase === 'setup'
+    ? `Setup / ${SETUP_STEP_LABELS[input.phaseState.setupStep.step] ?? input.phaseState.setupStep.step}`
+    : input.phaseState.phase;
+  lines.push(`Turn ${input.turnNumber} — Phase: ${phaseLabel}`);
 
   for (const player of input.players) {
     const wizardLabel = player.wizard ? ` (${player.wizard})` : '';
