@@ -9,14 +9,16 @@ import type { GameState, PlayerId, GameAction } from '@meccg/shared';
 import { draftActions } from './draft.js';
 import { itemDraftActions } from './item-draft.js';
 import { characterDeckDraftActions } from './character-deck-draft.js';
+import { startingSiteSelectionActions } from './starting-site-selection.js';
 
 export function setupActions(state: GameState, playerId: PlayerId): GameAction[] {
   if (state.phaseState.phase !== 'setup') return [];
 
   switch (state.phaseState.setupStep.step) {
-    case 'character-draft':      return draftActions(state, playerId);
-    case 'item-draft':           return itemDraftActions(state, playerId);
-    case 'character-deck-draft': return characterDeckDraftActions(state, playerId);
-    default:                     return [];
+    case 'character-draft':         return draftActions(state, playerId);
+    case 'item-draft':              return itemDraftActions(state, playerId);
+    case 'character-deck-draft':    return characterDeckDraftActions(state, playerId);
+    case 'starting-site-selection': return startingSiteSelectionActions(state, playerId);
+    default:                        return [];
   }
 }

@@ -11,7 +11,7 @@ import {
   HAND_SIZE,
 } from '@meccg/shared';
 import type { DraftPickAction } from '@meccg/shared';
-import type { PlayerId } from '@meccg/shared';
+import type { PlayerId, CardInstanceId } from '@meccg/shared';
 import {
   ARAGORN, BILBO, FRODO, LEGOLAS, GIMLI, FARAMIR,
   EOWYN, BEREGOND, BERGIL, BARD_BOWMAN, ANBORN, SAM_GAMGEE,
@@ -283,8 +283,9 @@ describe('character draft', () => {
 
     // Both players have starting items, so we're in item-draft
     expect(state.phaseState.phase).toBe(Phase.Setup);
-    expect(state.players[0].companies).toHaveLength(1);
-    expect(state.players[1].companies).toHaveLength(1);
+    // Companies are not created until starting site selection
+    expect(state.players[0].companies).toHaveLength(0);
+    expect(state.players[1].companies).toHaveLength(0);
   });
 
   it('assigns starting minor items to characters during item draft', () => {
@@ -302,9 +303,11 @@ describe('character draft', () => {
 
     expect(state.phaseState.phase).toBe(Phase.Setup);
 
-    // Get character and item instance IDs
-    const p1Char = state.players[0].companies[0].characters[0];
-    const p2Char = state.players[1].companies[0].characters[0];
+    // Get character instance IDs (not in companies yet, just in characters map)
+    const p1CharIds = Object.keys(state.players[0].characters);
+    const p2CharIds = Object.keys(state.players[1].characters);
+    const p1Char = p1CharIds[0] as CardInstanceId;
+    const p2Char = p2CharIds[0] as CardInstanceId;
 
     if (state.phaseState.phase !== Phase.Setup || state.phaseState.setupStep.step !== 'item-draft') throw new Error('wrong phase');
     const p1Items = state.phaseState.setupStep.itemDraftState[0].unassignedItems;
@@ -338,6 +341,18 @@ describe('character draft', () => {
     result = reduce(state, { type: 'shuffle-play-deck', player: PLAYER_1 });
     state = result.state;
     result = reduce(state, { type: 'shuffle-play-deck', player: PLAYER_2 });
+    state = result.state;
+
+    // Site selection: pick first site, then pass
+    const p1Site = state.players[0].siteDeck[0];
+    const p2Site = state.players[1].siteDeck[0];
+    result = reduce(state, { type: 'select-starting-site', player: PLAYER_1, siteInstanceId: p1Site });
+    state = result.state;
+    result = reduce(state, { type: 'pass', player: PLAYER_1 });
+    state = result.state;
+    result = reduce(state, { type: 'select-starting-site', player: PLAYER_2, siteInstanceId: p2Site });
+    state = result.state;
+    result = reduce(state, { type: 'pass', player: PLAYER_2 });
     state = result.state;
 
     expect(state.phaseState.phase).toBe(Phase.Untap);
@@ -454,13 +469,23 @@ describe('character draft', () => {
       state = result.state;
       result = reduce(state, { type: 'shuffle-play-deck', player: PLAYER_2 });
       state = result.state;
+      // Site selection: pick first site from each player's site deck, then pass
+      const p1Site = state.players[0].siteDeck[0];
+      const p2Site = state.players[1].siteDeck[0];
+      result = reduce(state, { type: 'select-starting-site', player: PLAYER_1, siteInstanceId: p1Site });
+      state = result.state;
+      result = reduce(state, { type: 'pass', player: PLAYER_1 });
+      state = result.state;
+      result = reduce(state, { type: 'select-starting-site', player: PLAYER_2, siteInstanceId: p2Site });
+      state = result.state;
+      result = reduce(state, { type: 'pass', player: PLAYER_2 });
+      state = result.state;
     }
     expect(state.phaseState.phase).toBe(Phase.Untap);
 
-    // Verify Alice has exactly 5 characters in play
+    // Verify Alice has exactly 5 characters
     const p1 = state.players[0];
-    const allCharIds = p1.companies.flatMap(c => c.characters);
-    expect(allCharIds).toHaveLength(5);
+    expect(Object.keys(p1.characters)).toHaveLength(5);
 
     // Attempting a 6th draft-pick is rejected (wrong phase now)
     result = reduce(state, { type: 'draft-pick', player: PLAYER_1, characterDefId: SAM_GAMGEE });

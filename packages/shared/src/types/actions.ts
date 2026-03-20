@@ -89,6 +89,18 @@ export interface ShufflePlayDeckAction {
   readonly player: PlayerId;
 }
 
+/**
+ * Select a site from the site deck as a starting site.
+ * Creates an empty company at the selected site.
+ */
+export interface SelectStartingSiteAction {
+  readonly type: 'select-starting-site';
+  /** The player selecting the site. */
+  readonly player: PlayerId;
+  /** The site instance ID from the player's site deck. */
+  readonly siteInstanceId: CardInstanceId;
+}
+
 // ---- Organization phase ----
 
 /**
@@ -434,6 +446,7 @@ export type GameAction =
   | AssignStartingItemAction
   | AddCharacterToDeckAction
   | ShufflePlayDeckAction
+  | SelectStartingSiteAction
   | PlayCharacterAction
   | SplitCompanyAction
   | MergeCompaniesAction

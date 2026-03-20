@@ -258,6 +258,8 @@ export enum SetupStep {
   ItemDraft = 'item-draft',
   /** Players choose which remaining pool characters go into the play deck. */
   CharacterDeckDraft = 'character-deck-draft',
+  /** Players select starting sites from their site deck and form initial companies. */
+  StartingSiteSelection = 'starting-site-selection',
 }
 
 /**
@@ -303,6 +305,16 @@ export interface CharacterDeckDraftPlayerState {
   readonly shuffled: boolean;
 }
 
+/**
+ * Per-player state during the starting site selection step.
+ */
+export interface SiteSelectionPlayerState {
+  /** Sites selected so far (instance IDs). */
+  readonly selectedSites: readonly CardInstanceId[];
+  /** Whether this player has finished selecting sites. */
+  readonly done: boolean;
+}
+
 // ---- Phase-specific state ----
 
 /**
@@ -329,6 +341,11 @@ export type SetupStepState =
       readonly step: SetupStep.CharacterDeckDraft;
       /** Deck draft state for each player. */
       readonly deckDraftState: readonly [CharacterDeckDraftPlayerState, CharacterDeckDraftPlayerState];
+    }
+  | {
+      readonly step: SetupStep.StartingSiteSelection;
+      /** Site selection state for each player. */
+      readonly siteSelectionState: readonly [SiteSelectionPlayerState, SiteSelectionPlayerState];
     };
 
 /**

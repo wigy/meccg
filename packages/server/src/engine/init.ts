@@ -240,11 +240,6 @@ export function applyDraftResults(
   const results = state.players.map((player, index) => {
     const drafted = draftState[index].drafted;
     const startingMinorItems = draftState[index].startingMinorItems;
-    const startingHaven = findPlayerHaven(state, player);
-
-    // Mint haven instance
-    const havenInstanceId = mint(minter, startingHaven);
-
     // Mint starting minor items
     const minorItemInstanceIds: CardInstanceId[] = [];
     for (const itemDefId of startingMinorItems) {
@@ -272,21 +267,11 @@ export function applyDraftResults(
       };
     }
 
-    const company: Company = {
-      id: `company-${player.id}-0` as CompanyId,
-      characters: characterInstanceIds,
-      currentSite: havenInstanceId,
-      destinationSite: null,
-      movementPath: [],
-      moved: false,
-    };
-
     // GI and MP are left at zero — recomputeDerived() runs after the reducer
-    // Hand is not dealt yet — that happens when setup completes (entering turn 1)
+    // Companies are not created yet — that happens during starting site selection
     return {
       player: {
         ...player,
-        companies: [company],
         characters,
       } satisfies PlayerState,
       unassignedItems: minorItemInstanceIds,
@@ -344,7 +329,29 @@ export function transitionAfterItemDraft(
       turnNumber: 0,
     };
   }
-  return startFirstTurn(state);
+  return enterSiteSelection(state);
+}
+
+/**
+ * Enters the starting site selection step.
+ * Called after deck shuffling is complete.
+ */
+export function enterSiteSelection(state: GameState): GameState {
+  return {
+    ...state,
+    activePlayer: null,
+    phaseState: {
+      phase: Phase.Setup,
+      setupStep: {
+        step: SetupStep.StartingSiteSelection,
+        siteSelectionState: [
+          { selectedSites: [], done: false },
+          { selectedSites: [], done: false },
+        ],
+      },
+    },
+    turnNumber: 0,
+  };
 }
 
 /**

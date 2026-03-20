@@ -68,6 +68,7 @@ export const LEGAL_ACTIONS_BY_PHASE: Readonly<Record<Phase, readonly GameAction[
     'assign-starting-item',
     'add-character-to-deck',
     'shuffle-play-deck',
+    'select-starting-site',
     'pass',
   ],
 

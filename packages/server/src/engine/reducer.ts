@@ -14,10 +14,10 @@
  * (or the original state plus an error string if the action was illegal).
  */
 
-import type { GameState, DraftPlayerState, ItemDraftPlayerState, CharacterDeckDraftPlayerState, SetupStepState, CardDefinitionId, CardInstanceId, CharacterInPlay, CardInstance } from '@meccg/shared';
+import type { GameState, DraftPlayerState, ItemDraftPlayerState, CharacterDeckDraftPlayerState, SetupStepState, CardDefinitionId, CardInstanceId, CompanyId, CharacterInPlay, CardInstance } from '@meccg/shared';
 import type { GameAction } from '@meccg/shared';
 import { Phase, SetupStep, LEGAL_ACTIONS_BY_PHASE, getAlignmentRules, shuffle } from '@meccg/shared';
-import { applyDraftResults, transitionAfterItemDraft, startFirstTurn } from './init.js';
+import { applyDraftResults, transitionAfterItemDraft, enterSiteSelection, startFirstTurn } from './init.js';
 import { recomputeDerived } from './recompute-derived.js';
 
 /**
@@ -146,6 +146,8 @@ function handleSetup(state: GameState, action: GameAction): ReducerResult {
       return handleItemDraft(state, action, state.phaseState.setupStep);
     case SetupStep.CharacterDeckDraft:
       return handleCharacterDeckDraft(state, action, state.phaseState.setupStep);
+    case SetupStep.StartingSiteSelection:
+      return handleStartingSiteSelection(state, action, state.phaseState.setupStep);
     default:
       return { state, error: 'Unknown setup step' };
   }
@@ -391,14 +393,8 @@ function handleItemDraft(
     return { state, error: 'Item is not in your unassigned items' };
   }
 
-  // Validate character belongs to this player's company
+  // Validate character belongs to this player
   const player = state.players[playerIndex];
-  const allCharIds = player.companies.flatMap(c => c.characters);
-  if (!allCharIds.includes(action.characterInstanceId)) {
-    return { state, error: 'Character is not in your starting company' };
-  }
-
-  // Assign the item to the character
   const charKey = action.characterInstanceId as string;
   const existingChar = player.characters[charKey];
   if (!existingChar) {
@@ -481,10 +477,10 @@ function handleCharacterDeckDraft(
     const newDeckDraftState = [...stepState.deckDraftState] as [CharacterDeckDraftPlayerState, CharacterDeckDraftPlayerState];
     newDeckDraftState[playerIndex] = { ...deckDraft, shuffled: true };
 
-    // Both shuffled → deal hands and transition to Untap
+    // Both shuffled → enter starting site selection
     if (newDeckDraftState[0].shuffled && newDeckDraftState[1].shuffled) {
       return {
-        state: startFirstTurn({
+        state: enterSiteSelection({
           ...state,
           players: newPlayers as unknown as readonly [typeof state.players[0], typeof state.players[1]],
           rng,
@@ -571,6 +567,110 @@ function handleCharacterDeckDraft(
       phaseState: setupPhase({ ...stepState, deckDraftState: newDeckDraftState }),
     },
   };
+}
+
+// ---- Starting site selection handler ----
+
+import type { SiteSelectionPlayerState } from '@meccg/shared';
+
+/**
+ * Handles the starting site selection step. Each player selects one or two
+ * sites from their site deck and forms empty companies at those sites.
+ */
+function handleStartingSiteSelection(
+  state: GameState,
+  action: GameAction,
+  stepState: SetupStepState & { step: SetupStep.StartingSiteSelection },
+): ReducerResult {
+  const playerIndex = state.players[0].id === action.player ? 0 : 1;
+  const siteSelection = stepState.siteSelectionState[playerIndex];
+
+  if (siteSelection.done) {
+    return { state, error: 'You have already finished site selection' };
+  }
+
+  // Pass: done selecting (must have at least one site)
+  if (action.type === 'pass') {
+    if (siteSelection.selectedSites.length === 0) {
+      return { state, error: 'You must select at least one starting site' };
+    }
+
+    const newSiteSelectionState = [...stepState.siteSelectionState] as [SiteSelectionPlayerState, SiteSelectionPlayerState];
+    newSiteSelectionState[playerIndex] = { ...siteSelection, done: true };
+
+    if (newSiteSelectionState[0].done && newSiteSelectionState[1].done) {
+      return { state: finalizeSiteSelection(state, newSiteSelectionState) };
+    }
+
+    return {
+      state: {
+        ...state,
+        phaseState: setupPhase({ ...stepState, siteSelectionState: newSiteSelectionState }),
+      },
+    };
+  }
+
+  if (action.type !== 'select-starting-site') {
+    return { state, error: `Unexpected action in site selection: ${action.type}` };
+  }
+
+  // Validate site is in player's site deck and not already selected
+  const player = state.players[playerIndex];
+  if (!player.siteDeck.includes(action.siteInstanceId)) {
+    return { state, error: 'Site is not in your site deck' };
+  }
+  if (siteSelection.selectedSites.includes(action.siteInstanceId)) {
+    return { state, error: 'Site already selected' };
+  }
+  if (siteSelection.selectedSites.length >= 2) {
+    return { state, error: 'Already selected 2 starting sites' };
+  }
+
+  const newSiteSelectionState = [...stepState.siteSelectionState] as [SiteSelectionPlayerState, SiteSelectionPlayerState];
+  newSiteSelectionState[playerIndex] = {
+    ...siteSelection,
+    selectedSites: [...siteSelection.selectedSites, action.siteInstanceId],
+  };
+
+  return {
+    state: {
+      ...state,
+      phaseState: setupPhase({ ...stepState, siteSelectionState: newSiteSelectionState }),
+    },
+  };
+}
+
+/**
+ * Creates empty companies at each player's selected starting sites
+ * and transitions to the first Untap phase.
+ */
+function finalizeSiteSelection(
+  state: GameState,
+  siteSelectionState: readonly [SiteSelectionPlayerState, SiteSelectionPlayerState],
+): GameState {
+  const newPlayers = [...state.players] as unknown as [typeof state.players[0], typeof state.players[1]];
+
+  for (let i = 0; i < 2; i++) {
+    const player = newPlayers[i];
+    const companies = siteSelectionState[i].selectedSites.map((siteInstId, idx) => ({
+      id: `company-${player.id as string}-${idx}` as CompanyId,
+      characters: [] as readonly CardInstanceId[],
+      currentSite: siteInstId,
+      destinationSite: null,
+      movementPath: [] as readonly CardInstanceId[],
+      moved: false,
+    }));
+
+    newPlayers[i] = {
+      ...player,
+      companies,
+    };
+  }
+
+  return startFirstTurn({
+    ...state,
+    players: newPlayers as unknown as readonly [typeof state.players[0], typeof state.players[1]],
+  });
 }
 
 // ---- Phase handler stubs ----

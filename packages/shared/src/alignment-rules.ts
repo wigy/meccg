@@ -8,7 +8,7 @@
 
 import { Alignment } from './types/common.js';
 import type { CardDefinitionId } from './types/common.js';
-import { RIVENDELL } from './card-ids.js';
+import { RIVENDELL, LORIEN } from './card-ids.js';
 
 /** Per-alignment rule constants. */
 export interface AlignmentRules {
@@ -20,7 +20,7 @@ export interface AlignmentRules {
 
 /** Alignment-specific rules, keyed by alignment value. */
 const ALIGNMENT_RULES: { readonly [K in Alignment]: AlignmentRules } = {
-  'wizard': { maxStartingCompanySize: 5, defaultStartingSites: [RIVENDELL] },
+  'wizard': { maxStartingCompanySize: 5, defaultStartingSites: [RIVENDELL, LORIEN] },
   'ringwraith': { maxStartingCompanySize: 6, defaultStartingSites: [RIVENDELL] },
   'fallen-wizard': { maxStartingCompanySize: 5, defaultStartingSites: [RIVENDELL] },
   'balrog': { maxStartingCompanySize: 5, defaultStartingSites: [RIVENDELL] },
