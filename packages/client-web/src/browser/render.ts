@@ -330,6 +330,38 @@ export function renderInstructions(view: PlayerView): void {
   el.textContent = text ?? '';
 }
 
+/** Render drafted characters on the visual board during character draft. */
+export function renderDrafted(view: PlayerView, cardPool: Readonly<Record<string, CardDefinition>>): void {
+  const selfEl = document.getElementById('drafted-self');
+  const oppEl = document.getElementById('drafted-opponent');
+  if (!selfEl || !oppEl) return;
+  selfEl.innerHTML = '';
+  oppEl.innerHTML = '';
+
+  if (view.phaseState.phase !== 'setup' || view.phaseState.setupStep.step !== 'character-draft') return;
+
+  const draft = view.phaseState.setupStep;
+  const selfIdx = getSelfDraftIndex(draft.draftState);
+  const oppIdx = 1 - selfIdx;
+
+  function renderRow(el: HTMLElement, drafted: readonly CardDefinitionId[]): void {
+    for (const defId of drafted) {
+      const def = cardPool[defId as string];
+      if (!def) continue;
+      const imgPath = cardImageProxyPath(def);
+      if (!imgPath) continue;
+      const img = document.createElement('img');
+      img.src = imgPath;
+      img.alt = def.name;
+      img.className = 'drafted-card';
+      el.appendChild(img);
+    }
+  }
+
+  renderRow(selfEl, draft.draftState[selfIdx].drafted);
+  renderRow(oppEl, draft.draftState[oppIdx].drafted);
+}
+
 /** Render the player's hand (or draft pool) as an arc of card images in the visual view. */
 export function renderHand(
   view: PlayerView,

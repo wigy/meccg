@@ -228,6 +228,41 @@ h2 {
   z-index: 5;
 }
 
+.drafted-row {
+  display: flex;
+  justify-content: center;
+  gap: 1rem;
+  position: fixed;
+  left: 0;
+  right: 0;
+  z-index: 5;
+}
+
+.drafted-row:empty {
+  display: none;
+}
+
+#drafted-self {
+  bottom: calc(38vh - 0.6 * var(--card-height));
+}
+
+#drafted-opponent {
+  top: calc(12vh + 0.2 * var(--card-height));
+}
+
+.drafted-card {
+  height: 22vh;
+  border-radius: 6px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.7);
+  transition: transform 0.2s ease;
+  cursor: pointer;
+}
+
+.drafted-card:hover {
+  transform: scale(var(--card-zoom));
+  z-index: 20;
+}
+
 #instruction-text:empty {
   display: none;
 }
