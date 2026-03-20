@@ -151,6 +151,34 @@ function disconnect(): void {
   document.getElementById('log')!.innerHTML = '';
 }
 
+// ---- Background ----
+
+const BACKGROUNDS = [
+  'images/visual-bg.png',
+  'images/visual-bg-2.png',
+  'images/visual-bg-3.png',
+  'images/visual-bg-4.png',
+  'images/visual-bg-5.png',
+  'images/visual-bg-6.png',
+  'images/visual-bg-7.png',
+  'images/visual-bg-8.png',
+  'images/visual-bg-9.png',
+  'images/visual-bg-10.png',
+];
+const BG_KEY = 'meccg-bg';
+
+function applyBackground(): void {
+  const saved = localStorage.getItem(BG_KEY);
+  const bg = saved && BACKGROUNDS.includes(saved) ? saved : BACKGROUNDS[0];
+  document.documentElement.style.setProperty('--visual-bg', `url('${bg}')`);
+}
+
+function selectRandomBackground(): void {
+  const bg = BACKGROUNDS[Math.floor(Math.random() * BACKGROUNDS.length)];
+  localStorage.setItem(BG_KEY, bg);
+  document.documentElement.style.setProperty('--visual-bg', `url('${bg}')`);
+}
+
 // ---- UI Setup ----
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -182,6 +210,8 @@ document.addEventListener('DOMContentLoaded', () => {
     selectedDeckIndex = parseInt(deckSelect.value, 10);
     localStorage.setItem(DECK_KEY, String(selectedDeckIndex));
   });
+
+  applyBackground();
   const saveBtn = document.getElementById('save-btn') as HTMLButtonElement;
   const loadBtn = document.getElementById('load-btn') as HTMLButtonElement;
   const resetBtn = document.getElementById('reset-btn') as HTMLButtonElement;
@@ -223,7 +253,8 @@ document.addEventListener('DOMContentLoaded', () => {
     setViewMode(true);
   }
 
-  function startGame(name: string): void {
+  function startGame(name: string, newBackground = false): void {
+    if (newBackground) selectRandomBackground();
     savePlayerName(name);
     autoReconnect = true;
     connectForm.style.display = 'none';
@@ -234,7 +265,7 @@ document.addEventListener('DOMContentLoaded', () => {
   connectBtn.addEventListener('click', () => {
     const name = nameInput.value.trim();
     if (!name) return;
-    startGame(name);
+    startGame(name, true);
   });
 
   nameInput.addEventListener('keydown', (e) => {

@@ -215,7 +215,7 @@ h2 {
 /* Visual view */
 
 #visual-view {
-  background: url('images/visual-bg.png') center/cover no-repeat fixed;
+  background: var(--visual-bg, url('images/visual-bg.png')) center/cover no-repeat fixed;
   min-height: 100vh;
   margin: -1rem;
   padding: 1rem;
