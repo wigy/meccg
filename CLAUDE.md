@@ -42,10 +42,28 @@ MECCG is a web-based implementation of the Middle-Earth Collectible Card Game (M
 
 - The server is the authority on game state — clients never modify state directly
 - Game rules are enforced server-side; the client is a presentation layer
+- The game engine is a pure reducer — no side effects in state transitions
+
+### Server-Side Logging Policy
+
+All server-side logic must include detailed logging so that the game's decision-making is fully traceable from the console output. This is critical for debugging complex rule interactions.
+
+- **Use the logging helpers** from `src/engine/legal-actions/log.ts` (`logHeading`, `logDetail`, `logResult`) — never use bare `console.log` in engine code.
+- **Log every decision and conclusion**, not just the final result. When the engine evaluates a condition, checks a constraint, rejects an action, or chooses between alternatives, log the reasoning with the relevant values.
+- **Log at entry and exit** of phase handlers and legal-action computations. Entry logs should state what step/phase is being processed and for which player. Exit logs should summarize the outcome.
+- **Log constraint checks with values**: don't just log "mind limit exceeded" — log "Gimli mind 6 would exceed limit (current 15 + 6 > 20)".
+- **Log state transitions**: when the game advances to a new phase or setup step, log the transition with the reason (e.g. "Both players stopped drafting → finalizing draft").
 
 ### Card Data Policy
 
 - When adding or modifying card data, always fetch the card from the authoritative card database at https://raw.githubusercontent.com/council-of-elrond-meccg/meccg-cards-database/master/cards.json — never rely on model knowledge for card text, stats, or IDs.
+
+### Card Uniqueness Rules
+
+- Unique cards: only 1 copy allowed per deck.
+- Non-unique cards: up to 3 copies allowed per deck.
+- All characters and major items in the current card pool are unique. Hazard creatures, minor items (Dagger of Westernesse, Horn of Anor) are non-unique.
+- Test fixtures (`makePlayDeck` etc.) must respect these limits.
 
 ### Code Documentation Policy
 
