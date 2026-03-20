@@ -340,6 +340,7 @@ interface RenderPlayerInput {
   readonly isActive: boolean;
   readonly handCount: number;
   readonly deckCount: number;
+  readonly siteDeckCount: number;
   readonly discardCount: number;
   readonly marshallingPoints: MarshallingPointTotals;
   readonly companies: readonly Company[];
@@ -383,7 +384,7 @@ function renderState(input: RenderInput): string {
     const activeMarker = player.isActive ? ` \x1b[31m◀\x1b[0m` : '';
     lines.push(`${player.name} [${player.alignment}]${wizardLabel}: ${totalMP} MP${activeMarker}`);
     lines.push(`  hand: ${player.handCount} cards`);
-    lines.push(`  deck: ${player.deckCount} | discard: ${player.discardCount}`);
+    lines.push(`  deck: ${player.deckCount} | sites: ${player.siteDeckCount} | discard: ${player.discardCount}`);
 
     // Full companies (own view or omniscient server view)
     for (let i = 0; i < player.companies.length; i++) {
@@ -441,6 +442,7 @@ export function formatGameState(state: GameState): string {
       isActive: state.activePlayer !== null && p.id === state.activePlayer,
       handCount: p.hand.length,
       deckCount: p.playDeck.length,
+      siteDeckCount: p.siteDeck.length,
       discardCount: p.discardPile.length,
       marshallingPoints: p.marshallingPoints,
       companies: p.companies,
@@ -477,6 +479,7 @@ export function formatPlayerView(
         isActive: view.activePlayer !== null && view.self.id === view.activePlayer,
         handCount: view.self.hand.length,
         deckCount: view.self.playDeckSize,
+        siteDeckCount: view.self.siteDeck.length,
         discardCount: view.self.discardPile.length,
         marshallingPoints: view.self.marshallingPoints,
         companies: view.self.companies,
@@ -489,6 +492,7 @@ export function formatPlayerView(
         isActive: view.activePlayer !== null && view.opponent.id === view.activePlayer,
         handCount: view.opponent.handSize,
         deckCount: view.opponent.playDeckSize,
+        siteDeckCount: 0,
         discardCount: view.opponent.discardPile.length,
         marshallingPoints: view.opponent.marshallingPoints,
         companies: [],

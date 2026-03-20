@@ -17,13 +17,13 @@ export function startingSiteSelectionActions(state: GameState, playerId: PlayerI
   if (siteSelection.done) return [];
 
   const player = state.players[playerIndex];
-  const { defaultStartingSites } = getAlignmentRules(player.alignment);
+  const { defaultStartingSites, maxStartingSites } = getAlignmentRules(player.alignment);
   const allowedDefIds = new Set(defaultStartingSites.map(id => id as string));
 
   const actions: GameAction[] = [];
 
   // Offer sites from site deck that match the alignment's allowed starting sites
-  if (siteSelection.selectedSites.length < defaultStartingSites.length) {
+  if (siteSelection.selectedSites.length < maxStartingSites) {
     for (const siteInstId of player.siteDeck) {
       if (siteSelection.selectedSites.includes(siteInstId)) continue;
       const inst = state.instanceMap[siteInstId as string];

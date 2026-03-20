@@ -632,6 +632,11 @@ function handleStartingSiteSelection(
     return { state, error: 'Already selected 2 starting sites' };
   }
 
+  // Remove site from site deck
+  const newSiteDeck = player.siteDeck.filter(id => id !== action.siteInstanceId);
+  const newPlayers = [...state.players] as unknown as [typeof state.players[0], typeof state.players[1]];
+  newPlayers[playerIndex] = { ...player, siteDeck: newSiteDeck };
+
   const newSiteSelectionState = [...stepState.siteSelectionState] as [SiteSelectionPlayerState, SiteSelectionPlayerState];
   newSiteSelectionState[playerIndex] = {
     ...siteSelection,
@@ -641,6 +646,7 @@ function handleStartingSiteSelection(
   return {
     state: {
       ...state,
+      players: newPlayers as unknown as readonly [typeof state.players[0], typeof state.players[1]],
       phaseState: setupPhase({ ...stepState, siteSelectionState: newSiteSelectionState }),
     },
   };
