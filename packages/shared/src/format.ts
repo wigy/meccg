@@ -384,8 +384,8 @@ function renderState(input: RenderInput): string {
     const totalMP = mp.character + mp.item + mp.faction + mp.ally + mp.kill + mp.misc;
     const activeMarker = player.isActive ? ` \x1b[31m◀\x1b[0m` : '';
     lines.push(`${player.name} [${player.alignment}]${wizardLabel}: ${totalMP} MP${activeMarker}`);
-    lines.push(`  hand: ${player.handCount} cards`);
-    lines.push(`  deck: ${player.deckCount} | sites: ${player.siteDeckCount} | discard: ${player.discardCount}`);
+    lines.push(`  Hand: ${player.handCount} cards`);
+    lines.push(`  Deck: ${player.deckCount} | Sites: ${player.siteDeckCount} | Discard: ${player.discardCount}`);
 
     // Full companies (own view or omniscient server view)
     for (let i = 0; i < player.companies.length; i++) {
