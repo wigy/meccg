@@ -23,6 +23,7 @@ const cardPool = loadCardPool();
 
 let ws: WebSocket | null = null;
 let playerId: string | null = null;
+let lastVisibleInstances: Readonly<Record<string, CardDefinitionId>> = {};
 
 function buildDefaultPlayDeck(): CardDefinitionId[] {
   const characters = [LEGOLAS, GIMLI, FARAMIR, BEORN, GLORFINDEL_II];
@@ -51,8 +52,8 @@ function buildJoinMessage(name: string): JoinMessage {
 
 function sendAction(action: GameAction): void {
   if (!ws || ws.readyState !== WebSocket.OPEN) return;
-  const desc = describeAction(action, cardPool);
-  renderLog(`>> ${desc}`);
+  const desc = describeAction(action, cardPool, lastVisibleInstances);
+  renderLog(`>> ${desc}`, cardPool);
   const msg: ClientMessage = { type: 'action', action };
   ws.send(JSON.stringify(msg));
 }
@@ -84,6 +85,7 @@ function connect(name: string): void {
         break;
 
       case 'state':
+        lastVisibleInstances = msg.view.visibleInstances;
         renderLog(`State update: turn ${msg.view.turnNumber}, phase ${msg.view.phaseState.phase}`);
         renderState(msg.view, cardPool);
         renderDraft(msg.view, cardPool);
@@ -93,9 +95,9 @@ function connect(name: string): void {
       case 'draft-reveal': {
         const p1 = msg.player1Pick ? (cardPool[msg.player1Pick as string]?.name ?? msg.player1Pick) : 'stopped';
         const p2 = msg.player2Pick ? (cardPool[msg.player2Pick as string]?.name ?? msg.player2Pick) : 'stopped';
-        renderLog(`Draft reveal: ${msg.player1Name} → ${p1}, ${msg.player2Name} → ${p2}`);
+        renderLog(`Draft reveal: ${msg.player1Name} → ${p1}, ${msg.player2Name} → ${p2}`, cardPool);
         if (msg.collision) {
-          renderLog(`  Collision! ${p1} is set aside.`);
+          renderLog(`  Collision! ${p1} is set aside.`, cardPool);
         }
         break;
       }

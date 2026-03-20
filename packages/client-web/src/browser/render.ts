@@ -220,10 +220,11 @@ export function renderActions(
 }
 
 /** Append a message to the log. Auto-scrolls to bottom. */
-export function renderLog(message: string): void {
+export function renderLog(message: string, cardPool?: Readonly<Record<string, CardDefinition>>): void {
   const el = $('log');
   const line = document.createElement('div');
   line.innerHTML = ansiToHtml(`[${new Date().toLocaleTimeString()}] ${message}`);
+  if (cardPool) tagCardImages(line, cardPool);
   el.appendChild(line);
   el.scrollTop = el.scrollHeight;
 }
