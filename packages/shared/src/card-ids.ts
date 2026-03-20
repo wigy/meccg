@@ -70,6 +70,8 @@ export const THE_ONE_RING = did('tw-347');
 export const THE_MITHRIL_COAT = did('tw-345');
 /** Dagger of Westernesse — minor weapon, low corruption, good starter item. */
 export const DAGGER_OF_WESTERNESSE = did('tw-206');
+/** Horn of Anor — minor item, +1 prowess to a warrior in combat. */
+export const HORN_OF_ANOR = did('tw-259');
 
 // ---- Creatures ----
 
