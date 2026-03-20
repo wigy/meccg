@@ -117,15 +117,16 @@ function animateDie(scene: HTMLElement, target: number, delay: number): void {
   });
 }
 
-let overlay: HTMLElement | null = null;
+const overlays: Record<string, HTMLElement> = {};
 
-/** Remove the dice overlay. */
-function dismiss(): void {
-  if (!overlay) return;
-  overlay.classList.add('dice-fade-out');
+/** Remove a specific dice overlay by variant. */
+function dismiss(variant: string): void {
+  const ov = overlays[variant];
+  if (!ov) return;
+  ov.classList.add('dice-fade-out');
   setTimeout(() => {
-    overlay?.remove();
-    overlay = null;
+    ov.remove();
+    if (overlays[variant] === ov) delete overlays[variant];
   }, 300);
 }
 
@@ -138,17 +139,18 @@ function dismiss(): void {
  * @param variant - Color variant for both dice ('red' or 'black').
  */
 export function rollDice(die1: number, die2: number, variant: 'red' | 'black' = 'red'): void {
-  // Remove existing if any
-  if (overlay) {
-    overlay.remove();
-    overlay = null;
+  // Remove existing overlay for this variant only
+  if (overlays[variant]) {
+    overlays[variant].remove();
+    delete overlays[variant];
   }
 
-  overlay = document.createElement('div');
+  const overlay = document.createElement('div');
   overlay.className = 'dice-overlay';
   overlay.addEventListener('click', (e) => {
-    if (e.target === overlay) dismiss();
+    if (e.target === overlay) dismiss(variant);
   });
+  overlays[variant] = overlay;
 
   const container = document.createElement('div');
   container.className = `dice-container dice-position-${variant}`;
