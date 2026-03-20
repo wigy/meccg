@@ -225,12 +225,8 @@ export interface PlayerState {
  * before the game proper. FreeCouncil and GameOver are endgame phases.
  */
 export enum Phase {
-  /** Pre-game phase where players alternate selecting characters from their draft pool. */
-  CharacterDraft = 'character-draft',
-  /** Pre-game phase where players assign starting minor items to drafted characters. */
-  ItemDraft = 'item-draft',
-  /** Pre-game phase where players choose which remaining pool characters go into the play deck. */
-  CharacterDeckDraft = 'character-deck-draft',
+  /** Pre-game setup: character draft, item assignment, deck construction. */
+  Setup = 'setup',
   /** Characters are untapped (refreshed) and wounded characters at havens may heal. */
   Untap = 'untap',
   /** Players reorganize companies, recruit characters, transfer items, and plan movement. */
@@ -249,10 +245,23 @@ export enum Phase {
   GameOver = 'game-over',
 }
 
-// ---- Draft state ----
+// ---- Setup phase sub-state ----
 
 /**
- * Per-player state during the character draft phase.
+ * Steps within the pre-game setup phase.
+ * The setup progresses through these steps in order before the first turn.
+ */
+export enum SetupStep {
+  /** Players simultaneously draft characters from their pool. */
+  CharacterDraft = 'character-draft',
+  /** Players assign starting minor items to drafted characters. */
+  ItemDraft = 'item-draft',
+  /** Players choose which remaining pool characters go into the play deck. */
+  CharacterDeckDraft = 'character-deck-draft',
+}
+
+/**
+ * Per-player state during the character draft step.
  *
  * Before the game begins, both players simultaneously draft characters from
  * their pool. Each round, players make a face-down pick. If both picks are
@@ -272,28 +281,8 @@ export interface DraftPlayerState {
   readonly stopped: boolean;
 }
 
-// ---- Phase-specific state ----
-
 /**
- * State for the character draft phase, tracking the draft round, both
- * players' draft progress, and any characters set aside due to collisions.
- */
-export interface CharacterDraftPhaseState {
-  /** Phase discriminant. */
-  readonly phase: Phase.CharacterDraft;
-  /** Current draft round number (1-based). */
-  readonly round: number;
-  /** Draft state for each player (indexed by player order). */
-  readonly draftState: readonly [DraftPlayerState, DraftPlayerState];
-  /** Character definition IDs removed from the draft due to both players picking the same character. */
-  readonly setAside: readonly CardDefinitionId[];
-}
-
-/**
- * Per-player state during the item draft phase.
- *
- * After the character draft completes, each player assigns their starting
- * minor items to any character in their starting company.
+ * Per-player state during the item draft step.
  */
 export interface ItemDraftPlayerState {
   /** Minor item instance IDs not yet assigned to a character. */
@@ -303,23 +292,7 @@ export interface ItemDraftPlayerState {
 }
 
 /**
- * State for the item draft phase, where players assign starting minor
- * items to their drafted characters before the game begins.
- */
-export interface ItemDraftPhaseState {
-  /** Phase discriminant. */
-  readonly phase: Phase.ItemDraft;
-  /** Item assignment state for each player (indexed by player order). */
-  readonly itemDraftState: readonly [ItemDraftPlayerState, ItemDraftPlayerState];
-  /** Characters remaining in each player's draft pool after the character draft. */
-  readonly remainingPool: readonly [readonly CardDefinitionId[], readonly CardDefinitionId[]];
-}
-
-/**
- * Per-player state during the character deck draft phase.
- *
- * After item assignment, each player chooses which remaining pool characters
- * to add to their play deck (max 10 non-avatar characters in the deck).
+ * Per-player state during the character deck draft step.
  */
 export interface CharacterDeckDraftPlayerState {
   /** Remaining pool characters available to add to the play deck. */
@@ -330,15 +303,43 @@ export interface CharacterDeckDraftPlayerState {
   readonly shuffled: boolean;
 }
 
+// ---- Phase-specific state ----
+
 /**
- * State for the character deck draft phase, where players add undrafted
- * characters from their pool into the play deck.
+ * Setup phase step state — discriminated by the `step` field.
  */
-export interface CharacterDeckDraftPhaseState {
+export type SetupStepState =
+  | {
+      readonly step: SetupStep.CharacterDraft;
+      /** Current draft round number (1-based). */
+      readonly round: number;
+      /** Draft state for each player (indexed by player order). */
+      readonly draftState: readonly [DraftPlayerState, DraftPlayerState];
+      /** Character definition IDs set aside due to collisions. */
+      readonly setAside: readonly CardDefinitionId[];
+    }
+  | {
+      readonly step: SetupStep.ItemDraft;
+      /** Item assignment state for each player. */
+      readonly itemDraftState: readonly [ItemDraftPlayerState, ItemDraftPlayerState];
+      /** Characters remaining in each player's draft pool. */
+      readonly remainingPool: readonly [readonly CardDefinitionId[], readonly CardDefinitionId[]];
+    }
+  | {
+      readonly step: SetupStep.CharacterDeckDraft;
+      /** Deck draft state for each player. */
+      readonly deckDraftState: readonly [CharacterDeckDraftPlayerState, CharacterDeckDraftPlayerState];
+    };
+
+/**
+ * Pre-game setup phase. Contains a `step` discriminant that tracks
+ * which setup step is active (character draft → item draft → deck draft).
+ */
+export interface SetupPhaseState {
   /** Phase discriminant. */
-  readonly phase: Phase.CharacterDeckDraft;
-  /** Deck draft state for each player (indexed by player order). */
-  readonly deckDraftState: readonly [CharacterDeckDraftPlayerState, CharacterDeckDraftPlayerState];
+  readonly phase: Phase.Setup;
+  /** The current setup step and its associated state. */
+  readonly setupStep: SetupStepState;
 }
 
 /**
@@ -449,9 +450,7 @@ export interface GameOverPhaseState {
  * The `phase` field serves as the discriminant for type narrowing.
  */
 export type PhaseState =
-  | CharacterDraftPhaseState
-  | ItemDraftPhaseState
-  | CharacterDeckDraftPhaseState
+  | SetupPhaseState
   | UntapPhaseState
   | OrganizationPhaseState
   | LongEventPhaseState

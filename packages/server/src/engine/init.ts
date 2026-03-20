@@ -36,6 +36,7 @@ import type {
 } from '@meccg/shared';
 import {
   Phase,
+  SetupStep,
   CharacterStatus,
   Alignment,
   HAND_SIZE,
@@ -139,10 +140,13 @@ export function createGame(
     players,
     activePlayer: null,
     phaseState: {
-      phase: Phase.CharacterDraft,
-      round: 1,
-      draftState,
-      setAside: [],
+      phase: Phase.Setup,
+      setupStep: {
+        step: SetupStep.CharacterDraft,
+        round: 1,
+        draftState,
+        setAside: [],
+      },
     },
     eventsInPlay: [],
     cardPool,
@@ -314,7 +318,7 @@ export function applyDraftResults(
     players: newPlayers,
     activePlayer: null,
     instanceMap: minter.instanceMap,
-    phaseState: { phase: Phase.ItemDraft, itemDraftState, remainingPool },
+    phaseState: { phase: Phase.Setup, setupStep: { step: SetupStep.ItemDraft, itemDraftState, remainingPool } },
     turnNumber: 0,
   };
 }
@@ -333,11 +337,14 @@ export function transitionAfterItemDraft(
       ...state,
       activePlayer: null,
       phaseState: {
-        phase: Phase.CharacterDeckDraft,
-        deckDraftState: [
-          { remainingPool: remainingPool[0], done: remainingPool[0].length === 0, shuffled: false },
-          { remainingPool: remainingPool[1], done: remainingPool[1].length === 0, shuffled: false },
-        ],
+        phase: Phase.Setup,
+        setupStep: {
+          step: SetupStep.CharacterDeckDraft,
+          deckDraftState: [
+            { remainingPool: remainingPool[0], done: remainingPool[0].length === 0, shuffled: false },
+            { remainingPool: remainingPool[1], done: remainingPool[1].length === 0, shuffled: false },
+          ],
+        },
       },
       turnNumber: 0,
     };

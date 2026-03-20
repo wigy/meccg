@@ -116,7 +116,7 @@ describe('recompute derived values', () => {
       state = result.state;
 
       // Should be in item-draft phase (both have starting items)
-      expect(state.phaseState.phase).toBe(Phase.ItemDraft);
+      expect(state.phaseState.phase).toBe(Phase.Setup);
 
       // Aragorn: mind 9, 3 MP
       expect(state.players[0].generalInfluenceUsed).toBe(9);
@@ -148,7 +148,7 @@ describe('recompute derived values', () => {
       result = reduce(state, { type: 'draft-stop', player: PLAYER_2 });
       state = result.state;
 
-      expect(state.phaseState.phase).toBe(Phase.ItemDraft);
+      expect(state.phaseState.phase).toBe(Phase.Setup);
 
       // Aragorn (9 mind, 3 MP) + Bilbo (5 mind, 2 MP)
       expect(state.players[0].generalInfluenceUsed).toBe(14);

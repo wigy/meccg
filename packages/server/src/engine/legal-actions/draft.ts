@@ -9,10 +9,10 @@ import type { GameState, PlayerId, GameAction } from '@meccg/shared';
 import { GENERAL_INFLUENCE, getAlignmentRules } from '@meccg/shared';
 
 export function draftActions(state: GameState, playerId: PlayerId): GameAction[] {
-  if (state.phaseState.phase !== 'character-draft') return [];
+  if (state.phaseState.phase !== 'setup' || state.phaseState.setupStep.step !== 'character-draft') return [];
 
   const playerIndex = state.players[0].id === playerId ? 0 : 1;
-  const draft = state.phaseState.draftState[playerIndex];
+  const draft = state.phaseState.setupStep.draftState[playerIndex];
 
   // Already stopped or already picked this round (waiting for opponent)
   if (draft.stopped || draft.currentPick !== null) return [];
@@ -25,8 +25,8 @@ export function draftActions(state: GameState, playerId: PlayerId): GameAction[]
   // Characters already drafted by the opponent are unavailable (unique)
   const opponentIndex = 1 - playerIndex;
   const opponentDrafted = new Set(
-    state.phaseState.phase === 'character-draft'
-      ? state.phaseState.draftState[opponentIndex].drafted.map(id => id as string)
+    state.phaseState.phase === 'setup' && state.phaseState.setupStep.step === 'character-draft'
+      ? state.phaseState.setupStep.draftState[opponentIndex].drafted.map(id => id as string)
       : [],
   );
 

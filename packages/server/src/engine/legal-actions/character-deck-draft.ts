@@ -27,10 +27,10 @@ function countNonAvatarInDeck(state: GameState, playerIndex: number): number {
 }
 
 export function characterDeckDraftActions(state: GameState, playerId: PlayerId): GameAction[] {
-  if (state.phaseState.phase !== 'character-deck-draft') return [];
+  if (state.phaseState.phase !== 'setup' || state.phaseState.setupStep.step !== 'character-deck-draft') return [];
 
   const playerIndex = state.players[0].id === playerId ? 0 : 1;
-  const deckDraft = state.phaseState.deckDraftState[playerIndex];
+  const deckDraft = state.phaseState.setupStep.deckDraftState[playerIndex];
 
   if (deckDraft.shuffled) return [];
 

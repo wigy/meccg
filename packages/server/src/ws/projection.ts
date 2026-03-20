@@ -190,23 +190,24 @@ export function projectSpectatorView(state: GameState): PlayerView {
  * (public info after reveal).
  */
 function redactPhaseForPlayer(phaseState: PhaseState, selfIndex: number): PhaseState {
-  if (phaseState.phase !== 'character-draft') return phaseState;
+  if (phaseState.phase !== 'setup' || phaseState.setupStep.step !== 'character-draft') return phaseState;
 
   const opponentIndex = 1 - selfIndex;
+  const step = phaseState.setupStep;
   const newDraftState: [DraftPlayerState, DraftPlayerState] = [
-    phaseState.draftState[0],
-    phaseState.draftState[1],
+    step.draftState[0],
+    step.draftState[1],
   ];
-  const oppPool = phaseState.draftState[opponentIndex].pool;
+  const oppPool = step.draftState[opponentIndex].pool;
   newDraftState[opponentIndex] = {
-    ...phaseState.draftState[opponentIndex],
+    ...step.draftState[opponentIndex],
     pool: oppPool.map(() => UNKNOWN_CARD),
     currentPick: null,
     startingMinorItems: [],
     // drafted stays visible — it's public after reveal
   };
 
-  return { ...phaseState, draftState: newDraftState };
+  return { ...phaseState, setupStep: { ...step, draftState: newDraftState } };
 }
 
 /**
@@ -214,8 +215,9 @@ function redactPhaseForPlayer(phaseState: PhaseState, selfIndex: number): PhaseS
  * set-aside are visible, but pools, picks, and starting items are hidden.
  */
 function redactPhaseForSpectator(phaseState: PhaseState): PhaseState {
-  if (phaseState.phase !== 'character-draft') return phaseState;
+  if (phaseState.phase !== 'setup' || phaseState.setupStep.step !== 'character-draft') return phaseState;
 
+  const step = phaseState.setupStep;
   const redact = (d: DraftPlayerState): DraftPlayerState => ({
     ...d,
     pool: d.pool.map(() => UNKNOWN_CARD),
@@ -226,7 +228,7 @@ function redactPhaseForSpectator(phaseState: PhaseState): PhaseState {
 
   return {
     ...phaseState,
-    draftState: [redact(phaseState.draftState[0]), redact(phaseState.draftState[1])],
+    setupStep: { ...step, draftState: [redact(step.draftState[0]), redact(step.draftState[1])] },
   };
 }
 
@@ -253,8 +255,8 @@ export function projectPlayerView(state: GameState, playerId: PlayerId): PlayerV
   };
 
   // Item draft: unassigned items are visible to their owner
-  if (state.phaseState.phase === 'item-draft') {
-    for (const id of state.phaseState.itemDraftState[selfIndex].unassignedItems) addInstance(id);
+  if (state.phaseState.phase === 'setup' && state.phaseState.setupStep.step === 'item-draft') {
+    for (const id of state.phaseState.setupStep.itemDraftState[selfIndex].unassignedItems) addInstance(id);
   }
 
   // Own cards: hand, discard, site deck, sideboard, companies, characters + their attachments

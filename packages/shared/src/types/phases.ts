@@ -31,7 +31,7 @@ import type { GameAction } from './actions.js';
  * 6. **End-of-Turn** -- Draw/discard to hand size, optionally call Free Council.
  *
  * After End-of-Turn, the active player switches and the sequence repeats.
- * This array excludes CharacterDraft (pre-game), FreeCouncil, and GameOver
+ * This array excludes Setup (pre-game), FreeCouncil, and GameOver
  * (endgame) since they are outside the normal turn loop.
  */
 export const PHASE_ORDER: readonly Phase[] = [
@@ -62,17 +62,10 @@ export const PHASE_ORDER: readonly Phase[] = [
  * - **GameOver** has no legal actions -- the game is finished.
  */
 export const LEGAL_ACTIONS_BY_PHASE: Readonly<Record<Phase, readonly GameAction['type'][]>> = {
-  [Phase.CharacterDraft]: [
+  [Phase.Setup]: [
     'draft-pick',
     'draft-stop',
-  ],
-
-  [Phase.ItemDraft]: [
     'assign-starting-item',
-    'pass',
-  ],
-
-  [Phase.CharacterDeckDraft]: [
     'add-character-to-deck',
     'shuffle-play-deck',
     'pass',

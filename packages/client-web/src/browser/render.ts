@@ -170,12 +170,12 @@ export function renderState(view: PlayerView, cardPool: Readonly<Record<string, 
 export function renderDraft(view: PlayerView, cardPool: Readonly<Record<string, CardDefinition>>): void {
   const el = $('draft');
 
-  if (view.phaseState.phase !== 'character-draft') {
+  if (view.phaseState.phase !== 'setup' || view.phaseState.setupStep.step !== 'character-draft') {
     el.innerHTML = '';
     return;
   }
 
-  const draft = view.phaseState;
+  const draft = view.phaseState.setupStep;
   const list = (ids: readonly CardDefinitionId[]) => formatCardList(ids, cardPool);
 
   const lines: string[] = [];

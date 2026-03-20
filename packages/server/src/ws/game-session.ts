@@ -267,7 +267,8 @@ export class GameSession {
     const actionWithPlayer = { ...action, player: playerId };
 
     // Capture draft state before the action for reveal detection
-    const prevDraft = this.state.phaseState.phase === 'character-draft' ? this.state.phaseState : null;
+    const prevDraft = this.state.phaseState.phase === 'setup' && this.state.phaseState.setupStep.step === 'character-draft'
+      ? this.state.phaseState.setupStep : null;
 
     const result = reduce(this.state, actionWithPlayer);
     if (result.error) {
@@ -283,7 +284,8 @@ export class GameSession {
 
     // Detect draft round reveal
     if (prevDraft) {
-      const newDraft = this.state.phaseState.phase === 'character-draft' ? this.state.phaseState : null;
+      const newDraft = this.state.phaseState.phase === 'setup' && this.state.phaseState.setupStep.step === 'character-draft'
+        ? this.state.phaseState.setupStep : null;
       const roundAdvanced = newDraft && newDraft.round > prevDraft.round;
       const draftEnded = !newDraft;
 

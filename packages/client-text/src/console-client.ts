@@ -22,7 +22,7 @@ import * as readline from 'readline';
 import type { PlayerId, ServerMessage, ClientMessage, JoinMessage, CardDefinitionId, GameAction } from '@meccg/shared';
 import {
   ARAGORN, BILBO, FRODO, LEGOLAS, GIMLI, SAM_GAMGEE, ELROND, CELEBORN, THEODEN, BEORN,
-  EOWYN, BEREGOND, BERGIL, BARD_BOWMAN, ANBORN,
+  EOWYN, BEREGOND, ANBORN,
   FARAMIR, GLORFINDEL_II,
   GLAMDRING, STING, THE_MITHRIL_COAT, THE_ONE_RING, DAGGER_OF_WESTERNESSE,
   CAVE_DRAKE, ORC_PATROL, BARROW_WIGHT,
@@ -141,8 +141,8 @@ function connect(): void {
       case 'state':
         console.log('\n' + formatPlayerView(msg.view, cardPool));
 
-        if (msg.view.phaseState.phase === 'character-draft') {
-          const draft = msg.view.phaseState;
+        if (msg.view.phaseState.phase === 'setup' && msg.view.phaseState.setupStep.step === 'character-draft') {
+          const draft = msg.view.phaseState.setupStep;
           const list = (ids: readonly CardDefinitionId[]) => formatCardList(ids, cardPool);
           console.log(`Draft round: ${draft.round}`);
 

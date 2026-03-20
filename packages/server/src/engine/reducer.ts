@@ -14,9 +14,9 @@
  * (or the original state plus an error string if the action was illegal).
  */
 
-import type { GameState, DraftPlayerState, ItemDraftPlayerState, CharacterDeckDraftPlayerState, CardDefinitionId, CardInstanceId, CharacterInPlay, CardInstance } from '@meccg/shared';
+import type { GameState, DraftPlayerState, ItemDraftPlayerState, CharacterDeckDraftPlayerState, SetupStepState, CardDefinitionId, CardInstanceId, CharacterInPlay, CardInstance } from '@meccg/shared';
 import type { GameAction } from '@meccg/shared';
-import { Phase, LEGAL_ACTIONS_BY_PHASE, getAlignmentRules, shuffle } from '@meccg/shared';
+import { Phase, SetupStep, LEGAL_ACTIONS_BY_PHASE, getAlignmentRules, shuffle } from '@meccg/shared';
 import { applyDraftResults, transitionAfterItemDraft } from './init.js';
 import { recomputeDerived } from './recompute-derived.js';
 
@@ -59,14 +59,8 @@ export function reduce(state: GameState, action: GameAction): ReducerResult {
   // 3. Dispatch to phase handler
   let result: ReducerResult;
   switch (phase) {
-    case Phase.CharacterDraft:
-      result = handleCharacterDraft(state, action);
-      break;
-    case Phase.ItemDraft:
-      result = handleItemDraft(state, action);
-      break;
-    case Phase.CharacterDeckDraft:
-      result = handleCharacterDeckDraft(state, action);
+    case Phase.Setup:
+      result = handleSetup(state, action);
       break;
     case Phase.Untap:
       result = handleUntap(state, action);
@@ -138,24 +132,40 @@ function validateActionPlayer(state: GameState, action: GameAction): string | un
   return undefined;
 }
 
+// ---- Setup phase handler ----
+
+/** Dispatches setup phase actions to the appropriate step handler. */
+function handleSetup(state: GameState, action: GameAction): ReducerResult {
+  if (state.phaseState.phase !== Phase.Setup) {
+    return { state, error: 'Not in setup phase' };
+  }
+  switch (state.phaseState.setupStep.step) {
+    case SetupStep.CharacterDraft:
+      return handleCharacterDraft(state, action, state.phaseState.setupStep);
+    case SetupStep.ItemDraft:
+      return handleItemDraft(state, action, state.phaseState.setupStep);
+    case SetupStep.CharacterDeckDraft:
+      return handleCharacterDeckDraft(state, action, state.phaseState.setupStep);
+    default:
+      return { state, error: 'Unknown setup step' };
+  }
+}
+
+/** Helper to wrap a setup step state into a full phase state. */
+function setupPhase(setupStep: SetupStepState): { readonly phase: Phase.Setup; readonly setupStep: SetupStepState } {
+  return { phase: Phase.Setup, setupStep };
+}
+
 // ---- Character draft handler ----
 
 /**
- * Handles actions during the simultaneous character draft phase.
- *
- * Both players secretly choose one character per round (`draft-pick`) or
- * stop drafting (`draft-stop`). When both have submitted for a round, picks
- * are revealed: if they chose the same character, neither gets it (set aside).
- * The draft ends when both players stop or hit the 5-character / 20-mind
- * limit, at which point {@link applyDraftResults} places characters on the
- * board and transitions to the first Untap phase.
+ * Handles actions during the simultaneous character draft step.
  */
-function handleCharacterDraft(state: GameState, action: GameAction): ReducerResult {
-  if (state.phaseState.phase !== Phase.CharacterDraft) {
-    return { state, error: 'Not in character draft phase' };
-  }
-
-  const draft = state.phaseState;
+function handleCharacterDraft(
+  state: GameState,
+  action: GameAction,
+  draft: SetupStepState & { step: SetupStep.CharacterDraft },
+): ReducerResult {
   const playerIndex = state.players[0].id === action.player ? 0 : 1;
   const playerDraft = draft.draftState[playerIndex];
 
@@ -206,7 +216,7 @@ function handleCharacterDraft(state: GameState, action: GameAction): ReducerResu
       return {
         state: {
           ...state,
-          phaseState: { ...draft, draftState: newDraftState },
+          phaseState: setupPhase({ ...draft, draftState: newDraftState }),
         },
       };
     }
@@ -233,7 +243,7 @@ function handleCharacterDraft(state: GameState, action: GameAction): ReducerResu
       return {
         state: {
           ...state,
-          phaseState: { ...draft, draftState: newDraftState },
+          phaseState: setupPhase({ ...draft, draftState: newDraftState }),
         },
       };
     }
@@ -304,10 +314,13 @@ function resolveDraftRound(
     state: {
       ...state,
       phaseState: {
-        phase: Phase.CharacterDraft,
-        round: round + 1,
-        draftState: newDraft,
-        setAside: newSetAside,
+        phase: Phase.Setup,
+        setupStep: {
+          step: SetupStep.CharacterDraft,
+          round: round + 1,
+          draftState: newDraft,
+          setAside: newSetAside,
+        },
       },
     },
   };
@@ -334,13 +347,13 @@ function finalizeDraft(
  * simultaneously. When all items are assigned, the game transitions to
  * the first Untap phase.
  */
-function handleItemDraft(state: GameState, action: GameAction): ReducerResult {
-  if (state.phaseState.phase !== Phase.ItemDraft) {
-    return { state, error: 'Not in item draft phase' };
-  }
-
+function handleItemDraft(
+  state: GameState,
+  action: GameAction,
+  stepState: SetupStepState & { step: SetupStep.ItemDraft },
+): ReducerResult {
   const playerIndex = state.players[0].id === action.player ? 0 : 1;
-  const itemDraft = state.phaseState.itemDraftState[playerIndex];
+  const itemDraft = stepState.itemDraftState[playerIndex];
 
   if (itemDraft.done) {
     return { state, error: 'You have already finished item assignment' };
@@ -348,19 +361,19 @@ function handleItemDraft(state: GameState, action: GameAction): ReducerResult {
 
   // Pass: skip remaining item assignments
   if (action.type === 'pass') {
-    const newItemDraftState = [...state.phaseState.itemDraftState] as [ItemDraftPlayerState, ItemDraftPlayerState];
+    const newItemDraftState = [...stepState.itemDraftState] as [ItemDraftPlayerState, ItemDraftPlayerState];
     newItemDraftState[playerIndex] = { unassignedItems: [], done: true };
 
     if (newItemDraftState[0].done && newItemDraftState[1].done) {
       return {
-        state: transitionAfterItemDraft(state, state.phaseState.remainingPool),
+        state: transitionAfterItemDraft(state, stepState.remainingPool),
       };
     }
 
     return {
       state: {
         ...state,
-        phaseState: { ...state.phaseState, itemDraftState: newItemDraftState },
+        phaseState: setupPhase({ ...stepState, itemDraftState: newItemDraftState }),
       },
     };
   }
@@ -406,7 +419,7 @@ function handleItemDraft(state: GameState, action: GameAction): ReducerResult {
     done: newUnassigned.length === 0,
   };
 
-  const newItemDraftState = [...state.phaseState.itemDraftState] as [ItemDraftPlayerState, ItemDraftPlayerState];
+  const newItemDraftState = [...stepState.itemDraftState] as [ItemDraftPlayerState, ItemDraftPlayerState];
   newItemDraftState[playerIndex] = newItemDraft;
 
   const newPlayers = [...state.players] as unknown as [typeof state.players[0], typeof state.players[1]];
@@ -417,7 +430,7 @@ function handleItemDraft(state: GameState, action: GameAction): ReducerResult {
     return {
       state: transitionAfterItemDraft(
         { ...state, players: newPlayers as unknown as readonly [typeof state.players[0], typeof state.players[1]] },
-        state.phaseState.remainingPool,
+        stepState.remainingPool,
       ),
     };
   }
@@ -426,7 +439,7 @@ function handleItemDraft(state: GameState, action: GameAction): ReducerResult {
     state: {
       ...state,
       players: newPlayers as unknown as readonly [typeof state.players[0], typeof state.players[1]],
-      phaseState: { ...state.phaseState, itemDraftState: newItemDraftState },
+      phaseState: setupPhase({ ...stepState, itemDraftState: newItemDraftState }),
     },
   };
 }
@@ -439,13 +452,13 @@ function handleItemDraft(state: GameState, action: GameAction): ReducerResult {
  * Both players act simultaneously. After finishing, each must shuffle
  * their play deck before the game transitions to Untap (turn 1).
  */
-function handleCharacterDeckDraft(state: GameState, action: GameAction): ReducerResult {
-  if (state.phaseState.phase !== Phase.CharacterDeckDraft) {
-    return { state, error: 'Not in character deck draft phase' };
-  }
-
+function handleCharacterDeckDraft(
+  state: GameState,
+  action: GameAction,
+  stepState: SetupStepState & { step: SetupStep.CharacterDeckDraft },
+): ReducerResult {
   const playerIndex = state.players[0].id === action.player ? 0 : 1;
-  const deckDraft = state.phaseState.deckDraftState[playerIndex];
+  const deckDraft = stepState.deckDraftState[playerIndex];
 
   if (deckDraft.shuffled) {
     return { state, error: 'You have already finished this phase' };
@@ -459,13 +472,13 @@ function handleCharacterDeckDraft(state: GameState, action: GameAction): Reducer
 
     const player = state.players[playerIndex];
     let rng = state.rng;
-    let shuffled: CardInstanceId[];
-    [shuffled, rng] = shuffle([...player.playDeck], rng);
+    const [shuffled, nextRng] = shuffle([...player.playDeck], rng);
+    rng = nextRng;
 
     const newPlayers = [...state.players] as unknown as [typeof state.players[0], typeof state.players[1]];
     newPlayers[playerIndex] = { ...player, playDeck: shuffled };
 
-    const newDeckDraftState = [...state.phaseState.deckDraftState] as [CharacterDeckDraftPlayerState, CharacterDeckDraftPlayerState];
+    const newDeckDraftState = [...stepState.deckDraftState] as [CharacterDeckDraftPlayerState, CharacterDeckDraftPlayerState];
     newDeckDraftState[playerIndex] = { ...deckDraft, shuffled: true };
 
     // Both shuffled → transition to Untap
@@ -486,7 +499,7 @@ function handleCharacterDeckDraft(state: GameState, action: GameAction): Reducer
       state: {
         ...state,
         players: newPlayers as unknown as readonly [typeof state.players[0], typeof state.players[1]],
-        phaseState: { ...state.phaseState, deckDraftState: newDeckDraftState },
+        phaseState: setupPhase({ ...stepState, deckDraftState: newDeckDraftState }),
         rng,
       },
     };
@@ -498,13 +511,13 @@ function handleCharacterDeckDraft(state: GameState, action: GameAction): Reducer
 
   // Pass: done adding characters, must shuffle next
   if (action.type === 'pass') {
-    const newDeckDraftState = [...state.phaseState.deckDraftState] as [CharacterDeckDraftPlayerState, CharacterDeckDraftPlayerState];
+    const newDeckDraftState = [...stepState.deckDraftState] as [CharacterDeckDraftPlayerState, CharacterDeckDraftPlayerState];
     newDeckDraftState[playerIndex] = { remainingPool: [], done: true, shuffled: false };
 
     return {
       state: {
         ...state,
-        phaseState: { ...state.phaseState, deckDraftState: newDeckDraftState },
+        phaseState: setupPhase({ ...stepState, deckDraftState: newDeckDraftState }),
       },
     };
   }
@@ -546,7 +559,7 @@ function handleCharacterDeckDraft(state: GameState, action: GameAction): Reducer
 
   // Remove from remaining pool
   const newPool = deckDraft.remainingPool.filter(id => id !== action.characterDefId);
-  const newDeckDraftState = [...state.phaseState.deckDraftState] as [CharacterDeckDraftPlayerState, CharacterDeckDraftPlayerState];
+  const newDeckDraftState = [...stepState.deckDraftState] as [CharacterDeckDraftPlayerState, CharacterDeckDraftPlayerState];
   newDeckDraftState[playerIndex] = {
     remainingPool: newPool,
     done: newPool.length === 0,
@@ -558,7 +571,7 @@ function handleCharacterDeckDraft(state: GameState, action: GameAction): Reducer
       ...state,
       players: newPlayers as unknown as readonly [typeof state.players[0], typeof state.players[1]],
       instanceMap: newInstanceMap,
-      phaseState: { ...state.phaseState, deckDraftState: newDeckDraftState },
+      phaseState: setupPhase({ ...stepState, deckDraftState: newDeckDraftState }),
     },
   };
 }

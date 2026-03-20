@@ -168,7 +168,7 @@ describe('character draft', () => {
   it('starts in character-draft phase at round 1', () => {
     const state = createGame(makeDraftConfig(), pool);
 
-    expect(state.phaseState.phase).toBe(Phase.CharacterDraft);
+    expect(state.phaseState.phase).toBe(Phase.Setup);
     expect(state.turnNumber).toBe(0);
     expect(state.players[0].hand).toHaveLength(0);
     expect(state.players[1].hand).toHaveLength(0);
@@ -186,10 +186,10 @@ describe('character draft', () => {
     state = result.state;
 
     // Still in draft, pick is face-down, not yet in drafted
-    expect(state.phaseState.phase).toBe(Phase.CharacterDraft);
-    if (state.phaseState.phase === Phase.CharacterDraft) {
-      expect(state.phaseState.draftState[0].currentPick).toBe(ARAGORN);
-      expect(state.phaseState.draftState[0].drafted).not.toContain(ARAGORN);
+    expect(state.phaseState.phase).toBe(Phase.Setup);
+    if (state.phaseState.phase === Phase.Setup && state.phaseState.setupStep.step === 'character-draft') {
+      expect(state.phaseState.setupStep.draftState[0].currentPick).toBe(ARAGORN);
+      expect(state.phaseState.setupStep.draftState[0].drafted).not.toContain(ARAGORN);
     }
 
     // Player 2 picks — both revealed, round resolves
@@ -199,12 +199,12 @@ describe('character draft', () => {
     state = result.state;
 
     // Different picks: both succeed, picks cleared, round advances
-    if (state.phaseState.phase === Phase.CharacterDraft) {
-      expect(state.phaseState.draftState[0].drafted).toContain(ARAGORN);
-      expect(state.phaseState.draftState[1].drafted).toContain(LEGOLAS);
-      expect(state.phaseState.draftState[0].currentPick).toBeNull();
-      expect(state.phaseState.draftState[1].currentPick).toBeNull();
-      expect(state.phaseState.round).toBe(2);
+    if (state.phaseState.phase === Phase.Setup && state.phaseState.setupStep.step === 'character-draft') {
+      expect(state.phaseState.setupStep.draftState[0].drafted).toContain(ARAGORN);
+      expect(state.phaseState.setupStep.draftState[1].drafted).toContain(LEGOLAS);
+      expect(state.phaseState.setupStep.draftState[0].currentPick).toBeNull();
+      expect(state.phaseState.setupStep.draftState[1].currentPick).toBeNull();
+      expect(state.phaseState.setupStep.round).toBe(2);
     }
   });
 
@@ -256,15 +256,15 @@ describe('character draft', () => {
     state = result.state;
 
     // Reveal: collision — Aragorn set aside, neither player gets him
-    if (state.phaseState.phase === Phase.CharacterDraft) {
-      expect(state.phaseState.draftState[0].drafted).not.toContain(ARAGORN);
-      expect(state.phaseState.draftState[1].drafted).not.toContain(ARAGORN);
-      expect(state.phaseState.draftState[0].currentPick).toBeNull();
-      expect(state.phaseState.draftState[1].currentPick).toBeNull();
-      expect(state.phaseState.setAside).toContain(ARAGORN);
+    if (state.phaseState.phase === Phase.Setup && state.phaseState.setupStep.step === 'character-draft') {
+      expect(state.phaseState.setupStep.draftState[0].drafted).not.toContain(ARAGORN);
+      expect(state.phaseState.setupStep.draftState[1].drafted).not.toContain(ARAGORN);
+      expect(state.phaseState.setupStep.draftState[0].currentPick).toBeNull();
+      expect(state.phaseState.setupStep.draftState[1].currentPick).toBeNull();
+      expect(state.phaseState.setupStep.setAside).toContain(ARAGORN);
       // Aragorn also removed from both pools
-      expect(state.phaseState.draftState[0].pool).not.toContain(ARAGORN);
-      expect(state.phaseState.draftState[1].pool).not.toContain(ARAGORN);
+      expect(state.phaseState.setupStep.draftState[0].pool).not.toContain(ARAGORN);
+      expect(state.phaseState.setupStep.draftState[1].pool).not.toContain(ARAGORN);
     }
   });
 
@@ -282,7 +282,7 @@ describe('character draft', () => {
     state = result.state;
 
     // Both players have starting items, so we're in item-draft
-    expect(state.phaseState.phase).toBe(Phase.ItemDraft);
+    expect(state.phaseState.phase).toBe(Phase.Setup);
     expect(state.players[0].companies).toHaveLength(1);
     expect(state.players[1].companies).toHaveLength(1);
   });
@@ -300,15 +300,15 @@ describe('character draft', () => {
     result = reduce(state, { type: 'draft-stop', player: PLAYER_2 });
     state = result.state;
 
-    expect(state.phaseState.phase).toBe(Phase.ItemDraft);
+    expect(state.phaseState.phase).toBe(Phase.Setup);
 
     // Get character and item instance IDs
     const p1Char = state.players[0].companies[0].characters[0];
     const p2Char = state.players[1].companies[0].characters[0];
 
-    if (state.phaseState.phase !== Phase.ItemDraft) throw new Error('wrong phase');
-    const p1Items = state.phaseState.itemDraftState[0].unassignedItems;
-    const p2Items = state.phaseState.itemDraftState[1].unassignedItems;
+    if (state.phaseState.phase !== Phase.Setup || state.phaseState.setupStep.step !== 'item-draft') throw new Error('wrong phase');
+    const p1Items = state.phaseState.setupStep.itemDraftState[0].unassignedItems;
+    const p2Items = state.phaseState.setupStep.itemDraftState[1].unassignedItems;
 
     expect(p1Items).toHaveLength(2); // Alice has 2 daggers
     expect(p2Items).toHaveLength(1); // Bob has 1 dagger
@@ -328,7 +328,7 @@ describe('character draft', () => {
     state = result.state;
 
     // All items assigned → transitions to character deck draft (remaining pool has characters)
-    expect(state.phaseState.phase).toBe(Phase.CharacterDeckDraft);
+    expect(state.phaseState.phase).toBe(Phase.Setup);
 
     // Both players pass to skip adding characters, then shuffle
     result = reduce(state, { type: 'pass', player: PLAYER_1 });
@@ -445,7 +445,7 @@ describe('character draft', () => {
     // But hero max is 5, so she should be auto-stopped after the 5th pick.
     // Both players stopped → draft ends → no items → character deck draft
     // (Alice's pool is empty since she drafted all 5; Bob has remaining pool)
-    if (state.phaseState.phase === Phase.CharacterDeckDraft) {
+    if (state.phaseState.phase === Phase.Setup) {
       result = reduce(state, { type: 'pass', player: PLAYER_1 });
       state = result.state;
       result = reduce(state, { type: 'pass', player: PLAYER_2 });

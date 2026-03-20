@@ -8,10 +8,10 @@
 import type { GameState, PlayerId, GameAction } from '@meccg/shared';
 
 export function itemDraftActions(state: GameState, playerId: PlayerId): GameAction[] {
-  if (state.phaseState.phase !== 'item-draft') return [];
+  if (state.phaseState.phase !== 'setup' || state.phaseState.setupStep.step !== 'item-draft') return [];
 
   const playerIndex = state.players[0].id === playerId ? 0 : 1;
-  const itemDraft = state.phaseState.itemDraftState[playerIndex];
+  const itemDraft = state.phaseState.setupStep.itemDraftState[playerIndex];
 
   if (itemDraft.done) return [];
 
