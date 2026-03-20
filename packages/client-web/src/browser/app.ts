@@ -211,6 +211,13 @@ document.addEventListener('DOMContentLoaded', () => {
     setViewMode(!debugView.classList.contains('hidden'));
   });
 
+  /** Flash a button to confirm the action was triggered. */
+  function flashBtn(btn: HTMLElement): void {
+    btn.classList.remove('btn-flash');
+    void btn.offsetWidth;
+    btn.classList.add('btn-flash');
+  }
+
   // Restore saved view mode
   if (localStorage.getItem(VIEW_KEY) === 'visual') {
     setViewMode(true);
@@ -257,6 +264,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const msg: ClientMessage = { type: 'save' };
       ws.send(JSON.stringify(msg));
       renderLog('Game saved.');
+      flashBtn(saveBtn);
     }
   });
 
@@ -264,6 +272,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (ws && ws.readyState === WebSocket.OPEN) {
       const msg: ClientMessage = { type: 'load' };
       ws.send(JSON.stringify(msg));
+      flashBtn(loadBtn);
     }
   });
 
@@ -271,6 +280,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (ws && ws.readyState === WebSocket.OPEN) {
       const msg: ClientMessage = { type: 'reset' };
       ws.send(JSON.stringify(msg));
+      flashBtn(resetBtn);
     }
   });
 
