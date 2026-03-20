@@ -1,0 +1,301 @@
+# Card Effects DSL
+
+Every card's effects are described declaratively in the JSON card database. A resolver engine evaluates them at each decision point by collecting all in-play effects, filtering by conditions, and computing final values.
+
+## Condition Language
+
+Conditions use MongoDB-style query operators. An object with multiple keys is an implicit AND.
+
+```json
+{ "bearer.race": "hobbit" }
+{ "reason": "combat", "enemy.race": "orc" }
+{ "$and": [{ "reason": "combat" }, { "enemy.race": "orc" }] }
+{ "$or": [{ "enemy.race": "undead" }, { "enemy.race": "nazgul" }] }
+{ "$not": { "enemy.race": "undead" } }
+{ "bearer.skills": { "$includes": "warrior" } }
+```
+
+A missing `when` means the effect always applies.
+
+## Value Expressions
+
+Plain numbers for the simple case, string expressions (evaluated with MathJS) when formulas are needed:
+
+```json
+"value": 3
+"value": "bearer.baseProwess * 2"
+"max": 8
+"max": "bearer.baseProwess * 2"
+```
+
+MathJS gets custom context variables injected: `bearer`, `enemy`, `company`, `self` (the card), `target`, `faction`, etc.
+
+## Effect Types
+
+### 1. `stat-modifier`
+
+Modifies a character stat. Supports optional `max` (cap), `id` (for override targeting), and `overrides` (replaces a named effect when condition matches).
+
+```json
+{ "type": "stat-modifier", "stat": "prowess", "value": 3, "max": 8,
+  "id": "glamdring-prowess" }
+{ "type": "stat-modifier", "stat": "prowess", "value": 3, "max": 9,
+  "overrides": "glamdring-prowess",
+  "when": { "reason": "combat", "enemy.race": "orc" } }
+```
+
+Stats: `prowess`, `body`, `direct-influence`, `corruption-points`.
+
+### 2. `check-modifier`
+
+Modifies a roll for a specific check type.
+
+```json
+{ "type": "check-modifier", "check": "corruption", "value": 1 }
+{ "type": "check-modifier", "check": "faction-influence", "value": -1 }
+```
+
+### 3. `mp-modifier`
+
+Modifies marshalling points conditionally.
+
+```json
+{ "type": "mp-modifier", "value": -3, "when": { "reason": "elimination" } }
+```
+
+### 4. `company-modifier`
+
+Applies a stat modifier to every character in the bearer's company.
+
+```json
+{ "type": "company-modifier", "stat": "corruption-points", "value": 1 }
+```
+
+### 5. `enemy-modifier`
+
+Modifies the enemy's stats during combat.
+
+```json
+{ "type": "enemy-modifier", "stat": "body", "op": "halve-round-up",
+  "when": { "reason": "combat", "enemy.race": "nazgul" } }
+```
+
+### 6. `hand-size-modifier`
+
+Modifies the player's hand size.
+
+```json
+{ "type": "hand-size-modifier", "value": 1,
+  "when": { "self.location": "Rivendell" } }
+```
+
+### 7. `grant-action`
+
+Gives the card bearer a new activated ability.
+
+```json
+{ "type": "grant-action", "action": "test-gold-ring",
+  "cost": { "tap": "self" },
+  "when": { "company.hasItem": { "subtype": "gold-ring" } } }
+```
+
+### 8. `on-event`
+
+Triggered effect that fires when a game event occurs.
+
+```json
+{ "type": "on-event", "event": "character-wounded-by-self",
+  "apply": { "type": "force-check", "check": "corruption", "modifier": -2 },
+  "target": "wounded-character" }
+```
+
+### 9. `cancel-strike`
+
+Pay a cost to cancel an incoming strike, with optional exclusions.
+
+```json
+{ "type": "cancel-strike",
+  "cost": { "check": "corruption", "modifier": -2 },
+  "when": { "$not": { "$or": [
+    { "enemy.race": "undead" }, { "enemy.race": "nazgul" }
+  ] } } }
+```
+
+### 10. `combat-rule`
+
+Overrides a combat mechanic.
+
+```json
+{ "type": "combat-rule", "rule": "attacker-chooses-defenders" }
+```
+
+### 11. `play-restriction`
+
+Constrains when or where a card can enter play.
+
+```json
+{ "type": "play-restriction", "rule": "home-site-only",
+  "when": { "$not": { "reason": "starting-character" } } }
+```
+
+### 12. `duplication-limit`
+
+Caps how many copies of this card can be in a given scope.
+
+```json
+{ "type": "duplication-limit", "scope": "character", "max": 1 }
+```
+
+## Resolver Architecture
+
+The engine calls a resolver at each decision point:
+
+```
+resolve(context, stat) → final value
+```
+
+The context carries everything relevant to the current calculation:
+
+- `reason` — what is being calculated (`"combat"`, `"faction-influence-check"`, `"corruption-check"`, etc.)
+- `bearer` / `character` — the character involved
+- `enemy` — the creature or hazard (in combat)
+- `faction` — the faction (in influence checks)
+- `company` — all characters at the same site
+- `cardsInPlay` — all cards in play for both players
+
+The resolver:
+
+1. Collects all effects from all cards in play
+2. Filters by `when` conditions against the context
+3. Resolves `overrides` chains (specific beats general)
+4. Evaluates value expressions via MathJS with context variables
+5. Applies modifiers and caps
+6. Returns the final computed value
+
+## Full Card Examples
+
+### Aragorn II
+
+```json
+"effects": [
+  { "type": "stat-modifier", "stat": "direct-influence", "value": 2,
+    "when": { "reason": "faction-influence-check", "faction.name": "Rangers of the North" } },
+  { "type": "mp-modifier", "value": -3, "when": { "reason": "elimination" } }
+]
+```
+
+### Gimli
+
+```json
+"effects": [
+  { "type": "stat-modifier", "stat": "direct-influence", "value": 2,
+    "when": { "reason": "faction-influence-check", "faction.name": "Iron Hill Dwarves" } },
+  { "type": "stat-modifier", "stat": "direct-influence", "value": 1,
+    "when": { "reason": "influence-check", "target.race": "elf" } },
+  { "type": "stat-modifier", "stat": "direct-influence", "value": 1,
+    "when": { "reason": "faction-influence-check", "faction.race": "elf" } },
+  { "type": "stat-modifier", "stat": "prowess", "value": 2,
+    "when": { "reason": "combat", "enemy.race": "orc" } }
+]
+```
+
+### Glamdring
+
+```json
+"effects": [
+  { "type": "stat-modifier", "stat": "prowess", "value": 3, "max": 8,
+    "id": "glamdring-prowess" },
+  { "type": "stat-modifier", "stat": "prowess", "value": 3, "max": 9,
+    "overrides": "glamdring-prowess",
+    "when": { "reason": "combat", "enemy.race": "orc" } }
+]
+```
+
+### Sting
+
+```json
+"effects": [
+  { "type": "stat-modifier", "stat": "prowess", "value": 1, "max": 8,
+    "id": "sting-prowess" },
+  { "type": "stat-modifier", "stat": "prowess", "value": 2, "max": 8,
+    "overrides": "sting-prowess",
+    "when": { "bearer.race": "hobbit" } }
+]
+```
+
+### The One Ring
+
+```json
+"effects": [
+  { "type": "stat-modifier", "stat": "prowess", "value": 5,
+    "max": "bearer.baseProwess * 2" },
+  { "type": "stat-modifier", "stat": "body", "value": 5, "max": 10 },
+  { "type": "stat-modifier", "stat": "direct-influence", "value": 5 },
+  { "type": "company-modifier", "stat": "corruption-points", "value": 1 },
+  { "type": "cancel-strike",
+    "cost": { "check": "corruption", "modifier": -2 },
+    "when": { "$not": { "$or": [
+      { "enemy.race": "undead" }, { "enemy.race": "nazgul" }
+    ] } } }
+]
+```
+
+### Eowyn
+
+```json
+"effects": [
+  { "type": "stat-modifier", "stat": "prowess", "value": 6,
+    "when": { "reason": "combat", "enemy.race": "nazgul" } },
+  { "type": "enemy-modifier", "stat": "body", "op": "halve-round-up",
+    "when": { "reason": "combat", "enemy.race": "nazgul" } }
+]
+```
+
+### Gandalf
+
+```json
+"effects": [
+  { "type": "check-modifier", "check": "corruption", "value": 1 },
+  { "type": "grant-action", "action": "test-gold-ring",
+    "cost": { "tap": "self" },
+    "when": { "company.hasItem": { "subtype": "gold-ring" } } }
+]
+```
+
+### Elrond
+
+```json
+"effects": [
+  { "type": "hand-size-modifier", "value": 1,
+    "when": { "self.location": "Rivendell" } },
+  { "type": "mp-modifier", "value": -3, "when": { "reason": "elimination" } }
+]
+```
+
+### Barrow-wight
+
+```json
+"effects": [
+  { "type": "on-event", "event": "character-wounded-by-self",
+    "apply": { "type": "force-check", "check": "corruption", "modifier": -2 },
+    "target": "wounded-character" }
+]
+```
+
+### Cave-drake
+
+```json
+"effects": [
+  { "type": "combat-rule", "rule": "attacker-chooses-defenders" }
+]
+```
+
+### Horn of Anor
+
+```json
+"effects": [
+  { "type": "stat-modifier", "stat": "direct-influence", "value": 2,
+    "when": { "reason": "faction-influence-check" } },
+  { "type": "duplication-limit", "scope": "character", "max": 1 }
+]
+```
