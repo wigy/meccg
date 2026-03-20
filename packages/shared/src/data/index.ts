@@ -30,6 +30,7 @@ import leResources from './le-resources.json';
 import leSites from './le-sites.json';
 
 // ---- The White Hand (WH) — fallen-wizard expansion ----
+import whResources from './wh-resources.json';
 import whSites from './wh-sites.json';
 
 // ---- The Balrog (BA) — balrog expansion ----
@@ -57,6 +58,7 @@ const allCards: readonly CardDefinition[] = [
   ...(leResources as unknown as CardDefinition[]),
   ...(leSites as unknown as CardDefinition[]),
   // The White Hand
+  ...(whResources as unknown as CardDefinition[]),
   ...(whSites as unknown as CardDefinition[]),
   // The Balrog
   ...(baCharacters as unknown as CardDefinition[]),

@@ -160,6 +160,11 @@ export const MINAS_MORGUL = did('le-390');
 /** The White Towers (minion) — ruins-and-lairs in Arthedain, nearest darkhaven Carn Dûm. */
 export const THE_WHITE_TOWERS_MINION = did('le-412');
 
+// ---- The White Hand — Fallen-wizard Resources ----
+
+/** Hidden Haven — permanent-event, turns a Ruins & Lairs into a Wizardhaven. */
+export const HIDDEN_HAVEN = did('wh-75');
+
 // ---- The White Hand — Fallen-wizard Sites ----
 
 /** The White Towers — fallen-wizard haven in Arthedain. */

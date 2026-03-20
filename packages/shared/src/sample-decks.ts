@@ -29,6 +29,8 @@ import {
   THE_MOUTH, LIEUTENANT_OF_DOL_GULDUR, GORBAG, SHAGRAT, PERCHEN, MIONID,
   // Minion sites
   DOL_GULDUR, MINAS_MORGUL, ETTENMOORS, THE_WHITE_TOWERS_MINION, WEATHERTOP,
+  // Fallen-wizard resources
+  HIDDEN_HAVEN,
   // Fallen-wizard sites
   THE_WHITE_TOWERS, ETTENMOORS_HERO, THE_WHITE_TOWERS_HERO,
   // Balrog characters
@@ -109,7 +111,7 @@ const fallenWizardDeck: SampleDeck = {
       name: playerName,
       alignment: Alignment.FallenWizard,
       draftPool: [MIONID, PERCHEN, THEODEN, BEREGOND, ANBORN],
-      startingMinorItems: [DAGGER_OF_WESTERNESSE, SAW_TOOTHED_BLADE],
+      startingMinorItems: [HIDDEN_HAVEN],
       playDeck: [...characters, ...repeatCards(hazards, 10)],
       siteDeck: [THE_WHITE_TOWERS, ETTENMOORS_HERO, THE_WHITE_TOWERS_HERO, MORIA, MINAS_TIRITH,
         DOL_GULDUR, MINAS_MORGUL, ETTENMOORS, THE_WHITE_TOWERS_MINION, WEATHERTOP],
