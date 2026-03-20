@@ -159,8 +159,14 @@ document.addEventListener('mousemove', (e) => {
   hoverImg.style.top = `${y}px`;
 });
 
+/** Hide the hover image (e.g. when DOM is re-rendered and the hovered element disappears). */
+function hideHoverImg(): void {
+  if (hoverImg) hoverImg.style.display = 'none';
+}
+
 /** Render the game state using the shared ANSI formatter, converted to HTML. */
 export function renderState(view: PlayerView, cardPool: Readonly<Record<string, CardDefinition>>): void {
+  hideHoverImg();
   const el = $('state');
   el.innerHTML = ansiToHtml(formatPlayerView(view, cardPool));
   tagCardImages(el, cardPool);
