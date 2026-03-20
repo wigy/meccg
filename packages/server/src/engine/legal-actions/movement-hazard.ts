@@ -7,9 +7,13 @@
  */
 
 import type { GameState, PlayerId, GameAction } from '@meccg/shared';
+import { logDetail } from './log.js';
 
 export function movementHazardActions(state: GameState, playerId: PlayerId): GameAction[] {
   // TODO: play-hazard (for non-active player), assign-strike, resolve-strike, support-strike
+  const isActive = state.activePlayer === playerId;
+  logDetail(`Movement/hazard phase: player is ${isActive ? 'active (mover)' : 'non-active (hazard player)'}`);
+
   const actions: GameAction[] = [];
   actions.push({ type: 'pass', player: playerId });
   return actions;

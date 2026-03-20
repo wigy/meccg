@@ -12,11 +12,15 @@ import { characterDeckDraftActions } from './character-deck-draft.js';
 import { startingSiteSelectionActions } from './starting-site-selection.js';
 import { characterPlacementActions } from './character-placement.js';
 import { initiativeRollActions } from './initiative-roll.js';
+import { logDetail } from './log.js';
 
 export function setupActions(state: GameState, playerId: PlayerId): GameAction[] {
   if (state.phaseState.phase !== 'setup') return [];
 
-  switch (state.phaseState.setupStep.step) {
+  const step = state.phaseState.setupStep.step;
+  logDetail(`Setup step: '${step}'`);
+
+  switch (step) {
     case 'character-draft':         return draftActions(state, playerId);
     case 'item-draft':              return itemDraftActions(state, playerId);
     case 'character-deck-draft':    return characterDeckDraftActions(state, playerId);

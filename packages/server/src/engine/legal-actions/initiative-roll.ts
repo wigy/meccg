@@ -7,6 +7,7 @@
  */
 
 import type { GameState, PlayerId, GameAction } from '@meccg/shared';
+import { logDetail } from './log.js';
 
 export function initiativeRollActions(state: GameState, playerId: PlayerId): GameAction[] {
   if (state.phaseState.phase !== 'setup' || state.phaseState.setupStep.step !== 'initiative-roll') return [];
@@ -15,7 +16,11 @@ export function initiativeRollActions(state: GameState, playerId: PlayerId): Gam
   const roll = state.phaseState.setupStep.rolls[playerIndex];
 
   // Already rolled — waiting for opponent or reroll
-  if (roll !== null) return [];
+  if (roll !== null) {
+    logDetail(`Player already rolled (${roll.die1}+${roll.die2}=${roll.die1 + roll.die2}), waiting for opponent`);
+    return [];
+  }
 
+  logDetail(`Player must roll for initiative`);
   return [{ type: 'roll-initiative', player: playerId }];
 }

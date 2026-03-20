@@ -6,15 +6,22 @@
  */
 
 import type { GameState, PlayerId, GameAction, CardInstanceId } from '@meccg/shared';
+import { logDetail } from './log.js';
 
 export function freeCouncilActions(state: GameState, playerId: PlayerId): GameAction[] {
   const player = state.players.find(p => p.id === playerId);
   if (!player) return [];
 
+  const charCount = Object.keys(player.characters).length;
+  logDetail(`Free Council: ${charCount} character(s) need corruption checks`);
+
   const actions: GameAction[] = [];
 
   // Corruption check for each character in play
   for (const charId of Object.keys(player.characters)) {
+    const charInPlay = player.characters[charId];
+    const charDef = state.cardPool[charInPlay.definitionId as string];
+    logDetail(`Corruption check available for '${charDef?.name ?? charId}'`);
     actions.push({
       type: 'corruption-check',
       player: playerId,

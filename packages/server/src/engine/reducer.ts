@@ -17,6 +17,7 @@
 import type { GameState, DraftPlayerState, ItemDraftPlayerState, CharacterDeckDraftPlayerState, SetupStepState, CardDefinitionId, CardInstanceId, CompanyId, CharacterInPlay, CardInstance } from '@meccg/shared';
 import type { GameAction } from '@meccg/shared';
 import { Phase, SetupStep, LEGAL_ACTIONS_BY_PHASE, getAlignmentRules, shuffle, nextInt, CardStatus } from '@meccg/shared';
+import { logHeading, logDetail } from './legal-actions/log.js';
 import type { TwoDiceSix, DieRoll, GameEffect } from '@meccg/shared';
 import { applyDraftResults, transitionAfterItemDraft, enterSiteSelection, startFirstTurn } from './init.js';
 import { recomputeDerived } from './recompute-derived.js';
@@ -46,18 +47,24 @@ export interface ReducerResult {
  * @returns A {@link ReducerResult} with the new state or an error.
  */
 export function reduce(state: GameState, action: GameAction): ReducerResult {
+  logHeading(`Reducer: action '${action.type}' from player ${action.player as string} in phase '${state.phaseState.phase}'`);
+
   // 1. Validate action is from the correct player for the current context
   const validationError = validateActionPlayer(state, action);
   if (validationError) {
+    logDetail(`Player validation failed: ${validationError}`);
     return { state, error: validationError };
   }
+  logDetail(`Player validation passed`);
 
   // 2. Validate action type is legal in current phase
   const phase = state.phaseState.phase;
   const legalActions = LEGAL_ACTIONS_BY_PHASE[phase];
   if (!legalActions.includes(action.type)) {
+    logDetail(`Phase validation failed: '${action.type}' not in [${legalActions.join(', ')}]`);
     return { state, error: `Action '${action.type}' is not legal in phase '${phase}'` };
   }
+  logDetail(`Phase validation passed: '${action.type}' is legal in '${phase}'`);
 
   // 3. Dispatch to phase handler
   let result: ReducerResult;
