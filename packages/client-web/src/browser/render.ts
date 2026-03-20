@@ -264,6 +264,52 @@ export function renderHand(view: PlayerView, cardPool: Readonly<Record<string, C
   }
 }
 
+/** Get the opponent's cards to display: draft pool during draft, card backs otherwise. */
+function getOpponentCards(view: PlayerView): { cards: CardDefinitionId[]; hidden: boolean } {
+  if (view.phaseState.phase === 'setup' && view.phaseState.setupStep.step === 'character-draft') {
+    const draft = view.phaseState.setupStep;
+    // Opponent's pool has 'unknown-card' placeholders; self pool has real IDs
+    const hasRealCards = (pool: readonly CardDefinitionId[]) =>
+      pool.length > 0 && (pool[0] as string) !== 'unknown-card';
+    const oppIdx = hasRealCards(draft.draftState[0].pool) ? 1 : 0;
+    return { cards: [...draft.draftState[oppIdx].pool], hidden: true };
+  }
+  // Outside draft, show card backs for each card in opponent's hand
+  const count = view.opponent.handSize;
+  return { cards: new Array(count).fill('unknown-card' as CardDefinitionId), hidden: true };
+}
+
+/** Render the opponent's hand (or draft pool) as an arc at the top of the visual view. */
+export function renderOpponentHand(view: PlayerView, cardPool: Readonly<Record<string, CardDefinition>>): void {
+  const el = document.getElementById('opponent-arc');
+  if (!el) return;
+  el.innerHTML = '';
+
+  const { cards, hidden } = getOpponentCards(view);
+  const total = cards.length;
+  el.style.setProperty('--total', String(total));
+  const margin = total > 7 ? -4 : -2.5;
+  el.style.setProperty('--card-margin', `${margin}vh`);
+
+  for (let i = 0; i < total; i++) {
+    const img = document.createElement('img');
+    if (hidden || (cards[i] as string) === 'unknown-card') {
+      img.src = '/images/card-back.jpg';
+      img.alt = 'Hidden card';
+    } else {
+      const def = cardPool[cards[i] as string];
+      if (!def) continue;
+      const imgPath = cardImageProxyPath(def);
+      if (!imgPath) continue;
+      img.src = imgPath;
+      img.alt = def.name;
+    }
+    img.className = 'opponent-card';
+    img.style.setProperty('--i', String(i));
+    el.appendChild(img);
+  }
+}
+
 /** Append a message to the log. Auto-scrolls to bottom. */
 export function renderLog(message: string, cardPool?: Readonly<Record<string, CardDefinition>>): void {
   const el = $('log');
