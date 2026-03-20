@@ -862,10 +862,9 @@ function handleInitiativeRoll(
 
   // Roll 2d6
   let rng = state.rng;
-  let d1raw: number;
-  let d2raw: number;
-  [d1raw, rng] = nextInt(rng, 6);
-  [d2raw, rng] = nextInt(rng, 6);
+  const [d1raw, rng2] = nextInt(rng, 6);
+  const [d2raw, rng3] = nextInt(rng2, 6);
+  rng = rng3;
   const d1 = d1raw + 1;
   const d2 = d2raw + 1;
   const roll: TwoDiceSix = { die1: d1 as DieRoll, die2: d2 as DieRoll };

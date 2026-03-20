@@ -1,5 +1,56 @@
 # Changelog
 
+## 0.2.0 — 2026-03-20
+
+Complete pre-game setup flow, alignment system, and visual feedback.
+
+### Game Engine
+- **Setup phase consolidation:** All pre-game steps (character draft, item draft,
+  deck draft, site selection, character placement, shuffle, draw, initiative roll)
+  merged into a single `Phase.Setup` with `SetupStep` discriminant
+- **Alignment system:** `Alignment` enum (wizard, ringwraith, fallen-wizard, balrog)
+  with per-alignment rules: max starting company size, allowed starting sites,
+  max starting sites
+- **Alignment rules module:** `alignment-rules.ts` with extensible per-alignment constants
+- **Item draft:** Players assign starting minor items to characters, with definition
+  ID-based deduplication for duplicate items
+- **Character deck draft:** Players add remaining pool characters to play deck
+  (max 10 non-avatar characters)
+- **Starting site selection:** Players choose sites from site deck filtered by
+  alignment-allowed havens
+- **Character placement:** When 2 sites selected, players distribute characters
+  between companies; empty companies cleaned up with sites returned to deck
+- **Deck shuffle:** Explicit `shuffle-play-deck` action (reusable for future phases)
+- **Initial hand draw:** Explicit `draw-cards` action for 8-card starting hand
+- **Initiative roll:** 2d6 roll to determine first player, with tie rerolling
+- **Visual effects system:** `GameEffect` / `EffectMessage` for client-side feedback,
+  starting with dice roll results broadcast from reducer
+- **Save/Load/Reset:** Explicit save with backup copy, load from backup, and
+  full reset with client reconnection
+- **Card data corrections:** Character stats verified against Council of Elrond database
+
+### Web Client
+- Card image hover preview on card names (ID-based lookup via STX markers)
+- Card back images for unknown cards/sites
+- Live-reload in dev mode (esbuild watch + SSE)
+- Save/Load/Reset toolbar buttons (hidden in visual mode)
+- Draft section hidden after character draft step
+- Card names with hover in log messages
+- Animated 3D dice roller styled after MECCG Lidless Eye dice
+- Debug/visual view toggle persisted in localStorage
+
+### Text Client
+- Number-only action selection (removed text commands)
+- Reset command for game state
+- Pretty-printed debug JSON (over 80 chars)
+- AI strategy handles optional actions to avoid infinite loops
+
+### Infrastructure
+- Tests moved to `packages/server/src/tests/`
+- `/release` slash command for automated releases
+- Card data policy in CLAUDE.md (fetch from authoritative database)
+- All lint errors resolved
+
 ## 0.1.0 — 2026-03-19
 
 First milestone release. The core technical stack is functional end-to-end:
