@@ -7,11 +7,24 @@ FIXES
 FEATS
 -----
 
+Organize tests under single directory.
+
 EPICS
 -----
 
-- Finalize preparation step.
-- Deck format and conversion to the JSON.
+Game Setup.
+Untap Phase
+Organization Phase
+Long-event Phase
+Movement/Hazard Phase
+Combat
+Site Phase
+End-of-Turn Phase
+Council and End Game
+Single loadable hero deck in a file.
+Central server.
+Deck format and conversion to the JSON.
+The Wizards.
 
 QUEUE
 -----
