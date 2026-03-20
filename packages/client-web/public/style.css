@@ -187,6 +187,15 @@ h2 {
   min-height: 100vh;
   margin: -1rem;
   padding: 1rem;
+  position: relative;
+}
+
+#visual-view::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  pointer-events: none;
 }
 
 #visual-board {
