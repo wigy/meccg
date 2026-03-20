@@ -666,6 +666,7 @@ function finalizeSiteSelection(
         newPlayers[1].companies.length <= 1,
       ],
       shuffled: [false, false],
+      drawn: [false, false],
     }),
     turnNumber: 0,
   };
@@ -705,8 +706,43 @@ function handleCharacterPlacement(
 ): ReducerResult {
   const playerIndex = state.players[0].id === action.player ? 0 : 1;
 
-  if (stepState.shuffled[playerIndex]) {
+  if (stepState.drawn[playerIndex]) {
     return { state, error: 'You have already finished this step' };
+  }
+
+  // Draw initial hand: after shuffle
+  if (action.type === 'draw-cards') {
+    if (!stepState.shuffled[playerIndex]) {
+      return { state, error: 'Shuffle your play deck first' };
+    }
+
+    const player = state.players[playerIndex];
+    const hand = player.playDeck.slice(0, action.count);
+    const playDeck = player.playDeck.slice(action.count);
+
+    const newPlayers = [...state.players] as unknown as [typeof state.players[0], typeof state.players[1]];
+    newPlayers[playerIndex] = { ...player, hand, playDeck };
+
+    const newDrawn = [...stepState.drawn] as [boolean, boolean];
+    newDrawn[playerIndex] = true;
+
+    // Both drawn → finalize
+    if (newDrawn[0] && newDrawn[1]) {
+      return {
+        state: startFirstTurn(cleanupEmptyCompanies({
+          ...state,
+          players: newPlayers as unknown as readonly [typeof state.players[0], typeof state.players[1]],
+        })),
+      };
+    }
+
+    return {
+      state: {
+        ...state,
+        players: newPlayers as unknown as readonly [typeof state.players[0], typeof state.players[1]],
+        phaseState: setupPhase({ ...stepState, drawn: newDrawn }),
+      },
+    };
   }
 
   // Shuffle: after placement is done
@@ -725,17 +761,6 @@ function handleCharacterPlacement(
 
     const newShuffled = [...stepState.shuffled] as [boolean, boolean];
     newShuffled[playerIndex] = true;
-
-    // Both shuffled → finalize
-    if (newShuffled[0] && newShuffled[1]) {
-      return {
-        state: startFirstTurn(cleanupEmptyCompanies({
-          ...state,
-          players: newPlayers as unknown as readonly [typeof state.players[0], typeof state.players[1]],
-          rng,
-        })),
-      };
-    }
 
     return {
       state: {

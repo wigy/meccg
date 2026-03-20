@@ -353,6 +353,8 @@ export type SetupStepState =
       readonly placementDone: readonly [boolean, boolean];
       /** Whether each player has shuffled their play deck. */
       readonly shuffled: readonly [boolean, boolean];
+      /** Whether each player has drawn their initial hand. */
+      readonly drawn: readonly [boolean, boolean];
     };
 
 /**

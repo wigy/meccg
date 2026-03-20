@@ -70,6 +70,7 @@ export const LEGAL_ACTIONS_BY_PHASE: Readonly<Record<Phase, readonly GameAction[
     'shuffle-play-deck',
     'select-starting-site',
     'place-character',
+    'draw-cards',
     'pass',
   ],
 

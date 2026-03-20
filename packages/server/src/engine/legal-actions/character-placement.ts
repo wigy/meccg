@@ -7,6 +7,7 @@
  */
 
 import type { GameState, PlayerId, GameAction } from '@meccg/shared';
+import { HAND_SIZE } from '@meccg/shared';
 
 export function characterPlacementActions(state: GameState, playerId: PlayerId): GameAction[] {
   if (state.phaseState.phase !== 'setup' || state.phaseState.setupStep.step !== 'character-placement') return [];
@@ -14,7 +15,12 @@ export function characterPlacementActions(state: GameState, playerId: PlayerId):
   const playerIndex = state.players[0].id === playerId ? 0 : 1;
   const stepState = state.phaseState.setupStep;
 
-  if (stepState.shuffled[playerIndex]) return [];
+  if (stepState.drawn[playerIndex]) return [];
+
+  // After shuffle, draw initial hand
+  if (stepState.shuffled[playerIndex]) {
+    return [{ type: 'draw-cards', player: playerId, count: HAND_SIZE }];
+  }
 
   // After placement done, must shuffle
   if (stepState.placementDone[playerIndex]) {
