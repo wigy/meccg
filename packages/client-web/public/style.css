@@ -262,6 +262,31 @@ h2 {
   cursor: pointer;
 }
 
+.mind-total {
+  font-family: 'Cinzel', serif;
+  font-size: 2.6rem;
+  font-weight: bold;
+  color: rgba(220, 200, 140, 0.9);
+  text-shadow: 0 2px 6px rgba(0, 0, 0, 0.8);
+  position: fixed;
+  right: 2rem;
+  margin-top: calc(0.25 * var(--card-height));
+  text-align: center;
+  line-height: 1;
+}
+
+.mind-total-opponent {
+  margin-top: calc(0.25 * var(--card-height));
+}
+
+.mind-total-label {
+  display: block;
+  font-family: 'MedievalSharp', cursive;
+  font-size: 1.4rem;
+  font-weight: normal;
+  letter-spacing: 0.05em;
+}
+
 .drafted-card:hover {
   transform: scale(var(--card-zoom));
   z-index: 100;

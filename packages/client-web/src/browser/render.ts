@@ -6,7 +6,7 @@
  */
 
 import type { PlayerView, GameAction, CardDefinition, CardDefinitionId } from '@meccg/shared';
-import { describeAction, formatPlayerView, formatCardList, cardImageProxyPath } from '@meccg/shared';
+import { describeAction, formatPlayerView, formatCardList, cardImageProxyPath, isCharacterCard, GENERAL_INFLUENCE } from '@meccg/shared';
 
 /** Get an element by ID, throwing if not found. */
 function $(id: string): HTMLElement {
@@ -359,7 +359,31 @@ export function renderDrafted(view: PlayerView, cardPool: Readonly<Record<string
   }
 
   renderRow(selfEl, draft.draftState[selfIdx].drafted);
+
+  // Show total mind next to self drafted characters
+  const selfMind = draft.draftState[selfIdx].drafted.reduce((sum, defId) => {
+    const def = cardPool[defId as string];
+    return sum + (isCharacterCard(def) && def.mind !== null ? def.mind : 0);
+  }, 0);
+  if (draft.draftState[selfIdx].drafted.length > 0) {
+    const badge = document.createElement('div');
+    badge.className = 'mind-total';
+    badge.innerHTML = `<span class="mind-total-label">Remaining GI</span>${GENERAL_INFLUENCE - selfMind}`;
+    selfEl.appendChild(badge);
+  }
   renderRow(oppEl, draft.draftState[oppIdx].drafted);
+
+  // Show remaining GI for opponent
+  const oppMind = draft.draftState[oppIdx].drafted.reduce((sum, defId) => {
+    const def = cardPool[defId as string];
+    return sum + (isCharacterCard(def) && def.mind !== null ? def.mind : 0);
+  }, 0);
+  if (draft.draftState[oppIdx].drafted.length > 0) {
+    const badge = document.createElement('div');
+    badge.className = 'mind-total mind-total-opponent';
+    badge.innerHTML = `<span class="mind-total-label">Remaining GI</span>${GENERAL_INFLUENCE - oppMind}`;
+    oppEl.appendChild(badge);
+  }
 }
 
 /** Render the player's hand (or draft pool) as an arc of card images in the visual view. */
