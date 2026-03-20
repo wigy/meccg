@@ -174,12 +174,14 @@ export function renderState(view: PlayerView, cardPool: Readonly<Record<string, 
 
 /** Render draft-specific information with colored card names. */
 export function renderDraft(view: PlayerView, cardPool: Readonly<Record<string, CardDefinition>>): void {
+  const section = $('draft-section');
   const el = $('draft');
 
   if (view.phaseState.phase !== 'setup' || view.phaseState.setupStep.step !== 'character-draft') {
-    el.innerHTML = '';
+    section.classList.add('hidden');
     return;
   }
+  section.classList.remove('hidden');
 
   const draft = view.phaseState.setupStep;
   const list = (ids: readonly CardDefinitionId[]) => formatCardList(ids, cardPool);
