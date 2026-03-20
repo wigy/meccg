@@ -16,7 +16,7 @@
 
 import type { GameState, DraftPlayerState, ItemDraftPlayerState, CharacterDeckDraftPlayerState, SetupStepState, CardDefinitionId, CardInstanceId, CompanyId, CharacterInPlay, CardInstance } from '@meccg/shared';
 import type { GameAction } from '@meccg/shared';
-import { Phase, SetupStep, LEGAL_ACTIONS_BY_PHASE, getAlignmentRules, shuffle, nextInt } from '@meccg/shared';
+import { Phase, SetupStep, LEGAL_ACTIONS_BY_PHASE, getAlignmentRules, shuffle, nextInt, CardStatus } from '@meccg/shared';
 import type { TwoDiceSix, DieRoll, GameEffect } from '@meccg/shared';
 import { applyDraftResults, transitionAfterItemDraft, enterSiteSelection, startFirstTurn } from './init.js';
 import { recomputeDerived } from './recompute-derived.js';
@@ -412,9 +412,10 @@ function handleItemDraft(
     return { state, error: 'Character not found' };
   }
 
+  const itemDef = state.instanceMap[itemInstanceId as string];
   const updatedChar: CharacterInPlay = {
     ...existingChar,
-    items: [...existingChar.items, itemInstanceId],
+    items: [...existingChar.items, { instanceId: itemInstanceId, definitionId: itemDef.definitionId, status: CardStatus.Untapped }],
   };
   const updatedCharacters = { ...player.characters, [charKey]: updatedChar };
   const updatedPlayer = { ...player, characters: updatedCharacters };
@@ -919,9 +920,9 @@ function handleInitiativeRoll(
 // Each stub below corresponds to a game phase that is not yet implemented.
 // They accept the action but return the state unmodified.
 
-/** Stub: untap all characters, heal wounded at havens. */
+/** Stub: untap all cards, heal inverted (wounded) characters at havens. */
 function handleUntap(state: GameState, _action: GameAction): ReducerResult {
-  // TODO: untap all cards, heal wounded at havens, advance to organization
+  // TODO: untap all cards, heal inverted (wounded) characters at havens, advance to organization
   return { state };
 }
 

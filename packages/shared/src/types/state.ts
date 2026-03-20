@@ -23,7 +23,7 @@ import {
   CardInstanceId,
   CompanyId,
   CardDefinitionId,
-  CharacterStatus,
+  CardStatus,
   WizardName,
   Alignment,
   TwoDiceSix,
@@ -73,17 +73,43 @@ export interface EffectiveStats {
   readonly corruptionPoints: number;
 }
 
+/**
+ * An item card currently in play, attached to a character.
+ * Items provide stat modifiers and corruption points.
+ */
+export interface ItemInPlay {
+  /** The card instance ID of this item. */
+  readonly instanceId: CardInstanceId;
+  /** Reference to the static item card definition. */
+  readonly definitionId: CardDefinitionId;
+  /** Current state of this item — untapped, tapped, or inverted. */
+  readonly status: CardStatus;
+}
+
+/**
+ * An ally card currently in play, traveling with a character.
+ * Allies contribute prowess in combat and marshalling points.
+ */
+export interface AllyInPlay {
+  /** The card instance ID of this ally. */
+  readonly instanceId: CardInstanceId;
+  /** Reference to the static ally card definition. */
+  readonly definitionId: CardDefinitionId;
+  /** Current state of this ally — untapped, tapped, or inverted. */
+  readonly status: CardStatus;
+}
+
 export interface CharacterInPlay {
   /** The card instance ID of this character. */
   readonly instanceId: CardInstanceId;
   /** Reference to the static character card definition. */
   readonly definitionId: CardDefinitionId;
   /** Current tap state -- affects combat prowess and available actions. */
-  readonly status: CharacterStatus;
-  /** Item card instance IDs attached to this character (e.g. weapons, armor, rings). */
-  readonly items: readonly CardInstanceId[];
-  /** Ally card instance IDs traveling with this character. */
-  readonly allies: readonly CardInstanceId[];
+  readonly status: CardStatus;
+  /** Items attached to this character (e.g. weapons, armor, rings). */
+  readonly items: readonly ItemInPlay[];
+  /** Allies traveling with this character. */
+  readonly allies: readonly AllyInPlay[];
   /** Corruption hazard card instance IDs attached to this character, adding to their corruption total. */
   readonly corruptionCards: readonly CardInstanceId[];
   /** Character instance IDs controlled by this character via direct influence. */
@@ -256,7 +282,7 @@ export interface PlayerState {
 export enum Phase {
   /** Pre-game setup: character draft, item assignment, deck construction. */
   Setup = 'setup',
-  /** Characters are untapped (refreshed) and wounded characters at havens may heal. */
+  /** Cards are untapped (refreshed) and inverted characters at havens may heal. */
   Untap = 'untap',
   /** Players reorganize companies, recruit characters, transfer items, and plan movement. */
   Organization = 'organization',
@@ -406,7 +432,7 @@ export interface SetupPhaseState {
 
 /**
  * State for the Untap phase. Minimal bookkeeping -- the engine automatically
- * untaps all tapped characters and heals wounded characters at havens.
+ * untaps all tapped cards and heals inverted (wounded) characters at havens.
  */
 export interface UntapPhaseState {
   /** Phase discriminant. */

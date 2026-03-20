@@ -85,8 +85,8 @@ export const UNTAPPED_NO_TAP_PROWESS_PENALTY = -3;
 export const TAPPED_PROWESS_PENALTY = -1;
 
 /**
- * Prowess penalty for a wounded character facing a strike (-2).
- * Wounded characters are more vulnerable in combat but can still fight.
+ * Prowess penalty for an inverted (wounded) character facing a strike (-2).
+ * Inverted characters are more vulnerable in combat but can still fight.
  */
 export const WOUNDED_PROWESS_PENALTY = -2;
 

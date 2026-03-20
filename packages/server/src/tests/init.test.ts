@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { createGameQuickStart } from '../engine/init.js';
-import { formatGameState, CharacterStatus, HAND_SIZE } from '@meccg/shared';
+import { formatGameState, CardStatus, HAND_SIZE } from '@meccg/shared';
 import type { DraftPickAction } from '@meccg/shared';
 import {
   pool, PLAYER_1, PLAYER_2,
@@ -44,7 +44,7 @@ describe('createGameQuickStart', () => {
 
     for (const charId of p1.companies[0].characters) {
       const char = p1.characters[charId as string];
-      expect(char.status).toBe(CharacterStatus.Untapped);
+      expect(char.status).toBe(CardStatus.Untapped);
       expect(char.controlledBy).toBe('general');
     }
 
@@ -199,8 +199,8 @@ describe('full setup flow', () => {
     const p1CharId = state.players[0].companies[0].characters[0];
     const p1Char = state.players[0].characters[p1CharId as string];
     expect(p1Char.items).toHaveLength(2);
-    for (const itemId of p1Char.items) {
-      expect(state.instanceMap[itemId as string].definitionId).toBe(DAGGER_OF_WESTERNESSE);
+    for (const item of p1Char.items) {
+      expect(item.definitionId).toBe(DAGGER_OF_WESTERNESSE);
     }
   });
 

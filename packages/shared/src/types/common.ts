@@ -116,12 +116,13 @@ export enum WizardName {
 }
 
 /**
- * The three possible states of a character in play.
- * Untapped characters can act freely; tapped characters have reduced prowess;
- * wounded characters are at greatest risk and may be healed at Havens.
+ * The three possible states of a card in play.
+ * Untapped cards can act freely; tapped cards are exhausted;
+ * inverted (upside-down) cards represent wounded characters or
+ * other special states depending on card type.
  */
-export enum CharacterStatus {
+export enum CardStatus {
   Untapped = 'untapped',
   Tapped = 'tapped',
-  Wounded = 'wounded',
+  Inverted = 'inverted',
 }

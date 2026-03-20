@@ -145,8 +145,8 @@ export function projectSpectatorView(state: GameState): PlayerView {
     }
     for (const char of Object.values(player.characters)) {
       addInstance(char.instanceId);
-      for (const id of char.items) addInstance(id);
-      for (const id of char.allies) addInstance(id);
+      for (const item of char.items) addInstance(item.instanceId);
+      for (const ally of char.allies) addInstance(ally.instanceId);
       for (const id of char.corruptionCards) addInstance(id);
     }
   }
@@ -272,8 +272,8 @@ export function projectPlayerView(state: GameState, playerId: PlayerId): PlayerV
   }
   for (const char of Object.values(selfPlayer.characters)) {
     addInstance(char.instanceId);
-    for (const id of char.items) addInstance(id);
-    for (const id of char.allies) addInstance(id);
+    for (const item of char.items) addInstance(item.instanceId);
+    for (const ally of char.allies) addInstance(ally.instanceId);
     for (const id of char.corruptionCards) addInstance(id);
   }
 
@@ -285,8 +285,8 @@ export function projectPlayerView(state: GameState, playerId: PlayerId): PlayerV
   }
   for (const char of Object.values(opponentPlayer.characters)) {
     addInstance(char.instanceId);
-    for (const id of char.items) addInstance(id);
-    for (const id of char.allies) addInstance(id);
+    for (const item of char.items) addInstance(item.instanceId);
+    for (const ally of char.allies) addInstance(ally.instanceId);
     for (const id of char.corruptionCards) addInstance(id);
   }
 

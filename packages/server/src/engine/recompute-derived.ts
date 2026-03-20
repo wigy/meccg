@@ -67,8 +67,8 @@ function computeEffectiveStats(
   const directInfluence = charDef.directInfluence;
   let corruptionPoints = 0;
 
-  for (const itemId of char.items) {
-    const itemDef = resolveDef(state, itemId);
+  for (const item of char.items) {
+    const itemDef = resolveDef(state, item.instanceId);
     if (itemDef && itemDef.cardType === 'hero-resource-item') {
       prowess += itemDef.prowessModifier;
       body += itemDef.bodyModifier;
@@ -114,14 +114,14 @@ function recomputePlayer(state: GameState, player: PlayerState): PlayerState {
     mp = addMP(mp, charDef);
 
     // Item MPs
-    for (const itemId of char.items) {
-      const itemDef = resolveDef(state, itemId);
+    for (const item of char.items) {
+      const itemDef = resolveDef(state, item.instanceId);
       if (itemDef) mp = addMP(mp, itemDef);
     }
 
     // Ally MPs
-    for (const allyId of char.allies) {
-      const allyDef = resolveDef(state, allyId);
+    for (const ally of char.allies) {
+      const allyDef = resolveDef(state, ally.instanceId);
       if (allyDef) mp = addMP(mp, allyDef);
     }
 

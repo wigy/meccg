@@ -15,10 +15,10 @@
  */
 
 import type { CardDefinition } from './types/cards.js';
-import type { GameState, Company, CharacterInPlay, EventInPlay, CombatState, PhaseState, MarshallingPointTotals } from './types/state.js';
+import type { GameState, Company, CharacterInPlay, ItemInPlay, AllyInPlay, EventInPlay, CombatState, PhaseState, MarshallingPointTotals } from './types/state.js';
 import type { PlayerView, OpponentCompanyView } from './types/player-view.js';
 import type { GameAction } from './types/actions.js';
-import { CharacterStatus } from './types/common.js';
+import { CardStatus } from './types/common.js';
 import type { CardInstanceId, CardDefinitionId } from './types/common.js';
 
 // ---- ANSI colors ----
@@ -162,11 +162,16 @@ export function formatDefName(
 
 // ---- Card detail formatting ----
 
-function statusMarker(status: CharacterStatus): string {
+/**
+ * Returns a small Unicode symbol indicating a card's current status.
+ * ✅ = untapped (ready), ❌ = tapped (exhausted), ❤️‍🩹 = inverted (wounded/special).
+ * Placed before card names in text displays for at-a-glance state.
+ */
+function statusSymbol(status: CardStatus): string {
   switch (status) {
-    case CharacterStatus.Tapped: return ' (tapped)';
-    case CharacterStatus.Wounded: return ' (wounded)';
-    default: return '';
+    case CardStatus.Untapped: return '✅';
+    case CardStatus.Tapped: return '❌';
+    case CardStatus.Inverted: return '❤️‍🩹';
   }
 }
 
@@ -181,29 +186,27 @@ function formatCharacterLine(char: CharacterInPlay, defOf: CardLookup, instOf: I
   const label = formatInstanceName(char.instanceId, defOf, instOf);
   const mindLabel = c.mind !== null ? `${c.mind} Mind, ` : '';
   const cpLabel = s.corruptionPoints > 0 ? `, ${s.corruptionPoints} CP` : '';
-  return `${label} [${s.prowess}/${s.body}] ${skills} (${mindLabel}${s.directInfluence} DI, ${c.marshallingPoints} MP${cpLabel})${statusMarker(char.status)}`;
+  return `${statusSymbol(char.status)} ${label} [${s.prowess}/${s.body}] ${skills} (${mindLabel}${s.directInfluence} DI, ${c.marshallingPoints} MP${cpLabel})`;
 }
 
-function formatItemLine(instId: CardInstanceId, defOf: CardLookup, instOf: InstanceLookup): string {
-  const def = resolve(instId, instOf, defOf);
+function formatItemLine(item: ItemInPlay, defOf: CardLookup, instOf: InstanceLookup): string {
+  const def = resolve(item.instanceId, instOf, defOf);
   if (!def || def.cardType !== 'hero-resource-item') {
-    return showDebugIds ? colorizeUnknown(`an item {${instId}}`) : colorizeUnknown('an item');
+    return showDebugIds ? colorizeUnknown(`an item {${item.instanceId}}`) : colorizeUnknown('an item');
   }
-  const item = def;
-  const label = formatInstanceName(instId, defOf, instOf);
-  const pMod = item.prowessModifier >= 0 ? `+${item.prowessModifier}` : `${item.prowessModifier}`;
-  const bMod = item.bodyModifier >= 0 ? `+${item.bodyModifier}` : `${item.bodyModifier}`;
-  return `${label} [${pMod}/${bMod}] ${item.subtype} (${item.marshallingPoints} MP, ${item.corruptionPoints} CP)`;
+  const label = formatInstanceName(item.instanceId, defOf, instOf);
+  const pMod = def.prowessModifier >= 0 ? `+${def.prowessModifier}` : `${def.prowessModifier}`;
+  const bMod = def.bodyModifier >= 0 ? `+${def.bodyModifier}` : `${def.bodyModifier}`;
+  return `${statusSymbol(item.status)} ${label} [${pMod}/${bMod}] ${def.subtype} (${def.marshallingPoints} MP, ${def.corruptionPoints} CP)`;
 }
 
-function formatAllyLine(instId: CardInstanceId, defOf: CardLookup, instOf: InstanceLookup): string {
-  const def = resolve(instId, instOf, defOf);
+function formatAllyLine(ally: AllyInPlay, defOf: CardLookup, instOf: InstanceLookup): string {
+  const def = resolve(ally.instanceId, instOf, defOf);
   if (!def || def.cardType !== 'hero-resource-ally') {
-    return showDebugIds ? colorizeUnknown(`an ally {${instId}}`) : colorizeUnknown('an ally');
+    return showDebugIds ? colorizeUnknown(`an ally {${ally.instanceId}}`) : colorizeUnknown('an ally');
   }
-  const ally = def;
-  const label = formatInstanceName(instId, defOf, instOf);
-  return `${label} [${ally.prowess}/${ally.body}] (${ally.marshallingPoints} MP)`;
+  const label = formatInstanceName(ally.instanceId, defOf, instOf);
+  return `${statusSymbol(ally.status)} ${label} [${def.prowess}/${def.body}] (${def.marshallingPoints} MP)`;
 }
 
 function formatCorruptionCardLine(instId: CardInstanceId, defOf: CardLookup, instOf: InstanceLookup): string {
@@ -244,11 +247,11 @@ function formatCompany(
     if (!char) continue;
 
     lines.push(`${indent}  ${formatCharacterLine(char, defOf, instOf)}`);
-    for (const itemId of char.items) {
-      lines.push(`${indent}    ${formatItemLine(itemId, defOf, instOf)}`);
+    for (const item of char.items) {
+      lines.push(`${indent}    ${formatItemLine(item, defOf, instOf)}`);
     }
-    for (const allyId of char.allies) {
-      lines.push(`${indent}    ${formatAllyLine(allyId, defOf, instOf)}`);
+    for (const ally of char.allies) {
+      lines.push(`${indent}    ${formatAllyLine(ally, defOf, instOf)}`);
     }
     for (const ccId of char.corruptionCards) {
       lines.push(`${indent}    ${formatCorruptionCardLine(ccId, defOf, instOf)}`);
@@ -257,8 +260,8 @@ function formatCompany(
       const follower = characters[followerId as string];
       if (!follower) continue;
       lines.push(`${indent}    ${formatCharacterLine(follower, defOf, instOf)} [follower]`);
-      for (const itemId of follower.items) {
-        lines.push(`${indent}      ${formatItemLine(itemId, defOf, instOf)}`);
+      for (const item of follower.items) {
+        lines.push(`${indent}      ${formatItemLine(item, defOf, instOf)}`);
       }
     }
   }
@@ -288,11 +291,11 @@ function formatOpponentCompany(
     if (!char) continue;
 
     lines.push(`${indent}  ${formatCharacterLine(char, defOf, instOf)}`);
-    for (const itemId of char.items) {
-      lines.push(`${indent}    ${formatItemLine(itemId, defOf, instOf)}`);
+    for (const item of char.items) {
+      lines.push(`${indent}    ${formatItemLine(item, defOf, instOf)}`);
     }
-    for (const allyId of char.allies) {
-      lines.push(`${indent}    ${formatAllyLine(allyId, defOf, instOf)}`);
+    for (const ally of char.allies) {
+      lines.push(`${indent}    ${formatAllyLine(ally, defOf, instOf)}`);
     }
     for (const ccId of char.corruptionCards) {
       lines.push(`${indent}    ${formatCorruptionCardLine(ccId, defOf, instOf)}`);
@@ -459,7 +462,7 @@ export function formatGameState(state: GameState): string {
       marshallingPoints: p.marshallingPoints,
       companies: p.companies,
       characters: p.characters,
-    })) as [RenderPlayerInput, RenderPlayerInput],
+    })) as unknown as [RenderPlayerInput, RenderPlayerInput],
     eventsInPlay: state.eventsInPlay,
     defOf,
     instOf,

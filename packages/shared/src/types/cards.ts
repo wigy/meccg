@@ -5,7 +5,7 @@
  *
  * These types represent the immutable data that defines what a card *is*
  * (its stats, abilities, and restrictions), as opposed to runtime card
- * instances which track in-game state like tapped/wounded. Card definitions
+ * instances which track in-game state like tapped/inverted. Card definitions
  * are loaded once from the JSON data files and stored in the GameState's
  * `cardPool` for lookup by CardDefinitionId.
  *

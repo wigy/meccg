@@ -23,7 +23,7 @@ import type { GameAction } from './actions.js';
  * The fixed sequence of phases within a single player turn.
  *
  * Each turn follows this order:
- * 1. **Untap** -- Refresh tapped characters, heal wounded at havens.
+ * 1. **Untap** -- Refresh tapped cards, heal inverted (wounded) characters at havens.
  * 2. **Organization** -- Reorganize companies, recruit characters, plan movement.
  * 3. **Long-event** -- Remove old long events; new ones may take effect.
  * 4. **Movement/Hazard** -- Companies travel; opponent plays hazards.

@@ -37,7 +37,7 @@ import type {
 import {
   Phase,
   SetupStep,
-  CharacterStatus,
+  CardStatus,
   Alignment,
   HAND_SIZE,
   ZERO_MARSHALLING_POINTS,
@@ -259,7 +259,7 @@ export function applyDraftResults(
       characters[instanceId as string] = {
         instanceId,
         definitionId: charDefId,
-        status: CharacterStatus.Untapped,
+        status: CardStatus.Untapped,
         items: [],
         allies: [],
         corruptionCards: [],
@@ -467,7 +467,7 @@ function initPlayerWithCharacters(
     characters[instanceId as string] = {
       instanceId,
       definitionId: charDefId,
-      status: CharacterStatus.Untapped,
+      status: CardStatus.Untapped,
       items: [],
       allies: [],
       corruptionCards: [],
