@@ -100,6 +100,13 @@ function connect(name: string): void {
         break;
       }
 
+      case 'effect':
+        if (msg.effect.effect === 'dice-roll') {
+          const { playerName, die1, die2, label } = msg.effect;
+          renderLog(`${label}: ${playerName} rolled ${die1} + ${die2} = ${die1 + die2}`);
+        }
+        break;
+
       case 'error':
         renderLog(`ERROR: ${msg.message}`);
         break;

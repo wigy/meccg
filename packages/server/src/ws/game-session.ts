@@ -318,6 +318,14 @@ export class GameSession {
       }
     }
 
+    // Broadcast any visual effects from the reducer
+    if (result.effects && result.effects.length > 0) {
+      for (const effect of result.effects) {
+        console.log(`Effect: ${effect.effect} — ${JSON.stringify(effect)}`);
+        this.broadcastToAll({ type: 'effect', effect });
+      }
+    }
+
     this.broadcastState();
   }
 

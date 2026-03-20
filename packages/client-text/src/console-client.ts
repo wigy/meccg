@@ -248,6 +248,13 @@ function connect(): void {
         console.log('Reconnect to resume the game.');
         break;
 
+      case 'effect':
+        if (msg.effect.effect === 'dice-roll') {
+          const { playerName, die1, die2, label } = msg.effect;
+          console.log(`  ${label}: ${playerName} rolled ${die1} + ${die2} = ${die1 + die2}`);
+        }
+        break;
+
       case 'restart':
         console.log(`\n${msg.message}`);
         // shouldReconnect = true;

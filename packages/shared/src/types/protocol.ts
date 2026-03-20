@@ -20,7 +20,7 @@
  * All messages are discriminated by a `type` field for easy dispatching.
  */
 
-import type { PlayerId, CardDefinitionId, Alignment } from './common.js';
+import type { PlayerId, CardDefinitionId, Alignment, DieRoll } from './common.js';
 import type { GameAction } from './actions.js';
 import type { PlayerView } from './player-view.js';
 
@@ -199,4 +199,36 @@ export interface DraftRevealMessage {
   readonly collision: boolean;
 }
 
-export type ServerMessage = AssignedMessage | StateMessage | ErrorMessage | WaitingMessage | DisconnectedMessage | RestartMessage | DraftRevealMessage;
+// ---- Visual effects ----
+
+/**
+ * A dice roll result for visual feedback.
+ */
+export interface DiceRollEffect {
+  readonly effect: 'dice-roll';
+  /** The player who rolled. */
+  readonly playerName: string;
+  /** First die result (1-6). */
+  readonly die1: DieRoll;
+  /** Second die result (1-6). */
+  readonly die2: DieRoll;
+  /** Context label (e.g. "Initiative", "Corruption check"). */
+  readonly label: string;
+}
+
+/** Union of all visual effect types. */
+export type GameEffect = DiceRollEffect;
+
+/**
+ * Sent by the server to trigger a visual effect on the client.
+ * Effects are purely presentational — they don't change game state.
+ * Clients display them in whatever manner suits them (log, animation, etc.).
+ */
+export interface EffectMessage {
+  /** Message type discriminant. */
+  readonly type: 'effect';
+  /** The visual effect to display. */
+  readonly effect: GameEffect;
+}
+
+export type ServerMessage = AssignedMessage | StateMessage | ErrorMessage | WaitingMessage | DisconnectedMessage | RestartMessage | DraftRevealMessage | EffectMessage;

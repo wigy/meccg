@@ -17,7 +17,7 @@
 import type { GameState, DraftPlayerState, ItemDraftPlayerState, CharacterDeckDraftPlayerState, SetupStepState, CardDefinitionId, CardInstanceId, CompanyId, CharacterInPlay, CardInstance } from '@meccg/shared';
 import type { GameAction } from '@meccg/shared';
 import { Phase, SetupStep, LEGAL_ACTIONS_BY_PHASE, getAlignmentRules, shuffle, nextInt } from '@meccg/shared';
-import type { TwoDiceSix, DieRoll } from '@meccg/shared';
+import type { TwoDiceSix, DieRoll, GameEffect } from '@meccg/shared';
 import { applyDraftResults, transitionAfterItemDraft, enterSiteSelection, startFirstTurn } from './init.js';
 import { recomputeDerived } from './recompute-derived.js';
 
@@ -29,6 +29,8 @@ export interface ReducerResult {
   readonly state: GameState;
   /** Human-readable error message if the action was rejected. */
   readonly error?: string;
+  /** Visual effects to broadcast to clients (dice rolls, etc.). */
+  readonly effects?: readonly GameEffect[];
 }
 
 /**
@@ -92,7 +94,7 @@ export function reduce(state: GameState, action: GameAction): ReducerResult {
 
   // 4. Recompute derived values (MPs, general influence) from ground truth
   if (!result.error) {
-    result = { state: recomputeDerived(result.state) };
+    result = { state: recomputeDerived(result.state), effects: result.effects };
   }
 
   return result;
@@ -867,6 +869,13 @@ function handleInitiativeRoll(
   const d1 = d1raw + 1;
   const d2 = d2raw + 1;
   const roll: TwoDiceSix = { die1: d1 as DieRoll, die2: d2 as DieRoll };
+  const rollEffect: GameEffect = {
+    effect: 'dice-roll',
+    playerName: state.players[playerIndex].name,
+    die1: roll.die1,
+    die2: roll.die2,
+    label: 'Initiative',
+  };
 
   const newRolls = [...stepState.rolls] as [TwoDiceSix | null, TwoDiceSix | null];
   newRolls[playerIndex] = roll;
@@ -879,6 +888,7 @@ function handleInitiativeRoll(
         phaseState: setupPhase({ ...stepState, rolls: newRolls }),
         rng,
       },
+      effects: [rollEffect],
     };
   }
 
@@ -894,6 +904,7 @@ function handleInitiativeRoll(
         phaseState: setupPhase({ ...stepState, rolls: [null, null] }),
         rng,
       },
+      effects: [rollEffect],
     };
   }
 
@@ -901,6 +912,7 @@ function handleInitiativeRoll(
   const firstPlayer = total0 > total1 ? state.players[0].id : state.players[1].id;
   return {
     state: startFirstTurn({ ...state, activePlayer: firstPlayer, rng }),
+    effects: [rollEffect],
   };
 }
 
