@@ -17,6 +17,7 @@ import {
   RIVENDELL, MORIA, MINAS_TIRITH, MOUNT_DOOM,
 } from '@meccg/shared';
 import { renderState, renderDraft, renderActions, renderLog } from './render.js';
+import { rollDice } from './dice.js';
 
 const cardPool = loadCardPool();
 
@@ -173,12 +174,14 @@ document.addEventListener('DOMContentLoaded', () => {
   const connectForm = document.getElementById('connect-form') as HTMLElement;
   const disconnectBtn = document.getElementById('disconnect-btn') as HTMLButtonElement;
   const viewToggleBtn = document.getElementById('view-toggle-btn') as HTMLButtonElement;
+  const diceBtn = document.getElementById('dice-btn') as HTMLButtonElement;
   const debugView = document.getElementById('debug-view') as HTMLElement;
   const visualView = document.getElementById('visual-view') as HTMLElement;
 
   function setViewMode(visual: boolean): void {
     debugView.classList.toggle('hidden', visual);
     visualView.classList.toggle('hidden', !visual);
+    diceBtn.classList.toggle('hidden', !visual);
     viewToggleBtn.textContent = visual ? 'Debug' : 'Visual';
     localStorage.setItem(VIEW_KEY, visual ? 'visual' : 'debug');
   }
@@ -208,6 +211,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
   nameInput.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') connectBtn.click();
+  });
+
+  diceBtn.addEventListener('click', () => {
+    const d1 = Math.floor(Math.random() * 6) + 1;
+    const d2 = Math.floor(Math.random() * 6) + 1;
+    renderLog(`Dice roll: ${d1} + ${d2} = ${d1 + d2}`);
+    rollDice(d1, d2);
   });
 
   disconnectBtn.addEventListener('click', () => {
