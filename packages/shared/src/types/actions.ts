@@ -101,6 +101,21 @@ export interface SelectStartingSiteAction {
   readonly siteInstanceId: CardInstanceId;
 }
 
+/**
+ * Assign a character to a specific starting company.
+ * Used when two starting sites are selected and characters must be
+ * distributed between the two companies.
+ */
+export interface PlaceCharacterAction {
+  readonly type: 'place-character';
+  /** The player placing the character. */
+  readonly player: PlayerId;
+  /** The character instance to move. */
+  readonly characterInstanceId: CardInstanceId;
+  /** The target company to place the character in. */
+  readonly companyId: CompanyId;
+}
+
 // ---- Organization phase ----
 
 /**
@@ -447,6 +462,7 @@ export type GameAction =
   | AddCharacterToDeckAction
   | ShufflePlayDeckAction
   | SelectStartingSiteAction
+  | PlaceCharacterAction
   | PlayCharacterAction
   | SplitCompanyAction
   | MergeCompaniesAction

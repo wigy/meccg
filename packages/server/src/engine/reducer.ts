@@ -148,6 +148,8 @@ function handleSetup(state: GameState, action: GameAction): ReducerResult {
       return handleCharacterDeckDraft(state, action, state.phaseState.setupStep);
     case SetupStep.StartingSiteSelection:
       return handleStartingSiteSelection(state, action, state.phaseState.setupStep);
+    case SetupStep.CharacterPlacement:
+      return handleCharacterPlacement(state, action, state.phaseState.setupStep);
     default:
       return { state, error: 'Unknown setup step' };
   }
@@ -680,10 +682,123 @@ function finalizeSiteSelection(
     newPlayers[i] = { ...player, companies };
   }
 
-  return startFirstTurn({
+  const newState = {
     ...state,
     players: newPlayers as unknown as readonly [typeof state.players[0], typeof state.players[1]],
-  });
+  };
+
+  // If either player has 2 companies, enter character placement step
+  const needsPlacement = newPlayers.some(p => p.companies.length > 1);
+  if (needsPlacement) {
+    return {
+      ...newState,
+      activePlayer: null,
+      phaseState: setupPhase({
+        step: SetupStep.CharacterPlacement,
+        placementDone: [
+          newPlayers[0].companies.length <= 1,
+          newPlayers[1].companies.length <= 1,
+        ],
+      }),
+      turnNumber: 0,
+    };
+  }
+
+  return startFirstTurn(cleanupEmptyCompanies(newState));
+}
+
+/**
+ * Removes companies with no characters and returns their site cards
+ * to the player's site deck.
+ */
+function cleanupEmptyCompanies(state: GameState): GameState {
+  const newPlayers = state.players.map(player => {
+    const emptyCompanies = player.companies.filter(c => c.characters.length === 0);
+    const keptCompanies = player.companies.filter(c => c.characters.length > 0);
+
+    // Return sites from empty companies to site deck
+    const returnedSites = emptyCompanies
+      .map(c => c.currentSite)
+      .filter((s): s is CardInstanceId => s !== null);
+    const newSiteDeck = [...player.siteDeck, ...returnedSites];
+
+    return { ...player, companies: keptCompanies, siteDeck: newSiteDeck };
+  }) as unknown as readonly [typeof state.players[0], typeof state.players[1]];
+
+  return { ...state, players: newPlayers };
+}
+
+// ---- Character placement handler ----
+
+/**
+ * Handles the character placement step where players distribute their
+ * characters between starting companies (only when 2 sites were selected).
+ */
+function handleCharacterPlacement(
+  state: GameState,
+  action: GameAction,
+  stepState: SetupStepState & { step: SetupStep.CharacterPlacement },
+): ReducerResult {
+  const playerIndex = state.players[0].id === action.player ? 0 : 1;
+
+  if (stepState.placementDone[playerIndex]) {
+    return { state, error: 'You have already finished placing characters' };
+  }
+
+  if (action.type === 'pass') {
+    const newDone = [...stepState.placementDone] as [boolean, boolean];
+    newDone[playerIndex] = true;
+
+    if (newDone[0] && newDone[1]) {
+      return { state: startFirstTurn(cleanupEmptyCompanies(state)) };
+    }
+
+    return {
+      state: {
+        ...state,
+        phaseState: setupPhase({ ...stepState, placementDone: newDone }),
+      },
+    };
+  }
+
+  if (action.type !== 'place-character') {
+    return { state, error: `Unexpected action in character placement: ${action.type}` };
+  }
+
+  const player = state.players[playerIndex];
+
+  // Validate character belongs to this player
+  if (!player.characters[action.characterInstanceId as string]) {
+    return { state, error: 'Character not found' };
+  }
+
+  // Validate target company belongs to this player
+  const targetIdx = player.companies.findIndex(c => c.id === action.companyId);
+  if (targetIdx < 0) {
+    return { state, error: 'Company not found' };
+  }
+
+  // Remove character from current company
+  const newCompanies = player.companies.map(c => ({
+    ...c,
+    characters: c.characters.filter(id => id !== action.characterInstanceId),
+  }));
+
+  // Add to target company
+  newCompanies[targetIdx] = {
+    ...newCompanies[targetIdx],
+    characters: [...newCompanies[targetIdx].characters, action.characterInstanceId],
+  };
+
+  const newPlayers = [...state.players] as unknown as [typeof state.players[0], typeof state.players[1]];
+  newPlayers[playerIndex] = { ...player, companies: newCompanies };
+
+  return {
+    state: {
+      ...state,
+      players: newPlayers as unknown as readonly [typeof state.players[0], typeof state.players[1]],
+    },
+  };
 }
 
 // ---- Phase handler stubs ----

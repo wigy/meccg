@@ -260,6 +260,8 @@ export enum SetupStep {
   CharacterDeckDraft = 'character-deck-draft',
   /** Players select starting sites from their site deck and form initial companies. */
   StartingSiteSelection = 'starting-site-selection',
+  /** Players assign characters to starting companies (only when 2 sites selected). */
+  CharacterPlacement = 'character-placement',
 }
 
 /**
@@ -346,6 +348,11 @@ export type SetupStepState =
       readonly step: SetupStep.StartingSiteSelection;
       /** Site selection state for each player. */
       readonly siteSelectionState: readonly [SiteSelectionPlayerState, SiteSelectionPlayerState];
+    }
+  | {
+      readonly step: SetupStep.CharacterPlacement;
+      /** Whether each player has finished placing characters. */
+      readonly placementDone: readonly [boolean, boolean];
     };
 
 /**

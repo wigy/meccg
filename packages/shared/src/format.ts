@@ -369,6 +369,7 @@ function renderState(input: RenderInput): string {
     'item-draft': 'Select Minor Items',
     'character-deck-draft': 'Select Deck Characters',
     'starting-site-selection': 'Select Starting Sites',
+    'character-placement': 'Place Characters',
   };
   const phaseLabel = input.phaseState.phase === 'setup'
     ? `Setup / ${SETUP_STEP_LABELS[input.phaseState.setupStep.step] ?? input.phaseState.setupStep.step}`
@@ -542,6 +543,10 @@ export function describeAction(
       return 'Shuffle play deck';
     case 'select-starting-site':
       return `Select ${instName(action.siteInstanceId)} as starting site`;
+    case 'place-character': {
+      const companyNum = action.companyId.endsWith('-0') ? 'first' : 'second';
+      return `Move ${instName(action.characterInstanceId)} to ${companyNum} company`;
+    }
     case 'play-character':
       return `Play character ${instName(action.characterInstanceId)} at site ${instName(action.atSite)}`;
     case 'split-company':

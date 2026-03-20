@@ -6,9 +6,7 @@
  */
 
 import type { GameState, PlayerId, GameAction } from '@meccg/shared';
-
-/** Maximum number of starting sites a player can select. */
-const MAX_STARTING_SITES = 2;
+import { getAlignmentRules } from '@meccg/shared';
 
 export function startingSiteSelectionActions(state: GameState, playerId: PlayerId): GameAction[] {
   if (state.phaseState.phase !== 'setup' || state.phaseState.setupStep.step !== 'starting-site-selection') return [];
@@ -18,13 +16,18 @@ export function startingSiteSelectionActions(state: GameState, playerId: PlayerI
 
   if (siteSelection.done) return [];
 
-  const actions: GameAction[] = [];
   const player = state.players[playerIndex];
+  const { defaultStartingSites } = getAlignmentRules(player.alignment);
+  const allowedDefIds = new Set(defaultStartingSites.map(id => id as string));
 
-  // Offer each site in the site deck that hasn't been selected yet
-  if (siteSelection.selectedSites.length < MAX_STARTING_SITES) {
+  const actions: GameAction[] = [];
+
+  // Offer sites from site deck that match the alignment's allowed starting sites
+  if (siteSelection.selectedSites.length < defaultStartingSites.length) {
     for (const siteInstId of player.siteDeck) {
       if (siteSelection.selectedSites.includes(siteInstId)) continue;
+      const inst = state.instanceMap[siteInstId as string];
+      if (!inst || !allowedDefIds.has(inst.definitionId as string)) continue;
       actions.push({ type: 'select-starting-site', player: playerId, siteInstanceId: siteInstId });
     }
   }

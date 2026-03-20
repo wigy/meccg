@@ -14,7 +14,7 @@ import {
   FARAMIR, GLORFINDEL_II,
   GLAMDRING, STING, THE_MITHRIL_COAT, THE_ONE_RING, DAGGER_OF_WESTERNESSE,
   CAVE_DRAKE, ORC_PATROL, BARROW_WIGHT,
-  RIVENDELL, MORIA, MINAS_TIRITH, MOUNT_DOOM,
+  RIVENDELL, LORIEN, MORIA, MINAS_TIRITH, MOUNT_DOOM,
 } from '@meccg/shared';
 import { renderState, renderDraft, renderActions, renderLog } from './render.js';
 import { rollDice } from './dice.js';
@@ -44,7 +44,7 @@ function buildJoinMessage(name: string): JoinMessage {
       EOWYN, BEREGOND, ANBORN],
     startingMinorItems: [DAGGER_OF_WESTERNESSE, DAGGER_OF_WESTERNESSE],
     playDeck: buildDefaultPlayDeck(),
-    siteDeck: [MORIA, MINAS_TIRITH, MOUNT_DOOM],
+    siteDeck: [RIVENDELL, LORIEN, MORIA, MINAS_TIRITH, MOUNT_DOOM],
     startingHavens: [RIVENDELL],
   };
 }
