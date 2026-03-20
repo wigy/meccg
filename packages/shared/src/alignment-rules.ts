@@ -21,9 +21,9 @@ export interface AlignmentRules {
 /** Alignment-specific rules, keyed by alignment value. */
 const ALIGNMENT_RULES: { readonly [K in Alignment]: AlignmentRules } = {
   'wizard': { maxStartingCompanySize: 5, defaultStartingSites: [RIVENDELL] },
-  'ringwraith': { maxStartingCompanySize: 6, defaultStartingSites: [] },
-  'fallen-wizard': { maxStartingCompanySize: 5, defaultStartingSites: [] },
-  'balrog': { maxStartingCompanySize: 5, defaultStartingSites: [] },
+  'ringwraith': { maxStartingCompanySize: 6, defaultStartingSites: [RIVENDELL] },
+  'fallen-wizard': { maxStartingCompanySize: 5, defaultStartingSites: [RIVENDELL] },
+  'balrog': { maxStartingCompanySize: 5, defaultStartingSites: [RIVENDELL] },
 };
 
 /** Returns the alignment-specific rules for the given alignment. */
