@@ -54,9 +54,24 @@ All server-side logic must include detailed logging so that the game's decision-
 - **Log constraint checks with values**: don't just log "mind limit exceeded" — log "Gimli mind 6 would exceed limit (current 15 + 6 > 20)".
 - **Log state transitions**: when the game advances to a new phase or setup step, log the transition with the reason (e.g. "Both players stopped drafting → finalizing draft").
 
+### Card Data Organization
+
+- Card data lives in `packages/shared/src/data/` as JSON files, aggregated by `index.ts`.
+- **Separate files per extension set:** Each expansion set uses its own data files with a set prefix:
+  - `characters.json`, `items.json`, `creatures.json`, `sites.json`, `regions.json` — The Wizards (TW, base set)
+  - `as-sites.json` — Against the Shadow (AS, minion expansion)
+  - `le-characters.json`, `le-sites.json` — The Lidless Eye (LE, minion expansion)
+  - `wh-sites.json` — The White Hand (WH, fallen-wizard expansion)
+- **Card ID convention:** All card IDs use the pattern `{set}-{number}` (e.g. `tw-156`, `le-24`, `wh-58`). Set prefixes are lowercase.
+- **Card types by alignment:** Each alignment has its own card types:
+  - Hero: `hero-character`, `hero-site`, `hero-resource-item`, etc.
+  - Minion: `minion-character`, `minion-site`
+  - Fallen-wizard: `fallen-wizard-site`
+- When adding cards from a new extension set, create new data files with the set prefix (e.g. `ba-sites.json` for The Balrog) rather than mixing sets in existing files.
+
 ### Card Data Policy
 
-- When adding or modifying card data, always fetch the card from the authoritative card database at https://raw.githubusercontent.com/council-of-elrond-meccg/meccg-cards-database/master/cards.json — never rely on model knowledge for card text, stats, or IDs.
+- When adding or modifying card data, always fetch the card from the authoritative card database at https://raw.githubusercontent.com/council-of-elrond-meccg/meccg-cards-database/master/cards.json — never rely on model knowledge for card text, stats, or IDs. The database is keyed by set code (AS, BA, DM, LE, TD, TW, WH), each containing a `cards` dict keyed by card ID.
 
 ### Card Uniqueness Rules
 

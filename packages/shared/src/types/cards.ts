@@ -431,6 +431,129 @@ export interface RegionCard {
   readonly text: string;
 }
 
+// ---- Minion Characters ----
+
+/**
+ * A minion character card from The Lidless Eye and related expansion sets.
+ *
+ * Minion characters serve the Dark Lord and operate from minion havens
+ * (Dol Guldur, Minas Morgul, etc.). They share the same core stats as
+ * hero characters but include new races (Orc, Troll, Ringwraith) and
+ * minion-specific keywords (Leader, Uruk-hai, Olog-hai).
+ */
+export interface MinionCharacterCard {
+  /** Discriminant for the card type union. */
+  readonly cardType: 'minion-character';
+  /** Unique identifier in the static card pool. */
+  readonly id: CardDefinitionId;
+  /** Display name (e.g. "Gorbag", "The Mouth", "Lieutenant of Dol Guldur"). */
+  readonly name: string;
+  /** Full URL to the card's remastered image in the meccg-remaster repository. */
+  readonly image: string;
+  /** Minion characters are always unique -- only one copy can be in play at a time. */
+  readonly unique: true;
+  /** The character's race (Man, Orc, Troll, Ringwraith, etc.). */
+  readonly race: Race;
+  /** Special skills the character possesses. */
+  readonly skills: readonly Skill[];
+  /** Base combat strength used when attacking or defending against strikes. */
+  readonly prowess: number;
+  /** Resistance to being eliminated -- a successful strike must exceed body to wound/kill. */
+  readonly body: number;
+  /**
+   * The amount of general or direct influence required to control this character.
+   * Null for Ringwraiths, who are controlled automatically as the player's avatar.
+   */
+  readonly mind: number | null;
+  /** Influence points this character can exert to control other characters or sway factions. */
+  readonly directInfluence: number;
+  /** Victory points awarded at the Free Council for having this character in play. */
+  readonly marshallingPoints: number;
+  /** Always 'character' -- used for scoring category calculations. */
+  readonly marshallingCategory: MarshallingCategory.Character;
+  /** Modifier applied to this character's corruption checks. */
+  readonly corruptionModifier: number;
+  /** The site name where this character can be played from hand into a company. */
+  readonly homesite: string;
+  /** Minion-specific keywords (e.g. "Leader", "Uruk-hai", "Olog-hai"). */
+  readonly keywords?: readonly string[];
+  /** Declarative effects describing this character's special abilities. */
+  readonly effects?: readonly CardEffect[];
+  /** Flavor/rules text describing special abilities. */
+  readonly text: string;
+}
+
+// ---- Minion Sites ----
+
+/**
+ * A minion site card representing a Dark Lord stronghold or location.
+ *
+ * Minion sites serve the same role as hero sites but for minion players.
+ * Minion havens (Dol Guldur, Minas Morgul, Carn Dûm, Geann a-Lisch)
+ * function as safe bases, while other minion sites are destinations
+ * for resource plays. Site paths connect minion havens to each other.
+ */
+export interface MinionSiteCard {
+  /** Discriminant for the card type union. */
+  readonly cardType: 'minion-site';
+  /** Unique identifier in the static card pool. */
+  readonly id: CardDefinitionId;
+  /** Display name (e.g. "Dol Guldur", "Minas Morgul"). */
+  readonly name: string;
+  /** Full URL to the card's remastered image in the meccg-remaster repository. */
+  readonly image: string;
+  /** Classification determining the site's danger level and playable resources. */
+  readonly siteType: SiteType;
+  /**
+   * Ordered sequence of region types traversed when traveling from the nearest haven.
+   * For minion havens, this may be empty (haven-to-haven paths are listed separately).
+   */
+  readonly sitePath: readonly RegionType[];
+  /** The minion haven from which this site's primary path originates. */
+  readonly nearestHaven: string;
+  /** Which resource types can be played at this site. */
+  readonly playableResources: readonly PlayableResourceType[];
+  /** Built-in attacks that companies face upon entering the site. */
+  readonly automaticAttacks: readonly AutomaticAttack[];
+  /** Flavor/rules text with additional site-specific conditions. */
+  readonly text: string;
+}
+
+// ---- Fallen-wizard Sites ----
+
+/**
+ * A fallen-wizard site card from The White Hand expansion.
+ *
+ * Fallen-wizard sites are used by fallen-wizard players (corrupted Istari).
+ * They have similar structure to hero and minion sites but belong to the
+ * fallen-wizard alignment, introducing unique locations and special rules.
+ */
+export interface FallenWizardSiteCard {
+  /** Discriminant for the card type union. */
+  readonly cardType: 'fallen-wizard-site';
+  /** Unique identifier in the static card pool. */
+  readonly id: CardDefinitionId;
+  /** Display name (e.g. "The White Towers"). */
+  readonly name: string;
+  /** Full URL to the card's remastered image in the meccg-remaster repository. */
+  readonly image: string;
+  /** Classification determining the site's danger level and playable resources. */
+  readonly siteType: SiteType;
+  /**
+   * Ordered sequence of region types traversed when traveling from the nearest haven.
+   * Empty for havens.
+   */
+  readonly sitePath: readonly RegionType[];
+  /** The haven from which this site's path originates. */
+  readonly nearestHaven: string;
+  /** Which resource types can be played at this site. */
+  readonly playableResources: readonly PlayableResourceType[];
+  /** Built-in attacks that companies face upon entering the site. */
+  readonly automaticAttacks: readonly AutomaticAttack[];
+  /** Flavor/rules text with additional site-specific conditions. */
+  readonly text: string;
+}
+
 // ---- Deck ----
 
 /**
@@ -487,4 +610,7 @@ export type CardDefinition =
   | HazardEventCard
   | CorruptionCard
   | HeroSiteCard
+  | MinionCharacterCard
+  | MinionSiteCard
+  | FallenWizardSiteCard
   | RegionCard;

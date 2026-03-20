@@ -1,0 +1,14 @@
+[
+  {
+    "cardType": "fallen-wizard-site",
+    "id": "wh-58",
+    "name": "The White Towers",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/wh/TheWhiteTowers.jpg",
+    "siteType": "haven",
+    "sitePath": [],
+    "nearestHaven": "",
+    "playableResources": [],
+    "automaticAttacks": [],
+    "text": "If one of your companies is at this site, all attacks against it are canceled."
+  }
+]

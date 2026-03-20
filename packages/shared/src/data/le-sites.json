@@ -1,0 +1,55 @@
+[
+  {
+    "cardType": "minion-site",
+    "id": "le-367",
+    "name": "Dol Guldur",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/DolGuldur.jpg",
+    "siteType": "haven",
+    "sitePath": [],
+    "nearestHaven": "",
+    "playableResources": [],
+    "automaticAttacks": [],
+    "text": "Any gold ring stored at this site is automatically tested (modify the roll by -2). Any attack against a minion company at this site is canceled."
+  },
+  {
+    "cardType": "minion-site",
+    "id": "le-390",
+    "name": "Minas Morgul",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/MinasMorgul.jpg",
+    "siteType": "haven",
+    "sitePath": [],
+    "nearestHaven": "",
+    "playableResources": [],
+    "automaticAttacks": [],
+    "text": "Any gold ring stored at this site is automatically tested (modify the roll by -2). Any attack against a minion company at this site is canceled."
+  },
+  {
+    "cardType": "minion-site",
+    "id": "le-373",
+    "name": "Ettenmoors",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/Ettenmoors.jpg",
+    "siteType": "ruins-and-lairs",
+    "sitePath": ["shadow", "wilderness"],
+    "nearestHaven": "Carn Dûm",
+    "playableResources": ["minor"],
+    "automaticAttacks": [
+      { "creatureType": "Trolls", "strikes": 1, "prowess": 9 },
+      { "creatureType": "Wolves", "strikes": 2, "prowess": 8 }
+    ],
+    "text": "Playable: Items (minor). Automatic-attacks (2): (1st) Troll — 1 strike with 9 prowess; (2nd) Wolves — 2 strikes with 8 prowess."
+  },
+  {
+    "cardType": "minion-site",
+    "id": "le-412",
+    "name": "The White Towers",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/TheWhiteTowers.jpg",
+    "siteType": "ruins-and-lairs",
+    "sitePath": ["shadow", "wilderness"],
+    "nearestHaven": "Carn Dûm",
+    "playableResources": ["information"],
+    "automaticAttacks": [
+      { "creatureType": "Wolves", "strikes": 2, "prowess": 6 }
+    ],
+    "text": "Playable: Information. Automatic-attacks: Wolves — 2 strikes with 6 prowess."
+  }
+]

@@ -1,0 +1,16 @@
+[
+  {
+    "cardType": "minion-site",
+    "id": "as-169",
+    "name": "Weathertop",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/as/Weathertop.jpg",
+    "siteType": "ruins-and-lairs",
+    "sitePath": ["shadow", "wilderness"],
+    "nearestHaven": "Carn Dûm",
+    "playableResources": ["information"],
+    "automaticAttacks": [
+      { "creatureType": "Wolves", "strikes": 2, "prowess": 6 }
+    ],
+    "text": "Playable: Information. Automatic-attacks: Wolves — 2 strikes with 6 prowess."
+  }
+]

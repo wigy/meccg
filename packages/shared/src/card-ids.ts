@@ -3,11 +3,12 @@
  *
  * Named constants for frequently-referenced card definition IDs. These map
  * human-readable names (e.g. `ARAGORN`, `RIVENDELL`) to their underlying
- * "tw-NNN" identifiers from the card data JSON files.
+ * set-prefixed identifiers from the card data JSON files.
  *
  * Using named constants instead of raw strings avoids typos, enables IDE
  * autocompletion, and makes test fixtures and default deck configurations
- * self-documenting. The "tw" prefix refers to "The Wizards", the base set.
+ * self-documenting. Prefixes: "tw" = The Wizards, "le" = The Lidless Eye,
+ * "wh" = The White Hand.
  */
 
 import type { CardDefinitionId } from './types/common.js';
@@ -105,6 +106,38 @@ export const HOLLIN = did('tw-466');
 export const ROHAN = did('tw-483');
 /** Ithilien — shadow-land region east of Minas Tirith. */
 export const ITHILIEN = did('tw-470');
+
+// ---- Against the Shadow — Minion Sites ----
+
+/** Weathertop — minion ruins-and-lairs in Arthedain, nearest darkhaven Carn Dûm. */
+export const WEATHERTOP = did('as-169');
+
+// ---- The Lidless Eye — Minion Characters ----
+
+/** The Mouth — Sauron's lieutenant, high DI, faction influence specialist. */
+export const THE_MOUTH = did('le-24');
+/** Lieutenant of Dol Guldur — Olog-hai troll leader, prowess 7, mind 9. */
+export const LIEUTENANT_OF_DOL_GULDUR = did('le-21');
+/** Gorbag — Uruk-hai orc leader from Minas Morgul, prowess 6. */
+export const GORBAG = did('le-11');
+/** Shagrat — Uruk-hai orc leader from Cirith Ungol, prowess 6. */
+export const SHAGRAT = did('le-39');
+
+// ---- The Lidless Eye — Minion Sites ----
+
+/** Dol Guldur — minion haven in Southern Mirkwood. */
+export const DOL_GULDUR = did('le-367');
+/** Ettenmoors — minion ruins-and-lairs in Rhudaur, nearest darkhaven Carn Dûm. */
+export const ETTENMOORS = did('le-373');
+/** Minas Morgul — minion haven in Imlad Morgul. */
+export const MINAS_MORGUL = did('le-390');
+/** The White Towers (minion) — ruins-and-lairs in Arthedain, nearest darkhaven Carn Dûm. */
+export const THE_WHITE_TOWERS_MINION = did('le-412');
+
+// ---- The White Hand — Fallen-wizard Sites ----
+
+/** The White Towers — fallen-wizard haven in Arthedain. */
+export const THE_WHITE_TOWERS = did('wh-58');
 
 // ---- Placeholder cards for unknown/hidden cards ----
 

@@ -1,0 +1,144 @@
+[
+  {
+    "cardType": "minion-character",
+    "id": "le-24",
+    "name": "The Mouth",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/TheMouth.jpg",
+    "unique": true,
+    "race": "man",
+    "skills": ["warrior", "diplomat"],
+    "prowess": 6,
+    "body": 8,
+    "mind": 9,
+    "directInfluence": 4,
+    "marshallingPoints": 3,
+    "marshallingCategory": "character",
+    "corruptionModifier": 0,
+    "homesite": "Barad-dûr",
+    "effects": [
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": 2,
+        "when": { "reason": "faction-influence-check" }
+      }
+    ],
+    "text": "Unique. Manifestation of Mouth of Sauron. +2 direct influence against any faction. Tap during your organization phase to move one resource or character from your discard pile to your play deck and reshuffle."
+  },
+  {
+    "cardType": "minion-character",
+    "id": "le-21",
+    "name": "Lieutenant of Dol Guldur",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/LieutenantofDolGuldur.jpg",
+    "unique": true,
+    "race": "troll",
+    "skills": ["warrior", "sage"],
+    "prowess": 7,
+    "body": 9,
+    "mind": 9,
+    "directInfluence": 3,
+    "marshallingPoints": 3,
+    "marshallingCategory": "character",
+    "corruptionModifier": 0,
+    "homesite": "Dol Guldur",
+    "keywords": ["Leader", "Olog-hai"],
+    "effects": [
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": 2,
+        "when": { "reason": "faction-influence-check", "faction.race": "troll" }
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": 2,
+        "when": { "reason": "faction-influence-check", "faction.race": "orc" }
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": 2,
+        "when": { "reason": "influence-check", "target.race": "troll" }
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": 2,
+        "when": { "reason": "influence-check", "target.race": "orc" }
+      },
+      {
+        "type": "hand-size-modifier",
+        "value": 1,
+        "when": { "self.location": "Dol Guldur" }
+      }
+    ],
+    "text": "Unique. Olog-hai. Leader. Manifestation of Gorfaur the Lame. Discard on a body check result of 9. +2 direct influence against Trolls, Orcs, Troll factions, and Orc factions. When he is at Dol Guldur, you may keep one more card than normal in your hand."
+  },
+  {
+    "cardType": "minion-character",
+    "id": "le-11",
+    "name": "Gorbag",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/Gorbag.jpg",
+    "unique": true,
+    "race": "orc",
+    "skills": ["warrior", "scout"],
+    "prowess": 6,
+    "body": 9,
+    "mind": 6,
+    "directInfluence": 0,
+    "marshallingPoints": 2,
+    "marshallingCategory": "character",
+    "corruptionModifier": 0,
+    "homesite": "Minas Morgul",
+    "keywords": ["Leader", "Uruk-hai"],
+    "effects": [
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": 3,
+        "when": { "reason": "influence-check", "target.race": "orc" }
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": 3,
+        "when": { "reason": "faction-influence-check", "faction.race": "orc" }
+      }
+    ],
+    "text": "Unique. Uruk-hai. Leader. Discard on a body check result of 9. +3 direct influence against Orcs and Orc factions."
+  },
+  {
+    "cardType": "minion-character",
+    "id": "le-39",
+    "name": "Shagrat",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/Shagrat.jpg",
+    "unique": true,
+    "race": "orc",
+    "skills": ["warrior", "ranger"],
+    "prowess": 6,
+    "body": 9,
+    "mind": 6,
+    "directInfluence": 0,
+    "marshallingPoints": 2,
+    "marshallingCategory": "character",
+    "corruptionModifier": 0,
+    "homesite": "Cirith Ungol",
+    "keywords": ["Leader", "Uruk-hai"],
+    "effects": [
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": 4,
+        "when": { "reason": "influence-check", "target.race": "orc" }
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": 4,
+        "when": { "reason": "faction-influence-check", "faction.race": "orc" }
+      }
+    ],
+    "text": "Unique. Uruk-hai. Leader. Discard on a body check result of 9. +4 direct influence against Orcs and Orc factions."
+  }
+]

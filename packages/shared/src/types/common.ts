@@ -34,7 +34,7 @@ export interface TwoDiceSix {
   readonly die2: DieRoll;
 }
 
-/** The five Free Peoples races that characters can belong to, plus Wizard. */
+/** Races that characters can belong to, covering all alignments (hero, minion, fallen-wizard). */
 export enum Race {
   Hobbit = 'hobbit',
   Elf = 'elf',
@@ -42,6 +42,9 @@ export enum Race {
   Dunadan = 'dunadan',
   Man = 'man',
   Wizard = 'wizard',
+  Orc = 'orc',
+  Troll = 'troll',
+  Ringwraith = 'ringwraith',
 }
 
 /** Character skills that determine special abilities and card interactions. */
