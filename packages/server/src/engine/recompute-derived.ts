@@ -6,6 +6,10 @@
  * points and general influence in each reducer handler, this module
  * recalculates them from the ground truth (characters in play, items, etc.).
  *
+ * Effective stats are computed using the card effects resolver — the DSL
+ * effects on each character and their items are evaluated in context to
+ * produce final prowess, body, direct influence, and corruption point values.
+ *
  * This is called once after each successful reducer step, ensuring derived
  * values are always consistent regardless of which phase handler ran.
  */
@@ -18,8 +22,14 @@ import type {
   CharacterInPlay,
   CardDefinition,
   CardInstanceId,
+  HeroCharacterCard,
 } from '@meccg/shared';
 import { MarshallingCategory, ZERO_MARSHALLING_POINTS } from '@meccg/shared';
+import {
+  collectCharacterEffects,
+  resolveStatModifiers,
+} from './effects/index.js';
+import type { ResolverContext } from './effects/index.js';
 
 /**
  * Looks up a card definition from an instance ID through the instance map.
@@ -45,33 +55,74 @@ function addMP(
 }
 
 /**
- * Recomputes all derived values for a single player from their in-play state.
- *
- * Currently recomputes:
- * - {@link PlayerState.generalInfluenceUsed} — sum of mind values of all
- *   characters controlled under general influence.
- * - {@link PlayerState.marshallingPoints} — per-category MP totals from
- *   characters, items, allies, and other in-play scoring cards.
+ * Builds a {@link ResolverContext} for computing a character's effective stats.
  */
+function buildEffectiveStatsContext(charDef: HeroCharacterCard): ResolverContext {
+  return {
+    reason: 'effective-stats',
+    bearer: {
+      race: charDef.race,
+      skills: charDef.skills,
+      baseProwess: charDef.prowess,
+      baseBody: charDef.body,
+      baseDirectInfluence: charDef.directInfluence,
+      name: charDef.name,
+    },
+  };
+}
+
 /**
- * Computes effective stats for a character from base card definition
- * plus modifiers from equipped items and attached corruption cards.
+ * Computes effective stats for a character using the card effects resolver.
+ *
+ * Collects all effects from the character's card definition and their
+ * equipped items, then resolves stat modifiers for each stat. Falls back
+ * to the old hardcoded approach for items without effects arrays.
  */
 function computeEffectiveStats(
   state: GameState,
   char: CharacterInPlay,
-  charDef: { prowess: number; body: number; directInfluence: number },
+  charDef: HeroCharacterCard,
 ): EffectiveStats {
-  let prowess = charDef.prowess;
-  let body = charDef.body;
-  const directInfluence = charDef.directInfluence;
+  const context = buildEffectiveStatsContext(charDef);
+  const collected = collectCharacterEffects(state, char, context);
+
+  // If we have DSL effects, use the resolver for prowess, body, and DI
+  const hasAnyEffects = collected.length > 0;
+
+  let prowess: number;
+  let body: number;
+  let directInfluence: number;
   let corruptionPoints = 0;
 
+  if (hasAnyEffects) {
+    prowess = resolveStatModifiers(collected, 'prowess', charDef.prowess, context);
+    body = resolveStatModifiers(collected, 'body', charDef.body, context);
+    directInfluence = resolveStatModifiers(collected, 'direct-influence', charDef.directInfluence, context);
+
+    // Corruption: sum from stat-modifier effects on corruption-points,
+    // plus direct corruptionPoints from items and corruption cards that
+    // don't have effects arrays yet.
+    const cpFromEffects = resolveStatModifiers(collected, 'corruption-points', 0, context);
+    corruptionPoints = cpFromEffects;
+
+    // Also sum company-modifier corruption effects (e.g. The One Ring +1 CP to company)
+    // These will be applied at a higher level, not per-character.
+  } else {
+    // Fallback: use the old hardcoded approach for cards without effects
+    prowess = charDef.prowess;
+    body = charDef.body;
+    directInfluence = charDef.directInfluence;
+  }
+
+  // Always add corruption from items and corruption cards directly
+  // (these are structural fields, not DSL effects)
   for (const item of char.items) {
     const itemDef = resolveDef(state, item.instanceId);
     if (itemDef && itemDef.cardType === 'hero-resource-item') {
-      prowess += itemDef.prowessModifier;
-      body += itemDef.bodyModifier;
+      if (!hasAnyEffects) {
+        prowess += itemDef.prowessModifier;
+        body += itemDef.bodyModifier;
+      }
       corruptionPoints += itemDef.corruptionPoints;
     }
   }

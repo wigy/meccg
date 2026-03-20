@@ -12,6 +12,23 @@
     "prowessModifier": 3,
     "bodyModifier": 0,
     "playableAt": ["ruins-and-lairs", "shadow-hold", "dark-hold"],
+    "effects": [
+      {
+        "type": "stat-modifier",
+        "stat": "prowess",
+        "value": 3,
+        "max": 8,
+        "id": "glamdring-prowess"
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "prowess",
+        "value": 3,
+        "max": 9,
+        "overrides": "glamdring-prowess",
+        "when": { "reason": "combat", "enemy.race": "orc" }
+      }
+    ],
     "text": "Unique. Weapon. +3 to prowess to a maximum of 8 (a maximum of 9 against Orcs)."
   },
   {
@@ -27,6 +44,23 @@
     "prowessModifier": 1,
     "bodyModifier": 0,
     "playableAt": ["ruins-and-lairs", "shadow-hold", "dark-hold"],
+    "effects": [
+      {
+        "type": "stat-modifier",
+        "stat": "prowess",
+        "value": 1,
+        "max": 8,
+        "id": "sting-prowess"
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "prowess",
+        "value": 2,
+        "max": 8,
+        "overrides": "sting-prowess",
+        "when": { "bearer.race": "hobbit" }
+      }
+    ],
     "text": "Unique. Weapon. +1 to prowess to a maximum of 8, +2 to a Hobbit's prowess to a maximum of 8."
   },
   {
@@ -42,6 +76,29 @@
     "prowessModifier": 5,
     "bodyModifier": 5,
     "playableAt": [],
+    "effects": [
+      {
+        "type": "stat-modifier",
+        "stat": "prowess",
+        "value": 5,
+        "max": "bearer.baseProwess * 2"
+      },
+      { "type": "stat-modifier", "stat": "body", "value": 5, "max": 10 },
+      { "type": "stat-modifier", "stat": "direct-influence", "value": 5 },
+      { "type": "company-modifier", "stat": "corruption-points", "value": 1 },
+      {
+        "type": "cancel-strike",
+        "cost": { "check": "corruption", "modifier": -2 },
+        "when": {
+          "$not": {
+            "$or": [
+              { "enemy.race": "undead" },
+              { "enemy.race": "nazgul" }
+            ]
+          }
+        }
+      }
+    ],
     "text": "Unique. The One Ring. Playable only with a Gold Ring and after a test indicates The One Ring. +5 prowess (to a maximum of double the bearer's starting prowess). +5 to body (to a maximum of 10). +5 to direct influence. Bearer may make a corruption check modified by -2 to cancel a strike against himself; this does not work against Undead and Nazgûl strikes. +1 corruption point to every character in the bearer's company."
   },
   {
@@ -57,6 +114,9 @@
     "prowessModifier": 0,
     "bodyModifier": 3,
     "playableAt": ["ruins-and-lairs", "shadow-hold", "dark-hold"],
+    "effects": [
+      { "type": "stat-modifier", "stat": "body", "value": 3, "max": 10 }
+    ],
     "text": "Unique. Armor. +3 to body (to a maximum of 10)."
   },
   {
@@ -72,6 +132,9 @@
     "prowessModifier": 1,
     "bodyModifier": 0,
     "playableAt": [],
+    "effects": [
+      { "type": "stat-modifier", "stat": "prowess", "value": 1, "max": 8 }
+    ],
     "text": "Weapon. +1 to prowess to a maximum of 8."
   },
   {
@@ -87,6 +150,15 @@
     "prowessModifier": 0,
     "bodyModifier": 0,
     "playableAt": [],
+    "effects": [
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": 2,
+        "when": { "reason": "faction-influence-check" }
+      },
+      { "type": "duplication-limit", "scope": "character", "max": 1 }
+    ],
     "text": "+2 to direct influence against factions. Cannot be duplicated on a given character."
   }
 ]

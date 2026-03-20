@@ -15,6 +15,15 @@
     "marshallingCategory": "character",
     "corruptionModifier": 1,
     "homesite": "Any Haven",
+    "effects": [
+      { "type": "check-modifier", "check": "corruption", "value": 1 },
+      {
+        "type": "grant-action",
+        "action": "test-gold-ring",
+        "cost": { "tap": "self" },
+        "when": { "company.hasItem": { "$includes": "gold-ring" } }
+      }
+    ],
     "text": "Unique. +1 to all of his corruption checks. Gandalf may tap to test a gold ring in his company."
   },
   {
@@ -33,6 +42,15 @@
     "marshallingCategory": "character",
     "corruptionModifier": 0,
     "homesite": "Bree",
+    "effects": [
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": 2,
+        "when": { "reason": "faction-influence-check", "faction.name": "Rangers of the North" }
+      },
+      { "type": "mp-modifier", "value": -3, "when": { "reason": "elimination" } }
+    ],
     "text": "Unique. +2 direct influence against the Rangers of the North faction. -3 marshalling points if eliminated."
   },
   {
@@ -51,6 +69,14 @@
     "marshallingCategory": "character",
     "corruptionModifier": 0,
     "homesite": "Thranduil's Halls",
+    "effects": [
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": 2,
+        "when": { "reason": "faction-influence-check", "faction.name": "Wood-elves" }
+      }
+    ],
     "text": "Unique. +2 direct influence against the Wood-elves faction."
   },
   {
@@ -69,6 +95,32 @@
     "marshallingCategory": "character",
     "corruptionModifier": 0,
     "homesite": "Iron Hill Dwarf-hold",
+    "effects": [
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": 2,
+        "when": { "reason": "faction-influence-check", "faction.name": "Iron Hill Dwarves" }
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "prowess",
+        "value": 2,
+        "when": { "reason": "combat", "enemy.race": "orc" }
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": 1,
+        "when": { "reason": "influence-check", "target.race": "elf" }
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": 1,
+        "when": { "reason": "faction-influence-check", "faction.race": "elf" }
+      }
+    ],
     "text": "Unique. +2 direct influence against the Iron Hill Dwarves faction, +2 prowess against Orcs. +1 direct influence against Elves and Elf factions."
   },
   {
@@ -87,6 +139,15 @@
     "marshallingCategory": "character",
     "corruptionModifier": 4,
     "homesite": "Bag End",
+    "effects": [
+      { "type": "check-modifier", "check": "corruption", "value": 4 },
+      {
+        "type": "play-restriction",
+        "rule": "home-site-only",
+        "when": { "$not": { "reason": "starting-character" } }
+      },
+      { "type": "mp-modifier", "value": -2, "when": { "reason": "elimination" } }
+    ],
     "text": "Unique. Unless he is one of the starting characters, he may only be brought into play at his home site. All of his corruption checks are modified by +4. -2 marshalling points if eliminated."
   },
   {
@@ -105,6 +166,14 @@
     "marshallingCategory": "character",
     "corruptionModifier": 0,
     "homesite": "Henneth Annûn",
+    "effects": [
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": 2,
+        "when": { "reason": "faction-influence-check", "faction.name": "Rangers of Ithilien" }
+      }
+    ],
     "text": "Unique. +2 direct influence against the Rangers of Ithilien faction."
   },
   {
@@ -123,6 +192,15 @@
     "marshallingCategory": "character",
     "corruptionModifier": 4,
     "homesite": "Bag End",
+    "effects": [
+      { "type": "check-modifier", "check": "corruption", "value": 4 },
+      {
+        "type": "play-restriction",
+        "rule": "home-site-only",
+        "when": { "$not": { "reason": "starting-character" } }
+      },
+      { "type": "mp-modifier", "value": -2, "when": { "reason": "elimination" } }
+    ],
     "text": "Unique. Unless he is one of the starting characters, he may only be brought into play at his home site. All of his corruption checks are modified by +4. -2 marshalling points if eliminated."
   },
   {
@@ -141,6 +219,9 @@
     "marshallingCategory": "character",
     "corruptionModifier": 3,
     "homesite": "Bag End",
+    "effects": [
+      { "type": "check-modifier", "check": "corruption", "value": 3 }
+    ],
     "text": "Unique. Unless he is one of the starting characters, he may only be brought into play at his home site. All of his corruption checks are modified by +3."
   },
   {
@@ -159,6 +240,14 @@
     "marshallingCategory": "character",
     "corruptionModifier": 0,
     "homesite": "Beorn's House",
+    "effects": [
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": 2,
+        "when": { "reason": "faction-influence-check", "faction.name": "Beornings" }
+      }
+    ],
     "text": "Unique. +2 direct influence against the Beornings faction."
   },
   {
@@ -177,6 +266,14 @@
     "marshallingCategory": "character",
     "corruptionModifier": 0,
     "homesite": "Edoras",
+    "effects": [
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": 2,
+        "when": { "reason": "faction-influence-check", "faction.name": "Riders of Rohan" }
+      }
+    ],
     "text": "Unique. +2 direct influence against the Riders of Rohan faction."
   },
   {
@@ -195,6 +292,14 @@
     "marshallingCategory": "character",
     "corruptionModifier": 0,
     "homesite": "Rivendell",
+    "effects": [
+      {
+        "type": "hand-size-modifier",
+        "value": 1,
+        "when": { "self.location": "Rivendell" }
+      },
+      { "type": "mp-modifier", "value": -3, "when": { "reason": "elimination" } }
+    ],
     "text": "Unique. When Elrond is at Rivendell, you may keep one more card than normal in your hand. -3 marshalling points if eliminated."
   },
   {
@@ -213,6 +318,14 @@
     "marshallingCategory": "character",
     "corruptionModifier": 0,
     "homesite": "Rivendell",
+    "effects": [
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": 1,
+        "when": { "reason": "influence-check", "target.race": "elf" }
+      }
+    ],
     "text": "Unique. +1 direct influence against Elves."
   },
   {
@@ -231,6 +344,14 @@
     "marshallingCategory": "character",
     "corruptionModifier": 0,
     "homesite": "Lórien",
+    "effects": [
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": 5,
+        "when": { "reason": "influence-check", "target.name": "Galadriel" }
+      }
+    ],
     "text": "Unique. +5 direct influence that is only usable against Galadriel."
   },
   {
@@ -249,6 +370,20 @@
     "marshallingCategory": "character",
     "corruptionModifier": 0,
     "homesite": "Edoras",
+    "effects": [
+      {
+        "type": "stat-modifier",
+        "stat": "prowess",
+        "value": 6,
+        "when": { "reason": "combat", "enemy.race": "nazgul" }
+      },
+      {
+        "type": "enemy-modifier",
+        "stat": "body",
+        "op": "halve-round-up",
+        "when": { "reason": "combat", "enemy.race": "nazgul" }
+      }
+    ],
     "text": "Unique. Against Nazgûl and Ringwraiths, +6 to her prowess and the Nazgûl/Ringwraith's body is halved (rounded up)."
   },
   {
@@ -267,6 +402,10 @@
     "marshallingCategory": "character",
     "corruptionModifier": -1,
     "homesite": "Minas Tirith",
+    "effects": [
+      { "type": "check-modifier", "check": "corruption", "value": -1 },
+      { "type": "check-modifier", "check": "faction-influence", "value": -1 }
+    ],
     "text": "Unique. -1 to all of his corruption checks. -1 to influence checks against factions."
   },
   {
@@ -303,6 +442,14 @@
     "marshallingCategory": "character",
     "corruptionModifier": 0,
     "homesite": "Lake-town",
+    "effects": [
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": 2,
+        "when": { "reason": "faction-influence-check", "faction.name": "Men of Northern Rhovanion" }
+      }
+    ],
     "text": "Unique. +2 direct influence against the Men of Northern Rhovanion faction."
   },
   {
@@ -321,6 +468,14 @@
     "marshallingCategory": "character",
     "corruptionModifier": 0,
     "homesite": "Pelargir",
+    "effects": [
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": 2,
+        "when": { "reason": "faction-influence-check", "faction.name": "Men of Lebennin" }
+      }
+    ],
     "text": "Unique. +2 direct influence against the Men of Lebennin faction."
   }
 ]

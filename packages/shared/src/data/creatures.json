@@ -15,6 +15,9 @@
         "siteTypes": ["ruins-and-lairs"]
       }
     ],
+    "effects": [
+      { "type": "combat-rule", "rule": "attacker-chooses-defenders" }
+    ],
     "text": "Dragon. Two strikes. Attacker chooses defending characters."
   },
   {
@@ -49,6 +52,14 @@
       {
         "regionTypes": ["shadow", "dark"],
         "siteTypes": ["shadow-hold", "dark-hold"]
+      }
+    ],
+    "effects": [
+      {
+        "type": "on-event",
+        "event": "character-wounded-by-self",
+        "apply": { "type": "force-check", "check": "corruption", "modifier": -2 },
+        "target": "wounded-character"
       }
     ],
     "text": "Undead. One strike. After the attack, each character wounded by Barrow-wight makes a corruption check modified by -2."

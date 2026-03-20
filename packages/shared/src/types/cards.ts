@@ -27,6 +27,7 @@ import {
   SiteType,
   MarshallingCategory,
 } from './common.js';
+import type { CardEffect } from './effects.js';
 
 // ---- Hero Character ----
 
@@ -74,6 +75,8 @@ export interface HeroCharacterCard {
   readonly corruptionModifier: number;
   /** The site name where this character can be played from hand into a company. */
   readonly homesite: string;
+  /** Declarative effects describing this character's special abilities. */
+  readonly effects?: readonly CardEffect[];
   /** Flavor/rules text describing special abilities. */
   readonly text: string;
 }
@@ -124,6 +127,8 @@ export interface HeroItemCard {
   readonly bodyModifier: number;
   /** Site types where this item can be played (e.g. Ruins-and-Lairs, Shadow-holds). */
   readonly playableAt: readonly SiteType[];
+  /** Declarative effects describing this item's abilities and modifiers. */
+  readonly effects?: readonly CardEffect[];
   /** Flavor/rules text describing special abilities or play conditions. */
   readonly text: string;
 }
@@ -157,6 +162,8 @@ export interface HeroFactionCard {
   readonly race: Race;
   /** The specific site name where this faction can be played. */
   readonly playableAt: string;
+  /** Declarative effects describing this faction's abilities. */
+  readonly effects?: readonly CardEffect[];
   /** Flavor/rules text describing special abilities or modifiers. */
   readonly text: string;
 }
@@ -189,6 +196,8 @@ export interface HeroAllyCard {
   readonly marshallingCategory: MarshallingCategory.Ally;
   /** Site types where this ally can be played. */
   readonly playableAt: readonly SiteType[];
+  /** Declarative effects describing this ally's abilities. */
+  readonly effects?: readonly CardEffect[];
   /** Flavor/rules text describing special abilities. */
   readonly text: string;
 }
@@ -220,6 +229,8 @@ export interface HeroResourceEventCard {
   readonly marshallingPoints: number;
   /** Always 'misc' -- resource events fall into the miscellaneous scoring category. */
   readonly marshallingCategory: MarshallingCategory.Misc;
+  /** Declarative effects describing this event's abilities. */
+  readonly effects?: readonly CardEffect[];
   /** Flavor/rules text describing the event's effect. */
   readonly text: string;
 }
@@ -275,6 +286,8 @@ export interface CreatureCard {
   readonly killMarshallingPoints: number;
   /** Terrain and site restrictions determining where this creature can legally attack. */
   readonly keyedTo: readonly CreatureKeyRestriction[];
+  /** Declarative effects describing this creature's special combat abilities. */
+  readonly effects?: readonly CardEffect[];
   /** Flavor/rules text describing special abilities or attack modifiers. */
   readonly text: string;
 }
@@ -299,6 +312,8 @@ export interface HazardEventCard {
   readonly unique: boolean;
   /** Duration class determining when this event is removed from play. */
   readonly eventType: 'short' | 'long' | 'permanent';
+  /** Declarative effects describing this event's abilities. */
+  readonly effects?: readonly CardEffect[];
   /** Flavor/rules text describing the event's effect. */
   readonly text: string;
 }
@@ -325,6 +340,8 @@ export interface CorruptionCard {
   readonly unique: boolean;
   /** Additional corruption points imposed on the targeted character. */
   readonly corruptionPoints: number;
+  /** Declarative effects describing this corruption card's abilities. */
+  readonly effects?: readonly CardEffect[];
   /** Flavor/rules text describing special conditions or effects. */
   readonly text: string;
 }
