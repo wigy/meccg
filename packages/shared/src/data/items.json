@@ -73,5 +73,20 @@
     "bodyModifier": 0,
     "playableAt": [],
     "text": "Weapon. +1 to prowess to a maximum of 8."
+  },
+  {
+    "cardType": "hero-resource-item",
+    "id": "tw-259",
+    "name": "Horn of Anor",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/HornofAnor.jpg",
+    "unique": false,
+    "subtype": "minor",
+    "marshallingPoints": 0,
+    "marshallingCategory": "item",
+    "corruptionPoints": 1,
+    "prowessModifier": 0,
+    "bodyModifier": 0,
+    "playableAt": [],
+    "text": "+2 to direct influence against factions. Cannot be duplicated on a given character."
   }
 ]

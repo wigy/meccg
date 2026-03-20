@@ -43,6 +43,10 @@ MECCG is a web-based implementation of the Middle-Earth Collectible Card Game (M
 - The server is the authority on game state — clients never modify state directly
 - Game rules are enforced server-side; the client is a presentation layer
 
+### Card Data Policy
+
+- When adding or modifying card data, always fetch the card from the authoritative card database at https://raw.githubusercontent.com/council-of-elrond-meccg/meccg-cards-database/master/cards.json — never rely on model knowledge for card text, stats, or IDs.
+
 ### Code Documentation Policy
 
 - All modules must have a `@module` JSDoc comment explaining their purpose and how they fit into the architecture.
