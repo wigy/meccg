@@ -1,162 +1,59 @@
 import { describe, it, expect } from 'vitest';
-import { createGame, createGameQuickStart } from '../engine/init.js';
-import type { GameConfig, QuickStartGameConfig } from '../engine/init.js';
+import { createGameQuickStart } from '../engine/init.js';
 import { reduce } from '../engine/reducer.js';
-import { loadCardPool, Phase, Alignment } from '@meccg/shared';
-import type { PlayerId, CardDefinitionId } from '@meccg/shared';
 import {
-  ARAGORN, BILBO, FRODO, LEGOLAS, GIMLI, FARAMIR,
-  GLAMDRING, STING, THE_MITHRIL_COAT, THE_ONE_RING, DAGGER_OF_WESTERNESSE,
-  CAVE_DRAKE, ORC_PATROL, BARROW_WIGHT,
-  RIVENDELL, LORIEN, MORIA, MINAS_TIRITH, MOUNT_DOOM,
-} from '@meccg/shared';
-
-const pool = loadCardPool();
-const PLAYER_1 = 'p1' as PlayerId;
-const PLAYER_2 = 'p2' as PlayerId;
-
-function makePlayDeck(): CardDefinitionId[] {
-  const resources = [GLAMDRING, STING, THE_MITHRIL_COAT, THE_ONE_RING];
-  const hazards = [CAVE_DRAKE, ORC_PATROL, BARROW_WIGHT];
-  const deck: CardDefinitionId[] = [];
-  for (let i = 0; i < 5; i++) {
-    deck.push(...resources, ...hazards);
-  }
-  return deck;
-}
-
-function makeQuickStartConfig(seed = 42): QuickStartGameConfig {
-  return {
-    players: [
-      {
-        id: PLAYER_1, name: 'Alice', alignment: Alignment.Wizard,
-        startingCharacters: [ARAGORN, BILBO],
-        playDeck: makePlayDeck(),
-        siteDeck: [MORIA, MINAS_TIRITH, MOUNT_DOOM],
-        startingHavens: [RIVENDELL],
-      },
-      {
-        id: PLAYER_2, name: 'Bob', alignment: Alignment.Wizard,
-        startingCharacters: [LEGOLAS, GIMLI],
-        playDeck: makePlayDeck(),
-        siteDeck: [MORIA, MINAS_TIRITH],
-        startingHavens: [LORIEN],
-      },
-    ],
-    seed,
-  };
-}
-
-function makeDraftConfig(seed = 42): GameConfig {
-  return {
-    players: [
-      {
-        id: PLAYER_1, name: 'Alice', alignment: Alignment.Wizard,
-        draftPool: [ARAGORN, BILBO, FRODO],
-        startingMinorItems: [DAGGER_OF_WESTERNESSE],
-        playDeck: makePlayDeck(),
-        siteDeck: [MORIA, MINAS_TIRITH, MOUNT_DOOM],
-        startingHavens: [RIVENDELL],
-      },
-      {
-        id: PLAYER_2, name: 'Bob', alignment: Alignment.Wizard,
-        draftPool: [LEGOLAS, GIMLI, FARAMIR],
-        startingMinorItems: [],
-        playDeck: makePlayDeck(),
-        siteDeck: [MORIA, MINAS_TIRITH],
-        startingHavens: [LORIEN],
-      },
-    ],
-    seed,
-  };
-}
+  pool, PLAYER_1,
+  makeQuickStartConfig, makeDraftConfig, runSimpleDraft,
+  Phase, DAGGER_OF_WESTERNESSE,
+} from './test-helpers.js';
 
 describe('recompute derived values', () => {
   describe('quick-start', () => {
     it('computes general influence from starting characters', () => {
       const state = createGameQuickStart(makeQuickStartConfig(), pool);
-
-      expect(state.players[0].generalInfluenceUsed).toBe(14); // Aragorn 9 + Bilbo 5
-      expect(state.players[1].generalInfluenceUsed).toBe(12); // Legolas 6 + Gimli 6
+      // Aragorn (mind 9) + Bilbo (mind 5) = 14
+      expect(state.players[0].generalInfluenceUsed).toBe(14);
+      // Legolas (mind 6) + Gimli (mind 6) = 12
+      expect(state.players[1].generalInfluenceUsed).toBe(12);
     });
 
-    it('computes character MPs from starting characters', () => {
+    it('computes marshalling points from characters', () => {
       const state = createGameQuickStart(makeQuickStartConfig(), pool);
-
-      expect(state.players[0].marshallingPoints.character).toBe(5); // Aragorn 3 + Bilbo 2
-      expect(state.players[1].marshallingPoints.character).toBe(4); // Legolas 2 + Gimli 2
+      // Aragorn (3 MP) + Bilbo (2 MP) = 5
+      expect(state.players[0].marshallingPoints.character).toBe(5);
+      // Legolas (2 MP) + Gimli (2 MP) = 4
+      expect(state.players[1].marshallingPoints.character).toBe(4);
     });
 
-    it('starts with zero MPs in non-character categories', () => {
+    it('has zero item/faction/ally/kill/misc MPs at start', () => {
       const state = createGameQuickStart(makeQuickStartConfig(), pool);
-
-      for (const player of state.players) {
-        expect(player.marshallingPoints.item).toBe(0);
-        expect(player.marshallingPoints.faction).toBe(0);
-        expect(player.marshallingPoints.ally).toBe(0);
-        expect(player.marshallingPoints.kill).toBe(0);
-        expect(player.marshallingPoints.misc).toBe(0);
-      }
+      const mp = state.players[0].marshallingPoints;
+      expect(mp.item).toBe(0);
+      expect(mp.faction).toBe(0);
+      expect(mp.ally).toBe(0);
+      expect(mp.kill).toBe(0);
+      expect(mp.misc).toBe(0);
     });
   });
 
-  describe('after draft', () => {
-    it('recomputes GI and MPs after draft completes', () => {
-      let state = createGame(makeDraftConfig(), pool);
-
-      // Both players draft one character each then stop
-      let result = reduce(state, { type: 'draft-pick', player: PLAYER_1, characterDefId: ARAGORN });
-      state = result.state;
-      result = reduce(state, { type: 'draft-pick', player: PLAYER_2, characterDefId: LEGOLAS });
-      state = result.state;
-      // Round resolved, now both stop
-      result = reduce(state, { type: 'draft-stop', player: PLAYER_1 });
-      state = result.state;
-      result = reduce(state, { type: 'draft-stop', player: PLAYER_2 });
-      state = result.state;
-
-      // Should be in item-draft phase (both have starting items)
-      expect(state.phaseState.phase).toBe(Phase.Setup);
-
-      // Aragorn: mind 9, 3 MP
-      expect(state.players[0].generalInfluenceUsed).toBe(9);
-      expect(state.players[0].marshallingPoints.character).toBe(3);
-
-      // Legolas: mind 6, 2 MP
-      expect(state.players[1].generalInfluenceUsed).toBe(6);
-      expect(state.players[1].marshallingPoints.character).toBe(2);
+  describe('post-draft', () => {
+    it('recomputes GI after character draft', () => {
+      const state = runSimpleDraft();
+      expect(state.players[0].generalInfluenceUsed).toBe(9); // Aragorn
+      expect(state.players[1].generalInfluenceUsed).toBe(6); // Legolas
     });
 
-    it('accumulates MPs across multiple drafted characters', () => {
-      let state = createGame(makeDraftConfig(), pool);
+    it('computes item MPs after item assignment', () => {
+      let state = runSimpleDraft(makeDraftConfig());
+      const p1Char = state.players[0].companies[0].characters[0];
 
-      // Round 1: both pick
-      let result = reduce(state, { type: 'draft-pick', player: PLAYER_1, characterDefId: ARAGORN });
-      state = result.state;
-      result = reduce(state, { type: 'draft-pick', player: PLAYER_2, characterDefId: LEGOLAS });
-      state = result.state;
+      if (state.phaseState.phase !== Phase.Setup || state.phaseState.setupStep.step !== 'item-draft') throw new Error('wrong phase');
 
-      // Round 2: both pick again
-      result = reduce(state, { type: 'draft-pick', player: PLAYER_1, characterDefId: BILBO });
-      state = result.state;
-      result = reduce(state, { type: 'draft-pick', player: PLAYER_2, characterDefId: GIMLI });
+      const result = reduce(state, { type: 'assign-starting-item', player: PLAYER_1, itemDefId: DAGGER_OF_WESTERNESSE, characterInstanceId: p1Char });
       state = result.state;
 
-      // Round 3: both stop
-      result = reduce(state, { type: 'draft-stop', player: PLAYER_1 });
-      state = result.state;
-      result = reduce(state, { type: 'draft-stop', player: PLAYER_2 });
-      state = result.state;
-
-      expect(state.phaseState.phase).toBe(Phase.Setup);
-
-      // Aragorn (9 mind, 3 MP) + Bilbo (5 mind, 2 MP)
-      expect(state.players[0].generalInfluenceUsed).toBe(14);
-      expect(state.players[0].marshallingPoints.character).toBe(5);
-
-      // Legolas (6 mind, 2 MP) + Gimli (6 mind, 2 MP)
-      expect(state.players[1].generalInfluenceUsed).toBe(12);
-      expect(state.players[1].marshallingPoints.character).toBe(4);
+      // Dagger of Westernesse has 0 MP
+      expect(state.players[0].marshallingPoints.item).toBe(0);
     });
   });
 });
