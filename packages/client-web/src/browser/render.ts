@@ -277,6 +277,22 @@ function getSelfDraftIndex(draftState: readonly [{ pool: readonly CardDefinition
     : 0;
 }
 
+/**
+ * Check if a card (by definition ID) is playable given the current legal actions.
+ * During character draft: playable if there's a draft-pick action for this character.
+ * During character deck draft: playable if there's an add-character-to-deck action.
+ * During item draft: playable if there's an assign-starting-item action for this item.
+ * Otherwise: always false (hand cards don't have direct play actions yet).
+ */
+function isCardPlayable(defId: CardDefinitionId, legalActions: readonly GameAction[]): boolean {
+  for (const action of legalActions) {
+    if (action.type === 'draft-pick' && action.characterDefId === defId) return true;
+    if (action.type === 'add-character-to-deck' && action.characterDefId === defId) return true;
+    if (action.type === 'assign-starting-item' && action.itemDefId === defId) return true;
+  }
+  return false;
+}
+
 /** Render the player's hand (or draft pool) as an arc of card images in the visual view. */
 export function renderHand(view: PlayerView, cardPool: Readonly<Record<string, CardDefinition>>): void {
   const el = document.getElementById('hand-arc');
@@ -299,7 +315,8 @@ export function renderHand(view: PlayerView, cardPool: Readonly<Record<string, C
     const img = document.createElement('img');
     img.src = imgPath;
     img.alt = def.name;
-    img.className = 'hand-card';
+    const playable = isCardPlayable(cards[i], view.legalActions);
+    img.className = playable ? 'hand-card hand-card-playable' : 'hand-card hand-card-dimmed';
     img.style.setProperty('--i', String(i));
     el.appendChild(img);
   }

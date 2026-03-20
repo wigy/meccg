@@ -326,7 +326,10 @@ h2 {
 .hand-card {
   height: var(--card-height);
   border-radius: 8px;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.7);
+  box-shadow:
+    0 0 12px rgba(255, 215, 100, 1),
+    0 0 30px rgba(255, 215, 100, 0.7),
+    0 4px 16px rgba(0, 0, 0, 0.7);
   margin: 0 var(--card-margin, -2.5vh);
   transform-origin: bottom center;
   transform: rotate(calc((var(--i) - (var(--total) - 1) / 2) * var(--spread)))
@@ -336,10 +339,16 @@ h2 {
   position: relative;
 }
 
+.hand-card-dimmed {
+  filter: brightness(0.4);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.7) !important;
+}
+
 .hand-card:hover {
   transform: rotate(0deg) translateY(-8vh) scale(var(--card-zoom));
   z-index: 20;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.9);
+  filter: none;
 }
 
 .opponent-card {
