@@ -164,6 +164,16 @@ const BACKGROUNDS = [
   'images/visual-bg-8.png',
   'images/visual-bg-9.png',
   'images/visual-bg-10.png',
+  'images/visual-bg-11.png',
+  'images/visual-bg-12.png',
+  'images/visual-bg-13.png',
+  'images/visual-bg-14.png',
+  'images/visual-bg-15.png',
+  'images/visual-bg-16.png',
+  'images/visual-bg-17.png',
+  'images/visual-bg-18.png',
+  'images/visual-bg-19.png',
+  'images/visual-bg-20.png',
 ];
 const BG_KEY = 'meccg-bg';
 
