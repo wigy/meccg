@@ -16,7 +16,9 @@
 
 :root {
   --card-height: 28vh;
+  --card-table-height: 22vh;
   --card-zoom: 2;
+  --card-table-zoom: 2.55;
 }
 
 * {
@@ -226,6 +228,7 @@ h2 {
   left: 50%;
   transform: translate(-50%, -50%);
   z-index: 5;
+  pointer-events: none;
 }
 
 .drafted-row {
@@ -233,8 +236,8 @@ h2 {
   justify-content: center;
   gap: 1rem;
   position: fixed;
-  left: 0;
-  right: 0;
+  left: 15vw;
+  right: 15vw;
   z-index: 5;
 }
 
@@ -254,8 +257,52 @@ h2 {
   top: calc(12vh + 0.2 * var(--card-height));
 }
 
+#set-aside {
+  position: fixed;
+  left: 2rem;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  z-index: 5;
+}
+
+#set-aside .set-aside-card + .set-aside-card {
+  margin-top: calc(-0.7 * var(--card-table-height));
+}
+
+#set-aside:empty {
+  display: none;
+}
+
+.set-aside-label {
+  font-family: 'MedievalSharp', cursive;
+  font-size: 1rem;
+  color: rgba(220, 200, 140, 0.7);
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.8);
+}
+
+.set-aside-card {
+  --hover-scale: var(--card-table-zoom);
+  height: var(--card-table-height);
+  border-radius: 4px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.7);
+  filter: brightness(0.5) saturate(0.5);
+  transition: transform 0.2s ease, filter 0.2s ease;
+  cursor: pointer;
+  position: relative;
+}
+
+.set-aside-card:hover {
+  transform: scale(var(--hover-scale, var(--card-zoom)));
+  transform-origin: left center;
+  filter: none;
+}
+
 .drafted-card {
-  height: 22vh;
+  --hover-scale: var(--card-table-zoom);
+  height: var(--card-table-height);
   border-radius: 6px;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.7);
   transition: transform 0.2s ease;
@@ -287,8 +334,15 @@ h2 {
   letter-spacing: 0.05em;
 }
 
-.drafted-card:hover {
-  transform: scale(var(--card-zoom));
+#drafted-self .drafted-card:hover {
+  transform: scale(var(--hover-scale, var(--card-zoom)));
+  transform-origin: center bottom;
+  z-index: 100;
+}
+
+#drafted-opponent .drafted-card:hover {
+  transform: scale(var(--hover-scale, var(--card-zoom)));
+  transform-origin: center top;
   z-index: 100;
 }
 

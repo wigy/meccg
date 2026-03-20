@@ -384,6 +384,34 @@ export function renderDrafted(view: PlayerView, cardPool: Readonly<Record<string
     badge.innerHTML = `<span class="mind-total-label">Remaining GI</span>${GENERAL_INFLUENCE - oppMind}`;
     oppEl.appendChild(badge);
   }
+
+  // Show set-aside (collisioned) characters on the left
+  const setAsideEl = document.getElementById('set-aside');
+  if (setAsideEl) {
+    setAsideEl.innerHTML = '';
+    if (draft.setAside.length > 0) {
+      const label = document.createElement('div');
+      label.className = 'set-aside-label';
+      label.textContent = 'Set Aside';
+      setAsideEl.appendChild(label);
+      for (let j = 0; j < draft.setAside.length; j++) {
+        const defId = draft.setAside[j];
+        const def = cardPool[defId as string];
+        if (!def) continue;
+        const imgPath = cardImageProxyPath(def);
+        if (!imgPath) continue;
+        const img = document.createElement('img');
+        img.src = imgPath;
+        img.alt = def.name;
+        img.className = 'set-aside-card';
+        const baseZ = j + 1;
+        img.style.zIndex = String(baseZ);
+        img.addEventListener('mouseenter', () => { img.style.zIndex = '200'; });
+        img.addEventListener('mouseleave', () => { img.style.zIndex = String(baseZ); });
+        setAsideEl.appendChild(img);
+      }
+    }
+  }
 }
 
 /** Render the player's hand (or draft pool) as an arc of card images in the visual view. */
