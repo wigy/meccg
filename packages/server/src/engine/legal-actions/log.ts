@@ -26,11 +26,28 @@ export function logDetail(message: string): void {
 }
 
 /**
- * Log the final list of legal actions produced for a player.
+ * Formats a single action as "type {arg1: val, arg2: val}".
+ * Omits the `type` and `player` fields from the args since they're redundant.
  */
-export function logResult(actionCount: number, actionTypes?: string[]): void {
-  if (actionTypes && actionTypes.length <= 20) {
-    console.log(`${PREFIX}   → ${actionCount} legal action(s): [${actionTypes.join(', ')}]`);
+function formatAction(action: Record<string, unknown>): string {
+  const { type, player: _player, ...args } = action;
+  const argKeys = Object.keys(args);
+  if (argKeys.length === 0) return type as string;
+  const argStr = argKeys.map(k => `${k}: ${args[k]}`).join(', ');
+  return `${type as string} {${argStr}}`;
+}
+
+/**
+ * Log the final list of legal actions produced for a player,
+ * including each action's arguments for full traceability.
+ */
+export function logResult(actionCount: number, actions?: readonly Record<string, unknown>[]): void {
+  if (actions && actions.length <= 20) {
+    const formatted = actions.map(formatAction);
+    console.log(`${PREFIX}   → ${actionCount} legal action(s):`);
+    for (const line of formatted) {
+      console.log(`${PREFIX}     • ${line}`);
+    }
   } else {
     console.log(`${PREFIX}   → ${actionCount} legal action(s)`);
   }

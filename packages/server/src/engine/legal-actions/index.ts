@@ -42,7 +42,6 @@ export function computeLegalActions(state: GameState, playerId: PlayerId): GameA
     default:                  actions = []; break;
   }
 
-  const types = actions.map(a => a.type);
-  logResult(actions.length, types);
+  logResult(actions.length, actions as unknown as Record<string, unknown>[]);
   return actions;
 }
