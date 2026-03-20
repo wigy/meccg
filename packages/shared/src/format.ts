@@ -393,8 +393,21 @@ function renderState(input: RenderInput): string {
     const activeMarker = player.isActive ? ` \x1b[31m◀\x1b[0m` : '';
     lines.push(`${player.name} [${player.alignment}]${wizardLabel}: ${totalMP} MP${activeMarker}`);
     if (player.handCards && player.handCards.length > 0) {
-      const handNames = player.handCards.map(id => formatInstanceName(id, defOf, instOf));
-      lines.push(`  Hand: ${handNames.join(', ')}`);
+      // Group duplicate cards: "3 x Cave-drake" instead of "Cave-drake, Cave-drake, Cave-drake"
+      const counts = new Map<string, { name: string; count: number }>();
+      for (const id of player.handCards) {
+        const name = formatInstanceName(id, defOf, instOf);
+        const existing = counts.get(name);
+        if (existing) {
+          existing.count++;
+        } else {
+          counts.set(name, { name, count: 1 });
+        }
+      }
+      const grouped = [...counts.values()]
+        .map(({ name, count }) => count > 1 ? `${count} x ${name}` : name)
+        .join(', ');
+      lines.push(`  Hand: ${grouped}`);
     } else if (player.handCount > 0) {
       lines.push(`  Hand: ${player.handCount} x ${colorizeUnknown('a card')}`);
     } else {
