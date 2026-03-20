@@ -35,6 +35,7 @@ import {
   colorDebug,
   setShowDebugIds,
   stripCardMarkers,
+  STATE_DIVIDER,
   Alignment,
   DEBUG_JSON_COMPACT_LIMIT,
 } from '@meccg/shared';
@@ -146,7 +147,7 @@ function connect(): void {
         break;
 
       case 'state': {
-        console.log('\n' + formatPlayerView(msg.view, cardPool));
+        console.log(`\n${STATE_DIVIDER}\n${formatPlayerView(msg.view, cardPool)}\n${STATE_DIVIDER}`);
 
         if (msg.view.phaseState.phase === 'setup' && msg.view.phaseState.setupStep.step === 'character-draft') {
           const draft = msg.view.phaseState.setupStep;

@@ -20,7 +20,7 @@ import type {
   JoinMessage,
   GameAction,
 } from '@meccg/shared';
-import { formatGameState, loadCardPool, colorDebug, DEBUG_JSON_COMPACT_LIMIT } from '@meccg/shared';
+import { formatGameState, loadCardPool, colorDebug, DEBUG_JSON_COMPACT_LIMIT, STATE_DIVIDER } from '@meccg/shared';
 import { createGame } from '../engine/init.js';
 import type { PlayerConfig, GameConfig } from '../engine/init.js';
 import { reduce } from '../engine/reducer.js';
@@ -206,7 +206,7 @@ export class GameSession {
     this.registerPlayers(p1, p1Id, name1, p2, p2Id, name2);
 
     console.log('New game started!');
-    console.log('\n' + formatGameState(this.state));
+    console.log(`\n${STATE_DIVIDER}\n${formatGameState(this.state)}\n${STATE_DIVIDER}`);
 
     this.broadcastState();
   }
@@ -221,7 +221,7 @@ export class GameSession {
     this.registerPlayers(p1, p1Id, name1, p2, p2Id, name2);
 
     console.log('Game restored from save!');
-    console.log('\n' + formatGameState(this.state));
+    console.log(`\n${STATE_DIVIDER}\n${formatGameState(this.state)}\n${STATE_DIVIDER}`);
 
     this.broadcastState();
   }
@@ -291,7 +291,7 @@ export class GameSession {
     const { type: _type, player: _player, ...args } = actionWithPlayer;
     const argsStr = Object.keys(args).length > 0 ? ' ' + JSON.stringify(args) : '';
     console.log(`Action: ${actionWithPlayer.type} by ${playerId}${argsStr}`);
-    console.log('\n' + formatGameState(this.state));
+    console.log(`\n${STATE_DIVIDER}\n${formatGameState(this.state)}\n${STATE_DIVIDER}`);
 
     // Detect draft round reveal
     if (prevDraft) {

@@ -101,3 +101,10 @@ export const SUPPORT_PROWESS_BONUS = 1;
  * Longer strings are pretty-printed with indentation.
  */
 export const DEBUG_JSON_COMPACT_LIMIT = 80;
+
+/**
+ * Visual divider line printed before and after game state output on the
+ * server console. Makes it easy to distinguish state snapshots from
+ * surrounding log lines (action logs, legal-action reasoning, effects).
+ */
+export const STATE_DIVIDER = '════════════════════════════════════════════════════════════════════════════════';
