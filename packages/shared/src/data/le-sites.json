@@ -1,6 +1,7 @@
 [
   {
     "cardType": "minion-site",
+    "alignment": "ringwraith",
     "id": "le-367",
     "name": "Dol Guldur",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/DolGuldur.jpg",
@@ -13,6 +14,7 @@
   },
   {
     "cardType": "minion-site",
+    "alignment": "ringwraith",
     "id": "le-390",
     "name": "Minas Morgul",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/MinasMorgul.jpg",
@@ -25,30 +27,54 @@
   },
   {
     "cardType": "minion-site",
+    "alignment": "ringwraith",
     "id": "le-373",
     "name": "Ettenmoors",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/Ettenmoors.jpg",
     "siteType": "ruins-and-lairs",
-    "sitePath": ["shadow", "wilderness"],
+    "sitePath": [
+      "shadow",
+      "wilderness"
+    ],
     "nearestHaven": "Carn Dûm",
-    "playableResources": ["minor"],
+    "playableResources": [
+      "minor"
+    ],
     "automaticAttacks": [
-      { "creatureType": "Trolls", "strikes": 1, "prowess": 9 },
-      { "creatureType": "Wolves", "strikes": 2, "prowess": 8 }
+      {
+        "creatureType": "Trolls",
+        "strikes": 1,
+        "prowess": 9
+      },
+      {
+        "creatureType": "Wolves",
+        "strikes": 2,
+        "prowess": 8
+      }
     ],
     "text": "Playable: Items (minor). Automatic-attacks (2): (1st) Troll — 1 strike with 9 prowess; (2nd) Wolves — 2 strikes with 8 prowess."
   },
   {
     "cardType": "minion-site",
+    "alignment": "ringwraith",
     "id": "le-412",
     "name": "The White Towers",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/TheWhiteTowers.jpg",
     "siteType": "ruins-and-lairs",
-    "sitePath": ["shadow", "wilderness"],
+    "sitePath": [
+      "shadow",
+      "wilderness"
+    ],
     "nearestHaven": "Carn Dûm",
-    "playableResources": ["information"],
+    "playableResources": [
+      "information"
+    ],
     "automaticAttacks": [
-      { "creatureType": "Wolves", "strikes": 2, "prowess": 6 }
+      {
+        "creatureType": "Wolves",
+        "strikes": 2,
+        "prowess": 6
+      }
     ],
     "text": "Playable: Information. Automatic-attacks: Wolves — 2 strikes with 6 prowess."
   }

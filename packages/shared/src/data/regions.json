@@ -1,38 +1,63 @@
 [
   {
     "cardType": "region",
+    "alignment": "wizard",
     "id": "tw-482",
     "name": "Rhudaur",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Rhudaur.jpg",
     "regionType": "wilderness",
-    "adjacentRegions": ["Angmar", "Arthedain", "Cardolan", "High Pass", "Hollin"],
+    "adjacentRegions": [
+      "Angmar",
+      "Arthedain",
+      "Cardolan",
+      "High Pass",
+      "Hollin"
+    ],
     "text": ""
   },
   {
     "cardType": "region",
+    "alignment": "wizard",
     "id": "tw-466",
     "name": "Hollin",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Hollin.jpg",
     "regionType": "wilderness",
-    "adjacentRegions": ["Cardolan", "Dunland", "Redhorn Gate", "Rhudaur"],
+    "adjacentRegions": [
+      "Cardolan",
+      "Dunland",
+      "Redhorn Gate",
+      "Rhudaur"
+    ],
     "text": ""
   },
   {
     "cardType": "region",
+    "alignment": "wizard",
     "id": "tw-483",
     "name": "Rohan",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Rohan.jpg",
     "regionType": "border",
-    "adjacentRegions": ["Anórien", "Fangorn", "Gap of Isen", "Wold & Foothills"],
+    "adjacentRegions": [
+      "Anórien",
+      "Fangorn",
+      "Gap of Isen",
+      "Wold & Foothills"
+    ],
     "text": ""
   },
   {
     "cardType": "region",
+    "alignment": "wizard",
     "id": "tw-470",
     "name": "Ithilien",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Ithilien.jpg",
     "regionType": "wilderness",
-    "adjacentRegions": ["Anórien", "Dagorlad", "Harondor", "Imlad Morgul"],
+    "adjacentRegions": [
+      "Anórien",
+      "Dagorlad",
+      "Harondor",
+      "Imlad Morgul"
+    ],
     "text": ""
   }
 ]

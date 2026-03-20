@@ -1,12 +1,18 @@
 [
   {
     "cardType": "hero-character",
+    "alignment": "wizard",
     "id": "tw-156",
     "name": "Gandalf",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Gandalf.jpg",
     "unique": true,
     "race": "wizard",
-    "skills": ["warrior", "scout", "sage", "diplomat"],
+    "skills": [
+      "warrior",
+      "scout",
+      "sage",
+      "diplomat"
+    ],
     "prowess": 6,
     "body": 9,
     "mind": null,
@@ -16,24 +22,39 @@
     "corruptionModifier": 1,
     "homesite": "Any Haven",
     "effects": [
-      { "type": "check-modifier", "check": "corruption", "value": 1 },
+      {
+        "type": "check-modifier",
+        "check": "corruption",
+        "value": 1
+      },
       {
         "type": "grant-action",
         "action": "test-gold-ring",
-        "cost": { "tap": "self" },
-        "when": { "company.hasItem": { "$includes": "gold-ring" } }
+        "cost": {
+          "tap": "self"
+        },
+        "when": {
+          "company.hasItem": {
+            "$includes": "gold-ring"
+          }
+        }
       }
     ],
     "text": "Unique. +1 to all of his corruption checks. Gandalf may tap to test a gold ring in his company."
   },
   {
     "cardType": "hero-character",
+    "alignment": "wizard",
     "id": "tw-120",
     "name": "Aragorn II",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/AragornII.jpg",
     "unique": true,
     "race": "dunadan",
-    "skills": ["warrior", "scout", "ranger"],
+    "skills": [
+      "warrior",
+      "scout",
+      "ranger"
+    ],
     "prowess": 6,
     "body": 9,
     "mind": 9,
@@ -47,20 +68,33 @@
         "type": "stat-modifier",
         "stat": "direct-influence",
         "value": 2,
-        "when": { "reason": "faction-influence-check", "faction.name": "Rangers of the North" }
+        "when": {
+          "reason": "faction-influence-check",
+          "faction.name": "Rangers of the North"
+        }
       },
-      { "type": "mp-modifier", "value": -3, "when": { "reason": "elimination" } }
+      {
+        "type": "mp-modifier",
+        "value": -3,
+        "when": {
+          "reason": "elimination"
+        }
+      }
     ],
     "text": "Unique. +2 direct influence against the Rangers of the North faction. -3 marshalling points if eliminated."
   },
   {
     "cardType": "hero-character",
+    "alignment": "wizard",
     "id": "tw-168",
     "name": "Legolas",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Legolas.jpg",
     "unique": true,
     "race": "elf",
-    "skills": ["warrior", "diplomat"],
+    "skills": [
+      "warrior",
+      "diplomat"
+    ],
     "prowess": 5,
     "body": 8,
     "mind": 6,
@@ -74,19 +108,26 @@
         "type": "stat-modifier",
         "stat": "direct-influence",
         "value": 2,
-        "when": { "reason": "faction-influence-check", "faction.name": "Wood-elves" }
+        "when": {
+          "reason": "faction-influence-check",
+          "faction.name": "Wood-elves"
+        }
       }
     ],
     "text": "Unique. +2 direct influence against the Wood-elves faction."
   },
   {
     "cardType": "hero-character",
+    "alignment": "wizard",
     "id": "tw-159",
     "name": "Gimli",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Gimli.jpg",
     "unique": true,
     "race": "dwarf",
-    "skills": ["warrior", "diplomat"],
+    "skills": [
+      "warrior",
+      "diplomat"
+    ],
     "prowess": 5,
     "body": 8,
     "mind": 6,
@@ -100,37 +141,53 @@
         "type": "stat-modifier",
         "stat": "direct-influence",
         "value": 2,
-        "when": { "reason": "faction-influence-check", "faction.name": "Iron Hill Dwarves" }
+        "when": {
+          "reason": "faction-influence-check",
+          "faction.name": "Iron Hill Dwarves"
+        }
       },
       {
         "type": "stat-modifier",
         "stat": "prowess",
         "value": 2,
-        "when": { "reason": "combat", "enemy.race": "orc" }
+        "when": {
+          "reason": "combat",
+          "enemy.race": "orc"
+        }
       },
       {
         "type": "stat-modifier",
         "stat": "direct-influence",
         "value": 1,
-        "when": { "reason": "influence-check", "target.race": "elf" }
+        "when": {
+          "reason": "influence-check",
+          "target.race": "elf"
+        }
       },
       {
         "type": "stat-modifier",
         "stat": "direct-influence",
         "value": 1,
-        "when": { "reason": "faction-influence-check", "faction.race": "elf" }
+        "when": {
+          "reason": "faction-influence-check",
+          "faction.race": "elf"
+        }
       }
     ],
     "text": "Unique. +2 direct influence against the Iron Hill Dwarves faction, +2 prowess against Orcs. +1 direct influence against Elves and Elf factions."
   },
   {
     "cardType": "hero-character",
+    "alignment": "wizard",
     "id": "tw-152",
     "name": "Frodo",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Frodo.jpg",
     "unique": true,
     "race": "hobbit",
-    "skills": ["scout", "diplomat"],
+    "skills": [
+      "scout",
+      "diplomat"
+    ],
     "prowess": 1,
     "body": 9,
     "mind": 5,
@@ -140,24 +197,42 @@
     "corruptionModifier": 4,
     "homesite": "Bag End",
     "effects": [
-      { "type": "check-modifier", "check": "corruption", "value": 4 },
+      {
+        "type": "check-modifier",
+        "check": "corruption",
+        "value": 4
+      },
       {
         "type": "play-restriction",
         "rule": "home-site-only",
-        "when": { "$not": { "reason": "starting-character" } }
+        "when": {
+          "$not": {
+            "reason": "starting-character"
+          }
+        }
       },
-      { "type": "mp-modifier", "value": -2, "when": { "reason": "elimination" } }
+      {
+        "type": "mp-modifier",
+        "value": -2,
+        "when": {
+          "reason": "elimination"
+        }
+      }
     ],
     "text": "Unique. Unless he is one of the starting characters, he may only be brought into play at his home site. All of his corruption checks are modified by +4. -2 marshalling points if eliminated."
   },
   {
     "cardType": "hero-character",
+    "alignment": "wizard",
     "id": "tw-149",
     "name": "Faramir",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Faramir.jpg",
     "unique": true,
     "race": "dunadan",
-    "skills": ["warrior", "ranger"],
+    "skills": [
+      "warrior",
+      "ranger"
+    ],
     "prowess": 5,
     "body": 8,
     "mind": 5,
@@ -171,19 +246,26 @@
         "type": "stat-modifier",
         "stat": "direct-influence",
         "value": 2,
-        "when": { "reason": "faction-influence-check", "faction.name": "Rangers of Ithilien" }
+        "when": {
+          "reason": "faction-influence-check",
+          "faction.name": "Rangers of Ithilien"
+        }
       }
     ],
     "text": "Unique. +2 direct influence against the Rangers of Ithilien faction."
   },
   {
     "cardType": "hero-character",
+    "alignment": "wizard",
     "id": "tw-131",
     "name": "Bilbo",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Bilbo.jpg",
     "unique": true,
     "race": "hobbit",
-    "skills": ["scout", "sage"],
+    "skills": [
+      "scout",
+      "sage"
+    ],
     "prowess": 1,
     "body": 9,
     "mind": 5,
@@ -193,24 +275,42 @@
     "corruptionModifier": 4,
     "homesite": "Bag End",
     "effects": [
-      { "type": "check-modifier", "check": "corruption", "value": 4 },
+      {
+        "type": "check-modifier",
+        "check": "corruption",
+        "value": 4
+      },
       {
         "type": "play-restriction",
         "rule": "home-site-only",
-        "when": { "$not": { "reason": "starting-character" } }
+        "when": {
+          "$not": {
+            "reason": "starting-character"
+          }
+        }
       },
-      { "type": "mp-modifier", "value": -2, "when": { "reason": "elimination" } }
+      {
+        "type": "mp-modifier",
+        "value": -2,
+        "when": {
+          "reason": "elimination"
+        }
+      }
     ],
     "text": "Unique. Unless he is one of the starting characters, he may only be brought into play at his home site. All of his corruption checks are modified by +4. -2 marshalling points if eliminated."
   },
   {
     "cardType": "hero-character",
+    "alignment": "wizard",
     "id": "tw-180",
     "name": "Sam Gamgee",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/SamGamgee.jpg",
     "unique": true,
     "race": "hobbit",
-    "skills": ["scout", "ranger"],
+    "skills": [
+      "scout",
+      "ranger"
+    ],
     "prowess": 1,
     "body": 9,
     "mind": 4,
@@ -220,18 +320,26 @@
     "corruptionModifier": 3,
     "homesite": "Bag End",
     "effects": [
-      { "type": "check-modifier", "check": "corruption", "value": 3 }
+      {
+        "type": "check-modifier",
+        "check": "corruption",
+        "value": 3
+      }
     ],
     "text": "Unique. Unless he is one of the starting characters, he may only be brought into play at his home site. All of his corruption checks are modified by +3."
   },
   {
     "cardType": "hero-character",
+    "alignment": "wizard",
     "id": "tw-126",
     "name": "Beorn",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Beorn.jpg",
     "unique": true,
     "race": "man",
-    "skills": ["warrior", "ranger"],
+    "skills": [
+      "warrior",
+      "ranger"
+    ],
     "prowess": 7,
     "body": 9,
     "mind": 7,
@@ -245,19 +353,26 @@
         "type": "stat-modifier",
         "stat": "direct-influence",
         "value": 2,
-        "when": { "reason": "faction-influence-check", "faction.name": "Beornings" }
+        "when": {
+          "reason": "faction-influence-check",
+          "faction.name": "Beornings"
+        }
       }
     ],
     "text": "Unique. +2 direct influence against the Beornings faction."
   },
   {
     "cardType": "hero-character",
+    "alignment": "wizard",
     "id": "tw-182",
     "name": "Théoden",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Theoden.jpg",
     "unique": true,
     "race": "man",
-    "skills": ["warrior", "diplomat"],
+    "skills": [
+      "warrior",
+      "diplomat"
+    ],
     "prowess": 5,
     "body": 6,
     "mind": 6,
@@ -271,19 +386,27 @@
         "type": "stat-modifier",
         "stat": "direct-influence",
         "value": 2,
-        "when": { "reason": "faction-influence-check", "faction.name": "Riders of Rohan" }
+        "when": {
+          "reason": "faction-influence-check",
+          "faction.name": "Riders of Rohan"
+        }
       }
     ],
     "text": "Unique. +2 direct influence against the Riders of Rohan faction."
   },
   {
     "cardType": "hero-character",
+    "alignment": "wizard",
     "id": "tw-145",
     "name": "Elrond",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Elrond.jpg",
     "unique": true,
     "race": "elf",
-    "skills": ["warrior", "sage", "diplomat"],
+    "skills": [
+      "warrior",
+      "sage",
+      "diplomat"
+    ],
     "prowess": 7,
     "body": 9,
     "mind": 10,
@@ -296,20 +419,32 @@
       {
         "type": "hand-size-modifier",
         "value": 1,
-        "when": { "self.location": "Rivendell" }
+        "when": {
+          "self.location": "Rivendell"
+        }
       },
-      { "type": "mp-modifier", "value": -3, "when": { "reason": "elimination" } }
+      {
+        "type": "mp-modifier",
+        "value": -3,
+        "when": {
+          "reason": "elimination"
+        }
+      }
     ],
     "text": "Unique. When Elrond is at Rivendell, you may keep one more card than normal in your hand. -3 marshalling points if eliminated."
   },
   {
     "cardType": "hero-character",
+    "alignment": "wizard",
     "id": "tw-161",
     "name": "Glorfindel II",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/GlorfindelII.jpg",
     "unique": true,
     "race": "elf",
-    "skills": ["warrior", "sage"],
+    "skills": [
+      "warrior",
+      "sage"
+    ],
     "prowess": 8,
     "body": 9,
     "mind": 8,
@@ -323,19 +458,26 @@
         "type": "stat-modifier",
         "stat": "direct-influence",
         "value": 1,
-        "when": { "reason": "influence-check", "target.race": "elf" }
+        "when": {
+          "reason": "influence-check",
+          "target.race": "elf"
+        }
       }
     ],
     "text": "Unique. +1 direct influence against Elves."
   },
   {
     "cardType": "hero-character",
+    "alignment": "wizard",
     "id": "tw-136",
     "name": "Celeborn",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Celeborn.jpg",
     "unique": true,
     "race": "elf",
-    "skills": ["warrior", "sage"],
+    "skills": [
+      "warrior",
+      "sage"
+    ],
     "prowess": 6,
     "body": 9,
     "mind": 6,
@@ -349,19 +491,26 @@
         "type": "stat-modifier",
         "stat": "direct-influence",
         "value": 5,
-        "when": { "reason": "influence-check", "target.name": "Galadriel" }
+        "when": {
+          "reason": "influence-check",
+          "target.name": "Galadriel"
+        }
       }
     ],
     "text": "Unique. +5 direct influence that is only usable against Galadriel."
   },
   {
     "cardType": "hero-character",
+    "alignment": "wizard",
     "id": "tw-147",
     "name": "Éowyn",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Eowyn.jpg",
     "unique": true,
     "race": "man",
-    "skills": ["warrior", "scout"],
+    "skills": [
+      "warrior",
+      "scout"
+    ],
     "prowess": 2,
     "body": 7,
     "mind": 2,
@@ -375,25 +524,34 @@
         "type": "stat-modifier",
         "stat": "prowess",
         "value": 6,
-        "when": { "reason": "combat", "enemy.race": "nazgul" }
+        "when": {
+          "reason": "combat",
+          "enemy.race": "nazgul"
+        }
       },
       {
         "type": "enemy-modifier",
         "stat": "body",
         "op": "halve-round-up",
-        "when": { "reason": "combat", "enemy.race": "nazgul" }
+        "when": {
+          "reason": "combat",
+          "enemy.race": "nazgul"
+        }
       }
     ],
     "text": "Unique. Against Nazgûl and Ringwraiths, +6 to her prowess and the Nazgûl/Ringwraith's body is halved (rounded up)."
   },
   {
     "cardType": "hero-character",
+    "alignment": "wizard",
     "id": "tw-127",
     "name": "Beregond",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Beregond.jpg",
     "unique": true,
     "race": "dunadan",
-    "skills": ["warrior"],
+    "skills": [
+      "warrior"
+    ],
     "prowess": 4,
     "body": 8,
     "mind": 2,
@@ -403,19 +561,31 @@
     "corruptionModifier": -1,
     "homesite": "Minas Tirith",
     "effects": [
-      { "type": "check-modifier", "check": "corruption", "value": -1 },
-      { "type": "check-modifier", "check": "faction-influence", "value": -1 }
+      {
+        "type": "check-modifier",
+        "check": "corruption",
+        "value": -1
+      },
+      {
+        "type": "check-modifier",
+        "check": "faction-influence",
+        "value": -1
+      }
     ],
     "text": "Unique. -1 to all of his corruption checks. -1 to influence checks against factions."
   },
   {
     "cardType": "hero-character",
+    "alignment": "wizard",
     "id": "tw-129",
     "name": "Bergil",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Bergil.jpg",
     "unique": true,
     "race": "dunadan",
-    "skills": ["warrior", "scout"],
+    "skills": [
+      "warrior",
+      "scout"
+    ],
     "prowess": 1,
     "body": 9,
     "mind": 2,
@@ -428,12 +598,16 @@
   },
   {
     "cardType": "hero-character",
+    "alignment": "wizard",
     "id": "tw-124",
     "name": "Bard Bowman",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/BardBowman.jpg",
     "unique": true,
     "race": "man",
-    "skills": ["warrior", "scout"],
+    "skills": [
+      "warrior",
+      "scout"
+    ],
     "prowess": 3,
     "body": 6,
     "mind": 2,
@@ -447,19 +621,26 @@
         "type": "stat-modifier",
         "stat": "direct-influence",
         "value": 2,
-        "when": { "reason": "faction-influence-check", "faction.name": "Men of Northern Rhovanion" }
+        "when": {
+          "reason": "faction-influence-check",
+          "faction.name": "Men of Northern Rhovanion"
+        }
       }
     ],
     "text": "Unique. +2 direct influence against the Men of Northern Rhovanion faction."
   },
   {
     "cardType": "hero-character",
+    "alignment": "wizard",
     "id": "tw-118",
     "name": "Anborn",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Anborn.jpg",
     "unique": true,
     "race": "dunadan",
-    "skills": ["scout", "ranger"],
+    "skills": [
+      "scout",
+      "ranger"
+    ],
     "prowess": 2,
     "body": 8,
     "mind": 2,
@@ -473,7 +654,10 @@
         "type": "stat-modifier",
         "stat": "direct-influence",
         "value": 2,
-        "when": { "reason": "faction-influence-check", "faction.name": "Men of Lebennin" }
+        "when": {
+          "reason": "faction-influence-check",
+          "faction.name": "Men of Lebennin"
+        }
       }
     ],
     "text": "Unique. +2 direct influence against the Men of Lebennin faction."

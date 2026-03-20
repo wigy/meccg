@@ -1,6 +1,7 @@
 [
   {
     "cardType": "fallen-wizard-site",
+    "alignment": "fallen-wizard",
     "id": "wh-58",
     "name": "The White Towers",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/wh/TheWhiteTowers.jpg",

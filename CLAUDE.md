@@ -60,7 +60,7 @@ All server-side logic must include detailed logging so that the game's decision-
 - **Separate files per extension set:** Each expansion set uses its own data files with a set prefix:
   - `characters.json`, `items.json`, `creatures.json`, `sites.json`, `regions.json` — The Wizards (TW, base set)
   - `as-sites.json` — Against the Shadow (AS, minion expansion)
-  - `le-characters.json`, `le-sites.json` — The Lidless Eye (LE, minion expansion)
+  - `le-characters.json`, `le-resources.json`, `le-sites.json` — The Lidless Eye (LE, minion expansion)
   - `wh-sites.json` — The White Hand (WH, fallen-wizard expansion)
 - **Card ID convention:** All card IDs use the pattern `{set}-{number}` (e.g. `tw-156`, `le-24`, `wh-58`). Set prefixes are lowercase.
 - **Card types by alignment:** Each alignment has its own card types:

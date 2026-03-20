@@ -1,6 +1,7 @@
 [
   {
     "cardType": "hero-site",
+    "alignment": "wizard",
     "id": "tw-421",
     "name": "Rivendell",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Rivendell.jpg",
@@ -13,6 +14,7 @@
   },
   {
     "cardType": "hero-site",
+    "alignment": "wizard",
     "id": "tw-408",
     "name": "Lórien",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Lorien.jpg",
@@ -25,35 +27,65 @@
   },
   {
     "cardType": "hero-site",
+    "alignment": "wizard",
     "id": "tw-413",
     "name": "Moria",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Moria.jpg",
     "siteType": "shadow-hold",
-    "sitePath": ["wilderness", "wilderness"],
+    "sitePath": [
+      "wilderness",
+      "wilderness"
+    ],
     "nearestHaven": "Lórien",
-    "playableResources": ["minor", "major", "greater", "gold-ring"],
-    "automaticAttacks": [{ "creatureType": "Orcs", "strikes": 4, "prowess": 7 }],
+    "playableResources": [
+      "minor",
+      "major",
+      "greater",
+      "gold-ring"
+    ],
+    "automaticAttacks": [
+      {
+        "creatureType": "Orcs",
+        "strikes": 4,
+        "prowess": 7
+      }
+    ],
     "text": "Playable: Items (minor, major, greater, gold ring). Automatic-attacks: Orcs — 4 strikes with 7 prowess."
   },
   {
     "cardType": "hero-site",
+    "alignment": "wizard",
     "id": "tw-412",
     "name": "Minas Tirith",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/MinasTirith.jpg",
     "siteType": "free-hold",
-    "sitePath": ["wilderness", "border", "free"],
+    "sitePath": [
+      "wilderness",
+      "border",
+      "free"
+    ],
     "nearestHaven": "Lórien",
-    "playableResources": ["faction"],
+    "playableResources": [
+      "faction"
+    ],
     "automaticAttacks": [],
     "text": ""
   },
   {
     "cardType": "hero-site",
+    "alignment": "wizard",
     "id": "tw-414",
     "name": "Mount Doom",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/MountDoom.jpg",
     "siteType": "shadow-hold",
-    "sitePath": ["wilderness", "border", "free", "wilderness", "shadow", "dark"],
+    "sitePath": [
+      "wilderness",
+      "border",
+      "free",
+      "wilderness",
+      "shadow",
+      "dark"
+    ],
     "nearestHaven": "Lórien",
     "playableResources": [],
     "automaticAttacks": [],

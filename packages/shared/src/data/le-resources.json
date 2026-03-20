@@ -1,0 +1,164 @@
+[
+  {
+    "cardType": "minion-resource-item",
+    "alignment": "ringwraith",
+    "id": "le-299",
+    "name": "Black Mace",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/BlackMace.jpg",
+    "unique": false,
+    "subtype": "greater",
+    "marshallingPoints": 2,
+    "marshallingCategory": "item",
+    "corruptionPoints": 3,
+    "prowessModifier": 3,
+    "bodyModifier": 0,
+    "playableAt": [
+      "shadow-hold",
+      "dark-hold"
+    ],
+    "effects": [
+      {
+        "type": "play-restriction",
+        "rule": "skill-required",
+        "skill": "warrior"
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "prowess",
+        "value": 4,
+        "when": {
+          "reason": "combat",
+          "enemy.race": "elf"
+        }
+      }
+    ],
+    "text": "Weapon. Warrior only: +3 prowess to a maximum of 10 (+4 to a maximum of 10 against Elves)."
+  },
+  {
+    "cardType": "minion-resource-item",
+    "alignment": "ringwraith",
+    "id": "le-313",
+    "name": "High Helm",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/HighHelm.jpg",
+    "unique": true,
+    "subtype": "major",
+    "marshallingPoints": 2,
+    "marshallingCategory": "item",
+    "corruptionPoints": 2,
+    "prowessModifier": 0,
+    "bodyModifier": 1,
+    "playableAt": [
+      "ruins-and-lairs",
+      "shadow-hold",
+      "dark-hold"
+    ],
+    "effects": [
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": 2
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "prowess",
+        "value": 1,
+        "when": {
+          "self.skill": "warrior"
+        }
+      }
+    ],
+    "text": "Unique. Helmet. +2 to direct influence. +1 to body to a maximum of 9. Warrior only: +1 to prowess to a maximum of 8."
+  },
+  {
+    "cardType": "minion-resource-item",
+    "alignment": "ringwraith",
+    "id": "le-342",
+    "name": "Saw-toothed Blade",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/SawtoothedBlade.jpg",
+    "unique": false,
+    "subtype": "minor",
+    "marshallingPoints": 0,
+    "marshallingCategory": "item",
+    "corruptionPoints": 1,
+    "prowessModifier": 1,
+    "bodyModifier": 0,
+    "playableAt": [
+      "ruins-and-lairs",
+      "shadow-hold",
+      "dark-hold",
+      "border-hold"
+    ],
+    "effects": [],
+    "text": "Weapon. +1 to prowess to a maximum of 8."
+  },
+  {
+    "cardType": "minion-resource-item",
+    "alignment": "ringwraith",
+    "id": "le-328",
+    "name": "Orc-draughts",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/Orcdraughts.jpg",
+    "unique": false,
+    "subtype": "minor",
+    "marshallingPoints": 0,
+    "marshallingCategory": "item",
+    "corruptionPoints": 1,
+    "prowessModifier": 0,
+    "bodyModifier": 0,
+    "playableAt": [
+      "ruins-and-lairs",
+      "shadow-hold",
+      "dark-hold",
+      "border-hold"
+    ],
+    "effects": [],
+    "text": "Discard to give +1 prowess to all characters in bearer's company until the end of the turn."
+  },
+  {
+    "cardType": "minion-resource-faction",
+    "alignment": "ringwraith",
+    "id": "le-265",
+    "name": "Goblins of Goblin-gate",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/GoblinsofGoblingate.jpg",
+    "unique": true,
+    "marshallingPoints": 2,
+    "marshallingCategory": "faction",
+    "influenceNumber": 9,
+    "race": "orc",
+    "playableAt": "Goblin-gate",
+    "effects": [],
+    "text": "Unique. Playable at Goblin-gate if the influence check is greater than 8. Standard Modifications: Grey Mountain Goblins (+2)."
+  },
+  {
+    "cardType": "minion-resource-ally",
+    "alignment": "ringwraith",
+    "id": "le-158",
+    "name": "The Warg-king",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/TheWargking.jpg",
+    "unique": true,
+    "prowess": 4,
+    "body": 8,
+    "marshallingPoints": 2,
+    "marshallingCategory": "ally",
+    "playableAt": [
+      "ruins-and-lairs"
+    ],
+    "effects": [
+      {
+        "type": "grant-action",
+        "action": "cancel-attack",
+        "cost": {
+          "tap": "self"
+        },
+        "when": {
+          "attack.type": {
+            "$in": [
+              "Wolf",
+              "Animal"
+            ]
+          }
+        }
+      }
+    ],
+    "text": "Unique. Playable at any tapped or untapped Ruins & Lairs with a Wolf automatic-attack. Tap to cancel a Wolf or Animal attack against his company. +2 to any influence attempt by a character in his company against a Wolf faction."
+  }
+]

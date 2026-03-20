@@ -123,6 +123,21 @@ export const GORBAG = did('le-11');
 /** Shagrat — Uruk-hai orc leader from Cirith Ungol, prowess 6. */
 export const SHAGRAT = did('le-39');
 
+// ---- The Lidless Eye — Minion Resources ----
+
+/** Black Mace — greater item weapon, +3 prowess (+4 vs Elves), warrior only. */
+export const BLACK_MACE = did('le-299');
+/** High Helm — unique major item helmet, +2 DI, +1 body/prowess. */
+export const HIGH_HELM = did('le-313');
+/** Saw-toothed Blade — minor item weapon, +1 prowess. */
+export const SAW_TOOTHED_BLADE = did('le-342');
+/** Orc-draughts — minor item, discard for company-wide +1 prowess. */
+export const ORC_DRAUGHTS = did('le-328');
+/** Goblins of Goblin-gate — orc faction, playable at Goblin-gate. */
+export const GOBLINS_OF_GOBLIN_GATE = did('le-265');
+/** The Warg-king — unique ally, cancels Wolf/Animal attacks. */
+export const THE_WARG_KING = did('le-158');
+
 // ---- The Lidless Eye — Minion Sites ----
 
 /** Dol Guldur — minion haven in Southern Mirkwood. */

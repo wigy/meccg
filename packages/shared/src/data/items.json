@@ -1,6 +1,7 @@
 [
   {
     "cardType": "hero-resource-item",
+    "alignment": "wizard",
     "id": "tw-244",
     "name": "Glamdring",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Glamdring.jpg",
@@ -11,7 +12,11 @@
     "corruptionPoints": 1,
     "prowessModifier": 3,
     "bodyModifier": 0,
-    "playableAt": ["ruins-and-lairs", "shadow-hold", "dark-hold"],
+    "playableAt": [
+      "ruins-and-lairs",
+      "shadow-hold",
+      "dark-hold"
+    ],
     "effects": [
       {
         "type": "stat-modifier",
@@ -26,13 +31,17 @@
         "value": 3,
         "max": 9,
         "overrides": "glamdring-prowess",
-        "when": { "reason": "combat", "enemy.race": "orc" }
+        "when": {
+          "reason": "combat",
+          "enemy.race": "orc"
+        }
       }
     ],
     "text": "Unique. Weapon. +3 to prowess to a maximum of 8 (a maximum of 9 against Orcs)."
   },
   {
     "cardType": "hero-resource-item",
+    "alignment": "wizard",
     "id": "tw-333",
     "name": "Sting",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Sting.jpg",
@@ -43,7 +52,11 @@
     "corruptionPoints": 1,
     "prowessModifier": 1,
     "bodyModifier": 0,
-    "playableAt": ["ruins-and-lairs", "shadow-hold", "dark-hold"],
+    "playableAt": [
+      "ruins-and-lairs",
+      "shadow-hold",
+      "dark-hold"
+    ],
     "effects": [
       {
         "type": "stat-modifier",
@@ -58,13 +71,16 @@
         "value": 2,
         "max": 8,
         "overrides": "sting-prowess",
-        "when": { "bearer.race": "hobbit" }
+        "when": {
+          "bearer.race": "hobbit"
+        }
       }
     ],
     "text": "Unique. Weapon. +1 to prowess to a maximum of 8, +2 to a Hobbit's prowess to a maximum of 8."
   },
   {
     "cardType": "hero-resource-item",
+    "alignment": "wizard",
     "id": "tw-347",
     "name": "The One Ring",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/TheOneRing.jpg",
@@ -83,17 +99,37 @@
         "value": 5,
         "max": "bearer.baseProwess * 2"
       },
-      { "type": "stat-modifier", "stat": "body", "value": 5, "max": 10 },
-      { "type": "stat-modifier", "stat": "direct-influence", "value": 5 },
-      { "type": "company-modifier", "stat": "corruption-points", "value": 1 },
+      {
+        "type": "stat-modifier",
+        "stat": "body",
+        "value": 5,
+        "max": 10
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": 5
+      },
+      {
+        "type": "company-modifier",
+        "stat": "corruption-points",
+        "value": 1
+      },
       {
         "type": "cancel-strike",
-        "cost": { "check": "corruption", "modifier": -2 },
+        "cost": {
+          "check": "corruption",
+          "modifier": -2
+        },
         "when": {
           "$not": {
             "$or": [
-              { "enemy.race": "undead" },
-              { "enemy.race": "nazgul" }
+              {
+                "enemy.race": "undead"
+              },
+              {
+                "enemy.race": "nazgul"
+              }
             ]
           }
         }
@@ -103,6 +139,7 @@
   },
   {
     "cardType": "hero-resource-item",
+    "alignment": "wizard",
     "id": "tw-345",
     "name": "The Mithril-coat",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/TheMithrilcoat.jpg",
@@ -113,14 +150,24 @@
     "corruptionPoints": 2,
     "prowessModifier": 0,
     "bodyModifier": 3,
-    "playableAt": ["ruins-and-lairs", "shadow-hold", "dark-hold"],
+    "playableAt": [
+      "ruins-and-lairs",
+      "shadow-hold",
+      "dark-hold"
+    ],
     "effects": [
-      { "type": "stat-modifier", "stat": "body", "value": 3, "max": 10 }
+      {
+        "type": "stat-modifier",
+        "stat": "body",
+        "value": 3,
+        "max": 10
+      }
     ],
     "text": "Unique. Armor. +3 to body (to a maximum of 10)."
   },
   {
     "cardType": "hero-resource-item",
+    "alignment": "wizard",
     "id": "tw-206",
     "name": "Dagger of Westernesse",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/DaggerofWesternesse.jpg",
@@ -133,12 +180,18 @@
     "bodyModifier": 0,
     "playableAt": [],
     "effects": [
-      { "type": "stat-modifier", "stat": "prowess", "value": 1, "max": 8 }
+      {
+        "type": "stat-modifier",
+        "stat": "prowess",
+        "value": 1,
+        "max": 8
+      }
     ],
     "text": "Weapon. +1 to prowess to a maximum of 8."
   },
   {
     "cardType": "hero-resource-item",
+    "alignment": "wizard",
     "id": "tw-259",
     "name": "Horn of Anor",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/HornofAnor.jpg",
@@ -155,9 +208,15 @@
         "type": "stat-modifier",
         "stat": "direct-influence",
         "value": 2,
-        "when": { "reason": "faction-influence-check" }
+        "when": {
+          "reason": "faction-influence-check"
+        }
       },
-      { "type": "duplication-limit", "scope": "character", "max": 1 }
+      {
+        "type": "duplication-limit",
+        "scope": "character",
+        "max": 1
+      }
     ],
     "text": "+2 to direct influence against factions. Cannot be duplicated on a given character."
   }

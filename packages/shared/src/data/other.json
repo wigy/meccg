@@ -1,6 +1,7 @@
 [
   {
     "cardType": "hero-resource-event",
+    "alignment": "wizard",
     "id": "unknown-card",
     "name": "a card",
     "image": "/images/card-back.jpg",
@@ -12,6 +13,7 @@
   },
   {
     "cardType": "hero-site",
+    "alignment": "wizard",
     "id": "unknown-site",
     "name": "a site",
     "image": "/images/site-back.jpg",

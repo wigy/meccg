@@ -20,6 +20,7 @@
  */
 
 import {
+  Alignment,
   CardDefinitionId,
   Race,
   Skill,
@@ -44,6 +45,8 @@ import type { CardEffect } from './effects.js';
 export interface HeroCharacterCard {
   /** Discriminant for the card type union. */
   readonly cardType: 'hero-character';
+  /** Which alignment (wizard, ringwraith, fallen-wizard, balrog) this card belongs to. */
+  readonly alignment: Alignment;
   /** Unique identifier in the static card pool. */
   readonly id: CardDefinitionId;
   /** Display name (e.g. "Aragorn II", "Legolas"). */
@@ -105,6 +108,8 @@ export type ItemSubtype = 'minor' | 'major' | 'greater' | 'gold-ring' | 'special
 export interface HeroItemCard {
   /** Discriminant for the card type union. */
   readonly cardType: 'hero-resource-item';
+  /** Which alignment this card belongs to. */
+  readonly alignment: Alignment;
   /** Unique identifier in the static card pool. */
   readonly id: CardDefinitionId;
   /** Display name (e.g. "Glamdring", "Mithril Coat"). */
@@ -144,6 +149,8 @@ export interface HeroItemCard {
 export interface HeroFactionCard {
   /** Discriminant for the card type union. */
   readonly cardType: 'hero-resource-faction';
+  /** Which alignment this card belongs to. */
+  readonly alignment: Alignment;
   /** Unique identifier in the static card pool. */
   readonly id: CardDefinitionId;
   /** Display name (e.g. "Riders of Rohan", "Rangers of the North"). */
@@ -178,6 +185,8 @@ export interface HeroFactionCard {
 export interface HeroAllyCard {
   /** Discriminant for the card type union. */
   readonly cardType: 'hero-resource-ally';
+  /** Which alignment this card belongs to. */
+  readonly alignment: Alignment;
   /** Unique identifier in the static card pool. */
   readonly id: CardDefinitionId;
   /** Display name (e.g. "Tom Bombadil", "Goldberry"). */
@@ -215,6 +224,8 @@ export interface HeroAllyCard {
 export interface HeroResourceEventCard {
   /** Discriminant for the card type union. */
   readonly cardType: 'hero-resource-event';
+  /** Which alignment this card belongs to. */
+  readonly alignment: Alignment;
   /** Unique identifier in the static card pool. */
   readonly id: CardDefinitionId;
   /** Display name (e.g. "Dark Quarrels", "A Short Rest"). */
@@ -265,6 +276,8 @@ export interface CreatureKeyRestriction {
 export interface CreatureCard {
   /** Discriminant for the card type union. */
   readonly cardType: 'hazard-creature';
+  /** Which alignment this card belongs to. */
+  readonly alignment: Alignment;
   /** Unique identifier in the static card pool. */
   readonly id: CardDefinitionId;
   /** Display name (e.g. "Cave-drake", "Orc-patrol"). */
@@ -302,6 +315,8 @@ export interface CreatureCard {
 export interface HazardEventCard {
   /** Discriminant for the card type union. */
   readonly cardType: 'hazard-event';
+  /** Which alignment this card belongs to. */
+  readonly alignment: Alignment;
   /** Unique identifier in the static card pool. */
   readonly id: CardDefinitionId;
   /** Display name (e.g. "Doors of Night", "Twilight"). */
@@ -330,6 +345,8 @@ export interface HazardEventCard {
 export interface CorruptionCard {
   /** Discriminant for the card type union. */
   readonly cardType: 'hazard-corruption';
+  /** Which alignment this card belongs to. */
+  readonly alignment: Alignment;
   /** Unique identifier in the static card pool. */
   readonly id: CardDefinitionId;
   /** Display name (e.g. "Lure of Expedience", "Lure of Nature"). */
@@ -383,6 +400,8 @@ export interface AutomaticAttack {
 export interface HeroSiteCard {
   /** Discriminant for the card type union. */
   readonly cardType: 'hero-site';
+  /** Which alignment this card belongs to. */
+  readonly alignment: Alignment;
   /** Unique identifier in the static card pool. */
   readonly id: CardDefinitionId;
   /** Display name (e.g. "Rivendell", "Moria", "Mount Doom"). */
@@ -417,6 +436,8 @@ export interface HeroSiteCard {
 export interface RegionCard {
   /** Discriminant for the card type union. */
   readonly cardType: 'region';
+  /** Which alignment this card belongs to. */
+  readonly alignment: Alignment;
   /** Unique identifier in the static card pool. */
   readonly id: CardDefinitionId;
   /** Display name (e.g. "Eriador", "Rohan", "Mordor"). */
@@ -428,6 +449,120 @@ export interface RegionCard {
   /** Names of bordering regions, defining the map's connectivity graph for pathfinding. */
   readonly adjacentRegions: readonly string[];
   /** Flavor/rules text. */
+  readonly text: string;
+}
+
+// ---- Minion Resources ----
+
+/**
+ * A minion item resource card that can be played on a minion character.
+ *
+ * Minion items work identically to hero items but belong to the minion
+ * alignment — they are played at minion sites and carried by minion characters.
+ * They include thematic equipment like Black Mace, High Helm, and Saw-toothed Blade.
+ */
+export interface MinionItemCard {
+  /** Discriminant for the card type union. */
+  readonly cardType: 'minion-resource-item';
+  /** Which alignment this card belongs to. */
+  readonly alignment: Alignment;
+  /** Unique identifier in the static card pool. */
+  readonly id: CardDefinitionId;
+  /** Display name (e.g. "Black Mace", "Saw-toothed Blade"). */
+  readonly name: string;
+  /** Full URL to the card's remastered image in the meccg-remaster repository. */
+  readonly image: string;
+  /** Whether only one copy of this item can be in play across all players. */
+  readonly unique: boolean;
+  /** Item tier, determining which sites it can be played at. */
+  readonly subtype: ItemSubtype;
+  /** Victory points scored for controlling this item. */
+  readonly marshallingPoints: number;
+  /** Always 'item' -- used for scoring category calculations. */
+  readonly marshallingCategory: MarshallingCategory.Item;
+  /** Corruption points added to the bearing character. */
+  readonly corruptionPoints: number;
+  /** Bonus (or penalty) to the bearing character's prowess in combat. */
+  readonly prowessModifier: number;
+  /** Bonus (or penalty) to the bearing character's body for defense. */
+  readonly bodyModifier: number;
+  /** Site types where this item can be played. */
+  readonly playableAt: readonly SiteType[];
+  /** Declarative effects describing this item's abilities and modifiers. */
+  readonly effects?: readonly CardEffect[];
+  /** Flavor/rules text describing special abilities or play conditions. */
+  readonly text: string;
+}
+
+/**
+ * A minion faction resource card representing a group that can be
+ * swayed to serve the Dark Lord through an influence attempt.
+ *
+ * Minion factions include Orc tribes, Troll bands, and corrupted Men.
+ * They work like hero factions but are played at minion sites.
+ */
+export interface MinionFactionCard {
+  /** Discriminant for the card type union. */
+  readonly cardType: 'minion-resource-faction';
+  /** Which alignment this card belongs to. */
+  readonly alignment: Alignment;
+  /** Unique identifier in the static card pool. */
+  readonly id: CardDefinitionId;
+  /** Display name (e.g. "Goblins of Goblin-gate"). */
+  readonly name: string;
+  /** Full URL to the card's remastered image in the meccg-remaster repository. */
+  readonly image: string;
+  /** Factions are always unique. */
+  readonly unique: true;
+  /** Victory points scored for controlling this faction. */
+  readonly marshallingPoints: number;
+  /** Always 'faction' -- used for scoring category calculations. */
+  readonly marshallingCategory: MarshallingCategory.Faction;
+  /** The 2d6 roll target needed to successfully influence this faction. */
+  readonly influenceNumber: number;
+  /** The faction's race. */
+  readonly race: Race;
+  /** The specific site name where this faction can be played. */
+  readonly playableAt: string;
+  /** Declarative effects describing this faction's abilities. */
+  readonly effects?: readonly CardEffect[];
+  /** Flavor/rules text describing special abilities or modifiers. */
+  readonly text: string;
+}
+
+/**
+ * A minion ally resource card representing a creature or servant
+ * that joins a minion company.
+ *
+ * Minion allies include beasts and monsters like War-wargs and the Warg-king.
+ * They have prowess and body for combat but don't carry items.
+ */
+export interface MinionAllyCard {
+  /** Discriminant for the card type union. */
+  readonly cardType: 'minion-resource-ally';
+  /** Which alignment this card belongs to. */
+  readonly alignment: Alignment;
+  /** Unique identifier in the static card pool. */
+  readonly id: CardDefinitionId;
+  /** Display name (e.g. "The Warg-king", "War-wolf"). */
+  readonly name: string;
+  /** Full URL to the card's remastered image in the meccg-remaster repository. */
+  readonly image: string;
+  /** Whether only one copy of this ally can be in play across all players. */
+  readonly unique: boolean;
+  /** The ally's combat strength when fighting or defending. */
+  readonly prowess: number;
+  /** The ally's resistance to being eliminated in combat. */
+  readonly body: number;
+  /** Victory points scored for controlling this ally. */
+  readonly marshallingPoints: number;
+  /** Always 'ally' -- used for scoring category calculations. */
+  readonly marshallingCategory: MarshallingCategory.Ally;
+  /** Site types where this ally can be played. */
+  readonly playableAt: readonly SiteType[];
+  /** Declarative effects describing this ally's abilities. */
+  readonly effects?: readonly CardEffect[];
+  /** Flavor/rules text describing special abilities. */
   readonly text: string;
 }
 
@@ -444,6 +579,8 @@ export interface RegionCard {
 export interface MinionCharacterCard {
   /** Discriminant for the card type union. */
   readonly cardType: 'minion-character';
+  /** Which alignment this card belongs to. */
+  readonly alignment: Alignment;
   /** Unique identifier in the static card pool. */
   readonly id: CardDefinitionId;
   /** Display name (e.g. "Gorbag", "The Mouth", "Lieutenant of Dol Guldur"). */
@@ -496,6 +633,8 @@ export interface MinionCharacterCard {
 export interface MinionSiteCard {
   /** Discriminant for the card type union. */
   readonly cardType: 'minion-site';
+  /** Which alignment this card belongs to. */
+  readonly alignment: Alignment;
   /** Unique identifier in the static card pool. */
   readonly id: CardDefinitionId;
   /** Display name (e.g. "Dol Guldur", "Minas Morgul"). */
@@ -531,6 +670,8 @@ export interface MinionSiteCard {
 export interface FallenWizardSiteCard {
   /** Discriminant for the card type union. */
   readonly cardType: 'fallen-wizard-site';
+  /** Which alignment this card belongs to. */
+  readonly alignment: Alignment;
   /** Unique identifier in the static card pool. */
   readonly id: CardDefinitionId;
   /** Display name (e.g. "The White Towers"). */
@@ -596,6 +737,30 @@ export type HazardCard = CreatureCard | HazardEventCard | CorruptionCard;
 export type PlayDeckCard = HeroResourceCard | HazardCard;
 
 /**
+ * All minion resource card types -- beneficial cards played by the minion player.
+ * Discriminated by `cardType`: `'minion-resource-item'`, `'minion-resource-faction'`,
+ * or `'minion-resource-ally'`.
+ */
+export type MinionResourceCard = MinionItemCard | MinionFactionCard | MinionAllyCard;
+
+/**
+ * Union of all character card types (hero and minion). Use this when code
+ * needs to handle characters generically regardless of alignment.
+ */
+export type CharacterCard = HeroCharacterCard | MinionCharacterCard;
+
+/** Character card type discriminants — the set of `cardType` values that represent characters. */
+export const CHARACTER_CARD_TYPES: ReadonlySet<string> = new Set(['hero-character', 'minion-character']);
+
+/**
+ * Type guard that narrows a CardDefinition to {@link CharacterCard}.
+ * Works for both hero and minion characters.
+ */
+export function isCharacterCard(card: CardDefinition | undefined): card is CharacterCard {
+  return card !== undefined && CHARACTER_CARD_TYPES.has(card.cardType);
+}
+
+/**
  * The top-level union of every card definition type in the game.
  * Used as the value type in `GameState.cardPool` for generic card lookups.
  * Discriminated by the `cardType` field.
@@ -611,6 +776,9 @@ export type CardDefinition =
   | CorruptionCard
   | HeroSiteCard
   | MinionCharacterCard
+  | MinionItemCard
+  | MinionFactionCard
+  | MinionAllyCard
   | MinionSiteCard
   | FallenWizardSiteCard
   | RegionCard;

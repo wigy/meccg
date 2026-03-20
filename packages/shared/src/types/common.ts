@@ -99,8 +99,10 @@ export enum MarshallingCategory {
 }
 
 /**
- * The alignment of a player's wizard, determining which card pool
- * (wizard, ringwraith, fallen-wizard, or balrog) they draw from.
+ * The alignment of a player or card, determining which card pool
+ * (wizard, ringwraith, fallen-wizard, or balrog) they belong to.
+ * Used both as the player's chosen alignment and as a tag on each
+ * card definition to indicate which alignment can include it in a deck.
  */
 export enum Alignment {
   Wizard = 'wizard',
