@@ -4,8 +4,13 @@ TODO
 FIXES
 -----
 
+Hidden-haven in FW pool. (special case, resources attached to other cards)
+
 FEATS
 -----
+
+Validate cards during the draft even we assume that decks are legal.
+Record complete chain of the states from every game. Add undo. Tell Claude to debug chains when needed.
 
 EPICS
 -----
