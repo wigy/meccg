@@ -92,8 +92,8 @@ export interface Company {
   readonly id: CompanyId;
   /** Character instance IDs belonging to this company (order matters for strike assignment). */
   readonly characters: readonly CardInstanceId[];
-  /** The site card instance where this company is currently located. */
-  readonly currentSite: CardInstanceId;
+  /** The site card instance where this company is currently located. Null during setup before site selection. */
+  readonly currentSite: CardInstanceId | null;
   /**
    * The planned destination site, set during Organization phase.
    * Null if the company is staying put this turn.

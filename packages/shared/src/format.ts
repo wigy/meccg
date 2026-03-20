@@ -228,7 +228,7 @@ function formatCompany(
 ): string[] {
   const lines: string[] = [];
 
-  const siteName = formatSiteName(company.currentSite, defOf, instOf);
+  const siteName = company.currentSite ? formatSiteName(company.currentSite, defOf, instOf) : colorizeUnknown('(no site)');
   if (company.destinationSite) {
     const destName = formatSiteName(company.destinationSite, defOf, instOf);
     lines.push(`${indent}Company ${index + 1} → ${destName} (from ${siteName}):`);
@@ -273,7 +273,7 @@ function formatOpponentCompany(
 ): string[] {
   const lines: string[] = [];
 
-  const siteName = formatSiteName(company.currentSite, defOf, instOf);
+  const siteName = company.currentSite ? formatSiteName(company.currentSite, defOf, instOf) : colorizeUnknown('(no site)');
   if (company.hasPlannedMovement) {
     lines.push(`${indent}Company ${index + 1} → ${colorizeUnknown('(planned)')} (from ${siteName}):`);
   } else {

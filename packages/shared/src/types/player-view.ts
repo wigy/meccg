@@ -86,8 +86,8 @@ export interface OpponentCompanyView {
   readonly id: CompanyId;
   /** Character instance IDs in this company (characters in play are public knowledge). */
   readonly characters: readonly CardInstanceId[];
-  /** The site where this company is currently located (public). */
-  readonly currentSite: CardInstanceId;
+  /** The site where this company is currently located (public). Null during setup before site selection. */
+  readonly currentSite: CardInstanceId | null;
   /** Whether the company has a planned destination (true) or is staying put (false). */
   readonly hasPlannedMovement: boolean;
   /** Whether this company has already moved this turn. */

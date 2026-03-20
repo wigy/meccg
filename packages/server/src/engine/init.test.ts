@@ -283,9 +283,11 @@ describe('character draft', () => {
 
     // Both players have starting items, so we're in item-draft
     expect(state.phaseState.phase).toBe(Phase.Setup);
-    // Companies are not created until starting site selection
-    expect(state.players[0].companies).toHaveLength(0);
-    expect(state.players[1].companies).toHaveLength(0);
+    // Companies exist but with null site until starting site selection
+    expect(state.players[0].companies).toHaveLength(1);
+    expect(state.players[0].companies[0].currentSite).toBeNull();
+    expect(state.players[1].companies).toHaveLength(1);
+    expect(state.players[1].companies[0].currentSite).toBeNull();
   });
 
   it('assigns starting minor items to characters during item draft', () => {
@@ -303,11 +305,9 @@ describe('character draft', () => {
 
     expect(state.phaseState.phase).toBe(Phase.Setup);
 
-    // Get character instance IDs (not in companies yet, just in characters map)
-    const p1CharIds = Object.keys(state.players[0].characters);
-    const p2CharIds = Object.keys(state.players[1].characters);
-    const p1Char = p1CharIds[0] as CardInstanceId;
-    const p2Char = p2CharIds[0] as CardInstanceId;
+    // Get character instance IDs from companies
+    const p1Char = state.players[0].companies[0].characters[0];
+    const p2Char = state.players[1].companies[0].characters[0];
 
     if (state.phaseState.phase !== Phase.Setup || state.phaseState.setupStep.step !== 'item-draft') throw new Error('wrong phase');
     const p1Items = state.phaseState.setupStep.itemDraftState[0].unassignedItems;

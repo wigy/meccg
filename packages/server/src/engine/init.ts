@@ -267,11 +267,21 @@ export function applyDraftResults(
       };
     }
 
+    // Company created with null site — site is assigned during starting site selection
+    const company: Company = {
+      id: `company-${player.id}-0` as CompanyId,
+      characters: characterInstanceIds,
+      currentSite: null,
+      destinationSite: null,
+      movementPath: [],
+      moved: false,
+    };
+
     // GI and MP are left at zero — recomputeDerived() runs after the reducer
-    // Companies are not created yet — that happens during starting site selection
     return {
       player: {
         ...player,
+        companies: [company],
         characters,
       } satisfies PlayerState,
       unassignedItems: minorItemInstanceIds,

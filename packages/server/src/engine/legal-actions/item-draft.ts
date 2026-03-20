@@ -5,7 +5,7 @@
  * starting minor items to any character in their starting company.
  */
 
-import type { GameState, PlayerId, GameAction, CardInstanceId } from '@meccg/shared';
+import type { GameState, PlayerId, GameAction } from '@meccg/shared';
 
 export function itemDraftActions(state: GameState, playerId: PlayerId): GameAction[] {
   if (state.phaseState.phase !== 'setup' || state.phaseState.setupStep.step !== 'item-draft') return [];
@@ -16,7 +16,7 @@ export function itemDraftActions(state: GameState, playerId: PlayerId): GameActi
   if (itemDraft.done) return [];
 
   const player = state.players[playerIndex];
-  const allCharIds = Object.keys(player.characters) as CardInstanceId[];
+  const allCharIds = player.companies.flatMap(c => c.characters);
 
   // Deduplicate by definition ID: multiple instances of the same item
   // (e.g. two Daggers of Westernesse) produce only one action per character.

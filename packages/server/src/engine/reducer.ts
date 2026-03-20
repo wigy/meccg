@@ -393,8 +393,12 @@ function handleItemDraft(
     return { state, error: 'Item is not in your unassigned items' };
   }
 
-  // Validate character belongs to this player
+  // Validate character belongs to this player's company
   const player = state.players[playerIndex];
+  const allCharIds = player.companies.flatMap(c => c.characters);
+  if (!allCharIds.includes(action.characterInstanceId)) {
+    return { state, error: 'Character is not in your starting company' };
+  }
   const charKey = action.characterInstanceId as string;
   const existingChar = player.characters[charKey];
   if (!existingChar) {
@@ -641,8 +645,9 @@ function handleStartingSiteSelection(
 }
 
 /**
- * Creates empty companies at each player's selected starting sites
- * and transitions to the first Untap phase.
+ * Assigns the first selected site to the existing company (created during
+ * draft with null site). If a second site was selected, creates an
+ * additional empty company at that site. Transitions to the first Untap phase.
  */
 function finalizeSiteSelection(
   state: GameState,
@@ -652,19 +657,27 @@ function finalizeSiteSelection(
 
   for (let i = 0; i < 2; i++) {
     const player = newPlayers[i];
-    const companies = siteSelectionState[i].selectedSites.map((siteInstId, idx) => ({
-      id: `company-${player.id as string}-${idx}` as CompanyId,
-      characters: [] as readonly CardInstanceId[],
-      currentSite: siteInstId,
-      destinationSite: null,
-      movementPath: [] as readonly CardInstanceId[],
-      moved: false,
-    }));
+    const selectedSites = siteSelectionState[i].selectedSites;
+    const companies = [...player.companies];
 
-    newPlayers[i] = {
-      ...player,
-      companies,
-    };
+    // Assign first site to existing company
+    if (selectedSites.length > 0 && companies.length > 0) {
+      companies[0] = { ...companies[0], currentSite: selectedSites[0] };
+    }
+
+    // Second site creates an additional empty company
+    if (selectedSites.length > 1) {
+      companies.push({
+        id: `company-${player.id as string}-${companies.length}` as CompanyId,
+        characters: [],
+        currentSite: selectedSites[1],
+        destinationSite: null,
+        movementPath: [],
+        moved: false,
+      });
+    }
+
+    newPlayers[i] = { ...player, companies };
   }
 
   return startFirstTurn({

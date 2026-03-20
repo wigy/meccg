@@ -141,7 +141,7 @@ export function projectSpectatorView(state: GameState): PlayerView {
     for (const id of player.discardPile) addInstance(id);
     for (const id of player.siteDiscardPile) addInstance(id);
     for (const company of player.companies) {
-      addInstance(company.currentSite);
+      if (company.currentSite) addInstance(company.currentSite);
     }
     for (const char of Object.values(player.characters)) {
       addInstance(char.instanceId);
@@ -266,7 +266,7 @@ export function projectPlayerView(state: GameState, playerId: PlayerId): PlayerV
   for (const id of selfPlayer.siteDiscardPile) addInstance(id);
   for (const id of selfPlayer.sideboard) addInstance(id);
   for (const company of selfPlayer.companies) {
-    addInstance(company.currentSite);
+    if (company.currentSite) addInstance(company.currentSite);
     if (company.destinationSite) addInstance(company.destinationSite);
     for (const id of company.movementPath) addInstance(id);
   }
@@ -281,7 +281,7 @@ export function projectPlayerView(state: GameState, playerId: PlayerId): PlayerV
   for (const id of opponentPlayer.discardPile) addInstance(id);
   for (const id of opponentPlayer.siteDiscardPile) addInstance(id);
   for (const company of opponentPlayer.companies) {
-    addInstance(company.currentSite);
+    if (company.currentSite) addInstance(company.currentSite);
   }
   for (const char of Object.values(opponentPlayer.characters)) {
     addInstance(char.instanceId);
