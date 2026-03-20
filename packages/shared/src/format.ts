@@ -178,7 +178,8 @@ function formatCharacterLine(char: CharacterInPlay, defOf: CardLookup, instOf: I
   const c = def;
   const skills = c.skills.join('/');
   const label = formatInstanceName(char.instanceId, defOf, instOf);
-  return `${label} [${c.prowess}/${c.body}] ${skills} (${c.marshallingPoints} MP)${statusMarker(char.status)}`;
+  const mindLabel = c.mind !== null ? `${c.mind} Mind, ` : '';
+  return `${label} [${c.prowess}/${c.body}] ${skills} (${mindLabel}${c.directInfluence} DI, ${c.marshallingPoints} MP)${statusMarker(char.status)}`;
 }
 
 function formatItemLine(instId: CardInstanceId, defOf: CardLookup, instOf: InstanceLookup): string {
