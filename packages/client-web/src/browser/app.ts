@@ -193,6 +193,10 @@ document.addEventListener('DOMContentLoaded', () => {
     saveBtn.classList.toggle('hidden', visual);
     loadBtn.classList.toggle('hidden', visual);
     resetBtn.classList.toggle('hidden', visual);
+    if (!visual) {
+      const log = document.getElementById('log')!;
+      log.scrollTop = log.scrollHeight;
+    }
   }
 
   viewToggleBtn.addEventListener('click', () => {
