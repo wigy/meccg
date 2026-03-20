@@ -31,6 +31,10 @@ import {
   DOL_GULDUR, MINAS_MORGUL, ETTENMOORS, THE_WHITE_TOWERS_MINION, WEATHERTOP,
   // Fallen-wizard sites
   THE_WHITE_TOWERS, ETTENMOORS_HERO, THE_WHITE_TOWERS_HERO,
+  // Balrog characters
+  AZOG, BOLG,
+  // Balrog sites
+  MORIA_BALROG, THE_UNDER_GATES,
 } from './card-ids.js';
 
 /** A named sample deck that can be selected before connecting. */
@@ -114,8 +118,28 @@ const fallenWizardDeck: SampleDeck = {
   },
 };
 
+/** Balrog deck — the demon of Morgoth commanding orcs and trolls from the deeps. */
+const balrogDeck: SampleDeck = {
+  id: 'balrog',
+  label: 'The Balrog',
+  buildJoinMessage(playerName: string): JoinMessage {
+    const hazards = [CAVE_DRAKE, ORC_PATROL, BARROW_WIGHT];
+    return {
+      type: 'join',
+      name: playerName,
+      alignment: Alignment.Balrog,
+      draftPool: [AZOG, BOLG, GORBAG, SHAGRAT],
+      startingMinorItems: [SAW_TOOTHED_BLADE, ORC_DRAUGHTS],
+      playDeck: repeatCards(hazards, 10),
+      siteDeck: [MORIA_BALROG, THE_UNDER_GATES, DOL_GULDUR, MINAS_MORGUL,
+        ETTENMOORS, THE_WHITE_TOWERS_MINION, WEATHERTOP],
+      startingHavens: [MORIA_BALROG],
+    };
+  },
+};
+
 /** All available sample decks, in display order. */
-export const SAMPLE_DECKS: readonly SampleDeck[] = [heroDeck, minionDeck, fallenWizardDeck];
+export const SAMPLE_DECKS: readonly SampleDeck[] = [heroDeck, minionDeck, fallenWizardDeck, balrogDeck];
 
 /**
  * Find a sample deck by its short ID (case-insensitive).

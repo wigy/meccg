@@ -165,6 +165,13 @@ export const THE_WHITE_TOWERS_MINION = did('le-412');
 /** The White Towers — fallen-wizard haven in Arthedain. */
 export const THE_WHITE_TOWERS = did('wh-58');
 
+// ---- The Balrog — Balrog Characters ----
+
+/** Azog — orc warrior/diplomat, Leader, Balrog specific, +3 DI vs Orcs. */
+export const AZOG = did('ba-2');
+/** Bolg — orc warrior/ranger, Leader, Balrog specific, +3 DI vs Orcs. */
+export const BOLG = did('ba-4');
+
 // ---- The Balrog — Balrog Sites ----
 
 /** Moria — balrog darkhaven (surface), starting site for balrog players. */

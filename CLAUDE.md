@@ -62,7 +62,7 @@ All server-side logic must include detailed logging so that the game's decision-
   - `as-characters.json`, `as-sites.json` — Against the Shadow (AS, minion expansion)
   - `le-characters.json`, `le-resources.json`, `le-sites.json` — The Lidless Eye (LE, minion expansion)
   - `wh-sites.json` — The White Hand (WH, fallen-wizard expansion)
-  - `ba-sites.json` — The Balrog (BA, balrog expansion)
+  - `ba-characters.json`, `ba-sites.json` — The Balrog (BA, balrog expansion)
 - **Card ID convention:** All card IDs use the pattern `{set}-{number}` (e.g. `tw-156`, `le-24`, `wh-58`, `ba-93`). Set prefixes are lowercase.
 - **Card types by alignment:** Each alignment has its own card types:
   - Hero: `hero-character`, `hero-site`, `hero-resource-item`, etc.

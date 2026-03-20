@@ -1,0 +1,70 @@
+[
+  {
+    "cardType": "minion-character",
+    "alignment": "balrog",
+    "id": "ba-2",
+    "name": "Azog",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/ba/Azog.jpg",
+    "unique": true,
+    "race": "orc",
+    "skills": ["warrior", "diplomat"],
+    "prowess": 6,
+    "body": 9,
+    "mind": 7,
+    "directInfluence": 1,
+    "marshallingPoints": 2,
+    "marshallingCategory": "character",
+    "corruptionModifier": 0,
+    "homesite": "Moria",
+    "keywords": ["Leader"],
+    "effects": [
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": 3,
+        "when": { "reason": "influence-check", "target.race": "orc" }
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": 3,
+        "when": { "reason": "faction-influence-check", "faction.race": "orc" }
+      }
+    ],
+    "text": "Unique. Balrog specific. Leader. Discard on a body check result of 9. +3 direct influence against Orcs and Orc factions. +2 direct influence against Balrog specific characters."
+  },
+  {
+    "cardType": "minion-character",
+    "alignment": "balrog",
+    "id": "ba-4",
+    "name": "Bolg",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/ba/Bolg.jpg",
+    "unique": true,
+    "race": "orc",
+    "skills": ["warrior", "ranger"],
+    "prowess": 7,
+    "body": 9,
+    "mind": 7,
+    "directInfluence": 0,
+    "marshallingPoints": 2,
+    "marshallingCategory": "character",
+    "corruptionModifier": 0,
+    "homesite": "Moria",
+    "keywords": ["Leader"],
+    "effects": [
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": 3,
+        "when": { "reason": "influence-check", "target.race": "orc" }
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": 3,
+        "when": { "reason": "faction-influence-check", "faction.race": "orc" }
+      }
+    ],
+    "text": "Unique. Balrog specific. Leader. Discard on a body check result of 9. +3 direct influence against Orcs and Orc factions. +2 direct influence against Balrog specific characters."
+  }
+]

@@ -33,6 +33,7 @@ import leSites from './le-sites.json';
 import whSites from './wh-sites.json';
 
 // ---- The Balrog (BA) — balrog expansion ----
+import baCharacters from './ba-characters.json';
 import baSites from './ba-sites.json';
 
 /**
@@ -58,6 +59,7 @@ const allCards: readonly CardDefinition[] = [
   // The White Hand
   ...(whSites as unknown as CardDefinition[]),
   // The Balrog
+  ...(baCharacters as unknown as CardDefinition[]),
   ...(baSites as unknown as CardDefinition[]),
 ];
 

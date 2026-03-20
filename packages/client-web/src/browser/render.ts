@@ -30,6 +30,7 @@ const ANSI_TO_CSS: Record<string, string> = {
   '36': 'color:#50b0b0',        // cyan (faction)
   '37': 'color:#d0d0d0',        // white (site)
   '90': 'color:#666',           // bright black / grey (unknown, debug)
+  '93': 'color:#c07020',        // dark orange (balrog-site)
 };
 
 /** Convert a string containing ANSI escape codes to HTML with colored spans. */

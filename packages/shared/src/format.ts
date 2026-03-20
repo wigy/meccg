@@ -43,7 +43,7 @@ const COLORS: Record<string, string> = {
   'minion-resource-faction': '\x1b[90m',
   'minion-resource-ally': '\x1b[90m',
   'minion-site': '\x1b[37m',
-  'balrog-site': '\x1b[37m',
+  'balrog-site': '\x1b[93m',
   'fallen-wizard-site': '\x1b[37m',
   'region': `${DIM}\x1b[34m`,
 };
