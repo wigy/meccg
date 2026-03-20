@@ -45,6 +45,7 @@ import {
   createRng,
   shuffle,
   isCharacterCard,
+  isSiteCard,
 } from '@meccg/shared';
 import { recomputeDerived } from './recompute-derived.js';
 
@@ -182,8 +183,8 @@ function initPlayerPreDraft(
   // Validate havens
   for (const havenId of config.startingHavens) {
     const havenDef = cardPool[havenId as string];
-    if (!havenDef || havenDef.cardType !== 'hero-site') {
-      throw new Error(`Starting haven '${havenId}' not found or not a hero-site`);
+    if (!isSiteCard(havenDef)) {
+      throw new Error(`Starting haven '${havenId}' not found or not a site`);
     }
   }
 
@@ -450,8 +451,8 @@ function initPlayerWithCharacters(
     throw new Error('No starting havens specified');
   }
   const havenDef = cardPool[firstHaven as string];
-  if (!havenDef || havenDef.cardType !== 'hero-site') {
-    throw new Error(`Starting haven '${firstHaven}' not found or not a hero-site`);
+  if (!isSiteCard(havenDef)) {
+    throw new Error(`Starting haven '${firstHaven}' not found or not a site`);
   }
   const havenInstanceId = mint(minter, firstHaven);
 

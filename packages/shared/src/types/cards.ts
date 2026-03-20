@@ -755,6 +755,23 @@ export function isCharacterCard(card: CardDefinition | undefined): card is Chara
 }
 
 /**
+ * Union of all site card types (hero, minion, and fallen-wizard). Use this
+ * when code needs to handle sites generically regardless of alignment.
+ */
+export type SiteCard = HeroSiteCard | MinionSiteCard | FallenWizardSiteCard;
+
+/** Site card type discriminants — the set of `cardType` values that represent sites. */
+export const SITE_CARD_TYPES: ReadonlySet<string> = new Set(['hero-site', 'minion-site', 'fallen-wizard-site']);
+
+/**
+ * Type guard that narrows a CardDefinition to {@link SiteCard}.
+ * Works for hero, minion, and fallen-wizard sites.
+ */
+export function isSiteCard(card: CardDefinition | undefined): card is SiteCard {
+  return card !== undefined && SITE_CARD_TYPES.has(card.cardType);
+}
+
+/**
  * The top-level union of every card definition type in the game.
  * Used as the value type in `GameState.cardPool` for generic card lookups.
  * Discriminated by the `cardType` field.
