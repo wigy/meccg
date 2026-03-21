@@ -422,15 +422,13 @@ function fillDeckPile(el: HTMLElement, deckSize: number, backImage = '/images/ca
     wrapper.appendChild(img);
   }
 
-  // Position label at the visual center of the stack, accounting for layer offsets
+  // Position label at the top-right corner of the top card
   const topCard = layers - 1;
-  const stackOffsetX = topCard * 1;
-  const stackOffsetY = topCard * 2;
   const label = document.createElement('div');
   label.className = 'deck-pile-label';
   label.textContent = String(deckSize);
-  label.style.left = `calc(60% + ${stackOffsetX * 0.35}px)`;
-  label.style.top = `calc(71% - ${stackOffsetY * 0.35}px)`;
+  label.style.right = `${-topCard * 1}px`;
+  label.style.top = `${-topCard * 2}px`;
   wrapper.appendChild(label);
   el.appendChild(wrapper);
 }
