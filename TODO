@@ -20,11 +20,13 @@ Site Phase
 End-of-Turn Phase
 Untap Phase
 Council and End Game
+Sideboard
 Setup Minion
 Setup Fw
 Setup Balrog
 Single loadable hero deck in a file.
 Central server.
+Deck validation.
 Deck format and conversion to the JSON.
 The Wizards.
 
