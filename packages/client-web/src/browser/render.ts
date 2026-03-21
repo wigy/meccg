@@ -1227,6 +1227,14 @@ export function setupCardPreview(cardPool: Readonly<Record<string, CardDefinitio
   });
 }
 
+/** Format a race or skill identifier into its proper display name. */
+function formatLabel(value: string): string {
+  const special: Record<string, string> = {
+    dunadan: 'Dúnadan',
+  };
+  return special[value] ?? value.charAt(0).toUpperCase() + value.slice(1);
+}
+
 /** Format a card type string into a human-readable label. */
 function formatCardType(cardType: string): string {
   return cardType
@@ -1250,8 +1258,8 @@ function buildCardAttributes(el: HTMLElement, def: CardDefinition): void {
   switch (def.cardType) {
     case 'hero-character':
     case 'minion-character': {
-      addAttr(el, 'Race', def.race);
-      if (def.skills.length > 0) addAttr(el, 'Skills', def.skills.join(', '));
+      addAttr(el, 'Race', formatLabel(def.race));
+      if (def.skills.length > 0) addAttr(el, 'Skills', def.skills.map(formatLabel).join(', '));
       addAttr(el, 'Prowess / Body', `${def.prowess} / ${def.body}`);
       if (def.mind !== null) addAttr(el, 'Mind', def.mind);
       addAttr(el, 'Direct Influence', def.directInfluence);
@@ -1271,7 +1279,7 @@ function buildCardAttributes(el: HTMLElement, def: CardDefinition): void {
     }
     case 'hero-resource-faction':
     case 'minion-resource-faction': {
-      addAttr(el, 'Race', def.race);
+      addAttr(el, 'Race', formatLabel(def.race));
       addAttr(el, 'Influence #', def.influenceNumber);
       addAttr(el, 'MP', def.marshallingPoints);
       addAttr(el, 'Playable At', def.playableAt);
