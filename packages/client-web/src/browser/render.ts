@@ -359,84 +359,96 @@ export function renderPassButton(view: PlayerView, onAction: (action: GameAction
   btn.onclick = () => onAction(passAction);
 }
 
-/** Render drafted characters on the visual board during character draft. */
+/** Render a row of card images from definition IDs. */
+function renderCardRow(el: HTMLElement, defIds: readonly CardDefinitionId[], cardPool: Readonly<Record<string, CardDefinition>>): void {
+  for (const defId of defIds) {
+    const def = cardPool[defId as string];
+    if (!def) continue;
+    const imgPath = cardImageProxyPath(def);
+    if (!imgPath) continue;
+    const img = document.createElement('img');
+    img.src = imgPath;
+    img.alt = def.name;
+    img.className = 'drafted-card';
+    el.appendChild(img);
+  }
+}
+
+/** Get character definition IDs from a company via visibleInstances. */
+function companyCharDefIds(view: PlayerView, charInstanceIds: readonly { toString(): string }[]): CardDefinitionId[] {
+  return charInstanceIds
+    .map(id => view.visibleInstances[id as string])
+    .filter((id): id is CardDefinitionId => id !== undefined);
+}
+
+/** Render characters on the visual board during setup phases. */
 export function renderDrafted(view: PlayerView, cardPool: Readonly<Record<string, CardDefinition>>): void {
   const selfEl = document.getElementById('drafted-self');
   const oppEl = document.getElementById('drafted-opponent');
+  const setAsideEl = document.getElementById('set-aside');
   if (!selfEl || !oppEl) return;
   selfEl.innerHTML = '';
   oppEl.innerHTML = '';
+  if (setAsideEl) setAsideEl.innerHTML = '';
 
-  if (view.phaseState.phase !== 'setup' || view.phaseState.setupStep.step !== 'character-draft') return;
+  if (view.phaseState.phase !== 'setup') return;
 
-  const draft = view.phaseState.setupStep;
-  const selfIdx = getSelfDraftIndex(draft.draftState);
-  const oppIdx = 1 - selfIdx;
+  const step = view.phaseState.setupStep.step;
 
-  function renderRow(el: HTMLElement, drafted: readonly CardDefinitionId[]): void {
-    for (const defId of drafted) {
-      const def = cardPool[defId as string];
-      if (!def) continue;
-      const imgPath = cardImageProxyPath(def);
-      if (!imgPath) continue;
-      const img = document.createElement('img');
-      img.src = imgPath;
-      img.alt = def.name;
-      img.className = 'drafted-card';
-      el.appendChild(img);
+  if (step === 'character-draft') {
+    const draft = view.phaseState.setupStep;
+    if (draft.step !== 'character-draft') return;
+    const selfIdx = getSelfDraftIndex(draft.draftState);
+    const oppIdx = 1 - selfIdx;
+
+    renderCardRow(selfEl, draft.draftState[selfIdx].drafted, cardPool);
+
+    // Show face-down pick if player has picked this round
+    if (draft.draftState[selfIdx].currentPick !== null) {
+      const faceDown = document.createElement('img');
+      faceDown.src = '/images/card-back.jpg';
+      faceDown.alt = 'Your pick (face down)';
+      faceDown.className = 'drafted-card drafted-card-facedown';
+      selfEl.appendChild(faceDown);
     }
-  }
 
-  renderRow(selfEl, draft.draftState[selfIdx].drafted);
+    // Show remaining GI for self
+    const selfMind = draft.draftState[selfIdx].drafted.reduce((sum, defId) => {
+      const def = cardPool[defId as string];
+      return sum + (isCharacterCard(def) && def.mind !== null ? def.mind : 0);
+    }, 0);
+    if (draft.draftState[selfIdx].drafted.length > 0) {
+      const badge = document.createElement('div');
+      badge.className = 'mind-total';
+      badge.innerHTML = `<span class="mind-total-label">Remaining GI</span>${GENERAL_INFLUENCE - selfMind}`;
+      selfEl.appendChild(badge);
+    }
 
-  // Show face-down pick if player has picked this round
-  if (draft.draftState[selfIdx].currentPick !== null) {
-    const faceDown = document.createElement('img');
-    faceDown.src = '/images/card-back.jpg';
-    faceDown.alt = 'Your pick (face down)';
-    faceDown.className = 'drafted-card drafted-card-facedown';
-    selfEl.appendChild(faceDown);
-  }
+    renderCardRow(oppEl, draft.draftState[oppIdx].drafted, cardPool);
 
-  // Show total mind next to self drafted characters
-  const selfMind = draft.draftState[selfIdx].drafted.reduce((sum, defId) => {
-    const def = cardPool[defId as string];
-    return sum + (isCharacterCard(def) && def.mind !== null ? def.mind : 0);
-  }, 0);
-  if (draft.draftState[selfIdx].drafted.length > 0) {
-    const badge = document.createElement('div');
-    badge.className = 'mind-total';
-    badge.innerHTML = `<span class="mind-total-label">Remaining GI</span>${GENERAL_INFLUENCE - selfMind}`;
-    selfEl.appendChild(badge);
-  }
-  renderRow(oppEl, draft.draftState[oppIdx].drafted);
+    // Show face-down pick if opponent has picked this round
+    if (draft.draftState[oppIdx].currentPick !== null) {
+      const faceDown = document.createElement('img');
+      faceDown.src = '/images/card-back.jpg';
+      faceDown.alt = 'Opponent pick (face down)';
+      faceDown.className = 'drafted-card drafted-card-facedown';
+      oppEl.appendChild(faceDown);
+    }
 
-  // Show face-down pick if opponent has picked this round
-  if (draft.draftState[oppIdx].currentPick !== null) {
-    const faceDown = document.createElement('img');
-    faceDown.src = '/images/card-back.jpg';
-    faceDown.alt = 'Opponent pick (face down)';
-    faceDown.className = 'drafted-card drafted-card-facedown';
-    oppEl.appendChild(faceDown);
-  }
+    // Show remaining GI for opponent
+    const oppMind = draft.draftState[oppIdx].drafted.reduce((sum, defId) => {
+      const def = cardPool[defId as string];
+      return sum + (isCharacterCard(def) && def.mind !== null ? def.mind : 0);
+    }, 0);
+    if (draft.draftState[oppIdx].drafted.length > 0) {
+      const badge = document.createElement('div');
+      badge.className = 'mind-total mind-total-opponent';
+      badge.innerHTML = `<span class="mind-total-label">Remaining GI</span>${GENERAL_INFLUENCE - oppMind}`;
+      oppEl.appendChild(badge);
+    }
 
-  // Show remaining GI for opponent
-  const oppMind = draft.draftState[oppIdx].drafted.reduce((sum, defId) => {
-    const def = cardPool[defId as string];
-    return sum + (isCharacterCard(def) && def.mind !== null ? def.mind : 0);
-  }, 0);
-  if (draft.draftState[oppIdx].drafted.length > 0) {
-    const badge = document.createElement('div');
-    badge.className = 'mind-total mind-total-opponent';
-    badge.innerHTML = `<span class="mind-total-label">Remaining GI</span>${GENERAL_INFLUENCE - oppMind}`;
-    oppEl.appendChild(badge);
-  }
-
-  // Show set-aside (collisioned) characters on the left
-  const setAsideEl = document.getElementById('set-aside');
-  if (setAsideEl) {
-    setAsideEl.innerHTML = '';
-    if (draft.setAside.length > 0) {
+    // Show set-aside (collisioned) characters on the left
+    if (setAsideEl && draft.setAside.length > 0) {
       const label = document.createElement('div');
       label.className = 'set-aside-label';
       label.textContent = 'Set Aside';
@@ -458,6 +470,16 @@ export function renderDrafted(view: PlayerView, cardPool: Readonly<Record<string
         setAsideEl.appendChild(img);
       }
     }
+    return;
+  }
+
+  // During item-draft and character-deck-draft, show company characters on the table
+  if (step === 'item-draft' || step === 'character-deck-draft') {
+    const selfCharIds = view.self.companies.flatMap(c => c.characters);
+    renderCardRow(selfEl, companyCharDefIds(view, selfCharIds), cardPool);
+
+    const oppCharIds = view.opponent.companies.flatMap(c => c.characters);
+    renderCardRow(oppEl, companyCharDefIds(view, oppCharIds), cardPool);
   }
 }
 

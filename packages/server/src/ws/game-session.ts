@@ -9,6 +9,7 @@
  */
 
 import * as fs from 'fs';
+import * as os from 'os';
 import * as path from 'path';
 import type WebSocket from 'ws';
 import type {
@@ -26,7 +27,7 @@ import type { PlayerConfig, GameConfig } from '../engine/init.js';
 import { reduce } from '../engine/reducer.js';
 import { projectPlayerView, projectSpectatorView } from './projection.js';
 
-const SAVE_DIR = process.env.SAVE_DIR ?? path.join(process.cwd(), 'saves');
+const SAVE_DIR = process.env.SAVE_DIR ?? path.join(os.homedir(), '.meccg', 'saves');
 
 interface PendingPlayer {
   ws: WebSocket;
