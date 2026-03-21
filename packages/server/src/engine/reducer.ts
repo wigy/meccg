@@ -927,6 +927,7 @@ function handleInitiativeRoll(
   const d1 = d1raw + 1;
   const d2 = d2raw + 1;
   const roll: TwoDiceSix = { die1: d1 as DieRoll, die2: d2 as DieRoll };
+  logDetail(`${state.players[playerIndex].name} rolls initiative: ${d1} + ${d2} = ${d1 + d2}`);
   const rollEffect: GameEffect = {
     effect: 'dice-roll',
     playerName: state.players[playerIndex].name,
@@ -955,7 +956,7 @@ function handleInitiativeRoll(
   const total1 = newRolls[1].die1 + newRolls[1].die2;
 
   if (total0 === total1) {
-    // Tie — clear rolls for reroll
+    logDetail(`Tie (${total0} vs ${total1}) — rerolling`);
     return {
       state: {
         ...state,
@@ -967,7 +968,9 @@ function handleInitiativeRoll(
   }
 
   // Winner goes first
-  const firstPlayer = total0 > total1 ? state.players[0].id : state.players[1].id;
+  const winner = total0 > total1 ? state.players[0] : state.players[1];
+  logDetail(`${winner.name} wins initiative (${total0} vs ${total1}) — goes first`);
+  const firstPlayer = winner.id;
   return {
     state: startFirstTurn({ ...state, activePlayer: firstPlayer, rng }),
     effects: [rollEffect],
