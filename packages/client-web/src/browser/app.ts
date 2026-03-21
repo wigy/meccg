@@ -64,7 +64,7 @@ function connect(name: string): void {
         renderLog(`State update: turn ${msg.view.turnNumber}, phase ${msg.view.phaseState.phase}`);
         renderState(msg.view, cardPool);
         renderDraft(msg.view, cardPool);
-        renderActions(msg.view.legalActions.filter(e => e.viable).map(e => e.action), cardPool, sendAction, msg.view.visibleInstances);
+        renderActions(msg.view.legalActions, cardPool, sendAction, msg.view.visibleInstances);
         renderHand(msg.view, cardPool, sendAction);
         renderOpponentHand(msg.view, cardPool);
         renderPlayerNames(msg.view);

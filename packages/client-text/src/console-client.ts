@@ -189,7 +189,9 @@ function connect(): void {
           }
         }
 
-        lastLegalActions = msg.view.legalActions.filter(e => e.viable).map(e => e.action);
+        const allEvaluated = msg.view.legalActions;
+        lastLegalActions = allEvaluated.filter(e => e.viable).map(e => e.action);
+        const nonViable = allEvaluated.filter(e => !e.viable);
         const instances = msg.view.visibleInstances;
 
         // AI mode: compute weights, display probabilities, sample and send
@@ -229,6 +231,13 @@ function connect(): void {
               } else {
                 console.log(`  [${i + 1}] ${desc}`);
               }
+            }
+          }
+          if (nonViable.length > 0) {
+            console.log('Not available:');
+            for (const ea of nonViable) {
+              const desc = describeAction(ea.action, cardPool, instances);
+              console.log(`  \x1b[90m${desc} — ${ea.reason ?? '?'}\x1b[0m`);
             }
           }
           console.log('');

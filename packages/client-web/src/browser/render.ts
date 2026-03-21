@@ -282,9 +282,9 @@ export function renderDraft(view: PlayerView, cardPool: Readonly<Record<string, 
   tagCardImages(el, cardPool);
 }
 
-/** Render action buttons. */
+/** Render action buttons (viable actions clickable, non-viable shown disabled with reason). */
 export function renderActions(
-  actions: readonly GameAction[],
+  evaluated: readonly EvaluatedAction[],
   cardPool: Readonly<Record<string, CardDefinition>>,
   onClick: (action: GameAction) => void,
   instanceLookup?: Readonly<Record<string, CardDefinitionId>>,
@@ -292,12 +292,27 @@ export function renderActions(
   const el = $('actions');
   el.innerHTML = '';
 
-  for (const action of actions) {
+  // Viable actions first — clickable
+  for (const ea of evaluated.filter(e => e.viable)) {
     const btn = document.createElement('button');
-    btn.innerHTML = ansiToHtml(describeAction(action, cardPool, instanceLookup));
+    btn.innerHTML = ansiToHtml(describeAction(ea.action, cardPool, instanceLookup));
     tagCardImages(btn, cardPool);
-    btn.addEventListener('click', () => onClick(action));
+    btn.addEventListener('click', () => onClick(ea.action));
     el.appendChild(btn);
+  }
+
+  // Non-viable actions — disabled with reason
+  const nonViable = evaluated.filter(e => !e.viable);
+  if (nonViable.length > 0) {
+    for (const ea of nonViable) {
+      const btn = document.createElement('button');
+      btn.disabled = true;
+      btn.title = ea.reason ?? '';
+      btn.innerHTML = ansiToHtml(describeAction(ea.action, cardPool, instanceLookup))
+        + (ea.reason ? ` <span class="action-reason">— ${ea.reason}</span>` : '');
+      tagCardImages(btn, cardPool);
+      el.appendChild(btn);
+    }
   }
 }
 

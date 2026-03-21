@@ -196,6 +196,22 @@ h2 {
   background: #254a70;
 }
 
+#actions button:disabled {
+  opacity: 0.5;
+  cursor: default;
+  border-color: #444;
+}
+
+#actions button:disabled:hover {
+  background: #1a2a4a;
+  border-color: #444;
+}
+
+.action-reason {
+  color: #c4a35a;
+  font-style: italic;
+}
+
 #log-panel {
   margin-top: 0.5rem;
 }
