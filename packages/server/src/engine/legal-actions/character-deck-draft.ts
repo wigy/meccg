@@ -45,7 +45,7 @@ export function characterDeckDraftActions(state: GameState, playerId: PlayerId):
 
   for (const charDefId of deckDraft.remainingPool) {
     const def = state.cardPool[charDefId as string];
-    if (!def || def.cardType !== 'hero-character') {
+    if (!isCharacterCard(def)) {
       logDetail(`Skipping ${charDefId as string}: not a character`);
       continue;
     }

@@ -275,6 +275,10 @@ document.addEventListener('DOMContentLoaded', () => {
   connectBtn.addEventListener('click', () => {
     const name = nameInput.value.trim();
     if (!name) return;
+    if (!/^[a-zA-Z0-9 _-]+$/.test(name)) {
+      renderLog('Invalid name: only letters, numbers, spaces, hyphens, and underscores allowed');
+      return;
+    }
     startGame(name, true);
   });
 

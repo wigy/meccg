@@ -518,7 +518,7 @@ function getOpponentCards(view: PlayerView): { cards: CardDefinitionId[]; hidden
   }
   // Outside draft, show card backs for each card in opponent's hand
   const count = view.opponent.handSize;
-  return { cards: new Array(count).fill('unknown-card' as CardDefinitionId), hidden: true };
+  return { cards: new Array<CardDefinitionId>(count).fill('unknown-card' as CardDefinitionId), hidden: true };
 }
 
 /** Render the opponent's hand (or draft pool) as an arc at the top of the visual view. */

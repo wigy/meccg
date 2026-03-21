@@ -61,7 +61,7 @@ export class GameSession {
 
   constructor(options: GameSessionOptions) {
     this.debug = options.debug ?? false;
-    this.playerNames = new Set(options.playerNames);
+    this.playerNames = new Set(options.playerNames.map(n => n.toLowerCase()));
     this.cardPool = loadCardPool();
     fs.mkdirSync(SAVE_DIR, { recursive: true });
   }
@@ -136,27 +136,35 @@ export class GameSession {
   }
 
   private handleJoin(ws: WebSocket, msg: JoinMessage): void {
+    // Validate player name: alphanumeric, spaces, hyphens, underscores only
+    if (!/^[a-zA-Z0-9 _-]+$/.test(msg.name)) {
+      this.send(ws, { type: 'error', message: 'Invalid name: only letters, numbers, spaces, hyphens, and underscores allowed' });
+      return;
+    }
+
+    const normalizedName = msg.name.toLowerCase();
+
     // Not a designated player → spectator
-    if (!this.playerNames.has(msg.name)) {
+    if (!this.playerNames.has(normalizedName)) {
       this.addSpectator(ws, msg.name);
       return;
     }
 
     // Already connected with this name
     for (const [, player] of this.players.entries()) {
-      if (player.name === msg.name) {
+      if (player.name.toLowerCase() === normalizedName) {
         this.send(ws, { type: 'error', message: `Player "${msg.name}" is already connected` });
         return;
       }
     }
 
     // Already pending with this name
-    if (this.pending.has(msg.name)) {
+    if (this.pending.has(normalizedName)) {
       this.send(ws, { type: 'error', message: `Player "${msg.name}" is already waiting` });
       return;
     }
 
-    this.pending.set(msg.name, { ws, join: msg });
+    this.pending.set(normalizedName, { ws, join: msg });
     console.log(`${msg.name} joined as player`);
 
     if (this.pending.size < 2) {
@@ -165,15 +173,18 @@ export class GameSession {
     }
 
     // Both players present — try restore or start new
-    const names = [...this.playerNames];
-    const p1 = this.pending.get(names[0])!;
-    const p2 = this.pending.get(names[1])!;
-    const save = this.loadSave(names[0], names[1]);
+    const keys = [...this.playerNames];
+    const p1 = this.pending.get(keys[0])!;
+    const p2 = this.pending.get(keys[1])!;
+    // Use the original display name from the join message
+    const name1 = p1.join.name;
+    const name2 = p2.join.name;
+    const save = this.loadSave(keys[0], keys[1]);
 
     if (save) {
-      this.restoreGame(save, p1, p2, names[0], names[1]);
+      this.restoreGame(save, p1, p2, name1, name2);
     } else {
-      this.startNewGame(p1, p2, names[0], names[1]);
+      this.startNewGame(p1, p2, name1, name2);
     }
   }
 
@@ -192,7 +203,7 @@ export class GameSession {
     const p1Id = `p${++this.playerCounter}` as PlayerId;
     const p2Id = `p${++this.playerCounter}` as PlayerId;
 
-    this.nameToPlayerId = { [name1]: p1Id as string, [name2]: p2Id as string };
+    this.nameToPlayerId = { [name1.toLowerCase()]: p1Id as string, [name2.toLowerCase()]: p2Id as string };
 
     const config: GameConfig = {
       players: [
@@ -213,10 +224,15 @@ export class GameSession {
 
   private restoreGame(save: GameSave, p1: PendingPlayer, p2: PendingPlayer, name1: string, name2: string): void {
     this.state = save.state;
-    this.nameToPlayerId = save.nameToPlayerId;
+    // Normalize saved name-to-ID map to lowercase keys
+    const normalizedMap: Record<string, string> = {};
+    for (const [k, v] of Object.entries(save.nameToPlayerId)) {
+      normalizedMap[k.toLowerCase()] = v;
+    }
+    this.nameToPlayerId = normalizedMap;
 
-    const p1Id = save.nameToPlayerId[name1] as PlayerId;
-    const p2Id = save.nameToPlayerId[name2] as PlayerId;
+    const p1Id = normalizedMap[name1.toLowerCase()] as PlayerId;
+    const p2Id = normalizedMap[name2.toLowerCase()] as PlayerId;
 
     this.registerPlayers(p1, p1Id, name1, p2, p2Id, name2);
 
