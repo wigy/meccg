@@ -237,6 +237,7 @@ function initPlayerPreDraft(
 export function applyDraftResults(
   state: GameState,
   draftState: readonly [DraftPlayerState, DraftPlayerState],
+  setAside: readonly CardDefinitionId[] = [],
 ): GameState {
   const minter: InstanceMinter = {
     instanceMap: { ...state.instanceMap } as Record<string, CardInstance>,
@@ -301,10 +302,11 @@ export function applyDraftResults(
   });
 
   const newPlayers = [results[0].player, results[1].player] as unknown as readonly [PlayerState, PlayerState];
-  // Remaining pool for character deck draft excludes items (already extracted above)
+  // Remaining pool for character deck draft: undrafted characters + set-aside characters
+  // (items are excluded — already extracted above)
   const remainingPool: readonly [readonly CardDefinitionId[], readonly CardDefinitionId[]] = [
-    draftState[0].pool.filter(id => !isItemCard(state.cardPool[id as string])),
-    draftState[1].pool.filter(id => !isItemCard(state.cardPool[id as string])),
+    [...draftState[0].pool.filter(id => !isItemCard(state.cardPool[id as string])), ...setAside],
+    [...draftState[1].pool.filter(id => !isItemCard(state.cardPool[id as string])), ...setAside],
   ];
   const itemDraftState: readonly [ItemDraftPlayerState, ItemDraftPlayerState] = [
     { unassignedItems: results[0].unassignedItems, done: results[0].unassignedItems.length === 0 },

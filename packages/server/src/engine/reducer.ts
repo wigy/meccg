@@ -259,7 +259,7 @@ function handleCharacterDraft(
       // If both stopped, end draft
       const otherIndex = 1 - playerIndex;
       if (newDraftState[otherIndex].stopped) {
-        return finalizeDraft(state, newDraftState);
+        return finalizeDraft(state, newDraftState, draft.setAside);
       }
 
       // If other player has a pending pick, resolve the round
@@ -334,7 +334,7 @@ function resolveDraftRound(
 
   // If both stopped, finalize
   if (newDraft[0].stopped && newDraft[1].stopped) {
-    return finalizeDraft(state, newDraft);
+    return finalizeDraft(state, newDraft, newSetAside);
   }
 
   return {
@@ -355,14 +355,16 @@ function resolveDraftRound(
 
 /**
  * Delegates to {@link applyDraftResults} to place drafted characters on the
- * board and transition the game to the Untap phase.
+ * board and transition to item draft. Set-aside characters from draft
+ * collisions are returned to both players' remaining pools.
  */
 function finalizeDraft(
   state: GameState,
   draftState: readonly [DraftPlayerState, DraftPlayerState],
+  setAside: readonly CardDefinitionId[],
 ): ReducerResult {
   return {
-    state: applyDraftResults(state, draftState),
+    state: applyDraftResults(state, draftState, setAside),
   };
 }
 
