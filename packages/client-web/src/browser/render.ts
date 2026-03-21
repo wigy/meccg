@@ -997,6 +997,10 @@ export function setupCardPreview(): void {
     if (!img) return;
     preview.innerHTML = '';
   });
+
+  view.addEventListener('click', () => {
+    preview.innerHTML = '';
+  });
 }
 
 export function renderLog(message: string, cardPool?: Readonly<Record<string, CardDefinition>>): void {

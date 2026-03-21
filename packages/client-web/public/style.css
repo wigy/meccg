@@ -338,7 +338,7 @@ h2 {
   color: rgba(220, 200, 140, 0.9);
   text-shadow: 0 2px 6px rgba(0, 0, 0, 0.8);
   position: fixed;
-  right: 2rem;
+  left: 2rem;
   margin-top: calc(0.25 * var(--card-height));
   text-align: center;
   line-height: 1;
