@@ -5,7 +5,7 @@
  * their drafted characters to one of their starting companies.
  */
 
-import type { GameState, PlayerId, GameAction } from '@meccg/shared';
+import type { GameState, PlayerId, GameAction, CardInstanceId } from '@meccg/shared';
 import { logDetail } from './log.js';
 
 export function characterPlacementActions(state: GameState, playerId: PlayerId): GameAction[] {
@@ -32,7 +32,7 @@ export function characterPlacementActions(state: GameState, playerId: PlayerId):
     const charDef = state.cardPool[charInPlay.definitionId as string];
     const charName = charDef?.name ?? charId;
     const currentCompanyId = player.companies.find(c =>
-      c.characters.includes(charId as never))?.id;
+      c.characters.includes(charId as CardInstanceId))?.id;
 
     logDetail(`Character '${charName}' currently in company ${currentCompanyId as string ?? 'none'}`);
 
@@ -42,7 +42,7 @@ export function characterPlacementActions(state: GameState, playerId: PlayerId):
       actions.push({
         type: 'place-character',
         player: playerId,
-        characterInstanceId: charId as never,
+        characterInstanceId: charId as CardInstanceId,
         companyId: company.id,
       });
     }
