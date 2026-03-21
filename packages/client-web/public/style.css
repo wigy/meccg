@@ -282,7 +282,13 @@ h2 {
   display: flex;
   flex-direction: column;
   align-items: center;
-  z-index: 5;
+  z-index: 400;
+  background: rgba(10, 8, 4, 0.85);
+  border: 1px solid rgba(196, 163, 90, 0.5);
+  border-radius: 8px;
+  padding: 0.5rem 0.7rem;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.9);
+  backdrop-filter: blur(8px);
 }
 
 #set-aside .set-aside-card + .set-aside-card {
