@@ -477,10 +477,28 @@ h2 {
   transform: translateY(-3px);
 }
 
+#card-preview {
+  position: fixed;
+  right: 0.5rem;
+  bottom: calc(40% + 2rem);
+  z-index: 999;
+  pointer-events: none;
+}
+
+#card-preview img {
+  height: 55vh;
+  border-radius: 8px;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.9);
+}
+
+#card-preview:empty {
+  display: none;
+}
+
 #pass-btn {
   position: fixed;
   right: 2rem;
-  top: 50%;
+  top: 60%;
   transform: translateY(-50%);
   z-index: 15;
   font-family: 'MedievalSharp', cursive;

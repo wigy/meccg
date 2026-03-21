@@ -973,6 +973,32 @@ export function renderOpponentHand(view: PlayerView, cardPool: Readonly<Record<s
 }
 
 /** Append a message to the log. Auto-scrolls to bottom. */
+/**
+ * Set up card preview via event delegation on the visual view.
+ * Hovering any card image shows a zoomed copy in the fixed preview area.
+ */
+export function setupCardPreview(): void {
+  const view = document.getElementById('visual-view');
+  const preview = document.getElementById('card-preview');
+  if (!view || !preview) return;
+
+  view.addEventListener('mouseover', (e) => {
+    const img = (e.target as HTMLElement).closest('img');
+    if (!img || !img.src) return;
+    preview.innerHTML = '';
+    const clone = document.createElement('img');
+    clone.src = img.src;
+    clone.alt = img.alt;
+    preview.appendChild(clone);
+  });
+
+  view.addEventListener('mouseout', (e) => {
+    const img = (e.target as HTMLElement).closest('img');
+    if (!img) return;
+    preview.innerHTML = '';
+  });
+}
+
 export function renderLog(message: string, cardPool?: Readonly<Record<string, CardDefinition>>): void {
   const el = $('log');
   const line = document.createElement('div');
