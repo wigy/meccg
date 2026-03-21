@@ -5,9 +5,10 @@ import type { GameAction, EvaluatedAction } from '@meccg/shared';
 import {
   pool, PLAYER_1, PLAYER_2,
   createGame, reduce, Phase, Alignment,
-  makePlayDeck, makeDraftConfig,
+  makePlayDeck, makeDraftConfig, runActions,
   ARAGORN, BILBO, FRODO, LEGOLAS, GIMLI, FARAMIR,
   MORIA, RIVENDELL, LORIEN,
+  STING, DAGGER_OF_WESTERNESSE,
 } from './test-helpers.js';
 import type { GameConfig, QuickStartGameConfig } from './test-helpers.js';
 
@@ -118,6 +119,62 @@ describe('computeLegalActions', () => {
       for (const ea of evaluated) {
         expect(ea.action.player).toBe(PLAYER_1);
       }
+    });
+  });
+
+  describe('item draft', () => {
+    function makeItemDraftState() {
+      // Pool: Aragorn (character), Sting (unique minor item), 2x Dagger (non-unique minor item)
+      const config: GameConfig = {
+        players: [
+          { id: PLAYER_1, name: 'Alice', alignment: Alignment.Wizard, draftPool: [ARAGORN, STING, DAGGER_OF_WESTERNESSE, DAGGER_OF_WESTERNESSE], playDeck: makePlayDeck(), siteDeck: [MORIA], startingHavens: [RIVENDELL] },
+          { id: PLAYER_2, name: 'Bob', alignment: Alignment.Wizard, draftPool: [LEGOLAS, DAGGER_OF_WESTERNESSE], playDeck: makePlayDeck(), siteDeck: [MORIA], startingHavens: [LORIEN] },
+        ],
+        seed: 42,
+      };
+      // Draft one character each, then stop → advances to item draft
+      return runActions(createGame(config, pool), [
+        { type: 'draft-pick', player: PLAYER_1, characterDefId: ARAGORN },
+        { type: 'draft-pick', player: PLAYER_2, characterDefId: LEGOLAS },
+        { type: 'draft-stop', player: PLAYER_1 },
+        { type: 'draft-stop', player: PLAYER_2 },
+      ]);
+    }
+
+    it('rejects unique minor items with a reason', () => {
+      const state = makeItemDraftState();
+      expect(state.phaseState.phase).toBe('setup');
+      if (state.phaseState.phase !== 'setup') return;
+      expect(state.phaseState.setupStep.step).toBe('item-draft');
+
+      const evaluated = computeLegalActions(state, PLAYER_1);
+      const stingEval = evaluated.find(
+        e => e.action.type === 'assign-starting-item' && e.action.itemDefId === STING,
+      );
+      expect(stingEval).toBeDefined();
+      expect(stingEval!.viable).toBe(false);
+      expect(stingEval!.reason).toContain('unique');
+    });
+
+    it('allows non-unique minor items', () => {
+      const state = makeItemDraftState();
+      const evaluated = computeLegalActions(state, PLAYER_1);
+      const daggerActions = evaluated.filter(
+        e => e.action.type === 'assign-starting-item' && e.action.itemDefId === DAGGER_OF_WESTERNESSE,
+      );
+      // Should have viable actions (one per character target)
+      expect(daggerActions.length).toBeGreaterThan(0);
+      expect(daggerActions.every(e => e.viable)).toBe(true);
+    });
+
+    it('rejects characters in pool with a reason', () => {
+      const state = makeItemDraftState();
+      const evaluated = computeLegalActions(state, PLAYER_1);
+      // Aragorn is drafted and in a company — should appear as non-viable
+      const charEvals = evaluated.filter(
+        e => !e.viable && e.reason !== undefined && e.reason.includes('character'),
+      );
+      expect(charEvals.length).toBeGreaterThan(0);
     });
   });
 

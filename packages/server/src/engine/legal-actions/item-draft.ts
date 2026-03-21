@@ -37,7 +37,7 @@ export function itemDraftActions(state: GameState, playerId: PlayerId): Evaluate
     const def = state.cardPool[inst.definitionId as string];
     if (!def || !isCharacterCard(def)) continue;
 
-    const context = { card: { name: def.name, isItem: false } };
+    const context = { card: { name: def.name, isItem: false, unique: false } };
     // Use a dummy action — the character isn't an item, so this is always rejected
     const action = { type: 'assign-starting-item' as const, player: playerId, itemDefId: inst.definitionId, characterInstanceId: charInstId };
     const result = evaluateAction(action, ITEM_DRAFT_RULES, context);
@@ -56,7 +56,7 @@ export function itemDraftActions(state: GameState, playerId: PlayerId): Evaluate
     }
   }
 
-  // Viable actions: unassigned items → each character
+  // Unassigned items: evaluate each through the rules engine
   const seenDefIds = new Set<string>();
   for (const itemId of itemDraft.unassignedItems) {
     const inst = state.instanceMap[itemId as string];
@@ -69,12 +69,23 @@ export function itemDraftActions(state: GameState, playerId: PlayerId): Evaluate
     seenDefIds.add(defId as string);
     const itemDef = state.cardPool[defId as string];
     const itemName = itemDef ? itemDef.name : defId as string;
+    const isItem = isItemCard(itemDef);
 
-    if (!isItemCard(itemDef)) {
-      // Non-item in unassigned list (shouldn't happen, but handle gracefully)
-      const context = { card: { name: itemName, isItem: false } };
-      const action = { type: 'assign-starting-item' as const, player: playerId, itemDefId: defId, characterInstanceId: allCharIds[0] };
-      evaluated.push(evaluateAction(action, ITEM_DRAFT_RULES, context));
+    const context = {
+      card: {
+        name: itemName,
+        isItem,
+        unique: isItem ? itemDef.unique : false,
+      },
+    };
+
+    // Evaluate against first character to get viability; if non-viable, emit one rejected entry
+    const probeAction = { type: 'assign-starting-item' as const, player: playerId, itemDefId: defId, characterInstanceId: allCharIds[0] };
+    const result = evaluateAction(probeAction, ITEM_DRAFT_RULES, context);
+
+    if (!result.viable) {
+      logDetail(`${itemName}: ${result.reason}`);
+      evaluated.push(result);
       continue;
     }
 
