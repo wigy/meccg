@@ -8,7 +8,7 @@ import {
   makePlayDeck, makeDraftConfig, runActions,
   ARAGORN, BILBO, FRODO, LEGOLAS, GIMLI, FARAMIR,
   MORIA, RIVENDELL, LORIEN,
-  STING, DAGGER_OF_WESTERNESSE,
+  STING, DAGGER_OF_WESTERNESSE, HORN_OF_ANOR,
 } from './test-helpers.js';
 import type { GameConfig, QuickStartGameConfig } from './test-helpers.js';
 
@@ -165,6 +165,38 @@ describe('computeLegalActions', () => {
       // Should have viable actions (one per character target)
       expect(daggerActions.length).toBeGreaterThan(0);
       expect(daggerActions.every(e => e.viable)).toBe(true);
+    });
+
+    it('rejects items beyond the starting item limit of 2', () => {
+      // Pool with 3 non-unique items: 2x Dagger + 1 Horn of Anor
+      const config: GameConfig = {
+        players: [
+          { id: PLAYER_1, name: 'Alice', alignment: Alignment.Wizard, draftPool: [ARAGORN, DAGGER_OF_WESTERNESSE, DAGGER_OF_WESTERNESSE, HORN_OF_ANOR], playDeck: makePlayDeck(), siteDeck: [MORIA], startingHavens: [RIVENDELL] },
+          { id: PLAYER_2, name: 'Bob', alignment: Alignment.Wizard, draftPool: [LEGOLAS, DAGGER_OF_WESTERNESSE], playDeck: makePlayDeck(), siteDeck: [MORIA], startingHavens: [LORIEN] },
+        ],
+        seed: 42,
+      };
+      let state = runActions(createGame(config, pool), [
+        { type: 'draft-pick', player: PLAYER_1, characterDefId: ARAGORN },
+        { type: 'draft-pick', player: PLAYER_2, characterDefId: LEGOLAS },
+        { type: 'draft-stop', player: PLAYER_1 },
+        { type: 'draft-stop', player: PLAYER_2 },
+      ]);
+
+      // Assign first dagger
+      const p1Char = state.players[0].companies[0].characters[0];
+      state = reduce(state, { type: 'assign-starting-item', player: PLAYER_1, itemDefId: DAGGER_OF_WESTERNESSE, characterInstanceId: p1Char }).state;
+      // Assign second dagger
+      state = reduce(state, { type: 'assign-starting-item', player: PLAYER_1, itemDefId: DAGGER_OF_WESTERNESSE, characterInstanceId: p1Char }).state;
+
+      // Now at limit — Horn of Anor should be non-viable
+      const evaluated = computeLegalActions(state, PLAYER_1);
+      const hornEval = evaluated.find(
+        e => e.action.type === 'assign-starting-item' && e.action.itemDefId === HORN_OF_ANOR,
+      );
+      expect(hornEval).toBeDefined();
+      expect(hornEval!.viable).toBe(false);
+      expect(hornEval!.reason).toContain('limit');
     });
 
     it('rejects characters in pool with a reason', () => {

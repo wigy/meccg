@@ -9,9 +9,14 @@
  * - `card.name` — card name for messages
  * - `card.isItem` — whether this card is an item type
  * - `card.unique` — whether this card is unique
+ * - `ctx.assignedCount` — number of items already assigned by this player
+ * - `ctx.maxStartingItems` — maximum starting items allowed (2)
  */
 
 import type { RuleSet } from '../types.js';
+
+/** Maximum number of starting minor items a player can have. */
+export const MAX_STARTING_ITEMS = 2;
 
 /** Rules governing which pool cards can be assigned as starting items. */
 export const ITEM_DRAFT_RULES: RuleSet = {
@@ -26,6 +31,11 @@ export const ITEM_DRAFT_RULES: RuleSet = {
       id: 'not-unique',
       condition: { 'card.unique': false },
       failMessage: '{{card.name}} is unique and cannot be a starting item',
+    },
+    {
+      id: 'item-limit',
+      condition: { 'ctx.assignedCount': { $lt: 2 } },
+      failMessage: '{{card.name}}: already at starting item limit ({{ctx.assignedCount}}/{{ctx.maxStartingItems}})',
     },
   ],
 };

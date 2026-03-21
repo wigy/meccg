@@ -10,7 +10,7 @@
  */
 
 import type { GameState, PlayerId, EvaluatedAction } from '@meccg/shared';
-import { isItemCard, isCharacterCard, evaluateAction, ITEM_DRAFT_RULES } from '@meccg/shared';
+import { isItemCard, isCharacterCard, evaluateAction, ITEM_DRAFT_RULES, MAX_STARTING_ITEMS } from '@meccg/shared';
 import { logDetail } from './log.js';
 
 export function itemDraftActions(state: GameState, playerId: PlayerId): EvaluatedAction[] {
@@ -26,7 +26,10 @@ export function itemDraftActions(state: GameState, playerId: PlayerId): Evaluate
 
   const player = state.players[playerIndex];
   const allCharIds = player.companies.flatMap(c => c.characters);
-  logDetail(`${itemDraft.unassignedItems.length} unassigned item(s), ${allCharIds.length} character(s) available`);
+  const assignedCount = Object.values(player.characters).reduce(
+    (sum, char) => sum + char.items.length, 0,
+  );
+  logDetail(`${itemDraft.unassignedItems.length} unassigned item(s), ${assignedCount}/${MAX_STARTING_ITEMS} assigned, ${allCharIds.length} character(s) available`);
 
   const evaluated: EvaluatedAction[] = [];
 
@@ -37,7 +40,7 @@ export function itemDraftActions(state: GameState, playerId: PlayerId): Evaluate
     const def = state.cardPool[inst.definitionId as string];
     if (!def || !isCharacterCard(def)) continue;
 
-    const context = { card: { name: def.name, isItem: false, unique: false } };
+    const context = { card: { name: def.name, isItem: false, unique: false }, ctx: { assignedCount, maxStartingItems: MAX_STARTING_ITEMS } };
     // Use a dummy action — the character isn't an item, so this is always rejected
     const action = { type: 'assign-starting-item' as const, player: playerId, itemDefId: inst.definitionId, characterInstanceId: charInstId };
     const result = evaluateAction(action, ITEM_DRAFT_RULES, context);
@@ -76,6 +79,10 @@ export function itemDraftActions(state: GameState, playerId: PlayerId): Evaluate
         name: itemName,
         isItem,
         unique: isItem ? itemDef.unique : false,
+      },
+      ctx: {
+        assignedCount,
+        maxStartingItems: MAX_STARTING_ITEMS,
       },
     };
 

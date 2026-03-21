@@ -333,14 +333,28 @@ function getHandCards(view: PlayerView): CardDefinitionId[] {
       && (deckDraft[0].remainingPool[0] as string) !== 'unknown-card' ? 0 : 1;
     return [...deckDraft[selfIdx].remainingPool];
   }
-  // During item draft, show only unassigned items
+  // During item draft, show whole pool: drafted characters + unassigned items
   if (view.phaseState.phase === 'setup' && view.phaseState.setupStep.step === 'item-draft') {
+    const cards: CardDefinitionId[] = [];
+
+    // Drafted characters (in companies, shown dimmed as non-items)
+    for (const company of view.self.companies) {
+      for (const charInstId of company.characters) {
+        const defId = view.visibleInstances[charInstId as string];
+        if (defId) cards.push(defId);
+      }
+    }
+
+    // Unassigned items (assigned items are removed from pool)
     const itemDraft = view.phaseState.setupStep.itemDraftState;
     const selfIdx = itemDraft[0].unassignedItems.length > 0
       && view.visibleInstances[itemDraft[0].unassignedItems[0] as string] ? 0 : 1;
-    return itemDraft[selfIdx].unassignedItems.map(
-      instId => view.visibleInstances[instId as string],
-    ).filter((id): id is CardDefinitionId => id !== undefined);
+    for (const instId of itemDraft[selfIdx].unassignedItems) {
+      const defId = view.visibleInstances[instId as string];
+      if (defId) cards.push(defId);
+    }
+
+    return cards;
   }
   // During site selection, show all candidate sites (both viable and non-viable)
   if (view.phaseState.phase === 'setup' && view.phaseState.setupStep.step === 'starting-site-selection') {
@@ -586,7 +600,7 @@ export function renderPassButton(view: PlayerView, onAction: (action: GameAction
     label = 'Roll';
   } else if (view.phaseState.phase === 'setup') {
     const step = view.phaseState.setupStep.step;
-    if (step === 'item-draft') label = 'Skip Items';
+    if (step === 'item-draft') label = 'Continue';
     else if (step === 'character-deck-draft') label = 'Done';
     else if (step === 'starting-site-selection') label = 'Continue';
     else if (step === 'character-placement') label = 'Done';
