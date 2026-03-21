@@ -128,6 +128,11 @@ function validateActionPlayer(state: GameState, action: GameAction): string | un
     return undefined;
   }
 
+  // Both players pass independently during the untap phase
+  if (phase === 'untap' && action.type === 'pass') {
+    return undefined;
+  }
+
   // During movement/hazard phase, the non-active player plays hazards
   if (phase === 'movement-hazard' && action.type === 'play-hazard') {
     if (action.player === state.activePlayer) {
@@ -929,10 +934,45 @@ function handleInitiativeRoll(
 // Each stub below corresponds to a game phase that is not yet implemented.
 // They accept the action but return the state unmodified.
 
-/** Stub: untap all cards, heal inverted (wounded) characters at havens. */
-function handleUntap(state: GameState, _action: GameAction): ReducerResult {
-  // TODO: untap all cards, heal inverted (wounded) characters at havens, advance to organization
-  return { state };
+/**
+ * Handles the Untap phase. Both players must pass to advance.
+ * Actual untapping of cards will be implemented later.
+ */
+function handleUntap(state: GameState, action: GameAction): ReducerResult {
+  if (state.phaseState.phase !== Phase.Untap) {
+    return { state, error: 'Not in untap phase' };
+  }
+  if (action.type !== 'pass') {
+    return { state, error: `Unexpected action '${action.type}' in untap phase` };
+  }
+
+  const { passed } = state.phaseState;
+
+  if (passed.includes(action.player)) {
+    return { state, error: 'Player has already passed' };
+  }
+
+  const newPassed = [...passed, action.player];
+  logDetail(`Untap: player ${action.player as string} passed (${newPassed.length}/2)`);
+
+  // Both players have passed — advance to Organization
+  if (newPassed.length === 2) {
+    logDetail('Untap: both players passed → advancing to Organization phase');
+    return {
+      state: {
+        ...state,
+        phaseState: { phase: Phase.Organization },
+      },
+    };
+  }
+
+  // Still waiting for the other player
+  return {
+    state: {
+      ...state,
+      phaseState: { phase: Phase.Untap, passed: newPassed },
+    },
+  };
 }
 
 /** Stub: play characters, split/merge companies, transfer items, plan movement. */

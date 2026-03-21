@@ -381,7 +381,7 @@ export function startFirstTurn(state: GameState): GameState {
     ...state,
     // activePlayer should already be set by initiative roll
     activePlayer: state.activePlayer ?? state.players[0].id,
-    phaseState: { phase: Phase.Untap },
+    phaseState: { phase: Phase.Untap, passed: [] },
     turnNumber: 1,
   };
 }
@@ -431,7 +431,7 @@ export function createGameQuickStart(
     gameId,
     players,
     activePlayer: config.players[0].id,
-    phaseState: { phase: Phase.Untap },
+    phaseState: { phase: Phase.Untap, passed: [] },
     eventsInPlay: [],
     cardPool,
     instanceMap: minter.instanceMap,

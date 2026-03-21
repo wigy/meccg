@@ -437,6 +437,8 @@ export interface SetupPhaseState {
 export interface UntapPhaseState {
   /** Phase discriminant. */
   readonly phase: Phase.Untap;
+  /** Players who have passed (both must pass to advance to Organization). */
+  readonly passed: readonly PlayerId[];
 }
 
 /**

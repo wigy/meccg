@@ -102,7 +102,7 @@ describe('computeLegalActions', () => {
   });
 
   describe('untap phase', () => {
-    it('returns only pass', () => {
+    function makeUntapState() {
       const config: QuickStartGameConfig = {
         players: [
           { id: PLAYER_1, name: 'Alice', alignment: Alignment.Wizard, startingCharacters: [ARAGORN], playDeck: makePlayDeck(), siteDeck: [MORIA], startingHavens: [RIVENDELL] },
@@ -110,12 +110,46 @@ describe('computeLegalActions', () => {
         ],
         seed: 42,
       };
-      const state = createGameQuickStart(config, pool);
+      return createGameQuickStart(config, pool);
+    }
+
+    it('both players can pass', () => {
+      const state = makeUntapState();
+      expect(state.phaseState.phase).toBe(Phase.Untap);
+
+      const p1Actions = computeLegalActions(state, PLAYER_1);
+      expect(p1Actions).toHaveLength(1);
+      expect(p1Actions[0].type).toBe('pass');
+
+      const p2Actions = computeLegalActions(state, PLAYER_2);
+      expect(p2Actions).toHaveLength(1);
+      expect(p2Actions[0].type).toBe('pass');
+    });
+
+    it('player who passed has no further actions', () => {
+      let state = makeUntapState();
+      const result = reduce(state, { type: 'pass', player: PLAYER_1 });
+      state = result.state;
 
       expect(state.phaseState.phase).toBe(Phase.Untap);
-      const actions = computeLegalActions(state, PLAYER_1);
-      expect(actions).toHaveLength(1);
-      expect(actions[0].type).toBe('pass');
+      expect(computeLegalActions(state, PLAYER_1)).toHaveLength(0);
+      expect(computeLegalActions(state, PLAYER_2)).toHaveLength(1);
+    });
+
+    it('advances to organization after both players pass', () => {
+      let state = makeUntapState();
+      state = reduce(state, { type: 'pass', player: PLAYER_1 }).state;
+      state = reduce(state, { type: 'pass', player: PLAYER_2 }).state;
+
+      expect(state.phaseState.phase).toBe(Phase.Organization);
+    });
+
+    it('rejects double pass from same player', () => {
+      let state = makeUntapState();
+      state = reduce(state, { type: 'pass', player: PLAYER_1 }).state;
+      const result = reduce(state, { type: 'pass', player: PLAYER_1 });
+
+      expect(result.error).toBeDefined();
     });
   });
 });
