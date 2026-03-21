@@ -8,7 +8,7 @@
  * - **All Companies**: Both players' companies at 40% scale.
  *
  * The company leader (highest mind, then MP, then prowess) determines
- * the company's display name (e.g. "Aragorn's Company").
+ * the company's display name (e.g. "Aragorn's Company at Rivendell").
  */
 
 import type {
@@ -83,22 +83,36 @@ function getCompanyLeader(
 }
 
 /**
- * Get the display name for a company based on its leader.
- * Returns e.g. "Aragorn's Company" or "Company" if no leader found.
+ * Get the display name for a company based on its leader and current site.
+ * Returns e.g. "Aragorn's Company at Rivendell" or "Company" if no leader found.
  */
 function getCompanyName(
-  characters: readonly { toString(): string }[],
+  company: Company | OpponentCompanyView,
   charMap: Readonly<Record<string, CharacterInPlay>>,
+  view: PlayerView,
   cardPool: Readonly<Record<string, CardDefinition>>,
 ): string {
-  const leader = getCompanyLeader(characters, charMap, cardPool);
+  const leader = getCompanyLeader(company.characters, charMap, cardPool);
   if (!leader) return 'Company';
   const def = cardPool[leader.definitionId as string];
   if (!def) return 'Company';
   const name = def.name;
   // Simple possessive: add 's or just ' for names ending in s
   const possessive = name.endsWith('s') ? `${name}'` : `${name}'s`;
-  return `${possessive} Company`;
+  let label = `${possessive} Company`;
+
+  // Append site name if the company is at a site
+  if (company.currentSite) {
+    const siteDefId = view.visibleInstances[company.currentSite as string];
+    if (siteDefId) {
+      const siteDef = cardPool[siteDefId as string];
+      if (siteDef) {
+        label += ` at ${siteDef.name}`;
+      }
+    }
+  }
+
+  return label;
 }
 
 // ---- DOM rendering ----
@@ -275,7 +289,7 @@ function renderCompanyBlock(
   // Company name
   const nameEl = document.createElement('div');
   nameEl.className = 'company-name';
-  nameEl.textContent = getCompanyName(company.characters, charMap, cardPool);
+  nameEl.textContent = getCompanyName(company, charMap, view, cardPool);
   block.appendChild(nameEl);
 
   // Moved badge
