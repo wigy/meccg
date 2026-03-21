@@ -7,5 +7,17 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/wh/HiddenHaven.jpg",
     "unique": false,
     "text": "Playable on a non-Dragon's lair Ruins & Lairs in a Wilderness, Border-land, or Shadow-land. This site becomes one of your Wizardhavens and loses all automatic-attacks. Nothing is considered playable as written on the site card. If one of your companies is at this site, all attacks against it are canceled."
+  },
+  {
+    "cardType": "hero-resource-event",
+    "alignment": "fallen-wizard",
+    "id": "wh-82",
+    "name": "Thrall of the Voice",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/wh/ThralloftheVoice.jpg",
+    "unique": false,
+    "eventType": "permanent",
+    "marshallingPoints": 1,
+    "marshallingCategory": "misc",
+    "text": "Instead of a normal character, during your organization phase you may bring into play one character (including a minion agent) with up to a 6 mind. Place this card with the character. -1 to his mind to a minimum of 1. Such a character may also be in your starting company."
   }
 ]
