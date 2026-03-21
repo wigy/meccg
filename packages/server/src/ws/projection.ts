@@ -260,6 +260,11 @@ export function projectPlayerView(state: GameState, playerId: PlayerId): PlayerV
     for (const id of state.phaseState.setupStep.itemDraftState[selfIndex].unassignedItems) addInstance(id);
   }
 
+  // Site selection: selected sites are no longer in siteDeck but should still be visible
+  if (state.phaseState.phase === 'setup' && state.phaseState.setupStep.step === 'starting-site-selection') {
+    for (const id of state.phaseState.setupStep.siteSelectionState[selfIndex].selectedSites) addInstance(id);
+  }
+
   // Own cards: hand, discard, site deck, sideboard, companies, characters + their attachments
   for (const id of selfPlayer.hand) addInstance(id);
   for (const id of selfPlayer.discardPile) addInstance(id);

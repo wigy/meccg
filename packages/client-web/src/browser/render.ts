@@ -5,7 +5,7 @@
  * action buttons, draft info, and a message log.
  */
 
-import type { PlayerView, GameAction, CardDefinition, CardDefinitionId } from '@meccg/shared';
+import type { PlayerView, GameAction, CardDefinition, CardDefinitionId, CardInstanceId } from '@meccg/shared';
 import { describeAction, formatPlayerView, formatCardList, cardImageProxyPath, isCharacterCard, GENERAL_INFLUENCE } from '@meccg/shared';
 
 /**
@@ -301,6 +301,13 @@ function getHandCards(view: PlayerView): CardDefinitionId[] {
       instId => view.visibleInstances[instId as string],
     ).filter((id): id is CardDefinitionId => id !== undefined);
   }
+  // During site selection, show only sites that are legal selections
+  if (view.phaseState.phase === 'setup' && view.phaseState.setupStep.step === 'starting-site-selection') {
+    return view.legalActions
+      .filter((a): a is GameAction & { type: 'select-starting-site' } => a.type === 'select-starting-site')
+      .map(a => view.visibleInstances[a.siteInstanceId as string])
+      .filter((id): id is CardDefinitionId => id !== undefined);
+  }
   return view.self.hand.map(c => c.definitionId);
 }
 
@@ -338,10 +345,16 @@ function getSelfDraftIndex(draftState: readonly [{ pool: readonly CardDefinition
  * Actions that need no extra parameters beyond identifying the card are
  * returned directly — clicking the card sends them immediately.
  */
-function findCardAction(defId: CardDefinitionId, legalActions: readonly GameAction[]): GameAction | null {
+function findCardAction(
+  defId: CardDefinitionId,
+  legalActions: readonly GameAction[],
+  visibleInstances?: Readonly<Record<string, CardDefinitionId>>,
+): GameAction | null {
   for (const action of legalActions) {
     if (action.type === 'draft-pick' && action.characterDefId === defId) return action;
     if (action.type === 'add-character-to-deck' && action.characterDefId === defId) return action;
+    if (action.type === 'select-starting-site' && visibleInstances
+      && visibleInstances[action.siteInstanceId as string] === defId) return action;
   }
   return null;
 }
@@ -428,6 +441,28 @@ function renderCardRow(el: HTMLElement, defIds: readonly CardDefinitionId[], car
     img.className = 'drafted-card';
     el.appendChild(img);
   }
+}
+
+/** Render selected sites followed by a spacer and company characters on the table. */
+function renderSitesAndCharacters(
+  el: HTMLElement,
+  siteInstIds: readonly CardInstanceId[],
+  charInstIds: readonly CardInstanceId[],
+  view: PlayerView,
+  cardPool: Readonly<Record<string, CardDefinition>>,
+): void {
+  const siteDefIds = siteInstIds
+    .map(id => view.visibleInstances[id as string])
+    .filter((id): id is CardDefinitionId => id !== undefined);
+  renderCardRow(el, siteDefIds, cardPool);
+
+  const charDefIds = companyCharDefIds(view, charInstIds);
+  if (siteDefIds.length > 0 && charDefIds.length > 0) {
+    const spacer = document.createElement('div');
+    spacer.className = 'drafted-spacer';
+    el.appendChild(spacer);
+  }
+  renderCardRow(el, charDefIds, cardPool);
 }
 
 /**
@@ -609,6 +644,21 @@ export function renderDrafted(
     const oppCharIds = view.opponent.companies.flatMap(c => c.characters);
     renderCardRow(oppEl, companyCharDefIds(view, oppCharIds), cardPool);
   }
+
+  // During site selection, show selected sites then a gap then company characters
+  if (step === 'starting-site-selection') {
+    const siteState = view.phaseState.setupStep.siteSelectionState;
+    // Determine self index: self's selected sites resolve in visibleInstances
+    const hasSelfSites = (idx: number) => siteState[idx].selectedSites.length > 0
+      && view.visibleInstances[siteState[idx].selectedSites[0] as string] !== undefined;
+    const selfIdx = hasSelfSites(0) ? 0 : hasSelfSites(1) ? 1 : 0;
+    const oppIdx = 1 - selfIdx;
+
+    const selfChars = view.self.companies.flatMap(c => c.characters);
+    renderSitesAndCharacters(selfEl, siteState[selfIdx].selectedSites, selfChars, view, cardPool);
+    const oppChars = view.opponent.companies.flatMap(c => c.characters);
+    renderSitesAndCharacters(oppEl, siteState[oppIdx].selectedSites, oppChars, view, cardPool);
+  }
 }
 
 /** Render the player's hand (or draft pool) as an arc of card images in the visual view. */
@@ -649,7 +699,7 @@ export function renderHand(
     if (!imgPath) continue;
 
     const cardDefId = cards[i];
-    const action = findCardAction(cardDefId, view.legalActions);
+    const action = findCardAction(cardDefId, view.legalActions, view.visibleInstances);
     const isItemDraft = isItemDraftCard(cardDefId, view.legalActions);
     const isSelected = selectedItemDefId === cardDefId;
 

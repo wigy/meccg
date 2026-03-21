@@ -348,6 +348,11 @@ h2 {
   letter-spacing: 0.05em;
 }
 
+.drafted-spacer {
+  width: 2rem;
+  flex-shrink: 0;
+}
+
 .drafted-card-facedown {
   opacity: 0.8;
   box-shadow:
