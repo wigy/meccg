@@ -6,7 +6,7 @@
  */
 
 import type { PlayerView, GameAction, CardDefinition, CardDefinitionId, CardInstanceId, CharacterInPlay } from '@meccg/shared';
-import { describeAction, formatPlayerView, formatCardList, cardImageProxyPath, isCharacterCard, GENERAL_INFLUENCE } from '@meccg/shared';
+import { describeAction, formatPlayerView, formatCardList, cardImageProxyPath, isCharacterCard, GENERAL_INFLUENCE, getAlignmentRules } from '@meccg/shared';
 
 /**
  * Module-level state for the item draft two-step selection flow.
@@ -380,8 +380,10 @@ function getInstructionText(view: PlayerView): string | null {
         return 'Starting Items — Assign your minor items to characters in your starting company.';
       case 'character-deck-draft':
         return 'Deck Building — Add remaining pool characters to your play deck, or pass to finish.';
-      case 'starting-site-selection':
-        return 'Site Selection — Choose your starting site from your site deck.';
+      case 'starting-site-selection': {
+        const plural = getAlignmentRules(view.self.alignment).maxStartingSites > 1;
+        return `Site Selection — Choose your starting site${plural ? 's' : ''} from your site deck.`;
+      }
       case 'character-placement':
         return 'Character Placement — Assign characters to your starting companies.';
       case 'initiative-roll':
