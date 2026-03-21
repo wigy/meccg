@@ -14,13 +14,18 @@
  * (or the original state plus an error string if the action was illegal).
  */
 
-import type { GameState, DraftPlayerState, ItemDraftPlayerState, CharacterDeckDraftPlayerState, SetupStepState, CardDefinitionId, CardInstanceId, CompanyId, CharacterInPlay, CardInstance } from '@meccg/shared';
+import type { GameState, PlayerState, DraftPlayerState, ItemDraftPlayerState, CharacterDeckDraftPlayerState, SetupStepState, CardDefinitionId, CardInstanceId, CompanyId, CharacterInPlay, CardInstance } from '@meccg/shared';
 import type { GameAction } from '@meccg/shared';
 import { Phase, SetupStep, LEGAL_ACTIONS_BY_PHASE, getAlignmentRules, shuffle, nextInt, CardStatus, isCharacterCard } from '@meccg/shared';
 import { logHeading, logDetail } from './legal-actions/log.js';
 import type { TwoDiceSix, DieRoll, GameEffect } from '@meccg/shared';
 import { applyDraftResults, transitionAfterItemDraft, enterSiteSelection, startFirstTurn } from './init.js';
 import { recomputeDerived } from './recompute-derived.js';
+
+/** Creates a mutable copy of the 2-player tuple, preserving the tuple type. */
+function clonePlayers(state: GameState): [PlayerState, PlayerState] {
+  return [{ ...state.players[0] }, { ...state.players[1] }];
+}
 
 /**
  * Result of applying a {@link GameAction} to a {@link GameState}.
@@ -450,14 +455,14 @@ function handleItemDraft(
   const newItemDraftState = [...stepState.itemDraftState] as [ItemDraftPlayerState, ItemDraftPlayerState];
   newItemDraftState[playerIndex] = newItemDraft;
 
-  const newPlayers = [...state.players] as unknown as [typeof state.players[0], typeof state.players[1]];
+  const newPlayers = clonePlayers(state);
   newPlayers[playerIndex] = updatedPlayer;
 
   // If both players are done, transition to character deck draft (or Untap)
   if (newItemDraftState[0].done && newItemDraftState[1].done) {
     return {
       state: transitionAfterItemDraft(
-        { ...state, players: newPlayers as unknown as readonly [typeof state.players[0], typeof state.players[1]] },
+        { ...state, players: newPlayers },
         stepState.remainingPool,
       ),
     };
@@ -466,7 +471,7 @@ function handleItemDraft(
   return {
     state: {
       ...state,
-      players: newPlayers as unknown as readonly [typeof state.players[0], typeof state.players[1]],
+      players: newPlayers,
       phaseState: setupPhase({ ...stepState, itemDraftState: newItemDraftState }),
     },
   };
@@ -542,7 +547,7 @@ function handleCharacterDeckDraft(
 
   const player = state.players[playerIndex];
   const newPlayDeck = [...player.playDeck, instanceId];
-  const newPlayers = [...state.players] as unknown as [typeof state.players[0], typeof state.players[1]];
+  const newPlayers = clonePlayers(state);
   newPlayers[playerIndex] = { ...player, playDeck: newPlayDeck };
 
   // Remove from remaining pool
@@ -556,7 +561,7 @@ function handleCharacterDeckDraft(
   return {
     state: {
       ...state,
-      players: newPlayers as unknown as readonly [typeof state.players[0], typeof state.players[1]],
+      players: newPlayers,
       instanceMap: newInstanceMap,
       phaseState: setupPhase({ ...stepState, deckDraftState: newDeckDraftState }),
     },
@@ -622,7 +627,7 @@ function handleStartingSiteSelection(
 
   // Remove site from site deck
   const newSiteDeck = player.siteDeck.filter(id => id !== action.siteInstanceId);
-  const newPlayers = [...state.players] as unknown as [typeof state.players[0], typeof state.players[1]];
+  const newPlayers = clonePlayers(state);
   newPlayers[playerIndex] = { ...player, siteDeck: newSiteDeck };
 
   const newSiteSelectionState = [...stepState.siteSelectionState] as [SiteSelectionPlayerState, SiteSelectionPlayerState];
@@ -634,7 +639,7 @@ function handleStartingSiteSelection(
   return {
     state: {
       ...state,
-      players: newPlayers as unknown as readonly [typeof state.players[0], typeof state.players[1]],
+      players: newPlayers,
       phaseState: setupPhase({ ...stepState, siteSelectionState: newSiteSelectionState }),
     },
   };
@@ -649,7 +654,7 @@ function finalizeSiteSelection(
   state: GameState,
   siteSelectionState: readonly [SiteSelectionPlayerState, SiteSelectionPlayerState],
 ): GameState {
-  const newPlayers = [...state.players] as unknown as [typeof state.players[0], typeof state.players[1]];
+  const newPlayers = clonePlayers(state);
 
   for (let i = 0; i < 2; i++) {
     const player = newPlayers[i];
@@ -678,7 +683,7 @@ function finalizeSiteSelection(
 
   const newState = {
     ...state,
-    players: newPlayers as unknown as readonly [typeof state.players[0], typeof state.players[1]],
+    players: newPlayers,
   };
 
   const p1NeedsPlacement = newPlayers[0].companies.length > 1;
@@ -716,9 +721,9 @@ function cleanupEmptyCompanies(state: GameState): GameState {
     const newSiteDeck = [...player.siteDeck, ...returnedSites];
 
     return { ...player, companies: keptCompanies, siteDeck: newSiteDeck };
-  }) as unknown as readonly [typeof state.players[0], typeof state.players[1]];
+  });
 
-  return { ...state, players: newPlayers };
+  return { ...state, players: [newPlayers[0], newPlayers[1]] };
 }
 
 // ---- Character placement handler ----
@@ -789,13 +794,13 @@ function handleCharacterPlacement(
     characters: [...newCompanies[targetIdx].characters, action.characterInstanceId],
   };
 
-  const newPlayers = [...state.players] as unknown as [typeof state.players[0], typeof state.players[1]];
+  const newPlayers = clonePlayers(state);
   newPlayers[playerIndex] = { ...player, companies: newCompanies };
 
   return {
     state: {
       ...state,
-      players: newPlayers as unknown as readonly [typeof state.players[0], typeof state.players[1]],
+      players: newPlayers,
     },
   };
 }
@@ -821,7 +826,7 @@ function handleDeckShuffle(
   const [shuffled, nextRng] = shuffle([...player.playDeck], rng);
   rng = nextRng;
 
-  const newPlayers = [...state.players] as unknown as [typeof state.players[0], typeof state.players[1]];
+  const newPlayers = clonePlayers(state);
   newPlayers[playerIndex] = { ...player, playDeck: shuffled };
 
   const newShuffled = [...stepState.shuffled] as [boolean, boolean];
@@ -832,7 +837,7 @@ function handleDeckShuffle(
     return {
       state: {
         ...state,
-        players: newPlayers as unknown as readonly [typeof state.players[0], typeof state.players[1]],
+        players: newPlayers,
         phaseState: setupPhase({ step: SetupStep.InitialDraw, drawn: [false, false] }),
         rng,
       },
@@ -842,7 +847,7 @@ function handleDeckShuffle(
   return {
     state: {
       ...state,
-      players: newPlayers as unknown as readonly [typeof state.players[0], typeof state.players[1]],
+      players: newPlayers,
       phaseState: setupPhase({ ...stepState, shuffled: newShuffled }),
       rng,
     },
@@ -869,7 +874,7 @@ function handleInitialDraw(
   const hand = player.playDeck.slice(0, action.count);
   const playDeck = player.playDeck.slice(action.count);
 
-  const newPlayers = [...state.players] as unknown as [typeof state.players[0], typeof state.players[1]];
+  const newPlayers = clonePlayers(state);
   newPlayers[playerIndex] = { ...player, hand, playDeck };
 
   const newDrawn = [...stepState.drawn] as [boolean, boolean];
@@ -881,7 +886,7 @@ function handleInitialDraw(
       state: {
         ...cleanupEmptyCompanies({
           ...state,
-          players: newPlayers as unknown as readonly [typeof state.players[0], typeof state.players[1]],
+          players: newPlayers,
         }),
         phaseState: setupPhase({
           step: SetupStep.InitiativeRoll,
@@ -894,7 +899,7 @@ function handleInitialDraw(
   return {
     state: {
       ...state,
-      players: newPlayers as unknown as readonly [typeof state.players[0], typeof state.players[1]],
+      players: newPlayers,
       phaseState: setupPhase({ ...stepState, drawn: newDrawn }),
     },
   };
