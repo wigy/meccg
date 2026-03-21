@@ -205,11 +205,11 @@ export function rollDice(die1: number, die2: number, variant: 'red' | 'black' = 
       container.style.transition = 'left 0.6s ease-in-out, top 0.6s ease-in-out, transform 0.6s ease-in-out';
       container.style.left = `${nameRect.left}px`;
       if (variant === 'red') {
-        container.style.top = `${nameRect.top}px`;
-        container.style.transform = 'translate(0, -90%) scale(0.35)';
+        container.style.top = `${window.innerHeight * 0.55}px`;
+        container.style.transform = 'translate(0, -50%) scale(0.35)';
       } else {
-        container.style.top = `${nameRect.bottom}px`;
-        container.style.transform = 'translate(0, -15%) scale(0.35)';
+        container.style.top = `${window.innerHeight * 0.45}px`;
+        container.style.transform = 'translate(0, -50%) scale(0.35)';
       }
     }
   }, 1800);
@@ -262,11 +262,11 @@ export function restoreDice(): void {
     container.style.transformOrigin = 'left center';
     container.style.left = `${nameRect.left}px`;
     if (variant === 'red') {
-      container.style.top = `${nameRect.top}px`;
-      container.style.transform = 'translate(0, -90%) scale(0.35)';
+      container.style.top = `${window.innerHeight * 0.55}px`;
+      container.style.transform = 'translate(0, -50%) scale(0.35)';
     } else {
-      container.style.top = `${nameRect.bottom}px`;
-      container.style.transform = 'translate(0, -15%) scale(0.35)';
+      container.style.top = `${window.innerHeight * 0.45}px`;
+      container.style.transform = 'translate(0, -50%) scale(0.35)';
     }
   }
 }

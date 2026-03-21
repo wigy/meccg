@@ -379,6 +379,52 @@ function fillDeckPile(el: HTMLElement, deckSize: number, backImage = '/images/ca
   el.appendChild(wrapper);
 }
 
+/**
+ * Animate a deck shuffle: count down to 0, then back up, redrawing each step.
+ * Returns a promise that resolves when the animation completes.
+ */
+function animateDeckShuffle(el: HTMLElement, deckSize: number, backImage = '/images/card-back.jpg'): Promise<void> {
+  return new Promise((resolve) => {
+    const stepDelay = Math.max(20, Math.min(60, 400 / deckSize));
+    let current = deckSize;
+    let direction: 'down' | 'up' = 'down';
+
+    function step(): void {
+      fillDeckPile(el, current, backImage);
+
+      if (direction === 'down') {
+        current -= 4;
+        if (current <= 0) {
+          current = 0;
+          fillDeckPile(el, 0, backImage);
+          direction = 'up';
+        }
+      } else {
+        current += 4;
+        if (current >= deckSize) {
+          current = deckSize;
+          fillDeckPile(el, deckSize, backImage);
+          resolve();
+          return;
+        }
+      }
+      setTimeout(step, stepDelay);
+    }
+
+    step();
+  });
+}
+
+/** Run shuffle animation on both players' deck piles, then invoke callback. */
+export function animateShuffleThenAct(deckSizes: { self: number; opponent: number }, onDone: () => void): void {
+  const selfEl = document.getElementById('self-deck-pile');
+  const oppEl = document.getElementById('opponent-deck-pile');
+  const promises: Promise<void>[] = [];
+  if (selfEl && deckSizes.self > 0) promises.push(animateDeckShuffle(selfEl, deckSizes.self));
+  if (oppEl && deckSizes.opponent > 0) promises.push(animateDeckShuffle(oppEl, deckSizes.opponent));
+  void Promise.all(promises).then(onDone);
+}
+
 /** Render both players' draw deck and site deck piles. */
 export function renderDeckPiles(view: PlayerView): void {
   const selfEl = document.getElementById('self-deck-pile');
@@ -392,6 +438,7 @@ export function renderDeckPiles(view: PlayerView): void {
 
   const oppSiteEl = document.getElementById('opponent-site-pile');
   if (oppSiteEl) fillDeckPile(oppSiteEl, view.opponent.siteDeckSize, '/images/site-back.jpg');
+
 }
 
 /** Find which draft state index belongs to self (has real card IDs, not unknown-card). */
@@ -505,7 +552,17 @@ export function renderPassButton(view: PlayerView, onAction: (action: GameAction
 
   btn.textContent = label;
   btn.classList.remove('hidden');
-  btn.onclick = () => onAction(passAction);
+  if (passAction.type === 'shuffle-play-deck') {
+    btn.onclick = () => {
+      btn.classList.add('hidden');
+      animateShuffleThenAct(
+        { self: view.self.playDeckSize, opponent: view.opponent.playDeckSize },
+        () => onAction(passAction),
+      );
+    };
+  } else {
+    btn.onclick = () => onAction(passAction);
+  }
 }
 
 /** Render a row of card images from definition IDs. */
