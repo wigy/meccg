@@ -234,7 +234,7 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   applyBackground();
-  setupCardPreview();
+  setupCardPreview(cardPool);
   const saveBtn = document.getElementById('save-btn') as HTMLButtonElement;
   const loadBtn = document.getElementById('load-btn') as HTMLButtonElement;
   const resetBtn = document.getElementById('reset-btn') as HTMLButtonElement;

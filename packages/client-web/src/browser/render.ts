@@ -461,6 +461,7 @@ function renderCardRow(el: HTMLElement, defIds: readonly CardDefinitionId[], car
     const img = document.createElement('img');
     img.src = imgPath;
     img.alt = def.name;
+    img.dataset.cardId = defId as string;
     img.className = 'drafted-card';
     el.appendChild(img);
   }
@@ -489,6 +490,7 @@ function renderCharactersWithItems(
       const img = document.createElement('img');
       img.src = imgPath;
       img.alt = def.name;
+      img.dataset.cardId = defId as string;
       img.className = 'drafted-card';
       el.appendChild(img);
       continue;
@@ -499,6 +501,7 @@ function renderCharactersWithItems(
     const img = document.createElement('img');
     img.src = imgPath;
     img.alt = def.name;
+    img.dataset.cardId = defId as string;
     img.className = 'drafted-card';
     group.appendChild(img);
     appendItemCards(group, char, cardPool);
@@ -520,6 +523,7 @@ function appendItemCards(
     const img = document.createElement('img');
     img.src = itemImg;
     img.alt = itemDef.name;
+    img.dataset.cardId = item.definitionId as string;
     img.className = 'drafted-card drafted-item';
     container.appendChild(img);
   }
@@ -591,6 +595,7 @@ function renderPlacementCompanies(
       const img = document.createElement('img');
       img.src = imgPath;
       img.alt = def.name;
+      img.dataset.cardId = defId as string;
       img.className = placeAction
         ? 'drafted-card drafted-card-selectable'
         : 'drafted-card';
@@ -684,6 +689,7 @@ function renderItemDraftTargets(
     const img = document.createElement('img');
     img.src = imgPath;
     img.alt = def.name;
+    img.dataset.cardId = defId as string;
     img.className = targetAction
       ? 'drafted-card drafted-card-target'
       : 'drafted-card';
@@ -802,6 +808,7 @@ export function renderDrafted(
         const img = document.createElement('img');
         img.src = imgPath;
         img.alt = def.name;
+        img.dataset.cardId = defId as string;
         img.className = 'set-aside-card';
         const baseZ = j + 1;
         img.style.zIndex = String(baseZ);
@@ -909,6 +916,7 @@ export function renderHand(
     const img = document.createElement('img');
     img.src = imgPath;
     img.alt = def.name;
+    img.dataset.cardId = cardDefId as string;
     img.style.setProperty('--i', String(i));
 
     if (isItemDraft) {
@@ -988,6 +996,7 @@ export function renderOpponentHand(view: PlayerView, cardPool: Readonly<Record<s
       if (!imgPath) continue;
       img.src = imgPath;
       img.alt = def.name;
+      img.dataset.cardId = cards[i] as string;
     }
     img.className = 'opponent-card';
     img.style.setProperty('--i', String(i));
@@ -1000,7 +1009,7 @@ export function renderOpponentHand(view: PlayerView, cardPool: Readonly<Record<s
  * Set up card preview via event delegation on the visual view.
  * Hovering any card image shows a zoomed copy in the fixed preview area.
  */
-export function setupCardPreview(): void {
+export function setupCardPreview(cardPool: Readonly<Record<string, CardDefinition>>): void {
   const view = document.getElementById('visual-view');
   const preview = document.getElementById('card-preview');
   if (!view || !preview) return;
@@ -1009,10 +1018,34 @@ export function setupCardPreview(): void {
     const img = (e.target as HTMLElement).closest('img');
     if (!img || !img.src) return;
     preview.innerHTML = '';
-    const clone = document.createElement('img');
-    clone.src = img.src;
-    clone.alt = img.alt;
-    preview.appendChild(clone);
+    const cardId = img.dataset.cardId;
+    const def = cardId ? cardPool[cardId] : undefined;
+
+    if (def) {
+      const info = document.createElement('div');
+      info.className = 'card-preview-info';
+
+      // Name header
+      const name = document.createElement('div');
+      name.className = 'card-preview-name';
+      name.textContent = def.name;
+      info.appendChild(name);
+
+      // Card image
+      const clone = document.createElement('img');
+      clone.src = img.src;
+      clone.alt = img.alt;
+      info.appendChild(clone);
+
+      // Attributes
+      buildCardAttributes(info, def);
+      preview.appendChild(info);
+    } else {
+      const clone = document.createElement('img');
+      clone.src = img.src;
+      clone.alt = img.alt;
+      preview.appendChild(clone);
+    }
   });
 
   view.addEventListener('mouseout', (e) => {
@@ -1024,6 +1057,105 @@ export function setupCardPreview(): void {
   view.addEventListener('click', () => {
     preview.innerHTML = '';
   });
+}
+
+/** Format a card type string into a human-readable label. */
+function formatCardType(cardType: string): string {
+  return cardType
+    .replace(/^(hero|minion|fallen-wizard|balrog)-/, '')
+    .replace(/-/g, ' ')
+    .replace(/\b\w/g, c => c.toUpperCase());
+}
+
+/** Add an attribute row to the info panel. */
+function addAttr(parent: HTMLElement, label: string, value: string | number): void {
+  const row = document.createElement('div');
+  row.className = 'card-preview-attr';
+  row.innerHTML = `<span class="attr-label">${label}</span><span class="attr-value">${value}</span>`;
+  parent.appendChild(row);
+}
+
+/** Build attribute rows for a card definition based on its type. */
+function buildCardAttributes(el: HTMLElement, def: CardDefinition): void {
+  addAttr(el, 'Type', formatCardType(def.cardType));
+
+  switch (def.cardType) {
+    case 'hero-character':
+    case 'minion-character': {
+      addAttr(el, 'Race', def.race);
+      if (def.skills.length > 0) addAttr(el, 'Skills', def.skills.join(', '));
+      addAttr(el, 'Prowess / Body', `${def.prowess} / ${def.body}`);
+      if (def.mind !== null) addAttr(el, 'Mind', def.mind);
+      addAttr(el, 'Direct Influence', def.directInfluence);
+      addAttr(el, 'MP', def.marshallingPoints);
+      if (def.corruptionModifier !== 0) addAttr(el, 'Corruption Mod', def.corruptionModifier);
+      addAttr(el, 'Home Site', def.homesite);
+      break;
+    }
+    case 'hero-resource-item':
+    case 'minion-resource-item': {
+      addAttr(el, 'Subtype', def.subtype);
+      if (def.prowessModifier !== 0) addAttr(el, 'Prowess', `${def.prowessModifier > 0 ? '+' : ''}${def.prowessModifier}`);
+      if (def.bodyModifier !== 0) addAttr(el, 'Body', `${def.bodyModifier > 0 ? '+' : ''}${def.bodyModifier}`);
+      addAttr(el, 'MP', def.marshallingPoints);
+      if (def.corruptionPoints !== 0) addAttr(el, 'Corruption', def.corruptionPoints);
+      break;
+    }
+    case 'hero-resource-faction':
+    case 'minion-resource-faction': {
+      addAttr(el, 'Race', def.race);
+      addAttr(el, 'Influence #', def.influenceNumber);
+      addAttr(el, 'MP', def.marshallingPoints);
+      addAttr(el, 'Playable At', def.playableAt);
+      break;
+    }
+    case 'hero-resource-ally':
+    case 'minion-resource-ally': {
+      addAttr(el, 'Prowess / Body', `${def.prowess} / ${def.body}`);
+      addAttr(el, 'MP', def.marshallingPoints);
+      break;
+    }
+    case 'hazard-creature': {
+      addAttr(el, 'Strikes', def.strikes);
+      addAttr(el, 'Prowess', def.prowess);
+      if (def.body !== null) addAttr(el, 'Body', def.body);
+      if (def.killMarshallingPoints !== 0) addAttr(el, 'Kill MP', def.killMarshallingPoints);
+      break;
+    }
+    case 'hazard-event': {
+      addAttr(el, 'Duration', def.eventType);
+      break;
+    }
+    case 'hero-resource-event': {
+      addAttr(el, 'Duration', def.eventType);
+      if (def.marshallingPoints !== 0) addAttr(el, 'MP', def.marshallingPoints);
+      break;
+    }
+    case 'hazard-corruption': {
+      addAttr(el, 'Corruption', def.corruptionPoints);
+      break;
+    }
+    case 'hero-site':
+    case 'minion-site':
+    case 'fallen-wizard-site':
+    case 'balrog-site': {
+      addAttr(el, 'Site Type', def.siteType);
+      if (def.nearestHaven) addAttr(el, 'Nearest Haven', def.nearestHaven);
+      if (def.sitePath.length > 0) addAttr(el, 'Path', def.sitePath.join(' '));
+      if (def.playableResources.length > 0) addAttr(el, 'Resources', def.playableResources.join(', '));
+      if (def.automaticAttacks.length > 0) {
+        for (const aa of def.automaticAttacks) {
+          addAttr(el, 'Auto-attack', `${aa.creatureType} (${aa.strikes}/${aa.prowess})`);
+        }
+      }
+      break;
+    }
+    case 'region': {
+      addAttr(el, 'Region Type', def.regionType);
+      if (def.adjacentRegions.length > 0) addAttr(el, 'Adjacent', def.adjacentRegions.join(', '));
+      break;
+    }
+  }
 }
 
 export function renderLog(message: string, cardPool?: Readonly<Record<string, CardDefinition>>): void {
