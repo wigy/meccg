@@ -509,23 +509,26 @@ export function formatPlayerView(
     return defId ?? undefined;
   };
 
-  // Compute pool size during setup phases
+  // Compute pool sizes during setup phases (for both players)
   let selfPoolSize: number | undefined;
+  let opponentPoolSize: number | undefined;
   if (view.phaseState.phase === 'setup') {
     const step = view.phaseState.setupStep;
     if (step.step === 'character-draft') {
-      // Find self index: the one with real card IDs in pool
-      const idx = step.draftState[0].pool.length > 0
+      const selfIdx = step.draftState[0].pool.length > 0
         && (step.draftState[0].pool[0] as string) !== 'unknown-card' ? 0 : 1;
-      selfPoolSize = step.draftState[idx].pool.length;
+      selfPoolSize = step.draftState[selfIdx].pool.length;
+      opponentPoolSize = step.draftState[1 - selfIdx].pool.length;
     } else if (step.step === 'item-draft') {
-      const idx = step.itemDraftState[0].unassignedItems.length > 0
+      const selfIdx = step.itemDraftState[0].unassignedItems.length > 0
         && view.visibleInstances[step.itemDraftState[0].unassignedItems[0] as string] ? 0 : 1;
-      selfPoolSize = step.itemDraftState[idx].unassignedItems.length;
+      selfPoolSize = step.itemDraftState[selfIdx].unassignedItems.length;
+      opponentPoolSize = step.itemDraftState[1 - selfIdx].unassignedItems.length;
     } else if (step.step === 'character-deck-draft') {
-      const idx = step.deckDraftState[0].remainingPool.length > 0
+      const selfIdx = step.deckDraftState[0].remainingPool.length > 0
         && (step.deckDraftState[0].remainingPool[0] as string) !== 'unknown-card' ? 0 : 1;
-      selfPoolSize = step.deckDraftState[idx].remainingPool.length;
+      selfPoolSize = step.deckDraftState[selfIdx].remainingPool.length;
+      opponentPoolSize = step.deckDraftState[1 - selfIdx].remainingPool.length;
     }
   }
 
@@ -557,6 +560,7 @@ export function formatPlayerView(
         deckCount: view.opponent.playDeckSize,
         siteDeckCount: 0,
         discardCount: view.opponent.discardPile.length,
+        poolSize: opponentPoolSize,
         marshallingPoints: view.opponent.marshallingPoints,
         companies: [],
         opponentCompanies: view.opponent.companies,
