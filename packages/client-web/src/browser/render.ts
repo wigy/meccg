@@ -589,16 +589,19 @@ function renderPlacementCompanies(
       }
 
       if (placeAction) {
-        const clickTarget = group ?? img;
-        clickTarget.style.cursor = 'pointer';
+        img.style.cursor = 'pointer';
         // Determine slide direction: right if target company is to the right, left otherwise
         const targetIdx = view.self.companies.findIndex(
           c => (c.id as string) === ((placeAction as GameAction & { companyId: unknown }).companyId as string),
         );
         const slideRight = targetIdx > i;
-        clickTarget.addEventListener('click', () => {
-          clickTarget.classList.add(slideRight ? 'placement-slide-right' : 'placement-slide-left');
-          onAction(placeAction);
+        const animEl = group ?? img;
+        img.addEventListener('click', () => {
+          animEl.classList.add(slideRight ? 'placement-slide-right' : 'placement-slide-left');
+          let sent = false;
+          const send = () => { if (!sent) { sent = true; onAction(placeAction); } };
+          setTimeout(send, 300);
+          animEl.addEventListener('animationend', send, { once: true });
         });
       }
     }
