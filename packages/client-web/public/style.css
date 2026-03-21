@@ -523,6 +523,17 @@ h2 {
   animation: card-played 0.5s ease-out forwards;
 }
 
+.item-fly-clone {
+  animation: item-fly 0.5s ease-in-out forwards;
+  border-radius: 8px;
+}
+
+@keyframes item-fly {
+  0% { transform: scale(1); filter: brightness(1); opacity: 1; }
+  20% { transform: scale(1.1); filter: brightness(1.5); }
+  100% { transform: translate(var(--fly-x, 0), var(--fly-y, 0)) scale(0.6); filter: brightness(0.8); opacity: 0; }
+}
+
 @keyframes card-played {
   0% { filter: brightness(1); transform: rotate(0deg) translateY(-8vh) scale(var(--card-zoom)); }
   20% { filter: brightness(2); transform: rotate(0deg) translateY(-8vh) scale(var(--card-zoom)); }
@@ -547,6 +558,62 @@ h2 {
   box-shadow:
     0 0 16px rgba(255, 215, 100, 1),
     0 0 40px rgba(255, 215, 100, 0.7),
+    0 8px 32px rgba(0, 0, 0, 0.9);
+}
+
+.hand-card-selected {
+  animation: item-glow-in 0.5s ease-out forwards;
+  z-index: 15;
+}
+
+@keyframes item-glow-in {
+  from {
+    box-shadow:
+      0 0 12px rgba(255, 215, 100, 1),
+      0 0 30px rgba(255, 215, 100, 0.7),
+      0 4px 16px rgba(0, 0, 0, 0.7);
+  }
+  to {
+    box-shadow:
+      0 0 16px rgba(100, 200, 255, 1),
+      0 0 40px rgba(100, 200, 255, 0.7),
+      0 4px 16px rgba(0, 0, 0, 0.7);
+  }
+}
+
+.hand-card-selected:hover {
+  transform: rotate(0deg) translateY(-8vh) scale(var(--card-zoom));
+  z-index: 20;
+  box-shadow:
+    0 0 16px rgba(100, 200, 255, 1),
+    0 0 40px rgba(100, 200, 255, 0.7),
+    0 8px 32px rgba(0, 0, 0, 0.9);
+}
+
+.drafted-card-target {
+  animation: target-glow-in 0.5s ease-out forwards;
+  cursor: pointer;
+}
+
+@keyframes target-glow-in {
+  from {
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.7);
+  }
+  to {
+    box-shadow:
+      0 0 16px rgba(100, 255, 120, 1),
+      0 0 40px rgba(100, 255, 120, 0.6),
+      0 4px 16px rgba(0, 0, 0, 0.7);
+  }
+}
+
+#drafted-self .drafted-card-target:hover {
+  transform: scale(var(--hover-scale, var(--card-zoom)));
+  transform-origin: center bottom;
+  z-index: 100;
+  box-shadow:
+    0 0 24px rgba(100, 255, 120, 1),
+    0 0 60px rgba(100, 255, 120, 0.8),
     0 8px 32px rgba(0, 0, 0, 0.9);
 }
 

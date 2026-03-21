@@ -8,6 +8,61 @@
 import type { PlayerView, GameAction, CardDefinition, CardDefinitionId } from '@meccg/shared';
 import { describeAction, formatPlayerView, formatCardList, cardImageProxyPath, isCharacterCard, GENERAL_INFLUENCE } from '@meccg/shared';
 
+/**
+ * Module-level state for the item draft two-step selection flow.
+ * When a player clicks an item in the hand arc, it becomes "selected" and
+ * valid target characters are highlighted on the table. Clicking a target
+ * character sends the assign-starting-item action.
+ */
+let selectedItemDefId: CardDefinitionId | null = null;
+
+/** Cached arguments for re-rendering during item draft target selection. */
+let itemDraftRenderCache: {
+  view: PlayerView;
+  cardPool: Readonly<Record<string, CardDefinition>>;
+  onAction: (action: GameAction) => void;
+} | null = null;
+
+/** Re-render hand and drafted areas using cached state (for item draft selection flow). */
+function reRenderItemDraft(): void {
+  if (!itemDraftRenderCache) return;
+  const { view, cardPool, onAction } = itemDraftRenderCache;
+  renderHand(view, cardPool, onAction);
+  renderDrafted(view, cardPool, onAction);
+}
+
+/**
+ * Create an absolutely-positioned clone of a card and fly it toward a target element.
+ * The clone lives outside the hand arc so server state updates can't destroy it mid-flight.
+ */
+function flyCardTo(source: HTMLElement, target: HTMLElement, onDone: () => void): void {
+  const sourceRect = source.getBoundingClientRect();
+  const targetRect = target.getBoundingClientRect();
+
+  const clone = source.cloneNode(true) as HTMLImageElement;
+  clone.className = 'item-fly-clone';
+  clone.style.position = 'fixed';
+  clone.style.left = `${sourceRect.left}px`;
+  clone.style.top = `${sourceRect.top}px`;
+  clone.style.width = `${sourceRect.width}px`;
+  clone.style.height = `${sourceRect.height}px`;
+  clone.style.zIndex = '1000';
+  clone.style.pointerEvents = 'none';
+
+  // Calculate flight vector
+  const dx = targetRect.left + targetRect.width / 2 - (sourceRect.left + sourceRect.width / 2);
+  const dy = targetRect.top + targetRect.height / 2 - (sourceRect.top + sourceRect.height / 2);
+  clone.style.setProperty('--fly-x', `${dx}px`);
+  clone.style.setProperty('--fly-y', `${dy}px`);
+
+  document.body.appendChild(clone);
+
+  clone.addEventListener('animationend', () => {
+    clone.remove();
+    onDone();
+  }, { once: true });
+}
+
 /** Get an element by ID, throwing if not found. */
 function $(id: string): HTMLElement {
   const el = document.getElementById(id);
@@ -281,21 +336,22 @@ function getSelfDraftIndex(draftState: readonly [{ pool: readonly CardDefinition
  * Find the legal action associated with a card in the hand arc, if any.
  *
  * Actions that need no extra parameters beyond identifying the card are
- * returned directly — clicking the card sends them immediately. Actions
- * that require additional arguments (e.g. assign-starting-item needs a
- * target character) return null for now; they'll need a separate target
- * selection step in the future.
+ * returned directly — clicking the card sends them immediately.
  */
 function findCardAction(defId: CardDefinitionId, legalActions: readonly GameAction[]): GameAction | null {
   for (const action of legalActions) {
-    // Zero-parameter actions: clicking the card is sufficient
     if (action.type === 'draft-pick' && action.characterDefId === defId) return action;
     if (action.type === 'add-character-to-deck' && action.characterDefId === defId) return action;
-    // Multi-parameter actions: card is playable (highlighted) but needs more info
-    // For now, return the first matching action (e.g. first character target)
-    if (action.type === 'assign-starting-item' && action.itemDefId === defId) return action;
   }
   return null;
+}
+
+/**
+ * Check whether a card in the hand arc has assign-starting-item actions
+ * (needs the two-step target selection flow).
+ */
+function isItemDraftCard(defId: CardDefinitionId, legalActions: readonly GameAction[]): boolean {
+  return legalActions.some(a => a.type === 'assign-starting-item' && a.itemDefId === defId);
 }
 
 /**
@@ -374,6 +430,64 @@ function renderCardRow(el: HTMLElement, defIds: readonly CardDefinitionId[], car
   }
 }
 
+/**
+ * Render self characters during item draft with target highlighting.
+ * When an item is selected, valid target characters glow and become clickable.
+ */
+function renderItemDraftTargets(
+  el: HTMLElement,
+  view: PlayerView,
+  charInstanceIds: readonly { toString(): string }[],
+  cardPool: Readonly<Record<string, CardDefinition>>,
+  onAction?: (action: GameAction) => void,
+): void {
+  for (const charInstId of charInstanceIds) {
+    const defId = view.visibleInstances[charInstId as string];
+    if (!defId) continue;
+    const def = cardPool[defId as string];
+    if (!def) continue;
+    const imgPath = cardImageProxyPath(def);
+    if (!imgPath) continue;
+
+    // Find the matching action for this character + selected item
+    const charIdStr = charInstId as string;
+    const targetAction = selectedItemDefId
+      ? view.legalActions.find(
+        a => a.type === 'assign-starting-item'
+          && a.itemDefId === selectedItemDefId
+          && (a.characterInstanceId as string) === charIdStr,
+      ) ?? null
+      : null;
+
+    const img = document.createElement('img');
+    img.src = imgPath;
+    img.alt = def.name;
+    img.className = targetAction
+      ? 'drafted-card drafted-card-target'
+      : 'drafted-card';
+
+    if (targetAction && onAction) {
+      img.style.cursor = 'pointer';
+      img.addEventListener('click', () => {
+        // Find the selected item card in the hand arc
+        const arc = document.getElementById('hand-arc');
+        const sourceCard = arc?.querySelector<HTMLElement>(
+          `[data-def-id="${selectedItemDefId as string}"]`,
+        );
+        selectedItemDefId = null;
+
+        if (sourceCard) {
+          flyCardTo(sourceCard, img, () => onAction(targetAction));
+        } else {
+          onAction(targetAction);
+        }
+      });
+    }
+    el.appendChild(img);
+  }
+}
+
+
 /** Get character definition IDs from a company via visibleInstances. */
 function companyCharDefIds(view: PlayerView, charInstanceIds: readonly { toString(): string }[]): CardDefinitionId[] {
   return charInstanceIds
@@ -382,7 +496,11 @@ function companyCharDefIds(view: PlayerView, charInstanceIds: readonly { toStrin
 }
 
 /** Render characters on the visual board during setup phases. */
-export function renderDrafted(view: PlayerView, cardPool: Readonly<Record<string, CardDefinition>>): void {
+export function renderDrafted(
+  view: PlayerView,
+  cardPool: Readonly<Record<string, CardDefinition>>,
+  onAction?: (action: GameAction) => void,
+): void {
   const selfEl = document.getElementById('drafted-self');
   const oppEl = document.getElementById('drafted-opponent');
   const setAsideEl = document.getElementById('set-aside');
@@ -473,8 +591,18 @@ export function renderDrafted(view: PlayerView, cardPool: Readonly<Record<string
     return;
   }
 
-  // During item-draft and character-deck-draft, show company characters on the table
-  if (step === 'item-draft' || step === 'character-deck-draft') {
+  // During item-draft, show company characters as clickable targets
+  if (step === 'item-draft') {
+    const selfCharIds = view.self.companies.flatMap(c => c.characters);
+    renderItemDraftTargets(selfEl, view, selfCharIds, cardPool, onAction);
+
+    const oppCharIds = view.opponent.companies.flatMap(c => c.characters);
+    renderCardRow(oppEl, companyCharDefIds(view, oppCharIds), cardPool);
+    return;
+  }
+
+  // During character-deck-draft, show company characters on the table
+  if (step === 'character-deck-draft') {
     const selfCharIds = view.self.companies.flatMap(c => c.characters);
     renderCardRow(selfEl, companyCharDefIds(view, selfCharIds), cardPool);
 
@@ -500,29 +628,63 @@ export function renderHand(
   const margin = total > 7 ? -4 : -2.5;
   el.style.setProperty('--card-margin', `${margin}vh`);
 
+  // Cache render state for item draft re-rendering
+  if (onAction && view.phaseState.phase === 'setup'
+    && 'setupStep' in view.phaseState && view.phaseState.setupStep.step === 'item-draft') {
+    itemDraftRenderCache = { view, cardPool, onAction };
+    // Auto-clear selection if the selected item is no longer in legal actions
+    if (selectedItemDefId && !isItemDraftCard(selectedItemDefId, view.legalActions)) {
+      selectedItemDefId = null;
+    }
+  } else {
+    // Not in item draft — clear any stale selection
+    selectedItemDefId = null;
+    itemDraftRenderCache = null;
+  }
+
   for (let i = 0; i < total; i++) {
     const def = cardPool[cards[i] as string];
     if (!def) continue;
     const imgPath = cardImageProxyPath(def);
     if (!imgPath) continue;
 
-    const action = findCardAction(cards[i], view.legalActions);
+    const cardDefId = cards[i];
+    const action = findCardAction(cardDefId, view.legalActions);
+    const isItemDraft = isItemDraftCard(cardDefId, view.legalActions);
+    const isSelected = selectedItemDefId === cardDefId;
+
     const img = document.createElement('img');
     img.src = imgPath;
     img.alt = def.name;
-    img.className = action ? 'hand-card hand-card-playable' : 'hand-card hand-card-dimmed';
     img.style.setProperty('--i', String(i));
-    if (action && onAction) {
-      img.addEventListener('click', () => {
-        // Calculate offset to fly toward screen center
-        const rect = img.getBoundingClientRect();
-        const dx = window.innerWidth / 2 - (rect.left + rect.width / 2);
-        const dy = window.innerHeight * 0.35 - (rect.top + rect.height / 2);
-        img.style.setProperty('--fly-x', `${dx}px`);
-        img.style.setProperty('--fly-y', `${dy}px`);
-        img.className = 'hand-card hand-card-played';
-        img.addEventListener('animationend', () => onAction(action), { once: true });
-      });
+
+    if (isItemDraft) {
+      // Item draft two-step flow: click to select, then click a target character
+      img.className = isSelected
+        ? 'hand-card hand-card-selected'
+        : 'hand-card hand-card-playable';
+      img.dataset.defId = cardDefId as string;
+      if (onAction) {
+        img.addEventListener('click', () => {
+          selectedItemDefId = isSelected ? null : cardDefId;
+          reRenderItemDraft();
+        });
+      }
+    } else if (action) {
+      img.className = 'hand-card hand-card-playable';
+      if (onAction) {
+        img.addEventListener('click', () => {
+          const rect = img.getBoundingClientRect();
+          const dx = window.innerWidth / 2 - (rect.left + rect.width / 2);
+          const dy = window.innerHeight * 0.35 - (rect.top + rect.height / 2);
+          img.style.setProperty('--fly-x', `${dx}px`);
+          img.style.setProperty('--fly-y', `${dy}px`);
+          img.className = 'hand-card hand-card-played';
+          img.addEventListener('animationend', () => onAction(action), { once: true });
+        });
+      }
+    } else {
+      img.className = 'hand-card hand-card-dimmed';
     }
     el.appendChild(img);
   }
