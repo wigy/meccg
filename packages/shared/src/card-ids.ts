@@ -74,6 +74,22 @@ export const DAGGER_OF_WESTERNESSE = did('tw-206');
 /** Horn of Anor — minor item, +1 prowess to a warrior in combat. */
 export const HORN_OF_ANOR = did('tw-259');
 
+// ---- Allies ----
+
+/** Gwaihir — eagle ally, prowess 4/body 8, playable at Eagles' Eyrie, can fly company. */
+export const GWAIHIR = did('tw-251');
+/** Shadowfax — horse ally, prowess 2/body 8, playable at Edoras, enables double movement. */
+export const SHADOWFAX = did('tw-326');
+
+// ---- Factions ----
+
+/** Rangers of the North — Dúnadan faction, 3 MP, playable at Bree. */
+export const RANGERS_OF_THE_NORTH = did('tw-311');
+/** Riders of Rohan — Man faction, 3 MP, playable at Edoras. */
+export const RIDERS_OF_ROHAN = did('tw-317');
+/** Knights of Dol Amroth — Dúnadan faction, 3 MP, playable at Dol Amroth. */
+export const KNIGHTS_OF_DOL_AMROTH = did('tw-263');
+
 // ---- Creatures ----
 
 /** Cave-drake — wilderness hazard creature with moderate prowess. */
