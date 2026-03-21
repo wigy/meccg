@@ -100,8 +100,10 @@ export function reduce(state: GameState, action: GameAction): ReducerResult {
   }
 
   // 4. Recompute derived values (MPs, general influence) from ground truth
+  //    and increment the state sequence number for log tracking
   if (!result.error) {
-    result = { state: recomputeDerived(result.state), effects: result.effects };
+    const recomputed = recomputeDerived(result.state);
+    result = { state: { ...recomputed, stateSeq: recomputed.stateSeq + 1 }, effects: result.effects };
   }
 
   return result;

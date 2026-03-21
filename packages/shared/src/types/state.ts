@@ -649,6 +649,8 @@ export interface RngState {
  * a per-player `PlayerView` with hidden information redacted.
  */
 export interface GameState {
+  /** Unique identifier for this game session, shared with all clients. */
+  readonly gameId: string;
   /** Both players' complete state, as a fixed-size tuple. */
   readonly players: readonly [PlayerState, PlayerState];
   /** The player whose turn it currently is, or null during simultaneous phases (e.g. character draft). */
@@ -667,4 +669,6 @@ export interface GameState {
   readonly pendingEffects: readonly PendingEffect[];
   /** Deterministic RNG state for reproducible dice rolls and shuffles. */
   readonly rng: RngState;
+  /** Monotonically increasing sequence number for state changes, used for log replay. */
+  readonly stateSeq: number;
 }

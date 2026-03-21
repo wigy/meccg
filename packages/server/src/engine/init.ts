@@ -139,7 +139,10 @@ export function createGame(
     { pool: [...config.players[1].draftPool], drafted: [], startingMinorItems: [...config.players[1].startingMinorItems], currentPick: null, stopped: false },
   ];
 
+  const gameId = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+
   return {
+    gameId,
     players,
     activePlayer: null,
     phaseState: {
@@ -157,6 +160,7 @@ export function createGame(
     turnNumber: 0,
     pendingEffects: [],
     rng,
+    stateSeq: 0,
   };
 }
 
@@ -421,7 +425,10 @@ export function createGameQuickStart(
     return playerState;
   }) as unknown as readonly [PlayerState, PlayerState];
 
+  const gameId = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+
   return recomputeDerived({
+    gameId,
     players,
     activePlayer: config.players[0].id,
     phaseState: { phase: Phase.Untap },
@@ -431,6 +438,7 @@ export function createGameQuickStart(
     turnNumber: 1,
     pendingEffects: [],
     rng,
+    stateSeq: 0,
   });
 }
 

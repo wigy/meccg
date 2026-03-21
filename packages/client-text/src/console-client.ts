@@ -39,6 +39,7 @@ import {
 } from '@meccg/shared';
 import { loadAiStrategy, sampleWeighted } from './ai/index.js';
 import type { AiStrategy } from './ai/index.js';
+import { ClientLog } from './client-log.js';
 
 const SERVER_URL = process.env.SERVER_URL ?? 'ws://localhost:3000';
 const DEBUG = process.argv.includes('--debug') || process.env.DEBUG === '1';
@@ -101,6 +102,9 @@ if (DECK_ARG !== null) {
 const selectedDeck = DECK_ARG ? findSampleDeck(DECK_ARG)! : SAMPLE_DECKS[0];
 const defaultJoin = selectedDeck.buildJoinMessage(PLAYER_NAME);
 
+const clientLog = new ClientLog();
+clientLog.log('boot', { player: PLAYER_NAME, deck: selectedDeck.id, ai: AI_MODE });
+
 // ---- Readline (shared across connections) ----
 
 const rl = readline.createInterface({
@@ -128,12 +132,15 @@ function connect(): void {
 
   socket.on('open', () => {
     console.log(`Connected to ${SERVER_URL} as "${PLAYER_NAME}" [${selectedDeck.label}]${AI_MODE ? ` (AI: ${AI_MODE})` : ''}`);
+    clientLog.log('connect', { server: SERVER_URL });
+    clientLog.log('msg-out', { msgType: 'join', msg: defaultJoin });
     socket.send(JSON.stringify(defaultJoin));
   });
 
   socket.on('message', (raw: Buffer) => {
     const data = raw.toString();
     const msg: ServerMessage = JSON.parse(data) as ServerMessage;
+    clientLog.log('msg-in', { msgType: msg.type, msg: msg.type === 'state' ? { type: 'state', turn: msg.view.turnNumber, phase: msg.view.phaseState.phase } : msg });
     if (DEBUG) {
       const display = data.length > DEBUG_JSON_COMPACT_LIMIT ? JSON.stringify(msg, null, 2) : data;
       console.log(colorDebug(`<< ${display}`));
@@ -142,7 +149,7 @@ function connect(): void {
     switch (msg.type) {
       case 'assigned':
         playerId = msg.playerId;
-        console.log(`Assigned player ID: ${playerId}`);
+        console.log(`Game ${msg.gameId} — assigned player ID: ${playerId}`);
         break;
 
       case 'waiting':
@@ -206,6 +213,7 @@ function connect(): void {
             if (DEBUG) {
               console.log(colorDebug(`>> ${formatJson(action)}`));
             }
+            clientLog.log('msg-out', { msgType: 'action', action });
             const outMsg: ClientMessage = { type: 'action', action };
             ws.send(JSON.stringify(outMsg));
           }, AI_ACTION_DELAY_MS);
@@ -268,6 +276,7 @@ function connect(): void {
 
   socket.on('close', () => {
     ws = null;
+    clientLog.log('disconnect');
     console.log(`Reconnecting in ${RECONNECT_DELAY_MS / 1000}s...`);
     setTimeout(connect, RECONNECT_DELAY_MS);
   });
@@ -322,6 +331,7 @@ rl.on('line', (line) => {
   if (DEBUG) {
     console.log(colorDebug(`>> ${formatJson(action)}`));
   }
+  clientLog.log('msg-out', { msgType: 'action', action });
   const msg: ClientMessage = { type: 'action', action };
   ws.send(JSON.stringify(msg));
 });

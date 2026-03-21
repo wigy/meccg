@@ -10,6 +10,7 @@ import type { ServerMessage, ClientMessage, GameAction, CardDefinitionId } from 
 import { loadCardPool, describeAction, SAMPLE_DECKS } from '@meccg/shared';
 import { renderState, renderDraft, renderActions, renderLog, renderHand, renderOpponentHand, renderPlayerNames, renderInstructions, renderDrafted, renderPassButton } from './render.js';
 import { rollDice, clearDice, restoreDice } from './dice.js';
+import { clientLog } from './client-log.js';
 
 const cardPool = loadCardPool();
 
@@ -22,6 +23,7 @@ function sendAction(action: GameAction): void {
   if (!ws || ws.readyState !== WebSocket.OPEN) return;
   const desc = describeAction(action, cardPool, lastVisibleInstances);
   renderLog(`>> ${desc}`, cardPool);
+  clientLog('msg-out', { msgType: 'action', action });
   const msg: ClientMessage = { type: 'action', action };
   ws.send(JSON.stringify(msg));
 }
@@ -35,7 +37,9 @@ function connect(name: string): void {
 
   ws.onopen = () => {
     renderLog('Connected. Sending join...');
+    clientLog('connect', { server: url });
     const deck = SAMPLE_DECKS[selectedDeckIndex];
+    clientLog('msg-out', { msgType: 'join', deck: deck.id });
     ws!.send(JSON.stringify(deck.buildJoinMessage(name)));
   };
 
@@ -46,7 +50,8 @@ function connect(name: string): void {
     switch (msg.type) {
       case 'assigned':
         playerId = msg.playerId;
-        renderLog(`Assigned player ID: ${playerId}`);
+        clientLog('msg-in', { msgType: 'assigned', gameId: msg.gameId, playerId });
+        renderLog(`Game ${msg.gameId} — assigned player ID: ${playerId}`);
         break;
 
       case 'waiting':
@@ -55,6 +60,7 @@ function connect(name: string): void {
 
       case 'state':
         lastVisibleInstances = msg.view.visibleInstances;
+        clientLog('msg-in', { msgType: 'state', turn: msg.view.turnNumber, phase: msg.view.phaseState.phase });
         renderLog(`State update: turn ${msg.view.turnNumber}, phase ${msg.view.phaseState.phase}`);
         renderState(msg.view, cardPool);
         renderDraft(msg.view, cardPool);
@@ -63,7 +69,7 @@ function connect(name: string): void {
         renderOpponentHand(msg.view, cardPool);
         renderPlayerNames(msg.view);
         renderInstructions(msg.view);
-        renderDrafted(msg.view, cardPool);
+        renderDrafted(msg.view, cardPool, sendAction);
         renderPassButton(msg.view, sendAction);
         break;
 
@@ -99,6 +105,7 @@ function connect(name: string): void {
   };
 
   ws.onclose = () => {
+    clientLog('disconnect');
     if (autoReconnect) {
       renderLog('Disconnected. Reconnecting in 2s...');
       setTimeout(() => connect(name), 2000);

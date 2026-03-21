@@ -110,6 +110,8 @@ export interface AssignedMessage {
   readonly type: 'assigned';
   /** The unique player ID assigned to this client for the game session. */
   readonly playerId: PlayerId;
+  /** Unique identifier for the game, shared across all clients. */
+  readonly gameId: string;
 }
 
 /**

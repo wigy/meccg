@@ -26,6 +26,7 @@ import { createGame } from '../engine/init.js';
 import type { PlayerConfig, GameConfig } from '../engine/init.js';
 import { reduce } from '../engine/reducer.js';
 import { projectPlayerView, projectSpectatorView } from './projection.js';
+import { ServerLog, GameLog } from './game-log.js';
 
 const SAVE_DIR = process.env.SAVE_DIR ?? path.join(os.homedir(), '.meccg', 'saves');
 
@@ -59,15 +60,22 @@ export class GameSession {
   private playerCounter = 0;
   private debug: boolean;
   private playerNames: Set<string>;
+  private serverLog: ServerLog;
+  private gameLog: GameLog;
 
   constructor(options: GameSessionOptions) {
     this.debug = options.debug ?? false;
     this.playerNames = new Set(options.playerNames.map(n => n.toLowerCase()));
     this.cardPool = loadCardPool();
     fs.mkdirSync(SAVE_DIR, { recursive: true });
+    this.serverLog = new ServerLog();
+    this.gameLog = new GameLog();
+    this.serverLog.log('boot', { players: options.playerNames, debug: this.debug });
   }
 
   addConnection(ws: WebSocket): void {
+    this.serverLog.log('connect');
+
     ws.on('message', (raw: Buffer) => {
       try {
         const data = raw.toString();
@@ -76,6 +84,7 @@ export class GameSession {
           console.log(colorDebug(`<< ${display}`));
         }
         const msg: ClientMessage = JSON.parse(data) as ClientMessage;
+        this.serverLog.log('msg-in', { msgType: msg.type, from: this.identifyWs(ws), msg });
         this.handleMessage(ws, msg);
       } catch {
         this.send(ws, { type: 'error', message: 'Invalid message format' });
@@ -88,6 +97,7 @@ export class GameSession {
   }
 
   gracefulShutdown(): void {
+    this.serverLog.log('shutdown');
     if (this.state) {
       this.saveGame();
     }
@@ -113,6 +123,8 @@ export class GameSession {
     this.spectators.clear();
 
     this.state = null;
+    this.serverLog.close();
+    this.gameLog.close();
   }
 
   private handleMessage(ws: WebSocket, msg: ClientMessage): void {
@@ -192,7 +204,7 @@ export class GameSession {
   private addSpectator(ws: WebSocket, name: string): void {
     this.spectators.add(ws);
     console.log(`${name} joined as spectator`);
-    this.send(ws, { type: 'assigned', playerId: 'spectator' as PlayerId });
+    this.send(ws, { type: 'assigned', playerId: 'spectator' as PlayerId, gameId: this.state?.gameId ?? 'unknown' });
 
     if (this.state) {
       const view = projectSpectatorView(this.state);
@@ -219,6 +231,9 @@ export class GameSession {
 
     console.log('New game started!');
     console.log(`\n${STATE_DIVIDER}\n${formatGameState(this.state)}\n${STATE_DIVIDER}`);
+    this.serverLog.log('new-game', { gameId: this.state.gameId, player1: name1, player2: name2 });
+    this.gameLog.open(this.state.gameId);
+    this.logState('new-game');
 
     this.broadcastState();
   }
@@ -238,6 +253,10 @@ export class GameSession {
     this.registerPlayers(p1, p1Id, name1, p2, p2Id, name2);
 
     console.log('Game restored from save!');
+    this.serverLog.log('restore', { gameId: this.state.gameId, stateSeq: this.state.stateSeq, player1: name1, player2: name2 });
+    this.gameLog.open(this.state.gameId);
+    this.gameLog.truncateAfterSeq(this.state.stateSeq);
+    this.gameLog.log('restore', { stateSeq: this.state.stateSeq, player1: name1, player2: name2 });
     console.log(`\n${STATE_DIVIDER}\n${formatGameState(this.state)}\n${STATE_DIVIDER}`);
 
     this.broadcastState();
@@ -251,8 +270,9 @@ export class GameSession {
     this.players.set(p2Id as string, { ws: p2.ws, playerId: p2Id, name: name2 });
     this.pending.clear();
 
-    this.send(p1.ws, { type: 'assigned', playerId: p1Id });
-    this.send(p2.ws, { type: 'assigned', playerId: p2Id });
+    const gameId = this.state?.gameId ?? 'unknown';
+    this.send(p1.ws, { type: 'assigned', playerId: p1Id, gameId });
+    this.send(p2.ws, { type: 'assigned', playerId: p2Id, gameId });
   }
 
   private toPlayerConfig(p: PendingPlayer, playerId: PlayerId, name: string): PlayerConfig {
@@ -300,6 +320,7 @@ export class GameSession {
 
     const result = reduce(this.state, actionWithPlayer);
     if (result.error) {
+      this.serverLog.log('action', { action: actionWithPlayer, error: result.error });
       this.send(ws, { type: 'error', message: result.error });
       return;
     }
@@ -309,6 +330,8 @@ export class GameSession {
     const argsStr = Object.keys(args).length > 0 ? ' ' + JSON.stringify(args) : '';
     console.log(`Action: ${actionWithPlayer.type} by ${playerId}${argsStr}`);
     console.log(`\n${STATE_DIVIDER}\n${formatGameState(this.state)}\n${STATE_DIVIDER}`);
+    this.serverLog.log('action', { action: actionWithPlayer });
+    this.logState(actionWithPlayer.type);
 
     // Detect draft round reveal
     if (prevDraft) {
@@ -346,7 +369,23 @@ export class GameSession {
     this.broadcastState();
   }
 
+  /** Log a state snapshot to the per-game log. */
+  private logState(reason: string): void {
+    if (this.state) {
+      this.gameLog.log('state', {
+        stateSeq: this.state.stateSeq,
+        reason,
+        turn: this.state.turnNumber,
+        phase: this.state.phaseState.phase,
+        step: this.state.phaseState.phase === 'setup' ? this.state.phaseState.setupStep.step : null,
+        activePlayer: this.state.activePlayer,
+        state: this.state,
+      });
+    }
+  }
+
   private handleReset(): void {
+    this.serverLog.log('reset');
     // Delete save file
     const savePath = this.saveFilePath();
     if (fs.existsSync(savePath)) {
@@ -385,6 +424,9 @@ export class GameSession {
   // ---- Disconnect / Save / Restore ----
 
   private handleDisconnect(ws: WebSocket): void {
+    const who = this.identifyWs(ws);
+    this.serverLog.log('disconnect', { who });
+
     if (this.spectators.delete(ws)) {
       console.log('Spectator disconnected');
       return;
@@ -452,9 +494,11 @@ export class GameSession {
 
     fs.writeFileSync(savePath, JSON.stringify(save), 'utf-8');
     console.log(`Game saved to ${savePath}`);
+    this.serverLog.log('save', { path: savePath, stateSeq: this.state.stateSeq });
   }
 
   private handleLoad(): void {
+    this.serverLog.log('load');
     const savePath = this.saveFilePath();
     const backupPath = savePath.replace(/\.json$/, '-saved.json');
     if (!fs.existsSync(backupPath)) {
@@ -532,12 +576,28 @@ export class GameSession {
     }
   }
 
+  /** Identify a WebSocket connection by player name or role. */
+  private identifyWs(ws: WebSocket): string {
+    for (const [, p] of this.players.entries()) {
+      if (p.ws === ws) return p.name;
+    }
+    for (const [name, p] of this.pending.entries()) {
+      if (p.ws === ws) return name;
+    }
+    if (this.spectators.has(ws)) return 'spectator';
+    return 'unknown';
+  }
+
   private send(ws: WebSocket, msg: ServerMessage): void {
     if (ws.readyState === ws.OPEN) {
       const json = JSON.stringify(msg);
       if (this.debug) {
         const display = json.length > DEBUG_JSON_COMPACT_LIMIT ? JSON.stringify(msg, null, 2) : json;
         console.log(colorDebug(`>> ${display}`));
+      }
+      // Log outgoing messages (skip 'state' — logged separately as snapshots)
+      if (msg.type !== 'state') {
+        this.serverLog.log('msg-out', { msgType: msg.type, to: this.identifyWs(ws), msg });
       }
       ws.send(json);
     }
