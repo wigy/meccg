@@ -3,12 +3,17 @@
  *
  * Legal actions during the item draft phase. Each player assigns their
  * starting minor items to any character in their starting company.
+ *
+ * Uses the rules engine so that non-item cards (drafted characters) appear
+ * as non-viable with an explanation, giving the UI a complete picture of
+ * the pool.
  */
 
-import type { GameState, PlayerId, GameAction } from '@meccg/shared';
+import type { GameState, PlayerId, EvaluatedAction } from '@meccg/shared';
+import { isItemCard, isCharacterCard, evaluateAction, ITEM_DRAFT_RULES } from '@meccg/shared';
 import { logDetail } from './log.js';
 
-export function itemDraftActions(state: GameState, playerId: PlayerId): GameAction[] {
+export function itemDraftActions(state: GameState, playerId: PlayerId): EvaluatedAction[] {
   if (state.phaseState.phase !== 'setup' || state.phaseState.setupStep.step !== 'item-draft') return [];
 
   const playerIndex = state.players[0].id === playerId ? 0 : 1;
@@ -23,10 +28,36 @@ export function itemDraftActions(state: GameState, playerId: PlayerId): GameActi
   const allCharIds = player.companies.flatMap(c => c.characters);
   logDetail(`${itemDraft.unassignedItems.length} unassigned item(s), ${allCharIds.length} character(s) available`);
 
-  // Deduplicate by definition ID: multiple instances of the same item
-  // (e.g. two Daggers of Westernesse) produce only one action per character.
+  const evaluated: EvaluatedAction[] = [];
+
+  // Emit non-viable entries for drafted characters (they're in companies, not assignable)
+  for (const charInstId of allCharIds) {
+    const inst = state.instanceMap[charInstId as string];
+    if (!inst) continue;
+    const def = state.cardPool[inst.definitionId as string];
+    if (!def || !isCharacterCard(def)) continue;
+
+    const context = { card: { name: def.name, isItem: false } };
+    // Use a dummy action — the character isn't an item, so this is always rejected
+    const action = { type: 'assign-starting-item' as const, player: playerId, itemDefId: inst.definitionId, characterInstanceId: charInstId };
+    const result = evaluateAction(action, ITEM_DRAFT_RULES, context);
+    logDetail(`${def.name}: ${result.reason}`);
+    evaluated.push(result);
+  }
+
+  // Emit non-viable entries for already-assigned items (on characters)
+  for (const char of Object.values(player.characters)) {
+    for (const item of char.items) {
+      const def = state.cardPool[item.definitionId as string];
+      if (!def) continue;
+      const action = { type: 'assign-starting-item' as const, player: playerId, itemDefId: item.definitionId, characterInstanceId: char.instanceId };
+      evaluated.push({ action, viable: false, reason: `${def.name} is already assigned` });
+      logDetail(`${def.name}: already assigned`);
+    }
+  }
+
+  // Viable actions: unassigned items → each character
   const seenDefIds = new Set<string>();
-  const actions: GameAction[] = [];
   for (const itemId of itemDraft.unassignedItems) {
     const inst = state.instanceMap[itemId as string];
     if (!inst) continue;
@@ -38,19 +69,26 @@ export function itemDraftActions(state: GameState, playerId: PlayerId): GameActi
     seenDefIds.add(defId as string);
     const itemDef = state.cardPool[defId as string];
     const itemName = itemDef ? itemDef.name : defId as string;
+
+    if (!isItemCard(itemDef)) {
+      // Non-item in unassigned list (shouldn't happen, but handle gracefully)
+      const context = { card: { name: itemName, isItem: false } };
+      const action = { type: 'assign-starting-item' as const, player: playerId, itemDefId: defId, characterInstanceId: allCharIds[0] };
+      evaluated.push(evaluateAction(action, ITEM_DRAFT_RULES, context));
+      continue;
+    }
+
     logDetail(`Item '${itemName}' can be assigned to ${allCharIds.length} character(s)`);
     for (const charId of allCharIds) {
-      actions.push({
-        type: 'assign-starting-item',
-        player: playerId,
-        itemDefId: defId,
-        characterInstanceId: charId,
+      evaluated.push({
+        action: { type: 'assign-starting-item', player: playerId, itemDefId: defId, characterInstanceId: charId },
+        viable: true,
       });
     }
   }
 
-  // Can always pass (skip remaining item assignments)
-  actions.push({ type: 'pass', player: playerId });
+  // Can always pass
+  evaluated.push({ action: { type: 'pass', player: playerId }, viable: true });
 
-  return actions;
+  return evaluated;
 }

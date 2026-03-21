@@ -33,7 +33,7 @@ export function setupActions(state: GameState, playerId: PlayerId): EvaluatedAct
 
   switch (step) {
     case 'character-draft':         return draftActions(state, playerId);
-    case 'item-draft':              return asViable(itemDraftActions(state, playerId));
+    case 'item-draft':              return itemDraftActions(state, playerId);
     case 'character-deck-draft':    return characterDeckDraftActions(state, playerId);
     case 'starting-site-selection': return startingSiteSelectionActions(state, playerId);
     case 'character-placement':     return asViable(characterPlacementActions(state, playerId));

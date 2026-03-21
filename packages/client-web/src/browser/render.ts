@@ -27,6 +27,7 @@ function findNonViableReason(
     const a = ea.action;
     if (a.type === 'draft-pick' && a.characterDefId === defId) return ea.reason;
     if (a.type === 'add-character-to-deck' && a.characterDefId === defId) return ea.reason;
+    if (a.type === 'assign-starting-item' && a.itemDefId === defId) return ea.reason;
     if (a.type === 'select-starting-site' && visibleInstances
       && visibleInstances[a.siteInstanceId as string] === defId) return ea.reason;
   }
@@ -332,15 +333,34 @@ function getHandCards(view: PlayerView): CardDefinitionId[] {
       && (deckDraft[0].remainingPool[0] as string) !== 'unknown-card' ? 0 : 1;
     return [...deckDraft[selfIdx].remainingPool];
   }
-  // During item draft, show unassigned starting items
+  // During item draft, show the whole pool: drafted characters + all items
   if (view.phaseState.phase === 'setup' && view.phaseState.setupStep.step === 'item-draft') {
+    const cards: CardDefinitionId[] = [];
+
+    // Drafted characters (already in companies)
+    for (const company of view.self.companies) {
+      for (const charInstId of company.characters) {
+        const defId = view.visibleInstances[charInstId as string];
+        if (defId) cards.push(defId);
+      }
+    }
+
+    // All items: unassigned (from itemDraftState) + assigned (on characters)
     const itemDraft = view.phaseState.setupStep.itemDraftState;
-    // Self items are in visibleInstances, opponent's are not
     const selfIdx = itemDraft[0].unassignedItems.length > 0
       && view.visibleInstances[itemDraft[0].unassignedItems[0] as string] ? 0 : 1;
-    return itemDraft[selfIdx].unassignedItems.map(
-      instId => view.visibleInstances[instId as string],
-    ).filter((id): id is CardDefinitionId => id !== undefined);
+    for (const instId of itemDraft[selfIdx].unassignedItems) {
+      const defId = view.visibleInstances[instId as string];
+      if (defId) cards.push(defId);
+    }
+    for (const char of Object.values(view.self.characters)) {
+      for (const item of char.items) {
+        const defId = view.visibleInstances[item.instanceId as string];
+        if (defId) cards.push(defId);
+      }
+    }
+
+    return cards;
   }
   // During site selection, show all candidate sites (both viable and non-viable)
   if (view.phaseState.phase === 'setup' && view.phaseState.setupStep.step === 'starting-site-selection') {
