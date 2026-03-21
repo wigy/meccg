@@ -333,23 +333,20 @@ function getHandCards(view: PlayerView): CardDefinitionId[] {
       && (deckDraft[0].remainingPool[0] as string) !== 'unknown-card' ? 0 : 1;
     return [...deckDraft[selfIdx].remainingPool];
   }
-  // During item draft, show whole pool: drafted characters + unassigned items
+  // During item draft, show remaining pool (undrafted characters) + unassigned items
   if (view.phaseState.phase === 'setup' && view.phaseState.setupStep.step === 'item-draft') {
+    const step = view.phaseState.setupStep;
     const cards: CardDefinitionId[] = [];
 
-    // Drafted characters (in companies, shown dimmed as non-items)
-    for (const company of view.self.companies) {
-      for (const charInstId of company.characters) {
-        const defId = view.visibleInstances[charInstId as string];
-        if (defId) cards.push(defId);
-      }
-    }
+    // Remaining pool: undrafted characters (shown dimmed as non-items)
+    const selfPoolIdx = step.remainingPool[0].length > 0
+      && (step.remainingPool[0][0] as string) !== 'unknown-card' ? 0 : 1;
+    cards.push(...step.remainingPool[selfPoolIdx]);
 
     // Unassigned items (assigned items are removed from pool)
-    const itemDraft = view.phaseState.setupStep.itemDraftState;
-    const selfIdx = itemDraft[0].unassignedItems.length > 0
-      && view.visibleInstances[itemDraft[0].unassignedItems[0] as string] ? 0 : 1;
-    for (const instId of itemDraft[selfIdx].unassignedItems) {
+    const selfItemIdx = step.itemDraftState[0].unassignedItems.length > 0
+      && view.visibleInstances[step.itemDraftState[0].unassignedItems[0] as string] ? 0 : 1;
+    for (const instId of step.itemDraftState[selfItemIdx].unassignedItems) {
       const defId = view.visibleInstances[instId as string];
       if (defId) cards.push(defId);
     }
