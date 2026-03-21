@@ -71,7 +71,7 @@ const heroDeck: SampleDeck = {
       name: playerName,
       alignment: Alignment.Wizard,
       draftPool: [ARAGORN, BILBO, FRODO, SAM_GAMGEE, ELROND, CELEBORN, THEODEN,
-        EOWYN, BEREGOND, ANBORN, DAGGER_OF_WESTERNESSE, HORN_OF_ANOR,
+        EOWYN, BEREGOND, ANBORN, DAGGER_OF_WESTERNESSE, HORN_OF_ANOR, HORN_OF_ANOR,
         THRALL_OF_THE_VOICE, STING],
       playDeck: [...characters, ...repeatCards([...resources, ...hazards], 5)],
       siteDeck: [RIVENDELL, LORIEN, MORIA, MINAS_TIRITH, MOUNT_DOOM],
