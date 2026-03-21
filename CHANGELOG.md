@@ -1,5 +1,46 @@
 # Changelog
 
+## 0.3.0 — 2026-03-21
+
+Fully functional setup phase for hero
+
+### Game Engine
+- **Untap phase:** Both players pass to advance to organization phase
+- **Two-step item draft:** Select item, then pick target character
+- **Separate deck shuffle and initial draw:** Split into distinct setup steps
+  with explicit Shuffle and Draw actions
+- **Card effects DSL:** Declarative condition matcher and resolver engine for
+  card effects
+- **Effective stats:** `EffectiveStats` on `CharacterInPlay` with item modifier
+  computation
+- **Detailed logging:** Full legal-actions logging with arguments, visual
+  divider lines, and card status symbols
+- **Card uniqueness enforcement:** Sample play deck respects uniqueness rules
+- **Card data expansions:** Added cards from LE, AS, WH sets; minion resources;
+  fallen-wizard and balrog sample decks; Thrall of the Voice (wh-82)
+- **Game IDs and sequence numbers:** State tracking for client-side logging
+- **Alignment starting sites:** Correct per-alignment allowed starting sites
+
+### Web Client
+- **Visual board:** Middle-Earth backgrounds (20 total), card art, dark overlay,
+  hand arc (dynamic per phase), opponent hand arc, player names with scores
+- **Dice system:** Red/black dice pairs, slide-to-name animation, initiative
+  roll trigger, persistent overlays
+- **Card preview:** Fixed right-side panel with attribute info, clear on click
+- **Setup rendering:** Characters on table during drafts, sites during selection,
+  company assignment in placement phase, item attachment display
+- **Deck piles:** Draw deck and site deck piles for both players, shuffle
+  animation
+- **Interactive actions:** Clickable playable cards with golden halo, phase
+  instruction text, pass/done button, set-aside cards display, GI counter
+- **Favicon:** One Ring and card motif
+- **Local fonts:** Medieval-themed local fonts
+
+### Infrastructure
+- **Save location:** Moved saves to `~/.meccg/`
+- **Case-insensitive player names** with validation
+- **tsx as root dev dependency**
+
 ## 0.2.0 — 2026-03-20
 
 Complete pre-game setup flow, alignment system, and visual feedback.
