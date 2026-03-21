@@ -47,3 +47,8 @@ export function evaluateAction(
   }
   return { action, viable: false, reason };
 }
+
+/** Extracts only the viable actions from a list of evaluated actions. */
+export function viableActions(evaluated: readonly EvaluatedAction[]): GameAction[] {
+  return evaluated.filter(e => e.viable).map(e => e.action);
+}

@@ -1,7 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import { computeLegalActions } from '../engine/legal-actions/index.js';
 import { createGameQuickStart } from '../engine/init.js';
-import type { GameAction, EvaluatedAction } from '@meccg/shared';
+import type { GameAction } from '@meccg/shared';
+import { viableActions } from '@meccg/shared';
 import {
   pool, PLAYER_1, PLAYER_2,
   createGame, reduce, Phase, Alignment,
@@ -11,11 +12,6 @@ import {
   STING, DAGGER_OF_WESTERNESSE, HORN_OF_ANOR,
 } from './test-helpers.js';
 import type { GameConfig, QuickStartGameConfig } from './test-helpers.js';
-
-/** Extract viable actions from evaluated actions. */
-function viableActions(evaluated: readonly EvaluatedAction[]): GameAction[] {
-  return evaluated.filter(e => e.viable).map(e => e.action);
-}
 
 describe('computeLegalActions', () => {
   describe('character draft', () => {

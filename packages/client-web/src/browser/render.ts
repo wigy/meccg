@@ -6,12 +6,7 @@
  */
 
 import type { PlayerView, GameAction, EvaluatedAction, CardDefinition, CardDefinitionId, CardInstanceId, CharacterInPlay } from '@meccg/shared';
-import { describeAction, formatPlayerView, formatCardList, cardImageProxyPath, isCharacterCard, GENERAL_INFLUENCE, getAlignmentRules } from '@meccg/shared';
-
-/** Extract viable GameActions from EvaluatedActions. */
-function viableActions(evaluated: readonly EvaluatedAction[]): GameAction[] {
-  return evaluated.filter(e => e.viable).map(e => e.action);
-}
+import { describeAction, formatPlayerView, formatCardList, cardImageProxyPath, isCharacterCard, GENERAL_INFLUENCE, getAlignmentRules, viableActions } from '@meccg/shared';
 
 /**
  * Find the non-viable reason for a card by definition ID from the evaluated actions.

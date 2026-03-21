@@ -6,7 +6,7 @@
  * constraint evaluation during setup phases and beyond.
  */
 
-export { evaluateRules, evaluateAction } from './evaluator.js';
+export { evaluateRules, evaluateAction, viableActions } from './evaluator.js';
 export { renderTemplate } from './template.js';
 export type { Rule, RuleSet, EvaluatedAction } from './types.js';
 export { CHARACTER_DRAFT_RULES } from './definitions/character-draft.js';
