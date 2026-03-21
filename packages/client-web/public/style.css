@@ -725,11 +725,11 @@ h2 {
 }
 
 .dice-position-red {
-  transform: translateY(50px);
+  transform: translateY(120px);
 }
 
 .dice-position-black {
-  transform: translateY(-50px);
+  transform: translateY(-120px);
 }
 
 .dice-row {
