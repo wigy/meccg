@@ -28,6 +28,7 @@ import type {
   CardDefinitionId,
   PhaseState,
   DraftPlayerState,
+  CharacterDeckDraftPlayerState,
 } from '@meccg/shared';
 import { UNKNOWN_CARD } from '@meccg/shared';
 import { computeLegalActions } from '../engine/legal-actions/index.js';
@@ -191,24 +192,40 @@ export function projectSpectatorView(state: GameState): PlayerView {
  * (public info after reveal).
  */
 function redactPhaseForPlayer(phaseState: PhaseState, selfIndex: number): PhaseState {
-  if (phaseState.phase !== 'setup' || phaseState.setupStep.step !== 'character-draft') return phaseState;
+  if (phaseState.phase !== 'setup') return phaseState;
 
   const opponentIndex = 1 - selfIndex;
   const step = phaseState.setupStep;
-  const newDraftState: [DraftPlayerState, DraftPlayerState] = [
-    step.draftState[0],
-    step.draftState[1],
-  ];
-  const oppPool = step.draftState[opponentIndex].pool;
-  newDraftState[opponentIndex] = {
-    ...step.draftState[opponentIndex],
-    pool: oppPool.map(() => UNKNOWN_CARD),
-    // Show that opponent has picked (face-down) without revealing what
-    currentPick: step.draftState[opponentIndex].currentPick !== null ? UNKNOWN_CARD : null,
-    // drafted stays visible — it's public after reveal
-  };
 
-  return { ...phaseState, setupStep: { ...step, draftState: newDraftState } };
+  if (step.step === 'character-draft') {
+    const newDraftState: [DraftPlayerState, DraftPlayerState] = [
+      step.draftState[0],
+      step.draftState[1],
+    ];
+    const oppPool = step.draftState[opponentIndex].pool;
+    newDraftState[opponentIndex] = {
+      ...step.draftState[opponentIndex],
+      pool: oppPool.map(() => UNKNOWN_CARD),
+      // Show that opponent has picked (face-down) without revealing what
+      currentPick: step.draftState[opponentIndex].currentPick !== null ? UNKNOWN_CARD : null,
+      // drafted stays visible — it's public after reveal
+    };
+    return { ...phaseState, setupStep: { ...step, draftState: newDraftState } };
+  }
+
+  if (step.step === 'character-deck-draft') {
+    const newDeckDraftState: [CharacterDeckDraftPlayerState, CharacterDeckDraftPlayerState] = [
+      step.deckDraftState[0],
+      step.deckDraftState[1],
+    ];
+    newDeckDraftState[opponentIndex] = {
+      ...step.deckDraftState[opponentIndex],
+      remainingPool: step.deckDraftState[opponentIndex].remainingPool.map(() => UNKNOWN_CARD),
+    };
+    return { ...phaseState, setupStep: { ...step, deckDraftState: newDeckDraftState } };
+  }
+
+  return phaseState;
 }
 
 /**

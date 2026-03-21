@@ -1129,6 +1129,15 @@ function getOpponentCards(view: PlayerView): { cards: CardDefinitionId[]; hidden
     const oppIdx = hasRealCards(draft.draftState[0].pool) ? 1 : 0;
     return { cards: [...draft.draftState[oppIdx].pool], hidden: true };
   }
+  // During character deck draft, show opponent's remaining pool as card backs
+  if (view.phaseState.phase === 'setup' && view.phaseState.setupStep.step === 'character-deck-draft') {
+    const deckDraft = view.phaseState.setupStep.deckDraftState;
+    // Opponent's pool is redacted to unknown-card placeholders; self pool has real IDs
+    const hasRealCards = (pool: readonly CardDefinitionId[]) =>
+      pool.length > 0 && (pool[0] as string) !== 'unknown-card';
+    const oppIdx = hasRealCards(deckDraft[0].remainingPool) ? 1 : 0;
+    return { cards: [...deckDraft[oppIdx].remainingPool], hidden: true };
+  }
   // During character placement and deck shuffle, no hand cards for either player
   if (view.phaseState.phase === 'setup'
     && (view.phaseState.setupStep.step === 'character-placement'
