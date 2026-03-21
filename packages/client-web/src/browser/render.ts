@@ -337,6 +337,57 @@ export function renderPlayerNames(view: PlayerView): void {
   }
 }
 
+/**
+ * Render a draw deck as a small pile of card-back images into a container.
+ * The number of visible cards scales proportionally with deck size,
+ * capped at a maximum stack height to avoid visual clutter.
+ */
+function fillDeckPile(el: HTMLElement, deckSize: number): void {
+  el.innerHTML = '';
+  if (deckSize === 0) return;
+
+  // Show 1 card per ~4 in deck, min 1, max 8 visible layers
+  const layers = Math.min(8, Math.max(1, Math.ceil(deckSize / 4)));
+
+  const wrapper = document.createElement('div');
+  wrapper.className = 'deck-pile-wrapper';
+
+  for (let i = 0; i < layers; i++) {
+    const img = document.createElement('img');
+    img.src = '/images/card-back.jpg';
+    img.alt = `Deck (${deckSize})`;
+    img.className = 'deck-pile-card';
+    if (i === 0) {
+      img.style.position = 'relative';
+    } else {
+      img.style.bottom = `${i * 2}px`;
+      img.style.left = `${i * 1}px`;
+    }
+    wrapper.appendChild(img);
+  }
+
+  // Position label at the visual center of the stack, accounting for layer offsets
+  const topCard = layers - 1;
+  const stackOffsetX = topCard * 1;
+  const stackOffsetY = topCard * 2;
+  const label = document.createElement('div');
+  label.className = 'deck-pile-label';
+  label.textContent = String(deckSize);
+  label.style.left = `calc(60% + ${stackOffsetX * 0.35}px)`;
+  label.style.top = `calc(71% - ${stackOffsetY * 0.35}px)`;
+  wrapper.appendChild(label);
+  el.appendChild(wrapper);
+}
+
+/** Render both players' draw deck piles. */
+export function renderDeckPiles(view: PlayerView): void {
+  const selfEl = document.getElementById('self-deck-pile');
+  if (selfEl) fillDeckPile(selfEl, view.self.playDeckSize);
+
+  const oppEl = document.getElementById('opponent-deck-pile');
+  if (oppEl) fillDeckPile(oppEl, view.opponent.playDeckSize);
+}
+
 /** Find which draft state index belongs to self (has real card IDs, not unknown-card). */
 function getSelfDraftIndex(draftState: readonly [{ pool: readonly CardDefinitionId[] }, { pool: readonly CardDefinitionId[] }]): number {
   const hasRealCards = (pool: readonly CardDefinitionId[]) =>

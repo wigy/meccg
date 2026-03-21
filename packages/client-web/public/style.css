@@ -464,6 +464,48 @@ h2 {
   top: 1rem;
 }
 
+#self-deck-pile, #opponent-deck-pile {
+  position: fixed;
+  left: 1.5rem;
+  z-index: 10;
+  pointer-events: none;
+}
+
+#self-deck-pile {
+  bottom: 4rem;
+}
+
+#opponent-deck-pile {
+  top: 4rem;
+}
+
+#self-deck-pile:empty, #opponent-deck-pile:empty {
+  display: none;
+}
+
+.deck-pile-wrapper {
+  position: relative;
+  display: inline-block;
+}
+
+.deck-pile-card {
+  position: absolute;
+  height: 5rem;
+  border-radius: 3px;
+  box-shadow: 1px 1px 3px rgba(0, 0, 0, 0.6);
+}
+
+.deck-pile-label {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  z-index: 1;
+  font-family: 'MedievalSharp', cursive;
+  font-size: 0.85rem;
+  color: rgba(220, 200, 140, 0.9);
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8);
+  white-space: nowrap;
+}
+
 .score {
   font-family: 'Cinzel', serif;
   font-size: 1.1rem;
