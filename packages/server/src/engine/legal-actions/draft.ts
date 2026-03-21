@@ -3,19 +3,23 @@
  *
  * Legal actions during the character draft phase. Both players act
  * simultaneously, picking characters from their pool or stopping.
+ *
+ * Uses the rules engine to evaluate each pool character's eligibility,
+ * producing both viable picks and non-viable picks with human-readable
+ * reasons explaining why they can't be selected.
  */
 
-import type { GameState, PlayerId, GameAction } from '@meccg/shared';
-import { GENERAL_INFLUENCE, getAlignmentRules, isCharacterCard } from '@meccg/shared';
+import type { GameState, PlayerId, EvaluatedAction } from '@meccg/shared';
+import { GENERAL_INFLUENCE, getAlignmentRules, isCharacterCard, evaluateAction, CHARACTER_DRAFT_RULES } from '@meccg/shared';
 import { logDetail } from './log.js';
 
-export function draftActions(state: GameState, playerId: PlayerId): GameAction[] {
+export function draftActions(state: GameState, playerId: PlayerId): EvaluatedAction[] {
   if (state.phaseState.phase !== 'setup' || state.phaseState.setupStep.step !== 'character-draft') return [];
 
   const playerIndex = state.players[0].id === playerId ? 0 : 1;
   const draft = state.phaseState.setupStep.draftState[playerIndex];
 
-  // Already stopped or already picked this round (waiting for opponent)
+  // Phase-level guards — not per-card, stay imperative
   if (draft.stopped) {
     logDetail(`Player already stopped drafting`);
     return [];
@@ -33,17 +37,13 @@ export function draftActions(state: GameState, playerId: PlayerId): GameAction[]
 
   logDetail(`Draft round ${state.phaseState.setupStep.round}, drafted ${draft.drafted.length}/${maxStartingCompanySize} characters`);
 
-  const actions: GameAction[] = [];
-
-  // Characters already drafted by the opponent are unavailable (unique)
+  // Pre-compute context values shared across all candidates
   const opponentIndex = 1 - playerIndex;
   const opponentDrafted = new Set(
     state.phaseState.phase === 'setup' && state.phaseState.setupStep.step === 'character-draft'
       ? state.phaseState.setupStep.draftState[opponentIndex].drafted.map(id => id as string)
       : [],
   );
-
-  // Calculate current total mind
   const currentMind = draft.drafted.reduce((sum, defId) => {
     const def = state.cardPool[defId as string];
     return sum + (isCharacterCard(def) && def.mind !== null ? def.mind : 0);
@@ -51,32 +51,37 @@ export function draftActions(state: GameState, playerId: PlayerId): GameAction[]
 
   logDetail(`Current total mind: ${currentMind}/${GENERAL_INFLUENCE}, pool size: ${draft.pool.length}`);
 
-  // One draft-pick per eligible character in the pool
+  const evaluated: EvaluatedAction[] = [];
+
   for (const charDefId of draft.pool) {
     const charDef = state.cardPool[charDefId as string];
-    if (!isCharacterCard(charDef)) {
-      logDetail(`Skipping ${charDefId as string}: not a character`);
-      continue;
-    }
+    const isChar = isCharacterCard(charDef);
+    const mind = isChar ? charDef.mind : null;
 
-    // Unique characters already drafted by opponent are unavailable
-    if (charDef.unique && opponentDrafted.has(charDefId as string)) {
-      logDetail(`Skipping ${charDef.name}: unique and already drafted by opponent`);
-      continue;
-    }
+    const context = {
+      card: {
+        name: charDef?.name ?? (charDefId as string),
+        isCharacter: isChar,
+        mind,
+        unique: isChar ? charDef.unique : false,
+      },
+      ctx: {
+        opponentHasCard: opponentDrafted.has(charDefId as string),
+        currentMind,
+        mindLimit: GENERAL_INFLUENCE,
+        projectedMind: currentMind + (mind !== null ? mind : 0),
+      },
+    };
 
-    // Check mind constraint
-    if (charDef.mind !== null && currentMind + charDef.mind > GENERAL_INFLUENCE) {
-      logDetail(`Skipping ${charDef.name}: mind ${charDef.mind} would exceed limit (${currentMind} + ${charDef.mind} > ${GENERAL_INFLUENCE})`);
-      continue;
-    }
+    const action = { type: 'draft-pick' as const, player: playerId, characterDefId: charDefId };
+    const result = evaluateAction(action, CHARACTER_DRAFT_RULES, context);
 
-    logDetail(`Eligible: ${charDef.name} (mind ${charDef.mind ?? 'null'})`);
-    actions.push({ type: 'draft-pick', player: playerId, characterDefId: charDefId });
+    logDetail(`${context.card.name}: ${result.viable ? 'eligible' : result.reason}`);
+    evaluated.push(result);
   }
 
-  // Can always stop
-  actions.push({ type: 'draft-stop', player: playerId });
+  // Can always stop — always viable
+  evaluated.push({ action: { type: 'draft-stop', player: playerId }, viable: true });
 
-  return actions;
+  return evaluated;
 }

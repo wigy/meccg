@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { computeLegalActions } from '../engine/legal-actions/index.js';
 import { createGameQuickStart } from '../engine/init.js';
-import type { GameAction } from '@meccg/shared';
+import type { GameAction, EvaluatedAction } from '@meccg/shared';
 import {
   pool, PLAYER_1, PLAYER_2,
   createGame, reduce, Phase, Alignment,
@@ -11,11 +11,16 @@ import {
 } from './test-helpers.js';
 import type { GameConfig, QuickStartGameConfig } from './test-helpers.js';
 
+/** Extract viable actions from evaluated actions. */
+function viableActions(evaluated: readonly EvaluatedAction[]): GameAction[] {
+  return evaluated.filter(e => e.viable).map(e => e.action);
+}
+
 describe('computeLegalActions', () => {
   describe('character draft', () => {
     it('returns draft-pick for each pool character plus draft-stop', () => {
       const state = createGame(makeDraftConfig(), pool);
-      const actions = computeLegalActions(state, PLAYER_1);
+      const actions = viableActions(computeLegalActions(state, PLAYER_1));
 
       const picks = actions.filter(a => a.type === 'draft-pick');
       expect(picks).toHaveLength(3);
@@ -33,7 +38,7 @@ describe('computeLegalActions', () => {
       state = result.state;
 
       expect(computeLegalActions(state, PLAYER_1)).toHaveLength(0);
-      expect(computeLegalActions(state, PLAYER_2).filter(a => a.type === 'draft-pick')).toHaveLength(3);
+      expect(viableActions(computeLegalActions(state, PLAYER_2)).filter(a => a.type === 'draft-pick')).toHaveLength(3);
     });
 
     it('returns empty when player has stopped', () => {
@@ -59,7 +64,14 @@ describe('computeLegalActions', () => {
       result = reduce(state, { type: 'draft-pick', player: PLAYER_2, characterDefId: ARAGORN });
       state = result.state;
 
-      const pickDefIds = computeLegalActions(state, PLAYER_1)
+      // Aragorn should be non-viable for P1 since opponent drafted it
+      const evaluated = computeLegalActions(state, PLAYER_1);
+      const aragornEval = evaluated.find(e => e.action.type === 'draft-pick' && e.action.characterDefId === ARAGORN);
+      expect(aragornEval).toBeDefined();
+      expect(aragornEval!.viable).toBe(false);
+      expect(aragornEval!.reason).toContain('unique');
+
+      const pickDefIds = viableActions(evaluated)
         .filter((a): a is GameAction & { type: 'draft-pick' } => a.type === 'draft-pick')
         .map(a => a.characterDefId);
       expect(pickDefIds).not.toContain(ARAGORN);
@@ -84,7 +96,15 @@ describe('computeLegalActions', () => {
       result = reduce(state, { type: 'draft-stop', player: PLAYER_2 });
       state = result.state;
 
-      const pickDefIds = computeLegalActions(state, PLAYER_1)
+      const evaluated = computeLegalActions(state, PLAYER_1);
+
+      // Gimli should be non-viable with a reason about mind limit
+      const gimliEval = evaluated.find(e => e.action.type === 'draft-pick' && e.action.characterDefId === GIMLI);
+      expect(gimliEval).toBeDefined();
+      expect(gimliEval!.viable).toBe(false);
+      expect(gimliEval!.reason).toContain('mind');
+
+      const pickDefIds = viableActions(evaluated)
         .filter((a): a is GameAction & { type: 'draft-pick' } => a.type === 'draft-pick')
         .map(a => a.characterDefId);
 
@@ -94,9 +114,9 @@ describe('computeLegalActions', () => {
 
     it('includes player ID in all returned actions', () => {
       const state = createGame(makeDraftConfig(), pool);
-      const actions = computeLegalActions(state, PLAYER_1);
-      for (const action of actions) {
-        expect(action.player).toBe(PLAYER_1);
+      const evaluated = computeLegalActions(state, PLAYER_1);
+      for (const ea of evaluated) {
+        expect(ea.action.player).toBe(PLAYER_1);
       }
     });
   });
@@ -117,11 +137,11 @@ describe('computeLegalActions', () => {
       const state = makeUntapState();
       expect(state.phaseState.phase).toBe(Phase.Untap);
 
-      const p1Actions = computeLegalActions(state, PLAYER_1);
+      const p1Actions = viableActions(computeLegalActions(state, PLAYER_1));
       expect(p1Actions).toHaveLength(1);
       expect(p1Actions[0].type).toBe('pass');
 
-      const p2Actions = computeLegalActions(state, PLAYER_2);
+      const p2Actions = viableActions(computeLegalActions(state, PLAYER_2));
       expect(p2Actions).toHaveLength(1);
       expect(p2Actions[0].type).toBe('pass');
     });
@@ -133,7 +153,7 @@ describe('computeLegalActions', () => {
 
       expect(state.phaseState.phase).toBe(Phase.Untap);
       expect(computeLegalActions(state, PLAYER_1)).toHaveLength(0);
-      expect(computeLegalActions(state, PLAYER_2)).toHaveLength(1);
+      expect(viableActions(computeLegalActions(state, PLAYER_2))).toHaveLength(1);
     });
 
     it('advances to organization after both players pass', () => {

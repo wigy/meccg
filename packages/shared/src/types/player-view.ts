@@ -32,7 +32,7 @@ import type {
   CharacterInPlay,
   MarshallingPointTotals,
 } from './state.js';
-import type { GameAction } from './actions.js';
+import type { EvaluatedAction } from '../rules/types.js';
 
 // ---- Card visibility ----
 
@@ -205,8 +205,12 @@ export interface PlayerView {
   readonly eventsInPlay: readonly EventInPlay[];
   /** Current turn number (1-based). */
   readonly turnNumber: number;
-  /** Complete list of concrete actions the player can legally submit right now, with all arguments. */
-  readonly legalActions: readonly GameAction[];
+  /**
+   * Complete list of candidate actions for the current phase, annotated with viability.
+   * Viable actions can be submitted; non-viable actions include a human-readable reason
+   * explaining why they cannot be taken (e.g. "Gimli: mind 6 would exceed limit").
+   */
+  readonly legalActions: readonly EvaluatedAction[];
   /**
    * Map from CardInstanceId to CardDefinitionId for all cards visible to this player.
    * Includes own hand, discard piles, characters, items, sites, and public opponent cards.

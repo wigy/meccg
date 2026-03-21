@@ -73,13 +73,25 @@ export interface ConditionNot {
  * Multiple keys are an implicit AND — all must match.
  */
 export interface ConditionMatch {
-  readonly [key: string]: string | number | boolean | ConditionOperator;
+  readonly [key: string]: string | number | boolean | null | ConditionOperator;
 }
 
 /** Operators that can appear as values in a ConditionMatch. */
 export interface ConditionOperator {
   /** Checks that the context value (which must be an array) includes this element. */
   readonly $includes?: string | number;
+  /** Greater than. */
+  readonly $gt?: number;
+  /** Greater than or equal. */
+  readonly $gte?: number;
+  /** Less than. */
+  readonly $lt?: number;
+  /** Less than or equal. */
+  readonly $lte?: number;
+  /** Not equal. */
+  readonly $ne?: string | number | boolean | null;
+  /** Checks that the context value is a member of the given array. */
+  readonly $in?: readonly (string | number)[];
 }
 
 // ---- Effect Types ----

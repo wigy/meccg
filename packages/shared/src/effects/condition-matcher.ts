@@ -56,9 +56,13 @@ function isNot(c: Condition): c is ConditionNot {
   return '$not' in c;
 }
 
+/** All recognized operator keys in a ConditionOperator. */
+const OPERATOR_KEYS = ['$includes', '$gt', '$gte', '$lt', '$lte', '$ne', '$in'] as const;
+
 /** Type guard: is a match value an operator object like `{ $includes: "warrior" }`? */
 function isOperator(v: unknown): v is ConditionOperator {
-  return typeof v === 'object' && v !== null && '$includes' in v;
+  if (typeof v !== 'object' || v === null) return false;
+  return OPERATOR_KEYS.some(key => key in v);
 }
 
 /**
@@ -69,11 +73,29 @@ function isOperator(v: unknown): v is ConditionOperator {
  */
 function matchesEntry(
   contextValue: unknown,
-  expected: string | number | boolean | ConditionOperator,
+  expected: string | number | boolean | null | ConditionOperator,
 ): boolean {
   if (isOperator(expected)) {
     if (expected.$includes !== undefined) {
       return Array.isArray(contextValue) && contextValue.includes(expected.$includes);
+    }
+    if (expected.$gt !== undefined) {
+      return typeof contextValue === 'number' && contextValue > expected.$gt;
+    }
+    if (expected.$gte !== undefined) {
+      return typeof contextValue === 'number' && contextValue >= expected.$gte;
+    }
+    if (expected.$lt !== undefined) {
+      return typeof contextValue === 'number' && contextValue < expected.$lt;
+    }
+    if (expected.$lte !== undefined) {
+      return typeof contextValue === 'number' && contextValue <= expected.$lte;
+    }
+    if (expected.$ne !== undefined) {
+      return contextValue !== expected.$ne;
+    }
+    if (expected.$in !== undefined) {
+      return expected.$in.includes(contextValue as string | number);
     }
     return false;
   }

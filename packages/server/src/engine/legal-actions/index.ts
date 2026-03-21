@@ -1,14 +1,17 @@
 /**
  * @module legal-actions
  *
- * Computes the complete list of concrete legal actions a player can take
+ * Computes the complete list of candidate actions a player can take
  * given the current game state. Each phase has its own module under this
  * directory. This index dispatches to the appropriate phase module.
  *
- * The function is pure: `(GameState, PlayerId) → GameAction[]`.
+ * Setup phases return {@link EvaluatedAction} with viability and reasons
+ * via the rules engine. Other phases wrap their actions as viable.
+ *
+ * The function is pure: `(GameState, PlayerId) → EvaluatedAction[]`.
  */
 
-import type { GameState, PlayerId, GameAction } from '@meccg/shared';
+import type { GameState, PlayerId, GameAction, EvaluatedAction } from '@meccg/shared';
 import { setupActions } from './setup.js';
 import { untapActions } from './untap.js';
 import { organizationActions } from './organization.js';
@@ -19,29 +22,35 @@ import { endOfTurnActions } from './end-of-turn.js';
 import { freeCouncilActions } from './free-council.js';
 import { logHeading, logResult } from './log.js';
 
+/** Wraps plain GameActions as viable EvaluatedActions (for non-setup phases). */
+function asViable(actions: GameAction[]): EvaluatedAction[] {
+  return actions.map(action => ({ action, viable: true }));
+}
+
 /**
- * Returns every concrete action the given player can legally submit
- * in the current game state. Each returned action is a complete
- * {@link GameAction} with all fields populated.
+ * Returns every candidate action the given player could take in the current
+ * game state, annotated with viability. Non-viable actions include a
+ * human-readable reason explaining why they cannot be taken.
  */
-export function computeLegalActions(state: GameState, playerId: PlayerId): GameAction[] {
+export function computeLegalActions(state: GameState, playerId: PlayerId): EvaluatedAction[] {
   const phase = state.phaseState.phase;
   logHeading(`Computing legal actions for player ${playerId as string} in phase '${phase}'`);
 
-  let actions: GameAction[];
+  let evaluated: EvaluatedAction[];
   switch (phase) {
-    case 'setup':             actions = setupActions(state, playerId); break;
-    case 'untap':             actions = untapActions(state, playerId); break;
-    case 'organization':      actions = organizationActions(state, playerId); break;
-    case 'long-event':        actions = longEventActions(state, playerId); break;
-    case 'movement-hazard':   actions = movementHazardActions(state, playerId); break;
-    case 'site':              actions = siteActions(state, playerId); break;
-    case 'end-of-turn':       actions = endOfTurnActions(state, playerId); break;
-    case 'free-council':      actions = freeCouncilActions(state, playerId); break;
-    case 'game-over':         actions = []; break;
-    default:                  actions = []; break;
+    case 'setup':             evaluated = setupActions(state, playerId); break;
+    case 'untap':             evaluated = asViable(untapActions(state, playerId)); break;
+    case 'organization':      evaluated = asViable(organizationActions(state, playerId)); break;
+    case 'long-event':        evaluated = asViable(longEventActions(state, playerId)); break;
+    case 'movement-hazard':   evaluated = asViable(movementHazardActions(state, playerId)); break;
+    case 'site':              evaluated = asViable(siteActions(state, playerId)); break;
+    case 'end-of-turn':       evaluated = asViable(endOfTurnActions(state, playerId)); break;
+    case 'free-council':      evaluated = asViable(freeCouncilActions(state, playerId)); break;
+    case 'game-over':         evaluated = []; break;
+    default:                  evaluated = []; break;
   }
 
-  logResult(actions.length, actions as unknown as Record<string, unknown>[]);
-  return actions;
+  const viableCount = evaluated.filter(e => e.viable).length;
+  logResult(viableCount, evaluated.filter(e => e.viable).map(e => e.action) as unknown as Record<string, unknown>[]);
+  return evaluated;
 }

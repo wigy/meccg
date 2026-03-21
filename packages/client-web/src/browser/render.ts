@@ -5,8 +5,33 @@
  * action buttons, draft info, and a message log.
  */
 
-import type { PlayerView, GameAction, CardDefinition, CardDefinitionId, CardInstanceId, CharacterInPlay } from '@meccg/shared';
+import type { PlayerView, GameAction, EvaluatedAction, CardDefinition, CardDefinitionId, CardInstanceId, CharacterInPlay } from '@meccg/shared';
 import { describeAction, formatPlayerView, formatCardList, cardImageProxyPath, isCharacterCard, GENERAL_INFLUENCE, getAlignmentRules } from '@meccg/shared';
+
+/** Extract viable GameActions from EvaluatedActions. */
+function viableActions(evaluated: readonly EvaluatedAction[]): GameAction[] {
+  return evaluated.filter(e => e.viable).map(e => e.action);
+}
+
+/**
+ * Find the non-viable reason for a card by definition ID from the evaluated actions.
+ * Returns the reason string or undefined if the card is viable or not found.
+ */
+function findNonViableReason(
+  defId: CardDefinitionId,
+  evaluated: readonly EvaluatedAction[],
+  visibleInstances?: Readonly<Record<string, CardDefinitionId>>,
+): string | undefined {
+  for (const ea of evaluated) {
+    if (ea.viable) continue;
+    const a = ea.action;
+    if (a.type === 'draft-pick' && a.characterDefId === defId) return ea.reason;
+    if (a.type === 'add-character-to-deck' && a.characterDefId === defId) return ea.reason;
+    if (a.type === 'select-starting-site' && visibleInstances
+      && visibleInstances[a.siteInstanceId as string] === defId) return ea.reason;
+  }
+  return undefined;
+}
 
 /**
  * Module-level state for the item draft two-step selection flow.
@@ -302,11 +327,13 @@ function getHandCards(view: PlayerView): CardDefinitionId[] {
       instId => view.visibleInstances[instId as string],
     ).filter((id): id is CardDefinitionId => id !== undefined);
   }
-  // During site selection, show only sites that are legal selections
+  // During site selection, show all candidate sites (both viable and non-viable)
   if (view.phaseState.phase === 'setup' && view.phaseState.setupStep.step === 'starting-site-selection') {
     return view.legalActions
-      .filter((a): a is GameAction & { type: 'select-starting-site' } => a.type === 'select-starting-site')
-      .map(a => view.visibleInstances[a.siteInstanceId as string])
+      .filter(ea => ea.action.type === 'select-starting-site')
+      .map(ea => ea.action.type === 'select-starting-site'
+        ? view.visibleInstances[ea.action.siteInstanceId as string]
+        : undefined)
       .filter((id): id is CardDefinitionId => id !== undefined);
   }
   // During character placement and deck shuffle, no hand cards
@@ -521,11 +548,12 @@ export function renderPassButton(view: PlayerView, onAction: (action: GameAction
   const btn = document.getElementById('pass-btn') as HTMLButtonElement | null;
   if (!btn) return;
 
-  // Find a pass-like or single-step action
-  const passAction = view.legalActions.find(a =>
-    a.type === 'pass' || a.type === 'draft-stop'
-    || a.type === 'shuffle-play-deck' || a.type === 'draw-cards'
-    || a.type === 'roll-initiative');
+  // Find a viable pass-like or single-step action
+  const passEval = view.legalActions.find(ea =>
+    ea.viable && (ea.action.type === 'pass' || ea.action.type === 'draft-stop'
+    || ea.action.type === 'shuffle-play-deck' || ea.action.type === 'draw-cards'
+    || ea.action.type === 'roll-initiative'));
+  const passAction = passEval?.action;
   if (!passAction) {
     btn.classList.add('hidden');
     return;
@@ -697,7 +725,7 @@ function renderPlacementCompanies(
       const imgPath = cardImageProxyPath(def);
       if (!imgPath) continue;
 
-      const placeAction = view.legalActions.find(
+      const placeAction = viableActions(view.legalActions).find(
         a => a.type === 'place-character' && a.characterInstanceId === charInstId,
       ) ?? null;
       const char = view.self.characters[charInstId as string];
@@ -787,7 +815,7 @@ function renderItemDraftTargets(
     // Find the matching action for this character + selected item
     const charIdStr = charInstId as string;
     const targetAction = selectedItemDefId
-      ? view.legalActions.find(
+      ? viableActions(view.legalActions).find(
         a => a.type === 'assign-starting-item'
           && a.itemDefId === selectedItemDefId
           && (a.characterInstanceId as string) === charIdStr,
@@ -1007,7 +1035,7 @@ export function renderHand(
     && 'setupStep' in view.phaseState && view.phaseState.setupStep.step === 'item-draft') {
     itemDraftRenderCache = { view, cardPool, onAction };
     // Auto-clear selection if the selected item is no longer in legal actions
-    if (selectedItemDefId && !isItemDraftCard(selectedItemDefId, view.legalActions)) {
+    if (selectedItemDefId && !isItemDraftCard(selectedItemDefId, viableActions(view.legalActions))) {
       selectedItemDefId = null;
     }
   } else {
@@ -1023,8 +1051,12 @@ export function renderHand(
     if (!imgPath) continue;
 
     const cardDefId = cards[i];
-    const action = findCardAction(cardDefId, view.legalActions, view.visibleInstances);
-    const isItemDraft = isItemDraftCard(cardDefId, view.legalActions);
+    const viable = viableActions(view.legalActions);
+    const action = findCardAction(cardDefId, viable, view.visibleInstances);
+    const isItemDraft = isItemDraftCard(cardDefId, viable);
+    const nonViableReason = !action && !isItemDraft
+      ? findNonViableReason(cardDefId, view.legalActions, view.visibleInstances)
+      : undefined;
     const isSelected = selectedItemDefId === cardDefId;
 
     const img = document.createElement('img');
@@ -1060,6 +1092,9 @@ export function renderHand(
       }
     } else {
       img.className = 'hand-card hand-card-dimmed';
+      if (nonViableReason) {
+        img.title = nonViableReason;
+      }
     }
     el.appendChild(img);
   }

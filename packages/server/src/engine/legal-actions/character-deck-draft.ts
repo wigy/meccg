@@ -4,10 +4,12 @@
  * Legal actions during the character deck draft phase. Each player may add
  * remaining pool characters to their play deck, up to 10 non-avatar
  * characters total in the deck. After finishing, they must shuffle.
+ *
+ * Uses the rules engine for per-card eligibility with human-readable reasons.
  */
 
-import type { GameState, PlayerId, GameAction } from '@meccg/shared';
-import { isCharacterCard } from '@meccg/shared';
+import type { GameState, PlayerId, EvaluatedAction } from '@meccg/shared';
+import { isCharacterCard, evaluateAction, CHARACTER_DECK_DRAFT_RULES } from '@meccg/shared';
 import { logDetail } from './log.js';
 
 /** Maximum number of non-avatar characters allowed in the play deck. */
@@ -28,7 +30,7 @@ function countNonAvatarInDeck(state: GameState, playerIndex: number): number {
   return count;
 }
 
-export function characterDeckDraftActions(state: GameState, playerId: PlayerId): GameAction[] {
+export function characterDeckDraftActions(state: GameState, playerId: PlayerId): EvaluatedAction[] {
   if (state.phaseState.phase !== 'setup' || state.phaseState.setupStep.step !== 'character-deck-draft') return [];
 
   const playerIndex = state.players[0].id === playerId ? 0 : 1;
@@ -39,27 +41,36 @@ export function characterDeckDraftActions(state: GameState, playerId: PlayerId):
     return [];
   }
 
-  const actions: GameAction[] = [];
   const nonAvatarCount = countNonAvatarInDeck(state, playerIndex);
   logDetail(`${deckDraft.remainingPool.length} character(s) remaining in pool, ${nonAvatarCount}/${MAX_NON_AVATAR_IN_DECK} non-avatar in deck`);
 
+  const evaluated: EvaluatedAction[] = [];
+
   for (const charDefId of deckDraft.remainingPool) {
     const def = state.cardPool[charDefId as string];
-    if (!isCharacterCard(def)) {
-      logDetail(`Skipping ${charDefId as string}: not a character`);
-      continue;
-    }
-    // Non-avatar characters count toward the limit
-    if (def.mind !== null && nonAvatarCount >= MAX_NON_AVATAR_IN_DECK) {
-      logDetail(`Skipping ${def.name}: non-avatar limit reached (${nonAvatarCount}/${MAX_NON_AVATAR_IN_DECK})`);
-      continue;
-    }
-    logDetail(`Eligible: ${def.name} (${def.mind !== null ? 'non-avatar' : 'avatar'})`);
-    actions.push({ type: 'add-character-to-deck', player: playerId, characterDefId: charDefId });
+    const isChar = isCharacterCard(def);
+
+    const context = {
+      card: {
+        name: def?.name ?? (charDefId as string),
+        isCharacter: isChar,
+        isAvatar: isChar && def.mind === null,
+      },
+      ctx: {
+        nonAvatarCount,
+        nonAvatarLimit: MAX_NON_AVATAR_IN_DECK,
+      },
+    };
+
+    const action = { type: 'add-character-to-deck' as const, player: playerId, characterDefId: charDefId };
+    const result = evaluateAction(action, CHARACTER_DECK_DRAFT_RULES, context);
+
+    logDetail(`${context.card.name}: ${result.viable ? 'eligible' : result.reason}`);
+    evaluated.push(result);
   }
 
   // Can always pass (done adding characters)
-  actions.push({ type: 'pass', player: playerId });
+  evaluated.push({ action: { type: 'pass', player: playerId }, viable: true });
 
-  return actions;
+  return evaluated;
 }

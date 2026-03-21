@@ -118,7 +118,7 @@ const rl = readline.createInterface({
 let playerId: PlayerId | null = null;
 let ws: WebSocket | null = null;
 // TODO: gate auto-reconnect on whether the server sent 'restart'
-/** Last received legal actions, indexed for quick selection by number. */
+/** Last received viable legal actions, indexed for quick selection by number. */
 let lastLegalActions: GameAction[] = [];
 
 // ---- Connect / Reconnect ----
@@ -189,7 +189,7 @@ function connect(): void {
           }
         }
 
-        lastLegalActions = [...msg.view.legalActions];
+        lastLegalActions = msg.view.legalActions.filter(e => e.viable).map(e => e.action);
         const instances = msg.view.visibleInstances;
 
         // AI mode: compute weights, display probabilities, sample and send
