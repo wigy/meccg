@@ -17,8 +17,6 @@
 :root {
   --card-height: 28vh;
   --card-table-height: 22vh;
-  --card-zoom: 2;
-  --card-table-zoom: 2.55;
 
   /* Interactive highlight colors: golden → green → blue */
   --color-selectable: 255, 215, 100;   /* golden — first available click */
@@ -303,19 +301,16 @@ h2 {
 }
 
 .set-aside-card {
-  --hover-scale: var(--card-table-zoom);
   height: var(--card-table-height);
   border-radius: 4px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.7);
   filter: brightness(0.5) saturate(0.5);
-  transition: transform 0.2s ease, filter 0.2s ease;
+  transition: filter 0.2s ease;
   cursor: pointer;
   position: relative;
 }
 
 .set-aside-card:hover {
-  transform: scale(var(--hover-scale, var(--card-zoom)));
-  transform-origin: left center;
   filter: none;
 }
 
@@ -326,11 +321,9 @@ h2 {
 }
 
 .drafted-card {
-  --hover-scale: var(--card-table-zoom);
   height: var(--card-table-height);
   border-radius: 6px;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.7);
-  transition: transform 0.2s ease;
   cursor: pointer;
 }
 
@@ -369,19 +362,19 @@ h2 {
 }
 
 .placement-slide-right {
-  animation: slide-right 1s ease-in forwards;
+  animation: slide-right 0.3s ease-in forwards;
 }
 
 .placement-slide-left {
-  animation: slide-left 1s ease-in forwards;
+  animation: slide-left 0.3s ease-in forwards;
 }
 
 @keyframes slide-right {
-  to { transform: translateX(200rem); opacity: 0; }
+  to { transform: translateX(10rem); opacity: 0; }
 }
 
 @keyframes slide-left {
-  to { transform: translateX(-200rem); opacity: 0; }
+  to { transform: translateX(-10rem); opacity: 0; }
 }
 
 .drafted-card-facedown {
@@ -391,17 +384,6 @@ h2 {
     0 4px 16px rgba(0, 0, 0, 0.7);
 }
 
-#drafted-self .drafted-card:hover {
-  transform: scale(var(--hover-scale, var(--card-zoom)));
-  transform-origin: center bottom;
-  z-index: 100;
-}
-
-#drafted-opponent .drafted-card:hover {
-  transform: scale(var(--hover-scale, var(--card-zoom)));
-  transform-origin: center top;
-  z-index: 100;
-}
 
 #instruction-text:empty {
   display: none;
@@ -529,6 +511,11 @@ h2 {
   display: flex;
   justify-content: center;
   z-index: 10;
+  pointer-events: none;
+}
+
+#hand-arc > *, #opponent-arc > * {
+  pointer-events: auto;
 }
 
 #hand-arc {
@@ -550,7 +537,6 @@ h2 {
   transform-origin: bottom center;
   transform: rotate(calc((var(--i) - (var(--total) - 1) / 2) * var(--spread)))
              translateY(calc(pow(var(--i) - (var(--total) - 1) / 2, 2) * 1.5%));
-  transition: transform 0.2s ease, z-index 0s;
   cursor: pointer;
   position: relative;
 }
@@ -571,8 +557,8 @@ h2 {
 }
 
 @keyframes card-played {
-  0% { filter: brightness(1); transform: rotate(0deg) translateY(-8vh) scale(var(--card-zoom)); }
-  20% { filter: brightness(2); transform: rotate(0deg) translateY(-8vh) scale(var(--card-zoom)); }
+  0% { filter: brightness(1); opacity: 1; }
+  20% { filter: brightness(2); }
   100% { filter: brightness(0.8); opacity: 0; transform: translate(var(--fly-x, 0), var(--fly-y, -40vh)) scale(0.5); }
 }
 
@@ -582,15 +568,10 @@ h2 {
 }
 
 .hand-card-dimmed:hover {
-  transform: rotate(0deg) translateY(-8vh) scale(var(--card-zoom));
-  z-index: 20;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.9);
   filter: none;
 }
 
 .hand-card-playable:hover {
-  transform: rotate(0deg) translateY(-8vh) scale(var(--card-zoom));
-  z-index: 20;
   box-shadow:
     0 0 16px rgba(var(--color-selectable), 1),
     0 0 40px rgba(var(--color-selectable), 0.7),
@@ -618,8 +599,6 @@ h2 {
 }
 
 .hand-card-selected:hover {
-  transform: rotate(0deg) translateY(-8vh) scale(var(--card-zoom));
-  z-index: 20;
   box-shadow:
     0 0 16px rgba(var(--color-selected), 1),
     0 0 40px rgba(var(--color-selected), 0.7),
@@ -643,15 +622,6 @@ h2 {
   }
 }
 
-#drafted-self .drafted-card-target:hover {
-  transform: scale(var(--hover-scale, var(--card-zoom)));
-  transform-origin: center bottom;
-  z-index: 100;
-  box-shadow:
-    0 0 24px rgba(var(--color-target), 1),
-    0 0 60px rgba(var(--color-target), 0.8),
-    0 8px 32px rgba(0, 0, 0, 0.9);
-}
 
 .drafted-card-selectable {
   animation: selectable-glow-in 0.5s ease-out forwards;
@@ -670,15 +640,6 @@ h2 {
   }
 }
 
-#drafted-self .drafted-card-selectable:hover {
-  transform: scale(var(--hover-scale, var(--card-zoom)));
-  transform-origin: center bottom;
-  z-index: 100;
-  box-shadow:
-    0 0 24px rgba(var(--color-selectable), 1),
-    0 0 60px rgba(var(--color-selectable), 0.8),
-    0 8px 32px rgba(0, 0, 0, 0.9);
-}
 
 .opponent-card {
   height: var(--card-height);
@@ -688,16 +649,10 @@ h2 {
   transform-origin: top center;
   transform: rotate(calc((var(--i) - (var(--total) - 1) / 2) * var(--spread) * -1))
              translateY(calc(pow(var(--i) - (var(--total) - 1) / 2, 2) * -1.5%));
-  transition: transform 0.2s ease, z-index 0s;
   cursor: pointer;
   position: relative;
 }
 
-.opponent-card:hover {
-  transform: rotate(0deg) translateY(8vh) scale(var(--card-zoom));
-  z-index: 20;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.9);
-}
 
 /* Card name hover preview */
 
