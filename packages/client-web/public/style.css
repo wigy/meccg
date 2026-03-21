@@ -472,20 +472,20 @@ h2 {
 }
 
 #self-deck-pile {
+  left: 6.5rem;
   bottom: 4rem;
 }
 
 #self-site-pile {
-  left: 6.5rem;
   bottom: 4rem;
 }
 
 #opponent-deck-pile {
+  left: 6.5rem;
   top: 4rem;
 }
 
 #opponent-site-pile {
-  left: 6.5rem;
   top: 4rem;
 }
 
