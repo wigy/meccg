@@ -608,7 +608,7 @@ function renderPlacementCompanies(
   }
 }
 
-/** Render selected sites followed by a spacer and company characters on the table. */
+/** Render sites and company characters on the table. Spacer added only when sites are unassigned. */
 function renderSitesAndCharacters(
   el: HTMLElement,
   siteInstIds: readonly CardInstanceId[],
@@ -616,13 +616,14 @@ function renderSitesAndCharacters(
   view: PlayerView,
   characters: Readonly<Record<string, CharacterInPlay>>,
   cardPool: Readonly<Record<string, CardDefinition>>,
+  separateSites = false,
 ): void {
   const siteDefIds = siteInstIds
     .map(id => view.visibleInstances[id as string])
     .filter((id): id is CardDefinitionId => id !== undefined);
   renderCardRow(el, siteDefIds, cardPool);
 
-  if (siteDefIds.length > 0 && charInstIds.length > 0) {
+  if (separateSites && siteDefIds.length > 0 && charInstIds.length > 0) {
     const spacer = document.createElement('div');
     spacer.className = 'drafted-spacer';
     el.appendChild(spacer);
@@ -826,9 +827,9 @@ export function renderDrafted(
     const oppIdx = 1 - selfIdx;
 
     const selfChars = view.self.companies.flatMap(c => c.characters);
-    renderSitesAndCharacters(selfEl, siteState[selfIdx].selectedSites, selfChars, view, view.self.characters, cardPool);
+    renderSitesAndCharacters(selfEl, siteState[selfIdx].selectedSites, selfChars, view, view.self.characters, cardPool, true);
     const oppChars = view.opponent.companies.flatMap(c => c.characters);
-    renderSitesAndCharacters(oppEl, siteState[oppIdx].selectedSites, oppChars, view, view.opponent.characters, cardPool);
+    renderSitesAndCharacters(oppEl, siteState[oppIdx].selectedSites, oppChars, view, view.opponent.characters, cardPool, true);
   }
 
   // During character placement, show companies with clickable characters
