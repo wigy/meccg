@@ -338,8 +338,6 @@ export interface DraftPlayerState {
   readonly pool: readonly CardDefinitionId[];
   /** Character definition IDs successfully drafted so far. */
   readonly drafted: readonly CardDefinitionId[];
-  /** Up to 2 non-unique minor item definition IDs chosen as starting equipment. */
-  readonly startingMinorItems: readonly CardDefinitionId[];
   /** The face-down pick for the current draft round, or null if not yet picked. */
   readonly currentPick: CardDefinitionId | null;
   /** Whether this player has voluntarily stopped drafting (they keep what they have). */

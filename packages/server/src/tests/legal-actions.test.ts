@@ -47,8 +47,8 @@ describe('computeLegalActions', () => {
     it('excludes characters already drafted by the opponent', () => {
       const config: GameConfig = {
         players: [
-          { id: PLAYER_1, name: 'Alice', alignment: Alignment.Wizard, draftPool: [ARAGORN, BILBO], startingMinorItems: [], playDeck: makePlayDeck(), siteDeck: [MORIA], startingHavens: [RIVENDELL] },
-          { id: PLAYER_2, name: 'Bob', alignment: Alignment.Wizard, draftPool: [ARAGORN, LEGOLAS], startingMinorItems: [], playDeck: makePlayDeck(), siteDeck: [MORIA], startingHavens: [LORIEN] },
+          { id: PLAYER_1, name: 'Alice', alignment: Alignment.Wizard, draftPool: [ARAGORN, BILBO], playDeck: makePlayDeck(), siteDeck: [MORIA], startingHavens: [RIVENDELL] },
+          { id: PLAYER_2, name: 'Bob', alignment: Alignment.Wizard, draftPool: [ARAGORN, LEGOLAS], playDeck: makePlayDeck(), siteDeck: [MORIA], startingHavens: [LORIEN] },
         ],
         seed: 42,
       };
@@ -68,8 +68,8 @@ describe('computeLegalActions', () => {
     it('excludes characters that would exceed mind limit of 20', () => {
       const config: GameConfig = {
         players: [
-          { id: PLAYER_1, name: 'Alice', alignment: Alignment.Wizard, draftPool: [ARAGORN, LEGOLAS, GIMLI, BILBO], startingMinorItems: [], playDeck: makePlayDeck(), siteDeck: [MORIA], startingHavens: [RIVENDELL] },
-          { id: PLAYER_2, name: 'Bob', alignment: Alignment.Wizard, draftPool: [FARAMIR], startingMinorItems: [], playDeck: makePlayDeck(), siteDeck: [MORIA], startingHavens: [LORIEN] },
+          { id: PLAYER_1, name: 'Alice', alignment: Alignment.Wizard, draftPool: [ARAGORN, LEGOLAS, GIMLI, BILBO], playDeck: makePlayDeck(), siteDeck: [MORIA], startingHavens: [RIVENDELL] },
+          { id: PLAYER_2, name: 'Bob', alignment: Alignment.Wizard, draftPool: [FARAMIR], playDeck: makePlayDeck(), siteDeck: [MORIA], startingHavens: [LORIEN] },
         ],
         seed: 42,
       };

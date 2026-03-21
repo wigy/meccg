@@ -115,8 +115,8 @@ describe('character draft', () => {
   it('sets aside duplicate picks', () => {
     const config: GameConfig = {
       players: [
-        { id: PLAYER_1, name: 'Alice', alignment: Alignment.Wizard, draftPool: [ARAGORN, BILBO], startingMinorItems: [], playDeck: makePlayDeck(), siteDeck: [MORIA], startingHavens: [RIVENDELL] },
-        { id: PLAYER_2, name: 'Bob', alignment: Alignment.Wizard, draftPool: [ARAGORN, LEGOLAS], startingMinorItems: [], playDeck: makePlayDeck(), siteDeck: [MORIA], startingHavens: [LORIEN] },
+        { id: PLAYER_1, name: 'Alice', alignment: Alignment.Wizard, draftPool: [ARAGORN, BILBO], playDeck: makePlayDeck(), siteDeck: [MORIA], startingHavens: [RIVENDELL] },
+        { id: PLAYER_2, name: 'Bob', alignment: Alignment.Wizard, draftPool: [ARAGORN, LEGOLAS], playDeck: makePlayDeck(), siteDeck: [MORIA], startingHavens: [LORIEN] },
       ],
       seed: 42,
     };
@@ -137,8 +137,8 @@ describe('character draft', () => {
   it('rejects picks that would exceed mind limit of 20', () => {
     const config: GameConfig = {
       players: [
-        { id: PLAYER_1, name: 'Alice', alignment: Alignment.Wizard, draftPool: [ARAGORN, LEGOLAS, GIMLI], startingMinorItems: [], playDeck: makePlayDeck(), siteDeck: [MORIA], startingHavens: [RIVENDELL] },
-        { id: PLAYER_2, name: 'Bob', alignment: Alignment.Wizard, draftPool: [FARAMIR], startingMinorItems: [], playDeck: makePlayDeck(), siteDeck: [MORIA], startingHavens: [LORIEN] },
+        { id: PLAYER_1, name: 'Alice', alignment: Alignment.Wizard, draftPool: [ARAGORN, LEGOLAS, GIMLI], playDeck: makePlayDeck(), siteDeck: [MORIA], startingHavens: [RIVENDELL] },
+        { id: PLAYER_2, name: 'Bob', alignment: Alignment.Wizard, draftPool: [FARAMIR], playDeck: makePlayDeck(), siteDeck: [MORIA], startingHavens: [LORIEN] },
       ],
       seed: 42,
     };
@@ -162,8 +162,8 @@ describe('character draft', () => {
   it('auto-stops player when drafted mind reaches exactly 20', () => {
     const config: GameConfig = {
       players: [
-        { id: PLAYER_1, name: 'Alice', alignment: Alignment.Wizard, draftPool: [ARAGORN, LEGOLAS, FARAMIR, EOWYN], startingMinorItems: [], playDeck: makePlayDeck(), siteDeck: [MORIA], startingHavens: [RIVENDELL] },
-        { id: PLAYER_2, name: 'Bob', alignment: Alignment.Wizard, draftPool: [BILBO], startingMinorItems: [], playDeck: makePlayDeck(), siteDeck: [MORIA], startingHavens: [LORIEN] },
+        { id: PLAYER_1, name: 'Alice', alignment: Alignment.Wizard, draftPool: [ARAGORN, LEGOLAS, FARAMIR, EOWYN], playDeck: makePlayDeck(), siteDeck: [MORIA], startingHavens: [RIVENDELL] },
+        { id: PLAYER_2, name: 'Bob', alignment: Alignment.Wizard, draftPool: [BILBO], playDeck: makePlayDeck(), siteDeck: [MORIA], startingHavens: [LORIEN] },
       ],
       seed: 42,
     };
@@ -195,8 +195,8 @@ describe('character draft', () => {
   it('rejects 6th pick for wizard alignment (max 5)', () => {
     const config: GameConfig = {
       players: [
-        { id: PLAYER_1, name: 'Alice', alignment: Alignment.Wizard, draftPool: [EOWYN, BEREGOND, BERGIL, BARD_BOWMAN, ANBORN, SAM_GAMGEE], startingMinorItems: [], playDeck: makePlayDeck(), siteDeck: [MORIA], startingHavens: [RIVENDELL] },
-        { id: PLAYER_2, name: 'Bob', alignment: Alignment.Wizard, draftPool: [FARAMIR], startingMinorItems: [], playDeck: makePlayDeck(), siteDeck: [MORIA], startingHavens: [LORIEN] },
+        { id: PLAYER_1, name: 'Alice', alignment: Alignment.Wizard, draftPool: [EOWYN, BEREGOND, BERGIL, BARD_BOWMAN, ANBORN, SAM_GAMGEE], playDeck: makePlayDeck(), siteDeck: [MORIA], startingHavens: [RIVENDELL] },
+        { id: PLAYER_2, name: 'Bob', alignment: Alignment.Wizard, draftPool: [FARAMIR], playDeck: makePlayDeck(), siteDeck: [MORIA], startingHavens: [LORIEN] },
       ],
       seed: 42,
     };
@@ -252,8 +252,8 @@ describe('full setup flow', () => {
   it('empty draft produces no starting characters', () => {
     const config: GameConfig = {
       players: [
-        { id: PLAYER_1, name: 'Alice', alignment: Alignment.Wizard, draftPool: [ARAGORN], startingMinorItems: [], playDeck: makePlayDeck(), siteDeck: [MORIA], startingHavens: [RIVENDELL] },
-        { id: PLAYER_2, name: 'Bob', alignment: Alignment.Wizard, draftPool: [LEGOLAS], startingMinorItems: [], playDeck: makePlayDeck(), siteDeck: [MORIA], startingHavens: [LORIEN] },
+        { id: PLAYER_1, name: 'Alice', alignment: Alignment.Wizard, draftPool: [ARAGORN], playDeck: makePlayDeck(), siteDeck: [MORIA], startingHavens: [RIVENDELL] },
+        { id: PLAYER_2, name: 'Bob', alignment: Alignment.Wizard, draftPool: [LEGOLAS], playDeck: makePlayDeck(), siteDeck: [MORIA], startingHavens: [LORIEN] },
       ],
       seed: 42,
     };

@@ -281,7 +281,6 @@ export class GameSession {
       name,
       alignment: p.join.alignment,
       draftPool: p.join.draftPool,
-      startingMinorItems: p.join.startingMinorItems,
       playDeck: p.join.playDeck,
       siteDeck: p.join.siteDeck,
       startingHavens: p.join.startingHavens,

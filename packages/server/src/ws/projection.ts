@@ -205,7 +205,6 @@ function redactPhaseForPlayer(phaseState: PhaseState, selfIndex: number): PhaseS
     pool: oppPool.map(() => UNKNOWN_CARD),
     // Show that opponent has picked (face-down) without revealing what
     currentPick: step.draftState[opponentIndex].currentPick !== null ? UNKNOWN_CARD : null,
-    startingMinorItems: [],
     // drafted stays visible — it's public after reveal
   };
 
@@ -225,7 +224,6 @@ function redactPhaseForSpectator(phaseState: PhaseState): PhaseState {
     pool: d.pool.map(() => UNKNOWN_CARD),
     // drafted stays visible — it's public after reveal
     currentPick: null,
-    startingMinorItems: [],
   });
 
   return {

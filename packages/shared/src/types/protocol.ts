@@ -41,10 +41,8 @@ export interface JoinMessage {
   readonly name: string;
   /** The alignment of the player's wizard (wizard, ringwraith, fallen-wizard, balrog). */
   readonly alignment: Alignment;
-  /** Character definition IDs available for the pre-game draft (up to 10). */
+  /** Character and starting minor item definition IDs available for the pre-game draft. */
   readonly draftPool: readonly CardDefinitionId[];
-  /** Up to 2 non-unique minor item definition IDs chosen as starting equipment. */
-  readonly startingMinorItems: readonly CardDefinitionId[];
   /** Resource and hazard card definition IDs forming the main shuffled draw pile. */
   readonly playDeck: readonly CardDefinitionId[];
   /** Site card definition IDs the player brings for movement destinations. */

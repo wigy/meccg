@@ -45,6 +45,7 @@ import {
   createRng,
   shuffle,
   isCharacterCard,
+  isItemCard,
   isSiteCard,
 } from '@meccg/shared';
 import { recomputeDerived } from './recompute-derived.js';
@@ -59,8 +60,7 @@ export interface PlayerConfig {
   readonly id: PlayerId;
   readonly name: string;
   readonly alignment: Alignment;
-  readonly draftPool: readonly CardDefinitionId[];           // up to 10 characters for the draft
-  readonly startingMinorItems: readonly CardDefinitionId[];  // up to 2 non-unique minor items
+  readonly draftPool: readonly CardDefinitionId[];           // characters + starting minor items for the draft
   readonly playDeck: readonly CardDefinitionId[];
   readonly siteDeck: readonly CardDefinitionId[];
   readonly startingHavens: readonly CardDefinitionId[];
@@ -135,8 +135,8 @@ export function createGame(
   }) as unknown as readonly [PlayerState, PlayerState];
 
   const draftState: [DraftPlayerState, DraftPlayerState] = [
-    { pool: [...config.players[0].draftPool], drafted: [], startingMinorItems: [...config.players[0].startingMinorItems], currentPick: null, stopped: false },
-    { pool: [...config.players[1].draftPool], drafted: [], startingMinorItems: [...config.players[1].startingMinorItems], currentPick: null, stopped: false },
+    { pool: [...config.players[0].draftPool], drafted: [], currentPick: null, stopped: false },
+    { pool: [...config.players[1].draftPool], drafted: [], currentPick: null, stopped: false },
   ];
 
   const gameId = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
@@ -246,20 +246,24 @@ export function applyDraftResults(
 
   const results = state.players.map((player, index) => {
     const drafted = draftState[index].drafted;
-    const startingMinorItems = draftState[index].startingMinorItems;
-    // Mint starting minor items
+    const pool = draftState[index].pool;
+
+    // Extract items from the pool (items are not drafted during character draft)
     const minorItemInstanceIds: CardInstanceId[] = [];
-    for (const itemDefId of startingMinorItems) {
-      minorItemInstanceIds.push(mint(minter, itemDefId));
+    for (const defId of pool) {
+      if (isItemCard(state.cardPool[defId as string])) {
+        minorItemInstanceIds.push(mint(minter, defId));
+      }
     }
 
-    // Mint characters and create CharacterInPlay entries
+    // Mint characters from the drafted list
     const characters: Record<string, CharacterInPlay> = {};
     const characterInstanceIds: CardInstanceId[] = [];
 
-    for (const charDefId of drafted) {
-      const charDef = state.cardPool[charDefId as string];
-      if (!isCharacterCard(charDef)) continue;
+    for (const defId of drafted) {
+      const def = state.cardPool[defId as string];
+      if (!isCharacterCard(def)) continue;
+      const charDefId = defId;
       const instanceId = mint(minter, charDefId);
       characterInstanceIds.push(instanceId);
       characters[instanceId as string] = {
@@ -297,9 +301,10 @@ export function applyDraftResults(
   });
 
   const newPlayers = [results[0].player, results[1].player] as unknown as readonly [PlayerState, PlayerState];
+  // Remaining pool for character deck draft excludes items (already extracted above)
   const remainingPool: readonly [readonly CardDefinitionId[], readonly CardDefinitionId[]] = [
-    draftState[0].pool,
-    draftState[1].pool,
+    draftState[0].pool.filter(id => !isItemCard(state.cardPool[id as string])),
+    draftState[1].pool.filter(id => !isItemCard(state.cardPool[id as string])),
   ];
   const itemDraftState: readonly [ItemDraftPlayerState, ItemDraftPlayerState] = [
     { unassignedItems: results[0].unassignedItems, done: results[0].unassignedItems.length === 0 },
