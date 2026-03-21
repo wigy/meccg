@@ -735,10 +735,7 @@ h2 {
 .hand-card-dimmed {
   filter: brightness(0.4);
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.7) !important;
-}
-
-.hand-card-dimmed:hover {
-  filter: none;
+  cursor: default;
 }
 
 .hand-card-playable:hover {
