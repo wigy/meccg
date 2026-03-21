@@ -5,7 +5,7 @@
  * action buttons, draft info, and a message log.
  */
 
-import type { PlayerView, GameAction, CardDefinition, CardDefinitionId, CardInstanceId } from '@meccg/shared';
+import type { PlayerView, GameAction, CardDefinition, CardDefinitionId, CardInstanceId, CharacterInPlay } from '@meccg/shared';
 import { describeAction, formatPlayerView, formatCardList, cardImageProxyPath, isCharacterCard, GENERAL_INFLUENCE } from '@meccg/shared';
 
 /**
@@ -443,12 +443,72 @@ function renderCardRow(el: HTMLElement, defIds: readonly CardDefinitionId[], car
   }
 }
 
+/** Render company characters with their items displayed to the right of each character. */
+function renderCharactersWithItems(
+  el: HTMLElement,
+  charInstIds: readonly { toString(): string }[],
+  view: PlayerView,
+  characters: Readonly<Record<string, CharacterInPlay>>,
+  cardPool: Readonly<Record<string, CardDefinition>>,
+): void {
+  for (const charInstId of charInstIds) {
+    const defId = view.visibleInstances[charInstId as string];
+    if (!defId) continue;
+    const def = cardPool[defId as string];
+    if (!def) continue;
+    const imgPath = cardImageProxyPath(def);
+    if (!imgPath) continue;
+
+    const char = characters[charInstId as string];
+    const hasItems = char && char.items.length > 0;
+
+    if (!hasItems) {
+      const img = document.createElement('img');
+      img.src = imgPath;
+      img.alt = def.name;
+      img.className = 'drafted-card';
+      el.appendChild(img);
+      continue;
+    }
+
+    const group = document.createElement('div');
+    group.className = 'drafted-card-group';
+    const img = document.createElement('img');
+    img.src = imgPath;
+    img.alt = def.name;
+    img.className = 'drafted-card';
+    group.appendChild(img);
+    appendItemCards(group, char, cardPool);
+    el.appendChild(group);
+  }
+}
+
+/** Render item cards to the right of a character card inside a group container. */
+function appendItemCards(
+  container: HTMLElement,
+  char: CharacterInPlay,
+  cardPool: Readonly<Record<string, CardDefinition>>,
+): void {
+  for (const item of char.items) {
+    const itemDef = cardPool[item.definitionId as string];
+    if (!itemDef) continue;
+    const itemImg = cardImageProxyPath(itemDef);
+    if (!itemImg) continue;
+    const img = document.createElement('img');
+    img.src = itemImg;
+    img.alt = itemDef.name;
+    img.className = 'drafted-card drafted-item';
+    container.appendChild(img);
+  }
+}
+
 /** Render selected sites followed by a spacer and company characters on the table. */
 function renderSitesAndCharacters(
   el: HTMLElement,
   siteInstIds: readonly CardInstanceId[],
   charInstIds: readonly CardInstanceId[],
   view: PlayerView,
+  characters: Readonly<Record<string, CharacterInPlay>>,
   cardPool: Readonly<Record<string, CardDefinition>>,
 ): void {
   const siteDefIds = siteInstIds
@@ -456,13 +516,12 @@ function renderSitesAndCharacters(
     .filter((id): id is CardDefinitionId => id !== undefined);
   renderCardRow(el, siteDefIds, cardPool);
 
-  const charDefIds = companyCharDefIds(view, charInstIds);
-  if (siteDefIds.length > 0 && charDefIds.length > 0) {
+  if (siteDefIds.length > 0 && charInstIds.length > 0) {
     const spacer = document.createElement('div');
     spacer.className = 'drafted-spacer';
     el.appendChild(spacer);
   }
-  renderCardRow(el, charDefIds, cardPool);
+  renderCharactersWithItems(el, charInstIds, view, characters, cardPool);
 }
 
 /**
@@ -494,6 +553,12 @@ function renderItemDraftTargets(
       ) ?? null
       : null;
 
+    const char = view.self.characters[charIdStr];
+    const hasItems = char && char.items.length > 0;
+
+    const group = hasItems ? document.createElement('div') : null;
+    if (group) group.className = 'drafted-card-group';
+
     const img = document.createElement('img');
     img.src = imgPath;
     img.alt = def.name;
@@ -518,17 +583,17 @@ function renderItemDraftTargets(
         }
       });
     }
-    el.appendChild(img);
+
+    if (group && char) {
+      group.appendChild(img);
+      appendItemCards(group, char, cardPool);
+      el.appendChild(group);
+    } else {
+      el.appendChild(img);
+    }
   }
 }
 
-
-/** Get character definition IDs from a company via visibleInstances. */
-function companyCharDefIds(view: PlayerView, charInstanceIds: readonly { toString(): string }[]): CardDefinitionId[] {
-  return charInstanceIds
-    .map(id => view.visibleInstances[id as string])
-    .filter((id): id is CardDefinitionId => id !== undefined);
-}
 
 /** Render characters on the visual board during setup phases. */
 export function renderDrafted(
@@ -632,17 +697,17 @@ export function renderDrafted(
     renderItemDraftTargets(selfEl, view, selfCharIds, cardPool, onAction);
 
     const oppCharIds = view.opponent.companies.flatMap(c => c.characters);
-    renderCardRow(oppEl, companyCharDefIds(view, oppCharIds), cardPool);
+    renderCharactersWithItems(oppEl, oppCharIds, view, view.opponent.characters, cardPool);
     return;
   }
 
   // During character-deck-draft, show company characters on the table
   if (step === 'character-deck-draft') {
     const selfCharIds = view.self.companies.flatMap(c => c.characters);
-    renderCardRow(selfEl, companyCharDefIds(view, selfCharIds), cardPool);
+    renderCharactersWithItems(selfEl, selfCharIds, view, view.self.characters, cardPool);
 
     const oppCharIds = view.opponent.companies.flatMap(c => c.characters);
-    renderCardRow(oppEl, companyCharDefIds(view, oppCharIds), cardPool);
+    renderCharactersWithItems(oppEl, oppCharIds, view, view.opponent.characters, cardPool);
   }
 
   // During site selection, show selected sites then a gap then company characters
@@ -655,9 +720,9 @@ export function renderDrafted(
     const oppIdx = 1 - selfIdx;
 
     const selfChars = view.self.companies.flatMap(c => c.characters);
-    renderSitesAndCharacters(selfEl, siteState[selfIdx].selectedSites, selfChars, view, cardPool);
+    renderSitesAndCharacters(selfEl, siteState[selfIdx].selectedSites, selfChars, view, view.self.characters, cardPool);
     const oppChars = view.opponent.companies.flatMap(c => c.characters);
-    renderSitesAndCharacters(oppEl, siteState[oppIdx].selectedSites, oppChars, view, cardPool);
+    renderSitesAndCharacters(oppEl, siteState[oppIdx].selectedSites, oppChars, view, view.opponent.characters, cardPool);
   }
 }
 

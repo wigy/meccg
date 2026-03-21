@@ -314,6 +314,12 @@ h2 {
   filter: none;
 }
 
+.drafted-card-group {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.3rem;
+}
+
 .drafted-card {
   --hover-scale: var(--card-table-zoom);
   height: var(--card-table-height);
@@ -321,6 +327,10 @@ h2 {
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.7);
   transition: transform 0.2s ease;
   cursor: pointer;
+}
+
+.drafted-item {
+  height: calc(var(--card-table-height) * 0.75);
 }
 
 .mind-total {
