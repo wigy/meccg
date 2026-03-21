@@ -31,6 +31,7 @@ function reRenderItemDraft(): void {
   renderDrafted(view, cardPool, onAction);
 }
 
+
 /**
  * Create an absolutely-positioned clone of a card and fly it toward a target element.
  * The clone lives outside the hand arc so server state updates can't destroy it mid-flight.
@@ -308,6 +309,10 @@ function getHandCards(view: PlayerView): CardDefinitionId[] {
       .map(a => view.visibleInstances[a.siteInstanceId as string])
       .filter((id): id is CardDefinitionId => id !== undefined);
   }
+  // During character placement, no hand cards
+  if (view.phaseState.phase === 'setup' && view.phaseState.setupStep.step === 'character-placement') {
+    return [];
+  }
   return view.self.hand.map(c => c.definitionId);
 }
 
@@ -422,6 +427,7 @@ export function renderPassButton(view: PlayerView, onAction: (action: GameAction
     if (step === 'item-draft') label = 'Skip Items';
     else if (step === 'character-deck-draft') label = 'Done';
     else if (step === 'starting-site-selection') label = 'Continue';
+    else if (step === 'character-placement') label = 'Done';
     else label = 'Pass';
   }
 
@@ -501,6 +507,101 @@ function appendItemCards(
     img.alt = itemDef.name;
     img.className = 'drafted-card drafted-item';
     container.appendChild(img);
+  }
+}
+
+/** Render companies with their sites, characters, and items on the table. */
+function renderCompanies(
+  el: HTMLElement,
+  companies: readonly { characters: readonly CardInstanceId[]; currentSite: CardInstanceId | null }[],
+  view: PlayerView,
+  characters: Readonly<Record<string, CharacterInPlay>>,
+  cardPool: Readonly<Record<string, CardDefinition>>,
+): void {
+  for (let i = 0; i < companies.length; i++) {
+    const company = companies[i];
+    const siteIds = company.currentSite ? [company.currentSite] : [];
+    if (i > 0 && (siteIds.length > 0 || company.characters.length > 0)) {
+      const spacer = document.createElement('div');
+      spacer.className = 'drafted-spacer';
+      el.appendChild(spacer);
+    }
+    renderSitesAndCharacters(el, siteIds, company.characters, view, characters, cardPool);
+  }
+}
+
+/**
+ * Render self companies during character placement with clickable characters.
+ * Each character with a place-character action gets a golden highlight and
+ * clicking it directly moves the character to the other company.
+ */
+function renderPlacementCompanies(
+  el: HTMLElement,
+  view: PlayerView,
+  cardPool: Readonly<Record<string, CardDefinition>>,
+  onAction: (action: GameAction) => void,
+): void {
+  for (let i = 0; i < view.self.companies.length; i++) {
+    const company = view.self.companies[i];
+    if (i > 0) {
+      const spacer = document.createElement('div');
+      spacer.className = 'drafted-spacer';
+      el.appendChild(spacer);
+    }
+
+    // Render site card
+    if (company.currentSite) {
+      const siteDefId = view.visibleInstances[company.currentSite as string];
+      if (siteDefId) renderCardRow(el, [siteDefId], cardPool);
+    }
+
+    // Render characters — clickable to move to the other company
+    for (const charInstId of company.characters) {
+      const defId = view.visibleInstances[charInstId as string];
+      if (!defId) continue;
+      const def = cardPool[defId as string];
+      if (!def) continue;
+      const imgPath = cardImageProxyPath(def);
+      if (!imgPath) continue;
+
+      const placeAction = view.legalActions.find(
+        a => a.type === 'place-character' && a.characterInstanceId === charInstId,
+      ) ?? null;
+      const char = view.self.characters[charInstId as string];
+      const hasItems = char && char.items.length > 0;
+
+      const group = hasItems ? document.createElement('div') : null;
+      if (group) group.className = 'drafted-card-group';
+
+      const img = document.createElement('img');
+      img.src = imgPath;
+      img.alt = def.name;
+      img.className = placeAction
+        ? 'drafted-card drafted-card-selectable'
+        : 'drafted-card';
+
+      if (placeAction) {
+        img.style.cursor = 'pointer';
+        // Determine slide direction: right if target company is to the right, left otherwise
+        const targetIdx = view.self.companies.findIndex(
+          c => (c.id as string) === ((placeAction as GameAction & { companyId: unknown }).companyId as string),
+        );
+        const slideRight = targetIdx > i;
+        const animEl = group ?? img;
+        img.addEventListener('click', () => {
+          animEl.classList.add(slideRight ? 'placement-slide-right' : 'placement-slide-left');
+          animEl.addEventListener('animationend', () => onAction(placeAction), { once: true });
+        });
+      }
+
+      if (group && char) {
+        group.appendChild(img);
+        appendItemCards(group, char, cardPool);
+        el.appendChild(group);
+      } else {
+        el.appendChild(img);
+      }
+    }
   }
 }
 
@@ -726,6 +827,16 @@ export function renderDrafted(
     const oppChars = view.opponent.companies.flatMap(c => c.characters);
     renderSitesAndCharacters(oppEl, siteState[oppIdx].selectedSites, oppChars, view, view.opponent.characters, cardPool);
   }
+
+  // During character placement, show companies with clickable characters
+  if (step === 'character-placement') {
+    if (view.self.companies.length > 1 && onAction) {
+      renderPlacementCompanies(selfEl, view, cardPool, onAction);
+    } else {
+      renderCompanies(selfEl, view.self.companies, view, view.self.characters, cardPool);
+    }
+    renderCompanies(oppEl, view.opponent.companies, view, view.opponent.characters, cardPool);
+  }
 }
 
 /** Render the player's hand (or draft pool) as an arc of card images in the visual view. */
@@ -816,6 +927,10 @@ function getOpponentCards(view: PlayerView): { cards: CardDefinitionId[]; hidden
       pool.length > 0 && (pool[0] as string) !== 'unknown-card';
     const oppIdx = hasRealCards(draft.draftState[0].pool) ? 1 : 0;
     return { cards: [...draft.draftState[oppIdx].pool], hidden: true };
+  }
+  // During character placement, no hand cards for either player
+  if (view.phaseState.phase === 'setup' && view.phaseState.setupStep.step === 'character-placement') {
+    return { cards: [], hidden: true };
   }
   // Outside draft, show card backs for each card in opponent's hand
   const count = view.opponent.handSize;

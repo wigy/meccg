@@ -19,6 +19,11 @@
   --card-table-height: 22vh;
   --card-zoom: 2;
   --card-table-zoom: 2.55;
+
+  /* Interactive highlight colors: golden → green → blue */
+  --color-selectable: 255, 215, 100;   /* golden — first available click */
+  --color-selected: 100, 255, 120;     /* green — after click / selected */
+  --color-target: 100, 200, 255;       /* blue — second target / argument */
 }
 
 * {
@@ -363,10 +368,26 @@ h2 {
   flex-shrink: 0;
 }
 
+.placement-slide-right {
+  animation: slide-right 1s ease-in forwards;
+}
+
+.placement-slide-left {
+  animation: slide-left 1s ease-in forwards;
+}
+
+@keyframes slide-right {
+  to { transform: translateX(200rem); opacity: 0; }
+}
+
+@keyframes slide-left {
+  to { transform: translateX(-200rem); opacity: 0; }
+}
+
 .drafted-card-facedown {
   opacity: 0.8;
   box-shadow:
-    0 0 10px rgba(255, 215, 100, 0.6),
+    0 0 10px rgba(var(--color-selectable), 0.6),
     0 4px 16px rgba(0, 0, 0, 0.7);
 }
 
@@ -522,8 +543,8 @@ h2 {
   height: var(--card-height);
   border-radius: 8px;
   box-shadow:
-    0 0 12px rgba(255, 215, 100, 1),
-    0 0 30px rgba(255, 215, 100, 0.7),
+    0 0 12px rgba(var(--color-selectable), 1),
+    0 0 30px rgba(var(--color-selectable), 0.7),
     0 4px 16px rgba(0, 0, 0, 0.7);
   margin: 0 var(--card-margin, -2.5vh);
   transform-origin: bottom center;
@@ -571,8 +592,8 @@ h2 {
   transform: rotate(0deg) translateY(-8vh) scale(var(--card-zoom));
   z-index: 20;
   box-shadow:
-    0 0 16px rgba(255, 215, 100, 1),
-    0 0 40px rgba(255, 215, 100, 0.7),
+    0 0 16px rgba(var(--color-selectable), 1),
+    0 0 40px rgba(var(--color-selectable), 0.7),
     0 8px 32px rgba(0, 0, 0, 0.9);
 }
 
@@ -584,14 +605,14 @@ h2 {
 @keyframes item-glow-in {
   from {
     box-shadow:
-      0 0 12px rgba(255, 215, 100, 1),
-      0 0 30px rgba(255, 215, 100, 0.7),
+      0 0 12px rgba(var(--color-selectable), 1),
+      0 0 30px rgba(var(--color-selectable), 0.7),
       0 4px 16px rgba(0, 0, 0, 0.7);
   }
   to {
     box-shadow:
-      0 0 16px rgba(100, 200, 255, 1),
-      0 0 40px rgba(100, 200, 255, 0.7),
+      0 0 16px rgba(var(--color-selected), 1),
+      0 0 40px rgba(var(--color-selected), 0.7),
       0 4px 16px rgba(0, 0, 0, 0.7);
   }
 }
@@ -600,8 +621,8 @@ h2 {
   transform: rotate(0deg) translateY(-8vh) scale(var(--card-zoom));
   z-index: 20;
   box-shadow:
-    0 0 16px rgba(100, 200, 255, 1),
-    0 0 40px rgba(100, 200, 255, 0.7),
+    0 0 16px rgba(var(--color-selected), 1),
+    0 0 40px rgba(var(--color-selected), 0.7),
     0 8px 32px rgba(0, 0, 0, 0.9);
 }
 
@@ -616,8 +637,8 @@ h2 {
   }
   to {
     box-shadow:
-      0 0 16px rgba(100, 255, 120, 1),
-      0 0 40px rgba(100, 255, 120, 0.6),
+      0 0 16px rgba(var(--color-target), 1),
+      0 0 40px rgba(var(--color-target), 0.6),
       0 4px 16px rgba(0, 0, 0, 0.7);
   }
 }
@@ -627,8 +648,35 @@ h2 {
   transform-origin: center bottom;
   z-index: 100;
   box-shadow:
-    0 0 24px rgba(100, 255, 120, 1),
-    0 0 60px rgba(100, 255, 120, 0.8),
+    0 0 24px rgba(var(--color-target), 1),
+    0 0 60px rgba(var(--color-target), 0.8),
+    0 8px 32px rgba(0, 0, 0, 0.9);
+}
+
+.drafted-card-selectable {
+  animation: selectable-glow-in 0.5s ease-out forwards;
+  cursor: pointer;
+}
+
+@keyframes selectable-glow-in {
+  from {
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.7);
+  }
+  to {
+    box-shadow:
+      0 0 16px rgba(var(--color-selectable), 1),
+      0 0 40px rgba(var(--color-selectable), 0.6),
+      0 4px 16px rgba(0, 0, 0, 0.7);
+  }
+}
+
+#drafted-self .drafted-card-selectable:hover {
+  transform: scale(var(--hover-scale, var(--card-zoom)));
+  transform-origin: center bottom;
+  z-index: 100;
+  box-shadow:
+    0 0 24px rgba(var(--color-selectable), 1),
+    0 0 60px rgba(var(--color-selectable), 0.8),
     0 8px 32px rgba(0, 0, 0, 0.9);
 }
 
