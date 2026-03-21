@@ -121,6 +121,8 @@ export interface OpponentView {
   readonly handSize: number;
   /** Number of cards in the opponent's play deck (contents hidden). */
   readonly playDeckSize: number;
+  /** Number of cards in the opponent's site deck (contents hidden). */
+  readonly siteDeckSize: number;
   /** The opponent's face-up discard pile (public information). */
   readonly discardPile: readonly RevealedCard[];
   /** The opponent's face-up site discard pile (public information). */

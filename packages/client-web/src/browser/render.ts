@@ -342,7 +342,7 @@ export function renderPlayerNames(view: PlayerView): void {
  * The number of visible cards scales proportionally with deck size,
  * capped at a maximum stack height to avoid visual clutter.
  */
-function fillDeckPile(el: HTMLElement, deckSize: number): void {
+function fillDeckPile(el: HTMLElement, deckSize: number, backImage = '/images/card-back.jpg'): void {
   el.innerHTML = '';
   if (deckSize === 0) return;
 
@@ -354,7 +354,7 @@ function fillDeckPile(el: HTMLElement, deckSize: number): void {
 
   for (let i = 0; i < layers; i++) {
     const img = document.createElement('img');
-    img.src = '/images/card-back.jpg';
+    img.src = backImage;
     img.alt = `Deck (${deckSize})`;
     img.className = 'deck-pile-card';
     if (i === 0) {
@@ -379,13 +379,19 @@ function fillDeckPile(el: HTMLElement, deckSize: number): void {
   el.appendChild(wrapper);
 }
 
-/** Render both players' draw deck piles. */
+/** Render both players' draw deck and site deck piles. */
 export function renderDeckPiles(view: PlayerView): void {
   const selfEl = document.getElementById('self-deck-pile');
   if (selfEl) fillDeckPile(selfEl, view.self.playDeckSize);
 
   const oppEl = document.getElementById('opponent-deck-pile');
   if (oppEl) fillDeckPile(oppEl, view.opponent.playDeckSize);
+
+  const selfSiteEl = document.getElementById('self-site-pile');
+  if (selfSiteEl) fillDeckPile(selfSiteEl, view.self.siteDeck.length, '/images/site-back.jpg');
+
+  const oppSiteEl = document.getElementById('opponent-site-pile');
+  if (oppSiteEl) fillDeckPile(oppSiteEl, view.opponent.siteDeckSize, '/images/site-back.jpg');
 }
 
 /** Find which draft state index belongs to self (has real card IDs, not unknown-card). */

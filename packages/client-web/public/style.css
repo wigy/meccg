@@ -464,7 +464,7 @@ h2 {
   top: 1rem;
 }
 
-#self-deck-pile, #opponent-deck-pile {
+#self-deck-pile, #opponent-deck-pile, #self-site-pile, #opponent-site-pile {
   position: fixed;
   left: 1.5rem;
   z-index: 10;
@@ -475,11 +475,21 @@ h2 {
   bottom: 4rem;
 }
 
+#self-site-pile {
+  left: 6.5rem;
+  bottom: 4rem;
+}
+
 #opponent-deck-pile {
   top: 4rem;
 }
 
-#self-deck-pile:empty, #opponent-deck-pile:empty {
+#opponent-site-pile {
+  left: 6.5rem;
+  top: 4rem;
+}
+
+#self-deck-pile:empty, #opponent-deck-pile:empty, #self-site-pile:empty, #opponent-site-pile:empty {
   display: none;
 }
 
@@ -501,8 +511,8 @@ h2 {
   z-index: 1;
   font-family: 'MedievalSharp', cursive;
   font-size: 0.85rem;
-  color: rgba(220, 200, 140, 0.9);
-  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8);
+  color: rgba(240, 220, 80, 1);
+  text-shadow: 0 0 4px rgba(0, 0, 0, 1), 0 0 8px rgba(0, 0, 0, 0.9), 0 1px 2px rgba(0, 0, 0, 1);
   white-space: nowrap;
 }
 

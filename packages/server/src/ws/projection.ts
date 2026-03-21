@@ -95,6 +95,7 @@ function buildOpponentView(player: PlayerState): OpponentView {
     wizard: player.wizard,
     handSize: player.hand.length,
     playDeckSize: player.playDeck.length,
+    siteDeckSize: player.siteDeck.length,
     discardPile: [],  // TODO: discard pile is public
     siteDiscardPile: [],
     companies,
