@@ -128,11 +128,10 @@ export function createGame(
   const minter = createMinter('i');
   let rng: RngState = createRng(config.seed);
 
-  const players = config.players.map((pc) => {
-    let playerState: PlayerState;
-    [playerState, rng] = initPlayerPreDraft(pc, cardPool, minter, rng);
-    return playerState;
-  }) as unknown as readonly [PlayerState, PlayerState];
+  const [p0, rng0] = initPlayerPreDraft(config.players[0], cardPool, minter, rng);
+  const [p1, rng1] = initPlayerPreDraft(config.players[1], cardPool, minter, rng0);
+  rng = rng1;
+  const players: readonly [PlayerState, PlayerState] = [p0, p1];
 
   const draftState: [DraftPlayerState, DraftPlayerState] = [
     { pool: [...config.players[0].draftPool], drafted: [], currentPick: null, stopped: false },
@@ -301,7 +300,7 @@ export function applyDraftResults(
     };
   });
 
-  const newPlayers = [results[0].player, results[1].player] as unknown as readonly [PlayerState, PlayerState];
+  const newPlayers: readonly [PlayerState, PlayerState] = [results[0].player, results[1].player];
   // Remaining pool for character deck draft: undrafted characters + set-aside characters
   // (items are excluded — already extracted above)
   const remainingPool: readonly [readonly CardDefinitionId[], readonly CardDefinitionId[]] = [
@@ -426,11 +425,10 @@ export function createGameQuickStart(
   const minter = createMinter('i');
   let rng: RngState = createRng(config.seed);
 
-  const players = config.players.map((pc) => {
-    let playerState: PlayerState;
-    [playerState, rng] = initPlayerWithCharacters(pc, cardPool, minter, rng);
-    return playerState;
-  }) as unknown as readonly [PlayerState, PlayerState];
+  const [qp0, qrng0] = initPlayerWithCharacters(config.players[0], cardPool, minter, rng);
+  const [qp1, qrng1] = initPlayerWithCharacters(config.players[1], cardPool, minter, qrng0);
+  rng = qrng1;
+  const players: readonly [PlayerState, PlayerState] = [qp0, qp1];
 
   const gameId = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
 
