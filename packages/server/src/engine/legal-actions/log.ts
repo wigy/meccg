@@ -33,7 +33,7 @@ function formatAction(action: Record<string, unknown>): string {
   const { type, player: _player, ...args } = action;
   const argKeys = Object.keys(args);
   if (argKeys.length === 0) return type as string;
-  const argStr = argKeys.map(k => `${k}: ${args[k]}`).join(', ');
+  const argStr = argKeys.map(k => `${k}: ${String(args[k])}`).join(', ');
   return `${type as string} {${argStr}}`;
 }
 
