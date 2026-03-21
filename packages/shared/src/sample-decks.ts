@@ -30,7 +30,7 @@ import {
   // Minion sites
   DOL_GULDUR, MINAS_MORGUL, ETTENMOORS, THE_WHITE_TOWERS_MINION, WEATHERTOP,
   // Fallen-wizard resources
-  HIDDEN_HAVEN,
+  HIDDEN_HAVEN, THRALL_OF_THE_VOICE,
   // Fallen-wizard sites
   THE_WHITE_TOWERS, ETTENMOORS_HERO, THE_WHITE_TOWERS_HERO,
   // Balrog characters
@@ -71,7 +71,8 @@ const heroDeck: SampleDeck = {
       name: playerName,
       alignment: Alignment.Wizard,
       draftPool: [ARAGORN, BILBO, FRODO, SAM_GAMGEE, ELROND, CELEBORN, THEODEN,
-        EOWYN, BEREGOND, ANBORN, DAGGER_OF_WESTERNESSE, HORN_OF_ANOR],
+        EOWYN, BEREGOND, ANBORN, DAGGER_OF_WESTERNESSE, HORN_OF_ANOR,
+        THRALL_OF_THE_VOICE, STING],
       playDeck: [...characters, ...repeatCards([...resources, ...hazards], 5)],
       siteDeck: [RIVENDELL, LORIEN, MORIA, MINAS_TIRITH, MOUNT_DOOM],
       startingHavens: [RIVENDELL],
@@ -90,7 +91,7 @@ const minionDeck: SampleDeck = {
       name: playerName,
       alignment: Alignment.Ringwraith,
       draftPool: [THE_MOUTH, LIEUTENANT_OF_DOL_GULDUR, GORBAG, SHAGRAT, PERCHEN, MIONID,
-        SAW_TOOTHED_BLADE, ORC_DRAUGHTS],
+        SAW_TOOTHED_BLADE, ORC_DRAUGHTS, THRALL_OF_THE_VOICE, STING],
       playDeck: repeatCards(hazards, 10),
       siteDeck: [DOL_GULDUR, MINAS_MORGUL, ETTENMOORS, THE_WHITE_TOWERS_MINION, WEATHERTOP],
       startingHavens: [DOL_GULDUR],
@@ -109,7 +110,8 @@ const fallenWizardDeck: SampleDeck = {
       type: 'join',
       name: playerName,
       alignment: Alignment.FallenWizard,
-      draftPool: [MIONID, PERCHEN, THEODEN, BEREGOND, ANBORN, HIDDEN_HAVEN],
+      draftPool: [MIONID, PERCHEN, THEODEN, BEREGOND, ANBORN, HIDDEN_HAVEN,
+        THRALL_OF_THE_VOICE, STING],
       playDeck: [...characters, ...repeatCards(hazards, 10)],
       siteDeck: [THE_WHITE_TOWERS, ETTENMOORS_HERO, THE_WHITE_TOWERS_HERO, MORIA, MINAS_TIRITH,
         DOL_GULDUR, MINAS_MORGUL, ETTENMOORS, THE_WHITE_TOWERS_MINION, WEATHERTOP],
@@ -128,7 +130,8 @@ const balrogDeck: SampleDeck = {
       type: 'join',
       name: playerName,
       alignment: Alignment.Balrog,
-      draftPool: [AZOG, BOLG, GORBAG, SHAGRAT, SAW_TOOTHED_BLADE, ORC_DRAUGHTS],
+      draftPool: [AZOG, BOLG, GORBAG, SHAGRAT, SAW_TOOTHED_BLADE, ORC_DRAUGHTS,
+        THRALL_OF_THE_VOICE, STING],
       playDeck: repeatCards(hazards, 10),
       siteDeck: [MORIA_BALROG, THE_UNDER_GATES, DOL_GULDUR, MINAS_MORGUL,
         ETTENMOORS, THE_WHITE_TOWERS_MINION, WEATHERTOP],

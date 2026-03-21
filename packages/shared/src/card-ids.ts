@@ -165,6 +165,9 @@ export const THE_WHITE_TOWERS_MINION = did('le-412');
 /** Hidden Haven — permanent-event, turns a Ruins & Lairs into a Wizardhaven. */
 export const HIDDEN_HAVEN = did('wh-75');
 
+/** Thrall of the Voice — permanent-event, forces a character to follow a fallen-wizard. */
+export const THRALL_OF_THE_VOICE = did('wh-82');
+
 // ---- The White Hand — Fallen-wizard Sites ----
 
 /** The White Towers — fallen-wizard haven in Arthedain. */
