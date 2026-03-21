@@ -167,6 +167,10 @@ function handleSetup(state: GameState, action: GameAction): ReducerResult {
       return handleStartingSiteSelection(state, action, state.phaseState.setupStep);
     case SetupStep.CharacterPlacement:
       return handleCharacterPlacement(state, action, state.phaseState.setupStep);
+    case SetupStep.DeckShuffle:
+      return handleDeckShuffle(state, action, state.phaseState.setupStep);
+    case SetupStep.InitialDraw:
+      return handleInitialDraw(state, action, state.phaseState.setupStep);
     case SetupStep.InitiativeRoll:
       return handleInitiativeRoll(state, action, state.phaseState.setupStep);
     default:
@@ -675,19 +679,21 @@ function finalizeSiteSelection(
     players: newPlayers as unknown as readonly [typeof state.players[0], typeof state.players[1]],
   };
 
-  // Enter character placement step (placement skipped for single-site, but shuffle required)
+  const p1NeedsPlacement = newPlayers[0].companies.length > 1;
+  const p2NeedsPlacement = newPlayers[1].companies.length > 1;
+
+  // Skip character placement entirely if neither player has multiple companies
+  const nextStep = (p1NeedsPlacement || p2NeedsPlacement)
+    ? setupPhase({
+      step: SetupStep.CharacterPlacement,
+      placementDone: [!p1NeedsPlacement, !p2NeedsPlacement],
+    })
+    : setupPhase({ step: SetupStep.DeckShuffle, shuffled: [false, false] });
+
   return {
     ...newState,
     activePlayer: null,
-    phaseState: setupPhase({
-      step: SetupStep.CharacterPlacement,
-      placementDone: [
-        newPlayers[0].companies.length <= 1,
-        newPlayers[1].companies.length <= 1,
-      ],
-      shuffled: [false, false],
-      drawn: [false, false],
-    }),
+    phaseState: nextStep,
     turnNumber: 0,
   };
 }
@@ -726,85 +732,23 @@ function handleCharacterPlacement(
 ): ReducerResult {
   const playerIndex = state.players[0].id === action.player ? 0 : 1;
 
-  if (stepState.drawn[playerIndex]) {
-    return { state, error: 'You have already finished this step' };
-  }
-
-  // Draw initial hand: after shuffle
-  if (action.type === 'draw-cards') {
-    if (!stepState.shuffled[playerIndex]) {
-      return { state, error: 'Shuffle your play deck first' };
-    }
-
-    const player = state.players[playerIndex];
-    const hand = player.playDeck.slice(0, action.count);
-    const playDeck = player.playDeck.slice(action.count);
-
-    const newPlayers = [...state.players] as unknown as [typeof state.players[0], typeof state.players[1]];
-    newPlayers[playerIndex] = { ...player, hand, playDeck };
-
-    const newDrawn = [...stepState.drawn] as [boolean, boolean];
-    newDrawn[playerIndex] = true;
-
-    // Both drawn → initiative roll
-    if (newDrawn[0] && newDrawn[1]) {
-      return {
-        state: {
-          ...cleanupEmptyCompanies({
-            ...state,
-            players: newPlayers as unknown as readonly [typeof state.players[0], typeof state.players[1]],
-          }),
-          phaseState: setupPhase({
-            step: SetupStep.InitiativeRoll,
-            rolls: [null, null],
-          }),
-        },
-      };
-    }
-
-    return {
-      state: {
-        ...state,
-        players: newPlayers as unknown as readonly [typeof state.players[0], typeof state.players[1]],
-        phaseState: setupPhase({ ...stepState, drawn: newDrawn }),
-      },
-    };
-  }
-
-  // Shuffle: after placement is done
-  if (action.type === 'shuffle-play-deck') {
-    if (!stepState.placementDone[playerIndex]) {
-      return { state, error: 'Finish placing characters before shuffling' };
-    }
-
-    const player = state.players[playerIndex];
-    let rng = state.rng;
-    const [shuffled, nextRng] = shuffle([...player.playDeck], rng);
-    rng = nextRng;
-
-    const newPlayers = [...state.players] as unknown as [typeof state.players[0], typeof state.players[1]];
-    newPlayers[playerIndex] = { ...player, playDeck: shuffled };
-
-    const newShuffled = [...stepState.shuffled] as [boolean, boolean];
-    newShuffled[playerIndex] = true;
-
-    return {
-      state: {
-        ...state,
-        players: newPlayers as unknown as readonly [typeof state.players[0], typeof state.players[1]],
-        phaseState: setupPhase({ ...stepState, shuffled: newShuffled }),
-        rng,
-      },
-    };
-  }
-
   if (stepState.placementDone[playerIndex]) {
-    return { state, error: 'You must shuffle your play deck' };
+    return { state, error: 'You have already finished placement' };
   }
 
   if (action.type === 'pass') {
     const newDone = [...stepState.placementDone] as [boolean, boolean];
     newDone[playerIndex] = true;
+
+    // Both done → advance to deck shuffle
+    if (newDone[0] && newDone[1]) {
+      return {
+        state: {
+          ...state,
+          phaseState: setupPhase({ step: SetupStep.DeckShuffle, shuffled: [false, false] }),
+        },
+      };
+    }
 
     return {
       state: {
@@ -850,6 +794,106 @@ function handleCharacterPlacement(
     state: {
       ...state,
       players: newPlayers as unknown as readonly [typeof state.players[0], typeof state.players[1]],
+    },
+  };
+}
+
+/** Handles the deck shuffle step. Both players shuffle their play decks. */
+function handleDeckShuffle(
+  state: GameState,
+  action: GameAction,
+  stepState: SetupStepState & { step: SetupStep.DeckShuffle },
+): ReducerResult {
+  const playerIndex = state.players[0].id === action.player ? 0 : 1;
+
+  if (stepState.shuffled[playerIndex]) {
+    return { state, error: 'You have already shuffled' };
+  }
+
+  if (action.type !== 'shuffle-play-deck') {
+    return { state, error: `Unexpected action in deck shuffle: ${action.type}` };
+  }
+
+  const player = state.players[playerIndex];
+  let rng = state.rng;
+  const [shuffled, nextRng] = shuffle([...player.playDeck], rng);
+  rng = nextRng;
+
+  const newPlayers = [...state.players] as unknown as [typeof state.players[0], typeof state.players[1]];
+  newPlayers[playerIndex] = { ...player, playDeck: shuffled };
+
+  const newShuffled = [...stepState.shuffled] as [boolean, boolean];
+  newShuffled[playerIndex] = true;
+
+  // Both shuffled → advance to initial draw
+  if (newShuffled[0] && newShuffled[1]) {
+    return {
+      state: {
+        ...state,
+        players: newPlayers as unknown as readonly [typeof state.players[0], typeof state.players[1]],
+        phaseState: setupPhase({ step: SetupStep.InitialDraw, drawn: [false, false] }),
+        rng,
+      },
+    };
+  }
+
+  return {
+    state: {
+      ...state,
+      players: newPlayers as unknown as readonly [typeof state.players[0], typeof state.players[1]],
+      phaseState: setupPhase({ ...stepState, shuffled: newShuffled }),
+      rng,
+    },
+  };
+}
+
+/** Handles the initial draw step. Both players draw their starting hand. */
+function handleInitialDraw(
+  state: GameState,
+  action: GameAction,
+  stepState: SetupStepState & { step: SetupStep.InitialDraw },
+): ReducerResult {
+  const playerIndex = state.players[0].id === action.player ? 0 : 1;
+
+  if (stepState.drawn[playerIndex]) {
+    return { state, error: 'You have already drawn' };
+  }
+
+  if (action.type !== 'draw-cards') {
+    return { state, error: `Unexpected action in initial draw: ${action.type}` };
+  }
+
+  const player = state.players[playerIndex];
+  const hand = player.playDeck.slice(0, action.count);
+  const playDeck = player.playDeck.slice(action.count);
+
+  const newPlayers = [...state.players] as unknown as [typeof state.players[0], typeof state.players[1]];
+  newPlayers[playerIndex] = { ...player, hand, playDeck };
+
+  const newDrawn = [...stepState.drawn] as [boolean, boolean];
+  newDrawn[playerIndex] = true;
+
+  // Both drawn → initiative roll
+  if (newDrawn[0] && newDrawn[1]) {
+    return {
+      state: {
+        ...cleanupEmptyCompanies({
+          ...state,
+          players: newPlayers as unknown as readonly [typeof state.players[0], typeof state.players[1]],
+        }),
+        phaseState: setupPhase({
+          step: SetupStep.InitiativeRoll,
+          rolls: [null, null],
+        }),
+      },
+    };
+  }
+
+  return {
+    state: {
+      ...state,
+      players: newPlayers as unknown as readonly [typeof state.players[0], typeof state.players[1]],
+      phaseState: setupPhase({ ...stepState, drawn: newDrawn }),
     },
   };
 }

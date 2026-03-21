@@ -317,6 +317,10 @@ export enum SetupStep {
   StartingSiteSelection = 'starting-site-selection',
   /** Players assign characters to starting companies (only when 2 sites selected). */
   CharacterPlacement = 'character-placement',
+  /** Both players shuffle their play decks. */
+  DeckShuffle = 'deck-shuffle',
+  /** Both players draw their initial hand. */
+  InitialDraw = 'initial-draw',
   /** Players roll 2d6 to determine who goes first. Reroll on tie. */
   InitiativeRoll = 'initiative-roll',
 }
@@ -408,8 +412,14 @@ export type SetupStepState =
       readonly step: SetupStep.CharacterPlacement;
       /** Whether each player has finished placing characters. */
       readonly placementDone: readonly [boolean, boolean];
+    }
+  | {
+      readonly step: SetupStep.DeckShuffle;
       /** Whether each player has shuffled their play deck. */
       readonly shuffled: readonly [boolean, boolean];
+    }
+  | {
+      readonly step: SetupStep.InitialDraw;
       /** Whether each player has drawn their initial hand. */
       readonly drawn: readonly [boolean, boolean];
     }

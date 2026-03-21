@@ -181,7 +181,7 @@ export function runFullSetup(config?: GameConfig): GameState {
     ]);
   }
 
-  // Character placement: pass (if needed), shuffle, draw
+  // Character placement: pass (if needed)
   if (state.phaseState.phase === Phase.Setup && state.phaseState.setupStep.step === 'character-placement') {
     const step = state.phaseState.setupStep;
     if (!step.placementDone[0]) {
@@ -194,9 +194,19 @@ export function runFullSetup(config?: GameConfig): GameState {
       if (result.error) throw new Error(result.error);
       state = result.state;
     }
+  }
+
+  // Deck shuffle
+  if (state.phaseState.phase === Phase.Setup && state.phaseState.setupStep.step === 'deck-shuffle') {
     state = runActions(state, [
       { type: 'shuffle-play-deck', player: PLAYER_1 },
       { type: 'shuffle-play-deck', player: PLAYER_2 },
+    ]);
+  }
+
+  // Initial draw
+  if (state.phaseState.phase === Phase.Setup && state.phaseState.setupStep.step === 'initial-draw') {
+    state = runActions(state, [
       { type: 'draw-cards', player: PLAYER_1, count: 8 },
       { type: 'draw-cards', player: PLAYER_2, count: 8 },
     ]);

@@ -2,12 +2,10 @@
  * @module legal-actions/character-placement
  *
  * Legal actions during the character placement step. Each player assigns
- * their drafted characters to one of their starting companies, then
- * shuffles their play deck.
+ * their drafted characters to one of their starting companies.
  */
 
 import type { GameState, PlayerId, GameAction } from '@meccg/shared';
-import { HAND_SIZE } from '@meccg/shared';
 import { logDetail } from './log.js';
 
 export function characterPlacementActions(state: GameState, playerId: PlayerId): GameAction[] {
@@ -16,21 +14,9 @@ export function characterPlacementActions(state: GameState, playerId: PlayerId):
   const playerIndex = state.players[0].id === playerId ? 0 : 1;
   const stepState = state.phaseState.setupStep;
 
-  if (stepState.drawn[playerIndex]) {
-    logDetail(`Player already drew initial hand`);
-    return [];
-  }
-
-  // After shuffle, draw initial hand
-  if (stepState.shuffled[playerIndex]) {
-    logDetail(`Deck shuffled, must draw initial hand (${HAND_SIZE} cards)`);
-    return [{ type: 'draw-cards', player: playerId, count: HAND_SIZE }];
-  }
-
-  // After placement done, must shuffle
   if (stepState.placementDone[playerIndex]) {
-    logDetail(`Placement done, must shuffle play deck`);
-    return [{ type: 'shuffle-play-deck', player: playerId }];
+    logDetail(`Player already finished placement`);
+    return [];
   }
 
   const player = state.players[playerIndex];

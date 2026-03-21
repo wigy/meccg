@@ -82,6 +82,14 @@ All server-side logic must include detailed logging so that the game's decision-
 - All characters and major items in the current card pool are unique. Hazard creatures, minor items (Dagger of Westernesse, Horn of Anor) are non-unique.
 - Test fixtures (`makePlayDeck` etc.) must respect these limits.
 
+### Debugging with Game Saves
+
+- Game saves are stored in `~/.meccg/saves/` as JSON files containing the full game state.
+- To debug a problem, load the save and inspect `state.phaseState` (current phase/step), `state.players[N]` (player data), and `state.instanceMap` (card instances).
+- Key fields to check: `phaseState.setupStep.step` (which setup step), per-step state (e.g. `siteSelectionState`, `placementDone`), `players[N].siteDeck`, `players[N].hand`, `players[N].companies`.
+- To verify legal actions, trace through the legal action function for the current step with the player's index and state.
+- The server logs detailed decision-making to the console — run with `--debug` to see raw JSON messages and card IDs.
+
 ### Code Documentation Policy
 
 - All modules must have a `@module` JSDoc comment explaining their purpose and how they fit into the architecture.

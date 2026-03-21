@@ -309,8 +309,10 @@ function getHandCards(view: PlayerView): CardDefinitionId[] {
       .map(a => view.visibleInstances[a.siteInstanceId as string])
       .filter((id): id is CardDefinitionId => id !== undefined);
   }
-  // During character placement, no hand cards
-  if (view.phaseState.phase === 'setup' && view.phaseState.setupStep.step === 'character-placement') {
+  // During character placement and deck shuffle, no hand cards
+  if (view.phaseState.phase === 'setup'
+    && (view.phaseState.setupStep.step === 'character-placement'
+      || view.phaseState.setupStep.step === 'deck-shuffle')) {
     return [];
   }
   return view.self.hand.map(c => c.definitionId);
@@ -391,6 +393,10 @@ function getInstructionText(view: PlayerView): string | null {
       }
       case 'character-placement':
         return 'Character Placement — Assign characters to your starting companies.';
+      case 'deck-shuffle':
+        return 'Shuffle — Shuffling play decks.';
+      case 'initial-draw':
+        return 'Draw — Drawing initial hand.';
       case 'initiative-roll':
         return 'Initiative — Roll dice to determine who goes first.';
     }
@@ -841,6 +847,12 @@ export function renderDrafted(
     }
     renderCompanies(oppEl, view.opponent.companies, view, view.opponent.characters, cardPool);
   }
+
+  // During deck shuffle and initial draw, show companies on the table
+  if (step === 'deck-shuffle' || step === 'initial-draw') {
+    renderCompanies(selfEl, view.self.companies, view, view.self.characters, cardPool);
+    renderCompanies(oppEl, view.opponent.companies, view, view.opponent.characters, cardPool);
+  }
 }
 
 /** Render the player's hand (or draft pool) as an arc of card images in the visual view. */
@@ -932,8 +944,10 @@ function getOpponentCards(view: PlayerView): { cards: CardDefinitionId[]; hidden
     const oppIdx = hasRealCards(draft.draftState[0].pool) ? 1 : 0;
     return { cards: [...draft.draftState[oppIdx].pool], hidden: true };
   }
-  // During character placement, no hand cards for either player
-  if (view.phaseState.phase === 'setup' && view.phaseState.setupStep.step === 'character-placement') {
+  // During character placement and deck shuffle, no hand cards for either player
+  if (view.phaseState.phase === 'setup'
+    && (view.phaseState.setupStep.step === 'character-placement'
+      || view.phaseState.setupStep.step === 'deck-shuffle')) {
     return { cards: [], hidden: true };
   }
   // Outside draft, show card backs for each card in opponent's hand

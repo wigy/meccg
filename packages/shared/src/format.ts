@@ -387,6 +387,8 @@ function renderState(input: RenderInput): string {
     'character-deck-draft': 'Select Deck Characters',
     'starting-site-selection': 'Select Starting Sites',
     'character-placement': 'Place Characters',
+    'deck-shuffle': 'Shuffle Deck',
+    'initial-draw': 'Draw Initial Hand',
     'initiative-roll': 'Roll for Initiative',
   };
   const phaseLabel = input.phaseState.phase === 'setup'
