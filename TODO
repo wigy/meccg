@@ -4,25 +4,25 @@ TODO
 FIXES
 -----
 
-Hidden-haven in FW pool. (special case, resources attached to other cards)
-
 FEATS
 -----
 
 Validate cards during the draft even we assume that decks are legal.
-Record complete chain of the states from every game. Add undo. Tell Claude to debug chains when needed.
 
 EPICS
 -----
 
-Untap Phase
 Organization Phase
 Long-event Phase
 Movement/Hazard Phase
 Combat
 Site Phase
 End-of-Turn Phase
+Untap Phase
 Council and End Game
+Setup Minion
+Setup Fw
+Setup Balrog
 Single loadable hero deck in a file.
 Central server.
 Deck format and conversion to the JSON.

@@ -2,5 +2,4 @@
 node_modules/
 dist/
 *.tsbuildinfo
-saves/
 packages/client-web/public/bundle.js
