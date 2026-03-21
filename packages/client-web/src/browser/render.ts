@@ -417,8 +417,10 @@ export function renderPassButton(view: PlayerView, onAction: (action: GameAction
   const btn = document.getElementById('pass-btn') as HTMLButtonElement | null;
   if (!btn) return;
 
-  // Find a pass-like action
-  const passAction = view.legalActions.find(a => a.type === 'pass' || a.type === 'draft-stop');
+  // Find a pass-like or single-step action
+  const passAction = view.legalActions.find(a =>
+    a.type === 'pass' || a.type === 'draft-stop'
+    || a.type === 'shuffle-play-deck' || a.type === 'draw-cards');
   if (!passAction) {
     btn.classList.add('hidden');
     return;
@@ -428,6 +430,10 @@ export function renderPassButton(view: PlayerView, onAction: (action: GameAction
   let label = 'Done';
   if (passAction.type === 'draft-stop') {
     label = 'Done';
+  } else if (passAction.type === 'shuffle-play-deck') {
+    label = 'Shuffle';
+  } else if (passAction.type === 'draw-cards') {
+    label = 'Draw';
   } else if (view.phaseState.phase === 'setup') {
     const step = view.phaseState.setupStep.step;
     if (step === 'item-draft') label = 'Skip Items';
