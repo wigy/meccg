@@ -643,6 +643,13 @@ h2 {
 
 #hand-arc {
   bottom: -10vh;
+  transition: bottom 0.3s ease;
+  pointer-events: auto;
+}
+
+#hand-arc:hover {
+  bottom: 8vh;
+  z-index: 100;
 }
 
 #opponent-arc {
