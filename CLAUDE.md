@@ -90,6 +90,17 @@ All server-side logic must include detailed logging so that the game's decision-
 - To verify legal actions, trace through the legal action function for the current step with the player's index and state.
 - The server logs detailed decision-making to the console — run with `--debug` to see raw JSON messages and card IDs.
 
+### Testing Philosophy
+
+Tests verify the **official CoE rules**, not internal implementation. There are no unit tests — only rules-as-specification tests and card tests.
+
+- **Rules tests** (`packages/server/src/tests/rules/`): Each sentence in the official Council of Elrond rules (source: `docs/coe-rules.txt`) maps to a `test()` or `test.todo()`. Tests set up a valid game state and verify the engine computes correct legal actions.
+- **Card tests** (`packages/server/src/tests/cards/`, nightly): One test per card with special rules/effects. Builds game states that trigger each card's rules and verifies correct legal actions.
+- **Pattern**: Every test follows: build state → call `computeLegalActions()` or `reduce()` → assert on legal actions or resulting state.
+- **`test.todo()`** marks unimplemented rules — a living spec showing what's left to build.
+- **No utility tests**: If internal utilities (condition matcher, formatting) break, the rules tests catch it.
+- See `docs/testing-plan.md` for the full plan.
+
 ### Code Documentation Policy
 
 - All modules must have a `@module` JSDoc comment explaining their purpose and how they fit into the architecture.

@@ -80,35 +80,57 @@ test('[2.II.3.1] non-haven company limited to 7 characters', () => {
 test.todo('[3.I.2] body check: attacker rolls 2d6, if > body character is eliminated');
 ```
 
-## Implementation States
+## Progress Tracker
 
-- **Implemented rules** (Setup, Untap) → real passing `test()` calls
-- **Unimplemented rules** → `test.todo()` serving as a living specification
-- Shows exactly what's left to build at any time via `npm test` output
+| # | File | Rules Section | Pass | Todo | Total | Status |
+|---|------|--------------|------|------|-------|--------|
+| 01 | `01-getting-ready.test.ts` | 1: Deck, draft, sites, hands, influence, initiative | 18 | 2 | 20 | Mostly done |
+| 02 | `02-untap-phase.test.ts` | 2.I: Untap phase | 3 | 4 | 7 | Partial |
+| 03 | `03-organization-phase.test.ts` | 2.II: Characters, companies, items, movement | 0 | 30 | 30 | Not started |
+| 04 | `04-long-event-phase.test.ts` | 2.III: Long events | 0 | 3 | 3 | Not started |
+| 05 | `05-movement-hazard-phase.test.ts` | 2.IV: Movement, hazards, on-guard | 0 | 29 | 29 | Not started |
+| 06 | `06-site-phase.test.ts` | 2.V: Entering sites, playing resources | 0 | 24 | 24 | Not started |
+| 07 | `07-end-of-turn.test.ts` | 2.VI: End of turn | 0 | 3 | 3 | Not started |
+| 08 | `08-combat.test.ts` | 3: Strikes, prowess, body checks, detainment, CvCC | 0 | 45 | 45 | Not started |
+| 09 | `09-agents.test.ts` | 4: Agent actions and reveal | 0 | 15 | 15 | Not started |
+| 10 | `10-events.test.ts` | 5: Short/long/permanent events | 0 | 10 | 10 | Not started |
+| 11 | `11-items-rings.test.ts` | 6: Items, rings, hoard | 0 | 12 | 12 | Not started |
+| 12 | `12-corruption.test.ts` | 7: Corruption checks and cards | 0 | 14 | 14 | Not started |
+| 13 | `13-influence.test.ts` | 8: Influence attempts | 0 | 17 | 17 | Not started |
+| 14 | `14-actions-timing.test.ts` | 9: Actions, conditions, chains | 0 | 16 | 16 | Not started |
+| 15 | `15-ending-game.test.ts` | 10: Free Council, MP tallying, endgame | 0 | 17 | 17 | Not started |
+| | **TOTAL** | | **21** | **241** | **262** | **8% done** |
 
-## Card Tests (Nightly)
+### Card Tests (Nightly)
 
-One test per card that has effects or special rules defined in its card data. Currently 41 cards have effects.
+| File | Cards | Pass | Todo | Status |
+|------|-------|------|------|--------|
+| `tw-characters.test.ts` | 17 cards with effects | 0 | 0 | Not started |
+| `tw-items.test.ts` | 6 cards with effects | 0 | 0 | Not started |
+| `tw-creatures.test.ts` | TBD | 0 | 0 | Not started |
+| `tw-resources.test.ts` | 6 cards with effects | 0 | 0 | Not started |
+| Other sets | TBD | 0 | 0 | Not started |
 
-Each card test:
-1. Builds a game state where the card's rules are triggered
-2. Verifies the engine computes correct legal actions or stat modifications
-3. Tests all conditions/branches in the card's effects
+## Test Pattern
 
-Card tests are tagged for nightly runs (separate vitest config or `describe.concurrent`).
+Each rule becomes a test or test.todo:
 
-## What Gets Deleted
+```typescript
+// [2.II.3.1] Haven companies unlimited size; non-haven companies maximum seven characters.
+test('[2.II.3.1] non-haven company limited to 7 characters', () => {
+  const state = buildState()
+    .atSite(MORIA)                    // non-haven
+    .withCompany(ARAGORN, LEGOLAS, GIMLI, FARAMIR, EOWYN, BEREGOND, BILBO) // 7 chars
+    .inPhase(Phase.Organization)
+    .build();
 
-All 10 existing test files (108 tests):
-- `packages/server/src/tests/init.test.ts`
-- `packages/server/src/tests/legal-actions.test.ts`
-- `packages/server/src/tests/effects-resolver.test.ts`
-- `packages/server/src/tests/effective-stats.test.ts`
-- `packages/server/src/tests/recompute-derived.test.ts`
-- `packages/shared/src/tests/condition-matcher.test.ts`
-- `packages/shared/src/tests/rules-engine.test.ts`
-- `packages/shared/src/tests/format.test.ts`
-- `packages/shared/src/tests/card-images.test.ts`
-- `packages/shared/src/tests/alignment-rules.test.ts`
+  const actions = getLegalActions(state, PLAYER_1);
+  // Should NOT allow adding an 8th character to this company
+  expect(actions.viable).not.toContainEqual(
+    expect.objectContaining({ type: 'play-character', companyId: '...' })
+  );
+});
 
-The `test-helpers.ts` file is kept and enhanced with more flexible game state builders.
+// [3.I.2] Not yet implemented
+test.todo('[3.I.2] body check: attacker rolls 2d6, if > body character is eliminated');
+```
