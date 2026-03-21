@@ -7,6 +7,7 @@
 
 import type { PlayerView, GameAction, EvaluatedAction, CardDefinition, CardDefinitionId, CardInstanceId, CharacterInPlay } from '@meccg/shared';
 import { describeAction, formatPlayerView, formatCardList, cardImageProxyPath, isCharacterCard, GENERAL_INFLUENCE, getAlignmentRules, viableActions, formatSignedNumber } from '@meccg/shared';
+import { $, createCardImage, createFaceDownCard, appendItemCards } from './render-utils.js';
 
 /**
  * Find the non-viable reason for a card by definition ID from the evaluated actions.
@@ -85,12 +86,6 @@ function flyCardTo(source: HTMLElement, target: HTMLElement, onDone: () => void)
   }, { once: true });
 }
 
-/** Get an element by ID, throwing if not found. */
-function $(id: string): HTMLElement {
-  const el = document.getElementById(id);
-  if (!el) throw new Error(`Element #${id} not found`);
-  return el;
-}
 
 /**
  * Maps ANSI SGR color codes to CSS color values.
@@ -614,23 +609,6 @@ export function renderPassButton(view: PlayerView, onAction: (action: GameAction
 }
 
 /** Create an img element for a card with standard attributes. */
-function createCardImage(defId: string, def: CardDefinition, imgPath: string, className = 'drafted-card'): HTMLImageElement {
-  const img = document.createElement('img');
-  img.src = imgPath;
-  img.alt = def.name;
-  img.dataset.cardId = defId;
-  img.className = className;
-  return img;
-}
-
-/** Create a face-down card image (card back). */
-function createFaceDownCard(altText: string): HTMLImageElement {
-  const img = document.createElement('img');
-  img.src = '/images/card-back.jpg';
-  img.alt = altText;
-  img.className = 'drafted-card drafted-card-facedown';
-  return img;
-}
 
 /** Sum the mind values of drafted characters for GI calculation. */
 function sumDraftedMind(drafted: readonly CardDefinitionId[], cardPool: Readonly<Record<string, CardDefinition>>): number {
@@ -684,20 +662,6 @@ function renderCharactersWithItems(
   }
 }
 
-/** Render item cards to the right of a character card inside a group container. */
-function appendItemCards(
-  container: HTMLElement,
-  char: CharacterInPlay,
-  cardPool: Readonly<Record<string, CardDefinition>>,
-): void {
-  for (const item of char.items) {
-    const itemDef = cardPool[item.definitionId as string];
-    if (!itemDef) continue;
-    const itemImg = cardImageProxyPath(itemDef);
-    if (!itemImg) continue;
-    container.appendChild(createCardImage(item.definitionId as string, itemDef, itemImg, 'drafted-card drafted-item'));
-  }
-}
 
 /** Render companies with their sites, characters, and items on the table. */
 function renderCompanies(

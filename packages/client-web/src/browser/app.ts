@@ -9,6 +9,7 @@
 import type { ServerMessage, ClientMessage, GameAction, CardDefinitionId } from '@meccg/shared';
 import { loadCardPool, describeAction, SAMPLE_DECKS } from '@meccg/shared';
 import { renderState, renderDraft, renderActions, renderLog, renderHand, renderOpponentHand, renderPlayerNames, renderInstructions, renderDrafted, renderPassButton, renderDeckPiles, setupCardPreview } from './render.js';
+import { renderCompanyViews } from './company-view.js';
 import { rollDice, clearDice, restoreDice } from './dice.js';
 import { clientLog } from './client-log.js';
 
@@ -72,6 +73,7 @@ function connect(name: string): void {
         renderDrafted(msg.view, cardPool, sendAction);
         renderPassButton(msg.view, sendAction);
         renderDeckPiles(msg.view);
+        renderCompanyViews(msg.view, cardPool, sendAction);
         break;
 
       case 'draft-reveal': {
