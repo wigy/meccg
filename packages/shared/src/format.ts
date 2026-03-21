@@ -358,6 +358,8 @@ interface RenderPlayerInput {
   readonly deckCount: number;
   readonly siteDeckCount: number;
   readonly discardCount: number;
+  /** Number of cards remaining in the draft pool during setup. */
+  readonly poolSize?: number;
   readonly marshallingPoints: MarshallingPointTotals;
   readonly companies: readonly Company[];
   readonly opponentCompanies?: readonly OpponentCompanyView[];
@@ -423,7 +425,8 @@ function renderState(input: RenderInput): string {
     } else {
       lines.push(`  Hand: (empty)`);
     }
-    lines.push(`  Deck: ${player.deckCount} | Sites: ${player.siteDeckCount} | Discard: ${player.discardCount}`);
+    const poolLabel = player.poolSize !== undefined ? ` | Pool: ${player.poolSize}` : '';
+    lines.push(`  Deck: ${player.deckCount} | Sites: ${player.siteDeckCount} | Discard: ${player.discardCount}${poolLabel}`);
 
     // Full companies (own view or omniscient server view)
     for (let i = 0; i < player.companies.length; i++) {
@@ -506,6 +509,26 @@ export function formatPlayerView(
     return defId ?? undefined;
   };
 
+  // Compute pool size during setup phases
+  let selfPoolSize: number | undefined;
+  if (view.phaseState.phase === 'setup') {
+    const step = view.phaseState.setupStep;
+    if (step.step === 'character-draft') {
+      // Find self index: the one with real card IDs in pool
+      const idx = step.draftState[0].pool.length > 0
+        && (step.draftState[0].pool[0] as string) !== 'unknown-card' ? 0 : 1;
+      selfPoolSize = step.draftState[idx].pool.length;
+    } else if (step.step === 'item-draft') {
+      const idx = step.itemDraftState[0].unassignedItems.length > 0
+        && view.visibleInstances[step.itemDraftState[0].unassignedItems[0] as string] ? 0 : 1;
+      selfPoolSize = step.itemDraftState[idx].unassignedItems.length;
+    } else if (step.step === 'character-deck-draft') {
+      const idx = step.deckDraftState[0].remainingPool.length > 0
+        && (step.deckDraftState[0].remainingPool[0] as string) !== 'unknown-card' ? 0 : 1;
+      selfPoolSize = step.deckDraftState[idx].remainingPool.length;
+    }
+  }
+
   return renderState({
     turnNumber: view.turnNumber,
     phaseState: view.phaseState,
@@ -520,6 +543,7 @@ export function formatPlayerView(
         deckCount: view.self.playDeckSize,
         siteDeckCount: view.self.siteDeck.length,
         discardCount: view.self.discardPile.length,
+        poolSize: selfPoolSize,
         marshallingPoints: view.self.marshallingPoints,
         companies: view.self.companies,
         characters: view.self.characters,
