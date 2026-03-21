@@ -10,13 +10,13 @@
  */
 
 import type { GameState, PlayerId, EvaluatedAction } from '@meccg/shared';
-import { isItemCard, isCharacterCard, evaluateAction, ITEM_DRAFT_RULES, MAX_STARTING_ITEMS } from '@meccg/shared';
+import { isItemCard, isCharacterCard, evaluateAction, ITEM_DRAFT_RULES, MAX_STARTING_ITEMS, getPlayerIndex } from '@meccg/shared';
 import { logDetail } from './log.js';
 
 export function itemDraftActions(state: GameState, playerId: PlayerId): EvaluatedAction[] {
   if (state.phaseState.phase !== 'setup' || state.phaseState.setupStep.step !== 'item-draft') return [];
 
-  const playerIndex = state.players[0].id === playerId ? 0 : 1;
+  const playerIndex = getPlayerIndex(state, playerId);
   const itemDraft = state.phaseState.setupStep.itemDraftState[playerIndex];
 
   if (itemDraft.done) {

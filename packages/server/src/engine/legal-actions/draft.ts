@@ -10,13 +10,13 @@
  */
 
 import type { GameState, PlayerId, EvaluatedAction } from '@meccg/shared';
-import { GENERAL_INFLUENCE, getAlignmentRules, isCharacterCard, evaluateAction, CHARACTER_DRAFT_RULES } from '@meccg/shared';
+import { GENERAL_INFLUENCE, getAlignmentRules, isCharacterCard, evaluateAction, CHARACTER_DRAFT_RULES, getPlayerIndex } from '@meccg/shared';
 import { logDetail } from './log.js';
 
 export function draftActions(state: GameState, playerId: PlayerId): EvaluatedAction[] {
   if (state.phaseState.phase !== 'setup' || state.phaseState.setupStep.step !== 'character-draft') return [];
 
-  const playerIndex = state.players[0].id === playerId ? 0 : 1;
+  const playerIndex = getPlayerIndex(state, playerId);
   const draft = state.phaseState.setupStep.draftState[playerIndex];
 
   // Phase-level guards — not per-card, stay imperative

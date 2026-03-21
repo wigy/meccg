@@ -6,7 +6,7 @@
  */
 
 import type { PlayerView, GameAction, EvaluatedAction, CardDefinition, CardDefinitionId, CardInstanceId, CharacterInPlay } from '@meccg/shared';
-import { describeAction, formatPlayerView, formatCardList, cardImageProxyPath, isCharacterCard, GENERAL_INFLUENCE, getAlignmentRules, viableActions } from '@meccg/shared';
+import { describeAction, formatPlayerView, formatCardList, cardImageProxyPath, isCharacterCard, GENERAL_INFLUENCE, getAlignmentRules, viableActions, formatSignedNumber } from '@meccg/shared';
 
 /**
  * Find the non-viable reason for a card by definition ID from the evaluated actions.
@@ -317,15 +317,13 @@ function getHandCards(view: PlayerView): CardDefinitionId[] {
   // During character draft, show the player's draft pool instead of hand
   if (view.phaseState.phase === 'setup' && view.phaseState.setupStep.step === 'character-draft') {
     const draft = view.phaseState.setupStep;
-    const selfIdx = getSelfDraftIndex(draft.draftState);
+    const selfIdx = findSelfIndex(draft.draftState[0].pool, draft.draftState[1].pool);
     return [...draft.draftState[selfIdx].pool];
   }
   // During character deck draft, show remaining pool characters
   if (view.phaseState.phase === 'setup' && view.phaseState.setupStep.step === 'character-deck-draft') {
     const deckDraft = view.phaseState.setupStep.deckDraftState;
-    // Self pool has real card IDs
-    const selfIdx = deckDraft[0].remainingPool.length > 0
-      && (deckDraft[0].remainingPool[0] as string) !== 'unknown-card' ? 0 : 1;
+    const selfIdx = findSelfIndex(deckDraft[0].remainingPool, deckDraft[1].remainingPool);
     return [...deckDraft[selfIdx].remainingPool];
   }
   // During item draft, show remaining pool (undrafted characters) + unassigned items
@@ -334,8 +332,7 @@ function getHandCards(view: PlayerView): CardDefinitionId[] {
     const cards: CardDefinitionId[] = [];
 
     // Remaining pool: undrafted characters (shown dimmed as non-items)
-    const selfPoolIdx = step.remainingPool[0].length > 0
-      && (step.remainingPool[0][0] as string) !== 'unknown-card' ? 0 : 1;
+    const selfPoolIdx = findSelfIndex(step.remainingPool[0], step.remainingPool[1]);
     cards.push(...step.remainingPool[selfPoolIdx]);
 
     // Unassigned items (assigned items are removed from pool)
@@ -487,13 +484,17 @@ export function renderDeckPiles(view: PlayerView): void {
 
 }
 
-/** Find which draft state index belongs to self (has real card IDs, not unknown-card). */
-function getSelfDraftIndex(draftState: readonly [{ pool: readonly CardDefinitionId[] }, { pool: readonly CardDefinitionId[] }]): number {
-  const hasRealCards = (pool: readonly CardDefinitionId[]) =>
-    pool.length > 0 && (pool[0] as string) !== 'unknown-card';
-  return hasRealCards(draftState[0].pool) ? 0
-    : hasRealCards(draftState[1].pool) ? 1
-    : 0;
+/** Check whether a card list contains real card IDs (not 'unknown-card' placeholders). */
+function hasRealCards(cards: readonly CardDefinitionId[]): boolean {
+  return cards.length > 0 && (cards[0] as string) !== 'unknown-card';
+}
+
+/**
+ * Given two card lists (one per player), return the index whose cards are real
+ * (not redacted to 'unknown-card'). Defaults to 0 when both are empty.
+ */
+function findSelfIndex(a: readonly CardDefinitionId[], b: readonly CardDefinitionId[]): number {
+  return hasRealCards(a) ? 0 : hasRealCards(b) ? 1 : 0;
 }
 
 /**
@@ -612,6 +613,33 @@ export function renderPassButton(view: PlayerView, onAction: (action: GameAction
   }
 }
 
+/** Create an img element for a card with standard attributes. */
+function createCardImage(defId: string, def: CardDefinition, imgPath: string, className = 'drafted-card'): HTMLImageElement {
+  const img = document.createElement('img');
+  img.src = imgPath;
+  img.alt = def.name;
+  img.dataset.cardId = defId;
+  img.className = className;
+  return img;
+}
+
+/** Create a face-down card image (card back). */
+function createFaceDownCard(altText: string): HTMLImageElement {
+  const img = document.createElement('img');
+  img.src = '/images/card-back.jpg';
+  img.alt = altText;
+  img.className = 'drafted-card drafted-card-facedown';
+  return img;
+}
+
+/** Sum the mind values of drafted characters for GI calculation. */
+function sumDraftedMind(drafted: readonly CardDefinitionId[], cardPool: Readonly<Record<string, CardDefinition>>): number {
+  return drafted.reduce((sum, defId) => {
+    const def = cardPool[defId as string];
+    return sum + (isCharacterCard(def) && def.mind !== null ? def.mind : 0);
+  }, 0);
+}
+
 /** Render a row of card images from definition IDs. */
 function renderCardRow(el: HTMLElement, defIds: readonly CardDefinitionId[], cardPool: Readonly<Record<string, CardDefinition>>): void {
   for (const defId of defIds) {
@@ -619,12 +647,7 @@ function renderCardRow(el: HTMLElement, defIds: readonly CardDefinitionId[], car
     if (!def) continue;
     const imgPath = cardImageProxyPath(def);
     if (!imgPath) continue;
-    const img = document.createElement('img');
-    img.src = imgPath;
-    img.alt = def.name;
-    img.dataset.cardId = defId as string;
-    img.className = 'drafted-card';
-    el.appendChild(img);
+    el.appendChild(createCardImage(defId as string, def, imgPath));
   }
 }
 
@@ -647,23 +670,14 @@ function renderCharactersWithItems(
     const char = characters[charInstId as string];
     const hasItems = char && char.items.length > 0;
 
+    const img = createCardImage(defId as string, def, imgPath);
     if (!hasItems) {
-      const img = document.createElement('img');
-      img.src = imgPath;
-      img.alt = def.name;
-      img.dataset.cardId = defId as string;
-      img.className = 'drafted-card';
       el.appendChild(img);
       continue;
     }
 
     const group = document.createElement('div');
     group.className = 'drafted-card-group';
-    const img = document.createElement('img');
-    img.src = imgPath;
-    img.alt = def.name;
-    img.dataset.cardId = defId as string;
-    img.className = 'drafted-card';
     group.appendChild(img);
     appendItemCards(group, char, cardPool);
     el.appendChild(group);
@@ -681,12 +695,7 @@ function appendItemCards(
     if (!itemDef) continue;
     const itemImg = cardImageProxyPath(itemDef);
     if (!itemImg) continue;
-    const img = document.createElement('img');
-    img.src = itemImg;
-    img.alt = itemDef.name;
-    img.dataset.cardId = item.definitionId as string;
-    img.className = 'drafted-card drafted-item';
-    container.appendChild(img);
+    container.appendChild(createCardImage(item.definitionId as string, itemDef, itemImg, 'drafted-card drafted-item'));
   }
 }
 
@@ -753,13 +762,8 @@ function renderPlacementCompanies(
       const group = hasItems ? document.createElement('div') : null;
       if (group) group.className = 'drafted-card-group';
 
-      const img = document.createElement('img');
-      img.src = imgPath;
-      img.alt = def.name;
-      img.dataset.cardId = defId as string;
-      img.className = placeAction
-        ? 'drafted-card drafted-card-selectable'
-        : 'drafted-card';
+      const img = createCardImage(defId as string, def, imgPath,
+        placeAction ? 'drafted-card drafted-card-selectable' : 'drafted-card');
 
       if (group && char) {
         group.appendChild(img);
@@ -847,13 +851,8 @@ function renderItemDraftTargets(
     const group = hasItems ? document.createElement('div') : null;
     if (group) group.className = 'drafted-card-group';
 
-    const img = document.createElement('img');
-    img.src = imgPath;
-    img.alt = def.name;
-    img.dataset.cardId = defId as string;
-    img.className = targetAction
-      ? 'drafted-card drafted-card-target'
-      : 'drafted-card';
+    const img = createCardImage(defId as string, def, imgPath,
+      targetAction ? 'drafted-card drafted-card-target' : 'drafted-card');
 
     if (targetAction && onAction) {
       img.style.cursor = 'pointer';
@@ -905,25 +904,18 @@ export function renderDrafted(
   if (step === 'character-draft') {
     const draft = view.phaseState.setupStep;
     if (draft.step !== 'character-draft') return;
-    const selfIdx = getSelfDraftIndex(draft.draftState);
+    const selfIdx = findSelfIndex(draft.draftState[0].pool, draft.draftState[1].pool);
     const oppIdx = 1 - selfIdx;
 
     renderCardRow(selfEl, draft.draftState[selfIdx].drafted, cardPool);
 
     // Show face-down pick if player has picked this round
     if (draft.draftState[selfIdx].currentPick !== null) {
-      const faceDown = document.createElement('img');
-      faceDown.src = '/images/card-back.jpg';
-      faceDown.alt = 'Your pick (face down)';
-      faceDown.className = 'drafted-card drafted-card-facedown';
-      selfEl.appendChild(faceDown);
+      selfEl.appendChild(createFaceDownCard('Your pick (face down)'));
     }
 
     // Show remaining GI for self
-    const selfMind = draft.draftState[selfIdx].drafted.reduce((sum, defId) => {
-      const def = cardPool[defId as string];
-      return sum + (isCharacterCard(def) && def.mind !== null ? def.mind : 0);
-    }, 0);
+    const selfMind = sumDraftedMind(draft.draftState[selfIdx].drafted, cardPool);
     if (draft.draftState[selfIdx].drafted.length > 0) {
       const badge = document.createElement('div');
       badge.className = 'mind-total';
@@ -935,18 +927,11 @@ export function renderDrafted(
 
     // Show face-down pick if opponent has picked this round
     if (draft.draftState[oppIdx].currentPick !== null) {
-      const faceDown = document.createElement('img');
-      faceDown.src = '/images/card-back.jpg';
-      faceDown.alt = 'Opponent pick (face down)';
-      faceDown.className = 'drafted-card drafted-card-facedown';
-      oppEl.appendChild(faceDown);
+      oppEl.appendChild(createFaceDownCard('Opponent pick (face down)'));
     }
 
     // Show remaining GI for opponent
-    const oppMind = draft.draftState[oppIdx].drafted.reduce((sum, defId) => {
-      const def = cardPool[defId as string];
-      return sum + (isCharacterCard(def) && def.mind !== null ? def.mind : 0);
-    }, 0);
+    const oppMind = sumDraftedMind(draft.draftState[oppIdx].drafted, cardPool);
     if (draft.draftState[oppIdx].drafted.length > 0) {
       const badge = document.createElement('div');
       badge.className = 'mind-total mind-total-opponent';
@@ -966,11 +951,7 @@ export function renderDrafted(
         if (!def) continue;
         const imgPath = cardImageProxyPath(def);
         if (!imgPath) continue;
-        const img = document.createElement('img');
-        img.src = imgPath;
-        img.alt = def.name;
-        img.dataset.cardId = defId as string;
-        img.className = 'set-aside-card';
+        const img = createCardImage(defId as string, def, imgPath, 'set-aside-card');
         const baseZ = j + 1;
         img.style.zIndex = String(baseZ);
         img.addEventListener('mouseenter', () => { img.style.zIndex = '200'; });
@@ -1123,19 +1104,13 @@ export function renderHand(
 function getOpponentCards(view: PlayerView): { cards: CardDefinitionId[]; hidden: boolean } {
   if (view.phaseState.phase === 'setup' && view.phaseState.setupStep.step === 'character-draft') {
     const draft = view.phaseState.setupStep;
-    // Opponent's pool has 'unknown-card' placeholders; self pool has real IDs
-    const hasRealCards = (pool: readonly CardDefinitionId[]) =>
-      pool.length > 0 && (pool[0] as string) !== 'unknown-card';
-    const oppIdx = hasRealCards(draft.draftState[0].pool) ? 1 : 0;
+    const oppIdx = 1 - findSelfIndex(draft.draftState[0].pool, draft.draftState[1].pool);
     return { cards: [...draft.draftState[oppIdx].pool], hidden: true };
   }
   // During character deck draft, show opponent's remaining pool as card backs
   if (view.phaseState.phase === 'setup' && view.phaseState.setupStep.step === 'character-deck-draft') {
     const deckDraft = view.phaseState.setupStep.deckDraftState;
-    // Opponent's pool is redacted to unknown-card placeholders; self pool has real IDs
-    const hasRealCards = (pool: readonly CardDefinitionId[]) =>
-      pool.length > 0 && (pool[0] as string) !== 'unknown-card';
-    const oppIdx = hasRealCards(deckDraft[0].remainingPool) ? 1 : 0;
+    const oppIdx = 1 - findSelfIndex(deckDraft[0].remainingPool, deckDraft[1].remainingPool);
     return { cards: [...deckDraft[oppIdx].remainingPool], hidden: true };
   }
   // During character placement and deck shuffle, no hand cards for either player
@@ -1280,8 +1255,8 @@ function buildCardAttributes(el: HTMLElement, def: CardDefinition): void {
     case 'hero-resource-item':
     case 'minion-resource-item': {
       addAttr(el, 'Subtype', def.subtype);
-      if (def.prowessModifier !== 0) addAttr(el, 'Prowess', `${def.prowessModifier > 0 ? '+' : ''}${def.prowessModifier}`);
-      if (def.bodyModifier !== 0) addAttr(el, 'Body', `${def.bodyModifier > 0 ? '+' : ''}${def.bodyModifier}`);
+      if (def.prowessModifier !== 0) addAttr(el, 'Prowess', formatSignedNumber(def.prowessModifier));
+      if (def.bodyModifier !== 0) addAttr(el, 'Body', formatSignedNumber(def.bodyModifier));
       addAttr(el, 'MP', def.marshallingPoints);
       if (def.corruptionPoints !== 0) addAttr(el, 'Corruption', def.corruptionPoints);
       break;

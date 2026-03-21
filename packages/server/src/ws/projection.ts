@@ -30,7 +30,7 @@ import type {
   DraftPlayerState,
   CharacterDeckDraftPlayerState,
 } from '@meccg/shared';
-import { UNKNOWN_CARD } from '@meccg/shared';
+import { UNKNOWN_CARD, getPlayerIndex } from '@meccg/shared';
 import { computeLegalActions } from '../engine/legal-actions/index.js';
 
 /**
@@ -47,6 +47,11 @@ function resolveCard(state: GameState, instanceId: CardInstanceId): RevealedCard
   };
 }
 
+/** Resolve an entire pile of card instances to revealed cards. */
+function resolvePile(state: GameState, ids: readonly CardInstanceId[]): RevealedCard[] {
+  return ids.map(id => resolveCard(state, id));
+}
+
 /**
  * Builds the "self" portion of a player's view. The player can see their
  * own hand contents (resolved to definition IDs), discard pile, site deck,
@@ -59,12 +64,12 @@ function buildSelfView(state: GameState, player: PlayerState): SelfView {
     name: player.name,
     alignment: player.alignment,
     wizard: player.wizard,
-    hand: player.hand.map(id => resolveCard(state, id)),
+    hand: resolvePile(state, player.hand),
     playDeckSize: player.playDeck.length,
-    discardPile: player.discardPile.map(id => resolveCard(state, id)),
-    siteDeck: player.siteDeck.map(id => resolveCard(state, id)),
-    siteDiscardPile: player.siteDiscardPile.map(id => resolveCard(state, id)),
-    sideboard: player.sideboard.map(id => resolveCard(state, id)),
+    discardPile: resolvePile(state, player.discardPile),
+    siteDeck: resolvePile(state, player.siteDeck),
+    siteDiscardPile: resolvePile(state, player.siteDiscardPile),
+    sideboard: resolvePile(state, player.sideboard),
     companies: player.companies,
     characters: player.characters,
     marshallingPoints: player.marshallingPoints,
@@ -250,7 +255,7 @@ function redactPhaseForSpectator(phaseState: PhaseState): PhaseState {
 }
 
 export function projectPlayerView(state: GameState, playerId: PlayerId): PlayerView {
-  const selfIndex = state.players[0].id === playerId ? 0 : 1;
+  const selfIndex = getPlayerIndex(state, playerId);
   const opponentIndex = 1 - selfIndex;
 
   const selfPlayer = state.players[selfIndex];

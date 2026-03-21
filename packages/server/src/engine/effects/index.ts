@@ -13,5 +13,6 @@ export {
   resolveStatModifiers,
   resolveCheckModifier,
   resolveCompanyModifier,
+  resolveDef,
 } from './resolver.js';
 export type { ResolverContext } from './resolver.js';

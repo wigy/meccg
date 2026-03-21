@@ -79,9 +79,10 @@ interface CollectedEffect {
 }
 
 /**
- * Resolves a card definition from an instance ID.
+ * Resolves a card definition from an instance ID by looking up the instance
+ * map and then the card pool. Returns undefined if the instance is missing.
  */
-function resolveDef(state: GameState, instanceId: CardInstanceId): CardDefinition | undefined {
+export function resolveDef(state: GameState, instanceId: CardInstanceId): CardDefinition | undefined {
   const inst = state.instanceMap[instanceId as string];
   if (!inst) return undefined;
   return state.cardPool[inst.definitionId as string];

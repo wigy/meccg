@@ -21,24 +21,15 @@ import type {
   EffectiveStats,
   CharacterInPlay,
   CardDefinition,
-  CardInstanceId,
   CharacterCard,
 } from '@meccg/shared';
 import { MarshallingCategory, ZERO_MARSHALLING_POINTS, isCharacterCard, isItemCard } from '@meccg/shared';
 import {
   collectCharacterEffects,
   resolveStatModifiers,
+  resolveDef,
 } from './effects/index.js';
 import type { ResolverContext } from './effects/index.js';
-
-/**
- * Looks up a card definition from an instance ID through the instance map.
- */
-function resolveDef(state: GameState, instanceId: CardInstanceId): CardDefinition | undefined {
-  const inst = state.instanceMap[instanceId as string];
-  if (!inst) return undefined;
-  return state.cardPool[inst.definitionId as string];
-}
 
 /**
  * Adds a card's marshalling points to the running totals by its category.

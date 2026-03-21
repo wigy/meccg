@@ -6,13 +6,13 @@
  */
 
 import type { GameState, PlayerId, GameAction } from '@meccg/shared';
-import { HAND_SIZE } from '@meccg/shared';
+import { HAND_SIZE, getPlayerIndex } from '@meccg/shared';
 import { logDetail } from './log.js';
 
 export function initialDrawActions(state: GameState, playerId: PlayerId): GameAction[] {
   if (state.phaseState.phase !== 'setup' || state.phaseState.setupStep.step !== 'initial-draw') return [];
 
-  const playerIndex = state.players[0].id === playerId ? 0 : 1;
+  const playerIndex = getPlayerIndex(state, playerId);
   const stepState = state.phaseState.setupStep;
 
   if (stepState.drawn[playerIndex]) {

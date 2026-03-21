@@ -16,7 +16,7 @@
 
 import type { GameState, PlayerState, DraftPlayerState, ItemDraftPlayerState, CharacterDeckDraftPlayerState, SetupStepState, CardDefinitionId, CardInstanceId, CompanyId, CharacterInPlay, CardInstance } from '@meccg/shared';
 import type { GameAction } from '@meccg/shared';
-import { Phase, SetupStep, LEGAL_ACTIONS_BY_PHASE, getAlignmentRules, shuffle, nextInt, CardStatus, isCharacterCard } from '@meccg/shared';
+import { Phase, SetupStep, LEGAL_ACTIONS_BY_PHASE, getAlignmentRules, shuffle, nextInt, CardStatus, isCharacterCard, getPlayerIndex } from '@meccg/shared';
 import { logHeading, logDetail } from './legal-actions/log.js';
 import type { TwoDiceSix, DieRoll, GameEffect } from '@meccg/shared';
 import { applyDraftResults, transitionAfterItemDraft, enterSiteSelection, startFirstTurn } from './init.js';
@@ -198,7 +198,7 @@ function handleCharacterDraft(
   action: GameAction,
   draft: SetupStepState & { step: SetupStep.CharacterDraft },
 ): ReducerResult {
-  const playerIndex = state.players[0].id === action.player ? 0 : 1;
+  const playerIndex = getPlayerIndex(state, action.player);
   const playerDraft = draft.draftState[playerIndex];
 
   switch (action.type) {
@@ -386,7 +386,7 @@ function handleItemDraft(
   action: GameAction,
   stepState: SetupStepState & { step: SetupStep.ItemDraft },
 ): ReducerResult {
-  const playerIndex = state.players[0].id === action.player ? 0 : 1;
+  const playerIndex = getPlayerIndex(state, action.player);
   const itemDraft = stepState.itemDraftState[playerIndex];
 
   if (itemDraft.done) {
@@ -490,7 +490,7 @@ function handleCharacterDeckDraft(
   action: GameAction,
   stepState: SetupStepState & { step: SetupStep.CharacterDeckDraft },
 ): ReducerResult {
-  const playerIndex = state.players[0].id === action.player ? 0 : 1;
+  const playerIndex = getPlayerIndex(state, action.player);
   const deckDraft = stepState.deckDraftState[playerIndex];
 
   if (deckDraft.done) {
@@ -581,7 +581,7 @@ function handleStartingSiteSelection(
   action: GameAction,
   stepState: SetupStepState & { step: SetupStep.StartingSiteSelection },
 ): ReducerResult {
-  const playerIndex = state.players[0].id === action.player ? 0 : 1;
+  const playerIndex = getPlayerIndex(state, action.player);
   const siteSelection = stepState.siteSelectionState[playerIndex];
 
   if (siteSelection.done) {
@@ -737,7 +737,7 @@ function handleCharacterPlacement(
   action: GameAction,
   stepState: SetupStepState & { step: SetupStep.CharacterPlacement },
 ): ReducerResult {
-  const playerIndex = state.players[0].id === action.player ? 0 : 1;
+  const playerIndex = getPlayerIndex(state, action.player);
 
   if (stepState.placementDone[playerIndex]) {
     return { state, error: 'You have already finished placement' };
@@ -811,7 +811,7 @@ function handleDeckShuffle(
   action: GameAction,
   stepState: SetupStepState & { step: SetupStep.DeckShuffle },
 ): ReducerResult {
-  const playerIndex = state.players[0].id === action.player ? 0 : 1;
+  const playerIndex = getPlayerIndex(state, action.player);
 
   if (stepState.shuffled[playerIndex]) {
     return { state, error: 'You have already shuffled' };
@@ -860,7 +860,7 @@ function handleInitialDraw(
   action: GameAction,
   stepState: SetupStepState & { step: SetupStep.InitialDraw },
 ): ReducerResult {
-  const playerIndex = state.players[0].id === action.player ? 0 : 1;
+  const playerIndex = getPlayerIndex(state, action.player);
 
   if (stepState.drawn[playerIndex]) {
     return { state, error: 'You have already drawn' };
@@ -921,7 +921,7 @@ function handleInitiativeRoll(
     return { state, error: `Unexpected action in initiative roll: ${action.type}` };
   }
 
-  const playerIndex = state.players[0].id === action.player ? 0 : 1;
+  const playerIndex = getPlayerIndex(state, action.player);
   if (stepState.rolls[playerIndex] !== null) {
     return { state, error: 'You have already rolled' };
   }

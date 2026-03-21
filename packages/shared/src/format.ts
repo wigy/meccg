@@ -22,6 +22,13 @@ import type { GameAction } from './types/actions.js';
 import { CardStatus } from './types/common.js';
 import type { CardInstanceId, CardDefinitionId } from './types/common.js';
 
+// ---- Formatting helpers ----
+
+/** Format a number with an explicit sign: positive values get a leading '+'. */
+export function formatSignedNumber(value: number): string {
+  return value >= 0 ? `+${value}` : `${value}`;
+}
+
 // ---- ANSI colors ----
 
 const RESET = '\x1b[0m';
@@ -203,8 +210,8 @@ function formatItemLine(item: ItemInPlay, defOf: CardLookup, instOf: InstanceLoo
     return showDebugIds ? colorizeUnknown(`an item {${item.instanceId}}`) : colorizeUnknown('an item');
   }
   const label = formatInstanceName(item.instanceId, defOf, instOf);
-  const pMod = def.prowessModifier >= 0 ? `+${def.prowessModifier}` : `${def.prowessModifier}`;
-  const bMod = def.bodyModifier >= 0 ? `+${def.bodyModifier}` : `${def.bodyModifier}`;
+  const pMod = formatSignedNumber(def.prowessModifier);
+  const bMod = formatSignedNumber(def.bodyModifier);
   return `${statusSymbol(item.status)} ${label} [${pMod}/${bMod}] ${def.subtype} (${def.marshallingPoints} MP, ${def.corruptionPoints} CP)`;
 }
 

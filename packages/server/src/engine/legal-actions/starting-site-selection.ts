@@ -8,13 +8,13 @@
  */
 
 import type { GameState, PlayerId, EvaluatedAction } from '@meccg/shared';
-import { getAlignmentRules, evaluateAction, SITE_SELECTION_RULES } from '@meccg/shared';
+import { getAlignmentRules, evaluateAction, SITE_SELECTION_RULES, getPlayerIndex } from '@meccg/shared';
 import { logDetail } from './log.js';
 
 export function startingSiteSelectionActions(state: GameState, playerId: PlayerId): EvaluatedAction[] {
   if (state.phaseState.phase !== 'setup' || state.phaseState.setupStep.step !== 'starting-site-selection') return [];
 
-  const playerIndex = state.players[0].id === playerId ? 0 : 1;
+  const playerIndex = getPlayerIndex(state, playerId);
   const siteSelection = state.phaseState.setupStep.siteSelectionState[playerIndex];
 
   if (siteSelection.done) {

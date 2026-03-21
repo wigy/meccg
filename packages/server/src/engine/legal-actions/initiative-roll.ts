@@ -7,12 +7,13 @@
  */
 
 import type { GameState, PlayerId, GameAction } from '@meccg/shared';
+import { getPlayerIndex } from '@meccg/shared';
 import { logDetail } from './log.js';
 
 export function initiativeRollActions(state: GameState, playerId: PlayerId): GameAction[] {
   if (state.phaseState.phase !== 'setup' || state.phaseState.setupStep.step !== 'initiative-roll') return [];
 
-  const playerIndex = state.players[0].id === playerId ? 0 : 1;
+  const playerIndex = getPlayerIndex(state, playerId);
   const roll = state.phaseState.setupStep.rolls[playerIndex];
 
   // Already rolled — waiting for opponent or reroll
