@@ -818,7 +818,7 @@ h2 {
 #card-preview {
   position: fixed;
   right: 0.5rem;
-  top: 1rem;
+  top: 2.5rem;
   z-index: 999;
   pointer-events: none;
   display: flex;

@@ -28,6 +28,8 @@ import { getSelectedCharacterForPlay, clearCharacterPlaySelection } from './rend
 
 // ---- View state ----
 
+const FOCUSED_COMPANY_KEY = 'meccg-focused-company';
+
 /** Which of the two company display modes is active. */
 type CompanyViewMode = 'single' | 'all-companies';
 
@@ -36,6 +38,25 @@ let viewMode: CompanyViewMode = 'all-companies';
 
 /** The company currently focused in single-company view. Null = first company. */
 let focusedCompanyId: CompanyId | null = null;
+
+/** Whether we've attempted to restore the focused company from localStorage. */
+let restoredFromStorage = false;
+
+/** Save the focused company name to localStorage. */
+function saveFocusedCompany(
+  company: Company | OpponentCompanyView,
+  charMap: Readonly<Record<string, CharacterInPlay>>,
+  view: PlayerView,
+  cardPool: Readonly<Record<string, CardDefinition>>,
+): void {
+  const name = getCompanyName(company, charMap, view, cardPool);
+  localStorage.setItem(FOCUSED_COMPANY_KEY, name);
+}
+
+/** Clear the focused company from localStorage. */
+function clearFocusedCompany(): void {
+  localStorage.removeItem(FOCUSED_COMPANY_KEY);
+}
 
 /** Track the last active player so we can reset view state on turn change. */
 let lastActivePlayer: string | null = null;
@@ -362,6 +383,7 @@ function renderSingleView(
   if (!company) {
     // Focused company no longer exists — fall back to overview
     viewMode = 'all-companies';
+    clearFocusedCompany();
     renderAllCompaniesView(container, view, cardPool);
     return;
   }
@@ -374,6 +396,7 @@ function renderSingleView(
     // Navigate back unless the click landed on a card image
     if (!(e.target instanceof HTMLImageElement)) {
       viewMode = 'all-companies';
+      clearFocusedCompany();
       renderCompanyViews(view, cardPool, lastOnAction!);
     }
   };
@@ -521,6 +544,7 @@ function renderAllCompaniesView(
       block.onclick = () => {
         viewMode = 'single';
         focusedCompanyId = company.id;
+        saveFocusedCompany(company, view.self.characters, view, cardPool);
         renderCompanyViews(view, cardPool, lastOnAction!);
       };
     }
@@ -549,6 +573,7 @@ function renderAllCompaniesView(
     block.onclick = () => {
       viewMode = 'single';
       focusedCompanyId = company.id;
+      saveFocusedCompany(company, view.opponent.characters, view, cardPool);
       renderCompanyViews(view, cardPool, lastOnAction!);
     };
     overview.appendChild(block);
@@ -576,6 +601,7 @@ function installEmptySpaceListener(): void {
     if (viewMode !== 'single' || !lastOnAction || !lastView || !lastCardPool) return;
     if (e.target && emptySpaceTargets.has(e.target)) {
       viewMode = 'all-companies';
+      clearFocusedCompany();
       renderCompanyViews(lastView, lastCardPool, lastOnAction);
     }
   });
@@ -616,12 +642,38 @@ export function renderCompanyViews(
   lastCardPool = cardPool;
   installEmptySpaceListener();
 
+  // Restore focused company from localStorage on first render
+  if (!restoredFromStorage) {
+    restoredFromStorage = true;
+    const savedName = localStorage.getItem(FOCUSED_COMPANY_KEY);
+    if (savedName) {
+      // Search self companies
+      for (const c of view.self.companies) {
+        if (getCompanyName(c, view.self.characters, view, cardPool) === savedName) {
+          viewMode = 'single';
+          focusedCompanyId = c.id;
+          break;
+        }
+      }
+      // Search opponent companies if not found
+      if (viewMode !== 'single') {
+        for (const c of view.opponent.companies) {
+          if (getCompanyName(c, view.opponent.characters, view, cardPool) === savedName) {
+            viewMode = 'single';
+            focusedCompanyId = c.id;
+            break;
+          }
+        }
+      }
+      // If not found, clear the stale entry
+      if (viewMode !== 'single') clearFocusedCompany();
+    }
+  }
+
   // Reset view state on active player change
   const activeId = view.activePlayer as string | null;
   if (activeId !== lastActivePlayer) {
     lastActivePlayer = activeId;
-    viewMode = 'all-companies';
-    focusedCompanyId = null;
   }
 
   // Validate focused company still exists (check both players)
