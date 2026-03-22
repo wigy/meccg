@@ -217,6 +217,7 @@ const BACKGROUNDS = [
   'images/visual-bg-19.png',
   'images/visual-bg-20.png',
 ];
+const DEV_MODE_KEY = 'meccg-dev-mode';
 const BG_KEY = 'meccg-bg';
 
 function applyBackground(): void {
@@ -324,6 +325,40 @@ document.addEventListener('DOMContentLoaded', () => {
 
   nameInput.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') connectBtn.click();
+  });
+
+  // ---- Settings modal ----
+  const settingsBtn = document.getElementById('settings-btn') as HTMLButtonElement;
+  const settingsModal = document.getElementById('settings-modal') as HTMLElement;
+  const settingsBackdrop = document.getElementById('settings-backdrop') as HTMLElement;
+  const settingsCloseBtn = document.getElementById('settings-close-btn') as HTMLButtonElement;
+  const devModeToggle = document.getElementById('dev-mode-toggle') as HTMLInputElement;
+
+  const devButtons = [saveBtn, loadBtn, reseedBtn, resetBtn, viewToggleBtn];
+
+  function applyDevMode(on: boolean): void {
+    for (const btn of devButtons) {
+      btn.style.display = on ? '' : 'none';
+    }
+  }
+
+  devModeToggle.checked = localStorage.getItem(DEV_MODE_KEY) === 'true';
+  applyDevMode(devModeToggle.checked);
+
+  settingsBtn.addEventListener('click', () => {
+    settingsModal.classList.remove('hidden');
+  });
+
+  function closeSettings(): void {
+    settingsModal.classList.add('hidden');
+  }
+
+  settingsBackdrop.addEventListener('click', closeSettings);
+  settingsCloseBtn.addEventListener('click', closeSettings);
+
+  devModeToggle.addEventListener('change', () => {
+    localStorage.setItem(DEV_MODE_KEY, String(devModeToggle.checked));
+    applyDevMode(devModeToggle.checked);
   });
 
   disconnectBtn.addEventListener('click', () => {
