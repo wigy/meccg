@@ -306,8 +306,8 @@ function renderSiteArea(
             ? 'company-card company-card--site company-card--cancelable'
             : 'company-card company-card--site';
           const img = createCardImage(destDefId as string, destDef, imgPath, cls);
-          if (cancelAction && options!.onAction) {
-            const onAction = options!.onAction;
+          if (cancelAction && options?.onAction) {
+            const onAction = options.onAction;
             img.addEventListener('click', (e) => {
               e.stopPropagation();
               onAction(cancelAction);
