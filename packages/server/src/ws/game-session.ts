@@ -62,6 +62,8 @@ export class GameSession {
   private playerNames: Set<string>;
   private serverLog: ServerLog;
   private gameLog: GameLog;
+  /** History of previous states for undo support. */
+  private stateHistory: GameState[] = [];
 
   constructor(options: GameSessionOptions) {
     this.debug = options.debug ?? false;
@@ -147,6 +149,9 @@ export class GameSession {
         break;
       case 'reseed':
         this.handleReseed();
+        break;
+      case 'undo':
+        this.handleUndo(ws);
         break;
     }
   }
@@ -327,6 +332,8 @@ export class GameSession {
       return;
     }
 
+    // Save previous state for undo before applying
+    this.stateHistory.push(this.state);
     this.state = result.state;
     const { type: _type, player: _player, ...args } = actionWithPlayer;
     const argsStr = Object.keys(args).length > 0 ? ' ' + JSON.stringify(args) : '';
@@ -371,6 +378,22 @@ export class GameSession {
     this.broadcastState();
   }
 
+  /** Undo the most recent action and revert to the previous game state. */
+  private handleUndo(ws: WebSocket): void {
+    if (this.stateHistory.length === 0) {
+      this.send(ws, { type: 'error', message: 'Nothing to undo' });
+      return;
+    }
+
+    const previous = this.stateHistory.pop()!;
+    console.log(`Undo: reverting from stateSeq ${this.state?.stateSeq} to ${previous.stateSeq}`);
+    this.serverLog.log('undo', { fromSeq: this.state?.stateSeq, toSeq: previous.stateSeq });
+    this.state = previous;
+    this.gameLog.truncateAfterSeq(previous.stateSeq);
+    this.logState('undo');
+    this.broadcastState();
+  }
+
   /** Log a state snapshot to the per-game log. */
   private logState(reason: string): void {
     if (this.state) {
@@ -395,8 +418,9 @@ export class GameSession {
       console.log(`Deleted save: ${savePath}`);
     }
 
-    // Clear game state
+    // Clear game state and undo history
     this.state = null;
+    this.stateHistory = [];
 
     // Force all clients to reconnect
     const restartMsg: ServerMessage = { type: 'restart', message: 'Game reset. Reconnecting...' };
@@ -518,8 +542,9 @@ export class GameSession {
     fs.copyFileSync(backupPath, savePath);
     console.log(`Loaded backup from ${backupPath}`);
 
-    // Clear state and restart all clients so they reconnect and load the save
+    // Clear state, undo history, and restart all clients so they reconnect and load the save
     this.state = null;
+    this.stateHistory = [];
     const restartMsg: ServerMessage = { type: 'restart', message: 'Loading saved game. Reconnecting...' };
     for (const [, { ws }] of this.pending.entries()) { this.send(ws, restartMsg); ws.close(); }
     this.pending.clear();

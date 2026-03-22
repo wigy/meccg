@@ -35,7 +35,13 @@ Non-game-rule concepts used in the MECCG codebase. For game rules, see `docs/rul
 - **Alignment** — Hero, minion, fallen-wizard, or balrog. Determines which card types and site pools are available.
 - **Title Character** — The character whose name is used for a company's display label (e.g. "Aragorn's Company"). Chosen by highest mind (avatar always wins), with tiebreakers on marshalling points, prowess, then name. Rendered first (leftmost) in the company row and marked with a star badge. Not a game rule — purely a UI/display concept.
 
+## Persistence
+
+- **Game Save** — A JSON snapshot of the full `GameState` plus the player name-to-ID mapping, written to `~/.meccg/saves/{player1_vs_player2}.json`. Saved on disconnect, on explicit save, and as a backup (`-saved.json`) before load. The save contains everything needed to restore a game session.
+- **Game Log** — A per-game JSONL file at `~/.meccg/logs/games/{gameId}.jsonl` that records a full state snapshot after every action, tagged with `stateSeq`. Used for replay and debugging. Can be truncated via `truncateAfterSeq()` to stay consistent after undo or save load.
+
 ## Client & Debugging
 
 - **Debug Mode** — Server flag (`--debug` or `DEBUG=1`) that logs raw JSON messages and card IDs to the console for tracing game logic.
+- **Developer Mode** — Client-side toggle (`meccg-dev-mode` in localStorage) that shows dev-only toolbar buttons: Undo, Save, Load, Reseed, Reset, and the Debug/Visual view toggle.
 - **Visible Instances** — Subset of the instance map included in PlayerView. Contains only cards the player is allowed to see, used by the client to resolve instance IDs to card names and images.

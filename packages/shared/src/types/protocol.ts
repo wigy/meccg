@@ -102,7 +102,16 @@ export interface ReseedMessage {
   readonly type: 'reseed';
 }
 
-export type ClientMessage = JoinMessage | ActionMessage | ResetMessage | SaveMessage | LoadMessage | ReseedMessage;
+/**
+ * Sent by a client to undo the most recent action and revert to the
+ * previous game state. Only available in developer mode.
+ */
+export interface UndoMessage {
+  /** Message type discriminant. */
+  readonly type: 'undo';
+}
+
+export type ClientMessage = JoinMessage | ActionMessage | ResetMessage | SaveMessage | LoadMessage | ReseedMessage | UndoMessage;
 
 // ---- Server → Client ----
 

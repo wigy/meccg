@@ -20,9 +20,14 @@ let playerId: string | null = null;
 let lastVisibleInstances: Readonly<Record<string, CardDefinitionId>> = {};
 let selectedDeckIndex = 0;
 let autoPassTimer: ReturnType<typeof setTimeout> | null = null;
+/** Stack of log entry counts, pushed before each action for undo support. */
+const logCountStack: number[] = [];
 
 function sendAction(action: GameAction): void {
   if (!ws || ws.readyState !== WebSocket.OPEN) return;
+  // Snapshot log entry count before adding action log line
+  const logEl = document.getElementById('log');
+  if (logEl) logCountStack.push(logEl.childElementCount);
   const desc = describeAction(action, cardPool, lastVisibleInstances);
   renderLog(`>> ${desc}`, cardPool);
   clientLog('msg-out', { msgType: 'action', action });
@@ -290,6 +295,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   applyBackground();
   setupCardPreview(cardPool);
+  const undoBtn = document.getElementById('undo-btn') as HTMLButtonElement;
   const saveBtn = document.getElementById('save-btn') as HTMLButtonElement;
   const loadBtn = document.getElementById('load-btn') as HTMLButtonElement;
   const reseedBtn = document.getElementById('reseed-btn') as HTMLButtonElement;
@@ -358,7 +364,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const settingsCloseBtn = document.getElementById('settings-close-btn') as HTMLButtonElement;
   const devModeToggle = document.getElementById('dev-mode-toggle') as HTMLInputElement;
 
-  const devButtons = [saveBtn, loadBtn, reseedBtn, resetBtn, viewToggleBtn];
+  const devButtons = [undoBtn, saveBtn, loadBtn, reseedBtn, resetBtn, viewToggleBtn];
 
   function applyDevMode(on: boolean): void {
     for (const btn of devButtons) {
@@ -398,6 +404,23 @@ document.addEventListener('DOMContentLoaded', () => {
 
   disconnectBtn.addEventListener('click', () => {
     disconnect();
+  });
+
+  undoBtn.addEventListener('click', () => {
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      const msg: ClientMessage = { type: 'undo' };
+      ws.send(JSON.stringify(msg));
+      // Revert game log to the snapshot before the last action
+      const logEl = document.getElementById('log');
+      if (logEl && logCountStack.length > 0) {
+        const target = logCountStack.pop()!;
+        while (logEl.childElementCount > target) {
+          logEl.removeChild(logEl.lastChild!);
+        }
+      }
+      renderLog('Undo.');
+      flashBtn(undoBtn);
+    }
   });
 
   saveBtn.addEventListener('click', () => {
