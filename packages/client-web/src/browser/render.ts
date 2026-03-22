@@ -1529,3 +1529,20 @@ export function renderLog(message: string, cardPool?: Readonly<Record<string, Ca
   el.appendChild(line);
   el.scrollTop = el.scrollHeight;
 }
+
+/**
+ * Show a brief toast notification in the visual view.
+ * The toast auto-dismisses after the CSS animation completes (~3.4s).
+ * In debug mode this is a no-op since messages go to the log panel.
+ */
+export function showNotification(message: string, isError = false): void {
+  const container = document.getElementById('toast-container');
+  if (!container) return;
+  const toast = document.createElement('div');
+  toast.className = isError ? 'toast toast--error' : 'toast';
+  toast.textContent = message;
+  container.appendChild(toast);
+  toast.addEventListener('animationend', (e) => {
+    if (e.animationName === 'toast-out') toast.remove();
+  });
+}

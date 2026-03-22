@@ -173,6 +173,7 @@ h2 {
   overflow-y: auto;
   position: sticky;
   top: 0;
+  padding-top: 2.5rem;
 }
 
 #state, #draft {
@@ -666,6 +667,48 @@ h2 {
 
 .debug-score:hover .mp-tooltip {
   display: block;
+}
+
+#toast-container {
+  position: fixed;
+  top: 3.5rem;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 200;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.4rem;
+  pointer-events: none;
+}
+
+.toast {
+  font-family: 'MedievalSharp', cursive;
+  font-size: 0.95rem;
+  color: rgba(196, 163, 90, 0.95);
+  background: rgba(15, 12, 8, 0.9);
+  border: 1px solid rgba(196, 163, 90, 0.4);
+  border-radius: 6px;
+  padding: 0.4rem 1rem;
+  white-space: nowrap;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.6);
+  opacity: 0;
+  animation: toast-in 0.3s ease forwards, toast-out 0.4s ease 3s forwards;
+}
+
+.toast--error {
+  color: #e06060;
+  border-color: rgba(224, 96, 96, 0.4);
+}
+
+@keyframes toast-in {
+  from { opacity: 0; transform: translateY(-10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes toast-out {
+  from { opacity: 1; transform: translateY(0); }
+  to   { opacity: 0; transform: translateY(-10px); }
 }
 
 #card-preview {

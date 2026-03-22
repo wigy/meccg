@@ -8,7 +8,7 @@
 
 import type { ServerMessage, ClientMessage, GameAction, CardDefinitionId } from '@meccg/shared';
 import { loadCardPool, describeAction, SAMPLE_DECKS } from '@meccg/shared';
-import { renderState, renderDraft, renderActions, renderLog, renderHand, renderOpponentHand, renderPlayerNames, renderInstructions, renderDrafted, renderPassButton, renderDeckPiles, resetDeckPiles, setupCardPreview } from './render.js';
+import { renderState, renderDraft, renderActions, renderLog, renderHand, renderOpponentHand, renderPlayerNames, renderInstructions, renderDrafted, renderPassButton, renderDeckPiles, resetDeckPiles, setupCardPreview, showNotification } from './render.js';
 import { renderCompanyViews, resetCompanyViews } from './company-view.js';
 import { rollDice, clearDice, restoreDice } from './dice.js';
 import { clientLog } from './client-log.js';
@@ -57,6 +57,7 @@ function connect(name: string): void {
 
       case 'waiting':
         renderLog('Waiting for opponent to connect...');
+        showNotification('Waiting for opponent to connect...');
         break;
 
       case 'state':
@@ -100,14 +101,17 @@ function connect(name: string): void {
 
       case 'error':
         renderLog(`ERROR: ${msg.message}`);
+        showNotification(msg.message, true);
         break;
 
       case 'disconnected':
         renderLog(msg.message);
+        showNotification(msg.message);
         break;
 
       case 'restart':
         renderLog(msg.message);
+        showNotification(msg.message);
         break;
     }
   };
@@ -331,6 +335,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const msg: ClientMessage = { type: 'save' };
       ws.send(JSON.stringify(msg));
       renderLog('Game saved.');
+      showNotification('Game saved.');
       flashBtn(saveBtn);
     }
   });
@@ -357,6 +362,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const msg: ClientMessage = { type: 'reseed' };
       ws.send(JSON.stringify(msg));
       renderLog('RNG re-seeded.');
+      showNotification('RNG re-seeded.');
       flashBtn(reseedBtn);
     }
   });
