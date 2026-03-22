@@ -611,8 +611,11 @@ function installEmptySpaceListener(): void {
 export function resetCompanyViews(): void {
   viewMode = 'all-companies';
   focusedCompanyId = null;
+  restoredFromStorage = false;
   lastActivePlayer = null;
   lastOnAction = null;
+  lastView = null;
+  lastCardPool = null;
 }
 
 /** Phases where company views are displayed (normal play, after setup and before council). */

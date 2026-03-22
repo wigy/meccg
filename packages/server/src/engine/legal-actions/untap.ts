@@ -12,8 +12,8 @@ import { logDetail } from './log.js';
 export function untapActions(state: GameState, playerId: PlayerId): GameAction[] {
   if (state.phaseState.phase !== Phase.Untap) return [];
 
-  if (state.phaseState.passed.includes(playerId)) {
-    logDetail(`Untap phase: player ${playerId as string} already passed, waiting for opponent`);
+  if (state.activePlayer !== playerId) {
+    logDetail(`Untap phase: player ${playerId as string} is not the active player, no actions`);
     return [];
   }
 

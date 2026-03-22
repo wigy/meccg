@@ -322,7 +322,7 @@ function makeCardListsCollapsible(html: string): string {
 function injectMPTooltips(html: string): string {
   return html.replace(/«MP:(\{[^»]*\})»(\d+) MP/g, (_match, json, total) => {
     try {
-      const data = JSON.parse(json) as {
+      const data = JSON.parse(json as string) as {
         selfName: string; oppName: string;
         selfRaw: MarshallingPointTotals; oppRaw: MarshallingPointTotals;
         selfAdj: MarshallingPointTotals; oppAdj: MarshallingPointTotals;
