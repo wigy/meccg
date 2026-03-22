@@ -161,5 +161,97 @@
       }
     ],
     "text": "Automatic-attacks: Wolves — 2 strikes with 6 prowess."
+  },
+  {
+    "cardType": "hero-site",
+    "alignment": "wizard",
+    "id": "tw-375",
+    "name": "Barrow-downs",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Barrowdowns.jpg",
+    "siteType": "ruins-and-lairs",
+    "sitePath": [
+      "wilderness",
+      "wilderness"
+    ],
+    "nearestHaven": "Rivendell",
+    "playableResources": [
+      "minor",
+      "major"
+    ],
+    "automaticAttacks": [
+      {
+        "creatureType": "Undead",
+        "strikes": 1,
+        "prowess": 8
+      }
+    ],
+    "text": "Playable: Items (minor, major). Automatic-attacks: Undead — 1 strike with 8 prowess; each character wounded must make a corruption check."
+  },
+  {
+    "cardType": "hero-site",
+    "alignment": "wizard",
+    "id": "tw-391",
+    "name": "Eagles' Eyrie",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/EaglesEyrie.jpg",
+    "siteType": "free-hold",
+    "sitePath": [
+      "wilderness",
+      "border"
+    ],
+    "nearestHaven": "Lórien",
+    "playableResources": [],
+    "automaticAttacks": [],
+    "text": ""
+  },
+  {
+    "cardType": "hero-site",
+    "alignment": "wizard",
+    "id": "tw-400",
+    "name": "Henneth Annûn",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/HennethAnnun.jpg",
+    "siteType": "border-hold",
+    "sitePath": [
+      "wilderness",
+      "border",
+      "free",
+      "wilderness"
+    ],
+    "nearestHaven": "Lórien",
+    "playableResources": [],
+    "automaticAttacks": [],
+    "text": ""
+  },
+  {
+    "cardType": "hero-site",
+    "alignment": "wizard",
+    "id": "tw-417",
+    "name": "Old Forest",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/OldForest.jpg",
+    "siteType": "border-hold",
+    "sitePath": [
+      "wilderness",
+      "wilderness"
+    ],
+    "nearestHaven": "Rivendell",
+    "playableResources": [],
+    "automaticAttacks": [],
+    "text": "Healing effects affect all characters at the site."
+  },
+  {
+    "cardType": "hero-site",
+    "alignment": "wizard",
+    "id": "tw-372",
+    "name": "Bag End",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/BagEnd.jpg",
+    "siteType": "free-hold",
+    "sitePath": [
+      "wilderness",
+      "wilderness",
+      "free"
+    ],
+    "nearestHaven": "Rivendell",
+    "playableResources": [],
+    "automaticAttacks": [],
+    "text": ""
   }
 ]

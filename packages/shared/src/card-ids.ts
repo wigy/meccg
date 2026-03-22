@@ -124,6 +124,16 @@ export const MOUNT_DOOM = did('tw-414');
 export const ETTENMOORS_HERO = did('tw-395');
 /** The White Towers — hero ruins-and-lairs in Arthedain, nearest haven Rivendell. */
 export const THE_WHITE_TOWERS_HERO = did('tw-430');
+/** Barrow-downs — hero ruins-and-lairs in Cardolan, nearest haven Rivendell. */
+export const BARROW_DOWNS = did('tw-375');
+/** Eagles' Eyrie — hero free-hold in Anduin Vales, nearest haven Lórien. */
+export const EAGLES_EYRIE = did('tw-391');
+/** Henneth Annûn — hero border-hold in Ithilien, nearest haven Lórien. */
+export const HENNETH_ANNUN = did('tw-400');
+/** Old Forest — hero border-hold in Cardolan, nearest haven Rivendell. */
+export const OLD_FOREST = did('tw-417');
+/** Bag End — hero free-hold in The Shire, nearest haven Rivendell. */
+export const BAG_END = did('tw-372');
 
 // ---- Regions ----
 
