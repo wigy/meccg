@@ -30,6 +30,14 @@ MECCG is a web-based implementation of the Middle-Earth Collectible Card Game (M
 - **Web client dev mode:** `npm run dev -w @meccg/client-web` (esbuild watch + live-reload via SSE)
 - **Debug mode:** Add `--debug` flag or set `DEBUG=1` env var to show raw JSON messages and card IDs
 
+### Pre-Push Checklist
+
+Before pushing to remote, always run all of these and fix any failures:
+
+1. `npm test` — rules tests (must all pass)
+2. `npm run test:nightly` — card tests (must not introduce new failures)
+3. `npm run lint` — linting (fix with `npm run lint:fix`)
+
 ## Architecture
 
 - **Monorepo** using npm workspaces: `packages/shared`, `packages/server`, `packages/client-text`, `packages/client-web`

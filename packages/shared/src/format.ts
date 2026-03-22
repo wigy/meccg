@@ -18,7 +18,7 @@ import type { CardDefinition } from './types/cards.js';
 import { isCharacterCard, isItemCard } from './types/cards.js';
 import type { GameState, Company, CharacterInPlay, ItemInPlay, AllyInPlay, CombatState, PhaseState, MarshallingPointTotals } from './types/state.js';
 import type { PlayerView, OpponentCompanyView } from './types/player-view.js';
-import { computeTournamentScore, computeTournamentBreakdown } from './state-utils.js';
+import { computeTournamentBreakdown } from './state-utils.js';
 import type { GameAction } from './types/actions.js';
 import { CardStatus } from './types/common.js';
 import type { CardInstanceId, CardDefinitionId } from './types/common.js';
