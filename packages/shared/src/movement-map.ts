@@ -24,7 +24,10 @@ export interface ReachableSite {
   readonly site: SiteCard;
   /** Which movement type can be used. */
   readonly movementType: MovementType;
-  /** For region movement: number of regions traversed (including origin and destination). */
+  /**
+   * For region movement: number of consecutive regions (rules-style).
+   * Same region = 1, adjacent regions = 2, default max = 4.
+   */
   readonly regionDistance?: number;
 }
 
@@ -38,8 +41,8 @@ export interface ReachableSite {
 export interface MovementMap {
   /** Region name -> set of adjacent region names. */
   readonly regionGraph: ReadonlyMap<string, ReadonlySet<string>>;
-  /** Region A -> Region B -> shortest distance (number of edges). */
-  readonly regionDistance: ReadonlyMap<string, ReadonlyMap<string, number>>;
+  /** Region A -> Region B -> shortest path in edges (adjacent = 1, same = 0). */
+  readonly regionPathEdges: ReadonlyMap<string, ReadonlyMap<string, number>>;
   /** Site name -> region name. */
   readonly siteRegion: ReadonlyMap<string, string>;
   /** Haven name -> set of non-haven site names whose nearestHaven is this haven. */
@@ -124,7 +127,7 @@ export function buildMovementMap(
   cardPool: Readonly<Record<string, CardDefinition>>,
 ): MovementMap {
   const regionGraph = buildRegionGraph(cardPool);
-  const regionDistance = computeAllPairsDistance(regionGraph);
+  const regionPathEdges = computeAllPairsDistance(regionGraph);
 
   const siteRegion = new Map<string, string>();
   const havenSites = new Map<string, Set<string>>();
@@ -165,7 +168,7 @@ export function buildMovementMap(
 
   return {
     regionGraph,
-    regionDistance,
+    regionPathEdges,
     siteRegion,
     havenSites,
     havenToHaven,
@@ -173,23 +176,24 @@ export function buildMovementMap(
 }
 
 /**
- * Default maximum number of consecutive regions for region movement.
- * The rules say "four consecutive regions" including both origin and destination,
- * which means up to 3 edges in the region graph.
+ * Default maximum region distance for region movement.
+ * The rules say "four consecutive regions" counting both origin and destination.
  */
-const DEFAULT_MAX_REGION_DISTANCE = 3;
+const DEFAULT_MAX_REGION_DISTANCE = 4;
 
 /**
  * Determine which sites a company can move to from its current site.
  *
  * Checks both starter movement (haven-based) and region movement
- * (up to 4 consecutive regions = 3 edges in the adjacency graph).
- * A site may appear with both movement types if reachable by either.
+ * (up to 4 consecutive regions by default). Region distance counts
+ * regions the rules way: origin and destination both count, so two
+ * sites in the same region have distance 1 and adjacent regions
+ * have distance 2.
  *
  * @param map - The precomputed movement map.
  * @param currentSite - The site card definition where the company currently is.
  * @param candidateSites - The site card definitions available to move to (from the player's site deck).
- * @param maxRegionDistance - Maximum edge distance for region movement (default 3 = 4 consecutive regions).
+ * @param maxRegionDistance - Maximum region distance (default 4 = four consecutive regions).
  * @returns Array of reachable sites with their movement type and distance.
  */
 export function getReachableSites(
@@ -234,15 +238,13 @@ export function getReachableSites(
     // --- Region Movement ---
     if (currentRegion && dest.region) {
       const destRegion = dest.region;
-      const distMap = map.regionDistance.get(currentRegion);
-      const dist = distMap?.get(destRegion);
-      if (dist !== undefined && dist <= maxRegionDistance) {
-        // Avoid duplicate if already added via starter with same site
-        if (!added) {
-          results.push({ site: dest, movementType: 'region', regionDistance: dist });
-        } else {
-          // Also reachable by region - add as separate entry
-          results.push({ site: dest, movementType: 'region', regionDistance: dist });
+      const edgeMap = map.regionPathEdges.get(currentRegion);
+      const edges = edgeMap?.get(destRegion);
+      if (edges !== undefined) {
+        // Convert edge count to region distance (rules-style: edges + 1)
+        const regDist = edges + 1;
+        if (regDist <= maxRegionDistance) {
+          results.push({ site: dest, movementType: 'region', regionDistance: regDist });
         }
       }
     }
