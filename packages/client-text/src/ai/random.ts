@@ -10,7 +10,7 @@
 import type { AiStrategy, AiContext, WeightedAction } from './strategy.js';
 
 /** Action types that represent "doing nothing" — zero weight when alternatives exist. */
-const PASS_ACTIONS = new Set(['pass', 'draft-stop']);
+const PASS_ACTIONS = new Set(['pass', 'draft-stop', 'cancel-movement']);
 
 /** Action types that are optional — pass gets equal weight alongside them. */
 const OPTIONAL_ACTIONS = new Set(['place-character', 'add-character-to-deck', 'select-starting-site']);

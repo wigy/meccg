@@ -292,14 +292,28 @@ function renderSiteArea(
       area.appendChild(arrow);
     }
 
-    // Destination site
+    // Destination site — highlight and make clickable if cancel-movement is available
     const destDefId = view.visibleInstances[company.destinationSite as string];
     if (destDefId) {
       const destDef = cardPool[destDefId as string];
       if (destDef) {
         const imgPath = cardImageProxyPath(destDef);
         if (imgPath) {
-          area.appendChild(createCardImage(destDefId as string, destDef, imgPath, 'company-card company-card--site'));
+          const cancelAction = options?.onAction && viableActions(view.legalActions).find(
+            a => a.type === 'cancel-movement' && a.companyId === company.id,
+          );
+          const cls = cancelAction
+            ? 'company-card company-card--site company-card--cancelable'
+            : 'company-card company-card--site';
+          const img = createCardImage(destDefId as string, destDef, imgPath, cls);
+          if (cancelAction && options!.onAction) {
+            const onAction = options!.onAction;
+            img.addEventListener('click', (e) => {
+              e.stopPropagation();
+              onAction(cancelAction);
+            });
+          }
+          area.appendChild(img);
         }
       }
     }
