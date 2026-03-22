@@ -283,13 +283,17 @@ function playCharacterActions(
  * candidates carry a human-readable reason for the client to display.
  */
 export function organizationActions(state: GameState, playerId: PlayerId): EvaluatedAction[] {
-  if (state.activePlayer !== playerId) {
-    logDetail(`Not active player (active: ${state.activePlayer as string ?? 'null'}), no actions`);
-    return [];
-  }
-
   const player = state.players.find(p => p.id === playerId);
   if (!player) return [];
+
+  if (state.activePlayer !== playerId) {
+    logDetail(`Not active player (active: ${state.activePlayer as string ?? 'null'}), marking hand as not playable`);
+    return player.hand.map(cardInstanceId => ({
+      action: { type: 'not-playable' as const, player: playerId, cardInstanceId },
+      viable: false,
+      reason: "Opponent's organization phase",
+    }));
+  }
 
   const actions: EvaluatedAction[] = [];
 
