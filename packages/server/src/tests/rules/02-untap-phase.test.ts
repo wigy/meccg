@@ -8,7 +8,6 @@
 
 import { describe, test, expect } from 'vitest';
 import {
-  PLAYER_1, PLAYER_2,
   runFullSetup, runActions,
   Phase,
 } from '../test-helpers.js';

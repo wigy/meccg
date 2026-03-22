@@ -211,7 +211,6 @@ export function getReachableSites(
     if (dest.name === currentSite.name) continue;
 
     const destIsHaven = dest.siteType === 'haven';
-    let added = false;
 
     // --- Starter Movement ---
     if (currentIsHaven && destIsHaven) {
@@ -219,19 +218,16 @@ export function getReachableSites(
       const connected = map.havenToHaven.get(currentSite.name);
       if (connected?.has(dest.name)) {
         results.push({ site: dest, movementType: 'starter' });
-        added = true;
       }
     } else if (currentIsHaven && !destIsHaven) {
       // From haven to non-haven: dest's nearestHaven must be this haven
       if (dest.nearestHaven === currentSite.name) {
         results.push({ site: dest, movementType: 'starter' });
-        added = true;
       }
     } else if (!currentIsHaven && destIsHaven) {
       // From non-haven to haven: current site's nearestHaven must be the destination
       if (currentSite.nearestHaven === dest.name) {
         results.push({ site: dest, movementType: 'starter' });
-        added = true;
       }
     }
 
