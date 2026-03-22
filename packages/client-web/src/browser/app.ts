@@ -19,6 +19,7 @@ let ws: WebSocket | null = null;
 let playerId: string | null = null;
 let lastVisibleInstances: Readonly<Record<string, CardDefinitionId>> = {};
 let lastCompanyNames: Readonly<Record<string, string>> = {};
+let lastPhase: string | null = null;
 let selectedDeckIndex = 0;
 let autoPassTimer: ReturnType<typeof setTimeout> | null = null;
 /** Stack of log entry counts, pushed before each action for undo support. */
@@ -85,6 +86,12 @@ function connect(name: string): void {
         renderPassButton(msg.view, sendAction);
         renderDeckPiles(msg.view, cardPool);
         renderCompanyViews(msg.view, cardPool, sendAction);
+        // Show turn notification when entering Untap phase
+        if (msg.view.phaseState.phase === 'untap' && lastPhase !== 'untap') {
+          const isMine = msg.view.activePlayer === msg.view.self.id;
+          showNotification(isMine ? 'Your turn' : "Opponent's turn");
+        }
+        lastPhase = msg.view.phaseState.phase;
         // Open/close site selection viewer based on phase
         if (msg.view.phaseState.phase === 'setup'
           && msg.view.phaseState.setupStep.step === 'starting-site-selection') {
