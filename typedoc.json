@@ -1,0 +1,11 @@
+{
+  "entryPoints": [
+    "packages/shared/src/index.ts",
+    "packages/server/src/index.ts"
+  ],
+  "out": "docs/api",
+  "tsconfig": "packages/server/tsconfig.json",
+  "name": "MECCG API Documentation",
+  "excludePrivate": true,
+  "excludeInternal": true
+}

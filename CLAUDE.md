@@ -22,6 +22,7 @@ MECCG is a web-based implementation of the Middle-Earth Collectible Card Game (M
 - **Run tests:** `npm test` (excludes card tests)
 - **Run card tests (nightly):** `npm run test:nightly`
 - **Lint:** `npm run lint` (auto-fix: `npm run lint:fix`)
+- **Build API docs:** `npm run docs` (outputs to `docs/api/`)
 - **Start server:** `npm run start -w @meccg/server -- <player1> <player2>` (two player names required)
 - **Start text client:** `npm run start -w @meccg/client-text -- <name>`
 - **Start web client:** `npm run start -w @meccg/client-web` (serves on port 8080, proxies WS to game server on 3000)
