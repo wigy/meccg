@@ -396,6 +396,14 @@ function renderAllCompaniesView(
 /** Cached onAction callback for re-renders triggered by navigation. */
 let lastOnAction: ((action: GameAction) => void) | null = null;
 
+/** Reset all company view state. Call when leaving the game screen. */
+export function resetCompanyViews(): void {
+  viewMode = 'all-companies';
+  focusedCompanyId = null;
+  lastActivePlayer = null;
+  lastOnAction = null;
+}
+
 /** Phases where company views are displayed (normal play, after setup and before council). */
 const COMPANY_VIEW_PHASES = new Set([
   Phase.Untap,

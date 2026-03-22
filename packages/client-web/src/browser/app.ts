@@ -8,8 +8,8 @@
 
 import type { ServerMessage, ClientMessage, GameAction, CardDefinitionId } from '@meccg/shared';
 import { loadCardPool, describeAction, SAMPLE_DECKS } from '@meccg/shared';
-import { renderState, renderDraft, renderActions, renderLog, renderHand, renderOpponentHand, renderPlayerNames, renderInstructions, renderDrafted, renderPassButton, renderDeckPiles, setupCardPreview } from './render.js';
-import { renderCompanyViews } from './company-view.js';
+import { renderState, renderDraft, renderActions, renderLog, renderHand, renderOpponentHand, renderPlayerNames, renderInstructions, renderDrafted, renderPassButton, renderDeckPiles, resetDeckPiles, setupCardPreview } from './render.js';
+import { renderCompanyViews, resetCompanyViews } from './company-view.js';
 import { rollDice, clearDice, restoreDice } from './dice.js';
 import { clientLog } from './client-log.js';
 
@@ -164,6 +164,8 @@ function disconnect(): void {
   document.getElementById('draft')!.textContent = '';
   document.getElementById('actions')!.innerHTML = '';
   document.getElementById('log')!.innerHTML = '';
+  document.getElementById('visual-board')!.innerHTML = '';
+  resetCompanyViews();
 }
 
 // ---- Background ----
@@ -311,11 +313,28 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
+  /** Clear all visual game state immediately (before server responds). */
+  function clearGameBoard(): void {
+    document.getElementById('visual-board')!.innerHTML = '';
+    document.getElementById('hand-arc')!.innerHTML = '';
+    document.getElementById('opponent-arc')!.innerHTML = '';
+    document.getElementById('actions')!.innerHTML = '';
+    document.getElementById('pass-btn')!.classList.add('hidden');
+    for (const id of ['self-name', 'opponent-name']) {
+      const el = document.getElementById(id);
+      const score = el?.querySelector('.score');
+      if (score) score.textContent = '0';
+    }
+    resetCompanyViews();
+    resetDeckPiles();
+  }
+
   loadBtn.addEventListener('click', () => {
     if (ws && ws.readyState === WebSocket.OPEN) {
       const msg: ClientMessage = { type: 'load' };
       ws.send(JSON.stringify(msg));
       flashBtn(loadBtn);
+      clearGameBoard();
     }
   });
 
@@ -324,6 +343,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const msg: ClientMessage = { type: 'reset' };
       ws.send(JSON.stringify(msg));
       flashBtn(resetBtn);
+      clearGameBoard();
     }
   });
 

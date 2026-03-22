@@ -384,7 +384,25 @@ export function renderPlayerNames(view: PlayerView): void {
  */
 function fillDeckPile(el: HTMLElement, deckSize: number, backImage = '/images/card-back.jpg'): void {
   el.innerHTML = '';
-  if (deckSize === 0) return;
+  if (deckSize === 0) {
+    // Show a dimmed placeholder of the card back
+    const wrapper = document.createElement('div');
+    wrapper.className = 'deck-pile-wrapper';
+    const img = document.createElement('img');
+    img.src = backImage;
+    img.alt = 'Empty deck';
+    img.className = 'deck-pile-card deck-pile-card--empty';
+    img.style.position = 'relative';
+    wrapper.appendChild(img);
+    const label = document.createElement('div');
+    label.className = 'deck-pile-label';
+    label.textContent = '0';
+    label.style.right = '0';
+    label.style.top = '0';
+    wrapper.appendChild(label);
+    el.appendChild(wrapper);
+    return;
+  }
 
   // Show 1 card per ~4 in deck, min 1, max 8 visible layers
   const layers = Math.min(8, Math.max(1, Math.ceil(deckSize / 4)));
@@ -461,6 +479,20 @@ export function animateShuffleThenAct(deckSizes: { self: number; opponent: numbe
   if (selfEl && deckSizes.self > 0) promises.push(animateDeckShuffle(selfEl, deckSizes.self));
   if (oppEl && deckSizes.opponent > 0) promises.push(animateDeckShuffle(oppEl, deckSizes.opponent));
   void Promise.all(promises).then(onDone);
+}
+
+/** Reset all deck piles to empty (dimmed placeholder with 0). */
+export function resetDeckPiles(): void {
+  const ids = ['self-deck-pile', 'opponent-deck-pile'];
+  const siteIds = ['self-site-pile', 'opponent-site-pile'];
+  for (const id of ids) {
+    const el = document.getElementById(id);
+    if (el) fillDeckPile(el, 0);
+  }
+  for (const id of siteIds) {
+    const el = document.getElementById(id);
+    if (el) fillDeckPile(el, 0, '/images/site-back.jpg');
+  }
 }
 
 /** Render both players' draw deck and site deck piles. */
