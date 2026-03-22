@@ -1,0 +1,40 @@
+# Implementation Glossary
+
+Non-game-rule concepts used in the MECCG codebase. For game rules, see `docs/rules.md`.
+
+## Core Architecture
+
+- **Game State** — The full, authoritative server-side state containing all hidden information. Never sent to clients.
+- **Player View** — Per-player projection of game state with opponent's hidden info redacted. What the client receives over WebSocket.
+- **Projection** — The transformation from GameState → PlayerView that enforces information hiding. Implemented in `packages/server/src/ws/projection.ts`.
+- **Reducer** — The pure function `(state, action) → state` that implements all state transitions. No side effects. Returns a `ReducerResult` containing the new state, optional error, and optional effects.
+
+## Cards
+
+- **Card Definition** — Static, immutable card data from JSON (stats, effects, text). Identified by `CardDefinitionId` (e.g. `tw-156`).
+- **Card Instance** — A runtime copy of a card with a unique `CardInstanceId`. Multiple instances can share one definition (e.g. two Daggers of Westernesse).
+- **Instance Map** — Lookup table `CardInstanceId → CardInstance` stored in game state. Used to resolve what card an instance refers to.
+- **Card Pool** — Lookup table `CardDefinitionId → CardDefinition` loaded once at game start.
+
+## Actions
+
+- **Action** (`GameAction`) — A player input command representing a game decision (e.g. `play-character`, `pass`). Defined in `packages/shared/src/types/actions.ts`.
+- **Legal Action** (`EvaluatedAction`) — An action annotated with viability: `{ action, viable, reason? }`. Non-viable actions include a human-readable explanation (e.g. "Gimli: mind 6 would exceed limit"). Sent to the client so it can show all options with non-viable ones dimmed and tooltipped.
+- **Effect** (`GameEffect`) — A side effect produced by the reducer (e.g. notify client), separate from the pure state transition.
+
+## Game Flow
+
+- **Phase** — Top-level stage in the turn cycle: Untap → Organization → Long-event → Movement/Hazard → Site → End-of-Turn. Enum in `Phase`.
+- **Step** — Sub-stage within the Setup phase (CharacterDraft, SiteSelection, CharacterPlacement, etc.). Enum in `SetupStep`.
+- **Phase State** — Phase-specific bookkeeping stored in game state, discriminated by the `phase` field. Each phase has its own state interface (e.g. `MovementHazardPhaseState` tracks hazards played per company).
+
+## Game Concepts (Implementation-Specific)
+
+- **Company** — A group of characters traveling together. The fundamental unit of movement, hazard-facing, and site actions. Contains character list, current site, destination site, and movement path.
+- **Effective Stats** — Derived character stats (prowess, body, direct influence, corruption) computed from base definition + equipped items + attached effects. Recomputed after every action via `recomputeDerived`.
+- **Alignment** — Hero, minion, fallen-wizard, or balrog. Determines which card types and site pools are available.
+
+## Client & Debugging
+
+- **Debug Mode** — Server flag (`--debug` or `DEBUG=1`) that logs raw JSON messages and card IDs to the console for tracing game logic.
+- **Visible Instances** — Subset of the instance map included in PlayerView. Contains only cards the player is allowed to see, used by the client to resolve instance IDs to card names and images.
