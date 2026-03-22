@@ -19,6 +19,7 @@ let ws: WebSocket | null = null;
 let playerId: string | null = null;
 let lastVisibleInstances: Readonly<Record<string, CardDefinitionId>> = {};
 let selectedDeckIndex = 0;
+let autoPassTimer: ReturnType<typeof setTimeout> | null = null;
 
 function sendAction(action: GameAction): void {
   if (!ws || ws.readyState !== WebSocket.OPEN) return;
@@ -75,6 +76,17 @@ function connect(name: string): void {
         renderPassButton(msg.view, sendAction);
         renderDeckPiles(msg.view);
         renderCompanyViews(msg.view, cardPool, sendAction);
+        // Auto-pass: if exactly one viable action, send it after a delay
+        if (autoPassTimer) { clearTimeout(autoPassTimer); autoPassTimer = null; }
+        if (localStorage.getItem(AUTO_PASS_KEY) === 'true') {
+          const viable = msg.view.legalActions.filter(a => a.viable);
+          if (viable.length === 1) {
+            autoPassTimer = setTimeout(() => {
+              autoPassTimer = null;
+              sendAction(viable[0].action);
+            }, 1500);
+          }
+        }
         break;
 
       case 'draft-reveal': {
@@ -218,6 +230,7 @@ const BACKGROUNDS = [
   'images/visual-bg-20.png',
 ];
 const DEV_MODE_KEY = 'meccg-dev-mode';
+const AUTO_PASS_KEY = 'meccg-auto-pass';
 const BG_KEY = 'meccg-bg';
 
 function applyBackground(): void {
@@ -359,6 +372,17 @@ document.addEventListener('DOMContentLoaded', () => {
   devModeToggle.addEventListener('change', () => {
     localStorage.setItem(DEV_MODE_KEY, String(devModeToggle.checked));
     applyDevMode(devModeToggle.checked);
+  });
+
+  const autoPassToggle = document.getElementById('auto-pass-toggle') as HTMLInputElement;
+  autoPassToggle.checked = localStorage.getItem(AUTO_PASS_KEY) === 'true';
+
+  autoPassToggle.addEventListener('change', () => {
+    localStorage.setItem(AUTO_PASS_KEY, String(autoPassToggle.checked));
+    if (!autoPassToggle.checked && autoPassTimer) {
+      clearTimeout(autoPassTimer);
+      autoPassTimer = null;
+    }
   });
 
   disconnectBtn.addEventListener('click', () => {
