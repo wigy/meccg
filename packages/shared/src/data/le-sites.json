@@ -8,6 +8,22 @@
     "siteType": "haven",
     "sitePath": [],
     "nearestHaven": "",
+    "region": "Southern Mirkwood",
+    "havenPaths": {
+      "Minas Morgul": [
+        "shadow",
+        "dark",
+        "dark",
+        "shadow",
+        "dark"
+      ],
+      "Carn Dûm": [
+        "shadow",
+        "dark",
+        "border",
+        "dark"
+      ]
+    },
     "playableResources": [],
     "automaticAttacks": [],
     "text": "Any gold ring stored at this site is automatically tested (modify the roll by -2). Any attack against a minion company at this site is canceled."
@@ -21,6 +37,16 @@
     "siteType": "haven",
     "sitePath": [],
     "nearestHaven": "",
+    "region": "Imlad Morgul",
+    "havenPaths": {
+      "Dol Guldur": [
+        "dark",
+        "shadow",
+        "dark",
+        "dark",
+        "shadow"
+      ]
+    },
     "playableResources": [],
     "automaticAttacks": [],
     "text": "Any gold ring stored at this site is automatically tested (modify the roll by -2). Any attack against a minion company at this site is canceled."
@@ -37,6 +63,7 @@
       "wilderness"
     ],
     "nearestHaven": "Carn Dûm",
+    "region": "Rhudaur",
     "playableResources": [
       "minor"
     ],
@@ -66,6 +93,7 @@
       "wilderness"
     ],
     "nearestHaven": "Carn Dûm",
+    "region": "Arthedain",
     "playableResources": [
       "information"
     ],

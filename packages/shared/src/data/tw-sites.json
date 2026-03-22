@@ -8,6 +8,20 @@
     "siteType": "haven",
     "sitePath": [],
     "nearestHaven": "",
+    "region": "Rhudaur",
+    "havenPaths": {
+      "Lórien": [
+        "wilderness",
+        "border",
+        "wilderness",
+        "wilderness"
+      ],
+      "Grey Havens": [
+        "free",
+        "wilderness",
+        "wilderness"
+      ]
+    },
     "playableResources": [],
     "automaticAttacks": [],
     "text": "Site Path From Lórien: Wilderness/Border-land/Wilderness/Wilderness. Site Path From Grey Havens: Free-domain/Wilderness/Wilderness."
@@ -21,6 +35,23 @@
     "siteType": "haven",
     "sitePath": [],
     "nearestHaven": "",
+    "region": "Wold & Foothills",
+    "havenPaths": {
+      "Rivendell": [
+        "wilderness",
+        "wilderness",
+        "border",
+        "wilderness"
+      ],
+      "Edhellond": [
+        "wilderness",
+        "border",
+        "free",
+        "free",
+        "border",
+        "wilderness"
+      ]
+    },
     "playableResources": [],
     "automaticAttacks": [],
     "text": "Site Path From Rivendell: Wilderness/Wilderness/Border-land/Wilderness. Site Path From Edhellond: Wilderness/Border-land/Free-domain/Free-domain/Border-land/Wilderness."
@@ -34,6 +65,25 @@
     "siteType": "haven",
     "sitePath": [],
     "nearestHaven": "",
+    "region": "Anfalas",
+    "havenPaths": {
+      "Grey Havens": [
+        "free",
+        "coastal",
+        "coastal",
+        "coastal",
+        "coastal",
+        "wilderness"
+      ],
+      "Lórien": [
+        "wilderness",
+        "border",
+        "free",
+        "free",
+        "border",
+        "wilderness"
+      ]
+    },
     "playableResources": [],
     "automaticAttacks": [],
     "text": "Site Path From Grey Havens: Free-domain/Coastland/Coastland/Coastland/Coastland/Wilderness. Site Path From Lórien: Wilderness/Border-land/Free-domain/Free-domain/Border-land/Wilderness."
@@ -47,6 +97,22 @@
     "siteType": "haven",
     "sitePath": [],
     "nearestHaven": "",
+    "region": "Lindon",
+    "havenPaths": {
+      "Rivendell": [
+        "wilderness",
+        "wilderness",
+        "free"
+      ],
+      "Edhellond": [
+        "wilderness",
+        "coastal",
+        "coastal",
+        "coastal",
+        "coastal",
+        "free"
+      ]
+    },
     "playableResources": [],
     "automaticAttacks": [],
     "text": "Site Path From Rivendell: Wilderness/Wilderness/Free-domain. Site Path From Edhellond: Wilderness/Coastland/Coastland/Coastland/Coastland/Free-domain."
@@ -63,6 +129,7 @@
       "wilderness"
     ],
     "nearestHaven": "Lórien",
+    "region": "Redhorn Gate",
     "playableResources": [
       "minor",
       "major",
@@ -91,6 +158,7 @@
       "free"
     ],
     "nearestHaven": "Lórien",
+    "region": "Anórien",
     "playableResources": [
       "faction"
     ],
@@ -113,6 +181,7 @@
       "dark"
     ],
     "nearestHaven": "Lórien",
+    "region": "Gorgoroth",
     "playableResources": [],
     "automaticAttacks": [],
     "text": "Any company moving to this site has its hazard limit increased by 2 and hazard creatures may always be played keyed to the site regardless of any other cards played."
@@ -128,6 +197,7 @@
       "wilderness"
     ],
     "nearestHaven": "Rivendell",
+    "region": "Rhudaur",
     "playableResources": [
       "minor"
     ],
@@ -152,6 +222,7 @@
       "wilderness"
     ],
     "nearestHaven": "Rivendell",
+    "region": "Arthedain",
     "playableResources": [],
     "automaticAttacks": [
       {
@@ -174,6 +245,7 @@
       "wilderness"
     ],
     "nearestHaven": "Rivendell",
+    "region": "Cardolan",
     "playableResources": [
       "minor",
       "major"
@@ -199,6 +271,7 @@
       "border"
     ],
     "nearestHaven": "Lórien",
+    "region": "Anduin Vales",
     "playableResources": [],
     "automaticAttacks": [],
     "text": ""
@@ -217,6 +290,7 @@
       "wilderness"
     ],
     "nearestHaven": "Lórien",
+    "region": "Ithilien",
     "playableResources": [],
     "automaticAttacks": [],
     "text": ""
@@ -233,6 +307,7 @@
       "wilderness"
     ],
     "nearestHaven": "Rivendell",
+    "region": "Cardolan",
     "playableResources": [],
     "automaticAttacks": [],
     "text": "Healing effects affect all characters at the site."
@@ -250,6 +325,7 @@
       "free"
     ],
     "nearestHaven": "Rivendell",
+    "region": "The Shire",
     "playableResources": [],
     "automaticAttacks": [],
     "text": ""

@@ -14,3 +14,5 @@ export { CHARACTER_DRAFT_RULES, CHARACTER_DECK_DRAFT_RULES, SITE_SELECTION_RULES
 export { getAlignmentRules } from './alignment-rules.js';
 export type { AlignmentRules } from './alignment-rules.js';
 export { getPlayerIndex, computeTournamentScore, computeTournamentBreakdown } from './state-utils.js';
+export { buildMovementMap, getReachableSites } from './movement-map.js';
+export type { MovementMap, MovementType, ReachableSite } from './movement-map.js';

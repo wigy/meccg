@@ -411,6 +411,10 @@ export interface HeroSiteCard {
   readonly sitePath: readonly RegionType[];
   /** The haven from which this site's path originates (e.g. "Rivendell", "Lorien"). */
   readonly nearestHaven: string;
+  /** The region this site is located in (e.g. "Rhudaur", "Redhorn Gate"). */
+  readonly region: string;
+  /** For haven cards only: maps other haven names to the region-type path between them. */
+  readonly havenPaths?: Readonly<Record<string, readonly RegionType[]>>;
   /** Which resource types (items, factions, allies, etc.) can be played at this site. */
   readonly playableResources: readonly PlayableResourceType[];
   /** Built-in attacks that companies face upon entering the site, before any resources can be played. */
@@ -644,6 +648,10 @@ export interface MinionSiteCard {
   readonly sitePath: readonly RegionType[];
   /** The minion haven from which this site's primary path originates. */
   readonly nearestHaven: string;
+  /** The region this site is located in (e.g. "Southern Mirkwood", "Imlad Morgul"). */
+  readonly region: string;
+  /** For haven cards only: maps other haven names to the region-type path between them. */
+  readonly havenPaths?: Readonly<Record<string, readonly RegionType[]>>;
   /** Which resource types can be played at this site. */
   readonly playableResources: readonly PlayableResourceType[];
   /** Built-in attacks that companies face upon entering the site. */
@@ -681,6 +689,10 @@ export interface FallenWizardSiteCard {
   readonly sitePath: readonly RegionType[];
   /** The haven from which this site's path originates. */
   readonly nearestHaven: string;
+  /** The region this site is located in. */
+  readonly region: string;
+  /** For haven cards only: maps other haven names to the region-type path between them. */
+  readonly havenPaths?: Readonly<Record<string, readonly RegionType[]>>;
   /** Which resource types can be played at this site. */
   readonly playableResources: readonly PlayableResourceType[];
   /** Built-in attacks that companies face upon entering the site. */
@@ -716,6 +728,10 @@ export interface BalrogSiteCard {
   readonly sitePath: readonly RegionType[];
   /** The haven from which this site's path originates. Empty for havens and Under-deeps. */
   readonly nearestHaven: string;
+  /** The region this site is located in. */
+  readonly region: string;
+  /** For haven cards only: maps other haven names to the region-type path between them. */
+  readonly havenPaths?: Readonly<Record<string, readonly RegionType[]>>;
   /** Which resource types can be played at this site. */
   readonly playableResources: readonly PlayableResourceType[];
   /** Built-in attacks that companies face upon entering the site. */

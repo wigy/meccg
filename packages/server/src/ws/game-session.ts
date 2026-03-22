@@ -21,7 +21,8 @@ import type {
   JoinMessage,
   GameAction,
 } from '@meccg/shared';
-import { formatGameState, loadCardPool, colorDebug, DEBUG_JSON_COMPACT_LIMIT, STATE_DIVIDER, createRng } from '@meccg/shared';
+import { formatGameState, loadCardPool, colorDebug, DEBUG_JSON_COMPACT_LIMIT, STATE_DIVIDER, createRng, buildMovementMap } from '@meccg/shared';
+import type { MovementMap } from '@meccg/shared';
 import { createGame } from '../engine/init.js';
 import type { PlayerConfig, GameConfig } from '../engine/init.js';
 import { reduce } from '../engine/reducer.js';
@@ -64,15 +65,19 @@ export class GameSession {
   private gameLog: GameLog;
   /** History of previous states for undo support. */
   private stateHistory: GameState[] = [];
+  /** Precomputed movement map for region/starter movement queries. */
+  private movementMap: MovementMap;
 
   constructor(options: GameSessionOptions) {
     this.debug = options.debug ?? false;
     this.playerNames = new Set(options.playerNames.map(n => n.toLowerCase()));
     this.cardPool = loadCardPool();
+    this.movementMap = buildMovementMap(this.cardPool);
     fs.mkdirSync(SAVE_DIR, { recursive: true });
     this.serverLog = new ServerLog();
     this.gameLog = new GameLog();
     this.serverLog.log('boot', { players: options.playerNames, debug: this.debug });
+    console.log(`Movement map: ${this.movementMap.regionGraph.size} regions, ${this.movementMap.siteRegion.size} sites`);
   }
 
   addConnection(ws: WebSocket): void {

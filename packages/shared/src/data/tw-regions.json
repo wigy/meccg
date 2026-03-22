@@ -2,16 +2,394 @@
   {
     "cardType": "region",
     "alignment": "wizard",
-    "id": "tw-482",
-    "name": "Rhudaur",
-    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Rhudaur.jpg",
+    "id": "tw-440",
+    "name": "Andrast",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Andrast.jpg",
+    "regionType": "wilderness",
+    "adjacentRegions": [
+      "Andrast Coast",
+      "Anfalas",
+      "Bay of Belfalas",
+      "Eriadoran Coast",
+      "Old Pûkel-land"
+    ],
+    "text": ""
+  },
+  {
+    "cardType": "region",
+    "alignment": "wizard",
+    "id": "tw-441",
+    "name": "Andrast Coast",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/AndrastCoast.jpg",
+    "regionType": "coastal",
+    "adjacentRegions": [
+      "Andrast",
+      "Bay of Belfalas",
+      "Eriadoran Coast"
+    ],
+    "text": ""
+  },
+  {
+    "cardType": "region",
+    "alignment": "wizard",
+    "id": "tw-442",
+    "name": "Anduin Vales",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/AnduinVales.jpg",
+    "regionType": "border",
+    "adjacentRegions": [
+      "Brown Lands",
+      "Grey Mountain Narrows",
+      "Gundabad",
+      "High Pass",
+      "Southern Mirkwood",
+      "Western Mirkwood",
+      "Wold & Foothills",
+      "Woodland Realm"
+    ],
+    "text": ""
+  },
+  {
+    "cardType": "region",
+    "alignment": "wizard",
+    "id": "tw-443",
+    "name": "Anfalas",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Anfalas.jpg",
+    "regionType": "wilderness",
+    "adjacentRegions": [
+      "Andrast",
+      "Bay of Belfalas",
+      "Belfalas",
+      "Lamedon",
+      "Old Pûkel Gap"
+    ],
+    "text": ""
+  },
+  {
+    "cardType": "region",
+    "alignment": "wizard",
+    "id": "tw-444",
+    "name": "Angmar",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Angmar.jpg",
+    "regionType": "shadow",
+    "adjacentRegions": [
+      "Arthedain",
+      "Forochel",
+      "Gundabad",
+      "Rhudaur"
+    ],
+    "text": ""
+  },
+  {
+    "cardType": "region",
+    "alignment": "wizard",
+    "id": "tw-445",
+    "name": "Anórien",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Anorien.jpg",
+    "regionType": "free",
+    "adjacentRegions": [
+      "Ithilien",
+      "Lebennin",
+      "Rohan"
+    ],
+    "text": ""
+  },
+  {
+    "cardType": "region",
+    "alignment": "wizard",
+    "id": "tw-446",
+    "name": "Arthedain",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Arthedain.jpg",
+    "regionType": "wilderness",
+    "adjacentRegions": [
+      "Angmar",
+      "Cardolan",
+      "Forochel",
+      "Lindon",
+      "Númeriador",
+      "Rhudaur",
+      "The Shire"
+    ],
+    "text": ""
+  },
+  {
+    "cardType": "region",
+    "alignment": "wizard",
+    "id": "tw-447",
+    "name": "Bay of Belfalas",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/BayofBelfalas.jpg",
+    "regionType": "coastal",
+    "adjacentRegions": [
+      "Andrast Coast",
+      "Andrast",
+      "Mouths of the Anduin",
+      "Anfalas",
+      "Belfalas"
+    ],
+    "text": ""
+  },
+  {
+    "cardType": "region",
+    "alignment": "wizard",
+    "id": "tw-448",
+    "name": "Belfalas",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Belfalas.jpg",
+    "regionType": "free",
+    "adjacentRegions": [
+      "Mouths of the Anduin",
+      "Anfalas",
+      "Bay of Belfalas",
+      "Lamedon",
+      "Lebennin"
+    ],
+    "text": ""
+  },
+  {
+    "cardType": "region",
+    "alignment": "wizard",
+    "id": "tw-449",
+    "name": "Brown Lands",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/BrownLands.jpg",
+    "regionType": "shadow",
+    "adjacentRegions": [
+      "Anduin Vales",
+      "Dagorlad",
+      "Southern Mirkwood",
+      "Wold & Foothills"
+    ],
+    "text": ""
+  },
+  {
+    "cardType": "region",
+    "alignment": "wizard",
+    "id": "tw-450",
+    "name": "Cardolan",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Cardolan.jpg",
+    "regionType": "wilderness",
+    "adjacentRegions": [
+      "Arthedain",
+      "Dunland",
+      "Enedhwaith",
+      "Eriadoran Coast",
+      "Hollin",
+      "Rhudaur",
+      "The Shire"
+    ],
+    "text": ""
+  },
+  {
+    "cardType": "region",
+    "alignment": "wizard",
+    "id": "tw-451",
+    "name": "Dagorlad",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Dagorlad.jpg",
+    "regionType": "shadow",
+    "adjacentRegions": [
+      "Brown Lands",
+      "Horse Plains",
+      "Ithilien",
+      "Southern Mirkwood",
+      "Southern Rhovanion"
+    ],
+    "text": ""
+  },
+  {
+    "cardType": "region",
+    "alignment": "wizard",
+    "id": "tw-452",
+    "name": "Dorwinion",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Dorwinion.jpg",
+    "regionType": "border",
+    "adjacentRegions": [
+      "Northern Rhovanion",
+      "Southern Rhovanion"
+    ],
+    "text": ""
+  },
+  {
+    "cardType": "region",
+    "alignment": "wizard",
+    "id": "tw-453",
+    "name": "Dunland",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Dunland.jpg",
+    "regionType": "wilderness",
+    "adjacentRegions": [
+      "Cardolan",
+      "Enedhwaith",
+      "Hollin"
+    ],
+    "text": ""
+  },
+  {
+    "cardType": "region",
+    "alignment": "wizard",
+    "id": "tw-454",
+    "name": "Elven Shores",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/ElvenShores.jpg",
+    "regionType": "coastal",
+    "adjacentRegions": [
+      "Eriadoran Coast",
+      "Lindon"
+    ],
+    "text": ""
+  },
+  {
+    "cardType": "region",
+    "alignment": "wizard",
+    "id": "tw-455",
+    "name": "Enedhwaith",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Enedhwaith.jpg",
+    "regionType": "wilderness",
+    "adjacentRegions": [
+      "Cardolan",
+      "Dunland",
+      "Eriadoran Coast",
+      "Gap of Isen",
+      "Old Pûkel-land"
+    ],
+    "text": ""
+  },
+  {
+    "cardType": "region",
+    "alignment": "wizard",
+    "id": "tw-456",
+    "name": "Eriadoran Coast",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/EriadoranCoast.jpg",
+    "regionType": "coastal",
+    "adjacentRegions": [
+      "Andrast",
+      "Andrast Coast",
+      "Cardolan",
+      "Elven Shores",
+      "Enedhwaith",
+      "Old Pûkel-land"
+    ],
+    "text": ""
+  },
+  {
+    "cardType": "region",
+    "alignment": "wizard",
+    "id": "tw-457",
+    "name": "Fangorn",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Fangorn.jpg",
+    "regionType": "wilderness",
+    "adjacentRegions": [
+      "Gap of Isen",
+      "Rohan",
+      "Wold & Foothills"
+    ],
+    "text": ""
+  },
+  {
+    "cardType": "region",
+    "alignment": "wizard",
+    "id": "tw-458",
+    "name": "Forochel",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Forochel.jpg",
     "regionType": "wilderness",
     "adjacentRegions": [
       "Angmar",
       "Arthedain",
-      "Cardolan",
-      "High Pass",
-      "Hollin"
+      "Númeriador"
+    ],
+    "text": ""
+  },
+  {
+    "cardType": "region",
+    "alignment": "wizard",
+    "id": "tw-459",
+    "name": "Gap of Isen",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/GapofIsen.jpg",
+    "regionType": "border",
+    "adjacentRegions": [
+      "Enedhwaith",
+      "Fangorn",
+      "Old Pûkel-land",
+      "Rohan"
+    ],
+    "text": ""
+  },
+  {
+    "cardType": "region",
+    "alignment": "wizard",
+    "id": "tw-460",
+    "name": "Gorgoroth",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Gorgoroth.jpg",
+    "regionType": "dark",
+    "adjacentRegions": [
+      "Imlad Morgul",
+      "Nurn",
+      "Udûn"
+    ],
+    "text": ""
+  },
+  {
+    "cardType": "region",
+    "alignment": "wizard",
+    "id": "tw-461",
+    "name": "Grey Mountain Narrows",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/GreyMountainNarrows.jpg",
+    "regionType": "shadow",
+    "adjacentRegions": [
+      "Anduin Vales",
+      "Northern Rhovanion",
+      "Withered Heath",
+      "Woodland Realm"
+    ],
+    "text": ""
+  },
+  {
+    "cardType": "region",
+    "alignment": "wizard",
+    "id": "tw-462",
+    "name": "Gundabad",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Gundabad.jpg",
+    "regionType": "dark",
+    "adjacentRegions": [
+      "Anduin Vales",
+      "Angmar"
+    ],
+    "text": ""
+  },
+  {
+    "cardType": "region",
+    "alignment": "wizard",
+    "id": "tw-463",
+    "name": "Harondor",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Harondor.jpg",
+    "regionType": "wilderness",
+    "adjacentRegions": [
+      "Mouths of the Anduin",
+      "Ithilien",
+      "Khand"
+    ],
+    "text": ""
+  },
+  {
+    "cardType": "region",
+    "alignment": "wizard",
+    "id": "tw-464",
+    "name": "Heart of Mirkwood",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/HeartofMirkwood.jpg",
+    "regionType": "wilderness",
+    "adjacentRegions": [
+      "Northern Rhovanion",
+      "Southern Mirkwood",
+      "Southern Rhovanion",
+      "Western Mirkwood",
+      "Woodland Realm"
+    ],
+    "text": ""
+  },
+  {
+    "cardType": "region",
+    "alignment": "wizard",
+    "id": "tw-465",
+    "name": "High Pass",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/HighPass.jpg",
+    "regionType": "wilderness",
+    "adjacentRegions": [
+      "Anduin Vales",
+      "Rhudaur"
     ],
     "text": ""
   },
@@ -33,15 +411,40 @@
   {
     "cardType": "region",
     "alignment": "wizard",
-    "id": "tw-483",
-    "name": "Rohan",
-    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Rohan.jpg",
-    "regionType": "border",
+    "id": "tw-467",
+    "name": "Horse Plains",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/HorsePlains.jpg",
+    "regionType": "shadow",
     "adjacentRegions": [
-      "Anórien",
-      "Fangorn",
-      "Gap of Isen",
-      "Wold & Foothills"
+      "Dagorlad",
+      "Nurn",
+      "Southern Rhovanion"
+    ],
+    "text": ""
+  },
+  {
+    "cardType": "region",
+    "alignment": "wizard",
+    "id": "tw-468",
+    "name": "Imlad Morgul",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/ImladMorgul.jpg",
+    "regionType": "shadow",
+    "adjacentRegions": [
+      "Gorgoroth",
+      "Ithilien"
+    ],
+    "text": ""
+  },
+  {
+    "cardType": "region",
+    "alignment": "wizard",
+    "id": "tw-469",
+    "name": "Iron Hills",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/IronHills.jpg",
+    "regionType": "wilderness",
+    "adjacentRegions": [
+      "Northern Rhovanion",
+      "Withered Heath"
     ],
     "text": ""
   },
@@ -57,6 +460,316 @@
       "Dagorlad",
       "Harondor",
       "Imlad Morgul"
+    ],
+    "text": ""
+  },
+  {
+    "cardType": "region",
+    "alignment": "wizard",
+    "id": "tw-471",
+    "name": "Khand",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Khand.jpg",
+    "regionType": "shadow",
+    "adjacentRegions": [
+      "Harondor",
+      "Nurn"
+    ],
+    "text": ""
+  },
+  {
+    "cardType": "region",
+    "alignment": "wizard",
+    "id": "tw-472",
+    "name": "Lamedon",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Lamedon.jpg",
+    "regionType": "border",
+    "adjacentRegions": [
+      "Anfalas",
+      "Belfalas",
+      "Lebennin"
+    ],
+    "text": ""
+  },
+  {
+    "cardType": "region",
+    "alignment": "wizard",
+    "id": "tw-473",
+    "name": "Lebennin",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Lebennin.jpg",
+    "regionType": "free",
+    "adjacentRegions": [
+      "Mouths of the Anduin",
+      "Anórien",
+      "Belfalas",
+      "Lamedon"
+    ],
+    "text": ""
+  },
+  {
+    "cardType": "region",
+    "alignment": "wizard",
+    "id": "tw-474",
+    "name": "Lindon",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Lindon.jpg",
+    "regionType": "free",
+    "adjacentRegions": [
+      "Arthedain",
+      "Elven Shores",
+      "Númeriador"
+    ],
+    "text": ""
+  },
+  {
+    "cardType": "region",
+    "alignment": "wizard",
+    "id": "tw-475",
+    "name": "Mouths of the Anduin",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/MouthsoftheAnduin.jpg",
+    "regionType": "coastal",
+    "adjacentRegions": [
+      "Bay of Belfalas",
+      "Belfalas",
+      "Harondor",
+      "Lebennin"
+    ],
+    "text": ""
+  },
+  {
+    "cardType": "region",
+    "alignment": "wizard",
+    "id": "tw-476",
+    "name": "Northern Rhovanion",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/NorthernRhovanion.jpg",
+    "regionType": "wilderness",
+    "adjacentRegions": [
+      "Dorwinion",
+      "Heart of Mirkwood",
+      "Iron Hills",
+      "Southern Rhovanion",
+      "Withered Heath",
+      "Woodland Realm",
+      "Grey Mountain Narrows"
+    ],
+    "text": ""
+  },
+  {
+    "cardType": "region",
+    "alignment": "wizard",
+    "id": "tw-477",
+    "name": "Númeriador",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Numeriador.jpg",
+    "regionType": "wilderness",
+    "adjacentRegions": [
+      "Arthedain",
+      "Forochel",
+      "Lindon"
+    ],
+    "text": ""
+  },
+  {
+    "cardType": "region",
+    "alignment": "wizard",
+    "id": "tw-478",
+    "name": "Nurn",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Nurn.jpg",
+    "regionType": "dark",
+    "adjacentRegions": [
+      "Gorgoroth",
+      "Horse Plains",
+      "Khand"
+    ],
+    "text": ""
+  },
+  {
+    "cardType": "region",
+    "alignment": "wizard",
+    "id": "tw-479",
+    "name": "Old Pûkel Gap",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/OldPukelGap.jpg",
+    "regionType": "wilderness",
+    "adjacentRegions": [
+      "Anfalas",
+      "Old Pûkel-land"
+    ],
+    "text": ""
+  },
+  {
+    "cardType": "region",
+    "alignment": "wizard",
+    "id": "tw-480",
+    "name": "Old Pûkel-land",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/OldPukelland.jpg",
+    "regionType": "wilderness",
+    "adjacentRegions": [
+      "Andrast",
+      "Enedhwaith",
+      "Eriadoran Coast",
+      "Gap of Isen",
+      "Old Pûkel Gap"
+    ],
+    "text": ""
+  },
+  {
+    "cardType": "region",
+    "alignment": "wizard",
+    "id": "tw-481",
+    "name": "Redhorn Gate",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/RedhornGate.jpg",
+    "regionType": "wilderness",
+    "adjacentRegions": [
+      "Hollin",
+      "Wold & Foothills"
+    ],
+    "text": ""
+  },
+  {
+    "cardType": "region",
+    "alignment": "wizard",
+    "id": "tw-482",
+    "name": "Rhudaur",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Rhudaur.jpg",
+    "regionType": "wilderness",
+    "adjacentRegions": [
+      "Angmar",
+      "Arthedain",
+      "Cardolan",
+      "High Pass",
+      "Hollin"
+    ],
+    "text": ""
+  },
+  {
+    "cardType": "region",
+    "alignment": "wizard",
+    "id": "tw-483",
+    "name": "Rohan",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Rohan.jpg",
+    "regionType": "border",
+    "adjacentRegions": [
+      "Anórien",
+      "Fangorn",
+      "Gap of Isen",
+      "Wold & Foothills"
+    ],
+    "text": ""
+  },
+  {
+    "cardType": "region",
+    "alignment": "wizard",
+    "id": "tw-484",
+    "name": "Southern Mirkwood",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/SouthernMirkwood.jpg",
+    "regionType": "dark",
+    "adjacentRegions": [
+      "Anduin Vales",
+      "Brown Lands",
+      "Dagorlad",
+      "Heart of Mirkwood",
+      "Southern Rhovanion",
+      "Western Mirkwood"
+    ],
+    "text": ""
+  },
+  {
+    "cardType": "region",
+    "alignment": "wizard",
+    "id": "tw-485",
+    "name": "Southern Rhovanion",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/SouthernRhovanion.jpg",
+    "regionType": "wilderness",
+    "adjacentRegions": [
+      "Dagorlad",
+      "Dorwinion",
+      "Heart of Mirkwood",
+      "Horse Plains",
+      "Northern Rhovanion",
+      "Southern Mirkwood"
+    ],
+    "text": ""
+  },
+  {
+    "cardType": "region",
+    "alignment": "wizard",
+    "id": "tw-486",
+    "name": "The Shire",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/TheShire.jpg",
+    "regionType": "free",
+    "adjacentRegions": [
+      "Arthedain",
+      "Cardolan"
+    ],
+    "text": ""
+  },
+  {
+    "cardType": "region",
+    "alignment": "wizard",
+    "id": "tw-487",
+    "name": "Udûn",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Udun.jpg",
+    "regionType": "dark",
+    "adjacentRegions": [
+      "Gorgoroth"
+    ],
+    "text": ""
+  },
+  {
+    "cardType": "region",
+    "alignment": "wizard",
+    "id": "tw-488",
+    "name": "Western Mirkwood",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/WesternMirkwood.jpg",
+    "regionType": "wilderness",
+    "adjacentRegions": [
+      "Anduin Vales",
+      "Heart of Mirkwood",
+      "Southern Mirkwood",
+      "Woodland Realm"
+    ],
+    "text": ""
+  },
+  {
+    "cardType": "region",
+    "alignment": "wizard",
+    "id": "tw-489",
+    "name": "Withered Heath",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/WitheredHeath.jpg",
+    "regionType": "wilderness",
+    "adjacentRegions": [
+      "Iron Hills",
+      "Northern Rhovanion",
+      "Grey Mountain Narrows"
+    ],
+    "text": ""
+  },
+  {
+    "cardType": "region",
+    "alignment": "wizard",
+    "id": "tw-490",
+    "name": "Wold & Foothills",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/WoldFoothills.jpg",
+    "regionType": "wilderness",
+    "adjacentRegions": [
+      "Anduin Vales",
+      "Brown Lands",
+      "Fangorn",
+      "Redhorn Gate",
+      "Rohan"
+    ],
+    "text": ""
+  },
+  {
+    "cardType": "region",
+    "alignment": "wizard",
+    "id": "tw-491",
+    "name": "Woodland Realm",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/WoodlandRealm.jpg",
+    "regionType": "border",
+    "adjacentRegions": [
+      "Anduin Vales",
+      "Heart of Mirkwood",
+      "Northern Rhovanion",
+      "Western Mirkwood",
+      "Grey Mountain Narrows"
     ],
     "text": ""
   }
