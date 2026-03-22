@@ -268,8 +268,13 @@ describe('1.9 Starting items', () => {
 
   test('reducer rejects a third starting item beyond the limit of two', () => {
     // Draft config with 3 minor items in Alice's pool
-    const config = makeDraftConfig();
-    config.players[0].draftPool = [ARAGORN, BILBO, FRODO, DAGGER_OF_WESTERNESSE, DAGGER_OF_WESTERNESSE, HORN_OF_ANOR];
+    const config = {
+      ...makeDraftConfig(),
+      players: makeDraftConfig().players.map((p, i) => i === 0
+        ? { ...p, draftPool: [ARAGORN, BILBO, FRODO, DAGGER_OF_WESTERNESSE, DAGGER_OF_WESTERNESSE, HORN_OF_ANOR] }
+        : p,
+      ),
+    };
     let state = runSimpleDraft(config);
 
     if (state.phaseState.phase === Phase.Setup && state.phaseState.setupStep.step === 'item-draft') {

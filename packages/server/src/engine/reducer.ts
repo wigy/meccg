@@ -1019,8 +1019,13 @@ function handleOrganization(state: GameState, action: GameAction): ReducerResult
     return handlePlayCharacter(state, action);
   }
   if (action.type === 'pass') {
-    // TODO: advance to long-event phase
-    return { state };
+    logDetail(`Organization: player ${action.player as string} passed → advancing to Long-event phase`);
+    return {
+      state: {
+        ...state,
+        phaseState: { phase: Phase.LongEvent },
+      },
+    };
   }
   if (action.type === 'plan-movement') {
     return handlePlanMovement(state, action);
