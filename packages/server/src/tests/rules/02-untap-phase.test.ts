@@ -37,18 +37,28 @@ describe('2.I Untap phase', () => {
     }
   });
 
-  test('both players pass to advance from untap phase', () => {
+  test('active player passes to advance from untap phase', () => {
     let state = runFullSetup();
     expect(state.phaseState.phase).toBe(Phase.Untap);
+    const activePlayer = state.activePlayer!;
 
-    // Both pass
+    // Active player passes to advance
     state = runActions(state, [
-      { type: 'pass', player: PLAYER_1 },
-      { type: 'pass', player: PLAYER_2 },
+      { type: 'pass', player: activePlayer },
     ]);
 
     // Should advance to organization phase
     expect(state.phaseState.phase).toBe(Phase.Organization);
+  });
+
+  test('non-active player has no legal actions during untap phase', () => {
+    const state = runFullSetup();
+    expect(state.phaseState.phase).toBe(Phase.Untap);
+    const nonActivePlayer = state.players.find(p => p.id !== state.activePlayer)!.id;
+
+    const actions = computeLegalActions(state, nonActivePlayer);
+    const viable = actions.filter(a => a.viable);
+    expect(viable).toHaveLength(0);
   });
 
   test('untap phase actions: resource player can pass', () => {
