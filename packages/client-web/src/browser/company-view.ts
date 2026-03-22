@@ -595,15 +595,15 @@ function installEmptySpaceListener(): void {
   if (emptySpaceListenerInstalled) return;
   emptySpaceListenerInstalled = true;
   const visualView = $('visual-view');
-  const board = $('visual-board');
-  const emptySpaceTargets = new Set<EventTarget>([visualView, board]);
   visualView.addEventListener('click', (e) => {
     if (viewMode !== 'single' || !lastOnAction || !lastView || !lastCardPool) return;
-    if (e.target && emptySpaceTargets.has(e.target)) {
-      viewMode = 'all-companies';
-      clearFocusedCompany();
-      renderCompanyViews(lastView, lastCardPool, lastOnAction);
-    }
+    // Stay in single view if the click landed on a card image or a clickable company block
+    const target = e.target as HTMLElement;
+    if (target instanceof HTMLImageElement) return;
+    if (target.closest('.company-block--clickable, .company-block--target')) return;
+    viewMode = 'all-companies';
+    clearFocusedCompany();
+    renderCompanyViews(lastView, lastCardPool, lastOnAction);
   });
 }
 
