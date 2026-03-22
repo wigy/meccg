@@ -237,11 +237,51 @@ function hideHoverImg(): void {
   if (hoverImg) hoverImg.style.display = 'none';
 }
 
+/**
+ * Post-process rendered state HTML to wrap card-list lines (starting with "    ·")
+ * under Deck/Sites/Discard headings into collapsible sections with a "+" toggle button.
+ */
+function makeCardListsCollapsible(html: string): string {
+  const lines = html.split('\n');
+  const result: string[] = [];
+  const PILE_RE = /^( {2})(Deck|Sites|Discard|Pool): (\d+)/;
+  const CARD_LINE = '    ·';
+
+  let i = 0;
+  while (i < lines.length) {
+    const match = lines[i].match(PILE_RE);
+    if (match) {
+      // Collect card lines that follow
+      const cardLines: string[] = [];
+      let j = i + 1;
+      while (j < lines.length && lines[j].startsWith(CARD_LINE)) {
+        cardLines.push(lines[j]);
+        j++;
+      }
+      if (cardLines.length > 0) {
+        // Render the heading with a toggle button and the card list hidden
+        const id = `pile-${i}`;
+        result.push(
+          `${lines[i]} <span class="pile-toggle" data-target="${id}" onclick="this.parentElement.querySelector('#${id}').classList.toggle('hidden');this.textContent=this.textContent==='+'?'−':'+'">+</span>`
+        );
+        result.push(`<span id="${id}" class="hidden">${cardLines.join('\n')}</span>`);
+      } else {
+        result.push(lines[i]);
+      }
+      i = j;
+    } else {
+      result.push(lines[i]);
+      i++;
+    }
+  }
+  return result.join('\n');
+}
+
 /** Render the game state using the shared ANSI formatter, converted to HTML. */
 export function renderState(view: PlayerView, cardPool: Readonly<Record<string, CardDefinition>>): void {
   hideHoverImg();
   const el = $('state');
-  el.innerHTML = ansiToHtml(formatPlayerView(view, cardPool));
+  el.innerHTML = makeCardListsCollapsible(ansiToHtml(formatPlayerView(view, cardPool)));
   tagCardImages(el, cardPool);
 }
 

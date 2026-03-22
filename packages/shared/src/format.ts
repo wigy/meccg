@@ -365,6 +365,12 @@ interface RenderPlayerInput {
   readonly deckCount: number;
   readonly siteDeckCount: number;
   readonly discardCount: number;
+  /** Card instance IDs in the play deck, when visible (omniscient view only). */
+  readonly deckCards?: readonly CardInstanceId[];
+  /** Card instance IDs in the site deck, when visible (own view or omniscient). */
+  readonly siteDeckCards?: readonly CardInstanceId[];
+  /** Card instance IDs in the discard pile, when visible (always public). */
+  readonly discardCards?: readonly CardInstanceId[];
   /** Number of cards remaining in the draft pool during setup. */
   readonly poolSize?: number;
   readonly marshallingPoints: MarshallingPointTotals;
@@ -432,8 +438,28 @@ function renderState(input: RenderInput): string {
     } else {
       lines.push(`  Hand: (empty)`);
     }
-    const poolLabel = player.poolSize !== undefined ? ` | Pool: ${player.poolSize}` : '';
-    lines.push(`  Deck: ${player.deckCount} | Sites: ${player.siteDeckCount} | Discard: ${player.discardCount}${poolLabel}`);
+    // Deck piles — each on its own line, with optional card list
+    lines.push(`  Deck: ${player.deckCount}`);
+    if (player.deckCards && player.deckCards.length > 0) {
+      for (const id of player.deckCards) {
+        lines.push(`    · ${formatInstanceName(id, defOf, instOf)}`);
+      }
+    }
+    lines.push(`  Sites: ${player.siteDeckCount}`);
+    if (player.siteDeckCards && player.siteDeckCards.length > 0) {
+      for (const id of player.siteDeckCards) {
+        lines.push(`    · ${formatInstanceName(id, defOf, instOf)}`);
+      }
+    }
+    lines.push(`  Discard: ${player.discardCount}`);
+    if (player.discardCards && player.discardCards.length > 0) {
+      for (const id of player.discardCards) {
+        lines.push(`    · ${formatInstanceName(id, defOf, instOf)}`);
+      }
+    }
+    if (player.poolSize !== undefined) {
+      lines.push(`  Pool: ${player.poolSize}`);
+    }
 
     // Full companies (own view or omniscient server view)
     for (let i = 0; i < player.companies.length; i++) {
@@ -490,8 +516,11 @@ export function formatGameState(state: GameState): string {
       handCards: p.hand,
       handCount: p.hand.length,
       deckCount: p.playDeck.length,
+      deckCards: p.playDeck,
       siteDeckCount: p.siteDeck.length,
+      siteDeckCards: p.siteDeck,
       discardCount: p.discardPile.length,
+      discardCards: p.discardPile,
       marshallingPoints: p.marshallingPoints,
       companies: p.companies,
       characters: p.characters,
@@ -552,7 +581,9 @@ export function formatPlayerView(
         handCount: view.self.hand.length,
         deckCount: view.self.playDeckSize,
         siteDeckCount: view.self.siteDeck.length,
+        siteDeckCards: view.self.siteDeck.map(c => c.instanceId),
         discardCount: view.self.discardPile.length,
+        discardCards: view.self.discardPile.map(c => c.instanceId),
         poolSize: selfPoolSize,
         marshallingPoints: view.self.marshallingPoints,
         companies: view.self.companies,
@@ -567,6 +598,7 @@ export function formatPlayerView(
         deckCount: view.opponent.playDeckSize,
         siteDeckCount: 0,
         discardCount: view.opponent.discardPile.length,
+        discardCards: view.opponent.discardPile.map(c => c.instanceId),
         poolSize: opponentPoolSize,
         marshallingPoints: view.opponent.marshallingPoints,
         companies: [],

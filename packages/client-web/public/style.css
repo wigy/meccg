@@ -96,6 +96,25 @@ h2 {
   display: none !important;
 }
 
+.pile-toggle {
+  cursor: pointer;
+  display: inline-block;
+  width: 1.2em;
+  text-align: center;
+  font-weight: bold;
+  color: #8af;
+  border: 1px solid #456;
+  border-radius: 3px;
+  font-size: 0.85em;
+  line-height: 1.2;
+  margin-left: 0.3em;
+  user-select: none;
+}
+.pile-toggle:hover {
+  background: #345;
+  color: #bdf;
+}
+
 #toolbar {
   position: fixed;
   top: 0.5rem;
