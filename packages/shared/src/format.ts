@@ -604,7 +604,7 @@ export function formatPlayerView(
         isActive: view.activePlayer !== null && view.opponent.id === view.activePlayer,
         handCount: view.opponent.handSize,
         deckCount: view.opponent.playDeckSize,
-        siteDeckCount: 0,
+        siteDeckCount: view.opponent.siteDeckSize,
         discardCount: view.opponent.discardPile.length,
         discardCards: view.opponent.discardPile.map(c => c.instanceId),
         poolSize: opponentPoolSize,
@@ -706,6 +706,8 @@ export function describeAction(
       return 'Call the Free Council (trigger endgame)';
     case 'fetch-from-sideboard':
       return `Fetch ${instName(action.cardInstanceId)} from sideboard`;
+    case 'not-playable':
+      return `${instName(action.cardInstanceId)} cannot be played`;
     default: {
       const _exhaustive: never = action;
       return `Unknown action`;

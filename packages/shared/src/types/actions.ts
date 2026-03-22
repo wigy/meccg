@@ -456,6 +456,22 @@ export interface FetchFromSideboardAction {
   readonly cardInstanceId: CardInstanceId;
 }
 
+// ---- Non-viable placeholder ----
+
+/**
+ * Placeholder action attached to hand cards that have no legal play
+ * during the current phase. Never submitted — exists only as a
+ * non-viable {@link EvaluatedAction} so the client can show a tooltip
+ * explaining why the card cannot be used right now.
+ */
+export interface NotPlayableAction {
+  readonly type: 'not-playable';
+  /** The player holding the card. */
+  readonly player: PlayerId;
+  /** The card instance in hand that cannot be played. */
+  readonly cardInstanceId: CardInstanceId;
+}
+
 // ---- Discriminated union ----
 
 /**
@@ -492,4 +508,5 @@ export type GameAction =
   | DiscardCardAction
   | PassAction
   | CallFreeCouncilAction
-  | FetchFromSideboardAction;
+  | FetchFromSideboardAction
+  | NotPlayableAction;

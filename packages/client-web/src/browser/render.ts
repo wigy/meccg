@@ -28,6 +28,8 @@ function findNonViableReason(
       && visibleInstances[a.siteInstanceId as string] === defId) return ea.reason;
     if (a.type === 'play-character' && visibleInstances
       && visibleInstances[a.characterInstanceId as string] === defId) return ea.reason;
+    if (a.type === 'not-playable' && visibleInstances
+      && visibleInstances[a.cardInstanceId as string] === defId) return ea.reason;
   }
   return undefined;
 }

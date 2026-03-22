@@ -292,7 +292,25 @@ export function organizationActions(state: GameState, playerId: PlayerId): Evalu
   logDetail(`Organization: ${player.companies.length} company/companies, ${Object.keys(player.characters).length} character(s) in play`);
 
   // Play-character actions for each character card in hand
-  actions.push(...playCharacterActions(state, playerId));
+  const characterActions = playCharacterActions(state, playerId);
+  actions.push(...characterActions);
+
+  // Collect instance IDs that already have a play-character evaluation
+  const evaluatedInstances = new Set(
+    characterActions.map(ea =>
+      (ea.action as { characterInstanceId: CardInstanceId }).characterInstanceId as string,
+    ),
+  );
+
+  // Mark remaining hand cards as not playable during organization
+  for (const cardInstanceId of player.hand) {
+    if (evaluatedInstances.has(cardInstanceId as string)) continue;
+    actions.push({
+      action: { type: 'not-playable', player: playerId, cardInstanceId },
+      viable: false,
+      reason: 'Not playable during the organization',
+    });
+  }
 
   // TODO: split-company, merge-companies, transfer-item, plan-movement
 
