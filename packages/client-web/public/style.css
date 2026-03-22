@@ -1438,6 +1438,25 @@ h2 {
   pointer-events: none;
 }
 
+/* Direct influence badge */
+.char-di-badge {
+  position: absolute;
+  left: 6%;
+  top: 27%;
+  font-family: 'Cinzel', serif;
+  font-size: calc(0.7rem * var(--company-scale, 1));
+  font-weight: 700;
+  color: #fff;
+  background: rgba(0, 0, 0, 0.75);
+  padding: 1px 4px;
+  border-radius: 3px;
+  pointer-events: none;
+}
+
+.company-card--faded ~ .char-di-badge {
+  top: 43%;
+}
+
 /* Title character badge */
 .char-title-badge {
   position: absolute;

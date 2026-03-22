@@ -170,6 +170,12 @@ function renderCharacterColumn(
   badge.textContent = `${char.effectiveStats.prowess}/${char.effectiveStats.body}`;
   wrap.appendChild(badge);
 
+  // Direct influence badge (left edge, middle)
+  const diBadge = document.createElement('div');
+  diBadge.className = 'char-di-badge';
+  diBadge.textContent = String(char.effectiveStats.directInfluence);
+  wrap.appendChild(diBadge);
+
   // Title character indicator
   if (isTitleCharacter) {
     const titleBadge = document.createElement('div');
