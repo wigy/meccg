@@ -380,15 +380,37 @@ export function renderActions(
   cardPool: Readonly<Record<string, CardDefinition>>,
   onClick: (action: GameAction) => void,
   instanceLookup?: Readonly<Record<string, CardDefinitionId>>,
+  companyNames?: Readonly<Record<string, string>>,
 ): void {
   const el = $('actions');
   el.innerHTML = '';
 
+  /** Create a "+" toggle that reveals the raw JSON of an action. */
+  function addJsonToggle(container: HTMLElement, action: GameAction): void {
+    const toggle = document.createElement('span');
+    toggle.className = 'action-json-toggle';
+    toggle.textContent = '+';
+    toggle.title = 'Show JSON';
+    const pre = document.createElement('pre');
+    pre.className = 'action-json hidden';
+    pre.textContent = JSON.stringify(action, null, 2);
+    toggle.addEventListener('click', (e) => {
+      e.stopPropagation();
+      pre.classList.toggle('hidden');
+      const nowVisible = !pre.classList.contains('hidden');
+      toggle.textContent = nowVisible ? '−' : '+';
+      toggle.title = nowVisible ? 'Hide JSON' : 'Show JSON';
+    });
+    container.appendChild(toggle);
+    container.appendChild(pre);
+  }
+
   // Viable actions first — clickable
   for (const ea of evaluated.filter(e => e.viable)) {
     const btn = document.createElement('button');
-    btn.innerHTML = ansiToHtml(describeAction(ea.action, cardPool, instanceLookup));
+    btn.innerHTML = ansiToHtml(describeAction(ea.action, cardPool, instanceLookup, companyNames));
     tagCardImages(btn, cardPool);
+    addJsonToggle(btn, ea.action);
     btn.addEventListener('click', () => onClick(ea.action));
     el.appendChild(btn);
   }
@@ -400,9 +422,10 @@ export function renderActions(
       const btn = document.createElement('button');
       btn.disabled = true;
       btn.title = ea.reason ?? '';
-      btn.innerHTML = ansiToHtml(describeAction(ea.action, cardPool, instanceLookup))
+      btn.innerHTML = ansiToHtml(describeAction(ea.action, cardPool, instanceLookup, companyNames))
         + (ea.reason ? ` <span class="action-reason">— ${ea.reason}</span>` : '');
       tagCardImages(btn, cardPool);
+      addJsonToggle(btn, ea.action);
       el.appendChild(btn);
     }
   }
@@ -674,6 +697,8 @@ let siteDeckListenerInstalled = false;
 /** Cached site selection state for interactive site selection in the viewer. */
 let siteSelectionActions: EvaluatedAction[] = [];
 let siteSelectionCallback: ((action: GameAction) => void) | null = null;
+/** Matches a site deck entry to its evaluated action for the current selection mode. */
+let siteSelectionMatcher: ((card: { instanceId: CardInstanceId }) => EvaluatedAction | undefined) | null = null;
 
 /** Populate the site deck grid, optionally with interactive site selection. */
 function populateSiteDeckGrid(): void {
@@ -696,18 +721,14 @@ function populateSiteDeckGrid(): void {
     img.dataset.cardId = card.definitionId as string;
 
     if (isSelecting) {
-      // Find the evaluated action for this site instance
-      const ea = siteSelectionActions.find(
-        a => a.action.type === 'select-starting-site'
-          && a.action.siteInstanceId === card.instanceId,
-      );
+      const ea = siteSelectionMatcher?.(card);
       if (ea && ea.viable) {
         img.classList.add('site-selectable');
         if (siteSelectionCallback) {
           const action = ea.action;
           img.addEventListener('click', () => {
             siteSelectionCallback!(action);
-            closeSiteSelectionViewer();
+            closeSelectionViewer();
           });
         }
       } else if (ea && !ea.viable) {
@@ -739,9 +760,9 @@ function installSiteDeckViewer(): void {
   });
 
   backdrop.addEventListener('click', () => {
-    // During site selection, don't allow closing the modal
-    if (siteSelectionActions.length > 0) return;
-    modal.classList.add('hidden');
+    // During mandatory site selection (setup), don't allow closing the modal
+    if (siteSelectionActions.some(a => a.action.type === 'select-starting-site')) return;
+    closeSelectionViewer();
   });
 }
 
@@ -761,6 +782,10 @@ export function openSiteSelectionViewer(
   siteSelectionActions = view.legalActions.filter(
     ea => ea.action.type === 'select-starting-site',
   );
+  siteSelectionMatcher = (card) => siteSelectionActions.find(
+    a => a.action.type === 'select-starting-site'
+      && a.action.siteInstanceId === card.instanceId,
+  );
   siteSelectionCallback = onAction;
   installSiteDeckViewer();
 
@@ -771,12 +796,44 @@ export function openSiteSelectionViewer(
   }
 }
 
-/** Close the site selection viewer and clear selection state. */
-export function closeSiteSelectionViewer(): void {
+/**
+ * Open the site deck viewer highlighting valid movement destinations for a company.
+ * Called when the player clicks a highlighted (movable) site in the company view.
+ */
+export function openMovementViewer(
+  view: PlayerView,
+  cardPool: Readonly<Record<string, CardDefinition>>,
+  companyId: string,
+  onAction: (action: GameAction) => void,
+): void {
+  cachedSiteDeck = view.self.siteDeck;
+  cachedCardPool = cardPool;
+  siteSelectionActions = view.legalActions.filter(
+    ea => ea.action.type === 'plan-movement' && (ea.action.companyId as string) === companyId,
+  );
+  // Multiple plan-movement actions may target the same site (different paths).
+  // Pick the first viable one per destination site.
+  siteSelectionMatcher = (card) => siteSelectionActions.find(
+    a => a.action.type === 'plan-movement'
+      && a.action.destinationSite === card.instanceId,
+  );
+  siteSelectionCallback = onAction;
+  installSiteDeckViewer();
+  populateSiteDeckGrid();
+}
+
+/** Close the site selection / movement viewer and clear selection state. */
+export function closeSelectionViewer(): void {
   siteSelectionActions = [];
   siteSelectionCallback = null;
+  siteSelectionMatcher = null;
   const modal = document.getElementById('site-deck-modal');
   if (modal) modal.classList.add('hidden');
+}
+
+/** @deprecated Use closeSelectionViewer instead. */
+export function closeSiteSelectionViewer(): void {
+  closeSelectionViewer();
 }
 
 /** Check whether a card list contains real card IDs (not 'unknown-card' placeholders). */

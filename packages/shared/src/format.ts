@@ -21,7 +21,7 @@ import type { PlayerView, OpponentCompanyView } from './types/player-view.js';
 import { computeTournamentBreakdown } from './state-utils.js';
 import type { GameAction } from './types/actions.js';
 import { CardStatus } from './types/common.js';
-import type { CardInstanceId, CardDefinitionId } from './types/common.js';
+import type { CardInstanceId, CardDefinitionId, CompanyId } from './types/common.js';
 import { GENERAL_INFLUENCE } from './constants.js';
 
 // ---- Formatting helpers ----
@@ -628,6 +628,33 @@ export function formatPlayerView(
 // ---- Action description ----
 
 /**
+ * Build a mapping from CompanyId → human-readable company name (e.g. "Aragorn's company")
+ * using the lead character's name. Pass the result to {@link describeAction}.
+ */
+export function buildCompanyNames(
+  companies: readonly Company[],
+  characters: Readonly<Record<string, CharacterInPlay>>,
+  cardPool: Readonly<Record<string, CardDefinition>>,
+): Readonly<Record<string, string>> {
+  const names: Record<string, string> = {};
+  for (const company of companies) {
+    if (company.characters.length === 0) {
+      names[company.id as string] = `empty company`;
+      continue;
+    }
+    const leadCharId = company.characters[0];
+    const char = characters[leadCharId as string];
+    if (char) {
+      const def = cardPool[char.definitionId as string];
+      names[company.id as string] = def ? `${def.name}'s company` : `company`;
+    } else {
+      names[company.id as string] = `company`;
+    }
+  }
+  return names;
+}
+
+/**
  * Returns a human-readable description of a game action, resolving card
  * definition IDs to colored names where possible.
  *
@@ -640,6 +667,7 @@ export function describeAction(
   action: GameAction,
   cardPool: Readonly<Record<string, CardDefinition>>,
   instanceLookup?: Readonly<Record<string, CardDefinitionId>>,
+  companyNames?: Readonly<Record<string, string>>,
 ): string {
   const defName = (id: CardDefinitionId) => {
     const def = cardPool[id as string];
@@ -652,6 +680,7 @@ export function describeAction(
     }
     return `{${id}}`;
   };
+  const compName = (id: CompanyId) => companyNames?.[id as string] ?? `${id}`;
 
   switch (action.type) {
     case 'draft-pick':
@@ -675,19 +704,19 @@ export function describeAction(
     case 'play-character':
       return `Play character ${instName(action.characterInstanceId)} at site ${instName(action.atSite)}`;
     case 'split-company':
-      return `Split characters from company ${action.sourceCompanyId}`;
+      return `Split characters from ${compName(action.sourceCompanyId)}`;
     case 'merge-companies':
-      return `Merge company ${action.sourceCompanyId} into ${action.targetCompanyId}`;
+      return `Merge ${compName(action.sourceCompanyId)} into ${compName(action.targetCompanyId)}`;
     case 'transfer-item':
       return `Transfer item ${instName(action.itemInstanceId)} from ${instName(action.fromCharacterId)} to ${instName(action.toCharacterId)}`;
     case 'plan-movement':
-      return `Move company ${action.companyId} to site ${instName(action.destinationSite)}`;
+      return `Move ${compName(action.companyId)} to ${instName(action.destinationSite)} (${action.movementType})`;
     case 'cancel-movement':
-      return `Cancel movement for company ${action.companyId}`;
+      return `Cancel movement for ${compName(action.companyId)}`;
     case 'play-permanent-event':
       return `Play permanent event ${instName(action.cardInstanceId)}`;
     case 'play-hazard':
-      return `Play hazard ${instName(action.cardInstanceId)} against company ${action.targetCompanyId}`;
+      return `Play hazard ${instName(action.cardInstanceId)} against ${compName(action.targetCompanyId)}`;
     case 'assign-strike':
       return `Assign strike to ${instName(action.characterId)}`;
     case 'resolve-strike':
@@ -695,7 +724,7 @@ export function describeAction(
     case 'support-strike':
       return `Tap ${instName(action.supportingCharacterId)} to support ${instName(action.targetCharacterId)} (+1 prowess)`;
     case 'play-hero-resource':
-      return `Play resource ${instName(action.cardInstanceId)} at company ${action.companyId}`;
+      return `Play resource ${instName(action.cardInstanceId)} at ${compName(action.companyId)}`;
     case 'influence-attempt':
       return `Influence faction ${instName(action.factionInstanceId)} with ${instName(action.influencingCharacterId)}`;
     case 'play-minor-item':

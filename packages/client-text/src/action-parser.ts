@@ -71,6 +71,7 @@ export function parseAction(input: string, playerId: PlayerId): GameAction | nul
         companyId: parts[1] as CompanyId,
         destinationSite: parts[2] as CardInstanceId,
         regionPath: [],
+        movementType: (parts[3] as 'starter' | 'region') ?? 'starter',
       };
 
     case 'play-hazard':

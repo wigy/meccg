@@ -7,7 +7,7 @@
  */
 
 import type { ServerMessage, ClientMessage, GameAction, CardDefinitionId } from '@meccg/shared';
-import { loadCardPool, describeAction, SAMPLE_DECKS } from '@meccg/shared';
+import { loadCardPool, describeAction, buildCompanyNames, SAMPLE_DECKS } from '@meccg/shared';
 import { renderState, renderDraft, renderActions, renderLog, renderHand, renderOpponentHand, renderPlayerNames, renderInstructions, renderDrafted, renderPassButton, renderDeckPiles, resetDeckPiles, setupCardPreview, showNotification, openSiteSelectionViewer, closeSiteSelectionViewer } from './render.js';
 import { renderCompanyViews, resetCompanyViews } from './company-view.js';
 import { rollDice, clearDice, restoreDice } from './dice.js';
@@ -18,6 +18,7 @@ const cardPool = loadCardPool();
 let ws: WebSocket | null = null;
 let playerId: string | null = null;
 let lastVisibleInstances: Readonly<Record<string, CardDefinitionId>> = {};
+let lastCompanyNames: Readonly<Record<string, string>> = {};
 let selectedDeckIndex = 0;
 let autoPassTimer: ReturnType<typeof setTimeout> | null = null;
 /** Stack of log entry counts, pushed before each action for undo support. */
@@ -28,7 +29,7 @@ function sendAction(action: GameAction): void {
   // Snapshot log entry count before adding action log line
   const logEl = document.getElementById('log');
   if (logEl) logCountStack.push(logEl.childElementCount);
-  const desc = describeAction(action, cardPool, lastVisibleInstances);
+  const desc = describeAction(action, cardPool, lastVisibleInstances, lastCompanyNames);
   renderLog(`>> ${desc}`, cardPool);
   clientLog('msg-out', { msgType: 'action', action });
   const msg: ClientMessage = { type: 'action', action };
@@ -68,11 +69,12 @@ function connect(name: string): void {
 
       case 'state':
         lastVisibleInstances = msg.view.visibleInstances;
+        lastCompanyNames = buildCompanyNames(msg.view.self.companies, msg.view.self.characters, cardPool);
         clientLog('msg-in', { msgType: 'state', turn: msg.view.turnNumber, phase: msg.view.phaseState.phase });
         renderLog(`State update: turn ${msg.view.turnNumber}, phase ${msg.view.phaseState.phase}`);
         renderState(msg.view, cardPool);
         renderDraft(msg.view, cardPool);
-        renderActions(msg.view.legalActions, cardPool, sendAction, msg.view.visibleInstances);
+        renderActions(msg.view.legalActions, cardPool, sendAction, msg.view.visibleInstances, lastCompanyNames);
         renderHand(msg.view, cardPool, sendAction);
         renderOpponentHand(msg.view, cardPool);
         renderPlayerNames(msg.view);

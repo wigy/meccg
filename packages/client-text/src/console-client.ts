@@ -29,6 +29,7 @@ import {
   formatCardName,
   formatCardList,
   describeAction,
+  buildCompanyNames,
   colorDebug,
   setShowDebugIds,
   stripCardMarkers,
@@ -193,6 +194,7 @@ function connect(): void {
         lastLegalActions = allEvaluated.filter(e => e.viable).map(e => e.action);
         const nonViable = allEvaluated.filter(e => !e.viable);
         const instances = msg.view.visibleInstances;
+        const compNames = buildCompanyNames(msg.view.self.companies, msg.view.self.characters, cardPool);
 
         // AI mode: compute weights, display probabilities, sample and send
         if (aiStrategy && lastLegalActions.length > 0) {
@@ -203,14 +205,14 @@ function connect(): void {
           console.log(`AI (${aiStrategy.name}) thinking:`);
           for (let i = 0; i < weighted.length; i++) {
             const pct = totalWeight > 0 ? (weighted[i].weight / totalWeight * 100).toFixed(0) : '0';
-            const desc = describeAction(weighted[i].action, cardPool, instances);
+            const desc = describeAction(weighted[i].action, cardPool, instances, compNames);
             console.log(`  [${i + 1}] ${pct}% ${desc}`);
           }
 
           setTimeout(() => {
             if (!ws || ws.readyState !== WebSocket.OPEN || !aiStrategy || lastLegalActions.length === 0) return;
             const action = sampleWeighted(weighted);
-            const desc = describeAction(action, cardPool, instances);
+            const desc = describeAction(action, cardPool, instances, compNames);
             console.log(`AI (${aiStrategy.name}) picks: ${desc}`);
             if (DEBUG) {
               console.log(colorDebug(`>> ${formatJson(action)}`));
@@ -224,7 +226,7 @@ function connect(): void {
           if (lastLegalActions.length > 0) {
             console.log('Legal actions:');
             for (let i = 0; i < lastLegalActions.length; i++) {
-              const desc = describeAction(lastLegalActions[i], cardPool, instances);
+              const desc = describeAction(lastLegalActions[i], cardPool, instances, compNames);
               if (DEBUG) {
                 const { player: _p, ...payload } = lastLegalActions[i];
                 console.log(`  [${i + 1}] ${desc}  ${colorDebug(formatJson(payload))}`);
@@ -236,7 +238,7 @@ function connect(): void {
           if (nonViable.length > 0) {
             console.log('Not available:');
             for (const ea of nonViable) {
-              const desc = describeAction(ea.action, cardPool, instances);
+              const desc = describeAction(ea.action, cardPool, instances, compNames);
               console.log(`  \x1b[90m${desc} — ${ea.reason ?? '?'}\x1b[0m`);
             }
           }

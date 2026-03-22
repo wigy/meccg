@@ -334,6 +334,38 @@ h2 {
   font-style: italic;
 }
 
+.action-json-toggle {
+  display: inline-block;
+  margin-left: 0.5rem;
+  width: 1.2em;
+  height: 1.2em;
+  line-height: 1.2em;
+  text-align: center;
+  font-size: 0.75rem;
+  font-weight: bold;
+  color: #c4a35a;
+  background: #0004;
+  border-radius: 3px;
+  cursor: pointer;
+  vertical-align: middle;
+}
+
+.action-json-toggle:hover {
+  background: #fff2;
+}
+
+.action-json {
+  margin-top: 0.4rem;
+  padding: 0.4rem;
+  font-size: 0.7rem;
+  background: #0003;
+  border-radius: 3px;
+  white-space: pre-wrap;
+  word-break: break-all;
+  color: #aaa;
+  text-align: left;
+}
+
 #log-panel {
   margin-top: 0.5rem;
 }
@@ -1477,6 +1509,13 @@ h2 {
 }
 
 .company-card--site {
+}
+
+.company-card--movable {
+  cursor: pointer;
+  box-shadow:
+    0 0 8px rgba(var(--color-selectable), 0.7),
+    0 0 20px rgba(var(--color-selectable), 0.4);
 }
 
 .company-card--item {

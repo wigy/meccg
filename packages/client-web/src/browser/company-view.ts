@@ -24,7 +24,7 @@ import type {
 } from '@meccg/shared';
 import { cardImageProxyPath, isCharacterCard, Phase, CardStatus, viableActions } from '@meccg/shared';
 import { $, createCardImage } from './render-utils.js';
-import { getSelectedCharacterForPlay, clearCharacterPlaySelection } from './render.js';
+import { getSelectedCharacterForPlay, clearCharacterPlaySelection, openMovementViewer } from './render.js';
 
 // ---- View state ----
 
@@ -236,6 +236,7 @@ function renderSiteArea(
   company: Company | OpponentCompanyView,
   view: PlayerView,
   cardPool: Readonly<Record<string, CardDefinition>>,
+  options?: { hasLegalMovement?: boolean; onAction?: (action: GameAction) => void },
 ): HTMLElement {
   const area = document.createElement('div');
   area.className = 'company-site-area';
@@ -248,7 +249,19 @@ function renderSiteArea(
       if (siteDef) {
         const imgPath = cardImageProxyPath(siteDef);
         if (imgPath) {
-          area.appendChild(createCardImage(siteDefId as string, siteDef, imgPath, 'company-card company-card--site'));
+          const cls = options?.hasLegalMovement
+            ? 'company-card company-card--site company-card--movable'
+            : 'company-card company-card--site';
+          const img = createCardImage(siteDefId as string, siteDef, imgPath, cls);
+          if (options?.hasLegalMovement && options.onAction) {
+            const companyId = company.id as string;
+            const onAction = options.onAction;
+            img.addEventListener('click', (e) => {
+              e.stopPropagation();
+              openMovementViewer(view, cardPool, companyId, onAction);
+            });
+          }
+          area.appendChild(img);
         }
       }
     }
@@ -309,7 +322,7 @@ function renderCompanyBlock(
   view: PlayerView,
   cardPool: Readonly<Record<string, CardDefinition>>,
   owner: 'self' | 'opponent',
-  options?: { hideTitle?: boolean },
+  options?: { hideTitle?: boolean; hasLegalMovement?: boolean; onAction?: (action: GameAction) => void },
 ): HTMLElement {
   const block = document.createElement('div');
   const isSelfTurn = view.activePlayer !== null && view.activePlayer === view.self.id;
@@ -338,7 +351,10 @@ function renderCompanyBlock(
   row.className = 'company-row';
 
   // Site area (leftmost)
-  row.appendChild(renderSiteArea(company, view, cardPool));
+  row.appendChild(renderSiteArea(company, view, cardPool, {
+    hasLegalMovement: options?.hasLegalMovement,
+    onAction: options?.onAction,
+  }));
 
   // Characters — title character always rendered first (leftmost after site)
   const titleChar = getTitleCharacter(company.characters, charMap, cardPool);
@@ -400,7 +416,9 @@ function renderSingleView(
       renderCompanyViews(view, cardPool, lastOnAction!);
     }
   };
-  single.appendChild(renderCompanyBlock(company, charMap, view, cardPool, owner, { hideTitle: true }));
+  const movableIds = getMovableCompanyIds(view);
+  const hasLegalMovement = movableIds.has(company.id as string);
+  single.appendChild(renderCompanyBlock(company, charMap, view, cardPool, owner, { hideTitle: true, hasLegalMovement, onAction: lastOnAction! }));
   container.appendChild(single);
 }
 
@@ -422,6 +440,15 @@ function getPlayCharacterActions(
     result.set(key, existing);
   }
   return result;
+}
+
+/** Collect company IDs that have at least one viable plan-movement action. */
+function getMovableCompanyIds(view: PlayerView): Set<string> {
+  const ids = new Set<string>();
+  for (const action of viableActions(view.legalActions)) {
+    if (action.type === 'plan-movement') ids.add(action.companyId as string);
+  }
+  return ids;
 }
 
 /**
@@ -520,6 +547,9 @@ function renderAllCompaniesView(
     ? getPlayCharacterActions(view, selectedChar)
     : null;
 
+  // Companies with legal movement available
+  const movableIds = getMovableCompanyIds(view);
+
   // Collect site instance IDs that already have companies
   const companySiteIds = new Set<string>();
   for (const company of view.self.companies) {
@@ -528,7 +558,8 @@ function renderAllCompaniesView(
 
   // Self companies
   for (const company of view.self.companies) {
-    const block = renderCompanyBlock(company, view.self.characters, view, cardPool, 'self');
+    const hasLegalMovement = movableIds.has(company.id as string);
+    const block = renderCompanyBlock(company, view.self.characters, view, cardPool, 'self', { hasLegalMovement, onAction: lastOnAction! });
 
     if (targetActions && company.currentSite && targetActions.has(company.currentSite as string)) {
       // This company is a valid target for playing the selected character

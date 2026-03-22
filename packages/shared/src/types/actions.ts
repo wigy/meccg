@@ -220,6 +220,8 @@ export interface PlanMovementAction {
   readonly destinationSite: CardInstanceId;
   /** The ordered sequence of region card instances defining the travel route. */
   readonly regionPath: readonly CardInstanceId[];
+  /** How this destination is reachable: starter (haven-based) or region (adjacency graph). */
+  readonly movementType: 'starter' | 'region';
 }
 
 /**

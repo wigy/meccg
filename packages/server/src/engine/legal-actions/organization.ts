@@ -23,7 +23,7 @@ import type {
   OrganizationPhaseState,
   SiteCard,
 } from '@meccg/shared';
-import { GENERAL_INFLUENCE, SiteType, isCharacterCard, isSiteCard } from '@meccg/shared';
+import { GENERAL_INFLUENCE, SiteType, isCharacterCard, isSiteCard, buildMovementMap, getReachableSites } from '@meccg/shared';
 import { logDetail } from './log.js';
 import { resolveDef } from '../effects/index.js';
 
@@ -345,6 +345,61 @@ function playPermanentEventActions(state: GameState, playerId: PlayerId): Evalua
 }
 
 /**
+ * Computes plan-movement actions for each company.
+ * For every company, emits one viable action per reachable site in the player's
+ * site deck, determined by the movement map (starter and region movement).
+ * Companies that already have a destination planned are skipped.
+ */
+function planMovementActions(state: GameState, playerId: PlayerId): EvaluatedAction[] {
+  const player = state.players.find(p => p.id === playerId)!;
+  const actions: EvaluatedAction[] = [];
+  const movementMap = buildMovementMap(state.cardPool);
+
+  for (const company of player.companies) {
+    if (!company.currentSite) continue;
+    if (company.destinationSite !== null) continue;
+
+    const currentSiteInst = state.instanceMap[company.currentSite as string];
+    if (!currentSiteInst) continue;
+    const currentSiteDef = state.cardPool[currentSiteInst.definitionId as string];
+    if (!currentSiteDef || !isSiteCard(currentSiteDef)) continue;
+
+    // Build candidate sites from the player's site deck
+    const candidateSites: SiteCard[] = [];
+    const siteInstMap = new Map<string, CardInstanceId>();
+    for (const siteInstId of player.siteDeck) {
+      const siteInst = state.instanceMap[siteInstId as string];
+      if (!siteInst) continue;
+      const siteDef = state.cardPool[siteInst.definitionId as string];
+      if (!siteDef || !isSiteCard(siteDef)) continue;
+      candidateSites.push(siteDef);
+      siteInstMap.set(siteDef.name, siteInstId);
+    }
+
+    const reachable = getReachableSites(movementMap, currentSiteDef, candidateSites);
+    logDetail(`Company ${company.id as string} at ${currentSiteDef.name}: ${reachable.length} reachable site(s)`);
+
+    for (const r of reachable) {
+      const destInstId = siteInstMap.get(r.site.name);
+      if (!destInstId) continue;
+      actions.push({
+        action: {
+          type: 'plan-movement',
+          player: playerId,
+          companyId: company.id,
+          destinationSite: destInstId,
+          regionPath: [],
+          movementType: r.movementType,
+        },
+        viable: true,
+      });
+    }
+  }
+
+  return actions;
+}
+
+/**
  * Computes all legal actions during the organization phase.
  *
  * Returns {@link EvaluatedAction} items so that non-viable play-character
@@ -405,7 +460,10 @@ export function organizationActions(state: GameState, playerId: PlayerId): Evalu
     });
   }
 
-  // TODO: split-company, merge-companies, transfer-item, plan-movement
+  // Plan-movement actions for each company
+  actions.push(...planMovementActions(state, playerId));
+
+  // TODO: split-company, merge-companies, transfer-item
 
   actions.push({ action: { type: 'pass', player: playerId }, viable: true });
   return actions;
