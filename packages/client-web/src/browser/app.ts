@@ -263,6 +263,7 @@ document.addEventListener('DOMContentLoaded', () => {
   setupCardPreview(cardPool);
   const saveBtn = document.getElementById('save-btn') as HTMLButtonElement;
   const loadBtn = document.getElementById('load-btn') as HTMLButtonElement;
+  const reseedBtn = document.getElementById('reseed-btn') as HTMLButtonElement;
   const resetBtn = document.getElementById('reset-btn') as HTMLButtonElement;
   const viewToggleBtn = document.getElementById('view-toggle-btn') as HTMLButtonElement;
   const debugView = document.getElementById('debug-view') as HTMLElement;
@@ -350,6 +351,15 @@ document.addEventListener('DOMContentLoaded', () => {
     resetDeckPiles();
     clearDice();
   }
+
+  reseedBtn.addEventListener('click', () => {
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      const msg: ClientMessage = { type: 'reseed' };
+      ws.send(JSON.stringify(msg));
+      renderLog('RNG re-seeded.');
+      flashBtn(reseedBtn);
+    }
+  });
 
   loadBtn.addEventListener('click', () => {
     if (ws && ws.readyState === WebSocket.OPEN) {

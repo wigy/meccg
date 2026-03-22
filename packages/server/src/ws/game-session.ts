@@ -21,7 +21,7 @@ import type {
   JoinMessage,
   GameAction,
 } from '@meccg/shared';
-import { formatGameState, loadCardPool, colorDebug, DEBUG_JSON_COMPACT_LIMIT, STATE_DIVIDER } from '@meccg/shared';
+import { formatGameState, loadCardPool, colorDebug, DEBUG_JSON_COMPACT_LIMIT, STATE_DIVIDER, createRng } from '@meccg/shared';
 import { createGame } from '../engine/init.js';
 import type { PlayerConfig, GameConfig } from '../engine/init.js';
 import { reduce } from '../engine/reducer.js';
@@ -144,6 +144,9 @@ export class GameSession {
         break;
       case 'load':
         this.handleLoad();
+        break;
+      case 'reseed':
+        this.handleReseed();
         break;
     }
   }
@@ -418,6 +421,14 @@ export class GameSession {
 
     this.nameToPlayerId = {};
     console.log('Game reset');
+  }
+
+  private handleReseed(): void {
+    if (!this.state) return;
+    const newSeed = Date.now() ^ Math.floor(Math.random() * 0x7fffffff);
+    this.state = { ...this.state, rng: createRng(newSeed) };
+    console.log(`RNG re-seeded with ${newSeed}`);
+    this.broadcastState();
   }
 
   // ---- Disconnect / Save / Restore ----

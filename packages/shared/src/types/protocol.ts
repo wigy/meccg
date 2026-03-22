@@ -93,7 +93,16 @@ export interface LoadMessage {
   readonly type: 'load';
 }
 
-export type ClientMessage = JoinMessage | ActionMessage | ResetMessage | SaveMessage | LoadMessage;
+/**
+ * Sent by a client to re-seed the server's RNG with a fresh random seed.
+ * Useful during development to try different card draw outcomes.
+ */
+export interface ReseedMessage {
+  /** Message type discriminant. */
+  readonly type: 'reseed';
+}
+
+export type ClientMessage = JoinMessage | ActionMessage | ResetMessage | SaveMessage | LoadMessage | ReseedMessage;
 
 // ---- Server → Client ----
 
