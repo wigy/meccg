@@ -968,55 +968,14 @@ h2 {
 
 /* ---- Company views (play phase) ---- */
 
-.company-nav {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 1rem;
-  padding: 0.5rem 1rem;
-  z-index: 20;
-}
-
-.company-nav-btn {
-  font-family: 'MedievalSharp', serif;
-  font-size: 1rem;
-  color: #c4a35a;
-  background: rgba(0, 0, 0, 0.5);
-  border: 1px solid #c4a35a;
-  border-radius: 4px;
-  padding: 0.3rem 0.8rem;
-  cursor: pointer;
-  transition: background 0.2s;
-}
-
-.company-nav-btn:hover:not(:disabled) {
-  background: rgba(196, 163, 90, 0.3);
-}
-
-.company-nav-btn:disabled {
-  opacity: 0.3;
-  cursor: default;
-}
-
-.company-nav-label {
-  font-family: 'MedievalSharp', serif;
-  font-size: 1.1rem;
-  color: #c4a35a;
-  min-width: 10rem;
-  text-align: center;
-}
-
-.company-nav-mode {
-  margin-left: auto;
-}
-
-/* Single company view */
+/* Single company view — click empty space to return to overview */
 .company-single {
   display: flex;
   flex-direction: column;
   align-items: center;
   padding: 1rem;
   flex: 1;
+  cursor: pointer;
 }
 
 /* Company block */
@@ -1165,39 +1124,13 @@ h2 {
   pointer-events: none;
 }
 
-/* Overview grids */
-.company-overview {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 1.5rem;
-  padding: 1rem;
-}
-
+/* Overview grid */
 .company-overview-all {
   display: flex;
-  flex-direction: column;
-  gap: 1.5rem;
-  padding: 1rem;
-}
-
-.company-section {
-  display: flex;
   flex-wrap: wrap;
   justify-content: center;
-  gap: 1rem;
-}
-
-.company-section-label {
-  width: 100%;
-  text-align: center;
-  font-family: 'MedievalSharp', serif;
-  font-size: 1rem;
-  color: #c4a35a;
-  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8);
-  padding-bottom: 0.3rem;
-  border-bottom: 1px solid rgba(196, 163, 90, 0.3);
-  margin-bottom: 0.3rem;
+  gap: 1.5rem;
+  padding: 1rem;
 }
 
 .company-empty {

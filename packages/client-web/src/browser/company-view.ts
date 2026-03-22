@@ -2,10 +2,9 @@
  * @module company-view
  *
  * Renders companies on the board during play phases (post-setup).
- * Supports three view modes:
- * - **Single**: One company at full scale with prev/next navigation.
- * - **My Companies**: All of the viewing player's companies at 60% scale.
- * - **All Companies**: Both players' companies at 40% scale.
+ * Supports two view modes:
+ * - **All Companies**: Every company in the game (both players) at medium scale.
+ * - **Single**: One company at full scale, reached by clicking a company in the overview.
  *
  * The company leader (highest mind, then MP, then prowess) determines
  * the company's display name (e.g. "Aragorn's Company at Rivendell").
@@ -25,10 +24,10 @@ import { $, createCardImage } from './render-utils.js';
 
 // ---- View state ----
 
-/** Which of the three company display modes is active. */
-type CompanyViewMode = 'single' | 'my-companies' | 'all-companies';
+/** Which of the two company display modes is active. */
+type CompanyViewMode = 'single' | 'all-companies';
 
-/** Current view mode — defaults to all-companies (inactive player's view). */
+/** Current view mode — defaults to all-companies overview. */
 let viewMode: CompanyViewMode = 'all-companies';
 
 /** The company currently focused in single-company view. Null = first company. */
@@ -274,7 +273,7 @@ function renderSiteArea(
 
 /**
  * Render a complete company block: name label, site area, character columns.
- * Used at all three scales via the --company-scale CSS variable.
+ * Used at both scales via the --company-scale CSS variable.
  */
 function renderCompanyBlock(
   company: Company | OpponentCompanyView,
@@ -303,15 +302,18 @@ function renderCompanyBlock(
   // Site area
   block.appendChild(renderSiteArea(company, view, cardPool));
 
-  // Characters
+  // Characters — leader always rendered first (leftmost)
   const charsEl = document.createElement('div');
   charsEl.className = 'company-characters';
   const leader = getCompanyLeader(company.characters, charMap, cardPool);
+  if (leader) {
+    charsEl.appendChild(renderCharacterColumn(leader, cardPool, true));
+  }
   for (const charInstId of company.characters) {
     const char = charMap[charInstId as string];
     if (!char) continue;
-    const isLeader = leader !== undefined && char.instanceId === leader.instanceId;
-    charsEl.appendChild(renderCharacterColumn(char, cardPool, isLeader));
+    if (leader && char.instanceId === leader.instanceId) continue;
+    charsEl.appendChild(renderCharacterColumn(char, cardPool, false));
   }
   block.appendChild(charsEl);
 
@@ -320,174 +322,57 @@ function renderCompanyBlock(
 
 // ---- View mode renderers ----
 
-/** Render single-company detail view with navigation. */
+/** Render single-company detail view. Click empty space to return to overview. */
 function renderSingleView(
   container: HTMLElement,
   view: PlayerView,
   cardPool: Readonly<Record<string, CardDefinition>>,
 ): void {
-  const companies = view.self.companies;
-  if (companies.length === 0) {
-    container.innerHTML = '<div class="company-empty">No companies</div>';
+  // Find the focused company across both players
+  let company: Company | OpponentCompanyView | undefined;
+  let charMap: Readonly<Record<string, CharacterInPlay>> = view.self.characters;
+
+  if (focusedCompanyId) {
+    company = view.self.companies.find(c => c.id === focusedCompanyId);
+    if (!company) {
+      company = view.opponent.companies.find(c => c.id === focusedCompanyId);
+      if (company) charMap = view.opponent.characters;
+    }
+  }
+
+  if (!company) {
+    // Focused company no longer exists — fall back to overview
+    viewMode = 'all-companies';
+    renderAllCompaniesView(container, view, cardPool);
     return;
   }
 
-  // Resolve focused company
-  let focusedIndex = 0;
-  if (focusedCompanyId) {
-    const idx = companies.findIndex(c => c.id === focusedCompanyId);
-    if (idx >= 0) focusedIndex = idx;
-    else focusedCompanyId = companies[0].id;
-  } else {
-    focusedCompanyId = companies[0].id;
-  }
-
-  const company = companies[focusedIndex];
-
-  // Navigation bar
-  const nav = document.createElement('div');
-  nav.className = 'company-nav';
-
-  const prevBtn = document.createElement('button');
-  prevBtn.className = 'company-nav-btn';
-  prevBtn.textContent = '\u25C0'; // ◀
-  prevBtn.disabled = companies.length <= 1;
-  prevBtn.onclick = () => {
-    focusedCompanyId = companies[(focusedIndex - 1 + companies.length) % companies.length].id;
-    renderCompanyViews(view, cardPool, lastOnAction!);
-  };
-
-  const nextBtn = document.createElement('button');
-  nextBtn.className = 'company-nav-btn';
-  nextBtn.textContent = '\u25B6'; // ▶
-  nextBtn.disabled = companies.length <= 1;
-  nextBtn.onclick = () => {
-    focusedCompanyId = companies[(focusedIndex + 1) % companies.length].id;
-    renderCompanyViews(view, cardPool, lastOnAction!);
-  };
-
-  const label = document.createElement('span');
-  label.className = 'company-nav-label';
-  label.textContent = `Company ${focusedIndex + 1} of ${companies.length}`;
-
-  const modeBtn = document.createElement('button');
-  modeBtn.className = 'company-nav-btn company-nav-mode';
-  modeBtn.textContent = 'Overview';
-  modeBtn.onclick = () => {
-    viewMode = 'my-companies';
-    renderCompanyViews(view, cardPool, lastOnAction!);
-  };
-
-  nav.appendChild(prevBtn);
-  nav.appendChild(label);
-  nav.appendChild(nextBtn);
-  nav.appendChild(modeBtn);
-  container.appendChild(nav);
-
-  // Company block at full scale
+  // Company block at full scale — clicking empty space returns to overview
   const single = document.createElement('div');
   single.className = 'company-single';
   single.style.setProperty('--company-scale', '1');
-  single.appendChild(renderCompanyBlock(company, view.self.characters, view, cardPool));
+  single.onclick = (e) => {
+    // Navigate back unless the click landed on a card image
+    if (!(e.target instanceof HTMLImageElement)) {
+      viewMode = 'all-companies';
+      renderCompanyViews(view, cardPool, lastOnAction!);
+    }
+  };
+  single.appendChild(renderCompanyBlock(company, charMap, view, cardPool));
   container.appendChild(single);
 }
 
-/** Render overview of the player's own companies at medium scale. */
-function renderMyCompaniesView(
-  container: HTMLElement,
-  view: PlayerView,
-  cardPool: Readonly<Record<string, CardDefinition>>,
-): void {
-  // Navigation bar with mode toggle
-  const nav = document.createElement('div');
-  nav.className = 'company-nav';
-
-  const backBtn = document.createElement('button');
-  backBtn.className = 'company-nav-btn';
-  backBtn.textContent = '\u25C0 Back';
-  backBtn.onclick = () => {
-    viewMode = 'single';
-    renderCompanyViews(view, cardPool, lastOnAction!);
-  };
-
-  const label = document.createElement('span');
-  label.className = 'company-nav-label';
-  label.textContent = 'My Companies';
-
-  const allBtn = document.createElement('button');
-  allBtn.className = 'company-nav-btn company-nav-mode';
-  allBtn.textContent = 'All Companies';
-  allBtn.onclick = () => {
-    viewMode = 'all-companies';
-    renderCompanyViews(view, cardPool, lastOnAction!);
-  };
-
-  nav.appendChild(backBtn);
-  nav.appendChild(label);
-  nav.appendChild(allBtn);
-  container.appendChild(nav);
-
-  // Company grid
-  const grid = document.createElement('div');
-  grid.className = 'company-overview';
-  grid.style.setProperty('--company-scale', '0.6');
-
-  for (const company of view.self.companies) {
-    const block = renderCompanyBlock(company, view.self.characters, view, cardPool);
-    block.classList.add('company-block--clickable');
-    block.onclick = () => {
-      viewMode = 'single';
-      focusedCompanyId = company.id;
-      renderCompanyViews(view, cardPool, lastOnAction!);
-    };
-    grid.appendChild(block);
-  }
-
-  if (view.self.companies.length === 0) {
-    grid.innerHTML = '<div class="company-empty">No companies</div>';
-  }
-
-  container.appendChild(grid);
-}
-
-/** Render all companies (both players) at smallest scale. */
+/** Render all companies (both players) at medium scale. Click any company to zoom in. */
 function renderAllCompaniesView(
   container: HTMLElement,
   view: PlayerView,
   cardPool: Readonly<Record<string, CardDefinition>>,
 ): void {
-  // Navigation bar
-  const nav = document.createElement('div');
-  nav.className = 'company-nav';
-
-  const backBtn = document.createElement('button');
-  backBtn.className = 'company-nav-btn';
-  backBtn.textContent = '\u25C0 Back';
-  backBtn.onclick = () => {
-    viewMode = 'my-companies';
-    renderCompanyViews(view, cardPool, lastOnAction!);
-  };
-
-  const label = document.createElement('span');
-  label.className = 'company-nav-label';
-  label.textContent = 'All Companies';
-
-  nav.appendChild(backBtn);
-  nav.appendChild(label);
-  container.appendChild(nav);
-
   const overview = document.createElement('div');
   overview.className = 'company-overview-all';
-  overview.style.setProperty('--company-scale', '0.4');
+  overview.style.setProperty('--company-scale', '0.6');
 
-  // Self companies section
-  const selfSection = document.createElement('div');
-  selfSection.className = 'company-section';
-  const selfLabel = document.createElement('div');
-  selfLabel.className = 'company-section-label';
-  selfLabel.textContent = `${view.self.name}'s Companies`;
-  selfSection.appendChild(selfLabel);
-
+  // Self companies
   for (const company of view.self.companies) {
     const block = renderCompanyBlock(company, view.self.characters, view, cardPool);
     block.classList.add('company-block--clickable');
@@ -496,27 +381,20 @@ function renderAllCompaniesView(
       focusedCompanyId = company.id;
       renderCompanyViews(view, cardPool, lastOnAction!);
     };
-    selfSection.appendChild(block);
+    overview.appendChild(block);
   }
-  overview.appendChild(selfSection);
 
-  // Opponent companies section
-  const oppSection = document.createElement('div');
-  oppSection.className = 'company-section';
-  const oppLabel = document.createElement('div');
-  oppLabel.className = 'company-section-label';
-  oppLabel.textContent = `${view.opponent.name}'s Companies`;
-  oppSection.appendChild(oppLabel);
-
+  // Opponent companies
   for (const company of view.opponent.companies) {
     const block = renderCompanyBlock(company, view.opponent.characters, view, cardPool);
     block.classList.add('company-block--clickable');
     block.onclick = () => {
-      // Clicking opponent company just highlights it (can't navigate to single view for opponent)
+      viewMode = 'single';
+      focusedCompanyId = company.id;
+      renderCompanyViews(view, cardPool, lastOnAction!);
     };
-    oppSection.appendChild(block);
+    overview.appendChild(block);
   }
-  overview.appendChild(oppSection);
 
   container.appendChild(overview);
 }
@@ -554,15 +432,15 @@ export function renderCompanyViews(
   const activeId = view.activePlayer as string | null;
   if (activeId !== lastActivePlayer) {
     lastActivePlayer = activeId;
-    // Active player sees single view, inactive sees all
-    const isActive = view.activePlayer === view.self.id;
-    viewMode = isActive ? 'single' : 'all-companies';
+    viewMode = 'all-companies';
     focusedCompanyId = null;
   }
 
-  // Validate focused company still exists
+  // Validate focused company still exists (check both players)
   if (focusedCompanyId) {
-    const exists = view.self.companies.some(c => c.id === focusedCompanyId);
+    const exists =
+      view.self.companies.some(c => c.id === focusedCompanyId) ||
+      view.opponent.companies.some(c => c.id === focusedCompanyId);
     if (!exists) focusedCompanyId = null;
   }
 
@@ -572,9 +450,6 @@ export function renderCompanyViews(
   switch (viewMode) {
     case 'single':
       renderSingleView(board, view, cardPool);
-      break;
-    case 'my-companies':
-      renderMyCompaniesView(board, view, cardPool);
       break;
     case 'all-companies':
       renderAllCompaniesView(board, view, cardPool);
