@@ -21,6 +21,7 @@ import type { PlayerView, OpponentCompanyView } from './types/player-view.js';
 import type { GameAction } from './types/actions.js';
 import { CardStatus } from './types/common.js';
 import type { CardInstanceId, CardDefinitionId } from './types/common.js';
+import { GENERAL_INFLUENCE } from './constants.js';
 
 // ---- Formatting helpers ----
 
@@ -374,6 +375,8 @@ interface RenderPlayerInput {
   /** Number of cards remaining in the draft pool during setup. */
   readonly poolSize?: number;
   readonly marshallingPoints: MarshallingPointTotals;
+  /** How much of the player's 20-point GI pool is currently used. */
+  readonly generalInfluenceUsed?: number;
   readonly companies: readonly Company[];
   readonly opponentCompanies?: readonly OpponentCompanyView[];
   readonly characters: Readonly<Record<string, CharacterInPlay>>;
@@ -416,7 +419,10 @@ function renderState(input: RenderInput): string {
     const mp = player.marshallingPoints;
     const totalMP = mp.character + mp.item + mp.faction + mp.ally + mp.kill + mp.misc;
     const activeMarker = player.isActive ? ` \x1b[31m◀\x1b[0m` : '';
-    lines.push(`${player.name} [${player.alignment}]${wizardLabel}: ${totalMP} MP${activeMarker}`);
+    const giLabel = player.generalInfluenceUsed !== undefined
+      ? ` | Free GI: ${GENERAL_INFLUENCE - player.generalInfluenceUsed}`
+      : '';
+    lines.push(`${player.name} [${player.alignment}]${wizardLabel}: ${totalMP} MP${giLabel}${activeMarker}`);
     if (player.handCards && player.handCards.length > 0) {
       // Group duplicate cards: "3 x Cave-drake" instead of "Cave-drake, Cave-drake, Cave-drake"
       const counts = new Map<string, { name: string; count: number }>();
@@ -522,6 +528,7 @@ export function formatGameState(state: GameState): string {
       discardCount: p.discardPile.length,
       discardCards: p.discardPile,
       marshallingPoints: p.marshallingPoints,
+      generalInfluenceUsed: p.generalInfluenceUsed,
       companies: p.companies,
       characters: p.characters,
     })) as unknown as [RenderPlayerInput, RenderPlayerInput],
@@ -586,6 +593,7 @@ export function formatPlayerView(
         discardCards: view.self.discardPile.map(c => c.instanceId),
         poolSize: selfPoolSize,
         marshallingPoints: view.self.marshallingPoints,
+        generalInfluenceUsed: view.self.generalInfluenceUsed,
         companies: view.self.companies,
         characters: view.self.characters,
       },
@@ -601,6 +609,7 @@ export function formatPlayerView(
         discardCards: view.opponent.discardPile.map(c => c.instanceId),
         poolSize: opponentPoolSize,
         marshallingPoints: view.opponent.marshallingPoints,
+        generalInfluenceUsed: view.opponent.generalInfluenceUsed,
         companies: [],
         opponentCompanies: view.opponent.companies,
         characters: view.opponent.characters,

@@ -26,6 +26,8 @@ function findNonViableReason(
     if (a.type === 'assign-starting-item' && a.itemDefId === defId) return ea.reason;
     if (a.type === 'select-starting-site' && visibleInstances
       && visibleInstances[a.siteInstanceId as string] === defId) return ea.reason;
+    if (a.type === 'play-character' && visibleInstances
+      && visibleInstances[a.characterInstanceId as string] === defId) return ea.reason;
   }
   return undefined;
 }
@@ -580,6 +582,8 @@ function findCardAction(
     if (action.type === 'add-character-to-deck' && action.characterDefId === defId) return action;
     if (action.type === 'select-starting-site' && visibleInstances
       && visibleInstances[action.siteInstanceId as string] === defId) return action;
+    if (action.type === 'play-character' && visibleInstances
+      && visibleInstances[action.characterInstanceId as string] === defId) return action;
   }
   return null;
 }

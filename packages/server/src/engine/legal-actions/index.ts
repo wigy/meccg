@@ -40,7 +40,7 @@ export function computeLegalActions(state: GameState, playerId: PlayerId): Evalu
   switch (phase) {
     case 'setup':             evaluated = setupActions(state, playerId); break;
     case 'untap':             evaluated = asViable(untapActions(state, playerId)); break;
-    case 'organization':      evaluated = asViable(organizationActions(state, playerId)); break;
+    case 'organization':      evaluated = organizationActions(state, playerId); break;
     case 'long-event':        evaluated = asViable(longEventActions(state, playerId)); break;
     case 'movement-hazard':   evaluated = asViable(movementHazardActions(state, playerId)); break;
     case 'site':              evaluated = asViable(siteActions(state, playerId)); break;

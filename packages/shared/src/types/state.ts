@@ -456,6 +456,12 @@ export interface UntapPhaseState {
 export interface OrganizationPhaseState {
   /** Phase discriminant. */
   readonly phase: Phase.Organization;
+  /**
+   * Whether the active player has already played (or discarded) a character
+   * this turn. Per CoE rule 2.II.2, only one character play/discard is
+   * allowed per organization phase.
+   */
+  readonly characterPlayedThisTurn: boolean;
 }
 
 /**

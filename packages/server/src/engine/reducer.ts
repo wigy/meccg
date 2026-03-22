@@ -1015,7 +1015,7 @@ function handleUntap(state: GameState, action: GameAction): ReducerResult {
     return {
       state: {
         ...state,
-        phaseState: { phase: Phase.Organization },
+        phaseState: { phase: Phase.Organization, characterPlayedThisTurn: false },
       },
     };
   }
