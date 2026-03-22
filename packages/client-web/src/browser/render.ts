@@ -1531,9 +1531,9 @@ export function renderLog(message: string, cardPool?: Readonly<Record<string, Ca
 }
 
 /**
- * Show a brief toast notification in the visual view.
+ * Show a brief toast notification overlay.
  * The toast auto-dismisses after the CSS animation completes (~3.4s).
- * In debug mode this is a no-op since messages go to the log panel.
+ * Visible in both debug and visual view modes.
  */
 export function showNotification(message: string, isError = false): void {
   const container = document.getElementById('toast-container');
