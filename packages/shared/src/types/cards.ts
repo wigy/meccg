@@ -434,8 +434,6 @@ export interface HeroSiteCard {
 export interface RegionCard {
   /** Discriminant for the card type union. */
   readonly cardType: 'region';
-  /** Which alignment this card belongs to. */
-  readonly alignment: Alignment;
   /** Unique identifier in the static card pool. */
   readonly id: CardDefinitionId;
   /** Display name (e.g. "Eriador", "Rohan", "Mordor"). */

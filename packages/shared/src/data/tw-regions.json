@@ -1,7 +1,6 @@
 [
   {
     "cardType": "region",
-    "alignment": "wizard",
     "id": "tw-440",
     "name": "Andrast",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Andrast.jpg",
@@ -17,7 +16,6 @@
   },
   {
     "cardType": "region",
-    "alignment": "wizard",
     "id": "tw-441",
     "name": "Andrast Coast",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/AndrastCoast.jpg",
@@ -31,7 +29,6 @@
   },
   {
     "cardType": "region",
-    "alignment": "wizard",
     "id": "tw-442",
     "name": "Anduin Vales",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/AnduinVales.jpg",
@@ -50,7 +47,6 @@
   },
   {
     "cardType": "region",
-    "alignment": "wizard",
     "id": "tw-443",
     "name": "Anfalas",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Anfalas.jpg",
@@ -66,7 +62,6 @@
   },
   {
     "cardType": "region",
-    "alignment": "wizard",
     "id": "tw-444",
     "name": "Angmar",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Angmar.jpg",
@@ -81,7 +76,6 @@
   },
   {
     "cardType": "region",
-    "alignment": "wizard",
     "id": "tw-445",
     "name": "Anórien",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Anorien.jpg",
@@ -95,7 +89,6 @@
   },
   {
     "cardType": "region",
-    "alignment": "wizard",
     "id": "tw-446",
     "name": "Arthedain",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Arthedain.jpg",
@@ -113,7 +106,6 @@
   },
   {
     "cardType": "region",
-    "alignment": "wizard",
     "id": "tw-447",
     "name": "Bay of Belfalas",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/BayofBelfalas.jpg",
@@ -129,7 +121,6 @@
   },
   {
     "cardType": "region",
-    "alignment": "wizard",
     "id": "tw-448",
     "name": "Belfalas",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Belfalas.jpg",
@@ -145,7 +136,6 @@
   },
   {
     "cardType": "region",
-    "alignment": "wizard",
     "id": "tw-449",
     "name": "Brown Lands",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/BrownLands.jpg",
@@ -160,7 +150,6 @@
   },
   {
     "cardType": "region",
-    "alignment": "wizard",
     "id": "tw-450",
     "name": "Cardolan",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Cardolan.jpg",
@@ -178,7 +167,6 @@
   },
   {
     "cardType": "region",
-    "alignment": "wizard",
     "id": "tw-451",
     "name": "Dagorlad",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Dagorlad.jpg",
@@ -194,7 +182,6 @@
   },
   {
     "cardType": "region",
-    "alignment": "wizard",
     "id": "tw-452",
     "name": "Dorwinion",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Dorwinion.jpg",
@@ -207,7 +194,6 @@
   },
   {
     "cardType": "region",
-    "alignment": "wizard",
     "id": "tw-453",
     "name": "Dunland",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Dunland.jpg",
@@ -221,7 +207,6 @@
   },
   {
     "cardType": "region",
-    "alignment": "wizard",
     "id": "tw-454",
     "name": "Elven Shores",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/ElvenShores.jpg",
@@ -234,7 +219,6 @@
   },
   {
     "cardType": "region",
-    "alignment": "wizard",
     "id": "tw-455",
     "name": "Enedhwaith",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Enedhwaith.jpg",
@@ -250,7 +234,6 @@
   },
   {
     "cardType": "region",
-    "alignment": "wizard",
     "id": "tw-456",
     "name": "Eriadoran Coast",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/EriadoranCoast.jpg",
@@ -267,7 +250,6 @@
   },
   {
     "cardType": "region",
-    "alignment": "wizard",
     "id": "tw-457",
     "name": "Fangorn",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Fangorn.jpg",
@@ -281,7 +263,6 @@
   },
   {
     "cardType": "region",
-    "alignment": "wizard",
     "id": "tw-458",
     "name": "Forochel",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Forochel.jpg",
@@ -295,7 +276,6 @@
   },
   {
     "cardType": "region",
-    "alignment": "wizard",
     "id": "tw-459",
     "name": "Gap of Isen",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/GapofIsen.jpg",
@@ -310,7 +290,6 @@
   },
   {
     "cardType": "region",
-    "alignment": "wizard",
     "id": "tw-460",
     "name": "Gorgoroth",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Gorgoroth.jpg",
@@ -324,7 +303,6 @@
   },
   {
     "cardType": "region",
-    "alignment": "wizard",
     "id": "tw-461",
     "name": "Grey Mountain Narrows",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/GreyMountainNarrows.jpg",
@@ -339,7 +317,6 @@
   },
   {
     "cardType": "region",
-    "alignment": "wizard",
     "id": "tw-462",
     "name": "Gundabad",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Gundabad.jpg",
@@ -352,7 +329,6 @@
   },
   {
     "cardType": "region",
-    "alignment": "wizard",
     "id": "tw-463",
     "name": "Harondor",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Harondor.jpg",
@@ -366,7 +342,6 @@
   },
   {
     "cardType": "region",
-    "alignment": "wizard",
     "id": "tw-464",
     "name": "Heart of Mirkwood",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/HeartofMirkwood.jpg",
@@ -382,7 +357,6 @@
   },
   {
     "cardType": "region",
-    "alignment": "wizard",
     "id": "tw-465",
     "name": "High Pass",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/HighPass.jpg",
@@ -395,7 +369,6 @@
   },
   {
     "cardType": "region",
-    "alignment": "wizard",
     "id": "tw-466",
     "name": "Hollin",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Hollin.jpg",
@@ -410,7 +383,6 @@
   },
   {
     "cardType": "region",
-    "alignment": "wizard",
     "id": "tw-467",
     "name": "Horse Plains",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/HorsePlains.jpg",
@@ -424,7 +396,6 @@
   },
   {
     "cardType": "region",
-    "alignment": "wizard",
     "id": "tw-468",
     "name": "Imlad Morgul",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/ImladMorgul.jpg",
@@ -437,7 +408,6 @@
   },
   {
     "cardType": "region",
-    "alignment": "wizard",
     "id": "tw-469",
     "name": "Iron Hills",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/IronHills.jpg",
@@ -450,7 +420,6 @@
   },
   {
     "cardType": "region",
-    "alignment": "wizard",
     "id": "tw-470",
     "name": "Ithilien",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Ithilien.jpg",
@@ -465,7 +434,6 @@
   },
   {
     "cardType": "region",
-    "alignment": "wizard",
     "id": "tw-471",
     "name": "Khand",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Khand.jpg",
@@ -478,7 +446,6 @@
   },
   {
     "cardType": "region",
-    "alignment": "wizard",
     "id": "tw-472",
     "name": "Lamedon",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Lamedon.jpg",
@@ -492,7 +459,6 @@
   },
   {
     "cardType": "region",
-    "alignment": "wizard",
     "id": "tw-473",
     "name": "Lebennin",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Lebennin.jpg",
@@ -507,7 +473,6 @@
   },
   {
     "cardType": "region",
-    "alignment": "wizard",
     "id": "tw-474",
     "name": "Lindon",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Lindon.jpg",
@@ -521,7 +486,6 @@
   },
   {
     "cardType": "region",
-    "alignment": "wizard",
     "id": "tw-475",
     "name": "Mouths of the Anduin",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/MouthsoftheAnduin.jpg",
@@ -536,7 +500,6 @@
   },
   {
     "cardType": "region",
-    "alignment": "wizard",
     "id": "tw-476",
     "name": "Northern Rhovanion",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/NorthernRhovanion.jpg",
@@ -554,7 +517,6 @@
   },
   {
     "cardType": "region",
-    "alignment": "wizard",
     "id": "tw-477",
     "name": "Númeriador",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Numeriador.jpg",
@@ -568,7 +530,6 @@
   },
   {
     "cardType": "region",
-    "alignment": "wizard",
     "id": "tw-478",
     "name": "Nurn",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Nurn.jpg",
@@ -582,7 +543,6 @@
   },
   {
     "cardType": "region",
-    "alignment": "wizard",
     "id": "tw-479",
     "name": "Old Pûkel Gap",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/OldPukelGap.jpg",
@@ -595,7 +555,6 @@
   },
   {
     "cardType": "region",
-    "alignment": "wizard",
     "id": "tw-480",
     "name": "Old Pûkel-land",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/OldPukelland.jpg",
@@ -611,7 +570,6 @@
   },
   {
     "cardType": "region",
-    "alignment": "wizard",
     "id": "tw-481",
     "name": "Redhorn Gate",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/RedhornGate.jpg",
@@ -624,7 +582,6 @@
   },
   {
     "cardType": "region",
-    "alignment": "wizard",
     "id": "tw-482",
     "name": "Rhudaur",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Rhudaur.jpg",
@@ -640,7 +597,6 @@
   },
   {
     "cardType": "region",
-    "alignment": "wizard",
     "id": "tw-483",
     "name": "Rohan",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Rohan.jpg",
@@ -655,7 +611,6 @@
   },
   {
     "cardType": "region",
-    "alignment": "wizard",
     "id": "tw-484",
     "name": "Southern Mirkwood",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/SouthernMirkwood.jpg",
@@ -672,7 +627,6 @@
   },
   {
     "cardType": "region",
-    "alignment": "wizard",
     "id": "tw-485",
     "name": "Southern Rhovanion",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/SouthernRhovanion.jpg",
@@ -689,7 +643,6 @@
   },
   {
     "cardType": "region",
-    "alignment": "wizard",
     "id": "tw-486",
     "name": "The Shire",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/TheShire.jpg",
@@ -702,7 +655,6 @@
   },
   {
     "cardType": "region",
-    "alignment": "wizard",
     "id": "tw-487",
     "name": "Udûn",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Udun.jpg",
@@ -714,7 +666,6 @@
   },
   {
     "cardType": "region",
-    "alignment": "wizard",
     "id": "tw-488",
     "name": "Western Mirkwood",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/WesternMirkwood.jpg",
@@ -729,7 +680,6 @@
   },
   {
     "cardType": "region",
-    "alignment": "wizard",
     "id": "tw-489",
     "name": "Withered Heath",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/WitheredHeath.jpg",
@@ -743,7 +693,6 @@
   },
   {
     "cardType": "region",
-    "alignment": "wizard",
     "id": "tw-490",
     "name": "Wold & Foothills",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/WoldFoothills.jpg",
@@ -759,7 +708,6 @@
   },
   {
     "cardType": "region",
-    "alignment": "wizard",
     "id": "tw-491",
     "name": "Woodland Realm",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/WoodlandRealm.jpg",
