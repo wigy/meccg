@@ -667,7 +667,7 @@ h2 {
 }
 
 #hand-arc:hover {
-  bottom: 8vh;
+  bottom: 0;
   z-index: 100;
 }
 
