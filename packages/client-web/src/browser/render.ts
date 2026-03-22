@@ -6,7 +6,7 @@
  */
 
 import type { PlayerView, GameAction, EvaluatedAction, CardDefinition, CardDefinitionId, CardInstanceId, CharacterInPlay } from '@meccg/shared';
-import { describeAction, formatPlayerView, formatCardList, cardImageProxyPath, isCharacterCard, GENERAL_INFLUENCE, getAlignmentRules, viableActions, formatSignedNumber } from '@meccg/shared';
+import { describeAction, formatPlayerView, formatCardList, cardImageProxyPath, isCharacterCard, GENERAL_INFLUENCE, getAlignmentRules, viableActions, formatSignedNumber, Phase } from '@meccg/shared';
 import { $, createCardImage, createFaceDownCard, appendItemCards } from './render-utils.js';
 
 /**
@@ -616,6 +616,10 @@ export function renderPassButton(view: PlayerView, onAction: (action: GameAction
     label = 'Draw';
   } else if (passAction.type === 'roll-initiative') {
     label = 'Roll';
+  } else if (view.phaseState.phase === Phase.Untap) {
+    label = 'Organization';
+  } else if (view.phaseState.phase === Phase.Organization) {
+    label = 'Long-event';
   } else if (view.phaseState.phase === 'setup') {
     const step = view.phaseState.setupStep.step;
     if (step === 'item-draft') label = 'Continue';
