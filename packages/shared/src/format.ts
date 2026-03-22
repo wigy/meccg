@@ -684,6 +684,8 @@ export function describeAction(
       return `Move company ${action.companyId} to site ${instName(action.destinationSite)}`;
     case 'cancel-movement':
       return `Cancel movement for company ${action.companyId}`;
+    case 'play-permanent-event':
+      return `Play permanent event ${instName(action.cardInstanceId)}`;
     case 'play-hazard':
       return `Play hazard ${instName(action.cardInstanceId)} against company ${action.targetCompanyId}`;
     case 'assign-strike':

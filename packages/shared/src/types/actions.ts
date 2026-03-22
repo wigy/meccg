@@ -236,6 +236,21 @@ export interface CancelMovementAction {
   readonly companyId: CompanyId;
 }
 
+/**
+ * Play a permanent-event resource card from hand during the Organization phase.
+ *
+ * Permanent resource events (e.g. "A Short Rest", "Fellowship") are played
+ * directly to the table without requiring a site. They remain in play
+ * indefinitely, providing ongoing beneficial effects.
+ */
+export interface PlayPermanentEventAction {
+  readonly type: 'play-permanent-event';
+  /** The player playing the event. */
+  readonly player: PlayerId;
+  /** The permanent-event card instance to play from hand. */
+  readonly cardInstanceId: CardInstanceId;
+}
+
 // ---- Movement/Hazard phase ----
 
 /**
@@ -496,6 +511,7 @@ export type GameAction =
   | TransferItemAction
   | PlanMovementAction
   | CancelMovementAction
+  | PlayPermanentEventAction
   | PlayHazardAction
   | AssignStrikeAction
   | ResolveStrikeAction

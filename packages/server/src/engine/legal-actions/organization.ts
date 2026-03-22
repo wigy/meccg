@@ -19,6 +19,7 @@ import type {
   EvaluatedAction,
   CardInstanceId,
   CharacterCard,
+  HeroResourceEventCard,
   OrganizationPhaseState,
   SiteCard,
 } from '@meccg/shared';
@@ -277,6 +278,50 @@ function playCharacterActions(
 }
 
 /**
+ * Evaluates permanent-event resource cards in hand for play during organization.
+ * Permanent resource events can be played directly to the table without a site.
+ * Unique permanent events cannot be played if one with the same name is already in play.
+ */
+function playPermanentEventActions(state: GameState, playerId: PlayerId): EvaluatedAction[] {
+  const player = state.players.find(p => p.id === playerId)!;
+  const actions: EvaluatedAction[] = [];
+
+  for (const cardInstanceId of player.hand) {
+    const inst = state.instanceMap[cardInstanceId as string];
+    if (!inst) continue;
+    const def = state.cardPool[inst.definitionId as string] as HeroResourceEventCard | undefined;
+    if (!def || def.cardType !== 'hero-resource-event' || def.eventType !== 'permanent') continue;
+
+    // Check uniqueness: unique permanent events can't be played if already in play
+    if (def.unique) {
+      const alreadyInPlay = state.players.some(p =>
+        p.cardsInPlay.some(c => {
+          const cDef = state.cardPool[c.definitionId as string];
+          return cDef && cDef.name === def.name;
+        }),
+      );
+      if (alreadyInPlay) {
+        logDetail(`Permanent event ${def.name}: unique and already in play`);
+        actions.push({
+          action: { type: 'not-playable', player: playerId, cardInstanceId },
+          viable: false,
+          reason: `${def.name} is unique and already in play`,
+        });
+        continue;
+      }
+    }
+
+    logDetail(`Permanent event ${def.name}: playable`);
+    actions.push({
+      action: { type: 'play-permanent-event', player: playerId, cardInstanceId },
+      viable: true,
+    });
+  }
+
+  return actions;
+}
+
+/**
  * Computes all legal actions during the organization phase.
  *
  * Returns {@link EvaluatedAction} items so that non-viable play-character
@@ -287,12 +332,8 @@ export function organizationActions(state: GameState, playerId: PlayerId): Evalu
   if (!player) return [];
 
   if (state.activePlayer !== playerId) {
-    logDetail(`Not active player (active: ${state.activePlayer as string ?? 'null'}), marking hand as not playable`);
-    return player.hand.map(cardInstanceId => ({
-      action: { type: 'not-playable' as const, player: playerId, cardInstanceId },
-      viable: false,
-      reason: "Opponent's organization phase",
-    }));
+    logDetail(`Not active player (active: ${state.activePlayer as string ?? 'null'}), no actions`);
+    return [];
   }
 
   const actions: EvaluatedAction[] = [];
@@ -321,9 +362,19 @@ export function organizationActions(state: GameState, playerId: PlayerId): Evalu
     ),
   );
 
+  // Play permanent-event resource cards from hand
+  const permanentEventActions = playPermanentEventActions(state, playerId);
+  actions.push(...permanentEventActions);
+  const permanentEventInstances = new Set(
+    permanentEventActions.map(ea =>
+      (ea.action as { cardInstanceId: CardInstanceId }).cardInstanceId as string,
+    ),
+  );
+
   // Mark remaining hand cards as not playable during organization
   for (const cardInstanceId of player.hand) {
     if (evaluatedInstances.has(cardInstanceId as string)) continue;
+    if (permanentEventInstances.has(cardInstanceId as string)) continue;
     actions.push({
       action: { type: 'not-playable', player: playerId, cardInstanceId },
       viable: false,

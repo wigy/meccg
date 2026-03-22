@@ -694,6 +694,8 @@ function findCardAction(
     if (action.type === 'add-character-to-deck' && action.characterDefId === defId) return action;
     if (action.type === 'select-starting-site' && visibleInstances
       && visibleInstances[action.siteInstanceId as string] === defId) return action;
+    if (action.type === 'play-permanent-event' && visibleInstances
+      && visibleInstances[action.cardInstanceId as string] === defId) return action;
   }
   return null;
 }

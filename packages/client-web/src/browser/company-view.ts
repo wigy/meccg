@@ -15,6 +15,7 @@ import type {
   GameAction,
   CardDefinition,
   CardInstanceId,
+  CardInPlay,
   CharacterInPlay,
   Company,
   CompanyId,
@@ -434,6 +435,46 @@ function renderDummyCompanyBlock(
   return block;
 }
 
+/**
+ * Render the cards-in-play row for both players.
+ * Shows permanent resources, factions, and other general cards on the table.
+ * Positioned at the top of the board above the company overview.
+ */
+function renderCardsInPlayRow(
+  container: HTMLElement,
+  view: PlayerView,
+  cardPool: Readonly<Record<string, CardDefinition>>,
+): void {
+  const selfCards = view.self.cardsInPlay;
+  const oppCards = view.opponent.cardsInPlay;
+  if (selfCards.length === 0 && oppCards.length === 0) return;
+
+  const isSelfTurn = view.activePlayer !== null && view.activePlayer === view.self.id;
+  const row = document.createElement('div');
+  row.className = 'cards-in-play-row';
+  row.style.setProperty('--company-scale', '0.6');
+
+  const renderGroup = (cards: readonly CardInPlay[], inactive: boolean) => {
+    if (cards.length === 0) return;
+    const group = document.createElement('div');
+    group.className = inactive ? 'cards-in-play-group cards-in-play-group--inactive' : 'cards-in-play-group';
+    for (const card of cards) {
+      const def = cardPool[card.definitionId as string];
+      if (!def) continue;
+      const imgPath = cardImageProxyPath(def);
+      if (!imgPath) continue;
+      const img = createCardImage(card.definitionId as string, def, imgPath, 'company-card');
+      if (card.status === CardStatus.Tapped) img.classList.add('company-card--tapped');
+      group.appendChild(img);
+    }
+    row.appendChild(group);
+  };
+
+  renderGroup(selfCards, !isSelfTurn);
+  renderGroup(oppCards, isSelfTurn);
+  container.appendChild(row);
+}
+
 /** Render all companies (both players) at medium scale. Click any company to zoom in. */
 function renderAllCompaniesView(
   container: HTMLElement,
@@ -587,6 +628,9 @@ export function renderCompanyViews(
 
   const board = $('visual-board');
   board.innerHTML = '';
+
+  // Cards in play row (permanent resources, factions, etc.) — always at top
+  renderCardsInPlayRow(board, view, cardPool);
 
   // Force all-companies view when targeting for character play
   const effectiveMode = getSelectedCharacterForPlay() ? 'all-companies' : viewMode;

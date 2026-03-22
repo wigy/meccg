@@ -133,10 +133,6 @@ function validateActionPlayer(state: GameState, action: GameAction): string | un
     return undefined;
   }
 
-  // Both players pass independently during the untap phase
-  if (phase === 'untap' && action.type === 'pass') {
-    return undefined;
-  }
 
   // During movement/hazard phase, the non-active player plays hazards
   if (phase === 'movement-hazard' && action.type === 'play-hazard') {
@@ -1000,31 +996,11 @@ function handleUntap(state: GameState, action: GameAction): ReducerResult {
     return { state, error: `Unexpected action '${action.type}' in untap phase` };
   }
 
-  const { passed } = state.phaseState;
-
-  if (passed.includes(action.player)) {
-    return { state, error: 'Player has already passed' };
-  }
-
-  const newPassed = [...passed, action.player];
-  logDetail(`Untap: player ${action.player as string} passed (${newPassed.length}/2)`);
-
-  // Both players have passed — advance to Organization
-  if (newPassed.length === 2) {
-    logDetail('Untap: both players passed → advancing to Organization phase');
-    return {
-      state: {
-        ...state,
-        phaseState: { phase: Phase.Organization, characterPlayedThisTurn: false },
-      },
-    };
-  }
-
-  // Still waiting for the other player
+  logDetail(`Untap: active player ${action.player as string} passed → advancing to Organization phase`);
   return {
     state: {
       ...state,
-      phaseState: { phase: Phase.Untap, passed: newPassed },
+      phaseState: { phase: Phase.Organization, characterPlayedThisTurn: false },
     },
   };
 }
@@ -1040,6 +1016,9 @@ function handleOrganization(state: GameState, action: GameAction): ReducerResult
   }
   if (action.type === 'cancel-movement') {
     return handleCancelMovement(state, action);
+  }
+  if (action.type === 'play-permanent-event') {
+    return handlePlayPermanentEvent(state, action);
   }
   // TODO: split-company, merge-companies, transfer-item, plan-movement
   return { state, error: `Unhandled organization action: ${action.type}` };
@@ -1181,7 +1160,7 @@ function handlePlayCharacter(state: GameState, action: GameAction): ReducerResul
 
 /** Handle cancel-movement during organization. */
 function handleCancelMovement(state: GameState, action: GameAction): ReducerResult {
-  if (action.type !== 'cancel-movement') return { state, error: 'Expected cancel-movement' };
+  if (action.type !== 'cancel-movement') return { state, error: 'Expected cancel-movement action' };
 
   const playerIndex = getPlayerIndex(state, action.player);
   const player = state.players[playerIndex];
@@ -1200,6 +1179,43 @@ function handleCancelMovement(state: GameState, action: GameAction): ReducerResu
 
   const newPlayers = clonePlayers(state);
   newPlayers[playerIndex] = { ...player, companies };
+  return { state: { ...state, players: newPlayers } };
+}
+
+/**
+ * Handle playing a permanent-event resource card during organization.
+ * Removes the card from hand and adds it to the player's cardsInPlay.
+ */
+function handlePlayPermanentEvent(state: GameState, action: GameAction): ReducerResult {
+  if (action.type !== 'play-permanent-event') return { state, error: 'Expected play-permanent-event action' };
+
+  const playerIndex = getPlayerIndex(state, action.player);
+  const player = state.players[playerIndex];
+
+  const cardIdx = player.hand.indexOf(action.cardInstanceId);
+  if (cardIdx === -1) return { state, error: 'Card not in hand' };
+
+  const inst = state.instanceMap[action.cardInstanceId as string];
+  if (!inst) return { state, error: 'Card instance not found' };
+
+  const def = state.cardPool[inst.definitionId as string];
+  if (!def || def.cardType !== 'hero-resource-event' || def.eventType !== 'permanent') {
+    return { state, error: 'Card is not a permanent resource event' };
+  }
+
+  logDetail(`Playing permanent event: ${def.name}`);
+
+  const newHand = [...player.hand];
+  newHand.splice(cardIdx, 1);
+
+  const newCardsInPlay = [...player.cardsInPlay, {
+    instanceId: action.cardInstanceId,
+    definitionId: inst.definitionId,
+    status: CardStatus.Untapped,
+  }];
+
+  const newPlayers = clonePlayers(state);
+  newPlayers[playerIndex] = { ...player, hand: newHand, cardsInPlay: newCardsInPlay };
   return { state: { ...state, players: newPlayers } };
 }
 

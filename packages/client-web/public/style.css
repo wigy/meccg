@@ -1236,7 +1236,7 @@ h2 {
   align-items: center;
   justify-content: flex-start;
   padding: 1rem;
-  padding-top: calc(var(--card-table-height) + 2rem);
+  padding-top: calc(var(--card-table-height) * 0.5 + 2rem);
   flex: 1;
   cursor: pointer;
 }
@@ -1449,6 +1449,31 @@ h2 {
   pointer-events: none;
 }
 
+/* Cards in play row (permanent resources, factions, etc.) */
+.cards-in-play-row {
+  position: absolute;
+  top: calc(var(--card-table-height) * 0.3 + 1rem);
+  left: 0;
+  right: 0;
+  display: flex;
+  justify-content: center;
+  gap: 1.5rem;
+  padding: 0.5rem 1rem;
+  z-index: 10;
+}
+
+.cards-in-play-group {
+  display: flex;
+  gap: 0.4rem;
+  padding: 0.5rem 0.8rem;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.2);
+}
+
+.cards-in-play-group--inactive {
+  filter: brightness(0.5) saturate(0.6);
+}
+
 /* Overview grid */
 .company-overview-all {
   display: flex;
@@ -1456,6 +1481,7 @@ h2 {
   justify-content: center;
   gap: 1.5rem;
   padding: 1rem;
+  padding-top: calc(var(--card-table-height) * 0.6 + 2rem);
 }
 
 .company-empty {

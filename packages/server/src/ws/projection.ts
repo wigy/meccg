@@ -158,6 +158,7 @@ export function projectSpectatorView(state: GameState): PlayerView {
       for (const ally of char.allies) addInstance(ally.instanceId);
       for (const id of char.corruptionCards) addInstance(id);
     }
+    for (const card of player.cardsInPlay) addInstance(card.instanceId);
   }
 
   return {
@@ -306,6 +307,7 @@ export function projectPlayerView(state: GameState, playerId: PlayerId): PlayerV
     for (const ally of char.allies) addInstance(ally.instanceId);
     for (const id of char.corruptionCards) addInstance(id);
   }
+  for (const card of selfPlayer.cardsInPlay) addInstance(card.instanceId);
 
   // Opponent's public cards: discard piles, characters + attachments, company sites
   for (const id of opponentPlayer.discardPile) addInstance(id);
@@ -319,6 +321,7 @@ export function projectPlayerView(state: GameState, playerId: PlayerId): PlayerV
     for (const ally of char.allies) addInstance(ally.instanceId);
     for (const id of char.corruptionCards) addInstance(id);
   }
+  for (const card of opponentPlayer.cardsInPlay) addInstance(card.instanceId);
 
   return {
     self,
