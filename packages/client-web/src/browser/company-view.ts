@@ -507,8 +507,27 @@ function renderAllCompaniesView(
 
 // ---- Top-level entry point ----
 
-/** Cached onAction callback for re-renders triggered by navigation. */
+/** Cached args for re-renders triggered by navigation. */
 let lastOnAction: ((action: GameAction) => void) | null = null;
+let lastView: PlayerView | null = null;
+let lastCardPool: Readonly<Record<string, CardDefinition>> | null = null;
+
+/** Install a click listener on visual-view so clicking empty space exits single view. */
+let emptySpaceListenerInstalled = false;
+function installEmptySpaceListener(): void {
+  if (emptySpaceListenerInstalled) return;
+  emptySpaceListenerInstalled = true;
+  const visualView = $('visual-view');
+  const board = $('visual-board');
+  const emptySpaceTargets = new Set<EventTarget>([visualView, board]);
+  visualView.addEventListener('click', (e) => {
+    if (viewMode !== 'single' || !lastOnAction || !lastView || !lastCardPool) return;
+    if (e.target && emptySpaceTargets.has(e.target)) {
+      viewMode = 'all-companies';
+      renderCompanyViews(lastView, lastCardPool, lastOnAction);
+    }
+  });
+}
 
 /** Reset all company view state. Call when leaving the game screen. */
 export function resetCompanyViews(): void {
@@ -541,6 +560,9 @@ export function renderCompanyViews(
   if (!COMPANY_VIEW_PHASES.has(view.phaseState.phase)) return;
 
   lastOnAction = onAction;
+  lastView = view;
+  lastCardPool = cardPool;
+  installEmptySpaceListener();
 
   // Reset view state on active player change
   const activeId = view.activePlayer as string | null;

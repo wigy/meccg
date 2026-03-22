@@ -1293,6 +1293,11 @@ h2 {
   border-radius: 4px;
 }
 
+.company-single .company-block {
+  background: none;
+  border-radius: 0;
+}
+
 .company-single .company-name {
   color: rgba(230, 200, 120, 1);
   font-size: 1.5rem;
