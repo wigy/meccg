@@ -318,13 +318,18 @@ function renderSiteArea(
       }
     }
   } else if ('hasPlannedMovement' in company && company.hasPlannedMovement) {
-    // Opponent has planned movement but destination is hidden
+    // Opponent has planned movement but destination is hidden — show arrow + site back
     const arrow = document.createElement('div');
     arrow.className = 'company-movement-arrow';
     arrow.innerHTML = '<svg viewBox="0 0 24 16" fill="none" xmlns="http://www.w3.org/2000/svg">'
       + '<path d="M2 8h17M14 2l6 6-6 6" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>'
-      + '</svg> ?';
+      + '</svg>';
     area.appendChild(arrow);
+    const back = document.createElement('img');
+    back.src = '/images/site-back.jpg';
+    back.alt = 'Hidden destination';
+    back.className = 'company-card company-card--site';
+    area.appendChild(back);
   }
 
   return area;
