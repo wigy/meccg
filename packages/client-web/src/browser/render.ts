@@ -6,7 +6,8 @@
  */
 
 import type { PlayerView, GameAction, EvaluatedAction, CardDefinition, CardDefinitionId, CardInstanceId, CharacterInPlay } from '@meccg/shared';
-import { describeAction, formatPlayerView, formatCardList, cardImageProxyPath, isCharacterCard, GENERAL_INFLUENCE, getAlignmentRules, viableActions, formatSignedNumber, Phase } from '@meccg/shared';
+import { describeAction, formatPlayerView, formatCardList, cardImageProxyPath, isCharacterCard, GENERAL_INFLUENCE, getAlignmentRules, viableActions, formatSignedNumber, Phase, computeTournamentScore, computeTournamentBreakdown } from '@meccg/shared';
+import type { MarshallingPointTotals } from '@meccg/shared';
 import { $, createCardImage, createFaceDownCard, appendItemCards } from './render-utils.js';
 
 /**
@@ -314,11 +315,34 @@ function makeCardListsCollapsible(html: string): string {
   return result.join('\n');
 }
 
+/**
+ * Replace «MP:JSON» markers in HTML with interactive tooltip spans.
+ * The marker embeds both players' raw and adjusted MP breakdowns.
+ */
+function injectMPTooltips(html: string): string {
+  return html.replace(/«MP:(\{[^»]*\})»(\d+) MP/g, (_match, json, total) => {
+    try {
+      const data = JSON.parse(json) as {
+        selfName: string; oppName: string;
+        selfRaw: MarshallingPointTotals; oppRaw: MarshallingPointTotals;
+        selfAdj: MarshallingPointTotals; oppAdj: MarshallingPointTotals;
+      };
+      const tooltip = buildMPTooltip(
+        data.selfName, data.selfRaw, data.selfAdj,
+        data.oppName, data.oppRaw, data.oppAdj,
+      );
+      return `<span class="debug-score">${total} MP<span class="mp-tooltip mp-tooltip--below">${tooltip}</span></span>`;
+    } catch {
+      return `${total} MP`;
+    }
+  });
+}
+
 /** Render the game state using the shared ANSI formatter, converted to HTML. */
 export function renderState(view: PlayerView, cardPool: Readonly<Record<string, CardDefinition>>): void {
   hideHoverImg();
   const el = $('state');
-  el.innerHTML = makeCardListsCollapsible(ansiToHtml(formatPlayerView(view, cardPool)));
+  el.innerHTML = injectMPTooltips(makeCardListsCollapsible(ansiToHtml(formatPlayerView(view, cardPool))));
   tagCardImages(el, cardPool);
 }
 
@@ -435,22 +459,75 @@ function getHandCards(view: PlayerView): CardDefinitionId[] {
   return view.self.hand.map(c => c.definitionId);
 }
 
-/** Sum all marshalling point categories into a total score. */
-function totalMP(mp: { character: number; item: number; faction: number; ally: number; kill: number; misc: number }): number {
-  return mp.character + mp.item + mp.faction + mp.ally + mp.kill + mp.misc;
+/**
+ * Build the HTML for the MP breakdown tooltip table.
+ * Shows raw and adjusted values per category for both players.
+ */
+function buildMPTooltip(
+  selfName: string,
+  selfRaw: MarshallingPointTotals,
+  selfAdj: MarshallingPointTotals,
+  oppName: string,
+  oppRaw: MarshallingPointTotals,
+  oppAdj: MarshallingPointTotals,
+): string {
+  const categories: { key: keyof MarshallingPointTotals; label: string }[] = [
+    { key: 'character', label: 'Character' },
+    { key: 'item', label: 'Item' },
+    { key: 'faction', label: 'Faction' },
+    { key: 'ally', label: 'Ally' },
+    { key: 'kill', label: 'Kill' },
+    { key: 'misc', label: 'Misc' },
+  ];
+
+  const selfTotal = selfAdj.character + selfAdj.item + selfAdj.faction + selfAdj.ally + selfAdj.kill + selfAdj.misc;
+  const oppTotal = oppAdj.character + oppAdj.item + oppAdj.faction + oppAdj.ally + oppAdj.kill + oppAdj.misc;
+
+  const formatCell = (raw: number, adj: number): string => {
+    if (raw === adj) return `${adj}`;
+    return `<span class="mp-adjusted">${adj}</span> <span class="mp-raw">(${raw})</span>`;
+  };
+
+  let rows = '';
+  for (const { key, label } of categories) {
+    rows += `<tr>
+      <td class="mp-label">${label}</td>
+      <td class="mp-value">${formatCell(selfRaw[key], selfAdj[key])}</td>
+      <td class="mp-value">${formatCell(oppRaw[key], oppAdj[key])}</td>
+    </tr>`;
+  }
+
+  return `<table class="mp-tooltip-table">
+    <thead><tr>
+      <th></th>
+      <th class="mp-header">${selfName}</th>
+      <th class="mp-header">${oppName}</th>
+    </tr></thead>
+    <tbody>${rows}</tbody>
+    <tfoot><tr>
+      <td class="mp-label">Total</td>
+      <td class="mp-value mp-total">${selfTotal}</td>
+      <td class="mp-value mp-total">${oppTotal}</td>
+    </tr></tfoot>
+  </table>`;
 }
 
 /** Render player names and scores in the visual view. */
 export function renderPlayerNames(view: PlayerView): void {
   const selfEl = document.getElementById('self-name');
   const oppEl = document.getElementById('opponent-name');
-  const selfScore = totalMP(view.self.marshallingPoints);
-  const oppScore = totalMP(view.opponent.marshallingPoints);
+  const selfRaw = view.self.marshallingPoints;
+  const oppRaw = view.opponent.marshallingPoints;
+  const selfAdj = computeTournamentBreakdown(selfRaw, oppRaw);
+  const oppAdj = computeTournamentBreakdown(oppRaw, selfRaw);
+  const selfScore = computeTournamentScore(selfRaw, oppRaw);
+  const oppScore = computeTournamentScore(oppRaw, selfRaw);
+  const tooltip = buildMPTooltip(view.self.name, selfRaw, selfAdj, view.opponent.name, oppRaw, oppAdj);
   if (selfEl) {
-    selfEl.innerHTML = `${view.self.name} <span class="score">${selfScore}</span>`;
+    selfEl.innerHTML = `${view.self.name} <span class="score">${selfScore}<span class="mp-tooltip mp-tooltip--above">${tooltip}</span></span>`;
   }
   if (oppEl) {
-    oppEl.innerHTML = `${view.opponent.name} <span class="score">${oppScore}</span>`;
+    oppEl.innerHTML = `${view.opponent.name} <span class="score">${oppScore}<span class="mp-tooltip mp-tooltip--below">${tooltip}</span></span>`;
   }
 }
 

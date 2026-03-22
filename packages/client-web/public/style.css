@@ -582,6 +582,90 @@ h2 {
   border-radius: 4px;
   display: inline-block;
   transform: translateY(-3px);
+  pointer-events: auto;
+  cursor: default;
+  position: relative;
+}
+
+.score:hover .mp-tooltip {
+  display: block;
+}
+
+.mp-tooltip {
+  display: none;
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 100;
+  background: rgba(15, 12, 8, 0.95);
+  border: 1px solid rgba(196, 163, 90, 0.6);
+  border-radius: 6px;
+  padding: 0.5rem 0.7rem;
+  white-space: nowrap;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.8);
+}
+
+.mp-tooltip--above {
+  bottom: 100%;
+  margin-bottom: 0.4rem;
+}
+
+.mp-tooltip--below {
+  top: 100%;
+  margin-top: 0.4rem;
+}
+
+.mp-tooltip-table {
+  border-collapse: collapse;
+  font-family: 'Cinzel', serif;
+  font-size: 0.75rem;
+  color: rgba(196, 163, 90, 0.9);
+}
+
+.mp-tooltip-table th,
+.mp-tooltip-table td {
+  padding: 0.15rem 0.5rem;
+  text-align: left;
+}
+
+.mp-header {
+  font-weight: bold;
+  border-bottom: 1px solid rgba(196, 163, 90, 0.4);
+  padding-bottom: 0.25rem;
+  max-width: 6rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.mp-label {
+  text-align: left;
+  color: rgba(196, 163, 90, 0.6);
+  font-weight: normal;
+}
+
+.mp-total {
+  font-weight: bold;
+  border-top: 1px solid rgba(196, 163, 90, 0.4);
+  padding-top: 0.25rem;
+}
+
+.mp-adjusted {
+  color: #f0dc50;
+}
+
+.mp-raw {
+  color: rgba(196, 163, 90, 0.4);
+  font-size: 0.65rem;
+}
+
+.debug-score {
+  position: relative;
+  cursor: default;
+  border-bottom: 1px dotted rgba(196, 163, 90, 0.5);
+}
+
+.debug-score:hover .mp-tooltip {
+  display: block;
 }
 
 #card-preview {

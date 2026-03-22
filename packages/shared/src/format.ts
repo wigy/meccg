@@ -18,6 +18,7 @@ import type { CardDefinition } from './types/cards.js';
 import { isCharacterCard, isItemCard } from './types/cards.js';
 import type { GameState, Company, CharacterInPlay, ItemInPlay, AllyInPlay, EventInPlay, CombatState, PhaseState, MarshallingPointTotals } from './types/state.js';
 import type { PlayerView, OpponentCompanyView } from './types/player-view.js';
+import { computeTournamentScore, computeTournamentBreakdown } from './state-utils.js';
 import type { GameAction } from './types/actions.js';
 import { CardStatus } from './types/common.js';
 import type { CardInstanceId, CardDefinitionId } from './types/common.js';
@@ -64,10 +65,10 @@ export function colorDebug(text: string): string {
   return `${DEBUG_COLOR}${text}${RESET}`;
 }
 
-/** Strip STX card-ID markers (\x02id\x02) from formatted output. */
+/** Strip STX card-ID markers (\x02id\x02) and «MP:…» markers from formatted output. */
 export function stripCardMarkers(text: string): string {
   // eslint-disable-next-line no-control-regex
-  return text.replace(/\x02[^\x02]*\x02/g, '');
+  return text.replace(/\x02[^\x02]*\x02/g, '').replace(/«MP:[^»]*»/g, '');
 }
 
 /**
@@ -414,15 +415,26 @@ function renderState(input: RenderInput): string {
     : input.phaseState.phase;
   lines.push(`Turn ${input.turnNumber} — Phase: ${phaseLabel}`);
 
-  for (const player of input.players) {
+  for (let pi = 0; pi < input.players.length; pi++) {
+    const player = input.players[pi];
+    const opponent = input.players[1 - pi];
     const wizardLabel = player.wizard ? ` (${player.wizard})` : '';
-    const mp = player.marshallingPoints;
-    const totalMP = mp.character + mp.item + mp.faction + mp.ally + mp.kill + mp.misc;
+    const selfRaw = player.marshallingPoints;
+    const oppRaw = opponent.marshallingPoints;
+    const selfAdj = computeTournamentBreakdown(selfRaw, oppRaw);
+    const oppAdj = computeTournamentBreakdown(oppRaw, selfRaw);
+    const totalMP = selfAdj.character + selfAdj.item + selfAdj.faction + selfAdj.ally + selfAdj.kill + selfAdj.misc;
     const activeMarker = player.isActive ? ` \x1b[31m◀\x1b[0m` : '';
     const giLabel = player.generalInfluenceUsed !== undefined
       ? ` | Free GI: ${GENERAL_INFLUENCE - player.generalInfluenceUsed}`
       : '';
-    lines.push(`${player.name} [${player.alignment}]${wizardLabel}: ${totalMP} MP${giLabel}${activeMarker}`);
+    // Embed MP breakdown as a «MP:JSON» marker for web client tooltip injection.
+    // The marker is invisible in the text client (stripped by stripCardMarkers).
+    const mpData = JSON.stringify({
+      selfName: player.name, oppName: opponent.name,
+      selfRaw, oppRaw, selfAdj, oppAdj,
+    });
+    lines.push(`${player.name} [${player.alignment}]${wizardLabel}: «MP:${mpData}»${totalMP} MP${giLabel}${activeMarker}`);
     if (player.handCards && player.handCards.length > 0) {
       // Group duplicate cards: "3 x Cave-drake" instead of "Cave-drake, Cave-drake, Cave-drake"
       const counts = new Map<string, { name: string; count: number }>();

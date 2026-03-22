@@ -13,4 +13,4 @@ export type { Rule, RuleSet, EvaluatedAction } from './rules/index.js';
 export { CHARACTER_DRAFT_RULES, CHARACTER_DECK_DRAFT_RULES, SITE_SELECTION_RULES, ITEM_DRAFT_RULES, MAX_STARTING_ITEMS } from './rules/index.js';
 export { getAlignmentRules } from './alignment-rules.js';
 export type { AlignmentRules } from './alignment-rules.js';
-export { getPlayerIndex } from './state-utils.js';
+export { getPlayerIndex, computeTournamentScore, computeTournamentBreakdown } from './state-utils.js';
