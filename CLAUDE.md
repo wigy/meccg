@@ -100,6 +100,7 @@ Tests verify the **official CoE rules**, not internal implementation. There are 
 - **`test.todo()`** marks unimplemented rules — a living spec showing what's left to build.
 - **No utility tests**: If internal utilities (condition matcher, formatting) break, the rules tests catch it.
 - See `docs/testing-plan.md` for the full plan.
+- **All test changes must go through a PR** — never commit test modifications directly to master. Create a branch and open a pull request for review.
 
 ### Code Documentation Policy
 
