@@ -99,6 +99,20 @@ export interface AllyInPlay {
   readonly status: CardStatus;
 }
 
+/**
+ * A card currently in play on the table, not attached to any character or company.
+ * Examples include permanent resource events, factions, and other general cards
+ * that persist between turns.
+ */
+export interface CardInPlay {
+  /** The card instance ID of this card. */
+  readonly instanceId: CardInstanceId;
+  /** Reference to the static card definition. */
+  readonly definitionId: CardDefinitionId;
+  /** Current state of this card — untapped, tapped, or inverted. */
+  readonly status: CardStatus;
+}
+
 export interface CharacterInPlay {
   /** The card instance ID of this character. */
   readonly instanceId: CardInstanceId;
@@ -251,6 +265,8 @@ export interface PlayerState {
   readonly companies: readonly Company[];
   /** All characters this player has in play, keyed by their CardInstanceId for fast lookup. */
   readonly characters: Readonly<Record<string, CharacterInPlay>>;
+  /** General cards in play on the table (permanent resources, factions, etc.) not attached to characters. */
+  readonly cardsInPlay: readonly CardInPlay[];
   /**
    * Current marshalling point (victory point) totals broken down by category.
    * Updated whenever cards enter or leave play. Used for display and Free Council scoring.
@@ -445,8 +461,6 @@ export interface SetupPhaseState {
 export interface UntapPhaseState {
   /** Phase discriminant. */
   readonly phase: Phase.Untap;
-  /** Players who have passed (both must pass to advance to Organization). */
-  readonly passed: readonly PlayerId[];
 }
 
 /**

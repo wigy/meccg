@@ -16,7 +16,7 @@
 
 import type { CardDefinition } from './types/cards.js';
 import { isCharacterCard, isItemCard } from './types/cards.js';
-import type { GameState, Company, CharacterInPlay, ItemInPlay, AllyInPlay, EventInPlay, CombatState, PhaseState, MarshallingPointTotals } from './types/state.js';
+import type { GameState, Company, CharacterInPlay, ItemInPlay, AllyInPlay, CombatState, PhaseState, MarshallingPointTotals } from './types/state.js';
 import type { PlayerView, OpponentCompanyView } from './types/player-view.js';
 import { computeTournamentScore, computeTournamentBreakdown } from './state-utils.js';
 import type { GameAction } from './types/actions.js';
@@ -342,14 +342,6 @@ function formatCombat(combat: CombatState, defOf: CardLookup, instOf: InstanceLo
   return lines;
 }
 
-// ---- Event formatting ----
-
-function formatEvent(event: EventInPlay, defOf: CardLookup, instOf: InstanceLookup): string {
-  const name = formatInstanceName(event.instanceId, defOf, instOf);
-  const attached = event.attachedTo ? ` → ${formatInstanceName(event.attachedTo, defOf, instOf)}` : '';
-  return `${name} (owner: ${event.owner})${attached}`;
-}
-
 // ---- Shared rendering core ----
 
 /**
@@ -381,13 +373,14 @@ interface RenderPlayerInput {
   readonly companies: readonly Company[];
   readonly opponentCompanies?: readonly OpponentCompanyView[];
   readonly characters: Readonly<Record<string, CharacterInPlay>>;
+  /** General cards this player has in play (permanent resources, factions, etc.). */
+  readonly cardsInPlay?: readonly { readonly instanceId: CardInstanceId; readonly definitionId: CardDefinitionId }[];
 }
 
 interface RenderInput {
   readonly turnNumber: number;
   readonly phaseState: PhaseState;
   readonly players: readonly [RenderPlayerInput, RenderPlayerInput];
-  readonly eventsInPlay: readonly EventInPlay[];
   readonly defOf: CardLookup;
   readonly instOf: InstanceLookup;
 }
@@ -490,22 +483,20 @@ function renderState(input: RenderInput): string {
         lines.push(...formatOpponentCompany(player.opponentCompanies[i], i, player.characters, defOf, instOf, '  '));
       }
     }
+
+    // Cards in play (permanent resources, factions, etc.)
+    if (player.cardsInPlay && player.cardsInPlay.length > 0) {
+      lines.push('  Cards in play:');
+      for (const card of player.cardsInPlay) {
+        lines.push(`    · ${formatInstanceName(card.instanceId, defOf, instOf)}`);
+      }
+    }
   }
 
   // Combat
   const ps = input.phaseState;
   if ('combat' in ps && ps.combat) {
     lines.push(...formatCombat(ps.combat, defOf, instOf, '  '));
-  }
-
-  // Events
-  if (input.eventsInPlay.length > 0) {
-    lines.push('Events in play:');
-    for (const event of input.eventsInPlay) {
-      lines.push(`  ${formatEvent(event, defOf, instOf)}`);
-    }
-  } else {
-    lines.push('Events in play: (none)');
   }
 
   return lines.join('\n');
@@ -543,8 +534,8 @@ export function formatGameState(state: GameState): string {
       generalInfluenceUsed: p.generalInfluenceUsed,
       companies: p.companies,
       characters: p.characters,
+      cardsInPlay: p.cardsInPlay,
     })) as unknown as [RenderPlayerInput, RenderPlayerInput],
-    eventsInPlay: state.eventsInPlay,
     defOf,
     instOf,
   }));
@@ -608,6 +599,7 @@ export function formatPlayerView(
         generalInfluenceUsed: view.self.generalInfluenceUsed,
         companies: view.self.companies,
         characters: view.self.characters,
+        cardsInPlay: view.self.cardsInPlay,
       },
       {
         name: view.opponent.name,
@@ -625,9 +617,9 @@ export function formatPlayerView(
         companies: [],
         opponentCompanies: view.opponent.companies,
         characters: view.opponent.characters,
+        cardsInPlay: view.opponent.cardsInPlay,
       },
     ],
-    eventsInPlay: view.eventsInPlay,
     defOf,
     instOf,
   });

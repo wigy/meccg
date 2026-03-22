@@ -30,6 +30,7 @@ import type {
   EventInPlay,
   Company,
   CharacterInPlay,
+  CardInPlay,
   MarshallingPointTotals,
 } from './state.js';
 import type { EvaluatedAction } from '../rules/types.js';
@@ -131,6 +132,8 @@ export interface OpponentView {
   readonly companies: readonly OpponentCompanyView[];
   /** The opponent's characters in play (public information). */
   readonly characters: Readonly<Record<string, CharacterInPlay>>;
+  /** General cards the opponent has in play (permanent resources, factions, etc.). */
+  readonly cardsInPlay: readonly CardInPlay[];
   /** The opponent's current marshalling point totals (public information). */
   readonly marshallingPoints: MarshallingPointTotals;
   /** How much of the opponent's general influence is committed (public information). */
@@ -173,6 +176,8 @@ export interface SelfView {
   readonly companies: readonly Company[];
   /** All characters this player has in play. */
   readonly characters: Readonly<Record<string, CharacterInPlay>>;
+  /** General cards in play on the table (permanent resources, factions, etc.). */
+  readonly cardsInPlay: readonly CardInPlay[];
   /** Current marshalling point totals by category. */
   readonly marshallingPoints: MarshallingPointTotals;
   /** How much general influence is currently committed to controlling characters. */

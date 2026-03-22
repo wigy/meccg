@@ -212,6 +212,7 @@ function initPlayerPreDraft(
     sideboard: [],
     companies: [],
     characters: {},
+    cardsInPlay: [],
     marshallingPoints: ZERO_MARSHALLING_POINTS,
     generalInfluenceUsed: 0,
     deckExhaustionCount: 0,
@@ -387,7 +388,7 @@ export function startFirstTurn(state: GameState): GameState {
     ...state,
     // activePlayer should already be set by initiative roll
     activePlayer: state.activePlayer ?? state.players[0].id,
-    phaseState: { phase: Phase.Untap, passed: [] },
+    phaseState: { phase: Phase.Untap },
     turnNumber: 1,
   };
 }
@@ -436,7 +437,7 @@ export function createGameQuickStart(
     gameId,
     players,
     activePlayer: config.players[0].id,
-    phaseState: { phase: Phase.Untap, passed: [] },
+    phaseState: { phase: Phase.Untap },
     eventsInPlay: [],
     cardPool,
     instanceMap: minter.instanceMap,
@@ -523,6 +524,7 @@ function initPlayerWithCharacters(
     sideboard: [],
     companies: [company],
     characters,
+    cardsInPlay: [],
     marshallingPoints: ZERO_MARSHALLING_POINTS,
     generalInfluenceUsed: 0,
     deckExhaustionCount: 0,
