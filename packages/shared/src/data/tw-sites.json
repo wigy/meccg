@@ -28,6 +28,32 @@
   {
     "cardType": "hero-site",
     "alignment": "wizard",
+    "id": "tw-393",
+    "name": "Edhellond",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Edhellond.jpg",
+    "siteType": "haven",
+    "sitePath": [],
+    "nearestHaven": "",
+    "playableResources": [],
+    "automaticAttacks": [],
+    "text": "Site Path From Grey Havens: Free-domain/Coastland/Coastland/Coastland/Coastland/Wilderness. Site Path From Lórien: Wilderness/Border-land/Free-domain/Free-domain/Border-land/Wilderness."
+  },
+  {
+    "cardType": "hero-site",
+    "alignment": "wizard",
+    "id": "tw-399",
+    "name": "Grey Havens",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/GreyHavens.jpg",
+    "siteType": "haven",
+    "sitePath": [],
+    "nearestHaven": "",
+    "playableResources": [],
+    "automaticAttacks": [],
+    "text": "Site Path From Rivendell: Wilderness/Wilderness/Free-domain. Site Path From Edhellond: Wilderness/Coastland/Coastland/Coastland/Coastland/Free-domain."
+  },
+  {
+    "cardType": "hero-site",
+    "alignment": "wizard",
     "id": "tw-413",
     "name": "Moria",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Moria.jpg",

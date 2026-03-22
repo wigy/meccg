@@ -150,13 +150,10 @@ function playCharacterActions(
     const cardDef = resolveDef(state, cardInstanceId);
     if (!isCharacterCard(cardDef)) continue;
 
-    // Non-avatar characters only (mind !== null)
-    if (cardDef.mind === null) continue;
-
     const charName = cardDef.name;
-    const charMind = cardDef.mind;
+    const isAvatar = cardDef.mind === null;
 
-    logDetail(`Evaluating play-character: ${charName} (mind ${charMind}, DI ${cardDef.directInfluence})`);
+    logDetail(`Evaluating play-character: ${charName} (mind ${cardDef.mind ?? 'avatar'}, DI ${cardDef.directInfluence})`);
 
     // Rule: only one character play per turn
     if (phaseState.characterPlayedThisTurn) {
@@ -192,37 +189,10 @@ function playCharacterActions(
       continue;
     }
 
-    // Check influence options for each valid site
-    const remainingGI = GENERAL_INFLUENCE - player.generalInfluenceUsed;
-    const canPlayUnderGI = charMind <= remainingGI;
-
-    // Find characters with enough DI to control this character as a follower.
-    // Only characters under general influence can take followers.
-    const diControllers: { instanceId: CardInstanceId; name: string; availDI: number }[] = [];
-    for (const [key, char] of Object.entries(player.characters)) {
-      if (char.controlledBy !== 'general') continue;
-      const ctrlDef = resolveDef(state, char.instanceId);
-      if (!isCharacterCard(ctrlDef)) continue;
-      const avail = availableDI(state, char.instanceId, player);
-      if (avail >= charMind) {
-        diControllers.push({ instanceId: key as CardInstanceId, name: ctrlDef.name, availDI: avail });
-      }
-    }
-
-    if (!canPlayUnderGI && diControllers.length === 0) {
-      logDetail(`  → blocked: mind ${charMind} exceeds remaining GI (${remainingGI}) and no character has enough DI`);
-      results.push({
-        action: { type: 'play-character', player: playerId, characterInstanceId: cardInstanceId, atSite: '' as CardInstanceId, controlledBy: 'general' },
-        viable: false,
-        reason: `${charName}: mind ${charMind} exceeds remaining general influence (${remainingGI}) and no character has sufficient direct influence`,
-      });
-      continue;
-    }
-
-    // Generate viable actions for each (site, controlledBy) combination
-    for (const site of playableSites) {
-      if (canPlayUnderGI) {
-        logDetail(`  → viable: play under GI at ${site.siteName} (mind ${charMind}, remaining GI ${remainingGI})`);
+    if (isAvatar) {
+      // Avatars are always controlled under general influence and cost no mind
+      for (const site of playableSites) {
+        logDetail(`  → viable: play avatar at ${site.siteName}`);
         results.push({
           action: {
             type: 'play-character',
@@ -234,26 +204,71 @@ function playCharacterActions(
           viable: true,
         });
       }
+    } else {
+      // Non-avatar: check GI/DI constraints
+      const charMind = cardDef.mind;
+      const remainingGI = GENERAL_INFLUENCE - player.generalInfluenceUsed;
+      const canPlayUnderGI = charMind <= remainingGI;
 
-      // DI followers must be played into the same company as the controller
-      for (const ctrl of diControllers) {
-        // Check the controller is in a company at this site
-        const companyAtSite = player.companies.find(
-          c => c.currentSite === site.instanceId && c.characters.includes(ctrl.instanceId),
-        );
-        if (!companyAtSite) continue;
+      // Find characters with enough DI to control this character as a follower.
+      // Only characters under general influence can take followers.
+      const diControllers: { instanceId: CardInstanceId; name: string; availDI: number }[] = [];
+      for (const [key, char] of Object.entries(player.characters)) {
+        if (char.controlledBy !== 'general') continue;
+        const ctrlDef = resolveDef(state, char.instanceId);
+        if (!isCharacterCard(ctrlDef)) continue;
+        const avail = availableDI(state, char.instanceId, player);
+        if (avail >= charMind) {
+          diControllers.push({ instanceId: key as CardInstanceId, name: ctrlDef.name, availDI: avail });
+        }
+      }
 
-        logDetail(`  → viable: play under DI of ${ctrl.name} (avail DI ${ctrl.availDI}) at ${site.siteName}`);
+      if (!canPlayUnderGI && diControllers.length === 0) {
+        logDetail(`  → blocked: mind ${charMind} exceeds remaining GI (${remainingGI}) and no character has enough DI`);
         results.push({
-          action: {
-            type: 'play-character',
-            player: playerId,
-            characterInstanceId: cardInstanceId,
-            atSite: site.instanceId,
-            controlledBy: ctrl.instanceId,
-          },
-          viable: true,
+          action: { type: 'play-character', player: playerId, characterInstanceId: cardInstanceId, atSite: '' as CardInstanceId, controlledBy: 'general' },
+          viable: false,
+          reason: `${charName}: mind ${charMind} exceeds remaining general influence (${remainingGI}) and no character has sufficient direct influence`,
         });
+        continue;
+      }
+
+      // Generate viable actions for each (site, controlledBy) combination
+      for (const site of playableSites) {
+        if (canPlayUnderGI) {
+          logDetail(`  → viable: play under GI at ${site.siteName} (mind ${charMind}, remaining GI ${remainingGI})`);
+          results.push({
+            action: {
+              type: 'play-character',
+              player: playerId,
+              characterInstanceId: cardInstanceId,
+              atSite: site.instanceId,
+              controlledBy: 'general',
+            },
+            viable: true,
+          });
+        }
+
+        // DI followers must be played into the same company as the controller
+        for (const ctrl of diControllers) {
+          // Check the controller is in a company at this site
+          const companyAtSite = player.companies.find(
+            c => c.currentSite === site.instanceId && c.characters.includes(ctrl.instanceId),
+          );
+          if (!companyAtSite) continue;
+
+          logDetail(`  → viable: play under DI of ${ctrl.name} (avail DI ${ctrl.availDI}) at ${site.siteName}`);
+          results.push({
+            action: {
+              type: 'play-character',
+              player: playerId,
+              characterInstanceId: cardInstanceId,
+              atSite: site.instanceId,
+              controlledBy: ctrl.instanceId,
+            },
+            viable: true,
+          });
+        }
       }
     }
   }

@@ -30,7 +30,7 @@ import {
   // Creatures
   CAVE_DRAKE, ORC_PATROL, BARROW_WIGHT,
   // Hero sites
-  RIVENDELL, LORIEN, MORIA, MINAS_TIRITH, MOUNT_DOOM,
+  RIVENDELL, LORIEN, EDHELLOND, GREY_HAVENS, MORIA, MINAS_TIRITH, MOUNT_DOOM,
   // Minion characters
   THE_MOUTH, LIEUTENANT_OF_DOL_GULDUR, GORBAG, SHAGRAT, PERCHEN, MIONID,
   // Minion sites
@@ -81,7 +81,7 @@ const heroDeck: SampleDeck = {
         EOWYN, BEREGOND, ANBORN, DAGGER_OF_WESTERNESSE, HORN_OF_ANOR, HORN_OF_ANOR,
         THRALL_OF_THE_VOICE, STING],
       playDeck: [...repeatCards([GANDALF], 3), ...characters, ...uniqueResources, ...repeatCards(hazards, 3), ...repeatCards([GATES_OF_MORNING], 3)],
-      siteDeck: [RIVENDELL, LORIEN, MORIA, MINAS_TIRITH, MOUNT_DOOM],
+      siteDeck: [RIVENDELL, LORIEN, EDHELLOND, GREY_HAVENS, MORIA, MINAS_TIRITH, MOUNT_DOOM],
       startingHavens: [RIVENDELL],
     };
   },

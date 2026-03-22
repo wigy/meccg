@@ -42,7 +42,9 @@ let lastActivePlayer: string | null = null;
 // ---- Company leader logic ----
 
 /**
- * Determine the leader of a company — the character with highest mind.
+ * Determine the leader of a company for display purposes.
+ * If an avatar (mind === null) is in the company, it is always the leader.
+ * Otherwise, the character with the highest mind is chosen.
  * Tiebreaker: marshalling points, then prowess.
  * Returns the leader's CharacterInPlay, or undefined if the company is empty.
  */
@@ -51,6 +53,16 @@ function getCompanyLeader(
   charMap: Readonly<Record<string, CharacterInPlay>>,
   cardPool: Readonly<Record<string, CardDefinition>>,
 ): CharacterInPlay | undefined {
+  // Avatar always leads if present
+  for (const charInstId of characters) {
+    const char = charMap[charInstId as string];
+    if (!char) continue;
+    const def = cardPool[char.definitionId as string];
+    if (def && isCharacterCard(def) && def.mind === null) {
+      return char;
+    }
+  }
+
   let leader: CharacterInPlay | undefined;
   let bestMind = -Infinity;
   let bestMP = -Infinity;

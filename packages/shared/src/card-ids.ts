@@ -110,6 +110,10 @@ export const BARROW_WIGHT = did('tw-015');
 export const RIVENDELL = did('tw-421');
 /** Lorien — haven site in the heart of the elven woods. */
 export const LORIEN = did('tw-408');
+/** Edhellond — haven site on the coast of Anfalas. */
+export const EDHELLOND = did('tw-393');
+/** Grey Havens — haven site in Lindon, port of the Elves. */
+export const GREY_HAVENS = did('tw-399');
 /** Moria — shadow-hold, site for major items but guarded by automatic attacks. */
 export const MORIA = did('tw-413');
 /** Minas Tirith — free-hold of Gondor, faction and ally destination. */
