@@ -14,9 +14,9 @@
  * (or the original state plus an error string if the action was illegal).
  */
 
-import type { GameState, PlayerState, DraftPlayerState, ItemDraftPlayerState, CharacterDeckDraftPlayerState, SetupStepState, CardDefinitionId, CardInstanceId, CompanyId, CharacterInPlay, CardInstance } from '@meccg/shared';
+import type { GameState, PlayerState, DraftPlayerState, ItemDraftPlayerState, CharacterDeckDraftPlayerState, SetupStepState, CardDefinitionId, CardInstanceId, CompanyId, CharacterInPlay, CardInstance, OrganizationPhaseState, Company } from '@meccg/shared';
 import type { GameAction } from '@meccg/shared';
-import { Phase, SetupStep, LEGAL_ACTIONS_BY_PHASE, getAlignmentRules, shuffle, nextInt, CardStatus, isCharacterCard, getPlayerIndex } from '@meccg/shared';
+import { Phase, SetupStep, LEGAL_ACTIONS_BY_PHASE, getAlignmentRules, shuffle, nextInt, CardStatus, isCharacterCard, isSiteCard, SiteType, getPlayerIndex, ZERO_EFFECTIVE_STATS } from '@meccg/shared';
 import { logHeading, logDetail } from './legal-actions/log.js';
 import type { TwoDiceSix, DieRoll, GameEffect } from '@meccg/shared';
 import { applyDraftResults, transitionAfterItemDraft, enterSiteSelection, startFirstTurn } from './init.js';
@@ -1029,10 +1029,178 @@ function handleUntap(state: GameState, action: GameAction): ReducerResult {
   };
 }
 
-/** Stub: play characters, split/merge companies, transfer items, plan movement. */
-function handleOrganization(state: GameState, _action: GameAction): ReducerResult {
-  // TODO: play characters, split/merge companies, transfer items, plan movement
-  return { state };
+/** Handle actions during the organization phase. */
+function handleOrganization(state: GameState, action: GameAction): ReducerResult {
+  if (action.type === 'play-character') {
+    return handlePlayCharacter(state, action);
+  }
+  if (action.type === 'pass') {
+    // TODO: advance to long-event phase
+    return { state };
+  }
+  if (action.type === 'cancel-movement') {
+    return handleCancelMovement(state, action);
+  }
+  // TODO: split-company, merge-companies, transfer-item, plan-movement
+  return { state, error: `Unhandled organization action: ${action.type}` };
+}
+
+/**
+ * Handle the play-character action during organization.
+ *
+ * Removes the character from hand, creates a CharacterInPlay entry,
+ * adds it to an existing company at the target site or creates a new
+ * company (taking the site card from the site deck if needed).
+ */
+function handlePlayCharacter(state: GameState, action: GameAction): ReducerResult {
+  if (action.type !== 'play-character') return { state, error: 'Expected play-character action' };
+
+  const playerIndex = getPlayerIndex(state, action.player);
+  const player = state.players[playerIndex];
+  const phaseState = state.phaseState as OrganizationPhaseState;
+
+  // Validate: only one character play per turn
+  if (phaseState.characterPlayedThisTurn) {
+    return { state, error: 'Already played a character this turn' };
+  }
+
+  // Validate: character must be in hand
+  const charInstId = action.characterInstanceId;
+  if (!player.hand.includes(charInstId)) {
+    return { state, error: 'Character not in hand' };
+  }
+
+  // Validate: must be a character card
+  const instance = state.instanceMap[charInstId as string];
+  if (!instance) return { state, error: 'Card instance not found' };
+  const charDef = state.cardPool[instance.definitionId as string];
+  if (!charDef || !isCharacterCard(charDef)) {
+    return { state, error: 'Card is not a character' };
+  }
+
+  logDetail(`Play character: ${charDef.name} (mind ${charDef.mind ?? 'null'}) at site ${action.atSite as string}, controlledBy ${action.controlledBy as string}`);
+
+  // Build the new CharacterInPlay
+  const newChar: CharacterInPlay = {
+    instanceId: charInstId,
+    definitionId: instance.definitionId,
+    status: CardStatus.Untapped,
+    items: [],
+    allies: [],
+    corruptionCards: [],
+    followers: [],
+    controlledBy: action.controlledBy,
+    effectiveStats: ZERO_EFFECTIVE_STATS,
+  };
+
+  // Remove character from hand
+  const newHand = player.hand.filter(id => id !== charInstId);
+
+  // Find existing company at the target site
+  const companies = [...player.companies];
+  const existingCompanyIdx = companies.findIndex(c => c.currentSite === action.atSite);
+
+  // Update or create company
+  let newSiteDeck = player.siteDeck;
+  if (existingCompanyIdx >= 0) {
+    // Add character to existing company
+    const company = companies[existingCompanyIdx];
+    logDetail(`  Adding to existing company ${company.id as string}`);
+    companies[existingCompanyIdx] = {
+      ...company,
+      characters: [...company.characters, charInstId],
+    };
+  } else {
+    // Need to create a new company — the site comes from the site deck
+    const siteInstId = action.atSite;
+
+    // Validate: site must be in the site deck
+    if (!player.siteDeck.includes(siteInstId)) {
+      return { state, error: 'Site not available in site deck' };
+    }
+
+    // Validate: must be a valid site (haven or homesite)
+    const siteDef = state.cardPool[state.instanceMap[siteInstId as string]?.definitionId as string];
+    if (!siteDef || !isSiteCard(siteDef)) {
+      return { state, error: 'Not a valid site card' };
+    }
+    const isHaven = siteDef.siteType === SiteType.Haven;
+    const isHomesite = siteDef.name === charDef.homesite;
+    if (!isHaven && !isHomesite) {
+      return { state, error: `${siteDef.name} is neither a haven nor ${charDef.name}'s homesite` };
+    }
+
+    logDetail(`  Creating new company at ${siteDef.name} (from site deck)`);
+
+    // Remove site from site deck
+    newSiteDeck = player.siteDeck.filter(id => id !== siteInstId);
+
+    // Create new company
+    const newCompany: Company = {
+      id: `company-${player.id as string}-${companies.length}` as CompanyId,
+      characters: [charInstId],
+      currentSite: siteInstId,
+      destinationSite: null,
+      movementPath: [],
+      moved: false,
+    };
+    companies.push(newCompany);
+  }
+
+  // If controlled by DI, add as follower of the controlling character
+  const newCharacters = { ...player.characters, [charInstId as string]: newChar };
+  if (action.controlledBy !== 'general') {
+    const controllerId = action.controlledBy;
+    const controller = newCharacters[controllerId as string];
+    if (!controller) {
+      return { state, error: 'Controlling character not found' };
+    }
+    newCharacters[controllerId as string] = {
+      ...controller,
+      followers: [...controller.followers, charInstId],
+    };
+  }
+
+  const newPlayers = clonePlayers(state);
+  newPlayers[playerIndex] = {
+    ...player,
+    hand: newHand,
+    siteDeck: newSiteDeck,
+    characters: newCharacters,
+    companies,
+  };
+
+  return {
+    state: {
+      ...state,
+      players: newPlayers,
+      phaseState: { ...phaseState, characterPlayedThisTurn: true },
+    },
+  };
+}
+
+/** Handle cancel-movement during organization. */
+function handleCancelMovement(state: GameState, action: GameAction): ReducerResult {
+  if (action.type !== 'cancel-movement') return { state, error: 'Expected cancel-movement' };
+
+  const playerIndex = getPlayerIndex(state, action.player);
+  const player = state.players[playerIndex];
+  const companyIdx = player.companies.findIndex(c => c.id === action.companyId);
+  if (companyIdx === -1) return { state, error: 'Company not found' };
+
+  const company = player.companies[companyIdx];
+  if (!company.destinationSite) return { state, error: 'Company has no planned movement' };
+
+  const companies = [...player.companies];
+  companies[companyIdx] = {
+    ...company,
+    destinationSite: null,
+    movementPath: [],
+  };
+
+  const newPlayers = clonePlayers(state);
+  newPlayers[playerIndex] = { ...player, companies };
+  return { state: { ...state, players: newPlayers } };
 }
 
 /** Stub: resolve long events, then advance to movement/hazard. */

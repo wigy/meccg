@@ -14,13 +14,16 @@ import type {
   PlayerView,
   GameAction,
   CardDefinition,
+  CardInstanceId,
   CharacterInPlay,
   Company,
   CompanyId,
   OpponentCompanyView,
+  PlayCharacterAction,
 } from '@meccg/shared';
-import { cardImageProxyPath, isCharacterCard, Phase, CardStatus } from '@meccg/shared';
+import { cardImageProxyPath, isCharacterCard, Phase, CardStatus, viableActions } from '@meccg/shared';
 import { $, createCardImage } from './render-utils.js';
+import { getSelectedCharacterForPlay, clearCharacterPlaySelection } from './render.js';
 
 // ---- View state ----
 
@@ -354,6 +357,66 @@ function renderSingleView(
   container.appendChild(single);
 }
 
+/**
+ * Find all viable play-character actions for the selected character instance.
+ * Returns a map from site instance ID to the list of actions at that site.
+ */
+function getPlayCharacterActions(
+  view: PlayerView,
+  characterInstanceId: CardInstanceId,
+): Map<string, PlayCharacterAction[]> {
+  const result = new Map<string, PlayCharacterAction[]>();
+  for (const action of viableActions(view.legalActions)) {
+    if (action.type !== 'play-character') continue;
+    if (action.characterInstanceId !== characterInstanceId) continue;
+    const key = action.atSite as string;
+    const existing = result.get(key) ?? [];
+    existing.push(action);
+    result.set(key, existing);
+  }
+  return result;
+}
+
+/**
+ * Render a dummy company block for a site from the site deck where
+ * no company exists yet. Shows the site card with an "empty company" label.
+ */
+function renderDummyCompanyBlock(
+  siteInstanceId: CardInstanceId,
+  view: PlayerView,
+  cardPool: Readonly<Record<string, CardDefinition>>,
+): HTMLElement {
+  const block = document.createElement('div');
+  block.className = 'company-block';
+
+  const siteDefId = view.visibleInstances[siteInstanceId as string];
+  const siteDef = siteDefId ? cardPool[siteDefId as string] : undefined;
+  const siteName = siteDef?.name ?? 'Unknown site';
+
+  // Company name
+  const nameEl = document.createElement('div');
+  nameEl.className = 'company-name company-name--self';
+  nameEl.textContent = `New company at ${siteName}`;
+  block.appendChild(nameEl);
+
+  // Cards row: just the site card
+  const row = document.createElement('div');
+  row.className = 'company-row';
+
+  if (siteDef) {
+    const area = document.createElement('div');
+    area.className = 'company-site-area';
+    const imgPath = cardImageProxyPath(siteDef);
+    if (imgPath) {
+      area.appendChild(createCardImage(siteDefId as string, siteDef, imgPath, 'company-card company-card--site'));
+    }
+    row.appendChild(area);
+  }
+  block.appendChild(row);
+
+  return block;
+}
+
 /** Render all companies (both players) at medium scale. Click any company to zoom in. */
 function renderAllCompaniesView(
   container: HTMLElement,
@@ -364,16 +427,55 @@ function renderAllCompaniesView(
   overview.className = 'company-overview-all';
   overview.style.setProperty('--company-scale', '0.6');
 
+  // Check if we're in character-play targeting mode
+  const selectedChar = getSelectedCharacterForPlay();
+  const targetActions = selectedChar
+    ? getPlayCharacterActions(view, selectedChar)
+    : null;
+
+  // Collect site instance IDs that already have companies
+  const companySiteIds = new Set<string>();
+  for (const company of view.self.companies) {
+    if (company.currentSite) companySiteIds.add(company.currentSite as string);
+  }
+
   // Self companies
   for (const company of view.self.companies) {
     const block = renderCompanyBlock(company, view.self.characters, view, cardPool, 'self');
-    block.classList.add('company-block--clickable');
-    block.onclick = () => {
-      viewMode = 'single';
-      focusedCompanyId = company.id;
-      renderCompanyViews(view, cardPool, lastOnAction!);
-    };
+
+    if (targetActions && company.currentSite && targetActions.has(company.currentSite as string)) {
+      // This company is a valid target for playing the selected character
+      block.classList.add('company-block--target');
+      const actions = targetActions.get(company.currentSite as string)!;
+      block.onclick = () => {
+        // For now, use the first action (GI preferred, DI options come later)
+        clearCharacterPlaySelection();
+        lastOnAction!(actions[0]);
+      };
+    } else {
+      block.classList.add('company-block--clickable');
+      block.onclick = () => {
+        viewMode = 'single';
+        focusedCompanyId = company.id;
+        renderCompanyViews(view, cardPool, lastOnAction!);
+      };
+    }
     overview.appendChild(block);
+  }
+
+  // Dummy companies for site-deck sites with no existing company
+  if (targetActions) {
+    for (const [siteInstId, actions] of targetActions) {
+      if (companySiteIds.has(siteInstId)) continue;
+      const siteInstanceId = siteInstId as CardInstanceId;
+      const block = renderDummyCompanyBlock(siteInstanceId, view, cardPool);
+      block.classList.add('company-block--target');
+      block.onclick = () => {
+        clearCharacterPlaySelection();
+        lastOnAction!(actions[0]);
+      };
+      overview.appendChild(block);
+    }
   }
 
   // Opponent companies
@@ -447,7 +549,10 @@ export function renderCompanyViews(
   const board = $('visual-board');
   board.innerHTML = '';
 
-  switch (viewMode) {
+  // Force all-companies view when targeting for character play
+  const effectiveMode = getSelectedCharacterForPlay() ? 'all-companies' : viewMode;
+
+  switch (effectiveMode) {
     case 'single':
       renderSingleView(board, view, cardPool);
       break;

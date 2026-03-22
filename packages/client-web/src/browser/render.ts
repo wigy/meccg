@@ -57,6 +57,39 @@ function reRenderItemDraft(): void {
   renderDrafted(view, cardPool, onAction);
 }
 
+/**
+ * Module-level state for the play-character two-step selection flow.
+ * When a player clicks a playable character in the hand arc, the character
+ * instance ID is stored here and the company view highlights valid targets.
+ */
+let selectedCharacterInstanceId: CardInstanceId | null = null;
+
+/** Cached arguments for re-rendering during character play target selection. */
+let playCharacterRenderCache: {
+  view: PlayerView;
+  cardPool: Readonly<Record<string, CardDefinition>>;
+  onAction: (action: GameAction) => void;
+} | null = null;
+
+/** Returns the currently selected character instance ID for the play-character flow. */
+export function getSelectedCharacterForPlay(): CardInstanceId | null {
+  return selectedCharacterInstanceId;
+}
+
+/** Clear the play-character selection (called by company-view after action is sent). */
+export function clearCharacterPlaySelection(): void {
+  selectedCharacterInstanceId = null;
+}
+
+/** Re-render hand and company views using cached state (for character play selection flow). */
+function reRenderCharacterPlay(): void {
+  if (!playCharacterRenderCache) return;
+  const { view, cardPool, onAction } = playCharacterRenderCache;
+  renderHand(view, cardPool, onAction);
+  // Import is circular-safe since renderCompanyViews is called as a function reference
+  void import('./company-view.js').then(m => m.renderCompanyViews(view, cardPool, onAction));
+}
+
 
 /**
  * Create an absolutely-positioned clone of a card and fly it toward a target element.
@@ -584,8 +617,6 @@ function findCardAction(
     if (action.type === 'add-character-to-deck' && action.characterDefId === defId) return action;
     if (action.type === 'select-starting-site' && visibleInstances
       && visibleInstances[action.siteInstanceId as string] === defId) return action;
-    if (action.type === 'play-character' && visibleInstances
-      && visibleInstances[action.characterInstanceId as string] === defId) return action;
   }
   return null;
 }
@@ -596,6 +627,20 @@ function findCardAction(
  */
 function isItemDraftCard(defId: CardDefinitionId, legalActions: readonly GameAction[]): boolean {
   return legalActions.some(a => a.type === 'assign-starting-item' && a.itemDefId === defId);
+}
+
+/**
+ * Check whether a card in the hand arc has viable play-character actions
+ * (needs the two-step company target selection flow).
+ */
+function isPlayCharacterCard(
+  defId: CardDefinitionId,
+  legalActions: readonly GameAction[],
+  visibleInstances?: Readonly<Record<string, CardDefinitionId>>,
+): boolean {
+  return visibleInstances !== undefined && legalActions.some(
+    a => a.type === 'play-character' && visibleInstances[a.characterInstanceId as string] === defId,
+  );
 }
 
 /**
@@ -1090,6 +1135,23 @@ export function renderHand(
     itemDraftRenderCache = null;
   }
 
+  // Cache render state for play-character re-rendering
+  const viable = viableActions(view.legalActions);
+  const hasPlayCharacters = viable.some(a => a.type === 'play-character');
+  if (onAction && hasPlayCharacters) {
+    playCharacterRenderCache = { view, cardPool, onAction };
+    // Auto-clear selection if the selected character is no longer viable
+    if (selectedCharacterInstanceId) {
+      const stillViable = viable.some(
+        a => a.type === 'play-character' && a.characterInstanceId === selectedCharacterInstanceId,
+      );
+      if (!stillViable) selectedCharacterInstanceId = null;
+    }
+  } else if (!hasPlayCharacters) {
+    selectedCharacterInstanceId = null;
+    playCharacterRenderCache = null;
+  }
+
   for (let i = 0; i < total; i++) {
     const def = cardPool[cards[i] as string];
     if (!def) continue;
@@ -1097,13 +1159,19 @@ export function renderHand(
     if (!imgPath) continue;
 
     const cardDefId = cards[i];
-    const viable = viableActions(view.legalActions);
     const action = findCardAction(cardDefId, viable, view.visibleInstances);
     const isItemDraft = isItemDraftCard(cardDefId, viable);
-    const nonViableReason = !action && !isItemDraft
+    const isPlayChar = isPlayCharacterCard(cardDefId, viable, view.visibleInstances);
+    const nonViableReason = !action && !isItemDraft && !isPlayChar
       ? findNonViableReason(cardDefId, view.legalActions, view.visibleInstances)
       : undefined;
     const isSelected = selectedItemDefId === cardDefId;
+
+    // Find the instance ID for this card (needed for play-character selection)
+    const cardInstanceId = view.self.hand.find(c => c.definitionId === cardDefId)?.instanceId ?? null;
+    const isCharSelected = selectedCharacterInstanceId !== null
+      && cardInstanceId !== null
+      && selectedCharacterInstanceId === cardInstanceId;
 
     const img = document.createElement('img');
     img.src = imgPath;
@@ -1121,6 +1189,18 @@ export function renderHand(
         img.addEventListener('click', () => {
           selectedItemDefId = isSelected ? null : cardDefId;
           reRenderItemDraft();
+        });
+      }
+    } else if (isPlayChar) {
+      // Play-character two-step flow: click to select, then click a target company
+      img.className = isCharSelected
+        ? 'hand-card hand-card-selected'
+        : 'hand-card hand-card-playable';
+      if (onAction && cardInstanceId) {
+        const instId = cardInstanceId;
+        img.addEventListener('click', () => {
+          selectedCharacterInstanceId = isCharSelected ? null : instId;
+          reRenderCharacterPlay();
         });
       }
     } else if (action) {

@@ -904,11 +904,11 @@ h2 {
 }
 
 .dice-position-red {
-  transform: translateY(100px);
+  transform: translateY(-100px);
 }
 
 .dice-position-black {
-  transform: translateY(-100px);
+  transform: translateY(100px);
 }
 
 .dice-row {
@@ -1027,6 +1027,31 @@ h2 {
 .company-block--clickable:hover {
   background: rgba(196, 163, 90, 0.15);
   box-shadow: 0 0 12px rgba(196, 163, 90, 0.3);
+}
+
+.company-block--target {
+  cursor: pointer;
+  animation: company-target-glow 0.5s ease-out forwards;
+}
+
+.company-block--target:hover {
+  background: rgba(var(--color-target), 0.2);
+  box-shadow:
+    0 0 16px rgba(var(--color-target), 0.8),
+    0 0 40px rgba(var(--color-target), 0.4);
+}
+
+@keyframes company-target-glow {
+  from {
+    background: rgba(0, 0, 0, 0.2);
+    box-shadow: none;
+  }
+  to {
+    background: rgba(var(--color-target), 0.1);
+    box-shadow:
+      0 0 12px rgba(var(--color-target), 0.6),
+      0 0 30px rgba(var(--color-target), 0.3);
+  }
 }
 
 .company-name {
