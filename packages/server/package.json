@@ -8,6 +8,7 @@
     "build": "tsc",
     "check": "tsc --noEmit",
     "test": "vitest run",
+    "test:nightly": "vitest run --config vitest.nightly.config.ts",
     "start": "npx tsx src/ws/server.ts",
     "dev": "nodemon --watch src --watch ../shared/src --ext ts,json --exec 'npx tsx src/ws/server.ts'",
     "dev:debug": "DEBUG=1 nodemon --watch src --watch ../shared/src --ext ts,json --exec 'npx tsx src/ws/server.ts'"
