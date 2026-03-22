@@ -283,7 +283,9 @@ function renderCompanyBlock(
   owner: 'self' | 'opponent',
 ): HTMLElement {
   const block = document.createElement('div');
-  block.className = 'company-block';
+  const isSelfTurn = view.activePlayer !== null && view.activePlayer === view.self.id;
+  const isInactive = (owner === 'self' && !isSelfTurn) || (owner === 'opponent' && isSelfTurn);
+  block.className = isInactive ? 'company-block company-block--inactive' : 'company-block';
   block.dataset.companyId = company.id as string;
 
   // Company name

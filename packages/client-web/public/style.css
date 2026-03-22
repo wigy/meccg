@@ -1251,6 +1251,10 @@ h2 {
   transition: background 0.2s, box-shadow 0.2s;
 }
 
+.company-block--inactive {
+  filter: brightness(0.5) saturate(0.6);
+}
+
 .company-block--clickable {
   cursor: pointer;
 }
