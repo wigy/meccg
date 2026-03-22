@@ -16,7 +16,7 @@ import {
   Phase, Alignment,
   ARAGORN, BILBO, FRODO, LEGOLAS, GIMLI, FARAMIR,
   EOWYN, BEREGOND, BERGIL, BARD_BOWMAN, ANBORN, SAM_GAMGEE,
-  DAGGER_OF_WESTERNESSE,
+  DAGGER_OF_WESTERNESSE, HORN_OF_ANOR,
   RIVENDELL, LORIEN, MORIA,
 } from '../test-helpers.js';
 import { computeLegalActions } from '../../engine/legal-actions/index.js';
@@ -263,6 +263,38 @@ describe('1.9 Starting items', () => {
         characterInstanceId: charId,
       });
       expect(result.error).toBeUndefined();
+    }
+  });
+
+  test('reducer rejects a third starting item beyond the limit of two', () => {
+    // Draft config with 3 minor items in Alice's pool
+    const config = makeDraftConfig();
+    config.players[0].draftPool = [ARAGORN, BILBO, FRODO, DAGGER_OF_WESTERNESSE, DAGGER_OF_WESTERNESSE, HORN_OF_ANOR];
+    let state = runSimpleDraft(config);
+
+    if (state.phaseState.phase === Phase.Setup && state.phaseState.setupStep.step === 'item-draft') {
+      const charId = state.players[0].companies[0].characters[0];
+
+      // Assign two items (the limit)
+      for (const itemDef of [DAGGER_OF_WESTERNESSE, HORN_OF_ANOR]) {
+        const result = reduce(state, {
+          type: 'assign-starting-item',
+          player: PLAYER_1,
+          itemDefId: itemDef,
+          characterInstanceId: charId,
+        });
+        expect(result.error).toBeUndefined();
+        state = result.state;
+      }
+
+      // Third assignment must be rejected
+      const result = reduce(state, {
+        type: 'assign-starting-item',
+        player: PLAYER_1,
+        itemDefId: DAGGER_OF_WESTERNESSE,
+        characterInstanceId: charId,
+      });
+      expect(result.error).toMatch(/item limit/i);
     }
   });
 });

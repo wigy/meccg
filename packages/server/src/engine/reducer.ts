@@ -16,7 +16,7 @@
 
 import type { GameState, PlayerState, DraftPlayerState, ItemDraftPlayerState, CharacterDeckDraftPlayerState, SetupStepState, CardDefinitionId, CardInstanceId, CompanyId, CharacterInPlay, CardInstance, OrganizationPhaseState, Company } from '@meccg/shared';
 import type { GameAction } from '@meccg/shared';
-import { Phase, SetupStep, LEGAL_ACTIONS_BY_PHASE, getAlignmentRules, shuffle, nextInt, CardStatus, isCharacterCard, isSiteCard, SiteType, getPlayerIndex, ZERO_EFFECTIVE_STATS } from '@meccg/shared';
+import { Phase, SetupStep, LEGAL_ACTIONS_BY_PHASE, getAlignmentRules, shuffle, nextInt, CardStatus, isCharacterCard, isSiteCard, SiteType, getPlayerIndex, ZERO_EFFECTIVE_STATS, MAX_STARTING_ITEMS } from '@meccg/shared';
 import { logHeading, logDetail } from './legal-actions/log.js';
 import type { TwoDiceSix, DieRoll, GameEffect } from '@meccg/shared';
 import { applyDraftResults, transitionAfterItemDraft, enterSiteSelection, startFirstTurn } from './init.js';
@@ -412,6 +412,15 @@ function handleItemDraft(
     return { state, error: `Unexpected action in item draft: ${action.type}` };
   }
 
+  // Enforce starting item limit
+  const player = state.players[playerIndex];
+  const assignedCount = Object.values(player.characters).reduce(
+    (sum, char) => sum + char.items.length, 0,
+  );
+  if (assignedCount >= MAX_STARTING_ITEMS) {
+    return { state, error: `Already at starting item limit (${assignedCount}/${MAX_STARTING_ITEMS})` };
+  }
+
   // Resolve definition ID to the first matching unassigned instance
   const itemInstanceId = itemDraft.unassignedItems.find(instId => {
     const inst = state.instanceMap[instId as string];
@@ -422,7 +431,6 @@ function handleItemDraft(
   }
 
   // Validate character belongs to this player's company
-  const player = state.players[playerIndex];
   const allCharIds = player.companies.flatMap(c => c.characters);
   if (!allCharIds.includes(action.characterInstanceId)) {
     return { state, error: 'Character is not in your starting company' };

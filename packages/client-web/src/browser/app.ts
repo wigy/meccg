@@ -60,6 +60,8 @@ function connect(name: string): void {
         playerId = msg.playerId;
         clientLog('msg-in', { msgType: 'assigned', gameId: msg.gameId, playerId });
         renderLog(`Game ${msg.gameId} — assigned player ID: ${playerId}`);
+        { const h = document.getElementById('state-heading');
+          if (h) h.textContent = `Game State — ${msg.gameId}`; }
         break;
 
       case 'waiting':
