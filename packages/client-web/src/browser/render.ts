@@ -650,7 +650,7 @@ export function resetDeckPiles(): void {
 }
 
 /** Render both players' draw deck and site deck piles. */
-export function renderDeckPiles(view: PlayerView): void {
+export function renderDeckPiles(view: PlayerView, cardPool?: Readonly<Record<string, CardDefinition>>): void {
   const selfEl = document.getElementById('self-deck-pile');
   if (selfEl) fillDeckPile(selfEl, view.self.playDeckSize);
 
@@ -663,6 +663,50 @@ export function renderDeckPiles(view: PlayerView): void {
   const oppSiteEl = document.getElementById('opponent-site-pile');
   if (oppSiteEl) fillDeckPile(oppSiteEl, view.opponent.siteDeckSize, '/images/site-back.jpg');
 
+  // Cache site deck for the modal viewer
+  cachedSiteDeck = view.self.siteDeck;
+  if (cardPool) cachedCardPool = cardPool;
+  installSiteDeckViewer();
+}
+
+// ---- Site deck viewer modal ----
+
+/** Cached site deck for the modal viewer. */
+let cachedSiteDeck: PlayerView['self']['siteDeck'] = [];
+let cachedCardPool: Readonly<Record<string, CardDefinition>> | null = null;
+let siteDeckListenerInstalled = false;
+
+/** Install click handler on the self site pile to open the site deck modal. */
+function installSiteDeckViewer(): void {
+  if (siteDeckListenerInstalled) return;
+  siteDeckListenerInstalled = true;
+
+  const pile = document.getElementById('self-site-pile');
+  const modal = document.getElementById('site-deck-modal');
+  const backdrop = document.getElementById('site-deck-backdrop');
+  const grid = document.getElementById('site-deck-grid');
+  if (!pile || !modal || !backdrop || !grid) return;
+
+  pile.addEventListener('click', () => {
+    if (!cachedCardPool || cachedSiteDeck.length === 0) return;
+    grid.innerHTML = '';
+    for (const card of cachedSiteDeck) {
+      const def = cachedCardPool[card.definitionId as string];
+      if (!def) continue;
+      const imgPath = cardImageProxyPath(def);
+      if (!imgPath) continue;
+      const img = document.createElement('img');
+      img.src = imgPath;
+      img.alt = def.name;
+      img.dataset.cardId = card.definitionId as string;
+      grid.appendChild(img);
+    }
+    modal.classList.remove('hidden');
+  });
+
+  backdrop.addEventListener('click', () => {
+    modal.classList.add('hidden');
+  });
 }
 
 /** Check whether a card list contains real card IDs (not 'unknown-card' placeholders). */
@@ -1374,6 +1418,8 @@ export function setupCardPreview(cardPool: Readonly<Record<string, CardDefinitio
   view.addEventListener('mouseover', (e) => {
     const img = (e.target as HTMLElement).closest('img');
     if (!img || !img.src) return;
+    // Skip deck pile images (not meaningful to preview)
+    if (img.closest('#self-site-pile, #opponent-site-pile, #self-deck-pile, #opponent-deck-pile')) return;
     preview.innerHTML = '';
     const cardId = img.dataset.cardId;
     const def = cardId ? cardPool[cardId] : undefined;

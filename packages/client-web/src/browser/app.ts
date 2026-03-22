@@ -74,7 +74,7 @@ function connect(name: string): void {
         renderInstructions(msg.view);
         renderDrafted(msg.view, cardPool, sendAction);
         renderPassButton(msg.view, sendAction);
-        renderDeckPiles(msg.view);
+        renderDeckPiles(msg.view, cardPool);
         renderCompanyViews(msg.view, cardPool, sendAction);
         // Auto-pass: if exactly one viable action, send it after a delay
         if (autoPassTimer) { clearTimeout(autoPassTimer); autoPassTimer = null; }
@@ -124,6 +124,10 @@ function connect(name: string): void {
       case 'restart':
         renderLog(msg.message);
         showNotification(msg.message);
+        resetVisualBoard();
+        resetCompanyViews();
+        resetDeckPiles();
+        clearDice();
         break;
     }
   };
