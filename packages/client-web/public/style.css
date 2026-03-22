@@ -361,6 +361,7 @@ h2 {
   margin: -1rem;
   padding: 1rem;
   position: relative;
+  z-index: 0;
 }
 
 #visual-view::before {
@@ -369,6 +370,7 @@ h2 {
   inset: 0;
   background: rgba(0, 0, 0, 0.45);
   pointer-events: none;
+  z-index: -1;
 }
 
 #instruction-text {
@@ -1392,11 +1394,9 @@ h2 {
 }
 
 .company-card--site {
-  /* Sites are always fully visible (never faded) */
 }
 
 .company-card--item {
-  /* Same size as character cards */
 }
 
 /* Tapped (sideways) */
