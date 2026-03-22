@@ -90,6 +90,11 @@ export const RIDERS_OF_ROHAN = did('tw-317');
 /** Knights of Dol Amroth — Dúnadan faction, 3 MP, playable at Dol Amroth. */
 export const KNIGHTS_OF_DOL_AMROTH = did('tw-263');
 
+// ---- Resource Events ----
+
+/** Gates of Morning — permanent environment event, cancels hazard environments. */
+export const GATES_OF_MORNING = did('tw-243');
+
 // ---- Creatures ----
 
 /** Cave-drake — wilderness hazard creature with moderate prowess. */
