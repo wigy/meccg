@@ -18,16 +18,21 @@ const FORBIDDEN_ACTIONS = new Set(['cancel-movement']);
 /** Action types that are optional — pass gets equal weight alongside them. */
 const OPTIONAL_ACTIONS = new Set(['place-character', 'add-character-to-deck', 'select-starting-site']);
 
+/** Phases where pass is a valid choice with equal weight. */
+const PASS_OK_PHASES = new Set(['organization']);
+
 export const randomStrategy: AiStrategy = {
   name: 'random',
 
   weighActions(context: AiContext): WeightedAction[] {
     const actions = context.legalActions.filter(a => !FORBIDDEN_ACTIONS.has(a.type));
+    const phase = context.view.phaseState.phase;
+    const passOk = PASS_OK_PHASES.has(phase);
     const allOptional = actions.every(a => PASS_ACTIONS.has(a.type) || OPTIONAL_ACTIONS.has(a.type));
     const hasSubstantiveAction = actions.some(a => !PASS_ACTIONS.has(a.type));
 
     return actions.map(action => {
-      if (PASS_ACTIONS.has(action.type) && hasSubstantiveAction && !allOptional) {
+      if (PASS_ACTIONS.has(action.type) && hasSubstantiveAction && !allOptional && !passOk) {
         return { action, weight: 0 };
       }
       return { action, weight: 1 };
