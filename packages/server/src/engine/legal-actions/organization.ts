@@ -311,6 +311,29 @@ function playPermanentEventActions(state: GameState, playerId: PlayerId): Evalua
       }
     }
 
+    // Check duplication-limit with scope "game": cannot play if a copy is already in play
+    const dupLimit = def.effects?.find((e): e is import('@meccg/shared').DuplicationLimitEffect => {
+      if (e.type !== 'duplication-limit') return false;
+      return e.scope === 'game';
+    });
+    if (dupLimit) {
+      const copiesInPlay = state.players.reduce((count, p) =>
+        count + p.cardsInPlay.filter(c => {
+          const cDef = state.cardPool[c.definitionId as string];
+          return cDef && cDef.name === def.name;
+        }).length, 0,
+      );
+      if (copiesInPlay >= dupLimit.max) {
+        logDetail(`Permanent event ${def.name}: cannot be duplicated (${copiesInPlay}/${dupLimit.max} in play)`);
+        actions.push({
+          action: { type: 'not-playable', player: playerId, cardInstanceId },
+          viable: false,
+          reason: `${def.name} cannot be duplicated`,
+        });
+        continue;
+      }
+    }
+
     logDetail(`Permanent event ${def.name}: playable`);
     actions.push({
       action: { type: 'play-permanent-event', player: playerId, cardInstanceId },

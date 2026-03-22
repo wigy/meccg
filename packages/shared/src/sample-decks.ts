@@ -81,7 +81,7 @@ const heroDeck: SampleDeck = {
       draftPool: [ARAGORN, BILBO, FRODO, SAM_GAMGEE, ELROND, CELEBORN, THEODEN,
         EOWYN, BEREGOND, ANBORN, DAGGER_OF_WESTERNESSE, HORN_OF_ANOR, HORN_OF_ANOR,
         THRALL_OF_THE_VOICE, STING],
-      playDeck: [...repeatCards([GANDALF], 3), ...characters, ...uniqueResources, ...repeatCards(hazards, 3), ...repeatCards([GATES_OF_MORNING], 3)],
+      playDeck: [...repeatCards([GANDALF], 3), ...characters, ...uniqueResources, ...repeatCards(hazards, 3), ...repeatCards([GATES_OF_MORNING], 100)],
       siteDeck: [RIVENDELL, LORIEN, EDHELLOND, GREY_HAVENS, MORIA, MINAS_TIRITH, MOUNT_DOOM,
         BARROW_DOWNS, EAGLES_EYRIE, HENNETH_ANNUN, OLD_FOREST, BAG_END],
       startingHavens: [RIVENDELL],

@@ -1203,6 +1203,22 @@ function handlePlayPermanentEvent(state: GameState, action: GameAction): Reducer
     return { state, error: 'Card is not a permanent resource event' };
   }
 
+  // Check duplication-limit with scope "game"
+  if (def.effects) {
+    for (const effect of def.effects) {
+      if (effect.type !== 'duplication-limit' || effect.scope !== 'game') continue;
+      const copiesInPlay = state.players.reduce((count, p) =>
+        count + p.cardsInPlay.filter(c => {
+          const cDef = state.cardPool[c.definitionId as string];
+          return cDef && cDef.name === def.name;
+        }).length, 0,
+      );
+      if (copiesInPlay >= effect.max) {
+        return { state, error: `${def.name} cannot be duplicated` };
+      }
+    }
+  }
+
   logDetail(`Playing permanent event: ${def.name}`);
 
   const newHand = [...player.hand];
