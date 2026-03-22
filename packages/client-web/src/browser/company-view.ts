@@ -6,7 +6,7 @@
  * - **All Companies**: Every company in the game (both players) at medium scale.
  * - **Single**: One company at full scale, reached by clicking a company in the overview.
  *
- * The company leader (highest mind, then MP, then prowess) determines
+ * The title character (highest mind, then MP, then prowess) determines
  * the company's display name (e.g. "Aragorn's Company at Rivendell").
  */
 
@@ -39,21 +39,21 @@ let focusedCompanyId: CompanyId | null = null;
 /** Track the last active player so we can reset view state on turn change. */
 let lastActivePlayer: string | null = null;
 
-// ---- Company leader logic ----
+// ---- Title character logic ----
 
 /**
- * Determine the leader of a company for display purposes.
- * If an avatar (mind === null) is in the company, it is always the leader.
+ * Determine the title character of a company for display purposes.
+ * If an avatar (mind === null) is in the company, it is always the title character.
  * Otherwise, the character with the highest mind is chosen.
  * Tiebreaker: marshalling points, then prowess.
- * Returns the leader's CharacterInPlay, or undefined if the company is empty.
+ * Returns the title character's CharacterInPlay, or undefined if the company is empty.
  */
-function getCompanyLeader(
+function getTitleCharacter(
   characters: readonly { toString(): string }[],
   charMap: Readonly<Record<string, CharacterInPlay>>,
   cardPool: Readonly<Record<string, CardDefinition>>,
 ): CharacterInPlay | undefined {
-  // Avatar always leads if present
+  // Avatar is always the title character if present
   for (const charInstId of characters) {
     const char = charMap[charInstId as string];
     if (!char) continue;
@@ -63,7 +63,7 @@ function getCompanyLeader(
     }
   }
 
-  let leader: CharacterInPlay | undefined;
+  let titleChar: CharacterInPlay | undefined;
   let bestMind = -Infinity;
   let bestMP = -Infinity;
   let bestProwess = -Infinity;
@@ -86,19 +86,19 @@ function getCompanyLeader(
       (mind === bestMind && mp === bestMP && prowess > bestProwess) ||
       (mind === bestMind && mp === bestMP && prowess === bestProwess && name < bestName)
     ) {
-      leader = char;
+      titleChar = char;
       bestMind = mind;
       bestMP = mp;
       bestProwess = prowess;
       bestName = name;
     }
   }
-  return leader;
+  return titleChar;
 }
 
 /**
- * Get the display name for a company based on its leader and current site.
- * Returns e.g. "Aragorn's Company at Rivendell" or "Company" if no leader found.
+ * Get the display name for a company based on its title character and current site.
+ * Returns e.g. "Aragorn's Company at Rivendell" or "Company" if no title character found.
  */
 function getCompanyName(
   company: Company | OpponentCompanyView,
@@ -106,9 +106,9 @@ function getCompanyName(
   view: PlayerView,
   cardPool: Readonly<Record<string, CardDefinition>>,
 ): string {
-  const leader = getCompanyLeader(company.characters, charMap, cardPool);
-  if (!leader) return 'Company';
-  const def = cardPool[leader.definitionId as string];
+  const titleChar = getTitleCharacter(company.characters, charMap, cardPool);
+  if (!titleChar) return 'Company';
+  const def = cardPool[titleChar.definitionId as string];
   if (!def) return 'Company';
   const name = def.name;
   // Simple possessive: add 's or just ' for names ending in s
@@ -138,7 +138,7 @@ function getCompanyName(
 function renderCharacterColumn(
   char: CharacterInPlay,
   cardPool: Readonly<Record<string, CardDefinition>>,
-  isLeader: boolean,
+  isTitleCharacter: boolean,
 ): HTMLElement {
   const col = document.createElement('div');
   col.className = 'character-column';
@@ -169,12 +169,12 @@ function renderCharacterColumn(
   badge.textContent = `${char.effectiveStats.prowess}/${char.effectiveStats.body}`;
   wrap.appendChild(badge);
 
-  // Leader indicator
-  if (isLeader) {
-    const leaderBadge = document.createElement('div');
-    leaderBadge.className = 'char-leader-badge';
-    leaderBadge.textContent = '\u2606'; // star
-    wrap.appendChild(leaderBadge);
+  // Title character indicator
+  if (isTitleCharacter) {
+    const titleBadge = document.createElement('div');
+    titleBadge.className = 'char-title-badge';
+    titleBadge.textContent = '\u2606'; // star
+    wrap.appendChild(titleBadge);
   }
 
   col.appendChild(wrap);
@@ -307,15 +307,15 @@ function renderCompanyBlock(
   // Site area (leftmost)
   row.appendChild(renderSiteArea(company, view, cardPool));
 
-  // Characters — leader always rendered first (leftmost after site)
-  const leader = getCompanyLeader(company.characters, charMap, cardPool);
-  if (leader) {
-    row.appendChild(renderCharacterColumn(leader, cardPool, true));
+  // Characters — title character always rendered first (leftmost after site)
+  const titleChar = getTitleCharacter(company.characters, charMap, cardPool);
+  if (titleChar) {
+    row.appendChild(renderCharacterColumn(titleChar, cardPool, true));
   }
   for (const charInstId of company.characters) {
     const char = charMap[charInstId as string];
     if (!char) continue;
-    if (leader && char.instanceId === leader.instanceId) continue;
+    if (titleChar && char.instanceId === titleChar.instanceId) continue;
     row.appendChild(renderCharacterColumn(char, cardPool, false));
   }
   block.appendChild(row);

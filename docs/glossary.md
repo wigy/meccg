@@ -33,6 +33,7 @@ Non-game-rule concepts used in the MECCG codebase. For game rules, see `docs/rul
 - **Company** — A group of characters traveling together. The fundamental unit of movement, hazard-facing, and site actions. Contains character list, current site, destination site, and movement path.
 - **Effective Stats** — Derived character stats (prowess, body, direct influence, corruption) computed from base definition + equipped items + attached effects. Recomputed after every action via `recomputeDerived`.
 - **Alignment** — Hero, minion, fallen-wizard, or balrog. Determines which card types and site pools are available.
+- **Title Character** — The character whose name is used for a company's display label (e.g. "Aragorn's Company"). Chosen by highest mind (avatar always wins), with tiebreakers on marshalling points, prowess, then name. Rendered first (leftmost) in the company row and marked with a star badge. Not a game rule — purely a UI/display concept.
 
 ## Client & Debugging
 

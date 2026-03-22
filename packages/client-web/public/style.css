@@ -1198,8 +1198,8 @@ h2 {
   pointer-events: none;
 }
 
-/* Leader badge */
-.char-leader-badge {
+/* Title character badge */
+.char-title-badge {
   position: absolute;
   top: 2px;
   left: 2px;
