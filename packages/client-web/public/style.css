@@ -471,19 +471,25 @@ h2 {
   left: 1.5rem;
   font-family: 'MedievalSharp', cursive;
   font-size: 1.6rem;
-  color: rgba(196, 163, 90, 0.8);
+  color: rgba(196, 163, 90, 0.9);
   pointer-events: none;
   z-index: 15;
   letter-spacing: 0.05em;
   text-shadow: 0 1px 4px rgba(0, 0, 0, 0.8);
+  padding: 0.3rem 0.8rem;
+  border-radius: 6px;
 }
 
 #self-name {
   bottom: 1rem;
+  background: linear-gradient(135deg, rgba(42, 42, 42, 0.85), rgba(21, 21, 21, 0.85));
+  border: 1px solid #444;
 }
 
 #opponent-name {
   top: 1rem;
+  background: linear-gradient(135deg, rgba(178, 32, 32, 0.85), rgba(138, 21, 21, 0.85));
+  border: 1px solid #d44;
 }
 
 #self-deck-pile, #opponent-deck-pile, #self-site-pile, #opponent-site-pile {
@@ -1002,9 +1008,21 @@ h2 {
 .company-name {
   font-family: 'MedievalSharp', serif;
   font-size: calc(1.2rem * var(--company-scale, 1));
-  color: #c4a35a;
+  color: rgba(196, 163, 90, 0.9);
   text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8);
   text-align: center;
+  padding: 0.2rem 0.6rem;
+  border-radius: 4px;
+}
+
+.company-name--self {
+  background: linear-gradient(135deg, rgba(42, 42, 42, 0.85), rgba(21, 21, 21, 0.85));
+  border: 1px solid #444;
+}
+
+.company-name--opponent {
+  background: linear-gradient(135deg, rgba(178, 32, 32, 0.85), rgba(138, 21, 21, 0.85));
+  border: 1px solid #d44;
 }
 
 .company-moved-badge {
@@ -1012,12 +1030,20 @@ h2 {
   margin-left: 0.3rem;
 }
 
+/* Cards row: site + characters in one horizontal line */
+.company-row {
+  display: flex;
+  align-items: flex-start;
+  gap: calc(0.5rem * var(--company-scale, 1));
+  flex-wrap: wrap;
+}
+
 /* Site area */
 .company-site-area {
   display: flex;
   align-items: center;
-  justify-content: center;
   gap: 0.5rem;
+  margin-right: calc(1rem * var(--company-scale, 1));
 }
 
 .company-movement-arrow {
@@ -1041,12 +1067,9 @@ h2 {
   /* Uses default company-card height */
 }
 
-/* Characters row */
-.company-characters {
-  display: flex;
-  justify-content: center;
-  gap: calc(1rem * var(--company-scale, 1));
-  flex-wrap: wrap;
+/* Characters shifted down by 50% of card height relative to the site */
+.company-row > .character-column {
+  margin-top: calc(var(--card-table-height) * var(--company-scale, 1) * 0.25);
 }
 
 .character-column {
@@ -1077,7 +1100,7 @@ h2 {
 }
 
 .company-card--item {
-  height: calc(var(--card-table-height) * var(--company-scale, 1) * 0.75);
+  /* Same size as character cards */
 }
 
 /* Tapped (sideways) */

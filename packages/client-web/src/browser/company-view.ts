@@ -280,6 +280,7 @@ function renderCompanyBlock(
   charMap: Readonly<Record<string, CharacterInPlay>>,
   view: PlayerView,
   cardPool: Readonly<Record<string, CardDefinition>>,
+  owner: 'self' | 'opponent',
 ): HTMLElement {
   const block = document.createElement('div');
   block.className = 'company-block';
@@ -287,7 +288,7 @@ function renderCompanyBlock(
 
   // Company name
   const nameEl = document.createElement('div');
-  nameEl.className = 'company-name';
+  nameEl.className = `company-name company-name--${owner}`;
   nameEl.textContent = getCompanyName(company, charMap, view, cardPool);
   block.appendChild(nameEl);
 
@@ -299,23 +300,25 @@ function renderCompanyBlock(
     nameEl.appendChild(movedBadge);
   }
 
-  // Site area
-  block.appendChild(renderSiteArea(company, view, cardPool));
+  // Cards row: site on the left, then characters
+  const row = document.createElement('div');
+  row.className = 'company-row';
 
-  // Characters — leader always rendered first (leftmost)
-  const charsEl = document.createElement('div');
-  charsEl.className = 'company-characters';
+  // Site area (leftmost)
+  row.appendChild(renderSiteArea(company, view, cardPool));
+
+  // Characters — leader always rendered first (leftmost after site)
   const leader = getCompanyLeader(company.characters, charMap, cardPool);
   if (leader) {
-    charsEl.appendChild(renderCharacterColumn(leader, cardPool, true));
+    row.appendChild(renderCharacterColumn(leader, cardPool, true));
   }
   for (const charInstId of company.characters) {
     const char = charMap[charInstId as string];
     if (!char) continue;
     if (leader && char.instanceId === leader.instanceId) continue;
-    charsEl.appendChild(renderCharacterColumn(char, cardPool, false));
+    row.appendChild(renderCharacterColumn(char, cardPool, false));
   }
-  block.appendChild(charsEl);
+  block.appendChild(row);
 
   return block;
 }
@@ -331,12 +334,16 @@ function renderSingleView(
   // Find the focused company across both players
   let company: Company | OpponentCompanyView | undefined;
   let charMap: Readonly<Record<string, CharacterInPlay>> = view.self.characters;
+  let owner: 'self' | 'opponent' = 'self';
 
   if (focusedCompanyId) {
     company = view.self.companies.find(c => c.id === focusedCompanyId);
     if (!company) {
       company = view.opponent.companies.find(c => c.id === focusedCompanyId);
-      if (company) charMap = view.opponent.characters;
+      if (company) {
+        charMap = view.opponent.characters;
+        owner = 'opponent';
+      }
     }
   }
 
@@ -358,7 +365,7 @@ function renderSingleView(
       renderCompanyViews(view, cardPool, lastOnAction!);
     }
   };
-  single.appendChild(renderCompanyBlock(company, charMap, view, cardPool));
+  single.appendChild(renderCompanyBlock(company, charMap, view, cardPool, owner));
   container.appendChild(single);
 }
 
@@ -374,7 +381,7 @@ function renderAllCompaniesView(
 
   // Self companies
   for (const company of view.self.companies) {
-    const block = renderCompanyBlock(company, view.self.characters, view, cardPool);
+    const block = renderCompanyBlock(company, view.self.characters, view, cardPool, 'self');
     block.classList.add('company-block--clickable');
     block.onclick = () => {
       viewMode = 'single';
@@ -386,7 +393,7 @@ function renderAllCompaniesView(
 
   // Opponent companies
   for (const company of view.opponent.companies) {
-    const block = renderCompanyBlock(company, view.opponent.characters, view, cardPool);
+    const block = renderCompanyBlock(company, view.opponent.characters, view, cardPool, 'opponent');
     block.classList.add('company-block--clickable');
     block.onclick = () => {
       viewMode = 'single';

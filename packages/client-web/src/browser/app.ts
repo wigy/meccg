@@ -92,7 +92,7 @@ function connect(name: string): void {
           renderLog(`${label}: ${playerName} rolled ${die1} + ${die2} = ${die1 + die2}`);
           const visualView = document.getElementById('visual-view');
           if (visualView && !visualView.classList.contains('hidden')) {
-            const variant = playerName === name ? 'red' : 'black';
+            const variant = playerName === name ? 'black' : 'red';
             rollDice(die1, die2, variant);
           }
         }

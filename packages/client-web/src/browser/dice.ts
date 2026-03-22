@@ -141,7 +141,7 @@ function dismiss(variant: string): void {
 
 /**
  * Show a dice roll animation overlay. Both dice use the same color
- * variant: red pair for self, black pair for opponent.
+ * variant: black pair for self, red pair for opponent.
  *
  * @param die1 - Result for the first die (1–6).
  * @param die2 - Result for the second die (1–6).
@@ -184,7 +184,7 @@ export function rollDice(die1: number, die2: number, variant: 'red' | 'black' = 
 
   // After roll animation, slide dice to sit next to the player name
   setTimeout(() => {
-    const targetId = variant === 'red' ? 'self-name' : 'opponent-name';
+    const targetId = variant === 'black' ? 'self-name' : 'opponent-name';
     const target = document.getElementById(targetId);
     if (target && container) {
       // Capture current center position
@@ -204,7 +204,7 @@ export function rollDice(die1: number, die2: number, variant: 'red' | 'black' = 
       const nameRect = target.getBoundingClientRect();
       container.style.transition = 'left 0.6s ease-in-out, top 0.6s ease-in-out, transform 0.6s ease-in-out';
       container.style.left = `${nameRect.left}px`;
-      if (variant === 'red') {
+      if (variant === 'black') {
         container.style.top = `${window.innerHeight * 0.55}px`;
         container.style.transform = 'translate(0, -50%) scale(0.35)';
       } else {
@@ -225,7 +225,7 @@ export function restoreDice(): void {
     if (!roll) continue;
     if (overlays[variant]) continue; // already visible
 
-    const targetId = variant === 'red' ? 'self-name' : 'opponent-name';
+    const targetId = variant === 'black' ? 'self-name' : 'opponent-name';
     const target = document.getElementById(targetId);
     if (!target) continue;
 
@@ -261,7 +261,7 @@ export function restoreDice(): void {
     container.style.position = 'fixed';
     container.style.transformOrigin = 'left center';
     container.style.left = `${nameRect.left}px`;
-    if (variant === 'red') {
+    if (variant === 'black') {
       container.style.top = `${window.innerHeight * 0.55}px`;
       container.style.transform = 'translate(0, -50%) scale(0.35)';
     } else {
