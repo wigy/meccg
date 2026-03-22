@@ -281,6 +281,7 @@ function renderCompanyBlock(
   view: PlayerView,
   cardPool: Readonly<Record<string, CardDefinition>>,
   owner: 'self' | 'opponent',
+  options?: { hideTitle?: boolean },
 ): HTMLElement {
   const block = document.createElement('div');
   const isSelfTurn = view.activePlayer !== null && view.activePlayer === view.self.id;
@@ -288,18 +289,20 @@ function renderCompanyBlock(
   block.className = isInactive ? 'company-block company-block--inactive' : 'company-block';
   block.dataset.companyId = company.id as string;
 
-  // Company name
-  const nameEl = document.createElement('div');
-  nameEl.className = `company-name company-name--${owner}`;
-  nameEl.textContent = getCompanyName(company, charMap, view, cardPool);
-  block.appendChild(nameEl);
+  // Company name (omitted in single-company detail view)
+  if (!options?.hideTitle) {
+    const nameEl = document.createElement('div');
+    nameEl.className = `company-name company-name--${owner}`;
+    nameEl.textContent = getCompanyName(company, charMap, view, cardPool);
+    block.appendChild(nameEl);
 
-  // Moved badge
-  if (company.moved) {
-    const movedBadge = document.createElement('span');
-    movedBadge.className = 'company-moved-badge';
-    movedBadge.textContent = '\u2713'; // checkmark
-    nameEl.appendChild(movedBadge);
+    // Moved badge
+    if (company.moved) {
+      const movedBadge = document.createElement('span');
+      movedBadge.className = 'company-moved-badge';
+      movedBadge.textContent = '\u2713'; // checkmark
+      nameEl.appendChild(movedBadge);
+    }
   }
 
   // Cards row: site on the left, then characters
@@ -367,7 +370,7 @@ function renderSingleView(
       renderCompanyViews(view, cardPool, lastOnAction!);
     }
   };
-  single.appendChild(renderCompanyBlock(company, charMap, view, cardPool, owner));
+  single.appendChild(renderCompanyBlock(company, charMap, view, cardPool, owner, { hideTitle: true }));
   container.appendChild(single);
 }
 
