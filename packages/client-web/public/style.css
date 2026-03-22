@@ -699,6 +699,23 @@ h2 {
   height: 25vh;
   border-radius: 6px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.6);
+  transition: transform 0.15s, box-shadow 0.15s;
+}
+
+#site-deck-grid img.site-selectable {
+  cursor: pointer;
+  box-shadow: 0 0 12px 4px rgba(196, 163, 90, 0.8);
+  border: 2px solid #c4a35a;
+}
+
+#site-deck-grid img.site-selectable:hover {
+  transform: scale(1.08);
+  box-shadow: 0 0 18px 6px rgba(196, 163, 90, 1);
+}
+
+#site-deck-grid img.site-dimmed {
+  opacity: 0.35;
+  filter: grayscale(0.6);
 }
 
 #self-deck-pile:empty, #opponent-deck-pile:empty, #self-site-pile:empty, #opponent-site-pile:empty {

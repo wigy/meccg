@@ -8,7 +8,7 @@
 
 import type { ServerMessage, ClientMessage, GameAction, CardDefinitionId } from '@meccg/shared';
 import { loadCardPool, describeAction, SAMPLE_DECKS } from '@meccg/shared';
-import { renderState, renderDraft, renderActions, renderLog, renderHand, renderOpponentHand, renderPlayerNames, renderInstructions, renderDrafted, renderPassButton, renderDeckPiles, resetDeckPiles, setupCardPreview, showNotification } from './render.js';
+import { renderState, renderDraft, renderActions, renderLog, renderHand, renderOpponentHand, renderPlayerNames, renderInstructions, renderDrafted, renderPassButton, renderDeckPiles, resetDeckPiles, setupCardPreview, showNotification, openSiteSelectionViewer, closeSiteSelectionViewer } from './render.js';
 import { renderCompanyViews, resetCompanyViews } from './company-view.js';
 import { rollDice, clearDice, restoreDice } from './dice.js';
 import { clientLog } from './client-log.js';
@@ -76,6 +76,13 @@ function connect(name: string): void {
         renderPassButton(msg.view, sendAction);
         renderDeckPiles(msg.view, cardPool);
         renderCompanyViews(msg.view, cardPool, sendAction);
+        // Open/close site selection viewer based on phase
+        if (msg.view.phaseState.phase === 'setup'
+          && msg.view.phaseState.setupStep.step === 'starting-site-selection') {
+          openSiteSelectionViewer(msg.view, cardPool, sendAction);
+        } else {
+          closeSiteSelectionViewer();
+        }
         // Auto-pass: if exactly one viable action, send it after a delay
         if (autoPassTimer) { clearTimeout(autoPassTimer); autoPassTimer = null; }
         if (localStorage.getItem(AUTO_PASS_KEY) === 'true') {

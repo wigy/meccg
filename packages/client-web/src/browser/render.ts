@@ -441,14 +441,9 @@ function getHandCards(view: PlayerView): CardDefinitionId[] {
 
     return cards;
   }
-  // During site selection, show all candidate sites (both viable and non-viable)
+  // During site selection, hand arc is empty — sites are shown in the site deck viewer
   if (view.phaseState.phase === 'setup' && view.phaseState.setupStep.step === 'starting-site-selection') {
-    return view.legalActions
-      .filter(ea => ea.action.type === 'select-starting-site')
-      .map(ea => ea.action.type === 'select-starting-site'
-        ? view.visibleInstances[ea.action.siteInstanceId as string]
-        : undefined)
-      .filter((id): id is CardDefinitionId => id !== undefined);
+    return [];
   }
   // During character placement and deck shuffle, no hand cards
   if (view.phaseState.phase === 'setup'
@@ -676,6 +671,59 @@ let cachedSiteDeck: PlayerView['self']['siteDeck'] = [];
 let cachedCardPool: Readonly<Record<string, CardDefinition>> | null = null;
 let siteDeckListenerInstalled = false;
 
+/** Cached site selection state for interactive site selection in the viewer. */
+let siteSelectionActions: EvaluatedAction[] = [];
+let siteSelectionCallback: ((action: GameAction) => void) | null = null;
+
+/** Populate the site deck grid, optionally with interactive site selection. */
+function populateSiteDeckGrid(): void {
+  const grid = document.getElementById('site-deck-grid');
+  const modal = document.getElementById('site-deck-modal');
+  if (!grid || !modal || !cachedCardPool || cachedSiteDeck.length === 0) return;
+
+  grid.innerHTML = '';
+  const isSelecting = siteSelectionActions.length > 0;
+
+  for (const card of cachedSiteDeck) {
+    const def = cachedCardPool[card.definitionId as string];
+    if (!def) continue;
+    const imgPath = cardImageProxyPath(def);
+    if (!imgPath) continue;
+
+    const img = document.createElement('img');
+    img.src = imgPath;
+    img.alt = def.name;
+    img.dataset.cardId = card.definitionId as string;
+
+    if (isSelecting) {
+      // Find the evaluated action for this site instance
+      const ea = siteSelectionActions.find(
+        a => a.action.type === 'select-starting-site'
+          && a.action.siteInstanceId === card.instanceId,
+      );
+      if (ea && ea.viable) {
+        img.classList.add('site-selectable');
+        if (siteSelectionCallback) {
+          const action = ea.action;
+          img.addEventListener('click', () => {
+            siteSelectionCallback!(action);
+            closeSiteSelectionViewer();
+          });
+        }
+      } else if (ea && !ea.viable) {
+        img.classList.add('site-dimmed');
+        if (ea.reason) img.title = ea.reason;
+      } else {
+        // Site not in legal actions at all — dim it
+        img.classList.add('site-dimmed');
+      }
+    }
+
+    grid.appendChild(img);
+  }
+  modal.classList.remove('hidden');
+}
+
 /** Install click handler on the self site pile to open the site deck modal. */
 function installSiteDeckViewer(): void {
   if (siteDeckListenerInstalled) return;
@@ -684,29 +732,51 @@ function installSiteDeckViewer(): void {
   const pile = document.getElementById('self-site-pile');
   const modal = document.getElementById('site-deck-modal');
   const backdrop = document.getElementById('site-deck-backdrop');
-  const grid = document.getElementById('site-deck-grid');
-  if (!pile || !modal || !backdrop || !grid) return;
+  if (!pile || !modal || !backdrop) return;
 
   pile.addEventListener('click', () => {
-    if (!cachedCardPool || cachedSiteDeck.length === 0) return;
-    grid.innerHTML = '';
-    for (const card of cachedSiteDeck) {
-      const def = cachedCardPool[card.definitionId as string];
-      if (!def) continue;
-      const imgPath = cardImageProxyPath(def);
-      if (!imgPath) continue;
-      const img = document.createElement('img');
-      img.src = imgPath;
-      img.alt = def.name;
-      img.dataset.cardId = card.definitionId as string;
-      grid.appendChild(img);
-    }
-    modal.classList.remove('hidden');
+    populateSiteDeckGrid();
   });
 
   backdrop.addEventListener('click', () => {
+    // During site selection, don't allow closing the modal
+    if (siteSelectionActions.length > 0) return;
     modal.classList.add('hidden');
   });
+}
+
+/**
+ * Open the site deck viewer in site-selection mode, highlighting selectable sites.
+ * Called during the starting-site-selection setup step. Only auto-opens when
+ * there are viable site selections available; skips reopening when the player
+ * has already selected and is waiting for the opponent.
+ */
+export function openSiteSelectionViewer(
+  view: PlayerView,
+  cardPool: Readonly<Record<string, CardDefinition>>,
+  onAction: (action: GameAction) => void,
+): void {
+  cachedSiteDeck = view.self.siteDeck;
+  cachedCardPool = cardPool;
+  siteSelectionActions = view.legalActions.filter(
+    ea => ea.action.type === 'select-starting-site',
+  );
+  siteSelectionCallback = onAction;
+  installSiteDeckViewer();
+
+  // Only auto-open when there are viable site selections to make
+  const hasViableSites = siteSelectionActions.some(ea => ea.viable);
+  if (hasViableSites) {
+    populateSiteDeckGrid();
+  }
+}
+
+/** Close the site selection viewer and clear selection state. */
+export function closeSiteSelectionViewer(): void {
+  siteSelectionActions = [];
+  siteSelectionCallback = null;
+  const modal = document.getElementById('site-deck-modal');
+  if (modal) modal.classList.add('hidden');
 }
 
 /** Check whether a card list contains real card IDs (not 'unknown-card' placeholders). */
