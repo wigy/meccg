@@ -8,8 +8,8 @@
 
 import { describe, test, expect } from 'vitest';
 import {
-  pool, PLAYER_1, PLAYER_2,
-  reduce, runFullSetup, runActions,
+  PLAYER_1, PLAYER_2,
+  runFullSetup, runActions,
   Phase,
 } from '../test-helpers.js';
 import { computeLegalActions } from '../../engine/legal-actions/index.js';

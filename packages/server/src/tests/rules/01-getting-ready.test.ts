@@ -16,12 +16,11 @@ import {
   Phase, Alignment,
   ARAGORN, BILBO, FRODO, LEGOLAS, GIMLI, FARAMIR,
   EOWYN, BEREGOND, BERGIL, BARD_BOWMAN, ANBORN, SAM_GAMGEE,
-  THEODEN, ELROND, CELEBORN, GLORFINDEL_II,
-  GLAMDRING, STING, THE_MITHRIL_COAT, THE_ONE_RING, DAGGER_OF_WESTERNESSE, HORN_OF_ANOR,
-  RIVENDELL, LORIEN, MORIA, MINAS_TIRITH, MOUNT_DOOM,
+  DAGGER_OF_WESTERNESSE,
+  RIVENDELL, LORIEN, MORIA,
 } from '../test-helpers.js';
 import { computeLegalActions } from '../../engine/legal-actions/index.js';
-import type { PlayerId, CardDefinitionId, GameState, EvaluatedAction } from '@meccg/shared';
+import type { EvaluatedAction } from '@meccg/shared';
 import type { GameConfig } from '../../engine/init.js';
 import { GENERAL_INFLUENCE, HAND_SIZE } from '@meccg/shared';
 
@@ -170,7 +169,7 @@ describe('1.9 Character draft', () => {
           const currentMind = state.players[0].generalInfluenceUsed;
           // If non-viable due to mind, the sum should exceed 20
           if (nv.reason?.includes('mind')) {
-            expect(currentMind + (charDef.mind as number)).toBeGreaterThan(GENERAL_INFLUENCE);
+            expect(currentMind + charDef.mind).toBeGreaterThan(GENERAL_INFLUENCE);
           }
         }
       }
@@ -243,7 +242,7 @@ describe('1.9 Character draft', () => {
 
 describe('1.9 Starting items', () => {
   test('up to two minor items from pool may be placed with starting characters', () => {
-    let state = runSimpleDraft();
+    const state = runSimpleDraft();
 
     // Should be in item-draft step
     expect(state.phaseState.phase).toBe(Phase.Setup);
@@ -253,7 +252,7 @@ describe('1.9 Starting items', () => {
   });
 
   test('items can be assigned to drafted characters', () => {
-    let state = runSimpleDraft();
+    const state = runSimpleDraft();
 
     if (state.phaseState.phase === Phase.Setup && state.phaseState.setupStep.step === 'item-draft') {
       const charId = state.players[0].companies[0].characters[0];
@@ -337,7 +336,7 @@ describe('1.12 Starting general influence', () => {
           if (char) {
             const def = pool[char.definitionId as string];
             if (def && 'mind' in def && def.mind != null) {
-              totalMind += def.mind as number;
+              totalMind += def.mind;
             }
           }
         }
