@@ -286,7 +286,9 @@ function renderSiteArea(
     } else {
       const arrow = document.createElement('div');
       arrow.className = 'company-movement-arrow';
-      arrow.textContent = '\u2192'; // →
+      arrow.innerHTML = '<svg viewBox="0 0 24 16" fill="none" xmlns="http://www.w3.org/2000/svg">'
+        + '<path d="M2 8h17M14 2l6 6-6 6" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>'
+        + '</svg>';
       area.appendChild(arrow);
     }
 
@@ -305,7 +307,9 @@ function renderSiteArea(
     // Opponent has planned movement but destination is hidden
     const arrow = document.createElement('div');
     arrow.className = 'company-movement-arrow';
-    arrow.textContent = '\u2192 ?';
+    arrow.innerHTML = '<svg viewBox="0 0 24 16" fill="none" xmlns="http://www.w3.org/2000/svg">'
+      + '<path d="M2 8h17M14 2l6 6-6 6" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>'
+      + '</svg> ?';
     area.appendChild(arrow);
   }
 

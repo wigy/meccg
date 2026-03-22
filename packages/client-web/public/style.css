@@ -723,7 +723,7 @@ h2 {
 #site-deck-grid {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.5rem;
+  gap: 0.2rem;
   justify-content: center;
 }
 
@@ -1448,14 +1448,18 @@ h2 {
 .company-site-area {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: 0;
   margin-right: calc(1rem * var(--company-scale, 1));
 }
 
 .company-movement-arrow {
-  font-size: calc(2rem * var(--company-scale, 1));
   color: #c4a35a;
-  padding: 0 0.5rem;
+  padding: 0 0.3rem;
+}
+
+.company-movement-arrow svg {
+  width: calc(2.5rem * var(--company-scale, 1));
+  height: calc(1.5rem * var(--company-scale, 1));
 }
 
 .company-movement-path {

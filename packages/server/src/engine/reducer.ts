@@ -1014,13 +1014,16 @@ function handleOrganization(state: GameState, action: GameAction): ReducerResult
     // TODO: advance to long-event phase
     return { state };
   }
+  if (action.type === 'plan-movement') {
+    return handlePlanMovement(state, action);
+  }
   if (action.type === 'cancel-movement') {
     return handleCancelMovement(state, action);
   }
   if (action.type === 'play-permanent-event') {
     return handlePlayPermanentEvent(state, action);
   }
-  // TODO: split-company, merge-companies, transfer-item, plan-movement
+  // TODO: split-company, merge-companies, transfer-item
   return { state, error: `Unhandled organization action: ${action.type}` };
 }
 
@@ -1158,7 +1161,50 @@ function handlePlayCharacter(state: GameState, action: GameAction): ReducerResul
   };
 }
 
-/** Handle cancel-movement during organization. */
+/**
+ * Handle plan-movement during organization.
+ *
+ * Sets the company's destination site and movement path, and removes
+ * the destination site card from the player's site deck (it will be
+ * returned on cancel-movement or discarded after movement resolves).
+ */
+function handlePlanMovement(state: GameState, action: GameAction): ReducerResult {
+  if (action.type !== 'plan-movement') return { state, error: 'Expected plan-movement action' };
+
+  const playerIndex = getPlayerIndex(state, action.player);
+  const player = state.players[playerIndex];
+  const companyIdx = player.companies.findIndex(c => c.id === action.companyId);
+  if (companyIdx === -1) return { state, error: 'Company not found' };
+
+  const company = player.companies[companyIdx];
+  if (company.destinationSite) return { state, error: 'Company already has planned movement' };
+  if (!player.siteDeck.includes(action.destinationSite)) {
+    return { state, error: 'Destination site not in site deck' };
+  }
+
+  logDetail(`Plan movement: company ${company.id as string} → ${action.destinationSite as string} (${action.movementType})`);
+
+  const companies = [...player.companies];
+  companies[companyIdx] = {
+    ...company,
+    destinationSite: action.destinationSite,
+    movementPath: action.regionPath,
+  };
+
+  // Remove destination site from site deck
+  const siteDeck = player.siteDeck.filter(id => id !== action.destinationSite);
+
+  const newPlayers = clonePlayers(state);
+  newPlayers[playerIndex] = { ...player, companies, siteDeck };
+  return { state: { ...state, players: newPlayers } };
+}
+
+/**
+ * Handle cancel-movement during organization.
+ *
+ * Clears the company's planned destination and returns the destination
+ * site card back to the player's site deck.
+ */
 function handleCancelMovement(state: GameState, action: GameAction): ReducerResult {
   if (action.type !== 'cancel-movement') return { state, error: 'Expected cancel-movement action' };
 
@@ -1170,6 +1216,8 @@ function handleCancelMovement(state: GameState, action: GameAction): ReducerResu
   const company = player.companies[companyIdx];
   if (!company.destinationSite) return { state, error: 'Company has no planned movement' };
 
+  logDetail(`Cancel movement: company ${company.id as string}, returning site ${company.destinationSite as string} to site deck`);
+
   const companies = [...player.companies];
   companies[companyIdx] = {
     ...company,
@@ -1177,8 +1225,11 @@ function handleCancelMovement(state: GameState, action: GameAction): ReducerResu
     movementPath: [],
   };
 
+  // Return the destination site to the site deck
+  const siteDeck = [...player.siteDeck, company.destinationSite];
+
   const newPlayers = clonePlayers(state);
-  newPlayers[playerIndex] = { ...player, companies };
+  newPlayers[playerIndex] = { ...player, companies, siteDeck };
   return { state: { ...state, players: newPlayers } };
 }
 
