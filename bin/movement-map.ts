@@ -1,17 +1,18 @@
+#!/usr/bin/env -S npx tsx
 /**
- * @module cli/movement-map
+ * @module bin/movement-map
  *
  * CLI tool that builds the movement map from the card pool and prints
  * its contents in a human-readable format. Useful for verifying region
  * adjacency, haven connectivity, and site reachability.
  *
- * Usage: npx tsx packages/shared/src/cli/movement-map.ts [--from <site>] [--max-distance <n>]
+ * Usage: ./bin/movement-map.ts [--from <site>] [--max-distance <n>]
  */
 
-import { loadCardPool } from '../data/index.js';
-import { buildMovementMap, getReachableSites } from '../movement-map.js';
-import { isSiteCard } from '../types/index.js';
-import type { SiteCard } from '../types/index.js';
+import { loadCardPool } from '../packages/shared/src/data/index.js';
+import { buildMovementMap, getReachableSites } from '../packages/shared/src/movement-map.js';
+import { isSiteCard } from '../packages/shared/src/types/index.js';
+import type { SiteCard } from '../packages/shared/src/types/index.js';
 
 const cardPool = loadCardPool();
 const map = buildMovementMap(cardPool);

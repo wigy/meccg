@@ -6,7 +6,6 @@
   "types": "./dist/index.d.ts",
   "scripts": {
     "build": "tsc",
-    "check": "tsc --noEmit",
-    "movement-map": "npx tsx src/cli/movement-map.ts"
+    "check": "tsc --noEmit"
   }
 }
