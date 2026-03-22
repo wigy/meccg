@@ -137,7 +137,9 @@ function renderCharacterColumn(
   const wrap = document.createElement('div');
   wrap.className = 'character-card-wrap';
 
+  const hasAttachments = char.items.length > 0 || char.allies.length > 0;
   const img = createCardImage(char.definitionId as string, def, imgPath, 'company-card');
+  if (hasAttachments) img.classList.add('company-card--faded');
   if (char.status === CardStatus.Tapped) {
     img.classList.add('company-card--tapped');
     wrap.classList.add('character-card-wrap--tapped');
@@ -162,40 +164,23 @@ function renderCharacterColumn(
 
   col.appendChild(wrap);
 
-  // Items
-  if (char.items.length > 0) {
+  // Items and allies — shown side by side
+  const allAttachments = [...char.items, ...char.allies];
+  if (allAttachments.length > 0) {
     const attachments = document.createElement('div');
     attachments.className = 'character-attachments';
-    for (const item of char.items) {
-      const itemDef = cardPool[item.definitionId as string];
-      if (!itemDef) continue;
-      const itemImg = cardImageProxyPath(itemDef);
-      if (!itemImg) continue;
-      const itemEl = createCardImage(item.definitionId as string, itemDef, itemImg, 'company-card company-card--item');
-      if (item.status === CardStatus.Tapped) {
-        itemEl.classList.add('company-card--tapped');
+    for (const att of allAttachments) {
+      const attDef = cardPool[att.definitionId as string];
+      if (!attDef) continue;
+      const attImg = cardImageProxyPath(attDef);
+      if (!attImg) continue;
+      const attEl = createCardImage(att.definitionId as string, attDef, attImg, 'company-card company-card--item');
+      if (att.status === CardStatus.Tapped) {
+        attEl.classList.add('company-card--tapped');
       }
-      attachments.appendChild(itemEl);
+      attachments.appendChild(attEl);
     }
     col.appendChild(attachments);
-  }
-
-  // Allies
-  if (char.allies.length > 0) {
-    const allyContainer = document.createElement('div');
-    allyContainer.className = 'character-attachments';
-    for (const ally of char.allies) {
-      const allyDef = cardPool[ally.definitionId as string];
-      if (!allyDef) continue;
-      const allyImg = cardImageProxyPath(allyDef);
-      if (!allyImg) continue;
-      const allyEl = createCardImage(ally.definitionId as string, allyDef, allyImg, 'company-card company-card--item');
-      if (ally.status === CardStatus.Tapped) {
-        allyEl.classList.add('company-card--tapped');
-      }
-      allyContainer.appendChild(allyEl);
-    }
-    col.appendChild(allyContainer);
   }
 
   return col;

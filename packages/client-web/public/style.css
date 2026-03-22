@@ -1063,11 +1063,7 @@ h2 {
   border-radius: 4px;
 }
 
-.company-card--site {
-  /* Uses default company-card height */
-}
-
-/* Characters shifted down by 50% of card height relative to the site */
+/* Characters shifted down by 25% of card height relative to the site */
 .company-row > .character-column {
   margin-top: calc(var(--card-table-height) * var(--company-scale, 1) * 0.25);
 }
@@ -1099,6 +1095,17 @@ h2 {
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.5);
 }
 
+/* Fade and collapse cards that have another card below them */
+.company-card--faded {
+  -webkit-mask-image: linear-gradient(to bottom, black 50%, transparent 75%);
+  mask-image: linear-gradient(to bottom, black 50%, transparent 75%);
+  margin-bottom: calc(var(--card-table-height) * var(--company-scale, 1) * -0.35);
+}
+
+.company-card--site {
+  /* Sites are always fully visible (never faded) */
+}
+
 .company-card--item {
   /* Same size as character cards */
 }
@@ -1116,8 +1123,8 @@ h2 {
 /* Character attachments (items, allies) */
 .character-attachments {
   display: flex;
-  flex-direction: column;
-  align-items: center;
+  flex-direction: row;
+  align-items: flex-start;
   gap: 0.15rem;
 }
 
