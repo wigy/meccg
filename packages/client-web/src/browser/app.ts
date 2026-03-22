@@ -164,8 +164,29 @@ function disconnect(): void {
   document.getElementById('draft')!.textContent = '';
   document.getElementById('actions')!.innerHTML = '';
   document.getElementById('log')!.innerHTML = '';
-  document.getElementById('visual-board')!.innerHTML = '';
+  resetVisualBoard();
   resetCompanyViews();
+}
+
+/**
+ * Clear the visual board and restore its skeleton child elements
+ * (instruction text, drafted rows, set-aside) so that subsequent
+ * renderDrafted() calls can find them.
+ */
+function resetVisualBoard(): void {
+  const board = document.getElementById('visual-board')!;
+  board.innerHTML = '';
+  for (const [id, cls] of [
+    ['instruction-text', ''],
+    ['drafted-opponent', 'drafted-row'],
+    ['set-aside', ''],
+    ['drafted-self', 'drafted-row'],
+  ] as const) {
+    const el = document.createElement('div');
+    el.id = id;
+    if (cls) el.className = cls;
+    board.appendChild(el);
+  }
 }
 
 // ---- Background ----
@@ -315,7 +336,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   /** Clear all visual game state immediately (before server responds). */
   function clearGameBoard(): void {
-    document.getElementById('visual-board')!.innerHTML = '';
+    resetVisualBoard();
     document.getElementById('hand-arc')!.innerHTML = '';
     document.getElementById('opponent-arc')!.innerHTML = '';
     document.getElementById('actions')!.innerHTML = '';
@@ -327,6 +348,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     resetCompanyViews();
     resetDeckPiles();
+    clearDice();
   }
 
   loadBtn.addEventListener('click', () => {
