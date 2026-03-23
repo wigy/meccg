@@ -14,7 +14,10 @@ import * as path from 'path';
 import type WebSocket from 'ws';
 import type {
   GameState,
+  PlayerState,
   PlayerId,
+  CardInstanceId,
+  CardDefinitionId,
   CardDefinition,
   ClientMessage,
   ServerMessage,
@@ -163,6 +166,7 @@ export class GameSession {
       case 'reseed':
       case 'undo':
       case 'cheat-roll':
+      case 'summon-card':
         if (!this.dev) {
           this.send(ws, { type: 'error', message: `'${msg.type}' is only available in development mode (--dev)` });
           break;
@@ -173,6 +177,7 @@ export class GameSession {
         else if (msg.type === 'reseed') this.handleReseed(ws);
         else if (msg.type === 'undo') this.handleUndo(ws);
         else if (msg.type === 'cheat-roll') this.handleCheatRoll(ws, msg.total);
+        else if (msg.type === 'summon-card') this.handleSummonCard(ws, msg.cardName);
         break;
     }
   }
@@ -497,6 +502,66 @@ export class GameSession {
     this.state = { ...this.state, cheatRollTotal: total };
     console.log(`Cheat roll set: next dice roll will total ${total}`);
     this.send(ws, { type: 'info', message: `Next roll will be ${total}.` });
+  }
+
+  /** Dev-only: create a new instance of any card in the card pool and add it to the player's hand. */
+  private handleSummonCard(ws: WebSocket, cardName: string): void {
+    if (!this.state) return;
+
+    // Find the requesting player
+    let playerId: PlayerId | null = null;
+    for (const [, val] of this.players.entries()) {
+      if (val.ws === ws) { playerId = val.playerId; break; }
+    }
+    if (!playerId) {
+      this.send(ws, { type: 'error', message: 'Not a registered player' });
+      return;
+    }
+
+    // Search card pool for a matching definition (case-insensitive, accent-insensitive)
+    const normalize = (s: string) => s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    const needle = normalize(cardName);
+    let matchDefId: string | null = null;
+    let matchName: string | null = null;
+    for (const [defId, def] of Object.entries(this.cardPool)) {
+      if (normalize((def as { name?: string }).name ?? '') === needle) {
+        matchDefId = defId;
+        matchName = (def as { name?: string }).name ?? defId;
+        break;
+      }
+    }
+    if (!matchDefId) {
+      this.send(ws, { type: 'error', message: `No card found matching "${cardName}"` });
+      return;
+    }
+
+    // Find the highest existing instance counter to avoid ID collisions
+    let maxCounter = 0;
+    for (const key of Object.keys(this.state.instanceMap)) {
+      const match = /^i-(\d+)$/.exec(key);
+      if (match) maxCounter = Math.max(maxCounter, parseInt(match[1], 10));
+    }
+    const newInstanceId = `i-${maxCounter + 1}` as CardInstanceId;
+    const definitionId = matchDefId as CardDefinitionId;
+
+    // Add to instance map and player's hand
+    const playerIdx = this.state.players.findIndex(p => p.id === playerId);
+    if (playerIdx < 0) return;
+
+    const newInstanceMap = {
+      ...this.state.instanceMap,
+      [newInstanceId as string]: { instanceId: newInstanceId, definitionId },
+    };
+
+    const updatedPlayers = this.state.players.map((p, i) =>
+      i === playerIdx ? { ...p, hand: [...p.hand, newInstanceId] } : p,
+    ) as unknown as readonly [PlayerState, PlayerState];
+
+    this.state = { ...this.state, instanceMap: newInstanceMap, players: updatedPlayers };
+
+    console.log(`Summon: created ${matchName} (${matchDefId}) as ${newInstanceId as string} → ${playerId} hand`);
+    this.broadcastState();
+    this.send(ws, { type: 'info', message: `Summoned ${matchName}.` });
   }
 
   // ---- Disconnect / Save / Restore ----

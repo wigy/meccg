@@ -122,7 +122,19 @@ export interface CheatRollMessage {
   readonly total: number;
 }
 
-export type ClientMessage = JoinMessage | ActionMessage | ResetMessage | SaveMessage | LoadMessage | ReseedMessage | UndoMessage | CheatRollMessage;
+/**
+ * Dev-only: summon a card by name from any zone into the requesting player's hand.
+ * Searches both players' decks, discard piles, sideboards, and eliminated piles
+ * for a card instance whose definition name matches (case-insensitive).
+ */
+export interface SummonCardMessage {
+  /** Message type discriminant. */
+  readonly type: 'summon-card';
+  /** The card name to search for (case-insensitive substring match). */
+  readonly cardName: string;
+}
+
+export type ClientMessage = JoinMessage | ActionMessage | ResetMessage | SaveMessage | LoadMessage | ReseedMessage | UndoMessage | CheatRollMessage | SummonCardMessage;
 
 // ---- Server → Client ----
 

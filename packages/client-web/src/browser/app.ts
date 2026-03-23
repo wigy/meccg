@@ -397,7 +397,8 @@ document.addEventListener('DOMContentLoaded', () => {
   const devModeToggle = document.getElementById('dev-mode-toggle') as HTMLInputElement;
 
   const cheatRollSelect = document.getElementById('cheat-roll-select') as HTMLSelectElement;
-  const devButtons: HTMLElement[] = [undoBtn, saveBtn, loadBtn, reseedBtn, cheatRollSelect, resetBtn, viewToggleBtn];
+  const summonBtn = document.getElementById('summon-btn') as HTMLButtonElement;
+  const devButtons: HTMLElement[] = [undoBtn, saveBtn, loadBtn, reseedBtn, cheatRollSelect, summonBtn, resetBtn, viewToggleBtn];
 
   function applyDevMode(on: boolean): void {
     for (const btn of devButtons) {
@@ -506,6 +507,16 @@ document.addEventListener('DOMContentLoaded', () => {
       renderLog(`>> Cheat: next roll will be ${total}`, cardPool);
     }
     cheatRollSelect.value = '';  // Reset to "Roll" label
+  });
+
+  summonBtn.addEventListener('click', () => {
+    const cardName = prompt('Enter card name to summon:');
+    if (cardName && ws && ws.readyState === WebSocket.OPEN) {
+      const msg: ClientMessage = { type: 'summon-card', cardName };
+      ws.send(JSON.stringify(msg));
+      renderLog(`>> Cheat: summoning "${cardName}"`, cardPool);
+      flashBtn(summonBtn);
+    }
   });
 
   loadBtn.addEventListener('click', () => {
