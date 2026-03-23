@@ -1737,6 +1737,14 @@ h2 {
   padding: 2rem;
 }
 
+/* Character action tooltip — modal backdrop */
+.char-action-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 999;
+  background: transparent;
+}
+
 /* Character action tooltip — disambiguation menu */
 .char-action-tooltip {
   z-index: 1000;

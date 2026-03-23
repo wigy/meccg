@@ -395,10 +395,12 @@ function renderSiteArea(
   return area;
 }
 
-/** Remove any open character action tooltip from the DOM. */
+/** Remove any open character action tooltip and its backdrop from the DOM. */
 function dismissTooltip(): void {
   const existing = document.querySelector('.char-action-tooltip');
   if (existing) existing.remove();
+  const backdrop = document.querySelector('.char-action-backdrop');
+  if (backdrop) backdrop.remove();
 }
 
 /**
@@ -479,22 +481,18 @@ function showCharacterActionTooltip(
     tooltip.appendChild(btn);
   }
 
+  // Create a modal backdrop that blocks interaction and dismisses on click
+  const backdrop = document.createElement('div');
+  backdrop.className = 'char-action-backdrop';
+  backdrop.onclick = () => dismissTooltip();
+  document.body.appendChild(backdrop);
+
   // Position near the anchor element
   const rect = anchor.getBoundingClientRect();
   tooltip.style.position = 'fixed';
   tooltip.style.left = `${rect.left + rect.width / 2}px`;
   tooltip.style.top = `${rect.top}px`;
   document.body.appendChild(tooltip);
-
-  // Dismiss on next click anywhere else
-  const dismiss = (ev: Event) => {
-    if (!tooltip.contains(ev.target as Node)) {
-      dismissTooltip();
-      document.removeEventListener('click', dismiss, true);
-    }
-  };
-  // Delay to avoid catching the current click event
-  setTimeout(() => document.addEventListener('click', dismiss, true), 0);
 }
 
 /**
