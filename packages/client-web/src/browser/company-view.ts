@@ -349,6 +349,16 @@ function renderCharacterColumn(
             if (fAtt.status === CardStatus.Tapped) {
               fAttEl.classList.add('company-card--tapped');
             }
+            // Item transfer click handler for follower items
+            const fIsItem = follower.items.some(i => i.instanceId === fAtt.instanceId);
+            if (fIsItem && itemClickBuilder) {
+              const fItemClick = itemClickBuilder(fAtt.instanceId, follower.instanceId);
+              if (fItemClick) {
+                if (fItemClick.cls) fAttEl.classList.add(fItemClick.cls);
+                fAttEl.style.cursor = 'pointer';
+                fAttEl.addEventListener('click', fItemClick.handler);
+              }
+            }
             fAttRow.appendChild(fAttEl);
           }
           followerCol.appendChild(fAttRow);
