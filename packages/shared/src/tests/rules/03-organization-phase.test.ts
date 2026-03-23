@@ -170,6 +170,7 @@ function buildOrgState(opts: {
     rng: { seed: 42, counter: 0 },
     stateSeq: 0,
     touchedCards: [],
+    cheatRollTotal: null,
   };
 
   // Run recomputeDerived by doing a no-op reduce.

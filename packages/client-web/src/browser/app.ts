@@ -396,7 +396,8 @@ document.addEventListener('DOMContentLoaded', () => {
   const settingsCloseBtn = document.getElementById('settings-close-btn') as HTMLButtonElement;
   const devModeToggle = document.getElementById('dev-mode-toggle') as HTMLInputElement;
 
-  const devButtons = [undoBtn, saveBtn, loadBtn, reseedBtn, resetBtn, viewToggleBtn];
+  const cheatRollSelect = document.getElementById('cheat-roll-select') as HTMLSelectElement;
+  const devButtons: HTMLElement[] = [undoBtn, saveBtn, loadBtn, reseedBtn, cheatRollSelect, resetBtn, viewToggleBtn];
 
   function applyDevMode(on: boolean): void {
     for (const btn of devButtons) {
@@ -495,6 +496,16 @@ document.addEventListener('DOMContentLoaded', () => {
       ws.send(JSON.stringify(msg));
       flashBtn(reseedBtn);
     }
+  });
+
+  cheatRollSelect.addEventListener('change', () => {
+    const total = parseInt(cheatRollSelect.value, 10);
+    if (ws && ws.readyState === WebSocket.OPEN && total >= 2 && total <= 12) {
+      const msg: ClientMessage = { type: 'cheat-roll', total };
+      ws.send(JSON.stringify(msg));
+      renderLog(`>> Cheat: next roll will be ${total}`, cardPool);
+    }
+    cheatRollSelect.value = '';  // Reset to "Roll" label
   });
 
   loadBtn.addEventListener('click', () => {

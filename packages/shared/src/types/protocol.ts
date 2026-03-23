@@ -111,7 +111,18 @@ export interface UndoMessage {
   readonly type: 'undo';
 }
 
-export type ClientMessage = JoinMessage | ActionMessage | ResetMessage | SaveMessage | LoadMessage | ReseedMessage | UndoMessage;
+/**
+ * Dev-only: set the result of the next dice roll (2-12).
+ * The individual dice are randomly split to produce the target total.
+ */
+export interface CheatRollMessage {
+  /** Message type discriminant. */
+  readonly type: 'cheat-roll';
+  /** The desired total (2-12) for the next 2d6 roll. */
+  readonly total: number;
+}
+
+export type ClientMessage = JoinMessage | ActionMessage | ResetMessage | SaveMessage | LoadMessage | ReseedMessage | UndoMessage | CheatRollMessage;
 
 // ---- Server → Client ----
 

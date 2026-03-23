@@ -157,6 +157,7 @@ export class GameSession {
       case 'load':
       case 'reseed':
       case 'undo':
+      case 'cheat-roll':
         if (!this.dev) {
           this.send(ws, { type: 'error', message: `'${msg.type}' is only available in development mode (--dev)` });
           break;
@@ -166,6 +167,7 @@ export class GameSession {
         else if (msg.type === 'load') this.handleLoad();
         else if (msg.type === 'reseed') this.handleReseed(ws);
         else if (msg.type === 'undo') this.handleUndo(ws);
+        else if (msg.type === 'cheat-roll') this.handleCheatRoll(ws, msg.total);
         break;
     }
   }
@@ -479,6 +481,17 @@ export class GameSession {
     console.log(`RNG re-seeded with ${newSeed}`);
     this.broadcastState();
     this.send(ws, { type: 'info', message: 'RNG re-seeded.' });
+  }
+
+  private handleCheatRoll(ws: WebSocket, total: number): void {
+    if (!this.state) return;
+    if (total < 2 || total > 12) {
+      this.send(ws, { type: 'error', message: 'Cheat roll total must be between 2 and 12' });
+      return;
+    }
+    this.state = { ...this.state, cheatRollTotal: total };
+    console.log(`Cheat roll set: next dice roll will total ${total}`);
+    this.send(ws, { type: 'info', message: `Next roll will be ${total}.` });
   }
 
   // ---- Disconnect / Save / Restore ----

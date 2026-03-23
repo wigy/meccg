@@ -728,4 +728,10 @@ export interface GameState {
    * Used by legal-action computation to identify redundant (regressive) actions.
    */
   readonly touchedCards: readonly CardInstanceId[];
+  /**
+   * Dev-only: when set, the next dice roll will produce this total (2-12)
+   * instead of using the RNG. The individual dice are randomly split to
+   * sum to the target. Consumed (reset to null) after one roll.
+   */
+  readonly cheatRollTotal: number | null;
 }

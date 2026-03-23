@@ -161,6 +161,7 @@ export function createGame(
     rng,
     stateSeq: 0,
     touchedCards: [],
+    cheatRollTotal: null,
   };
 }
 
@@ -450,6 +451,7 @@ export function createGameQuickStart(
     rng,
     stateSeq: 0,
     touchedCards: [],
+    cheatRollTotal: null,
   });
 }
 

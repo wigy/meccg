@@ -22,6 +22,40 @@ import type { TwoDiceSix, DieRoll, GameEffect } from '../index.js';
 import { applyDraftResults, transitionAfterItemDraft, enterSiteSelection, startFirstTurn } from './init.js';
 import { recomputeDerived } from './recompute-derived.js';
 
+/**
+ * Roll 2d6, respecting an optional cheat roll target. If `cheatRollTotal` is
+ * set on the state, produces dice that sum to that total (using RNG to pick
+ * the split) and clears the cheat field. Otherwise uses normal RNG.
+ *
+ * Returns the roll, updated RNG, and the new cheatRollTotal (null after use).
+ */
+function roll2d6(state: GameState): { roll: TwoDiceSix; rng: typeof state.rng; cheatRollTotal: number | null } {
+  let rng = state.rng;
+  let d1: DieRoll;
+  let d2: DieRoll;
+  let cheatRollTotal: number | null = state.cheatRollTotal;
+
+  if (cheatRollTotal !== null && cheatRollTotal >= 2 && cheatRollTotal <= 12) {
+    // Pick a random valid split for the target total
+    const minD1 = Math.max(1, cheatRollTotal - 6);
+    const maxD1 = Math.min(6, cheatRollTotal - 1);
+    const range = maxD1 - minD1 + 1;
+    const [pick, rng2] = nextInt(rng, range);
+    rng = rng2;
+    d1 = (minD1 + pick) as DieRoll;
+    d2 = (cheatRollTotal - d1) as DieRoll;
+    cheatRollTotal = null;  // consumed
+  } else {
+    const [d1raw, rng2] = nextInt(rng, 6);
+    const [d2raw, rng3] = nextInt(rng2, 6);
+    rng = rng3;
+    d1 = (d1raw + 1) as DieRoll;
+    d2 = (d2raw + 1) as DieRoll;
+  }
+
+  return { roll: { die1: d1, die2: d2 }, rng, cheatRollTotal };
+}
+
 /** Creates a mutable copy of the 2-player tuple, preserving the tuple type. */
 function clonePlayers(state: GameState): [PlayerState, PlayerState] {
   return [{ ...state.players[0] }, { ...state.players[1] }];
@@ -941,13 +975,9 @@ function handleInitiativeRoll(
   }
 
   // Roll 2d6
-  let rng = state.rng;
-  const [d1raw, rng2] = nextInt(rng, 6);
-  const [d2raw, rng3] = nextInt(rng2, 6);
-  rng = rng3;
-  const d1 = d1raw + 1;
-  const d2 = d2raw + 1;
-  const roll: TwoDiceSix = { die1: d1 as DieRoll, die2: d2 as DieRoll };
+  const { roll, rng, cheatRollTotal } = roll2d6(state);
+  const d1 = roll.die1;
+  const d2 = roll.die2;
   logDetail(`${state.players[playerIndex].name} rolls initiative: ${d1} + ${d2} = ${d1 + d2}`);
   const rollEffect: GameEffect = {
     effect: 'dice-roll',
@@ -960,7 +990,7 @@ function handleInitiativeRoll(
   // Store the roll in the player's state
   const playersWithRoll = clonePlayers(state);
   playersWithRoll[playerIndex] = { ...playersWithRoll[playerIndex], lastDiceRoll: roll };
-  const stateWithRoll: GameState = { ...state, players: playersWithRoll, rng };
+  const stateWithRoll: GameState = { ...state, players: playersWithRoll, rng, cheatRollTotal };
 
   const newRolls = [...stepState.rolls] as [TwoDiceSix | null, TwoDiceSix | null];
   newRolls[playerIndex] = roll;
@@ -1404,13 +1434,9 @@ function handleOrganizationCorruptionCheck(state: GameState, action: GameAction)
   const modifier = action.corruptionModifier;
 
   // Roll 2d6 + modifier
-  let rng = state.rng;
-  const [d1raw, rng2] = nextInt(rng, 6);
-  const [d2raw, rng3] = nextInt(rng2, 6);
-  rng = rng3;
-  const d1 = (d1raw + 1) as import('../index.js').DieRoll;
-  const d2 = (d2raw + 1) as import('../index.js').DieRoll;
-  const roll: TwoDiceSix = { die1: d1, die2: d2 };
+  const { roll, rng, cheatRollTotal } = roll2d6(state);
+  const d1 = roll.die1;
+  const d2 = roll.die2;
   const total = d1 + d2 + modifier;
   const modStr = modifier !== 0 ? ` ${modifier >= 0 ? '+' : ''}${modifier}` : '';
   logDetail(`Corruption check for ${charName}: rolled ${d1} + ${d2}${modStr} = ${total} vs CP ${cp}`);
@@ -1434,7 +1460,7 @@ function handleOrganizationCorruptionCheck(state: GameState, action: GameAction)
       state: {
         ...state,
         players: playersAfterRoll,
-        rng,
+        rng, cheatRollTotal,
         phaseState: { ...orgState, pendingCorruptionCheck: null },
       },
       effects: [rollEffect],
@@ -1519,7 +1545,7 @@ function handleOrganizationCorruptionCheck(state: GameState, action: GameAction)
     state: cleanupEmptyCompanies({
       ...state,
       players: playersAfterRoll,
-      rng,
+      rng, cheatRollTotal,
       phaseState: { ...orgState, pendingCorruptionCheck: null },
     }),
     effects: [rollEffect],
