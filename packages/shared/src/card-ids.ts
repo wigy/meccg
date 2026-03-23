@@ -94,6 +94,15 @@ export const KNIGHTS_OF_DOL_AMROTH = did('tw-263');
 
 /** Gates of Morning — permanent environment event, cancels hazard environments. */
 export const GATES_OF_MORNING = did('tw-243');
+/** Sun — long environment event, +1 prowess to Dúnadan; with Gates of Morning also buffs Men and weakens enemies. */
+export const SUN = did('tw-335');
+
+// ---- Hazard Events ----
+
+/** Eye of Sauron — long hazard event, increases automatic-attack prowess (+1, or +3 with Doors of Night). */
+export const EYE_OF_SAURON = did('tw-32');
+/** Wake of War — long hazard event, boosts Wolf/Spider/Animal attacks (+1 strikes and prowess, +2 for Wolves with Doors of Night). */
+export const WAKE_OF_WAR = did('tw-108');
 
 // ---- Creatures ----
 

@@ -19,6 +19,7 @@ import twCreatures from './tw-creatures.json';
 import twSites from './tw-sites.json';
 import twRegions from './tw-regions.json';
 import twResources from './tw-resources.json';
+import twHazards from './tw-hazards.json';
 
 // ---- Against the Shadow (AS) — minion expansion ----
 import asCharacters from './as-characters.json';
@@ -48,6 +49,7 @@ const allCards: readonly CardDefinition[] = [
   ...(twItems as unknown as CardDefinition[]),
   ...(twResources as unknown as CardDefinition[]),
   ...(twCreatures as unknown as CardDefinition[]),
+  ...(twHazards as unknown as CardDefinition[]),
   ...(twSites as unknown as CardDefinition[]),
   ...(twRegions as unknown as CardDefinition[]),
   // Against the Shadow

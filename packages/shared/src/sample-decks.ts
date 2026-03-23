@@ -24,7 +24,9 @@ import {
   // Hero factions
   RANGERS_OF_THE_NORTH, RIDERS_OF_ROHAN, KNIGHTS_OF_DOL_AMROTH,
   // Hero resource events
-  GATES_OF_MORNING,
+  GATES_OF_MORNING, SUN,
+  // Hazard events
+  EYE_OF_SAURON, WAKE_OF_WAR,
   // Minion items
   SAW_TOOTHED_BLADE, ORC_DRAUGHTS,
   // Creatures
@@ -81,7 +83,8 @@ const heroDeck: SampleDeck = {
       draftPool: [ARAGORN, BILBO, FRODO, SAM_GAMGEE, ELROND, CELEBORN, THEODEN,
         EOWYN, BEREGOND, ANBORN, DAGGER_OF_WESTERNESSE, HORN_OF_ANOR, HORN_OF_ANOR,
         THRALL_OF_THE_VOICE, STING],
-      playDeck: [...repeatCards([GANDALF], 3), ...characters, ...uniqueResources, ...repeatCards(hazards, 3), ...repeatCards([GATES_OF_MORNING], 3)],
+      playDeck: [...repeatCards([GANDALF], 3), ...characters, ...uniqueResources, ...repeatCards(hazards, 3), ...repeatCards([GATES_OF_MORNING], 3),
+        ...repeatCards([SUN], 2), ...repeatCards([EYE_OF_SAURON], 2), ...repeatCards([WAKE_OF_WAR], 2)],
       siteDeck: [RIVENDELL, LORIEN, EDHELLOND, GREY_HAVENS, MORIA, MINAS_TIRITH, MOUNT_DOOM,
         BARROW_DOWNS, EAGLES_EYRIE, HENNETH_ANNUN, OLD_FOREST, BAG_END],
       startingHavens: [RIVENDELL],

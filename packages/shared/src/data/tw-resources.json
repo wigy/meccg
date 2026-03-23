@@ -95,6 +95,25 @@
   {
     "cardType": "hero-resource-event",
     "alignment": "wizard",
+    "id": "tw-335",
+    "name": "Sun",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Sun.jpg",
+    "unique": false,
+    "eventType": "long",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [
+      {
+        "type": "duplication-limit",
+        "scope": "game",
+        "max": 1
+      }
+    ],
+    "text": "Environment. The prowess of each Dúnadan is modified by +1. Additionally, if Gates of Morning is in play, the prowess of each automatic-attack and hazard creature is modified by -1 and the prowess of each Man and Dúnadan is modified by +1. Cannot be duplicated."
+  },
+  {
+    "cardType": "hero-resource-event",
+    "alignment": "wizard",
     "id": "unknown-card",
     "name": "a card",
     "image": "/images/card-back.jpg",

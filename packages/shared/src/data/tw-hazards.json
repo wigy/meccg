@@ -1,0 +1,20 @@
+[
+  {
+    "cardType": "hazard-event",
+    "id": "tw-32",
+    "name": "Eye of Sauron",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/EyeofSauron.jpg",
+    "unique": false,
+    "eventType": "long",
+    "text": "The prowess of each automatic-attack is increased by one. Alternatively, if Doors of Night is in play, the prowess of each automatic-attack is increased by three."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "tw-108",
+    "name": "Wake of War",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/WakeofWar.jpg",
+    "unique": false,
+    "eventType": "long",
+    "text": "The number of strikes and prowess of each Wolf, Spider, and Animal attack are each increased by one (by two for Wolf attacks if Doors of Night is in play). Cannot be duplicated."
+  }
+]
