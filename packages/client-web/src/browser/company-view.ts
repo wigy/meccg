@@ -904,8 +904,17 @@ function renderCompanyBlock(
       };
     }
 
-    // Both split and move available — will need tooltip (handled in buildCombinedClick)
-    return { cls, handler: () => { /* handled by tooltip */ } };
+    // Both split and move available — show tooltip for disambiguation
+    return {
+      cls,
+      handler: (e) => {
+        e.stopPropagation();
+        showCharacterActionTooltip(e.target as HTMLElement, charInstId, cardPool, {
+          ...options!,
+          companyId: company.id,
+        });
+      },
+    };
   };
 
   /** Check if a character is the title character of this company. */
