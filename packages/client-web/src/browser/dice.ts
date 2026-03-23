@@ -120,6 +120,17 @@ function animateDie(scene: HTMLElement, target: number, delay: number): void {
 const overlays: Record<string, HTMLElement> = {};
 const lastRolls: Record<string, { die1: number; die2: number }> = {};
 
+/** Resolves when the current dice animation has finished tumbling. */
+let animationPromise: Promise<void> = Promise.resolve();
+
+/**
+ * Wait for any in-progress dice animation to finish before proceeding.
+ * Resolves immediately if no animation is active.
+ */
+export function waitForDice(): Promise<void> {
+  return animationPromise;
+}
+
 /** Remove all dice overlays. */
 export function clearDice(): void {
   for (const key of Object.keys(overlays)) {
@@ -149,6 +160,12 @@ function dismiss(variant: string): void {
  */
 export function rollDice(die1: number, die2: number, variant: 'red' | 'black' = 'red'): void {
   lastRolls[variant] = { die1, die2 };
+
+  // Set up a promise that resolves when the tumbling animation completes.
+  // State updates wait on this so the result isn't spoiled mid-roll.
+  animationPromise = new Promise(resolve => {
+    setTimeout(resolve, 1800);
+  });
 
   // Remove existing overlay for this variant only
   if (overlays[variant]) {

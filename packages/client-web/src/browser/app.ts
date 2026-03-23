@@ -10,7 +10,7 @@ import type { ServerMessage, ClientMessage, GameAction, CardDefinitionId } from 
 import { loadCardPool, describeAction, buildCompanyNames, SAMPLE_DECKS } from '@meccg/shared';
 import { renderState, renderDraft, renderActions, renderLog, renderHand, renderOpponentHand, renderPlayerNames, renderInstructions, renderDrafted, renderPassButton, renderDeckPiles, resetDeckPiles, setupCardPreview, showNotification, openSiteSelectionViewer, closeSiteSelectionViewer } from './render.js';
 import { renderCompanyViews, resetCompanyViews } from './company-view.js';
-import { rollDice, clearDice, restoreDice } from './dice.js';
+import { rollDice, clearDice, restoreDice, waitForDice } from './dice.js';
 import { clientLog } from './client-log.js';
 
 const cardPool = loadCardPool();
@@ -71,6 +71,9 @@ function connect(name: string): void {
         break;
 
       case 'state':
+        // Wait for any dice animation to finish before rendering the new
+        // state, so the outcome isn't spoiled while dice are still rolling.
+        await waitForDice();
         lastVisibleInstances = msg.view.visibleInstances;
         lastCompanyNames = buildCompanyNames(msg.view.self.companies, msg.view.self.characters, cardPool);
         clientLog('msg-in', { msgType: 'state', turn: msg.view.turnNumber, phase: msg.view.phaseState.phase });
