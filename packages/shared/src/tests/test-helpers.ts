@@ -21,7 +21,7 @@ import {
   THEODEN, ELROND, CELEBORN, GLORFINDEL_II,
   GLAMDRING, STING, THE_MITHRIL_COAT, THE_ONE_RING, DAGGER_OF_WESTERNESSE, HORN_OF_ANOR,
   CAVE_DRAKE, ORC_PATROL, BARROW_WIGHT,
-  SUN, EYE_OF_SAURON,
+  SUN, EYE_OF_SAURON, GATES_OF_MORNING,
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH, MOUNT_DOOM,
 } from '../index.js';
 
@@ -225,6 +225,234 @@ export function runFullSetup(config?: GameConfig): GameState {
   return state;
 }
 
+// ─── Shared state builder ────────────────────────────────────────────────────
+
+import type {
+  CardInstanceId, CompanyId, CardInPlay, CharacterInPlay, Company,
+  PlayerState, EffectiveStats,
+} from '../index.js';
+import { CardStatus, ZERO_EFFECTIVE_STATS, ZERO_MARSHALLING_POINTS } from '../index.js';
+
+let nextInstanceCounter = 1;
+
+/** Mint a fresh CardInstanceId. Call {@link resetMint} between tests. */
+export function mint(): CardInstanceId {
+  return `inst-${nextInstanceCounter++}` as CardInstanceId;
+}
+
+/** Reset the instance counter so tests get deterministic IDs. */
+export function resetMint(): void {
+  nextInstanceCounter = 1;
+}
+
+/** Setup for a single character in a company. */
+export interface CharacterSetup {
+  defId: CardDefinitionId;
+  items?: CardDefinitionId[];
+  status?: CardStatus;
+  /** Index into the same company's characters array for the character this one follows. */
+  followerOf?: number;
+}
+
+/** Setup for a company at a site with characters. */
+export interface CompanySetup {
+  site: CardDefinitionId;
+  characters: CharacterSetup[];
+}
+
+/** Setup for one player's starting state. */
+export interface PlayerSetup {
+  id: PlayerId;
+  companies: CompanySetup[];
+  hand: CardDefinitionId[];
+  siteDeck: CardDefinitionId[];
+  playDeck?: CardDefinitionId[];
+  discardPile?: CardDefinitionId[];
+  cardsInPlay?: CardInPlay[];
+}
+
+/** Options for {@link buildTestState}. */
+export interface BuildTestStateOpts {
+  activePlayer: PlayerId;
+  players: [PlayerSetup, PlayerSetup];
+  /** Which phase the state starts in. Defaults to Organization. */
+  phase?: Phase;
+  /** RNG seed for deterministic dice rolls. Defaults to 42. */
+  seed?: number;
+  /**
+   * If true, manually compute generalInfluenceUsed and effectiveStats from
+   * card definitions before returning. Useful when tests assert on these
+   * values before dispatching any action (the reducer recomputes on every
+   * action, but tests that inspect the initial state need correct values).
+   */
+  recompute?: boolean;
+}
+
+/**
+ * Build a minimal valid GameState for testing. Supports all common features:
+ * characters with items, followers, cardsInPlay, configurable phase, and
+ * optional pre-computation of derived values.
+ */
+export function buildTestState(opts: BuildTestStateOpts): GameState {
+  resetMint();
+
+  const instanceMap: Record<string, { instanceId: CardInstanceId; definitionId: CardDefinitionId }> = {};
+
+  function mintFor(defId: CardDefinitionId): CardInstanceId {
+    const id = mint();
+    instanceMap[id as string] = { instanceId: id, definitionId: defId };
+    return id;
+  }
+
+  const playerStates = opts.players.map((setup) => {
+    const hand = setup.hand.map(defId => mintFor(defId));
+    const siteDeck = setup.siteDeck.map(defId => mintFor(defId));
+
+    // Register pre-built cardsInPlay instances
+    if (setup.cardsInPlay) {
+      for (const card of setup.cardsInPlay) {
+        instanceMap[card.instanceId as string] = { instanceId: card.instanceId, definitionId: card.definitionId };
+      }
+    }
+
+    const characters: Record<string, CharacterInPlay> = {};
+    const companies: Company[] = [];
+
+    for (const companySetup of setup.companies) {
+      const siteInstId = mintFor(companySetup.site);
+      const charInstIds: CardInstanceId[] = [];
+
+      for (const charSetup of companySetup.characters) {
+        const charInstId = mintFor(charSetup.defId);
+        charInstIds.push(charInstId);
+
+        const items = (charSetup.items ?? []).map(itemDefId => {
+          const itemInstId = mintFor(itemDefId);
+          return { instanceId: itemInstId, definitionId: itemDefId, status: CardStatus.Untapped };
+        });
+
+        characters[charInstId as string] = {
+          instanceId: charInstId,
+          definitionId: charSetup.defId,
+          status: charSetup.status ?? CardStatus.Untapped,
+          items,
+          allies: [],
+          corruptionCards: [],
+          followers: [],
+          controlledBy: 'general' as const,
+          effectiveStats: ZERO_EFFECTIVE_STATS,
+        };
+      }
+
+      // Wire up followers after all characters in company are created
+      for (let i = 0; i < companySetup.characters.length; i++) {
+        const charSetup = companySetup.characters[i];
+        if (charSetup.followerOf !== undefined) {
+          const followerInstId = charInstIds[i];
+          const controllerInstId = charInstIds[charSetup.followerOf];
+          characters[followerInstId as string] = {
+            ...characters[followerInstId as string],
+            controlledBy: controllerInstId,
+          };
+          const ctrl = characters[controllerInstId as string];
+          characters[controllerInstId as string] = {
+            ...ctrl,
+            followers: [...ctrl.followers, followerInstId],
+          };
+        }
+      }
+
+      companies.push({
+        id: `company-${setup.id as string}-${companies.length}` as CompanyId,
+        characters: charInstIds,
+        currentSite: siteInstId,
+        siteCardOwned: true,
+        destinationSite: null,
+        movementPath: [],
+        moved: false,
+      });
+    }
+
+    const playDeck = (setup.playDeck ?? []).map(defId => mintFor(defId));
+    const discardPile = (setup.discardPile ?? []).map(defId => mintFor(defId));
+
+    return {
+      id: setup.id,
+      name: setup.id === PLAYER_1 ? 'Alice' : 'Bob',
+      alignment: Alignment.Wizard,
+      wizard: null,
+      hand,
+      playDeck,
+      discardPile,
+      siteDeck,
+      siteDiscardPile: [] as CardInstanceId[],
+      sideboard: [] as CardInstanceId[],
+      eliminatedPile: [] as CardInstanceId[],
+      companies,
+      characters,
+      cardsInPlay: setup.cardsInPlay ?? ([] as CardInPlay[]),
+      marshallingPoints: ZERO_MARSHALLING_POINTS,
+      generalInfluenceUsed: 0,
+      deckExhaustionCount: 0,
+      freeCouncilCalled: false,
+      lastDiceRoll: null,
+    };
+  });
+
+  const phase = opts.phase ?? Phase.Organization;
+  let phaseState: GameState['phaseState'];
+  if (phase === Phase.Organization) {
+    phaseState = { phase: Phase.Organization, characterPlayedThisTurn: false, pendingCorruptionCheck: null } as GameState['phaseState'];
+  } else {
+    phaseState = { phase } as GameState['phaseState'];
+  }
+
+  // Optionally recompute GI and effective stats from card definitions
+  if (opts.recompute) {
+    for (const ps of playerStates) {
+      let giUsed = 0;
+      for (const [, char] of Object.entries(ps.characters)) {
+        if (char.controlledBy === 'general') {
+          const def = pool[char.definitionId as string];
+          if (def && 'mind' in def && (def as { mind: number | null }).mind !== null) {
+            giUsed += (def as { mind: number }).mind;
+          }
+        }
+      }
+      (ps as { generalInfluenceUsed: number }).generalInfluenceUsed = giUsed;
+
+      for (const [key, char] of Object.entries(ps.characters)) {
+        const def = pool[char.definitionId as string];
+        if (def && 'prowess' in def) {
+          const cd = def as { prowess: number; body: number; directInfluence: number };
+          (ps.characters[key] as { effectiveStats: EffectiveStats }).effectiveStats = {
+            prowess: cd.prowess,
+            body: cd.body,
+            directInfluence: cd.directInfluence,
+            corruptionPoints: 0,
+          };
+        }
+      }
+    }
+  }
+
+  return {
+    gameId: 'test-game',
+    players: playerStates as unknown as readonly [PlayerState, PlayerState],
+    activePlayer: opts.activePlayer,
+    phaseState,
+    eventsInPlay: [],
+    cardPool: pool,
+    instanceMap,
+    turnNumber: 1,
+    pendingEffects: [],
+    rng: { seed: opts.seed ?? 42, counter: 0 },
+    stateSeq: 0,
+    reverseActions: [],
+    cheatRollTotal: null,
+  } as unknown as GameState;
+}
+
 // Re-export commonly used things
 export {
   createGame, reduce,
@@ -234,7 +462,8 @@ export {
   THEODEN, ELROND, CELEBORN, GLORFINDEL_II,
   GLAMDRING, STING, THE_MITHRIL_COAT, THE_ONE_RING, DAGGER_OF_WESTERNESSE, HORN_OF_ANOR,
   CAVE_DRAKE, ORC_PATROL, BARROW_WIGHT,
-  SUN, EYE_OF_SAURON,
+  SUN, EYE_OF_SAURON, GATES_OF_MORNING,
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH, MOUNT_DOOM,
+  CardStatus, ZERO_EFFECTIVE_STATS, ZERO_MARSHALLING_POINTS,
 };
-export type { GameConfig, QuickStartGameConfig, ReducerResult };
+export type { GameConfig, QuickStartGameConfig, ReducerResult, CardInPlay, CardInstanceId, CardDefinitionId, CompanyId };

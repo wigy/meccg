@@ -11,168 +11,17 @@
 
 import { describe, test, expect, beforeEach } from 'vitest';
 import {
-  pool, PLAYER_1, PLAYER_2,
+  PLAYER_1, PLAYER_2,
   reduce,
   Phase,
   ARAGORN, LEGOLAS,
   SUN, EYE_OF_SAURON,
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
+  CardStatus,
+  buildTestState, resetMint,
 } from '../test-helpers.js';
 import { computeLegalActions } from '../../engine/legal-actions/index.js';
-import type {
-  CardInstanceId, GameState, PlayerId, CardDefinitionId, CompanyId,
-  CardInPlay,
-} from '../../index.js';
-import { CardStatus, ZERO_EFFECTIVE_STATS, ZERO_MARSHALLING_POINTS, Alignment } from '../../index.js';
-
-// ─── State builder ───────────────────────────────────────────────────────────
-
-let nextInstanceCounter = 1;
-
-function mint(): CardInstanceId {
-  return `inst-${nextInstanceCounter++}` as CardInstanceId;
-}
-
-function resetMint(): void {
-  nextInstanceCounter = 1;
-}
-
-interface CharSetup {
-  defId: CardDefinitionId;
-  status?: typeof CardStatus[keyof typeof CardStatus];
-}
-
-interface CompanySetup {
-  site: CardDefinitionId;
-  characters: CharSetup[];
-}
-
-interface PlayerSetup {
-  id: PlayerId;
-  companies: CompanySetup[];
-  hand: CardDefinitionId[];
-  siteDeck: CardDefinitionId[];
-  playDeck?: CardDefinitionId[];
-  discardPile?: CardDefinitionId[];
-  cardsInPlay?: CardInPlay[];
-}
-
-/**
- * Build a minimal valid GameState in the Organization phase, with optional
- * events already in play. Pass through to Long-event phase by dispatching
- * a 'pass' action.
- */
-function buildState(opts: {
-  activePlayer: PlayerId;
-  players: [PlayerSetup, PlayerSetup];
-  phase?: Phase;
-}): GameState {
-  resetMint();
-
-  const instanceMap: Record<string, { instanceId: CardInstanceId; definitionId: CardDefinitionId }> = {};
-
-  function mintFor(defId: CardDefinitionId): CardInstanceId {
-    const id = mint();
-    instanceMap[id as string] = { instanceId: id, definitionId: defId };
-    return id;
-  }
-
-  const playerStates = opts.players.map((setup) => {
-    const hand = setup.hand.map(defId => mintFor(defId));
-    const siteDeck = setup.siteDeck.map(defId => mintFor(defId));
-
-    // Register cardsInPlay instances in the instanceMap
-    if (setup.cardsInPlay) {
-      for (const card of setup.cardsInPlay) {
-        instanceMap[card.instanceId as string] = { instanceId: card.instanceId, definitionId: card.definitionId };
-      }
-    }
-
-    const characters: Record<string, import('../../index.js').CharacterInPlay> = {};
-    const companies: import('../../index.js').Company[] = [];
-
-    for (const companySetup of setup.companies) {
-      const siteInstId = mintFor(companySetup.site);
-      const charInstIds: CardInstanceId[] = [];
-
-      for (const charSetup of companySetup.characters) {
-        const charInstId = mintFor(charSetup.defId);
-        charInstIds.push(charInstId);
-
-        characters[charInstId as string] = {
-          instanceId: charInstId,
-          definitionId: charSetup.defId,
-          status: charSetup.status ?? CardStatus.Untapped,
-          items: [],
-          allies: [],
-          corruptionCards: [],
-          followers: [],
-          controlledBy: 'general' as const,
-          effectiveStats: ZERO_EFFECTIVE_STATS,
-        };
-      }
-
-      companies.push({
-        id: `company-${setup.id as string}-${companies.length}` as CompanyId,
-        characters: charInstIds,
-        currentSite: siteInstId,
-        siteCardOwned: true,
-        destinationSite: null,
-        movementPath: [],
-        moved: false,
-      });
-    }
-
-    const playDeck = (setup.playDeck ?? []).map(defId => mintFor(defId));
-    const discardPile = (setup.discardPile ?? []).map(defId => mintFor(defId));
-
-    return {
-      id: setup.id,
-      name: setup.id === PLAYER_1 ? 'Alice' : 'Bob',
-      alignment: Alignment.Wizard,
-      wizard: null,
-      hand,
-      playDeck,
-      discardPile,
-      siteDeck,
-      siteDiscardPile: [] as CardInstanceId[],
-      sideboard: [] as CardInstanceId[],
-      eliminatedPile: [] as CardInstanceId[],
-      companies,
-      characters,
-      cardsInPlay: setup.cardsInPlay ?? [],
-      marshallingPoints: ZERO_MARSHALLING_POINTS,
-      generalInfluenceUsed: 0,
-      deckExhaustionCount: 0,
-      freeCouncilCalled: false,
-      lastDiceRoll: null,
-    };
-  });
-
-  const phase = opts.phase ?? Phase.Organization;
-  let phaseState: GameState['phaseState'];
-  if (phase === Phase.Organization) {
-    phaseState = { phase: Phase.Organization, characterPlayedThisTurn: false, pendingCorruptionCheck: null };
-  } else {
-    phaseState = { phase: Phase.LongEvent };
-  }
-
-  return {
-    gameId: 'test-game',
-    players: playerStates as unknown as readonly [import('../../index.js').PlayerState, import('../../index.js').PlayerState],
-    activePlayer: opts.activePlayer,
-    phaseState,
-    eventsInPlay: [],
-    cardPool: pool,
-    instanceMap,
-    turnNumber: 1,
-    pendingEffects: [],
-    rng: { seed: 42, counter: 0 },
-    stateSeq: 0,
-    reverseActions: [],
-    cheatRollTotal: null,
-  };
-}
+import type { CardInPlay, CardInstanceId } from '../../index.js';
 
 // ─── Tests ───────────────────────────────────────────────────────────────────
 
@@ -189,7 +38,7 @@ describe('2.III Long-event phase', () => {
       status: CardStatus.Untapped,
     };
 
-    const state = buildState({
+    const state = buildTestState({
       activePlayer: PLAYER_1,
       players: [
         { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [{ defId: ARAGORN }] }], hand: [], siteDeck: [MORIA], cardsInPlay: [sunCardInPlay] },
@@ -212,13 +61,13 @@ describe('2.III Long-event phase', () => {
   test('[2.III.2] resource player may play resource long-events during this phase only', () => {
     // Place a Sun card in P1's hand, start in Long-event phase.
     // Verify play-long-event is a legal action; play it and check cardsInPlay.
-    const state = buildState({
+    const state = buildTestState({
       activePlayer: PLAYER_1,
+      phase: Phase.LongEvent,
       players: [
         { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [{ defId: ARAGORN }] }], hand: [SUN], siteDeck: [MORIA] },
         { id: PLAYER_2, companies: [{ site: LORIEN, characters: [{ defId: LEGOLAS }] }], hand: [], siteDeck: [MINAS_TIRITH] },
       ],
-      phase: Phase.LongEvent,
     });
 
     // Compute legal actions: should include play-long-event for the Sun card
@@ -250,13 +99,13 @@ describe('2.III Long-event phase', () => {
       status: CardStatus.Untapped,
     };
 
-    const state = buildState({
+    const state = buildTestState({
       activePlayer: PLAYER_1,
+      phase: Phase.LongEvent,
       players: [
         { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [{ defId: ARAGORN }] }], hand: [], siteDeck: [MORIA] },
         { id: PLAYER_2, companies: [{ site: LORIEN, characters: [{ defId: LEGOLAS }] }], hand: [], siteDeck: [MINAS_TIRITH], cardsInPlay: [eyeCardInPlay] },
       ],
-      phase: Phase.LongEvent,
     });
 
     // Pass from Long-event → Movement/Hazard

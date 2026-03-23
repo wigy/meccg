@@ -24,20 +24,22 @@ Game logs consist of two files per game in `~/.meccg/logs/games/`:
 
 ## Investigation Process
 
-1. **Load the log**: Read the JSONL file. Each line is one state snapshot. Parse all entries to build the full timeline.
+1. **Verify card definitions**: Before anything else, load `{gameId}-cards.json` and compare the definitions of cards relevant to the reported problem against the current card data in `packages/shared/src/data/`. If the game was played with stale definitions (e.g. missing DSL effects that have since been added), the root cause is data staleness, not an engine bug. Report the discrepancy and stop.
 
-2. **Identify the problem state**: Based on the user's description, find the state entry (by stateSeq, turn, phase, or scanning for the condition) where the problem is visible.
+2. **Load the log**: Read the JSONL file. Each line is one state snapshot. Parse all entries to build the full timeline.
 
-3. **Trace backwards**: Walk backwards through stateSeq values to find the transition where the illegal state was introduced. Compare consecutive states to identify what changed.
+3. **Identify the problem state**: Based on the user's description, find the state entry (by stateSeq, turn, phase, or scanning for the condition) where the problem is visible.
 
-4. **Resolve card identities**: The state uses `CardInstanceId` values (e.g. `"i-42"`). To find what card an instance is:
+4. **Trace backwards**: Walk backwards through stateSeq values to find the transition where the illegal state was introduced. Compare consecutive states to identify what changed.
+
+5. **Resolve card identities**: The state uses `CardInstanceId` values (e.g. `"i-42"`). To find what card an instance is:
    - Look up `state.instanceMap["i-42"].definitionId` to get the card definition ID (e.g. `"tw-156"`)
    - Look up `state.cardPool["tw-156"]` to get the card name and stats
    - Always report card names, not raw IDs, when presenting findings
 
-5. **Load static data**: Read `{gameId}-cards.json`. Use `instances[instanceId]` to get the definition ID, then `cards[definitionId]` for the card's name, stats, and text.
+6. **Load static data**: Read `{gameId}-cards.json`. Use `instances[instanceId]` to get the definition ID, then `cards[definitionId]` for the card's name, stats, and text.
 
-6. **Report findings**: Present a clear timeline showing:
+7. **Report findings**: Present a clear timeline showing:
    - The action sequence that led to the problem (stateSeq, reason, what changed)
    - Which state transition introduced the issue
    - The relevant game state details (phase, player, cards involved)

@@ -20,169 +20,17 @@ import {
   ARAGORN, BILBO, LEGOLAS,
   THE_ONE_RING, DAGGER_OF_WESTERNESSE,
   RIVENDELL, LORIEN,
+  buildTestState,
 } from '../test-helpers.js';
 import { computeLegalActions } from '../../engine/legal-actions/index.js';
 import type {
-  EvaluatedAction, CardInstanceId, GameState, PlayerId, CardDefinitionId, CompanyId,
+  EvaluatedAction, GameState, PlayerId,
   TransferItemAction,
 } from '../../index.js';
 import type { CorruptionCheckAction } from '../../types/actions.js';
-import { CardStatus, ZERO_EFFECTIVE_STATS, ZERO_MARSHALLING_POINTS, Alignment } from '../../index.js';
 
-// ─── State builder ───────────────────────────────────────────────────────────
-
-let nextInstanceCounter = 1;
-
-function mint(): CardInstanceId {
-  return `inst-${nextInstanceCounter++}` as CardInstanceId;
-}
-
-function resetMint(): void {
-  nextInstanceCounter = 1;
-}
-
-interface CharacterSetup {
-  defId: CardDefinitionId;
-  items?: CardDefinitionId[];
-  status?: CardStatus;
-  followerOf?: number;
-}
-
-interface CompanySetup {
-  site: CardDefinitionId;
-  characters: CharacterSetup[];
-}
-
-interface PlayerSetup {
-  id: PlayerId;
-  hand: CardDefinitionId[];
-  siteDeck: CardDefinitionId[];
-  companies: CompanySetup[];
-}
-
-/**
- * Build a minimal Organization-phase state for corruption check testing.
- * Accepts an optional RNG seed to control dice roll outcomes.
- */
-function buildOrgState(opts: {
-  activePlayer: PlayerId;
-  players: [PlayerSetup, PlayerSetup];
-  seed?: number;
-}): GameState {
-  resetMint();
-
-  const instanceMap: Record<string, { instanceId: CardInstanceId; definitionId: CardDefinitionId }> = {};
-
-  function mintFor(defId: CardDefinitionId): CardInstanceId {
-    const id = mint();
-    instanceMap[id as string] = { instanceId: id, definitionId: defId };
-    return id;
-  }
-
-  const playerStates = opts.players.map((setup) => {
-    const hand = setup.hand.map(defId => mintFor(defId));
-    const siteDeck = setup.siteDeck.map(defId => mintFor(defId));
-
-    const characters: Record<string, import('../../index.js').CharacterInPlay> = {};
-    const companies: import('../../index.js').Company[] = [];
-
-    for (const companySetup of setup.companies) {
-      const siteInstId = mintFor(companySetup.site);
-      const charInstIds: CardInstanceId[] = [];
-
-      for (const charSetup of companySetup.characters) {
-        const charInstId = mintFor(charSetup.defId);
-        charInstIds.push(charInstId);
-
-        const items = (charSetup.items ?? []).map(itemDefId => {
-          const itemInstId = mintFor(itemDefId);
-          return {
-            instanceId: itemInstId,
-            definitionId: itemDefId,
-            status: CardStatus.Untapped,
-          };
-        });
-
-        characters[charInstId as string] = {
-          instanceId: charInstId,
-          definitionId: charSetup.defId,
-          status: charSetup.status ?? CardStatus.Untapped,
-          items,
-          allies: [],
-          corruptionCards: [],
-          followers: [],
-          controlledBy: 'general' as const,
-          effectiveStats: ZERO_EFFECTIVE_STATS,
-        };
-      }
-
-      // Wire up followers
-      for (let i = 0; i < companySetup.characters.length; i++) {
-        const charSetup = companySetup.characters[i];
-        if (charSetup.followerOf !== undefined) {
-          const followerInstId = charInstIds[i];
-          const controllerInstId = charInstIds[charSetup.followerOf];
-          characters[followerInstId as string] = {
-            ...characters[followerInstId as string],
-            controlledBy: controllerInstId,
-          };
-          const ctrl = characters[controllerInstId as string];
-          characters[controllerInstId as string] = {
-            ...ctrl,
-            followers: [...ctrl.followers, followerInstId],
-          };
-        }
-      }
-
-      companies.push({
-        id: `company-${setup.id as string}-${companies.length}` as CompanyId,
-        characters: charInstIds,
-        currentSite: siteInstId,
-        siteCardOwned: true,
-        destinationSite: null,
-        movementPath: [],
-        moved: false,
-      });
-    }
-
-    return {
-      id: setup.id,
-      name: setup.id === PLAYER_1 ? 'Alice' : 'Bob',
-      alignment: Alignment.Wizard,
-      wizard: null,
-      hand,
-      playDeck: [] as CardInstanceId[],
-      discardPile: [] as CardInstanceId[],
-      siteDeck,
-      siteDiscardPile: [] as CardInstanceId[],
-      sideboard: [] as CardInstanceId[],
-      eliminatedPile: [] as CardInstanceId[],
-      companies,
-      characters,
-      cardsInPlay: [] as import('../../index.js').CardInPlay[],
-      marshallingPoints: ZERO_MARSHALLING_POINTS,
-      generalInfluenceUsed: 0,
-      deckExhaustionCount: 0,
-      freeCouncilCalled: false,
-      lastDiceRoll: null,
-    };
-  });
-
-  return {
-    gameId: 'test-game',
-    players: playerStates as unknown as readonly [import('../../index.js').PlayerState, import('../../index.js').PlayerState],
-    activePlayer: opts.activePlayer,
-    phaseState: { phase: Phase.Organization, characterPlayedThisTurn: false, pendingCorruptionCheck: null },
-    eventsInPlay: [],
-    cardPool: pool,
-    instanceMap,
-    turnNumber: 1,
-    pendingEffects: [],
-    rng: { seed: opts.seed ?? 42, counter: 0 },
-    stateSeq: 0,
-    reverseActions: [],
-    cheatRollTotal: null,
-  };
+function buildOrgState(opts: { activePlayer: PlayerId; players: Parameters<typeof buildTestState>[0]['players']; seed?: number }) {
+  return buildTestState({ ...opts });
 }
 
 function viableOfType(actions: EvaluatedAction[], type: string): EvaluatedAction[] {

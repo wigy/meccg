@@ -127,6 +127,12 @@ export interface StatModifierEffect extends EffectBase {
   readonly id?: string;
   /** If set, this effect replaces the named effect when its condition matches. */
   readonly overrides?: string;
+  /**
+   * Scope of this modifier. If absent, affects only the card's bearer.
+   * - `"all-characters"` — applies to every character in play (e.g. Sun).
+   * - `"all-attacks"` — applies to every automatic-attack and hazard creature.
+   */
+  readonly target?: 'all-characters' | 'all-attacks';
 }
 
 /**

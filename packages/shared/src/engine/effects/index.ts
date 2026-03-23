@@ -10,6 +10,7 @@ export { evaluateExpr } from './expression-eval.js';
 export {
   collectEffects,
   collectCharacterEffects,
+  collectGlobalEffects,
   resolveStatModifiers,
   resolveCheckModifier,
   resolveCompanyModifier,

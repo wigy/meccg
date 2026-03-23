@@ -153,6 +153,56 @@ export function collectEffects(
 }
 
 /**
+ * Collects global effects from all events and cards in play across both players.
+ *
+ * Walks through `state.eventsInPlay` and each player's `cardsInPlay`, gathering
+ * effects whose `when` conditions match the given context. Only effects with a
+ * matching `target` scope are included (e.g. `"all-characters"` for character
+ * stat computation, `"all-attacks"` for attack prowess).
+ *
+ * @param state - The full game state.
+ * @param targetScope - The target scope to filter for (e.g. "all-characters").
+ * @param context - The resolver context for condition evaluation.
+ */
+export function collectGlobalEffects(
+  state: GameState,
+  targetScope: string,
+  context: ResolverContext,
+): CollectedEffect[] {
+  const results: CollectedEffect[] = [];
+
+  // Events in play (long-events, permanent events)
+  for (const event of state.eventsInPlay) {
+    const def = resolveDef(state, event.instanceId);
+    if (!def || !('effects' in def) || !def.effects) continue;
+    for (const effect of def.effects) {
+      if (!('target' in effect) || (effect as { target?: string }).target !== targetScope) continue;
+      if (effect.when && !matchesCondition(effect.when, context as unknown as Record<string, unknown>)) {
+        continue;
+      }
+      results.push({ effect, sourceDef: def });
+    }
+  }
+
+  // Both players' cards in play (factions, permanent resources, etc.)
+  for (const player of state.players) {
+    for (const card of player.cardsInPlay) {
+      const def = resolveDef(state, card.instanceId);
+      if (!def || !('effects' in def) || !def.effects) continue;
+      for (const effect of def.effects) {
+        if (!('target' in effect) || (effect as { target?: string }).target !== targetScope) continue;
+        if (effect.when && !matchesCondition(effect.when, context as unknown as Record<string, unknown>)) {
+          continue;
+        }
+        results.push({ effect, sourceDef: def });
+      }
+    }
+  }
+
+  return results;
+}
+
+/**
  * Collects effects only from a specific character and their equipment.
  *
  * Used when computing effective stats for a single character — we only

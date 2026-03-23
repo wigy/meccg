@@ -99,6 +99,12 @@ function matchesEntry(
     }
     return false;
   }
+  // MongoDB-style: if the context value is an array and the expected value is
+  // a scalar, check whether the array includes that value. This lets conditions
+  // like `{ "inPlay": "Gates of Morning" }` match against an array of card names.
+  if (Array.isArray(contextValue)) {
+    return contextValue.includes(expected);
+  }
   return contextValue === expected;
 }
 

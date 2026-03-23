@@ -26,6 +26,7 @@ import type {
 import { MarshallingCategory, ZERO_MARSHALLING_POINTS, isCharacterCard, isItemCard } from '../index.js';
 import {
   collectCharacterEffects,
+  collectGlobalEffects,
   resolveStatModifiers,
   resolveDef,
 } from './effects/index.js';
@@ -46,19 +47,49 @@ function addMP(
 }
 
 /**
- * Builds a {@link ResolverContext} for computing a character's effective stats.
+ * Builds the list of card names currently in play as events.
+ * Used to populate the `inPlay` context field so DSL conditions
+ * like `{ "inPlay": "Gates of Morning" }` can be evaluated.
  */
-function buildEffectiveStatsContext(charDef: CharacterCard): ResolverContext {
+function buildInPlayNames(state: GameState): readonly string[] {
+  const names: string[] = [];
+  for (const event of state.eventsInPlay) {
+    const def = resolveDef(state, event.instanceId);
+    if (def && 'name' in def) names.push((def as { name: string }).name);
+  }
+  for (const player of state.players) {
+    for (const card of player.cardsInPlay) {
+      const def = resolveDef(state, card.instanceId);
+      if (def && 'name' in def) names.push((def as { name: string }).name);
+    }
+  }
+  return names;
+}
+
+/**
+ * Builds a {@link ResolverContext} for computing a character's effective stats.
+ *
+ * Includes `bearer` (the character), `target` (same character, for global
+ * effects that filter by `target.race` etc.), and `inPlay` (names of all
+ * events/cards in play for condition checking).
+ */
+function buildEffectiveStatsContext(
+  charDef: CharacterCard,
+  inPlayNames: readonly string[],
+): ResolverContext {
+  const charInfo = {
+    race: charDef.race,
+    skills: charDef.skills,
+    baseProwess: charDef.prowess,
+    baseBody: charDef.body,
+    baseDirectInfluence: charDef.directInfluence,
+    name: charDef.name,
+  };
   return {
     reason: 'effective-stats',
-    bearer: {
-      race: charDef.race,
-      skills: charDef.skills,
-      baseProwess: charDef.prowess,
-      baseBody: charDef.body,
-      baseDirectInfluence: charDef.directInfluence,
-      name: charDef.name,
-    },
+    bearer: charInfo,
+    target: charInfo,
+    inPlay: inPlayNames,
   };
 }
 
@@ -73,9 +104,12 @@ function computeEffectiveStats(
   state: GameState,
   char: CharacterInPlay,
   charDef: CharacterCard,
+  inPlayNames: readonly string[],
 ): EffectiveStats {
-  const context = buildEffectiveStatsContext(charDef);
-  const collected = collectCharacterEffects(state, char, context);
+  const context = buildEffectiveStatsContext(charDef, inPlayNames);
+  const charEffects = collectCharacterEffects(state, char, context);
+  const globalEffects = collectGlobalEffects(state, 'all-characters', context);
+  const collected = [...charEffects, ...globalEffects];
 
   // If we have DSL effects, use the resolver for prowess, body, and DI
   const hasAnyEffects = collected.length > 0;
@@ -134,7 +168,7 @@ function statsEqual(a: EffectiveStats, b: EffectiveStats): boolean {
     a.directInfluence === b.directInfluence && a.corruptionPoints === b.corruptionPoints;
 }
 
-function recomputePlayer(state: GameState, player: PlayerState): PlayerState {
+function recomputePlayer(state: GameState, player: PlayerState, inPlayNames: readonly string[]): PlayerState {
   let generalInfluenceUsed = 0;
   let mp = ZERO_MARSHALLING_POINTS;
   let charactersChanged = false;
@@ -168,7 +202,7 @@ function recomputePlayer(state: GameState, player: PlayerState): PlayerState {
     }
 
     // Effective stats
-    const newStats = computeEffectiveStats(state, char, charDef);
+    const newStats = computeEffectiveStats(state, char, charDef, inPlayNames);
     if (statsEqual(char.effectiveStats, newStats)) {
       newCharacters[key] = char;
     } else {
@@ -202,8 +236,9 @@ function recomputePlayer(state: GameState, player: PlayerState): PlayerState {
  * unnecessary object allocation).
  */
 export function recomputeDerived(state: GameState): GameState {
-  const p0 = recomputePlayer(state, state.players[0]);
-  const p1 = recomputePlayer(state, state.players[1]);
+  const inPlayNames = buildInPlayNames(state);
+  const p0 = recomputePlayer(state, state.players[0], inPlayNames);
+  const p1 = recomputePlayer(state, state.players[1], inPlayNames);
 
   // Avoid new object if nothing changed
   if (p0 === state.players[0] && p1 === state.players[1]) {
