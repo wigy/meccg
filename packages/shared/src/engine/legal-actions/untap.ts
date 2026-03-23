@@ -6,8 +6,8 @@
  * Hand cards are annotated as not playable during this phase.
  */
 
-import type { GameState, PlayerId, EvaluatedAction } from '@meccg/shared';
-import { Phase } from '@meccg/shared';
+import type { GameState, PlayerId, EvaluatedAction } from '../../index.js';
+import { Phase } from '../../index.js';
 import { logDetail } from './log.js';
 
 export function untapActions(state: GameState, playerId: PlayerId): EvaluatedAction[] {

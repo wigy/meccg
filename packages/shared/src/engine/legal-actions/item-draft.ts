@@ -9,8 +9,8 @@
  * the pool.
  */
 
-import type { GameState, PlayerId, EvaluatedAction } from '@meccg/shared';
-import { isItemCard, isCharacterCard, evaluateAction, ITEM_DRAFT_RULES, MAX_STARTING_ITEMS, getPlayerIndex } from '@meccg/shared';
+import type { GameState, PlayerId, EvaluatedAction } from '../../index.js';
+import { isItemCard, isCharacterCard, evaluateAction, ITEM_DRAFT_RULES, MAX_STARTING_ITEMS, getPlayerIndex } from '../../index.js';
 import { logDetail } from './log.js';
 
 export function itemDraftActions(state: GameState, playerId: PlayerId): EvaluatedAction[] {

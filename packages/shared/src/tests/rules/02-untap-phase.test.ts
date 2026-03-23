@@ -12,7 +12,7 @@ import {
   Phase,
 } from '../test-helpers.js';
 import { computeLegalActions } from '../../engine/legal-actions/index.js';
-import type { EvaluatedAction } from '@meccg/shared';
+import type { EvaluatedAction } from '../../index.js';
 
 function viableOfType(actions: EvaluatedAction[], type: string): EvaluatedAction[] {
   return actions.filter(a => a.viable && a.action.type === type);

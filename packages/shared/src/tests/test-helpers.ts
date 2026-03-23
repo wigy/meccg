@@ -13,8 +13,8 @@ import {
   loadCardPool,
   Phase,
   Alignment,
-} from '@meccg/shared';
-import type { PlayerId, GameState, CardDefinitionId } from '@meccg/shared';
+} from '../index.js';
+import type { PlayerId, GameState, CardDefinitionId } from '../index.js';
 import {
   ARAGORN, BILBO, FRODO, LEGOLAS, GIMLI, FARAMIR,
   EOWYN, BEREGOND, BERGIL, BARD_BOWMAN, ANBORN, SAM_GAMGEE,
@@ -22,7 +22,7 @@ import {
   GLAMDRING, STING, THE_MITHRIL_COAT, THE_ONE_RING, DAGGER_OF_WESTERNESSE, HORN_OF_ANOR,
   CAVE_DRAKE, ORC_PATROL, BARROW_WIGHT,
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH, MOUNT_DOOM,
-} from '@meccg/shared';
+} from '../index.js';
 
 export const PLAYER_1 = 'p1' as PlayerId;
 export const PLAYER_2 = 'p2' as PlayerId;

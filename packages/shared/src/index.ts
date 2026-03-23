@@ -16,3 +16,8 @@ export type { AlignmentRules } from './alignment-rules.js';
 export { getPlayerIndex, computeTournamentScore, computeTournamentBreakdown } from './state-utils.js';
 export { buildMovementMap, getReachableSites } from './movement-map.js';
 export type { MovementMap, MovementType, ReachableSite } from './movement-map.js';
+export { reduce } from './engine/reducer.js';
+export type { ReducerResult } from './engine/reducer.js';
+export { computeLegalActions } from './engine/legal-actions/index.js';
+export { createGame, createGameQuickStart, applyDraftResults } from './engine/init.js';
+export type { GameConfig, PlayerConfig, QuickStartGameConfig, QuickStartPlayerConfig } from './engine/init.js';

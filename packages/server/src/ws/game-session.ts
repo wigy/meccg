@@ -21,11 +21,8 @@ import type {
   JoinMessage,
   GameAction,
 } from '@meccg/shared';
-import { formatGameState, loadCardPool, colorDebug, DEBUG_JSON_COMPACT_LIMIT, STATE_DIVIDER, createRng, buildMovementMap } from '@meccg/shared';
-import type { MovementMap } from '@meccg/shared';
-import { createGame } from '../engine/init.js';
-import type { PlayerConfig, GameConfig } from '../engine/init.js';
-import { reduce } from '../engine/reducer.js';
+import { formatGameState, loadCardPool, colorDebug, DEBUG_JSON_COMPACT_LIMIT, STATE_DIVIDER, createRng, buildMovementMap, createGame, reduce } from '@meccg/shared';
+import type { MovementMap, PlayerConfig, GameConfig } from '@meccg/shared';
 import { projectPlayerView, projectSpectatorView } from './projection.js';
 import { ServerLog, GameLog } from './game-log.js';
 

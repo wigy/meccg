@@ -6,7 +6,7 @@
  * sub-states further constrain available actions.
  */
 
-import type { GameState, PlayerId, GameAction } from '@meccg/shared';
+import type { GameState, PlayerId, GameAction } from '../../index.js';
 import { logDetail } from './log.js';
 
 export function movementHazardActions(state: GameState, playerId: PlayerId): GameAction[] {

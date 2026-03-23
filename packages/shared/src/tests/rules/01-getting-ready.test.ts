@@ -20,9 +20,9 @@ import {
   RIVENDELL, LORIEN, MORIA,
 } from '../test-helpers.js';
 import { computeLegalActions } from '../../engine/legal-actions/index.js';
-import type { EvaluatedAction } from '@meccg/shared';
+import type { EvaluatedAction } from '../../index.js';
 import type { GameConfig } from '../../engine/init.js';
-import { GENERAL_INFLUENCE, HAND_SIZE } from '@meccg/shared';
+import { GENERAL_INFLUENCE, HAND_SIZE } from '../../index.js';
 
 /** Helper: get viable actions of a specific type */
 function viableOfType(actions: EvaluatedAction[], type: string): EvaluatedAction[] {
@@ -268,12 +268,13 @@ describe('1.9 Starting items', () => {
 
   test('reducer rejects a third starting item beyond the limit of two', () => {
     // Draft config with 3 minor items in Alice's pool
-    const config = {
-      ...makeDraftConfig(),
-      players: makeDraftConfig().players.map((p, i) => i === 0
-        ? { ...p, draftPool: [ARAGORN, BILBO, FRODO, DAGGER_OF_WESTERNESSE, DAGGER_OF_WESTERNESSE, HORN_OF_ANOR] }
-        : p,
-      ),
+    const base = makeDraftConfig();
+    const config: GameConfig = {
+      ...base,
+      players: [
+        { ...base.players[0], draftPool: [ARAGORN, BILBO, FRODO, DAGGER_OF_WESTERNESSE, DAGGER_OF_WESTERNESSE, HORN_OF_ANOR] },
+        base.players[1],
+      ],
     };
     let state = runSimpleDraft(config);
 

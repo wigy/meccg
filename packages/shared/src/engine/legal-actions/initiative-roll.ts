@@ -6,8 +6,8 @@
  * shown immediately. Reroll on tie.
  */
 
-import type { GameState, PlayerId, GameAction } from '@meccg/shared';
-import { getPlayerIndex } from '@meccg/shared';
+import type { GameState, PlayerId, GameAction } from '../../index.js';
+import { getPlayerIndex } from '../../index.js';
 import { logDetail } from './log.js';
 
 export function initiativeRollActions(state: GameState, playerId: PlayerId): GameAction[] {

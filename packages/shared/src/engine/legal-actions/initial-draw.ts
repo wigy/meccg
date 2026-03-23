@@ -5,8 +5,8 @@
  * their starting hand of cards from the shuffled play deck.
  */
 
-import type { GameState, PlayerId, GameAction } from '@meccg/shared';
-import { HAND_SIZE, getPlayerIndex } from '@meccg/shared';
+import type { GameState, PlayerId, GameAction } from '../../index.js';
+import { HAND_SIZE, getPlayerIndex } from '../../index.js';
 import { logDetail } from './log.js';
 
 export function initialDrawActions(state: GameState, playerId: PlayerId): GameAction[] {

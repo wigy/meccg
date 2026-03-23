@@ -25,8 +25,8 @@ import type {
   CardEffect,
   StatModifierEffect,
   CardInstanceId,
-} from '@meccg/shared';
-import { matchesCondition } from '@meccg/shared';
+} from '../../index.js';
+import { matchesCondition } from '../../index.js';
 import { evaluateExpr } from './expression-eval.js';
 
 /**

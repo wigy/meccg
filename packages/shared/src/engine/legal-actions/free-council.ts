@@ -5,7 +5,7 @@
  * must make corruption checks before final marshalling points are tallied.
  */
 
-import type { GameState, PlayerId, GameAction, CardInstanceId } from '@meccg/shared';
+import type { GameState, PlayerId, GameAction, CardInstanceId } from '../../index.js';
 import { logDetail } from './log.js';
 
 export function freeCouncilActions(state: GameState, playerId: PlayerId): GameAction[] {

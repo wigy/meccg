@@ -31,7 +31,7 @@ import type {
   CharacterDeckDraftPlayerState,
 } from '@meccg/shared';
 import { UNKNOWN_CARD, getPlayerIndex } from '@meccg/shared';
-import { computeLegalActions } from '../engine/legal-actions/index.js';
+import { computeLegalActions } from '@meccg/shared';
 
 /**
  * Resolves a card instance to a {@link RevealedCard} containing both the

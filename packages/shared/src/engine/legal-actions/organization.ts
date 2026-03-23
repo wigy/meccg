@@ -22,8 +22,8 @@ import type {
   HeroResourceEventCard,
   OrganizationPhaseState,
   SiteCard,
-} from '@meccg/shared';
-import { GENERAL_INFLUENCE, SiteType, isCharacterCard, isSiteCard, buildMovementMap, getReachableSites } from '@meccg/shared';
+} from '../../index.js';
+import { GENERAL_INFLUENCE, SiteType, isCharacterCard, isSiteCard, buildMovementMap, getReachableSites } from '../../index.js';
 import { logDetail } from './log.js';
 import { resolveDef } from '../effects/index.js';
 
@@ -36,7 +36,7 @@ import { resolveDef } from '../effects/index.js';
 function availableDI(
   state: GameState,
   controllerInstanceId: CardInstanceId,
-  player: { readonly characters: Readonly<Record<string, import('@meccg/shared').CharacterInPlay>> },
+  player: { readonly characters: Readonly<Record<string, import('../../index.js').CharacterInPlay>> },
 ): number {
   const controller = player.characters[controllerInstanceId as string];
   if (!controller) return 0;
@@ -65,7 +65,7 @@ function availableDI(
 function findPlayableSites(
   state: GameState,
   player: {
-    readonly companies: readonly import('@meccg/shared').Company[];
+    readonly companies: readonly import('../../index.js').Company[];
     readonly siteDeck: readonly CardInstanceId[];
   },
   charDef: CharacterCard,
@@ -312,7 +312,7 @@ function playPermanentEventActions(state: GameState, playerId: PlayerId): Evalua
     }
 
     // Check duplication-limit with scope "game": cannot play if a copy is already in play
-    const dupLimit = def.effects?.find((e): e is import('@meccg/shared').DuplicationLimitEffect => {
+    const dupLimit = def.effects?.find((e): e is import('../../index.js').DuplicationLimitEffect => {
       if (e.type !== 'duplication-limit') return false;
       return e.scope === 'game';
     });

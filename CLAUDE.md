@@ -41,8 +41,8 @@ Before pushing to remote, always run all of these and fix any failures:
 ## Architecture
 
 - **Monorepo** using npm workspaces: `packages/shared`, `packages/server`, `packages/client-text`, `packages/client-web`
-- **`@meccg/shared`** — Pure TypeScript types (cards, game state, actions, phases, player view) and constants. No runtime dependencies.
-- **`@meccg/server`** — Game engine built as a pure reducer: `(state, action) → state`. Phase handlers in `src/engine/phases/`.
+- **`@meccg/shared`** — Pure TypeScript types, constants, and the game engine (pure reducer: `(state, action) → state`). Engine code in `src/engine/`, phase handlers in `src/engine/legal-actions/`. Tests in `src/tests/`.
+- **`@meccg/server`** — WebSocket server, game session management, and state projection. Re-exports engine from shared.
 - **`@meccg/client-text`** — Text console client over WebSocket.
 - **`@meccg/client-web`** — Browser web client. Serves HTML/JS/CSS on HTTP, proxies WebSocket to game server, and caches card images from GitHub to `~/.meccg/image-cache/`.
 - **State model:** Full game state (server-only) → projection function → player view (per-player, hidden info redacted).
@@ -104,8 +104,8 @@ All server-side logic must include detailed logging so that the game's decision-
 
 Tests verify the **official CoE rules**, not internal implementation. There are no unit tests — only rules-as-specification tests and card tests.
 
-- **Rules tests** (`packages/server/src/tests/rules/`): Each sentence in the official Council of Elrond rules (source: `docs/coe-rules.txt`) maps to a `test()` or `test.todo()`. Tests set up a valid game state and verify the engine computes correct legal actions.
-- **Card tests** (`packages/server/src/tests/cards/`, nightly): One test per card with special rules/effects. Builds game states that trigger each card's rules and verifies correct legal actions.
+- **Rules tests** (`packages/shared/src/tests/rules/`): Each sentence in the official Council of Elrond rules (source: `docs/coe-rules.txt`) maps to a `test()` or `test.todo()`. Tests set up a valid game state and verify the engine computes correct legal actions.
+- **Card tests** (`packages/shared/src/tests/cards/`, nightly): One test per card with special rules/effects. Builds game states that trigger each card's rules and verifies correct legal actions.
 - **Pattern**: Every test follows: build state → call `computeLegalActions()` or `reduce()` → assert on legal actions or resulting state.
 - **`test.todo()`** marks unimplemented rules — a living spec showing what's left to build.
 - **No utility tests**: If internal utilities (condition matcher, formatting) break, the rules tests catch it.

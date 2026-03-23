@@ -9,7 +9,7 @@
  * return plain actions wrapped as viable.
  */
 
-import type { GameState, PlayerId, GameAction, EvaluatedAction } from '@meccg/shared';
+import type { GameState, PlayerId, GameAction, EvaluatedAction } from '../../index.js';
 import { draftActions } from './draft.js';
 import { itemDraftActions } from './item-draft.js';
 import { characterDeckDraftActions } from './character-deck-draft.js';

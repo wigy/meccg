@@ -7,8 +7,8 @@
  * Uses the rules engine for per-site eligibility with human-readable reasons.
  */
 
-import type { GameState, PlayerId, EvaluatedAction } from '@meccg/shared';
-import { getAlignmentRules, evaluateAction, SITE_SELECTION_RULES, getPlayerIndex } from '@meccg/shared';
+import type { GameState, PlayerId, EvaluatedAction } from '../../index.js';
+import { getAlignmentRules, evaluateAction, SITE_SELECTION_RULES, getPlayerIndex } from '../../index.js';
 import { logDetail } from './log.js';
 
 export function startingSiteSelectionActions(state: GameState, playerId: PlayerId): EvaluatedAction[] {

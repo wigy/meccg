@@ -6,8 +6,8 @@
  * trigger the endgame.
  */
 
-import type { GameState, PlayerId, GameAction } from '@meccg/shared';
-import { HAND_SIZE } from '@meccg/shared';
+import type { GameState, PlayerId, GameAction } from '../../index.js';
+import { HAND_SIZE } from '../../index.js';
 import { logDetail } from './log.js';
 
 export function endOfTurnActions(state: GameState, playerId: PlayerId): GameAction[] {

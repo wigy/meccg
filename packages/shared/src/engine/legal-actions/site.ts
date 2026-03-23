@@ -6,7 +6,7 @@
  * factions, allies).
  */
 
-import type { GameState, PlayerId, GameAction } from '@meccg/shared';
+import type { GameState, PlayerId, GameAction } from '../../index.js';
 import { logDetail } from './log.js';
 
 export function siteActions(state: GameState, playerId: PlayerId): GameAction[] {

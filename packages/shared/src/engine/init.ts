@@ -33,7 +33,7 @@ import type {
   CardInstanceId,
   CompanyId,
   CardDefinitionId,
-} from '@meccg/shared';
+} from '../index.js';
 import {
   Phase,
   SetupStep,
@@ -47,7 +47,7 @@ import {
   isCharacterCard,
   isItemCard,
   isSiteCard,
-} from '@meccg/shared';
+} from '../index.js';
 import { recomputeDerived } from './recompute-derived.js';
 
 // ---- Config types ----

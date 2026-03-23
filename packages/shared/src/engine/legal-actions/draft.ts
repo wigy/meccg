@@ -9,8 +9,8 @@
  * reasons explaining why they can't be selected.
  */
 
-import type { GameState, PlayerId, EvaluatedAction } from '@meccg/shared';
-import { GENERAL_INFLUENCE, getAlignmentRules, isCharacterCard, evaluateAction, CHARACTER_DRAFT_RULES, getPlayerIndex } from '@meccg/shared';
+import type { GameState, PlayerId, EvaluatedAction } from '../../index.js';
+import { GENERAL_INFLUENCE, getAlignmentRules, isCharacterCard, evaluateAction, CHARACTER_DRAFT_RULES, getPlayerIndex } from '../../index.js';
 import { logDetail } from './log.js';
 
 export function draftActions(state: GameState, playerId: PlayerId): EvaluatedAction[] {

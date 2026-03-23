@@ -11,7 +11,7 @@
  */
 
 import { evaluate } from 'mathjs';
-import type { ValueExpr } from '@meccg/shared';
+import type { ValueExpr } from '../../index.js';
 
 /**
  * Flattens a nested context object into dot-path keys for MathJS scope.

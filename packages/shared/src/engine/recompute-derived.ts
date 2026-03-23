@@ -22,8 +22,8 @@ import type {
   CharacterInPlay,
   CardDefinition,
   CharacterCard,
-} from '@meccg/shared';
-import { MarshallingCategory, ZERO_MARSHALLING_POINTS, isCharacterCard, isItemCard } from '@meccg/shared';
+} from '../index.js';
+import { MarshallingCategory, ZERO_MARSHALLING_POINTS, isCharacterCard, isItemCard } from '../index.js';
 import {
   collectCharacterEffects,
   resolveStatModifiers,

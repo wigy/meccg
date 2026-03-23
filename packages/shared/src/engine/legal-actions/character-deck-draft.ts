@@ -8,8 +8,8 @@
  * Uses the rules engine for per-card eligibility with human-readable reasons.
  */
 
-import type { GameState, PlayerId, EvaluatedAction } from '@meccg/shared';
-import { isCharacterCard, evaluateAction, CHARACTER_DECK_DRAFT_RULES, getPlayerIndex } from '@meccg/shared';
+import type { GameState, PlayerId, EvaluatedAction } from '../../index.js';
+import { isCharacterCard, evaluateAction, CHARACTER_DECK_DRAFT_RULES, getPlayerIndex } from '../../index.js';
 import { logDetail } from './log.js';
 
 /** Maximum number of non-avatar characters allowed in the play deck. */

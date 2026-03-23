@@ -5,8 +5,8 @@
  * their drafted characters to one of their starting companies.
  */
 
-import type { GameState, PlayerId, GameAction, CardInstanceId } from '@meccg/shared';
-import { getPlayerIndex } from '@meccg/shared';
+import type { GameState, PlayerId, GameAction, CardInstanceId } from '../../index.js';
+import { getPlayerIndex } from '../../index.js';
 import { logDetail } from './log.js';
 
 export function characterPlacementActions(state: GameState, playerId: PlayerId): GameAction[] {

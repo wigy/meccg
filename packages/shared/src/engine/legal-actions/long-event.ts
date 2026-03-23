@@ -5,7 +5,7 @@
  * event resolution automatically; the player confirms with pass.
  */
 
-import type { GameState, PlayerId, GameAction } from '@meccg/shared';
+import type { GameState, PlayerId, GameAction } from '../../index.js';
 import { logDetail } from './log.js';
 
 export function longEventActions(_state: GameState, playerId: PlayerId): GameAction[] {
