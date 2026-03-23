@@ -6,6 +6,7 @@
  */
 
 import type { GameState, PlayerId, GameAction, CardInstanceId } from '../../index.js';
+import { isCharacterCard } from '../../index.js';
 import { logDetail } from './log.js';
 
 export function freeCouncilActions(state: GameState, playerId: PlayerId): GameAction[] {
@@ -21,11 +22,15 @@ export function freeCouncilActions(state: GameState, playerId: PlayerId): GameAc
   for (const charId of Object.keys(player.characters)) {
     const charInPlay = player.characters[charId];
     const charDef = state.cardPool[charInPlay.definitionId as string];
-    logDetail(`Corruption check available for '${charDef?.name ?? charId}'`);
+    const cp = charInPlay.effectiveStats.corruptionPoints;
+    const modifier = charDef && isCharacterCard(charDef) ? charDef.corruptionModifier : 0;
+    logDetail(`Corruption check available for '${charDef?.name ?? charId}' (CP ${cp}, modifier ${modifier >= 0 ? '+' : ''}${modifier})`);
     actions.push({
       type: 'corruption-check',
       player: playerId,
       characterId: charId as CardInstanceId,
+      corruptionPoints: cp,
+      corruptionModifier: modifier,
     });
   }
 

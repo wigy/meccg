@@ -160,7 +160,7 @@ function buildOrgState(opts: {
     gameId: 'test-game',
     players: playerStates as unknown as readonly [import('../../index.js').PlayerState, import('../../index.js').PlayerState],
     activePlayer: opts.activePlayer,
-    phaseState: { phase: Phase.Organization, characterPlayedThisTurn: false },
+    phaseState: { phase: Phase.Organization, characterPlayedThisTurn: false, pendingCorruptionCheck: null },
     eventsInPlay: [],
     cardPool: pool,
     instanceMap,

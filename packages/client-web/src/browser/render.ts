@@ -954,7 +954,10 @@ function isPlayCharacterCard(
  * Returns instruction text for the current game phase, or null if none is needed.
  * Displayed in the center of the visual board to guide the player.
  */
-function getInstructionText(view: PlayerView): string | null {
+function getInstructionText(
+  view: PlayerView,
+  cardPool: Readonly<Record<string, CardDefinition>>,
+): string | null {
   if (view.phaseState.phase === 'setup') {
     switch (view.phaseState.setupStep.step) {
       case 'character-draft':
@@ -977,16 +980,36 @@ function getInstructionText(view: PlayerView): string | null {
         return 'Initiative — Roll dice to determine who goes first.';
     }
   }
+
+  // Pending corruption check after item transfer
+  if (view.phaseState.phase === Phase.Organization && view.phaseState.pendingCorruptionCheck !== null) {
+    const checkAction = view.legalActions.find(ea => ea.viable && ea.action.type === 'corruption-check');
+    if (checkAction && checkAction.action.type === 'corruption-check') {
+      const charId = checkAction.action.characterId as string;
+      const defId = view.visibleInstances[charId];
+      const def = defId ? cardPool[defId as string] : undefined;
+      const charName = def && isCharacterCard(def) ? def.name : '?';
+      const cp = checkAction.action.corruptionPoints;
+      const mod = checkAction.action.corruptionModifier;
+      const modStr = mod !== 0 ? ` (${mod >= 0 ? '+' : ''}${mod} modifier)` : '';
+      return `Corruption Check — ${charName} must roll against ${cp} corruption point${cp !== 1 ? 's' : ''}${modStr}.`;
+    }
+  }
+
   return null;
 }
 
 /** Render instruction text in the visual board. Targeting instructions take priority. */
-export function renderInstructions(view: PlayerView): void {
+export function renderInstructions(
+  view: PlayerView,
+  cardPool: Readonly<Record<string, CardDefinition>>,
+): void {
   const el = document.getElementById('instruction-text');
   if (!el) return;
-  const text = targetingInstruction ?? getInstructionText(view) ?? '';
+  const text = targetingInstruction ?? getInstructionText(view, cardPool) ?? '';
   el.textContent = text;
-  el.classList.toggle('instruction-top', targetingInstruction !== null);
+  const isGamePhase = view.phaseState.phase !== 'setup';
+  el.classList.toggle('instruction-top', targetingInstruction !== null || isGamePhase);
 }
 
 /** Render the pass/stop button in the visual view if a pass-like action is available. */
@@ -998,7 +1021,7 @@ export function renderPassButton(view: PlayerView, onAction: (action: GameAction
   const passEval = view.legalActions.find(ea =>
     ea.viable && (ea.action.type === 'pass' || ea.action.type === 'draft-stop'
     || ea.action.type === 'shuffle-play-deck' || ea.action.type === 'draw-cards'
-    || ea.action.type === 'roll-initiative'));
+    || ea.action.type === 'roll-initiative' || ea.action.type === 'corruption-check'));
   const passAction = passEval?.action;
   if (!passAction) {
     btn.classList.add('hidden');
@@ -1014,6 +1037,8 @@ export function renderPassButton(view: PlayerView, onAction: (action: GameAction
   } else if (passAction.type === 'draw-cards') {
     label = 'Draw';
   } else if (passAction.type === 'roll-initiative') {
+    label = 'Roll';
+  } else if (passAction.type === 'corruption-check') {
     label = 'Roll';
   } else if (view.phaseState.phase === Phase.Untap) {
     label = 'Organization';

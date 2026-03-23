@@ -94,7 +94,7 @@ function connect(name: string): void {
         renderHand(msg.view, cardPool, sendAction);
         renderOpponentHand(msg.view, cardPool);
         renderPlayerNames(msg.view);
-        renderInstructions(msg.view);
+        renderInstructions(msg.view, cardPool);
         renderDrafted(msg.view, cardPool, sendAction);
         renderPassButton(msg.view, sendAction);
         renderDeckPiles(msg.view, cardPool);

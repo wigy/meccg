@@ -1021,7 +1021,7 @@ function handleUntap(state: GameState, action: GameAction): ReducerResult {
   return {
     state: {
       ...state,
-      phaseState: { phase: Phase.Organization, characterPlayedThisTurn: false },
+      phaseState: { phase: Phase.Organization, characterPlayedThisTurn: false, pendingCorruptionCheck: null },
     },
   };
 }
@@ -1063,6 +1063,9 @@ function handleOrganization(state: GameState, action: GameAction): ReducerResult
   }
   if (action.type === 'merge-companies') {
     return handleMergeCompanies(state, action);
+  }
+  if (action.type === 'corruption-check') {
+    return handleOrganizationCorruptionCheck(state, action);
   }
   return { state, error: `Unhandled organization action: ${action.type}` };
 }
@@ -1354,12 +1357,138 @@ function handleTransferItem(state: GameState, action: GameAction): ReducerResult
     characters: newCharacters,
   };
 
+  // Set pending corruption check for the character who gave away the item
+  const orgState = state.phaseState as import('../index.js').OrganizationPhaseState;
+  logDetail(`Setting pending corruption check for ${fromDef?.name ?? '?'} after item transfer`);
+
   return {
     state: {
       ...state,
       players: newPlayers,
       touchedCards: [...state.touchedCards, itemInstId],
+      phaseState: { ...orgState, pendingCorruptionCheck: fromCharId },
     },
+  };
+}
+
+/**
+ * Handle corruption check during organization (after item transfer).
+ *
+ * Per CoE rules (2.II.5), after transferring an item the initial bearer
+ * must make a corruption check: roll 2d6 vs their corruption point total.
+ * If roll > CP the check passes and organization continues normally.
+ * If roll <= CP the check fails: the character is discarded along with
+ * all their items, followers, and non-follower cards.
+ */
+function handleOrganizationCorruptionCheck(state: GameState, action: GameAction): ReducerResult {
+  if (action.type !== 'corruption-check') return { state, error: 'Expected corruption-check action' };
+
+  const orgState = state.phaseState as import('../index.js').OrganizationPhaseState;
+  if (orgState.pendingCorruptionCheck === null) {
+    return { state, error: 'No pending corruption check' };
+  }
+  if (action.characterId !== orgState.pendingCorruptionCheck) {
+    return { state, error: 'Wrong character for pending corruption check' };
+  }
+
+  const playerIndex = getPlayerIndex(state, action.player);
+  const player = state.players[playerIndex];
+  const char = player.characters[action.characterId as string];
+  if (!char) return { state, error: 'Character not found' };
+
+  const charDef = state.cardPool[state.instanceMap[action.characterId as string]?.definitionId as string];
+  const charName = charDef?.name ?? '?';
+  const cp = action.corruptionPoints;
+  const modifier = action.corruptionModifier;
+
+  // Roll 2d6 + modifier
+  let rng = state.rng;
+  const [d1raw, rng2] = nextInt(rng, 6);
+  const [d2raw, rng3] = nextInt(rng2, 6);
+  rng = rng3;
+  const d1 = (d1raw + 1) as import('../index.js').DieRoll;
+  const d2 = (d2raw + 1) as import('../index.js').DieRoll;
+  const roll: TwoDiceSix = { die1: d1, die2: d2 };
+  const total = d1 + d2 + modifier;
+  const modStr = modifier !== 0 ? ` ${modifier >= 0 ? '+' : ''}${modifier}` : '';
+  logDetail(`Corruption check for ${charName}: rolled ${d1} + ${d2}${modStr} = ${total} vs CP ${cp}`);
+
+  const rollEffect: GameEffect = {
+    effect: 'dice-roll',
+    playerName: player.name,
+    die1: roll.die1,
+    die2: roll.die2,
+    label: `Corruption: ${charName}`,
+  };
+
+  // Store the roll on the player
+  const playersAfterRoll = clonePlayers(state);
+  playersAfterRoll[playerIndex] = { ...playersAfterRoll[playerIndex], lastDiceRoll: roll };
+
+  if (total > cp) {
+    // Passed — clear pending check and continue organization
+    logDetail(`Corruption check passed (${total} > ${cp})`);
+    return {
+      state: {
+        ...state,
+        players: playersAfterRoll,
+        rng,
+        phaseState: { ...orgState, pendingCorruptionCheck: null },
+      },
+      effects: [rollEffect],
+    };
+  }
+
+  // Failed — discard character, their items, and followers
+  logDetail(`Corruption check FAILED (${total} <= ${cp}) — discarding ${charName}`);
+
+  // Collect all card instance IDs to discard: the character + items + followers + follower items
+  const toDiscard: CardInstanceId[] = [action.characterId];
+  for (const item of char.items) {
+    toDiscard.push(item.instanceId);
+  }
+  for (const followerId of char.followers) {
+    toDiscard.push(followerId);
+    const follower = player.characters[followerId as string];
+    if (follower) {
+      for (const item of follower.items) {
+        toDiscard.push(item.instanceId);
+      }
+    }
+  }
+
+  // Remove character and followers from characters map
+  const newCharacters = { ...player.characters };
+  delete newCharacters[action.characterId as string];
+  for (const followerId of char.followers) {
+    delete newCharacters[followerId as string];
+  }
+
+  // Remove from company
+  const discardSet = new Set(toDiscard.map(id => id as string));
+  const newCompanies = player.companies.map(c => ({
+    ...c,
+    characters: c.characters.filter(id => !discardSet.has(id as string)),
+  }));
+
+  // Add to discard pile
+  const newDiscardPile = [...player.discardPile, ...toDiscard];
+
+  playersAfterRoll[playerIndex] = {
+    ...playersAfterRoll[playerIndex],
+    characters: newCharacters,
+    companies: newCompanies,
+    discardPile: newDiscardPile,
+  };
+
+  return {
+    state: cleanupEmptyCompanies({
+      ...state,
+      players: playersAfterRoll,
+      rng,
+      phaseState: { ...orgState, pendingCorruptionCheck: null },
+    }),
+    effects: [rollEffect],
   };
 }
 

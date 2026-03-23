@@ -777,8 +777,11 @@ export function describeAction(
       return `Influence faction ${instName(action.factionInstanceId)} with ${instName(action.influencingCharacterId)}`;
     case 'play-minor-item':
       return `Play minor item ${instName(action.cardInstanceId)} on ${instName(action.attachToCharacterId)}`;
-    case 'corruption-check':
-      return `Corruption check for ${instName(action.characterId)}`;
+    case 'corruption-check': {
+      const mod = action.corruptionModifier;
+      const modStr = mod !== 0 ? `, modifier ${mod >= 0 ? '+' : ''}${mod}` : '';
+      return `Corruption check for ${instName(action.characterId)} (CP ${action.corruptionPoints}${modStr})`;
+    }
     case 'draw-cards':
       return `Draw ${action.count} card${action.count !== 1 ? 's' : ''}`;
     case 'discard-card':

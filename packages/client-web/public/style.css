@@ -422,10 +422,11 @@ h2 {
   transform: translate(-50%, -50%);
   z-index: 5;
   pointer-events: none;
+  white-space: nowrap;
 }
 
 #instruction-text.instruction-top {
-  top: 8vh;
+  top: 10vh;
   transform: translateX(-50%);
 }
 

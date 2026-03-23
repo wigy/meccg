@@ -214,8 +214,8 @@ export interface MergeCompaniesAction {
  *
  * Per CoE rules (2.II.5), items can be transferred between two characters
  * at the same site (not necessarily in the same company) during Organization.
- * A corruption check for the initial bearer is required by the rules, but
- * corruption checks are not yet implemented so transfers are currently free.
+ * After the transfer, the initial bearer must make a corruption check —
+ * no other organization actions are legal until the check is resolved.
  */
 export interface TransferItemAction {
   readonly type: 'transfer-item';
@@ -457,6 +457,14 @@ export interface CorruptionCheckAction {
   readonly player: PlayerId;
   /** The character instance making the corruption check. */
   readonly characterId: CardInstanceId;
+  /** The character's total corruption points at the time the check was generated. */
+  readonly corruptionPoints: number;
+  /**
+   * Total modifier applied to the 2d6 roll. Includes the character's own
+   * corruption check modifier from the card definition, plus any situational
+   * bonuses (e.g. +2 for Ringwraith/Balrog in company).
+   */
+  readonly corruptionModifier: number;
 }
 
 /**

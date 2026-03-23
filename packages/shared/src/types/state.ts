@@ -484,6 +484,12 @@ export interface OrganizationPhaseState {
    * allowed per organization phase.
    */
   readonly characterPlayedThisTurn: boolean;
+  /**
+   * When non-null, a corruption check is required for the character who
+   * just gave away an item via transfer. No other organization actions
+   * are legal until this check is resolved (CoE 2.II.5).
+   */
+  readonly pendingCorruptionCheck: CardInstanceId | null;
 }
 
 /**

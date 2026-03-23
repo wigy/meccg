@@ -488,9 +488,10 @@ function moveToInfluenceActions(state: GameState, playerId: PlayerId): Evaluated
  * Computes transfer-item actions during the organization phase.
  *
  * Per CoE rules (2.II.5), items can be transferred between two characters
- * at the same site (not necessarily in the same company). The rules require
- * a corruption check for the initial bearer, but corruption checks are not
- * yet implemented so transfers are currently free.
+ * at the same site (not necessarily in the same company). After the transfer,
+ * the initial bearer must make a corruption check — the reducer sets
+ * {@link OrganizationPhaseState.pendingCorruptionCheck} which gates all
+ * other actions until the check is resolved.
  *
  * Emits one viable action per valid (item, fromCharacter, toCharacter) triple.
  */
@@ -742,6 +743,31 @@ export function organizationActions(state: GameState, playerId: PlayerId): Evalu
   if (state.activePlayer !== playerId) {
     logDetail(`Not active player (active: ${state.activePlayer as string ?? 'null'}), no actions`);
     return [];
+  }
+
+  const orgState = state.phaseState as OrganizationPhaseState;
+
+  // When a corruption check is pending (after item transfer), only that check is legal
+  if (orgState.pendingCorruptionCheck !== null) {
+    const charId = orgState.pendingCorruptionCheck;
+    const char = player.characters[charId as string];
+    if (char) {
+      const charDef = resolveDef(state, char.instanceId);
+      const charName = isCharacterCard(charDef) ? charDef.name : '?';
+      const cp = char.effectiveStats.corruptionPoints;
+      const modifier = isCharacterCard(charDef) ? charDef.corruptionModifier : 0;
+      logDetail(`Pending corruption check for ${charName} (CP ${cp}, modifier ${modifier >= 0 ? '+' : ''}${modifier}) after item transfer`);
+      return [{
+        action: {
+          type: 'corruption-check',
+          player: playerId,
+          characterId: charId,
+          corruptionPoints: cp,
+          corruptionModifier: modifier,
+        },
+        viable: true,
+      }];
+    }
   }
 
   const actions: EvaluatedAction[] = [];
