@@ -421,7 +421,7 @@ export function organizationActions(state: GameState, playerId: PlayerId): Evalu
     if (company.destinationSite !== null) {
       logDetail(`Company ${company.id as string} has planned movement → can cancel`);
       actions.push({
-        action: { type: 'cancel-movement', player: playerId, companyId: company.id } as GameAction,
+        action: { type: 'cancel-movement', player: playerId, companyId: company.id, regress: true } as GameAction,
         viable: true,
       });
     }

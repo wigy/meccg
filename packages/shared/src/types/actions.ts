@@ -236,6 +236,11 @@ export interface CancelMovementAction {
   readonly player: PlayerId;
   /** The company whose movement is being canceled. */
   readonly companyId: CompanyId;
+  /**
+   * Marks this action as undoing previous progress. The AI avoids regressive
+   * actions, and the UI renders them with a red glow.
+   */
+  readonly regress: true;
 }
 
 /**

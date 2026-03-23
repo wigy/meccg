@@ -300,7 +300,7 @@ function renderSiteArea(
         const imgPath = cardImageProxyPath(destDef);
         if (imgPath) {
           const cancelAction = options?.onAction && viableActions(view.legalActions).find(
-            a => a.type === 'cancel-movement' && a.companyId === company.id,
+            a => 'regress' in a && a.regress && a.companyId === company.id,
           );
           const cls = cancelAction
             ? 'company-card company-card--site company-card--cancelable'

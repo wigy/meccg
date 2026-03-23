@@ -12,9 +12,6 @@ import type { AiStrategy, AiContext, WeightedAction } from './strategy.js';
 /** Action types that represent "doing nothing" — zero weight when alternatives exist. */
 const PASS_ACTIONS = new Set(['pass', 'draft-stop']);
 
-/** Action types the AI should never pick. */
-const FORBIDDEN_ACTIONS = new Set(['cancel-movement']);
-
 /** Action types that are optional — pass gets equal weight alongside them. */
 const OPTIONAL_ACTIONS = new Set(['place-character', 'add-character-to-deck', 'select-starting-site']);
 
@@ -25,7 +22,7 @@ export const randomStrategy: AiStrategy = {
   name: 'random',
 
   weighActions(context: AiContext): WeightedAction[] {
-    const actions = context.legalActions.filter(a => !FORBIDDEN_ACTIONS.has(a.type));
+    const actions = context.legalActions.filter(a => !('regress' in a && a.regress));
     const phase = context.view.phaseState.phase;
     const passOk = PASS_OK_PHASES.has(phase);
     const allOptional = actions.every(a => PASS_ACTIONS.has(a.type) || OPTIONAL_ACTIONS.has(a.type));
