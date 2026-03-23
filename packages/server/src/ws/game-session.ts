@@ -42,6 +42,8 @@ export interface GameSessionOptions {
   debug?: boolean;
   /** Enable development-mode operations (undo, save, load, reseed, reset). */
   dev?: boolean;
+  /** Print the full formatted game state to stdout after every action. */
+  verbose?: boolean;
   playerNames: [string, string];
 }
 
@@ -61,6 +63,8 @@ export class GameSession {
   private debug: boolean;
   /** When false, dev-only operations (undo, save, load, reseed, reset) are refused. */
   private dev: boolean;
+  /** When true, print the full formatted game state to stdout after every action. */
+  private verbose: boolean;
   private playerNames: Set<string>;
   private serverLog: ServerLog;
   private gameLog: GameLog;
@@ -72,13 +76,14 @@ export class GameSession {
   constructor(options: GameSessionOptions) {
     this.debug = options.debug ?? false;
     this.dev = options.dev ?? false;
+    this.verbose = options.verbose ?? false;
     this.playerNames = new Set(options.playerNames.map(n => n.toLowerCase()));
     this.cardPool = loadCardPool();
     this.movementMap = buildMovementMap(this.cardPool);
     fs.mkdirSync(SAVE_DIR, { recursive: true });
     this.serverLog = new ServerLog();
     this.gameLog = new GameLog();
-    this.serverLog.log('boot', { players: options.playerNames, debug: this.debug, dev: this.dev });
+    this.serverLog.log('boot', { players: options.playerNames, debug: this.debug, dev: this.dev, verbose: this.verbose });
     console.log(`Movement map: ${this.movementMap.regionGraph.size} regions, ${this.movementMap.siteRegion.size} sites`);
   }
 
@@ -254,7 +259,7 @@ export class GameSession {
     this.registerPlayers(p1, p1Id, name1, p2, p2Id, name2);
 
     console.log('New game started!');
-    console.log(`\n${STATE_DIVIDER}\n${formatGameState(this.state)}\n${STATE_DIVIDER}`);
+    if (this.verbose) console.log(`\n${STATE_DIVIDER}\n${formatGameState(this.state)}\n${STATE_DIVIDER}`);
     this.serverLog.log('new-game', { gameId: this.state.gameId, player1: name1, player2: name2 });
     this.gameLog.open(this.state.gameId);
     this.gameLog.writeStaticData(
@@ -289,7 +294,7 @@ export class GameSession {
     );
     this.gameLog.truncateAfterSeq(this.state.stateSeq);
     this.gameLog.log('restore', { stateSeq: this.state.stateSeq, player1: name1, player2: name2 });
-    console.log(`\n${STATE_DIVIDER}\n${formatGameState(this.state)}\n${STATE_DIVIDER}`);
+    if (this.verbose) console.log(`\n${STATE_DIVIDER}\n${formatGameState(this.state)}\n${STATE_DIVIDER}`);
 
     this.broadcastState();
   }
@@ -362,7 +367,7 @@ export class GameSession {
     const { type: _type, player: _player, ...args } = actionWithPlayer;
     const argsStr = Object.keys(args).length > 0 ? ' ' + JSON.stringify(args) : '';
     console.log(`Action: ${actionWithPlayer.type} by ${playerId}${argsStr}`);
-    console.log(`\n${STATE_DIVIDER}\n${formatGameState(this.state)}\n${STATE_DIVIDER}`);
+    if (this.verbose) console.log(`\n${STATE_DIVIDER}\n${formatGameState(this.state)}\n${STATE_DIVIDER}`);
     this.serverLog.log('action', { action: actionWithPlayer });
     this.logState(actionWithPlayer.type, actionWithPlayer as unknown as Record<string, unknown>);
 
@@ -394,7 +399,7 @@ export class GameSession {
     // Broadcast any visual effects from the reducer
     if (result.effects && result.effects.length > 0) {
       for (const effect of result.effects) {
-        console.log(`Effect: ${effect.effect} — ${JSON.stringify(effect)}`);
+        if (this.verbose) console.log(`Effect: ${effect.effect} — ${JSON.stringify(effect)}`);
         this.broadcastToAll({ type: 'effect', effect });
       }
     }
