@@ -196,6 +196,59 @@ const DEFAULT_MAX_REGION_DISTANCE = 4;
  * @param maxRegionDistance - Maximum region distance (default 4 = four consecutive regions).
  * @returns Array of reachable sites with their movement type and distance.
  */
+/**
+ * Find all region paths from one region to another within a maximum
+ * number of regions (rules-style counting: origin and destination both
+ * count, so maxRegions=4 means up to 3 edges).
+ *
+ * Returns every distinct path as an array of region names (including
+ * both the origin and destination regions). Paths never revisit a region.
+ *
+ * @param map - The precomputed movement map.
+ * @param fromRegion - The starting region name.
+ * @param toRegion - The destination region name.
+ * @param maxRegions - Maximum number of regions in the path (default 4).
+ * @returns Array of paths, each path being an array of region names.
+ */
+export function findRegionPaths(
+  map: MovementMap,
+  fromRegion: string,
+  toRegion: string,
+  maxRegions = DEFAULT_MAX_REGION_DISTANCE,
+): string[][] {
+  const results: string[][] = [];
+  const maxEdges = maxRegions - 1;
+
+  function dfs(current: string, path: string[], visited: Set<string>): void {
+    if (current === toRegion) {
+      results.push([...path]);
+      return;
+    }
+    if (path.length - 1 >= maxEdges) return;
+
+    const neighbors = map.regionGraph.get(current);
+    if (!neighbors) return;
+    for (const next of neighbors) {
+      if (visited.has(next)) continue;
+      visited.add(next);
+      path.push(next);
+      dfs(next, path, visited);
+      path.pop();
+      visited.delete(next);
+    }
+  }
+
+  if (!map.regionGraph.has(fromRegion)) return results;
+  // Same region is a trivial path of length 1
+  if (fromRegion === toRegion) {
+    return [[fromRegion]];
+  }
+
+  const visited = new Set<string>([fromRegion]);
+  dfs(fromRegion, [fromRegion], visited);
+  return results;
+}
+
 export function getReachableSites(
   map: MovementMap,
   currentSite: SiteCard,
