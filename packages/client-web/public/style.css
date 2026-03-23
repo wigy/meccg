@@ -1773,6 +1773,27 @@ h2 {
   pointer-events: none;
 }
 
+/* Item card wrap (for CP badge positioning) */
+.item-card-wrap {
+  position: relative;
+  display: inline-block;
+}
+
+/* Item corruption points badge */
+.item-cp-badge {
+  position: absolute;
+  bottom: 10px;
+  right: 2px;
+  font-family: 'Cinzel', serif;
+  font-size: calc(0.7rem * var(--company-scale, 1));
+  font-weight: 700;
+  color: #ff9090;
+  background: rgba(0, 0, 0, 0.75);
+  padding: 1px 3px;
+  border-radius: 3px;
+  pointer-events: none;
+}
+
 /* Cards in play row (permanent resources, factions, etc.) */
 .cards-in-play-row {
   position: absolute;

@@ -27,7 +27,7 @@ import type {
   MoveToCompanyAction,
   MergeCompaniesAction,
 } from '@meccg/shared';
-import { cardImageProxyPath, isCharacterCard, Phase, CardStatus, viableActions } from '@meccg/shared';
+import { cardImageProxyPath, isCharacterCard, isItemCard, Phase, CardStatus, viableActions } from '@meccg/shared';
 import { $, createCardImage } from './render-utils.js';
 import { getSelectedCharacterForPlay, clearCharacterPlaySelection, openMovementViewer, setTargetingInstruction } from './render.js';
 
@@ -286,7 +286,19 @@ function renderCharacterColumn(
           attEl.addEventListener('click', itemClick.handler);
         }
       }
-      attachments.appendChild(attEl);
+      // Wrap item in a container for CP badge positioning
+      if (isItemCard(attDef) && attDef.corruptionPoints > 0) {
+        const itemWrap = document.createElement('div');
+        itemWrap.className = 'item-card-wrap';
+        itemWrap.appendChild(attEl);
+        const cpBadge = document.createElement('div');
+        cpBadge.className = 'item-cp-badge';
+        cpBadge.textContent = `${attDef.corruptionPoints} CP`;
+        itemWrap.appendChild(cpBadge);
+        attachments.appendChild(itemWrap);
+      } else {
+        attachments.appendChild(attEl);
+      }
     }
     // Followers rendered as overlapping cards like items, with their own items below
     if (hasFollowers) {
@@ -367,7 +379,19 @@ function renderCharacterColumn(
                 fAttEl.addEventListener('click', fItemClick.handler);
               }
             }
-            fAttRow.appendChild(fAttEl);
+            // Wrap item in a container for CP badge positioning
+            if (isItemCard(fAttDef) && fAttDef.corruptionPoints > 0) {
+              const fItemWrap = document.createElement('div');
+              fItemWrap.className = 'item-card-wrap';
+              fItemWrap.appendChild(fAttEl);
+              const fCpBadge = document.createElement('div');
+              fCpBadge.className = 'item-cp-badge';
+              fCpBadge.textContent = `${fAttDef.corruptionPoints} CP`;
+              fItemWrap.appendChild(fCpBadge);
+              fAttRow.appendChild(fItemWrap);
+            } else {
+              fAttRow.appendChild(fAttEl);
+            }
           }
           followerCol.appendChild(fAttRow);
         }
