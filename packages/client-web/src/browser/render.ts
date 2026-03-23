@@ -988,6 +988,11 @@ function getInstructionText(
     }
   }
 
+  // M/H phase: select-company step
+  if (view.phaseState.phase === Phase.MovementHazard && view.phaseState.step === 'select-company') {
+    return 'Movement/Hazard — Select a company to resolve its movement.';
+  }
+
   // Pending corruption check after item transfer
   if (view.phaseState.phase === Phase.Organization && view.phaseState.pendingCorruptionCheck !== null) {
     const checkAction = view.legalActions.find(ea => ea.viable && ea.action.type === 'corruption-check');
@@ -1051,6 +1056,8 @@ export function renderPassButton(view: PlayerView, onAction: (action: GameAction
     label = 'Organization';
   } else if (view.phaseState.phase === Phase.Organization) {
     label = 'Long-event';
+  } else if (view.phaseState.phase === Phase.LongEvent) {
+    label = 'Movement/Hazard';
   } else if (view.phaseState.phase === 'setup') {
     const step = view.phaseState.setupStep.step;
     if (step === 'item-draft') label = 'Continue';

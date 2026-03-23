@@ -553,6 +553,13 @@ export interface LongEventPhaseState {
  */
 export type MHStep =
   /**
+   * The resource player must choose which company resolves its
+   * movement/hazard sub-phase next. Only companies that have not
+   * yet been handled this turn are offered as candidates.
+   * There is no pass action during this step — a company must be selected.
+   */
+  | 'select-company'
+  /**
    * The resource player must declare movement type (starter, region,
    * under-deeps, special) and, for region movement, the specific
    * sequence of regions traversed. The new site has been revealed
@@ -586,6 +593,12 @@ export interface MovementHazardPhaseState {
   readonly step: MHStep;
   /** Index of the company currently resolving movement (companies move sequentially). */
   readonly activeCompanyIndex: number;
+  /**
+   * IDs of companies that have already completed their M/H sub-phase this turn.
+   * Used during the 'select-company' step to filter out handled companies,
+   * so the resource player only chooses among those still pending.
+   */
+  readonly handledCompanyIds: readonly CompanyId[];
   /**
    * The movement type declared by the resource player at step 2, or null
    * if not yet declared or the company is not moving.

@@ -331,6 +331,21 @@ export interface PlayLongEventAction {
 // ---- Movement/Hazard phase ----
 
 /**
+ * Select which company resolves its movement/hazard sub-phase next.
+ *
+ * At the start of the Movement/Hazard phase (and after each company finishes
+ * its sub-phase), the resource player chooses which of the remaining unhandled
+ * companies to process next. There is no pass option — a company must be selected.
+ */
+export interface SelectCompanyAction {
+  readonly type: 'select-company';
+  /** The resource player selecting the company. */
+  readonly player: PlayerId;
+  /** The company to handle next. */
+  readonly companyId: CompanyId;
+}
+
+/**
  * Declare the movement type and site path for the current company.
  *
  * At step 2 of the Movement/Hazard phase, the resource player declares how
@@ -648,6 +663,7 @@ export type GameAction =
   | CancelMovementAction
   | PlayPermanentEventAction
   | PlayLongEventAction
+  | SelectCompanyAction
   | DeclarePathAction
   | OrderEffectsAction
   | PlayHazardAction

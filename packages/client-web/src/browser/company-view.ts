@@ -26,6 +26,7 @@ import type {
   SplitCompanyAction,
   MoveToCompanyAction,
   MergeCompaniesAction,
+  SelectCompanyAction,
 } from '@meccg/shared';
 import { cardImageProxyPath, isCharacterCard, isItemCard, Phase, CardStatus, viableActions } from '@meccg/shared';
 import { $, createCardImage } from './render-utils.js';
@@ -1306,6 +1307,14 @@ function renderAllCompaniesView(
   const moveToCompanyActs = getMoveToCompanyActions(view);
   const mergeActions = getMergeCompaniesActions(view);
 
+  // Select-company actions (M/H phase company selection)
+  const selectCompanyActions = new Map<string, SelectCompanyAction>();
+  for (const a of viableActions(view.legalActions)) {
+    if (a.type === 'select-company') {
+      selectCompanyActions.set(a.companyId as string, a);
+    }
+  }
+
   // Collect site instance IDs that already have companies
   const companySiteIds = new Set<string>();
   for (const company of view.self.companies) {
@@ -1317,7 +1326,20 @@ function renderAllCompaniesView(
     const hasLegalMovement = movableIds.has(company.id as string);
     const block = renderCompanyBlock(company, view.self.characters, view, cardPool, 'self', { hasLegalMovement, onAction: lastOnAction!, influenceActions, transferActions, splitActions, moveToCompanyActions: moveToCompanyActs, mergeActions });
 
-    if (mergeSourceCompanyId) {
+    if (selectCompanyActions.size > 0) {
+      // M/H phase select-company step: highlight selectable companies
+      const selectAction = selectCompanyActions.get(company.id as string);
+      if (selectAction) {
+        block.classList.add('company-block--target');
+        block.onclick = (e) => {
+          e.stopPropagation();
+          viewMode = 'single';
+          focusedCompanyId = company.id;
+          saveFocusedCompany(company, view.self.characters, view, cardPool);
+          lastOnAction!(selectAction);
+        };
+      }
+    } else if (mergeSourceCompanyId) {
       // Merge targeting mode: highlight valid target companies
       const mergeAction = viableActions(view.legalActions).find(
         a => a.type === 'merge-companies'

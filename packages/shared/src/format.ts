@@ -807,6 +807,8 @@ export function describeAction(
       return `Fetch ${instName(action.cardInstanceId)} from sideboard`;
     case 'not-playable':
       return `${instName(action.cardInstanceId)} cannot be played`;
+    case 'select-company':
+      return `Select ${compName(action.companyId)}`;
     case 'declare-path':
       return `Declare ${action.movementType} movement`;
     case 'order-effects':

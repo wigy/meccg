@@ -14,7 +14,7 @@
  * (or the original state plus an error string if the action was illegal).
  */
 
-import type { GameState, PlayerState, DraftPlayerState, ItemDraftPlayerState, CharacterDeckDraftPlayerState, SetupStepState, CardDefinitionId, CardInstanceId, CompanyId, CharacterInPlay, CardInstance, OrganizationPhaseState, Company } from '../index.js';
+import type { GameState, PlayerState, DraftPlayerState, ItemDraftPlayerState, CharacterDeckDraftPlayerState, SetupStepState, CardDefinitionId, CardInstanceId, CompanyId, CharacterInPlay, CardInstance, OrganizationPhaseState, MovementHazardPhaseState, Company } from '../index.js';
 import type { GameAction } from '../index.js';
 import { Phase, SetupStep, LEGAL_ACTIONS_BY_PHASE, getAlignmentRules, shuffle, nextInt, CardStatus, isCharacterCard, isSiteCard, SiteType, getPlayerIndex, ZERO_EFFECTIVE_STATS, MAX_STARTING_ITEMS } from '../index.js';
 import { logHeading, logDetail } from './legal-actions/log.js';
@@ -2002,8 +2002,9 @@ function handleLongEvent(state: GameState, action: GameAction): ReducerResult {
         players: newPlayers,
         phaseState: {
           phase: Phase.MovementHazard,
-          step: 'declare-path',
+          step: 'select-company',
           activeCompanyIndex: 0,
+          handledCompanyIds: [],
           movementType: null,
           pendingEffectsToOrder: [],
           hazardsPlayedThisCompany: 0,
@@ -2087,21 +2088,110 @@ function handlePlayLongEvent(state: GameState, action: GameAction): ReducerResul
   return { state: { ...state, players: newPlayers } };
 }
 
-/** Placeholder: reveal destinations, opponent plays hazards, resolve combat. */
+/**
+ * Handle actions during the Movement/Hazard phase.
+ *
+ * The phase begins with the 'select-company' step where the resource player
+ * picks which company to handle next. After all companies are handled, the
+ * phase advances to the Site phase.
+ */
 function handleMovementHazard(state: GameState, action: GameAction): ReducerResult {
-  if (action.type !== 'pass') {
-    return { state, error: `Unexpected action '${action.type}' in movement/hazard phase` };
+  const mhState = state.phaseState as MovementHazardPhaseState;
+
+  if (mhState.step === 'select-company') {
+    return handleSelectCompany(state, action, mhState);
   }
-  // TODO: reveal destinations, hazard play, combat resolution
-  logDetail(`Movement/Hazard: active player ${action.player as string} passed → advancing to Site phase`);
+
+  // Remaining steps (declare-path, order-effects, play-hazards) — still stub
+  if (action.type !== 'pass') {
+    return { state, error: `Unexpected action '${action.type}' in movement/hazard phase (step: ${mhState.step})` };
+  }
+
+  // After pass, mark current company as handled and return to select-company
+  // (or advance to Site phase if all companies are done)
+  const playerIndex = getPlayerIndex(state, action.player);
+  const player = state.players[playerIndex];
+  const currentCompany = player.companies[mhState.activeCompanyIndex];
+  const updatedHandled = [...mhState.handledCompanyIds, currentCompany.id];
+  const remainingCount = player.companies.length - updatedHandled.length;
+
+  if (remainingCount <= 0) {
+    logDetail(`Movement/Hazard: all companies handled → advancing to Site phase`);
+    return {
+      state: {
+        ...state,
+        phaseState: {
+          phase: Phase.Site,
+          activeCompanyIndex: 0,
+          automaticAttacksResolved: 0,
+          resourcePlayed: false,
+        },
+      },
+    };
+  }
+
+  logDetail(`Movement/Hazard: company ${currentCompany.id} done → returning to select-company (${remainingCount} remaining)`);
   return {
     state: {
       ...state,
       phaseState: {
-        phase: Phase.Site,
-        activeCompanyIndex: 0,
-        automaticAttacksResolved: 0,
-        resourcePlayed: false,
+        ...mhState,
+        step: 'select-company' as const,
+        handledCompanyIds: updatedHandled,
+        movementType: null,
+        pendingEffectsToOrder: [],
+        hazardsPlayedThisCompany: 0,
+        hazardLimit: 0,
+        resolvedSitePath: [],
+        resolvedSitePathNames: [],
+        destinationSiteType: null,
+        destinationSiteName: null,
+        resourcePlayerPassed: false,
+        hazardPlayerPassed: false,
+        onGuardPlacedThisCompany: false,
+        returnedToOrigin: false,
+      },
+    },
+  };
+}
+
+/**
+ * Handle the 'select-company' action: resource player picks which company
+ * resolves its M/H sub-phase next.
+ */
+function handleSelectCompany(
+  state: GameState,
+  action: GameAction,
+  mhState: MovementHazardPhaseState,
+): ReducerResult {
+  if (action.type !== 'select-company') {
+    return { state, error: `Expected 'select-company' action during select-company step, got '${action.type}'` };
+  }
+
+  if (action.player !== state.activePlayer) {
+    return { state, error: `Only the active player may select a company` };
+  }
+
+  const playerIndex = getPlayerIndex(state, state.activePlayer);
+  const player = state.players[playerIndex];
+  const companyIndex = player.companies.findIndex(c => c.id === action.companyId);
+
+  if (companyIndex === -1) {
+    return { state, error: `Company '${action.companyId}' not found` };
+  }
+
+  if (mhState.handledCompanyIds.includes(action.companyId)) {
+    return { state, error: `Company '${action.companyId}' has already been handled this turn` };
+  }
+
+  logDetail(`Movement/Hazard: selected company ${action.companyId} (index ${companyIndex}) → advancing to declare-path`);
+  return {
+    state: {
+      ...state,
+      phaseState: {
+        ...mhState,
+        step: 'declare-path' as const,
+        activeCompanyIndex: companyIndex,
       },
     },
   };
