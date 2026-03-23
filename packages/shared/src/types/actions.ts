@@ -152,11 +152,11 @@ export interface PlayCharacterAction {
 }
 
 /**
- * Split characters from an existing company into a new company.
+ * Split a character (and their followers) from an existing company into a new company.
  *
  * Used during Organization to divide forces, allowing characters to
- * travel to different destinations. The specified characters leave the
- * source company and form a new company at the same site.
+ * travel to different destinations. The specified character and their
+ * followers leave the source company and form a new company at the same site.
  */
 export interface SplitCompanyAction {
   readonly type: 'split-company';
@@ -164,8 +164,8 @@ export interface SplitCompanyAction {
   readonly player: PlayerId;
   /** The company to split characters from. */
   readonly sourceCompanyId: CompanyId;
-  /** The character instance IDs to move into the new company. */
-  readonly characterIds: readonly CardInstanceId[];
+  /** The character instance ID to move into the new company. Followers move automatically. */
+  readonly characterId: CardInstanceId;
 }
 
 /**

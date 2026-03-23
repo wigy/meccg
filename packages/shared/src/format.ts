@@ -746,7 +746,7 @@ export function describeAction(
     case 'play-character':
       return `Play character ${instName(action.characterInstanceId)} at site ${instName(action.atSite)}`;
     case 'split-company':
-      return `Split ${action.characterIds.map(id => instName(id)).join(', ')} from ${compName(action.sourceCompanyId)}`;
+      return `Split ${instName(action.characterId)} from ${compName(action.sourceCompanyId)}`;
     case 'move-to-company':
       return `Move ${instName(action.characterInstanceId)} to ${compName(action.targetCompanyId)}`;
     case 'merge-companies':

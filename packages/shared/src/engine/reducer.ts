@@ -1378,10 +1378,14 @@ function handleSplitCompany(state: GameState, action: GameAction): ReducerResult
   if (sourceCompanyIndex < 0) return { state, error: 'Source company not found' };
   const sourceCompany = player.companies[sourceCompanyIndex];
 
-  const movingIds = new Set(action.characterIds.map(id => id as string));
+  // Expand to include followers automatically
+  const char = player.characters[action.characterId as string];
+  if (!char) return { state, error: `Character ${action.characterId as string} not found` };
+  const allMovingIds: CardInstanceId[] = [action.characterId, ...char.followers];
+  const movingIds = new Set(allMovingIds.map(id => id as string));
 
   // Validate all characters are in the source company
-  for (const id of action.characterIds) {
+  for (const id of allMovingIds) {
     if (!sourceCompany.characters.some(c => c === id)) {
       return { state, error: `Character ${id as string} is not in the source company` };
     }
@@ -1403,7 +1407,7 @@ function handleSplitCompany(state: GameState, action: GameAction): ReducerResult
 
   const newCompany: Company = {
     id: `company-${player.id as string}-${maxIdx + 1}` as CompanyId,
-    characters: action.characterIds.slice(),
+    characters: allMovingIds,
     currentSite: sourceCompany.currentSite,
     siteCardOwned: false,
     destinationSite: null,
@@ -1420,7 +1424,7 @@ function handleSplitCompany(state: GameState, action: GameAction): ReducerResult
   newPlayers[playerIndex] = { ...player, companies };
 
   // Touch the lead character (the GI character that initiated the split)
-  const leadChar = action.characterIds[0];
+  const leadChar = action.characterId;
 
   return {
     state: {

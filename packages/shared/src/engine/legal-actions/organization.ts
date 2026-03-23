@@ -565,8 +565,8 @@ function transferItemActions(state: GameState, playerId: PlayerId): EvaluatedAct
  * The character's followers automatically accompany them. The source company
  * must retain at least one GI character after the split.
  *
- * Emits one action per GI character that can legally split off. The action's
- * characterIds includes the character and all their followers.
+ * Emits one action per GI character that can legally split off. Followers
+ * move automatically with their host in the reducer.
  */
 function splitCompanyActions(state: GameState, playerId: PlayerId): EvaluatedAction[] {
   const player = state.players.find(p => p.id === playerId)!;
@@ -591,9 +591,6 @@ function splitCompanyActions(state: GameState, playerId: PlayerId): EvaluatedAct
       const charDef = resolveDef(state, char.instanceId);
       if (!isCharacterCard(charDef)) continue;
 
-      // Build the list: this GI character + their followers
-      const characterIds = [charInstId, ...char.followers];
-
       logDetail(`  → viable: split ${charDef.name} (+ ${char.followers.length} followers) from ${company.id as string}`);
       const regress = touched.has(charInstId as string);
       actions.push({
@@ -601,7 +598,7 @@ function splitCompanyActions(state: GameState, playerId: PlayerId): EvaluatedAct
           type: 'split-company',
           player: playerId,
           sourceCompanyId: company.id,
-          characterIds,
+          characterId: charInstId,
           ...(regress ? { regress: true } : {}),
         },
         viable: true,

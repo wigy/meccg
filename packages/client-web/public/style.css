@@ -1555,6 +1555,17 @@ h2 {
   margin-bottom: calc(var(--card-table-height) * var(--company-scale, 1) * -0.35);
 }
 
+/* Remove mask when card is highlighted so the glow shows through */
+.company-card--faded.company-card--influence-source,
+.company-card--faded.company-card--influence-selected,
+.company-card--faded.company-card--influence-target,
+.company-card--faded.company-card--transfer-source,
+.company-card--faded.company-card--transfer-selected,
+.company-card--faded.company-card--transfer-target {
+  -webkit-mask-image: none;
+  mask-image: none;
+}
+
 .company-card--site {
 }
 
@@ -1652,6 +1663,8 @@ h2 {
 
 /* Character attachments (items, allies, followers) */
 .character-attachments {
+  position: relative;
+  z-index: 1;
   display: flex;
   flex-direction: row;
   align-items: flex-start;

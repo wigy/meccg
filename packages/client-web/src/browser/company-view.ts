@@ -489,7 +489,7 @@ function showCharacterActionTooltip(
   options: {
     onAction?: (action: GameAction) => void;
     influenceActions?: Map<string, MoveToInfluenceAction[]>;
-    splitActions?: Map<string, SplitCompanyAction[]>;
+    splitActions?: Map<string, SplitCompanyAction>;
     moveToCompanyActions?: Map<string, MoveToCompanyAction[]>;
   },
 ): void {
@@ -525,14 +525,14 @@ function showCharacterActionTooltip(
     tooltip.appendChild(btn);
   }
 
-  if (splitActions && splitActions.length > 0) {
+  if (splitActions) {
     const btn = document.createElement('button');
     btn.className = 'char-action-tooltip__btn';
     btn.textContent = 'Split to New Company';
     btn.onclick = (e) => {
       e.stopPropagation();
       dismissTooltip();
-      onAction(splitActions[0]);
+      onAction(splitActions);
     };
     tooltip.appendChild(btn);
   }
@@ -589,7 +589,7 @@ function renderCompanyBlock(
     /** Map from item instance ID → transfer-item actions for that item. */
     transferActions?: Map<string, TransferItemAction[]>;
     /** Map from character instance ID → split-company actions for that character. */
-    splitActions?: Map<string, SplitCompanyAction[]>;
+    splitActions?: Map<string, SplitCompanyAction>;
     /** Map from character instance ID → move-to-company actions for that character. */
     moveToCompanyActions?: Map<string, MoveToCompanyAction[]>;
   },
@@ -820,30 +820,29 @@ function renderCompanyBlock(
       };
     }
 
-    const splitActions = options.splitActions?.get(charInstId as string);
+    const splitAction = options.splitActions?.get(charInstId as string);
     const moveActions = options.moveToCompanyActions?.get(charInstId as string);
-    if ((!splitActions || splitActions.length === 0) && (!moveActions || moveActions.length === 0)) return undefined;
+    if (!splitAction && (!moveActions || moveActions.length === 0)) return undefined;
 
     const allRegress = [
-      ...(splitActions ?? []),
+      ...(splitAction ? [splitAction] : []),
       ...(moveActions ?? []),
     ].every(a => 'regress' in a && a.regress);
     const cls = allRegress ? '' : 'company-card--influence-source';
 
-    // Single split action, no move actions — execute directly
-    if (splitActions?.length === 1 && (!moveActions || moveActions.length === 0)) {
-      const action = splitActions[0];
+    // Split action only, no move actions — execute directly
+    if (splitAction && (!moveActions || moveActions.length === 0)) {
       return {
         cls,
         handler: (e) => {
           e.stopPropagation();
-          onAction(action);
+          onAction(splitAction);
         },
       };
     }
 
     // Only move-to-company actions (no split) — enter targeting mode directly
-    if ((!splitActions || splitActions.length === 0) && moveActions && moveActions.length > 0) {
+    if (!splitAction && moveActions && moveActions.length > 0) {
       return {
         cls,
         handler: (e) => {
@@ -1019,17 +1018,14 @@ function getTransferItemActions(view: PlayerView): Map<string, TransferItemActio
 }
 
 /**
- * Collect all viable split-company actions, keyed by the lead character instance ID.
- * The lead character is the first in the characterIds array (the GI character).
+ * Collect all viable split-company actions, keyed by the character instance ID.
+ * Each character can have at most one split action (from one source company).
  */
-function getSplitCompanyActions(view: PlayerView): Map<string, SplitCompanyAction[]> {
-  const result = new Map<string, SplitCompanyAction[]>();
+function getSplitCompanyActions(view: PlayerView): Map<string, SplitCompanyAction> {
+  const result = new Map<string, SplitCompanyAction>();
   for (const action of viableActions(view.legalActions)) {
     if (action.type !== 'split-company') continue;
-    const key = action.characterIds[0] as string;
-    const existing = result.get(key) ?? [];
-    existing.push(action);
-    result.set(key, existing);
+    result.set(action.characterId as string, action);
   }
   return result;
 }
