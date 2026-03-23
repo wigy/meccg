@@ -4,10 +4,10 @@ TODO
 FIXES
 -----
 
+
 FEATS
 -----
 
-Validate cards during the draft even we assume that decks are legal.
 
 EPICS
 -----
@@ -33,6 +33,3 @@ The Wizards.
 UNSORTED
 --------
 
-Consider adding separate test set that is not part of standard test run. It will contain
-tests for every single card in realistic game setups and verify the bonuses referenced
-in the text.
