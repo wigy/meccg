@@ -1,5 +1,28 @@
 # Changelog
 
+## 0.5.0 — 2026-03-23
+
+Long-event phase done
+
+### Game Engine
+- **Long-event phase:** Play long-events to cardsInPlay with full phase handler
+  and UI support
+- **Global stat-modifier effects:** DSL effects with `target: "all-characters"`
+  now apply to character effective stats (e.g. Sun granting +1 prowess to Dúnadan)
+- **Placeholder phase handlers:** Added stub handlers for movement, site, and
+  end-turn phases
+- **Precise undo tracking:** Replace touched-cards heuristic with precise reverse
+  actions for cleaner state rollback
+- **Card data:** Added Sun, Eye of Sauron, and Wake of War cards; preliminary DSL
+  effects for Sun; glossary entry for DSL Effect
+
+### Web Client
+- **Corruption points badge:** Items in company view now show a CP badge overlay
+  when they have corruption points
+- **Site selection UI:** Replaced auto-opening site deck viewer with highlighted
+  pile during site selection
+- **Verbose flag:** Full state output gated behind `--verbose` flag
+
 ## 0.4.0 — 2026-03-23
 
 Organization phase basics done
