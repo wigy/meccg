@@ -291,7 +291,7 @@ function renderCharacterColumn(
     // Followers rendered as overlapping cards like items, with their own items below
     if (hasFollowers) {
       for (const followerId of char.followers) {
-        const follower = charMap![followerId as string];
+        const follower = charMap[followerId as string];
         if (!follower) continue;
         const fDef = cardPool[follower.definitionId as string];
         if (!fDef) continue;
@@ -910,7 +910,7 @@ function renderCompanyBlock(
       handler: (e) => {
         e.stopPropagation();
         showCharacterActionTooltip(e.target as HTMLElement, charInstId, cardPool, {
-          ...options!,
+          ...options,
           companyId: company.id,
         });
       },
