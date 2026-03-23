@@ -677,6 +677,54 @@ function moveToCompanyActions(state: GameState, playerId: PlayerId): EvaluatedAc
 }
 
 /**
+ * Computes merge-companies actions during the organization phase.
+ *
+ * Two companies at the same site can be merged into one. All characters
+ * from the source company move into the target company, and the source
+ * company is dissolved. This increases the combined company's hazard limit
+ * but consolidates combat strength.
+ *
+ * Emits one action per valid (sourceCompany, targetCompany) pair at the same site.
+ */
+function mergeCompaniesActions(state: GameState, playerId: PlayerId): EvaluatedAction[] {
+  const player = state.players.find(p => p.id === playerId)!;
+  const actions: EvaluatedAction[] = [];
+
+  // Build map from site instance ID → companies at that site
+  const siteToCompanies = new Map<string, typeof player.companies[number][]>();
+  for (const company of player.companies) {
+    if (!company.currentSite) continue;
+    const siteKey = company.currentSite as string;
+    const existing = siteToCompanies.get(siteKey) ?? [];
+    existing.push(company);
+    siteToCompanies.set(siteKey, existing);
+  }
+
+  for (const company of player.companies) {
+    if (!company.currentSite) continue;
+    const companiesAtSite = siteToCompanies.get(company.currentSite as string) ?? [];
+    if (companiesAtSite.length < 2) continue;
+
+    for (const targetCompany of companiesAtSite) {
+      if (targetCompany.id === company.id) continue;
+
+      logDetail(`  → viable: merge company ${company.id as string} into ${targetCompany.id as string}`);
+      actions.push({
+        action: {
+          type: 'merge-companies',
+          player: playerId,
+          sourceCompanyId: company.id,
+          targetCompanyId: targetCompany.id,
+        },
+        viable: true,
+      });
+    }
+  }
+
+  return actions;
+}
+
+/**
  * Computes all legal actions during the organization phase.
  *
  * Returns {@link EvaluatedAction} items so that non-viable play-character
@@ -752,7 +800,8 @@ export function organizationActions(state: GameState, playerId: PlayerId): Evalu
   // Move-to-company actions (move GI character + followers to an existing company at same site)
   actions.push(...moveToCompanyActions(state, playerId));
 
-  // TODO: merge-companies
+  // Merge-companies actions (join entire company into another at same site)
+  actions.push(...mergeCompaniesActions(state, playerId));
 
   actions.push({ action: { type: 'pass', player: playerId }, viable: true });
   return actions;

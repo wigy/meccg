@@ -25,6 +25,7 @@ import type {
   TransferItemAction,
   SplitCompanyAction,
   MoveToCompanyAction,
+  MergeCompaniesAction,
 } from '@meccg/shared';
 import { cardImageProxyPath, isCharacterCard, Phase, CardStatus, viableActions } from '@meccg/shared';
 import { $, createCardImage } from './render-utils.js';
@@ -68,6 +69,13 @@ let transferItemFromCharId: CardInstanceId | null = null;
  */
 let companyMoveSourceId: CardInstanceId | null = null;
 let companyMoveSourceCompanyId: CompanyId | null = null;
+
+/**
+ * Merge-companies two-step selection state.
+ * When a title character is chosen for "join company", the source company ID
+ * is stored here. Target companies at the same site are then highlighted.
+ */
+let mergeSourceCompanyId: CompanyId | null = null;
 
 /** Save the focused company name to localStorage. */
 function saveFocusedCompany(
@@ -501,6 +509,8 @@ function showCharacterActionTooltip(
     influenceActions?: Map<string, MoveToInfluenceAction[]>;
     splitActions?: Map<string, SplitCompanyAction>;
     moveToCompanyActions?: Map<string, MoveToCompanyAction[]>;
+    mergeActions?: Map<string, MergeCompaniesAction[]>;
+    companyId?: CompanyId;
   },
 ): void {
   dismissTooltip();
@@ -566,6 +576,29 @@ function showCharacterActionTooltip(
     tooltip.appendChild(btn);
   }
 
+  const mergeActionsForCompany = options.companyId
+    ? options.mergeActions?.get(options.companyId as string)
+    : undefined;
+  if (mergeActionsForCompany && mergeActionsForCompany.length > 0) {
+    const btn = document.createElement('button');
+    btn.className = 'char-action-tooltip__btn';
+    btn.textContent = 'Join Company';
+    btn.onclick = (e) => {
+      e.stopPropagation();
+      dismissTooltip();
+      if (mergeActionsForCompany.length === 1) {
+        // Only one target — execute directly
+        onAction(mergeActionsForCompany[0]);
+      } else {
+        // Multiple targets — enter targeting mode
+        mergeSourceCompanyId = options.companyId!;
+        setTargetingInstruction('Click a company to join into');
+        renderCompanyViews(lastView!, lastCardPool!, lastOnAction!);
+      }
+    };
+    tooltip.appendChild(btn);
+  }
+
   // Create a modal backdrop that blocks interaction and dismisses on click
   const backdrop = document.createElement('div');
   backdrop.className = 'char-action-backdrop';
@@ -602,6 +635,8 @@ function renderCompanyBlock(
     splitActions?: Map<string, SplitCompanyAction>;
     /** Map from character instance ID → move-to-company actions for that character. */
     moveToCompanyActions?: Map<string, MoveToCompanyAction[]>;
+    /** Map from source company ID → merge-companies actions for that company. */
+    mergeActions?: Map<string, MergeCompaniesAction[]>;
   },
 ): HTMLElement {
   const block = document.createElement('div');
@@ -873,6 +908,14 @@ function renderCompanyBlock(
     return { cls, handler: () => { /* handled by tooltip */ } };
   };
 
+  /** Check if a character is the title character of this company. */
+  const isTitleChar = (charInstId: CardInstanceId): boolean =>
+    titleChar !== undefined && titleChar.instanceId === charInstId;
+
+  /** Check if merge actions are available for this company (only on title character). */
+  const hasMergeActions = (charInstId: CardInstanceId): boolean =>
+    isTitleChar(charInstId) && (options?.mergeActions?.get(company.id as string)?.length ?? 0) > 0;
+
   /** Combine influence, transfer-target, and company-move click handlers for a character. */
   const buildCombinedClick = (charInstId: CardInstanceId): { cls: string; handler: (e: Event) => void } | undefined => {
     // Transfer targeting takes priority when active
@@ -885,25 +928,57 @@ function renderCompanyBlock(
       return undefined;
     }
 
+    // Merge targeting: no character actions, just waiting for company click
+    if (mergeSourceCompanyId) return undefined;
+
     // Influence targeting takes priority when active
     if (influenceMoveSourceId) return buildInfluenceClick(charInstId);
 
     const influenceResult = buildInfluenceClick(charInstId);
     const companyResult = buildCompanyMoveClick(charInstId);
+    const hasMerge = hasMergeActions(charInstId);
 
-    // Only one type of action — use it directly
+    // Count how many action types are available
+    const actionTypes = [influenceResult, companyResult, hasMerge].filter(Boolean).length;
+
+    if (actionTypes === 0) return undefined;
+
+    // Multiple types — always show tooltip for disambiguation
+    if (actionTypes > 1) {
+      const cls = influenceResult?.cls || companyResult?.cls || (hasMerge ? 'company-card--influence-source' : '');
+      return {
+        cls,
+        handler: (e) => {
+          e.stopPropagation();
+          showCharacterActionTooltip(e.target as HTMLElement, charInstId, cardPool, {
+            ...options!,
+            companyId: company.id,
+          });
+        },
+      };
+    }
+
+    // Single type: merge only — enter merge flow directly
+    if (hasMerge && !influenceResult && !companyResult) {
+      const mergeActionsForCompany = options!.mergeActions!.get(company.id as string)!;
+      return {
+        cls: 'company-card--influence-source',
+        handler: (e) => {
+          e.stopPropagation();
+          if (mergeActionsForCompany.length === 1) {
+            options!.onAction!(mergeActionsForCompany[0]);
+          } else {
+            mergeSourceCompanyId = company.id;
+            setTargetingInstruction('Click a company to join into');
+            renderCompanyViews(lastView!, lastCardPool!, lastOnAction!);
+          }
+        },
+      };
+    }
+
+    // Single type: influence or company-move only
     if (!companyResult) return influenceResult;
-    if (!influenceResult) return companyResult;
-
-    // Both available — show disambiguation tooltip on click
-    const cls = influenceResult.cls || companyResult.cls;
-    return {
-      cls,
-      handler: (e) => {
-        e.stopPropagation();
-        showCharacterActionTooltip(e.target as HTMLElement, charInstId, cardPool, options!);
-      },
-    };
+    return companyResult;
   };
 
   if (titleChar) {
@@ -1055,6 +1130,22 @@ function getMoveToCompanyActions(view: PlayerView): Map<string, MoveToCompanyAct
   return result;
 }
 
+/**
+ * Collect all viable merge-companies actions, keyed by the source company ID.
+ * Each source company can merge into one or more target companies at the same site.
+ */
+function getMergeCompaniesActions(view: PlayerView): Map<string, MergeCompaniesAction[]> {
+  const result = new Map<string, MergeCompaniesAction[]>();
+  for (const action of viableActions(view.legalActions)) {
+    if (action.type !== 'merge-companies') continue;
+    const key = action.sourceCompanyId as string;
+    const existing = result.get(key) ?? [];
+    existing.push(action);
+    result.set(key, existing);
+  }
+  return result;
+}
+
 /** Collect company IDs that have at least one viable plan-movement action. */
 function getMovableCompanyIds(view: PlayerView): Set<string> {
   const ids = new Set<string>();
@@ -1169,9 +1260,10 @@ function renderAllCompaniesView(
   // Transfer-item actions (for highlighting transferable items)
   const transferActions = getTransferItemActions(view);
 
-  // Split-company and move-to-company actions
+  // Split-company, move-to-company, and merge-companies actions
   const splitActions = getSplitCompanyActions(view);
   const moveToCompanyActs = getMoveToCompanyActions(view);
+  const mergeActions = getMergeCompaniesActions(view);
 
   // Collect site instance IDs that already have companies
   const companySiteIds = new Set<string>();
@@ -1182,9 +1274,36 @@ function renderAllCompaniesView(
   // Self companies
   for (const company of view.self.companies) {
     const hasLegalMovement = movableIds.has(company.id as string);
-    const block = renderCompanyBlock(company, view.self.characters, view, cardPool, 'self', { hasLegalMovement, onAction: lastOnAction!, influenceActions, transferActions, splitActions, moveToCompanyActions: moveToCompanyActs });
+    const block = renderCompanyBlock(company, view.self.characters, view, cardPool, 'self', { hasLegalMovement, onAction: lastOnAction!, influenceActions, transferActions, splitActions, moveToCompanyActions: moveToCompanyActs, mergeActions });
 
-    if (companyMoveSourceId && companyMoveSourceCompanyId) {
+    if (mergeSourceCompanyId) {
+      // Merge targeting mode: highlight valid target companies
+      const mergeAction = viableActions(view.legalActions).find(
+        a => a.type === 'merge-companies'
+          && a.sourceCompanyId === mergeSourceCompanyId
+          && a.targetCompanyId === company.id,
+      ) as MergeCompaniesAction | undefined;
+      if (mergeAction) {
+        block.classList.add('company-block--target');
+        block.onclick = (e) => {
+          e.stopPropagation();
+          mergeSourceCompanyId = null;
+          setTargetingInstruction(null);
+          lastOnAction!(mergeAction);
+        };
+      } else if (company.id === mergeSourceCompanyId) {
+        // Source company — clicking cancels merge targeting
+        block.classList.add('company-block--clickable');
+        block.onclick = (e) => {
+          e.stopPropagation();
+          mergeSourceCompanyId = null;
+          setTargetingInstruction(null);
+          renderCompanyViews(lastView!, lastCardPool!, lastOnAction!);
+        };
+      } else {
+        block.classList.add('company-block--clickable');
+      }
+    } else if (companyMoveSourceId && companyMoveSourceCompanyId) {
       // Company-move targeting mode: highlight valid target companies
       const moveAction = viableActions(view.legalActions).find(
         a => a.type === 'move-to-company'
@@ -1304,6 +1423,7 @@ export function resetCompanyViews(): void {
   transferItemFromCharId = null;
   companyMoveSourceId = null;
   companyMoveSourceCompanyId = null;
+  mergeSourceCompanyId = null;
   dismissTooltip();
   setTargetingInstruction(null);
 }
@@ -1400,6 +1520,17 @@ export function renderCompanyViews(
     if (!stillValid) {
       companyMoveSourceId = null;
       companyMoveSourceCompanyId = null;
+      setTargetingInstruction(null);
+    }
+  }
+
+  // Clear merge selection if the source company no longer has valid merge actions
+  if (mergeSourceCompanyId) {
+    const stillValid = viableActions(view.legalActions).some(
+      a => a.type === 'merge-companies' && a.sourceCompanyId === mergeSourceCompanyId,
+    );
+    if (!stillValid) {
+      mergeSourceCompanyId = null;
       setTargetingInstruction(null);
     }
   }

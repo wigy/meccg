@@ -1061,7 +1061,9 @@ function handleOrganization(state: GameState, action: GameAction): ReducerResult
   if (action.type === 'move-to-company') {
     return handleMoveToCompany(state, action);
   }
-  // TODO: merge-companies
+  if (action.type === 'merge-companies') {
+    return handleMergeCompanies(state, action);
+  }
   return { state, error: `Unhandled organization action: ${action.type}` };
 }
 
@@ -1500,6 +1502,64 @@ function handleMoveToCompany(state: GameState, action: GameAction): ReducerResul
       ...state,
       players: newPlayers,
       touchedCards: [...state.touchedCards, charInstId],
+    },
+  };
+}
+
+/**
+ * Handle merge-companies during organization.
+ *
+ * Moves all characters from the source company into the target company,
+ * then removes the source company. Both companies must be at the same site.
+ * If the source company owned the site card, ownership transfers to the target.
+ */
+function handleMergeCompanies(state: GameState, action: GameAction): ReducerResult {
+  if (action.type !== 'merge-companies') return { state, error: 'Expected merge-companies action' };
+
+  const playerIndex = getPlayerIndex(state, action.player);
+  const player = state.players[playerIndex];
+
+  const sourceCompany = player.companies.find(c => c.id === action.sourceCompanyId);
+  if (!sourceCompany) return { state, error: 'Source company not found' };
+
+  const targetCompany = player.companies.find(c => c.id === action.targetCompanyId);
+  if (!targetCompany) return { state, error: 'Target company not found' };
+
+  // Validate same site
+  if (sourceCompany.currentSite !== targetCompany.currentSite) {
+    return { state, error: 'Companies must be at the same site' };
+  }
+
+  logDetail(`Merge companies: ${sourceCompany.id as string} into ${targetCompany.id as string} (${sourceCompany.characters.length} characters moving)`);
+
+  // Transfer site card ownership if source owned it
+  const siteCardOwned = targetCompany.siteCardOwned || sourceCompany.siteCardOwned;
+
+  // Build updated companies: merge characters into target, remove source
+  const companies = player.companies
+    .filter(c => c.id !== action.sourceCompanyId)
+    .map(c => {
+      if (c.id === action.targetCompanyId) {
+        return {
+          ...c,
+          characters: [...c.characters, ...sourceCompany.characters],
+          siteCardOwned,
+        };
+      }
+      return c;
+    });
+
+  const newPlayers = clonePlayers(state);
+  newPlayers[playerIndex] = { ...player, companies };
+
+  // Touch all characters from the source company so the action is regressive
+  const touchedCards = [...state.touchedCards, ...sourceCompany.characters];
+
+  return {
+    state: {
+      ...state,
+      players: newPlayers,
+      touchedCards,
     },
   };
 }
