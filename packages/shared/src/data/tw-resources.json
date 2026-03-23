@@ -72,5 +72,36 @@
     "race": "dunadan",
     "playableAt": "Dol Amroth",
     "text": "Unique. Playable at Dol Amroth if the influence check is greater than 8. Standard Modifications: Dúnedain (+1)."
+  },
+  {
+    "cardType": "hero-resource-event",
+    "alignment": "wizard",
+    "id": "tw-243",
+    "name": "Gates of Morning",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/GatesofMorning.jpg",
+    "unique": false,
+    "eventType": "permanent",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [
+      {
+        "type": "duplication-limit",
+        "scope": "game",
+        "max": 1
+      }
+    ],
+    "text": "Environment. When Gates of Morning is played, all environment hazard cards in play are immediately discarded, and all hazard environment effects are canceled. Cannot be duplicated."
+  },
+  {
+    "cardType": "hero-resource-event",
+    "alignment": "wizard",
+    "id": "unknown-card",
+    "name": "a card",
+    "image": "/images/card-back.jpg",
+    "unique": false,
+    "eventType": "short",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "text": ""
   }
 ]

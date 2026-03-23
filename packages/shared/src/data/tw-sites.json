@@ -329,5 +329,18 @@
     "playableResources": [],
     "automaticAttacks": [],
     "text": ""
+  },
+  {
+    "cardType": "hero-site",
+    "alignment": "wizard",
+    "id": "unknown-site",
+    "name": "a site",
+    "image": "/images/site-back.jpg",
+    "siteType": "haven",
+    "sitePath": [],
+    "nearestHaven": "",
+    "playableResources": [],
+    "automaticAttacks": [],
+    "text": ""
   }
 ]
