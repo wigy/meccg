@@ -12,7 +12,7 @@
  * plus a set of universal actions available across multiple phases.
  */
 
-import { PlayerId, CardInstanceId, CardDefinitionId, CompanyId } from './common.js';
+import { PlayerId, CardInstanceId, CardDefinitionId, CompanyId, MovementType } from './common.js';
 
 // ---- Character draft phase ----
 
@@ -331,6 +331,48 @@ export interface PlayLongEventAction {
 // ---- Movement/Hazard phase ----
 
 /**
+ * Declare the movement type and site path for the current company.
+ *
+ * At step 2 of the Movement/Hazard phase, the resource player declares how
+ * the company is moving. For starter movement, the path is derived from the
+ * site card. For region movement, the player must specify the exact sequence
+ * of regions traversed. Under-deeps and special movement have their own rules.
+ */
+export interface DeclarePathAction {
+  readonly type: 'declare-path';
+  /** The resource player declaring the path. */
+  readonly player: PlayerId;
+  /** The type of movement being used. */
+  readonly movementType: MovementType;
+  /**
+   * For region movement: the ordered sequence of region card instance IDs
+   * forming the travel path. Must be a valid connected path from the origin
+   * site's region to the destination site's region, not exceeding the maximum
+   * region count. Ignored for other movement types.
+   */
+  readonly regionPath?: readonly CardInstanceId[];
+}
+
+/**
+ * Submit the order in which ongoing effects should be applied at the start
+ * of a company's Movement/Hazard phase (CoE step 4).
+ *
+ * The hazard player chooses the order for general ongoing effects.
+ * Hazard-limit modifications are ordered separately by the resource player.
+ * The submitted order must be a permutation of the pending effect IDs.
+ */
+export interface OrderEffectsAction {
+  readonly type: 'order-effects';
+  /** The hazard player submitting the effect order. */
+  readonly player: PlayerId;
+  /**
+   * The card instance IDs of the ongoing effects, in the desired
+   * resolution order (first element resolves first).
+   */
+  readonly effectOrder: readonly CardInstanceId[];
+}
+
+/**
  * Play a hazard card against the opponent's moving company.
  *
  * The non-active player plays hazards during the opponent's Movement/Hazard
@@ -606,6 +648,8 @@ export type GameAction =
   | CancelMovementAction
   | PlayPermanentEventAction
   | PlayLongEventAction
+  | DeclarePathAction
+  | OrderEffectsAction
   | PlayHazardAction
   | AssignStrikeAction
   | ResolveStrikeAction

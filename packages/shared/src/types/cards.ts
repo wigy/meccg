@@ -419,6 +419,16 @@ export interface HeroSiteCard {
   readonly playableResources: readonly PlayableResourceType[];
   /** Built-in attacks that companies face upon entering the site, before any resources can be played. */
   readonly automaticAttacks: readonly AutomaticAttack[];
+  /**
+   * Number of cards the resource player may draw when a company moves to this site.
+   * Corresponds to the lighter box in the bottom-left of the physical card.
+   */
+  readonly resourceDraws: number;
+  /**
+   * Number of cards the hazard player may draw when a company moves to this site.
+   * Corresponds to the darker box in the bottom-left of the physical card.
+   */
+  readonly hazardDraws: number;
   /** Flavor/rules text with additional site-specific conditions. */
   readonly text: string;
 }
@@ -654,6 +664,16 @@ export interface MinionSiteCard {
   readonly playableResources: readonly PlayableResourceType[];
   /** Built-in attacks that companies face upon entering the site. */
   readonly automaticAttacks: readonly AutomaticAttack[];
+  /**
+   * Number of cards the resource player may draw when a company moves to this site.
+   * Corresponds to the lighter box in the bottom-left of the physical card.
+   */
+  readonly resourceDraws: number;
+  /**
+   * Number of cards the hazard player may draw when a company moves to this site.
+   * Corresponds to the darker box in the bottom-left of the physical card.
+   */
+  readonly hazardDraws: number;
   /** Flavor/rules text with additional site-specific conditions. */
   readonly text: string;
 }
@@ -695,6 +715,16 @@ export interface FallenWizardSiteCard {
   readonly playableResources: readonly PlayableResourceType[];
   /** Built-in attacks that companies face upon entering the site. */
   readonly automaticAttacks: readonly AutomaticAttack[];
+  /**
+   * Number of cards the resource player may draw when a company moves to this site.
+   * Corresponds to the lighter box in the bottom-left of the physical card.
+   */
+  readonly resourceDraws: number;
+  /**
+   * Number of cards the hazard player may draw when a company moves to this site.
+   * Corresponds to the darker box in the bottom-left of the physical card.
+   */
+  readonly hazardDraws: number;
   /** Flavor/rules text with additional site-specific conditions. */
   readonly text: string;
 }
@@ -734,6 +764,16 @@ export interface BalrogSiteCard {
   readonly playableResources: readonly PlayableResourceType[];
   /** Built-in attacks that companies face upon entering the site. */
   readonly automaticAttacks: readonly AutomaticAttack[];
+  /**
+   * Number of cards the resource player may draw when a company moves to this site.
+   * Corresponds to the lighter box in the bottom-left of the physical card.
+   */
+  readonly resourceDraws: number;
+  /**
+   * Number of cards the hazard player may draw when a company moves to this site.
+   * Corresponds to the darker box in the bottom-left of the physical card.
+   */
+  readonly hazardDraws: number;
   /** Whether this is an Under-deeps site (underground network below Middle-earth). */
   readonly underDeeps: boolean;
   /** Flavor/rules text with additional site-specific conditions. */

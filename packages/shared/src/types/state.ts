@@ -27,6 +27,9 @@ import {
   WizardName,
   Alignment,
   TwoDiceSix,
+  RegionType,
+  SiteType,
+  MovementType,
 } from './common.js';
 import { CardDefinition } from './cards.js';
 import type { GameAction } from './actions.js';
@@ -171,6 +174,22 @@ export interface Company {
   readonly movementPath: readonly CardInstanceId[];
   /** Whether this company has already completed movement this turn. */
   readonly moved: boolean;
+  /**
+   * The site of origin for this company during the current M/H phase.
+   * Set when the company begins its M/H sub-phase (step 2).
+   * Used for site disposal at step 8 and for determining which site's
+   * draw boxes to use when moving to a haven. Null before M/H phase.
+   */
+  readonly siteOfOrigin: CardInstanceId | null;
+  /**
+   * On-guard cards placed face-down at this company's site by the hazard
+   * player during M/H phases. Each company's own M/H phase allows at most
+   * one on-guard placement, but if multiple companies move to the same site
+   * and are later joined, on-guard cards accumulate. Persists into the Site
+   * phase where cards may be revealed under specific conditions. The cards'
+   * identities are hidden from the resource player.
+   */
+  readonly onGuardCards: readonly CardInstanceId[];
 }
 
 // ---- Events in play (long/permanent) ----
@@ -295,6 +314,13 @@ export interface PlayerState {
   readonly freeCouncilCalled: boolean;
   /** The result of this player's most recent dice roll, or null before the first roll. */
   readonly lastDiceRoll: TwoDiceSix | null;
+  /**
+   * Whether this player accessed the sideboard during the current turn's
+   * untap phase. Used to halve the hazard limit when this player is the
+   * hazard player during the opponent's M/H phase. Reset at the start of
+   * each untap phase.
+   */
+  readonly sideboardAccessedDuringUntap: boolean;
 }
 
 // ---- Phases ----
@@ -516,17 +542,117 @@ export interface LongEventPhaseState {
  * play hazard cards (up to the hazard limit, which equals the company size).
  * Creature hazards trigger the combat sub-state machine.
  */
+/**
+ * Steps within a single company's Movement/Hazard sub-phase.
+ *
+ * When a company has planned movement, the resource player must first
+ * declare the movement type and site path (step 2 of the CoE rules).
+ * After that, the engine auto-processes steps 3–6 and enters the
+ * interactive play-hazards step. Non-moving companies skip straight
+ * to play-hazards.
+ */
+export type MHStep =
+  /**
+   * The resource player must declare movement type (starter, region,
+   * under-deeps, special) and, for region movement, the specific
+   * sequence of regions traversed. The new site has been revealed
+   * (step 1) but the site path is not yet determined.
+   */
+  | 'declare-path'
+  /**
+   * The hazard player must choose the order in which to apply ongoing
+   * effects that trigger at the start of this company's M/H phase
+   * (CoE step 4). Skipped automatically when there are zero or one
+   * applicable effects.
+   */
+  | 'order-effects'
+  /**
+   * Steps 3, 5–6 have been auto-processed (hazard limit set, cards drawn,
+   * passive conditions resolved). Both players may now take actions:
+   * the hazard player plays creatures/events/on-guard cards, and the
+   * resource player may respond. Ends when both players pass.
+   */
+  | 'play-hazards';
+
 export interface MovementHazardPhaseState {
   /** Phase discriminant. */
   readonly phase: Phase.MovementHazard;
+  /**
+   * Which sub-step of the company's M/H phase is active.
+   * - `'declare-path'`: resource player must declare movement type and path.
+   * - `'order-effects'`: hazard player orders ongoing effects (step 4).
+   * - `'play-hazards'`: main interactive step where hazards are played.
+   */
+  readonly step: MHStep;
   /** Index of the company currently resolving movement (companies move sequentially). */
   readonly activeCompanyIndex: number;
+  /**
+   * The movement type declared by the resource player at step 2, or null
+   * if not yet declared or the company is not moving.
+   */
+  readonly movementType: MovementType | null;
+  /**
+   * Card instance IDs of ongoing effects that the hazard player must order
+   * during the 'order-effects' step (CoE step 4). Empty outside that step.
+   * The hazard player submits a permutation of these IDs to set the resolution order.
+   * Hazard-limit modifications are excluded — they are ordered by the resource player.
+   */
+  readonly pendingEffectsToOrder: readonly CardInstanceId[];
   /** Number of hazard cards the opponent has played against the current company this movement. */
   readonly hazardsPlayedThisCompany: number;
-  /** Maximum hazards allowed against this company (equal to the number of characters in the company). */
+  /**
+   * Maximum hazards allowed against this company.
+   * Computed as max(company_size, 2), halved (rounded up) if the hazard player
+   * accessed the sideboard during the current turn's untap phase.
+   * Fixed for the entire company's M/H phase even if characters are eliminated.
+   */
   readonly hazardLimit: number;
-  /** Active combat sub-state, or null when no combat is in progress. */
-  readonly combat: CombatState | null;
+  /**
+   * Resolved site path: the sequence of region types the company traverses.
+   * Empty if the company is not moving.
+   * Computed at step 2 from the site card (starter movement) or the declared
+   * region path (region movement). Used to validate creature keying.
+   */
+  readonly resolvedSitePath: readonly RegionType[];
+  /**
+   * Region names in the site path, for creature keying by name.
+   * For region movement, contains the names of all regions traversed.
+   * For starter movement, contains the origin and destination region names.
+   * Empty if not moving.
+   */
+  readonly resolvedSitePathNames: readonly string[];
+  /**
+   * Site type of the destination (or current site if not moving).
+   * Used to validate creature keying to site type.
+   */
+  readonly destinationSiteType: SiteType | null;
+  /**
+   * Name of the destination site (or current site if not moving).
+   * Used to validate creature keying to site name.
+   */
+  readonly destinationSiteName: string | null;
+  /**
+   * Whether the resource player has declared done with actions.
+   * Resets to false if the resource player takes a new action after passing.
+   */
+  readonly resourcePlayerPassed: boolean;
+  /**
+   * Whether the hazard player has declared done with actions.
+   * The hazard player may resume taking actions if the resource player
+   * acts after the hazard player passed.
+   */
+  readonly hazardPlayerPassed: boolean;
+  /**
+   * Whether an on-guard card has been placed during this company's M/H phase.
+   * Only one on-guard placement is allowed per company per M/H phase.
+   */
+  readonly onGuardPlacedThisCompany: boolean;
+  /**
+   * Whether the company was returned to its site of origin during this
+   * M/H phase. If true, the phase ends immediately and the company cannot
+   * take actions during its site phase.
+   */
+  readonly returnedToOrigin: boolean;
 }
 
 /**
@@ -545,8 +671,6 @@ export interface SitePhaseState {
   readonly automaticAttacksResolved: number;
   /** Whether a resource has already been played by the current company this phase. */
   readonly resourcePlayed: boolean;
-  /** Active combat sub-state (from automatic attacks), or null when no combat is in progress. */
-  readonly combat: CombatState | null;
 }
 
 /**
@@ -608,10 +732,14 @@ export type PhaseState =
  * Combat can be triggered by:
  * - A creature hazard card played by the opponent during Movement/Hazard phase.
  * - An automatic attack built into a site card during the Site phase.
+ * - An agent hazard attacking at its site during the Site phase.
+ * - A company-vs-company attack (CvCC).
  */
 export type AttackSource =
   | { readonly type: 'creature'; readonly instanceId: CardInstanceId }
-  | { readonly type: 'automatic-attack'; readonly siteInstanceId: CardInstanceId; readonly attackIndex: number };
+  | { readonly type: 'automatic-attack'; readonly siteInstanceId: CardInstanceId; readonly attackIndex: number }
+  | { readonly type: 'agent'; readonly instanceId: CardInstanceId }
+  | { readonly type: 'company-attack'; readonly attackingCompanyId: CompanyId };
 
 /**
  * Tracks the assignment and resolution of a single strike against a character.
@@ -634,8 +762,14 @@ export interface StrikeAssignment {
 }
 
 /**
- * The combat sub-state machine, nested within MovementHazardPhaseState
- * or SitePhaseState when a creature attack or automatic attack is being resolved.
+ * The combat sub-state machine, stored as a top-level field on GameState.
+ *
+ * Combat is a self-contained sub-system that can be triggered from multiple
+ * game phases (creature hazards during Movement/Hazard, automatic attacks
+ * during Site phase, on-guard creatures, agent attacks, etc.). When combat
+ * is active, it takes priority over the enclosing phase — combat actions
+ * (assign-strike, resolve-strike, support-strike) must be resolved before
+ * the phase can continue.
  *
  * Combat proceeds through three sub-phases:
  * 1. `'assign-strikes'` -- The defending player assigns each strike to a character.
@@ -645,6 +779,8 @@ export interface StrikeAssignment {
 export interface CombatState {
   /** What initiated this combat (creature card or automatic site attack). */
   readonly attackSource: AttackSource;
+  /** The company being attacked. */
+  readonly companyId: CompanyId;
   /** Total number of strikes the creature/attack delivers. */
   readonly strikesTotal: number;
   /** The prowess value of each strike (from the creature's stats or automatic attack). */
@@ -655,6 +791,12 @@ export interface CombatState {
   readonly currentStrikeIndex: number;
   /** Which sub-phase of combat resolution is active. */
   readonly phase: 'assign-strikes' | 'resolve-strike' | 'body-check';
+  /**
+   * Whether this is a detainment attack. Detainment attacks tap characters
+   * instead of wounding/eliminating them. Any attack can be detainment —
+   * it is an attribute of the attack, not a separate attack type.
+   */
+  readonly detainment: boolean;
 }
 
 // ---- Pending effects ----
@@ -709,6 +851,14 @@ export interface GameState {
   readonly activePlayer: PlayerId | null;
   /** The current phase and its phase-specific bookkeeping state. */
   readonly phaseState: PhaseState;
+  /**
+   * Active combat sub-state, or null when no combat is in progress.
+   * Combat is phase-independent: it can be triggered during Movement/Hazard
+   * (creature hazards) or Site phase (automatic attacks, on-guard creatures,
+   * agent attacks). When non-null, combat actions take priority over the
+   * enclosing phase's normal actions.
+   */
+  readonly combat: CombatState | null;
   /** Long-duration and permanent event cards currently in play on the table. */
   readonly eventsInPlay: readonly EventInPlay[];
   /** The static card definition pool, keyed by CardDefinitionId. Loaded once at game start. */

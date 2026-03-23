@@ -94,6 +94,8 @@ export const LEGAL_ACTIONS_BY_PHASE: Readonly<Record<Phase, readonly GameAction[
   [Phase.LongEvent]: ['play-long-event', 'pass'],
 
   [Phase.MovementHazard]: [
+    'declare-path',
+    'order-effects',
     'play-hazard',
     'assign-strike',
     'resolve-strike',

@@ -85,6 +85,23 @@ export enum SiteType {
 }
 
 /**
+ * Movement types available when a company travels between sites.
+ *
+ * The resource player declares the movement type at step 2 of the
+ * Movement/Hazard phase, which determines how the site path is computed.
+ */
+export enum MovementType {
+  /** Path follows the route printed on the site or haven card. */
+  Starter = 'starter',
+  /** Path is a player-declared sequence of up to 4 consecutive regions. */
+  Region = 'region',
+  /** Movement through the Under-deeps network (no surface site path). */
+  UnderDeeps = 'under-deeps',
+  /** Movement via a special card effect; path depends on the effect. */
+  Special = 'special',
+}
+
+/**
  * The six categories of marshalling points (victory points).
  * At the Free Council (endgame), the doubling and diversity rules
  * apply across these categories.

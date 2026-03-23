@@ -723,6 +723,8 @@ function finalizeSiteSelection(
         destinationSite: null,
         movementPath: [],
         moved: false,
+        siteOfOrigin: null,
+        onGuardCards: [],
       });
     }
 
@@ -1223,6 +1225,8 @@ function handlePlayCharacter(state: GameState, action: GameAction): ReducerResul
       destinationSite: null,
       movementPath: [],
       moved: false,
+      siteOfOrigin: null,
+      onGuardCards: [],
     };
     companies.push(newCompany);
   }
@@ -1641,6 +1645,8 @@ function handleSplitCompany(state: GameState, action: GameAction): ReducerResult
     destinationSite: null,
     movementPath: [],
     moved: false,
+    siteOfOrigin: null,
+    onGuardCards: [],
   };
 
   const companies = player.companies.map((c, i) =>
@@ -1996,10 +2002,20 @@ function handleLongEvent(state: GameState, action: GameAction): ReducerResult {
         players: newPlayers,
         phaseState: {
           phase: Phase.MovementHazard,
+          step: 'declare-path',
           activeCompanyIndex: 0,
+          movementType: null,
+          pendingEffectsToOrder: [],
           hazardsPlayedThisCompany: 0,
           hazardLimit: 0,
-          combat: null,
+          resolvedSitePath: [],
+          resolvedSitePathNames: [],
+          destinationSiteType: null,
+          destinationSiteName: null,
+          resourcePlayerPassed: false,
+          hazardPlayerPassed: false,
+          onGuardPlacedThisCompany: false,
+          returnedToOrigin: false,
         },
       },
     };
@@ -2086,7 +2102,6 @@ function handleMovementHazard(state: GameState, action: GameAction): ReducerResu
         activeCompanyIndex: 0,
         automaticAttacksResolved: 0,
         resourcePlayed: false,
-        combat: null,
       },
     },
   };

@@ -413,6 +413,7 @@ interface RenderPlayerInput {
 interface RenderInput {
   readonly turnNumber: number;
   readonly phaseState: PhaseState;
+  readonly combat: CombatState | null;
   readonly players: readonly [RenderPlayerInput, RenderPlayerInput];
   readonly defOf: CardLookup;
   readonly instOf: InstanceLookup;
@@ -536,9 +537,8 @@ function renderState(input: RenderInput): string {
   }
 
   // Combat
-  const ps = input.phaseState;
-  if ('combat' in ps && ps.combat) {
-    lines.push(...formatCombat(ps.combat, defOf, instOf, '  '));
+  if (input.combat) {
+    lines.push(...formatCombat(input.combat, defOf, instOf, '  '));
   }
 
   return lines.join('\n');
@@ -559,6 +559,7 @@ export function formatGameState(state: GameState): string {
   return stripCardMarkers(renderState({
     turnNumber: state.turnNumber,
     phaseState: state.phaseState,
+    combat: state.combat,
     players: state.players.map(p => ({
       name: p.name,
       alignment: p.alignment,
@@ -626,6 +627,7 @@ export function formatPlayerView(
   return renderState({
     turnNumber: view.turnNumber,
     phaseState: view.phaseState,
+    combat: view.combat,
     players: [
       {
         name: view.self.name,
@@ -805,6 +807,10 @@ export function describeAction(
       return `Fetch ${instName(action.cardInstanceId)} from sideboard`;
     case 'not-playable':
       return `${instName(action.cardInstanceId)} cannot be played`;
+    case 'declare-path':
+      return `Declare ${action.movementType} movement`;
+    case 'order-effects':
+      return `Order ${action.effectOrder.length} ongoing effect(s)`;
     default: {
       const _exhaustive: never = action;
       return `Unknown action`;

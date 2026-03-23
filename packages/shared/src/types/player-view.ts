@@ -28,6 +28,7 @@ import {
 } from './common.js';
 import type {
   PhaseState,
+  CombatState,
   EventInPlay,
   Company,
   CharacterInPlay,
@@ -96,6 +97,8 @@ export interface OpponentCompanyView {
   readonly hasPlannedMovement: boolean;
   /** Whether this company has already moved this turn. */
   readonly moved: boolean;
+  /** Whether an on-guard card has been placed at this company's site (identity hidden). */
+  readonly hasOnGuardCard: boolean;
 }
 
 // ---- Opponent view (hidden info redacted) ----
@@ -217,6 +220,11 @@ export interface PlayerView {
   readonly activePlayer: PlayerId | null;
   /** The current phase and its associated bookkeeping state. */
   readonly phaseState: PhaseState;
+  /**
+   * Active combat sub-state, or null when no combat is in progress.
+   * Combat is public information — both players see the full combat state.
+   */
+  readonly combat: CombatState | null;
   /** Long-duration and permanent events currently in play on the table. */
   readonly eventsInPlay: readonly EventInPlay[];
   /** Current turn number (1-based). */

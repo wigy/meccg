@@ -153,6 +153,7 @@ export function createGame(
         setAside: [],
       },
     },
+    combat: null,
     eventsInPlay: [],
     cardPool,
     instanceMap: minter.instanceMap,
@@ -221,6 +222,7 @@ function initPlayerPreDraft(
     deckExhaustionCount: 0,
     freeCouncilCalled: false,
     lastDiceRoll: null,
+    sideboardAccessedDuringUntap: false,
   };
 
   return [playerState, rng];
@@ -293,6 +295,8 @@ export function applyDraftResults(
       destinationSite: null,
       movementPath: [],
       moved: false,
+      siteOfOrigin: null,
+      onGuardCards: [],
     };
 
     // GI and MP are left at zero — recomputeDerived() runs after the reducer
@@ -443,6 +447,7 @@ export function createGameQuickStart(
     players,
     activePlayer: config.players[0].id,
     phaseState: { phase: Phase.Untap },
+    combat: null,
     eventsInPlay: [],
     cardPool,
     instanceMap: minter.instanceMap,
@@ -508,6 +513,8 @@ function initPlayerWithCharacters(
     destinationSite: null,
     movementPath: [],
     moved: false,
+    siteOfOrigin: null,
+    onGuardCards: [],
   };
 
   const playDeckDefIds = config.playDeck.map(defId => mint(minter, defId));
@@ -539,6 +546,7 @@ function initPlayerWithCharacters(
     deckExhaustionCount: 0,
     freeCouncilCalled: false,
     lastDiceRoll: null,
+    sideboardAccessedDuringUntap: false,
   };
 
   return [playerState, rng];

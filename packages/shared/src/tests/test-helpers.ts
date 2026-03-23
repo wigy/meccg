@@ -370,6 +370,8 @@ export function buildTestState(opts: BuildTestStateOpts): GameState {
         destinationSite: null,
         movementPath: [],
         moved: false,
+        siteOfOrigin: null,
+        onGuardCards: [],
       });
     }
 
@@ -396,6 +398,7 @@ export function buildTestState(opts: BuildTestStateOpts): GameState {
       deckExhaustionCount: 0,
       freeCouncilCalled: false,
       lastDiceRoll: null,
+      sideboardAccessedDuringUntap: false,
     };
   });
 
@@ -441,6 +444,7 @@ export function buildTestState(opts: BuildTestStateOpts): GameState {
     players: playerStates as unknown as readonly [PlayerState, PlayerState],
     activePlayer: opts.activePlayer,
     phaseState,
+    combat: null,
     eventsInPlay: [],
     cardPool: pool,
     instanceMap,

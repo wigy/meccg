@@ -96,6 +96,7 @@ function buildOpponentView(player: PlayerState): OpponentView {
     siteCardOwned: c.siteCardOwned,
     hasPlannedMovement: c.destinationSite !== null,
     moved: c.moved,
+    hasOnGuardCard: c.onGuardCards.length > 0,
   }));
 
   return {
@@ -191,6 +192,7 @@ export function projectSpectatorView(state: GameState): PlayerView {
     opponent,
     activePlayer: state.activePlayer,
     phaseState: redactPhaseForSpectator(state.phaseState),
+    combat: state.combat,
     eventsInPlay: state.eventsInPlay,
     turnNumber: state.turnNumber,
     legalActions: [],
@@ -338,6 +340,7 @@ export function projectPlayerView(state: GameState, playerId: PlayerId): PlayerV
     opponent,
     activePlayer: state.activePlayer,
     phaseState: redactPhaseForPlayer(state.phaseState, selfIndex),
+    combat: state.combat,
     eventsInPlay: state.eventsInPlay,
     turnNumber: state.turnNumber,
     legalActions,
