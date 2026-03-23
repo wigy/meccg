@@ -437,9 +437,17 @@ function renderState(input: RenderInput): string {
     'initial-draw': 'Draw Initial Hand',
     'initiative-roll': 'Roll for Initiative',
   };
+  const MH_STEP_LABELS: Record<string, string> = {
+    'select-company': 'Select Company',
+    'declare-path': 'Declare Path',
+    'order-effects': 'Order Effects',
+    'play-hazards': 'Play Hazards',
+  };
   const phaseLabel = input.phaseState.phase === 'setup'
     ? `Setup / ${SETUP_STEP_LABELS[input.phaseState.setupStep.step] ?? input.phaseState.setupStep.step}`
-    : input.phaseState.phase;
+    : input.phaseState.phase === 'movement-hazard'
+      ? `Movement/Hazard / ${MH_STEP_LABELS[input.phaseState.step] ?? input.phaseState.step}`
+      : input.phaseState.phase;
   lines.push(`Turn ${input.turnNumber} — Phase: ${phaseLabel}`);
 
   for (let pi = 0; pi < input.players.length; pi++) {

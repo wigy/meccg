@@ -8,7 +8,7 @@
 
 import type { ServerMessage, ClientMessage, GameAction, CardDefinitionId } from '@meccg/shared';
 import { loadCardPool, describeAction, buildCompanyNames, SAMPLE_DECKS } from '@meccg/shared';
-import { renderState, renderDraft, renderActions, renderLog, renderHand, renderOpponentHand, renderPlayerNames, renderInstructions, renderDrafted, renderPassButton, renderDeckPiles, resetDeckPiles, setupCardPreview, showNotification, prepareSiteSelection, clearSiteSelection } from './render.js';
+import { renderState, renderDraft, renderMHInfo, renderActions, renderLog, renderHand, renderOpponentHand, renderPlayerNames, renderInstructions, renderDrafted, renderPassButton, renderDeckPiles, resetDeckPiles, setupCardPreview, showNotification, prepareSiteSelection, clearSiteSelection } from './render.js';
 import { renderCompanyViews, resetCompanyViews } from './company-view.js';
 import { rollDice, clearDice, restoreDice, waitForDice } from './dice.js';
 import { clientLog } from './client-log.js';
@@ -85,11 +85,15 @@ function connect(name: string): void {
         // state, so the outcome isn't spoiled while dice are still rolling.
         await waitForDice();
         lastVisibleInstances = msg.view.visibleInstances;
-        lastCompanyNames = buildCompanyNames(msg.view.self.companies, msg.view.self.characters, cardPool);
+        lastCompanyNames = {
+          ...buildCompanyNames(msg.view.self.companies, msg.view.self.characters, cardPool),
+          ...buildCompanyNames(msg.view.opponent.companies as never, msg.view.opponent.characters, cardPool),
+        };
         clientLog('msg-in', { msgType: 'state', turn: msg.view.turnNumber, phase: msg.view.phaseState.phase });
         renderLog(`State update: turn ${msg.view.turnNumber}, phase ${msg.view.phaseState.phase}`);
         renderState(msg.view, cardPool);
         renderDraft(msg.view, cardPool);
+        renderMHInfo(msg.view, cardPool, lastCompanyNames);
         renderActions(msg.view.legalActions, cardPool, sendAction, msg.view.visibleInstances, lastCompanyNames);
         renderHand(msg.view, cardPool, sendAction);
         renderOpponentHand(msg.view, cardPool);

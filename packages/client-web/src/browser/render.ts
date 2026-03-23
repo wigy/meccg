@@ -421,6 +421,70 @@ export function renderDraft(view: PlayerView, cardPool: Readonly<Record<string, 
   tagCardImages(el, cardPool);
 }
 
+/** Render Movement/Hazard phase information with key state details. */
+export function renderMHInfo(
+  view: PlayerView,
+  cardPool: Readonly<Record<string, CardDefinition>>,
+  companyNames: Readonly<Record<string, string>>,
+): void {
+  const section = $('mh-section');
+  const el = $('mh-info');
+
+  if (view.phaseState.phase !== Phase.MovementHazard) {
+    section.classList.add('hidden');
+    return;
+  }
+  section.classList.remove('hidden');
+
+  const mh = view.phaseState;
+  const lines: string[] = [];
+
+  lines.push(`Step: ${mh.step}`);
+
+  // Active company
+  const selfIsResource = view.activePlayer === view.self.id;
+  const resourceCompanies = selfIsResource ? view.self.companies : view.opponent.companies;
+  if (mh.step !== 'select-company' && mh.activeCompanyIndex < resourceCompanies.length) {
+    const activeCompany = resourceCompanies[mh.activeCompanyIndex];
+    const name = companyNames[activeCompany.id as string] ?? `company #${mh.activeCompanyIndex}`;
+    lines.push(`Active company: ${name}`);
+  }
+
+  // Handled companies
+  if (mh.handledCompanyIds.length > 0) {
+    const names = mh.handledCompanyIds.map(id => companyNames[id as string] ?? id).join(', ');
+    lines.push(`Handled: ${names}`);
+  }
+
+  // Movement info
+  if (mh.movementType) {
+    lines.push(`Movement type: ${mh.movementType}`);
+  }
+  if (mh.resolvedSitePathNames.length > 0) {
+    lines.push(`Site path: ${mh.resolvedSitePathNames.join(' → ')}`);
+  }
+  if (mh.destinationSiteName) {
+    lines.push(`Destination: ${mh.destinationSiteName} (${mh.destinationSiteType ?? '?'})`);
+  }
+
+  // Hazard tracking
+  lines.push(`Hazards played: ${mh.hazardsPlayedThisCompany} / ${mh.hazardLimit}`);
+
+  // Pass state
+  const passInfo: string[] = [];
+  if (mh.resourcePlayerPassed) passInfo.push('resource');
+  if (mh.hazardPlayerPassed) passInfo.push('hazard');
+  if (passInfo.length > 0) {
+    lines.push(`Passed: ${passInfo.join(', ')}`);
+  }
+
+  // Flags
+  if (mh.onGuardPlacedThisCompany) lines.push('On-guard card placed');
+  if (mh.returnedToOrigin) lines.push('Returned to origin');
+
+  el.innerHTML = ansiToHtml(lines.join('\n'));
+}
+
 /** Render action buttons (viable actions clickable, non-viable shown disabled with reason). */
 export function renderActions(
   evaluated: readonly EvaluatedAction[],
