@@ -11,6 +11,8 @@
     "region": "Arthedain",
     "playableResources": [],
     "automaticAttacks": [],
+    "resourceDraws": 2,
+    "hazardDraws": 2,
     "text": "If one of your companies is at this site, all attacks against it are canceled."
   }
 ]

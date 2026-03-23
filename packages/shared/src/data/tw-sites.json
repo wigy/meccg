@@ -24,6 +24,8 @@
     },
     "playableResources": [],
     "automaticAttacks": [],
+    "resourceDraws": 2,
+    "hazardDraws": 2,
     "text": "Site Path From Lórien: Wilderness/Border-land/Wilderness/Wilderness. Site Path From Grey Havens: Free-domain/Wilderness/Wilderness."
   },
   {
@@ -54,6 +56,8 @@
     },
     "playableResources": [],
     "automaticAttacks": [],
+    "resourceDraws": 2,
+    "hazardDraws": 2,
     "text": "Site Path From Rivendell: Wilderness/Wilderness/Border-land/Wilderness. Site Path From Edhellond: Wilderness/Border-land/Free-domain/Free-domain/Border-land/Wilderness."
   },
   {
@@ -86,6 +90,8 @@
     },
     "playableResources": [],
     "automaticAttacks": [],
+    "resourceDraws": 2,
+    "hazardDraws": 2,
     "text": "Site Path From Grey Havens: Free-domain/Coastland/Coastland/Coastland/Coastland/Wilderness. Site Path From Lórien: Wilderness/Border-land/Free-domain/Free-domain/Border-land/Wilderness."
   },
   {
@@ -115,6 +121,8 @@
     },
     "playableResources": [],
     "automaticAttacks": [],
+    "resourceDraws": 2,
+    "hazardDraws": 2,
     "text": "Site Path From Rivendell: Wilderness/Wilderness/Free-domain. Site Path From Edhellond: Wilderness/Coastland/Coastland/Coastland/Coastland/Free-domain."
   },
   {
@@ -143,6 +151,8 @@
         "prowess": 7
       }
     ],
+    "resourceDraws": 2,
+    "hazardDraws": 3,
     "text": "Playable: Items (minor, major, greater, gold ring). Automatic-attacks: Orcs — 4 strikes with 7 prowess."
   },
   {
@@ -163,6 +173,8 @@
       "faction"
     ],
     "automaticAttacks": [],
+    "resourceDraws": 2,
+    "hazardDraws": 2,
     "text": ""
   },
   {
@@ -184,6 +196,8 @@
     "region": "Gorgoroth",
     "playableResources": [],
     "automaticAttacks": [],
+    "resourceDraws": 3,
+    "hazardDraws": 6,
     "text": "Any company moving to this site has its hazard limit increased by 2 and hazard creatures may always be played keyed to the site regardless of any other cards played."
   },
   {
@@ -208,6 +222,8 @@
         "prowess": 9
       }
     ],
+    "resourceDraws": 1,
+    "hazardDraws": 1,
     "text": "Playable: Items (minor). Automatic-attacks: Troll — 1 strike with 9 prowess."
   },
   {
@@ -231,6 +247,8 @@
         "prowess": 6
       }
     ],
+    "resourceDraws": 1,
+    "hazardDraws": 1,
     "text": "Automatic-attacks: Wolves — 2 strikes with 6 prowess."
   },
   {
@@ -257,6 +275,8 @@
         "prowess": 8
       }
     ],
+    "resourceDraws": 1,
+    "hazardDraws": 2,
     "text": "Playable: Items (minor, major). Automatic-attacks: Undead — 1 strike with 8 prowess; each character wounded must make a corruption check."
   },
   {
@@ -274,6 +294,8 @@
     "region": "Anduin Vales",
     "playableResources": [],
     "automaticAttacks": [],
+    "resourceDraws": 1,
+    "hazardDraws": 1,
     "text": ""
   },
   {
@@ -293,6 +315,8 @@
     "region": "Ithilien",
     "playableResources": [],
     "automaticAttacks": [],
+    "resourceDraws": 2,
+    "hazardDraws": 2,
     "text": ""
   },
   {
@@ -310,6 +334,8 @@
     "region": "Cardolan",
     "playableResources": [],
     "automaticAttacks": [],
+    "resourceDraws": 1,
+    "hazardDraws": 1,
     "text": "Healing effects affect all characters at the site."
   },
   {
@@ -328,6 +354,8 @@
     "region": "The Shire",
     "playableResources": [],
     "automaticAttacks": [],
+    "resourceDraws": 2,
+    "hazardDraws": 2,
     "text": ""
   },
   {
@@ -341,6 +369,8 @@
     "nearestHaven": "",
     "playableResources": [],
     "automaticAttacks": [],
+    "resourceDraws": 0,
+    "hazardDraws": 0,
     "text": ""
   }
 ]

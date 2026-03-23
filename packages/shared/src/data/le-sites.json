@@ -26,6 +26,8 @@
     },
     "playableResources": [],
     "automaticAttacks": [],
+    "resourceDraws": 2,
+    "hazardDraws": 2,
     "text": "Any gold ring stored at this site is automatically tested (modify the roll by -2). Any attack against a minion company at this site is canceled."
   },
   {
@@ -49,6 +51,8 @@
     },
     "playableResources": [],
     "automaticAttacks": [],
+    "resourceDraws": 2,
+    "hazardDraws": 2,
     "text": "Any gold ring stored at this site is automatically tested (modify the roll by -2). Any attack against a minion company at this site is canceled."
   },
   {
@@ -79,6 +83,8 @@
         "prowess": 8
       }
     ],
+    "resourceDraws": 1,
+    "hazardDraws": 1,
     "text": "Playable: Items (minor). Automatic-attacks (2): (1st) Troll — 1 strike with 9 prowess; (2nd) Wolves — 2 strikes with 8 prowess."
   },
   {
@@ -104,6 +110,8 @@
         "prowess": 6
       }
     ],
+    "resourceDraws": 2,
+    "hazardDraws": 2,
     "text": "Playable: Information. Automatic-attacks: Wolves — 2 strikes with 6 prowess."
   }
 ]
