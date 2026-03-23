@@ -204,11 +204,11 @@ export interface TransferItemAction {
 }
 
 /**
- * Set a company's destination site and travel path for this turn.
+ * Set a company's destination site for this turn.
  *
  * Movement is planned during Organization but resolved during the
- * Movement/Hazard phase. The region path determines which hazard
- * creatures the opponent can play against the traveling company.
+ * Movement/Hazard phase, where the movement type and region path
+ * will be determined.
  */
 export interface PlanMovementAction {
   readonly type: 'plan-movement';
@@ -218,10 +218,6 @@ export interface PlanMovementAction {
   readonly companyId: CompanyId;
   /** The site card instance the company intends to move to. */
   readonly destinationSite: CardInstanceId;
-  /** The ordered sequence of region card instances defining the travel route. */
-  readonly regionPath: readonly CardInstanceId[];
-  /** How this destination is reachable: starter (haven-based) or region (adjacency graph). */
-  readonly movementType: 'starter' | 'region';
   /** When true, this action undoes a previous cancel this phase (regressive). */
   readonly regress?: true;
 }

@@ -378,11 +378,15 @@ function planMovementActions(state: GameState, playerId: PlayerId): EvaluatedAct
     }
 
     const reachable = getReachableSites(movementMap, currentSiteDef, candidateSites);
+    // Deduplicate: a site reachable by both starter and region movement only needs one action
+    const seen = new Set<string>();
     logDetail(`Company ${company.id as string} at ${currentSiteDef.name}: ${reachable.length} reachable site(s)`);
 
     for (const r of reachable) {
       const destInstId = siteInstMap.get(r.site.name);
       if (!destInstId) continue;
+      if (seen.has(destInstId as string)) continue;
+      seen.add(destInstId as string);
       const regress = touched.has(destInstId as string);
       actions.push({
         action: {
@@ -390,8 +394,6 @@ function planMovementActions(state: GameState, playerId: PlayerId): EvaluatedAct
           player: playerId,
           companyId: company.id,
           destinationSite: destInstId,
-          regionPath: [],
-          movementType: r.movementType,
           ...(regress ? { regress: true } : {}),
         },
         viable: true,

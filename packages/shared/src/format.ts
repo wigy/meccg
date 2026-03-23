@@ -746,7 +746,7 @@ export function describeAction(
         ? `Move ${instName(action.characterInstanceId)} to general influence`
         : `Move ${instName(action.characterInstanceId)} under direct influence of ${instName(action.controlledBy)}`;
     case 'plan-movement':
-      return `Move ${compName(action.companyId)} to ${instName(action.destinationSite)} (${action.movementType})`;
+      return `Move ${compName(action.companyId)} to ${instName(action.destinationSite)}`;
     case 'cancel-movement':
       return `Cancel movement for ${compName(action.companyId)}`;
     case 'play-permanent-event':

@@ -1296,13 +1296,13 @@ function handlePlanMovement(state: GameState, action: GameAction): ReducerResult
     return { state, error: 'Destination site not in site deck' };
   }
 
-  logDetail(`Plan movement: company ${company.id as string} → ${action.destinationSite as string} (${action.movementType})`);
+  logDetail(`Plan movement: company ${company.id as string} → ${action.destinationSite as string}`);
 
   const companies = [...player.companies];
   companies[companyIdx] = {
     ...company,
     destinationSite: action.destinationSite,
-    movementPath: action.regionPath,
+    movementPath: [],
   };
 
   // Remove destination site from site deck
