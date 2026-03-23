@@ -14,9 +14,8 @@
 
 import { describe, test, expect } from 'vitest';
 import {
-  pool, PLAYER_1, PLAYER_2,
+  PLAYER_1, PLAYER_2,
   runActions, reduce,
-  Phase,
   ARAGORN, BILBO, LEGOLAS,
   THE_ONE_RING, DAGGER_OF_WESTERNESSE,
   RIVENDELL, LORIEN,
