@@ -452,8 +452,14 @@ export function renderActions(
     container.appendChild(pre);
   }
 
-  // Viable actions first — clickable (regressive actions shown lighter)
-  for (const ea of evaluated.filter(e => e.viable)) {
+  // Viable actions first — clickable (pass first, regressive actions shown lighter)
+  const viable = evaluated.filter(e => e.viable);
+  viable.sort((a, b) => {
+    const aPass = a.action.type === 'pass' || a.action.type === 'draft-stop' ? 0 : 1;
+    const bPass = b.action.type === 'pass' || b.action.type === 'draft-stop' ? 0 : 1;
+    return aPass - bPass;
+  });
+  for (const ea of viable) {
     const btn = document.createElement('button');
     const isRegress = 'regress' in ea.action && ea.action.regress;
     if (isRegress) btn.classList.add('action-regress');
@@ -923,6 +929,8 @@ function findCardAction(
     if (action.type === 'select-starting-site' && visibleInstances
       && visibleInstances[action.siteInstanceId as string] === defId) return action;
     if (action.type === 'play-permanent-event' && visibleInstances
+      && visibleInstances[action.cardInstanceId as string] === defId) return action;
+    if (action.type === 'play-long-event' && visibleInstances
       && visibleInstances[action.cardInstanceId as string] === defId) return action;
   }
   return null;

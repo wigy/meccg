@@ -1063,9 +1063,33 @@ function handleOrganization(state: GameState, action: GameAction): ReducerResult
   }
   if (action.type === 'pass') {
     logDetail(`Organization: player ${action.player as string} passed → advancing to Long-event phase`);
+
+    // [2.III.1] At beginning of long-event phase: resource player discards own resource long-events
+    const activePlayer = state.activePlayer!;
+    const activeIndex = getPlayerIndex(state, activePlayer);
+    const player = state.players[activeIndex];
+    const discardedEventIds: CardInstanceId[] = [];
+    const remainingCards = player.cardsInPlay.filter(card => {
+      const def = state.cardPool[card.definitionId as string];
+      if (def && def.cardType === 'hero-resource-event' && def.eventType === 'long') {
+        logDetail(`Long-event entry: discarding resource long-event "${def.name}" (${card.instanceId as string})`);
+        discardedEventIds.push(card.instanceId);
+        return false;
+      }
+      return true;
+    });
+
+    const newPlayers = clonePlayers(state);
+    newPlayers[activeIndex] = {
+      ...newPlayers[activeIndex],
+      cardsInPlay: remainingCards,
+      discardPile: [...newPlayers[activeIndex].discardPile, ...discardedEventIds],
+    };
+
     return {
       state: {
         ...state,
+        players: newPlayers,
         phaseState: { phase: Phase.LongEvent },
       },
     };
@@ -1878,25 +1902,119 @@ function handlePlayPermanentEvent(state: GameState, action: GameAction): Reducer
   return { state: { ...state, players: newPlayers } };
 }
 
-/** Placeholder: resolve long events, then advance to movement/hazard. */
+/**
+ * Handle actions during the long-event phase.
+ *
+ * The resource player may play resource long-events from hand. On pass,
+ * the hazard player's hazard long-events are discarded and the phase advances.
+ */
 function handleLongEvent(state: GameState, action: GameAction): ReducerResult {
-  if (action.type !== 'pass') {
-    return { state, error: `Unexpected action '${action.type}' in long-event phase` };
+  if (action.type === 'play-long-event') {
+    return handlePlayLongEvent(state, action);
   }
-  // TODO: resolve long events before advancing
-  logDetail(`Long-event: active player ${action.player as string} passed → advancing to Movement/Hazard phase`);
-  return {
-    state: {
-      ...state,
-      phaseState: {
-        phase: Phase.MovementHazard,
-        activeCompanyIndex: 0,
-        hazardsPlayedThisCompany: 0,
-        hazardLimit: 0,
-        combat: null,
+  if (action.type === 'pass') {
+    // [2.III.3] At end of long-event phase: hazard player discards own hazard long-events
+    const activePlayer = state.activePlayer!;
+    const hazardPlayerIndex = (getPlayerIndex(state, activePlayer) + 1) % state.players.length;
+    const hazardPlayer = state.players[hazardPlayerIndex];
+    const discardedEventIds: CardInstanceId[] = [];
+    const remainingCards = hazardPlayer.cardsInPlay.filter(card => {
+      const def = state.cardPool[card.definitionId as string];
+      if (def && def.cardType === 'hazard-event' && def.eventType === 'long') {
+        logDetail(`Long-event exit: discarding hazard long-event "${def.name}" (${card.instanceId as string})`);
+        discardedEventIds.push(card.instanceId);
+        return false;
+      }
+      return true;
+    });
+
+    const newPlayers = clonePlayers(state);
+    newPlayers[hazardPlayerIndex] = {
+      ...newPlayers[hazardPlayerIndex],
+      cardsInPlay: remainingCards,
+      discardPile: [...newPlayers[hazardPlayerIndex].discardPile, ...discardedEventIds],
+    };
+
+    logDetail(`Long-event: active player ${action.player as string} passed → advancing to Movement/Hazard phase`);
+    return {
+      state: {
+        ...state,
+        players: newPlayers,
+        phaseState: {
+          phase: Phase.MovementHazard,
+          activeCompanyIndex: 0,
+          hazardsPlayedThisCompany: 0,
+          hazardLimit: 0,
+          combat: null,
+        },
       },
-    },
+    };
+  }
+  return { state, error: `Unexpected action '${action.type}' in long-event phase` };
+}
+
+/**
+ * Handle playing a resource long-event card during the long-event phase.
+ * Removes the card from hand and adds it to eventsInPlay.
+ */
+function handlePlayLongEvent(state: GameState, action: GameAction): ReducerResult {
+  if (action.type !== 'play-long-event') return { state, error: 'Expected play-long-event action' };
+
+  const playerIndex = getPlayerIndex(state, action.player);
+  const player = state.players[playerIndex];
+
+  const cardIdx = player.hand.indexOf(action.cardInstanceId);
+  if (cardIdx === -1) return { state, error: 'Card not in hand' };
+
+  const inst = state.instanceMap[action.cardInstanceId as string];
+  if (!inst) return { state, error: 'Card instance not found' };
+
+  const def = state.cardPool[inst.definitionId as string];
+  if (!def || def.cardType !== 'hero-resource-event' || def.eventType !== 'long') {
+    return { state, error: 'Card is not a resource long-event' };
+  }
+
+  // Check uniqueness: unique long-events can't be played if already in play
+  if (def.unique) {
+    const alreadyInPlay = state.players.some(p =>
+      p.cardsInPlay.some(c => c.definitionId === def.id),
+    );
+    if (alreadyInPlay) return { state, error: `${def.name} is unique and already in play` };
+  }
+
+  // Check duplication-limit with scope "game"
+  if (def.effects) {
+    for (const effect of def.effects) {
+      if (effect.type !== 'duplication-limit' || effect.scope !== 'game') continue;
+      const copiesInPlay = state.players.reduce((count, p) =>
+        count + p.cardsInPlay.filter(c => {
+          const cDef = state.cardPool[c.definitionId as string];
+          return cDef && cDef.name === def.name;
+        }).length, 0,
+      );
+      if (copiesInPlay >= effect.max) {
+        return { state, error: `${def.name} cannot be duplicated` };
+      }
+    }
+  }
+
+  logDetail(`Playing resource long-event: ${def.name}`);
+
+  const newHand = [...player.hand];
+  newHand.splice(cardIdx, 1);
+
+  const newPlayers = clonePlayers(state);
+  newPlayers[playerIndex] = {
+    ...player,
+    hand: newHand,
+    cardsInPlay: [...player.cardsInPlay, {
+      instanceId: action.cardInstanceId,
+      definitionId: inst.definitionId,
+      status: CardStatus.Untapped,
+    }],
   };
+
+  return { state: { ...state, players: newPlayers } };
 }
 
 /** Placeholder: reveal destinations, opponent plays hazards, resolve combat. */

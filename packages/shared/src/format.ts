@@ -805,6 +805,8 @@ export function describeAction(
       return 'Pass (end your actions this phase)';
     case 'call-free-council':
       return 'Call the Free Council (trigger endgame)';
+    case 'play-long-event':
+      return `Play long-event ${instName(action.cardInstanceId)}`;
     case 'fetch-from-sideboard':
       return `Fetch ${instName(action.cardInstanceId)} from sideboard`;
     case 'not-playable':

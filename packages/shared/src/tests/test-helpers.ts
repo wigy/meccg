@@ -21,6 +21,7 @@ import {
   THEODEN, ELROND, CELEBORN, GLORFINDEL_II,
   GLAMDRING, STING, THE_MITHRIL_COAT, THE_ONE_RING, DAGGER_OF_WESTERNESSE, HORN_OF_ANOR,
   CAVE_DRAKE, ORC_PATROL, BARROW_WIGHT,
+  SUN, EYE_OF_SAURON,
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH, MOUNT_DOOM,
 } from '../index.js';
 
@@ -36,13 +37,16 @@ export function makePlayDeck(): CardDefinitionId[] {
   const nonUniqueResources = [
     DAGGER_OF_WESTERNESSE, DAGGER_OF_WESTERNESSE, DAGGER_OF_WESTERNESSE,
   ];
+  // Non-unique long events: up to 3 copies each
+  const longEvents = [SUN, SUN];
   // Non-unique hazard creatures: 3 copies each
   const hazards = [
     CAVE_DRAKE, CAVE_DRAKE, CAVE_DRAKE,
     ORC_PATROL, ORC_PATROL, ORC_PATROL,
     BARROW_WIGHT,
+    EYE_OF_SAURON, EYE_OF_SAURON,
   ];
-  return [...uniqueResources, ...nonUniqueResources, ...hazards];
+  return [...uniqueResources, ...nonUniqueResources, ...longEvents, ...hazards];
 }
 
 export function makeQuickStartConfig(seed = 42): QuickStartGameConfig {
@@ -230,6 +234,7 @@ export {
   THEODEN, ELROND, CELEBORN, GLORFINDEL_II,
   GLAMDRING, STING, THE_MITHRIL_COAT, THE_ONE_RING, DAGGER_OF_WESTERNESSE, HORN_OF_ANOR,
   CAVE_DRAKE, ORC_PATROL, BARROW_WIGHT,
+  SUN, EYE_OF_SAURON,
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH, MOUNT_DOOM,
 };
 export type { GameConfig, QuickStartGameConfig, ReducerResult };

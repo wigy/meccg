@@ -143,11 +143,10 @@ export function collectEffects(
     }
   }
 
-  // Events in play
-  for (const evt of state.eventsInPlay) {
-    if (evt.owner !== player.id) continue;
-    const evtDef = resolveDef(state, evt.instanceId);
-    if (evtDef) collectFromDef(evtDef, context, results);
+  // Cards in play (permanent events, long-events, factions, etc.)
+  for (const card of player.cardsInPlay) {
+    const cardDef = resolveDef(state, card.instanceId);
+    if (cardDef) collectFromDef(cardDef, context, results);
   }
 
   return results;
