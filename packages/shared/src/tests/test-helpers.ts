@@ -14,7 +14,7 @@ import {
   Phase,
   Alignment,
 } from '../index.js';
-import type { PlayerId, GameState, CardDefinitionId } from '../index.js';
+import type { PlayerId, GameState, CardDefinitionId, GameAction } from '../index.js';
 import {
   ARAGORN, BILBO, FRODO, LEGOLAS, GIMLI, FARAMIR,
   EOWYN, BEREGOND, BERGIL, BARD_BOWMAN, ANBORN, SAM_GAMGEE,
@@ -103,10 +103,10 @@ export function makeDraftConfig(seed = 42): GameConfig {
  */
 export function runActions(
   state: GameState,
-  actions: Array<{ type: string; player: PlayerId; [key: string]: unknown }>,
+  actions: readonly GameAction[],
 ): GameState {
   for (const action of actions) {
-    const result = reduce(state, action as never);
+    const result = reduce(state, action);
     if (result.error) throw new Error(`Action ${action.type} failed: ${result.error}`);
     state = result.state;
   }
