@@ -1,5 +1,72 @@
 # Changelog
 
+## 0.4.0 — 2026-03-23
+
+Organization phase basics done
+
+### Game Engine
+- **Organization phase:** Play characters, split/merge companies, transfer items,
+  plan movement, cancel movement, move characters between general and direct
+  influence, and pass to advance phases
+- **Corruption checks:** Required after item transfer; eliminated pile and
+  pre-computed corruption check fields added to state
+- **Merge companies:** Join two companies at the same site with regress tracking
+- **Split companies:** Simplified to single characterId action; character movement
+  between companies
+- **Movement planning:** Plan-movement and cancel-movement actions with movement
+  arrow visuals; movement map CLI tool with precalculated site reachability
+- **Permanent events:** Play permanent-event resources (Gates of Morning) with
+  duplication-limit enforcement
+- **Move-to-influence:** Reassign characters between general and direct influence
+- **Starting item limit:** Enforced in reducer (max 2 starting items)
+- **Organization phase tests:** Explicit state builder for organization phase
+  rules-as-specification tests
+- **Card data cleanup:** Removed tw-other.json, moved cards to proper data files;
+  removed alignment field from region cards; removed movementType/regionPath from
+  PlanMovementAction
+
+### Web Client
+- **Company view:** Three view modes for play phases with leader-first rendering,
+  dice-colored labels, horizontal card layout, faded non-bottom cards, items
+  side-by-side
+- **Character cards:** Mind badge overlay, follower stat badges, direct influence
+  badge, playable card highlighting with golden halo
+- **Two-step selection:** Targeting instruction text for character play and item
+  transfer flows
+- **Site browser:** Dialog with card zoom/info panel style; site deck viewer modal
+  replacing hand arc for site selection
+- **Movement:** Opponent's hidden movement shown as site card back; movement viewer
+  with action JSON toggle
+- **Turn notifications:** Shown when entering Untap phase; next phase name on pass
+  button
+- **Settings dialog:** Developer Mode toggle, Auto-pass setting to auto-take sole
+  viable action
+- **Toast notifications:** In both debug and visual view modes
+- **Dice:** Buffered state updates until dice animation completes; clear on
+  disconnect/save; cheat roll feature (dev-only)
+- **UI polish:** Dark overlay z-index fix, click-empty-space to exit single view,
+  persistent selected company via localStorage, dimmed inactive player companies,
+  character action tooltip modal, hand arc hover fix, non-viable card reasons
+  display, deck pile count badge, collapsible card lists in debug view
+
+### Text Client
+- **Dice display:** Track and show last dice roll
+- **Pool size:** Shown during setup phases for both players
+
+### Infrastructure
+- **Package reorganization:** Moved game engine and tests from server to shared
+  package
+- **API documentation:** JSDoc generation with typedoc
+- **Testing:** Rules-as-specification tests replacing unit tests; card test
+  placeholders for all 36 cards with effects; separate nightly test run
+- **Testing plan:** Full testing plan and extracted CoE rules reference
+- **Skills:** Added /investigate skill; /release skill tracked in version control
+- **Dev mode:** Gated dev operations behind --dev flag with server-driven
+  confirmations; undo button; reseed RNG button
+- **Card data:** Added ally and faction resources, 5 new hero sites, non-unique
+  hazard limit (3 copies per deck)
+- **Pre-push checklist:** Added to CLAUDE.md
+
 ## 0.3.0 — 2026-03-21
 
 Fully functional setup phase for hero
