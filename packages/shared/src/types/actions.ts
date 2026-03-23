@@ -205,6 +205,8 @@ export interface MergeCompaniesAction {
   readonly sourceCompanyId: CompanyId;
   /** The company that will absorb the source company's characters. */
   readonly targetCompanyId: CompanyId;
+  /** When true, this action undoes a previous split this phase (regressive). */
+  readonly regress?: true;
 }
 
 /**

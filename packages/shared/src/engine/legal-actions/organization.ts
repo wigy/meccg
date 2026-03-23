@@ -689,6 +689,7 @@ function moveToCompanyActions(state: GameState, playerId: PlayerId): EvaluatedAc
 function mergeCompaniesActions(state: GameState, playerId: PlayerId): EvaluatedAction[] {
   const player = state.players.find(p => p.id === playerId)!;
   const actions: EvaluatedAction[] = [];
+  const touched = new Set(state.touchedCards.map(id => id as string));
 
   // Build map from site instance ID → companies at that site
   const siteToCompanies = new Map<string, typeof player.companies[number][]>();
@@ -705,6 +706,9 @@ function mergeCompaniesActions(state: GameState, playerId: PlayerId): EvaluatedA
     const companiesAtSite = siteToCompanies.get(company.currentSite as string) ?? [];
     if (companiesAtSite.length < 2) continue;
 
+    // Regressive if any character in the source company was touched this phase
+    const regress = company.characters.some(id => touched.has(id as string));
+
     for (const targetCompany of companiesAtSite) {
       if (targetCompany.id === company.id) continue;
 
@@ -715,6 +719,7 @@ function mergeCompaniesActions(state: GameState, playerId: PlayerId): EvaluatedA
           player: playerId,
           sourceCompanyId: company.id,
           targetCompanyId: targetCompany.id,
+          ...(regress ? { regress: true } : {}),
         },
         viable: true,
       });

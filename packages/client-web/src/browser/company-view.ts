@@ -912,9 +912,12 @@ function renderCompanyBlock(
   const isTitleChar = (charInstId: CardInstanceId): boolean =>
     titleChar !== undefined && titleChar.instanceId === charInstId;
 
-  /** Check if merge actions are available for this company (only on title character). */
-  const hasMergeActions = (charInstId: CardInstanceId): boolean =>
-    isTitleChar(charInstId) && (options?.mergeActions?.get(company.id as string)?.length ?? 0) > 0;
+  /** Get merge actions for this company if the character is the title character. */
+  const getMergeActionsForChar = (charInstId: CardInstanceId): MergeCompaniesAction[] | undefined => {
+    if (!isTitleChar(charInstId)) return undefined;
+    const acts = options?.mergeActions?.get(company.id as string);
+    return acts && acts.length > 0 ? acts : undefined;
+  };
 
   /** Combine influence, transfer-target, and company-move click handlers for a character. */
   const buildCombinedClick = (charInstId: CardInstanceId): { cls: string; handler: (e: Event) => void } | undefined => {
@@ -936,16 +939,22 @@ function renderCompanyBlock(
 
     const influenceResult = buildInfluenceClick(charInstId);
     const companyResult = buildCompanyMoveClick(charInstId);
-    const hasMerge = hasMergeActions(charInstId);
+    const mergeActionsForChar = getMergeActionsForChar(charInstId);
 
     // Count how many action types are available
-    const actionTypes = [influenceResult, companyResult, hasMerge].filter(Boolean).length;
+    const actionTypes = [influenceResult, companyResult, mergeActionsForChar].filter(Boolean).length;
 
     if (actionTypes === 0) return undefined;
 
+    // Determine if merge actions are all regressive
+    const mergeAllRegress = mergeActionsForChar
+      ? mergeActionsForChar.every(a => a.regress)
+      : true;
+    const mergeCls = mergeActionsForChar && !mergeAllRegress ? 'company-card--influence-source' : '';
+
     // Multiple types — always show tooltip for disambiguation
     if (actionTypes > 1) {
-      const cls = influenceResult?.cls || companyResult?.cls || (hasMerge ? 'company-card--influence-source' : '');
+      const cls = influenceResult?.cls || companyResult?.cls || mergeCls;
       return {
         cls,
         handler: (e) => {
@@ -959,14 +968,13 @@ function renderCompanyBlock(
     }
 
     // Single type: merge only — enter merge flow directly
-    if (hasMerge && !influenceResult && !companyResult) {
-      const mergeActionsForCompany = options!.mergeActions!.get(company.id as string)!;
+    if (mergeActionsForChar && !influenceResult && !companyResult) {
       return {
-        cls: 'company-card--influence-source',
+        cls: mergeCls,
         handler: (e) => {
           e.stopPropagation();
-          if (mergeActionsForCompany.length === 1) {
-            options!.onAction!(mergeActionsForCompany[0]);
+          if (mergeActionsForChar.length === 1) {
+            options!.onAction!(mergeActionsForChar[0]);
           } else {
             mergeSourceCompanyId = company.id;
             setTargetingInstruction('Click a company to join into');
