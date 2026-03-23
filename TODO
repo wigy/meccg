@@ -7,8 +7,6 @@ FIXES
 FEATS
 -----
 
-Remove touched concept completely. Instead add a concept of reverse actions that are calculated and collected when each action is taken and saved to the game state. That way we have solid way of marking actions that does lead us forward and help AI.
-
 EPICS
 -----
 
