@@ -205,7 +205,8 @@ function renderCharacterColumn(
   const wrap = document.createElement('div');
   wrap.className = 'character-card-wrap';
 
-  const hasAttachments = char.items.length > 0 || char.allies.length > 0;
+  const hasFollowers = charMap != null && char.followers.length > 0;
+  const hasAttachments = char.items.length > 0 || char.allies.length > 0 || hasFollowers;
   const img = createCardImage(char.definitionId as string, def, imgPath, 'company-card');
   if (hasAttachments) img.classList.add('company-card--faded');
   if (char.status === CardStatus.Tapped) {
@@ -221,6 +222,14 @@ function renderCharacterColumn(
   badge.className = 'char-stats-badge';
   badge.textContent = `${char.effectiveStats.prowess}/${char.effectiveStats.body}`;
   wrap.appendChild(badge);
+
+  // Mind badge (left edge, above DI)
+  if (isCharacterCard(def) && def.mind !== null) {
+    const mindBadge = document.createElement('div');
+    mindBadge.className = 'char-mind-badge';
+    mindBadge.textContent = String(def.mind);
+    wrap.appendChild(mindBadge);
+  }
 
   // Direct influence badge (left edge, middle)
   const diBadge = document.createElement('div');
@@ -247,7 +256,6 @@ function renderCharacterColumn(
 
   // Items, allies, and followers — shown side by side in one row
   const allAttachments = [...char.items, ...char.allies];
-  const hasFollowers = charMap && char.followers.length > 0;
   if (allAttachments.length > 0 || hasFollowers) {
     const attachments = document.createElement('div');
     attachments.className = 'character-attachments';
@@ -272,14 +280,81 @@ function renderCharacterColumn(
       }
       attachments.appendChild(attEl);
     }
-    // Followers rendered in the same row as items
-    if (charMap && char.followers.length > 0) {
+    // Followers rendered as overlapping cards like items, with their own items below
+    if (hasFollowers) {
       for (const followerId of char.followers) {
-        const follower = charMap[followerId as string];
+        const follower = charMap![followerId as string];
         if (!follower) continue;
-        // Render each follower as a nested column (without further nesting)
+        const fDef = cardPool[follower.definitionId as string];
+        if (!fDef) continue;
+        const fImg = cardImageProxyPath(fDef);
+        if (!fImg) continue;
+
+        // Wrap follower + its items in a mini-column
+        const followerCol = document.createElement('div');
+        followerCol.className = 'follower-column';
+
+        const followerHasItems = follower.items.length > 0 || follower.allies.length > 0;
+        const fWrap = document.createElement('div');
+        fWrap.className = 'character-card-wrap';
+        const fEl = createCardImage(follower.definitionId as string, fDef, fImg, 'company-card company-card--follower');
+        if (followerHasItems) fEl.classList.add('company-card--faded');
+        if (follower.status === CardStatus.Tapped) {
+          fEl.classList.add('company-card--tapped');
+          fWrap.classList.add('character-card-wrap--tapped');
+        } else if (follower.status === CardStatus.Inverted) {
+          fEl.classList.add('company-card--wounded');
+        }
         const followerInfluenceClick = influenceClickBuilder?.(followerId);
-        attachments.appendChild(renderCharacterColumn(follower, cardPool, false, undefined, followerInfluenceClick));
+        if (followerInfluenceClick) {
+          if (followerInfluenceClick.cls) fEl.classList.add(followerInfluenceClick.cls);
+          fEl.style.cursor = 'pointer';
+          fEl.addEventListener('click', followerInfluenceClick.handler);
+        }
+        fWrap.appendChild(fEl);
+
+        // Follower stats badge
+        const fStatsBadge = document.createElement('div');
+        fStatsBadge.className = 'char-stats-badge';
+        fStatsBadge.textContent = `${follower.effectiveStats.prowess}/${follower.effectiveStats.body}`;
+        fWrap.appendChild(fStatsBadge);
+
+        // Follower mind badge
+        if (isCharacterCard(fDef) && fDef.mind !== null) {
+          const fMindBadge = document.createElement('div');
+          fMindBadge.className = 'char-mind-badge';
+          fMindBadge.textContent = String(fDef.mind);
+          fWrap.appendChild(fMindBadge);
+        }
+
+        // Follower direct influence badge
+        const fDiBadge = document.createElement('div');
+        fDiBadge.className = 'char-di-badge';
+        fDiBadge.textContent = String(follower.effectiveStats.directInfluence);
+        fWrap.appendChild(fDiBadge);
+
+        followerCol.appendChild(fWrap);
+
+        // Follower's own items and allies
+        const followerAttachments = [...follower.items, ...follower.allies];
+        if (followerAttachments.length > 0) {
+          const fAttRow = document.createElement('div');
+          fAttRow.className = 'character-attachments';
+          for (const fAtt of followerAttachments) {
+            const fAttDef = cardPool[fAtt.definitionId as string];
+            if (!fAttDef) continue;
+            const fAttImg = cardImageProxyPath(fAttDef);
+            if (!fAttImg) continue;
+            const fAttEl = createCardImage(fAtt.definitionId as string, fAttDef, fAttImg, 'company-card company-card--item');
+            if (fAtt.status === CardStatus.Tapped) {
+              fAttEl.classList.add('company-card--tapped');
+            }
+            fAttRow.appendChild(fAttEl);
+          }
+          followerCol.appendChild(fAttRow);
+        }
+
+        attachments.appendChild(followerCol);
       }
     }
     col.appendChild(attachments);

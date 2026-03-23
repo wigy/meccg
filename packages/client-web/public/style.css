@@ -1583,6 +1583,15 @@ h2 {
 .company-card--item {
 }
 
+.company-card--follower {
+}
+
+.follower-column {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
 /* Tapped (sideways) */
 .company-card--tapped {
   transform: rotate(90deg);
@@ -1662,6 +1671,25 @@ h2 {
   padding: 1px 4px;
   border-radius: 3px;
   pointer-events: none;
+}
+
+/* Mind badge */
+.char-mind-badge {
+  position: absolute;
+  left: 6%;
+  top: 15%;
+  font-family: 'Cinzel', serif;
+  font-size: calc(0.7rem * var(--company-scale, 1));
+  font-weight: 700;
+  color: #fff;
+  background: rgba(0, 0, 0, 0.75);
+  padding: 1px 4px;
+  border-radius: 3px;
+  pointer-events: none;
+}
+
+.company-card--faded ~ .char-mind-badge {
+  top: 25%;
 }
 
 /* Direct influence badge */
