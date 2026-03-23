@@ -4,10 +4,14 @@ TODO
 FIXES
 -----
 
-
 FEATS
 -----
 
+Make a placholders for the movement, site and end-turn phases. The player who's turn it is has only one option "pass". After end turn the active player changes and starts from the beginning.
+
+Remove touched concept completely. Instead add a concept of reverse actions that are collected when each action is taken and saved to the game state. That way we have solid way of marking actions that does not lead us forward and help AI.
+
+We need new debug only feature: Allow us to cheat in rolls. When we take a roll action, if the server is in --dev mode, it allows us to define beforehand the result. Then add button to debug mode where we can select any result from 2 to 12. Only randomization will be the combination of dice in that case but result must be the required.
 
 EPICS
 -----
@@ -26,9 +30,14 @@ Setup Fw
 Setup Balrog
 Single loadable hero deck in a file.
 Central server.
-Deck validation.
-Deck format and conversion to the JSON.
-The Wizards.
+Deck collection and validation
+The Wizards
+The Dragons
+Dark Minions
+The Lidless eye
+Against the shadow
+The White Hand
+The Balrog
 
 UNSORTED
 --------
