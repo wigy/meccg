@@ -22,6 +22,7 @@ import type {
   OpponentCompanyView,
   PlayCharacterAction,
   MoveToInfluenceAction,
+  TransferItemAction,
 } from '@meccg/shared';
 import { cardImageProxyPath, isCharacterCard, Phase, CardStatus, viableActions } from '@meccg/shared';
 import { $, createCardImage } from './render-utils.js';
@@ -49,6 +50,14 @@ let restoredFromStorage = false;
  * is stored here and valid controller targets are highlighted.
  */
 let influenceMoveSourceId: CardInstanceId | null = null;
+
+/**
+ * Transfer-item two-step selection state.
+ * When an item card is clicked, its instance ID and bearer are stored here.
+ * Valid target characters are then highlighted for the second click.
+ */
+let transferItemSourceId: CardInstanceId | null = null;
+let transferItemFromCharId: CardInstanceId | null = null;
 
 /** Save the focused company name to localStorage. */
 function saveFocusedCompany(
@@ -172,6 +181,7 @@ function renderCharacterColumn(
   charMap?: Readonly<Record<string, CharacterInPlay>>,
   influenceClick?: { cls: string; handler: (e: Event) => void },
   influenceClickBuilder?: (id: CardInstanceId) => { cls: string; handler: (e: Event) => void } | undefined,
+  itemClickBuilder?: (itemInstId: CardInstanceId, charInstId: CardInstanceId) => { cls: string; handler: (e: Event) => void } | undefined,
 ): HTMLElement {
   const col = document.createElement('div');
   col.className = 'character-column';
@@ -239,6 +249,16 @@ function renderCharacterColumn(
       const attEl = createCardImage(att.definitionId as string, attDef, attImg, 'company-card company-card--item');
       if (att.status === CardStatus.Tapped) {
         attEl.classList.add('company-card--tapped');
+      }
+      // Item transfer click handler (only for items, not allies)
+      const isItem = char.items.some(i => i.instanceId === att.instanceId);
+      if (isItem && itemClickBuilder) {
+        const itemClick = itemClickBuilder(att.instanceId, char.instanceId);
+        if (itemClick) {
+          if (itemClick.cls) attEl.classList.add(itemClick.cls);
+          attEl.style.cursor = 'pointer';
+          attEl.addEventListener('click', itemClick.handler);
+        }
       }
       attachments.appendChild(attEl);
     }
@@ -380,6 +400,8 @@ function renderCompanyBlock(
     onAction?: (action: GameAction) => void;
     /** Map from character instance ID → move-to-influence actions for that character. */
     influenceActions?: Map<string, MoveToInfluenceAction[]>;
+    /** Map from item instance ID → transfer-item actions for that item. */
+    transferActions?: Map<string, TransferItemAction[]>;
   },
 ): HTMLElement {
   const block = document.createElement('div');
@@ -501,15 +523,110 @@ function renderCompanyBlock(
     };
   };
 
+  /** Build the item click handler for an item on a character, if applicable. */
+  const buildItemClick = (itemInstId: CardInstanceId, charInstId: CardInstanceId): { cls: string; handler: (e: Event) => void } | undefined => {
+    if (!options?.onAction) return undefined;
+    const onAction = options.onAction;
+
+    if (transferItemSourceId) {
+      // We're in targeting mode — clicking a character card is the target, not items
+      // Items during targeting mode: the selected item gets a green highlight
+      if (itemInstId === transferItemSourceId) {
+        return {
+          cls: 'company-card--transfer-selected',
+          handler: (e) => {
+            e.stopPropagation();
+            transferItemSourceId = null;
+            transferItemFromCharId = null;
+            setTargetingInstruction(null);
+            renderCompanyViews(lastView!, lastCardPool!, lastOnAction!);
+          },
+        };
+      }
+      return undefined;
+    }
+
+    // Not in targeting mode — check if this item has transfer actions
+    if (!options.transferActions) return undefined;
+    const actions = options.transferActions.get(itemInstId as string);
+    if (!actions || actions.length === 0) return undefined;
+
+    const allRegress = actions.every(a => a.regress);
+    const cls = allRegress ? '' : 'company-card--transfer-source';
+
+    if (actions.length === 1) {
+      // Single target — execute directly
+      const action = actions[0];
+      return {
+        cls,
+        handler: (e) => {
+          e.stopPropagation();
+          onAction(action);
+        },
+      };
+    }
+
+    // Multiple targets — enter targeting mode
+    return {
+      cls,
+      handler: (e) => {
+        e.stopPropagation();
+        transferItemSourceId = itemInstId;
+        transferItemFromCharId = charInstId;
+        const itemDefId = lastView?.visibleInstances[itemInstId as string];
+        const itemName = itemDefId ? cardPool[itemDefId as string]?.name : undefined;
+        setTargetingInstruction(
+          `Click a highlighted character to receive ${itemName ?? 'item'}`,
+        );
+        renderCompanyViews(lastView!, lastCardPool!, lastOnAction!);
+      },
+    };
+  };
+
+  /** Build the character click handler for transfer targeting, if applicable. */
+  const buildTransferTargetClick = (charInstId: CardInstanceId): { cls: string; handler: (e: Event) => void } | undefined => {
+    if (!transferItemSourceId || !transferItemFromCharId || !options?.onAction) return undefined;
+    const onAction = options.onAction;
+
+    // Find the transfer action for this target character
+    const targetAction = viableActions(lastView!.legalActions).find(
+      a => a.type === 'transfer-item'
+        && a.itemInstanceId === transferItemSourceId
+        && a.fromCharacterId === transferItemFromCharId
+        && a.toCharacterId === charInstId,
+    ) as TransferItemAction | undefined;
+
+    if (targetAction) {
+      return {
+        cls: 'company-card--transfer-target',
+        handler: (e) => {
+          e.stopPropagation();
+          transferItemSourceId = null;
+          transferItemFromCharId = null;
+          setTargetingInstruction(null);
+          onAction(targetAction);
+        },
+      };
+    }
+    return undefined;
+  };
+
+  /** Combine influence and transfer-target click handlers for a character. */
+  const buildCombinedClick = (charInstId: CardInstanceId): { cls: string; handler: (e: Event) => void } | undefined => {
+    // Transfer targeting takes priority when active
+    if (transferItemSourceId) return buildTransferTargetClick(charInstId);
+    return buildInfluenceClick(charInstId);
+  };
+
   if (titleChar) {
-    row.appendChild(renderCharacterColumn(titleChar, cardPool, true, charMap, buildInfluenceClick(titleChar.instanceId), buildInfluenceClick));
+    row.appendChild(renderCharacterColumn(titleChar, cardPool, true, charMap, buildCombinedClick(titleChar.instanceId), buildCombinedClick, buildItemClick));
   }
   for (const charInstId of company.characters) {
     if (followerIds.has(charInstId as string)) continue;
     const char = charMap[charInstId as string];
     if (!char) continue;
     if (titleChar && char.instanceId === titleChar.instanceId) continue;
-    row.appendChild(renderCharacterColumn(char, cardPool, false, charMap, buildInfluenceClick(charInstId), buildInfluenceClick));
+    row.appendChild(renderCharacterColumn(char, cardPool, false, charMap, buildCombinedClick(charInstId), buildCombinedClick, buildItemClick));
   }
   block.appendChild(row);
 
@@ -563,7 +680,8 @@ function renderSingleView(
   const movableIds = getMovableCompanyIds(view);
   const hasLegalMovement = movableIds.has(company.id as string);
   const influenceActions = owner === 'self' ? getMoveToInfluenceActions(view) : undefined;
-  single.appendChild(renderCompanyBlock(company, charMap, view, cardPool, owner, { hideTitle: true, hasLegalMovement, onAction: lastOnAction!, influenceActions }));
+  const transferActions = owner === 'self' ? getTransferItemActions(view) : undefined;
+  single.appendChild(renderCompanyBlock(company, charMap, view, cardPool, owner, { hideTitle: true, hasLegalMovement, onAction: lastOnAction!, influenceActions, transferActions }));
   container.appendChild(single);
 }
 
@@ -596,6 +714,22 @@ function getMoveToInfluenceActions(view: PlayerView): Map<string, MoveToInfluenc
   for (const action of viableActions(view.legalActions)) {
     if (action.type !== 'move-to-influence') continue;
     const key = action.characterInstanceId as string;
+    const existing = result.get(key) ?? [];
+    existing.push(action);
+    result.set(key, existing);
+  }
+  return result;
+}
+
+/**
+ * Collect all viable transfer-item actions, keyed by the item instance ID.
+ * Each entry maps to the list of transfer actions for that item.
+ */
+function getTransferItemActions(view: PlayerView): Map<string, TransferItemAction[]> {
+  const result = new Map<string, TransferItemAction[]>();
+  for (const action of viableActions(view.legalActions)) {
+    if (action.type !== 'transfer-item') continue;
+    const key = action.itemInstanceId as string;
     const existing = result.get(key) ?? [];
     existing.push(action);
     result.set(key, existing);
@@ -714,6 +848,9 @@ function renderAllCompaniesView(
   // Move-to-influence actions (for highlighting characters)
   const influenceActions = getMoveToInfluenceActions(view);
 
+  // Transfer-item actions (for highlighting transferable items)
+  const transferActions = getTransferItemActions(view);
+
   // Collect site instance IDs that already have companies
   const companySiteIds = new Set<string>();
   for (const company of view.self.companies) {
@@ -723,7 +860,7 @@ function renderAllCompaniesView(
   // Self companies
   for (const company of view.self.companies) {
     const hasLegalMovement = movableIds.has(company.id as string);
-    const block = renderCompanyBlock(company, view.self.characters, view, cardPool, 'self', { hasLegalMovement, onAction: lastOnAction!, influenceActions });
+    const block = renderCompanyBlock(company, view.self.characters, view, cardPool, 'self', { hasLegalMovement, onAction: lastOnAction!, influenceActions, transferActions });
 
     if (targetActions && company.currentSite && targetActions.has(company.currentSite as string)) {
       // This company is a valid target for playing the selected character
@@ -812,6 +949,8 @@ export function resetCompanyViews(): void {
   lastView = null;
   lastCardPool = null;
   influenceMoveSourceId = null;
+  transferItemSourceId = null;
+  transferItemFromCharId = null;
   setTargetingInstruction(null);
 }
 
@@ -887,6 +1026,18 @@ export function renderCompanyViews(
     }
   }
 
+  // Clear transfer item selection if the source item no longer has valid actions
+  if (transferItemSourceId) {
+    const stillValid = viableActions(view.legalActions).some(
+      a => a.type === 'transfer-item' && a.itemInstanceId === transferItemSourceId,
+    );
+    if (!stillValid) {
+      transferItemSourceId = null;
+      transferItemFromCharId = null;
+      setTargetingInstruction(null);
+    }
+  }
+
   // Validate focused company still exists (check both players)
   if (focusedCompanyId) {
     const exists =
@@ -901,8 +1052,8 @@ export function renderCompanyViews(
   // Cards in play row (permanent resources, factions, etc.) — always at top
   renderCardsInPlayRow(board, view, cardPool);
 
-  // Force all-companies view when targeting for character play
-  const effectiveMode = getSelectedCharacterForPlay() ? 'all-companies' : viewMode;
+  // Force all-companies view when targeting for character play or item transfer
+  const effectiveMode = (getSelectedCharacterForPlay() || transferItemSourceId) ? 'all-companies' : viewMode;
 
   switch (effectiveMode) {
     case 'single':

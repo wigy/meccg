@@ -186,10 +186,12 @@ export interface MergeCompaniesAction {
 }
 
 /**
- * Transfer an item from one character to another within the same company.
+ * Transfer an item from one character to another at the same site.
  *
- * Items can be freely transferred during Organization as long as both
- * characters are in the same company. This does not tap either character.
+ * Per CoE rules (2.II.5), items can be transferred between two characters
+ * at the same site (not necessarily in the same company) during Organization.
+ * A corruption check for the initial bearer is required by the rules, but
+ * corruption checks are not yet implemented so transfers are currently free.
  */
 export interface TransferItemAction {
   readonly type: 'transfer-item';
@@ -201,6 +203,8 @@ export interface TransferItemAction {
   readonly fromCharacterId: CardInstanceId;
   /** The character who will receive the item. */
   readonly toCharacterId: CardInstanceId;
+  /** When true, this action undoes a previous transfer this phase (regressive). */
+  readonly regress?: true;
 }
 
 /**

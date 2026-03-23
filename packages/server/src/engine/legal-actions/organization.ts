@@ -485,6 +485,79 @@ function moveToInfluenceActions(state: GameState, playerId: PlayerId): Evaluated
 }
 
 /**
+ * Computes transfer-item actions during the organization phase.
+ *
+ * Per CoE rules (2.II.5), items can be transferred between two characters
+ * at the same site (not necessarily in the same company). The rules require
+ * a corruption check for the initial bearer, but corruption checks are not
+ * yet implemented so transfers are currently free.
+ *
+ * Emits one viable action per valid (item, fromCharacter, toCharacter) triple.
+ */
+function transferItemActions(state: GameState, playerId: PlayerId): EvaluatedAction[] {
+  const player = state.players.find(p => p.id === playerId)!;
+  const actions: EvaluatedAction[] = [];
+  const touched = new Set(state.touchedCards.map(id => id as string));
+
+  // Build a map from site instance ID → list of character instance IDs at that site
+  const siteToCharacters = new Map<string, CardInstanceId[]>();
+  for (const company of player.companies) {
+    if (!company.currentSite) continue;
+    const siteKey = company.currentSite as string;
+    const existing = siteToCharacters.get(siteKey) ?? [];
+    existing.push(...company.characters);
+    siteToCharacters.set(siteKey, existing);
+  }
+
+  // For each character with items, find valid transfer targets at the same site
+  for (const company of player.companies) {
+    if (!company.currentSite) continue;
+    const siteKey = company.currentSite as string;
+    const charsAtSite = siteToCharacters.get(siteKey) ?? [];
+
+    for (const charInstId of company.characters) {
+      const char = player.characters[charInstId as string];
+      if (!char || char.items.length === 0) continue;
+
+      const charDef = resolveDef(state, char.instanceId);
+      const charName = isCharacterCard(charDef) ? charDef.name : '?';
+
+      for (const item of char.items) {
+        const itemInst = state.instanceMap[item.instanceId as string];
+        if (!itemInst) continue;
+        const itemDef = state.cardPool[itemInst.definitionId as string];
+        const itemName = itemDef?.name ?? '?';
+
+        for (const targetInstId of charsAtSite) {
+          if (targetInstId === charInstId) continue;
+          const target = player.characters[targetInstId as string];
+          if (!target) continue;
+
+          const targetDef = resolveDef(state, target.instanceId);
+          const targetName = isCharacterCard(targetDef) ? targetDef.name : '?';
+
+          logDetail(`  → viable: transfer ${itemName} from ${charName} to ${targetName}`);
+          const regress = touched.has(item.instanceId as string);
+          actions.push({
+            action: {
+              type: 'transfer-item',
+              player: playerId,
+              itemInstanceId: item.instanceId,
+              fromCharacterId: charInstId,
+              toCharacterId: targetInstId,
+              ...(regress ? { regress: true } : {}),
+            },
+            viable: true,
+          });
+        }
+      }
+    }
+  }
+
+  return actions;
+}
+
+/**
  * Computes all legal actions during the organization phase.
  *
  * Returns {@link EvaluatedAction} items so that non-viable play-character
@@ -551,7 +624,10 @@ export function organizationActions(state: GameState, playerId: PlayerId): Evalu
   // Plan-movement actions for each company
   actions.push(...planMovementActions(state, playerId));
 
-  // TODO: split-company, merge-companies, transfer-item
+  // Transfer-item actions (move items between characters at the same site)
+  actions.push(...transferItemActions(state, playerId));
+
+  // TODO: split-company, merge-companies
 
   actions.push({ action: { type: 'pass', player: playerId }, viable: true });
   return actions;

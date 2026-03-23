@@ -1048,7 +1048,10 @@ function handleOrganization(state: GameState, action: GameAction): ReducerResult
   if (action.type === 'move-to-influence') {
     return handleMoveToInfluence(state, action);
   }
-  // TODO: split-company, merge-companies, transfer-item
+  if (action.type === 'transfer-item') {
+    return handleTransferItem(state, action);
+  }
+  // TODO: split-company, merge-companies
   return { state, error: `Unhandled organization action: ${action.type}` };
 }
 
@@ -1271,6 +1274,78 @@ function handleMoveToInfluence(state: GameState, action: GameAction): ReducerRes
       ...state,
       players: newPlayers,
       touchedCards: [...state.touchedCards, charInstId],
+    },
+  };
+}
+
+/**
+ * Handle transfer-item during organization.
+ *
+ * Moves an item from one character to another at the same site.
+ * Validates that the item exists on the source character and that
+ * both characters are at the same site (not necessarily same company).
+ */
+function handleTransferItem(state: GameState, action: GameAction): ReducerResult {
+  if (action.type !== 'transfer-item') return { state, error: 'Expected transfer-item action' };
+
+  const playerIndex = getPlayerIndex(state, action.player);
+  const player = state.players[playerIndex];
+
+  const fromCharId = action.fromCharacterId;
+  const toCharId = action.toCharacterId;
+  const itemInstId = action.itemInstanceId;
+
+  const fromChar = player.characters[fromCharId as string];
+  if (!fromChar) return { state, error: 'Source character not found' };
+
+  const toChar = player.characters[toCharId as string];
+  if (!toChar) return { state, error: 'Target character not found' };
+
+  // Validate item exists on source character
+  const itemIndex = fromChar.items.findIndex(i => i.instanceId === itemInstId);
+  if (itemIndex < 0) return { state, error: 'Item not found on source character' };
+
+  // Validate both characters are at the same site
+  const findSite = (charId: CardInstanceId): CardInstanceId | null => {
+    for (const company of player.companies) {
+      if (company.characters.includes(charId)) return company.currentSite;
+    }
+    return null;
+  };
+  const fromSite = findSite(fromCharId);
+  const toSite = findSite(toCharId);
+  if (!fromSite || !toSite || fromSite !== toSite) {
+    return { state, error: 'Characters must be at the same site' };
+  }
+
+  const item = fromChar.items[itemIndex];
+  const itemDef = state.cardPool[state.instanceMap[itemInstId as string]?.definitionId as string];
+  const fromDef = state.cardPool[state.instanceMap[fromCharId as string]?.definitionId as string];
+  const toDef = state.cardPool[state.instanceMap[toCharId as string]?.definitionId as string];
+  logDetail(`Transfer item: ${itemDef?.name ?? '?'} from ${fromDef?.name ?? '?'} to ${toDef?.name ?? '?'}`);
+
+  // Move the item
+  const newCharacters = { ...player.characters };
+  newCharacters[fromCharId as string] = {
+    ...fromChar,
+    items: fromChar.items.filter(i => i.instanceId !== itemInstId),
+  };
+  newCharacters[toCharId as string] = {
+    ...toChar,
+    items: [...toChar.items, item],
+  };
+
+  const newPlayers = clonePlayers(state);
+  newPlayers[playerIndex] = {
+    ...player,
+    characters: newCharacters,
+  };
+
+  return {
+    state: {
+      ...state,
+      players: newPlayers,
+      touchedCards: [...state.touchedCards, itemInstId],
     },
   };
 }

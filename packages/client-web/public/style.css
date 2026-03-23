@@ -1575,6 +1575,30 @@ h2 {
     0 0 30px rgba(var(--color-target), 0.6);
 }
 
+/* Transfer item: item available to transfer (golden glow) */
+.company-card--transfer-source {
+  cursor: pointer;
+  box-shadow:
+    0 0 8px rgba(var(--color-selectable), 0.7),
+    0 0 20px rgba(var(--color-selectable), 0.4);
+}
+
+/* Transfer item: item currently selected (green glow) */
+.company-card--transfer-selected {
+  cursor: pointer;
+  box-shadow:
+    0 0 12px rgba(var(--color-selected), 1),
+    0 0 30px rgba(var(--color-selected), 0.7);
+}
+
+/* Transfer item: valid target character (blue glow) */
+.company-card--transfer-target {
+  cursor: pointer;
+  box-shadow:
+    0 0 12px rgba(var(--color-target), 1),
+    0 0 30px rgba(var(--color-target), 0.6);
+}
+
 /* Character attachments (items, allies, followers) */
 .character-attachments {
   display: flex;
