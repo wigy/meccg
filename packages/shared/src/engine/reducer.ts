@@ -140,7 +140,7 @@ export function reduce(state: GameState, action: GameAction): ReducerResult {
 
   // 4. Recompute derived values (MPs, general influence) from ground truth
   //    and increment the state sequence number for log tracking.
-  //    Clear touchedCards whenever the phase changes.
+  //    Clear reverseActions whenever the phase changes.
   if (!result.error) {
     const recomputed = recomputeDerived(result.state);
     const phaseChanged = recomputed.phaseState.phase !== state.phaseState.phase;
@@ -148,7 +148,7 @@ export function reduce(state: GameState, action: GameAction): ReducerResult {
       state: {
         ...recomputed,
         stateSeq: recomputed.stateSeq + 1,
-        ...(phaseChanged ? { touchedCards: [] } : {}),
+        ...(phaseChanged ? { reverseActions: [] } : {}),
       },
       effects: result.effects,
     };
@@ -1255,7 +1255,6 @@ function handlePlayCharacter(state: GameState, action: GameAction): ReducerResul
       ...state,
       players: newPlayers,
       phaseState: { ...phaseState, characterPlayedThisTurn: true },
-      touchedCards: [...state.touchedCards, charInstId],
     },
   };
 }
@@ -1339,11 +1338,19 @@ function handleMoveToInfluence(state: GameState, action: GameAction): ReducerRes
     characters: newCharacters,
   };
 
+  // Reverse: move the character back to their old influence controller
+  const reverseAction: GameAction = {
+    type: 'move-to-influence',
+    player: action.player,
+    characterInstanceId: charInstId,
+    controlledBy: char.controlledBy,
+  };
+
   return {
     state: {
       ...state,
       players: newPlayers,
-      touchedCards: [...state.touchedCards, charInstId],
+      reverseActions: [...state.reverseActions, reverseAction],
     },
   };
 }
@@ -1419,7 +1426,13 @@ function handleTransferItem(state: GameState, action: GameAction): ReducerResult
     state: {
       ...state,
       players: newPlayers,
-      touchedCards: [...state.touchedCards, itemInstId],
+      reverseActions: [...state.reverseActions, {
+        type: 'transfer-item' as const,
+        player: action.player,
+        itemInstanceId: itemInstId,
+        fromCharacterId: toCharId,
+        toCharacterId: fromCharId,
+      }],
       phaseState: { ...orgState, pendingCorruptionCheck: { characterId: fromCharId, transferredItemId: itemInstId } },
     },
   };
@@ -1638,14 +1651,19 @@ function handleSplitCompany(state: GameState, action: GameAction): ReducerResult
   const newPlayers = clonePlayers(state);
   newPlayers[playerIndex] = { ...player, companies };
 
-  // Touch the lead character (the GI character that initiated the split)
-  const leadChar = action.characterId;
+  // Reverse: merge the new company back into the source
+  const reverseAction: GameAction = {
+    type: 'merge-companies',
+    player: action.player,
+    sourceCompanyId: newCompany.id,
+    targetCompanyId: action.sourceCompanyId,
+  };
 
   return {
     state: {
       ...state,
       players: newPlayers,
-      touchedCards: [...state.touchedCards, leadChar],
+      reverseActions: [...state.reverseActions, reverseAction],
     },
   };
 }
@@ -1710,11 +1728,20 @@ function handleMoveToCompany(state: GameState, action: GameAction): ReducerResul
   const newPlayers = clonePlayers(state);
   newPlayers[playerIndex] = { ...player, companies: filteredCompanies };
 
+  // Reverse: move the character back to the source company
+  const reverseAction: GameAction = {
+    type: 'move-to-company',
+    player: action.player,
+    characterInstanceId: charInstId,
+    sourceCompanyId: action.targetCompanyId,
+    targetCompanyId: action.sourceCompanyId,
+  };
+
   return {
     state: {
       ...state,
       players: newPlayers,
-      touchedCards: [...state.touchedCards, charInstId],
+      reverseActions: [...state.reverseActions, reverseAction],
     },
   };
 }
@@ -1765,14 +1792,24 @@ function handleMergeCompanies(state: GameState, action: GameAction): ReducerResu
   const newPlayers = clonePlayers(state);
   newPlayers[playerIndex] = { ...player, companies };
 
-  // Touch all characters from the source company so the action is regressive
-  const touchedCards = [...state.touchedCards, ...sourceCompany.characters];
+  // Reverse: split each GI character from the source back out of the target
+  const reverses: GameAction[] = sourceCompany.characters
+    .filter(id => {
+      const c = player.characters[id as string];
+      return c && c.controlledBy === 'general';
+    })
+    .map(charId => ({
+      type: 'split-company' as const,
+      player: action.player,
+      sourceCompanyId: action.targetCompanyId,
+      characterId: charId,
+    }));
 
   return {
     state: {
       ...state,
       players: newPlayers,
-      touchedCards,
+      reverseActions: [...state.reverseActions, ...reverses],
     },
   };
 }
@@ -1812,7 +1849,15 @@ function handlePlanMovement(state: GameState, action: GameAction): ReducerResult
 
   const newPlayers = clonePlayers(state);
   newPlayers[playerIndex] = { ...player, companies, siteDeck };
-  return { state: { ...state, players: newPlayers, touchedCards: [...state.touchedCards, action.destinationSite] } };
+
+  // Reverse: cancel the movement we just planned
+  const reverseAction: GameAction = {
+    type: 'cancel-movement',
+    player: action.player,
+    companyId: action.companyId,
+  };
+
+  return { state: { ...state, players: newPlayers, reverseActions: [...state.reverseActions, reverseAction] } };
 }
 
 /**
@@ -1846,7 +1891,16 @@ function handleCancelMovement(state: GameState, action: GameAction): ReducerResu
 
   const newPlayers = clonePlayers(state);
   newPlayers[playerIndex] = { ...player, companies, siteDeck };
-  return { state: { ...state, players: newPlayers, touchedCards: [...state.touchedCards, company.destinationSite] } };
+
+  // Reverse: re-plan movement to the destination we just cancelled
+  const reverseAction: GameAction = {
+    type: 'plan-movement',
+    player: action.player,
+    companyId: action.companyId,
+    destinationSite: company.destinationSite,
+  };
+
+  return { state: { ...state, players: newPlayers, reverseActions: [...state.reverseActions, reverseAction] } };
 }
 
 /**

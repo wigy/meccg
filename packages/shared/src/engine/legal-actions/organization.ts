@@ -26,6 +26,7 @@ import type {
 import { GENERAL_INFLUENCE, SiteType, isCharacterCard, isSiteCard, buildMovementMap, getReachableSites } from '../../index.js';
 import { logDetail } from './log.js';
 import { resolveDef } from '../effects/index.js';
+import { isRegressive } from '../reverse-actions.js';
 
 /**
  * Computes the available (unused) direct influence for a character in play.
@@ -354,7 +355,6 @@ function planMovementActions(state: GameState, playerId: PlayerId): EvaluatedAct
   const player = state.players.find(p => p.id === playerId)!;
   const actions: EvaluatedAction[] = [];
   const movementMap = buildMovementMap(state.cardPool);
-  const touched = new Set(state.touchedCards.map(id => id as string));
 
   for (const company of player.companies) {
     if (!company.currentSite) continue;
@@ -387,15 +387,15 @@ function planMovementActions(state: GameState, playerId: PlayerId): EvaluatedAct
       if (!destInstId) continue;
       if (seen.has(destInstId as string)) continue;
       seen.add(destInstId as string);
-      const regress = touched.has(destInstId as string);
+      const candidate: GameAction = {
+        type: 'plan-movement',
+        player: playerId,
+        companyId: company.id,
+        destinationSite: destInstId,
+      };
+      const regress = isRegressive(candidate, state.reverseActions);
       actions.push({
-        action: {
-          type: 'plan-movement',
-          player: playerId,
-          companyId: company.id,
-          destinationSite: destInstId,
-          ...(regress ? { regress: true } : {}),
-        },
+        action: { ...candidate, ...(regress ? { regress: true } : {}) },
         viable: true,
       });
     }
@@ -422,8 +422,6 @@ function moveToInfluenceActions(state: GameState, playerId: PlayerId): Evaluated
   const player = state.players.find(p => p.id === playerId)!;
   const actions: EvaluatedAction[] = [];
 
-  const touched = new Set(state.touchedCards.map(id => id as string));
-
   for (const company of player.companies) {
     for (const charInstId of company.characters) {
       const char = player.characters[charInstId as string];
@@ -447,15 +445,15 @@ function moveToInfluenceActions(state: GameState, playerId: PlayerId): Evaluated
             const ctrlDef = resolveDef(state, ctrl.instanceId);
             const ctrlName = isCharacterCard(ctrlDef) ? ctrlDef.name : '?';
             logDetail(`  → viable: move ${charDef.name} (mind ${charDef.mind}) under DI of ${ctrlName} (avail DI ${avail})`);
-            const regress = touched.has(charInstId as string);
+            const candidate: GameAction = {
+              type: 'move-to-influence',
+              player: playerId,
+              characterInstanceId: charInstId,
+              controlledBy: ctrlInstId,
+            };
+            const regress = isRegressive(candidate, state.reverseActions);
             actions.push({
-              action: {
-                type: 'move-to-influence',
-                player: playerId,
-                characterInstanceId: charInstId,
-                controlledBy: ctrlInstId,
-                ...(regress ? { regress: true } : {}),
-              },
+              action: { ...candidate, ...(regress ? { regress: true } : {}) },
               viable: true,
             });
           }
@@ -465,15 +463,15 @@ function moveToInfluenceActions(state: GameState, playerId: PlayerId): Evaluated
         const remainingGI = GENERAL_INFLUENCE - player.generalInfluenceUsed;
         if (charDef.mind !== null && charDef.mind <= remainingGI) {
           logDetail(`  → viable: move ${charDef.name} (mind ${charDef.mind}) to GI (remaining GI ${remainingGI})`);
-          const regress = touched.has(charInstId as string);
+          const candidate: GameAction = {
+            type: 'move-to-influence',
+            player: playerId,
+            characterInstanceId: charInstId,
+            controlledBy: 'general',
+          };
+          const regress = isRegressive(candidate, state.reverseActions);
           actions.push({
-            action: {
-              type: 'move-to-influence',
-              player: playerId,
-              characterInstanceId: charInstId,
-              controlledBy: 'general',
-              ...(regress ? { regress: true } : {}),
-            } as GameAction,
+            action: { ...candidate, ...(regress ? { regress: true } : {}) } as GameAction,
             viable: true,
           });
         }
@@ -498,7 +496,6 @@ function moveToInfluenceActions(state: GameState, playerId: PlayerId): Evaluated
 function transferItemActions(state: GameState, playerId: PlayerId): EvaluatedAction[] {
   const player = state.players.find(p => p.id === playerId)!;
   const actions: EvaluatedAction[] = [];
-  const touched = new Set(state.touchedCards.map(id => id as string));
 
   // Build a map from site instance ID → list of character instance IDs at that site
   const siteToCharacters = new Map<string, CardInstanceId[]>();
@@ -538,16 +535,16 @@ function transferItemActions(state: GameState, playerId: PlayerId): EvaluatedAct
           const targetName = isCharacterCard(targetDef) ? targetDef.name : '?';
 
           logDetail(`  → viable: transfer ${itemName} from ${charName} to ${targetName}`);
-          const regress = touched.has(item.instanceId as string);
+          const candidate: GameAction = {
+            type: 'transfer-item',
+            player: playerId,
+            itemInstanceId: item.instanceId,
+            fromCharacterId: charInstId,
+            toCharacterId: targetInstId,
+          };
+          const regress = isRegressive(candidate, state.reverseActions);
           actions.push({
-            action: {
-              type: 'transfer-item',
-              player: playerId,
-              itemInstanceId: item.instanceId,
-              fromCharacterId: charInstId,
-              toCharacterId: targetInstId,
-              ...(regress ? { regress: true } : {}),
-            },
+            action: { ...candidate, ...(regress ? { regress: true } : {}) },
             viable: true,
           });
         }
@@ -572,7 +569,6 @@ function transferItemActions(state: GameState, playerId: PlayerId): EvaluatedAct
 function splitCompanyActions(state: GameState, playerId: PlayerId): EvaluatedAction[] {
   const player = state.players.find(p => p.id === playerId)!;
   const actions: EvaluatedAction[] = [];
-  const touched = new Set(state.touchedCards.map(id => id as string));
 
   for (const company of player.companies) {
     if (!company.currentSite) continue;
@@ -593,15 +589,15 @@ function splitCompanyActions(state: GameState, playerId: PlayerId): EvaluatedAct
       if (!isCharacterCard(charDef)) continue;
 
       logDetail(`  → viable: split ${charDef.name} (+ ${char.followers.length} followers) from ${company.id as string}`);
-      const regress = touched.has(charInstId as string);
+      const candidate: GameAction = {
+        type: 'split-company',
+        player: playerId,
+        sourceCompanyId: company.id,
+        characterId: charInstId,
+      };
+      const regress = isRegressive(candidate, state.reverseActions);
       actions.push({
-        action: {
-          type: 'split-company',
-          player: playerId,
-          sourceCompanyId: company.id,
-          characterId: charInstId,
-          ...(regress ? { regress: true } : {}),
-        },
+        action: { ...candidate, ...(regress ? { regress: true } : {}) },
         viable: true,
       });
     }
@@ -622,7 +618,6 @@ function splitCompanyActions(state: GameState, playerId: PlayerId): EvaluatedAct
 function moveToCompanyActions(state: GameState, playerId: PlayerId): EvaluatedAction[] {
   const player = state.players.find(p => p.id === playerId)!;
   const actions: EvaluatedAction[] = [];
-  const touched = new Set(state.touchedCards.map(id => id as string));
 
   // Build map from site definition ID → companies at that site
   const siteToCompanies = new Map<string, typeof player.companies[number][]>();
@@ -658,16 +653,16 @@ function moveToCompanyActions(state: GameState, playerId: PlayerId): EvaluatedAc
         if (targetCompany.id === company.id) continue;
 
         logDetail(`  → viable: move ${charDef.name} from ${company.id as string} to ${targetCompany.id as string}`);
-        const regress = touched.has(charInstId as string);
+        const candidate: GameAction = {
+          type: 'move-to-company',
+          player: playerId,
+          characterInstanceId: charInstId,
+          sourceCompanyId: company.id,
+          targetCompanyId: targetCompany.id,
+        };
+        const regress = isRegressive(candidate, state.reverseActions);
         actions.push({
-          action: {
-            type: 'move-to-company',
-            player: playerId,
-            characterInstanceId: charInstId,
-            sourceCompanyId: company.id,
-            targetCompanyId: targetCompany.id,
-            ...(regress ? { regress: true } : {}),
-          },
+          action: { ...candidate, ...(regress ? { regress: true } : {}) },
           viable: true,
         });
       }
@@ -690,7 +685,6 @@ function moveToCompanyActions(state: GameState, playerId: PlayerId): EvaluatedAc
 function mergeCompaniesActions(state: GameState, playerId: PlayerId): EvaluatedAction[] {
   const player = state.players.find(p => p.id === playerId)!;
   const actions: EvaluatedAction[] = [];
-  const touched = new Set(state.touchedCards.map(id => id as string));
 
   // Build map from site instance ID → companies at that site
   const siteToCompanies = new Map<string, typeof player.companies[number][]>();
@@ -707,21 +701,19 @@ function mergeCompaniesActions(state: GameState, playerId: PlayerId): EvaluatedA
     const companiesAtSite = siteToCompanies.get(company.currentSite as string) ?? [];
     if (companiesAtSite.length < 2) continue;
 
-    // Regressive if any character in the source company was touched this phase
-    const regress = company.characters.some(id => touched.has(id as string));
-
     for (const targetCompany of companiesAtSite) {
       if (targetCompany.id === company.id) continue;
 
       logDetail(`  → viable: merge company ${company.id as string} into ${targetCompany.id as string}`);
+      const candidate: GameAction = {
+        type: 'merge-companies',
+        player: playerId,
+        sourceCompanyId: company.id,
+        targetCompanyId: targetCompany.id,
+      };
+      const regress = isRegressive(candidate, state.reverseActions);
       actions.push({
-        action: {
-          type: 'merge-companies',
-          player: playerId,
-          sourceCompanyId: company.id,
-          targetCompanyId: targetCompany.id,
-          ...(regress ? { regress: true } : {}),
-        },
+        action: { ...candidate, ...(regress ? { regress: true } : {}) },
         viable: true,
       });
     }
@@ -793,8 +785,14 @@ export function organizationActions(state: GameState, playerId: PlayerId): Evalu
   for (const company of player.companies) {
     if (company.destinationSite !== null) {
       logDetail(`Company ${company.id as string} has planned movement → can cancel`);
+      const candidate: GameAction = {
+        type: 'cancel-movement',
+        player: playerId,
+        companyId: company.id,
+      };
+      const regress = isRegressive(candidate, state.reverseActions);
       actions.push({
-        action: { type: 'cancel-movement', player: playerId, companyId: company.id, regress: true } as GameAction,
+        action: { ...candidate, ...(regress ? { regress: true } : {}) } as GameAction,
         viable: true,
       });
     }

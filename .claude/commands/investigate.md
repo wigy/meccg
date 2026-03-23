@@ -51,7 +51,7 @@ Game logs consist of two files per game in `~/.meccg/logs/games/`:
 - `state.players[N].hand / playDeck / discardPile` — card zones
 - `state.instanceMap` — resolves instance IDs to card definitions
 - `state.turnNumber` — which turn
-- `state.touchedCards` — cards moved this phase
+- `state.reverseActions` — reverse actions accumulated this phase
 - `state.pendingEffects` — queued effects
 
 ## Tips

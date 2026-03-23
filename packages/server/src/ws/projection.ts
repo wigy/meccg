@@ -195,7 +195,6 @@ export function projectSpectatorView(state: GameState): PlayerView {
     turnNumber: state.turnNumber,
     legalActions: [],
     visibleInstances,
-    touchedCards: state.touchedCards,
   };
 }
 
@@ -343,6 +342,5 @@ export function projectPlayerView(state: GameState, playerId: PlayerId): PlayerV
     turnNumber: state.turnNumber,
     legalActions,
     visibleInstances,
-    touchedCards: state.touchedCards,
   };
 }

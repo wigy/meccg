@@ -180,7 +180,7 @@ function buildOrgState(opts: {
     pendingEffects: [],
     rng: { seed: opts.seed ?? 42, counter: 0 },
     stateSeq: 0,
-    touchedCards: [],
+    reverseActions: [],
     cheatRollTotal: null,
   };
 }

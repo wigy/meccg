@@ -29,6 +29,7 @@ import {
   TwoDiceSix,
 } from './common.js';
 import { CardDefinition } from './cards.js';
+import type { GameAction } from './actions.js';
 
 // ---- Card Instances (runtime, in-game) ----
 
@@ -723,11 +724,12 @@ export interface GameState {
   /** Monotonically increasing sequence number for state changes, used for log replay. */
   readonly stateSeq: number;
   /**
-   * Card instance IDs that have been moved between containers during the
-   * current phase. Cleared automatically at every phase transition.
-   * Used by legal-action computation to identify redundant (regressive) actions.
+   * Reverse actions accumulated during the current phase. Each time a player
+   * takes an organization action, the engine computes the action(s) that would
+   * undo it and appends them here. Cleared automatically at every phase transition.
+   * Used by legal-action computation to mark regressive (undo) actions.
    */
-  readonly touchedCards: readonly CardInstanceId[];
+  readonly reverseActions: readonly GameAction[];
   /**
    * Dev-only: when set, the next dice roll will produce this total (2-12)
    * instead of using the RNG. The individual dice are randomly split to

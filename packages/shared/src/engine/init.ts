@@ -160,7 +160,7 @@ export function createGame(
     pendingEffects: [],
     rng,
     stateSeq: 0,
-    touchedCards: [],
+    reverseActions: [],
     cheatRollTotal: null,
   };
 }
@@ -450,7 +450,7 @@ export function createGameQuickStart(
     pendingEffects: [],
     rng,
     stateSeq: 0,
-    touchedCards: [],
+    reverseActions: [],
     cheatRollTotal: null,
   });
 }

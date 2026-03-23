@@ -166,6 +166,8 @@ export interface SplitCompanyAction {
   readonly sourceCompanyId: CompanyId;
   /** The character instance ID to move into the new company. Followers move automatically. */
   readonly characterId: CardInstanceId;
+  /** When true, this action undoes a previous merge this phase (regressive). */
+  readonly regress?: true;
 }
 
 /**
@@ -262,11 +264,8 @@ export interface CancelMovementAction {
   readonly player: PlayerId;
   /** The company whose movement is being canceled. */
   readonly companyId: CompanyId;
-  /**
-   * Marks this action as undoing previous progress. The AI avoids regressive
-   * actions, and the UI renders them with a red glow.
-   */
-  readonly regress: true;
+  /** When true, this action undoes a previous plan this phase (regressive). */
+  readonly regress?: true;
 }
 
 /**
