@@ -711,14 +711,16 @@ h2 {
 
 #site-deck-dialog {
   position: relative;
-  background: linear-gradient(135deg, #1e1e36, #151528);
-  border: 1px solid #444;
+  background: rgba(15, 12, 8, 0.92);
+  border: 1px solid rgba(196, 163, 90, 0.5);
   border-radius: 8px;
   padding: 1.5rem;
   max-width: 90vw;
   max-height: 85vh;
   overflow-y: auto;
   color: #e0e0e0;
+  backdrop-filter: blur(8px);
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.9);
 }
 
 #site-deck-dialog h3 {
