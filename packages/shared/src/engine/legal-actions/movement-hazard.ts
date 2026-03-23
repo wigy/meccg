@@ -14,7 +14,10 @@ export function movementHazardActions(state: GameState, playerId: PlayerId): Gam
   const isActive = state.activePlayer === playerId;
   logDetail(`Movement/hazard phase: player is ${isActive ? 'active (mover)' : 'non-active (hazard player)'}`);
 
-  const actions: GameAction[] = [];
-  actions.push({ type: 'pass', player: playerId });
-  return actions;
+  if (!isActive) {
+    logDetail(`Not active player, no movement/hazard actions`);
+    return [];
+  }
+
+  return [{ type: 'pass', player: playerId }];
 }

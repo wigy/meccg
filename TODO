@@ -7,8 +7,6 @@ FIXES
 FEATS
 -----
 
-Make a placholders for the movement, site and end-turn phases. The player who's turn it is has only one option "pass". After end turn the active player changes and starts from the beginning.
-
 Remove touched concept completely. Instead add a concept of reverse actions that are collected when each action is taken and saved to the game state. That way we have solid way of marking actions that does not lead us forward and help AI.
 
 EPICS

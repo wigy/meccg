@@ -14,7 +14,10 @@ export function siteActions(state: GameState, playerId: PlayerId): GameAction[] 
   const isActive = state.activePlayer === playerId;
   logDetail(`Site phase: player is ${isActive ? 'active' : 'non-active'}`);
 
-  const actions: GameAction[] = [];
-  actions.push({ type: 'pass', player: playerId });
-  return actions;
+  if (!isActive) {
+    logDetail(`Not active player, no site actions`);
+    return [];
+  }
+
+  return [{ type: 'pass', player: playerId }];
 }

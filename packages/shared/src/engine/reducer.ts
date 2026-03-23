@@ -1878,28 +1878,81 @@ function handlePlayPermanentEvent(state: GameState, action: GameAction): Reducer
   return { state: { ...state, players: newPlayers } };
 }
 
-/** Stub: resolve long events, then advance to movement/hazard. */
-function handleLongEvent(state: GameState, _action: GameAction): ReducerResult {
-  // TODO: resolve long events, advance to movement/hazard
-  return { state };
+/** Placeholder: resolve long events, then advance to movement/hazard. */
+function handleLongEvent(state: GameState, action: GameAction): ReducerResult {
+  if (action.type !== 'pass') {
+    return { state, error: `Unexpected action '${action.type}' in long-event phase` };
+  }
+  // TODO: resolve long events before advancing
+  logDetail(`Long-event: active player ${action.player as string} passed → advancing to Movement/Hazard phase`);
+  return {
+    state: {
+      ...state,
+      phaseState: {
+        phase: Phase.MovementHazard,
+        activeCompanyIndex: 0,
+        hazardsPlayedThisCompany: 0,
+        hazardLimit: 0,
+        combat: null,
+      },
+    },
+  };
 }
 
-/** Stub: reveal destinations, opponent plays hazards, resolve combat. */
-function handleMovementHazard(state: GameState, _action: GameAction): ReducerResult {
+/** Placeholder: reveal destinations, opponent plays hazards, resolve combat. */
+function handleMovementHazard(state: GameState, action: GameAction): ReducerResult {
+  if (action.type !== 'pass') {
+    return { state, error: `Unexpected action '${action.type}' in movement/hazard phase` };
+  }
   // TODO: reveal destinations, hazard play, combat resolution
-  return { state };
+  logDetail(`Movement/Hazard: active player ${action.player as string} passed → advancing to Site phase`);
+  return {
+    state: {
+      ...state,
+      phaseState: {
+        phase: Phase.Site,
+        activeCompanyIndex: 0,
+        automaticAttacksResolved: 0,
+        resourcePlayed: false,
+        combat: null,
+      },
+    },
+  };
 }
 
-/** Stub: automatic attacks at site, resource play, influence attempts. */
-function handleSite(state: GameState, _action: GameAction): ReducerResult {
+/** Placeholder: automatic attacks at site, resource play, influence attempts. */
+function handleSite(state: GameState, action: GameAction): ReducerResult {
+  if (action.type !== 'pass') {
+    return { state, error: `Unexpected action '${action.type}' in site phase` };
+  }
   // TODO: automatic attacks, resource play, influence attempts
-  return { state };
+  logDetail(`Site: active player ${action.player as string} passed → advancing to End-of-Turn phase`);
+  return {
+    state: {
+      ...state,
+      phaseState: { phase: Phase.EndOfTurn },
+    },
+  };
 }
 
-/** Stub: draw/discard to hand size, check Free Council trigger. */
-function handleEndOfTurn(state: GameState, _action: GameAction): ReducerResult {
+/** Placeholder: draw/discard to hand size, switch active player, start next turn. */
+function handleEndOfTurn(state: GameState, action: GameAction): ReducerResult {
+  if (action.type !== 'pass') {
+    return { state, error: `Unexpected action '${action.type}' in end-of-turn phase` };
+  }
   // TODO: draw/discard to hand size, check free council trigger
-  return { state };
+  const currentIndex = state.players.findIndex(p => p.id === state.activePlayer);
+  const nextIndex = (currentIndex + 1) % state.players.length;
+  const nextPlayer = state.players[nextIndex].id;
+  logDetail(`End-of-Turn: active player ${action.player as string} passed → switching to player ${nextPlayer as string}, turn ${state.turnNumber + 1}`);
+  return {
+    state: {
+      ...state,
+      activePlayer: nextPlayer,
+      turnNumber: state.turnNumber + 1,
+      phaseState: { phase: Phase.Untap },
+    },
+  };
 }
 
 /** Stub: tally marshalling points, run tiebreaker corruption checks. */
