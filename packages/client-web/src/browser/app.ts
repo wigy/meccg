@@ -405,7 +405,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // When the server is not in dev mode, hide the dev mode toggle entirely
   if (!SERVER_DEV) {
-    const devToggleLabel = devModeToggle.closest('.settings-toggle') as HTMLElement | null;
+    const devToggleLabel = devModeToggle.closest<HTMLElement>('.settings-toggle');
     if (devToggleLabel) devToggleLabel.style.display = 'none';
     const devHint = devToggleLabel?.nextElementSibling as HTMLElement | null;
     if (devHint?.classList.contains('settings-hint')) devHint.style.display = 'none';

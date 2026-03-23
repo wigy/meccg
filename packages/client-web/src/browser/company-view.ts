@@ -23,6 +23,8 @@ import type {
   PlayCharacterAction,
   MoveToInfluenceAction,
   TransferItemAction,
+  SplitCompanyAction,
+  MoveToCompanyAction,
 } from '@meccg/shared';
 import { cardImageProxyPath, isCharacterCard, Phase, CardStatus, viableActions } from '@meccg/shared';
 import { $, createCardImage } from './render-utils.js';
@@ -58,6 +60,14 @@ let influenceMoveSourceId: CardInstanceId | null = null;
  */
 let transferItemSourceId: CardInstanceId | null = null;
 let transferItemFromCharId: CardInstanceId | null = null;
+
+/**
+ * Move-to-company two-step selection state.
+ * When a character is chosen for "move to company", their instance ID and
+ * source company are stored here. Target companies are then highlighted.
+ */
+let companyMoveSourceId: CardInstanceId | null = null;
+let companyMoveSourceCompanyId: CompanyId | null = null;
 
 /** Save the focused company name to localStorage. */
 function saveFocusedCompany(
@@ -298,9 +308,10 @@ function renderSiteArea(
       if (siteDef) {
         const imgPath = cardImageProxyPath(siteDef);
         if (imgPath) {
-          const cls = options?.hasLegalMovement
-            ? 'company-card company-card--site company-card--movable'
-            : 'company-card company-card--site';
+          const siteOwned = company.siteCardOwned !== false;
+          let cls = 'company-card company-card--site';
+          if (options?.hasLegalMovement) cls += ' company-card--movable';
+          if (!siteOwned) cls += ' company-card--site-ghost';
           const img = createCardImage(siteDefId as string, siteDef, imgPath, cls);
           if (options?.hasLegalMovement && options.onAction) {
             const companyId = company.id as string;
@@ -384,6 +395,108 @@ function renderSiteArea(
   return area;
 }
 
+/** Remove any open character action tooltip from the DOM. */
+function dismissTooltip(): void {
+  const existing = document.querySelector('.char-action-tooltip');
+  if (existing) existing.remove();
+}
+
+/**
+ * Show a small tooltip near a character card with action choices:
+ * "Reassign Influence" and "Split / Move Company".
+ */
+function showCharacterActionTooltip(
+  anchor: HTMLElement,
+  charInstId: CardInstanceId,
+  cardPool: Readonly<Record<string, CardDefinition>>,
+  options: {
+    onAction?: (action: GameAction) => void;
+    influenceActions?: Map<string, MoveToInfluenceAction[]>;
+    splitActions?: Map<string, SplitCompanyAction[]>;
+    moveToCompanyActions?: Map<string, MoveToCompanyAction[]>;
+  },
+): void {
+  dismissTooltip();
+  const onAction = options.onAction!;
+
+  const tooltip = document.createElement('div');
+  tooltip.className = 'char-action-tooltip';
+
+  const influenceActions = options.influenceActions?.get(charInstId as string);
+  const splitActions = options.splitActions?.get(charInstId as string);
+  const moveActions = options.moveToCompanyActions?.get(charInstId as string);
+
+  if (influenceActions && influenceActions.length > 0) {
+    const btn = document.createElement('button');
+    btn.className = 'char-action-tooltip__btn';
+    btn.textContent = 'Reassign Influence';
+    btn.onclick = (e) => {
+      e.stopPropagation();
+      dismissTooltip();
+      if (influenceActions.length === 1 && influenceActions[0].controlledBy === 'general') {
+        onAction(influenceActions[0]);
+      } else {
+        influenceMoveSourceId = charInstId;
+        const sourceDefId = lastView?.visibleInstances[charInstId as string];
+        const sourceName = sourceDefId ? cardPool[sourceDefId as string]?.name : undefined;
+        setTargetingInstruction(
+          `Click a highlighted character to reassign ${sourceName ?? 'character'} influence`,
+        );
+        renderCompanyViews(lastView!, lastCardPool!, lastOnAction!);
+      }
+    };
+    tooltip.appendChild(btn);
+  }
+
+  if (splitActions && splitActions.length > 0) {
+    const btn = document.createElement('button');
+    btn.className = 'char-action-tooltip__btn';
+    btn.textContent = 'Split to New Company';
+    btn.onclick = (e) => {
+      e.stopPropagation();
+      dismissTooltip();
+      onAction(splitActions[0]);
+    };
+    tooltip.appendChild(btn);
+  }
+
+  if (moveActions && moveActions.length > 0) {
+    const btn = document.createElement('button');
+    btn.className = 'char-action-tooltip__btn';
+    btn.textContent = 'Move to Company';
+    btn.onclick = (e) => {
+      e.stopPropagation();
+      dismissTooltip();
+      companyMoveSourceId = charInstId;
+      companyMoveSourceCompanyId = moveActions[0].sourceCompanyId;
+      const sourceDefId = lastView?.visibleInstances[charInstId as string];
+      const sourceName = sourceDefId ? cardPool[sourceDefId as string]?.name : undefined;
+      setTargetingInstruction(
+        `Click a company to move ${sourceName ?? 'character'} there`,
+      );
+      renderCompanyViews(lastView!, lastCardPool!, lastOnAction!);
+    };
+    tooltip.appendChild(btn);
+  }
+
+  // Position near the anchor element
+  const rect = anchor.getBoundingClientRect();
+  tooltip.style.position = 'fixed';
+  tooltip.style.left = `${rect.left + rect.width / 2}px`;
+  tooltip.style.top = `${rect.top}px`;
+  document.body.appendChild(tooltip);
+
+  // Dismiss on next click anywhere else
+  const dismiss = (ev: Event) => {
+    if (!tooltip.contains(ev.target as Node)) {
+      dismissTooltip();
+      document.removeEventListener('click', dismiss, true);
+    }
+  };
+  // Delay to avoid catching the current click event
+  setTimeout(() => document.addEventListener('click', dismiss, true), 0);
+}
+
 /**
  * Render a complete company block: name label, site area, character columns.
  * Used at both scales via the --company-scale CSS variable.
@@ -402,6 +515,10 @@ function renderCompanyBlock(
     influenceActions?: Map<string, MoveToInfluenceAction[]>;
     /** Map from item instance ID → transfer-item actions for that item. */
     transferActions?: Map<string, TransferItemAction[]>;
+    /** Map from character instance ID → split-company actions for that character. */
+    splitActions?: Map<string, SplitCompanyAction[]>;
+    /** Map from character instance ID → move-to-company actions for that character. */
+    moveToCompanyActions?: Map<string, MoveToCompanyAction[]>;
   },
 ): HTMLElement {
   const block = document.createElement('div');
@@ -611,11 +728,100 @@ function renderCompanyBlock(
     return undefined;
   };
 
-  /** Combine influence and transfer-target click handlers for a character. */
+  /** Build click handler for split/move-company actions on a character. */
+  const buildCompanyMoveClick = (charInstId: CardInstanceId): { cls: string; handler: (e: Event) => void } | undefined => {
+    if (!options?.onAction) return undefined;
+    const onAction = options.onAction;
+
+    // In company-move targeting mode, this character is the source — clicking deselects
+    if (companyMoveSourceId === charInstId) {
+      return {
+        cls: 'company-card--influence-selected',
+        handler: (e) => {
+          e.stopPropagation();
+          companyMoveSourceId = null;
+          companyMoveSourceCompanyId = null;
+          setTargetingInstruction(null);
+          renderCompanyViews(lastView!, lastCardPool!, lastOnAction!);
+        },
+      };
+    }
+
+    const splitActions = options.splitActions?.get(charInstId as string);
+    const moveActions = options.moveToCompanyActions?.get(charInstId as string);
+    if ((!splitActions || splitActions.length === 0) && (!moveActions || moveActions.length === 0)) return undefined;
+
+    const allRegress = [
+      ...(splitActions ?? []),
+      ...(moveActions ?? []),
+    ].every(a => 'regress' in a && a.regress);
+    const cls = allRegress ? '' : 'company-card--influence-source';
+
+    // Single split action, no move actions — execute directly
+    if (splitActions?.length === 1 && (!moveActions || moveActions.length === 0)) {
+      const action = splitActions[0];
+      return {
+        cls,
+        handler: (e) => {
+          e.stopPropagation();
+          onAction(action);
+        },
+      };
+    }
+
+    // Only move-to-company actions (no split) — enter targeting mode directly
+    if ((!splitActions || splitActions.length === 0) && moveActions && moveActions.length > 0) {
+      return {
+        cls,
+        handler: (e) => {
+          e.stopPropagation();
+          companyMoveSourceId = charInstId;
+          companyMoveSourceCompanyId = moveActions[0].sourceCompanyId;
+          const sourceDefId = lastView?.visibleInstances[charInstId as string];
+          const sourceName = sourceDefId ? cardPool[sourceDefId as string]?.name : undefined;
+          setTargetingInstruction(
+            `Click a company to move ${sourceName ?? 'character'} there`,
+          );
+          renderCompanyViews(lastView!, lastCardPool!, lastOnAction!);
+        },
+      };
+    }
+
+    // Both split and move available — will need tooltip (handled in buildCombinedClick)
+    return { cls, handler: () => { /* handled by tooltip */ } };
+  };
+
+  /** Combine influence, transfer-target, and company-move click handlers for a character. */
   const buildCombinedClick = (charInstId: CardInstanceId): { cls: string; handler: (e: Event) => void } | undefined => {
     // Transfer targeting takes priority when active
     if (transferItemSourceId) return buildTransferTargetClick(charInstId);
-    return buildInfluenceClick(charInstId);
+
+    // Company-move targeting: no character actions, just waiting for company click
+    if (companyMoveSourceId) {
+      // Source character deselects on click
+      if (companyMoveSourceId === charInstId) return buildCompanyMoveClick(charInstId);
+      return undefined;
+    }
+
+    // Influence targeting takes priority when active
+    if (influenceMoveSourceId) return buildInfluenceClick(charInstId);
+
+    const influenceResult = buildInfluenceClick(charInstId);
+    const companyResult = buildCompanyMoveClick(charInstId);
+
+    // Only one type of action — use it directly
+    if (!companyResult) return influenceResult;
+    if (!influenceResult) return companyResult;
+
+    // Both available — show disambiguation tooltip on click
+    const cls = influenceResult.cls || companyResult.cls;
+    return {
+      cls,
+      handler: (e) => {
+        e.stopPropagation();
+        showCharacterActionTooltip(e.target as HTMLElement, charInstId, cardPool, options!);
+      },
+    };
   };
 
   if (titleChar) {
@@ -681,7 +887,9 @@ function renderSingleView(
   const hasLegalMovement = movableIds.has(company.id as string);
   const influenceActions = owner === 'self' ? getMoveToInfluenceActions(view) : undefined;
   const transferActions = owner === 'self' ? getTransferItemActions(view) : undefined;
-  single.appendChild(renderCompanyBlock(company, charMap, view, cardPool, owner, { hideTitle: true, hasLegalMovement, onAction: lastOnAction!, influenceActions, transferActions }));
+  const splitActions = owner === 'self' ? getSplitCompanyActions(view) : undefined;
+  const moveToCompanyActs = owner === 'self' ? getMoveToCompanyActions(view) : undefined;
+  single.appendChild(renderCompanyBlock(company, charMap, view, cardPool, owner, { hideTitle: true, hasLegalMovement, onAction: lastOnAction!, influenceActions, transferActions, splitActions, moveToCompanyActions: moveToCompanyActs }));
   container.appendChild(single);
 }
 
@@ -730,6 +938,37 @@ function getTransferItemActions(view: PlayerView): Map<string, TransferItemActio
   for (const action of viableActions(view.legalActions)) {
     if (action.type !== 'transfer-item') continue;
     const key = action.itemInstanceId as string;
+    const existing = result.get(key) ?? [];
+    existing.push(action);
+    result.set(key, existing);
+  }
+  return result;
+}
+
+/**
+ * Collect all viable split-company actions, keyed by the lead character instance ID.
+ * The lead character is the first in the characterIds array (the GI character).
+ */
+function getSplitCompanyActions(view: PlayerView): Map<string, SplitCompanyAction[]> {
+  const result = new Map<string, SplitCompanyAction[]>();
+  for (const action of viableActions(view.legalActions)) {
+    if (action.type !== 'split-company') continue;
+    const key = action.characterIds[0] as string;
+    const existing = result.get(key) ?? [];
+    existing.push(action);
+    result.set(key, existing);
+  }
+  return result;
+}
+
+/**
+ * Collect all viable move-to-company actions, keyed by the character instance ID.
+ */
+function getMoveToCompanyActions(view: PlayerView): Map<string, MoveToCompanyAction[]> {
+  const result = new Map<string, MoveToCompanyAction[]>();
+  for (const action of viableActions(view.legalActions)) {
+    if (action.type !== 'move-to-company') continue;
+    const key = action.characterInstanceId as string;
     const existing = result.get(key) ?? [];
     existing.push(action);
     result.set(key, existing);
@@ -851,6 +1090,10 @@ function renderAllCompaniesView(
   // Transfer-item actions (for highlighting transferable items)
   const transferActions = getTransferItemActions(view);
 
+  // Split-company and move-to-company actions
+  const splitActions = getSplitCompanyActions(view);
+  const moveToCompanyActs = getMoveToCompanyActions(view);
+
   // Collect site instance IDs that already have companies
   const companySiteIds = new Set<string>();
   for (const company of view.self.companies) {
@@ -860,9 +1103,38 @@ function renderAllCompaniesView(
   // Self companies
   for (const company of view.self.companies) {
     const hasLegalMovement = movableIds.has(company.id as string);
-    const block = renderCompanyBlock(company, view.self.characters, view, cardPool, 'self', { hasLegalMovement, onAction: lastOnAction!, influenceActions, transferActions });
+    const block = renderCompanyBlock(company, view.self.characters, view, cardPool, 'self', { hasLegalMovement, onAction: lastOnAction!, influenceActions, transferActions, splitActions, moveToCompanyActions: moveToCompanyActs });
 
-    if (targetActions && company.currentSite && targetActions.has(company.currentSite as string)) {
+    if (companyMoveSourceId && companyMoveSourceCompanyId) {
+      // Company-move targeting mode: highlight valid target companies
+      const moveAction = viableActions(view.legalActions).find(
+        a => a.type === 'move-to-company'
+          && a.characterInstanceId === companyMoveSourceId
+          && a.sourceCompanyId === companyMoveSourceCompanyId
+          && a.targetCompanyId === company.id,
+      ) as MoveToCompanyAction | undefined;
+      if (moveAction) {
+        block.classList.add('company-block--target');
+        block.onclick = (e) => {
+          e.stopPropagation();
+          companyMoveSourceId = null;
+          companyMoveSourceCompanyId = null;
+          setTargetingInstruction(null);
+          lastOnAction!(moveAction);
+        };
+      } else if (company.id === companyMoveSourceCompanyId) {
+        // Source company — keep clickable to navigate but dim
+        block.classList.add('company-block--clickable');
+        block.onclick = () => {
+          viewMode = 'single';
+          focusedCompanyId = company.id;
+          saveFocusedCompany(company, view.self.characters, view, cardPool);
+          renderCompanyViews(view, cardPool, lastOnAction!);
+        };
+      } else {
+        block.classList.add('company-block--clickable');
+      }
+    } else if (targetActions && company.currentSite && targetActions.has(company.currentSite as string)) {
       // This company is a valid target for playing the selected character
       block.classList.add('company-block--target');
       const actions = targetActions.get(company.currentSite as string)!;
@@ -951,6 +1223,9 @@ export function resetCompanyViews(): void {
   influenceMoveSourceId = null;
   transferItemSourceId = null;
   transferItemFromCharId = null;
+  companyMoveSourceId = null;
+  companyMoveSourceCompanyId = null;
+  dismissTooltip();
   setTargetingInstruction(null);
 }
 
@@ -1038,6 +1313,18 @@ export function renderCompanyViews(
     }
   }
 
+  // Clear company-move selection if the source character no longer has valid actions
+  if (companyMoveSourceId) {
+    const stillValid = viableActions(view.legalActions).some(
+      a => a.type === 'move-to-company' && a.characterInstanceId === companyMoveSourceId,
+    );
+    if (!stillValid) {
+      companyMoveSourceId = null;
+      companyMoveSourceCompanyId = null;
+      setTargetingInstruction(null);
+    }
+  }
+
   // Validate focused company still exists (check both players)
   if (focusedCompanyId) {
     const exists =
@@ -1052,8 +1339,8 @@ export function renderCompanyViews(
   // Cards in play row (permanent resources, factions, etc.) — always at top
   renderCardsInPlayRow(board, view, cardPool);
 
-  // Force all-companies view when targeting for character play or item transfer
-  const effectiveMode = (getSelectedCharacterForPlay() || transferItemSourceId) ? 'all-companies' : viewMode;
+  // Force all-companies view when targeting for character play, item transfer, or company move
+  const effectiveMode = (getSelectedCharacterForPlay() || transferItemSourceId || companyMoveSourceId) ? 'all-companies' : viewMode;
 
   switch (effectiveMode) {
     case 'single':

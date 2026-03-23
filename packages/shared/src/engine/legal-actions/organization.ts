@@ -558,6 +558,128 @@ function transferItemActions(state: GameState, playerId: PlayerId): EvaluatedAct
 }
 
 /**
+ * Computes split-company actions during the organization phase.
+ *
+ * A character under general influence (with no restriction on having followers)
+ * can split off from their company to form a new company at the same site.
+ * The character's followers automatically accompany them. The source company
+ * must retain at least one GI character after the split.
+ *
+ * Emits one action per GI character that can legally split off. The action's
+ * characterIds includes the character and all their followers.
+ */
+function splitCompanyActions(state: GameState, playerId: PlayerId): EvaluatedAction[] {
+  const player = state.players.find(p => p.id === playerId)!;
+  const actions: EvaluatedAction[] = [];
+  const touched = new Set(state.touchedCards.map(id => id as string));
+
+  for (const company of player.companies) {
+    if (!company.currentSite) continue;
+
+    // Count GI characters (non-followers) in this company
+    const giChars = company.characters.filter(id => {
+      const c = player.characters[id as string];
+      return c && c.controlledBy === 'general';
+    });
+
+    // Need at least 2 GI characters to split (one stays, one leaves)
+    if (giChars.length < 2) continue;
+
+    for (const charInstId of giChars) {
+      const char = player.characters[charInstId as string];
+      if (!char) continue;
+      const charDef = resolveDef(state, char.instanceId);
+      if (!isCharacterCard(charDef)) continue;
+
+      // Build the list: this GI character + their followers
+      const characterIds = [charInstId, ...char.followers];
+
+      logDetail(`  → viable: split ${charDef.name} (+ ${char.followers.length} followers) from ${company.id as string}`);
+      const regress = touched.has(charInstId as string);
+      actions.push({
+        action: {
+          type: 'split-company',
+          player: playerId,
+          sourceCompanyId: company.id,
+          characterIds,
+          ...(regress ? { regress: true } : {}),
+        },
+        viable: true,
+      });
+    }
+  }
+
+  return actions;
+}
+
+/**
+ * Computes move-to-company actions during the organization phase.
+ *
+ * A character under general influence can move to a different company at
+ * the same site. Their followers automatically accompany them. The source
+ * company must retain at least one GI character after the move.
+ *
+ * Emits one action per valid (character, targetCompany) pair.
+ */
+function moveToCompanyActions(state: GameState, playerId: PlayerId): EvaluatedAction[] {
+  const player = state.players.find(p => p.id === playerId)!;
+  const actions: EvaluatedAction[] = [];
+  const touched = new Set(state.touchedCards.map(id => id as string));
+
+  // Build map from site definition ID → companies at that site
+  const siteToCompanies = new Map<string, typeof player.companies[number][]>();
+  for (const company of player.companies) {
+    if (!company.currentSite) continue;
+    const siteKey = company.currentSite as string;
+    const existing = siteToCompanies.get(siteKey) ?? [];
+    existing.push(company);
+    siteToCompanies.set(siteKey, existing);
+  }
+
+  for (const company of player.companies) {
+    if (!company.currentSite) continue;
+    const companiesAtSite = siteToCompanies.get(company.currentSite as string) ?? [];
+    if (companiesAtSite.length < 2) continue;
+
+    // Count GI characters in this company
+    const giChars = company.characters.filter(id => {
+      const c = player.characters[id as string];
+      return c && c.controlledBy === 'general';
+    });
+
+    // Need at least 2 GI characters so one can leave and one stays
+    if (giChars.length < 2) continue;
+
+    for (const charInstId of giChars) {
+      const char = player.characters[charInstId as string];
+      if (!char) continue;
+      const charDef = resolveDef(state, char.instanceId);
+      if (!isCharacterCard(charDef)) continue;
+
+      for (const targetCompany of companiesAtSite) {
+        if (targetCompany.id === company.id) continue;
+
+        logDetail(`  → viable: move ${charDef.name} from ${company.id as string} to ${targetCompany.id as string}`);
+        const regress = touched.has(charInstId as string);
+        actions.push({
+          action: {
+            type: 'move-to-company',
+            player: playerId,
+            characterInstanceId: charInstId,
+            sourceCompanyId: company.id,
+            targetCompanyId: targetCompany.id,
+            ...(regress ? { regress: true } : {}),
+          },
+          viable: true,
+        });
+      }
+    }
+  }
+
+  return actions;
+}
+
+/**
  * Computes all legal actions during the organization phase.
  *
  * Returns {@link EvaluatedAction} items so that non-viable play-character
@@ -627,7 +749,13 @@ export function organizationActions(state: GameState, playerId: PlayerId): Evalu
   // Transfer-item actions (move items between characters at the same site)
   actions.push(...transferItemActions(state, playerId));
 
-  // TODO: split-company, merge-companies
+  // Split-company actions (move GI character + followers to a new company)
+  actions.push(...splitCompanyActions(state, playerId));
+
+  // Move-to-company actions (move GI character + followers to an existing company at same site)
+  actions.push(...moveToCompanyActions(state, playerId));
+
+  // TODO: merge-companies
 
   actions.push({ action: { type: 'pass', player: playerId }, viable: true });
   return actions;

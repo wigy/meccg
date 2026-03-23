@@ -156,6 +156,12 @@ export interface Company {
   /** The site card instance where this company is currently located. Null during setup before site selection. */
   readonly currentSite: CardInstanceId | null;
   /**
+   * Whether this company holds the physical site card.
+   * False when the company was created by a split — the original company keeps the card.
+   * Companies without the physical card still display the site but with a visual indicator.
+   */
+  readonly siteCardOwned: boolean;
+  /**
    * The planned destination site, set during Organization phase.
    * Null if the company is staying put this turn.
    */

@@ -89,6 +89,8 @@ export interface OpponentCompanyView {
   readonly characters: readonly CardInstanceId[];
   /** The site where this company is currently located (public). Null during setup before site selection. */
   readonly currentSite: CardInstanceId | null;
+  /** Whether this company holds the physical site card (false for split-off companies). */
+  readonly siteCardOwned: boolean;
   /** Whether the company has a planned destination (true) or is staying put (false). */
   readonly hasPlannedMovement: boolean;
   /** Whether this company has already moved this turn. */

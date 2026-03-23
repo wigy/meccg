@@ -169,6 +169,28 @@ export interface SplitCompanyAction {
 }
 
 /**
+ * Move a character (and their followers) from one company to another
+ * existing company at the same site during Organization.
+ *
+ * Only characters under general influence can move between companies.
+ * Their followers automatically accompany them. The source company
+ * must not become empty after the move.
+ */
+export interface MoveToCompanyAction {
+  readonly type: 'move-to-company';
+  /** The player moving the character. */
+  readonly player: PlayerId;
+  /** The character being moved (must be under GI). */
+  readonly characterInstanceId: CardInstanceId;
+  /** The company the character is currently in. */
+  readonly sourceCompanyId: CompanyId;
+  /** The company the character is moving to (must be at the same site). */
+  readonly targetCompanyId: CompanyId;
+  /** When true, this action undoes a previous move this phase (regressive). */
+  readonly regress?: true;
+}
+
+/**
  * Merge two companies at the same site into one.
  *
  * Used during Organization to consolidate forces before movement,
@@ -543,6 +565,7 @@ export type GameAction =
   | RollInitiativeAction
   | PlayCharacterAction
   | SplitCompanyAction
+  | MoveToCompanyAction
   | MergeCompaniesAction
   | TransferItemAction
   | MoveToInfluenceAction

@@ -254,11 +254,12 @@ function formatCompany(
   const lines: string[] = [];
 
   const siteName = company.currentSite ? formatSiteName(company.currentSite, defOf, instOf) : colorizeUnknown('(no site)');
+  const noSiteTag = company.siteCardOwned === false ? ' (no site)' : '';
   if (company.destinationSite) {
     const destName = formatSiteName(company.destinationSite, defOf, instOf);
-    lines.push(`${indent}Company ${index + 1} → ${destName} (from ${siteName}):`);
+    lines.push(`${indent}Company ${index + 1} → ${destName} (from ${siteName})${noSiteTag}:`);
   } else {
-    lines.push(`${indent}Company ${index + 1} @ ${siteName}:`);
+    lines.push(`${indent}Company ${index + 1} @ ${siteName}${noSiteTag}:`);
   }
 
   // Collect follower IDs so we skip them in the main loop (they appear under their controller)
@@ -308,10 +309,11 @@ function formatOpponentCompany(
   const lines: string[] = [];
 
   const siteName = company.currentSite ? formatSiteName(company.currentSite, defOf, instOf) : colorizeUnknown('(no site)');
+  const noSiteTag = company.siteCardOwned === false ? ' (no site)' : '';
   if (company.hasPlannedMovement) {
-    lines.push(`${indent}Company ${index + 1} → ${colorizeUnknown('(planned)')} (from ${siteName}):`);
+    lines.push(`${indent}Company ${index + 1} → ${colorizeUnknown('(planned)')} (from ${siteName})${noSiteTag}:`);
   } else {
-    lines.push(`${indent}Company ${index + 1} @ ${siteName}:`);
+    lines.push(`${indent}Company ${index + 1} @ ${siteName}${noSiteTag}:`);
   }
 
   // Collect follower IDs so we skip them in the main loop
@@ -736,7 +738,9 @@ export function describeAction(
     case 'play-character':
       return `Play character ${instName(action.characterInstanceId)} at site ${instName(action.atSite)}`;
     case 'split-company':
-      return `Split characters from ${compName(action.sourceCompanyId)}`;
+      return `Split ${action.characterIds.map(id => instName(id)).join(', ')} from ${compName(action.sourceCompanyId)}`;
+    case 'move-to-company':
+      return `Move ${instName(action.characterInstanceId)} to ${compName(action.targetCompanyId)}`;
     case 'merge-companies':
       return `Merge ${compName(action.sourceCompanyId)} into ${compName(action.targetCompanyId)}`;
     case 'transfer-item':

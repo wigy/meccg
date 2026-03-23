@@ -91,6 +91,7 @@ function buildOpponentView(player: PlayerState): OpponentView {
     id: c.id,
     characters: c.characters,
     currentSite: c.currentSite,
+    siteCardOwned: c.siteCardOwned,
     hasPlannedMovement: c.destinationSite !== null,
     moved: c.moved,
   }));

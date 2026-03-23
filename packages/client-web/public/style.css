@@ -1524,6 +1524,14 @@ h2 {
 .company-card--site {
 }
 
+/* Site card not physically owned (split-off company) — ghosted with dashed border */
+.company-card--site-ghost {
+  opacity: 0.2;
+  filter: grayscale(0.5);
+  border: 2px dashed rgb(196, 163, 90);
+  border-radius: 8px;
+}
+
 .company-card--movable {
   cursor: pointer;
   box-shadow:
@@ -1693,4 +1701,37 @@ h2 {
   color: rgba(196, 163, 90, 0.5);
   text-align: center;
   padding: 2rem;
+}
+
+/* Character action tooltip — disambiguation menu */
+.char-action-tooltip {
+  z-index: 1000;
+  transform: translate(-50%, -100%);
+  margin-top: -8px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  background: rgba(30, 25, 18, 0.95);
+  border: 1px solid rgba(196, 163, 90, 0.6);
+  border-radius: 6px;
+  padding: 4px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.6);
+}
+
+.char-action-tooltip__btn {
+  background: rgba(196, 163, 90, 0.15);
+  color: #c4a35a;
+  border: 1px solid rgba(196, 163, 90, 0.3);
+  border-radius: 4px;
+  padding: 6px 14px;
+  font-family: 'MedievalSharp', serif;
+  font-size: 0.85rem;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.char-action-tooltip__btn:hover {
+  background: rgba(196, 163, 90, 0.35);
+  border-color: rgba(196, 163, 90, 0.7);
 }

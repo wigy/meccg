@@ -685,6 +685,7 @@ function finalizeSiteSelection(
         id: `company-${player.id as string}-${companies.length}` as CompanyId,
         characters: [],
         currentSite: selectedSites[1],
+        siteCardOwned: true,
         destinationSite: null,
         movementPath: [],
         moved: false,
@@ -1051,7 +1052,13 @@ function handleOrganization(state: GameState, action: GameAction): ReducerResult
   if (action.type === 'transfer-item') {
     return handleTransferItem(state, action);
   }
-  // TODO: split-company, merge-companies
+  if (action.type === 'split-company') {
+    return handleSplitCompany(state, action);
+  }
+  if (action.type === 'move-to-company') {
+    return handleMoveToCompany(state, action);
+  }
+  // TODO: merge-companies
   return { state, error: `Unhandled organization action: ${action.type}` };
 }
 
@@ -1150,6 +1157,7 @@ function handlePlayCharacter(state: GameState, action: GameAction): ReducerResul
       id: `company-${player.id as string}-${companies.length}` as CompanyId,
       characters: [charInstId],
       currentSite: siteInstId,
+      siteCardOwned: true,
       destinationSite: null,
       movementPath: [],
       moved: false,
@@ -1346,6 +1354,145 @@ function handleTransferItem(state: GameState, action: GameAction): ReducerResult
       ...state,
       players: newPlayers,
       touchedCards: [...state.touchedCards, itemInstId],
+    },
+  };
+}
+
+/**
+ * Handle split-company during organization.
+ *
+ * Moves the specified characters (a GI character and their followers)
+ * out of the source company into a new company at the same site.
+ * Validates that the source company retains at least one character.
+ */
+function handleSplitCompany(state: GameState, action: GameAction): ReducerResult {
+  if (action.type !== 'split-company') return { state, error: 'Expected split-company action' };
+
+  const playerIndex = getPlayerIndex(state, action.player);
+  const player = state.players[playerIndex];
+
+  const sourceCompanyIndex = player.companies.findIndex(c => c.id === action.sourceCompanyId);
+  if (sourceCompanyIndex < 0) return { state, error: 'Source company not found' };
+  const sourceCompany = player.companies[sourceCompanyIndex];
+
+  const movingIds = new Set(action.characterIds.map(id => id as string));
+
+  // Validate all characters are in the source company
+  for (const id of action.characterIds) {
+    if (!sourceCompany.characters.some(c => c === id)) {
+      return { state, error: `Character ${id as string} is not in the source company` };
+    }
+  }
+
+  // Validate source company won't become empty
+  const remaining = sourceCompany.characters.filter(id => !movingIds.has(id as string));
+  if (remaining.length === 0) {
+    return { state, error: 'Source company would become empty' };
+  }
+
+  logDetail(`Split company: moving ${movingIds.size} character(s) from ${sourceCompany.id as string}`);
+
+  // Generate a unique company ID
+  const maxIdx = player.companies.reduce((max, c) => {
+    const match = (c.id as string).match(/company-.*-(\d+)$/);
+    return match ? Math.max(max, parseInt(match[1], 10)) : max;
+  }, -1);
+
+  const newCompany: Company = {
+    id: `company-${player.id as string}-${maxIdx + 1}` as CompanyId,
+    characters: action.characterIds.slice(),
+    currentSite: sourceCompany.currentSite,
+    siteCardOwned: false,
+    destinationSite: null,
+    movementPath: [],
+    moved: false,
+  };
+
+  const companies = player.companies.map((c, i) =>
+    i === sourceCompanyIndex ? { ...c, characters: remaining } : c,
+  );
+  companies.push(newCompany);
+
+  const newPlayers = clonePlayers(state);
+  newPlayers[playerIndex] = { ...player, companies };
+
+  // Touch the lead character (the GI character that initiated the split)
+  const leadChar = action.characterIds[0];
+
+  return {
+    state: {
+      ...state,
+      players: newPlayers,
+      touchedCards: [...state.touchedCards, leadChar],
+    },
+  };
+}
+
+/**
+ * Handle move-to-company during organization.
+ *
+ * Moves a GI character (and their followers) from one company to another
+ * existing company at the same site. Validates source won't become empty
+ * and both companies are at the same site.
+ */
+function handleMoveToCompany(state: GameState, action: GameAction): ReducerResult {
+  if (action.type !== 'move-to-company') return { state, error: 'Expected move-to-company action' };
+
+  const playerIndex = getPlayerIndex(state, action.player);
+  const player = state.players[playerIndex];
+
+  const sourceCompany = player.companies.find(c => c.id === action.sourceCompanyId);
+  if (!sourceCompany) return { state, error: 'Source company not found' };
+
+  const targetCompany = player.companies.find(c => c.id === action.targetCompanyId);
+  if (!targetCompany) return { state, error: 'Target company not found' };
+
+  // Validate same site
+  if (sourceCompany.currentSite !== targetCompany.currentSite) {
+    return { state, error: 'Companies must be at the same site' };
+  }
+
+  const charInstId = action.characterInstanceId;
+  const char = player.characters[charInstId as string];
+  if (!char) return { state, error: 'Character not found' };
+  if (char.controlledBy !== 'general') return { state, error: 'Only characters under general influence can move between companies' };
+
+  // Build set of IDs to move: the character + their followers
+  const movingIds = new Set<string>([charInstId as string, ...char.followers.map(id => id as string)]);
+
+  // Validate source company won't become empty
+  const remaining = sourceCompany.characters.filter(id => !movingIds.has(id as string));
+  if (remaining.length === 0) {
+    return { state, error: 'Source company would become empty' };
+  }
+
+  const charDef = state.cardPool[state.instanceMap[charInstId as string]?.definitionId as string];
+  logDetail(`Move to company: ${charDef?.name ?? '?'} (+ ${char.followers.length} followers) from ${sourceCompany.id as string} to ${targetCompany.id as string}`);
+
+  // Build the moving character list preserving order from source
+  const movingChars = sourceCompany.characters.filter(id => movingIds.has(id as string));
+
+  const companies = player.companies.map(c => {
+    if (c.id === action.sourceCompanyId) {
+      return { ...c, characters: remaining };
+    }
+    if (c.id === action.targetCompanyId) {
+      return { ...c, characters: [...c.characters, ...movingChars] };
+    }
+    return c;
+  });
+
+  // Remove empty companies (shouldn't happen due to validation, but be safe)
+  const filteredCompanies = companies.filter(c => c.characters.length > 0);
+
+  const newPlayers = clonePlayers(state);
+  newPlayers[playerIndex] = { ...player, companies: filteredCompanies };
+
+  return {
+    state: {
+      ...state,
+      players: newPlayers,
+      touchedCards: [...state.touchedCards, charInstId],
     },
   };
 }

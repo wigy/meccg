@@ -123,6 +123,7 @@ function buildOrgState(opts: {
         id: `company-${setup.id as string}-${companies.length}` as CompanyId,
         characters: charInstIds,
         currentSite: siteInstId,
+        siteCardOwned: true,
         destinationSite: null,
         movementPath: [],
         moved: false,
