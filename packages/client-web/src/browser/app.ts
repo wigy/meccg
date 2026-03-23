@@ -225,6 +225,7 @@ function disconnect(): void {
   document.getElementById('draft')!.textContent = '';
   document.getElementById('actions')!.innerHTML = '';
   document.getElementById('log')!.innerHTML = '';
+  clearDice();
   resetVisualBoard();
   resetCompanyViews();
 }

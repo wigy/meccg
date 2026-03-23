@@ -131,11 +131,14 @@ export function waitForDice(): Promise<void> {
   return animationPromise;
 }
 
-/** Remove all dice overlays. */
+/** Remove all dice overlays and clear stored roll state. */
 export function clearDice(): void {
   for (const key of Object.keys(overlays)) {
     overlays[key].remove();
     delete overlays[key];
+  }
+  for (const key of Object.keys(lastRolls)) {
+    delete lastRolls[key];
   }
 }
 

@@ -108,6 +108,14 @@ export class GameSession {
   gracefulShutdown(): void {
     this.serverLog.log('shutdown');
     if (this.state) {
+      // Clear dice rolls so they don't persist across sessions
+      this.state = {
+        ...this.state,
+        players: [
+          { ...this.state.players[0], lastDiceRoll: null },
+          { ...this.state.players[1], lastDiceRoll: null },
+        ],
+      };
       this.saveGame();
     }
 
@@ -509,6 +517,14 @@ export class GameSession {
     console.log(`${disconnectedName} disconnected`);
 
     if (this.state) {
+      // Clear dice rolls so they don't persist across sessions
+      this.state = {
+        ...this.state,
+        players: [
+          { ...this.state.players[0], lastDiceRoll: null },
+          { ...this.state.players[1], lastDiceRoll: null },
+        ],
+      };
       this.saveGame();
     }
 
