@@ -389,12 +389,15 @@ interface RenderPlayerInput {
   readonly deckCount: number;
   readonly siteDeckCount: number;
   readonly discardCount: number;
+  readonly eliminatedCount: number;
   /** Card instance IDs in the play deck, when visible (omniscient view only). */
   readonly deckCards?: readonly CardInstanceId[];
   /** Card instance IDs in the site deck, when visible (own view or omniscient). */
   readonly siteDeckCards?: readonly CardInstanceId[];
   /** Card instance IDs in the discard pile, when visible (always public). */
   readonly discardCards?: readonly CardInstanceId[];
+  /** Card instance IDs in the eliminated pile (always public). */
+  readonly eliminatedCards?: readonly CardInstanceId[];
   /** Number of cards remaining in the draft pool during setup. */
   readonly poolSize?: number;
   readonly marshallingPoints: MarshallingPointTotals;
@@ -505,6 +508,12 @@ function renderState(input: RenderInput): string {
         lines.push(`    · ${formatInstanceName(id, defOf, instOf)}`);
       }
     }
+    lines.push(`  Eliminated: ${player.eliminatedCount}`);
+    if (player.eliminatedCards && player.eliminatedCards.length > 0) {
+      for (const id of player.eliminatedCards) {
+        lines.push(`    · ${formatInstanceName(id, defOf, instOf)}`);
+      }
+    }
     if (player.poolSize !== undefined) {
       lines.push(`  Pool: ${player.poolSize}`);
     }
@@ -567,6 +576,8 @@ export function formatGameState(state: GameState): string {
       siteDeckCards: p.siteDeck,
       discardCount: p.discardPile.length,
       discardCards: p.discardPile,
+      eliminatedCount: p.eliminatedPile.length,
+      eliminatedCards: p.eliminatedPile,
       marshallingPoints: p.marshallingPoints,
       generalInfluenceUsed: p.generalInfluenceUsed,
       lastDiceRoll: p.lastDiceRoll,
@@ -633,6 +644,8 @@ export function formatPlayerView(
         siteDeckCards: view.self.siteDeck.map(c => c.instanceId),
         discardCount: view.self.discardPile.length,
         discardCards: view.self.discardPile.map(c => c.instanceId),
+        eliminatedCount: view.self.eliminatedPile.length,
+        eliminatedCards: view.self.eliminatedPile.map(c => c.instanceId),
         poolSize: selfPoolSize,
         marshallingPoints: view.self.marshallingPoints,
         generalInfluenceUsed: view.self.generalInfluenceUsed,
@@ -651,6 +664,8 @@ export function formatPlayerView(
         siteDeckCount: view.opponent.siteDeckSize,
         discardCount: view.opponent.discardPile.length,
         discardCards: view.opponent.discardPile.map(c => c.instanceId),
+        eliminatedCount: view.opponent.eliminatedPile.length,
+        eliminatedCards: view.opponent.eliminatedPile.map(c => c.instanceId),
         poolSize: opponentPoolSize,
         marshallingPoints: view.opponent.marshallingPoints,
         generalInfluenceUsed: view.opponent.generalInfluenceUsed,

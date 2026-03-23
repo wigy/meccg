@@ -267,6 +267,8 @@ export interface PlayerState {
   readonly siteDiscardPile: readonly CardInstanceId[];
   /** Reserve cards that can be fetched under specific game conditions. */
   readonly sideboard: readonly CardInstanceId[];
+  /** Cards removed from the game (e.g. characters eliminated by failed corruption checks). */
+  readonly eliminatedPile: readonly CardInstanceId[];
   /** All companies this player controls on the map. */
   readonly companies: readonly Company[];
   /** All characters this player has in play, keyed by their CardInstanceId for fast lookup. */
@@ -489,7 +491,12 @@ export interface OrganizationPhaseState {
    * just gave away an item via transfer. No other organization actions
    * are legal until this check is resolved (CoE 2.II.5).
    */
-  readonly pendingCorruptionCheck: CardInstanceId | null;
+  readonly pendingCorruptionCheck: {
+    /** The character who must make the corruption check. */
+    readonly characterId: CardInstanceId;
+    /** The item that was transferred — included in possessions and CP for the check. */
+    readonly transferredItemId: CardInstanceId;
+  } | null;
 }
 
 /**

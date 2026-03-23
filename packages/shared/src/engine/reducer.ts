@@ -1366,7 +1366,7 @@ function handleTransferItem(state: GameState, action: GameAction): ReducerResult
       ...state,
       players: newPlayers,
       touchedCards: [...state.touchedCards, itemInstId],
-      phaseState: { ...orgState, pendingCorruptionCheck: fromCharId },
+      phaseState: { ...orgState, pendingCorruptionCheck: { characterId: fromCharId, transferredItemId: itemInstId } },
     },
   };
 }
@@ -1375,10 +1375,12 @@ function handleTransferItem(state: GameState, action: GameAction): ReducerResult
  * Handle corruption check during organization (after item transfer).
  *
  * Per CoE rules (2.II.5), after transferring an item the initial bearer
- * must make a corruption check: roll 2d6 vs their corruption point total.
- * If roll > CP the check passes and organization continues normally.
- * If roll <= CP the check fails: the character is discarded along with
- * all their items, followers, and non-follower cards.
+ * must make a corruption check: roll 2d6 + modifier vs corruption points.
+ * - roll > CP: check passes, no effect.
+ * - roll == CP or CP-1: character and possessions are discarded. Followers
+ *   stay in play, promoted to general influence.
+ * - roll < CP-1: character is eliminated (removed from game), possessions
+ *   are discarded. Followers stay in play, promoted to general influence.
  */
 function handleOrganizationCorruptionCheck(state: GameState, action: GameAction): ReducerResult {
   if (action.type !== 'corruption-check') return { state, error: 'Expected corruption-check action' };
@@ -1387,7 +1389,7 @@ function handleOrganizationCorruptionCheck(state: GameState, action: GameAction)
   if (orgState.pendingCorruptionCheck === null) {
     return { state, error: 'No pending corruption check' };
   }
-  if (action.characterId !== orgState.pendingCorruptionCheck) {
+  if (action.characterId !== orgState.pendingCorruptionCheck.characterId) {
     return { state, error: 'Wrong character for pending corruption check' };
   }
 
@@ -1439,47 +1441,79 @@ function handleOrganizationCorruptionCheck(state: GameState, action: GameAction)
     };
   }
 
-  // Failed — discard character, their items, and followers
-  logDetail(`Corruption check FAILED (${total} <= ${cp}) — discarding ${charName}`);
+  const newCharacters = { ...player.characters };
 
-  // Collect all card instance IDs to discard: the character + items + followers + follower items
-  const toDiscard: CardInstanceId[] = [action.characterId];
-  for (const item of char.items) {
-    toDiscard.push(item.instanceId);
-  }
-  for (const followerId of char.followers) {
-    toDiscard.push(followerId);
-    const follower = player.characters[followerId as string];
-    if (follower) {
-      for (const item of follower.items) {
-        toDiscard.push(item.instanceId);
-      }
+  // Remove the transferred item from the target character (transfer failed)
+  const transferredItemId = orgState.pendingCorruptionCheck.transferredItemId;
+  for (const [cid, cData] of Object.entries(newCharacters)) {
+    if (cid === action.characterId as string) continue;
+    const itemIdx = cData.items.findIndex(i => i.instanceId === transferredItemId);
+    if (itemIdx >= 0) {
+      newCharacters[cid] = { ...cData, items: cData.items.filter(i => i.instanceId !== transferredItemId) };
+      break;
     }
   }
 
-  // Remove character and followers from characters map
-  const newCharacters = { ...player.characters };
-  delete newCharacters[action.characterId as string];
-  for (const followerId of char.followers) {
-    delete newCharacters[followerId as string];
+  if (total >= cp - 1) {
+    // Roll == CP or CP-1: character and possessions are discarded (not followers)
+    logDetail(`Corruption check FAILED (${total} is within 1 of ${cp}) — discarding ${charName} and ${action.possessions.length} possession(s)`);
+
+    delete newCharacters[action.characterId as string];
+
+    // Remove character from company (followers stay)
+    const newCompanies = player.companies.map(c => ({
+      ...c,
+      characters: c.characters.filter(id => id !== action.characterId),
+    }));
+
+    // Followers lose their controller — promote to general influence
+    for (const followerId of char.followers) {
+      const follower = newCharacters[followerId as string];
+      if (follower) {
+        newCharacters[followerId as string] = { ...follower, controlledBy: 'general' };
+      }
+    }
+
+    const toDiscard = [action.characterId, ...action.possessions];
+    const newDiscardPile = [...player.discardPile, ...toDiscard];
+
+    playersAfterRoll[playerIndex] = {
+      ...playersAfterRoll[playerIndex],
+      characters: newCharacters,
+      companies: newCompanies,
+      discardPile: newDiscardPile,
+    };
+  } else {
+    // Roll < CP-1: character is eliminated, possessions are discarded
+    logDetail(`Corruption check FAILED (${total} < ${cp - 1}) — eliminating ${charName}, discarding ${action.possessions.length} possession(s)`);
+
+    delete newCharacters[action.characterId as string];
+
+    // Remove character from company (followers stay)
+    const newCompanies = player.companies.map(c => ({
+      ...c,
+      characters: c.characters.filter(id => id !== action.characterId),
+    }));
+
+    // Followers lose their controller — promote to general influence
+    for (const followerId of char.followers) {
+      const follower = newCharacters[followerId as string];
+      if (follower) {
+        newCharacters[followerId as string] = { ...follower, controlledBy: 'general' };
+      }
+    }
+
+    const newEliminatedPile = [...player.eliminatedPile, action.characterId];
+    const newDiscardPile = [...player.discardPile, ...action.possessions];
+
+    playersAfterRoll[playerIndex] = {
+      ...playersAfterRoll[playerIndex],
+      characters: newCharacters,
+      companies: newCompanies,
+      eliminatedPile: newEliminatedPile,
+      discardPile: newDiscardPile,
+    };
   }
-
-  // Remove from company
-  const discardSet = new Set(toDiscard.map(id => id as string));
-  const newCompanies = player.companies.map(c => ({
-    ...c,
-    characters: c.characters.filter(id => !discardSet.has(id as string)),
-  }));
-
-  // Add to discard pile
-  const newDiscardPile = [...player.discardPile, ...toDiscard];
-
-  playersAfterRoll[playerIndex] = {
-    ...playersAfterRoll[playerIndex],
-    characters: newCharacters,
-    companies: newCompanies,
-    discardPile: newDiscardPile,
-  };
 
   return {
     state: cleanupEmptyCompanies({

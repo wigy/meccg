@@ -131,6 +131,8 @@ export interface OpponentView {
   readonly discardPile: readonly RevealedCard[];
   /** The opponent's face-up site discard pile (public information). */
   readonly siteDiscardPile: readonly RevealedCard[];
+  /** The opponent's eliminated (removed from play) cards (public information). */
+  readonly eliminatedPile: readonly RevealedCard[];
   /** The opponent's companies with destination information redacted. */
   readonly companies: readonly OpponentCompanyView[];
   /** The opponent's characters in play (public information). */
@@ -177,6 +179,8 @@ export interface SelfView {
   readonly siteDiscardPile: readonly RevealedCard[];
   /** Reserve cards available for sideboard fetching. */
   readonly sideboard: readonly RevealedCard[];
+  /** Cards removed from the game (eliminated characters, etc.). */
+  readonly eliminatedPile: readonly RevealedCard[];
   /** All companies this player controls, with full destination visibility. */
   readonly companies: readonly Company[];
   /** All characters this player has in play. */

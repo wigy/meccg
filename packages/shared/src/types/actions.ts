@@ -465,6 +465,12 @@ export interface CorruptionCheckAction {
    * bonuses (e.g. +2 for Ringwraith/Balrog in company).
    */
   readonly corruptionModifier: number;
+  /**
+   * Card instance IDs of possessions (items, allies, corruption cards) that
+   * will be discarded if the corruption check fails. Pre-computed at action
+   * generation time so the client can display what's at stake.
+   */
+  readonly possessions: readonly CardInstanceId[];
 }
 
 /**

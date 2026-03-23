@@ -145,6 +145,7 @@ function buildOrgState(opts: {
       siteDeck,
       siteDiscardPile: [] as CardInstanceId[],
       sideboard: [] as CardInstanceId[],
+      eliminatedPile: [] as CardInstanceId[],
       companies,
       characters,
       cardsInPlay: [] as import('../../index.js').CardInPlay[],

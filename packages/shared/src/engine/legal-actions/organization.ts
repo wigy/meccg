@@ -749,14 +749,30 @@ export function organizationActions(state: GameState, playerId: PlayerId): Evalu
 
   // When a corruption check is pending (after item transfer), only that check is legal
   if (orgState.pendingCorruptionCheck !== null) {
-    const charId = orgState.pendingCorruptionCheck;
+    const charId = orgState.pendingCorruptionCheck.characterId;
+    const transferredItemId = orgState.pendingCorruptionCheck.transferredItemId;
     const char = player.characters[charId as string];
     if (char) {
       const charDef = resolveDef(state, char.instanceId);
       const charName = isCharacterCard(charDef) ? charDef.name : '?';
-      const cp = char.effectiveStats.corruptionPoints;
+
+      // Include CP from the transferred item (already moved to target character)
+      const transferredInst = state.instanceMap[transferredItemId as string];
+      const transferredDef = transferredInst ? state.cardPool[transferredInst.definitionId as string] : undefined;
+      const transferredCp = transferredDef && 'corruptionPoints' in transferredDef
+        ? (transferredDef as { corruptionPoints: number }).corruptionPoints : 0;
+      const cp = char.effectiveStats.corruptionPoints + transferredCp;
+
       const modifier = isCharacterCard(charDef) ? charDef.corruptionModifier : 0;
-      logDetail(`Pending corruption check for ${charName} (CP ${cp}, modifier ${modifier >= 0 ? '+' : ''}${modifier}) after item transfer`);
+
+      // Include the transferred item in possessions (it's on the target but belongs to this check)
+      const possessions: CardInstanceId[] = [
+        transferredItemId,
+        ...char.items.map(i => i.instanceId),
+        ...char.allies.map(a => a.instanceId),
+        ...char.corruptionCards,
+      ];
+      logDetail(`Pending corruption check for ${charName} (CP ${cp} incl. transferred item, modifier ${modifier >= 0 ? '+' : ''}${modifier}, ${possessions.length} possession(s)) after item transfer`);
       return [{
         action: {
           type: 'corruption-check',
@@ -764,6 +780,7 @@ export function organizationActions(state: GameState, playerId: PlayerId): Evalu
           characterId: charId,
           corruptionPoints: cp,
           corruptionModifier: modifier,
+          possessions,
         },
         viable: true,
       }];

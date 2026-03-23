@@ -24,6 +24,11 @@ export function freeCouncilActions(state: GameState, playerId: PlayerId): GameAc
     const charDef = state.cardPool[charInPlay.definitionId as string];
     const cp = charInPlay.effectiveStats.corruptionPoints;
     const modifier = charDef && isCharacterCard(charDef) ? charDef.corruptionModifier : 0;
+    const possessions: CardInstanceId[] = [
+      ...charInPlay.items.map(i => i.instanceId),
+      ...charInPlay.allies.map(a => a.instanceId),
+      ...charInPlay.corruptionCards,
+    ];
     logDetail(`Corruption check available for '${charDef?.name ?? charId}' (CP ${cp}, modifier ${modifier >= 0 ? '+' : ''}${modifier})`);
     actions.push({
       type: 'corruption-check',
@@ -31,6 +36,7 @@ export function freeCouncilActions(state: GameState, playerId: PlayerId): GameAc
       characterId: charId as CardInstanceId,
       corruptionPoints: cp,
       corruptionModifier: modifier,
+      possessions,
     });
   }
 
