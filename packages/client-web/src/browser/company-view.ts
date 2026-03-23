@@ -25,7 +25,7 @@ import type {
 } from '@meccg/shared';
 import { cardImageProxyPath, isCharacterCard, Phase, CardStatus, viableActions } from '@meccg/shared';
 import { $, createCardImage } from './render-utils.js';
-import { getSelectedCharacterForPlay, clearCharacterPlaySelection, openMovementViewer } from './render.js';
+import { getSelectedCharacterForPlay, clearCharacterPlaySelection, openMovementViewer, setTargetingInstruction } from './render.js';
 
 // ---- View state ----
 
@@ -447,6 +447,7 @@ function renderCompanyBlock(
           handler: (e) => {
             e.stopPropagation();
             influenceMoveSourceId = null;
+            setTargetingInstruction(null);
             onAction(targetAction);
           },
         };
@@ -458,6 +459,7 @@ function renderCompanyBlock(
           handler: (e) => {
             e.stopPropagation();
             influenceMoveSourceId = null;
+            setTargetingInstruction(null);
             renderCompanyViews(lastView!, lastCardPool!, lastOnAction!);
           },
         };
@@ -489,6 +491,11 @@ function renderCompanyBlock(
       handler: (e) => {
         e.stopPropagation();
         influenceMoveSourceId = charInstId;
+        const sourceDefId = lastView?.visibleInstances[charInstId as string];
+        const sourceName = sourceDefId ? cardPool[sourceDefId as string]?.name : undefined;
+        setTargetingInstruction(
+          `Click a highlighted character to reassign ${sourceName ?? 'character'} influence`,
+        );
         renderCompanyViews(lastView!, lastCardPool!, lastOnAction!);
       },
     };
@@ -805,6 +812,7 @@ export function resetCompanyViews(): void {
   lastView = null;
   lastCardPool = null;
   influenceMoveSourceId = null;
+  setTargetingInstruction(null);
 }
 
 /** Phases where company views are displayed (normal play, after setup and before council). */
@@ -873,7 +881,10 @@ export function renderCompanyViews(
     const stillValid = viableActions(view.legalActions).some(
       a => a.type === 'move-to-influence' && a.characterInstanceId === influenceMoveSourceId,
     );
-    if (!stillValid) influenceMoveSourceId = null;
+    if (!stillValid) {
+      influenceMoveSourceId = null;
+      setTargetingInstruction(null);
+    }
   }
 
   // Validate focused company still exists (check both players)

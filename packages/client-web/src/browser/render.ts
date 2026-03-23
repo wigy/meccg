@@ -36,6 +36,26 @@ function findNonViableReason(
 }
 
 /**
+ * Targeting instruction text displayed when the player is in a two-step
+ * selection flow (item draft, play-character, move-to-influence).
+ * Takes priority over phase-based instructions when set.
+ */
+let targetingInstruction: string | null = null;
+
+/**
+ * Set or clear the targeting instruction displayed in the center of the board.
+ * Called from within render.ts and by external modules (e.g. company-view)
+ * when entering/exiting two-step selection flows.
+ */
+export function setTargetingInstruction(text: string | null): void {
+  targetingInstruction = text;
+  const el = document.getElementById('instruction-text');
+  if (!el) return;
+  el.textContent = text ?? '';
+  el.classList.toggle('instruction-top', text !== null);
+}
+
+/**
  * Module-level state for the item draft two-step selection flow.
  * When a player clicks an item in the hand arc, it becomes "selected" and
  * valid target characters are highlighted on the table. Clicking a target
@@ -80,6 +100,7 @@ export function getSelectedCharacterForPlay(): CardInstanceId | null {
 /** Clear the play-character selection (called by company-view after action is sent). */
 export function clearCharacterPlaySelection(): void {
   selectedCharacterInstanceId = null;
+  setTargetingInstruction(null);
 }
 
 /** Re-render hand and company views using cached state (for character play selection flow). */
@@ -925,12 +946,13 @@ function getInstructionText(view: PlayerView): string | null {
   return null;
 }
 
-/** Render instruction text in the visual board. */
+/** Render instruction text in the visual board. Targeting instructions take priority. */
 export function renderInstructions(view: PlayerView): void {
   const el = document.getElementById('instruction-text');
   if (!el) return;
-  const text = getInstructionText(view);
-  el.textContent = text ?? '';
+  const text = targetingInstruction ?? getInstructionText(view) ?? '';
+  el.textContent = text;
+  el.classList.toggle('instruction-top', targetingInstruction !== null);
 }
 
 /** Render the pass/stop button in the visual view if a pass-like action is available. */
@@ -1206,6 +1228,7 @@ function renderItemDraftTargets(
           `[data-def-id="${selectedItemDefId as string}"]`,
         );
         selectedItemDefId = null;
+        setTargetingInstruction(null);
 
         if (sourceCard) {
           flyCardTo(sourceCard, img, () => onAction(targetAction));
@@ -1380,9 +1403,11 @@ export function renderHand(
     // Auto-clear selection if the selected item is no longer in legal actions
     if (selectedItemDefId && !isItemDraftCard(selectedItemDefId, viableActions(view.legalActions))) {
       selectedItemDefId = null;
+      setTargetingInstruction(null);
     }
   } else {
     // Not in item draft — clear any stale selection
+    if (selectedItemDefId) setTargetingInstruction(null);
     selectedItemDefId = null;
     itemDraftRenderCache = null;
   }
@@ -1397,9 +1422,13 @@ export function renderHand(
       const stillViable = viable.some(
         a => a.type === 'play-character' && a.characterInstanceId === selectedCharacterInstanceId,
       );
-      if (!stillViable) selectedCharacterInstanceId = null;
+      if (!stillViable) {
+        selectedCharacterInstanceId = null;
+        setTargetingInstruction(null);
+      }
     }
   } else if (!hasPlayCharacters) {
+    if (selectedCharacterInstanceId) setTargetingInstruction(null);
     selectedCharacterInstanceId = null;
     playCharacterRenderCache = null;
   }
@@ -1440,6 +1469,9 @@ export function renderHand(
       if (onAction) {
         img.addEventListener('click', () => {
           selectedItemDefId = isSelected ? null : cardDefId;
+          setTargetingInstruction(
+            selectedItemDefId ? `Click a highlighted character to assign ${def.name}` : null,
+          );
           reRenderItemDraft();
         });
       }
@@ -1452,6 +1484,9 @@ export function renderHand(
         const instId = cardInstanceId;
         img.addEventListener('click', () => {
           selectedCharacterInstanceId = isCharSelected ? null : instId;
+          setTargetingInstruction(
+            selectedCharacterInstanceId ? `Click a highlighted company to play ${def.name}` : null,
+          );
           reRenderCharacterPlay();
         });
       }

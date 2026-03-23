@@ -424,6 +424,11 @@ h2 {
   pointer-events: none;
 }
 
+#instruction-text.instruction-top {
+  top: 8vh;
+  transform: translateX(-50%);
+}
+
 .drafted-row {
   display: flex;
   justify-content: center;

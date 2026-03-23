@@ -219,8 +219,10 @@ function disconnect(): void {
 function resetVisualBoard(): void {
   const board = document.getElementById('visual-board')!;
   board.innerHTML = '';
+  // Clear instruction text (lives outside visual-board now)
+  const instrEl = document.getElementById('instruction-text');
+  if (instrEl) instrEl.textContent = '';
   for (const [id, cls] of [
-    ['instruction-text', ''],
     ['drafted-opponent', 'drafted-row'],
     ['set-aside', ''],
     ['drafted-self', 'drafted-row'],
