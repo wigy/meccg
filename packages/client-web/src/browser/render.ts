@@ -823,19 +823,16 @@ function installSiteDeckViewer(): void {
   });
 
   backdrop.addEventListener('click', () => {
-    // During mandatory site selection (setup), don't allow closing the modal
-    if (siteSelectionActions.some(a => a.action.type === 'select-starting-site')) return;
     closeSelectionViewer();
   });
 }
 
 /**
- * Open the site deck viewer in site-selection mode, highlighting selectable sites.
- * Called during the starting-site-selection setup step. Only auto-opens when
- * there are viable site selections available; skips reopening when the player
- * has already selected and is waiting for the opponent.
+ * Prepare site selection state and highlight the site deck pile.
+ * Called during the starting-site-selection setup step. Does not auto-open
+ * the modal — the player clicks the highlighted pile to open it.
  */
-export function openSiteSelectionViewer(
+export function prepareSiteSelection(
   view: PlayerView,
   cardPool: Readonly<Record<string, CardDefinition>>,
   onAction: (action: GameAction) => void,
@@ -852,10 +849,10 @@ export function openSiteSelectionViewer(
   siteSelectionCallback = onAction;
   installSiteDeckViewer();
 
-  // Only auto-open when there are viable site selections to make
-  const hasViableSites = siteSelectionActions.some(ea => ea.viable);
-  if (hasViableSites) {
-    populateSiteDeckGrid();
+  // Highlight the site deck pile when there are viable selections
+  const pile = document.getElementById('self-site-pile');
+  if (pile && siteSelectionActions.some(ea => ea.viable)) {
+    pile.classList.add('site-pile--active');
   }
 }
 
@@ -892,10 +889,12 @@ export function closeSelectionViewer(): void {
   siteSelectionMatcher = null;
   const modal = document.getElementById('site-deck-modal');
   if (modal) modal.classList.add('hidden');
+  const pile = document.getElementById('self-site-pile');
+  if (pile) pile.classList.remove('site-pile--active');
 }
 
 /** @deprecated Use closeSelectionViewer instead. */
-export function closeSiteSelectionViewer(): void {
+export function clearSiteSelection(): void {
   closeSelectionViewer();
 }
 

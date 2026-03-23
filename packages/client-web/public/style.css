@@ -699,6 +699,17 @@ h2 {
   transform: scale(1.05);
 }
 
+#self-site-pile.site-pile--active {
+  box-shadow: 0 0 14px 5px rgba(196, 163, 90, 0.9);
+  border-radius: 6px;
+  animation: site-pile-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes site-pile-pulse {
+  0%, 100% { box-shadow: 0 0 14px 5px rgba(196, 163, 90, 0.9); }
+  50% { box-shadow: 0 0 22px 8px rgba(196, 163, 90, 1); }
+}
+
 #self-deck-pile {
   left: 6.5rem;
   bottom: 4rem;
