@@ -354,6 +354,7 @@ function planMovementActions(state: GameState, playerId: PlayerId): EvaluatedAct
   const player = state.players.find(p => p.id === playerId)!;
   const actions: EvaluatedAction[] = [];
   const movementMap = buildMovementMap(state.cardPool);
+  const touched = new Set(state.touchedCards.map(id => id as string));
 
   for (const company of player.companies) {
     if (!company.currentSite) continue;
@@ -382,6 +383,7 @@ function planMovementActions(state: GameState, playerId: PlayerId): EvaluatedAct
     for (const r of reachable) {
       const destInstId = siteInstMap.get(r.site.name);
       if (!destInstId) continue;
+      const regress = touched.has(destInstId as string);
       actions.push({
         action: {
           type: 'plan-movement',
@@ -390,9 +392,90 @@ function planMovementActions(state: GameState, playerId: PlayerId): EvaluatedAct
           destinationSite: destInstId,
           regionPath: [],
           movementType: r.movementType,
+          ...(regress ? { regress: true } : {}),
         },
         viable: true,
       });
+    }
+  }
+
+  return actions;
+}
+
+/**
+ * Computes move-to-influence actions during the organization phase.
+ *
+ * Two types of influence reassignment (CoE rules lines 227-228):
+ *
+ * 1. **To DI (become follower)**: A non-avatar character under GI, who has
+ *    no followers themselves, can be moved under the DI of a non-follower
+ *    character in the same company. The character's mind must not exceed
+ *    the controller's available direct influence.
+ *
+ * 2. **To GI (un-follow)**: A follower can be moved to general influence,
+ *    provided the total non-follower mind would not exceed the player's
+ *    maximum general influence.
+ */
+function moveToInfluenceActions(state: GameState, playerId: PlayerId): EvaluatedAction[] {
+  const player = state.players.find(p => p.id === playerId)!;
+  const actions: EvaluatedAction[] = [];
+
+  const touched = new Set(state.touchedCards.map(id => id as string));
+
+  for (const company of player.companies) {
+    for (const charInstId of company.characters) {
+      const char = player.characters[charInstId as string];
+      if (!char) continue;
+      const charDef = resolveDef(state, char.instanceId);
+      if (!isCharacterCard(charDef)) continue;
+
+      const isAvatar = charDef.mind === null;
+
+      if (char.controlledBy === 'general' && !isAvatar && char.followers.length === 0) {
+        // Rule 227: Move non-avatar character without followers to DI of a
+        // non-follower character in the same company
+        for (const ctrlInstId of company.characters) {
+          if (ctrlInstId === charInstId) continue;
+          const ctrl = player.characters[ctrlInstId as string];
+          if (!ctrl) continue;
+          // Controller must be under GI (non-follower)
+          if (ctrl.controlledBy !== 'general') continue;
+          const avail = availableDI(state, ctrl.instanceId, player);
+          if (avail >= charDef.mind) {
+            const ctrlDef = resolveDef(state, ctrl.instanceId);
+            const ctrlName = isCharacterCard(ctrlDef) ? ctrlDef.name : '?';
+            logDetail(`  → viable: move ${charDef.name} (mind ${charDef.mind}) under DI of ${ctrlName} (avail DI ${avail})`);
+            const regress = touched.has(charInstId as string);
+            actions.push({
+              action: {
+                type: 'move-to-influence',
+                player: playerId,
+                characterInstanceId: charInstId,
+                controlledBy: ctrlInstId,
+                ...(regress ? { regress: true } : {}),
+              },
+              viable: true,
+            });
+          }
+        }
+      } else if (char.controlledBy !== 'general') {
+        // Rule 228: Move a follower to general influence if GI allows
+        const remainingGI = GENERAL_INFLUENCE - player.generalInfluenceUsed;
+        if (charDef.mind !== null && charDef.mind <= remainingGI) {
+          logDetail(`  → viable: move ${charDef.name} (mind ${charDef.mind}) to GI (remaining GI ${remainingGI})`);
+          const regress = touched.has(charInstId as string);
+          actions.push({
+            action: {
+              type: 'move-to-influence',
+              player: playerId,
+              characterInstanceId: charInstId,
+              controlledBy: 'general',
+              ...(regress ? { regress: true } : {}),
+            } as GameAction,
+            viable: true,
+          });
+        }
+      }
     }
   }
 
@@ -459,6 +542,9 @@ export function organizationActions(state: GameState, playerId: PlayerId): Evalu
       reason: 'Not playable during the organization',
     });
   }
+
+  // Move-to-influence actions (reassign characters between GI and DI)
+  actions.push(...moveToInfluenceActions(state, playerId));
 
   // Plan-movement actions for each company
   actions.push(...planMovementActions(state, playerId));

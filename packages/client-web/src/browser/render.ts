@@ -405,9 +405,11 @@ export function renderActions(
     container.appendChild(pre);
   }
 
-  // Viable actions first — clickable
+  // Viable actions first — clickable (regressive actions shown lighter)
   for (const ea of evaluated.filter(e => e.viable)) {
     const btn = document.createElement('button');
+    const isRegress = 'regress' in ea.action && ea.action.regress;
+    if (isRegress) btn.classList.add('action-regress');
     btn.innerHTML = ansiToHtml(describeAction(ea.action, cardPool, instanceLookup, companyNames));
     tagCardImages(btn, cardPool);
     addJsonToggle(btn, ea.action);

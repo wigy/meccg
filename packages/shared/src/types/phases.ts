@@ -83,6 +83,7 @@ export const LEGAL_ACTIONS_BY_PHASE: Readonly<Record<Phase, readonly GameAction[
     'split-company',
     'merge-companies',
     'transfer-item',
+    'move-to-influence',
     'plan-movement',
     'cancel-movement',
     'pass',

@@ -105,10 +105,19 @@ export function reduce(state: GameState, action: GameAction): ReducerResult {
   }
 
   // 4. Recompute derived values (MPs, general influence) from ground truth
-  //    and increment the state sequence number for log tracking
+  //    and increment the state sequence number for log tracking.
+  //    Clear touchedCards whenever the phase changes.
   if (!result.error) {
     const recomputed = recomputeDerived(result.state);
-    result = { state: { ...recomputed, stateSeq: recomputed.stateSeq + 1 }, effects: result.effects };
+    const phaseChanged = recomputed.phaseState.phase !== state.phaseState.phase;
+    result = {
+      state: {
+        ...recomputed,
+        stateSeq: recomputed.stateSeq + 1,
+        ...(phaseChanged ? { touchedCards: [] } : {}),
+      },
+      effects: result.effects,
+    };
   }
 
   return result;
@@ -1036,6 +1045,9 @@ function handleOrganization(state: GameState, action: GameAction): ReducerResult
   if (action.type === 'play-permanent-event') {
     return handlePlayPermanentEvent(state, action);
   }
+  if (action.type === 'move-to-influence') {
+    return handleMoveToInfluence(state, action);
+  }
   // TODO: split-company, merge-companies, transfer-item
   return { state, error: `Unhandled organization action: ${action.type}` };
 }
@@ -1170,6 +1182,95 @@ function handlePlayCharacter(state: GameState, action: GameAction): ReducerResul
       ...state,
       players: newPlayers,
       phaseState: { ...phaseState, characterPlayedThisTurn: true },
+      touchedCards: [...state.touchedCards, charInstId],
+    },
+  };
+}
+
+/**
+ * Handle move-to-influence during organization.
+ *
+ * Moves a character between general influence and direct influence:
+ * - To DI: removes from GI, adds as follower of the controller
+ * - To GI: removes from controller's followers, sets controlledBy to 'general'
+ */
+function handleMoveToInfluence(state: GameState, action: GameAction): ReducerResult {
+  if (action.type !== 'move-to-influence') return { state, error: 'Expected move-to-influence action' };
+
+  const playerIndex = getPlayerIndex(state, action.player);
+  const player = state.players[playerIndex];
+  const charInstId = action.characterInstanceId;
+  const char = player.characters[charInstId as string];
+  if (!char) return { state, error: 'Character not found' };
+
+  const charDef = state.cardPool[state.instanceMap[charInstId as string]?.definitionId as string];
+  if (!charDef || !isCharacterCard(charDef)) return { state, error: 'Not a character card' };
+
+  logDetail(`Move to influence: ${charDef.name} → ${action.controlledBy as string}`);
+
+  const newCharacters = { ...player.characters };
+
+  if (action.controlledBy === 'general') {
+    // Moving from DI to GI
+    if (char.controlledBy === 'general') return { state, error: 'Character is already under general influence' };
+
+    // Remove from old controller's followers list
+    const oldControllerId = char.controlledBy;
+    const oldController = newCharacters[oldControllerId as string];
+    if (oldController) {
+      newCharacters[oldControllerId as string] = {
+        ...oldController,
+        followers: oldController.followers.filter(id => id !== charInstId),
+      };
+    }
+
+    // Set character to GI
+    newCharacters[charInstId as string] = {
+      ...char,
+      controlledBy: 'general',
+    };
+  } else {
+    // Moving from GI to DI (become follower)
+    const controllerId = action.controlledBy;
+    const controller = newCharacters[controllerId as string];
+    if (!controller) return { state, error: 'Controlling character not found' };
+
+    // If already a follower of someone else, remove from old controller first
+    if (char.controlledBy !== 'general') {
+      const oldControllerId = char.controlledBy;
+      const oldController = newCharacters[oldControllerId as string];
+      if (oldController) {
+        newCharacters[oldControllerId as string] = {
+          ...oldController,
+          followers: oldController.followers.filter(id => id !== charInstId),
+        };
+      }
+    }
+
+    // Add to new controller's followers
+    newCharacters[controllerId as string] = {
+      ...controller,
+      followers: [...controller.followers, charInstId],
+    };
+
+    // Set character's controlledBy
+    newCharacters[charInstId as string] = {
+      ...char,
+      controlledBy: controllerId,
+    };
+  }
+
+  const newPlayers = clonePlayers(state);
+  newPlayers[playerIndex] = {
+    ...player,
+    characters: newCharacters,
+  };
+
+  return {
+    state: {
+      ...state,
+      players: newPlayers,
+      touchedCards: [...state.touchedCards, charInstId],
     },
   };
 }
@@ -1209,7 +1310,7 @@ function handlePlanMovement(state: GameState, action: GameAction): ReducerResult
 
   const newPlayers = clonePlayers(state);
   newPlayers[playerIndex] = { ...player, companies, siteDeck };
-  return { state: { ...state, players: newPlayers } };
+  return { state: { ...state, players: newPlayers, touchedCards: [...state.touchedCards, action.destinationSite] } };
 }
 
 /**
@@ -1243,7 +1344,7 @@ function handleCancelMovement(state: GameState, action: GameAction): ReducerResu
 
   const newPlayers = clonePlayers(state);
   newPlayers[playerIndex] = { ...player, companies, siteDeck };
-  return { state: { ...state, players: newPlayers } };
+  return { state: { ...state, players: newPlayers, touchedCards: [...state.touchedCards, company.destinationSite] } };
 }
 
 /**

@@ -21,6 +21,7 @@ import type {
   CompanyId,
   OpponentCompanyView,
   PlayCharacterAction,
+  MoveToInfluenceAction,
 } from '@meccg/shared';
 import { cardImageProxyPath, isCharacterCard, Phase, CardStatus, viableActions } from '@meccg/shared';
 import { $, createCardImage } from './render-utils.js';
@@ -41,6 +42,13 @@ let focusedCompanyId: CompanyId | null = null;
 
 /** Whether we've attempted to restore the focused company from localStorage. */
 let restoredFromStorage = false;
+
+/**
+ * Move-to-influence two-step selection state.
+ * When a character with move-to-influence options is clicked, its instance ID
+ * is stored here and valid controller targets are highlighted.
+ */
+let influenceMoveSourceId: CardInstanceId | null = null;
 
 /** Save the focused company name to localStorage. */
 function saveFocusedCompany(
@@ -161,6 +169,9 @@ function renderCharacterColumn(
   char: CharacterInPlay,
   cardPool: Readonly<Record<string, CardDefinition>>,
   isTitleCharacter: boolean,
+  charMap?: Readonly<Record<string, CharacterInPlay>>,
+  influenceClick?: { cls: string; handler: (e: Event) => void },
+  influenceClickBuilder?: (id: CardInstanceId) => { cls: string; handler: (e: Event) => void } | undefined,
 ): HTMLElement {
   const col = document.createElement('div');
   col.className = 'character-column';
@@ -205,11 +216,19 @@ function renderCharacterColumn(
     wrap.appendChild(titleBadge);
   }
 
+  // Influence move highlight and click handler
+  if (influenceClick) {
+    if (influenceClick.cls) img.classList.add(influenceClick.cls);
+    img.style.cursor = 'pointer';
+    img.addEventListener('click', influenceClick.handler);
+  }
+
   col.appendChild(wrap);
 
-  // Items and allies — shown side by side
+  // Items, allies, and followers — shown side by side in one row
   const allAttachments = [...char.items, ...char.allies];
-  if (allAttachments.length > 0) {
+  const hasFollowers = charMap && char.followers.length > 0;
+  if (allAttachments.length > 0 || hasFollowers) {
     const attachments = document.createElement('div');
     attachments.className = 'character-attachments';
     for (const att of allAttachments) {
@@ -222,6 +241,16 @@ function renderCharacterColumn(
         attEl.classList.add('company-card--tapped');
       }
       attachments.appendChild(attEl);
+    }
+    // Followers rendered in the same row as items
+    if (charMap && char.followers.length > 0) {
+      for (const followerId of char.followers) {
+        const follower = charMap[followerId as string];
+        if (!follower) continue;
+        // Render each follower as a nested column (without further nesting)
+        const followerInfluenceClick = influenceClickBuilder?.(followerId);
+        attachments.appendChild(renderCharacterColumn(follower, cardPool, false, undefined, followerInfluenceClick));
+      }
     }
     col.appendChild(attachments);
   }
@@ -300,7 +329,7 @@ function renderSiteArea(
         const imgPath = cardImageProxyPath(destDef);
         if (imgPath) {
           const cancelAction = options?.onAction && viableActions(view.legalActions).find(
-            a => 'regress' in a && a.regress && a.companyId === company.id,
+            a => a.type === 'cancel-movement' && a.companyId === company.id,
           );
           const cls = cancelAction
             ? 'company-card company-card--site company-card--cancelable'
@@ -345,7 +374,13 @@ function renderCompanyBlock(
   view: PlayerView,
   cardPool: Readonly<Record<string, CardDefinition>>,
   owner: 'self' | 'opponent',
-  options?: { hideTitle?: boolean; hasLegalMovement?: boolean; onAction?: (action: GameAction) => void },
+  options?: {
+    hideTitle?: boolean;
+    hasLegalMovement?: boolean;
+    onAction?: (action: GameAction) => void;
+    /** Map from character instance ID → move-to-influence actions for that character. */
+    influenceActions?: Map<string, MoveToInfluenceAction[]>;
+  },
 ): HTMLElement {
   const block = document.createElement('div');
   const isSelfTurn = view.activePlayer !== null && view.activePlayer === view.self.id;
@@ -379,16 +414,95 @@ function renderCompanyBlock(
     onAction: options?.onAction,
   }));
 
-  // Characters — title character always rendered first (leftmost after site)
-  const titleChar = getTitleCharacter(company.characters, charMap, cardPool);
-  if (titleChar) {
-    row.appendChild(renderCharacterColumn(titleChar, cardPool, true));
-  }
+  // Characters — title character always rendered first (leftmost after site).
+  // Followers are rendered nested under their controlling character, not as
+  // separate columns, so collect follower IDs to skip in the main loop.
+  const followerIds = new Set<string>();
   for (const charInstId of company.characters) {
     const char = charMap[charInstId as string];
     if (!char) continue;
+    for (const fId of char.followers) {
+      followerIds.add(fId as string);
+    }
+  }
+
+  const titleChar = getTitleCharacter(company.characters, charMap, cardPool);
+
+  /** Build the influence click handler for a character, if applicable. */
+  const buildInfluenceClick = (charInstId: CardInstanceId): { cls: string; handler: (e: Event) => void } | undefined => {
+    if (!options?.influenceActions || !options.onAction) return undefined;
+    const onAction = options.onAction;
+    const actions = options.influenceActions.get(charInstId as string);
+
+    if (influenceMoveSourceId) {
+      // Targeting mode: this character is a valid controller target
+      const targetAction = viableActions(lastView!.legalActions).find(
+        a => a.type === 'move-to-influence'
+          && a.characterInstanceId === influenceMoveSourceId
+          && a.controlledBy === charInstId,
+      ) as MoveToInfluenceAction | undefined;
+      if (targetAction) {
+        return {
+          cls: 'company-card--influence-target',
+          handler: (e) => {
+            e.stopPropagation();
+            influenceMoveSourceId = null;
+            onAction(targetAction);
+          },
+        };
+      }
+      // Source character itself — clicking again deselects
+      if (charInstId === influenceMoveSourceId) {
+        return {
+          cls: 'company-card--influence-selected',
+          handler: (e) => {
+            e.stopPropagation();
+            influenceMoveSourceId = null;
+            renderCompanyViews(lastView!, lastCardPool!, lastOnAction!);
+          },
+        };
+      }
+      return undefined;
+    }
+
+    if (!actions || actions.length === 0) return undefined;
+
+    // All actions are regress — still clickable but no glow
+    const allRegress = actions.every(a => a.regress);
+    const cls = allRegress ? '' : 'company-card--influence-source';
+
+    if (actions.length === 1 && actions[0].controlledBy === 'general') {
+      // Single option: move to GI — execute directly
+      const action = actions[0];
+      return {
+        cls,
+        handler: (e) => {
+          e.stopPropagation();
+          onAction(action);
+        },
+      };
+    }
+
+    // Multiple options (or to-DI): enter targeting mode
+    return {
+      cls,
+      handler: (e) => {
+        e.stopPropagation();
+        influenceMoveSourceId = charInstId;
+        renderCompanyViews(lastView!, lastCardPool!, lastOnAction!);
+      },
+    };
+  };
+
+  if (titleChar) {
+    row.appendChild(renderCharacterColumn(titleChar, cardPool, true, charMap, buildInfluenceClick(titleChar.instanceId), buildInfluenceClick));
+  }
+  for (const charInstId of company.characters) {
+    if (followerIds.has(charInstId as string)) continue;
+    const char = charMap[charInstId as string];
+    if (!char) continue;
     if (titleChar && char.instanceId === titleChar.instanceId) continue;
-    row.appendChild(renderCharacterColumn(char, cardPool, false));
+    row.appendChild(renderCharacterColumn(char, cardPool, false, charMap, buildInfluenceClick(charInstId), buildInfluenceClick));
   }
   block.appendChild(row);
 
@@ -441,7 +555,8 @@ function renderSingleView(
   };
   const movableIds = getMovableCompanyIds(view);
   const hasLegalMovement = movableIds.has(company.id as string);
-  single.appendChild(renderCompanyBlock(company, charMap, view, cardPool, owner, { hideTitle: true, hasLegalMovement, onAction: lastOnAction! }));
+  const influenceActions = owner === 'self' ? getMoveToInfluenceActions(view) : undefined;
+  single.appendChild(renderCompanyBlock(company, charMap, view, cardPool, owner, { hideTitle: true, hasLegalMovement, onAction: lastOnAction!, influenceActions }));
   container.appendChild(single);
 }
 
@@ -458,6 +573,22 @@ function getPlayCharacterActions(
     if (action.type !== 'play-character') continue;
     if (action.characterInstanceId !== characterInstanceId) continue;
     const key = action.atSite as string;
+    const existing = result.get(key) ?? [];
+    existing.push(action);
+    result.set(key, existing);
+  }
+  return result;
+}
+
+/**
+ * Collect all viable move-to-influence actions, keyed by the source character instance ID.
+ * Each entry maps to the list of actions available for that character.
+ */
+function getMoveToInfluenceActions(view: PlayerView): Map<string, MoveToInfluenceAction[]> {
+  const result = new Map<string, MoveToInfluenceAction[]>();
+  for (const action of viableActions(view.legalActions)) {
+    if (action.type !== 'move-to-influence') continue;
+    const key = action.characterInstanceId as string;
     const existing = result.get(key) ?? [];
     existing.push(action);
     result.set(key, existing);
@@ -573,6 +704,9 @@ function renderAllCompaniesView(
   // Companies with legal movement available
   const movableIds = getMovableCompanyIds(view);
 
+  // Move-to-influence actions (for highlighting characters)
+  const influenceActions = getMoveToInfluenceActions(view);
+
   // Collect site instance IDs that already have companies
   const companySiteIds = new Set<string>();
   for (const company of view.self.companies) {
@@ -582,7 +716,7 @@ function renderAllCompaniesView(
   // Self companies
   for (const company of view.self.companies) {
     const hasLegalMovement = movableIds.has(company.id as string);
-    const block = renderCompanyBlock(company, view.self.characters, view, cardPool, 'self', { hasLegalMovement, onAction: lastOnAction! });
+    const block = renderCompanyBlock(company, view.self.characters, view, cardPool, 'self', { hasLegalMovement, onAction: lastOnAction!, influenceActions });
 
     if (targetActions && company.currentSite && targetActions.has(company.currentSite as string)) {
       // This company is a valid target for playing the selected character
@@ -670,6 +804,7 @@ export function resetCompanyViews(): void {
   lastOnAction = null;
   lastView = null;
   lastCardPool = null;
+  influenceMoveSourceId = null;
 }
 
 /** Phases where company views are displayed (normal play, after setup and before council). */
@@ -731,6 +866,14 @@ export function renderCompanyViews(
   const activeId = view.activePlayer as string | null;
   if (activeId !== lastActivePlayer) {
     lastActivePlayer = activeId;
+  }
+
+  // Clear influence move selection if the source character no longer has valid actions
+  if (influenceMoveSourceId) {
+    const stillValid = viableActions(view.legalActions).some(
+      a => a.type === 'move-to-influence' && a.characterInstanceId === influenceMoveSourceId,
+    );
+    if (!stillValid) influenceMoveSourceId = null;
   }
 
   // Validate focused company still exists (check both players)

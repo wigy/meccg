@@ -222,4 +222,9 @@ export interface PlayerView {
    * Used by the formatter to resolve instance IDs to card names.
    */
   readonly visibleInstances: Readonly<Record<string, CardDefinitionId>>;
+  /**
+   * Card instance IDs moved between containers during the current phase.
+   * Used by the debug UI to mark touched cards with a visual indicator.
+   */
+  readonly touchedCards: readonly CardInstanceId[];
 }

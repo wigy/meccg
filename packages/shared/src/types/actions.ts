@@ -222,6 +222,8 @@ export interface PlanMovementAction {
   readonly regionPath: readonly CardInstanceId[];
   /** How this destination is reachable: starter (haven-based) or region (adjacency graph). */
   readonly movementType: 'starter' | 'region';
+  /** When true, this action undoes a previous cancel this phase (regressive). */
+  readonly regress?: true;
 }
 
 /**
@@ -241,6 +243,33 @@ export interface CancelMovementAction {
    * actions, and the UI renders them with a red glow.
    */
   readonly regress: true;
+}
+
+/**
+ * Move a character between general influence and direct influence control
+ * during the Organization phase.
+ *
+ * Two directions are supported:
+ * - **To DI**: Move a non-avatar character (without followers) under the
+ *   direct influence of a non-follower character in the same company.
+ *   The character's mind must not exceed the controller's available DI.
+ * - **To GI**: Move a follower back to general influence, provided the
+ *   total non-follower mind would not exceed the player's maximum GI.
+ */
+export interface MoveToInfluenceAction {
+  readonly type: 'move-to-influence';
+  /** The player reorganizing influence. */
+  readonly player: PlayerId;
+  /** The character being moved between influence pools. */
+  readonly characterInstanceId: CardInstanceId;
+  /**
+   * The new influence controller:
+   * - `'general'` -- Move the character to general influence (un-follow).
+   * - A `CardInstanceId` -- Make the character a follower of this character.
+   */
+  readonly controlledBy: 'general' | CardInstanceId;
+  /** When true, this action undoes a previous move this phase (regressive). */
+  readonly regress?: true;
 }
 
 /**
@@ -516,6 +545,7 @@ export type GameAction =
   | SplitCompanyAction
   | MergeCompaniesAction
   | TransferItemAction
+  | MoveToInfluenceAction
   | PlanMovementAction
   | CancelMovementAction
   | PlayPermanentEventAction

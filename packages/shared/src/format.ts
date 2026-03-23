@@ -192,7 +192,7 @@ function statusSymbol(status: CardStatus): string {
   }
 }
 
-function formatCharacterLine(char: CharacterInPlay, defOf: CardLookup, instOf: InstanceLookup): string {
+function formatCharacterLine(char: CharacterInPlay, defOf: CardLookup, instOf: InstanceLookup, touchedIds?: ReadonlySet<string>): string {
   const def = resolve(char.instanceId, instOf, defOf);
   if (!isCharacterCard(def)) {
     return showDebugIds ? colorizeUnknown(`a character {${char.instanceId}}`) : colorizeUnknown('a character');
@@ -203,7 +203,8 @@ function formatCharacterLine(char: CharacterInPlay, defOf: CardLookup, instOf: I
   const label = formatInstanceName(char.instanceId, defOf, instOf);
   const mindLabel = c.mind !== null ? `${c.mind} Mind, ` : '';
   const cpLabel = s.corruptionPoints > 0 ? `, ${s.corruptionPoints} CP` : '';
-  return `${statusSymbol(char.status)} ${label} [${s.prowess}/${s.body}] ${skills} (${mindLabel}${s.directInfluence} DI, ${c.marshallingPoints} MP${cpLabel})`;
+  const touchedLabel = touchedIds?.has(char.instanceId as string) ? ' 🔄' : '';
+  return `${statusSymbol(char.status)}${touchedLabel} ${label} [${s.prowess}/${s.body}] ${skills} (${mindLabel}${s.directInfluence} DI, ${c.marshallingPoints} MP${cpLabel})`;
 }
 
 function formatItemLine(item: ItemInPlay, defOf: CardLookup, instOf: InstanceLookup): string {
@@ -248,6 +249,7 @@ function formatCompany(
   defOf: CardLookup,
   instOf: InstanceLookup,
   indent: string,
+  touchedIds?: ReadonlySet<string>,
 ): string[] {
   const lines: string[] = [];
 
@@ -259,11 +261,20 @@ function formatCompany(
     lines.push(`${indent}Company ${index + 1} @ ${siteName}:`);
   }
 
+  // Collect follower IDs so we skip them in the main loop (they appear under their controller)
+  const followerIds = new Set<string>();
   for (const charId of company.characters) {
     const char = characters[charId as string];
     if (!char) continue;
+    for (const fId of char.followers) followerIds.add(fId as string);
+  }
 
-    lines.push(`${indent}  ${formatCharacterLine(char, defOf, instOf)}`);
+  for (const charId of company.characters) {
+    if (followerIds.has(charId as string)) continue;
+    const char = characters[charId as string];
+    if (!char) continue;
+
+    lines.push(`${indent}  ${formatCharacterLine(char, defOf, instOf, touchedIds)}`);
     for (const item of char.items) {
       lines.push(`${indent}    ${formatItemLine(item, defOf, instOf)}`);
     }
@@ -276,7 +287,7 @@ function formatCompany(
     for (const followerId of char.followers) {
       const follower = characters[followerId as string];
       if (!follower) continue;
-      lines.push(`${indent}    ${formatCharacterLine(follower, defOf, instOf)} [follower]`);
+      lines.push(`${indent}    ${formatCharacterLine(follower, defOf, instOf, touchedIds)} [follower]`);
       for (const item of follower.items) {
         lines.push(`${indent}      ${formatItemLine(item, defOf, instOf)}`);
       }
@@ -303,7 +314,16 @@ function formatOpponentCompany(
     lines.push(`${indent}Company ${index + 1} @ ${siteName}:`);
   }
 
+  // Collect follower IDs so we skip them in the main loop
+  const followerIds = new Set<string>();
   for (const charId of company.characters) {
+    const char = characters[charId as string];
+    if (!char) continue;
+    for (const fId of char.followers) followerIds.add(fId as string);
+  }
+
+  for (const charId of company.characters) {
+    if (followerIds.has(charId as string)) continue;
     const char = characters[charId as string];
     if (!char) continue;
 
@@ -316,6 +336,14 @@ function formatOpponentCompany(
     }
     for (const ccId of char.corruptionCards) {
       lines.push(`${indent}    ${formatCorruptionCardLine(ccId, defOf, instOf)}`);
+    }
+    for (const followerId of char.followers) {
+      const follower = characters[followerId as string];
+      if (!follower) continue;
+      lines.push(`${indent}    ${formatCharacterLine(follower, defOf, instOf)} [follower]`);
+      for (const item of follower.items) {
+        lines.push(`${indent}      ${formatItemLine(item, defOf, instOf)}`);
+      }
     }
   }
 
@@ -383,6 +411,8 @@ interface RenderInput {
   readonly players: readonly [RenderPlayerInput, RenderPlayerInput];
   readonly defOf: CardLookup;
   readonly instOf: InstanceLookup;
+  /** Card instance IDs touched this phase — displayed with 🔄 in debug output. */
+  readonly touchedIds?: ReadonlySet<string>;
 }
 
 /**
@@ -474,7 +504,7 @@ function renderState(input: RenderInput): string {
 
     // Full companies (own view or omniscient server view)
     for (let i = 0; i < player.companies.length; i++) {
-      lines.push(...formatCompany(player.companies[i], i, player.characters, defOf, instOf, '  '));
+      lines.push(...formatCompany(player.companies[i], i, player.characters, defOf, instOf, '  ', input.touchedIds));
     }
 
     // Opponent companies (redacted destination)
@@ -538,6 +568,7 @@ export function formatGameState(state: GameState): string {
     })) as unknown as [RenderPlayerInput, RenderPlayerInput],
     defOf,
     instOf,
+    touchedIds: new Set(state.touchedCards.map(id => id as string)),
   }));
 }
 
@@ -622,6 +653,7 @@ export function formatPlayerView(
     ],
     defOf,
     instOf,
+    touchedIds: new Set(view.touchedCards.map(id => id as string)),
   });
 }
 
@@ -709,6 +741,10 @@ export function describeAction(
       return `Merge ${compName(action.sourceCompanyId)} into ${compName(action.targetCompanyId)}`;
     case 'transfer-item':
       return `Transfer item ${instName(action.itemInstanceId)} from ${instName(action.fromCharacterId)} to ${instName(action.toCharacterId)}`;
+    case 'move-to-influence':
+      return action.controlledBy === 'general'
+        ? `Move ${instName(action.characterInstanceId)} to general influence`
+        : `Move ${instName(action.characterInstanceId)} under direct influence of ${instName(action.controlledBy)}`;
     case 'plan-movement':
       return `Move ${compName(action.companyId)} to ${instName(action.destinationSite)} (${action.movementType})`;
     case 'cancel-movement':

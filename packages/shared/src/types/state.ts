@@ -701,4 +701,10 @@ export interface GameState {
   readonly rng: RngState;
   /** Monotonically increasing sequence number for state changes, used for log replay. */
   readonly stateSeq: number;
+  /**
+   * Card instance IDs that have been moved between containers during the
+   * current phase. Cleared automatically at every phase transition.
+   * Used by legal-action computation to identify redundant (regressive) actions.
+   */
+  readonly touchedCards: readonly CardInstanceId[];
 }

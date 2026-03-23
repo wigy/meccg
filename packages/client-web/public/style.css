@@ -329,6 +329,10 @@ h2 {
   border-color: #444;
 }
 
+#actions button.action-regress {
+  opacity: 0.5;
+}
+
 .action-reason {
   color: #c4a35a;
   font-style: italic;
@@ -1542,7 +1546,31 @@ h2 {
   transform: rotate(180deg);
 }
 
-/* Character attachments (items, allies) */
+/* Influence move: source character available to move (golden glow) */
+.company-card--influence-source {
+  cursor: pointer;
+  box-shadow:
+    0 0 8px rgba(var(--color-selectable), 0.7),
+    0 0 20px rgba(var(--color-selectable), 0.4);
+}
+
+/* Influence move: source character currently selected (green glow) */
+.company-card--influence-selected {
+  cursor: pointer;
+  box-shadow:
+    0 0 12px rgba(var(--color-selected), 1),
+    0 0 30px rgba(var(--color-selected), 0.7);
+}
+
+/* Influence move: valid controller target (blue glow) */
+.company-card--influence-target {
+  cursor: pointer;
+  box-shadow:
+    0 0 12px rgba(var(--color-target), 1),
+    0 0 30px rgba(var(--color-target), 0.6);
+}
+
+/* Character attachments (items, allies, followers) */
 .character-attachments {
   display: flex;
   flex-direction: row;
