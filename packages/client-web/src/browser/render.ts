@@ -9,6 +9,7 @@ import type { PlayerView, GameAction, EvaluatedAction, CardDefinition, CardDefin
 import { describeAction, formatPlayerView, formatCardList, cardImageProxyPath, isCharacterCard, GENERAL_INFLUENCE, getAlignmentRules, viableActions, formatSignedNumber, Phase, computeTournamentScore, computeTournamentBreakdown } from '@meccg/shared';
 import type { MarshallingPointTotals } from '@meccg/shared';
 import { $, createCardImage, createFaceDownCard, appendItemCards } from './render-utils.js';
+import { createMiniDie, seedDiceFromState, restoreDice } from './dice.js';
 
 /**
  * Find the non-viable reason for a card by definition ID from the evaluated actions.
@@ -359,11 +360,36 @@ function injectMPTooltips(html: string): string {
   });
 }
 
+/**
+ * Replace «DICE:d1,d2,variant» markers with placeholder spans, then inject
+ * actual 3D mini-dice elements into those placeholders.
+ */
+function injectDiceMarkers(html: string): string {
+  return html.replace(/«DICE:(\d),(\d),(black|red)»/g, (_match, d1, d2, variant) => {
+    return `<span class="dice-placeholder" data-d1="${d1}" data-d2="${d2}" data-variant="${variant}"></span>`;
+  });
+}
+
+/** Replace dice placeholder spans with actual 3D mini-dice DOM elements. */
+function hydrateDicePlaceholders(container: HTMLElement): void {
+  for (const placeholder of container.querySelectorAll('.dice-placeholder')) {
+    const d1 = parseInt(placeholder.getAttribute('data-d1')!, 10);
+    const d2 = parseInt(placeholder.getAttribute('data-d2')!, 10);
+    const variant = placeholder.getAttribute('data-variant') as 'black' | 'red';
+    const pair = document.createElement('span');
+    pair.className = 'dice-inline-pair';
+    pair.appendChild(createMiniDie(d1, variant));
+    pair.appendChild(createMiniDie(d2, variant));
+    placeholder.replaceWith(pair);
+  }
+}
+
 /** Render the game state using the shared ANSI formatter, converted to HTML. */
 export function renderState(view: PlayerView, cardPool: Readonly<Record<string, CardDefinition>>): void {
   hideHoverImg();
   const el = $('state');
-  el.innerHTML = injectMPTooltips(makeCardListsCollapsible(ansiToHtml(formatPlayerView(view, cardPool))));
+  el.innerHTML = injectDiceMarkers(injectMPTooltips(makeCardListsCollapsible(ansiToHtml(formatPlayerView(view, cardPool)))));
+  hydrateDicePlaceholders(el);
   tagCardImages(el, cardPool);
 }
 
@@ -569,6 +595,14 @@ export function renderPlayerNames(view: PlayerView): void {
   }
   if (oppEl) {
     oppEl.innerHTML = `${view.opponent.name} <span class="score">${oppScore}<span class="mp-tooltip mp-tooltip--below">${tooltip}</span></span>`;
+  }
+
+  // Seed the dice animation system from game state and restore floating dice
+  // if the visual view is active (e.g. after page refresh or load).
+  seedDiceFromState(view);
+  const visualView = document.getElementById('visual-view');
+  if (visualView && !visualView.classList.contains('hidden')) {
+    restoreDice();
   }
 }
 

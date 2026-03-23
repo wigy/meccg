@@ -957,6 +957,11 @@ function handleInitiativeRoll(
     label: 'Initiative',
   };
 
+  // Store the roll in the player's state
+  const playersWithRoll = clonePlayers(state);
+  playersWithRoll[playerIndex] = { ...playersWithRoll[playerIndex], lastDiceRoll: roll };
+  const stateWithRoll: GameState = { ...state, players: playersWithRoll, rng };
+
   const newRolls = [...stepState.rolls] as [TwoDiceSix | null, TwoDiceSix | null];
   newRolls[playerIndex] = roll;
 
@@ -964,9 +969,8 @@ function handleInitiativeRoll(
   if (newRolls[0] === null || newRolls[1] === null) {
     return {
       state: {
-        ...state,
+        ...stateWithRoll,
         phaseState: setupPhase({ ...stepState, rolls: newRolls }),
-        rng,
       },
       effects: [rollEffect],
     };
@@ -980,20 +984,19 @@ function handleInitiativeRoll(
     logDetail(`Tie (${total0} vs ${total1}) — rerolling`);
     return {
       state: {
-        ...state,
+        ...stateWithRoll,
         phaseState: setupPhase({ ...stepState, rolls: [null, null] }),
-        rng,
       },
       effects: [rollEffect],
     };
   }
 
   // Winner goes first
-  const winner = total0 > total1 ? state.players[0] : state.players[1];
+  const winner = total0 > total1 ? stateWithRoll.players[0] : stateWithRoll.players[1];
   logDetail(`${winner.name} wins initiative (${total0} vs ${total1}) — goes first`);
   const firstPlayer = winner.id;
   return {
-    state: startFirstTurn({ ...state, activePlayer: firstPlayer, rng }),
+    state: startFirstTurn({ ...stateWithRoll, activePlayer: firstPlayer }),
     effects: [rollEffect],
   };
 }

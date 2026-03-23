@@ -24,6 +24,7 @@ import {
   CardDefinitionId,
   WizardName,
   Alignment,
+  TwoDiceSix,
 } from './common.js';
 import type {
   PhaseState,
@@ -142,6 +143,8 @@ export interface OpponentView {
   readonly generalInfluenceUsed: number;
   /** How many times the opponent has exhausted their play deck (relevant for Free Council trigger). */
   readonly deckExhaustionCount: number;
+  /** The opponent's most recent dice roll (public information), or null before first roll. */
+  readonly lastDiceRoll: TwoDiceSix | null;
 }
 
 // ---- Self view (full access to own info) ----
@@ -186,6 +189,8 @@ export interface SelfView {
   readonly generalInfluenceUsed: number;
   /** How many times this player's play deck has been exhausted. */
   readonly deckExhaustionCount: number;
+  /** This player's most recent dice roll, or null before the first roll. */
+  readonly lastDiceRoll: TwoDiceSix | null;
 }
 
 // ---- Combined player view ----

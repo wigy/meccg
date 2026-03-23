@@ -65,10 +65,10 @@ export function colorDebug(text: string): string {
   return `${DEBUG_COLOR}${text}${RESET}`;
 }
 
-/** Strip STX card-ID markers (\x02id\x02) and «MP:…» markers from formatted output. */
+/** Strip STX card-ID markers (\x02id\x02), «MP:…», and «DICE:…» markers from formatted output. */
 export function stripCardMarkers(text: string): string {
   // eslint-disable-next-line no-control-regex
-  return text.replace(/\x02[^\x02]*\x02/g, '').replace(/«MP:[^»]*»/g, '');
+  return text.replace(/\x02[^\x02]*\x02/g, '').replace(/«MP:[^»]*»/g, '').replace(/«DICE:[^»]*»/g, '');
 }
 
 /**
@@ -405,6 +405,8 @@ interface RenderPlayerInput {
   readonly characters: Readonly<Record<string, CharacterInPlay>>;
   /** General cards this player has in play (permanent resources, factions, etc.). */
   readonly cardsInPlay?: readonly { readonly instanceId: CardInstanceId; readonly definitionId: CardDefinitionId }[];
+  /** Most recent dice roll for this player. */
+  readonly lastDiceRoll?: { readonly die1: number; readonly die2: number } | null;
 }
 
 interface RenderInput {
@@ -459,7 +461,10 @@ function renderState(input: RenderInput): string {
       selfName: player.name, oppName: opponent.name,
       selfRaw, oppRaw, selfAdj, oppAdj,
     });
-    lines.push(`${player.name} [${player.alignment}]${wizardLabel}: «MP:${mpData}»${totalMP} MP${giLabel}${activeMarker}`);
+    const diceMarker = player.lastDiceRoll
+      ? ` «DICE:${player.lastDiceRoll.die1},${player.lastDiceRoll.die2},${pi === 0 ? 'black' : 'red'}»`
+      : '';
+    lines.push(`${player.name} [${player.alignment}]${wizardLabel}: «MP:${mpData}»${totalMP} MP${giLabel}${diceMarker}${activeMarker}`);
     if (player.handCards && player.handCards.length > 0) {
       // Group duplicate cards: "3 x Cave-drake" instead of "Cave-drake, Cave-drake, Cave-drake"
       const counts = new Map<string, { name: string; count: number }>();
@@ -564,6 +569,7 @@ export function formatGameState(state: GameState): string {
       discardCards: p.discardPile,
       marshallingPoints: p.marshallingPoints,
       generalInfluenceUsed: p.generalInfluenceUsed,
+      lastDiceRoll: p.lastDiceRoll,
       companies: p.companies,
       characters: p.characters,
       cardsInPlay: p.cardsInPlay,
@@ -633,6 +639,7 @@ export function formatPlayerView(
         companies: view.self.companies,
         characters: view.self.characters,
         cardsInPlay: view.self.cardsInPlay,
+        lastDiceRoll: view.self.lastDiceRoll,
       },
       {
         name: view.opponent.name,
@@ -647,6 +654,7 @@ export function formatPlayerView(
         poolSize: opponentPoolSize,
         marshallingPoints: view.opponent.marshallingPoints,
         generalInfluenceUsed: view.opponent.generalInfluenceUsed,
+        lastDiceRoll: view.opponent.lastDiceRoll,
         companies: [],
         opponentCompanies: view.opponent.companies,
         characters: view.opponent.characters,

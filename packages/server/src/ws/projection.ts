@@ -76,6 +76,7 @@ function buildSelfView(state: GameState, player: PlayerState): SelfView {
     marshallingPoints: player.marshallingPoints,
     generalInfluenceUsed: player.generalInfluenceUsed,
     deckExhaustionCount: player.deckExhaustionCount,
+    lastDiceRoll: player.lastDiceRoll,
   };
 }
 
@@ -112,6 +113,7 @@ function buildOpponentView(player: PlayerState): OpponentView {
     marshallingPoints: player.marshallingPoints,
     generalInfluenceUsed: player.generalInfluenceUsed,
     deckExhaustionCount: player.deckExhaustionCount,
+    lastDiceRoll: player.lastDiceRoll,
   };
 }
 
@@ -180,6 +182,7 @@ export function projectSpectatorView(state: GameState): PlayerView {
       marshallingPoints: p1.marshallingPoints,
       generalInfluenceUsed: p1.generalInfluenceUsed,
       deckExhaustionCount: p1.deckExhaustionCount,
+      lastDiceRoll: p1.lastDiceRoll,
     },
     opponent,
     activePlayer: state.activePlayer,

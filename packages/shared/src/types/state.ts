@@ -290,6 +290,8 @@ export interface PlayerState {
   readonly deckExhaustionCount: number;
   /** Whether this player has called the Free Council (endgame trigger). */
   readonly freeCouncilCalled: boolean;
+  /** The result of this player's most recent dice roll, or null before the first roll. */
+  readonly lastDiceRoll: TwoDiceSix | null;
 }
 
 // ---- Phases ----

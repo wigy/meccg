@@ -287,3 +287,49 @@ export function restoreDice(): void {
     }
   }
 }
+
+/**
+ * Seed the dice animation state from the game view so that restoreDice()
+ * can recreate the floating dice after a load or reconnect.
+ */
+export function seedDiceFromState(view: { self: { lastDiceRoll: { die1: number; die2: number } | null }; opponent: { lastDiceRoll: { die1: number; die2: number } | null } }): void {
+  if (view.self.lastDiceRoll) {
+    lastRolls['black'] = view.self.lastDiceRoll;
+  } else {
+    delete lastRolls['black'];
+    if (overlays['black']) { overlays['black'].remove(); delete overlays['black']; }
+  }
+  if (view.opponent.lastDiceRoll) {
+    lastRolls['red'] = view.opponent.lastDiceRoll;
+  } else {
+    delete lastRolls['red'];
+    if (overlays['red']) { overlays['red'].remove(); delete overlays['red']; }
+  }
+}
+
+/**
+ * Create a small static die showing a specific face value, for inline display.
+ * Returns a dice-scene element sized via CSS class `dice-mini`.
+ */
+export function createMiniDie(value: number, variant: DieVariant): HTMLElement {
+  const scene = document.createElement('div');
+  scene.className = 'dice-scene dice-mini';
+
+  const cube = document.createElement('div');
+  cube.className = `dice-cube dice-${variant}`;
+
+  // Build all 6 faces (needed for the 3D cube structure)
+  cube.appendChild(createEyeFace('dice-front'));
+  cube.appendChild(createPipFace(6, 'dice-back'));
+  cube.appendChild(createPipFace(3, 'dice-right'));
+  cube.appendChild(createPipFace(4, 'dice-left'));
+  cube.appendChild(createPipFace(5, 'dice-top'));
+  cube.appendChild(createPipFace(2, 'dice-bottom'));
+
+  // Rotate to show the target face
+  const [rx, ry] = FACE_ROTATIONS[value];
+  cube.style.transform = `rotateX(${rx}deg) rotateY(${ry}deg)`;
+
+  scene.appendChild(cube);
+  return scene;
+}

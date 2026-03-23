@@ -218,6 +218,7 @@ function initPlayerPreDraft(
     generalInfluenceUsed: 0,
     deckExhaustionCount: 0,
     freeCouncilCalled: false,
+    lastDiceRoll: null,
   };
 
   return [playerState, rng];
@@ -533,6 +534,7 @@ function initPlayerWithCharacters(
     generalInfluenceUsed: 0,
     deckExhaustionCount: 0,
     freeCouncilCalled: false,
+    lastDiceRoll: null,
   };
 
   return [playerState, rng];

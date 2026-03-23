@@ -152,6 +152,7 @@ function buildOrgState(opts: {
       generalInfluenceUsed: 0, // will be recomputed by engine
       deckExhaustionCount: 0,
       freeCouncilCalled: false,
+      lastDiceRoll: null,
     };
   });
 
