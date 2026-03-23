@@ -126,6 +126,9 @@ async function handleImageRequest(
 /** Connected SSE clients waiting for reload signals. */
 const reloadClients = new Set<http.ServerResponse>();
 
+/** Script injected before </body> to expose server config to the browser. */
+const CONFIG_SCRIPT = `<script>window.__MECCG_DEV=${DEV};</script>`;
+
 /** Small script injected before </body> in dev mode to auto-reload on changes. */
 const RELOAD_SCRIPT = `<script>
 (function() {
@@ -233,9 +236,12 @@ const server = http.createServer((req, res) => {
       res.end('Not found');
       return;
     }
-    // In dev mode, inject live-reload script into HTML responses
-    if (DEV && ext === '.html') {
-      const html = data.toString().replace('</body>', `${RELOAD_SCRIPT}</body>`);
+    // Inject server config before bundle, and live-reload script in dev mode
+    if (ext === '.html') {
+      const reloadInject = DEV ? RELOAD_SCRIPT : '';
+      const html = data.toString()
+        .replace('</head>', `${CONFIG_SCRIPT}</head>`)
+        .replace('</body>', `${reloadInject}</body>`);
       res.writeHead(200, { 'Content-Type': contentType });
       res.end(html);
       return;

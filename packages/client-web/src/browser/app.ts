@@ -13,6 +13,16 @@ import { renderCompanyViews, resetCompanyViews } from './company-view.js';
 import { rollDice, clearDice, restoreDice, waitForDice } from './dice.js';
 import { clientLog } from './client-log.js';
 
+declare global {
+  interface Window {
+    /** Set by the server — true when the web proxy is started with --dev. */
+    __MECCG_DEV?: boolean;
+  }
+}
+
+/** Whether the server was started in dev mode. Controls dev UI availability. */
+const SERVER_DEV = window.__MECCG_DEV === true;
+
 const cardPool = loadCardPool();
 
 let ws: WebSocket | null = null;
@@ -393,8 +403,17 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  devModeToggle.checked = localStorage.getItem(DEV_MODE_KEY) === 'true';
-  applyDevMode(devModeToggle.checked);
+  // When the server is not in dev mode, hide the dev mode toggle entirely
+  if (!SERVER_DEV) {
+    const devToggleLabel = devModeToggle.closest('.settings-toggle') as HTMLElement | null;
+    if (devToggleLabel) devToggleLabel.style.display = 'none';
+    const devHint = devToggleLabel?.nextElementSibling as HTMLElement | null;
+    if (devHint?.classList.contains('settings-hint')) devHint.style.display = 'none';
+    applyDevMode(false);
+  } else {
+    devModeToggle.checked = localStorage.getItem(DEV_MODE_KEY) === 'true';
+    applyDevMode(devModeToggle.checked);
+  }
 
   settingsBtn.addEventListener('click', () => {
     settingsModal.classList.remove('hidden');
@@ -408,6 +427,7 @@ document.addEventListener('DOMContentLoaded', () => {
   settingsCloseBtn.addEventListener('click', closeSettings);
 
   devModeToggle.addEventListener('change', () => {
+    if (!SERVER_DEV) return;
     localStorage.setItem(DEV_MODE_KEY, String(devModeToggle.checked));
     applyDevMode(devModeToggle.checked);
   });
