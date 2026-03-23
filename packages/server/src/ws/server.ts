@@ -7,7 +7,7 @@
  * everyone else is a spectator. Once the game ends, the server exits.
  * In future, a master server will spawn one of these per game.
  *
- * Usage: npx tsx src/ws/server.ts <player1> <player2> [--debug]
+ * Usage: npx tsx src/ws/server.ts <player1> <player2> [--debug] [--dev]
  */
 
 import { WebSocketServer } from 'ws';
@@ -18,20 +18,22 @@ const PLAYER1_NAME = args[2];
 const PLAYER2_NAME = args[3];
 
 if (!PLAYER1_NAME || !PLAYER2_NAME) {
-  console.error('Usage: server <player1> <player2> [--debug]');
+  console.error('Usage: server <player1> <player2> [--debug] [--dev]');
   process.exit(1);
 }
 
 const PORT = parseInt(process.env.PORT ?? '3000', 10);
 const DEBUG = process.argv.includes('--debug') || process.env.DEBUG === '1';
+const DEV = process.argv.includes('--dev') || process.env.DEV === '1';
 
 const wss = new WebSocketServer({ port: PORT });
 const session = new GameSession({
   debug: DEBUG,
+  dev: DEV,
   playerNames: [PLAYER1_NAME, PLAYER2_NAME],
 });
 
-console.log(`MECCG server listening on port ${PORT}`);
+console.log(`MECCG server listening on port ${PORT}${DEV ? ' (dev mode)' : ''}`);
 console.log(`Players: ${PLAYER1_NAME} vs ${PLAYER2_NAME}`);
 console.log('Waiting for players to connect...');
 

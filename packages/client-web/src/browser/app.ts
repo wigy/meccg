@@ -137,6 +137,11 @@ function connect(name: string): void {
         }
         break;
 
+      case 'info':
+        renderLog(msg.message);
+        showNotification(msg.message);
+        break;
+
       case 'error':
         renderLog(`ERROR: ${msg.message}`);
         showNotification(msg.message, true);
@@ -434,7 +439,6 @@ document.addEventListener('DOMContentLoaded', () => {
           logEl.removeChild(logEl.lastChild!);
         }
       }
-      renderLog('Undo.');
       flashBtn(undoBtn);
     }
   });
@@ -443,8 +447,6 @@ document.addEventListener('DOMContentLoaded', () => {
     if (ws && ws.readyState === WebSocket.OPEN) {
       const msg: ClientMessage = { type: 'save' };
       ws.send(JSON.stringify(msg));
-      renderLog('Game saved.');
-      showNotification('Game saved.');
       flashBtn(saveBtn);
     }
   });
@@ -470,8 +472,6 @@ document.addEventListener('DOMContentLoaded', () => {
     if (ws && ws.readyState === WebSocket.OPEN) {
       const msg: ClientMessage = { type: 'reseed' };
       ws.send(JSON.stringify(msg));
-      renderLog('RNG re-seeded.');
-      showNotification('RNG re-seeded.');
       flashBtn(reseedBtn);
     }
   });

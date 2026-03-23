@@ -249,4 +249,14 @@ export interface EffectMessage {
   readonly effect: GameEffect;
 }
 
-export type ServerMessage = AssignedMessage | StateMessage | ErrorMessage | WaitingMessage | DisconnectedMessage | RestartMessage | DraftRevealMessage | EffectMessage;
+/**
+ * Generic informational message from the server (e.g. operation confirmations).
+ */
+export interface InfoMessage {
+  /** Message type discriminant. */
+  readonly type: 'info';
+  /** Human-readable message. */
+  readonly message: string;
+}
+
+export type ServerMessage = AssignedMessage | StateMessage | ErrorMessage | WaitingMessage | DisconnectedMessage | RestartMessage | DraftRevealMessage | EffectMessage | InfoMessage;

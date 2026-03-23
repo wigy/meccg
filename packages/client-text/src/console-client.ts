@@ -261,6 +261,11 @@ function connect(): void {
         break;
       }
 
+      case 'info':
+        console.log(msg.message);
+        rl.prompt();
+        break;
+
       case 'error':
         console.log(`ERROR: ${msg.message}`);
         rl.prompt();

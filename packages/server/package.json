@@ -8,8 +8,8 @@
     "build": "tsc",
     "check": "tsc --noEmit",
     "start": "npx tsx src/ws/server.ts",
-    "dev": "nodemon --watch src --watch ../shared/src --ext ts,json --exec 'npx tsx src/ws/server.ts'",
-    "dev:debug": "DEBUG=1 nodemon --watch src --watch ../shared/src --ext ts,json --exec 'npx tsx src/ws/server.ts'"
+    "dev": "nodemon --watch src --watch ../shared/src --ext ts,json --exec 'npx tsx src/ws/server.ts --dev'",
+    "dev:debug": "DEBUG=1 nodemon --watch src --watch ../shared/src --ext ts,json --exec 'npx tsx src/ws/server.ts --dev'"
   },
   "dependencies": {
     "@meccg/shared": "*",

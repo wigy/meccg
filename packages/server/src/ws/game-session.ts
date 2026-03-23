@@ -40,6 +40,8 @@ interface GameSave {
 
 export interface GameSessionOptions {
   debug?: boolean;
+  /** Enable development-mode operations (undo, save, load, reseed, reset). */
+  dev?: boolean;
   playerNames: [string, string];
 }
 
@@ -57,6 +59,8 @@ export class GameSession {
   private nameToPlayerId: Record<string, string> = {};
   private playerCounter = 0;
   private debug: boolean;
+  /** When false, dev-only operations (undo, save, load, reseed, reset) are refused. */
+  private dev: boolean;
   private playerNames: Set<string>;
   private serverLog: ServerLog;
   private gameLog: GameLog;
@@ -67,13 +71,14 @@ export class GameSession {
 
   constructor(options: GameSessionOptions) {
     this.debug = options.debug ?? false;
+    this.dev = options.dev ?? false;
     this.playerNames = new Set(options.playerNames.map(n => n.toLowerCase()));
     this.cardPool = loadCardPool();
     this.movementMap = buildMovementMap(this.cardPool);
     fs.mkdirSync(SAVE_DIR, { recursive: true });
     this.serverLog = new ServerLog();
     this.gameLog = new GameLog();
-    this.serverLog.log('boot', { players: options.playerNames, debug: this.debug });
+    this.serverLog.log('boot', { players: options.playerNames, debug: this.debug, dev: this.dev });
     console.log(`Movement map: ${this.movementMap.regionGraph.size} regions, ${this.movementMap.siteRegion.size} sites`);
   }
 
@@ -140,20 +145,19 @@ export class GameSession {
         this.handleAction(ws, msg.action);
         break;
       case 'reset':
-        this.handleReset();
-        break;
       case 'save':
-        this.saveGame();
-        this.saveBackup();
-        break;
       case 'load':
-        this.handleLoad();
-        break;
       case 'reseed':
-        this.handleReseed();
-        break;
       case 'undo':
-        this.handleUndo(ws);
+        if (!this.dev) {
+          this.send(ws, { type: 'error', message: `'${msg.type}' is only available in development mode (--dev)` });
+          break;
+        }
+        if (msg.type === 'reset') this.handleReset();
+        else if (msg.type === 'save') { this.saveGame(); this.saveBackup(); this.send(ws, { type: 'info', message: 'Game saved.' }); }
+        else if (msg.type === 'load') this.handleLoad();
+        else if (msg.type === 'reseed') this.handleReseed(ws);
+        else if (msg.type === 'undo') this.handleUndo(ws);
         break;
     }
   }
@@ -402,6 +406,7 @@ export class GameSession {
     this.gameLog.truncateAfterSeq(previous.stateSeq);
     this.logState('undo');
     this.broadcastState();
+    this.send(ws, { type: 'info', message: 'Undo.' });
   }
 
   /** Log a state snapshot to the per-game log. */
@@ -459,12 +464,13 @@ export class GameSession {
     console.log('Game reset');
   }
 
-  private handleReseed(): void {
+  private handleReseed(ws: WebSocket): void {
     if (!this.state) return;
     const newSeed = Date.now() ^ Math.floor(Math.random() * 0x7fffffff);
     this.state = { ...this.state, rng: createRng(newSeed) };
     console.log(`RNG re-seeded with ${newSeed}`);
     this.broadcastState();
+    this.send(ws, { type: 'info', message: 'RNG re-seeded.' });
   }
 
   // ---- Disconnect / Save / Restore ----
