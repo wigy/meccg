@@ -246,6 +246,10 @@ export class GameSession {
     console.log(`\n${STATE_DIVIDER}\n${formatGameState(this.state)}\n${STATE_DIVIDER}`);
     this.serverLog.log('new-game', { gameId: this.state.gameId, player1: name1, player2: name2 });
     this.gameLog.open(this.state.gameId);
+    this.gameLog.writeStaticData(
+      this.state.cardPool as unknown as Record<string, unknown>,
+      this.state.instanceMap as unknown as Record<string, { definitionId: string }>,
+    );
     this.logState('new-game');
 
     this.broadcastState();
@@ -268,6 +272,10 @@ export class GameSession {
     console.log('Game restored from save!');
     this.serverLog.log('restore', { gameId: this.state.gameId, stateSeq: this.state.stateSeq, player1: name1, player2: name2 });
     this.gameLog.open(this.state.gameId);
+    this.gameLog.writeStaticData(
+      this.state.cardPool as unknown as Record<string, unknown>,
+      this.state.instanceMap as unknown as Record<string, { definitionId: string }>,
+    );
     this.gameLog.truncateAfterSeq(this.state.stateSeq);
     this.gameLog.log('restore', { stateSeq: this.state.stateSeq, player1: name1, player2: name2 });
     console.log(`\n${STATE_DIVIDER}\n${formatGameState(this.state)}\n${STATE_DIVIDER}`);
@@ -345,7 +353,7 @@ export class GameSession {
     console.log(`Action: ${actionWithPlayer.type} by ${playerId}${argsStr}`);
     console.log(`\n${STATE_DIVIDER}\n${formatGameState(this.state)}\n${STATE_DIVIDER}`);
     this.serverLog.log('action', { action: actionWithPlayer });
-    this.logState(actionWithPlayer.type);
+    this.logState(actionWithPlayer.type, actionWithPlayer as unknown as Record<string, unknown>);
 
     // Detect draft round reveal
     if (prevDraft) {
@@ -400,16 +408,18 @@ export class GameSession {
   }
 
   /** Log a state snapshot to the per-game log. */
-  private logState(reason: string): void {
+  private logState(reason: string, action?: Record<string, unknown>): void {
     if (this.state) {
+      const { cardPool: _cardPool, instanceMap: _instanceMap, ...stateWithoutStatic } = this.state;
       this.gameLog.log('state', {
         stateSeq: this.state.stateSeq,
         reason,
+        ...(action ? { action } : {}),
         turn: this.state.turnNumber,
         phase: this.state.phaseState.phase,
         step: this.state.phaseState.phase === 'setup' ? this.state.phaseState.setupStep.step : null,
         activePlayer: this.state.activePlayer,
-        state: this.state,
+        state: stateWithoutStatic,
       });
     }
   }

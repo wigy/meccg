@@ -40,8 +40,12 @@ Non-game-rule concepts used in the MECCG codebase. For game rules, see `docs/rul
 
 ## Persistence
 
-- **Game Save** — A JSON snapshot of the full `GameState` plus the player name-to-ID mapping, written to `~/.meccg/saves/{player1_vs_player2}.json`. Saved on disconnect, on explicit save, and as a backup (`-saved.json`) before load. The save contains everything needed to restore a game session.
-- **Game Log** — A per-game JSONL file at `~/.meccg/logs/games/{gameId}.jsonl` that records a full state snapshot after every action, tagged with `stateSeq`. Used for replay and debugging. Can be truncated via `truncateAfterSeq()` to stay consistent after undo or save load.
+- **Game Save** — A JSON snapshot of the full `GameState` plus the player name-to-ID mapping, written to `~/.meccg/saves/{player1_vs_player2}.json`. Saved on disconnect, on explicit save, and as a backup (`-saved.json`) before load. The save contains everything needed to restore a game session. A save is a **single point-in-time snapshot** — it has no history.
+- **Game Log** — Two files per game in `~/.meccg/logs/games/`:
+  - `{gameId}.jsonl` — JSONL state log recording a state snapshot after every action, tagged with `stateSeq`, a `reason` string, and the full `action` object with all parameters for action-triggered entries. State snapshots omit `cardPool` and `instanceMap` (both are static within a game and stored in the cards file).
+  - `{gameId}-cards.json` — Static game data written once at game start. Contains `instances` (compact instance-to-definition mapping) and `cards` (card definitions used in this game).
+  The game log is the **complete history** of every state the game has been in — use it (not saves) for debugging and tracing how a state arose. The JSONL log can be truncated via `truncateAfterSeq()` to stay consistent after undo or save load.
+- **Server Log** — A daily JSONL file at `~/.meccg/logs/server/YYYY-MM-DD.jsonl` that records server lifecycle events (boot, connect, disconnect), WebSocket messages, and action submissions with error details. Does **not** contain full game state — use the game log for state inspection.
 
 ## Client & Debugging
 

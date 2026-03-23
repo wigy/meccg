@@ -84,6 +84,32 @@ export class GameLog {
     console.log(`Game log: ${filePath}`);
   }
 
+  /**
+   * Write static game data to a separate JSON file: card definitions and
+   * the instance-to-definition mapping. Both are immutable within a game,
+   * so they are written once at game start and omitted from every JSONL entry.
+   */
+  writeStaticData(cardPool: Record<string, unknown>, instanceMap: Record<string, { definitionId: string }>): void {
+    if (!this.currentGameId) return;
+    // Compact instance map: { "i-0": "tw-156", ... }
+    const instances: Record<string, string> = {};
+    for (const [id, inst] of Object.entries(instanceMap)) {
+      instances[id] = inst.definitionId;
+    }
+    // Only include card definitions actually referenced
+    const usedDefIds = new Set(Object.values(instances));
+    const cards: Record<string, unknown> = {};
+    for (const defId of usedDefIds) {
+      if (cardPool[defId]) {
+        cards[defId] = cardPool[defId];
+      }
+    }
+    const data = { instances, cards };
+    const filePath = path.join(GAME_LOG_DIR, `${this.currentGameId}-cards.json`);
+    fs.writeFileSync(filePath, JSON.stringify(data, null, 2) + '\n', 'utf-8');
+    console.log(`Static game data: ${filePath} (${Object.keys(instances).length} instances, ${usedDefIds.size} definitions)`);
+  }
+
   /** Write a game log entry (typically a state snapshot). */
   log(event: string, data?: Record<string, unknown>): void {
     if (this.stream) {
