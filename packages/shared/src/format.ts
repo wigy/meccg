@@ -489,9 +489,10 @@ function renderState(input: RenderInput): string {
       const grouped = [...counts.values()]
         .map(({ name, count }) => count > 1 ? `${count} x ${name}` : name)
         .join(', ');
-      lines.push(`  Hand: ${grouped}`);
+      const handTotal = [...counts.values()].reduce((sum, { count }) => sum + count, 0);
+      lines.push(`  Hand (${handTotal}): ${grouped}`);
     } else if (player.handCount > 0) {
-      lines.push(`  Hand: ${player.handCount} x ${colorizeUnknown('a card')}`);
+      lines.push(`  Hand (${player.handCount}): ${player.handCount} x ${colorizeUnknown('a card')}`);
     } else {
       lines.push(`  Hand: (empty)`);
     }

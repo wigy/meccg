@@ -16,7 +16,7 @@
 
 import type { GameState, PlayerState, DraftPlayerState, ItemDraftPlayerState, CharacterDeckDraftPlayerState, SetupStepState, CardDefinitionId, CardInstanceId, CompanyId, CharacterInPlay, CardInstance, OrganizationPhaseState, MovementHazardPhaseState, Company } from '../index.js';
 import type { GameAction } from '../index.js';
-import { Phase, SetupStep, LEGAL_ACTIONS_BY_PHASE, getAlignmentRules, shuffle, nextInt, CardStatus, isCharacterCard, isSiteCard, SiteType, RegionType, Race, Skill, getPlayerIndex, ZERO_EFFECTIVE_STATS, MAX_STARTING_ITEMS, BASE_MAX_REGION_DISTANCE } from '../index.js';
+import { Phase, SetupStep, LEGAL_ACTIONS_BY_PHASE, getAlignmentRules, shuffle, nextInt, CardStatus, isCharacterCard, isSiteCard, SiteType, RegionType, Race, Skill, getPlayerIndex, ZERO_EFFECTIVE_STATS, MAX_STARTING_ITEMS, BASE_MAX_REGION_DISTANCE, HAND_SIZE } from '../index.js';
 import { logHeading, logDetail } from './legal-actions/log.js';
 import type { TwoDiceSix, DieRoll, GameEffect } from '../index.js';
 import { applyDraftResults, transitionAfterItemDraft, enterSiteSelection, startFirstTurn } from './init.js';
@@ -187,7 +187,7 @@ function validateActionPlayer(state: GameState, action: GameAction): string | un
 
   // During draw-cards and play-hazards steps, both players act
   if (phase === 'movement-hazard' && 'step' in state.phaseState
-    && (state.phaseState.step === 'draw-cards' || state.phaseState.step === 'play-hazards')) {
+    && (state.phaseState.step === 'draw-cards' || state.phaseState.step === 'play-hazards' || state.phaseState.step === 'reset-hand')) {
     return undefined;
   }
 
@@ -2158,6 +2158,11 @@ function handleMovementHazard(state: GameState, action: GameAction): ReducerResu
     return handlePlayHazards(state, action, mhState);
   }
 
+  // reset-hand step (CoE step 8): players discard down to hand size
+  if (mhState.step === 'reset-hand') {
+    return handleResetHand(state, action, mhState);
+  }
+
   return { state, error: `Unexpected step '${mhState.step as string}' in movement/hazard phase` };
 }
 
@@ -2302,12 +2307,175 @@ function handlePlayHazardCard(
  * End the current company's M/H phase and either select the next company
  * or advance to the Site phase.
  */
+/**
+ * End the current company's M/H phase (CoE step 8).
+ *
+ * 1. Complete movement: update currentSite, handle site of origin.
+ * 2. Draw up to hand size (automatic for both players).
+ * 3. If either player exceeds hand size, transition to 'reset-hand' step
+ *    for interactive discard. Otherwise advance directly.
+ *
+ * TODO: hand-size-modifier DSL effects (e.g. Elrond +1 at Rivendell)
+ * TODO: passive conditions at end of M/H phase
+ * TODO: check if other companies have unresolved movement to site of origin
+ */
 function endCompanyMH(state: GameState, mhState: MovementHazardPhaseState): ReducerResult {
   const activeIndex = getPlayerIndex(state, state.activePlayer!);
-  const player = state.players[activeIndex];
-  const currentCompany = player.companies[mhState.activeCompanyIndex];
+  const newPlayers = clonePlayers(state);
+
+  // --- Step 8a: Complete movement ---
+  const resourcePlayer = newPlayers[activeIndex];
+  const company = resourcePlayer.companies[mhState.activeCompanyIndex];
+
+  if (company.destinationSite && !mhState.returnedToOrigin) {
+    const originSiteId = company.currentSite;
+    const destSiteId = company.destinationSite;
+
+    const updatedCompanies = [...resourcePlayer.companies];
+    updatedCompanies[mhState.activeCompanyIndex] = {
+      ...company,
+      currentSite: destSiteId,
+      destinationSite: null,
+      moved: true,
+      siteOfOrigin: null,
+    };
+
+    // Handle site of origin: return to siteDeck (untapped/haven) or discard (tapped non-haven)
+    // TODO: discard tapped non-haven sites once site tapping is implemented
+    let newSiteDeck = [...resourcePlayer.siteDeck];
+    if (originSiteId) {
+      const originInst = state.instanceMap[originSiteId as string];
+      const originDef = originInst ? state.cardPool[originInst.definitionId as string] : undefined;
+      const isHaven = originDef && isSiteCard(originDef) && originDef.siteType === 'haven';
+      newSiteDeck = newSiteDeck.filter(id => id !== originSiteId);
+      if (isHaven) {
+        logDetail(`Step 8: site of origin is a haven — returning to location deck`);
+      } else {
+        logDetail(`Step 8: site of origin is non-haven — returning to location deck (TODO: discard if tapped)`);
+      }
+      newSiteDeck.push(originSiteId);
+    }
+
+    logDetail(`Step 8: company moved to ${mhState.destinationSiteName ?? '?'}, origin site handled`);
+    newPlayers[activeIndex] = {
+      ...resourcePlayer,
+      companies: updatedCompanies,
+      siteDeck: newSiteDeck,
+    };
+  } else if (mhState.returnedToOrigin) {
+    const updatedCompanies = [...resourcePlayer.companies];
+    updatedCompanies[mhState.activeCompanyIndex] = {
+      ...company,
+      destinationSite: null,
+      siteOfOrigin: null,
+    };
+    logDetail(`Step 8: company was returned to origin — staying at current site`);
+    newPlayers[activeIndex] = { ...resourcePlayer, companies: updatedCompanies };
+  } else {
+    const updatedCompanies = [...resourcePlayer.companies];
+    updatedCompanies[mhState.activeCompanyIndex] = {
+      ...company,
+      siteOfOrigin: null,
+    };
+    newPlayers[activeIndex] = { ...resourcePlayer, companies: updatedCompanies };
+  }
+
+  // --- Step 8b: Draw up to hand size (automatic) ---
+  const handSize = HAND_SIZE; // TODO: compute from DSL hand-size-modifier effects
+  for (let i = 0; i < 2; i++) {
+    const p = newPlayers[i];
+    if (p.hand.length < handSize) {
+      const drawCount = Math.min(handSize - p.hand.length, p.playDeck.length);
+      if (drawCount > 0) {
+        logDetail(`Step 8: player ${p.name} draws ${drawCount} card(s) to reach hand size ${handSize}`);
+        newPlayers[i] = {
+          ...p,
+          hand: [...p.hand, ...p.playDeck.slice(0, drawCount)],
+          playDeck: p.playDeck.slice(drawCount),
+        };
+      }
+    }
+  }
+
+  // --- Step 8c: If anyone needs to discard, go to reset-hand step ---
+  const needsDiscard = newPlayers.some(p => p.hand.length > handSize);
+  const updatedState = { ...state, players: newPlayers };
+
+  if (needsDiscard) {
+    logDetail(`Step 8: player(s) over hand size — entering reset-hand for discard`);
+    return {
+      state: {
+        ...updatedState,
+        phaseState: {
+          ...mhState,
+          step: 'reset-hand' as const,
+        },
+      },
+    };
+  }
+
+  return advanceAfterCompanyMH(updatedState, mhState);
+}
+
+/**
+ * Handle the reset-hand step: players with hand > HAND_SIZE must discard.
+ * Each discard-card action removes one card. Once both players are at or
+ * below hand size, advance to the next company or Site phase.
+ */
+function handleResetHand(
+  state: GameState,
+  action: GameAction,
+  mhState: MovementHazardPhaseState,
+): ReducerResult {
+  if (action.type !== 'discard-card') {
+    return { state, error: `Expected 'discard-card' during reset-hand step, got '${action.type}'` };
+  }
+
+  const playerIndex = getPlayerIndex(state, action.player);
+  const player = state.players[playerIndex];
+  const handSize = HAND_SIZE; // TODO: compute from DSL hand-size-modifier effects
+
+  if (player.hand.length <= handSize) {
+    return { state, error: `Player ${player.name} does not need to discard (hand: ${player.hand.length}/${handSize})` };
+  }
+
+  const cardIdx = player.hand.indexOf(action.cardInstanceId);
+  if (cardIdx === -1) {
+    return { state, error: 'Card not in hand' };
+  }
+
+  const newHand = [...player.hand];
+  newHand.splice(cardIdx, 1);
+
+  const newPlayers = clonePlayers(state);
+  newPlayers[playerIndex] = {
+    ...player,
+    hand: newHand,
+    discardPile: [...player.discardPile, action.cardInstanceId],
+  };
+
+  logDetail(`Reset-hand: player ${player.name} discards 1 card (${newHand.length}/${handSize})`);
+
+  const updatedState = { ...state, players: newPlayers };
+
+  // Check if both players are now at hand size
+  if (newPlayers.every(p => p.hand.length <= handSize)) {
+    logDetail(`Reset-hand: all players at hand size → advancing`);
+    return advanceAfterCompanyMH(updatedState, mhState);
+  }
+
+  return { state: updatedState };
+}
+
+/**
+ * Advance to the next company's M/H sub-phase or to the Site phase
+ * after the current company's step 8 is fully resolved.
+ */
+function advanceAfterCompanyMH(state: GameState, mhState: MovementHazardPhaseState): ReducerResult {
+  const activeIndex = getPlayerIndex(state, state.activePlayer!);
+  const currentCompany = state.players[activeIndex].companies[mhState.activeCompanyIndex];
   const updatedHandled = [...mhState.handledCompanyIds, currentCompany.id];
-  const remainingCount = player.companies.length - updatedHandled.length;
+  const remainingCount = state.players[activeIndex].companies.length - updatedHandled.length;
 
   if (remainingCount <= 0) {
     logDetail(`Movement/Hazard: all companies handled → advancing to Site phase`);

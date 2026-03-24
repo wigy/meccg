@@ -598,7 +598,15 @@ export type MHStep =
    * the hazard player plays creatures/events/on-guard cards, and the
    * resource player may respond. Ends when both players pass.
    */
-  | 'play-hazards';
+  | 'play-hazards'
+  /**
+   * CoE step 8: end of company's M/H phase. Movement is completed
+   * (site of origin handled), then both players reset hands to base
+   * hand size. Players with excess cards must choose which to discard.
+   * Drawing up is automatic. Advances to next company or Site phase
+   * once both players are at hand size.
+   */
+  | 'reset-hand';
 
 export interface MovementHazardPhaseState {
   /** Phase discriminant. */

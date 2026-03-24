@@ -7,7 +7,7 @@
  */
 
 import type { GameState, PlayerId, GameAction, EvaluatedAction, MovementHazardPhaseState, SiteCard, CardDefinitionId } from '../../index.js';
-import { getPlayerIndex, isSiteCard, buildMovementMap, findRegionPaths } from '../../index.js';
+import { getPlayerIndex, isSiteCard, buildMovementMap, findRegionPaths, HAND_SIZE } from '../../index.js';
 import { MovementType } from '../../types/common.js';
 import { logDetail, logHeading } from './log.js';
 
@@ -60,6 +60,11 @@ export function movementHazardActions(state: GameState, playerId: PlayerId): Eva
   // play-hazards step (CoE step 7): hazard player plays hazards, both may pass
   if (mhState.step === 'play-hazards') {
     return playHazardsActions(state, playerId, mhState, isActive);
+  }
+
+  // reset-hand step (CoE step 8): players with excess cards choose discards
+  if (mhState.step === 'reset-hand') {
+    return resetHandActions(state, playerId);
   }
 
   // TODO: assign-strike, resolve-strike, support-strike
@@ -396,4 +401,33 @@ function playHazardsActions(
   const viableCount = actions.filter(a => a.viable && a.action.type === 'play-hazard').length;
   logDetail(`Play-hazards: ${isResourcePlayer ? 'resource' : 'hazard'} player has ${viableCount} viable hazard(s), ${actions.length} total action(s)`);
   return actions;
+}
+
+/**
+ * Generate actions for the reset-hand step (CoE step 8).
+ *
+ * Players whose hand exceeds the base hand size must choose which cards
+ * to discard. Each card in hand is offered as a `discard-card` action.
+ * Players already at or below hand size get no actions.
+ */
+function resetHandActions(
+  state: GameState,
+  playerId: PlayerId,
+): EvaluatedAction[] {
+  const playerIndex = getPlayerIndex(state, playerId);
+  const player = state.players[playerIndex];
+  const handSize = HAND_SIZE; // TODO: compute from DSL hand-size-modifier effects
+
+  if (player.hand.length <= handSize) {
+    logDetail(`Reset-hand: player ${player.name} at hand size (${player.hand.length}/${handSize}) — no actions`);
+    return [];
+  }
+
+  const excess = player.hand.length - handSize;
+  logDetail(`Reset-hand: player ${player.name} must discard ${excess} card(s) (${player.hand.length}/${handSize})`);
+
+  return player.hand.map(cardInstId => ({
+    action: { type: 'discard-card' as const, player: playerId, cardInstanceId: cardInstId },
+    viable: true,
+  }));
 }

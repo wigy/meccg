@@ -97,6 +97,7 @@ export const LEGAL_ACTIONS_BY_PHASE: Readonly<Record<Phase, readonly GameAction[
     'select-company',
     'declare-path',
     'draw-cards',
+    'discard-card',
     'order-effects',
     'play-hazard',
     'assign-strike',
