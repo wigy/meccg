@@ -11,7 +11,6 @@ import { loadCardPool, describeAction, buildCompanyNames, SAMPLE_DECKS } from '@
 import { renderState, renderDraft, renderMHInfo, renderActions, renderLog, renderHand, renderOpponentHand, renderPlayerNames, renderInstructions, renderDrafted, renderPassButton, renderDeckPiles, resetDeckPiles, setupCardPreview, showNotification, prepareSiteSelection, clearSiteSelection } from './render.js';
 import { renderCompanyViews, resetCompanyViews } from './company-view.js';
 import { rollDice, clearDice, restoreDice, waitForDice } from './dice.js';
-import { clientLog } from './client-log.js';
 
 declare global {
   interface Window {
@@ -42,7 +41,6 @@ function sendAction(action: GameAction): void {
   if (logEl) logCountStack.push(logEl.childElementCount);
   const desc = describeAction(action, cardPool, lastVisibleInstances, lastCompanyNames);
   renderLog(`>> ${desc}`, cardPool);
-  clientLog('msg-out', { msgType: 'action', action });
   const msg: ClientMessage = { type: 'action', action };
   ws.send(JSON.stringify(msg));
 }
@@ -56,9 +54,7 @@ function connect(name: string): void {
 
   ws.onopen = () => {
     renderLog('Connected. Sending join...');
-    clientLog('connect', { server: url });
     const deck = SAMPLE_DECKS[selectedDeckIndex];
-    clientLog('msg-out', { msgType: 'join', deck: deck.id });
     ws!.send(JSON.stringify(deck.buildJoinMessage(name)));
   };
 
@@ -69,7 +65,6 @@ function connect(name: string): void {
     switch (msg.type) {
       case 'assigned':
         playerId = msg.playerId;
-        clientLog('msg-in', { msgType: 'assigned', gameId: msg.gameId, playerId });
         renderLog(`Game ${msg.gameId} — assigned player ID: ${playerId}`);
         { const h = document.getElementById('state-heading');
           if (h) h.textContent = `Game State — ${msg.gameId}`; }
@@ -89,7 +84,6 @@ function connect(name: string): void {
           ...buildCompanyNames(msg.view.self.companies, msg.view.self.characters, cardPool),
           ...buildCompanyNames(msg.view.opponent.companies as never, msg.view.opponent.characters, cardPool),
         };
-        clientLog('msg-in', { msgType: 'state', turn: msg.view.turnNumber, phase: msg.view.phaseState.phase });
         renderLog(`State update: turn ${msg.view.turnNumber}, phase ${msg.view.phaseState.phase}`);
         renderState(msg.view, cardPool);
         renderDraft(msg.view, cardPool);
@@ -166,6 +160,12 @@ function connect(name: string): void {
         showNotification(msg.message);
         break;
 
+      case 'log':
+        for (const line of msg.lines) {
+          renderLog(line);
+        }
+        break;
+
       case 'restart':
         renderLog(msg.message);
         showNotification(msg.message);
@@ -178,7 +178,6 @@ function connect(name: string): void {
   };
 
   ws.onclose = () => {
-    clientLog('disconnect');
     if (autoReconnect) {
       renderLog('Disconnected. Reconnecting in 2s...');
       setTimeout(() => connect(name), 2000);

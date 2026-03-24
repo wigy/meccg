@@ -282,4 +282,16 @@ export interface InfoMessage {
   readonly message: string;
 }
 
-export type ServerMessage = AssignedMessage | StateMessage | ErrorMessage | WaitingMessage | DisconnectedMessage | RestartMessage | DraftRevealMessage | EffectMessage | InfoMessage;
+/**
+ * Sent by the server in dev mode to forward engine log output to the client.
+ * Each line is a raw console log entry (with ANSI color codes) from the
+ * legal-actions subsystem. Only sent when both server and client are in dev mode.
+ */
+export interface LogMessage {
+  /** Message type discriminant. */
+  readonly type: 'log';
+  /** Engine log lines captured during the most recent reduce() call. */
+  readonly lines: readonly string[];
+}
+
+export type ServerMessage = AssignedMessage | StateMessage | ErrorMessage | WaitingMessage | DisconnectedMessage | RestartMessage | DraftRevealMessage | EffectMessage | InfoMessage | LogMessage;

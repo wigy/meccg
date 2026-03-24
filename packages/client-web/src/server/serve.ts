@@ -152,30 +152,6 @@ if (DEV) {
   });
 }
 
-// ---- Client log endpoint ----
-
-const CLIENT_LOG_DIR = path.join(os.homedir(), '.meccg', 'logs', 'client-web');
-fs.mkdirSync(CLIENT_LOG_DIR, { recursive: true });
-
-function getClientLogStream(): fs.WriteStream {
-  const date = new Date().toISOString().slice(0, 10);
-  const logPath = path.join(CLIENT_LOG_DIR, `${date}.jsonl`);
-  return fs.createWriteStream(logPath, { flags: 'a' });
-}
-
-let clientLogStream = getClientLogStream();
-let clientLogDate = new Date().toISOString().slice(0, 10);
-
-function writeClientLog(entry: string): void {
-  const today = new Date().toISOString().slice(0, 10);
-  if (today !== clientLogDate) {
-    clientLogStream.end();
-    clientLogStream = getClientLogStream();
-    clientLogDate = today;
-  }
-  clientLogStream.write(entry + '\n');
-}
-
 /** Serve static files from the public/ directory, with card image proxy. */
 const server = http.createServer((req, res) => {
   const urlPath = req.url === '/' ? '/index.html' : req.url ?? '/index.html';
@@ -190,19 +166,6 @@ const server = http.createServer((req, res) => {
     res.write('data: connected\n\n');
     reloadClients.add(res);
     req.on('close', () => reloadClients.delete(res));
-    return;
-  }
-
-  // Client log endpoint
-  if (req.method === 'POST' && urlPath === '/log') {
-    const chunks: Buffer[] = [];
-    req.on('data', (chunk: Buffer) => chunks.push(chunk));
-    req.on('end', () => {
-      const body = Buffer.concat(chunks).toString();
-      writeClientLog(body);
-      res.writeHead(204);
-      res.end();
-    });
     return;
   }
 

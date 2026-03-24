@@ -24,7 +24,7 @@ import type {
   JoinMessage,
   GameAction,
 } from '@meccg/shared';
-import { formatGameState, loadCardPool, colorDebug, DEBUG_JSON_COMPACT_LIMIT, STATE_DIVIDER, createRng, buildMovementMap, createGame, reduce } from '@meccg/shared';
+import { formatGameState, loadCardPool, colorDebug, DEBUG_JSON_COMPACT_LIMIT, STATE_DIVIDER, createRng, buildMovementMap, createGame, reduce, startCapture, flushCapture } from '@meccg/shared';
 import type { MovementMap, PlayerConfig, GameConfig } from '@meccg/shared';
 import { projectPlayerView, projectSpectatorView } from './projection.js';
 import { ServerLog, GameLog } from './game-log.js';
@@ -273,7 +273,7 @@ export class GameSession {
     );
     this.logState('new-game');
 
-    this.broadcastState();
+    this.broadcastStateWithLogs();
   }
 
   private restoreGame(save: GameSave, p1: PendingPlayer, p2: PendingPlayer, name1: string, name2: string): void {
@@ -301,7 +301,7 @@ export class GameSession {
     this.gameLog.log('restore', { stateSeq: this.state.stateSeq, player1: name1, player2: name2 });
     if (this.verbose) console.log(`\n${STATE_DIVIDER}\n${formatGameState(this.state)}\n${STATE_DIVIDER}`);
 
-    this.broadcastState();
+    this.broadcastStateWithLogs();
   }
 
   private registerPlayers(
@@ -359,8 +359,13 @@ export class GameSession {
     const prevDraft = this.state.phaseState.phase === 'setup' && this.state.phaseState.setupStep.step === 'character-draft'
       ? this.state.phaseState.setupStep : null;
 
+    // Start capturing engine log output before reduce() so both reducer
+    // validation logging and legal-actions logging are collected.
+    if (this.dev) startCapture();
+
     const result = reduce(this.state, actionWithPlayer);
     if (result.error) {
+      if (this.dev) flushCapture();  // discard captured lines on error
       this.serverLog.log('action', { action: actionWithPlayer, error: result.error });
       this.send(ws, { type: 'error', message: result.error });
       return;
@@ -409,7 +414,16 @@ export class GameSession {
       }
     }
 
+    // broadcastState triggers computeLegalActions logging — capture continues
     this.broadcastState();
+
+    // Flush all captured log lines (from reduce + broadcastState) to clients
+    if (this.dev) {
+      const lines = flushCapture();
+      if (lines.length > 0) {
+        this.broadcastToAll({ type: 'log', lines });
+      }
+    }
   }
 
   /** Undo the most recent action and revert to the previous game state. */
@@ -425,7 +439,7 @@ export class GameSession {
     this.state = previous;
     this.gameLog.truncateAfterSeq(previous.stateSeq);
     this.logState('undo');
-    this.broadcastState();
+    this.broadcastStateWithLogs();
     this.send(ws, { type: 'info', message: 'Undo.' });
   }
 
@@ -489,7 +503,7 @@ export class GameSession {
     const newSeed = Date.now() ^ Math.floor(Math.random() * 0x7fffffff);
     this.state = { ...this.state, rng: createRng(newSeed) };
     console.log(`RNG re-seeded with ${newSeed}`);
-    this.broadcastState();
+    this.broadcastStateWithLogs();
     this.send(ws, { type: 'info', message: 'RNG re-seeded.' });
   }
 
@@ -560,7 +574,7 @@ export class GameSession {
     this.state = { ...this.state, instanceMap: newInstanceMap, players: updatedPlayers };
 
     console.log(`Summon: created ${matchName} (${matchDefId}) as ${newInstanceId as string} → ${playerId} hand`);
-    this.broadcastState();
+    this.broadcastStateWithLogs();
     this.send(ws, { type: 'info', message: `Summoned ${matchName}.` });
   }
 
@@ -715,6 +729,21 @@ export class GameSession {
       const spectatorView = projectSpectatorView(this.state);
       for (const ws of this.spectators) {
         this.send(ws, { type: 'state', view: spectatorView });
+      }
+    }
+  }
+
+  /**
+   * Broadcast state to all clients, capturing engine log output and
+   * forwarding it to clients as a LogMessage when in dev mode.
+   */
+  private broadcastStateWithLogs(): void {
+    if (this.dev) startCapture();
+    this.broadcastState();
+    if (this.dev) {
+      const lines = flushCapture();
+      if (lines.length > 0) {
+        this.broadcastToAll({ type: 'log', lines });
       }
     }
   }
