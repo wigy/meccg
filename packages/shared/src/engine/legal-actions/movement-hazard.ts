@@ -395,7 +395,14 @@ function playHazardsActions(
     }
   }
 
-  // Both players can always pass
+  // Player who already passed gets no actions (waiting for opponent)
+  const alreadyPassed = isResourcePlayer ? mhState.resourcePlayerPassed : mhState.hazardPlayerPassed;
+  if (alreadyPassed) {
+    logDetail(`Play-hazards: ${isResourcePlayer ? 'resource' : 'hazard'} player already passed — waiting for opponent`);
+    return [];
+  }
+
+  // Pass is always available if not already passed
   actions.push({ action: { type: 'pass', player: playerId }, viable: true });
 
   const viableCount = actions.filter(a => a.viable && a.action.type === 'play-hazard').length;
