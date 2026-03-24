@@ -42,7 +42,7 @@ export function computeLegalActions(state: GameState, playerId: PlayerId): Evalu
     case 'untap':             evaluated = untapActions(state, playerId); break;
     case 'organization':      evaluated = organizationActions(state, playerId); break;
     case 'long-event':        evaluated = longEventActions(state, playerId); break;
-    case 'movement-hazard':   evaluated = asViable(movementHazardActions(state, playerId)); break;
+    case 'movement-hazard':   evaluated = movementHazardActions(state, playerId); break;
     case 'site':              evaluated = asViable(siteActions(state, playerId)); break;
     case 'end-of-turn':       evaluated = asViable(endOfTurnActions(state, playerId)); break;
     case 'free-council':      evaluated = asViable(freeCouncilActions(state, playerId)); break;

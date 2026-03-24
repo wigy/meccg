@@ -24,7 +24,11 @@ Game logs consist of two files per game in `~/.meccg/logs/games/`:
 
 ## Investigation Process
 
-1. **Verify card definitions**: Before anything else, load `{gameId}-cards.json` and compare the definitions of cards relevant to the reported problem against the current card data in `packages/shared/src/data/`. If the game was played with stale definitions (e.g. missing DSL effects that have since been added), the root cause is data staleness, not an engine bug. Report the discrepancy and stop.
+1. **Verify card definitions**: Before anything else, load `{gameId}-cards.json` and compare the definitions of cards relevant to the reported problem against the current card data in `packages/shared/src/data/`. If the game was played with stale definitions (e.g. missing DSL effects that have since been added), the root cause is data staleness, not an engine bug. In that case:
+   - Fix the card data in `packages/shared/src/data/` if needed.
+   - Patch the game save file (`~/.meccg/saves/`) by updating `state.cardPool` with the corrected card definition using `jq`.
+   - Recommend the user reload the game to pick up the fix.
+   - Report the discrepancy and stop.
 
 2. **Load the log**: Read the JSONL file. Each line is one state snapshot. Parse all entries to build the full timeline.
 

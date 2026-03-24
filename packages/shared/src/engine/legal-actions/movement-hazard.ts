@@ -6,7 +6,7 @@
  * sub-states further constrain available actions.
  */
 
-import type { GameState, PlayerId, GameAction, MovementHazardPhaseState, SiteCard, CardDefinitionId } from '../../index.js';
+import type { GameState, PlayerId, GameAction, EvaluatedAction, MovementHazardPhaseState, SiteCard, CardDefinitionId } from '../../index.js';
 import { getPlayerIndex, isSiteCard, buildMovementMap, findRegionPaths } from '../../index.js';
 import { MovementType } from '../../types/common.js';
 import { logDetail, logHeading } from './log.js';
@@ -18,18 +18,18 @@ import { logDetail, logHeading } from './log.js';
  * which of their unhandled companies will resolve next. No pass is allowed —
  * a company must be selected.
  */
-export function movementHazardActions(state: GameState, playerId: PlayerId): GameAction[] {
+export function movementHazardActions(state: GameState, playerId: PlayerId): EvaluatedAction[] {
   const isActive = state.activePlayer === playerId;
   const mhState = state.phaseState as MovementHazardPhaseState;
 
   logHeading(`Movement/hazard phase (step: ${mhState.step}): player is ${isActive ? 'active (mover)' : 'non-active (hazard player)'}`);
 
   if (mhState.step === 'select-company') {
-    return selectCompanyActions(state, playerId, mhState);
+    return viable(selectCompanyActions(state, playerId, mhState));
   }
 
   if (mhState.step === 'reveal-new-site') {
-    return revealNewSiteActions(state, playerId, mhState);
+    return viable(revealNewSiteActions(state, playerId, mhState));
   }
 
   // set-hazard-limit step (CoE step 3): immediate, only pass to advance
@@ -39,7 +39,7 @@ export function movementHazardActions(state: GameState, playerId: PlayerId): Gam
       return [];
     }
     logDetail(`Set hazard limit — pass to advance to order-effects`);
-    return [{ type: 'pass', player: playerId }];
+    return viable([{ type: 'pass', player: playerId }]);
   }
 
   // order-effects step (CoE step 4): dummy for now, only pass to advance
@@ -49,12 +49,12 @@ export function movementHazardActions(state: GameState, playerId: PlayerId): Gam
       return [];
     }
     logDetail(`Order effects — pass to advance to draw-cards`);
-    return [{ type: 'pass', player: playerId }];
+    return viable([{ type: 'pass', player: playerId }]);
   }
 
   // draw-cards step (CoE step 5): both players draw cards simultaneously
   if (mhState.step === 'draw-cards') {
-    return drawCardsActions(state, playerId, mhState, isActive);
+    return viable(drawCardsActions(state, playerId, mhState, isActive));
   }
 
   // play-hazards step (CoE step 7): hazard player plays hazards, both may pass
@@ -68,7 +68,12 @@ export function movementHazardActions(state: GameState, playerId: PlayerId): Gam
     return [];
   }
 
-  return [{ type: 'pass', player: playerId }];
+  return viable([{ type: 'pass', player: playerId }]);
+}
+
+/** Wrap plain GameActions as viable EvaluatedActions. */
+function viable(actions: GameAction[]): EvaluatedAction[] {
+  return actions.map(action => ({ action, viable: true }));
 }
 
 /**
@@ -313,11 +318,12 @@ function playHazardsActions(
   playerId: PlayerId,
   mhState: MovementHazardPhaseState,
   isResourcePlayer: boolean,
-): GameAction[] {
-  const actions: GameAction[] = [];
+): EvaluatedAction[] {
+  const actions: EvaluatedAction[] = [];
+  const limitReached = mhState.hazardsPlayedThisCompany >= mhState.hazardLimit;
 
-  // Hazard player: offer playable hazard long-events if under limit
-  if (!isResourcePlayer && mhState.hazardsPlayedThisCompany < mhState.hazardLimit) {
+  // Hazard player: offer playable hazard long-events
+  if (!isResourcePlayer) {
     const playerIndex = getPlayerIndex(state, playerId);
     const player = state.players[playerIndex];
     const activeIndex = getPlayerIndex(state, state.activePlayer!);
@@ -333,30 +339,61 @@ function playHazardsActions(
       // Currently only hazard long-events
       if (def.cardType !== 'hazard-event' || def.eventType !== 'long') continue;
 
-      // Uniqueness: skip if already in play
+      const action: GameAction = {
+        type: 'play-hazard',
+        player: playerId,
+        cardInstanceId: cardInstId,
+        targetCompanyId: targetCompany.id,
+      };
+
+      // Hazard limit reached
+      if (limitReached) {
+        actions.push({ action, viable: false, reason: `Hazard limit reached (${mhState.hazardLimit})` });
+        continue;
+      }
+
+      // Uniqueness: non-viable if already in play
       if (def.unique) {
         const alreadyInPlay = state.players.some(p =>
           p.cardsInPlay.some(c => c.definitionId === def.id),
         );
         if (alreadyInPlay) {
-          logDetail(`Hazard long-event "${def.name}" is unique and already in play — skipping`);
+          logDetail(`Hazard long-event "${def.name}" is unique and already in play`);
+          actions.push({ action, viable: false, reason: `${def.name} is unique and already in play` });
           continue;
         }
       }
 
+      // Duplication-limit: non-viable if max copies already in play
+      if (def.effects) {
+        let blocked = false;
+        for (const effect of def.effects) {
+          if (effect.type !== 'duplication-limit' || effect.scope !== 'game') continue;
+          const copiesInPlay = state.players.reduce((count, p) =>
+            count + p.cardsInPlay.filter(c => {
+              const cDef = state.cardPool[c.definitionId as string];
+              return cDef && cDef.name === def.name;
+            }).length, 0,
+          );
+          if (copiesInPlay >= effect.max) {
+            logDetail(`Hazard long-event "${def.name}" cannot be duplicated (${copiesInPlay}/${effect.max} in play)`);
+            actions.push({ action, viable: false, reason: `${def.name} cannot be duplicated` });
+            blocked = true;
+            break;
+          }
+        }
+        if (blocked) continue;
+      }
+
       logDetail(`Hazard long-event "${def.name}" is playable`);
-      actions.push({
-        type: 'play-hazard',
-        player: playerId,
-        cardInstanceId: cardInstId,
-        targetCompanyId: targetCompany.id,
-      });
+      actions.push({ action, viable: true });
     }
   }
 
   // Both players can always pass
-  actions.push({ type: 'pass', player: playerId });
+  actions.push({ action: { type: 'pass', player: playerId }, viable: true });
 
-  logDetail(`Play-hazards: ${isResourcePlayer ? 'resource' : 'hazard'} player has ${actions.length} action(s) (${actions.filter(a => a.type === 'play-hazard').length} hazards)`);
+  const viableCount = actions.filter(a => a.viable && a.action.type === 'play-hazard').length;
+  logDetail(`Play-hazards: ${isResourcePlayer ? 'resource' : 'hazard'} player has ${viableCount} viable hazard(s), ${actions.length} total action(s)`);
   return actions;
 }

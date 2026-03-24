@@ -15,6 +15,13 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/WakeofWar.jpg",
     "unique": false,
     "eventType": "long",
+    "effects": [
+      {
+        "type": "duplication-limit",
+        "scope": "game",
+        "max": 1
+      }
+    ],
     "text": "The number of strikes and prowess of each Wolf, Spider, and Animal attack are each increased by one (by two for Wolf attacks if Doors of Night is in play). Cannot be duplicated."
   }
 ]
