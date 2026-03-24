@@ -392,6 +392,20 @@ document.addEventListener('DOMContentLoaded', () => {
     if (e.key === 'Enter') connectBtn.click();
   });
 
+  // ---- Enter key: activate single action button in the action list ----
+  document.addEventListener('keydown', (e) => {
+    if (e.key !== 'Enter') return;
+    // Don't trigger if an input/textarea/button is focused or a modal is open
+    const tag = (document.activeElement?.tagName ?? '').toLowerCase();
+    if (tag === 'input' || tag === 'textarea' || tag === 'button' || tag === 'select') return;
+    const actionsEl = document.getElementById('actions');
+    if (!actionsEl) return;
+    const buttons = actionsEl.querySelectorAll('button:not([disabled])');
+    if (buttons.length === 1) {
+      (buttons[0] as HTMLButtonElement).click();
+    }
+  });
+
   // ---- Settings modal ----
   const settingsBtn = document.getElementById('settings-btn') as HTMLButtonElement;
   const settingsModal = document.getElementById('settings-modal') as HTMLElement;
