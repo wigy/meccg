@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.7.0 — 2026-03-24
+
+Site phase basic flow
+
+### Game Engine
+- **Site phase state machine:** Step-based site phase with company selection,
+  item play with site tapping, and phase entry steps
+- **Untap phase:** Implement untap logic to untap active player's cards at
+  start of turn
+- **Site tapping model:** Replace CardInstance.status with SiteInPlay for
+  site tapping, enabling proper site state tracking
+- **Company ID generation:** Fix duplicate company ID generation after merge
+
+### Infrastructure
+- **Pre-commit checks:** Note parallel execution for pre-commit checks in
+  CLAUDE.md and fix lint error
+
 ## 0.6.0 — 2026-03-24
 
 Movement and Hazard basics
