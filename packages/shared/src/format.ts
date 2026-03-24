@@ -439,6 +439,7 @@ function renderState(input: RenderInput): string {
   };
   const MH_STEP_LABELS: Record<string, string> = {
     'select-company': 'Select Company',
+    'reveal-new-site': 'Reveal New Site',
     'declare-path': 'Declare Path',
     'order-effects': 'Order Effects',
     'play-hazards': 'Play Hazards',

@@ -2102,6 +2102,10 @@ function handleMovementHazard(state: GameState, action: GameAction): ReducerResu
     return handleSelectCompany(state, action, mhState);
   }
 
+  if (mhState.step === 'reveal-new-site') {
+    return handleRevealNewSite(state, action, mhState);
+  }
+
   // Remaining steps (declare-path, order-effects, play-hazards) — still stub
   if (action.type !== 'pass') {
     return { state, error: `Unexpected action '${action.type}' in movement/hazard phase (step: ${mhState.step})` };
@@ -2184,14 +2188,48 @@ function handleSelectCompany(
     return { state, error: `Company '${action.companyId}' has already been handled this turn` };
   }
 
-  logDetail(`Movement/Hazard: selected company ${action.companyId} (index ${companyIndex}) → advancing to declare-path`);
+  logDetail(`Movement/Hazard: selected company ${action.companyId} (index ${companyIndex}) → advancing to reveal-new-site`);
+  return {
+    state: {
+      ...state,
+      phaseState: {
+        ...mhState,
+        step: 'reveal-new-site' as const,
+        activeCompanyIndex: companyIndex,
+      },
+    },
+  };
+}
+
+/**
+ * Handle the 'reveal-new-site' step (CoE step 1): the new site card is
+ * revealed. In the future this will process triggering events and
+ * under-deeps movement rolls. For now it auto-advances to declare-path
+ * on the active player's pass action.
+ *
+ * TODO: triggering events on site reveal
+ * TODO: under-deeps movement roll (stay if roll < site number)
+ */
+function handleRevealNewSite(
+  state: GameState,
+  action: GameAction,
+  mhState: MovementHazardPhaseState,
+): ReducerResult {
+  if (action.type !== 'pass') {
+    return { state, error: `Expected 'pass' action during reveal-new-site step, got '${action.type}'` };
+  }
+
+  if (action.player !== state.activePlayer) {
+    return { state, error: `Only the active player may advance past reveal-new-site` };
+  }
+
+  logDetail(`Movement/Hazard: new site revealed → advancing to declare-path`);
   return {
     state: {
       ...state,
       phaseState: {
         ...mhState,
         step: 'declare-path' as const,
-        activeCompanyIndex: companyIndex,
       },
     },
   };

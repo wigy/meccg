@@ -27,12 +27,40 @@ export function movementHazardActions(state: GameState, playerId: PlayerId): Gam
     return selectCompanyActions(state, playerId, mhState);
   }
 
+  if (mhState.step === 'reveal-new-site') {
+    return revealNewSiteActions(state, playerId, mhState);
+  }
+
   // TODO: declare-path, order-effects, play-hazard, assign-strike, resolve-strike, support-strike
   if (!isActive) {
     logDetail(`Not active player, no movement/hazard actions`);
     return [];
   }
 
+  return [{ type: 'pass', player: playerId }];
+}
+
+/**
+ * Generate actions for the reveal-new-site step (CoE step 1).
+ *
+ * The new site card is revealed (turned face-up). In the future this step
+ * will handle triggering events and under-deeps movement rolls. For now,
+ * only the active player may pass to advance to declare-path.
+ *
+ * TODO: triggering events on site reveal
+ * TODO: under-deeps movement roll (stay if roll < site number)
+ */
+function revealNewSiteActions(
+  _state: GameState,
+  playerId: PlayerId,
+  _mhState: MovementHazardPhaseState,
+): GameAction[] {
+  if (_state.activePlayer !== playerId) {
+    logDetail(`Not active player — no actions during reveal-new-site step`);
+    return [];
+  }
+
+  logDetail(`Reveal new site step — only pass available (auto-advance to declare-path)`);
   return [{ type: 'pass', player: playerId }];
 }
 

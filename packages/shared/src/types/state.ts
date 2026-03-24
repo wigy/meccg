@@ -545,11 +545,11 @@ export interface LongEventPhaseState {
 /**
  * Steps within a single company's Movement/Hazard sub-phase.
  *
- * When a company has planned movement, the resource player must first
- * declare the movement type and site path (step 2 of the CoE rules).
- * After that, the engine auto-processes steps 3–6 and enters the
- * interactive play-hazards step. Non-moving companies skip straight
- * to play-hazards.
+ * When a company has planned movement, the new site is first revealed
+ * (step 1), then the resource player declares the movement type and
+ * site path (step 2 of the CoE rules). After that, the engine
+ * auto-processes steps 3–6 and enters the interactive play-hazards step.
+ * Non-moving companies skip straight to play-hazards.
  */
 export type MHStep =
   /**
@@ -560,8 +560,17 @@ export type MHStep =
    */
   | 'select-company'
   /**
-   * The resource player must declare movement type (starter, region,
-   * under-deeps, special) and, for region movement, the specific
+   * CoE step 1: the new site card is revealed (turned face-up).
+   * Triggering events and under-deeps movement rolls happen here.
+   * Currently auto-advances to declare-path — no player actions required.
+   *
+   * TODO: triggering events on site reveal
+   * TODO: under-deeps movement roll (stay if roll < site number)
+   */
+  | 'reveal-new-site'
+  /**
+   * CoE step 2: the resource player must declare movement type (starter,
+   * region, under-deeps, special) and, for region movement, the specific
    * sequence of regions traversed. The new site has been revealed
    * (step 1) but the site path is not yet determined.
    */
@@ -586,6 +595,7 @@ export interface MovementHazardPhaseState {
   readonly phase: Phase.MovementHazard;
   /**
    * Which sub-step of the company's M/H phase is active.
+   * - `'reveal-new-site'`: new site is revealed (CoE step 1).
    * - `'declare-path'`: resource player must declare movement type and path.
    * - `'order-effects'`: hazard player orders ongoing effects (step 4).
    * - `'play-hazards'`: main interactive step where hazards are played.
