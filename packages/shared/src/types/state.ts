@@ -47,6 +47,11 @@ export interface CardInstance {
   readonly instanceId: CardInstanceId;
   /** Reference to the static card definition in `GameState.cardPool`. */
   readonly definitionId: CardDefinitionId;
+  /**
+   * Optional tap state for cards that track it at the instance level
+   * (e.g. site cards). Defaults to untapped when absent.
+   */
+  readonly status?: CardStatus;
 }
 
 // ---- Characters in play ----

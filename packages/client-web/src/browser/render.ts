@@ -499,6 +499,62 @@ export function renderMHInfo(
   el.innerHTML = ansiToHtml(lines.join('\n'));
 }
 
+/** Render site phase debug info panel (step, active company, handled companies, flags). */
+export function renderSiteInfo(
+  view: PlayerView,
+  cardPool: Readonly<Record<string, CardDefinition>>,
+  companyNames: Readonly<Record<string, string>>,
+): void {
+  const section = $('site-section');
+  const el = $('site-info');
+
+  if (view.phaseState.phase !== Phase.Site) {
+    section.classList.add('hidden');
+    return;
+  }
+  section.classList.remove('hidden');
+
+  const site = view.phaseState;
+  const lines: string[] = [];
+
+  lines.push(`Step: ${site.step}`);
+
+  // Active company
+  const selfIsResource = view.activePlayer === view.self.id;
+  const resourceCompanies = selfIsResource ? view.self.companies : view.opponent.companies;
+  if (site.step !== 'select-company' && site.activeCompanyIndex < resourceCompanies.length) {
+    const activeCompany = resourceCompanies[site.activeCompanyIndex];
+    const name = companyNames[activeCompany.id as string] ?? `company #${site.activeCompanyIndex}`;
+    lines.push(`Active company: ${name}`);
+  }
+
+  // Handled companies
+  if (site.handledCompanyIds.length > 0) {
+    const names = site.handledCompanyIds.map(id => companyNames[id as string] ?? id).join(', ');
+    lines.push(`Handled: ${names}`);
+  }
+
+  // Entry and resource flags
+  if (site.siteEntered) lines.push('Site entered');
+  if (site.resourcePlayed) lines.push('Resource played');
+  if (site.minorItemAvailable) lines.push('Minor item available');
+
+  // Declared attacks
+  if (site.declaredOnGuardAttacks.length > 0) {
+    lines.push(`On-guard attacks: ${site.declaredOnGuardAttacks.length}`);
+  }
+  if (site.declaredAgentAttack) {
+    lines.push(`Agent attack declared`);
+  }
+
+  // Auto-attacks
+  if (site.automaticAttacksResolved > 0) {
+    lines.push(`Auto-attacks resolved: ${site.automaticAttacksResolved}`);
+  }
+
+  el.innerHTML = ansiToHtml(lines.join('\n'));
+}
+
 /** Render action buttons (viable actions clickable, non-viable shown disabled with reason). */
 export function renderActions(
   evaluated: readonly EvaluatedAction[],

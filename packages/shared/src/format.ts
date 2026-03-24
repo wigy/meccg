@@ -706,6 +706,61 @@ export function formatPlayerView(
  * Build a mapping from CompanyId → human-readable company name (e.g. "Aragorn's company")
  * using the lead character's name. Pass the result to {@link describeAction}.
  */
+/**
+ * Determine the title character for a company.
+ *
+ * The title character is chosen by:
+ * 1. An avatar (mind === null) is always the title character.
+ * 2. Otherwise, highest mind, then MP, then prowess, then alphabetical name.
+ */
+export function getTitleCharacter(
+  characters: readonly { toString(): string }[],
+  charMap: Readonly<Record<string, CharacterInPlay>>,
+  cardPool: Readonly<Record<string, CardDefinition>>,
+): CharacterInPlay | undefined {
+  // Avatar is always the title character if present
+  for (const charInstId of characters) {
+    const char = charMap[charInstId as string];
+    if (!char) continue;
+    const def = cardPool[char.definitionId as string];
+    if (def && isCharacterCard(def) && def.mind === null) {
+      return char;
+    }
+  }
+
+  let titleChar: CharacterInPlay | undefined;
+  let bestMind = -Infinity;
+  let bestMP = -Infinity;
+  let bestProwess = -Infinity;
+  let bestName = '';
+
+  for (const charInstId of characters) {
+    const char = charMap[charInstId as string];
+    if (!char) continue;
+    const def = cardPool[char.definitionId as string];
+    if (!def || !isCharacterCard(def)) continue;
+
+    const mind = def.mind ?? 0;
+    const mp = def.marshallingPoints;
+    const prowess = char.effectiveStats.prowess;
+    const name = def.name;
+
+    if (
+      mind > bestMind ||
+      (mind === bestMind && mp > bestMP) ||
+      (mind === bestMind && mp === bestMP && prowess > bestProwess) ||
+      (mind === bestMind && mp === bestMP && prowess === bestProwess && name < bestName)
+    ) {
+      titleChar = char;
+      bestMind = mind;
+      bestMP = mp;
+      bestProwess = prowess;
+      bestName = name;
+    }
+  }
+  return titleChar;
+}
+
 export function buildCompanyNames(
   companies: readonly Company[],
   characters: Readonly<Record<string, CharacterInPlay>>,
@@ -717,10 +772,9 @@ export function buildCompanyNames(
       names[company.id as string] = `empty company`;
       continue;
     }
-    const leadCharId = company.characters[0];
-    const char = characters[leadCharId as string];
-    if (char) {
-      const def = cardPool[char.definitionId as string];
+    const titleChar = getTitleCharacter(company.characters, characters, cardPool);
+    if (titleChar) {
+      const def = cardPool[titleChar.definitionId as string];
       names[company.id as string] = def ? `${def.name}'s company` : `company`;
     } else {
       names[company.id as string] = `company`;
@@ -805,7 +859,9 @@ export function describeAction(
     case 'support-strike':
       return `Tap ${instName(action.supportingCharacterId)} to support ${instName(action.targetCharacterId)} (+1 prowess)`;
     case 'play-hero-resource':
-      return `Play resource ${instName(action.cardInstanceId)} at ${compName(action.companyId)}`;
+      return action.attachToCharacterId
+        ? `Play ${instName(action.cardInstanceId)} on ${instName(action.attachToCharacterId)}`
+        : `Play resource ${instName(action.cardInstanceId)} at ${compName(action.companyId)}`;
     case 'influence-attempt':
       return `Influence faction ${instName(action.factionInstanceId)} with ${instName(action.influencingCharacterId)}`;
     case 'play-minor-item':

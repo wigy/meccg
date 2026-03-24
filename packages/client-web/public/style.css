@@ -301,7 +301,7 @@ h2 {
   padding-top: 2.5rem;
 }
 
-#state, #draft, #mh-info {
+#state, #draft, #mh-info, #site-info {
   background: #16213e;
   padding: 0.75rem;
   border-radius: 4px;

@@ -30,7 +30,7 @@ import type {
   DeclarePathAction,
   RegionType,
 } from '@meccg/shared';
-import { cardImageProxyPath, isCharacterCard, isItemCard, isSiteCard, Phase, CardStatus, viableActions, describeAction } from '@meccg/shared';
+import { cardImageProxyPath, isCharacterCard, isItemCard, isSiteCard, Phase, CardStatus, viableActions, describeAction, getTitleCharacter } from '@meccg/shared';
 import { $, createCardImage, createRegionTypeIcon } from './render-utils.js';
 import { getSelectedCharacterForPlay, clearCharacterPlaySelection, openMovementViewer, setTargetingInstruction } from './render.js';
 
@@ -108,53 +108,6 @@ let lastActivePlayer: string | null = null;
  * Tiebreaker: marshalling points, then prowess.
  * Returns the title character's CharacterInPlay, or undefined if the company is empty.
  */
-function getTitleCharacter(
-  characters: readonly { toString(): string }[],
-  charMap: Readonly<Record<string, CharacterInPlay>>,
-  cardPool: Readonly<Record<string, CardDefinition>>,
-): CharacterInPlay | undefined {
-  // Avatar is always the title character if present
-  for (const charInstId of characters) {
-    const char = charMap[charInstId as string];
-    if (!char) continue;
-    const def = cardPool[char.definitionId as string];
-    if (def && isCharacterCard(def) && def.mind === null) {
-      return char;
-    }
-  }
-
-  let titleChar: CharacterInPlay | undefined;
-  let bestMind = -Infinity;
-  let bestMP = -Infinity;
-  let bestProwess = -Infinity;
-  let bestName = '';
-
-  for (const charInstId of characters) {
-    const char = charMap[charInstId as string];
-    if (!char) continue;
-    const def = cardPool[char.definitionId as string];
-    if (!def || !isCharacterCard(def)) continue;
-
-    const mind = def.mind ?? 0;
-    const mp = def.marshallingPoints;
-    const prowess = char.effectiveStats.prowess;
-    const name = def.name;
-
-    if (
-      mind > bestMind ||
-      (mind === bestMind && mp > bestMP) ||
-      (mind === bestMind && mp === bestMP && prowess > bestProwess) ||
-      (mind === bestMind && mp === bestMP && prowess === bestProwess && name < bestName)
-    ) {
-      titleChar = char;
-      bestMind = mind;
-      bestMP = mp;
-      bestProwess = prowess;
-      bestName = name;
-    }
-  }
-  return titleChar;
-}
 
 /**
  * Get the display name for a company based on its title character and current site.

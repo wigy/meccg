@@ -16,7 +16,7 @@
 
 import type { GameState, PlayerState, DraftPlayerState, ItemDraftPlayerState, CharacterDeckDraftPlayerState, SetupStepState, CardDefinitionId, CardInstanceId, CompanyId, CharacterInPlay, CardInstance, OrganizationPhaseState, MovementHazardPhaseState, SitePhaseState, Company, CreatureCard } from '../index.js';
 import type { GameAction } from '../index.js';
-import { Phase, SetupStep, LEGAL_ACTIONS_BY_PHASE, getAlignmentRules, shuffle, nextInt, CardStatus, isCharacterCard, isSiteCard, SiteType, RegionType, Race, Skill, getPlayerIndex, ZERO_EFFECTIVE_STATS, MAX_STARTING_ITEMS, BASE_MAX_REGION_DISTANCE, HAND_SIZE } from '../index.js';
+import { Phase, SetupStep, LEGAL_ACTIONS_BY_PHASE, getAlignmentRules, shuffle, nextInt, CardStatus, isCharacterCard, isItemCard, isSiteCard, SiteType, RegionType, Race, Skill, getPlayerIndex, ZERO_EFFECTIVE_STATS, MAX_STARTING_ITEMS, BASE_MAX_REGION_DISTANCE, HAND_SIZE } from '../index.js';
 import { logHeading, logDetail } from './legal-actions/log.js';
 import type { TwoDiceSix, DieRoll, GameEffect } from '../index.js';
 import { applyDraftResults, transitionAfterItemDraft, enterSiteSelection, startFirstTurn } from './init.js';
@@ -3076,8 +3076,31 @@ function handleSite(state: GameState, action: GameAction): ReducerResult {
     return handleSiteSelectCompany(state, action, siteState);
   }
 
-  // TODO: enter-or-skip, reveal-on-guard-attacks, automatic-attacks,
-  //       declare-agent-attack, resolve-attacks, play-resources, play-minor-item
+  if (siteState.step === 'enter-or-skip') {
+    return handleSiteEnterOrSkip(state, action, siteState);
+  }
+
+  if (siteState.step === 'reveal-on-guard-attacks') {
+    return handleSitePassStep(state, action, siteState, 'reveal-on-guard-attacks', 'automatic-attacks');
+  }
+
+  if (siteState.step === 'automatic-attacks') {
+    return handleSitePassStep(state, action, siteState, 'automatic-attacks', 'declare-agent-attack');
+  }
+
+  if (siteState.step === 'declare-agent-attack') {
+    return handleSitePassStep(state, action, siteState, 'declare-agent-attack', 'resolve-attacks', true);
+  }
+
+  if (siteState.step === 'resolve-attacks') {
+    return handleSitePassStep(state, action, siteState, 'resolve-attacks', 'play-resources');
+  }
+
+  if (siteState.step === 'play-resources') {
+    return handleSitePlayResources(state, action, siteState);
+  }
+
+  // TODO: play-minor-item
 
   if (action.type !== 'pass') {
     return { state, error: `Unexpected action '${action.type}' in site phase step '${siteState.step}'` };
@@ -3139,6 +3162,241 @@ function handleSiteSelectCompany(
         minorItemAvailable: false,
         declaredOnGuardAttacks: [],
         declaredAgentAttack: null,
+      },
+    },
+  };
+}
+
+/**
+ * Handle the 'enter-or-skip' step: resource player decides whether to
+ * enter the site or do nothing.
+ *
+ * - `enter-site`: advances to reveal-on-guard-attacks (if auto-attacks
+ *   exist) or directly to play-resources.
+ * - `pass`: the company does nothing; its site phase ends immediately
+ *   and we advance to the next company (CoE lines 341–343).
+ */
+function handleSiteEnterOrSkip(
+  state: GameState,
+  action: GameAction,
+  siteState: SitePhaseState,
+): ReducerResult {
+  if (action.type !== 'enter-site' && action.type !== 'pass') {
+    return { state, error: `Expected 'enter-site' or 'pass' during enter-or-skip step, got '${action.type}'` };
+  }
+
+  if (action.player !== state.activePlayer) {
+    return { state, error: `Only the active player may enter or skip a site` };
+  }
+
+  const playerIndex = getPlayerIndex(state, state.activePlayer);
+  const player = state.players[playerIndex];
+  const company = player.companies[siteState.activeCompanyIndex];
+
+  // Pass = do nothing, company's site phase ends immediately
+  if (action.type === 'pass') {
+    logDetail(`Site: company ${company.id} does nothing → advancing to next company`);
+    return advanceSiteToNextCompany(state, siteState, company.id);
+  }
+
+  // Enter site — check whether the site has automatic-attacks
+  const siteInstanceId = company.currentSite;
+  const siteInstance = siteInstanceId ? state.instanceMap[siteInstanceId as string] : undefined;
+  const siteDef = siteInstance ? state.cardPool[siteInstance.definitionId as string] : undefined;
+  const autoAttackCount = siteDef && isSiteCard(siteDef) ? siteDef.automaticAttacks.length : 0;
+
+  if (autoAttackCount > 0) {
+    logDetail(`Site: company ${company.id} enters site with ${autoAttackCount} automatic-attack(s) → advancing to reveal-on-guard-attacks`);
+    return {
+      state: {
+        ...state,
+        phaseState: {
+          ...siteState,
+          step: 'reveal-on-guard-attacks' as const,
+        },
+      },
+    };
+  }
+
+  // No automatic-attacks — skip straight to declare-agent-attack
+  logDetail(`Site: company ${company.id} enters site with no automatic-attacks → advancing to declare-agent-attack`);
+  return {
+    state: {
+      ...state,
+      phaseState: {
+        ...siteState,
+        step: 'declare-agent-attack' as const,
+        siteEntered: true,
+      },
+    },
+  };
+}
+
+/**
+ * Handle the 'play-resources' step: resource player plays items or
+ * permanent events, or passes to end the company's site phase.
+ *
+ * - `play-hero-resource`: play an item at the site. Taps the carrying
+ *   character. The item is attached to the character.
+ * - `play-permanent-event`: delegated to the existing org-phase handler.
+ * - `pass`: ends this company's site phase, advances to next company.
+ */
+function handleSitePlayResources(
+  state: GameState,
+  action: GameAction,
+  siteState: SitePhaseState,
+): ReducerResult {
+  if (action.player !== state.activePlayer) {
+    return { state, error: `Only the active player may play resources` };
+  }
+
+  const playerIndex = getPlayerIndex(state, action.player);
+  const player = state.players[playerIndex];
+  const company = player.companies[siteState.activeCompanyIndex];
+
+  // Pass — end this company's site phase
+  if (action.type === 'pass') {
+    logDetail(`Site: company ${company.id} done playing resources → advancing to next company`);
+    return advanceSiteToNextCompany(state, siteState, company.id);
+  }
+
+  // Permanent events — reuse the existing handler (phase-independent)
+  if (action.type === 'play-permanent-event') {
+    return handlePlayPermanentEvent(state, action);
+  }
+
+  // Play hero resource (items)
+  if (action.type === 'play-hero-resource') {
+    return handleSitePlayHeroResource(state, action, siteState);
+  }
+
+  return { state, error: `Unexpected action '${action.type}' in play-resources step` };
+}
+
+/**
+ * Handle playing a hero resource (item) at a site.
+ *
+ * Validates the card is in hand, is an item playable at this site type,
+ * the target character is untapped and in the company, then attaches the
+ * item and taps the character.
+ */
+function handleSitePlayHeroResource(
+  state: GameState,
+  action: GameAction,
+  siteState: SitePhaseState,
+): ReducerResult {
+  if (action.type !== 'play-hero-resource') return { state, error: 'Expected play-hero-resource action' };
+
+  const playerIndex = getPlayerIndex(state, action.player);
+  const player = state.players[playerIndex];
+  const company = player.companies[siteState.activeCompanyIndex];
+
+  // Validate card is in hand
+  const cardIdx = player.hand.indexOf(action.cardInstanceId);
+  if (cardIdx === -1) return { state, error: 'Card not in hand' };
+
+  const inst = state.instanceMap[action.cardInstanceId as string];
+  if (!inst) return { state, error: 'Card instance not found' };
+
+  const def = state.cardPool[inst.definitionId as string];
+  if (!def || !isItemCard(def)) return { state, error: 'Card is not an item' };
+
+  // Check site allows this item subtype
+  const siteInstanceId = company.currentSite;
+  const siteInstance = siteInstanceId ? state.instanceMap[siteInstanceId as string] : undefined;
+  const siteDef = siteInstance ? state.cardPool[siteInstance.definitionId as string] : undefined;
+  if (!siteDef || !isSiteCard(siteDef)) return { state, error: 'Company is not at a valid site' };
+
+  if (!siteDef.playableResources.includes(def.subtype)) {
+    return { state, error: `${def.subtype} items cannot be played at ${siteDef.name}` };
+  }
+
+  // Validate target character
+  const targetCharId = action.attachToCharacterId;
+  if (!targetCharId) return { state, error: 'Must specify a character to carry the item' };
+
+  if (!company.characters.includes(targetCharId)) {
+    return { state, error: 'Target character is not in this company' };
+  }
+
+  const charInPlay = player.characters[targetCharId as string];
+  if (!charInPlay) return { state, error: 'Target character not found' };
+  if (charInPlay.status !== CardStatus.Untapped) {
+    return { state, error: 'Target character is not untapped' };
+  }
+
+  // Check site is not already tapped
+  if (siteInstance!.status === CardStatus.Tapped) {
+    return { state, error: 'Site is already tapped' };
+  }
+
+  const charDef = state.cardPool[charInPlay.definitionId as string];
+  const charName = charDef?.name ?? targetCharId;
+  logDetail(`Site: playing ${def.name} on ${charName} — tapping character and site`);
+
+  // Remove card from hand
+  const newHand = [...player.hand];
+  newHand.splice(cardIdx, 1);
+
+  // Tap the character and attach the item
+  const updatedChar: CharacterInPlay = {
+    ...charInPlay,
+    status: CardStatus.Tapped,
+    items: [...charInPlay.items, { instanceId: action.cardInstanceId, definitionId: inst.definitionId, status: CardStatus.Untapped }],
+  };
+
+  const newCharacters = { ...player.characters, [targetCharId as string]: updatedChar };
+  const newPlayers = clonePlayers(state);
+  newPlayers[playerIndex] = { ...player, hand: newHand, characters: newCharacters };
+
+  // Tap the site instance
+  const tappedSite: CardInstance = { ...siteInstance!, status: CardStatus.Tapped };
+  const newInstanceMap = { ...state.instanceMap, [siteInstanceId as string]: tappedSite };
+
+  return {
+    state: {
+      ...state,
+      players: newPlayers,
+      instanceMap: newInstanceMap,
+      phaseState: {
+        ...siteState,
+        resourcePlayed: true,
+      },
+    },
+  };
+}
+
+/**
+ * Handle a site phase step that currently only accepts 'pass' to advance
+ * to the next step. Used as a stub for reveal-on-guard-attacks,
+ * automatic-attacks, and declare-agent-attack until full logic is implemented.
+ *
+ * @param markEntered - If true, sets siteEntered when advancing (used after
+ *   the last attack step to mark the company as having successfully entered).
+ */
+function handleSitePassStep(
+  state: GameState,
+  action: GameAction,
+  siteState: SitePhaseState,
+  currentStep: string,
+  nextStep: SitePhaseState['step'],
+  markEntered?: boolean,
+): ReducerResult {
+  if (action.type !== 'pass') {
+    return { state, error: `Expected 'pass' during ${currentStep} step, got '${action.type}'` };
+  }
+  if (action.player !== state.activePlayer) {
+    return { state, error: `Only the active player may pass during ${currentStep}` };
+  }
+
+  logDetail(`Site: ${currentStep} → advancing to ${nextStep}`);
+  return {
+    state: {
+      ...state,
+      phaseState: {
+        ...siteState,
+        step: nextStep,
+        ...(markEntered ? { siteEntered: true } : {}),
       },
     },
   };
