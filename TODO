@@ -10,18 +10,17 @@ FEATS
 EPICS
 -----
 
-Movement/Hazard Phase
 Site Phase
 End-of-Turn Phase
+Sideboard
+Chain of effects
 Combat
 Untap Phase
 Council and End Game
-Sideboard
-Chain of effects
 Setup Minion
 Setup Fw
 Setup Balrog
-Single loadable hero deck in a file.
+Loadable hero decks in JSON files.
 Central server.
 Deck collection, internal file format and validation
 The Wizards
