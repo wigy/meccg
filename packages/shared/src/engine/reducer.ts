@@ -16,7 +16,7 @@
 
 import type { GameState, PlayerState, DraftPlayerState, ItemDraftPlayerState, CharacterDeckDraftPlayerState, SetupStepState, CardDefinitionId, CardInstanceId, CompanyId, CharacterInPlay, CardInstance, OrganizationPhaseState, MovementHazardPhaseState, Company } from '../index.js';
 import type { GameAction } from '../index.js';
-import { Phase, SetupStep, LEGAL_ACTIONS_BY_PHASE, getAlignmentRules, shuffle, nextInt, CardStatus, isCharacterCard, isSiteCard, SiteType, getPlayerIndex, ZERO_EFFECTIVE_STATS, MAX_STARTING_ITEMS } from '../index.js';
+import { Phase, SetupStep, LEGAL_ACTIONS_BY_PHASE, getAlignmentRules, shuffle, nextInt, CardStatus, isCharacterCard, isSiteCard, SiteType, getPlayerIndex, ZERO_EFFECTIVE_STATS, MAX_STARTING_ITEMS, BASE_MAX_REGION_DISTANCE } from '../index.js';
 import { logHeading, logDetail } from './legal-actions/log.js';
 import type { TwoDiceSix, DieRoll, GameEffect } from '../index.js';
 import { applyDraftResults, transitionAfterItemDraft, enterSiteSelection, startFirstTurn } from './init.js';
@@ -2006,6 +2006,7 @@ function handleLongEvent(state: GameState, action: GameAction): ReducerResult {
           activeCompanyIndex: 0,
           handledCompanyIds: [],
           movementType: null,
+          maxRegionDistance: BASE_MAX_REGION_DISTANCE,
           pendingEffectsToOrder: [],
           hazardsPlayedThisCompany: 0,
           hazardLimit: 0,
@@ -2144,6 +2145,7 @@ function handleMovementHazard(state: GameState, action: GameAction): ReducerResu
         step: 'select-company' as const,
         handledCompanyIds: updatedHandled,
         movementType: null,
+        maxRegionDistance: BASE_MAX_REGION_DISTANCE,
         pendingEffectsToOrder: [],
         hazardsPlayedThisCompany: 0,
         hazardLimit: 0,
@@ -2192,7 +2194,10 @@ function handleSelectCompany(
 
   const company = player.companies[companyIndex];
   const isMoving = company.destinationSite !== null;
-  logDetail(`Movement/Hazard: selected company ${action.companyId} (index ${companyIndex}), moving=${isMoving} → advancing to reveal-new-site`);
+
+  // Compute effective max region distance from base + card effects (TODO: card effect modifiers)
+  const maxRegionDistance = BASE_MAX_REGION_DISTANCE;
+  logDetail(`Movement/Hazard: selected company ${action.companyId} (index ${companyIndex}), moving=${isMoving}, maxRegions=${maxRegionDistance} → advancing to reveal-new-site`);
   return {
     state: {
       ...state,
@@ -2201,6 +2206,7 @@ function handleSelectCompany(
         step: 'reveal-new-site' as const,
         activeCompanyIndex: companyIndex,
         siteRevealed: isMoving,
+        maxRegionDistance,
       },
     },
   };

@@ -615,6 +615,14 @@ export interface MovementHazardPhaseState {
    */
   readonly movementType: MovementType | null;
   /**
+   * Maximum number of consecutive regions this company may traverse
+   * (rules-style: origin and destination both count). Computed at the
+   * start of the company's M/H sub-phase from {@link BASE_MAX_REGION_DISTANCE}
+   * plus any card-effect modifiers. Used to validate region paths during
+   * the declare-path step.
+   */
+  readonly maxRegionDistance: number;
+  /**
    * Card instance IDs of ongoing effects that the hazard player must order
    * during the 'order-effects' step (CoE step 4). Empty outside that step.
    * The hazard player submits a permutation of these IDs to set the resolution order.

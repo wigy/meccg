@@ -13,3 +13,4 @@ export { CHARACTER_DRAFT_RULES } from './definitions/character-draft.js';
 export { CHARACTER_DECK_DRAFT_RULES } from './definitions/character-deck-draft.js';
 export { SITE_SELECTION_RULES } from './definitions/starting-site-selection.js';
 export { ITEM_DRAFT_RULES, MAX_STARTING_ITEMS } from './definitions/item-draft.js';
+export { createMovementRules, BASE_MAX_REGION_DISTANCE } from './definitions/movement.js';
