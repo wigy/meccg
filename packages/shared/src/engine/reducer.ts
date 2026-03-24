@@ -14,7 +14,7 @@
  * (or the original state plus an error string if the action was illegal).
  */
 
-import type { GameState, PlayerState, DraftPlayerState, ItemDraftPlayerState, CharacterDeckDraftPlayerState, SetupStepState, CardDefinitionId, CardInstanceId, CompanyId, CharacterInPlay, CardInstance, OrganizationPhaseState, MovementHazardPhaseState, Company } from '../index.js';
+import type { GameState, PlayerState, DraftPlayerState, ItemDraftPlayerState, CharacterDeckDraftPlayerState, SetupStepState, CardDefinitionId, CardInstanceId, CompanyId, CharacterInPlay, CardInstance, OrganizationPhaseState, MovementHazardPhaseState, Company, CreatureCard } from '../index.js';
 import type { GameAction } from '../index.js';
 import { Phase, SetupStep, LEGAL_ACTIONS_BY_PHASE, getAlignmentRules, shuffle, nextInt, CardStatus, isCharacterCard, isSiteCard, SiteType, RegionType, Race, Skill, getPlayerIndex, ZERO_EFFECTIVE_STATS, MAX_STARTING_ITEMS, BASE_MAX_REGION_DISTANCE, HAND_SIZE } from '../index.js';
 import { logHeading, logDetail } from './legal-actions/log.js';
@@ -2243,9 +2243,39 @@ function handlePlayHazardCard(
   const def = state.cardPool[inst.definitionId as string];
   if (!def) return { state, error: 'Card definition not found' };
 
-  // Currently hazard long-events and permanent-events are supported
+  // --- Creature handling ---
+  if (def.cardType === 'hazard-creature') {
+    const keyError = checkCreatureKeying(def, mhState);
+    if (keyError) return { state, error: keyError };
+
+    logDetail(`Play-hazards: hazard player plays creature "${def.name}" (${mhState.hazardsPlayedThisCompany + 1}/${mhState.hazardLimit}) — TODO: combat, discarding directly`);
+
+    // Placeholder: skip combat, move creature from hand to discard pile
+    const newHand = [...hazardPlayer.hand];
+    newHand.splice(cardIdx, 1);
+    const newPlayers = clonePlayers(state);
+    newPlayers[hazardIndex] = {
+      ...hazardPlayer,
+      hand: newHand,
+      discardPile: [...hazardPlayer.discardPile, action.cardInstanceId],
+    };
+
+    return {
+      state: {
+        ...state,
+        players: newPlayers,
+        phaseState: {
+          ...mhState,
+          hazardsPlayedThisCompany: mhState.hazardsPlayedThisCompany + 1,
+          resourcePlayerPassed: false,
+        },
+      },
+    };
+  }
+
+  // --- Event handling (long / permanent) ---
   if (def.cardType !== 'hazard-event' || (def.eventType !== 'long' && def.eventType !== 'permanent')) {
-    return { state, error: `Cannot play ${def.cardType} during play-hazards — only hazard long/permanent-events are currently supported` };
+    return { state, error: `Cannot play ${def.cardType} during play-hazards — only creatures and hazard long/permanent-events are currently supported` };
   }
 
   // Uniqueness check: unique events can't be played if already in play
@@ -2272,7 +2302,7 @@ function handlePlayHazardCard(
     }
   }
 
-  logDetail(`Play-hazards: hazard player plays long-event "${def.name}" (${mhState.hazardsPlayedThisCompany + 1}/${mhState.hazardLimit})`);
+  logDetail(`Play-hazards: hazard player plays event "${def.name}" (${mhState.hazardsPlayedThisCompany + 1}/${mhState.hazardLimit})`);
 
   // Move card from hand to cardsInPlay
   const newHand = [...hazardPlayer.hand];
@@ -2525,6 +2555,82 @@ function advanceAfterCompanyMH(state: GameState, mhState: MovementHazardPhaseSta
 }
 
 /**
+ * Check whether any of the creature's region types can be keyed to the
+ * company's site path.
+ *
+ * Each distinct region type is an independent keying option (OR). If the
+ * same type appears N times on the creature card, the path must contain
+ * at least N regions of that type.
+ *
+ * Per CoE: "If multiple of the same region type appear on the creature card,
+ * the company must be moving through at least that many corresponding regions
+ * (but which need not be consecutive)."
+ */
+function regionTypesMatch(required: readonly RegionType[], path: readonly RegionType[]): boolean {
+  // Count how many of each type the creature requires
+  const requiredCounts = new Map<RegionType, number>();
+  for (const rt of required) requiredCounts.set(rt, (requiredCounts.get(rt) ?? 0) + 1);
+  // Count how many of each type are in the path
+  const pathCounts = new Map<RegionType, number>();
+  for (const rt of path) pathCounts.set(rt, (pathCounts.get(rt) ?? 0) + 1);
+  // Any type with enough matches in the path is sufficient (OR)
+  for (const [rt, need] of requiredCounts) {
+    if ((pathCounts.get(rt) ?? 0) >= need) return true;
+  }
+  return false;
+}
+
+/**
+ * Check whether a creature can be keyed to the current company's site path
+ * or destination site (CoE rule 2.IV.vii.2).
+ *
+ * A creature is keyable if any of its {@link CreatureKeyRestriction} entries
+ * match at least one of:
+ * - A region type on the company's resolved site path
+ * - A region name on the company's resolved site path
+ * - The destination site type
+ * - The destination site name (TODO: not yet checked)
+ *
+ * @returns An error string if the creature cannot be keyed, or undefined if legal.
+ */
+function checkCreatureKeying(def: CreatureCard, mhState: MovementHazardPhaseState): string | undefined {
+  for (const key of def.keyedTo) {
+    // Check region types against site path (count-based: if the creature
+    // lists a region type N times, the path must contain at least N of that type)
+    if (key.regionTypes && key.regionTypes.length > 0) {
+      if (regionTypesMatch(key.regionTypes, mhState.resolvedSitePath)) {
+        logDetail(`Creature "${def.name}" keyable to region type(s): ${key.regionTypes.join(', ')}`);
+        return undefined;
+      }
+    }
+    // Check region names against site path names
+    if (key.regionNames && key.regionNames.length > 0) {
+      const pathNames = mhState.resolvedSitePathNames;
+      if (key.regionNames.some(rn => pathNames.includes(rn))) {
+        logDetail(`Creature "${def.name}" keyable to region name: ${key.regionNames.join(', ')}`);
+        return undefined;
+      }
+    }
+    // Check site types against destination
+    if (key.siteTypes && key.siteTypes.length > 0 && mhState.destinationSiteType) {
+      if (key.siteTypes.includes(mhState.destinationSiteType)) {
+        logDetail(`Creature "${def.name}" keyable to site type: ${mhState.destinationSiteType}`);
+        return undefined;
+      }
+    }
+  }
+
+  const keyDesc = def.keyedTo.map(k => {
+    const parts: string[] = [];
+    if (k.regionTypes?.length) parts.push(`regions: ${k.regionTypes.join('/')}`);
+    if (k.regionNames?.length) parts.push(`named: ${k.regionNames.join('/')}`);
+    if (k.siteTypes?.length) parts.push(`sites: ${k.siteTypes.join('/')}`);
+    return parts.join(', ');
+  }).join(' OR ');
+  return `${def.name} cannot be keyed to this company's path (requires ${keyDesc})`;
+}
+
+/**
  * Handle the 'select-company' action: resource player picks which company
  * resolves its M/H sub-phase next.
  */
@@ -2594,7 +2700,13 @@ function handleRevealNewSite(
   }
 
   // Non-moving company: pass to advance (skip declare-path, go to set-hazard-limit)
+  // Set destinationSiteType/Name to current site so creatures can be keyed to it
   if (action.type === 'pass') {
+    const playerIdx = getPlayerIndex(state, action.player);
+    const nonMovingCompany = state.players[playerIdx].companies[mhState.activeCompanyIndex];
+    const currentSiteInst = nonMovingCompany.currentSite ? state.instanceMap[nonMovingCompany.currentSite as string] : undefined;
+    const currentSiteDef = currentSiteInst ? state.cardPool[currentSiteInst.definitionId as string] : undefined;
+    const currentSite = currentSiteDef && isSiteCard(currentSiteDef) ? currentSiteDef : undefined;
     logDetail(`Movement/Hazard: non-moving company → advancing to set-hazard-limit`);
     return {
       state: {
@@ -2602,6 +2714,8 @@ function handleRevealNewSite(
         phaseState: {
           ...mhState,
           step: 'set-hazard-limit' as const,
+          destinationSiteType: currentSite?.siteType ?? null,
+          destinationSiteName: currentSite?.name ?? null,
         },
       },
     };

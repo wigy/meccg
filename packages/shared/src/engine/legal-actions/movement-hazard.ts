@@ -6,8 +6,8 @@
  * sub-states further constrain available actions.
  */
 
-import type { GameState, PlayerId, GameAction, EvaluatedAction, MovementHazardPhaseState, SiteCard, CardDefinitionId } from '../../index.js';
-import { getPlayerIndex, isSiteCard, buildMovementMap, findRegionPaths, HAND_SIZE } from '../../index.js';
+import type { GameState, PlayerId, GameAction, EvaluatedAction, MovementHazardPhaseState, SiteCard, CardDefinitionId, CreatureCard } from '../../index.js';
+import { getPlayerIndex, isSiteCard, buildMovementMap, findRegionPaths, HAND_SIZE, RegionType } from '../../index.js';
 import { MovementType } from '../../types/common.js';
 import { logDetail, logHeading } from './log.js';
 
@@ -341,8 +341,10 @@ function playHazardsActions(
       const def = state.cardPool[inst.definitionId as string];
       if (!def) continue;
 
-      // Currently hazard long-events and permanent-events
-      if (def.cardType !== 'hazard-event' || (def.eventType !== 'long' && def.eventType !== 'permanent')) continue;
+      const isCreature = def.cardType === 'hazard-creature';
+      const isEvent = def.cardType === 'hazard-event'
+        && (def.eventType === 'long' || def.eventType === 'permanent');
+      if (!isCreature && !isEvent) continue;
 
       const action: GameAction = {
         type: 'play-hazard',
@@ -357,13 +359,27 @@ function playHazardsActions(
         continue;
       }
 
+      // --- Creature keying check ---
+      if (isCreature) {
+        const keyError = checkCreatureKeyability(def, mhState);
+        if (keyError) {
+          logDetail(`Creature "${def.name}" not keyable: ${keyError}`);
+          actions.push({ action, viable: false, reason: keyError });
+          continue;
+        }
+        logDetail(`Creature "${def.name}" is keyable and playable`);
+        actions.push({ action, viable: true });
+        continue;
+      }
+
+      // --- Event checks ---
       // Uniqueness: non-viable if already in play
       if (def.unique) {
         const alreadyInPlay = state.players.some(p =>
           p.cardsInPlay.some(c => c.definitionId === def.id),
         );
         if (alreadyInPlay) {
-          logDetail(`Hazard long-event "${def.name}" is unique and already in play`);
+          logDetail(`Hazard event "${def.name}" is unique and already in play`);
           actions.push({ action, viable: false, reason: `${def.name} is unique and already in play` });
           continue;
         }
@@ -381,7 +397,7 @@ function playHazardsActions(
             }).length, 0,
           );
           if (copiesInPlay >= effect.max) {
-            logDetail(`Hazard long-event "${def.name}" cannot be duplicated (${copiesInPlay}/${effect.max} in play)`);
+            logDetail(`Hazard event "${def.name}" cannot be duplicated (${copiesInPlay}/${effect.max} in play)`);
             actions.push({ action, viable: false, reason: `${def.name} cannot be duplicated` });
             blocked = true;
             break;
@@ -390,7 +406,7 @@ function playHazardsActions(
         if (blocked) continue;
       }
 
-      logDetail(`Hazard long-event "${def.name}" is playable`);
+      logDetail(`Hazard event "${def.name}" is playable`);
       actions.push({ action, viable: true });
     }
   }
@@ -437,4 +453,59 @@ function resetHandActions(
     action: { type: 'discard-card' as const, player: playerId, cardInstanceId: cardInstId },
     viable: true,
   }));
+}
+
+/**
+ * Check whether any of the creature's region types can be keyed to the
+ * site path. Each distinct type is an independent option (OR). If the
+ * same type appears N times, the path must have at least N of that type.
+ */
+function regionTypesMatch(required: readonly RegionType[], path: readonly RegionType[]): boolean {
+  const requiredCounts = new Map<RegionType, number>();
+  for (const rt of required) requiredCounts.set(rt, (requiredCounts.get(rt) ?? 0) + 1);
+  const pathCounts = new Map<RegionType, number>();
+  for (const rt of path) pathCounts.set(rt, (pathCounts.get(rt) ?? 0) + 1);
+  for (const [rt, need] of requiredCounts) {
+    if ((pathCounts.get(rt) ?? 0) >= need) return true;
+  }
+  return false;
+}
+
+/**
+ * Check whether a creature can be keyed to the current company's site path
+ * or destination site.
+ *
+ * Returns an error message if not keyable, or undefined if legal.
+ */
+function checkCreatureKeyability(def: CreatureCard, mhState: MovementHazardPhaseState): string | undefined {
+  for (const key of def.keyedTo) {
+    // Check region types against site path (count-based: if the creature
+    // lists a type N times, the path must contain at least N of that type)
+    if (key.regionTypes && key.regionTypes.length > 0) {
+      if (regionTypesMatch(key.regionTypes, mhState.resolvedSitePath)) {
+        return undefined;
+      }
+    }
+    // Check region names against site path names
+    if (key.regionNames && key.regionNames.length > 0) {
+      if (key.regionNames.some(rn => mhState.resolvedSitePathNames.includes(rn))) {
+        return undefined;
+      }
+    }
+    // Check site types against destination
+    if (key.siteTypes && key.siteTypes.length > 0 && mhState.destinationSiteType) {
+      if (key.siteTypes.includes(mhState.destinationSiteType)) {
+        return undefined;
+      }
+    }
+  }
+
+  const keyDesc = def.keyedTo.map(k => {
+    const parts: string[] = [];
+    if (k.regionTypes?.length) parts.push(k.regionTypes.join('/'));
+    if (k.regionNames?.length) parts.push(k.regionNames.join('/'));
+    if (k.siteTypes?.length) parts.push(k.siteTypes.join('/'));
+    return parts.join(', ');
+  }).join(' or ');
+  return `Not keyable (requires ${keyDesc})`;
 }
