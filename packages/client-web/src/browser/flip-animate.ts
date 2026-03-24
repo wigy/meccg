@@ -120,7 +120,7 @@ export function animateFromSnapshot(): void {
         { transform: `translate(${dx}px, ${dy}px)` },
         { transform: 'translate(0, 0)' },
       ],
-      { duration: FLIP_DURATION, easing: 'ease-out' },
+      { duration: FLIP_DURATION, easing: 'ease-out', composite: 'add' },
     );
   }
 }
