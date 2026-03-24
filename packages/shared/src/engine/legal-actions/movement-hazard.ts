@@ -102,6 +102,12 @@ function revealNewSiteActions(
     // Build region name → definition ID map for converting path names to IDs
     const regionNameToId = buildRegionNameMap(state);
     const paths = findRegionPaths(movementMap, originRegion, destRegion, mhState.maxRegionDistance);
+    // Sort paths: shortest first, then fewest distinct regions as tiebreaker
+    paths.sort((a, b) => {
+      const lenDiff = a.length - b.length;
+      if (lenDiff !== 0) return lenDiff;
+      return new Set(a).size - new Set(b).size;
+    });
     for (const path of paths) {
       const regionIds = path.map(name => regionNameToId.get(name)).filter((id): id is CardDefinitionId => id !== undefined);
       if (regionIds.length !== path.length) {
