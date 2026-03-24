@@ -57,7 +57,12 @@ export function movementHazardActions(state: GameState, playerId: PlayerId): Gam
     return drawCardsActions(state, playerId, mhState, isActive);
   }
 
-  // TODO: play-hazard, assign-strike, resolve-strike, support-strike
+  // play-hazards step (CoE step 7): hazard player plays hazards, both may pass
+  if (mhState.step === 'play-hazards') {
+    return playHazardsActions(state, playerId, mhState, isActive);
+  }
+
+  // TODO: assign-strike, resolve-strike, support-strike
   if (!isActive) {
     logDetail(`Not active player, no movement/hazard actions`);
     return [];
@@ -291,5 +296,67 @@ function drawCardsActions(
   }
 
   logDetail(`${playerLabel} player draw-cards: ${drawnSoFar}/${drawMax} drawn, ${actions.length} action(s)`);
+  return actions;
+}
+
+/**
+ * Generate actions for the play-hazards step (CoE step 7).
+ *
+ * The hazard player may play hazard long-events from hand (up to the
+ * hazard limit). Both players always have a pass action available.
+ * The company's M/H phase ends when both players have passed.
+ *
+ * TODO: creatures, short-events, permanent-events, on-guard cards
+ */
+function playHazardsActions(
+  state: GameState,
+  playerId: PlayerId,
+  mhState: MovementHazardPhaseState,
+  isResourcePlayer: boolean,
+): GameAction[] {
+  const actions: GameAction[] = [];
+
+  // Hazard player: offer playable hazard long-events if under limit
+  if (!isResourcePlayer && mhState.hazardsPlayedThisCompany < mhState.hazardLimit) {
+    const playerIndex = getPlayerIndex(state, playerId);
+    const player = state.players[playerIndex];
+    const activeIndex = getPlayerIndex(state, state.activePlayer!);
+    const resourcePlayer = state.players[activeIndex];
+    const targetCompany = resourcePlayer.companies[mhState.activeCompanyIndex];
+
+    for (const cardInstId of player.hand) {
+      const inst = state.instanceMap[cardInstId as string];
+      if (!inst) continue;
+      const def = state.cardPool[inst.definitionId as string];
+      if (!def) continue;
+
+      // Currently only hazard long-events
+      if (def.cardType !== 'hazard-event' || def.eventType !== 'long') continue;
+
+      // Uniqueness: skip if already in play
+      if (def.unique) {
+        const alreadyInPlay = state.players.some(p =>
+          p.cardsInPlay.some(c => c.definitionId === def.id),
+        );
+        if (alreadyInPlay) {
+          logDetail(`Hazard long-event "${def.name}" is unique and already in play — skipping`);
+          continue;
+        }
+      }
+
+      logDetail(`Hazard long-event "${def.name}" is playable`);
+      actions.push({
+        type: 'play-hazard',
+        player: playerId,
+        cardInstanceId: cardInstId,
+        targetCompanyId: targetCompany.id,
+      });
+    }
+  }
+
+  // Both players can always pass
+  actions.push({ type: 'pass', player: playerId });
+
+  logDetail(`Play-hazards: ${isResourcePlayer ? 'resource' : 'hazard'} player has ${actions.length} action(s) (${actions.filter(a => a.type === 'play-hazard').length} hazards)`);
   return actions;
 }

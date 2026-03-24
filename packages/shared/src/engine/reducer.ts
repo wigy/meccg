@@ -185,8 +185,9 @@ function validateActionPlayer(state: GameState, action: GameAction): string | un
     return undefined;
   }
 
-  // During draw-cards step, both players draw simultaneously
-  if (phase === 'movement-hazard' && 'step' in state.phaseState && state.phaseState.step === 'draw-cards') {
+  // During draw-cards and play-hazards steps, both players act
+  if (phase === 'movement-hazard' && 'step' in state.phaseState
+    && (state.phaseState.step === 'draw-cards' || state.phaseState.step === 'play-hazards')) {
     return undefined;
   }
 
@@ -2152,15 +2153,158 @@ function handleMovementHazard(state: GameState, action: GameAction): ReducerResu
     return handleDrawCards(state, action, mhState);
   }
 
-  // Remaining step (play-hazards) — still stub
-  if (action.type !== 'pass') {
-    return { state, error: `Unexpected action '${action.type}' in movement/hazard phase (step: ${mhState.step})` };
+  // play-hazards step (CoE step 7): hazard player plays hazards, resource player may respond
+  if (mhState.step === 'play-hazards') {
+    return handlePlayHazards(state, action, mhState);
   }
 
-  // After pass, mark current company as handled and return to select-company
-  // (or advance to Site phase if all companies are done)
-  const playerIndex = getPlayerIndex(state, action.player);
-  const player = state.players[playerIndex];
+  return { state, error: `Unexpected step '${mhState.step as string}' in movement/hazard phase` };
+}
+
+/**
+ * Handle actions during the play-hazards step (CoE step 7).
+ *
+ * The hazard player may play hazard long-events (and eventually creatures,
+ * short-events, permanent-events, on-guard cards) up to the hazard limit.
+ * Both players may pass; the company's M/H phase ends when both have passed.
+ * If the hazard player takes an action after the resource player passed,
+ * the resource player's pass is reset.
+ */
+function handlePlayHazards(
+  state: GameState,
+  action: GameAction,
+  mhState: MovementHazardPhaseState,
+): ReducerResult {
+  const isResourcePlayer = action.player === state.activePlayer;
+
+  // --- Pass ---
+  if (action.type === 'pass') {
+    const newMhState = {
+      ...mhState,
+      ...(isResourcePlayer
+        ? { resourcePlayerPassed: true }
+        : { hazardPlayerPassed: true }),
+    };
+
+    // Both passed → end this company's M/H phase
+    if (newMhState.resourcePlayerPassed && newMhState.hazardPlayerPassed) {
+      return endCompanyMH(state, newMhState);
+    }
+
+    logDetail(`Play-hazards: ${isResourcePlayer ? 'resource' : 'hazard'} player passed`);
+    return { state: { ...state, phaseState: newMhState } };
+  }
+
+  // --- Play hazard ---
+  if (action.type === 'play-hazard') {
+    if (isResourcePlayer) {
+      return { state, error: 'Only the hazard player may play hazards' };
+    }
+    if (mhState.hazardsPlayedThisCompany >= mhState.hazardLimit) {
+      return { state, error: `Hazard limit reached (${mhState.hazardLimit})` };
+    }
+    return handlePlayHazardCard(state, action, mhState);
+  }
+
+  return { state, error: `Unexpected action '${action.type}' during play-hazards step` };
+}
+
+/**
+ * Play a hazard card from hand during the play-hazards step.
+ *
+ * Currently supports hazard long-events. Playing a hazard counts as one
+ * against the hazard limit. If the resource player had passed, their
+ * pass is reset (they may resume taking actions).
+ *
+ * TODO: creatures, short-events, permanent-events, on-guard cards
+ */
+function handlePlayHazardCard(
+  state: GameState,
+  action: GameAction,
+  mhState: MovementHazardPhaseState,
+): ReducerResult {
+  if (action.type !== 'play-hazard') return { state, error: 'Expected play-hazard action' };
+
+  const hazardIndex = getPlayerIndex(state, action.player);
+  const hazardPlayer = state.players[hazardIndex];
+
+  // Validate card is in hand
+  const cardIdx = hazardPlayer.hand.indexOf(action.cardInstanceId);
+  if (cardIdx === -1) return { state, error: 'Card not in hand' };
+
+  const inst = state.instanceMap[action.cardInstanceId as string];
+  if (!inst) return { state, error: 'Card instance not found' };
+
+  const def = state.cardPool[inst.definitionId as string];
+  if (!def) return { state, error: 'Card definition not found' };
+
+  // Currently only hazard long-events are supported
+  if (def.cardType !== 'hazard-event' || def.eventType !== 'long') {
+    return { state, error: `Cannot play ${def.cardType} during play-hazards — only hazard long-events are currently supported` };
+  }
+
+  // Uniqueness check: unique events can't be played if already in play
+  if (def.unique) {
+    const alreadyInPlay = state.players.some(p =>
+      p.cardsInPlay.some(c => c.definitionId === def.id),
+    );
+    if (alreadyInPlay) return { state, error: `${def.name} is unique and already in play` };
+  }
+
+  // Duplication-limit check
+  if (def.effects) {
+    for (const effect of def.effects) {
+      if (effect.type !== 'duplication-limit' || effect.scope !== 'game') continue;
+      const copiesInPlay = state.players.reduce((count, p) =>
+        count + p.cardsInPlay.filter(c => {
+          const cDef = state.cardPool[c.definitionId as string];
+          return cDef && cDef.name === def.name;
+        }).length, 0,
+      );
+      if (copiesInPlay >= effect.max) {
+        return { state, error: `${def.name} cannot be duplicated` };
+      }
+    }
+  }
+
+  logDetail(`Play-hazards: hazard player plays long-event "${def.name}" (${mhState.hazardsPlayedThisCompany + 1}/${mhState.hazardLimit})`);
+
+  // Move card from hand to cardsInPlay
+  const newHand = [...hazardPlayer.hand];
+  newHand.splice(cardIdx, 1);
+
+  const newPlayers = clonePlayers(state);
+  newPlayers[hazardIndex] = {
+    ...hazardPlayer,
+    hand: newHand,
+    cardsInPlay: [...hazardPlayer.cardsInPlay, {
+      instanceId: action.cardInstanceId,
+      definitionId: inst.definitionId,
+      status: CardStatus.Untapped,
+    }],
+  };
+
+  return {
+    state: {
+      ...state,
+      players: newPlayers,
+      phaseState: {
+        ...mhState,
+        hazardsPlayedThisCompany: mhState.hazardsPlayedThisCompany + 1,
+        // Reset resource player's pass — they may respond
+        resourcePlayerPassed: false,
+      },
+    },
+  };
+}
+
+/**
+ * End the current company's M/H phase and either select the next company
+ * or advance to the Site phase.
+ */
+function endCompanyMH(state: GameState, mhState: MovementHazardPhaseState): ReducerResult {
+  const activeIndex = getPlayerIndex(state, state.activePlayer!);
+  const player = state.players[activeIndex];
   const currentCompany = player.companies[mhState.activeCompanyIndex];
   const updatedHandled = [...mhState.handledCompanyIds, currentCompany.id];
   const remainingCount = player.companies.length - updatedHandled.length;
