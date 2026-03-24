@@ -615,6 +615,12 @@ export interface MovementHazardPhaseState {
    */
   readonly movementType: MovementType | null;
   /**
+   * For region movement: the ordered sequence of region card definition IDs
+   * forming the declared travel path. Empty for starter movement or when
+   * not yet declared.
+   */
+  readonly declaredRegionPath: readonly CardDefinitionId[];
+  /**
    * Maximum number of consecutive regions this company may traverse
    * (rules-style: origin and destination both count). Computed at the
    * start of the company's M/H sub-phase from {@link BASE_MAX_REGION_DISTANCE}

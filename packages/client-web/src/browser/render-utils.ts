@@ -6,7 +6,7 @@
  * duplication of card image creation and common DOM utilities.
  */
 
-import type { CardDefinition, CharacterInPlay } from '@meccg/shared';
+import type { CardDefinition, CharacterInPlay, RegionType } from '@meccg/shared';
 import { cardImageProxyPath } from '@meccg/shared';
 
 /** Get an element by ID, throwing if not found. */
@@ -36,6 +36,48 @@ export function createFaceDownCard(altText: string): HTMLImageElement {
   img.alt = altText;
   img.className = 'drafted-card drafted-card-facedown';
   return img;
+}
+
+/**
+ * Map from region type to the filename of its original MECCG icon.
+ * Icons sourced from the MECCG Set Editor (usmcgeek/meccg on GitHub).
+ *
+ * - Wilderness: pine tree
+ * - Shadow: half-shaded tower
+ * - Dark: solid tower
+ * - Coastal: waves
+ * - Free: outlined tower with window
+ * - Border: half-shaded tower with door
+ */
+const REGION_TYPE_ICONS: Record<RegionType, string> = {
+  wilderness: 'w',
+  shadow: 's',
+  dark: 'd',
+  coastal: 'c',
+  free: 'f',
+  border: 'b',
+};
+
+/**
+ * Create an inline image element for a region type symbol using the
+ * original MECCG icons.
+ *
+ * @param regionType - The region type to render.
+ * @param size - Width and height in pixels (default 16).
+ * @returns An HTMLElement wrapping the icon image.
+ */
+export function createRegionTypeIcon(regionType: RegionType, size = 16): HTMLElement {
+  const code = REGION_TYPE_ICONS[regionType];
+  const el = document.createElement('span');
+  el.className = 'region-type-icon';
+  el.title = regionType;
+  const img = document.createElement('img');
+  img.src = `/images/regions/${code}.png`;
+  img.alt = regionType;
+  img.width = size;
+  img.height = size;
+  el.appendChild(img);
+  return el;
 }
 
 /** Render item cards attached to a character inside a group container. */

@@ -1530,7 +1530,6 @@ h2 {
   align-items: center;
   gap: 0;
   margin-right: calc(1rem * var(--company-scale, 1));
-  position: relative;
 }
 
 .company-movement-arrow {
@@ -1880,22 +1879,38 @@ h2 {
 }
 
 .path-choice-detail {
-  font-size: 0.7rem;
-  color: rgba(196, 163, 90, 0.6);
-  margin-top: 2px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 3px;
+  justify-content: center;
+}
+
+.region-type-icon {
+  display: inline-flex;
+  align-items: center;
+  line-height: 0;
 }
 
 /* Path choice list — movement path selection during reveal-new-site step */
 .path-choice-list {
-  position: absolute;
-  top: 100%;
-  left: 0;
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
   display: flex;
   flex-direction: column;
   gap: 3px;
-  padding: 4px;
-  background: rgba(30, 25, 18, 0.85);
-  border: 1px solid rgba(196, 163, 90, 0.4);
+  padding: 8px;
+  background: rgba(30, 25, 18, 0.95);
+  border: 1px solid rgba(196, 163, 90, 0.6);
   border-radius: 6px;
   z-index: 100;
+  max-height: 80vh;
+  overflow-y: auto;
+}
+
+.path-choice-list .char-action-tooltip__btn {
+  font-size: 1.1rem;
+  padding: 8px 16px;
 }

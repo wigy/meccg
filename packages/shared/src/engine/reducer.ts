@@ -16,7 +16,7 @@
 
 import type { GameState, PlayerState, DraftPlayerState, ItemDraftPlayerState, CharacterDeckDraftPlayerState, SetupStepState, CardDefinitionId, CardInstanceId, CompanyId, CharacterInPlay, CardInstance, OrganizationPhaseState, MovementHazardPhaseState, Company } from '../index.js';
 import type { GameAction } from '../index.js';
-import { Phase, SetupStep, LEGAL_ACTIONS_BY_PHASE, getAlignmentRules, shuffle, nextInt, CardStatus, isCharacterCard, isSiteCard, SiteType, getPlayerIndex, ZERO_EFFECTIVE_STATS, MAX_STARTING_ITEMS, BASE_MAX_REGION_DISTANCE } from '../index.js';
+import { Phase, SetupStep, LEGAL_ACTIONS_BY_PHASE, getAlignmentRules, shuffle, nextInt, CardStatus, isCharacterCard, isSiteCard, SiteType, RegionType, getPlayerIndex, ZERO_EFFECTIVE_STATS, MAX_STARTING_ITEMS, BASE_MAX_REGION_DISTANCE } from '../index.js';
 import { logHeading, logDetail } from './legal-actions/log.js';
 import type { TwoDiceSix, DieRoll, GameEffect } from '../index.js';
 import { applyDraftResults, transitionAfterItemDraft, enterSiteSelection, startFirstTurn } from './init.js';
@@ -2006,6 +2006,7 @@ function handleLongEvent(state: GameState, action: GameAction): ReducerResult {
           activeCompanyIndex: 0,
           handledCompanyIds: [],
           movementType: null,
+          declaredRegionPath: [],
           maxRegionDistance: BASE_MAX_REGION_DISTANCE,
           pendingEffectsToOrder: [],
           hazardsPlayedThisCompany: 0,
@@ -2145,6 +2146,7 @@ function handleMovementHazard(state: GameState, action: GameAction): ReducerResu
         step: 'select-company' as const,
         handledCompanyIds: updatedHandled,
         movementType: null,
+        declaredRegionPath: [],
         maxRegionDistance: BASE_MAX_REGION_DISTANCE,
         pendingEffectsToOrder: [],
         hazardsPlayedThisCompany: 0,
@@ -2250,7 +2252,53 @@ function handleRevealNewSite(
     return { state, error: `Expected 'pass' or 'declare-path' during reveal-new-site step, got '${action.type}'` };
   }
 
-  logDetail(`Movement/Hazard: path declared (${action.movementType}${action.regionPath ? ', ' + action.regionPath.length + ' regions' : ''}) → advancing to declare-path`);
+  // Resolve origin and destination sites
+  const playerIndex = getPlayerIndex(state, action.player);
+  const player = state.players[playerIndex];
+  const company = player.companies[mhState.activeCompanyIndex];
+  if (!company?.destinationSite) {
+    return { state, error: `Active company has no destination site` };
+  }
+
+  const originInst = company.currentSite ? state.instanceMap[company.currentSite as string] : undefined;
+  const originDef = originInst ? state.cardPool[originInst.definitionId as string] : undefined;
+  const destInst = state.instanceMap[company.destinationSite as string];
+  const destDef = destInst ? state.cardPool[destInst.definitionId as string] : undefined;
+
+  if (!originDef || !isSiteCard(originDef) || !destDef || !isSiteCard(destDef)) {
+    return { state, error: `Could not resolve origin or destination site definitions` };
+  }
+
+  // Compute resolved site path (region types) and region names
+  let resolvedSitePath: RegionType[] = [];
+  const resolvedSitePathNames: string[] = [];
+
+  if (action.movementType === 'starter') {
+    // Starter: use the site card's sitePath for region types
+    const originIsHaven = originDef.siteType === 'haven';
+    const destIsHaven = destDef.siteType === 'haven';
+    if (originIsHaven && destIsHaven && originDef.havenPaths) {
+      resolvedSitePath = [...(originDef.havenPaths[destDef.name] ?? [])];
+    } else if (originIsHaven && !destIsHaven) {
+      resolvedSitePath = [...destDef.sitePath];
+    } else if (!originIsHaven && destIsHaven) {
+      resolvedSitePath = [...originDef.sitePath];
+    }
+    // Names: origin and destination regions
+    if (originDef.region) resolvedSitePathNames.push(originDef.region);
+    if (destDef.region && destDef.region !== originDef.region) resolvedSitePathNames.push(destDef.region);
+  } else if (action.movementType === 'region' && action.regionPath) {
+    // Region: look up each region's regionType and name
+    for (const regionDefId of action.regionPath) {
+      const regionDef = state.cardPool[regionDefId as string];
+      if (regionDef && regionDef.cardType === 'region') {
+        resolvedSitePath.push(regionDef.regionType);
+        resolvedSitePathNames.push(regionDef.name);
+      }
+    }
+  }
+
+  logDetail(`Movement/Hazard: path declared (${action.movementType}, ${resolvedSitePath.length} region types: ${resolvedSitePath.join(', ')}) → advancing to declare-path`);
   return {
     state: {
       ...state,
@@ -2258,6 +2306,11 @@ function handleRevealNewSite(
         ...mhState,
         step: 'declare-path' as const,
         movementType: action.movementType,
+        declaredRegionPath: action.regionPath ?? [],
+        resolvedSitePath,
+        resolvedSitePathNames,
+        destinationSiteType: destDef.siteType,
+        destinationSiteName: destDef.name,
       },
     },
   };

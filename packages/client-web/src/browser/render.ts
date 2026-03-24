@@ -457,8 +457,18 @@ export function renderMHInfo(
   }
 
   // Movement info
+  if (mh.maxRegionDistance) {
+    lines.push(`Max regions: ${mh.maxRegionDistance}`);
+  }
   if (mh.movementType) {
     lines.push(`Movement type: ${mh.movementType}`);
+  }
+  if (mh.declaredRegionPath && mh.declaredRegionPath.length > 0) {
+    const regionNames = mh.declaredRegionPath.map(id => {
+      const def = cardPool[id as string];
+      return def?.name ?? `${id}`;
+    });
+    lines.push(`Region path: ${regionNames.join(' → ')}`);
   }
   if (mh.resolvedSitePathNames.length > 0) {
     lines.push(`Site path: ${mh.resolvedSitePathNames.join(' → ')}`);

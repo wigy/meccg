@@ -31,7 +31,7 @@ import type {
   RegionType,
 } from '@meccg/shared';
 import { cardImageProxyPath, isCharacterCard, isItemCard, isSiteCard, Phase, CardStatus, viableActions, describeAction } from '@meccg/shared';
-import { $, createCardImage } from './render-utils.js';
+import { $, createCardImage, createRegionTypeIcon } from './render-utils.js';
 import { getSelectedCharacterForPlay, clearCharacterPlaySelection, openMovementViewer, setTargetingInstruction } from './render.js';
 
 // ---- View state ----
@@ -500,11 +500,15 @@ function renderSiteArea(
     }
   }
 
-  // Path choice list during reveal-new-site step — directly under origin site
+  // Path choice list during reveal-new-site step — only for the active company
   if (options?.onAction && view.phaseState.phase === Phase.MovementHazard && view.phaseState.step === 'reveal-new-site') {
-    const pathActions = viableActions(view.legalActions).filter(
+    const isSelfTurn = view.activePlayer === view.self.id;
+    const resourceCompanies = isSelfTurn ? view.self.companies : view.opponent.companies;
+    const mhActiveCompany = resourceCompanies[view.phaseState.activeCompanyIndex];
+    const isActiveCompany = mhActiveCompany && company.id === mhActiveCompany.id;
+    const pathActions = isActiveCompany ? viableActions(view.legalActions).filter(
       (a): a is DeclarePathAction => a.type === 'declare-path',
-    );
+    ) : [];
     if (pathActions.length > 0) {
       const originDef = company.currentSite ? resolveCardDef(company.currentSite, view, cardPool) : undefined;
       const destSiteId = 'destinationSite' in company ? company.destinationSite : null;
@@ -524,7 +528,9 @@ function renderSiteArea(
         if (regionTypes.length > 0) {
           const detail = document.createElement('div');
           detail.className = 'path-choice-detail';
-          detail.textContent = regionTypes.join(' \u2022 ');
+          for (const rt of regionTypes) {
+            detail.appendChild(createRegionTypeIcon(rt, 32));
+          }
           btn.appendChild(detail);
         }
 
