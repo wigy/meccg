@@ -674,7 +674,20 @@ function renderCompanyBlock(
 ): HTMLElement {
   const block = document.createElement('div');
   const isSelfTurn = view.activePlayer !== null && view.activePlayer === view.self.id;
-  const isInactive = (owner === 'self' && !isSelfTurn) || (owner === 'opponent' && isSelfTurn);
+  let isInactive = (owner === 'self' && !isSelfTurn) || (owner === 'opponent' && isSelfTurn);
+
+  // During M/H phase (after select-company), dim all companies except the active one
+  if (view.phaseState.phase === Phase.MovementHazard) {
+    const mh = view.phaseState;
+    if (mh.step !== 'select-company') {
+      const resourceCompanies = isSelfTurn ? view.self.companies : view.opponent.companies;
+      const activeCompany = resourceCompanies[mh.activeCompanyIndex];
+      if (activeCompany && company.id !== activeCompany.id) {
+        isInactive = true;
+      }
+    }
+  }
+
   block.className = isInactive ? 'company-block company-block--inactive' : 'company-block';
   block.dataset.companyId = company.id as string;
 
