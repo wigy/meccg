@@ -722,7 +722,7 @@ function finalizeSiteSelection(
     // Second site creates an additional empty company
     if (selectedSites.length > 1) {
       companies.push({
-        id: `company-${player.id as string}-${companies.length}` as CompanyId,
+        id: nextCompanyId(player),
         characters: [],
         currentSite: { instanceId: selectedSites[1], definitionId: state.instanceMap[selectedSites[1] as string].definitionId, status: CardStatus.Untapped },
         siteCardOwned: true,
@@ -1258,7 +1258,7 @@ function handlePlayCharacter(state: GameState, action: GameAction): ReducerResul
 
     // Create new company
     const newCompany: Company = {
-      id: `company-${player.id as string}-${companies.length}` as CompanyId,
+      id: nextCompanyId({ ...player, companies }),
       characters: [charInstId],
       currentSite: { instanceId: siteInstId, definitionId: state.instanceMap[siteInstId as string].definitionId, status: CardStatus.Untapped },
       siteCardOwned: true,
@@ -1671,14 +1671,8 @@ function handleSplitCompany(state: GameState, action: GameAction): ReducerResult
 
   logDetail(`Split company: moving ${movingIds.size} character(s) from ${sourceCompany.id as string}`);
 
-  // Generate a unique company ID
-  const maxIdx = player.companies.reduce((max, c) => {
-    const match = (c.id as string).match(/company-.*-(\d+)$/);
-    return match ? Math.max(max, parseInt(match[1], 10)) : max;
-  }, -1);
-
   const newCompany: Company = {
-    id: `company-${player.id as string}-${maxIdx + 1}` as CompanyId,
+    id: nextCompanyId(player),
     characters: allMovingIds,
     currentSite: sourceCompany.currentSite,
     siteCardOwned: false,
@@ -2824,6 +2818,20 @@ function handleRevealNewSite(
       },
     },
   };
+}
+
+/**
+ * Generate a unique company ID for a player by finding the highest existing
+ * index among their companies and incrementing it. This avoids ID collisions
+ * that can occur when companies are merged (removing lower-indexed IDs) and
+ * then new companies are created.
+ */
+function nextCompanyId(player: PlayerState): CompanyId {
+  const maxIdx = player.companies.reduce((max, c) => {
+    const match = (c.id as string).match(/company-.*-(\d+)$/);
+    return match ? Math.max(max, parseInt(match[1], 10)) : max;
+  }, -1);
+  return `company-${player.id as string}-${maxIdx + 1}` as CompanyId;
 }
 
 /**
