@@ -408,7 +408,10 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!actionsEl) return;
     const buttons = actionsEl.querySelectorAll('button:not([disabled])');
     if (buttons.length === 1) {
-      (buttons[0] as HTMLButtonElement).click();
+      const btn = buttons[0] as HTMLButtonElement;
+      btn.classList.add('btn--flash');
+      setTimeout(() => btn.classList.remove('btn--flash'), 300);
+      btn.click();
     }
   });
 

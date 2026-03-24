@@ -1361,7 +1361,7 @@ h2 {
   align-items: center;
   justify-content: flex-start;
   padding: 1rem;
-  padding-top: calc(var(--card-table-height) * 0.5 + 2rem);
+  padding-top: calc(var(--card-table-height) * 0.5 + 4rem);
   flex: 1;
   width: 100%;
 }
@@ -1371,16 +1371,11 @@ h2 {
   border-radius: 0;
 }
 
-.company-single .company-name {
-  color: rgba(230, 200, 120, 1);
-  font-size: 1.5rem;
-  text-shadow: 0 1px 6px rgba(196, 163, 90, 0.5), 0 1px 3px rgba(0, 0, 0, 0.8);
-}
 
 /* Navigation arrows — large fading arrows on left/right of single view */
 .company-nav-arrow {
-  position: absolute;
-  top: 50%;
+  position: fixed;
+  top: 42%;
   transform: translateY(-50%);
   background: none;
   border: none;
@@ -1393,6 +1388,13 @@ h2 {
 
 .company-nav-arrow:hover {
   color: rgba(230, 200, 120, 0.8);
+}
+
+/* Flash effect for keyboard-activated buttons */
+.btn--flash {
+  color: rgba(230, 200, 120, 0.9) !important;
+  background: rgba(196, 163, 90, 0.15) !important;
+  transition: color 0.3s ease-out, background 0.3s ease-out;
 }
 
 .company-nav-arrow--left {

@@ -692,6 +692,7 @@ function renderCompanyBlock(
   cardPool: Readonly<Record<string, CardDefinition>>,
   owner: 'self' | 'opponent',
   options?: {
+    hideTitle?: boolean;
     hasLegalMovement?: boolean;
     onAction?: (action: GameAction) => void;
     /** Map from character instance ID → move-to-influence actions for that character. */
@@ -725,8 +726,8 @@ function renderCompanyBlock(
   block.className = isInactive ? 'company-block company-block--inactive' : 'company-block';
   block.dataset.companyId = company.id as string;
 
-  // Company name
-  {
+  // Company name (omitted in single-company view)
+  if (!options?.hideTitle) {
     const nameEl = document.createElement('div');
     nameEl.className = `company-name company-name--${owner}`;
     nameEl.textContent = getCompanyName(company, charMap, view, cardPool);
@@ -1339,7 +1340,7 @@ function renderSingleView(
   const transferActions = owner === 'self' ? getTransferItemActions(view) : undefined;
   const splitActions = owner === 'self' ? getSplitCompanyActions(view) : undefined;
   const moveToCompanyActs = owner === 'self' ? getMoveToCompanyActions(view) : undefined;
-  single.appendChild(renderCompanyBlock(company, charMap, view, cardPool, owner, { hasLegalMovement, onAction: lastOnAction!, influenceActions, transferActions, splitActions, moveToCompanyActions: moveToCompanyActs }));
+  single.appendChild(renderCompanyBlock(company, charMap, view, cardPool, owner, { hideTitle: true, hasLegalMovement, onAction: lastOnAction!, influenceActions, transferActions, splitActions, moveToCompanyActions: moveToCompanyActs }));
 
   // Right arrow — next company
   if (cycleCompanies.length > 1) {
@@ -1536,6 +1537,31 @@ function renderViewToggle(
 
 // ---- Top-level entry point ----
 
+/** Install keyboard listener for left/right arrow navigation. */
+let keyboardNavInstalled = false;
+function installKeyboardNav(): void {
+  if (keyboardNavInstalled) return;
+  keyboardNavInstalled = true;
+  document.addEventListener('keydown', (e) => {
+    if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+    const cls = e.key === 'ArrowLeft' ? 'company-nav-arrow--left' : 'company-nav-arrow--right';
+    const arrow: HTMLButtonElement | null = document.querySelector(`.${cls}`);
+    if (!arrow) return;
+    e.preventDefault();
+    arrow.classList.add('btn--flash');
+    arrow.click();
+    // The click triggers a re-render which replaces the element, so the flash
+    // class is applied to the new arrow after re-render via a short timeout.
+    requestAnimationFrame(() => {
+      const newArrow = document.querySelector(`.${cls}`);
+      if (newArrow) {
+        newArrow.classList.add('btn--flash');
+        setTimeout(() => newArrow.classList.remove('btn--flash'), 300);
+      }
+    });
+  });
+}
+
 /** Cached args for re-renders triggered by navigation. */
 let lastOnAction: ((action: GameAction) => void) | null = null;
 let lastView: PlayerView | null = null;
@@ -1586,6 +1612,7 @@ export function renderCompanyViews(
   lastOnAction = onAction;
   lastView = view;
   lastCardPool = cardPool;
+  installKeyboardNav();
 
   // Reset view state on active player change
   const activeId = view.activePlayer as string | null;
