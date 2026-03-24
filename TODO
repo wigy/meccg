@@ -7,14 +7,16 @@ FIXES
 FEATS
 -----
 
+Ask about "universal animation" i.e. move all card instances to new drawing locations/positions.
+
 EPICS
 -----
 
 Site Phase
 End-of-Turn Phase
-Sideboard
 Chain of effects
 Combat
+Sideboard
 Untap Phase
 Council and End Game
 Setup Minion

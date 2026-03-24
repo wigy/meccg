@@ -1055,10 +1055,44 @@ function handleUntap(state: GameState, action: GameAction): ReducerResult {
     return { state, error: `Unexpected action '${action.type}' in untap phase` };
   }
 
+  // Untap the active player's cards (not action.player, who may be the
+  // previous player that triggered the transition to untap phase)
+  const playerIndex = getPlayerIndex(state, state.activePlayer!);
+  const player = state.players[playerIndex];
+
+  // Untap all tapped characters and their items/allies
+  const newCharacters: Record<string, CharacterInPlay> = {};
+  for (const [key, ch] of Object.entries(player.characters)) {
+    const untappedItems = ch.items.map(item =>
+      item.status === CardStatus.Tapped ? { ...item, status: CardStatus.Untapped } : item,
+    );
+    const untappedAllies = ch.allies.map(ally =>
+      ally.status === CardStatus.Tapped ? { ...ally, status: CardStatus.Untapped } : ally,
+    );
+    newCharacters[key] = {
+      ...ch,
+      status: ch.status === CardStatus.Tapped ? CardStatus.Untapped : ch.status,
+      items: untappedItems,
+      allies: untappedAllies,
+    };
+  }
+
+  // Untap all tapped cards in play (permanent events, factions, etc.)
+  const newCardsInPlay = player.cardsInPlay.map(card =>
+    card.status === CardStatus.Tapped ? { ...card, status: CardStatus.Untapped } : card,
+  );
+
+  const tappedCharCount = Object.values(player.characters).filter(ch => ch.status === CardStatus.Tapped).length;
+  logDetail(`Untap: untapping ${tappedCharCount} character(s)`);
+
+  const newPlayers = clonePlayers(state);
+  newPlayers[playerIndex] = { ...player, characters: newCharacters, cardsInPlay: newCardsInPlay };
+
   logDetail(`Untap: active player ${action.player as string} passed → advancing to Organization phase`);
   return {
     state: {
       ...state,
+      players: newPlayers,
       phaseState: { phase: Phase.Organization, characterPlayedThisTurn: false, pendingCorruptionCheck: null },
     },
   };
