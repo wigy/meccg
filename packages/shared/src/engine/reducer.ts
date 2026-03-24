@@ -2214,9 +2214,11 @@ function handleSelectCompany(
 
 /**
  * Handle the 'reveal-new-site' step (CoE step 1): the new site card is
- * revealed. In the future this will process triggering events and
- * under-deeps movement rolls. For now it auto-advances to declare-path
- * on the active player's pass action.
+ * revealed and the resource player declares their movement path.
+ *
+ * For non-moving companies, accepts a 'pass' action to advance.
+ * For moving companies, accepts a 'declare-path' action that sets the
+ * movement type and (for region movement) the region path.
  *
  * TODO: triggering events on site reveal
  * TODO: under-deeps movement roll (stay if roll < site number)
@@ -2226,21 +2228,36 @@ function handleRevealNewSite(
   action: GameAction,
   mhState: MovementHazardPhaseState,
 ): ReducerResult {
-  if (action.type !== 'pass') {
-    return { state, error: `Expected 'pass' action during reveal-new-site step, got '${action.type}'` };
-  }
-
   if (action.player !== state.activePlayer) {
-    return { state, error: `Only the active player may advance past reveal-new-site` };
+    return { state, error: `Only the active player may act during reveal-new-site` };
   }
 
-  logDetail(`Movement/Hazard: new site revealed → advancing to declare-path`);
+  // Non-moving company: pass to advance
+  if (action.type === 'pass') {
+    logDetail(`Movement/Hazard: non-moving company → advancing to declare-path`);
+    return {
+      state: {
+        ...state,
+        phaseState: {
+          ...mhState,
+          step: 'declare-path' as const,
+        },
+      },
+    };
+  }
+
+  if (action.type !== 'declare-path') {
+    return { state, error: `Expected 'pass' or 'declare-path' during reveal-new-site step, got '${action.type}'` };
+  }
+
+  logDetail(`Movement/Hazard: path declared (${action.movementType}${action.regionPath ? ', ' + action.regionPath.length + ' regions' : ''}) → advancing to declare-path`);
   return {
     state: {
       ...state,
       phaseState: {
         ...mhState,
         step: 'declare-path' as const,
+        movementType: action.movementType,
       },
     },
   };

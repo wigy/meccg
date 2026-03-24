@@ -360,12 +360,12 @@ export interface DeclarePathAction {
   /** The type of movement being used. */
   readonly movementType: MovementType;
   /**
-   * For region movement: the ordered sequence of region card instance IDs
+   * For region movement: the ordered sequence of region card definition IDs
    * forming the travel path. Must be a valid connected path from the origin
    * site's region to the destination site's region, not exceeding the maximum
    * region count. Ignored for other movement types.
    */
-  readonly regionPath?: readonly CardInstanceId[];
+  readonly regionPath?: readonly CardDefinitionId[];
 }
 
 /**

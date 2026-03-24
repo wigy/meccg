@@ -818,8 +818,13 @@ export function describeAction(
       return `${instName(action.cardInstanceId)} cannot be played`;
     case 'select-company':
       return `Select ${compName(action.companyId)}`;
-    case 'declare-path':
+    case 'declare-path': {
+      if (action.regionPath && action.regionPath.length > 0) {
+        const names = action.regionPath.map(id => defName(id));
+        return `Declare ${action.movementType} movement: ${names.join(' → ')}`;
+      }
       return `Declare ${action.movementType} movement`;
+    }
     case 'order-effects':
       return `Order ${action.effectOrder.length} ongoing effect(s)`;
     default: {
