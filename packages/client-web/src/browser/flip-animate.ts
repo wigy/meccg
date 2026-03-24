@@ -15,14 +15,24 @@
  * old position is consumed at most once, so duplicate cards (e.g. three
  * copies of the same definition) each animate from a distinct old element.
  *
+ * When a card image sits inside a wrapper element (e.g. `.character-card-wrap`
+ * or `.item-card-wrap`), the wrapper is animated instead so that badges and
+ * stat overlays move together with the card.
+ *
  * Usage:
  *   1. Call `snapshotPositions()` before clearing and rebuilding the DOM.
  *   2. Rebuild the DOM.
  *   3. Call `animateFromSnapshot()` after the new DOM is in place.
  */
 
-/** Duration of the FLIP transition in milliseconds. */
-const FLIP_DURATION = 600;
+/** Movement speed in pixels per second. */
+const FLIP_SPEED = 1200;
+
+/** Minimum duration so short moves don't look instant. */
+const FLIP_MIN_DURATION = 150;
+
+/** Maximum duration so cross-screen moves don't feel sluggish. */
+const FLIP_MAX_DURATION = 800;
 
 /** Duration of the fade-in for newly appearing cards. */
 const FADE_IN_DURATION = 400;
@@ -30,11 +40,25 @@ const FADE_IN_DURATION = 400;
 /** Selector for card image elements (all cards have data-card-id). */
 const CARD_SELECTOR = 'img[data-card-id]';
 
+/**
+ * CSS selector for wrapper elements that should be animated as a unit
+ * instead of just the card image. Checked via `Element.closest()`.
+ */
+const WRAPPER_SELECTOR = '.character-card-wrap, .item-card-wrap';
+
 /** Stored positions from the previous render, keyed by instance ID. */
 let instanceSnapshot: Map<string, DOMRect> | null = null;
 
 /** Stored positions keyed by definition ID (list to handle duplicates). */
 let defIdSnapshot: Map<string, DOMRect[]> | null = null;
+
+/**
+ * Walk up from a card image to its nearest wrapper element, if any.
+ * Returns the wrapper or the image itself if no wrapper is found.
+ */
+function animationTarget(img: HTMLElement): HTMLElement {
+  return img.closest(WRAPPER_SELECTOR) as HTMLElement ?? img;
+}
 
 /**
  * Capture the bounding rect of every card image element.
@@ -46,7 +70,8 @@ export function snapshotPositions(): void {
 
   for (const el of document.querySelectorAll(CARD_SELECTOR)) {
     const htmlEl = el as HTMLElement;
-    const rect = el.getBoundingClientRect();
+    const target = animationTarget(htmlEl);
+    const rect = target.getBoundingClientRect();
 
     const instId = htmlEl.dataset.instanceId;
     if (instId) {
@@ -79,6 +104,7 @@ export function animateFromSnapshot(): void {
 
   for (const el of document.querySelectorAll(CARD_SELECTOR)) {
     const htmlEl = el as HTMLElement;
+    const target = animationTarget(htmlEl);
 
     // Try instance ID first (exact match)
     let oldRect: DOMRect | undefined;
@@ -101,26 +127,29 @@ export function animateFromSnapshot(): void {
 
     if (!oldRect) {
       // New card — fade in
-      htmlEl.animate(
+      target.animate(
         [{ opacity: 0 }, { opacity: 1 }],
         { duration: FADE_IN_DURATION, easing: 'ease-out' },
       );
       continue;
     }
 
-    const newRect = htmlEl.getBoundingClientRect();
+    const newRect = target.getBoundingClientRect();
     const dx = oldRect.left - newRect.left;
     const dy = oldRect.top - newRect.top;
 
     // Skip if the card hasn't moved (within 1px tolerance)
     if (Math.abs(dx) < 1 && Math.abs(dy) < 1) continue;
 
-    htmlEl.animate(
+    const distance = Math.sqrt(dx * dx + dy * dy);
+    const duration = Math.min(FLIP_MAX_DURATION, Math.max(FLIP_MIN_DURATION, distance / FLIP_SPEED * 1000));
+
+    target.animate(
       [
         { transform: `translate(${dx}px, ${dy}px)` },
         { transform: 'translate(0, 0)' },
       ],
-      { duration: FLIP_DURATION, easing: 'ease-out', composite: 'add' },
+      { duration, easing: 'ease-out', composite: 'add' },
     );
   }
 }
