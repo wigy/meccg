@@ -28,8 +28,9 @@ import type {
   MergeCompaniesAction,
   SelectCompanyAction,
   DeclarePathAction,
+  RegionType,
 } from '@meccg/shared';
-import { cardImageProxyPath, isCharacterCard, isItemCard, Phase, CardStatus, viableActions, describeAction } from '@meccg/shared';
+import { cardImageProxyPath, isCharacterCard, isItemCard, isSiteCard, Phase, CardStatus, viableActions, describeAction } from '@meccg/shared';
 import { $, createCardImage } from './render-utils.js';
 import { getSelectedCharacterForPlay, clearCharacterPlaySelection, openMovementViewer, setTargetingInstruction } from './render.js';
 
@@ -407,6 +408,59 @@ function renderCharacterColumn(
   return col;
 }
 
+/** Resolve a card instance ID to its definition via the visible instances map. */
+function resolveCardDef(
+  instanceId: CardInstanceId,
+  view: PlayerView,
+  cardPool: Readonly<Record<string, CardDefinition>>,
+): CardDefinition | undefined {
+  const defId = view.visibleInstances[instanceId as string];
+  return defId ? cardPool[defId as string] : undefined;
+}
+
+/**
+ * Get the region types traversed for a movement path action.
+ *
+ * For starter movement: uses the site's `sitePath` (haven→non-haven or
+ * non-haven→haven) or the origin haven's `havenPaths` (haven→haven).
+ * For region movement: looks up each region's `regionType` from the card pool.
+ */
+function getPathRegionTypes(
+  action: DeclarePathAction,
+  originDef: CardDefinition | undefined,
+  destDef: CardDefinition | undefined,
+  cardPool: Readonly<Record<string, CardDefinition>>,
+): RegionType[] {
+  if (action.movementType === 'starter') {
+    if (!originDef || !destDef || !isSiteCard(originDef) || !isSiteCard(destDef)) return [];
+    const originIsHaven = originDef.siteType === 'haven';
+    const destIsHaven = destDef.siteType === 'haven';
+    if (originIsHaven && destIsHaven) {
+      return [...(originDef.havenPaths?.[destDef.name] ?? [])];
+    }
+    if (originIsHaven && !destIsHaven) {
+      return [...destDef.sitePath];
+    }
+    if (!originIsHaven && destIsHaven) {
+      return [...originDef.sitePath];
+    }
+    return [];
+  }
+
+  if (action.movementType === 'region' && action.regionPath) {
+    const types: RegionType[] = [];
+    for (const id of action.regionPath) {
+      const def = cardPool[id as string];
+      if (def && def.cardType === 'region') {
+        types.push(def.regionType);
+      }
+    }
+    return types;
+  }
+
+  return [];
+}
+
 /**
  * Render the site area for a company: current site, movement path, destination.
  */
@@ -452,12 +506,28 @@ function renderSiteArea(
       (a): a is DeclarePathAction => a.type === 'declare-path',
     );
     if (pathActions.length > 0) {
+      const originDef = company.currentSite ? resolveCardDef(company.currentSite, view, cardPool) : undefined;
+      const destSiteId = 'destinationSite' in company ? company.destinationSite : null;
+      const destDef = destSiteId ? resolveCardDef(destSiteId, view, cardPool) : undefined;
+
       const pathList = document.createElement('div');
       pathList.className = 'path-choice-list';
       for (const action of pathActions) {
         const btn = document.createElement('button');
         btn.className = 'char-action-tooltip__btn';
-        btn.textContent = describeAction(action, cardPool, view.visibleInstances);
+
+        const label = document.createElement('div');
+        label.textContent = describeAction(action, cardPool, view.visibleInstances);
+        btn.appendChild(label);
+
+        const regionTypes = getPathRegionTypes(action, originDef, destDef, cardPool);
+        if (regionTypes.length > 0) {
+          const detail = document.createElement('div');
+          detail.className = 'path-choice-detail';
+          detail.textContent = regionTypes.join(' \u2022 ');
+          btn.appendChild(detail);
+        }
+
         const onAction = options.onAction;
         btn.addEventListener('click', (e) => {
           e.stopPropagation();
