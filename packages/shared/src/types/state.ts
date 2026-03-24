@@ -569,12 +569,13 @@ export type MHStep =
    */
   | 'reveal-new-site'
   /**
-   * CoE step 2: the resource player must declare movement type (starter,
-   * region, under-deeps, special) and, for region movement, the specific
-   * sequence of regions traversed. The new site has been revealed
-   * (step 1) but the site path is not yet determined.
+   * CoE step 3: the base hazard limit is computed from the company's
+   * current size (max of size or 2), halved (rounded up) if the hazard
+   * player accessed the sideboard during this turn's untap phase.
+   * The limit is fixed for the entire company's M/H phase.
+   * This is an immediate step — only a pass action is available.
    */
-  | 'declare-path'
+  | 'set-hazard-limit'
   /**
    * The hazard player must choose the order in which to apply ongoing
    * effects that trigger at the start of this company's M/H phase
@@ -583,8 +584,17 @@ export type MHStep =
    */
   | 'order-effects'
   /**
-   * Steps 3, 5–6 have been auto-processed (hazard limit set, cards drawn,
-   * passive conditions resolved). Both players may now take actions:
+   * CoE step 5: both players draw cards based on the site if the company
+   * is moving. The resource player draws up to the lighter box number,
+   * the hazard player draws up to the darker box number (at least 1 each
+   * unless an effect reduces it). This is an immediate step.
+   *
+   * TODO: actually draw cards based on site card box numbers
+   */
+  | 'draw-cards'
+  /**
+   * Step 6 has been auto-processed (passive conditions resolved).
+   * Both players may now take actions:
    * the hazard player plays creatures/events/on-guard cards, and the
    * resource player may respond. Ends when both players pass.
    */
@@ -668,6 +678,22 @@ export interface MovementHazardPhaseState {
    * Used to validate creature keying to site name.
    */
   readonly destinationSiteName: string | null;
+  /**
+   * Maximum cards the resource player may draw during step 5 (draw-cards).
+   * Derived from the site card's lighter box number. Zero if the company
+   * is not moving or has no eligible characters (avatar or mind ≥ 3).
+   */
+  readonly resourceDrawMax: number;
+  /**
+   * Maximum cards the hazard player may draw during step 5 (draw-cards).
+   * Derived from the site card's darker box number. Zero if the company
+   * is not moving.
+   */
+  readonly hazardDrawMax: number;
+  /** Number of cards the resource player has drawn so far during step 5. */
+  readonly resourceDrawCount: number;
+  /** Number of cards the hazard player has drawn so far during step 5. */
+  readonly hazardDrawCount: number;
   /**
    * Whether the resource player has declared done with actions.
    * Resets to false if the resource player takes a new action after passing.

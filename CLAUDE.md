@@ -30,6 +30,10 @@ MECCG is a web-based implementation of the Middle-Earth Collectible Card Game (M
 - **Web client dev mode:** `npm run dev -w @meccg/client-web` (esbuild watch + live-reload via SSE)
 - **Debug mode:** Add `--debug` flag or set `DEBUG=1` env var to show raw JSON messages and card IDs
 
+### Verification During Development
+
+When verifying changes during development, run type-check and tests only. Do not run lint after every change — lint is run once before committing.
+
 ### Pre-Push Checklist
 
 Before pushing to remote, always run all of these and fix any failures:

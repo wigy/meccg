@@ -32,7 +32,32 @@ export function movementHazardActions(state: GameState, playerId: PlayerId): Gam
     return revealNewSiteActions(state, playerId, mhState);
   }
 
-  // TODO: declare-path, order-effects, play-hazard, assign-strike, resolve-strike, support-strike
+  // set-hazard-limit step (CoE step 3): immediate, only pass to advance
+  if (mhState.step === 'set-hazard-limit') {
+    if (!isActive) {
+      logDetail(`Not active player — no actions during set-hazard-limit step`);
+      return [];
+    }
+    logDetail(`Set hazard limit — pass to advance to order-effects`);
+    return [{ type: 'pass', player: playerId }];
+  }
+
+  // order-effects step (CoE step 4): dummy for now, only pass to advance
+  if (mhState.step === 'order-effects') {
+    if (!isActive) {
+      logDetail(`Not active player — no actions during order-effects step`);
+      return [];
+    }
+    logDetail(`Order effects — pass to advance to draw-cards`);
+    return [{ type: 'pass', player: playerId }];
+  }
+
+  // draw-cards step (CoE step 5): both players draw cards simultaneously
+  if (mhState.step === 'draw-cards') {
+    return drawCardsActions(state, playerId, mhState, isActive);
+  }
+
+  // TODO: play-hazard, assign-strike, resolve-strike, support-strike
   if (!isActive) {
     logDetail(`Not active player, no movement/hazard actions`);
     return [];
@@ -220,5 +245,51 @@ function selectCompanyActions(
   }
 
   logDetail(`${actions.length} unhandled company(ies) available for selection`);
+  return actions;
+}
+
+/**
+ * Generate actions for the draw-cards step (CoE step 5).
+ *
+ * Both players act simultaneously. Each player who has not yet reached
+ * their max draw count gets a `draw-cards` action (count: 1). After the
+ * first mandatory draw, `pass` is also offered to stop early.
+ * A player who has reached their max or has no cards left gets no actions.
+ */
+function drawCardsActions(
+  state: GameState,
+  playerId: PlayerId,
+  mhState: MovementHazardPhaseState,
+  isResourcePlayer: boolean,
+): GameAction[] {
+  const drawnSoFar = isResourcePlayer ? mhState.resourceDrawCount : mhState.hazardDrawCount;
+  const drawMax = isResourcePlayer ? mhState.resourceDrawMax : mhState.hazardDrawMax;
+  const playerLabel = isResourcePlayer ? 'resource' : 'hazard';
+
+  // Already done (hit max or passed — signaled by drawCount >= drawMax)
+  if (drawnSoFar >= drawMax) {
+    logDetail(`${playerLabel} player already done drawing (${drawnSoFar}/${drawMax})`);
+    return [];
+  }
+
+  // Check if player has cards to draw
+  const playerIndex = getPlayerIndex(state, playerId);
+  const player = state.players[playerIndex];
+  if (player.playDeck.length === 0) {
+    logDetail(`${playerLabel} player has no cards in play deck — only pass`);
+    return [{ type: 'pass', player: playerId }];
+  }
+
+  const actions: GameAction[] = [];
+
+  // Draw 1 card action
+  actions.push({ type: 'draw-cards', player: playerId, count: 1 });
+
+  // Pass is allowed after the first mandatory draw
+  if (drawnSoFar > 0) {
+    actions.push({ type: 'pass', player: playerId });
+  }
+
+  logDetail(`${playerLabel} player draw-cards: ${drawnSoFar}/${drawMax} drawn, ${actions.length} action(s)`);
   return actions;
 }

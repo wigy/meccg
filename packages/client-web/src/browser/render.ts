@@ -478,7 +478,11 @@ export function renderMHInfo(
   }
 
   // Hazard tracking
-  lines.push(`Hazards played: ${mh.hazardsPlayedThisCompany} / ${mh.hazardLimit}`);
+  const remaining = mh.hazardLimit - mh.hazardsPlayedThisCompany;
+  lines.push(`Hazard limit: ${mh.hazardsPlayedThisCompany}/${mh.hazardLimit} played (${remaining} remaining)`);
+
+  // Draw tracking
+  lines.push(`Draws: resource ${mh.resourceDrawCount}/${mh.resourceDrawMax}, hazard ${mh.hazardDrawCount}/${mh.hazardDrawMax}`);
 
   // Pass state
   const passInfo: string[] = [];

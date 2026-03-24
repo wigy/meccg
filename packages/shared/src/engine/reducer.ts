@@ -16,7 +16,7 @@
 
 import type { GameState, PlayerState, DraftPlayerState, ItemDraftPlayerState, CharacterDeckDraftPlayerState, SetupStepState, CardDefinitionId, CardInstanceId, CompanyId, CharacterInPlay, CardInstance, OrganizationPhaseState, MovementHazardPhaseState, Company } from '../index.js';
 import type { GameAction } from '../index.js';
-import { Phase, SetupStep, LEGAL_ACTIONS_BY_PHASE, getAlignmentRules, shuffle, nextInt, CardStatus, isCharacterCard, isSiteCard, SiteType, RegionType, getPlayerIndex, ZERO_EFFECTIVE_STATS, MAX_STARTING_ITEMS, BASE_MAX_REGION_DISTANCE } from '../index.js';
+import { Phase, SetupStep, LEGAL_ACTIONS_BY_PHASE, getAlignmentRules, shuffle, nextInt, CardStatus, isCharacterCard, isSiteCard, SiteType, RegionType, Race, Skill, getPlayerIndex, ZERO_EFFECTIVE_STATS, MAX_STARTING_ITEMS, BASE_MAX_REGION_DISTANCE } from '../index.js';
 import { logHeading, logDetail } from './legal-actions/log.js';
 import type { TwoDiceSix, DieRoll, GameEffect } from '../index.js';
 import { applyDraftResults, transitionAfterItemDraft, enterSiteSelection, startFirstTurn } from './init.js';
@@ -182,6 +182,11 @@ function validateActionPlayer(state: GameState, action: GameAction): string | un
     if (action.player === state.activePlayer) {
       return 'Active player cannot play hazards';
     }
+    return undefined;
+  }
+
+  // During draw-cards step, both players draw simultaneously
+  if (phase === 'movement-hazard' && 'step' in state.phaseState && state.phaseState.step === 'draw-cards') {
     return undefined;
   }
 
@@ -2015,6 +2020,10 @@ function handleLongEvent(state: GameState, action: GameAction): ReducerResult {
           resolvedSitePathNames: [],
           destinationSiteType: null,
           destinationSiteName: null,
+          resourceDrawMax: 0,
+          hazardDrawMax: 0,
+          resourceDrawCount: 0,
+          hazardDrawCount: 0,
           resourcePlayerPassed: false,
           hazardPlayerPassed: false,
           siteRevealed: false,
@@ -2109,7 +2118,41 @@ function handleMovementHazard(state: GameState, action: GameAction): ReducerResu
     return handleRevealNewSite(state, action, mhState);
   }
 
-  // Remaining steps (declare-path, order-effects, play-hazards) — still stub
+  // set-hazard-limit step (CoE step 3): compute and fix the hazard limit, then advance
+  if (mhState.step === 'set-hazard-limit') {
+    if (action.type !== 'pass') {
+      return { state, error: `Expected 'pass' during set-hazard-limit step, got '${action.type}'` };
+    }
+    const playerIndex = getPlayerIndex(state, action.player);
+    const company = state.players[playerIndex].companies[mhState.activeCompanyIndex];
+    const hazardLimit = computeHazardLimit(state, company);
+    logDetail(`Movement/Hazard: hazard limit set to ${hazardLimit} → advancing to order-effects`);
+    return {
+      state: {
+        ...state,
+        phaseState: {
+          ...mhState,
+          step: 'order-effects' as const,
+          hazardLimit,
+        },
+      },
+    };
+  }
+
+  // order-effects step (CoE step 4): hazard player orders ongoing effects — dummy for now
+  if (mhState.step === 'order-effects') {
+    if (action.type !== 'pass') {
+      return { state, error: `Expected 'pass' during order-effects step, got '${action.type}'` };
+    }
+    return transitionToDrawCards(state, mhState);
+  }
+
+  // draw-cards step (CoE step 5): both players draw cards simultaneously
+  if (mhState.step === 'draw-cards') {
+    return handleDrawCards(state, action, mhState);
+  }
+
+  // Remaining step (play-hazards) — still stub
   if (action.type !== 'pass') {
     return { state, error: `Unexpected action '${action.type}' in movement/hazard phase (step: ${mhState.step})` };
   }
@@ -2155,6 +2198,10 @@ function handleMovementHazard(state: GameState, action: GameAction): ReducerResu
         resolvedSitePathNames: [],
         destinationSiteType: null,
         destinationSiteName: null,
+        resourceDrawMax: 0,
+        hazardDrawMax: 0,
+        resourceDrawCount: 0,
+        hazardDrawCount: 0,
         resourcePlayerPassed: false,
         hazardPlayerPassed: false,
         siteRevealed: false,
@@ -2234,15 +2281,15 @@ function handleRevealNewSite(
     return { state, error: `Only the active player may act during reveal-new-site` };
   }
 
-  // Non-moving company: pass to advance
+  // Non-moving company: pass to advance (skip declare-path, go to set-hazard-limit)
   if (action.type === 'pass') {
-    logDetail(`Movement/Hazard: non-moving company → advancing to declare-path`);
+    logDetail(`Movement/Hazard: non-moving company → advancing to set-hazard-limit`);
     return {
       state: {
         ...state,
         phaseState: {
           ...mhState,
-          step: 'declare-path' as const,
+          step: 'set-hazard-limit' as const,
         },
       },
     };
@@ -2298,13 +2345,13 @@ function handleRevealNewSite(
     }
   }
 
-  logDetail(`Movement/Hazard: path declared (${action.movementType}, ${resolvedSitePath.length} region types: ${resolvedSitePath.join(', ')}) → advancing to declare-path`);
+  logDetail(`Movement/Hazard: path declared (${action.movementType}, ${resolvedSitePath.length} region types: ${resolvedSitePath.join(', ')}) → advancing to set-hazard-limit`);
   return {
     state: {
       ...state,
       phaseState: {
         ...mhState,
-        step: 'declare-path' as const,
+        step: 'set-hazard-limit' as const,
         movementType: action.movementType,
         declaredRegionPath: action.regionPath ?? [],
         resolvedSitePath,
@@ -2312,6 +2359,273 @@ function handleRevealNewSite(
         destinationSiteType: destDef.siteType,
         destinationSiteName: destDef.name,
       },
+    },
+  };
+}
+
+/**
+ * Compute the effective company size, accounting for hobbits and orc scouts
+ * each counting as half a character (rounded up for the total).
+ *
+ * Per CoE rules: "The number of characters in a company, with each Hobbit
+ * or Orc scout character only counting as half of a character (rounded up)."
+ */
+function getCompanySize(state: GameState, company: Company): number {
+  let halfCount = 0;
+  let fullCount = 0;
+  for (const charInstId of company.characters) {
+    const inst = state.instanceMap[charInstId as string];
+    if (!inst) { fullCount++; continue; }
+    const def = state.cardPool[inst.definitionId as string];
+    if (!def || !isCharacterCard(def)) { fullCount++; continue; }
+    const isHobbit = def.race === Race.Hobbit;
+    const isOrcScout = def.race === Race.Orc && def.skills.includes(Skill.Scout);
+    if (isHobbit || isOrcScout) {
+      halfCount++;
+      logDetail(`  ${def.name} (${def.race}${isOrcScout ? '/scout' : ''}) counts as half`);
+    } else {
+      fullCount++;
+    }
+  }
+  const size = Math.ceil(fullCount + halfCount / 2);
+  logDetail(`Company size: ${fullCount} full + ${halfCount} half = ${size}`);
+  return size;
+}
+
+/**
+ * Compute the base hazard limit for a company (CoE step 3, rule 2.IV.iii).
+ *
+ * The limit equals the greater of the company's current size or 2,
+ * then halved (rounded up) if the hazard player accessed the sideboard
+ * during this turn's untap phase. The result is fixed for the entire
+ * company's M/H phase, even if characters are later eliminated.
+ */
+function computeHazardLimit(state: GameState, company: Company): number {
+  const companySize = getCompanySize(state, company);
+  let limit = Math.max(companySize, 2);
+  logDetail(`Hazard limit (step 3): company size ${companySize} → base limit ${limit}`);
+
+  // Hazard player is the non-active player
+  const activeIndex = getPlayerIndex(state, state.activePlayer!);
+  const hazardIndex = 1 - activeIndex;
+  const hazardPlayer = state.players[hazardIndex];
+
+  if (hazardPlayer.sideboardAccessedDuringUntap) {
+    const halved = Math.ceil(limit / 2);
+    logDetail(`Hazard limit halved (hazard player accessed sideboard during untap): ${limit} → ${halved}`);
+    limit = halved;
+  }
+
+  logDetail(`Hazard limit set to ${limit}`);
+  return limit;
+}
+
+/**
+ * Transition from order-effects to draw-cards (CoE step 5).
+ *
+ * If the company is not moving, skip draws entirely and go to play-hazards.
+ * Otherwise, compute the max draw counts from the appropriate site card:
+ * - New site if moving to a non-haven
+ * - Site of origin if moving to a haven
+ *
+ * The resource player may only draw if the company contains an avatar
+ * (wizard/ringwraith with mind null) or a character with mind ≥ 3.
+ */
+function transitionToDrawCards(state: GameState, mhState: MovementHazardPhaseState): ReducerResult {
+  const activeIndex = getPlayerIndex(state, state.activePlayer!);
+  const player = state.players[activeIndex];
+  const company = player.companies[mhState.activeCompanyIndex];
+
+  // Non-moving company: skip draws entirely
+  if (!company.destinationSite) {
+    logDetail(`Movement/Hazard: company not moving — skipping draw-cards → play-hazards`);
+    return {
+      state: {
+        ...state,
+        phaseState: {
+          ...mhState,
+          step: 'play-hazards' as const,
+        },
+      },
+    };
+  }
+
+  // Determine which site card provides draw numbers
+  const destInst = state.instanceMap[company.destinationSite as string];
+  const destDef = destInst ? state.cardPool[destInst.definitionId as string] : undefined;
+  const originInst = company.currentSite ? state.instanceMap[company.currentSite as string] : undefined;
+  const originDef = originInst ? state.cardPool[originInst.definitionId as string] : undefined;
+
+  // Use new site for non-haven destination, site of origin for haven destination
+  const movingToHaven = destDef && isSiteCard(destDef) && destDef.siteType === 'haven';
+  const drawSite = movingToHaven ? originDef : destDef;
+
+  let resourceDrawMax = 0;
+  let hazardDrawMax = 0;
+
+  if (drawSite && isSiteCard(drawSite)) {
+    hazardDrawMax = drawSite.hazardDraws;
+
+    // Resource player may only draw if company has an avatar or character with mind ≥ 3
+    const hasEligibleCharacter = company.characters.some(charInstId => {
+      const inst = state.instanceMap[charInstId as string];
+      if (!inst) return false;
+      const def = state.cardPool[inst.definitionId as string];
+      if (!def || !isCharacterCard(def)) return false;
+      return def.mind === null || def.mind >= 3;
+    });
+
+    if (hasEligibleCharacter) {
+      resourceDrawMax = drawSite.resourceDraws;
+    } else {
+      logDetail(`No avatar or character with mind ≥ 3 — resource player cannot draw`);
+    }
+  }
+
+  logDetail(`Movement/Hazard: order-effects done → draw-cards (resource max: ${resourceDrawMax}, hazard max: ${hazardDrawMax}, site: ${drawSite && isSiteCard(drawSite) ? drawSite.name : '?'})`);
+
+  return {
+    state: {
+      ...state,
+      phaseState: {
+        ...mhState,
+        step: 'draw-cards' as const,
+        resourceDrawMax,
+        hazardDrawMax,
+        resourceDrawCount: 0,
+        hazardDrawCount: 0,
+      },
+    },
+  };
+}
+
+/**
+ * Handle actions during the draw-cards step (CoE step 5).
+ *
+ * Both players draw simultaneously. Each gets `draw-cards` (count: 1)
+ * to draw one card at a time. After the first mandatory draw, `pass`
+ * becomes available to stop drawing early. Once a player has drawn
+ * their max or passed, they are done. When both are done, advance
+ * to play-hazards.
+ */
+function handleDrawCards(
+  state: GameState,
+  action: GameAction,
+  mhState: MovementHazardPhaseState,
+): ReducerResult {
+  const isResourcePlayer = action.player === state.activePlayer;
+  const actingIndex = getPlayerIndex(state, action.player);
+
+  const drawnSoFar = isResourcePlayer ? mhState.resourceDrawCount : mhState.hazardDrawCount;
+  const drawMax = isResourcePlayer ? mhState.resourceDrawMax : mhState.hazardDrawMax;
+  const playerLabel = isResourcePlayer ? 'resource' : 'hazard';
+
+  // Pass: allowed after first mandatory draw, or if max is 0
+  if (action.type === 'pass') {
+    if (drawnSoFar === 0 && drawMax > 0) {
+      return { state, error: `${playerLabel} player must draw at least 1 card before passing` };
+    }
+
+    logDetail(`Movement/Hazard draw-cards: ${playerLabel} player passed (drew ${drawnSoFar}/${drawMax})`);
+    return advanceDrawCards(state, mhState, isResourcePlayer, drawMax);
+  }
+
+  if (action.type !== 'draw-cards' || action.count !== 1) {
+    return { state, error: `Expected 'draw-cards' (count: 1) or 'pass' during draw-cards step, got '${action.type}'` };
+  }
+
+  if (drawnSoFar >= drawMax) {
+    return { state, error: `${playerLabel} player has already drawn maximum (${drawMax}) cards` };
+  }
+
+  // Draw 1 card from play deck into hand
+  const player = state.players[actingIndex];
+  if (player.playDeck.length === 0) {
+    // TODO: reshuffle discard pile into play deck
+    logDetail(`Movement/Hazard draw-cards: ${playerLabel} player has no cards to draw`);
+    return advanceDrawCards(state, mhState, isResourcePlayer, drawMax);
+  }
+
+  const drawnCard = player.playDeck[0];
+  const newPlayers = clonePlayers(state);
+  newPlayers[actingIndex] = {
+    ...player,
+    hand: [...player.hand, drawnCard],
+    playDeck: player.playDeck.slice(1),
+  };
+
+  const newDrawCount = drawnSoFar + 1;
+  logDetail(`Movement/Hazard draw-cards: ${playerLabel} player drew card ${newDrawCount}/${drawMax}`);
+
+  const newMhState = {
+    ...mhState,
+    ...(isResourcePlayer
+      ? { resourceDrawCount: newDrawCount }
+      : { hazardDrawCount: newDrawCount }),
+  };
+
+  // If this player just hit their max, check if both are done
+  if (newDrawCount >= drawMax) {
+    const otherDone = isResourcePlayer
+      ? newMhState.hazardDrawCount >= newMhState.hazardDrawMax
+      : newMhState.resourceDrawCount >= newMhState.resourceDrawMax;
+
+    if (otherDone) {
+      logDetail(`Movement/Hazard draw-cards: both players done → advancing to play-hazards`);
+      return {
+        state: {
+          ...state,
+          players: newPlayers,
+          phaseState: { ...newMhState, step: 'play-hazards' as const },
+        },
+      };
+    }
+  }
+
+  return {
+    state: {
+      ...state,
+      players: newPlayers,
+      phaseState: newMhState,
+    },
+  };
+}
+
+/**
+ * Mark a player as done drawing and advance to play-hazards if both are done.
+ */
+function advanceDrawCards(
+  state: GameState,
+  mhState: MovementHazardPhaseState,
+  isResourcePlayer: boolean,
+  drawMax: number,
+): ReducerResult {
+  // Mark this player as done by setting their draw count to max
+  const newMhState = {
+    ...mhState,
+    ...(isResourcePlayer
+      ? { resourceDrawCount: drawMax }
+      : { hazardDrawCount: drawMax }),
+  };
+
+  const otherDone = isResourcePlayer
+    ? newMhState.hazardDrawCount >= newMhState.hazardDrawMax
+    : newMhState.resourceDrawCount >= newMhState.resourceDrawMax;
+
+  if (otherDone) {
+    logDetail(`Movement/Hazard draw-cards: both players done → advancing to play-hazards`);
+    return {
+      state: {
+        ...state,
+        phaseState: { ...newMhState, step: 'play-hazards' as const },
+      },
+    };
+  }
+
+  return {
+    state: {
+      ...state,
+      phaseState: newMhState,
     },
   };
 }
