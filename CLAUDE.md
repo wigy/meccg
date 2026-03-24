@@ -32,11 +32,11 @@ MECCG is a web-based implementation of the Middle-Earth Collectible Card Game (M
 
 ### Verification During Development
 
-When verifying changes during development, run type-check and tests only. Do not run lint after every change — lint is run once before committing.
+Do NOT run tests or lint after making changes. Tests and lint are run once before committing, not during development.
 
-### Pre-Push Checklist
+### Pre-Commit Checklist
 
-Before pushing to remote, always run all of these and fix any failures:
+Before every commit, always run all of these and fix any failures:
 
 1. `npm test` — rules tests (must all pass)
 2. `npm run test:nightly` — card tests (must not introduce new failures)

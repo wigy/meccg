@@ -266,7 +266,7 @@ function playResourcesActions(
 
     // Permanent resource events — playable like in organization phase
     if (def.cardType === 'hero-resource-event') {
-      const eventDef = def as HeroResourceEventCard;
+      const eventDef: HeroResourceEventCard = def;
       if (eventDef.eventType === 'permanent') {
         evaluatedInstances.add(cardInstanceId as string);
 
