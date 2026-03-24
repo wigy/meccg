@@ -1,6 +1,22 @@
 [
   {
     "cardType": "hazard-event",
+    "id": "tw-28",
+    "name": "Doors of Night",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/DoorsofNight.jpg",
+    "unique": false,
+    "eventType": "permanent",
+    "effects": [
+      {
+        "type": "duplication-limit",
+        "scope": "game",
+        "max": 1
+      }
+    ],
+    "text": "Environment. When Doors of Night is played, all resource environment cards in play are immediately discarded, and all resource environment effects are canceled. Cannot be duplicated."
+  },
+  {
+    "cardType": "hazard-event",
     "id": "tw-32",
     "name": "Eye of Sauron",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/EyeofSauron.jpg",

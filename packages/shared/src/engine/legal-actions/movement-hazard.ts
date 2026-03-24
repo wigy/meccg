@@ -341,8 +341,8 @@ function playHazardsActions(
       const def = state.cardPool[inst.definitionId as string];
       if (!def) continue;
 
-      // Currently only hazard long-events
-      if (def.cardType !== 'hazard-event' || def.eventType !== 'long') continue;
+      // Currently hazard long-events and permanent-events
+      if (def.cardType !== 'hazard-event' || (def.eventType !== 'long' && def.eventType !== 'permanent')) continue;
 
       const action: GameAction = {
         type: 'play-hazard',

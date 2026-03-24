@@ -99,6 +99,8 @@ export const SUN = did('tw-335');
 
 // ---- Hazard Events ----
 
+/** Doors of Night — permanent hazard event, environment that cancels resource environments. Cannot be duplicated. */
+export const DOORS_OF_NIGHT = did('tw-28');
 /** Eye of Sauron — long hazard event, increases automatic-attack prowess (+1, or +3 with Doors of Night). */
 export const EYE_OF_SAURON = did('tw-32');
 /** Wake of War — long hazard event, boosts Wolf/Spider/Animal attacks (+1 strikes and prowess, +2 for Wolves with Doors of Night). */

@@ -2243,9 +2243,9 @@ function handlePlayHazardCard(
   const def = state.cardPool[inst.definitionId as string];
   if (!def) return { state, error: 'Card definition not found' };
 
-  // Currently only hazard long-events are supported
-  if (def.cardType !== 'hazard-event' || def.eventType !== 'long') {
-    return { state, error: `Cannot play ${def.cardType} during play-hazards — only hazard long-events are currently supported` };
+  // Currently hazard long-events and permanent-events are supported
+  if (def.cardType !== 'hazard-event' || (def.eventType !== 'long' && def.eventType !== 'permanent')) {
+    return { state, error: `Cannot play ${def.cardType} during play-hazards — only hazard long/permanent-events are currently supported` };
   }
 
   // Uniqueness check: unique events can't be played if already in play
