@@ -671,6 +671,14 @@ export interface MovementHazardPhaseState {
    */
   readonly onGuardPlacedThisCompany: boolean;
   /**
+   * Whether the active company's destination site has been revealed
+   * (turned face-up) during the reveal-new-site step. Once true, the
+   * destination site identity is visible to both players for the
+   * remainder of this company's M/H sub-phase. Reset when the next
+   * company begins.
+   */
+  readonly siteRevealed: boolean;
+  /**
    * Whether the company was returned to its site of origin during this
    * M/H phase. If true, the phase ends immediately and the company cannot
    * take actions during its site phase.

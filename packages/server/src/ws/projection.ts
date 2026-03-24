@@ -30,7 +30,7 @@ import type {
   DraftPlayerState,
   CharacterDeckDraftPlayerState,
 } from '@meccg/shared';
-import { UNKNOWN_CARD, getPlayerIndex } from '@meccg/shared';
+import { UNKNOWN_CARD, getPlayerIndex, Phase } from '@meccg/shared';
 import { computeLegalActions } from '@meccg/shared';
 
 /**
@@ -95,6 +95,7 @@ function buildOpponentView(player: PlayerState): OpponentView {
     currentSite: c.currentSite,
     siteCardOwned: c.siteCardOwned,
     hasPlannedMovement: c.destinationSite !== null,
+    revealedDestinationSite: null,
     moved: c.moved,
     hasOnGuardCard: c.onGuardCards.length > 0,
   }));
@@ -276,7 +277,26 @@ export function projectPlayerView(state: GameState, playerId: PlayerId): PlayerV
   const opponentPlayer = state.players[opponentIndex];
 
   const self = buildSelfView(state, selfPlayer);
-  const opponent = buildOpponentView(opponentPlayer);
+  let opponent = buildOpponentView(opponentPlayer);
+
+  // Reveal the active company's destination site to the opponent when the
+  // site has been revealed during this company's M/H sub-phase.
+  if (state.phaseState.phase === Phase.MovementHazard) {
+    const mhState = state.phaseState;
+    if (mhState.siteRevealed && state.activePlayer !== playerId) {
+      const activeCompany = opponentPlayer.companies[mhState.activeCompanyIndex];
+      if (activeCompany?.destinationSite) {
+        opponent = {
+          ...opponent,
+          companies: opponent.companies.map((c, i) =>
+            i === mhState.activeCompanyIndex
+              ? { ...c, revealedDestinationSite: activeCompany.destinationSite }
+              : c,
+          ),
+        };
+      }
+    }
+  }
 
   const legalActions = computeLegalActions(state, playerId);
 
@@ -326,6 +346,10 @@ export function projectPlayerView(state: GameState, playerId: PlayerId): PlayerV
   for (const id of opponentPlayer.eliminatedPile) addInstance(id);
   for (const company of opponentPlayer.companies) {
     if (company.currentSite) addInstance(company.currentSite);
+  }
+  // Revealed destination site (opponent's active company during M/H phase)
+  for (const company of opponent.companies) {
+    if (company.revealedDestinationSite) addInstance(company.revealedDestinationSite);
   }
   for (const char of Object.values(opponentPlayer.characters)) {
     addInstance(char.instanceId);

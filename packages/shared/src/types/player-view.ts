@@ -95,6 +95,12 @@ export interface OpponentCompanyView {
   readonly siteCardOwned: boolean;
   /** Whether the company has a planned destination (true) or is staying put (false). */
   readonly hasPlannedMovement: boolean;
+  /**
+   * The destination site card instance, revealed during the reveal-new-site
+   * step of this company's M/H sub-phase. Null when the site has not yet
+   * been revealed or the company is not moving.
+   */
+  readonly revealedDestinationSite: CardInstanceId | null;
   /** Whether this company has already moved this turn. */
   readonly moved: boolean;
   /** Whether an on-guard card has been placed at this company's site (identity hidden). */

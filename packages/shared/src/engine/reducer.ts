@@ -2015,6 +2015,7 @@ function handleLongEvent(state: GameState, action: GameAction): ReducerResult {
           destinationSiteName: null,
           resourcePlayerPassed: false,
           hazardPlayerPassed: false,
+          siteRevealed: false,
           onGuardPlacedThisCompany: false,
           returnedToOrigin: false,
         },
@@ -2152,6 +2153,7 @@ function handleMovementHazard(state: GameState, action: GameAction): ReducerResu
         destinationSiteName: null,
         resourcePlayerPassed: false,
         hazardPlayerPassed: false,
+        siteRevealed: false,
         onGuardPlacedThisCompany: false,
         returnedToOrigin: false,
       },
@@ -2188,7 +2190,9 @@ function handleSelectCompany(
     return { state, error: `Company '${action.companyId}' has already been handled this turn` };
   }
 
-  logDetail(`Movement/Hazard: selected company ${action.companyId} (index ${companyIndex}) → advancing to reveal-new-site`);
+  const company = player.companies[companyIndex];
+  const isMoving = company.destinationSite !== null;
+  logDetail(`Movement/Hazard: selected company ${action.companyId} (index ${companyIndex}), moving=${isMoving} → advancing to reveal-new-site`);
   return {
     state: {
       ...state,
@@ -2196,6 +2200,7 @@ function handleSelectCompany(
         ...mhState,
         step: 'reveal-new-site' as const,
         activeCompanyIndex: companyIndex,
+        siteRevealed: isMoving,
       },
     },
   };

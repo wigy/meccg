@@ -496,18 +496,26 @@ function renderSiteArea(
       }
     }
   } else if ('hasPlannedMovement' in company && company.hasPlannedMovement) {
-    // Opponent has planned movement but destination is hidden — show arrow + site back
+    // Opponent has planned movement — show arrow + revealed site or card back
     const arrow = document.createElement('div');
     arrow.className = 'company-movement-arrow';
     arrow.innerHTML = '<svg viewBox="0 0 24 16" fill="none" xmlns="http://www.w3.org/2000/svg">'
       + '<path d="M2 8h17M14 2l6 6-6 6" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>'
       + '</svg>';
     area.appendChild(arrow);
-    const back = document.createElement('img');
-    back.src = '/images/site-back.jpg';
-    back.alt = 'Hidden destination';
-    back.className = 'company-card company-card--site';
-    area.appendChild(back);
+    const revealedSite = company.revealedDestinationSite;
+    const revealedDefId = revealedSite ? view.visibleInstances[revealedSite as string] : undefined;
+    const revealedDef = revealedDefId ? cardPool[revealedDefId as string] : undefined;
+    const revealedImg = revealedDef ? cardImageProxyPath(revealedDef) : undefined;
+    if (revealedDefId && revealedDef && revealedImg) {
+      area.appendChild(createCardImage(revealedDefId as string, revealedDef, revealedImg, 'company-card company-card--site'));
+    } else {
+      const back = document.createElement('img');
+      back.src = '/images/site-back.jpg';
+      back.alt = 'Hidden destination';
+      back.className = 'company-card company-card--site';
+      area.appendChild(back);
+    }
   }
 
   return area;
