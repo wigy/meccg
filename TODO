@@ -10,7 +10,6 @@ FEATS
 EPICS
 -----
 
-Long-event Phase
 Movement/Hazard Phase
 Site Phase
 End-of-Turn Phase
@@ -18,6 +17,7 @@ Combat
 Untap Phase
 Council and End Game
 Sideboard
+Chain of effects
 Setup Minion
 Setup Fw
 Setup Balrog
