@@ -36,7 +36,7 @@ Do NOT run tests or lint after making changes. Tests and lint are run once befor
 
 ### Pre-Commit Checklist
 
-Before every commit, always run all of these and fix any failures:
+Before every commit, always run all three of these **in parallel** and fix any failures:
 
 1. `npm test` — rules tests (must all pass)
 2. `npm run test:nightly` — card tests (must not introduce new failures)
