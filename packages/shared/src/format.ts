@@ -251,7 +251,7 @@ function formatCompany(
 ): string[] {
   const lines: string[] = [];
 
-  const siteName = company.currentSite ? formatSiteName(company.currentSite, defOf, instOf) : colorizeUnknown('(no site)');
+  const siteName = company.currentSite ? formatSiteName(company.currentSite.instanceId, defOf, instOf) : colorizeUnknown('(no site)');
   const noSiteTag = company.siteCardOwned === false ? ' (no site)' : '';
   if (company.destinationSite) {
     const destName = formatSiteName(company.destinationSite, defOf, instOf);
@@ -306,7 +306,7 @@ function formatOpponentCompany(
 ): string[] {
   const lines: string[] = [];
 
-  const siteName = company.currentSite ? formatSiteName(company.currentSite, defOf, instOf) : colorizeUnknown('(no site)');
+  const siteName = company.currentSite ? formatSiteName(company.currentSite.instanceId, defOf, instOf) : colorizeUnknown('(no site)');
   const noSiteTag = company.siteCardOwned === false ? ' (no site)' : '';
   if (company.hasPlannedMovement) {
     lines.push(`${indent}Company ${index + 1} → ${colorizeUnknown('(planned)')} (from ${siteName})${noSiteTag}:`);

@@ -508,7 +508,7 @@ function initPlayerWithCharacters(
   const company: Company = {
     id: `company-${config.id}-0` as CompanyId,
     characters: characterInstanceIds,
-    currentSite: havenInstanceId,
+    currentSite: { instanceId: havenInstanceId, definitionId: firstHaven, status: CardStatus.Untapped },
     siteCardOwned: true,
     destinationSite: null,
     movementPath: [],

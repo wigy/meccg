@@ -119,7 +119,7 @@ function revealNewSiteActions(
   }
 
   // Resolve origin and destination site definitions
-  const originDef = resolveSiteDef(state, company.currentSite);
+  const originDef = resolveSiteDef(state, company.currentSite?.instanceId ?? null);
   const destDef = resolveSiteDef(state, company.destinationSite);
   if (!originDef || !destDef) {
     logDetail(`Could not resolve site definitions — no actions`);

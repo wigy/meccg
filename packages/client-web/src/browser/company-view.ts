@@ -130,7 +130,7 @@ function getCompanyName(
 
   // Append site name if the company is at a site
   if (company.currentSite) {
-    const siteDefId = view.visibleInstances[company.currentSite as string];
+    const siteDefId = view.visibleInstances[company.currentSite.instanceId as string];
     if (siteDefId) {
       const siteDef = cardPool[siteDefId as string];
       if (siteDef) {
@@ -428,7 +428,7 @@ function renderSiteArea(
 
   // Current site
   if (company.currentSite) {
-    const siteDefId = view.visibleInstances[company.currentSite as string];
+    const siteDefId = view.visibleInstances[company.currentSite.instanceId as string];
     if (siteDefId) {
       const siteDef = cardPool[siteDefId as string];
       if (siteDef) {
@@ -463,7 +463,7 @@ function renderSiteArea(
       (a): a is DeclarePathAction => a.type === 'declare-path',
     ) : [];
     if (pathActions.length > 0) {
-      const originDef = company.currentSite ? resolveCardDef(company.currentSite, view, cardPool) : undefined;
+      const originDef = company.currentSite ? resolveCardDef(company.currentSite.instanceId, view, cardPool) : undefined;
       const destSiteId = 'destinationSite' in company ? company.destinationSite : null;
       const destDef = destSiteId ? resolveCardDef(destSiteId, view, cardPool) : undefined;
 
@@ -1392,7 +1392,7 @@ function renderAllCompaniesView(
   // Collect site instance IDs that already have companies
   const companySiteIds = new Set<string>();
   for (const company of view.self.companies) {
-    if (company.currentSite) companySiteIds.add(company.currentSite as string);
+    if (company.currentSite) companySiteIds.add(company.currentSite.instanceId as string);
   }
 
   // Self companies
@@ -1469,10 +1469,10 @@ function renderAllCompaniesView(
       } else {
         block.classList.add('company-block--clickable');
       }
-    } else if (targetActions && company.currentSite && targetActions.has(company.currentSite as string)) {
+    } else if (targetActions && company.currentSite && targetActions.has(company.currentSite.instanceId as string)) {
       // This company is a valid target for playing the selected character
       block.classList.add('company-block--target');
-      const actions = targetActions.get(company.currentSite as string)!;
+      const actions = targetActions.get(company.currentSite.instanceId as string)!;
       block.onclick = () => {
         // For now, use the first action (GI preferred, DI options come later)
         clearCharacterPlaySelection();

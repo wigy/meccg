@@ -365,7 +365,7 @@ export function buildTestState(opts: BuildTestStateOpts): GameState {
       companies.push({
         id: `company-${setup.id as string}-${companies.length}` as CompanyId,
         characters: charInstIds,
-        currentSite: siteInstId,
+        currentSite: { instanceId: siteInstId, definitionId: companySetup.site, status: CardStatus.Untapped },
         siteCardOwned: true,
         destinationSite: null,
         movementPath: [],

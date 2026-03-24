@@ -77,7 +77,7 @@ function findPlayableSites(
   // Sites where the player already has a company
   for (const company of player.companies) {
     if (!company.currentSite) continue;
-    const siteId = company.currentSite;
+    const siteId = company.currentSite.instanceId;
     if (seen.has(siteId as string)) continue;
     seen.add(siteId as string);
 
@@ -255,7 +255,7 @@ function playCharacterActions(
         for (const ctrl of diControllers) {
           // Check the controller is in a company at this site
           const companyAtSite = player.companies.find(
-            c => c.currentSite === site.instanceId && c.characters.includes(ctrl.instanceId),
+            c => c.currentSite?.instanceId === site.instanceId && c.characters.includes(ctrl.instanceId),
           );
           if (!companyAtSite) continue;
 
@@ -360,7 +360,7 @@ function planMovementActions(state: GameState, playerId: PlayerId): EvaluatedAct
     if (!company.currentSite) continue;
     if (company.destinationSite !== null) continue;
 
-    const currentSiteInst = state.instanceMap[company.currentSite as string];
+    const currentSiteInst = state.instanceMap[company.currentSite.instanceId as string];
     if (!currentSiteInst) continue;
     const currentSiteDef = state.cardPool[currentSiteInst.definitionId as string];
     if (!currentSiteDef || !isSiteCard(currentSiteDef)) continue;
@@ -501,7 +501,7 @@ function transferItemActions(state: GameState, playerId: PlayerId): EvaluatedAct
   const siteToCharacters = new Map<string, CardInstanceId[]>();
   for (const company of player.companies) {
     if (!company.currentSite) continue;
-    const siteKey = company.currentSite as string;
+    const siteKey = company.currentSite.instanceId as string;
     const existing = siteToCharacters.get(siteKey) ?? [];
     existing.push(...company.characters);
     siteToCharacters.set(siteKey, existing);
@@ -510,7 +510,7 @@ function transferItemActions(state: GameState, playerId: PlayerId): EvaluatedAct
   // For each character with items, find valid transfer targets at the same site
   for (const company of player.companies) {
     if (!company.currentSite) continue;
-    const siteKey = company.currentSite as string;
+    const siteKey = company.currentSite.instanceId as string;
     const charsAtSite = siteToCharacters.get(siteKey) ?? [];
 
     for (const charInstId of company.characters) {
@@ -623,7 +623,7 @@ function moveToCompanyActions(state: GameState, playerId: PlayerId): EvaluatedAc
   const siteToCompanies = new Map<string, typeof player.companies[number][]>();
   for (const company of player.companies) {
     if (!company.currentSite) continue;
-    const siteKey = company.currentSite as string;
+    const siteKey = company.currentSite.instanceId as string;
     const existing = siteToCompanies.get(siteKey) ?? [];
     existing.push(company);
     siteToCompanies.set(siteKey, existing);
@@ -631,7 +631,7 @@ function moveToCompanyActions(state: GameState, playerId: PlayerId): EvaluatedAc
 
   for (const company of player.companies) {
     if (!company.currentSite) continue;
-    const companiesAtSite = siteToCompanies.get(company.currentSite as string) ?? [];
+    const companiesAtSite = siteToCompanies.get(company.currentSite.instanceId as string) ?? [];
     if (companiesAtSite.length < 2) continue;
 
     // Count GI characters in this company
@@ -690,7 +690,7 @@ function mergeCompaniesActions(state: GameState, playerId: PlayerId): EvaluatedA
   const siteToCompanies = new Map<string, typeof player.companies[number][]>();
   for (const company of player.companies) {
     if (!company.currentSite) continue;
-    const siteKey = company.currentSite as string;
+    const siteKey = company.currentSite.instanceId as string;
     const existing = siteToCompanies.get(siteKey) ?? [];
     existing.push(company);
     siteToCompanies.set(siteKey, existing);
@@ -698,7 +698,7 @@ function mergeCompaniesActions(state: GameState, playerId: PlayerId): EvaluatedA
 
   for (const company of player.companies) {
     if (!company.currentSite) continue;
-    const companiesAtSite = siteToCompanies.get(company.currentSite as string) ?? [];
+    const companiesAtSite = siteToCompanies.get(company.currentSite.instanceId as string) ?? [];
     if (companiesAtSite.length < 2) continue;
 
     for (const targetCompany of companiesAtSite) {

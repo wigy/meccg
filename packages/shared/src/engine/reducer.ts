@@ -14,7 +14,7 @@
  * (or the original state plus an error string if the action was illegal).
  */
 
-import type { GameState, PlayerState, DraftPlayerState, ItemDraftPlayerState, CharacterDeckDraftPlayerState, SetupStepState, CardDefinitionId, CardInstanceId, CompanyId, CharacterInPlay, CardInstance, OrganizationPhaseState, MovementHazardPhaseState, SitePhaseState, Company, CreatureCard } from '../index.js';
+import type { GameState, PlayerState, DraftPlayerState, ItemDraftPlayerState, CharacterDeckDraftPlayerState, SetupStepState, CardDefinitionId, CardInstanceId, CompanyId, CharacterInPlay, CardInstance, OrganizationPhaseState, MovementHazardPhaseState, SitePhaseState, Company, CreatureCard, SiteInPlay } from '../index.js';
 import type { GameAction } from '../index.js';
 import { Phase, SetupStep, LEGAL_ACTIONS_BY_PHASE, getAlignmentRules, shuffle, nextInt, CardStatus, isCharacterCard, isItemCard, isSiteCard, SiteType, RegionType, Race, Skill, getPlayerIndex, ZERO_EFFECTIVE_STATS, MAX_STARTING_ITEMS, BASE_MAX_REGION_DISTANCE, HAND_SIZE } from '../index.js';
 import { logHeading, logDetail } from './legal-actions/log.js';
@@ -716,7 +716,7 @@ function finalizeSiteSelection(
 
     // Assign first site to existing company
     if (selectedSites.length > 0 && companies.length > 0) {
-      companies[0] = { ...companies[0], currentSite: selectedSites[0] };
+      companies[0] = { ...companies[0], currentSite: { instanceId: selectedSites[0], definitionId: state.instanceMap[selectedSites[0] as string].definitionId, status: CardStatus.Untapped } };
     }
 
     // Second site creates an additional empty company
@@ -724,7 +724,7 @@ function finalizeSiteSelection(
       companies.push({
         id: `company-${player.id as string}-${companies.length}` as CompanyId,
         characters: [],
-        currentSite: selectedSites[1],
+        currentSite: { instanceId: selectedSites[1], definitionId: state.instanceMap[selectedSites[1] as string].definitionId, status: CardStatus.Untapped },
         siteCardOwned: true,
         destinationSite: null,
         movementPath: [],
@@ -772,8 +772,8 @@ function cleanupEmptyCompanies(state: GameState): GameState {
 
     // Return sites from empty companies to site deck
     const returnedSites = emptyCompanies
-      .map(c => c.currentSite)
-      .filter((s): s is CardInstanceId => s !== null);
+      .map(c => c.currentSite?.instanceId)
+      .filter((s): s is CardInstanceId => s != null);
     const newSiteDeck = [...player.siteDeck, ...returnedSites];
 
     return { ...player, companies: keptCompanies, siteDeck: newSiteDeck };
@@ -1185,7 +1185,7 @@ function handlePlayCharacter(state: GameState, action: GameAction): ReducerResul
 
   // Find existing company at the target site
   const companies = [...player.companies];
-  const existingCompanyIdx = companies.findIndex(c => c.currentSite === action.atSite);
+  const existingCompanyIdx = companies.findIndex(c => c.currentSite?.instanceId === action.atSite);
 
   // Update or create company
   let newSiteDeck = player.siteDeck;
@@ -1226,7 +1226,7 @@ function handlePlayCharacter(state: GameState, action: GameAction): ReducerResul
     const newCompany: Company = {
       id: `company-${player.id as string}-${companies.length}` as CompanyId,
       characters: [charInstId],
-      currentSite: siteInstId,
+      currentSite: { instanceId: siteInstId, definitionId: state.instanceMap[siteInstId as string].definitionId, status: CardStatus.Untapped },
       siteCardOwned: true,
       destinationSite: null,
       movementPath: [],
@@ -1393,7 +1393,7 @@ function handleTransferItem(state: GameState, action: GameAction): ReducerResult
   if (itemIndex < 0) return { state, error: 'Item not found on source character' };
 
   // Validate both characters are at the same site
-  const findSite = (charId: CardInstanceId): CardInstanceId | null => {
+  const findSite = (charId: CardInstanceId): SiteInPlay | null => {
     for (const company of player.companies) {
       if (company.characters.includes(charId)) return company.currentSite;
     }
@@ -1401,7 +1401,7 @@ function handleTransferItem(state: GameState, action: GameAction): ReducerResult
   };
   const fromSite = findSite(fromCharId);
   const toSite = findSite(toCharId);
-  if (!fromSite || !toSite || fromSite !== toSite) {
+  if (!fromSite || !toSite || fromSite.instanceId !== toSite.instanceId) {
     return { state, error: 'Characters must be at the same site' };
   }
 
@@ -1700,7 +1700,7 @@ function handleMoveToCompany(state: GameState, action: GameAction): ReducerResul
   if (!targetCompany) return { state, error: 'Target company not found' };
 
   // Validate same site
-  if (sourceCompany.currentSite !== targetCompany.currentSite) {
+  if (sourceCompany.currentSite?.instanceId !== targetCompany.currentSite?.instanceId) {
     return { state, error: 'Companies must be at the same site' };
   }
 
@@ -1778,7 +1778,7 @@ function handleMergeCompanies(state: GameState, action: GameAction): ReducerResu
   if (!targetCompany) return { state, error: 'Target company not found' };
 
   // Validate same site
-  if (sourceCompany.currentSite !== targetCompany.currentSite) {
+  if (sourceCompany.currentSite?.instanceId !== targetCompany.currentSite?.instanceId) {
     return { state, error: 'Companies must be at the same site' };
   }
 
@@ -2358,13 +2358,13 @@ function endCompanyMH(state: GameState, mhState: MovementHazardPhaseState): Redu
   const company = resourcePlayer.companies[mhState.activeCompanyIndex];
 
   if (company.destinationSite && !mhState.returnedToOrigin) {
-    const originSiteId = company.currentSite;
+    const originSite = company.currentSite;
     const destSiteId = company.destinationSite;
 
     const updatedCompanies = [...resourcePlayer.companies];
     updatedCompanies[mhState.activeCompanyIndex] = {
       ...company,
-      currentSite: destSiteId,
+      currentSite: { instanceId: destSiteId, definitionId: state.instanceMap[destSiteId as string].definitionId, status: CardStatus.Untapped },
       destinationSite: null,
       moved: true,
       siteOfOrigin: null,
@@ -2373,17 +2373,16 @@ function endCompanyMH(state: GameState, mhState: MovementHazardPhaseState): Redu
     // Handle site of origin: return to siteDeck (untapped/haven) or discard (tapped non-haven)
     // TODO: discard tapped non-haven sites once site tapping is implemented
     let newSiteDeck = [...resourcePlayer.siteDeck];
-    if (originSiteId) {
-      const originInst = state.instanceMap[originSiteId as string];
-      const originDef = originInst ? state.cardPool[originInst.definitionId as string] : undefined;
+    if (originSite) {
+      const originDef = state.cardPool[originSite.definitionId as string];
       const isHaven = originDef && isSiteCard(originDef) && originDef.siteType === 'haven';
-      newSiteDeck = newSiteDeck.filter(id => id !== originSiteId);
+      newSiteDeck = newSiteDeck.filter(id => id !== originSite.instanceId);
       if (isHaven) {
         logDetail(`Step 8: site of origin is a haven — returning to location deck`);
       } else {
         logDetail(`Step 8: site of origin is non-haven — returning to location deck (TODO: discard if tapped)`);
       }
-      newSiteDeck.push(originSiteId);
+      newSiteDeck.push(originSite.instanceId);
     }
 
     logDetail(`Step 8: company moved to ${mhState.destinationSiteName ?? '?'}, origin site handled`);
@@ -2710,8 +2709,7 @@ function handleRevealNewSite(
   if (action.type === 'pass') {
     const playerIdx = getPlayerIndex(state, action.player);
     const nonMovingCompany = state.players[playerIdx].companies[mhState.activeCompanyIndex];
-    const currentSiteInst = nonMovingCompany.currentSite ? state.instanceMap[nonMovingCompany.currentSite as string] : undefined;
-    const currentSiteDef = currentSiteInst ? state.cardPool[currentSiteInst.definitionId as string] : undefined;
+    const currentSiteDef = nonMovingCompany.currentSite ? state.cardPool[nonMovingCompany.currentSite.definitionId as string] : undefined;
     const currentSite = currentSiteDef && isSiteCard(currentSiteDef) ? currentSiteDef : undefined;
     logDetail(`Movement/Hazard: non-moving company → advancing to set-hazard-limit`);
     return {
@@ -2739,8 +2737,7 @@ function handleRevealNewSite(
     return { state, error: `Active company has no destination site` };
   }
 
-  const originInst = company.currentSite ? state.instanceMap[company.currentSite as string] : undefined;
-  const originDef = originInst ? state.cardPool[originInst.definitionId as string] : undefined;
+  const originDef = company.currentSite ? state.cardPool[company.currentSite.definitionId as string] : undefined;
   const destInst = state.instanceMap[company.destinationSite as string];
   const destDef = destInst ? state.cardPool[destInst.definitionId as string] : undefined;
 
@@ -2885,8 +2882,7 @@ function transitionToDrawCards(state: GameState, mhState: MovementHazardPhaseSta
   // Determine which site card provides draw numbers
   const destInst = state.instanceMap[company.destinationSite as string];
   const destDef = destInst ? state.cardPool[destInst.definitionId as string] : undefined;
-  const originInst = company.currentSite ? state.instanceMap[company.currentSite as string] : undefined;
-  const originDef = originInst ? state.cardPool[originInst.definitionId as string] : undefined;
+  const originDef = company.currentSite ? state.cardPool[company.currentSite.definitionId as string] : undefined;
 
   // Use new site for non-haven destination, site of origin for haven destination
   const movingToHaven = destDef && isSiteCard(destDef) && destDef.siteType === 'haven';
@@ -3200,9 +3196,8 @@ function handleSiteEnterOrSkip(
   }
 
   // Enter site — check whether the site has automatic-attacks
-  const siteInstanceId = company.currentSite;
-  const siteInstance = siteInstanceId ? state.instanceMap[siteInstanceId as string] : undefined;
-  const siteDef = siteInstance ? state.cardPool[siteInstance.definitionId as string] : undefined;
+  const siteInPlay = company.currentSite;
+  const siteDef = siteInPlay ? state.cardPool[siteInPlay.definitionId as string] : undefined;
   const autoAttackCount = siteDef && isSiteCard(siteDef) ? siteDef.automaticAttacks.length : 0;
 
   if (autoAttackCount > 0) {
@@ -3302,9 +3297,8 @@ function handleSitePlayHeroResource(
   if (!def || !isItemCard(def)) return { state, error: 'Card is not an item' };
 
   // Check site allows this item subtype
-  const siteInstanceId = company.currentSite;
-  const siteInstance = siteInstanceId ? state.instanceMap[siteInstanceId as string] : undefined;
-  const siteDef = siteInstance ? state.cardPool[siteInstance.definitionId as string] : undefined;
+  const siteInPlay = company.currentSite;
+  const siteDef = siteInPlay ? state.cardPool[siteInPlay.definitionId as string] : undefined;
   if (!siteDef || !isSiteCard(siteDef)) return { state, error: 'Company is not at a valid site' };
 
   if (!siteDef.playableResources.includes(def.subtype)) {
@@ -3326,7 +3320,7 @@ function handleSitePlayHeroResource(
   }
 
   // Check site is not already tapped
-  if (siteInstance!.status === CardStatus.Tapped) {
+  if (siteInPlay!.status === CardStatus.Tapped) {
     return { state, error: 'Site is already tapped' };
   }
 
@@ -3347,17 +3341,20 @@ function handleSitePlayHeroResource(
 
   const newCharacters = { ...player.characters, [targetCharId as string]: updatedChar };
   const newPlayers = clonePlayers(state);
-  newPlayers[playerIndex] = { ...player, hand: newHand, characters: newCharacters };
 
-  // Tap the site instance
-  const tappedSite: CardInstance = { ...siteInstance!, status: CardStatus.Tapped };
-  const newInstanceMap = { ...state.instanceMap, [siteInstanceId as string]: tappedSite };
+  // Tap the site by updating company's currentSite status
+  const newCompanies = [...player.companies];
+  newCompanies[siteState.activeCompanyIndex] = {
+    ...company,
+    currentSite: { ...siteInPlay!, status: CardStatus.Tapped },
+  };
+
+  newPlayers[playerIndex] = { ...player, hand: newHand, characters: newCharacters, companies: newCompanies };
 
   return {
     state: {
       ...state,
       players: newPlayers,
-      instanceMap: newInstanceMap,
       phaseState: {
         ...siteState,
         resourcePlayed: true,

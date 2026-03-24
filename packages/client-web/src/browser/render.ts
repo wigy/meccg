@@ -5,7 +5,7 @@
  * action buttons, draft info, and a message log.
  */
 
-import type { PlayerView, GameAction, EvaluatedAction, CardDefinition, CardDefinitionId, CardInstanceId, CharacterInPlay } from '@meccg/shared';
+import type { PlayerView, GameAction, EvaluatedAction, CardDefinition, CardDefinitionId, CardInstanceId, CharacterInPlay, SiteInPlay } from '@meccg/shared';
 import { describeAction, formatPlayerView, formatCardList, cardImageProxyPath, isCharacterCard, GENERAL_INFLUENCE, getAlignmentRules, viableActions, formatSignedNumber, Phase, computeTournamentScore, computeTournamentBreakdown } from '@meccg/shared';
 import type { MarshallingPointTotals } from '@meccg/shared';
 import { $, createCardImage, createFaceDownCard, appendItemCards } from './render-utils.js';
@@ -1274,14 +1274,14 @@ function renderCharactersWithItems(
 /** Render companies with their sites, characters, and items on the table. */
 function renderCompanies(
   el: HTMLElement,
-  companies: readonly { characters: readonly CardInstanceId[]; currentSite: CardInstanceId | null }[],
+  companies: readonly { characters: readonly CardInstanceId[]; currentSite: SiteInPlay | null }[],
   view: PlayerView,
   characters: Readonly<Record<string, CharacterInPlay>>,
   cardPool: Readonly<Record<string, CardDefinition>>,
 ): void {
   for (let i = 0; i < companies.length; i++) {
     const company = companies[i];
-    const siteIds = company.currentSite ? [company.currentSite] : [];
+    const siteIds = company.currentSite ? [company.currentSite.instanceId] : [];
     if (i > 0 && (siteIds.length > 0 || company.characters.length > 0)) {
       const spacer = document.createElement('div');
       spacer.className = 'drafted-spacer';
@@ -1312,7 +1312,7 @@ function renderPlacementCompanies(
 
     // Render site card
     if (company.currentSite) {
-      const siteDefId = view.visibleInstances[company.currentSite as string];
+      const siteDefId = view.visibleInstances[company.currentSite.instanceId as string];
       if (siteDefId) renderCardRow(el, [siteDefId], cardPool);
     }
 

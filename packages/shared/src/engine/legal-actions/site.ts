@@ -239,13 +239,13 @@ function playResourcesActions(
   const actions: EvaluatedAction[] = [];
 
   // Look up the site's playable resource types
-  const siteInstanceId = company.currentSite;
+  const siteInstanceId = company.currentSite?.instanceId ?? null;
   const siteInstance = siteInstanceId ? state.instanceMap[siteInstanceId as string] : undefined;
   const siteDef = siteInstance ? state.cardPool[siteInstance.definitionId as string] : undefined;
   const playableTypes = siteDef && isSiteCard(siteDef) ? new Set(siteDef.playableResources) : new Set<string>();
   const siteName = siteDef?.name ?? 'unknown site';
 
-  const siteIsTapped = siteInstance?.status === CardStatus.Tapped;
+  const siteIsTapped = company.currentSite?.status === CardStatus.Tapped;
   logDetail(`Site ${siteName}: playable resource types: ${[...playableTypes].join(', ') || 'none'}, tapped: ${siteIsTapped}`);
 
   // Find untapped characters in this company for item attachment

@@ -158,7 +158,7 @@ export function projectSpectatorView(state: GameState): PlayerView {
     for (const id of player.siteDiscardPile) addInstance(id);
     for (const id of player.eliminatedPile) addInstance(id);
     for (const company of player.companies) {
-      if (company.currentSite) addInstance(company.currentSite);
+      if (company.currentSite) addInstance(company.currentSite.instanceId);
     }
     for (const char of Object.values(player.characters)) {
       addInstance(char.instanceId);
@@ -328,7 +328,7 @@ export function projectPlayerView(state: GameState, playerId: PlayerId): PlayerV
   for (const id of selfPlayer.sideboard) addInstance(id);
   for (const id of selfPlayer.eliminatedPile) addInstance(id);
   for (const company of selfPlayer.companies) {
-    if (company.currentSite) addInstance(company.currentSite);
+    if (company.currentSite) addInstance(company.currentSite.instanceId);
     if (company.destinationSite) addInstance(company.destinationSite);
     for (const id of company.movementPath) addInstance(id);
   }
@@ -345,7 +345,7 @@ export function projectPlayerView(state: GameState, playerId: PlayerId): PlayerV
   for (const id of opponentPlayer.siteDiscardPile) addInstance(id);
   for (const id of opponentPlayer.eliminatedPile) addInstance(id);
   for (const company of opponentPlayer.companies) {
-    if (company.currentSite) addInstance(company.currentSite);
+    if (company.currentSite) addInstance(company.currentSite.instanceId);
   }
   // Revealed destination site (opponent's active company during M/H phase)
   for (const company of opponent.companies) {

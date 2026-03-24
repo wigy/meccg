@@ -47,11 +47,6 @@ export interface CardInstance {
   readonly instanceId: CardInstanceId;
   /** Reference to the static card definition in `GameState.cardPool`. */
   readonly definitionId: CardDefinitionId;
-  /**
-   * Optional tap state for cards that track it at the instance level
-   * (e.g. site cards). Defaults to untapped when absent.
-   */
-  readonly status?: CardStatus;
 }
 
 // ---- Characters in play ----
@@ -122,6 +117,20 @@ export interface CardInPlay {
   readonly status: CardStatus;
 }
 
+/**
+ * A site card currently in play, associated with a company.
+ * Sites track their tapped/untapped state — a tapped site cannot
+ * be used to play another resource that requires tapping.
+ */
+export interface SiteInPlay {
+  /** The card instance ID of this site. */
+  readonly instanceId: CardInstanceId;
+  /** Reference to the static site card definition. */
+  readonly definitionId: CardDefinitionId;
+  /** Current state of this site — untapped or tapped. */
+  readonly status: CardStatus;
+}
+
 export interface CharacterInPlay {
   /** The card instance ID of this character. */
   readonly instanceId: CardInstanceId;
@@ -162,8 +171,8 @@ export interface Company {
   readonly id: CompanyId;
   /** Character instance IDs belonging to this company (order matters for strike assignment). */
   readonly characters: readonly CardInstanceId[];
-  /** The site card instance where this company is currently located. Null during setup before site selection. */
-  readonly currentSite: CardInstanceId | null;
+  /** The site card in play where this company is currently located. Null during setup before site selection. */
+  readonly currentSite: SiteInPlay | null;
   /**
    * Whether this company holds the physical site card.
    * False when the company was created by a split — the original company keeps the card.
