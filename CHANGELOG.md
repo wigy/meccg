@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.8.0 — 2026-03-24
+
+End of Turn phase
+
+### Game Engine
+- **End-of-turn phase:** Implement 3-step state machine for end-of-turn
+  processing (CoE 2.VI) covering discard, hand refill, and cleanup
+
 ## 0.7.0 — 2026-03-24
 
 Site phase basic flow
