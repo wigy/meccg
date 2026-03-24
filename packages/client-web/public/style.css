@@ -585,6 +585,7 @@ h2 {
 }
 
 #visual-board {
+  position: relative;
   display: flex;
   justify-content: center;
   align-items: flex-start;
@@ -1352,8 +1353,9 @@ h2 {
 
 /* ---- Company views (play phase) ---- */
 
-/* Single company view — click empty space to return to overview */
+/* Single company view — one company at full scale */
 .company-single {
+  position: relative;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -1361,7 +1363,69 @@ h2 {
   padding: 1rem;
   padding-top: calc(var(--card-table-height) * 0.5 + 2rem);
   flex: 1;
+  width: 100%;
+}
+
+.company-single .company-block {
+  background: none;
+  border-radius: 0;
+}
+
+.company-single .company-name {
+  color: rgba(230, 200, 120, 1);
+  font-size: 1.5rem;
+  text-shadow: 0 1px 6px rgba(196, 163, 90, 0.5), 0 1px 3px rgba(0, 0, 0, 0.8);
+}
+
+/* Navigation arrows — large fading arrows on left/right of single view */
+.company-nav-arrow {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  color: rgba(196, 163, 90, 0.25);
   cursor: pointer;
+  padding: 1rem;
+  z-index: 10;
+  transition: color 0.3s;
+}
+
+.company-nav-arrow:hover {
+  color: rgba(230, 200, 120, 0.8);
+}
+
+.company-nav-arrow--left {
+  left: 1rem;
+}
+
+.company-nav-arrow--right {
+  right: 3.5rem;
+}
+
+/* View toggle button — right edge of the board */
+.company-view-toggle {
+  position: absolute;
+  right: 0.75rem;
+  top: 50%;
+  transform: translateY(-50%);
+  background: rgba(30, 30, 30, 0.8);
+  border: 1px solid rgba(196, 163, 90, 0.4);
+  border-radius: 6px;
+  color: rgba(196, 163, 90, 0.8);
+  padding: 0.5rem;
+  cursor: pointer;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.2s, border-color 0.2s, color 0.2s;
+}
+
+.company-view-toggle:hover {
+  background: rgba(50, 45, 30, 0.9);
+  border-color: rgba(196, 163, 90, 0.8);
+  color: rgba(230, 200, 120, 1);
 }
 
 /* Company block */
@@ -1414,16 +1478,6 @@ h2 {
   border-radius: 4px;
 }
 
-.company-single .company-block {
-  background: none;
-  border-radius: 0;
-}
-
-.company-single .company-name {
-  color: rgba(230, 200, 120, 1);
-  font-size: 1.5rem;
-  text-shadow: 0 1px 6px rgba(196, 163, 90, 0.5), 0 1px 3px rgba(0, 0, 0, 0.8);
-}
 
 .company-name--self {
   background: linear-gradient(135deg, rgba(42, 42, 42, 0.85), rgba(21, 21, 21, 0.85));

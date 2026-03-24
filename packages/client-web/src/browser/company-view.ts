@@ -2,9 +2,8 @@
  * @module company-view
  *
  * Renders companies on the board during play phases (post-setup).
- * Supports two view modes:
- * - **All Companies**: Every company in the game (both players) at medium scale.
- * - **Single**: One company at full scale, reached by clicking a company in the overview.
+ * Defaults to showing the active player's first company at full scale.
+ * Falls back to an all-companies overview when no company is focused.
  *
  * The title character (highest mind, then MP, then prowess) determines
  * the company's display name (e.g. "Aragorn's Company at Rivendell").
@@ -36,19 +35,17 @@ import { getSelectedCharacterForPlay, clearCharacterPlaySelection, openMovementV
 
 // ---- View state ----
 
-const FOCUSED_COMPANY_KEY = 'meccg-focused-company';
-
-/** Which of the two company display modes is active. */
-type CompanyViewMode = 'single' | 'all-companies';
-
-/** Current view mode — defaults to all-companies overview. */
-let viewMode: CompanyViewMode = 'all-companies';
-
-/** The company currently focused in single-company view. Null = first company. */
+/** The company currently focused in single-company view, or null for all-companies overview. */
 let focusedCompanyId: CompanyId | null = null;
 
-/** Whether we've attempted to restore the focused company from localStorage. */
-let restoredFromStorage = false;
+/**
+ * Saved company ID to return to when toggling back from all-companies view.
+ * Set whenever we leave single view so the toggle can restore it.
+ */
+let savedFocusedCompanyId: CompanyId | null = null;
+
+/** Whether we are currently showing all-companies as an override (toggle). */
+let allCompaniesOverride = false;
 
 /**
  * Move-to-influence two-step selection state.
@@ -80,21 +77,6 @@ let companyMoveSourceCompanyId: CompanyId | null = null;
  */
 let mergeSourceCompanyId: CompanyId | null = null;
 
-/** Save the focused company name to localStorage. */
-function saveFocusedCompany(
-  company: Company | OpponentCompanyView,
-  charMap: Readonly<Record<string, CharacterInPlay>>,
-  view: PlayerView,
-  cardPool: Readonly<Record<string, CardDefinition>>,
-): void {
-  const name = getCompanyName(company, charMap, view, cardPool);
-  localStorage.setItem(FOCUSED_COMPANY_KEY, name);
-}
-
-/** Clear the focused company from localStorage. */
-function clearFocusedCompany(): void {
-  localStorage.removeItem(FOCUSED_COMPANY_KEY);
-}
 
 /** Track the last active player so we can reset view state on turn change. */
 let lastActivePlayer: string | null = null;
@@ -710,7 +692,6 @@ function renderCompanyBlock(
   cardPool: Readonly<Record<string, CardDefinition>>,
   owner: 'self' | 'opponent',
   options?: {
-    hideTitle?: boolean;
     hasLegalMovement?: boolean;
     onAction?: (action: GameAction) => void;
     /** Map from character instance ID → move-to-influence actions for that character. */
@@ -744,8 +725,8 @@ function renderCompanyBlock(
   block.className = isInactive ? 'company-block company-block--inactive' : 'company-block';
   block.dataset.companyId = company.id as string;
 
-  // Company name (omitted in single-company detail view)
-  if (!options?.hideTitle) {
+  // Company name
+  {
     const nameEl = document.createElement('div');
     nameEl.className = `company-name company-name--${owner}`;
     nameEl.textContent = getCompanyName(company, charMap, view, cardPool);
@@ -1114,57 +1095,6 @@ function renderCompanyBlock(
 
 // ---- View mode renderers ----
 
-/** Render single-company detail view. Click empty space to return to overview. */
-function renderSingleView(
-  container: HTMLElement,
-  view: PlayerView,
-  cardPool: Readonly<Record<string, CardDefinition>>,
-): void {
-  // Find the focused company across both players
-  let company: Company | OpponentCompanyView | undefined;
-  let charMap: Readonly<Record<string, CharacterInPlay>> = view.self.characters;
-  let owner: 'self' | 'opponent' = 'self';
-
-  if (focusedCompanyId) {
-    company = view.self.companies.find(c => c.id === focusedCompanyId);
-    if (!company) {
-      company = view.opponent.companies.find(c => c.id === focusedCompanyId);
-      if (company) {
-        charMap = view.opponent.characters;
-        owner = 'opponent';
-      }
-    }
-  }
-
-  if (!company) {
-    // Focused company no longer exists — fall back to overview
-    viewMode = 'all-companies';
-    clearFocusedCompany();
-    renderAllCompaniesView(container, view, cardPool);
-    return;
-  }
-
-  // Company block at full scale — clicking empty space returns to overview
-  const single = document.createElement('div');
-  single.className = 'company-single';
-  single.style.setProperty('--company-scale', '1');
-  single.onclick = (e) => {
-    // Navigate back unless the click landed on a card image
-    if (!(e.target instanceof HTMLImageElement)) {
-      viewMode = 'all-companies';
-      clearFocusedCompany();
-      renderCompanyViews(view, cardPool, lastOnAction!);
-    }
-  };
-  const movableIds = getMovableCompanyIds(view);
-  const hasLegalMovement = movableIds.has(company.id as string);
-  const influenceActions = owner === 'self' ? getMoveToInfluenceActions(view) : undefined;
-  const transferActions = owner === 'self' ? getTransferItemActions(view) : undefined;
-  const splitActions = owner === 'self' ? getSplitCompanyActions(view) : undefined;
-  const moveToCompanyActs = owner === 'self' ? getMoveToCompanyActions(view) : undefined;
-  single.appendChild(renderCompanyBlock(company, charMap, view, cardPool, owner, { hideTitle: true, hasLegalMovement, onAction: lastOnAction!, influenceActions, transferActions, splitActions, moveToCompanyActions: moveToCompanyActs }));
-  container.appendChild(single);
-}
 
 /**
  * Find all viable play-character actions for the selected character instance.
@@ -1351,7 +1281,84 @@ function renderCardsInPlayRow(
   container.appendChild(row);
 }
 
-/** Render all companies (both players) at medium scale. Click any company to zoom in. */
+/** Render a single focused company at full scale. */
+function renderSingleView(
+  container: HTMLElement,
+  view: PlayerView,
+  cardPool: Readonly<Record<string, CardDefinition>>,
+): void {
+  // Find the focused company across both players
+  let company: Company | OpponentCompanyView | undefined;
+  let charMap: Readonly<Record<string, CharacterInPlay>> = view.self.characters;
+  let owner: 'self' | 'opponent' = 'self';
+
+  if (focusedCompanyId) {
+    company = view.self.companies.find(c => c.id === focusedCompanyId);
+    if (!company) {
+      company = view.opponent.companies.find(c => c.id === focusedCompanyId);
+      if (company) {
+        charMap = view.opponent.characters;
+        owner = 'opponent';
+      }
+    }
+  }
+
+  if (!company) {
+    // Focused company no longer exists — fall back to overview
+    focusedCompanyId = null;
+    renderAllCompaniesView(container, view, cardPool);
+    return;
+  }
+
+  // Determine which list of companies to cycle through
+  const isSelfTurn = view.activePlayer !== null && view.activePlayer === view.self.id;
+  const cycleCompanies = isSelfTurn ? view.self.companies : view.opponent.companies;
+  const currentIndex = cycleCompanies.findIndex(c => c.id === focusedCompanyId);
+
+  const single = document.createElement('div');
+  single.className = 'company-single';
+  single.style.setProperty('--company-scale', '1');
+
+  // Left arrow — previous company
+  if (cycleCompanies.length > 1) {
+    const leftArrow = document.createElement('button');
+    leftArrow.className = 'company-nav-arrow company-nav-arrow--left';
+    leftArrow.innerHTML = '<svg viewBox="0 0 24 24" width="48" height="48"><polyline points="15,4 7,12 15,20" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+    leftArrow.onclick = () => {
+      const prev = currentIndex <= 0 ? cycleCompanies.length - 1 : currentIndex - 1;
+      focusedCompanyId = cycleCompanies[prev].id;
+      savedFocusedCompanyId = focusedCompanyId;
+      renderCompanyViews(view, cardPool, lastOnAction!);
+    };
+    single.appendChild(leftArrow);
+  }
+
+  const movableIds = getMovableCompanyIds(view);
+  const hasLegalMovement = movableIds.has(company.id as string);
+  const influenceActions = owner === 'self' ? getMoveToInfluenceActions(view) : undefined;
+  const transferActions = owner === 'self' ? getTransferItemActions(view) : undefined;
+  const splitActions = owner === 'self' ? getSplitCompanyActions(view) : undefined;
+  const moveToCompanyActs = owner === 'self' ? getMoveToCompanyActions(view) : undefined;
+  single.appendChild(renderCompanyBlock(company, charMap, view, cardPool, owner, { hasLegalMovement, onAction: lastOnAction!, influenceActions, transferActions, splitActions, moveToCompanyActions: moveToCompanyActs }));
+
+  // Right arrow — next company
+  if (cycleCompanies.length > 1) {
+    const rightArrow = document.createElement('button');
+    rightArrow.className = 'company-nav-arrow company-nav-arrow--right';
+    rightArrow.innerHTML = '<svg viewBox="0 0 24 24" width="48" height="48"><polyline points="9,4 17,12 9,20" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+    rightArrow.onclick = () => {
+      const next = currentIndex >= cycleCompanies.length - 1 ? 0 : currentIndex + 1;
+      focusedCompanyId = cycleCompanies[next].id;
+      savedFocusedCompanyId = focusedCompanyId;
+      renderCompanyViews(view, cardPool, lastOnAction!);
+    };
+    single.appendChild(rightArrow);
+  }
+
+  container.appendChild(single);
+}
+
+/** Render all companies (both players) at medium scale. */
 function renderAllCompaniesView(
   container: HTMLElement,
   view: PlayerView,
@@ -1407,9 +1414,6 @@ function renderAllCompaniesView(
         block.classList.add('company-block--target');
         block.onclick = (e) => {
           e.stopPropagation();
-          viewMode = 'single';
-          focusedCompanyId = company.id;
-          saveFocusedCompany(company, view.self.characters, view, cardPool);
           lastOnAction!(selectAction);
         };
       }
@@ -1437,8 +1441,6 @@ function renderAllCompaniesView(
           setTargetingInstruction(null);
           renderCompanyViews(lastView!, lastCardPool!, lastOnAction!);
         };
-      } else {
-        block.classList.add('company-block--clickable');
       }
     } else if (companyMoveSourceId && companyMoveSourceCompanyId) {
       // Company-move targeting mode: highlight valid target companies
@@ -1457,17 +1459,6 @@ function renderAllCompaniesView(
           setTargetingInstruction(null);
           lastOnAction!(moveAction);
         };
-      } else if (company.id === companyMoveSourceCompanyId) {
-        // Source company — keep clickable to navigate but dim
-        block.classList.add('company-block--clickable');
-        block.onclick = () => {
-          viewMode = 'single';
-          focusedCompanyId = company.id;
-          saveFocusedCompany(company, view.self.characters, view, cardPool);
-          renderCompanyViews(view, cardPool, lastOnAction!);
-        };
-      } else {
-        block.classList.add('company-block--clickable');
       }
     } else if (targetActions && company.currentSite && targetActions.has(company.currentSite.instanceId as string)) {
       // This company is a valid target for playing the selected character
@@ -1477,14 +1468,6 @@ function renderAllCompaniesView(
         // For now, use the first action (GI preferred, DI options come later)
         clearCharacterPlaySelection();
         lastOnAction!(actions[0]);
-      };
-    } else {
-      block.classList.add('company-block--clickable');
-      block.onclick = () => {
-        viewMode = 'single';
-        focusedCompanyId = company.id;
-        saveFocusedCompany(company, view.self.characters, view, cardPool);
-        renderCompanyViews(view, cardPool, lastOnAction!);
       };
     }
     overview.appendChild(block);
@@ -1508,17 +1491,47 @@ function renderAllCompaniesView(
   // Opponent companies
   for (const company of view.opponent.companies) {
     const block = renderCompanyBlock(company, view.opponent.characters, view, cardPool, 'opponent');
-    block.classList.add('company-block--clickable');
-    block.onclick = () => {
-      viewMode = 'single';
-      focusedCompanyId = company.id;
-      saveFocusedCompany(company, view.opponent.characters, view, cardPool);
-      renderCompanyViews(view, cardPool, lastOnAction!);
-    };
     overview.appendChild(block);
   }
 
   container.appendChild(overview);
+}
+
+/**
+ * Render a toggle icon on the right edge of the board.
+ * In single view it shows a grid icon (switch to all-companies).
+ * In all-companies view it shows a focus icon (return to the saved company).
+ */
+function renderViewToggle(
+  container: HTMLElement,
+  showingSingle: boolean,
+  view: PlayerView,
+  cardPool: Readonly<Record<string, CardDefinition>>,
+): void {
+  const btn = document.createElement('button');
+  btn.className = 'company-view-toggle';
+  btn.title = showingSingle ? 'Show all companies' : 'Return to focused company';
+  // Grid icon (4 squares) for "show all", crosshair for "focus on one"
+  btn.innerHTML = showingSingle
+    ? '<svg viewBox="0 0 24 24" width="24" height="24"><rect x="3" y="3" width="8" height="8" rx="1" fill="currentColor"/><rect x="13" y="3" width="8" height="8" rx="1" fill="currentColor"/><rect x="3" y="13" width="8" height="8" rx="1" fill="currentColor"/><rect x="13" y="13" width="8" height="8" rx="1" fill="currentColor"/></svg>'
+    : '<svg viewBox="0 0 24 24" width="24" height="24"><circle cx="12" cy="12" r="4" fill="none" stroke="currentColor" stroke-width="2"/><line x1="12" y1="2" x2="12" y2="7" stroke="currentColor" stroke-width="2"/><line x1="12" y1="17" x2="12" y2="22" stroke="currentColor" stroke-width="2"/><line x1="2" y1="12" x2="7" y2="12" stroke="currentColor" stroke-width="2"/><line x1="17" y1="12" x2="22" y2="12" stroke="currentColor" stroke-width="2"/></svg>';
+
+  btn.onclick = () => {
+    if (showingSingle) {
+      // Save current focus so we can restore it later
+      savedFocusedCompanyId = focusedCompanyId;
+      allCompaniesOverride = true;
+    } else {
+      // Restore the saved focused company
+      allCompaniesOverride = false;
+      if (savedFocusedCompanyId) {
+        focusedCompanyId = savedFocusedCompanyId;
+      }
+    }
+    renderCompanyViews(view, cardPool, lastOnAction!);
+  };
+
+  container.appendChild(btn);
 }
 
 // ---- Top-level entry point ----
@@ -1528,29 +1541,12 @@ let lastOnAction: ((action: GameAction) => void) | null = null;
 let lastView: PlayerView | null = null;
 let lastCardPool: Readonly<Record<string, CardDefinition>> | null = null;
 
-/** Install a click listener on visual-view so clicking empty space exits single view. */
-let emptySpaceListenerInstalled = false;
-function installEmptySpaceListener(): void {
-  if (emptySpaceListenerInstalled) return;
-  emptySpaceListenerInstalled = true;
-  const visualView = $('visual-view');
-  visualView.addEventListener('click', (e) => {
-    if (viewMode !== 'single' || !lastOnAction || !lastView || !lastCardPool) return;
-    // Stay in single view if the click landed on a card image or a clickable company block
-    const target = e.target as HTMLElement;
-    if (target instanceof HTMLImageElement) return;
-    if (target.closest('.company-block--clickable, .company-block--target')) return;
-    viewMode = 'all-companies';
-    clearFocusedCompany();
-    renderCompanyViews(lastView, lastCardPool, lastOnAction);
-  });
-}
 
 /** Reset all company view state. Call when leaving the game screen. */
 export function resetCompanyViews(): void {
-  viewMode = 'all-companies';
   focusedCompanyId = null;
-  restoredFromStorage = false;
+  savedFocusedCompanyId = null;
+  allCompaniesOverride = false;
   lastActivePlayer = null;
   lastOnAction = null;
   lastView = null;
@@ -1590,35 +1586,6 @@ export function renderCompanyViews(
   lastOnAction = onAction;
   lastView = view;
   lastCardPool = cardPool;
-  installEmptySpaceListener();
-
-  // Restore focused company from localStorage on first render
-  if (!restoredFromStorage) {
-    restoredFromStorage = true;
-    const savedName = localStorage.getItem(FOCUSED_COMPANY_KEY);
-    if (savedName) {
-      // Search self companies
-      for (const c of view.self.companies) {
-        if (getCompanyName(c, view.self.characters, view, cardPool) === savedName) {
-          viewMode = 'single';
-          focusedCompanyId = c.id;
-          break;
-        }
-      }
-      // Search opponent companies if not found
-      if (viewMode !== 'single') {
-        for (const c of view.opponent.companies) {
-          if (getCompanyName(c, view.opponent.characters, view, cardPool) === savedName) {
-            viewMode = 'single';
-            focusedCompanyId = c.id;
-            break;
-          }
-        }
-      }
-      // If not found, clear the stale entry
-      if (viewMode !== 'single') clearFocusedCompany();
-    }
-  }
 
   // Reset view state on active player change
   const activeId = view.activePlayer as string | null;
@@ -1672,12 +1639,21 @@ export function renderCompanyViews(
     }
   }
 
-  // Validate focused company still exists (check both players)
+  // Validate focused company still exists
   if (focusedCompanyId) {
     const exists =
       view.self.companies.some(c => c.id === focusedCompanyId) ||
       view.opponent.companies.some(c => c.id === focusedCompanyId);
     if (!exists) focusedCompanyId = null;
+  }
+
+  // Auto-focus the active player's first company when entering play phases
+  if (!focusedCompanyId && view.activePlayer !== null) {
+    const isSelfTurn = view.activePlayer === view.self.id;
+    const activeCompanies = isSelfTurn ? view.self.companies : view.opponent.companies;
+    if (activeCompanies.length > 0) {
+      focusedCompanyId = activeCompanies[0].id;
+    }
   }
 
   const board = $('visual-board');
@@ -1686,15 +1662,14 @@ export function renderCompanyViews(
   // Cards in play row (permanent resources, factions, etc.) — always at top
   renderCardsInPlayRow(board, view, cardPool);
 
-  // Force all-companies view when targeting for character play, item transfer, or company move
-  const effectiveMode = (getSelectedCharacterForPlay() || transferItemSourceId || companyMoveSourceId) ? 'all-companies' : viewMode;
+  const showingSingle = focusedCompanyId !== null && !allCompaniesOverride;
 
-  switch (effectiveMode) {
-    case 'single':
-      renderSingleView(board, view, cardPool);
-      break;
-    case 'all-companies':
-      renderAllCompaniesView(board, view, cardPool);
-      break;
+  if (showingSingle) {
+    renderSingleView(board, view, cardPool);
+  } else {
+    renderAllCompaniesView(board, view, cardPool);
   }
+
+  // Toggle icon on the right edge of the board
+  renderViewToggle(board, showingSingle, view, cardPool);
 }
