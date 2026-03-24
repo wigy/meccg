@@ -7,8 +7,6 @@ FIXES
 FEATS
 -----
 
-Remove all logging from web ui. Instead, in debug view, send all game server log entries to the client and print them into the log. Must have --dev enabled in both server and web client proxy.
-
 EPICS
 -----
 
