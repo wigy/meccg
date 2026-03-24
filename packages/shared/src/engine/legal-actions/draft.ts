@@ -41,11 +41,14 @@ export function draftActions(state: GameState, playerId: PlayerId): EvaluatedAct
   const opponentIndex = 1 - playerIndex;
   const opponentDrafted = new Set(
     state.phaseState.phase === 'setup' && state.phaseState.setupStep.step === 'character-draft'
-      ? state.phaseState.setupStep.draftState[opponentIndex].drafted.map(id => id as string)
+      ? state.phaseState.setupStep.draftState[opponentIndex].drafted.map(
+        instId => state.instanceMap[instId as string]?.definitionId as string,
+      )
       : [],
   );
-  const currentMind = draft.drafted.reduce((sum, defId) => {
-    const def = state.cardPool[defId as string];
+  const currentMind = draft.drafted.reduce((sum, instId) => {
+    const defId = state.instanceMap[instId as string]?.definitionId;
+    const def = defId ? state.cardPool[defId as string] : undefined;
     return sum + (isCharacterCard(def) && def.mind !== null ? def.mind : 0);
   }, 0);
 
@@ -53,27 +56,28 @@ export function draftActions(state: GameState, playerId: PlayerId): EvaluatedAct
 
   const evaluated: EvaluatedAction[] = [];
 
-  for (const charDefId of draft.pool) {
-    const charDef = state.cardPool[charDefId as string];
+  for (const charInstId of draft.pool) {
+    const charDefId = state.instanceMap[charInstId as string]?.definitionId;
+    const charDef = charDefId ? state.cardPool[charDefId as string] : undefined;
     const isChar = isCharacterCard(charDef);
     const mind = isChar ? charDef.mind : null;
 
     const context = {
       card: {
-        name: charDef?.name ?? (charDefId as string),
+        name: charDef?.name ?? (charInstId as string),
         isCharacter: isChar,
         mind,
         unique: isChar ? charDef.unique : false,
       },
       ctx: {
-        opponentHasCard: opponentDrafted.has(charDefId as string),
+        opponentHasCard: charDefId ? opponentDrafted.has(charDefId as string) : false,
         currentMind,
         mindLimit: GENERAL_INFLUENCE,
         projectedMind: currentMind + (mind !== null ? mind : 0),
       },
     };
 
-    const action = { type: 'draft-pick' as const, player: playerId, characterDefId: charDefId };
+    const action = { type: 'draft-pick' as const, player: playerId, characterInstanceId: charInstId };
     const result = evaluateAction(action, CHARACTER_DRAFT_RULES, context);
 
     logDetail(`${context.card.name}: ${result.viable ? 'eligible' : result.reason}`);

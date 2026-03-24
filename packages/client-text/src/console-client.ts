@@ -22,7 +22,7 @@
 
 import WebSocket from 'ws';
 import * as readline from 'readline';
-import type { PlayerId, ServerMessage, ClientMessage, CardDefinitionId, GameAction } from '@meccg/shared';
+import type { PlayerId, ServerMessage, ClientMessage, CardDefinitionId, CardInstanceId, GameAction } from '@meccg/shared';
 import {
   loadCardPool,
   formatPlayerView,
@@ -162,7 +162,9 @@ function connect(): void {
 
         if (msg.view.phaseState.phase === 'setup' && msg.view.phaseState.setupStep.step === 'character-draft') {
           const draft = msg.view.phaseState.setupStep;
-          const list = (ids: readonly CardDefinitionId[]) => formatCardList(ids, cardPool);
+          const resolve = (ids: readonly CardInstanceId[]) =>
+            ids.map(id => msg.view.visibleInstances[id as string] ?? id as unknown as CardDefinitionId);
+          const list = (ids: readonly CardInstanceId[]) => formatCardList(resolve(ids), cardPool);
           console.log(`Draft round: ${draft.round}`);
 
           const isSpectator = playerId === 'spectator';
@@ -172,9 +174,9 @@ function connect(): void {
             console.log(`${msg.view.opponent.name} pool: ${list(draft.draftState[1].pool)}`);
             console.log(`${msg.view.opponent.name} drafted: ${list(draft.draftState[1].drafted)}`);
           } else {
-            // Self pool has real card IDs; opponent pool has 'unknown-card' placeholders
-            const hasRealCards = (pool: readonly CardDefinitionId[]) =>
-              pool.length > 0 && (pool[0] as string) !== 'unknown-card';
+            // Self pool has real instance IDs; opponent pool has 'unknown-instance' placeholders
+            const hasRealCards = (pool: readonly CardInstanceId[]) =>
+              pool.length > 0 && (pool[0] as string) !== 'unknown-instance';
             const selfIdx = hasRealCards(draft.draftState[0].pool) ? 0
               : hasRealCards(draft.draftState[1].pool) ? 1
               : 0;

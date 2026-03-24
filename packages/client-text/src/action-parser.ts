@@ -14,7 +14,7 @@
  * so the caller can display a help message.
  */
 
-import type { GameAction, PlayerId, CardInstanceId, CardDefinitionId, CompanyId } from '@meccg/shared';
+import type { GameAction, PlayerId, CardInstanceId, CompanyId } from '@meccg/shared';
 
 /**
  * Parses a single line of user input into a {@link GameAction}.
@@ -45,7 +45,7 @@ export function parseAction(input: string, playerId: PlayerId): GameAction | nul
   switch (type) {
     case 'draft-pick':
       if (parts.length < 2) return null;
-      return { type: 'draft-pick', player: playerId, characterDefId: parts[1] as CardDefinitionId };
+      return { type: 'draft-pick', player: playerId, characterInstanceId: parts[1] as CardInstanceId };
 
     case 'draft-stop':
       return { type: 'draft-stop', player: playerId };

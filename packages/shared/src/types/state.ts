@@ -401,12 +401,12 @@ export enum SetupStep {
  * is set aside and neither player gets it. Players may stop drafting early.
  */
 export interface DraftPlayerState {
-  /** The character definition IDs available to draft from (up to 10). */
-  readonly pool: readonly CardDefinitionId[];
-  /** Character definition IDs successfully drafted so far. */
-  readonly drafted: readonly CardDefinitionId[];
+  /** Card instance IDs available to draft from (up to 10). */
+  readonly pool: readonly CardInstanceId[];
+  /** Card instance IDs successfully drafted so far. */
+  readonly drafted: readonly CardInstanceId[];
   /** The face-down pick for the current draft round, or null if not yet picked. */
-  readonly currentPick: CardDefinitionId | null;
+  readonly currentPick: CardInstanceId | null;
   /** Whether this player has voluntarily stopped drafting (they keep what they have). */
   readonly stopped: boolean;
 }
@@ -425,8 +425,8 @@ export interface ItemDraftPlayerState {
  * Per-player state during the character deck draft step.
  */
 export interface CharacterDeckDraftPlayerState {
-  /** Remaining pool characters available to add to the play deck. */
-  readonly remainingPool: readonly CardDefinitionId[];
+  /** Remaining pool character instance IDs available to add to the play deck. */
+  readonly remainingPool: readonly CardInstanceId[];
   /** Whether this player has finished adding characters. */
   readonly done: boolean;
 }
@@ -453,15 +453,15 @@ export type SetupStepState =
       readonly round: number;
       /** Draft state for each player (indexed by player order). */
       readonly draftState: readonly [DraftPlayerState, DraftPlayerState];
-      /** Character definition IDs set aside due to collisions. */
-      readonly setAside: readonly CardDefinitionId[];
+      /** Card instance IDs set aside due to collisions. */
+      readonly setAside: readonly CardInstanceId[];
     }
   | {
       readonly step: SetupStep.ItemDraft;
       /** Item assignment state for each player. */
       readonly itemDraftState: readonly [ItemDraftPlayerState, ItemDraftPlayerState];
-      /** Characters remaining in each player's draft pool. */
-      readonly remainingPool: readonly [readonly CardDefinitionId[], readonly CardDefinitionId[]];
+      /** Character instance IDs remaining in each player's draft pool. */
+      readonly remainingPool: readonly [readonly CardInstanceId[], readonly CardInstanceId[]];
     }
   | {
       readonly step: SetupStep.CharacterDeckDraft;

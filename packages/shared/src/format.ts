@@ -630,7 +630,7 @@ export function formatPlayerView(
     const step = view.phaseState.setupStep;
     if (step.step === 'character-draft') {
       const selfIdx = step.draftState[0].pool.length > 0
-        && (step.draftState[0].pool[0] as string) !== 'unknown-card' ? 0 : 1;
+        && (step.draftState[0].pool[0] as string) !== 'unknown-instance' ? 0 : 1;
       selfPoolSize = step.draftState[selfIdx].pool.length;
       opponentPoolSize = step.draftState[1 - selfIdx].pool.length;
     } else if (step.step === 'item-draft') {
@@ -640,7 +640,7 @@ export function formatPlayerView(
       opponentPoolSize = step.itemDraftState[1 - selfIdx].unassignedItems.length;
     } else if (step.step === 'character-deck-draft') {
       const selfIdx = step.deckDraftState[0].remainingPool.length > 0
-        && (step.deckDraftState[0].remainingPool[0] as string) !== 'unknown-card' ? 0 : 1;
+        && (step.deckDraftState[0].remainingPool[0] as string) !== 'unknown-instance' ? 0 : 1;
       selfPoolSize = step.deckDraftState[selfIdx].remainingPool.length;
       opponentPoolSize = step.deckDraftState[1 - selfIdx].remainingPool.length;
     }
@@ -813,13 +813,13 @@ export function describeAction(
 
   switch (action.type) {
     case 'draft-pick':
-      return `Draft ${defName(action.characterDefId)}`;
+      return `Draft ${instName(action.characterInstanceId)}`;
     case 'draft-stop':
       return 'Stop drafting and keep current selections';
     case 'assign-starting-item':
       return `Assign item ${defName(action.itemDefId)} to ${instName(action.characterInstanceId)}`;
     case 'add-character-to-deck':
-      return `Add ${defName(action.characterDefId)} to play deck`;
+      return `Add ${instName(action.characterInstanceId)} to play deck`;
     case 'shuffle-play-deck':
       return 'Shuffle play deck';
     case 'select-starting-site':

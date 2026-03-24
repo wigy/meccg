@@ -14,7 +14,7 @@ import {
   Phase,
   Alignment,
 } from '../index.js';
-import type { PlayerId, GameState, CardDefinitionId, GameAction } from '../index.js';
+import type { PlayerId, GameState, CardDefinitionId, CardInstanceId, GameAction } from '../index.js';
 import {
   ARAGORN, BILBO, FRODO, LEGOLAS, GIMLI, FARAMIR,
   EOWYN, BEREGOND, BERGIL, BARD_BOWMAN, ANBORN, SAM_GAMGEE,
@@ -118,6 +118,21 @@ export function runActions(
 }
 
 /**
+ * Find the draft pool instance ID for a given character definition.
+ * Looks up the pool in the current draft state for the given player.
+ */
+export function draftInstId(state: GameState, playerIndex: number, defId: CardDefinitionId): CardInstanceId {
+  if (state.phaseState.phase !== 'setup' || state.phaseState.setupStep.step !== 'character-draft') {
+    throw new Error('Not in character draft phase');
+  }
+  const draftPool = state.phaseState.setupStep.draftState[playerIndex].pool;
+  for (const instId of draftPool) {
+    if (state.instanceMap[instId as string]?.definitionId === defId) return instId;
+  }
+  throw new Error(`Definition ${defId} not found in player ${playerIndex}'s draft pool`);
+}
+
+/**
  * Run through the character draft: both players pick one character each,
  * then both stop. Returns the state after draft completion (in item-draft or later).
  */
@@ -127,8 +142,8 @@ export function runSimpleDraft(config?: GameConfig): GameState {
 
   // Both pick one character
   state = runActions(state, [
-    { type: 'draft-pick', player: PLAYER_1, characterDefId: ARAGORN },
-    { type: 'draft-pick', player: PLAYER_2, characterDefId: LEGOLAS },
+    { type: 'draft-pick', player: PLAYER_1, characterInstanceId: draftInstId(state, 0, ARAGORN) },
+    { type: 'draft-pick', player: PLAYER_2, characterInstanceId: draftInstId(state, 1, LEGOLAS) },
     { type: 'draft-stop', player: PLAYER_1 },
     { type: 'draft-stop', player: PLAYER_2 },
   ]);
@@ -228,7 +243,7 @@ export function runFullSetup(config?: GameConfig): GameState {
 // ─── Shared state builder ────────────────────────────────────────────────────
 
 import type {
-  CardInstanceId, CompanyId, CardInPlay, CharacterInPlay, Company,
+  CompanyId, CardInPlay, CharacterInPlay, Company,
   PlayerState, EffectiveStats,
 } from '../index.js';
 import { CardStatus, ZERO_EFFECTIVE_STATS, ZERO_MARSHALLING_POINTS } from '../index.js';

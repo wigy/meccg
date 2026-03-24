@@ -391,14 +391,16 @@ export class GameSession {
       if (roundAdvanced || draftEnded) {
         const pick0 = prevDraft.draftState[0].currentPick;
         const pick1 = prevDraft.draftState[1].currentPick;
-        const collision = pick0 !== null && pick1 !== null && pick0 === pick1;
+        const def0 = pick0 !== null ? this.state.instanceMap[pick0 as string]?.definitionId : null;
+        const def1 = pick1 !== null ? this.state.instanceMap[pick1 as string]?.definitionId : null;
+        const collision = def0 !== null && def1 !== null && def0 === def1;
 
         const revealMsg: ServerMessage = {
           type: 'draft-reveal',
           player1Name: this.state.players[0].name,
-          player1Pick: pick0,
+          player1Pick: def0,
           player2Name: this.state.players[1].name,
-          player2Pick: pick1,
+          player2Pick: def1,
           collision,
         };
 

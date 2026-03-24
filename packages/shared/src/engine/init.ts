@@ -134,8 +134,8 @@ export function createGame(
   const players: readonly [PlayerState, PlayerState] = [p0, p1];
 
   const draftState: [DraftPlayerState, DraftPlayerState] = [
-    { pool: [...config.players[0].draftPool], drafted: [], currentPick: null, stopped: false },
-    { pool: [...config.players[1].draftPool], drafted: [], currentPick: null, stopped: false },
+    { pool: config.players[0].draftPool.map(defId => mint(minter, defId)), drafted: [], currentPick: null, stopped: false },
+    { pool: config.players[1].draftPool.map(defId => mint(minter, defId)), drafted: [], currentPick: null, stopped: false },
   ];
 
   const gameId = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
@@ -243,7 +243,7 @@ function initPlayerPreDraft(
 export function applyDraftResults(
   state: GameState,
   draftState: readonly [DraftPlayerState, DraftPlayerState],
-  setAside: readonly CardDefinitionId[] = [],
+  setAside: readonly CardInstanceId[] = [],
 ): GameState {
   const minter: InstanceMinter = {
     instanceMap: { ...state.instanceMap } as Record<string, CardInstance>,
@@ -251,13 +251,18 @@ export function applyDraftResults(
     prefix: 'i',
   };
 
+  /** Resolve a draft instance ID to its definition ID via the instance map. */
+  const defOf = (instId: CardInstanceId): CardDefinitionId =>
+    state.instanceMap[instId as string].definitionId;
+
   const results = state.players.map((player, index) => {
     const drafted = draftState[index].drafted;
     const pool = draftState[index].pool;
 
     // Extract items from the pool (items are not drafted during character draft)
     const minorItemInstanceIds: CardInstanceId[] = [];
-    for (const defId of pool) {
+    for (const instId of pool) {
+      const defId = defOf(instId);
       if (isItemCard(state.cardPool[defId as string])) {
         minorItemInstanceIds.push(mint(minter, defId));
       }
@@ -267,10 +272,10 @@ export function applyDraftResults(
     const characters: Record<string, CharacterInPlay> = {};
     const characterInstanceIds: CardInstanceId[] = [];
 
-    for (const defId of drafted) {
-      const def = state.cardPool[defId as string];
+    for (const instId of drafted) {
+      const charDefId = defOf(instId);
+      const def = state.cardPool[charDefId as string];
       if (!isCharacterCard(def)) continue;
-      const charDefId = defId;
       const instanceId = mint(minter, charDefId);
       characterInstanceIds.push(instanceId);
       characters[instanceId as string] = {
@@ -313,9 +318,9 @@ export function applyDraftResults(
   const newPlayers: readonly [PlayerState, PlayerState] = [results[0].player, results[1].player];
   // Remaining pool for character deck draft: undrafted characters + set-aside characters
   // (items are excluded — already extracted above)
-  const remainingPool: readonly [readonly CardDefinitionId[], readonly CardDefinitionId[]] = [
-    [...draftState[0].pool.filter(id => !isItemCard(state.cardPool[id as string])), ...setAside],
-    [...draftState[1].pool.filter(id => !isItemCard(state.cardPool[id as string])), ...setAside],
+  const remainingPool: readonly [readonly CardInstanceId[], readonly CardInstanceId[]] = [
+    [...draftState[0].pool.filter(id => !isItemCard(state.cardPool[defOf(id) as string])), ...setAside],
+    [...draftState[1].pool.filter(id => !isItemCard(state.cardPool[defOf(id) as string])), ...setAside],
   ];
   const itemDraftState: readonly [ItemDraftPlayerState, ItemDraftPlayerState] = [
     { unassignedItems: results[0].unassignedItems, done: results[0].unassignedItems.length === 0 },
@@ -344,7 +349,7 @@ export function applyDraftResults(
  */
 export function transitionAfterItemDraft(
   state: GameState,
-  remainingPool: readonly [readonly CardDefinitionId[], readonly CardDefinitionId[]],
+  remainingPool: readonly [readonly CardInstanceId[], readonly CardInstanceId[]],
 ): GameState {
   if (remainingPool[0].length > 0 || remainingPool[1].length > 0) {
     return {

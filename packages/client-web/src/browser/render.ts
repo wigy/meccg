@@ -23,8 +23,10 @@ function findNonViableReason(
   for (const ea of evaluated) {
     if (ea.viable) continue;
     const a = ea.action;
-    if (a.type === 'draft-pick' && a.characterDefId === defId) return ea.reason;
-    if (a.type === 'add-character-to-deck' && a.characterDefId === defId) return ea.reason;
+    if (a.type === 'draft-pick' && visibleInstances
+      && visibleInstances[a.characterInstanceId as string] === defId) return ea.reason;
+    if (a.type === 'add-character-to-deck' && visibleInstances
+      && visibleInstances[a.characterInstanceId as string] === defId) return ea.reason;
     if (a.type === 'assign-starting-item' && a.itemDefId === defId) return ea.reason;
     if (a.type === 'select-starting-site' && visibleInstances
       && visibleInstances[a.siteInstanceId as string] === defId) return ea.reason;
@@ -114,37 +116,6 @@ function reRenderCharacterPlay(): void {
 }
 
 
-/**
- * Create an absolutely-positioned clone of a card and fly it toward a target element.
- * The clone lives outside the hand arc so server state updates can't destroy it mid-flight.
- */
-function flyCardTo(source: HTMLElement, target: HTMLElement, onDone: () => void): void {
-  const sourceRect = source.getBoundingClientRect();
-  const targetRect = target.getBoundingClientRect();
-
-  const clone = source.cloneNode(true) as HTMLImageElement;
-  clone.className = 'item-fly-clone';
-  clone.style.position = 'fixed';
-  clone.style.left = `${sourceRect.left}px`;
-  clone.style.top = `${sourceRect.top}px`;
-  clone.style.width = `${sourceRect.width}px`;
-  clone.style.height = `${sourceRect.height}px`;
-  clone.style.zIndex = '1000';
-  clone.style.pointerEvents = 'none';
-
-  // Calculate flight vector
-  const dx = targetRect.left + targetRect.width / 2 - (sourceRect.left + sourceRect.width / 2);
-  const dy = targetRect.top + targetRect.height / 2 - (sourceRect.top + sourceRect.height / 2);
-  clone.style.setProperty('--fly-x', `${dx}px`);
-  clone.style.setProperty('--fly-y', `${dy}px`);
-
-  document.body.appendChild(clone);
-
-  clone.addEventListener('animationend', () => {
-    clone.remove();
-    onDone();
-  }, { once: true });
-}
 
 
 /**
@@ -405,7 +376,9 @@ export function renderDraft(view: PlayerView, cardPool: Readonly<Record<string, 
   section.classList.remove('hidden');
 
   const draft = view.phaseState.setupStep;
-  const list = (ids: readonly CardDefinitionId[]) => formatCardList(ids, cardPool);
+  const resolve = (ids: readonly CardInstanceId[]) =>
+    ids.map(id => view.visibleInstances[id as string] ?? id as unknown as CardDefinitionId);
+  const list = (ids: readonly CardInstanceId[]) => formatCardList(resolve(ids), cardPool);
 
   const lines: string[] = [];
   lines.push(`Draft round: ${draft.round}`);
@@ -621,34 +594,49 @@ export function renderActions(
 }
 
 /** Get the list of card definition IDs to display in the hand arc. */
-function getHandCards(view: PlayerView): CardDefinitionId[] {
+/** A card in the hand arc with definition and optional instance ID. */
+interface HandCard {
+  defId: CardDefinitionId;
+  instanceId: CardInstanceId | null;
+}
+
+function getHandCards(view: PlayerView): HandCard[] {
   // During character draft, show the player's draft pool instead of hand
   if (view.phaseState.phase === 'setup' && view.phaseState.setupStep.step === 'character-draft') {
     const draft = view.phaseState.setupStep;
     const selfIdx = findSelfIndex(draft.draftState[0].pool, draft.draftState[1].pool);
-    return [...draft.draftState[selfIdx].pool];
+    return draft.draftState[selfIdx].pool.map(instId => {
+      const defId = view.visibleInstances[instId as string];
+      return { defId: defId ?? instId as unknown as CardDefinitionId, instanceId: instId };
+    });
   }
   // During character deck draft, show remaining pool characters
   if (view.phaseState.phase === 'setup' && view.phaseState.setupStep.step === 'character-deck-draft') {
     const deckDraft = view.phaseState.setupStep.deckDraftState;
     const selfIdx = findSelfIndex(deckDraft[0].remainingPool, deckDraft[1].remainingPool);
-    return [...deckDraft[selfIdx].remainingPool];
+    return deckDraft[selfIdx].remainingPool.map(instId => {
+      const defId = view.visibleInstances[instId as string];
+      return { defId: defId ?? instId as unknown as CardDefinitionId, instanceId: instId };
+    });
   }
   // During item draft, show remaining pool (undrafted characters) + unassigned items
   if (view.phaseState.phase === 'setup' && view.phaseState.setupStep.step === 'item-draft') {
-    const step = view.phaseState.setupStep;
-    const cards: CardDefinitionId[] = [];
+    const cards: HandCard[] = [];
 
+    const step = view.phaseState.setupStep;
     // Remaining pool: undrafted characters (shown dimmed as non-items)
     const selfPoolIdx = findSelfIndex(step.remainingPool[0], step.remainingPool[1]);
-    cards.push(...step.remainingPool[selfPoolIdx]);
+    for (const instId of step.remainingPool[selfPoolIdx]) {
+      const defId = view.visibleInstances[instId as string];
+      if (defId) cards.push({ defId, instanceId: instId });
+    }
 
     // Unassigned items (assigned items are removed from pool)
     const selfItemIdx = step.itemDraftState[0].unassignedItems.length > 0
       && view.visibleInstances[step.itemDraftState[0].unassignedItems[0] as string] ? 0 : 1;
     for (const instId of step.itemDraftState[selfItemIdx].unassignedItems) {
       const defId = view.visibleInstances[instId as string];
-      if (defId) cards.push(defId);
+      if (defId) cards.push({ defId, instanceId: instId });
     }
 
     return cards;
@@ -663,7 +651,7 @@ function getHandCards(view: PlayerView): CardDefinitionId[] {
       || view.phaseState.setupStep.step === 'deck-shuffle')) {
     return [];
   }
-  return view.self.hand.map(c => c.definitionId);
+  return view.self.hand.map(c => ({ defId: c.definitionId, instanceId: c.instanceId }));
 }
 
 /**
@@ -804,51 +792,6 @@ function fillDeckPile(el: HTMLElement, deckSize: number, backImage = '/images/ca
   el.appendChild(wrapper);
 }
 
-/**
- * Animate a deck shuffle: count down to 0, then back up, redrawing each step.
- * Returns a promise that resolves when the animation completes.
- */
-function animateDeckShuffle(el: HTMLElement, deckSize: number, backImage = '/images/card-back.jpg'): Promise<void> {
-  return new Promise((resolve) => {
-    const stepDelay = Math.max(20, Math.min(60, 400 / deckSize));
-    let current = deckSize;
-    let direction: 'down' | 'up' = 'down';
-
-    function step(): void {
-      fillDeckPile(el, current, backImage);
-
-      if (direction === 'down') {
-        current -= 4;
-        if (current <= 0) {
-          current = 0;
-          fillDeckPile(el, 0, backImage);
-          direction = 'up';
-        }
-      } else {
-        current += 4;
-        if (current >= deckSize) {
-          current = deckSize;
-          fillDeckPile(el, deckSize, backImage);
-          resolve();
-          return;
-        }
-      }
-      setTimeout(step, stepDelay);
-    }
-
-    step();
-  });
-}
-
-/** Run shuffle animation on both players' deck piles, then invoke callback. */
-export function animateShuffleThenAct(deckSizes: { self: number; opponent: number }, onDone: () => void): void {
-  const selfEl = document.getElementById('self-deck-pile');
-  const oppEl = document.getElementById('opponent-deck-pile');
-  const promises: Promise<void>[] = [];
-  if (selfEl && deckSizes.self > 0) promises.push(animateDeckShuffle(selfEl, deckSizes.self));
-  if (oppEl && deckSizes.opponent > 0) promises.push(animateDeckShuffle(oppEl, deckSizes.opponent));
-  void Promise.all(promises).then(onDone);
-}
 
 /** Reset all deck piles to empty (dimmed placeholder with 0). */
 export function resetDeckPiles(): void {
@@ -1033,15 +976,17 @@ export function clearSiteSelection(): void {
 }
 
 /** Check whether a card list contains real card IDs (not 'unknown-card' placeholders). */
-function hasRealCards(cards: readonly CardDefinitionId[]): boolean {
-  return cards.length > 0 && (cards[0] as string) !== 'unknown-card';
+function hasRealCards(cards: readonly { toString(): string }[]): boolean {
+  return cards.length > 0
+    && (cards[0] as string) !== 'unknown-card'
+    && (cards[0] as string) !== 'unknown-instance';
 }
 
 /**
  * Given two card lists (one per player), return the index whose cards are real
- * (not redacted to 'unknown-card'). Defaults to 0 when both are empty.
+ * (not redacted to placeholders). Defaults to 0 when both are empty.
  */
-function findSelfIndex(a: readonly CardDefinitionId[], b: readonly CardDefinitionId[]): number {
+function findSelfIndex(a: readonly { toString(): string }[], b: readonly { toString(): string }[]): number {
   return hasRealCards(a) ? 0 : hasRealCards(b) ? 1 : 0;
 }
 
@@ -1057,8 +1002,10 @@ function findCardAction(
   visibleInstances?: Readonly<Record<string, CardDefinitionId>>,
 ): GameAction | null {
   for (const action of legalActions) {
-    if (action.type === 'draft-pick' && action.characterDefId === defId) return action;
-    if (action.type === 'add-character-to-deck' && action.characterDefId === defId) return action;
+    if (action.type === 'draft-pick' && visibleInstances
+      && visibleInstances[action.characterInstanceId as string] === defId) return action;
+    if (action.type === 'add-character-to-deck' && visibleInstances
+      && visibleInstances[action.characterInstanceId as string] === defId) return action;
     if (action.type === 'select-starting-site' && visibleInstances
       && visibleInstances[action.siteInstanceId as string] === defId) return action;
     if (action.type === 'play-permanent-event' && visibleInstances
@@ -1203,17 +1150,7 @@ export function renderPassButton(view: PlayerView, onAction: (action: GameAction
 
   btn.textContent = label;
   btn.classList.remove('hidden');
-  if (passAction.type === 'shuffle-play-deck') {
-    btn.onclick = () => {
-      btn.classList.add('hidden');
-      animateShuffleThenAct(
-        { self: view.self.playDeckSize, opponent: view.opponent.playDeckSize },
-        () => onAction(passAction),
-      );
-    };
-  } else {
-    btn.onclick = () => onAction(passAction);
-  }
+  btn.onclick = () => onAction(passAction);
 }
 
 /** Create an img element for a card with standard attributes. */
@@ -1256,7 +1193,7 @@ function renderCharactersWithItems(
     const char = characters[charInstId as string];
     const hasItems = char && char.items.length > 0;
 
-    const img = createCardImage(defId as string, def, imgPath);
+    const img = createCardImage(defId as string, def, imgPath, 'drafted-card', charInstId as string);
     if (!hasItems) {
       el.appendChild(img);
       continue;
@@ -1335,7 +1272,7 @@ function renderPlacementCompanies(
       if (group) group.className = 'drafted-card-group';
 
       const img = createCardImage(defId as string, def, imgPath,
-        placeAction ? 'drafted-card drafted-card-selectable' : 'drafted-card');
+        placeAction ? 'drafted-card drafted-card-selectable' : 'drafted-card', charInstId as string);
 
       if (group && char) {
         group.appendChild(img);
@@ -1347,19 +1284,7 @@ function renderPlacementCompanies(
 
       if (placeAction) {
         img.style.cursor = 'pointer';
-        // Determine slide direction: right if target company is to the right, left otherwise
-        const targetIdx = view.self.companies.findIndex(
-          c => (c.id as string) === ((placeAction as GameAction & { companyId: unknown }).companyId as string),
-        );
-        const slideRight = targetIdx > i;
-        const animEl = group ?? img;
-        img.addEventListener('click', () => {
-          animEl.classList.add(slideRight ? 'placement-slide-right' : 'placement-slide-left');
-          let sent = false;
-          const send = () => { if (!sent) { sent = true; onAction(placeAction); } };
-          setTimeout(send, 300);
-          animEl.addEventListener('animationend', send, { once: true });
-        });
+        img.addEventListener('click', () => onAction(placeAction));
       }
     }
   }
@@ -1375,12 +1300,17 @@ function renderSitesAndCharacters(
   cardPool: Readonly<Record<string, CardDefinition>>,
   separateSites = false,
 ): void {
-  const siteDefIds = siteInstIds
-    .map(id => view.visibleInstances[id as string])
-    .filter((id): id is CardDefinitionId => id !== undefined);
-  renderCardRow(el, siteDefIds, cardPool);
+  for (const instId of siteInstIds) {
+    const defId = view.visibleInstances[instId as string];
+    if (!defId) continue;
+    const def = cardPool[defId as string];
+    if (!def) continue;
+    const imgPath = cardImageProxyPath(def);
+    if (!imgPath) continue;
+    el.appendChild(createCardImage(defId as string, def, imgPath, 'drafted-card', instId as string));
+  }
 
-  if (separateSites && siteDefIds.length > 0 && charInstIds.length > 0) {
+  if (separateSites && siteInstIds.length > 0 && charInstIds.length > 0) {
     const spacer = document.createElement('div');
     spacer.className = 'drafted-spacer';
     el.appendChild(spacer);
@@ -1424,24 +1354,14 @@ function renderItemDraftTargets(
     if (group) group.className = 'drafted-card-group';
 
     const img = createCardImage(defId as string, def, imgPath,
-      targetAction ? 'drafted-card drafted-card-target' : 'drafted-card');
+      targetAction ? 'drafted-card drafted-card-target' : 'drafted-card', charInstId as string);
 
     if (targetAction && onAction) {
       img.style.cursor = 'pointer';
       img.addEventListener('click', () => {
-        // Find the selected item card in the hand arc
-        const arc = document.getElementById('hand-arc');
-        const sourceCard = arc?.querySelector<HTMLElement>(
-          `[data-def-id="${selectedItemDefId as string}"]`,
-        );
         selectedItemDefId = null;
         setTargetingInstruction(null);
-
-        if (sourceCard) {
-          flyCardTo(sourceCard, img, () => onAction(targetAction));
-        } else {
-          onAction(targetAction);
-        }
+        onAction(targetAction);
       });
     }
 
@@ -1480,7 +1400,11 @@ export function renderDrafted(
     const selfIdx = findSelfIndex(draft.draftState[0].pool, draft.draftState[1].pool);
     const oppIdx = 1 - selfIdx;
 
-    renderCardRow(selfEl, draft.draftState[selfIdx].drafted, cardPool);
+    /** Resolve draft instance IDs to definition IDs via visible instances. */
+    const resolveDraft = (ids: readonly CardInstanceId[]): CardDefinitionId[] =>
+      ids.map(id => view.visibleInstances[id as string]).filter((d): d is CardDefinitionId => d !== undefined);
+
+    renderCardRow(selfEl, resolveDraft(draft.draftState[selfIdx].drafted), cardPool);
 
     // Show face-down pick if player has picked this round
     if (draft.draftState[selfIdx].currentPick !== null) {
@@ -1488,7 +1412,7 @@ export function renderDrafted(
     }
 
     // Show remaining GI for self
-    const selfMind = sumDraftedMind(draft.draftState[selfIdx].drafted, cardPool);
+    const selfMind = sumDraftedMind(resolveDraft(draft.draftState[selfIdx].drafted), cardPool);
     if (draft.draftState[selfIdx].drafted.length > 0) {
       const badge = document.createElement('div');
       badge.className = 'mind-total';
@@ -1496,7 +1420,7 @@ export function renderDrafted(
       selfEl.appendChild(badge);
     }
 
-    renderCardRow(oppEl, draft.draftState[oppIdx].drafted, cardPool);
+    renderCardRow(oppEl, resolveDraft(draft.draftState[oppIdx].drafted), cardPool);
 
     // Show face-down pick if opponent has picked this round
     if (draft.draftState[oppIdx].currentPick !== null) {
@@ -1504,7 +1428,7 @@ export function renderDrafted(
     }
 
     // Show remaining GI for opponent
-    const oppMind = sumDraftedMind(draft.draftState[oppIdx].drafted, cardPool);
+    const oppMind = sumDraftedMind(resolveDraft(draft.draftState[oppIdx].drafted), cardPool);
     if (draft.draftState[oppIdx].drafted.length > 0) {
       const badge = document.createElement('div');
       badge.className = 'mind-total mind-total-opponent';
@@ -1641,12 +1565,12 @@ export function renderHand(
   }
 
   for (let i = 0; i < total; i++) {
-    const def = cardPool[cards[i] as string];
+    const { defId: cardDefId, instanceId: cardInstanceId } = cards[i];
+    const def = cardPool[cardDefId as string];
     if (!def) continue;
     const imgPath = cardImageProxyPath(def);
     if (!imgPath) continue;
 
-    const cardDefId = cards[i];
     const action = findCardAction(cardDefId, viable, view.visibleInstances);
     const isItemDraft = isItemDraftCard(cardDefId, viable);
     const isPlayChar = isPlayCharacterCard(cardDefId, viable, view.visibleInstances);
@@ -1655,8 +1579,6 @@ export function renderHand(
       : undefined;
     const isSelected = selectedItemDefId === cardDefId;
 
-    // Find the instance ID for this card (needed for play-character selection)
-    const cardInstanceId = view.self.hand.find(c => c.definitionId === cardDefId)?.instanceId ?? null;
     const isCharSelected = selectedCharacterInstanceId !== null
       && cardInstanceId !== null
       && selectedCharacterInstanceId === cardInstanceId;
@@ -1665,6 +1587,7 @@ export function renderHand(
     img.src = imgPath;
     img.alt = def.name;
     img.dataset.cardId = cardDefId as string;
+    if (cardInstanceId) img.dataset.instanceId = cardInstanceId as string;
     img.style.setProperty('--i', String(i));
 
     if (isItemDraft) {
@@ -1700,15 +1623,7 @@ export function renderHand(
     } else if (action) {
       img.className = 'hand-card hand-card-playable';
       if (onAction) {
-        img.addEventListener('click', () => {
-          const rect = img.getBoundingClientRect();
-          const dx = window.innerWidth / 2 - (rect.left + rect.width / 2);
-          const dy = window.innerHeight * 0.35 - (rect.top + rect.height / 2);
-          img.style.setProperty('--fly-x', `${dx}px`);
-          img.style.setProperty('--fly-y', `${dy}px`);
-          img.className = 'hand-card hand-card-played';
-          img.addEventListener('animationend', () => onAction(action), { once: true });
-        });
+        img.addEventListener('click', () => onAction(action));
       }
     } else {
       img.className = 'hand-card hand-card-dimmed';
@@ -1725,13 +1640,14 @@ function getOpponentCards(view: PlayerView): { cards: CardDefinitionId[]; hidden
   if (view.phaseState.phase === 'setup' && view.phaseState.setupStep.step === 'character-draft') {
     const draft = view.phaseState.setupStep;
     const oppIdx = 1 - findSelfIndex(draft.draftState[0].pool, draft.draftState[1].pool);
-    return { cards: [...draft.draftState[oppIdx].pool], hidden: true };
+    // Opponent pool is redacted — create placeholder array of the right length for card backs
+    return { cards: Array.from({ length: draft.draftState[oppIdx].pool.length }, () => 'unknown-card' as CardDefinitionId), hidden: true };
   }
   // During character deck draft, show opponent's remaining pool as card backs
   if (view.phaseState.phase === 'setup' && view.phaseState.setupStep.step === 'character-deck-draft') {
     const deckDraft = view.phaseState.setupStep.deckDraftState;
     const oppIdx = 1 - findSelfIndex(deckDraft[0].remainingPool, deckDraft[1].remainingPool);
-    return { cards: [...deckDraft[oppIdx].remainingPool], hidden: true };
+    return { cards: Array.from({ length: deckDraft[oppIdx].remainingPool.length }, () => 'unknown-card' as CardDefinitionId), hidden: true };
   }
   // During character placement and deck shuffle, no hand cards for either player
   if (view.phaseState.phase === 'setup'

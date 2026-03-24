@@ -171,7 +171,7 @@ function renderCharacterColumn(
 
   const hasFollowers = charMap != null && char.followers.length > 0;
   const hasAttachments = char.items.length > 0 || char.allies.length > 0 || hasFollowers;
-  const img = createCardImage(char.definitionId as string, def, imgPath, 'company-card');
+  const img = createCardImage(char.definitionId as string, def, imgPath, 'company-card', char.instanceId as string);
   if (hasAttachments) img.classList.add('company-card--faded');
   if (char.status === CardStatus.Tapped) {
     img.classList.add('company-card--tapped');
@@ -228,7 +228,7 @@ function renderCharacterColumn(
       if (!attDef) continue;
       const attImg = cardImageProxyPath(attDef);
       if (!attImg) continue;
-      const attEl = createCardImage(att.definitionId as string, attDef, attImg, 'company-card company-card--item');
+      const attEl = createCardImage(att.definitionId as string, attDef, attImg, 'company-card company-card--item', att.instanceId as string);
       if (att.status === CardStatus.Tapped) {
         attEl.classList.add('company-card--tapped');
       }
@@ -273,7 +273,7 @@ function renderCharacterColumn(
         const followerHasItems = follower.items.length > 0 || follower.allies.length > 0;
         const fWrap = document.createElement('div');
         fWrap.className = 'character-card-wrap';
-        const fEl = createCardImage(follower.definitionId as string, fDef, fImg, 'company-card company-card--follower');
+        const fEl = createCardImage(follower.definitionId as string, fDef, fImg, 'company-card company-card--follower', follower.instanceId as string);
         if (followerHasItems) fEl.classList.add('company-card--faded');
         if (follower.status === CardStatus.Tapped) {
           fEl.classList.add('company-card--tapped');
@@ -321,7 +321,7 @@ function renderCharacterColumn(
             if (!fAttDef) continue;
             const fAttImg = cardImageProxyPath(fAttDef);
             if (!fAttImg) continue;
-            const fAttEl = createCardImage(fAtt.definitionId as string, fAttDef, fAttImg, 'company-card company-card--item');
+            const fAttEl = createCardImage(fAtt.definitionId as string, fAttDef, fAttImg, 'company-card company-card--item', fAtt.instanceId as string);
             if (fAtt.status === CardStatus.Tapped) {
               fAttEl.classList.add('company-card--tapped');
             }
@@ -438,7 +438,7 @@ function renderSiteArea(
           let cls = 'company-card company-card--site';
           if (options?.hasLegalMovement) cls += ' company-card--movable';
           if (!siteOwned) cls += ' company-card--site-ghost';
-          const img = createCardImage(siteDefId as string, siteDef, imgPath, cls);
+          const img = createCardImage(siteDefId as string, siteDef, imgPath, cls, company.currentSite.instanceId);
           if (options?.hasLegalMovement && options.onAction) {
             const companyId = company.id as string;
             const onAction = options.onAction;
@@ -511,7 +511,7 @@ function renderSiteArea(
         if (!regionDef) continue;
         const imgPath = cardImageProxyPath(regionDef);
         if (!imgPath) continue;
-        pathEl.appendChild(createCardImage(regionDefId as string, regionDef, imgPath, 'company-card company-card--region'));
+        pathEl.appendChild(createCardImage(regionDefId as string, regionDef, imgPath, 'company-card company-card--region', regionInstId as string));
       }
       area.appendChild(pathEl);
     } else {
@@ -536,7 +536,7 @@ function renderSiteArea(
           const cls = cancelAction
             ? 'company-card company-card--site company-card--cancelable'
             : 'company-card company-card--site';
-          const img = createCardImage(destDefId as string, destDef, imgPath, cls);
+          const img = createCardImage(destDefId as string, destDef, imgPath, cls, company.destinationSite as string);
           if (cancelAction && options?.onAction) {
             const onAction = options.onAction;
             img.addEventListener('click', (e) => {
@@ -561,7 +561,7 @@ function renderSiteArea(
     const revealedDef = revealedDefId ? cardPool[revealedDefId as string] : undefined;
     const revealedImg = revealedDef ? cardImageProxyPath(revealedDef) : undefined;
     if (revealedDefId && revealedDef && revealedImg) {
-      area.appendChild(createCardImage(revealedDefId as string, revealedDef, revealedImg, 'company-card company-card--site'));
+      area.appendChild(createCardImage(revealedDefId as string, revealedDef, revealedImg, 'company-card company-card--site', revealedSite as string));
     } else {
       const back = document.createElement('img');
       back.src = '/images/site-back.jpg';
@@ -1302,7 +1302,7 @@ function renderDummyCompanyBlock(
     area.className = 'company-site-area';
     const imgPath = cardImageProxyPath(siteDef);
     if (imgPath) {
-      area.appendChild(createCardImage(siteDefId as string, siteDef, imgPath, 'company-card company-card--site'));
+      area.appendChild(createCardImage(siteDefId as string, siteDef, imgPath, 'company-card company-card--site', siteInstanceId as string));
     }
     row.appendChild(area);
   }
@@ -1339,7 +1339,7 @@ function renderCardsInPlayRow(
       if (!def) continue;
       const imgPath = cardImageProxyPath(def);
       if (!imgPath) continue;
-      const img = createCardImage(card.definitionId as string, def, imgPath, 'company-card');
+      const img = createCardImage(card.definitionId as string, def, imgPath, 'company-card', card.instanceId as string);
       if (card.status === CardStatus.Tapped) img.classList.add('company-card--tapped');
       group.appendChild(img);
     }

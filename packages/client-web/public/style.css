@@ -572,22 +572,6 @@ h2 {
   flex-shrink: 0;
 }
 
-.placement-slide-right {
-  animation: slide-right 0.3s ease-in forwards;
-}
-
-.placement-slide-left {
-  animation: slide-left 0.3s ease-in forwards;
-}
-
-@keyframes slide-right {
-  to { transform: translateX(10rem); opacity: 0; }
-}
-
-@keyframes slide-left {
-  to { transform: translateX(-10rem); opacity: 0; }
-}
-
 .drafted-card-facedown {
   opacity: 0.8;
   box-shadow:
@@ -1127,26 +1111,6 @@ h2 {
   position: relative;
 }
 
-.hand-card-played {
-  animation: card-played 0.5s ease-out forwards;
-}
-
-.item-fly-clone {
-  animation: item-fly 0.5s ease-in-out forwards;
-  border-radius: 8px;
-}
-
-@keyframes item-fly {
-  0% { transform: scale(1); filter: brightness(1); opacity: 1; }
-  20% { transform: scale(1.1); filter: brightness(1.5); }
-  100% { transform: translate(var(--fly-x, 0), var(--fly-y, 0)) scale(0.6); filter: brightness(0.8); opacity: 0; }
-}
-
-@keyframes card-played {
-  0% { filter: brightness(1); opacity: 1; }
-  20% { filter: brightness(2); }
-  100% { filter: brightness(0.8); opacity: 0; transform: translate(var(--fly-x, 0), var(--fly-y, -40vh)) scale(0.5); }
-}
 
 .hand-card-dimmed {
   filter: brightness(0.4);
@@ -1162,23 +1126,11 @@ h2 {
 }
 
 .hand-card-selected {
-  animation: item-glow-in 0.5s ease-out forwards;
+  box-shadow:
+    0 0 16px rgba(var(--color-selected), 1),
+    0 0 40px rgba(var(--color-selected), 0.7),
+    0 4px 16px rgba(0, 0, 0, 0.7);
   z-index: 15;
-}
-
-@keyframes item-glow-in {
-  from {
-    box-shadow:
-      0 0 12px rgba(var(--color-selectable), 1),
-      0 0 30px rgba(var(--color-selectable), 0.7),
-      0 4px 16px rgba(0, 0, 0, 0.7);
-  }
-  to {
-    box-shadow:
-      0 0 16px rgba(var(--color-selected), 1),
-      0 0 40px rgba(var(--color-selected), 0.7),
-      0 4px 16px rgba(0, 0, 0, 0.7);
-  }
 }
 
 .hand-card-selected:hover {
@@ -1189,38 +1141,20 @@ h2 {
 }
 
 .drafted-card-target {
-  animation: target-glow-in 0.5s ease-out forwards;
+  box-shadow:
+    0 0 16px rgba(var(--color-target), 1),
+    0 0 40px rgba(var(--color-target), 0.6),
+    0 4px 16px rgba(0, 0, 0, 0.7);
   cursor: pointer;
-}
-
-@keyframes target-glow-in {
-  from {
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.7);
-  }
-  to {
-    box-shadow:
-      0 0 16px rgba(var(--color-target), 1),
-      0 0 40px rgba(var(--color-target), 0.6),
-      0 4px 16px rgba(0, 0, 0, 0.7);
-  }
 }
 
 
 .drafted-card-selectable {
-  animation: selectable-glow-in 0.5s ease-out forwards;
+  box-shadow:
+    0 0 16px rgba(var(--color-selectable), 1),
+    0 0 40px rgba(var(--color-selectable), 0.6),
+    0 4px 16px rgba(0, 0, 0, 0.7);
   cursor: pointer;
-}
-
-@keyframes selectable-glow-in {
-  from {
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.7);
-  }
-  to {
-    box-shadow:
-      0 0 16px rgba(var(--color-selectable), 1),
-      0 0 40px rgba(var(--color-selectable), 0.6),
-      0 4px 16px rgba(0, 0, 0, 0.7);
-  }
 }
 
 
@@ -1457,7 +1391,10 @@ h2 {
 
 .company-block--target {
   cursor: pointer;
-  animation: company-target-glow 0.5s ease-out forwards;
+  background: rgba(var(--color-target), 0.1);
+  box-shadow:
+    0 0 12px rgba(var(--color-target), 0.6),
+    0 0 30px rgba(var(--color-target), 0.3);
 }
 
 .company-block--target:hover {
@@ -1465,19 +1402,6 @@ h2 {
   box-shadow:
     0 0 16px rgba(var(--color-target), 0.8),
     0 0 40px rgba(var(--color-target), 0.4);
-}
-
-@keyframes company-target-glow {
-  from {
-    background: rgba(0, 0, 0, 0.2);
-    box-shadow: none;
-  }
-  to {
-    background: rgba(var(--color-target), 0.1);
-    box-shadow:
-      0 0 12px rgba(var(--color-target), 0.6),
-      0 0 30px rgba(var(--color-target), 0.3);
-  }
 }
 
 .company-name {

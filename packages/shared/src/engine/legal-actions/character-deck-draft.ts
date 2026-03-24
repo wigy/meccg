@@ -46,13 +46,14 @@ export function characterDeckDraftActions(state: GameState, playerId: PlayerId):
 
   const evaluated: EvaluatedAction[] = [];
 
-  for (const charDefId of deckDraft.remainingPool) {
-    const def = state.cardPool[charDefId as string];
+  for (const charInstId of deckDraft.remainingPool) {
+    const charDefId = state.instanceMap[charInstId as string]?.definitionId;
+    const def = charDefId ? state.cardPool[charDefId as string] : undefined;
     const isChar = isCharacterCard(def);
 
     const context = {
       card: {
-        name: def?.name ?? (charDefId as string),
+        name: def?.name ?? (charInstId as string),
         isCharacter: isChar,
         isAvatar: isChar && def.mind === null,
       },
@@ -62,7 +63,7 @@ export function characterDeckDraftActions(state: GameState, playerId: PlayerId):
       },
     };
 
-    const action = { type: 'add-character-to-deck' as const, player: playerId, characterDefId: charDefId };
+    const action = { type: 'add-character-to-deck' as const, player: playerId, characterInstanceId: charInstId };
     const result = evaluateAction(action, CHARACTER_DECK_DRAFT_RULES, context);
 
     logDetail(`${context.card.name}: ${result.viable ? 'eligible' : result.reason}`);

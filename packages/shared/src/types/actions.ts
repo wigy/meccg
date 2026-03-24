@@ -27,8 +27,8 @@ export interface DraftPickAction {
   readonly type: 'draft-pick';
   /** The player making the pick. */
   readonly player: PlayerId;
-  /** The character definition to draft from the player's pool. */
-  readonly characterDefId: CardDefinitionId;
+  /** The character instance to draft from the player's pool. */
+  readonly characterInstanceId: CardInstanceId;
 }
 
 /**
@@ -75,8 +75,8 @@ export interface AddCharacterToDeckAction {
   readonly type: 'add-character-to-deck';
   /** The player adding the character. */
   readonly player: PlayerId;
-  /** The character definition to add to the play deck. */
-  readonly characterDefId: CardDefinitionId;
+  /** The character instance to add to the play deck. */
+  readonly characterInstanceId: CardInstanceId;
 }
 
 /**

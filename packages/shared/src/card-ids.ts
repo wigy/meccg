@@ -11,7 +11,7 @@
  * "wh" = The White Hand.
  */
 
-import type { CardDefinitionId } from './types/common.js';
+import type { CardDefinitionId, CardInstanceId } from './types/common.js';
 
 /**
  * Casts a raw string to the branded {@link CardDefinitionId} type.
@@ -239,3 +239,5 @@ export const THE_UNDER_GATES = did('ba-100');
 export const UNKNOWN_CARD = did('unknown-card');
 /** Placeholder definition ID for a face-down site card. */
 export const UNKNOWN_SITE = did('unknown-site');
+/** Placeholder instance ID for a hidden card in the draft pool. */
+export const UNKNOWN_INSTANCE = 'unknown-instance' as CardInstanceId;

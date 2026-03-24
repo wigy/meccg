@@ -11,6 +11,7 @@ import { loadCardPool, describeAction, buildCompanyNames, SAMPLE_DECKS } from '@
 import { renderState, renderDraft, renderMHInfo, renderSiteInfo, renderActions, renderLog, renderHand, renderOpponentHand, renderPlayerNames, renderInstructions, renderDrafted, renderPassButton, renderDeckPiles, resetDeckPiles, setupCardPreview, showNotification, prepareSiteSelection, clearSiteSelection } from './render.js';
 import { renderCompanyViews, resetCompanyViews } from './company-view.js';
 import { rollDice, clearDice, restoreDice, waitForDice } from './dice.js';
+import { snapshotPositions, animateFromSnapshot } from './flip-animate.js';
 
 declare global {
   interface Window {
@@ -85,6 +86,8 @@ function connect(name: string): void {
           ...buildCompanyNames(msg.view.opponent.companies as never, msg.view.opponent.characters, cardPool),
         };
         renderLog(`State update: turn ${msg.view.turnNumber}, phase ${msg.view.phaseState.phase}`);
+        // Snapshot card positions before clearing DOM for FLIP animation
+        snapshotPositions();
         renderState(msg.view, cardPool);
         renderDraft(msg.view, cardPool);
         renderMHInfo(msg.view, cardPool, lastCompanyNames);
@@ -98,6 +101,8 @@ function connect(name: string): void {
         renderPassButton(msg.view, sendAction);
         renderDeckPiles(msg.view, cardPool);
         renderCompanyViews(msg.view, cardPool, sendAction);
+        // Animate cards from old positions to new positions
+        animateFromSnapshot();
         // Show turn notification when entering Untap phase
         if (msg.view.phaseState.phase === 'untap' && lastPhase !== 'untap') {
           const isMine = msg.view.activePlayer === msg.view.self.id;

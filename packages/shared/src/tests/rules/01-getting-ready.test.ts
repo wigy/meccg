@@ -12,7 +12,7 @@ import { describe, test, expect } from 'vitest';
 import {
   pool, PLAYER_1, PLAYER_2,
   createGame, reduce, makeDraftConfig, makeQuickStartConfig, makePlayDeck,
-  runActions, runSimpleDraft, runFullSetup,
+  runActions, runSimpleDraft, runFullSetup, draftInstId,
   Phase, Alignment,
   ARAGORN, BILBO, FRODO, LEGOLAS, GIMLI, FARAMIR,
   EOWYN, BEREGOND, BERGIL, BARD_BOWMAN, ANBORN, SAM_GAMGEE,
@@ -20,9 +20,16 @@ import {
   RIVENDELL, LORIEN, MORIA,
 } from '../test-helpers.js';
 import { computeLegalActions } from '../../engine/legal-actions/index.js';
-import type { EvaluatedAction } from '../../index.js';
+import type { EvaluatedAction, GameState, CardDefinitionId, PlayerId, GameAction } from '../../index.js';
 import type { GameConfig } from '../../engine/init.js';
-import { GENERAL_INFLUENCE, HAND_SIZE } from '../../index.js';
+import { GENERAL_INFLUENCE, HAND_SIZE, getPlayerIndex } from '../../index.js';
+
+/** Draft a character by definition ID, returning the updated state. */
+function draftChar(state: GameState, player: PlayerId, defId: CardDefinitionId): GameState {
+  const playerIndex = getPlayerIndex(state, player);
+  const action: GameAction = { type: 'draft-pick', player, characterInstanceId: draftInstId(state, playerIndex, defId) };
+  return runActions(state, [action]);
+}
 
 /** Helper: get viable actions of a specific type */
 function viableOfType(actions: EvaluatedAction[], type: string): EvaluatedAction[] {
@@ -71,10 +78,8 @@ describe('1.9 Character draft', () => {
     let state = createGame(config, pool);
 
     // Both pick Aragorn — should be set aside (collision)
-    state = runActions(state, [
-      { type: 'draft-pick', player: PLAYER_1, characterDefId: ARAGORN },
-      { type: 'draft-pick', player: PLAYER_2, characterDefId: ARAGORN },
-    ]);
+    state = draftChar(state, PLAYER_1, ARAGORN);
+    state = draftChar(state, PLAYER_2, ARAGORN);
 
     // Neither player should have Aragorn in their company
     expect(state.players[0].companies.flatMap(c => c.characters)).toHaveLength(0);
@@ -84,15 +89,16 @@ describe('1.9 Character draft', () => {
   test('non-duplicate picks are added to drafted list', () => {
     let state = createGame(makeDraftConfig(), pool);
 
-    state = runActions(state, [
-      { type: 'draft-pick', player: PLAYER_1, characterDefId: ARAGORN },
-      { type: 'draft-pick', player: PLAYER_2, characterDefId: LEGOLAS },
-    ]);
+    state = draftChar(state, PLAYER_1, ARAGORN);
+    state = draftChar(state, PLAYER_2, LEGOLAS);
 
     // Each player should have 1 drafted character in the draft state
     if (state.phaseState.phase === Phase.Setup && state.phaseState.setupStep.step === 'character-draft') {
-      expect(state.phaseState.setupStep.draftState[0].drafted).toContain(ARAGORN);
-      expect(state.phaseState.setupStep.draftState[1].drafted).toContain(LEGOLAS);
+      // Drafted contains instance IDs — verify by resolving to definitions
+      const drafted0Defs = state.phaseState.setupStep.draftState[0].drafted.map(id => state.instanceMap[id as string]?.definitionId);
+      const drafted1Defs = state.phaseState.setupStep.draftState[1].drafted.map(id => state.instanceMap[id as string]?.definitionId);
+      expect(drafted0Defs).toContain(ARAGORN);
+      expect(drafted1Defs).toContain(LEGOLAS);
     }
   });
 
@@ -120,28 +126,16 @@ describe('1.9 Character draft', () => {
     //   → total after 5 picks: 1+3+2+2+2 = 10 mind (well under 20)
     // P2 pool: Legolas(6), Gimli(6), Anborn(2), Sam(4), Faramir(5), Aragorn(6)
     //   → P2 stops after 3 picks to avoid mind limit issues
-    state = runActions(state, [
-      { type: 'draft-pick', player: PLAYER_1, characterDefId: BILBO },
-      { type: 'draft-pick', player: PLAYER_2, characterDefId: ANBORN },
-    ]);
-    state = runActions(state, [
-      { type: 'draft-pick', player: PLAYER_1, characterDefId: FRODO },
-      { type: 'draft-pick', player: PLAYER_2, characterDefId: SAM_GAMGEE },
-    ]);
-    state = runActions(state, [
-      { type: 'draft-pick', player: PLAYER_1, characterDefId: EOWYN },
-      { type: 'draft-pick', player: PLAYER_2, characterDefId: LEGOLAS },
-    ]);
+    state = draftChar(state, PLAYER_1, BILBO);
+    state = draftChar(state, PLAYER_2, ANBORN);
+    state = draftChar(state, PLAYER_1, FRODO);
+    state = draftChar(state, PLAYER_2, SAM_GAMGEE);
+    state = draftChar(state, PLAYER_1, EOWYN);
+    state = draftChar(state, PLAYER_2, LEGOLAS);
     // P2 stops; P1 continues alone
-    state = runActions(state, [
-      { type: 'draft-stop', player: PLAYER_2 },
-    ]);
-    state = runActions(state, [
-      { type: 'draft-pick', player: PLAYER_1, characterDefId: BERGIL },
-    ]);
-    state = runActions(state, [
-      { type: 'draft-pick', player: PLAYER_1, characterDefId: BARD_BOWMAN },
-    ]);
+    state = runActions(state, [{ type: 'draft-stop', player: PLAYER_2 }]);
+    state = draftChar(state, PLAYER_1, BERGIL);
+    state = draftChar(state, PLAYER_1, BARD_BOWMAN);
 
     // P1 now has 5 characters: Bilbo(1)+Frodo(3)+Eowyn(2)+Bergil(2)+Bard Bowman(2)=10 mind
     // P1 should auto-stop at 5 characters — no more draft-pick available
@@ -154,17 +148,16 @@ describe('1.9 Character draft', () => {
     let state = createGame(makeDraftConfig(), pool);
 
     // Draft characters and check that mind limit is enforced
-    state = runActions(state, [
-      { type: 'draft-pick', player: PLAYER_1, characterDefId: ARAGORN },
-      { type: 'draft-pick', player: PLAYER_2, characterDefId: LEGOLAS },
-    ]);
+    state = draftChar(state, PLAYER_1, ARAGORN);
+    state = draftChar(state, PLAYER_2, LEGOLAS);
 
     // Check that characters whose mind would exceed 20 total are not viable
     const actions = computeLegalActions(state, PLAYER_1);
     const nonViablePicks = nonViableOfType(actions, 'draft-pick');
     for (const nv of nonViablePicks) {
-      if ('characterDefId' in nv.action) {
-        const charDef = pool[nv.action.characterDefId as string];
+      if ('characterInstanceId' in nv.action) {
+        const instEntry = state.instanceMap[nv.action.characterInstanceId as string];
+        const charDef = instEntry ? pool[instEntry.definitionId as string] : undefined;
         if (charDef && 'mind' in charDef && charDef.mind != null) {
           const currentMind = state.players[0].generalInfluenceUsed;
           // If non-viable due to mind, the sum should exceed 20
@@ -195,10 +188,8 @@ describe('1.9 Character draft', () => {
     let state = createGame(config, pool);
 
     // Both draft their only character
-    state = runActions(state, [
-      { type: 'draft-pick', player: PLAYER_1, characterDefId: BILBO },
-      { type: 'draft-pick', player: PLAYER_2, characterDefId: LEGOLAS },
-    ]);
+    state = draftChar(state, PLAYER_1, BILBO);
+    state = draftChar(state, PLAYER_2, LEGOLAS);
 
     // Both should auto-stop since pools exhausted
     // Check that draft-pick is no longer available
@@ -210,11 +201,9 @@ describe('1.9 Character draft', () => {
   test('player may voluntarily stop drafting', () => {
     let state = createGame(makeDraftConfig(), pool);
 
-    state = runActions(state, [
-      { type: 'draft-pick', player: PLAYER_1, characterDefId: ARAGORN },
-      { type: 'draft-pick', player: PLAYER_2, characterDefId: LEGOLAS },
-      { type: 'draft-stop', player: PLAYER_1 },
-    ]);
+    state = draftChar(state, PLAYER_1, ARAGORN);
+    state = draftChar(state, PLAYER_2, LEGOLAS);
+    state = runActions(state, [{ type: 'draft-stop', player: PLAYER_1 }]);
 
     // P1 has stopped, P2 can continue
     const p1Actions = computeLegalActions(state, PLAYER_1);
@@ -225,11 +214,9 @@ describe('1.9 Character draft', () => {
   test('once one player stops, opponent may finish drafting', () => {
     let state = createGame(makeDraftConfig(), pool);
 
-    state = runActions(state, [
-      { type: 'draft-pick', player: PLAYER_1, characterDefId: ARAGORN },
-      { type: 'draft-pick', player: PLAYER_2, characterDefId: LEGOLAS },
-      { type: 'draft-stop', player: PLAYER_1 },
-    ]);
+    state = draftChar(state, PLAYER_1, ARAGORN);
+    state = draftChar(state, PLAYER_2, LEGOLAS);
+    state = runActions(state, [{ type: 'draft-stop', player: PLAYER_1 }]);
 
     // P2 should still have draft actions available
     const p2Actions = computeLegalActions(state, PLAYER_2);

@@ -260,16 +260,19 @@ function handleCharacterDraft(
       if (playerDraft.currentPick !== null) {
         return { state, error: 'Waiting for opponent to pick' };
       }
-      if (!playerDraft.pool.includes(action.characterDefId)) {
+      if (!playerDraft.pool.includes(action.characterInstanceId)) {
         return { state, error: 'Character not in your draft pool' };
       }
+      // Resolve definition from instance
+      const charDefId = state.instanceMap[action.characterInstanceId as string]?.definitionId;
       // Check mind constraint
-      const charDef = state.cardPool[action.characterDefId as string];
+      const charDef = charDefId ? state.cardPool[charDefId as string] : undefined;
       if (!isCharacterCard(charDef)) {
         return { state, error: 'Invalid character' };
       }
-      const currentMind = playerDraft.drafted.reduce((sum, defId) => {
-        const def = state.cardPool[defId as string];
+      const currentMind = playerDraft.drafted.reduce((sum, instId) => {
+        const defId = state.instanceMap[instId as string]?.definitionId;
+        const def = defId ? state.cardPool[defId as string] : undefined;
         return sum + (isCharacterCard(def) && def.mind !== null ? def.mind : 0);
       }, 0);
       if (charDef.mind !== null && currentMind + charDef.mind > 20) {
@@ -284,8 +287,8 @@ function handleCharacterDraft(
       const newDraftState = [...draft.draftState] as [DraftPlayerState, DraftPlayerState];
       newDraftState[playerIndex] = {
         ...playerDraft,
-        currentPick: action.characterDefId,
-        pool: playerDraft.pool.filter(id => id !== action.characterDefId),
+        currentPick: action.characterInstanceId,
+        pool: playerDraft.pool.filter(id => id !== action.characterInstanceId),
       };
 
       // Check if both players have submitted (or the other has stopped)
@@ -348,11 +351,15 @@ function resolveDraftRound(
   state: GameState,
   draftState: [DraftPlayerState, DraftPlayerState],
   round: number,
-  setAside: readonly CardDefinitionId[],
+  setAside: readonly CardInstanceId[],
 ): ReducerResult {
   const pick0 = draftState[0].currentPick;
   const pick1 = draftState[1].currentPick;
   const newSetAside = [...setAside];
+
+  /** Resolve a draft instance ID to its definition ID. */
+  const defOf = (instId: CardInstanceId): CardDefinitionId =>
+    state.instanceMap[instId as string].definitionId;
 
   // Resolve each player's pick
   const newDraft: [DraftPlayerState, DraftPlayerState] = [
@@ -360,11 +367,14 @@ function resolveDraftRound(
     { ...draftState[1], currentPick: null },
   ];
 
-  if (pick0 !== null && pick1 !== null && pick0 === pick1) {
-    // Duplicate! Neither gets it — also remove from both pools
+  // Collision detection: compare by definition ID (both players may pick the same character)
+  const def0 = pick0 !== null ? defOf(pick0) : null;
+  const def1 = pick1 !== null ? defOf(pick1) : null;
+  if (pick0 !== null && pick1 !== null && def0 === def1) {
+    // Duplicate! Neither gets it — set aside both instances, remove same definition from both pools
     newSetAside.push(pick0);
-    newDraft[0] = { ...newDraft[0], pool: newDraft[0].pool.filter(id => id !== pick0) };
-    newDraft[1] = { ...newDraft[1], pool: newDraft[1].pool.filter(id => id !== pick0) };
+    newDraft[0] = { ...newDraft[0], pool: newDraft[0].pool.filter(id => defOf(id) !== def0) };
+    newDraft[1] = { ...newDraft[1], pool: newDraft[1].pool.filter(id => defOf(id) !== def0) };
   } else {
     if (pick0 !== null) {
       newDraft[0] = { ...newDraft[0], drafted: [...newDraft[0].drafted, pick0] };
@@ -377,8 +387,8 @@ function resolveDraftRound(
   // Auto-stop players who hit limits
   for (let i = 0; i < 2; i++) {
     if (!newDraft[i].stopped) {
-      const mind = newDraft[i].drafted.reduce((sum, defId) => {
-        const def = state.cardPool[defId as string];
+      const mind = newDraft[i].drafted.reduce((sum, instId) => {
+        const def = state.cardPool[defOf(instId) as string];
         return sum + (isCharacterCard(def) && def.mind !== null ? def.mind : 0);
       }, 0);
       const { maxStartingCompanySize: max } = getAlignmentRules(state.players[i].alignment);
@@ -417,7 +427,7 @@ function resolveDraftRound(
 function finalizeDraft(
   state: GameState,
   draftState: readonly [DraftPlayerState, DraftPlayerState],
-  setAside: readonly CardDefinitionId[],
+  setAside: readonly CardInstanceId[],
 ): ReducerResult {
   return {
     state: applyDraftResults(state, draftState, setAside),
@@ -579,12 +589,15 @@ function handleCharacterDeckDraft(
   }
 
   // Validate character is in remaining pool
-  if (!deckDraft.remainingPool.includes(action.characterDefId)) {
+  if (!deckDraft.remainingPool.includes(action.characterInstanceId)) {
     return { state, error: 'Character is not in your remaining pool' };
   }
 
+  // Resolve definition from draft instance
+  const draftDefId = state.instanceMap[action.characterInstanceId as string]?.definitionId;
+  const def = draftDefId ? state.cardPool[draftDefId as string] : undefined;
+
   // Validate non-avatar limit
-  const def = state.cardPool[action.characterDefId as string];
   if (isCharacterCard(def) && def.mind !== null) {
     let nonAvatarCount = 0;
     for (const instId of state.players[playerIndex].playDeck) {
@@ -598,10 +611,11 @@ function handleCharacterDeckDraft(
     }
   }
 
-  // Mint instance and add to play deck
+  // Mint a new play-deck instance from the draft card's definition and add to play deck
+  if (!draftDefId) return { state, error: 'Invalid character instance' };
   const counter = Object.keys(state.instanceMap).length;
   const instanceId = `i-${counter}` as CardInstanceId;
-  const newInstance: CardInstance = { instanceId, definitionId: action.characterDefId };
+  const newInstance: CardInstance = { instanceId, definitionId: draftDefId };
   const newInstanceMap = { ...state.instanceMap, [instanceId as string]: newInstance };
 
   const player = state.players[playerIndex];
@@ -610,7 +624,7 @@ function handleCharacterDeckDraft(
   newPlayers[playerIndex] = { ...player, playDeck: newPlayDeck };
 
   // Remove from remaining pool
-  const newPool = deckDraft.remainingPool.filter(id => id !== action.characterDefId);
+  const newPool = deckDraft.remainingPool.filter(id => id !== action.characterInstanceId);
   const newDeckDraftState = [...stepState.deckDraftState] as [CharacterDeckDraftPlayerState, CharacterDeckDraftPlayerState];
   newDeckDraftState[playerIndex] = {
     remainingPool: newPool,

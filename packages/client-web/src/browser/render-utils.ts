@@ -18,13 +18,15 @@ export function $(id: string): HTMLElement {
 
 /**
  * Create a card image element from a definition.
- * Sets data-card-id for hover preview integration.
+ * Sets data-card-id for hover preview integration and optionally
+ * data-instance-id for FLIP animation tracking.
  */
-export function createCardImage(defId: string, def: CardDefinition, imgPath: string, className = 'drafted-card'): HTMLImageElement {
+export function createCardImage(defId: string, def: CardDefinition, imgPath: string, className = 'drafted-card', instanceId?: string): HTMLImageElement {
   const img = document.createElement('img');
   img.src = imgPath;
   img.alt = def.name;
   img.dataset.cardId = defId;
+  if (instanceId) img.dataset.instanceId = instanceId;
   img.className = className;
   return img;
 }
@@ -91,6 +93,6 @@ export function appendItemCards(
     if (!itemDef) continue;
     const itemImg = cardImageProxyPath(itemDef);
     if (!itemImg) continue;
-    container.appendChild(createCardImage(item.definitionId as string, itemDef, itemImg, 'drafted-card drafted-item'));
+    container.appendChild(createCardImage(item.definitionId as string, itemDef, itemImg, 'drafted-card drafted-item', item.instanceId as string));
   }
 }

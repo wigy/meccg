@@ -30,7 +30,7 @@ import type {
   DraftPlayerState,
   CharacterDeckDraftPlayerState,
 } from '@meccg/shared';
-import { UNKNOWN_CARD, getPlayerIndex, Phase } from '@meccg/shared';
+import { UNKNOWN_INSTANCE, getPlayerIndex, Phase } from '@meccg/shared';
 import { computeLegalActions } from '@meccg/shared';
 
 /**
@@ -225,9 +225,9 @@ function redactPhaseForPlayer(phaseState: PhaseState, selfIndex: number): PhaseS
     const oppPool = step.draftState[opponentIndex].pool;
     newDraftState[opponentIndex] = {
       ...step.draftState[opponentIndex],
-      pool: oppPool.map(() => UNKNOWN_CARD),
+      pool: oppPool.map(() => UNKNOWN_INSTANCE),
       // Show that opponent has picked (face-down) without revealing what
-      currentPick: step.draftState[opponentIndex].currentPick !== null ? UNKNOWN_CARD : null,
+      currentPick: step.draftState[opponentIndex].currentPick !== null ? UNKNOWN_INSTANCE : null,
       // drafted stays visible — it's public after reveal
     };
     return { ...phaseState, setupStep: { ...step, draftState: newDraftState } };
@@ -240,7 +240,7 @@ function redactPhaseForPlayer(phaseState: PhaseState, selfIndex: number): PhaseS
     ];
     newDeckDraftState[opponentIndex] = {
       ...step.deckDraftState[opponentIndex],
-      remainingPool: step.deckDraftState[opponentIndex].remainingPool.map(() => UNKNOWN_CARD),
+      remainingPool: step.deckDraftState[opponentIndex].remainingPool.map(() => UNKNOWN_INSTANCE),
     };
     return { ...phaseState, setupStep: { ...step, deckDraftState: newDeckDraftState } };
   }
@@ -258,7 +258,7 @@ function redactPhaseForSpectator(phaseState: PhaseState): PhaseState {
   const step = phaseState.setupStep;
   const redact = (d: DraftPlayerState): DraftPlayerState => ({
     ...d,
-    pool: d.pool.map(() => UNKNOWN_CARD),
+    pool: d.pool.map(() => UNKNOWN_INSTANCE),
     // drafted stays visible — it's public after reveal
     currentPick: null,
   });
@@ -310,9 +310,23 @@ export function projectPlayerView(state: GameState, playerId: PlayerId): PlayerV
     }
   };
 
-  // Item draft: unassigned items are visible to their owner
+  // Character draft: pool and drafted characters are visible to their owner
+  if (state.phaseState.phase === 'setup' && state.phaseState.setupStep.step === 'character-draft') {
+    for (const id of state.phaseState.setupStep.draftState[selfIndex].pool) addInstance(id);
+    for (const id of state.phaseState.setupStep.draftState[selfIndex].drafted) addInstance(id);
+    // Set-aside characters are visible to both players
+    for (const id of state.phaseState.setupStep.setAside) addInstance(id);
+  }
+
+  // Item draft: pool characters and unassigned items are visible to their owner
   if (state.phaseState.phase === 'setup' && state.phaseState.setupStep.step === 'item-draft') {
+    for (const pool of state.phaseState.setupStep.remainingPool[selfIndex]) addInstance(pool);
     for (const id of state.phaseState.setupStep.itemDraftState[selfIndex].unassignedItems) addInstance(id);
+  }
+
+  // Character deck draft: remaining pool visible to their owner
+  if (state.phaseState.phase === 'setup' && state.phaseState.setupStep.step === 'character-deck-draft') {
+    for (const id of state.phaseState.setupStep.deckDraftState[selfIndex].remainingPool) addInstance(id);
   }
 
   // Site selection: selected sites are no longer in siteDeck but should still be visible
