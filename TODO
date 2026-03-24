@@ -33,3 +33,5 @@ The Balrog
 
 UNSORTED
 --------
+
+Bugreport button in Settings dialog. Get explanation via dialog and if pressed Send instead of Cancel, save it to the ~/.meccg/bugreports/<player name>/<running global bug number> with game save and game log. That can be later automatically handled by Claude.
