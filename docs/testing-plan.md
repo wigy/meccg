@@ -90,7 +90,7 @@ test.todo('[3.I.2] body check: attacker rolls 2d6, if > body character is elimin
 | 04 | `04-long-event-phase.test.ts` | 2.III: Long events | 0 | 3 | 3 | Not started |
 | 05 | `05-movement-hazard-phase.test.ts` | 2.IV: Movement, hazards, on-guard | 0 | 29 | 29 | Not started |
 | 06 | `06-site-phase.test.ts` | 2.V: Entering sites, playing resources | 0 | 24 | 24 | Not started |
-| 07 | `07-end-of-turn.test.ts` | 2.VI: End of turn | 0 | 3 | 3 | Not started |
+| 07 | `07-end-of-turn.test.ts` | 2.VI: End of turn | 3 | 0 | 3 | Complete |
 | 08 | `08-combat.test.ts` | 3: Strikes, prowess, body checks, detainment, CvCC | 0 | 45 | 45 | Not started |
 | 09 | `09-agents.test.ts` | 4: Agent actions and reveal | 0 | 15 | 15 | Not started |
 | 10 | `10-events.test.ts` | 5: Short/long/permanent events | 0 | 10 | 10 | Not started |

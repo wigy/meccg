@@ -858,12 +858,32 @@ export interface SitePhaseState {
 }
 
 /**
- * State for the End-of-Turn phase, where the active player draws or
- * discards to reach their hand limit and may call the Free Council.
+ * Sub-steps within the End-of-Turn phase (CoE 2.VI.i–iii):
+ *
+ * 1. **discard** — Either player may voluntarily discard a card from hand.
+ * 2. **reset-hand** — Both players draw or discard to base hand size (8).
+ * 3. **signal-end** — Resource player signals end of turn; end-of-turn
+ *    passive conditions resolve. May also call the Free Council.
+ */
+export type EndOfTurnStep = 'discard' | 'reset-hand' | 'signal-end';
+
+/**
+ * State for the End-of-Turn phase, where both players adjust their hands
+ * and the resource player may call the Free Council.
+ *
+ * Proceeds through three steps: discard → reset-hand → signal-end.
  */
 export interface EndOfTurnPhaseState {
   /** Phase discriminant. */
   readonly phase: Phase.EndOfTurn;
+  /** Current sub-step within the end-of-turn sequence. */
+  readonly step: EndOfTurnStep;
+  /**
+   * Per-player done flags for the discard step (CoE 2.VI.1).
+   * Each element is true once that player has discarded or passed.
+   * Advance to reset-hand when both are true.
+   */
+  readonly discardDone: readonly [boolean, boolean];
 }
 
 /**

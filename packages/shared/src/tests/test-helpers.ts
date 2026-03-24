@@ -406,6 +406,8 @@ export function buildTestState(opts: BuildTestStateOpts): GameState {
   let phaseState: GameState['phaseState'];
   if (phase === Phase.Organization) {
     phaseState = { phase: Phase.Organization, characterPlayedThisTurn: false, pendingCorruptionCheck: null } as GameState['phaseState'];
+  } else if (phase === Phase.EndOfTurn) {
+    phaseState = { phase: Phase.EndOfTurn, step: 'discard', discardDone: [false, false] } as GameState['phaseState'];
   } else {
     phaseState = { phase } as GameState['phaseState'];
   }
