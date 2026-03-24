@@ -1,5 +1,34 @@
 # Changelog
 
+## 0.6.0 — 2026-03-24
+
+Movement and Hazard basics
+
+### Game Engine
+- **Movement/Hazard phase:** Full implementation of MH steps including company
+  selection, site reveal, path declaration with region resolution, hazard limit,
+  order effects, card drawing, playing hazard long-events, and interactive hand
+  reset
+- **Path declaration:** Compute and offer movement path options with site path
+  resolution, sorted by shortest length and fewest distinct regions
+- **Play hazards:** Creature placeholders with keying validation, permanent-event
+  hazards support, and hazard duplication limits
+- **DSL rules:** Maximum region distance rule for Movement/Hazard phase
+- **Card data:** Added Doors of Night card, Wake of War duplication limit, and
+  resource/hazard draw counts for all sites
+
+### Web Client
+- **Movement UI:** Path choice buttons under origin site, region types shown on
+  path buttons, dimmed non-active companies, debug info box for MH sub-steps
+- **UX improvements:** Press Enter to activate single action button, improved
+  instruction line readability over cards in play, non-playable hazards shown
+  with reasons
+- **Dev tools:** Summon button to create any card in hand, server engine logs
+  forwarded to web client in dev mode
+
+### Infrastructure
+- **Project README** added
+
 ## 0.5.0 — 2026-03-23
 
 Long-event phase done
