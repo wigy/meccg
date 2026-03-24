@@ -1530,6 +1530,7 @@ h2 {
   align-items: center;
   gap: 0;
   margin-right: calc(1rem * var(--company-scale, 1));
+  position: relative;
 }
 
 .company-movement-arrow {
@@ -1876,4 +1877,19 @@ h2 {
 .char-action-tooltip__btn:hover {
   background: rgba(196, 163, 90, 0.35);
   border-color: rgba(196, 163, 90, 0.7);
+}
+
+/* Path choice list — movement path selection during reveal-new-site step */
+.path-choice-list {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 4px;
+  background: rgba(30, 25, 18, 0.85);
+  border: 1px solid rgba(196, 163, 90, 0.4);
+  border-radius: 6px;
+  z-index: 100;
 }

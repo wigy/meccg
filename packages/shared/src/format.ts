@@ -819,9 +819,12 @@ export function describeAction(
     case 'select-company':
       return `Select ${compName(action.companyId)}`;
     case 'declare-path': {
-      if (action.regionPath && action.regionPath.length > 0) {
-        const names = action.regionPath.map(id => defName(id));
-        return `Declare ${action.movementType} movement: ${names.join(' → ')}`;
+      if (action.regionPath && action.regionPath.length > 2) {
+        const middle = action.regionPath.slice(1, -1).map(id => {
+          const def = cardPool[id as string];
+          return def?.name ?? `${id}`;
+        });
+        return `Declare region movement via ${middle.join(' and ')}`;
       }
       return `Declare ${action.movementType} movement`;
     }

@@ -27,8 +27,9 @@ import type {
   MoveToCompanyAction,
   MergeCompaniesAction,
   SelectCompanyAction,
+  DeclarePathAction,
 } from '@meccg/shared';
-import { cardImageProxyPath, isCharacterCard, isItemCard, Phase, CardStatus, viableActions } from '@meccg/shared';
+import { cardImageProxyPath, isCharacterCard, isItemCard, Phase, CardStatus, viableActions, describeAction } from '@meccg/shared';
 import { $, createCardImage } from './render-utils.js';
 import { getSelectedCharacterForPlay, clearCharacterPlaySelection, openMovementViewer, setTargetingInstruction } from './render.js';
 
@@ -442,6 +443,29 @@ function renderSiteArea(
           area.appendChild(img);
         }
       }
+    }
+  }
+
+  // Path choice list during reveal-new-site step — directly under origin site
+  if (options?.onAction && view.phaseState.phase === Phase.MovementHazard && view.phaseState.step === 'reveal-new-site') {
+    const pathActions = viableActions(view.legalActions).filter(
+      (a): a is DeclarePathAction => a.type === 'declare-path',
+    );
+    if (pathActions.length > 0) {
+      const pathList = document.createElement('div');
+      pathList.className = 'path-choice-list';
+      for (const action of pathActions) {
+        const btn = document.createElement('button');
+        btn.className = 'char-action-tooltip__btn';
+        btn.textContent = describeAction(action, cardPool, view.visibleInstances);
+        const onAction = options.onAction;
+        btn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          onAction(action);
+        });
+        pathList.appendChild(btn);
+      }
+      area.appendChild(pathList);
     }
   }
 
