@@ -735,21 +735,112 @@ export interface MovementHazardPhaseState {
 }
 
 /**
+ * Steps within a single company's site phase.
+ *
+ * Each company resolves its site phase sequentially. The resource player
+ * first decides whether to enter the site or do nothing. If entering,
+ * the company proceeds through on-guard reveals, automatic attacks,
+ * agent attacks, and then resource play.
+ *
+ * CoE rules section 2.V (lines 340–393).
+ */
+export type SiteStep =
+  /**
+   * The resource player chooses which company resolves its site phase
+   * next. Only companies that have not yet been handled are offered.
+   * There is no pass action — a company must be selected.
+   */
+  | 'select-company'
+  /**
+   * The resource player declares whether the company will enter its
+   * current site or do nothing. Doing nothing ends the company's site
+   * phase immediately (CoE lines 341–343).
+   */
+  | 'enter-or-skip'
+  /**
+   * Step 1 (CoE line 345): If the site has automatic-attacks, the hazard
+   * player may reveal on-guard cards that are either creatures keyed to
+   * the site or events affecting the automatic-attacks. No other actions
+   * are legal. Skipped if the site has no automatic-attacks.
+   */
+  | 'reveal-on-guard-attacks'
+  /**
+   * Step 2 (CoE line 350): Automatic-attacks are initiated and resolved
+   * one at a time in the order listed on the site card. Each triggers the
+   * combat sub-state. Once all are faced (regardless of outcome), the
+   * company has "successfully entered" the site.
+   */
+  | 'automatic-attacks'
+  /**
+   * Step 3 (CoE line 358): After automatic-attacks (or if none), the
+   * hazard player may declare that an agent at the company's site will
+   * attack. The agent must be revealed if not already revealed.
+   */
+  | 'declare-agent-attack'
+  /**
+   * Step 4 (CoE line 361): On-guard creature and agent attacks declared
+   * earlier are resolved in an order chosen by the resource player.
+   * Each triggers the combat sub-state.
+   */
+  | 'resolve-attacks'
+  /**
+   * After all entry attacks are resolved, the resource player may play
+   * one resource (ally, faction, item) that taps an untapped character
+   * and site. The hazard player may reveal on-guard events when a
+   * resource is declared (CoE line 376). Faction plays require an
+   * influence check roll.
+   */
+  | 'play-resources'
+  /**
+   * After a resource that taps the site is successfully played, one
+   * additional character may tap to play a minor item (CoE line 373).
+   * At Under-deeps sites, any playable item may be played instead.
+   */
+  | 'play-minor-item';
+
+/**
  * State for the Site phase.
  *
- * Each company at a non-haven site may attempt to play resources after
- * resolving automatic attacks. Only one resource (item, faction, ally)
- * can typically be played per company per site phase.
+ * Each company resolves its site phase sequentially. The resource player
+ * chooses the order. For each company, the player decides whether to
+ * enter the site (facing automatic attacks, on-guard creatures, and
+ * agent attacks) or do nothing. After entering, resources may be played.
+ *
+ * CoE rules section 2.V (lines 340–393).
  */
 export interface SitePhaseState {
   /** Phase discriminant. */
   readonly phase: Phase.Site;
+  /** Which sub-step of the company's site phase is active. */
+  readonly step: SiteStep;
   /** Index of the company currently resolving site actions. */
   readonly activeCompanyIndex: number;
+  /**
+   * IDs of companies that have already completed their site phase this turn.
+   * Used during the 'select-company' step to filter out handled companies.
+   */
+  readonly handledCompanyIds: readonly CompanyId[];
   /** Number of automatic attacks already resolved at the current site. */
   readonly automaticAttacksResolved: number;
-  /** Whether a resource has already been played by the current company this phase. */
+  /** Whether the company has successfully entered the site (past all auto-attacks). */
+  readonly siteEntered: boolean;
+  /** Whether a resource that taps the site has been played by the current company. */
   readonly resourcePlayed: boolean;
+  /**
+   * Whether an additional minor item opportunity is available.
+   * Set to true after a resource that taps the site is successfully played.
+   */
+  readonly minorItemAvailable: boolean;
+  /**
+   * On-guard creature instance IDs revealed in step 1 that will attack
+   * during step 4 (resolve-attacks).
+   */
+  readonly declaredOnGuardAttacks: readonly CardInstanceId[];
+  /**
+   * Agent instance ID declared as attacking in step 3, or null if no
+   * agent attack was declared.
+   */
+  readonly declaredAgentAttack: CardInstanceId | null;
 }
 
 /**

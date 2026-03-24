@@ -444,11 +444,23 @@ function renderState(input: RenderInput): string {
     'order-effects': 'Order Effects',
     'play-hazards': 'Play Hazards',
   };
+  const SITE_STEP_LABELS: Record<string, string> = {
+    'select-company': 'Select Company',
+    'enter-or-skip': 'Enter or Skip',
+    'reveal-on-guard-attacks': 'Reveal On-Guard',
+    'automatic-attacks': 'Automatic Attacks',
+    'declare-agent-attack': 'Agent Attack',
+    'resolve-attacks': 'Resolve Attacks',
+    'play-resources': 'Play Resources',
+    'play-minor-item': 'Play Minor Item',
+  };
   const phaseLabel = input.phaseState.phase === 'setup'
     ? `Setup / ${SETUP_STEP_LABELS[input.phaseState.setupStep.step] ?? input.phaseState.setupStep.step}`
     : input.phaseState.phase === 'movement-hazard'
       ? `Movement/Hazard / ${MH_STEP_LABELS[input.phaseState.step] ?? input.phaseState.step}`
-      : input.phaseState.phase;
+      : input.phaseState.phase === 'site'
+        ? `Site / ${SITE_STEP_LABELS[input.phaseState.step] ?? input.phaseState.step}`
+        : input.phaseState.phase;
   lines.push(`Turn ${input.turnNumber} — Phase: ${phaseLabel}`);
 
   for (let pi = 0; pi < input.players.length; pi++) {
@@ -831,6 +843,12 @@ export function describeAction(
     }
     case 'order-effects':
       return `Order ${action.effectOrder.length} ongoing effect(s)`;
+    case 'enter-site':
+      return `Enter site with ${compName(action.companyId)}`;
+    case 'reveal-on-guard':
+      return `Reveal on-guard card ${instName(action.cardInstanceId)}`;
+    case 'declare-agent-attack':
+      return `Declare agent attack ${instName(action.agentInstanceId)}`;
     default: {
       const _exhaustive: never = action;
       return `Unknown action`;

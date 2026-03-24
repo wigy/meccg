@@ -108,6 +108,13 @@ export const LEGAL_ACTIONS_BY_PHASE: Readonly<Record<Phase, readonly GameAction[
   ],
 
   [Phase.Site]: [
+    'select-company',
+    'enter-site',
+    'reveal-on-guard',
+    'declare-agent-attack',
+    'assign-strike',
+    'resolve-strike',
+    'support-strike',
     'play-hero-resource',
     'influence-attempt',
     'play-minor-item',

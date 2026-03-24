@@ -458,6 +458,59 @@ export interface SupportStrikeAction {
 // ---- Site phase ----
 
 /**
+ * Declare that a company will enter its current site during the site phase.
+ *
+ * The alternative is to pass (do nothing), which ends the company's site
+ * phase immediately. Entering commits the company to facing automatic
+ * attacks, on-guard creatures, and agent attacks before any resources
+ * can be played. (CoE lines 341–343)
+ */
+export interface EnterSiteAction {
+  /** Action discriminant. */
+  readonly type: 'enter-site';
+  /** The resource player entering the site. */
+  readonly player: PlayerId;
+  /** The company entering its current site. */
+  readonly companyId: CompanyId;
+}
+
+/**
+ * Reveal an on-guard card placed on a company's site during the site phase.
+ *
+ * Used at two points:
+ * - Step 1 (CoE line 345): when entering a site with automatic-attacks,
+ *   the hazard player may reveal creatures keyed to the site or events
+ *   affecting the automatic-attacks.
+ * - During resource play (CoE line 376): when the resource player
+ *   attempts to play a resource that taps the site, the hazard player
+ *   may reveal an on-guard event that directly affects the company.
+ */
+export interface RevealOnGuardAction {
+  /** Action discriminant. */
+  readonly type: 'reveal-on-guard';
+  /** The hazard player revealing the on-guard card. */
+  readonly player: PlayerId;
+  /** The on-guard card instance being revealed. */
+  readonly cardInstanceId: CardInstanceId;
+}
+
+/**
+ * Declare that an agent hazard at the company's site will attack.
+ *
+ * Step 3 of entering a site (CoE line 358). The agent must be revealed
+ * when the attack is declared if not already revealed. An agent can
+ * only attack once per site phase. Agent attacks are not keyed to anything.
+ */
+export interface DeclareAgentAttackAction {
+  /** Action discriminant. */
+  readonly type: 'declare-agent-attack';
+  /** The hazard player declaring the agent attack. */
+  readonly player: PlayerId;
+  /** The agent card instance that will attack. */
+  readonly agentInstanceId: CardInstanceId;
+}
+
+/**
  * Play a hero resource card (item, ally, or event) at the current site.
  *
  * Resources are the primary way to score marshalling points. The resource
@@ -670,6 +723,9 @@ export type GameAction =
   | AssignStrikeAction
   | ResolveStrikeAction
   | SupportStrikeAction
+  | EnterSiteAction
+  | RevealOnGuardAction
+  | DeclareAgentAttackAction
   | PlayHeroResourceAction
   | InfluenceAttemptAction
   | PlayMinorItemAction

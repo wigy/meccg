@@ -14,7 +14,7 @@
  * (or the original state plus an error string if the action was illegal).
  */
 
-import type { GameState, PlayerState, DraftPlayerState, ItemDraftPlayerState, CharacterDeckDraftPlayerState, SetupStepState, CardDefinitionId, CardInstanceId, CompanyId, CharacterInPlay, CardInstance, OrganizationPhaseState, MovementHazardPhaseState, Company, CreatureCard } from '../index.js';
+import type { GameState, PlayerState, DraftPlayerState, ItemDraftPlayerState, CharacterDeckDraftPlayerState, SetupStepState, CardDefinitionId, CardInstanceId, CompanyId, CharacterInPlay, CardInstance, OrganizationPhaseState, MovementHazardPhaseState, SitePhaseState, Company, CreatureCard } from '../index.js';
 import type { GameAction } from '../index.js';
 import { Phase, SetupStep, LEGAL_ACTIONS_BY_PHASE, getAlignmentRules, shuffle, nextInt, CardStatus, isCharacterCard, isSiteCard, SiteType, RegionType, Race, Skill, getPlayerIndex, ZERO_EFFECTIVE_STATS, MAX_STARTING_ITEMS, BASE_MAX_REGION_DISTANCE, HAND_SIZE } from '../index.js';
 import { logHeading, logDetail } from './legal-actions/log.js';
@@ -2514,9 +2514,15 @@ function advanceAfterCompanyMH(state: GameState, mhState: MovementHazardPhaseSta
         ...state,
         phaseState: {
           phase: Phase.Site,
+          step: 'select-company',
           activeCompanyIndex: 0,
+          handledCompanyIds: [],
           automaticAttacksResolved: 0,
+          siteEntered: false,
           resourcePlayed: false,
+          minorItemAvailable: false,
+          declaredOnGuardAttacks: [],
+          declaredAgentAttack: null,
         },
       },
     };
@@ -3056,17 +3062,127 @@ function advanceDrawCards(
   };
 }
 
-/** Placeholder: automatic attacks at site, resource play, influence attempts. */
+/**
+ * Handle all actions during the site phase.
+ *
+ * The phase begins with the 'select-company' step where the resource player
+ * picks which company to handle next. After all companies are handled, the
+ * phase advances to the End-of-Turn phase.
+ */
 function handleSite(state: GameState, action: GameAction): ReducerResult {
-  if (action.type !== 'pass') {
-    return { state, error: `Unexpected action '${action.type}' in site phase` };
+  const siteState = state.phaseState as SitePhaseState;
+
+  if (siteState.step === 'select-company') {
+    return handleSiteSelectCompany(state, action, siteState);
   }
-  // TODO: automatic attacks, resource play, influence attempts
+
+  // TODO: enter-or-skip, reveal-on-guard-attacks, automatic-attacks,
+  //       declare-agent-attack, resolve-attacks, play-resources, play-minor-item
+
+  if (action.type !== 'pass') {
+    return { state, error: `Unexpected action '${action.type}' in site phase step '${siteState.step}'` };
+  }
+
   logDetail(`Site: active player ${action.player as string} passed → advancing to End-of-Turn phase`);
   return {
     state: {
       ...state,
       phaseState: { phase: Phase.EndOfTurn },
+    },
+  };
+}
+
+/**
+ * Handle the 'select-company' action in the site phase: resource player
+ * picks which company resolves its site phase next.
+ *
+ * After selection, the company advances to 'enter-or-skip'. Companies
+ * that were returned to their site of origin during M/H are automatically
+ * skipped (CoE line 336).
+ */
+function handleSiteSelectCompany(
+  state: GameState,
+  action: GameAction,
+  siteState: SitePhaseState,
+): ReducerResult {
+  if (action.type !== 'select-company') {
+    return { state, error: `Expected 'select-company' action during select-company step, got '${action.type}'` };
+  }
+
+  if (action.player !== state.activePlayer) {
+    return { state, error: `Only the active player may select a company` };
+  }
+
+  const playerIndex = getPlayerIndex(state, state.activePlayer);
+  const player = state.players[playerIndex];
+  const companyIndex = player.companies.findIndex(c => c.id === action.companyId);
+
+  if (companyIndex === -1) {
+    return { state, error: `Company '${action.companyId}' not found` };
+  }
+
+  if (siteState.handledCompanyIds.includes(action.companyId)) {
+    return { state, error: `Company '${action.companyId}' has already been handled this turn` };
+  }
+
+  logDetail(`Site: selected company ${action.companyId} (index ${companyIndex}) → advancing to enter-or-skip`);
+  return {
+    state: {
+      ...state,
+      phaseState: {
+        ...siteState,
+        step: 'enter-or-skip' as const,
+        activeCompanyIndex: companyIndex,
+        automaticAttacksResolved: 0,
+        siteEntered: false,
+        resourcePlayed: false,
+        minorItemAvailable: false,
+        declaredOnGuardAttacks: [],
+        declaredAgentAttack: null,
+      },
+    },
+  };
+}
+
+/**
+ * Advance the site phase to the next company or to End-of-Turn if all
+ * companies have been handled.
+ */
+function advanceSiteToNextCompany(
+  state: GameState,
+  siteState: SitePhaseState,
+  handledCompanyId: CompanyId,
+): ReducerResult {
+  const updatedHandled = [...siteState.handledCompanyIds, handledCompanyId];
+
+  const playerIndex = getPlayerIndex(state, state.activePlayer!);
+  const remainingCount = state.players[playerIndex].companies.length - updatedHandled.length;
+
+  if (remainingCount <= 0) {
+    logDetail(`Site: all companies handled → advancing to End-of-Turn phase`);
+    return {
+      state: {
+        ...state,
+        phaseState: { phase: Phase.EndOfTurn },
+      },
+    };
+  }
+
+  logDetail(`Site: company ${handledCompanyId} done → returning to select-company (${remainingCount} remaining)`);
+  return {
+    state: {
+      ...state,
+      phaseState: {
+        ...siteState,
+        step: 'select-company' as const,
+        handledCompanyIds: updatedHandled,
+        automaticAttacksResolved: 0,
+        siteEntered: false,
+        resourcePlayed: false,
+        minorItemAvailable: false,
+        declaredOnGuardAttacks: [],
+        declaredAgentAttack: null,
+      },
     },
   };
 }
