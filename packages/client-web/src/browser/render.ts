@@ -1841,8 +1841,8 @@ export function setupCardPreview(cardPool: Readonly<Record<string, CardDefinitio
   view.addEventListener('mouseover', (e) => {
     const img = (e.target as HTMLElement).closest('img');
     if (!img || !img.src) return;
-    // Skip deck pile images (not meaningful to preview)
-    if (img.closest('#self-site-pile, #opponent-site-pile, #self-deck-pile, #opponent-deck-pile')) return;
+    // Skip deck pile images and region type icons (not meaningful to preview)
+    if (img.closest('#self-site-pile, #opponent-site-pile, #self-deck-pile, #opponent-deck-pile, .region-type-icon')) return;
     preview.innerHTML = '';
     const cardId = img.dataset.cardId;
     const def = cardId ? cardPool[cardId] : undefined;

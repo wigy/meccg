@@ -1684,13 +1684,19 @@ export function renderCompanyViews(
     }
   }
 
+  // Force all-companies view during select-company step so the player can
+  // see every company and pick one.
+  const inSelectCompany =
+    (view.phaseState.phase === Phase.MovementHazard || view.phaseState.phase === Phase.Site)
+    && view.phaseState.step === 'select-company';
+
   const board = $('visual-board');
   board.innerHTML = '';
 
   // Cards in play row (permanent resources, factions, etc.) — always at top
   renderCardsInPlayRow(board, view, cardPool);
 
-  const showingSingle = focusedCompanyId !== null && !allCompaniesOverride;
+  const showingSingle = focusedCompanyId !== null && !allCompaniesOverride && !inSelectCompany;
 
   if (showingSingle) {
     renderSingleView(board, view, cardPool);
