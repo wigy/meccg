@@ -187,16 +187,135 @@ function handlePassChainPriority(state: GameState, chain: ChainState, playerId: 
     return { state: { ...state, chain: newChain } };
   }
 
-  // Both players passed consecutively — transition to resolving
+  // Both players passed consecutively — transition to resolving and auto-advance
   logDetail(`Both players passed — chain transitions to resolving`);
 
-  const newChain: ChainState = {
+  const resolvingChain: ChainState = {
     ...chain,
     mode: 'resolving',
     priorityPlayerPassed: false,
     nonPriorityPlayerPassed: false,
   };
 
-  // TODO Phase 3: auto-resolve entries in LIFO order
-  return { state: { ...state, chain: newChain } };
+  return autoResolve({ ...state, chain: resolvingChain });
+}
+
+/**
+ * Auto-resolves chain entries in LIFO order until the chain is complete
+ * or player input is needed.
+ *
+ * Entries are resolved from the last declared (top of stack) to the first.
+ * Each entry is checked for validity before resolution — if the entry's
+ * conditions are no longer met, it is negated instead of resolved.
+ *
+ * When all entries are resolved, the chain completes via {@link completeChain}.
+ */
+function autoResolve(state: GameState): ReducerResult {
+  let current = state;
+
+  while (current.chain && current.chain.mode === 'resolving') {
+    const chain = current.chain;
+
+    // Find the next unresolved entry (LIFO = iterate from end to start)
+    const nextIndex = findNextUnresolved(chain);
+
+    if (nextIndex === -1) {
+      // All entries resolved — complete the chain
+      logDetail(`All chain entries resolved — completing chain`);
+      current = completeChain(current);
+      continue;
+    }
+
+    // Resolve this entry
+    const result = resolveEntry(current, nextIndex);
+    current = result.state;
+
+    // If resolution needs player input, stop auto-advancing
+    if (result.needsInput) {
+      logDetail(`Entry #${nextIndex} needs player input — pausing auto-resolve`);
+      break;
+    }
+  }
+
+  return { state: current };
+}
+
+/**
+ * Finds the index of the next unresolved entry in LIFO order.
+ * Returns -1 if all entries are resolved or negated.
+ */
+function findNextUnresolved(chain: ChainState): number {
+  for (let i = chain.entries.length - 1; i >= 0; i--) {
+    const entry = chain.entries[i];
+    if (!entry.resolved && !entry.negated) {
+      return i;
+    }
+  }
+  return -1;
+}
+
+/**
+ * Result of resolving a single chain entry. If `needsInput` is true,
+ * auto-resolution should pause and wait for player action.
+ */
+interface ResolveResult {
+  readonly state: GameState;
+  readonly needsInput: boolean;
+}
+
+/**
+ * Resolves a single chain entry at the given index.
+ *
+ * Currently marks the entry as resolved. When card effects are implemented
+ * (Phase 4+), this will apply the card's effects via the DSL resolver and
+ * may return `needsInput: true` if the effect requires player decisions.
+ */
+function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
+  const chain = state.chain!;
+  const entry = chain.entries[entryIndex];
+
+  logDetail(`Resolving chain entry #${entryIndex}: ${entry.payload.type} by player ${entry.declaredBy as string}`);
+
+  // TODO Phase 4+: check validity (CoE rule 681: conditions must still be legal)
+  // TODO Phase 4+: apply card effects via DSL resolver
+  // TODO Phase 6: detect passive conditions triggered during resolution
+
+  // Mark entry as resolved
+  const newEntries = chain.entries.map((e, i) =>
+    i === entryIndex ? { ...e, resolved: true } : e,
+  );
+
+  const newChain: ChainState = {
+    ...chain,
+    entries: newEntries,
+  };
+
+  return {
+    state: { ...state, chain: newChain },
+    needsInput: false,
+  };
+}
+
+/**
+ * Completes the current chain and cleans up.
+ *
+ * If this was a nested chain (e.g. on-guard interrupt), restores the parent
+ * chain. If deferred passives were queued during resolution, creates a
+ * follow-up chain for them. Otherwise sets `state.chain` to null.
+ */
+function completeChain(state: GameState): GameState {
+  const chain = state.chain!;
+  logHeading(`Chain complete — ${chain.entries.length} entries resolved`);
+
+  // TODO Phase 6: if deferredPassives is non-empty, create a follow-up chain
+
+  // Restore parent chain if this was a nested sub-chain
+  if (chain.parentChain) {
+    logDetail(`Restoring parent chain`);
+    return { ...state, chain: chain.parentChain };
+  }
+
+  // Chain fully complete — clear it
+  logDetail(`No parent chain — clearing chain state`);
+  return { ...state, chain: null };
 }
