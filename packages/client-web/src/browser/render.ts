@@ -1730,6 +1730,12 @@ export function setupCardPreview(cardPool: Readonly<Record<string, CardDefinitio
       // Attributes
       buildCardAttributes(info, def);
       preview.appendChild(info);
+
+      // Raw JSON panel (for debugging card data)
+      const json = document.createElement('pre');
+      json.className = 'card-preview-json';
+      json.textContent = JSON.stringify(def, null, 2);
+      preview.appendChild(json);
     } else {
       const clone = document.createElement('img');
       clone.src = img.src;
