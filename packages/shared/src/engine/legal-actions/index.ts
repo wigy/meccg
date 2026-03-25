@@ -38,7 +38,7 @@ export function computeLegalActions(state: GameState, playerId: PlayerId): Evalu
   logHeading(`Computing legal actions for player ${playerId as string} in phase '${phase}'`);
 
   // Chain of effects takes priority over everything else
-  if (state.chain !== null) {
+  if (state.chain != null) {
     logHeading(`Chain active (${state.chain.mode}) — delegating to chain actions`);
     const evaluated = chainActions(state, playerId);
     const viableCount = evaluated.filter(e => e.viable).length;

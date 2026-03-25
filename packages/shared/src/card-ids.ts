@@ -105,6 +105,8 @@ export const DOORS_OF_NIGHT = did('tw-28');
 export const EYE_OF_SAURON = did('tw-32');
 /** Wake of War — long hazard event, boosts Wolf/Spider/Animal attacks (+1 strikes and prowess, +2 for Wolves with Doors of Night). */
 export const WAKE_OF_WAR = did('tw-108');
+/** Twilight — short hazard event, environment that cancels another environment. May also be played as a resource. */
+export const TWILIGHT = did('tw-106');
 
 // ---- Creatures ----
 

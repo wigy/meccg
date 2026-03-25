@@ -107,7 +107,7 @@ export function reduce(state: GameState, action: GameAction): ReducerResult {
   logDetail(`Phase validation passed: '${action.type}' is legal in '${phase}'`);
 
   // 2b. Chain of effects: dispatch chain-specific actions when a chain is active
-  if (state.chain !== null && (action.type === 'pass-chain-priority' || action.type === 'order-passives')) {
+  if (state.chain != null && (action.type === 'pass-chain-priority' || action.type === 'order-passives')) {
     logDetail(`Chain active — dispatching '${action.type}' to chain reducer`);
     const chainResult = handleChainAction(state, action);
     if (!chainResult.error) {
@@ -192,7 +192,7 @@ function validateActionPlayer(state: GameState, action: GameAction): string | un
   }
 
   // During an active chain, the priority player may act
-  if (state.chain !== null && (action.type === 'pass-chain-priority' || action.type === 'order-passives')) {
+  if (state.chain != null && (action.type === 'pass-chain-priority' || action.type === 'order-passives')) {
     if (action.player !== state.chain.priority) {
       return 'You do not have chain priority';
     }
@@ -2319,7 +2319,7 @@ function handlePlayHazardCard(
     if (keyError) return { state, error: keyError };
 
     // Creatures must initiate a new chain — they cannot be played in response (CoE rule 307)
-    if (state.chain !== null) {
+    if (state.chain != null) {
       return { state, error: 'Creatures must initiate a new chain — cannot be played in response' };
     }
 

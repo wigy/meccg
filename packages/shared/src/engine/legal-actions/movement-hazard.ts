@@ -363,7 +363,7 @@ function playHazardsActions(
       // --- Creature keying check ---
       if (isCreature) {
         // Creatures must initiate a new chain — not playable in response (CoE rule 307)
-        if (state.chain !== null) {
+        if (state.chain != null) {
           actions.push({ action, viable: false, reason: 'Creatures must initiate a new chain' });
           continue;
         }
