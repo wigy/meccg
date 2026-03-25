@@ -39,5 +39,14 @@
       }
     ],
     "text": "The number of strikes and prowess of each Wolf, Spider, and Animal attack are each increased by one (by two for Wolf attacks if Doors of Night is in play). Cannot be duplicated."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "tw-106",
+    "name": "Twilight",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Twilight.jpg",
+    "unique": false,
+    "eventType": "short",
+    "text": "Environment. One environment card (in play or declared earlier in the same chain of effects) is canceled and discarded. Twilight may also be played as a resource, may be played at any point during any player's turn and does not count against the hazard limit."
   }
 ]
