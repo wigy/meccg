@@ -21,7 +21,7 @@ import { logHeading, logDetail } from './legal-actions/log.js';
 import type { TwoDiceSix, DieRoll, GameEffect } from '../index.js';
 import { applyDraftResults, transitionAfterItemDraft, enterSiteSelection, startFirstTurn } from './init.js';
 import { recomputeDerived } from './recompute-derived.js';
-import { handleChainAction } from './chain-reducer.js';
+import { handleChainAction, initiateChain, pushChainEntry } from './chain-reducer.js';
 
 /**
  * Roll 2d6, respecting an optional cheat roll target. If `cheatRollTotal` is
@@ -2343,9 +2343,43 @@ function handlePlayHazardCard(
     };
   }
 
+  // --- Short event handling (via chain of effects) ---
+  if (def.cardType === 'hazard-event' && def.eventType === 'short') {
+    logDetail(`Play-hazards: hazard player plays short-event "${def.name}" (${mhState.hazardsPlayedThisCompany + 1}/${mhState.hazardLimit})`);
+
+    // Move card from hand to discard (short events are discarded after resolution)
+    const newHand = [...hazardPlayer.hand];
+    newHand.splice(cardIdx, 1);
+    const newPlayers = clonePlayers(state);
+    newPlayers[hazardIndex] = {
+      ...hazardPlayer,
+      hand: newHand,
+      discardPile: [...hazardPlayer.discardPile, action.cardInstanceId],
+    };
+
+    let newState: GameState = {
+      ...state,
+      players: newPlayers,
+      phaseState: {
+        ...mhState,
+        hazardsPlayedThisCompany: mhState.hazardsPlayedThisCompany + 1,
+        resourcePlayerPassed: false,
+      },
+    };
+
+    // Initiate chain or push onto existing chain
+    if (newState.chain === null) {
+      newState = initiateChain(newState, action.player, action.cardInstanceId, inst.definitionId, { type: 'short-event' });
+    } else {
+      newState = pushChainEntry(newState, action.player, action.cardInstanceId, inst.definitionId, { type: 'short-event' });
+    }
+
+    return { state: newState };
+  }
+
   // --- Event handling (long / permanent) ---
   if (def.cardType !== 'hazard-event' || (def.eventType !== 'long' && def.eventType !== 'permanent')) {
-    return { state, error: `Cannot play ${def.cardType} during play-hazards — only creatures and hazard long/permanent-events are currently supported` };
+    return { state, error: `Cannot play ${def.cardType} during play-hazards — only creatures, short-events and hazard long/permanent-events are currently supported` };
   }
 
   // Uniqueness check: unique events can't be played if already in play

@@ -342,9 +342,10 @@ function playHazardsActions(
       if (!def) continue;
 
       const isCreature = def.cardType === 'hazard-creature';
+      const isShortEvent = def.cardType === 'hazard-event' && def.eventType === 'short';
       const isEvent = def.cardType === 'hazard-event'
         && (def.eventType === 'long' || def.eventType === 'permanent');
-      if (!isCreature && !isEvent) continue;
+      if (!isCreature && !isEvent && !isShortEvent) continue;
 
       const action: GameAction = {
         type: 'play-hazard',
@@ -372,7 +373,14 @@ function playHazardsActions(
         continue;
       }
 
-      // --- Event checks ---
+      // --- Short event: no uniqueness/duplication checks needed ---
+      if (isShortEvent) {
+        logDetail(`Hazard short-event "${def.name}" is playable`);
+        actions.push({ action, viable: true });
+        continue;
+      }
+
+      // --- Long/permanent event checks ---
       // Uniqueness: non-viable if already in play
       if (def.unique) {
         const alreadyInPlay = state.players.some(p =>
