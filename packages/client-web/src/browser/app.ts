@@ -8,7 +8,7 @@
 
 import type { ServerMessage, ClientMessage, GameAction, CardDefinitionId } from '@meccg/shared';
 import { loadCardPool, describeAction, buildCompanyNames, SAMPLE_DECKS } from '@meccg/shared';
-import { renderState, renderDraft, renderMHInfo, renderSiteInfo, renderActions, renderLog, renderHand, renderOpponentHand, renderPlayerNames, renderInstructions, renderDrafted, renderPassButton, renderDeckPiles, resetDeckPiles, setupCardPreview, showNotification, prepareSiteSelection, clearSiteSelection } from './render.js';
+import { renderState, renderDraft, renderMHInfo, renderSiteInfo, renderActions, renderLog, renderHand, renderOpponentHand, renderPlayerNames, renderInstructions, renderDrafted, renderPassButton, renderDeckPiles, resetDeckPiles, setupCardPreview, showNotification, prepareSiteSelection, clearSiteSelection, renderChainPanel } from './render.js';
 import { renderCompanyViews, resetCompanyViews } from './company-view.js';
 import { rollDice, clearDice, restoreDice, waitForDice } from './dice.js';
 import { snapshotPositions, animateFromSnapshot } from './flip-animate.js';
@@ -101,6 +101,7 @@ function connect(name: string): void {
         renderPassButton(msg.view, sendAction);
         renderDeckPiles(msg.view, cardPool);
         renderCompanyViews(msg.view, cardPool, sendAction);
+        renderChainPanel(msg.view, cardPool, sendAction);
         // Animate cards from old positions to new positions
         animateFromSnapshot();
         // Show turn notification when entering Untap phase
@@ -507,6 +508,8 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('opponent-arc')!.innerHTML = '';
     document.getElementById('actions')!.innerHTML = '';
     document.getElementById('pass-btn')!.classList.add('hidden');
+    const chainPanel = document.getElementById('chain-panel');
+    if (chainPanel) { chainPanel.classList.add('hidden'); chainPanel.innerHTML = ''; }
     for (const id of ['self-name', 'opponent-name']) {
       const el = document.getElementById(id);
       const score = el?.querySelector('.score');

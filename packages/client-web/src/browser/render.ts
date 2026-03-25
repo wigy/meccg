@@ -5,7 +5,7 @@
  * action buttons, draft info, and a message log.
  */
 
-import type { PlayerView, GameAction, EvaluatedAction, CardDefinition, CardDefinitionId, CardInstanceId, CharacterInPlay, SiteInPlay } from '@meccg/shared';
+import type { PlayerView, GameAction, EvaluatedAction, CardDefinition, CardDefinitionId, CardInstanceId, CharacterInPlay, SiteInPlay, ChainEntry } from '@meccg/shared';
 import { describeAction, formatPlayerView, formatCardList, cardImageProxyPath, isCharacterCard, GENERAL_INFLUENCE, getAlignmentRules, viableActions, formatSignedNumber, Phase, computeTournamentScore, computeTournamentBreakdown } from '@meccg/shared';
 import type { MarshallingPointTotals } from '@meccg/shared';
 import { $, createCardImage, createFaceDownCard, appendItemCards } from './render-utils.js';
@@ -1065,11 +1065,70 @@ function findCardAction(
 }
 
 /**
+ * Find all play-short-event actions for a given card instance.
+ * Returns the list of matching actions (may have multiple targets).
+ */
+function findShortEventActions(
+  instanceId: CardInstanceId | null,
+  legalActions: readonly GameAction[],
+): GameAction[] {
+  if (!instanceId) return [];
+  return legalActions.filter(
+    a => a.type === 'play-short-event' && a.cardInstanceId === instanceId,
+  );
+}
+
+
+/**
  * Check whether a card in the hand arc has assign-starting-item actions
  * (needs the two-step target selection flow).
  */
 function isItemDraftCard(defId: CardDefinitionId, legalActions: readonly GameAction[]): boolean {
   return legalActions.some(a => a.type === 'assign-starting-item' && a.itemDefId === defId);
+}
+
+/**
+ * Show a disambiguation tooltip near the clicked short-event card
+ * when there are multiple valid targets. Each button names a target
+ * environment; clicking it sends the corresponding action.
+ */
+function showShortEventTargetMenu(
+  event: MouseEvent,
+  actions: readonly GameAction[],
+  visibleInstances: Readonly<Record<string, CardDefinitionId>>,
+  cardPool: Readonly<Record<string, CardDefinition>>,
+  onAction: (action: GameAction) => void,
+): void {
+  // Remove any existing tooltip
+  document.querySelector('.chain-target-backdrop')?.remove();
+
+  const backdrop = document.createElement('div');
+  backdrop.className = 'chain-target-backdrop';
+  backdrop.addEventListener('click', () => backdrop.remove());
+
+  const tooltip = document.createElement('div');
+  tooltip.className = 'chain-target-tooltip';
+  tooltip.style.left = `${event.clientX}px`;
+  tooltip.style.top = `${event.clientY}px`;
+
+  for (const action of actions) {
+    if (action.type !== 'play-short-event') continue;
+    const targetDefId = visibleInstances[action.targetInstanceId as string];
+    const targetDef = targetDefId ? cardPool[targetDefId as string] : undefined;
+    const targetName = targetDef ? targetDef.name : '?';
+
+    const btn = document.createElement('button');
+    btn.className = 'char-action-tooltip__btn';
+    btn.textContent = `Cancel ${targetName}`;
+    btn.addEventListener('click', () => {
+      backdrop.remove();
+      onAction(action);
+    });
+    tooltip.appendChild(btn);
+  }
+
+  backdrop.appendChild(tooltip);
+  document.body.appendChild(backdrop);
 }
 
 /**
@@ -1117,6 +1176,17 @@ function getInstructionText(
     }
   }
 
+  // Chain of effects: show priority/mode context
+  if (view.chain) {
+    const isSelf = view.chain.priority === view.self.id;
+    if (view.chain.mode === 'declaring') {
+      return isSelf
+        ? 'Chain of Effects — You have priority. Play a response or pass.'
+        : 'Chain of Effects — Waiting for opponent to respond or pass.';
+    }
+    return 'Chain of Effects — Resolving...';
+  }
+
   // M/H phase: select-company step
   if (view.phaseState.phase === Phase.MovementHazard && view.phaseState.step === 'select-company') {
     return 'Movement/Hazard — Select a company to resolve its movement.';
@@ -1158,11 +1228,12 @@ export function renderPassButton(view: PlayerView, onAction: (action: GameAction
   const btn = document.getElementById('pass-btn') as HTMLButtonElement | null;
   if (!btn) return;
 
-  // Find a viable pass-like or single-step action
+  // Find a viable pass-like or single-step action (including chain priority pass)
   const passEval = view.legalActions.find(ea =>
     ea.viable && (ea.action.type === 'pass' || ea.action.type === 'draft-stop'
     || ea.action.type === 'shuffle-play-deck' || ea.action.type === 'draw-cards'
-    || ea.action.type === 'roll-initiative' || ea.action.type === 'corruption-check'));
+    || ea.action.type === 'roll-initiative' || ea.action.type === 'corruption-check'
+    || ea.action.type === 'pass-chain-priority'));
   const passAction = passEval?.action;
   if (!passAction) {
     btn.classList.add('hidden');
@@ -1171,7 +1242,9 @@ export function renderPassButton(view: PlayerView, onAction: (action: GameAction
 
   // Choose label based on action type and phase
   let label = 'Done';
-  if (passAction.type === 'draft-stop') {
+  if (passAction.type === 'pass-chain-priority') {
+    label = 'Pass Priority';
+  } else if (passAction.type === 'draft-stop') {
     label = 'Done';
   } else if (passAction.type === 'shuffle-play-deck') {
     label = 'Shuffle';
@@ -1622,7 +1695,9 @@ export function renderHand(
     const action = findCardAction(cardDefId, viable, view.visibleInstances);
     const isItemDraft = isItemDraftCard(cardDefId, viable);
     const isPlayChar = isPlayCharacterCard(cardDefId, viable, view.visibleInstances);
-    const nonViableReason = !action && !isItemDraft && !isPlayChar
+    const shortEventActions = findShortEventActions(cardInstanceId, viable);
+    const isShortEvent = shortEventActions.length > 0;
+    const nonViableReason = !action && !isItemDraft && !isPlayChar && !isShortEvent
       ? findNonViableReason(cardDefId, view.legalActions, view.visibleInstances)
       : undefined;
     const isSelected = selectedItemDefId === cardDefId;
@@ -1667,6 +1742,18 @@ export function renderHand(
           );
           reRenderCharacterPlay();
         });
+      }
+    } else if (isShortEvent) {
+      // Short-event: single target plays directly, multiple targets show tooltip
+      img.className = 'hand-card hand-card-playable';
+      if (onAction) {
+        if (shortEventActions.length === 1) {
+          img.addEventListener('click', () => onAction(shortEventActions[0]));
+        } else {
+          img.addEventListener('click', (e) => {
+            showShortEventTargetMenu(e, shortEventActions, view.visibleInstances, cardPool, onAction);
+          });
+        }
       }
     } else if (action) {
       img.className = 'hand-card hand-card-playable';
@@ -1918,6 +2005,190 @@ export function renderLog(message: string, cardPool?: Readonly<Record<string, Ca
   if (cardPool) tagCardImages(line, cardPool);
   el.appendChild(line);
   el.scrollTop = el.scrollHeight;
+}
+
+/**
+ * Render the chain of effects panel in the visual view.
+ *
+ * When a chain is active, displays a floating panel on the right side
+ * showing all chain entries in LIFO order (top = resolves first),
+ * the current mode (declaring/resolving), and who has priority.
+ */
+export function renderChainPanel(
+  view: PlayerView,
+  cardPool: Readonly<Record<string, CardDefinition>>,
+  _onAction: (action: GameAction) => void,
+): void {
+  const panel = document.getElementById('chain-panel');
+  if (!panel) return;
+
+  const chain = view.chain;
+  if (!chain) {
+    panel.classList.add('hidden');
+    panel.innerHTML = '';
+    return;
+  }
+
+  panel.classList.remove('hidden');
+  panel.innerHTML = '';
+
+  // Header: mode and priority
+  const header = document.createElement('div');
+  header.className = 'chain-header';
+  const modeLabel = chain.mode === 'declaring' ? 'Declaring' : 'Resolving';
+  const isSelfPriority = chain.priority === view.self.id;
+  const priorityName = isSelfPriority ? view.self.name : view.opponent.name;
+  header.innerHTML = `<span class="chain-title">Chain of Effects</span>`
+    + `<span class="chain-mode chain-mode--${chain.mode}">${modeLabel}</span>`;
+  panel.appendChild(header);
+
+  if (chain.mode === 'declaring') {
+    const priorityEl = document.createElement('div');
+    priorityEl.className = 'chain-priority';
+    priorityEl.innerHTML = isSelfPriority
+      ? '<span class="chain-priority--self">Your priority</span>'
+      : `<span class="chain-priority--opp">${priorityName}'s priority</span>`;
+    panel.appendChild(priorityEl);
+  }
+
+  // Chain entries in LIFO order (last entry = top of stack = resolves first)
+  const entries = [...chain.entries].reverse();
+  const list = document.createElement('div');
+  list.className = 'chain-entries';
+
+  for (const entry of entries) {
+    const row = document.createElement('div');
+    row.className = 'chain-entry';
+    if (entry.resolved) row.classList.add('chain-entry--resolved');
+    if (entry.negated) row.classList.add('chain-entry--negated');
+    // Instance ID for FLIP animation tracking
+    if (entry.cardInstanceId) {
+      row.dataset.instanceId = entry.cardInstanceId as string;
+    }
+
+    // Card thumbnail
+    const thumb = createChainThumb(entry.definitionId, cardPool);
+    row.appendChild(thumb);
+
+    // Card name and payload description
+    const desc = document.createElement('span');
+    desc.className = 'chain-entry__desc';
+    desc.innerHTML = formatChainEntry(entry, view, cardPool);
+    row.appendChild(desc);
+
+    // Status badge
+    if (entry.negated) {
+      const status = document.createElement('span');
+      status.className = 'chain-entry__status chain-entry__status--negated';
+      status.textContent = 'negated';
+      row.appendChild(status);
+    } else if (entry.resolved) {
+      const status = document.createElement('span');
+      status.className = 'chain-entry__status chain-entry__status--resolved';
+      status.textContent = 'resolved';
+      row.appendChild(status);
+    }
+
+    list.appendChild(row);
+  }
+  panel.appendChild(list);
+
+  // Nested chain indicator
+  if (chain.parentChain) {
+    const nested = document.createElement('div');
+    nested.className = 'chain-nested';
+    nested.textContent = `Sub-chain (${chain.restriction})`;
+    panel.appendChild(nested);
+  }
+}
+
+/**
+ * Format a single chain entry into HTML for the chain panel.
+ * Shows the card name (if known) and a description of the payload type,
+ * including the target for short-events.
+ */
+function formatChainEntry(
+  entry: ChainEntry,
+  view: PlayerView,
+  cardPool: Readonly<Record<string, CardDefinition>>,
+): string {
+  const cardName = resolveCardName(entry.definitionId, cardPool);
+  const declarer = entry.declaredBy === view.self.id ? 'You' : view.opponent.name;
+
+  switch (entry.payload.type) {
+    case 'short-event': {
+      const targetName = entry.payload.targetInstanceId
+        ? resolveInstanceName(entry.payload.targetInstanceId, view.visibleInstances, cardPool)
+        : null;
+      const arrow = targetName ? ` <span class="chain-arrow">\u2192</span> ${targetName}` : '';
+      return `<span class="chain-card-name">${cardName}</span>${arrow}`
+        + `<span class="chain-declarer">${declarer}</span>`;
+    }
+    case 'creature':
+      return `<span class="chain-card-name">${cardName}</span>`
+        + `<span class="chain-declarer">${declarer}</span>`;
+    case 'corruption-card':
+      return `<span class="chain-card-name">${cardName}</span>`
+        + `<span class="chain-declarer">${declarer}</span>`;
+    case 'passive-condition':
+      return `<span class="chain-card-name">${cardName}</span>`
+        + ` <span class="chain-trigger">(${entry.payload.trigger})</span>`
+        + `<span class="chain-declarer">${declarer}</span>`;
+    case 'activated-ability':
+      return `<span class="chain-card-name">${cardName}</span> ability`
+        + `<span class="chain-declarer">${declarer}</span>`;
+    case 'on-guard-reveal':
+      return `<span class="chain-card-name">${cardName}</span> on-guard`
+        + `<span class="chain-declarer">${declarer}</span>`;
+    case 'body-check':
+      return `<span class="chain-card-name">${cardName}</span> body check`
+        + `<span class="chain-declarer">${declarer}</span>`;
+  }
+}
+
+/** Create a small card thumbnail for a chain entry row. */
+function createChainThumb(
+  defId: CardDefinitionId | null,
+  cardPool: Readonly<Record<string, CardDefinition>>,
+): HTMLElement {
+  const img = document.createElement('img');
+  img.className = 'chain-entry__thumb';
+  if (defId) {
+    const def = cardPool[defId as string];
+    if (def) {
+      const imgPath = cardImageProxyPath(def);
+      if (imgPath) {
+        img.src = imgPath;
+        img.alt = def.name;
+        img.dataset.cardId = defId as string;
+        return img;
+      }
+    }
+  }
+  img.src = '/images/card-back.jpg';
+  img.alt = 'Unknown card';
+  return img;
+}
+
+/** Resolve a card definition ID to its display name. */
+function resolveCardName(
+  defId: CardDefinitionId | null,
+  cardPool: Readonly<Record<string, CardDefinition>>,
+): string {
+  if (!defId) return 'Unknown';
+  const def = cardPool[defId as string];
+  return def ? def.name : (defId as string);
+}
+
+/** Resolve a card instance ID to its display name via visibleInstances. */
+function resolveInstanceName(
+  instanceId: CardInstanceId,
+  visibleInstances: Readonly<Record<string, CardDefinitionId>>,
+  cardPool: Readonly<Record<string, CardDefinition>>,
+): string {
+  const defId = visibleInstances[instanceId as string];
+  if (!defId) return '?';
+  return resolveCardName(defId, cardPool);
 }
 
 /**

@@ -1921,3 +1921,209 @@ h2 {
   font-size: 1.1rem;
   padding: 8px 16px;
 }
+
+/* ---- Chain of Effects Panel ---- */
+
+#chain-panel {
+  position: fixed;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 50;
+  width: 340px;
+  max-height: 65vh;
+  overflow-y: auto;
+  background: rgba(20, 16, 10, 0.92);
+  border: 1px solid rgba(196, 163, 90, 0.5);
+  border-radius: 8px;
+  padding: 0.8rem;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.7);
+  font-family: 'MedievalSharp', serif;
+}
+
+.chain-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: 0.4rem;
+  border-bottom: 1px solid rgba(196, 163, 90, 0.3);
+  margin-bottom: 0.4rem;
+}
+
+.chain-title {
+  color: #c4a35a;
+  font-size: 1.15rem;
+  font-weight: bold;
+}
+
+.chain-mode {
+  font-size: 0.85rem;
+  padding: 2px 8px;
+  border-radius: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.chain-mode--declaring {
+  background: rgba(100, 200, 255, 0.2);
+  color: #7cc4e8;
+  border: 1px solid rgba(100, 200, 255, 0.4);
+}
+
+.chain-mode--resolving {
+  background: rgba(255, 180, 80, 0.2);
+  color: #e8b84c;
+  border: 1px solid rgba(255, 180, 80, 0.4);
+  animation: chain-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes chain-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
+
+.chain-priority {
+  text-align: center;
+  font-size: 0.95rem;
+  margin-bottom: 0.5rem;
+  padding: 4px 0;
+}
+
+.chain-priority--self {
+  color: #8ce68c;
+  font-weight: bold;
+}
+
+.chain-priority--opp {
+  color: #c0a0a0;
+  font-style: italic;
+}
+
+/* Chain entries list */
+.chain-entries {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.chain-entry {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 8px;
+  border-radius: 4px;
+  background: rgba(196, 163, 90, 0.08);
+  border-left: 3px solid rgba(100, 200, 255, 0.6);
+  transition: opacity 0.3s ease;
+}
+
+.chain-entry--resolved {
+  border-left-color: rgba(100, 200, 100, 0.5);
+  opacity: 0.55;
+}
+
+.chain-entry--negated {
+  border-left-color: rgba(220, 80, 80, 0.5);
+  opacity: 0.45;
+  text-decoration: line-through;
+}
+
+.chain-entry__thumb {
+  width: 72px;
+  height: 100px;
+  object-fit: cover;
+  border-radius: 3px;
+  flex-shrink: 0;
+  border: 1px solid rgba(196, 163, 90, 0.3);
+}
+
+.chain-entry--negated .chain-entry__thumb {
+  filter: grayscale(0.8) brightness(0.5);
+}
+
+.chain-entry--resolved .chain-entry__thumb {
+  filter: brightness(0.6) saturate(0.5);
+}
+
+.chain-entry__desc {
+  flex: 1;
+  font-size: 0.95rem;
+  color: rgba(220, 210, 180, 0.9);
+  line-height: 1.3;
+  min-width: 0;
+}
+
+.chain-card-name {
+  color: #c4a35a;
+  font-weight: bold;
+}
+
+.chain-arrow {
+  color: rgba(255, 120, 120, 0.8);
+  margin: 0 2px;
+}
+
+.chain-declarer {
+  display: block;
+  font-size: 0.75rem;
+  color: rgba(180, 170, 150, 0.6);
+  margin-top: 1px;
+}
+
+.chain-trigger {
+  font-size: 0.8rem;
+  color: rgba(180, 160, 120, 0.7);
+  font-style: italic;
+}
+
+.chain-entry__status {
+  font-size: 0.7rem;
+  padding: 1px 5px;
+  border-radius: 8px;
+  flex-shrink: 0;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.chain-entry__status--resolved {
+  background: rgba(100, 200, 100, 0.15);
+  color: rgba(100, 200, 100, 0.8);
+}
+
+.chain-entry__status--negated {
+  background: rgba(220, 80, 80, 0.15);
+  color: rgba(220, 80, 80, 0.8);
+}
+
+.chain-nested {
+  margin-top: 0.4rem;
+  padding-top: 0.3rem;
+  border-top: 1px dashed rgba(196, 163, 90, 0.3);
+  font-size: 0.7rem;
+  color: rgba(180, 160, 120, 0.7);
+  text-align: center;
+  font-style: italic;
+}
+
+/* Short-event target tooltip (reuses char-action-tooltip styling) */
+.chain-target-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 999;
+  background: transparent;
+}
+
+.chain-target-tooltip {
+  position: fixed;
+  transform: translate(-50%, -100%);
+  margin-top: -12px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  background: rgba(30, 25, 18, 0.95);
+  border: 1px solid rgba(196, 163, 90, 0.6);
+  border-radius: 6px;
+  padding: 4px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.6);
+  z-index: 1000;
+}
