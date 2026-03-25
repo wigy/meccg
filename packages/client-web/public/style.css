@@ -1072,34 +1072,19 @@ h2 {
 #hand-arc {
   bottom: -10vh;
   transition: bottom 0.3s ease;
-  pointer-events: auto;
 }
 
-#hand-arc:hover {
+#hand-arc:has(.hand-card:hover) {
   bottom: 0;
   z-index: 100;
 }
 
 /*
- * Invisible hover catch zone below the arc.
- *
- * When the arc lifts (bottom: -10vh → 8vh), the mouse stays near the viewport
- * bottom while the element moves up. Without this, the mouse ends up below
- * the element's bottom edge, hover drops, the arc slides back → flicker loop.
- *
- * This ::after extends 20vh below the arc. As the arc transitions upward,
- * the ::after sweeps through the mouse position, maintaining hover. Once
- * lifted, it covers from 8vh down to -12vh (below viewport), keeping the
- * mouse captured even if it drifts toward the screen edge.
+ * No catch zone needed: :has(.hand-card:hover) triggers on the card itself.
+ * Cards are 28vh tall and the arc offset is only 10vh, so when the arc rises
+ * the mouse stays over the card (landing on the lower portion that was
+ * previously below viewport).
  */
-#hand-arc::after {
-  content: '';
-  position: absolute;
-  left: 0;
-  right: 0;
-  top: 100%;
-  height: 20vh;
-}
 
 #opponent-arc {
   top: -19vh;
