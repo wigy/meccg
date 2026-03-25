@@ -224,6 +224,10 @@ function tagCardImages(el: HTMLElement, cardPool: Readonly<Record<string, CardDe
 
 /** Floating image element for card hover preview. */
 let hoverImg: HTMLImageElement | null = null;
+/** Floating JSON panel shown next to the hover image in debug view. */
+let hoverJson: HTMLPreElement | null = null;
+/** Card pool reference set by {@link setupCardPreview}, used by the debug hover. */
+let debugCardPool: Readonly<Record<string, CardDefinition>> | null = null;
 
 function getHoverImg(): HTMLImageElement {
   if (hoverImg) return hoverImg;
@@ -233,6 +237,14 @@ function getHoverImg(): HTMLImageElement {
   return hoverImg;
 }
 
+function getHoverJson(): HTMLPreElement {
+  if (hoverJson) return hoverJson;
+  hoverJson = document.createElement('pre');
+  hoverJson.id = 'card-hover-json';
+  document.body.appendChild(hoverJson);
+  return hoverJson;
+}
+
 /** Set up global hover handlers for card name elements. */
 document.addEventListener('mouseover', (e) => {
   const target = (e.target as HTMLElement).closest?.('[data-card-image]');
@@ -240,6 +252,15 @@ document.addEventListener('mouseover', (e) => {
   const img = getHoverImg();
   img.src = (target as HTMLElement).dataset.cardImage!;
   img.style.display = 'block';
+
+  // Show JSON panel with card data
+  const cardId = (target as HTMLElement).dataset.cardId;
+  const def = cardId && debugCardPool ? debugCardPool[cardId] : undefined;
+  if (def) {
+    const json = getHoverJson();
+    json.textContent = JSON.stringify(def, null, 2);
+    json.style.display = 'block';
+  }
 });
 
 document.addEventListener('mouseout', (e) => {
@@ -247,6 +268,8 @@ document.addEventListener('mouseout', (e) => {
   if (!target) return;
   const img = getHoverImg();
   img.style.display = 'none';
+  const json = getHoverJson();
+  json.style.display = 'none';
 });
 
 document.addEventListener('mousemove', (e) => {
@@ -261,11 +284,25 @@ document.addEventListener('mousemove', (e) => {
   if (y + imgH > vh) y = vh - imgH;
   hoverImg.style.left = `${x}px`;
   hoverImg.style.top = `${y}px`;
+
+  // Position JSON panel next to the image
+  if (hoverJson && hoverJson.style.display !== 'none') {
+    const jsonW = hoverJson.offsetWidth || 300;
+    const jsonH = hoverJson.offsetHeight || 400;
+    let jx = x + imgW + 8;
+    if (jx + jsonW > vw) jx = x - jsonW - 8;
+    let jy = y;
+    if (jy + jsonH > vh) jy = vh - jsonH;
+    if (jy < 0) jy = 0;
+    hoverJson.style.left = `${jx}px`;
+    hoverJson.style.top = `${jy}px`;
+  }
 });
 
 /** Hide the hover image (e.g. when DOM is re-rendered and the hovered element disappears). */
 function hideHoverImg(): void {
   if (hoverImg) hoverImg.style.display = 'none';
+  if (hoverJson) hoverJson.style.display = 'none';
 }
 
 /**
@@ -1698,6 +1735,7 @@ export function renderOpponentHand(view: PlayerView, cardPool: Readonly<Record<s
  * Hovering any card image shows a zoomed copy in the fixed preview area.
  */
 export function setupCardPreview(cardPool: Readonly<Record<string, CardDefinition>>): void {
+  debugCardPool = cardPool;
   const view = document.getElementById('visual-view');
   const preview = document.getElementById('card-preview');
   if (!view || !preview) return;
@@ -1730,12 +1768,6 @@ export function setupCardPreview(cardPool: Readonly<Record<string, CardDefinitio
       // Attributes
       buildCardAttributes(info, def);
       preview.appendChild(info);
-
-      // Raw JSON panel (for debugging card data)
-      const json = document.createElement('pre');
-      json.className = 'card-preview-json';
-      json.textContent = JSON.stringify(def, null, 2);
-      preview.appendChild(json);
     } else {
       const clone = document.createElement('img');
       clone.src = img.src;

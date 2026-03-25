@@ -1021,21 +1021,6 @@ h2 {
   text-align: right;
 }
 
-.card-preview-json {
-  margin-top: 0.5rem;
-  padding: 0.5rem;
-  background: rgba(0, 0, 0, 0.5);
-  border: 1px solid rgba(100, 90, 60, 0.5);
-  border-radius: 4px;
-  font-family: monospace;
-  font-size: 0.65rem;
-  color: rgba(180, 170, 140, 0.85);
-  max-height: 20rem;
-  overflow-y: auto;
-  white-space: pre-wrap;
-  word-break: break-word;
-}
-
 #pass-btn {
   position: fixed;
   right: 2rem;
@@ -1203,6 +1188,25 @@ h2 {
   height: 500px;
   border-radius: 6px;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.8);
+}
+
+#card-hover-json {
+  display: none;
+  position: fixed;
+  pointer-events: none;
+  z-index: 200;
+  max-width: 350px;
+  margin: 0;
+  padding: 0.5rem;
+  background: rgba(10, 8, 4, 0.95);
+  border: 1px solid rgba(100, 90, 60, 0.6);
+  border-radius: 6px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.8);
+  font-family: monospace;
+  font-size: 0.7rem;
+  color: rgba(180, 170, 140, 0.9);
+  white-space: pre-wrap;
+  word-break: break-word;
 }
 
 /* ---- Dice roller (Lidless Eye style) ---- */
