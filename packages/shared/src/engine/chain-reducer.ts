@@ -161,10 +161,10 @@ function handlePassChainPriority(state: GameState, chain: ChainState, playerId: 
     return { state, error: 'Cannot pass priority: you do not have priority' };
   }
 
-  // Check if the other player has already passed
-  const otherAlreadyPassed = chain.priorityPlayerPassed
-    ? chain.nonPriorityPlayerPassed
-    : false;
+  // Check if the other player (now the non-priority player) already passed.
+  // After the first pass, priority flips and the passer becomes the
+  // non-priority player with nonPriorityPlayerPassed = true.
+  const otherAlreadyPassed = chain.nonPriorityPlayerPassed;
 
   // The current priority player is passing. If they were the first to pass,
   // flip priority to the opponent. The "priorityPlayerPassed" always tracks

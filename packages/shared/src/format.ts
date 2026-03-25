@@ -16,7 +16,7 @@
 
 import type { CardDefinition } from './types/cards.js';
 import { isCharacterCard, isItemCard } from './types/cards.js';
-import type { GameState, Company, CharacterInPlay, ItemInPlay, AllyInPlay, CombatState, PhaseState, MarshallingPointTotals } from './types/state.js';
+import type { GameState, Company, CharacterInPlay, ItemInPlay, AllyInPlay, CombatState, ChainState, PhaseState, MarshallingPointTotals } from './types/state.js';
 import type { PlayerView, OpponentCompanyView } from './types/player-view.js';
 import { computeTournamentBreakdown } from './state-utils.js';
 import type { GameAction } from './types/actions.js';
@@ -414,6 +414,7 @@ interface RenderInput {
   readonly turnNumber: number;
   readonly phaseState: PhaseState;
   readonly combat: CombatState | null;
+  readonly chain: ChainState | null;
   readonly players: readonly [RenderPlayerInput, RenderPlayerInput];
   readonly defOf: CardLookup;
   readonly instOf: InstanceLookup;
@@ -565,6 +566,23 @@ function renderState(input: RenderInput): string {
     lines.push(...formatCombat(input.combat, defOf, instOf, '  '));
   }
 
+  // Chain of effects
+  if (input.chain) {
+    lines.push('');
+    lines.push(`Chain (${input.chain.mode}) — priority: ${input.chain.priority as string}`);
+    for (let i = input.chain.entries.length - 1; i >= 0; i--) {
+      const entry = input.chain.entries[i];
+      const status = entry.negated ? ' [negated]' : entry.resolved ? ' [resolved]' : '';
+      const cardName = entry.cardInstanceId
+        ? formatInstanceName(entry.cardInstanceId, defOf, instOf)
+        : entry.payload.type;
+      const target = entry.payload.type === 'short-event' && entry.payload.targetInstanceId
+        ? ` → ${formatInstanceName(entry.payload.targetInstanceId, defOf, instOf)}`
+        : '';
+      lines.push(`  #${i} ${cardName}${target}${status}`);
+    }
+  }
+
   return lines.join('\n');
 }
 
@@ -584,6 +602,7 @@ export function formatGameState(state: GameState): string {
     turnNumber: state.turnNumber,
     phaseState: state.phaseState,
     combat: state.combat,
+    chain: state.chain,
     players: state.players.map(p => ({
       name: p.name,
       alignment: p.alignment,
@@ -652,6 +671,7 @@ export function formatPlayerView(
     turnNumber: view.turnNumber,
     phaseState: view.phaseState,
     combat: view.combat,
+    chain: view.chain,
     players: [
       {
         name: view.self.name,
