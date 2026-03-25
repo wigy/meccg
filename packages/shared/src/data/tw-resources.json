@@ -81,6 +81,7 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/GatesofMorning.jpg",
     "unique": false,
     "eventType": "permanent",
+    "keywords": ["environment"],
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
     "effects": [
@@ -100,6 +101,7 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Sun.jpg",
     "unique": false,
     "eventType": "long",
+    "keywords": ["environment"],
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
     "effects": [

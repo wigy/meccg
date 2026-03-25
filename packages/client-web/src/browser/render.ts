@@ -1777,6 +1777,12 @@ function addAttr(parent: HTMLElement, label: string, value: string | number): vo
 function buildCardAttributes(el: HTMLElement, def: CardDefinition): void {
   addAttr(el, 'Type', formatCardType(def.cardType));
 
+  // Show keywords if present (environment, weapon, armor, etc.)
+  const keywords = (def as { keywords?: readonly string[] }).keywords;
+  if (keywords && keywords.length > 0) {
+    addAttr(el, 'Keywords', keywords.map(formatLabel).join(', '));
+  }
+
   switch (def.cardType) {
     case 'hero-character':
     case 'minion-character': {
@@ -1792,7 +1798,7 @@ function buildCardAttributes(el: HTMLElement, def: CardDefinition): void {
     }
     case 'hero-resource-item':
     case 'minion-resource-item': {
-      addAttr(el, 'Subtype', def.subtype);
+      addAttr(el, 'Subtype', formatLabel(def.subtype));
       if (def.prowessModifier !== 0) addAttr(el, 'Prowess', formatSignedNumber(def.prowessModifier));
       if (def.bodyModifier !== 0) addAttr(el, 'Body', formatSignedNumber(def.bodyModifier));
       addAttr(el, 'MP', def.marshallingPoints);
@@ -1821,11 +1827,11 @@ function buildCardAttributes(el: HTMLElement, def: CardDefinition): void {
       break;
     }
     case 'hazard-event': {
-      addAttr(el, 'Duration', def.eventType);
+      addAttr(el, 'Duration', formatLabel(def.eventType));
       break;
     }
     case 'hero-resource-event': {
-      addAttr(el, 'Duration', def.eventType);
+      addAttr(el, 'Duration', formatLabel(def.eventType));
       if (def.marshallingPoints !== 0) addAttr(el, 'MP', def.marshallingPoints);
       break;
     }

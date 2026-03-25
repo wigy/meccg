@@ -6,6 +6,7 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/DoorsofNight.jpg",
     "unique": false,
     "eventType": "permanent",
+    "keywords": ["environment"],
     "effects": [
       {
         "type": "duplication-limit",
@@ -47,6 +48,7 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Twilight.jpg",
     "unique": false,
     "eventType": "short",
+    "keywords": ["environment"],
     "text": "Environment. One environment card (in play or declared earlier in the same chain of effects) is canceled and discarded. Twilight may also be played as a resource, may be played at any point during any player's turn and does not count against the hazard limit."
   }
 ]

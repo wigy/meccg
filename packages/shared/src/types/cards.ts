@@ -78,6 +78,8 @@ export interface HeroCharacterCard {
   readonly corruptionModifier: number;
   /** The site name where this character can be played from hand into a company. */
   readonly homesite: string;
+  /** Game keywords (e.g. "environment", "weapon", "armor") that affect card interactions. */
+  readonly keywords?: readonly string[];
   /** Declarative effects describing this character's special abilities. */
   readonly effects?: readonly CardEffect[];
   /** Flavor/rules text describing special abilities. */
@@ -132,6 +134,8 @@ export interface HeroItemCard {
   readonly bodyModifier: number;
   /** Site types where this item can be played (e.g. Ruins-and-Lairs, Shadow-holds). */
   readonly playableAt: readonly SiteType[];
+  /** Game keywords (e.g. "weapon", "armor") that affect card interactions. */
+  readonly keywords?: readonly string[];
   /** Declarative effects describing this item's abilities and modifiers. */
   readonly effects?: readonly CardEffect[];
   /** Flavor/rules text describing special abilities or play conditions. */
@@ -240,6 +244,8 @@ export interface HeroResourceEventCard {
   readonly marshallingPoints: number;
   /** Always 'misc' -- resource events fall into the miscellaneous scoring category. */
   readonly marshallingCategory: MarshallingCategory.Misc;
+  /** Game keywords (e.g. "environment") that affect card interactions. */
+  readonly keywords?: readonly string[];
   /** Declarative effects describing this event's abilities. */
   readonly effects?: readonly CardEffect[];
   /** Flavor/rules text describing the event's effect. */
@@ -297,6 +303,8 @@ export interface CreatureCard {
   readonly killMarshallingPoints: number;
   /** Terrain and site restrictions determining where this creature can legally attack. */
   readonly keyedTo: readonly CreatureKeyRestriction[];
+  /** Game keywords (e.g. "environment", "weapon", "armor") that affect card interactions. */
+  readonly keywords?: readonly string[];
   /** Declarative effects describing this creature's special combat abilities. */
   readonly effects?: readonly CardEffect[];
   /** Flavor/rules text describing special abilities or attack modifiers. */
@@ -323,6 +331,8 @@ export interface HazardEventCard {
   readonly unique: boolean;
   /** Duration class determining when this event is removed from play. */
   readonly eventType: 'short' | 'long' | 'permanent';
+  /** Game keywords (e.g. "environment") that affect card interactions. */
+  readonly keywords?: readonly string[];
   /** Declarative effects describing this event's abilities. */
   readonly effects?: readonly CardEffect[];
   /** Flavor/rules text describing the event's effect. */
@@ -494,6 +504,8 @@ export interface MinionItemCard {
   readonly bodyModifier: number;
   /** Site types where this item can be played. */
   readonly playableAt: readonly SiteType[];
+  /** Game keywords (e.g. "weapon", "armor") that affect card interactions. */
+  readonly keywords?: readonly string[];
   /** Declarative effects describing this item's abilities and modifiers. */
   readonly effects?: readonly CardEffect[];
   /** Flavor/rules text describing special abilities or play conditions. */
@@ -618,7 +630,7 @@ export interface MinionCharacterCard {
   readonly corruptionModifier: number;
   /** The site name where this character can be played from hand into a company. */
   readonly homesite: string;
-  /** Minion-specific keywords (e.g. "Leader", "Uruk-hai", "Olog-hai"). */
+  /** Game keywords (e.g. "environment", "weapon", "armor") that affect card interactions. */
   readonly keywords?: readonly string[];
   /** Declarative effects describing this character's special abilities. */
   readonly effects?: readonly CardEffect[];
