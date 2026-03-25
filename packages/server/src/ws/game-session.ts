@@ -298,6 +298,16 @@ export class GameSession {
       this.state.instanceMap as unknown as Record<string, { definitionId: string }>,
     );
     this.gameLog.truncateAfterSeq(this.state.stateSeq);
+
+    // Rebuild undo history from the game log
+    const logStates = this.gameLog.readStatesBefore(this.state.stateSeq);
+    this.stateHistory = logStates.map(s => ({
+      ...s,
+      cardPool: this.state!.cardPool,
+      instanceMap: this.state!.instanceMap,
+    }) as GameState);
+    console.log(`Restored ${this.stateHistory.length} undo states from game log`);
+
     this.gameLog.log('restore', { stateSeq: this.state.stateSeq, player1: name1, player2: name2 });
     if (this.verbose) console.log(`\n${STATE_DIVIDER}\n${formatGameState(this.state)}\n${STATE_DIVIDER}`);
 
@@ -436,11 +446,15 @@ export class GameSession {
     }
 
     const previous = this.stateHistory.pop()!;
-    console.log(`Undo: reverting from stateSeq ${this.state?.stateSeq} to ${previous.stateSeq}`);
-    this.serverLog.log('undo', { fromSeq: this.state?.stateSeq, toSeq: previous.stateSeq });
+    const fromSeq = this.state?.stateSeq;
+    console.log(`Undo: reverting from stateSeq ${fromSeq} to ${previous.stateSeq}`);
+    this.serverLog.log('undo', { fromSeq, toSeq: previous.stateSeq });
+
+    // Remove the current state's entry from the game log
+    if (fromSeq !== undefined) {
+      this.gameLog.removeLastEntry(fromSeq);
+    }
     this.state = previous;
-    this.gameLog.truncateAfterSeq(previous.stateSeq);
-    this.logState('undo');
     this.broadcastStateWithLogs();
     this.send(ws, { type: 'info', message: 'Undo.' });
   }

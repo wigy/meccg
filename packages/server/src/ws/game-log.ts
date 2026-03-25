@@ -155,6 +155,72 @@ export class GameLog {
     this.stream = fs.createWriteStream(filePath, { flags: 'a' });
   }
 
+  /**
+   * Read state snapshots from the game log, returning them ordered by stateSeq.
+   * Only entries with event === 'state' and a numeric stateSeq are included.
+   * The `state` field of each entry contains the full game state minus cardPool/instanceMap.
+   */
+  readStatesBefore(seq: number): Record<string, unknown>[] {
+    if (!this.currentGameId) return [];
+    const filePath = path.join(GAME_LOG_DIR, `${this.currentGameId}.jsonl`);
+    if (!fs.existsSync(filePath)) return [];
+
+    const lines = fs.readFileSync(filePath, 'utf-8').split('\n').filter(l => l.trim());
+    const states: Record<string, unknown>[] = [];
+    for (const line of lines) {
+      try {
+        const entry = JSON.parse(line) as Record<string, unknown>;
+        if (entry.event !== 'state') continue;
+        const entrySeq = typeof entry.stateSeq === 'number' ? entry.stateSeq : -1;
+        if (entrySeq >= 0 && entrySeq < seq && entry.state) {
+          states.push(entry.state as Record<string, unknown>);
+        }
+      } catch {
+        // skip unparseable lines
+      }
+    }
+    return states;
+  }
+
+  /**
+   * Remove the last game log entry whose stateSeq equals the given value.
+   * Used by undo to delete the current state's log entry before reverting.
+   */
+  removeLastEntry(seq: number): void {
+    if (!this.currentGameId) return;
+    const filePath = path.join(GAME_LOG_DIR, `${this.currentGameId}.jsonl`);
+
+    if (this.stream) {
+      this.stream.end();
+      this.stream = null;
+    }
+
+    if (!fs.existsSync(filePath)) return;
+
+    const lines = fs.readFileSync(filePath, 'utf-8').split('\n').filter(l => l.trim());
+    // Find the last line with this stateSeq and remove it
+    let removeIdx = -1;
+    for (let i = lines.length - 1; i >= 0; i--) {
+      try {
+        const entry = JSON.parse(lines[i]) as Record<string, unknown>;
+        if (typeof entry.stateSeq === 'number' && entry.stateSeq === seq) {
+          removeIdx = i;
+          break;
+        }
+      } catch {
+        // skip
+      }
+    }
+
+    if (removeIdx >= 0) {
+      lines.splice(removeIdx, 1);
+      fs.writeFileSync(filePath, lines.join('\n') + '\n', 'utf-8');
+      console.log(`Game log: removed entry with stateSeq ${seq}`);
+    }
+
+    this.stream = fs.createWriteStream(filePath, { flags: 'a' });
+  }
+
   /** Flush and close the current game log file. */
   close(): void {
     if (this.stream) {
