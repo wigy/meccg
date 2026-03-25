@@ -312,6 +312,13 @@ h2 {
   min-height: 3rem;
 }
 
+.active-player-frame {
+  border: 1px solid #8899aa;
+  border-radius: 3px;
+  padding: 0.25rem 0.4rem;
+  margin: 0.15rem 0;
+}
+
 #actions {
   display: flex;
   flex-direction: column;

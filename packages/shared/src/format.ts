@@ -68,7 +68,7 @@ export function colorDebug(text: string): string {
 /** Strip STX card-ID markers (\x02id\x02), «MP:…», and «DICE:…» markers from formatted output. */
 export function stripCardMarkers(text: string): string {
   // eslint-disable-next-line no-control-regex
-  return text.replace(/\x02[^\x02]*\x02/g, '').replace(/«MP:[^»]*»/g, '').replace(/«DICE:[^»]*»/g, '');
+  return text.replace(/\x02[^\x02]*\x02/g, '').replace(/«MP:[^»]*»/g, '').replace(/«DICE:[^»]*»/g, '').replace(/«ACTIVE-(?:START|END)»\n?/g, '');
 }
 
 /**
@@ -464,6 +464,7 @@ function renderState(input: RenderInput): string {
   lines.push(`Turn ${input.turnNumber} — Phase: ${phaseLabel}`);
 
   for (let pi = 0; pi < input.players.length; pi++) {
+    if (pi > 0) lines.push('');
     const player = input.players[pi];
     const opponent = input.players[1 - pi];
     const wizardLabel = player.wizard ? ` (${player.wizard})` : '';
@@ -472,7 +473,7 @@ function renderState(input: RenderInput): string {
     const selfAdj = computeTournamentBreakdown(selfRaw, oppRaw);
     const oppAdj = computeTournamentBreakdown(oppRaw, selfRaw);
     const totalMP = selfAdj.character + selfAdj.item + selfAdj.faction + selfAdj.ally + selfAdj.kill + selfAdj.misc;
-    const activeMarker = player.isActive ? ` \x1b[31m◀\x1b[0m` : '';
+    if (player.isActive) lines.push('«ACTIVE-START»');
     const giLabel = player.generalInfluenceUsed !== undefined
       ? ` | Free GI: ${GENERAL_INFLUENCE - player.generalInfluenceUsed}`
       : '';
@@ -485,7 +486,7 @@ function renderState(input: RenderInput): string {
     const diceMarker = player.lastDiceRoll
       ? ` «DICE:${player.lastDiceRoll.die1},${player.lastDiceRoll.die2},${pi === 0 ? 'black' : 'red'}»`
       : '';
-    lines.push(`${player.name} [${player.alignment}]${wizardLabel}: «MP:${mpData}»${totalMP} MP${giLabel}${diceMarker}${activeMarker}`);
+    lines.push(`${player.name} [${player.alignment}]${wizardLabel}: «MP:${mpData}»${totalMP} MP${giLabel}${diceMarker}`);
     if (player.handCards && player.handCards.length > 0) {
       // Group duplicate cards: "3 x Cave-drake" instead of "Cave-drake, Cave-drake, Cave-drake"
       const counts = new Map<string, { name: string; count: number }>();
@@ -556,6 +557,7 @@ function renderState(input: RenderInput): string {
         lines.push(`    · ${formatInstanceName(card.instanceId, defOf, instOf)}`);
       }
     }
+    if (player.isActive) lines.push('«ACTIVE-END»');
   }
 
   // Combat

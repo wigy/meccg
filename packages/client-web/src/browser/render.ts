@@ -392,11 +392,22 @@ function hydrateDicePlaceholders(container: HTMLElement): void {
   }
 }
 
+/**
+ * Wrap lines between «ACTIVE-START» and «ACTIVE-END» markers in a styled div
+ * so the active player's entire block is visually framed.
+ */
+function injectActivePlayerFrame(html: string): string {
+  return html.replace(
+    /«ACTIVE-START»\n?([\s\S]*?)«ACTIVE-END»\n?/g,
+    '<div class="active-player-frame">$1</div>',
+  );
+}
+
 /** Render the game state using the shared ANSI formatter, converted to HTML. */
 export function renderState(view: PlayerView, cardPool: Readonly<Record<string, CardDefinition>>): void {
   hideHoverImg();
   const el = $('state');
-  el.innerHTML = injectDiceMarkers(injectMPTooltips(makeCardListsCollapsible(ansiToHtml(formatPlayerView(view, cardPool)))));
+  el.innerHTML = injectActivePlayerFrame(injectDiceMarkers(injectMPTooltips(makeCardListsCollapsible(ansiToHtml(formatPlayerView(view, cardPool))))));
   hydrateDicePlaceholders(el);
   tagCardImages(el, cardPool);
 }
