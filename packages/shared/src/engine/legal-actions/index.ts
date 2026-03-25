@@ -20,6 +20,7 @@ import { movementHazardActions } from './movement-hazard.js';
 import { siteActions } from './site.js';
 import { endOfTurnActions } from './end-of-turn.js';
 import { freeCouncilActions } from './free-council.js';
+import { chainActions } from './chain.js';
 import { logHeading, logResult } from './log.js';
 
 /** Wraps plain GameActions as viable EvaluatedActions (for non-setup phases). */
@@ -35,6 +36,15 @@ function asViable(actions: GameAction[]): EvaluatedAction[] {
 export function computeLegalActions(state: GameState, playerId: PlayerId): EvaluatedAction[] {
   const phase = state.phaseState.phase;
   logHeading(`Computing legal actions for player ${playerId as string} in phase '${phase}'`);
+
+  // Chain of effects takes priority over everything else
+  if (state.chain !== null) {
+    logHeading(`Chain active (${state.chain.mode}) — delegating to chain actions`);
+    const evaluated = chainActions(state, playerId);
+    const viableCount = evaluated.filter(e => e.viable).length;
+    logResult(viableCount, evaluated.filter(e => e.viable).map(e => e.action) as unknown as Record<string, unknown>[]);
+    return evaluated;
+  }
 
   let evaluated: EvaluatedAction[];
   switch (phase) {

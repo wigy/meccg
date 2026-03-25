@@ -688,6 +688,36 @@ export interface NotPlayableAction {
   readonly cardInstanceId: CardInstanceId;
 }
 
+// ---- Chain of Effects actions ----
+
+/**
+ * Pass priority in the current chain of effects.
+ *
+ * When a player has priority during the declaring phase of a chain,
+ * they may pass instead of declaring an action. When both players pass
+ * consecutively, the chain transitions to resolving mode.
+ */
+export interface PassChainPriorityAction {
+  readonly type: 'pass-chain-priority';
+  /** The player passing priority. */
+  readonly player: PlayerId;
+}
+
+/**
+ * Choose the order of multiple simultaneously-triggered passive conditions.
+ *
+ * When multiple passive conditions trigger at the same time during chain
+ * resolution, the resource player chooses the order in which they are
+ * declared in the follow-up chain.
+ */
+export interface OrderPassivesAction {
+  readonly type: 'order-passives';
+  /** The player ordering the passives (always the resource player). */
+  readonly player: PlayerId;
+  /** The ordered list of source card instance IDs, in the desired declaration order. */
+  readonly order: readonly CardInstanceId[];
+}
+
 // ---- Discriminated union ----
 
 /**
@@ -735,4 +765,6 @@ export type GameAction =
   | PassAction
   | CallFreeCouncilAction
   | FetchFromSideboardAction
+  | PassChainPriorityAction
+  | OrderPassivesAction
   | NotPlayableAction;

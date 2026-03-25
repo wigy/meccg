@@ -1003,6 +1003,108 @@ export interface CombatState {
   readonly detainment: boolean;
 }
 
+// ---- Chain of Effects sub-state ----
+
+/**
+ * Discriminated union of chain entry payloads.
+ *
+ * Each variant corresponds to a kind of action that can appear on the
+ * chain of effects. The `type` field identifies the variant so that the
+ * resolver knows how to apply the entry when it resolves.
+ */
+export type ChainEntryPayload =
+  | { readonly type: 'short-event' }
+  | { readonly type: 'creature' }
+  | { readonly type: 'corruption-card' }
+  | { readonly type: 'passive-condition'; readonly trigger: string }
+  | { readonly type: 'activated-ability' }
+  | { readonly type: 'on-guard-reveal' }
+  | { readonly type: 'body-check' };
+
+/**
+ * A single entry on the chain of effects stack.
+ *
+ * Entries are pushed in declaration order and resolved in LIFO order
+ * (last declared resolves first). Each entry tracks its declaring player,
+ * the card involved, and a payload describing the kind of action.
+ */
+export interface ChainEntry {
+  /** Sequential position on the chain (0 = first declared). */
+  readonly index: number;
+  /** The player who declared this entry. */
+  readonly declaredBy: PlayerId;
+  /** The card instance being played, or null for non-card actions (e.g. passive conditions). */
+  readonly cardInstanceId: CardInstanceId | null;
+  /** The card definition ID, for quick lookup without going through instanceMap. */
+  readonly definitionId: CardDefinitionId | null;
+  /** What kind of action this entry represents, with variant-specific data. */
+  readonly payload: ChainEntryPayload;
+  /** Whether this entry has been resolved. */
+  readonly resolved: boolean;
+  /** Whether this entry was negated before it could resolve (e.g. target became invalid). */
+  readonly negated: boolean;
+}
+
+/**
+ * A passive condition triggered during chain resolution, queued for a follow-up chain.
+ *
+ * When a card's passive condition fires during resolution of the current chain,
+ * it cannot be added to the active chain. Instead it is deferred and declared
+ * in a new chain after the current one completes.
+ */
+export interface DeferredPassive {
+  /** The card whose passive condition was triggered. */
+  readonly sourceCardId: CardInstanceId;
+  /** Human-readable description of the trigger condition. */
+  readonly trigger: string;
+  /** The payload to declare in the follow-up chain. */
+  readonly payload: ChainEntryPayload;
+}
+
+/**
+ * Restriction on what can be declared in a chain.
+ *
+ * Most chains are unrestricted (`'normal'`), but certain game situations
+ * create chains where only specific kinds of actions are allowed:
+ * - `'body-check'` — only actions that affect the body check
+ * - `'end-of-phase'` — only "at the end of" triggered abilities
+ * - `'beginning-of-phase'` — only "at the beginning of" triggered abilities
+ */
+export type ChainRestriction = 'normal' | 'body-check' | 'end-of-phase' | 'beginning-of-phase';
+
+/**
+ * The chain of effects sub-state machine, stored as a top-level field on GameState.
+ *
+ * The chain layers on top of the current phase — when `state.chain` is non-null,
+ * legal action computation delegates to chain logic instead of the phase handler.
+ * The underlying phase (M/H, Site, etc.) stays intact.
+ *
+ * The chain has two modes:
+ * - `'declaring'` — players alternate declaring actions (pushing entries onto the stack)
+ * - `'resolving'` — entries are resolved in LIFO order (last declared resolves first)
+ *
+ * Priority alternates between players during declaration. When both players pass
+ * consecutively, the chain transitions from declaring to resolving.
+ */
+export interface ChainState {
+  /** Whether players are still declaring actions or the chain is resolving. */
+  readonly mode: 'declaring' | 'resolving';
+  /** LIFO stack of declared entries. Index 0 = first declared, last = top of stack. */
+  readonly entries: readonly ChainEntry[];
+  /** The player who currently has priority to declare or pass. */
+  readonly priority: PlayerId;
+  /** Whether the priority player has passed (waiting for opponent's response). */
+  readonly priorityPlayerPassed: boolean;
+  /** Whether the non-priority player has passed. */
+  readonly nonPriorityPlayerPassed: boolean;
+  /** Passive conditions triggered during resolution, queued for a follow-up chain. */
+  readonly deferredPassives: readonly DeferredPassive[];
+  /** Saved parent chain state for nested chains (on-guard interrupts, body checks). */
+  readonly parentChain: ChainState | null;
+  /** What kinds of actions are allowed in this chain. */
+  readonly restriction: ChainRestriction;
+}
+
 // ---- Pending effects ----
 
 /**
@@ -1063,6 +1165,13 @@ export interface GameState {
    * enclosing phase's normal actions.
    */
   readonly combat: CombatState | null;
+  /**
+   * Active chain of effects sub-state, or null when no chain is in progress.
+   * The chain is phase-independent: it layers on top of any phase where cards
+   * can be played. When non-null, chain actions take priority over both combat
+   * and the enclosing phase's normal actions.
+   */
+  readonly chain: ChainState | null;
   /** Long-duration and permanent event cards currently in play on the table. */
   readonly eventsInPlay: readonly EventInPlay[];
   /** The static card definition pool, keyed by CardDefinitionId. Loaded once at game start. */

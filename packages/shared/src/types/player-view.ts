@@ -29,6 +29,7 @@ import {
 import type {
   PhaseState,
   CombatState,
+  ChainState,
   EventInPlay,
   Company,
   CharacterInPlay,
@@ -232,6 +233,11 @@ export interface PlayerView {
    * Combat is public information — both players see the full combat state.
    */
   readonly combat: CombatState | null;
+  /**
+   * Active chain of effects sub-state, or null when no chain is in progress.
+   * Chain state is public information — both players see all declared cards.
+   */
+  readonly chain: ChainState | null;
   /** Long-duration and permanent events currently in play on the table. */
   readonly eventsInPlay: readonly EventInPlay[];
   /** Current turn number (1-based). */

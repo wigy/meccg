@@ -462,6 +462,7 @@ export function buildTestState(opts: BuildTestStateOpts): GameState {
     activePlayer: opts.activePlayer,
     phaseState,
     combat: null,
+    chain: null,
     eventsInPlay: [],
     cardPool: pool,
     instanceMap,

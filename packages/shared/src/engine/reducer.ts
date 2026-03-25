@@ -21,6 +21,7 @@ import { logHeading, logDetail } from './legal-actions/log.js';
 import type { TwoDiceSix, DieRoll, GameEffect } from '../index.js';
 import { applyDraftResults, transitionAfterItemDraft, enterSiteSelection, startFirstTurn } from './init.js';
 import { recomputeDerived } from './recompute-derived.js';
+import { handleChainAction } from './chain-reducer.js';
 
 /**
  * Roll 2d6, respecting an optional cheat roll target. If `cheatRollTotal` is
@@ -105,6 +106,20 @@ export function reduce(state: GameState, action: GameAction): ReducerResult {
   }
   logDetail(`Phase validation passed: '${action.type}' is legal in '${phase}'`);
 
+  // 2b. Chain of effects: dispatch chain-specific actions when a chain is active
+  if (state.chain !== null && (action.type === 'pass-chain-priority' || action.type === 'order-passives')) {
+    logDetail(`Chain active — dispatching '${action.type}' to chain reducer`);
+    const chainResult = handleChainAction(state, action);
+    if (!chainResult.error) {
+      const recomputed = recomputeDerived(chainResult.state);
+      return {
+        state: { ...recomputed, stateSeq: recomputed.stateSeq + 1 },
+        effects: chainResult.effects,
+      };
+    }
+    return chainResult;
+  }
+
   // 3. Dispatch to phase handler
   let result: ReducerResult;
   switch (phase) {
@@ -176,6 +191,13 @@ function validateActionPlayer(state: GameState, action: GameAction): string | un
     return undefined;
   }
 
+  // During an active chain, the priority player may act
+  if (state.chain !== null && (action.type === 'pass-chain-priority' || action.type === 'order-passives')) {
+    if (action.player !== state.chain.priority) {
+      return 'You do not have chain priority';
+    }
+    return undefined;
+  }
 
   // During movement/hazard phase, the non-active player plays hazards
   if (phase === 'movement-hazard' && action.type === 'play-hazard') {

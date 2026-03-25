@@ -905,6 +905,10 @@ export function describeAction(
       return `Reveal on-guard card ${instName(action.cardInstanceId)}`;
     case 'declare-agent-attack':
       return `Declare agent attack ${instName(action.agentInstanceId)}`;
+    case 'pass-chain-priority':
+      return `Pass chain priority`;
+    case 'order-passives':
+      return `Order ${action.order.length} passive condition(s)`;
     default: {
       const _exhaustive: never = action;
       return `Unknown action`;

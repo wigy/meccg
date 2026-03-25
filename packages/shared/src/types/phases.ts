@@ -88,6 +88,8 @@ export const LEGAL_ACTIONS_BY_PHASE: Readonly<Record<Phase, readonly GameAction[
     'plan-movement',
     'cancel-movement',
     'corruption-check',
+    'pass-chain-priority',
+    'order-passives',
     'pass',
   ],
 
@@ -104,6 +106,8 @@ export const LEGAL_ACTIONS_BY_PHASE: Readonly<Record<Phase, readonly GameAction[
     'resolve-strike',
     'support-strike',
     'corruption-check',
+    'pass-chain-priority',
+    'order-passives',
     'pass',
   ],
 
@@ -117,6 +121,8 @@ export const LEGAL_ACTIONS_BY_PHASE: Readonly<Record<Phase, readonly GameAction[
     'influence-attempt',
     'play-minor-item',
     'corruption-check',
+    'pass-chain-priority',
+    'order-passives',
     'pass',
   ],
 
