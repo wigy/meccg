@@ -12,7 +12,7 @@ A web-based implementation of the **Middle-Earth Collectible Card Game** (MECCG)
 
 ## Screenshots
 
-*(Coming soon)*
+![Character draft](docs/screenshot-character-draft.png)
 
 ## Getting Started
 
