@@ -1031,8 +1031,7 @@ h2 {
 #pass-btn {
   position: fixed;
   right: 2rem;
-  top: 60%;
-  transform: translateY(-50%);
+  bottom: 2rem;
   z-index: 15;
   font-family: 'MedievalSharp', cursive;
   font-size: 1.4rem;
