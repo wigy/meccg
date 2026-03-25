@@ -14,7 +14,7 @@
  * (or the original state plus an error string if the action was illegal).
  */
 
-import type { GameState, PlayerState, DraftPlayerState, ItemDraftPlayerState, CharacterDeckDraftPlayerState, SetupStepState, CardDefinitionId, CardInstanceId, CompanyId, CharacterInPlay, CardInstance, OrganizationPhaseState, MovementHazardPhaseState, SitePhaseState, EndOfTurnPhaseState, Company, CreatureCard, SiteInPlay } from '../index.js';
+import type { GameState, PlayerState, DraftPlayerState, ItemDraftPlayerState, CharacterDeckDraftPlayerState, SetupStepState, CardDefinitionId, CardInstanceId, CompanyId, CharacterInPlay, CardInstance, EventInPlay, OrganizationPhaseState, MovementHazardPhaseState, SitePhaseState, EndOfTurnPhaseState, Company, CreatureCard, SiteInPlay } from '../index.js';
 import type { GameAction } from '../index.js';
 import { Phase, SetupStep, LEGAL_ACTIONS_BY_PHASE, getAlignmentRules, shuffle, nextInt, CardStatus, isCharacterCard, isItemCard, isSiteCard, SiteType, RegionType, Race, Skill, getPlayerIndex, ZERO_EFFECTIVE_STATS, MAX_STARTING_ITEMS, BASE_MAX_REGION_DISTANCE, HAND_SIZE } from '../index.js';
 import { logHeading, logDetail } from './legal-actions/log.js';
@@ -1187,6 +1187,9 @@ function handleOrganization(state: GameState, action: GameAction): ReducerResult
   if (action.type === 'play-permanent-event') {
     return handlePlayPermanentEvent(state, action);
   }
+  if (action.type === 'play-short-event') {
+    return handlePlayShortEvent(state, action);
+  }
   if (action.type === 'move-to-influence') {
     return handleMoveToInfluence(state, action);
   }
@@ -2036,6 +2039,97 @@ function handlePlayPermanentEvent(state: GameState, action: GameAction): Reducer
   const newPlayers = clonePlayers(state);
   newPlayers[playerIndex] = { ...player, hand: newHand, cardsInPlay: newCardsInPlay };
   return { state: { ...state, players: newPlayers } };
+}
+
+/**
+ * Handle playing a short-event as a resource (e.g. Twilight).
+ * Removes the short event from hand to the player's discard pile and removes
+ * the target environment from eventsInPlay to its owner's discard pile.
+ */
+function handlePlayShortEvent(state: GameState, action: GameAction): ReducerResult {
+  if (action.type !== 'play-short-event') return { state, error: 'Expected play-short-event action' };
+
+  const playerIndex = getPlayerIndex(state, action.player);
+  const player = state.players[playerIndex];
+
+  const cardIdx = player.hand.indexOf(action.cardInstanceId);
+  if (cardIdx === -1) return { state, error: 'Card not in hand' };
+
+  const inst = state.instanceMap[action.cardInstanceId as string];
+  if (!inst) return { state, error: 'Card instance not found' };
+
+  const def = state.cardPool[inst.definitionId as string];
+  if (!def || def.cardType !== 'hazard-event' || def.eventType !== 'short') {
+    return { state, error: 'Card is not a hazard short-event' };
+  }
+
+  // Find the target environment — it may be in eventsInPlay (hazard permanent
+  // events like Doors of Night) or in a player's cardsInPlay (resource permanent
+  // events like Gates of Morning).
+  const evtIdx = state.eventsInPlay.findIndex(ev => ev.instanceId === action.targetInstanceId);
+  let targetOwnerIndex: number | undefined;
+  let targetDefId: string | undefined;
+  if (evtIdx !== -1) {
+    const ev = state.eventsInPlay[evtIdx];
+    targetOwnerIndex = getPlayerIndex(state, ev.owner);
+    targetDefId = ev.definitionId as string;
+  } else {
+    // Search cardsInPlay across all players
+    for (let pi = 0; pi < state.players.length; pi++) {
+      if (state.players[pi].cardsInPlay.some(c => c.instanceId === action.targetInstanceId)) {
+        targetOwnerIndex = pi;
+        const card = state.players[pi].cardsInPlay.find(c => c.instanceId === action.targetInstanceId)!;
+        targetDefId = card.definitionId as string;
+        break;
+      }
+    }
+  }
+  if (targetOwnerIndex === undefined || targetDefId === undefined) {
+    return { state, error: 'Target environment not in play' };
+  }
+  const targetDef = state.cardPool[targetDefId];
+
+  logDetail(`Playing short event ${def.name}: canceling environment ${targetDef?.name ?? targetDefId}`);
+
+  // Remove short event from hand → player's discard
+  const newHand = [...player.hand];
+  newHand.splice(cardIdx, 1);
+
+  const newPlayers = clonePlayers(state);
+  newPlayers[playerIndex] = {
+    ...player,
+    hand: newHand,
+    discardPile: [...player.discardPile, action.cardInstanceId],
+  };
+
+  // Remove target environment from its location → owner's discard
+  const newEventsInPlay: EventInPlay[] = [...state.eventsInPlay];
+  if (evtIdx !== -1) {
+    newEventsInPlay.splice(evtIdx, 1);
+  } else {
+    // Remove from owner's cardsInPlay
+    newPlayers[targetOwnerIndex] = {
+      ...newPlayers[targetOwnerIndex],
+      cardsInPlay: newPlayers[targetOwnerIndex].cardsInPlay.filter(
+        c => c.instanceId !== action.targetInstanceId,
+      ),
+    };
+  }
+
+  // Add target to owner's discard pile
+  if (targetOwnerIndex !== playerIndex) {
+    newPlayers[targetOwnerIndex] = {
+      ...newPlayers[targetOwnerIndex],
+      discardPile: [...newPlayers[targetOwnerIndex].discardPile, action.targetInstanceId],
+    };
+  } else {
+    newPlayers[playerIndex] = {
+      ...newPlayers[playerIndex],
+      discardPile: [...newPlayers[playerIndex].discardPile, action.targetInstanceId],
+    };
+  }
+
+  return { state: { ...state, players: newPlayers, eventsInPlay: newEventsInPlay } };
 }
 
 /**

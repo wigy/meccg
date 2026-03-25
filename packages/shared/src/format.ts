@@ -852,6 +852,8 @@ export function describeAction(
       return `Cancel movement for ${compName(action.companyId)}`;
     case 'play-permanent-event':
       return `Play permanent event ${instName(action.cardInstanceId)}`;
+    case 'play-short-event':
+      return `Play ${instName(action.cardInstanceId)} to cancel ${instName(action.targetInstanceId)}`;
     case 'play-hazard':
       return `Play hazard ${instName(action.cardInstanceId)} against ${compName(action.targetCompanyId)}`;
     case 'assign-strike':

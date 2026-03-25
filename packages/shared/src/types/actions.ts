@@ -310,6 +310,26 @@ export interface PlayPermanentEventAction {
   readonly cardInstanceId: CardInstanceId;
 }
 
+// ---- Short-event (resource) ----
+
+/**
+ * Play a short-event card as a resource to cancel and discard an environment.
+ *
+ * Cards with the `playable-as-resource` effect (e.g. Twilight) can be played
+ * from hand during any phase to target an environment card in play. The short
+ * event resolves immediately: the target environment is discarded, then the
+ * short event itself is discarded.
+ */
+export interface PlayShortEventAction {
+  readonly type: 'play-short-event';
+  /** The player playing the short event. */
+  readonly player: PlayerId;
+  /** The short-event card instance to play from hand. */
+  readonly cardInstanceId: CardInstanceId;
+  /** The environment card instance to cancel and discard. */
+  readonly targetInstanceId: CardInstanceId;
+}
+
 // ---- Long-event phase ----
 
 /**
@@ -745,6 +765,7 @@ export type GameAction =
   | PlanMovementAction
   | CancelMovementAction
   | PlayPermanentEventAction
+  | PlayShortEventAction
   | PlayLongEventAction
   | SelectCompanyAction
   | DeclarePathAction

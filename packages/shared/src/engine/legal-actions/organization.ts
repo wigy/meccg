@@ -20,6 +20,7 @@ import type {
   CardInstanceId,
   CharacterCard,
   HeroResourceEventCard,
+  HazardEventCard,
   OrganizationPhaseState,
   SiteCard,
 } from '../../index.js';
@@ -340,6 +341,70 @@ function playPermanentEventActions(state: GameState, playerId: PlayerId): Evalua
       action: { type: 'play-permanent-event', player: playerId, cardInstanceId },
       viable: true,
     });
+  }
+
+  return actions;
+}
+
+/**
+ * Evaluates short-event cards with `playable-as-resource` in hand (e.g. Twilight).
+ * These cancel and discard an environment card in play. One action is offered per
+ * valid (card, target) pair. If no environment is in play the card is not playable.
+ */
+function playShortEventActions(state: GameState, playerId: PlayerId): EvaluatedAction[] {
+  const player = state.players.find(p => p.id === playerId)!;
+  const actions: EvaluatedAction[] = [];
+
+  for (const cardInstanceId of player.hand) {
+    const inst = state.instanceMap[cardInstanceId as string];
+    if (!inst) continue;
+    const def = state.cardPool[inst.definitionId as string] as HazardEventCard | undefined;
+    if (!def || def.cardType !== 'hazard-event' || def.eventType !== 'short') continue;
+
+    // Only cards with the playable-as-resource effect
+    if (!def.effects?.some(e => e.type === 'play-restriction' && e.rule === 'playable-as-resource')) continue;
+
+    // Find environment cards in play — they may be in eventsInPlay (hazard
+    // permanent events like Doors of Night) or in a player's cardsInPlay
+    // (resource permanent events like Gates of Morning).
+    const isEnv = (defId: string): boolean => {
+      const d = state.cardPool[defId];
+      return !!d && 'keywords' in d
+        && !!(d as { keywords?: readonly string[] }).keywords?.includes('environment');
+    };
+    const envTargets: { instanceId: CardInstanceId; definitionId: string }[] = [];
+    for (const ev of state.eventsInPlay) {
+      if (isEnv(ev.definitionId as string)) envTargets.push(ev);
+    }
+    for (const p of state.players) {
+      for (const c of p.cardsInPlay) {
+        if (isEnv(c.definitionId as string)) envTargets.push(c);
+      }
+    }
+
+    if (envTargets.length === 0) {
+      logDetail(`Short event ${def.name}: no environment in play to cancel`);
+      actions.push({
+        action: { type: 'not-playable', player: playerId, cardInstanceId },
+        viable: false,
+        reason: 'No environment to cancel',
+      });
+      continue;
+    }
+
+    for (const target of envTargets) {
+      const targetDef = state.cardPool[target.definitionId];
+      logDetail(`Short event ${def.name}: can cancel environment ${targetDef?.name ?? target.definitionId}`);
+      actions.push({
+        action: {
+          type: 'play-short-event',
+          player: playerId,
+          cardInstanceId,
+          targetInstanceId: target.instanceId,
+        },
+        viable: true,
+      });
+    }
   }
 
   return actions;
@@ -820,10 +885,20 @@ export function organizationActions(state: GameState, playerId: PlayerId): Evalu
     ),
   );
 
+  // Play short-event cards as resource (e.g. Twilight cancels an environment)
+  const shortEventActions = playShortEventActions(state, playerId);
+  actions.push(...shortEventActions);
+  const shortEventInstances = new Set(
+    shortEventActions.map(ea =>
+      (ea.action as { cardInstanceId: CardInstanceId }).cardInstanceId as string,
+    ),
+  );
+
   // Mark remaining hand cards as not playable during organization
   for (const cardInstanceId of player.hand) {
     if (evaluatedInstances.has(cardInstanceId as string)) continue;
     if (permanentEventInstances.has(cardInstanceId as string)) continue;
+    if (shortEventInstances.has(cardInstanceId as string)) continue;
     actions.push({
       action: { type: 'not-playable', player: playerId, cardInstanceId },
       viable: false,

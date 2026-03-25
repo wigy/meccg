@@ -80,6 +80,7 @@ export const LEGAL_ACTIONS_BY_PHASE: Readonly<Record<Phase, readonly GameAction[
   [Phase.Organization]: [
     'play-character',
     'play-permanent-event',
+    'play-short-event',
     'split-company',
     'move-to-company',
     'merge-companies',

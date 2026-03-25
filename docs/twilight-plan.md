@@ -12,7 +12,7 @@ Twilight is a hazard short-event that can also be played as a resource. It cance
   2. Playable as a resource (dual-alignment)
   3. Does not count against hazard limit
 
-## 1. New Action Type: `play-short-event`
+## 1. New Action Type: `play-short-event` (DONE)
 
 Twilight (and future resource short-events) needs an action that works across multiple phases. Unlike `play-permanent-event` (adds to `eventsInPlay`) or `play-hazard` (initiates a chain), a resource short-event resolves immediately: cancel an environment, then discard itself.
 
@@ -26,7 +26,7 @@ interface PlayShortEventAction {
 }
 ```
 
-## 2. Card Data: Tag Twilight's Special Properties
+## 2. Card Data: Tag Twilight's Special Properties (DONE)
 
 ```json
 {
@@ -50,7 +50,7 @@ The DSL tags drive the engine:
 - `playable-as-resource` tells legal-actions code to offer it during resource windows
 - `no-hazard-limit` tells the hazard counter to skip it
 
-## 3. Legal Actions: `organization.ts`
+## 3. Legal Actions: `organization.ts` (DONE)
 
 Add `playShortEventActions()` after `playPermanentEventActions()`:
 
@@ -101,19 +101,19 @@ function playShortEventActions(state: GameState, playerId: PlayerId): EvaluatedA
 
 Wire it into the main org function (around line 815) and add instances to the `evaluatedInstances` exclusion set so they don't get marked `not-playable`.
 
-## 4. Phase Whitelist: `phases.ts`
+## 4. Phase Whitelist: `phases.ts` (DONE — Organization only)
 
-Add `'play-short-event'` to `LEGAL_ACTIONS_BY_PHASE` for:
-- **Organization** (resource player plays it to cancel an environment)
+Added `'play-short-event'` to `LEGAL_ACTIONS_BY_PHASE` for Organization phase.
+Still TODO for M/H and Site phases:
 - **MovementHazard** (either player, Twilight is playable during any player's turn)
 - **Site** (resource player)
 
-## 5. Reducer: Handle `play-short-event`
+## 5. Reducer: Handle `play-short-event` (DONE)
 
-In the organization phase handler, add a case for `play-short-event`:
-1. Remove Twilight from hand -> discard pile
-2. Remove target environment from `eventsInPlay` -> owner's discard pile
-3. No chain needed (short events that cancel resolve immediately as a game action; the chain is for the M/H phase response window)
+Handler `handlePlayShortEvent` added to the reducer:
+1. Removes Twilight from hand → player's discard pile
+2. Removes target environment from `eventsInPlay` → owner's discard pile
+3. Dispatched from the organization phase (and will be reachable from other phases once their legal-actions are wired up)
 
 ## 6. Keywords (DONE)
 
