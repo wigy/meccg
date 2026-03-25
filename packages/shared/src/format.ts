@@ -251,13 +251,14 @@ function formatCompany(
 ): string[] {
   const lines: string[] = [];
 
+  const siteStatus = company.currentSite ? statusSymbol(company.currentSite.status) + ' ' : '';
   const siteName = company.currentSite ? formatSiteName(company.currentSite.instanceId, defOf, instOf) : colorizeUnknown('(no site)');
   const noSiteTag = company.siteCardOwned === false ? ' (no site)' : '';
   if (company.destinationSite) {
     const destName = formatSiteName(company.destinationSite, defOf, instOf);
-    lines.push(`${indent}Company ${index + 1} → ${destName} (from ${siteName})${noSiteTag}:`);
+    lines.push(`${indent}Company ${index + 1} → ${destName} (from ${siteStatus}${siteName})${noSiteTag}:`);
   } else {
-    lines.push(`${indent}Company ${index + 1} @ ${siteName}${noSiteTag}:`);
+    lines.push(`${indent}Company ${index + 1} @ ${siteStatus}${siteName}${noSiteTag}:`);
   }
 
   // Collect follower IDs so we skip them in the main loop (they appear under their controller)
@@ -306,12 +307,13 @@ function formatOpponentCompany(
 ): string[] {
   const lines: string[] = [];
 
+  const siteStatus = company.currentSite ? statusSymbol(company.currentSite.status) + ' ' : '';
   const siteName = company.currentSite ? formatSiteName(company.currentSite.instanceId, defOf, instOf) : colorizeUnknown('(no site)');
   const noSiteTag = company.siteCardOwned === false ? ' (no site)' : '';
   if (company.hasPlannedMovement) {
-    lines.push(`${indent}Company ${index + 1} → ${colorizeUnknown('(planned)')} (from ${siteName})${noSiteTag}:`);
+    lines.push(`${indent}Company ${index + 1} → ${colorizeUnknown('(planned)')} (from ${siteStatus}${siteName})${noSiteTag}:`);
   } else {
-    lines.push(`${indent}Company ${index + 1} @ ${siteName}${noSiteTag}:`);
+    lines.push(`${indent}Company ${index + 1} @ ${siteStatus}${siteName}${noSiteTag}:`);
   }
 
   // Collect follower IDs so we skip them in the main loop

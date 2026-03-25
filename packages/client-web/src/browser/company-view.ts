@@ -418,6 +418,7 @@ function renderSiteArea(
         if (imgPath) {
           const siteOwned = company.siteCardOwned !== false;
           let cls = 'company-card company-card--site';
+          if (company.currentSite.status === CardStatus.Tapped) cls += ' company-card--tapped';
           if (options?.hasLegalMovement) cls += ' company-card--movable';
           if (!siteOwned) cls += ' company-card--site-ghost';
           const img = createCardImage(siteDefId as string, siteDef, imgPath, cls, company.currentSite.instanceId);

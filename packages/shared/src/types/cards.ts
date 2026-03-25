@@ -901,6 +901,23 @@ export function isItemCard(card: CardDefinition | undefined): card is ItemCard {
 }
 
 /**
+ * Union of all ally card types (hero and minion). Use this when code
+ * needs to handle allies generically regardless of alignment.
+ */
+export type AllyCard = HeroAllyCard | MinionAllyCard;
+
+/** Ally card type discriminants — the set of `cardType` values that represent allies. */
+export const ALLY_CARD_TYPES: ReadonlySet<string> = new Set(['hero-resource-ally', 'minion-resource-ally']);
+
+/**
+ * Type guard that narrows a CardDefinition to {@link AllyCard}.
+ * Works for both hero and minion allies.
+ */
+export function isAllyCard(card: CardDefinition | undefined): card is AllyCard {
+  return card !== undefined && ALLY_CARD_TYPES.has(card.cardType);
+}
+
+/**
  * Union of all site card types (hero, minion, and fallen-wizard). Use this
  * when code needs to handle sites generically regardless of alignment.
  */

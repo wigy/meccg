@@ -9,9 +9,21 @@
  * CoE rules section 2.V (lines 340–393).
  */
 
-import type { GameState, PlayerId, GameAction, EvaluatedAction, SitePhaseState, HeroItemCard, HeroResourceEventCard } from '../../index.js';
-import { getPlayerIndex, isSiteCard, isItemCard, CardStatus } from '../../index.js';
+import type { GameState, PlayerId, GameAction, EvaluatedAction, SitePhaseState, HeroItemCard, HeroResourceEventCard, SiteCard, PlayableAtEntry } from '../../index.js';
+import { getPlayerIndex, isSiteCard, isItemCard, isAllyCard, CardStatus } from '../../index.js';
 import { logDetail, logHeading } from './log.js';
+
+/**
+ * Check whether a site satisfies a {@link PlayableAtEntry}.
+ * Matches by exact site name (`site`) or by site type (`siteType`).
+ * The optional `when` condition is not yet evaluated (future work).
+ */
+function siteMatchesEntry(siteDef: SiteCard, entry: PlayableAtEntry): boolean {
+  if ('site' in entry) {
+    return siteDef.name === entry.site;
+  }
+  return siteDef.siteType === entry.siteType;
+}
 
 /** Wrap plain GameActions as viable EvaluatedActions. */
 function viable(actions: GameAction[]): EvaluatedAction[] {
@@ -352,7 +364,85 @@ function playResourcesActions(
       continue;
     }
 
-    // TODO: factions, allies, information
+    // Allies — check site is untapped, ally is playable at this site, and there's an untapped character
+    if (isAllyCard(def)) {
+      const allyDef = def;
+      evaluatedInstances.add(cardInstanceId as string);
+
+      if (siteIsTapped) {
+        logDetail(`Ally ${allyDef.name}: site is already tapped`);
+        actions.push({
+          action: { type: 'not-playable', player: playerId, cardInstanceId },
+          viable: false,
+          reason: `${allyDef.name}: site is already tapped`,
+        });
+        continue;
+      }
+
+      // Check ally is playable at this site
+      const siteDefForAlly = siteDef && isSiteCard(siteDef) ? siteDef : undefined;
+      if (!siteDefForAlly || !allyDef.playableAt.some(entry => siteMatchesEntry(siteDefForAlly, entry))) {
+        const allowedSites = allyDef.playableAt.map(e => 'site' in e ? e.site : e.siteType).join(', ');
+        logDetail(`Ally ${allyDef.name}: not playable at ${siteName} (requires ${allowedSites})`);
+        actions.push({
+          action: { type: 'not-playable', player: playerId, cardInstanceId },
+          viable: false,
+          reason: `${allyDef.name}: not playable at ${siteName}`,
+        });
+        continue;
+      }
+
+      // Check uniqueness — only one copy of a unique ally can be in play
+      if (allyDef.unique) {
+        const alreadyInPlay = state.players.some(p =>
+          Object.values(p.characters).some(ch =>
+            ch.allies.some(a => {
+              const aDef = state.cardPool[a.definitionId as string];
+              return aDef && aDef.name === allyDef.name;
+            }),
+          ),
+        );
+        if (alreadyInPlay) {
+          logDetail(`Ally ${allyDef.name}: unique and already in play`);
+          actions.push({
+            action: { type: 'not-playable', player: playerId, cardInstanceId },
+            viable: false,
+            reason: `${allyDef.name} is unique and already in play`,
+          });
+          continue;
+        }
+      }
+
+      if (untappedCharacters.length === 0) {
+        logDetail(`Ally ${allyDef.name}: no untapped character to control it`);
+        actions.push({
+          action: { type: 'not-playable', player: playerId, cardInstanceId },
+          viable: false,
+          reason: `${allyDef.name}: no untapped character in company`,
+        });
+        continue;
+      }
+
+      // One action per untapped character that could control the ally
+      for (const ch of untappedCharacters) {
+        const charDef = state.cardPool[ch.definitionId as string];
+        const charName = charDef?.name ?? ch.instanceId;
+        logDetail(`Ally ${allyDef.name}: playable under ${charName}`);
+        actions.push({
+          action: {
+            type: 'play-hero-resource',
+            player: playerId,
+            cardInstanceId,
+            companyId: company.id,
+            attachToCharacterId: ch.instanceId,
+          },
+          viable: true,
+        });
+      }
+      continue;
+    }
+
+    // TODO: factions, information
   }
 
   // Mark remaining hand cards as not playable

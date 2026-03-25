@@ -14,9 +14,9 @@
  * (or the original state plus an error string if the action was illegal).
  */
 
-import type { GameState, PlayerState, DraftPlayerState, ItemDraftPlayerState, CharacterDeckDraftPlayerState, SetupStepState, CardDefinitionId, CardInstanceId, CompanyId, CharacterInPlay, CardInstance, ChainEntryPayload, OrganizationPhaseState, MovementHazardPhaseState, SitePhaseState, EndOfTurnPhaseState, Company, CreatureCard, SiteInPlay } from '../index.js';
+import type { GameState, PlayerState, DraftPlayerState, ItemDraftPlayerState, CharacterDeckDraftPlayerState, SetupStepState, CardDefinitionId, CardInstanceId, CompanyId, CharacterInPlay, CardInstance, ChainEntryPayload, OrganizationPhaseState, MovementHazardPhaseState, SitePhaseState, EndOfTurnPhaseState, Company, CreatureCard, SiteInPlay, HeroItemCard } from '../index.js';
 import type { GameAction } from '../index.js';
-import { Phase, SetupStep, LEGAL_ACTIONS_BY_PHASE, getAlignmentRules, shuffle, nextInt, CardStatus, isCharacterCard, isItemCard, isSiteCard, SiteType, RegionType, Race, Skill, getPlayerIndex, ZERO_EFFECTIVE_STATS, MAX_STARTING_ITEMS, BASE_MAX_REGION_DISTANCE, HAND_SIZE } from '../index.js';
+import { Phase, SetupStep, LEGAL_ACTIONS_BY_PHASE, getAlignmentRules, shuffle, nextInt, CardStatus, isCharacterCard, isItemCard, isAllyCard, isSiteCard, SiteType, RegionType, Race, Skill, getPlayerIndex, ZERO_EFFECTIVE_STATS, MAX_STARTING_ITEMS, BASE_MAX_REGION_DISTANCE, HAND_SIZE } from '../index.js';
 import { logHeading, logDetail } from './legal-actions/log.js';
 import type { TwoDiceSix, DieRoll, GameEffect } from '../index.js';
 import { applyDraftResults, transitionAfterItemDraft, enterSiteSelection, startFirstTurn } from './init.js';
@@ -3487,20 +3487,24 @@ function handleSitePlayHeroResource(
   if (!inst) return { state, error: 'Card instance not found' };
 
   const def = state.cardPool[inst.definitionId as string];
-  if (!def || !isItemCard(def)) return { state, error: 'Card is not an item' };
+  const isItem = isItemCard(def);
+  const isAlly = !isItem && isAllyCard(def);
+  if (!def || (!isItem && !isAlly)) return { state, error: 'Card is not an item or ally' };
 
-  // Check site allows this item subtype
+  // Check site allows this resource
   const siteInPlay = company.currentSite;
   const siteDef = siteInPlay ? state.cardPool[siteInPlay.definitionId as string] : undefined;
   if (!siteDef || !isSiteCard(siteDef)) return { state, error: 'Company is not at a valid site' };
 
-  if (!siteDef.playableResources.includes(def.subtype)) {
-    return { state, error: `${def.subtype} items cannot be played at ${siteDef.name}` };
+  if (isItem) {
+    if (!siteDef.playableResources.includes((def as HeroItemCard).subtype)) {
+      return { state, error: `${(def as HeroItemCard).subtype} items cannot be played at ${siteDef.name}` };
+    }
   }
 
   // Validate target character
   const targetCharId = action.attachToCharacterId;
-  if (!targetCharId) return { state, error: 'Must specify a character to carry the item' };
+  if (!targetCharId) return { state, error: 'Must specify a character to carry this resource' };
 
   if (!company.characters.includes(targetCharId)) {
     return { state, error: 'Target character is not in this company' };
@@ -3525,11 +3529,16 @@ function handleSitePlayHeroResource(
   const newHand = [...player.hand];
   newHand.splice(cardIdx, 1);
 
-  // Tap the character and attach the item
+  // Tap the character and attach the item or ally
   const updatedChar: CharacterInPlay = {
     ...charInPlay,
     status: CardStatus.Tapped,
-    items: [...charInPlay.items, { instanceId: action.cardInstanceId, definitionId: inst.definitionId, status: CardStatus.Untapped }],
+    items: isItem
+      ? [...charInPlay.items, { instanceId: action.cardInstanceId, definitionId: inst.definitionId, status: CardStatus.Untapped }]
+      : charInPlay.items,
+    allies: isAlly
+      ? [...charInPlay.allies, { instanceId: action.cardInstanceId, definitionId: inst.definitionId, status: CardStatus.Untapped }]
+      : charInPlay.allies,
   };
 
   const newCharacters = { ...player.characters, [targetCharId as string]: updatedChar };
