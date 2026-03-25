@@ -33,9 +33,10 @@ Passive conditions triggered during resolution, queued for a follow-up chain:
 
 ## New Actions
 
-- `declare-chain-action` — push an entry onto the stack, perform active conditions, flip priority
 - `pass-chain-priority` — pass; when both pass, chain transitions to resolving mode
 - `order-passives` — resource player orders multiple triggered passives for follow-up chain
+
+No separate "declare chain action" exists. Existing card-play actions (`play-short-event`, `play-creature`, `play-corruption-card`, etc.) become chain-aware: when played during a chain, the reducer pushes a `ChainEntry` onto the stack and flips priority instead of resolving immediately. When played outside a chain, they initiate one.
 
 ## New Files
 
@@ -56,8 +57,8 @@ Chain takes priority over combat, which takes priority over phase.
 
 ### `reduce()` (reducer.ts)
 
-1. Early dispatch for chain action types
-2. Existing actions that directly modify state (creature play, etc.) instead **initiate a chain**
+1. Early dispatch for `pass-chain-priority` and `order-passives`
+2. Existing card-play actions (`play-short-event`, `play-creature`, etc.) detect chain context: if `state.chain` is non-null, push entry + flip priority; if null, initiate a new chain with this card as the first entry
 3. After both players pass, reducer resolves entries in a loop, stopping when player input is needed
 
 ### Phase Handlers
@@ -103,15 +104,15 @@ From `docs/coe-rules.txt` lines 671–687:
 ### Phase 1: Types & Plumbing (no behavioral change)
 1. Add `ChainState`, `ChainEntry`, `ChainEntryPayload`, `DeferredPassive` types to `state.ts`
 2. Add `chain: ChainState | null` to `GameState` (initialized to `null`)
-3. Add chain actions to `actions.ts` and `GameAction` union
+3. Add `pass-chain-priority` and `order-passives` actions to `actions.ts` and `GameAction` union
 4. Create empty `chain.ts` and `chain-reducer.ts`
 5. Wire early dispatch in `computeLegalActions` and `reduce()`
 
 ### Phase 2: Chain Initiation & Priority Passing
-6. Implement `initiateChain()` — creates `ChainState` from first declaration
-7. Implement `declare-chain-action` reducer — push entry, perform active conditions, flip priority
+6. Implement `initiateChain()` — creates `ChainState` from first card-play action
+7. Make existing card-play reducers chain-aware — if chain exists, push entry + flip priority; if not, call `initiateChain()`
 8. Implement `pass-chain-priority` reducer — set flags, transition to resolving when both pass
-9. Implement `chainActions()` legal action computation — initially just `pass-chain-priority`
+9. Implement `chainActions()` legal action computation — playable response cards + `pass-chain-priority`
 
 ### Phase 3: Chain Resolution
 10. Implement `resolveNextEntry()` — resolve single entry, check negation/validity, apply effects
@@ -150,12 +151,18 @@ From `docs/coe-rules.txt` lines 671–687:
 
 ### Debug View (Text Client + Web Debug Panel)
 
-The debug view uses the existing `format.ts` rendering pipeline. A new `formatChain()` function renders the chain state as ANSI text in the `#state` panel.
+The chain gets its own dedicated section/box, following the same pattern as the draft and M/H info panels: a `renderChainInfo()` function that shows/hides a `chain-section` element based on whether `state.chain` is non-null.
+
+#### `renderChainInfo()` (in `render.ts`)
+
+Follows the `renderDraft()` / `renderMHInfo()` / `renderSiteInfo()` pattern:
+- Own `<section id="chain-section">` in the HTML, hidden when `state.chain` is null
+- Renders lines of text into a `<pre id="chain-info">` element via `ansiToHtml()`
 
 #### Chain Display Format
 
 ```
-CHAIN OF EFFECTS (declaring — Alice has priority):
+Mode: declaring — Alice has priority
   1. [Alice] Play ‹Dark Numbers› targeting [Mordor]
   2. [Bob]   Play ‹Twilight› in response
   > [Alice]  May respond or pass
@@ -163,7 +170,7 @@ CHAIN OF EFFECTS (declaring — Alice has priority):
 
 During resolution:
 ```
-CHAIN OF EFFECTS (resolving 2/2):
+Mode: resolving 2/2
   1. [Alice] Play ‹Dark Numbers› targeting [Mordor]
   > 2. [Bob]   ‹Twilight› — RESOLVING
 ```
@@ -180,12 +187,6 @@ Key formatting rules:
 - Resolved entries show their outcome (resolved, negated)
 - Nested chains (on-guard interrupts) are indented under a `SUB-CHAIN:` heading
 - Deferred passives shown below the chain: `DEFERRED: [Corruption check on Aragorn II]`
-
-#### Debug Panel Placement
-
-- Rendered in the `#state` section, between phase info and player state
-- When `state.chain` is null, nothing is rendered (no empty placeholder)
-- Nested chains show the parent chain dimmed above the active sub-chain
 
 ### Visual View (Web Client)
 
