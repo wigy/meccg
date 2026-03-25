@@ -1013,7 +1013,7 @@ export interface CombatState {
  * resolver knows how to apply the entry when it resolves.
  */
 export type ChainEntryPayload =
-  | { readonly type: 'short-event' }
+  | { readonly type: 'short-event'; readonly targetInstanceId?: CardInstanceId }
   | { readonly type: 'creature' }
   | { readonly type: 'corruption-card' }
   | { readonly type: 'passive-condition'; readonly trigger: string }

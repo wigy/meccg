@@ -12,7 +12,8 @@
  * helpers from this module to push entries onto the chain stack.
  */
 
-import type { GameState, GameAction, PlayerId, CardInstanceId, CardDefinitionId, ChainState, ChainEntry, ChainEntryPayload, ChainRestriction, DeferredPassive } from '../index.js';
+import type { GameState, GameAction, PlayerId, PlayerState, CardInstanceId, CardDefinitionId, ChainState, ChainEntry, ChainEntryPayload, ChainRestriction, DeferredPassive } from '../index.js';
+import { getPlayerIndex } from '../index.js';
 import { logHeading, logDetail } from './legal-actions/log.js';
 import type { ReducerResult } from './reducer.js';
 
@@ -306,11 +307,76 @@ interface ResolveResult {
 }
 
 /**
+ * Cancel and discard an environment card targeted by a short-event (e.g. Twilight).
+ *
+ * The target may be in eventsInPlay (hazard permanent events like Doors of Night),
+ * in a player's cardsInPlay (resource permanent events like Gates of Morning),
+ * or on the chain itself (an environment declared earlier in the same chain).
+ *
+ * If the target is on the chain, it is negated (marked as canceled) instead of
+ * being physically moved — the chain entry's card was already discarded on declaration.
+ *
+ * If the target has already been negated or removed (e.g. another Twilight canceled
+ * it first), this is a no-op — the cancel fizzles.
+ */
+function resolveEnvironmentCancel(state: GameState, targetInstanceId: CardInstanceId, chain: ChainState): GameState {
+  const targetDef = state.cardPool[
+    state.instanceMap[targetInstanceId as string]?.definitionId as string
+  ];
+  const targetName = targetDef?.name ?? (targetInstanceId as string);
+
+  // Check if target is on the chain (environment declared earlier in the same chain)
+  const chainIdx = chain.entries.findIndex(
+    e => e.cardInstanceId === targetInstanceId && !e.resolved && !e.negated,
+  );
+  if (chainIdx !== -1) {
+    logDetail(`Environment cancel: negating chain entry #${chainIdx} (${targetName})`);
+    const newEntries = chain.entries.map((e, i) =>
+      i === chainIdx ? { ...e, negated: true } : e,
+    );
+    return { ...state, chain: { ...chain, entries: newEntries } };
+  }
+
+  // Check eventsInPlay
+  const evtIdx = state.eventsInPlay.findIndex(ev => ev.instanceId === targetInstanceId);
+  if (evtIdx !== -1) {
+    const ev = state.eventsInPlay[evtIdx];
+    const ownerIndex = getPlayerIndex(state, ev.owner);
+    logDetail(`Environment cancel: removing ${targetName} from eventsInPlay → player ${ownerIndex} discard`);
+    const newEventsInPlay = [...state.eventsInPlay];
+    newEventsInPlay.splice(evtIdx, 1);
+    const owner = state.players[ownerIndex];
+    const newPlayers: [PlayerState, PlayerState] = [state.players[0], state.players[1]];
+    newPlayers[ownerIndex] = { ...owner, discardPile: [...owner.discardPile, targetInstanceId] };
+    return { ...state, players: newPlayers, eventsInPlay: newEventsInPlay };
+  }
+
+  // Check cardsInPlay across all players
+  for (let pi = 0; pi < state.players.length; pi++) {
+    const player = state.players[pi];
+    if (player.cardsInPlay.some(c => c.instanceId === targetInstanceId)) {
+      logDetail(`Environment cancel: removing ${targetName} from player ${pi} cardsInPlay → discard`);
+      const newPlayers: [PlayerState, PlayerState] = [state.players[0], state.players[1]];
+      newPlayers[pi as 0 | 1] = {
+        ...player,
+        cardsInPlay: player.cardsInPlay.filter(c => c.instanceId !== targetInstanceId),
+        discardPile: [...player.discardPile, targetInstanceId],
+      };
+      return { ...state, players: newPlayers };
+    }
+  }
+
+  // Target already gone (fizzle) — e.g. another effect already canceled it
+  logDetail(`Environment cancel: target ${targetName} already gone — fizzle`);
+  return state;
+}
+
+/**
  * Resolves a single chain entry at the given index.
  *
- * Currently marks the entry as resolved. When card effects are implemented
- * (Phase 4+), this will apply the card's effects via the DSL resolver and
- * may return `needsInput: true` if the effect requires player decisions.
+ * Marks the entry as resolved and applies its effects. Short-events targeting
+ * environments cancel and discard the target. Other entry types currently
+ * resolve as no-ops (effects via DSL resolver to be added).
  */
 function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
   const chain = state.chain!;
@@ -319,31 +385,38 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
   logDetail(`Resolving chain entry #${entryIndex}: ${entry.payload.type} by player ${entry.declaredBy as string}`);
 
   // TODO: check validity (CoE rule 681: conditions must still be legal)
-  // TODO: apply card effects via DSL resolver
+
+  let current = state;
+
+  // Apply card effects based on payload type
+  if (entry.payload.type === 'short-event' && entry.payload.targetInstanceId) {
+    current = resolveEnvironmentCancel(current, entry.payload.targetInstanceId, chain);
+  }
 
   // Mark entry as resolved
-  const newEntries = chain.entries.map((e, i) =>
+  const resolvedChain = current.chain!;
+  const newEntries = resolvedChain.entries.map((e, i) =>
     i === entryIndex ? { ...e, resolved: true } : e,
   );
 
   // Scan for passive conditions triggered by this resolution
-  const triggeredPassives = detectTriggeredPassives(state, entry);
+  const triggeredPassives = detectTriggeredPassives(current, entry);
   const newDeferredPassives = triggeredPassives.length > 0
-    ? [...chain.deferredPassives, ...triggeredPassives]
-    : chain.deferredPassives;
+    ? [...resolvedChain.deferredPassives, ...triggeredPassives]
+    : resolvedChain.deferredPassives;
 
   if (triggeredPassives.length > 0) {
     logDetail(`${triggeredPassives.length} passive condition(s) triggered — deferred for follow-up chain`);
   }
 
   const newChain: ChainState = {
-    ...chain,
+    ...resolvedChain,
     entries: newEntries,
     deferredPassives: newDeferredPassives,
   };
 
   return {
-    state: { ...state, chain: newChain },
+    state: { ...current, chain: newChain },
     needsInput: false,
   };
 }

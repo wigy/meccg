@@ -14,7 +14,7 @@
  * (or the original state plus an error string if the action was illegal).
  */
 
-import type { GameState, PlayerState, DraftPlayerState, ItemDraftPlayerState, CharacterDeckDraftPlayerState, SetupStepState, CardDefinitionId, CardInstanceId, CompanyId, CharacterInPlay, CardInstance, EventInPlay, OrganizationPhaseState, MovementHazardPhaseState, SitePhaseState, EndOfTurnPhaseState, Company, CreatureCard, SiteInPlay } from '../index.js';
+import type { GameState, PlayerState, DraftPlayerState, ItemDraftPlayerState, CharacterDeckDraftPlayerState, SetupStepState, CardDefinitionId, CardInstanceId, CompanyId, CharacterInPlay, CardInstance, ChainEntryPayload, OrganizationPhaseState, MovementHazardPhaseState, SitePhaseState, EndOfTurnPhaseState, Company, CreatureCard, SiteInPlay } from '../index.js';
 import type { GameAction } from '../index.js';
 import { Phase, SetupStep, LEGAL_ACTIONS_BY_PHASE, getAlignmentRules, shuffle, nextInt, CardStatus, isCharacterCard, isItemCard, isSiteCard, SiteType, RegionType, Race, Skill, getPlayerIndex, ZERO_EFFECTIVE_STATS, MAX_STARTING_ITEMS, BASE_MAX_REGION_DISTANCE, HAND_SIZE } from '../index.js';
 import { logHeading, logDetail } from './legal-actions/log.js';
@@ -2043,8 +2043,9 @@ function handlePlayPermanentEvent(state: GameState, action: GameAction): Reducer
 
 /**
  * Handle playing a short-event as a resource (e.g. Twilight).
- * Removes the short event from hand to the player's discard pile and removes
- * the target environment from eventsInPlay to its owner's discard pile.
+ * Moves the short event from hand to discard and initiates (or pushes onto)
+ * a chain of effects. The target environment remains in play until the chain
+ * entry resolves — giving both players a chance to respond.
  */
 function handlePlayShortEvent(state: GameState, action: GameAction): ReducerResult {
   if (action.type !== 'play-short-event') return { state, error: 'Expected play-short-event action' };
@@ -2063,35 +2064,24 @@ function handlePlayShortEvent(state: GameState, action: GameAction): ReducerResu
     return { state, error: 'Card is not a hazard short-event' };
   }
 
-  // Find the target environment — it may be in eventsInPlay (hazard permanent
-  // events like Doors of Night) or in a player's cardsInPlay (resource permanent
-  // events like Gates of Morning).
-  const evtIdx = state.eventsInPlay.findIndex(ev => ev.instanceId === action.targetInstanceId);
-  let targetOwnerIndex: number | undefined;
-  let targetDefId: string | undefined;
-  if (evtIdx !== -1) {
-    const ev = state.eventsInPlay[evtIdx];
-    targetOwnerIndex = getPlayerIndex(state, ev.owner);
-    targetDefId = ev.definitionId as string;
-  } else {
-    // Search cardsInPlay across all players
-    for (let pi = 0; pi < state.players.length; pi++) {
-      if (state.players[pi].cardsInPlay.some(c => c.instanceId === action.targetInstanceId)) {
-        targetOwnerIndex = pi;
-        const card = state.players[pi].cardsInPlay.find(c => c.instanceId === action.targetInstanceId)!;
-        targetDefId = card.definitionId as string;
-        break;
-      }
-    }
+  // Validate target exists (in eventsInPlay, cardsInPlay, or the current chain)
+  const targetInEvents = state.eventsInPlay.some(ev => ev.instanceId === action.targetInstanceId);
+  const targetInCards = state.players.some(p =>
+    p.cardsInPlay.some(c => c.instanceId === action.targetInstanceId),
+  );
+  const targetInChain = state.chain?.entries.some(
+    e => e.cardInstanceId === action.targetInstanceId && !e.resolved && !e.negated,
+  ) ?? false;
+  if (!targetInEvents && !targetInCards && !targetInChain) {
+    return { state, error: 'Target environment not in play or on chain' };
   }
-  if (targetOwnerIndex === undefined || targetDefId === undefined) {
-    return { state, error: 'Target environment not in play' };
-  }
-  const targetDef = state.cardPool[targetDefId];
 
-  logDetail(`Playing short event ${def.name}: canceling environment ${targetDef?.name ?? targetDefId}`);
+  const targetDef = state.cardPool[
+    state.instanceMap[action.targetInstanceId as string]?.definitionId as string
+  ];
+  logDetail(`Playing short event ${def.name}: targeting environment ${targetDef?.name ?? action.targetInstanceId} (chain will resolve the cancel)`);
 
-  // Remove short event from hand → player's discard
+  // Move short event from hand → discard
   const newHand = [...player.hand];
   newHand.splice(cardIdx, 1);
 
@@ -2102,34 +2092,17 @@ function handlePlayShortEvent(state: GameState, action: GameAction): ReducerResu
     discardPile: [...player.discardPile, action.cardInstanceId],
   };
 
-  // Remove target environment from its location → owner's discard
-  const newEventsInPlay: EventInPlay[] = [...state.eventsInPlay];
-  if (evtIdx !== -1) {
-    newEventsInPlay.splice(evtIdx, 1);
+  let newState: GameState = { ...state, players: newPlayers };
+
+  // Initiate chain or push onto existing chain — target stored in payload
+  const payload: ChainEntryPayload = { type: 'short-event', targetInstanceId: action.targetInstanceId };
+  if (newState.chain === null) {
+    newState = initiateChain(newState, action.player, action.cardInstanceId, inst.definitionId, payload);
   } else {
-    // Remove from owner's cardsInPlay
-    newPlayers[targetOwnerIndex] = {
-      ...newPlayers[targetOwnerIndex],
-      cardsInPlay: newPlayers[targetOwnerIndex].cardsInPlay.filter(
-        c => c.instanceId !== action.targetInstanceId,
-      ),
-    };
+    newState = pushChainEntry(newState, action.player, action.cardInstanceId, inst.definitionId, payload);
   }
 
-  // Add target to owner's discard pile
-  if (targetOwnerIndex !== playerIndex) {
-    newPlayers[targetOwnerIndex] = {
-      ...newPlayers[targetOwnerIndex],
-      discardPile: [...newPlayers[targetOwnerIndex].discardPile, action.targetInstanceId],
-    };
-  } else {
-    newPlayers[playerIndex] = {
-      ...newPlayers[playerIndex],
-      discardPile: [...newPlayers[playerIndex].discardPile, action.targetInstanceId],
-    };
-  }
-
-  return { state: { ...state, players: newPlayers, eventsInPlay: newEventsInPlay } };
+  return { state: newState };
 }
 
 /**

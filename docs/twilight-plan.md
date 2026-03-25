@@ -111,9 +111,14 @@ Still TODO for M/H and Site phases:
 ## 5. Reducer: Handle `play-short-event` (DONE)
 
 Handler `handlePlayShortEvent` added to the reducer:
-1. Removes Twilight from hand → player's discard pile
-2. Removes target environment from `eventsInPlay` → owner's discard pile
-3. Dispatched from the organization phase (and will be reachable from other phases once their legal-actions are wired up)
+1. Moves Twilight from hand → player's discard pile
+2. Initiates (or pushes onto) a chain of effects with `targetInstanceId` in the payload
+3. Target environment stays in play until chain resolves — both players may respond
+4. On chain resolution, `resolveEnvironmentCancel` in chain-reducer.ts removes the target:
+   - From `eventsInPlay` → owner's discard (hazard permanent events like Doors of Night)
+   - From `cardsInPlay` → owner's discard (resource permanent events like Gates of Morning)
+   - From chain entries → negated (environment declared earlier in the same chain)
+   - If target already gone → fizzle (no-op)
 
 ## 6. Keywords (DONE)
 
@@ -133,6 +138,6 @@ parsing the text field. Keywords are displayed on the zoomed card preview in the
 
 ## Key Architectural Decisions
 
-- **Twilight during organization doesn't need a chain** -- it's a resource action, not a hazard response. The chain is only for the M/H phase.
+- **Twilight always uses the chain** -- even during organization, because the opponent may respond (e.g. playing their own Twilight to cancel the first). The target environment stays in play until the chain resolves.
 - **Target selection is mandatory** -- the player must choose which environment to cancel. The UI shows one action per valid target.
 - **`playable-as-resource`** is the DSL flag that gates cross-alignment playability. The engine checks it, not the card type.
