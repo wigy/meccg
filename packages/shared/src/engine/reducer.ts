@@ -2313,14 +2313,19 @@ function handlePlayHazardCard(
   const def = state.cardPool[inst.definitionId as string];
   if (!def) return { state, error: 'Card definition not found' };
 
-  // --- Creature handling ---
+  // --- Creature handling (via chain of effects) ---
   if (def.cardType === 'hazard-creature') {
     const keyError = checkCreatureKeying(def, mhState);
     if (keyError) return { state, error: keyError };
 
-    logDetail(`Play-hazards: hazard player plays creature "${def.name}" (${mhState.hazardsPlayedThisCompany + 1}/${mhState.hazardLimit}) — TODO: combat, discarding directly`);
+    // Creatures must initiate a new chain — they cannot be played in response (CoE rule 307)
+    if (state.chain !== null) {
+      return { state, error: 'Creatures must initiate a new chain — cannot be played in response' };
+    }
 
-    // Placeholder: skip combat, move creature from hand to discard pile
+    logDetail(`Play-hazards: hazard player plays creature "${def.name}" (${mhState.hazardsPlayedThisCompany + 1}/${mhState.hazardLimit}) — initiating chain`);
+
+    // Move card from hand to discard
     const newHand = [...hazardPlayer.hand];
     newHand.splice(cardIdx, 1);
     const newPlayers = clonePlayers(state);
@@ -2330,17 +2335,20 @@ function handlePlayHazardCard(
       discardPile: [...hazardPlayer.discardPile, action.cardInstanceId],
     };
 
-    return {
-      state: {
-        ...state,
-        players: newPlayers,
-        phaseState: {
-          ...mhState,
-          hazardsPlayedThisCompany: mhState.hazardsPlayedThisCompany + 1,
-          resourcePlayerPassed: false,
-        },
+    let newState: GameState = {
+      ...state,
+      players: newPlayers,
+      phaseState: {
+        ...mhState,
+        hazardsPlayedThisCompany: mhState.hazardsPlayedThisCompany + 1,
+        resourcePlayerPassed: false,
       },
     };
+
+    // Initiate chain — when creature entry resolves, combat will start (TODO)
+    newState = initiateChain(newState, action.player, action.cardInstanceId, inst.definitionId, { type: 'creature' });
+
+    return { state: newState };
   }
 
   // --- Short event handling (via chain of effects) ---

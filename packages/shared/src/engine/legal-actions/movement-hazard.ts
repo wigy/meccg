@@ -362,6 +362,11 @@ function playHazardsActions(
 
       // --- Creature keying check ---
       if (isCreature) {
+        // Creatures must initiate a new chain — not playable in response (CoE rule 307)
+        if (state.chain !== null) {
+          actions.push({ action, viable: false, reason: 'Creatures must initiate a new chain' });
+          continue;
+        }
         const keyError = checkCreatureKeyability(def, mhState);
         if (keyError) {
           logDetail(`Creature "${def.name}" not keyable: ${keyError}`);
