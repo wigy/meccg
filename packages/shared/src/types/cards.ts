@@ -28,7 +28,33 @@ import {
   SiteType,
   MarshallingCategory,
 } from './common.js';
-import type { CardEffect } from './effects.js';
+import type { CardEffect, Condition } from './effects.js';
+
+// ---- Playable-at location specifiers ----
+
+/** A specific named site (e.g. "Eagles' Eyrie", "Edoras"). */
+export interface PlayableAtSite {
+  readonly site: string;
+  /** Optional additional constraint the site must satisfy (e.g. a particular automatic-attack). */
+  readonly when?: Condition;
+}
+
+/** Any site matching a given site type (e.g. any free-hold). */
+export interface PlayableAtSiteType {
+  readonly siteType: SiteType;
+  /** Optional additional constraint the site must satisfy (e.g. a particular automatic-attack). */
+  readonly when?: Condition;
+}
+
+/**
+ * Describes a location where an ally or faction can be played.
+ *
+ * Most allies and factions are playable at a single named site, but
+ * future cards may allow play at any site of a given type.
+ * Entries may carry an optional `when` condition for extra constraints
+ * (e.g. "Ruins & Lairs with a Wolf automatic-attack").
+ */
+export type PlayableAtEntry = PlayableAtSite | PlayableAtSiteType;
 
 // ---- Hero Character ----
 
@@ -171,8 +197,8 @@ export interface HeroFactionCard {
   readonly influenceNumber: number;
   /** The faction's race, relevant for racial influence bonuses. */
   readonly race: Race;
-  /** The specific site name where this faction can be played. */
-  readonly playableAt: string;
+  /** Locations where this faction can be played (typically a single named site). */
+  readonly playableAt: readonly PlayableAtEntry[];
   /** Declarative effects describing this faction's abilities. */
   readonly effects?: readonly CardEffect[];
   /** Flavor/rules text describing special abilities or modifiers. */
@@ -207,8 +233,8 @@ export interface HeroAllyCard {
   readonly marshallingPoints: number;
   /** Always 'ally' -- used for scoring category calculations. */
   readonly marshallingCategory: MarshallingCategory.Ally;
-  /** Site types where this ally can be played. */
-  readonly playableAt: readonly SiteType[];
+  /** Locations where this ally can be played (typically specific named sites). */
+  readonly playableAt: readonly PlayableAtEntry[];
   /** Declarative effects describing this ally's abilities. */
   readonly effects?: readonly CardEffect[];
   /** Flavor/rules text describing special abilities. */
@@ -540,8 +566,8 @@ export interface MinionFactionCard {
   readonly influenceNumber: number;
   /** The faction's race. */
   readonly race: Race;
-  /** The specific site name where this faction can be played. */
-  readonly playableAt: string;
+  /** Locations where this faction can be played (typically a single named site). */
+  readonly playableAt: readonly PlayableAtEntry[];
   /** Declarative effects describing this faction's abilities. */
   readonly effects?: readonly CardEffect[];
   /** Flavor/rules text describing special abilities or modifiers. */
@@ -576,8 +602,8 @@ export interface MinionAllyCard {
   readonly marshallingPoints: number;
   /** Always 'ally' -- used for scoring category calculations. */
   readonly marshallingCategory: MarshallingCategory.Ally;
-  /** Site types where this ally can be played. */
-  readonly playableAt: readonly SiteType[];
+  /** Locations where this ally can be played (typically specific named sites). */
+  readonly playableAt: readonly PlayableAtEntry[];
   /** Declarative effects describing this ally's abilities. */
   readonly effects?: readonly CardEffect[];
   /** Flavor/rules text describing special abilities. */

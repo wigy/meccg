@@ -127,7 +127,7 @@
     "marshallingCategory": "faction",
     "influenceNumber": 9,
     "race": "orc",
-    "playableAt": "Goblin-gate",
+    "playableAt": [{ "site": "Goblin-gate" }],
     "effects": [],
     "text": "Unique. Playable at Goblin-gate if the influence check is greater than 8. Standard Modifications: Grey Mountain Goblins (+2)."
   },
@@ -142,9 +142,7 @@
     "body": 8,
     "marshallingPoints": 2,
     "marshallingCategory": "ally",
-    "playableAt": [
-      "ruins-and-lairs"
-    ],
+    "playableAt": [{ "siteType": "ruins-and-lairs", "when": { "site.autoAttack.race": "Wolf" } }],
     "effects": [
       {
         "type": "grant-action",
