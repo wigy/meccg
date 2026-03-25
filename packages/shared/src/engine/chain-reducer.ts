@@ -526,3 +526,83 @@ export function interruptWithSubChain(
 
   return { ...state, chain: subChain };
 }
+
+/**
+ * Scans for beginning-of-phase or end-of-phase passive conditions and
+ * creates a restricted chain if any are found.
+ *
+ * Called by phase transition logic in the main reducer:
+ * - **Beginning-of-phase**: after transitioning into a new phase, before
+ *   any normal actions are allowed (CoE rule 684).
+ * - **End-of-phase**: after both players pass in a phase, before advancing
+ *   to the next phase (CoE rule 685).
+ *
+ * If no passives trigger, returns the state unchanged (chain stays null).
+ *
+ * @param state - Current game state (chain should be null).
+ * @param boundary - Which boundary to scan for.
+ * @param phase - The phase name to match against trigger events.
+ * @returns State with a restricted chain if passives were found, or unchanged.
+ */
+export function scanPhaseBoundary(
+  state: GameState,
+  boundary: 'beginning-of-phase' | 'end-of-phase',
+  phase: string,
+): GameState {
+  const triggerEvent = `${boundary}:${phase}`;
+  logDetail(`Scanning for ${boundary} passives in phase "${phase}"`);
+
+  const passives: DeferredPassive[] = [];
+
+  for (const player of state.players) {
+    for (const card of player.cardsInPlay) {
+      const def = state.cardPool[card.definitionId as string];
+      if (!def || !('effects' in def) || !def.effects) continue;
+
+      for (const effect of def.effects) {
+        if (effect.type !== 'on-event') continue;
+        if (effect.event === triggerEvent) {
+          logDetail(`Phase boundary passive: "${def.name}" triggers on "${triggerEvent}"`);
+          passives.push({
+            sourceCardId: card.instanceId,
+            trigger: effect.event,
+            payload: { type: 'passive-condition', trigger: effect.event },
+          });
+        }
+      }
+    }
+  }
+
+  if (passives.length === 0) {
+    logDetail(`No ${boundary} passives found`);
+    return state;
+  }
+
+  logDetail(`${passives.length} ${boundary} passive(s) found — creating restricted chain`);
+
+  const restriction: ChainRestriction = boundary;
+  const resourcePlayer = state.activePlayer!;
+
+  const entries: ChainEntry[] = passives.map((passive, index) => ({
+    index,
+    declaredBy: resourcePlayer,
+    cardInstanceId: passive.sourceCardId,
+    definitionId: null,
+    payload: passive.payload,
+    resolved: false,
+    negated: false,
+  }));
+
+  const chain: ChainState = {
+    mode: 'declaring',
+    entries,
+    priority: opponent(state, resourcePlayer),
+    priorityPlayerPassed: false,
+    nonPriorityPlayerPassed: false,
+    deferredPassives: [],
+    parentChain: null,
+    restriction,
+  };
+
+  return { ...state, chain };
+}
