@@ -55,7 +55,6 @@ export function setTargetingInstruction(text: string | null): void {
   const el = document.getElementById('instruction-text');
   if (!el) return;
   el.textContent = text ?? '';
-  el.classList.toggle('instruction-top', text !== null);
 }
 
 /**
@@ -1310,8 +1309,6 @@ export function renderInstructions(
   if (!el) return;
   const text = targetingInstruction ?? getInstructionText(view, cardPool) ?? '';
   el.textContent = text;
-  const isGamePhase = view.phaseState.phase !== 'setup';
-  el.classList.toggle('instruction-top', targetingInstruction !== null || isGamePhase);
 }
 
 /** Render the pass/stop button in the visual view if a pass-like action is available. */
