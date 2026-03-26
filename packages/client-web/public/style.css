@@ -1626,9 +1626,6 @@ h2 {
 
 .company-card--cancelable {
   cursor: pointer;
-  box-shadow:
-    0 0 8px rgba(255, 100, 80, 0.7),
-    0 0 20px rgba(255, 100, 80, 0.4);
 }
 
 .company-card--item {
