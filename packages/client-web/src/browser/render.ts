@@ -816,6 +816,8 @@ function buildDraftGITooltip(
 
 /** Render player names and scores in the visual view. */
 export function renderPlayerNames(view: PlayerView, cardPool: Readonly<Record<string, CardDefinition>>): void {
+  document.getElementById('self-deck-box')?.classList.remove('hidden');
+  document.getElementById('opponent-deck-box')?.classList.remove('hidden');
   const selfEl = document.getElementById('self-name');
   const oppEl = document.getElementById('opponent-name');
   const selfRaw = view.self.marshallingPoints;

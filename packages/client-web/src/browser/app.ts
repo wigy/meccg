@@ -249,6 +249,9 @@ function disconnect(): void {
   clearDice();
   resetVisualBoard();
   resetCompanyViews();
+  for (const id of ['self-deck-box', 'opponent-deck-box']) {
+    document.getElementById(id)?.classList.add('hidden');
+  }
 }
 
 /**
@@ -521,13 +524,10 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('pass-btn')!.classList.add('hidden');
     const chainPanel = document.getElementById('chain-panel');
     if (chainPanel) { chainPanel.classList.add('hidden'); chainPanel.innerHTML = ''; }
-    for (const id of ['self-name', 'opponent-name']) {
-      const el = document.getElementById(id);
-      const score = el?.querySelector('.score');
-      if (score) score.textContent = '0';
+    for (const id of ['self-deck-box', 'opponent-deck-box']) {
+      document.getElementById(id)?.classList.add('hidden');
     }
     resetCompanyViews();
-    resetDeckPiles();
     clearDice();
   }
 
