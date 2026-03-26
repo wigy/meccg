@@ -311,7 +311,7 @@ function hideHoverImg(): void {
 function makeCardListsCollapsible(html: string): string {
   const lines = html.split('\n');
   const result: string[] = [];
-  const PILE_RE = /^( {2})(Deck|Sites|Discard|Pool): (\d+)/;
+  const PILE_RE = /^( {2})(Deck|Sites|Discard|Pool|Kill pile|Eliminated|Sideboard): (\d+)/;
   const CARD_LINE = '    ·';
 
   let i = 0;
@@ -326,12 +326,13 @@ function makeCardListsCollapsible(html: string): string {
         j++;
       }
       if (cardLines.length > 0) {
-        // Render the heading with a toggle button and the card list hidden
+        // Render the heading with a toggle button and the card list hidden.
+        // The hidden span is on the same line so no blank line appears when collapsed.
         const id = `pile-${i}`;
         result.push(
           `${lines[i]} <span class="pile-toggle" data-target="${id}" onclick="this.parentElement.querySelector('#${id}').classList.toggle('hidden');this.textContent=this.textContent==='+'?'−':'+'">+</span>`
+          + `<span id="${id}" class="hidden">\n${cardLines.join('\n')}</span>`
         );
-        result.push(`<span id="${id}" class="hidden">${cardLines.join('\n')}</span>`);
       } else {
         result.push(lines[i]);
       }
@@ -1173,6 +1174,21 @@ function findShortEventActions(
 }
 
 /**
+ * Find all play-hero-resource or play-minor-item actions for a given card instance.
+ * Items have one action per eligible character target.
+ */
+function findResourcePlayActions(
+  instanceId: CardInstanceId | null,
+  legalActions: readonly GameAction[],
+): GameAction[] {
+  if (!instanceId) return [];
+  return legalActions.filter(
+    a => (a.type === 'play-hero-resource' || a.type === 'play-minor-item')
+      && a.cardInstanceId === instanceId,
+  );
+}
+
+/**
  * Find all play-hazard actions for a given card instance.
  * Creatures may have multiple entries with different keying methods.
  */
@@ -1271,6 +1287,51 @@ function showHazardKeyingMenu(
     const btn = document.createElement('button');
     btn.className = 'char-action-tooltip__btn';
     btn.textContent = `Keyed by ${action.keyedBy.method}: ${action.keyedBy.value}`;
+    btn.addEventListener('click', () => {
+      backdrop.remove();
+      onAction(action);
+    });
+    tooltip.appendChild(btn);
+  }
+
+  backdrop.appendChild(tooltip);
+  document.body.appendChild(backdrop);
+}
+
+/**
+ * Show a disambiguation tooltip for resource plays with multiple character targets.
+ * Each button names the target character; clicking sends the action.
+ */
+function showResourceTargetMenu(
+  event: MouseEvent,
+  actions: readonly GameAction[],
+  view: PlayerView,
+  cardPool: Readonly<Record<string, CardDefinition>>,
+  onAction: (action: GameAction) => void,
+): void {
+  document.querySelector('.chain-target-backdrop')?.remove();
+
+  const backdrop = document.createElement('div');
+  backdrop.className = 'chain-target-backdrop';
+  backdrop.addEventListener('click', () => backdrop.remove());
+
+  const tooltip = document.createElement('div');
+  tooltip.className = 'chain-target-tooltip';
+  tooltip.style.left = `${event.clientX}px`;
+  tooltip.style.top = `${event.clientY}px`;
+
+  for (const action of actions) {
+    const charId = action.type === 'play-hero-resource' ? action.attachToCharacterId
+      : action.type === 'play-minor-item' ? action.attachToCharacterId
+        : undefined;
+    if (!charId) continue;
+    const charDefId = view.visibleInstances[charId as string];
+    const charDef = charDefId ? cardPool[charDefId as string] : undefined;
+    const charName = charDef ? charDef.name : (charId as string);
+
+    const btn = document.createElement('button');
+    btn.className = 'char-action-tooltip__btn';
+    btn.textContent = `Play on ${charName}`;
     btn.addEventListener('click', () => {
       backdrop.remove();
       onAction(action);
@@ -1505,7 +1566,7 @@ export function renderPassButton(view: PlayerView, onAction: (action: GameAction
     ea.viable && (ea.action.type === 'pass' || ea.action.type === 'draft-stop'
     || ea.action.type === 'shuffle-play-deck' || ea.action.type === 'draw-cards'
     || ea.action.type === 'roll-initiative' || ea.action.type === 'corruption-check'
-    || ea.action.type === 'pass-chain-priority'));
+    || ea.action.type === 'pass-chain-priority' || ea.action.type === 'body-check-roll'));
   const passAction = passEval?.action;
   if (!passAction) {
     btn.classList.add('hidden');
@@ -1526,6 +1587,8 @@ export function renderPassButton(view: PlayerView, onAction: (action: GameAction
     label = 'Roll';
   } else if (passAction.type === 'corruption-check') {
     label = 'Roll';
+  } else if (passAction.type === 'body-check-roll') {
+    label = 'Body Check';
   } else if (view.phaseState.phase === Phase.Untap) {
     label = 'Organization';
   } else if (view.phaseState.phase === Phase.Organization) {
@@ -1565,6 +1628,22 @@ export function renderPassButton(view: PlayerView, onAction: (action: GameAction
   btn.textContent = label;
   btn.classList.remove('hidden');
   btn.onclick = () => onAction(passAction);
+
+  // When the primary button is a non-pass action (e.g. Draw) and a pass action
+  // also exists, show a secondary Pass button so both options are available.
+  const existingSecondaryPass = document.getElementById('secondary-pass-btn');
+  if (existingSecondaryPass) existingSecondaryPass.remove();
+  if (passAction.type !== 'pass' && passAction.type !== 'pass-chain-priority') {
+    const secondaryPass = view.legalActions.find(ea => ea.viable && ea.action.type === 'pass');
+    if (secondaryPass) {
+      const passBtn2 = document.createElement('button');
+      passBtn2.id = 'secondary-pass-btn';
+      passBtn2.className = 'enter-site-btn'; // reuse same styling
+      passBtn2.textContent = 'Pass';
+      passBtn2.onclick = () => onAction(secondaryPass.action);
+      btn.parentElement?.insertBefore(passBtn2, btn.nextSibling);
+    }
+  }
 
   // During enter-or-skip, add an "Enter" button for the enter-site action
   const existingEnterBtn = document.getElementById('enter-site-btn');
@@ -1990,10 +2069,12 @@ export function renderHand(
     const isShortEvent = shortEventActions.length > 0;
     const hazardActions = findHazardActions(cardInstanceId, viable);
     const isHazard = hazardActions.length > 0;
+    const resourceActions = findResourcePlayActions(cardInstanceId, viable);
+    const isResource = resourceActions.length > 0;
     const discardAction = cardInstanceId
       ? viable.find(a => a.type === 'discard-card' && a.cardInstanceId === cardInstanceId)
       : undefined;
-    const nonViableReason = !action && !isItemDraft && !isPlayChar && !isShortEvent && !isHazard && !discardAction
+    const nonViableReason = !action && !isItemDraft && !isPlayChar && !isShortEvent && !isHazard && !isResource && !discardAction
       ? findNonViableReason(cardDefId, view.legalActions, view.visibleInstances)
       : undefined;
     const isSelected = selectedItemDefId === cardDefId;
@@ -2063,6 +2144,18 @@ export function renderHand(
         } else {
           img.addEventListener('click', (e) => {
             showHazardKeyingMenu(e, hazardActions, onAction);
+          });
+        }
+      }
+    } else if (isResource) {
+      // Resource play: single target plays directly, multiple targets show menu
+      img.className = 'hand-card hand-card-playable';
+      if (onAction) {
+        if (resourceActions.length === 1) {
+          img.addEventListener('click', () => onAction(resourceActions[0]));
+        } else {
+          img.addEventListener('click', (e) => {
+            showResourceTargetMenu(e, resourceActions, view, cardPool, onAction);
           });
         }
       }

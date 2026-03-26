@@ -4089,9 +4089,11 @@ function handleResolveStrike(state: GameState, action: GameAction, combat: Comba
   const defPlayer2 = state.players[defPlayerIndex];
   logDetail(`Strike resolution: ${charData.definitionId as string} rolls ${roll.die1}+${roll.die2}=${rollTotal} + prowess ${prowess} = ${characterTotal} vs creature prowess ${combat.strikeProwess}`);
 
+  const charDef = state.cardPool[charData.definitionId as string];
+  const charLabel = charDef && 'name' in charDef ? (charDef as { name: string }).name : (charData.definitionId as string);
   const effects: GameEffect[] = [{
     effect: 'dice-roll', playerName: defPlayer2.name,
-    die1: roll.die1, die2: roll.die2, label: 'Strike resolution',
+    die1: roll.die1, die2: roll.die2, label: `Strike: ${charLabel}`,
   }];
 
   // Determine outcome
@@ -4143,7 +4145,7 @@ function handleResolveStrike(state: GameState, action: GameAction, combat: Comba
       status: CardStatus.Tapped,
     };
   }
-  newPlayers[defPlayerIndex] = { ...defPlayer, characters: newCharacters };
+  newPlayers[defPlayerIndex] = { ...defPlayer, characters: newCharacters, lastDiceRoll: roll };
 
   // Determine next phase
   let newCombat: CombatState;
@@ -4205,8 +4207,13 @@ function handleBodyCheckRoll(state: GameState, action: GameAction, combat: Comba
   const atkPlayerIndex = state.players.findIndex(p => p.id === combat.attackingPlayerId);
   const effects: GameEffect[] = [{
     effect: 'dice-roll', playerName: state.players[atkPlayerIndex].name,
-    die1: roll.die1, die2: roll.die2, label: 'Body check',
+    die1: roll.die1, die2: roll.die2, label: `Body check: ${combat.bodyCheckTarget}`,
   }];
+
+  // Update lastDiceRoll on the attacking player
+  const basePlayers = clonePlayers(state);
+  basePlayers[atkPlayerIndex] = { ...basePlayers[atkPlayerIndex], lastDiceRoll: roll };
+  const stateWithRoll: GameState = { ...state, players: basePlayers, rng, cheatRollTotal };
 
   if (combat.bodyCheckTarget === 'creature') {
     // Body check against creature
@@ -4228,21 +4235,21 @@ function handleBodyCheckRoll(state: GameState, action: GameAction, combat: Comba
         phase: 'resolve-strike',
         bodyCheckTarget: null,
       };
-      return { state: { ...state, rng, cheatRollTotal, combat: newCombat }, effects };
+      return { state: { ...stateWithRoll, combat: newCombat }, effects };
     }
-    return finalizeCombat({ ...state, rng, cheatRollTotal }, effects);
+    return finalizeCombat(stateWithRoll, effects);
   }
 
   if (combat.bodyCheckTarget === 'character') {
     // Body check against character
     const strike = combat.strikeAssignments[combat.currentStrikeIndex];
-    const defPlayerIndex = state.players.findIndex(p => p.id === combat.defendingPlayerId);
-    const defPlayer = state.players[defPlayerIndex];
+    const defPlayerIndex = stateWithRoll.players.findIndex(p => p.id === combat.defendingPlayerId);
+    const defPlayer = stateWithRoll.players[defPlayerIndex];
     const charData = defPlayer.characters[strike.characterId as string];
     if (!charData) return { state, error: 'Character not found for body check' };
 
-    const charDef = state.cardPool[charData.definitionId as string] as { body?: number } | undefined;
-    const body = charDef?.body ?? 9; // Default body if not specified
+    const charDef2 = stateWithRoll.cardPool[charData.definitionId as string] as { body?: number } | undefined;
+    const body = charDef2?.body ?? 9; // Default body if not specified
     const woundedBonus = charData.status === CardStatus.Inverted ? 1 : 0;
     const effectiveRoll = rollTotal + woundedBonus;
 
@@ -4256,7 +4263,7 @@ function handleBodyCheckRoll(state: GameState, action: GameAction, combat: Comba
       );
 
       // Remove character from company and add to eliminated pile
-      const newPlayers = clonePlayers(state);
+      const newPlayers2 = clonePlayers(stateWithRoll);
       const newPlayerData = { ...defPlayer };
       const company = newPlayerData.companies.find(c => c.id === combat.companyId);
       if (company) {
@@ -4267,11 +4274,11 @@ function handleBodyCheckRoll(state: GameState, action: GameAction, combat: Comba
         );
         newPlayerData.companies = newCompanies;
       }
-      // Move to discard pile (simplified; full item transfer deferred to Phase 4)
-      newPlayerData.discardPile = [...newPlayerData.discardPile, strike.characterId];
+      // Move to eliminated pile (full item transfer deferred to Phase 4)
+      newPlayerData.eliminatedPile = [...newPlayerData.eliminatedPile, strike.characterId];
       const { [strike.characterId as string]: _, ...remainingChars } = newPlayerData.characters;
       newPlayerData.characters = remainingChars;
-      newPlayers[defPlayerIndex] = newPlayerData;
+      newPlayers2[defPlayerIndex] = newPlayerData;
 
       // Advance to next strike or finalize
       const nextIndex = combat.currentStrikeIndex + 1;
@@ -4283,9 +4290,9 @@ function handleBodyCheckRoll(state: GameState, action: GameAction, combat: Comba
           phase: 'resolve-strike',
           bodyCheckTarget: null,
         };
-        return { state: { ...state, players: newPlayers, rng, cheatRollTotal, combat: newCombat }, effects };
+        return { state: { ...stateWithRoll, players: newPlayers2, combat: newCombat }, effects };
       }
-      return finalizeCombat({ ...state, players: newPlayers, rng, cheatRollTotal, combat: { ...combat, strikeAssignments: newAssignments } }, effects);
+      return finalizeCombat({ ...stateWithRoll, players: newPlayers2, combat: { ...combat, strikeAssignments: newAssignments } }, effects);
     }
 
     logDetail('Character survives body check');
@@ -4298,9 +4305,9 @@ function handleBodyCheckRoll(state: GameState, action: GameAction, combat: Comba
         phase: 'resolve-strike',
         bodyCheckTarget: null,
       };
-      return { state: { ...state, rng, cheatRollTotal, combat: newCombat }, effects };
+      return { state: { ...stateWithRoll, combat: newCombat }, effects };
     }
-    return finalizeCombat({ ...state, rng, cheatRollTotal }, effects);
+    return finalizeCombat(stateWithRoll, effects);
   }
 
   return { state, error: 'Invalid body check target' };

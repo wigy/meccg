@@ -248,17 +248,19 @@ function formatCompany(
   defOf: CardLookup,
   instOf: InstanceLookup,
   indent: string,
+  isActive = false,
 ): string[] {
   const lines: string[] = [];
 
+  const activeMarker = isActive ? '▶ ' : '';
   const siteStatus = company.currentSite ? statusSymbol(company.currentSite.status) + ' ' : '';
   const siteName = company.currentSite ? formatSiteName(company.currentSite.instanceId, defOf, instOf) : colorizeUnknown('(no site)');
   const noSiteTag = company.siteCardOwned === false ? ' (no site)' : '';
   if (company.destinationSite) {
     const destName = formatSiteName(company.destinationSite, defOf, instOf);
-    lines.push(`${indent}Company ${index + 1} → ${destName} (from ${siteStatus}${siteName})${noSiteTag}:`);
+    lines.push(`${indent}${activeMarker}Company ${index + 1} → ${destName} (from ${siteStatus}${siteName})${noSiteTag}:`);
   } else {
-    lines.push(`${indent}Company ${index + 1} @ ${siteStatus}${siteName}${noSiteTag}:`);
+    lines.push(`${indent}${activeMarker}Company ${index + 1} @ ${siteStatus}${siteName}${noSiteTag}:`);
   }
 
   // Collect follower IDs so we skip them in the main loop (they appear under their controller)
@@ -304,16 +306,18 @@ function formatOpponentCompany(
   defOf: CardLookup,
   instOf: InstanceLookup,
   indent: string,
+  isActive = false,
 ): string[] {
   const lines: string[] = [];
 
+  const activeMarker = isActive ? '▶ ' : '';
   const siteStatus = company.currentSite ? statusSymbol(company.currentSite.status) + ' ' : '';
   const siteName = company.currentSite ? formatSiteName(company.currentSite.instanceId, defOf, instOf) : colorizeUnknown('(no site)');
   const noSiteTag = company.siteCardOwned === false ? ' (no site)' : '';
   if (company.hasPlannedMovement) {
-    lines.push(`${indent}Company ${index + 1} → ${colorizeUnknown('(planned)')} (from ${siteStatus}${siteName})${noSiteTag}:`);
+    lines.push(`${indent}${activeMarker}Company ${index + 1} → ${colorizeUnknown('(planned)')} (from ${siteStatus}${siteName})${noSiteTag}:`);
   } else {
-    lines.push(`${indent}Company ${index + 1} @ ${siteStatus}${siteName}${noSiteTag}:`);
+    lines.push(`${indent}${activeMarker}Company ${index + 1} @ ${siteStatus}${siteName}${noSiteTag}:`);
   }
 
   // Collect follower IDs so we skip them in the main loop
@@ -488,6 +492,22 @@ function renderState(input: RenderInput): string {
         : input.phaseState.phase;
   lines.push(`Turn ${input.turnNumber} — Phase: ${phaseLabel}`);
 
+  // Determine the active company ID for M/H and Site phases
+  let activeCompanyId: string | null = null;
+  if ((input.phaseState.phase === 'movement-hazard' || input.phaseState.phase === 'site')
+    && input.phaseState.step !== 'select-company') {
+    const activePlayer = input.players.find(p => p.isActive);
+    if (activePlayer) {
+      // Companies may be in own view (companies) or opponent view (opponentCompanies)
+      const allCompanies = activePlayer.companies.length > 0
+        ? activePlayer.companies
+        : activePlayer.opponentCompanies ?? [];
+      if (allCompanies.length > input.phaseState.activeCompanyIndex) {
+        activeCompanyId = allCompanies[input.phaseState.activeCompanyIndex].id as string;
+      }
+    }
+  }
+
   // Combat (shown first when active, with markers for web client styling)
   if (input.combat) {
     lines.push('«COMBAT-START»');
@@ -568,16 +588,20 @@ function renderState(input: RenderInput): string {
         }
       }
     }
-    lines.push(`  Eliminated: ${player.eliminatedCount}`);
-    if (player.eliminatedCards && player.eliminatedCards.length > 0) {
-      for (const id of player.eliminatedCards) {
-        lines.push(`    · ${formatInstanceName(id, defOf, instOf)}`);
+    if (player.eliminatedCount > 0) {
+      lines.push(`  Eliminated: ${player.eliminatedCount}`);
+      if (player.eliminatedCards) {
+        for (const id of player.eliminatedCards) {
+          lines.push(`    · ${formatInstanceName(id, defOf, instOf)}`);
+        }
       }
     }
-    lines.push(`  Sideboard: ${player.sideboardCount}`);
-    if (player.sideboardCards && player.sideboardCards.length > 0) {
-      for (const id of player.sideboardCards) {
-        lines.push(`    · ${formatInstanceName(id, defOf, instOf)}`);
+    if (player.sideboardCount > 0) {
+      lines.push(`  Sideboard: ${player.sideboardCount}`);
+      if (player.sideboardCards) {
+        for (const id of player.sideboardCards) {
+          lines.push(`    · ${formatInstanceName(id, defOf, instOf)}`);
+        }
       }
     }
     if (player.poolSize !== undefined) {
@@ -586,13 +610,15 @@ function renderState(input: RenderInput): string {
 
     // Full companies (own view or omniscient server view)
     for (let i = 0; i < player.companies.length; i++) {
-      lines.push(...formatCompany(player.companies[i], i, player.characters, defOf, instOf, '  '));
+      const isActiveCompany = activeCompanyId !== null && (player.companies[i].id as string) === activeCompanyId;
+      lines.push(...formatCompany(player.companies[i], i, player.characters, defOf, instOf, '  ', isActiveCompany));
     }
 
     // Opponent companies (redacted destination)
     if (player.opponentCompanies) {
       for (let i = 0; i < player.opponentCompanies.length; i++) {
-        lines.push(...formatOpponentCompany(player.opponentCompanies[i], i, player.characters, defOf, instOf, '  '));
+        const isActiveOppCompany = activeCompanyId !== null && (player.opponentCompanies[i].id as string) === activeCompanyId;
+        lines.push(...formatOpponentCompany(player.opponentCompanies[i], i, player.characters, defOf, instOf, '  ', isActiveOppCompany));
       }
     }
 

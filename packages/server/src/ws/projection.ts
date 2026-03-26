@@ -89,7 +89,7 @@ function buildSelfView(state: GameState, player: PlayerState): SelfView {
  * Public information — characters in play, company locations, discard piles —
  * is passed through.
  */
-function buildOpponentView(player: PlayerState): OpponentView {
+function buildOpponentView(state: GameState, player: PlayerState): OpponentView {
   const companies: OpponentCompanyView[] = player.companies.map(c => ({
     id: c.id,
     characters: c.characters,
@@ -109,10 +109,10 @@ function buildOpponentView(player: PlayerState): OpponentView {
     handSize: player.hand.length,
     playDeckSize: player.playDeck.length,
     siteDeckSize: player.siteDeck.length,
-    discardPile: [],  // TODO: discard pile is public
-    siteDiscardPile: [],
-    killPile: [],  // TODO: kill pile is public
-    eliminatedPile: [],  // TODO: eliminated pile is public
+    discardPile: resolvePile(state, player.discardPile),
+    siteDiscardPile: resolvePile(state, player.siteDiscardPile),
+    killPile: resolvePile(state, player.killPile),
+    eliminatedPile: resolvePile(state, player.eliminatedPile),
     companies,
     characters: player.characters,
     cardsInPlay: player.cardsInPlay,
@@ -143,8 +143,8 @@ export function projectSpectatorView(state: GameState): PlayerView {
   const p1 = state.players[0];
   const p2 = state.players[1];
 
-  const _self = buildOpponentView(p1);
-  const opponent = buildOpponentView(p2);
+  const _self = buildOpponentView(state, p1);
+  const opponent = buildOpponentView(state, p2);
 
   // Spectators see only public cards: characters, items, company sites, discard piles
   const visibleInstances: Record<string, CardDefinitionId> = {};
@@ -282,7 +282,7 @@ export function projectPlayerView(state: GameState, playerId: PlayerId): PlayerV
   const opponentPlayer = state.players[opponentIndex];
 
   const self = buildSelfView(state, selfPlayer);
-  let opponent = buildOpponentView(opponentPlayer);
+  let opponent = buildOpponentView(state, opponentPlayer);
 
   // Reveal the active company's destination site to the opponent when the
   // site has been revealed during this company's M/H sub-phase.
