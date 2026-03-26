@@ -850,13 +850,22 @@ function cleanupEmptyCompanies(state: GameState): GameState {
     const emptyCompanies = player.companies.filter(c => c.characters.length === 0);
     const keptCompanies = player.companies.filter(c => c.characters.length > 0);
 
-    // Return sites from empty companies to site deck
-    const returnedSites = emptyCompanies
-      .map(c => c.currentSite?.instanceId)
-      .filter((s): s is CardInstanceId => s != null);
-    const newSiteDeck = [...player.siteDeck, ...returnedSites];
+    // Return sites from empty companies: tapped sites go to discard, untapped to site deck
+    const untappedSites: CardInstanceId[] = [];
+    const tappedSites: CardInstanceId[] = [];
+    for (const c of emptyCompanies) {
+      if (c.currentSite) {
+        if (c.currentSite.status === CardStatus.Tapped) {
+          tappedSites.push(c.currentSite.instanceId);
+        } else {
+          untappedSites.push(c.currentSite.instanceId);
+        }
+      }
+    }
+    const newSiteDeck = [...player.siteDeck, ...untappedSites];
+    const newDiscardPile = [...player.discardPile, ...tappedSites];
 
-    return { ...player, companies: keptCompanies, siteDeck: newSiteDeck };
+    return { ...player, companies: keptCompanies, siteDeck: newSiteDeck, discardPile: newDiscardPile };
   });
 
   return { ...state, players: [newPlayers[0], newPlayers[1]] };
