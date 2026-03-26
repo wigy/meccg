@@ -1250,7 +1250,7 @@ function getInstructionText(
       case 'item-draft':
         return 'Starting Items — Assign your minor items to characters in your starting company.';
       case 'character-deck-draft':
-        return 'Deck Building — Add remaining pool characters to your play deck, or pass to finish.';
+        return 'Add remaining pool characters to your play deck, or pass to finish.';
       case 'starting-site-selection': {
         const plural = getAlignmentRules(view.self.alignment).maxStartingSites > 1;
         return `Site Selection — Choose your starting site${plural ? 's' : ''} from your site deck.`;
@@ -1277,9 +1277,47 @@ function getInstructionText(
     return 'Chain of Effects — Resolving...';
   }
 
-  // M/H phase: select-company step
-  if (view.phaseState.phase === Phase.MovementHazard && view.phaseState.step === 'select-company') {
-    return 'Movement/Hazard — Select a company to resolve its movement.';
+  // M/H phase steps
+  if (view.phaseState.phase === Phase.MovementHazard) {
+    const isSelf = view.activePlayer === view.self.id;
+    switch (view.phaseState.step) {
+      case 'select-company':
+        return 'Movement/Hazard — Select a company to resolve its movement.';
+      case 'reveal-new-site':
+        return 'Movement/Hazard — Revealing destination site.';
+      case 'set-hazard-limit':
+        return 'Movement/Hazard — Computing hazard limit for this company.';
+      case 'order-effects':
+        return isSelf
+          ? 'Movement/Hazard — Order ongoing effects for this company.'
+          : 'Movement/Hazard — Opponent is ordering ongoing effects.';
+      case 'draw-cards':
+        return 'Movement/Hazard — Drawing cards for movement.';
+      case 'play-hazards':
+        return isSelf
+          ? 'Movement/Hazard — Play hazards or pass.'
+          : 'Movement/Hazard — Opponent may play hazards.';
+      case 'reset-hand':
+        return 'Movement/Hazard — Resetting hand size.';
+    }
+  }
+
+  // Long-event phase
+  if (view.phaseState.phase === Phase.LongEvent) {
+    const isSelf = view.activePlayer === view.self.id;
+    if (isSelf) {
+      return 'Long-event — Play a long-event card or continue to Movement/Hazard phase.';
+    }
+    return 'Long-event — Waiting for opponent.';
+  }
+
+  // Organization phase
+  if (view.phaseState.phase === Phase.Organization && view.phaseState.pendingCorruptionCheck === null) {
+    const isSelf = view.activePlayer === view.self.id;
+    if (isSelf) {
+      return 'Organization — Plan movement, reorganize companies, and play characters.';
+    }
+    return 'Organization — Waiting for opponent to organize.';
   }
 
   // Pending corruption check after item transfer
@@ -1348,6 +1386,14 @@ export function renderPassButton(view: PlayerView, onAction: (action: GameAction
     label = 'Long-event';
   } else if (view.phaseState.phase === Phase.LongEvent) {
     label = 'Movement/Hazard';
+  } else if (view.phaseState.phase === Phase.MovementHazard) {
+    switch (view.phaseState.step) {
+      case 'set-hazard-limit': label = 'Continue'; break;
+      case 'draw-cards': label = 'Continue'; break;
+      case 'play-hazards': label = 'Pass'; break;
+      case 'reset-hand': label = 'Continue'; break;
+      default: label = 'Continue';
+    }
   } else if (view.phaseState.phase === 'setup') {
     const step = view.phaseState.setupStep.step;
     if (step === 'item-draft') label = 'Continue';
