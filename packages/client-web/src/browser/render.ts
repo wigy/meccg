@@ -136,6 +136,86 @@ const ANSI_TO_CSS: Record<string, string> = {
 };
 
 /** Convert a string containing ANSI escape codes to HTML with colored spans. */
+/** Escape HTML special characters for safe insertion into innerHTML. */
+function escapeHtml(text: string): string {
+  return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+/** Auto-incrementing counter for unique collapsible JSON node IDs. */
+let jsonNodeCounter = 0;
+/** Visible instances map, set before rendering collapsible JSON. */
+let jsonVisibleInstances: Readonly<Record<string, CardDefinitionId>> = {};
+
+/**
+ * Render a JSON value as HTML with collapsible objects/arrays.
+ * Primitives render inline; objects and arrays are collapsed by default
+ * with a "+" toggle to expand.
+ */
+function renderCollapsibleJson(value: unknown, indent: string): string {
+  if (value === null) return '<span style="color:#888">null</span>';
+  if (typeof value === 'boolean') return `<span style="color:#c4a35a">${value}</span>`;
+  if (typeof value === 'number') return `<span style="color:#6c9">${value}</span>`;
+  if (typeof value === 'string') {
+    // Card definition ID (e.g. "tw-123", "le-24")
+    if (/^[a-z]{2}-\d+$/.test(value)) {
+      return `<span class="card-name" data-card-id="${escapeHtml(value)}" style="color:#e8a">"${escapeHtml(value)}"</span>`;
+    }
+    // Card instance ID (e.g. "i-123") — resolve via visibleInstances
+    if (/^i-\d+$/.test(value)) {
+      const defId = jsonVisibleInstances[value];
+      if (defId) {
+        return `<span class="card-name" data-card-id="${escapeHtml(defId as string)}" style="color:#e8a">"${escapeHtml(value)}"</span>`;
+      }
+    }
+    return `<span style="color:#e8a">"${escapeHtml(value)}"</span>`;
+  }
+
+  const isAtom = (v: unknown): boolean =>
+    v === null || typeof v === 'string' || typeof v === 'number' || typeof v === 'boolean';
+
+  const nextIndent = indent + '  ';
+
+  if (Array.isArray(value)) {
+    if (value.length === 0) return '[]';
+    // All-atom short arrays render inline
+    if (value.every(isAtom) && value.length <= 6) {
+      return `[${value.map(v => renderCollapsibleJson(v, indent)).join(', ')}]`;
+    }
+    const id = `json-node-${++jsonNodeCounter}`;
+    const preview = `[${value.length}]`;
+    const items = value.map((v, i) =>
+      `${nextIndent}${renderCollapsibleJson(v, nextIndent)}${i < value.length - 1 ? ',' : ''}`,
+    ).join('\n');
+    return `<span class="pile-toggle" style="width:auto;padding:0 0.3em" onclick="const t=document.getElementById('${id}');t.classList.toggle('hidden');this.textContent=this.textContent.startsWith('+')?'− ${preview}':'+ ${preview}'">+ ${preview}</span>`
+      + `<span id="${id}" class="hidden">[\n${items}\n${indent}]</span>`;
+  }
+
+  if (typeof value === 'object') {
+    const entries = Object.entries(value as Record<string, unknown>);
+    if (entries.length === 0) return '{}';
+    // Show all keys: atomic values inline, complex values as "+" toggle
+    const lines: string[] = [];
+    for (let i = 0; i < entries.length; i++) {
+      const [k, v] = entries[i];
+      const comma = i < entries.length - 1 ? ',' : '';
+      const keySpan = `<span style="color:#8bf">"${escapeHtml(k)}"</span>`;
+      if (isAtom(v) || (Array.isArray(v) && v.length === 0) || (typeof v === 'object' && v !== null && !Array.isArray(v) && Object.keys(v).length === 0)) {
+        lines.push(`${nextIndent}${keySpan}: ${renderCollapsibleJson(v, nextIndent)}${comma}`);
+      } else {
+        const id = `json-node-${++jsonNodeCounter}`;
+        const rendered = renderCollapsibleJson(v, nextIndent);
+        lines.push(
+          `${nextIndent}${keySpan}: <span class="pile-toggle" style="width:auto;padding:0 0.3em" onclick="const t=document.getElementById('${id}');t.classList.toggle('hidden');this.style.display='none'">+</span>`
+          + `<span id="${id}" class="hidden">${rendered}</span>${comma}`,
+        );
+      }
+    }
+    return `{\n${lines.join('\n')}\n${indent}}`;
+  }
+
+  return `<span style="color:#888">${escapeHtml(typeof value)}</span>`;
+}
+
 function ansiToHtml(text: string): string {
   // Escape HTML entities first
   const escaped = text
@@ -429,7 +509,13 @@ function injectChainFrame(html: string): string {
 export function renderState(view: PlayerView, cardPool: Readonly<Record<string, CardDefinition>>): void {
   hideHoverImg();
   const el = $('state');
-  el.innerHTML = injectChainFrame(injectCombatFrame(injectActivePlayerFrame(injectDiceMarkers(injectMPTooltips(makeCardListsCollapsible(ansiToHtml(formatPlayerView(view, cardPool))))))));
+  const formatted = injectChainFrame(injectCombatFrame(injectActivePlayerFrame(injectDiceMarkers(injectMPTooltips(makeCardListsCollapsible(ansiToHtml(formatPlayerView(view, cardPool))))))));
+  jsonNodeCounter = 0;
+  jsonVisibleInstances = view.visibleInstances;
+  const jsonId = 'raw-state-json';
+  const rawJson = `\n\n<span class="pile-toggle" style="width:auto;padding:0 0.4em" onclick="const t=document.getElementById('${jsonId}');t.classList.toggle('hidden');this.textContent=this.textContent==='+ Raw JSON'?'− Raw JSON':'+ Raw JSON'">+ Raw JSON</span>`
+    + `<span id="${jsonId}" class="hidden">\n${renderCollapsibleJson(view, '')}</span>`;
+  el.innerHTML = formatted + rawJson;
   hydrateDicePlaceholders(el);
   tagCardImages(el, cardPool);
 }
