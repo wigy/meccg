@@ -22,6 +22,21 @@
   --color-selectable: 255, 215, 100;   /* golden — first available click */
   --color-selected: 100, 255, 120;     /* green — after click / selected */
   --color-target: 100, 200, 255;       /* blue — second target / argument */
+
+  /* Z-index layers (ordered bottom → top) */
+  --z-base: 0;                /* character card wraps, company card area */
+  --z-attachment: 1;          /* character attachments, deck pile labels */
+  --z-drafted: 5;             /* drafted card rows */
+  --z-board: 10;              /* hand/opponent arcs, company nav, events in play */
+  --z-panel: 15;              /* deck box, pass button, selected hand card */
+  --z-preview: 50;            /* card preview panel */
+  --z-instruction: 60;        /* instruction text overlay */
+  --z-hover: 100;             /* dev toolbar, hovered arcs/rows, tooltips, chain panel */
+  --z-modal: 200;             /* settings modal, toast, floating dice */
+  --z-overlay: 300;           /* site deck modal, dice overlay */
+  --z-set-aside: 400;         /* set-aside pile (above modals during draft) */
+  --z-action-backdrop: 999;   /* action/target backdrop */
+  --z-action-menu: 1000;      /* action/target tooltip menus */
 }
 
 * {
@@ -121,7 +136,7 @@ h2 {
   right: 0.5rem;
   display: flex;
   gap: 0.5rem;
-  z-index: 100;
+  z-index: var(--z-hover);
 }
 
 #toolbar button {
@@ -184,7 +199,7 @@ h2 {
 #settings-modal {
   position: fixed;
   inset: 0;
-  z-index: 200;
+  z-index: var(--z-modal);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -438,7 +453,7 @@ h2 {
   margin: -1rem;
   padding: 1rem;
   position: relative;
-  z-index: 0;
+  z-index: var(--z-base);
 }
 
 #visual-view::before {
@@ -461,7 +476,7 @@ h2 {
   top: 0.5rem;
   left: 50%;
   transform: translateX(-50%);
-  z-index: 60;
+  z-index: var(--z-instruction);
   pointer-events: none;
   white-space: nowrap;
 }
@@ -473,11 +488,11 @@ h2 {
   position: fixed;
   left: 15vw;
   right: 15vw;
-  z-index: 5;
+  z-index: var(--z-drafted);
 }
 
 .drafted-row:hover {
-  z-index: 100;
+  z-index: var(--z-hover);
 }
 
 .drafted-row:empty {
@@ -500,7 +515,7 @@ h2 {
   display: flex;
   flex-direction: column;
   align-items: center;
-  z-index: 400;
+  z-index: var(--z-set-aside);
   background: rgba(10, 8, 4, 0.85);
   border: 1px solid rgba(196, 163, 90, 0.5);
   border-radius: 8px;
@@ -645,7 +660,7 @@ h2 {
   max-height: 70vh;
   border-radius: 8px;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.8);
-  z-index: 50;
+  z-index: var(--z-preview);
   pointer-events: none;
 }
 
@@ -657,7 +672,7 @@ h2 {
 .deck-box {
   position: fixed;
   left: 1rem;
-  z-index: 15;
+  z-index: var(--z-panel);
   display: flex;
   flex-direction: column;
   gap: 0.3rem;
@@ -734,7 +749,7 @@ h2 {
 #site-deck-modal {
   position: fixed;
   inset: 0;
-  z-index: 300;
+  z-index: var(--z-overlay);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -824,7 +839,7 @@ h2 {
   left: 50%;
   top: 6px;
   transform: translate(-50%, 0);
-  z-index: 1;
+  z-index: var(--z-attachment);
   font-family: 'MedievalSharp', cursive;
   font-size: 0.8rem;
   color: #f0dc50;
@@ -858,7 +873,7 @@ h2 {
   display: none;
   position: absolute;
   left: 0;
-  z-index: 100;
+  z-index: var(--z-hover);
   background: rgba(15, 12, 8, 0.95);
   border: 1px solid rgba(196, 163, 90, 0.6);
   border-radius: 6px;
@@ -935,7 +950,7 @@ h2 {
   top: 3.5rem;
   left: 50%;
   transform: translateX(-50%);
-  z-index: 200;
+  z-index: var(--z-modal);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -976,7 +991,7 @@ h2 {
   position: fixed;
   right: 0.5rem;
   top: 2.5rem;
-  z-index: 999;
+  z-index: var(--z-hover);
   pointer-events: none;
   display: flex;
   flex-direction: column;
@@ -1042,7 +1057,7 @@ h2 {
   position: fixed;
   right: 2rem;
   bottom: 2rem;
-  z-index: 15;
+  z-index: var(--z-panel);
   font-family: 'MedievalSharp', cursive;
   font-size: 1.4rem;
   color: rgba(220, 200, 140, 0.9);
@@ -1070,7 +1085,7 @@ h2 {
   right: 10vw;
   display: flex;
   justify-content: center;
-  z-index: 10;
+  z-index: var(--z-board);
   pointer-events: none;
 }
 
@@ -1085,7 +1100,7 @@ h2 {
 
 #hand-arc:has(.hand-card:hover) {
   bottom: 0;
-  z-index: 100;
+  z-index: var(--z-hover);
 }
 
 /*
@@ -1133,7 +1148,7 @@ h2 {
     0 0 16px rgba(var(--color-selected), 1),
     0 0 40px rgba(var(--color-selected), 0.7),
     0 4px 16px rgba(0, 0, 0, 0.7);
-  z-index: 15;
+  z-index: var(--z-panel);
 }
 
 .hand-card-selected:hover {
@@ -1185,7 +1200,7 @@ h2 {
   display: none;
   position: fixed;
   pointer-events: none;
-  z-index: 200;
+  z-index: var(--z-modal);
   height: 500px;
   border-radius: 6px;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.8);
@@ -1195,7 +1210,7 @@ h2 {
   display: none;
   position: fixed;
   pointer-events: none;
-  z-index: 200;
+  z-index: var(--z-modal);
   max-width: 350px;
   margin: 0;
   padding: 0.5rem;
@@ -1215,7 +1230,7 @@ h2 {
 .dice-overlay {
   position: fixed;
   inset: 0;
-  z-index: 300;
+  z-index: var(--z-overlay);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1403,7 +1418,7 @@ h2 {
   color: rgba(196, 163, 90, 0.25);
   cursor: pointer;
   padding: 1rem;
-  z-index: 10;
+  z-index: var(--z-board);
   transition: color 0.3s;
 }
 
@@ -1438,7 +1453,7 @@ h2 {
   color: rgba(196, 163, 90, 0.8);
   padding: 0.5rem;
   cursor: pointer;
-  z-index: 10;
+  z-index: var(--z-board);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1568,7 +1583,7 @@ h2 {
 
 .character-card-wrap {
   position: relative;
-  z-index: 0;
+  z-index: var(--z-base);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1700,7 +1715,7 @@ h2 {
 /* Character attachments (items, allies, followers) */
 .character-attachments {
   position: relative;
-  z-index: 1;
+  z-index: var(--z-attachment);
   display: flex;
   flex-direction: row;
   align-items: flex-start;
@@ -1802,7 +1817,7 @@ h2 {
   justify-content: center;
   gap: 1.5rem;
   padding: 0.5rem 1rem;
-  z-index: 10;
+  z-index: var(--z-board);
 }
 
 .cards-in-play-group {
@@ -1839,13 +1854,13 @@ h2 {
 .char-action-backdrop {
   position: fixed;
   inset: 0;
-  z-index: 999;
+  z-index: var(--z-action-backdrop);
   background: transparent;
 }
 
 /* Character action tooltip — disambiguation menu */
 .char-action-tooltip {
-  z-index: 1000;
+  z-index: var(--z-action-menu);
   transform: translate(-50%, -100%);
   margin-top: -8px;
   display: flex;
@@ -1903,7 +1918,7 @@ h2 {
   background: rgba(30, 25, 18, 0.95);
   border: 1px solid rgba(196, 163, 90, 0.6);
   border-radius: 6px;
-  z-index: 100;
+  z-index: var(--z-hover);
   max-height: 80vh;
   overflow-y: auto;
 }
@@ -1920,7 +1935,7 @@ h2 {
   left: 50%;
   top: 50%;
   transform: translate(-50%, -50%);
-  z-index: 50;
+  z-index: var(--z-preview);
   width: 340px;
   max-height: 65vh;
   overflow-y: auto;
@@ -2100,7 +2115,7 @@ h2 {
 .chain-target-backdrop {
   position: fixed;
   inset: 0;
-  z-index: 999;
+  z-index: var(--z-action-backdrop);
   background: transparent;
 }
 
@@ -2116,5 +2131,5 @@ h2 {
   border-radius: 6px;
   padding: 4px;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.6);
-  z-index: 1000;
+  z-index: var(--z-action-menu);
 }
