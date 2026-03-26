@@ -439,12 +439,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const cheatRollSelect = document.getElementById('cheat-roll-select') as HTMLSelectElement;
   const summonBtn = document.getElementById('summon-btn') as HTMLButtonElement;
-  const devButtons: HTMLElement[] = [undoBtn, saveBtn, loadBtn, reseedBtn, cheatRollSelect, summonBtn, resetBtn, viewToggleBtn];
+  const toolbarDev = document.getElementById('toolbar-dev') as HTMLElement;
 
   function applyDevMode(on: boolean): void {
-    for (const btn of devButtons) {
-      btn.style.display = on ? '' : 'none';
-    }
+    toolbarDev.style.display = on ? '' : 'none';
   }
 
   // When the server is not in dev mode, hide the dev mode toggle entirely
