@@ -671,6 +671,7 @@ h2 {
   border-radius: 8px;
   padding: 0.4rem 0.5rem;
   backdrop-filter: blur(4px);
+  width: 8.5rem;
 }
 
 .deck-box--self {
@@ -683,13 +684,16 @@ h2 {
 
 .player-label {
   font-family: 'MedievalSharp', cursive;
-  font-size: 1.4rem;
+  font-size: 1rem;
   color: rgba(196, 163, 90, 0.9);
-  pointer-events: none;
+  pointer-events: auto;
   letter-spacing: 0.05em;
   text-shadow: 0 1px 4px rgba(0, 0, 0, 0.8);
   padding: 0.1rem 0.3rem;
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
 }
 
 .deck-box-score {
@@ -701,7 +705,7 @@ h2 {
 
 .player-piles {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: auto auto;
   gap: 0.3rem;
 }
 

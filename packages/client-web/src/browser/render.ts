@@ -796,8 +796,8 @@ export function renderPlayerNames(view: PlayerView, cardPool: Readonly<Record<st
   const selfScore = computeTournamentScore(selfRaw, oppRaw);
   const oppScore = computeTournamentScore(oppRaw, selfRaw);
   const tooltip = buildMPTooltip(view.self.name, selfRaw, selfAdj, view.opponent.name, oppRaw, oppAdj);
-  if (selfEl) selfEl.textContent = view.self.name;
-  if (oppEl) oppEl.textContent = view.opponent.name;
+  if (selfEl) { selfEl.textContent = view.self.name; selfEl.title = view.self.name; }
+  if (oppEl) { oppEl.textContent = view.opponent.name; oppEl.title = view.opponent.name; }
 
   const selfGI = GENERAL_INFLUENCE - view.self.generalInfluenceUsed;
   const oppGI = GENERAL_INFLUENCE - view.opponent.generalInfluenceUsed;
