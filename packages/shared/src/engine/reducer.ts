@@ -2733,7 +2733,7 @@ function advanceAfterCompanyMH(state: GameState, mhState: MovementHazardPhaseSta
   if (remainingCount <= 0) {
     logDetail(`Movement/Hazard: all companies handled → advancing to Site phase`);
     return {
-      state: {
+      state: cleanupEmptyCompanies({
         ...state,
         phaseState: {
           phase: Phase.Site,
@@ -2747,7 +2747,7 @@ function advanceAfterCompanyMH(state: GameState, mhState: MovementHazardPhaseSta
           declaredOnGuardAttacks: [],
           declaredAgentAttack: null,
         },
-      },
+      }),
     };
   }
 
@@ -3663,10 +3663,10 @@ function advanceSiteToNextCompany(
   if (remainingCount <= 0) {
     logDetail(`Site: all companies handled → advancing to End-of-Turn phase`);
     return {
-      state: {
+      state: cleanupEmptyCompanies({
         ...state,
         phaseState: { phase: Phase.EndOfTurn, step: 'discard' as const, discardDone: [false, false] as const },
-      },
+      }),
     };
   }
 
