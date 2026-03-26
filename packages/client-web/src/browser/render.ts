@@ -1525,6 +1525,11 @@ function getInstructionText(
         ? 'Combat — Click a character to assign a strike, or pass.'
         : 'Combat — Opponent is assigning strikes.';
     }
+    if (view.combat.phase === 'choose-strike-order') {
+      return iAmDefender
+        ? 'Combat — Click a character to choose which strike resolves next.'
+        : 'Combat — Opponent is choosing strike order.';
+    }
     if (view.combat.phase === 'resolve-strike') {
       return iAmDefender
         ? 'Combat — Choose Tapped (fight normally) or Untapped (-3 prowess to stay untapped).'

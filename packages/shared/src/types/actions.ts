@@ -491,6 +491,21 @@ export interface SupportStrikeAction {
 }
 
 /**
+ * The defending player chooses which unresolved strike to resolve next.
+ *
+ * Per CRF: "In an order chosen by the defending player, each assigned
+ * strike is then resolved by proceeding through an individual strike sequence."
+ */
+export interface ChooseStrikeOrderAction {
+  /** Action discriminant. */
+  readonly type: 'choose-strike-order';
+  /** The defending player choosing the strike order. */
+  readonly player: PlayerId;
+  /** Index into strikeAssignments for the strike to resolve next. */
+  readonly strikeIndex: number;
+}
+
+/**
  * The attacking player rolls for a body check after a strike is resolved.
  * The opponent rolls 2d6 against the target's body value to determine
  * if the entity (character or creature) is eliminated/defeated.
@@ -801,6 +816,7 @@ export type GameAction =
   | AssignStrikeAction
   | ResolveStrikeAction
   | SupportStrikeAction
+  | ChooseStrikeOrderAction
   | BodyCheckRollAction
   | EnterSiteAction
   | RevealOnGuardAction

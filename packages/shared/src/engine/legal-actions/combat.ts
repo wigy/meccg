@@ -5,10 +5,11 @@
  * that interrupts the enclosing phase. When `state.combat` is non-null,
  * combat actions take priority over normal phase actions.
  *
- * Combat proceeds through three sub-phases:
+ * Combat proceeds through four sub-phases:
  * 1. assign-strikes: defending player assigns strikes to characters, then attacker assigns remaining
- * 2. resolve-strike: defending player resolves each strike (tap-to-fight or stay untapped)
- * 3. body-check: attacking player rolls body check
+ * 2. choose-strike-order: defending player picks which unresolved strike resolves next
+ * 3. resolve-strike: defending player resolves the chosen strike (tap-to-fight or stay untapped)
+ * 4. body-check: attacking player rolls body check
  */
 
 import type { GameState, PlayerId, EvaluatedAction, CombatState } from '../../index.js';
@@ -28,6 +29,8 @@ export function combatActions(state: GameState, playerId: PlayerId): EvaluatedAc
   switch (combat.phase) {
     case 'assign-strikes':
       return assignStrikeActions(state, playerId, combat);
+    case 'choose-strike-order':
+      return chooseStrikeOrderActions(playerId, combat);
     case 'resolve-strike':
       return resolveStrikeActions(state, playerId, combat);
     case 'body-check':
@@ -129,6 +132,29 @@ function assignStrikeActions(
   }
 
   return [];
+}
+
+/**
+ * Actions during the choose-strike-order sub-phase.
+ *
+ * The defending player picks which unresolved strike to resolve next.
+ * Per CRF: "In an order chosen by the defending player, each assigned
+ * strike is then resolved by proceeding through an individual strike sequence."
+ */
+function chooseStrikeOrderActions(playerId: PlayerId, combat: CombatState): EvaluatedAction[] {
+  if (playerId !== combat.defendingPlayerId) return [];
+
+  const actions: EvaluatedAction[] = [];
+  for (let i = 0; i < combat.strikeAssignments.length; i++) {
+    const sa = combat.strikeAssignments[i];
+    if (sa.resolved) continue;
+    logDetail(`Defender can choose to resolve strike ${i} (character ${sa.characterId as string})`);
+    actions.push({
+      action: { type: 'choose-strike-order', player: playerId, strikeIndex: i },
+      viable: true,
+    });
+  }
+  return actions;
 }
 
 /**

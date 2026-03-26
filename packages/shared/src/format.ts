@@ -965,6 +965,8 @@ export function describeAction(
       return action.tapToFight ? 'Resolve strike (tap to fight)' : 'Resolve strike (stay untapped, -3 prowess)';
     case 'support-strike':
       return `Tap ${instName(action.supportingCharacterId)} to support ${instName(action.targetCharacterId)} (+1 prowess)`;
+    case 'choose-strike-order':
+      return `Resolve strike ${action.strikeIndex + 1}`;
     case 'body-check-roll':
       return 'Roll body check';
     case 'play-hero-resource':

@@ -21,6 +21,7 @@ import type {
   OpponentCompanyView,
   AssignStrikeAction,
   SupportStrikeAction,
+  ChooseStrikeOrderAction,
 } from '@meccg/shared';
 import { cardImageProxyPath, viableActions, CardStatus } from '@meccg/shared';
 import { createCardImage } from './render-utils.js';
@@ -56,10 +57,11 @@ export function renderCombatView(
   const viable = viableActions(view.legalActions);
   const assignActions = viable.filter((a): a is AssignStrikeAction => a.type === 'assign-strike');
   const supportActions = viable.filter((a): a is SupportStrikeAction => a.type === 'support-strike');
+  const chooseOrderActions = viable.filter((a): a is ChooseStrikeOrderAction => a.type === 'choose-strike-order');
 
   // Build attacker row and defender row
   const attackerRow = renderAttackerRow(combat, view, cardPool);
-  const defenderRow = renderDefenderRow(combat, view, cardPool, assignActions, supportActions, onAction);
+  const defenderRow = renderDefenderRow(combat, view, cardPool, assignActions, supportActions, chooseOrderActions, onAction);
 
   // Top row is the "opponent" side, bottom row is "my" side
   const topRow = document.createElement('div');
@@ -144,8 +146,12 @@ function renderPhaseBanner(
     const assigned = combat.strikeAssignments.length;
     const remaining = combat.strikesTotal - assigned;
     phaseText = `${racePrefix}Assign ${combat.strikesTotal} strike${combat.strikesTotal !== 1 ? 's' : ''} at ${combat.strikeProwess} prowess \u2014 ${whose} \u2022 ${assigned} assigned, ${remaining} remaining`;
+  } else if (combat.phase === 'choose-strike-order') {
+    const resolved = combat.strikeAssignments.filter(sa => sa.resolved).length;
+    phaseText = `${racePrefix}Choose next strike to resolve (${resolved} of ${combat.strikesTotal} resolved)`;
   } else if (combat.phase === 'resolve-strike') {
-    phaseText = `Resolve Strike ${combat.currentStrikeIndex + 1} of ${combat.strikesTotal}`;
+    const resolved = combat.strikeAssignments.filter(sa => sa.resolved).length;
+    phaseText = `${racePrefix}Resolve Strike ${resolved + 1} of ${combat.strikesTotal}`;
   } else {
     const target = combat.bodyCheckTarget === 'creature' ? 'Creature' : 'Character';
     phaseText = `Body Check \u2014 ${target}`;
@@ -190,6 +196,7 @@ function renderDefenderRow(
   cardPool: Readonly<Record<string, CardDefinition>>,
   assignActions: AssignStrikeAction[],
   supportActions: SupportStrikeAction[],
+  chooseOrderActions: ChooseStrikeOrderAction[],
   onAction: (action: GameAction) => void,
 ): HTMLElement {
   const container = document.createElement('div');
@@ -208,6 +215,13 @@ function renderDefenderRow(
   // Build a set of characters that can support the current strike
   const supportableIds = new Set(supportActions.map(a => a.supportingCharacterId as string));
 
+  // Build a map of character ID → choose-strike-order action (for choose-strike-order phase)
+  const chooseOrderMap = new Map<string, ChooseStrikeOrderAction>();
+  for (const a of chooseOrderActions) {
+    const sa = combat.strikeAssignments[a.strikeIndex];
+    if (sa) chooseOrderMap.set(sa.characterId as string, a);
+  }
+
   // Build a map of character ID → strike assignment info
   const strikeMap = new Map<string, { index: number; assignment: CombatState['strikeAssignments'][number] }>();
   for (let i = 0; i < combat.strikeAssignments.length; i++) {
@@ -222,7 +236,7 @@ function renderDefenderRow(
     const char = charMap[charId as string];
     if (!char) continue;
 
-    const col = renderCombatCharacterColumn(char, cardPool, combat, strikeMap, assignableIds, supportableIds, assignActions, supportActions, onAction);
+    const col = renderCombatCharacterColumn(char, cardPool, combat, strikeMap, assignableIds, supportableIds, chooseOrderMap, assignActions, supportActions, onAction);
     container.appendChild(col);
   }
 
@@ -247,6 +261,7 @@ function renderCombatCharacterColumn(
   strikeMap: Map<string, { index: number; assignment: CombatState['strikeAssignments'][number] }>,
   assignableIds: Set<string>,
   supportableIds: Set<string>,
+  chooseOrderMap: Map<string, ChooseStrikeOrderAction>,
   assignActions: AssignStrikeAction[],
   supportActions: SupportStrikeAction[],
   onAction: (action: GameAction) => void,
@@ -277,11 +292,21 @@ function renderCombatCharacterColumn(
   // Combat-specific styling
   const charIdStr = char.instanceId as string;
   const strike = strikeMap.get(charIdStr);
-  const isCurrentStrike = strike !== undefined && strike.index === combat.currentStrikeIndex && !strike.assignment.resolved;
+  const isCurrentStrike = strike !== undefined && strike.index === combat.currentStrikeIndex && !strike.assignment.resolved && combat.phase === 'resolve-strike';
   const isAssignable = assignableIds.has(charIdStr);
   const isSupportable = supportableIds.has(charIdStr);
 
-  if (isAssignable) {
+  const chooseOrderAction = chooseOrderMap.get(charIdStr);
+
+  if (chooseOrderAction) {
+    // Choose-strike-order phase: click to pick this strike next
+    img.classList.add('combat-card--assignable');
+    img.style.cursor = 'pointer';
+    img.addEventListener('click', (e) => {
+      e.stopPropagation();
+      onAction(chooseOrderAction);
+    });
+  } else if (isAssignable) {
     img.classList.add('combat-card--assignable');
     img.style.cursor = 'pointer';
     const action = assignActions.find(a => a.characterId === char.instanceId);
@@ -420,7 +445,7 @@ function drawStrikeArrows(svg: SVGSVGElement, combat: CombatState, iAmDefender: 
     line.classList.add('combat-arrow');
 
     // Style based on resolution status
-    const isCurrent = i === combat.currentStrikeIndex && !sa.resolved;
+    const isCurrent = i === combat.currentStrikeIndex && !sa.resolved && combat.phase === 'resolve-strike';
     if (sa.resolved) {
       line.classList.add('combat-arrow--resolved');
       if (sa.result === 'success') {

@@ -1003,8 +1003,14 @@ export interface CombatState {
   readonly strikeAssignments: readonly StrikeAssignment[];
   /** Index into strikeAssignments for the strike currently being resolved. */
   readonly currentStrikeIndex: number;
-  /** Which sub-phase of combat resolution is active. */
-  readonly phase: 'assign-strikes' | 'resolve-strike' | 'body-check';
+  /**
+   * Which sub-phase of combat resolution is active.
+   * - `'assign-strikes'`: players assign strikes to characters
+   * - `'choose-strike-order'`: defender picks which unresolved strike resolves next
+   * - `'resolve-strike'`: the chosen strike is resolved (tap/untap, support, dice roll)
+   * - `'body-check'`: body check after a strike result
+   */
+  readonly phase: 'assign-strikes' | 'choose-strike-order' | 'resolve-strike' | 'body-check';
   /**
    * During assign-strikes, tracks who is currently assigning:
    * - `'defender'`: defending player assigns strikes to untapped characters

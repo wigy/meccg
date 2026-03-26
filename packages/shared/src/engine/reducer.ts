@@ -121,7 +121,7 @@ export function reduce(state: GameState, action: GameAction): ReducerResult {
   }
 
   // 2c. Combat: dispatch combat-specific actions when combat is active
-  const combatActionTypes = ['assign-strike', 'resolve-strike', 'support-strike', 'body-check-roll'];
+  const combatActionTypes = ['assign-strike', 'choose-strike-order', 'resolve-strike', 'support-strike', 'body-check-roll'];
   if (state.combat != null && (combatActionTypes.includes(action.type) || (action.type === 'pass' && state.combat.phase === 'assign-strikes'))) {
     logDetail(`Combat active — dispatching '${action.type}' to combat handler`);
     const combatResult = handleCombatAction(state, action);
@@ -3979,6 +3979,8 @@ function handleCombatAction(state: GameState, action: GameAction): ReducerResult
       return handleAssignStrike(state, action, combat);
     case 'pass':
       return handleCombatPass(state, action, combat);
+    case 'choose-strike-order':
+      return handleChooseStrikeOrder(state, action, combat);
     case 'resolve-strike':
       return handleResolveStrike(state, action, combat);
     case 'support-strike':
@@ -3988,6 +3990,42 @@ function handleCombatAction(state: GameState, action: GameAction): ReducerResult
     default:
       return { state, error: `Unexpected action '${action.type}' during combat` };
   }
+}
+
+/**
+ * Compute the next combat phase after all strikes are assigned or a strike finishes resolving.
+ * If multiple unresolved strikes remain, enters choose-strike-order so the defender picks.
+ * If exactly one remains, auto-selects it and goes to resolve-strike.
+ * Returns null if all strikes are resolved (caller should finalize combat).
+ */
+function nextStrikePhase(combat: CombatState): Partial<CombatState> | null {
+  const unresolvedIndices: number[] = [];
+  for (let i = 0; i < combat.strikeAssignments.length; i++) {
+    if (!combat.strikeAssignments[i].resolved) unresolvedIndices.push(i);
+  }
+  if (unresolvedIndices.length === 0) return null;
+  if (unresolvedIndices.length === 1) {
+    logDetail(`One unresolved strike remaining (index ${unresolvedIndices[0]}) — auto-selecting`);
+    return { phase: 'resolve-strike', currentStrikeIndex: unresolvedIndices[0], bodyCheckTarget: null };
+  }
+  logDetail(`${unresolvedIndices.length} unresolved strikes — defender chooses order`);
+  return { phase: 'choose-strike-order', bodyCheckTarget: null };
+}
+
+/** Handle the defender choosing which strike to resolve next. */
+function handleChooseStrikeOrder(state: GameState, action: GameAction, combat: CombatState): ReducerResult {
+  if (action.type !== 'choose-strike-order') return { state, error: 'Expected choose-strike-order' };
+  if (combat.phase !== 'choose-strike-order') return { state, error: 'Not in choose-strike-order phase' };
+  if (action.player !== combat.defendingPlayerId) return { state, error: 'Only defending player can choose strike order' };
+
+  const idx = action.strikeIndex;
+  if (idx < 0 || idx >= combat.strikeAssignments.length) return { state, error: 'Invalid strike index' };
+  if (combat.strikeAssignments[idx].resolved) return { state, error: 'Strike already resolved' };
+
+  logDetail(`Defender chose to resolve strike ${idx} (character ${combat.strikeAssignments[idx].characterId as string})`);
+  return {
+    state: { ...state, combat: { ...combat, phase: 'resolve-strike', currentStrikeIndex: idx } },
+  };
 }
 
 /** Assign a strike to a defending character. */
@@ -4035,13 +4073,13 @@ function handleAssignStrike(state: GameState, action: GameAction, combat: Combat
     + newAssignments.reduce((sum, a) => sum + a.excessStrikes, 0);
   const allAssigned = newTotalAllocated >= combat.strikesTotal;
 
-  const newCombat: CombatState = {
-    ...combat,
-    strikeAssignments: newAssignments,
-    ...(allAssigned ? { phase: 'resolve-strike' as const, assignmentPhase: 'done' as const } : {}),
-  };
+  let newCombatState: CombatState = { ...combat, strikeAssignments: newAssignments };
+  if (allAssigned) {
+    const next = nextStrikePhase(newCombatState);
+    newCombatState = { ...newCombatState, assignmentPhase: 'done', ...next };
+  }
 
-  return { state: { ...state, combat: newCombat } };
+  return { state: { ...state, combat: newCombatState } };
 }
 
 /** Defender passes during strike assignment — attacker assigns remaining. */
@@ -4055,11 +4093,12 @@ function handleCombatPass(state: GameState, action: GameAction, combat: CombatSt
     + combat.strikeAssignments.reduce((sum, a) => sum + a.excessStrikes, 0);
   const strikesRemaining = combat.strikesTotal - totalAllocated;
 
-  // If no strikes remain, transition to resolve
+  // If no strikes remain, transition to resolve (via choose-strike-order if multiple)
   if (strikesRemaining <= 0) {
     logDetail('Defender passed with all strikes assigned — transitioning to resolve');
+    const next = nextStrikePhase(combat);
     return {
-      state: { ...state, combat: { ...combat, phase: 'resolve-strike', assignmentPhase: 'done' } },
+      state: { ...state, combat: { ...combat, assignmentPhase: 'done', ...next } },
     };
   }
 
@@ -4167,13 +4206,12 @@ function handleResolveStrike(state: GameState, action: GameAction, combat: Comba
     };
   } else {
     // No body check — advance to next strike or finish combat
-    const nextIndex = combat.currentStrikeIndex + 1;
-    if (nextIndex < newAssignments.length) {
-      newCombat = { ...combat, strikeAssignments: newAssignments, currentStrikeIndex: nextIndex };
-    } else {
-      // All strikes resolved — finalize combat
-      return finalizeCombat({ ...state, players: newPlayers, rng, cheatRollTotal, combat: { ...combat, strikeAssignments: newAssignments } }, effects);
+    const combatWithAssignments = { ...combat, strikeAssignments: newAssignments };
+    const next = nextStrikePhase(combatWithAssignments);
+    if (!next) {
+      return finalizeCombat({ ...state, players: newPlayers, rng, cheatRollTotal, combat: combatWithAssignments }, effects);
     }
+    newCombat = { ...combatWithAssignments, ...next };
   }
 
   return {
@@ -4236,15 +4274,9 @@ function handleBodyCheckRoll(state: GameState, action: GameAction, combat: Comba
     }
 
     // Advance to next strike or finalize
-    const nextIndex = combat.currentStrikeIndex + 1;
-    if (nextIndex < combat.strikeAssignments.length) {
-      const newCombat: CombatState = {
-        ...combat,
-        currentStrikeIndex: nextIndex,
-        phase: 'resolve-strike',
-        bodyCheckTarget: null,
-      };
-      return { state: { ...stateWithRoll, combat: newCombat }, effects };
+    const next1 = nextStrikePhase(combat);
+    if (next1) {
+      return { state: { ...stateWithRoll, combat: { ...combat, ...next1 } }, effects };
     }
     return finalizeCombat(stateWithRoll, effects);
   }
@@ -4290,31 +4322,19 @@ function handleBodyCheckRoll(state: GameState, action: GameAction, combat: Comba
       newPlayers2[defPlayerIndex] = newPlayerData;
 
       // Advance to next strike or finalize
-      const nextIndex = combat.currentStrikeIndex + 1;
-      if (nextIndex < newAssignments.length) {
-        const newCombat: CombatState = {
-          ...combat,
-          strikeAssignments: newAssignments,
-          currentStrikeIndex: nextIndex,
-          phase: 'resolve-strike',
-          bodyCheckTarget: null,
-        };
-        return { state: { ...stateWithRoll, players: newPlayers2, combat: newCombat }, effects };
+      const combatWithElim = { ...combat, strikeAssignments: newAssignments };
+      const next2 = nextStrikePhase(combatWithElim);
+      if (next2) {
+        return { state: { ...stateWithRoll, players: newPlayers2, combat: { ...combatWithElim, ...next2 } }, effects };
       }
-      return finalizeCombat({ ...stateWithRoll, players: newPlayers2, combat: { ...combat, strikeAssignments: newAssignments } }, effects);
+      return finalizeCombat({ ...stateWithRoll, players: newPlayers2, combat: combatWithElim }, effects);
     }
 
     logDetail('Character survives body check');
     // Advance to next strike or finalize
-    const nextIndex = combat.currentStrikeIndex + 1;
-    if (nextIndex < combat.strikeAssignments.length) {
-      const newCombat: CombatState = {
-        ...combat,
-        currentStrikeIndex: nextIndex,
-        phase: 'resolve-strike',
-        bodyCheckTarget: null,
-      };
-      return { state: { ...stateWithRoll, combat: newCombat }, effects };
+    const next3 = nextStrikePhase(combat);
+    if (next3) {
+      return { state: { ...stateWithRoll, combat: { ...combat, ...next3 } }, effects };
     }
     return finalizeCombat(stateWithRoll, effects);
   }
