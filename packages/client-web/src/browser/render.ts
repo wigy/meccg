@@ -1914,8 +1914,9 @@ export function setupCardPreview(cardPool: Readonly<Record<string, CardDefinitio
   view.addEventListener('mouseover', (e) => {
     const img = (e.target as HTMLElement).closest('img');
     if (!img || !img.src) return;
-    // Skip deck pile images and region type icons (not meaningful to preview)
+    // Skip deck pile images, region type icons, and unknown card backs
     if (img.closest('.pile-cell, .region-type-icon')) return;
+    if (!img.dataset.cardId) return;
     preview.innerHTML = '';
     const cardId = img.dataset.cardId;
     const def = cardId ? cardPool[cardId] : undefined;
