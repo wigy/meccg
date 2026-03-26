@@ -25,6 +25,11 @@ import type {
 import { cardImageProxyPath, viableActions, CardStatus } from '@meccg/shared';
 import { createCardImage } from './render-utils.js';
 
+/** Remove any combat action buttons from the bottom-right corner. */
+export function clearCombatButtons(): void {
+  for (const old of document.querySelectorAll('.combat-visual-btn')) old.remove();
+}
+
 /**
  * Render the combat arena into the visual board container.
  * Replaces the normal company view while combat is active.
@@ -95,6 +100,9 @@ export function renderCombatView(
   arena.appendChild(bottomRow);
 
   board.appendChild(arena);
+
+  // Render combat action buttons in the bottom-right corner (same area as pass button)
+  renderCombatActionButtons(viable, cardPool, onAction);
 
   // Draw arrows after DOM layout is computed (double-rAF to ensure layout is settled)
   requestAnimationFrame(() => {
@@ -431,6 +439,50 @@ function drawStrikeArrows(svg: SVGSVGElement, combat: CombatState, iAmDefender: 
 
     svg.appendChild(line);
   }
+}
+
+// ---- Combat action buttons (bottom-right, same area as pass button) ----
+
+/** Combat action types that get rendered as buttons (not handled by card clicks). */
+const BUTTON_ACTION_TYPES = new Set(['resolve-strike', 'body-check-roll']);
+
+/**
+ * Render combat action buttons stacked above the pass button in the
+ * bottom-right corner, reusing the existing enter-site-btn styling.
+ */
+function renderCombatActionButtons(
+  viable: GameAction[],
+  cardPool: Readonly<Record<string, CardDefinition>>,
+  onAction: (action: GameAction) => void,
+): void {
+  // Remove any previously rendered combat action buttons
+  for (const old of document.querySelectorAll('.combat-visual-btn')) old.remove();
+
+  const buttonActions = viable.filter(a => BUTTON_ACTION_TYPES.has(a.type));
+  const passBtn = document.getElementById('pass-btn');
+  const parent = passBtn?.parentElement;
+  if (!parent) return;
+
+  // Stack buttons above the pass button, each offset upward
+  for (let i = 0; i < buttonActions.length; i++) {
+    const action = buttonActions[i];
+    const btn = document.createElement('button');
+    btn.className = 'enter-site-btn combat-visual-btn';
+    btn.style.bottom = `${5.4 + i * 3.4}rem`;
+    btn.textContent = combatButtonLabel(action);
+    btn.addEventListener('click', () => onAction(action));
+    parent.appendChild(btn);
+  }
+}
+
+/** Short label for combat action buttons in the visual view. */
+function combatButtonLabel(action: GameAction): string {
+  if (action.type === 'resolve-strike') {
+    return action.tapToFight ? 'Tapped' : 'Untapped';
+  }
+  if (action.type === 'body-check-roll') return 'Body Check';
+  if (action.type === 'pass') return 'Pass';
+  return action.type;
 }
 
 // ---- Helpers ----

@@ -1515,6 +1515,28 @@ function getInstructionText(
     }
   }
 
+  // Combat sub-state instructions
+  if (view.combat) {
+    const iAmDefender = view.self.id === view.combat.defendingPlayerId;
+    if (view.combat.phase === 'assign-strikes') {
+      const isMyTurn = (view.combat.assignmentPhase === 'defender' && iAmDefender)
+        || (view.combat.assignmentPhase === 'attacker' && !iAmDefender);
+      return isMyTurn
+        ? 'Combat — Click a character to assign a strike, or pass.'
+        : 'Combat — Opponent is assigning strikes.';
+    }
+    if (view.combat.phase === 'resolve-strike') {
+      return iAmDefender
+        ? 'Combat — Choose Tapped (fight normally) or Untapped (-3 prowess to stay untapped).'
+        : 'Combat — Opponent is resolving a strike.';
+    }
+    if (view.combat.phase === 'body-check') {
+      return !iAmDefender
+        ? 'Combat — Roll the body check.'
+        : 'Combat — Opponent rolls the body check.';
+    }
+  }
+
   // Chain of effects: show priority/mode context
   if (view.chain) {
     const isSelf = view.chain.priority === view.self.id;

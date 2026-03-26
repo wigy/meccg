@@ -32,7 +32,7 @@ import type {
 import { cardImageProxyPath, isCharacterCard, isItemCard, isSiteCard, Phase, CardStatus, viableActions, describeAction, getTitleCharacter } from '@meccg/shared';
 import { $, createCardImage, createRegionTypeIcon } from './render-utils.js';
 import { getSelectedCharacterForPlay, clearCharacterPlaySelection, openMovementViewer, setTargetingInstruction } from './render.js';
-import { renderCombatView } from './combat-view.js';
+import { renderCombatView, clearCombatButtons } from './combat-view.js';
 
 // ---- View state ----
 
@@ -1743,6 +1743,9 @@ export function renderCompanyViews(
     renderCombatView(board, view, cardPool, onAction);
     return;
   }
+
+  // Clean up any leftover combat buttons when combat ends
+  clearCombatButtons();
 
   // Cards in play row (permanent resources, factions, etc.) — always at top
   renderCardsInPlayRow(board, view, cardPool);
