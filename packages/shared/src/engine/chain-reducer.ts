@@ -401,6 +401,14 @@ function initiateCreatureCombat(state: GameState, entry: ChainEntry): GameState 
 
   const hazardPlayerId = state.players.find(p => p.id !== state.activePlayer)!.id;
 
+  // Check for attacker-chooses-defenders combat rule (e.g. Cave-drake)
+  const attackerChooses = creatureDef.effects?.some(
+    e => e.type === 'combat-rule' && e.rule === 'attacker-chooses-defenders',
+  ) ?? false;
+  if (attackerChooses) {
+    logDetail('Creature has attacker-chooses-defenders — skipping defender assignment');
+  }
+
   const combat: CombatState = {
     attackSource: { type: 'creature', instanceId: entry.cardInstanceId! },
     companyId: company.id,
@@ -412,7 +420,7 @@ function initiateCreatureCombat(state: GameState, entry: ChainEntry): GameState 
     strikeAssignments: [],
     currentStrikeIndex: 0,
     phase: 'assign-strikes',
-    assignmentPhase: 'defender',
+    assignmentPhase: attackerChooses ? 'attacker' : 'defender',
     bodyCheckTarget: null,
     detainment: false,
   };

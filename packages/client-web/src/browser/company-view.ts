@@ -187,14 +187,6 @@ function renderCharacterColumn(
   diBadge.textContent = String(char.effectiveStats.directInfluence);
   wrap.appendChild(diBadge);
 
-  // Title character indicator
-  if (isTitleCharacter) {
-    const titleBadge = document.createElement('div');
-    titleBadge.className = 'char-title-badge';
-    titleBadge.textContent = '\u2606'; // star
-    wrap.appendChild(titleBadge);
-  }
-
   // Influence move highlight and click handler
   if (influenceClick) {
     if (influenceClick.cls) img.classList.add(influenceClick.cls);
