@@ -106,7 +106,7 @@ function connect(name: string): void {
         renderActions(msg.view.legalActions, cardPool, sendAction, msg.view.visibleInstances, lastCompanyNames);
         renderHand(msg.view, cardPool, sendAction);
         renderOpponentHand(msg.view, cardPool);
-        renderPlayerNames(msg.view);
+        renderPlayerNames(msg.view, cardPool);
         renderInstructions(msg.view, cardPool);
         renderDrafted(msg.view, cardPool, sendAction);
         renderPassButton(msg.view, sendAction);

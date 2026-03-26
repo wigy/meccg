@@ -692,6 +692,13 @@ h2 {
   white-space: nowrap;
 }
 
+.deck-box-score {
+  pointer-events: auto;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.3rem;
+}
+
 .player-piles {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -833,13 +840,12 @@ h2 {
   font-family: 'Cinzel', serif;
   font-size: 1.1rem;
   font-weight: bold;
-  margin-left: 0.5rem;
   padding: 0.1rem 0.5rem;
   background: rgba(0, 0, 0, 0.4);
   border: 1px solid rgba(196, 163, 90, 0.5);
   border-radius: 4px;
-  display: inline-block;
-  transform: translateY(-3px);
+  display: block;
+  text-align: center;
   pointer-events: auto;
   cursor: default;
   position: relative;
@@ -852,8 +858,7 @@ h2 {
 .mp-tooltip {
   display: none;
   position: absolute;
-  left: 50%;
-  transform: translateX(-50%);
+  left: 0;
   z-index: 100;
   background: rgba(15, 12, 8, 0.95);
   border: 1px solid rgba(196, 163, 90, 0.6);

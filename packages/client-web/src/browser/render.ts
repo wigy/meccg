@@ -755,8 +755,38 @@ function buildMPTooltip(
   </table>`;
 }
 
+/**
+ * Build a tooltip listing characters under general influence, sorted by mind (descending).
+ * Wizards (mind === null) are excluded since they don't cost GI.
+ */
+function buildGITooltip(
+  characters: Readonly<Record<string, CharacterInPlay>>,
+  cardPool: Readonly<Record<string, CardDefinition>>,
+): string {
+  const entries: { name: string; mind: number }[] = [];
+  for (const char of Object.values(characters)) {
+    if (char.controlledBy !== 'general') continue;
+    const def = cardPool[char.definitionId as string];
+    if (!def || !('mind' in def) || def.mind === null) continue;
+    entries.push({ name: def.name, mind: def.mind });
+  }
+  entries.sort((a, b) => b.mind - a.mind);
+
+  if (entries.length === 0) return '<div class="gi-tooltip-empty">No characters under GI</div>';
+
+  let rows = '';
+  for (const e of entries) {
+    rows += `<tr><td class="mp-label">${e.name}</td><td class="mp-value">${e.mind}</td></tr>`;
+  }
+  const total = entries.reduce((sum, e) => sum + e.mind, 0);
+  return `<table class="mp-tooltip-table">
+    <tbody>${rows}</tbody>
+    <tfoot><tr><td class="mp-label">Total</td><td class="mp-value mp-total">${total}</td></tr></tfoot>
+  </table>`;
+}
+
 /** Render player names and scores in the visual view. */
-export function renderPlayerNames(view: PlayerView): void {
+export function renderPlayerNames(view: PlayerView, cardPool: Readonly<Record<string, CardDefinition>>): void {
   const selfEl = document.getElementById('self-name');
   const oppEl = document.getElementById('opponent-name');
   const selfRaw = view.self.marshallingPoints;
@@ -766,11 +796,23 @@ export function renderPlayerNames(view: PlayerView): void {
   const selfScore = computeTournamentScore(selfRaw, oppRaw);
   const oppScore = computeTournamentScore(oppRaw, selfRaw);
   const tooltip = buildMPTooltip(view.self.name, selfRaw, selfAdj, view.opponent.name, oppRaw, oppAdj);
-  if (selfEl) {
-    selfEl.innerHTML = `${view.self.name} <span class="score">${selfScore}<span class="mp-tooltip mp-tooltip--above">${tooltip}</span></span>`;
+  if (selfEl) selfEl.textContent = view.self.name;
+  if (oppEl) oppEl.textContent = view.opponent.name;
+
+  const selfGI = GENERAL_INFLUENCE - view.self.generalInfluenceUsed;
+  const oppGI = GENERAL_INFLUENCE - view.opponent.generalInfluenceUsed;
+  const selfGITooltip = buildGITooltip(view.self.characters, cardPool);
+  const oppGITooltip = buildGITooltip(view.opponent.characters, cardPool);
+
+  const selfScoreEl = document.getElementById('self-score');
+  if (selfScoreEl) {
+    selfScoreEl.innerHTML = `<span class="score">${selfScore}<span class="mp-tooltip mp-tooltip--above">${tooltip}</span></span>`
+      + `<span class="score">${selfGI}<span class="mp-tooltip mp-tooltip--above">${selfGITooltip}</span></span>`;
   }
-  if (oppEl) {
-    oppEl.innerHTML = `${view.opponent.name} <span class="score">${oppScore}<span class="mp-tooltip mp-tooltip--below">${tooltip}</span></span>`;
+  const oppScoreEl = document.getElementById('opponent-score');
+  if (oppScoreEl) {
+    oppScoreEl.innerHTML = `<span class="score">${oppScore}<span class="mp-tooltip mp-tooltip--below">${tooltip}</span></span>`
+      + `<span class="score">${oppGI}<span class="mp-tooltip mp-tooltip--below">${oppGITooltip}</span></span>`;
   }
 
   // Seed the dice animation system from game state and restore floating dice
