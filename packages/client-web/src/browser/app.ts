@@ -68,7 +68,18 @@ function connect(name: string): void {
         playerId = msg.playerId;
         renderLog(`Game ${msg.gameId} — assigned player ID: ${playerId}`);
         { const h = document.getElementById('state-heading');
-          if (h) h.textContent = `Game State — ${msg.gameId}`; }
+          if (h) {
+            // Set text without destroying the copy button child
+            h.childNodes[0].textContent = `Game State — ${msg.gameId}`;
+            const copyBtn = document.getElementById('copy-game-code-btn');
+            if (copyBtn) {
+              copyBtn.classList.remove('hidden');
+              copyBtn.onclick = () => {
+                void navigator.clipboard.writeText(msg.gameId).then(() => showNotification('Game code copied!'));
+              };
+            }
+          }
+        }
         break;
 
       case 'waiting':

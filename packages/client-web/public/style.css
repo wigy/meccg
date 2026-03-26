@@ -291,6 +291,17 @@ h2 {
   min-width: 0;
 }
 
+#copy-game-code-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #888;
+  padding: 2px 4px;
+  margin-left: 8px;
+  vertical-align: middle;
+}
+#copy-game-code-btn:hover { color: #fff; }
+
 #right-panel {
   flex: 1;
   min-width: 0;
