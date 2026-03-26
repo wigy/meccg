@@ -12,22 +12,23 @@ EPICS
 
 Chain of effects
 Combat
-Sideboard
+Central server
 Untap Phase
 Council and End Game
-Central server.
-Setup Minion
-Setup Fw
-Setup Balrog
-Loadable hero decks in JSON files.
+Sideboard
+Loadable hero decks in JSON files
 Deck collection, internal file format and validation
 The Wizards
 The Dragons
 Dark Minions
+Agent Play
 The Lidless eye
+Minion Play
 Against the shadow
 The White Hand
+Fw Play
 The Balrog
+Balrog Play
 
 UNSORTED
 --------

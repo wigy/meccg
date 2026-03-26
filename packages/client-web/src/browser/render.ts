@@ -1752,8 +1752,9 @@ export function renderDrafted(
       label.className = 'set-aside-label';
       label.textContent = 'Set Aside';
       setAsideEl.appendChild(label);
-      for (let j = 0; j < draft.setAside.length; j++) {
-        const defId = draft.setAside[j];
+      const resolvedSetAside = resolveDraft(draft.setAside);
+      for (let j = 0; j < resolvedSetAside.length; j++) {
+        const defId = resolvedSetAside[j];
         const def = cardPool[defId as string];
         if (!def) continue;
         const imgPath = cardImageProxyPath(def);
