@@ -311,10 +311,12 @@ export function projectPlayerView(state: GameState, playerId: PlayerId): PlayerV
     }
   };
 
-  // Character draft: pool and drafted characters are visible to their owner
+  // Character draft: pool and drafted characters are visible to their owner;
+  // opponent's drafted characters are public after reveal
   if (state.phaseState.phase === 'setup' && state.phaseState.setupStep.step === 'character-draft') {
     for (const id of state.phaseState.setupStep.draftState[selfIndex].pool) addInstance(id);
     for (const id of state.phaseState.setupStep.draftState[selfIndex].drafted) addInstance(id);
+    for (const id of state.phaseState.setupStep.draftState[opponentIndex].drafted) addInstance(id);
     // Set-aside characters are visible to both players
     for (const id of state.phaseState.setupStep.setAside) addInstance(id);
   }
