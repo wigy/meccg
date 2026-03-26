@@ -414,11 +414,22 @@ function injectCombatFrame(html: string): string {
   );
 }
 
+/**
+ * Wrap lines between «CHAIN-START» and «CHAIN-END» markers in a styled div
+ * with a yellow border and tint to highlight the active chain.
+ */
+function injectChainFrame(html: string): string {
+  return html.replace(
+    /«CHAIN-START»\n?([\s\S]*?)«CHAIN-END»\n?/g,
+    '<div class="chain-frame">$1</div>',
+  );
+}
+
 /** Render the game state using the shared ANSI formatter, converted to HTML. */
 export function renderState(view: PlayerView, cardPool: Readonly<Record<string, CardDefinition>>): void {
   hideHoverImg();
   const el = $('state');
-  el.innerHTML = injectCombatFrame(injectActivePlayerFrame(injectDiceMarkers(injectMPTooltips(makeCardListsCollapsible(ansiToHtml(formatPlayerView(view, cardPool)))))));
+  el.innerHTML = injectChainFrame(injectCombatFrame(injectActivePlayerFrame(injectDiceMarkers(injectMPTooltips(makeCardListsCollapsible(ansiToHtml(formatPlayerView(view, cardPool))))))));
   hydrateDicePlaceholders(el);
   tagCardImages(el, cardPool);
 }

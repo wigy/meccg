@@ -364,6 +364,14 @@ h2 {
   background: rgba(180, 40, 40, 0.12);
 }
 
+.chain-frame {
+  border: 2px solid #c4a35a;
+  border-radius: 4px;
+  padding: 0.4rem 0.5rem;
+  margin: 0.25rem 0;
+  background: rgba(196, 163, 90, 0.1);
+}
+
 #actions {
   display: flex;
   flex-direction: column;

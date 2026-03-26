@@ -22,6 +22,7 @@ import type {
   CharacterInPlay,
   CardDefinition,
   CharacterCard,
+  CardEffect,
 } from '../index.js';
 import { MarshallingCategory, ZERO_MARSHALLING_POINTS, isCharacterCard, isItemCard } from '../index.js';
 import {
@@ -208,6 +209,36 @@ function recomputePlayer(state: GameState, player: PlayerState, inPlayNames: rea
     } else {
       newCharacters[key] = { ...char, effectiveStats: newStats };
       charactersChanged = true;
+    }
+  }
+
+  // Kill pile: defeated creatures earn kill MP
+  for (const id of player.killPile) {
+    const def = resolveDef(state, id);
+    if (def && 'killMarshallingPoints' in def) {
+      const killMP = (def as { killMarshallingPoints: number }).killMarshallingPoints;
+      if (killMP !== 0) {
+        mp = { ...mp, kill: mp.kill + killMP };
+      }
+    }
+  }
+
+  // Eliminated pile: apply mp-modifier effects with reason "elimination"
+  for (const id of player.eliminatedPile) {
+    const def = resolveDef(state, id);
+    if (def && 'effects' in def) {
+      const effects = (def as { effects?: readonly CardEffect[] }).effects;
+      if (effects) {
+        for (const effect of effects) {
+          if (effect.type === 'mp-modifier' && typeof effect.value === 'number'
+            && effect.when && 'reason' in effect.when && effect.when.reason === 'elimination') {
+            const cat = 'marshallingCategory' in def
+              ? (def as { marshallingCategory: MarshallingCategory }).marshallingCategory
+              : 'character' as MarshallingCategory;
+            mp = { ...mp, [cat]: mp[cat] + effect.value };
+          }
+        }
+      }
     }
   }
 

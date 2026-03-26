@@ -508,7 +508,25 @@ function renderState(input: RenderInput): string {
     }
   }
 
-  // Combat (shown first when active, with markers for web client styling)
+  // Chain of effects (shown first when active, with markers for web client styling)
+  if (input.chain) {
+    lines.push('«CHAIN-START»');
+    lines.push(`Chain (${input.chain.mode}) — priority: ${input.chain.priority as string}`);
+    for (let i = input.chain.entries.length - 1; i >= 0; i--) {
+      const entry = input.chain.entries[i];
+      const status = entry.negated ? ' [negated]' : entry.resolved ? ' [resolved]' : '';
+      const cardName = entry.cardInstanceId
+        ? formatInstanceName(entry.cardInstanceId, defOf, instOf)
+        : entry.payload.type;
+      const target = entry.payload.type === 'short-event' && entry.payload.targetInstanceId
+        ? ` → ${formatInstanceName(entry.payload.targetInstanceId, defOf, instOf)}`
+        : '';
+      lines.push(`  #${i} ${cardName}${target}${status}`);
+    }
+    lines.push('«CHAIN-END»');
+  }
+
+  // Combat (shown after chain when active, with markers for web client styling)
   if (input.combat) {
     lines.push('«COMBAT-START»');
     lines.push(...formatCombat(input.combat, defOf, instOf, '  '));
@@ -630,23 +648,6 @@ function renderState(input: RenderInput): string {
       }
     }
     if (player.isActive) lines.push('«ACTIVE-END»');
-  }
-
-  // Chain of effects
-  if (input.chain) {
-    lines.push('');
-    lines.push(`Chain (${input.chain.mode}) — priority: ${input.chain.priority as string}`);
-    for (let i = input.chain.entries.length - 1; i >= 0; i--) {
-      const entry = input.chain.entries[i];
-      const status = entry.negated ? ' [negated]' : entry.resolved ? ' [resolved]' : '';
-      const cardName = entry.cardInstanceId
-        ? formatInstanceName(entry.cardInstanceId, defOf, instOf)
-        : entry.payload.type;
-      const target = entry.payload.type === 'short-event' && entry.payload.targetInstanceId
-        ? ` → ${formatInstanceName(entry.payload.targetInstanceId, defOf, instOf)}`
-        : '';
-      lines.push(`  #${i} ${cardName}${target}${status}`);
-    }
   }
 
   return lines.join('\n');
