@@ -34,7 +34,7 @@ export interface TwoDiceSix {
   readonly die2: DieRoll;
 }
 
-/** Races that characters can belong to, covering all alignments (hero, minion, fallen-wizard). */
+/** Races for characters and creatures, covering all alignments and creature types. */
 export enum Race {
   Hobbit = 'hobbit',
   Elf = 'elf',
@@ -45,6 +45,15 @@ export enum Race {
   Orc = 'orc',
   Troll = 'troll',
   Ringwraith = 'ringwraith',
+  Dragon = 'dragon',
+  Undead = 'undead',
+  Spider = 'spider',
+  Wolf = 'wolf',
+  Giant = 'giant',
+  Animal = 'animal',
+  AwakenedPlant = 'awakened-plant',
+  PukelCreature = 'pukel-creature',
+  Slayer = 'slayer',
 }
 
 /** Character skills that determine special abilities and card interactions. */

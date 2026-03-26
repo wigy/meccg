@@ -45,7 +45,7 @@ export function renderCombatView(
   const iAmDefender = view.self.id === combat.defendingPlayerId;
 
   // Phase banner
-  arena.appendChild(renderPhaseBanner(combat, iAmDefender));
+  arena.appendChild(renderPhaseBanner(combat, iAmDefender, view, cardPool));
 
   // Gather legal actions for click handlers
   const viable = viableActions(view.legalActions);
@@ -96,25 +96,46 @@ export function renderCombatView(
 
   board.appendChild(arena);
 
-  // Draw arrows after DOM layout is computed
+  // Draw arrows after DOM layout is computed (double-rAF to ensure layout is settled)
   requestAnimationFrame(() => {
-    drawStrikeArrows(svg, combat, iAmDefender);
+    requestAnimationFrame(() => {
+      drawStrikeArrows(svg, combat, iAmDefender);
+    });
   });
 }
 
 // ---- Phase banner ----
 
 /** Render the combat phase heading and status info. */
-function renderPhaseBanner(combat: CombatState, iAmDefender: boolean): HTMLElement {
+function renderPhaseBanner(
+  combat: CombatState,
+  iAmDefender: boolean,
+  view: PlayerView,
+  cardPool: Readonly<Record<string, CardDefinition>>,
+): HTMLElement {
   const banner = document.createElement('div');
   banner.className = 'combat-phase-banner';
+
+  // Resolve attacker race from card definition
+  let attackerRace = '';
+  if (combat.attackSource.type === 'creature') {
+    const defId = view.visibleInstances[combat.attackSource.instanceId as string];
+    const def = defId ? cardPool[defId as string] : undefined;
+    if (def && def.cardType === 'hazard-creature' && def.race) {
+      attackerRace = def.race;
+    }
+  }
+  const raceLabel = attackerRace ? formatRace(attackerRace) : '';
+  const racePrefix = raceLabel ? `${raceLabel} \u2014 ` : '';
 
   let phaseText: string;
   if (combat.phase === 'assign-strikes') {
     const whose = combat.assignmentPhase === 'defender'
       ? (iAmDefender ? 'Your turn' : "Defender's turn")
       : (iAmDefender ? "Attacker's turn" : 'Your turn');
-    phaseText = `Assign Strikes \u2014 ${whose}`;
+    const assigned = combat.strikeAssignments.length;
+    const remaining = combat.strikesTotal - assigned;
+    phaseText = `${racePrefix}Assign ${combat.strikesTotal} strike${combat.strikesTotal !== 1 ? 's' : ''} at ${combat.strikeProwess} prowess \u2014 ${whose} \u2022 ${assigned} assigned, ${remaining} remaining`;
   } else if (combat.phase === 'resolve-strike') {
     phaseText = `Resolve Strike ${combat.currentStrikeIndex + 1} of ${combat.strikesTotal}`;
   } else {
@@ -122,14 +143,7 @@ function renderPhaseBanner(combat: CombatState, iAmDefender: boolean): HTMLEleme
     phaseText = `Body Check \u2014 ${target}`;
   }
 
-  // Strike stats
-  const assigned = combat.strikeAssignments.length;
-  const remaining = combat.strikesTotal - assigned;
-  const statsText = combat.phase === 'assign-strikes'
-    ? ` \u2022 ${assigned} assigned, ${remaining} remaining`
-    : '';
-
-  banner.textContent = phaseText + statsText;
+  banner.textContent = phaseText;
   return banner;
 }
 
@@ -156,38 +170,6 @@ function renderAttackerRow(
     }
   }
 
-  // Stats label
-  const stats = document.createElement('div');
-  stats.className = 'combat-attack-stats';
-  const strikesSpan = document.createElement('span');
-  strikesSpan.textContent = `${combat.strikesTotal} strike${combat.strikesTotal !== 1 ? 's' : ''} at ${combat.strikeProwess} prowess`;
-  stats.appendChild(strikesSpan);
-  if (combat.creatureBody !== null) {
-    const bodySpan = document.createElement('span');
-    bodySpan.textContent = `Body: ${combat.creatureBody}`;
-    stats.appendChild(bodySpan);
-  }
-  if (combat.detainment) {
-    const detSpan = document.createElement('span');
-    detSpan.className = 'combat-detainment-badge';
-    detSpan.textContent = 'Detainment';
-    stats.appendChild(detSpan);
-  }
-
-  // Unassigned strike indicators
-  const remaining = combat.strikesTotal - combat.strikeAssignments.length;
-  if (remaining > 0 && combat.phase === 'assign-strikes') {
-    const dots = document.createElement('div');
-    dots.className = 'combat-unassigned-strikes';
-    for (let i = 0; i < remaining; i++) {
-      const dot = document.createElement('span');
-      dot.className = 'combat-strike-dot';
-      dots.appendChild(dot);
-    }
-    container.appendChild(dots);
-  }
-
-  container.appendChild(stats);
   return container;
 }
 
@@ -398,16 +380,14 @@ function drawStrikeArrows(svg: SVGSVGElement, combat: CombatState, iAmDefender: 
   svg.style.width = arenaRect.width + 'px';
   svg.style.height = arenaRect.height + 'px';
 
-  // Find the attacker card element
-  const attackerEl = arena.querySelector('.combat-card--attacker');
+  // Find the attacker card element; fall back to the attacker container
+  const attackerEl = arena.querySelector('.combat-card--attacker') ?? arena.querySelector('.combat-attacker');
   if (!attackerEl) return;
 
   const attackerRect = attackerEl.getBoundingClientRect();
-  // Arrow starts from center-bottom (or center-top depending on perspective)
+  // Arrow starts from the center of the attacker card/container
   const attackerX = attackerRect.left + attackerRect.width / 2 - arenaRect.left;
-  const attackerY = iAmDefender
-    ? attackerRect.bottom - arenaRect.top  // attacker on top → arrow from bottom
-    : attackerRect.top - arenaRect.top;     // attacker on bottom → arrow from top
+  const attackerY = attackerRect.top + attackerRect.height / 2 - arenaRect.top;
 
   for (let i = 0; i < combat.strikeAssignments.length; i++) {
     const sa = combat.strikeAssignments[i];
@@ -451,4 +431,17 @@ function drawStrikeArrows(svg: SVGSVGElement, combat: CombatState, iAmDefender: 
 
     svg.appendChild(line);
   }
+}
+
+// ---- Helpers ----
+
+const RACE_LABELS: Record<string, string> = {
+  dunadan: 'Dúnadan',
+  'awakened-plant': 'Awakened Plant',
+  'pukel-creature': 'Pûkel-creature',
+};
+
+/** Format a race enum value into a display name. */
+function formatRace(race: string): string {
+  return RACE_LABELS[race] ?? race.charAt(0).toUpperCase() + race.slice(1);
 }

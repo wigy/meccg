@@ -25,7 +25,8 @@
         "rule": "attacker-chooses-defenders"
       }
     ],
-    "text": "Dragon. Two strikes. Attacker chooses defending characters."
+    "text": "Dragon. Two strikes. Attacker chooses defending characters.",
+    "race": "dragon"
   },
   {
     "cardType": "hazard-creature",
@@ -51,7 +52,8 @@
         ]
       }
     ],
-    "text": "Orcs. Three strikes."
+    "text": "Orcs. Three strikes.",
+    "race": "orc"
   },
   {
     "cardType": "hazard-creature",
@@ -87,6 +89,7 @@
         "target": "wounded-character"
       }
     ],
-    "text": "Undead. One strike. After the attack, each character wounded by Barrow-wight makes a corruption check modified by -2."
+    "text": "Undead. One strike. After the attack, each character wounded by Barrow-wight makes a corruption check modified by -2.",
+    "race": "undead"
   }
 ]

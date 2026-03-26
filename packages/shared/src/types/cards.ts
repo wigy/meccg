@@ -327,6 +327,8 @@ export interface CreatureCard {
   readonly body: number | null;
   /** Marshalling points (in the Kill category) awarded to the defending player for defeating this creature. */
   readonly killMarshallingPoints: number;
+  /** The creature's race (e.g. Orc, Troll, Undead), used for race-specific card interactions. */
+  readonly race: Race;
   /** Terrain and site restrictions determining where this creature can legally attack. */
   readonly keyedTo: readonly CreatureKeyRestriction[];
   /** Game keywords (e.g. "environment", "weapon", "armor") that affect card interactions. */

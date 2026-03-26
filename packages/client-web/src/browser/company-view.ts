@@ -1469,9 +1469,12 @@ function renderAllCompaniesView(
       // This company is a valid target for playing the selected character
       block.classList.add('company-block--target');
       const actions = targetActions.get(company.currentSite.instanceId as string)!;
+      const targetCompanyId = company.id;
       block.onclick = () => {
         // For now, use the first action (GI preferred, DI options come later)
         clearCharacterPlaySelection();
+        focusedCompanyId = targetCompanyId;
+        allCompaniesOverride = false;
         lastOnAction!(actions[0]);
       };
     }
@@ -1487,6 +1490,7 @@ function renderAllCompaniesView(
       block.classList.add('company-block--target');
       block.onclick = () => {
         clearCharacterPlaySelection();
+        allCompaniesOverride = false;
         lastOnAction!(actions[0]);
       };
       overview.appendChild(block);

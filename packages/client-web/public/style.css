@@ -1667,7 +1667,14 @@ h2 {
 .company-card--faded.company-card--influence-target,
 .company-card--faded.company-card--transfer-source,
 .company-card--faded.company-card--transfer-selected,
-.company-card--faded.company-card--transfer-target {
+.company-card--faded.company-card--transfer-target,
+.company-card--faded.combat-card--assignable,
+.company-card--faded.combat-card--supportable,
+.company-card--faded.combat-card--strike-assigned,
+.company-card--faded.combat-card--current-strike,
+.company-card--faded.combat-card--strike-success,
+.company-card--faded.combat-card--strike-wounded,
+.company-card--faded.combat-card--strike-eliminated {
   -webkit-mask-image: none;
   mask-image: none;
 }

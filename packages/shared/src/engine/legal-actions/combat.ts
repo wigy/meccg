@@ -150,26 +150,34 @@ function resolveStrikeActions(
   if (!currentStrike || currentStrike.resolved) return [];
 
   // Resolve-strike: tap to fight (normal) or stay untapped (-3 prowess)
-  logDetail(`Defender can resolve strike against ${currentStrike.characterId as string}`);
+  // The -3 option is only available if the character is currently untapped
+  const playerIndex0 = state.players.findIndex(p => p.id === playerId);
+  const charData = state.players[playerIndex0].characters[currentStrike.characterId as string];
+  const isUntapped = charData?.status === CardStatus.Untapped;
+  logDetail(`Defender can resolve strike against ${currentStrike.characterId as string} (${isUntapped ? 'untapped' : 'tapped/wounded'})`);
   actions.push({
     action: { type: 'resolve-strike', player: playerId, tapToFight: true },
     viable: true,
   });
-  actions.push({
-    action: { type: 'resolve-strike', player: playerId, tapToFight: false },
-    viable: true,
-  });
+  if (isUntapped) {
+    actions.push({
+      action: { type: 'resolve-strike', player: playerId, tapToFight: false },
+      viable: true,
+    });
+  }
 
-  // Support: any untapped character in the same company (not the one facing the strike)
+  // Support: any untapped character in the same company who hasn't been assigned a strike
+  // (CRF: "tap one or more of their untapped characters ... who hasn't been assigned a strike")
   const playerIndex = state.players.findIndex(p => p.id === playerId);
   const player = state.players[playerIndex];
   const company = player.companies.find(c => c.id === combat.companyId);
+  const assignedCharIds = new Set(combat.strikeAssignments.map(sa => sa.characterId as string));
   if (company) {
     for (const charId of company.characters) {
-      if (charId === currentStrike.characterId) continue;
+      if (assignedCharIds.has(charId as string)) continue;
       const charData = player.characters[charId as string];
       if (!charData || charData.status !== CardStatus.Untapped) continue;
-      logDetail(`Untapped character ${charId as string} can support`);
+      logDetail(`Untapped character ${charId as string} can support (no strike assigned)`);
       actions.push({
         action: {
           type: 'support-strike',

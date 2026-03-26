@@ -2396,6 +2396,8 @@ export function setupCardPreview(cardPool: Readonly<Record<string, CardDefinitio
 function formatLabel(value: string): string {
   const special: Record<string, string> = {
     dunadan: 'Dúnadan',
+    'awakened-plant': 'Awakened Plant',
+    'pukel-creature': 'Pûkel-creature',
   };
   return special[value] ?? value.charAt(0).toUpperCase() + value.slice(1);
 }
@@ -2463,6 +2465,7 @@ function buildCardAttributes(el: HTMLElement, def: CardDefinition): void {
       break;
     }
     case 'hazard-creature': {
+      if (def.race) addAttr(el, 'Race', formatLabel(def.race));
       addAttr(el, 'Strikes', def.strikes);
       addAttr(el, 'Prowess', def.prowess);
       if (def.body !== null) addAttr(el, 'Body', def.body);
