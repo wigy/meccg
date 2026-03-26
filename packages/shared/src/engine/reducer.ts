@@ -3328,7 +3328,7 @@ function handleSite(state: GameState, action: GameAction): ReducerResult {
   }
 
   if (siteState.step === 'automatic-attacks') {
-    return handleSitePassStep(state, action, siteState, 'automatic-attacks', 'declare-agent-attack');
+    return handleSiteAutomaticAttacks(state, action, siteState);
   }
 
   if (siteState.step === 'declare-agent-attack') {
@@ -3470,6 +3470,76 @@ function handleSiteEnterOrSkip(
         step: 'declare-agent-attack' as const,
         siteEntered: true,
       },
+    },
+  };
+}
+
+/**
+ * Handle the 'automatic-attacks' step: initiate combat for each automatic
+ * attack listed on the site card, one at a time.
+ *
+ * When entering this step, if no combat is active, the next unresolved
+ * automatic attack initiates combat. The `automaticAttacksResolved` counter
+ * tracks progress. When all auto-attacks are resolved, advances to
+ * 'declare-agent-attack'.
+ */
+function handleSiteAutomaticAttacks(
+  state: GameState,
+  action: GameAction,
+  siteState: SitePhaseState,
+): ReducerResult {
+  if (action.type !== 'pass') {
+    return { state, error: `Expected 'pass' during automatic-attacks step` };
+  }
+
+  const activePlayerIndex = state.players.findIndex(p => p.id === state.activePlayer);
+  const company = state.players[activePlayerIndex].companies[siteState.activeCompanyIndex];
+  if (!company?.currentSite) return { state, error: 'No company or site for automatic attacks' };
+
+  const siteDef = state.cardPool[company.currentSite.definitionId as string];
+  if (!siteDef || !isSiteCard(siteDef)) return { state, error: 'Site definition not found' };
+
+  const attackIndex = siteState.automaticAttacksResolved;
+  const autoAttacks = siteDef.automaticAttacks;
+
+  if (attackIndex >= autoAttacks.length) {
+    // All automatic attacks resolved — advance to declare-agent-attack
+    logDetail('Site: all automatic attacks resolved → declare-agent-attack');
+    return {
+      state: {
+        ...state,
+        phaseState: { ...siteState, step: 'declare-agent-attack' as const, siteEntered: true },
+      },
+    };
+  }
+
+  // Initiate combat for the next automatic attack
+  const aa = autoAttacks[attackIndex];
+  const hazardPlayerId = state.players.find(p => p.id !== state.activePlayer)!.id;
+
+  logDetail(`Site: initiating automatic attack ${attackIndex + 1}/${autoAttacks.length}: ${aa.creatureType} (${aa.strikes} strikes, ${aa.prowess} prowess)`);
+
+  const combat: CombatState = {
+    attackSource: { type: 'automatic-attack', siteInstanceId: company.currentSite.instanceId, attackIndex },
+    companyId: company.id,
+    defendingPlayerId: state.activePlayer!,
+    attackingPlayerId: hazardPlayerId,
+    strikesTotal: aa.strikes,
+    strikeProwess: aa.prowess,
+    creatureBody: null,
+    strikeAssignments: [],
+    currentStrikeIndex: 0,
+    phase: 'assign-strikes',
+    assignmentPhase: 'defender',
+    bodyCheckTarget: null,
+    detainment: false,
+  };
+
+  return {
+    state: {
+      ...state,
+      combat,
+      phaseState: { ...siteState, automaticAttacksResolved: attackIndex + 1 },
     },
   };
 }

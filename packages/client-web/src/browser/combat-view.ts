@@ -126,13 +126,20 @@ function renderPhaseBanner(
   const banner = document.createElement('div');
   banner.className = 'combat-phase-banner';
 
-  // Resolve attacker race from card definition
+  // Resolve attacker race from card definition or auto-attack creature type
   let attackerRace = '';
   if (combat.attackSource.type === 'creature') {
     const defId = view.visibleInstances[combat.attackSource.instanceId as string];
     const def = defId ? cardPool[defId as string] : undefined;
     if (def && def.cardType === 'hazard-creature' && def.race) {
       attackerRace = def.race;
+    }
+  } else if (combat.attackSource.type === 'automatic-attack') {
+    const siteDefId = view.visibleInstances[combat.attackSource.siteInstanceId as string];
+    const siteDef = siteDefId ? cardPool[siteDefId as string] : undefined;
+    if (siteDef && 'automaticAttacks' in siteDef) {
+      const aa = (siteDef as { automaticAttacks: readonly { creatureType: string }[] }).automaticAttacks[combat.attackSource.attackIndex];
+      if (aa) attackerRace = aa.creatureType;
     }
   }
   const raceLabel = attackerRace ? formatRace(attackerRace) : '';
@@ -179,6 +186,17 @@ function renderAttackerRow(
       const imgPath = cardImageProxyPath(def);
       if (imgPath) {
         const img = createCardImage(defId as string, def, imgPath, 'combat-card combat-card--attacker', combat.attackSource.instanceId as string);
+        container.appendChild(img);
+      }
+    }
+  } else if (combat.attackSource.type === 'automatic-attack') {
+    // Show the site card as the attacker
+    const defId = view.visibleInstances[combat.attackSource.siteInstanceId as string];
+    const def = defId ? cardPool[defId as string] : undefined;
+    if (def) {
+      const imgPath = cardImageProxyPath(def);
+      if (imgPath) {
+        const img = createCardImage(defId as string, def, imgPath, 'combat-card combat-card--attacker', combat.attackSource.siteInstanceId as string);
         container.appendChild(img);
       }
     }
