@@ -6,7 +6,7 @@
  * sub-states further constrain available actions.
  */
 
-import type { GameState, PlayerId, GameAction, EvaluatedAction, MovementHazardPhaseState, SiteCard, CardDefinitionId, CreatureCard } from '../../index.js';
+import type { GameState, PlayerId, GameAction, EvaluatedAction, MovementHazardPhaseState, SiteCard, CardDefinitionId, CardInstanceId, CreatureCard } from '../../index.js';
 import { getPlayerIndex, isSiteCard, buildMovementMap, findRegionPaths, HAND_SIZE, RegionType } from '../../index.js';
 import { MovementType } from '../../types/common.js';
 import { logDetail, logHeading } from './log.js';
@@ -383,12 +383,27 @@ function playHazardsActions(
 
       // --- Short event ---
       if (isShortEvent) {
-        // Cards with playable-as-resource (e.g. Twilight) are environment-cancelers
-        // that require a target — they are only playable via play-short-event chain
-        // responses, not as a generic play-hazard action.
+        // Environment-cancelers (e.g. Twilight) need an environment target in play
         if (def.effects?.some(e => e.type === 'play-restriction' && e.rule === 'playable-as-resource')) {
-          logDetail(`Hazard short-event "${def.name}" requires environment target (chain response only)`);
-          actions.push({ action, viable: false, reason: `${def.name} can only be played as a response to cancel an environment` });
+          const envTargets = findEnvironmentTargets(state);
+          if (envTargets.length === 0) {
+            logDetail(`Hazard short-event "${def.name}": no environment in play to cancel`);
+            actions.push({ action, viable: false, reason: 'No environment to cancel' });
+            continue;
+          }
+          for (const target of envTargets) {
+            const targetDef = state.cardPool[target.definitionId];
+            logDetail(`Hazard short-event "${def.name}": can cancel environment ${targetDef?.name ?? target.definitionId}`);
+            actions.push({
+              action: {
+                type: 'play-short-event',
+                player: playerId,
+                cardInstanceId: cardInstId,
+                targetInstanceId: target.instanceId,
+              },
+              viable: true,
+            });
+          }
           continue;
         }
         logDetail(`Hazard short-event "${def.name}" is playable`);
@@ -445,9 +460,40 @@ function playHazardsActions(
   // Pass is always available if not already passed
   actions.push({ action: { type: 'pass', player: playerId }, viable: true });
 
-  const viableCount = actions.filter(a => a.viable && a.action.type === 'play-hazard').length;
+  const viableCount = actions.filter(a => a.viable && (a.action.type === 'play-hazard' || a.action.type === 'play-short-event')).length;
   logDetail(`Play-hazards: ${isResourcePlayer ? 'resource' : 'hazard'} player has ${viableCount} viable hazard(s), ${actions.length} total action(s)`);
   return actions;
+}
+
+/**
+ * Find all environment cards currently in play or declared in the active chain.
+ * Searches eventsInPlay, player cardsInPlay, and unresolved chain entries.
+ */
+function findEnvironmentTargets(state: GameState): { instanceId: CardInstanceId; definitionId: string }[] {
+  const isEnv = (defId: string): boolean => {
+    const d = state.cardPool[defId];
+    return !!d && 'keywords' in d
+      && !!(d as { keywords?: readonly string[] }).keywords?.includes('environment');
+  };
+  const targets: { instanceId: CardInstanceId; definitionId: string }[] = [];
+  for (const ev of state.eventsInPlay) {
+    if (isEnv(ev.definitionId as string)) targets.push(ev);
+  }
+  for (const p of state.players) {
+    for (const c of p.cardsInPlay) {
+      if (isEnv(c.definitionId as string)) targets.push(c);
+    }
+  }
+  if (state.chain) {
+    for (const entry of state.chain.entries) {
+      if (entry.resolved || entry.negated) continue;
+      if (!entry.definitionId) continue;
+      if (isEnv(entry.definitionId as string) && entry.cardInstanceId) {
+        targets.push({ instanceId: entry.cardInstanceId, definitionId: entry.definitionId as string });
+      }
+    }
+  }
+  return targets;
 }
 
 /**

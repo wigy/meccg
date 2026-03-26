@@ -1143,6 +1143,8 @@ function findCardAction(
       && visibleInstances[action.cardInstanceId as string] === defId) return action;
     if (action.type === 'play-long-event' && visibleInstances
       && visibleInstances[action.cardInstanceId as string] === defId) return action;
+    if (action.type === 'play-hazard' && visibleInstances
+      && visibleInstances[action.cardInstanceId as string] === defId) return action;
   }
   return null;
 }
@@ -1235,9 +1237,39 @@ function isPlayCharacterCard(
   );
 }
 
+/** Map region type codes to icon file names for inline path display. */
+const REGION_ICON_CODES: Record<string, string> = {
+  wilderness: 'w', shadow: 's', dark: 'd', coastal: 'c', free: 'f', border: 'b',
+};
+
+/**
+ * Build an HTML snippet describing the movement path for the active company.
+ * Returns something like "Starter: Arthedain [W] Rhudaur [S]" or null if not moving.
+ */
+function buildMovementPathHtml(
+  mh: { movementType?: string | null; resolvedSitePathNames?: readonly string[]; resolvedSitePath?: readonly string[] },
+): string | null {
+  if (!mh.movementType) return 'Not moving.';
+  const names = mh.resolvedSitePathNames ?? [];
+  const types = mh.resolvedSitePath ?? [];
+  if (names.length === 0) return null;
+  const isRegion = mh.movementType !== 'starter';
+  const label = isRegion ? 'Region Movement:' : 'Starter:';
+  const parts: string[] = [];
+  for (let i = 0; i < names.length; i++) {
+    const code = REGION_ICON_CODES[types[i] ?? ''];
+    const icon = code
+      ? `<img src="/images/regions/${code}.png" alt="${types[i]}" width="32" height="32" style="vertical-align:middle;position:relative;top:-5px">`
+      : '';
+    parts.push(`${names[i]} ${icon}`);
+  }
+  return isRegion ? `${label}<br/>${parts.join(' ')}` : `${label} ${parts.join(' ')}`;
+}
+
 /**
  * Returns instruction text for the current game phase, or null if none is needed.
  * Displayed in the center of the visual board to guide the player.
+ * May contain HTML (e.g. inline region type icons).
  */
 function getInstructionText(
   view: PlayerView,
@@ -1293,10 +1325,18 @@ function getInstructionText(
           : 'Movement/Hazard — Opponent is ordering ongoing effects.';
       case 'draw-cards':
         return 'Movement/Hazard — Drawing cards for movement.';
-      case 'play-hazards':
-        return isSelf
-          ? 'Movement/Hazard — Play hazards or pass.'
-          : 'Movement/Hazard — Opponent may play hazards.';
+      case 'play-hazards': {
+        const mh = view.phaseState;
+        const pathDesc = buildMovementPathHtml(mh);
+        if (isSelf) {
+          return pathDesc
+            ? `Movement/Hazard — Play hazards or pass.<br>${pathDesc}`
+            : 'Movement/Hazard — Play hazards or pass.';
+        }
+        return pathDesc
+          ? `Movement/Hazard — You may play hazards.<br>${pathDesc}`
+          : 'Movement/Hazard — You may play hazards.';
+      }
       case 'reset-hand':
         return 'Movement/Hazard — Resetting hand size.';
     }
@@ -1391,7 +1431,9 @@ export function renderInstructions(
   const el = document.getElementById('instruction-text');
   if (!el) return;
   const text = targetingInstruction ?? getInstructionText(view, cardPool) ?? '';
-  el.textContent = text;
+  // Use innerHTML to support inline region icons; all content comes from
+  // card pool data (no user input), so this is safe.
+  el.innerHTML = text;
 }
 
 /** Render the pass/stop button in the visual view if a pass-like action is available. */

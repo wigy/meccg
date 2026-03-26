@@ -207,6 +207,11 @@ function validateActionPlayer(state: GameState, action: GameAction): string | un
     return undefined;
   }
 
+  // Short events (e.g. Twilight) can be played by either player during M/H
+  if (phase === 'movement-hazard' && action.type === 'play-short-event') {
+    return undefined;
+  }
+
   // During draw-cards and play-hazards steps, both players act
   if (phase === 'movement-hazard' && 'step' in state.phaseState
     && (state.phaseState.step === 'draw-cards' || state.phaseState.step === 'play-hazards' || state.phaseState.step === 'reset-hand')) {

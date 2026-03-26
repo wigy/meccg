@@ -81,6 +81,9 @@ let mergeSourceCompanyId: CompanyId | null = null;
 /** Track the last active player so we can reset view state on turn change. */
 let lastActivePlayer: string | null = null;
 
+/** Track the last M/H or Site step so we can detect select-company transitions. */
+let lastMhSiteStep: string | null = null;
+
 // ---- Title character logic ----
 
 /**
@@ -1257,7 +1260,6 @@ function renderCardsInPlayRow(
   const oppCards = view.opponent.cardsInPlay;
   if (selfCards.length === 0 && oppCards.length === 0) return;
 
-  const isSelfTurn = view.activePlayer !== null && view.activePlayer === view.self.id;
   const row = document.createElement('div');
   row.className = 'cards-in-play-row';
   row.style.setProperty('--company-scale', '0.6');
@@ -1278,8 +1280,8 @@ function renderCardsInPlayRow(
     row.appendChild(group);
   };
 
-  renderGroup(selfCards, !isSelfTurn);
-  renderGroup(oppCards, isSelfTurn);
+  renderGroup(selfCards, false);
+  renderGroup(oppCards, false);
   container.appendChild(row);
 }
 
@@ -1586,6 +1588,7 @@ export function resetCompanyViews(): void {
   savedFocusedCompanyId = null;
   allCompaniesOverride = false;
   lastActivePlayer = null;
+  lastMhSiteStep = null;
   lastOnAction = null;
   lastView = null;
   lastCardPool = null;
@@ -1629,8 +1632,34 @@ export function renderCompanyViews(
   // Reset view state on active player change
   const activeId = view.activePlayer as string | null;
   if (activeId !== lastActivePlayer) {
+    // Auto-switch to all-companies view when opponent's turn starts;
+    // reset to single-company view when own turn starts.
+    if (activeId !== null && activeId !== (view.self.id as string)) {
+      allCompaniesOverride = true;
+      focusedCompanyId = null;
+    } else {
+      allCompaniesOverride = false;
+      focusedCompanyId = null;
+    }
     lastActivePlayer = activeId;
   }
+
+  // Auto-focus on the opponent's active company after they select one for M/H or Site phase
+  const curPhase = view.phaseState.phase;
+  const curStep = (curPhase === Phase.MovementHazard || curPhase === Phase.Site)
+    ? view.phaseState.step : null;
+  if (lastMhSiteStep === 'select-company' && curStep !== null && curStep !== 'select-company') {
+    const isSelfTurn = activeId !== null && activeId === (view.self.id as string);
+    if (!isSelfTurn) {
+      const oppCompanies = view.opponent.companies;
+      const activeIdx = (view.phaseState as { activeCompanyIndex: number }).activeCompanyIndex;
+      if (oppCompanies[activeIdx]) {
+        focusedCompanyId = oppCompanies[activeIdx].id;
+        allCompaniesOverride = false;
+      }
+    }
+  }
+  lastMhSiteStep = curStep;
 
   // Clear influence move selection if the source character no longer has valid actions
   if (influenceMoveSourceId) {

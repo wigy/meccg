@@ -296,7 +296,7 @@ describe('Twilight (tw-106)', () => {
     expect(result.state.players[0].discardPile).toContain('gom-1' as CardInstanceId);
   });
 
-  test('not playable as play-hazard during M/H phase (requires chain response)', () => {
+  test('not playable during M/H phase when no environment in play', () => {
     const state = buildTestState({
       activePlayer: PLAYER_1,
       players: [
@@ -333,9 +333,9 @@ describe('Twilight (tw-106)', () => {
     };
     const mhGameState: GameState = { ...state, phaseState: mhState };
 
-    // Twilight should NOT appear as a viable play-hazard action
-    const hazardActions = viableActions(mhGameState, PLAYER_2, 'play-hazard');
-    expect(hazardActions).toHaveLength(0);
+    // Twilight should NOT appear as a viable play-short-event (no environment to target)
+    const shortEventActions = viableActions(mhGameState, PLAYER_2, 'play-short-event');
+    expect(shortEventActions).toHaveLength(0);
 
     // Should appear as non-viable with explanation
     const allActions = computeLegalActions(mhGameState, PLAYER_2);
@@ -345,7 +345,7 @@ describe('Twilight (tw-106)', () => {
     );
     expect(twilightAction).toBeDefined();
     expect(twilightAction!.viable).toBe(false);
-    expect(twilightAction!.reason).toContain('response');
+    expect(twilightAction!.reason).toContain('environment');
   });
 
   test('does not count against hazard limit (no-hazard-limit)', () => {
