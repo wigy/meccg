@@ -785,7 +785,7 @@ export function renderPlayerNames(view: PlayerView): void {
 /**
  * Render a draw deck as a single card-back image with a count badge.
  */
-function fillDeckPile(el: HTMLElement, deckSize: number, backImage = '/images/card-back.jpg'): void {
+function fillDeckPile(el: HTMLElement, deckSize: number, backImage = '/images/card-back.jpg', title?: string): void {
   el.innerHTML = '';
 
   const wrapper = document.createElement('div');
@@ -796,6 +796,7 @@ function fillDeckPile(el: HTMLElement, deckSize: number, backImage = '/images/ca
   img.alt = `Deck (${deckSize})`;
   img.className = deckSize === 0 ? 'deck-pile-card deck-pile-card--empty' : 'deck-pile-card';
   img.style.position = 'relative';
+  if (title) wrapper.title = title;
   wrapper.appendChild(img);
 
   const label = document.createElement('div');
@@ -809,31 +810,53 @@ function fillDeckPile(el: HTMLElement, deckSize: number, backImage = '/images/ca
 
 /** Reset all deck piles to empty (dimmed placeholder with 0). */
 export function resetDeckPiles(): void {
-  const ids = ['self-deck-pile', 'opponent-deck-pile'];
+  const deckIds = ['self-deck-pile', 'opponent-deck-pile'];
   const siteIds = ['self-site-pile', 'opponent-site-pile'];
-  for (const id of ids) {
+  const sideboardIds = ['self-sideboard-pile', 'opponent-sideboard-pile'];
+  const discardIds = ['self-discard-pile', 'opponent-discard-pile'];
+  for (const id of deckIds) {
     const el = document.getElementById(id);
-    if (el) fillDeckPile(el, 0);
+    if (el) fillDeckPile(el, 0, '/images/card-back.jpg', 'Play Deck');
   }
   for (const id of siteIds) {
     const el = document.getElementById(id);
-    if (el) fillDeckPile(el, 0, '/images/site-back.jpg');
+    if (el) fillDeckPile(el, 0, '/images/site-back.jpg', 'Site Deck');
+  }
+  for (const id of sideboardIds) {
+    const el = document.getElementById(id);
+    if (el) fillDeckPile(el, 0, '/images/card-back.jpg', 'Sideboard');
+  }
+  for (const id of discardIds) {
+    const el = document.getElementById(id);
+    if (el) fillDeckPile(el, 0, '/images/card-back.jpg', 'Discard Pile');
   }
 }
 
-/** Render both players' draw deck and site deck piles. */
+/** Render both players' draw deck, site deck, sideboard, and discard piles. */
 export function renderDeckPiles(view: PlayerView, cardPool?: Readonly<Record<string, CardDefinition>>): void {
   const selfEl = document.getElementById('self-deck-pile');
-  if (selfEl) fillDeckPile(selfEl, view.self.playDeckSize);
+  if (selfEl) fillDeckPile(selfEl, view.self.playDeckSize, '/images/card-back.jpg', 'Play Deck');
 
   const oppEl = document.getElementById('opponent-deck-pile');
-  if (oppEl) fillDeckPile(oppEl, view.opponent.playDeckSize);
+  if (oppEl) fillDeckPile(oppEl, view.opponent.playDeckSize, '/images/card-back.jpg', 'Play Deck');
 
   const selfSiteEl = document.getElementById('self-site-pile');
-  if (selfSiteEl) fillDeckPile(selfSiteEl, view.self.siteDeck.length, '/images/site-back.jpg');
+  if (selfSiteEl) fillDeckPile(selfSiteEl, view.self.siteDeck.length, '/images/site-back.jpg', 'Site Deck');
 
   const oppSiteEl = document.getElementById('opponent-site-pile');
-  if (oppSiteEl) fillDeckPile(oppSiteEl, view.opponent.siteDeckSize, '/images/site-back.jpg');
+  if (oppSiteEl) fillDeckPile(oppSiteEl, view.opponent.siteDeckSize, '/images/site-back.jpg', 'Site Deck');
+
+  const selfSideboardEl = document.getElementById('self-sideboard-pile');
+  if (selfSideboardEl) fillDeckPile(selfSideboardEl, view.self.sideboard.length, '/images/card-back.jpg', 'Sideboard');
+
+  const oppSideboardEl = document.getElementById('opponent-sideboard-pile');
+  if (oppSideboardEl) fillDeckPile(oppSideboardEl, 0, '/images/card-back.jpg', 'Sideboard');
+
+  const selfDiscardEl = document.getElementById('self-discard-pile');
+  if (selfDiscardEl) fillDeckPile(selfDiscardEl, view.self.discardPile.length, '/images/card-back.jpg', 'Discard Pile');
+
+  const oppDiscardEl = document.getElementById('opponent-discard-pile');
+  if (oppDiscardEl) fillDeckPile(oppDiscardEl, view.opponent.discardPile.length, '/images/card-back.jpg', 'Discard Pile');
 
   // Cache site deck for the modal viewer
   cachedSiteDeck = view.self.siteDeck;
@@ -1815,7 +1838,7 @@ export function setupCardPreview(cardPool: Readonly<Record<string, CardDefinitio
     const img = (e.target as HTMLElement).closest('img');
     if (!img || !img.src) return;
     // Skip deck pile images and region type icons (not meaningful to preview)
-    if (img.closest('#self-site-pile, #opponent-site-pile, #self-deck-pile, #opponent-deck-pile, .region-type-icon')) return;
+    if (img.closest('.pile-cell, .region-type-icon')) return;
     preview.innerHTML = '';
     const cardId = img.dataset.cardId;
     const def = cardId ? cardPool[cardId] : undefined;

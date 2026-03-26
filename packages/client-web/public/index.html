@@ -95,9 +95,15 @@
     <div id="toast-container"></div>
 
     <div id="visual-view" class="hidden">
-      <div id="opponent-name" class="player-label"></div>
-      <div id="opponent-deck-pile"></div>
-      <div id="opponent-site-pile"></div>
+      <div id="opponent-deck-box" class="deck-box deck-box--opponent">
+        <div id="opponent-name" class="player-label"></div>
+        <div class="player-piles">
+          <div id="opponent-sideboard-pile" class="pile-cell"></div>
+          <div id="opponent-discard-pile" class="pile-cell"></div>
+          <div id="opponent-site-pile" class="pile-cell"></div>
+          <div id="opponent-deck-pile" class="pile-cell"></div>
+        </div>
+      </div>
       <div id="opponent-arc"></div>
       <div id="instruction-text"></div>
       <div id="visual-board">
@@ -108,10 +114,16 @@
       <div id="card-preview"></div>
       <div id="chain-panel" class="hidden"></div>
       <button id="pass-btn" class="hidden"></button>
-      <div id="self-deck-pile"></div>
-      <div id="self-site-pile"></div>
       <div id="hand-arc"></div>
-      <div id="self-name" class="player-label"></div>
+      <div id="self-deck-box" class="deck-box deck-box--self">
+        <div class="player-piles">
+          <div id="self-site-pile" class="pile-cell"></div>
+          <div id="self-deck-pile" class="pile-cell"></div>
+          <div id="self-sideboard-pile" class="pile-cell"></div>
+          <div id="self-discard-pile" class="pile-cell"></div>
+        </div>
+        <div id="self-name" class="player-label"></div>
+      </div>
     </div>
 
     <div id="site-deck-modal" class="hidden">

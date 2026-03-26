@@ -658,37 +658,48 @@ h2 {
   display: block;
 }
 
-.player-label {
+/* Deck box: wraps name + score + pile grid */
+.deck-box {
   position: fixed;
-  left: 1.5rem;
+  left: 1rem;
+  z-index: 15;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  background: rgba(80, 75, 65, 0.75);
+  border: 1px solid rgba(196, 163, 90, 0.3);
+  border-radius: 8px;
+  padding: 0.4rem 0.5rem;
+  backdrop-filter: blur(4px);
+}
+
+.deck-box--self {
+  bottom: 0.5rem;
+}
+
+.deck-box--opponent {
+  top: 0.5rem;
+}
+
+.player-label {
   font-family: 'MedievalSharp', cursive;
-  font-size: 1.6rem;
+  font-size: 1.4rem;
   color: rgba(196, 163, 90, 0.9);
   pointer-events: none;
-  z-index: 15;
   letter-spacing: 0.05em;
   text-shadow: 0 1px 4px rgba(0, 0, 0, 0.8);
-  padding: 0.3rem 0.8rem;
-  border-radius: 6px;
+  padding: 0.1rem 0.3rem;
+  white-space: nowrap;
 }
 
-#self-name {
-  bottom: 1rem;
-  background: linear-gradient(135deg, rgba(42, 42, 42, 0.85), rgba(21, 21, 21, 0.85));
-  border: 1px solid #444;
+.player-piles {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.3rem;
 }
 
-#opponent-name {
-  top: 1rem;
-  background: linear-gradient(135deg, rgba(178, 32, 32, 0.85), rgba(138, 21, 21, 0.85));
-  border: 1px solid #d44;
-}
-
-#self-deck-pile, #opponent-deck-pile, #self-site-pile, #opponent-site-pile {
-  position: fixed;
-  left: 1.5rem;
-  z-index: 10;
-  pointer-events: none;
+.pile-cell {
+  pointer-events: auto;
 }
 
 #self-site-pile {
@@ -711,24 +722,6 @@ h2 {
 @keyframes site-pile-pulse {
   0%, 100% { box-shadow: 0 0 14px 5px rgba(196, 163, 90, 0.9); }
   50% { box-shadow: 0 0 22px 8px rgba(196, 163, 90, 1); }
-}
-
-#self-deck-pile {
-  left: 6.5rem;
-  bottom: 4rem;
-}
-
-#self-site-pile {
-  bottom: 4rem;
-}
-
-#opponent-deck-pile {
-  left: 6.5rem;
-  top: 4rem;
-}
-
-#opponent-site-pile {
-  top: 4rem;
 }
 
 /* Site deck viewer modal */
@@ -799,7 +792,7 @@ h2 {
   filter: grayscale(0.6);
 }
 
-#self-deck-pile:empty, #opponent-deck-pile:empty, #self-site-pile:empty, #opponent-site-pile:empty {
+.pile-cell:empty {
   display: none;
 }
 
