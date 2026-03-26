@@ -354,8 +354,11 @@ function playHazardsActions(
         targetCompanyId: targetCompany.id,
       };
 
-      // Hazard limit reached
-      if (limitReached) {
+      // Hazard limit reached (cards with no-hazard-limit bypass this)
+      const bypassesLimit = 'effects' in def && def.effects?.some(
+        e => e.type === 'play-restriction' && e.rule === 'no-hazard-limit',
+      );
+      if (limitReached && !bypassesLimit) {
         actions.push({ action, viable: false, reason: `Hazard limit reached (${mhState.hazardLimit})` });
         continue;
       }
@@ -378,8 +381,16 @@ function playHazardsActions(
         continue;
       }
 
-      // --- Short event: no uniqueness/duplication checks needed ---
+      // --- Short event ---
       if (isShortEvent) {
+        // Cards with playable-as-resource (e.g. Twilight) are environment-cancelers
+        // that require a target — they are only playable via play-short-event chain
+        // responses, not as a generic play-hazard action.
+        if (def.effects?.some(e => e.type === 'play-restriction' && e.rule === 'playable-as-resource')) {
+          logDetail(`Hazard short-event "${def.name}" requires environment target (chain response only)`);
+          actions.push({ action, viable: false, reason: `${def.name} can only be played as a response to cancel an environment` });
+          continue;
+        }
         logDetail(`Hazard short-event "${def.name}" is playable`);
         actions.push({ action, viable: true });
         continue;

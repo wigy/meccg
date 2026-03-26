@@ -21,8 +21,8 @@ import {
   CardStatus,
   buildTestState, resetMint,
 } from '../test-helpers.js';
-import { computeLegalActions } from '../../index.js';
-import type { CardInPlay, CardInstanceId, GameState } from '../../index.js';
+import { computeLegalActions, Phase } from '../../index.js';
+import type { CardInPlay, CardInstanceId, GameState, MovementHazardPhaseState } from '../../index.js';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -294,6 +294,111 @@ describe('Twilight (tw-106)', () => {
     // GoM canceled and discarded
     expect(result.state.players[0].cardsInPlay).toHaveLength(0);
     expect(result.state.players[0].discardPile).toContain('gom-1' as CardInstanceId);
+  });
+
+  test('not playable as play-hazard during M/H phase (requires chain response)', () => {
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      players: [
+        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [{ defId: ARAGORN }] }], hand: [], siteDeck: [MORIA] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [{ defId: LEGOLAS }] }], hand: [TWILIGHT], siteDeck: [MINAS_TIRITH] },
+      ],
+    });
+
+    // Override to M/H play-hazards step
+    const mhState: MovementHazardPhaseState = {
+      phase: Phase.MovementHazard,
+      step: 'play-hazards',
+      activeCompanyIndex: 0,
+      handledCompanyIds: [],
+      movementType: null,
+      declaredRegionPath: [],
+      maxRegionDistance: 4,
+      pendingEffectsToOrder: [],
+      hazardsPlayedThisCompany: 0,
+      hazardLimit: 4,
+      resolvedSitePath: [],
+      resolvedSitePathNames: [],
+      destinationSiteType: null,
+      destinationSiteName: null,
+      resourceDrawMax: 0,
+      hazardDrawMax: 0,
+      resourceDrawCount: 0,
+      hazardDrawCount: 0,
+      resourcePlayerPassed: false,
+      hazardPlayerPassed: false,
+      onGuardPlacedThisCompany: false,
+      siteRevealed: false,
+      returnedToOrigin: false,
+    };
+    const mhGameState: GameState = { ...state, phaseState: mhState };
+
+    // Twilight should NOT appear as a viable play-hazard action
+    const hazardActions = viableActions(mhGameState, PLAYER_2, 'play-hazard');
+    expect(hazardActions).toHaveLength(0);
+
+    // Should appear as non-viable with explanation
+    const allActions = computeLegalActions(mhGameState, PLAYER_2);
+    const twilightAction = allActions.find(
+      ea => ea.action.type === 'play-hazard'
+        && ea.action.cardInstanceId === mhGameState.players[1].hand[0],
+    );
+    expect(twilightAction).toBeDefined();
+    expect(twilightAction!.viable).toBe(false);
+    expect(twilightAction!.reason).toContain('response');
+  });
+
+  test('does not count against hazard limit (no-hazard-limit)', () => {
+    const gomInPlay: CardInPlay = {
+      instanceId: 'gom-1' as CardInstanceId,
+      definitionId: GATES_OF_MORNING,
+      status: CardStatus.Untapped,
+    };
+
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      players: [
+        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [{ defId: ARAGORN }] }], hand: [TWILIGHT], siteDeck: [MORIA], cardsInPlay: [gomInPlay] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [{ defId: LEGOLAS }] }], hand: [], siteDeck: [MINAS_TIRITH] },
+      ],
+    });
+
+    // Override to M/H play-hazards step with 1 hazard already played (limit 2)
+    const mhState: MovementHazardPhaseState = {
+      phase: Phase.MovementHazard,
+      step: 'play-hazards',
+      activeCompanyIndex: 0,
+      handledCompanyIds: [],
+      movementType: null,
+      declaredRegionPath: [],
+      maxRegionDistance: 4,
+      pendingEffectsToOrder: [],
+      hazardsPlayedThisCompany: 1,
+      hazardLimit: 2,
+      resolvedSitePath: [],
+      resolvedSitePathNames: [],
+      destinationSiteType: null,
+      destinationSiteName: null,
+      resourceDrawMax: 0,
+      hazardDrawMax: 0,
+      resourceDrawCount: 0,
+      hazardDrawCount: 0,
+      resourcePlayerPassed: false,
+      hazardPlayerPassed: false,
+      onGuardPlacedThisCompany: false,
+      siteRevealed: false,
+      returnedToOrigin: false,
+    };
+    const mhGameState: GameState = { ...state, phaseState: mhState };
+
+    // P1 plays Twilight targeting GoM via play-short-event (as resource player response)
+    const twilightId = mhGameState.players[0].hand[0];
+    const result = reduce(mhGameState, { type: 'play-short-event', player: PLAYER_1, cardInstanceId: twilightId, targetInstanceId: 'gom-1' as CardInstanceId });
+    expect(result.error).toBeUndefined();
+
+    // Hazard count should NOT have incremented (Twilight has no-hazard-limit)
+    const ps = result.state.phaseState as MovementHazardPhaseState;
+    expect(ps.hazardsPlayedThisCompany).toBe(1);
   });
 
   test('second Twilight can also target Gates of Morning directly (first fizzles)', () => {

@@ -2348,6 +2348,11 @@ function handlePlayHazards(
     return handlePlayHazardCard(state, action, mhState);
   }
 
+  // --- Short event (e.g. Twilight canceling an environment) ---
+  if (action.type === 'play-short-event') {
+    return handlePlayShortEvent(state, action);
+  }
+
   return { state, error: `Unexpected action '${action.type}' during play-hazards step` };
 }
 
@@ -2420,7 +2425,9 @@ function handlePlayHazardCard(
 
   // --- Short event handling (via chain of effects) ---
   if (def.cardType === 'hazard-event' && def.eventType === 'short') {
-    logDetail(`Play-hazards: hazard player plays short-event "${def.name}" (${mhState.hazardsPlayedThisCompany + 1}/${mhState.hazardLimit})`);
+    const bypassesLimit = def.effects?.some(e => e.type === 'play-restriction' && e.rule === 'no-hazard-limit');
+    const newHazardCount = bypassesLimit ? mhState.hazardsPlayedThisCompany : mhState.hazardsPlayedThisCompany + 1;
+    logDetail(`Play-hazards: hazard player plays short-event "${def.name}" (${newHazardCount}/${mhState.hazardLimit})${bypassesLimit ? ' [no-hazard-limit]' : ''}`);
 
     // Move card from hand to discard (short events are discarded after resolution)
     const newHand = [...hazardPlayer.hand];
@@ -2437,7 +2444,7 @@ function handlePlayHazardCard(
       players: newPlayers,
       phaseState: {
         ...mhState,
-        hazardsPlayedThisCompany: mhState.hazardsPlayedThisCompany + 1,
+        hazardsPlayedThisCompany: newHazardCount,
         resourcePlayerPassed: false,
       },
     };

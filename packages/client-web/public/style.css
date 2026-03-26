@@ -334,10 +334,6 @@ h2 {
 #right-panel {
   flex: 1;
   min-width: 0;
-  max-height: 100vh;
-  overflow-y: auto;
-  position: sticky;
-  top: 0;
   padding-top: 2.5rem;
 }
 
