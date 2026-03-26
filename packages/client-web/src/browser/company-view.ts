@@ -1536,6 +1536,17 @@ function renderViewToggle(
   container.appendChild(btn);
 }
 
+/** Switch to all-companies overview, saving the current focus for later restore. */
+export function switchToAllCompanies(): void {
+  if (!allCompaniesOverride && focusedCompanyId) {
+    savedFocusedCompanyId = focusedCompanyId;
+  }
+  allCompaniesOverride = true;
+  if (lastView && lastCardPool && lastOnAction) {
+    renderCompanyViews(lastView, lastCardPool, lastOnAction);
+  }
+}
+
 // ---- Top-level entry point ----
 
 /** Install keyboard listener for left/right arrow navigation. */

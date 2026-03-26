@@ -1302,6 +1302,39 @@ function getInstructionText(
     }
   }
 
+  // Site phase steps
+  if (view.phaseState.phase === Phase.Site) {
+    const isSelf = view.activePlayer === view.self.id;
+    switch (view.phaseState.step) {
+      case 'select-company':
+        return 'Site — Select a company to resolve its site phase.';
+      case 'enter-or-skip':
+        return isSelf
+          ? 'Site — Enter the site or skip.'
+          : 'Site — Opponent deciding whether to enter site.';
+      case 'reveal-on-guard-attacks':
+        return isSelf
+          ? 'Site — Opponent may reveal on-guard cards.'
+          : 'Site — Reveal on-guard cards or pass.';
+      case 'automatic-attacks':
+        return 'Site — Facing automatic attacks.';
+      case 'declare-agent-attack':
+        return isSelf
+          ? 'Site — Opponent may declare an agent attack.'
+          : 'Site — Declare an agent attack or pass.';
+      case 'resolve-attacks':
+        return 'Site — Resolving attacks.';
+      case 'play-resources':
+        return isSelf
+          ? 'Site — Play a resource or pass.'
+          : 'Site — Opponent may play a resource.';
+      case 'play-minor-item':
+        return isSelf
+          ? 'Site — Play an additional minor item or pass.'
+          : 'Site — Opponent may play a minor item.';
+    }
+  }
+
   // Long-event phase
   if (view.phaseState.phase === Phase.LongEvent) {
     const isSelf = view.activePlayer === view.self.id;
@@ -1309,6 +1342,18 @@ function getInstructionText(
       return 'Long-event — Play a long-event card or continue to Movement/Hazard phase.';
     }
     return 'Long-event — Waiting for opponent.';
+  }
+
+  // End-of-turn phase steps
+  if (view.phaseState.phase === Phase.EndOfTurn) {
+    switch (view.phaseState.step) {
+      case 'discard':
+        return 'End of Turn — Discard a card from hand or pass.';
+      case 'reset-hand':
+        return 'End of Turn — Adjusting hand size.';
+      case 'signal-end':
+        return 'End of Turn — Signal end of turn.';
+    }
   }
 
   // Organization phase
@@ -1394,6 +1439,13 @@ export function renderPassButton(view: PlayerView, onAction: (action: GameAction
       case 'reset-hand': label = 'Continue'; break;
       default: label = 'Continue';
     }
+  } else if (view.phaseState.phase === Phase.Site) {
+    switch (view.phaseState.step) {
+      case 'enter-or-skip': label = 'Skip'; break;
+      case 'play-resources': label = 'Pass'; break;
+      case 'play-minor-item': label = 'Pass'; break;
+      default: label = 'Continue';
+    }
   } else if (view.phaseState.phase === 'setup') {
     const step = view.phaseState.setupStep.step;
     if (step === 'item-draft') label = 'Continue';
@@ -1406,6 +1458,21 @@ export function renderPassButton(view: PlayerView, onAction: (action: GameAction
   btn.textContent = label;
   btn.classList.remove('hidden');
   btn.onclick = () => onAction(passAction);
+
+  // During enter-or-skip, add an "Enter" button for the enter-site action
+  const existingEnterBtn = document.getElementById('enter-site-btn');
+  if (existingEnterBtn) existingEnterBtn.remove();
+  if (view.phaseState.phase === Phase.Site && view.phaseState.step === 'enter-or-skip') {
+    const enterEval = view.legalActions.find(ea => ea.viable && ea.action.type === 'enter-site');
+    if (enterEval) {
+      const enterBtn = document.createElement('button');
+      enterBtn.id = 'enter-site-btn';
+      enterBtn.className = 'enter-site-btn';
+      enterBtn.textContent = 'Enter';
+      enterBtn.onclick = () => onAction(enterEval.action);
+      btn.parentElement?.insertBefore(enterBtn, btn);
+    }
+  }
 }
 
 /** Create an img element for a card with standard attributes. */
@@ -1856,6 +1923,9 @@ export function renderHand(
           setTargetingInstruction(
             selectedCharacterInstanceId ? `Click a highlighted company to play ${def.name}` : null,
           );
+          if (selectedCharacterInstanceId) {
+            void import('./company-view.js').then(m => m.switchToAllCompanies());
+          }
           reRenderCharacterPlay();
         });
       }
