@@ -492,7 +492,8 @@ h2 {
   transform: translateX(-50%);
   z-index: var(--z-instruction);
   pointer-events: none;
-  white-space: nowrap;
+  max-width: 75vw;
+  white-space: normal;
 }
 
 .drafted-row {
