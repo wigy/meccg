@@ -1,5 +1,52 @@
 # Changelog
 
+## 0.9.0 — 2026-03-26
+
+Chain of Effects
+
+### Game Engine
+- **Chain of effects framework:** Full chain-of-effects implementation across
+  8 phases — types/plumbing, initiation/priority, resolution loop, short-event
+  wiring, creature hazard wiring, passive conditions with nested chains,
+  order-passives step, and phase boundary scanning
+- **Twilight (tw-106):** Implement environment-canceling short event playable
+  during organization and M/H play-hazards phases by either player; does not
+  count against hazard limit; targets environments in play or on the chain
+- **Chain resolution:** LIFO resolution with fizzle detection when targets are
+  already removed; second Twilight can target first on the chain
+- **Ally play:** Support ally play during site phase with site tapping
+- **Save/restore:** Restore undo history from game log when loading a save
+- **Card data:** Add keywords field to card types and data; add Twilight card
+
+### Web Client
+- **Chain of effects UI:** Visual chain panel showing declared/resolving entries
+  with priority indicators and response actions
+- **FLIP card animations:** Smooth card movement animations between positions
+  with distance-scaled duration; fix hand arc CSS transform conflicts
+- **Company view redesign:** Single-company default view with arrow cycling,
+  keyboard navigation, flash effects; auto-switch to all-companies on opponent
+  turn; auto-focus opponent's selected company for M/H and Site phases
+- **Deck box UI:** 4-pile deck box per player with MP score, GI display, hover
+  tooltips, and sideboard pile in debug view
+- **Hazard player improvements:** Highlight all playable hazard cards in hand
+  during M/H phase; show movement path with region type icons in instruction
+  line; allow Twilight play targeting environments
+- **Instruction text:** Phase-specific instruction text for all game phases and
+  M/H steps with 75vw max width and text wrapping
+- **Cards in play:** Never dim cards outside companies (environments, long events)
+- **Set-aside display fix:** Resolve set-aside instance IDs through
+  visibleInstances so cards render during character draft
+- **UI polish:** Pass button moved to bottom-right; card preview zoom requires
+  hover; copy-to-clipboard for game code; broadcast cheat usage to all players;
+  consolidated z-index CSS custom properties; stacked dev toolbar
+
+### Infrastructure
+- **Sample decks:** Remove Sting, Thrall of the Voice, and one Horn of Anor
+  from all sample deck draft pools
+- **Card tests:** Twilight card tests covering cancel, chain interactions,
+  multiple targets, and M/H play-hazards behavior
+- **Plans:** Chain of effects and combat implementation plans
+
 ## 0.8.0 — 2026-03-24
 
 End of Turn phase
