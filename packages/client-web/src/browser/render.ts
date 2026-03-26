@@ -1095,7 +1095,7 @@ function isItemDraftCard(defId: CardDefinitionId, legalActions: readonly GameAct
 function showShortEventTargetMenu(
   event: MouseEvent,
   actions: readonly GameAction[],
-  visibleInstances: Readonly<Record<string, CardDefinitionId>>,
+  view: PlayerView,
   cardPool: Readonly<Record<string, CardDefinition>>,
   onAction: (action: GameAction) => void,
 ): void {
@@ -1113,13 +1113,20 @@ function showShortEventTargetMenu(
 
   for (const action of actions) {
     if (action.type !== 'play-short-event') continue;
-    const targetDefId = visibleInstances[action.targetInstanceId as string];
+    const targetDefId = view.visibleInstances[action.targetInstanceId as string];
     const targetDef = targetDefId ? cardPool[targetDefId as string] : undefined;
     const targetName = targetDef ? targetDef.name : '?';
 
+    // Find the chain entry owner for this target
+    const chainEntry = view.chain?.entries.find(e => e.cardInstanceId === action.targetInstanceId);
+    const ownerName = chainEntry
+      ? (chainEntry.declaredBy === view.self.id ? 'You' : view.opponent.name)
+      : null;
+    const label = ownerName ? `Cancel ${targetName} (${ownerName})` : `Cancel ${targetName}`;
+
     const btn = document.createElement('button');
     btn.className = 'char-action-tooltip__btn';
-    btn.textContent = `Cancel ${targetName}`;
+    btn.textContent = label;
     btn.addEventListener('click', () => {
       backdrop.remove();
       onAction(action);
@@ -1751,7 +1758,7 @@ export function renderHand(
           img.addEventListener('click', () => onAction(shortEventActions[0]));
         } else {
           img.addEventListener('click', (e) => {
-            showShortEventTargetMenu(e, shortEventActions, view.visibleInstances, cardPool, onAction);
+            showShortEventTargetMenu(e, shortEventActions, view, cardPool, onAction);
           });
         }
       }
