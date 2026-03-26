@@ -1350,9 +1350,9 @@ function getInstructionText(
       case 'discard':
         return 'End of Turn — Discard a card from hand or pass.';
       case 'reset-hand':
-        return 'End of Turn — Adjusting hand size.';
+        return 'End of Turn — Resetting hand to base size.';
       case 'signal-end':
-        return 'End of Turn — Signal end of turn.';
+        return 'End of Turn — Confirm end of turn.';
     }
   }
 
@@ -1444,6 +1444,12 @@ export function renderPassButton(view: PlayerView, onAction: (action: GameAction
       case 'enter-or-skip': label = 'Skip'; break;
       case 'play-resources': label = 'Pass'; break;
       case 'play-minor-item': label = 'Pass'; break;
+      default: label = 'Continue';
+    }
+  } else if (view.phaseState.phase === Phase.EndOfTurn) {
+    switch (view.phaseState.step) {
+      case 'discard': label = 'Done'; break;
+      case 'signal-end': label = 'Finished'; break;
       default: label = 'Continue';
     }
   } else if (view.phaseState.phase === 'setup') {
@@ -1880,7 +1886,10 @@ export function renderHand(
     const isPlayChar = isPlayCharacterCard(cardDefId, viable, view.visibleInstances);
     const shortEventActions = findShortEventActions(cardInstanceId, viable);
     const isShortEvent = shortEventActions.length > 0;
-    const nonViableReason = !action && !isItemDraft && !isPlayChar && !isShortEvent
+    const discardAction = cardInstanceId
+      ? viable.find(a => a.type === 'discard-card' && a.cardInstanceId === cardInstanceId)
+      : undefined;
+    const nonViableReason = !action && !isItemDraft && !isPlayChar && !isShortEvent && !discardAction
       ? findNonViableReason(cardDefId, view.legalActions, view.visibleInstances)
       : undefined;
     const isSelected = selectedItemDefId === cardDefId;
@@ -1945,6 +1954,11 @@ export function renderHand(
       img.className = 'hand-card hand-card-playable';
       if (onAction) {
         img.addEventListener('click', () => onAction(action));
+      }
+    } else if (discardAction) {
+      img.className = 'hand-card hand-card-playable';
+      if (onAction) {
+        img.addEventListener('click', () => onAction(discardAction));
       }
     } else {
       img.className = 'hand-card hand-card-dimmed';
