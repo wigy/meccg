@@ -453,6 +453,8 @@ export interface AssignStrikeAction {
   readonly player: PlayerId;
   /** The character who will face this strike. */
   readonly characterId: CardInstanceId;
+  /** True when this is an excess strike (-1 prowess penalty) on an already-assigned character. */
+  readonly excess?: boolean;
 }
 
 /**
@@ -486,6 +488,18 @@ export interface SupportStrikeAction {
   readonly supportingCharacterId: CardInstanceId;
   /** The character receiving the +1 prowess bonus. */
   readonly targetCharacterId: CardInstanceId;
+}
+
+/**
+ * The attacking player rolls for a body check after a strike is resolved.
+ * The opponent rolls 2d6 against the target's body value to determine
+ * if the entity (character or creature) is eliminated/defeated.
+ */
+export interface BodyCheckRollAction {
+  /** Action discriminant. */
+  readonly type: 'body-check-roll';
+  /** The player rolling the body check (attacking player). */
+  readonly player: PlayerId;
 }
 
 // ---- Site phase ----
@@ -787,6 +801,7 @@ export type GameAction =
   | AssignStrikeAction
   | ResolveStrikeAction
   | SupportStrikeAction
+  | BodyCheckRollAction
   | EnterSiteAction
   | RevealOnGuardAction
   | DeclareAgentAttackAction

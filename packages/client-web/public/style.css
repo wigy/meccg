@@ -356,6 +356,14 @@ h2 {
   margin: 0.15rem 0;
 }
 
+.combat-frame {
+  border: 2px solid #c44;
+  border-radius: 4px;
+  padding: 0.4rem 0.5rem;
+  margin: 0.25rem 0;
+  background: rgba(180, 40, 40, 0.12);
+}
+
 #actions {
   display: flex;
   flex-direction: column;

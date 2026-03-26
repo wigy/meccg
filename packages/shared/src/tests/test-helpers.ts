@@ -404,6 +404,7 @@ export function buildTestState(opts: BuildTestStateOpts): GameState {
       siteDeck,
       siteDiscardPile: [] as CardInstanceId[],
       sideboard: [] as CardInstanceId[],
+      killPile: [] as CardInstanceId[],
       eliminatedPile: [] as CardInstanceId[],
       companies,
       characters,

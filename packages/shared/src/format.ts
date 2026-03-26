@@ -362,12 +362,28 @@ function formatCombat(combat: CombatState, defOf: CardLookup, instOf: InstanceLo
   } else {
     attackerName = 'Automatic attack';
   }
-  lines.push(`${indent}COMBAT: ${attackerName} — ${combat.strikesTotal} strikes at ${combat.strikeProwess} prowess (${combat.phase})`);
+  const bodyStr = combat.creatureBody !== null ? `/${combat.creatureBody} body` : '';
+  lines.push(`${indent}COMBAT: ${attackerName} — ${combat.strikesTotal} strikes at ${combat.strikeProwess} prowess${bodyStr}`);
+  lines.push(`${indent}  Phase: ${combat.phase}${combat.phase === 'assign-strikes' ? ` (${combat.assignmentPhase})` : ''}`);
+  lines.push(`${indent}  Defending company: ${combat.companyId as string} (${combat.defendingPlayerId as string})  Attacker: ${combat.attackingPlayerId as string}`);
+  if (combat.bodyCheckTarget) {
+    lines.push(`${indent}  Body check target: ${combat.bodyCheckTarget}`);
+  }
+  if (combat.detainment) {
+    lines.push(`${indent}  DETAINMENT`);
+  }
+  const assigned = combat.strikeAssignments.length;
+  const unassigned = combat.strikesTotal - assigned;
+  if (unassigned > 0) {
+    lines.push(`${indent}  Strikes: ${assigned} assigned, ${unassigned} remaining`);
+  }
   for (let i = 0; i < combat.strikeAssignments.length; i++) {
     const sa = combat.strikeAssignments[i];
     const marker = i === combat.currentStrikeIndex ? '>' : ' ';
+    const charName = formatInstanceName(sa.characterId, defOf, instOf);
+    const excess = sa.excessStrikes > 0 ? ` (${sa.excessStrikes} excess, -${sa.excessStrikes} prowess)` : '';
     const result = sa.resolved ? ` → ${sa.result}` : '';
-    lines.push(`${indent}  ${marker} strike ${i + 1} → ${sa.characterId}${result}`);
+    lines.push(`${indent}  ${marker} strike ${i + 1} → ${charName}${excess}${result}`);
   }
   return lines;
 }
@@ -389,6 +405,7 @@ interface RenderPlayerInput {
   readonly deckCount: number;
   readonly siteDeckCount: number;
   readonly discardCount: number;
+  readonly killCount: number;
   readonly eliminatedCount: number;
   /** Card instance IDs in the play deck, when visible (omniscient view only). */
   readonly deckCards?: readonly CardInstanceId[];
@@ -396,6 +413,8 @@ interface RenderPlayerInput {
   readonly siteDeckCards?: readonly CardInstanceId[];
   /** Card instance IDs in the discard pile, when visible (always public). */
   readonly discardCards?: readonly CardInstanceId[];
+  /** Card instance IDs in the kill pile (defeated creatures, always public). */
+  readonly killCards?: readonly CardInstanceId[];
   /** Card instance IDs in the eliminated pile (always public). */
   readonly eliminatedCards?: readonly CardInstanceId[];
   readonly sideboardCount: number;
@@ -469,6 +488,13 @@ function renderState(input: RenderInput): string {
         : input.phaseState.phase;
   lines.push(`Turn ${input.turnNumber} — Phase: ${phaseLabel}`);
 
+  // Combat (shown first when active, with markers for web client styling)
+  if (input.combat) {
+    lines.push('«COMBAT-START»');
+    lines.push(...formatCombat(input.combat, defOf, instOf, '  '));
+    lines.push('«COMBAT-END»');
+  }
+
   for (let pi = 0; pi < input.players.length; pi++) {
     if (pi > 0) lines.push('');
     const player = input.players[pi];
@@ -534,6 +560,14 @@ function renderState(input: RenderInput): string {
         lines.push(`    · ${formatInstanceName(id, defOf, instOf)}`);
       }
     }
+    if (player.killCount > 0) {
+      lines.push(`  Kill pile: ${player.killCount}`);
+      if (player.killCards) {
+        for (const id of player.killCards) {
+          lines.push(`    · ${formatInstanceName(id, defOf, instOf)}`);
+        }
+      }
+    }
     lines.push(`  Eliminated: ${player.eliminatedCount}`);
     if (player.eliminatedCards && player.eliminatedCards.length > 0) {
       for (const id of player.eliminatedCards) {
@@ -570,11 +604,6 @@ function renderState(input: RenderInput): string {
       }
     }
     if (player.isActive) lines.push('«ACTIVE-END»');
-  }
-
-  // Combat
-  if (input.combat) {
-    lines.push(...formatCombat(input.combat, defOf, instOf, '  '));
   }
 
   // Chain of effects
@@ -627,6 +656,8 @@ export function formatGameState(state: GameState): string {
       siteDeckCards: p.siteDeck,
       discardCount: p.discardPile.length,
       discardCards: p.discardPile,
+      killCount: p.killPile.length,
+      killCards: p.killPile,
       eliminatedCount: p.eliminatedPile.length,
       eliminatedCards: p.eliminatedPile,
       sideboardCount: p.sideboard.length,
@@ -698,6 +729,8 @@ export function formatPlayerView(
         siteDeckCards: view.self.siteDeck.map(c => c.instanceId),
         discardCount: view.self.discardPile.length,
         discardCards: view.self.discardPile.map(c => c.instanceId),
+        killCount: view.self.killPile.length,
+        killCards: view.self.killPile.map(c => c.instanceId),
         eliminatedCount: view.self.eliminatedPile.length,
         eliminatedCards: view.self.eliminatedPile.map(c => c.instanceId),
         sideboardCount: view.self.sideboard.length,
@@ -720,6 +753,8 @@ export function formatPlayerView(
         siteDeckCount: view.opponent.siteDeckSize,
         discardCount: view.opponent.discardPile.length,
         discardCards: view.opponent.discardPile.map(c => c.instanceId),
+        killCount: view.opponent.killPile.length,
+        killCards: view.opponent.killPile.map(c => c.instanceId),
         eliminatedCount: view.opponent.eliminatedPile.length,
         eliminatedCards: view.opponent.eliminatedPile.map(c => c.instanceId),
         sideboardCount: 0,
@@ -896,11 +931,15 @@ export function describeAction(
       return base;
     }
     case 'assign-strike':
-      return `Assign strike to ${instName(action.characterId)}`;
+      return action.excess
+        ? `Assign excess strike to ${instName(action.characterId)} (-1 prowess)`
+        : `Assign strike to ${instName(action.characterId)}`;
     case 'resolve-strike':
       return action.tapToFight ? 'Resolve strike (tap to fight)' : 'Resolve strike (stay untapped, -3 prowess)';
     case 'support-strike':
       return `Tap ${instName(action.supportingCharacterId)} to support ${instName(action.targetCharacterId)} (+1 prowess)`;
+    case 'body-check-roll':
+      return 'Roll body check';
     case 'play-hero-resource':
       return action.attachToCharacterId
         ? `Play ${instName(action.cardInstanceId)} on ${instName(action.attachToCharacterId)}`

@@ -301,6 +301,8 @@ export interface PlayerState {
   readonly siteDiscardPile: readonly CardInstanceId[];
   /** Reserve cards that can be fetched under specific game conditions. */
   readonly sideboard: readonly CardInstanceId[];
+  /** Defeated creature cards earning kill marshalling points. */
+  readonly killPile: readonly CardInstanceId[];
   /** Cards removed from the game (e.g. characters eliminated by failed corruption checks). */
   readonly eliminatedPile: readonly CardInstanceId[];
   /** All companies this player controls on the map. */
@@ -954,6 +956,8 @@ export type AttackSource =
 export interface StrikeAssignment {
   /** The character instance ID assigned to receive this strike. */
   readonly characterId: CardInstanceId;
+  /** Number of excess strikes allocated to this character as -1 prowess each. */
+  readonly excessStrikes: number;
   /** Whether this strike has been resolved via dice roll. */
   readonly resolved: boolean;
   /**
@@ -985,16 +989,35 @@ export interface CombatState {
   readonly attackSource: AttackSource;
   /** The company being attacked. */
   readonly companyId: CompanyId;
+  /** The player who owns the defending company (resource player). */
+  readonly defendingPlayerId: PlayerId;
+  /** The player who initiated the attack (hazard player). */
+  readonly attackingPlayerId: PlayerId;
   /** Total number of strikes the creature/attack delivers. */
   readonly strikesTotal: number;
   /** The prowess value of each strike (from the creature's stats or automatic attack). */
   readonly strikeProwess: number;
+  /** The creature's body value for body checks. Null if no body check applies. */
+  readonly creatureBody: number | null;
   /** The assignment of each strike to a defending character, with resolution status. */
   readonly strikeAssignments: readonly StrikeAssignment[];
   /** Index into strikeAssignments for the strike currently being resolved. */
   readonly currentStrikeIndex: number;
   /** Which sub-phase of combat resolution is active. */
   readonly phase: 'assign-strikes' | 'resolve-strike' | 'body-check';
+  /**
+   * During assign-strikes, tracks who is currently assigning:
+   * - `'defender'`: defending player assigns strikes to untapped characters
+   * - `'attacker'`: attacking player assigns remaining strikes
+   * - `'done'`: all strikes assigned, ready to resolve
+   */
+  readonly assignmentPhase: 'defender' | 'attacker' | 'done';
+  /**
+   * During body-check phase, indicates what the body check is against:
+   * - `'character'`: check if a wounded character is eliminated
+   * - `'creature'`: check if a successful strike defeats the creature
+   */
+  readonly bodyCheckTarget: 'character' | 'creature' | null;
   /**
    * Whether this is a detainment attack. Detainment attacks tap characters
    * instead of wounding/eliminating them. Any attack can be detainment —

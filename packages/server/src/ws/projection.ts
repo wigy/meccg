@@ -70,6 +70,7 @@ function buildSelfView(state: GameState, player: PlayerState): SelfView {
     siteDeck: resolvePile(state, player.siteDeck),
     siteDiscardPile: resolvePile(state, player.siteDiscardPile),
     sideboard: resolvePile(state, player.sideboard),
+    killPile: resolvePile(state, player.killPile),
     eliminatedPile: resolvePile(state, player.eliminatedPile),
     companies: player.companies,
     characters: player.characters,
@@ -110,6 +111,7 @@ function buildOpponentView(player: PlayerState): OpponentView {
     siteDeckSize: player.siteDeck.length,
     discardPile: [],  // TODO: discard pile is public
     siteDiscardPile: [],
+    killPile: [],  // TODO: kill pile is public
     eliminatedPile: [],  // TODO: eliminated pile is public
     companies,
     characters: player.characters,
@@ -156,6 +158,7 @@ export function projectSpectatorView(state: GameState): PlayerView {
   for (const player of state.players) {
     for (const id of player.discardPile) addInstance(id);
     for (const id of player.siteDiscardPile) addInstance(id);
+    for (const id of player.killPile) addInstance(id);
     for (const id of player.eliminatedPile) addInstance(id);
     for (const company of player.companies) {
       if (company.currentSite) addInstance(company.currentSite.instanceId);
@@ -181,6 +184,7 @@ export function projectSpectatorView(state: GameState): PlayerView {
       siteDeck: [],
       siteDiscardPile: [],
       sideboard: [],
+      killPile: [],
       eliminatedPile: [],
       companies: p1.companies,
       characters: p1.characters,
@@ -343,6 +347,7 @@ export function projectPlayerView(state: GameState, playerId: PlayerId): PlayerV
   for (const id of selfPlayer.siteDeck) addInstance(id);
   for (const id of selfPlayer.siteDiscardPile) addInstance(id);
   for (const id of selfPlayer.sideboard) addInstance(id);
+  for (const id of selfPlayer.killPile) addInstance(id);
   for (const id of selfPlayer.eliminatedPile) addInstance(id);
   for (const company of selfPlayer.companies) {
     if (company.currentSite) addInstance(company.currentSite.instanceId);
@@ -360,6 +365,7 @@ export function projectPlayerView(state: GameState, playerId: PlayerId): PlayerV
   // Opponent's public cards: discard piles, eliminated pile, characters + attachments, company sites
   for (const id of opponentPlayer.discardPile) addInstance(id);
   for (const id of opponentPlayer.siteDiscardPile) addInstance(id);
+  for (const id of opponentPlayer.killPile) addInstance(id);
   for (const id of opponentPlayer.eliminatedPile) addInstance(id);
   for (const company of opponentPlayer.companies) {
     if (company.currentSite) addInstance(company.currentSite.instanceId);

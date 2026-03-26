@@ -277,7 +277,7 @@ export class GameSession {
   }
 
   private restoreGame(save: GameSave, p1: PendingPlayer, p2: PendingPlayer, name1: string, name2: string): void {
-    this.state = { ...save.state, chain: save.state.chain ?? null };
+    this.state = { ...save.state, chain: save.state.chain ?? null, combat: save.state.combat ?? null };
     // Normalize saved name-to-ID map to lowercase keys
     const normalizedMap: Record<string, string> = {};
     for (const [k, v] of Object.entries(save.nameToPlayerId)) {

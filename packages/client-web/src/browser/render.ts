@@ -402,11 +402,22 @@ function injectActivePlayerFrame(html: string): string {
   );
 }
 
+/**
+ * Wrap lines between «COMBAT-START» and «COMBAT-END» markers in a styled div
+ * with a red border and tint to highlight active combat.
+ */
+function injectCombatFrame(html: string): string {
+  return html.replace(
+    /«COMBAT-START»\n?([\s\S]*?)«COMBAT-END»\n?/g,
+    '<div class="combat-frame">$1</div>',
+  );
+}
+
 /** Render the game state using the shared ANSI formatter, converted to HTML. */
 export function renderState(view: PlayerView, cardPool: Readonly<Record<string, CardDefinition>>): void {
   hideHoverImg();
   const el = $('state');
-  el.innerHTML = injectActivePlayerFrame(injectDiceMarkers(injectMPTooltips(makeCardListsCollapsible(ansiToHtml(formatPlayerView(view, cardPool))))));
+  el.innerHTML = injectCombatFrame(injectActivePlayerFrame(injectDiceMarkers(injectMPTooltips(makeCardListsCollapsible(ansiToHtml(formatPlayerView(view, cardPool)))))));
   hydrateDicePlaceholders(el);
   tagCardImages(el, cardPool);
 }

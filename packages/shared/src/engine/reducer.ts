@@ -14,7 +14,7 @@
  * (or the original state plus an error string if the action was illegal).
  */
 
-import type { GameState, PlayerState, DraftPlayerState, ItemDraftPlayerState, CharacterDeckDraftPlayerState, SetupStepState, CardDefinitionId, CardInstanceId, CompanyId, CharacterInPlay, CardInstance, ChainEntryPayload, OrganizationPhaseState, MovementHazardPhaseState, SitePhaseState, EndOfTurnPhaseState, Company, CreatureCard, SiteInPlay, HeroItemCard } from '../index.js';
+import type { GameState, PlayerState, DraftPlayerState, ItemDraftPlayerState, CharacterDeckDraftPlayerState, SetupStepState, CardDefinitionId, CardInstanceId, CompanyId, CharacterInPlay, CardInstance, ChainEntryPayload, OrganizationPhaseState, MovementHazardPhaseState, SitePhaseState, EndOfTurnPhaseState, Company, CreatureCard, SiteInPlay, HeroItemCard, CombatState, StrikeAssignment } from '../index.js';
 import type { GameAction } from '../index.js';
 import { Phase, SetupStep, LEGAL_ACTIONS_BY_PHASE, getAlignmentRules, shuffle, nextInt, CardStatus, isCharacterCard, isItemCard, isAllyCard, isSiteCard, SiteType, RegionType, Race, Skill, getPlayerIndex, ZERO_EFFECTIVE_STATS, MAX_STARTING_ITEMS, BASE_MAX_REGION_DISTANCE, HAND_SIZE } from '../index.js';
 import { logHeading, logDetail } from './legal-actions/log.js';
@@ -120,6 +120,21 @@ export function reduce(state: GameState, action: GameAction): ReducerResult {
     return chainResult;
   }
 
+  // 2c. Combat: dispatch combat-specific actions when combat is active
+  const combatActionTypes = ['assign-strike', 'resolve-strike', 'support-strike', 'body-check-roll'];
+  if (state.combat != null && (combatActionTypes.includes(action.type) || (action.type === 'pass' && state.combat.phase === 'assign-strikes'))) {
+    logDetail(`Combat active — dispatching '${action.type}' to combat handler`);
+    const combatResult = handleCombatAction(state, action);
+    if (!combatResult.error) {
+      const recomputed = recomputeDerived(combatResult.state);
+      return {
+        state: { ...recomputed, stateSeq: recomputed.stateSeq + 1 },
+        effects: combatResult.effects,
+      };
+    }
+    return combatResult;
+  }
+
   // 3. Dispatch to phase handler
   let result: ReducerResult;
   switch (phase) {
@@ -197,6 +212,24 @@ function validateActionPlayer(state: GameState, action: GameAction): string | un
       return 'You do not have chain priority';
     }
     return undefined;
+  }
+
+  // Combat: player validation depends on combat sub-phase
+  if (state.combat != null) {
+    const combat = state.combat;
+    if (action.type === 'assign-strike') {
+      const expectedPlayer = combat.assignmentPhase === 'attacker' ? combat.attackingPlayerId : combat.defendingPlayerId;
+      return action.player === expectedPlayer ? undefined : `Not the ${combat.assignmentPhase === 'attacker' ? 'attacking' : 'defending'} player`;
+    }
+    if (action.type === 'resolve-strike' || action.type === 'support-strike') {
+      return action.player === combat.defendingPlayerId ? undefined : 'Not the defending player';
+    }
+    if (action.type === 'body-check-roll') {
+      return action.player === combat.attackingPlayerId ? undefined : 'Not the attacking player';
+    }
+    if (action.type === 'pass' && combat.phase === 'assign-strikes') {
+      return action.player === combat.defendingPlayerId ? undefined : 'Not the defending player';
+    }
   }
 
   // During movement/hazard phase, the non-active player plays hazards
@@ -3920,4 +3953,397 @@ function handleEndOfTurnSignalEnd(state: GameState, action: GameAction): Reducer
 function handleFreeCouncil(state: GameState, _action: GameAction): ReducerResult {
   // TODO: tally MPs, tiebreaker corruption checks
   return { state };
+}
+
+// ---- Combat sub-state handlers ----
+
+/**
+ * Dispatch a combat action to the appropriate handler based on the
+ * current combat sub-phase.
+ */
+function handleCombatAction(state: GameState, action: GameAction): ReducerResult {
+  const combat = state.combat;
+  if (!combat) return { state, error: 'No combat active' };
+
+  switch (action.type) {
+    case 'assign-strike':
+      return handleAssignStrike(state, action, combat);
+    case 'pass':
+      return handleCombatPass(state, action, combat);
+    case 'resolve-strike':
+      return handleResolveStrike(state, action, combat);
+    case 'support-strike':
+      return handleSupportStrike(state, action, combat);
+    case 'body-check-roll':
+      return handleBodyCheckRoll(state, action, combat);
+    default:
+      return { state, error: `Unexpected action '${action.type}' during combat` };
+  }
+}
+
+/** Assign a strike to a defending character. */
+function handleAssignStrike(state: GameState, action: GameAction, combat: CombatState): ReducerResult {
+  if (action.type !== 'assign-strike') return { state, error: 'Expected assign-strike' };
+  if (combat.phase !== 'assign-strikes') return { state, error: 'Not in assign-strikes phase' };
+
+  const totalAllocated = combat.strikeAssignments.length
+    + combat.strikeAssignments.reduce((sum, a) => sum + a.excessStrikes, 0);
+  const strikesRemaining = combat.strikesTotal - totalAllocated;
+  if (strikesRemaining <= 0) return { state, error: 'All strikes already assigned' };
+
+  // Validate character is in the defending company
+  const defPlayerIndex = state.players.findIndex(p => p.id === combat.defendingPlayerId);
+  const defPlayer = state.players[defPlayerIndex];
+  const company = defPlayer.companies.find(c => c.id === combat.companyId);
+  if (!company) return { state, error: 'Defending company not found' };
+  if (!company.characters.includes(action.characterId)) {
+    return { state, error: 'Character not in defending company' };
+  }
+
+  const existingIdx = combat.strikeAssignments.findIndex(a => a.characterId === action.characterId);
+
+  let newAssignments: StrikeAssignment[];
+  if (existingIdx >= 0) {
+    // Excess strike: character already has a strike, add -1 prowess penalty
+    if (combat.assignmentPhase !== 'attacker') {
+      return { state, error: 'Only attacker can assign excess strikes' };
+    }
+    newAssignments = combat.strikeAssignments.map((a, i) =>
+      i === existingIdx ? { ...a, excessStrikes: a.excessStrikes + 1 } : a,
+    );
+    logDetail(`Excess strike assigned to ${action.characterId as string} (now ${newAssignments[existingIdx].excessStrikes} excess)`);
+  } else {
+    // Normal assignment: new strike to this character
+    newAssignments = [...combat.strikeAssignments, {
+      characterId: action.characterId,
+      excessStrikes: 0,
+      resolved: false,
+    }];
+    logDetail(`Strike assigned to ${action.characterId as string} (${newAssignments.length}/${combat.strikesTotal})`);
+  }
+
+  const newTotalAllocated = newAssignments.length
+    + newAssignments.reduce((sum, a) => sum + a.excessStrikes, 0);
+  const allAssigned = newTotalAllocated >= combat.strikesTotal;
+
+  const newCombat: CombatState = {
+    ...combat,
+    strikeAssignments: newAssignments,
+    ...(allAssigned ? { phase: 'resolve-strike' as const, assignmentPhase: 'done' as const } : {}),
+  };
+
+  return { state: { ...state, combat: newCombat } };
+}
+
+/** Defender passes during strike assignment — attacker assigns remaining. */
+function handleCombatPass(state: GameState, action: GameAction, combat: CombatState): ReducerResult {
+  if (action.type !== 'pass') return { state, error: 'Expected pass' };
+  if (combat.phase !== 'assign-strikes' || combat.assignmentPhase !== 'defender') {
+    return { state, error: 'Can only pass during defender strike assignment' };
+  }
+
+  const totalAllocated = combat.strikeAssignments.length
+    + combat.strikeAssignments.reduce((sum, a) => sum + a.excessStrikes, 0);
+  const strikesRemaining = combat.strikesTotal - totalAllocated;
+
+  // If no strikes remain, transition to resolve
+  if (strikesRemaining <= 0) {
+    logDetail('Defender passed with all strikes assigned — transitioning to resolve');
+    return {
+      state: { ...state, combat: { ...combat, phase: 'resolve-strike', assignmentPhase: 'done' } },
+    };
+  }
+
+  logDetail(`Defender passed — ${strikesRemaining} strike(s) remaining, attacker assigns`);
+  return {
+    state: { ...state, combat: { ...combat, assignmentPhase: 'attacker' } },
+  };
+}
+
+/** Resolve the current strike — roll dice and determine outcome. */
+function handleResolveStrike(state: GameState, action: GameAction, combat: CombatState): ReducerResult {
+  if (action.type !== 'resolve-strike') return { state, error: 'Expected resolve-strike' };
+  if (combat.phase !== 'resolve-strike') return { state, error: 'Not in resolve-strike phase' };
+
+  const strike = combat.strikeAssignments[combat.currentStrikeIndex];
+  if (!strike || strike.resolved) return { state, error: 'Current strike already resolved' };
+
+  // Look up character stats
+  const defPlayerIndex = state.players.findIndex(p => p.id === combat.defendingPlayerId);
+  const defPlayer = state.players[defPlayerIndex];
+  const charData = defPlayer.characters[strike.characterId as string];
+  if (!charData) return { state, error: 'Character not found' };
+
+  // Compute effective prowess
+  let prowess = charData.effectiveStats.prowess;
+  if (!action.tapToFight) prowess -= 3;  // Stay untapped penalty
+  if (charData.status === CardStatus.Tapped) prowess -= 1;
+  if (charData.status === CardStatus.Inverted) prowess -= 2; // Wounded
+  if (strike.excessStrikes > 0) prowess -= strike.excessStrikes; // Excess strikes penalty
+
+  // Roll dice
+  const { roll, rng, cheatRollTotal } = roll2d6(state);
+  const rollTotal = roll.die1 + roll.die2;
+  const characterTotal = rollTotal + prowess;
+
+  const defPlayer2 = state.players[defPlayerIndex];
+  logDetail(`Strike resolution: ${charData.definitionId as string} rolls ${roll.die1}+${roll.die2}=${rollTotal} + prowess ${prowess} = ${characterTotal} vs creature prowess ${combat.strikeProwess}`);
+
+  const effects: GameEffect[] = [{
+    effect: 'dice-roll', playerName: defPlayer2.name,
+    die1: roll.die1, die2: roll.die2, label: 'Strike resolution',
+  }];
+
+  // Determine outcome
+  let result: 'success' | 'wounded' | 'eliminated';
+  let bodyCheckTarget: 'character' | 'creature' | null = null;
+
+  if (characterTotal > combat.strikeProwess) {
+    // Character wins — strike defeated
+    result = 'success';
+    if (combat.creatureBody !== null) {
+      bodyCheckTarget = 'creature'; // Body check against creature
+    }
+    logDetail(`Character defeats strike — ${bodyCheckTarget ? 'body check vs creature' : 'creature has no body'}`);
+  } else if (characterTotal < combat.strikeProwess) {
+    // Strike wins — character wounded
+    result = 'wounded';
+    bodyCheckTarget = 'character'; // Body check against character
+    logDetail('Strike succeeds — character wounded, body check vs character');
+  } else {
+    // Tie — ineffectual
+    result = 'success'; // Character survives
+    logDetail('Tie — ineffectual, character taps');
+  }
+
+  // Update strike assignment
+  const newAssignments = combat.strikeAssignments.map((a, i) =>
+    i === combat.currentStrikeIndex ? { ...a, resolved: true, result } : a,
+  );
+
+  // Tap or wound character
+  const newPlayers = clonePlayers(state);
+  const newCharacters = { ...defPlayer.characters };
+  if (action.tapToFight || characterTotal === combat.strikeProwess) {
+    // Tap character (unless staying untapped)
+    if (charData.status === CardStatus.Untapped) {
+      newCharacters[strike.characterId as string] = { ...charData, status: CardStatus.Tapped };
+    }
+  }
+  if (result === 'wounded' && !combat.detainment) {
+    // Wound (invert) character
+    newCharacters[strike.characterId as string] = {
+      ...(newCharacters[strike.characterId as string] ?? charData),
+      status: CardStatus.Inverted,
+    };
+  } else if (result === 'wounded' && combat.detainment) {
+    // Detainment: tap instead of wound
+    newCharacters[strike.characterId as string] = {
+      ...(newCharacters[strike.characterId as string] ?? charData),
+      status: CardStatus.Tapped,
+    };
+  }
+  newPlayers[defPlayerIndex] = { ...defPlayer, characters: newCharacters };
+
+  // Determine next phase
+  let newCombat: CombatState;
+  if (bodyCheckTarget) {
+    newCombat = {
+      ...combat,
+      strikeAssignments: newAssignments,
+      phase: 'body-check',
+      bodyCheckTarget,
+    };
+  } else {
+    // No body check — advance to next strike or finish combat
+    const nextIndex = combat.currentStrikeIndex + 1;
+    if (nextIndex < newAssignments.length) {
+      newCombat = { ...combat, strikeAssignments: newAssignments, currentStrikeIndex: nextIndex };
+    } else {
+      // All strikes resolved — finalize combat
+      return finalizeCombat({ ...state, players: newPlayers, rng, cheatRollTotal, combat: { ...combat, strikeAssignments: newAssignments } }, effects);
+    }
+  }
+
+  return {
+    state: { ...state, players: newPlayers, rng, cheatRollTotal, combat: newCombat },
+    effects,
+  };
+}
+
+/** Tap a supporting character for +1 prowess on the current strike. */
+function handleSupportStrike(state: GameState, action: GameAction, combat: CombatState): ReducerResult {
+  if (action.type !== 'support-strike') return { state, error: 'Expected support-strike' };
+  if (combat.phase !== 'resolve-strike') return { state, error: 'Not in resolve-strike phase' };
+
+  const defPlayerIndex = state.players.findIndex(p => p.id === combat.defendingPlayerId);
+  const defPlayer = state.players[defPlayerIndex];
+  const supporter = defPlayer.characters[action.supportingCharacterId as string];
+  if (!supporter) return { state, error: 'Supporting character not found' };
+  if (supporter.status !== CardStatus.Untapped) return { state, error: 'Supporting character must be untapped' };
+
+  // Tap the supporter
+  const newPlayers = clonePlayers(state);
+  const newCharacters = { ...defPlayer.characters };
+  newCharacters[action.supportingCharacterId as string] = { ...supporter, status: CardStatus.Tapped };
+  newPlayers[defPlayerIndex] = { ...defPlayer, characters: newCharacters };
+
+  // TODO: Track prowess bonus on current strike (for now, effectiveStats handles it via item modifiers)
+  // For Phase 1, the +1 bonus needs to be stored somewhere. Add a supportCount to StrikeAssignment or CombatState.
+  logDetail(`${action.supportingCharacterId as string} taps to support — +1 prowess`);
+
+  return { state: { ...state, players: newPlayers } };
+}
+
+/** Roll body check — attacker rolls 2d6 vs body value. */
+function handleBodyCheckRoll(state: GameState, action: GameAction, combat: CombatState): ReducerResult {
+  if (action.type !== 'body-check-roll') return { state, error: 'Expected body-check-roll' };
+  if (combat.phase !== 'body-check') return { state, error: 'Not in body-check phase' };
+
+  const { roll, rng, cheatRollTotal } = roll2d6(state);
+  const rollTotal = roll.die1 + roll.die2;
+  const atkPlayerIndex = state.players.findIndex(p => p.id === combat.attackingPlayerId);
+  const effects: GameEffect[] = [{
+    effect: 'dice-roll', playerName: state.players[atkPlayerIndex].name,
+    die1: roll.die1, die2: roll.die2, label: 'Body check',
+  }];
+
+  if (combat.bodyCheckTarget === 'creature') {
+    // Body check against creature
+    const body = combat.creatureBody ?? 0;
+    logDetail(`Body check vs creature: roll ${rollTotal} vs body ${body}`);
+    if (rollTotal > body) {
+      logDetail('Creature body check failed — creature defeated');
+      // Mark in strike assignment that the creature was defeated on this strike
+    } else {
+      logDetail('Creature body check passed — creature survives');
+    }
+
+    // Advance to next strike or finalize
+    const nextIndex = combat.currentStrikeIndex + 1;
+    if (nextIndex < combat.strikeAssignments.length) {
+      const newCombat: CombatState = {
+        ...combat,
+        currentStrikeIndex: nextIndex,
+        phase: 'resolve-strike',
+        bodyCheckTarget: null,
+      };
+      return { state: { ...state, rng, cheatRollTotal, combat: newCombat }, effects };
+    }
+    return finalizeCombat({ ...state, rng, cheatRollTotal }, effects);
+  }
+
+  if (combat.bodyCheckTarget === 'character') {
+    // Body check against character
+    const strike = combat.strikeAssignments[combat.currentStrikeIndex];
+    const defPlayerIndex = state.players.findIndex(p => p.id === combat.defendingPlayerId);
+    const defPlayer = state.players[defPlayerIndex];
+    const charData = defPlayer.characters[strike.characterId as string];
+    if (!charData) return { state, error: 'Character not found for body check' };
+
+    const charDef = state.cardPool[charData.definitionId as string] as { body?: number } | undefined;
+    const body = charDef?.body ?? 9; // Default body if not specified
+    const woundedBonus = charData.status === CardStatus.Inverted ? 1 : 0;
+    const effectiveRoll = rollTotal + woundedBonus;
+
+    logDetail(`Body check vs character: roll ${rollTotal}${woundedBonus ? '+1(wounded)' : ''} = ${effectiveRoll} vs body ${body}`);
+
+    if (effectiveRoll > body) {
+      // Character eliminated
+      logDetail('Character eliminated');
+      const newAssignments = combat.strikeAssignments.map((a, i) =>
+        i === combat.currentStrikeIndex ? { ...a, result: 'eliminated' as const } : a,
+      );
+
+      // Remove character from company and add to eliminated pile
+      const newPlayers = clonePlayers(state);
+      const newPlayerData = { ...defPlayer };
+      const company = newPlayerData.companies.find(c => c.id === combat.companyId);
+      if (company) {
+        const newCompanies = newPlayerData.companies.map(c =>
+          c.id === combat.companyId
+            ? { ...c, characters: c.characters.filter(ch => ch !== strike.characterId) }
+            : c,
+        );
+        newPlayerData.companies = newCompanies;
+      }
+      // Move to discard pile (simplified; full item transfer deferred to Phase 4)
+      newPlayerData.discardPile = [...newPlayerData.discardPile, strike.characterId];
+      const { [strike.characterId as string]: _, ...remainingChars } = newPlayerData.characters;
+      newPlayerData.characters = remainingChars;
+      newPlayers[defPlayerIndex] = newPlayerData;
+
+      // Advance to next strike or finalize
+      const nextIndex = combat.currentStrikeIndex + 1;
+      if (nextIndex < newAssignments.length) {
+        const newCombat: CombatState = {
+          ...combat,
+          strikeAssignments: newAssignments,
+          currentStrikeIndex: nextIndex,
+          phase: 'resolve-strike',
+          bodyCheckTarget: null,
+        };
+        return { state: { ...state, players: newPlayers, rng, cheatRollTotal, combat: newCombat }, effects };
+      }
+      return finalizeCombat({ ...state, players: newPlayers, rng, cheatRollTotal, combat: { ...combat, strikeAssignments: newAssignments } }, effects);
+    }
+
+    logDetail('Character survives body check');
+    // Advance to next strike or finalize
+    const nextIndex = combat.currentStrikeIndex + 1;
+    if (nextIndex < combat.strikeAssignments.length) {
+      const newCombat: CombatState = {
+        ...combat,
+        currentStrikeIndex: nextIndex,
+        phase: 'resolve-strike',
+        bodyCheckTarget: null,
+      };
+      return { state: { ...state, rng, cheatRollTotal, combat: newCombat }, effects };
+    }
+    return finalizeCombat({ ...state, rng, cheatRollTotal }, effects);
+  }
+
+  return { state, error: 'Invalid body check target' };
+}
+
+/**
+ * Finalize combat after all strikes are resolved.
+ *
+ * If all strikes were defeated (result === 'success'), the creature card
+ * moves from the hazard player's discard pile to the defending player's
+ * marshalling point pile. Otherwise it stays in discard.
+ */
+function finalizeCombat(state: GameState, effects: GameEffect[] = []): ReducerResult {
+  const combat = state.combat;
+  if (!combat) return { state, error: 'No combat to finalize' };
+
+  const allDefeated = combat.strikeAssignments.length > 0
+    && combat.strikeAssignments.every(a => a.result === 'success');
+
+  const newPlayers = clonePlayers(state);
+
+  if (allDefeated && combat.attackSource.type === 'creature') {
+    // Move creature from attacker's discard to defender's MP pile
+    const atkIdx = state.players.findIndex(p => p.id === combat.attackingPlayerId);
+    const defIdx = state.players.findIndex(p => p.id === combat.defendingPlayerId);
+    const creatureInstanceId = combat.attackSource.instanceId;
+
+    const atkDiscard = newPlayers[atkIdx].discardPile.filter(id => id !== creatureInstanceId);
+    newPlayers[atkIdx] = { ...newPlayers[atkIdx], discardPile: atkDiscard };
+    newPlayers[defIdx] = {
+      ...newPlayers[defIdx],
+      killPile: [...newPlayers[defIdx].killPile, creatureInstanceId],
+    };
+
+    logDetail(`All strikes defeated — creature moved to defender's MP pile`);
+  } else {
+    logDetail(`Combat ended — creature stays in attacker's discard`);
+  }
+
+  logDetail('Combat finalized — returning to enclosing phase');
+
+  return {
+    state: { ...state, players: newPlayers, combat: null },
+    effects,
+  };
 }

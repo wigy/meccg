@@ -12,7 +12,7 @@
  * helpers from this module to push entries onto the chain stack.
  */
 
-import type { GameState, GameAction, PlayerId, PlayerState, CardInstanceId, CardDefinitionId, ChainState, ChainEntry, ChainEntryPayload, ChainRestriction, DeferredPassive } from '../index.js';
+import type { GameState, GameAction, PlayerId, PlayerState, CardInstanceId, CardDefinitionId, ChainState, ChainEntry, ChainEntryPayload, ChainRestriction, DeferredPassive, CombatState, CreatureCard } from '../index.js';
 import { getPlayerIndex } from '../index.js';
 import { logHeading, logDetail } from './legal-actions/log.js';
 import type { ReducerResult } from './reducer.js';
@@ -372,6 +372,57 @@ function resolveEnvironmentCancel(state: GameState, targetInstanceId: CardInstan
 }
 
 /**
+ * Creates a CombatState when a creature chain entry resolves.
+ *
+ * The creature card was already moved to the hazard player's discard pile
+ * at play time. Combat will determine whether it moves to the defending
+ * player's marshalling point pile (all strikes defeated) or stays in discard.
+ */
+function initiateCreatureCombat(state: GameState, entry: ChainEntry): GameState {
+  const creatureDef = state.cardPool[entry.definitionId as string] as CreatureCard | undefined;
+  if (!creatureDef || creatureDef.cardType !== 'hazard-creature') {
+    logDetail(`Creature resolution: definition not found or not a creature — fizzle`);
+    return state;
+  }
+
+  // Determine defending company from M/H phase state
+  if (state.phaseState.phase !== 'movement-hazard') {
+    logDetail(`Creature resolution: not in M/H phase — fizzle`);
+    return state;
+  }
+  const mhState = state.phaseState;
+  const activePlayerIndex = state.players.findIndex(p => p.id === state.activePlayer);
+  const resourcePlayer = state.players[activePlayerIndex];
+  const company = resourcePlayer.companies[mhState.activeCompanyIndex];
+  if (!company) {
+    logDetail(`Creature resolution: no active company — fizzle`);
+    return state;
+  }
+
+  const hazardPlayerId = state.players.find(p => p.id !== state.activePlayer)!.id;
+
+  const combat: CombatState = {
+    attackSource: { type: 'creature', instanceId: entry.cardInstanceId! },
+    companyId: company.id,
+    defendingPlayerId: state.activePlayer!,
+    attackingPlayerId: hazardPlayerId,
+    strikesTotal: creatureDef.strikes,
+    strikeProwess: creatureDef.prowess,
+    creatureBody: creatureDef.body,
+    strikeAssignments: [],
+    currentStrikeIndex: 0,
+    phase: 'assign-strikes',
+    assignmentPhase: 'defender',
+    bodyCheckTarget: null,
+    detainment: false,
+  };
+
+  logDetail(`Creature combat initiated: ${creatureDef.name} (${creatureDef.strikes} strikes, ${creatureDef.prowess} prowess) vs company ${company.id as string}`);
+
+  return { ...state, combat };
+}
+
+/**
  * Resolves a single chain entry at the given index.
  *
  * Marks the entry as resolved and applies its effects. Short-events targeting
@@ -391,6 +442,10 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
   // Apply card effects based on payload type
   if (entry.payload.type === 'short-event' && entry.payload.targetInstanceId) {
     current = resolveEnvironmentCancel(current, entry.payload.targetInstanceId, chain);
+  }
+
+  if (entry.payload.type === 'creature' && entry.cardInstanceId && entry.definitionId) {
+    current = initiateCreatureCombat(current, entry);
   }
 
   // Mark entry as resolved

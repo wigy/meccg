@@ -21,6 +21,7 @@ import { siteActions } from './site.js';
 import { endOfTurnActions } from './end-of-turn.js';
 import { freeCouncilActions } from './free-council.js';
 import { chainActions } from './chain.js';
+import { combatActions } from './combat.js';
 import { logHeading, logResult } from './log.js';
 
 /** Wraps plain GameActions as viable EvaluatedActions (for non-setup phases). */
@@ -41,6 +42,15 @@ export function computeLegalActions(state: GameState, playerId: PlayerId): Evalu
   if (state.chain != null) {
     logHeading(`Chain active (${state.chain.mode}) — delegating to chain actions`);
     const evaluated = chainActions(state, playerId);
+    const viableCount = evaluated.filter(e => e.viable).length;
+    logResult(viableCount, evaluated.filter(e => e.viable).map(e => e.action) as unknown as Record<string, unknown>[]);
+    return evaluated;
+  }
+
+  // Combat sub-state takes priority over phase actions
+  if (state.combat != null) {
+    logHeading(`Combat active (phase: ${state.combat.phase}) — delegating to combat actions`);
+    const evaluated = combatActions(state, playerId);
     const viableCount = evaluated.filter(e => e.viable).length;
     logResult(viableCount, evaluated.filter(e => e.viable).map(e => e.action) as unknown as Record<string, unknown>[]);
     return evaluated;
