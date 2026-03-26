@@ -785,6 +785,35 @@ function buildGITooltip(
   </table>`;
 }
 
+/**
+ * Build a GI tooltip from drafted character definition IDs (used during character draft).
+ * Lists each drafted character with mind cost, sorted by mind descending.
+ */
+function buildDraftGITooltip(
+  drafted: readonly CardDefinitionId[],
+  cardPool: Readonly<Record<string, CardDefinition>>,
+): string {
+  const entries: { name: string; mind: number }[] = [];
+  for (const defId of drafted) {
+    const def = cardPool[defId as string];
+    if (!def || !isCharacterCard(def) || def.mind === null) continue;
+    entries.push({ name: def.name, mind: def.mind });
+  }
+  entries.sort((a, b) => b.mind - a.mind);
+
+  if (entries.length === 0) return '<div class="gi-tooltip-empty">No characters drafted</div>';
+
+  let rows = '';
+  for (const e of entries) {
+    rows += `<tr><td class="mp-label">${e.name}</td><td class="mp-value">${e.mind}</td></tr>`;
+  }
+  const total = entries.reduce((sum, e) => sum + e.mind, 0);
+  return `<table class="mp-tooltip-table">
+    <tbody>${rows}</tbody>
+    <tfoot><tr><td class="mp-label">Total</td><td class="mp-value mp-total">${total}</td></tr></tfoot>
+  </table>`;
+}
+
 /** Render player names and scores in the visual view. */
 export function renderPlayerNames(view: PlayerView, cardPool: Readonly<Record<string, CardDefinition>>): void {
   const selfEl = document.getElementById('self-name');
@@ -799,10 +828,32 @@ export function renderPlayerNames(view: PlayerView, cardPool: Readonly<Record<st
   if (selfEl) { selfEl.textContent = view.self.name; selfEl.title = view.self.name; }
   if (oppEl) { oppEl.textContent = view.opponent.name; oppEl.title = view.opponent.name; }
 
-  const selfGI = GENERAL_INFLUENCE - view.self.generalInfluenceUsed;
-  const oppGI = GENERAL_INFLUENCE - view.opponent.generalInfluenceUsed;
-  const selfGITooltip = buildGITooltip(view.self.characters, cardPool);
-  const oppGITooltip = buildGITooltip(view.opponent.characters, cardPool);
+  // During character draft, compute GI from drafted characters instead of in-play characters
+  let selfGI: number;
+  let oppGI: number;
+  let selfGITooltip: string;
+  let oppGITooltip: string;
+  if (view.phaseState.phase === 'setup' && view.phaseState.setupStep.step === 'character-draft') {
+    const draft = view.phaseState.setupStep;
+    const selfIdx = draft.draftState[0].pool.length > 0
+      && (draft.draftState[0].pool[0] as string) !== 'unknown-instance' ? 0 : 1;
+    const oppIdx = 1 - selfIdx;
+    const resolveDraft = (ids: readonly CardInstanceId[]): CardDefinitionId[] =>
+      ids.map(id => view.visibleInstances[id as string]).filter((d): d is CardDefinitionId => d !== undefined);
+    const selfDrafted = resolveDraft(draft.draftState[selfIdx].drafted);
+    const oppDrafted = resolveDraft(draft.draftState[oppIdx].drafted);
+    const selfMind = sumDraftedMind(selfDrafted, cardPool);
+    const oppMind = sumDraftedMind(oppDrafted, cardPool);
+    selfGI = GENERAL_INFLUENCE - selfMind;
+    oppGI = GENERAL_INFLUENCE - oppMind;
+    selfGITooltip = buildDraftGITooltip(selfDrafted, cardPool);
+    oppGITooltip = buildDraftGITooltip(oppDrafted, cardPool);
+  } else {
+    selfGI = GENERAL_INFLUENCE - view.self.generalInfluenceUsed;
+    oppGI = GENERAL_INFLUENCE - view.opponent.generalInfluenceUsed;
+    selfGITooltip = buildGITooltip(view.self.characters, cardPool);
+    oppGITooltip = buildGITooltip(view.opponent.characters, cardPool);
+  }
 
   const selfScoreEl = document.getElementById('self-score');
   if (selfScoreEl) {
@@ -1570,29 +1621,11 @@ export function renderDrafted(
       selfEl.appendChild(createFaceDownCard('Your pick (face down)'));
     }
 
-    // Show remaining GI for self
-    const selfMind = sumDraftedMind(resolveDraft(draft.draftState[selfIdx].drafted), cardPool);
-    if (draft.draftState[selfIdx].drafted.length > 0) {
-      const badge = document.createElement('div');
-      badge.className = 'mind-total';
-      badge.innerHTML = `<span class="mind-total-label">Remaining GI</span>${GENERAL_INFLUENCE - selfMind}`;
-      selfEl.appendChild(badge);
-    }
-
     renderCardRow(oppEl, resolveDraft(draft.draftState[oppIdx].drafted), cardPool);
 
     // Show face-down pick if opponent has picked this round
     if (draft.draftState[oppIdx].currentPick !== null) {
       oppEl.appendChild(createFaceDownCard('Opponent pick (face down)'));
-    }
-
-    // Show remaining GI for opponent
-    const oppMind = sumDraftedMind(resolveDraft(draft.draftState[oppIdx].drafted), cardPool);
-    if (draft.draftState[oppIdx].drafted.length > 0) {
-      const badge = document.createElement('div');
-      badge.className = 'mind-total mind-total-opponent';
-      badge.innerHTML = `<span class="mind-total-label">Remaining GI</span>${GENERAL_INFLUENCE - oppMind}`;
-      oppEl.appendChild(badge);
     }
 
     // Show set-aside (collisioned) characters on the left
