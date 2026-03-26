@@ -414,6 +414,17 @@ export interface OrderEffectsAction {
  * phase. Creatures must be keyed to the company's travel path. The number
  * of hazards per company is limited by the hazard limit (company size).
  */
+/**
+ * Describes how a creature was keyed to the company's travel path.
+ * Each match records the keying method and the specific value that matched.
+ */
+export interface CreatureKeyingMatch {
+  /** How the creature was keyed: by region type, region name, or site type. */
+  readonly method: 'region-type' | 'region-name' | 'site-type';
+  /** The specific value that matched (e.g. "wilderness", "Arthedain", "ruins-and-lairs"). */
+  readonly value: string;
+}
+
 export interface PlayHazardAction {
   readonly type: 'play-hazard';
   /** The player (the non-active player) playing the hazard. */
@@ -424,6 +435,8 @@ export interface PlayHazardAction {
   readonly targetCompanyId: CompanyId;
   /** For corruption hazards, the specific character being targeted. */
   readonly targetCharacterId?: CardInstanceId;
+  /** For creatures, describes which keying rule matched the travel path. */
+  readonly keyedBy?: CreatureKeyingMatch;
 }
 
 /**

@@ -6,7 +6,7 @@
  * sub-states further constrain available actions.
  */
 
-import type { GameState, PlayerId, GameAction, EvaluatedAction, MovementHazardPhaseState, SiteCard, CardDefinitionId, CardInstanceId, CreatureCard } from '../../index.js';
+import type { GameState, PlayerId, GameAction, EvaluatedAction, MovementHazardPhaseState, SiteCard, CardDefinitionId, CardInstanceId, CreatureCard, CreatureKeyingMatch } from '../../index.js';
 import { getPlayerIndex, isSiteCard, buildMovementMap, findRegionPaths, HAND_SIZE, RegionType } from '../../index.js';
 import { MovementType } from '../../types/common.js';
 import { logDetail, logHeading } from './log.js';
@@ -370,14 +370,20 @@ function playHazardsActions(
           actions.push({ action, viable: false, reason: 'Creatures must initiate a new chain' });
           continue;
         }
-        const keyError = checkCreatureKeyability(def, mhState);
-        if (keyError) {
+        const matches = findCreatureKeyingMatches(def, mhState);
+        if (matches.length === 0) {
+          const keyError = describeKeyingRequirement(def);
           logDetail(`Creature "${def.name}" not keyable: ${keyError}`);
           actions.push({ action, viable: false, reason: keyError });
           continue;
         }
-        logDetail(`Creature "${def.name}" is keyable and playable`);
-        actions.push({ action, viable: true });
+        for (const match of matches) {
+          logDetail(`Creature "${def.name}" keyable by ${match.method}: ${match.value}`);
+          actions.push({
+            action: { ...action, keyedBy: match },
+            viable: true,
+          });
+        }
         continue;
       }
 
@@ -542,34 +548,49 @@ function regionTypesMatch(required: readonly RegionType[], path: readonly Region
 }
 
 /**
- * Check whether a creature can be keyed to the current company's site path
- * or destination site.
- *
- * Returns an error message if not keyable, or undefined if legal.
+ * Find all keying matches for a creature against the current company's
+ * travel path and destination site. Returns one entry per distinct match.
  */
-function checkCreatureKeyability(def: CreatureCard, mhState: MovementHazardPhaseState): string | undefined {
+function findCreatureKeyingMatches(def: CreatureCard, mhState: MovementHazardPhaseState): CreatureKeyingMatch[] {
+  const matches: CreatureKeyingMatch[] = [];
+  const seen = new Set<string>();
+
   for (const key of def.keyedTo) {
-    // Check region types against site path (count-based: if the creature
-    // lists a type N times, the path must contain at least N of that type)
+    // Region type matches
     if (key.regionTypes && key.regionTypes.length > 0) {
       if (regionTypesMatch(key.regionTypes, mhState.resolvedSitePath)) {
-        return undefined;
+        // Report each matching region type individually
+        for (const rt of key.regionTypes) {
+          if (mhState.resolvedSitePath.includes(rt)) {
+            const k = `region-type:${rt}`;
+            if (!seen.has(k)) { seen.add(k); matches.push({ method: 'region-type', value: rt }); }
+          }
+        }
       }
     }
-    // Check region names against site path names
+    // Region name matches
     if (key.regionNames && key.regionNames.length > 0) {
-      if (key.regionNames.some(rn => mhState.resolvedSitePathNames.includes(rn))) {
-        return undefined;
+      for (const rn of key.regionNames) {
+        if (mhState.resolvedSitePathNames.includes(rn)) {
+          const k = `region-name:${rn}`;
+          if (!seen.has(k)) { seen.add(k); matches.push({ method: 'region-name', value: rn }); }
+        }
       }
     }
-    // Check site types against destination
+    // Site type matches
     if (key.siteTypes && key.siteTypes.length > 0 && mhState.destinationSiteType) {
       if (key.siteTypes.includes(mhState.destinationSiteType)) {
-        return undefined;
+        const k = `site-type:${mhState.destinationSiteType}`;
+        if (!seen.has(k)) { seen.add(k); matches.push({ method: 'site-type', value: mhState.destinationSiteType }); }
       }
     }
   }
 
+  return matches;
+}
+
+/** Build a human-readable keying requirement string for error messages. */
+function describeKeyingRequirement(def: CreatureCard): string {
   const keyDesc = def.keyedTo.map(k => {
     const parts: string[] = [];
     if (k.regionTypes?.length) parts.push(k.regionTypes.join('/'));

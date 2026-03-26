@@ -1143,8 +1143,6 @@ function findCardAction(
       && visibleInstances[action.cardInstanceId as string] === defId) return action;
     if (action.type === 'play-long-event' && visibleInstances
       && visibleInstances[action.cardInstanceId as string] === defId) return action;
-    if (action.type === 'play-hazard' && visibleInstances
-      && visibleInstances[action.cardInstanceId as string] === defId) return action;
   }
   return null;
 }
@@ -1160,6 +1158,20 @@ function findShortEventActions(
   if (!instanceId) return [];
   return legalActions.filter(
     a => a.type === 'play-short-event' && a.cardInstanceId === instanceId,
+  );
+}
+
+/**
+ * Find all play-hazard actions for a given card instance.
+ * Creatures may have multiple entries with different keying methods.
+ */
+function findHazardActions(
+  instanceId: CardInstanceId | null,
+  legalActions: readonly GameAction[],
+): GameAction[] {
+  if (!instanceId) return [];
+  return legalActions.filter(
+    a => a.type === 'play-hazard' && a.cardInstanceId === instanceId,
   );
 }
 
@@ -1212,6 +1224,42 @@ function showShortEventTargetMenu(
     const btn = document.createElement('button');
     btn.className = 'char-action-tooltip__btn';
     btn.textContent = label;
+    btn.addEventListener('click', () => {
+      backdrop.remove();
+      onAction(action);
+    });
+    tooltip.appendChild(btn);
+  }
+
+  backdrop.appendChild(tooltip);
+  document.body.appendChild(backdrop);
+}
+
+/**
+ * Show a disambiguation tooltip for creature hazards with multiple keying
+ * methods. Each button describes a keying match; clicking it sends the action.
+ */
+function showHazardKeyingMenu(
+  event: MouseEvent,
+  actions: readonly GameAction[],
+  onAction: (action: GameAction) => void,
+): void {
+  document.querySelector('.chain-target-backdrop')?.remove();
+
+  const backdrop = document.createElement('div');
+  backdrop.className = 'chain-target-backdrop';
+  backdrop.addEventListener('click', () => backdrop.remove());
+
+  const tooltip = document.createElement('div');
+  tooltip.className = 'chain-target-tooltip';
+  tooltip.style.left = `${event.clientX}px`;
+  tooltip.style.top = `${event.clientY}px`;
+
+  for (const action of actions) {
+    if (action.type !== 'play-hazard' || !action.keyedBy) continue;
+    const btn = document.createElement('button');
+    btn.className = 'char-action-tooltip__btn';
+    btn.textContent = `Keyed by ${action.keyedBy.method}: ${action.keyedBy.value}`;
     btn.addEventListener('click', () => {
       backdrop.remove();
       onAction(action);
@@ -1929,10 +1977,12 @@ export function renderHand(
     const isPlayChar = isPlayCharacterCard(cardDefId, viable, view.visibleInstances);
     const shortEventActions = findShortEventActions(cardInstanceId, viable);
     const isShortEvent = shortEventActions.length > 0;
+    const hazardActions = findHazardActions(cardInstanceId, viable);
+    const isHazard = hazardActions.length > 0;
     const discardAction = cardInstanceId
       ? viable.find(a => a.type === 'discard-card' && a.cardInstanceId === cardInstanceId)
       : undefined;
-    const nonViableReason = !action && !isItemDraft && !isPlayChar && !isShortEvent && !discardAction
+    const nonViableReason = !action && !isItemDraft && !isPlayChar && !isShortEvent && !isHazard && !discardAction
       ? findNonViableReason(cardDefId, view.legalActions, view.visibleInstances)
       : undefined;
     const isSelected = selectedItemDefId === cardDefId;
@@ -1990,6 +2040,18 @@ export function renderHand(
         } else {
           img.addEventListener('click', (e) => {
             showShortEventTargetMenu(e, shortEventActions, view, cardPool, onAction);
+          });
+        }
+      }
+    } else if (isHazard) {
+      // Hazard creature/event: single keying plays directly, multiple show menu
+      img.className = 'hand-card hand-card-playable';
+      if (onAction) {
+        if (hazardActions.length === 1) {
+          img.addEventListener('click', () => onAction(hazardActions[0]));
+        } else {
+          img.addEventListener('click', (e) => {
+            showHazardKeyingMenu(e, hazardActions, onAction);
           });
         }
       }

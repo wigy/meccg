@@ -890,8 +890,11 @@ export function describeAction(
       return `Play permanent event ${instName(action.cardInstanceId)}`;
     case 'play-short-event':
       return `Play ${instName(action.cardInstanceId)} to cancel ${instName(action.targetInstanceId)}`;
-    case 'play-hazard':
-      return `Play hazard ${instName(action.cardInstanceId)} against ${compName(action.targetCompanyId)}`;
+    case 'play-hazard': {
+      const base = `Play hazard ${instName(action.cardInstanceId)} against ${compName(action.targetCompanyId)}`;
+      if (action.keyedBy) return `${base} (keyed by ${action.keyedBy.method}: ${action.keyedBy.value})`;
+      return base;
+    }
     case 'assign-strike':
       return `Assign strike to ${instName(action.characterId)}`;
     case 'resolve-strike':
