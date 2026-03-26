@@ -7,8 +7,6 @@ FIXES
 FEATS
 -----
 
-Inform opponent every time when cheat is used.
-
 EPICS
 -----
 
@@ -17,11 +15,11 @@ Combat
 Sideboard
 Untap Phase
 Council and End Game
+Central server.
 Setup Minion
 Setup Fw
 Setup Balrog
 Loadable hero decks in JSON files.
-Central server.
 Deck collection, internal file format and validation
 The Wizards
 The Dragons

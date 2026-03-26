@@ -531,7 +531,7 @@ export class GameSession {
     }
     this.state = { ...this.state, cheatRollTotal: total };
     console.log(`Cheat roll set: next dice roll will total ${total}`);
-    this.send(ws, { type: 'info', message: `Next roll will be ${total}.` });
+    this.broadcastToAll({ type: 'info', message: `CHEAT: next roll will be ${total}.` });
   }
 
   /** Dev-only: create a new instance of any card in the card pool and add it to the player's hand. */
@@ -591,7 +591,7 @@ export class GameSession {
 
     console.log(`Summon: created ${matchName} (${matchDefId}) as ${newInstanceId as string} → ${playerId} hand`);
     this.broadcastStateWithLogs();
-    this.send(ws, { type: 'info', message: `Summoned ${matchName}.` });
+    this.broadcastToAll({ type: 'info', message: `CHEAT: summoned ${matchName}.` });
   }
 
   // ---- Disconnect / Save / Restore ----
