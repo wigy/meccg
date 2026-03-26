@@ -822,7 +822,9 @@ h2 {
 
 .deck-pile-label {
   position: absolute;
-  transform: translate(-13%, 50%);
+  right: 0;
+  top: 0;
+  transform: translate(25%, -25%);
   z-index: 1;
   font-family: 'MedievalSharp', cursive;
   font-size: 0.8rem;

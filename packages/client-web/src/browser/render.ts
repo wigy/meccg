@@ -783,60 +783,26 @@ export function renderPlayerNames(view: PlayerView): void {
 }
 
 /**
- * Render a draw deck as a small pile of card-back images into a container.
- * The number of visible cards scales proportionally with deck size,
- * capped at a maximum stack height to avoid visual clutter.
+ * Render a draw deck as a single card-back image with a count badge.
  */
 function fillDeckPile(el: HTMLElement, deckSize: number, backImage = '/images/card-back.jpg'): void {
   el.innerHTML = '';
-  if (deckSize === 0) {
-    // Show a dimmed placeholder of the card back
-    const wrapper = document.createElement('div');
-    wrapper.className = 'deck-pile-wrapper';
-    const img = document.createElement('img');
-    img.src = backImage;
-    img.alt = 'Empty deck';
-    img.className = 'deck-pile-card deck-pile-card--empty';
-    img.style.position = 'relative';
-    wrapper.appendChild(img);
-    const label = document.createElement('div');
-    label.className = 'deck-pile-label';
-    label.textContent = '0';
-    label.style.right = '0';
-    label.style.top = '0';
-    wrapper.appendChild(label);
-    el.appendChild(wrapper);
-    return;
-  }
-
-  // Show 1 card per ~4 in deck, min 1, max 8 visible layers
-  const layers = Math.min(8, Math.max(1, Math.ceil(deckSize / 4)));
 
   const wrapper = document.createElement('div');
   wrapper.className = 'deck-pile-wrapper';
 
-  for (let i = 0; i < layers; i++) {
-    const img = document.createElement('img');
-    img.src = backImage;
-    img.alt = `Deck (${deckSize})`;
-    img.className = 'deck-pile-card';
-    if (i === 0) {
-      img.style.position = 'relative';
-    } else {
-      img.style.bottom = `${i * 2}px`;
-      img.style.left = `${i * 1}px`;
-    }
-    wrapper.appendChild(img);
-  }
+  const img = document.createElement('img');
+  img.src = backImage;
+  img.alt = `Deck (${deckSize})`;
+  img.className = deckSize === 0 ? 'deck-pile-card deck-pile-card--empty' : 'deck-pile-card';
+  img.style.position = 'relative';
+  wrapper.appendChild(img);
 
-  // Position label at the top-right corner of the top card
-  const topCard = layers - 1;
   const label = document.createElement('div');
   label.className = 'deck-pile-label';
   label.textContent = String(deckSize);
-  label.style.right = `${-topCard * 1}px`;
-  label.style.top = `${-topCard * 2}px`;
   wrapper.appendChild(label);
+
   el.appendChild(wrapper);
 }
 
