@@ -506,7 +506,8 @@ h2 {
   transform: translateX(-50%);
   z-index: var(--z-instruction);
   pointer-events: none;
-  max-width: 75vw;
+  width: 80vw;
+  max-width: 80vw;
   white-space: normal;
 }
 
@@ -2184,3 +2185,199 @@ h2 {
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.6);
   z-index: var(--z-action-menu);
 }
+
+/* ---- Combat Arena ---- */
+
+.combat-arena {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  height: 100%;
+  position: relative;
+  padding: 1rem 2rem;
+  gap: 0.5rem;
+}
+
+.combat-row {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+  flex: 0 0 auto;
+}
+
+.combat-attacker {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.combat-card--attacker {
+  height: var(--card-table-height);
+  width: auto;
+  border-radius: 8px;
+  box-shadow: 0 0 16px rgba(200, 60, 40, 0.6);
+}
+
+.combat-attack-stats {
+  display: flex;
+  gap: 1rem;
+  font-size: 0.9rem;
+  color: rgba(255, 220, 180, 0.9);
+  background: rgba(60, 30, 20, 0.7);
+  padding: 4px 12px;
+  border-radius: 4px;
+  border: 1px solid rgba(200, 100, 60, 0.4);
+}
+
+.combat-detainment-badge {
+  color: #ffa;
+  font-style: italic;
+}
+
+.combat-unassigned-strikes {
+  display: flex;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.combat-strike-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: rgba(220, 100, 60, 0.8);
+  border: 1px solid rgba(255, 150, 80, 0.6);
+}
+
+.combat-defender {
+  display: flex;
+  justify-content: center;
+  gap: 1.5rem;
+  --company-scale: 1;
+}
+
+.combat-phase-banner {
+  text-align: center;
+  font-size: 1rem;
+  font-weight: bold;
+  color: rgba(255, 220, 160, 0.95);
+  background: rgba(40, 30, 20, 0.8);
+  border: 1px solid rgba(200, 150, 80, 0.5);
+  border-radius: 6px;
+  padding: 6px 16px;
+  flex: 0 0 auto;
+}
+
+/* Combat character highlights */
+
+.combat-card--assignable {
+  box-shadow: 0 0 12px 4px rgba(var(--color-selectable), 0.7) !important;
+  cursor: pointer;
+}
+.combat-card--assignable:hover {
+  box-shadow: 0 0 18px 6px rgba(var(--color-selectable), 0.9) !important;
+}
+
+.combat-card--supportable {
+  box-shadow: 0 0 12px 4px rgba(var(--color-target), 0.7) !important;
+  cursor: pointer;
+}
+.combat-card--supportable:hover {
+  box-shadow: 0 0 18px 6px rgba(var(--color-target), 0.9) !important;
+}
+
+.combat-card--strike-assigned {
+  box-shadow: 0 0 10px 3px rgba(220, 120, 50, 0.6) !important;
+}
+
+.combat-card--current-strike {
+  box-shadow: 0 0 14px 5px rgba(255, 160, 60, 0.8) !important;
+  animation: combat-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes combat-pulse {
+  0%, 100% { box-shadow: 0 0 14px 5px rgba(255, 160, 60, 0.8); }
+  50% { box-shadow: 0 0 20px 8px rgba(255, 180, 80, 1); }
+}
+
+.combat-card--strike-success {
+  box-shadow: 0 0 12px 4px rgba(80, 200, 80, 0.6) !important;
+}
+
+.combat-card--strike-wounded {
+  box-shadow: 0 0 12px 4px rgba(200, 50, 50, 0.6) !important;
+}
+
+.combat-card--strike-eliminated {
+  box-shadow: 0 0 12px 4px rgba(100, 50, 50, 0.6) !important;
+  opacity: 0.5;
+  filter: grayscale(0.7);
+}
+
+/* Excess strike badge — red circle, bottom-left of character */
+.combat-excess-badge {
+  position: absolute;
+  bottom: 4px;
+  left: 4px;
+  background: rgba(180, 40, 40, 0.9);
+  color: #fff;
+  font-size: 0.7rem;
+  font-weight: bold;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(255, 100, 80, 0.6);
+}
+
+/* Strike result overlay icon */
+.combat-result-overlay {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 2.5rem;
+  text-shadow: 0 0 8px rgba(0, 0, 0, 0.8);
+  pointer-events: none;
+}
+.combat-result-overlay--success { color: rgba(80, 220, 80, 0.9); }
+.combat-result-overlay--wounded { color: rgba(220, 60, 60, 0.9); }
+.combat-result-overlay--eliminated { color: rgba(160, 40, 40, 0.95); }
+
+/* SVG arrow overlay */
+.combat-arrows {
+  position: absolute;
+  top: 0;
+  left: 0;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.combat-arrow {
+  stroke: rgba(220, 100, 60, 0.7);
+  stroke-width: 2;
+  fill: none;
+}
+
+.combat-arrow--active {
+  stroke: rgba(255, 160, 60, 0.9);
+  stroke-width: 3;
+  animation: arrow-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes arrow-pulse {
+  0%, 100% { stroke-opacity: 0.9; stroke-width: 3; }
+  50% { stroke-opacity: 1; stroke-width: 4; }
+}
+
+.combat-arrow--resolved {
+  stroke-opacity: 0.5;
+  stroke-width: 1.5;
+}
+.combat-arrow--success { stroke: rgba(80, 200, 80, 0.6); }
+.combat-arrow--wound { stroke: rgba(200, 50, 50, 0.6); }

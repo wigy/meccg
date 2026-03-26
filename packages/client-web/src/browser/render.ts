@@ -1480,7 +1480,7 @@ function buildMovementPathHtml(
       : '';
     parts.push(`${names[i]} ${icon}`);
   }
-  return isRegion ? `${label}<br/>${parts.join(' ')}` : `${label} ${parts.join(' ')}`;
+  return `${label} ${parts.join(' ')}`;
 }
 
 /**

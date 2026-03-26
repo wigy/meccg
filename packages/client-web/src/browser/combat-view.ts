@@ -1,0 +1,454 @@
+/**
+ * @module combat-view
+ *
+ * Renders the combat arena as a third view mode in the visual board,
+ * activated automatically when `view.combat` is non-null. Displays
+ * two rows of combatants (attacker vs defender) with SVG arrows
+ * showing strike assignments between them.
+ *
+ * Perspective depends on the viewing player: if you are the defender,
+ * your characters appear on the bottom row; if you are the attacker,
+ * the creature you played is on the bottom and defenders are on top.
+ */
+
+import type {
+  PlayerView,
+  GameAction,
+  CardDefinition,
+  CombatState,
+  CharacterInPlay,
+  Company,
+  OpponentCompanyView,
+  AssignStrikeAction,
+  SupportStrikeAction,
+} from '@meccg/shared';
+import { cardImageProxyPath, viableActions, CardStatus } from '@meccg/shared';
+import { createCardImage } from './render-utils.js';
+
+/**
+ * Render the combat arena into the visual board container.
+ * Replaces the normal company view while combat is active.
+ */
+export function renderCombatView(
+  board: HTMLElement,
+  view: PlayerView,
+  cardPool: Readonly<Record<string, CardDefinition>>,
+  onAction: (action: GameAction) => void,
+): void {
+  const combat = view.combat;
+  if (!combat) return;
+
+  const arena = document.createElement('div');
+  arena.className = 'combat-arena';
+
+  // Determine perspective: defender sees own characters on bottom
+  const iAmDefender = view.self.id === combat.defendingPlayerId;
+
+  // Phase banner
+  arena.appendChild(renderPhaseBanner(combat, iAmDefender));
+
+  // Gather legal actions for click handlers
+  const viable = viableActions(view.legalActions);
+  const assignActions = viable.filter((a): a is AssignStrikeAction => a.type === 'assign-strike');
+  const supportActions = viable.filter((a): a is SupportStrikeAction => a.type === 'support-strike');
+
+  // Build attacker row and defender row
+  const attackerRow = renderAttackerRow(combat, view, cardPool);
+  const defenderRow = renderDefenderRow(combat, view, cardPool, assignActions, supportActions, onAction);
+
+  // Top row is the "opponent" side, bottom row is "my" side
+  const topRow = document.createElement('div');
+  topRow.className = 'combat-row combat-row--top';
+
+  const bottomRow = document.createElement('div');
+  bottomRow.className = 'combat-row combat-row--bottom';
+
+  if (iAmDefender) {
+    topRow.appendChild(attackerRow);
+    bottomRow.appendChild(defenderRow);
+  } else {
+    topRow.appendChild(defenderRow);
+    bottomRow.appendChild(attackerRow);
+  }
+
+  arena.appendChild(topRow);
+
+  // SVG arrows placeholder — drawn after layout
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  svg.classList.add('combat-arrows');
+  // Arrow marker definition
+  const defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
+  defs.innerHTML = `
+    <marker id="combat-arrowhead" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+      <polygon points="0 0, 8 3, 0 6" fill="rgba(220, 100, 60, 0.9)" />
+    </marker>
+    <marker id="combat-arrowhead-success" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+      <polygon points="0 0, 8 3, 0 6" fill="rgba(80, 200, 80, 0.9)" />
+    </marker>
+    <marker id="combat-arrowhead-wound" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+      <polygon points="0 0, 8 3, 0 6" fill="rgba(200, 50, 50, 0.9)" />
+    </marker>
+  `;
+  svg.appendChild(defs);
+  arena.appendChild(svg);
+
+  arena.appendChild(bottomRow);
+
+  board.appendChild(arena);
+
+  // Draw arrows after DOM layout is computed
+  requestAnimationFrame(() => {
+    drawStrikeArrows(svg, combat, iAmDefender);
+  });
+}
+
+// ---- Phase banner ----
+
+/** Render the combat phase heading and status info. */
+function renderPhaseBanner(combat: CombatState, iAmDefender: boolean): HTMLElement {
+  const banner = document.createElement('div');
+  banner.className = 'combat-phase-banner';
+
+  let phaseText: string;
+  if (combat.phase === 'assign-strikes') {
+    const whose = combat.assignmentPhase === 'defender'
+      ? (iAmDefender ? 'Your turn' : "Defender's turn")
+      : (iAmDefender ? "Attacker's turn" : 'Your turn');
+    phaseText = `Assign Strikes \u2014 ${whose}`;
+  } else if (combat.phase === 'resolve-strike') {
+    phaseText = `Resolve Strike ${combat.currentStrikeIndex + 1} of ${combat.strikesTotal}`;
+  } else {
+    const target = combat.bodyCheckTarget === 'creature' ? 'Creature' : 'Character';
+    phaseText = `Body Check \u2014 ${target}`;
+  }
+
+  // Strike stats
+  const assigned = combat.strikeAssignments.length;
+  const remaining = combat.strikesTotal - assigned;
+  const statsText = combat.phase === 'assign-strikes'
+    ? ` \u2022 ${assigned} assigned, ${remaining} remaining`
+    : '';
+
+  banner.textContent = phaseText + statsText;
+  return banner;
+}
+
+// ---- Attacker row ----
+
+/** Render the attacker side: creature card + stats. */
+function renderAttackerRow(
+  combat: CombatState,
+  view: PlayerView,
+  cardPool: Readonly<Record<string, CardDefinition>>,
+): HTMLElement {
+  const container = document.createElement('div');
+  container.className = 'combat-attacker';
+
+  if (combat.attackSource.type === 'creature') {
+    const defId = view.visibleInstances[combat.attackSource.instanceId as string];
+    const def = defId ? cardPool[defId as string] : undefined;
+    if (def) {
+      const imgPath = cardImageProxyPath(def);
+      if (imgPath) {
+        const img = createCardImage(defId as string, def, imgPath, 'combat-card combat-card--attacker', combat.attackSource.instanceId as string);
+        container.appendChild(img);
+      }
+    }
+  }
+
+  // Stats label
+  const stats = document.createElement('div');
+  stats.className = 'combat-attack-stats';
+  const strikesSpan = document.createElement('span');
+  strikesSpan.textContent = `${combat.strikesTotal} strike${combat.strikesTotal !== 1 ? 's' : ''} at ${combat.strikeProwess} prowess`;
+  stats.appendChild(strikesSpan);
+  if (combat.creatureBody !== null) {
+    const bodySpan = document.createElement('span');
+    bodySpan.textContent = `Body: ${combat.creatureBody}`;
+    stats.appendChild(bodySpan);
+  }
+  if (combat.detainment) {
+    const detSpan = document.createElement('span');
+    detSpan.className = 'combat-detainment-badge';
+    detSpan.textContent = 'Detainment';
+    stats.appendChild(detSpan);
+  }
+
+  // Unassigned strike indicators
+  const remaining = combat.strikesTotal - combat.strikeAssignments.length;
+  if (remaining > 0 && combat.phase === 'assign-strikes') {
+    const dots = document.createElement('div');
+    dots.className = 'combat-unassigned-strikes';
+    for (let i = 0; i < remaining; i++) {
+      const dot = document.createElement('span');
+      dot.className = 'combat-strike-dot';
+      dots.appendChild(dot);
+    }
+    container.appendChild(dots);
+  }
+
+  container.appendChild(stats);
+  return container;
+}
+
+// ---- Defender row ----
+
+/** Render the defender side: character columns with combat-specific click handlers. */
+function renderDefenderRow(
+  combat: CombatState,
+  view: PlayerView,
+  cardPool: Readonly<Record<string, CardDefinition>>,
+  assignActions: AssignStrikeAction[],
+  supportActions: SupportStrikeAction[],
+  onAction: (action: GameAction) => void,
+): HTMLElement {
+  const container = document.createElement('div');
+  container.className = 'combat-defender';
+
+  // Find the defending company and characters
+  const company = findCompany(combat.companyId, view);
+  if (!company) return container;
+
+  const iAmDefender = view.self.id === combat.defendingPlayerId;
+  const charMap = iAmDefender ? view.self.characters : view.opponent.characters;
+
+  // Build a set of assignable character IDs for quick lookup
+  const assignableIds = new Set(assignActions.map(a => a.characterId as string));
+
+  // Build a set of characters that can support the current strike
+  const supportableIds = new Set(supportActions.map(a => a.supportingCharacterId as string));
+
+  // Build a map of character ID → strike assignment info
+  const strikeMap = new Map<string, { index: number; assignment: CombatState['strikeAssignments'][number] }>();
+  for (let i = 0; i < combat.strikeAssignments.length; i++) {
+    const sa = combat.strikeAssignments[i];
+    // A character can appear multiple times (excess strikes), track the first
+    if (!strikeMap.has(sa.characterId as string)) {
+      strikeMap.set(sa.characterId as string, { index: i, assignment: sa });
+    }
+  }
+
+  for (const charId of company.characters) {
+    const char = charMap[charId as string];
+    if (!char) continue;
+
+    const col = renderCombatCharacterColumn(char, cardPool, combat, strikeMap, assignableIds, supportableIds, assignActions, supportActions, onAction);
+    container.appendChild(col);
+  }
+
+  return container;
+}
+
+/** Find a company by ID across both players' data. */
+function findCompany(companyId: CombatState['companyId'], view: PlayerView): Company | OpponentCompanyView | undefined {
+  return (
+    view.self.companies.find(c => c.id === companyId) ??
+    view.opponent.companies.find(c => c.id === companyId)
+  );
+}
+
+// ---- Character column for combat ----
+
+/** Render a single character column with combat-specific highlights and click handlers. */
+function renderCombatCharacterColumn(
+  char: CharacterInPlay,
+  cardPool: Readonly<Record<string, CardDefinition>>,
+  combat: CombatState,
+  strikeMap: Map<string, { index: number; assignment: CombatState['strikeAssignments'][number] }>,
+  assignableIds: Set<string>,
+  supportableIds: Set<string>,
+  assignActions: AssignStrikeAction[],
+  supportActions: SupportStrikeAction[],
+  onAction: (action: GameAction) => void,
+): HTMLElement {
+  const col = document.createElement('div');
+  col.className = 'character-column';
+  col.dataset.combatCharId = char.instanceId as string;
+
+  const def = cardPool[char.definitionId as string];
+  if (!def) return col;
+  const imgPath = cardImageProxyPath(def);
+  if (!imgPath) return col;
+
+  // Character card wrapper
+  const wrap = document.createElement('div');
+  wrap.className = 'character-card-wrap';
+
+  const hasAttachments = char.items.length > 0 || char.allies.length > 0;
+  const img = createCardImage(char.definitionId as string, def, imgPath, 'company-card', char.instanceId as string);
+  if (hasAttachments) img.classList.add('company-card--faded');
+  if (char.status === CardStatus.Tapped) {
+    img.classList.add('company-card--tapped');
+    wrap.classList.add('character-card-wrap--tapped');
+  } else if (char.status === CardStatus.Inverted) {
+    img.classList.add('company-card--wounded');
+  }
+
+  // Combat-specific styling
+  const charIdStr = char.instanceId as string;
+  const strike = strikeMap.get(charIdStr);
+  const isCurrentStrike = strike !== undefined && strike.index === combat.currentStrikeIndex && !strike.assignment.resolved;
+  const isAssignable = assignableIds.has(charIdStr);
+  const isSupportable = supportableIds.has(charIdStr);
+
+  if (isAssignable) {
+    img.classList.add('combat-card--assignable');
+    img.style.cursor = 'pointer';
+    const action = assignActions.find(a => a.characterId === char.instanceId);
+    if (action) {
+      img.addEventListener('click', (e) => {
+        e.stopPropagation();
+        onAction(action);
+      });
+    }
+  } else if (isSupportable && combat.phase === 'resolve-strike') {
+    img.classList.add('combat-card--supportable');
+    img.style.cursor = 'pointer';
+    const action = supportActions.find(a => a.supportingCharacterId === char.instanceId);
+    if (action) {
+      img.addEventListener('click', (e) => {
+        e.stopPropagation();
+        onAction(action);
+      });
+    }
+  }
+
+  if (strike) {
+    if (strike.assignment.resolved) {
+      const result = strike.assignment.result;
+      if (result === 'success') img.classList.add('combat-card--strike-success');
+      else if (result === 'wounded') img.classList.add('combat-card--strike-wounded');
+      else if (result === 'eliminated') img.classList.add('combat-card--strike-eliminated');
+    } else if (isCurrentStrike) {
+      img.classList.add('combat-card--current-strike');
+    } else {
+      img.classList.add('combat-card--strike-assigned');
+    }
+  }
+
+  wrap.appendChild(img);
+
+  // Stats badge — prowess/body
+  const badge = document.createElement('div');
+  badge.className = 'char-stats-badge';
+  badge.textContent = `${char.effectiveStats.prowess}/${char.effectiveStats.body}`;
+  wrap.appendChild(badge);
+
+  // Excess strikes indicator
+  if (strike && strike.assignment.excessStrikes > 0) {
+    const excessBadge = document.createElement('div');
+    excessBadge.className = 'combat-excess-badge';
+    excessBadge.textContent = `\u2212${strike.assignment.excessStrikes}`;
+    excessBadge.title = `${strike.assignment.excessStrikes} excess strike${strike.assignment.excessStrikes !== 1 ? 's' : ''} (-${strike.assignment.excessStrikes} prowess)`;
+    wrap.appendChild(excessBadge);
+  }
+
+  // Strike result overlay icon
+  if (strike?.assignment.resolved && strike.assignment.result) {
+    const overlay = document.createElement('div');
+    overlay.className = 'combat-result-overlay';
+    if (strike.assignment.result === 'success') {
+      overlay.textContent = '\u2714'; // checkmark
+      overlay.classList.add('combat-result-overlay--success');
+    } else if (strike.assignment.result === 'wounded') {
+      overlay.textContent = '\u2620'; // skull and crossbones — wounded
+      overlay.classList.add('combat-result-overlay--wounded');
+    } else {
+      overlay.textContent = '\u2716'; // heavy X — eliminated
+      overlay.classList.add('combat-result-overlay--eliminated');
+    }
+    wrap.appendChild(overlay);
+  }
+
+  col.appendChild(wrap);
+
+  // Items (non-follower belongings) shown below
+  const items = [...char.items, ...char.allies];
+  if (items.length > 0) {
+    const attachments = document.createElement('div');
+    attachments.className = 'character-attachments';
+    for (const item of items) {
+      const itemDef = cardPool[item.definitionId as string];
+      if (!itemDef) continue;
+      const itemImg = cardImageProxyPath(itemDef);
+      if (!itemImg) continue;
+      const itemEl = createCardImage(item.definitionId as string, itemDef, itemImg, 'company-card company-card--item', item.instanceId as string);
+      if (item.status === CardStatus.Tapped) itemEl.classList.add('company-card--tapped');
+      attachments.appendChild(itemEl);
+    }
+    col.appendChild(attachments);
+  }
+
+  return col;
+}
+
+// ---- SVG strike arrows ----
+
+/**
+ * Draw SVG arrows from the attacker card to each assigned defender character.
+ * Uses getBoundingClientRect() on the DOM elements to compute arrow endpoints.
+ */
+function drawStrikeArrows(svg: SVGSVGElement, combat: CombatState, iAmDefender: boolean): void {
+  const arena = svg.closest('.combat-arena');
+  if (!arena) return;
+
+  const arenaRect = arena.getBoundingClientRect();
+  svg.setAttribute('width', String(arenaRect.width));
+  svg.setAttribute('height', String(arenaRect.height));
+  svg.style.width = arenaRect.width + 'px';
+  svg.style.height = arenaRect.height + 'px';
+
+  // Find the attacker card element
+  const attackerEl = arena.querySelector('.combat-card--attacker');
+  if (!attackerEl) return;
+
+  const attackerRect = attackerEl.getBoundingClientRect();
+  // Arrow starts from center-bottom (or center-top depending on perspective)
+  const attackerX = attackerRect.left + attackerRect.width / 2 - arenaRect.left;
+  const attackerY = iAmDefender
+    ? attackerRect.bottom - arenaRect.top  // attacker on top → arrow from bottom
+    : attackerRect.top - arenaRect.top;     // attacker on bottom → arrow from top
+
+  for (let i = 0; i < combat.strikeAssignments.length; i++) {
+    const sa = combat.strikeAssignments[i];
+    const charEl = arena.querySelector(`[data-combat-char-id="${sa.characterId}"]`);
+    if (!charEl) continue;
+
+    // Find the card image inside the character column
+    const cardEl = charEl.querySelector('.company-card');
+    if (!cardEl) continue;
+
+    const charRect = cardEl.getBoundingClientRect();
+    const charX = charRect.left + charRect.width / 2 - arenaRect.left;
+    const charY = iAmDefender
+      ? charRect.top - arenaRect.top       // defender on bottom → arrow to top
+      : charRect.bottom - arenaRect.top;    // defender on top → arrow to bottom
+
+    const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+    line.setAttribute('x1', String(attackerX));
+    line.setAttribute('y1', String(attackerY));
+    line.setAttribute('x2', String(charX));
+    line.setAttribute('y2', String(charY));
+    line.classList.add('combat-arrow');
+
+    // Style based on resolution status
+    const isCurrent = i === combat.currentStrikeIndex && !sa.resolved;
+    if (sa.resolved) {
+      line.classList.add('combat-arrow--resolved');
+      if (sa.result === 'success') {
+        line.setAttribute('marker-end', 'url(#combat-arrowhead-success)');
+        line.classList.add('combat-arrow--success');
+      } else {
+        line.setAttribute('marker-end', 'url(#combat-arrowhead-wound)');
+        line.classList.add('combat-arrow--wound');
+      }
+    } else if (isCurrent) {
+      line.classList.add('combat-arrow--active');
+      line.setAttribute('marker-end', 'url(#combat-arrowhead)');
+    } else {
+      line.setAttribute('marker-end', 'url(#combat-arrowhead)');
+    }
+
+    svg.appendChild(line);
+  }
+}
