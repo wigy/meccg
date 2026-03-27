@@ -25,7 +25,7 @@ import type {
   JoinMessage,
   GameAction,
 } from '@meccg/shared';
-import { formatGameState, loadCardPool, colorDebug, DEBUG_JSON_COMPACT_LIMIT, STATE_DIVIDER, createRng, buildMovementMap, createGame, reduce, startCapture, flushCapture } from '@meccg/shared';
+import { loadCardPool, createRng, buildMovementMap, createGame, reduce, startCapture, flushCapture } from '@meccg/shared';
 import type { MovementMap, PlayerConfig, GameConfig } from '@meccg/shared';
 import { projectPlayerView, projectSpectatorView } from './projection.js';
 import { ServerLog, GameLog } from './game-log.js';
@@ -44,11 +44,8 @@ interface GameSave {
 }
 
 export interface GameSessionOptions {
-  debug?: boolean;
   /** Enable development-mode operations (undo, save, load, reseed, reset). */
   dev?: boolean;
-  /** Print the full formatted game state to stdout after every action. */
-  verbose?: boolean;
   playerNames: [string, string];
 }
 
@@ -65,11 +62,8 @@ export class GameSession {
   private cardPool: Readonly<Record<string, CardDefinition>>;
   private nameToPlayerId: Record<string, string> = {};
   private playerCounter = 0;
-  private debug: boolean;
   /** When false, dev-only operations (undo, save, load, reseed, reset) are refused. */
   private dev: boolean;
-  /** When true, print the full formatted game state to stdout after every action. */
-  private verbose: boolean;
   private playerNames: Set<string>;
   private serverLog: ServerLog;
   private gameLog: GameLog;
@@ -79,17 +73,14 @@ export class GameSession {
   private movementMap: MovementMap;
 
   constructor(options: GameSessionOptions) {
-    this.debug = options.debug ?? false;
     this.dev = options.dev ?? false;
-    this.verbose = options.verbose ?? false;
     this.playerNames = new Set(options.playerNames.map(n => n.toLowerCase()));
     this.cardPool = loadCardPool();
     this.movementMap = buildMovementMap(this.cardPool);
     fs.mkdirSync(SAVE_DIR, { recursive: true });
     this.serverLog = new ServerLog();
     this.gameLog = new GameLog();
-    this.serverLog.log('boot', { players: options.playerNames, debug: this.debug, dev: this.dev, verbose: this.verbose });
-    console.log(`Movement map: ${this.movementMap.regionGraph.size} regions, ${this.movementMap.siteRegion.size} sites`);
+    this.serverLog.log('boot', { players: options.playerNames, dev: this.dev });
   }
 
   addConnection(ws: WebSocket): void {
@@ -98,10 +89,6 @@ export class GameSession {
     ws.on('message', (raw: Buffer) => {
       try {
         const data = raw.toString();
-        if (this.debug) {
-          const display = data.length > DEBUG_JSON_COMPACT_LIMIT ? JSON.stringify(JSON.parse(data), null, 2) : data;
-          console.log(colorDebug(`<< ${display}`));
-        }
         const msg: ClientMessage = JSON.parse(data) as ClientMessage;
         this.serverLog.log('msg-in', { msgType: msg.type, from: this.identifyWs(ws), msg });
         this.handleMessage(ws, msg);
@@ -220,7 +207,7 @@ export class GameSession {
     }
 
     this.pending.set(normalizedName, { ws, join: msg });
-    console.log(`${msg.name} joined as player`);
+    this.serverLog.log('join', { name: msg.name, role: 'player' });
 
     if (this.pending.size < 2) {
       this.send(ws, { type: 'waiting' });
@@ -277,7 +264,7 @@ export class GameSession {
 
   private addSpectator(ws: WebSocket, name: string): void {
     this.spectators.add(ws);
-    console.log(`${name} joined as spectator`);
+    this.serverLog.log('join', { name, role: 'spectator' });
     this.send(ws, { type: 'assigned', playerId: 'spectator' as PlayerId, gameId: this.state?.gameId ?? 'unknown' });
 
     if (this.state) {
@@ -303,8 +290,6 @@ export class GameSession {
     this.state = createGame(config, this.cardPool);
     this.registerPlayers(p1, p1Id, name1, p2, p2Id, name2);
 
-    console.log('New game started!');
-    if (this.verbose) console.log(`\n${STATE_DIVIDER}\n${formatGameState(this.state)}\n${STATE_DIVIDER}`);
     this.serverLog.log('new-game', { gameId: this.state.gameId, player1: name1, player2: name2 });
     this.gameLog.open(this.state.gameId);
     this.gameLog.writeStaticData(
@@ -330,7 +315,6 @@ export class GameSession {
 
     this.registerPlayers(p1, p1Id, name1, p2, p2Id, name2);
 
-    console.log('Game restored from save!');
     this.serverLog.log('restore', { gameId: this.state.gameId, stateSeq: this.state.stateSeq, player1: name1, player2: name2 });
     this.gameLog.open(this.state.gameId);
     this.gameLog.writeStaticData(
@@ -346,10 +330,7 @@ export class GameSession {
       cardPool: this.state!.cardPool,
       instanceMap: this.state!.instanceMap,
     }) as GameState);
-    console.log(`Restored ${this.stateHistory.length} undo states from game log`);
-
     this.gameLog.log('restore', { stateSeq: this.state.stateSeq, player1: name1, player2: name2 });
-    if (this.verbose) console.log(`\n${STATE_DIVIDER}\n${formatGameState(this.state)}\n${STATE_DIVIDER}`);
 
     this.broadcastStateWithLogs();
   }
@@ -424,10 +405,6 @@ export class GameSession {
     // Save previous state for undo before applying
     this.stateHistory.push(this.state);
     this.state = result.state;
-    const { type: _type, player: _player, ...args } = actionWithPlayer;
-    const argsStr = Object.keys(args).length > 0 ? ' ' + JSON.stringify(args) : '';
-    console.log(`Action: ${actionWithPlayer.type} by ${playerId}${argsStr}`);
-    if (this.verbose) console.log(`\n${STATE_DIVIDER}\n${formatGameState(this.state)}\n${STATE_DIVIDER}`);
     this.serverLog.log('action', { action: actionWithPlayer });
     this.logState(actionWithPlayer.type, actionWithPlayer as unknown as Record<string, unknown>);
 
@@ -461,7 +438,6 @@ export class GameSession {
     // Broadcast any visual effects from the reducer
     if (result.effects && result.effects.length > 0) {
       for (const effect of result.effects) {
-        if (this.verbose) console.log(`Effect: ${effect.effect} — ${JSON.stringify(effect)}`);
         this.broadcastToAll({ type: 'effect', effect });
       }
     }
@@ -487,7 +463,6 @@ export class GameSession {
 
     const previous = this.stateHistory.pop()!;
     const fromSeq = this.state?.stateSeq;
-    console.log(`Undo: reverting from stateSeq ${fromSeq} to ${previous.stateSeq}`);
     this.serverLog.log('undo', { fromSeq, toSeq: previous.stateSeq });
 
     // Remove the current state's entry from the game log
@@ -522,7 +497,6 @@ export class GameSession {
     for (const savePath of [this.saveFilePath(), this.autosaveFilePath()]) {
       if (fs.existsSync(savePath)) {
         fs.unlinkSync(savePath);
-        console.log(`Deleted save: ${savePath}`);
       }
     }
 
@@ -552,14 +526,12 @@ export class GameSession {
     this.spectators.clear();
 
     this.nameToPlayerId = {};
-    console.log('Game reset');
   }
 
   private handleReseed(ws: WebSocket): void {
     if (!this.state) return;
     const newSeed = Date.now() ^ Math.floor(Math.random() * 0x7fffffff);
     this.state = { ...this.state, rng: createRng(newSeed) };
-    console.log(`RNG re-seeded with ${newSeed}`);
     this.broadcastStateWithLogs();
     this.send(ws, { type: 'info', message: 'RNG re-seeded.' });
   }
@@ -571,7 +543,6 @@ export class GameSession {
       return;
     }
     this.state = { ...this.state, cheatRollTotal: total };
-    console.log(`Cheat roll set: next dice roll will total ${total}`);
     this.broadcastToAll({ type: 'info', message: `CHEAT: next roll will be ${total}.` });
   }
 
@@ -630,7 +601,6 @@ export class GameSession {
 
     this.state = { ...this.state, instanceMap: newInstanceMap, players: updatedPlayers };
 
-    console.log(`Summon: created ${matchName} (${matchDefId}) as ${newInstanceId as string} → ${playerId} hand`);
     this.broadcastStateWithLogs();
     this.broadcastToAll({ type: 'info', message: `CHEAT: summoned ${matchName}.` });
   }
@@ -642,7 +612,6 @@ export class GameSession {
     this.serverLog.log('disconnect', { who });
 
     if (this.spectators.delete(ws)) {
-      console.log('Spectator disconnected');
       return;
     }
 
@@ -650,7 +619,6 @@ export class GameSession {
     for (const [name, p] of this.pending.entries()) {
       if (p.ws === ws) {
         this.pending.delete(name);
-        console.log(`${name} disconnected (was pending)`);
         return;
       }
     }
@@ -667,8 +635,6 @@ export class GameSession {
     }
 
     if (!disconnectedId || !disconnectedName) return;
-
-    console.log(`${disconnectedName} disconnected`);
 
     if (this.state) {
       // Clear dice rolls so they don't persist across sessions
@@ -720,7 +686,6 @@ export class GameSession {
     };
 
     fs.writeFileSync(savePath, JSON.stringify(save), 'utf-8');
-    console.log(`Game saved to ${savePath}`);
     this.serverLog.log('save', { path: savePath, stateSeq: this.state.stateSeq });
   }
 
@@ -728,12 +693,10 @@ export class GameSession {
     this.serverLog.log('load');
     const savePath = this.saveFilePath();
     if (!fs.existsSync(savePath)) {
-      console.log('No manual save found');
       return;
     }
     // Copy manual save to autosave path so restoreGame picks it up on reconnect
     fs.copyFileSync(savePath, this.autosaveFilePath());
-    console.log(`Loaded manual save from ${savePath}`);
 
     // Clear state, undo history, and restart all clients so they reconnect and load the save
     this.state = null;
@@ -773,10 +736,8 @@ export class GameSession {
       remapped[currentNames[1]] = snapData.nameToPlayerId[snapNames[1]];
       snapData.nameToPlayerId = remapped;
       fs.writeFileSync(autosavePath, JSON.stringify(snapData));
-      console.log(`Loaded snapshot ${file} → ${autosavePath} (remapped ${snapNames.join(',')} → ${currentNames.join(',')})`);
     } else {
       fs.copyFileSync(snapshotPath, autosavePath);
-      console.log(`Loaded snapshot ${file} → ${autosavePath}`);
     }
     this.serverLog.log('load-snapshot', { file, savePath: autosavePath });
 
@@ -808,7 +769,6 @@ export class GameSession {
 
         save.state = { ...save.state, cardPool: this.cardPool };
         fs.unlinkSync(savePath);
-        console.log(`Loaded save from ${savePath}`);
 
         return save;
       } catch {
@@ -873,10 +833,6 @@ export class GameSession {
   private send(ws: WebSocket, msg: ServerMessage): void {
     if (ws.readyState === ws.OPEN) {
       const json = JSON.stringify(msg);
-      if (this.debug) {
-        const display = json.length > DEBUG_JSON_COMPACT_LIMIT ? JSON.stringify(msg, null, 2) : json;
-        console.log(colorDebug(`>> ${display}`));
-      }
       // Log outgoing messages (skip 'state' — logged separately as snapshots)
       if (msg.type !== 'state') {
         this.serverLog.log('msg-out', { msgType: msg.type, to: this.identifyWs(ws), msg });

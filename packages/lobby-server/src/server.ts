@@ -15,10 +15,11 @@ import { handleRequest } from './http/routes.js';
 import { playerConnected } from './lobby/lobby.js';
 import { getPayloadFromCookie } from './auth/session.js';
 import { shutdownAllGames } from './games/launcher.js';
+import { lobbyLog } from './lobby-log.js';
 
 const server = http.createServer((req, res) => {
   handleRequest(req, res).catch((err) => {
-    console.error('Unhandled request error:', err);
+    lobbyLog.log('error', { context: 'request', error: String(err) });
     if (!res.headersSent) {
       res.writeHead(500);
       res.end('Internal server error');
@@ -44,17 +45,16 @@ server.on('upgrade', (req, socket, head) => {
 });
 
 server.listen(LOBBY_PORT, () => {
-  console.log(`MECCG lobby server listening on http://localhost:${LOBBY_PORT}${DEV ? ' (dev mode)' : ''}`);
-  console.log('Waiting for players...');
+  lobbyLog.log('boot', { port: LOBBY_PORT, dev: DEV });
 });
 
 // Graceful shutdown
 function shutdown(): void {
-  console.log('\nLobby server shutting down...');
+  lobbyLog.log('shutdown');
   shutdownAllGames();
   wss.close();
   server.close(() => {
-    console.log('Lobby server closed');
+    lobbyLog.close();
     process.exit(0);
   });
   setTimeout(() => process.exit(0), 3000);

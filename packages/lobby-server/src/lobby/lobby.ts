@@ -10,6 +10,7 @@
 import type WebSocket from 'ws';
 import type { LobbyClientMessage, LobbyServerMessage } from './protocol.js';
 import { launchGame } from '../games/launcher.js';
+import { lobbyLog } from '../lobby-log.js';
 
 /** A connected player in the lobby. */
 interface OnlinePlayer {
@@ -50,7 +51,7 @@ export function playerConnected(name: string, ws: WebSocket): void {
 
   const player: OnlinePlayer = { name, ws, pendingFrom: new Set(), inGame: false };
   onlinePlayers.set(name, player);
-  console.log(`Lobby: ${name} connected (${onlinePlayers.size} online)`);
+  lobbyLog.log('connect', { name, online: onlinePlayers.size });
   broadcastPlayerList();
 
   ws.on('message', (raw: Buffer) => {
@@ -67,7 +68,7 @@ export function playerConnected(name: string, ws: WebSocket): void {
     const current = onlinePlayers.get(name);
     if (current && current.ws === ws) {
       onlinePlayers.delete(name);
-      console.log(`Lobby: ${name} disconnected (${onlinePlayers.size} online)`);
+      lobbyLog.log('disconnect', { name, online: onlinePlayers.size });
       broadcastPlayerList();
     }
   });
@@ -140,7 +141,7 @@ async function startGame(player1: OnlinePlayer, player2: OnlinePlayer): Promise<
 
   try {
     const result = await launchGame(player1.name, player2.name);
-    console.log(`Lobby: game started ${player1.name} vs ${player2.name} on port ${result.port}`);
+    lobbyLog.log('game-start', { player1: player1.name, player2: player2.name, port: result.port });
 
     send(player1.ws, {
       type: 'game-starting',
@@ -162,10 +163,10 @@ async function startGame(player1: OnlinePlayer, player2: OnlinePlayer): Promise<
       player1.pendingFrom.clear();
       player2.pendingFrom.clear();
       broadcastPlayerList();
-      console.log(`Lobby: game ended ${player1.name} vs ${player2.name}`);
+      lobbyLog.log('game-end', { player1: player1.name, player2: player2.name });
     });
   } catch (err) {
-    console.error('Failed to start game:', err);
+    lobbyLog.log('error', { context: 'game-start', error: String(err) });
     player1.inGame = false;
     player2.inGame = false;
     send(player1.ws, { type: 'error', message: 'Failed to start game server' });
@@ -180,7 +181,7 @@ async function startAiGame(player: OnlinePlayer): Promise<void> {
 
   try {
     const result = await launchGame(player.name, aiName, { ai: true });
-    console.log(`Lobby: AI game started ${player.name} vs ${aiName} on port ${result.port}`);
+    lobbyLog.log('game-start', { player1: player.name, player2: aiName, ai: true, port: result.port });
 
     send(player.ws, {
       type: 'game-starting',
@@ -193,10 +194,10 @@ async function startAiGame(player: OnlinePlayer): Promise<void> {
       player.inGame = false;
       player.pendingFrom.clear();
       broadcastPlayerList();
-      console.log(`Lobby: AI game ended for ${player.name}`);
+      lobbyLog.log('game-end', { player1: player.name, player2: aiName, ai: true });
     });
   } catch (err) {
-    console.error('Failed to start AI game:', err);
+    lobbyLog.log('error', { context: 'ai-game-start', error: String(err) });
     player.inGame = false;
     send(player.ws, { type: 'error', message: 'Failed to start game server' });
   }

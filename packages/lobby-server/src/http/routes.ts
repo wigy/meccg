@@ -20,6 +20,7 @@ import * as path from 'path';
 import * as os from 'os';
 import { cardImageRawUrl } from '@meccg/shared';
 import { DEV } from '../config.js';
+import { lobbyLog } from '../lobby-log.js';
 import { findPlayer, findPlayerByEmail, createPlayer } from '../players/store.js';
 import { hashPassword, verifyPassword } from '../auth/password.js';
 import { signLobbyToken } from '../auth/jwt.js';
@@ -112,11 +113,11 @@ async function handleImageRequest(urlPath: string, res: http.ServerResponse): Pr
     const data = await httpsGet(rawUrl);
     fs.promises.mkdir(cacheDir, { recursive: true })
       .then(() => fs.promises.writeFile(cachePath, data))
-      .catch((err: unknown) => console.error(`Failed to cache ${cachePath}:`, (err as Error).message));
+      .catch((err: unknown) => lobbyLog.log('error', { context: 'image-cache', path: cachePath, error: (err as Error).message }));
     res.writeHead(200, { 'Content-Type': 'image/jpeg', 'Cache-Control': 'public, max-age=86400' });
     res.end(data);
   } catch (err) {
-    console.error(`Failed to fetch card image: ${rawUrl}`, (err as Error).message);
+    lobbyLog.log('error', { context: 'image-fetch', url: rawUrl, error: (err as Error).message });
     res.writeHead(502);
     res.end('Failed to fetch card image');
   }
@@ -145,7 +146,7 @@ if (DEV) {
     if (!filename || filename.endsWith('~')) return;
     if (reloadTimeout) clearTimeout(reloadTimeout);
     reloadTimeout = setTimeout(() => {
-      console.log(`File changed: ${filename}, signaling reload...`);
+      lobbyLog.log('dev-reload', { filename });
       for (const client of reloadClients) {
         client.write('data: reload\n\n');
       }
@@ -220,9 +221,9 @@ export async function handleRequest(req: http.IncomingMessage, res: http.ServerR
       const token = signLobbyToken(name);
       setSessionCookie(res, token);
       sendJson(res, 201, { name });
-      console.log(`Player registered: ${name}`);
+      lobbyLog.log('register', { name });
     } catch (err) {
-      console.error('Register error:', err);
+      lobbyLog.log('error', { context: 'register', error: String(err) });
       sendJson(res, 500, { error: 'Registration failed' });
     }
     return;
@@ -250,9 +251,9 @@ export async function handleRequest(req: http.IncomingMessage, res: http.ServerR
       const token = signLobbyToken(player.name);
       setSessionCookie(res, token);
       sendJson(res, 200, { name: player.name });
-      console.log(`Player logged in: ${player.name}`);
+      lobbyLog.log('login', { name: player.name });
     } catch (err) {
-      console.error('Login error:', err);
+      lobbyLog.log('error', { context: 'login', error: String(err) });
       sendJson(res, 500, { error: 'Login failed' });
     }
     return;
@@ -280,7 +281,7 @@ export async function handleRequest(req: http.IncomingMessage, res: http.ServerR
       const handled = await handleImageRequest(urlPath, res);
       if (handled) return;
     } catch (err) {
-      console.error('Image handler error:', err);
+      lobbyLog.log('error', { context: 'image-handler', error: String(err) });
       if (!res.headersSent) { res.writeHead(500); res.end('Internal server error'); }
       return;
     }

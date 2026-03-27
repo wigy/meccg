@@ -12,6 +12,7 @@ import { spawn, type ChildProcess } from 'child_process';
 import * as path from 'path';
 import { GAME_PORT_BASE, JWT_SECRET, DEV } from '../config.js';
 import { signGameToken } from '../auth/jwt.js';
+import { lobbyLog } from '../lobby-log.js';
 
 const GAME_SERVER_ENTRY = path.join(__dirname, '../../../game-server/src/ws/server.ts');
 
@@ -64,7 +65,6 @@ export async function launchGame(player1: string, player2: string, options?: Lau
 
   activeGames.set(port, child);
 
-  const prefix = `[game:${port}]`;
   const endCallbacks: (() => void)[] = [];
 
   // Wait for the game server to print its "listening" message
@@ -75,7 +75,7 @@ export async function launchGame(player1: string, player2: string, options?: Lau
 
     child.stdout?.on('data', (data: Buffer) => {
       for (const line of data.toString().split('\n').filter(Boolean)) {
-        console.log(`${prefix} ${line}`);
+        lobbyLog.log('game-stdout', { port, line });
         if (line.includes('listening on port')) {
           clearTimeout(timeout);
           resolve();
@@ -85,7 +85,7 @@ export async function launchGame(player1: string, player2: string, options?: Lau
 
     child.stderr?.on('data', (data: Buffer) => {
       for (const line of data.toString().split('\n').filter(Boolean)) {
-        console.error(`${prefix} ${line}`);
+        lobbyLog.log('game-stderr', { port, line });
       }
     });
 
@@ -96,7 +96,7 @@ export async function launchGame(player1: string, player2: string, options?: Lau
   });
 
   child.on('exit', (code) => {
-    console.log(`${prefix} exited with code ${code}`);
+    lobbyLog.log('game-exit', { port, code });
     activeGames.delete(port);
     for (const cb of endCallbacks) cb();
   });
@@ -110,12 +110,12 @@ export async function launchGame(player1: string, player2: string, options?: Lau
     });
     aiChild.stdout?.on('data', (data: Buffer) => {
       for (const line of data.toString().split('\n').filter(Boolean)) {
-        console.log(`[ai:${port}] ${line}`);
+        lobbyLog.log('ai-stdout', { port, line });
       }
     });
     aiChild.stderr?.on('data', (data: Buffer) => {
       for (const line of data.toString().split('\n').filter(Boolean)) {
-        console.error(`[ai:${port}] ${line}`);
+        lobbyLog.log('ai-stderr', { port, line });
       }
     });
     child.on('exit', () => {
@@ -135,7 +135,7 @@ export async function launchGame(player1: string, player2: string, options?: Lau
 /** Kill all active game server processes (called on lobby shutdown). */
 export function shutdownAllGames(): void {
   for (const [port, child] of activeGames) {
-    console.log(`Killing game server on port ${port}`);
+    lobbyLog.log('game-kill', { port });
     child.kill('SIGTERM');
   }
   activeGames.clear();

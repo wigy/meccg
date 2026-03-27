@@ -51,7 +51,6 @@ export class ServerLog {
     const date = new Date().toISOString().slice(0, 10);
     const filePath = path.join(SERVER_LOG_DIR, `${date}.jsonl`);
     this.stream = fs.createWriteStream(filePath, { flags: 'a' });
-    console.log(`Server log: ${filePath}`);
   }
 
   /** Write a server log entry. */
@@ -81,7 +80,6 @@ export class GameLog {
     const filePath = path.join(GAME_LOG_DIR, `${gameId}.jsonl`);
     this.stream = fs.createWriteStream(filePath, { flags: 'a' });
     this.currentGameId = gameId;
-    console.log(`Game log: ${filePath}`);
   }
 
   /**
@@ -107,7 +105,6 @@ export class GameLog {
     const data = { instances, cards };
     const filePath = path.join(GAME_LOG_DIR, `${this.currentGameId}-cards.json`);
     fs.writeFileSync(filePath, JSON.stringify(data, null, 2) + '\n', 'utf-8');
-    console.log(`Static game data: ${filePath} (${Object.keys(instances).length} instances, ${usedDefIds.size} definitions)`);
   }
 
   /** Write a game log entry (typically a state snapshot). */
@@ -149,7 +146,6 @@ export class GameLog {
     }
 
     fs.writeFileSync(filePath, kept.join('\n') + '\n', 'utf-8');
-    console.log(`Game log truncated: kept entries with stateSeq <= ${seq} (${kept.length}/${lines.length} lines)`);
 
     // Reopen the stream for appending
     this.stream = fs.createWriteStream(filePath, { flags: 'a' });
@@ -215,7 +211,6 @@ export class GameLog {
     if (removeIdx >= 0) {
       lines.splice(removeIdx, 1);
       fs.writeFileSync(filePath, lines.join('\n') + '\n', 'utf-8');
-      console.log(`Game log: removed entry with stateSeq ${seq}`);
     }
 
     this.stream = fs.createWriteStream(filePath, { flags: 'a' });
