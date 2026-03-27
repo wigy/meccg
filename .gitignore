@@ -1,6 +1,6 @@
 node_modules/
 dist/
 *.tsbuildinfo
-packages/client-web/public/bundle.js
+packages/web-client/public/bundle.js
 docs/api/
 .claude/settings.local.json
