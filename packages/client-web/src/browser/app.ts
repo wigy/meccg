@@ -7,7 +7,7 @@
  */
 
 import type { ServerMessage, ClientMessage, GameAction, CardDefinitionId } from '@meccg/shared';
-import { loadCardPool, describeAction, buildCompanyNames, SAMPLE_DECKS } from '@meccg/shared';
+import { loadCardPool, describeAction, buildCompanyNames, cardImageProxyPath, SAMPLE_DECKS } from '@meccg/shared';
 import { renderState, renderDraft, renderMHInfo, renderSiteInfo, renderActions, renderLog, renderHand, renderOpponentHand, renderPlayerNames, renderInstructions, renderDrafted, renderPassButton, renderDeckPiles, resetDeckPiles, setupCardPreview, showNotification, prepareSiteSelection, clearSiteSelection, renderChainPanel } from './render.js';
 import { renderCompanyViews, resetCompanyViews } from './company-view.js';
 import { rollDice, clearDice, restoreDice, waitForDice } from './dice.js';
@@ -576,7 +576,7 @@ document.addEventListener('DOMContentLoaded', () => {
     void (async () => {
     try {
       const resp = await fetch('/api/snapshots');
-      const snapshots = await resp.json() as { file: string; description: string }[];
+      const snapshots = await resp.json() as { file: string; description: string; character?: string; site?: string }[];
       snapshotList.innerHTML = '';
       if (snapshots.length === 0) {
         snapshotList.textContent = 'No snapshots available.';
@@ -584,6 +584,23 @@ document.addEventListener('DOMContentLoaded', () => {
         for (const snap of snapshots) {
           const item = document.createElement('div');
           item.className = 'snapshot-item';
+
+          // Card images (character + site)
+          const images = document.createElement('div');
+          images.className = 'snapshot-item-images';
+          for (const defId of [snap.character, snap.site]) {
+            if (!defId) continue;
+            const def = cardPool[defId];
+            const imgPath = def ? cardImageProxyPath(def) : undefined;
+            if (imgPath) {
+              const img = document.createElement('img');
+              img.src = imgPath;
+              img.alt = def.name;
+              images.appendChild(img);
+            }
+          }
+          if (images.childElementCount > 0) item.appendChild(images);
+
           const name = document.createElement('div');
           name.className = 'snapshot-item-name';
           name.textContent = snap.file;

@@ -1,6 +1,8 @@
 [
   {
     "file": "001.json",
-    "description": "Turn 1 untap phase. Two companies at Rivendell: wigy (Aragorn II, Bilbo, Frodo) vs karmi (Elrond, Éowyn, Celeborn, Beregond). Both players have 8 cards in hand."
+    "description": "Turn 1 untap phase. Two companies at Rivendell: wigy (Aragorn II, Bilbo, Frodo) vs karmi (Elrond, Éowyn, Celeborn, Beregond). Both players have 8 cards in hand.",
+    "character": "tw-120",
+    "site": "tw-421"
   }
 ]

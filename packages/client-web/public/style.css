@@ -909,6 +909,18 @@ h2 {
   margin-bottom: 0.25rem;
 }
 
+.snapshot-item-images {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.snapshot-item-images img {
+  height: 10rem;
+  border-radius: 4px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.6);
+}
+
 .snapshot-item-desc {
   font-size: 0.85rem;
   color: #aaa;
