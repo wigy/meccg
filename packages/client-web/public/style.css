@@ -1726,8 +1726,11 @@ h2 {
 
 .character-card-wrap--tapped {
   /* Reserve horizontal space for the rotated card; height matches untapped
-     wraps so all characters share the same baseline. */
+     wraps so all characters share the same baseline.  Collapse the empty
+     space below the rotated visual (≈14% of card height) so items don't
+     drift far below the card. */
   width: calc(var(--card-table-height) * var(--company-scale, 1));
+  margin-bottom: calc(var(--card-table-height) * var(--company-scale, 1) * -0.35);
 }
 
 /* Card sizing */
