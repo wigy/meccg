@@ -8,7 +8,56 @@
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <div id="connect-form">
+  <!-- Login screen (lobby mode) -->
+  <div id="login-screen" class="hidden">
+    <h2 class="auth-title">MECCG</h2>
+    <div class="auth-form">
+      <input type="text" id="login-name" placeholder="Player name" autofocus>
+      <input type="password" id="login-password" placeholder="Password">
+      <button id="login-btn">Login</button>
+      <p class="auth-error hidden" id="login-error"></p>
+      <p class="auth-link">No account? <a href="#" id="show-register">Register</a></p>
+    </div>
+  </div>
+
+  <!-- Register screen (lobby mode) -->
+  <div id="register-screen" class="hidden">
+    <h2 class="auth-title">MECCG</h2>
+    <div class="auth-form">
+      <input type="text" id="register-name" placeholder="Player name">
+      <input type="email" id="register-email" placeholder="Email">
+      <input type="password" id="register-password" placeholder="Password">
+      <button id="register-btn">Register</button>
+      <p class="auth-error hidden" id="register-error"></p>
+      <p class="auth-link">Already have an account? <a href="#" id="show-login">Login</a></p>
+    </div>
+  </div>
+
+  <!-- Lobby screen (lobby mode) -->
+  <div id="lobby-screen" class="hidden">
+    <div class="lobby-header">
+      <h2 class="lobby-title">Lobby</h2>
+      <span id="lobby-player-name" class="lobby-player"></span>
+      <button id="logout-btn" class="lobby-logout">Logout</button>
+    </div>
+    <div class="lobby-content">
+      <div class="lobby-actions">
+        <button id="play-ai-btn" class="lobby-play-btn">Play vs AI</button>
+      </div>
+      <h3 class="lobby-section-title">Online Players</h3>
+      <div id="online-players" class="lobby-player-list">
+        <p class="lobby-empty">No other players online</p>
+      </div>
+      <div id="challenge-incoming" class="hidden">
+        <p id="challenge-text"></p>
+        <button id="accept-challenge-btn">Accept</button>
+        <button id="decline-challenge-btn">Decline</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Connect form (standalone / non-lobby mode) -->
+  <div id="connect-form" class="hidden">
     <input type="text" id="name-input" placeholder="Enter your name" autofocus>
     <select id="deck-select"></select>
     <button id="connect-btn">Connect</button>

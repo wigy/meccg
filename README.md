@@ -27,9 +27,19 @@ A web-based implementation of the **Middle-Earth Collectible Card Game** (MECCG)
 npm install
 ```
 
-### Run a Game
+### Run with Lobby (Recommended)
 
-Start the game server with two player names:
+Start the lobby server — it handles registration, login, matchmaking, and spawns game servers automatically:
+
+```bash
+npm run start -w @meccg/lobby-server
+```
+
+Open **http://localhost:8080**, register an account, and start a game against another player or against AI.
+
+### Run a Standalone Game
+
+For direct play without accounts, start the game server with two player names:
 
 ```bash
 npm run start -w @meccg/game-server -- Alice Bob
@@ -54,6 +64,12 @@ npm run start -w @meccg/text-client -- Alice
 Use `dev` instead of `start` for hot-reload:
 
 ```bash
+npm run dev -w @meccg/lobby-server
+```
+
+Or for standalone mode:
+
+```bash
 npm run dev -w @meccg/game-server -- Alice Bob
 npm run dev -w @meccg/web-client
 ```
@@ -64,13 +80,15 @@ Add `--debug` to see raw JSON messages and card IDs.
 
 ```
 packages/
-├── shared/       # Game engine, types, card data, tests (pure TypeScript)
-├── game-server/  # WebSocket game server, state projection
-├── web-client/   # Browser UI (HTML/CSS/JS, esbuild)
-└── text-client/  # Text console client
+├── shared/         # Game engine, types, card data, tests (pure TypeScript)
+├── lobby-server/   # Lobby: auth, matchmaking, game lifecycle
+├── game-server/    # WebSocket game server, state projection
+├── web-client/     # Browser UI (HTML/CSS/JS, esbuild)
+└── text-client/    # Text console client
 ```
 
 - **`@meccg/shared`** — The game engine (pure reducer), card definitions, type system, and all tests
+- **`@meccg/lobby-server`** — Lobby server with player registration, login, online presence, matchmaking, and game server lifecycle management
 - **`@meccg/game-server`** — WebSocket server managing game sessions, projecting per-player views with hidden info redacted
 - **`@meccg/web-client`** — Browser client with a visual board (card art, dice, hand arcs) and a debug view
 - **`@meccg/text-client`** — Terminal client with ANSI colors and a pluggable AI strategy system

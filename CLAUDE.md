@@ -17,7 +17,7 @@ MECCG is a web-based implementation of the Middle-Earth Collectible Card Game (M
 ## Build & Development Commands
 
 - **Install dependencies:** `npm install`
-- **Type-check all packages:** `npx tsc --build packages/game-server/tsconfig.json packages/text-client/tsconfig.json packages/web-client/tsconfig.json`
+- **Type-check all packages:** `npx tsc --build packages/game-server/tsconfig.json packages/text-client/tsconfig.json packages/web-client/tsconfig.json packages/lobby-server/tsconfig.json`
 - **Type-check shared only:** `npx tsc --noEmit -p packages/shared/tsconfig.json`
 - **Run tests:** `npm test` (excludes card tests)
 - **Run card tests (nightly):** `npm run test:nightly`
@@ -28,6 +28,8 @@ MECCG is a web-based implementation of the Middle-Earth Collectible Card Game (M
 - **Start web client:** `npm run start -w @meccg/web-client` (serves on port 8080, proxies WS to game server on 3000)
 - **Hot reload:** Use `dev` instead of `start` (e.g. `npm run dev -w @meccg/game-server -- Alice Bob`)
 - **Web client dev mode:** `npm run dev -w @meccg/web-client` (esbuild watch + live-reload via SSE)
+- **Start lobby server:** `npm run start -w @meccg/lobby-server` (serves on port 8080 with auth + matchmaking)
+- **Lobby dev mode:** `npm run dev -w @meccg/lobby-server` (hot-reload, spawns game servers on demand)
 - **Debug mode:** Add `--debug` flag or set `DEBUG=1` env var to show raw JSON messages and card IDs
 
 ### Verification During Development
@@ -44,11 +46,12 @@ Before every commit, always run all three of these **in parallel** and fix any f
 
 ## Architecture
 
-- **Monorepo** using npm workspaces: `packages/shared`, `packages/game-server`, `packages/text-client`, `packages/web-client`
+- **Monorepo** using npm workspaces: `packages/shared`, `packages/game-server`, `packages/text-client`, `packages/web-client`, `packages/lobby-server`
 - **`@meccg/shared`** — Pure TypeScript types, constants, and the game engine (pure reducer: `(state, action) → state`). Engine code in `src/engine/`, phase handlers in `src/engine/legal-actions/`. Tests in `src/tests/`.
 - **`@meccg/game-server`** — WebSocket server, game session management, and state projection. Re-exports engine from shared.
 - **`@meccg/text-client`** — Text console client over WebSocket.
 - **`@meccg/web-client`** — Browser web client. Serves HTML/JS/CSS on HTTP, proxies WebSocket to game server, and caches card images from GitHub to `~/.meccg/image-cache/`.
+- **`@meccg/lobby-server`** — Lobby server with player registration, auth, online presence, matchmaking, and game lifecycle management. Spawns game-server child processes on demand.
 - **State model:** Full game state (server-only) → projection function → player view (per-player, hidden info redacted).
 - Project references: game-server and clients reference shared via `tsconfig.json` references + path mappings.
 

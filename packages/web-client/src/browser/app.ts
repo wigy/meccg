@@ -17,16 +17,32 @@ declare global {
   interface Window {
     /** Set by the server — true when the web proxy is started with --dev. */
     __MECCG_DEV?: boolean;
+    /** Set by the lobby server — true when running in lobby mode. */
+    __LOBBY?: boolean;
   }
 }
 
 /** Whether the server was started in dev mode. Controls dev UI availability. */
 const SERVER_DEV = window.__MECCG_DEV === true;
 
+/** Whether we are running under the lobby server (auth + matchmaking). */
+const LOBBY_MODE = window.__LOBBY === true;
+
 const cardPool = loadCardPool();
 
 let ws: WebSocket | null = null;
 let playerId: string | null = null;
+
+/** Lobby WebSocket connection (only in lobby mode). */
+let lobbyWs: WebSocket | null = null;
+/** Current game server port (lobby mode — direct connection). */
+let gamePort: number | null = null;
+/** Current game token (lobby mode). */
+let gameToken: string | null = null;
+/** Current logged-in player name (lobby mode). */
+let lobbyPlayerName: string | null = null;
+/** Name of the player who sent us a challenge (lobby mode). */
+let challengeFrom: string | null = null;
 let lastVisibleInstances: Readonly<Record<string, CardDefinitionId>> = {};
 let lastCompanyNames: Readonly<Record<string, string>> = {};
 let lastPhase: string | null = null;
@@ -48,7 +64,14 @@ function sendAction(action: GameAction): void {
 
 function connect(name: string): void {
   const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-  const url = `${protocol}//${window.location.host}`;
+  let url: string;
+  if (LOBBY_MODE && gamePort) {
+    // Direct connection to spawned game server
+    url = `${protocol}//${window.location.hostname}:${gamePort}`;
+  } else {
+    // Proxy through the web-client server (standalone mode)
+    url = `${protocol}//${window.location.host}`;
+  }
 
   renderLog(`Connecting to ${url} as "${name}"...`);
   ws = new WebSocket(url);
@@ -56,7 +79,10 @@ function connect(name: string): void {
   ws.onopen = () => {
     renderLog('Connected. Sending join...');
     const deck = SAMPLE_DECKS[selectedDeckIndex];
-    ws!.send(JSON.stringify(deck.buildJoinMessage(name)));
+    const joinMsg = deck.buildJoinMessage(name);
+    // In lobby mode, attach the game token for authentication
+    const msg = gameToken ? { ...joinMsg, token: gameToken } : joinMsg;
+    ws!.send(JSON.stringify(msg));
   };
 
   ws.onmessage = async (event) => {
@@ -237,11 +263,10 @@ function disconnect(): void {
     ws = null;
   }
   playerId = null;
+  gamePort = null;
+  gameToken = null;
 
-  // Reset UI to connect form
-  document.getElementById('connect-form')!.style.display = '';
-  document.getElementById('game')!.classList.add('hidden');
-  (document.getElementById('name-input') as HTMLInputElement).value = '';
+  // Reset game state
   document.getElementById('state')!.textContent = '';
   document.getElementById('draft')!.textContent = '';
   document.getElementById('actions')!.innerHTML = '';
@@ -251,6 +276,18 @@ function disconnect(): void {
   resetCompanyViews();
   for (const id of ['self-deck-box', 'opponent-deck-box']) {
     document.getElementById(id)?.classList.add('hidden');
+  }
+
+  document.getElementById('game')!.classList.add('hidden');
+
+  if (LOBBY_MODE && lobbyPlayerName) {
+    // Return to lobby
+    showScreen('lobby-screen');
+    connectLobbyWs();
+  } else {
+    // Return to connect form
+    document.getElementById('connect-form')!.style.display = '';
+    (document.getElementById('name-input') as HTMLInputElement).value = '';
   }
 }
 
@@ -315,6 +352,122 @@ function selectRandomBackground(): void {
   const bg = BACKGROUNDS[Math.floor(Math.random() * BACKGROUNDS.length)];
   localStorage.setItem(BG_KEY, bg);
   document.documentElement.style.setProperty('--visual-bg', `url('${bg}')`);
+}
+
+// ---- Lobby mode helpers ----
+
+/** Show one screen, hiding all others. */
+function showScreen(id: 'login-screen' | 'register-screen' | 'lobby-screen' | 'connect-form'): void {
+  for (const screenId of ['login-screen', 'register-screen', 'lobby-screen', 'connect-form']) {
+    const el = document.getElementById(screenId);
+    if (el) el.classList.toggle('hidden', screenId !== id);
+  }
+  // Reset lobby button state when showing the lobby
+  if (id === 'lobby-screen') {
+    const btn = document.getElementById('play-ai-btn') as HTMLButtonElement | null;
+    if (btn) { btn.textContent = 'Play vs AI'; btn.disabled = false; }
+  }
+}
+
+/** Show an error message on an auth form. */
+function showAuthError(id: string, msg: string): void {
+  const el = document.getElementById(id);
+  if (el) {
+    el.textContent = msg;
+    el.classList.remove('hidden');
+  }
+}
+
+/** Connect the lobby WebSocket for online presence and challenges. */
+function connectLobbyWs(): void {
+  if (lobbyWs && lobbyWs.readyState === WebSocket.OPEN) return;
+  const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+  lobbyWs = new WebSocket(`${protocol}//${window.location.host}`);
+
+  lobbyWs.onmessage = (event) => {
+    const msg = JSON.parse(event.data as string) as { type: string; [key: string]: unknown };
+    switch (msg.type) {
+      case 'online-players': {
+        const players = (msg.players as string[]).filter(n => n !== lobbyPlayerName);
+        const container = document.getElementById('online-players')!;
+        if (players.length === 0) {
+          container.innerHTML = '<p class="lobby-empty">No other players online</p>';
+        } else {
+          container.innerHTML = '';
+          for (const name of players) {
+            const item = document.createElement('div');
+            item.className = 'lobby-player-item';
+            const span = document.createElement('span');
+            span.textContent = name;
+            const btn = document.createElement('button');
+            btn.textContent = 'Challenge';
+            btn.addEventListener('click', () => {
+              lobbyWs?.send(JSON.stringify({ type: 'challenge', opponentName: name }));
+              btn.textContent = 'Sent';
+              btn.disabled = true;
+            });
+            item.appendChild(span);
+            item.appendChild(btn);
+            container.appendChild(item);
+          }
+        }
+        break;
+      }
+      case 'challenge-received': {
+        challengeFrom = msg.from as string;
+        const incoming = document.getElementById('challenge-incoming')!;
+        document.getElementById('challenge-text')!.textContent = `${challengeFrom} wants to play!`;
+        incoming.classList.remove('hidden');
+        break;
+      }
+      case 'challenge-declined': {
+        renderLog(`${msg.by as string} declined your challenge.`);
+        break;
+      }
+      case 'game-starting': {
+        gamePort = msg.port as number;
+        gameToken = msg.token as string;
+        const opponent = msg.opponent as string;
+        // Close lobby WS during game
+        if (lobbyWs) { lobbyWs.close(); lobbyWs = null; }
+        // Hide lobby, show game
+        showScreen('login-screen'); // hide all screens
+        document.getElementById('login-screen')!.classList.add('hidden');
+        document.getElementById('game')!.classList.remove('hidden');
+        selectRandomBackground();
+        autoReconnect = true;
+        renderLog(`Game starting vs ${opponent} on port ${gamePort}...`);
+        connect(lobbyPlayerName!);
+        break;
+      }
+      case 'error': {
+        renderLog(`Lobby: ${msg.message as string}`);
+        break;
+      }
+    }
+  };
+
+  lobbyWs.onclose = () => {
+    lobbyWs = null;
+  };
+}
+
+/** Initialize lobby mode on page load. */
+async function initLobby(): Promise<void> {
+  try {
+    const resp = await fetch('/api/me');
+    if (resp.ok) {
+      const data = await resp.json() as { name: string };
+      lobbyPlayerName = data.name;
+      document.getElementById('lobby-player-name')!.textContent = data.name;
+      showScreen('lobby-screen');
+      connectLobbyWs();
+    } else {
+      showScreen('login-screen');
+    }
+  } catch {
+    showScreen('login-screen');
+  }
 }
 
 // ---- UI Setup ----
@@ -412,6 +565,101 @@ document.addEventListener('DOMContentLoaded', () => {
   nameInput.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') connectBtn.click();
   });
+
+  // ---- Lobby mode event handlers ----
+  if (LOBBY_MODE) {
+    const loginBtn = document.getElementById('login-btn') as HTMLButtonElement;
+    const registerBtn = document.getElementById('register-btn') as HTMLButtonElement;
+    const showRegisterLink = document.getElementById('show-register') as HTMLAnchorElement;
+    const showLoginLink = document.getElementById('show-login') as HTMLAnchorElement;
+    const logoutBtn = document.getElementById('logout-btn') as HTMLButtonElement;
+    const playAiBtn = document.getElementById('play-ai-btn') as HTMLButtonElement;
+    const acceptChallengeBtn = document.getElementById('accept-challenge-btn') as HTMLButtonElement;
+    const declineChallengeBtn = document.getElementById('decline-challenge-btn') as HTMLButtonElement;
+
+    showRegisterLink.addEventListener('click', (e) => { e.preventDefault(); showScreen('register-screen'); });
+    showLoginLink.addEventListener('click', (e) => { e.preventDefault(); showScreen('login-screen'); });
+
+    loginBtn.addEventListener('click', () => { void (async () => {
+      const name = (document.getElementById('login-name') as HTMLInputElement).value.trim();
+      const password = (document.getElementById('login-password') as HTMLInputElement).value;
+      if (!name || !password) { showAuthError('login-error', 'Name and password are required'); return; }
+      try {
+        const resp = await fetch('/api/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name, password }),
+        });
+        const data = await resp.json() as { name?: string; error?: string };
+        if (!resp.ok) { showAuthError('login-error', data.error ?? 'Login failed'); return; }
+        lobbyPlayerName = data.name!;
+        document.getElementById('lobby-player-name')!.textContent = lobbyPlayerName;
+        showScreen('lobby-screen');
+        connectLobbyWs();
+      } catch { showAuthError('login-error', 'Connection error'); }
+    })(); });
+
+    // Enter key on login form
+    for (const id of ['login-name', 'login-password']) {
+      document.getElementById(id)?.addEventListener('keydown', (e) => { if (e.key === 'Enter') loginBtn.click(); });
+    }
+
+    registerBtn.addEventListener('click', () => { void (async () => {
+      const name = (document.getElementById('register-name') as HTMLInputElement).value.trim();
+      const email = (document.getElementById('register-email') as HTMLInputElement).value.trim();
+      const password = (document.getElementById('register-password') as HTMLInputElement).value;
+      if (!name || !email || !password) { showAuthError('register-error', 'All fields are required'); return; }
+      try {
+        const resp = await fetch('/api/register', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name, email, password }),
+        });
+        const data = await resp.json() as { name?: string; error?: string };
+        if (!resp.ok) { showAuthError('register-error', data.error ?? 'Registration failed'); return; }
+        lobbyPlayerName = data.name!;
+        document.getElementById('lobby-player-name')!.textContent = lobbyPlayerName;
+        showScreen('lobby-screen');
+        connectLobbyWs();
+      } catch { showAuthError('register-error', 'Connection error'); }
+    })(); });
+
+    // Enter key on register form
+    for (const id of ['register-name', 'register-email', 'register-password']) {
+      document.getElementById(id)?.addEventListener('keydown', (e) => { if (e.key === 'Enter') registerBtn.click(); });
+    }
+
+    logoutBtn.addEventListener('click', () => { void (async () => {
+      await fetch('/api/logout', { method: 'POST' });
+      lobbyPlayerName = null;
+      if (lobbyWs) { lobbyWs.close(); lobbyWs = null; }
+      showScreen('login-screen');
+    })(); });
+
+    playAiBtn.addEventListener('click', () => {
+      if (lobbyWs && lobbyWs.readyState === WebSocket.OPEN) {
+        lobbyWs.send(JSON.stringify({ type: 'play-ai' }));
+        playAiBtn.textContent = 'Starting...';
+        playAiBtn.disabled = true;
+      }
+    });
+
+    acceptChallengeBtn.addEventListener('click', () => {
+      if (lobbyWs && lobbyWs.readyState === WebSocket.OPEN && challengeFrom) {
+        lobbyWs.send(JSON.stringify({ type: 'accept-challenge', from: challengeFrom }));
+        document.getElementById('challenge-incoming')!.classList.add('hidden');
+        challengeFrom = null;
+      }
+    });
+
+    declineChallengeBtn.addEventListener('click', () => {
+      if (lobbyWs && lobbyWs.readyState === WebSocket.OPEN && challengeFrom) {
+        lobbyWs.send(JSON.stringify({ type: 'decline-challenge', from: challengeFrom }));
+        document.getElementById('challenge-incoming')!.classList.add('hidden');
+        challengeFrom = null;
+      }
+    });
+  }
 
   // ---- Enter key: activate single action button in the action list ----
   document.addEventListener('keydown', (e) => {
@@ -640,9 +888,16 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-  // Auto-connect if name is stored from a previous session
-  const savedName = loadPlayerName();
-  if (savedName) {
-    startGame(savedName);
+  // Initial screen
+  if (LOBBY_MODE) {
+    // In lobby mode: check session, show login or lobby
+    void initLobby();
+  } else {
+    // Standalone mode: show connect form, auto-connect if name saved
+    connectForm.style.display = '';
+    const savedName = loadPlayerName();
+    if (savedName) {
+      startGame(savedName);
+    }
   }
 });

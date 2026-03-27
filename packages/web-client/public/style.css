@@ -67,6 +67,216 @@ h2 {
   margin-bottom: 0.5rem;
 }
 
+/* ---- Auth screens (login/register) ---- */
+
+.auth-title {
+  text-align: center;
+  font-family: 'Cinzel', serif;
+  color: #c4a35a;
+  font-size: 2rem;
+  margin-bottom: 1.5rem;
+}
+
+.auth-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  max-width: 320px;
+  margin: 0 auto;
+}
+
+.auth-form input {
+  padding: 0.6rem 0.75rem;
+  font-size: 1rem;
+  background: #16213e;
+  color: #e0e0e0;
+  border: 1px solid #334;
+  border-radius: 4px;
+}
+
+.auth-form button {
+  padding: 0.6rem 1rem;
+  font-size: 1rem;
+  background: #c4a35a;
+  color: #1a1a2e;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: bold;
+}
+
+.auth-form button:hover {
+  background: #d4b36a;
+}
+
+.auth-error {
+  color: #e57373;
+  font-size: 0.85rem;
+  margin: 0;
+}
+
+.auth-link {
+  text-align: center;
+  font-size: 0.85rem;
+  color: #888;
+  margin: 0;
+}
+
+.auth-link a {
+  color: #c4a35a;
+  text-decoration: none;
+}
+
+.auth-link a:hover {
+  text-decoration: underline;
+}
+
+/* ---- Lobby screen ---- */
+
+#login-screen, #register-screen {
+  padding-top: 15vh;
+}
+
+.lobby-header {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid #334;
+}
+
+.lobby-title {
+  font-family: 'Cinzel', serif;
+  color: #c4a35a;
+  margin: 0;
+  flex: 1;
+}
+
+.lobby-player {
+  color: #e0e0e0;
+  font-size: 0.9rem;
+}
+
+.lobby-logout {
+  padding: 0.3rem 0.75rem;
+  font-size: 0.85rem;
+  background: transparent;
+  color: #d32f2f;
+  border: 1px solid #d32f2f;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.lobby-logout:hover {
+  background: rgba(211, 47, 47, 0.15);
+}
+
+.lobby-content {
+  max-width: 500px;
+}
+
+.lobby-actions {
+  margin-bottom: 1.5rem;
+}
+
+.lobby-play-btn {
+  padding: 0.75rem 1.5rem;
+  font-size: 1.1rem;
+  background: #c4a35a;
+  color: #1a1a2e;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: bold;
+}
+
+.lobby-play-btn:hover {
+  background: #d4b36a;
+}
+
+.lobby-section-title {
+  color: #c4a35a;
+  font-size: 0.9rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin: 0 0 0.5rem;
+}
+
+.lobby-player-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.lobby-empty {
+  color: #666;
+  font-size: 0.85rem;
+  margin: 0;
+}
+
+.lobby-player-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.5rem 0.75rem;
+  background: #16213e;
+  border: 1px solid #334;
+  border-radius: 4px;
+}
+
+.lobby-player-item span {
+  color: #e0e0e0;
+}
+
+.lobby-player-item button {
+  padding: 0.25rem 0.6rem;
+  font-size: 0.8rem;
+  background: #c4a35a;
+  color: #1a1a2e;
+  border: none;
+  border-radius: 3px;
+  cursor: pointer;
+  font-weight: bold;
+}
+
+.lobby-player-item button:hover {
+  background: #d4b36a;
+}
+
+#challenge-incoming {
+  margin-top: 1rem;
+  padding: 0.75rem;
+  background: #1e2a4a;
+  border: 1px solid #c4a35a;
+  border-radius: 4px;
+}
+
+#challenge-incoming p {
+  margin: 0 0 0.5rem;
+  color: #e0e0e0;
+}
+
+#challenge-incoming button {
+  padding: 0.3rem 0.75rem;
+  font-size: 0.85rem;
+  border: none;
+  border-radius: 3px;
+  cursor: pointer;
+  margin-right: 0.5rem;
+  font-weight: bold;
+}
+
+#accept-challenge-btn {
+  background: #4caf50;
+  color: #fff;
+}
+
+#decline-challenge-btn {
+  background: #666;
+  color: #fff;
+}
+
 #connect-form {
   display: flex;
   gap: 0.5rem;

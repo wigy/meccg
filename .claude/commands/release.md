@@ -17,6 +17,7 @@ Follow these steps exactly:
    - `packages/game-server/package.json`
    - `packages/text-client/package.json`
    - `packages/web-client/package.json`
+   - `packages/lobby-server/package.json`
 
 6. **Update CHANGELOG.md:** Add a new section at the top (below the `# Changelog` heading) for the new version with today's date and the release title in the heading (format: `## X.Y.Z — YYYY-MM-DD` on the first line, followed by the release title on the next line). Summarize the changes since the last release by reading `git log` from the last version tag. Group changes by category (Game Engine, Web Client, Text Client, Infrastructure, etc.).
 

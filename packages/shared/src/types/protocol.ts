@@ -49,6 +49,8 @@ export interface JoinMessage {
   readonly siteDeck: readonly CardDefinitionId[];
   /** The havens where the player's starting companies begin. */
   readonly startingHavens: readonly CardDefinitionId[];
+  /** Optional JWT token for authenticated game server connections (lobby mode). */
+  readonly token?: string;
 }
 
 /**

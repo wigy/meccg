@@ -8,6 +8,7 @@
  * game is saved. When both players reconnect, the game resumes.
  */
 
+import * as crypto from 'crypto';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
@@ -186,6 +187,10 @@ export class GameSession {
   }
 
   private handleJoin(ws: WebSocket, msg: JoinMessage): void {
+    // JWT token verification — when JWT_SECRET is set (lobby mode), require a valid token
+    const jwtSecret = process.env.JWT_SECRET;
+    if (jwtSecret && !this.verifyJoinToken(ws, msg)) return;
+
     // Validate player name: alphanumeric, spaces, hyphens, underscores only
     if (!/^[a-zA-Z0-9 _-]+$/.test(msg.name)) {
       this.send(ws, { type: 'error', message: 'Invalid name: only letters, numbers, spaces, hyphens, and underscores allowed' });
@@ -235,6 +240,38 @@ export class GameSession {
       this.restoreGame(save, p1, p2, name1, name2);
     } else {
       this.startNewGame(p1, p2, name1, name2);
+    }
+  }
+
+  /**
+   * Verify the JWT token on a join message when running in lobby mode.
+   * Returns true if valid (or if no JWT_SECRET is set), false if rejected.
+   */
+  private verifyJoinToken(ws: WebSocket, msg: JoinMessage): boolean {
+    if (!msg.token) {
+      this.send(ws, { type: 'error', message: 'Authentication token required' });
+      return false;
+    }
+    try {
+      const secret = process.env.JWT_SECRET!;
+      const parts = msg.token.split('.');
+      if (parts.length !== 3) throw new Error('Malformed token');
+      const [header, body, sig] = parts;
+      const expected = crypto.createHmac('sha256', secret)
+        .update(`${header}.${body}`)
+        .digest('base64url');
+      if (!crypto.timingSafeEqual(Buffer.from(sig), Buffer.from(expected))) {
+        throw new Error('Invalid signature');
+      }
+      const payload = JSON.parse(Buffer.from(body, 'base64url').toString()) as { sub: string; exp: number };
+      if (payload.exp < Math.floor(Date.now() / 1000)) throw new Error('Token expired');
+      if (payload.sub.toLowerCase() !== msg.name.toLowerCase()) {
+        throw new Error(`Token name mismatch: "${payload.sub}" vs "${msg.name}"`);
+      }
+      return true;
+    } catch (err) {
+      this.send(ws, { type: 'error', message: `Authentication failed: ${(err as Error).message}` });
+      return false;
     }
   }
 
@@ -724,10 +761,23 @@ export class GameSession {
       return;
     }
 
-    // Copy snapshot to the autosave path so restoreGame picks it up on reconnect
+    // Remap snapshot's player names to match the current game's player names,
+    // so loadSave can find the players when clients reconnect.
     const autosavePath = this.autosaveFilePath();
-    fs.copyFileSync(snapshotPath, autosavePath);
-    console.log(`Loaded snapshot ${file} → ${autosavePath}`);
+    const snapData = JSON.parse(fs.readFileSync(snapshotPath, 'utf-8')) as GameSave;
+    const snapNames = Object.keys(snapData.nameToPlayerId);
+    const currentNames = [...this.playerNames];
+    if (snapNames.length === 2 && currentNames.length === 2) {
+      const remapped: Record<string, string> = {};
+      remapped[currentNames[0]] = snapData.nameToPlayerId[snapNames[0]];
+      remapped[currentNames[1]] = snapData.nameToPlayerId[snapNames[1]];
+      snapData.nameToPlayerId = remapped;
+      fs.writeFileSync(autosavePath, JSON.stringify(snapData));
+      console.log(`Loaded snapshot ${file} → ${autosavePath} (remapped ${snapNames.join(',')} → ${currentNames.join(',')})`);
+    } else {
+      fs.copyFileSync(snapshotPath, autosavePath);
+      console.log(`Loaded snapshot ${file} → ${autosavePath}`);
+    }
     this.serverLog.log('load-snapshot', { file, savePath: autosavePath });
 
     // Clear state and restart all clients (same pattern as handleLoad)
