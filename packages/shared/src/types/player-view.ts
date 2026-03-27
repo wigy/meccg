@@ -246,6 +246,10 @@ export interface PlayerView {
   readonly eventsInPlay: readonly EventInPlay[];
   /** Current turn number (1-based). */
   readonly turnNumber: number;
+  /** The player who won the initiative roll and took the first turn. Null during setup. */
+  readonly startingPlayer: PlayerId | null;
+  /** Monotonically increasing sequence number for state changes. */
+  readonly stateSeq: number;
   /**
    * Complete list of candidate actions for the current phase, annotated with viability.
    * Viable actions can be submitted; non-viable actions include a human-readable reason

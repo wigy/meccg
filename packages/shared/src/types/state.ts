@@ -1209,6 +1209,8 @@ export interface GameState {
   readonly instanceMap: Readonly<Record<string, CardInstance>>;
   /** Current turn number (1-based), incremented each time the active player changes. */
   readonly turnNumber: number;
+  /** The player who won the initiative roll and took the first turn. Null during setup before the roll. */
+  readonly startingPlayer: PlayerId | null;
   /** Queue of effects waiting to be resolved before the game can proceed. */
   readonly pendingEffects: readonly PendingEffect[];
   /** Deterministic RNG state for reproducible dice rolls and shuffles. */

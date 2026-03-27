@@ -201,6 +201,8 @@ export function projectSpectatorView(state: GameState): PlayerView {
     chain: state.chain,
     eventsInPlay: state.eventsInPlay,
     turnNumber: state.turnNumber,
+    startingPlayer: state.startingPlayer,
+    stateSeq: state.stateSeq,
     legalActions: [],
     visibleInstances,
   };
@@ -391,6 +393,8 @@ export function projectPlayerView(state: GameState, playerId: PlayerId): PlayerV
     chain: state.chain,
     eventsInPlay: state.eventsInPlay,
     turnNumber: state.turnNumber,
+    startingPlayer: state.startingPlayer,
+    stateSeq: state.stateSeq,
     legalActions,
     visibleInstances,
   };

@@ -1123,7 +1123,7 @@ function handleInitiativeRoll(
   logDetail(`${winner.name} wins initiative (${total0} vs ${total1}) — goes first`);
   const firstPlayer = winner.id;
   return {
-    state: startFirstTurn({ ...stateWithRoll, activePlayer: firstPlayer }),
+    state: startFirstTurn({ ...stateWithRoll, activePlayer: firstPlayer, startingPlayer: firstPlayer }),
     effects: [rollEffect],
   };
 }
