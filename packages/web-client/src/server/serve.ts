@@ -171,7 +171,7 @@ const server = http.createServer((req, res) => {
 
   // Dev snapshots index endpoint
   if (DEV && urlPath === '/api/snapshots') {
-    const snapshotIndex = path.join(__dirname, '../../../server/data/dev/snapshots/index.json');
+    const snapshotIndex = path.join(__dirname, '../../../game-server/data/dev/snapshots/index.json');
     fs.readFile(snapshotIndex, (err, data) => {
       if (err) {
         res.writeHead(404);
