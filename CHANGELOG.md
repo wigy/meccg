@@ -1,5 +1,43 @@
 # Changelog
 
+## 0.10.0 — 2026-03-27
+
+Combat and auto-attacks
+
+### Game Engine
+- **Combat framework:** Full combat phase implementation — creature chain
+  resolution, strike assignment, defender-chooses-strike-order, prowess/body
+  checks, kill/elimination marshalling points
+- **Automatic attacks:** Implement automatic attack combat during site phase
+  for entering non-free sites
+- **Strike rules:** Attacker-chooses-defenders creatures skip defender strike
+  assignment; per-keying-match creature hazard actions with disambiguation
+- **Healing:** Heal wounded characters at havens during untap phase
+- **Allies in combat:** Allow allies to tap for combat support
+- **Company cleanup:** Remove empty companies after M/H and Site phase
+  transitions; discard tapped sites from empty companies
+- **Long-event phase:** Restrict to active player only; remove body-check-roll
+  button
+- **Player view:** Add startingPlayer and stateSeq to PlayerView
+
+### Web Client
+- **Combat UI:** Combat visual view with action buttons, instruction text,
+  creature race display, and chain frame integration
+- **Tapped/wounded display:** Fix character card rendering when tapped or
+  wounded; rotate stat badges with card orientation; collapse empty space
+  below tapped cards for item alignment
+- **Dev snapshots:** Snapshot loader button, modal with character/site card
+  images, and server endpoint for browsing dev snapshots
+- **Debug view:** Collapsible raw JSON viewer with card hover and inline atoms;
+  compact debug action buttons with right-panel padding
+- **Combat projections:** Fix combat UI projections, pile rendering, buttons,
+  and resource play during combat
+
+### Infrastructure
+- **Package renames:** server→game-server, client-text→text-client,
+  client-web→web-client (directories and npm package names)
+- **Save files:** Separate manual and automatic save files
+
 ## 0.9.0 — 2026-03-26
 
 Chain of Effects
