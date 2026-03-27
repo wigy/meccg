@@ -169,6 +169,21 @@ const server = http.createServer((req, res) => {
     return;
   }
 
+  // Dev snapshots index endpoint
+  if (DEV && urlPath === '/api/snapshots') {
+    const snapshotIndex = path.join(__dirname, '../../../server/data/dev/snapshots/index.json');
+    fs.readFile(snapshotIndex, (err, data) => {
+      if (err) {
+        res.writeHead(404);
+        res.end('[]');
+        return;
+      }
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(data);
+    });
+    return;
+  }
+
   // Card image proxy route
   if (urlPath.startsWith('/cards/images/')) {
     handleImageRequest(urlPath, res).catch((err) => {

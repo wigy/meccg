@@ -566,6 +566,54 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
+  // ---- Snapshot modal ----
+  const snapshotBtn = document.getElementById('snapshot-btn') as HTMLButtonElement;
+  const snapshotModal = document.getElementById('snapshot-modal') as HTMLElement;
+  const snapshotBackdrop = document.getElementById('snapshot-backdrop') as HTMLElement;
+  const snapshotList = document.getElementById('snapshot-list') as HTMLElement;
+
+  snapshotBtn.addEventListener('click', () => {
+    void (async () => {
+    try {
+      const resp = await fetch('/api/snapshots');
+      const snapshots = await resp.json() as { file: string; description: string }[];
+      snapshotList.innerHTML = '';
+      if (snapshots.length === 0) {
+        snapshotList.textContent = 'No snapshots available.';
+      } else {
+        for (const snap of snapshots) {
+          const item = document.createElement('div');
+          item.className = 'snapshot-item';
+          const name = document.createElement('div');
+          name.className = 'snapshot-item-name';
+          name.textContent = snap.file;
+          const desc = document.createElement('div');
+          desc.className = 'snapshot-item-desc';
+          desc.textContent = snap.description;
+          item.appendChild(name);
+          item.appendChild(desc);
+          item.addEventListener('click', () => {
+            if (ws && ws.readyState === WebSocket.OPEN) {
+              const msg: ClientMessage = { type: 'load-snapshot', file: snap.file };
+              ws.send(JSON.stringify(msg));
+              clearGameBoard();
+            }
+            snapshotModal.classList.add('hidden');
+          });
+          snapshotList.appendChild(item);
+        }
+      }
+      snapshotModal.classList.remove('hidden');
+    } catch {
+      renderLog('Failed to fetch snapshot list');
+    }
+    })();
+  });
+
+  snapshotBackdrop.addEventListener('click', () => {
+    snapshotModal.classList.add('hidden');
+  });
+
   resetBtn.addEventListener('click', () => {
     if (ws && ws.readyState === WebSocket.OPEN) {
       const msg: ClientMessage = { type: 'reset' };

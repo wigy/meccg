@@ -134,7 +134,18 @@ export interface SummonCardMessage {
   readonly cardName: string;
 }
 
-export type ClientMessage = JoinMessage | ActionMessage | ResetMessage | SaveMessage | LoadMessage | ReseedMessage | UndoMessage | CheatRollMessage | SummonCardMessage;
+/**
+ * Dev-only: load a named snapshot from the bundled dev snapshots directory.
+ * The server copies the snapshot to the save path and restarts all clients.
+ */
+export interface LoadSnapshotMessage {
+  /** Message type discriminant. */
+  readonly type: 'load-snapshot';
+  /** Snapshot filename (e.g. "001.json"). */
+  readonly file: string;
+}
+
+export type ClientMessage = JoinMessage | ActionMessage | ResetMessage | SaveMessage | LoadMessage | ReseedMessage | UndoMessage | CheatRollMessage | SummonCardMessage | LoadSnapshotMessage;
 
 // ---- Server → Client ----
 

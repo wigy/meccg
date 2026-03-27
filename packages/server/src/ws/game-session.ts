@@ -30,6 +30,7 @@ import { projectPlayerView, projectSpectatorView } from './projection.js';
 import { ServerLog, GameLog } from './game-log.js';
 
 const SAVE_DIR = process.env.SAVE_DIR ?? path.join(os.homedir(), '.meccg', 'saves');
+const SNAPSHOT_DIR = path.join(__dirname, '../../data/dev/snapshots');
 
 interface PendingPlayer {
   ws: WebSocket;
@@ -167,6 +168,7 @@ export class GameSession {
       case 'undo':
       case 'cheat-roll':
       case 'summon-card':
+      case 'load-snapshot':
         if (!this.dev) {
           this.send(ws, { type: 'error', message: `'${msg.type}' is only available in development mode (--dev)` });
           break;
@@ -178,6 +180,7 @@ export class GameSession {
         else if (msg.type === 'undo') this.handleUndo(ws);
         else if (msg.type === 'cheat-roll') this.handleCheatRoll(ws, msg.total);
         else if (msg.type === 'summon-card') this.handleSummonCard(ws, msg.cardName);
+        else if (msg.type === 'load-snapshot') this.handleLoadSnapshot(ws, msg.file);
         break;
     }
   }
@@ -698,6 +701,38 @@ export class GameSession {
     for (const [, { ws }] of this.players.entries()) { this.send(ws, restartMsg); ws.close(); }
     this.players.clear();
     for (const ws of this.spectators) { this.send(ws, restartMsg); ws.close(); }
+    this.spectators.clear();
+    this.nameToPlayerId = {};
+  }
+
+  /** Dev-only: load a bundled snapshot file as the current save and restart all clients. */
+  private handleLoadSnapshot(ws: WebSocket, file: string): void {
+    // Validate filename: exactly 3 digits + .json extension
+    if (!/^\d{3}\.json$/.test(file)) {
+      this.send(ws, { type: 'error', message: `Invalid snapshot filename: "${file}"` });
+      return;
+    }
+    const snapshotPath = path.join(SNAPSHOT_DIR, file);
+    if (!fs.existsSync(snapshotPath)) {
+      this.send(ws, { type: 'error', message: `Snapshot not found: "${file}"` });
+      return;
+    }
+
+    // Copy snapshot to the save path so restoreGame picks it up on reconnect
+    const savePath = this.saveFilePath();
+    fs.copyFileSync(snapshotPath, savePath);
+    console.log(`Loaded snapshot ${file} → ${savePath}`);
+    this.serverLog.log('load-snapshot', { file, savePath });
+
+    // Clear state and restart all clients (same pattern as handleLoad)
+    this.state = null;
+    this.stateHistory = [];
+    const restartMsg: ServerMessage = { type: 'restart', message: 'Loading snapshot. Reconnecting...' };
+    for (const [, { ws: pws }] of this.pending.entries()) { this.send(pws, restartMsg); pws.close(); }
+    this.pending.clear();
+    for (const [, { ws: pws }] of this.players.entries()) { this.send(pws, restartMsg); pws.close(); }
+    this.players.clear();
+    for (const sws of this.spectators) { this.send(sws, restartMsg); sws.close(); }
     this.spectators.clear();
     this.nameToPlayerId = {};
   }
