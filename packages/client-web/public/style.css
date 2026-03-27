@@ -1725,9 +1725,9 @@ h2 {
 }
 
 .character-card-wrap--tapped {
-  /* Reserve space for the rotated card */
+  /* Reserve horizontal space for the rotated card; height matches untapped
+     wraps so all characters share the same baseline. */
   width: calc(var(--card-table-height) * var(--company-scale, 1));
-  height: calc(var(--card-table-height) * var(--company-scale, 1) / 1.4);
 }
 
 /* Card sizing */
@@ -1744,6 +1744,13 @@ h2 {
   margin-bottom: calc(var(--card-table-height) * var(--company-scale, 1) * -0.35);
 }
 
+/* Wounded (upside-down) cards fade from the top instead */
+.company-card--faded-top {
+  -webkit-mask-image: linear-gradient(to top, black 50%, transparent 75%);
+  mask-image: linear-gradient(to top, black 50%, transparent 75%);
+  margin-bottom: calc(var(--card-table-height) * var(--company-scale, 1) * -0.35);
+}
+
 /* Remove mask when card is highlighted so the glow shows through */
 .company-card--faded.company-card--influence-source,
 .company-card--faded.company-card--influence-selected,
@@ -1757,7 +1764,20 @@ h2 {
 .company-card--faded.combat-card--current-strike,
 .company-card--faded.combat-card--strike-success,
 .company-card--faded.combat-card--strike-wounded,
-.company-card--faded.combat-card--strike-eliminated {
+.company-card--faded.combat-card--strike-eliminated,
+.company-card--faded-top.company-card--influence-source,
+.company-card--faded-top.company-card--influence-selected,
+.company-card--faded-top.company-card--influence-target,
+.company-card--faded-top.company-card--transfer-source,
+.company-card--faded-top.company-card--transfer-selected,
+.company-card--faded-top.company-card--transfer-target,
+.company-card--faded-top.combat-card--assignable,
+.company-card--faded-top.combat-card--supportable,
+.company-card--faded-top.combat-card--strike-assigned,
+.company-card--faded-top.combat-card--current-strike,
+.company-card--faded-top.combat-card--strike-success,
+.company-card--faded-top.combat-card--strike-wounded,
+.company-card--faded-top.combat-card--strike-eliminated {
   -webkit-mask-image: none;
   mask-image: none;
 }

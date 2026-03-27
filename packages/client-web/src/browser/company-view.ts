@@ -158,12 +158,14 @@ function renderCharacterColumn(
   const hasFollowers = charMap != null && char.followers.length > 0;
   const hasAttachments = char.items.length > 0 || char.allies.length > 0 || hasFollowers;
   const img = createCardImage(char.definitionId as string, def, imgPath, 'company-card', char.instanceId as string);
-  if (hasAttachments) img.classList.add('company-card--faded');
   if (char.status === CardStatus.Tapped) {
     img.classList.add('company-card--tapped');
     wrap.classList.add('character-card-wrap--tapped');
   } else if (char.status === CardStatus.Inverted) {
     img.classList.add('company-card--wounded');
+    if (hasAttachments) img.classList.add('company-card--faded-top');
+  } else {
+    if (hasAttachments) img.classList.add('company-card--faded');
   }
   wrap.appendChild(img);
 
@@ -252,12 +254,14 @@ function renderCharacterColumn(
         const fWrap = document.createElement('div');
         fWrap.className = 'character-card-wrap';
         const fEl = createCardImage(follower.definitionId as string, fDef, fImg, 'company-card company-card--follower', follower.instanceId as string);
-        if (followerHasItems) fEl.classList.add('company-card--faded');
         if (follower.status === CardStatus.Tapped) {
           fEl.classList.add('company-card--tapped');
           fWrap.classList.add('character-card-wrap--tapped');
         } else if (follower.status === CardStatus.Inverted) {
           fEl.classList.add('company-card--wounded');
+          if (followerHasItems) fEl.classList.add('company-card--faded-top');
+        } else {
+          if (followerHasItems) fEl.classList.add('company-card--faded');
         }
         const followerInfluenceClick = influenceClickBuilder?.(followerId);
         if (followerInfluenceClick) {
