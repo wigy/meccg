@@ -1819,13 +1819,25 @@ h2 {
   align-items: center;
 }
 
-/* Tapped (sideways) */
+/* Tapped (sideways) — used by items and sites without badges */
 .company-card--tapped {
   transform: rotate(90deg);
 }
 
-/* Wounded (upside down) */
+/* Wounded (upside down) — used by items without badges */
 .company-card--wounded {
+  transform: rotate(180deg);
+}
+
+/* Inner wrapper rotates both the card image and its badges together */
+.character-card-inner {
+  position: relative;
+  display: inline-block;
+}
+.character-card-inner--tapped {
+  transform: rotate(90deg);
+}
+.character-card-inner--wounded {
   transform: rotate(180deg);
 }
 

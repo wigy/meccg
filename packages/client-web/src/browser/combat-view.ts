@@ -299,12 +299,17 @@ function renderCombatCharacterColumn(
 
   const hasAttachments = char.items.length > 0 || char.allies.length > 0;
   const img = createCardImage(char.definitionId as string, def, imgPath, 'company-card', char.instanceId as string);
-  if (hasAttachments) img.classList.add('company-card--faded');
+
+  const inner = document.createElement('div');
+  inner.className = 'character-card-inner';
   if (char.status === CardStatus.Tapped) {
-    img.classList.add('company-card--tapped');
+    inner.classList.add('character-card-inner--tapped');
     wrap.classList.add('character-card-wrap--tapped');
   } else if (char.status === CardStatus.Inverted) {
-    img.classList.add('company-card--wounded');
+    inner.classList.add('character-card-inner--wounded');
+    if (hasAttachments) img.classList.add('company-card--faded-top');
+  } else {
+    if (hasAttachments) img.classList.add('company-card--faded');
   }
 
   // Combat-specific styling
@@ -359,13 +364,13 @@ function renderCombatCharacterColumn(
     }
   }
 
-  wrap.appendChild(img);
+  inner.appendChild(img);
 
   // Stats badge — prowess/body
   const badge = document.createElement('div');
   badge.className = 'char-stats-badge';
   badge.textContent = `${char.effectiveStats.prowess}/${char.effectiveStats.body}`;
-  wrap.appendChild(badge);
+  inner.appendChild(badge);
 
   // Excess strikes indicator
   if (strike && strike.assignment.excessStrikes > 0) {
@@ -373,7 +378,7 @@ function renderCombatCharacterColumn(
     excessBadge.className = 'combat-excess-badge';
     excessBadge.textContent = `\u2212${strike.assignment.excessStrikes}`;
     excessBadge.title = `${strike.assignment.excessStrikes} excess strike${strike.assignment.excessStrikes !== 1 ? 's' : ''} (-${strike.assignment.excessStrikes} prowess)`;
-    wrap.appendChild(excessBadge);
+    inner.appendChild(excessBadge);
   }
 
   // Strike result overlay icon
@@ -390,9 +395,10 @@ function renderCombatCharacterColumn(
       overlay.textContent = '\u2716'; // heavy X — eliminated
       overlay.classList.add('combat-result-overlay--eliminated');
     }
-    wrap.appendChild(overlay);
+    inner.appendChild(overlay);
   }
 
+  wrap.appendChild(inner);
   col.appendChild(wrap);
 
   // Items (non-follower belongings) shown below

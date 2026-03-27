@@ -158,36 +158,42 @@ function renderCharacterColumn(
   const hasFollowers = charMap != null && char.followers.length > 0;
   const hasAttachments = char.items.length > 0 || char.allies.length > 0 || hasFollowers;
   const img = createCardImage(char.definitionId as string, def, imgPath, 'company-card', char.instanceId as string);
+
+  // Inner wrapper rotates both card image and badges together
+  const inner = document.createElement('div');
+  inner.className = 'character-card-inner';
   if (char.status === CardStatus.Tapped) {
-    img.classList.add('company-card--tapped');
+    inner.classList.add('character-card-inner--tapped');
     wrap.classList.add('character-card-wrap--tapped');
   } else if (char.status === CardStatus.Inverted) {
-    img.classList.add('company-card--wounded');
+    inner.classList.add('character-card-inner--wounded');
     if (hasAttachments) img.classList.add('company-card--faded-top');
   } else {
     if (hasAttachments) img.classList.add('company-card--faded');
   }
-  wrap.appendChild(img);
+  inner.appendChild(img);
 
   // Stats badge
   const badge = document.createElement('div');
   badge.className = 'char-stats-badge';
   badge.textContent = `${char.effectiveStats.prowess}/${char.effectiveStats.body}`;
-  wrap.appendChild(badge);
+  inner.appendChild(badge);
 
   // Mind badge (left edge, above DI)
   if (isCharacterCard(def) && def.mind !== null) {
     const mindBadge = document.createElement('div');
     mindBadge.className = 'char-mind-badge';
     mindBadge.textContent = String(def.mind);
-    wrap.appendChild(mindBadge);
+    inner.appendChild(mindBadge);
   }
 
   // Direct influence badge (left edge, middle)
   const diBadge = document.createElement('div');
   diBadge.className = 'char-di-badge';
   diBadge.textContent = String(char.effectiveStats.directInfluence);
-  wrap.appendChild(diBadge);
+  inner.appendChild(diBadge);
+
+  wrap.appendChild(inner);
 
   // Influence move highlight and click handler
   if (influenceClick) {
@@ -254,11 +260,14 @@ function renderCharacterColumn(
         const fWrap = document.createElement('div');
         fWrap.className = 'character-card-wrap';
         const fEl = createCardImage(follower.definitionId as string, fDef, fImg, 'company-card company-card--follower', follower.instanceId as string);
+
+        const fInner = document.createElement('div');
+        fInner.className = 'character-card-inner';
         if (follower.status === CardStatus.Tapped) {
-          fEl.classList.add('company-card--tapped');
+          fInner.classList.add('character-card-inner--tapped');
           fWrap.classList.add('character-card-wrap--tapped');
         } else if (follower.status === CardStatus.Inverted) {
-          fEl.classList.add('company-card--wounded');
+          fInner.classList.add('character-card-inner--wounded');
           if (followerHasItems) fEl.classList.add('company-card--faded-top');
         } else {
           if (followerHasItems) fEl.classList.add('company-card--faded');
@@ -269,27 +278,29 @@ function renderCharacterColumn(
           fEl.style.cursor = 'pointer';
           fEl.addEventListener('click', followerInfluenceClick.handler);
         }
-        fWrap.appendChild(fEl);
+        fInner.appendChild(fEl);
 
         // Follower stats badge
         const fStatsBadge = document.createElement('div');
         fStatsBadge.className = 'char-stats-badge';
         fStatsBadge.textContent = `${follower.effectiveStats.prowess}/${follower.effectiveStats.body}`;
-        fWrap.appendChild(fStatsBadge);
+        fInner.appendChild(fStatsBadge);
 
         // Follower mind badge
         if (isCharacterCard(fDef) && fDef.mind !== null) {
           const fMindBadge = document.createElement('div');
           fMindBadge.className = 'char-mind-badge';
           fMindBadge.textContent = String(fDef.mind);
-          fWrap.appendChild(fMindBadge);
+          fInner.appendChild(fMindBadge);
         }
 
         // Follower direct influence badge
         const fDiBadge = document.createElement('div');
         fDiBadge.className = 'char-di-badge';
         fDiBadge.textContent = String(follower.effectiveStats.directInfluence);
-        fWrap.appendChild(fDiBadge);
+        fInner.appendChild(fDiBadge);
+
+        fWrap.appendChild(fInner);
 
         followerCol.appendChild(fWrap);
 
