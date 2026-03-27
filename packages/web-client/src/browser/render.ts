@@ -1664,6 +1664,23 @@ function getInstructionText(
     }
   }
 
+  // Free Council phase
+  if (view.phaseState.phase === Phase.FreeCouncil) {
+    const hasChecks = view.legalActions.some(ea => ea.viable && ea.action.type === 'corruption-check');
+    if (hasChecks) {
+      return 'Free Council — Choose a character for corruption check, or pass to skip remaining.';
+    }
+    return 'Free Council — Waiting for opponent to finish corruption checks.';
+  }
+
+  // Game Over
+  if (view.phaseState.phase === Phase.GameOver) {
+    const winner = view.phaseState.winner;
+    if (winner === null) return 'Game Over — The game ended in a tie!';
+    const winnerName = winner === view.self.id ? view.self.name : view.opponent.name;
+    return `Game Over — ${winnerName} wins!`;
+  }
+
   return null;
 }
 
@@ -1690,7 +1707,7 @@ export function renderPassButton(view: PlayerView, onAction: (action: GameAction
     ea.viable && (ea.action.type === 'pass' || ea.action.type === 'draft-stop'
     || ea.action.type === 'shuffle-play-deck' || ea.action.type === 'draw-cards'
     || ea.action.type === 'roll-initiative' || ea.action.type === 'corruption-check'
-    || ea.action.type === 'pass-chain-priority'));
+    || ea.action.type === 'pass-chain-priority' || ea.action.type === 'deck-exhaust'));
   const passAction = passEval?.action;
   if (!passAction) {
     btn.classList.add('hidden');
@@ -1711,6 +1728,8 @@ export function renderPassButton(view: PlayerView, onAction: (action: GameAction
     label = 'Roll';
   } else if (passAction.type === 'corruption-check') {
     label = 'Roll';
+  } else if (passAction.type === 'deck-exhaust') {
+    label = 'Exhaust';
   } else if (view.phaseState.phase === Phase.Untap) {
     label = 'Organization';
   } else if (view.phaseState.phase === Phase.Organization) {
@@ -1738,6 +1757,8 @@ export function renderPassButton(view: PlayerView, onAction: (action: GameAction
       case 'signal-end': label = 'Finished'; break;
       default: label = 'Continue';
     }
+  } else if (view.phaseState.phase === Phase.FreeCouncil) {
+    label = 'Done';
   } else if (view.phaseState.phase === 'setup') {
     const step = view.phaseState.setupStep.step;
     if (step === 'item-draft') label = 'Continue';
@@ -1764,6 +1785,21 @@ export function renderPassButton(view: PlayerView, onAction: (action: GameAction
       passBtn2.textContent = 'Pass';
       passBtn2.onclick = () => onAction(secondaryPass.action);
       btn.parentElement?.insertBefore(passBtn2, btn.nextSibling);
+    }
+  }
+
+  // During signal-end, add a "Call Council" button if available
+  const existingCouncilBtn = document.getElementById('call-council-btn');
+  if (existingCouncilBtn) existingCouncilBtn.remove();
+  if (view.phaseState.phase === Phase.EndOfTurn && view.phaseState.step === 'signal-end') {
+    const councilEval = view.legalActions.find(ea => ea.viable && ea.action.type === 'call-free-council');
+    if (councilEval) {
+      const councilBtn = document.createElement('button');
+      councilBtn.id = 'call-council-btn';
+      councilBtn.className = 'enter-site-btn';
+      councilBtn.textContent = 'Call Council';
+      councilBtn.onclick = () => onAction(councilEval.action);
+      btn.parentElement?.insertBefore(councilBtn, btn);
     }
   }
 

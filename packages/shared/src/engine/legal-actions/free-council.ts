@@ -3,23 +3,36 @@
  *
  * Legal actions during the Free Council (endgame) phase. All characters
  * must make corruption checks before final marshalling points are tallied.
+ * Each player performs corruption checks in turn, starting with the player
+ * who took the last turn. Characters already checked are tracked in
+ * the phase state's `checkedCharacters` array.
  */
 
-import type { GameState, PlayerId, GameAction, CardInstanceId } from '../../index.js';
+import type { GameState, PlayerId, GameAction, CardInstanceId, FreeCouncilPhaseState } from '../../index.js';
 import { isCharacterCard } from '../../index.js';
 import { logDetail } from './log.js';
 
 export function freeCouncilActions(state: GameState, playerId: PlayerId): GameAction[] {
+  const fcState = state.phaseState as FreeCouncilPhaseState;
+
+  if (fcState.step === 'done') {
+    return [];
+  }
+
+  // Only the current player performs corruption checks
+  if (playerId !== fcState.currentPlayer) {
+    return [];
+  }
+
   const player = state.players.find(p => p.id === playerId);
   if (!player) return [];
 
-  const charCount = Object.keys(player.characters).length;
-  logDetail(`Free Council: ${charCount} character(s) need corruption checks`);
-
+  const checked = new Set(fcState.checkedCharacters);
   const actions: GameAction[] = [];
 
-  // Corruption check for each character in play
+  // Corruption check for each unchecked character in play
   for (const charId of Object.keys(player.characters)) {
+    if (checked.has(charId)) continue;
     const charInPlay = player.characters[charId];
     const charDef = state.cardPool[charInPlay.definitionId as string];
     const cp = charInPlay.effectiveStats.corruptionPoints;
@@ -40,6 +53,8 @@ export function freeCouncilActions(state: GameState, playerId: PlayerId): GameAc
     });
   }
 
+  // Pass skips remaining checks for this player (or advances to scoring if both done)
   actions.push({ type: 'pass', player: playerId });
+  logDetail(`Free Council: ${actions.length - 1} character(s) available for corruption checks`);
   return actions;
 }

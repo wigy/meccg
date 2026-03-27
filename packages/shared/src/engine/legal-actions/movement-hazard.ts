@@ -291,7 +291,11 @@ function drawCardsActions(
   const playerIndex = getPlayerIndex(state, playerId);
   const player = state.players[playerIndex];
   if (player.playDeck.length === 0) {
-    logDetail(`${playerLabel} player has no cards in play deck — only pass`);
+    if (player.discardPile.length > 0) {
+      logDetail(`${playerLabel} player deck empty — must exhaust (reshuffle discard)`);
+      return [{ type: 'deck-exhaust', player: playerId }];
+    }
+    logDetail(`${playerLabel} player has no cards in play deck or discard — only pass`);
     return [{ type: 'pass', player: playerId }];
   }
 

@@ -2717,3 +2717,52 @@ h2 {
 .combat-arrow--success { stroke: rgba(80, 200, 80, 0.6); }
 .combat-arrow--wound { stroke: rgba(200, 50, 50, 0.6); }
 
+/* ---- Free Council ---- */
+
+.free-council-title {
+  font-family: 'MedievalSharp', serif;
+  font-size: 3rem;
+  color: rgba(196, 163, 90, 0.95);
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.8), 0 0 30px rgba(196, 163, 90, 0.2);
+  text-align: center;
+  margin: 1rem 0 0.2rem;
+  letter-spacing: 0.1em;
+}
+
+.free-council-subtitle {
+  font-family: 'MedievalSharp', serif;
+  font-size: 1.1rem;
+  color: rgba(180, 180, 180, 0.8);
+  text-align: center;
+  margin-bottom: 1.5rem;
+}
+
+.free-council-section {
+  margin-bottom: 1.5rem;
+}
+
+.free-council-player-label {
+  font-family: 'MedievalSharp', serif;
+  font-size: 1.3rem;
+  color: rgba(196, 163, 90, 0.85);
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8);
+  padding: 0 1rem 0.3rem;
+}
+
+.free-council-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  padding: 0.5rem 1rem;
+  align-items: flex-start;
+}
+
+.free-council-unchecked .company-card {
+  box-shadow: 0 0 8px 2px rgba(196, 163, 90, 0.5);
+  border-radius: 6px;
+}
+
+.free-council-checked {
+  opacity: 0.4;
+}
+

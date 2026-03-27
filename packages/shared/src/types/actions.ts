@@ -720,6 +720,20 @@ export interface CallFreeCouncilAction {
 }
 
 /**
+ * Acknowledge deck exhaustion: return sites to location deck, shuffle the
+ * discard pile into a new play deck, and increment the exhaustion counter.
+ *
+ * This is triggered as an explicit action when a player's play deck runs
+ * empty after drawing. In the future, sideboard exchange will be added as
+ * additional interactive steps before the reshuffle.
+ */
+export interface DeckExhaustAction {
+  readonly type: 'deck-exhaust';
+  /** The player whose deck is exhausted. */
+  readonly player: PlayerId;
+}
+
+/**
  * Fetch a specific card from the sideboard into the player's hand or play deck.
  *
  * The sideboard serves as a reserve of cards that can be accessed under
@@ -829,6 +843,7 @@ export type GameAction =
   | DiscardCardAction
   | PassAction
   | CallFreeCouncilAction
+  | DeckExhaustAction
   | FetchFromSideboardAction
   | PassChainPriorityAction
   | OrderPassivesAction

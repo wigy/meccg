@@ -164,6 +164,7 @@ export function createGame(
     rng,
     stateSeq: 0,
     reverseActions: [],
+    lastTurnFor: null,
     cheatRollTotal: null,
   };
 }
@@ -466,6 +467,7 @@ export function createGameQuickStart(
     rng,
     stateSeq: 0,
     reverseActions: [],
+    lastTurnFor: null,
     cheatRollTotal: null,
   });
 }

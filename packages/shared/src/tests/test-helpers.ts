@@ -472,6 +472,7 @@ export function buildTestState(opts: BuildTestStateOpts): GameState {
     rng: { seed: opts.seed ?? 42, counter: 0 },
     stateSeq: 0,
     reverseActions: [],
+    lastTurnFor: null,
     cheatRollTotal: null,
   } as unknown as GameState;
 }

@@ -14,13 +14,14 @@
  * (or the original state plus an error string if the action was illegal).
  */
 
-import type { GameState, PlayerState, DraftPlayerState, ItemDraftPlayerState, CharacterDeckDraftPlayerState, SetupStepState, CardDefinitionId, CardInstanceId, CompanyId, CharacterInPlay, CardInstance, ChainEntryPayload, OrganizationPhaseState, MovementHazardPhaseState, SitePhaseState, EndOfTurnPhaseState, Company, CreatureCard, SiteInPlay, HeroItemCard, CombatState, StrikeAssignment } from '../index.js';
+import type { GameState, PlayerState, DraftPlayerState, ItemDraftPlayerState, CharacterDeckDraftPlayerState, SetupStepState, CardDefinitionId, CardInstanceId, CompanyId, CharacterInPlay, CardInstance, ChainEntryPayload, OrganizationPhaseState, MovementHazardPhaseState, SitePhaseState, EndOfTurnPhaseState, FreeCouncilPhaseState, Company, CreatureCard, SiteInPlay, HeroItemCard, CombatState, StrikeAssignment, PlayerId } from '../index.js';
 import type { GameAction } from '../index.js';
 import { Phase, SetupStep, LEGAL_ACTIONS_BY_PHASE, getAlignmentRules, shuffle, nextInt, CardStatus, isCharacterCard, isItemCard, isAllyCard, isSiteCard, SiteType, RegionType, Race, Skill, getPlayerIndex, ZERO_EFFECTIVE_STATS, MAX_STARTING_ITEMS, BASE_MAX_REGION_DISTANCE, HAND_SIZE } from '../index.js';
 import { logHeading, logDetail } from './legal-actions/log.js';
 import type { TwoDiceSix, DieRoll, GameEffect } from '../index.js';
 import { applyDraftResults, transitionAfterItemDraft, enterSiteSelection, startFirstTurn } from './init.js';
 import { recomputeDerived } from './recompute-derived.js';
+import { computeTournamentScore } from '../state-utils.js';
 import { handleChainAction, initiateChain, pushChainEntry } from './chain-reducer.js';
 
 /**
@@ -60,6 +61,51 @@ function roll2d6(state: GameState): { roll: TwoDiceSix; rng: typeof state.rng; c
 /** Creates a mutable copy of the 2-player tuple, preserving the tuple type. */
 function clonePlayers(state: GameState): [PlayerState, PlayerState] {
   return [{ ...state.players[0] }, { ...state.players[1] }];
+}
+
+/**
+ * Handles deck exhaustion for a player when their play deck runs empty.
+ *
+ * Per CoE rules §10:
+ * 1. Return discarded site cards to the location deck
+ * 2. (TODO: sideboard exchange — player may swap up to 5 cards between
+ *    discard pile and sideboard. This is an interactive step to be added later.)
+ * 3. Shuffle the discard pile into a new play deck
+ * 4. Increment `deckExhaustionCount`
+ *
+ * This function is called immediately after drawing the last card from the
+ * play deck. It is idempotent — calling it when the discard pile is empty
+ * results in an empty play deck (no-op reshuffle).
+ *
+ * @param state - Current game state (player's playDeck should be empty).
+ * @param playerIndex - Index (0 or 1) of the player whose deck is exhausted.
+ * @returns Updated game state with reshuffled deck and incremented exhaustion count.
+ */
+function exhaustPlayDeck(state: GameState, playerIndex: 0 | 1): GameState {
+  const player = state.players[playerIndex];
+  const newExhaustionCount = player.deckExhaustionCount + 1;
+  logHeading(`Deck exhaustion #${newExhaustionCount} for ${player.name}`);
+
+  // Step 1: Return discarded site cards to the location deck
+  logDetail(`Returning ${player.siteDiscardPile.length} site card(s) to location deck`);
+
+  // Step 2: TODO — sideboard exchange (interactive, add later)
+
+  // Step 3: Shuffle the discard pile into a new play deck
+  const [newPlayDeck, newRng] = shuffle([...player.discardPile], state.rng);
+  logDetail(`Shuffled ${player.discardPile.length} card(s) from discard into new play deck`);
+
+  const newPlayers = clonePlayers(state);
+  newPlayers[playerIndex] = {
+    ...player,
+    playDeck: newPlayDeck,
+    discardPile: [],
+    siteDeck: [...player.siteDeck, ...player.siteDiscardPile],
+    siteDiscardPile: [],
+    deckExhaustionCount: newExhaustionCount,
+  };
+
+  return { ...state, players: newPlayers, rng: newRng };
 }
 
 /**
@@ -3226,8 +3272,20 @@ function handleDrawCards(
     return advanceDrawCards(state, mhState, isResourcePlayer, drawMax);
   }
 
+  // Deck exhaustion: reshuffle discard into play deck
+  if (action.type === 'deck-exhaust') {
+    const exPlayer = state.players[actingIndex];
+    if (exPlayer.playDeck.length > 0) {
+      return { state, error: 'Cannot exhaust — play deck is not empty' };
+    }
+    if (exPlayer.discardPile.length === 0) {
+      return { state, error: 'Cannot exhaust — discard pile is also empty' };
+    }
+    return { state: exhaustPlayDeck(state, actingIndex) };
+  }
+
   if (action.type !== 'draw-cards' || action.count !== 1) {
-    return { state, error: `Expected 'draw-cards' (count: 1) or 'pass' during draw-cards step, got '${action.type}'` };
+    return { state, error: `Expected 'draw-cards' (count: 1), 'deck-exhaust', or 'pass' during draw-cards step, got '${action.type}'` };
   }
 
   if (drawnSoFar >= drawMax) {
@@ -3237,7 +3295,6 @@ function handleDrawCards(
   // Draw 1 card from play deck into hand
   const player = state.players[actingIndex];
   if (player.playDeck.length === 0) {
-    // TODO: reshuffle discard pile into play deck
     logDetail(`Movement/Hazard draw-cards: ${playerLabel} player has no cards to draw`);
     return advanceDrawCards(state, mhState, isResourcePlayer, drawMax);
   }
@@ -3900,10 +3957,11 @@ function handleEndOfTurnResetHand(
   const handSize = HAND_SIZE; // TODO: compute from DSL hand-size-modifier effects
 
   if (action.type === 'pass') {
-    // Pass is only valid if the player is already at hand size
+    // Pass is valid at hand size, or when deck and discard are both empty (can't draw)
     const playerIndex = getPlayerIndex(state, action.player);
     const player = state.players[playerIndex];
-    if (player.hand.length !== handSize) {
+    const cannotDraw = player.playDeck.length === 0 && player.discardPile.length === 0;
+    if (player.hand.length !== handSize && !cannotDraw) {
       return { state, error: `Cannot pass during reset-hand: hand has ${player.hand.length} cards, need ${handSize}` };
     }
 
@@ -3965,6 +4023,18 @@ function handleEndOfTurnResetHand(
     return { state: { ...state, players: newPlayers } };
   }
 
+  if (action.type === 'deck-exhaust') {
+    const playerIndex = getPlayerIndex(state, action.player);
+    const player = state.players[playerIndex];
+    if (player.playDeck.length > 0) {
+      return { state, error: 'Cannot exhaust — play deck is not empty' };
+    }
+    if (player.discardPile.length === 0) {
+      return { state, error: 'Cannot exhaust — discard pile is also empty' };
+    }
+    return { state: exhaustPlayDeck(state, playerIndex) };
+  }
+
   if (action.type === 'draw-cards') {
     const playerIndex = getPlayerIndex(state, action.player);
     const player = state.players[playerIndex];
@@ -3973,24 +4043,19 @@ function handleEndOfTurnResetHand(
       return { state, error: `Player ${player.name} does not need to draw (hand: ${player.hand.length}/${handSize})` };
     }
 
-    const drawCount = Math.min(action.count, handSize - player.hand.length);
-
     if (player.playDeck.length === 0) {
-      // TODO: reshuffle discard pile into play deck
       logDetail(`End-of-Turn reset-hand: player ${player.name} has no cards to draw`);
       // Treat as if they reached hand size (can't draw more)
       const otherIndex = (playerIndex === 0 ? 1 : 0);
       if (state.players[otherIndex].hand.length === handSize) {
         return {
-          state: {
-            ...state,
-            phaseState: { ...eotState, step: 'signal-end' as const },
-          },
+          state: { ...state, phaseState: { ...eotState, step: 'signal-end' as const } },
         };
       }
       return { state };
     }
 
+    const drawCount = Math.min(action.count, handSize - player.hand.length);
     const cardsToDrawCount = Math.min(drawCount, player.playDeck.length);
     const drawnCards = player.playDeck.slice(0, cardsToDrawCount);
     const newHand = [...player.hand, ...drawnCards];
@@ -4010,11 +4075,7 @@ function handleEndOfTurnResetHand(
     if (newHand.length === handSize && newPlayers[otherIndex].hand.length === handSize) {
       logDetail(`End-of-Turn reset-hand: both players at hand size → advancing to signal-end`);
       return {
-        state: {
-          ...state,
-          players: newPlayers,
-          phaseState: { ...eotState, step: 'signal-end' as const },
-        },
+        state: { ...state, players: newPlayers, phaseState: { ...eotState, step: 'signal-end' as const } },
       };
     }
 
@@ -4033,6 +4094,23 @@ function handleEndOfTurnSignalEnd(state: GameState, action: GameAction): Reducer
     const currentIndex = getPlayerIndex(state, state.activePlayer!);
     const nextIndex = (currentIndex === 0 ? 1 : 0);
     const nextPlayer = state.players[nextIndex].id;
+
+    // Check if this was the opponent's last turn after a Free Council call
+    if (state.lastTurnFor === state.activePlayer) {
+      logDetail(`End-of-Turn signal-end: ${action.player as string} finished their last turn → transitioning to Free Council`);
+      return {
+        state: transitionToFreeCouncil(state, state.activePlayer!),
+      };
+    }
+
+    // Check auto-end: both players exhausted their deck twice
+    if (state.players[0].deckExhaustionCount >= 2 && state.players[1].deckExhaustionCount >= 2) {
+      logDetail(`End-of-Turn signal-end: both players exhausted deck twice → transitioning to Free Council`);
+      return {
+        state: transitionToFreeCouncil(state, state.activePlayer!),
+      };
+    }
+
     logDetail(`End-of-Turn signal-end: active player ${action.player as string} ended turn → switching to player ${nextPlayer as string}, turn ${state.turnNumber + 1}`);
     return {
       state: {
@@ -4044,15 +4122,247 @@ function handleEndOfTurnSignalEnd(state: GameState, action: GameAction): Reducer
     };
   }
 
-  // TODO: handle 'call-free-council' action
+  if (action.type === 'call-free-council') {
+    const currentIndex = getPlayerIndex(state, state.activePlayer!);
+    const nextIndex = (currentIndex === 0 ? 1 : 0);
+    const nextPlayer = state.players[nextIndex].id;
+
+    const newPlayers = clonePlayers(state);
+    newPlayers[currentIndex] = { ...newPlayers[currentIndex], freeCouncilCalled: true };
+
+    logDetail(`End-of-Turn signal-end: ${action.player as string} called the Free Council — opponent ${nextPlayer as string} gets one last turn`);
+    return {
+      state: {
+        ...state,
+        players: newPlayers,
+        activePlayer: nextPlayer,
+        turnNumber: state.turnNumber + 1,
+        lastTurnFor: nextPlayer,
+        phaseState: { phase: Phase.Untap },
+      },
+    };
+  }
 
   return { state, error: `Unexpected action '${action.type}' in end-of-turn signal-end step` };
 }
 
-/** Stub: tally marshalling points, run tiebreaker corruption checks. */
-function handleFreeCouncil(state: GameState, _action: GameAction): ReducerResult {
-  // TODO: tally MPs, tiebreaker corruption checks
-  return { state };
+/**
+ * Creates the initial Free Council phase state. The player who took the last
+ * turn performs corruption checks first.
+ */
+function transitionToFreeCouncil(state: GameState, lastTurnPlayer: PlayerId): GameState {
+  logHeading('Transitioning to Free Council phase');
+  return {
+    ...state,
+    activePlayer: lastTurnPlayer,
+    phaseState: {
+      phase: Phase.FreeCouncil,
+      tiebreaker: false,
+      step: 'corruption-checks',
+      currentPlayer: lastTurnPlayer,
+      checkedCharacters: [],
+      firstPlayerDone: false,
+    },
+  };
+}
+
+/**
+ * Handles actions during the Free Council phase.
+ *
+ * During 'corruption-checks' step, each player performs corruption checks
+ * for their characters in turn. When both players have finished (or passed),
+ * final scores are computed and the game transitions to Game Over.
+ */
+function handleFreeCouncil(state: GameState, action: GameAction): ReducerResult {
+  const fcState = state.phaseState as FreeCouncilPhaseState;
+
+  if (fcState.step === 'done') {
+    return { state, error: 'Free Council scoring is complete' };
+  }
+
+  // Handle corruption check (reuse the same dice logic as organization phase)
+  if (action.type === 'corruption-check') {
+    const playerIndex = getPlayerIndex(state, action.player);
+    const player = state.players[playerIndex];
+    const char = player.characters[action.characterId as string];
+    if (!char) return { state, error: 'Character not found' };
+
+    const charDef = state.cardPool[state.instanceMap[action.characterId as string]?.definitionId as string];
+    const charName = charDef?.name ?? '?';
+    const cp = action.corruptionPoints;
+    const modifier = action.corruptionModifier;
+
+    const { roll, rng, cheatRollTotal } = roll2d6(state);
+    const total = roll.die1 + roll.die2 + modifier;
+    const modStr = modifier !== 0 ? ` ${modifier >= 0 ? '+' : ''}${modifier}` : '';
+    logDetail(`Free Council corruption check for ${charName}: rolled ${roll.die1} + ${roll.die2}${modStr} = ${total} vs CP ${cp}`);
+
+    const rollEffect: GameEffect = {
+      effect: 'dice-roll',
+      playerName: player.name,
+      die1: roll.die1,
+      die2: roll.die2,
+      label: `Corruption: ${charName}`,
+    };
+
+    const newPlayers = clonePlayers(state);
+    newPlayers[playerIndex] = { ...newPlayers[playerIndex], lastDiceRoll: roll };
+
+    const newChecked = [...fcState.checkedCharacters, action.characterId as string];
+
+    if (total > cp) {
+      // Passed
+      logDetail(`Free Council corruption check passed (${total} > ${cp})`);
+      return {
+        state: {
+          ...state,
+          players: newPlayers,
+          rng, cheatRollTotal,
+          phaseState: { ...fcState, checkedCharacters: newChecked },
+        },
+        effects: [rollEffect],
+      };
+    }
+
+    // Failed — character is discarded or eliminated
+    const newCharacters = { ...player.characters };
+    delete newCharacters[action.characterId as string];
+
+    const newCompanies = player.companies.map(c => ({
+      ...c,
+      characters: c.characters.filter(id => id !== action.characterId),
+    }));
+
+    // Followers promoted to general influence
+    for (const followerId of char.followers) {
+      const follower = newCharacters[followerId as string];
+      if (follower) {
+        newCharacters[followerId as string] = { ...follower, controlledBy: 'general' };
+      }
+    }
+
+    if (total >= cp - 1) {
+      // Roll == CP or CP-1: character and possessions discarded
+      logDetail(`Free Council corruption check FAILED (${total} within 1 of ${cp}) — discarding ${charName}`);
+      const toDiscard = [action.characterId, ...action.possessions];
+      newPlayers[playerIndex] = {
+        ...newPlayers[playerIndex],
+        characters: newCharacters,
+        companies: newCompanies,
+        discardPile: [...player.discardPile, ...toDiscard],
+      };
+    } else {
+      // Roll < CP-1: character eliminated, possessions discarded
+      logDetail(`Free Council corruption check FAILED (${total} < ${cp - 1}) — eliminating ${charName}`);
+      newPlayers[playerIndex] = {
+        ...newPlayers[playerIndex],
+        characters: newCharacters,
+        companies: newCompanies,
+        eliminatedPile: [...player.eliminatedPile, action.characterId],
+        discardPile: [...player.discardPile, ...action.possessions],
+      };
+    }
+
+    return {
+      state: cleanupEmptyCompanies({
+        ...state,
+        players: newPlayers,
+        rng, cheatRollTotal,
+        phaseState: { ...fcState, checkedCharacters: newChecked },
+      }),
+      effects: [rollEffect],
+    };
+  }
+
+  if (action.type === 'pass') {
+    if (fcState.firstPlayerDone) {
+      // Both players done — compute final scores and transition to Game Over
+      logDetail(`Free Council: both players finished corruption checks → computing final scores`);
+      return { state: computeFinalScoresAndEnd(state) };
+    }
+
+    // Switch to the other player for their corruption checks
+    const currentIndex = getPlayerIndex(state, fcState.currentPlayer);
+    const otherIndex = currentIndex === 0 ? 1 : 0;
+    const otherPlayer = state.players[otherIndex].id;
+
+    logDetail(`Free Council: ${action.player as string} done with corruption checks → switching to ${otherPlayer as string}`);
+    return {
+      state: {
+        ...state,
+        phaseState: { ...fcState, currentPlayer: otherPlayer, checkedCharacters: [], firstPlayerDone: true },
+      },
+    };
+  }
+
+  return { state, error: `Unexpected action '${action.type}' in Free Council phase` };
+}
+
+/**
+ * Computes final tournament scores for both players and transitions to Game Over.
+ * Applies steps 2-4 (via computeTournamentScore), step 6 (avatar elimination penalty),
+ * and determines the winner (step 7).
+ */
+function computeFinalScoresAndEnd(state: GameState): GameState {
+  const p0 = state.players[0];
+  const p1 = state.players[1];
+
+  let score0 = computeTournamentScore(p0.marshallingPoints, p1.marshallingPoints);
+  let score1 = computeTournamentScore(p1.marshallingPoints, p0.marshallingPoints);
+
+  // Step 6: -5 misc MP penalty if avatar is eliminated
+  // Avatar is the first character in the eliminated pile that matches the player's avatar type
+  // For simplicity, check if any character in eliminatedPile was an avatar (wizard/ringwraith)
+  if (hasEliminatedAvatar(state, 0)) {
+    logDetail(`Player ${p0.name} has eliminated avatar — applying -5 penalty`);
+    score0 -= 5;
+  }
+  if (hasEliminatedAvatar(state, 1)) {
+    logDetail(`Player ${p1.name} has eliminated avatar — applying -5 penalty`);
+    score1 -= 5;
+  }
+
+  logHeading(`Final scores: ${p0.name} = ${score0}, ${p1.name} = ${score1}`);
+
+  let winner: PlayerId | null = null;
+  if (score0 > score1) winner = p0.id;
+  else if (score1 > score0) winner = p1.id;
+
+  if (winner) {
+    const winnerName = state.players.find(p => p.id === winner)?.name ?? '?';
+    logDetail(`Winner: ${winnerName}`);
+  } else {
+    logDetail(`Game ended in a tie`);
+  }
+
+  return {
+    ...state,
+    phaseState: {
+      phase: Phase.GameOver,
+      winner,
+      finalScores: {
+        [p0.id as string]: score0,
+        [p1.id as string]: score1,
+      },
+    },
+  };
+}
+
+/**
+ * Checks whether a player's avatar (wizard or ringwraith) has been eliminated.
+ * Looks through the eliminated pile for any character with the avatar flag.
+ */
+function hasEliminatedAvatar(state: GameState, playerIndex: 0 | 1): boolean {
+  const player = state.players[playerIndex];
+  for (const cardId of player.eliminatedPile) {
+    const inst = state.instanceMap[cardId as string];
+    if (!inst) continue;
+    const def = state.cardPool[inst.definitionId as string];
+    if (def && isCharacterCard(def) && (def.race === Race.Wizard || def.race === Race.Ringwraith)) {
+      return true;
+    }
+  }
+  return false;
 }
 
 // ---- Combat sub-state handlers ----

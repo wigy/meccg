@@ -900,6 +900,14 @@ export interface FreeCouncilPhaseState {
   readonly phase: Phase.FreeCouncil;
   /** Whether the Free Council is in a tiebreaker round. */
   readonly tiebreaker: boolean;
+  /** Current step within the Free Council sequence. */
+  readonly step: 'corruption-checks' | 'done';
+  /** Which player is currently performing corruption checks. */
+  readonly currentPlayer: PlayerId;
+  /** Character instance IDs that have already been checked for corruption. */
+  readonly checkedCharacters: readonly string[];
+  /** Whether the first player has finished their corruption checks. */
+  readonly firstPlayerDone: boolean;
 }
 
 /**
@@ -1224,6 +1232,12 @@ export interface GameState {
    * Used by legal-action computation to mark regressive (undo) actions.
    */
   readonly reverseActions: readonly GameAction[];
+  /**
+   * Tracks who gets one more turn after a player calls the Free Council.
+   * Null means no call has been made. When set, the identified player gets
+   * their final turn before the game transitions to the Free Council phase.
+   */
+  readonly lastTurnFor: PlayerId | null;
   /**
    * Dev-only: when set, the next dice roll will produce this total (2-12)
    * instead of using the RNG. The individual dice are randomly split to

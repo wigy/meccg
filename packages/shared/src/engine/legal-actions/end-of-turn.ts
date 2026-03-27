@@ -11,7 +11,8 @@
  */
 
 import type { GameState, PlayerId, GameAction, EndOfTurnPhaseState } from '../../index.js';
-import { HAND_SIZE } from '../../index.js';
+import { HAND_SIZE, FREE_COUNCIL_MP_THRESHOLD, getPlayerIndex } from '../../index.js';
+import { computeTournamentScore } from '../../state-utils.js';
 import { logHeading, logDetail } from './log.js';
 
 /**
@@ -85,10 +86,20 @@ function resetHandStepActions(state: GameState, playerId: PlayerId): GameAction[
       actions.push({ type: 'discard-card', player: playerId, cardInstanceId: cardId });
     }
   } else if (player.hand.length < handSize) {
-    // Must draw up
-    const drawCount = handSize - player.hand.length;
-    logDetail(`End-of-Turn reset-hand: player ${player.name} has ${player.hand.length} cards, must draw ${drawCount} to reach ${handSize}`);
-    actions.push({ type: 'draw-cards', player: playerId, count: drawCount });
+    if (player.playDeck.length === 0 && player.discardPile.length > 0) {
+      // Deck empty but discard has cards — must exhaust before drawing
+      logDetail(`End-of-Turn reset-hand: player ${player.name} deck empty — must exhaust`);
+      actions.push({ type: 'deck-exhaust', player: playerId });
+    } else if (player.playDeck.length === 0) {
+      // No cards anywhere — pass
+      logDetail(`End-of-Turn reset-hand: player ${player.name} has no cards to draw`);
+      actions.push({ type: 'pass', player: playerId });
+    } else {
+      // Must draw up
+      const drawCount = handSize - player.hand.length;
+      logDetail(`End-of-Turn reset-hand: player ${player.name} has ${player.hand.length} cards, must draw ${drawCount} to reach ${handSize}`);
+      actions.push({ type: 'draw-cards', player: playerId, count: drawCount });
+    }
   } else {
     // At hand size — pass (nothing to do)
     logDetail(`End-of-Turn reset-hand: player ${player.name} already at hand size (${handSize})`);
@@ -110,8 +121,19 @@ function signalEndStepActions(state: GameState, playerId: PlayerId): GameAction[
 
   const actions: GameAction[] = [];
 
-  // TODO: call-free-council — check if the player wants to trigger endgame
-  // For now, only pass is available (ending the turn)
+  // Offer call-free-council if eligible (Short game rules)
+  const playerIndex = getPlayerIndex(state, playerId);
+  const player = state.players[playerIndex];
+  if (!player.freeCouncilCalled && state.lastTurnFor === null) {
+    const opponentIndex = playerIndex === 0 ? 1 : 0;
+    const score = computeTournamentScore(player.marshallingPoints, state.players[opponentIndex].marshallingPoints);
+    const exhaustions = player.deckExhaustionCount;
+    const canCall = (score >= FREE_COUNCIL_MP_THRESHOLD && exhaustions >= 1) || exhaustions >= 2;
+    if (canCall) {
+      logDetail(`End-of-Turn signal-end: ${player.name} eligible to call Free Council (score ${score}, exhaustions ${exhaustions})`);
+      actions.push({ type: 'call-free-council', player: playerId });
+    }
+  }
 
   actions.push({ type: 'pass', player: playerId });
   logDetail(`End-of-Turn signal-end: resource player ${playerId as string} may pass to end turn`);

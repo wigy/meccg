@@ -68,7 +68,7 @@ export const MIN_HAZARD_LIMIT = 2;
  * When any player reaches this total, the endgame begins after the
  * current turn concludes.
  */
-export const FREE_COUNCIL_MP_THRESHOLD = 25;
+export const FREE_COUNCIL_MP_THRESHOLD = 5; // TODO: restore to 25
 
 /**
  * Prowess penalty applied when a character chooses not to tap against

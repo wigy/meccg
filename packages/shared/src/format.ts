@@ -1020,6 +1020,8 @@ export function describeAction(
       return `Pass chain priority`;
     case 'order-passives':
       return `Order ${action.order.length} passive condition(s)`;
+    case 'deck-exhaust':
+      return `Exhaust deck (reshuffle discard)`;
     default: {
       const _exhaustive: never = action;
       return `Unknown action`;

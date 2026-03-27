@@ -100,6 +100,7 @@ export const LEGAL_ACTIONS_BY_PHASE: Readonly<Record<Phase, readonly GameAction[
     'select-company',
     'declare-path',
     'draw-cards',
+    'deck-exhaust',
     'discard-card',
     'order-effects',
     'play-hazard',
@@ -137,6 +138,7 @@ export const LEGAL_ACTIONS_BY_PHASE: Readonly<Record<Phase, readonly GameAction[
 
   [Phase.EndOfTurn]: [
     'draw-cards',
+    'deck-exhaust',
     'discard-card',
     'call-free-council',
     'pass',

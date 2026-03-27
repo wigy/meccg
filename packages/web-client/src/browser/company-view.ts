@@ -1768,3 +1768,93 @@ export function renderCompanyViews(
   // Toggle icon on the right edge of the board
   renderViewToggle(board, showingSingle, view, cardPool);
 }
+
+/**
+ * Render the Free Council view: a special screen showing all characters
+ * from both players lined up for final corruption checks and scoring.
+ * Characters are shown untapped in a row with their belongings (items, allies).
+ */
+export function renderFreeCouncilView(
+  view: PlayerView,
+  cardPool: Readonly<Record<string, CardDefinition>>,
+  _onAction: (action: GameAction) => void,
+): void {
+  if (view.phaseState.phase !== Phase.FreeCouncil) return;
+
+  const board = $('visual-board');
+  board.innerHTML = '';
+
+  const fcState = view.phaseState;
+
+  // Title
+  const title = document.createElement('h1');
+  title.className = 'free-council-title';
+  title.textContent = 'Free Council';
+  board.appendChild(title);
+
+  // Subtitle — whose corruption checks
+  const subtitle = document.createElement('div');
+  subtitle.className = 'free-council-subtitle';
+  const currentPlayerName = fcState.currentPlayer === view.self.id
+    ? view.self.name : view.opponent.name;
+  const isSelfTurn = fcState.currentPlayer === view.self.id;
+  subtitle.textContent = isSelfTurn
+    ? 'Your characters must face corruption checks'
+    : `${currentPlayerName}'s characters face corruption checks`;
+  board.appendChild(subtitle);
+
+  // Self characters
+  const selfSection = document.createElement('div');
+  selfSection.className = 'free-council-section';
+  const selfLabel = document.createElement('div');
+  selfLabel.className = 'free-council-player-label';
+  selfLabel.textContent = view.self.name;
+  selfSection.appendChild(selfLabel);
+
+  const selfRow = document.createElement('div');
+  selfRow.className = 'free-council-row';
+  for (const charId of Object.keys(view.self.characters)) {
+    const char = view.self.characters[charId];
+    // Show all characters as untapped for council display
+    const displayChar: CharacterInPlay = { ...char, status: CardStatus.Untapped };
+    const col = renderCharacterColumn(displayChar, cardPool, false);
+    // Highlight the currently checking player's characters that haven't been checked
+    if (isSelfTurn && !fcState.checkedCharacters.includes(charId)) {
+      col.classList.add('free-council-unchecked');
+    }
+    if (fcState.checkedCharacters.includes(charId)) {
+      col.classList.add('free-council-checked');
+    }
+    selfRow.appendChild(col);
+  }
+  selfSection.appendChild(selfRow);
+  board.appendChild(selfSection);
+
+  // Opponent characters
+  const opponentSection = document.createElement('div');
+  opponentSection.className = 'free-council-section';
+  const opponentLabel = document.createElement('div');
+  opponentLabel.className = 'free-council-player-label';
+  opponentLabel.textContent = view.opponent.name;
+  opponentSection.appendChild(opponentLabel);
+
+  const opponentRow = document.createElement('div');
+  opponentRow.className = 'free-council-row';
+  for (const company of view.opponent.companies) {
+    for (const charId of company.characters) {
+      const char = view.opponent.characters[charId as string];
+      if (!char) continue;
+      const displayChar: CharacterInPlay = { ...char, status: CardStatus.Untapped };
+      const col = renderCharacterColumn(displayChar, cardPool, false);
+      if (!isSelfTurn && !fcState.checkedCharacters.includes(charId as string)) {
+        col.classList.add('free-council-unchecked');
+      }
+      if (fcState.checkedCharacters.includes(charId as string)) {
+        col.classList.add('free-council-checked');
+      }
+      opponentRow.appendChild(col);
+    }
+  }
+  opponentSection.appendChild(opponentRow);
+  board.appendChild(opponentSection);
+}
