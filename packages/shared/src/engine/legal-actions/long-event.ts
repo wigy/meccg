@@ -23,6 +23,12 @@ import { logHeading, logDetail } from './log.js';
 export function longEventActions(state: GameState, playerId: PlayerId): EvaluatedAction[] {
   logHeading(`Long-event phase: computing actions for ${playerId as string}`);
 
+  // Only the active (resource) player acts during the long-event phase
+  if (playerId !== state.activePlayer) {
+    logDetail('Not active player — no actions during long-event phase');
+    return [];
+  }
+
   const actions: EvaluatedAction[] = [];
   const playerIndex = state.players.findIndex(p => p.id === playerId);
   if (playerIndex === -1) {

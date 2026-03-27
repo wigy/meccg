@@ -1690,7 +1690,7 @@ export function renderPassButton(view: PlayerView, onAction: (action: GameAction
     ea.viable && (ea.action.type === 'pass' || ea.action.type === 'draft-stop'
     || ea.action.type === 'shuffle-play-deck' || ea.action.type === 'draw-cards'
     || ea.action.type === 'roll-initiative' || ea.action.type === 'corruption-check'
-    || ea.action.type === 'pass-chain-priority' || ea.action.type === 'body-check-roll'));
+    || ea.action.type === 'pass-chain-priority'));
   const passAction = passEval?.action;
   if (!passAction) {
     btn.classList.add('hidden');
@@ -1711,8 +1711,6 @@ export function renderPassButton(view: PlayerView, onAction: (action: GameAction
     label = 'Roll';
   } else if (passAction.type === 'corruption-check') {
     label = 'Roll';
-  } else if (passAction.type === 'body-check-roll') {
-    label = 'Body Check';
   } else if (view.phaseState.phase === Phase.Untap) {
     label = 'Organization';
   } else if (view.phaseState.phase === Phase.Organization) {
