@@ -10,9 +10,9 @@ FEATS
 EPICS
 -----
 
-Combat
-Central server
 Council and End Game
+Tests for game rules
+Card mechanics and tests
 Sideboard
 Loadable hero decks in JSON files
 Deck collection, internal file format and validation
