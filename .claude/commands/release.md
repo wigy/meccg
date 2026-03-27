@@ -14,9 +14,9 @@ Follow these steps exactly:
 
 5. **Bump version:** Read the current version from `packages/shared/package.json`. Increment the minor version (e.g. 0.1.0 -> 0.2.0). Update the version in ALL package.json files:
    - `packages/shared/package.json`
-   - `packages/server/package.json`
-   - `packages/client-text/package.json`
-   - `packages/client-web/package.json`
+   - `packages/game-server/package.json`
+   - `packages/text-client/package.json`
+   - `packages/web-client/package.json`
 
 6. **Update CHANGELOG.md:** Add a new section at the top (below the `# Changelog` heading) for the new version with today's date and the release title in the heading (format: `## X.Y.Z — YYYY-MM-DD` on the first line, followed by the release title on the next line). Summarize the changes since the last release by reading `git log` from the last version tag. Group changes by category (Game Engine, Web Client, Text Client, Infrastructure, etc.).
 

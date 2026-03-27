@@ -2,8 +2,8 @@
   "files": [],
   "references": [
     { "path": "packages/shared" },
-    { "path": "packages/server" },
-    { "path": "packages/client-text" },
-    { "path": "packages/client-web" }
+    { "path": "packages/game-server" },
+    { "path": "packages/text-client" },
+    { "path": "packages/web-client" }
   ]
 }

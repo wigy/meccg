@@ -17,17 +17,17 @@ MECCG is a web-based implementation of the Middle-Earth Collectible Card Game (M
 ## Build & Development Commands
 
 - **Install dependencies:** `npm install`
-- **Type-check all packages:** `npx tsc --build packages/server/tsconfig.json packages/client-text/tsconfig.json packages/client-web/tsconfig.json`
+- **Type-check all packages:** `npx tsc --build packages/game-server/tsconfig.json packages/text-client/tsconfig.json packages/web-client/tsconfig.json`
 - **Type-check shared only:** `npx tsc --noEmit -p packages/shared/tsconfig.json`
 - **Run tests:** `npm test` (excludes card tests)
 - **Run card tests (nightly):** `npm run test:nightly`
 - **Lint:** `npm run lint` (auto-fix: `npm run lint:fix`)
 - **Build API docs:** `npm run docs` (outputs to `docs/api/`)
-- **Start server:** `npm run start -w @meccg/server -- <player1> <player2>` (two player names required)
-- **Start text client:** `npm run start -w @meccg/client-text -- <name>`
-- **Start web client:** `npm run start -w @meccg/client-web` (serves on port 8080, proxies WS to game server on 3000)
-- **Hot reload:** Use `dev` instead of `start` (e.g. `npm run dev -w @meccg/server -- Alice Bob`)
-- **Web client dev mode:** `npm run dev -w @meccg/client-web` (esbuild watch + live-reload via SSE)
+- **Start server:** `npm run start -w @meccg/game-server -- <player1> <player2>` (two player names required)
+- **Start text client:** `npm run start -w @meccg/text-client -- <name>`
+- **Start web client:** `npm run start -w @meccg/web-client` (serves on port 8080, proxies WS to game server on 3000)
+- **Hot reload:** Use `dev` instead of `start` (e.g. `npm run dev -w @meccg/game-server -- Alice Bob`)
+- **Web client dev mode:** `npm run dev -w @meccg/web-client` (esbuild watch + live-reload via SSE)
 - **Debug mode:** Add `--debug` flag or set `DEBUG=1` env var to show raw JSON messages and card IDs
 
 ### Verification During Development
@@ -44,13 +44,13 @@ Before every commit, always run all three of these **in parallel** and fix any f
 
 ## Architecture
 
-- **Monorepo** using npm workspaces: `packages/shared`, `packages/server`, `packages/client-text`, `packages/client-web`
+- **Monorepo** using npm workspaces: `packages/shared`, `packages/game-server`, `packages/text-client`, `packages/web-client`
 - **`@meccg/shared`** — Pure TypeScript types, constants, and the game engine (pure reducer: `(state, action) → state`). Engine code in `src/engine/`, phase handlers in `src/engine/legal-actions/`. Tests in `src/tests/`.
-- **`@meccg/server`** — WebSocket server, game session management, and state projection. Re-exports engine from shared.
-- **`@meccg/client-text`** — Text console client over WebSocket.
-- **`@meccg/client-web`** — Browser web client. Serves HTML/JS/CSS on HTTP, proxies WebSocket to game server, and caches card images from GitHub to `~/.meccg/image-cache/`.
+- **`@meccg/game-server`** — WebSocket server, game session management, and state projection. Re-exports engine from shared.
+- **`@meccg/text-client`** — Text console client over WebSocket.
+- **`@meccg/web-client`** — Browser web client. Serves HTML/JS/CSS on HTTP, proxies WebSocket to game server, and caches card images from GitHub to `~/.meccg/image-cache/`.
 - **State model:** Full game state (server-only) → projection function → player view (per-player, hidden info redacted).
-- Project references: server and client reference shared via `tsconfig.json` references + path mappings.
+- Project references: game-server and clients reference shared via `tsconfig.json` references + path mappings.
 
 ### Key Design Principles
 

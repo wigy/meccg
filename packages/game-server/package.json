@@ -1,5 +1,5 @@
 {
-  "name": "@meccg/server",
+  "name": "@meccg/game-server",
   "version": "0.9.0",
   "private": true,
   "main": "./dist/index.js",

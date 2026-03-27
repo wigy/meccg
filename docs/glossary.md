@@ -6,7 +6,7 @@ Non-game-rule concepts used in the MECCG codebase. For game rules, see `docs/rul
 
 - **Game State** — The full, authoritative server-side state containing all hidden information. Never sent to clients.
 - **Player View** — Per-player projection of game state with opponent's hidden info redacted. What the client receives over WebSocket.
-- **Projection** — The transformation from GameState → PlayerView that enforces information hiding. Implemented in `packages/server/src/ws/projection.ts`.
+- **Projection** — The transformation from GameState → PlayerView that enforces information hiding. Implemented in `packages/game-server/src/ws/projection.ts`.
 - **Reducer** — The pure function `(state, action) → state` that implements all state transitions. No side effects. Returns a `ReducerResult` containing the new state, optional error, and optional effects.
 
 ## Cards

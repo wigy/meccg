@@ -27,7 +27,7 @@ jobs:
         run: npm ci
 
       - name: Type-check
-        run: npx tsc --build packages/server/tsconfig.json packages/client-text/tsconfig.json packages/client-web/tsconfig.json
+        run: npx tsc --build packages/game-server/tsconfig.json packages/text-client/tsconfig.json packages/web-client/tsconfig.json
 
       - name: Lint
         run: npm run lint

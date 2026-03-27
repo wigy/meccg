@@ -32,13 +32,13 @@ npm install
 Start the game server with two player names:
 
 ```bash
-npm run start -w @meccg/server -- Alice Bob
+npm run start -w @meccg/game-server -- Alice Bob
 ```
 
 Then start the web client in another terminal:
 
 ```bash
-npm run start -w @meccg/client-web
+npm run start -w @meccg/web-client
 ```
 
 Open **http://localhost:8080** in your browser, enter a player name, and connect.
@@ -46,7 +46,7 @@ Open **http://localhost:8080** in your browser, enter a player name, and connect
 Alternatively, use the text client:
 
 ```bash
-npm run start -w @meccg/client-text -- Alice
+npm run start -w @meccg/text-client -- Alice
 ```
 
 ### Development Mode
@@ -54,8 +54,8 @@ npm run start -w @meccg/client-text -- Alice
 Use `dev` instead of `start` for hot-reload:
 
 ```bash
-npm run dev -w @meccg/server -- Alice Bob
-npm run dev -w @meccg/client-web
+npm run dev -w @meccg/game-server -- Alice Bob
+npm run dev -w @meccg/web-client
 ```
 
 Add `--debug` to see raw JSON messages and card IDs.
@@ -65,15 +65,15 @@ Add `--debug` to see raw JSON messages and card IDs.
 ```
 packages/
 ├── shared/       # Game engine, types, card data, tests (pure TypeScript)
-├── server/       # WebSocket game server, state projection
-├── client-web/   # Browser UI (HTML/CSS/JS, esbuild)
-└── client-text/  # Text console client
+├── game-server/  # WebSocket game server, state projection
+├── web-client/   # Browser UI (HTML/CSS/JS, esbuild)
+└── text-client/  # Text console client
 ```
 
 - **`@meccg/shared`** — The game engine (pure reducer), card definitions, type system, and all tests
-- **`@meccg/server`** — WebSocket server managing game sessions, projecting per-player views with hidden info redacted
-- **`@meccg/client-web`** — Browser client with a visual board (card art, dice, hand arcs) and a debug view
-- **`@meccg/client-text`** — Terminal client with ANSI colors and a pluggable AI strategy system
+- **`@meccg/game-server`** — WebSocket server managing game sessions, projecting per-player views with hidden info redacted
+- **`@meccg/web-client`** — Browser client with a visual board (card art, dice, hand arcs) and a debug view
+- **`@meccg/text-client`** — Terminal client with ANSI colors and a pluggable AI strategy system
 
 ## Testing
 

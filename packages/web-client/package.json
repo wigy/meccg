@@ -1,5 +1,5 @@
 {
-  "name": "@meccg/client-web",
+  "name": "@meccg/web-client",
   "version": "0.9.0",
   "private": true,
   "scripts": {

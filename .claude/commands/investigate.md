@@ -64,5 +64,5 @@ Game logs consist of two files per game in `~/.meccg/logs/games/`:
 
 - Game logs can be large. Start by scanning `reason` and `phase` fields to narrow down the relevant range before loading full states.
 - When comparing two consecutive states, focus on the diff — what moved between zones, what stats changed, what phase state changed.
-- If the problem involves legal actions, load the state into `computeLegalActions()` mentally by checking the phase handler in `packages/server/src/engine/legal-actions/`.
-- Cross-reference with the reducer handler in `packages/server/src/engine/reducer.ts` to understand how the action was processed.
+- If the problem involves legal actions, load the state into `computeLegalActions()` mentally by checking the phase handler in `packages/game-server/src/engine/legal-actions/`.
+- Cross-reference with the reducer handler in `packages/game-server/src/engine/reducer.ts` to understand how the action was processed.
