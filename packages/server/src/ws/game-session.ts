@@ -125,7 +125,7 @@ export class GameSession {
           { ...this.state.players[1], lastDiceRoll: null },
         ],
       };
-      this.saveGame();
+      this.writeSave(this.autosaveFilePath());
     }
 
     const restartMsg: ServerMessage = { type: 'restart', message: 'Server restarting. Reconnecting...' };
@@ -174,7 +174,7 @@ export class GameSession {
           break;
         }
         if (msg.type === 'reset') this.handleReset();
-        else if (msg.type === 'save') { this.saveGame(); this.saveBackup(); this.send(ws, { type: 'info', message: 'Game saved.' }); }
+        else if (msg.type === 'save') { this.writeSave(this.saveFilePath()); this.send(ws, { type: 'info', message: 'Game saved.' }); }
         else if (msg.type === 'load') this.handleLoad();
         else if (msg.type === 'reseed') this.handleReseed(ws);
         else if (msg.type === 'undo') this.handleUndo(ws);
@@ -481,11 +481,12 @@ export class GameSession {
 
   private handleReset(): void {
     this.serverLog.log('reset');
-    // Delete save file
-    const savePath = this.saveFilePath();
-    if (fs.existsSync(savePath)) {
-      fs.unlinkSync(savePath);
-      console.log(`Deleted save: ${savePath}`);
+    // Delete save files
+    for (const savePath of [this.saveFilePath(), this.autosaveFilePath()]) {
+      if (fs.existsSync(savePath)) {
+        fs.unlinkSync(savePath);
+        console.log(`Deleted save: ${savePath}`);
+      }
     }
 
     // Clear game state and undo history
@@ -641,7 +642,7 @@ export class GameSession {
           { ...this.state.players[1], lastDiceRoll: null },
         ],
       };
-      this.saveGame();
+      this.writeSave(this.autosaveFilePath());
     }
 
     // Notify other player and spectators, disconnect everyone
@@ -667,10 +668,15 @@ export class GameSession {
     return path.join(SAVE_DIR, `${key}.json`);
   }
 
-  private saveGame(): void {
+  private autosaveFilePath(): string {
+    const names = [...this.playerNames].sort();
+    const key = names.join('_vs_');
+    return path.join(SAVE_DIR, `${key}-autosave.json`);
+  }
+
+  private writeSave(savePath: string): void {
     if (!this.state) return;
 
-    const savePath = this.saveFilePath();
     const save: GameSave = {
       state: this.state,
       nameToPlayerId: this.nameToPlayerId,
@@ -684,13 +690,13 @@ export class GameSession {
   private handleLoad(): void {
     this.serverLog.log('load');
     const savePath = this.saveFilePath();
-    const backupPath = savePath.replace(/\.json$/, '-saved.json');
-    if (!fs.existsSync(backupPath)) {
-      console.log('No backup save found');
+    if (!fs.existsSync(savePath)) {
+      console.log('No manual save found');
       return;
     }
-    fs.copyFileSync(backupPath, savePath);
-    console.log(`Loaded backup from ${backupPath}`);
+    // Copy manual save to autosave path so restoreGame picks it up on reconnect
+    fs.copyFileSync(savePath, this.autosaveFilePath());
+    console.log(`Loaded manual save from ${savePath}`);
 
     // Clear state, undo history, and restart all clients so they reconnect and load the save
     this.state = null;
@@ -718,11 +724,11 @@ export class GameSession {
       return;
     }
 
-    // Copy snapshot to the save path so restoreGame picks it up on reconnect
-    const savePath = this.saveFilePath();
-    fs.copyFileSync(snapshotPath, savePath);
-    console.log(`Loaded snapshot ${file} → ${savePath}`);
-    this.serverLog.log('load-snapshot', { file, savePath });
+    // Copy snapshot to the autosave path so restoreGame picks it up on reconnect
+    const autosavePath = this.autosaveFilePath();
+    fs.copyFileSync(snapshotPath, autosavePath);
+    console.log(`Loaded snapshot ${file} → ${autosavePath}`);
+    this.serverLog.log('load-snapshot', { file, savePath: autosavePath });
 
     // Clear state and restart all clients (same pattern as handleLoad)
     this.state = null;
@@ -737,35 +743,29 @@ export class GameSession {
     this.nameToPlayerId = {};
   }
 
-  private saveBackup(): void {
-    const savePath = this.saveFilePath();
-    const backupPath = savePath.replace(/\.json$/, '-saved.json');
-    if (fs.existsSync(savePath)) {
-      fs.copyFileSync(savePath, backupPath);
-      console.log(`Backup saved to ${backupPath}`);
-    }
-  }
-
   private loadSave(name1: string, name2: string): GameSave | null {
-    const savePath = this.saveFilePath();
-    if (!fs.existsSync(savePath)) return null;
+    // Try autosave first (most recent state), then manual save
+    for (const savePath of [this.autosaveFilePath(), this.saveFilePath()]) {
+      if (!fs.existsSync(savePath)) continue;
 
-    try {
-      const data = fs.readFileSync(savePath, 'utf-8');
-      const save = JSON.parse(data) as GameSave;
+      try {
+        const data = fs.readFileSync(savePath, 'utf-8');
+        const save = JSON.parse(data) as GameSave;
 
-      if (!(name1 in save.nameToPlayerId) || !(name2 in save.nameToPlayerId)) {
-        return null;
+        if (!(name1 in save.nameToPlayerId) || !(name2 in save.nameToPlayerId)) {
+          continue;
+        }
+
+        save.state = { ...save.state, cardPool: this.cardPool };
+        fs.unlinkSync(savePath);
+        console.log(`Loaded save from ${savePath}`);
+
+        return save;
+      } catch {
+        continue;
       }
-
-      save.state = { ...save.state, cardPool: this.cardPool };
-      fs.unlinkSync(savePath);
-      console.log(`Loaded save from ${savePath}`);
-
-      return save;
-    } catch {
-      return null;
     }
+    return null;
   }
 
   private broadcastState(): void {
