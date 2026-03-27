@@ -1,5 +1,27 @@
 # Changelog
 
+## 0.11.0 — 2026-03-27
+
+Lobby-server
+
+### Infrastructure
+- **Lobby server:** New `@meccg/lobby-server` package with player
+  registration, authentication (scrypt-hashed passwords, JWT session
+  cookies), online presence tracking, and matchmaking
+- **Game lifecycle:** Lobby spawns game-server child processes on demand,
+  signs short-lived game tokens, and signals browsers to connect directly
+- **AI opponents:** Play against a random AI opponent from the lobby
+- **Token auth:** Game servers verify JWT tokens when JWT_SECRET is set
+  (backward compatible — standalone mode still works without auth)
+- **Server launcher:** Unified server launch infrastructure
+- **End-game plan:** Design for end-game scoring and victory conditions
+
+### Web Client
+- **Lobby UI:** Login, register, and lobby screens with challenge flow
+- **Snapshot remapping:** Snapshot loading remaps player names so
+  snapshots work across different game sessions
+- **AI reconnect:** AI client handles restart/reconnect for save/load
+
 ## 0.10.0 — 2026-03-27
 
 Combat and auto-attacks
