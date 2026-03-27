@@ -6,10 +6,14 @@
  * Rule references from docs/coe-rules.txt lines 179-183.
  */
 
-import { describe, test, expect } from 'vitest';
+import { describe, test, expect, beforeEach } from 'vitest';
 import {
   runFullSetup, runActions,
-  Phase,
+  Phase, CardStatus,
+  PLAYER_1, PLAYER_2,
+  ARAGORN, LEGOLAS,
+  RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
+  buildTestState, resetMint, reduce,
 } from '../test-helpers.js';
 import { computeLegalActions } from '../../engine/legal-actions/index.js';
 import type { EvaluatedAction } from '../../index.js';
@@ -19,6 +23,8 @@ function viableOfType(actions: EvaluatedAction[], type: string): EvaluatedAction
 }
 
 describe('2.I Untap phase', () => {
+  beforeEach(() => resetMint());
+
   test('resource player may untap tapped non-site cards', () => {
     const state = runFullSetup();
 
@@ -68,9 +74,47 @@ describe('2.I Untap phase', () => {
     expect(passActions.length).toBeGreaterThan(0);
   });
 
-  test.todo('[2.I] heal wounded characters at havens to tapped position');
+  test('[2.I] heal wounded characters at havens to tapped position', () => {
+    // Place a wounded (inverted) Aragorn at Rivendell (a haven)
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Untap,
+      players: [
+        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [{ defId: ARAGORN, status: CardStatus.Inverted }] }], hand: [], siteDeck: [MORIA] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [{ defId: LEGOLAS }] }], hand: [], siteDeck: [MINAS_TIRITH] },
+      ],
+    });
 
-  test.todo('[2.I] wounded characters NOT at havens remain wounded');
+    // Pass untap phase
+    const result = reduce(state, { type: 'pass', player: PLAYER_1 });
+    expect(result.error).toBeUndefined();
+
+    // Wounded character at haven should be healed to tapped (not untapped)
+    const p1 = result.state.players[0];
+    const charId = p1.companies[0].characters[0] as string;
+    expect(p1.characters[charId].status).toBe(CardStatus.Tapped);
+  });
+
+  test('[2.I] wounded characters NOT at havens remain wounded', () => {
+    // Place a wounded (inverted) Aragorn at Moria (not a haven)
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Untap,
+      players: [
+        { id: PLAYER_1, companies: [{ site: MORIA, characters: [{ defId: ARAGORN, status: CardStatus.Inverted }] }], hand: [], siteDeck: [RIVENDELL] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [{ defId: LEGOLAS }] }], hand: [], siteDeck: [MINAS_TIRITH] },
+      ],
+    });
+
+    // Pass untap phase
+    const result = reduce(state, { type: 'pass', player: PLAYER_1 });
+    expect(result.error).toBeUndefined();
+
+    // Wounded character at non-haven should remain wounded (inverted)
+    const p1 = result.state.players[0];
+    const charId = p1.companies[0].characters[0] as string;
+    expect(p1.characters[charId].status).toBe(CardStatus.Inverted);
+  });
 
   test.todo('[2.I] site cards do not untap during untap phase');
 

@@ -1149,8 +1149,22 @@ function handleUntap(state: GameState, action: GameAction): ReducerResult {
   const playerIndex = getPlayerIndex(state, state.activePlayer!);
   const player = state.players[playerIndex];
 
-  // Untap all tapped characters and their items/allies
+  // Build a set of character IDs at havens for healing wounded characters
+  const charsAtHaven = new Set<string>();
+  for (const company of player.companies) {
+    if (!company.currentSite) continue;
+    const siteDef = state.cardPool[company.currentSite.definitionId];
+    if (siteDef && isSiteCard(siteDef) && siteDef.siteType === SiteType.Haven) {
+      for (const charId of company.characters) {
+        charsAtHaven.add(charId as string);
+      }
+    }
+  }
+
+  // Untap all tapped characters and their items/allies;
+  // heal wounded (inverted) characters at havens to tapped position
   const newCharacters: Record<string, CharacterInPlay> = {};
+  let healedCount = 0;
   for (const [key, ch] of Object.entries(player.characters)) {
     const untappedItems = ch.items.map(item =>
       item.status === CardStatus.Tapped ? { ...item, status: CardStatus.Untapped } : item,
@@ -1158,9 +1172,16 @@ function handleUntap(state: GameState, action: GameAction): ReducerResult {
     const untappedAllies = ch.allies.map(ally =>
       ally.status === CardStatus.Tapped ? { ...ally, status: CardStatus.Untapped } : ally,
     );
+    let newStatus = ch.status;
+    if (ch.status === CardStatus.Tapped) {
+      newStatus = CardStatus.Untapped;
+    } else if (ch.status === CardStatus.Inverted && charsAtHaven.has(key)) {
+      newStatus = CardStatus.Tapped;
+      healedCount++;
+    }
     newCharacters[key] = {
       ...ch,
-      status: ch.status === CardStatus.Tapped ? CardStatus.Untapped : ch.status,
+      status: newStatus,
       items: untappedItems,
       allies: untappedAllies,
     };
@@ -1172,7 +1193,7 @@ function handleUntap(state: GameState, action: GameAction): ReducerResult {
   );
 
   const tappedCharCount = Object.values(player.characters).filter(ch => ch.status === CardStatus.Tapped).length;
-  logDetail(`Untap: untapping ${tappedCharCount} character(s)`);
+  logDetail(`Untap: untapping ${tappedCharCount} character(s), healing ${healedCount} wounded character(s) at havens`);
 
   const newPlayers = clonePlayers(state);
   newPlayers[playerIndex] = { ...player, characters: newCharacters, cardsInPlay: newCardsInPlay };
