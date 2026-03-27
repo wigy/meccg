@@ -7,16 +7,17 @@ FIXES
 FEATS
 -----
 
+
 EPICS
 -----
 
 Combat
 Central server
-Untap Phase
 Council and End Game
 Sideboard
 Loadable hero decks in JSON files
 Deck collection, internal file format and validation
+Influence attempts
 The Wizards
 The Dragons
 Dark Minions
@@ -32,4 +33,4 @@ Balrog Play
 UNSORTED
 --------
 
-Bugreport button in Settings dialog. Get explanation via dialog and if pressed Send instead of Cancel, save it to the ~/.meccg/bugreports/<player name>/<running global bug number> with game save and game log. That can be later automatically handled by Claude.
+Bugreport button in Settings dialog. Get explanation via dialog and if pressed Send instead of Cancel, save it to the ~/.meccg/bugs/<player name>/new/<running global bug number> with game save and game log. That can be later automatically handled by Claude.
