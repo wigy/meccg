@@ -12,7 +12,6 @@
 
 import type { GameState, PlayerId, GameAction, EndOfTurnPhaseState } from '../../index.js';
 import { HAND_SIZE, FREE_COUNCIL_MP_THRESHOLD, getPlayerIndex } from '../../index.js';
-import { computeTournamentScore } from '../../state-utils.js';
 import { logHeading, logDetail } from './log.js';
 
 /**
@@ -125,12 +124,13 @@ function signalEndStepActions(state: GameState, playerId: PlayerId): GameAction[
   const playerIndex = getPlayerIndex(state, playerId);
   const player = state.players[playerIndex];
   if (!player.freeCouncilCalled && state.lastTurnFor === null) {
-    const opponentIndex = playerIndex === 0 ? 1 : 0;
-    const score = computeTournamentScore(player.marshallingPoints, state.players[opponentIndex].marshallingPoints);
+    // Use raw (unadjusted) MP total for calling — tournament adjustments only apply at the council
+    const mp = player.marshallingPoints;
+    const rawScore = mp.character + mp.item + mp.faction + mp.ally + mp.kill + mp.misc;
     const exhaustions = player.deckExhaustionCount;
-    const canCall = (score >= FREE_COUNCIL_MP_THRESHOLD && exhaustions >= 1) || exhaustions >= 2;
+    const canCall = (rawScore >= FREE_COUNCIL_MP_THRESHOLD && exhaustions >= 1) || exhaustions >= 2;
     if (canCall) {
-      logDetail(`End-of-Turn signal-end: ${player.name} eligible to call Free Council (score ${score}, exhaustions ${exhaustions})`);
+      logDetail(`End-of-Turn signal-end: ${player.name} eligible to call Free Council (raw MP ${rawScore}, exhaustions ${exhaustions})`);
       actions.push({ type: 'call-free-council', player: playerId });
     }
   }
