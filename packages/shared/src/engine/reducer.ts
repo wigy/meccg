@@ -4318,21 +4318,38 @@ function handleSupportStrike(state: GameState, action: GameAction, combat: Comba
 
   const defPlayerIndex = state.players.findIndex(p => p.id === combat.defendingPlayerId);
   const defPlayer = state.players[defPlayerIndex];
-  const supporter = defPlayer.characters[action.supportingCharacterId as string];
-  if (!supporter) return { state, error: 'Supporting character not found' };
-  if (supporter.status !== CardStatus.Untapped) return { state, error: 'Supporting character must be untapped' };
 
-  // Tap the supporter
-  const newPlayers = clonePlayers(state);
-  const newCharacters = { ...defPlayer.characters };
-  newCharacters[action.supportingCharacterId as string] = { ...supporter, status: CardStatus.Tapped };
-  newPlayers[defPlayerIndex] = { ...defPlayer, characters: newCharacters };
+  // Check if supporter is a character
+  const supporterChar = defPlayer.characters[action.supportingCharacterId as string];
+  if (supporterChar) {
+    if (supporterChar.status !== CardStatus.Untapped) return { state, error: 'Supporting character must be untapped' };
+    const newPlayers = clonePlayers(state);
+    const newCharacters = { ...defPlayer.characters };
+    newCharacters[action.supportingCharacterId as string] = { ...supporterChar, status: CardStatus.Tapped };
+    newPlayers[defPlayerIndex] = { ...defPlayer, characters: newCharacters };
+    logDetail(`${action.supportingCharacterId as string} taps to support — +1 prowess`);
+    return { state: { ...state, players: newPlayers } };
+  }
 
-  // TODO: Track prowess bonus on current strike (for now, effectiveStats handles it via item modifiers)
-  // For Phase 1, the +1 bonus needs to be stored somewhere. Add a supportCount to StrikeAssignment or CombatState.
-  logDetail(`${action.supportingCharacterId as string} taps to support — +1 prowess`);
+  // Check if supporter is an ally
+  for (const charId of Object.keys(defPlayer.characters)) {
+    const ch = defPlayer.characters[charId];
+    const allyIndex = ch.allies.findIndex(a => a.instanceId === action.supportingCharacterId);
+    if (allyIndex >= 0) {
+      const ally = ch.allies[allyIndex];
+      if (ally.status !== CardStatus.Untapped) return { state, error: 'Supporting ally must be untapped' };
+      const newPlayers = clonePlayers(state);
+      const newAllies = [...ch.allies];
+      newAllies[allyIndex] = { ...ally, status: CardStatus.Tapped };
+      const newCharacters = { ...defPlayer.characters };
+      newCharacters[charId] = { ...ch, allies: newAllies };
+      newPlayers[defPlayerIndex] = { ...defPlayer, characters: newCharacters };
+      logDetail(`Ally ${action.supportingCharacterId as string} taps to support — +1 prowess`);
+      return { state: { ...state, players: newPlayers } };
+    }
+  }
 
-  return { state: { ...state, players: newPlayers } };
+  return { state, error: 'Supporting character or ally not found' };
 }
 
 /** Roll body check — attacker rolls 2d6 vs body value. */

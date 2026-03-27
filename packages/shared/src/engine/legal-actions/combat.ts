@@ -192,7 +192,8 @@ function resolveStrikeActions(
     });
   }
 
-  // Support: any untapped character in the same company who hasn't been assigned a strike
+  // Support: any untapped character in the same company who hasn't been assigned a strike,
+  // or any untapped ally in the company.
   // (CRF: "tap one or more of their untapped characters ... who hasn't been assigned a strike")
   const playerIndex = state.players.findIndex(p => p.id === playerId);
   const player = state.players[playerIndex];
@@ -200,19 +201,40 @@ function resolveStrikeActions(
   const assignedCharIds = new Set(combat.strikeAssignments.map(sa => sa.characterId as string));
   if (company) {
     for (const charId of company.characters) {
-      if (assignedCharIds.has(charId as string)) continue;
-      const charData = player.characters[charId as string];
-      if (!charData || charData.status !== CardStatus.Untapped) continue;
-      logDetail(`Untapped character ${charId as string} can support (no strike assigned)`);
-      actions.push({
-        action: {
-          type: 'support-strike',
-          player: playerId,
-          supportingCharacterId: charId,
-          targetCharacterId: currentStrike.characterId,
-        },
-        viable: true,
-      });
+      // Untapped characters without a strike can support
+      if (!assignedCharIds.has(charId as string)) {
+        const charData = player.characters[charId as string];
+        if (charData && charData.status === CardStatus.Untapped) {
+          logDetail(`Untapped character ${charId as string} can support (no strike assigned)`);
+          actions.push({
+            action: {
+              type: 'support-strike',
+              player: playerId,
+              supportingCharacterId: charId,
+              targetCharacterId: currentStrike.characterId,
+            },
+            viable: true,
+          });
+        }
+      }
+
+      // Untapped allies on any character in the company can support
+      const hostChar = player.characters[charId as string];
+      if (hostChar) {
+        for (const ally of hostChar.allies) {
+          if (ally.status !== CardStatus.Untapped) continue;
+          logDetail(`Untapped ally ${ally.instanceId as string} can support`);
+          actions.push({
+            action: {
+              type: 'support-strike',
+              player: playerId,
+              supportingCharacterId: ally.instanceId,
+              targetCharacterId: currentStrike.characterId,
+            },
+            viable: true,
+          });
+        }
+      }
     }
   }
 

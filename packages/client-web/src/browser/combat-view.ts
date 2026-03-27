@@ -401,7 +401,7 @@ function renderCombatCharacterColumn(
   wrap.appendChild(inner);
   col.appendChild(wrap);
 
-  // Items (non-follower belongings) shown below
+  // Items and allies shown below
   const items = [...char.items, ...char.allies];
   if (items.length > 0) {
     const attachments = document.createElement('div');
@@ -413,6 +413,21 @@ function renderCombatCharacterColumn(
       if (!itemImg) continue;
       const itemEl = createCardImage(item.definitionId as string, itemDef, itemImg, 'company-card company-card--item', item.instanceId as string);
       if (item.status === CardStatus.Tapped) itemEl.classList.add('company-card--tapped');
+
+      // Ally support: highlight and click handler
+      const allyIdStr = item.instanceId as string;
+      if (supportableIds.has(allyIdStr) && combat.phase === 'resolve-strike') {
+        itemEl.classList.add('combat-card--supportable');
+        itemEl.style.cursor = 'pointer';
+        const supportAction = supportActions.find(a => a.supportingCharacterId === item.instanceId);
+        if (supportAction) {
+          itemEl.addEventListener('click', (e) => {
+            e.stopPropagation();
+            onAction(supportAction);
+          });
+        }
+      }
+
       attachments.appendChild(itemEl);
     }
     col.appendChild(attachments);
