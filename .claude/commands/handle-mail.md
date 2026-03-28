@@ -34,7 +34,7 @@ Follow these steps:
        - `topic`: `"review-request"`
        - `subject`: the card name
        - `title`: `"Review: <card name> added"`
-       - `body`: summary of the change with the card image `![Card Name](image-url)`, a link to the GitHub commit: `https://github.com/anthropics/meccg/commit/<gitHash>`, plus the full card JSON in a code block
+       - `body`: summary of the change with the card image `![Card Name](image-url)`, a link to the GitHub commit: `https://github.com/wigy/meccg/commit/<gitHash>`, plus the full card JSON in a code block
        - `keywords`: include `cardName`, `cardId`, `gitHash`, `userName` (original requester)
        - `replyTo`: the original message ID
        - Mark the review message status as `waiting` after sending:
