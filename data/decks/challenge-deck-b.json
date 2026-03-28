@@ -7,7 +7,7 @@
     { "name": "Erkenbrand", "card": null, "qty": 1 },
     { "name": "Orophin", "card": null, "qty": 1 },
     { "name": "Elrond", "card": "tw-145", "qty": 1 },
-    { "name": "Cram", "card": null, "qty": 1 },
+    { "name": "Cram", "card": "td-105", "qty": 1 },
     { "name": "Shield of Iron-bound Ash", "card": null, "qty": 1 }
   ],
   "deck": {

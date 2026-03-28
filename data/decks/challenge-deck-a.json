@@ -6,7 +6,7 @@
     { "name": "Adrazar", "card": "tw-116", "qty": 1 },
     { "name": "Horn of Anor", "card": "tw-259", "qty": 1 },
     { "name": "Fatty Bolger", "card": "tw-495", "qty": 1 },
-    { "name": "Cram", "card": null, "qty": 1 },
+    { "name": "Cram", "card": "td-105", "qty": 1 },
     { "name": "Glorfindel II", "card": "tw-161", "qty": 1 },
     { "name": "Sam Gamgee", "card": "tw-180", "qty": 1 }
   ],

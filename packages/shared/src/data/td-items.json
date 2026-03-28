@@ -1,0 +1,19 @@
+[
+  {
+    "cardType": "hero-resource-item",
+    "alignment": "wizard",
+    "id": "td-105",
+    "name": "Cram",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/td/Cram.jpg",
+    "unique": false,
+    "subtype": "minor",
+    "marshallingPoints": 0,
+    "marshallingCategory": "item",
+    "corruptionPoints": 1,
+    "prowessModifier": 0,
+    "bodyModifier": 0,
+    "playableAt": [],
+    "effects": [],
+    "text": "Discard to untap bearer. Alternatively, discard during organization phase to allow its bearer's company to play an additional region card."
+  }
+]

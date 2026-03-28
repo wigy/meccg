@@ -34,6 +34,9 @@ import leSites from './le-sites.json';
 import whResources from './wh-resources.json';
 import whSites from './wh-sites.json';
 
+// ---- The Dragons (TD) — dragon expansion ----
+import tdItems from './td-items.json';
+
 // ---- The Balrog (BA) — balrog expansion ----
 import baCharacters from './ba-characters.json';
 import baSites from './ba-sites.json';
@@ -62,6 +65,8 @@ const allCards: readonly CardDefinition[] = [
   // The White Hand
   ...(whResources as unknown as CardDefinition[]),
   ...(whSites as unknown as CardDefinition[]),
+  // The Dragons
+  ...(tdItems as unknown as CardDefinition[]),
   // The Balrog
   ...(baCharacters as unknown as CardDefinition[]),
   ...(baSites as unknown as CardDefinition[]),

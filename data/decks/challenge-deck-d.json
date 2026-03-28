@@ -8,7 +8,7 @@
     { "name": "Halbarad", "card": null, "qty": 1 },
     { "name": "Legolas", "card": "tw-168", "qty": 1 },
     { "name": "Black Arrow", "card": null, "qty": 1 },
-    { "name": "Cram", "card": null, "qty": 1 }
+    { "name": "Cram", "card": "td-105", "qty": 1 }
   ],
   "deck": {
     "characters": [

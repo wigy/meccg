@@ -8,7 +8,7 @@
     { "name": "Kili", "card": null, "qty": 1 },
     { "name": "Thorin II", "card": null, "qty": 1 },
     { "name": "Oin", "card": null, "qty": 1 },
-    { "name": "Cram", "card": null, "qty": 2 }
+    { "name": "Cram", "card": "td-105", "qty": 2 }
   ],
   "deck": {
     "characters": [
