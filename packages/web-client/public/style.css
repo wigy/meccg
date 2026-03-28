@@ -322,8 +322,8 @@ h2 {
 
 .inbox-msg-meta {
   display: flex;
-  flex-wrap: wrap;
-  gap: 0.4rem 1rem;
+  flex-direction: column;
+  gap: 0.3rem;
   font-size: 0.8rem;
   color: #999;
   margin-bottom: 0.5rem;
@@ -332,7 +332,13 @@ h2 {
   border-bottom: 1px solid rgba(255,255,255,0.06);
 }
 
+.inbox-msg-meta > span {
+  display: block;
+}
+
 .inbox-meta-label {
+  display: inline-block;
+  width: 6rem;
   color: #666;
 }
 
@@ -381,18 +387,17 @@ h2 {
 
 .inbox-msg-keywords {
   display: flex;
-  flex-wrap: wrap;
+  flex-direction: column;
   gap: 0.3rem;
-  margin-bottom: 0.75rem;
+  font-size: 0.8rem;
+  color: #999;
+  margin-bottom: 0.5rem;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
 }
 
-.inbox-keyword {
-  padding: 0.15rem 0.5rem;
-  font-size: 0.75rem;
-  background: rgba(255,255,255,0.05);
-  border: 1px solid rgba(255,255,255,0.1);
-  border-radius: 3px;
-  color: #999;
+.inbox-msg-keywords > span {
+  display: block;
 }
 
 .inbox-message-body {

@@ -817,14 +817,17 @@ async function openInbox(): Promise<void> {
           // Metadata table
           const meta = document.createElement('div');
           meta.className = 'inbox-msg-meta';
-          meta.innerHTML = [
-            `<span class="inbox-meta-label">Message ID:</span> <span class="inbox-meta-value inbox-meta-id">${escapeHtml(full.id)}<span class="inbox-copy-btn" data-copy="${escapeHtml(full.id)}" title="Copy to clipboard">&#x2398;</span></span>`,
-            `<span class="inbox-meta-label">From:</span> <span class="inbox-meta-value">${escapeHtml(full.from)}</span>`,
-            `<span class="inbox-meta-label">Sender:</span> <span class="inbox-meta-value inbox-tag inbox-tag--${full.sender}">${escapeHtml(full.sender)}</span>`,
-            `<span class="inbox-meta-label">Topic:</span> <span class="inbox-meta-value inbox-tag inbox-tag--topic">${escapeHtml(full.topic)}</span>`,
-            `<span class="inbox-meta-label">Date:</span> <span class="inbox-meta-value">${new Date(full.timestamp).toLocaleString()}</span>`,
-            `<span class="inbox-meta-label">Status:</span> <span class="inbox-meta-value">${escapeHtml(full.status)}</span>`,
-          ].join('');
+          const rows = [
+            ['Message ID', `<span class="inbox-meta-id">${escapeHtml(full.id)}<span class="inbox-copy-btn" data-copy="${escapeHtml(full.id)}" title="Copy to clipboard">&#x2398;</span></span>`],
+            ['From', escapeHtml(full.from)],
+            ['Sender', `<span class="inbox-tag inbox-tag--${full.sender}">${escapeHtml(full.sender)}</span>`],
+            ['Topic', `<span class="inbox-tag inbox-tag--topic">${escapeHtml(full.topic)}</span>`],
+            ['Date', new Date(full.timestamp).toLocaleString()],
+            ['Status', escapeHtml(full.status)],
+          ];
+          meta.innerHTML = rows.map(([label, value]) =>
+            `<span><span class="inbox-meta-label">${label}:</span> <span class="inbox-meta-value">${value}</span></span>`,
+          ).join('');
           messageEl.appendChild(meta);
 
           // Copy button handler
@@ -840,12 +843,9 @@ async function openInbox(): Promise<void> {
           if (kwKeys.length > 0) {
             const kwSection = document.createElement('div');
             kwSection.className = 'inbox-msg-keywords';
-            for (const key of kwKeys) {
-              const tag = document.createElement('span');
-              tag.className = 'inbox-keyword';
-              tag.textContent = `${key}: ${full.keywords[key]}`;
-              kwSection.appendChild(tag);
-            }
+            kwSection.innerHTML = kwKeys.map(key =>
+              `<span><span class="inbox-meta-label">${escapeHtml(key)}:</span> <span class="inbox-meta-value">${escapeHtml(full.keywords[key])}</span></span>`,
+            ).join('');
             messageEl.appendChild(kwSection);
           }
 
