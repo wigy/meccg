@@ -6,6 +6,7 @@
  * containing account data. The subdirectory can later hold decks, etc.
  */
 
+import * as crypto from 'crypto';
 import * as fs from 'fs';
 import * as path from 'path';
 import { PLAYERS_DIR } from '../config.js';
@@ -113,10 +114,14 @@ function cardRequestsPath(name: string): string {
 
 /** A single card request entry. */
 export interface CardRequest {
+  /** Unique request identifier. */
+  readonly id: string;
   /** Deck ID where the card is needed. */
   readonly deckId: string;
   /** Display name of the requested card. */
   readonly cardName: string;
+  /** ISO 8601 timestamp of when the request was made. */
+  readonly createdAt: string;
 }
 
 /** List all card requests for a player. */
@@ -128,15 +133,17 @@ export function listCardRequests(name: string): CardRequest[] {
   }
 }
 
-/** Add a card request if not already present. */
-export function addCardRequest(name: string, request: CardRequest): void {
+/** Add a card request if not already present. Returns the new request's ID, or null if duplicate. */
+export function addCardRequest(name: string, deckId: string, cardName: string): string | null {
   const requests = listCardRequests(name);
-  const exists = requests.some(r => r.deckId === request.deckId && r.cardName === request.cardName);
-  if (exists) return;
-  requests.push(request);
+  const exists = requests.some(r => r.deckId === deckId && r.cardName === cardName);
+  if (exists) return null;
+  const id = crypto.randomBytes(8).toString('hex');
+  requests.push({ id, deckId, cardName, createdAt: new Date().toISOString() });
   const filePath = cardRequestsPath(name);
   fs.mkdirSync(path.dirname(filePath), { recursive: true });
   fs.writeFileSync(filePath, JSON.stringify(requests, null, 2));
+  return id;
 }
 
 /** Save a new player record. Throws if the name is already taken. */

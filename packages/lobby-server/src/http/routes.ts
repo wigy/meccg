@@ -363,8 +363,12 @@ export async function handleRequest(req: http.IncomingMessage, res: http.ServerR
         sendJson(res, 400, { error: 'deckId and cardName are required' });
         return;
       }
-      addCardRequest(playerName, { deckId: body.deckId, cardName: body.cardName });
-      sendJson(res, 201, { ok: true });
+      const id = addCardRequest(playerName, body.deckId, body.cardName);
+      if (id) {
+        sendJson(res, 201, { ok: true, id });
+      } else {
+        sendJson(res, 200, { ok: true, duplicate: true });
+      }
     } catch (err) {
       lobbyLog.log('error', { context: 'card-request', error: String(err) });
       sendJson(res, 500, { error: 'Failed to save card request' });
