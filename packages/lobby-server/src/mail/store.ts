@@ -85,6 +85,7 @@ export function sendMail(recipients: readonly string[], options: SendMailOptions
 
     const unread = countUnread(recipient);
     notifyPlayer(recipient, { type: 'mail-notification', unreadCount: unread });
+    notifyPlayer(recipient, { type: 'system-notification', message: 'You have NEW mail' });
   }
 
   if (options.sentBy) {
