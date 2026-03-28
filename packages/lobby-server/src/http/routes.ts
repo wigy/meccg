@@ -6,6 +6,9 @@
  * - POST /api/login — authenticate and set session cookie
  * - POST /api/logout — clear session cookie
  * - GET /api/me — return current player name from session
+ * - GET /api/decks — list all decks in the catalog
+ * - GET /api/my-decks — list decks in the player's collection
+ * - POST /api/my-decks — add a deck to the player's collection
  * - GET /cards/images/* — card image proxy with disk cache
  * - GET /* — static files from web-client/public/
  *
@@ -21,7 +24,7 @@ import * as os from 'os';
 import { cardImageRawUrl } from '@meccg/shared';
 import { DEV } from '../config.js';
 import { lobbyLog } from '../lobby-log.js';
-import { findPlayer, findPlayerByEmail, createPlayer } from '../players/store.js';
+import { findPlayer, findPlayerByEmail, createPlayer, listPlayerDecks, savePlayerDeck } from '../players/store.js';
 import { hashPassword, verifyPassword } from '../auth/password.js';
 import { signLobbyToken } from '../auth/jwt.js';
 import { getSessionPlayer, setSessionCookie, clearSessionCookie } from '../auth/session.js';
@@ -29,6 +32,7 @@ import { getSessionPlayer, setSessionCookie, clearSessionCookie } from '../auth/
 const IMAGE_CACHE_DIR = process.env.IMAGE_CACHE_DIR ?? path.join(os.homedir(), '.meccg', 'image-cache');
 const WEB_CLIENT_PUBLIC = path.join(__dirname, '../../../web-client/public');
 const GAME_SERVER_SNAPSHOTS = path.join(__dirname, '../../../game-server/data/dev/snapshots/index.json');
+const DECK_CATALOG_DIR = path.join(__dirname, '../../../../data/decks');
 
 const MIME_TYPES: Record<string, string> = {
   '.html': 'text/html',
@@ -271,6 +275,54 @@ export async function handleRequest(req: http.IncomingMessage, res: http.ServerR
       sendJson(res, 200, { name: playerName });
     } else {
       sendJson(res, 401, { error: 'Not logged in' });
+    }
+    return;
+  }
+
+  // ---- Deck catalog ----
+
+  if (urlPath === '/api/decks' && method === 'GET') {
+    try {
+      const files = fs.readdirSync(DECK_CATALOG_DIR).filter(f => f.endsWith('.json'));
+      const decks = files.map(f => JSON.parse(fs.readFileSync(path.join(DECK_CATALOG_DIR, f), 'utf-8')) as unknown);
+      sendJson(res, 200, decks);
+    } catch (err) {
+      lobbyLog.log('error', { context: 'deck-catalog', error: String(err) });
+      sendJson(res, 500, { error: 'Failed to load deck catalog' });
+    }
+    return;
+  }
+
+  // ---- Player deck collection ----
+
+  if (urlPath === '/api/my-decks' && method === 'GET') {
+    const playerName = getSessionPlayer(req);
+    if (!playerName) { sendJson(res, 401, { error: 'Not logged in' }); return; }
+    try {
+      const decks = listPlayerDecks(playerName);
+      sendJson(res, 200, decks);
+    } catch (err) {
+      lobbyLog.log('error', { context: 'my-decks', error: String(err) });
+      sendJson(res, 500, { error: 'Failed to load decks' });
+    }
+    return;
+  }
+
+  if (urlPath === '/api/my-decks' && method === 'POST') {
+    const playerName = getSessionPlayer(req);
+    if (!playerName) { sendJson(res, 401, { error: 'Not logged in' }); return; }
+    try {
+      const deck = JSON.parse(await readBody(req)) as { id?: string; name?: string; [key: string]: unknown };
+      if (!deck.id || !deck.name) {
+        sendJson(res, 400, { error: 'Deck must have id and name' });
+        return;
+      }
+      savePlayerDeck(playerName, deck as { id: string; [key: string]: unknown });
+      sendJson(res, 201, { ok: true });
+      lobbyLog.log('deck-saved', { player: playerName, deck: deck.id });
+    } catch (err) {
+      lobbyLog.log('error', { context: 'save-deck', error: String(err) });
+      sendJson(res, 500, { error: 'Failed to save deck' });
     }
     return;
   }

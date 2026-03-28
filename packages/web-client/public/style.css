@@ -277,6 +277,65 @@ h2 {
   color: #fff;
 }
 
+.lobby-deck-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.lobby-deck-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.5rem 0.75rem;
+  background: #16213e;
+  border: 1px solid #334;
+  border-radius: 4px;
+}
+
+.lobby-deck-item--owned {
+  border-color: #4caf50;
+}
+
+.lobby-deck-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.lobby-deck-name {
+  color: #e0e0e0;
+  font-weight: bold;
+  font-size: 0.9rem;
+}
+
+.lobby-deck-meta {
+  color: #888;
+  font-size: 0.75rem;
+}
+
+.lobby-deck-item button {
+  padding: 0.25rem 0.6rem;
+  font-size: 0.8rem;
+  background: #c4a35a;
+  color: #1a1a2e;
+  border: none;
+  border-radius: 3px;
+  cursor: pointer;
+  font-weight: bold;
+  white-space: nowrap;
+}
+
+.lobby-deck-item button:hover {
+  background: #d4b36a;
+}
+
+.lobby-deck-item button:disabled {
+  background: #4caf50;
+  color: #fff;
+  cursor: default;
+}
+
 #connect-form {
   display: flex;
   gap: 0.5rem;

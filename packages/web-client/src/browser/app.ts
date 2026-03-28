@@ -403,6 +403,92 @@ function showScreen(id: 'login-screen' | 'register-screen' | 'lobby-screen' | 'c
   if (id === 'lobby-screen') {
     const btn = document.getElementById('play-ai-btn') as HTMLButtonElement | null;
     if (btn) { btn.textContent = 'Play vs AI'; btn.disabled = false; }
+    void loadDecks();
+  }
+}
+
+// ---- Deck browser ----
+
+/** IDs of decks the player already owns. */
+let ownedDeckIds = new Set<string>();
+
+/** Render a deck item row. */
+function renderDeckItem(deck: { id: string; name: string; alignment: string }, owned: boolean, onAdd?: () => void): HTMLElement {
+  const item = document.createElement('div');
+  item.className = 'lobby-deck-item' + (owned ? ' lobby-deck-item--owned' : '');
+  const info = document.createElement('div');
+  info.className = 'lobby-deck-info';
+  const nameEl = document.createElement('span');
+  nameEl.className = 'lobby-deck-name';
+  nameEl.textContent = deck.name;
+  const meta = document.createElement('span');
+  meta.className = 'lobby-deck-meta';
+  meta.textContent = deck.alignment;
+  info.appendChild(nameEl);
+  info.appendChild(meta);
+  item.appendChild(info);
+  if (onAdd) {
+    const btn = document.createElement('button');
+    if (owned) {
+      btn.textContent = 'Owned';
+      btn.disabled = true;
+    } else {
+      btn.textContent = 'Add';
+      btn.addEventListener('click', () => {
+        btn.disabled = true;
+        btn.textContent = 'Adding...';
+        onAdd();
+      });
+    }
+    item.appendChild(btn);
+  }
+  return item;
+}
+
+/** Fetch deck catalog and player's decks, then render both lists. */
+async function loadDecks(): Promise<void> {
+  const [catalogResp, myResp] = await Promise.all([
+    fetch('/api/decks'),
+    fetch('/api/my-decks'),
+  ]);
+  const catalog = catalogResp.ok ? await catalogResp.json() as { id: string; name: string; alignment: string }[] : [];
+  const myDecks = myResp.ok ? await myResp.json() as { id: string; name: string; alignment: string }[] : [];
+  ownedDeckIds = new Set(myDecks.map(d => d.id));
+
+  // Render my decks
+  const myContainer = document.getElementById('my-decks')!;
+  myContainer.innerHTML = '';
+  if (myDecks.length === 0) {
+    myContainer.innerHTML = '<p class="lobby-empty">No decks yet — add one from the catalog below</p>';
+  } else {
+    for (const deck of myDecks) {
+      myContainer.appendChild(renderDeckItem(deck, true));
+    }
+  }
+
+  // Render catalog
+  const catContainer = document.getElementById('deck-catalog')!;
+  catContainer.innerHTML = '';
+  if (catalog.length === 0) {
+    catContainer.innerHTML = '<p class="lobby-empty">No decks available</p>';
+  } else {
+    for (const deck of catalog) {
+      catContainer.appendChild(renderDeckItem(deck, ownedDeckIds.has(deck.id), () => {
+        void addDeckToCollection(deck);
+      }));
+    }
+  }
+}
+
+/** Add a catalog deck to the player's collection, then refresh. */
+async function addDeckToCollection(deck: { id: string; [key: string]: unknown }): Promise<void> {
+  const resp = await fetch('/api/my-decks', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(deck),
+  });
+  if (resp.ok) {
+    await loadDecks();
   }
 }
 

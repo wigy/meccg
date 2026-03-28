@@ -59,6 +59,32 @@ export function findPlayerByEmail(email: string): PlayerRecord | null {
   return null;
 }
 
+// ---- Player deck collection ----
+
+/** Path to a player's decks directory. */
+function decksDir(name: string): string {
+  return path.join(PLAYERS_DIR, toDirName(name), 'decks');
+}
+
+/** List all decks in a player's collection. Returns parsed JSON objects. */
+export function listPlayerDecks(name: string): unknown[] {
+  const dir = decksDir(name);
+  try {
+    const files = fs.readdirSync(dir).filter(f => f.endsWith('.json'));
+    return files.map(f => JSON.parse(fs.readFileSync(path.join(dir, f), 'utf-8')) as unknown);
+  } catch {
+    return [];
+  }
+}
+
+/** Save a deck to a player's collection. Overwrites if same id exists. */
+export function savePlayerDeck(name: string, deck: { id: string; [key: string]: unknown }): void {
+  const dir = decksDir(name);
+  fs.mkdirSync(dir, { recursive: true });
+  const filename = deck.id.replace(/[^a-z0-9-]/g, '-') + '.json';
+  fs.writeFileSync(path.join(dir, filename), JSON.stringify(deck, null, 2));
+}
+
 /** Save a new player record. Throws if the name is already taken. */
 export function createPlayer(record: PlayerRecord): void {
   ensureDir();
