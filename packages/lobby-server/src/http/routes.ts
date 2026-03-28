@@ -397,6 +397,15 @@ export async function handleRequest(req: http.IncomingMessage, res: http.ServerR
       }
       const id = addCardRequest(playerName, body.deckId, body.cardName);
       if (id) {
+        sendMail(['ai'], {
+          title: `Card request: ${body.cardName}`,
+          from: getDisplayName(playerName),
+          sender: 'server',
+          topic: 'card-request',
+          body: `**${getDisplayName(playerName)}** requested card **${body.cardName}** for deck \`${body.deckId}\`.`,
+          subject: body.cardName,
+          keywords: { cardName: body.cardName, deckId: body.deckId, userName: playerName, requestId: id },
+        });
         sendJson(res, 201, { ok: true, id });
       } else {
         sendJson(res, 200, { ok: true, duplicate: true });
