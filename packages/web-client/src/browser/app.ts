@@ -661,12 +661,21 @@ function setupDeckEditorPreview(): void {
     const def = cardPool[row.dataset.cardId!];
     if (!def) return;
 
-    // Position preview on the opposite side of the hovered card
-    const rect = row.getBoundingClientRect();
-    const midpoint = window.innerWidth / 2;
-    const onRight = rect.left > midpoint;
-    preview.classList.toggle('preview-left', onRight);
-    preview.classList.toggle('preview-right', !onRight);
+    // Position preview on a specific column based on card type:
+    // Characters → col 2, Resources → col 1, Hazards → col 4, Sites → col 3
+    const section = row.closest('.deck-editor-section');
+    const sections = [...screen.querySelectorAll('.deck-editor-section')];
+    const sectionIdx = section ? sections.indexOf(section) : -1;
+    // Section indices: 0=Pool/Characters, 1=Resources, 2=Hazards, 3=Sites
+    // Target columns:  0→1 (col 2),       1→0 (col 1),  2→3 (col 4), 3→2 (col 3)
+    const targetCol = [1, 0, 3, 2][sectionIdx] ?? 0;
+    const targetSection = sections[targetCol] as HTMLElement | undefined;
+    preview.className = 'deck-editor-preview';
+    if (targetSection) {
+      const targetRect = targetSection.getBoundingClientRect();
+      preview.style.left = `${targetRect.left}px`;
+      preview.style.right = '';
+    }
 
     preview.innerHTML = '';
     const info = document.createElement('div');
@@ -694,6 +703,7 @@ function setupDeckEditorPreview(): void {
     const row = (e.target as HTMLElement).closest('.deck-editor-card[data-card-id]');
     if (!row) return;
     preview.innerHTML = '';
+    preview.style.left = '';
   });
 }
 
