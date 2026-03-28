@@ -303,6 +303,14 @@ function validateActionPlayer(state: GameState, action: GameAction): string | un
     return undefined;
   }
 
+  // During Free Council, currentPlayer (not activePlayer) determines who acts
+  if (phase === 'free-council') {
+    if (action.player !== state.phaseState.currentPlayer) {
+      return 'It is not your turn';
+    }
+    return undefined;
+  }
+
   // Most actions are taken by the active player
   if (action.player !== state.activePlayer) {
     return 'It is not your turn';

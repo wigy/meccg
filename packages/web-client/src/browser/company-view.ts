@@ -145,6 +145,7 @@ function renderCharacterColumn(
 ): HTMLElement {
   const col = document.createElement('div');
   col.className = 'character-column';
+  col.dataset.instanceId = char.instanceId as string;
 
   const def = cardPool[char.definitionId as string];
   if (!def) return col;
@@ -721,7 +722,8 @@ function renderCompanyBlock(
 ): HTMLElement {
   const block = document.createElement('div');
   const isSelfTurn = view.activePlayer !== null && view.activePlayer === view.self.id;
-  let isInactive = (owner === 'self' && !isSelfTurn) || (owner === 'opponent' && isSelfTurn);
+  let isInactive = view.phaseState.phase !== Phase.FreeCouncil
+    && ((owner === 'self' && !isSelfTurn) || (owner === 'opponent' && isSelfTurn));
 
   // During M/H phase (after select-company), dim all companies except the active one
   if (view.phaseState.phase === Phase.MovementHazard) {
@@ -1738,10 +1740,12 @@ export function renderCompanyViews(
   }
 
   // Force all-companies view during select-company step so the player can
-  // see every company and pick one.
+  // see every company and pick one, and during Free Council so all companies
+  // are visible for corruption checks.
   const inSelectCompany =
     (view.phaseState.phase === Phase.MovementHazard || view.phaseState.phase === Phase.Site)
     && view.phaseState.step === 'select-company';
+  const inFreeCouncil = view.phaseState.phase === Phase.FreeCouncil;
 
   const board = $('visual-board');
   board.innerHTML = '';
@@ -1758,12 +1762,22 @@ export function renderCompanyViews(
   // Cards in play row (permanent resources, factions, etc.) — always at top
   renderCardsInPlayRow(board, view, cardPool);
 
-  const showingSingle = focusedCompanyId !== null && !allCompaniesOverride && !inSelectCompany;
+  const showingSingle = focusedCompanyId !== null && !allCompaniesOverride && !inSelectCompany && !inFreeCouncil;
 
   if (showingSingle) {
     renderSingleView(board, view, cardPool);
   } else {
     renderAllCompaniesView(board, view, cardPool);
+  }
+
+  // During Free Council, highlight characters that have not yet made corruption checks
+  if (inFreeCouncil) {
+    const checkedSet = new Set(view.phaseState.checkedCharacters);
+    for (const col of board.querySelectorAll<HTMLElement>('.character-column[data-instance-id]')) {
+      if (!checkedSet.has(col.dataset.instanceId!)) {
+        col.classList.add('cc-pending');
+      }
+    }
   }
 
   // Toggle icon on the right edge of the board
