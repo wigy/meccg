@@ -1,5 +1,48 @@
 # Changelog
 
+## 0.13.0 — 2026-03-28
+
+Decks on lobby
+
+### Card Pool
+- **Elladan (tw-143):** New hero character added via card request workflow
+- **Rivendell (tw-421) certified:** Full card test covering data validation,
+  site phase behavior, starter movement, and region movement
+- **Certified field:** Card definitions now include a `certified` date when
+  all effects are engine-supported and fully tested
+
+### Web Client
+- **Deck browser:** Personal deck collection with save/load in the lobby
+- **Deck editor:** Card preview panel with type-colored names, quantity
+  controls, and bronze star badge for certified cards
+- **Current deck selection:** Players choose their deck before matchmaking
+- **Card request button:** Request new cards from the deck editor
+- **Site zoom info:** Capitalize site type, path, and resource fields;
+  show haven-to-haven paths for haven sites
+- **System notifications:** Persistent reddish toasts with close button,
+  distinct from regular auto-dismissing notifications
+
+### Lobby Server
+- **Deck management API:** Browse, save, and select decks per player
+- **System API:** Admin notification broadcast endpoint with master key auth
+- **Card request API:** Submit and track card addition requests with unique
+  IDs and timestamps
+- **Dev server fix:** Ignore bundle.js in nodemon watcher to prevent
+  restart loops
+
+### Shared
+- **Challenge decks:** 10 predefined deck definitions (A-J) with full card
+  ID mapping
+- **DeckList types:** New types for deck editing and planning
+- **Sample decks:** Development prototype decks for all 4 alignments
+- **Certify-card skill:** Updated to verify site-specific properties
+  (haven paths, auto-attacks, playable resources, region types)
+
+### Infrastructure
+- **Web-client bundle rebuild:** Automatically rebuild bundle when shared
+  data files change
+- **Verify-card command:** Check card playability against engine support
+
 ## 0.12.0 — 2026-03-28
 
 End Game

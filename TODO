@@ -11,10 +11,9 @@ EPICS
 -----
 
 Loadable hero decks in JSON files, deck collection, internal file format
-Tests for game rules
-Card mechanics and tests
 Sideboard
 Influence attempts
+Tests for game rules (step by step go through again each CoE rule, build status matrix)
 The Wizards
 The Dragons
 Dark Minions
