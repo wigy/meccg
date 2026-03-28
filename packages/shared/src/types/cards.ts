@@ -839,6 +839,58 @@ export interface Deck {
   readonly sideboard: readonly CardDefinitionId[];
 }
 
+// ---- Deck list format (for editing and planning) ----
+
+/**
+ * A single card entry in a deck list, referencing a card by display name
+ * with an optional link to the card definition ID.
+ */
+export interface DeckListEntry {
+  /** Display name of the card (e.g. "Gandalf", "Glamdring"). */
+  readonly name: string;
+  /** Card definition ID if known (e.g. "tw-156"), or `null` if not yet in data. */
+  readonly card: CardDefinitionId | null;
+  /** Number of copies in this deck section. */
+  readonly qty: number;
+}
+
+/**
+ * The main play deck portion of a deck list, split by card category.
+ *
+ * Characters, hazards, and resources are listed separately for readability,
+ * but together they form the combined play deck used during the game.
+ */
+export interface DeckListCards {
+  /** Character cards available for play (includes the avatar at qty 3). */
+  readonly characters: readonly DeckListEntry[];
+  /** Hazard cards (creatures and events played against the opponent). */
+  readonly hazards: readonly DeckListEntry[];
+  /** Resource cards (items, factions, allies, and events). */
+  readonly resources: readonly DeckListEntry[];
+}
+
+/**
+ * A complete deck list used for editing, planning, and sharing decks.
+ *
+ * Deck lists use display names rather than card definition IDs so they
+ * remain human-readable, with an optional `card` field linking to the
+ * definition ID where available. Stored as JSON in `data/decks/`.
+ */
+export interface DeckList {
+  /** Unique deck identifier (e.g. "challenge-deck-a"). */
+  readonly id: string;
+  /** Deck name (e.g. "Stewards of Gondor"). */
+  readonly name: string;
+  /** Deck alignment: "hero" or "minion". */
+  readonly alignment: 'hero' | 'minion';
+  /** Starting company -- characters and minor items available for the pre-game draft. */
+  readonly pool: readonly DeckListEntry[];
+  /** The main deck split into characters, hazards, and resources. */
+  readonly deck: DeckListCards;
+  /** Site deck. Havens have qty 4, other sites have qty 1. */
+  readonly sites: readonly DeckListEntry[];
+}
+
 // ---- Union types ----
 
 /**
