@@ -2720,8 +2720,21 @@ h2 {
 /* ---- Free Council: pending corruption check highlight ---- */
 
 .cc-pending > .character-card-wrap .company-card {
-  box-shadow: 0 0 8px 2px rgba(196, 163, 90, 0.5);
-  border-radius: 6px;
+  box-shadow:
+    0 0 12px rgba(var(--color-selectable), 1),
+    0 0 30px rgba(var(--color-selectable), 0.7);
+}
+
+.cc-passed-mark {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 5rem;
+  color: rgba(30, 100, 40, 0.85);
+  text-shadow: 0 0 12px rgba(30, 100, 40, 0.6);
+  pointer-events: none;
+  z-index: 10;
 }
 
 

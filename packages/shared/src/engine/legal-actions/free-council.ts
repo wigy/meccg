@@ -53,8 +53,12 @@ export function freeCouncilActions(state: GameState, playerId: PlayerId): GameAc
     });
   }
 
-  // Pass skips remaining checks for this player (or advances to scoring if both done)
-  actions.push({ type: 'pass', player: playerId });
-  logDetail(`Free Council: ${actions.length - 1} character(s) available for corruption checks`);
+  // Pass advances to scoring only after all characters have been checked
+  if (actions.length === 0) {
+    actions.push({ type: 'pass', player: playerId });
+    logDetail('Free Council: all characters checked, pass available');
+  } else {
+    logDetail(`Free Council: ${actions.length} character(s) available for corruption checks`);
+  }
   return actions;
 }

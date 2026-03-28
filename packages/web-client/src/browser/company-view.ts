@@ -1770,12 +1770,32 @@ export function renderCompanyViews(
     renderAllCompaniesView(board, view, cardPool);
   }
 
-  // During Free Council, highlight characters that have not yet made corruption checks
+  // During Free Council, highlight characters with available corruption check actions
+  // (clickable) and mark already-checked characters with a green checkmark
   if (inFreeCouncil) {
+    const ccActions = new Map<string, GameAction>();
+    for (const a of viableActions(view.legalActions)) {
+      if (a.type === 'corruption-check') {
+        ccActions.set(a.characterId as string, a);
+      }
+    }
     const checkedSet = new Set(view.phaseState.checkedCharacters);
     for (const col of board.querySelectorAll<HTMLElement>('.character-column[data-instance-id]')) {
-      if (!checkedSet.has(col.dataset.instanceId!)) {
+      const instId = col.dataset.instanceId!;
+      const ccAction = ccActions.get(instId);
+      if (ccAction) {
         col.classList.add('cc-pending');
+        col.style.cursor = 'pointer';
+        col.onclick = (e) => {
+          e.stopPropagation();
+          onAction(ccAction);
+        };
+      } else if (checkedSet.has(instId)) {
+        const mark = document.createElement('div');
+        mark.className = 'cc-passed-mark';
+        mark.textContent = '\u2713';
+        const wrap = col.querySelector('.character-card-wrap');
+        if (wrap) wrap.appendChild(mark);
       }
     }
   }

@@ -1720,7 +1720,7 @@ function getInstructionText(
   if (view.phaseState.phase === Phase.FreeCouncil) {
     const hasChecks = view.legalActions.some(ea => ea.viable && ea.action.type === 'corruption-check');
     if (hasChecks) {
-      return 'Free Council — Choose a character for corruption check, or pass to skip remaining.';
+      return 'Free Council — Choose a character for corruption check.';
     }
     return 'Free Council — Waiting for opponent to finish corruption checks.';
   }
