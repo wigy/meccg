@@ -71,6 +71,7 @@ function restoreGameSession(): boolean {
 }
 /** Current logged-in player name (lobby mode). */
 let lobbyPlayerName: string | null = null;
+let lobbyPlayerIsAdmin = false;
 /** Name of the player who sent us a challenge (lobby mode). */
 let challengeFrom: string | null = null;
 let lastVisibleInstances: Readonly<Record<string, CardDefinitionId>> = {};
@@ -804,7 +805,7 @@ function renderMessage(messageEl: HTMLElement, full: InboxMessage): void {
   messageEl.appendChild(body);
 
   // Approve button for messages awaiting review
-  if (full.status === 'waiting') {
+  if (full.status === 'waiting' && lobbyPlayerIsAdmin) {
     const approveBtn = document.createElement('button');
     approveBtn.className = 'inbox-approve-btn';
     approveBtn.textContent = 'Approve';
@@ -1076,8 +1077,9 @@ async function initLobby(): Promise<void> {
   try {
     const resp = await fetch('/api/me');
     if (resp.ok) {
-      const data = await resp.json() as { name: string };
+      const data = await resp.json() as { name: string; isAdmin?: boolean };
       lobbyPlayerName = data.name;
+      lobbyPlayerIsAdmin = data.isAdmin ?? false;
 
       // Rejoin active game if session was saved (e.g. page refresh)
       if (restoreGameSession()) {
@@ -1219,7 +1221,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const registerBtn = document.getElementById('register-btn') as HTMLButtonElement;
     const showRegisterLink = document.getElementById('show-register') as HTMLAnchorElement;
     const showLoginLink = document.getElementById('show-login') as HTMLAnchorElement;
-    const logoutBtn = document.getElementById('logout-btn') as HTMLButtonElement;
     const playAiBtn = document.getElementById('play-ai-btn') as HTMLButtonElement;
     const acceptChallengeBtn = document.getElementById('accept-challenge-btn') as HTMLButtonElement;
     const declineChallengeBtn = document.getElementById('decline-challenge-btn') as HTMLButtonElement;
@@ -1275,12 +1276,17 @@ document.addEventListener('DOMContentLoaded', () => {
       document.getElementById(id)?.addEventListener('keydown', (e) => { if (e.key === 'Enter') registerBtn.click(); });
     }
 
-    logoutBtn.addEventListener('click', () => { void (async () => {
+    const doLogout = () => { void (async () => {
       await fetch('/api/logout', { method: 'POST' });
       lobbyPlayerName = null;
+      sessionStorage.removeItem(VIEWING_INBOX_KEY);
+      sessionStorage.removeItem(EDITING_DECK_KEY);
       if (lobbyWs) { lobbyWs.close(); lobbyWs = null; }
       showScreen('login-screen');
-    })(); });
+    })(); };
+    for (const btn of document.querySelectorAll('.screen-logout')) {
+      btn.addEventListener('click', doLogout);
+    }
 
     playAiBtn.addEventListener('click', () => {
       if (lobbyWs && lobbyWs.readyState === WebSocket.OPEN) {

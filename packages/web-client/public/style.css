@@ -281,15 +281,13 @@ h2 {
   display: flex;
   flex-direction: column;
   gap: 0.15rem;
+  flex: 1;
   min-width: 0;
 }
 
 .inbox-item-subject {
   font-size: 0.9rem;
   color: #e0d8c8;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 
 .inbox-item--unread .inbox-item-subject {
@@ -530,6 +528,13 @@ h2 {
 
 .inbox-message-body a {
   color: #c4a35a;
+}
+
+.inbox-message-body .md-image {
+  max-width: 250px;
+  border-radius: 6px;
+  margin: 0.5rem 0;
+  display: block;
 }
 
 .inbox-message-body ul, .inbox-message-body ol {

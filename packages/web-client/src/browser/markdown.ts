@@ -2,8 +2,8 @@
  * @module markdown
  *
  * Minimal Markdown-to-HTML renderer for displaying mail message bodies.
- * Supports headings, bold, italic, inline code, code blocks, links,
- * unordered/ordered lists, and paragraphs. Output is sanitized to
+ * Supports headings, bold, italic, inline code, code blocks, images,
+ * links, unordered/ordered lists, and paragraphs. Output is sanitized to
  * prevent XSS — no raw HTML passes through.
  */
 
@@ -25,6 +25,8 @@ function renderInline(text: string): string {
   result = result.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
   // Italic
   result = result.replace(/\*(.+?)\*/g, '<em>$1</em>');
+  // Images ![alt](url)
+  result = result.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, '<img src="$2" alt="$1" class="md-image">');
   // Links [text](url)
   result = result.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>');
   return result;

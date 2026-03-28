@@ -288,7 +288,7 @@ export async function handleRequest(req: http.IncomingMessage, res: http.ServerR
   if (urlPath === '/api/me' && method === 'GET') {
     const playerName = getSessionPlayer(req);
     if (playerName) {
-      sendJson(res, 200, { name: playerName, displayName: getDisplayName(playerName) });
+      sendJson(res, 200, { name: playerName, displayName: getDisplayName(playerName), isAdmin: ADMIN_PLAYERS.includes(playerName) });
     } else {
       sendJson(res, 401, { error: 'Not logged in' });
     }
@@ -389,13 +389,15 @@ export async function handleRequest(req: http.IncomingMessage, res: http.ServerR
         sendJson(res, 400, { error: 'deckId and cardName are required' });
         return;
       }
+      const decks = listPlayerDecks(playerName) as { id: string; name: string }[];
+      const deckName = decks.find(d => d.id === body.deckId)?.name ?? body.deckId;
       const id = sendMail(['ai'], {
-        title: `Card request: ${body.cardName}`,
+        title: `${getDisplayName(playerName)} requested card "${body.cardName}" for deck "${deckName}"`,
         from: getDisplayName(playerName),
         sender: 'player',
         topic: 'card-request',
-        body: `**${getDisplayName(playerName)}** requested card **${body.cardName}** for deck \`${body.deckId}\`.`,
-        subject: body.cardName,
+        body: `**${getDisplayName(playerName)}** requested card **${body.cardName}** for deck **${deckName}** (\`${body.deckId}\`).`,
+        subject: `Card request: ${body.cardName}`,
         keywords: { cardName: body.cardName, deckId: body.deckId, userName: playerName },
         sentBy: playerName,
       });

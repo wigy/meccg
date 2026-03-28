@@ -29,12 +29,12 @@ Follow these steps:
 4. **Dispatch based on topic:** Look at the message `topic` and `keywords` fields to determine what action to take:
 
    - **`card-request`**: The keywords should contain `cardName`, `deckId`, and `userName`. Run the `/handle-card-request` skill with `<cardName> <deckId>` as arguments. After it completes:
-     - If the card was successfully added: mark success, send a reply mail to the requesting user. Include the full card definition JSON in a fenced code block in the reply body. Add the `gitHash` from the card request report to the reply mail keywords.
+     - If the card was successfully added: mark success, send a reply mail to the requesting user. Include the card image using markdown image syntax `![Card Name](image-url)` (the image URL is in the card definition's `image` field, proxied through `/cards/images/<set>/<filename>`), followed by the full card definition JSON in a fenced code block. Add the `gitHash` from the card request report to the reply mail keywords.
      - Then send a **review request** to all admins (`["wigy", "karmi", "admin"]`) with status `waiting`:
-       - `topic`: `"card-reply"`
+       - `topic`: `"review-request"`
        - `subject`: the card name
        - `title`: `"Review: <card name> added"`
-       - `body`: summary of the change with a link to the GitHub commit: `https://github.com/anthropics/meccg/commit/<gitHash>`, plus the full card JSON in a code block
+       - `body`: summary of the change with the card image `![Card Name](image-url)`, a link to the GitHub commit: `https://github.com/anthropics/meccg/commit/<gitHash>`, plus the full card JSON in a code block
        - `keywords`: include `cardName`, `cardId`, `gitHash`, `userName` (original requester)
        - `replyTo`: the original message ID
        - Mark the review message status as `waiting` after sending:

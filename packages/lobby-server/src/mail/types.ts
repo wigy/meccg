@@ -18,6 +18,7 @@ export type MailTopic =
   | 'card-reply'
   | 'certification-request'
   | 'certification-reply'
+  | 'review-request'
   | 'feature-request'
   | 'bug-fix-request';
 

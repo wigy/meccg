@@ -90,7 +90,7 @@ export function sendMail(recipients: readonly string[], options: SendMailOptions
   if (options.sentBy) {
     const dir = sentDir(options.sentBy);
     fs.mkdirSync(dir, { recursive: true });
-    const sentMessage: MailMessage = { ...message, status: 'read' };
+    const sentMessage: MailMessage = { ...message };
     fs.writeFileSync(path.join(dir, `${id}.json`), JSON.stringify(sentMessage, null, 2));
   }
 
@@ -138,6 +138,7 @@ export function readMessage(playerName: string, msgId: string): MailMessage | nu
     if (message.status === 'new') {
       const updated: MailMessage = { ...message, status: 'read' };
       fs.writeFileSync(filePath, JSON.stringify(updated, null, 2));
+      updateSentCopies(msgId, 'read');
       return updated;
     }
     return message;
