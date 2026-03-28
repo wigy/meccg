@@ -3,7 +3,7 @@
   "name": "Release the Prisoners",
   "alignment": "hero",
   "pool": [
-    { "name": "Elladan", "card": null, "qty": 1 },
+    { "name": "Elladan", "card": "tw-143", "qty": 1 },
     { "name": "Erkenbrand", "card": null, "qty": 1 },
     { "name": "Orophin", "card": null, "qty": 1 },
     { "name": "Elrond", "card": "tw-145", "qty": 1 },
