@@ -26,7 +26,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
 import { cardImageRawUrl } from '@meccg/shared';
-import { DEV, MASTER_KEY } from '../config.js';
+import { DEV, MASTER_KEY, ADMIN_PLAYERS } from '../config.js';
 import { broadcastNotification } from '../lobby/lobby.js';
 import { sendMail, listInbox, listSent, readMessage, deleteMessage, markAllUnread, updateMessageStatus, countUnread } from '../mail/store.js';
 import type { MailSender, MailStatus, MailTopic } from '../mail/types.js';
@@ -440,6 +440,18 @@ export async function handleRequest(req: http.IncomingMessage, res: http.ServerR
     const playerName = getSessionPlayer(req);
     if (!playerName) { sendJson(res, 401, { error: 'Not logged in' }); return; }
     sendJson(res, 200, { messages: listSent(playerName) });
+    return;
+  }
+
+  const approveMatch = urlPath.match(/^\/api\/mail\/inbox\/([a-f0-9]+)\/approve$/);
+  if (approveMatch && method === 'POST') {
+    const playerName = getSessionPlayer(req);
+    if (!playerName) { sendJson(res, 401, { error: 'Not logged in' }); return; }
+    if (!ADMIN_PLAYERS.includes(playerName)) { sendJson(res, 403, { error: 'Only admins can approve' }); return; }
+    const updated = updateMessageStatus(playerName, approveMatch[1], 'approved');
+    if (!updated) { sendJson(res, 404, { error: 'Message not found' }); return; }
+    lobbyLog.log('mail-approve', { player: playerName, msgId: approveMatch[1] });
+    sendJson(res, 200, { ok: true });
     return;
   }
 

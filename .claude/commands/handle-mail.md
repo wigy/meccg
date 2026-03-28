@@ -29,7 +29,19 @@ Follow these steps:
 4. **Dispatch based on topic:** Look at the message `topic` and `keywords` fields to determine what action to take:
 
    - **`card-request`**: The keywords should contain `cardName`, `deckId`, and `userName`. Run the `/handle-card-request` skill with `<cardName> <deckId>` as arguments. After it completes:
-     - If the card was successfully added: mark success, send a reply mail to the requesting user.
+     - If the card was successfully added: mark success, send a reply mail to the requesting user. Include the full card definition JSON in a fenced code block in the reply body. Add the `gitHash` from the card request report to the reply mail keywords.
+     - Then send a **review request** to all admins (`["wigy", "karmi", "admin"]`) with status `waiting`:
+       - `topic`: `"card-reply"`
+       - `subject`: the card name
+       - `title`: `"Review: <card name> added"`
+       - `body`: summary of the change with a link to the GitHub commit: `https://github.com/anthropics/meccg/commit/<gitHash>`, plus the full card JSON in a code block
+       - `keywords`: include `cardName`, `cardId`, `gitHash`, `userName` (original requester)
+       - `replyTo`: the original message ID
+       - Mark the review message status as `waiting` after sending:
+         ```
+         curl -s -X PUT http://localhost:8080/api/system/mail/<admin>/<review-msg-id> -H "Authorization: Bearer ..." -H "Content-Type: application/json" -d '{"status":"waiting"}'
+         ```
+         Do this for each admin recipient.
      - If it failed: mark failure, send a failure reply mail to the requesting user.
 
    - **`certification-request`**: The keywords should contain `cardId`. Run the `/certify-card` skill with the `cardId` value. After it completes:

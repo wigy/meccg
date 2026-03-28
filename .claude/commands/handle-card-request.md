@@ -52,8 +52,16 @@ Follow these steps:
 
 8. **Verify:** Run `npx tsc --noEmit -p packages/shared/tsconfig.json` to ensure the new card data is valid.
 
-9. **Report:** Summarize what happened — card name, definition ID, which file it was added to, which decks were updated. On failure, report what went wrong and why.
+9. **Commit and push:** Stage all changed files (card data, deck files) and create a commit:
+   ```
+   git add <changed files>
+   git commit -m "Add <card name> (<card id>) from card request"
+   git push
+   ```
+   Record the commit hash from the output — it will be included in the reply mail as `gitHash`.
 
-Note: Do NOT send notifications or update any request tracking. The caller (e.g. `/handle-mail`) is responsible for sending reply mail to the requesting player via the mailing system.
+10. **Report:** Summarize what happened — card name, definition ID, which file it was added to, which decks were updated, and the git commit hash. On failure, report what went wrong and why.
+
+Note: Do NOT send notifications or update any request tracking. The caller (e.g. `/handle-mail`) is responsible for sending reply mail to the requesting player via the mailing system. The caller should include the `gitHash` from this step in the reply mail keywords.
 
 If the card cannot be found in the CoE database or cannot be mapped to our format, report the failure with the reason.

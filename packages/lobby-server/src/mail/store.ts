@@ -157,10 +157,27 @@ export function updateMessageStatus(playerName: string, msgId: string, status: M
     const message = JSON.parse(fs.readFileSync(filePath, 'utf-8')) as MailMessage;
     const updated: MailMessage = { ...message, status, ...(success !== undefined ? { success } : {}) };
     fs.writeFileSync(filePath, JSON.stringify(updated, null, 2));
+    updateSentCopies(msgId, status, success);
     return updated;
   } catch {
     return null;
   }
+}
+
+/** Update all sent-folder copies of a message across all players. */
+function updateSentCopies(msgId: string, status: MailStatus, success?: boolean): void {
+  try {
+    const entries = fs.readdirSync(PLAYERS_DIR, { withFileTypes: true });
+    for (const entry of entries) {
+      if (!entry.isDirectory()) continue;
+      const filePath = path.join(PLAYERS_DIR, entry.name, 'mail', 'sent', `${msgId}.json`);
+      try {
+        const message = JSON.parse(fs.readFileSync(filePath, 'utf-8')) as MailMessage;
+        const updated: MailMessage = { ...message, status, ...(success !== undefined ? { success } : {}) };
+        fs.writeFileSync(filePath, JSON.stringify(updated, null, 2));
+      } catch { /* file doesn't exist for this player */ }
+    }
+  } catch { /* players dir doesn't exist */ }
 }
 
 /**

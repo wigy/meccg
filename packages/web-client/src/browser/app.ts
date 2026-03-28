@@ -403,6 +403,10 @@ function showScreen(id: ScreenId): void {
     const el = document.getElementById(screenId);
     if (el) el.classList.toggle('hidden', screenId !== id);
   }
+  // Update player name on all screens
+  for (const el of document.querySelectorAll('.screen-player-name')) {
+    el.textContent = lobbyPlayerName ?? '';
+  }
   // Reset lobby button state when showing the lobby
   if (id === 'lobby-screen') {
     const btn = document.getElementById('play-ai-btn') as HTMLButtonElement | null;
@@ -764,7 +768,7 @@ function renderMessage(messageEl: HTMLElement, full: InboxMessage): void {
     ['Sender', `<span class="inbox-tag inbox-tag--${full.sender}">${escapeHtml(full.sender)}</span>`],
     ['Topic', `<span class="inbox-tag inbox-tag--topic">${escapeHtml(full.topic)}</span>`],
     ['Date', new Date(full.timestamp).toLocaleString()],
-    ['Status', escapeHtml(full.status)],
+    ['Status', `<span class="inbox-status inbox-status--${full.status}">${escapeHtml(full.status)}</span>`],
     ...(full.replyTo ? [['Reply To', `<span class="inbox-meta-id">${escapeHtml(full.replyTo)}<span class="inbox-copy-btn" data-copy="${escapeHtml(full.replyTo)}" title="Copy to clipboard">&#x2398;</span></span>`]] : []),
   ];
   meta.innerHTML = rows.map(([label, value]) =>
@@ -798,12 +802,35 @@ function renderMessage(messageEl: HTMLElement, full: InboxMessage): void {
   body.className = 'inbox-message-body';
   body.innerHTML = renderMarkdown(full.body);
   messageEl.appendChild(body);
+
+  // Approve button for messages awaiting review
+  if (full.status === 'waiting') {
+    const approveBtn = document.createElement('button');
+    approveBtn.className = 'inbox-approve-btn';
+    approveBtn.textContent = 'Approve';
+    approveBtn.addEventListener('click', () => {
+      void (async () => {
+        const resp = await fetch(`/api/mail/inbox/${full.id}/approve`, { method: 'POST' });
+        if (resp.ok) {
+          approveBtn.textContent = 'Approved';
+          approveBtn.disabled = true;
+          // Update the status display in the message view
+          const statusEl = messageEl.querySelector('.inbox-status');
+          if (statusEl) {
+            statusEl.className = 'inbox-status inbox-status--approved';
+            statusEl.textContent = 'approved';
+          }
+        }
+      })();
+    });
+    messageEl.appendChild(approveBtn);
+  }
 }
 
 /** Render a list of messages into the list panel. */
 function renderMailList(
   listEl: HTMLElement, messageEl: HTMLElement, messages: InboxMessage[],
-  options: { canDelete?: boolean; fetchOnClick?: string; onDelete?: () => void },
+  options: { fetchOnClick?: string },
 ): void {
   if (messages.length === 0) {
     listEl.innerHTML = '<p class="lobby-empty">No messages</p>';
@@ -831,21 +858,11 @@ function renderMailList(
 
     const actions = document.createElement('div');
     actions.className = 'inbox-item-actions';
+    const statusEl = document.createElement('span');
+    statusEl.className = `inbox-status inbox-status--${msg.status}`;
+    statusEl.textContent = msg.status;
+    actions.appendChild(statusEl);
     actions.appendChild(date);
-
-    if (options.canDelete) {
-      const delBtn = document.createElement('button');
-      delBtn.className = 'inbox-delete-btn';
-      delBtn.textContent = 'Delete';
-      delBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        void (async () => {
-          await fetch(`/api/mail/inbox/${msg.id}`, { method: 'DELETE' });
-          options.onDelete?.();
-        })();
-      });
-      actions.appendChild(delBtn);
-    }
 
     row.appendChild(info);
     row.appendChild(actions);
@@ -898,9 +915,7 @@ async function openInbox(): Promise<void> {
     badge.textContent = data.unreadCount > 0 ? `${data.unreadCount} unread` : '';
 
     renderMailList(listEl, messageEl, data.messages, {
-      canDelete: true,
       fetchOnClick: '/api/mail/inbox',
-      onDelete: () => void openInbox(),
     });
   } catch {
     listEl.innerHTML = '<p class="lobby-empty">Connection error</p>';
@@ -1063,7 +1078,6 @@ async function initLobby(): Promise<void> {
     if (resp.ok) {
       const data = await resp.json() as { name: string };
       lobbyPlayerName = data.name;
-      document.getElementById('lobby-player-name')!.textContent = data.name;
 
       // Rejoin active game if session was saved (e.g. page refresh)
       if (restoreGameSession()) {
@@ -1226,7 +1240,6 @@ document.addEventListener('DOMContentLoaded', () => {
         const data = await resp.json() as { name?: string; error?: string };
         if (!resp.ok) { showAuthError('login-error', data.error ?? 'Login failed'); return; }
         lobbyPlayerName = data.name!;
-        document.getElementById('lobby-player-name')!.textContent = lobbyPlayerName;
         showScreen('lobby-screen');
         connectLobbyWs();
       } catch { showAuthError('login-error', 'Connection error'); }
@@ -1252,7 +1265,6 @@ document.addEventListener('DOMContentLoaded', () => {
         const data = await resp.json() as { name?: string; error?: string };
         if (!resp.ok) { showAuthError('register-error', data.error ?? 'Registration failed'); return; }
         lobbyPlayerName = data.name!;
-        document.getElementById('lobby-player-name')!.textContent = lobbyPlayerName;
         showScreen('lobby-screen');
         connectLobbyWs();
       } catch { showAuthError('register-error', 'Connection error'); }

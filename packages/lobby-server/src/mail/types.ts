@@ -6,8 +6,8 @@
  * asynchronous communication between the server/AI and players.
  */
 
-/** Message status lifecycle: new → read → deleted, or new → processing → processed. */
-export type MailStatus = 'new' | 'read' | 'deleted' | 'processing' | 'processed';
+/** Message status lifecycle: new → read → deleted, or new → processing → processed → waiting → approved. */
+export type MailStatus = 'new' | 'read' | 'deleted' | 'processing' | 'processed' | 'waiting' | 'approved';
 
 /** Who originated the message. */
 export type MailSender = 'ai' | 'server' | 'player';
