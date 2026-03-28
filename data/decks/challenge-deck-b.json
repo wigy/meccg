@@ -1,0 +1,77 @@
+{
+  "id": "challenge-deck-b",
+  "name": "Release the Prisoners",
+  "alignment": "hero",
+  "pool": [
+    { "name": "Elladan", "card": null, "qty": 1 },
+    { "name": "Erkenbrand", "card": null, "qty": 1 },
+    { "name": "Orophin", "card": null, "qty": 1 },
+    { "name": "Elrond", "card": "tw-145", "qty": 1 },
+    { "name": "Cram", "card": null, "qty": 1 },
+    { "name": "Shield of Iron-bound Ash", "card": null, "qty": 1 }
+  ],
+  "deck": {
+    "characters": [
+      { "name": "Alatar", "card": null, "qty": 3 },
+      { "name": "Beretar", "card": null, "qty": 1 },
+      { "name": "Bofur", "card": null, "qty": 1 },
+      { "name": "Elrohir", "card": null, "qty": 1 },
+      { "name": "Gildor Inglorion", "card": null, "qty": 1 },
+      { "name": "Haldir", "card": null, "qty": 1 },
+      { "name": "Balin", "card": null, "qty": 1 }
+    ],
+    "hazards": [
+      { "name": "Barrow-wight", "card": "tw-015", "qty": 3 },
+      { "name": "Slayer", "card": null, "qty": 3 },
+      { "name": "Alone and Unadvised", "card": null, "qty": 3 },
+      { "name": "Chill Douser", "card": null, "qty": 3 },
+      { "name": "Corpse-candle", "card": null, "qty": 3 },
+      { "name": "Covetous Thoughts", "card": null, "qty": 1 },
+      { "name": "Dragon-sickness", "card": null, "qty": 1 },
+      { "name": "Lure of Expedience", "card": null, "qty": 3 },
+      { "name": "Lure of Nature", "card": null, "qty": 3 },
+      { "name": "Stirring Bones", "card": null, "qty": 2 },
+      { "name": "The Moon Is Dead", "card": null, "qty": 3 },
+      { "name": "Twilight", "card": "tw-106", "qty": 2 }
+    ],
+    "resources": [
+      { "name": "Book of Mazarbul", "card": null, "qty": 1 },
+      { "name": "Crown of Flowers", "card": null, "qty": 1 },
+      { "name": "Dark Quarrels", "card": null, "qty": 1 },
+      { "name": "Dodge", "card": null, "qty": 2 },
+      { "name": "Escape", "card": null, "qty": 1 },
+      { "name": "Gates of Morning", "card": "tw-243", "qty": 3 },
+      { "name": "Goldberry", "card": null, "qty": 1 },
+      { "name": "Gollum", "card": null, "qty": 1 },
+      { "name": "Many Turns and Doublings", "card": null, "qty": 3 },
+      { "name": "Muster", "card": null, "qty": 1 },
+      { "name": "Orcrist", "card": null, "qty": 1 },
+      { "name": "Rangers of the North", "card": "tw-311", "qty": 1 },
+      { "name": "Rescue Prisoners", "card": null, "qty": 3 },
+      { "name": "Risky Blow", "card": null, "qty": 3 },
+      { "name": "Safe from the Shadow", "card": null, "qty": 1 },
+      { "name": "Scroll of Isildur", "card": null, "qty": 1 },
+      { "name": "Sword of Gondolin", "card": null, "qty": 1 },
+      { "name": "The Cock Crows", "card": null, "qty": 2 },
+      { "name": "The Windlord Found Me", "card": null, "qty": 1 },
+      { "name": "Vilya", "card": null, "qty": 1 }
+    ]
+  },
+  "sites": [
+    { "name": "Barrow-downs", "card": "tw-375", "qty": 1 },
+    { "name": "Blue Mountain Dwarf-hold", "card": null, "qty": 1 },
+    { "name": "Bree", "card": null, "qty": 1 },
+    { "name": "Carn Dum", "card": null, "qty": 1 },
+    { "name": "Goblin-gate", "card": null, "qty": 1 },
+    { "name": "Grey Havens", "card": "tw-399", "qty": 4 },
+    { "name": "Isengard", "card": null, "qty": 1 },
+    { "name": "Lossadan Cairn", "card": null, "qty": 1 },
+    { "name": "Lorien", "card": "tw-408", "qty": 4 },
+    { "name": "Moria", "card": "tw-413", "qty": 1 },
+    { "name": "Mount Gram", "card": null, "qty": 1 },
+    { "name": "Mount Gundabad", "card": null, "qty": 1 },
+    { "name": "Old Forest", "card": "tw-417", "qty": 1 },
+    { "name": "Rivendell", "card": "tw-421", "qty": 4 },
+    { "name": "Zarak Dum", "card": null, "qty": 1 }
+  ]
+}

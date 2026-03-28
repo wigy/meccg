@@ -1,0 +1,81 @@
+{
+  "id": "challenge-deck-e",
+  "name": "Return of the King",
+  "alignment": "hero",
+  "pool": [
+    { "name": "Annalena", "card": null, "qty": 1 },
+    { "name": "Aragorn II", "card": "tw-120", "qty": 1 },
+    { "name": "Arwen", "card": null, "qty": 1 },
+    { "name": "Faramir", "card": "tw-149", "qty": 1 },
+    { "name": "Elf-stone", "card": null, "qty": 1 },
+    { "name": "Star-glass", "card": null, "qty": 1 }
+  ],
+  "deck": {
+    "characters": [
+      { "name": "Gandalf", "card": "tw-156", "qty": 3 },
+      { "name": "Beretar", "card": null, "qty": 1 },
+      { "name": "Bergil", "card": "tw-129", "qty": 1 },
+      { "name": "Boromir II", "card": null, "qty": 1 },
+      { "name": "Forlong", "card": null, "qty": 1 },
+      { "name": "Imrahil", "card": null, "qty": 1 },
+      { "name": "Thranduil", "card": null, "qty": 1 }
+    ],
+    "hazards": [
+      { "name": "Ambusher", "card": null, "qty": 2 },
+      { "name": "Cave-worm", "card": null, "qty": 3 },
+      { "name": "Cave-drake", "card": "tw-020", "qty": 2 },
+      { "name": "Corsairs of Umbar", "card": null, "qty": 1 },
+      { "name": "Ent in Search of the Entwives", "card": null, "qty": 3 },
+      { "name": "Foolish Words", "card": null, "qty": 1 },
+      { "name": "Ghosts", "card": null, "qty": 2 },
+      { "name": "Lure of Expedience", "card": null, "qty": 2 },
+      { "name": "Marsh-drake", "card": null, "qty": 2 },
+      { "name": "Nothing to Eat or Drink", "card": null, "qty": 1 },
+      { "name": "Power Built by Waiting", "card": null, "qty": 1 },
+      { "name": "Pukel-men", "card": null, "qty": 1 },
+      { "name": "Rain-drake", "card": null, "qty": 2 },
+      { "name": "Searching Eye", "card": null, "qty": 1 },
+      { "name": "Sellswords Between Charters", "card": null, "qty": 2 },
+      { "name": "Tidings of Bold Spies", "card": null, "qty": 2 },
+      { "name": "Twilight", "card": "tw-106", "qty": 2 }
+    ],
+    "resources": [
+      { "name": "Beautiful Gold Ring", "card": null, "qty": 3 },
+      { "name": "Concealment", "card": null, "qty": 3 },
+      { "name": "Dark Quarrels", "card": null, "qty": 2 },
+      { "name": "Dodge", "card": null, "qty": 2 },
+      { "name": "Glamdring", "card": "tw-244", "qty": 1 },
+      { "name": "Hauberk of Bright Mail", "card": null, "qty": 1 },
+      { "name": "Lesser Ring", "card": null, "qty": 2 },
+      { "name": "Magic Ring of Stealth", "card": null, "qty": 1 },
+      { "name": "Marvels Told", "card": null, "qty": 2 },
+      { "name": "Narsil", "card": null, "qty": 1 },
+      { "name": "Noble Steed", "card": null, "qty": 2 },
+      { "name": "Quickbeam", "card": null, "qty": 1 },
+      { "name": "Rangers of Ithilien", "card": null, "qty": 1 },
+      { "name": "Return of the King", "card": null, "qty": 1 },
+      { "name": "Smoke Rings", "card": null, "qty": 1 },
+      { "name": "Stealth", "card": null, "qty": 3 },
+      { "name": "Sword of Gondolin", "card": null, "qty": 1 },
+      { "name": "Thorough Search", "card": null, "qty": 1 },
+      { "name": "Tower Guard of Minas Tirith", "card": null, "qty": 1 }
+    ]
+  },
+  "sites": [
+    { "name": "Bandit Lair", "card": null, "qty": 1 },
+    { "name": "Buhr Widu", "card": null, "qty": 1 },
+    { "name": "Dead Marshes", "card": null, "qty": 1 },
+    { "name": "Dol Amroth", "card": null, "qty": 1 },
+    { "name": "Edhellond", "card": "tw-393", "qty": 4 },
+    { "name": "Edoras", "card": null, "qty": 1 },
+    { "name": "Gladden Fields", "card": null, "qty": 1 },
+    { "name": "Haudh-in-Gwanur", "card": null, "qty": 1 },
+    { "name": "Henneth Annun", "card": "tw-400", "qty": 1 },
+    { "name": "Isengard", "card": null, "qty": 1 },
+    { "name": "Lorien", "card": "tw-408", "qty": 4 },
+    { "name": "Minas Tirith", "card": "tw-412", "qty": 1 },
+    { "name": "Moria", "card": "tw-413", "qty": 1 },
+    { "name": "Rivendell", "card": "tw-421", "qty": 4 },
+    { "name": "Wellinghall", "card": null, "qty": 1 }
+  ]
+}

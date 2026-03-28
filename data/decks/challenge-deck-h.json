@@ -1,0 +1,71 @@
+{
+  "id": "challenge-deck-h",
+  "name": "Stealthy Tribe",
+  "alignment": "minion",
+  "pool": [
+    { "name": "Ill-favoured Fellow", "card": null, "qty": 1 },
+    { "name": "Gorbag", "card": "le-11", "qty": 1 },
+    { "name": "Lugdush", "card": null, "qty": 1 },
+    { "name": "Ufthak", "card": null, "qty": 1 },
+    { "name": "Grishnakh", "card": null, "qty": 1 },
+    { "name": "Blazon of the Eye", "card": null, "qty": 1 },
+    { "name": "Strange Rations", "card": null, "qty": 1 }
+  ],
+  "deck": {
+    "characters": [
+      { "name": "Hoarmurath the Ringwraith", "card": null, "qty": 3 },
+      { "name": "Ill-favoured Fellow", "card": null, "qty": 2 },
+      { "name": "Orc Tracker", "card": null, "qty": 2 },
+      { "name": "Sly Southerner", "card": null, "qty": 3 }
+    ],
+    "hazards": [
+      { "name": "Barrow-wight", "card": "tw-015", "qty": 2 },
+      { "name": "An Unexpected Outpost", "card": null, "qty": 2 },
+      { "name": "Chill Douser", "card": null, "qty": 3 },
+      { "name": "Choking Shadows", "card": null, "qty": 1 },
+      { "name": "Doors of Night", "card": "tw-28", "qty": 3 },
+      { "name": "Exhalation of Decay", "card": null, "qty": 1 },
+      { "name": "Ghouls", "card": null, "qty": 3 },
+      { "name": "Plague of Wights", "card": null, "qty": 3 },
+      { "name": "Power Built by Waiting", "card": null, "qty": 1 },
+      { "name": "Stirring Bones", "card": null, "qty": 3 },
+      { "name": "The Moon Is Dead", "card": null, "qty": 3 },
+      { "name": "Twilight", "card": "tw-106", "qty": 2 },
+      { "name": "Wisp of Pale Sheen", "card": null, "qty": 3 }
+    ],
+    "resources": [
+      { "name": "A Nice Place to Hide", "card": null, "qty": 3 },
+      { "name": "Bade to Rule", "card": null, "qty": 1 },
+      { "name": "Blasting Fire", "card": null, "qty": 3 },
+      { "name": "Crept Along Cleverly", "card": null, "qty": 2 },
+      { "name": "Great Lord of Goblin-gate", "card": null, "qty": 1 },
+      { "name": "High Helm", "card": "le-313", "qty": 1 },
+      { "name": "Orc Quarrels", "card": null, "qty": 2 },
+      { "name": "Orcs of Moria", "card": null, "qty": 1 },
+      { "name": "Records Unread", "card": null, "qty": 3 },
+      { "name": "Sable Shield", "card": null, "qty": 1 },
+      { "name": "Scroll of Isildur", "card": null, "qty": 1 },
+      { "name": "Snaga-hai", "card": null, "qty": 2 },
+      { "name": "Sneakin'", "card": null, "qty": 1 },
+      { "name": "Stinker", "card": null, "qty": 1 },
+      { "name": "The Arkenstone", "card": null, "qty": 1 },
+      { "name": "Vile Fumes", "card": null, "qty": 3 },
+      { "name": "War-wolf", "card": null, "qty": 3 }
+    ]
+  },
+  "sites": [
+    { "name": "Dead Marshes", "card": null, "qty": 1 },
+    { "name": "Mount Doom", "card": "tw-414", "qty": 1 },
+    { "name": "Mount Gram", "card": null, "qty": 1 },
+    { "name": "Mount Gundabad", "card": null, "qty": 1 },
+    { "name": "Sarn Goriwing", "card": null, "qty": 1 },
+    { "name": "Shelob's Lair", "card": null, "qty": 1 },
+    { "name": "Barad-dur", "card": null, "qty": 4 },
+    { "name": "Carn Dum", "card": null, "qty": 4 },
+    { "name": "Caves of Ulund", "card": null, "qty": 1 },
+    { "name": "Dol Guldur", "card": "le-367", "qty": 4 },
+    { "name": "Goblin-gate", "card": null, "qty": 1 },
+    { "name": "Minas Morgul", "card": "le-390", "qty": 4 },
+    { "name": "Moria", "card": "ba-93", "qty": 1 }
+  ]
+}

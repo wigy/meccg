@@ -1,0 +1,75 @@
+{
+  "id": "challenge-deck-f",
+  "name": "Spies and Traitors",
+  "alignment": "minion",
+  "pool": [
+    { "name": "Asternak", "card": null, "qty": 1 },
+    { "name": "Ciryaher", "card": null, "qty": 1 },
+    { "name": "Luitprand", "card": null, "qty": 1 },
+    { "name": "Ostisen", "card": null, "qty": 1 },
+    { "name": "Blazon of the Eye", "card": null, "qty": 1 },
+    { "name": "Foul-smelling Paste", "card": null, "qty": 1 }
+  ],
+  "deck": {
+    "characters": [
+      { "name": "Adunaphel the Ringwraith", "card": null, "qty": 3 },
+      { "name": "Eradan", "card": null, "qty": 1 },
+      { "name": "Layos", "card": null, "qty": 1 },
+      { "name": "Nevido Smod", "card": null, "qty": 1 },
+      { "name": "Orc Captain", "card": null, "qty": 2 },
+      { "name": "Perchen", "card": "as-4", "qty": 1 }
+    ],
+    "hazards": [
+      { "name": "Slayer", "card": null, "qty": 3 },
+      { "name": "An Unexpected Outpost", "card": null, "qty": 2 },
+      { "name": "Cave-worm", "card": null, "qty": 3 },
+      { "name": "Cave-drake", "card": "tw-020", "qty": 3 },
+      { "name": "Doors of Night", "card": "tw-28", "qty": 3 },
+      { "name": "From the Pits of Angband", "card": null, "qty": 2 },
+      { "name": "Marsh-drake", "card": null, "qty": 3 },
+      { "name": "Nameless Thing", "card": null, "qty": 1 },
+      { "name": "Rain-drake", "card": null, "qty": 2 },
+      { "name": "Searching Eye", "card": null, "qty": 1 },
+      { "name": "Summons from Long Sleep", "card": null, "qty": 3 },
+      { "name": "True Fire-drake", "card": null, "qty": 2 },
+      { "name": "Twilight", "card": "tw-106", "qty": 2 }
+    ],
+    "resources": [
+      { "name": "A Nice Place to Hide", "card": null, "qty": 3 },
+      { "name": "Bade to Rule", "card": null, "qty": 1 },
+      { "name": "By the Ringwraith's Word", "card": null, "qty": 1 },
+      { "name": "Deeper Shadow", "card": null, "qty": 2 },
+      { "name": "Dwarven Ring of Thrar's Tribe", "card": null, "qty": 1 },
+      { "name": "Dwarven Ring of Thelor's Tribe", "card": null, "qty": 1 },
+      { "name": "Join With That Power", "card": null, "qty": 1 },
+      { "name": "Not Slay Needlessly", "card": null, "qty": 3 },
+      { "name": "Orc Quarrels", "card": null, "qty": 2 },
+      { "name": "Red Book of Westmarch", "card": null, "qty": 1 },
+      { "name": "Ruse", "card": null, "qty": 1 },
+      { "name": "Secrets of Their Forging", "card": null, "qty": 2 },
+      { "name": "Stinker", "card": null, "qty": 1 },
+      { "name": "That's Been Heard Before Tonight", "card": null, "qty": 2 },
+      { "name": "The Least of Gold Rings", "card": null, "qty": 2 },
+      { "name": "To Satisfy the Questioner", "card": null, "qty": 2 },
+      { "name": "Tokens to Show", "card": null, "qty": 1 },
+      { "name": "Weigh All Things to a Nicety", "card": null, "qty": 1 },
+      { "name": "Well Preserved", "card": null, "qty": 1 },
+      { "name": "Woses of the Eryn Vorn", "card": null, "qty": 1 }
+    ]
+  },
+  "sites": [
+    { "name": "Bag End", "card": "tw-372", "qty": 1 },
+    { "name": "Bandit Lair", "card": null, "qty": 1 },
+    { "name": "Beorn's House", "card": null, "qty": 1 },
+    { "name": "Dimrill Dale", "card": null, "qty": 1 },
+    { "name": "Eagles' Eyrie", "card": "tw-391", "qty": 1 },
+    { "name": "Edoras", "card": null, "qty": 1 },
+    { "name": "Barad-dur", "card": null, "qty": 4 },
+    { "name": "Carn Dum", "card": null, "qty": 4 },
+    { "name": "Dol Guldur", "card": "le-367", "qty": 4 },
+    { "name": "Goblin-gate", "card": null, "qty": 1 },
+    { "name": "Moria", "card": "ba-93", "qty": 1 },
+    { "name": "The Worthy Hills", "card": null, "qty": 1 },
+    { "name": "Thranduil's Halls", "card": null, "qty": 1 }
+  ]
+}

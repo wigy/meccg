@@ -1,0 +1,80 @@
+{
+  "id": "challenge-deck-a",
+  "name": "Stewards of Gondor",
+  "alignment": "hero",
+  "pool": [
+    { "name": "Adrazar", "card": null, "qty": 1 },
+    { "name": "Horn of Anor", "card": "tw-259", "qty": 1 },
+    { "name": "Fatty Bolger", "card": null, "qty": 1 },
+    { "name": "Cram", "card": null, "qty": 1 },
+    { "name": "Glorfindel II", "card": "tw-161", "qty": 1 },
+    { "name": "Sam Gamgee", "card": "tw-180", "qty": 1 }
+  ],
+  "deck": {
+    "characters": [
+      { "name": "Saruman", "card": null, "qty": 3 },
+      { "name": "Balin", "card": null, "qty": 1 },
+      { "name": "Haldir", "card": null, "qty": 1 },
+      { "name": "Ioreth", "card": null, "qty": 1 },
+      { "name": "Peath", "card": null, "qty": 1 },
+      { "name": "Theoden", "card": "tw-182", "qty": 1 }
+    ],
+    "hazards": [
+      { "name": "Bert (Burat)", "card": null, "qty": 1 },
+      { "name": "Hobgoblins", "card": null, "qty": 3 },
+      { "name": "Little Snuffler", "card": null, "qty": 1 },
+      { "name": "Orc Guard", "card": null, "qty": 1 },
+      { "name": "Orc Lieutenant", "card": null, "qty": 3 },
+      { "name": "Orc Warband", "card": null, "qty": 2 },
+      { "name": "Orc Watch", "card": null, "qty": 3 },
+      { "name": "Tom (Tuma)", "card": null, "qty": 1 },
+      { "name": "William (Wuluag)", "card": null, "qty": 1 },
+      { "name": "Alone and Unadvised", "card": null, "qty": 2 },
+      { "name": "An Unexpected Outpost", "card": null, "qty": 2 },
+      { "name": "Choking Shadows", "card": null, "qty": 1 },
+      { "name": "Doors of Night", "card": "tw-28", "qty": 3 },
+      { "name": "Minions Stir", "card": null, "qty": 3 },
+      { "name": "Twilight", "card": "tw-106", "qty": 2 },
+      { "name": "Two or Three Tribes Present", "card": null, "qty": 1 }
+    ],
+    "resources": [
+      { "name": "Glamdring", "card": "tw-244", "qty": 1 },
+      { "name": "Hauberk of Bright Mail", "card": null, "qty": 2 },
+      { "name": "Knights of Dol Amroth", "card": "tw-263", "qty": 1 },
+      { "name": "Men of Anfalas", "card": null, "qty": 1 },
+      { "name": "Men of Anorien", "card": null, "qty": 1 },
+      { "name": "Men of Lebennin", "card": null, "qty": 1 },
+      { "name": "Palantir of Orthanc", "card": null, "qty": 1 },
+      { "name": "Rangers of Ithilien", "card": null, "qty": 1 },
+      { "name": "Sapling of the White Tree", "card": null, "qty": 1 },
+      { "name": "Scroll of Isildur", "card": null, "qty": 1 },
+      { "name": "Treebeard", "card": null, "qty": 1 },
+      { "name": "And Forth He Hastened", "card": null, "qty": 1 },
+      { "name": "Concealment", "card": null, "qty": 3 },
+      { "name": "Dark Quarrels", "card": null, "qty": 2 },
+      { "name": "Dodge", "card": null, "qty": 2 },
+      { "name": "Great Ship", "card": null, "qty": 1 },
+      { "name": "Halfling Strength", "card": null, "qty": 2 },
+      { "name": "Marvels Told", "card": null, "qty": 2 },
+      { "name": "Smoke Rings", "card": null, "qty": 1 },
+      { "name": "Stealth", "card": null, "qty": 3 }
+    ]
+  },
+  "sites": [
+    { "name": "Dol Amroth", "card": null, "qty": 1 },
+    { "name": "Edhellond", "card": "tw-393", "qty": 4 },
+    { "name": "Edoras", "card": null, "qty": 1 },
+    { "name": "Glittering Caves", "card": null, "qty": 1 },
+    { "name": "Henneth Annun", "card": "tw-400", "qty": 1 },
+    { "name": "Isengard", "card": null, "qty": 1 },
+    { "name": "Isle of the Ulond", "card": null, "qty": 1 },
+    { "name": "Lond Galen", "card": null, "qty": 1 },
+    { "name": "Lorien", "card": "tw-408", "qty": 4 },
+    { "name": "Minas Tirith", "card": "tw-412", "qty": 1 },
+    { "name": "Moria", "card": "tw-413", "qty": 1 },
+    { "name": "Pelargir", "card": null, "qty": 1 },
+    { "name": "Rivendell", "card": "tw-421", "qty": 4 },
+    { "name": "Tolfalas", "card": null, "qty": 1 },
+    { "name": "Wellinghall", "card": null, "qty": 1 }
+  ]
+}

@@ -1,0 +1,80 @@
+{
+  "id": "challenge-deck-c",
+  "name": "Dwarven Quest",
+  "alignment": "hero",
+  "pool": [
+    { "name": "Dori", "card": null, "qty": 1 },
+    { "name": "Gloin", "card": null, "qty": 1 },
+    { "name": "Kili", "card": null, "qty": 1 },
+    { "name": "Thorin II", "card": null, "qty": 1 },
+    { "name": "Oin", "card": null, "qty": 1 },
+    { "name": "Cram", "card": null, "qty": 2 }
+  ],
+  "deck": {
+    "characters": [
+      { "name": "Pallando", "card": null, "qty": 3 },
+      { "name": "Balin", "card": null, "qty": 1 },
+      { "name": "Boromir II", "card": null, "qty": 1 },
+      { "name": "Celeborn", "card": "tw-136", "qty": 1 },
+      { "name": "Fili", "card": null, "qty": 1 },
+      { "name": "Gildor Inglorion", "card": null, "qty": 1 }
+    ],
+    "hazards": [
+      { "name": "Cave-worm", "card": null, "qty": 3 },
+      { "name": "Despair of the Heart", "card": null, "qty": 3 },
+      { "name": "Full of Froth and Rage", "card": null, "qty": 3 },
+      { "name": "Giant Spiders", "card": null, "qty": 3 },
+      { "name": "Lesser Spiders", "card": null, "qty": 3 },
+      { "name": "Neeker-breekers", "card": null, "qty": 2 },
+      { "name": "River", "card": null, "qty": 2 },
+      { "name": "Seized by Terror", "card": null, "qty": 2 },
+      { "name": "Twilight", "card": "tw-106", "qty": 2 },
+      { "name": "Wake of War", "card": "tw-108", "qty": 2 },
+      { "name": "Wargs", "card": null, "qty": 2 },
+      { "name": "Watcher in the Water", "card": null, "qty": 3 }
+    ],
+    "resources": [
+      { "name": "A Friend or Three", "card": null, "qty": 2 },
+      { "name": "Book of Mazarbul", "card": null, "qty": 1 },
+      { "name": "Bounty of the Hoard", "card": null, "qty": 1 },
+      { "name": "Bow of Dragon-horn", "card": null, "qty": 1 },
+      { "name": "Concealment", "card": null, "qty": 3 },
+      { "name": "Durin's Axe", "card": null, "qty": 1 },
+      { "name": "Enruned Shield", "card": null, "qty": 1 },
+      { "name": "Fellowship", "card": null, "qty": 2 },
+      { "name": "Gollum", "card": null, "qty": 1 },
+      { "name": "Great Road", "card": null, "qty": 1 },
+      { "name": "Hauberk of Bright Mail", "card": null, "qty": 1 },
+      { "name": "Hundreds of Butterflies", "card": null, "qty": 1 },
+      { "name": "Iron Hill Dwarves", "card": null, "qty": 1 },
+      { "name": "Lucky Search", "card": null, "qty": 1 },
+      { "name": "Magical Harp", "card": null, "qty": 1 },
+      { "name": "Marvels Told", "card": null, "qty": 1 },
+      { "name": "Men of Dorwinion", "card": null, "qty": 2 },
+      { "name": "Not at Home", "card": null, "qty": 2 },
+      { "name": "Quickbeam", "card": null, "qty": 1 },
+      { "name": "Risky Blow", "card": null, "qty": 1 },
+      { "name": "Smoke Rings", "card": null, "qty": 1 },
+      { "name": "The Dwarves Are upon You!", "card": null, "qty": 2 },
+      { "name": "Thror's Map", "card": null, "qty": 1 },
+      { "name": "Wormsbane", "card": null, "qty": 1 }
+    ]
+  },
+  "sites": [
+    { "name": "Blue Mountain Dwarf-hold", "card": null, "qty": 1 },
+    { "name": "Buhr Widu", "card": null, "qty": 1 },
+    { "name": "Caves of Ulund", "card": null, "qty": 1 },
+    { "name": "Dead Marshes", "card": null, "qty": 1 },
+    { "name": "Goblin-gate", "card": null, "qty": 1 },
+    { "name": "Grey Havens", "card": "tw-399", "qty": 4 },
+    { "name": "Iron Hill Dwarf-hold", "card": null, "qty": 1 },
+    { "name": "Lorien", "card": "tw-408", "qty": 4 },
+    { "name": "Moria", "card": "tw-413", "qty": 1 },
+    { "name": "Ovir Hollow", "card": null, "qty": 1 },
+    { "name": "Rivendell", "card": "tw-421", "qty": 4 },
+    { "name": "Sarn Goriwing", "card": null, "qty": 1 },
+    { "name": "Shrel-Kain", "card": null, "qty": 1 },
+    { "name": "The Lonely Mountain", "card": null, "qty": 1 },
+    { "name": "Wellinghall", "card": null, "qty": 1 }
+  ]
+}
