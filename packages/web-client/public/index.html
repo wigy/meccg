@@ -66,6 +66,35 @@
     </div>
   </div>
 
+  <!-- Deck editor screen (lobby mode) -->
+  <div id="deck-editor-screen" class="hidden">
+    <div class="lobby-header">
+      <button id="deck-editor-back" class="deck-editor-back">&larr; Back</button>
+      <h2 class="lobby-title" id="deck-editor-title">Deck</h2>
+    </div>
+    <div id="deck-editor-preview" class="deck-editor-preview"></div>
+    <div class="deck-editor-content">
+      <div class="deck-editor-section">
+        <h3 class="lobby-section-title">Pool</h3>
+        <div id="deck-editor-pool" class="deck-editor-list"></div>
+        <h3 class="lobby-section-title" style="margin-top:0.75rem">Characters</h3>
+        <div id="deck-editor-characters" class="deck-editor-list"></div>
+      </div>
+      <div class="deck-editor-section">
+        <h3 class="lobby-section-title">Resources</h3>
+        <div id="deck-editor-resources" class="deck-editor-list"></div>
+      </div>
+      <div class="deck-editor-section">
+        <h3 class="lobby-section-title">Hazards</h3>
+        <div id="deck-editor-hazards" class="deck-editor-list"></div>
+      </div>
+      <div class="deck-editor-section">
+        <h3 class="lobby-section-title">Sites</h3>
+        <div id="deck-editor-sites" class="deck-editor-list"></div>
+      </div>
+    </div>
+  </div>
+
   <!-- Connect form (standalone / non-lobby mode) -->
   <div id="connect-form" class="hidden">
     <input type="text" id="name-input" placeholder="Enter your name" autofocus>

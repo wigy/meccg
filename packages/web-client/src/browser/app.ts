@@ -8,7 +8,7 @@
 
 import type { ServerMessage, ClientMessage, GameAction, CardDefinitionId } from '@meccg/shared';
 import { loadCardPool, describeAction, buildCompanyNames, cardImageProxyPath, SAMPLE_DECKS } from '@meccg/shared';
-import { renderState, renderDraft, renderMHInfo, renderSiteInfo, renderFreeCouncilInfo, renderGameOverView, renderActions, renderLog, renderHand, renderOpponentHand, renderPlayerNames, renderInstructions, renderDrafted, renderPassButton, renderDeckPiles, resetDeckPiles, setupCardPreview, showNotification, prepareSiteSelection, clearSiteSelection, renderChainPanel } from './render.js';
+import { renderState, renderDraft, renderMHInfo, renderSiteInfo, renderFreeCouncilInfo, renderGameOverView, renderActions, renderLog, renderHand, renderOpponentHand, renderPlayerNames, renderInstructions, renderDrafted, renderPassButton, renderDeckPiles, resetDeckPiles, setupCardPreview, showNotification, prepareSiteSelection, clearSiteSelection, renderChainPanel, buildCardAttributes } from './render.js';
 import { renderCompanyViews, resetCompanyViews } from './company-view.js';
 import { rollDice, clearDice, restoreDice, waitForDice } from './dice.js';
 import { snapshotPositions, animateFromSnapshot } from './flip-animate.js';
@@ -393,9 +393,12 @@ function selectRandomBackground(): void {
 
 // ---- Lobby mode helpers ----
 
+type ScreenId = 'login-screen' | 'register-screen' | 'lobby-screen' | 'deck-editor-screen' | 'connect-form';
+const ALL_SCREENS: ScreenId[] = ['login-screen', 'register-screen', 'lobby-screen', 'deck-editor-screen', 'connect-form'];
+
 /** Show one screen, hiding all others. */
-function showScreen(id: 'login-screen' | 'register-screen' | 'lobby-screen' | 'connect-form'): void {
-  for (const screenId of ['login-screen', 'register-screen', 'lobby-screen', 'connect-form']) {
+function showScreen(id: ScreenId): void {
+  for (const screenId of ALL_SCREENS) {
     const el = document.getElementById(screenId);
     if (el) el.classList.toggle('hidden', screenId !== id);
   }
@@ -415,6 +418,12 @@ let ownedDeckIds = new Set<string>();
 let currentDeckId: string | null = null;
 
 interface DeckSummary { id: string; name: string; alignment: string }
+interface DeckListEntry { name: string; card: string | null; qty: number }
+interface FullDeck extends DeckSummary {
+  pool: DeckListEntry[];
+  deck: { characters: DeckListEntry[]; hazards: DeckListEntry[]; resources: DeckListEntry[] };
+  sites: DeckListEntry[];
+}
 
 /** Render a deck item row for "My Decks" — click to select as current. */
 function renderMyDeckItem(deck: DeckSummary, isCurrent: boolean): HTMLElement {
@@ -431,14 +440,25 @@ function renderMyDeckItem(deck: DeckSummary, isCurrent: boolean): HTMLElement {
   info.appendChild(nameEl);
   info.appendChild(meta);
   item.appendChild(info);
-  if (!isCurrent) {
-    const btn = document.createElement('button');
-    btn.textContent = 'Select';
-    btn.addEventListener('click', () => {
+  const btns = document.createElement('div');
+  btns.style.display = 'flex';
+  btns.style.gap = '0.4rem';
+  if (isCurrent) {
+    const editBtn = document.createElement('button');
+    editBtn.textContent = 'Edit';
+    editBtn.addEventListener('click', () => {
+      void openDeckEditor(deck.id);
+    });
+    btns.appendChild(editBtn);
+  } else {
+    const selectBtn = document.createElement('button');
+    selectBtn.textContent = 'Select';
+    selectBtn.addEventListener('click', () => {
       void selectDeck(deck.id);
     });
-    item.appendChild(btn);
+    btns.appendChild(selectBtn);
   }
+  item.appendChild(btns);
   return item;
 }
 
@@ -533,6 +553,129 @@ async function addDeckToCollection(deck: { id: string; [key: string]: unknown })
   if (resp.ok) {
     await loadDecks();
   }
+}
+
+// ---- Deck editor ----
+
+/** CSS colors matching the debug view ANSI color scheme, keyed by card type. */
+const CARD_TYPE_COLORS: Record<string, string> = {
+  'hero-character': 'color:#6090e0;font-weight:bold',
+  'hero-resource-item': 'color:#d0a040',
+  'hero-resource-faction': 'color:#50b0b0',
+  'hero-resource-ally': 'color:#60c060',
+  'hero-resource-event': 'color:#60c060',
+  'hazard-creature': 'color:#e06060',
+  'hazard-event': 'color:#c070c0',
+  'hazard-corruption': 'color:#c070c0;opacity:0.6',
+  'hero-site': 'color:#d0d0d0',
+  'minion-character': 'color:#c070c0;font-weight:bold',
+  'minion-resource-item': 'color:#666',
+  'minion-resource-faction': 'color:#666',
+  'minion-resource-ally': 'color:#666',
+  'minion-site': 'color:#d0d0d0',
+  'balrog-site': 'color:#c07020',
+  'fallen-wizard-site': 'color:#d0d0d0',
+};
+
+/** Render a list of card entries into a container element. */
+function renderCardList(container: HTMLElement, entries: DeckListEntry[]): void {
+  container.innerHTML = '';
+  for (const entry of entries) {
+    const row = document.createElement('div');
+    row.className = 'deck-editor-card';
+    const qtyEl = document.createElement('span');
+    qtyEl.className = 'deck-editor-card-qty';
+    qtyEl.textContent = String(entry.qty);
+    const nameEl = document.createElement('span');
+    nameEl.className = 'deck-editor-card-name';
+    // Use official name and color from card pool if mapped
+    const def = entry.card ? cardPool[entry.card] : undefined;
+    nameEl.textContent = def ? def.name : entry.name;
+    if (def) {
+      const style = CARD_TYPE_COLORS[def.cardType] ?? '';
+      if (style) nameEl.setAttribute('style', style);
+      row.dataset.cardId = entry.card!;
+      row.style.cursor = 'pointer';
+    } else {
+      row.classList.add('deck-editor-card--unknown');
+    }
+    row.appendChild(qtyEl);
+    row.appendChild(nameEl);
+    container.appendChild(row);
+  }
+}
+
+const EDITING_DECK_KEY = 'meccg-editing-deck';
+
+/** Set up hover preview for card rows in the deck editor. */
+function setupDeckEditorPreview(): void {
+  const screen = document.getElementById('deck-editor-screen')!;
+  const preview = document.getElementById('deck-editor-preview')!;
+
+  screen.addEventListener('mouseover', (e) => {
+    const row = (e.target as HTMLElement).closest<HTMLElement>('.deck-editor-card[data-card-id]');
+    if (!row) return;
+    const def = cardPool[row.dataset.cardId!];
+    if (!def) return;
+
+    // Position preview on the opposite side of the hovered card
+    const rect = row.getBoundingClientRect();
+    const midpoint = window.innerWidth / 2;
+    const onRight = rect.left > midpoint;
+    preview.classList.toggle('preview-left', onRight);
+    preview.classList.toggle('preview-right', !onRight);
+
+    preview.innerHTML = '';
+    const info = document.createElement('div');
+    info.className = 'card-preview-info';
+
+    const name = document.createElement('div');
+    name.className = 'card-preview-name';
+    name.textContent = def.name;
+    info.appendChild(name);
+
+    // Card image
+    const imgPath = cardImageProxyPath(def);
+    if (imgPath) {
+      const img = document.createElement('img');
+      img.src = imgPath;
+      img.alt = def.name;
+      info.appendChild(img);
+    }
+
+    buildCardAttributes(info, def);
+    preview.appendChild(info);
+  });
+
+  screen.addEventListener('mouseout', (e) => {
+    const row = (e.target as HTMLElement).closest('.deck-editor-card[data-card-id]');
+    if (!row) return;
+    preview.innerHTML = '';
+  });
+}
+
+/** Open the deck editor for a given deck ID. */
+async function openDeckEditor(deckId: string): Promise<void> {
+  const resp = await fetch('/api/my-decks');
+  if (!resp.ok) return;
+  const data = await resp.json() as { decks: FullDeck[]; currentDeck: string | null };
+  const deck = data.decks.find(d => d.id === deckId);
+  if (!deck) return;
+
+  sessionStorage.setItem(EDITING_DECK_KEY, deckId);
+  document.getElementById('deck-editor-title')!.textContent = deck.name;
+  renderCardList(document.getElementById('deck-editor-pool')!, deck.pool);
+  renderCardList(document.getElementById('deck-editor-characters')!, deck.deck.characters);
+  renderCardList(document.getElementById('deck-editor-hazards')!, deck.deck.hazards);
+  renderCardList(document.getElementById('deck-editor-resources')!, deck.deck.resources);
+  renderCardList(document.getElementById('deck-editor-sites')!, deck.sites);
+  showScreen('deck-editor-screen');
+}
+
+/** Close the deck editor and return to the lobby. */
+function closeDeckEditor(): void {
+  sessionStorage.removeItem(EDITING_DECK_KEY);
+  showScreen('lobby-screen');
 }
 
 /** Show an error message on an auth form. */
@@ -640,6 +783,14 @@ async function initLobby(): Promise<void> {
         return;
       }
 
+      // Restore deck editor if we were editing before reload
+      const editingDeck = sessionStorage.getItem(EDITING_DECK_KEY);
+      if (editingDeck) {
+        connectLobbyWs();
+        void openDeckEditor(editingDeck);
+        return;
+      }
+
       showScreen('lobby-screen');
       connectLobbyWs();
     } else {
@@ -684,6 +835,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   applyBackground();
   setupCardPreview(cardPool);
+  setupDeckEditorPreview();
   const undoBtn = document.getElementById('undo-btn') as HTMLButtonElement;
   const saveBtn = document.getElementById('save-btn') as HTMLButtonElement;
   const loadBtn = document.getElementById('load-btn') as HTMLButtonElement;
@@ -838,6 +990,11 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('challenge-incoming')!.classList.add('hidden');
         challengeFrom = null;
       }
+    });
+
+    // Deck editor back button
+    document.getElementById('deck-editor-back')!.addEventListener('click', () => {
+      closeDeckEditor();
     });
   }
 

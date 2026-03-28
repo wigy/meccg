@@ -2730,7 +2730,7 @@ function addAttr(parent: HTMLElement, label: string, value: string | number): vo
 }
 
 /** Build attribute rows for a card definition based on its type. */
-function buildCardAttributes(el: HTMLElement, def: CardDefinition): void {
+export function buildCardAttributes(el: HTMLElement, def: CardDefinition): void {
   addAttr(el, 'Type', formatCardType(def.cardType));
 
   // Show keywords if present (environment, weapon, armor, etc.)

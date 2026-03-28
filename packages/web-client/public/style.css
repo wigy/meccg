@@ -341,6 +341,91 @@ h2 {
   cursor: default;
 }
 
+/* ---- Deck editor ---- */
+
+.deck-editor-back {
+  padding: 0.3rem 0.75rem;
+  font-size: 0.85rem;
+  background: transparent;
+  color: #c4a35a;
+  border: 1px solid #c4a35a;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.deck-editor-back:hover {
+  background: rgba(196, 163, 90, 0.15);
+}
+
+.deck-editor-content {
+  display: flex;
+  gap: 1.5rem;
+  align-items: flex-start;
+}
+
+.deck-editor-section {
+  flex: 1;
+  min-width: 0;
+}
+
+.deck-editor-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.deck-editor-card {
+  display: flex;
+  align-items: center;
+  padding: 0.3rem 0.6rem;
+  background: #16213e;
+  border-radius: 3px;
+  gap: 0.5rem;
+}
+
+.deck-editor-card-qty {
+  color: #888;
+  font-size: 0.8rem;
+  width: 1.2rem;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.deck-editor-card-name {
+  color: #e0e0e0;
+  font-size: 0.85rem;
+}
+
+.deck-editor-card--unknown {
+  opacity: 0.35;
+}
+
+.deck-editor-preview {
+  position: fixed;
+  top: 4rem;
+  z-index: 100;
+  pointer-events: none;
+}
+
+.deck-editor-preview.preview-left {
+  left: 1rem;
+}
+
+.deck-editor-preview.preview-right {
+  right: 1rem;
+}
+
+.deck-editor-preview:empty {
+  display: none;
+}
+
+.deck-editor-preview img {
+  width: 18rem;
+  border-radius: 4px;
+  margin-bottom: 0.4rem;
+  display: block;
+}
+
 #connect-form {
   display: flex;
   gap: 0.5rem;
