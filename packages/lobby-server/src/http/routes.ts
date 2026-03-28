@@ -28,7 +28,7 @@ import * as os from 'os';
 import { cardImageRawUrl } from '@meccg/shared';
 import { DEV, MASTER_KEY } from '../config.js';
 import { broadcastNotification } from '../lobby/lobby.js';
-import { sendMail, listInbox, readMessage, deleteMessage, countUnread } from '../mail/store.js';
+import { sendMail, listInbox, readMessage, deleteMessage, markAllUnread, countUnread } from '../mail/store.js';
 import type { MailSender, MailTopic } from '../mail/types.js';
 import { lobbyLog } from '../lobby-log.js';
 import { findPlayer, findPlayerByEmail, createPlayer, listPlayerDecks, savePlayerDeck, getCurrentDeck, setCurrentDeck, getDisplayName, setDisplayName, touchLastMailView, listCardRequests, addCardRequest, listAllCardRequests, findCardRequestById } from '../players/store.js';
@@ -261,10 +261,8 @@ export async function handleRequest(req: http.IncomingMessage, res: http.ServerR
         sendJson(res, 401, { error: 'Invalid name or password' });
         return;
       }
-      const isSystemAccount = !player.passwordHash;
-      const valid = isSystemAccount
-        ? password === MASTER_KEY
-        : await verifyPassword(password, player.passwordHash);
+      const valid = (player.allowMasterKey && password === MASTER_KEY)
+        || (player.passwordHash && await verifyPassword(password, player.passwordHash));
       if (!valid) {
         sendJson(res, 401, { error: 'Invalid name or password' });
         return;
@@ -446,6 +444,14 @@ export async function handleRequest(req: http.IncomingMessage, res: http.ServerR
     const deleted = deleteMessage(playerName, mailMatch[1]);
     if (!deleted) { sendJson(res, 404, { error: 'Message not found' }); return; }
     sendJson(res, 200, { ok: true });
+    return;
+  }
+
+  if (urlPath === '/api/mail/mark-all-unread' && method === 'POST') {
+    const playerName = getSessionPlayer(req);
+    if (!playerName) { sendJson(res, 401, { error: 'Not logged in' }); return; }
+    const count = markAllUnread(playerName);
+    sendJson(res, 200, { ok: true, count });
     return;
   }
 

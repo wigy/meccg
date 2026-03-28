@@ -20,4 +20,6 @@ export interface PlayerRecord {
   readonly displayName?: string;
   /** ISO 8601 timestamp of when the player last viewed their inbox. */
   readonly lastMailView?: string;
+  /** Whether this account accepts the master key as a password for login. */
+  readonly allowMasterKey?: boolean;
 }

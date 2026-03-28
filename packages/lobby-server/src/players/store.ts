@@ -268,6 +268,7 @@ export function ensureSystemPlayers(): void {
         email,
         passwordHash: '',
         createdAt: new Date().toISOString(),
+        allowMasterKey: true,
       };
       fs.writeFileSync(path.join(playerDir, 'info.json'), JSON.stringify(record, null, 2));
     }

@@ -192,6 +192,23 @@ h2 {
   color: #c4a35a;
 }
 
+.inbox-action-btn {
+  margin-left: auto;
+  padding: 0.3rem 0.75rem;
+  font-size: 0.8rem;
+  background: transparent;
+  color: #aaa;
+  border: 1px solid #555;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.inbox-action-btn:hover {
+  color: #e0d8c8;
+  border-color: #888;
+  background: rgba(255,255,255,0.05);
+}
+
 .inbox-content {
   display: flex;
   gap: 1rem;
@@ -290,21 +307,103 @@ h2 {
   overflow-y: auto;
 }
 
-.inbox-message h3 {
+.inbox-msg-subject {
+  margin: 0 0 0.25rem;
+  color: #c4a35a;
+  font-size: 1.1rem;
+}
+
+.inbox-msg-title {
   margin: 0 0 0.5rem;
+  color: #aaa;
+  font-size: 0.85rem;
+  font-style: italic;
+}
+
+.inbox-msg-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem 1rem;
+  font-size: 0.8rem;
+  color: #999;
+  margin-bottom: 0.5rem;
+  padding: 0.5rem 0;
+  border-top: 1px solid rgba(255,255,255,0.06);
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+}
+
+.inbox-meta-label {
+  color: #666;
+}
+
+.inbox-meta-value {
+  color: #bbb;
+}
+
+.inbox-meta-id {
+  font-family: monospace;
+  font-size: 0.75rem;
+  color: #777;
+}
+
+.inbox-copy-btn {
+  margin-left: 0.4rem;
+  cursor: pointer;
+  color: #c4a35a;
+  font-size: 1.1rem;
+  vertical-align: middle;
+}
+
+.inbox-copy-btn:hover {
+  color: #e0c870;
+}
+
+.inbox-tag {
+  padding: 0.1rem 0.4rem;
+  border-radius: 3px;
+  font-size: 0.75rem;
+}
+
+.inbox-tag--ai {
+  background: rgba(100, 180, 255, 0.15);
+  color: #6ab4ff;
+}
+
+.inbox-tag--server {
+  background: rgba(196, 163, 90, 0.15);
   color: #c4a35a;
 }
 
-.inbox-message-meta {
-  font-size: 0.8rem;
-  color: #888;
-  margin: 0 0 0.75rem;
+.inbox-tag--topic {
+  background: rgba(255,255,255,0.08);
+  color: #aaa;
+}
+
+.inbox-msg-keywords {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  margin-bottom: 0.75rem;
+}
+
+.inbox-keyword {
+  padding: 0.15rem 0.5rem;
+  font-size: 0.75rem;
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 3px;
+  color: #999;
 }
 
 .inbox-message-body {
   font-size: 0.9rem;
   color: #e0d8c8;
   line-height: 1.5;
+  margin-top: 1rem;
+  padding: 0.75rem 1rem;
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 4px;
 }
 
 .inbox-message-body h1, .inbox-message-body h2, .inbox-message-body h3 {

@@ -136,6 +136,27 @@ export function deleteMessage(playerName: string, msgId: string): boolean {
   }
 }
 
+/** Mark all read messages in a player's inbox as unread. */
+export function markAllUnread(playerName: string): number {
+  const dir = inboxDir(playerName);
+  let count = 0;
+  try {
+    const files = fs.readdirSync(dir).filter(f => f.endsWith('.json'));
+    for (const f of files) {
+      const filePath = path.join(dir, f);
+      try {
+        const msg = JSON.parse(fs.readFileSync(filePath, 'utf-8')) as MailMessage;
+        if (msg.status === 'read') {
+          const updated: MailMessage = { ...msg, status: 'new' };
+          fs.writeFileSync(filePath, JSON.stringify(updated, null, 2));
+          count++;
+        }
+      } catch { /* skip malformed */ }
+    }
+  } catch { /* dir doesn't exist */ }
+  return count;
+}
+
 /** Count messages in a player's inbox with status 'new'. */
 export function countUnread(playerName: string): number {
   const dir = inboxDir(playerName);

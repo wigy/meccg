@@ -727,6 +727,11 @@ function closeDeckEditor(): void {
 
 // ---- Inbox ----
 
+/** Escape HTML special characters for safe insertion via innerHTML. */
+function escapeHtml(text: string): string {
+  return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
 /** Fetch and display inbox messages. */
 async function openInbox(): Promise<void> {
   sessionStorage.setItem(VIEWING_INBOX_KEY, '1');
@@ -794,16 +799,60 @@ async function openInbox(): Promise<void> {
           const full = await msgResp.json() as InboxMessage;
           row.classList.remove('inbox-item--unread');
           messageEl.innerHTML = '';
+
+          // Subject
           const h = document.createElement('h3');
+          h.className = 'inbox-msg-subject';
           h.textContent = full.subject;
-          const meta = document.createElement('p');
-          meta.className = 'inbox-message-meta';
-          meta.textContent = `From: ${full.from} | ${new Date(full.timestamp).toLocaleString()}`;
+          messageEl.appendChild(h);
+
+          // Title (summary)
+          if (full.title && full.title !== full.subject) {
+            const titleEl = document.createElement('p');
+            titleEl.className = 'inbox-msg-title';
+            titleEl.textContent = full.title;
+            messageEl.appendChild(titleEl);
+          }
+
+          // Metadata table
+          const meta = document.createElement('div');
+          meta.className = 'inbox-msg-meta';
+          meta.innerHTML = [
+            `<span class="inbox-meta-label">Message ID:</span> <span class="inbox-meta-value inbox-meta-id">${escapeHtml(full.id)}<span class="inbox-copy-btn" data-copy="${escapeHtml(full.id)}" title="Copy to clipboard">&#x2398;</span></span>`,
+            `<span class="inbox-meta-label">From:</span> <span class="inbox-meta-value">${escapeHtml(full.from)}</span>`,
+            `<span class="inbox-meta-label">Sender:</span> <span class="inbox-meta-value inbox-tag inbox-tag--${full.sender}">${escapeHtml(full.sender)}</span>`,
+            `<span class="inbox-meta-label">Topic:</span> <span class="inbox-meta-value inbox-tag inbox-tag--topic">${escapeHtml(full.topic)}</span>`,
+            `<span class="inbox-meta-label">Date:</span> <span class="inbox-meta-value">${new Date(full.timestamp).toLocaleString()}</span>`,
+            `<span class="inbox-meta-label">Status:</span> <span class="inbox-meta-value">${escapeHtml(full.status)}</span>`,
+          ].join('');
+          messageEl.appendChild(meta);
+
+          // Copy button handler
+          meta.querySelector('.inbox-copy-btn')?.addEventListener('click', (e) => {
+            const target = e.currentTarget as HTMLElement;
+            void navigator.clipboard.writeText(target.dataset.copy ?? '');
+            target.textContent = '\u2713';
+            setTimeout(() => { target.textContent = '\u2398'; }, 1500);
+          });
+
+          // Keywords
+          const kwKeys = Object.keys(full.keywords);
+          if (kwKeys.length > 0) {
+            const kwSection = document.createElement('div');
+            kwSection.className = 'inbox-msg-keywords';
+            for (const key of kwKeys) {
+              const tag = document.createElement('span');
+              tag.className = 'inbox-keyword';
+              tag.textContent = `${key}: ${full.keywords[key]}`;
+              kwSection.appendChild(tag);
+            }
+            messageEl.appendChild(kwSection);
+          }
+
+          // Body
           const body = document.createElement('div');
           body.className = 'inbox-message-body';
           body.innerHTML = renderMarkdown(full.body);
-          messageEl.appendChild(h);
-          messageEl.appendChild(meta);
           messageEl.appendChild(body);
         })();
       });
@@ -1188,6 +1237,12 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('inbox-back')!.addEventListener('click', () => {
       sessionStorage.removeItem(VIEWING_INBOX_KEY);
       showScreen('lobby-screen');
+    });
+    document.getElementById('mark-all-unread-btn')!.addEventListener('click', () => {
+      void (async () => {
+        await fetch('/api/mail/mark-all-unread', { method: 'POST' });
+        void openInbox();
+      })();
     });
   }
 
