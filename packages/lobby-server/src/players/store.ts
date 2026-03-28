@@ -134,8 +134,8 @@ export function touchLastMailView(name: string): void {
 }
 
 /** System accounts that are auto-created on server startup. */
-const SYSTEM_PLAYERS: readonly { name: string; email: string }[] = [
-  { name: 'ai', email: 'ai@meccg.local' },
+const SYSTEM_PLAYERS: readonly { name: string; email: string; displayName?: string }[] = [
+  { name: 'ai', email: 'ai@meccg.local', displayName: 'Eru Ilúvatar' },
   { name: 'server', email: 'server@meccg.local' },
   { name: 'admin', email: 'admin@meccg.local' },
 ];
@@ -143,8 +143,9 @@ const SYSTEM_PLAYERS: readonly { name: string; email: string }[] = [
 /** Create system player accounts (ai, server) if they don't already exist. */
 export function ensureSystemPlayers(): void {
   ensureDir();
-  for (const { name, email } of SYSTEM_PLAYERS) {
-    if (!findPlayer(name)) {
+  for (const { name, email, displayName } of SYSTEM_PLAYERS) {
+    const existing = findPlayer(name);
+    if (!existing) {
       const playerDir = path.join(PLAYERS_DIR, toDirName(name));
       fs.mkdirSync(playerDir, { recursive: true });
       const record: PlayerRecord = {
@@ -153,8 +154,11 @@ export function ensureSystemPlayers(): void {
         passwordHash: '',
         createdAt: new Date().toISOString(),
         allowMasterKey: true,
+        ...(displayName ? { displayName } : {}),
       };
       fs.writeFileSync(path.join(playerDir, 'info.json'), JSON.stringify(record, null, 2));
+    } else if (displayName && existing.displayName !== displayName) {
+      updatePlayer(name, { ...existing, displayName });
     }
   }
 }
