@@ -779,5 +779,56 @@
     "homesite": "Isengard",
     "effects": [],
     "text": "Unique. May tap to use a Palantír he bears. At the beginning of your end-of-turn phase, you may tap Saruman to take one spell card from your discard pile to your hand."
+  },
+  {
+    "cardType": "hero-character",
+    "alignment": "wizard",
+    "id": "tw-123",
+    "name": "Balin",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Balin.jpg",
+    "unique": true,
+    "race": "dwarf",
+    "skills": [
+      "warrior",
+      "sage"
+    ],
+    "prowess": 4,
+    "body": 7,
+    "mind": 5,
+    "directInfluence": 2,
+    "marshallingPoints": 2,
+    "marshallingCategory": "character",
+    "corruptionModifier": 0,
+    "homesite": "Blue Mountain Dwarf-hold",
+    "effects": [
+      {
+        "type": "stat-modifier",
+        "stat": "prowess",
+        "value": 2,
+        "when": {
+          "reason": "combat",
+          "enemy.race": "orc"
+        }
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": 1,
+        "when": {
+          "reason": "influence-check",
+          "target.race": "dwarf"
+        }
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": 1,
+        "when": {
+          "reason": "faction-influence-check",
+          "faction.race": "dwarf"
+        }
+      }
+    ],
+    "text": "Unique. +2 prowess against Orcs, +1 direct influence against Dwarves and Dwarf factions."
   }
 ]
