@@ -7,6 +7,9 @@ FIXES
 FEATS
 -----
 
+Remove all direct system messages to user if we have any left.
+Send system notification to user, if online, thay "You have NEW mail" when it arrives.
+
 EPICS
 -----
 
