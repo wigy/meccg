@@ -105,6 +105,34 @@ function updatePlayer(name: string, record: PlayerRecord): void {
   fs.writeFileSync(infoPath(name), JSON.stringify(record, null, 2));
 }
 
+// ---- Display name ----
+
+/** Get the player's display name, falling back to their account name. */
+export function getDisplayName(name: string): string {
+  return findPlayer(name)?.displayName ?? name;
+}
+
+/** Set the player's display name. */
+export function setDisplayName(name: string, displayName: string): void {
+  const player = findPlayer(name);
+  if (!player) return;
+  updatePlayer(name, { ...player, displayName });
+}
+
+// ---- Mail view tracking ----
+
+/** Get the player's last mail view timestamp, or null if never viewed. */
+export function getLastMailView(name: string): string | null {
+  return findPlayer(name)?.lastMailView ?? null;
+}
+
+/** Update the player's last mail view timestamp to now. */
+export function touchLastMailView(name: string): void {
+  const player = findPlayer(name);
+  if (!player) return;
+  updatePlayer(name, { ...player, lastMailView: new Date().toISOString() });
+}
+
 // ---- Card requests ----
 
 /** Path to a player's card requests file. */
@@ -219,6 +247,31 @@ export function listAllCardRequests(): Array<CardRequest & { player: string }> {
     // Directory doesn't exist
   }
   return result;
+}
+
+/** System accounts that are auto-created on server startup. */
+const SYSTEM_PLAYERS: readonly { name: string; email: string }[] = [
+  { name: 'ai', email: 'ai@meccg.local' },
+  { name: 'server', email: 'server@meccg.local' },
+  { name: 'admin', email: 'admin@meccg.local' },
+];
+
+/** Create system player accounts (ai, server) if they don't already exist. */
+export function ensureSystemPlayers(): void {
+  ensureDir();
+  for (const { name, email } of SYSTEM_PLAYERS) {
+    if (!findPlayer(name)) {
+      const playerDir = path.join(PLAYERS_DIR, toDirName(name));
+      fs.mkdirSync(playerDir, { recursive: true });
+      const record: PlayerRecord = {
+        name,
+        email,
+        passwordHash: '',
+        createdAt: new Date().toISOString(),
+      };
+      fs.writeFileSync(path.join(playerDir, 'info.json'), JSON.stringify(record, null, 2));
+    }
+  }
 }
 
 /** Save a new player record. Throws if the name is already taken. */

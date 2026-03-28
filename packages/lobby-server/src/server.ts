@@ -16,6 +16,9 @@ import { playerConnected } from './lobby/lobby.js';
 import { getPayloadFromCookie } from './auth/session.js';
 import { shutdownAllGames } from './games/launcher.js';
 import { lobbyLog } from './lobby-log.js';
+import { ensureSystemPlayers } from './players/store.js';
+
+ensureSystemPlayers();
 
 const server = http.createServer((req, res) => {
   handleRequest(req, res).catch((err) => {

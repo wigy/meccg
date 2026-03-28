@@ -40,22 +40,30 @@ export type LobbyClientMessage =
 
 // ---- Lobby → Client ----
 
+/** An online player entry with identity and display name. */
+export interface OnlinePlayerEntry {
+  readonly name: string;
+  readonly displayName: string;
+}
+
 /** Broadcast of all currently online players. */
 export interface OnlinePlayersMessage {
   readonly type: 'online-players';
-  readonly players: readonly string[];
+  readonly players: readonly OnlinePlayerEntry[];
 }
 
 /** Incoming challenge from another player. */
 export interface ChallengeReceivedMessage {
   readonly type: 'challenge-received';
   readonly from: string;
+  readonly fromDisplayName: string;
 }
 
 /** A challenge you sent was declined. */
 export interface ChallengeDeclinedMessage {
   readonly type: 'challenge-declined';
   readonly by: string;
+  readonly byDisplayName: string;
 }
 
 /** A game is starting — connect to the game server. */
@@ -64,6 +72,7 @@ export interface GameStartingMessage {
   readonly port: number;
   readonly token: string;
   readonly opponent: string;
+  readonly opponentDisplayName: string;
 }
 
 /** Error message from the lobby. */

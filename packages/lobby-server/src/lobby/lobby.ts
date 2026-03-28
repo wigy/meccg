@@ -11,6 +11,7 @@ import type WebSocket from 'ws';
 import type { LobbyClientMessage, LobbyServerMessage } from './protocol.js';
 import { launchGame } from '../games/launcher.js';
 import { lobbyLog } from '../lobby-log.js';
+import { getDisplayName } from '../players/store.js';
 
 /** A connected player in the lobby. */
 interface OnlinePlayer {
@@ -34,7 +35,10 @@ function send(ws: WebSocket, msg: LobbyServerMessage): void {
 
 /** Broadcast the current online player list to everyone. */
 function broadcastPlayerList(): void {
-  const players = Array.from(onlinePlayers.keys());
+  const players = Array.from(onlinePlayers.keys()).map(name => ({
+    name,
+    displayName: getDisplayName(name),
+  }));
   const msg: LobbyServerMessage = { type: 'online-players', players };
   for (const p of onlinePlayers.values()) {
     send(p.ws, msg);
@@ -111,7 +115,7 @@ function handleMessage(fromName: string, msg: LobbyClientMessage): void {
         return;
       }
       target.pendingFrom.add(fromName);
-      send(target.ws, { type: 'challenge-received', from: fromName });
+      send(target.ws, { type: 'challenge-received', from: fromName, fromDisplayName: getDisplayName(fromName) });
       break;
     }
 
@@ -134,7 +138,7 @@ function handleMessage(fromName: string, msg: LobbyClientMessage): void {
       from.pendingFrom.delete(msg.from);
       const challenger = onlinePlayers.get(msg.from);
       if (challenger) {
-        send(challenger.ws, { type: 'challenge-declined', by: fromName });
+        send(challenger.ws, { type: 'challenge-declined', by: fromName, byDisplayName: getDisplayName(fromName) });
       }
       break;
     }
@@ -164,12 +168,14 @@ async function startGame(player1: OnlinePlayer, player2: OnlinePlayer): Promise<
       port: result.port,
       token: result.tokens[0],
       opponent: player2.name,
+      opponentDisplayName: getDisplayName(player2.name),
     });
     send(player2.ws, {
       type: 'game-starting',
       port: result.port,
       token: result.tokens[1],
       opponent: player1.name,
+      opponentDisplayName: getDisplayName(player1.name),
     });
 
     // When the game ends, mark players as available again
@@ -204,6 +210,7 @@ async function startAiGame(player: OnlinePlayer): Promise<void> {
       port: result.port,
       token: result.tokens[0],
       opponent: aiName,
+      opponentDisplayName: aiName,
     });
 
     result.onEnd(() => {

@@ -31,7 +31,7 @@ import { broadcastNotification } from '../lobby/lobby.js';
 import { sendMail, listInbox, readMessage, deleteMessage, countUnread } from '../mail/store.js';
 import type { MailSender, MailTopic } from '../mail/types.js';
 import { lobbyLog } from '../lobby-log.js';
-import { findPlayer, findPlayerByEmail, createPlayer, listPlayerDecks, savePlayerDeck, getCurrentDeck, setCurrentDeck, listCardRequests, addCardRequest, listAllCardRequests, findCardRequestById } from '../players/store.js';
+import { findPlayer, findPlayerByEmail, createPlayer, listPlayerDecks, savePlayerDeck, getCurrentDeck, setCurrentDeck, getDisplayName, setDisplayName, touchLastMailView, listCardRequests, addCardRequest, listAllCardRequests, findCardRequestById } from '../players/store.js';
 import { hashPassword, verifyPassword } from '../auth/password.js';
 import { signLobbyToken } from '../auth/jwt.js';
 import { getSessionPlayer, setSessionCookie, clearSessionCookie } from '../auth/session.js';
@@ -42,7 +42,7 @@ const GAME_SERVER_SNAPSHOTS = path.join(__dirname, '../../../game-server/data/de
 const DECK_CATALOG_DIR = path.join(__dirname, '../../../../data/decks');
 
 /** Names that cannot be registered by players. Checked case-insensitively. */
-const RESTRICTED_NAMES = new Set(['ai', 'wigy', 'server', 'karmi']);
+const RESTRICTED_NAMES = new Set(['ai', 'wigy', 'server', 'karmi', 'admin']);
 
 const MIME_TYPES: Record<string, string> = {
   '.html': 'text/html',
@@ -203,8 +203,8 @@ export async function handleRequest(req: http.IncomingMessage, res: http.ServerR
 
   if (urlPath === '/api/register' && method === 'POST') {
     try {
-      const body = JSON.parse(await readBody(req)) as { name?: string; email?: string; password?: string };
-      const { name, email, password } = body;
+      const body = JSON.parse(await readBody(req)) as { name?: string; email?: string; password?: string; displayName?: string };
+      const { name, email, password, displayName } = body;
       if (!name || !email || !password) {
         sendJson(res, 400, { error: 'Name, email, and password are required' });
         return;
@@ -235,7 +235,8 @@ export async function handleRequest(req: http.IncomingMessage, res: http.ServerR
       }
 
       const passwordHash = await hashPassword(password);
-      createPlayer({ name, email, passwordHash, createdAt: new Date().toISOString() });
+      const trimmedDisplay = displayName?.trim();
+      createPlayer({ name, email, passwordHash, createdAt: new Date().toISOString(), ...(trimmedDisplay ? { displayName: trimmedDisplay } : {}) });
       const token = signLobbyToken(name);
       setSessionCookie(res, token);
       sendJson(res, 201, { name });
@@ -286,9 +287,27 @@ export async function handleRequest(req: http.IncomingMessage, res: http.ServerR
   if (urlPath === '/api/me' && method === 'GET') {
     const playerName = getSessionPlayer(req);
     if (playerName) {
-      sendJson(res, 200, { name: playerName });
+      sendJson(res, 200, { name: playerName, displayName: getDisplayName(playerName) });
     } else {
       sendJson(res, 401, { error: 'Not logged in' });
+    }
+    return;
+  }
+
+  if (urlPath === '/api/me/display-name' && method === 'PUT') {
+    const playerName = getSessionPlayer(req);
+    if (!playerName) { sendJson(res, 401, { error: 'Not logged in' }); return; }
+    try {
+      const body = JSON.parse(await readBody(req)) as { displayName?: string };
+      if (!body.displayName || body.displayName.length < 2 || body.displayName.length > 30) {
+        sendJson(res, 400, { error: 'Display name must be 2-30 characters' });
+        return;
+      }
+      setDisplayName(playerName, body.displayName);
+      sendJson(res, 200, { ok: true, displayName: body.displayName });
+    } catch (err) {
+      lobbyLog.log('error', { context: 'display-name', error: String(err) });
+      sendJson(res, 500, { error: 'Failed to update display name' });
     }
     return;
   }
@@ -394,6 +413,7 @@ export async function handleRequest(req: http.IncomingMessage, res: http.ServerR
   if (urlPath === '/api/mail/inbox' && method === 'GET') {
     const playerName = getSessionPlayer(req);
     if (!playerName) { sendJson(res, 401, { error: 'Not logged in' }); return; }
+    touchLastMailView(playerName);
     sendJson(res, 200, { messages: listInbox(playerName), unreadCount: countUnread(playerName) });
     return;
   }

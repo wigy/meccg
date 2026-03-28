@@ -742,21 +742,21 @@ function connectLobbyWs(): void {
     const msg = JSON.parse(event.data as string) as { type: string; [key: string]: unknown };
     switch (msg.type) {
       case 'online-players': {
-        const players = (msg.players as string[]).filter(n => n !== lobbyPlayerName);
+        const players = (msg.players as { name: string; displayName: string }[]).filter(p => p.name !== lobbyPlayerName);
         const container = document.getElementById('online-players')!;
         if (players.length === 0) {
           container.innerHTML = '<p class="lobby-empty">No other players online</p>';
         } else {
           container.innerHTML = '';
-          for (const name of players) {
+          for (const player of players) {
             const item = document.createElement('div');
             item.className = 'lobby-player-item';
             const span = document.createElement('span');
-            span.textContent = name;
+            span.textContent = player.displayName;
             const btn = document.createElement('button');
             btn.textContent = 'Challenge';
             btn.addEventListener('click', () => {
-              lobbyWs?.send(JSON.stringify({ type: 'challenge', opponentName: name }));
+              lobbyWs?.send(JSON.stringify({ type: 'challenge', opponentName: player.name }));
               btn.textContent = 'Sent';
               btn.disabled = true;
             });
@@ -770,18 +770,20 @@ function connectLobbyWs(): void {
       case 'challenge-received': {
         challengeFrom = msg.from as string;
         const incoming = document.getElementById('challenge-incoming')!;
-        document.getElementById('challenge-text')!.textContent = `${challengeFrom} wants to play!`;
+        const fromDisplay = (msg.fromDisplayName as string) ?? challengeFrom;
+        document.getElementById('challenge-text')!.textContent = `${fromDisplay} wants to play!`;
         incoming.classList.remove('hidden');
         break;
       }
       case 'challenge-declined': {
-        renderLog(`${msg.by as string} declined your challenge.`);
+        const byDisplay = (msg.byDisplayName as string) ?? (msg.by as string);
+        renderLog(`${byDisplay} declined your challenge.`);
         break;
       }
       case 'game-starting': {
         gamePort = msg.port as number;
         gameToken = msg.token as string;
-        const opponent = msg.opponent as string;
+        const opponentDisplay = (msg.opponentDisplayName as string) ?? (msg.opponent as string);
         saveGameSession();
         // Close lobby WS during game
         if (lobbyWs) { lobbyWs.close(); lobbyWs = null; }
@@ -791,7 +793,7 @@ function connectLobbyWs(): void {
         document.getElementById('game')!.classList.remove('hidden');
         selectRandomBackground();
         autoReconnect = true;
-        renderLog(`Game starting vs ${opponent} on port ${gamePort}...`);
+        renderLog(`Game starting vs ${opponentDisplay} on port ${gamePort}...`);
         connect(lobbyPlayerName!);
         break;
       }
@@ -998,6 +1000,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     registerBtn.addEventListener('click', () => { void (async () => {
       const name = (document.getElementById('register-name') as HTMLInputElement).value.trim();
+      const displayName = (document.getElementById('register-display-name') as HTMLInputElement).value.trim();
       const email = (document.getElementById('register-email') as HTMLInputElement).value.trim();
       const password = (document.getElementById('register-password') as HTMLInputElement).value;
       if (!name || !email || !password) { showAuthError('register-error', 'All fields are required'); return; }
@@ -1005,7 +1008,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const resp = await fetch('/api/register', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ name, email, password }),
+          body: JSON.stringify({ name, email, password, ...(displayName ? { displayName } : {}) }),
         });
         const data = await resp.json() as { name?: string; error?: string };
         if (!resp.ok) { showAuthError('register-error', data.error ?? 'Registration failed'); return; }
@@ -1017,7 +1020,7 @@ document.addEventListener('DOMContentLoaded', () => {
     })(); });
 
     // Enter key on register form
-    for (const id of ['register-name', 'register-email', 'register-password']) {
+    for (const id of ['register-name', 'register-display-name', 'register-email', 'register-password']) {
       document.getElementById(id)?.addEventListener('keydown', (e) => { if (e.key === 'Enter') registerBtn.click(); });
     }
 
