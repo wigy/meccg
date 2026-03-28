@@ -2,7 +2,7 @@ Verify a card's playability by checking that all effects defined on the card are
 
 The card ID argument is: $ARGUMENTS
 
-If no card ID is given, stop and ask for one (e.g. `/verify-card tw-156`).
+If no card ID is given, stop and ask for one (e.g. `/certify-card tw-156`).
 
 Follow these steps:
 
@@ -58,3 +58,7 @@ Follow these steps:
    For partially/no cases, explain specifically what won't work and what would need to be implemented.
 
 7. **If the card has no effects:** Report that the card has no special effects and is fully playable (basic stats like prowess/body are always handled by the engine).
+
+8. **Check card test:** Verify that a complete card test exists in `packages/shared/src/tests/cards/` for this card. The test file should cover every rule and special ability described in the card's text. If no test exists, or the test has `test.todo()` entries for untested rules, the card cannot be certified — report what's missing and stop (do not set `certified`).
+
+9. **Certify on success:** If the result is **YES** (all effects fully implemented, or no effects) AND a complete card test exists with no `test.todo()` gaps, set the `certified` field on the card definition in its data JSON file to today's date (ISO 8601 format, e.g. `"2026-03-28"`). This records when the card was last verified as engine-compatible and fully tested. If the card was already certified, update the date. If the result is PARTIALLY or NO, or tests are incomplete, remove any existing `certified` field.

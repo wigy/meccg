@@ -110,6 +110,8 @@ export interface HeroCharacterCard {
   readonly effects?: readonly CardEffect[];
   /** Flavor/rules text describing special abilities. */
   readonly text: string;
+  /** Date when /certify-card confirmed all effects are engine-supported (ISO 8601). */
+  readonly certified?: string;
 }
 
 // ---- Hero Resources ----
@@ -166,6 +168,8 @@ export interface HeroItemCard {
   readonly effects?: readonly CardEffect[];
   /** Flavor/rules text describing special abilities or play conditions. */
   readonly text: string;
+  /** Date when /certify-card confirmed all effects are engine-supported (ISO 8601). */
+  readonly certified?: string;
 }
 
 /**
@@ -203,6 +207,8 @@ export interface HeroFactionCard {
   readonly effects?: readonly CardEffect[];
   /** Flavor/rules text describing special abilities or modifiers. */
   readonly text: string;
+  /** Date when /certify-card confirmed all effects are engine-supported (ISO 8601). */
+  readonly certified?: string;
 }
 
 /**
@@ -239,6 +245,8 @@ export interface HeroAllyCard {
   readonly effects?: readonly CardEffect[];
   /** Flavor/rules text describing special abilities. */
   readonly text: string;
+  /** Date when /certify-card confirmed all effects are engine-supported (ISO 8601). */
+  readonly certified?: string;
 }
 
 /**
@@ -276,6 +284,8 @@ export interface HeroResourceEventCard {
   readonly effects?: readonly CardEffect[];
   /** Flavor/rules text describing the event's effect. */
   readonly text: string;
+  /** Date when /certify-card confirmed all effects are engine-supported (ISO 8601). */
+  readonly certified?: string;
 }
 
 // ---- Hazards ----
@@ -337,6 +347,8 @@ export interface CreatureCard {
   readonly effects?: readonly CardEffect[];
   /** Flavor/rules text describing special abilities or attack modifiers. */
   readonly text: string;
+  /** Date when /certify-card confirmed all effects are engine-supported (ISO 8601). */
+  readonly certified?: string;
 }
 
 /**
@@ -365,6 +377,8 @@ export interface HazardEventCard {
   readonly effects?: readonly CardEffect[];
   /** Flavor/rules text describing the event's effect. */
   readonly text: string;
+  /** Date when /certify-card confirmed all effects are engine-supported (ISO 8601). */
+  readonly certified?: string;
 }
 
 /**
@@ -393,6 +407,8 @@ export interface CorruptionCard {
   readonly effects?: readonly CardEffect[];
   /** Flavor/rules text describing special conditions or effects. */
   readonly text: string;
+  /** Date when /certify-card confirmed all effects are engine-supported (ISO 8601). */
+  readonly certified?: string;
 }
 
 // ---- Sites & Regions ----
@@ -469,6 +485,8 @@ export interface HeroSiteCard {
   readonly hazardDraws: number;
   /** Flavor/rules text with additional site-specific conditions. */
   readonly text: string;
+  /** Date when /certify-card confirmed all effects are engine-supported (ISO 8601). */
+  readonly certified?: string;
 }
 
 /**
@@ -494,6 +512,8 @@ export interface RegionCard {
   readonly adjacentRegions: readonly string[];
   /** Flavor/rules text. */
   readonly text: string;
+  /** Date when /certify-card confirmed all effects are engine-supported (ISO 8601). */
+  readonly certified?: string;
 }
 
 // ---- Minion Resources ----
@@ -538,6 +558,8 @@ export interface MinionItemCard {
   readonly effects?: readonly CardEffect[];
   /** Flavor/rules text describing special abilities or play conditions. */
   readonly text: string;
+  /** Date when /certify-card confirmed all effects are engine-supported (ISO 8601). */
+  readonly certified?: string;
 }
 
 /**
@@ -574,6 +596,8 @@ export interface MinionFactionCard {
   readonly effects?: readonly CardEffect[];
   /** Flavor/rules text describing special abilities or modifiers. */
   readonly text: string;
+  /** Date when /certify-card confirmed all effects are engine-supported (ISO 8601). */
+  readonly certified?: string;
 }
 
 /**
@@ -610,6 +634,8 @@ export interface MinionAllyCard {
   readonly effects?: readonly CardEffect[];
   /** Flavor/rules text describing special abilities. */
   readonly text: string;
+  /** Date when /certify-card confirmed all effects are engine-supported (ISO 8601). */
+  readonly certified?: string;
 }
 
 // ---- Minion Characters ----
@@ -664,6 +690,8 @@ export interface MinionCharacterCard {
   readonly effects?: readonly CardEffect[];
   /** Flavor/rules text describing special abilities. */
   readonly text: string;
+  /** Date when /certify-card confirmed all effects are engine-supported (ISO 8601). */
+  readonly certified?: string;
 }
 
 // ---- Minion Sites ----
@@ -716,6 +744,8 @@ export interface MinionSiteCard {
   readonly hazardDraws: number;
   /** Flavor/rules text with additional site-specific conditions. */
   readonly text: string;
+  /** Date when /certify-card confirmed all effects are engine-supported (ISO 8601). */
+  readonly certified?: string;
 }
 
 // ---- Fallen-wizard Sites ----
@@ -767,6 +797,8 @@ export interface FallenWizardSiteCard {
   readonly hazardDraws: number;
   /** Flavor/rules text with additional site-specific conditions. */
   readonly text: string;
+  /** Date when /certify-card confirmed all effects are engine-supported (ISO 8601). */
+  readonly certified?: string;
 }
 
 /**
@@ -818,6 +850,8 @@ export interface BalrogSiteCard {
   readonly underDeeps: boolean;
   /** Flavor/rules text with additional site-specific conditions. */
   readonly text: string;
+  /** Date when /certify-card confirmed all effects are engine-supported (ISO 8601). */
+  readonly certified?: string;
 }
 
 // ---- Deck ----

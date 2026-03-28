@@ -594,16 +594,23 @@ function renderCardList(container: HTMLElement, entries: DeckListEntry[], deckId
     // Use official name and color from card pool if mapped
     const def = entry.card ? cardPool[entry.card] : undefined;
     nameEl.textContent = def ? def.name : entry.name;
+    const badge = document.createElement('span');
+    badge.className = 'deck-editor-certified-badge';
     if (def) {
       const style = CARD_TYPE_COLORS[def.cardType] ?? '';
       if (style) nameEl.setAttribute('style', style);
       row.dataset.cardId = entry.card!;
       row.style.cursor = 'pointer';
+      if ('certified' in def && (def as Record<string, unknown>).certified) {
+        badge.textContent = '\u2605';
+        badge.title = `Certified ${(def as Record<string, unknown>).certified as string}`;
+      }
     } else {
       row.classList.add('deck-editor-card--unknown');
       const requestKey = `${deckId}:${entry.name}`;
       const btn = document.createElement('button');
       btn.className = 'deck-editor-request-btn';
+      btn.title = 'Ask the server admin to add this card to the game data';
       if (requestedCards.has(requestKey)) {
         btn.textContent = 'Requested';
         btn.disabled = true;
@@ -621,12 +628,14 @@ function renderCardList(container: HTMLElement, entries: DeckListEntry[], deckId
         });
       }
       row.appendChild(qtyEl);
+      row.appendChild(badge);
       row.appendChild(nameEl);
       row.appendChild(btn);
       container.appendChild(row);
       continue;
     }
     row.appendChild(qtyEl);
+    row.appendChild(badge);
     row.appendChild(nameEl);
     container.appendChild(row);
   }

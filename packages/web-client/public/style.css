@@ -396,6 +396,24 @@ h2 {
   font-size: 0.85rem;
 }
 
+.deck-editor-certified-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 0.8em;
+  min-width: 0.8em;
+  height: 0.8em;
+  margin-right: 0.2em;
+  font-size: 0.85em;
+  flex-shrink: 0;
+  position: relative;
+  top: -2px;
+}
+
+.deck-editor-certified-badge:not(:empty) {
+  color: #cd7f32;
+}
+
 .deck-editor-card--unknown {
   opacity: 0.35;
 }
