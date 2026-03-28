@@ -3,77 +3,325 @@
   "name": "Bargain between Friends",
   "alignment": "hero",
   "pool": [
-    { "name": "Beorn", "card": "tw-126", "qty": 1 },
-    { "name": "Gimli", "card": "tw-159", "qty": 1 },
-    { "name": "Halbarad", "card": null, "qty": 1 },
-    { "name": "Legolas", "card": "tw-168", "qty": 1 },
-    { "name": "Black Arrow", "card": null, "qty": 1 },
-    { "name": "Cram", "card": "td-105", "qty": 1 }
+    {
+      "name": "Beorn",
+      "card": "tw-126",
+      "qty": 1
+    },
+    {
+      "name": "Gimli",
+      "card": "tw-159",
+      "qty": 1
+    },
+    {
+      "name": "Halbarad",
+      "card": null,
+      "qty": 1
+    },
+    {
+      "name": "Legolas",
+      "card": "tw-168",
+      "qty": 1
+    },
+    {
+      "name": "Black Arrow",
+      "card": null,
+      "qty": 1
+    },
+    {
+      "name": "Cram",
+      "card": "td-105",
+      "qty": 1
+    }
   ],
   "deck": {
     "characters": [
-      { "name": "Radagast", "card": null, "qty": 3 },
-      { "name": "Brand", "card": null, "qty": 1 },
-      { "name": "Celeborn", "card": "tw-136", "qty": 1 },
-      { "name": "Elrohir", "card": null, "qty": 1 },
-      { "name": "Haldir", "card": null, "qty": 1 },
-      { "name": "Hama", "card": null, "qty": 1 },
-      { "name": "Thranduil", "card": null, "qty": 1 }
+      {
+        "name": "Radagast",
+        "card": null,
+        "qty": 3
+      },
+      {
+        "name": "Brand",
+        "card": null,
+        "qty": 1
+      },
+      {
+        "name": "Celeborn",
+        "card": "tw-136",
+        "qty": 1
+      },
+      {
+        "name": "Elrohir",
+        "card": null,
+        "qty": 1
+      },
+      {
+        "name": "Haldir",
+        "card": "tw-164",
+        "qty": 1
+      },
+      {
+        "name": "Hama",
+        "card": null,
+        "qty": 1
+      },
+      {
+        "name": "Thranduil",
+        "card": null,
+        "qty": 1
+      }
     ],
     "hazards": [
-      { "name": "Abductor", "card": null, "qty": 1 },
-      { "name": "Alone and Unadvised", "card": null, "qty": 2 },
-      { "name": "Ambusher", "card": null, "qty": 3 },
-      { "name": "Assassin", "card": null, "qty": 1 },
-      { "name": "Brigands", "card": null, "qty": 1 },
-      { "name": "Corsairs of Umbar", "card": null, "qty": 2 },
-      { "name": "Ghosts", "card": null, "qty": 3 },
-      { "name": "Lawless Men", "card": null, "qty": 3 },
-      { "name": "Rank upon Rank", "card": null, "qty": 3 },
-      { "name": "Seized by Terror", "card": null, "qty": 2 },
-      { "name": "Sellswords Between Charters", "card": null, "qty": 3 },
-      { "name": "Stout Men of Gondor", "card": null, "qty": 1 },
-      { "name": "Thrice Outnumbered", "card": null, "qty": 1 },
-      { "name": "Tidings of Bold Spies", "card": null, "qty": 2 },
-      { "name": "Twilight", "card": "tw-106", "qty": 2 }
+      {
+        "name": "Abductor",
+        "card": null,
+        "qty": 1
+      },
+      {
+        "name": "Alone and Unadvised",
+        "card": null,
+        "qty": 2
+      },
+      {
+        "name": "Ambusher",
+        "card": null,
+        "qty": 3
+      },
+      {
+        "name": "Assassin",
+        "card": null,
+        "qty": 1
+      },
+      {
+        "name": "Brigands",
+        "card": null,
+        "qty": 1
+      },
+      {
+        "name": "Corsairs of Umbar",
+        "card": null,
+        "qty": 2
+      },
+      {
+        "name": "Ghosts",
+        "card": null,
+        "qty": 3
+      },
+      {
+        "name": "Lawless Men",
+        "card": null,
+        "qty": 3
+      },
+      {
+        "name": "Rank upon Rank",
+        "card": null,
+        "qty": 3
+      },
+      {
+        "name": "Seized by Terror",
+        "card": null,
+        "qty": 2
+      },
+      {
+        "name": "Sellswords Between Charters",
+        "card": null,
+        "qty": 3
+      },
+      {
+        "name": "Stout Men of Gondor",
+        "card": null,
+        "qty": 1
+      },
+      {
+        "name": "Thrice Outnumbered",
+        "card": null,
+        "qty": 1
+      },
+      {
+        "name": "Tidings of Bold Spies",
+        "card": null,
+        "qty": 2
+      },
+      {
+        "name": "Twilight",
+        "card": "tw-106",
+        "qty": 2
+      }
     ],
     "resources": [
-      { "name": "And Forth He Hastened", "card": null, "qty": 1 },
-      { "name": "Beornings", "card": null, "qty": 1 },
-      { "name": "Bow of the Galadhrim", "card": null, "qty": 1 },
-      { "name": "Dark Quarrels", "card": null, "qty": 2 },
-      { "name": "Easterlings", "card": null, "qty": 1 },
-      { "name": "Flatter a Foe", "card": null, "qty": 2 },
-      { "name": "Forewarned is Forearmed", "card": null, "qty": 1 },
-      { "name": "Iron Hill Dwarves", "card": null, "qty": 1 },
-      { "name": "Marvels Told", "card": null, "qty": 2 },
-      { "name": "Men of Dorwinion", "card": null, "qty": 1 },
-      { "name": "Muster", "card": null, "qty": 1 },
-      { "name": "New Friendship", "card": null, "qty": 3 },
-      { "name": "Noble Hound", "card": null, "qty": 2 },
-      { "name": "Noble Steed", "card": null, "qty": 3 },
-      { "name": "Orcrist", "card": null, "qty": 1 },
-      { "name": "Risky Blow", "card": null, "qty": 3 },
-      { "name": "Torque of Hues", "card": null, "qty": 1 },
-      { "name": "Vanishment", "card": null, "qty": 2 },
-      { "name": "Wood-elves", "card": null, "qty": 1 }
+      {
+        "name": "And Forth He Hastened",
+        "card": null,
+        "qty": 1
+      },
+      {
+        "name": "Beornings",
+        "card": null,
+        "qty": 1
+      },
+      {
+        "name": "Bow of the Galadhrim",
+        "card": null,
+        "qty": 1
+      },
+      {
+        "name": "Dark Quarrels",
+        "card": null,
+        "qty": 2
+      },
+      {
+        "name": "Easterlings",
+        "card": null,
+        "qty": 1
+      },
+      {
+        "name": "Flatter a Foe",
+        "card": null,
+        "qty": 2
+      },
+      {
+        "name": "Forewarned is Forearmed",
+        "card": null,
+        "qty": 1
+      },
+      {
+        "name": "Iron Hill Dwarves",
+        "card": null,
+        "qty": 1
+      },
+      {
+        "name": "Marvels Told",
+        "card": null,
+        "qty": 2
+      },
+      {
+        "name": "Men of Dorwinion",
+        "card": null,
+        "qty": 1
+      },
+      {
+        "name": "Muster",
+        "card": null,
+        "qty": 1
+      },
+      {
+        "name": "New Friendship",
+        "card": null,
+        "qty": 3
+      },
+      {
+        "name": "Noble Hound",
+        "card": null,
+        "qty": 2
+      },
+      {
+        "name": "Noble Steed",
+        "card": null,
+        "qty": 3
+      },
+      {
+        "name": "Orcrist",
+        "card": null,
+        "qty": 1
+      },
+      {
+        "name": "Risky Blow",
+        "card": null,
+        "qty": 3
+      },
+      {
+        "name": "Torque of Hues",
+        "card": null,
+        "qty": 1
+      },
+      {
+        "name": "Vanishment",
+        "card": null,
+        "qty": 2
+      },
+      {
+        "name": "Wood-elves",
+        "card": null,
+        "qty": 1
+      }
     ]
   },
   "sites": [
-    { "name": "Beorn's House", "card": null, "qty": 1 },
-    { "name": "Buhr Widu", "card": null, "qty": 1 },
-    { "name": "Dale", "card": null, "qty": 1 },
-    { "name": "Dead Marshes", "card": null, "qty": 1 },
-    { "name": "Easterling Camp", "card": null, "qty": 1 },
-    { "name": "Edhellond", "card": "tw-393", "qty": 4 },
-    { "name": "Gobel Mirlond", "card": null, "qty": 1 },
-    { "name": "Iron Hill Dwarf-hold", "card": null, "qty": 1 },
-    { "name": "Lorien", "card": "tw-408", "qty": 4 },
-    { "name": "Moria", "card": "tw-413", "qty": 1 },
-    { "name": "Raider-hold", "card": null, "qty": 1 },
-    { "name": "Rhosgobel", "card": null, "qty": 1 },
-    { "name": "Rivendell", "card": "tw-421", "qty": 4 },
-    { "name": "Shrel-Kain", "card": null, "qty": 1 },
-    { "name": "Thranduil's Halls", "card": null, "qty": 1 }
+    {
+      "name": "Beorn's House",
+      "card": null,
+      "qty": 1
+    },
+    {
+      "name": "Buhr Widu",
+      "card": null,
+      "qty": 1
+    },
+    {
+      "name": "Dale",
+      "card": null,
+      "qty": 1
+    },
+    {
+      "name": "Dead Marshes",
+      "card": null,
+      "qty": 1
+    },
+    {
+      "name": "Easterling Camp",
+      "card": null,
+      "qty": 1
+    },
+    {
+      "name": "Edhellond",
+      "card": "tw-393",
+      "qty": 4
+    },
+    {
+      "name": "Gobel Mirlond",
+      "card": null,
+      "qty": 1
+    },
+    {
+      "name": "Iron Hill Dwarf-hold",
+      "card": null,
+      "qty": 1
+    },
+    {
+      "name": "Lorien",
+      "card": "tw-408",
+      "qty": 4
+    },
+    {
+      "name": "Moria",
+      "card": "tw-413",
+      "qty": 1
+    },
+    {
+      "name": "Raider-hold",
+      "card": null,
+      "qty": 1
+    },
+    {
+      "name": "Rhosgobel",
+      "card": null,
+      "qty": 1
+    },
+    {
+      "name": "Rivendell",
+      "card": "tw-421",
+      "qty": 4
+    },
+    {
+      "name": "Shrel-Kain",
+      "card": null,
+      "qty": 1
+    },
+    {
+      "name": "Thranduil's Halls",
+      "card": null,
+      "qty": 1
+    }
   ]
 }

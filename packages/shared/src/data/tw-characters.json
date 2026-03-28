@@ -830,5 +830,41 @@
       }
     ],
     "text": "Unique. +2 prowess against Orcs, +1 direct influence against Dwarves and Dwarf factions."
+  },
+  {
+    "cardType": "hero-character",
+    "alignment": "wizard",
+    "id": "tw-164",
+    "name": "Haldir",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Haldir.jpg",
+    "unique": true,
+    "race": "elf",
+    "skills": [
+      "warrior"
+    ],
+    "prowess": 4,
+    "body": 8,
+    "mind": 3,
+    "directInfluence": 0,
+    "marshallingPoints": 1,
+    "marshallingCategory": "character",
+    "corruptionModifier": -1,
+    "homesite": "Lórien",
+    "effects": [
+      {
+        "type": "check-modifier",
+        "check": "corruption",
+        "value": -1
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": -1,
+        "when": {
+          "reason": "faction-influence-check"
+        }
+      }
+    ],
+    "text": "Unique. -1 to all of his corruption checks. -1 to influence checks against factions."
   }
 ]
