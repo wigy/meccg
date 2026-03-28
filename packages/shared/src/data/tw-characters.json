@@ -866,5 +866,38 @@
       }
     ],
     "text": "Unique. -1 to all of his corruption checks. -1 to influence checks against factions."
+  },
+  {
+    "cardType": "hero-character",
+    "alignment": "wizard",
+    "id": "tw-176",
+    "name": "Peath",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Peath.jpg",
+    "unique": true,
+    "race": "man",
+    "skills": [
+      "ranger",
+      "diplomat"
+    ],
+    "prowess": 4,
+    "body": 7,
+    "mind": 4,
+    "directInfluence": 1,
+    "marshallingPoints": 1,
+    "marshallingCategory": "character",
+    "corruptionModifier": 0,
+    "homesite": "Dunnish Clan-hold",
+    "effects": [
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": 4,
+        "when": {
+          "reason": "faction-influence-check",
+          "faction.name": "Dunlendings"
+        }
+      }
+    ],
+    "text": "Unique. +4 direct influence against the Dunlendings faction. Against Nazgûl and Ringwraiths, +5 to her prowess and the Nazgûl/Ringwraith's body is halved (rounded up)."
   }
 ]
