@@ -39,6 +39,7 @@
     <div class="lobby-header">
       <h2 class="lobby-title">Lobby</h2>
       <span id="lobby-player-name" class="lobby-player"></span>
+      <button id="inbox-btn" class="lobby-inbox-btn">Inbox</button>
       <button id="logout-btn" class="lobby-logout">Logout</button>
     </div>
     <div class="lobby-content">
@@ -92,6 +93,23 @@
       <div class="deck-editor-section">
         <h3 class="lobby-section-title">Sites</h3>
         <div id="deck-editor-sites" class="deck-editor-list"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Inbox screen (lobby mode) -->
+  <div id="inbox-screen" class="hidden">
+    <div class="lobby-header">
+      <button id="inbox-back" class="deck-editor-back">&larr; Back</button>
+      <h2 class="lobby-title">Inbox</h2>
+      <span id="inbox-unread" class="inbox-unread-badge"></span>
+    </div>
+    <div class="inbox-content">
+      <div id="inbox-list" class="inbox-list">
+        <p class="lobby-empty">Loading...</p>
+      </div>
+      <div id="inbox-message" class="inbox-message"
+        <p class="lobby-empty">Select a message to read</p>
       </div>
     </div>
   </div>

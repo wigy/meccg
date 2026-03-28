@@ -12,6 +12,7 @@ import { renderState, renderDraft, renderMHInfo, renderSiteInfo, renderFreeCounc
 import { renderCompanyViews, resetCompanyViews } from './company-view.js';
 import { rollDice, clearDice, restoreDice, waitForDice } from './dice.js';
 import { snapshotPositions, animateFromSnapshot } from './flip-animate.js';
+import { renderMarkdown } from './markdown.js';
 
 declare global {
   interface Window {
@@ -393,8 +394,8 @@ function selectRandomBackground(): void {
 
 // ---- Lobby mode helpers ----
 
-type ScreenId = 'login-screen' | 'register-screen' | 'lobby-screen' | 'deck-editor-screen' | 'connect-form';
-const ALL_SCREENS: ScreenId[] = ['login-screen', 'register-screen', 'lobby-screen', 'deck-editor-screen', 'connect-form'];
+type ScreenId = 'login-screen' | 'register-screen' | 'lobby-screen' | 'deck-editor-screen' | 'inbox-screen' | 'connect-form';
+const ALL_SCREENS: ScreenId[] = ['login-screen', 'register-screen', 'lobby-screen', 'deck-editor-screen', 'inbox-screen', 'connect-form'];
 
 /** Show one screen, hiding all others. */
 function showScreen(id: ScreenId): void {
@@ -642,6 +643,7 @@ function renderCardList(container: HTMLElement, entries: DeckListEntry[], deckId
 }
 
 const EDITING_DECK_KEY = 'meccg-editing-deck';
+const VIEWING_INBOX_KEY = 'meccg-viewing-inbox';
 
 /** Set up hover preview for card rows in the deck editor. */
 function setupDeckEditorPreview(): void {
@@ -723,6 +725,110 @@ function closeDeckEditor(): void {
   showScreen('lobby-screen');
 }
 
+// ---- Inbox ----
+
+/** Fetch and display inbox messages. */
+async function openInbox(): Promise<void> {
+  sessionStorage.setItem(VIEWING_INBOX_KEY, '1');
+  showScreen('inbox-screen');
+  const listEl = document.getElementById('inbox-list')!;
+  const messageEl = document.getElementById('inbox-message')!;
+  listEl.innerHTML = '<p class="lobby-empty">Loading...</p>';
+  messageEl.innerHTML = '<p class="lobby-empty">Select a message to read</p>';
+
+  try {
+    const resp = await fetch('/api/mail/inbox');
+    if (!resp.ok) { listEl.innerHTML = '<p class="lobby-empty">Failed to load inbox</p>'; return; }
+    const data = await resp.json() as { messages: InboxMessage[]; unreadCount: number };
+
+    const badge = document.getElementById('inbox-unread')!;
+    badge.textContent = data.unreadCount > 0 ? `${data.unreadCount} unread` : '';
+
+    if (data.messages.length === 0) {
+      listEl.innerHTML = '<p class="lobby-empty">No messages</p>';
+      return;
+    }
+
+    listEl.innerHTML = '';
+    for (const msg of data.messages) {
+      const row = document.createElement('div');
+      row.className = 'inbox-item' + (msg.status === 'new' ? ' inbox-item--unread' : '');
+
+      const info = document.createElement('div');
+      info.className = 'inbox-item-info';
+      const subject = document.createElement('span');
+      subject.className = 'inbox-item-subject';
+      subject.textContent = msg.subject;
+      const from = document.createElement('span');
+      from.className = 'inbox-item-from';
+      from.textContent = msg.from;
+      const date = document.createElement('span');
+      date.className = 'inbox-item-date';
+      date.textContent = new Date(msg.timestamp).toLocaleDateString();
+      info.appendChild(subject);
+      info.appendChild(from);
+
+      const actions = document.createElement('div');
+      actions.className = 'inbox-item-actions';
+      actions.appendChild(date);
+
+      const delBtn = document.createElement('button');
+      delBtn.className = 'inbox-delete-btn';
+      delBtn.textContent = 'Delete';
+      delBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        void (async () => {
+          await fetch(`/api/mail/inbox/${msg.id}`, { method: 'DELETE' });
+          void openInbox();
+        })();
+      });
+      actions.appendChild(delBtn);
+
+      row.appendChild(info);
+      row.appendChild(actions);
+
+      row.addEventListener('click', () => {
+        void (async () => {
+          const msgResp = await fetch(`/api/mail/inbox/${msg.id}`);
+          if (!msgResp.ok) return;
+          const full = await msgResp.json() as InboxMessage;
+          row.classList.remove('inbox-item--unread');
+          messageEl.innerHTML = '';
+          const h = document.createElement('h3');
+          h.textContent = full.subject;
+          const meta = document.createElement('p');
+          meta.className = 'inbox-message-meta';
+          meta.textContent = `From: ${full.from} | ${new Date(full.timestamp).toLocaleString()}`;
+          const body = document.createElement('div');
+          body.className = 'inbox-message-body';
+          body.innerHTML = renderMarkdown(full.body);
+          messageEl.appendChild(h);
+          messageEl.appendChild(meta);
+          messageEl.appendChild(body);
+        })();
+      });
+
+      listEl.appendChild(row);
+    }
+  } catch {
+    listEl.innerHTML = '<p class="lobby-empty">Connection error</p>';
+  }
+}
+
+/** Shape of a mail message from the API. */
+interface InboxMessage {
+  readonly id: string;
+  readonly title: string;
+  readonly status: string;
+  readonly from: string;
+  readonly sender: string;
+  readonly topic: string;
+  readonly body: string;
+  readonly timestamp: string;
+  readonly subject: string;
+  readonly keywords: Record<string, string>;
+}
+
 /** Show an error message on an auth form. */
 function showAuthError(id: string, msg: string): void {
   const el = document.getElementById(id);
@@ -801,6 +907,14 @@ function connectLobbyWs(): void {
         renderLog(`Lobby: ${msg.message as string}`);
         break;
       }
+      case 'mail-notification': {
+        const unread = msg.unreadCount as number;
+        const inboxBtn = document.getElementById('inbox-btn');
+        if (inboxBtn) {
+          inboxBtn.textContent = unread > 0 ? `Inbox (${unread})` : 'Inbox';
+        }
+        break;
+      }
       case 'system-notification': {
         const container = document.getElementById('toast-container');
         if (container) {
@@ -850,6 +964,13 @@ async function initLobby(): Promise<void> {
       if (editingDeck) {
         connectLobbyWs();
         void openDeckEditor(editingDeck);
+        return;
+      }
+
+      // Restore inbox if we were viewing it before reload
+      if (sessionStorage.getItem(VIEWING_INBOX_KEY)) {
+        connectLobbyWs();
+        void openInbox();
         return;
       }
 
@@ -1058,6 +1179,15 @@ document.addEventListener('DOMContentLoaded', () => {
     // Deck editor back button
     document.getElementById('deck-editor-back')!.addEventListener('click', () => {
       closeDeckEditor();
+    });
+
+    // Inbox button and back
+    document.getElementById('inbox-btn')!.addEventListener('click', () => {
+      void openInbox();
+    });
+    document.getElementById('inbox-back')!.addEventListener('click', () => {
+      sessionStorage.removeItem(VIEWING_INBOX_KEY);
+      showScreen('lobby-screen');
     });
   }
 
