@@ -9,7 +9,7 @@ import type { PlayerView, GameAction, EvaluatedAction, CardDefinition, CardDefin
 import { describeAction, formatPlayerView, formatCardList, formatCardName, cardImageProxyPath, isCharacterCard, GENERAL_INFLUENCE, getAlignmentRules, viableActions, formatSignedNumber, Phase, computeTournamentScore, computeTournamentBreakdown } from '@meccg/shared';
 import type { MarshallingPointTotals } from '@meccg/shared';
 import { $, createCardImage, createFaceDownCard, appendItemCards } from './render-utils.js';
-import { createMiniDie, seedDiceFromState, restoreDice } from './dice.js';
+import { createMiniDie, seedDiceFromState, restoreDice, clearDice } from './dice.js';
 
 /**
  * Find the non-viable reason for a card by definition ID from the evaluated actions.
@@ -1218,10 +1218,15 @@ export function renderPlayerNames(view: PlayerView, cardPool: Readonly<Record<st
 
   // Seed the dice animation system from game state and restore floating dice
   // if the visual view is active (e.g. after page refresh or load).
-  seedDiceFromState(view);
-  const visualView = document.getElementById('visual-view');
-  if (visualView && !visualView.classList.contains('hidden')) {
-    restoreDice();
+  // Clear dice on Game Over so they don't clutter the scoring table.
+  if (isGameOver) {
+    clearDice();
+  } else {
+    seedDiceFromState(view);
+    const visualView = document.getElementById('visual-view');
+    if (visualView && !visualView.classList.contains('hidden')) {
+      restoreDice();
+    }
   }
 }
 

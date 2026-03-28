@@ -89,6 +89,11 @@ function sendAction(action: GameAction): void {
   renderLog(`>> ${desc}`, cardPool);
   const msg: ClientMessage = { type: 'action', action };
   ws.send(JSON.stringify(msg));
+
+  // After acknowledging game result, return to lobby
+  if (action.type === 'finished') {
+    disconnect();
+  }
 }
 
 function connect(name: string): void {

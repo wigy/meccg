@@ -10,12 +10,10 @@ FEATS
 EPICS
 -----
 
-Council and End Game
+Loadable hero decks in JSON files, deck collection, internal file format
 Tests for game rules
 Card mechanics and tests
 Sideboard
-Loadable hero decks in JSON files
-Deck collection, internal file format and validation
 Influence attempts
 The Wizards
 The Dragons
@@ -28,6 +26,7 @@ The White Hand
 Fw Play
 The Balrog
 Balrog Play
+Deck Validation
 
 UNSORTED
 --------
