@@ -16,8 +16,6 @@ const PORT = parseInt(process.argv[2], 10);
 const PLAYER_NAME = process.argv[3];
 const TOKEN = process.argv[4];
 
-let shouldReconnect = false;
-
 if (!PORT || !PLAYER_NAME || !TOKEN) {
   console.error('Usage: ai-client <port> <playerName> <token>');
   process.exit(1);
@@ -99,7 +97,6 @@ function connect(): void {
 
       case 'restart':
         console.log('AI: server restarting, will reconnect...');
-        shouldReconnect = true;
         break;
 
       case 'disconnected':
@@ -109,14 +106,8 @@ function connect(): void {
   });
 
   ws.on('close', () => {
-    if (shouldReconnect) {
-      shouldReconnect = false;
-      console.log('AI reconnecting in 2s...');
-      setTimeout(() => connect(), 2000);
-    } else {
-      console.log('AI disconnected');
-      process.exit(0);
-    }
+    console.log('AI disconnected, reconnecting in 2s...');
+    setTimeout(() => connect(), 2000);
   });
 
   ws.on('error', (err) => {

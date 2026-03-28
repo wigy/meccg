@@ -6,7 +6,7 @@
  */
 
 import type { PlayerView, GameAction, EvaluatedAction, CardDefinition, CardDefinitionId, CardInstanceId, CharacterInPlay, SiteInPlay, ChainEntry } from '@meccg/shared';
-import { describeAction, formatPlayerView, formatCardList, cardImageProxyPath, isCharacterCard, GENERAL_INFLUENCE, getAlignmentRules, viableActions, formatSignedNumber, Phase, computeTournamentScore, computeTournamentBreakdown } from '@meccg/shared';
+import { describeAction, formatPlayerView, formatCardList, formatCardName, cardImageProxyPath, isCharacterCard, GENERAL_INFLUENCE, getAlignmentRules, viableActions, formatSignedNumber, Phase, computeTournamentScore, computeTournamentBreakdown } from '@meccg/shared';
 import type { MarshallingPointTotals } from '@meccg/shared';
 import { $, createCardImage, createFaceDownCard, appendItemCards } from './render-utils.js';
 import { createMiniDie, seedDiceFromState, restoreDice } from './dice.js';
@@ -682,6 +682,58 @@ export function renderSiteInfo(
   }
 
   el.innerHTML = ansiToHtml(lines.join('\n'));
+}
+
+/** Render Free Council debug info panel (step, current player, checked characters). */
+export function renderFreeCouncilInfo(
+  view: PlayerView,
+  cardPool: Readonly<Record<string, CardDefinition>>,
+): void {
+  const section = $('fc-section');
+  const el = $('fc-info');
+
+  if (view.phaseState.phase !== Phase.FreeCouncil) {
+    section.classList.add('hidden');
+    return;
+  }
+  section.classList.remove('hidden');
+
+  const fc = view.phaseState;
+
+  /** Format a character instance ID as a colored, hoverable card name. */
+  function charName(id: string): string {
+    const char = view.self.characters[id] ?? view.opponent.characters[id];
+    if (!char) return id;
+    const def = cardPool[char.definitionId as string];
+    return def ? formatCardName(def) : id;
+  }
+
+  const lines: string[] = [];
+
+  lines.push(`Step: ${fc.step}`);
+  if (fc.tiebreaker) lines.push('Tiebreaker round');
+
+  const currentName = fc.currentPlayer === view.self.id
+    ? view.self.name : view.opponent.name;
+  lines.push(`Current player: ${currentName}`);
+  if (fc.firstPlayerDone) lines.push('First player done');
+
+  // Checked characters
+  if (fc.checkedCharacters.length > 0) {
+    lines.push(`Checked: ${fc.checkedCharacters.map(charName).join(', ')}`);
+  }
+
+  // Unchecked characters for current player
+  const isSelfTurn = fc.currentPlayer === view.self.id;
+  const chars = isSelfTurn ? view.self.characters : view.opponent.characters;
+  const checkedSet = new Set(fc.checkedCharacters);
+  const unchecked = Object.keys(chars).filter(id => !checkedSet.has(id));
+  if (unchecked.length > 0) {
+    lines.push(`Unchecked: ${unchecked.map(charName).join(', ')}`);
+  }
+
+  el.innerHTML = ansiToHtml(lines.join('\n'));
+  tagCardImages(el, cardPool);
 }
 
 /** Render action buttons (viable actions clickable, non-viable shown disabled with reason). */

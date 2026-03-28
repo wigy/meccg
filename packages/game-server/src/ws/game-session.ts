@@ -192,10 +192,15 @@ export class GameSession {
       return;
     }
 
-    // Already connected with this name
-    for (const [, player] of this.players.entries()) {
+    // Already connected with this name — replace the old connection
+    for (const [playerId, player] of this.players.entries()) {
       if (player.name.toLowerCase() === normalizedName) {
-        this.send(ws, { type: 'error', message: `Player "${msg.name}" is already connected` });
+        this.serverLog.log('reconnect-replace', { name: msg.name, playerId });
+        player.ws.close();
+        this.players.set(playerId, { ws, playerId: playerId as PlayerId, name: player.name });
+        ws.on('close', () => this.handleDisconnect(ws));
+        this.send(ws, { type: 'assigned', playerId: playerId as PlayerId, gameId: this.state?.gameId ?? 'unknown' });
+        if (this.state) this.broadcastState();
         return;
       }
     }
@@ -204,6 +209,19 @@ export class GameSession {
     if (this.pending.has(normalizedName)) {
       this.send(ws, { type: 'error', message: `Player "${msg.name}" is already waiting` });
       return;
+    }
+
+    // Game is in progress with a player slot open — reconnect immediately
+    if (this.state) {
+      const playerId = this.nameToPlayerId[normalizedName];
+      if (playerId) {
+        this.serverLog.log('reconnect', { name: msg.name, playerId });
+        this.players.set(playerId, { ws, playerId: playerId as PlayerId, name: msg.name });
+        ws.on('close', () => this.handleDisconnect(ws));
+        this.send(ws, { type: 'assigned', playerId: playerId as PlayerId, gameId: this.state.gameId ?? 'unknown' });
+        this.broadcastState();
+        return;
+      }
     }
 
     this.pending.set(normalizedName, { ws, join: msg });
@@ -648,21 +666,9 @@ export class GameSession {
       this.writeSave(this.autosaveFilePath());
     }
 
-    // Notify other player and spectators, disconnect everyone
+    // Remove the disconnected player but keep the game alive for reconnection
     this.players.delete(disconnectedId);
-    for (const [key, val] of this.players.entries()) {
-      this.send(val.ws, { type: 'disconnected', message: `${disconnectedName} disconnected. Game saved.` });
-      val.ws.close();
-      this.players.delete(key);
-    }
-    for (const ws of this.spectators) {
-      this.send(ws, { type: 'disconnected', message: `${disconnectedName} disconnected. Game saved.` });
-      ws.close();
-    }
-    this.spectators.clear();
-
-    this.state = null;
-    this.nameToPlayerId = {};
+    this.serverLog.log('player-disconnected', { name: disconnectedName, keepAlive: this.state !== null });
   }
 
   private saveFilePath(): string {

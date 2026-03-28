@@ -8,7 +8,7 @@
 
 import type { ServerMessage, ClientMessage, GameAction, CardDefinitionId } from '@meccg/shared';
 import { loadCardPool, describeAction, buildCompanyNames, cardImageProxyPath, SAMPLE_DECKS } from '@meccg/shared';
-import { renderState, renderDraft, renderMHInfo, renderSiteInfo, renderActions, renderLog, renderHand, renderOpponentHand, renderPlayerNames, renderInstructions, renderDrafted, renderPassButton, renderDeckPiles, resetDeckPiles, setupCardPreview, showNotification, prepareSiteSelection, clearSiteSelection, renderChainPanel } from './render.js';
+import { renderState, renderDraft, renderMHInfo, renderSiteInfo, renderFreeCouncilInfo, renderActions, renderLog, renderHand, renderOpponentHand, renderPlayerNames, renderInstructions, renderDrafted, renderPassButton, renderDeckPiles, resetDeckPiles, setupCardPreview, showNotification, prepareSiteSelection, clearSiteSelection, renderChainPanel } from './render.js';
 import { renderCompanyViews, resetCompanyViews } from './company-view.js';
 import { rollDice, clearDice, restoreDice, waitForDice } from './dice.js';
 import { snapshotPositions, animateFromSnapshot } from './flip-animate.js';
@@ -39,6 +39,35 @@ let lobbyWs: WebSocket | null = null;
 let gamePort: number | null = null;
 /** Current game token (lobby mode). */
 let gameToken: string | null = null;
+
+const GAME_PORT_KEY = 'meccg-game-port';
+const GAME_TOKEN_KEY = 'meccg-game-token';
+
+/** Persist game connection info in sessionStorage so a page refresh can rejoin. */
+function saveGameSession(): void {
+  if (gamePort !== null && gameToken !== null) {
+    sessionStorage.setItem(GAME_PORT_KEY, String(gamePort));
+    sessionStorage.setItem(GAME_TOKEN_KEY, gameToken);
+  }
+}
+
+/** Clear persisted game session on disconnect. */
+function clearGameSession(): void {
+  sessionStorage.removeItem(GAME_PORT_KEY);
+  sessionStorage.removeItem(GAME_TOKEN_KEY);
+}
+
+/** Restore game connection info from sessionStorage (returns true if found). */
+function restoreGameSession(): boolean {
+  const port = sessionStorage.getItem(GAME_PORT_KEY);
+  const token = sessionStorage.getItem(GAME_TOKEN_KEY);
+  if (port && token) {
+    gamePort = Number(port);
+    gameToken = token;
+    return true;
+  }
+  return false;
+}
 /** Current logged-in player name (lobby mode). */
 let lobbyPlayerName: string | null = null;
 /** Name of the player who sent us a challenge (lobby mode). */
@@ -129,6 +158,7 @@ function connect(name: string): void {
         renderDraft(msg.view, cardPool);
         renderMHInfo(msg.view, cardPool, lastCompanyNames);
         renderSiteInfo(msg.view, cardPool, lastCompanyNames);
+        renderFreeCouncilInfo(msg.view, cardPool);
         renderActions(msg.view.legalActions, cardPool, sendAction, msg.view.visibleInstances, lastCompanyNames);
         renderHand(msg.view, cardPool, sendAction);
         renderOpponentHand(msg.view, cardPool);
@@ -265,6 +295,7 @@ function disconnect(): void {
   playerId = null;
   gamePort = null;
   gameToken = null;
+  clearGameSession();
 
   // Reset game state
   document.getElementById('state')!.textContent = '';
@@ -428,6 +459,7 @@ function connectLobbyWs(): void {
         gamePort = msg.port as number;
         gameToken = msg.token as string;
         const opponent = msg.opponent as string;
+        saveGameSession();
         // Close lobby WS during game
         if (lobbyWs) { lobbyWs.close(); lobbyWs = null; }
         // Hide lobby, show game
@@ -460,6 +492,19 @@ async function initLobby(): Promise<void> {
       const data = await resp.json() as { name: string };
       lobbyPlayerName = data.name;
       document.getElementById('lobby-player-name')!.textContent = data.name;
+
+      // Rejoin active game if session was saved (e.g. page refresh)
+      if (restoreGameSession()) {
+        showScreen('login-screen');
+        document.getElementById('login-screen')!.classList.add('hidden');
+        document.getElementById('game')!.classList.remove('hidden');
+        selectRandomBackground();
+        autoReconnect = true;
+        renderLog(`Reconnecting to game on port ${gamePort}...`);
+        connect(lobbyPlayerName);
+        return;
+      }
+
       showScreen('lobby-screen');
       connectLobbyWs();
     } else {
