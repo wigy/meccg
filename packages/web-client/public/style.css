@@ -2737,4 +2737,84 @@ h2 {
   z-index: 10;
 }
 
+/* ---- Game Over scoring table ---- */
+
+.go-banner {
+  font-family: 'MedievalSharp', serif;
+  font-size: 2.5rem;
+  color: rgba(196, 163, 90, 0.95);
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.8), 0 0 30px rgba(196, 163, 90, 0.2);
+  text-align: center;
+  margin: 1rem 0;
+  letter-spacing: 0.1em;
+}
+
+.go-table {
+  width: 90%;
+  max-width: 900px;
+  margin: 0 auto;
+  border-collapse: collapse;
+  font-family: 'MedievalSharp', serif;
+  color: rgba(220, 220, 220, 0.9);
+}
+
+.go-table th, .go-table td {
+  padding: 0.4rem 0.8rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.go-table thead th {
+  font-size: 1.2rem;
+  color: rgba(196, 163, 90, 0.85);
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8);
+  border-bottom: 2px solid rgba(196, 163, 90, 0.3);
+}
+
+.go-cat {
+  font-size: 1rem;
+  color: rgba(196, 163, 90, 0.7);
+  text-align: left;
+  width: 100px;
+}
+
+.go-player {
+  text-align: center;
+}
+
+.go-score {
+  text-align: center;
+  vertical-align: top;
+}
+
+.go-score-num {
+  display: block;
+  font-size: 1.3rem;
+  margin-bottom: 0.3rem;
+}
+
+.go-cards {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  justify-content: center;
+}
+
+.go-card-img {
+  height: 60px;
+  border-radius: 3px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.5);
+}
+
+.go-total-label {
+  font-size: 1.2rem;
+  color: rgba(196, 163, 90, 0.95);
+}
+
+.go-total {
+  font-size: 1.5rem;
+  font-weight: bold;
+  color: rgba(196, 163, 90, 0.95);
+  border-top: 2px solid rgba(196, 163, 90, 0.3);
+}
+
 
