@@ -6,7 +6,6 @@
  * containing account data. The subdirectory can later hold decks, etc.
  */
 
-import * as crypto from 'crypto';
 import * as fs from 'fs';
 import * as path from 'path';
 import { PLAYERS_DIR } from '../config.js';
