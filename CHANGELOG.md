@@ -1,5 +1,50 @@
 # Changelog
 
+## 0.12.0 — 2026-03-28
+
+End Game
+
+### Game Engine
+- **Deck exhaustion:** Second deck exhaustion triggers automatic Free
+  Council transition
+- **Free Council:** Full corruption check phase — each player must check
+  every non-Ringwraith, non-Balrog character in order of their choosing
+- **Free Council turn validation:** Use `currentPlayer` from phase state
+  instead of `activePlayer` for correct turn enforcement
+- **Mandatory corruption checks:** Pass is only available after all
+  characters have been checked
+- **Game Over scoring:** Tournament scoring with doubling rule (step 3)
+  and diversity cap (step 4), avatar elimination penalty (step 6)
+- **Finished action:** New `finished` action records game results to
+  `~/.meccg/players/<name>/games.json` with game ID, time range,
+  opponent, winner, and MP breakdown by category
+- **Free Council MP threshold:** Use raw MP total for calling Free
+  Council, restore 25-point threshold
+
+### Web Client
+- **Free Council company view:** Reuse normal all-companies view during
+  Free Council instead of a custom flat character list — characters stay
+  in their companies at sites for correct tapping support
+- **Corruption check UI:** Click glowing characters to roll corruption
+  checks; golden glow highlights available characters; green checkmarks
+  on passed characters
+- **Game Over scoring table:** MP categories as rows, both players as
+  columns, adjusted/raw scores, mini card images for contributing cards
+- **Finished button:** Returns to lobby after acknowledging game result
+- **No dimming during Free Council:** Both players' companies visible
+  at full brightness
+- **Free Council debug panel:** Shows step, current player, checked and
+  unchecked characters with colored hoverable card names
+- **Dice cleared on Game Over:** No floating dice on the scoring screen
+- **Deck boxes and hand hidden on Game Over**
+
+### Infrastructure
+- **Game reconnection:** Browser persists game port/token in
+  sessionStorage; game server keeps state alive on disconnect and
+  accepts immediate reconnection; AI client always reconnects
+- **Dev server reload:** `bin/run-dev-server` runs esbuild watch with
+  proper cleanup on exit, preventing orphaned watcher processes
+
 ## 0.11.0 — 2026-03-27
 
 Lobby-server
