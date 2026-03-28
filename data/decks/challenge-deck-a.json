@@ -12,7 +12,7 @@
   ],
   "deck": {
     "characters": [
-      { "name": "Saruman", "card": null, "qty": 3 },
+      { "name": "Saruman", "card": "tw-181", "qty": 3 },
       { "name": "Balin", "card": null, "qty": 1 },
       { "name": "Haldir", "card": null, "qty": 1 },
       { "name": "Ioreth", "card": null, "qty": 1 },

@@ -754,5 +754,30 @@
       }
     ],
     "text": "Unique. Unless he is one of the starting characters, he may only be brought into play at his home site. All of his corruption checks are modified by +1. He can tap to cancel a strike against another Hobbit in his company."
+  },
+  {
+    "cardType": "hero-character",
+    "alignment": "wizard",
+    "id": "tw-181",
+    "name": "Saruman",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Saruman.jpg",
+    "unique": true,
+    "race": "wizard",
+    "skills": [
+      "scout",
+      "ranger",
+      "sage",
+      "diplomat"
+    ],
+    "prowess": 6,
+    "body": 9,
+    "mind": null,
+    "directInfluence": 10,
+    "marshallingPoints": 0,
+    "marshallingCategory": "character",
+    "corruptionModifier": 0,
+    "homesite": "Isengard",
+    "effects": [],
+    "text": "Unique. May tap to use a Palantír he bears. At the beginning of your end-of-turn phase, you may tap Saruman to take one spell card from your discard pile to your hand."
   }
 ]
