@@ -16,24 +16,39 @@ export const LOBBY_PORT = parseInt(process.env.LOBBY_PORT ?? '8080', 10);
 /** Base port for spawned game servers. Each game gets the next available port. */
 export const GAME_PORT_BASE = parseInt(process.env.GAME_PORT_BASE ?? '4000', 10);
 
-/** Path to the persisted JWT secret file. */
-const JWT_SECRET_PATH = path.join(os.homedir(), '.meccg', 'jwt-secret');
+// ---- Secrets (persisted to ~/.meccg/secrets.json) ----
 
-/** Load or generate a persistent JWT secret so sessions survive server restarts. */
-function loadJwtSecret(): string {
-  if (process.env.JWT_SECRET) return process.env.JWT_SECRET;
-  try {
-    return fs.readFileSync(JWT_SECRET_PATH, 'utf-8').trim();
-  } catch {
-    const secret = crypto.randomBytes(32).toString('hex');
-    fs.mkdirSync(path.dirname(JWT_SECRET_PATH), { recursive: true });
-    fs.writeFileSync(JWT_SECRET_PATH, secret, { mode: 0o600 });
-    return secret;
-  }
+const SECRETS_PATH = path.join(os.homedir(), '.meccg', 'secrets.json');
+
+interface Secrets {
+  jwtSecret: string;
+  masterKey: string;
 }
 
+/** Load secrets from disk, generating missing ones. */
+function loadSecrets(): Secrets {
+  let existing: Partial<Secrets> = {};
+  try {
+    existing = JSON.parse(fs.readFileSync(SECRETS_PATH, 'utf-8')) as Partial<Secrets>;
+  } catch {
+    // File doesn't exist yet
+  }
+  const secrets: Secrets = {
+    jwtSecret: process.env.JWT_SECRET ?? existing.jwtSecret ?? crypto.randomBytes(32).toString('hex'),
+    masterKey: process.env.MASTER_KEY ?? existing.masterKey ?? crypto.randomBytes(32).toString('hex'),
+  };
+  fs.mkdirSync(path.dirname(SECRETS_PATH), { recursive: true });
+  fs.writeFileSync(SECRETS_PATH, JSON.stringify(secrets, null, 2), { mode: 0o600 });
+  return secrets;
+}
+
+const secrets = loadSecrets();
+
 /** Secret used to sign JWTs. Persisted to disk so sessions survive restarts. */
-export const JWT_SECRET = loadJwtSecret();
+export const JWT_SECRET = secrets.jwtSecret;
+
+/** Master access key for system API calls. */
+export const MASTER_KEY = secrets.masterKey;
 
 /** Directory where player account files are stored. */
 export const PLAYERS_DIR = process.env.PLAYERS_DIR ?? path.join(os.homedir(), '.meccg', 'players');

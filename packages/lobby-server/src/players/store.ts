@@ -146,6 +146,81 @@ export function addCardRequest(name: string, deckId: string, cardName: string): 
   return id;
 }
 
+/** A resolved card request with outcome. */
+export interface ResolvedCardRequest extends CardRequest {
+  /** ISO 8601 timestamp of resolution. */
+  readonly resolvedAt: string;
+  /** Explanation of what happened. */
+  readonly explanation: string;
+}
+
+/** Find a card request by ID across all players. Returns the request and player name. */
+export function findCardRequestById(requestId: string): { player: string; request: CardRequest } | null {
+  ensureDir();
+  try {
+    const entries = fs.readdirSync(PLAYERS_DIR, { withFileTypes: true });
+    for (const entry of entries) {
+      if (!entry.isDirectory()) continue;
+      const infoFile = path.join(PLAYERS_DIR, entry.name, 'info.json');
+      let playerName: string;
+      try {
+        playerName = (JSON.parse(fs.readFileSync(infoFile, 'utf-8')) as PlayerRecord).name;
+      } catch { continue; }
+      const requests = listCardRequests(playerName);
+      const req = requests.find(r => r.id === requestId);
+      if (req) return { player: playerName, request: req };
+    }
+  } catch {
+    // Directory doesn't exist
+  }
+  return null;
+}
+
+/** Move a request from cards.json to succeeded.json or failed.json. */
+export function moveCardRequest(playerName: string, requestId: string, succeeded: boolean, explanation: string): void {
+  // Remove from active requests
+  const requests = listCardRequests(playerName);
+  const req = requests.find(r => r.id === requestId);
+  if (!req) return;
+  const remaining = requests.filter(r => r.id !== requestId);
+  const filePath = cardRequestsPath(playerName);
+  fs.writeFileSync(filePath, JSON.stringify(remaining, null, 2));
+
+  // Append to succeeded.json or failed.json
+  const targetFile = path.join(path.dirname(filePath), succeeded ? 'succeeded.json' : 'failed.json');
+  let resolved: ResolvedCardRequest[] = [];
+  try {
+    resolved = JSON.parse(fs.readFileSync(targetFile, 'utf-8')) as ResolvedCardRequest[];
+  } catch {
+    // File doesn't exist yet
+  }
+  resolved.push({ ...req, resolvedAt: new Date().toISOString(), explanation });
+  fs.writeFileSync(targetFile, JSON.stringify(resolved, null, 2));
+}
+
+/** List all card requests across all players. */
+export function listAllCardRequests(): Array<CardRequest & { player: string }> {
+  ensureDir();
+  const result: Array<CardRequest & { player: string }> = [];
+  try {
+    const entries = fs.readdirSync(PLAYERS_DIR, { withFileTypes: true });
+    for (const entry of entries) {
+      if (!entry.isDirectory()) continue;
+      const infoFile = path.join(PLAYERS_DIR, entry.name, 'info.json');
+      let playerName: string;
+      try {
+        playerName = (JSON.parse(fs.readFileSync(infoFile, 'utf-8')) as PlayerRecord).name;
+      } catch { continue; }
+      for (const req of listCardRequests(playerName)) {
+        result.push({ ...req, player: playerName });
+      }
+    }
+  } catch {
+    // Directory doesn't exist
+  }
+  return result;
+}
+
 /** Save a new player record. Throws if the name is already taken. */
 export function createPlayer(record: PlayerRecord): void {
   ensureDir();

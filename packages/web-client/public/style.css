@@ -1476,6 +1476,10 @@ h2 {
   border-color: rgba(224, 96, 96, 0.4);
 }
 
+.toast--system {
+  animation: toast-in 0.3s ease forwards, toast-out 0.4s ease 8s forwards;
+}
+
 @keyframes toast-in {
   from { opacity: 0; transform: translateY(-10px); }
   to   { opacity: 1; transform: translateY(0); }

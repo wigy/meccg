@@ -72,10 +72,17 @@ export interface LobbyErrorMessage {
   readonly message: string;
 }
 
+/** System notification broadcast to all online players. */
+export interface SystemNotificationMessage {
+  readonly type: 'system-notification';
+  readonly message: string;
+}
+
 /** Union of all lobby → client messages. */
 export type LobbyServerMessage =
   | OnlinePlayersMessage
   | ChallengeReceivedMessage
   | ChallengeDeclinedMessage
   | GameStartingMessage
-  | LobbyErrorMessage;
+  | LobbyErrorMessage
+  | SystemNotificationMessage;

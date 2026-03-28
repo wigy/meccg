@@ -41,6 +41,14 @@ function broadcastPlayerList(): void {
   }
 }
 
+/** Send a system notification to all online players. */
+export function broadcastNotification(message: string): void {
+  const msg: LobbyServerMessage = { type: 'system-notification', message };
+  for (const p of onlinePlayers.values()) {
+    send(p.ws, msg);
+  }
+}
+
 /** Register a new player connection in the lobby. */
 export function playerConnected(name: string, ws: WebSocket): void {
   // If already connected (e.g. page refresh), close the old connection

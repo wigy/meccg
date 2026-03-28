@@ -23,9 +23,10 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
 import { cardImageRawUrl } from '@meccg/shared';
-import { DEV } from '../config.js';
+import { DEV, MASTER_KEY } from '../config.js';
+import { broadcastNotification } from '../lobby/lobby.js';
 import { lobbyLog } from '../lobby-log.js';
-import { findPlayer, findPlayerByEmail, createPlayer, listPlayerDecks, savePlayerDeck, getCurrentDeck, setCurrentDeck, listCardRequests, addCardRequest } from '../players/store.js';
+import { findPlayer, findPlayerByEmail, createPlayer, listPlayerDecks, savePlayerDeck, getCurrentDeck, setCurrentDeck, listCardRequests, addCardRequest, listAllCardRequests, findCardRequestById } from '../players/store.js';
 import { hashPassword, verifyPassword } from '../auth/password.js';
 import { signLobbyToken } from '../auth/jwt.js';
 import { getSessionPlayer, setSessionCookie, clearSessionCookie } from '../auth/session.js';
@@ -373,6 +374,47 @@ export async function handleRequest(req: http.IncomingMessage, res: http.ServerR
       lobbyLog.log('error', { context: 'card-request', error: String(err) });
       sendJson(res, 500, { error: 'Failed to save card request' });
     }
+    return;
+  }
+
+  // ---- System API (master key required) ----
+
+  if (urlPath.startsWith('/api/system/')) {
+    const authHeader = req.headers.authorization ?? '';
+    const key = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : '';
+    if (key !== MASTER_KEY) {
+      sendJson(res, 403, { error: 'Invalid master key' });
+      return;
+    }
+
+    if (urlPath === '/api/system/card-requests' && method === 'GET') {
+      sendJson(res, 200, listAllCardRequests());
+      return;
+    }
+
+    const requestMatch = urlPath.match(/^\/api\/system\/card-requests\/([a-f0-9]+)$/);
+    if (requestMatch && method === 'GET') {
+      const result = findCardRequestById(requestMatch[1]);
+      if (!result) { sendJson(res, 404, { error: 'Request not found' }); return; }
+      sendJson(res, 200, result);
+      return;
+    }
+
+    if (urlPath === '/api/system/notify' && method === 'POST') {
+      try {
+        const body = JSON.parse(await readBody(req)) as { message?: string };
+        if (!body.message) { sendJson(res, 400, { error: 'message is required' }); return; }
+        broadcastNotification(body.message);
+        lobbyLog.log('system-notify', { message: body.message });
+        sendJson(res, 200, { ok: true });
+      } catch (err) {
+        lobbyLog.log('error', { context: 'system-notify', error: String(err) });
+        sendJson(res, 500, { error: 'Failed to send notification' });
+      }
+      return;
+    }
+
+    sendJson(res, 404, { error: 'Unknown system endpoint' });
     return;
   }
 

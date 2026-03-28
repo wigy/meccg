@@ -790,6 +790,19 @@ function connectLobbyWs(): void {
         renderLog(`Lobby: ${msg.message as string}`);
         break;
       }
+      case 'system-notification': {
+        const container = document.getElementById('toast-container');
+        if (container) {
+          const toast = document.createElement('div');
+          toast.className = 'toast toast--system';
+          toast.textContent = msg.message as string;
+          container.appendChild(toast);
+          toast.addEventListener('animationend', (e) => {
+            if (e.animationName === 'toast-out') toast.remove();
+          });
+        }
+        break;
+      }
     }
   };
 
