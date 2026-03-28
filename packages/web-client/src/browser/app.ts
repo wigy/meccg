@@ -841,7 +841,7 @@ function renderMessage(messageEl: HTMLElement, full: InboxMessage): void {
 /** Render a list of messages into the list panel. */
 function renderMailList(
   listEl: HTMLElement, messageEl: HTMLElement, messages: InboxMessage[],
-  options: { fetchOnClick?: string },
+  options: { fetchOnClick?: string; showMarkAllUnread?: boolean },
 ): void {
   if (messages.length === 0) {
     listEl.innerHTML = '<p class="lobby-empty">No messages</p>';
@@ -849,6 +849,19 @@ function renderMailList(
   }
 
   listEl.innerHTML = '';
+
+  if (options.showMarkAllUnread) {
+    const btn = document.createElement('button');
+    btn.className = 'inbox-action-btn mark-all-unread-btn';
+    btn.textContent = 'Mark all unread';
+    btn.addEventListener('click', () => {
+      void (async () => {
+        await fetch('/api/mail/mark-all-unread', { method: 'POST' });
+        void openInbox();
+      })();
+    });
+    listEl.appendChild(btn);
+  }
   for (const msg of messages) {
     const row = document.createElement('div');
     row.className = 'inbox-item' + (msg.status === 'new' ? ' inbox-item--unread' : '');
@@ -903,7 +916,7 @@ let activeMailTab: 'inbox' | 'sent' = 'inbox';
 function updateMailTabs(): void {
   document.getElementById('inbox-tab-inbox')!.className = 'inbox-tab' + (activeMailTab === 'inbox' ? ' inbox-tab--active' : '');
   document.getElementById('inbox-tab-sent')!.className = 'inbox-tab' + (activeMailTab === 'sent' ? ' inbox-tab--active' : '');
-  document.getElementById('mark-all-unread-btn')!.style.display = activeMailTab === 'inbox' ? '' : 'none';
+  document.querySelectorAll('.mark-all-unread-btn').forEach(el => (el as HTMLElement).style.display = activeMailTab === 'inbox' ? '' : 'none');
 }
 
 /** Fetch and display inbox messages. */
@@ -927,6 +940,7 @@ async function openInbox(): Promise<void> {
 
     renderMailList(listEl, messageEl, data.messages, {
       fetchOnClick: '/api/mail/inbox',
+      showMarkAllUnread: true,
     });
   } catch {
     listEl.innerHTML = '<p class="lobby-empty">Connection error</p>';
@@ -1334,12 +1348,6 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('inbox-back')!.addEventListener('click', () => {
       sessionStorage.removeItem(VIEWING_INBOX_KEY);
       showScreen('lobby-screen');
-    });
-    document.getElementById('mark-all-unread-btn')!.addEventListener('click', () => {
-      void (async () => {
-        await fetch('/api/mail/mark-all-unread', { method: 'POST' });
-        void openInbox();
-      })();
     });
     document.getElementById('inbox-tab-inbox')!.addEventListener('click', () => {
       void openInbox();

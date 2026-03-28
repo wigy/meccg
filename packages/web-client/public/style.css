@@ -223,8 +223,8 @@ h2 {
 }
 
 .inbox-action-btn {
-  margin-left: auto;
   padding: 0.3rem 0.75rem;
+  margin-bottom: 0.5rem;
   font-size: 0.8rem;
   background: transparent;
   color: #aaa;
