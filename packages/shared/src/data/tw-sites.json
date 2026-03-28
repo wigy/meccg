@@ -26,7 +26,8 @@
     "automaticAttacks": [],
     "resourceDraws": 2,
     "hazardDraws": 2,
-    "text": "Site Path From Lórien: Wilderness/Border-land/Wilderness/Wilderness. Site Path From Grey Havens: Free-domain/Wilderness/Wilderness."
+    "text": "Site Path From Lórien: Wilderness/Border-land/Wilderness/Wilderness. Site Path From Grey Havens: Free-domain/Wilderness/Wilderness.",
+    "certified": "2026-03-28"
   },
   {
     "cardType": "hero-site",
