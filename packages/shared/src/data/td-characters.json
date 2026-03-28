@@ -1,0 +1,24 @@
+[
+  {
+    "cardType": "hero-character",
+    "alignment": "wizard",
+    "id": "td-93",
+    "name": "Ioreth",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/td/Ioreth.jpg",
+    "unique": true,
+    "race": "dunadan",
+    "skills": [
+      "sage"
+    ],
+    "prowess": 0,
+    "body": 7,
+    "mind": 1,
+    "directInfluence": 1,
+    "marshallingPoints": 0,
+    "marshallingCategory": "character",
+    "corruptionModifier": 0,
+    "homesite": "Minas Tirith",
+    "effects": [],
+    "text": "Unique. Healing effects affect all characters in her company."
+  }
+]

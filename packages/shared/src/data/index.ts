@@ -35,6 +35,7 @@ import whResources from './wh-resources.json';
 import whSites from './wh-sites.json';
 
 // ---- The Dragons (TD) — dragon expansion ----
+import tdCharacters from './td-characters.json';
 import tdItems from './td-items.json';
 
 // ---- The Balrog (BA) — balrog expansion ----
@@ -66,6 +67,7 @@ const allCards: readonly CardDefinition[] = [
   ...(whResources as unknown as CardDefinition[]),
   ...(whSites as unknown as CardDefinition[]),
   // The Dragons
+  ...(tdCharacters as unknown as CardDefinition[]),
   ...(tdItems as unknown as CardDefinition[]),
   // The Balrog
   ...(baCharacters as unknown as CardDefinition[]),
