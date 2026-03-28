@@ -13,7 +13,7 @@ import { PLAYERS_DIR } from '../config.js';
 import type { PlayerRecord } from './types.js';
 
 /** Normalize a player name to a safe directory name (lowercase, alphanumeric + hyphens). */
-function toDirName(name: string): string {
+export function toDirName(name: string): string {
   return name.toLowerCase().replace(/[^a-z0-9]/g, '-');
 }
 

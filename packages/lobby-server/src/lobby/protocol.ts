@@ -78,6 +78,13 @@ export interface SystemNotificationMessage {
   readonly message: string;
 }
 
+/** Notification that the player has new mail. Sent when mail arrives. */
+export interface MailNotificationMessage {
+  readonly type: 'mail-notification';
+  /** Number of unread messages in the player's inbox. */
+  readonly unreadCount: number;
+}
+
 /** Union of all lobby → client messages. */
 export type LobbyServerMessage =
   | OnlinePlayersMessage
@@ -85,4 +92,5 @@ export type LobbyServerMessage =
   | ChallengeDeclinedMessage
   | GameStartingMessage
   | LobbyErrorMessage
-  | SystemNotificationMessage;
+  | SystemNotificationMessage
+  | MailNotificationMessage;

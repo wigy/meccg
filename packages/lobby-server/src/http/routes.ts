@@ -10,6 +10,9 @@
  * - GET /api/my-decks — list decks in the player's collection + current selection
  * - POST /api/my-decks — add a deck to the player's collection
  * - PUT /api/my-decks/current — set the player's current deck
+ * - GET /api/mail/inbox — list inbox messages with unread count
+ * - GET /api/mail/inbox/:id — read a message (marks as read)
+ * - DELETE /api/mail/inbox/:id — delete a message (moves to deleted folder)
  * - GET /cards/images/* — card image proxy with disk cache
  * - GET /* — static files from web-client/public/
  *
@@ -25,6 +28,8 @@ import * as os from 'os';
 import { cardImageRawUrl } from '@meccg/shared';
 import { DEV, MASTER_KEY } from '../config.js';
 import { broadcastNotification } from '../lobby/lobby.js';
+import { sendMail, listInbox, readMessage, deleteMessage, countUnread } from '../mail/store.js';
+import type { MailSender, MailTopic } from '../mail/types.js';
 import { lobbyLog } from '../lobby-log.js';
 import { findPlayer, findPlayerByEmail, createPlayer, listPlayerDecks, savePlayerDeck, getCurrentDeck, setCurrentDeck, listCardRequests, addCardRequest, listAllCardRequests, findCardRequestById } from '../players/store.js';
 import { hashPassword, verifyPassword } from '../auth/password.js';
@@ -35,6 +40,9 @@ const IMAGE_CACHE_DIR = process.env.IMAGE_CACHE_DIR ?? path.join(os.homedir(), '
 const WEB_CLIENT_PUBLIC = path.join(__dirname, '../../../web-client/public');
 const GAME_SERVER_SNAPSHOTS = path.join(__dirname, '../../../game-server/data/dev/snapshots/index.json');
 const DECK_CATALOG_DIR = path.join(__dirname, '../../../../data/decks');
+
+/** Names that cannot be registered by players. Checked case-insensitively. */
+const RESTRICTED_NAMES = new Set(['ai', 'wigy', 'server', 'karmi']);
 
 const MIME_TYPES: Record<string, string> = {
   '.html': 'text/html',
@@ -209,6 +217,10 @@ export async function handleRequest(req: http.IncomingMessage, res: http.ServerR
         sendJson(res, 400, { error: 'Name may only contain letters, numbers, spaces, hyphens, and underscores' });
         return;
       }
+      if (RESTRICTED_NAMES.has(name.toLowerCase())) {
+        sendJson(res, 400, { error: 'This name is restricted' });
+        return;
+      }
       if (password.length < 4) {
         sendJson(res, 400, { error: 'Password must be at least 4 characters' });
         return;
@@ -377,6 +389,34 @@ export async function handleRequest(req: http.IncomingMessage, res: http.ServerR
     return;
   }
 
+  // ---- Player mail ----
+
+  if (urlPath === '/api/mail/inbox' && method === 'GET') {
+    const playerName = getSessionPlayer(req);
+    if (!playerName) { sendJson(res, 401, { error: 'Not logged in' }); return; }
+    sendJson(res, 200, { messages: listInbox(playerName), unreadCount: countUnread(playerName) });
+    return;
+  }
+
+  const mailMatch = urlPath.match(/^\/api\/mail\/inbox\/([a-f0-9]+)$/);
+  if (mailMatch && method === 'GET') {
+    const playerName = getSessionPlayer(req);
+    if (!playerName) { sendJson(res, 401, { error: 'Not logged in' }); return; }
+    const msg = readMessage(playerName, mailMatch[1]);
+    if (!msg) { sendJson(res, 404, { error: 'Message not found' }); return; }
+    sendJson(res, 200, msg);
+    return;
+  }
+
+  if (mailMatch && method === 'DELETE') {
+    const playerName = getSessionPlayer(req);
+    if (!playerName) { sendJson(res, 401, { error: 'Not logged in' }); return; }
+    const deleted = deleteMessage(playerName, mailMatch[1]);
+    if (!deleted) { sendJson(res, 404, { error: 'Message not found' }); return; }
+    sendJson(res, 200, { ok: true });
+    return;
+  }
+
   // ---- System API (master key required) ----
 
   if (urlPath.startsWith('/api/system/')) {
@@ -397,6 +437,40 @@ export async function handleRequest(req: http.IncomingMessage, res: http.ServerR
       const result = findCardRequestById(requestMatch[1]);
       if (!result) { sendJson(res, 404, { error: 'Request not found' }); return; }
       sendJson(res, 200, result);
+      return;
+    }
+
+    if (urlPath === '/api/system/mail' && method === 'POST') {
+      try {
+        const body = JSON.parse(await readBody(req)) as {
+          recipients?: string[];
+          title?: string;
+          from?: string;
+          sender?: MailSender;
+          topic?: MailTopic;
+          body?: string;
+          subject?: string;
+          keywords?: Record<string, string>;
+        };
+        if (!body.recipients?.length || !body.title || !body.from || !body.sender || !body.topic || !body.body || !body.subject) {
+          sendJson(res, 400, { error: 'recipients, title, from, sender, topic, body, and subject are required' });
+          return;
+        }
+        const id = sendMail(body.recipients, {
+          title: body.title,
+          from: body.from,
+          sender: body.sender,
+          topic: body.topic,
+          body: body.body,
+          subject: body.subject,
+          keywords: body.keywords ?? {},
+        });
+        lobbyLog.log('system-mail', { id, recipients: body.recipients, topic: body.topic });
+        sendJson(res, 200, { ok: true, id });
+      } catch (err) {
+        lobbyLog.log('error', { context: 'system-mail', error: String(err) });
+        sendJson(res, 500, { error: 'Failed to send mail' });
+      }
       return;
     }
 

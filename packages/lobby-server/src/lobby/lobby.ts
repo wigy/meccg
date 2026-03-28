@@ -41,6 +41,14 @@ function broadcastPlayerList(): void {
   }
 }
 
+/** Send a typed message to a specific player if they are online. Silently drops if offline. */
+export function notifyPlayer(name: string, msg: LobbyServerMessage): void {
+  const player = onlinePlayers.get(name);
+  if (player) {
+    send(player.ws, msg);
+  }
+}
+
 /** Send a system notification to all online players. */
 export function broadcastNotification(message: string): void {
   const msg: LobbyServerMessage = { type: 'system-notification', message };
