@@ -149,5 +149,7 @@ export const LEGAL_ACTIONS_BY_PHASE: Readonly<Record<Phase, readonly GameAction[
     'pass',
   ],
 
-  [Phase.GameOver]: [],
+  [Phase.GameOver]: [
+    'finished',
+  ],
 };

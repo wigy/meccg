@@ -822,18 +822,6 @@ export function renderGameOverView(
   const selfCards = collectMPCards(view.self.characters, view.self.cardsInPlay, view.self.killPile, cardPool);
   const oppCards = collectMPCards(view.opponent.characters, view.opponent.cardsInPlay, view.opponent.killPile, cardPool);
 
-  // Winner banner
-  const winner = view.phaseState.winner;
-  const banner = document.createElement('div');
-  banner.className = 'go-banner';
-  if (winner === null) {
-    banner.textContent = 'Draw!';
-  } else {
-    const winnerName = winner === view.self.id ? view.self.name : view.opponent.name;
-    banner.textContent = `${winnerName} wins!`;
-  }
-  board.appendChild(banner);
-
   // Table
   const table = document.createElement('table');
   table.className = 'go-table';
@@ -1959,7 +1947,8 @@ export function renderPassButton(view: PlayerView, onAction: (action: GameAction
     ea.viable && (ea.action.type === 'pass' || ea.action.type === 'draft-stop'
     || ea.action.type === 'shuffle-play-deck' || ea.action.type === 'draw-cards'
     || ea.action.type === 'roll-initiative' || ea.action.type === 'corruption-check'
-    || ea.action.type === 'pass-chain-priority' || ea.action.type === 'deck-exhaust'));
+    || ea.action.type === 'pass-chain-priority' || ea.action.type === 'deck-exhaust'
+    || ea.action.type === 'finished'));
   const passAction = passEval?.action;
   if (!passAction) {
     btn.classList.add('hidden');
@@ -1982,6 +1971,8 @@ export function renderPassButton(view: PlayerView, onAction: (action: GameAction
     label = 'Roll';
   } else if (passAction.type === 'deck-exhaust') {
     label = 'Exhaust';
+  } else if (passAction.type === 'finished') {
+    label = 'Finished';
   } else if (view.phaseState.phase === Phase.Untap) {
     label = 'Organization';
   } else if (view.phaseState.phase === Phase.Organization) {

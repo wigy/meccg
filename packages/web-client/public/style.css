@@ -2739,16 +2739,6 @@ h2 {
 
 /* ---- Game Over scoring table ---- */
 
-.go-banner {
-  font-family: 'MedievalSharp', serif;
-  font-size: 2.5rem;
-  color: rgba(196, 163, 90, 0.95);
-  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.8), 0 0 30px rgba(196, 163, 90, 0.2);
-  text-align: center;
-  margin: 1rem 0;
-  letter-spacing: 0.1em;
-}
-
 .go-table {
   width: 90%;
   max-width: 900px;

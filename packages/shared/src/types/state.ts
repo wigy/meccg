@@ -921,6 +921,8 @@ export interface GameOverPhaseState {
   readonly winner: PlayerId | null;
   /** Final marshalling point totals for each player, keyed by PlayerId. */
   readonly finalScores: Readonly<Record<string, number>>;
+  /** Players who have acknowledged the result by sending 'finished'. */
+  readonly finishedPlayers: readonly string[];
 }
 
 /**

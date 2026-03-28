@@ -794,6 +794,16 @@ export interface OrderPassivesAction {
   readonly order: readonly CardInstanceId[];
 }
 
+/**
+ * Acknowledge the game result and record it to player history.
+ * Sent by each player after reviewing the final scoring table.
+ */
+export interface FinishedAction {
+  readonly type: 'finished';
+  /** The player acknowledging the result. */
+  readonly player: PlayerId;
+}
+
 // ---- Discriminated union ----
 
 /**
@@ -847,4 +857,5 @@ export type GameAction =
   | FetchFromSideboardAction
   | PassChainPriorityAction
   | OrderPassivesAction
+  | FinishedAction
   | NotPlayableAction;

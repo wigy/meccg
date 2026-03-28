@@ -25,13 +25,14 @@ import type {
   JoinMessage,
   GameAction,
 } from '@meccg/shared';
-import { loadCardPool, createRng, buildMovementMap, createGame, reduce, startCapture, flushCapture } from '@meccg/shared';
+import { loadCardPool, createRng, buildMovementMap, createGame, reduce, startCapture, flushCapture, Phase, computeTournamentBreakdown } from '@meccg/shared';
 import type { MovementMap, PlayerConfig, GameConfig } from '@meccg/shared';
 import { projectPlayerView, projectSpectatorView } from './projection.js';
 import { ServerLog, GameLog } from './game-log.js';
 
 const SAVE_DIR = process.env.SAVE_DIR ?? path.join(os.homedir(), '.meccg', 'saves');
 const SNAPSHOT_DIR = path.join(__dirname, '../../data/dev/snapshots');
+const PLAYERS_DIR = path.join(os.homedir(), '.meccg', 'players');
 
 interface PendingPlayer {
   ws: WebSocket;
@@ -426,6 +427,11 @@ export class GameSession {
     this.serverLog.log('action', { action: actionWithPlayer });
     this.logState(actionWithPlayer.type, actionWithPlayer as unknown as Record<string, unknown>);
 
+    // When a player sends 'finished', record the game result to their history file
+    if (actionWithPlayer.type === 'finished') {
+      this.recordGameResult(playerId);
+    }
+
     // Detect draft round reveal
     if (prevDraft) {
       const newDraft = this.state.phaseState.phase === 'setup' && this.state.phaseState.setupStep.step === 'character-draft'
@@ -669,6 +675,66 @@ export class GameSession {
     // Remove the disconnected player but keep the game alive for reconnection
     this.players.delete(disconnectedId);
     this.serverLog.log('player-disconnected', { name: disconnectedName, keepAlive: this.state !== null });
+  }
+
+  /**
+   * Record the game result to the player's history file at
+   * `~/.meccg/players/<name>/games.json`.
+   */
+  private recordGameResult(playerId: PlayerId): void {
+    if (!this.state || this.state.phaseState.phase !== Phase.GameOver) return;
+
+    const goState = this.state.phaseState;
+    const playerIndex = this.state.players.findIndex(p => p.id === playerId);
+    if (playerIndex < 0) return;
+
+    const player = this.state.players[playerIndex];
+    const opponent = this.state.players[1 - playerIndex];
+    const playerName = player.name;
+    const normalizedName = playerName.toLowerCase().replace(/[^a-z0-9-]/g, '-');
+
+    // Decode start time from gameId (base-36 timestamp prefix)
+    const gameId = this.state.gameId;
+    const tsBase36 = gameId.split('-')[0];
+    const startedAt = new Date(parseInt(tsBase36, 36)).toISOString();
+    const endedAt = new Date().toISOString();
+
+    // Tournament-adjusted breakdown
+    const selfRaw = player.marshallingPoints;
+    const oppRaw = opponent.marshallingPoints;
+    const selfAdj = computeTournamentBreakdown(selfRaw, oppRaw);
+
+    const entry = {
+      gameId,
+      startedAt,
+      endedAt,
+      opponent: opponent.name,
+      winner: goState.winner === null ? null
+        : goState.winner === playerId ? playerName : opponent.name,
+      finalScore: goState.finalScores[playerId as string],
+      opponentScore: goState.finalScores[opponent.id as string],
+      raw: selfRaw,
+      adjusted: selfAdj,
+    };
+
+    const dir = path.join(PLAYERS_DIR, normalizedName);
+    const filePath = path.join(dir, 'games.json');
+
+    try {
+      fs.mkdirSync(dir, { recursive: true });
+      let games: unknown[] = [];
+      try {
+        const existing = fs.readFileSync(filePath, 'utf-8');
+        games = JSON.parse(existing) as unknown[];
+      } catch {
+        // File doesn't exist yet
+      }
+      games.push(entry);
+      fs.writeFileSync(filePath, JSON.stringify(games, null, 2) + '\n');
+      this.serverLog.log('game-recorded', { player: playerName, gameId });
+    } catch (err) {
+      this.serverLog.log('game-record-error', { player: playerName, error: String(err) });
+    }
   }
 
   private saveFilePath(): string {

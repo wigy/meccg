@@ -208,8 +208,24 @@ export function reduce(state: GameState, action: GameAction): ReducerResult {
     case Phase.FreeCouncil:
       result = handleFreeCouncil(state, action);
       break;
-    case Phase.GameOver:
+    case Phase.GameOver: {
+      if (action.type === 'finished') {
+        const goState = state.phaseState;
+        if (goState.finishedPlayers.includes(action.player as string)) {
+          return { state, error: 'Already finished' };
+        }
+        return {
+          state: {
+            ...state,
+            phaseState: {
+              ...goState,
+              finishedPlayers: [...goState.finishedPlayers, action.player as string],
+            },
+          },
+        };
+      }
       return { state, error: 'Game is over' };
+    }
     default:
       return { state, error: `Unknown phase: ${String(phase satisfies never)}` };
   }
@@ -300,6 +316,11 @@ function validateActionPlayer(state: GameState, action: GameAction): string | un
   // During end-of-turn discard and reset-hand steps, both players act
   if (phase === 'end-of-turn' && 'step' in state.phaseState
     && (state.phaseState.step === 'discard' || state.phaseState.step === 'reset-hand')) {
+    return undefined;
+  }
+
+  // During Game Over, any player can send 'finished'
+  if (phase === 'game-over') {
     return undefined;
   }
 
@@ -4352,6 +4373,7 @@ function computeFinalScoresAndEnd(state: GameState): GameState {
         [p0.id as string]: score0,
         [p1.id as string]: score1,
       },
+      finishedPlayers: [],
     },
   };
 }

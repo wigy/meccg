@@ -1022,6 +1022,8 @@ export function describeAction(
       return `Order ${action.order.length} passive condition(s)`;
     case 'deck-exhaust':
       return `Exhaust deck (reshuffle discard)`;
+    case 'finished':
+      return `Finished`;
     default: {
       const _exhaustive: never = action;
       return `Unknown action`;
