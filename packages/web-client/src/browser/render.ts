@@ -2709,6 +2709,19 @@ function formatLabel(value: string): string {
     dunadan: 'Dúnadan',
     'awakened-plant': 'Awakened Plant',
     'pukel-creature': 'Pûkel-creature',
+    'shadow-hold': 'Shadow-hold',
+    'free-hold': 'Free-hold',
+    'border-hold': 'Border-hold',
+    'ruins-and-lairs': 'Ruins & Lairs',
+    'shadow-land': 'Shadow-land',
+    'dark-domain': 'Dark-domain',
+    'free-domain': 'Free-domain',
+    'border-land': 'Border-land',
+    'coastal-sea': 'Coastal Sea',
+    'double-wilderness': 'Double Wilderness',
+    'double-shadow-land': 'Double Shadow-land',
+    'double-coastal-sea': 'Double Coastal Sea',
+    'gold-ring': 'Gold Ring',
   };
   return special[value] ?? value.charAt(0).toUpperCase() + value.slice(1);
 }
@@ -2800,10 +2813,15 @@ export function buildCardAttributes(el: HTMLElement, def: CardDefinition): void 
     case 'minion-site':
     case 'fallen-wizard-site':
     case 'balrog-site': {
-      addAttr(el, 'Site Type', def.siteType);
+      addAttr(el, 'Site Type', formatLabel(def.siteType));
       if (def.nearestHaven) addAttr(el, 'Nearest Haven', def.nearestHaven);
-      if (def.sitePath.length > 0) addAttr(el, 'Path', def.sitePath.join(' '));
-      if (def.playableResources.length > 0) addAttr(el, 'Resources', def.playableResources.join(', '));
+      if (def.sitePath.length > 0) addAttr(el, 'Path', def.sitePath.map(formatLabel).join(', '));
+      if (def.havenPaths) {
+        for (const [haven, path] of Object.entries(def.havenPaths)) {
+          addAttr(el, `Path to ${haven}`, path.map(formatLabel).join(', '));
+        }
+      }
+      if (def.playableResources.length > 0) addAttr(el, 'Resources', def.playableResources.map(formatLabel).join(', '));
       if (def.automaticAttacks.length > 0) {
         for (const aa of def.automaticAttacks) {
           addAttr(el, 'Auto-attack', `${aa.creatureType} (${aa.strikes}/${aa.prowess})`);
