@@ -577,8 +577,11 @@ const CARD_TYPE_COLORS: Record<string, string> = {
   'fallen-wizard-site': 'color:#d0d0d0',
 };
 
+/** Set of "deckId:cardName" keys for already-requested cards. */
+let requestedCards = new Set<string>();
+
 /** Render a list of card entries into a container element. */
-function renderCardList(container: HTMLElement, entries: DeckListEntry[]): void {
+function renderCardList(container: HTMLElement, entries: DeckListEntry[], deckId: string): void {
   container.innerHTML = '';
   for (const entry of entries) {
     const row = document.createElement('div');
@@ -598,6 +601,30 @@ function renderCardList(container: HTMLElement, entries: DeckListEntry[]): void 
       row.style.cursor = 'pointer';
     } else {
       row.classList.add('deck-editor-card--unknown');
+      const requestKey = `${deckId}:${entry.name}`;
+      const btn = document.createElement('button');
+      btn.className = 'deck-editor-request-btn';
+      if (requestedCards.has(requestKey)) {
+        btn.textContent = 'Requested';
+        btn.disabled = true;
+      } else {
+        btn.textContent = 'Request';
+        btn.addEventListener('click', () => {
+          btn.disabled = true;
+          btn.textContent = 'Requested';
+          requestedCards.add(requestKey);
+          void fetch('/api/card-requests', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ deckId, cardName: entry.name }),
+          });
+        });
+      }
+      row.appendChild(qtyEl);
+      row.appendChild(nameEl);
+      row.appendChild(btn);
+      container.appendChild(row);
+      continue;
     }
     row.appendChild(qtyEl);
     row.appendChild(nameEl);
@@ -656,19 +683,28 @@ function setupDeckEditorPreview(): void {
 
 /** Open the deck editor for a given deck ID. */
 async function openDeckEditor(deckId: string): Promise<void> {
-  const resp = await fetch('/api/my-decks');
-  if (!resp.ok) return;
-  const data = await resp.json() as { decks: FullDeck[]; currentDeck: string | null };
+  const [decksResp, reqResp] = await Promise.all([
+    fetch('/api/my-decks'),
+    fetch('/api/card-requests'),
+  ]);
+  if (!decksResp.ok) return;
+  const data = await decksResp.json() as { decks: FullDeck[]; currentDeck: string | null };
   const deck = data.decks.find(d => d.id === deckId);
   if (!deck) return;
 
+  // Load existing card requests
+  const requests = reqResp.ok
+    ? await reqResp.json() as { deckId: string; cardName: string }[]
+    : [];
+  requestedCards = new Set(requests.map(r => `${r.deckId}:${r.cardName}`));
+
   sessionStorage.setItem(EDITING_DECK_KEY, deckId);
   document.getElementById('deck-editor-title')!.textContent = deck.name;
-  renderCardList(document.getElementById('deck-editor-pool')!, deck.pool);
-  renderCardList(document.getElementById('deck-editor-characters')!, deck.deck.characters);
-  renderCardList(document.getElementById('deck-editor-hazards')!, deck.deck.hazards);
-  renderCardList(document.getElementById('deck-editor-resources')!, deck.deck.resources);
-  renderCardList(document.getElementById('deck-editor-sites')!, deck.sites);
+  renderCardList(document.getElementById('deck-editor-pool')!, deck.pool, deckId);
+  renderCardList(document.getElementById('deck-editor-characters')!, deck.deck.characters, deckId);
+  renderCardList(document.getElementById('deck-editor-hazards')!, deck.deck.hazards, deckId);
+  renderCardList(document.getElementById('deck-editor-resources')!, deck.deck.resources, deckId);
+  renderCardList(document.getElementById('deck-editor-sites')!, deck.sites, deckId);
   showScreen('deck-editor-screen');
 }
 

@@ -87,23 +87,56 @@ export function savePlayerDeck(name: string, deck: { id: string; [key: string]: 
 
 // ---- Current deck selection ----
 
-/** Path to the file storing the player's current deck ID. */
-function currentDeckPath(name: string): string {
-  return path.join(PLAYERS_DIR, toDirName(name), 'current-deck');
-}
-
 /** Get the player's currently selected deck ID, or null if none. */
 export function getCurrentDeck(name: string): string | null {
-  try {
-    return fs.readFileSync(currentDeckPath(name), 'utf-8').trim() || null;
-  } catch {
-    return null;
-  }
+  return findPlayer(name)?.currentDeck ?? null;
 }
 
 /** Set the player's currently selected deck ID. */
 export function setCurrentDeck(name: string, deckId: string): void {
-  fs.writeFileSync(currentDeckPath(name), deckId);
+  const player = findPlayer(name);
+  if (!player) return;
+  updatePlayer(name, { ...player, currentDeck: deckId });
+}
+
+/** Overwrite a player's info.json with an updated record. */
+function updatePlayer(name: string, record: PlayerRecord): void {
+  fs.writeFileSync(infoPath(name), JSON.stringify(record, null, 2));
+}
+
+// ---- Card requests ----
+
+/** Path to a player's card requests file. */
+function cardRequestsPath(name: string): string {
+  return path.join(PLAYERS_DIR, toDirName(name), 'requests', 'cards.json');
+}
+
+/** A single card request entry. */
+export interface CardRequest {
+  /** Deck ID where the card is needed. */
+  readonly deckId: string;
+  /** Display name of the requested card. */
+  readonly cardName: string;
+}
+
+/** List all card requests for a player. */
+export function listCardRequests(name: string): CardRequest[] {
+  try {
+    return JSON.parse(fs.readFileSync(cardRequestsPath(name), 'utf-8')) as CardRequest[];
+  } catch {
+    return [];
+  }
+}
+
+/** Add a card request if not already present. */
+export function addCardRequest(name: string, request: CardRequest): void {
+  const requests = listCardRequests(name);
+  const exists = requests.some(r => r.deckId === request.deckId && r.cardName === request.cardName);
+  if (exists) return;
+  requests.push(request);
+  const filePath = cardRequestsPath(name);
+  fs.mkdirSync(path.dirname(filePath), { recursive: true });
+  fs.writeFileSync(filePath, JSON.stringify(requests, null, 2));
 }
 
 /** Save a new player record. Throws if the name is already taken. */

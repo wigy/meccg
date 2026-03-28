@@ -25,7 +25,7 @@ import * as os from 'os';
 import { cardImageRawUrl } from '@meccg/shared';
 import { DEV } from '../config.js';
 import { lobbyLog } from '../lobby-log.js';
-import { findPlayer, findPlayerByEmail, createPlayer, listPlayerDecks, savePlayerDeck, getCurrentDeck, setCurrentDeck } from '../players/store.js';
+import { findPlayer, findPlayerByEmail, createPlayer, listPlayerDecks, savePlayerDeck, getCurrentDeck, setCurrentDeck, listCardRequests, addCardRequest } from '../players/store.js';
 import { hashPassword, verifyPassword } from '../auth/password.js';
 import { signLobbyToken } from '../auth/jwt.js';
 import { getSessionPlayer, setSessionCookie, clearSessionCookie } from '../auth/session.js';
@@ -341,6 +341,33 @@ export async function handleRequest(req: http.IncomingMessage, res: http.ServerR
     } catch (err) {
       lobbyLog.log('error', { context: 'save-deck', error: String(err) });
       sendJson(res, 500, { error: 'Failed to save deck' });
+    }
+    return;
+  }
+
+  // ---- Card requests ----
+
+  if (urlPath === '/api/card-requests' && method === 'GET') {
+    const playerName = getSessionPlayer(req);
+    if (!playerName) { sendJson(res, 401, { error: 'Not logged in' }); return; }
+    sendJson(res, 200, listCardRequests(playerName));
+    return;
+  }
+
+  if (urlPath === '/api/card-requests' && method === 'POST') {
+    const playerName = getSessionPlayer(req);
+    if (!playerName) { sendJson(res, 401, { error: 'Not logged in' }); return; }
+    try {
+      const body = JSON.parse(await readBody(req)) as { deckId?: string; cardName?: string };
+      if (!body.deckId || !body.cardName) {
+        sendJson(res, 400, { error: 'deckId and cardName are required' });
+        return;
+      }
+      addCardRequest(playerName, { deckId: body.deckId, cardName: body.cardName });
+      sendJson(res, 201, { ok: true });
+    } catch (err) {
+      lobbyLog.log('error', { context: 'card-request', error: String(err) });
+      sendJson(res, 500, { error: 'Failed to save card request' });
     }
     return;
   }

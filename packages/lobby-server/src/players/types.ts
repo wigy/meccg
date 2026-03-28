@@ -14,4 +14,6 @@ export interface PlayerRecord {
   readonly passwordHash: string;
   /** ISO 8601 timestamp of account creation. */
   readonly createdAt: string;
+  /** ID of the player's currently selected deck, or undefined if none. */
+  readonly currentDeck?: string;
 }

@@ -400,6 +400,33 @@ h2 {
   opacity: 0.35;
 }
 
+.deck-editor-card--unknown:hover {
+  opacity: 0.7;
+}
+
+.deck-editor-request-btn {
+  margin-left: auto;
+  padding: 0.1rem 0.4rem;
+  font-size: 0.7rem;
+  background: transparent;
+  color: #c4a35a;
+  border: 1px solid #c4a35a;
+  border-radius: 3px;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.deck-editor-request-btn:hover {
+  background: rgba(196, 163, 90, 0.15);
+}
+
+.deck-editor-request-btn:disabled {
+  color: #4caf50;
+  border-color: #4caf50;
+  cursor: default;
+  background: transparent;
+}
+
 .deck-editor-preview {
   position: fixed;
   top: 4rem;
