@@ -10,7 +10,7 @@
 export type MailStatus = 'new' | 'read' | 'deleted' | 'processing' | 'processed';
 
 /** Who originated the message. */
-export type MailSender = 'ai' | 'server';
+export type MailSender = 'ai' | 'server' | 'player';
 
 /** Message topic categories for filtering and routing. */
 export type MailTopic =
@@ -45,4 +45,6 @@ export interface MailMessage {
   readonly keywords: Readonly<Record<string, string>>;
   /** Whether processing succeeded. Only set when status is 'processed'. */
   readonly success?: boolean;
+  /** Message ID this is a reply to. */
+  readonly replyTo?: string;
 }

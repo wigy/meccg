@@ -28,10 +28,10 @@ import * as os from 'os';
 import { cardImageRawUrl } from '@meccg/shared';
 import { DEV, MASTER_KEY } from '../config.js';
 import { broadcastNotification } from '../lobby/lobby.js';
-import { sendMail, listInbox, readMessage, deleteMessage, markAllUnread, updateMessageStatus, countUnread } from '../mail/store.js';
+import { sendMail, listInbox, listSent, readMessage, deleteMessage, markAllUnread, updateMessageStatus, countUnread } from '../mail/store.js';
 import type { MailSender, MailStatus, MailTopic } from '../mail/types.js';
 import { lobbyLog } from '../lobby-log.js';
-import { findPlayer, findPlayerByEmail, createPlayer, listPlayerDecks, savePlayerDeck, getCurrentDeck, setCurrentDeck, getDisplayName, setDisplayName, touchLastMailView, listCardRequests, addCardRequest, listAllCardRequests, findCardRequestById } from '../players/store.js';
+import { findPlayer, findPlayerByEmail, createPlayer, listPlayerDecks, savePlayerDeck, getCurrentDeck, setCurrentDeck, getDisplayName, setDisplayName, touchLastMailView } from '../players/store.js';
 import { hashPassword, verifyPassword } from '../auth/password.js';
 import { signLobbyToken } from '../auth/jwt.js';
 import { getSessionPlayer, setSessionCookie, clearSessionCookie } from '../auth/session.js';
@@ -378,14 +378,7 @@ export async function handleRequest(req: http.IncomingMessage, res: http.ServerR
     return;
   }
 
-  // ---- Card requests ----
-
-  if (urlPath === '/api/card-requests' && method === 'GET') {
-    const playerName = getSessionPlayer(req);
-    if (!playerName) { sendJson(res, 401, { error: 'Not logged in' }); return; }
-    sendJson(res, 200, listCardRequests(playerName));
-    return;
-  }
+  // ---- Card requests (via mail) ----
 
   if (urlPath === '/api/card-requests' && method === 'POST') {
     const playerName = getSessionPlayer(req);
@@ -396,21 +389,17 @@ export async function handleRequest(req: http.IncomingMessage, res: http.ServerR
         sendJson(res, 400, { error: 'deckId and cardName are required' });
         return;
       }
-      const id = addCardRequest(playerName, body.deckId, body.cardName);
-      if (id) {
-        sendMail(['ai'], {
-          title: `Card request: ${body.cardName}`,
-          from: getDisplayName(playerName),
-          sender: 'server',
-          topic: 'card-request',
-          body: `**${getDisplayName(playerName)}** requested card **${body.cardName}** for deck \`${body.deckId}\`.`,
-          subject: body.cardName,
-          keywords: { cardName: body.cardName, deckId: body.deckId, userName: playerName, requestId: id },
-        });
-        sendJson(res, 201, { ok: true, id });
-      } else {
-        sendJson(res, 200, { ok: true, duplicate: true });
-      }
+      const id = sendMail(['ai'], {
+        title: `Card request: ${body.cardName}`,
+        from: getDisplayName(playerName),
+        sender: 'player',
+        topic: 'card-request',
+        body: `**${getDisplayName(playerName)}** requested card **${body.cardName}** for deck \`${body.deckId}\`.`,
+        subject: body.cardName,
+        keywords: { cardName: body.cardName, deckId: body.deckId, userName: playerName },
+        sentBy: playerName,
+      });
+      sendJson(res, 201, { ok: true, id });
     } catch (err) {
       lobbyLog.log('error', { context: 'card-request', error: String(err) });
       sendJson(res, 500, { error: 'Failed to save card request' });
@@ -447,6 +436,13 @@ export async function handleRequest(req: http.IncomingMessage, res: http.ServerR
     return;
   }
 
+  if (urlPath === '/api/mail/sent' && method === 'GET') {
+    const playerName = getSessionPlayer(req);
+    if (!playerName) { sendJson(res, 401, { error: 'Not logged in' }); return; }
+    sendJson(res, 200, { messages: listSent(playerName) });
+    return;
+  }
+
   if (urlPath === '/api/mail/mark-all-unread' && method === 'POST') {
     const playerName = getSessionPlayer(req);
     if (!playerName) { sendJson(res, 401, { error: 'Not logged in' }); return; }
@@ -465,19 +461,6 @@ export async function handleRequest(req: http.IncomingMessage, res: http.ServerR
       return;
     }
 
-    if (urlPath === '/api/system/card-requests' && method === 'GET') {
-      sendJson(res, 200, listAllCardRequests());
-      return;
-    }
-
-    const requestMatch = urlPath.match(/^\/api\/system\/card-requests\/([a-f0-9]+)$/);
-    if (requestMatch && method === 'GET') {
-      const result = findCardRequestById(requestMatch[1]);
-      if (!result) { sendJson(res, 404, { error: 'Request not found' }); return; }
-      sendJson(res, 200, result);
-      return;
-    }
-
     if (urlPath === '/api/system/mail' && method === 'POST') {
       try {
         const body = JSON.parse(await readBody(req)) as {
@@ -489,6 +472,8 @@ export async function handleRequest(req: http.IncomingMessage, res: http.ServerR
           body?: string;
           subject?: string;
           keywords?: Record<string, string>;
+          sentBy?: string;
+          replyTo?: string;
         };
         if (!body.recipients?.length || !body.title || !body.from || !body.sender || !body.topic || !body.body || !body.subject) {
           sendJson(res, 400, { error: 'recipients, title, from, sender, topic, body, and subject are required' });
@@ -502,6 +487,8 @@ export async function handleRequest(req: http.IncomingMessage, res: http.ServerR
           body: body.body,
           subject: body.subject,
           keywords: body.keywords ?? {},
+          sentBy: body.sentBy,
+          replyTo: body.replyTo,
         });
         lobbyLog.log('system-mail', { id, recipients: body.recipients, topic: body.topic });
         sendJson(res, 200, { ok: true, id });

@@ -192,6 +192,35 @@ h2 {
   color: #c4a35a;
 }
 
+.inbox-tabs {
+  display: flex;
+  gap: 0;
+}
+
+.inbox-tab {
+  padding: 0.3rem 0.75rem;
+  font-size: 0.85rem;
+  background: transparent;
+  color: #888;
+  border: 1px solid #555;
+  cursor: pointer;
+}
+
+.inbox-tab:first-child {
+  border-radius: 4px 0 0 4px;
+}
+
+.inbox-tab:last-child {
+  border-radius: 0 4px 4px 0;
+  border-left: none;
+}
+
+.inbox-tab--active {
+  color: #c4a35a;
+  border-color: #c4a35a;
+  background: rgba(196, 163, 90, 0.1);
+}
+
 .inbox-action-btn {
   margin-left: auto;
   padding: 0.3rem 0.75rem;
@@ -378,6 +407,11 @@ h2 {
 .inbox-tag--server {
   background: rgba(196, 163, 90, 0.15);
   color: #c4a35a;
+}
+
+.inbox-tag--player {
+  background: rgba(76, 175, 80, 0.15);
+  color: #6abf6e;
 }
 
 .inbox-tag--topic {

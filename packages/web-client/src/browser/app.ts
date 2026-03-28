@@ -694,20 +694,25 @@ function setupDeckEditorPreview(): void {
 
 /** Open the deck editor for a given deck ID. */
 async function openDeckEditor(deckId: string): Promise<void> {
-  const [decksResp, reqResp] = await Promise.all([
+  const [decksResp, sentResp] = await Promise.all([
     fetch('/api/my-decks'),
-    fetch('/api/card-requests'),
+    fetch('/api/mail/sent'),
   ]);
   if (!decksResp.ok) return;
   const data = await decksResp.json() as { decks: FullDeck[]; currentDeck: string | null };
   const deck = data.decks.find(d => d.id === deckId);
   if (!deck) return;
 
-  // Load existing card requests
-  const requests = reqResp.ok
-    ? await reqResp.json() as { deckId: string; cardName: string }[]
-    : [];
-  requestedCards = new Set(requests.map(r => `${r.deckId}:${r.cardName}`));
+  // Load sent card-request mails to mark already-requested cards
+  requestedCards = new Set<string>();
+  if (sentResp.ok) {
+    const sent = await sentResp.json() as { messages: { topic: string; keywords: Record<string, string> }[] };
+    for (const msg of sent.messages) {
+      if (msg.topic === 'card-request' && msg.keywords.deckId && msg.keywords.cardName) {
+        requestedCards.add(`${msg.keywords.deckId}:${msg.keywords.cardName}`);
+      }
+    }
+  }
 
   sessionStorage.setItem(EDITING_DECK_KEY, deckId);
   document.getElementById('deck-editor-title')!.textContent = deck.name;
@@ -732,10 +737,153 @@ function escapeHtml(text: string): string {
   return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
+/** Render a full message into the message panel. */
+function renderMessage(messageEl: HTMLElement, full: InboxMessage): void {
+  messageEl.innerHTML = '';
+
+  // Subject
+  const h = document.createElement('h3');
+  h.className = 'inbox-msg-subject';
+  h.textContent = full.subject;
+  messageEl.appendChild(h);
+
+  // Title (summary)
+  if (full.title && full.title !== full.subject) {
+    const titleEl = document.createElement('p');
+    titleEl.className = 'inbox-msg-title';
+    titleEl.textContent = full.title;
+    messageEl.appendChild(titleEl);
+  }
+
+  // Metadata table
+  const meta = document.createElement('div');
+  meta.className = 'inbox-msg-meta';
+  const rows = [
+    ['Message ID', `<span class="inbox-meta-id">${escapeHtml(full.id)}<span class="inbox-copy-btn" data-copy="${escapeHtml(full.id)}" title="Copy to clipboard">&#x2398;</span></span>`],
+    ['From', escapeHtml(full.from)],
+    ['Sender', `<span class="inbox-tag inbox-tag--${full.sender}">${escapeHtml(full.sender)}</span>`],
+    ['Topic', `<span class="inbox-tag inbox-tag--topic">${escapeHtml(full.topic)}</span>`],
+    ['Date', new Date(full.timestamp).toLocaleString()],
+    ['Status', escapeHtml(full.status)],
+    ...(full.replyTo ? [['Reply To', `<span class="inbox-meta-id">${escapeHtml(full.replyTo)}<span class="inbox-copy-btn" data-copy="${escapeHtml(full.replyTo)}" title="Copy to clipboard">&#x2398;</span></span>`]] : []),
+  ];
+  meta.innerHTML = rows.map(([label, value]) =>
+    `<span><span class="inbox-meta-label">${label}:</span> <span class="inbox-meta-value">${value}</span></span>`,
+  ).join('');
+  messageEl.appendChild(meta);
+
+  // Copy button handler
+  for (const copyBtn of meta.querySelectorAll('.inbox-copy-btn')) {
+    copyBtn.addEventListener('click', (e) => {
+      const target = e.currentTarget as HTMLElement;
+      void navigator.clipboard.writeText(target.dataset.copy ?? '');
+      target.textContent = '\u2713';
+      setTimeout(() => { target.textContent = '\u2398'; }, 1500);
+    });
+  }
+
+  // Keywords
+  const kwKeys = Object.keys(full.keywords);
+  if (kwKeys.length > 0) {
+    const kwSection = document.createElement('div');
+    kwSection.className = 'inbox-msg-keywords';
+    kwSection.innerHTML = kwKeys.map(key =>
+      `<span><span class="inbox-meta-label">${escapeHtml(key)}:</span> <span class="inbox-meta-value">${escapeHtml(full.keywords[key])}</span></span>`,
+    ).join('');
+    messageEl.appendChild(kwSection);
+  }
+
+  // Body
+  const body = document.createElement('div');
+  body.className = 'inbox-message-body';
+  body.innerHTML = renderMarkdown(full.body);
+  messageEl.appendChild(body);
+}
+
+/** Render a list of messages into the list panel. */
+function renderMailList(
+  listEl: HTMLElement, messageEl: HTMLElement, messages: InboxMessage[],
+  options: { canDelete?: boolean; fetchOnClick?: string; onDelete?: () => void },
+): void {
+  if (messages.length === 0) {
+    listEl.innerHTML = '<p class="lobby-empty">No messages</p>';
+    return;
+  }
+
+  listEl.innerHTML = '';
+  for (const msg of messages) {
+    const row = document.createElement('div');
+    row.className = 'inbox-item' + (msg.status === 'new' ? ' inbox-item--unread' : '');
+
+    const info = document.createElement('div');
+    info.className = 'inbox-item-info';
+    const subject = document.createElement('span');
+    subject.className = 'inbox-item-subject';
+    subject.textContent = msg.subject;
+    const from = document.createElement('span');
+    from.className = 'inbox-item-from';
+    from.textContent = msg.from;
+    const date = document.createElement('span');
+    date.className = 'inbox-item-date';
+    date.textContent = new Date(msg.timestamp).toLocaleDateString();
+    info.appendChild(subject);
+    info.appendChild(from);
+
+    const actions = document.createElement('div');
+    actions.className = 'inbox-item-actions';
+    actions.appendChild(date);
+
+    if (options.canDelete) {
+      const delBtn = document.createElement('button');
+      delBtn.className = 'inbox-delete-btn';
+      delBtn.textContent = 'Delete';
+      delBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        void (async () => {
+          await fetch(`/api/mail/inbox/${msg.id}`, { method: 'DELETE' });
+          options.onDelete?.();
+        })();
+      });
+      actions.appendChild(delBtn);
+    }
+
+    row.appendChild(info);
+    row.appendChild(actions);
+
+    row.addEventListener('click', () => {
+      void (async () => {
+        if (options.fetchOnClick) {
+          const msgResp = await fetch(`${options.fetchOnClick}/${msg.id}`);
+          if (!msgResp.ok) return;
+          const full = await msgResp.json() as InboxMessage;
+          row.classList.remove('inbox-item--unread');
+          renderMessage(messageEl, full);
+        } else {
+          renderMessage(messageEl, msg);
+        }
+      })();
+    });
+
+    listEl.appendChild(row);
+  }
+}
+
+/** Which mail tab is active. */
+let activeMailTab: 'inbox' | 'sent' = 'inbox';
+
+/** Update tab button styles. */
+function updateMailTabs(): void {
+  document.getElementById('inbox-tab-inbox')!.className = 'inbox-tab' + (activeMailTab === 'inbox' ? ' inbox-tab--active' : '');
+  document.getElementById('inbox-tab-sent')!.className = 'inbox-tab' + (activeMailTab === 'sent' ? ' inbox-tab--active' : '');
+  document.getElementById('mark-all-unread-btn')!.style.display = activeMailTab === 'inbox' ? '' : 'none';
+}
+
 /** Fetch and display inbox messages. */
 async function openInbox(): Promise<void> {
   sessionStorage.setItem(VIEWING_INBOX_KEY, '1');
   showScreen('inbox-screen');
+  activeMailTab = 'inbox';
+  updateMailTabs();
   const listEl = document.getElementById('inbox-list')!;
   const messageEl = document.getElementById('inbox-message')!;
   listEl.innerHTML = '<p class="lobby-empty">Loading...</p>';
@@ -749,116 +897,36 @@ async function openInbox(): Promise<void> {
     const badge = document.getElementById('inbox-unread')!;
     badge.textContent = data.unreadCount > 0 ? `${data.unreadCount} unread` : '';
 
-    if (data.messages.length === 0) {
-      listEl.innerHTML = '<p class="lobby-empty">No messages</p>';
-      return;
-    }
+    renderMailList(listEl, messageEl, data.messages, {
+      canDelete: true,
+      fetchOnClick: '/api/mail/inbox',
+      onDelete: () => void openInbox(),
+    });
+  } catch {
+    listEl.innerHTML = '<p class="lobby-empty">Connection error</p>';
+  }
+}
 
-    listEl.innerHTML = '';
-    for (const msg of data.messages) {
-      const row = document.createElement('div');
-      row.className = 'inbox-item' + (msg.status === 'new' ? ' inbox-item--unread' : '');
+/** Fetch and display sent messages. */
+async function openSent(): Promise<void> {
+  sessionStorage.setItem(VIEWING_INBOX_KEY, '1');
+  showScreen('inbox-screen');
+  activeMailTab = 'sent';
+  updateMailTabs();
+  const listEl = document.getElementById('inbox-list')!;
+  const messageEl = document.getElementById('inbox-message')!;
+  listEl.innerHTML = '<p class="lobby-empty">Loading...</p>';
+  messageEl.innerHTML = '<p class="lobby-empty">Select a message to read</p>';
 
-      const info = document.createElement('div');
-      info.className = 'inbox-item-info';
-      const subject = document.createElement('span');
-      subject.className = 'inbox-item-subject';
-      subject.textContent = msg.subject;
-      const from = document.createElement('span');
-      from.className = 'inbox-item-from';
-      from.textContent = msg.from;
-      const date = document.createElement('span');
-      date.className = 'inbox-item-date';
-      date.textContent = new Date(msg.timestamp).toLocaleDateString();
-      info.appendChild(subject);
-      info.appendChild(from);
+  try {
+    const resp = await fetch('/api/mail/sent');
+    if (!resp.ok) { listEl.innerHTML = '<p class="lobby-empty">Failed to load sent mail</p>'; return; }
+    const data = await resp.json() as { messages: InboxMessage[] };
 
-      const actions = document.createElement('div');
-      actions.className = 'inbox-item-actions';
-      actions.appendChild(date);
+    const badge = document.getElementById('inbox-unread')!;
+    badge.textContent = '';
 
-      const delBtn = document.createElement('button');
-      delBtn.className = 'inbox-delete-btn';
-      delBtn.textContent = 'Delete';
-      delBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        void (async () => {
-          await fetch(`/api/mail/inbox/${msg.id}`, { method: 'DELETE' });
-          void openInbox();
-        })();
-      });
-      actions.appendChild(delBtn);
-
-      row.appendChild(info);
-      row.appendChild(actions);
-
-      row.addEventListener('click', () => {
-        void (async () => {
-          const msgResp = await fetch(`/api/mail/inbox/${msg.id}`);
-          if (!msgResp.ok) return;
-          const full = await msgResp.json() as InboxMessage;
-          row.classList.remove('inbox-item--unread');
-          messageEl.innerHTML = '';
-
-          // Subject
-          const h = document.createElement('h3');
-          h.className = 'inbox-msg-subject';
-          h.textContent = full.subject;
-          messageEl.appendChild(h);
-
-          // Title (summary)
-          if (full.title && full.title !== full.subject) {
-            const titleEl = document.createElement('p');
-            titleEl.className = 'inbox-msg-title';
-            titleEl.textContent = full.title;
-            messageEl.appendChild(titleEl);
-          }
-
-          // Metadata table
-          const meta = document.createElement('div');
-          meta.className = 'inbox-msg-meta';
-          const rows = [
-            ['Message ID', `<span class="inbox-meta-id">${escapeHtml(full.id)}<span class="inbox-copy-btn" data-copy="${escapeHtml(full.id)}" title="Copy to clipboard">&#x2398;</span></span>`],
-            ['From', escapeHtml(full.from)],
-            ['Sender', `<span class="inbox-tag inbox-tag--${full.sender}">${escapeHtml(full.sender)}</span>`],
-            ['Topic', `<span class="inbox-tag inbox-tag--topic">${escapeHtml(full.topic)}</span>`],
-            ['Date', new Date(full.timestamp).toLocaleString()],
-            ['Status', escapeHtml(full.status)],
-          ];
-          meta.innerHTML = rows.map(([label, value]) =>
-            `<span><span class="inbox-meta-label">${label}:</span> <span class="inbox-meta-value">${value}</span></span>`,
-          ).join('');
-          messageEl.appendChild(meta);
-
-          // Copy button handler
-          meta.querySelector('.inbox-copy-btn')?.addEventListener('click', (e) => {
-            const target = e.currentTarget as HTMLElement;
-            void navigator.clipboard.writeText(target.dataset.copy ?? '');
-            target.textContent = '\u2713';
-            setTimeout(() => { target.textContent = '\u2398'; }, 1500);
-          });
-
-          // Keywords
-          const kwKeys = Object.keys(full.keywords);
-          if (kwKeys.length > 0) {
-            const kwSection = document.createElement('div');
-            kwSection.className = 'inbox-msg-keywords';
-            kwSection.innerHTML = kwKeys.map(key =>
-              `<span><span class="inbox-meta-label">${escapeHtml(key)}:</span> <span class="inbox-meta-value">${escapeHtml(full.keywords[key])}</span></span>`,
-            ).join('');
-            messageEl.appendChild(kwSection);
-          }
-
-          // Body
-          const body = document.createElement('div');
-          body.className = 'inbox-message-body';
-          body.innerHTML = renderMarkdown(full.body);
-          messageEl.appendChild(body);
-        })();
-      });
-
-      listEl.appendChild(row);
-    }
+    renderMailList(listEl, messageEl, data.messages, {});
   } catch {
     listEl.innerHTML = '<p class="lobby-empty">Connection error</p>';
   }
@@ -876,6 +944,7 @@ interface InboxMessage {
   readonly timestamp: string;
   readonly subject: string;
   readonly keywords: Record<string, string>;
+  readonly replyTo?: string;
 }
 
 /** Show an error message on an auth form. */
@@ -960,7 +1029,7 @@ function connectLobbyWs(): void {
         const unread = msg.unreadCount as number;
         const inboxBtn = document.getElementById('inbox-btn');
         if (inboxBtn) {
-          inboxBtn.textContent = unread > 0 ? `Inbox (${unread})` : 'Inbox';
+          inboxBtn.textContent = unread > 0 ? `Mail (${unread})` : 'Mail';
         }
         break;
       }
@@ -1243,6 +1312,12 @@ document.addEventListener('DOMContentLoaded', () => {
         await fetch('/api/mail/mark-all-unread', { method: 'POST' });
         void openInbox();
       })();
+    });
+    document.getElementById('inbox-tab-inbox')!.addEventListener('click', () => {
+      void openInbox();
+    });
+    document.getElementById('inbox-tab-sent')!.addEventListener('click', () => {
+      void openSent();
     });
   }
 

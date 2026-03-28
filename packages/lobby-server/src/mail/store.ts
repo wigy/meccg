@@ -26,6 +26,11 @@ function deletedDir(playerName: string): string {
   return path.join(PLAYERS_DIR, toDirName(playerName), 'mail', 'deleted');
 }
 
+/** Path to a player's sent mail directory. */
+function sentDir(playerName: string): string {
+  return path.join(PLAYERS_DIR, toDirName(playerName), 'mail', 'sent');
+}
+
 /** Fields required when composing a new message (id, timestamp, status are generated). */
 export interface SendMailOptions {
   /** Short summary displayed in message listings. */
@@ -42,6 +47,10 @@ export interface SendMailOptions {
   readonly subject: string;
   /** Named references relevant to this message (e.g. deckId, cardName). */
   readonly keywords: Readonly<Record<string, string>>;
+  /** If set, a copy of the message is saved to this player's sent folder. */
+  readonly sentBy?: string;
+  /** Message ID this is a reply to. */
+  readonly replyTo?: string;
 }
 
 /**
@@ -66,6 +75,7 @@ export function sendMail(recipients: readonly string[], options: SendMailOptions
     timestamp,
     subject: options.subject,
     keywords: options.keywords,
+    ...(options.replyTo ? { replyTo: options.replyTo } : {}),
   };
 
   for (const recipient of recipients) {
@@ -77,7 +87,28 @@ export function sendMail(recipients: readonly string[], options: SendMailOptions
     notifyPlayer(recipient, { type: 'mail-notification', unreadCount: unread });
   }
 
+  if (options.sentBy) {
+    const dir = sentDir(options.sentBy);
+    fs.mkdirSync(dir, { recursive: true });
+    const sentMessage: MailMessage = { ...message, status: 'read' };
+    fs.writeFileSync(path.join(dir, `${id}.json`), JSON.stringify(sentMessage, null, 2));
+  }
+
   return id;
+}
+
+/** List all messages in a player's sent folder, sorted by timestamp descending (newest first). */
+export function listSent(playerName: string): MailMessage[] {
+  const dir = sentDir(playerName);
+  try {
+    const files = fs.readdirSync(dir).filter(f => f.endsWith('.json'));
+    const messages = files.map(f =>
+      JSON.parse(fs.readFileSync(path.join(dir, f), 'utf-8')) as MailMessage,
+    );
+    return messages.sort((a, b) => b.timestamp.localeCompare(a.timestamp));
+  } catch {
+    return [];
+  }
 }
 
 /** List all messages in a player's inbox, sorted by timestamp descending (newest first). */

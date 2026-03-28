@@ -28,7 +28,7 @@ Follow these steps:
 
 4. **Dispatch based on topic:** Look at the message `topic` and `keywords` fields to determine what action to take:
 
-   - **`card-request`**: The keywords should contain `requestId`, `cardName`, `deckId`, and `userName`. Run the `/handle-card-request` skill with the `requestId` value. After it completes:
+   - **`card-request`**: The keywords should contain `cardName`, `deckId`, and `userName`. Run the `/handle-card-request` skill with `<cardName> <deckId>` as arguments. After it completes:
      - If the card was successfully added: mark success, send a reply mail to the requesting user.
      - If it failed: mark failure, send a failure reply mail to the requesting user.
 
@@ -40,18 +40,20 @@ Follow these steps:
 
    - **Any other topic or missing keywords**: Mark as processed with `success: false`. Send a reply mail explaining the message could not be processed.
 
-5. **Send reply mail:** After processing, send a reply mail to the original requester (from the `userName` keyword, or if not present, do not send a reply). Use the system mail API:
+5. **Send reply mail:** After processing, send a reply mail to the original requester (from the `userName` keyword, or if not present, use the `from` field of the original message). This is the **only** notification mechanism — do not use `/api/system/notify`. Use the system mail API:
    ```
    curl -s -X POST http://localhost:8080/api/system/mail -H "Authorization: Bearer $(jq -r .masterKey ~/.meccg/secrets.json)" -H "Content-Type: application/json" -d '<json>'
    ```
-   The reply should have:
-   - `recipients`: the original requester's name
+   The reply must have:
+   - `recipients`: the original requester's name (from `userName` keyword or `from` field)
    - `sender`: `"ai"`
    - `from`: `"AI Assistant"`
    - `topic`: the matching reply topic (e.g. `card-request` -> `card-reply`, `certification-request` -> `certification-reply`)
    - `subject`: reference the original subject
    - `body`: markdown summary of what was done or why it failed
    - `keywords`: copy relevant keywords from the original message, add `originalMessageId` pointing to the handled message ID
+   - `replyTo`: the original message ID being handled (this links the reply to the request)
+   - `sentBy`: `"ai"` (saves a copy to ai's sent folder)
 
 6. **Mark as processed:** Update the message status to `processed` with the appropriate `success` value:
    ```
