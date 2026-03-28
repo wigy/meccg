@@ -297,6 +297,11 @@ h2 {
   border-color: #4caf50;
 }
 
+.lobby-deck-item--current {
+  border-color: #c4a35a;
+  background: #1e2a4a;
+}
+
 .lobby-deck-info {
   display: flex;
   flex-direction: column;

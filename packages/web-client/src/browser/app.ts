@@ -411,11 +411,41 @@ function showScreen(id: 'login-screen' | 'register-screen' | 'lobby-screen' | 'c
 
 /** IDs of decks the player already owns. */
 let ownedDeckIds = new Set<string>();
+/** Currently selected deck ID. */
+let currentDeckId: string | null = null;
 
-/** Render a deck item row. */
-function renderDeckItem(deck: { id: string; name: string; alignment: string }, owned: boolean, onAdd?: () => void): HTMLElement {
+interface DeckSummary { id: string; name: string; alignment: string }
+
+/** Render a deck item row for "My Decks" — click to select as current. */
+function renderMyDeckItem(deck: DeckSummary, isCurrent: boolean): HTMLElement {
   const item = document.createElement('div');
-  item.className = 'lobby-deck-item' + (owned ? ' lobby-deck-item--owned' : '');
+  item.className = 'lobby-deck-item lobby-deck-item--owned' + (isCurrent ? ' lobby-deck-item--current' : '');
+  const info = document.createElement('div');
+  info.className = 'lobby-deck-info';
+  const nameEl = document.createElement('span');
+  nameEl.className = 'lobby-deck-name';
+  nameEl.textContent = deck.name;
+  const meta = document.createElement('span');
+  meta.className = 'lobby-deck-meta';
+  meta.textContent = deck.alignment + (isCurrent ? ' — selected' : '');
+  info.appendChild(nameEl);
+  info.appendChild(meta);
+  item.appendChild(info);
+  if (!isCurrent) {
+    const btn = document.createElement('button');
+    btn.textContent = 'Select';
+    btn.addEventListener('click', () => {
+      void selectDeck(deck.id);
+    });
+    item.appendChild(btn);
+  }
+  return item;
+}
+
+/** Render a deck item row for the catalog — "Add" or "Owned". */
+function renderCatalogDeckItem(deck: DeckSummary, owned: boolean, onAdd: () => void): HTMLElement {
+  const item = document.createElement('div');
+  item.className = 'lobby-deck-item';
   const info = document.createElement('div');
   info.className = 'lobby-deck-info';
   const nameEl = document.createElement('span');
@@ -427,21 +457,19 @@ function renderDeckItem(deck: { id: string; name: string; alignment: string }, o
   info.appendChild(nameEl);
   info.appendChild(meta);
   item.appendChild(info);
-  if (onAdd) {
-    const btn = document.createElement('button');
-    if (owned) {
-      btn.textContent = 'Owned';
+  const btn = document.createElement('button');
+  if (owned) {
+    btn.textContent = 'Owned';
+    btn.disabled = true;
+  } else {
+    btn.textContent = 'Add';
+    btn.addEventListener('click', () => {
       btn.disabled = true;
-    } else {
-      btn.textContent = 'Add';
-      btn.addEventListener('click', () => {
-        btn.disabled = true;
-        btn.textContent = 'Adding...';
-        onAdd();
-      });
-    }
-    item.appendChild(btn);
+      btn.textContent = 'Adding...';
+      onAdd();
+    });
   }
+  item.appendChild(btn);
   return item;
 }
 
@@ -451,8 +479,13 @@ async function loadDecks(): Promise<void> {
     fetch('/api/decks'),
     fetch('/api/my-decks'),
   ]);
-  const catalog = catalogResp.ok ? await catalogResp.json() as { id: string; name: string; alignment: string }[] : [];
-  const myDecks = myResp.ok ? await myResp.json() as { id: string; name: string; alignment: string }[] : [];
+  type CatalogDeck = DeckSummary & Record<string, unknown>;
+  const catalog = catalogResp.ok ? await catalogResp.json() as CatalogDeck[] : [];
+  const myData = myResp.ok
+    ? await myResp.json() as { decks: DeckSummary[]; currentDeck: string | null }
+    : { decks: [], currentDeck: null };
+  const myDecks = myData.decks;
+  currentDeckId = myData.currentDeck;
   ownedDeckIds = new Set(myDecks.map(d => d.id));
 
   // Render my decks
@@ -462,7 +495,7 @@ async function loadDecks(): Promise<void> {
     myContainer.innerHTML = '<p class="lobby-empty">No decks yet — add one from the catalog below</p>';
   } else {
     for (const deck of myDecks) {
-      myContainer.appendChild(renderDeckItem(deck, true));
+      myContainer.appendChild(renderMyDeckItem(deck, deck.id === currentDeckId));
     }
   }
 
@@ -473,11 +506,21 @@ async function loadDecks(): Promise<void> {
     catContainer.innerHTML = '<p class="lobby-empty">No decks available</p>';
   } else {
     for (const deck of catalog) {
-      catContainer.appendChild(renderDeckItem(deck, ownedDeckIds.has(deck.id), () => {
+      catContainer.appendChild(renderCatalogDeckItem(deck, ownedDeckIds.has(deck.id), () => {
         void addDeckToCollection(deck);
       }));
     }
   }
+}
+
+/** Set a deck as the player's current deck, then refresh. */
+async function selectDeck(deckId: string): Promise<void> {
+  await fetch('/api/my-decks/current', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ deckId }),
+  });
+  await loadDecks();
 }
 
 /** Add a catalog deck to the player's collection, then refresh. */

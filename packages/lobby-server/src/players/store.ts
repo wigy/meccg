@@ -85,6 +85,27 @@ export function savePlayerDeck(name: string, deck: { id: string; [key: string]: 
   fs.writeFileSync(path.join(dir, filename), JSON.stringify(deck, null, 2));
 }
 
+// ---- Current deck selection ----
+
+/** Path to the file storing the player's current deck ID. */
+function currentDeckPath(name: string): string {
+  return path.join(PLAYERS_DIR, toDirName(name), 'current-deck');
+}
+
+/** Get the player's currently selected deck ID, or null if none. */
+export function getCurrentDeck(name: string): string | null {
+  try {
+    return fs.readFileSync(currentDeckPath(name), 'utf-8').trim() || null;
+  } catch {
+    return null;
+  }
+}
+
+/** Set the player's currently selected deck ID. */
+export function setCurrentDeck(name: string, deckId: string): void {
+  fs.writeFileSync(currentDeckPath(name), deckId);
+}
+
 /** Save a new player record. Throws if the name is already taken. */
 export function createPlayer(record: PlayerRecord): void {
   ensureDir();

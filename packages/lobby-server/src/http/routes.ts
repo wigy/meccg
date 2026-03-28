@@ -7,8 +7,9 @@
  * - POST /api/logout — clear session cookie
  * - GET /api/me — return current player name from session
  * - GET /api/decks — list all decks in the catalog
- * - GET /api/my-decks — list decks in the player's collection
+ * - GET /api/my-decks — list decks in the player's collection + current selection
  * - POST /api/my-decks — add a deck to the player's collection
+ * - PUT /api/my-decks/current — set the player's current deck
  * - GET /cards/images/* — card image proxy with disk cache
  * - GET /* — static files from web-client/public/
  *
@@ -24,7 +25,7 @@ import * as os from 'os';
 import { cardImageRawUrl } from '@meccg/shared';
 import { DEV } from '../config.js';
 import { lobbyLog } from '../lobby-log.js';
-import { findPlayer, findPlayerByEmail, createPlayer, listPlayerDecks, savePlayerDeck } from '../players/store.js';
+import { findPlayer, findPlayerByEmail, createPlayer, listPlayerDecks, savePlayerDeck, getCurrentDeck, setCurrentDeck } from '../players/store.js';
 import { hashPassword, verifyPassword } from '../auth/password.js';
 import { signLobbyToken } from '../auth/jwt.js';
 import { getSessionPlayer, setSessionCookie, clearSessionCookie } from '../auth/session.js';
@@ -300,10 +301,27 @@ export async function handleRequest(req: http.IncomingMessage, res: http.ServerR
     if (!playerName) { sendJson(res, 401, { error: 'Not logged in' }); return; }
     try {
       const decks = listPlayerDecks(playerName);
-      sendJson(res, 200, decks);
+      const currentDeck = getCurrentDeck(playerName);
+      sendJson(res, 200, { decks, currentDeck });
     } catch (err) {
       lobbyLog.log('error', { context: 'my-decks', error: String(err) });
       sendJson(res, 500, { error: 'Failed to load decks' });
+    }
+    return;
+  }
+
+  if (urlPath === '/api/my-decks/current' && method === 'PUT') {
+    const playerName = getSessionPlayer(req);
+    if (!playerName) { sendJson(res, 401, { error: 'Not logged in' }); return; }
+    try {
+      const body = JSON.parse(await readBody(req)) as { deckId?: string };
+      if (!body.deckId) { sendJson(res, 400, { error: 'deckId is required' }); return; }
+      setCurrentDeck(playerName, body.deckId);
+      sendJson(res, 200, { ok: true, currentDeck: body.deckId });
+      lobbyLog.log('deck-selected', { player: playerName, deck: body.deckId });
+    } catch (err) {
+      lobbyLog.log('error', { context: 'select-deck', error: String(err) });
+      sendJson(res, 500, { error: 'Failed to select deck' });
     }
     return;
   }
