@@ -805,10 +805,12 @@ function connectLobbyWs(): void {
           const toast = document.createElement('div');
           toast.className = 'toast toast--system';
           toast.textContent = msg.message as string;
+          const closeBtn = document.createElement('span');
+          closeBtn.className = 'toast-close';
+          closeBtn.textContent = '\u2715';
+          closeBtn.addEventListener('click', () => toast.remove());
+          toast.appendChild(closeBtn);
           container.appendChild(toast);
-          toast.addEventListener('animationend', (e) => {
-            if (e.animationName === 'toast-out') toast.remove();
-          });
         }
         break;
       }

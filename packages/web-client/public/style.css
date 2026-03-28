@@ -1495,7 +1495,22 @@ h2 {
 }
 
 .toast--system {
-  animation: toast-in 0.3s ease forwards, toast-out 0.4s ease 8s forwards;
+  color: rgba(220, 140, 130, 0.95);
+  background: rgba(40, 12, 10, 0.9);
+  border-color: rgba(220, 140, 130, 0.4);
+  animation: toast-in 0.3s ease forwards;
+  pointer-events: auto;
+  cursor: default;
+}
+
+.toast--system .toast-close {
+  margin-left: 0.6rem;
+  cursor: pointer;
+  opacity: 0.6;
+}
+
+.toast--system .toast-close:hover {
+  opacity: 1;
 }
 
 @keyframes toast-in {
