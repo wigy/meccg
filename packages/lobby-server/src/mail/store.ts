@@ -14,7 +14,7 @@ import * as path from 'path';
 import { PLAYERS_DIR } from '../config.js';
 import { notifyPlayer } from '../lobby/lobby.js';
 import { toDirName } from '../players/store.js';
-import type { MailMessage, MailSender, MailTopic } from './types.js';
+import type { MailMessage, MailSender, MailStatus, MailTopic } from './types.js';
 
 /** Path to a player's mail inbox directory. */
 function inboxDir(playerName: string): string {
@@ -110,6 +110,23 @@ export function readMessage(playerName: string, msgId: string): MailMessage | nu
       return updated;
     }
     return message;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Update a message's status and optionally set the success field.
+ *
+ * @returns The updated message, or null if not found.
+ */
+export function updateMessageStatus(playerName: string, msgId: string, status: MailStatus, success?: boolean): MailMessage | null {
+  const filePath = path.join(inboxDir(playerName), `${msgId}.json`);
+  try {
+    const message = JSON.parse(fs.readFileSync(filePath, 'utf-8')) as MailMessage;
+    const updated: MailMessage = { ...message, status, ...(success !== undefined ? { success } : {}) };
+    fs.writeFileSync(filePath, JSON.stringify(updated, null, 2));
+    return updated;
   } catch {
     return null;
   }

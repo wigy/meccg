@@ -6,8 +6,8 @@
  * asynchronous communication between the server/AI and players.
  */
 
-/** Message status lifecycle: new → read → deleted. */
-export type MailStatus = 'new' | 'read' | 'deleted';
+/** Message status lifecycle: new → read → deleted, or new → processing → processed. */
+export type MailStatus = 'new' | 'read' | 'deleted' | 'processing' | 'processed';
 
 /** Who originated the message. */
 export type MailSender = 'ai' | 'server';
@@ -43,4 +43,6 @@ export interface MailMessage {
   readonly subject: string;
   /** Named references relevant to this message (e.g. deckId, cardName). */
   readonly keywords: Readonly<Record<string, string>>;
+  /** Whether processing succeeded. Only set when status is 'processed'. */
+  readonly success?: boolean;
 }

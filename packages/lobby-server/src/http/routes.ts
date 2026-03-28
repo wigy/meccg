@@ -28,8 +28,8 @@ import * as os from 'os';
 import { cardImageRawUrl } from '@meccg/shared';
 import { DEV, MASTER_KEY } from '../config.js';
 import { broadcastNotification } from '../lobby/lobby.js';
-import { sendMail, listInbox, readMessage, deleteMessage, markAllUnread, countUnread } from '../mail/store.js';
-import type { MailSender, MailTopic } from '../mail/types.js';
+import { sendMail, listInbox, readMessage, deleteMessage, markAllUnread, updateMessageStatus, countUnread } from '../mail/store.js';
+import type { MailSender, MailStatus, MailTopic } from '../mail/types.js';
 import { lobbyLog } from '../lobby-log.js';
 import { findPlayer, findPlayerByEmail, createPlayer, listPlayerDecks, savePlayerDeck, getCurrentDeck, setCurrentDeck, getDisplayName, setDisplayName, touchLastMailView, listCardRequests, addCardRequest, listAllCardRequests, findCardRequestById } from '../players/store.js';
 import { hashPassword, verifyPassword } from '../auth/password.js';
@@ -508,6 +508,23 @@ export async function handleRequest(req: http.IncomingMessage, res: http.ServerR
       } catch (err) {
         lobbyLog.log('error', { context: 'system-mail', error: String(err) });
         sendJson(res, 500, { error: 'Failed to send mail' });
+      }
+      return;
+    }
+
+    const systemMailMatch = urlPath.match(/^\/api\/system\/mail\/([a-z-]+)\/([a-f0-9]+)$/);
+    if (systemMailMatch && method === 'PUT') {
+      try {
+        const [, playerName, msgId] = systemMailMatch;
+        const body = JSON.parse(await readBody(req)) as { status?: MailStatus; success?: boolean };
+        if (!body.status) { sendJson(res, 400, { error: 'status is required' }); return; }
+        const updated = updateMessageStatus(playerName, msgId, body.status, body.success);
+        if (!updated) { sendJson(res, 404, { error: 'Message not found' }); return; }
+        lobbyLog.log('system-mail-update', { player: playerName, msgId, status: body.status, success: body.success });
+        sendJson(res, 200, { ok: true, message: updated });
+      } catch (err) {
+        lobbyLog.log('error', { context: 'system-mail-update', error: String(err) });
+        sendJson(res, 500, { error: 'Failed to update message' });
       }
       return;
     }
