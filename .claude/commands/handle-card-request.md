@@ -58,7 +58,7 @@ Follow these steps:
 
 6. **Add to data file:** Append the new card definition to the target JSON array file.
 
-7. **Update deck file:** In `data/decks/<deckId>.json`, find the entry with matching `name` and set its `card` field to the new card definition ID. Do this for ALL deck files that contain this card name (not just the requesting deck).
+7. **Update deck files:** In `data/decks/<deckId>.json`, find the entry with matching `name` and set its `card` field to the new card definition ID. Do this for ALL deck files that contain this card name (not just the requesting deck). Also update player deck copies in `~/.meccg/players/*/decks/` — search all player directories for decks containing this card name and update them too.
 
 8. **Add card ID constant:** If the card is likely to be referenced in game logic, add a constant to `packages/shared/src/card-ids.ts`.
 

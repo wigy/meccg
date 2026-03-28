@@ -6,7 +6,7 @@
     "build": "tsc",
     "check": "tsc --noEmit",
     "start": "npx tsx src/server.ts",
-    "dev": "nodemon --watch src --watch ../shared/src --watch ../web-client/public --ext ts,json,html,css,js --exec 'npx tsx src/server.ts --dev'"
+    "dev": "nodemon --watch src --watch ../shared/src --watch ../web-client/public --ext ts,json,html,css,js --exec 'npm run build -w @meccg/web-client && npx tsx src/server.ts --dev'"
   },
   "dependencies": {
     "@meccg/shared": "*",
