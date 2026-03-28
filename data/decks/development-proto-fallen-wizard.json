@@ -1,0 +1,40 @@
+{
+  "id": "development-proto-fallen-wizard",
+  "name": "Fallen Wizard (Development only)",
+  "alignment": "fallen-wizard",
+  "pool": [
+    { "name": "Mionid", "card": "as-3", "qty": 1 },
+    { "name": "Perchen", "card": "as-4", "qty": 1 },
+    { "name": "Théoden", "card": "tw-182", "qty": 1 },
+    { "name": "Beregond", "card": "tw-127", "qty": 1 },
+    { "name": "Anborn", "card": "tw-118", "qty": 1 },
+    { "name": "Hidden Haven", "card": "wh-75", "qty": 1 }
+  ],
+  "deck": {
+    "characters": [
+      { "name": "Legolas", "card": "tw-168", "qty": 1 },
+      { "name": "Gimli", "card": "tw-159", "qty": 1 },
+      { "name": "Faramir", "card": "tw-149", "qty": 1 },
+      { "name": "Beorn", "card": "tw-126", "qty": 1 },
+      { "name": "Glorfindel II", "card": "tw-161", "qty": 1 }
+    ],
+    "hazards": [
+      { "name": "Cave-drake", "card": "tw-020", "qty": 3 },
+      { "name": "Orc-patrol", "card": "tw-074", "qty": 3 },
+      { "name": "Barrow-wight", "card": "tw-015", "qty": 3 }
+    ],
+    "resources": []
+  },
+  "sites": [
+    { "name": "The White Towers", "card": "wh-58", "qty": 4 },
+    { "name": "Ettenmoors", "card": "tw-395", "qty": 1 },
+    { "name": "The White Towers", "card": "tw-430", "qty": 1 },
+    { "name": "Moria", "card": "tw-413", "qty": 1 },
+    { "name": "Minas Tirith", "card": "tw-412", "qty": 1 },
+    { "name": "Dol Guldur", "card": "le-367", "qty": 1 },
+    { "name": "Minas Morgul", "card": "le-390", "qty": 1 },
+    { "name": "Ettenmoors", "card": "le-373", "qty": 1 },
+    { "name": "The White Towers", "card": "le-412", "qty": 1 },
+    { "name": "Weathertop", "card": "as-169", "qty": 1 }
+  ]
+}

@@ -1,0 +1,31 @@
+{
+  "id": "development-proto-balrog",
+  "name": "The Balrog (Development only)",
+  "alignment": "balrog",
+  "pool": [
+    { "name": "Azog", "card": "ba-2", "qty": 1 },
+    { "name": "Bolg", "card": "ba-4", "qty": 1 },
+    { "name": "Gorbag", "card": "le-11", "qty": 1 },
+    { "name": "Shagrat", "card": "le-39", "qty": 1 },
+    { "name": "Saw-toothed Blade", "card": "le-342", "qty": 1 },
+    { "name": "Orc-draughts", "card": "le-328", "qty": 1 }
+  ],
+  "deck": {
+    "characters": [],
+    "hazards": [
+      { "name": "Cave-drake", "card": "tw-020", "qty": 3 },
+      { "name": "Orc-patrol", "card": "tw-074", "qty": 3 },
+      { "name": "Barrow-wight", "card": "tw-015", "qty": 3 }
+    ],
+    "resources": []
+  },
+  "sites": [
+    { "name": "Moria", "card": "ba-93", "qty": 4 },
+    { "name": "The Under-gates", "card": "ba-100", "qty": 4 },
+    { "name": "Dol Guldur", "card": "le-367", "qty": 1 },
+    { "name": "Minas Morgul", "card": "le-390", "qty": 1 },
+    { "name": "Ettenmoors", "card": "le-373", "qty": 1 },
+    { "name": "The White Towers", "card": "le-412", "qty": 1 },
+    { "name": "Weathertop", "card": "as-169", "qty": 1 }
+  ]
+}
