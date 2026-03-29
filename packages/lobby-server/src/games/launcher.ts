@@ -36,6 +36,8 @@ export interface LaunchResult {
 export interface LaunchOptions {
   /** Whether player2 is an AI (spawn a headless AI client). */
   ai?: boolean;
+  /** Catalog deck ID for the AI opponent to use. */
+  aiDeckId?: string;
 }
 
 /**
@@ -104,7 +106,9 @@ export async function launchGame(player1: string, player2: string, options?: Lau
   // If this is an AI game, spawn the AI client now (server is ready)
   if (options?.ai) {
     const aiScript = path.join(__dirname, './ai-client.ts');
-    const aiChild = spawn('npx', ['tsx', aiScript, String(port), player2, tokens[1]], {
+    const aiArgs = ['tsx', aiScript, String(port), player2, tokens[1]];
+    if (options?.aiDeckId) aiArgs.push('--deck', options.aiDeckId);
+    const aiChild = spawn('npx', aiArgs, {
       env: process.env,
       stdio: ['ignore', 'pipe', 'pipe'],
     });

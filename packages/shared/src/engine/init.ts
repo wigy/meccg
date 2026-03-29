@@ -63,7 +63,6 @@ export interface PlayerConfig {
   readonly draftPool: readonly CardDefinitionId[];           // characters + starting minor items for the draft
   readonly playDeck: readonly CardDefinitionId[];
   readonly siteDeck: readonly CardDefinitionId[];
-  readonly startingHavens: readonly CardDefinitionId[];
 }
 
 /**
@@ -189,14 +188,6 @@ function initPlayerPreDraft(
   minter: InstanceMinter,
   rng: RngState,
 ): [PlayerState, RngState] {
-  // Validate havens
-  for (const havenId of config.startingHavens) {
-    const havenDef = cardPool[havenId as string];
-    if (!isSiteCard(havenDef)) {
-      throw new Error(`Starting haven '${havenId}' not found or not a site`);
-    }
-  }
-
   // Mint and shuffle play deck (no hand dealt yet — that happens after draft)
   const playDeckDefIds = config.playDeck.map(defId => mint(minter, defId));
   let shuffledDeck: CardInstanceId[];
@@ -424,7 +415,6 @@ export interface QuickStartPlayerConfig {
   readonly startingCharacters: readonly CardDefinitionId[];
   readonly playDeck: readonly CardDefinitionId[];
   readonly siteDeck: readonly CardDefinitionId[];
-  readonly startingHavens: readonly CardDefinitionId[];
 }
 
 /** Game configuration for the quick-start (draft-free) path. */
@@ -484,13 +474,12 @@ function initPlayerWithCharacters(
   minter: InstanceMinter,
   rng: RngState,
 ): [PlayerState, RngState] {
-  const firstHaven = config.startingHavens[0];
+  const firstHaven = config.siteDeck.find(defId => {
+    const def = cardPool[defId as string];
+    return isSiteCard(def) && def.siteType === 'haven';
+  });
   if (!firstHaven) {
-    throw new Error('No starting havens specified');
-  }
-  const havenDef = cardPool[firstHaven as string];
-  if (!isSiteCard(havenDef)) {
-    throw new Error(`Starting haven '${firstHaven}' not found or not a site`);
+    throw new Error('No haven found in site deck');
   }
   const havenInstanceId = mint(minter, firstHaven);
 

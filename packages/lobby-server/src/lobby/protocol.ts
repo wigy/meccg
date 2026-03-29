@@ -29,6 +29,8 @@ export interface DeclineChallengeMessage {
 /** Start a game against the AI. */
 export interface PlayAiMessage {
   readonly type: 'play-ai';
+  /** Catalog deck ID for the AI opponent to use. */
+  readonly deckId: string;
 }
 
 /** Union of all client → lobby messages. */

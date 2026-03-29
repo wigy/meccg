@@ -148,7 +148,7 @@ function handleMessage(fromName: string, msg: LobbyClientMessage): void {
         send(from.ws, { type: 'error', message: 'You are already in a game' });
         return;
       }
-      void startAiGame(from);
+      void startAiGame(from, msg.deckId);
       break;
     }
   }
@@ -197,12 +197,12 @@ async function startGame(player1: OnlinePlayer, player2: OnlinePlayer): Promise<
 }
 
 /** Launch a game against the AI. */
-async function startAiGame(player: OnlinePlayer): Promise<void> {
+async function startAiGame(player: OnlinePlayer, deckId: string): Promise<void> {
   player.inGame = true;
   const aiName = 'AI-Random';
 
   try {
-    const result = await launchGame(player.name, aiName, { ai: true });
+    const result = await launchGame(player.name, aiName, { ai: true, aiDeckId: deckId });
     lobbyLog.log('game-start', { player1: player.name, player2: aiName, ai: true, port: result.port });
 
     send(player.ws, {

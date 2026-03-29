@@ -65,12 +65,12 @@ describe('1.9 Character draft', () => {
         {
           id: PLAYER_1, name: 'Alice', alignment: Alignment.Wizard,
           draftPool: [ARAGORN, BILBO],
-          playDeck: makePlayDeck(), siteDeck: [MORIA], startingHavens: [RIVENDELL],
+          playDeck: makePlayDeck(), siteDeck: [RIVENDELL, MORIA],
         },
         {
           id: PLAYER_2, name: 'Bob', alignment: Alignment.Wizard,
           draftPool: [ARAGORN, LEGOLAS],
-          playDeck: makePlayDeck(), siteDeck: [MORIA], startingHavens: [LORIEN],
+          playDeck: makePlayDeck(), siteDeck: [LORIEN, MORIA],
         },
       ],
       seed: 42,
@@ -110,12 +110,12 @@ describe('1.9 Character draft', () => {
         {
           id: PLAYER_1, name: 'Alice', alignment: Alignment.Wizard,
           draftPool: [BILBO, FRODO, EOWYN, BERGIL, BARD_BOWMAN, BEREGOND],
-          playDeck: makePlayDeck(), siteDeck: [MORIA], startingHavens: [RIVENDELL],
+          playDeck: makePlayDeck(), siteDeck: [RIVENDELL, MORIA],
         },
         {
           id: PLAYER_2, name: 'Bob', alignment: Alignment.Wizard,
           draftPool: [LEGOLAS, GIMLI, ANBORN, SAM_GAMGEE, FARAMIR, ARAGORN],
-          playDeck: makePlayDeck(), siteDeck: [MORIA], startingHavens: [LORIEN],
+          playDeck: makePlayDeck(), siteDeck: [LORIEN, MORIA],
         },
       ],
       seed: 42,
@@ -175,12 +175,12 @@ describe('1.9 Character draft', () => {
         {
           id: PLAYER_1, name: 'Alice', alignment: Alignment.Wizard,
           draftPool: [BILBO],
-          playDeck: makePlayDeck(), siteDeck: [MORIA], startingHavens: [RIVENDELL],
+          playDeck: makePlayDeck(), siteDeck: [RIVENDELL, MORIA],
         },
         {
           id: PLAYER_2, name: 'Bob', alignment: Alignment.Wizard,
           draftPool: [LEGOLAS],
-          playDeck: makePlayDeck(), siteDeck: [MORIA], startingHavens: [LORIEN],
+          playDeck: makePlayDeck(), siteDeck: [LORIEN, MORIA],
         },
       ],
       seed: 42,
@@ -298,7 +298,7 @@ describe('1.10 Starting sites', () => {
   test('[HERO] Wizard starting company begins at Rivendell', () => {
     const config = makeQuickStartConfig();
     // Wizard player must start at Rivendell
-    expect(config.players[0].startingHavens).toContain(RIVENDELL);
+    expect(config.players[0].siteDeck).toContain(RIVENDELL);
   });
 
   test('starting sites declared after character draft', () => {

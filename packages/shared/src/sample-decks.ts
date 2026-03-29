@@ -86,7 +86,7 @@ const heroDeck: SampleDeck = {
         ...repeatCards([SUN], 2), ...repeatCards([DOORS_OF_NIGHT], 3), ...repeatCards([EYE_OF_SAURON], 2), ...repeatCards([WAKE_OF_WAR], 2), ...repeatCards([TWILIGHT], 3)],
       siteDeck: [RIVENDELL, LORIEN, EDHELLOND, GREY_HAVENS, MORIA, MINAS_TIRITH, MOUNT_DOOM,
         BARROW_DOWNS, EAGLES_EYRIE, HENNETH_ANNUN, OLD_FOREST, BAG_END],
-      startingHavens: [RIVENDELL],
+
     };
   },
 };
@@ -105,7 +105,7 @@ const minionDeck: SampleDeck = {
         SAW_TOOTHED_BLADE, ORC_DRAUGHTS],
       playDeck: repeatCards(hazards, 3),
       siteDeck: [DOL_GULDUR, MINAS_MORGUL, ETTENMOORS, THE_WHITE_TOWERS_MINION, WEATHERTOP],
-      startingHavens: [DOL_GULDUR],
+
     };
   },
 };
@@ -125,7 +125,7 @@ const fallenWizardDeck: SampleDeck = {
       playDeck: [...characters, ...repeatCards(hazards, 3)],
       siteDeck: [THE_WHITE_TOWERS, ETTENMOORS_HERO, THE_WHITE_TOWERS_HERO, MORIA, MINAS_TIRITH,
         DOL_GULDUR, MINAS_MORGUL, ETTENMOORS, THE_WHITE_TOWERS_MINION, WEATHERTOP],
-      startingHavens: [THE_WHITE_TOWERS],
+
     };
   },
 };
@@ -144,7 +144,7 @@ const balrogDeck: SampleDeck = {
       playDeck: repeatCards(hazards, 3),
       siteDeck: [MORIA_BALROG, THE_UNDER_GATES, DOL_GULDUR, MINAS_MORGUL,
         ETTENMOORS, THE_WHITE_TOWERS_MINION, WEATHERTOP],
-      startingHavens: [MORIA_BALROG],
+
     };
   },
 };

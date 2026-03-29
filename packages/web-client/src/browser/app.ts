@@ -6,8 +6,8 @@
  * renders game state, and sends actions on button click.
  */
 
-import type { ServerMessage, ClientMessage, GameAction, CardDefinitionId } from '@meccg/shared';
-import { loadCardPool, describeAction, buildCompanyNames, cardImageProxyPath, SAMPLE_DECKS } from '@meccg/shared';
+import type { ServerMessage, ClientMessage, GameAction, CardDefinitionId, JoinMessage } from '@meccg/shared';
+import { loadCardPool, describeAction, buildCompanyNames, cardImageProxyPath, SAMPLE_DECKS, Alignment } from '@meccg/shared';
 import { renderState, renderDraft, renderMHInfo, renderSiteInfo, renderFreeCouncilInfo, renderGameOverView, renderActions, renderLog, renderHand, renderOpponentHand, renderPlayerNames, renderInstructions, renderDrafted, renderPassButton, renderDeckPiles, resetDeckPiles, setupCardPreview, showNotification, prepareSiteSelection, clearSiteSelection, renderChainPanel, buildCardAttributes } from './render.js';
 import { renderCompanyViews, resetCompanyViews } from './company-view.js';
 import { rollDice, clearDice, restoreDice, waitForDice } from './dice.js';
@@ -114,8 +114,13 @@ function connect(name: string): void {
 
   ws.onopen = () => {
     renderLog('Connected. Sending join...');
-    const deck = SAMPLE_DECKS[selectedDeckIndex];
-    const joinMsg = deck.buildJoinMessage(name);
+    let joinMsg: JoinMessage;
+    if (LOBBY_MODE && currentFullDeck) {
+      joinMsg = buildJoinFromDeck(currentFullDeck, name);
+    } else {
+      const deck = SAMPLE_DECKS[selectedDeckIndex];
+      joinMsg = deck.buildJoinMessage(name);
+    }
     // In lobby mode, attach the game token for authentication
     const msg = gameToken ? { ...joinMsg, token: gameToken } : joinMsg;
     ws!.send(JSON.stringify(msg));
@@ -431,8 +436,57 @@ interface FullDeck extends DeckSummary {
   sites: DeckListEntry[];
 }
 
+/** The current player's selected deck, loaded from the lobby API. */
+let currentFullDeck: FullDeck | null = null;
+
+/** Return names of cards that have no card ID (not yet created). */
+function missingCards(deck: FullDeck): string[] {
+  const allEntries = [
+    ...deck.pool,
+    ...deck.deck.characters, ...deck.deck.hazards, ...deck.deck.resources,
+    ...deck.sites,
+  ];
+  return allEntries.filter(e => e.card === null).map(e => e.name);
+}
+
+/** Map deck file alignment strings to the Alignment enum used in JoinMessage. */
+const ALIGNMENT_MAP: Record<string, Alignment> = {
+  hero: Alignment.Wizard,
+  minion: Alignment.Ringwraith,
+  'fallen-wizard': Alignment.FallenWizard,
+  balrog: Alignment.Balrog,
+};
+
+/** Expand deck list entries into repeated card IDs, filtering out unimplemented cards. */
+function expandEntries(entries: DeckListEntry[]): CardDefinitionId[] {
+  const ids: CardDefinitionId[] = [];
+  for (const e of entries) {
+    if (e.card !== null) {
+      for (let i = 0; i < e.qty; i++) ids.push(e.card as CardDefinitionId);
+    }
+  }
+  return ids;
+}
+
+/** Build a JoinMessage from a player deck, filtering out unimplemented cards. */
+function buildJoinFromDeck(deck: FullDeck, playerName: string): JoinMessage {
+  return {
+    type: 'join',
+    name: playerName,
+    alignment: ALIGNMENT_MAP[deck.alignment] ?? Alignment.Wizard,
+    draftPool: expandEntries(deck.pool),
+    playDeck: [
+      ...expandEntries(deck.deck.characters),
+      ...expandEntries(deck.deck.resources),
+      ...expandEntries(deck.deck.hazards),
+    ],
+    siteDeck: expandEntries(deck.sites),
+  };
+}
+
 /** Render a deck item row for "My Decks" — click to select as current. */
-function renderMyDeckItem(deck: DeckSummary, isCurrent: boolean): HTMLElement {
+function renderMyDeckItem(deck: FullDeck, isCurrent: boolean): HTMLElement {
+  const missing = missingCards(deck);
   const item = document.createElement('div');
   item.className = 'lobby-deck-item lobby-deck-item--owned' + (isCurrent ? ' lobby-deck-item--current' : '');
   const info = document.createElement('div');
@@ -445,6 +499,13 @@ function renderMyDeckItem(deck: DeckSummary, isCurrent: boolean): HTMLElement {
   meta.textContent = deck.alignment + (isCurrent ? ' — selected' : '');
   info.appendChild(nameEl);
   info.appendChild(meta);
+  if (missing.length > 0) {
+    const warn = document.createElement('span');
+    warn.className = 'lobby-deck-warning';
+    warn.textContent = `\u26A0 ${missing.length} missing card${missing.length > 1 ? 's' : ''}`;
+    warn.title = missing.join(', ');
+    info.appendChild(warn);
+  }
   item.appendChild(info);
   const btns = document.createElement('div');
   btns.style.display = 'flex';
@@ -469,7 +530,8 @@ function renderMyDeckItem(deck: DeckSummary, isCurrent: boolean): HTMLElement {
 }
 
 /** Render a deck item row for the catalog — "Add" or "Owned". */
-function renderCatalogDeckItem(deck: DeckSummary, owned: boolean, onAdd: () => void): HTMLElement {
+function renderCatalogDeckItem(deck: FullDeck, owned: boolean, onAdd: () => void): HTMLElement {
+  const missing = missingCards(deck);
   const item = document.createElement('div');
   item.className = 'lobby-deck-item';
   const info = document.createElement('div');
@@ -482,6 +544,13 @@ function renderCatalogDeckItem(deck: DeckSummary, owned: boolean, onAdd: () => v
   meta.textContent = deck.alignment;
   info.appendChild(nameEl);
   info.appendChild(meta);
+  if (missing.length > 0) {
+    const warn = document.createElement('span');
+    warn.className = 'lobby-deck-warning';
+    warn.textContent = `\u26A0 ${missing.length} missing card${missing.length > 1 ? 's' : ''}`;
+    warn.title = missing.join(', ');
+    info.appendChild(warn);
+  }
   item.appendChild(info);
   const btn = document.createElement('button');
   if (owned) {
@@ -505,13 +574,13 @@ async function loadDecks(): Promise<void> {
     fetch('/api/decks'),
     fetch('/api/my-decks'),
   ]);
-  type CatalogDeck = DeckSummary & Record<string, unknown>;
-  const catalog = catalogResp.ok ? await catalogResp.json() as CatalogDeck[] : [];
+  const catalog = catalogResp.ok ? await catalogResp.json() as FullDeck[] : [];
   const myData = myResp.ok
-    ? await myResp.json() as { decks: DeckSummary[]; currentDeck: string | null }
-    : { decks: [], currentDeck: null };
+    ? await myResp.json() as { decks: FullDeck[]; currentDeck: string | null }
+    : { decks: [] as FullDeck[], currentDeck: null };
   const myDecks = myData.decks;
   currentDeckId = myData.currentDeck;
+  currentFullDeck = myDecks.find(d => d.id === currentDeckId) ?? null;
   ownedDeckIds = new Set(myDecks.map(d => d.id));
 
   // Render my decks
@@ -536,6 +605,17 @@ async function loadDecks(): Promise<void> {
         void addDeckToCollection(deck);
       }));
     }
+  }
+
+  // Populate AI deck dropdown
+  const aiSelect = document.getElementById('ai-deck-select') as HTMLSelectElement;
+  aiSelect.innerHTML = '';
+  for (const deck of catalog) {
+    const opt = document.createElement('option');
+    opt.value = deck.id;
+    const missing = missingCards(deck);
+    opt.textContent = missing.length > 0 ? `\u26A0 ${deck.name}` : deck.name;
+    aiSelect.appendChild(opt);
   }
 }
 
@@ -1321,7 +1401,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     playAiBtn.addEventListener('click', () => {
       if (lobbyWs && lobbyWs.readyState === WebSocket.OPEN) {
-        lobbyWs.send(JSON.stringify({ type: 'play-ai' }));
+        const aiDeckSelect = document.getElementById('ai-deck-select') as HTMLSelectElement;
+        lobbyWs.send(JSON.stringify({ type: 'play-ai', deckId: aiDeckSelect.value }));
         playAiBtn.textContent = 'Starting...';
         playAiBtn.disabled = true;
       }

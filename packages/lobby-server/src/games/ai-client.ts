@@ -5,20 +5,71 @@
  * and makes random legal moves. Spawned as a child process by the
  * game launcher when a player starts a game against AI.
  *
- * Usage: npx tsx ai-client.ts <port> <playerName> <token>
+ * Usage: npx tsx ai-client.ts <port> <playerName> <token> --deck <deckId>
  */
 
 import { WebSocket } from 'ws';
-import type { ServerMessage, ClientMessage, GameAction, EvaluatedAction } from '@meccg/shared';
-import { SAMPLE_DECKS } from '@meccg/shared';
+import * as fs from 'fs';
+import * as path from 'path';
+import type { ServerMessage, ClientMessage, GameAction, EvaluatedAction, CardDefinitionId } from '@meccg/shared';
+import { Alignment } from '@meccg/shared';
+import type { JoinMessage } from '@meccg/shared';
 
-const PORT = parseInt(process.argv[2], 10);
-const PLAYER_NAME = process.argv[3];
-const TOKEN = process.argv[4];
+const args = process.argv.filter(a => !a.startsWith('--'));
+const PORT = parseInt(args[2], 10);
+const PLAYER_NAME = args[3];
+const TOKEN = args[4];
+const DECK_FLAG_IDX = process.argv.indexOf('--deck');
+const DECK_ID = DECK_FLAG_IDX >= 0 ? process.argv[DECK_FLAG_IDX + 1] : undefined;
 
-if (!PORT || !PLAYER_NAME || !TOKEN) {
-  console.error('Usage: ai-client <port> <playerName> <token>');
+if (!PORT || !PLAYER_NAME || !TOKEN || !DECK_ID) {
+  console.error('Usage: ai-client <port> <playerName> <token> --deck <deckId>');
   process.exit(1);
+}
+
+/** Deck file entry with optional card ID. */
+interface DeckEntry { name: string; card: string | null; qty: number }
+/** On-disk deck structure. */
+interface DeckFile {
+  id: string; name: string; alignment: string;
+  pool: DeckEntry[];
+  deck: { characters: DeckEntry[]; hazards: DeckEntry[]; resources: DeckEntry[] };
+  sites: DeckEntry[];
+}
+
+const DECK_CATALOG_DIR = path.join(__dirname, '../../../../data/decks');
+const ALIGNMENT_MAP: Record<string, Alignment> = {
+  hero: Alignment.Wizard,
+  minion: Alignment.Ringwraith,
+  'fallen-wizard': Alignment.FallenWizard,
+  balrog: Alignment.Balrog,
+};
+
+function expandEntries(entries: DeckEntry[]): CardDefinitionId[] {
+  const ids: CardDefinitionId[] = [];
+  for (const e of entries) {
+    if (e.card !== null) {
+      for (let i = 0; i < e.qty; i++) ids.push(e.card as CardDefinitionId);
+    }
+  }
+  return ids;
+}
+
+function loadDeckFile(deckId: string): JoinMessage {
+  const filePath = path.join(DECK_CATALOG_DIR, `${deckId}.json`);
+  const deck = JSON.parse(fs.readFileSync(filePath, 'utf-8')) as DeckFile;
+  return {
+    type: 'join',
+    name: PLAYER_NAME,
+    alignment: ALIGNMENT_MAP[deck.alignment] ?? Alignment.Wizard,
+    draftPool: expandEntries(deck.pool),
+    playDeck: [
+      ...expandEntries(deck.deck.characters),
+      ...expandEntries(deck.deck.resources),
+      ...expandEntries(deck.deck.hazards),
+    ],
+    siteDeck: expandEntries(deck.sites),
+  };
 }
 
 /** Action types that represent "doing nothing". */
@@ -51,10 +102,8 @@ function connect(): void {
   const ws = new WebSocket(url);
 
   ws.on('open', () => {
-    console.log('AI connected, sending join...');
-    // Use the hero sample deck
-    const deck = SAMPLE_DECKS[0];
-    const joinMsg = deck.buildJoinMessage(PLAYER_NAME);
+    console.log(`AI connected, sending join with deck "${DECK_ID}"...`);
+    const joinMsg = loadDeckFile(DECK_ID!);
     const msg: ClientMessage = { ...joinMsg, token: TOKEN } as ClientMessage;
     ws.send(JSON.stringify(msg));
   });
