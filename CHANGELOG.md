@@ -1,5 +1,58 @@
 # Changelog
 
+## 0.14.0 — 2026-03-29
+
+Internal mail system
+
+### Card Pool
+- **Smoke Rings (dm-159):** New resource event added from card request
+- **Concealment (tw-204):** New resource event added from card request
+- **Peath (tw-176), Ioreth (td-93), Haldir (tw-164), Balin (tw-123),
+  Saruman (tw-181), Cram (td-105):** New cards added via card request workflow
+
+### Web Client
+- **3-column lobby layout:** Decks in column 1, players and playing in column 2,
+  column 3 reserved for future use
+- **AI deck selection:** Pick any catalog deck for the AI opponent from a dropdown
+- **Saved game detection:** "Continue" or "Start New" prompt when a saved game
+  exists against AI
+- **Deck upload on game start:** Player's selected deck is sent as the join
+  message, filtering out unimplemented cards
+- **Personal deck ID prefixing:** Copied decks get `<username>-<deckId>` format
+- **Deck viewer sorting:** Cards sorted by type then alphabetically, unknown
+  cards at the bottom
+- **Missing card warnings:** Red warning icon on decks with unimplemented cards
+  in both personal and catalog listings
+- **Inbox screen:** Two-pane mail layout with markdown rendering
+- **System notifications:** Persistent reddish toasts with close button
+- **Mark all unread button** moved to top of message list
+
+### Lobby Server
+- **Internal mail system:** File-based inbox with send, read, delete, sent
+  folder, and replyTo support
+- **Mail API:** Endpoints for inbox, sent, mark-all-unread, and message
+  status management
+- **Admin review flow:** Approve/decline workflow for card requests with
+  waiting/approved statuses
+- **Display names:** Player display names with system player auto-creation
+- **Save management API:** Check for saved games and delete save files
+- **System API:** Admin notification broadcast and mail update endpoints
+
+### Game Engine
+- **Remove startingHavens:** Starting haven is now derived from the first
+  haven in the site deck, simplifying deck configuration
+- **Remove sample-decks:** All clients load decks from catalog JSON files
+  instead of hardcoded sample decks
+
+### Text Client
+- **Catalog deck loading:** `--deck` flag now loads from catalog files on disk
+
+### Infrastructure
+- **AI client deck loading:** AI loads deck from catalog files via `--deck` arg
+- **Mail glossary:** Added mail system terminology to project glossary
+- **AI processor command:** Automated mail queue processing skill
+- **Handle-mail skill:** Dispatch incoming mail to appropriate handlers
+
 ## 0.13.0 — 2026-03-28
 
 Decks on lobby
