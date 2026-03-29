@@ -65,6 +65,10 @@ Follow these steps:
      - If the feature was implemented and pushed: mark success.
      - If it failed: mark failure, send a reply mail explaining the error.
 
+   - **`bug-report`**: Use the **Agent tool** (not the Skill tool) to run the `/handle-bug-report` skill — read `.claude/commands/handle-bug-report.md`, substitute `$ARGUMENTS` with the message ID, and pass the full content as the agent prompt. After it completes:
+     - If the bug was fixed and pushed: mark success.
+     - If it failed: mark failure, send a reply mail explaining the error.
+
    - **`feature-request`** or **`bug-fix-request`**: These cannot be automatically handled. Mark as processed with `success: false`. Send a reply mail to the sender explaining that this type of request requires manual attention.
 
    - **Any other topic or missing keywords**: Mark as processed with `success: false`. Send a reply mail explaining the message could not be processed.
