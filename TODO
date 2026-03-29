@@ -7,7 +7,6 @@ FIXES
 FEATS
 -----
 
-Uploading Gccg deck format.
 
 EPICS
 -----
@@ -27,4 +26,4 @@ Tournaments
 UNSORTED
 --------
 
-Bugreport button in Settings dialog. Get explanation via dialog and if pressed Send instead of Cancel, save it to the ~/.meccg/bugs/<player name>/new/<running global bug number> with game save and game log. That can be later automatically handled by Claude.
+Uploading Gccg deck format.
