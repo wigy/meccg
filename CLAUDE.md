@@ -95,6 +95,11 @@ All server-side logic must include detailed logging so that the game's decision-
 
 - When adding or modifying card data, always fetch the card from the authoritative card database at https://raw.githubusercontent.com/council-of-elrond-meccg/meccg-cards-database/master/cards.json — never rely on model knowledge for card text, stats, or IDs. The database is keyed by set code (AS, BA, DM, LE, TD, TW, WH), each containing a `cards` dict keyed by card ID.
 
+### Card Certification
+
+- Card certification is the process of implementing a card's effects in the DSL and verifying with a test that the card works as its text defines.
+- When certifying a card that requires a new DSL effect type, add the new type to `docs/card-effects-dsl.md` alongside the implementation.
+
 ### Card Uniqueness Rules
 
 - Unique cards: only 1 copy allowed per deck.
