@@ -120,8 +120,18 @@ function connect(name: string): void {
   ws.onopen = () => {
     renderLog('Connected. Sending join...');
     if (!currentFullDeck) {
-      renderLog('Error: no deck selected');
-      ws!.close();
+      // Reconnecting to an existing game (e.g. page refresh) — the server
+      // already has the deck, so send a minimal join with just the name.
+      const minimalJoin: JoinMessage = {
+        type: 'join',
+        name,
+        alignment: Alignment.Wizard,
+        draftPool: [],
+        playDeck: [],
+        siteDeck: [],
+      };
+      const msg = gameToken ? { ...minimalJoin, token: gameToken } : minimalJoin;
+      ws!.send(JSON.stringify(msg));
       return;
     }
     const joinMsg = buildJoinFromDeck(currentFullDeck, name);
