@@ -1,0 +1,15 @@
+[
+  {
+    "cardType": "hero-resource-event",
+    "alignment": "wizard",
+    "id": "td-98",
+    "name": "And Forth He Hastened",
+    "image": "https://cdn.jsdelivr.net/gh/council-of-rivendell/meccg-remaster/en-remaster/td/AndForthHeHastened.jpg",
+    "unique": false,
+    "eventType": "short",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Untap a character in your Wizard's company."
+  }
+]

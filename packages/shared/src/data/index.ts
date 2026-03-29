@@ -38,6 +38,7 @@ import whSites from './wh-sites.json';
 // ---- The Dragons (TD) — dragon expansion ----
 import tdCharacters from './td-characters.json';
 import tdItems from './td-items.json';
+import tdResources from './td-resources.json';
 
 // ---- Dark Minions (DM) — expansion ----
 import dmHazards from './dm-hazards.json';
@@ -75,6 +76,7 @@ const allCards: readonly CardDefinition[] = [
   // The Dragons
   ...(tdCharacters as unknown as CardDefinition[]),
   ...(tdItems as unknown as CardDefinition[]),
+  ...(tdResources as unknown as CardDefinition[]),
   // Dark Minions
   ...(dmHazards as unknown as CardDefinition[]),
   ...(dmResources as unknown as CardDefinition[]),
