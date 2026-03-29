@@ -607,9 +607,9 @@ function renderCardList(container: HTMLElement, entries: DeckListEntry[], deckId
       if (style) nameEl.setAttribute('style', style);
       row.dataset.cardId = entry.card!;
       row.style.cursor = 'pointer';
-      if ('certified' in def && (def as Record<string, unknown>).certified) {
+      if ('certified' in def && (def as unknown as Record<string, unknown>).certified) {
         badge.textContent = '\u2605';
-        badge.title = `Certified ${(def as Record<string, unknown>).certified as string}`;
+        badge.title = `Certified ${(def as unknown as Record<string, unknown>).certified as string}`;
       }
     } else {
       row.classList.add('deck-editor-card--unknown');

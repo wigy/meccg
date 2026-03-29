@@ -80,7 +80,7 @@ function buildSitePhaseState(opts: {
     resourcePlayed: false,
     minorItemAvailable: false,
     declaredOnGuardAttacks: [],
-    declaredAgentAttack: false,
+    declaredAgentAttack: null,
     automaticAttacksResolved: 0,
   };
   return { ...state, phaseState: sitePhaseState };
