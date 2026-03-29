@@ -1592,6 +1592,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     document.getElementById('nav-mail')!.addEventListener('click', () => {
       sessionStorage.removeItem(VIEWING_DECKS_KEY);
+      sessionStorage.removeItem(EDITING_DECK_KEY);
       void openInbox();
     });
   }

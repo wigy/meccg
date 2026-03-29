@@ -285,8 +285,7 @@ h2 {
   display: flex;
   gap: 1rem;
   padding: 0 1rem 1rem;
-  height: calc(100vh - 60px);
-  overflow: hidden;
+  min-height: calc(100vh - 60px);
 }
 
 .inbox-list {
@@ -296,7 +295,10 @@ h2 {
   width: 320px;
   min-width: 260px;
   flex-shrink: 0;
+  max-height: calc(100vh - 60px);
   overflow-y: auto;
+  position: sticky;
+  top: 0;
 }
 
 .inbox-item {
@@ -374,7 +376,6 @@ h2 {
   background: rgba(255,255,255,0.05);
   border: 1px solid rgba(255,255,255,0.1);
   border-radius: 4px;
-  overflow-y: auto;
 }
 
 .inbox-msg-subject {
