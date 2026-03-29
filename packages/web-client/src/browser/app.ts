@@ -1013,6 +1013,15 @@ function renderMessage(messageEl: HTMLElement, full: InboxMessage): void {
             statusEl.className = `inbox-status inbox-status--${newStatus}`;
             statusEl.textContent = newStatus;
           }
+          // Also update the status badge in the mail list row
+          const listRow = document.querySelector(`.inbox-item[data-msg-id="${full.id}"]`);
+          if (listRow) {
+            const listStatus = listRow.querySelector('.inbox-status');
+            if (listStatus) {
+              listStatus.className = `inbox-status inbox-status--${newStatus}`;
+              listStatus.textContent = newStatus;
+            }
+          }
         }
       })();
     };
