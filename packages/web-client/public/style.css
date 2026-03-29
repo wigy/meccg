@@ -297,6 +297,7 @@ h2 {
   flex-shrink: 0;
   max-height: calc(100vh - 60px);
   overflow-y: auto;
+  scrollbar-width: none;
   position: sticky;
   top: 0;
 }
