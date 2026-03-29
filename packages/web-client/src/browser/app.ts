@@ -426,7 +426,7 @@ function showScreen(id: ScreenId): void {
   // Reset lobby button state when showing the lobby
   if (id === 'lobby-screen') {
     const btn = document.getElementById('play-ai-btn') as HTMLButtonElement | null;
-    if (btn) { btn.textContent = 'Play vs AI'; btn.disabled = false; btn.classList.remove('hidden'); }
+    if (btn) { btn.textContent = 'Play vs AI'; btn.classList.remove('hidden'); }
     document.getElementById('save-prompt')?.classList.add('hidden');
     void loadDecks();
   }
@@ -583,6 +583,23 @@ function renderCatalogDeckItem(deck: FullDeck, owned: boolean, onAdd: () => void
   return item;
 }
 
+/** Show or hide play controls depending on whether a deck is selected. */
+function updatePlayControls(): void {
+  const hasDeck = currentDeckId !== null;
+  const notice = document.getElementById('no-deck-notice');
+  if (notice) notice.classList.toggle('hidden', hasDeck);
+  const playAiBtn = document.getElementById('play-ai-btn') as HTMLButtonElement | null;
+  if (playAiBtn) playAiBtn.disabled = !hasDeck;
+  const aiDeckSelect = document.getElementById('ai-deck-select') as HTMLSelectElement | null;
+  if (aiDeckSelect) aiDeckSelect.disabled = !hasDeck;
+  // Disable challenge buttons on online player list
+  for (const btn of document.querySelectorAll<HTMLButtonElement>('.lobby-player-item button')) {
+    btn.disabled = !hasDeck;
+  }
+  const acceptBtn = document.getElementById('accept-challenge-btn') as HTMLButtonElement | null;
+  if (acceptBtn) acceptBtn.disabled = !hasDeck;
+}
+
 /** Fetch deck catalog and player's decks, then render both lists. */
 async function loadDecks(): Promise<void> {
   const [catalogResp, myResp] = await Promise.all([
@@ -597,6 +614,7 @@ async function loadDecks(): Promise<void> {
   currentDeckId = myData.currentDeck;
   currentFullDeck = myDecks.find(d => d.id === currentDeckId) ?? null;
   ownedDeckIds = new Set(myDecks.map(d => d.id));
+  updatePlayControls();
 
   // Render my decks
   const myContainer = document.getElementById('my-decks')!;
@@ -1211,6 +1229,7 @@ function connectLobbyWs(): void {
             span.textContent = player.displayName;
             const btn = document.createElement('button');
             btn.textContent = 'Challenge';
+            if (!currentDeckId) btn.disabled = true;
             btn.addEventListener('click', () => {
               lobbyWs?.send(JSON.stringify({ type: 'challenge', opponentName: player.name }));
               btn.textContent = 'Sent';
@@ -1546,6 +1565,12 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('challenge-incoming')!.classList.add('hidden');
         challengeFrom = null;
       }
+    });
+
+    // "Choose a deck" link in the no-deck notice
+    document.getElementById('no-deck-link')!.addEventListener('click', (e) => {
+      e.preventDefault();
+      document.getElementById('nav-decks')!.click();
     });
 
     // Nav bar buttons
