@@ -1,6 +1,6 @@
 {
   "id": "development-proto-minion",
-  "name": "Forces of Darkness (Minion) (Development only)",
+  "name": "Minion (Development only)",
   "alignment": "minion",
   "pool": [
     { "name": "The Mouth", "card": "le-24", "qty": 1 },

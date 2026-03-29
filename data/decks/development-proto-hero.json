@@ -1,6 +1,6 @@
 {
   "id": "development-proto-hero",
-  "name": "Gandalf's Company (Hero) (Development only)",
+  "name": "Hero (Development only)",
   "alignment": "hero",
   "pool": [
     { "name": "Aragorn II", "card": "tw-120", "qty": 1 },

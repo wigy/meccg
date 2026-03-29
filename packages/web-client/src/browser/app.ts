@@ -7,7 +7,7 @@
  */
 
 import type { ServerMessage, ClientMessage, GameAction, CardDefinitionId, JoinMessage } from '@meccg/shared';
-import { loadCardPool, describeAction, buildCompanyNames, cardImageProxyPath, SAMPLE_DECKS, Alignment } from '@meccg/shared';
+import { loadCardPool, describeAction, buildCompanyNames, cardImageProxyPath, Alignment } from '@meccg/shared';
 import { renderState, renderDraft, renderMHInfo, renderSiteInfo, renderFreeCouncilInfo, renderGameOverView, renderActions, renderLog, renderHand, renderOpponentHand, renderPlayerNames, renderInstructions, renderDrafted, renderPassButton, renderDeckPiles, resetDeckPiles, setupCardPreview, showNotification, prepareSiteSelection, clearSiteSelection, renderChainPanel, buildCardAttributes } from './render.js';
 import { renderCompanyViews, resetCompanyViews } from './company-view.js';
 import { rollDice, clearDice, restoreDice, waitForDice } from './dice.js';
@@ -77,7 +77,6 @@ let challengeFrom: string | null = null;
 let lastVisibleInstances: Readonly<Record<string, CardDefinitionId>> = {};
 let lastCompanyNames: Readonly<Record<string, string>> = {};
 let lastPhase: string | null = null;
-let selectedDeckIndex = 0;
 let autoPassTimer: ReturnType<typeof setTimeout> | null = null;
 /** Stack of log entry counts, pushed before each action for undo support. */
 const logCountStack: number[] = [];
@@ -114,13 +113,12 @@ function connect(name: string): void {
 
   ws.onopen = () => {
     renderLog('Connected. Sending join...');
-    let joinMsg: JoinMessage;
-    if (LOBBY_MODE && currentFullDeck) {
-      joinMsg = buildJoinFromDeck(currentFullDeck, name);
-    } else {
-      const deck = SAMPLE_DECKS[selectedDeckIndex];
-      joinMsg = deck.buildJoinMessage(name);
+    if (!currentFullDeck) {
+      renderLog('Error: no deck selected');
+      ws!.close();
+      return;
     }
+    const joinMsg = buildJoinFromDeck(currentFullDeck, name);
     // In lobby mode, attach the game token for authentication
     const msg = gameToken ? { ...joinMsg, token: gameToken } : joinMsg;
     ws!.send(JSON.stringify(msg));
@@ -280,7 +278,6 @@ function connect(name: string): void {
 
 const STORAGE_KEY = 'meccg-player-name';
 const VIEW_KEY = 'meccg-view-mode';
-const DECK_KEY = 'meccg-deck-index';
 
 function savePlayerName(name: string): void {
   localStorage.setItem(STORAGE_KEY, name);
@@ -668,10 +665,20 @@ const CARD_TYPE_COLORS: Record<string, string> = {
 /** Set of "deckId:cardName" keys for already-requested cards. */
 let requestedCards = new Set<string>();
 
-/** Render a list of card entries into a container element. */
+/** Render a list of card entries into a container element, sorted by card type then name. */
 function renderCardList(container: HTMLElement, entries: DeckListEntry[], deckId: string): void {
   container.innerHTML = '';
-  for (const entry of entries) {
+  const sorted = [...entries].sort((a, b) => {
+    const defA = a.card ? cardPool[a.card] : undefined;
+    const defB = b.card ? cardPool[b.card] : undefined;
+    const typeA = defA?.cardType ?? '';
+    const typeB = defB?.cardType ?? '';
+    if (typeA !== typeB) return typeA.localeCompare(typeB);
+    const nameA = defA?.name ?? a.name;
+    const nameB = defB?.name ?? b.name;
+    return nameA.localeCompare(nameB);
+  });
+  for (const entry of sorted) {
     const row = document.createElement('div');
     row.className = 'deck-editor-card';
     const qtyEl = document.createElement('span');
@@ -1234,33 +1241,9 @@ async function initLobby(): Promise<void> {
 
 document.addEventListener('DOMContentLoaded', () => {
   const nameInput = document.getElementById('name-input') as HTMLInputElement;
-  const deckSelect = document.getElementById('deck-select') as HTMLSelectElement;
   const connectBtn = document.getElementById('connect-btn') as HTMLButtonElement;
   const connectForm = document.getElementById('connect-form') as HTMLElement;
   const disconnectBtn = document.getElementById('disconnect-btn') as HTMLButtonElement;
-
-  // Populate deck selector
-  for (let i = 0; i < SAMPLE_DECKS.length; i++) {
-    const opt = document.createElement('option');
-    opt.value = String(i);
-    opt.textContent = SAMPLE_DECKS[i].label;
-    deckSelect.appendChild(opt);
-  }
-
-  // Restore saved deck selection
-  const savedDeck = localStorage.getItem(DECK_KEY);
-  if (savedDeck !== null) {
-    const idx = parseInt(savedDeck, 10);
-    if (idx >= 0 && idx < SAMPLE_DECKS.length) {
-      selectedDeckIndex = idx;
-      deckSelect.value = String(idx);
-    }
-  }
-
-  deckSelect.addEventListener('change', () => {
-    selectedDeckIndex = parseInt(deckSelect.value, 10);
-    localStorage.setItem(DECK_KEY, String(selectedDeckIndex));
-  });
 
   applyBackground();
   setupCardPreview(cardPool);

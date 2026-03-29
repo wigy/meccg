@@ -23,6 +23,8 @@
 import WebSocket from 'ws';
 import * as readline from 'readline';
 import type { PlayerId, ServerMessage, ClientMessage, CardDefinitionId, CardInstanceId, GameAction } from '@meccg/shared';
+import * as fs from 'fs';
+import * as path from 'path';
 import {
   loadCardPool,
   formatPlayerView,
@@ -35,9 +37,9 @@ import {
   stripCardMarkers,
   STATE_DIVIDER,
   DEBUG_JSON_COMPACT_LIMIT,
-  SAMPLE_DECKS,
-  findSampleDeck,
+  Alignment,
 } from '@meccg/shared';
+import type { JoinMessage } from '@meccg/shared';
 import { loadAiStrategy, sampleWeighted } from './ai/index.js';
 import type { AiStrategy } from './ai/index.js';
 import { ClientLog } from './client-log.js';
@@ -87,24 +89,79 @@ if (AI_MODE) {
   }
 }
 
-// Resolve the sample deck (--deck <id>, or default to first)
-if (DECK_ARG !== null) {
-  const deck = findSampleDeck(DECK_ARG);
-  if (!deck) {
-    console.error(`Unknown deck: ${DECK_ARG}`);
-    console.error('Available decks:');
-    for (const d of SAMPLE_DECKS) {
-      console.error(`  ${d.id}  — ${d.label}`);
-    }
-    process.exit(1);
-  }
+// ---- Catalog deck loading ----
+
+interface DeckEntry { name: string; card: string | null; qty: number }
+interface DeckFile {
+  id: string; name: string; alignment: string;
+  pool: DeckEntry[];
+  deck: { characters: DeckEntry[]; hazards: DeckEntry[]; resources: DeckEntry[] };
+  sites: DeckEntry[];
 }
 
-const selectedDeck = DECK_ARG ? findSampleDeck(DECK_ARG)! : SAMPLE_DECKS[0];
-const defaultJoin = selectedDeck.buildJoinMessage(PLAYER_NAME);
+const DECK_CATALOG_DIR = path.join(__dirname, '../../../../data/decks');
+const ALIGNMENT_MAP: Record<string, Alignment> = {
+  hero: Alignment.Wizard,
+  minion: Alignment.Ringwraith,
+  'fallen-wizard': Alignment.FallenWizard,
+  balrog: Alignment.Balrog,
+};
+
+function expandEntries(entries: DeckEntry[]): CardDefinitionId[] {
+  const ids: CardDefinitionId[] = [];
+  for (const e of entries) {
+    if (e.card !== null) {
+      for (let i = 0; i < e.qty; i++) ids.push(e.card as CardDefinitionId);
+    }
+  }
+  return ids;
+}
+
+function loadCatalogDeck(deckId: string): JoinMessage {
+  const filePath = path.join(DECK_CATALOG_DIR, `${deckId}.json`);
+  const deck = JSON.parse(fs.readFileSync(filePath, 'utf-8')) as DeckFile;
+  return {
+    type: 'join',
+    name: PLAYER_NAME,
+    alignment: ALIGNMENT_MAP[deck.alignment] ?? Alignment.Wizard,
+    draftPool: expandEntries(deck.pool),
+    playDeck: [
+      ...expandEntries(deck.deck.characters),
+      ...expandEntries(deck.deck.resources),
+      ...expandEntries(deck.deck.hazards),
+    ],
+    siteDeck: expandEntries(deck.sites),
+  };
+}
+
+function listCatalogDecks(): { id: string; name: string }[] {
+  const files = fs.readdirSync(DECK_CATALOG_DIR).filter(f => f.endsWith('.json'));
+  return files.map(f => {
+    const d = JSON.parse(fs.readFileSync(path.join(DECK_CATALOG_DIR, f), 'utf-8')) as DeckFile;
+    return { id: d.id, name: d.name };
+  });
+}
+
+// Resolve the catalog deck (--deck <id>, or default to first available)
+const catalogDecks = listCatalogDecks();
+if (DECK_ARG !== null && !catalogDecks.some(d => d.id === DECK_ARG)) {
+  console.error(`Unknown deck: ${DECK_ARG}`);
+  console.error('Available decks:');
+  for (const d of catalogDecks) {
+    console.error(`  ${d.id}  — ${d.name}`);
+  }
+  process.exit(1);
+}
+
+const selectedDeckId = DECK_ARG ?? catalogDecks[0]?.id;
+if (!selectedDeckId) {
+  console.error('No decks found in catalog');
+  process.exit(1);
+}
+const defaultJoin = loadCatalogDeck(selectedDeckId);
 
 const clientLog = new ClientLog();
-clientLog.log('boot', { player: PLAYER_NAME, deck: selectedDeck.id, ai: AI_MODE });
+clientLog.log('boot', { player: PLAYER_NAME, deck: selectedDeckId, ai: AI_MODE });
 
 // ---- Readline (shared across connections) ----
 
