@@ -73,14 +73,15 @@ function findPlayableSites(
   charDef: CharacterCard,
 ): { instanceId: CardInstanceId; siteDef: SiteCard; siteName: string }[] {
   const results: { instanceId: CardInstanceId; siteDef: SiteCard; siteName: string }[] = [];
-  const seen = new Set<string>();
+  const seenInstances = new Set<string>();
+  const seenSiteNames = new Set<string>();
 
   // Sites where the player already has a company
   for (const company of player.companies) {
     if (!company.currentSite) continue;
     const siteId = company.currentSite.instanceId;
-    if (seen.has(siteId as string)) continue;
-    seen.add(siteId as string);
+    if (seenInstances.has(siteId as string)) continue;
+    seenInstances.add(siteId as string);
 
     const siteDef = resolveDef(state, siteId);
     if (!isSiteCard(siteDef)) continue;
@@ -90,22 +91,24 @@ function findPlayableSites(
 
     if (isHaven || isHomesite) {
       results.push({ instanceId: siteId, siteDef, siteName: siteDef.name });
+      seenSiteNames.add(siteDef.name);
     }
   }
 
-  // Sites available in the player's site deck (character forms a new company)
+  // Sites available in the player's site deck (character forms a new company).
+  // Deduplicate by site name: multiple copies of the same site in the deck
+  // should only produce one legal action (using the first matching instance).
   for (const siteId of player.siteDeck) {
-    if (seen.has(siteId as string)) continue;
-    seen.add(siteId as string);
-
     const siteDef = resolveDef(state, siteId);
     if (!isSiteCard(siteDef)) continue;
+    if (seenSiteNames.has(siteDef.name)) continue;
 
     const isHaven = siteDef.siteType === SiteType.Haven;
     const isHomesite = siteDef.name === charDef.homesite;
 
     if (isHaven || isHomesite) {
       results.push({ instanceId: siteId, siteDef, siteName: siteDef.name });
+      seenSiteNames.add(siteDef.name);
     }
   }
 
