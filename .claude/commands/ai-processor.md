@@ -1,5 +1,7 @@
 Process the AI inbox queue: list all pending messages and handle the oldest one.
 
+**IMPORTANT:** Process exactly ONE message, then stop. Do NOT loop or continue to the next message. After `/handle-mail` completes and you have reported the result, you are DONE.
+
 Follow these steps:
 
 1. **Log in as ai:** Get a session cookie for the ai account:

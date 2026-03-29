@@ -1,5 +1,7 @@
 Handle a mail message from the ai inbox by dispatching it to the appropriate skill based on its topic and keywords.
 
+**IMPORTANT:** This skill must run to completion autonomously. Do NOT stop to ask the user for confirmation at any step. Complete ALL steps (dispatch, reply mail, review requests, status updates) without pausing.
+
 The message ID argument is: $ARGUMENTS
 
 If no message ID is given, list all messages in the ai inbox by running:
