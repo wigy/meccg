@@ -56,6 +56,8 @@ export const BEREGOND = did('tw-127');
 export const BERGIL = did('tw-129');
 /** Bard Bowman — Man warrior/scout, mind 2, Lake-town. */
 export const BARD_BOWMAN = did('tw-124');
+/** Alatar — wizard, warrior/scout/ranger/sage, home site Edhellond. */
+export const ALATAR = did('tw-117');
 /** Anborn — Dúnadan scout/ranger, mind 2, Pelargir. */
 export const ANBORN = did('tw-118');
 

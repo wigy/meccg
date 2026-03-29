@@ -899,5 +899,30 @@
       }
     ],
     "text": "Unique. +4 direct influence against the Dunlendings faction. Against Nazgûl and Ringwraiths, +5 to her prowess and the Nazgûl/Ringwraith's body is halved (rounded up)."
+  },
+  {
+    "cardType": "hero-character",
+    "alignment": "wizard",
+    "id": "tw-117",
+    "name": "Alatar",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Alatar.jpg",
+    "unique": true,
+    "race": "wizard",
+    "skills": [
+      "warrior",
+      "scout",
+      "ranger",
+      "sage"
+    ],
+    "prowess": 6,
+    "body": 9,
+    "mind": null,
+    "directInfluence": 10,
+    "marshallingPoints": 0,
+    "marshallingCategory": "character",
+    "corruptionModifier": 0,
+    "homesite": "Edhellond",
+    "effects": [],
+    "text": "Unique. The number of cards your opponent draws based on Alatar's company's movement is reduced by one (to minimum of 0). If at a Haven when a hazard creature attacks one of your companies, he may immediately join that company (discard allies he controls). Alatar must face a strike from that creature (in all cases). Following the attack, Alatar must tap (if untapped) and make a corruption check."
   }
 ]
