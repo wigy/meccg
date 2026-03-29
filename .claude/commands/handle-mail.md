@@ -61,6 +61,10 @@ Follow these steps:
      - If the plan was sent successfully: mark success.
      - If it failed: mark failure, send a reply mail explaining the error.
 
+   - **`feature-implementation-request`**: Use the **Agent tool** (not the Skill tool) to run the `/handle-implementation-request` skill — read `.claude/commands/handle-implementation-request.md`, substitute `$ARGUMENTS` with the message ID, and pass the full content as the agent prompt. After it completes:
+     - If the feature was implemented and pushed: mark success.
+     - If it failed: mark failure, send a reply mail explaining the error.
+
    - **`feature-request`** or **`bug-fix-request`**: These cannot be automatically handled. Mark as processed with `success: false`. Send a reply mail to the sender explaining that this type of request requires manual attention.
 
    - **Any other topic or missing keywords**: Mark as processed with `success: false`. Send a reply mail explaining the message could not be processed.

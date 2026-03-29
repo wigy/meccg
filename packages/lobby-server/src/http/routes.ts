@@ -524,6 +524,34 @@ export async function handleRequest(req: http.IncomingMessage, res: http.ServerR
     return;
   }
 
+  const implementMatch = urlPath.match(/^\/api\/mail\/inbox\/([a-f0-9]+)\/implement$/);
+  if (implementMatch && method === 'POST') {
+    const playerName = getSessionPlayer(req);
+    if (!playerName) { sendJson(res, 401, { error: 'Not logged in' }); return; }
+    if (!REVIEWER_PLAYERS.includes(playerName)) { sendJson(res, 403, { error: 'Only reviewers can implement' }); return; }
+    const [, msgId] = implementMatch;
+    const msg = readMessage(playerName, msgId);
+    if (!msg) { sendJson(res, 404, { error: 'Message not found' }); return; }
+    if (msg.topic !== 'feature-planning-reply') { sendJson(res, 400, { error: 'Only planning replies can be implemented' }); return; }
+
+    sendMail(['ai'], {
+      from: playerName,
+      sender: 'player',
+      topic: 'feature-implementation-request',
+      subject: `Implement: ${msg.subject}`,
+      body: msg.body,
+      keywords: {
+        ...(msg.keywords.originalMessageId ? { originalMessageId: msg.keywords.originalMessageId } : {}),
+        planningReplyId: msgId,
+      },
+      replyTo: msgId,
+      sentBy: playerName,
+    });
+    lobbyLog.log('mail-implement', { player: playerName, msgId });
+    sendJson(res, 200, { ok: true });
+    return;
+  }
+
   if (urlPath === '/api/mail/send' && method === 'POST') {
     const playerName = getSessionPlayer(req);
     if (!playerName) { sendJson(res, 401, { error: 'Not logged in' }); return; }

@@ -1024,6 +1024,33 @@ function renderMessage(messageEl: HTMLElement, full: InboxMessage): void {
     btnContainer.appendChild(declineBtn);
     messageEl.appendChild(btnContainer);
   }
+
+  // Implement button for feature-planning-reply messages
+  if (full.topic === 'feature-planning-reply' && lobbyPlayerName === 'admin' && lobbyPlayerIsReviewer) {
+    const btnContainer = document.createElement('div');
+    btnContainer.className = 'inbox-review-actions';
+
+    const implementBtn = document.createElement('button');
+    implementBtn.className = 'inbox-approve-btn';
+    implementBtn.textContent = 'Implement';
+
+    implementBtn.addEventListener('click', () => {
+      void (async () => {
+        implementBtn.disabled = true;
+        implementBtn.textContent = 'Sending...';
+        const resp = await fetch(`/api/mail/inbox/${full.id}/implement`, { method: 'POST' });
+        if (resp.ok) {
+          implementBtn.textContent = 'Sent to AI';
+        } else {
+          implementBtn.textContent = 'Failed';
+          implementBtn.disabled = false;
+        }
+      })();
+    });
+
+    btnContainer.appendChild(implementBtn);
+    messageEl.appendChild(btnContainer);
+  }
 }
 
 /** Render a list of messages into the list panel. */
