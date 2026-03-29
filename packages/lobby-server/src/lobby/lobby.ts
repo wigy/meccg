@@ -13,14 +13,24 @@ import { launchGame } from '../games/launcher.js';
 import { lobbyLog } from '../lobby-log.js';
 import { getDisplayName } from '../players/store.js';
 
+/** Connection info for an active game that a player can rejoin. */
+interface ActiveGameInfo {
+  readonly port: number;
+  readonly token: string;
+  readonly opponent: string;
+  readonly opponentDisplayName: string;
+}
+
 /** A connected player in the lobby. */
 interface OnlinePlayer {
   readonly name: string;
-  readonly ws: WebSocket;
+  ws: WebSocket;
   /** Set of player names who have sent us a challenge. */
   readonly pendingFrom: Set<string>;
   /** Whether this player is currently in a game. */
   inGame: boolean;
+  /** Active game connection info, kept for rejoin after server restart. */
+  activeGame: ActiveGameInfo | null;
 }
 
 /** The lobby state: tracks online players and pending challenges. */
@@ -63,14 +73,15 @@ export function broadcastNotification(message: string): void {
 
 /** Register a new player connection in the lobby. */
 export function playerConnected(name: string, ws: WebSocket): void {
-  // If already connected (e.g. page refresh), close the old connection
+  // If already connected (e.g. page refresh), update the WS but preserve game state
   const existing = onlinePlayers.get(name);
   if (existing) {
     existing.ws.close();
+    existing.ws = ws;
   }
 
-  const player: OnlinePlayer = { name, ws, pendingFrom: new Set(), inGame: false };
-  onlinePlayers.set(name, player);
+  const player: OnlinePlayer = existing ?? { name, ws, pendingFrom: new Set(), inGame: false, activeGame: null };
+  if (!existing) onlinePlayers.set(name, player);
   lobbyLog.log('connect', { name, online: onlinePlayers.size });
   broadcastPlayerList();
 
@@ -151,6 +162,37 @@ function handleMessage(fromName: string, msg: LobbyClientMessage): void {
       void startAiGame(from, msg.deckId);
       break;
     }
+
+    case 'rejoin-game': {
+      const opponentName = msg.opponent;
+      const isAi = opponentName.startsWith('AI-');
+
+      // If the opponent already relaunched a game that includes us, just
+      // send back the stored connection info without launching another server.
+      if (from.activeGame && from.activeGame.opponent === opponentName) {
+        lobbyLog.log('rejoin-existing', { name: fromName, opponent: opponentName });
+        send(from.ws, { type: 'game-starting', ...from.activeGame });
+        break;
+      }
+
+      // Clear stale inGame state from the dead game
+      from.inGame = false;
+      from.activeGame = null;
+
+      if (isAi) {
+        void startAiGame(from);
+      } else {
+        const opponent = onlinePlayers.get(opponentName);
+        if (!opponent) {
+          send(from.ws, { type: 'error', message: `${opponentName} is no longer online` });
+          return;
+        }
+        opponent.inGame = false;
+        opponent.activeGame = null;
+        void startGame(from, opponent);
+      }
+      break;
+    }
   }
 }
 
@@ -163,25 +205,30 @@ async function startGame(player1: OnlinePlayer, player2: OnlinePlayer): Promise<
     const result = await launchGame(player1.name, player2.name);
     lobbyLog.log('game-start', { player1: player1.name, player2: player2.name, port: result.port });
 
-    send(player1.ws, {
-      type: 'game-starting',
+    const p1Game: ActiveGameInfo = {
       port: result.port,
       token: result.tokens[0],
       opponent: player2.name,
       opponentDisplayName: getDisplayName(player2.name),
-    });
-    send(player2.ws, {
-      type: 'game-starting',
+    };
+    const p2Game: ActiveGameInfo = {
       port: result.port,
       token: result.tokens[1],
       opponent: player1.name,
       opponentDisplayName: getDisplayName(player1.name),
-    });
+    };
+    player1.activeGame = p1Game;
+    player2.activeGame = p2Game;
+
+    send(player1.ws, { type: 'game-starting', ...p1Game });
+    send(player2.ws, { type: 'game-starting', ...p2Game });
 
     // When the game ends, mark players as available again
     result.onEnd(() => {
       player1.inGame = false;
       player2.inGame = false;
+      player1.activeGame = null;
+      player2.activeGame = null;
       player1.pendingFrom.clear();
       player2.pendingFrom.clear();
       broadcastPlayerList();
@@ -191,13 +238,15 @@ async function startGame(player1: OnlinePlayer, player2: OnlinePlayer): Promise<
     lobbyLog.log('error', { context: 'game-start', error: String(err) });
     player1.inGame = false;
     player2.inGame = false;
+    player1.activeGame = null;
+    player2.activeGame = null;
     send(player1.ws, { type: 'error', message: 'Failed to start game server' });
     send(player2.ws, { type: 'error', message: 'Failed to start game server' });
   }
 }
 
 /** Launch a game against the AI. */
-async function startAiGame(player: OnlinePlayer, deckId: string): Promise<void> {
+async function startAiGame(player: OnlinePlayer, deckId?: string): Promise<void> {
   player.inGame = true;
   const aiName = 'AI-Random';
 
@@ -205,16 +254,17 @@ async function startAiGame(player: OnlinePlayer, deckId: string): Promise<void> 
     const result = await launchGame(player.name, aiName, { ai: true, aiDeckId: deckId });
     lobbyLog.log('game-start', { player1: player.name, player2: aiName, ai: true, port: result.port });
 
-    send(player.ws, {
-      type: 'game-starting',
+    player.activeGame = {
       port: result.port,
       token: result.tokens[0],
       opponent: aiName,
       opponentDisplayName: aiName,
-    });
+    };
+    send(player.ws, { type: 'game-starting', ...player.activeGame });
 
     result.onEnd(() => {
       player.inGame = false;
+      player.activeGame = null;
       player.pendingFrom.clear();
       broadcastPlayerList();
       lobbyLog.log('game-end', { player1: player.name, player2: aiName, ai: true });
@@ -222,6 +272,7 @@ async function startAiGame(player: OnlinePlayer, deckId: string): Promise<void> 
   } catch (err) {
     lobbyLog.log('error', { context: 'ai-game-start', error: String(err) });
     player.inGame = false;
+    player.activeGame = null;
     send(player.ws, { type: 'error', message: 'Failed to start game server' });
   }
 }

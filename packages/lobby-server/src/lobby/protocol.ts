@@ -33,12 +33,20 @@ export interface PlayAiMessage {
   readonly deckId: string;
 }
 
+/** Request the lobby to relaunch a game server after the previous one died. */
+export interface RejoinGameMessage {
+  readonly type: 'rejoin-game';
+  /** Name of the opponent from the previous game session. */
+  readonly opponent: string;
+}
+
 /** Union of all client → lobby messages. */
 export type LobbyClientMessage =
   | ChallengeMessage
   | AcceptChallengeMessage
   | DeclineChallengeMessage
-  | PlayAiMessage;
+  | PlayAiMessage
+  | RejoinGameMessage;
 
 // ---- Lobby → Client ----
 

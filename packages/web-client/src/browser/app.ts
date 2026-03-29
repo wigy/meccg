@@ -43,6 +43,7 @@ let gameToken: string | null = null;
 
 const GAME_PORT_KEY = 'meccg-game-port';
 const GAME_TOKEN_KEY = 'meccg-game-token';
+const GAME_OPPONENT_KEY = 'meccg-game-opponent';
 
 /** Persist game connection info in sessionStorage so a page refresh can rejoin. */
 function saveGameSession(): void {
@@ -50,21 +51,27 @@ function saveGameSession(): void {
     sessionStorage.setItem(GAME_PORT_KEY, String(gamePort));
     sessionStorage.setItem(GAME_TOKEN_KEY, gameToken);
   }
+  if (opponentName) {
+    sessionStorage.setItem(GAME_OPPONENT_KEY, opponentName);
+  }
 }
 
 /** Clear persisted game session on disconnect. */
 function clearGameSession(): void {
   sessionStorage.removeItem(GAME_PORT_KEY);
   sessionStorage.removeItem(GAME_TOKEN_KEY);
+  sessionStorage.removeItem(GAME_OPPONENT_KEY);
 }
 
 /** Restore game connection info from sessionStorage (returns true if found). */
 function restoreGameSession(): boolean {
   const port = sessionStorage.getItem(GAME_PORT_KEY);
   const token = sessionStorage.getItem(GAME_TOKEN_KEY);
+  const opponent = sessionStorage.getItem(GAME_OPPONENT_KEY);
   if (port && token) {
     gamePort = Number(port);
     gameToken = token;
+    opponentName = opponent;
     return true;
   }
   return false;
@@ -146,6 +153,7 @@ function connect(name: string): void {
 
     switch (msg.type) {
       case 'assigned':
+        reconnectAttempts = 0;
         playerId = msg.playerId;
         currentGameId = msg.gameId;
         renderLog(`Game ${msg.gameId} — assigned player ID: ${playerId}`);
@@ -282,8 +290,23 @@ function connect(name: string): void {
 
   ws.onclose = () => {
     if (autoReconnect) {
-      renderLog('Disconnected. Reconnecting in 2s...');
-      setTimeout(() => connect(name), 2000);
+      if (LOBBY_MODE && opponentName) {
+        // Ask the lobby to relaunch a fresh game server
+        renderLog('Game server lost. Asking lobby to relaunch...');
+        showNotification('Game server lost. Relaunching...');
+        requestRejoin();
+      } else {
+        // Standalone mode: retry connecting to the same server
+        reconnectAttempts++;
+        if (reconnectAttempts > MAX_RECONNECT_ATTEMPTS) {
+          renderLog('Game server unreachable — returning to lobby.');
+          showNotification('Game server unreachable — returning to lobby.', true);
+          disconnect();
+          return;
+        }
+        renderLog(`Disconnected. Reconnecting in 2s... (attempt ${reconnectAttempts}/${MAX_RECONNECT_ATTEMPTS})`);
+        setTimeout(() => connect(name), 2000);
+      }
     }
   };
 
@@ -312,6 +335,10 @@ function clearPlayerName(): void {
 // ---- Disconnect ----
 
 let autoReconnect = true;
+/** Number of consecutive failed reconnect attempts. */
+let reconnectAttempts = 0;
+/** Maximum reconnect attempts before giving up and returning to the lobby. */
+const MAX_RECONNECT_ATTEMPTS = 5;
 
 function disconnect(): void {
   autoReconnect = false;
@@ -348,6 +375,45 @@ function disconnect(): void {
     document.getElementById('connect-form')!.style.display = '';
     (document.getElementById('name-input') as HTMLInputElement).value = '';
   }
+}
+
+/**
+ * Ask the lobby to relaunch the game server after it died. Opens a lobby
+ * WebSocket, sends a `rejoin-game` message, and waits for `game-starting`
+ * (which is handled by the existing lobby message handler in connectLobbyWs).
+ * If the lobby reports an error, falls back to disconnect → lobby screen.
+ */
+function requestRejoin(): void {
+  autoReconnect = false;
+  if (ws) { ws.close(); ws = null; }
+
+  const opponent = opponentName;
+  if (!opponent) {
+    renderLog('Cannot rejoin — opponent unknown. Returning to lobby.');
+    disconnect();
+    return;
+  }
+
+  // connectLobbyWs sets up the game-starting handler which will call connect()
+  connectLobbyWs();
+
+  // Send rejoin-game once the lobby WS is open
+  const trySend = () => {
+    if (lobbyWs && lobbyWs.readyState === WebSocket.OPEN) {
+      lobbyWs.send(JSON.stringify({ type: 'rejoin-game', opponent }));
+    } else if (lobbyWs && lobbyWs.readyState === WebSocket.CONNECTING) {
+      lobbyWs.addEventListener('open', () => {
+        lobbyWs!.send(JSON.stringify({ type: 'rejoin-game', opponent }));
+      }, { once: true });
+    } else {
+      // Lobby WS failed to open — give up
+      renderLog('Cannot reach lobby server. Returning to lobby.');
+      disconnect();
+    }
+  };
+
+  // Small delay to let connectLobbyWs() create the socket
+  setTimeout(trySend, 100);
 }
 
 /**
@@ -1336,6 +1402,11 @@ function connectLobbyWs(): void {
       }
       case 'error': {
         renderLog(`Lobby: ${msg.message as string}`);
+        // If the game screen is active, this is a failed rejoin — return to lobby
+        if (!document.getElementById('game')!.classList.contains('hidden')) {
+          showNotification(msg.message as string, true);
+          disconnect();
+        }
         break;
       }
       case 'mail-notification': {
