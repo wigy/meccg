@@ -32,7 +32,7 @@ Follow these steps:
 
 4. **Dispatch based on topic:** Look at the message `topic` and `keywords` fields to determine what action to take:
 
-   - **`card-request`**: The keywords should contain `cardName`, `deckId`, and `userName`. Run the `/handle-card-request` skill with `<cardName> <deckId>` as arguments. After it completes:
+   - **`card-request`**: The keywords should contain `cardName`, `deckId`, and `userName`. Use the **Agent tool** (not the Skill tool) to run the `/handle-card-request` skill with `<cardName> <deckId>` as arguments — read `.claude/commands/handle-card-request.md`, substitute `$ARGUMENTS` with `<cardName> <deckId>`, and pass the full content as the agent prompt. After it completes:
      - If the card was successfully added: mark success, send a reply mail to the requesting user. Include the card image using markdown image syntax `![Card Name](image-url)` (the image URL is in the card definition's `image` field, proxied through `/cards/images/<set>/<filename>`), followed by the full card definition JSON in a fenced code block. Add the `gitHash` from the card request report to the reply mail keywords.
      - Then send a **review request** to all admins (`["wigy", "karmi", "admin"]`) with status `waiting`:
        - `topic`: `"review-request"`
@@ -47,7 +47,7 @@ Follow these steps:
          Do this for each admin recipient.
      - If it failed: mark failure, send a failure reply mail to the requesting user.
 
-   - **`certification-request`**: The keywords should contain `cardId`. Run the `/certify-card` skill with the `cardId` value. After it completes:
+   - **`certification-request`**: The keywords should contain `cardId`. Use the **Agent tool** (not the Skill tool) to run the `/certify-card` skill — read `.claude/commands/certify-card.md`, substitute `$ARGUMENTS` with the `cardId` value, and pass the full content as the agent prompt. After it completes:
      - If certification passed: mark success, send reply mail. Then send a **review request** to all admins (`["wigy", "karmi", "admin"]`) with status `waiting`:
        - `topic`: `"review-request"`
        - `subject`: `"Review: <card name> certified"`
