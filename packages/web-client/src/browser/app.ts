@@ -532,7 +532,7 @@ async function loadDecks(): Promise<void> {
     catContainer.innerHTML = '<p class="lobby-empty">No decks available</p>';
   } else {
     for (const deck of catalog) {
-      catContainer.appendChild(renderCatalogDeckItem(deck, ownedDeckIds.has(deck.id), () => {
+      catContainer.appendChild(renderCatalogDeckItem(deck, ownedDeckIds.has(`${lobbyPlayerName}-${deck.id}`), () => {
         void addDeckToCollection(deck);
       }));
     }
@@ -551,10 +551,11 @@ async function selectDeck(deckId: string): Promise<void> {
 
 /** Add a catalog deck to the player's collection, then refresh. */
 async function addDeckToCollection(deck: { id: string; [key: string]: unknown }): Promise<void> {
+  const personalDeck = { ...deck, id: `${lobbyPlayerName}-${deck.id}` };
   const resp = await fetch('/api/my-decks', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(deck),
+    body: JSON.stringify(personalDeck),
   });
   if (resp.ok) {
     await loadDecks();
