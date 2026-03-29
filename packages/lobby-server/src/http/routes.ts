@@ -13,6 +13,8 @@
  * - GET /api/mail/inbox — list inbox messages with unread count
  * - GET /api/mail/inbox/:id — read a message (marks as read)
  * - DELETE /api/mail/inbox/:id — delete a message (moves to deleted folder)
+ * - GET /api/saves/check?opponent=NAME — check if a saved game exists
+ * - POST /api/saves/delete — delete saved game files for an opponent
  * - GET /cards/images/* — card image proxy with disk cache
  * - GET /* — static files from web-client/public/
  *
@@ -37,6 +39,7 @@ import { signLobbyToken } from '../auth/jwt.js';
 import { getSessionPlayer, setSessionCookie, clearSessionCookie } from '../auth/session.js';
 
 const IMAGE_CACHE_DIR = process.env.IMAGE_CACHE_DIR ?? path.join(os.homedir(), '.meccg', 'image-cache');
+const SAVE_DIR = process.env.SAVE_DIR ?? path.join(os.homedir(), '.meccg', 'saves');
 const WEB_CLIENT_PUBLIC = path.join(__dirname, '../../../web-client/public');
 const GAME_SERVER_SNAPSHOTS = path.join(__dirname, '../../../game-server/data/dev/snapshots/index.json');
 const DECK_CATALOG_DIR = path.join(__dirname, '../../../../data/decks');
@@ -177,7 +180,8 @@ export function signalReload(): void {
 
 /** Main HTTP request handler. */
 export async function handleRequest(req: http.IncomingMessage, res: http.ServerResponse): Promise<void> {
-  const urlPath = req.url === '/' ? '/index.html' : req.url ?? '/index.html';
+  const url = new URL(req.url ?? '/', `http://${req.headers.host ?? 'localhost'}`);
+  const urlPath = url.pathname === '/' ? '/index.html' : url.pathname;
   const method = req.method ?? 'GET';
 
   // Live reload SSE
@@ -374,6 +378,41 @@ export async function handleRequest(req: http.IncomingMessage, res: http.ServerR
     } catch (err) {
       lobbyLog.log('error', { context: 'save-deck', error: String(err) });
       sendJson(res, 500, { error: 'Failed to save deck' });
+    }
+    return;
+  }
+
+  // ---- Game saves ----
+
+  if (urlPath === '/api/saves/check' && method === 'GET') {
+    const playerName = getSessionPlayer(req);
+    if (!playerName) { sendJson(res, 401, { error: 'Not logged in' }); return; }
+    const opponent = url.searchParams.get('opponent');
+    if (!opponent) { sendJson(res, 400, { error: 'opponent required' }); return; }
+    const names = [playerName.toLowerCase(), opponent.toLowerCase()].sort();
+    const key = names.join('_vs_');
+    const saveExists = fs.existsSync(path.join(SAVE_DIR, `${key}.json`))
+      || fs.existsSync(path.join(SAVE_DIR, `${key}-autosave.json`));
+    sendJson(res, 200, { hasSave: saveExists });
+    return;
+  }
+
+  if (urlPath === '/api/saves/delete' && method === 'POST') {
+    const playerName = getSessionPlayer(req);
+    if (!playerName) { sendJson(res, 401, { error: 'Not logged in' }); return; }
+    try {
+      const body = JSON.parse(await readBody(req)) as { opponent?: string };
+      if (!body.opponent) { sendJson(res, 400, { error: 'opponent required' }); return; }
+      const names = [playerName.toLowerCase(), body.opponent.toLowerCase()].sort();
+      const key = names.join('_vs_');
+      for (const suffix of ['.json', '-autosave.json']) {
+        const p = path.join(SAVE_DIR, `${key}${suffix}`);
+        if (fs.existsSync(p)) fs.unlinkSync(p);
+      }
+      sendJson(res, 200, { ok: true });
+    } catch (err) {
+      lobbyLog.log('error', { context: 'save-delete', error: String(err) });
+      sendJson(res, 500, { error: 'Failed to delete save' });
     }
     return;
   }

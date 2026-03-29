@@ -416,7 +416,8 @@ function showScreen(id: ScreenId): void {
   // Reset lobby button state when showing the lobby
   if (id === 'lobby-screen') {
     const btn = document.getElementById('play-ai-btn') as HTMLButtonElement | null;
-    if (btn) { btn.textContent = 'Play vs AI'; btn.disabled = false; }
+    if (btn) { btn.textContent = 'Play vs AI'; btn.disabled = false; btn.classList.remove('hidden'); }
+    document.getElementById('save-prompt')?.classList.add('hidden');
     void loadDecks();
   }
 }
@@ -1399,14 +1400,46 @@ document.addEventListener('DOMContentLoaded', () => {
       btn.addEventListener('click', doLogout);
     }
 
-    playAiBtn.addEventListener('click', () => {
+    const savePrompt = document.getElementById('save-prompt')!;
+    const continueGameBtn = document.getElementById('continue-game-btn') as HTMLButtonElement;
+    const newGameBtn = document.getElementById('new-game-btn') as HTMLButtonElement;
+
+    /** Send the play-ai message and disable the UI. */
+    function launchAiGame(): void {
       if (lobbyWs && lobbyWs.readyState === WebSocket.OPEN) {
         const aiDeckSelect = document.getElementById('ai-deck-select') as HTMLSelectElement;
         lobbyWs.send(JSON.stringify({ type: 'play-ai', deckId: aiDeckSelect.value }));
         playAiBtn.textContent = 'Starting...';
         playAiBtn.disabled = true;
+        savePrompt.classList.add('hidden');
       }
+    }
+
+    playAiBtn.addEventListener('click', () => { void (async () => {
+      const resp = await fetch('/api/saves/check?opponent=AI-Random');
+      if (resp.ok) {
+        const data = await resp.json() as { hasSave: boolean };
+        if (data.hasSave) {
+          playAiBtn.classList.add('hidden');
+          savePrompt.classList.remove('hidden');
+          return;
+        }
+      }
+      launchAiGame();
+    })(); });
+
+    continueGameBtn.addEventListener('click', () => {
+      launchAiGame();
     });
+
+    newGameBtn.addEventListener('click', () => { void (async () => {
+      await fetch('/api/saves/delete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ opponent: 'AI-Random' }),
+      });
+      launchAiGame();
+    })(); });
 
     acceptChallengeBtn.addEventListener('click', () => {
       if (lobbyWs && lobbyWs.readyState === WebSocket.OPEN && challengeFrom) {
