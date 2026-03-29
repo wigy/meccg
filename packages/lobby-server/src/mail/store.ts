@@ -86,13 +86,17 @@ export function sendMail(recipients: readonly string[], options: SendMailOptions
   }
 
   if (options.sentBy) {
-    const dir = sentDir(options.sentBy);
-    fs.mkdirSync(dir, { recursive: true });
-    const sentMessage: MailMessage = { ...message };
-    fs.writeFileSync(path.join(dir, `${id}.json`), JSON.stringify(sentMessage, null, 2));
+    writeSentCopy(options.sentBy, message);
   }
 
   return id;
+}
+
+/** Write a copy of a message to a player's sent folder. */
+export function writeSentCopy(playerName: string, message: MailMessage): void {
+  const dir = sentDir(playerName);
+  fs.mkdirSync(dir, { recursive: true });
+  fs.writeFileSync(path.join(dir, `${message.id}.json`), JSON.stringify(message, null, 2));
 }
 
 /** List all messages in a player's sent folder, sorted by timestamp descending (newest first). */

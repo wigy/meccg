@@ -13,6 +13,7 @@
  * - GET /api/mail/inbox — list inbox messages with unread count
  * - GET /api/mail/inbox/:id — read a message (marks as read)
  * - DELETE /api/mail/inbox/:id — delete a message (moves to deleted folder)
+ * - POST /api/mail/bug-report — file a bug report (delivers to AI, copies to both players' sent)
  * - GET /api/saves/check?opponent=NAME — check if a saved game exists
  * - POST /api/saves/delete — delete saved game files for an opponent
  * - GET /cards/images/* — card image proxy with disk cache
@@ -30,7 +31,7 @@ import * as os from 'os';
 import { cardImageRawUrl } from '@meccg/shared';
 import { DEV, MASTER_KEY, REVIEWER_PLAYERS } from '../config.js';
 import { broadcastNotification } from '../lobby/lobby.js';
-import { sendMail, listInbox, listSent, readMessage, deleteMessage, markAllUnread, updateMessageStatus, countUnread } from '../mail/store.js';
+import { sendMail, writeSentCopy, listInbox, listSent, readMessage, deleteMessage, markAllUnread, updateMessageStatus, countUnread } from '../mail/store.js';
 import type { MailSender, MailStatus, MailTopic } from '../mail/types.js';
 import { lobbyLog } from '../lobby-log.js';
 import { findPlayer, findPlayerByEmail, createPlayer, listPlayerDecks, savePlayerDeck, getCurrentDeck, setCurrentDeck, getDisplayName, setDisplayName, touchLastMailView } from '../players/store.js';
@@ -580,6 +581,44 @@ export async function handleRequest(req: http.IncomingMessage, res: http.ServerR
     } catch (err) {
       lobbyLog.log('error', { context: 'player-mail', error: String(err) });
       sendJson(res, 500, { error: 'Failed to send mail' });
+    }
+    return;
+  }
+
+  if (urlPath === '/api/mail/bug-report' && method === 'POST') {
+    const playerName = getSessionPlayer(req);
+    if (!playerName) { sendJson(res, 401, { error: 'Not logged in' }); return; }
+    try {
+      const body = JSON.parse(await readBody(req)) as {
+        subject?: string;
+        body?: string;
+        otherPlayer?: string;
+      };
+      if (!body.subject || !body.body) {
+        sendJson(res, 400, { error: 'subject and body are required' });
+        return;
+      }
+      const id = sendMail(['ai'], {
+        from: playerName,
+        sender: 'player',
+        topic: 'bug-report',
+        body: body.body,
+        subject: body.subject,
+        keywords: {},
+      });
+      // Place a sent copy in both players' sent folders
+      const message = readMessage('ai', id);
+      if (message) {
+        writeSentCopy(playerName, message);
+        if (body.otherPlayer && body.otherPlayer !== playerName) {
+          writeSentCopy(body.otherPlayer, message);
+        }
+      }
+      lobbyLog.log('bug-report', { id, from: playerName, otherPlayer: body.otherPlayer });
+      sendJson(res, 200, { ok: true, id });
+    } catch (err) {
+      lobbyLog.log('error', { context: 'bug-report', error: String(err) });
+      sendJson(res, 500, { error: 'Failed to send bug report' });
     }
     return;
   }

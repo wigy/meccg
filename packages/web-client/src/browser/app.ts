@@ -77,6 +77,12 @@ let challengeFrom: string | null = null;
 let lastVisibleInstances: Readonly<Record<string, CardDefinitionId>> = {};
 let lastCompanyNames: Readonly<Record<string, string>> = {};
 let lastPhase: string | null = null;
+/** Current game ID (set on 'assigned' message). */
+let currentGameId: string | null = null;
+/** Latest state sequence number (updated on each 'state' message). */
+let currentStateSeq = 0;
+/** Opponent player name (lobby mode, set on 'game-starting'). */
+let opponentName: string | null = null;
 let autoPassTimer: ReturnType<typeof setTimeout> | null = null;
 /** Stack of log entry counts, pushed before each action for undo support. */
 const logCountStack: number[] = [];
@@ -131,6 +137,7 @@ function connect(name: string): void {
     switch (msg.type) {
       case 'assigned':
         playerId = msg.playerId;
+        currentGameId = msg.gameId;
         renderLog(`Game ${msg.gameId} — assigned player ID: ${playerId}`);
         { const h = document.getElementById('state-heading');
           if (h) {
@@ -156,6 +163,7 @@ function connect(name: string): void {
         // Wait for any dice animation to finish before rendering the new
         // state, so the outcome isn't spoiled while dice are still rolling.
         await waitForDice();
+        currentStateSeq = msg.view.stateSeq;
         lastVisibleInstances = msg.view.visibleInstances;
         lastCompanyNames = {
           ...buildCompanyNames(msg.view.self.companies, msg.view.self.characters, cardPool),
@@ -1312,6 +1320,7 @@ function connectLobbyWs(): void {
       case 'game-starting': {
         gamePort = msg.port as number;
         gameToken = msg.token as string;
+        opponentName = (msg.opponent as string) ?? null;
         const opponentDisplay = (msg.opponentDisplayName as string) ?? (msg.opponent as string);
         saveGameSession();
         // Close lobby WS during game
@@ -1679,6 +1688,41 @@ document.addEventListener('DOMContentLoaded', () => {
       })();
     });
   }
+
+  // Bug report modal handlers
+  const brModal = document.getElementById('bug-report-modal')!;
+  const brSubject = document.getElementById('bug-report-subject') as HTMLInputElement;
+  const brBody = document.getElementById('bug-report-body') as HTMLTextAreaElement;
+  const closeBugModal = () => { brModal.classList.add('hidden'); };
+  document.getElementById('bug-report-backdrop')!.addEventListener('click', closeBugModal);
+  document.getElementById('bug-report-cancel')!.addEventListener('click', closeBugModal);
+  document.getElementById('bug-report-send')!.addEventListener('click', () => {
+    const brief = brSubject.value.trim();
+    const text = brBody.value.trim();
+    if (!brief || !text) return;
+    const fullBody = `Game ID: ${currentGameId ?? 'unknown'}\nSequence number: ${currentStateSeq}\n\n${text}`;
+    void (async () => {
+      const resp = await fetch('/api/mail/bug-report', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          subject: `Bug Report: ${brief}`,
+          body: fullBody,
+          otherPlayer: opponentName,
+        }),
+      });
+      if (resp.ok) {
+        closeBugModal();
+        showNotification('Bug report sent!');
+      }
+    })();
+  });
+  document.getElementById('bug-report-btn')!.addEventListener('click', () => {
+    brSubject.value = '';
+    brBody.value = '';
+    brModal.classList.remove('hidden');
+    brSubject.focus();
+  });
 
   // ---- Enter key: activate single action button in the action list ----
   document.addEventListener('keydown', (e) => {
