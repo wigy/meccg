@@ -34,7 +34,7 @@ Follow these steps:
      - If the card was successfully added: mark success, send a reply mail to the requesting user. Include the card image using markdown image syntax `![Card Name](image-url)` (the image URL is in the card definition's `image` field, proxied through `/cards/images/<set>/<filename>`), followed by the full card definition JSON in a fenced code block. Add the `gitHash` from the card request report to the reply mail keywords.
      - Then send a **review request** to all admins (`["wigy", "karmi", "admin"]`) with status `waiting`:
        - `topic`: `"review-request"`
-       - `subject`: the card name
+       - `subject`: `"Card request: <card name>"`
        - `title`: `"Review: <card name> added"`
        - `body`: summary of the change with the card image `![Card Name](image-url)`, a link to the GitHub commit: `https://github.com/wigy/meccg/commit/<gitHash>`, plus the full card JSON in a code block
        - `keywords`: include `cardName`, `cardId`, `gitHash`, `userName` (original requester)
@@ -47,7 +47,14 @@ Follow these steps:
      - If it failed: mark failure, send a failure reply mail to the requesting user.
 
    - **`certification-request`**: The keywords should contain `cardId`. Run the `/certify-card` skill with the `cardId` value. After it completes:
-     - If certification passed: mark success, send reply mail.
+     - If certification passed: mark success, send reply mail. Then send a **review request** to all admins (`["wigy", "karmi", "admin"]`) with status `waiting`:
+       - `topic`: `"review-request"`
+       - `subject`: `"Certification request: <card name>"`
+       - `title`: `"Review: <card name> certified"`
+       - `body`: summary of the certification result with the card image `![Card Name](image-url)`, a link to the GitHub commit: `https://github.com/wigy/meccg/commit/<gitHash>`, plus the certification status table
+       - `keywords`: include `cardName`, `cardId`, `gitHash`, `userName` (original requester)
+       - `replyTo`: the original message ID
+       - Mark the review message status as `waiting` after sending (same as for card-request).
      - If certification failed or card has unimplemented effects: mark failure, send reply mail.
 
    - **`feature-request`** or **`bug-fix-request`**: These cannot be automatically handled. Mark as processed with `success: false`. Send a reply mail to the sender explaining that this type of request requires manual attention.
