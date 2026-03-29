@@ -8,7 +8,7 @@
     { "name": "Muzgash", "card": null, "qty": 1 },
     { "name": "Radbug", "card": null, "qty": 1 },
     { "name": "Tros Hesnef", "card": null, "qty": 1 },
-    { "name": "Foul-smelling Paste", "card": null, "qty": 2 }
+    { "name": "Foul-smelling Paste", "card": "le-310", "qty": 2 }
   ],
   "deck": {
     "characters": [

@@ -117,6 +117,28 @@
     "text": "Discard to give +1 prowess to all characters in bearer's company until the end of the turn."
   },
   {
+    "cardType": "minion-resource-item",
+    "alignment": "ringwraith",
+    "id": "le-310",
+    "name": "Foul-smelling Paste",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/FoulsmellingPaste.jpg",
+    "unique": false,
+    "subtype": "minor",
+    "marshallingPoints": 0,
+    "marshallingCategory": "item",
+    "corruptionPoints": 1,
+    "prowessModifier": 0,
+    "bodyModifier": 0,
+    "playableAt": [
+      "ruins-and-lairs",
+      "shadow-hold",
+      "dark-hold",
+      "border-hold"
+    ],
+    "effects": [],
+    "text": "The bearer can discard this item to heal a wounded character in his company\u2014change the character\u2019s status from wounded to well and untapped."
+  },
+  {
     "cardType": "minion-resource-faction",
     "alignment": "ringwraith",
     "id": "le-265",

@@ -8,7 +8,7 @@
     { "name": "Luitprand", "card": null, "qty": 1 },
     { "name": "Ostisen", "card": null, "qty": 1 },
     { "name": "Blazon of the Eye", "card": null, "qty": 1 },
-    { "name": "Foul-smelling Paste", "card": null, "qty": 1 }
+    { "name": "Foul-smelling Paste", "card": "le-310", "qty": 1 }
   ],
   "deck": {
     "characters": [
