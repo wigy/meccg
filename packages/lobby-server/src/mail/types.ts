@@ -22,6 +22,7 @@ export type MailTopic =
   | 'feature-request'
   | 'feature-reply'
   | 'feature-planning-request'
+  | 'feature-planning-reply'
   | 'bug-fix-request';
 
 /** A mail message stored in a player's inbox or deleted folder. */
