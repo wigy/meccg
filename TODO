@@ -7,25 +7,22 @@ FIXES
 FEATS
 -----
 
+Uploading Gccg deck format.
+
 EPICS
 -----
 
-Loadable hero decks in JSON files, deck collection, internal file format
 Sideboard
 Influence attempts
 Tests for game rules (step by step go through again each CoE rule, build status matrix)
-The Wizards
-The Dragons
-Dark Minions
-Agent Play
-The Lidless eye
-Minion Play
-Against the shadow
-The White Hand
-Fw Play
-The Balrog
-Balrog Play
+The Dragons Rules
+Dark Minions Rules
+The Lidless eye Rules
+Against the shadow Rules
+The White Hand Rules
+The Balrog Rules
 Deck Validation
+Tournaments
 
 UNSORTED
 --------

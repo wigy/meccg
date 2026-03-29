@@ -20,6 +20,6 @@ Follow these steps:
 
 5. **Pick the oldest message:** Select the message with the earliest timestamp that has status `new` or `read` (skip messages that are already `processing`, `processed`, `waiting`, or `approved`). If no unprocessed messages remain, report that all messages have been handled and stop.
 
-6. **Run /handle-mail:** Invoke the `/handle-mail` skill with the selected message ID as the argument.
+6. **Run /handle-mail:** Use the **Agent tool** (not the Skill tool) to handle the message — read `.claude/commands/handle-mail.md`, substitute `$ARGUMENTS` with the selected message ID, and pass the full content as the agent prompt. Wait for the agent to complete.
 
-7. **Report:** After `/handle-mail` completes, summarize what was processed and the result.
+7. **Report:** After the agent completes, summarize what was processed and the result.
