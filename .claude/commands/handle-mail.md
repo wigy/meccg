@@ -47,7 +47,7 @@ Follow these steps:
          Do this for each admin recipient.
      - If it failed: mark failure, send a failure reply mail to the requesting user.
 
-   - **`certification-request`**: The keywords should contain `cardId`. Use the **Agent tool** (not the Skill tool) to run the `/certify-card` skill — read `.claude/commands/certify-card.md`, substitute `$ARGUMENTS` with the `cardId` value, and pass the full content as the agent prompt. After it completes:
+   - **`certification-request`**: The keywords should contain `cardId`. Use the **Agent tool** (not the Skill tool) to run the `/handle-certify-card` skill — read `.claude/commands/handle-certify-card.md`, substitute `$ARGUMENTS` with the `cardId` value, and pass the full content as the agent prompt. After it completes:
      - If certification passed: mark success, send reply mail. Then send a **review request** to all admins (`["wigy", "karmi", "admin"]`) with status `waiting`:
        - `topic`: `"review-request"`
        - `subject`: `"Review: <card name> certified"`
