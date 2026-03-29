@@ -655,6 +655,7 @@ h2 {
   margin: 0 0 0.75rem;
 }
 
+#feature-request-subject,
 #feature-request-body {
   width: 100%;
   box-sizing: border-box;
@@ -665,6 +666,13 @@ h2 {
   padding: 0.5rem;
   font-family: inherit;
   font-size: 0.9rem;
+}
+
+#feature-request-subject {
+  margin-bottom: 0.5rem;
+}
+
+#feature-request-body {
   resize: vertical;
 }
 

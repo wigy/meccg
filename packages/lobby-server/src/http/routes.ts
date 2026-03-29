@@ -28,7 +28,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
 import { cardImageRawUrl } from '@meccg/shared';
-import { DEV, MASTER_KEY, ADMIN_PLAYERS } from '../config.js';
+import { DEV, MASTER_KEY, REVIEWER_PLAYERS } from '../config.js';
 import { broadcastNotification } from '../lobby/lobby.js';
 import { sendMail, listInbox, listSent, readMessage, deleteMessage, markAllUnread, updateMessageStatus, countUnread } from '../mail/store.js';
 import type { MailSender, MailStatus, MailTopic } from '../mail/types.js';
@@ -292,7 +292,7 @@ export async function handleRequest(req: http.IncomingMessage, res: http.ServerR
   if (urlPath === '/api/me' && method === 'GET') {
     const playerName = getSessionPlayer(req);
     if (playerName) {
-      sendJson(res, 200, { name: playerName, displayName: getDisplayName(playerName), isAdmin: ADMIN_PLAYERS.includes(playerName) });
+      sendJson(res, 200, { name: playerName, displayName: getDisplayName(playerName), isReviewer: REVIEWER_PLAYERS.includes(playerName) });
     } else {
       sendJson(res, 401, { error: 'Not logged in' });
     }
@@ -487,7 +487,7 @@ export async function handleRequest(req: http.IncomingMessage, res: http.ServerR
   if (reviewMatch && method === 'POST') {
     const playerName = getSessionPlayer(req);
     if (!playerName) { sendJson(res, 401, { error: 'Not logged in' }); return; }
-    if (!ADMIN_PLAYERS.includes(playerName)) { sendJson(res, 403, { error: 'Only admins can approve or decline' }); return; }
+    if (!REVIEWER_PLAYERS.includes(playerName)) { sendJson(res, 403, { error: 'Only reviewers can approve or decline' }); return; }
     const [, msgId, action] = reviewMatch;
     const newStatus = action === 'approve' ? 'approved' : 'declined';
     const updated = updateMessageStatus(playerName, msgId, newStatus);
@@ -515,6 +515,7 @@ export async function handleRequest(req: http.IncomingMessage, res: http.ServerR
           body: updated.body,
           keywords: {},
           replyTo: msgId,
+          sentBy: playerName,
         });
       }
     }

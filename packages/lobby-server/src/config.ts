@@ -62,5 +62,5 @@ export const GAME_TOKEN_EXPIRY = '24h';
 /** Whether the server is in dev mode. */
 export const DEV = process.argv.includes('--dev') || process.env.DEV === '1';
 
-/** Admin player names who receive review requests and can approve changes. */
-export const ADMIN_PLAYERS: readonly string[] = ['wigy', 'karmi', 'admin'];
+/** Reviewer player names who receive review requests and can approve changes. */
+export const REVIEWER_PLAYERS: readonly string[] = ['wigy', 'karmi', 'admin'];

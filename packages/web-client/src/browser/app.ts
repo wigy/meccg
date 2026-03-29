@@ -71,7 +71,7 @@ function restoreGameSession(): boolean {
 }
 /** Current logged-in player name (lobby mode). */
 let lobbyPlayerName: string | null = null;
-let lobbyPlayerIsAdmin = false;
+let lobbyPlayerIsReviewer = false;
 /** Name of the player who sent us a challenge (lobby mode). */
 let challengeFrom: string | null = null;
 let lastVisibleInstances: Readonly<Record<string, CardDefinitionId>> = {};
@@ -985,9 +985,10 @@ function renderMessage(messageEl: HTMLElement, full: InboxMessage): void {
   messageEl.appendChild(body);
 
   // Approve / Decline buttons for review-request and feature-request messages
-  const reviewable = full.topic === 'review-request' || full.topic === 'feature-request';
+  const reviewable = full.topic === 'review-request'
+    || (full.topic === 'feature-request' && lobbyPlayerName === 'admin');
   const actionable = full.status === 'waiting' || full.status === 'new' || full.status === 'read';
-  if (actionable && reviewable && lobbyPlayerIsAdmin) {
+  if (actionable && reviewable && lobbyPlayerIsReviewer) {
     const btnContainer = document.createElement('div');
     btnContainer.className = 'inbox-review-actions';
 
@@ -1053,10 +1054,12 @@ function renderMailList(
   featureBtn.textContent = 'Feature Request';
   featureBtn.addEventListener('click', () => {
     const modal = document.getElementById('feature-request-modal')!;
+    const subjectEl = document.getElementById('feature-request-subject') as HTMLInputElement;
     const bodyEl = document.getElementById('feature-request-body') as HTMLTextAreaElement;
+    subjectEl.value = '';
     bodyEl.value = '';
     modal.classList.remove('hidden');
-    bodyEl.focus();
+    subjectEl.focus();
   });
   listEl.appendChild(featureBtn);
 
@@ -1324,9 +1327,9 @@ async function initLobby(): Promise<void> {
   try {
     const resp = await fetch('/api/me');
     if (resp.ok) {
-      const data = await resp.json() as { name: string; isAdmin?: boolean };
+      const data = await resp.json() as { name: string; isReviewer?: boolean };
       lobbyPlayerName = data.name;
-      lobbyPlayerIsAdmin = data.isAdmin ?? false;
+      lobbyPlayerIsReviewer = data.isReviewer ?? false;
 
       // Rejoin active game if session was saved (e.g. page refresh)
       if (restoreGameSession()) {
@@ -1613,20 +1616,22 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Feature request modal handlers
     const frModal = document.getElementById('feature-request-modal')!;
+    const frSubject = document.getElementById('feature-request-subject') as HTMLInputElement;
     const frBody = document.getElementById('feature-request-body') as HTMLTextAreaElement;
     const closeFeatureModal = () => { frModal.classList.add('hidden'); };
     document.getElementById('feature-request-backdrop')!.addEventListener('click', closeFeatureModal);
     document.getElementById('feature-request-cancel')!.addEventListener('click', closeFeatureModal);
     document.getElementById('feature-request-send')!.addEventListener('click', () => {
+      const brief = frSubject.value.trim();
       const text = frBody.value.trim();
-      if (!text) return;
+      if (!brief || !text) return;
       void (async () => {
         const resp = await fetch('/api/mail/send', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             recipients: ['admin'],
-            subject: 'Feature Request',
+            subject: `Feature Request: ${brief}`,
             topic: 'feature-request',
             body: text,
           }),
