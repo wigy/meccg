@@ -397,8 +397,11 @@ function selectRandomBackground(): void {
 
 // ---- Lobby mode helpers ----
 
-type ScreenId = 'login-screen' | 'register-screen' | 'lobby-screen' | 'deck-editor-screen' | 'inbox-screen' | 'connect-form';
-const ALL_SCREENS: ScreenId[] = ['login-screen', 'register-screen', 'lobby-screen', 'deck-editor-screen', 'inbox-screen', 'connect-form'];
+type ScreenId = 'login-screen' | 'register-screen' | 'lobby-screen' | 'decks-screen' | 'deck-editor-screen' | 'inbox-screen' | 'connect-form';
+const ALL_SCREENS: ScreenId[] = ['login-screen', 'register-screen', 'lobby-screen', 'decks-screen', 'deck-editor-screen', 'inbox-screen', 'connect-form'];
+
+/** Screens that should show the persistent nav bar. */
+const NAV_SCREENS: ScreenId[] = ['lobby-screen', 'decks-screen', 'deck-editor-screen', 'inbox-screen'];
 
 /** Show one screen, hiding all others. */
 function showScreen(id: ScreenId): void {
@@ -406,6 +409,16 @@ function showScreen(id: ScreenId): void {
     const el = document.getElementById(screenId);
     if (el) el.classList.toggle('hidden', screenId !== id);
   }
+  // Show/hide the persistent nav bar
+  const nav = document.getElementById('lobby-nav');
+  if (nav) nav.classList.toggle('hidden', !NAV_SCREENS.includes(id));
+  // Update active nav item
+  document.getElementById('nav-dashboard')?.classList.toggle('lobby-nav-item--active',
+    id === 'lobby-screen');
+  document.getElementById('nav-decks')?.classList.toggle('lobby-nav-item--active',
+    id === 'decks-screen' || id === 'deck-editor-screen');
+  document.getElementById('nav-mail')?.classList.toggle('lobby-nav-item--active',
+    id === 'inbox-screen');
   // Update player name on all screens
   for (const el of document.querySelectorAll('.screen-player-name')) {
     el.textContent = lobbyPlayerName ?? '';
@@ -415,6 +428,10 @@ function showScreen(id: ScreenId): void {
     const btn = document.getElementById('play-ai-btn') as HTMLButtonElement | null;
     if (btn) { btn.textContent = 'Play vs AI'; btn.disabled = false; btn.classList.remove('hidden'); }
     document.getElementById('save-prompt')?.classList.add('hidden');
+    void loadDecks();
+  }
+  // Load decks when showing the decks screen
+  if (id === 'decks-screen') {
     void loadDecks();
   }
 }
@@ -605,16 +622,71 @@ async function loadDecks(): Promise<void> {
     }
   }
 
-  // Populate AI deck dropdown
-  const aiSelect = document.getElementById('ai-deck-select') as HTMLSelectElement;
-  aiSelect.innerHTML = '';
-  for (const deck of catalog) {
-    const opt = document.createElement('option');
-    opt.value = deck.id;
-    const missing = missingCards(deck);
-    opt.textContent = missing.length > 0 ? `\u26A0 ${deck.name}` : deck.name;
-    aiSelect.appendChild(opt);
+  // Render current deck compact preview
+  const previewContainer = document.getElementById('current-deck-preview');
+  if (previewContainer) {
+    previewContainer.innerHTML = '';
+    if (currentFullDeck) {
+      renderCompactDeck(previewContainer, currentFullDeck);
+    } else {
+      previewContainer.innerHTML = '<p class="lobby-empty">No deck selected</p>';
+    }
   }
+
+  // Populate AI deck dropdown
+  const aiSelect = document.getElementById('ai-deck-select') as HTMLSelectElement | null;
+  if (aiSelect) {
+    aiSelect.innerHTML = '';
+    for (const deck of catalog) {
+      const opt = document.createElement('option');
+      opt.value = deck.id;
+      const missing = missingCards(deck);
+      opt.textContent = missing.length > 0 ? `\u26A0 ${deck.name}` : deck.name;
+      aiSelect.appendChild(opt);
+    }
+  }
+}
+
+/** Render a compact, read-only listing of a deck in a 3-column grid. */
+function renderCompactDeck(container: HTMLElement, deck: FullDeck): void {
+  const sections: { label: string; entries: DeckListEntry[] }[][] = [
+    [
+      { label: 'Pool', entries: deck.pool },
+      { label: 'Characters', entries: deck.deck.characters },
+    ],
+    [{ label: 'Resources', entries: deck.deck.resources }],
+    [{ label: 'Hazards', entries: deck.deck.hazards }],
+    [{ label: 'Sites', entries: deck.sites }],
+  ];
+  const nameEl = document.createElement('div');
+  nameEl.className = 'compact-deck-name';
+  nameEl.textContent = deck.name;
+  container.appendChild(nameEl);
+  const alignEl = document.createElement('div');
+  alignEl.className = 'compact-deck-alignment';
+  alignEl.textContent = deck.alignment;
+  container.appendChild(alignEl);
+  const grid = document.createElement('div');
+  grid.className = 'compact-deck-grid';
+  for (const group of sections) {
+    const col = document.createElement('div');
+    col.className = 'compact-deck-section';
+    for (const section of group) {
+      if (section.entries.length === 0) continue;
+      const heading = document.createElement('div');
+      heading.className = 'compact-deck-heading';
+      heading.textContent = section.label;
+      col.appendChild(heading);
+      for (const entry of section.entries) {
+        const row = document.createElement('div');
+        row.className = 'compact-deck-entry' + (entry.card === null ? ' compact-deck-entry--missing' : '');
+        row.textContent = entry.qty > 1 ? `${entry.qty}\u00d7 ${entry.name}` : entry.name;
+        col.appendChild(row);
+      }
+    }
+    if (col.children.length > 0) grid.appendChild(col);
+  }
+  container.appendChild(grid);
 }
 
 /** Set a deck as the player's current deck, then refresh. */
@@ -739,6 +811,9 @@ function renderCardList(container: HTMLElement, entries: DeckListEntry[], deckId
 
 const EDITING_DECK_KEY = 'meccg-editing-deck';
 const VIEWING_INBOX_KEY = 'meccg-viewing-inbox';
+const VIEWING_DECKS_KEY = 'meccg-viewing-decks';
+const MAIL_TAB_KEY = 'meccg-mail-tab';
+const MAIL_MSG_KEY = 'meccg-mail-msg';
 
 /** Set up hover preview for card rows in the deck editor. */
 function setupDeckEditorPreview(): void {
@@ -829,11 +904,6 @@ async function openDeckEditor(deckId: string): Promise<void> {
   showScreen('deck-editor-screen');
 }
 
-/** Close the deck editor and return to the lobby. */
-function closeDeckEditor(): void {
-  sessionStorage.removeItem(EDITING_DECK_KEY);
-  showScreen('lobby-screen');
-}
 
 // ---- Inbox ----
 
@@ -940,12 +1010,22 @@ function renderMailList(
   listEl: HTMLElement, messageEl: HTMLElement, messages: InboxMessage[],
   options: { fetchOnClick?: string; showMarkAllUnread?: boolean },
 ): void {
-  if (messages.length === 0) {
-    listEl.innerHTML = '<p class="lobby-empty">No messages</p>';
-    return;
-  }
-
   listEl.innerHTML = '';
+
+  // Render Inbox/Sent tabs at the top of the list panel
+  const tabsDiv = document.createElement('div');
+  tabsDiv.className = 'inbox-tabs';
+  const inboxTab = document.createElement('button');
+  inboxTab.className = 'inbox-tab' + (activeMailTab === 'inbox' ? ' inbox-tab--active' : '');
+  inboxTab.textContent = 'Inbox';
+  inboxTab.addEventListener('click', () => { void openInbox(); });
+  const sentTab = document.createElement('button');
+  sentTab.className = 'inbox-tab' + (activeMailTab === 'sent' ? ' inbox-tab--active' : '');
+  sentTab.textContent = 'Sent';
+  sentTab.addEventListener('click', () => { void openSent(); });
+  tabsDiv.appendChild(inboxTab);
+  tabsDiv.appendChild(sentTab);
+  listEl.appendChild(tabsDiv);
 
   if (options.showMarkAllUnread) {
     const btn = document.createElement('button');
@@ -959,9 +1039,17 @@ function renderMailList(
     });
     listEl.appendChild(btn);
   }
+  if (messages.length === 0) {
+    const empty = document.createElement('p');
+    empty.className = 'lobby-empty';
+    empty.textContent = 'No messages';
+    listEl.appendChild(empty);
+    return;
+  }
   for (const msg of messages) {
     const row = document.createElement('div');
     row.className = 'inbox-item' + (msg.status === 'new' ? ' inbox-item--unread' : '');
+    row.dataset.msgId = msg.id;
 
     const info = document.createElement('div');
     info.className = 'inbox-item-info';
@@ -990,6 +1078,7 @@ function renderMailList(
 
     row.addEventListener('click', () => {
       void (async () => {
+        sessionStorage.setItem(MAIL_MSG_KEY, msg.id);
         if (options.fetchOnClick) {
           const msgResp = await fetch(`${options.fetchOnClick}/${msg.id}`);
           if (!msgResp.ok) return;
@@ -1009,19 +1098,27 @@ function renderMailList(
 /** Which mail tab is active. */
 let activeMailTab: 'inbox' | 'sent' = 'inbox';
 
-/** Update tab button styles. */
-function updateMailTabs(): void {
-  document.getElementById('inbox-tab-inbox')!.className = 'inbox-tab' + (activeMailTab === 'inbox' ? ' inbox-tab--active' : '');
-  document.getElementById('inbox-tab-sent')!.className = 'inbox-tab' + (activeMailTab === 'sent' ? ' inbox-tab--active' : '');
-  document.querySelectorAll('.mark-all-unread-btn').forEach(el => (el as HTMLElement).style.display = activeMailTab === 'inbox' ? '' : 'none');
+/** Update the mail unread badge in the nav bar. */
+function updateMailBadge(count: number): void {
+  const badge = document.getElementById('nav-mail-badge');
+  if (badge) badge.textContent = count > 0 ? `(${count})` : '';
+}
+
+/** Click the inbox row matching the given message ID to restore selection after reload. */
+function autoSelectMessage(msgId: string): void {
+  const listEl = document.getElementById('inbox-list');
+  if (!listEl) return;
+  const row = listEl.querySelector(`.inbox-item[data-msg-id="${msgId}"]`);
+  if (row) (row as HTMLElement).click();
 }
 
 /** Fetch and display inbox messages. */
 async function openInbox(): Promise<void> {
   sessionStorage.setItem(VIEWING_INBOX_KEY, '1');
+  sessionStorage.setItem(MAIL_TAB_KEY, 'inbox');
+  sessionStorage.removeItem(MAIL_MSG_KEY);
   showScreen('inbox-screen');
   activeMailTab = 'inbox';
-  updateMailTabs();
   const listEl = document.getElementById('inbox-list')!;
   const messageEl = document.getElementById('inbox-message')!;
   listEl.innerHTML = '<p class="lobby-empty">Loading...</p>';
@@ -1032,8 +1129,7 @@ async function openInbox(): Promise<void> {
     if (!resp.ok) { listEl.innerHTML = '<p class="lobby-empty">Failed to load inbox</p>'; return; }
     const data = await resp.json() as { messages: InboxMessage[]; unreadCount: number };
 
-    const badge = document.getElementById('inbox-unread')!;
-    badge.textContent = data.unreadCount > 0 ? `${data.unreadCount} unread` : '';
+    updateMailBadge(data.unreadCount);
 
     renderMailList(listEl, messageEl, data.messages, {
       fetchOnClick: '/api/mail/inbox',
@@ -1047,9 +1143,10 @@ async function openInbox(): Promise<void> {
 /** Fetch and display sent messages. */
 async function openSent(): Promise<void> {
   sessionStorage.setItem(VIEWING_INBOX_KEY, '1');
+  sessionStorage.setItem(MAIL_TAB_KEY, 'sent');
+  sessionStorage.removeItem(MAIL_MSG_KEY);
   showScreen('inbox-screen');
   activeMailTab = 'sent';
-  updateMailTabs();
   const listEl = document.getElementById('inbox-list')!;
   const messageEl = document.getElementById('inbox-message')!;
   listEl.innerHTML = '<p class="lobby-empty">Loading...</p>';
@@ -1060,8 +1157,7 @@ async function openSent(): Promise<void> {
     if (!resp.ok) { listEl.innerHTML = '<p class="lobby-empty">Failed to load sent mail</p>'; return; }
     const data = await resp.json() as { messages: InboxMessage[] };
 
-    const badge = document.getElementById('inbox-unread')!;
-    badge.textContent = '';
+    updateMailBadge(0);
 
     renderMailList(listEl, messageEl, data.messages, {});
   } catch {
@@ -1163,10 +1259,7 @@ function connectLobbyWs(): void {
       }
       case 'mail-notification': {
         const unread = msg.unreadCount as number;
-        const inboxBtn = document.getElementById('inbox-btn');
-        if (inboxBtn) {
-          inboxBtn.textContent = unread > 0 ? `Mail (${unread})` : 'Mail';
-        }
+        updateMailBadge(unread);
         break;
       }
       case 'system-notification': {
@@ -1224,7 +1317,20 @@ async function initLobby(): Promise<void> {
       // Restore inbox if we were viewing it before reload
       if (sessionStorage.getItem(VIEWING_INBOX_KEY)) {
         connectLobbyWs();
-        void openInbox();
+        const savedTab = sessionStorage.getItem(MAIL_TAB_KEY);
+        const savedMsg = sessionStorage.getItem(MAIL_MSG_KEY);
+        if (savedTab === 'sent') {
+          void openSent().then(() => { if (savedMsg) autoSelectMessage(savedMsg); });
+        } else {
+          void openInbox().then(() => { if (savedMsg) autoSelectMessage(savedMsg); });
+        }
+        return;
+      }
+
+      // Restore decks screen if we were browsing decks before reload
+      if (sessionStorage.getItem(VIEWING_DECKS_KEY)) {
+        connectLobbyWs();
+        showScreen('decks-screen');
         return;
       }
 
@@ -1376,13 +1482,14 @@ document.addEventListener('DOMContentLoaded', () => {
       await fetch('/api/logout', { method: 'POST' });
       lobbyPlayerName = null;
       sessionStorage.removeItem(VIEWING_INBOX_KEY);
+      sessionStorage.removeItem(MAIL_TAB_KEY);
+      sessionStorage.removeItem(MAIL_MSG_KEY);
       sessionStorage.removeItem(EDITING_DECK_KEY);
+      sessionStorage.removeItem(VIEWING_DECKS_KEY);
       if (lobbyWs) { lobbyWs.close(); lobbyWs = null; }
       showScreen('login-screen');
     })(); };
-    for (const btn of document.querySelectorAll('.screen-logout')) {
-      btn.addEventListener('click', doLogout);
-    }
+    document.getElementById('logout-btn')!.addEventListener('click', doLogout);
 
     const savePrompt = document.getElementById('save-prompt')!;
     const continueGameBtn = document.getElementById('continue-game-btn') as HTMLButtonElement;
@@ -1441,24 +1548,26 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     });
 
-    // Deck editor back button
-    document.getElementById('deck-editor-back')!.addEventListener('click', () => {
-      closeDeckEditor();
-    });
-
-    // Inbox button and back
-    document.getElementById('inbox-btn')!.addEventListener('click', () => {
-      void openInbox();
-    });
-    document.getElementById('inbox-back')!.addEventListener('click', () => {
+    // Nav bar buttons
+    document.getElementById('nav-dashboard')!.addEventListener('click', () => {
       sessionStorage.removeItem(VIEWING_INBOX_KEY);
+      sessionStorage.removeItem(MAIL_TAB_KEY);
+      sessionStorage.removeItem(MAIL_MSG_KEY);
+      sessionStorage.removeItem(EDITING_DECK_KEY);
+      sessionStorage.removeItem(VIEWING_DECKS_KEY);
       showScreen('lobby-screen');
     });
-    document.getElementById('inbox-tab-inbox')!.addEventListener('click', () => {
-      void openInbox();
+    document.getElementById('nav-decks')!.addEventListener('click', () => {
+      sessionStorage.removeItem(VIEWING_INBOX_KEY);
+      sessionStorage.removeItem(MAIL_TAB_KEY);
+      sessionStorage.removeItem(MAIL_MSG_KEY);
+      sessionStorage.removeItem(EDITING_DECK_KEY);
+      sessionStorage.setItem(VIEWING_DECKS_KEY, '1');
+      showScreen('decks-screen');
     });
-    document.getElementById('inbox-tab-sent')!.addEventListener('click', () => {
-      void openSent();
+    document.getElementById('nav-mail')!.addEventListener('click', () => {
+      sessionStorage.removeItem(VIEWING_DECKS_KEY);
+      void openInbox();
     });
   }
 

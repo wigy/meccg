@@ -34,27 +34,19 @@
     </div>
   </div>
 
-  <!-- Lobby screen (lobby mode) -->
+  <!-- Persistent nav bar (lobby mode) -->
+  <nav id="lobby-nav" class="lobby-nav hidden">
+    <button id="nav-dashboard" class="lobby-nav-item lobby-nav-item--active">Dashboard</button>
+    <button id="nav-decks" class="lobby-nav-item">Decks</button>
+    <button id="nav-mail" class="lobby-nav-item">Mail <span id="nav-mail-badge" class="lobby-nav-badge"></span></button>
+    <span class="lobby-nav-spacer"></span>
+    <span id="lobby-player-name" class="screen-player-name"></span>
+    <button id="logout-btn" class="lobby-logout">Logout</button>
+  </nav>
+
+  <!-- Lobby screen (lobby mode) — play area -->
   <div id="lobby-screen" class="hidden">
-    <div class="lobby-header">
-      <h2 class="lobby-title">Lobby</h2>
-      <button id="inbox-btn" class="lobby-inbox-btn">Mail</button>
-      <button id="logout-btn" class="lobby-logout screen-logout">Logout</button>
-      <span id="lobby-player-name" class="screen-player-name"></span>
-    </div>
     <div class="lobby-content">
-      <div class="lobby-column">
-        <h3 class="lobby-section-title">My Decks</h3>
-        <div id="my-decks" class="lobby-deck-list">
-          <p class="lobby-empty">No decks yet</p>
-        </div>
-
-        <h3 class="lobby-section-title" style="margin-top:1.5rem">Deck Catalog</h3>
-        <div id="deck-catalog" class="lobby-deck-list">
-          <p class="lobby-empty">Loading...</p>
-        </div>
-      </div>
-
       <div class="lobby-column">
         <h3 class="lobby-section-title">Online Players</h3>
         <div id="online-players" class="lobby-player-list">
@@ -76,8 +68,29 @@
           <button id="new-game-btn" class="lobby-play-btn lobby-play-btn--secondary">Start New</button>
         </div>
       </div>
+    </div>
+  </div>
 
+  <!-- Decks screen (lobby mode) — 3-column deck browser -->
+  <div id="decks-screen" class="hidden">
+    <div class="lobby-content lobby-content--decks">
       <div class="lobby-column">
+        <h3 class="lobby-section-title">Deck Catalog</h3>
+        <div id="deck-catalog" class="lobby-deck-list">
+          <p class="lobby-empty">Loading...</p>
+        </div>
+      </div>
+      <div class="lobby-column">
+        <h3 class="lobby-section-title">My Decks</h3>
+        <div id="my-decks" class="lobby-deck-list">
+          <p class="lobby-empty">No decks yet</p>
+        </div>
+      </div>
+      <div class="lobby-column">
+        <h3 class="lobby-section-title">Current Deck</h3>
+        <div id="current-deck-preview" class="lobby-deck-list">
+          <p class="lobby-empty">No deck selected</p>
+        </div>
       </div>
     </div>
   </div>
@@ -85,10 +98,7 @@
   <!-- Deck editor screen (lobby mode) -->
   <div id="deck-editor-screen" class="hidden">
     <div class="lobby-header">
-      <button id="deck-editor-back" class="deck-editor-back">&larr; Back</button>
       <h2 class="lobby-title" id="deck-editor-title">Deck</h2>
-      <button class="lobby-logout screen-logout">Logout</button>
-      <span class="screen-player-name"></span>
     </div>
     <div id="deck-editor-preview" class="deck-editor-preview"></div>
     <div class="deck-editor-content">
@@ -115,22 +125,11 @@
 
   <!-- Inbox screen (lobby mode) -->
   <div id="inbox-screen" class="hidden">
-    <div class="lobby-header">
-      <button id="inbox-back" class="deck-editor-back">&larr; Back</button>
-      <h2 class="lobby-title">Inbox</h2>
-      <span id="inbox-unread" class="inbox-unread-badge"></span>
-      <div class="inbox-tabs">
-        <button id="inbox-tab-inbox" class="inbox-tab inbox-tab--active">Inbox</button>
-        <button id="inbox-tab-sent" class="inbox-tab">Sent</button>
-      </div>
-      <button class="lobby-logout screen-logout">Logout</button>
-      <span class="screen-player-name"></span>
-    </div>
     <div class="inbox-content">
       <div id="inbox-list" class="inbox-list">
         <p class="lobby-empty">Loading...</p>
       </div>
-      <div id="inbox-message" class="inbox-message"
+      <div id="inbox-message" class="inbox-message">
         <p class="lobby-empty">Select a message to read</p>
       </div>
     </div>
