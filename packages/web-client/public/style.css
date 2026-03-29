@@ -572,11 +572,19 @@ h2 {
 }
 
 .lobby-content {
-  max-width: 500px;
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 2rem;
+  width: 100%;
+  max-width: 1200px;
+}
+
+.lobby-column {
+  min-width: 0;
 }
 
 .lobby-actions {
-  margin-bottom: 1.5rem;
+  margin-top: 1.5rem;
 }
 
 .lobby-play-btn {

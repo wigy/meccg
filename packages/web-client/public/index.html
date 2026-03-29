@@ -43,27 +43,35 @@
       <span id="lobby-player-name" class="screen-player-name"></span>
     </div>
     <div class="lobby-content">
-      <div class="lobby-actions">
-        <button id="play-ai-btn" class="lobby-play-btn">Play vs AI</button>
-      </div>
-      <h3 class="lobby-section-title">Online Players</h3>
-      <div id="online-players" class="lobby-player-list">
-        <p class="lobby-empty">No other players online</p>
-      </div>
-      <div id="challenge-incoming" class="hidden">
-        <p id="challenge-text"></p>
-        <button id="accept-challenge-btn">Accept</button>
-        <button id="decline-challenge-btn">Decline</button>
+      <div class="lobby-column">
+        <h3 class="lobby-section-title">My Decks</h3>
+        <div id="my-decks" class="lobby-deck-list">
+          <p class="lobby-empty">No decks yet</p>
+        </div>
+
+        <h3 class="lobby-section-title" style="margin-top:1.5rem">Deck Catalog</h3>
+        <div id="deck-catalog" class="lobby-deck-list">
+          <p class="lobby-empty">Loading...</p>
+        </div>
       </div>
 
-      <h3 class="lobby-section-title" style="margin-top:1.5rem">My Decks</h3>
-      <div id="my-decks" class="lobby-deck-list">
-        <p class="lobby-empty">No decks yet</p>
+      <div class="lobby-column">
+        <h3 class="lobby-section-title">Online Players</h3>
+        <div id="online-players" class="lobby-player-list">
+          <p class="lobby-empty">No other players online</p>
+        </div>
+        <div id="challenge-incoming" class="hidden">
+          <p id="challenge-text"></p>
+          <button id="accept-challenge-btn">Accept</button>
+          <button id="decline-challenge-btn">Decline</button>
+        </div>
+
+        <div class="lobby-actions">
+          <button id="play-ai-btn" class="lobby-play-btn">Play vs AI</button>
+        </div>
       </div>
 
-      <h3 class="lobby-section-title" style="margin-top:1.5rem">Deck Catalog</h3>
-      <div id="deck-catalog" class="lobby-deck-list">
-        <p class="lobby-empty">Loading...</p>
+      <div class="lobby-column">
       </div>
     </div>
   </div>
