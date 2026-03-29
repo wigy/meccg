@@ -1,5 +1,46 @@
 # Changelog
 
+## 0.15.0 — 2026-03-29
+
+Feature requests and bug handling
+
+### Game Engine
+- **Fix duplicate haven actions:** Resolved bug where playing characters showed
+  duplicate haven site actions
+
+### Card Pool
+- **Foul-smelling Paste (le-310):** New resource added from card request
+
+### Web Client
+- **Bug report button:** New toolbar button and dialog for submitting bug reports
+  during gameplay
+- **Feature request workflow:** New Feature Request button and modal on the mail
+  page with admin approve/decline flow
+- **Implement button:** One-click feature implementation request from approved
+  feature plans
+- **Persistent nav bar:** Added top navigation bar with separate Decks and Lobby
+  screens
+- **Mail UI improvements:** Hidden scrollbar on mail list, wider metadata labels,
+  wrapped long lines in pre blocks, persistent mail view on refresh, status
+  badge updates on approve/decline, default visual mode
+- **Play button UX:** Disabled play buttons when no deck is selected with a
+  notice linking to decks page
+- **Renamed Dashboard to Lobby** in navigation
+
+### Lobby Server
+- **Bug report mail topic:** New `bug-reply` topic for bug report handling
+- **Planning request topic:** New `planning-reply` and `feature-implementation-request`
+  topics for feature workflow
+- **Feature request enhancements:** Subject field, reviewer role rename,
+  approved requests copied to sent
+
+### Infrastructure
+- **Build step in release:** Added `npm run build` type-check to release command
+  checks
+- **Skill updates:** Added `/handle-bug-report` command, renamed `certify-card`
+  to `handle-certify-card`, added feature planning and implementation handling
+  to mail skill
+
 ## 0.14.0 — 2026-03-29
 
 Internal mail system
