@@ -956,6 +956,7 @@ function renderMessage(messageEl: HTMLElement, full: InboxMessage): void {
     ['From', escapeHtml(full.from)],
     ['Sender', `<span class="inbox-tag inbox-tag--${full.sender}">${escapeHtml(full.sender)}</span>`],
     ['Topic', `<span class="inbox-tag inbox-tag--topic">${escapeHtml(full.topic)}</span>`],
+    ...(full.recipients?.length ? [['Recipients', full.recipients.map(escapeHtml).join(', ')]] : []),
     ['Date', new Date(full.timestamp).toLocaleString()],
     ['Status', `<span class="inbox-status inbox-status--${full.status}">${escapeHtml(full.status)}</span>`],
     ...(full.replyTo ? [['Reply To', `<span class="inbox-meta-id">${escapeHtml(full.replyTo)}<span class="inbox-copy-btn" data-copy="${escapeHtml(full.replyTo)}" title="Copy to clipboard">&#x2398;</span></span>`]] : []),
@@ -1244,6 +1245,7 @@ interface InboxMessage {
   readonly subject: string;
   readonly keywords: Record<string, string>;
   readonly replyTo?: string;
+  readonly recipients?: readonly string[];
 }
 
 /** Show an error message on an auth form. */

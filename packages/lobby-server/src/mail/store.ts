@@ -72,6 +72,7 @@ export function sendMail(recipients: readonly string[], options: SendMailOptions
     timestamp,
     subject: options.subject,
     keywords: options.keywords,
+    recipients: [...recipients],
     ...(options.replyTo ? { replyTo: options.replyTo } : {}),
   };
 

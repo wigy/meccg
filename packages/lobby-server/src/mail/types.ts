@@ -52,4 +52,6 @@ export interface MailMessage {
   readonly success?: boolean;
   /** Message ID this is a reply to. */
   readonly replyTo?: string;
+  /** The recipients this message was sent to. */
+  readonly recipients: readonly string[];
 }
