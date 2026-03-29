@@ -1408,8 +1408,8 @@ document.addEventListener('DOMContentLoaded', () => {
     btn.classList.add('btn-flash');
   }
 
-  // Restore saved view mode
-  if (localStorage.getItem(VIEW_KEY) === 'visual') {
+  // Restore saved view mode (default to visual when no preference stored)
+  if (localStorage.getItem(VIEW_KEY) !== 'debug') {
     setViewMode(true);
   }
 
