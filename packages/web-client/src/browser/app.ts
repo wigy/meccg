@@ -671,6 +671,7 @@ function renderCardList(container: HTMLElement, entries: DeckListEntry[], deckId
   const sorted = [...entries].sort((a, b) => {
     const defA = a.card ? cardPool[a.card] : undefined;
     const defB = b.card ? cardPool[b.card] : undefined;
+    if (!defA !== !defB) return defA ? -1 : 1;
     const typeA = defA?.cardType ?? '';
     const typeB = defB?.cardType ?? '';
     if (typeA !== typeB) return typeA.localeCompare(typeB);
