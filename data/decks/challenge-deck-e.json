@@ -41,7 +41,7 @@
     ],
     "resources": [
       { "name": "Beautiful Gold Ring", "card": null, "qty": 3 },
-      { "name": "Concealment", "card": null, "qty": 3 },
+      { "name": "Concealment", "card": "tw-204", "qty": 3 },
       { "name": "Dark Quarrels", "card": null, "qty": 2 },
       { "name": "Dodge", "card": null, "qty": 2 },
       { "name": "Glamdring", "card": "tw-244", "qty": 1 },

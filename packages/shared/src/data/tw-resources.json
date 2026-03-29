@@ -138,6 +138,19 @@
   {
     "cardType": "hero-resource-event",
     "alignment": "wizard",
+    "id": "tw-204",
+    "name": "Concealment",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Concealment.jpg",
+    "unique": false,
+    "eventType": "short",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Scout only. Tap scout to cancel one attack against his company."
+  },
+  {
+    "cardType": "hero-resource-event",
+    "alignment": "wizard",
     "id": "unknown-card",
     "name": "a card",
     "image": "/images/card-back.jpg",
