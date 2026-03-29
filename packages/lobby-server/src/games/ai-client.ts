@@ -22,8 +22,8 @@ const TOKEN = args[4];
 const DECK_FLAG_IDX = process.argv.indexOf('--deck');
 const DECK_ID = DECK_FLAG_IDX >= 0 ? process.argv[DECK_FLAG_IDX + 1] : undefined;
 
-if (!PORT || !PLAYER_NAME || !TOKEN || !DECK_ID) {
-  console.error('Usage: ai-client <port> <playerName> <token> --deck <deckId>');
+if (!PORT || !PLAYER_NAME || !TOKEN) {
+  console.error('Usage: ai-client <port> <playerName> <token> [--deck <deckId>]');
   process.exit(1);
 }
 
@@ -102,8 +102,15 @@ function connect(): void {
   const ws = new WebSocket(url);
 
   ws.on('open', () => {
-    console.log(`AI connected, sending join with deck "${DECK_ID}"...`);
-    const joinMsg = loadDeckFile(DECK_ID!);
+    let joinMsg: JoinMessage;
+    if (DECK_ID) {
+      console.log(`AI connected, sending join with deck "${DECK_ID}"...`);
+      joinMsg = loadDeckFile(DECK_ID);
+    } else {
+      // Rejoin: server already has game state from autosave, send minimal join
+      console.log('AI connected, sending minimal join (rejoin)...');
+      joinMsg = { type: 'join', name: PLAYER_NAME, alignment: Alignment.Wizard, draftPool: [], playDeck: [], siteDeck: [] };
+    }
     const msg: ClientMessage = { ...joinMsg, token: TOKEN } as ClientMessage;
     ws.send(JSON.stringify(msg));
   });

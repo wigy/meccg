@@ -9,6 +9,7 @@
  */
 
 import { spawn, type ChildProcess } from 'child_process';
+import * as net from 'net';
 import * as path from 'path';
 import { GAME_PORT_BASE, JWT_SECRET, DEV } from '../config.js';
 import { signGameToken } from '../auth/jwt.js';
@@ -45,7 +46,22 @@ export interface LaunchOptions {
  * Waits for the server to be ready before resolving.
  * Returns the port, game tokens, and an onEnd hook.
  */
+/** Check if a port is available by attempting to listen on it briefly. */
+function isPortFree(port: number): Promise<boolean> {
+  return new Promise((resolve) => {
+    const server = net.createServer();
+    server.once('error', () => resolve(false));
+    server.once('listening', () => { server.close(() => resolve(true)); });
+    server.listen(port);
+  });
+}
+
 export async function launchGame(player1: string, player2: string, options?: LaunchOptions): Promise<LaunchResult> {
+  // Skip ports that are still in use (e.g. orphaned game servers from a previous lobby instance)
+  while (!await isPortFree(nextPort)) {
+    lobbyLog.log('port-in-use', { port: nextPort });
+    nextPort++;
+  }
   const port = nextPort++;
   const gameId = `${player1}-vs-${player2}-${Date.now()}`;
   const tokens: [string, string] = [

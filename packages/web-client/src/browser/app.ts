@@ -379,10 +379,13 @@ function disconnect(): void {
 
 /**
  * Ask the lobby to relaunch the game server after it died. Opens a lobby
- * WebSocket, sends a `rejoin-game` message, and waits for `game-starting`
- * (which is handled by the existing lobby message handler in connectLobbyWs).
- * If the lobby reports an error, falls back to disconnect → lobby screen.
+ * WebSocket, sends a `rejoin-game` message, and waits for `game-starting`.
+ * Retries if the lobby itself is still restarting. Falls back to the lobby
+ * screen after MAX_REJOIN_ATTEMPTS failures.
  */
+const MAX_REJOIN_ATTEMPTS = 10;
+const REJOIN_RETRY_DELAY = 2000;
+
 function requestRejoin(): void {
   autoReconnect = false;
   if (ws) { ws.close(); ws = null; }
@@ -394,26 +397,66 @@ function requestRejoin(): void {
     return;
   }
 
-  // connectLobbyWs sets up the game-starting handler which will call connect()
-  connectLobbyWs();
+  let attempts = 0;
 
-  // Send rejoin-game once the lobby WS is open
-  const trySend = () => {
-    if (lobbyWs && lobbyWs.readyState === WebSocket.OPEN) {
-      lobbyWs.send(JSON.stringify({ type: 'rejoin-game', opponent }));
-    } else if (lobbyWs && lobbyWs.readyState === WebSocket.CONNECTING) {
-      lobbyWs.addEventListener('open', () => {
-        lobbyWs!.send(JSON.stringify({ type: 'rejoin-game', opponent }));
-      }, { once: true });
-    } else {
-      // Lobby WS failed to open — give up
-      renderLog('Cannot reach lobby server. Returning to lobby.');
+  function tryRejoin(): void {
+    attempts++;
+    if (attempts > MAX_REJOIN_ATTEMPTS) {
+      renderLog('Lobby unreachable — returning to lobby.');
+      showNotification('Lobby unreachable — returning to lobby.', true);
       disconnect();
+      return;
     }
-  };
+    renderLog(`Requesting game relaunch... (attempt ${attempts}/${MAX_REJOIN_ATTEMPTS})`);
 
-  // Small delay to let connectLobbyWs() create the socket
-  setTimeout(trySend, 100);
+    // Close any stale lobby WS
+    if (lobbyWs) { lobbyWs.close(); lobbyWs = null; }
+
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const rejoinWs = new WebSocket(`${protocol}//${window.location.host}`);
+
+    const cleanup = () => { rejoinWs.onopen = null; rejoinWs.onclose = null; rejoinWs.onmessage = null; };
+
+    rejoinWs.onopen = () => {
+      rejoinWs.send(JSON.stringify({ type: 'rejoin-game', opponent }));
+    };
+
+    rejoinWs.onmessage = (event) => {
+      const msg = JSON.parse(event.data as string) as { type: string; [key: string]: unknown };
+      if (msg.type === 'game-starting') {
+        cleanup();
+        // Hand off to the normal game-starting flow
+        gamePort = msg.port as number;
+        gameToken = msg.token as string;
+        opponentName = (msg.opponent as string) ?? opponent;
+        saveGameSession();
+        // Keep this WS as the lobby WS (it's authenticated)
+        lobbyWs = rejoinWs;
+        lobbyWs.onclose = () => { lobbyWs = null; };
+        // Close lobby WS during game (same as normal game-starting)
+        lobbyWs.close();
+        lobbyWs = null;
+        autoReconnect = true;
+        renderLog(`Game relaunched on port ${gamePort}. Connecting...`);
+        connect(lobbyPlayerName!);
+      } else if (msg.type === 'error') {
+        renderLog(`Lobby: ${msg.message as string}`);
+        cleanup();
+        rejoinWs.close();
+        showNotification(msg.message as string, true);
+        disconnect();
+      }
+      // Ignore other lobby messages (online-players, etc.) during rejoin
+    };
+
+    rejoinWs.onclose = () => {
+      cleanup();
+      // Lobby not ready yet — retry after delay
+      setTimeout(tryRejoin, REJOIN_RETRY_DELAY);
+    };
+  }
+
+  tryRejoin();
 }
 
 /**
@@ -1402,11 +1445,6 @@ function connectLobbyWs(): void {
       }
       case 'error': {
         renderLog(`Lobby: ${msg.message as string}`);
-        // If the game screen is active, this is a failed rejoin — return to lobby
-        if (!document.getElementById('game')!.classList.contains('hidden')) {
-          showNotification(msg.message as string, true);
-          disconnect();
-        }
         break;
       }
       case 'mail-notification': {
