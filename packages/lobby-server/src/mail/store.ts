@@ -136,7 +136,7 @@ export function readMessage(playerName: string, msgId: string): MailMessage | nu
   const filePath = path.join(inboxDir(playerName), `${msgId}.json`);
   try {
     const message = JSON.parse(fs.readFileSync(filePath, 'utf-8')) as MailMessage;
-    if (message.status === 'new') {
+    if (message.status === 'new' && message.topic !== 'review-request') {
       const updated: MailMessage = { ...message, status: 'read' };
       fs.writeFileSync(filePath, JSON.stringify(updated, null, 2));
       updateSentCopies(msgId, 'read');

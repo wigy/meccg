@@ -814,27 +814,42 @@ function renderMessage(messageEl: HTMLElement, full: InboxMessage): void {
   body.innerHTML = renderMarkdown(full.body);
   messageEl.appendChild(body);
 
-  // Approve button for messages awaiting review
-  if (full.status === 'waiting' && lobbyPlayerIsAdmin) {
+  // Approve / Decline buttons for review-request messages
+  if ((full.status === 'waiting' || full.status === 'new') && full.topic === 'review-request' && lobbyPlayerIsAdmin) {
+    const btnContainer = document.createElement('div');
+    btnContainer.className = 'inbox-review-actions';
+
     const approveBtn = document.createElement('button');
     approveBtn.className = 'inbox-approve-btn';
     approveBtn.textContent = 'Approve';
-    approveBtn.addEventListener('click', () => {
+
+    const declineBtn = document.createElement('button');
+    declineBtn.className = 'inbox-decline-btn';
+    declineBtn.textContent = 'Decline';
+
+    const handleReview = (action: 'approve' | 'decline', btn: HTMLButtonElement) => {
       void (async () => {
-        const resp = await fetch(`/api/mail/inbox/${full.id}/approve`, { method: 'POST' });
+        const resp = await fetch(`/api/mail/inbox/${full.id}/${action}`, { method: 'POST' });
         if (resp.ok) {
-          approveBtn.textContent = 'Approved';
+          const newStatus = action === 'approve' ? 'approved' : 'declined';
+          btn.textContent = newStatus.charAt(0).toUpperCase() + newStatus.slice(1);
           approveBtn.disabled = true;
-          // Update the status display in the message view
+          declineBtn.disabled = true;
           const statusEl = messageEl.querySelector('.inbox-status');
           if (statusEl) {
-            statusEl.className = 'inbox-status inbox-status--approved';
-            statusEl.textContent = 'approved';
+            statusEl.className = `inbox-status inbox-status--${newStatus}`;
+            statusEl.textContent = newStatus;
           }
         }
       })();
-    });
-    messageEl.appendChild(approveBtn);
+    };
+
+    approveBtn.addEventListener('click', () => handleReview('approve', approveBtn));
+    declineBtn.addEventListener('click', () => handleReview('decline', declineBtn));
+
+    btnContainer.appendChild(approveBtn);
+    btnContainer.appendChild(declineBtn);
+    messageEl.appendChild(btnContainer);
   }
 }
 

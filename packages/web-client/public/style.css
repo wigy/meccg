@@ -460,7 +460,6 @@ h2 {
 }
 
 .inbox-approve-btn {
-  margin-top: 1rem;
   padding: 0.5rem 1.5rem;
   font-size: 0.9rem;
   background: #4caf50;
@@ -478,6 +477,38 @@ h2 {
 .inbox-approve-btn:disabled {
   background: rgba(76, 175, 80, 0.3);
   color: #6abf6e;
+  cursor: default;
+}
+
+.inbox-status--declined {
+  background: rgba(244, 67, 54, 0.25);
+  color: #f44336;
+}
+
+.inbox-review-actions {
+  display: flex;
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+
+.inbox-decline-btn {
+  padding: 0.5rem 1.5rem;
+  font-size: 0.9rem;
+  background: #f44336;
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: bold;
+}
+
+.inbox-decline-btn:hover {
+  background: #e53935;
+}
+
+.inbox-decline-btn:disabled {
+  background: rgba(244, 67, 54, 0.3);
+  color: #e57373;
   cursor: default;
 }
 

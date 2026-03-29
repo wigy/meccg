@@ -445,14 +445,16 @@ export async function handleRequest(req: http.IncomingMessage, res: http.ServerR
     return;
   }
 
-  const approveMatch = urlPath.match(/^\/api\/mail\/inbox\/([a-f0-9]+)\/approve$/);
-  if (approveMatch && method === 'POST') {
+  const reviewMatch = urlPath.match(/^\/api\/mail\/inbox\/([a-f0-9]+)\/(approve|decline)$/);
+  if (reviewMatch && method === 'POST') {
     const playerName = getSessionPlayer(req);
     if (!playerName) { sendJson(res, 401, { error: 'Not logged in' }); return; }
-    if (!ADMIN_PLAYERS.includes(playerName)) { sendJson(res, 403, { error: 'Only admins can approve' }); return; }
-    const updated = updateMessageStatus(playerName, approveMatch[1], 'approved');
+    if (!ADMIN_PLAYERS.includes(playerName)) { sendJson(res, 403, { error: 'Only admins can approve or decline' }); return; }
+    const [, msgId, action] = reviewMatch;
+    const newStatus = action === 'approve' ? 'approved' : 'declined';
+    const updated = updateMessageStatus(playerName, msgId, newStatus);
     if (!updated) { sendJson(res, 404, { error: 'Message not found' }); return; }
-    lobbyLog.log('mail-approve', { player: playerName, msgId: approveMatch[1] });
+    lobbyLog.log(`mail-${action}`, { player: playerName, msgId });
     sendJson(res, 200, { ok: true });
     return;
   }
