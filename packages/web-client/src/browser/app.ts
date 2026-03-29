@@ -762,14 +762,6 @@ function renderMessage(messageEl: HTMLElement, full: InboxMessage): void {
   h.textContent = full.subject;
   messageEl.appendChild(h);
 
-  // Title (summary)
-  if (full.title && full.title !== full.subject) {
-    const titleEl = document.createElement('p');
-    titleEl.className = 'inbox-msg-title';
-    titleEl.textContent = full.title;
-    messageEl.appendChild(titleEl);
-  }
-
   // Metadata table
   const meta = document.createElement('div');
   meta.className = 'inbox-msg-meta';
@@ -990,7 +982,6 @@ async function openSent(): Promise<void> {
 /** Shape of a mail message from the API. */
 interface InboxMessage {
   readonly id: string;
-  readonly title: string;
   readonly status: string;
   readonly from: string;
   readonly sender: string;

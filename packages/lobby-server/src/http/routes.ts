@@ -392,12 +392,11 @@ export async function handleRequest(req: http.IncomingMessage, res: http.ServerR
       const decks = listPlayerDecks(playerName) as { id: string; name: string }[];
       const deckName = decks.find(d => d.id === body.deckId)?.name ?? body.deckId;
       const id = sendMail(['ai'], {
-        title: `${getDisplayName(playerName)} requested card "${body.cardName}" for deck "${deckName}"`,
         from: getDisplayName(playerName),
         sender: 'player',
         topic: 'card-request',
         body: `**${getDisplayName(playerName)}** requested card **${body.cardName}** for deck **${deckName}** (\`${body.deckId}\`).`,
-        subject: `Card request: ${body.cardName}`,
+        subject: `${getDisplayName(playerName)} requested card "${body.cardName}" for deck "${deckName}"`,
         keywords: { cardName: body.cardName, deckId: body.deckId, userName: playerName },
         sentBy: playerName,
       });
@@ -481,7 +480,6 @@ export async function handleRequest(req: http.IncomingMessage, res: http.ServerR
       try {
         const body = JSON.parse(await readBody(req)) as {
           recipients?: string[];
-          title?: string;
           from?: string;
           sender?: MailSender;
           topic?: MailTopic;
@@ -491,12 +489,11 @@ export async function handleRequest(req: http.IncomingMessage, res: http.ServerR
           sentBy?: string;
           replyTo?: string;
         };
-        if (!body.recipients?.length || !body.title || !body.from || !body.sender || !body.topic || !body.body || !body.subject) {
-          sendJson(res, 400, { error: 'recipients, title, from, sender, topic, body, and subject are required' });
+        if (!body.recipients?.length || !body.from || !body.sender || !body.topic || !body.body || !body.subject) {
+          sendJson(res, 400, { error: 'recipients, from, sender, topic, body, and subject are required' });
           return;
         }
         const id = sendMail(body.recipients, {
-          title: body.title,
           from: body.from,
           sender: body.sender,
           topic: body.topic,

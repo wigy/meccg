@@ -341,12 +341,6 @@ h2 {
   font-size: 1.1rem;
 }
 
-.inbox-msg-title {
-  margin: 0 0 0.5rem;
-  color: #aaa;
-  font-size: 0.85rem;
-  font-style: italic;
-}
 
 .inbox-msg-meta {
   display: flex;

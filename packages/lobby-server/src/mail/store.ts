@@ -33,8 +33,6 @@ function sentDir(playerName: string): string {
 
 /** Fields required when composing a new message (id, timestamp, status are generated). */
 export interface SendMailOptions {
-  /** Short summary displayed in message listings. */
-  readonly title: string;
   /** Human-readable sender name. */
   readonly from: string;
   /** Fixed sender category. */
@@ -66,7 +64,6 @@ export function sendMail(recipients: readonly string[], options: SendMailOptions
 
   const message: MailMessage = {
     id,
-    title: options.title,
     status: 'new',
     from: options.from,
     sender: options.sender,

@@ -26,8 +26,6 @@ export type MailTopic =
 export interface MailMessage {
   /** Globally unique ID. Same ID is shared across all recipients of a single send. */
   readonly id: string;
-  /** Short summary displayed in message listings. */
-  readonly title: string;
   /** Current lifecycle status. */
   readonly status: MailStatus;
   /** Human-readable sender name (e.g. "Card Certification Bot"). */
