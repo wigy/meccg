@@ -2,6 +2,8 @@ Handle a mail message from the ai inbox by dispatching it to the appropriate ski
 
 **IMPORTANT:** This skill must run to completion autonomously. Do NOT stop to ask the user for confirmation at any step. Complete ALL steps (dispatch, reply mail, review requests, status updates) without pausing.
 
+**⚠️ MAIL API RULE:** Every call to `/api/system/mail` MUST pass `"recipients"` as a JSON **array** (e.g. `["wigy"]` or `["wigy", "karmi", "admin"]`). A bare string will be split into single-character usernames. This is a hard requirement — never use a string.
+
 The message ID argument is: $ARGUMENTS
 
 If no message ID is given, list all messages in the ai inbox by running:
@@ -59,14 +61,30 @@ Follow these steps:
 
    - **Any other topic or missing keywords**: Mark as processed with `success: false`. Send a reply mail explaining the message could not be processed.
 
-5. **Send reply mail:** After processing, send a reply mail to the original requester (from the `userName` keyword, or if not present, use the `from` field of the original message). This is the **only** notification mechanism — do not use `/api/system/notify`. Use the system mail API:
+5. **Send reply mail:** After processing, send a reply mail to the original requester (from the `userName` keyword, or if not present, use the `from` field of the original message). This is the **only** notification mechanism — do not use `/api/system/notify`. Use the system mail API with this exact JSON structure:
+   ```json
+   {
+     "recipients": ["<userName>"],
+     "sender": "ai",
+     "from": "<displayName from ~/.meccg/players/ai/info.json>",
+     "topic": "<reply-topic>",
+     "subject": "<subject>",
+     "body": "<markdown body>",
+     "keywords": { "originalMessageId": "<msg-id>", ... },
+     "replyTo": "<msg-id>",
+     "sentBy": "ai"
+   }
+   ```
+   ⚠️ **`recipients` MUST be a JSON array** (e.g. `["wigy"]`). A bare string like `"wigy"` will be split into characters `["w","i","g","y"]` and send mail to wrong users.
+
+   Send via:
    ```
    curl -s -X POST http://localhost:8080/api/system/mail -H "Authorization: Bearer $(jq -r .masterKey ~/.meccg/secrets.json)" -H "Content-Type: application/json" -d '<json>'
    ```
-   The reply must have:
-   - `recipients`: the original requester's name (from `userName` keyword or `from` field)
+   Fields:
+   - `recipients`: JSON array of player names — **always `["name"]`, never `"name"`**
    - `sender`: `"ai"`
-   - `from`: `"AI Assistant"`
+   - `from`: read `displayName` from `~/.meccg/players/ai/info.json` (e.g. `"Eru Ilúvatar"`)
    - `topic`: the matching reply topic (e.g. `card-request` -> `card-reply`, `certification-request` -> `certification-reply`)
    - `subject`: reference the original subject
    - `body`: markdown summary of what was done or why it failed

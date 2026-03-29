@@ -127,3 +127,7 @@ Tests verify the **official CoE rules**, not internal implementation. There are 
 - All exported interfaces, types, enums, functions, and constants must have JSDoc comments.
 - Comments should explain the "why" (game mechanics context, architectural decisions) not just the "what".
 - Focus on how pieces fit together and what game rules motivate the design.
+
+### Mail System API
+
+- When calling `/api/system/mail`, the `recipients` field **must** be a JSON array of strings (e.g. `["wigy"]`), never a plain string. Passing a string causes it to be split into individual characters, sending mail to wrong users.
