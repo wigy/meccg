@@ -136,6 +136,20 @@
     </div>
   </div>
 
+  <!-- Feature request modal -->
+  <div id="feature-request-modal" class="hidden">
+    <div id="feature-request-backdrop"></div>
+    <div id="feature-request-dialog">
+      <h3>Feature Request</h3>
+      <p class="feature-request-hint">Describe the feature you'd like to see. Your request will be sent to the admin for review and prioritization.</p>
+      <textarea id="feature-request-body" rows="8" placeholder="Describe the feature..."></textarea>
+      <div class="feature-request-actions">
+        <button id="feature-request-cancel">Cancel</button>
+        <button id="feature-request-send">Send</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Connect form (standalone / non-lobby mode) -->
   <div id="connect-form" class="hidden">
     <input type="text" id="name-input" placeholder="Enter your name" autofocus>

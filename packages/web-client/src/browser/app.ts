@@ -1045,6 +1045,19 @@ function renderMailList(
   tabsDiv.appendChild(sentTab);
   listEl.appendChild(tabsDiv);
 
+  // Feature request button
+  const featureBtn = document.createElement('button');
+  featureBtn.className = 'inbox-action-btn';
+  featureBtn.textContent = 'Feature Request';
+  featureBtn.addEventListener('click', () => {
+    const modal = document.getElementById('feature-request-modal')!;
+    const bodyEl = document.getElementById('feature-request-body') as HTMLTextAreaElement;
+    bodyEl.value = '';
+    modal.classList.remove('hidden');
+    bodyEl.focus();
+  });
+  listEl.appendChild(featureBtn);
+
   if (options.showMarkAllUnread) {
     const btn = document.createElement('button');
     btn.className = 'inbox-action-btn mark-all-unread-btn';
@@ -1594,6 +1607,33 @@ document.addEventListener('DOMContentLoaded', () => {
       sessionStorage.removeItem(VIEWING_DECKS_KEY);
       sessionStorage.removeItem(EDITING_DECK_KEY);
       void openInbox();
+    });
+
+    // Feature request modal handlers
+    const frModal = document.getElementById('feature-request-modal')!;
+    const frBody = document.getElementById('feature-request-body') as HTMLTextAreaElement;
+    const closeFeatureModal = () => { frModal.classList.add('hidden'); };
+    document.getElementById('feature-request-backdrop')!.addEventListener('click', closeFeatureModal);
+    document.getElementById('feature-request-cancel')!.addEventListener('click', closeFeatureModal);
+    document.getElementById('feature-request-send')!.addEventListener('click', () => {
+      const text = frBody.value.trim();
+      if (!text) return;
+      void (async () => {
+        const resp = await fetch('/api/mail/send', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            recipients: ['admin'],
+            subject: 'Feature Request',
+            topic: 'feature-request',
+            body: text,
+          }),
+        });
+        if (resp.ok) {
+          closeFeatureModal();
+          void openSent();
+        }
+      })();
     });
   }
 

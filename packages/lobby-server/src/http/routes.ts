@@ -497,6 +497,38 @@ export async function handleRequest(req: http.IncomingMessage, res: http.ServerR
     return;
   }
 
+  if (urlPath === '/api/mail/send' && method === 'POST') {
+    const playerName = getSessionPlayer(req);
+    if (!playerName) { sendJson(res, 401, { error: 'Not logged in' }); return; }
+    try {
+      const body = JSON.parse(await readBody(req)) as {
+        recipients?: string[];
+        subject?: string;
+        topic?: MailTopic;
+        body?: string;
+      };
+      if (!body.recipients?.length || !body.subject || !body.topic || !body.body) {
+        sendJson(res, 400, { error: 'recipients, subject, topic, and body are required' });
+        return;
+      }
+      const id = sendMail(body.recipients, {
+        from: playerName,
+        sender: 'player',
+        topic: body.topic,
+        body: body.body,
+        subject: body.subject,
+        keywords: {},
+        sentBy: playerName,
+      });
+      lobbyLog.log('player-mail', { id, from: playerName, recipients: body.recipients, topic: body.topic });
+      sendJson(res, 200, { ok: true, id });
+    } catch (err) {
+      lobbyLog.log('error', { context: 'player-mail', error: String(err) });
+      sendJson(res, 500, { error: 'Failed to send mail' });
+    }
+    return;
+  }
+
   if (urlPath === '/api/mail/mark-all-unread' && method === 'POST') {
     const playerName = getSessionPlayer(req);
     if (!playerName) { sendJson(res, 401, { error: 'Not logged in' }); return; }
