@@ -23,6 +23,7 @@ import twHazards from './tw-hazards.json';
 
 // ---- Against the Shadow (AS) — minion expansion ----
 import asCharacters from './as-characters.json';
+import asHazards from './as-hazards.json';
 import asSites from './as-sites.json';
 
 // ---- The Lidless Eye (LE) — minion expansion ----
@@ -61,6 +62,7 @@ const allCards: readonly CardDefinition[] = [
   ...(twRegions as unknown as CardDefinition[]),
   // Against the Shadow
   ...(asCharacters as unknown as CardDefinition[]),
+  ...(asHazards as unknown as CardDefinition[]),
   ...(asSites as unknown as CardDefinition[]),
   // The Lidless Eye
   ...(leCharacters as unknown as CardDefinition[]),
