@@ -7,7 +7,6 @@ FIXES
 FEATS
 -----
 
-
 EPICS
 -----
 
@@ -27,4 +26,4 @@ UNSORTED
 --------
 
 Uploading Gccg deck format.
-Managing AI requests in a different copy of repository, but on the same server.
+Managing AI requests in a different copy of the server repository, but on the same server. After fix is pushed, tell server using master key and 'server' user to log in and to restart everything. Server must notify everyone, pull the code and then restart all processes and reload web client code.
