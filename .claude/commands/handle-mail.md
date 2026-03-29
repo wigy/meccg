@@ -37,7 +37,7 @@ Follow these steps:
        - `subject`: `"Card request: <card name>"`
        - `title`: `"Review: <card name> added"`
        - `body`: summary of the change with the card image `![Card Name](image-url)`, a link to the GitHub commit: `https://github.com/wigy/meccg/commit/<gitHash>`, plus the full card JSON in a code block
-       - `keywords`: include `cardName`, `cardId`, `gitHash`, `userName` (original requester), `approved: false`
+       - `keywords`: include `cardName`, `cardId`, `gitHash`, `userName` (original requester), `approval: "pending"` (valid values: `"pending"`, `"approved"`, `"declined"`)
        - `replyTo`: the original message ID
        - Mark the review message status as `waiting` after sending:
          ```
@@ -52,7 +52,7 @@ Follow these steps:
        - `subject`: `"Certification request: <card name>"`
        - `title`: `"Review: <card name> certified"`
        - `body`: summary of the certification result with the card image `![Card Name](image-url)`, a link to the GitHub commit: `https://github.com/wigy/meccg/commit/<gitHash>`, plus the certification status table
-       - `keywords`: include `cardName`, `cardId`, `gitHash`, `userName` (original requester), `approved: false`
+       - `keywords`: include `cardName`, `cardId`, `gitHash`, `userName` (original requester), `approval: "pending"` (valid values: `"pending"`, `"approved"`, `"declined"`)
        - `replyTo`: the original message ID
        - Mark the review message status as `waiting` after sending (same as for card-request).
      - If certification failed or card has unimplemented effects: mark failure, send reply mail.
