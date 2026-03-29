@@ -97,6 +97,7 @@ interface DeckFile {
   pool: DeckEntry[];
   deck: { characters: DeckEntry[]; hazards: DeckEntry[]; resources: DeckEntry[] };
   sites: DeckEntry[];
+  sideboard?: DeckEntry[];
 }
 
 const DECK_CATALOG_DIR = path.join(__dirname, '../../../../data/decks');
@@ -131,6 +132,7 @@ function loadCatalogDeck(deckId: string): JoinMessage {
       ...expandEntries(deck.deck.hazards),
     ],
     siteDeck: expandEntries(deck.sites),
+    sideboard: expandEntries(deck.sideboard ?? []),
   };
 }
 

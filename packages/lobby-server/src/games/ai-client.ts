@@ -35,6 +35,7 @@ interface DeckFile {
   pool: DeckEntry[];
   deck: { characters: DeckEntry[]; hazards: DeckEntry[]; resources: DeckEntry[] };
   sites: DeckEntry[];
+  sideboard: DeckEntry[];
 }
 
 const DECK_CATALOG_DIR = path.join(__dirname, '../../../../data/decks');
@@ -69,6 +70,7 @@ function loadDeckFile(deckId: string): JoinMessage {
       ...expandEntries(deck.deck.hazards),
     ],
     siteDeck: expandEntries(deck.sites),
+    sideboard: expandEntries(deck.sideboard ?? []),
   };
 }
 
@@ -109,7 +111,7 @@ function connect(): void {
     } else {
       // Rejoin: server already has game state from autosave, send minimal join
       console.log('AI connected, sending minimal join (rejoin)...');
-      joinMsg = { type: 'join', name: PLAYER_NAME, alignment: Alignment.Wizard, draftPool: [], playDeck: [], siteDeck: [] };
+      joinMsg = { type: 'join', name: PLAYER_NAME, alignment: Alignment.Wizard, draftPool: [], playDeck: [], siteDeck: [], sideboard: [] };
     }
     const msg: ClientMessage = { ...joinMsg, token: TOKEN } as ClientMessage;
     ws.send(JSON.stringify(msg));

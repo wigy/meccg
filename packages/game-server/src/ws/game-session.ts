@@ -375,6 +375,7 @@ export class GameSession {
       draftPool: p.join.draftPool,
       playDeck: p.join.playDeck,
       siteDeck: p.join.siteDeck,
+      sideboard: p.join.sideboard,
     };
   }
 

@@ -1,74 +1,374 @@
 {
   "id": "challenge-deck-g",
-  "name": "Marauding Brood of Uglies",
+  "name": "(G) Marauding Brood of Uglies",
   "alignment": "minion",
   "pool": [
-    { "name": "Lagduf", "card": null, "qty": 1 },
-    { "name": "Lieutenant of Morgul", "card": null, "qty": 1 },
-    { "name": "Muzgash", "card": null, "qty": 1 },
-    { "name": "Radbug", "card": null, "qty": 1 },
-    { "name": "Tros Hesnef", "card": null, "qty": 1 },
-    { "name": "Foul-smelling Paste", "card": "le-310", "qty": 2 }
+    {
+      "name": "Lagduf",
+      "card": null,
+      "qty": 1
+    },
+    {
+      "name": "Lieutenant of Morgul",
+      "card": null,
+      "qty": 1
+    },
+    {
+      "name": "Muzgash",
+      "card": null,
+      "qty": 1
+    },
+    {
+      "name": "Radbug",
+      "card": null,
+      "qty": 1
+    },
+    {
+      "name": "Tros Hesnef",
+      "card": null,
+      "qty": 1
+    },
+    {
+      "name": "Foul-smelling Paste",
+      "card": "le-310",
+      "qty": 2
+    }
   ],
   "deck": {
     "characters": [
-      { "name": "Dwar the Ringwraith", "card": null, "qty": 3 },
-      { "name": "Burat", "card": null, "qty": 1 },
-      { "name": "Orc Captain", "card": null, "qty": 1 },
-      { "name": "Orc Veteran", "card": null, "qty": 2 },
-      { "name": "Shagrat", "card": "le-39", "qty": 1 },
-      { "name": "Tuma", "card": null, "qty": 1 },
-      { "name": "Wuluag", "card": null, "qty": 1 }
+      {
+        "name": "Dwar the Ringwraith",
+        "card": null,
+        "qty": 3
+      },
+      {
+        "name": "Burat",
+        "card": null,
+        "qty": 1
+      },
+      {
+        "name": "Orc Captain",
+        "card": null,
+        "qty": 1
+      },
+      {
+        "name": "Orc Veteran",
+        "card": null,
+        "qty": 2
+      },
+      {
+        "name": "Shagrat",
+        "card": "le-39",
+        "qty": 1
+      },
+      {
+        "name": "Tuma",
+        "card": null,
+        "qty": 1
+      },
+      {
+        "name": "Wuluag",
+        "card": null,
+        "qty": 1
+      }
     ],
     "hazards": [
-      { "name": "Ambusher", "card": null, "qty": 2 },
-      { "name": "An Unexpected Outpost", "card": null, "qty": 2 },
-      { "name": "Dire Wolves", "card": null, "qty": 3 },
-      { "name": "Doors of Night", "card": "tw-28", "qty": 3 },
-      { "name": "Full of Froth and Rage", "card": null, "qty": 2 },
-      { "name": "Giant Spiders", "card": null, "qty": 3 },
-      { "name": "Searching Eye", "card": null, "qty": 1 },
-      { "name": "Stay Her Appetite", "card": null, "qty": 1 },
-      { "name": "Twilight", "card": "tw-106", "qty": 2 },
-      { "name": "Wake of War", "card": "tw-108", "qty": 3 },
-      { "name": "Watcher in the Water", "card": null, "qty": 3 },
-      { "name": "Wargs", "card": null, "qty": 3 },
-      { "name": "Wolves", "card": null, "qty": 2 }
+      {
+        "name": "Ambusher",
+        "card": null,
+        "qty": 2
+      },
+      {
+        "name": "An Unexpected Outpost",
+        "card": null,
+        "qty": 2
+      },
+      {
+        "name": "Dire Wolves",
+        "card": null,
+        "qty": 3
+      },
+      {
+        "name": "Doors of Night",
+        "card": "tw-28",
+        "qty": 3
+      },
+      {
+        "name": "Full of Froth and Rage",
+        "card": null,
+        "qty": 2
+      },
+      {
+        "name": "Giant Spiders",
+        "card": null,
+        "qty": 3
+      },
+      {
+        "name": "Searching Eye",
+        "card": null,
+        "qty": 1
+      },
+      {
+        "name": "Stay Her Appetite",
+        "card": null,
+        "qty": 1
+      },
+      {
+        "name": "Twilight",
+        "card": "tw-106",
+        "qty": 2
+      },
+      {
+        "name": "Wake of War",
+        "card": "tw-108",
+        "qty": 3
+      },
+      {
+        "name": "Watcher in the Water",
+        "card": null,
+        "qty": 3
+      },
+      {
+        "name": "Wargs",
+        "card": null,
+        "qty": 3
+      },
+      {
+        "name": "Wolves",
+        "card": null,
+        "qty": 2
+      }
     ],
     "resources": [
-      { "name": "Bade to Rule", "card": null, "qty": 1 },
-      { "name": "Black Mace", "card": "le-299", "qty": 3 },
-      { "name": "Bold Thrust", "card": null, "qty": 3 },
-      { "name": "Burning Rick, Cot, and Tree", "card": null, "qty": 2 },
-      { "name": "Crept Along Cleverly", "card": null, "qty": 3 },
-      { "name": "Diversion", "card": null, "qty": 1 },
-      { "name": "Gleaming Gold Ring", "card": null, "qty": 1 },
-      { "name": "Grey Mountain Goblins", "card": null, "qty": 1 },
-      { "name": "High Helm", "card": "le-313", "qty": 1 },
-      { "name": "I'll Report You", "card": null, "qty": 1 },
-      { "name": "Ice-orcs", "card": null, "qty": 1 },
-      { "name": "Orcs of Gundabad", "card": null, "qty": 1 },
-      { "name": "Regiment of Black Crows", "card": null, "qty": 2 },
-      { "name": "Swarm of Bats", "card": null, "qty": 1 },
-      { "name": "Swift Strokes", "card": null, "qty": 3 },
-      { "name": "The Arkenstone", "card": null, "qty": 1 },
-      { "name": "Thror's Map", "card": null, "qty": 1 },
-      { "name": "Under His Blow", "card": null, "qty": 3 }
+      {
+        "name": "Bade to Rule",
+        "card": null,
+        "qty": 1
+      },
+      {
+        "name": "Black Mace",
+        "card": "le-299",
+        "qty": 3
+      },
+      {
+        "name": "Bold Thrust",
+        "card": null,
+        "qty": 3
+      },
+      {
+        "name": "Burning Rick, Cot, and Tree",
+        "card": null,
+        "qty": 2
+      },
+      {
+        "name": "Crept Along Cleverly",
+        "card": null,
+        "qty": 3
+      },
+      {
+        "name": "Diversion",
+        "card": null,
+        "qty": 1
+      },
+      {
+        "name": "Gleaming Gold Ring",
+        "card": null,
+        "qty": 1
+      },
+      {
+        "name": "Grey Mountain Goblins",
+        "card": null,
+        "qty": 1
+      },
+      {
+        "name": "High Helm",
+        "card": "le-313",
+        "qty": 1
+      },
+      {
+        "name": "I'll Report You",
+        "card": null,
+        "qty": 1
+      },
+      {
+        "name": "Ice-orcs",
+        "card": null,
+        "qty": 1
+      },
+      {
+        "name": "Orcs of Gundabad",
+        "card": null,
+        "qty": 1
+      },
+      {
+        "name": "Regiment of Black Crows",
+        "card": null,
+        "qty": 2
+      },
+      {
+        "name": "Swarm of Bats",
+        "card": null,
+        "qty": 1
+      },
+      {
+        "name": "Swift Strokes",
+        "card": null,
+        "qty": 3
+      },
+      {
+        "name": "The Arkenstone",
+        "card": null,
+        "qty": 1
+      },
+      {
+        "name": "Thror's Map",
+        "card": null,
+        "qty": 1
+      },
+      {
+        "name": "Under His Blow",
+        "card": null,
+        "qty": 3
+      }
     ]
   },
   "sites": [
-    { "name": "Dancing Spire", "card": null, "qty": 1 },
-    { "name": "Gold Hill", "card": null, "qty": 1 },
-    { "name": "Gondmaeglom", "card": null, "qty": 1 },
-    { "name": "Irerock", "card": null, "qty": 1 },
-    { "name": "Mount Gundabad", "card": null, "qty": 1 },
-    { "name": "The Lonely Mountain", "card": null, "qty": 1 },
-    { "name": "Carn Dum", "card": null, "qty": 4 },
-    { "name": "Caves of Ulund", "card": null, "qty": 1 },
-    { "name": "Dale", "card": null, "qty": 1 },
-    { "name": "Dol Guldur", "card": "le-367", "qty": 4 },
-    { "name": "Minas Morgul", "card": "le-390", "qty": 4 },
-    { "name": "Moria", "card": "ba-93", "qty": 1 },
-    { "name": "Raider-hold", "card": null, "qty": 1 }
+    {
+      "name": "Dancing Spire",
+      "card": null,
+      "qty": 1
+    },
+    {
+      "name": "Gold Hill",
+      "card": null,
+      "qty": 1
+    },
+    {
+      "name": "Gondmaeglom",
+      "card": null,
+      "qty": 1
+    },
+    {
+      "name": "Irerock",
+      "card": null,
+      "qty": 1
+    },
+    {
+      "name": "Mount Gundabad",
+      "card": null,
+      "qty": 1
+    },
+    {
+      "name": "The Lonely Mountain",
+      "card": null,
+      "qty": 1
+    },
+    {
+      "name": "Carn Dum",
+      "card": null,
+      "qty": 4
+    },
+    {
+      "name": "Caves of Ulund",
+      "card": null,
+      "qty": 1
+    },
+    {
+      "name": "Dale",
+      "card": null,
+      "qty": 1
+    },
+    {
+      "name": "Dol Guldur",
+      "card": "le-367",
+      "qty": 4
+    },
+    {
+      "name": "Minas Morgul",
+      "card": "le-390",
+      "qty": 4
+    },
+    {
+      "name": "Moria",
+      "card": "ba-93",
+      "qty": 1
+    },
+    {
+      "name": "Raider-hold",
+      "card": null,
+      "qty": 1
+    }
+  ],
+  "sideboard": [
+    {
+      "name": "Minor Ring",
+      "card": null,
+      "qty": 1
+    },
+    {
+      "name": "Orc Quarrels",
+      "card": null,
+      "qty": 1
+    },
+    {
+      "name": "Orders from Lugbúrz",
+      "card": null,
+      "qty": 1
+    },
+    {
+      "name": "Piercing All Shadows",
+      "card": null,
+      "qty": 2
+    },
+    {
+      "name": "Regiment of Black Crows",
+      "card": null,
+      "qty": 1
+    },
+    {
+      "name": "Sable Shield",
+      "card": null,
+      "qty": 1
+    },
+    {
+      "name": "Sudden Call",
+      "card": null,
+      "qty": 1
+    },
+    {
+      "name": "Voices of Malice",
+      "card": null,
+      "qty": 2
+    },
+    {
+      "name": "Eärcaraxë Ahunt",
+      "card": null,
+      "qty": 1
+    },
+    {
+      "name": "Foolish Words",
+      "card": null,
+      "qty": 2
+    },
+    {
+      "name": "Nameless Thing",
+      "card": null,
+      "qty": 2
+    },
+    {
+      "name": "Rebel-talk",
+      "card": null,
+      "qty": 2
+    },
+    {
+      "name": "Stench of Mordor",
+      "card": null,
+      "qty": 1
+    },
+    {
+      "name": "Twilight",
+      "card": "tw-106",
+      "qty": 1
+    }
   ]
 }

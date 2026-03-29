@@ -923,6 +923,8 @@ export interface DeckList {
   readonly deck: DeckListCards;
   /** Site deck. Havens have qty 4, other sites have qty 1. */
   readonly sites: readonly DeckListEntry[];
+  /** Sideboard -- reserve cards accessible under specific game conditions. */
+  readonly sideboard: readonly DeckListEntry[];
 }
 
 // ---- Union types ----

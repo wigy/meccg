@@ -1,6 +1,6 @@
 {
   "id": "challenge-deck-c",
-  "name": "Dwarven Quest",
+  "name": "(C) Dwarven Quest",
   "alignment": "hero",
   "pool": [
     {
@@ -326,6 +326,73 @@
     {
       "name": "Wellinghall",
       "card": null,
+      "qty": 1
+    }
+  ],
+  "sideboard": [
+    {
+      "name": "Blue Mountain Dwarves",
+      "card": null,
+      "qty": 1
+    },
+    {
+      "name": "Gates of Morning",
+      "card": "tw-243",
+      "qty": 2
+    },
+    {
+      "name": "Marvels Told",
+      "card": null,
+      "qty": 2
+    },
+    {
+      "name": "Not at Home",
+      "card": null,
+      "qty": 1
+    },
+    {
+      "name": "Promptings of Wisdom",
+      "card": null,
+      "qty": 1
+    },
+    {
+      "name": "Saruman",
+      "card": "tw-181",
+      "qty": 2
+    },
+    {
+      "name": "The Old Thrush",
+      "card": null,
+      "qty": 1
+    },
+    {
+      "name": "Covetous Thoughts",
+      "card": null,
+      "qty": 2
+    },
+    {
+      "name": "Foolish Words",
+      "card": null,
+      "qty": 2
+    },
+    {
+      "name": "Ghosts",
+      "card": null,
+      "qty": 3
+    },
+    {
+      "name": "Lost in Free-domains",
+      "card": null,
+      "qty": 1
+    },
+    {
+      "name": "Muster Disperses",
+      "card": null,
+      "qty": 1
+    },
+    {
+      "name": "Twilight",
+      "card": "tw-106",
       "qty": 1
     }
   ]

@@ -1,70 +1,364 @@
 {
   "id": "challenge-deck-i",
-  "name": "Morgul Rallying Cry",
+  "name": "(I) Morgul Rallying Cry",
   "alignment": "minion",
   "pool": [
-    { "name": "Orc Brawler", "card": null, "qty": 1 },
-    { "name": "Orc Captain", "card": null, "qty": 1 },
-    { "name": "Horseman in the Night", "card": null, "qty": 1 },
-    { "name": "Ill-favoured Fellow", "card": null, "qty": 1 },
-    { "name": "Orc Veteran", "card": null, "qty": 1 },
-    { "name": "Blazon of the Eye", "card": null, "qty": 2 }
+    {
+      "name": "Orc Brawler",
+      "card": null,
+      "qty": 1
+    },
+    {
+      "name": "Orc Captain",
+      "card": null,
+      "qty": 1
+    },
+    {
+      "name": "Horseman in the Night",
+      "card": null,
+      "qty": 1
+    },
+    {
+      "name": "Ill-favoured Fellow",
+      "card": null,
+      "qty": 1
+    },
+    {
+      "name": "Orc Veteran",
+      "card": null,
+      "qty": 1
+    },
+    {
+      "name": "Blazon of the Eye",
+      "card": null,
+      "qty": 2
+    }
   ],
   "deck": {
     "characters": [
-      { "name": "The Witch-king", "card": null, "qty": 3 },
-      { "name": "Orc Brawler", "card": null, "qty": 2 },
-      { "name": "Orc Captain", "card": null, "qty": 1 },
-      { "name": "Orc Tracker", "card": null, "qty": 3 }
+      {
+        "name": "The Witch-king",
+        "card": null,
+        "qty": 3
+      },
+      {
+        "name": "Orc Brawler",
+        "card": null,
+        "qty": 2
+      },
+      {
+        "name": "Orc Captain",
+        "card": null,
+        "qty": 1
+      },
+      {
+        "name": "Orc Tracker",
+        "card": null,
+        "qty": 3
+      }
     ],
     "hazards": [
-      { "name": "Slayer", "card": null, "qty": 2 },
-      { "name": "Ambusher", "card": null, "qty": 2 },
-      { "name": "An Unexpected Outpost", "card": null, "qty": 3 },
-      { "name": "Doors of Night", "card": "tw-28", "qty": 3 },
-      { "name": "Ghosts", "card": null, "qty": 2 },
-      { "name": "Long Winter", "card": null, "qty": 3 },
-      { "name": "Lure of Nature", "card": null, "qty": 3 },
-      { "name": "Rain-drake", "card": null, "qty": 3 },
-      { "name": "Snowstorm", "card": null, "qty": 1 },
-      { "name": "True Fire-drake", "card": null, "qty": 3 },
-      { "name": "Twilight", "card": "tw-106", "qty": 2 },
-      { "name": "Withered Lands", "card": null, "qty": 3 }
+      {
+        "name": "Slayer",
+        "card": null,
+        "qty": 2
+      },
+      {
+        "name": "Ambusher",
+        "card": null,
+        "qty": 2
+      },
+      {
+        "name": "An Unexpected Outpost",
+        "card": null,
+        "qty": 3
+      },
+      {
+        "name": "Doors of Night",
+        "card": "tw-28",
+        "qty": 3
+      },
+      {
+        "name": "Ghosts",
+        "card": null,
+        "qty": 2
+      },
+      {
+        "name": "Long Winter",
+        "card": null,
+        "qty": 3
+      },
+      {
+        "name": "Lure of Nature",
+        "card": null,
+        "qty": 3
+      },
+      {
+        "name": "Rain-drake",
+        "card": null,
+        "qty": 3
+      },
+      {
+        "name": "Snowstorm",
+        "card": null,
+        "qty": 1
+      },
+      {
+        "name": "True Fire-drake",
+        "card": null,
+        "qty": 3
+      },
+      {
+        "name": "Twilight",
+        "card": "tw-106",
+        "qty": 2
+      },
+      {
+        "name": "Withered Lands",
+        "card": null,
+        "qty": 3
+      }
     ],
     "resources": [
-      { "name": "Asdriags", "card": null, "qty": 1 },
-      { "name": "Awaiting the Call", "card": null, "qty": 2 },
-      { "name": "Blasting Fire", "card": null, "qty": 3 },
-      { "name": "Fell Rider", "card": null, "qty": 2 },
-      { "name": "Gifts as Given of Old", "card": null, "qty": 2 },
-      { "name": "Great Bats", "card": null, "qty": 3 },
-      { "name": "Helm of Fear", "card": null, "qty": 1 },
-      { "name": "Nurniags", "card": null, "qty": 1 },
-      { "name": "Orcs of the Ash Mountains", "card": null, "qty": 1 },
-      { "name": "Orcs of Udun", "card": null, "qty": 1 },
-      { "name": "Palantir of Minas Tirith", "card": null, "qty": 1 },
-      { "name": "Records Unread", "card": null, "qty": 1 },
-      { "name": "That Ain't No Secret", "card": null, "qty": 3 },
-      { "name": "Under His Blow", "card": null, "qty": 1 },
-      { "name": "Uruk-hai", "card": null, "qty": 1 },
-      { "name": "Vile Fumes", "card": null, "qty": 3 },
-      { "name": "Voices of Malice", "card": null, "qty": 2 },
-      { "name": "Weigh All Things to a Nicety", "card": null, "qty": 1 }
+      {
+        "name": "Asdriags",
+        "card": null,
+        "qty": 1
+      },
+      {
+        "name": "Awaiting the Call",
+        "card": null,
+        "qty": 2
+      },
+      {
+        "name": "Blasting Fire",
+        "card": null,
+        "qty": 3
+      },
+      {
+        "name": "Fell Rider",
+        "card": null,
+        "qty": 2
+      },
+      {
+        "name": "Gifts as Given of Old",
+        "card": null,
+        "qty": 2
+      },
+      {
+        "name": "Great Bats",
+        "card": null,
+        "qty": 3
+      },
+      {
+        "name": "Helm of Fear",
+        "card": null,
+        "qty": 1
+      },
+      {
+        "name": "Nurniags",
+        "card": null,
+        "qty": 1
+      },
+      {
+        "name": "Orcs of the Ash Mountains",
+        "card": null,
+        "qty": 1
+      },
+      {
+        "name": "Orcs of Udun",
+        "card": null,
+        "qty": 1
+      },
+      {
+        "name": "Palantir of Minas Tirith",
+        "card": null,
+        "qty": 1
+      },
+      {
+        "name": "Records Unread",
+        "card": null,
+        "qty": 1
+      },
+      {
+        "name": "That Ain't No Secret",
+        "card": null,
+        "qty": 3
+      },
+      {
+        "name": "Under His Blow",
+        "card": null,
+        "qty": 1
+      },
+      {
+        "name": "Uruk-hai",
+        "card": null,
+        "qty": 1
+      },
+      {
+        "name": "Vile Fumes",
+        "card": null,
+        "qty": 3
+      },
+      {
+        "name": "Voices of Malice",
+        "card": null,
+        "qty": 2
+      },
+      {
+        "name": "Weigh All Things to a Nicety",
+        "card": null,
+        "qty": 1
+      }
     ]
   },
   "sites": [
-    { "name": "Dead Marshes", "card": null, "qty": 1 },
-    { "name": "Minas Tirith", "card": "tw-412", "qty": 1 },
-    { "name": "Mount Doom", "card": "tw-414", "qty": 1 },
-    { "name": "Sarn Goriwing", "card": null, "qty": 1 },
-    { "name": "Shelob's Lair", "card": null, "qty": 1 },
-    { "name": "Barad-dur", "card": null, "qty": 4 },
-    { "name": "Carn Dum", "card": null, "qty": 4 },
-    { "name": "Cirith Gorgor", "card": null, "qty": 1 },
-    { "name": "Cirith Ungol", "card": null, "qty": 1 },
-    { "name": "Dol Guldur", "card": "le-367", "qty": 4 },
-    { "name": "Minas Morgul", "card": "le-390", "qty": 4 },
-    { "name": "Moria", "card": "ba-93", "qty": 1 },
-    { "name": "Nurniag Camp", "card": null, "qty": 1 }
+    {
+      "name": "Dead Marshes",
+      "card": null,
+      "qty": 1
+    },
+    {
+      "name": "Minas Tirith",
+      "card": "tw-412",
+      "qty": 1
+    },
+    {
+      "name": "Mount Doom",
+      "card": "tw-414",
+      "qty": 1
+    },
+    {
+      "name": "Sarn Goriwing",
+      "card": null,
+      "qty": 1
+    },
+    {
+      "name": "Shelob's Lair",
+      "card": null,
+      "qty": 1
+    },
+    {
+      "name": "Barad-dur",
+      "card": null,
+      "qty": 4
+    },
+    {
+      "name": "Carn Dum",
+      "card": null,
+      "qty": 4
+    },
+    {
+      "name": "Cirith Gorgor",
+      "card": null,
+      "qty": 1
+    },
+    {
+      "name": "Cirith Ungol",
+      "card": null,
+      "qty": 1
+    },
+    {
+      "name": "Dol Guldur",
+      "card": "le-367",
+      "qty": 4
+    },
+    {
+      "name": "Minas Morgul",
+      "card": "le-390",
+      "qty": 4
+    },
+    {
+      "name": "Moria",
+      "card": "ba-93",
+      "qty": 1
+    },
+    {
+      "name": "Nurniag Camp",
+      "card": null,
+      "qty": 1
+    }
+  ],
+  "sideboard": [
+    {
+      "name": "Above the Abyss",
+      "card": null,
+      "qty": 2
+    },
+    {
+      "name": "Black Trolls",
+      "card": null,
+      "qty": 1
+    },
+    {
+      "name": "Crept Along Cleverly",
+      "card": null,
+      "qty": 1
+    },
+    {
+      "name": "Last Child of Ungoliant",
+      "card": null,
+      "qty": 1
+    },
+    {
+      "name": "Sudden Call",
+      "card": null,
+      "qty": 1
+    },
+    {
+      "name": "Voices of Malice",
+      "card": null,
+      "qty": 1
+    },
+    {
+      "name": "Alone and Unadvised",
+      "card": null,
+      "qty": 1
+    },
+    {
+      "name": "Corsairs of Umbar",
+      "card": null,
+      "qty": 2
+    },
+    {
+      "name": "Cruel Caradhras",
+      "card": null,
+      "qty": 1
+    },
+    {
+      "name": "Eärcaraxë Ahunt",
+      "card": null,
+      "qty": 1
+    },
+    {
+      "name": "Foul Fumes",
+      "card": null,
+      "qty": 2
+    },
+    {
+      "name": "Ghosts",
+      "card": null,
+      "qty": 2
+    },
+    {
+      "name": "Nameless Thing",
+      "card": null,
+      "qty": 2
+    },
+    {
+      "name": "Scatha Ahunt",
+      "card": null,
+      "qty": 1
+    },
+    {
+      "name": "Stench of Mordor",
+      "card": null,
+      "qty": 1
+    },
+    {
+      "name": "Twilight",
+      "card": "tw-106",
+      "qty": 1
+    }
   ]
 }

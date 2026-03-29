@@ -47,6 +47,8 @@ export interface JoinMessage {
   readonly playDeck: readonly CardDefinitionId[];
   /** Site card definition IDs the player brings for movement destinations. */
   readonly siteDeck: readonly CardDefinitionId[];
+  /** Reserve card definition IDs for the sideboard. */
+  readonly sideboard: readonly CardDefinitionId[];
   /** Optional JWT token for authenticated game server connections (lobby mode). */
   readonly token?: string;
 }

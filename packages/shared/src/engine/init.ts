@@ -63,6 +63,7 @@ export interface PlayerConfig {
   readonly draftPool: readonly CardDefinitionId[];           // characters + starting minor items for the draft
   readonly playDeck: readonly CardDefinitionId[];
   readonly siteDeck: readonly CardDefinitionId[];
+  readonly sideboard: readonly CardDefinitionId[];
 }
 
 /**
@@ -196,6 +197,9 @@ function initPlayerPreDraft(
   // Mint site deck
   const siteDeckIds = config.siteDeck.map(defId => mint(minter, defId));
 
+  // Mint sideboard
+  const sideboardIds = config.sideboard.map(defId => mint(minter, defId));
+
   const playerState: PlayerState = {
     id: config.id,
     name: config.name,
@@ -206,7 +210,7 @@ function initPlayerPreDraft(
     discardPile: [],
     siteDeck: siteDeckIds,
     siteDiscardPile: [],
-    sideboard: [],
+    sideboard: sideboardIds,
     killPile: [],
     eliminatedPile: [],
     companies: [],
@@ -415,6 +419,7 @@ export interface QuickStartPlayerConfig {
   readonly startingCharacters: readonly CardDefinitionId[];
   readonly playDeck: readonly CardDefinitionId[];
   readonly siteDeck: readonly CardDefinitionId[];
+  readonly sideboard: readonly CardDefinitionId[];
 }
 
 /** Game configuration for the quick-start (draft-free) path. */
@@ -525,6 +530,7 @@ function initPlayerWithCharacters(
   const hand = shuffledDeck.slice(0, HAND_SIZE);
   const remainingDeck = shuffledDeck.slice(HAND_SIZE);
   const siteDeckIds = config.siteDeck.map(defId => mint(minter, defId));
+  const sideboardIds = config.sideboard.map(defId => mint(minter, defId));
 
   // GI and MP are left at zero — recomputeDerived() is called on the final state
   const playerState: PlayerState = {
@@ -537,7 +543,7 @@ function initPlayerWithCharacters(
     discardPile: [],
     siteDeck: siteDeckIds,
     siteDiscardPile: [],
-    sideboard: [],
+    sideboard: sideboardIds,
     killPile: [],
     eliminatedPile: [],
     companies: [company],

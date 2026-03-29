@@ -59,6 +59,7 @@ export function makeQuickStartConfig(seed = 42): QuickStartGameConfig {
         startingCharacters: [ARAGORN, BILBO],
         playDeck: makePlayDeck(),
         siteDeck: [RIVENDELL, MORIA, MINAS_TIRITH, MOUNT_DOOM],
+        sideboard: [],
       },
       {
         id: PLAYER_2,
@@ -67,6 +68,7 @@ export function makeQuickStartConfig(seed = 42): QuickStartGameConfig {
         startingCharacters: [LEGOLAS, GIMLI],
         playDeck: makePlayDeck(),
         siteDeck: [LORIEN, MORIA, MINAS_TIRITH],
+        sideboard: [],
       },
     ],
     seed,
@@ -83,6 +85,7 @@ export function makeDraftConfig(seed = 42): GameConfig {
         draftPool: [ARAGORN, BILBO, FRODO, DAGGER_OF_WESTERNESSE, DAGGER_OF_WESTERNESSE],
         playDeck: makePlayDeck(),
         siteDeck: [RIVENDELL, MORIA, MINAS_TIRITH, MOUNT_DOOM],
+        sideboard: [],
       },
       {
         id: PLAYER_2,
@@ -91,6 +94,7 @@ export function makeDraftConfig(seed = 42): GameConfig {
         draftPool: [LEGOLAS, GIMLI, FARAMIR, DAGGER_OF_WESTERNESSE],
         playDeck: makePlayDeck(),
         siteDeck: [LORIEN, MORIA, MINAS_TIRITH],
+        sideboard: [],
       },
     ],
     seed,

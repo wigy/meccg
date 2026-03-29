@@ -136,6 +136,7 @@ function connect(name: string): void {
         draftPool: [],
         playDeck: [],
         siteDeck: [],
+        sideboard: [],
       };
       const msg = gameToken ? { ...minimalJoin, token: gameToken } : minimalJoin;
       ws!.send(JSON.stringify(msg));
@@ -576,6 +577,7 @@ interface FullDeck extends DeckSummary {
   pool: DeckListEntry[];
   deck: { characters: DeckListEntry[]; hazards: DeckListEntry[]; resources: DeckListEntry[] };
   sites: DeckListEntry[];
+  sideboard: DeckListEntry[];
 }
 
 /** The current player's selected deck, loaded from the lobby API. */
@@ -587,6 +589,7 @@ function missingCards(deck: FullDeck): string[] {
     ...deck.pool,
     ...deck.deck.characters, ...deck.deck.hazards, ...deck.deck.resources,
     ...deck.sites,
+    ...(deck.sideboard ?? []),
   ];
   return allEntries.filter(e => e.card === null).map(e => e.name);
 }
@@ -623,6 +626,7 @@ function buildJoinFromDeck(deck: FullDeck, playerName: string): JoinMessage {
       ...expandEntries(deck.deck.hazards),
     ],
     siteDeck: expandEntries(deck.sites),
+    sideboard: expandEntries(deck.sideboard ?? []),
   };
 }
 
@@ -801,6 +805,7 @@ function renderCompactDeck(container: HTMLElement, deck: FullDeck): void {
     ],
     [{ label: 'Resources', entries: deck.deck.resources }],
     [{ label: 'Hazards', entries: deck.deck.hazards }],
+    [{ label: 'Sideboard', entries: deck.sideboard ?? [] }],
     [{ label: 'Sites', entries: deck.sites }],
   ];
   const nameEl = document.createElement('div');
@@ -1046,6 +1051,7 @@ async function openDeckEditor(deckId: string): Promise<void> {
   renderCardList(document.getElementById('deck-editor-hazards')!, deck.deck.hazards, deckId);
   renderCardList(document.getElementById('deck-editor-resources')!, deck.deck.resources, deckId);
   renderCardList(document.getElementById('deck-editor-sites')!, deck.sites, deckId);
+  renderCardList(document.getElementById('deck-editor-sideboard')!, deck.sideboard ?? [], deckId);
   showScreen('deck-editor-screen');
 }
 

@@ -1,6 +1,6 @@
 {
   "id": "challenge-deck-e",
-  "name": "Return of the King",
+  "name": "(E) Return of the King",
   "alignment": "hero",
   "pool": [
     {
@@ -331,6 +331,98 @@
     {
       "name": "Wellinghall",
       "card": null,
+      "qty": 1
+    }
+  ],
+  "sideboard": [
+    {
+      "name": "Dark Quarrels",
+      "card": null,
+      "qty": 1
+    },
+    {
+      "name": "Gates of Morning",
+      "card": "tw-243",
+      "qty": 2
+    },
+    {
+      "name": "Knights of Dol Amroth",
+      "card": "tw-263",
+      "qty": 1
+    },
+    {
+      "name": "Marvels Told",
+      "card": null,
+      "qty": 1
+    },
+    {
+      "name": "Pallando",
+      "card": null,
+      "qty": 1
+    },
+    {
+      "name": "Promptings of Wisdom",
+      "card": null,
+      "qty": 2
+    },
+    {
+      "name": "Riders of Rohan",
+      "card": "tw-317",
+      "qty": 1
+    },
+    {
+      "name": "Alone and Unadvised",
+      "card": null,
+      "qty": 1
+    },
+    {
+      "name": "Bairanax Ahunt",
+      "card": null,
+      "qty": 1
+    },
+    {
+      "name": "Corsairs of Umbar",
+      "card": null,
+      "qty": 1
+    },
+    {
+      "name": "Foolish Words",
+      "card": null,
+      "qty": 1
+    },
+    {
+      "name": "Ghosts",
+      "card": null,
+      "qty": 1
+    },
+    {
+      "name": "Incite Denizens",
+      "card": null,
+      "qty": 1
+    },
+    {
+      "name": "Muster Disperses",
+      "card": null,
+      "qty": 1
+    },
+    {
+      "name": "Nothing to Eat or Drink",
+      "card": null,
+      "qty": 1
+    },
+    {
+      "name": "Searching Eye",
+      "card": null,
+      "qty": 1
+    },
+    {
+      "name": "Sons of Kings",
+      "card": null,
+      "qty": 1
+    },
+    {
+      "name": "Twilight",
+      "card": "tw-106",
       "qty": 1
     }
   ]

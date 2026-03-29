@@ -65,12 +65,12 @@ describe('1.9 Character draft', () => {
         {
           id: PLAYER_1, name: 'Alice', alignment: Alignment.Wizard,
           draftPool: [ARAGORN, BILBO],
-          playDeck: makePlayDeck(), siteDeck: [RIVENDELL, MORIA],
+          playDeck: makePlayDeck(), siteDeck: [RIVENDELL, MORIA], sideboard: [],
         },
         {
           id: PLAYER_2, name: 'Bob', alignment: Alignment.Wizard,
           draftPool: [ARAGORN, LEGOLAS],
-          playDeck: makePlayDeck(), siteDeck: [LORIEN, MORIA],
+          playDeck: makePlayDeck(), siteDeck: [LORIEN, MORIA], sideboard: [],
         },
       ],
       seed: 42,
@@ -110,12 +110,12 @@ describe('1.9 Character draft', () => {
         {
           id: PLAYER_1, name: 'Alice', alignment: Alignment.Wizard,
           draftPool: [BILBO, FRODO, EOWYN, BERGIL, BARD_BOWMAN, BEREGOND],
-          playDeck: makePlayDeck(), siteDeck: [RIVENDELL, MORIA],
+          playDeck: makePlayDeck(), siteDeck: [RIVENDELL, MORIA], sideboard: [],
         },
         {
           id: PLAYER_2, name: 'Bob', alignment: Alignment.Wizard,
           draftPool: [LEGOLAS, GIMLI, ANBORN, SAM_GAMGEE, FARAMIR, ARAGORN],
-          playDeck: makePlayDeck(), siteDeck: [LORIEN, MORIA],
+          playDeck: makePlayDeck(), siteDeck: [LORIEN, MORIA], sideboard: [],
         },
       ],
       seed: 42,
@@ -175,12 +175,12 @@ describe('1.9 Character draft', () => {
         {
           id: PLAYER_1, name: 'Alice', alignment: Alignment.Wizard,
           draftPool: [BILBO],
-          playDeck: makePlayDeck(), siteDeck: [RIVENDELL, MORIA],
+          playDeck: makePlayDeck(), siteDeck: [RIVENDELL, MORIA], sideboard: [],
         },
         {
           id: PLAYER_2, name: 'Bob', alignment: Alignment.Wizard,
           draftPool: [LEGOLAS],
-          playDeck: makePlayDeck(), siteDeck: [LORIEN, MORIA],
+          playDeck: makePlayDeck(), siteDeck: [LORIEN, MORIA], sideboard: [],
         },
       ],
       seed: 42,
