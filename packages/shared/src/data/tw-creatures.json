@@ -91,5 +91,30 @@
     ],
     "text": "Undead. One strike. After the attack, each character wounded by Barrow-wight makes a corruption check modified by -2.",
     "race": "undead"
+  },
+  {
+    "cardType": "hazard-creature",
+    "id": "tw-016",
+    "name": "Bert (Burat)",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/BertBurat.jpg",
+    "unique": true,
+    "strikes": 1,
+    "prowess": 12,
+    "body": null,
+    "killMarshallingPoints": 1,
+    "keyedTo": [
+      {
+        "regionTypes": [
+          "wilderness",
+          "shadow"
+        ],
+        "siteTypes": [
+          "shadow-hold"
+        ]
+      }
+    ],
+    "effects": [],
+    "text": "Unique. Troll. One strike. If played against a company that faced \"William\" or \"Tom\" this turn, each character wounded by \"Bert\" discards all non-special items he bears.",
+    "race": "troll"
   }
 ]
