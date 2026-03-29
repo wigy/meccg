@@ -1,0 +1,15 @@
+[
+  {
+    "cardType": "hero-resource-event",
+    "alignment": "wizard",
+    "id": "dm-159",
+    "name": "Smoke Rings",
+    "image": "https://cdn.jsdelivr.net/gh/council-of-rivendell/meccg-remaster/en-remaster/dm/SmokeRings.jpg",
+    "unique": false,
+    "eventType": "short",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Bring one resource or character from your sideboard or discard pile into your play deck and shuffle."
+  }
+]
