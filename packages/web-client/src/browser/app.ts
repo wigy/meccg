@@ -413,7 +413,7 @@ function showScreen(id: ScreenId): void {
   const nav = document.getElementById('lobby-nav');
   if (nav) nav.classList.toggle('hidden', !NAV_SCREENS.includes(id));
   // Update active nav item
-  document.getElementById('nav-dashboard')?.classList.toggle('lobby-nav-item--active',
+  document.getElementById('nav-lobby')?.classList.toggle('lobby-nav-item--active',
     id === 'lobby-screen');
   document.getElementById('nav-decks')?.classList.toggle('lobby-nav-item--active',
     id === 'decks-screen' || id === 'deck-editor-screen');
@@ -1549,7 +1549,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // Nav bar buttons
-    document.getElementById('nav-dashboard')!.addEventListener('click', () => {
+    document.getElementById('nav-lobby')!.addEventListener('click', () => {
       sessionStorage.removeItem(VIEWING_INBOX_KEY);
       sessionStorage.removeItem(MAIL_TAB_KEY);
       sessionStorage.removeItem(MAIL_MSG_KEY);
