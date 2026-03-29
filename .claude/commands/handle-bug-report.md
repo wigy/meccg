@@ -52,14 +52,20 @@ Follow these steps:
       - Reducer in `packages/shared/src/engine/reducer.ts`
       - Any relevant DSL effect handlers
 
-6. **Fix the bug:** Implement the fix in the source code:
+6. **Validate the bug against the log:** Before proceeding to a fix, confirm that the game log evidence actually supports the reported bug:
+   - The problem described in the report must be visible in the game log state transitions
+   - If the log does not show the reported issue (e.g. the states look correct, the reported sequence number doesn't exist, or the behavior in the log matches expected rules), **do NOT proceed with a code fix**
+   - Instead, mark the message as processed with `success: false` and send a `bug-reply` to the reporter explaining that the game log was analyzed but does not corroborate the reported issue, including what was actually observed in the log
+   - This prevents making speculative code changes based on misunderstandings or reports that don't match reality
+
+7. **Fix the bug:** Implement the fix in the source code:
    - Read the relevant source files
    - Make the minimal code changes needed to fix the bug
    - Follow the project's coding conventions (see CLAUDE.md)
    - Ensure new code has proper JSDoc documentation where needed
    - Follow the server-side logging policy if modifying engine code
 
-7. **Iterate until green:** Run all four checks **in parallel** and fix any failures. Repeat until all pass:
+8. **Iterate until green:** Run all four checks **in parallel** and fix any failures. Repeat until all pass:
    - `npm run build` — type-check (must pass)
    - `npm test` — rules tests (must all pass)
    - `npm run test:nightly` — card tests (must not introduce new failures)
@@ -67,7 +73,7 @@ Follow these steps:
 
    If a check fails, read the error output, fix the issue, and re-run. Keep iterating until all four pass cleanly.
 
-8. **Commit and push:** Create a single commit with all changes and push to the remote:
+9. **Commit and push:** Create a single commit with all changes and push to the remote:
    ```
    git add <changed-files>
    git commit -m "<descriptive message>
@@ -77,7 +83,7 @@ Follow these steps:
    ```
    Capture the commit hash from the output. The commit message should summarize the bug fix.
 
-9. **Send review request to reviewers:** Send a mail to all reviewers (`["wigy", "karmi", "admin"]`) with a review request:
+10. **Send review request to reviewers:** Send a mail to all reviewers (`["wigy", "karmi", "admin"]`) with a review request:
    ```
    curl -s -X POST http://localhost:8080/api/system/mail -H "Authorization: Bearer $(jq -r .masterKey ~/.meccg/secrets.json)" -H "Content-Type: application/json" -d '<json>'
    ```
@@ -115,7 +121,7 @@ Follow these steps:
    ```
    Do this for each reviewer: `wigy`, `karmi`, `admin`.
 
-10. **Send bug reply to reporter:** Send a `bug-reply` mail to the original reporter:
+11. **Send bug reply to reporter:** Send a `bug-reply` mail to the original reporter:
     ```json
     {
       "recipients": ["<from>"],
@@ -139,12 +145,12 @@ Follow these steps:
     - A summary of the changes made (same as in the review request)
     - A link to the GitHub commit
 
-11. **Mark as processed:** Update the message status to `processed` with `success: true`:
+12. **Mark as processed:** Update the message status to `processed` with `success: true`:
     ```
     curl -s -X PUT http://localhost:8080/api/system/mail/ai/<msg-id> -H "Authorization: Bearer $(jq -r .masterKey ~/.meccg/secrets.json)" -H "Content-Type: application/json" -d '{"status":"processed","success":true}'
     ```
 
-12. **Report:** Summarize what happened — what bug was fixed, the root cause, the commit hash, and that the review request and bug reply were sent.
+13. **Report:** Summarize what happened — what bug was fixed, the root cause, the commit hash, and that the review request and bug reply were sent.
 
 If any step fails unexpectedly (bug too complex, tests can't be fixed after multiple attempts, etc.), mark the message as processed with `success: false` and send a `bug-reply` mail to the reporter explaining what went wrong:
 ```json
