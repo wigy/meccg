@@ -86,14 +86,14 @@ export function renderCombatView(
   // Arrow marker definition
   const defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
   defs.innerHTML = `
-    <marker id="combat-arrowhead" markerWidth="16" markerHeight="12" refX="16" refY="6" orient="auto">
-      <polygon points="0 0, 16 6, 0 12" fill="rgba(220, 100, 60, 0.9)" />
+    <marker id="combat-arrowhead" markerWidth="10" markerHeight="8" refX="10" refY="4" orient="auto">
+      <polygon points="0 0, 10 4, 0 8" fill="rgba(220, 100, 60, 0.9)" />
     </marker>
-    <marker id="combat-arrowhead-success" markerWidth="16" markerHeight="12" refX="16" refY="6" orient="auto">
-      <polygon points="0 0, 16 6, 0 12" fill="rgba(80, 200, 80, 0.9)" />
+    <marker id="combat-arrowhead-success" markerWidth="10" markerHeight="8" refX="10" refY="4" orient="auto">
+      <polygon points="0 0, 10 4, 0 8" fill="rgba(80, 200, 80, 0.9)" />
     </marker>
-    <marker id="combat-arrowhead-wound" markerWidth="16" markerHeight="12" refX="16" refY="6" orient="auto">
-      <polygon points="0 0, 16 6, 0 12" fill="rgba(200, 50, 50, 0.9)" />
+    <marker id="combat-arrowhead-wound" markerWidth="10" markerHeight="8" refX="10" refY="4" orient="auto">
+      <polygon points="0 0, 10 4, 0 8" fill="rgba(200, 50, 50, 0.9)" />
     </marker>
   `;
   svg.appendChild(defs);
