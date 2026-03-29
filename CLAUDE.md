@@ -19,7 +19,7 @@ For implementation-specific terminology (mail, game state, card instances, etc.)
 ## Build & Development Commands
 
 - **Install dependencies:** `npm install`
-- **Type-check all packages:** `npx tsc --build packages/game-server/tsconfig.json packages/text-client/tsconfig.json packages/web-client/tsconfig.json packages/lobby-server/tsconfig.json`
+- **Build (type-check all packages):** `npm run build`
 - **Type-check shared only:** `npx tsc --noEmit -p packages/shared/tsconfig.json`
 - **Run tests:** `npm test` (excludes card tests)
 - **Run card tests (nightly):** `npm run test:nightly`
@@ -40,11 +40,12 @@ Do NOT run tests or lint after making changes. Tests and lint are run once befor
 
 ### Pre-Commit Checklist
 
-Before every commit, always run all three of these **in parallel** and fix any failures:
+Before every commit, always run all four of these **in parallel** and fix any failures:
 
-1. `npm test` — rules tests (must all pass)
-2. `npm run test:nightly` — card tests (must not introduce new failures)
-3. `npm run lint` — linting (fix with `npm run lint:fix`)
+1. `npm run build` — type-check (must pass)
+2. `npm test` — rules tests (must all pass)
+3. `npm run test:nightly` — card tests (must not introduce new failures)
+4. `npm run lint` — linting (fix with `npm run lint:fix`)
 
 ## Architecture
 

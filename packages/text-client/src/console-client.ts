@@ -189,7 +189,7 @@ function connect(): void {
   ws = socket;
 
   socket.on('open', () => {
-    console.log(`Connected to ${SERVER_URL} as "${PLAYER_NAME}" [${selectedDeck.label}]${AI_MODE ? ` (AI: ${AI_MODE})` : ''}`);
+    console.log(`Connected to ${SERVER_URL} as "${PLAYER_NAME}" [${selectedDeckId}]${AI_MODE ? ` (AI: ${AI_MODE})` : ''}`);
     clientLog.log('connect', { server: SERVER_URL });
     clientLog.log('msg-out', { msgType: 'join', msg: defaultJoin });
     socket.send(JSON.stringify(defaultJoin));

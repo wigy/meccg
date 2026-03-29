@@ -628,7 +628,7 @@ async function selectDeck(deckId: string): Promise<void> {
 }
 
 /** Add a catalog deck to the player's collection, then refresh. */
-async function addDeckToCollection(deck: { id: string; [key: string]: unknown }): Promise<void> {
+async function addDeckToCollection(deck: FullDeck): Promise<void> {
   const personalDeck = { ...deck, id: `${lobbyPlayerName}-${deck.id}` };
   const resp = await fetch('/api/my-decks', {
     method: 'POST',
