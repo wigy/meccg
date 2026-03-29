@@ -6,6 +6,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 MECCG is a web-based implementation of the Middle-Earth Collectible Card Game (MECCG). It uses a client/server architecture where the server manages game state and rules enforcement, and the client provides the browser-based UI.
 
+For implementation-specific terminology (mail, game state, card instances, etc.), see `docs/glossary.md`.
+
 ## Tech Stack
 
 - **Language:** TypeScript (strict mode)

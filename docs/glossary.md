@@ -39,6 +39,10 @@ Non-game-rule concepts used in the MECCG codebase. For game rules, see `docs/rul
 - **Region Distance** — The number of consecutive regions in a movement path, counting both origin and destination regions. Two sites in the same region have region distance 1. Sites in adjacent regions have region distance 2. The default maximum for region movement is 4 (up to 6 with special effects). Internally the region graph stores edge counts (adjacent = 1); the conversion to rules-style region distance is `edges + 1`.
 - **Movement Map** — A precomputed graph built once from the card pool at game start. Contains the region adjacency graph, all-pairs shortest paths, site-to-region lookup, and haven connectivity. Queried via `getReachableSites()` to determine legal movement destinations for a company.
 
+## Mail
+
+- **Mail** — The internal asynchronous messaging system between players, the AI assistant, and the server. Messages are stored as individual JSON files in each player's mail directory (`~/.meccg/players/{name}/mail/inbox/` and `sent/`). Used for card requests, certification requests, review requests, and automated replies. Each message has a status lifecycle (`new` → `read` → `deleted`, or `new` → `processing` → `processed`, or `waiting` → `approved`/`declined` for reviews). The system mail API (`/api/system/mail`) allows the AI and server to send messages programmatically; player-facing inbox is accessed via `/api/mail/inbox`. Implemented in `packages/lobby-server/src/mail/`.
+
 ## Persistence
 
 - **Game Save** — A JSON snapshot of the full `GameState` plus the player name-to-ID mapping, written to `~/.meccg/saves/{player1_vs_player2}.json`. Saved on disconnect, on explicit save, and as a backup (`-saved.json`) before load. The save contains everything needed to restore a game session. A save is a **single point-in-time snapshot** — it has no history.
