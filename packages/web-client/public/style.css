@@ -3577,24 +3577,24 @@ h2 {
 
 .combat-arrow {
   stroke: rgba(220, 100, 60, 0.7);
-  stroke-width: 2;
+  stroke-width: 4;
   fill: none;
 }
 
 .combat-arrow--active {
   stroke: rgba(255, 160, 60, 0.9);
-  stroke-width: 3;
+  stroke-width: 6;
   animation: arrow-pulse 1.2s ease-in-out infinite;
 }
 
 @keyframes arrow-pulse {
-  0%, 100% { stroke-opacity: 0.9; stroke-width: 3; }
-  50% { stroke-opacity: 1; stroke-width: 4; }
+  0%, 100% { stroke-opacity: 0.9; stroke-width: 6; }
+  50% { stroke-opacity: 1; stroke-width: 8; }
 }
 
 .combat-arrow--resolved {
   stroke-opacity: 0.5;
-  stroke-width: 1.5;
+  stroke-width: 3;
 }
 .combat-arrow--success { stroke: rgba(80, 200, 80, 0.6); }
 .combat-arrow--wound { stroke: rgba(200, 50, 50, 0.6); }
