@@ -493,6 +493,32 @@ export async function handleRequest(req: http.IncomingMessage, res: http.ServerR
     const updated = updateMessageStatus(playerName, msgId, newStatus);
     if (!updated) { sendJson(res, 404, { error: 'Message not found' }); return; }
     lobbyLog.log(`mail-${action}`, { player: playerName, msgId });
+
+    // Feature-request follow-up messages
+    if (updated.topic === 'feature-request') {
+      if (action === 'decline') {
+        sendMail([updated.from], {
+          from: playerName,
+          sender: 'player',
+          topic: 'feature-reply',
+          subject: `Feature Request Declined: ${updated.subject}`,
+          body: `Your feature request was declined.\n\n> ${updated.body.split('\n').join('\n> ')}`,
+          keywords: {},
+          replyTo: msgId,
+        });
+      } else {
+        sendMail(['ai'], {
+          from: playerName,
+          sender: 'player',
+          topic: 'feature-planning-request',
+          subject: `Plan Feature: ${updated.subject}`,
+          body: updated.body,
+          keywords: {},
+          replyTo: msgId,
+        });
+      }
+    }
+
     sendJson(res, 200, { ok: true });
     return;
   }

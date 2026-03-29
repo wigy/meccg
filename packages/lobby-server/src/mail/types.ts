@@ -20,6 +20,8 @@ export type MailTopic =
   | 'certification-reply'
   | 'review-request'
   | 'feature-request'
+  | 'feature-reply'
+  | 'feature-planning-request'
   | 'bug-fix-request';
 
 /** A mail message stored in a player's inbox or deleted folder. */

@@ -984,8 +984,10 @@ function renderMessage(messageEl: HTMLElement, full: InboxMessage): void {
   body.innerHTML = renderMarkdown(full.body);
   messageEl.appendChild(body);
 
-  // Approve / Decline buttons for review-request messages
-  if ((full.status === 'waiting' || full.status === 'new') && full.topic === 'review-request' && lobbyPlayerIsAdmin) {
+  // Approve / Decline buttons for review-request and feature-request messages
+  const reviewable = full.topic === 'review-request' || full.topic === 'feature-request';
+  const actionable = full.status === 'waiting' || full.status === 'new' || full.status === 'read';
+  if (actionable && reviewable && lobbyPlayerIsAdmin) {
     const btnContainer = document.createElement('div');
     btnContainer.className = 'inbox-review-actions';
 
