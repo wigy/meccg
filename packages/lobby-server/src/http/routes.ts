@@ -31,7 +31,7 @@ import * as os from 'os';
 import { cardImageRawUrl } from '@meccg/shared';
 import { DEV, MASTER_KEY, REVIEWER_PLAYERS } from '../config.js';
 import { broadcastNotification } from '../lobby/lobby.js';
-import { sendMail, writeSentCopy, listInbox, listSent, readMessage, deleteMessage, markAllUnread, updateMessageStatus, countUnread } from '../mail/store.js';
+import { sendMail, writeSentCopy, listInbox, listSent, readMessage, deleteMessage, updateMessageStatus, countUnread } from '../mail/store.js';
 import type { MailSender, MailStatus, MailTopic } from '../mail/types.js';
 import { lobbyLog } from '../lobby-log.js';
 import { findPlayer, findPlayerByEmail, createPlayer, listPlayerDecks, savePlayerDeck, getCurrentDeck, setCurrentDeck, getDisplayName, setDisplayName, touchLastMailView } from '../players/store.js';
@@ -620,14 +620,6 @@ export async function handleRequest(req: http.IncomingMessage, res: http.ServerR
       lobbyLog.log('error', { context: 'bug-report', error: String(err) });
       sendJson(res, 500, { error: 'Failed to send bug report' });
     }
-    return;
-  }
-
-  if (urlPath === '/api/mail/mark-all-unread' && method === 'POST') {
-    const playerName = getSessionPlayer(req);
-    if (!playerName) { sendJson(res, 401, { error: 'Not logged in' }); return; }
-    const count = markAllUnread(playerName);
-    sendJson(res, 200, { ok: true, count });
     return;
   }
 

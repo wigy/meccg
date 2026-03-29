@@ -25,13 +25,11 @@ Internal mail system
   in both personal and catalog listings
 - **Inbox screen:** Two-pane mail layout with markdown rendering
 - **System notifications:** Persistent reddish toasts with close button
-- **Mark all unread button** moved to top of message list
 
 ### Lobby Server
 - **Internal mail system:** File-based inbox with send, read, delete, sent
   folder, and replyTo support
-- **Mail API:** Endpoints for inbox, sent, mark-all-unread, and message
-  status management
+- **Mail API:** Endpoints for inbox, sent, and message status management
 - **Admin review flow:** Approve/decline workflow for card requests with
   waiting/approved statuses
 - **Display names:** Player display names with system player auto-creation

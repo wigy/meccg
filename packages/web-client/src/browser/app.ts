@@ -1073,7 +1073,7 @@ function renderMessage(messageEl: HTMLElement, full: InboxMessage): void {
 /** Render a list of messages into the list panel. */
 function renderMailList(
   listEl: HTMLElement, messageEl: HTMLElement, messages: InboxMessage[],
-  options: { fetchOnClick?: string; showMarkAllUnread?: boolean },
+  options: { fetchOnClick?: string },
 ): void {
   listEl.innerHTML = '';
 
@@ -1107,18 +1107,6 @@ function renderMailList(
   });
   listEl.appendChild(featureBtn);
 
-  if (options.showMarkAllUnread) {
-    const btn = document.createElement('button');
-    btn.className = 'inbox-action-btn mark-all-unread-btn';
-    btn.textContent = 'Mark all unread';
-    btn.addEventListener('click', () => {
-      void (async () => {
-        await fetch('/api/mail/mark-all-unread', { method: 'POST' });
-        void openInbox();
-      })();
-    });
-    listEl.appendChild(btn);
-  }
   if (messages.length === 0) {
     const empty = document.createElement('p');
     empty.className = 'lobby-empty';
@@ -1213,7 +1201,6 @@ async function openInbox(): Promise<void> {
 
     renderMailList(listEl, messageEl, data.messages, {
       fetchOnClick: '/api/mail/inbox',
-      showMarkAllUnread: true,
     });
   } catch {
     listEl.innerHTML = '<p class="lobby-empty">Connection error</p>';
