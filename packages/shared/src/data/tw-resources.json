@@ -373,5 +373,18 @@
     ],
     "effects": [],
     "text": "Unique. Playable at Wellinghall. May not be attacked by automatic-attacks or hazards keyed to his site. Discard Treebeard if his company moves to a site that is not in: Fangorn, Rohan, Gap of Isen, Wold & Foothills, Enedhwaith, Old Pûkel-land, Brown Lands, Anduin Vales, or Redhorn Gate."
+  },
+  {
+    "cardType": "hero-resource-event",
+    "alignment": "wizard",
+    "id": "tw-348",
+    "name": "The White Tree",
+    "image": "https://cdn.jsdelivr.net/gh/council-of-rivendell/meccg-remaster/en-remaster/tw/TheWhiteTree.jpg",
+    "unique": true,
+    "eventType": "permanent",
+    "marshallingPoints": 5,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Unique. Sage only at Minas Tirith. Playable only if you discard a Sapling of the White Tree borne by one of your characters at Minas Tirith, or one from your Marshalling Points pile stored at Minas Tirith. Minas Tirith becomes a Haven [{H}] for the purposes of healing and playing hazards."
   }
 ]
