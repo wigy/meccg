@@ -21,6 +21,9 @@ import { logHeading, logDetail } from './legal-actions/log.js';
 import type { TwoDiceSix, DieRoll, GameEffect } from '../index.js';
 import { applyDraftResults, transitionAfterItemDraft, enterSiteSelection, startFirstTurn } from './init.js';
 import { recomputeDerived } from './recompute-derived.js';
+import { collectCharacterEffects, resolveCheckModifier } from './effects/index.js';
+import type { ResolverContext } from './effects/index.js';
+import { matchesCondition } from '../effects/index.js';
 import { computeTournamentScore } from '../state-utils.js';
 import { handleChainAction, initiateChain, pushChainEntry } from './chain-reducer.js';
 
@@ -4236,10 +4239,45 @@ function handleInfluenceAttempt(
   const charDef = state.cardPool[charInPlay.definitionId as string];
   const charName = charDef?.name ?? charId;
 
-  // Calculate influence modifier: character's direct influence
+  // Calculate influence modifier: direct influence + DSL check-modifier effects
   let modifier = 0;
   if (charDef && isCharacterCard(charDef)) {
     modifier += charDef.directInfluence;
+
+    // Build resolver context for influence check
+    const resolverCtx: ResolverContext = {
+      reason: 'faction-influence-check',
+      bearer: {
+        race: charDef.race,
+        skills: charDef.skills,
+        baseProwess: charDef.prowess,
+        baseBody: charDef.body,
+        baseDirectInfluence: charDef.directInfluence,
+        name: charDef.name,
+      },
+      faction: {
+        name: def.name,
+        race: def.race,
+      },
+    };
+
+    // Collect effects from the influencing character (and their items/allies)
+    const charEffects = collectCharacterEffects(state, charInPlay, resolverCtx);
+
+    // Collect effects from the faction card itself (standard modifications)
+    if (def.effects) {
+      for (const effect of def.effects) {
+        if (effect.when && !matchesCondition(effect.when, resolverCtx as unknown as Record<string, unknown>)) continue;
+        charEffects.push({ effect, sourceDef: def });
+      }
+    }
+
+    // Sum all check-modifier effects for influence checks
+    const dslModifier = resolveCheckModifier(charEffects, 'influence');
+    if (dslModifier !== 0) {
+      logDetail(`DSL influence modifiers: ${dslModifier >= 0 ? '+' : ''}${dslModifier}`);
+    }
+    modifier += dslModifier;
   }
 
   // Roll 2d6 + modifier vs influence number
