@@ -831,7 +831,7 @@ function handleStartingSiteSelection(
   if (!player.siteDeck.includes(action.siteInstanceId)) {
     return { state, error: 'Site is not in your site deck' };
   }
-  if (siteSelection.selectedSites.includes(action.siteInstanceId)) {
+  if (siteSelection.selectedSites.some(s => s.instanceId === action.siteInstanceId)) {
     return { state, error: 'Site already selected' };
   }
   if (siteSelection.selectedSites.length >= 2) {
@@ -846,7 +846,10 @@ function handleStartingSiteSelection(
   const newSiteSelectionState = [...stepState.siteSelectionState] as [SiteSelectionPlayerState, SiteSelectionPlayerState];
   newSiteSelectionState[playerIndex] = {
     ...siteSelection,
-    selectedSites: [...siteSelection.selectedSites, action.siteInstanceId],
+    selectedSites: [...siteSelection.selectedSites, {
+      instanceId: action.siteInstanceId,
+      definitionId: state.instanceMap[action.siteInstanceId as string].definitionId,
+    }],
   };
 
   return {
@@ -876,7 +879,7 @@ function finalizeSiteSelection(
 
     // Assign first site to existing company
     if (selectedSites.length > 0 && companies.length > 0) {
-      companies[0] = { ...companies[0], currentSite: { instanceId: selectedSites[0], definitionId: state.instanceMap[selectedSites[0] as string].definitionId, status: CardStatus.Untapped } };
+      companies[0] = { ...companies[0], currentSite: { ...selectedSites[0], status: CardStatus.Untapped } };
     }
 
     // Second site creates an additional empty company
@@ -884,7 +887,7 @@ function finalizeSiteSelection(
       companies.push({
         id: nextCompanyId(player),
         characters: [],
-        currentSite: { instanceId: selectedSites[1], definitionId: state.instanceMap[selectedSites[1] as string].definitionId, status: CardStatus.Untapped },
+        currentSite: { ...selectedSites[1], status: CardStatus.Untapped },
         siteCardOwned: true,
         destinationSite: null,
         movementPath: [],

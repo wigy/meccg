@@ -157,3 +157,15 @@ export enum CardStatus {
   Tapped = 'tapped',
   Inverted = 'inverted',
 }
+
+/**
+ * A card reference carrying both its instance ID and definition ID.
+ * Used everywhere a card is referenced in game state, phase state, and views.
+ * For hidden cards the definition ID is `UNKNOWN_CARD` or `UNKNOWN_SITE`.
+ */
+export interface ViewCard {
+  /** The card's unique in-game instance ID. */
+  readonly instanceId: CardInstanceId;
+  /** The card's definition ID (may be an unknown sentinel for hidden cards). */
+  readonly definitionId: CardDefinitionId;
+}

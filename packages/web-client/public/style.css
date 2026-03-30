@@ -1802,6 +1802,14 @@ h2 {
   top: 0.5rem;
 }
 
+.deck-box--compact .player-piles {
+  display: none;
+}
+
+.deck-box--compact {
+  cursor: pointer;
+}
+
 .player-label {
   font-family: 'MedievalSharp', cursive;
   font-size: 1rem;

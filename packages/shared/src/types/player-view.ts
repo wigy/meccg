@@ -27,6 +27,9 @@ import {
   Alignment,
   TwoDiceSix,
 } from './common.js';
+// Re-export ViewCard from common so existing imports from player-view still work.
+export type { ViewCard } from './common.js';
+import type { ViewCard } from './common.js';
 import type {
   PhaseState,
   CombatState,
@@ -39,27 +42,6 @@ import type {
   SiteInPlay,
 } from './state.js';
 import type { EvaluatedAction } from '../rules/types.js';
-
-// ---- Card visibility ----
-
-/**
- * A card in a player view pile.
- *
- * Every card carries both an instance ID and a definition ID.
- * Hidden cards use sentinel definition IDs (`UNKNOWN_CARD` or `UNKNOWN_SITE`)
- * instead of their real definition — use `isCardHidden()` from `card-ids.ts`
- * to test visibility. Known cards carry the real `CardDefinitionId` so the
- * client can look up stats, images, and text directly.
- */
-export interface ViewCard {
-  /** The card's instance ID (for tracking and animation). */
-  readonly instanceId: CardInstanceId;
-  /**
-   * The card's definition ID. For hidden cards this is `UNKNOWN_CARD` or
-   * `UNKNOWN_SITE`; for visible cards it is the real definition ID.
-   */
-  readonly definitionId: CardDefinitionId;
-}
 
 // ---- Opponent's company (destination hidden until movement phase) ----
 
@@ -231,6 +213,12 @@ export interface PlayerView {
   readonly eventsInPlay: readonly EventInPlay[];
   /** Current turn number (1-based). */
   readonly turnNumber: number;
+  /**
+   * The self player's index in the original `state.players` array (0 or 1).
+   * Phase-state arrays (draft state, site selection, etc.) are indexed by
+   * this player order — use this to look up the correct entry for self.
+   */
+  readonly selfIndex: number;
   /** The player who won the initiative roll and took the first turn. Null during setup. */
   readonly startingPlayer: PlayerId | null;
   /** Monotonically increasing sequence number for state changes. */

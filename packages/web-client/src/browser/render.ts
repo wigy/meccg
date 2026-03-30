@@ -1595,6 +1595,8 @@ export function prepareSiteSelection(
   const pile = document.getElementById('self-site-pile');
   if (pile && siteSelectionActions.some(ea => ea.viable)) {
     pile.classList.add('site-pile--active');
+    // Expand the deck box so the highlighted pile is visible
+    document.getElementById('self-deck-box')?.classList.remove('deck-box--compact');
   }
 }
 
@@ -2318,13 +2320,13 @@ function renderCompanies(
 ): void {
   for (let i = 0; i < companies.length; i++) {
     const company = companies[i];
-    const siteIds = company.currentSite ? [company.currentSite.instanceId] : [];
-    if (i > 0 && (siteIds.length > 0 || company.characters.length > 0)) {
+    const sites = company.currentSite ? [company.currentSite] : [];
+    if (i > 0 && (sites.length > 0 || company.characters.length > 0)) {
       const spacer = document.createElement('div');
       spacer.className = 'drafted-spacer';
       el.appendChild(spacer);
     }
-    renderSitesAndCharacters(el, siteIds, company.characters, view, characters, cardPool);
+    renderSitesAndCharacters(el, sites, company.characters, view, characters, cardPool);
   }
 }
 
@@ -2393,24 +2395,22 @@ function renderPlacementCompanies(
 /** Render sites and company characters on the table. Spacer added only when sites are unassigned. */
 function renderSitesAndCharacters(
   el: HTMLElement,
-  siteInstIds: readonly CardInstanceId[],
+  sites: readonly ViewCard[],
   charInstIds: readonly CardInstanceId[],
   view: PlayerView,
   characters: Readonly<Record<string, CharacterInPlay>>,
   cardPool: Readonly<Record<string, CardDefinition>>,
   separateSites = false,
 ): void {
-  for (const instId of siteInstIds) {
-    const defId = cachedInstanceLookup(instId);
-    if (!defId) continue;
-    const def = cardPool[defId as string];
+  for (const site of sites) {
+    const def = cardPool[site.definitionId as string];
     if (!def) continue;
     const imgPath = cardImageProxyPath(def);
     if (!imgPath) continue;
-    el.appendChild(createCardImage(defId as string, def, imgPath, 'drafted-card', instId as string));
+    el.appendChild(createCardImage(site.definitionId as string, def, imgPath, 'drafted-card', site.instanceId as string));
   }
 
-  if (separateSites && siteInstIds.length > 0 && charInstIds.length > 0) {
+  if (separateSites && sites.length > 0 && charInstIds.length > 0) {
     const spacer = document.createElement('div');
     spacer.className = 'drafted-spacer';
     el.appendChild(spacer);
@@ -2564,10 +2564,7 @@ export function renderDrafted(
   // During site selection, show selected sites then a gap then company characters
   if (step === 'starting-site-selection') {
     const siteState = view.phaseState.setupStep.siteSelectionState;
-    // Determine self index: self's selected sites resolve in instance lookup
-    const hasSelfSites = (idx: number) => siteState[idx].selectedSites.length > 0
-      && cachedInstanceLookup(siteState[idx].selectedSites[0]) !== undefined;
-    const selfIdx = hasSelfSites(0) ? 0 : hasSelfSites(1) ? 1 : 0;
+    const selfIdx = view.selfIndex;
     const oppIdx = 1 - selfIdx;
 
     const selfChars = view.self.companies.flatMap(c => c.characters);
@@ -2830,6 +2827,36 @@ export function renderOpponentHand(view: PlayerView, cardPool: Readonly<Record<s
   }
 }
 
+/**
+ * Install click handlers on both deck boxes to toggle between compact
+ * (dice/score/GI/name only) and full (with pile graphics) rendering.
+ * Compact mode is the default; clicking the deck box expands it.
+ * Clicking anywhere in the expanded box except on pile cells collapses it.
+ */
+let deckBoxToggleInstalled = false;
+function installDeckBoxToggle(): void {
+  if (deckBoxToggleInstalled) return;
+  deckBoxToggleInstalled = true;
+
+  for (const id of ['self-deck-box', 'opponent-deck-box']) {
+    const box = document.getElementById(id);
+    if (!box) continue;
+    box.addEventListener('click', (e) => {
+      const isCompact = box.classList.contains('deck-box--compact');
+      if (isCompact) {
+        // Expand: show piles
+        box.classList.remove('deck-box--compact');
+      } else {
+        // If the click is on a pile cell, let it open the pile browser — don't collapse
+        const target = e.target as HTMLElement;
+        if (target.closest('.pile-cell')) return;
+        // Otherwise collapse back to compact
+        box.classList.add('deck-box--compact');
+      }
+    });
+  }
+}
+
 /** Append a message to the log. Auto-scrolls to bottom. */
 /**
  * Set up card preview via event delegation on the visual view.
@@ -2837,6 +2864,7 @@ export function renderOpponentHand(view: PlayerView, cardPool: Readonly<Record<s
  */
 export function setupCardPreview(cardPool: Readonly<Record<string, CardDefinition>>): void {
   debugCardPool = cardPool;
+  installDeckBoxToggle();
   const view = document.getElementById('visual-view');
   const preview = document.getElementById('card-preview');
   if (!view || !preview) return;

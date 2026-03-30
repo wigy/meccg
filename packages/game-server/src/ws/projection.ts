@@ -98,7 +98,9 @@ function buildVisibleInstanceMap(
     } else if (step.step === SetupStep.CharacterDeckDraft) {
       for (const ds of step.deckDraftState) addPile(ds.remainingPool);
     } else if (step.step === SetupStep.StartingSiteSelection) {
-      for (const ss of step.siteSelectionState) addPile(ss.selectedSites);
+      for (const ss of step.siteSelectionState) {
+        for (const site of ss.selectedSites) addInst(site.instanceId);
+      }
     }
   }
 
@@ -278,6 +280,7 @@ export function projectSpectatorView(state: GameState): PlayerView {
     chain: state.chain,
     eventsInPlay: state.eventsInPlay,
     turnNumber: state.turnNumber,
+    selfIndex: 0,
     startingPlayer: state.startingPlayer,
     stateSeq: state.stateSeq,
     legalActions: [],
@@ -395,6 +398,7 @@ export function projectPlayerView(state: GameState, playerId: PlayerId): PlayerV
     chain: state.chain,
     eventsInPlay: state.eventsInPlay,
     turnNumber: state.turnNumber,
+    selfIndex,
     startingPlayer: state.startingPlayer,
     stateSeq: state.stateSeq,
     legalActions,

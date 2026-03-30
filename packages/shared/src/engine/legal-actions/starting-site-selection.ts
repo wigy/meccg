@@ -25,7 +25,7 @@ export function startingSiteSelectionActions(state: GameState, playerId: PlayerI
   const player = state.players[playerIndex];
   const { defaultStartingSites, maxStartingSites } = getAlignmentRules(player.alignment);
   const allowedDefIds = new Set(defaultStartingSites.map(id => id as string));
-  const selectedSet = new Set(siteSelection.selectedSites.map(id => id as string));
+  const selectedSet = new Set(siteSelection.selectedSites.map(s => s.instanceId as string));
 
   logDetail(`Selected ${siteSelection.selectedSites.length}/${maxStartingSites} sites, ${player.siteDeck.length} in site deck, ${allowedDefIds.size} allowed starting site def(s)`);
 

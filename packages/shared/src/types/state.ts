@@ -31,6 +31,7 @@ import {
   SiteType,
   MovementType,
 } from './common.js';
+import type { ViewCard } from './common.js';
 import { CardDefinition } from './cards.js';
 import type { GameAction } from './actions.js';
 
@@ -437,8 +438,8 @@ export interface CharacterDeckDraftPlayerState {
  * Per-player state during the starting site selection step.
  */
 export interface SiteSelectionPlayerState {
-  /** Sites selected so far (instance IDs). */
-  readonly selectedSites: readonly CardInstanceId[];
+  /** Sites selected so far, each carrying instance ID and definition ID. */
+  readonly selectedSites: readonly ViewCard[];
   /** Whether this player has finished selecting sites. */
   readonly done: boolean;
 }

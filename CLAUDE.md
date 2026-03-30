@@ -63,6 +63,7 @@ Before every commit, always run all four of these **in parallel** and fix any fa
 - The server is the authority on game state — clients never modify state directly
 - Game rules are enforced server-side; the client is a presentation layer
 - The game engine is a pure reducer — no side effects in state transitions
+- **Card instance IDs are the universal reference:** Everywhere in the game (state, actions, phase state, UI) cards are referred to by their `CardInstanceId`. A reference may optionally carry the card's identity (definition ID, name), but the instance ID is always the primary key. Never use bare definition IDs or indices where an instance ID should be used.
 
 ### Server-Side Logging Policy
 
