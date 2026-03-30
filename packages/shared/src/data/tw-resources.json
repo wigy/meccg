@@ -386,5 +386,18 @@
     "marshallingCategory": "misc",
     "effects": [],
     "text": "Unique. Sage only at Minas Tirith. Playable only if you discard a Sapling of the White Tree borne by one of your characters at Minas Tirith, or one from your Marshalling Points pile stored at Minas Tirith. Minas Tirith becomes a Haven [{H}] for the purposes of healing and playing hazards."
+  },
+  {
+    "cardType": "hero-resource-event",
+    "alignment": "wizard",
+    "id": "tw-356",
+    "name": "Vanishment",
+    "image": "https://cdn.jsdelivr.net/gh/council-of-rivendell/meccg-remaster/en-remaster/tw/Vanishment.jpg",
+    "unique": false,
+    "eventType": "short",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Spell. Wizard only. Cancels an attack against the Wizard's company. Wizard makes a corruption check modified by -2."
   }
 ]
