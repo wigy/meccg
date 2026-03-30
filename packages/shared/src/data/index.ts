@@ -42,6 +42,7 @@ import tdItems from './td-items.json';
 import tdResources from './td-resources.json';
 
 // ---- Dark Minions (DM) — expansion ----
+import dmCreatures from './dm-creatures.json';
 import dmHazards from './dm-hazards.json';
 import dmResources from './dm-resources.json';
 
@@ -80,6 +81,7 @@ const allCards: readonly CardDefinition[] = [
   ...(tdItems as unknown as CardDefinition[]),
   ...(tdResources as unknown as CardDefinition[]),
   // Dark Minions
+  ...(dmCreatures as unknown as CardDefinition[]),
   ...(dmHazards as unknown as CardDefinition[]),
   ...(dmResources as unknown as CardDefinition[]),
   // The Balrog
