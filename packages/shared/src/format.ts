@@ -22,6 +22,7 @@ import { computeTournamentBreakdown } from './state-utils.js';
 import type { GameAction } from './types/actions.js';
 import { CardStatus } from './types/common.js';
 import type { CardInstanceId, CardDefinitionId, CompanyId } from './types/common.js';
+import { UNKNOWN_INSTANCE } from './card-ids.js';
 import { GENERAL_INFLUENCE } from './constants.js';
 
 // ---- Formatting helpers ----
@@ -403,27 +404,20 @@ interface RenderPlayerInput {
   readonly alignment: string;
   readonly wizard: string | null;
   readonly isActive: boolean;
-  /** Card instance IDs in hand (own view), or undefined for opponent. */
-  readonly handCards?: readonly CardInstanceId[];
-  readonly handCount: number;
-  readonly deckCount: number;
-  readonly siteDeckCount: number;
-  readonly discardCount: number;
-  readonly killCount: number;
-  readonly eliminatedCount: number;
-  /** Card instance IDs in the play deck, when visible (omniscient view only). */
-  readonly deckCards?: readonly CardInstanceId[];
-  /** Card instance IDs in the site deck, when visible (own view or omniscient). */
-  readonly siteDeckCards?: readonly CardInstanceId[];
-  /** Card instance IDs in the discard pile, when visible (always public). */
-  readonly discardCards?: readonly CardInstanceId[];
-  /** Card instance IDs in the kill pile (defeated creatures, always public). */
-  readonly killCards?: readonly CardInstanceId[];
+  /** Card instance IDs in hand. Unknown cards use {@link UNKNOWN_INSTANCE}. */
+  readonly handCards: readonly CardInstanceId[];
+  /** Card instance IDs in the play deck. Unknown cards use {@link UNKNOWN_INSTANCE}. */
+  readonly deckCards: readonly CardInstanceId[];
+  /** Card instance IDs in the site deck. Unknown cards use {@link UNKNOWN_INSTANCE}. */
+  readonly siteDeckCards: readonly CardInstanceId[];
+  /** Card instance IDs in the discard pile (always public). */
+  readonly discardCards: readonly CardInstanceId[];
+  /** Card instance IDs in the kill pile (always public). */
+  readonly killCards: readonly CardInstanceId[];
   /** Card instance IDs in the eliminated pile (always public). */
-  readonly eliminatedCards?: readonly CardInstanceId[];
-  readonly sideboardCount: number;
-  /** Card instance IDs in the sideboard, when visible (own view or omniscient). */
-  readonly sideboardCards?: readonly CardInstanceId[];
+  readonly eliminatedCards: readonly CardInstanceId[];
+  /** Card instance IDs in the sideboard. Hidden piles are empty arrays. */
+  readonly sideboardCards: readonly CardInstanceId[];
   /** Number of cards remaining in the draft pool during setup. */
   readonly poolSize?: number;
   readonly marshallingPoints: MarshallingPointTotals;
@@ -557,7 +551,7 @@ function renderState(input: RenderInput): string {
       ? ` «DICE:${player.lastDiceRoll.die1},${player.lastDiceRoll.die2},${pi === 0 ? 'black' : 'red'}»`
       : '';
     lines.push(`${player.name} [${player.alignment}]${wizardLabel}: «MP:${mpData}»${totalMP} MP${giLabel}${diceMarker}`);
-    if (player.handCards && player.handCards.length > 0) {
+    if (player.handCards.length > 0) {
       // Group duplicate cards: "3 x Cave-drake" instead of "Cave-drake, Cave-drake, Cave-drake"
       const counts = new Map<string, { name: string; count: number }>();
       for (const id of player.handCards) {
@@ -572,54 +566,45 @@ function renderState(input: RenderInput): string {
       const grouped = [...counts.values()]
         .map(({ name, count }) => count > 1 ? `${count} x ${name}` : name)
         .join(', ');
-      const handTotal = [...counts.values()].reduce((sum, { count }) => sum + count, 0);
-      lines.push(`  Hand (${handTotal}): ${grouped}`);
-    } else if (player.handCount > 0) {
-      lines.push(`  Hand (${player.handCount}): ${player.handCount} x ${colorizeUnknown('a card')}`);
+      lines.push(`  Hand (${player.handCards.length}): ${grouped}`);
     } else {
       lines.push(`  Hand: (empty)`);
     }
-    // Deck piles — each on its own line, with optional card list
-    lines.push(`  Deck: ${player.deckCount}`);
-    if (player.deckCards && player.deckCards.length > 0) {
+    // Deck piles — each on its own line, with card list (skipped for all-unknown piles)
+    const hasKnownCards = (cards: readonly CardInstanceId[]) =>
+      cards.some(id => id !== UNKNOWN_INSTANCE);
+    lines.push(`  Deck: ${player.deckCards.length}`);
+    if (hasKnownCards(player.deckCards)) {
       for (const id of player.deckCards) {
         lines.push(`    · ${formatInstanceName(id, defOf, instOf)}`);
       }
     }
-    lines.push(`  Sites: ${player.siteDeckCount}`);
-    if (player.siteDeckCards && player.siteDeckCards.length > 0) {
+    lines.push(`  Sites: ${player.siteDeckCards.length}`);
+    if (hasKnownCards(player.siteDeckCards)) {
       for (const id of player.siteDeckCards) {
         lines.push(`    · ${formatInstanceName(id, defOf, instOf)}`);
       }
     }
-    lines.push(`  Discard: ${player.discardCount}`);
-    if (player.discardCards && player.discardCards.length > 0) {
-      for (const id of player.discardCards) {
+    lines.push(`  Discard: ${player.discardCards.length}`);
+    for (const id of player.discardCards) {
+      lines.push(`    · ${formatInstanceName(id, defOf, instOf)}`);
+    }
+    if (player.killCards.length > 0) {
+      lines.push(`  Kill pile: ${player.killCards.length}`);
+      for (const id of player.killCards) {
         lines.push(`    · ${formatInstanceName(id, defOf, instOf)}`);
       }
     }
-    if (player.killCount > 0) {
-      lines.push(`  Kill pile: ${player.killCount}`);
-      if (player.killCards) {
-        for (const id of player.killCards) {
-          lines.push(`    · ${formatInstanceName(id, defOf, instOf)}`);
-        }
+    if (player.eliminatedCards.length > 0) {
+      lines.push(`  Eliminated: ${player.eliminatedCards.length}`);
+      for (const id of player.eliminatedCards) {
+        lines.push(`    · ${formatInstanceName(id, defOf, instOf)}`);
       }
     }
-    if (player.eliminatedCount > 0) {
-      lines.push(`  Eliminated: ${player.eliminatedCount}`);
-      if (player.eliminatedCards) {
-        for (const id of player.eliminatedCards) {
-          lines.push(`    · ${formatInstanceName(id, defOf, instOf)}`);
-        }
-      }
-    }
-    if (player.sideboardCount > 0) {
-      lines.push(`  Sideboard: ${player.sideboardCount}`);
-      if (player.sideboardCards) {
-        for (const id of player.sideboardCards) {
-          lines.push(`    · ${formatInstanceName(id, defOf, instOf)}`);
-        }
+    if (player.sideboardCards.length > 0) {
+      lines.push(`  Sideboard: ${player.sideboardCards.length}`);
+      for (const id of player.sideboardCards) {
+        lines.push(`    · ${formatInstanceName(id, defOf, instOf)}`);
       }
     }
     if (player.poolSize !== undefined) {
@@ -676,18 +661,11 @@ export function formatGameState(state: GameState): string {
       wizard: p.wizard,
       isActive: state.activePlayer !== null && p.id === state.activePlayer,
       handCards: p.hand,
-      handCount: p.hand.length,
-      deckCount: p.playDeck.length,
       deckCards: p.playDeck,
-      siteDeckCount: p.siteDeck.length,
       siteDeckCards: p.siteDeck,
-      discardCount: p.discardPile.length,
       discardCards: p.discardPile,
-      killCount: p.killPile.length,
       killCards: p.killPile,
-      eliminatedCount: p.eliminatedPile.length,
       eliminatedCards: p.eliminatedPile,
-      sideboardCount: p.sideboard.length,
       sideboardCards: p.sideboard,
       marshallingPoints: p.marshallingPoints,
       generalInfluenceUsed: p.generalInfluenceUsed,
@@ -750,17 +728,11 @@ export function formatPlayerView(
         wizard: view.self.wizard,
         isActive: view.activePlayer !== null && view.self.id === view.activePlayer,
         handCards: view.self.hand.map(c => c.instanceId),
-        handCount: view.self.hand.length,
-        deckCount: view.self.playDeckSize,
-        siteDeckCount: view.self.siteDeck.length,
+        deckCards: [...view.self.playDeck],
         siteDeckCards: view.self.siteDeck.map(c => c.instanceId),
-        discardCount: view.self.discardPile.length,
         discardCards: view.self.discardPile.map(c => c.instanceId),
-        killCount: view.self.killPile.length,
         killCards: view.self.killPile.map(c => c.instanceId),
-        eliminatedCount: view.self.eliminatedPile.length,
         eliminatedCards: view.self.eliminatedPile.map(c => c.instanceId),
-        sideboardCount: view.self.sideboard.length,
         sideboardCards: view.self.sideboard.map(c => c.instanceId),
         poolSize: selfPoolSize,
         marshallingPoints: view.self.marshallingPoints,
@@ -775,16 +747,13 @@ export function formatPlayerView(
         alignment: view.opponent.alignment,
         wizard: view.opponent.wizard,
         isActive: view.activePlayer !== null && view.opponent.id === view.activePlayer,
-        handCount: view.opponent.handSize,
-        deckCount: view.opponent.playDeckSize,
-        siteDeckCount: view.opponent.siteDeckSize,
-        discardCount: view.opponent.discardPile.length,
+        handCards: [...view.opponent.hand],
+        deckCards: [...view.opponent.playDeck],
+        siteDeckCards: [...view.opponent.siteDeck],
         discardCards: view.opponent.discardPile.map(c => c.instanceId),
-        killCount: view.opponent.killPile.length,
         killCards: view.opponent.killPile.map(c => c.instanceId),
-        eliminatedCount: view.opponent.eliminatedPile.length,
         eliminatedCards: view.opponent.eliminatedPile.map(c => c.instanceId),
-        sideboardCount: 0,
+        sideboardCards: [],
         poolSize: opponentPoolSize,
         marshallingPoints: view.opponent.marshallingPoints,
         generalInfluenceUsed: view.opponent.generalInfluenceUsed,

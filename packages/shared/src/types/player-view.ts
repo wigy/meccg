@@ -8,8 +8,9 @@
  * This module defines the types used in the projected `PlayerView` that
  * the server sends to each client, with hidden information redacted:
  *
- * - Your own hand contents are visible; opponent's hand is just a count.
- * - Discard piles are public (face-up); deck contents are hidden (just a count).
+ * - Your own hand contents are visible; opponent's hand is an array of
+ *   {@link UNKNOWN_INSTANCE} (size visible, identities hidden).
+ * - Discard piles are public (face-up); deck contents are hidden (unknown instances).
  * - Opponent's planned movement destination is hidden until movement resolves.
  * - Site decks are visible to their owner but hidden from the opponent.
  *
@@ -115,9 +116,9 @@ export interface OpponentCompanyView {
  * The opponent's state as visible to the current player.
  *
  * Sensitive information is redacted:
- * - Hand contents -> just the card count (`handSize`).
- * - Play deck contents -> just the card count (`playDeckSize`).
- * - Site deck and sideboard -> completely hidden (not exposed at all).
+ * - Hand, play deck, site deck -> arrays of {@link UNKNOWN_INSTANCE} (size is
+ *   visible but card identities are hidden).
+ * - Sideboard -> completely hidden (empty array).
  * - Company destinations -> redacted to a boolean flag.
  *
  * Discard piles, characters in play, and general influence usage
@@ -132,12 +133,12 @@ export interface OpponentView {
   readonly alignment: Alignment;
   /** The opponent's wizard identity, or null if not yet chosen. */
   readonly wizard: WizardName | null;
-  /** Number of cards in the opponent's hand (contents hidden). */
-  readonly handSize: number;
-  /** Number of cards in the opponent's play deck (contents hidden). */
-  readonly playDeckSize: number;
-  /** Number of cards in the opponent's site deck (contents hidden). */
-  readonly siteDeckSize: number;
+  /** Cards in the opponent's hand (hidden — array of {@link UNKNOWN_INSTANCE}, use `.length` for count). */
+  readonly hand: readonly CardInstanceId[];
+  /** Cards in the opponent's play deck (hidden — array of {@link UNKNOWN_INSTANCE}, use `.length` for count). */
+  readonly playDeck: readonly CardInstanceId[];
+  /** Cards in the opponent's site deck (hidden — array of {@link UNKNOWN_INSTANCE}, use `.length` for count). */
+  readonly siteDeck: readonly CardInstanceId[];
   /** The opponent's face-up discard pile (public information). */
   readonly discardPile: readonly RevealedCard[];
   /** The opponent's face-up site discard pile (public information). */
@@ -182,8 +183,8 @@ export interface SelfView {
   readonly wizard: WizardName | null;
   /** Cards currently in hand (fully revealed to the owning player). */
   readonly hand: readonly RevealedCard[];
-  /** Number of cards remaining in the play deck (contents hidden even from owner). */
-  readonly playDeckSize: number;
+  /** Cards in the play deck (hidden even from owner — array of {@link UNKNOWN_INSTANCE}, use `.length` for count). */
+  readonly playDeck: readonly CardInstanceId[];
   /** Face-up discard pile. */
   readonly discardPile: readonly RevealedCard[];
   /** Available site cards (visible to the owning player for planning movement). */

@@ -53,6 +53,14 @@ function resolvePile(state: GameState, ids: readonly CardInstanceId[]): Revealed
 }
 
 /**
+ * Creates an array of {@link UNKNOWN_INSTANCE} with the given length.
+ * Used to represent hidden card piles where the size is known but identities are not.
+ */
+function hiddenPile(length: number): readonly CardInstanceId[] {
+  return Array.from({ length }, () => UNKNOWN_INSTANCE);
+}
+
+/**
  * Builds the "self" portion of a player's view. The player can see their
  * own hand contents (resolved to definition IDs), discard pile, site deck,
  * sideboard, companies, and characters — but only the *size* of their play
@@ -65,7 +73,7 @@ function buildSelfView(state: GameState, player: PlayerState): SelfView {
     alignment: player.alignment,
     wizard: player.wizard,
     hand: resolvePile(state, player.hand),
-    playDeckSize: player.playDeck.length,
+    playDeck: hiddenPile(player.playDeck.length),
     discardPile: resolvePile(state, player.discardPile),
     siteDeck: resolvePile(state, player.siteDeck),
     siteDiscardPile: resolvePile(state, player.siteDiscardPile),
@@ -84,8 +92,9 @@ function buildSelfView(state: GameState, player: PlayerState): SelfView {
 
 /**
  * Builds the "opponent" portion of a player's view. Hides the opponent's
- * hand contents (only the count is exposed), play deck order, and planned
- * movement destinations (replaced with a boolean `hasPlannedMovement` flag).
+ * hand contents, play deck, site deck, and sideboard (represented as arrays
+ * of {@link UNKNOWN_INSTANCE}), and redacts planned movement destinations
+ * to a boolean `hasPlannedMovement` flag.
  * Public information — characters in play, company locations, discard piles —
  * is passed through.
  */
@@ -106,9 +115,9 @@ function buildOpponentView(state: GameState, player: PlayerState): OpponentView 
     name: player.name,
     alignment: player.alignment,
     wizard: player.wizard,
-    handSize: player.hand.length,
-    playDeckSize: player.playDeck.length,
-    siteDeckSize: player.siteDeck.length,
+    hand: hiddenPile(player.hand.length),
+    playDeck: hiddenPile(player.playDeck.length),
+    siteDeck: hiddenPile(player.siteDeck.length),
     discardPile: resolvePile(state, player.discardPile),
     siteDiscardPile: resolvePile(state, player.siteDiscardPile),
     killPile: resolvePile(state, player.killPile),
@@ -179,7 +188,7 @@ export function projectSpectatorView(state: GameState): PlayerView {
       alignment: p1.alignment,
       wizard: p1.wizard,
       hand: [],
-      playDeckSize: p1.playDeck.length,
+      playDeck: hiddenPile(p1.playDeck.length),
       discardPile: [],
       siteDeck: [],
       siteDiscardPile: [],

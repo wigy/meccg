@@ -1283,16 +1283,16 @@ export function resetDeckPiles(): void {
 /** Render both players' draw deck, site deck, sideboard, and discard piles. */
 export function renderDeckPiles(view: PlayerView, cardPool?: Readonly<Record<string, CardDefinition>>): void {
   const selfEl = document.getElementById('self-deck-pile');
-  if (selfEl) fillDeckPile(selfEl, view.self.playDeckSize, '/images/card-back.jpg', 'Play Deck');
+  if (selfEl) fillDeckPile(selfEl, view.self.playDeck.length, '/images/card-back.jpg', 'Play Deck');
 
   const oppEl = document.getElementById('opponent-deck-pile');
-  if (oppEl) fillDeckPile(oppEl, view.opponent.playDeckSize, '/images/card-back.jpg', 'Play Deck');
+  if (oppEl) fillDeckPile(oppEl, view.opponent.playDeck.length, '/images/card-back.jpg', 'Play Deck');
 
   const selfSiteEl = document.getElementById('self-site-pile');
   if (selfSiteEl) fillDeckPile(selfSiteEl, view.self.siteDeck.length, '/images/site-back.jpg', 'Site Deck');
 
   const oppSiteEl = document.getElementById('opponent-site-pile');
-  if (oppSiteEl) fillDeckPile(oppSiteEl, view.opponent.siteDeckSize, '/images/site-back.jpg', 'Site Deck');
+  if (oppSiteEl) fillDeckPile(oppSiteEl, view.opponent.siteDeck.length, '/images/site-back.jpg', 'Site Deck');
 
   const selfSideboardEl = document.getElementById('self-sideboard-pile');
   if (selfSideboardEl) fillDeckPile(selfSideboardEl, view.self.sideboard.length, '/images/card-back.jpg', 'Sideboard');
@@ -2607,7 +2607,7 @@ function getOpponentCards(view: PlayerView): { cards: CardDefinitionId[]; hidden
     return { cards: [], hidden: true };
   }
   // Outside draft, show card backs for each card in opponent's hand
-  const count = view.opponent.handSize;
+  const count = view.opponent.hand.length;
   return { cards: new Array<CardDefinitionId>(count).fill('unknown-card' as CardDefinitionId), hidden: true };
 }
 
