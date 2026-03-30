@@ -172,7 +172,7 @@
       },
       {
         "name": "Dark Quarrels",
-        "card": null,
+        "card": "tw-207",
         "qty": 2
       },
       {
@@ -337,7 +337,7 @@
   "sideboard": [
     {
       "name": "Dark Quarrels",
-      "card": null,
+      "card": "tw-207",
       "qty": 1
     },
     {

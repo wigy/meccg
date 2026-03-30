@@ -151,6 +151,19 @@
   {
     "cardType": "hero-resource-event",
     "alignment": "wizard",
+    "id": "tw-207",
+    "name": "Dark Quarrels",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/DarkQuarrels.jpg",
+    "unique": false,
+    "eventType": "short",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Cancel one attack by Orcs, Trolls, or Men. Alternatively, if Gates of Morning is in play, the number of strikes from any attack is reduced to half of its original number, rounded up."
+  },
+  {
+    "cardType": "hero-resource-event",
+    "alignment": "wizard",
     "id": "unknown-card",
     "name": "a card",
     "image": "/images/card-back.jpg",
