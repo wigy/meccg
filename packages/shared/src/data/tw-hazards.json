@@ -65,5 +65,21 @@
     "keywords": ["environment"],
     "effects": [],
     "text": "Environment. Modify the prowess of one automatic-attack at a Ruins & Lairs site by +2. Alternatively, if Doors of Night is in play, treat one Wilderness as a Shadow-land or one Ruins & Lairs as a Shadow-hold until the end of the turn. Cannot be duplicated."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "tw-61",
+    "name": "Minions Stir",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/MinionsStir.jpg",
+    "unique": false,
+    "eventType": "long",
+    "effects": [
+      {
+        "type": "duplication-limit",
+        "scope": "game",
+        "max": 1
+      }
+    ],
+    "text": "The number of strikes and prowess of each Orc and Troll attack are each increased by one (by two for Orc attacks if Doors of Night is in play). Cannot be duplicated."
   }
 ]
