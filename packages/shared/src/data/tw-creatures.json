@@ -198,5 +198,31 @@
     "effects": [],
     "text": "Orcs. Five strikes. If played on a company that has already faced an Orc attack this turn, Orc-warband receives +3 prowess.",
     "race": "orc"
+  },
+  {
+    "cardType": "hazard-creature",
+    "id": "tw-078",
+    "name": "Orc-watch",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Orcwatch.jpg",
+    "unique": false,
+    "strikes": 3,
+    "prowess": 9,
+    "body": null,
+    "killMarshallingPoints": 1,
+    "keyedTo": [
+      {
+        "regionTypes": [
+          "shadow",
+          "dark"
+        ],
+        "siteTypes": [
+          "shadow-hold",
+          "dark-hold"
+        ]
+      }
+    ],
+    "effects": [],
+    "text": "Orcs. Three strikes.",
+    "race": "orc"
   }
 ]
