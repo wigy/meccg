@@ -495,5 +495,26 @@
     "hazardDraws": 1,
     "text": "Nearest Haven: Edhellond.",
     "effects": []
+  },
+  {
+    "cardType": "hero-site",
+    "alignment": "wizard",
+    "id": "tw-419",
+    "name": "Pelargir",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Pelargir.jpg",
+    "siteType": "free-hold",
+    "sitePath": [
+      "wilderness",
+      "border",
+      "free"
+    ],
+    "nearestHaven": "Edhellond",
+    "region": "Lebennin",
+    "playableResources": [],
+    "automaticAttacks": [],
+    "resourceDraws": 2,
+    "hazardDraws": 2,
+    "text": "Nearest Haven: Edhellond.",
+    "effects": []
   }
 ]
