@@ -263,5 +263,24 @@
     "playableAt": [],
     "effects": [],
     "text": "Unique. Palantír. Playable only at Isengard. With its bearer able to use a Palantír and with at least 5 cards in your play deck, tap Palantír of Orthanc to choose one card from your discard pile to place in your play deck (reshuffle the play deck). Bearer makes a corruption check. This item does not give MPs to a Fallen-wizard regardless of other cards in play."
+  },
+  {
+    "cardType": "hero-resource-item",
+    "alignment": "wizard",
+    "id": "tw-322",
+    "name": "Sapling of the White Tree",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/SaplingoftheWhiteTree.jpg",
+    "unique": true,
+    "subtype": "major",
+    "marshallingPoints": 1,
+    "marshallingCategory": "item",
+    "corruptionPoints": 1,
+    "prowessModifier": 0,
+    "bodyModifier": 0,
+    "playableAt": [
+      "ruins-and-lairs"
+    ],
+    "effects": [],
+    "text": "Not playable in a Shadow-hold or Dark-hold. May be stored at Minas Tirith. 2 marshalling points if stored at Minas Tirith."
   }
 ]
