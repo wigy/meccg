@@ -1,5 +1,44 @@
 # Changelog
 
+## 0.17.0 — 2026-03-30
+
+Playing a faction
+
+### Game Engine
+- **Faction influence attempts:** Play factions at their designated sites during
+  the site phase. Two-step UI: select faction from hand, then click an untapped
+  character to make the influence roll (2d6 + direct influence vs influence number).
+- **DSL influence bonuses:** Faction cards carry `check-modifier` effects for
+  standard modifications (e.g. Dúnedain +1). The resolver collects bonuses from
+  both the character's equipment and the faction card itself.
+- **Faction MP scoring:** Factions in `cardsInPlay` now correctly contribute
+  marshalling points (previously ignored by `recomputePlayer`).
+- **Explicit untap action:** Resource player must click "Untap" to untap cards
+  during the untap phase, replacing automatic untap on phase advance.
+- **Dice roll metadata:** All roll actions (`corruption-check`, `influence-attempt`,
+  `resolve-strike`, `body-check-roll`) now include `need` and `explanation` fields
+  showing what's needed for success and how it's calculated.
+- **Type guard:** Added `isFactionCard` type guard and `FactionCard` union type.
+
+### Web Client
+- **Pile browser improvements:** Close with Escape key. Rows overlap when more
+  than 3 to fit on screen without scrollbar, with per-row z-indexing.
+- **Card preview in pile browser:** Hovering cards in the pile browser shows the
+  zoomed preview with card info panel (moved above overlay z-index).
+- **Site and region type icons:** Added official MECCG site type icons (haven,
+  free-hold, border-hold, ruins-and-lairs, shadow-hold, dark-hold). Site paths,
+  haven paths, site type, and creature keying display inline icons.
+- **Dimmed card rendering:** Use `brightness(0.3)` filter instead of `opacity`
+  to prevent bleed-through when cards overlap.
+- **Debug MP breakdown:** Score line in debug UI shows component breakdown
+  (C=x I=x F=x A=x K=x M=x).
+
+### Data
+- **Faction card effects:** All 8 faction cards now have DSL effects for their
+  standard modifications.
+- **Card image fixes:** Fixed 9 cards using wrong `cdn.jsdelivr.net` image URLs
+  (Marvels Told, Smoke Rings, and others).
+
 ## 0.16.0 — 2026-03-30
 
 Sideboard handling
