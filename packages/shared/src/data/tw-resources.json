@@ -284,5 +284,24 @@
     "marshallingCategory": "misc",
     "effects": [],
     "text": "Sage only. Playable on a Palantír with a sage in the company. Bearer now has the ability to use the Palantír. If the Palantír is stored, this card is stored too. Discard Align Palantír if the company carrying the Palantír moves. Cannot be duplicated on a given Palantír."
+  },
+  {
+    "cardType": "hero-resource-faction",
+    "alignment": "wizard",
+    "id": "tw-277",
+    "name": "Men of Anórien",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/MenofAnorien.jpg",
+    "unique": true,
+    "marshallingPoints": 2,
+    "marshallingCategory": "faction",
+    "influenceNumber": 8,
+    "race": "man",
+    "playableAt": [
+      {
+        "site": "Minas Tirith"
+      }
+    ],
+    "effects": [],
+    "text": "Unique. Playable at Minas Tirith if the influence check is greater than 7. Standard Modifications: Dúnedain (+1)."
   }
 ]
