@@ -2288,7 +2288,7 @@ h2 {
   position: fixed;
   right: 0.5rem;
   top: 2.5rem;
-  z-index: var(--z-hover);
+  z-index: var(--z-action-menu);
   pointer-events: none;
   display: flex;
   flex-direction: column;
@@ -2335,6 +2335,7 @@ h2 {
 .card-preview-attr {
   display: flex;
   justify-content: space-between;
+  align-items: center;
   padding: 0.1rem 0;
   font-size: 0.8rem;
   color: rgba(210, 200, 170, 0.9);
@@ -2348,6 +2349,10 @@ h2 {
 .attr-value {
   color: rgba(230, 215, 170, 1);
   text-align: right;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  flex-wrap: nowrap;
 }
 
 #pass-btn {

@@ -1564,6 +1564,34 @@ function installPileBrowserBackdrop(): void {
       closeSelectionViewer();
     }
   });
+
+  // Card preview on hover inside the pile browser grid
+  const grid = document.getElementById('pile-browser-grid');
+  const preview = document.getElementById('card-preview');
+  if (grid && preview) {
+    grid.addEventListener('mouseover', (e) => {
+      const img = (e.target as HTMLElement).closest('img');
+      if (!img?.dataset.cardId || !cachedCardPool) return;
+      const def = cachedCardPool[img.dataset.cardId];
+      if (!def) return;
+      preview.innerHTML = '';
+      const info = document.createElement('div');
+      info.className = 'card-preview-info';
+      const name = document.createElement('div');
+      name.className = 'card-preview-name';
+      name.textContent = def.name;
+      info.appendChild(name);
+      const clone = document.createElement('img');
+      clone.src = img.src;
+      clone.alt = img.alt;
+      info.appendChild(clone);
+      buildCardAttributes(info, def);
+      preview.appendChild(info);
+    });
+    grid.addEventListener('mouseout', (e) => {
+      if ((e.target as HTMLElement).closest('img')) preview.innerHTML = '';
+    });
+  }
 }
 
 /** Cached site deck for the site pile click handler. */
@@ -1956,6 +1984,12 @@ function isPlayCharacterCard(
 /** Map region type codes to icon file names for inline path display. */
 const REGION_ICON_CODES: Record<string, string> = {
   wilderness: 'w', shadow: 's', dark: 'd', coastal: 'c', free: 'f', border: 'b',
+};
+
+/** Map site type codes to icon file names for inline display. */
+const SITE_ICON_CODES: Record<string, string> = {
+  'haven': 'haven', 'free-hold': 'free-hold', 'border-hold': 'border-hold',
+  'ruins-and-lairs': 'ruins-and-lairs', 'shadow-hold': 'shadow-hold', 'dark-hold': 'dark-hold',
 };
 
 /**
@@ -3041,12 +3075,34 @@ function formatCardType(cardType: string): string {
     .replace(/\b\w/g, c => c.toUpperCase());
 }
 
-/** Add an attribute row to the info panel. */
+/** Add an attribute row to the info panel. Value may contain HTML. */
 function addAttr(parent: HTMLElement, label: string, value: string | number): void {
   const row = document.createElement('div');
   row.className = 'card-preview-attr';
   row.innerHTML = `<span class="attr-label">${label}</span><span class="attr-value">${value}</span>`;
   parent.appendChild(row);
+}
+
+/** Render an array of region types as inline icon images. */
+function regionIconsHtml(regions: readonly string[]): string {
+  return regions.map(r => {
+    const code = REGION_ICON_CODES[r];
+    if (code) {
+      return `<img src="/images/regions/${code}.png" alt="${formatLabel(r)}" title="${formatLabel(r)}" style="width:16px;height:16px;display:inline-block">`;
+    }
+    return formatLabel(r);
+  }).join('');
+}
+
+/** Render an array of site types as inline icon images. */
+function siteIconsHtml(siteTypes: readonly string[]): string {
+  return siteTypes.map(s => {
+    const code = SITE_ICON_CODES[s];
+    if (code) {
+      return `<img src="/images/sites/${code}.png" alt="${formatLabel(s)}" title="${formatLabel(s)}" style="width:16px;height:16px;display:inline-block">`;
+    }
+    return formatLabel(s);
+  }).join('');
 }
 
 /** Build attribute rows for a card definition based on its type. */
@@ -3101,6 +3157,15 @@ export function buildCardAttributes(el: HTMLElement, def: CardDefinition): void 
       addAttr(el, 'Prowess', def.prowess);
       if (def.body !== null) addAttr(el, 'Body', def.body);
       if (def.killMarshallingPoints !== 0) addAttr(el, 'Kill MP', def.killMarshallingPoints);
+      if (def.keyedTo.length > 0) {
+        for (const key of def.keyedTo) {
+          const parts: string[] = [];
+          if (key.regionTypes && key.regionTypes.length > 0) parts.push(regionIconsHtml(key.regionTypes));
+          if (key.regionNames && key.regionNames.length > 0) parts.push(key.regionNames.join(', '));
+          if (key.siteTypes && key.siteTypes.length > 0) parts.push(siteIconsHtml(key.siteTypes));
+          addAttr(el, 'Keyed To', parts.join(' '));
+        }
+      }
       break;
     }
     case 'hazard-event': {
@@ -3120,12 +3185,12 @@ export function buildCardAttributes(el: HTMLElement, def: CardDefinition): void 
     case 'minion-site':
     case 'fallen-wizard-site':
     case 'balrog-site': {
-      addAttr(el, 'Site Type', formatLabel(def.siteType));
+      addAttr(el, 'Site Type', siteIconsHtml([def.siteType]));
       if (def.nearestHaven) addAttr(el, 'Nearest Haven', def.nearestHaven);
-      if (def.sitePath.length > 0) addAttr(el, 'Path', def.sitePath.map(formatLabel).join(', '));
+      if (def.sitePath.length > 0) addAttr(el, 'Path', regionIconsHtml(def.sitePath));
       if (def.havenPaths) {
         for (const [haven, path] of Object.entries(def.havenPaths)) {
-          addAttr(el, `Path to ${haven}`, path.map(formatLabel).join(', '));
+          addAttr(el, haven, regionIconsHtml(path));
         }
       }
       if (def.playableResources.length > 0) addAttr(el, 'Resources', def.playableResources.map(formatLabel).join(', '));
