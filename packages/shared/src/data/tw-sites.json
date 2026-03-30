@@ -395,5 +395,25 @@
     "hazardDraws": 1,
     "text": "",
     "effects": []
+  },
+  {
+    "cardType": "hero-site",
+    "alignment": "wizard",
+    "id": "tw-394",
+    "name": "Edoras",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Edoras.jpg",
+    "siteType": "free-hold",
+    "sitePath": [
+      "wilderness",
+      "border"
+    ],
+    "nearestHaven": "Lórien",
+    "region": "Rohan",
+    "playableResources": [],
+    "automaticAttacks": [],
+    "resourceDraws": 1,
+    "hazardDraws": 1,
+    "text": "",
+    "effects": []
   }
 ]
