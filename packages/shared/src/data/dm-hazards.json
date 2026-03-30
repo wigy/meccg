@@ -8,5 +8,15 @@
     "eventType": "short",
     "effects": [],
     "text": "Bring one hazard from your sideboard or discard pile into your play deck and shuffle. If Doors of Night is in play, you may do this twice."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "dm-97",
+    "name": "Two or Three Tribes Present",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/dm/TwoorThreeTribesPresent.jpg",
+    "unique": false,
+    "eventType": "short",
+    "effects": [],
+    "text": "Playable on a company moving with at least two Wildernesses, one Shadow-land, or one Dark-domain in their site path. When played, announce a creature type except Nazgul, Undead, or Dragons (like Orcs, Men, Slayers, Drakes, etc.). For this turn, any hazard creatures of this type played against target company do not count against the hazard limit."
   }
 ]
