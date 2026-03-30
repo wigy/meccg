@@ -93,6 +93,25 @@
     "text": "Unique. Playable at Dol Amroth if the influence check is greater than 8. Standard Modifications: Dúnedain (+1)."
   },
   {
+    "cardType": "hero-resource-faction",
+    "alignment": "wizard",
+    "id": "tw-276",
+    "name": "Men of Anfalas",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/MenofAnfalas.jpg",
+    "unique": true,
+    "marshallingPoints": 2,
+    "marshallingCategory": "faction",
+    "influenceNumber": 9,
+    "race": "man",
+    "playableAt": [
+      {
+        "site": "Lond Galen"
+      }
+    ],
+    "effects": [],
+    "text": "Unique. Playable at Lond Galen if the influence check is greater than 8. Standard Modifications: Dúnedain (+1)."
+  },
+  {
     "cardType": "hero-resource-event",
     "alignment": "wizard",
     "id": "tw-243",
