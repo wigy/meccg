@@ -19,5 +19,20 @@
     "marshallingPoints": 1,
     "marshallingCategory": "misc",
     "text": "Instead of a normal character, during your organization phase you may bring into play one character (including a minion agent) with up to a 6 mind. Place this card with the character. -1 to his mind to a minimum of 1. Such a character may also be in your starting company."
+  },
+  {
+    "cardType": "hero-resource-event",
+    "alignment": "wizard",
+    "id": "wh-34",
+    "name": "Promptings of Wisdom",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/wh/PromptingsofWisdom.jpg",
+    "unique": false,
+    "eventType": "permanent",
+    "corruptionPoints": 2,
+    "keywords": [
+      "Light Enchantment"
+    ],
+    "effects": [],
+    "text": "Light Enchantment. Playable during the organization phase on a ranger. Target ranger may tap to cancel all hazard effects for the rest of the turn that: force his company to return to its site of origin or that tap his company's current or new site. If so tapped, target ranger makes a corruption check. Cannot be duplicated in a given company."
   }
 ]
