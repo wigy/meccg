@@ -54,5 +54,16 @@
       { "type": "play-restriction", "rule": "no-hazard-limit" }
     ],
     "text": "Environment. One environment card (in play or declared earlier in the same chain of effects) is canceled and discarded. Twilight may also be played as a resource, may be played at any point during any player's turn and does not count against the hazard limit."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "tw-21",
+    "name": "Choking Shadows",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/ChokingShadows.jpg",
+    "unique": false,
+    "eventType": "short",
+    "keywords": ["environment"],
+    "effects": [],
+    "text": "Environment. Modify the prowess of one automatic-attack at a Ruins & Lairs site by +2. Alternatively, if Doors of Night is in play, treat one Wilderness as a Shadow-land or one Ruins & Lairs as a Shadow-hold until the end of the turn. Cannot be duplicated."
   }
 ]
