@@ -399,5 +399,21 @@
     "marshallingCategory": "misc",
     "effects": [],
     "text": "Spell. Wizard only. Cancels an attack against the Wizard's company. Wizard makes a corruption check modified by -2."
+  },
+  {
+    "cardType": "hero-resource-event",
+    "alignment": "wizard",
+    "id": "tw-362",
+    "name": "Wizard\u2019s Laughter",
+    "image": "https://cdn.jsdelivr.net/gh/council-of-rivendell/meccg-remaster/en-remaster/tw/WizardsLaughter.jpg",
+    "unique": false,
+    "eventType": "short",
+    "keywords": [
+      "spell"
+    ],
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Spell. Wizard only during opponent\u2019s site phase. Automatically cancels an influence check against one of the Wizard\u2019s player\u2019s characters, followers, factions, allies, or items. Wizard makes a corruption check modified by -2."
   }
 ]
