@@ -17,12 +17,12 @@
 import type { CardDefinition } from './types/cards.js';
 import { isCharacterCard, isItemCard } from './types/cards.js';
 import type { GameState, Company, CharacterInPlay, ItemInPlay, AllyInPlay, CombatState, ChainState, PhaseState, MarshallingPointTotals } from './types/state.js';
-import type { PlayerView, OpponentCompanyView, ViewCard } from './types/player-view.js';
+import type { PlayerView, OpponentCompanyView } from './types/player-view.js';
 import { computeTournamentBreakdown } from './state-utils.js';
 import type { GameAction } from './types/actions.js';
 import { CardStatus } from './types/common.js';
 import type { CardInstanceId, CardDefinitionId, CompanyId } from './types/common.js';
-import { UNKNOWN_INSTANCE } from './card-ids.js';
+// UNKNOWN_INSTANCE referenced in JSDoc only — no runtime import needed.
 import { GENERAL_INFLUENCE } from './constants.js';
 
 // ---- Formatting helpers ----
@@ -108,52 +108,9 @@ type InstanceLookup = (instId: CardInstanceId) => CardDefinitionId | undefined;
  * included but harmless since no card pool entry will match them.
  */
 export function buildInstanceLookup(view: PlayerView): InstanceLookup {
-  const map: Record<string, CardDefinitionId> = {};
-  const add = (cards: readonly ViewCard[]) => {
-    for (const c of cards) map[c.instanceId as string] = c.definitionId;
-  };
-  // Self piles
-  add(view.self.hand);
-  add(view.self.playDeck);
-  add(view.self.discardPile);
-  add(view.self.siteDeck);
-  add(view.self.siteDiscardPile);
-  add(view.self.sideboard);
-  add(view.self.killPile);
-  add(view.self.eliminatedPile);
-  // Opponent piles
-  add(view.opponent.hand);
-  add(view.opponent.playDeck);
-  add(view.opponent.siteDeck);
-  add(view.opponent.discardPile);
-  add(view.opponent.siteDiscardPile);
-  add(view.opponent.killPile);
-  add(view.opponent.eliminatedPile);
-  // Characters, items, allies, corruption cards
-  for (const char of Object.values(view.self.characters)) {
-    map[char.instanceId as string] = char.definitionId;
-    for (const item of char.items) map[item.instanceId as string] = item.definitionId;
-    for (const ally of char.allies) map[ally.instanceId as string] = ally.definitionId;
-    for (const id of char.corruptionCards) if (map[id as string] === undefined) map[id as string] = id as unknown as CardDefinitionId;
-  }
-  for (const char of Object.values(view.opponent.characters)) {
-    map[char.instanceId as string] = char.definitionId;
-    for (const item of char.items) map[item.instanceId as string] = item.definitionId;
-    for (const ally of char.allies) map[ally.instanceId as string] = ally.definitionId;
-    for (const id of char.corruptionCards) if (map[id as string] === undefined) map[id as string] = id as unknown as CardDefinitionId;
-  }
-  // Company sites
-  for (const c of view.self.companies) {
-    if (c.currentSite) map[c.currentSite.instanceId as string] = c.currentSite.definitionId;
-    if (c.destinationSite) { /* destination is just a CardInstanceId, already in siteDeck */ }
-  }
-  for (const c of view.opponent.companies) {
-    if (c.currentSite) map[c.currentSite.instanceId as string] = c.currentSite.definitionId;
-    if (c.revealedDestinationSite) { /* just a CardInstanceId */ }
-  }
-  // Cards in play
-  for (const c of view.self.cardsInPlay) map[c.instanceId as string] = c.definitionId;
-  for (const c of view.opponent.cardsInPlay) map[c.instanceId as string] = c.definitionId;
+  // The server provides a pre-built instance map covering all visible cards
+  // (piles, characters, phase-state cards like draft pools, combat, chain, etc.).
+  const map = view.instanceMap;
   return (id) => map[id as string];
 }
 
@@ -628,43 +585,22 @@ function renderState(input: RenderInput): string {
     } else {
       lines.push(`  Hand: (empty)`);
     }
-    // Deck piles — each on its own line, with card list (skipped for all-unknown piles)
-    const hasKnownCards = (cards: readonly CardInstanceId[]) =>
-      cards.some(id => id !== UNKNOWN_INSTANCE);
-    lines.push(`  Deck: ${player.deckCards.length}`);
-    if (hasKnownCards(player.deckCards)) {
-      for (const id of player.deckCards) {
+    // Deck piles — each on its own line, with card list.
+    // All piles use the same renderer so that the debug UI can always show
+    // a "+" toggle to expand contents (hidden piles render as "a card").
+    const renderPile = (label: string, cards: readonly CardInstanceId[]) => {
+      if (cards.length === 0 && label !== 'Deck' && label !== 'Sites' && label !== 'Discard') return;
+      lines.push(`  ${label}: ${cards.length}`);
+      for (const id of cards) {
         lines.push(`    · ${formatInstanceName(id, defOf, instOf)}`);
       }
-    }
-    lines.push(`  Sites: ${player.siteDeckCards.length}`);
-    if (hasKnownCards(player.siteDeckCards)) {
-      for (const id of player.siteDeckCards) {
-        lines.push(`    · ${formatInstanceName(id, defOf, instOf)}`);
-      }
-    }
-    lines.push(`  Discard: ${player.discardCards.length}`);
-    for (const id of player.discardCards) {
-      lines.push(`    · ${formatInstanceName(id, defOf, instOf)}`);
-    }
-    if (player.killCards.length > 0) {
-      lines.push(`  Kill pile: ${player.killCards.length}`);
-      for (const id of player.killCards) {
-        lines.push(`    · ${formatInstanceName(id, defOf, instOf)}`);
-      }
-    }
-    if (player.eliminatedCards.length > 0) {
-      lines.push(`  Eliminated: ${player.eliminatedCards.length}`);
-      for (const id of player.eliminatedCards) {
-        lines.push(`    · ${formatInstanceName(id, defOf, instOf)}`);
-      }
-    }
-    if (player.sideboardCards.length > 0) {
-      lines.push(`  Sideboard: ${player.sideboardCards.length}`);
-      for (const id of player.sideboardCards) {
-        lines.push(`    · ${formatInstanceName(id, defOf, instOf)}`);
-      }
-    }
+    };
+    renderPile('Deck', player.deckCards);
+    renderPile('Sites', player.siteDeckCards);
+    renderPile('Discard', player.discardCards);
+    renderPile('Kill pile', player.killCards);
+    renderPile('Eliminated', player.eliminatedCards);
+    renderPile('Sideboard', player.sideboardCards);
     if (player.poolSize !== undefined) {
       lines.push(`  Pool: ${player.poolSize}`);
     }

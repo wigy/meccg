@@ -30,8 +30,101 @@ import type {
   DraftPlayerState,
   CharacterDeckDraftPlayerState,
 } from '@meccg/shared';
-import { UNKNOWN_INSTANCE, UNKNOWN_CARD, UNKNOWN_SITE, getPlayerIndex, Phase } from '@meccg/shared';
+import { UNKNOWN_INSTANCE, UNKNOWN_CARD, UNKNOWN_SITE, getPlayerIndex, Phase, SetupStep } from '@meccg/shared';
 import { computeLegalActions } from '@meccg/shared';
+
+/**
+ * Builds a flat map of all instance IDs the player is allowed to see,
+ * resolved to their definition IDs. This covers piles, characters, items,
+ * phase-state cards (draft pools, site selections, combat, chain, etc.)
+ * so the client can resolve any instance ID referenced by legal actions.
+ */
+function buildVisibleInstanceMap(
+  state: GameState,
+  selfIndex: number,
+  redactedPhase: PhaseState,
+): Record<string, CardDefinitionId> {
+  const map: Record<string, CardDefinitionId> = {};
+
+  const addInst = (id: CardInstanceId) => {
+    if (id === UNKNOWN_INSTANCE || map[id as string]) return;
+    const inst = state.instanceMap[id as string];
+    if (inst) map[id as string] = inst.definitionId;
+  };
+
+  const addPile = (ids: readonly CardInstanceId[]) => {
+    for (const id of ids) addInst(id);
+  };
+
+  // Both players' piles, characters, items, companies
+  for (const player of state.players) {
+    addPile(player.hand);
+    addPile(player.playDeck);
+    addPile(player.discardPile);
+    addPile(player.siteDeck);
+    addPile(player.siteDiscardPile);
+    addPile(player.sideboard);
+    addPile(player.killPile);
+    addPile(player.eliminatedPile);
+    for (const char of Object.values(player.characters)) {
+      addInst(char.instanceId);
+      for (const item of char.items) addInst(item.instanceId);
+      for (const ally of char.allies) addInst(ally.instanceId);
+      addPile(char.corruptionCards);
+    }
+    for (const c of player.companies) {
+      if (c.currentSite) addInst(c.currentSite.instanceId);
+      if (c.destinationSite) addInst(c.destinationSite);
+      addPile(c.movementPath);
+      addPile(c.onGuardCards);
+      if (c.siteOfOrigin) addInst(c.siteOfOrigin);
+    }
+    for (const c of player.cardsInPlay) addInst(c.instanceId);
+  }
+
+  // Phase-state instance IDs (uses the redacted phase so hidden IDs stay hidden)
+  if (redactedPhase.phase === 'setup') {
+    const step = redactedPhase.setupStep;
+    if (step.step === SetupStep.CharacterDraft) {
+      for (const ds of step.draftState) {
+        addPile(ds.pool);
+        addPile(ds.drafted);
+        if (ds.currentPick) addInst(ds.currentPick);
+      }
+      addPile(step.setAside);
+    } else if (step.step === SetupStep.ItemDraft) {
+      for (const ds of step.itemDraftState) addPile(ds.unassignedItems);
+      for (const rp of step.remainingPool) addPile(rp);
+    } else if (step.step === SetupStep.CharacterDeckDraft) {
+      for (const ds of step.deckDraftState) addPile(ds.remainingPool);
+    } else if (step.step === SetupStep.StartingSiteSelection) {
+      for (const ss of step.siteSelectionState) addPile(ss.selectedSites);
+    }
+  }
+
+  // Combat state
+  if (state.combat) {
+    if (state.combat.attackSource.type === 'creature') addInst(state.combat.attackSource.instanceId);
+    if (state.combat.attackSource.type === 'agent') addInst(state.combat.attackSource.instanceId);
+    if (state.combat.attackSource.type === 'automatic-attack') addInst(state.combat.attackSource.siteInstanceId);
+    for (const sa of state.combat.strikeAssignments) addInst(sa.characterId);
+  }
+
+  // Chain state
+  if (state.chain) {
+    for (const entry of state.chain.entries) {
+      if (entry.cardInstanceId) addInst(entry.cardInstanceId);
+      if (entry.payload.type === 'short-event' && entry.payload.targetInstanceId) {
+        addInst(entry.payload.targetInstanceId);
+      }
+    }
+  }
+
+  // Events in play
+  for (const e of state.eventsInPlay) addInst(e.instanceId);
+
+  return map;
+}
 
 /**
  * Resolves a card instance to a {@link ViewCard} containing both the
@@ -188,6 +281,7 @@ export function projectSpectatorView(state: GameState): PlayerView {
     startingPlayer: state.startingPlayer,
     stateSeq: state.stateSeq,
     legalActions: [],
+    instanceMap: {},
   };
 }
 
@@ -289,12 +383,14 @@ export function projectPlayerView(state: GameState, playerId: PlayerId): PlayerV
   }
 
   const legalActions = computeLegalActions(state, playerId);
+  const redactedPhase = redactPhaseForPlayer(state.phaseState, selfIndex);
+  const instanceMap = buildVisibleInstanceMap(state, selfIndex, redactedPhase);
 
   return {
     self,
     opponent,
     activePlayer: state.activePlayer,
-    phaseState: redactPhaseForPlayer(state.phaseState, selfIndex),
+    phaseState: redactedPhase,
     combat: state.combat,
     chain: state.chain,
     eventsInPlay: state.eventsInPlay,
@@ -302,5 +398,6 @@ export function projectPlayerView(state: GameState, playerId: PlayerId): PlayerV
     startingPlayer: state.startingPlayer,
     stateSeq: state.stateSeq,
     legalActions,
+    instanceMap,
   };
 }

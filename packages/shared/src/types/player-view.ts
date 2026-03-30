@@ -241,4 +241,11 @@ export interface PlayerView {
    * explaining why they cannot be taken (e.g. "Gimli: mind 6 would exceed limit").
    */
   readonly legalActions: readonly EvaluatedAction[];
+  /**
+   * Flat map of all visible card instance IDs to their definition IDs.
+   * Covers piles, characters, items, phase-state cards (draft pools, etc.),
+   * and any other instance IDs the player is allowed to see. Used by the
+   * client to resolve instance IDs in legal actions to display names.
+   */
+  readonly instanceMap: Readonly<Record<string, CardDefinitionId>>;
 }
