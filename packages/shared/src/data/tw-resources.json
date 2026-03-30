@@ -251,5 +251,19 @@
     "marshallingCategory": "misc",
     "effects": [],
     "text": "Hobbit only. The Hobbit may untap or he may move from wounded status to well and untapped during his organization phase or he may receive a +4 modification to one corruption check."
+  },
+  {
+    "cardType": "hero-resource-event",
+    "alignment": "wizard",
+    "id": "tw-190",
+    "name": "Align Palantír",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/AlignPalantir.jpg",
+    "unique": false,
+    "eventType": "permanent",
+    "corruptionPoints": 2,
+    "marshallingPoints": 2,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Sage only. Playable on a Palantír with a sage in the company. Bearer now has the ability to use the Palantír. If the Palantír is stored, this card is stored too. Discard Align Palantír if the company carrying the Palantír moves. Cannot be duplicated on a given Palantír."
   }
 ]
