@@ -40,5 +40,21 @@
     "marshallingCategory": "misc",
     "effects": [],
     "text": "Ranger only. Cancel an attack by Wolves, Spiders, Animals, or Undead against a ranger's company. Alternatively, if Gates of Morning is in play, decrease the hazard limit against the ranger's company by one (no minimum)."
+  },
+  {
+    "cardType": "hero-resource-event",
+    "alignment": "wizard",
+    "id": "td-169",
+    "name": "Wizard Uncloaked",
+    "image": "https://cdn.jsdelivr.net/gh/council-of-rivendell/meccg-remaster/en-remaster/td/WizardUncloaked.jpg",
+    "unique": false,
+    "eventType": "short",
+    "keywords": [
+      "spell"
+    ],
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Spell. Wizard only. Return all hazard permanent-events on characters in your Wizard's company to opponent's hand. Wizard makes a corruption check modified by -2.\n\nCannot be included in a Fallen-wizard's deck."
   }
 ]
