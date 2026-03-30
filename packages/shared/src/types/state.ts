@@ -338,6 +338,18 @@ export interface PlayerState {
    * each untap phase.
    */
   readonly sideboardAccessedDuringUntap: boolean;
+  /**
+   * Whether this player is in the deck exhaustion exchange sub-flow.
+   * Set to true when deck-exhaust is executed; cleared when the player
+   * passes to complete the reshuffle. During this sub-flow, only
+   * exchange-sideboard and pass actions are legal.
+   */
+  readonly deckExhaustPending: boolean;
+  /**
+   * How many cards have been exchanged between discard and sideboard
+   * during the current deck exhaustion. Maximum 5.
+   */
+  readonly deckExhaustExchangeCount: number;
 }
 
 // ---- Phases ----

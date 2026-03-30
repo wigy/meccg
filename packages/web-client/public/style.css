@@ -3285,6 +3285,47 @@ h2 {
   box-shadow: 0 0 12px rgba(196, 163, 90, 0.7);
 }
 
+.sideboard-fetch-card--selected {
+  box-shadow: 0 0 14px rgba(120, 220, 120, 0.9);
+  outline: 2px solid rgba(120, 220, 120, 0.8);
+}
+
+/* Exchange modal — two-pile side-by-side view for deck exhaustion */
+.exchange-modal {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: var(--z-action-menu);
+  background: rgba(15, 12, 8, 0.95);
+  border: 1px solid rgba(196, 163, 90, 0.5);
+  border-radius: 8px;
+  padding: 1.2rem;
+  max-width: 90vw;
+  max-height: 85vh;
+  overflow-y: auto;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.9);
+  backdrop-filter: blur(8px);
+}
+
+.exchange-columns {
+  display: flex;
+  gap: 1.5rem;
+}
+
+.exchange-column {
+  flex: 1;
+  min-width: 0;
+}
+
+.exchange-column-heading {
+  color: #c4a35a;
+  font-family: 'MedievalSharp', serif;
+  font-size: 0.95rem;
+  text-align: center;
+  margin-bottom: 0.5rem;
+}
+
 .path-choice-detail {
   display: flex;
   align-items: center;

@@ -13,6 +13,7 @@
 import type { GameState, PlayerId, GameAction, EndOfTurnPhaseState } from '../../index.js';
 import { HAND_SIZE, FREE_COUNCIL_MP_THRESHOLD, getPlayerIndex } from '../../index.js';
 import { logHeading, logDetail } from './log.js';
+import { deckExhaustExchangeActions } from './movement-hazard.js';
 
 /**
  * Compute legal actions for a player during the end-of-turn phase.
@@ -77,6 +78,11 @@ function resetHandStepActions(state: GameState, playerId: PlayerId): GameAction[
   const player = state.players[playerIndex];
   const handSize = HAND_SIZE; // TODO: compute from DSL hand-size-modifier effects
   const actions: GameAction[] = [];
+
+  // Deck exhaust exchange sub-flow: only exchange + pass actions
+  if (player.deckExhaustPending) {
+    return deckExhaustExchangeActions(state, player, playerId);
+  }
 
   if (player.hand.length > handSize) {
     // Must discard down — offer each card as a discard option

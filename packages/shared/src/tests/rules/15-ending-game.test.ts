@@ -6,7 +6,23 @@
  * Rule references from docs/coe-rules.txt lines 690-726.
  */
 
-import { describe, test } from 'vitest';
+import { describe, test, expect, beforeEach } from 'vitest';
+import {
+  Phase,
+  PLAYER_1, PLAYER_2,
+  LEGOLAS,
+  GANDALF,
+  CAVE_DRAKE, ORC_PATROL, BARROW_WIGHT,
+  DAGGER_OF_WESTERNESSE,
+  RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
+  buildTestState, resetMint, reduce,
+} from '../test-helpers.js';
+import { computeLegalActions } from '../../engine/legal-actions/index.js';
+import type { EvaluatedAction } from '../../index.js';
+
+function viableOfType(actions: EvaluatedAction[], type: string): EvaluatedAction[] {
+  return actions.filter(a => a.viable && a.action.type === type);
+}
 
 describe('10 Winning with The One Ring', () => {
   test.todo('[HERO] Cracks of Doom or Gollum\'s Fate: wizard player wins');
@@ -20,9 +36,76 @@ describe('10 Calling the game (Short game)', () => {
 });
 
 describe('10 Deck exhaustion', () => {
+  beforeEach(() => resetMint());
+
   test.todo('[10] deck exhausted when last card drawn');
   test.todo('[10] on exhaust: discard cards that would be discarded, return sites to location deck');
-  test.todo('[10] on exhaust: exchange up to 5 cards between discard and sideboard');
+
+  test('[10] on exhaust: exchange up to 5 cards between discard and sideboard', () => {
+    // Build EoT reset-hand state with empty play deck, cards in discard and sideboard
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.EndOfTurn,
+      players: [
+        {
+          id: PLAYER_1,
+          hand: [],
+          playDeck: [],
+          sideboard: [CAVE_DRAKE, ORC_PATROL],
+          companies: [{ site: RIVENDELL, characters: [{ defId: GANDALF }] }],
+          siteDeck: [MORIA],
+        },
+        {
+          id: PLAYER_2,
+          hand: [],
+          siteDeck: [MINAS_TIRITH],
+          companies: [{ site: LORIEN, characters: [{ defId: LEGOLAS }] }],
+        },
+      ],
+    });
+    // Override phase state to reset-hand step with non-empty discard
+    const withPhase = {
+      ...state,
+      phaseState: { phase: Phase.EndOfTurn, step: 'reset-hand', discardDone: [true, true] } as typeof state.phaseState,
+      players: state.players.map((p, i) => i === 0
+        ? { ...p, discardPile: [DAGGER_OF_WESTERNESSE, BARROW_WIGHT].map(id => {
+          // Use existing instances from the mint
+          const inst = Object.entries(state.instanceMap).find(([, v]) => v.definitionId === id);
+          return inst ? inst[0] as typeof p.discardPile[0] : id as typeof p.discardPile[0];
+        }) }
+        : p,
+      ),
+    };
+
+    // Step 1: deck-exhaust enters the exchange sub-flow
+    const actions = computeLegalActions(withPhase, PLAYER_1);
+    const exhaustActions = viableOfType(actions, 'deck-exhaust');
+    expect(exhaustActions).toHaveLength(1);
+
+    const exhaustResult = reduce(withPhase, exhaustActions[0].action);
+    expect(exhaustResult.error).toBeUndefined();
+    expect(exhaustResult.state.players[0].deckExhaustPending).toBe(true);
+
+    // Step 2: exchange actions available + pass
+    const exchangeActions = computeLegalActions(exhaustResult.state, PLAYER_1);
+    const exchanges = viableOfType(exchangeActions, 'exchange-sideboard');
+    expect(exchanges.length).toBeGreaterThan(0);
+    expect(viableOfType(exchangeActions, 'pass')).toHaveLength(1);
+
+    // Execute one exchange
+    const exchangeResult = reduce(exhaustResult.state, exchanges[0].action);
+    expect(exchangeResult.error).toBeUndefined();
+    expect(exchangeResult.state.players[0].deckExhaustExchangeCount).toBe(1);
+
+    // Step 3: pass completes the reshuffle
+    const passActions = computeLegalActions(exchangeResult.state, PLAYER_1);
+    const passResult = reduce(exchangeResult.state, viableOfType(passActions, 'pass')[0].action);
+    expect(passResult.error).toBeUndefined();
+    expect(passResult.state.players[0].deckExhaustPending).toBe(false);
+    expect(passResult.state.players[0].playDeck.length).toBeGreaterThan(0);
+    expect(passResult.state.players[0].discardPile).toHaveLength(0);
+  });
+
   test.todo('[10] on exhaust: shuffle discard pile becomes new play deck');
   test.todo('[10] deck exhaustion happens immediately, cannot be responded to');
 });

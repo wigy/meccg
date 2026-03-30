@@ -417,6 +417,8 @@ export function buildTestState(opts: BuildTestStateOpts): GameState {
       freeCouncilCalled: false,
       lastDiceRoll: null,
       sideboardAccessedDuringUntap: false,
+      deckExhaustPending: false,
+      deckExhaustExchangeCount: 0,
     };
   });
 

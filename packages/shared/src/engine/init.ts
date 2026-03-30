@@ -222,6 +222,8 @@ function initPlayerPreDraft(
     freeCouncilCalled: false,
     lastDiceRoll: null,
     sideboardAccessedDuringUntap: false,
+    deckExhaustPending: false,
+    deckExhaustExchangeCount: 0,
   };
 
   return [playerState, rng];
@@ -555,6 +557,8 @@ function initPlayerWithCharacters(
     freeCouncilCalled: false,
     lastDiceRoll: null,
     sideboardAccessedDuringUntap: false,
+    deckExhaustPending: false,
+    deckExhaustExchangeCount: 0,
   };
 
   return [playerState, rng];

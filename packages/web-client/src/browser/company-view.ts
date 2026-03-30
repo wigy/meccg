@@ -663,6 +663,133 @@ function dismissSideboardModal(): void {
 }
 
 /**
+ * Open a two-pile exchange modal for deck exhaustion sideboard exchange.
+ * Shows discard pile on the left and sideboard on the right. The player
+ * selects one card from each side, then the exchange action is sent.
+ * "Done" button passes to complete the reshuffle.
+ */
+function openExchangeModal(
+  exchangeActions: GameAction[],
+  passAction: GameAction | null,
+  cardPool: Readonly<Record<string, CardDefinition>>,
+  onAction: (action: GameAction) => void,
+): void {
+  dismissExchangeModal();
+
+  // Build lookup: discard cards and sideboard cards from the exchange actions
+  const discardIds = new Set<string>();
+  const sideboardIds = new Set<string>();
+  for (const a of exchangeActions) {
+    if (a.type !== 'exchange-sideboard') continue;
+    discardIds.add(a.discardCardInstanceId as string);
+    sideboardIds.add(a.sideboardCardInstanceId as string);
+  }
+
+  const backdrop = document.createElement('div');
+  backdrop.className = 'char-action-backdrop exchange-modal-backdrop';
+
+  const modal = document.createElement('div');
+  modal.className = 'exchange-modal';
+
+  const title = document.createElement('div');
+  title.className = 'sideboard-fetch-title';
+  title.textContent = 'Exchange Cards (Deck Exhaustion)';
+  modal.appendChild(title);
+
+  const columns = document.createElement('div');
+  columns.className = 'exchange-columns';
+
+  // State for selection
+  let selectedDiscardId: string | null = null;
+  let selectedSideboardId: string | null = null;
+
+  /** Try to execute exchange if both sides selected. */
+  function tryExchange(): void {
+    if (!selectedDiscardId || !selectedSideboardId) return;
+    const action = exchangeActions.find(
+      a => a.type === 'exchange-sideboard'
+        && a.discardCardInstanceId === selectedDiscardId
+        && a.sideboardCardInstanceId === selectedSideboardId,
+    );
+    if (action) {
+      dismissExchangeModal();
+      onAction(action);
+    }
+  }
+
+  /** Render one column of cards. */
+  function renderColumn(label: string, ids: Set<string>, side: 'discard' | 'sideboard'): HTMLElement {
+    const col = document.createElement('div');
+    col.className = 'exchange-column';
+
+    const heading = document.createElement('div');
+    heading.className = 'exchange-column-heading';
+    heading.textContent = label;
+    col.appendChild(heading);
+
+    const grid = document.createElement('div');
+    grid.className = 'sideboard-fetch-grid';
+
+    for (const instId of ids) {
+      const defId = cachedInstanceLookup(instId as CardInstanceId);
+      const def = defId ? cardPool[defId as string] : undefined;
+      const imgPath = def ? cardImageProxyPath(def) : undefined;
+
+      const img = document.createElement('img');
+      img.src = imgPath ?? '/images/card-back.jpg';
+      img.alt = def?.name ?? 'Unknown card';
+      img.className = 'sideboard-fetch-card';
+      if (defId) img.dataset.cardId = defId as string;
+      img.style.cursor = 'pointer';
+
+      img.addEventListener('click', (e) => {
+        e.stopPropagation();
+        // Clear previous selection in this column
+        for (const prev of grid.querySelectorAll('.sideboard-fetch-card--selected')) {
+          prev.classList.remove('sideboard-fetch-card--selected');
+        }
+        img.classList.add('sideboard-fetch-card--selected');
+        if (side === 'discard') selectedDiscardId = instId;
+        else selectedSideboardId = instId;
+        tryExchange();
+      });
+
+      grid.appendChild(img);
+    }
+
+    col.appendChild(grid);
+    return col;
+  }
+
+  columns.appendChild(renderColumn('Discard Pile', discardIds, 'discard'));
+  columns.appendChild(renderColumn('Sideboard', sideboardIds, 'sideboard'));
+  modal.appendChild(columns);
+
+  // "Done" button
+  if (passAction) {
+    const doneBtn = document.createElement('button');
+    doneBtn.className = 'char-action-tooltip__btn';
+    doneBtn.style.marginTop = '0.6rem';
+    doneBtn.textContent = 'Done';
+    doneBtn.onclick = (e) => {
+      e.stopPropagation();
+      dismissExchangeModal();
+      onAction(passAction);
+    };
+    modal.appendChild(doneBtn);
+  }
+
+  document.body.appendChild(backdrop);
+  document.body.appendChild(modal);
+}
+
+/** Remove exchange modal and its backdrop. */
+function dismissExchangeModal(): void {
+  document.querySelector('.exchange-modal')?.remove();
+  document.querySelector('.exchange-modal-backdrop')?.remove();
+}
+
+/**
  * Show a small tooltip near a character card with action choices:
  * "Reassign Influence" and "Split / Move Company".
  */
@@ -2002,12 +2129,17 @@ export function renderCompanyViews(
 
   // Auto-open sideboard browser when in a sideboard sub-flow (org or untap hazard)
   const viable = viableActions(view.legalActions);
+  const exchangeActions = viable.filter(a => a.type === 'exchange-sideboard');
   const fetchActions = viable.filter(a => a.type === 'fetch-from-sideboard' || a.type === 'fetch-hazard-from-sideboard');
-  if (fetchActions.length > 0) {
+  if (exchangeActions.length > 0) {
+    const passAction = viable.find(a => a.type === 'pass') ?? null;
+    openExchangeModal(exchangeActions, passAction, cardPool, onAction);
+  } else if (fetchActions.length > 0) {
     const passAction = viable.find(a => a.type === 'pass') ?? null;
     openSideboardForFetch(fetchActions, passAction, cardPool, onAction);
   } else {
     dismissSideboardModal();
+    dismissExchangeModal();
   }
 }
 

@@ -956,6 +956,8 @@ export function describeAction(
       return 'Call the Free Council (trigger endgame)';
     case 'play-long-event':
       return `Play long-event ${instName(action.cardInstanceId)}`;
+    case 'exchange-sideboard':
+      return `Exchange ${instName(action.discardCardInstanceId)} (discard) ↔ ${instName(action.sideboardCardInstanceId)} (sideboard)`;
     case 'start-sideboard-to-deck':
       return 'Tap avatar: fetch 1 card from sideboard to play deck';
     case 'start-sideboard-to-discard':

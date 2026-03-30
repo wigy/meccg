@@ -734,6 +734,23 @@ export interface DeckExhaustAction {
 }
 
 /**
+ * Exchange one card between discard pile and sideboard during deck exhaustion.
+ *
+ * Per CoE rule §10, when a player's deck is exhausted they may exchange
+ * up to 5 cards between their discard pile and sideboard (any card type)
+ * before the discard is reshuffled into a new play deck.
+ */
+export interface ExchangeSideboardAction {
+  readonly type: 'exchange-sideboard';
+  /** The player exchanging cards. */
+  readonly player: PlayerId;
+  /** The card moving from the discard pile to the sideboard. */
+  readonly discardCardInstanceId: CardInstanceId;
+  /** The card moving from the sideboard to the discard pile. */
+  readonly sideboardCardInstanceId: CardInstanceId;
+}
+
+/**
  * Declare intent to fetch 1 card from sideboard to the play deck.
  *
  * Per CoE rule 2.II.6, the resource player taps their avatar and then
@@ -934,6 +951,7 @@ export type GameAction =
   | PassAction
   | CallFreeCouncilAction
   | DeckExhaustAction
+  | ExchangeSideboardAction
   | StartSideboardToDeckAction
   | StartSideboardToDiscardAction
   | FetchFromSideboardAction

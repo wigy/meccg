@@ -81,17 +81,36 @@ function clonePlayers(state: GameState): [PlayerState, PlayerState] {
  * @param playerIndex - Index (0 or 1) of the player whose deck is exhausted.
  * @returns Updated game state with reshuffled deck and incremented exhaustion count.
  */
-function exhaustPlayDeck(state: GameState, playerIndex: 0 | 1): GameState {
+/**
+ * Enter the deck exhaustion sub-flow: return site cards to location deck,
+ * set deckExhaustPending so the player can exchange cards with the sideboard.
+ */
+function startDeckExhaust(state: GameState, playerIndex: 0 | 1): GameState {
   const player = state.players[playerIndex];
-  const newExhaustionCount = player.deckExhaustionCount + 1;
-  logHeading(`Deck exhaustion #${newExhaustionCount} for ${player.name}`);
-
-  // Step 1: Return discarded site cards to the location deck
+  logHeading(`Deck exhaustion started for ${player.name}`);
   logDetail(`Returning ${player.siteDiscardPile.length} site card(s) to location deck`);
 
-  // Step 2: TODO — sideboard exchange (interactive, add later)
+  const newPlayers = clonePlayers(state);
+  newPlayers[playerIndex] = {
+    ...player,
+    siteDeck: [...player.siteDeck, ...player.siteDiscardPile],
+    siteDiscardPile: [],
+    deckExhaustPending: true,
+    deckExhaustExchangeCount: 0,
+  };
 
-  // Step 3: Shuffle the discard pile into a new play deck
+  return { ...state, players: newPlayers };
+}
+
+/**
+ * Complete the deck exhaustion: shuffle the discard pile into a new play deck,
+ * increment exhaustion count, and clear the pending flag.
+ */
+function completeDeckExhaust(state: GameState, playerIndex: 0 | 1): GameState {
+  const player = state.players[playerIndex];
+  const newExhaustionCount = player.deckExhaustionCount + 1;
+  logHeading(`Deck exhaustion #${newExhaustionCount} complete for ${player.name}`);
+
   const [newPlayDeck, newRng] = shuffle([...player.discardPile], state.rng);
   logDetail(`Shuffled ${player.discardPile.length} card(s) from discard into new play deck`);
 
@@ -100,12 +119,63 @@ function exhaustPlayDeck(state: GameState, playerIndex: 0 | 1): GameState {
     ...player,
     playDeck: newPlayDeck,
     discardPile: [],
-    siteDeck: [...player.siteDeck, ...player.siteDiscardPile],
-    siteDiscardPile: [],
     deckExhaustionCount: newExhaustionCount,
+    deckExhaustPending: false,
+    deckExhaustExchangeCount: 0,
   };
 
   return { ...state, players: newPlayers, rng: newRng };
+}
+
+/**
+ * Handle exchange-sideboard during deck exhaustion sub-flow.
+ * Swaps one card between discard pile and sideboard.
+ */
+function handleExchangeSideboard(state: GameState, action: GameAction): ReducerResult {
+  if (action.type !== 'exchange-sideboard') return { state, error: 'Expected exchange-sideboard action' };
+
+  const playerIndex = getPlayerIndex(state, action.player);
+  const player = state.players[playerIndex];
+
+  if (!player.deckExhaustPending) {
+    return { state, error: 'No deck exhaustion sub-flow active' };
+  }
+  if (player.deckExhaustExchangeCount >= 5) {
+    return { state, error: 'Already exchanged 5 cards' };
+  }
+
+  const discardIdx = player.discardPile.indexOf(action.discardCardInstanceId);
+  if (discardIdx === -1) {
+    return { state, error: 'Card not found in discard pile' };
+  }
+  const sideboardIdx = player.sideboard.indexOf(action.sideboardCardInstanceId);
+  if (sideboardIdx === -1) {
+    return { state, error: 'Card not found in sideboard' };
+  }
+
+  const discardInst = state.instanceMap[action.discardCardInstanceId as string];
+  const sideboardInst = state.instanceMap[action.sideboardCardInstanceId as string];
+  const discardName = discardInst ? state.cardPool[discardInst.definitionId as string]?.name ?? '?' : '?';
+  const sideboardName = sideboardInst ? state.cardPool[sideboardInst.definitionId as string]?.name ?? '?' : '?';
+  logDetail(`Exchange: ${discardName} (discard → sideboard) ↔ ${sideboardName} (sideboard → discard)`);
+
+  const newDiscard = [...player.discardPile];
+  newDiscard.splice(discardIdx, 1);
+  newDiscard.push(action.sideboardCardInstanceId);
+
+  const newSideboard = [...player.sideboard];
+  newSideboard.splice(sideboardIdx, 1);
+  newSideboard.push(action.discardCardInstanceId);
+
+  const newPlayers = clonePlayers(state);
+  newPlayers[playerIndex] = {
+    ...player,
+    discardPile: newDiscard,
+    sideboard: newSideboard,
+    deckExhaustExchangeCount: player.deckExhaustExchangeCount + 1,
+  };
+
+  return { state: { ...state, players: newPlayers } };
 }
 
 /**
@@ -3593,6 +3663,12 @@ function handleDrawCards(
   const drawMax = isResourcePlayer ? mhState.resourceDrawMax : mhState.hazardDrawMax;
   const playerLabel = isResourcePlayer ? 'resource' : 'hazard';
 
+  // Pass during deck exhaust exchange sub-flow: complete the exhaust
+  if (action.type === 'pass' && state.players[actingIndex].deckExhaustPending) {
+    logDetail(`Movement/Hazard draw-cards: ${playerLabel} player completed deck exhaust exchange`);
+    return { state: completeDeckExhaust(state, actingIndex) };
+  }
+
   // Pass: allowed after first mandatory draw, or if max is 0
   if (action.type === 'pass') {
     if (drawnSoFar === 0 && drawMax > 0) {
@@ -3603,7 +3679,7 @@ function handleDrawCards(
     return advanceDrawCards(state, mhState, isResourcePlayer, drawMax);
   }
 
-  // Deck exhaustion: reshuffle discard into play deck
+  // Deck exhaustion: enter exchange sub-flow
   if (action.type === 'deck-exhaust') {
     const exPlayer = state.players[actingIndex];
     if (exPlayer.playDeck.length > 0) {
@@ -3612,11 +3688,16 @@ function handleDrawCards(
     if (exPlayer.discardPile.length === 0) {
       return { state, error: 'Cannot exhaust — discard pile is also empty' };
     }
-    return { state: exhaustPlayDeck(state, actingIndex) };
+    return { state: startDeckExhaust(state, actingIndex) };
+  }
+
+  // Exchange sideboard during deck exhaustion sub-flow
+  if (action.type === 'exchange-sideboard') {
+    return handleExchangeSideboard(state, action);
   }
 
   if (action.type !== 'draw-cards' || action.count !== 1) {
-    return { state, error: `Expected 'draw-cards' (count: 1), 'deck-exhaust', or 'pass' during draw-cards step, got '${action.type}'` };
+    return { state, error: `Expected 'draw-cards' (count: 1), 'deck-exhaust', 'exchange-sideboard', or 'pass' during draw-cards step, got '${action.type}'` };
   }
 
   if (drawnSoFar >= drawMax) {
@@ -4287,6 +4368,15 @@ function handleEndOfTurnResetHand(
 ): ReducerResult {
   const handSize = HAND_SIZE; // TODO: compute from DSL hand-size-modifier effects
 
+  // Pass during deck exhaust exchange sub-flow: complete the exhaust
+  if (action.type === 'pass') {
+    const pIdx = getPlayerIndex(state, action.player);
+    if (state.players[pIdx].deckExhaustPending) {
+      logDetail(`End-of-Turn reset-hand: player ${state.players[pIdx].name} completed deck exhaust exchange`);
+      return { state: completeDeckExhaust(state, pIdx) };
+    }
+  }
+
   if (action.type === 'pass') {
     // Pass is valid at hand size, or when deck and discard are both empty (can't draw)
     const playerIndex = getPlayerIndex(state, action.player);
@@ -4363,7 +4453,11 @@ function handleEndOfTurnResetHand(
     if (player.discardPile.length === 0) {
       return { state, error: 'Cannot exhaust — discard pile is also empty' };
     }
-    return { state: exhaustPlayDeck(state, playerIndex) };
+    return { state: startDeckExhaust(state, playerIndex) };
+  }
+
+  if (action.type === 'exchange-sideboard') {
+    return handleExchangeSideboard(state, action);
   }
 
   if (action.type === 'draw-cards') {

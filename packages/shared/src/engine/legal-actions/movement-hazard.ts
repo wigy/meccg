@@ -287,9 +287,15 @@ function drawCardsActions(
     return [];
   }
 
-  // Check if player has cards to draw
   const playerIndex = getPlayerIndex(state, playerId);
   const player = state.players[playerIndex];
+
+  // Deck exhaust exchange sub-flow: only exchange + pass actions
+  if (player.deckExhaustPending) {
+    return deckExhaustExchangeActions(state, player, playerId);
+  }
+
+  // Check if player has cards to draw
   if (player.playDeck.length === 0) {
     if (player.discardPile.length > 0) {
       logDetail(`${playerLabel} player deck empty — must exhaust (reshuffle discard)`);
@@ -603,4 +609,38 @@ function describeKeyingRequirement(def: CreatureCard): string {
     return parts.join(', ');
   }).join(' or ');
   return `Not keyable (requires ${keyDesc})`;
+}
+
+/**
+ * Generate legal actions during the deck exhaust exchange sub-flow.
+ * The player may exchange up to 5 cards between discard and sideboard,
+ * then pass to complete the reshuffle.
+ */
+export function deckExhaustExchangeActions(
+  state: GameState,
+  player: { readonly discardPile: readonly CardInstanceId[]; readonly sideboard: readonly CardInstanceId[]; readonly deckExhaustExchangeCount: number },
+  playerId: PlayerId,
+): GameAction[] {
+  const actions: GameAction[] = [];
+  const MAX_EXCHANGES = 5;
+
+  if (player.deckExhaustExchangeCount < MAX_EXCHANGES
+    && player.discardPile.length > 0
+    && player.sideboard.length > 0) {
+    // Generate one exchange action per (discard, sideboard) pair
+    for (const discardCardInstanceId of player.discardPile) {
+      for (const sideboardCardInstanceId of player.sideboard) {
+        actions.push({
+          type: 'exchange-sideboard',
+          player: playerId,
+          discardCardInstanceId,
+          sideboardCardInstanceId,
+        });
+      }
+    }
+  }
+
+  // Pass is always available (0 exchanges is fine)
+  actions.push({ type: 'pass', player: playerId });
+  return actions;
 }
