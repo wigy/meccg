@@ -1,5 +1,68 @@
 # Changelog
 
+## 0.16.0 — 2026-03-30
+
+Sideboard handling
+
+### Game Engine
+- **Sideboard access during organization:** Tap avatar to access sideboard during
+  organization phase (CoE 2.II.6)
+- **Hazard sideboard access during untap:** Hazard sideboard access during untap
+  phase (CoE 2.I) with two-step declare-then-select flow
+- **Deck exhaustion sideboard exchange:** Sideboard exchange on deck exhaustion
+  (CoE §10)
+- **Untap phase synchronization:** Require both players to pass untap phase before
+  advancing
+- **Fix untap deadlock:** Fix deadlock when hazard player starts sideboard after
+  passing
+- **Card instance identity:** Cards carry identity (definition ID, name) everywhere;
+  unified pile rendering with server-built instanceMap
+- **Fix multiple game bugs:** Various game bug fixes including dice tray UI
+
+### Card Pool
+- **New sites:** Dol Amroth, Edoras, Glittering Caves, Isengard, Isle of the Ulond,
+  Lond Galen, Pelargir, Tolfalas, Wellinghall
+- **New characters:** Alatar, Wûluag
+- **New resources:** Align Palantír, And Forth He Hastened, Dark Quarrels, Dodge,
+  Great Ship, Hauberk of Bright Mail, Halfling Strength, Incite Defenders,
+  Men of Anfalas, Men of Anórien, Men of Lebennin, Marvels Told,
+  Palantír of Orthanc, Rangers of Ithilien, Sapling of the White Tree,
+  Scroll of Isildur, Stealth, Treebeard, An Unexpected Outpost, Alone and
+  Unadvised, Promptings of Wisdom, Rebuild the Town, The White Tree
+- **New hazards:** Bert (Burat), Call of Home, Choking Shadows, Eärcaraxë Ahunt,
+  Hobgoblins, Little Snuffler, Many Turns and Doublings, Minions Stir,
+  Muster Disperses, Orc-guard, Orc-lieutenant, Orc-warband, Orc-watch,
+  Rebel-talk, Tom (Tuma), Two or Three Tribes Present
+
+### Web Client
+- **Sideboard UI:** Victory display and browsable sideboard piles in deck box;
+  hazard sideboard buttons (Pass, Hazard to Deck/Discard) stacked vertically
+- **Pile browsing:** All card piles clickable to browse contents with overlapping
+  stack view for hidden piles; actionable cards sorted to front
+- **Card animations:** Animate cards moving between piles and play area with
+  crossfade transitions
+- **Deck management:** Deck selector dropdown in lobby, stock catalog decks for all
+  players, deck delete and catalog Copy button
+- **Game display:** Seq number next to game ID in heading, unified card type colors,
+  enlarged strike assignment arrows, dice slide animation restored
+- **Bug report & feature request:** Bug report button, feature request workflow with
+  admin approve/decline, one-click implementation requests
+
+### Lobby Server
+- **Game reliability:** Fix web UI reload failing to rejoin active game; relaunch
+  game server via lobby on disconnect; fix AI client without deck and port
+  collisions
+- **Deck selection:** Auto-create reviewer players as system accounts; deck selector
+  with stock catalogs
+- **AI runner:** Added AI runner for automated gameplay
+
+### Infrastructure
+- **Card instance arrays:** Replace card pile count fields with UNKNOWN_INSTANCE
+  arrays for consistent card tracking
+- **Mail improvements:** Save recipients alongside mail messages; game log validation
+  required before fixing bug reports
+- **Documentation:** Card certification process documented in CLAUDE.md and glossary
+
 ## 0.15.0 — 2026-03-29
 
 Feature requests and bug handling

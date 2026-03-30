@@ -241,7 +241,7 @@ describe('Rivendell (tw-421)', () => {
     // dist 1 (same region): Ettenmoors (Rhudaur)
     // dist 2 (adjacent): Barrow-downs, Old Forest (Cardolan), The White Towers, Weathertop (Arthedain)
     // dist 3: Bag End (The Shire), Grey Havens (Lindon), Moria, The Under-gates (Redhorn Gate), Eagles' Eyrie (Anduin Vales)
-    // dist 4: Lórien (Wold & Foothills), Dol Guldur (Southern Mirkwood), Glittering Caves, Isengard (Gap of Isen)
+    // dist 4: Lórien (Wold & Foothills), Dol Guldur (Southern Mirkwood), Glittering Caves, Isengard, Isle of the Ulond (Gap of Isen/Andrast Coast)
     expect(regionNames).toEqual([
       'Bag End',
       'Barrow-downs',
@@ -251,6 +251,7 @@ describe('Rivendell (tw-421)', () => {
       'Glittering Caves',
       'Grey Havens',
       'Isengard',
+      'Isle of the Ulond',
       'Lórien',
       'Moria',
       'Old Forest',
