@@ -43,39 +43,23 @@ import type { EvaluatedAction } from '../rules/types.js';
 // ---- Card visibility ----
 
 /**
- * A card whose identity is hidden from this player.
+ * A card in a player view pile.
  *
- * The instance ID is known (so the client can track card count and
- * animate card movements), but the card's definition is not revealed.
- * Used for cards in the opponent's hand, both players' decks, etc.
+ * Every card carries both an instance ID and a definition ID.
+ * Hidden cards use sentinel definition IDs (`UNKNOWN_CARD` or `UNKNOWN_SITE`)
+ * instead of their real definition — use `isCardHidden()` from `card-ids.ts`
+ * to test visibility. Known cards carry the real `CardDefinitionId` so the
+ * client can look up stats, images, and text directly.
  */
-export interface HiddenCard {
-  /** The card's instance ID (for tracking purposes). */
+export interface ViewCard {
+  /** The card's instance ID (for tracking and animation). */
   readonly instanceId: CardInstanceId;
-  /** Always false -- discriminant indicating the card's identity is unknown. */
-  readonly known: false;
-}
-
-/**
- * A card whose identity is visible to this player.
- *
- * Used for cards in your own hand, both players' discard piles,
- * cards in play, and any other publicly known cards.
- */
-export interface RevealedCard {
-  /** The card's instance ID. */
-  readonly instanceId: CardInstanceId;
-  /** Reference to the static card definition, allowing the client to display full card details. */
+  /**
+   * The card's definition ID. For hidden cards this is `UNKNOWN_CARD` or
+   * `UNKNOWN_SITE`; for visible cards it is the real definition ID.
+   */
   readonly definitionId: CardDefinitionId;
-  /** Always true -- discriminant indicating the card's identity is known. */
-  readonly known: true;
 }
-
-/**
- * A card that may or may not be visible to the viewing player.
- * Use the `known` discriminant to determine whether `definitionId` is available.
- */
-export type ViewCard = HiddenCard | RevealedCard;
 
 // ---- Opponent's company (destination hidden until movement phase) ----
 
@@ -133,20 +117,20 @@ export interface OpponentView {
   readonly alignment: Alignment;
   /** The opponent's wizard identity, or null if not yet chosen. */
   readonly wizard: WizardName | null;
-  /** Cards in the opponent's hand (hidden — array of {@link UNKNOWN_INSTANCE}, use `.length` for count). */
-  readonly hand: readonly CardInstanceId[];
-  /** Cards in the opponent's play deck (hidden — array of {@link UNKNOWN_INSTANCE}, use `.length` for count). */
-  readonly playDeck: readonly CardInstanceId[];
-  /** Cards in the opponent's site deck (hidden — array of {@link UNKNOWN_INSTANCE}, use `.length` for count). */
-  readonly siteDeck: readonly CardInstanceId[];
+  /** Cards in the opponent's hand (hidden — each has `UNKNOWN_CARD` definition, use `.length` for count). */
+  readonly hand: readonly ViewCard[];
+  /** Cards in the opponent's play deck (hidden — each has `UNKNOWN_CARD` definition, use `.length` for count). */
+  readonly playDeck: readonly ViewCard[];
+  /** Cards in the opponent's site deck (hidden — each has `UNKNOWN_SITE` definition, use `.length` for count). */
+  readonly siteDeck: readonly ViewCard[];
   /** The opponent's face-up discard pile (public information). */
-  readonly discardPile: readonly RevealedCard[];
+  readonly discardPile: readonly ViewCard[];
   /** The opponent's face-up site discard pile (public information). */
-  readonly siteDiscardPile: readonly RevealedCard[];
+  readonly siteDiscardPile: readonly ViewCard[];
   /** The opponent's defeated creatures (kill MP pile, public information). */
-  readonly killPile: readonly RevealedCard[];
+  readonly killPile: readonly ViewCard[];
   /** The opponent's eliminated (removed from play) cards (public information). */
-  readonly eliminatedPile: readonly RevealedCard[];
+  readonly eliminatedPile: readonly ViewCard[];
   /** The opponent's companies with destination information redacted. */
   readonly companies: readonly OpponentCompanyView[];
   /** The opponent's characters in play (public information). */
@@ -182,21 +166,21 @@ export interface SelfView {
   /** The player's wizard identity, or null if not yet chosen. */
   readonly wizard: WizardName | null;
   /** Cards currently in hand (fully revealed to the owning player). */
-  readonly hand: readonly RevealedCard[];
-  /** Cards in the play deck (hidden even from owner — array of {@link UNKNOWN_INSTANCE}, use `.length` for count). */
-  readonly playDeck: readonly CardInstanceId[];
+  readonly hand: readonly ViewCard[];
+  /** Cards in the play deck (hidden even from owner — each has `UNKNOWN_CARD` definition, use `.length` for count). */
+  readonly playDeck: readonly ViewCard[];
   /** Face-up discard pile. */
-  readonly discardPile: readonly RevealedCard[];
+  readonly discardPile: readonly ViewCard[];
   /** Available site cards (visible to the owning player for planning movement). */
-  readonly siteDeck: readonly RevealedCard[];
+  readonly siteDeck: readonly ViewCard[];
   /** Face-up site discard pile. */
-  readonly siteDiscardPile: readonly RevealedCard[];
+  readonly siteDiscardPile: readonly ViewCard[];
   /** Reserve cards available for sideboard fetching. */
-  readonly sideboard: readonly RevealedCard[];
+  readonly sideboard: readonly ViewCard[];
   /** Defeated creatures earning kill marshalling points. */
-  readonly killPile: readonly RevealedCard[];
+  readonly killPile: readonly ViewCard[];
   /** Cards removed from the game (eliminated characters, etc.). */
-  readonly eliminatedPile: readonly RevealedCard[];
+  readonly eliminatedPile: readonly ViewCard[];
   /** All companies this player controls, with full destination visibility. */
   readonly companies: readonly Company[];
   /** All characters this player has in play. */
@@ -257,10 +241,4 @@ export interface PlayerView {
    * explaining why they cannot be taken (e.g. "Gimli: mind 6 would exceed limit").
    */
   readonly legalActions: readonly EvaluatedAction[];
-  /**
-   * Map from CardInstanceId to CardDefinitionId for all cards visible to this player.
-   * Includes own hand, discard piles, characters, items, sites, and public opponent cards.
-   * Used by the formatter to resolve instance IDs to card names.
-   */
-  readonly visibleInstances: Readonly<Record<string, CardDefinitionId>>;
 }

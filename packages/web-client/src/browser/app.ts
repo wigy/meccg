@@ -6,8 +6,8 @@
  * renders game state, and sends actions on button click.
  */
 
-import type { ServerMessage, ClientMessage, GameAction, CardDefinitionId, JoinMessage } from '@meccg/shared';
-import { loadCardPool, describeAction, buildCompanyNames, cardImageProxyPath, Alignment } from '@meccg/shared';
+import type { ServerMessage, ClientMessage, GameAction, CardDefinitionId, CardInstanceId, JoinMessage } from '@meccg/shared';
+import { loadCardPool, describeAction, buildCompanyNames, cardImageProxyPath, Alignment, buildInstanceLookup } from '@meccg/shared';
 import { renderState, renderDraft, renderMHInfo, renderSiteInfo, renderFreeCouncilInfo, renderGameOverView, renderActions, renderLog, renderHand, renderOpponentHand, renderPlayerNames, renderInstructions, renderDrafted, renderPassButton, renderDeckPiles, resetDeckPiles, setupCardPreview, showNotification, prepareSiteSelection, clearSiteSelection, renderChainPanel, buildCardAttributes } from './render.js';
 import { renderCompanyViews, resetCompanyViews } from './company-view.js';
 import { rollDice, clearDice, restoreDice, waitForDice } from './dice.js';
@@ -81,7 +81,7 @@ let lobbyPlayerName: string | null = null;
 let lobbyPlayerIsReviewer = false;
 /** Name of the player who sent us a challenge (lobby mode). */
 let challengeFrom: string | null = null;
-let lastVisibleInstances: Readonly<Record<string, CardDefinitionId>> = {};
+let lastInstanceLookup: (instId: CardInstanceId) => CardDefinitionId | undefined = () => undefined;
 let lastCompanyNames: Readonly<Record<string, string>> = {};
 let lastPhase: string | null = null;
 /** Current game ID (set on 'assigned' message). */
@@ -99,7 +99,7 @@ function sendAction(action: GameAction): void {
   // Snapshot log entry count before adding action log line
   const logEl = document.getElementById('log');
   if (logEl) logCountStack.push(logEl.childElementCount);
-  const desc = describeAction(action, cardPool, lastVisibleInstances, lastCompanyNames);
+  const desc = describeAction(action, cardPool, lastInstanceLookup, lastCompanyNames);
   renderLog(`>> ${desc}`, cardPool);
   const msg: ClientMessage = { type: 'action', action };
   ws.send(JSON.stringify(msg));
@@ -183,7 +183,7 @@ function connect(name: string): void {
         // state, so the outcome isn't spoiled while dice are still rolling.
         await waitForDice();
         currentStateSeq = msg.view.stateSeq;
-        lastVisibleInstances = msg.view.visibleInstances;
+        lastInstanceLookup = buildInstanceLookup(msg.view);
         lastCompanyNames = {
           ...buildCompanyNames(msg.view.self.companies, msg.view.self.characters, cardPool),
           ...buildCompanyNames(msg.view.opponent.companies as never, msg.view.opponent.characters, cardPool),
@@ -196,7 +196,7 @@ function connect(name: string): void {
         renderMHInfo(msg.view, cardPool, lastCompanyNames);
         renderSiteInfo(msg.view, cardPool, lastCompanyNames);
         renderFreeCouncilInfo(msg.view, cardPool);
-        renderActions(msg.view.legalActions, cardPool, sendAction, msg.view.visibleInstances, lastCompanyNames);
+        renderActions(msg.view.legalActions, cardPool, sendAction, lastInstanceLookup, lastCompanyNames);
         renderHand(msg.view, cardPool, sendAction);
         renderOpponentHand(msg.view, cardPool);
         renderPlayerNames(msg.view, cardPool);

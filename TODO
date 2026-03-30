@@ -7,6 +7,9 @@ FIXES
 FEATS
 -----
 
+Revert duplicate removal from starting-site-selection step.
+Sort out all cards that have active legal action to the front of the pile viewer listing.
+
 EPICS
 -----
 

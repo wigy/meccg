@@ -23,8 +23,12 @@ import type {
   SupportStrikeAction,
   ChooseStrikeOrderAction,
 } from '@meccg/shared';
-import { cardImageProxyPath, viableActions, CardStatus } from '@meccg/shared';
+import { cardImageProxyPath, viableActions, CardStatus, buildInstanceLookup } from '@meccg/shared';
+import type { CardInstanceId, CardDefinitionId } from '@meccg/shared';
 import { createCardImage } from './render-utils.js';
+
+/** Cached instance-to-definition lookup, updated each time the view changes. */
+let cachedInstanceLookup: ((id: CardInstanceId) => CardDefinitionId | undefined) = () => undefined;
 
 /** Remove any combat action buttons from the bottom-right corner. */
 export function clearCombatButtons(): void {
@@ -43,6 +47,8 @@ export function renderCombatView(
 ): void {
   const combat = view.combat;
   if (!combat) return;
+
+  cachedInstanceLookup = buildInstanceLookup(view);
 
   const arena = document.createElement('div');
   arena.className = 'combat-arena';
@@ -129,13 +135,13 @@ function renderPhaseBanner(
   // Resolve attacker race from card definition or auto-attack creature type
   let attackerRace = '';
   if (combat.attackSource.type === 'creature') {
-    const defId = view.visibleInstances[combat.attackSource.instanceId as string];
+    const defId = cachedInstanceLookup(combat.attackSource.instanceId);
     const def = defId ? cardPool[defId as string] : undefined;
     if (def && def.cardType === 'hazard-creature' && def.race) {
       attackerRace = def.race;
     }
   } else if (combat.attackSource.type === 'automatic-attack') {
-    const siteDefId = view.visibleInstances[combat.attackSource.siteInstanceId as string];
+    const siteDefId = cachedInstanceLookup(combat.attackSource.siteInstanceId);
     const siteDef = siteDefId ? cardPool[siteDefId as string] : undefined;
     if (siteDef && 'automaticAttacks' in siteDef) {
       const aa = (siteDef as { automaticAttacks: readonly { creatureType: string }[] }).automaticAttacks[combat.attackSource.attackIndex];
@@ -180,7 +186,7 @@ function renderAttackerRow(
   container.className = 'combat-attacker';
 
   if (combat.attackSource.type === 'creature') {
-    const defId = view.visibleInstances[combat.attackSource.instanceId as string];
+    const defId = cachedInstanceLookup(combat.attackSource.instanceId);
     const def = defId ? cardPool[defId as string] : undefined;
     if (def) {
       const imgPath = cardImageProxyPath(def);
@@ -191,7 +197,7 @@ function renderAttackerRow(
     }
   } else if (combat.attackSource.type === 'automatic-attack') {
     // Show the site card as the attacker
-    const defId = view.visibleInstances[combat.attackSource.siteInstanceId as string];
+    const defId = cachedInstanceLookup(combat.attackSource.siteInstanceId);
     const def = defId ? cardPool[defId as string] : undefined;
     if (def) {
       const imgPath = cardImageProxyPath(def);

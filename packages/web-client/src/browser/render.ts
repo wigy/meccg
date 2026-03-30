@@ -5,8 +5,8 @@
  * action buttons, draft info, and a message log.
  */
 
-import type { PlayerView, GameAction, EvaluatedAction, CardDefinition, CardDefinitionId, CardInstanceId, CharacterInPlay, SiteInPlay, ChainEntry, RevealedCard, ViewCard } from '@meccg/shared';
-import { describeAction, formatPlayerView, formatCardList, formatCardName, cardImageProxyPath, isCharacterCard, GENERAL_INFLUENCE, getAlignmentRules, viableActions, formatSignedNumber, Phase, computeTournamentScore, computeTournamentBreakdown } from '@meccg/shared';
+import type { PlayerView, GameAction, EvaluatedAction, CardDefinition, CardDefinitionId, CardInstanceId, CharacterInPlay, SiteInPlay, ChainEntry, ViewCard } from '@meccg/shared';
+import { describeAction, formatPlayerView, formatCardList, formatCardName, cardImageProxyPath, isCharacterCard, GENERAL_INFLUENCE, getAlignmentRules, viableActions, formatSignedNumber, Phase, computeTournamentScore, computeTournamentBreakdown, isCardHidden, buildInstanceLookup } from '@meccg/shared';
 import type { MarshallingPointTotals } from '@meccg/shared';
 import { $, createCardImage, createFaceDownCard, appendItemCards } from './render-utils.js';
 import { createMiniDie, seedDiceFromState, restoreDice, clearDice } from './dice.js';
@@ -18,22 +18,22 @@ import { createMiniDie, seedDiceFromState, restoreDice, clearDice } from './dice
 function findNonViableReason(
   defId: CardDefinitionId,
   evaluated: readonly EvaluatedAction[],
-  visibleInstances?: Readonly<Record<string, CardDefinitionId>>,
+  instanceLookup?: (id: CardInstanceId) => CardDefinitionId | undefined,
 ): string | undefined {
   for (const ea of evaluated) {
     if (ea.viable) continue;
     const a = ea.action;
-    if (a.type === 'draft-pick' && visibleInstances
-      && visibleInstances[a.characterInstanceId as string] === defId) return ea.reason;
-    if (a.type === 'add-character-to-deck' && visibleInstances
-      && visibleInstances[a.characterInstanceId as string] === defId) return ea.reason;
+    if (a.type === 'draft-pick' && instanceLookup
+      && instanceLookup(a.characterInstanceId) === defId) return ea.reason;
+    if (a.type === 'add-character-to-deck' && instanceLookup
+      && instanceLookup(a.characterInstanceId) === defId) return ea.reason;
     if (a.type === 'assign-starting-item' && a.itemDefId === defId) return ea.reason;
-    if (a.type === 'select-starting-site' && visibleInstances
-      && visibleInstances[a.siteInstanceId as string] === defId) return ea.reason;
-    if (a.type === 'play-character' && visibleInstances
-      && visibleInstances[a.characterInstanceId as string] === defId) return ea.reason;
-    if (a.type === 'not-playable' && visibleInstances
-      && visibleInstances[a.cardInstanceId as string] === defId) return ea.reason;
+    if (a.type === 'select-starting-site' && instanceLookup
+      && instanceLookup(a.siteInstanceId) === defId) return ea.reason;
+    if (a.type === 'play-character' && instanceLookup
+      && instanceLookup(a.characterInstanceId) === defId) return ea.reason;
+    if (a.type === 'not-playable' && instanceLookup
+      && instanceLookup(a.cardInstanceId) === defId) return ea.reason;
   }
   return undefined;
 }
@@ -143,8 +143,8 @@ function escapeHtml(text: string): string {
 
 /** Auto-incrementing counter for unique collapsible JSON node IDs. */
 let jsonNodeCounter = 0;
-/** Visible instances map, set before rendering collapsible JSON. */
-let jsonVisibleInstances: Readonly<Record<string, CardDefinitionId>> = {};
+/** Cached instance lookup, set before rendering collapsible JSON and used throughout. */
+let cachedInstanceLookup: ReturnType<typeof buildInstanceLookup> = () => undefined;
 
 /**
  * Render a JSON value as HTML with collapsible objects/arrays.
@@ -160,9 +160,9 @@ function renderCollapsibleJson(value: unknown, indent: string): string {
     if (/^[a-z]{2}-\d+$/.test(value)) {
       return `<span class="card-name" data-card-id="${escapeHtml(value)}" style="color:#e8a">"${escapeHtml(value)}"</span>`;
     }
-    // Card instance ID (e.g. "i-123") — resolve via visibleInstances
+    // Card instance ID (e.g. "i-123") — resolve via instance lookup
     if (/^i-\d+$/.test(value)) {
-      const defId = jsonVisibleInstances[value];
+      const defId = cachedInstanceLookup(value as CardInstanceId);
       if (defId) {
         return `<span class="card-name" data-card-id="${escapeHtml(defId as string)}" style="color:#e8a">"${escapeHtml(value)}"</span>`;
       }
@@ -511,7 +511,7 @@ export function renderState(view: PlayerView, cardPool: Readonly<Record<string, 
   const el = $('state');
   const formatted = injectChainFrame(injectCombatFrame(injectActivePlayerFrame(injectDiceMarkers(injectMPTooltips(makeCardListsCollapsible(ansiToHtml(formatPlayerView(view, cardPool))))))));
   jsonNodeCounter = 0;
-  jsonVisibleInstances = view.visibleInstances;
+  cachedInstanceLookup = buildInstanceLookup(view);
   const jsonId = 'raw-state-json';
   const rawJson = `\n\n<span class="pile-toggle" style="width:auto;padding:0 0.4em" onclick="const t=document.getElementById('${jsonId}');t.classList.toggle('hidden');this.textContent=this.textContent==='+ Raw JSON'?'− Raw JSON':'+ Raw JSON'">+ Raw JSON</span>`
     + `<span id="${jsonId}" class="hidden">\n${renderCollapsibleJson(view, '')}</span>`;
@@ -533,7 +533,7 @@ export function renderDraft(view: PlayerView, cardPool: Readonly<Record<string, 
 
   const draft = view.phaseState.setupStep;
   const resolve = (ids: readonly CardInstanceId[]) =>
-    ids.map(id => view.visibleInstances[id as string] ?? id as unknown as CardDefinitionId);
+    ids.map(id => cachedInstanceLookup(id) ?? id as unknown as CardDefinitionId);
   const list = (ids: readonly CardInstanceId[]) => formatCardList(resolve(ids), cardPool);
 
   const lines: string[] = [];
@@ -928,7 +928,7 @@ export function renderActions(
   evaluated: readonly EvaluatedAction[],
   cardPool: Readonly<Record<string, CardDefinition>>,
   onClick: (action: GameAction) => void,
-  instanceLookup?: Readonly<Record<string, CardDefinitionId>>,
+  instanceLookup?: (id: CardInstanceId) => CardDefinitionId | undefined,
   companyNames?: Readonly<Record<string, string>>,
 ): void {
   const el = $('actions');
@@ -1001,7 +1001,7 @@ function getHandCards(view: PlayerView): HandCard[] {
     const draft = view.phaseState.setupStep;
     const selfIdx = findSelfIndex(draft.draftState[0].pool, draft.draftState[1].pool);
     return draft.draftState[selfIdx].pool.map(instId => {
-      const defId = view.visibleInstances[instId as string];
+      const defId = cachedInstanceLookup(instId);
       return { defId: defId ?? instId as unknown as CardDefinitionId, instanceId: instId };
     });
   }
@@ -1010,7 +1010,7 @@ function getHandCards(view: PlayerView): HandCard[] {
     const deckDraft = view.phaseState.setupStep.deckDraftState;
     const selfIdx = findSelfIndex(deckDraft[0].remainingPool, deckDraft[1].remainingPool);
     return deckDraft[selfIdx].remainingPool.map(instId => {
-      const defId = view.visibleInstances[instId as string];
+      const defId = cachedInstanceLookup(instId);
       return { defId: defId ?? instId as unknown as CardDefinitionId, instanceId: instId };
     });
   }
@@ -1022,15 +1022,15 @@ function getHandCards(view: PlayerView): HandCard[] {
     // Remaining pool: undrafted characters (shown dimmed as non-items)
     const selfPoolIdx = findSelfIndex(step.remainingPool[0], step.remainingPool[1]);
     for (const instId of step.remainingPool[selfPoolIdx]) {
-      const defId = view.visibleInstances[instId as string];
+      const defId = cachedInstanceLookup(instId);
       if (defId) cards.push({ defId, instanceId: instId });
     }
 
     // Unassigned items (assigned items are removed from pool)
     const selfItemIdx = step.itemDraftState[0].unassignedItems.length > 0
-      && view.visibleInstances[step.itemDraftState[0].unassignedItems[0] as string] ? 0 : 1;
+      && cachedInstanceLookup(step.itemDraftState[0].unassignedItems[0]) ? 0 : 1;
     for (const instId of step.itemDraftState[selfItemIdx].unassignedItems) {
-      const defId = view.visibleInstances[instId as string];
+      const defId = cachedInstanceLookup(instId);
       if (defId) cards.push({ defId, instanceId: instId });
     }
 
@@ -1185,11 +1185,10 @@ export function renderPlayerNames(view: PlayerView, cardPool: Readonly<Record<st
   let oppGITooltip: string;
   if (view.phaseState.phase === 'setup' && view.phaseState.setupStep.step === 'character-draft') {
     const draft = view.phaseState.setupStep;
-    const selfIdx = draft.draftState[0].pool.length > 0
-      && (draft.draftState[0].pool[0] as string) !== 'unknown-instance' ? 0 : 1;
+    const selfIdx = hasRealCards(draft.draftState[0].pool) ? 0 : 1;
     const oppIdx = 1 - selfIdx;
     const resolveDraft = (ids: readonly CardInstanceId[]): CardDefinitionId[] =>
-      ids.map(id => view.visibleInstances[id as string]).filter((d): d is CardDefinitionId => d !== undefined);
+      ids.map(id => cachedInstanceLookup(id)).filter((d): d is CardDefinitionId => d !== undefined);
     const selfDrafted = resolveDraft(draft.draftState[selfIdx].drafted);
     const oppDrafted = resolveDraft(draft.draftState[oppIdx].drafted);
     const selfMind = sumDraftedMind(selfDrafted, cardPool);
@@ -1257,7 +1256,7 @@ function fillDeckPile(el: HTMLElement, deckSize: number, backImage = '/images/ca
 
 
 /** Get the face image of the last card in a pile, or a card back fallback. */
-function topCardImage(cards: readonly RevealedCard[], cardPool: Readonly<Record<string, CardDefinition>> | null): string {
+function topCardImage(cards: readonly ViewCard[], cardPool: Readonly<Record<string, CardDefinition>> | null): string {
   if (!cardPool || cards.length === 0) return '/images/card-back.jpg';
   const top = cards[cards.length - 1];
   const def = cardPool[top.definitionId as string];
@@ -1266,8 +1265,8 @@ function topCardImage(cards: readonly RevealedCard[], cardPool: Readonly<Record<
 
 /** Combine eliminated pile and kill pile into a single victory display. */
 function buildVictoryCards(
-  player: { eliminatedPile: readonly RevealedCard[]; killPile: readonly RevealedCard[] },
-): readonly RevealedCard[] {
+  player: { eliminatedPile: readonly ViewCard[]; killPile: readonly ViewCard[] },
+): readonly ViewCard[] {
   return [...player.eliminatedPile, ...player.killPile];
 }
 
@@ -1333,19 +1332,14 @@ export function renderDeckPiles(view: PlayerView, cardPool?: Readonly<Record<str
   cachedSelfSideboard = view.self.sideboard;
   cachedSelfDiscard = view.self.discardPile;
   cachedOppDiscard = view.opponent.discardPile;
-  cachedSelfPlayDeck = toHiddenCards(view.self.playDeck);
-  cachedOppPlayDeck = toHiddenCards(view.opponent.playDeck);
-  cachedOppSiteDeck = toHiddenCards(view.opponent.siteDeck);
+  cachedSelfPlayDeck = view.self.playDeck;
+  cachedOppPlayDeck = view.opponent.playDeck;
+  cachedOppSiteDeck = view.opponent.siteDeck;
   cachedSelfVictoryCards = selfVictoryCards;
   cachedOppVictoryCards = oppVictoryCards;
   if (cardPool) cachedCardPool = cardPool;
   installSiteDeckViewer();
   installPileBrowserClickHandlers();
-}
-
-/** Convert an array of hidden instance IDs into HiddenCard objects for the pile browser. */
-function toHiddenCards(ids: readonly CardInstanceId[]): readonly ViewCard[] {
-  return ids.map(id => ({ instanceId: id, known: false as const }));
 }
 
 // ---- Pile browser modal (shared by site deck, sideboard, victory display) ----
@@ -1397,7 +1391,7 @@ function populateBrowserGrid(): void {
   }
 
   // If every card is hidden, show a compact overlapping stack instead of a full grid
-  const allHidden = cachedBrowserCards.every(c => !c.known);
+  const allHidden = cachedBrowserCards.every(c => isCardHidden(c.definitionId));
   if (allHidden) {
     const stack = document.createElement('div');
     stack.className = 'pile-browser-stack';
@@ -1431,12 +1425,12 @@ function populateBrowserGrid(): void {
   const isSelecting = siteSelectionActions.length > 0;
 
   for (const card of cachedBrowserCards) {
-    const defId = card.known ? card.definitionId as string : undefined;
+    const defId = !isCardHidden(card.definitionId) ? card.definitionId as string : undefined;
     const def = defId ? cachedCardPool[defId] : undefined;
     const imgPath = def ? cardImageProxyPath(def) : undefined;
 
     const img = document.createElement('img');
-    img.src = card.known ? (imgPath ?? cachedBrowserBackImage) : cachedBrowserBackImage;
+    img.src = !isCardHidden(card.definitionId) ? (imgPath ?? cachedBrowserBackImage) : cachedBrowserBackImage;
     img.alt = def?.name ?? 'Unknown card';
     if (defId) img.dataset.cardId = defId;
 
@@ -1481,11 +1475,11 @@ function installPileBrowserBackdrop(): void {
 /** Cached site deck for the site pile click handler. */
 let cachedSiteDeck: PlayerView['self']['siteDeck'] = [];
 /** Cached sideboard for the sideboard pile click handler. */
-let cachedSelfSideboard: readonly RevealedCard[] = [];
+let cachedSelfSideboard: readonly ViewCard[] = [];
 /** Cached discard pile for the discard pile click handler. */
-let cachedSelfDiscard: readonly RevealedCard[] = [];
+let cachedSelfDiscard: readonly ViewCard[] = [];
 /** Cached opponent discard pile for the discard pile click handler. */
-let cachedOppDiscard: readonly RevealedCard[] = [];
+let cachedOppDiscard: readonly ViewCard[] = [];
 /** Cached self play deck as hidden cards for browsing. */
 let cachedSelfPlayDeck: readonly ViewCard[] = [];
 /** Cached opponent play deck as hidden cards for browsing. */
@@ -1493,8 +1487,8 @@ let cachedOppPlayDeck: readonly ViewCard[] = [];
 /** Cached opponent site deck as hidden cards for browsing. */
 let cachedOppSiteDeck: readonly ViewCard[] = [];
 /** Cached victory display cards for click handlers. */
-let cachedSelfVictoryCards: readonly RevealedCard[] = [];
-let cachedOppVictoryCards: readonly RevealedCard[] = [];
+let cachedSelfVictoryCards: readonly ViewCard[] = [];
+let cachedOppVictoryCards: readonly ViewCard[] = [];
 let siteDeckListenerInstalled = false;
 let pileBrowserClickHandlersInstalled = false;
 
@@ -1541,7 +1535,7 @@ function installPileBrowserClickHandlers(): void {
 
   // Opponent piles
   wirePile('opponent-victory-pile', 'Victory Display', () => cachedOppVictoryCards);
-  wirePile('opponent-sideboard-pile', 'Sideboard', () => toHiddenCards([]));
+  wirePile('opponent-sideboard-pile', 'Sideboard', () => []);
   wirePile('opponent-discard-pile', 'Discard Pile', () => cachedOppDiscard);
   wirePile('opponent-deck-pile', 'Play Deck', () => cachedOppPlayDeck);
   wirePile('opponent-site-pile', 'Site Deck', () => cachedOppSiteDeck, '/images/site-back.jpg');
@@ -1620,18 +1614,22 @@ export function clearSiteSelection(): void {
   closeSelectionViewer();
 }
 
-/** Check whether a card list contains real card IDs (not 'unknown-card' placeholders). */
-function hasRealCards(cards: readonly { toString(): string }[]): boolean {
-  return cards.length > 0
-    && (cards[0] as string) !== 'unknown-card'
-    && (cards[0] as string) !== 'unknown-instance';
+/** Check whether a card list contains real card IDs (not hidden placeholders). */
+function hasRealCards(cards: readonly (ViewCard | CardInstanceId)[]): boolean {
+  if (cards.length === 0) return false;
+  const first = cards[0];
+  // ViewCard objects have a definitionId property; raw CardInstanceId values are strings
+  if (typeof first === 'object' && first !== null && 'definitionId' in first) {
+    return !isCardHidden(first.definitionId);
+  }
+  return (first as string) !== 'unknown-card' && (first as string) !== 'unknown-instance';
 }
 
 /**
  * Given two card lists (one per player), return the index whose cards are real
  * (not redacted to placeholders). Defaults to 0 when both are empty.
  */
-function findSelfIndex(a: readonly { toString(): string }[], b: readonly { toString(): string }[]): number {
+function findSelfIndex(a: readonly (ViewCard | CardInstanceId)[], b: readonly (ViewCard | CardInstanceId)[]): number {
   return hasRealCards(a) ? 0 : hasRealCards(b) ? 1 : 0;
 }
 
@@ -1644,19 +1642,19 @@ function findSelfIndex(a: readonly { toString(): string }[], b: readonly { toStr
 function findCardAction(
   defId: CardDefinitionId,
   legalActions: readonly GameAction[],
-  visibleInstances?: Readonly<Record<string, CardDefinitionId>>,
+  instanceLookup?: (id: CardInstanceId) => CardDefinitionId | undefined,
 ): GameAction | null {
   for (const action of legalActions) {
-    if (action.type === 'draft-pick' && visibleInstances
-      && visibleInstances[action.characterInstanceId as string] === defId) return action;
-    if (action.type === 'add-character-to-deck' && visibleInstances
-      && visibleInstances[action.characterInstanceId as string] === defId) return action;
-    if (action.type === 'select-starting-site' && visibleInstances
-      && visibleInstances[action.siteInstanceId as string] === defId) return action;
-    if (action.type === 'play-permanent-event' && visibleInstances
-      && visibleInstances[action.cardInstanceId as string] === defId) return action;
-    if (action.type === 'play-long-event' && visibleInstances
-      && visibleInstances[action.cardInstanceId as string] === defId) return action;
+    if (action.type === 'draft-pick' && instanceLookup
+      && instanceLookup(action.characterInstanceId) === defId) return action;
+    if (action.type === 'add-character-to-deck' && instanceLookup
+      && instanceLookup(action.characterInstanceId) === defId) return action;
+    if (action.type === 'select-starting-site' && instanceLookup
+      && instanceLookup(action.siteInstanceId) === defId) return action;
+    if (action.type === 'play-permanent-event' && instanceLookup
+      && instanceLookup(action.cardInstanceId) === defId) return action;
+    if (action.type === 'play-long-event' && instanceLookup
+      && instanceLookup(action.cardInstanceId) === defId) return action;
   }
   return null;
 }
@@ -1739,7 +1737,7 @@ function showShortEventTargetMenu(
 
   for (const action of actions) {
     if (action.type !== 'play-short-event') continue;
-    const targetDefId = view.visibleInstances[action.targetInstanceId as string];
+    const targetDefId = cachedInstanceLookup(action.targetInstanceId);
     const targetDef = targetDefId ? cardPool[targetDefId as string] : undefined;
     const targetName = targetDef ? targetDef.name : '?';
 
@@ -1827,7 +1825,7 @@ function showResourceTargetMenu(
       : action.type === 'play-minor-item' ? action.attachToCharacterId
         : undefined;
     if (!charId) continue;
-    const charDefId = view.visibleInstances[charId as string];
+    const charDefId = cachedInstanceLookup(charId);
     const charDef = charDefId ? cardPool[charDefId as string] : undefined;
     const charName = charDef ? charDef.name : (charId as string);
 
@@ -1852,10 +1850,10 @@ function showResourceTargetMenu(
 function isPlayCharacterCard(
   defId: CardDefinitionId,
   legalActions: readonly GameAction[],
-  visibleInstances?: Readonly<Record<string, CardDefinitionId>>,
+  instanceLookup?: (id: CardInstanceId) => CardDefinitionId | undefined,
 ): boolean {
-  return visibleInstances !== undefined && legalActions.some(
-    a => a.type === 'play-character' && visibleInstances[a.characterInstanceId as string] === defId,
+  return instanceLookup !== undefined && legalActions.some(
+    a => a.type === 'play-character' && instanceLookup(a.characterInstanceId) === defId,
   );
 }
 
@@ -2058,8 +2056,8 @@ function getInstructionText(
   if (view.phaseState.phase === Phase.Organization && view.phaseState.pendingCorruptionCheck !== null) {
     const checkAction = view.legalActions.find(ea => ea.viable && ea.action.type === 'corruption-check');
     if (checkAction && checkAction.action.type === 'corruption-check') {
-      const charId = checkAction.action.characterId as string;
-      const defId = view.visibleInstances[charId];
+      const charId = checkAction.action.characterId;
+      const defId = cachedInstanceLookup(charId);
       const def = defId ? cardPool[defId as string] : undefined;
       const charName = def && isCharacterCard(def) ? def.name : '?';
       const cp = checkAction.action.corruptionPoints;
@@ -2257,7 +2255,7 @@ function renderCharactersWithItems(
   cardPool: Readonly<Record<string, CardDefinition>>,
 ): void {
   for (const charInstId of charInstIds) {
-    const defId = view.visibleInstances[charInstId as string];
+    const defId = cachedInstanceLookup(charInstId as CardInstanceId);
     if (!defId) continue;
     const def = cardPool[defId as string];
     if (!def) continue;
@@ -2323,13 +2321,13 @@ function renderPlacementCompanies(
 
     // Render site card
     if (company.currentSite) {
-      const siteDefId = view.visibleInstances[company.currentSite.instanceId as string];
+      const siteDefId = cachedInstanceLookup(company.currentSite.instanceId);
       if (siteDefId) renderCardRow(el, [siteDefId], cardPool);
     }
 
     // Render characters — clickable to move to the other company
     for (const charInstId of company.characters) {
-      const defId = view.visibleInstances[charInstId as string];
+      const defId = cachedInstanceLookup(charInstId);
       if (!defId) continue;
       const def = cardPool[defId as string];
       if (!def) continue;
@@ -2375,7 +2373,7 @@ function renderSitesAndCharacters(
   separateSites = false,
 ): void {
   for (const instId of siteInstIds) {
-    const defId = view.visibleInstances[instId as string];
+    const defId = cachedInstanceLookup(instId);
     if (!defId) continue;
     const def = cardPool[defId as string];
     if (!def) continue;
@@ -2404,7 +2402,7 @@ function renderItemDraftTargets(
   onAction?: (action: GameAction) => void,
 ): void {
   for (const charInstId of charInstanceIds) {
-    const defId = view.visibleInstances[charInstId as string];
+    const defId = cachedInstanceLookup(charInstId as CardInstanceId);
     if (!defId) continue;
     const def = cardPool[defId as string];
     if (!def) continue;
@@ -2474,9 +2472,9 @@ export function renderDrafted(
     const selfIdx = findSelfIndex(draft.draftState[0].pool, draft.draftState[1].pool);
     const oppIdx = 1 - selfIdx;
 
-    /** Resolve draft instance IDs to definition IDs via visible instances. */
+    /** Resolve draft instance IDs to definition IDs via instance lookup. */
     const resolveDraft = (ids: readonly CardInstanceId[]): CardDefinitionId[] =>
-      ids.map(id => view.visibleInstances[id as string]).filter((d): d is CardDefinitionId => d !== undefined);
+      ids.map(id => cachedInstanceLookup(id)).filter((d): d is CardDefinitionId => d !== undefined);
 
     renderCardRow(selfEl, resolveDraft(draft.draftState[selfIdx].drafted), cardPool);
 
@@ -2538,9 +2536,9 @@ export function renderDrafted(
   // During site selection, show selected sites then a gap then company characters
   if (step === 'starting-site-selection') {
     const siteState = view.phaseState.setupStep.siteSelectionState;
-    // Determine self index: self's selected sites resolve in visibleInstances
+    // Determine self index: self's selected sites resolve in instance lookup
     const hasSelfSites = (idx: number) => siteState[idx].selectedSites.length > 0
-      && view.visibleInstances[siteState[idx].selectedSites[0] as string] !== undefined;
+      && cachedInstanceLookup(siteState[idx].selectedSites[0]) !== undefined;
     const selfIdx = hasSelfSites(0) ? 0 : hasSelfSites(1) ? 1 : 0;
     const oppIdx = 1 - selfIdx;
 
@@ -2629,9 +2627,9 @@ export function renderHand(
     const imgPath = cardImageProxyPath(def);
     if (!imgPath) continue;
 
-    const action = findCardAction(cardDefId, viable, view.visibleInstances);
+    const action = findCardAction(cardDefId, viable, cachedInstanceLookup);
     const isItemDraft = isItemDraftCard(cardDefId, viable);
-    const isPlayChar = isPlayCharacterCard(cardDefId, viable, view.visibleInstances);
+    const isPlayChar = isPlayCharacterCard(cardDefId, viable, cachedInstanceLookup);
     const shortEventActions = findShortEventActions(cardInstanceId, viable);
     const isShortEvent = shortEventActions.length > 0;
     const hazardActions = findHazardActions(cardInstanceId, viable);
@@ -2642,7 +2640,7 @@ export function renderHand(
       ? viable.find(a => a.type === 'discard-card' && a.cardInstanceId === cardInstanceId)
       : undefined;
     const nonViableReason = !action && !isItemDraft && !isPlayChar && !isShortEvent && !isHazard && !isResource && !discardAction
-      ? findNonViableReason(cardDefId, view.legalActions, view.visibleInstances)
+      ? findNonViableReason(cardDefId, view.legalActions, cachedInstanceLookup)
       : undefined;
     const isSelected = selectedItemDefId === cardDefId;
 
@@ -3117,7 +3115,7 @@ function formatChainEntry(
   switch (entry.payload.type) {
     case 'short-event': {
       const targetName = entry.payload.targetInstanceId
-        ? resolveInstanceName(entry.payload.targetInstanceId, view.visibleInstances, cardPool)
+        ? resolveInstanceName(entry.payload.targetInstanceId, cachedInstanceLookup, cardPool)
         : null;
       const arrow = targetName ? ` <span class="chain-arrow">\u2192</span> ${targetName}` : '';
       return `<span class="chain-card-name">${cardName}</span>${arrow}`
@@ -3179,13 +3177,13 @@ function resolveCardName(
   return def ? def.name : (defId as string);
 }
 
-/** Resolve a card instance ID to its display name via visibleInstances. */
+/** Resolve a card instance ID to its display name via instance lookup. */
 function resolveInstanceName(
   instanceId: CardInstanceId,
-  visibleInstances: Readonly<Record<string, CardDefinitionId>>,
+  instanceLookup: (id: CardInstanceId) => CardDefinitionId | undefined,
   cardPool: Readonly<Record<string, CardDefinition>>,
 ): string {
-  const defId = visibleInstances[instanceId as string];
+  const defId = instanceLookup(instanceId);
   if (!defId) return '?';
   return resolveCardName(defId, cardPool);
 }

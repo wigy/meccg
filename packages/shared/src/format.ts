@@ -17,7 +17,7 @@
 import type { CardDefinition } from './types/cards.js';
 import { isCharacterCard, isItemCard } from './types/cards.js';
 import type { GameState, Company, CharacterInPlay, ItemInPlay, AllyInPlay, CombatState, ChainState, PhaseState, MarshallingPointTotals } from './types/state.js';
-import type { PlayerView, OpponentCompanyView } from './types/player-view.js';
+import type { PlayerView, OpponentCompanyView, ViewCard } from './types/player-view.js';
 import { computeTournamentBreakdown } from './state-utils.js';
 import type { GameAction } from './types/actions.js';
 import { CardStatus } from './types/common.js';
@@ -100,6 +100,62 @@ function colorizeUnknown(text: string): string {
 
 type CardLookup = (defId: CardDefinitionId) => CardDefinition | undefined;
 type InstanceLookup = (instId: CardInstanceId) => CardDefinitionId | undefined;
+
+/**
+ * Build an instance-to-definition lookup from a PlayerView's piles.
+ * Replaces the old `visibleInstances` field — every known card in every pile
+ * contributes its mapping. Hidden cards (UNKNOWN_CARD/UNKNOWN_SITE) are
+ * included but harmless since no card pool entry will match them.
+ */
+export function buildInstanceLookup(view: PlayerView): InstanceLookup {
+  const map: Record<string, CardDefinitionId> = {};
+  const add = (cards: readonly ViewCard[]) => {
+    for (const c of cards) map[c.instanceId as string] = c.definitionId;
+  };
+  // Self piles
+  add(view.self.hand);
+  add(view.self.playDeck);
+  add(view.self.discardPile);
+  add(view.self.siteDeck);
+  add(view.self.siteDiscardPile);
+  add(view.self.sideboard);
+  add(view.self.killPile);
+  add(view.self.eliminatedPile);
+  // Opponent piles
+  add(view.opponent.hand);
+  add(view.opponent.playDeck);
+  add(view.opponent.siteDeck);
+  add(view.opponent.discardPile);
+  add(view.opponent.siteDiscardPile);
+  add(view.opponent.killPile);
+  add(view.opponent.eliminatedPile);
+  // Characters, items, allies, corruption cards
+  for (const char of Object.values(view.self.characters)) {
+    map[char.instanceId as string] = char.definitionId;
+    for (const item of char.items) map[item.instanceId as string] = item.definitionId;
+    for (const ally of char.allies) map[ally.instanceId as string] = ally.definitionId;
+    for (const id of char.corruptionCards) if (map[id as string] === undefined) map[id as string] = id as unknown as CardDefinitionId;
+  }
+  for (const char of Object.values(view.opponent.characters)) {
+    map[char.instanceId as string] = char.definitionId;
+    for (const item of char.items) map[item.instanceId as string] = item.definitionId;
+    for (const ally of char.allies) map[ally.instanceId as string] = ally.definitionId;
+    for (const id of char.corruptionCards) if (map[id as string] === undefined) map[id as string] = id as unknown as CardDefinitionId;
+  }
+  // Company sites
+  for (const c of view.self.companies) {
+    if (c.currentSite) map[c.currentSite.instanceId as string] = c.currentSite.definitionId;
+    if (c.destinationSite) { /* destination is just a CardInstanceId, already in siteDeck */ }
+  }
+  for (const c of view.opponent.companies) {
+    if (c.currentSite) map[c.currentSite.instanceId as string] = c.currentSite.definitionId;
+    if (c.revealedDestinationSite) { /* just a CardInstanceId */ }
+  }
+  // Cards in play
+  for (const c of view.self.cardsInPlay) map[c.instanceId as string] = c.definitionId;
+  for (const c of view.opponent.cardsInPlay) map[c.instanceId as string] = c.definitionId;
+  return (id) => map[id as string];
+}
 
 function resolve(instId: CardInstanceId, instOf: InstanceLookup, defOf: CardLookup): CardDefinition | undefined {
   const defId = instOf(instId);
@@ -691,10 +747,7 @@ export function formatPlayerView(
   cardPool: Readonly<Record<string, CardDefinition>>,
 ): string {
   const defOf: CardLookup = (id) => cardPool[id as string];
-  const instOf: InstanceLookup = (id) => {
-    const defId = view.visibleInstances[id as string];
-    return defId ?? undefined;
-  };
+  const instOf: InstanceLookup = buildInstanceLookup(view);
 
   // Compute pool sizes during setup phases (for both players)
   let selfPoolSize: number | undefined;
@@ -708,7 +761,7 @@ export function formatPlayerView(
       opponentPoolSize = step.draftState[1 - selfIdx].pool.length;
     } else if (step.step === 'item-draft') {
       const selfIdx = step.itemDraftState[0].unassignedItems.length > 0
-        && view.visibleInstances[step.itemDraftState[0].unassignedItems[0] as string] ? 0 : 1;
+        && instOf(step.itemDraftState[0].unassignedItems[0]) ? 0 : 1;
       selfPoolSize = step.itemDraftState[selfIdx].unassignedItems.length;
       opponentPoolSize = step.itemDraftState[1 - selfIdx].unassignedItems.length;
     } else if (step.step === 'character-deck-draft') {
@@ -732,7 +785,7 @@ export function formatPlayerView(
         wizard: view.self.wizard,
         isActive: view.activePlayer !== null && view.self.id === view.activePlayer,
         handCards: view.self.hand.map(c => c.instanceId),
-        deckCards: [...view.self.playDeck],
+        deckCards: view.self.playDeck.map(c => c.instanceId),
         siteDeckCards: view.self.siteDeck.map(c => c.instanceId),
         discardCards: view.self.discardPile.map(c => c.instanceId),
         killCards: view.self.killPile.map(c => c.instanceId),
@@ -751,9 +804,9 @@ export function formatPlayerView(
         alignment: view.opponent.alignment,
         wizard: view.opponent.wizard,
         isActive: view.activePlayer !== null && view.opponent.id === view.activePlayer,
-        handCards: [...view.opponent.hand],
-        deckCards: [...view.opponent.playDeck],
-        siteDeckCards: [...view.opponent.siteDeck],
+        handCards: view.opponent.hand.map(c => c.instanceId),
+        deckCards: view.opponent.playDeck.map(c => c.instanceId),
+        siteDeckCards: view.opponent.siteDeck.map(c => c.instanceId),
         discardCards: view.opponent.discardPile.map(c => c.instanceId),
         killCards: view.opponent.killPile.map(c => c.instanceId),
         eliminatedCards: view.opponent.eliminatedPile.map(c => c.instanceId),
@@ -868,7 +921,7 @@ export function buildCompanyNames(
 export function describeAction(
   action: GameAction,
   cardPool: Readonly<Record<string, CardDefinition>>,
-  instanceLookup?: Readonly<Record<string, CardDefinitionId>>,
+  instanceLookup?: Readonly<Record<string, CardDefinitionId>> | InstanceLookup,
   companyNames?: Readonly<Record<string, string>>,
 ): string {
   const defName = (id: CardDefinitionId) => {
@@ -877,7 +930,9 @@ export function describeAction(
   };
   const instName = (id: CardInstanceId) => {
     if (instanceLookup) {
-      const defId = instanceLookup[id as string];
+      const defId = typeof instanceLookup === 'function'
+        ? instanceLookup(id)
+        : instanceLookup[id as string];
       if (defId) return defName(defId);
     }
     return `{${id}}`;

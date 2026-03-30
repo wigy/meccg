@@ -29,7 +29,8 @@ import type {
   DeclarePathAction,
   RegionType,
 } from '@meccg/shared';
-import { cardImageProxyPath, isCharacterCard, isItemCard, isSiteCard, Phase, CardStatus, viableActions, describeAction, getTitleCharacter } from '@meccg/shared';
+import { cardImageProxyPath, isCharacterCard, isItemCard, isSiteCard, Phase, CardStatus, viableActions, describeAction, getTitleCharacter, buildInstanceLookup } from '@meccg/shared';
+import type { CardDefinitionId } from '@meccg/shared';
 import { $, createCardImage, createRegionTypeIcon } from './render-utils.js';
 import { getSelectedCharacterForPlay, clearCharacterPlaySelection, openMovementViewer, setTargetingInstruction } from './render.js';
 import { renderCombatView, clearCombatButtons } from './combat-view.js';
@@ -85,6 +86,9 @@ let lastActivePlayer: string | null = null;
 /** Track the last M/H or Site step so we can detect select-company transitions. */
 let lastMhSiteStep: string | null = null;
 
+/** Cached instance-to-definition lookup built from the latest PlayerView. */
+let cachedInstanceLookup: ((id: CardInstanceId) => CardDefinitionId | undefined) = () => undefined;
+
 // ---- Title character logic ----
 
 /**
@@ -116,7 +120,7 @@ function getCompanyName(
 
   // Append site name if the company is at a site
   if (company.currentSite) {
-    const siteDefId = view.visibleInstances[company.currentSite.instanceId as string];
+    const siteDefId = cachedInstanceLookup(company.currentSite.instanceId);
     if (siteDefId) {
       const siteDef = cardPool[siteDefId as string];
       if (siteDef) {
@@ -361,7 +365,7 @@ function resolveCardDef(
   view: PlayerView,
   cardPool: Readonly<Record<string, CardDefinition>>,
 ): CardDefinition | undefined {
-  const defId = view.visibleInstances[instanceId as string];
+  const defId = cachedInstanceLookup(instanceId);
   return defId ? cardPool[defId as string] : undefined;
 }
 
@@ -422,7 +426,7 @@ function renderSiteArea(
 
   // Current site
   if (company.currentSite) {
-    const siteDefId = view.visibleInstances[company.currentSite.instanceId as string];
+    const siteDefId = cachedInstanceLookup(company.currentSite.instanceId);
     if (siteDefId) {
       const siteDef = cardPool[siteDefId as string];
       if (siteDef) {
@@ -469,7 +473,7 @@ function renderSiteArea(
         btn.className = 'char-action-tooltip__btn';
 
         const label = document.createElement('div');
-        label.textContent = describeAction(action, cardPool, view.visibleInstances);
+        label.textContent = describeAction(action, cardPool);
         btn.appendChild(label);
 
         const regionTypes = getPathRegionTypes(action, originDef, destDef, cardPool);
@@ -500,7 +504,7 @@ function renderSiteArea(
       const pathEl = document.createElement('div');
       pathEl.className = 'company-movement-path';
       for (const regionInstId of company.movementPath) {
-        const regionDefId = view.visibleInstances[regionInstId as string];
+        const regionDefId = cachedInstanceLookup(regionInstId);
         if (!regionDefId) continue;
         const regionDef = cardPool[regionDefId as string];
         if (!regionDef) continue;
@@ -519,7 +523,7 @@ function renderSiteArea(
     }
 
     // Destination site — highlight and make clickable if cancel-movement is available
-    const destDefId = view.visibleInstances[company.destinationSite as string];
+    const destDefId = cachedInstanceLookup(company.destinationSite);
     if (destDefId) {
       const destDef = cardPool[destDefId as string];
       if (destDef) {
@@ -552,7 +556,7 @@ function renderSiteArea(
       + '</svg>';
     area.appendChild(arrow);
     const revealedSite = company.revealedDestinationSite;
-    const revealedDefId = revealedSite ? view.visibleInstances[revealedSite as string] : undefined;
+    const revealedDefId = revealedSite ? cachedInstanceLookup(revealedSite) : undefined;
     const revealedDef = revealedDefId ? cardPool[revealedDefId as string] : undefined;
     const revealedImg = revealedDef ? cardImageProxyPath(revealedDef) : undefined;
     if (revealedDefId && revealedDef && revealedImg) {
@@ -615,7 +619,7 @@ function showCharacterActionTooltip(
         onAction(influenceActions[0]);
       } else {
         influenceMoveSourceId = charInstId;
-        const sourceDefId = lastView?.visibleInstances[charInstId as string];
+        const sourceDefId = cachedInstanceLookup(charInstId);
         const sourceName = sourceDefId ? cardPool[sourceDefId as string]?.name : undefined;
         setTargetingInstruction(
           `Click a highlighted character to reassign ${sourceName ?? 'character'} influence`,
@@ -647,7 +651,7 @@ function showCharacterActionTooltip(
       dismissTooltip();
       companyMoveSourceId = charInstId;
       companyMoveSourceCompanyId = moveActions[0].sourceCompanyId;
-      const sourceDefId = lastView?.visibleInstances[charInstId as string];
+      const sourceDefId = cachedInstanceLookup(charInstId);
       const sourceName = sourceDefId ? cardPool[sourceDefId as string]?.name : undefined;
       setTargetingInstruction(
         `Click a company to move ${sourceName ?? 'character'} there`,
@@ -843,7 +847,7 @@ function renderCompanyBlock(
       handler: (e) => {
         e.stopPropagation();
         influenceMoveSourceId = charInstId;
-        const sourceDefId = lastView?.visibleInstances[charInstId as string];
+        const sourceDefId = cachedInstanceLookup(charInstId);
         const sourceName = sourceDefId ? cardPool[sourceDefId as string]?.name : undefined;
         setTargetingInstruction(
           `Click a highlighted character to reassign ${sourceName ?? 'character'} influence`,
@@ -903,7 +907,7 @@ function renderCompanyBlock(
         e.stopPropagation();
         transferItemSourceId = itemInstId;
         transferItemFromCharId = charInstId;
-        const itemDefId = lastView?.visibleInstances[itemInstId as string];
+        const itemDefId = cachedInstanceLookup(itemInstId);
         const itemName = itemDefId ? cardPool[itemDefId as string]?.name : undefined;
         setTargetingInstruction(
           `Click a highlighted character to receive ${itemName ?? 'item'}`,
@@ -989,7 +993,7 @@ function renderCompanyBlock(
           e.stopPropagation();
           companyMoveSourceId = charInstId;
           companyMoveSourceCompanyId = moveActions[0].sourceCompanyId;
-          const sourceDefId = lastView?.visibleInstances[charInstId as string];
+          const sourceDefId = cachedInstanceLookup(charInstId);
           const sourceName = sourceDefId ? cardPool[sourceDefId as string]?.name : undefined;
           setTargetingInstruction(
             `Click a company to move ${sourceName ?? 'character'} there`,
@@ -1228,7 +1232,7 @@ function renderDummyCompanyBlock(
   const block = document.createElement('div');
   block.className = 'company-block';
 
-  const siteDefId = view.visibleInstances[siteInstanceId as string];
+  const siteDefId = cachedInstanceLookup(siteInstanceId);
   const siteDef = siteDefId ? cardPool[siteDefId as string] : undefined;
   const siteName = siteDef?.name ?? 'Unknown site';
 
@@ -1606,6 +1610,7 @@ export function resetCompanyViews(): void {
   lastOnAction = null;
   lastView = null;
   lastCardPool = null;
+  cachedInstanceLookup = () => undefined;
   influenceMoveSourceId = null;
   transferItemSourceId = null;
   transferItemFromCharId = null;
@@ -1642,6 +1647,7 @@ export function renderCompanyViews(
   lastOnAction = onAction;
   lastView = view;
   lastCardPool = cardPool;
+  cachedInstanceLookup = buildInstanceLookup(view);
   installKeyboardNav();
 
   // Reset view state on active player change

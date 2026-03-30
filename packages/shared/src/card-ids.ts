@@ -245,3 +245,8 @@ export const UNKNOWN_CARD = did('unknown-card');
 export const UNKNOWN_SITE = did('unknown-site');
 /** Placeholder instance ID for a hidden card in the draft pool. */
 export const UNKNOWN_INSTANCE = 'unknown-instance' as CardInstanceId;
+
+/** Check whether a definition ID represents a hidden (face-down) card. */
+export function isCardHidden(definitionId: CardDefinitionId): boolean {
+  return definitionId === UNKNOWN_CARD || definitionId === UNKNOWN_SITE;
+}

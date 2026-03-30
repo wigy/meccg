@@ -32,6 +32,7 @@ import {
   formatCardList,
   describeAction,
   buildCompanyNames,
+  buildInstanceLookup,
   colorDebug,
   setShowDebugIds,
   stripCardMarkers,
@@ -221,8 +222,9 @@ function connect(): void {
 
         if (msg.view.phaseState.phase === 'setup' && msg.view.phaseState.setupStep.step === 'character-draft') {
           const draft = msg.view.phaseState.setupStep;
+          const instanceLookup = buildInstanceLookup(msg.view);
           const resolve = (ids: readonly CardInstanceId[]) =>
-            ids.map(id => msg.view.visibleInstances[id as string] ?? id as unknown as CardDefinitionId);
+            ids.map(id => instanceLookup(id) ?? id as unknown as CardDefinitionId);
           const list = (ids: readonly CardInstanceId[]) => formatCardList(resolve(ids), cardPool);
           console.log(`Draft round: ${draft.round}`);
 
@@ -254,7 +256,7 @@ function connect(): void {
         const allEvaluated = msg.view.legalActions;
         lastLegalActions = allEvaluated.filter(e => e.viable).map(e => e.action);
         const nonViable = allEvaluated.filter(e => !e.viable);
-        const instances = msg.view.visibleInstances;
+        const instances = buildInstanceLookup(msg.view);
         const compNames = buildCompanyNames(msg.view.self.companies, msg.view.self.characters, cardPool);
 
         // AI mode: compute weights, display probabilities, sample and send

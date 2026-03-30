@@ -22,7 +22,7 @@ import type {
   SelfView,
   OpponentView,
   OpponentCompanyView,
-  RevealedCard,
+  ViewCard,
   PlayerId,
   CardInstanceId,
   CardDefinitionId,
@@ -30,34 +30,35 @@ import type {
   DraftPlayerState,
   CharacterDeckDraftPlayerState,
 } from '@meccg/shared';
-import { UNKNOWN_INSTANCE, getPlayerIndex, Phase } from '@meccg/shared';
+import { UNKNOWN_INSTANCE, UNKNOWN_CARD, UNKNOWN_SITE, getPlayerIndex, Phase } from '@meccg/shared';
 import { computeLegalActions } from '@meccg/shared';
 
 /**
- * Resolves a card instance to a {@link RevealedCard} containing both the
+ * Resolves a card instance to a {@link ViewCard} containing both the
  * instance ID and its underlying definition ID. Used for cards the
  * requesting player is allowed to see (e.g. their own hand).
  */
-function resolveCard(state: GameState, instanceId: CardInstanceId): RevealedCard {
+function resolveCard(state: GameState, instanceId: CardInstanceId): ViewCard {
   const inst = state.instanceMap[instanceId as string];
   return {
     instanceId,
     definitionId: inst?.definitionId ?? ('' as CardDefinitionId),
-    known: true,
   };
 }
 
-/** Resolve an entire pile of card instances to revealed cards. */
-function resolvePile(state: GameState, ids: readonly CardInstanceId[]): RevealedCard[] {
+/** Resolve an entire pile of card instances to view cards. */
+function resolvePile(state: GameState, ids: readonly CardInstanceId[]): ViewCard[] {
   return ids.map(id => resolveCard(state, id));
 }
 
-/**
- * Creates an array of {@link UNKNOWN_INSTANCE} with the given length.
- * Used to represent hidden card piles where the size is known but identities are not.
- */
-function hiddenPile(length: number): readonly CardInstanceId[] {
-  return Array.from({ length }, () => UNKNOWN_INSTANCE);
+/** Creates a hidden card pile of the given length using the `UNKNOWN_CARD` sentinel. */
+function hiddenCardPile(length: number): readonly ViewCard[] {
+  return Array.from({ length }, () => ({ instanceId: UNKNOWN_INSTANCE, definitionId: UNKNOWN_CARD }));
+}
+
+/** Creates a hidden site pile of the given length using the `UNKNOWN_SITE` sentinel. */
+function hiddenSitePile(length: number): readonly ViewCard[] {
+  return Array.from({ length }, () => ({ instanceId: UNKNOWN_INSTANCE, definitionId: UNKNOWN_SITE }));
 }
 
 /**
@@ -73,7 +74,7 @@ function buildSelfView(state: GameState, player: PlayerState): SelfView {
     alignment: player.alignment,
     wizard: player.wizard,
     hand: resolvePile(state, player.hand),
-    playDeck: hiddenPile(player.playDeck.length),
+    playDeck: hiddenCardPile(player.playDeck.length),
     discardPile: resolvePile(state, player.discardPile),
     siteDeck: resolvePile(state, player.siteDeck),
     siteDiscardPile: resolvePile(state, player.siteDiscardPile),
@@ -115,9 +116,9 @@ function buildOpponentView(state: GameState, player: PlayerState): OpponentView 
     name: player.name,
     alignment: player.alignment,
     wizard: player.wizard,
-    hand: hiddenPile(player.hand.length),
-    playDeck: hiddenPile(player.playDeck.length),
-    siteDeck: hiddenPile(player.siteDeck.length),
+    hand: hiddenCardPile(player.hand.length),
+    playDeck: hiddenCardPile(player.playDeck.length),
+    siteDeck: hiddenSitePile(player.siteDeck.length),
     discardPile: resolvePile(state, player.discardPile),
     siteDiscardPile: resolvePile(state, player.siteDiscardPile),
     killPile: resolvePile(state, player.killPile),
@@ -155,32 +156,6 @@ export function projectSpectatorView(state: GameState): PlayerView {
   const _self = buildOpponentView(state, p1);
   const opponent = buildOpponentView(state, p2);
 
-  // Spectators see only public cards: characters, items, company sites, discard piles
-  const visibleInstances: Record<string, CardDefinitionId> = {};
-  const addInstance = (id: CardInstanceId) => {
-    const inst = state.instanceMap[id as string];
-    if (inst) {
-      visibleInstances[id as string] = inst.definitionId;
-    }
-  };
-
-  for (const player of state.players) {
-    for (const id of player.discardPile) addInstance(id);
-    for (const id of player.siteDiscardPile) addInstance(id);
-    for (const id of player.killPile) addInstance(id);
-    for (const id of player.eliminatedPile) addInstance(id);
-    for (const company of player.companies) {
-      if (company.currentSite) addInstance(company.currentSite.instanceId);
-    }
-    for (const char of Object.values(player.characters)) {
-      addInstance(char.instanceId);
-      for (const item of char.items) addInstance(item.instanceId);
-      for (const ally of char.allies) addInstance(ally.instanceId);
-      for (const id of char.corruptionCards) addInstance(id);
-    }
-    for (const card of player.cardsInPlay) addInstance(card.instanceId);
-  }
-
   return {
     self: {
       id: p1.id,
@@ -188,7 +163,7 @@ export function projectSpectatorView(state: GameState): PlayerView {
       alignment: p1.alignment,
       wizard: p1.wizard,
       hand: [],
-      playDeck: hiddenPile(p1.playDeck.length),
+      playDeck: hiddenCardPile(p1.playDeck.length),
       discardPile: [],
       siteDeck: [],
       siteDiscardPile: [],
@@ -213,7 +188,6 @@ export function projectSpectatorView(state: GameState): PlayerView {
     startingPlayer: state.startingPlayer,
     stateSeq: state.stateSeq,
     legalActions: [],
-    visibleInstances,
   };
 }
 
@@ -316,83 +290,6 @@ export function projectPlayerView(state: GameState, playerId: PlayerId): PlayerV
 
   const legalActions = computeLegalActions(state, playerId);
 
-  // Build visible instances map: all cards this player can see
-  const visibleInstances: Record<string, CardDefinitionId> = {};
-
-  const addInstance = (id: CardInstanceId) => {
-    const inst = state.instanceMap[id as string];
-    if (inst) {
-      visibleInstances[id as string] = inst.definitionId;
-    }
-  };
-
-  // Character draft: pool and drafted characters are visible to their owner;
-  // opponent's drafted characters are public after reveal
-  if (state.phaseState.phase === 'setup' && state.phaseState.setupStep.step === 'character-draft') {
-    for (const id of state.phaseState.setupStep.draftState[selfIndex].pool) addInstance(id);
-    for (const id of state.phaseState.setupStep.draftState[selfIndex].drafted) addInstance(id);
-    for (const id of state.phaseState.setupStep.draftState[opponentIndex].drafted) addInstance(id);
-    // Set-aside characters are visible to both players
-    for (const id of state.phaseState.setupStep.setAside) addInstance(id);
-  }
-
-  // Item draft: pool characters and unassigned items are visible to their owner
-  if (state.phaseState.phase === 'setup' && state.phaseState.setupStep.step === 'item-draft') {
-    for (const pool of state.phaseState.setupStep.remainingPool[selfIndex]) addInstance(pool);
-    for (const id of state.phaseState.setupStep.itemDraftState[selfIndex].unassignedItems) addInstance(id);
-  }
-
-  // Character deck draft: remaining pool visible to their owner
-  if (state.phaseState.phase === 'setup' && state.phaseState.setupStep.step === 'character-deck-draft') {
-    for (const id of state.phaseState.setupStep.deckDraftState[selfIndex].remainingPool) addInstance(id);
-  }
-
-  // Site selection: selected sites are no longer in siteDeck but should still be visible
-  if (state.phaseState.phase === 'setup' && state.phaseState.setupStep.step === 'starting-site-selection') {
-    for (const id of state.phaseState.setupStep.siteSelectionState[selfIndex].selectedSites) addInstance(id);
-  }
-
-  // Own cards: hand, discard, site deck, sideboard, companies, characters + their attachments
-  for (const id of selfPlayer.hand) addInstance(id);
-  for (const id of selfPlayer.discardPile) addInstance(id);
-  for (const id of selfPlayer.siteDeck) addInstance(id);
-  for (const id of selfPlayer.siteDiscardPile) addInstance(id);
-  for (const id of selfPlayer.sideboard) addInstance(id);
-  for (const id of selfPlayer.killPile) addInstance(id);
-  for (const id of selfPlayer.eliminatedPile) addInstance(id);
-  for (const company of selfPlayer.companies) {
-    if (company.currentSite) addInstance(company.currentSite.instanceId);
-    if (company.destinationSite) addInstance(company.destinationSite);
-    for (const id of company.movementPath) addInstance(id);
-  }
-  for (const char of Object.values(selfPlayer.characters)) {
-    addInstance(char.instanceId);
-    for (const item of char.items) addInstance(item.instanceId);
-    for (const ally of char.allies) addInstance(ally.instanceId);
-    for (const id of char.corruptionCards) addInstance(id);
-  }
-  for (const card of selfPlayer.cardsInPlay) addInstance(card.instanceId);
-
-  // Opponent's public cards: discard piles, eliminated pile, characters + attachments, company sites
-  for (const id of opponentPlayer.discardPile) addInstance(id);
-  for (const id of opponentPlayer.siteDiscardPile) addInstance(id);
-  for (const id of opponentPlayer.killPile) addInstance(id);
-  for (const id of opponentPlayer.eliminatedPile) addInstance(id);
-  for (const company of opponentPlayer.companies) {
-    if (company.currentSite) addInstance(company.currentSite.instanceId);
-  }
-  // Revealed destination site (opponent's active company during M/H phase)
-  for (const company of opponent.companies) {
-    if (company.revealedDestinationSite) addInstance(company.revealedDestinationSite);
-  }
-  for (const char of Object.values(opponentPlayer.characters)) {
-    addInstance(char.instanceId);
-    for (const item of char.items) addInstance(item.instanceId);
-    for (const ally of char.allies) addInstance(ally.instanceId);
-    for (const id of char.corruptionCards) addInstance(id);
-  }
-  for (const card of opponentPlayer.cardsInPlay) addInstance(card.instanceId);
-
   return {
     self,
     opponent,
@@ -405,6 +302,5 @@ export function projectPlayerView(state: GameState, playerId: PlayerId): PlayerV
     startingPlayer: state.startingPlayer,
     stateSeq: state.stateSeq,
     legalActions,
-    visibleInstances,
   };
 }
