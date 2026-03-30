@@ -322,5 +322,24 @@
     ],
     "effects": [],
     "text": "Unique. Playable at Pelargir if the influence check is greater than 7. Standard Modifications: Dúnedain (+1)."
+  },
+  {
+    "cardType": "hero-resource-faction",
+    "alignment": "wizard",
+    "id": "tw-310",
+    "name": "Rangers of Ithilien",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/RangersofIthilien.jpg",
+    "unique": true,
+    "marshallingPoints": 3,
+    "marshallingCategory": "faction",
+    "influenceNumber": 8,
+    "race": "dunadan",
+    "playableAt": [
+      {
+        "site": "Henneth Annûn"
+      }
+    ],
+    "effects": [],
+    "text": "Unique. Playable at Henneth Annûn if the influence check is greater than 7. Standard Modifications: Dúnedain (+1)."
   }
 ]
