@@ -8,7 +8,7 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
-import { PLAYERS_DIR } from '../config.js';
+import { PLAYERS_DIR, REVIEWER_PLAYERS } from '../config.js';
 import type { PlayerRecord } from './types.js';
 
 /** Normalize a player name to a safe directory name (lowercase, alphanumeric + hyphens). */
@@ -137,6 +137,9 @@ const SYSTEM_PLAYERS: readonly { name: string; email: string; displayName?: stri
   { name: 'ai', email: 'ai@meccg.local', displayName: 'Eru Ilúvatar' },
   { name: 'server', email: 'server@meccg.local' },
   { name: 'admin', email: 'admin@meccg.local' },
+  ...REVIEWER_PLAYERS
+    .filter(name => !['ai', 'server', 'admin'].includes(name))
+    .map(name => ({ name, email: `${name}@meccg.local` })),
 ];
 
 /** Create system player accounts (ai, server) if they don't already exist. */
