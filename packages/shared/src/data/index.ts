@@ -42,6 +42,7 @@ import tdCharacters from './td-characters.json';
 import tdItems from './td-items.json';
 import tdResources from './td-resources.json';
 import tdHazards from './td-hazards.json';
+import tdSites from './td-sites.json';
 
 // ---- Dark Minions (DM) — expansion ----
 import dmCreatures from './dm-creatures.json';
@@ -84,6 +85,7 @@ const allCards: readonly CardDefinition[] = [
   ...(tdItems as unknown as CardDefinition[]),
   ...(tdResources as unknown as CardDefinition[]),
   ...(tdHazards as unknown as CardDefinition[]),
+  ...(tdSites as unknown as CardDefinition[]),
   // Dark Minions
   ...(dmCreatures as unknown as CardDefinition[]),
   ...(dmHazards as unknown as CardDefinition[]),

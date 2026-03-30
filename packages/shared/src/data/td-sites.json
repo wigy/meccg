@@ -1,0 +1,32 @@
+[
+  {
+    "cardType": "hero-site",
+    "alignment": "wizard",
+    "id": "td-178",
+    "name": "Isle of the Ulond",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/td/IsleoftheUlond.jpg",
+    "siteType": "ruins-and-lairs",
+    "sitePath": [
+      "wilderness",
+      "coastal",
+      "coastal"
+    ],
+    "nearestHaven": "Edhellond",
+    "region": "Andrast Coast",
+    "playableResources": [
+      "information",
+      "minor",
+      "major"
+    ],
+    "automaticAttacks": [
+      {
+        "creatureType": "Dragon",
+        "strikes": 1,
+        "prowess": 14
+      }
+    ],
+    "resourceDraws": 2,
+    "hazardDraws": 2,
+    "text": "Nearest Haven: Edhellond. Playable: Information, Items (minor, major). Automatic-attacks: Dragon — 1 strike with 14 prowess."
+  }
+]
