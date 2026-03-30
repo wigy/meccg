@@ -1278,12 +1278,27 @@ function handleUntap(state: GameState, action: GameAction): ReducerResult {
     if (untapState.resourcePlayerPassed) {
       return performUntapAndAdvance(state);
     }
-    return { state }; // no-op, wait for resource player
+    return {
+      state: {
+        ...state,
+        phaseState: { ...untapState, hazardPlayerPassed: true },
+      },
+    };
   }
 
   // Active (resource) player passes
   logDetail(`Untap: resource player ${action.player as string} passed`);
-  return performUntapAndAdvance(state);
+  // If hazard player already passed, advance immediately
+  if (untapState.hazardPlayerPassed) {
+    return performUntapAndAdvance(state);
+  }
+  // Otherwise, mark resource player passed and wait for hazard player
+  return {
+    state: {
+      ...state,
+      phaseState: { ...untapState, resourcePlayerPassed: true },
+    },
+  };
 }
 
 /**
@@ -4433,7 +4448,7 @@ function handleEndOfTurnSignalEnd(state: GameState, action: GameAction): Reducer
         ...state,
         activePlayer: nextPlayer,
         turnNumber: state.turnNumber + 1,
-        phaseState: { phase: Phase.Untap, hazardSideboardDestination: null, hazardSideboardFetched: 0, resourcePlayerPassed: false },
+        phaseState: { phase: Phase.Untap, hazardSideboardDestination: null, hazardSideboardFetched: 0, resourcePlayerPassed: false, hazardPlayerPassed: false },
       },
     };
   }
@@ -4454,7 +4469,7 @@ function handleEndOfTurnSignalEnd(state: GameState, action: GameAction): Reducer
         activePlayer: nextPlayer,
         turnNumber: state.turnNumber + 1,
         lastTurnFor: nextPlayer,
-        phaseState: { phase: Phase.Untap, hazardSideboardDestination: null, hazardSideboardFetched: 0, resourcePlayerPassed: false },
+        phaseState: { phase: Phase.Untap, hazardSideboardDestination: null, hazardSideboardFetched: 0, resourcePlayerPassed: false, hazardPlayerPassed: false },
       },
     };
   }

@@ -43,13 +43,15 @@ describe('2.I Untap phase', () => {
     }
   });
 
-  test('active player passes to advance from untap phase', () => {
+  test('both players pass to advance from untap phase', () => {
     let state = runFullSetup();
     expect(state.phaseState.phase).toBe(Phase.Untap);
     const activePlayer = state.activePlayer!;
+    const hazardPlayer = state.players.find(p => p.id !== activePlayer)!.id;
 
-    // Active player passes to advance
+    // Both players pass to advance
     state = runActions(state, [
+      { type: 'pass', player: hazardPlayer },
       { type: 'pass', player: activePlayer },
     ]);
 
@@ -87,8 +89,10 @@ describe('2.I Untap phase', () => {
       ],
     });
 
-    // Pass untap phase
-    const result = reduce(state, { type: 'pass', player: PLAYER_1 });
+    // Both players pass untap phase
+    let result = reduce(state, { type: 'pass', player: PLAYER_2 });
+    expect(result.error).toBeUndefined();
+    result = reduce(result.state, { type: 'pass', player: PLAYER_1 });
     expect(result.error).toBeUndefined();
 
     // Wounded character at haven should be healed to tapped (not untapped)
@@ -108,8 +112,10 @@ describe('2.I Untap phase', () => {
       ],
     });
 
-    // Pass untap phase
-    const result = reduce(state, { type: 'pass', player: PLAYER_1 });
+    // Both players pass untap phase
+    let result = reduce(state, { type: 'pass', player: PLAYER_2 });
+    expect(result.error).toBeUndefined();
+    result = reduce(result.state, { type: 'pass', player: PLAYER_1 });
     expect(result.error).toBeUndefined();
 
     // Wounded character at non-haven should remain wounded (inverted)

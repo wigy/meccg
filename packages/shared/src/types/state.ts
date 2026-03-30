@@ -527,6 +527,8 @@ export interface UntapPhaseState {
   readonly hazardSideboardFetched: number;
   /** Whether the active (resource) player has passed the untap phase. */
   readonly resourcePlayerPassed: boolean;
+  /** Whether the non-active (hazard) player has passed the untap phase. */
+  readonly hazardPlayerPassed: boolean;
 }
 
 /**

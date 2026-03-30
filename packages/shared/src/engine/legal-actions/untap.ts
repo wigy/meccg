@@ -74,6 +74,12 @@ export function untapActions(state: GameState, playerId: PlayerId): EvaluatedAct
 
   // ── Hazard player (non-active) actions ──
   if (!isActivePlayer) {
+    // If hazard player already passed, no more actions
+    if (untapState.hazardPlayerPassed) {
+      logDetail('Untap phase: hazard player already passed');
+      return actions;
+    }
+
     // Active hazard sideboard sub-flow: only fetch actions (+ pass for discard with ≥1 fetched)
     if (untapState.hazardSideboardDestination !== null) {
       return hazardSideboardFetchActions(state, playerId, untapState);
@@ -110,9 +116,9 @@ export function untapActions(state: GameState, playerId: PlayerId): EvaluatedAct
 
   // ── Active (resource) player actions ──
 
-  // If hazard sideboard sub-flow is active, resource player must wait
-  if (untapState.hazardSideboardDestination !== null) {
-    logDetail('Untap phase: resource player waiting for hazard sideboard sub-flow');
+  // If hazard sideboard sub-flow is active or resource player already passed, no actions
+  if (untapState.hazardSideboardDestination !== null || untapState.resourcePlayerPassed) {
+    logDetail('Untap phase: resource player waiting for hazard player');
     return actions;
   }
 
