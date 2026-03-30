@@ -88,6 +88,7 @@ export const LEGAL_ACTIONS_BY_PHASE: Readonly<Record<Phase, readonly GameAction[
     'move-to-influence',
     'plan-movement',
     'cancel-movement',
+    'fetch-from-sideboard',
     'corruption-check',
     'pass-chain-priority',
     'order-passives',

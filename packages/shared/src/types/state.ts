@@ -531,6 +531,19 @@ export interface OrganizationPhaseState {
    */
   readonly characterPlayedThisTurn: boolean;
   /**
+   * How many cards have been fetched from the sideboard this turn via
+   * the avatar tap action (CoE 2.II.6). Used to enforce the limit of
+   * 5 cards to discard or 1 card to deck.
+   */
+  readonly sideboardFetchedThisTurn: number;
+  /**
+   * Which destination was chosen for sideboard access this turn.
+   * Once a destination is chosen, the player must continue with the
+   * same destination (cannot mix discard and deck in one tap).
+   * Null if no sideboard access has occurred this turn.
+   */
+  readonly sideboardFetchDestination: 'discard' | 'deck' | null;
+  /**
    * When non-null, a corruption check is required for the character who
    * just gave away an item via transfer. No other organization actions
    * are legal until this check is resolved (CoE 2.II.5).

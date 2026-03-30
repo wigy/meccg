@@ -734,18 +734,24 @@ export interface DeckExhaustAction {
 }
 
 /**
- * Fetch a specific card from the sideboard into the player's hand or play deck.
+ * Fetch a specific card from the sideboard during the organization phase
+ * by tapping the player's avatar.
  *
- * The sideboard serves as a reserve of cards that can be accessed under
- * specific game conditions, allowing players to adapt their strategy
- * without being limited to their main deck contents.
+ * Per CoE rule 2.II.6, the resource player may tap their avatar to either:
+ * - bring up to 5 resources/characters from sideboard to discard pile, or
+ * - bring 1 resource/character from sideboard to play deck and shuffle
+ *   (only if the play deck has at least 5 cards).
  */
 export interface FetchFromSideboardAction {
   readonly type: 'fetch-from-sideboard';
   /** The player fetching from their sideboard. */
   readonly player: PlayerId;
-  /** The card instance to fetch from the sideboard. */
-  readonly cardInstanceId: CardInstanceId;
+  /** The avatar character being tapped (for UI highlighting via shared field name). */
+  readonly characterInstanceId: CardInstanceId;
+  /** The sideboard card being fetched. */
+  readonly sideboardCardInstanceId: CardInstanceId;
+  /** Where to place the fetched card: discard pile or play deck. */
+  readonly destination: 'discard' | 'deck';
 }
 
 // ---- Non-viable placeholder ----

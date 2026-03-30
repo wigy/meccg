@@ -957,7 +957,7 @@ export function describeAction(
     case 'play-long-event':
       return `Play long-event ${instName(action.cardInstanceId)}`;
     case 'fetch-from-sideboard':
-      return `Fetch ${instName(action.cardInstanceId)} from sideboard`;
+      return `Fetch ${instName(action.sideboardCardInstanceId)} from sideboard → ${action.destination}`;
     case 'not-playable':
       return `${instName(action.cardInstanceId)} cannot be played`;
     case 'select-company':

@@ -1286,7 +1286,7 @@ function handleUntap(state: GameState, action: GameAction): ReducerResult {
     state: {
       ...state,
       players: newPlayers,
-      phaseState: { phase: Phase.Organization, characterPlayedThisTurn: false, pendingCorruptionCheck: null },
+      phaseState: { phase: Phase.Organization, characterPlayedThisTurn: false, sideboardFetchedThisTurn: 0, sideboardFetchDestination: null, pendingCorruptionCheck: null },
     },
   };
 }
@@ -1355,6 +1355,9 @@ function handleOrganization(state: GameState, action: GameAction): ReducerResult
   }
   if (action.type === 'merge-companies') {
     return handleMergeCompanies(state, action);
+  }
+  if (action.type === 'fetch-from-sideboard') {
+    return handleFetchFromSideboard(state, action);
   }
   if (action.type === 'corruption-check') {
     return handleOrganizationCorruptionCheck(state, action);
@@ -1674,6 +1677,104 @@ function handleTransferItem(state: GameState, action: GameAction): ReducerResult
         toCharacterId: fromCharId,
       }],
       phaseState: { ...orgState, pendingCorruptionCheck: { characterId: fromCharId, transferredItemId: itemInstId } },
+    },
+  };
+}
+
+/**
+ * Handle fetch-from-sideboard during organization (CoE 2.II.6).
+ *
+ * The resource player taps their avatar to bring resources/characters from
+ * the sideboard to either the discard pile (up to 5) or the play deck (1,
+ * requires ≥5 cards in deck, triggers shuffle).
+ */
+function handleFetchFromSideboard(state: GameState, action: GameAction): ReducerResult {
+  if (action.type !== 'fetch-from-sideboard') return { state, error: 'Expected fetch-from-sideboard action' };
+
+  const playerIndex = getPlayerIndex(state, action.player);
+  const player = state.players[playerIndex];
+  const orgState = state.phaseState as OrganizationPhaseState;
+
+  // Validate card is in sideboard
+  const cardIdx = player.sideboard.indexOf(action.sideboardCardInstanceId);
+  if (cardIdx === -1) {
+    return { state, error: 'Card not found in sideboard' };
+  }
+
+  // Validate card type is resource or character
+  const inst = state.instanceMap[action.sideboardCardInstanceId as string];
+  const def = inst ? state.cardPool[inst.definitionId as string] : undefined;
+  if (!def || (!def.cardType.includes('character') && !def.cardType.includes('resource'))) {
+    return { state, error: 'Only resources and characters can be fetched from sideboard' };
+  }
+
+  // Validate destination consistency
+  if (orgState.sideboardFetchDestination !== null && orgState.sideboardFetchDestination !== action.destination) {
+    return { state, error: `Cannot mix destinations: already chose ${orgState.sideboardFetchDestination}` };
+  }
+
+  // Validate limits
+  if (action.destination === 'deck' && orgState.sideboardFetchedThisTurn >= 1) {
+    return { state, error: 'Can only fetch 1 card to play deck per avatar tap' };
+  }
+  if (action.destination === 'discard' && orgState.sideboardFetchedThisTurn >= 5) {
+    return { state, error: 'Can only fetch up to 5 cards to discard pile per avatar tap' };
+  }
+
+  // Validate deck size for deck destination
+  if (action.destination === 'deck' && player.playDeck.length < 5) {
+    return { state, error: 'Play deck must have at least 5 cards to fetch to deck' };
+  }
+
+  const newSideboard = [...player.sideboard];
+  newSideboard.splice(cardIdx, 1);
+
+  const newPlayers = clonePlayers(state);
+  let newRng = state.rng;
+
+  if (action.destination === 'discard') {
+    logDetail(`Sideboard → discard: ${def.name} (${action.sideboardCardInstanceId as string})`);
+    newPlayers[playerIndex] = {
+      ...newPlayers[playerIndex],
+      sideboard: newSideboard,
+      discardPile: [...player.discardPile, action.sideboardCardInstanceId],
+    };
+  } else {
+    logDetail(`Sideboard → play deck: ${def.name} (${action.sideboardCardInstanceId as string}), shuffling`);
+    const [shuffledDeck, nextRng] = shuffle([...player.playDeck, action.sideboardCardInstanceId], state.rng);
+    newRng = nextRng;
+    newPlayers[playerIndex] = {
+      ...newPlayers[playerIndex],
+      sideboard: newSideboard,
+      playDeck: shuffledDeck,
+    };
+  }
+
+  // Tap avatar on the first fetch using the characterInstanceId from the action
+  if (orgState.sideboardFetchedThisTurn === 0) {
+    const avatarKey = action.characterInstanceId as string;
+    const avatarChar = newPlayers[playerIndex].characters[avatarKey];
+    if (avatarChar) {
+      const charDef = state.cardPool[avatarChar.definitionId as string];
+      logDetail(`Tapping avatar ${charDef?.name ?? '?'} for sideboard access`);
+      const newChars = { ...newPlayers[playerIndex].characters };
+      newChars[avatarKey] = { ...avatarChar, status: CardStatus.Tapped };
+      newPlayers[playerIndex] = { ...newPlayers[playerIndex], characters: newChars };
+    }
+  }
+
+  const newOrgState: OrganizationPhaseState = {
+    ...orgState,
+    sideboardFetchedThisTurn: orgState.sideboardFetchedThisTurn + 1,
+    sideboardFetchDestination: action.destination,
+  };
+
+  return {
+    state: {
+      ...state,
+      players: newPlayers,
+      rng: newRng,
+      phaseState: newOrgState,
     },
   };
 }

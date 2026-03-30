@@ -24,10 +24,16 @@ import type {
   OrganizationPhaseState,
   SiteCard,
 } from '../../index.js';
-import { GENERAL_INFLUENCE, SiteType, isCharacterCard, isSiteCard, buildMovementMap, getReachableSites } from '../../index.js';
+import { GENERAL_INFLUENCE, SiteType, CardStatus, isCharacterCard, isSiteCard, buildMovementMap, getReachableSites } from '../../index.js';
 import { logDetail } from './log.js';
 import { resolveDef } from '../effects/index.js';
 import { isRegressive } from '../reverse-actions.js';
+
+/** Maximum number of sideboard cards fetchable to the discard pile per avatar tap. */
+const MAX_SIDEBOARD_TO_DISCARD = 5;
+
+/** Minimum play deck size required to fetch a sideboard card to deck. */
+const MIN_DECK_SIZE_FOR_SIDEBOARD_TO_DECK = 5;
 
 /**
  * Computes the available (unused) direct influence for a character in play.
@@ -801,6 +807,149 @@ function mergeCompaniesActions(state: GameState, playerId: PlayerId): EvaluatedA
 }
 
 /**
+ * Checks whether a card definition is a resource or character — the card types
+ * eligible for sideboard access per CoE rule 2.II.6.
+ */
+function isSideboardEligible(cardType: string): boolean {
+  return cardType.includes('character') || cardType.includes('resource');
+}
+
+/**
+ * Finds the avatar character instance ID for a player, if the avatar is untapped.
+ * Returns null if the player has no avatar in play or the avatar is not untapped.
+ */
+function findUntappedAvatar(
+  state: GameState,
+  player: { readonly characters: Readonly<Record<string, import('../../index.js').CharacterInPlay>> },
+): CardInstanceId | null {
+  for (const [key, char] of Object.entries(player.characters)) {
+    const def = resolveDef(state, char.instanceId);
+    if (isCharacterCard(def) && def.mind === null && char.status === CardStatus.Untapped) {
+      return key as CardInstanceId;
+    }
+  }
+  return null;
+}
+
+/**
+ * Finds the avatar character instance ID for a player even if already tapped.
+ * Used when the avatar was tapped earlier this turn for sideboard access and
+ * the player is still fetching additional cards.
+ */
+function findTappedAvatar(
+  state: GameState,
+  player: { readonly characters: Readonly<Record<string, import('../../index.js').CharacterInPlay>> },
+): CardInstanceId | null {
+  for (const [key, char] of Object.entries(player.characters)) {
+    const def = resolveDef(state, char.instanceId);
+    if (isCharacterCard(def) && def.mind === null) {
+      return key as CardInstanceId;
+    }
+  }
+  return null;
+}
+
+/**
+ * Generates fetch-from-sideboard actions during organization phase (CoE 2.II.6).
+ *
+ * The resource player may tap their avatar to either:
+ * - bring up to 5 resources/characters from sideboard to discard pile, or
+ * - if play deck has ≥5 cards, bring 1 resource/character from sideboard to play deck and shuffle.
+ *
+ * Once a destination is chosen (discard or deck), the player must continue with
+ * the same destination. The avatar is tapped on the first fetch.
+ */
+function fetchFromSideboardActions(state: GameState, playerId: PlayerId): EvaluatedAction[] {
+  const orgState = state.phaseState as OrganizationPhaseState;
+  const player = state.players.find(p => p.id === playerId)!;
+  const actions: EvaluatedAction[] = [];
+
+  // If already used deck destination (1 card max), no more fetches possible
+  if (orgState.sideboardFetchDestination === 'deck' && orgState.sideboardFetchedThisTurn >= 1) {
+    logDetail('Sideboard access: already fetched 1 card to deck this turn');
+    return actions;
+  }
+
+  // If already fetched 5 to discard, no more fetches possible
+  if (orgState.sideboardFetchDestination === 'discard' && orgState.sideboardFetchedThisTurn >= MAX_SIDEBOARD_TO_DISCARD) {
+    logDetail('Sideboard access: already fetched 5 cards to discard this turn');
+    return actions;
+  }
+
+  // Check avatar is untapped (or already tapped for this sideboard access)
+  const avatarId = findUntappedAvatar(state, player);
+  const alreadyStarted = orgState.sideboardFetchedThisTurn > 0;
+
+  if (!avatarId && !alreadyStarted) {
+    logDetail('Sideboard access: no untapped avatar');
+    return actions;
+  }
+
+  // No sideboard cards available
+  if (player.sideboard.length === 0) {
+    logDetail('Sideboard access: sideboard is empty');
+    return actions;
+  }
+
+  // Find eligible sideboard cards (resources and characters)
+  const eligibleCards: { instanceId: CardInstanceId; name: string }[] = [];
+  for (const cardId of player.sideboard) {
+    const def = resolveDef(state, cardId);
+    if (def && isSideboardEligible(def.cardType)) {
+      eligibleCards.push({ instanceId: cardId, name: def.name });
+    }
+  }
+
+  if (eligibleCards.length === 0) {
+    logDetail('Sideboard access: no eligible resources/characters in sideboard');
+    return actions;
+  }
+
+  // Determine which destinations are available
+  const canFetchToDiscard = orgState.sideboardFetchDestination === null || orgState.sideboardFetchDestination === 'discard';
+  const canFetchToDeck = (orgState.sideboardFetchDestination === null || orgState.sideboardFetchDestination === 'deck')
+    && player.playDeck.length >= MIN_DECK_SIZE_FOR_SIDEBOARD_TO_DECK;
+
+  // Resolve the avatar instance ID — either still untapped or already tapped for this access
+  const resolvedAvatarId = avatarId ?? findTappedAvatar(state, player);
+  if (!resolvedAvatarId) {
+    logDetail('Sideboard access: no avatar found');
+    return actions;
+  }
+
+  for (const card of eligibleCards) {
+    if (canFetchToDiscard) {
+      logDetail(`Sideboard access: ${card.name} → discard pile (viable)`);
+      actions.push({
+        action: {
+          type: 'fetch-from-sideboard',
+          player: playerId,
+          characterInstanceId: resolvedAvatarId,
+          sideboardCardInstanceId: card.instanceId,
+          destination: 'discard',
+        },
+        viable: true,
+      });
+    }
+    if (canFetchToDeck) {
+      logDetail(`Sideboard access: ${card.name} → play deck (viable)`);
+      actions.push({
+        action: {
+          type: 'fetch-from-sideboard',
+          player: playerId,
+          characterInstanceId: resolvedAvatarId,
+          sideboardCardInstanceId: card.instanceId,
+          destination: 'deck',
+        },
+        viable: true,
+      });
+    }
+  }
+
+  return actions;
+}
+
+/**
  * Computes all legal actions during the organization phase.
  *
  * Returns {@link EvaluatedAction} items so that non-viable play-character
@@ -936,6 +1085,9 @@ export function organizationActions(state: GameState, playerId: PlayerId): Evalu
 
   // Merge-companies actions (join entire company into another at same site)
   actions.push(...mergeCompaniesActions(state, playerId));
+
+  // Fetch-from-sideboard actions (tap avatar to bring cards from sideboard)
+  actions.push(...fetchFromSideboardActions(state, playerId));
 
   actions.push({ action: { type: 'pass', player: playerId }, viable: true });
   return actions;

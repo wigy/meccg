@@ -18,7 +18,7 @@ import type { PlayerId, GameState, CardDefinitionId, CardInstanceId, GameAction 
 import {
   ARAGORN, BILBO, FRODO, LEGOLAS, GIMLI, FARAMIR,
   EOWYN, BEREGOND, BERGIL, BARD_BOWMAN, ANBORN, SAM_GAMGEE,
-  THEODEN, ELROND, CELEBORN, GLORFINDEL_II,
+  THEODEN, ELROND, CELEBORN, GLORFINDEL_II, GANDALF,
   GLAMDRING, STING, THE_MITHRIL_COAT, THE_ONE_RING, DAGGER_OF_WESTERNESSE, HORN_OF_ANOR,
   CAVE_DRAKE, ORC_PATROL, BARROW_WIGHT,
   SUN, EYE_OF_SAURON, GATES_OF_MORNING, TWILIGHT, DOORS_OF_NIGHT,
@@ -283,6 +283,7 @@ export interface PlayerSetup {
   siteDeck: CardDefinitionId[];
   playDeck?: CardDefinitionId[];
   discardPile?: CardDefinitionId[];
+  sideboard?: CardDefinitionId[];
   cardsInPlay?: CardInPlay[];
 }
 
@@ -392,6 +393,7 @@ export function buildTestState(opts: BuildTestStateOpts): GameState {
 
     const playDeck = (setup.playDeck ?? []).map(defId => mintFor(defId));
     const discardPile = (setup.discardPile ?? []).map(defId => mintFor(defId));
+    const sideboard = (setup.sideboard ?? []).map(defId => mintFor(defId));
 
     return {
       id: setup.id,
@@ -403,7 +405,7 @@ export function buildTestState(opts: BuildTestStateOpts): GameState {
       discardPile,
       siteDeck,
       siteDiscardPile: [] as CardInstanceId[],
-      sideboard: [] as CardInstanceId[],
+      sideboard,
       killPile: [] as CardInstanceId[],
       eliminatedPile: [] as CardInstanceId[],
       companies,
@@ -421,7 +423,7 @@ export function buildTestState(opts: BuildTestStateOpts): GameState {
   const phase = opts.phase ?? Phase.Organization;
   let phaseState: GameState['phaseState'];
   if (phase === Phase.Organization) {
-    phaseState = { phase: Phase.Organization, characterPlayedThisTurn: false, pendingCorruptionCheck: null } as GameState['phaseState'];
+    phaseState = { phase: Phase.Organization, characterPlayedThisTurn: false, sideboardFetchedThisTurn: 0, sideboardFetchDestination: null, pendingCorruptionCheck: null } as GameState['phaseState'];
   } else if (phase === Phase.EndOfTurn) {
     phaseState = { phase: Phase.EndOfTurn, step: 'discard', discardDone: [false, false] } as GameState['phaseState'];
   } else {
@@ -483,7 +485,7 @@ export {
   Phase, Alignment,
   ARAGORN, BILBO, FRODO, LEGOLAS, GIMLI, FARAMIR,
   EOWYN, BEREGOND, BERGIL, BARD_BOWMAN, ANBORN, SAM_GAMGEE,
-  THEODEN, ELROND, CELEBORN, GLORFINDEL_II,
+  THEODEN, ELROND, CELEBORN, GLORFINDEL_II, GANDALF,
   GLAMDRING, STING, THE_MITHRIL_COAT, THE_ONE_RING, DAGGER_OF_WESTERNESSE, HORN_OF_ANOR,
   CAVE_DRAKE, ORC_PATROL, BARROW_WIGHT,
   SUN, EYE_OF_SAURON, GATES_OF_MORNING, TWILIGHT, DOORS_OF_NIGHT,

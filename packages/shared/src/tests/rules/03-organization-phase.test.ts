@@ -13,18 +13,20 @@
 import { describe, test, expect } from 'vitest';
 import {
   pool, PLAYER_1, PLAYER_2,
-  runActions,
+  runActions, reduce,
   Phase,
   ARAGORN, BILBO, LEGOLAS, GIMLI, FARAMIR,
   EOWYN, BEREGOND,
+  GANDALF,
   DAGGER_OF_WESTERNESSE,
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
-  buildTestState,
+  buildTestState, makePlayDeck,
 } from '../test-helpers.js';
 import { computeLegalActions } from '../../engine/legal-actions/index.js';
 import type {
   EvaluatedAction, PlayerId,
   PlayCharacterAction, MoveToInfluenceAction, TransferItemAction, PlanMovementAction,
+  FetchFromSideboardAction, CardStatus,
 } from '../../index.js';
 
 function buildOrgState(opts: { activePlayer: PlayerId; players: Parameters<typeof buildTestState>[0]['players'] }) {
@@ -629,7 +631,214 @@ describe('2.II Storing and transferring items', () => {
 // ─── 2.II.6: Sideboard Access ────────────────────────────────────────────────
 
 describe('2.II Sideboard access', () => {
-  test.todo('[2.II.6] tap avatar to access sideboard: bring 5 resources/chars to discard or 1 to deck');
+  test('[2.II.6] tap avatar to fetch resource from sideboard to discard pile', () => {
+    const state = buildOrgState({
+      activePlayer: PLAYER_1,
+      players: [
+        {
+          id: PLAYER_1,
+          hand: [],
+          siteDeck: [MORIA],
+          playDeck: makePlayDeck(),
+          sideboard: [EOWYN, DAGGER_OF_WESTERNESSE],
+          companies: [{ site: RIVENDELL, characters: [{ defId: GANDALF }] }],
+        },
+        {
+          id: PLAYER_2,
+          hand: [],
+          siteDeck: [LORIEN],
+          companies: [{ site: LORIEN, characters: [{ defId: LEGOLAS }] }],
+        },
+      ],
+    });
+
+    const actions = computeLegalActions(state, PLAYER_1);
+    const fetchActions = viableOfType(actions, 'fetch-from-sideboard');
+
+    // 2 sideboard cards × 2 destinations = 4 actions
+    expect(fetchActions.length).toBe(4);
+
+    // Execute a fetch to discard
+    const fetchToDiscard = fetchActions.find(
+      a => (a.action as FetchFromSideboardAction).destination === 'discard',
+    )!;
+    const result = reduce(state, fetchToDiscard.action);
+    expect(result.error).toBeUndefined();
+
+    const p1 = result.state.players.find(p => p.id === PLAYER_1)!;
+    // Card moved from sideboard to discard
+    expect(p1.sideboard).toHaveLength(1);
+    expect(p1.discardPile.length).toBeGreaterThan(0);
+
+    // Avatar should be tapped
+    const avatar = Object.values(p1.characters).find(c => {
+      const def = pool[c.definitionId as string];
+      return def && 'mind' in def && (def as { mind: number | null }).mind === null;
+    })!;
+    expect(avatar.status).toBe('tapped');
+  });
+
+  test('[2.II.6] tap avatar to fetch resource from sideboard to play deck (requires ≥5 cards)', () => {
+    const state = buildOrgState({
+      activePlayer: PLAYER_1,
+      players: [
+        {
+          id: PLAYER_1,
+          hand: [],
+          siteDeck: [MORIA],
+          playDeck: makePlayDeck(),
+          sideboard: [EOWYN],
+          companies: [{ site: RIVENDELL, characters: [{ defId: GANDALF }] }],
+        },
+        {
+          id: PLAYER_2,
+          hand: [],
+          siteDeck: [LORIEN],
+          companies: [{ site: LORIEN, characters: [{ defId: LEGOLAS }] }],
+        },
+      ],
+    });
+
+    const actions = computeLegalActions(state, PLAYER_1);
+    const fetchToDeck = viableOfType(actions, 'fetch-from-sideboard').filter(
+      a => (a.action as FetchFromSideboardAction).destination === 'deck',
+    );
+    expect(fetchToDeck).toHaveLength(1);
+
+    const deckSizeBefore = state.players.find(p => p.id === PLAYER_1)!.playDeck.length;
+    const result = reduce(state, fetchToDeck[0].action);
+    expect(result.error).toBeUndefined();
+
+    const p1 = result.state.players.find(p => p.id === PLAYER_1)!;
+    expect(p1.sideboard).toHaveLength(0);
+    expect(p1.playDeck.length).toBe(deckSizeBefore + 1);
+  });
+
+  test('[2.II.6] no fetch-to-deck if play deck has fewer than 5 cards', () => {
+    const state = buildOrgState({
+      activePlayer: PLAYER_1,
+      players: [
+        {
+          id: PLAYER_1,
+          hand: [],
+          siteDeck: [MORIA],
+          playDeck: [DAGGER_OF_WESTERNESSE, DAGGER_OF_WESTERNESSE], // only 2 cards
+          sideboard: [EOWYN],
+          companies: [{ site: RIVENDELL, characters: [{ defId: GANDALF }] }],
+        },
+        {
+          id: PLAYER_2,
+          hand: [],
+          siteDeck: [LORIEN],
+          companies: [{ site: LORIEN, characters: [{ defId: LEGOLAS }] }],
+        },
+      ],
+    });
+
+    const actions = computeLegalActions(state, PLAYER_1);
+    const fetchToDeck = viableOfType(actions, 'fetch-from-sideboard').filter(
+      a => (a.action as FetchFromSideboardAction).destination === 'deck',
+    );
+    expect(fetchToDeck).toHaveLength(0);
+
+    // But fetch to discard should still be available
+    const fetchToDiscard = viableOfType(actions, 'fetch-from-sideboard').filter(
+      a => (a.action as FetchFromSideboardAction).destination === 'discard',
+    );
+    expect(fetchToDiscard).toHaveLength(1);
+  });
+
+  test('[2.II.6] no sideboard access if avatar is already tapped', () => {
+    const state = buildOrgState({
+      activePlayer: PLAYER_1,
+      players: [
+        {
+          id: PLAYER_1,
+          hand: [],
+          siteDeck: [MORIA],
+          sideboard: [EOWYN],
+          companies: [{ site: RIVENDELL, characters: [{ defId: GANDALF, status: 'tapped' as CardStatus }] }],
+        },
+        {
+          id: PLAYER_2,
+          hand: [],
+          siteDeck: [LORIEN],
+          companies: [{ site: LORIEN, characters: [{ defId: LEGOLAS }] }],
+        },
+      ],
+    });
+
+    const actions = computeLegalActions(state, PLAYER_1);
+    const fetchActions = viableOfType(actions, 'fetch-from-sideboard');
+    expect(fetchActions).toHaveLength(0);
+  });
+
+  test('[2.II.6] no sideboard access if no avatar in play', () => {
+    const state = buildOrgState({
+      activePlayer: PLAYER_1,
+      players: [
+        {
+          id: PLAYER_1,
+          hand: [],
+          siteDeck: [MORIA],
+          sideboard: [EOWYN],
+          companies: [{ site: RIVENDELL, characters: [{ defId: ARAGORN }] }],
+        },
+        {
+          id: PLAYER_2,
+          hand: [],
+          siteDeck: [LORIEN],
+          companies: [{ site: LORIEN, characters: [{ defId: LEGOLAS }] }],
+        },
+      ],
+    });
+
+    const actions = computeLegalActions(state, PLAYER_1);
+    const fetchActions = viableOfType(actions, 'fetch-from-sideboard');
+    expect(fetchActions).toHaveLength(0);
+  });
+
+  test('[2.II.6] can fetch up to 5 cards to discard, not more', () => {
+    const state = buildOrgState({
+      activePlayer: PLAYER_1,
+      players: [
+        {
+          id: PLAYER_1,
+          hand: [],
+          siteDeck: [MORIA],
+          sideboard: [
+            EOWYN, BEREGOND, FARAMIR, BILBO, ARAGORN,
+            DAGGER_OF_WESTERNESSE,
+          ],
+          companies: [{ site: RIVENDELL, characters: [{ defId: GANDALF }] }],
+        },
+        {
+          id: PLAYER_2,
+          hand: [],
+          siteDeck: [LORIEN],
+          companies: [{ site: LORIEN, characters: [{ defId: LEGOLAS }] }],
+        },
+      ],
+    });
+
+    // Fetch 5 cards to discard one at a time
+    let current = state;
+    for (let i = 0; i < 5; i++) {
+      const actions = computeLegalActions(current, PLAYER_1);
+      const fetches = viableOfType(actions, 'fetch-from-sideboard').filter(
+        a => (a.action as FetchFromSideboardAction).destination === 'discard',
+      );
+      expect(fetches.length).toBeGreaterThan(0);
+      const result = reduce(current, fetches[0].action);
+      expect(result.error).toBeUndefined();
+      current = result.state;
+    }
+
+    // After 5 fetches, no more fetch-to-discard should be available
+    const finalActions = computeLegalActions(current, PLAYER_1);
+    const remaining = viableOfType(finalActions, 'fetch-from-sideboard');
+    expect(remaining).toHaveLength(0);
+  });
 });
 
 // ─── 2.II.7: Declaring Movement ──────────────────────────────────────────────
