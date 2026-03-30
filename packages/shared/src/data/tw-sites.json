@@ -516,5 +516,36 @@
     "hazardDraws": 2,
     "text": "Nearest Haven: Edhellond.",
     "effects": []
+  },
+  {
+    "cardType": "hero-site",
+    "alignment": "wizard",
+    "id": "tw-433",
+    "name": "Tolfalas",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Tolfalas.jpg",
+    "siteType": "ruins-and-lairs",
+    "sitePath": [
+      "wilderness",
+      "free",
+      "coastal"
+    ],
+    "nearestHaven": "Edhellond",
+    "region": "Mouths of the Anduin",
+    "playableResources": [
+      "minor",
+      "major",
+      "greater"
+    ],
+    "automaticAttacks": [
+      {
+        "creatureType": "Undead",
+        "strikes": 3,
+        "prowess": 7
+      }
+    ],
+    "resourceDraws": 2,
+    "hazardDraws": 2,
+    "text": "Nearest Haven: Edhellond. Playable: Items (minor, major, greater*) *-Scroll of Isildur only. Automatic-attacks: Undead — 3 strikes with 7 prowess; each character wounded must make a corruption check.",
+    "effects": []
   }
 ]
