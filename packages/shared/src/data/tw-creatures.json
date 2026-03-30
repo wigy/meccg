@@ -116,5 +116,31 @@
     "effects": [],
     "text": "Unique. Troll. One strike. If played against a company that faced \"William\" or \"Tom\" this turn, each character wounded by \"Bert\" discards all non-special items he bears.",
     "race": "troll"
+  },
+  {
+    "cardType": "hazard-creature",
+    "id": "tw-072",
+    "name": "Orc-guard",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Orcguard.jpg",
+    "unique": false,
+    "strikes": 5,
+    "prowess": 8,
+    "body": null,
+    "killMarshallingPoints": 1,
+    "keyedTo": [
+      {
+        "regionTypes": [
+          "shadow",
+          "dark"
+        ],
+        "siteTypes": [
+          "shadow-hold",
+          "dark-hold"
+        ]
+      }
+    ],
+    "effects": [],
+    "text": "Orcs. Five strikes.",
+    "race": "orc"
   }
 ]
