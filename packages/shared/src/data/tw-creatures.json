@@ -224,5 +224,27 @@
     "effects": [],
     "text": "Orcs. Three strikes.",
     "race": "orc"
+  },
+  {
+    "cardType": "hazard-creature",
+    "id": "tw-103",
+    "name": "Tom (Tuma)",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/TomTuma.jpg",
+    "unique": true,
+    "strikes": 1,
+    "prowess": 13,
+    "body": null,
+    "killMarshallingPoints": 1,
+    "keyedTo": [
+      {
+        "regionTypes": [
+          "wilderness",
+          "wilderness"
+        ]
+      }
+    ],
+    "effects": [],
+    "text": "Unique. Troll. One strike. If played against a company that faced \"Bert\" or \"William\" this turn, each character wounded by \"Tom\" discards all non-special items he bears.",
+    "race": "troll"
   }
 ]
