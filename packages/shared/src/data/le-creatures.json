@@ -1,0 +1,24 @@
+[
+  {
+    "cardType": "hazard-creature",
+    "id": "le-77",
+    "name": "Hobgoblins",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/Hobgoblins.jpg",
+    "unique": false,
+    "strikes": 2,
+    "prowess": 10,
+    "body": null,
+    "killMarshallingPoints": 1,
+    "keyedTo": [
+      {
+        "regionTypes": [
+          "wilderness",
+          "wilderness"
+        ]
+      }
+    ],
+    "effects": [],
+    "text": "Orcs. Two strikes.",
+    "race": "orc"
+  }
+]

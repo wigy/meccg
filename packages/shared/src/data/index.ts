@@ -28,6 +28,7 @@ import asSites from './as-sites.json';
 
 // ---- The Lidless Eye (LE) — minion expansion ----
 import leCharacters from './le-characters.json';
+import leCreatures from './le-creatures.json';
 import leResources from './le-resources.json';
 import leSites from './le-sites.json';
 
@@ -68,6 +69,7 @@ const allCards: readonly CardDefinition[] = [
   ...(asSites as unknown as CardDefinition[]),
   // The Lidless Eye
   ...(leCharacters as unknown as CardDefinition[]),
+  ...(leCreatures as unknown as CardDefinition[]),
   ...(leResources as unknown as CardDefinition[]),
   ...(leSites as unknown as CardDefinition[]),
   // The White Hand
