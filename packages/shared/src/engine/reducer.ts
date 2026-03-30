@@ -1308,7 +1308,7 @@ function handleUntap(state: GameState, action: GameAction): ReducerResult {
     return {
       state: {
         ...state,
-        phaseState: { ...untapState, hazardSideboardDestination: destination },
+        phaseState: { ...untapState, hazardSideboardDestination: destination, hazardPlayerPassed: false },
       },
     };
   }

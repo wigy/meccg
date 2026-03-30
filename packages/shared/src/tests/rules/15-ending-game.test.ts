@@ -42,7 +42,7 @@ describe('10 Deck exhaustion', () => {
   test.todo('[10] on exhaust: discard cards that would be discarded, return sites to location deck');
 
   test('[10] on exhaust: exchange up to 5 cards between discard and sideboard', () => {
-    // Build EoT reset-hand state with empty play deck, cards in discard and sideboard
+    // Build state with cards in playDeck that we'll move to discard
     const state = buildTestState({
       activePlayer: PLAYER_1,
       phase: Phase.EndOfTurn,
@@ -50,7 +50,7 @@ describe('10 Deck exhaustion', () => {
         {
           id: PLAYER_1,
           hand: [],
-          playDeck: [],
+          playDeck: [DAGGER_OF_WESTERNESSE, BARROW_WIGHT],
           sideboard: [CAVE_DRAKE, ORC_PATROL],
           companies: [{ site: RIVENDELL, characters: [{ defId: GANDALF }] }],
           siteDeck: [MORIA],
@@ -63,26 +63,24 @@ describe('10 Deck exhaustion', () => {
         },
       ],
     });
-    // Override phase state to reset-hand step with non-empty discard
-    const withPhase = {
+
+    // Move playDeck cards to discard to simulate empty deck with discard
+    const p1 = state.players[0];
+    const withState: typeof state = {
       ...state,
       phaseState: { phase: Phase.EndOfTurn, step: 'reset-hand', discardDone: [true, true] } as typeof state.phaseState,
-      players: state.players.map((p, i) => i === 0
-        ? { ...p, discardPile: [DAGGER_OF_WESTERNESSE, BARROW_WIGHT].map(id => {
-          // Use existing instances from the mint
-          const inst = Object.entries(state.instanceMap).find(([, v]) => v.definitionId === id);
-          return inst ? inst[0] as typeof p.discardPile[0] : id as typeof p.discardPile[0];
-        }) }
-        : p,
-      ),
+      players: [
+        { ...p1, playDeck: [], discardPile: [...p1.playDeck] },
+        state.players[1],
+      ] as typeof state.players,
     };
 
     // Step 1: deck-exhaust enters the exchange sub-flow
-    const actions = computeLegalActions(withPhase, PLAYER_1);
+    const actions = computeLegalActions(withState, PLAYER_1);
     const exhaustActions = viableOfType(actions, 'deck-exhaust');
     expect(exhaustActions).toHaveLength(1);
 
-    const exhaustResult = reduce(withPhase, exhaustActions[0].action);
+    const exhaustResult = reduce(withState, exhaustActions[0].action);
     expect(exhaustResult.error).toBeUndefined();
     expect(exhaustResult.state.players[0].deckExhaustPending).toBe(true);
 
