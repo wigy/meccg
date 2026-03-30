@@ -26,7 +26,7 @@ import { computeLegalActions } from '../../engine/legal-actions/index.js';
 import type {
   EvaluatedAction, PlayerId,
   PlayCharacterAction, MoveToInfluenceAction, TransferItemAction, PlanMovementAction,
-  FetchFromSideboardAction, CardStatus,
+  CardStatus,
 } from '../../index.js';
 
 function buildOrgState(opts: { activePlayer: PlayerId; players: Parameters<typeof buildTestState>[0]['players'] }) {
@@ -631,7 +631,7 @@ describe('2.II Storing and transferring items', () => {
 // ─── 2.II.6: Sideboard Access ────────────────────────────────────────────────
 
 describe('2.II Sideboard access', () => {
-  test('[2.II.6] tap avatar to fetch resource from sideboard to discard pile', () => {
+  test('[2.II.6] two-step flow: start-to-discard taps avatar, then fetch moves card', () => {
     const state = buildOrgState({
       activePlayer: PLAYER_1,
       players: [
@@ -652,33 +652,45 @@ describe('2.II Sideboard access', () => {
       ],
     });
 
+    // Step 1: intent actions available (no direct fetch actions)
     const actions = computeLegalActions(state, PLAYER_1);
-    const fetchActions = viableOfType(actions, 'fetch-from-sideboard');
+    const startToDiscard = viableOfType(actions, 'start-sideboard-to-discard');
+    const startToDeck = viableOfType(actions, 'start-sideboard-to-deck');
+    expect(startToDiscard).toHaveLength(1);
+    expect(startToDeck).toHaveLength(1);
+    expect(viableOfType(actions, 'fetch-from-sideboard')).toHaveLength(0);
 
-    // 2 sideboard cards × 2 destinations = 4 actions
-    expect(fetchActions.length).toBe(4);
-
-    // Execute a fetch to discard
-    const fetchToDiscard = fetchActions.find(
-      a => (a.action as FetchFromSideboardAction).destination === 'discard',
-    )!;
-    const result = reduce(state, fetchToDiscard.action);
-    expect(result.error).toBeUndefined();
-
-    const p1 = result.state.players.find(p => p.id === PLAYER_1)!;
-    // Card moved from sideboard to discard
-    expect(p1.sideboard).toHaveLength(1);
-    expect(p1.discardPile.length).toBeGreaterThan(0);
+    // Execute start-to-discard — avatar taps, enters sub-flow
+    const startResult = reduce(state, startToDiscard[0].action);
+    expect(startResult.error).toBeUndefined();
 
     // Avatar should be tapped
-    const avatar = Object.values(p1.characters).find(c => {
+    const p1After = startResult.state.players.find(p => p.id === PLAYER_1)!;
+    const avatar = Object.values(p1After.characters).find(c => {
       const def = pool[c.definitionId as string];
       return def && 'mind' in def && (def as { mind: number | null }).mind === null;
     })!;
     expect(avatar.status).toBe('tapped');
+
+    // Step 2: now fetch actions are available (no pass yet — must fetch at least 1)
+    const fetchActions = computeLegalActions(startResult.state, PLAYER_1);
+    const fetches = viableOfType(fetchActions, 'fetch-from-sideboard');
+    expect(fetches.length).toBe(2); // 2 eligible sideboard cards
+    expect(viableOfType(fetchActions, 'pass')).toHaveLength(0); // no pass before first fetch
+
+    // Fetch one card
+    const fetchResult = reduce(startResult.state, fetches[0].action);
+    expect(fetchResult.error).toBeUndefined();
+    const p1Final = fetchResult.state.players.find(p => p.id === PLAYER_1)!;
+    expect(p1Final.sideboard).toHaveLength(1);
+    expect(p1Final.discardPile.length).toBeGreaterThan(0);
+
+    // Now pass should be available (at least 1 card fetched)
+    const afterFetch = computeLegalActions(fetchResult.state, PLAYER_1);
+    expect(viableOfType(afterFetch, 'pass')).toHaveLength(1);
   });
 
-  test('[2.II.6] tap avatar to fetch resource from sideboard to play deck (requires ≥5 cards)', () => {
+  test('[2.II.6] two-step flow: start-to-deck fetches exactly 1, then exits sub-flow', () => {
     const state = buildOrgState({
       activePlayer: PLAYER_1,
       players: [
@@ -699,22 +711,35 @@ describe('2.II Sideboard access', () => {
       ],
     });
 
+    // Start to deck
     const actions = computeLegalActions(state, PLAYER_1);
-    const fetchToDeck = viableOfType(actions, 'fetch-from-sideboard').filter(
-      a => (a.action as FetchFromSideboardAction).destination === 'deck',
-    );
-    expect(fetchToDeck).toHaveLength(1);
+    const startToDeck = viableOfType(actions, 'start-sideboard-to-deck');
+    expect(startToDeck).toHaveLength(1);
 
-    const deckSizeBefore = state.players.find(p => p.id === PLAYER_1)!.playDeck.length;
-    const result = reduce(state, fetchToDeck[0].action);
-    expect(result.error).toBeUndefined();
+    const startResult = reduce(state, startToDeck[0].action);
+    expect(startResult.error).toBeUndefined();
 
-    const p1 = result.state.players.find(p => p.id === PLAYER_1)!;
+    // Fetch actions available — must pick exactly 1 (no pass)
+    const fetchActions = computeLegalActions(startResult.state, PLAYER_1);
+    const fetches = viableOfType(fetchActions, 'fetch-from-sideboard');
+    expect(fetches).toHaveLength(1);
+    expect(viableOfType(fetchActions, 'pass')).toHaveLength(0);
+
+    const deckSizeBefore = startResult.state.players.find(p => p.id === PLAYER_1)!.playDeck.length;
+    const fetchResult = reduce(startResult.state, fetches[0].action);
+    expect(fetchResult.error).toBeUndefined();
+
+    const p1 = fetchResult.state.players.find(p => p.id === PLAYER_1)!;
     expect(p1.sideboard).toHaveLength(0);
     expect(p1.playDeck.length).toBe(deckSizeBefore + 1);
+
+    // Sub-flow should be exited — normal org actions resume (pass advances to long-event)
+    const afterFetch = computeLegalActions(fetchResult.state, PLAYER_1);
+    expect(viableOfType(afterFetch, 'fetch-from-sideboard')).toHaveLength(0);
+    expect(viableOfType(afterFetch, 'pass')).toHaveLength(1);
   });
 
-  test('[2.II.6] no fetch-to-deck if play deck has fewer than 5 cards', () => {
+  test('[2.II.6] no start-to-deck if play deck has fewer than 5 cards', () => {
     const state = buildOrgState({
       activePlayer: PLAYER_1,
       players: [
@@ -736,16 +761,9 @@ describe('2.II Sideboard access', () => {
     });
 
     const actions = computeLegalActions(state, PLAYER_1);
-    const fetchToDeck = viableOfType(actions, 'fetch-from-sideboard').filter(
-      a => (a.action as FetchFromSideboardAction).destination === 'deck',
-    );
-    expect(fetchToDeck).toHaveLength(0);
-
-    // But fetch to discard should still be available
-    const fetchToDiscard = viableOfType(actions, 'fetch-from-sideboard').filter(
-      a => (a.action as FetchFromSideboardAction).destination === 'discard',
-    );
-    expect(fetchToDiscard).toHaveLength(1);
+    expect(viableOfType(actions, 'start-sideboard-to-deck')).toHaveLength(0);
+    // But start-to-discard should still be available
+    expect(viableOfType(actions, 'start-sideboard-to-discard')).toHaveLength(1);
   });
 
   test('[2.II.6] no sideboard access if avatar is already tapped', () => {
@@ -769,8 +787,8 @@ describe('2.II Sideboard access', () => {
     });
 
     const actions = computeLegalActions(state, PLAYER_1);
-    const fetchActions = viableOfType(actions, 'fetch-from-sideboard');
-    expect(fetchActions).toHaveLength(0);
+    expect(viableOfType(actions, 'start-sideboard-to-deck')).toHaveLength(0);
+    expect(viableOfType(actions, 'start-sideboard-to-discard')).toHaveLength(0);
   });
 
   test('[2.II.6] no sideboard access if no avatar in play', () => {
@@ -794,8 +812,8 @@ describe('2.II Sideboard access', () => {
     });
 
     const actions = computeLegalActions(state, PLAYER_1);
-    const fetchActions = viableOfType(actions, 'fetch-from-sideboard');
-    expect(fetchActions).toHaveLength(0);
+    expect(viableOfType(actions, 'start-sideboard-to-deck')).toHaveLength(0);
+    expect(viableOfType(actions, 'start-sideboard-to-discard')).toHaveLength(0);
   });
 
   test('[2.II.6] can fetch up to 5 cards to discard, not more', () => {
@@ -821,23 +839,59 @@ describe('2.II Sideboard access', () => {
       ],
     });
 
+    // Start to discard
+    const startActions = computeLegalActions(state, PLAYER_1);
+    const startResult = reduce(state, viableOfType(startActions, 'start-sideboard-to-discard')[0].action);
+    expect(startResult.error).toBeUndefined();
+
     // Fetch 5 cards to discard one at a time
-    let current = state;
+    let current = startResult.state;
     for (let i = 0; i < 5; i++) {
       const actions = computeLegalActions(current, PLAYER_1);
-      const fetches = viableOfType(actions, 'fetch-from-sideboard').filter(
-        a => (a.action as FetchFromSideboardAction).destination === 'discard',
-      );
+      const fetches = viableOfType(actions, 'fetch-from-sideboard');
       expect(fetches.length).toBeGreaterThan(0);
       const result = reduce(current, fetches[0].action);
       expect(result.error).toBeUndefined();
       current = result.state;
     }
 
-    // After 5 fetches, no more fetch-to-discard should be available
+    // After 5 fetches, no more fetch actions should be available
     const finalActions = computeLegalActions(current, PLAYER_1);
-    const remaining = viableOfType(finalActions, 'fetch-from-sideboard');
-    expect(remaining).toHaveLength(0);
+    expect(viableOfType(finalActions, 'fetch-from-sideboard')).toHaveLength(0);
+  });
+
+  test('[2.II.6] pass during discard sub-flow exits back to normal organization', () => {
+    const state = buildOrgState({
+      activePlayer: PLAYER_1,
+      players: [
+        {
+          id: PLAYER_1,
+          hand: [],
+          siteDeck: [MORIA],
+          playDeck: makePlayDeck(),
+          sideboard: [EOWYN, DAGGER_OF_WESTERNESSE],
+          companies: [{ site: RIVENDELL, characters: [{ defId: GANDALF }] }],
+        },
+        {
+          id: PLAYER_2,
+          hand: [],
+          siteDeck: [LORIEN],
+          companies: [{ site: LORIEN, characters: [{ defId: LEGOLAS }] }],
+        },
+      ],
+    });
+
+    // Start to discard, fetch 1, then pass
+    const startResult = reduce(state, viableOfType(computeLegalActions(state, PLAYER_1), 'start-sideboard-to-discard')[0].action);
+    const fetchResult = reduce(startResult.state, viableOfType(computeLegalActions(startResult.state, PLAYER_1), 'fetch-from-sideboard')[0].action);
+    const passResult = reduce(fetchResult.state, viableOfType(computeLegalActions(fetchResult.state, PLAYER_1), 'pass')[0].action);
+    expect(passResult.error).toBeUndefined();
+
+    // Should be back in normal organization — plan-movement etc. available, not fetch
+    const afterPass = computeLegalActions(passResult.state, PLAYER_1);
+    expect(viableOfType(afterPass, 'fetch-from-sideboard')).toHaveLength(0);
+    // The pass that advances to long-event should be available
+    expect(viableOfType(afterPass, 'pass')).toHaveLength(1);
   });
 });
 

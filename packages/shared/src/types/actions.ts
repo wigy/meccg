@@ -734,24 +734,55 @@ export interface DeckExhaustAction {
 }
 
 /**
- * Fetch a specific card from the sideboard during the organization phase
- * by tapping the player's avatar.
+ * Declare intent to fetch 1 card from sideboard to the play deck.
  *
- * Per CoE rule 2.II.6, the resource player may tap their avatar to either:
- * - bring up to 5 resources/characters from sideboard to discard pile, or
- * - bring 1 resource/character from sideboard to play deck and shuffle
- *   (only if the play deck has at least 5 cards).
+ * Per CoE rule 2.II.6, the resource player taps their avatar and then
+ * selects exactly 1 resource/character from the sideboard to shuffle
+ * into the play deck. Requires at least 5 cards in the play deck.
+ *
+ * This action taps the avatar and enters the sideboard-to-deck sub-flow.
+ * The player must then select a card via {@link FetchFromSideboardAction}.
+ */
+export interface StartSideboardToDeckAction {
+  readonly type: 'start-sideboard-to-deck';
+  /** The player starting sideboard access. */
+  readonly player: PlayerId;
+  /** The avatar character being tapped. */
+  readonly characterInstanceId: CardInstanceId;
+}
+
+/**
+ * Declare intent to fetch up to 5 cards from sideboard to the discard pile.
+ *
+ * Per CoE rule 2.II.6, the resource player taps their avatar and then
+ * selects 1–5 resources/characters from the sideboard to place in the
+ * discard pile.
+ *
+ * This action taps the avatar and enters the sideboard-to-discard sub-flow.
+ * The player then selects cards one at a time via {@link FetchFromSideboardAction},
+ * and may pass after at least 1 card has been fetched.
+ */
+export interface StartSideboardToDiscardAction {
+  readonly type: 'start-sideboard-to-discard';
+  /** The player starting sideboard access. */
+  readonly player: PlayerId;
+  /** The avatar character being tapped. */
+  readonly characterInstanceId: CardInstanceId;
+}
+
+/**
+ * Fetch a specific card from the sideboard during the sideboard access sub-flow.
+ *
+ * Can only be used after a {@link StartSideboardToDeckAction} or
+ * {@link StartSideboardToDiscardAction} has been executed. The destination
+ * (deck or discard) is determined by which start action was used.
  */
 export interface FetchFromSideboardAction {
   readonly type: 'fetch-from-sideboard';
   /** The player fetching from their sideboard. */
   readonly player: PlayerId;
-  /** The avatar character being tapped (for UI highlighting via shared field name). */
-  readonly characterInstanceId: CardInstanceId;
   /** The sideboard card being fetched. */
   readonly sideboardCardInstanceId: CardInstanceId;
-  /** Where to place the fetched card: discard pile or play deck. */
-  readonly destination: 'discard' | 'deck';
 }
 
 // ---- Non-viable placeholder ----
@@ -860,6 +891,8 @@ export type GameAction =
   | PassAction
   | CallFreeCouncilAction
   | DeckExhaustAction
+  | StartSideboardToDeckAction
+  | StartSideboardToDiscardAction
   | FetchFromSideboardAction
   | PassChainPriorityAction
   | OrderPassivesAction

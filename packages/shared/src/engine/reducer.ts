@@ -1297,6 +1297,18 @@ function handleOrganization(state: GameState, action: GameAction): ReducerResult
     return handlePlayCharacter(state, action);
   }
   if (action.type === 'pass') {
+    // Pass during sideboard-to-discard sub-flow exits the sub-flow, not the phase
+    const orgState = state.phaseState as OrganizationPhaseState;
+    if (orgState.sideboardFetchDestination === 'discard') {
+      logDetail(`Sideboard access: player ${action.player as string} done fetching to discard (${orgState.sideboardFetchedThisTurn} cards)`);
+      return {
+        state: {
+          ...state,
+          phaseState: { ...orgState, sideboardFetchDestination: null },
+        },
+      };
+    }
+
     logDetail(`Organization: player ${action.player as string} passed → advancing to Long-event phase`);
 
     // [2.III.1] At beginning of long-event phase: resource player discards own resource long-events
@@ -1355,6 +1367,9 @@ function handleOrganization(state: GameState, action: GameAction): ReducerResult
   }
   if (action.type === 'merge-companies') {
     return handleMergeCompanies(state, action);
+  }
+  if (action.type === 'start-sideboard-to-deck' || action.type === 'start-sideboard-to-discard') {
+    return handleStartSideboard(state, action);
   }
   if (action.type === 'fetch-from-sideboard') {
     return handleFetchFromSideboard(state, action);
@@ -1682,11 +1697,47 @@ function handleTransferItem(state: GameState, action: GameAction): ReducerResult
 }
 
 /**
+ * Handle start-sideboard-to-deck / start-sideboard-to-discard during organization.
+ *
+ * Taps the avatar and enters the sideboard sub-flow by setting the destination
+ * in the organization phase state. No card is moved yet.
+ */
+function handleStartSideboard(state: GameState, action: GameAction): ReducerResult {
+  if (action.type !== 'start-sideboard-to-deck' && action.type !== 'start-sideboard-to-discard') {
+    return { state, error: 'Expected start-sideboard action' };
+  }
+
+  const playerIndex = getPlayerIndex(state, action.player);
+  const orgState = state.phaseState as OrganizationPhaseState;
+  const destination = action.type === 'start-sideboard-to-deck' ? 'deck' : 'discard';
+
+  // Tap the avatar
+  const newPlayers = clonePlayers(state);
+  const avatarKey = action.characterInstanceId as string;
+  const avatarChar = newPlayers[playerIndex].characters[avatarKey];
+  if (avatarChar) {
+    const charDef = state.cardPool[avatarChar.definitionId as string];
+    logDetail(`Tapping avatar ${charDef?.name ?? '?'} for sideboard access (${destination})`);
+    const newChars = { ...newPlayers[playerIndex].characters };
+    newChars[avatarKey] = { ...avatarChar, status: CardStatus.Tapped };
+    newPlayers[playerIndex] = { ...newPlayers[playerIndex], characters: newChars };
+  }
+
+  return {
+    state: {
+      ...state,
+      players: newPlayers,
+      phaseState: { ...orgState, sideboardFetchDestination: destination },
+    },
+  };
+}
+
+/**
  * Handle fetch-from-sideboard during organization (CoE 2.II.6).
  *
- * The resource player taps their avatar to bring resources/characters from
- * the sideboard to either the discard pile (up to 5) or the play deck (1,
- * requires ≥5 cards in deck, triggers shuffle).
+ * Moves a card from the sideboard to the destination determined by the
+ * active sub-flow (set by start-sideboard-to-deck/discard). For deck
+ * destination, also shuffles and exits the sub-flow.
  */
 function handleFetchFromSideboard(state: GameState, action: GameAction): ReducerResult {
   if (action.type !== 'fetch-from-sideboard') return { state, error: 'Expected fetch-from-sideboard action' };
@@ -1694,6 +1745,10 @@ function handleFetchFromSideboard(state: GameState, action: GameAction): Reducer
   const playerIndex = getPlayerIndex(state, action.player);
   const player = state.players[playerIndex];
   const orgState = state.phaseState as OrganizationPhaseState;
+
+  if (orgState.sideboardFetchDestination === null) {
+    return { state, error: 'No sideboard access sub-flow active' };
+  }
 
   // Validate card is in sideboard
   const cardIdx = player.sideboard.indexOf(action.sideboardCardInstanceId);
@@ -1708,22 +1763,14 @@ function handleFetchFromSideboard(state: GameState, action: GameAction): Reducer
     return { state, error: 'Only resources and characters can be fetched from sideboard' };
   }
 
-  // Validate destination consistency
-  if (orgState.sideboardFetchDestination !== null && orgState.sideboardFetchDestination !== action.destination) {
-    return { state, error: `Cannot mix destinations: already chose ${orgState.sideboardFetchDestination}` };
-  }
+  const destination = orgState.sideboardFetchDestination;
 
   // Validate limits
-  if (action.destination === 'deck' && orgState.sideboardFetchedThisTurn >= 1) {
+  if (destination === 'deck' && orgState.sideboardFetchedThisTurn >= 1) {
     return { state, error: 'Can only fetch 1 card to play deck per avatar tap' };
   }
-  if (action.destination === 'discard' && orgState.sideboardFetchedThisTurn >= 5) {
+  if (destination === 'discard' && orgState.sideboardFetchedThisTurn >= 5) {
     return { state, error: 'Can only fetch up to 5 cards to discard pile per avatar tap' };
-  }
-
-  // Validate deck size for deck destination
-  if (action.destination === 'deck' && player.playDeck.length < 5) {
-    return { state, error: 'Play deck must have at least 5 cards to fetch to deck' };
   }
 
   const newSideboard = [...player.sideboard];
@@ -1732,7 +1779,7 @@ function handleFetchFromSideboard(state: GameState, action: GameAction): Reducer
   const newPlayers = clonePlayers(state);
   let newRng = state.rng;
 
-  if (action.destination === 'discard') {
+  if (destination === 'discard') {
     logDetail(`Sideboard → discard: ${def.name} (${action.sideboardCardInstanceId as string})`);
     newPlayers[playerIndex] = {
       ...newPlayers[playerIndex],
@@ -1750,23 +1797,11 @@ function handleFetchFromSideboard(state: GameState, action: GameAction): Reducer
     };
   }
 
-  // Tap avatar on the first fetch using the characterInstanceId from the action
-  if (orgState.sideboardFetchedThisTurn === 0) {
-    const avatarKey = action.characterInstanceId as string;
-    const avatarChar = newPlayers[playerIndex].characters[avatarKey];
-    if (avatarChar) {
-      const charDef = state.cardPool[avatarChar.definitionId as string];
-      logDetail(`Tapping avatar ${charDef?.name ?? '?'} for sideboard access`);
-      const newChars = { ...newPlayers[playerIndex].characters };
-      newChars[avatarKey] = { ...avatarChar, status: CardStatus.Tapped };
-      newPlayers[playerIndex] = { ...newPlayers[playerIndex], characters: newChars };
-    }
-  }
-
   const newOrgState: OrganizationPhaseState = {
     ...orgState,
     sideboardFetchedThisTurn: orgState.sideboardFetchedThisTurn + 1,
-    sideboardFetchDestination: action.destination,
+    // Deck destination: exit sub-flow after 1 card; discard: stay in sub-flow
+    sideboardFetchDestination: destination === 'deck' ? null : destination,
   };
 
   return {

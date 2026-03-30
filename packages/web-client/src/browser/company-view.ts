@@ -28,6 +28,9 @@ import type {
   SelectCompanyAction,
   DeclarePathAction,
   RegionType,
+  StartSideboardToDeckAction,
+  StartSideboardToDiscardAction,
+  CorruptionCheckAction,
 } from '@meccg/shared';
 import { cardImageProxyPath, isCharacterCard, isItemCard, isSiteCard, Phase, CardStatus, viableActions, describeAction, getTitleCharacter, buildInstanceLookup } from '@meccg/shared';
 import type { CardDefinitionId } from '@meccg/shared';
@@ -582,6 +585,84 @@ function dismissTooltip(): void {
 }
 
 /**
+ * Open a sideboard browser modal for the active fetch-from-sideboard sub-flow.
+ * Shows eligible sideboard cards; clicking one sends the fetch action.
+ * For discard mode with ≥1 fetched, also shows a "Done" button (pass).
+ */
+function openSideboardForFetch(
+  fetchActions: GameAction[],
+  passAction: GameAction | null,
+  cardPool: Readonly<Record<string, CardDefinition>>,
+  onAction: (action: GameAction) => void,
+): void {
+  // Dismiss any existing modal first
+  dismissSideboardModal();
+
+  const backdrop = document.createElement('div');
+  backdrop.className = 'char-action-backdrop sideboard-fetch-backdrop';
+
+  const modal = document.createElement('div');
+  modal.className = 'sideboard-fetch-modal';
+
+  const title = document.createElement('div');
+  title.className = 'sideboard-fetch-title';
+  title.textContent = 'Fetch from Sideboard';
+  modal.appendChild(title);
+
+  const grid = document.createElement('div');
+  grid.className = 'sideboard-fetch-grid';
+
+  for (const action of fetchActions) {
+    if (action.type !== 'fetch-from-sideboard') continue;
+    const cardInstId = action.sideboardCardInstanceId as string;
+    const defId = cachedInstanceLookup(cardInstId as CardInstanceId);
+    const def = defId ? cardPool[defId as string] : undefined;
+    const imgPath = def ? cardImageProxyPath(def) : undefined;
+
+    const img = document.createElement('img');
+    img.src = imgPath ?? '/images/card-back.jpg';
+    img.alt = def?.name ?? 'Unknown card';
+    img.className = 'sideboard-fetch-card';
+    if (defId) img.dataset.cardId = defId as string;
+    img.style.cursor = 'pointer';
+
+    img.addEventListener('click', (e) => {
+      e.stopPropagation();
+      dismissSideboardModal();
+      onAction(action);
+    });
+
+    grid.appendChild(img);
+  }
+
+  modal.appendChild(grid);
+
+  // "Done" button when pass is available (discard mode with ≥1 fetched)
+  if (passAction) {
+    const doneBtn = document.createElement('button');
+    doneBtn.className = 'char-action-tooltip__btn';
+    doneBtn.style.marginTop = '0.6rem';
+    doneBtn.textContent = 'Done';
+    doneBtn.onclick = (e) => {
+      e.stopPropagation();
+      dismissSideboardModal();
+      onAction(passAction);
+    };
+    modal.appendChild(doneBtn);
+  }
+
+  backdrop.onclick = () => dismissSideboardModal();
+  document.body.appendChild(backdrop);
+  document.body.appendChild(modal);
+}
+
+/** Remove sideboard fetch modal and its backdrop. */
+function dismissSideboardModal(): void {
+  document.querySelector('.sideboard-fetch-modal')?.remove();
+  document.querySelector('.sideboard-fetch-backdrop')?.remove();
+}
+
+/**
  * Show a small tooltip near a character card with action choices:
  * "Reassign Influence" and "Split / Move Company".
  */
@@ -595,6 +676,8 @@ function showCharacterActionTooltip(
     splitActions?: Map<string, SplitCompanyAction>;
     moveToCompanyActions?: Map<string, MoveToCompanyAction[]>;
     mergeActions?: Map<string, MergeCompaniesAction[]>;
+    sideboardIntentActions?: Map<string, (StartSideboardToDeckAction | StartSideboardToDiscardAction)[]>;
+    corruptionCheckActions?: Map<string, CorruptionCheckAction>;
     companyId?: CompanyId;
   },
 ): void {
@@ -684,6 +767,35 @@ function showCharacterActionTooltip(
     tooltip.appendChild(btn);
   }
 
+  const sideboardIntents = options.sideboardIntentActions?.get(charInstId as string);
+  if (sideboardIntents && sideboardIntents.length > 0) {
+    for (const intent of sideboardIntents) {
+      const btn = document.createElement('button');
+      btn.className = 'char-action-tooltip__btn';
+      btn.textContent = intent.type === 'start-sideboard-to-deck'
+        ? 'Fetch to Deck' : 'Fetch to Discard';
+      btn.onclick = (e) => {
+        e.stopPropagation();
+        dismissTooltip();
+        onAction(intent);
+      };
+      tooltip.appendChild(btn);
+    }
+  }
+
+  const ccAction = options.corruptionCheckActions?.get(charInstId as string);
+  if (ccAction) {
+    const btn = document.createElement('button');
+    btn.className = 'char-action-tooltip__btn';
+    btn.textContent = 'Corruption Check';
+    btn.onclick = (e) => {
+      e.stopPropagation();
+      dismissTooltip();
+      onAction(ccAction);
+    };
+    tooltip.appendChild(btn);
+  }
+
   // Create a modal backdrop that blocks interaction and dismisses on click
   const backdrop = document.createElement('div');
   backdrop.className = 'char-action-backdrop';
@@ -722,6 +834,10 @@ function renderCompanyBlock(
     moveToCompanyActions?: Map<string, MoveToCompanyAction[]>;
     /** Map from source company ID → merge-companies actions for that company. */
     mergeActions?: Map<string, MergeCompaniesAction[]>;
+    /** Map from avatar character instance ID → sideboard intent actions. */
+    sideboardIntentActions?: Map<string, (StartSideboardToDeckAction | StartSideboardToDiscardAction)[]>;
+    /** Map from character instance ID → corruption-check action. */
+    corruptionCheckActions?: Map<string, CorruptionCheckAction>;
   },
 ): HTMLElement {
   const block = document.createElement('div');
@@ -1027,7 +1143,7 @@ function renderCompanyBlock(
     return acts && acts.length > 0 ? acts : undefined;
   };
 
-  /** Combine influence, transfer-target, and company-move click handlers for a character. */
+  /** Combine all character click handlers into one: if one action type, take it; if multiple, show tooltip. */
   const buildCombinedClick = (charInstId: CardInstanceId): { cls: string; handler: (e: Event) => void } | undefined => {
     // Transfer targeting takes priority when active
     if (transferItemSourceId) return buildTransferTargetClick(charInstId);
@@ -1045,12 +1161,16 @@ function renderCompanyBlock(
     // Influence targeting takes priority when active
     if (influenceMoveSourceId) return buildInfluenceClick(charInstId);
 
+    // Gather all action types available for this character
     const influenceResult = buildInfluenceClick(charInstId);
     const companyResult = buildCompanyMoveClick(charInstId);
     const mergeActionsForChar = getMergeActionsForChar(charInstId);
+    const sideboardIntents = options?.sideboardIntentActions?.get(charInstId as string);
+    const hasSideboard = sideboardIntents && sideboardIntents.length > 0;
+    const ccAction = options?.corruptionCheckActions?.get(charInstId as string);
 
     // Count how many action types are available
-    const actionTypes = [influenceResult, companyResult, mergeActionsForChar].filter(Boolean).length;
+    const actionTypes = [influenceResult, companyResult, mergeActionsForChar, hasSideboard, ccAction].filter(Boolean).length;
 
     if (actionTypes === 0) return undefined;
 
@@ -1062,7 +1182,9 @@ function renderCompanyBlock(
 
     // Multiple types — always show tooltip for disambiguation
     if (actionTypes > 1) {
-      const cls = influenceResult?.cls || companyResult?.cls || mergeCls;
+      const cls = influenceResult?.cls || companyResult?.cls || mergeCls
+        || (hasSideboard ? 'company-card--influence-source' : '')
+        || (ccAction ? 'company-card--influence-source' : '');
       return {
         cls,
         handler: (e) => {
@@ -1076,7 +1198,7 @@ function renderCompanyBlock(
     }
 
     // Single type: merge only — enter merge flow directly
-    if (mergeActionsForChar && !influenceResult && !companyResult) {
+    if (mergeActionsForChar) {
       return {
         cls: mergeCls,
         handler: (e) => {
@@ -1088,6 +1210,40 @@ function renderCompanyBlock(
             setTargetingInstruction('Click a company to join into');
             renderCompanyViews(lastView!, lastCardPool!, lastOnAction!);
           }
+        },
+      };
+    }
+
+    // Single type: sideboard access — if only one intent, execute directly; otherwise show tooltip
+    if (hasSideboard) {
+      if (sideboardIntents.length === 1) {
+        return {
+          cls: 'company-card--influence-source',
+          handler: (e) => {
+            e.stopPropagation();
+            options!.onAction!(sideboardIntents[0]);
+          },
+        };
+      }
+      return {
+        cls: 'company-card--influence-source',
+        handler: (e) => {
+          e.stopPropagation();
+          showCharacterActionTooltip(e.target as HTMLElement, charInstId, cardPool, {
+            ...options!,
+            companyId: company.id,
+          });
+        },
+      };
+    }
+
+    // Single type: corruption check — execute directly
+    if (ccAction) {
+      return {
+        cls: 'company-card--influence-source',
+        handler: (e) => {
+          e.stopPropagation();
+          options!.onAction!(ccAction);
         },
       };
     }
@@ -1207,6 +1363,35 @@ function getMergeCompaniesActions(view: PlayerView): Map<string, MergeCompaniesA
     const existing = result.get(key) ?? [];
     existing.push(action);
     result.set(key, existing);
+  }
+  return result;
+}
+
+/**
+ * Collect all viable sideboard intent actions (start-sideboard-to-deck/discard),
+ * keyed by the avatar character instance ID.
+ */
+function getSideboardIntentActions(view: PlayerView): Map<string, (StartSideboardToDeckAction | StartSideboardToDiscardAction)[]> {
+  const result = new Map<string, (StartSideboardToDeckAction | StartSideboardToDiscardAction)[]>();
+  for (const action of viableActions(view.legalActions)) {
+    if (action.type !== 'start-sideboard-to-deck' && action.type !== 'start-sideboard-to-discard') continue;
+    const key = action.characterInstanceId as string;
+    const existing = result.get(key) ?? [];
+    existing.push(action);
+    result.set(key, existing);
+  }
+  return result;
+}
+
+/**
+ * Collect all viable corruption-check actions, keyed by the character instance ID.
+ * Each character can have at most one corruption check action.
+ */
+function getCorruptionCheckActions(view: PlayerView): Map<string, CorruptionCheckAction> {
+  const result = new Map<string, CorruptionCheckAction>();
+  for (const action of viableActions(view.legalActions)) {
+    if (action.type !== 'corruption-check') continue;
+    result.set(action.characterId as string, action);
   }
   return result;
 }
@@ -1357,7 +1542,9 @@ function renderSingleView(
   const transferActions = owner === 'self' ? getTransferItemActions(view) : undefined;
   const splitActions = owner === 'self' ? getSplitCompanyActions(view) : undefined;
   const moveToCompanyActs = owner === 'self' ? getMoveToCompanyActions(view) : undefined;
-  single.appendChild(renderCompanyBlock(company, charMap, view, cardPool, owner, { hideTitle: true, hasLegalMovement, onAction: lastOnAction!, influenceActions, transferActions, splitActions, moveToCompanyActions: moveToCompanyActs }));
+  const sideboardIntentActs = owner === 'self' ? getSideboardIntentActions(view) : undefined;
+  const ccActions = owner === 'self' ? getCorruptionCheckActions(view) : undefined;
+  single.appendChild(renderCompanyBlock(company, charMap, view, cardPool, owner, { hideTitle: true, hasLegalMovement, onAction: lastOnAction!, influenceActions, transferActions, splitActions, moveToCompanyActions: moveToCompanyActs, sideboardIntentActions: sideboardIntentActs, corruptionCheckActions: ccActions }));
 
   // Right arrow — next company
   if (cycleCompanies.length > 1) {
@@ -1406,6 +1593,10 @@ function renderAllCompaniesView(
   const moveToCompanyActs = getMoveToCompanyActions(view);
   const mergeActions = getMergeCompaniesActions(view);
 
+  // Fetch-from-sideboard and corruption-check actions (for avatar / character clicks)
+  const sideboardIntentActs = getSideboardIntentActions(view);
+  const ccActions = getCorruptionCheckActions(view);
+
   // Select-company actions (M/H phase company selection)
   const selectCompanyActions = new Map<string, SelectCompanyAction>();
   for (const a of viableActions(view.legalActions)) {
@@ -1423,7 +1614,7 @@ function renderAllCompaniesView(
   // Self companies
   for (const company of view.self.companies) {
     const hasLegalMovement = movableIds.has(company.id as string);
-    const block = renderCompanyBlock(company, view.self.characters, view, cardPool, 'self', { hasLegalMovement, onAction: lastOnAction!, influenceActions, transferActions, splitActions, moveToCompanyActions: moveToCompanyActs, mergeActions });
+    const block = renderCompanyBlock(company, view.self.characters, view, cardPool, 'self', { hasLegalMovement, onAction: lastOnAction!, influenceActions, transferActions, splitActions, moveToCompanyActions: moveToCompanyActs, mergeActions, sideboardIntentActions: sideboardIntentActs, corruptionCheckActions: ccActions });
 
     if (selectCompanyActions.size > 0) {
       // M/H phase select-company step: highlight selectable companies
@@ -1808,5 +1999,15 @@ export function renderCompanyViews(
 
   // Toggle icon on the right edge of the board
   renderViewToggle(board, showingSingle, view, cardPool);
+
+  // Auto-open sideboard browser when in the sideboard sub-flow
+  const viable = viableActions(view.legalActions);
+  const fetchActions = viable.filter(a => a.type === 'fetch-from-sideboard');
+  if (fetchActions.length > 0) {
+    const passAction = viable.find(a => a.type === 'pass') ?? null;
+    openSideboardForFetch(fetchActions, passAction, cardPool, onAction);
+  } else {
+    dismissSideboardModal();
+  }
 }
 

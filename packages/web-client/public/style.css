@@ -3241,6 +3241,50 @@ h2 {
   border-color: rgba(196, 163, 90, 0.7);
 }
 
+/* Sideboard fetch modal — shows sideboard cards for avatar fetch action */
+.sideboard-fetch-modal {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: var(--z-action-menu);
+  background: rgba(15, 12, 8, 0.95);
+  border: 1px solid rgba(196, 163, 90, 0.5);
+  border-radius: 8px;
+  padding: 1.2rem;
+  max-width: 80vw;
+  max-height: 85vh;
+  overflow-y: auto;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.9);
+  backdrop-filter: blur(8px);
+}
+
+.sideboard-fetch-title {
+  color: #c4a35a;
+  font-family: 'MedievalSharp', serif;
+  font-size: 1.1rem;
+  text-align: center;
+  margin-bottom: 0.8rem;
+}
+
+.sideboard-fetch-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: center;
+}
+
+.sideboard-fetch-card {
+  height: 25vh;
+  border-radius: 4px;
+  transition: transform 0.15s, box-shadow 0.15s;
+}
+
+.sideboard-fetch-card:hover {
+  transform: scale(1.05);
+  box-shadow: 0 0 12px rgba(196, 163, 90, 0.7);
+}
+
 .path-choice-detail {
   display: flex;
   align-items: center;
