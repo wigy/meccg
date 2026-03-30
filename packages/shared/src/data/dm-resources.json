@@ -11,5 +11,18 @@
     "marshallingCategory": "misc",
     "effects": [],
     "text": "Bring one resource or character from your sideboard or discard pile into your play deck and shuffle."
+  },
+  {
+    "cardType": "hero-resource-event",
+    "alignment": "wizard",
+    "id": "dm-155",
+    "name": "Rebuild the Town",
+    "image": "https://cdn.jsdelivr.net/gh/council-of-rivendell/meccg-remaster/en-remaster/dm/RebuildtheTown.jpg",
+    "unique": false,
+    "eventType": "permanent",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Playable during the site phase on a non-Dragon's lair, non-Under-deeps Ruins & Lairs [R]. The site becomes a Border-hold [B] and all automatic-attacks are removed. Discard Rebuild the Town when the site is discarded or returned to its location deck."
   }
 ]
