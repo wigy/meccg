@@ -215,9 +215,8 @@ function connect(name: string): void {
           showNotification(isMine ? 'Your turn' : "Opponent's turn");
         }
         lastPhase = msg.view.phaseState.phase;
-        // Prepare/clear site selection based on phase
-        if (msg.view.phaseState.phase === 'setup'
-          && msg.view.phaseState.setupStep.step === 'starting-site-selection') {
+        // Prepare/clear site selection based on legal actions
+        if (msg.view.legalActions.some(ea => ea.action.type === 'select-starting-site')) {
           prepareSiteSelection(msg.view, cardPool, sendAction);
         } else {
           clearSiteSelection();
@@ -568,6 +567,7 @@ function showScreen(id: ScreenId): void {
 
 /** IDs of decks the player already owns. */
 let ownedDeckIds = new Set<string>();
+let myDeckSelectInstalled = false;
 /** Currently selected deck ID. */
 let currentDeckId: string | null = null;
 
@@ -779,6 +779,34 @@ async function loadDecks(): Promise<void> {
       renderCompactDeck(previewContainer, currentFullDeck);
     } else {
       previewContainer.innerHTML = '<p class="lobby-empty">No deck selected</p>';
+    }
+  }
+
+  // Populate my deck dropdown
+  const mySelect = document.getElementById('my-deck-select') as HTMLSelectElement | null;
+  if (mySelect) {
+    mySelect.innerHTML = '';
+    if (myDecks.length === 0) {
+      const opt = document.createElement('option');
+      opt.value = '';
+      opt.textContent = 'No decks available';
+      opt.disabled = true;
+      mySelect.appendChild(opt);
+    } else {
+      for (const deck of myDecks) {
+        const opt = document.createElement('option');
+        opt.value = deck.id;
+        const missing = missingCards(deck);
+        opt.textContent = missing.length > 0 ? `\u26A0 ${deck.name}` : deck.name;
+        opt.selected = deck.id === currentDeckId;
+        mySelect.appendChild(opt);
+      }
+    }
+    if (!myDeckSelectInstalled) {
+      myDeckSelectInstalled = true;
+      mySelect.addEventListener('change', () => {
+        if (mySelect.value) void selectDeck(mySelect.value);
+      });
     }
   }
 

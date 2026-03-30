@@ -748,7 +748,14 @@ h2 {
 }
 
 .lobby-actions {
-  margin-top: 1.5rem;
+  margin-top: 1rem;
+}
+
+.lobby-select-label {
+  display: block;
+  font-size: 0.8rem;
+  color: #aaa;
+  margin-bottom: 0.25rem;
 }
 
 .lobby-deck-select {
