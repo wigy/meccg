@@ -81,5 +81,15 @@
       }
     ],
     "text": "The number of strikes and prowess of each Orc and Troll attack are each increased by one (by two for Orc attacks if Doors of Night is in play). Cannot be duplicated."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "tw-18",
+    "name": "Call of Home",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/CallofHome.jpg",
+    "unique": false,
+    "eventType": "short",
+    "effects": [],
+    "text": "Playable on a non-Ringwraith, non-Wizard character not bearing The One Ring. The character's player makes a roll. The character returns to his player's hand if the result plus his player's unused general influence is less than 10. Any one item held by the removed character may automatically be transferred to another character in his company (all other non-follower cards he controls are discarded)."
   }
 ]
