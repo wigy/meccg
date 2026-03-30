@@ -596,7 +596,8 @@ function renderState(input: RenderInput): string {
     const diceMarker = player.lastDiceRoll
       ? ` «DICE:${player.lastDiceRoll.die1},${player.lastDiceRoll.die2},${pi === 0 ? 'black' : 'red'}»`
       : '';
-    lines.push(`${player.name} [${player.alignment}]${wizardLabel}: «MP:${mpData}»${totalMP} MP${giLabel}${diceMarker}`);
+    const mpComponents = `C=${selfAdj.character} I=${selfAdj.item} F=${selfAdj.faction} A=${selfAdj.ally} K=${selfAdj.kill} M=${selfAdj.misc}`;
+    lines.push(`${player.name} [${player.alignment}]${wizardLabel}: «MP:${mpData}»${totalMP} MP (${mpComponents})${giLabel}${diceMarker}`);
     if (player.handCards.length > 0) {
       // Group duplicate cards: "3 x Cave-drake" instead of "Cave-drake, Cave-drake, Cave-drake"
       const counts = new Map<string, { name: string; count: number }>();

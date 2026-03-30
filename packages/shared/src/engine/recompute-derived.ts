@@ -212,6 +212,12 @@ function recomputePlayer(state: GameState, player: PlayerState, inPlayNames: rea
     }
   }
 
+  // Cards in play: factions, permanent events, etc.
+  for (const card of player.cardsInPlay) {
+    const def = resolveDef(state, card.instanceId);
+    if (def) mp = addMP(mp, def);
+  }
+
   // Kill pile: defeated creatures earn kill MP
   for (const id of player.killPile) {
     const def = resolveDef(state, id);
