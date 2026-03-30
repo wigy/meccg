@@ -963,6 +963,13 @@ h2 {
   cursor: default;
 }
 
+.lobby-delete-btn {
+  background: #c0392b !important;
+}
+.lobby-delete-btn:hover {
+  background: #e74c3c !important;
+}
+
 /* ---- Compact deck preview ---- */
 
 #current-deck-preview {

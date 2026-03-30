@@ -32,31 +32,64 @@ export function formatSignedNumber(value: number): string {
   return value >= 0 ? `+${value}` : `${value}`;
 }
 
-// ---- ANSI colors ----
+// ---- Card type colors (single source of truth) ----
+
+/**
+ * CSS color styles for each card type. This is the canonical color mapping
+ * used by all rendering paths (web client, text client, deck editor, etc.).
+ */
+export const CARD_TYPE_CSS: Readonly<Record<string, string>> = {
+  'hero-character': 'color:#6090e0;font-weight:bold',
+  'hero-resource-item': 'color:#d0a040',
+  'hero-resource-faction': 'color:#50b0b0',
+  'hero-resource-ally': 'color:#60c060',
+  'hero-resource-event': 'color:#60c060',
+  'hazard-creature': 'color:#e06060',
+  'hazard-event': 'color:#e06060',
+  'hazard-corruption': 'color:#e06060',
+  'hero-site': 'color:#d0d0d0',
+  'minion-character': 'color:#c070c0;font-weight:bold',
+  'minion-resource-item': 'color:#666',
+  'minion-resource-faction': 'color:#666',
+  'minion-resource-ally': 'color:#666',
+  'minion-site': 'color:#d0d0d0',
+  'balrog-site': 'color:#d0d040',
+  'fallen-wizard-site': 'color:#d0d0d0',
+  'region': 'color:#6090e0;opacity:0.6',
+};
+
+// ---- ANSI colors (derived from CARD_TYPE_CSS) ----
 
 const RESET = '\x1b[0m';
 const BOLD = '\x1b[1m';
 const DIM = '\x1b[2m';
 
-const COLORS: Record<string, string> = {
-  'hero-character': `${BOLD}\x1b[34m`,
-  'hero-resource-item': '\x1b[33m',
-  'hero-resource-faction': '\x1b[36m',
-  'hero-resource-ally': '\x1b[32m',
-  'hero-resource-event': '\x1b[32m',
-  'hazard-creature': '\x1b[31m',
-  'hazard-event': '\x1b[35m',
-  'hazard-corruption': `${DIM}\x1b[35m`,
-  'hero-site': '\x1b[37m',
-  'minion-character': `${BOLD}\x1b[35m`,
-  'minion-resource-item': '\x1b[90m',
-  'minion-resource-faction': '\x1b[90m',
-  'minion-resource-ally': '\x1b[90m',
-  'minion-site': '\x1b[37m',
-  'balrog-site': '\x1b[93m',
-  'fallen-wizard-site': '\x1b[37m',
-  'region': `${DIM}\x1b[34m`,
+/** Map CSS hex colors to ANSI escape codes. */
+const CSS_TO_ANSI: Record<string, string> = {
+  '#6090e0': '\x1b[34m',  // blue
+  '#d0a040': '\x1b[33m',  // yellow
+  '#50b0b0': '\x1b[36m',  // cyan
+  '#60c060': '\x1b[32m',  // green
+  '#e06060': '\x1b[31m',  // red
+  '#d0d0d0': '\x1b[37m',  // white
+  '#c070c0': '\x1b[35m',  // magenta
+  '#666': '\x1b[90m',     // grey
+  '#d0d040': '\x1b[93m',  // bright yellow
 };
+
+/** Derive ANSI color codes from the canonical CSS map. */
+function cssToAnsi(css: string): string {
+  let ansi = '';
+  if (css.includes('font-weight:bold')) ansi += BOLD;
+  if (css.includes('opacity:0.6')) ansi += DIM;
+  const colorMatch = css.match(/color:(#[0-9a-f]+)/i);
+  if (colorMatch) ansi += CSS_TO_ANSI[colorMatch[1]] ?? '';
+  return ansi || '\x1b[37m';
+}
+
+const COLORS: Record<string, string> = Object.fromEntries(
+  Object.entries(CARD_TYPE_CSS).map(([type, css]) => [type, cssToAnsi(css)]),
+);
 
 /** Color for debug information (IDs, raw JSON). */
 const DEBUG_COLOR = `${DIM}\x1b[90m`;

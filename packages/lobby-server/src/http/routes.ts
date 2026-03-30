@@ -34,7 +34,7 @@ import { broadcastNotification } from '../lobby/lobby.js';
 import { sendMail, writeSentCopy, listInbox, listSent, readMessage, deleteMessage, updateMessageStatus, countUnread } from '../mail/store.js';
 import type { MailSender, MailStatus, MailTopic } from '../mail/types.js';
 import { lobbyLog } from '../lobby-log.js';
-import { findPlayer, findPlayerByEmail, createPlayer, listPlayerDecks, listCatalogDecks, findDeckById, savePlayerDeck, getCurrentDeck, setCurrentDeck, getDisplayName, setDisplayName, touchLastMailView } from '../players/store.js';
+import { findPlayer, findPlayerByEmail, createPlayer, listPlayerDecks, listCatalogDecks, findDeckById, savePlayerDeck, deletePlayerDeck, getCurrentDeck, setCurrentDeck, getDisplayName, setDisplayName, touchLastMailView } from '../players/store.js';
 import { hashPassword, verifyPassword } from '../auth/password.js';
 import { signLobbyToken } from '../auth/jwt.js';
 import { getSessionPlayer, setSessionCookie, clearSessionCookie } from '../auth/session.js';
@@ -377,6 +377,21 @@ export async function handleRequest(req: http.IncomingMessage, res: http.ServerR
     } catch (err) {
       lobbyLog.log('error', { context: 'save-deck', error: String(err) });
       sendJson(res, 500, { error: 'Failed to save deck' });
+    }
+    return;
+  }
+
+  if (urlPath.startsWith('/api/my-decks/') && method === 'DELETE' && urlPath !== '/api/my-decks/current') {
+    const playerName = getSessionPlayer(req);
+    if (!playerName) { sendJson(res, 401, { error: 'Not logged in' }); return; }
+    const deckId = decodeURIComponent(urlPath.slice('/api/my-decks/'.length));
+    if (!deckId) { sendJson(res, 400, { error: 'Deck ID required' }); return; }
+    const deleted = deletePlayerDeck(playerName, deckId);
+    if (deleted) {
+      lobbyLog.log('deck-deleted', { player: playerName, deck: deckId });
+      sendJson(res, 200, { ok: true });
+    } else {
+      sendJson(res, 404, { error: 'Deck not found' });
     }
     return;
   }

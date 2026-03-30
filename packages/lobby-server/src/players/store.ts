@@ -119,6 +119,19 @@ export function savePlayerDeck(name: string, deck: { id: string; [key: string]: 
   fs.writeFileSync(path.join(dir, filename), JSON.stringify(deck, null, 2));
 }
 
+/** Delete a deck from a player's collection. Returns true if the file existed. */
+export function deletePlayerDeck(name: string, deckId: string): boolean {
+  const dir = decksDir(name);
+  const filename = deckId.replace(/[^a-z0-9-]/g, '-') + '.json';
+  const filePath = path.join(dir, filename);
+  try {
+    fs.unlinkSync(filePath);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 // ---- Current deck selection ----
 
 /** Get the player's currently selected deck ID, or null if none. */

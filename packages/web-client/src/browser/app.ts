@@ -7,7 +7,7 @@
  */
 
 import type { ServerMessage, ClientMessage, GameAction, CardDefinitionId, CardInstanceId, JoinMessage } from '@meccg/shared';
-import { loadCardPool, describeAction, buildCompanyNames, cardImageProxyPath, Alignment, buildInstanceLookup } from '@meccg/shared';
+import { loadCardPool, describeAction, buildCompanyNames, cardImageProxyPath, Alignment, buildInstanceLookup, CARD_TYPE_CSS } from '@meccg/shared';
 import { renderState, renderDraft, renderMHInfo, renderSiteInfo, renderFreeCouncilInfo, renderGameOverView, renderActions, renderLog, renderHand, renderOpponentHand, renderPlayerNames, renderInstructions, renderDrafted, renderPassButton, renderDeckPiles, resetDeckPiles, setupCardPreview, showNotification, prepareSiteSelection, clearSiteSelection, renderChainPanel, buildCardAttributes } from './render.js';
 import { renderCompanyViews, resetCompanyViews } from './company-view.js';
 import { rollDice, clearDice, restoreDice, waitForDice } from './dice.js';
@@ -677,6 +677,15 @@ function renderMyDeckItem(deck: FullDeck, isCurrent: boolean): HTMLElement {
     });
     btns.appendChild(selectBtn);
   }
+  const deleteBtn = document.createElement('button');
+  deleteBtn.textContent = 'Delete';
+  deleteBtn.className = 'lobby-delete-btn';
+  deleteBtn.addEventListener('click', () => {
+    if (confirm(`Delete deck "${deck.name}"?`)) {
+      void deleteDeck(deck.id);
+    }
+  });
+  btns.appendChild(deleteBtn);
   item.appendChild(btns);
   return item;
 }
@@ -709,10 +718,11 @@ function renderCatalogDeckItem(deck: FullDeck, owned: boolean, onAdd: () => void
     btn.textContent = 'Owned';
     btn.disabled = true;
   } else {
-    btn.textContent = 'Add';
+    btn.textContent = 'Copy';
+    btn.title = 'Make a copy for yourself to edit';
     btn.addEventListener('click', () => {
       btn.disabled = true;
-      btn.textContent = 'Adding...';
+      btn.textContent = 'Copying...';
       onAdd();
     });
   }
@@ -884,6 +894,11 @@ function renderCompactDeck(container: HTMLElement, deck: FullDeck): void {
         const row = document.createElement('div');
         row.className = 'compact-deck-entry' + (entry.card === null ? ' compact-deck-entry--missing' : '');
         row.textContent = entry.qty > 1 ? `${entry.qty}\u00d7 ${entry.name}` : entry.name;
+        if (entry.card) {
+          const def = cardPool[entry.card];
+          const style = def ? CARD_TYPE_CSS[def.cardType] : undefined;
+          if (style) row.setAttribute('style', style);
+        }
         col.appendChild(row);
       }
     }
@@ -902,6 +917,12 @@ async function selectDeck(deckId: string): Promise<void> {
   await loadDecks();
 }
 
+/** Delete a deck from the player's collection, then refresh. */
+async function deleteDeck(deckId: string): Promise<void> {
+  await fetch(`/api/my-decks/${encodeURIComponent(deckId)}`, { method: 'DELETE' });
+  await loadDecks();
+}
+
 /** Add a catalog deck to the player's collection, then refresh. */
 async function addDeckToCollection(deck: FullDeck): Promise<void> {
   const personalDeck = { ...deck, id: `${lobbyPlayerName}-${deck.id}` };
@@ -917,25 +938,6 @@ async function addDeckToCollection(deck: FullDeck): Promise<void> {
 
 // ---- Deck editor ----
 
-/** CSS colors matching the debug view ANSI color scheme, keyed by card type. */
-const CARD_TYPE_COLORS: Record<string, string> = {
-  'hero-character': 'color:#6090e0;font-weight:bold',
-  'hero-resource-item': 'color:#d0a040',
-  'hero-resource-faction': 'color:#50b0b0',
-  'hero-resource-ally': 'color:#60c060',
-  'hero-resource-event': 'color:#60c060',
-  'hazard-creature': 'color:#e06060',
-  'hazard-event': 'color:#c070c0',
-  'hazard-corruption': 'color:#c070c0;opacity:0.6',
-  'hero-site': 'color:#d0d0d0',
-  'minion-character': 'color:#c070c0;font-weight:bold',
-  'minion-resource-item': 'color:#666',
-  'minion-resource-faction': 'color:#666',
-  'minion-resource-ally': 'color:#666',
-  'minion-site': 'color:#d0d0d0',
-  'balrog-site': 'color:#c07020',
-  'fallen-wizard-site': 'color:#d0d0d0',
-};
 
 /** Set of "deckId:cardName" keys for already-requested cards. */
 let requestedCards = new Set<string>();
@@ -968,7 +970,7 @@ function renderCardList(container: HTMLElement, entries: DeckListEntry[], deckId
     const badge = document.createElement('span');
     badge.className = 'deck-editor-certified-badge';
     if (def) {
-      const style = CARD_TYPE_COLORS[def.cardType] ?? '';
+      const style = CARD_TYPE_CSS[def.cardType] ?? '';
       if (style) nameEl.setAttribute('style', style);
       row.dataset.cardId = entry.card!;
       row.style.cursor = 'pointer';

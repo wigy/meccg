@@ -128,11 +128,11 @@ const ANSI_TO_CSS: Record<string, string> = {
   '32': 'color:#60c060',        // green (ally, resource-event)
   '33': 'color:#d0a040',        // yellow (item)
   '34': 'color:#6090e0',        // blue (character)
-  '35': 'color:#c070c0',        // magenta (hazard-event, corruption)
+  '35': 'color:#c070c0',        // magenta (minion-character)
   '36': 'color:#50b0b0',        // cyan (faction)
   '37': 'color:#d0d0d0',        // white (site)
   '90': 'color:#666',           // bright black / grey (unknown, debug)
-  '93': 'color:#c07020',        // dark orange (balrog-site)
+  '93': 'color:#d0d040',        // bright yellow (balrog-site)
 };
 
 /** Convert a string containing ANSI escape codes to HTML with colored spans. */
