@@ -11,5 +11,21 @@
     "marshallingCategory": "misc",
     "effects": [],
     "text": "Untap a character in your Wizard's company."
+  },
+  {
+    "cardType": "hero-resource-event",
+    "alignment": "wizard",
+    "id": "td-134",
+    "name": "Marvels Told",
+    "image": "https://cdn.jsdelivr.net/gh/council-of-rivendell/meccg-remaster/en-remaster/td/MarvelsTold.jpg",
+    "unique": false,
+    "eventType": "short",
+    "keywords": [
+      "ritual"
+    ],
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Sage only. Ritual. Tap a sage to force the discard of a hazard non-environment permanent-event or long-event. Sage makes a corruption check modified by -2."
   }
 ]
