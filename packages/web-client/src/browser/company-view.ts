@@ -613,7 +613,7 @@ function openSideboardForFetch(
   grid.className = 'sideboard-fetch-grid';
 
   for (const action of fetchActions) {
-    if (action.type !== 'fetch-from-sideboard') continue;
+    if (action.type !== 'fetch-from-sideboard' && action.type !== 'fetch-hazard-from-sideboard') continue;
     const cardInstId = action.sideboardCardInstanceId as string;
     const defId = cachedInstanceLookup(cardInstId as CardInstanceId);
     const def = defId ? cardPool[defId as string] : undefined;
@@ -2000,9 +2000,9 @@ export function renderCompanyViews(
   // Toggle icon on the right edge of the board
   renderViewToggle(board, showingSingle, view, cardPool);
 
-  // Auto-open sideboard browser when in the sideboard sub-flow
+  // Auto-open sideboard browser when in a sideboard sub-flow (org or untap hazard)
   const viable = viableActions(view.legalActions);
-  const fetchActions = viable.filter(a => a.type === 'fetch-from-sideboard');
+  const fetchActions = viable.filter(a => a.type === 'fetch-from-sideboard' || a.type === 'fetch-hazard-from-sideboard');
   if (fetchActions.length > 0) {
     const passAction = viable.find(a => a.type === 'pass') ?? null;
     openSideboardForFetch(fetchActions, passAction, cardPool, onAction);

@@ -2178,7 +2178,8 @@ export function renderPassButton(view: PlayerView, onAction: (action: GameAction
   } else if (passAction.type === 'finished') {
     label = 'Finished';
   } else if (view.phaseState.phase === Phase.Untap) {
-    label = 'Organization';
+    // Hazard player (non-active) sees "Pass"; resource player (active) sees "Organization"
+    label = view.activePlayer !== view.self.id ? 'Pass' : 'Organization';
   } else if (view.phaseState.phase === Phase.Organization) {
     label = 'Long-event';
   } else if (view.phaseState.phase === Phase.LongEvent) {
@@ -2232,6 +2233,28 @@ export function renderPassButton(view: PlayerView, onAction: (action: GameAction
       passBtn2.textContent = 'Pass';
       passBtn2.onclick = () => onAction(secondaryPass.action);
       btn.parentElement?.insertBefore(passBtn2, btn.nextSibling);
+    }
+  }
+
+  // During untap phase, add hazard sideboard buttons for the hazard player
+  const existingHazSbBtns = document.querySelectorAll('.hazard-sb-btn');
+  existingHazSbBtns.forEach(b => b.remove());
+  if (view.phaseState.phase === Phase.Untap && view.activePlayer !== view.self.id) {
+    const toDeckEval = view.legalActions.find(ea => ea.viable && ea.action.type === 'start-hazard-sideboard-to-deck');
+    if (toDeckEval) {
+      const toDeckBtn = document.createElement('button');
+      toDeckBtn.className = 'enter-site-btn hazard-sb-btn';
+      toDeckBtn.textContent = 'Hazard to Deck';
+      toDeckBtn.onclick = () => onAction(toDeckEval.action);
+      btn.parentElement?.insertBefore(toDeckBtn, btn.nextSibling);
+    }
+    const toDiscardEval = view.legalActions.find(ea => ea.viable && ea.action.type === 'start-hazard-sideboard-to-discard');
+    if (toDiscardEval) {
+      const toDiscardBtn = document.createElement('button');
+      toDiscardBtn.className = 'enter-site-btn hazard-sb-btn';
+      toDiscardBtn.textContent = 'Hazards to Discard';
+      toDiscardBtn.onclick = () => onAction(toDiscardEval.action);
+      btn.parentElement?.insertBefore(toDiscardBtn, btn.nextSibling);
     }
   }
 
