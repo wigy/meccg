@@ -8,7 +8,7 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
-import { PLAYERS_DIR, REVIEWER_PLAYERS } from '../config.js';
+import { PLAYERS_DIR, REVIEWER_PLAYERS, DECK_CATALOG_DIR } from '../config.js';
 import type { PlayerRecord } from './types.js';
 
 /** Normalize a player name to a safe directory name (lowercase, alphanumeric + hyphens). */
@@ -66,12 +66,45 @@ function decksDir(name: string): string {
   return path.join(PLAYERS_DIR, toDirName(name), 'decks');
 }
 
-/** List all decks in a player's collection. Returns parsed JSON objects. */
+/** List decks in a player's personal collection (excludes stock catalog decks). */
 export function listPlayerDecks(name: string): unknown[] {
   const dir = decksDir(name);
   try {
     const files = fs.readdirSync(dir).filter(f => f.endsWith('.json'));
     return files.map(f => JSON.parse(fs.readFileSync(path.join(dir, f), 'utf-8')) as unknown);
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Find a deck by ID, checking the player's collection first, then the stock catalog.
+ * Returns null if the deck is not found in either location.
+ */
+export function findDeckById(playerName: string, deckId: string): unknown | null {
+  // Check player's personal collection
+  const dir = decksDir(playerName);
+  const filename = deckId.replace(/[^a-z0-9-]/g, '-') + '.json';
+  const playerPath = path.join(dir, filename);
+  try {
+    return JSON.parse(fs.readFileSync(playerPath, 'utf-8')) as unknown;
+  } catch {
+    // Not in player collection
+  }
+  // Check stock catalog
+  const catalogPath = path.join(DECK_CATALOG_DIR, `${deckId}.json`);
+  try {
+    return JSON.parse(fs.readFileSync(catalogPath, 'utf-8')) as unknown;
+  } catch {
+    return null;
+  }
+}
+
+/** List all stock decks from the catalog directory. Returns parsed JSON objects. */
+export function listCatalogDecks(): unknown[] {
+  try {
+    const files = fs.readdirSync(DECK_CATALOG_DIR).filter(f => f.endsWith('.json'));
+    return files.map(f => JSON.parse(fs.readFileSync(path.join(DECK_CATALOG_DIR, f), 'utf-8')) as unknown);
   } catch {
     return [];
   }

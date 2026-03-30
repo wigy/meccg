@@ -739,11 +739,11 @@ async function loadDecks(): Promise<void> {
   ]);
   const catalog = catalogResp.ok ? await catalogResp.json() as FullDeck[] : [];
   const myData = myResp.ok
-    ? await myResp.json() as { decks: FullDeck[]; currentDeck: string | null }
-    : { decks: [] as FullDeck[], currentDeck: null };
+    ? await myResp.json() as { decks: FullDeck[]; currentDeck: string | null; currentFullDeck: FullDeck | null }
+    : { decks: [] as FullDeck[], currentDeck: null, currentFullDeck: null };
   const myDecks = myData.decks;
   currentDeckId = myData.currentDeck;
-  currentFullDeck = myDecks.find(d => d.id === currentDeckId) ?? null;
+  currentFullDeck = myData.currentFullDeck ?? myDecks.find(d => d.id === currentDeckId) ?? null;
   ownedDeckIds = new Set(myDecks.map(d => d.id));
   updatePlayControls();
 
@@ -782,24 +782,43 @@ async function loadDecks(): Promise<void> {
     }
   }
 
-  // Populate my deck dropdown
+  // Populate my deck dropdown (personal decks + catalog decks)
   const mySelect = document.getElementById('my-deck-select') as HTMLSelectElement | null;
   if (mySelect) {
     mySelect.innerHTML = '';
-    if (myDecks.length === 0) {
+    const allDecks = myDecks.length + catalog.length;
+    if (allDecks === 0) {
       const opt = document.createElement('option');
       opt.value = '';
       opt.textContent = 'No decks available';
       opt.disabled = true;
       mySelect.appendChild(opt);
     } else {
-      for (const deck of myDecks) {
-        const opt = document.createElement('option');
-        opt.value = deck.id;
-        const missing = missingCards(deck);
-        opt.textContent = missing.length > 0 ? `\u26A0 ${deck.name}` : deck.name;
-        opt.selected = deck.id === currentDeckId;
-        mySelect.appendChild(opt);
+      if (myDecks.length > 0) {
+        const group = document.createElement('optgroup');
+        group.label = 'My Decks';
+        for (const deck of myDecks) {
+          const opt = document.createElement('option');
+          opt.value = deck.id;
+          const missing = missingCards(deck);
+          opt.textContent = missing.length > 0 ? `\u26A0 ${deck.name}` : deck.name;
+          opt.selected = deck.id === currentDeckId;
+          group.appendChild(opt);
+        }
+        mySelect.appendChild(group);
+      }
+      if (catalog.length > 0) {
+        const group = document.createElement('optgroup');
+        group.label = 'Stock Decks';
+        for (const deck of catalog) {
+          const opt = document.createElement('option');
+          opt.value = deck.id;
+          const missing = missingCards(deck);
+          opt.textContent = missing.length > 0 ? `\u26A0 ${deck.name}` : deck.name;
+          opt.selected = deck.id === currentDeckId;
+          group.appendChild(opt);
+        }
+        mySelect.appendChild(group);
       }
     }
     if (!myDeckSelectInstalled) {

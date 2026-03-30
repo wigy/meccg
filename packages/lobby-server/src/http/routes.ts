@@ -34,7 +34,7 @@ import { broadcastNotification } from '../lobby/lobby.js';
 import { sendMail, writeSentCopy, listInbox, listSent, readMessage, deleteMessage, updateMessageStatus, countUnread } from '../mail/store.js';
 import type { MailSender, MailStatus, MailTopic } from '../mail/types.js';
 import { lobbyLog } from '../lobby-log.js';
-import { findPlayer, findPlayerByEmail, createPlayer, listPlayerDecks, savePlayerDeck, getCurrentDeck, setCurrentDeck, getDisplayName, setDisplayName, touchLastMailView } from '../players/store.js';
+import { findPlayer, findPlayerByEmail, createPlayer, listPlayerDecks, listCatalogDecks, findDeckById, savePlayerDeck, getCurrentDeck, setCurrentDeck, getDisplayName, setDisplayName, touchLastMailView } from '../players/store.js';
 import { hashPassword, verifyPassword } from '../auth/password.js';
 import { signLobbyToken } from '../auth/jwt.js';
 import { getSessionPlayer, setSessionCookie, clearSessionCookie } from '../auth/session.js';
@@ -43,7 +43,6 @@ const IMAGE_CACHE_DIR = process.env.IMAGE_CACHE_DIR ?? path.join(os.homedir(), '
 const SAVE_DIR = process.env.SAVE_DIR ?? path.join(os.homedir(), '.meccg', 'saves');
 const WEB_CLIENT_PUBLIC = path.join(__dirname, '../../../web-client/public');
 const GAME_SERVER_SNAPSHOTS = path.join(__dirname, '../../../game-server/data/dev/snapshots/index.json');
-const DECK_CATALOG_DIR = path.join(__dirname, '../../../../data/decks');
 
 /** Names that cannot be registered by players. Checked case-insensitively. */
 const RESTRICTED_NAMES = new Set(['ai', 'wigy', 'server', 'karmi', 'admin']);
@@ -322,9 +321,7 @@ export async function handleRequest(req: http.IncomingMessage, res: http.ServerR
 
   if (urlPath === '/api/decks' && method === 'GET') {
     try {
-      const files = fs.readdirSync(DECK_CATALOG_DIR).filter(f => f.endsWith('.json'));
-      const decks = files.map(f => JSON.parse(fs.readFileSync(path.join(DECK_CATALOG_DIR, f), 'utf-8')) as unknown);
-      sendJson(res, 200, decks);
+      sendJson(res, 200, listCatalogDecks());
     } catch (err) {
       lobbyLog.log('error', { context: 'deck-catalog', error: String(err) });
       sendJson(res, 500, { error: 'Failed to load deck catalog' });
@@ -340,7 +337,8 @@ export async function handleRequest(req: http.IncomingMessage, res: http.ServerR
     try {
       const decks = listPlayerDecks(playerName);
       const currentDeck = getCurrentDeck(playerName);
-      sendJson(res, 200, { decks, currentDeck });
+      const currentFullDeck = currentDeck ? findDeckById(playerName, currentDeck) : null;
+      sendJson(res, 200, { decks, currentDeck, currentFullDeck });
     } catch (err) {
       lobbyLog.log('error', { context: 'my-decks', error: String(err) });
       sendJson(res, 500, { error: 'Failed to load decks' });
