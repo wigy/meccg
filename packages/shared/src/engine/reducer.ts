@@ -14,7 +14,7 @@
  * (or the original state plus an error string if the action was illegal).
  */
 
-import type { GameState, PlayerState, DraftPlayerState, ItemDraftPlayerState, CharacterDeckDraftPlayerState, SetupStepState, CardDefinitionId, CardInstanceId, CompanyId, CharacterInPlay, CardInstance, ChainEntryPayload, OrganizationPhaseState, MovementHazardPhaseState, SitePhaseState, EndOfTurnPhaseState, FreeCouncilPhaseState, Company, CreatureCard, SiteInPlay, HeroItemCard, CombatState, StrikeAssignment, PlayerId } from '../index.js';
+import type { GameState, PlayerState, DraftPlayerState, ItemDraftPlayerState, CharacterDeckDraftPlayerState, SetupStepState, CardDefinitionId, CardInstanceId, CompanyId, CharacterInPlay, CardInstance, ChainEntryPayload, UntapPhaseState, OrganizationPhaseState, MovementHazardPhaseState, SitePhaseState, EndOfTurnPhaseState, FreeCouncilPhaseState, Company, CreatureCard, SiteInPlay, HeroItemCard, CombatState, StrikeAssignment, PlayerId } from '../index.js';
 import type { GameAction } from '../index.js';
 import { Phase, SetupStep, LEGAL_ACTIONS_BY_PHASE, getAlignmentRules, shuffle, nextInt, CardStatus, isCharacterCard, isItemCard, isAllyCard, isSiteCard, SiteType, RegionType, Race, Skill, getPlayerIndex, ZERO_EFFECTIVE_STATS, MAX_STARTING_ITEMS, BASE_MAX_REGION_DISTANCE, HAND_SIZE } from '../index.js';
 import { logHeading, logDetail } from './legal-actions/log.js';
@@ -316,6 +316,11 @@ function validateActionPlayer(state: GameState, action: GameAction): string | un
   // During end-of-turn discard and reset-hand steps, both players act
   if (phase === 'end-of-turn' && 'step' in state.phaseState
     && (state.phaseState.step === 'discard' || state.phaseState.step === 'reset-hand')) {
+    return undefined;
+  }
+
+  // During untap, the hazard player can access their sideboard
+  if (phase === 'untap') {
     return undefined;
   }
 
@@ -1223,12 +1228,150 @@ function handleUntap(state: GameState, action: GameAction): ReducerResult {
   if (state.phaseState.phase !== Phase.Untap) {
     return { state, error: 'Not in untap phase' };
   }
+
+  const untapState = state.phaseState;
+
+  // ── Hazard sideboard intent actions ──
+  if (action.type === 'start-hazard-sideboard-to-deck' || action.type === 'start-hazard-sideboard-to-discard') {
+    const destination = action.type === 'start-hazard-sideboard-to-deck' ? 'deck' : 'discard';
+    logDetail(`Untap: hazard player declares sideboard access (${destination})`);
+    return {
+      state: {
+        ...state,
+        phaseState: { ...untapState, hazardSideboardDestination: destination },
+      },
+    };
+  }
+
+  // ── Hazard sideboard fetch action ──
+  if (action.type === 'fetch-hazard-from-sideboard') {
+    return handleFetchHazardFromSideboard(state, action);
+  }
+
+  // ── Pass action ──
   if (action.type !== 'pass') {
     return { state, error: `Unexpected action '${action.type}' in untap phase` };
   }
 
-  // Untap the active player's cards (not action.player, who may be the
-  // previous player that triggered the transition to untap phase)
+  const isActivePlayer = action.player === state.activePlayer;
+
+  // Pass during hazard sideboard-to-discard sub-flow exits the sub-flow
+  if (!isActivePlayer && untapState.hazardSideboardDestination === 'discard') {
+    logDetail(`Hazard sideboard: player ${action.player as string} done fetching to discard (${untapState.hazardSideboardFetched} cards)`);
+    // Mark that hazard player accessed sideboard (for hazard limit halving)
+    const hazardIndex = getPlayerIndex(state, action.player);
+    const newPlayers = clonePlayers(state);
+    newPlayers[hazardIndex] = { ...newPlayers[hazardIndex], sideboardAccessedDuringUntap: true };
+    return {
+      state: {
+        ...state,
+        players: newPlayers,
+        phaseState: { ...untapState, hazardSideboardDestination: null },
+      },
+    };
+  }
+
+  // Hazard player passes (declines sideboard access or already done)
+  if (!isActivePlayer) {
+    logDetail(`Untap: hazard player ${action.player as string} passed`);
+    // If resource player already passed, advance to Organization
+    if (untapState.resourcePlayerPassed) {
+      return performUntapAndAdvance(state);
+    }
+    return { state }; // no-op, wait for resource player
+  }
+
+  // Active (resource) player passes
+  logDetail(`Untap: resource player ${action.player as string} passed`);
+  return performUntapAndAdvance(state);
+}
+
+/**
+ * Handle fetch-hazard-from-sideboard during the untap hazard sideboard sub-flow.
+ */
+function handleFetchHazardFromSideboard(state: GameState, action: GameAction): ReducerResult {
+  if (action.type !== 'fetch-hazard-from-sideboard') return { state, error: 'Expected fetch-hazard-from-sideboard action' };
+
+  const untapState = state.phaseState as UntapPhaseState;
+  if (untapState.hazardSideboardDestination === null) {
+    return { state, error: 'No hazard sideboard sub-flow active' };
+  }
+
+  const playerIndex = getPlayerIndex(state, action.player);
+  const player = state.players[playerIndex];
+
+  // Validate card is in sideboard
+  const cardIdx = player.sideboard.indexOf(action.sideboardCardInstanceId);
+  if (cardIdx === -1) {
+    return { state, error: 'Card not found in sideboard' };
+  }
+
+  // Validate card type is hazard
+  const inst = state.instanceMap[action.sideboardCardInstanceId as string];
+  const def = inst ? state.cardPool[inst.definitionId as string] : undefined;
+  if (!def || !def.cardType.includes('hazard')) {
+    return { state, error: 'Only hazard cards can be fetched during untap sideboard access' };
+  }
+
+  const destination = untapState.hazardSideboardDestination;
+
+  // Validate limits
+  if (destination === 'deck' && untapState.hazardSideboardFetched >= 1) {
+    return { state, error: 'Can only fetch 1 card to play deck' };
+  }
+  if (destination === 'discard' && untapState.hazardSideboardFetched >= 5) {
+    return { state, error: 'Can only fetch up to 5 cards to discard pile' };
+  }
+
+  const newSideboard = [...player.sideboard];
+  newSideboard.splice(cardIdx, 1);
+
+  const newPlayers = clonePlayers(state);
+  let newRng = state.rng;
+
+  if (destination === 'discard') {
+    logDetail(`Hazard sideboard → discard: ${def.name} (${action.sideboardCardInstanceId as string})`);
+    newPlayers[playerIndex] = {
+      ...newPlayers[playerIndex],
+      sideboard: newSideboard,
+      discardPile: [...player.discardPile, action.sideboardCardInstanceId],
+    };
+  } else {
+    logDetail(`Hazard sideboard → play deck: ${def.name} (${action.sideboardCardInstanceId as string}), shuffling`);
+    const [shuffledDeck, nextRng] = shuffle([...player.playDeck, action.sideboardCardInstanceId], state.rng);
+    newRng = nextRng;
+    newPlayers[playerIndex] = {
+      ...newPlayers[playerIndex],
+      sideboard: newSideboard,
+      playDeck: shuffledDeck,
+    };
+  }
+
+  // Mark sideboard accessed for hazard limit halving
+  newPlayers[playerIndex] = { ...newPlayers[playerIndex], sideboardAccessedDuringUntap: true };
+
+  const newUntapState: UntapPhaseState = {
+    ...untapState,
+    hazardSideboardFetched: untapState.hazardSideboardFetched + 1,
+    // Deck destination: exit sub-flow after 1 card; discard: stay in sub-flow
+    hazardSideboardDestination: destination === 'deck' ? null : destination,
+  };
+
+  return {
+    state: {
+      ...state,
+      players: newPlayers,
+      rng: newRng,
+      phaseState: newUntapState,
+    },
+  };
+}
+
+/**
+ * Perform the actual untap mechanics and advance to the Organization phase.
+ * Called when the resource player passes (and hazard player is not in a sub-flow).
+ */
+function performUntapAndAdvance(state: GameState): ReducerResult {
   const playerIndex = getPlayerIndex(state, state.activePlayer!);
   const player = state.players[playerIndex];
 
@@ -1281,7 +1424,7 @@ function handleUntap(state: GameState, action: GameAction): ReducerResult {
   const newPlayers = clonePlayers(state);
   newPlayers[playerIndex] = { ...player, characters: newCharacters, cardsInPlay: newCardsInPlay };
 
-  logDetail(`Untap: active player ${action.player as string} passed → advancing to Organization phase`);
+  logDetail('Untap: advancing to Organization phase');
   return {
     state: {
       ...state,
@@ -4290,7 +4433,7 @@ function handleEndOfTurnSignalEnd(state: GameState, action: GameAction): Reducer
         ...state,
         activePlayer: nextPlayer,
         turnNumber: state.turnNumber + 1,
-        phaseState: { phase: Phase.Untap },
+        phaseState: { phase: Phase.Untap, hazardSideboardDestination: null, hazardSideboardFetched: 0, resourcePlayerPassed: false },
       },
     };
   }
@@ -4311,7 +4454,7 @@ function handleEndOfTurnSignalEnd(state: GameState, action: GameAction): Reducer
         activePlayer: nextPlayer,
         turnNumber: state.turnNumber + 1,
         lastTurnFor: nextPlayer,
-        phaseState: { phase: Phase.Untap },
+        phaseState: { phase: Phase.Untap, hazardSideboardDestination: null, hazardSideboardFetched: 0, resourcePlayerPassed: false },
       },
     };
   }

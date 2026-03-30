@@ -515,6 +515,18 @@ export interface SetupPhaseState {
 export interface UntapPhaseState {
   /** Phase discriminant. */
   readonly phase: Phase.Untap;
+  /**
+   * Which destination the hazard player chose for sideboard access, or null
+   * if not yet declared. Set by start-hazard-sideboard-to-deck/discard.
+   */
+  readonly hazardSideboardDestination: 'discard' | 'deck' | null;
+  /**
+   * How many hazard cards have been fetched from the sideboard this untap.
+   * Used to enforce the limit of 5 to discard or 1 to deck.
+   */
+  readonly hazardSideboardFetched: number;
+  /** Whether the active (resource) player has passed the untap phase. */
+  readonly resourcePlayerPassed: boolean;
 }
 
 /**

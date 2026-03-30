@@ -785,6 +785,49 @@ export interface FetchFromSideboardAction {
   readonly sideboardCardInstanceId: CardInstanceId;
 }
 
+// ---- Untap hazard sideboard access ----
+
+/**
+ * Declare intent to fetch 1 hazard from sideboard to the play deck during untap.
+ *
+ * Per CoE rule 2.I, the hazard player may access their sideboard if the
+ * resource player's avatar is in play. Fetching 1 hazard to deck requires
+ * at least 5 cards in the play deck. This halves the hazard limit for
+ * the upcoming M/H phase.
+ */
+export interface StartHazardSideboardToDeckAction {
+  readonly type: 'start-hazard-sideboard-to-deck';
+  /** The hazard (non-active) player accessing their sideboard. */
+  readonly player: PlayerId;
+}
+
+/**
+ * Declare intent to fetch up to 5 hazards from sideboard to the discard pile during untap.
+ *
+ * Per CoE rule 2.I, the hazard player may access their sideboard if the
+ * resource player's avatar is in play. This halves the hazard limit for
+ * the upcoming M/H phase.
+ */
+export interface StartHazardSideboardToDiscardAction {
+  readonly type: 'start-hazard-sideboard-to-discard';
+  /** The hazard (non-active) player accessing their sideboard. */
+  readonly player: PlayerId;
+}
+
+/**
+ * Fetch a specific hazard from the sideboard during the untap hazard sideboard sub-flow.
+ *
+ * Can only be used after a {@link StartHazardSideboardToDeckAction} or
+ * {@link StartHazardSideboardToDiscardAction} has been executed.
+ */
+export interface FetchHazardFromSideboardAction {
+  readonly type: 'fetch-hazard-from-sideboard';
+  /** The hazard player fetching from their sideboard. */
+  readonly player: PlayerId;
+  /** The sideboard card being fetched. */
+  readonly sideboardCardInstanceId: CardInstanceId;
+}
+
 // ---- Non-viable placeholder ----
 
 /**
@@ -894,6 +937,9 @@ export type GameAction =
   | StartSideboardToDeckAction
   | StartSideboardToDiscardAction
   | FetchFromSideboardAction
+  | StartHazardSideboardToDeckAction
+  | StartHazardSideboardToDiscardAction
+  | FetchHazardFromSideboardAction
   | PassChainPriorityAction
   | OrderPassivesAction
   | FinishedAction

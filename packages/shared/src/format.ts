@@ -962,6 +962,12 @@ export function describeAction(
       return 'Tap avatar: fetch up to 5 cards from sideboard to discard';
     case 'fetch-from-sideboard':
       return `Fetch ${instName(action.sideboardCardInstanceId)} from sideboard`;
+    case 'start-hazard-sideboard-to-deck':
+      return 'Fetch 1 hazard from sideboard to play deck';
+    case 'start-hazard-sideboard-to-discard':
+      return 'Fetch up to 5 hazards from sideboard to discard';
+    case 'fetch-hazard-from-sideboard':
+      return `Fetch ${instName(action.sideboardCardInstanceId)} from sideboard`;
     case 'not-playable':
       return `${instName(action.cardInstanceId)} cannot be played`;
     case 'select-company':
