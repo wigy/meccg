@@ -1337,12 +1337,33 @@ export function renderDeckPiles(view: PlayerView, cardPool?: Readonly<Record<str
   cachedOppSiteDeck = view.opponent.siteDeck;
   cachedSelfVictoryCards = selfVictoryCards;
   cachedOppVictoryCards = oppVictoryCards;
+  actionableInstanceIds = collectActionInstanceIds(view.legalActions);
   if (cardPool) cachedCardPool = cardPool;
   installSiteDeckViewer();
   installPileBrowserClickHandlers();
 }
 
 // ---- Pile browser modal (shared by site deck, sideboard, victory display) ----
+
+/**
+ * Set of card instance IDs referenced by viable legal actions.
+ * Used to sort actionable cards to the front of pile browser listings.
+ */
+let actionableInstanceIds: ReadonlySet<string> = new Set();
+
+/** Extract all CardInstanceId values from a game action object. */
+function collectActionInstanceIds(actions: readonly EvaluatedAction[]): Set<string> {
+  const ids = new Set<string>();
+  for (const ea of actions) {
+    if (!ea.viable) continue;
+    const action = ea.action as unknown as Record<string, unknown>;
+    for (const [key, value] of Object.entries(action)) {
+      if (key === 'type' || key === 'player') continue;
+      if (typeof value === 'string') ids.add(value);
+    }
+  }
+  return ids;
+}
 
 /** Cached cards for the current pile browser view. */
 let cachedBrowserCards: readonly ViewCard[] = [];
@@ -1424,7 +1445,14 @@ function populateBrowserGrid(): void {
 
   const isSelecting = siteSelectionActions.length > 0;
 
-  for (const card of cachedBrowserCards) {
+  // Sort cards with active legal actions to the front
+  const sortedCards = [...cachedBrowserCards].sort((a, b) => {
+    const aActive = actionableInstanceIds.has(a.instanceId as string) ? 0 : 1;
+    const bActive = actionableInstanceIds.has(b.instanceId as string) ? 0 : 1;
+    return aActive - bActive;
+  });
+
+  for (const card of sortedCards) {
     const defId = !isCardHidden(card.definitionId) ? card.definitionId as string : undefined;
     const def = defId ? cachedCardPool[defId] : undefined;
     const imgPath = def ? cardImageProxyPath(def) : undefined;

@@ -31,9 +31,8 @@ export function startingSiteSelectionActions(state: GameState, playerId: PlayerI
 
   const evaluated: EvaluatedAction[] = [];
 
-  // Only offer sites if we haven't hit the max yet (one action per site definition)
+  // Only offer sites if we haven't hit the max yet
   if (siteSelection.selectedSites.length < maxStartingSites) {
-    const seenDefIds = new Set<string>();
     for (const siteInstId of player.siteDeck) {
       const inst = state.instanceMap[siteInstId as string];
       if (!inst) {
@@ -41,11 +40,7 @@ export function startingSiteSelectionActions(state: GameState, playerId: PlayerI
         continue;
       }
 
-      // Deduplicate by definition — one action per unique site card
       const defIdStr = inst.definitionId as string;
-      if (seenDefIds.has(defIdStr)) continue;
-      seenDefIds.add(defIdStr);
-
       const siteDef = state.cardPool[defIdStr];
       const context = {
         card: {
