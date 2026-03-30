@@ -1232,7 +1232,13 @@ export function renderPlayerNames(view: PlayerView, cardPool: Readonly<Record<st
 /**
  * Render a draw deck as a single card-back image with a count badge.
  */
-function fillDeckPile(el: HTMLElement, deckSize: number, backImage = '/images/card-back.jpg', title?: string): void {
+/**
+ * Render a deck pile cell with a card-back image and count label.
+ * When `instanceIds` are provided, they are stamped on the image as a
+ * space-separated `data-pile-instances` attribute so the FLIP animation
+ * system can track cards entering or leaving this pile.
+ */
+function fillDeckPile(el: HTMLElement, deckSize: number, backImage = '/images/card-back.jpg', title?: string, instanceIds?: readonly CardInstanceId[]): void {
   el.innerHTML = '';
 
   const wrapper = document.createElement('div');
@@ -1244,6 +1250,9 @@ function fillDeckPile(el: HTMLElement, deckSize: number, backImage = '/images/ca
   img.className = deckSize === 0 ? 'deck-pile-card deck-pile-card--empty' : 'deck-pile-card';
   img.style.position = 'relative';
   if (title) wrapper.title = title;
+  if (instanceIds && instanceIds.length > 0) {
+    img.dataset.pileInstances = instanceIds.join(' ');
+  }
   wrapper.appendChild(img);
 
   const label = document.createElement('div');
@@ -1294,38 +1303,40 @@ export function resetDeckPiles(): void {
 
 /** Render both players' draw deck, site deck, sideboard, victory display, and discard piles. */
 export function renderDeckPiles(view: PlayerView, cardPool?: Readonly<Record<string, CardDefinition>>): void {
+  const ids = (cards: readonly ViewCard[]) => cards.map(c => c.instanceId);
+
   const selfEl = document.getElementById('self-deck-pile');
-  if (selfEl) fillDeckPile(selfEl, view.self.playDeck.length, '/images/card-back.jpg', 'Play Deck');
+  if (selfEl) fillDeckPile(selfEl, view.self.playDeck.length, '/images/card-back.jpg', 'Play Deck', ids(view.self.playDeck));
 
   const oppEl = document.getElementById('opponent-deck-pile');
-  if (oppEl) fillDeckPile(oppEl, view.opponent.playDeck.length, '/images/card-back.jpg', 'Play Deck');
+  if (oppEl) fillDeckPile(oppEl, view.opponent.playDeck.length, '/images/card-back.jpg', 'Play Deck', ids(view.opponent.playDeck));
 
   const selfSiteEl = document.getElementById('self-site-pile');
-  if (selfSiteEl) fillDeckPile(selfSiteEl, view.self.siteDeck.length, '/images/site-back.jpg', 'Site Deck');
+  if (selfSiteEl) fillDeckPile(selfSiteEl, view.self.siteDeck.length, '/images/site-back.jpg', 'Site Deck', ids(view.self.siteDeck));
 
   const oppSiteEl = document.getElementById('opponent-site-pile');
-  if (oppSiteEl) fillDeckPile(oppSiteEl, view.opponent.siteDeck.length, '/images/site-back.jpg', 'Site Deck');
+  if (oppSiteEl) fillDeckPile(oppSiteEl, view.opponent.siteDeck.length, '/images/site-back.jpg', 'Site Deck', ids(view.opponent.siteDeck));
 
   const selfSideboardEl = document.getElementById('self-sideboard-pile');
-  if (selfSideboardEl) fillDeckPile(selfSideboardEl, view.self.sideboard.length, '/images/card-back.jpg', 'Sideboard');
+  if (selfSideboardEl) fillDeckPile(selfSideboardEl, view.self.sideboard.length, '/images/card-back.jpg', 'Sideboard', ids(view.self.sideboard));
 
   const oppSideboardEl = document.getElementById('opponent-sideboard-pile');
   if (oppSideboardEl) fillDeckPile(oppSideboardEl, 0, '/images/card-back.jpg', 'Sideboard');
 
   const selfDiscardEl = document.getElementById('self-discard-pile');
-  if (selfDiscardEl) fillDeckPile(selfDiscardEl, view.self.discardPile.length, '/images/card-back.jpg', 'Discard Pile');
+  if (selfDiscardEl) fillDeckPile(selfDiscardEl, view.self.discardPile.length, '/images/card-back.jpg', 'Discard Pile', ids(view.self.discardPile));
 
   const oppDiscardEl = document.getElementById('opponent-discard-pile');
-  if (oppDiscardEl) fillDeckPile(oppDiscardEl, view.opponent.discardPile.length, '/images/card-back.jpg', 'Discard Pile');
+  if (oppDiscardEl) fillDeckPile(oppDiscardEl, view.opponent.discardPile.length, '/images/card-back.jpg', 'Discard Pile', ids(view.opponent.discardPile));
 
   // Victory display = eliminated + kill pile (face-up — show top card image)
   const pool = cardPool ?? cachedCardPool;
   const selfVictoryCards = buildVictoryCards(view.self);
   const oppVictoryCards = buildVictoryCards(view.opponent);
   const selfVictoryEl = document.getElementById('self-victory-pile');
-  if (selfVictoryEl) fillDeckPile(selfVictoryEl, selfVictoryCards.length, topCardImage(selfVictoryCards, pool), 'Victory Display');
+  if (selfVictoryEl) fillDeckPile(selfVictoryEl, selfVictoryCards.length, topCardImage(selfVictoryCards, pool), 'Victory Display', ids(selfVictoryCards));
   const oppVictoryEl = document.getElementById('opponent-victory-pile');
-  if (oppVictoryEl) fillDeckPile(oppVictoryEl, oppVictoryCards.length, topCardImage(oppVictoryCards, pool), 'Victory Display');
+  if (oppVictoryEl) fillDeckPile(oppVictoryEl, oppVictoryCards.length, topCardImage(oppVictoryCards, pool), 'Victory Display', ids(oppVictoryCards));
 
   // Cache for pile browser click handlers
   cachedSiteDeck = view.self.siteDeck;
