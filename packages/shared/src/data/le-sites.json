@@ -113,5 +113,35 @@
     "resourceDraws": 2,
     "hazardDraws": 2,
     "text": "Playable: Information. Automatic-attacks: Wolves — 2 strikes with 6 prowess."
+  },
+  {
+    "cardType": "minion-site",
+    "alignment": "ringwraith",
+    "id": "le-384",
+    "name": "Isengard",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/Isengard.jpg",
+    "siteType": "ruins-and-lairs",
+    "sitePath": [
+      "wilderness",
+      "shadow"
+    ],
+    "nearestHaven": "Geann a-Lisch",
+    "region": "Gap of Isen",
+    "playableResources": [
+      "information",
+      "minor",
+      "major",
+      "gold-ring"
+    ],
+    "automaticAttacks": [
+      {
+        "creatureType": "Wolves",
+        "strikes": 3,
+        "prowess": 7
+      }
+    ],
+    "resourceDraws": 1,
+    "hazardDraws": 2,
+    "text": "Nearest Darkhaven: Geann a-Lisch. Playable: Information, Items (minor, major, gold ring). Automatic-attacks: Wolves — 3 strikes with 7 prowess."
   }
 ]
