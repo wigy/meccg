@@ -415,5 +415,35 @@
     "hazardDraws": 1,
     "text": "",
     "effects": []
+  },
+  {
+    "cardType": "hero-site",
+    "alignment": "wizard",
+    "id": "tw-397",
+    "name": "Glittering Caves",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/GlitteringCaves.jpg",
+    "siteType": "ruins-and-lairs",
+    "sitePath": [
+      "wilderness",
+      "border",
+      "border"
+    ],
+    "nearestHaven": "Lórien",
+    "region": "Gap of Isen",
+    "playableResources": [
+      "minor",
+      "major"
+    ],
+    "automaticAttacks": [
+      {
+        "creatureType": "Pûkel-creature",
+        "strikes": 1,
+        "prowess": 9
+      }
+    ],
+    "resourceDraws": 2,
+    "hazardDraws": 2,
+    "text": "Nearest Haven: Lórien. Playable: Items (minor, major). Automatic-attacks: Pûkel-creature — 1 strike with 9 prowess.",
+    "effects": []
   }
 ]
