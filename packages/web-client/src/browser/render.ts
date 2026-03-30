@@ -2291,7 +2291,7 @@ export function renderPassButton(view: PlayerView, onAction: (action: GameAction
     || ea.action.type === 'shuffle-play-deck' || ea.action.type === 'draw-cards'
     || ea.action.type === 'roll-initiative' || ea.action.type === 'corruption-check'
     || ea.action.type === 'pass-chain-priority' || ea.action.type === 'deck-exhaust'
-    || ea.action.type === 'finished'));
+    || ea.action.type === 'finished' || ea.action.type === 'untap'));
   const passAction = passEval?.action;
   if (!passAction) {
     btn.classList.add('hidden');
@@ -2316,9 +2316,10 @@ export function renderPassButton(view: PlayerView, onAction: (action: GameAction
     label = 'Exhaust';
   } else if (passAction.type === 'finished') {
     label = 'Finished';
+  } else if (passAction.type === 'untap') {
+    label = 'Untap';
   } else if (view.phaseState.phase === Phase.Untap) {
-    // Hazard player (non-active) sees "Pass"; resource player (active) sees "Organization"
-    label = view.activePlayer !== view.self.id ? 'Pass' : 'Organization';
+    label = 'Pass';
   } else if (view.phaseState.phase === Phase.Organization) {
     label = 'Long-event';
   } else if (view.phaseState.phase === Phase.LongEvent) {

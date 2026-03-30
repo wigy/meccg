@@ -1321,6 +1321,26 @@ function handleUntap(state: GameState, action: GameAction): ReducerResult {
     return handleFetchHazardFromSideboard(state, action);
   }
 
+  // ── Untap action (resource player) ──
+  if (action.type === 'untap') {
+    if (action.player !== state.activePlayer) {
+      return { state, error: 'Only the resource player can untap' };
+    }
+    if (untapState.untapped) {
+      return { state, error: 'Already untapped this phase' };
+    }
+    logDetail(`Untap: resource player ${action.player as string} untaps cards`);
+    const untappedState = performUntap(state);
+    const newUntapState = { ...untapState, untapped: true };
+    // If hazard player already passed, advance to Organization
+    if (newUntapState.hazardPlayerPassed) {
+      return advanceToOrganization({ ...untappedState, phaseState: newUntapState });
+    }
+    return {
+      state: { ...untappedState, phaseState: newUntapState },
+    };
+  }
+
   // ── Pass action ──
   if (action.type !== 'pass') {
     return { state, error: `Unexpected action '${action.type}' in untap phase` };
@@ -1347,9 +1367,9 @@ function handleUntap(state: GameState, action: GameAction): ReducerResult {
   // Hazard player passes (declines sideboard access or already done)
   if (!isActivePlayer) {
     logDetail(`Untap: hazard player ${action.player as string} passed`);
-    // If resource player already passed, advance to Organization
-    if (untapState.resourcePlayerPassed) {
-      return performUntapAndAdvance(state);
+    // If resource player already untapped, advance to Organization
+    if (untapState.untapped) {
+      return advanceToOrganization(state);
     }
     return {
       state: {
@@ -1359,19 +1379,8 @@ function handleUntap(state: GameState, action: GameAction): ReducerResult {
     };
   }
 
-  // Active (resource) player passes
-  logDetail(`Untap: resource player ${action.player as string} passed`);
-  // If hazard player already passed, advance immediately
-  if (untapState.hazardPlayerPassed) {
-    return performUntapAndAdvance(state);
-  }
-  // Otherwise, mark resource player passed and wait for hazard player
-  return {
-    state: {
-      ...state,
-      phaseState: { ...untapState, resourcePlayerPassed: true },
-    },
-  };
+  // Active (resource) player should not pass without untapping first
+  return { state, error: 'Resource player must untap before passing' };
 }
 
 /**
@@ -1456,10 +1465,12 @@ function handleFetchHazardFromSideboard(state: GameState, action: GameAction): R
 }
 
 /**
- * Perform the actual untap mechanics and advance to the Organization phase.
- * Called when the resource player passes (and hazard player is not in a sub-flow).
+ * Perform the untap mechanics on the active player's cards.
+ * Called when entering the untap phase (before any player actions).
+ * Untaps all tapped characters, items, allies, and cards in play.
+ * Heals wounded characters at havens to tapped position.
  */
-function performUntapAndAdvance(state: GameState): ReducerResult {
+function performUntap(state: GameState): GameState {
   const playerIndex = getPlayerIndex(state, state.activePlayer!);
   const player = state.players[playerIndex];
 
@@ -1511,12 +1522,29 @@ function performUntapAndAdvance(state: GameState): ReducerResult {
 
   const newPlayers = clonePlayers(state);
   newPlayers[playerIndex] = { ...player, characters: newCharacters, cardsInPlay: newCardsInPlay };
+  return { ...state, players: newPlayers };
+}
 
+/**
+ * Build the untap phase state.
+ * Called from all entry points into the untap phase.
+ */
+function enterUntapPhase(state: GameState): GameState {
+  return {
+    ...state,
+    phaseState: { phase: Phase.Untap, untapped: false, hazardSideboardDestination: null, hazardSideboardFetched: 0, resourcePlayerPassed: false, hazardPlayerPassed: false },
+  };
+}
+
+/**
+ * Advance from the untap phase to the Organization phase.
+ * Called when resource player has untapped and hazard player has passed.
+ */
+function advanceToOrganization(state: GameState): ReducerResult {
   logDetail('Untap: advancing to Organization phase');
   return {
     state: {
       ...state,
-      players: newPlayers,
       phaseState: { phase: Phase.Organization, characterPlayedThisTurn: false, sideboardFetchedThisTurn: 0, sideboardFetchDestination: null, pendingCorruptionCheck: null },
     },
   };
@@ -4718,12 +4746,11 @@ function handleEndOfTurnSignalEnd(state: GameState, action: GameAction): Reducer
 
     logDetail(`End-of-Turn signal-end: active player ${action.player as string} ended turn → switching to player ${nextPlayer as string}, turn ${state.turnNumber + 1}`);
     return {
-      state: {
+      state: enterUntapPhase({
         ...state,
         activePlayer: nextPlayer,
         turnNumber: state.turnNumber + 1,
-        phaseState: { phase: Phase.Untap, hazardSideboardDestination: null, hazardSideboardFetched: 0, resourcePlayerPassed: false, hazardPlayerPassed: false },
-      },
+      }),
     };
   }
 
@@ -4737,14 +4764,13 @@ function handleEndOfTurnSignalEnd(state: GameState, action: GameAction): Reducer
 
     logDetail(`End-of-Turn signal-end: ${action.player as string} called the Free Council — opponent ${nextPlayer as string} gets one last turn`);
     return {
-      state: {
+      state: enterUntapPhase({
         ...state,
         players: newPlayers,
         activePlayer: nextPlayer,
         turnNumber: state.turnNumber + 1,
         lastTurnFor: nextPlayer,
-        phaseState: { phase: Phase.Untap, hazardSideboardDestination: null, hazardSideboardFetched: 0, resourcePlayerPassed: false, hazardPlayerPassed: false },
-      },
+      }),
     };
   }
 

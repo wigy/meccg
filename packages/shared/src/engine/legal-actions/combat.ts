@@ -12,7 +12,7 @@
  * 4. body-check: attacking player rolls body check
  */
 
-import type { GameState, PlayerId, EvaluatedAction, CombatState, CardInstanceId } from '../../index.js';
+import type { GameState, PlayerId, EvaluatedAction, CombatState } from '../../index.js';
 import { CardStatus } from '../../types/common.js';
 import { logHeading, logDetail } from './log.js';
 

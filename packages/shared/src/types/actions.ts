@@ -126,6 +126,19 @@ export interface RollInitiativeAction {
   readonly player: PlayerId;
 }
 
+// ---- Untap phase ----
+
+/**
+ * The resource player untaps all their tapped cards and heals wounded
+ * characters at havens. This is an explicit action so the player sees
+ * their cards change state before proceeding.
+ */
+export interface UntapAction {
+  readonly type: 'untap';
+  /** The active (resource) player performing the untap. */
+  readonly player: PlayerId;
+}
+
 // ---- Organization phase ----
 
 /**
@@ -935,6 +948,7 @@ export type GameAction =
   | SelectStartingSiteAction
   | PlaceCharacterAction
   | RollInitiativeAction
+  | UntapAction
   | PlayCharacterAction
   | SplitCompanyAction
   | MoveToCompanyAction

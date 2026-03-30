@@ -427,7 +427,7 @@ export function buildTestState(opts: BuildTestStateOpts): GameState {
   if (phase === Phase.Organization) {
     phaseState = { phase: Phase.Organization, characterPlayedThisTurn: false, sideboardFetchedThisTurn: 0, sideboardFetchDestination: null, pendingCorruptionCheck: null } as GameState['phaseState'];
   } else if (phase === Phase.Untap) {
-    phaseState = { phase: Phase.Untap, hazardSideboardDestination: null, hazardSideboardFetched: 0, resourcePlayerPassed: false, hazardPlayerPassed: false } as GameState['phaseState'];
+    phaseState = { phase: Phase.Untap, untapped: false, hazardSideboardDestination: null, hazardSideboardFetched: 0, resourcePlayerPassed: false, hazardPlayerPassed: false } as GameState['phaseState'];
   } else if (phase === Phase.EndOfTurn) {
     phaseState = { phase: Phase.EndOfTurn, step: 'discard', discardDone: [false, false] } as GameState['phaseState'];
   } else {
