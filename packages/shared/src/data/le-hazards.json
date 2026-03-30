@@ -9,5 +9,16 @@
     "keywords": [],
     "effects": [],
     "text": "Playable on a Border-hold or Free-hold. An additional automatic-attack is created at the site until the end of the turn. This is an exact duplicate (including all existing and eventual modifications to prowess, etc.) of an existing automatic-attack of your choice at the site. This automatic-attack is faced immediately following its original. Cannot be duplicated on a given site."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "le-132",
+    "name": "Rebel-talk",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/Rebeltalk.jpg",
+    "unique": false,
+    "eventType": "permanent",
+    "keywords": [],
+    "effects": [],
+    "text": "Playable on a non-Ringwraith, non-Wizard character with mind of 7 or less. Character cannot be controlled by direct influence. Once during each of his organization phases, the character may attempt to remove this card. Make a roll\u2014if the result is greater than 7, discard this card. Cannot be duplicated on a given character."
   }
 ]
