@@ -1354,6 +1354,8 @@ function toHiddenCards(ids: readonly CardInstanceId[]): readonly ViewCard[] {
 let cachedBrowserCards: readonly ViewCard[] = [];
 /** Cached title for the current pile browser view. */
 let cachedBrowserTitle = '';
+/** Cached back image for hidden cards in the pile browser. */
+let cachedBrowserBackImage = '/images/card-back.jpg';
 let cachedCardPool: Readonly<Record<string, CardDefinition>> | null = null;
 let pileBrowserListenerInstalled = false;
 
@@ -1367,9 +1369,10 @@ let siteSelectionMatcher: ((card: { instanceId: CardInstanceId }) => EvaluatedAc
  * Open the pile browser modal showing a list of cards (known or unknown).
  * Used by site deck, sideboard, and victory display piles.
  */
-function openPileBrowser(title: string, cards: readonly ViewCard[], cardPool: Readonly<Record<string, CardDefinition>>): void {
+function openPileBrowser(title: string, cards: readonly ViewCard[], cardPool: Readonly<Record<string, CardDefinition>>, backImage = '/images/card-back.jpg'): void {
   cachedBrowserCards = cards;
   cachedBrowserTitle = title;
+  cachedBrowserBackImage = backImage;
   cachedCardPool = cardPool;
   populateBrowserGrid();
 }
@@ -1392,6 +1395,39 @@ function populateBrowserGrid(): void {
     modal.classList.remove('hidden');
     return;
   }
+
+  // If every card is hidden, show a compact overlapping stack instead of a full grid
+  const allHidden = cachedBrowserCards.every(c => !c.known);
+  if (allHidden) {
+    const stack = document.createElement('div');
+    stack.className = 'pile-browser-stack';
+    const count = cachedBrowserCards.length;
+    // Compute card width from the 25vh height and typical card aspect ratio (~0.7)
+    const cardWidth = window.innerHeight * 0.25 * 0.7;
+    // Available width inside the dialog (80vw minus 3rem padding)
+    const availableWidth = window.innerWidth * 0.8 - 48;
+    // Compute per-card offset so all cards fit; clamp between 2px and 20px
+    const offset = count > 1
+      ? Math.max(2, Math.min(20, (availableWidth - cardWidth) / (count - 1)))
+      : 0;
+    for (let i = 0; i < count; i++) {
+      const img = document.createElement('img');
+      img.src = cachedBrowserBackImage;
+      img.alt = 'Unknown card';
+      img.style.left = `${Math.round(i * offset)}px`;
+      stack.appendChild(img);
+    }
+    const label = document.createElement('div');
+    label.className = 'pile-browser-stack-label';
+    label.textContent = `${count} card${count !== 1 ? 's' : ''}`;
+    stack.appendChild(label);
+    const totalWidth = count > 1 ? Math.round((count - 1) * offset + cardWidth) : cardWidth;
+    stack.style.width = `${totalWidth}px`;
+    grid.appendChild(stack);
+    modal.classList.remove('hidden');
+    return;
+  }
+
   const isSelecting = siteSelectionActions.length > 0;
 
   for (const card of cachedBrowserCards) {
@@ -1400,7 +1436,7 @@ function populateBrowserGrid(): void {
     const imgPath = def ? cardImageProxyPath(def) : undefined;
 
     const img = document.createElement('img');
-    img.src = card.known ? (imgPath ?? '/images/card-back.jpg') : '/images/card-back.jpg';
+    img.src = card.known ? (imgPath ?? cachedBrowserBackImage) : cachedBrowserBackImage;
     img.alt = def?.name ?? 'Unknown card';
     if (defId) img.dataset.cardId = defId;
 
@@ -1475,6 +1511,7 @@ function installSiteDeckViewer(): void {
   pile.addEventListener('click', () => {
     cachedBrowserCards = cachedSiteDeck;
     cachedBrowserTitle = 'Site Deck';
+    cachedBrowserBackImage = '/images/site-back.jpg';
     populateBrowserGrid();
   });
 }
@@ -1487,11 +1524,11 @@ function installPileBrowserClickHandlers(): void {
   pileBrowserClickHandlersInstalled = true;
 
   /** Helper to wire a pile element to the browser modal. */
-  function wirePile(elementId: string, title: string, getCards: () => readonly ViewCard[]): void {
+  function wirePile(elementId: string, title: string, getCards: () => readonly ViewCard[], backImage = '/images/card-back.jpg'): void {
     const el = document.getElementById(elementId);
     if (el) {
       el.addEventListener('click', () => {
-        if (cachedCardPool) openPileBrowser(title, getCards(), cachedCardPool);
+        if (cachedCardPool) openPileBrowser(title, getCards(), cachedCardPool, backImage);
       });
     }
   }
@@ -1507,7 +1544,7 @@ function installPileBrowserClickHandlers(): void {
   wirePile('opponent-sideboard-pile', 'Sideboard', () => toHiddenCards([]));
   wirePile('opponent-discard-pile', 'Discard Pile', () => cachedOppDiscard);
   wirePile('opponent-deck-pile', 'Play Deck', () => cachedOppPlayDeck);
-  wirePile('opponent-site-pile', 'Site Deck', () => cachedOppSiteDeck);
+  wirePile('opponent-site-pile', 'Site Deck', () => cachedOppSiteDeck, '/images/site-back.jpg');
 }
 
 /**

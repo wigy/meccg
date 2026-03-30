@@ -1909,9 +1909,10 @@ h2 {
   border: 1px solid rgba(196, 163, 90, 0.5);
   border-radius: 8px;
   padding: 1.5rem;
-  max-width: 90vw;
+  width: 80vw;
   max-height: 85vh;
   overflow-y: auto;
+  overflow-x: hidden;
   color: #e0e0e0;
   backdrop-filter: blur(8px);
   box-shadow: 0 4px 24px rgba(0, 0, 0, 0.9);
@@ -1961,6 +1962,31 @@ h2 {
   padding: 2rem;
   text-align: center;
   grid-column: 1 / -1;
+}
+
+.pile-browser-stack {
+  position: relative;
+  height: calc(25vh + 2rem);
+  margin: 1rem auto;
+}
+
+.pile-browser-stack img {
+  position: absolute;
+  top: 0;
+  height: 25vh;
+  border-radius: 6px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.6);
+}
+
+.pile-browser-stack-label {
+  position: absolute;
+  bottom: -1.8rem;
+  left: 0;
+  right: 0;
+  text-align: center;
+  color: #c4a35a;
+  font-family: 'MedievalSharp', serif;
+  font-size: 1.1rem;
 }
 
 /* ---- Snapshot modal ---- */
