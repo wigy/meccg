@@ -373,5 +373,27 @@
     "resourceDraws": 0,
     "hazardDraws": 0,
     "text": ""
+  },
+  {
+    "cardType": "hero-site",
+    "alignment": "wizard",
+    "id": "tw-386",
+    "name": "Dol Amroth",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/DolAmroth.jpg",
+    "siteType": "free-hold",
+    "sitePath": [
+      "wilderness",
+      "free"
+    ],
+    "nearestHaven": "Edhellond",
+    "region": "Belfalas",
+    "playableResources": [
+      "faction"
+    ],
+    "automaticAttacks": [],
+    "resourceDraws": 1,
+    "hazardDraws": 1,
+    "text": "",
+    "effects": []
   }
 ]
