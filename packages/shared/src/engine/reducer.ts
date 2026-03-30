@@ -16,7 +16,7 @@
 
 import type { GameState, PlayerState, DraftPlayerState, ItemDraftPlayerState, CharacterDeckDraftPlayerState, SetupStepState, CardDefinitionId, CardInstanceId, CompanyId, CharacterInPlay, CardInstance, ChainEntryPayload, UntapPhaseState, OrganizationPhaseState, MovementHazardPhaseState, SitePhaseState, EndOfTurnPhaseState, FreeCouncilPhaseState, Company, CreatureCard, SiteInPlay, HeroItemCard, CombatState, StrikeAssignment, PlayerId } from '../index.js';
 import type { GameAction } from '../index.js';
-import { Phase, SetupStep, LEGAL_ACTIONS_BY_PHASE, getAlignmentRules, shuffle, nextInt, CardStatus, isCharacterCard, isItemCard, isAllyCard, isSiteCard, SiteType, RegionType, Race, Skill, getPlayerIndex, ZERO_EFFECTIVE_STATS, MAX_STARTING_ITEMS, BASE_MAX_REGION_DISTANCE, HAND_SIZE } from '../index.js';
+import { Phase, SetupStep, LEGAL_ACTIONS_BY_PHASE, getAlignmentRules, shuffle, nextInt, CardStatus, isCharacterCard, isItemCard, isAllyCard, isFactionCard, isSiteCard, SiteType, RegionType, Race, Skill, getPlayerIndex, ZERO_EFFECTIVE_STATS, MAX_STARTING_ITEMS, BASE_MAX_REGION_DISTANCE, HAND_SIZE } from '../index.js';
 import { logHeading, logDetail } from './legal-actions/log.js';
 import type { TwoDiceSix, DieRoll, GameEffect } from '../index.js';
 import { applyDraftResults, transitionAfterItemDraft, enterSiteSelection, startFirstTurn } from './init.js';
@@ -4067,9 +4067,14 @@ function handleSitePlayResources(
     return handlePlayPermanentEvent(state, action);
   }
 
-  // Play hero resource (items)
+  // Play hero resource (items, allies)
   if (action.type === 'play-hero-resource') {
     return handleSitePlayHeroResource(state, action, siteState);
+  }
+
+  // Influence a faction
+  if (action.type === 'influence-attempt') {
+    return handleInfluenceAttempt(state, action, siteState);
   }
 
   return { state, error: `Unexpected action '${action.type}' in play-resources step` };
@@ -4176,6 +4181,143 @@ function handleSitePlayHeroResource(
         resourcePlayed: true,
       },
     },
+  };
+}
+
+/**
+ * Handle an influence attempt on a faction card during the site phase.
+ *
+ * Validates the faction is in hand and playable at this site, the
+ * influencing character is untapped and in the company, then taps
+ * the character, taps the site, and adds the faction to cardsInPlay.
+ *
+ * Note: The influence roll is not yet implemented — for now, the
+ * faction is automatically played successfully.
+ */
+function handleInfluenceAttempt(
+  state: GameState,
+  action: GameAction,
+  siteState: SitePhaseState,
+): ReducerResult {
+  if (action.type !== 'influence-attempt') return { state, error: 'Expected influence-attempt action' };
+
+  const playerIndex = getPlayerIndex(state, action.player);
+  const player = state.players[playerIndex];
+  const company = player.companies[siteState.activeCompanyIndex];
+
+  // Validate faction card is in hand
+  const cardIdx = player.hand.indexOf(action.factionInstanceId);
+  if (cardIdx === -1) return { state, error: 'Faction card not in hand' };
+
+  const inst = state.instanceMap[action.factionInstanceId as string];
+  if (!inst) return { state, error: 'Faction instance not found' };
+
+  const def = state.cardPool[inst.definitionId as string];
+  if (!def || !isFactionCard(def)) return { state, error: 'Card is not a faction' };
+
+  // Validate influencing character
+  const charId = action.influencingCharacterId;
+  if (!company.characters.includes(charId)) {
+    return { state, error: 'Influencing character is not in this company' };
+  }
+
+  const charInPlay = player.characters[charId as string];
+  if (!charInPlay) return { state, error: 'Influencing character not found' };
+  if (charInPlay.status !== CardStatus.Untapped) {
+    return { state, error: 'Influencing character is not untapped' };
+  }
+
+  // Validate site is not tapped
+  const siteInPlay = company.currentSite;
+  if (!siteInPlay || siteInPlay.status === CardStatus.Tapped) {
+    return { state, error: 'Site is already tapped' };
+  }
+
+  const charDef = state.cardPool[charInPlay.definitionId as string];
+  const charName = charDef?.name ?? charId;
+
+  // Calculate influence modifier: character's direct influence
+  let modifier = 0;
+  if (charDef && isCharacterCard(charDef)) {
+    modifier += charDef.directInfluence;
+  }
+
+  // Roll 2d6 + modifier vs influence number
+  const { roll, rng, cheatRollTotal } = roll2d6(state);
+  const d1 = roll.die1;
+  const d2 = roll.die2;
+  const total = d1 + d2 + modifier;
+  const influenceNumber = def.influenceNumber;
+  const modStr = modifier !== 0 ? ` + ${modifier}` : '';
+  logDetail(`Influence attempt: ${charName} rolls ${d1} + ${d2}${modStr} = ${total} vs influence # ${influenceNumber}`);
+
+  const rollEffect: GameEffect = {
+    effect: 'dice-roll',
+    playerName: player.name,
+    die1: roll.die1,
+    die2: roll.die2,
+    label: `Influence: ${def.name}`,
+  };
+
+  // Remove faction from hand
+  const newHand = [...player.hand];
+  newHand.splice(cardIdx, 1);
+
+  // Tap the influencing character
+  const updatedChar: CharacterInPlay = {
+    ...charInPlay,
+    status: CardStatus.Tapped,
+  };
+
+  const newCharacters = { ...player.characters, [charId as string]: updatedChar };
+  const newPlayers = clonePlayers(state);
+
+  // Tap the site
+  const newCompanies = [...player.companies];
+  newCompanies[siteState.activeCompanyIndex] = {
+    ...company,
+    currentSite: { ...siteInPlay, status: CardStatus.Tapped },
+  };
+
+  // Store the roll on the player
+  newPlayers[playerIndex] = { ...player, hand: newHand, characters: newCharacters, companies: newCompanies, lastDiceRoll: roll };
+
+  if (total >= influenceNumber) {
+    // Success — faction goes to cardsInPlay (marshalling point pile)
+    logDetail(`Influence attempt succeeded (${total} >= ${influenceNumber})`);
+    const newCardsInPlay = [...player.cardsInPlay, { instanceId: action.factionInstanceId, definitionId: inst.definitionId, status: CardStatus.Untapped }];
+    newPlayers[playerIndex] = { ...newPlayers[playerIndex], cardsInPlay: newCardsInPlay };
+
+    return {
+      state: {
+        ...state,
+        players: newPlayers,
+        rng, cheatRollTotal,
+        phaseState: {
+          ...siteState,
+          resourcePlayed: true,
+        },
+      },
+      effects: [rollEffect],
+    };
+  }
+
+  // Failure — faction goes to discard pile
+  logDetail(`Influence attempt failed (${total} < ${influenceNumber})`);
+  const newDiscard = [...player.discardPile, action.factionInstanceId];
+  newPlayers[playerIndex] = { ...newPlayers[playerIndex], discardPile: newDiscard };
+
+  return {
+    state: {
+      ...state,
+      players: newPlayers,
+      rng, cheatRollTotal,
+      phaseState: {
+        ...siteState,
+        resourcePlayed: true,
+      },
+    },
+    effects: [rollEffect],
   };
 }
 

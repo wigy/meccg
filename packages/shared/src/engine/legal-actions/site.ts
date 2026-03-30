@@ -9,8 +9,8 @@
  * CoE rules section 2.V (lines 340–393).
  */
 
-import type { GameState, PlayerId, GameAction, EvaluatedAction, SitePhaseState, HeroItemCard, HeroResourceEventCard, SiteCard, PlayableAtEntry } from '../../index.js';
-import { getPlayerIndex, isSiteCard, isItemCard, isAllyCard, CardStatus } from '../../index.js';
+import type { GameState, PlayerId, GameAction, EvaluatedAction, SitePhaseState, HeroItemCard, HeroResourceEventCard, SiteCard, PlayableAtEntry, FactionCard } from '../../index.js';
+import { getPlayerIndex, isSiteCard, isItemCard, isAllyCard, isFactionCard, CardStatus } from '../../index.js';
 import { logDetail, logHeading } from './log.js';
 
 /**
@@ -465,7 +465,80 @@ function playResourcesActions(
       continue;
     }
 
-    // TODO: factions, information
+    // Factions — check site is untapped, faction is playable at this site, and there's an untapped character
+    if (isFactionCard(def)) {
+      const factionDef: FactionCard = def;
+      evaluatedInstances.add(cardInstanceId as string);
+
+      if (siteIsTapped) {
+        logDetail(`Faction ${factionDef.name}: site is already tapped`);
+        actions.push({
+          action: { type: 'not-playable', player: playerId, cardInstanceId },
+          viable: false,
+          reason: `${factionDef.name}: site is already tapped`,
+        });
+        continue;
+      }
+
+      // Check faction is playable at this site
+      const siteDefForFaction = siteDef && isSiteCard(siteDef) ? siteDef : undefined;
+      if (!siteDefForFaction || !factionDef.playableAt.some(entry => siteMatchesEntry(siteDefForFaction, entry))) {
+        const allowedSites = factionDef.playableAt.map(e => 'site' in e ? e.site : e.siteType).join(', ');
+        logDetail(`Faction ${factionDef.name}: not playable at ${siteName} (requires ${allowedSites})`);
+        actions.push({
+          action: { type: 'not-playable', player: playerId, cardInstanceId },
+          viable: false,
+          reason: `${factionDef.name}: not playable at ${siteName}`,
+        });
+        continue;
+      }
+
+      // Check uniqueness — only one copy of a unique faction can be in play
+      const alreadyInPlay = state.players.some(p =>
+        p.cardsInPlay.some(c => {
+          const cDef = state.cardPool[c.definitionId as string];
+          return cDef && cDef.name === factionDef.name;
+        }),
+      );
+      if (alreadyInPlay) {
+        logDetail(`Faction ${factionDef.name}: unique and already in play`);
+        actions.push({
+          action: { type: 'not-playable', player: playerId, cardInstanceId },
+          viable: false,
+          reason: `${factionDef.name} is unique and already in play`,
+        });
+        continue;
+      }
+
+      if (untappedCharacters.length === 0) {
+        logDetail(`Faction ${factionDef.name}: no untapped character to attempt influence`);
+        actions.push({
+          action: { type: 'not-playable', player: playerId, cardInstanceId },
+          viable: false,
+          reason: `${factionDef.name}: no untapped character in company`,
+        });
+        continue;
+      }
+
+      // One action per untapped character that could attempt influence
+      for (const ch of untappedCharacters) {
+        const charDef = state.cardPool[ch.definitionId as string];
+        const charName = charDef?.name ?? ch.instanceId;
+        logDetail(`Faction ${factionDef.name}: influenceable by ${charName}`);
+        actions.push({
+          action: {
+            type: 'influence-attempt',
+            player: playerId,
+            factionInstanceId: cardInstanceId,
+            influencingCharacterId: ch.instanceId,
+          },
+          viable: true,
+        });
+      }
+      continue;
+    }
+
+    // TODO: information
   }
 
   // Mark remaining hand cards as not playable

@@ -3,7 +3,7 @@
     "cardType": "hazard-event",
     "id": "td-21",
     "name": "Eärcaraxë Ahunt",
-    "image": "https://cdn.jsdelivr.net/gh/council-of-rivendell/meccg-remaster/en-remaster/td/EarcaraxeAhunt.jpg",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/td/EarcaraxeAhunt.jpg",
     "unique": true,
     "eventType": "long",
     "effects": [],

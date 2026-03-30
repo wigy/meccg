@@ -114,6 +114,39 @@ function reRenderCharacterPlay(): void {
   void import('./company-view.js').then(m => m.renderCompanyViews(view, cardPool, onAction));
 }
 
+/**
+ * Selected faction instance ID for the two-step influence attempt flow.
+ * When a player clicks a playable faction in the hand arc, the faction
+ * instance ID is stored here and the company view highlights untapped characters.
+ */
+let selectedFactionInstanceId: CardInstanceId | null = null;
+
+/** Cached arguments for re-rendering during faction influence target selection. */
+let factionInfluenceRenderCache: {
+  view: PlayerView;
+  cardPool: Readonly<Record<string, CardDefinition>>;
+  onAction: (action: GameAction) => void;
+} | null = null;
+
+/** Returns the currently selected faction instance ID for the influence-attempt flow. */
+export function getSelectedFactionForInfluence(): CardInstanceId | null {
+  return selectedFactionInstanceId;
+}
+
+/** Clear the faction influence selection (called by company-view after action is sent). */
+export function clearFactionInfluenceSelection(): void {
+  selectedFactionInstanceId = null;
+  setTargetingInstruction(null);
+}
+
+/** Re-render hand and company views using cached state (for faction influence selection flow). */
+function reRenderFactionInfluence(): void {
+  if (!factionInfluenceRenderCache) return;
+  const { view, cardPool, onAction } = factionInfluenceRenderCache;
+  renderHand(view, cardPool, onAction);
+  void import('./company-view.js').then(m => m.renderCompanyViews(view, cardPool, onAction));
+}
+
 
 
 
@@ -1497,8 +1530,9 @@ function populateBrowserGrid(): void {
   }
   modal.classList.remove('hidden');
 
-  // Overlap rows when there are more than 3 so everything fits without scrolling
-  applyRowOverlap(grid);
+  // Overlap rows when there are more than 3 so everything fits without scrolling.
+  // Defer to next frame so the grid has been laid out and clientWidth is available.
+  requestAnimationFrame(() => applyRowOverlap(grid));
 }
 
 /**
@@ -1813,6 +1847,20 @@ function findResourcePlayActions(
 }
 
 /**
+ * Find all influence-attempt actions for a given faction card instance.
+ * One action per eligible untapped character.
+ */
+function findInfluenceActions(
+  instanceId: CardInstanceId | null,
+  legalActions: readonly GameAction[],
+): GameAction[] {
+  if (!instanceId) return [];
+  return legalActions.filter(
+    a => a.type === 'influence-attempt' && a.factionInstanceId === instanceId,
+  );
+}
+
+/**
  * Find all play-hazard actions for a given card instance.
  * Creatures may have multiple entries with different keying methods.
  */
@@ -1947,15 +1995,17 @@ function showResourceTargetMenu(
   for (const action of actions) {
     const charId = action.type === 'play-hero-resource' ? action.attachToCharacterId
       : action.type === 'play-minor-item' ? action.attachToCharacterId
-        : undefined;
+        : action.type === 'influence-attempt' ? action.influencingCharacterId
+          : undefined;
     if (!charId) continue;
     const charDefId = cachedInstanceLookup(charId);
     const charDef = charDefId ? cardPool[charDefId as string] : undefined;
     const charName = charDef ? charDef.name : (charId as string);
 
+    const label = action.type === 'influence-attempt' ? `Influence with ${charName}` : `Play on ${charName}`;
     const btn = document.createElement('button');
     btn.className = 'char-action-tooltip__btn';
-    btn.textContent = `Play on ${charName}`;
+    btn.textContent = label;
     btn.addEventListener('click', () => {
       backdrop.remove();
       onAction(action);
@@ -2772,6 +2822,25 @@ export function renderHand(
     playCharacterRenderCache = null;
   }
 
+  // Cache render state for faction influence re-rendering
+  const hasInfluenceActions = viable.some(a => a.type === 'influence-attempt');
+  if (onAction && hasInfluenceActions) {
+    factionInfluenceRenderCache = { view, cardPool, onAction };
+    if (selectedFactionInstanceId) {
+      const stillViable = viable.some(
+        a => a.type === 'influence-attempt' && a.factionInstanceId === selectedFactionInstanceId,
+      );
+      if (!stillViable) {
+        selectedFactionInstanceId = null;
+        setTargetingInstruction(null);
+      }
+    }
+  } else if (!hasInfluenceActions) {
+    if (selectedFactionInstanceId) setTargetingInstruction(null);
+    selectedFactionInstanceId = null;
+    factionInfluenceRenderCache = null;
+  }
+
   for (let i = 0; i < total; i++) {
     const { defId: cardDefId, instanceId: cardInstanceId } = cards[i];
     const def = cardPool[cardDefId as string];
@@ -2788,10 +2857,12 @@ export function renderHand(
     const isHazard = hazardActions.length > 0;
     const resourceActions = findResourcePlayActions(cardInstanceId, viable);
     const isResource = resourceActions.length > 0;
+    const influenceActions = findInfluenceActions(cardInstanceId, viable);
+    const isInfluence = influenceActions.length > 0;
     const discardAction = cardInstanceId
       ? viable.find(a => a.type === 'discard-card' && a.cardInstanceId === cardInstanceId)
       : undefined;
-    const nonViableReason = !action && !isItemDraft && !isPlayChar && !isShortEvent && !isHazard && !isResource && !discardAction
+    const nonViableReason = !action && !isItemDraft && !isPlayChar && !isShortEvent && !isHazard && !isResource && !isInfluence && !discardAction
       ? findNonViableReason(cardDefId, view.legalActions, cachedInstanceLookup)
       : undefined;
     const isSelected = selectedItemDefId === cardDefId;
@@ -2799,6 +2870,10 @@ export function renderHand(
     const isCharSelected = selectedCharacterInstanceId !== null
       && cardInstanceId !== null
       && selectedCharacterInstanceId === cardInstanceId;
+
+    const isFactionSelected = selectedFactionInstanceId !== null
+      && cardInstanceId !== null
+      && selectedFactionInstanceId === cardInstanceId;
 
     const img = document.createElement('img');
     img.src = imgPath;
@@ -2875,6 +2950,21 @@ export function renderHand(
             showResourceTargetMenu(e, resourceActions, view, cardPool, onAction);
           });
         }
+      }
+    } else if (isInfluence) {
+      // Faction influence two-step flow: click to select, then click a character in company
+      img.className = isFactionSelected
+        ? 'hand-card hand-card-selected'
+        : 'hand-card hand-card-playable';
+      if (onAction && cardInstanceId) {
+        const instId = cardInstanceId;
+        img.addEventListener('click', () => {
+          selectedFactionInstanceId = isFactionSelected ? null : instId;
+          setTargetingInstruction(
+            selectedFactionInstanceId ? `Click an untapped character to influence ${def.name}` : null,
+          );
+          reRenderFactionInfluence();
+        });
       }
     } else if (action) {
       img.className = 'hand-card hand-card-playable';
