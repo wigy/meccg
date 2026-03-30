@@ -476,5 +476,24 @@
     "hazardDraws": 2,
     "text": "Nearest Haven: Lórien. Playable: Items (minor, major, gold ring). Automatic-attacks: Wolves — 3 strikes with 7 prowess.",
     "effects": []
+  },
+  {
+    "cardType": "hero-site",
+    "alignment": "wizard",
+    "id": "tw-407",
+    "name": "Lond Galen",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/LondGalen.jpg",
+    "siteType": "border-hold",
+    "sitePath": [
+      "wilderness"
+    ],
+    "nearestHaven": "Edhellond",
+    "region": "Anfalas",
+    "playableResources": [],
+    "automaticAttacks": [],
+    "resourceDraws": 1,
+    "hazardDraws": 1,
+    "text": "Nearest Haven: Edhellond.",
+    "effects": []
   }
 ]
