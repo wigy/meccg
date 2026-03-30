@@ -270,10 +270,11 @@
         <div id="opponent-name" class="player-label"></div>
         <div id="opponent-score" class="deck-box-score"></div>
         <div class="player-piles">
-          <div id="opponent-sideboard-pile" class="pile-cell"></div>
-          <div id="opponent-discard-pile" class="pile-cell"></div>
+          <div id="opponent-discard-pile" class="pile-cell pile-cell--wide"></div>
           <div id="opponent-site-pile" class="pile-cell"></div>
           <div id="opponent-deck-pile" class="pile-cell"></div>
+          <div id="opponent-victory-pile" class="pile-cell pile-cell--clickable"></div>
+          <div id="opponent-sideboard-pile" class="pile-cell pile-cell--clickable"></div>
         </div>
       </div>
       <div id="opponent-arc"></div>
@@ -289,21 +290,22 @@
       <div id="hand-arc"></div>
       <div id="self-deck-box" class="deck-box deck-box--self">
         <div class="player-piles">
+          <div id="self-victory-pile" class="pile-cell pile-cell--clickable"></div>
+          <div id="self-sideboard-pile" class="pile-cell pile-cell--clickable"></div>
           <div id="self-site-pile" class="pile-cell"></div>
           <div id="self-deck-pile" class="pile-cell"></div>
-          <div id="self-sideboard-pile" class="pile-cell"></div>
-          <div id="self-discard-pile" class="pile-cell"></div>
+          <div id="self-discard-pile" class="pile-cell pile-cell--wide pile-cell--clickable"></div>
         </div>
         <div id="self-score" class="deck-box-score"></div>
         <div id="self-name" class="player-label"></div>
       </div>
     </div>
 
-    <div id="site-deck-modal" class="hidden">
-      <div id="site-deck-backdrop"></div>
-      <div id="site-deck-dialog">
-        <h3>Site Deck</h3>
-        <div id="site-deck-grid"></div>
+    <div id="pile-browser-modal" class="hidden">
+      <div id="pile-browser-backdrop"></div>
+      <div id="pile-browser-dialog">
+        <h3 id="pile-browser-title">Site Deck</h3>
+        <div id="pile-browser-grid"></div>
       </div>
     </div>
 

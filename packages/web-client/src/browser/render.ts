@@ -5,7 +5,7 @@
  * action buttons, draft info, and a message log.
  */
 
-import type { PlayerView, GameAction, EvaluatedAction, CardDefinition, CardDefinitionId, CardInstanceId, CharacterInPlay, SiteInPlay, ChainEntry } from '@meccg/shared';
+import type { PlayerView, GameAction, EvaluatedAction, CardDefinition, CardDefinitionId, CardInstanceId, CharacterInPlay, SiteInPlay, ChainEntry, RevealedCard } from '@meccg/shared';
 import { describeAction, formatPlayerView, formatCardList, formatCardName, cardImageProxyPath, isCharacterCard, GENERAL_INFLUENCE, getAlignmentRules, viableActions, formatSignedNumber, Phase, computeTournamentScore, computeTournamentBreakdown } from '@meccg/shared';
 import type { MarshallingPointTotals } from '@meccg/shared';
 import { $, createCardImage, createFaceDownCard, appendItemCards } from './render-utils.js';
@@ -1256,31 +1256,44 @@ function fillDeckPile(el: HTMLElement, deckSize: number, backImage = '/images/ca
 }
 
 
+/** Get the face image of the last card in a pile, or a card back fallback. */
+function topCardImage(cards: readonly RevealedCard[], cardPool: Readonly<Record<string, CardDefinition>> | null): string {
+  if (!cardPool || cards.length === 0) return '/images/card-back.jpg';
+  const top = cards[cards.length - 1];
+  const def = cardPool[top.definitionId as string];
+  return (def && cardImageProxyPath(def)) ?? '/images/card-back.jpg';
+}
+
+/** Combine eliminated pile and kill pile into a single victory display. */
+function buildVictoryCards(
+  player: { eliminatedPile: readonly RevealedCard[]; killPile: readonly RevealedCard[] },
+): readonly RevealedCard[] {
+  return [...player.eliminatedPile, ...player.killPile];
+}
+
 /** Reset all deck piles to empty (dimmed placeholder with 0). */
 export function resetDeckPiles(): void {
-  const deckIds = ['self-deck-pile', 'opponent-deck-pile'];
-  const siteIds = ['self-site-pile', 'opponent-site-pile'];
-  const sideboardIds = ['self-sideboard-pile', 'opponent-sideboard-pile'];
-  const discardIds = ['self-discard-pile', 'opponent-discard-pile'];
-  for (const id of deckIds) {
+  const piles: [string, string][] = [
+    ['self-deck-pile', 'Play Deck'],
+    ['opponent-deck-pile', 'Play Deck'],
+    ['self-site-pile', 'Site Deck'],
+    ['opponent-site-pile', 'Site Deck'],
+    ['self-sideboard-pile', 'Sideboard'],
+    ['opponent-sideboard-pile', 'Sideboard'],
+    ['self-discard-pile', 'Discard Pile'],
+    ['opponent-discard-pile', 'Discard Pile'],
+    ['self-victory-pile', 'Victory Display'],
+    ['opponent-victory-pile', 'Victory Display'],
+  ];
+  for (const [id, title] of piles) {
     const el = document.getElementById(id);
-    if (el) fillDeckPile(el, 0, '/images/card-back.jpg', 'Play Deck');
-  }
-  for (const id of siteIds) {
-    const el = document.getElementById(id);
-    if (el) fillDeckPile(el, 0, '/images/site-back.jpg', 'Site Deck');
-  }
-  for (const id of sideboardIds) {
-    const el = document.getElementById(id);
-    if (el) fillDeckPile(el, 0, '/images/card-back.jpg', 'Sideboard');
-  }
-  for (const id of discardIds) {
-    const el = document.getElementById(id);
-    if (el) fillDeckPile(el, 0, '/images/card-back.jpg', 'Discard Pile');
+    if (!el) continue;
+    const backImg = id.includes('site') ? '/images/site-back.jpg' : '/images/card-back.jpg';
+    fillDeckPile(el, 0, backImg, title);
   }
 }
 
-/** Render both players' draw deck, site deck, sideboard, and discard piles. */
+/** Render both players' draw deck, site deck, sideboard, victory display, and discard piles. */
 export function renderDeckPiles(view: PlayerView, cardPool?: Readonly<Record<string, CardDefinition>>): void {
   const selfEl = document.getElementById('self-deck-pile');
   if (selfEl) fillDeckPile(selfEl, view.self.playDeck.length, '/images/card-back.jpg', 'Play Deck');
@@ -1306,18 +1319,34 @@ export function renderDeckPiles(view: PlayerView, cardPool?: Readonly<Record<str
   const oppDiscardEl = document.getElementById('opponent-discard-pile');
   if (oppDiscardEl) fillDeckPile(oppDiscardEl, view.opponent.discardPile.length, '/images/card-back.jpg', 'Discard Pile');
 
-  // Cache site deck for the modal viewer
+  // Victory display = eliminated + kill pile (face-up — show top card image)
+  const pool = cardPool ?? cachedCardPool;
+  const selfVictoryCards = buildVictoryCards(view.self);
+  const oppVictoryCards = buildVictoryCards(view.opponent);
+  const selfVictoryEl = document.getElementById('self-victory-pile');
+  if (selfVictoryEl) fillDeckPile(selfVictoryEl, selfVictoryCards.length, topCardImage(selfVictoryCards, pool), 'Victory Display');
+  const oppVictoryEl = document.getElementById('opponent-victory-pile');
+  if (oppVictoryEl) fillDeckPile(oppVictoryEl, oppVictoryCards.length, topCardImage(oppVictoryCards, pool), 'Victory Display');
+
+  // Cache for pile browser click handlers
   cachedSiteDeck = view.self.siteDeck;
+  cachedSelfSideboard = view.self.sideboard;
+  cachedSelfDiscard = view.self.discardPile;
+  cachedSelfVictoryCards = selfVictoryCards;
+  cachedOppVictoryCards = oppVictoryCards;
   if (cardPool) cachedCardPool = cardPool;
   installSiteDeckViewer();
+  installPileBrowserClickHandlers();
 }
 
-// ---- Site deck viewer modal ----
+// ---- Pile browser modal (shared by site deck, sideboard, victory display) ----
 
-/** Cached site deck for the modal viewer. */
-let cachedSiteDeck: PlayerView['self']['siteDeck'] = [];
+/** Cached cards for the current pile browser view. */
+let cachedBrowserCards: readonly RevealedCard[] = [];
+/** Cached title for the current pile browser view. */
+let cachedBrowserTitle = '';
 let cachedCardPool: Readonly<Record<string, CardDefinition>> | null = null;
-let siteDeckListenerInstalled = false;
+let pileBrowserListenerInstalled = false;
 
 /** Cached site selection state for interactive site selection in the viewer. */
 let siteSelectionActions: EvaluatedAction[] = [];
@@ -1325,25 +1354,36 @@ let siteSelectionCallback: ((action: GameAction) => void) | null = null;
 /** Matches a site deck entry to its evaluated action for the current selection mode. */
 let siteSelectionMatcher: ((card: { instanceId: CardInstanceId }) => EvaluatedAction | undefined) | null = null;
 
-/** Populate the site deck grid, optionally with interactive site selection. */
-function populateSiteDeckGrid(): void {
-  const grid = document.getElementById('site-deck-grid');
-  const modal = document.getElementById('site-deck-modal');
-  if (!grid || !modal || !cachedCardPool || cachedSiteDeck.length === 0) return;
+/**
+ * Open the pile browser modal showing a list of cards (known or unknown).
+ * Used by site deck, sideboard, and victory display piles.
+ */
+function openPileBrowser(title: string, cards: readonly RevealedCard[], cardPool: Readonly<Record<string, CardDefinition>>): void {
+  cachedBrowserCards = cards;
+  cachedBrowserTitle = title;
+  cachedCardPool = cardPool;
+  populateBrowserGrid();
+}
+
+/** Populate the pile browser grid, optionally with interactive site selection. */
+function populateBrowserGrid(): void {
+  const grid = document.getElementById('pile-browser-grid');
+  const modal = document.getElementById('pile-browser-modal');
+  const titleEl = document.getElementById('pile-browser-title');
+  if (!grid || !modal || !cachedCardPool || cachedBrowserCards.length === 0) return;
 
   grid.innerHTML = '';
+  if (titleEl) titleEl.textContent = cachedBrowserTitle;
   const isSelecting = siteSelectionActions.length > 0;
 
-  for (const card of cachedSiteDeck) {
+  for (const card of cachedBrowserCards) {
     const def = cachedCardPool[card.definitionId as string];
-    if (!def) continue;
-    const imgPath = cardImageProxyPath(def);
-    if (!imgPath) continue;
+    const imgPath = def ? cardImageProxyPath(def) : undefined;
 
     const img = document.createElement('img');
-    img.src = imgPath;
-    img.alt = def.name;
-    img.dataset.cardId = card.definitionId as string;
+    img.src = imgPath ?? '/images/card-back.jpg';
+    img.alt = def?.name ?? 'Unknown card';
+    if (def) img.dataset.cardId = card.definitionId as string;
 
     if (isSelecting) {
       const ea = siteSelectionMatcher?.(card);
@@ -1370,23 +1410,90 @@ function populateSiteDeckGrid(): void {
   modal.classList.remove('hidden');
 }
 
-/** Install click handler on the self site pile to open the site deck modal. */
-function installSiteDeckViewer(): void {
-  if (siteDeckListenerInstalled) return;
-  siteDeckListenerInstalled = true;
+/** Install the backdrop click handler for the pile browser modal (once). */
+function installPileBrowserBackdrop(): void {
+  if (pileBrowserListenerInstalled) return;
+  pileBrowserListenerInstalled = true;
 
-  const pile = document.getElementById('self-site-pile');
-  const modal = document.getElementById('site-deck-modal');
-  const backdrop = document.getElementById('site-deck-backdrop');
-  if (!pile || !modal || !backdrop) return;
-
-  pile.addEventListener('click', () => {
-    populateSiteDeckGrid();
-  });
+  const backdrop = document.getElementById('pile-browser-backdrop');
+  if (!backdrop) return;
 
   backdrop.addEventListener('click', () => {
     closeSelectionViewer();
   });
+}
+
+/** Cached site deck for the site pile click handler. */
+let cachedSiteDeck: PlayerView['self']['siteDeck'] = [];
+/** Cached sideboard for the sideboard pile click handler. */
+let cachedSelfSideboard: readonly RevealedCard[] = [];
+/** Cached discard pile for the discard pile click handler. */
+let cachedSelfDiscard: readonly RevealedCard[] = [];
+/** Cached victory display cards for click handlers. */
+let cachedSelfVictoryCards: readonly RevealedCard[] = [];
+let cachedOppVictoryCards: readonly RevealedCard[] = [];
+let siteDeckListenerInstalled = false;
+let pileBrowserClickHandlersInstalled = false;
+
+/** Install click handler on the self site pile to open the site deck browser. */
+function installSiteDeckViewer(): void {
+  installPileBrowserBackdrop();
+
+  if (siteDeckListenerInstalled) return;
+  siteDeckListenerInstalled = true;
+
+  const pile = document.getElementById('self-site-pile');
+  if (!pile) return;
+
+  pile.addEventListener('click', () => {
+    cachedBrowserCards = cachedSiteDeck;
+    cachedBrowserTitle = 'Site Deck';
+    populateBrowserGrid();
+  });
+}
+
+/** Install click handlers on sideboard and victory display piles to open the pile browser. */
+function installPileBrowserClickHandlers(): void {
+  installPileBrowserBackdrop();
+
+  if (pileBrowserClickHandlersInstalled) return;
+  pileBrowserClickHandlersInstalled = true;
+
+  const selfSideboard = document.getElementById('self-sideboard-pile');
+  if (selfSideboard) {
+    selfSideboard.addEventListener('click', () => {
+      if (cachedCardPool) openPileBrowser('Sideboard', cachedSelfSideboard, cachedCardPool);
+    });
+  }
+
+  const selfVictory = document.getElementById('self-victory-pile');
+  if (selfVictory) {
+    selfVictory.addEventListener('click', () => {
+      if (cachedCardPool) openPileBrowser('Victory Display', cachedSelfVictoryCards, cachedCardPool);
+    });
+  }
+
+  const oppVictory = document.getElementById('opponent-victory-pile');
+  if (oppVictory) {
+    oppVictory.addEventListener('click', () => {
+      if (cachedCardPool) openPileBrowser('Victory Display', cachedOppVictoryCards, cachedCardPool);
+    });
+  }
+
+  const oppSideboard = document.getElementById('opponent-sideboard-pile');
+  if (oppSideboard) {
+    oppSideboard.addEventListener('click', () => {
+      // Opponent sideboard is hidden — show empty browser
+      if (cachedCardPool) openPileBrowser('Sideboard', [], cachedCardPool);
+    });
+  }
+
+  const selfDiscard = document.getElementById('self-discard-pile');
+  if (selfDiscard) {
+    selfDiscard.addEventListener('click', () => {
+      if (cachedCardPool) openPileBrowser('Discard Pile', cachedSelfDiscard, cachedCardPool);
+    });
+  }
 }
 
 /**
@@ -1441,15 +1548,17 @@ export function openMovementViewer(
   );
   siteSelectionCallback = onAction;
   installSiteDeckViewer();
-  populateSiteDeckGrid();
+  cachedBrowserCards = cachedSiteDeck;
+  cachedBrowserTitle = 'Site Deck';
+  populateBrowserGrid();
 }
 
-/** Close the site selection / movement viewer and clear selection state. */
+/** Close the pile browser and clear selection state. */
 export function closeSelectionViewer(): void {
   siteSelectionActions = [];
   siteSelectionCallback = null;
   siteSelectionMatcher = null;
-  const modal = document.getElementById('site-deck-modal');
+  const modal = document.getElementById('pile-browser-modal');
   if (modal) modal.classList.add('hidden');
   const pile = document.getElementById('self-site-pile');
   if (pile) pile.classList.remove('site-pile--active');
