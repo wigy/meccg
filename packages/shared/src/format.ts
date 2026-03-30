@@ -1,14 +1,13 @@
 /**
  * @module format
  *
- * Single text-based renderer for game state. Outputs ANSI-coloured,
+ * Single text-based renderer for game state. Outputs plain text,
  * YAML-like indented text showing players, companies, characters, items,
  * combat, and events.
  *
  * There is ONE rendering function: {@link renderState}. It accepts a
  * {@link RenderInput} — a simple bag of data that both {@link GameState}
- * and {@link PlayerView} can provide. Known cards are rendered in
- * type-specific colours; unknown/hidden cards are rendered in dim grey.
+ * and {@link PlayerView} can provide.
  *
  * Convenience wrappers {@link formatGameState} and {@link formatPlayerView}
  * adapt the engine's data structures into {@link RenderInput}.
@@ -58,75 +57,10 @@ export const CARD_TYPE_CSS: Readonly<Record<string, string>> = {
   'region': 'color:#6090e0;opacity:0.6',
 };
 
-// ---- ANSI colors (derived from CARD_TYPE_CSS) ----
-
-const RESET = '\x1b[0m';
-const BOLD = '\x1b[1m';
-const DIM = '\x1b[2m';
-
-/** Map CSS hex colors to ANSI escape codes. */
-const CSS_TO_ANSI: Record<string, string> = {
-  '#6090e0': '\x1b[34m',  // blue
-  '#d0a040': '\x1b[33m',  // yellow
-  '#50b0b0': '\x1b[36m',  // cyan
-  '#60c060': '\x1b[32m',  // green
-  '#e06060': '\x1b[31m',  // red
-  '#d0d0d0': '\x1b[37m',  // white
-  '#c070c0': '\x1b[35m',  // magenta
-  '#666': '\x1b[90m',     // grey
-  '#d0d040': '\x1b[93m',  // bright yellow
-};
-
-/** Derive ANSI color codes from the canonical CSS map. */
-function cssToAnsi(css: string): string {
-  let ansi = '';
-  if (css.includes('font-weight:bold')) ansi += BOLD;
-  if (css.includes('opacity:0.6')) ansi += DIM;
-  const colorMatch = css.match(/color:(#[0-9a-f]+)/i);
-  if (colorMatch) ansi += CSS_TO_ANSI[colorMatch[1]] ?? '';
-  return ansi || '\x1b[37m';
-}
-
-const COLORS: Record<string, string> = Object.fromEntries(
-  Object.entries(CARD_TYPE_CSS).map(([type, css]) => [type, cssToAnsi(css)]),
-);
-
-/** Color for debug information (IDs, raw JSON). */
-const DEBUG_COLOR = `${DIM}\x1b[90m`;
-
-/** Wraps text in the debug color (dim grey). For IDs and raw action JSON. */
-export function colorDebug(text: string): string {
-  return `${DEBUG_COLOR}${text}${RESET}`;
-}
-
 /** Strip STX card-ID markers (\x02id\x02), «MP:…», and «DICE:…» markers from formatted output. */
 export function stripCardMarkers(text: string): string {
   // eslint-disable-next-line no-control-regex
   return text.replace(/\x02[^\x02]*\x02/g, '').replace(/«MP:[^»]*»/g, '').replace(/«DICE:[^»]*»/g, '').replace(/«ACTIVE-(?:START|END)»\n?/g, '');
-}
-
-/**
- * Controls whether instance/definition IDs are shown in formatted output.
- * Set to true to show `{i-3}` and `{tw-120}` after card names.
- * Default is false (clean output for normal play).
- */
-export let showDebugIds = false;
-
-/** Enable or disable debug ID display in formatted output. */
-export function setShowDebugIds(value: boolean): void {
-  showDebugIds = value;
-}
-
-/** Color for unknown/hidden cards. */
-const UNKNOWN_COLOR = `${DIM}\x1b[0;90m`;
-
-function colorize(text: string, cardType: string): string {
-  const color = COLORS[cardType] ?? '';
-  return color ? `${color}${text}${RESET}` : text;
-}
-
-function colorizeUnknown(text: string): string {
-  return `${UNKNOWN_COLOR}${text}${RESET}`;
 }
 
 // ---- Resolve helpers ----
@@ -155,19 +89,16 @@ function resolve(instId: CardInstanceId, instOf: InstanceLookup, defOf: CardLook
 // ---- Card name formatting ----
 
 /**
- * Formats a card name in the correct type-specific color.
- * If the card definition is not found, returns dim grey "[unknown]".
- * This is THE function for rendering any card name with color.
+ * Formats a card name as plain text.
+ * If the card definition is not found, returns "[unknown]".
+ * Embeds the card definition ID as \x02id\x02 marker before the name
+ * so the web client can parse it into data attributes.
  */
 export function formatCardName(
   def: CardDefinition | undefined,
 ): string {
-  if (!def) return colorizeUnknown('a card');
-  // Placeholder cards (unknown-card, unknown-site) render in unknown color
-  if ((def.id as string).startsWith('unknown-')) return colorizeUnknown(`\x02${def.id}\x02${def.name}`);
-  // Embed card definition ID as \x02id\x02 marker before the name.
-  // Terminals ignore STX characters; the web client parses them into data attributes.
-  return colorize(`\x02${def.id}\x02${def.name}`, def.cardType);
+  if (!def) return 'a card';
+  return `\x02${def.id}\x02${def.name}`;
 }
 
 /**
@@ -179,7 +110,7 @@ export function formatCardName(
 function formatInstanceName(instId: CardInstanceId, defOf: CardLookup, instOf: InstanceLookup): string {
   const def = resolve(instId, instOf, defOf);
   const name = formatCardName(def);
-  return showDebugIds ? `${name} ${colorDebug(`{${instId}}`)}` : name;
+  return name;
 }
 
 /**
@@ -221,7 +152,7 @@ export function formatDefName(
 ): string {
   const def = cardPool[defId as string];
   const name = formatCardName(def);
-  return showDebugIds ? `${name} ${colorDebug(`{${defId}}`)}` : name;
+  return name;
 }
 
 // ---- Card detail formatting ----
@@ -242,7 +173,7 @@ function statusSymbol(status: CardStatus): string {
 function formatCharacterLine(char: CharacterInPlay, defOf: CardLookup, instOf: InstanceLookup): string {
   const def = resolve(char.instanceId, instOf, defOf);
   if (!isCharacterCard(def)) {
-    return showDebugIds ? colorizeUnknown(`a character {${char.instanceId}}`) : colorizeUnknown('a character');
+    return ('a character');
   }
   const c = def;
   const s = char.effectiveStats;
@@ -256,7 +187,7 @@ function formatCharacterLine(char: CharacterInPlay, defOf: CardLookup, instOf: I
 function formatItemLine(item: ItemInPlay, defOf: CardLookup, instOf: InstanceLookup): string {
   const def = resolve(item.instanceId, instOf, defOf);
   if (!isItemCard(def)) {
-    return showDebugIds ? colorizeUnknown(`an item {${item.instanceId}}`) : colorizeUnknown('an item');
+    return ('an item');
   }
   const label = formatInstanceName(item.instanceId, defOf, instOf);
   const pMod = formatSignedNumber(def.prowessModifier);
@@ -267,7 +198,7 @@ function formatItemLine(item: ItemInPlay, defOf: CardLookup, instOf: InstanceLoo
 function formatAllyLine(ally: AllyInPlay, defOf: CardLookup, instOf: InstanceLookup): string {
   const def = resolve(ally.instanceId, instOf, defOf);
   if (!def || def.cardType !== 'hero-resource-ally') {
-    return showDebugIds ? colorizeUnknown(`an ally {${ally.instanceId}}`) : colorizeUnknown('an ally');
+    return ('an ally');
   }
   const label = formatInstanceName(ally.instanceId, defOf, instOf);
   return `${statusSymbol(ally.status)} ${label} [${def.prowess}/${def.body}] (${def.marshallingPoints} MP)`;
@@ -276,7 +207,7 @@ function formatAllyLine(ally: AllyInPlay, defOf: CardLookup, instOf: InstanceLoo
 function formatCorruptionCardLine(instId: CardInstanceId, defOf: CardLookup, instOf: InstanceLookup): string {
   const def = resolve(instId, instOf, defOf);
   if (!def || def.cardType !== 'hazard-corruption') {
-    return showDebugIds ? colorizeUnknown(`a corruption {${instId}}`) : colorizeUnknown('a corruption');
+    return ('a corruption');
   }
   const label = formatInstanceName(instId, defOf, instOf);
   return `${label} (${def.corruptionPoints} CP)`;
@@ -301,7 +232,7 @@ function formatCompany(
 
   const activeMarker = isActive ? '▶ ' : '';
   const siteStatus = company.currentSite ? statusSymbol(company.currentSite.status) + ' ' : '';
-  const siteName = company.currentSite ? formatSiteName(company.currentSite.instanceId, defOf, instOf) : colorizeUnknown('(no site)');
+  const siteName = company.currentSite ? formatSiteName(company.currentSite.instanceId, defOf, instOf) : ('(no site)');
   const noSiteTag = company.siteCardOwned === false ? ' (no site)' : '';
   if (company.destinationSite) {
     const destName = formatSiteName(company.destinationSite, defOf, instOf);
@@ -359,10 +290,10 @@ function formatOpponentCompany(
 
   const activeMarker = isActive ? '▶ ' : '';
   const siteStatus = company.currentSite ? statusSymbol(company.currentSite.status) + ' ' : '';
-  const siteName = company.currentSite ? formatSiteName(company.currentSite.instanceId, defOf, instOf) : colorizeUnknown('(no site)');
+  const siteName = company.currentSite ? formatSiteName(company.currentSite.instanceId, defOf, instOf) : ('(no site)');
   const noSiteTag = company.siteCardOwned === false ? ' (no site)' : '';
   if (company.hasPlannedMovement) {
-    lines.push(`${indent}${activeMarker}Company ${index + 1} → ${colorizeUnknown('(planned)')} (from ${siteStatus}${siteName})${noSiteTag}:`);
+    lines.push(`${indent}${activeMarker}Company ${index + 1} → ${('(planned)')} (from ${siteStatus}${siteName})${noSiteTag}:`);
   } else {
     lines.push(`${indent}${activeMarker}Company ${index + 1} @ ${siteStatus}${siteName}${noSiteTag}:`);
   }

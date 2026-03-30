@@ -32,7 +32,6 @@ For implementation-specific terminology (mail, game state, card instances, etc.)
 - **Web client dev mode:** `npm run dev -w @meccg/web-client` (esbuild watch + live-reload via SSE)
 - **Start lobby server:** `npm run start -w @meccg/lobby-server` (serves on port 8080 with auth + matchmaking)
 - **Lobby dev mode:** `npm run dev -w @meccg/lobby-server` (hot-reload, spawns game servers on demand)
-- **Debug mode:** Add `--debug` flag or set `DEBUG=1` env var to show raw JSON messages and card IDs
 
 ### Verification During Development
 
@@ -115,7 +114,7 @@ All server-side logic must include detailed logging so that the game's decision-
 - To debug a problem, load the save and inspect `state.phaseState` (current phase/step), `state.players[N]` (player data), and `state.instanceMap` (card instances).
 - Key fields to check: `phaseState.setupStep.step` (which setup step), per-step state (e.g. `siteSelectionState`, `placementDone`), `players[N].siteDeck`, `players[N].hand`, `players[N].companies`.
 - To verify legal actions, trace through the legal action function for the current step with the player's index and state.
-- The server logs detailed decision-making to the console — run with `--debug` to see raw JSON messages and card IDs.
+- The server logs detailed decision-making to the console.
 
 ### Testing Philosophy
 

@@ -13,7 +13,7 @@
  * Call {@link flushCapture} to retrieve and clear the buffer.
  */
 
-const PREFIX = '\x1b[36m[legal-actions]\x1b[0m';
+const PREFIX = '[legal-actions]';
 
 /** When non-null, log lines are appended here in addition to the console. */
 let captureBuffer: string[] | null = null;

@@ -6,7 +6,7 @@
  */
 
 import type { PlayerView, GameAction, EvaluatedAction, CardDefinition, CardDefinitionId, CardInstanceId, CharacterInPlay, SiteInPlay, ChainEntry, ViewCard } from '@meccg/shared';
-import { describeAction, formatPlayerView, formatCardList, formatCardName, cardImageProxyPath, isCharacterCard, GENERAL_INFLUENCE, getAlignmentRules, viableActions, formatSignedNumber, Phase, computeTournamentScore, computeTournamentBreakdown, isCardHidden, buildInstanceLookup } from '@meccg/shared';
+import { describeAction, formatPlayerView, formatCardList, formatCardName, cardImageProxyPath, isCharacterCard, GENERAL_INFLUENCE, getAlignmentRules, viableActions, formatSignedNumber, Phase, computeTournamentScore, computeTournamentBreakdown, isCardHidden, buildInstanceLookup, CARD_TYPE_CSS } from '@meccg/shared';
 import type { MarshallingPointTotals } from '@meccg/shared';
 import { $, createCardImage, createFaceDownCard, appendItemCards } from './render-utils.js';
 import { createMiniDie, seedDiceFromState, restoreDice, clearDice } from './dice.js';
@@ -150,25 +150,6 @@ function reRenderFactionInfluence(): void {
 
 
 
-/**
- * Maps ANSI SGR color codes to CSS color values.
- * Supports the codes used in format.ts: bold, dim, and 8 standard colors.
- */
-const ANSI_TO_CSS: Record<string, string> = {
-  '1': 'font-weight:bold',      // bold
-  '2': 'opacity:0.6',           // dim
-  '31': 'color:#e06060',        // red (hazard-creature)
-  '32': 'color:#60c060',        // green (ally, resource-event)
-  '33': 'color:#d0a040',        // yellow (item)
-  '34': 'color:#6090e0',        // blue (character)
-  '35': 'color:#c070c0',        // magenta (minion-character)
-  '36': 'color:#50b0b0',        // cyan (faction)
-  '37': 'color:#d0d0d0',        // white (site)
-  '90': 'color:#666',           // bright black / grey (unknown, debug)
-  '93': 'color:#d0d040',        // bright yellow (balrog-site)
-};
-
-/** Convert a string containing ANSI escape codes to HTML with colored spans. */
 /** Escape HTML special characters for safe insertion into innerHTML. */
 function escapeHtml(text: string): string {
   return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -249,55 +230,16 @@ function renderCollapsibleJson(value: unknown, indent: string): string {
   return `<span style="color:#888">${escapeHtml(typeof value)}</span>`;
 }
 
-function ansiToHtml(text: string): string {
-  // Escape HTML entities first
-  const escaped = text
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;');
-
-  let result = '';
-  let openSpans = 0;
-
-  // Match ANSI escape sequences: ESC[ followed by semicolon-separated numbers, ending with 'm'
+/**
+ * Convert plain text with embedded \x02id\x02name card markers to HTML.
+ * Card markers become `<span class="card-name" data-card-id="id">name</span>`.
+ */
+function textToHtml(text: string): string {
+  const escaped = escapeHtml(text);
   // eslint-disable-next-line no-control-regex
-  const parts = escaped.split(/\x1b\[([0-9;]*)m/);
-
-  for (let i = 0; i < parts.length; i++) {
-    if (i % 2 === 0) {
-      // Text content — parse \x02id\x02name markers into data-card-id spans
-      // eslint-disable-next-line no-control-regex
-      result += parts[i].replace(/\x02([^\x02]+)\x02([^\x02]*)/g,
-        (_m, id: string, name: string) =>
-          `<span class="card-name" data-card-id="${id}">${name}</span>`);
-    } else {
-      // ANSI code(s)
-      const codes = parts[i].split(';').filter(c => c !== '');
-      for (const code of codes) {
-        if (code === '0') {
-          // Reset: close all open spans
-          while (openSpans > 0) {
-            result += '</span>';
-            openSpans--;
-          }
-        } else {
-          const css = ANSI_TO_CSS[code];
-          if (css) {
-            result += `<span style="${css}">`;
-            openSpans++;
-          }
-        }
-      }
-    }
-  }
-
-  // Close any remaining open spans
-  while (openSpans > 0) {
-    result += '</span>';
-    openSpans--;
-  }
-
-  return result;
+  return escaped.replace(/\x02([^\x02]+)\x02([^\x02]*)/g,
+    (_m, id: string, name: string) =>
+      `<span class="card-name" data-card-id="${id}">${name}</span>`);
 }
 
 // ---- Card image hover ----
@@ -319,8 +261,8 @@ function getCardIdToImage(cardPool: Readonly<Record<string, CardDefinition>>): M
 }
 
 /**
- * Walk an element's .card-name spans (created by ansiToHtml from \x02 markers)
- * and resolve their data-card-id to an image proxy path for the hover handler.
+ * Walk an element's .card-name spans (created by textToHtml from \x02 markers)
+ * and resolve their data-card-id to an image proxy path and card-type color.
  */
 function tagCardImages(el: HTMLElement, cardPool: Readonly<Record<string, CardDefinition>>): void {
   const map = getCardIdToImage(cardPool);
@@ -330,6 +272,11 @@ function tagCardImages(el: HTMLElement, cardPool: Readonly<Record<string, CardDe
     const imgPath = map.get(id);
     if (imgPath) {
       (span as HTMLElement).dataset.cardImage = imgPath;
+    }
+    const def = cardPool[id];
+    const css = def ? CARD_TYPE_CSS[def.cardType] : undefined;
+    if (css) {
+      (span as HTMLElement).style.cssText += css;
     }
   }
 }
@@ -542,7 +489,7 @@ function injectChainFrame(html: string): string {
 export function renderState(view: PlayerView, cardPool: Readonly<Record<string, CardDefinition>>): void {
   hideHoverImg();
   const el = $('state');
-  const formatted = injectChainFrame(injectCombatFrame(injectActivePlayerFrame(injectDiceMarkers(injectMPTooltips(makeCardListsCollapsible(ansiToHtml(formatPlayerView(view, cardPool))))))));
+  const formatted = injectChainFrame(injectCombatFrame(injectActivePlayerFrame(injectDiceMarkers(injectMPTooltips(makeCardListsCollapsible(textToHtml(formatPlayerView(view, cardPool))))))));
   jsonNodeCounter = 0;
   cachedInstanceLookup = buildInstanceLookup(view);
   const jsonId = 'raw-state-json';
@@ -579,7 +526,7 @@ export function renderDraft(view: PlayerView, cardPool: Readonly<Record<string, 
     lines.push(`Set aside: ${list(draft.setAside)}`);
   }
 
-  el.innerHTML = ansiToHtml(lines.join('\n'));
+  el.innerHTML = textToHtml(lines.join('\n'));
   tagCardImages(el, cardPool);
 }
 
@@ -658,7 +605,7 @@ export function renderMHInfo(
   if (mh.onGuardPlacedThisCompany) lines.push('On-guard card placed');
   if (mh.returnedToOrigin) lines.push('Returned to origin');
 
-  el.innerHTML = ansiToHtml(lines.join('\n'));
+  el.innerHTML = textToHtml(lines.join('\n'));
 }
 
 /** Render site phase debug info panel (step, active company, handled companies, flags). */
@@ -714,7 +661,7 @@ export function renderSiteInfo(
     lines.push(`Auto-attacks resolved: ${site.automaticAttacksResolved}`);
   }
 
-  el.innerHTML = ansiToHtml(lines.join('\n'));
+  el.innerHTML = textToHtml(lines.join('\n'));
 }
 
 /** Render Free Council debug info panel (step, current player, checked characters). */
@@ -765,7 +712,7 @@ export function renderFreeCouncilInfo(
     lines.push(`Unchecked: ${unchecked.map(charName).join(', ')}`);
   }
 
-  el.innerHTML = ansiToHtml(lines.join('\n'));
+  el.innerHTML = textToHtml(lines.join('\n'));
   tagCardImages(el, cardPool);
 }
 
@@ -998,7 +945,7 @@ export function renderActions(
     const btn = document.createElement('button');
     const isRegress = 'regress' in ea.action && ea.action.regress;
     if (isRegress) btn.classList.add('action-regress');
-    btn.innerHTML = ansiToHtml(describeAction(ea.action, cardPool, instanceLookup, companyNames));
+    btn.innerHTML = textToHtml(describeAction(ea.action, cardPool, instanceLookup, companyNames));
     tagCardImages(btn, cardPool);
     addJsonToggle(btn, ea.action);
     btn.addEventListener('click', () => onClick(ea.action));
@@ -1012,7 +959,7 @@ export function renderActions(
       const btn = document.createElement('button');
       btn.disabled = true;
       btn.title = ea.reason ?? '';
-      btn.innerHTML = ansiToHtml(describeAction(ea.action, cardPool, instanceLookup, companyNames))
+      btn.innerHTML = textToHtml(describeAction(ea.action, cardPool, instanceLookup, companyNames))
         + (ea.reason ? ` <span class="action-reason">— ${ea.reason}</span>` : '');
       tagCardImages(btn, cardPool);
       addJsonToggle(btn, ea.action);
@@ -3303,7 +3250,7 @@ export function buildCardAttributes(el: HTMLElement, def: CardDefinition): void 
 export function renderLog(message: string, cardPool?: Readonly<Record<string, CardDefinition>>): void {
   const el = $('log');
   const line = document.createElement('div');
-  line.innerHTML = ansiToHtml(`[${new Date().toLocaleTimeString()}] ${message}`);
+  line.innerHTML = textToHtml(`[${new Date().toLocaleTimeString()}] ${message}`);
   if (cardPool) tagCardImages(line, cardPool);
   el.appendChild(line);
   el.scrollTop = el.scrollHeight;

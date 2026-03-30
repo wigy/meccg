@@ -13,9 +13,8 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
 import { WebSocketServer, WebSocket } from 'ws';
-import { colorDebug, cardImageRawUrl, DEBUG_JSON_COMPACT_LIMIT } from '@meccg/shared';
+import { cardImageRawUrl } from '@meccg/shared';
 
-const DEBUG = process.argv.includes('--debug') || process.env.DEBUG === '1';
 const DEV = process.argv.includes('--dev') || process.env.DEV === '1';
 const PORT = parseInt(process.env.PORT ?? '8080', 10);
 const GAME_SERVER = process.env.GAME_SERVER ?? 'ws://localhost:3000';
@@ -248,11 +247,6 @@ wss.on('connection', (browserWs) => {
 
   // Proxy: browser → game server (buffer until upstream is open)
   browserWs.on('message', (data: Buffer) => {
-    if (DEBUG) {
-      const str = data.toString();
-      const display = str.length > DEBUG_JSON_COMPACT_LIMIT ? JSON.stringify(JSON.parse(str), null, 2) : str;
-      console.log(colorDebug(`browser >> ${display}`));
-    }
     if (gameWs.readyState === WebSocket.OPEN) {
       gameWs.send(data);
     } else {
@@ -262,11 +256,6 @@ wss.on('connection', (browserWs) => {
 
   // Proxy: game server → browser
   gameWs.on('message', (data: Buffer) => {
-    if (DEBUG) {
-      const str = data.toString();
-      const display = str.length > DEBUG_JSON_COMPACT_LIMIT ? JSON.stringify(JSON.parse(str), null, 2) : str;
-      console.log(colorDebug(`server >> ${display}`));
-    }
     if (browserWs.readyState === WebSocket.OPEN) {
       browserWs.send(data);
     }

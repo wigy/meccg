@@ -33,11 +33,8 @@ import {
   describeAction,
   buildCompanyNames,
   buildInstanceLookup,
-  colorDebug,
-  setShowDebugIds,
   stripCardMarkers,
   STATE_DIVIDER,
-  DEBUG_JSON_COMPACT_LIMIT,
   Alignment,
 } from '@meccg/shared';
 import type { JoinMessage } from '@meccg/shared';
@@ -46,7 +43,6 @@ import type { AiStrategy } from './ai/index.js';
 import { ClientLog } from './client-log.js';
 
 const SERVER_URL = process.env.SERVER_URL ?? 'ws://localhost:3000';
-const DEBUG = process.argv.includes('--debug') || process.env.DEBUG === '1';
 const AI_MODE = process.argv.includes('--ai') ? (process.argv[process.argv.indexOf('--ai') + 1] ?? 'random') : null;
 const DECK_ARG = process.argv.includes('--deck') ? (process.argv[process.argv.indexOf('--deck') + 1] ?? null) : null;
 /** Extract the player name: skip flags, flag values (--ai X, --deck X), and 'random'. */
@@ -54,7 +50,6 @@ const PLAYER_NAME = (() => {
   const args = process.argv.slice(2);
   const positional: string[] = [];
   for (let i = 0; i < args.length; i++) {
-    if (args[i] === '--debug') continue;
     if (args[i] === '--ai' || args[i] === '--deck') { i++; continue; }
     if (args[i].startsWith('--')) continue;
     positional.push(args[i]);
@@ -66,19 +61,12 @@ const RECONNECT_DELAY_MS = 2000;
 const AI_ACTION_DELAY_MS = 1000;
 
 const cardPool = loadCardPool();
-setShowDebugIds(DEBUG);
 
 // Strip STX card-ID markers from all console output (used by web client only)
 const originalLog = console.log.bind(console);
 console.log = (...args: unknown[]) => {
   originalLog(...args.map(a => typeof a === 'string' ? stripCardMarkers(a) : a));
 };
-
-/** Format an object as JSON, using pretty-print if longer than 40 characters. */
-function formatJson(obj: unknown): string {
-  const compact = JSON.stringify(obj);
-  return compact.length > DEBUG_JSON_COMPACT_LIMIT ? JSON.stringify(obj, null, 2) : compact;
-}
 
 let aiStrategy: AiStrategy | null = null;
 if (AI_MODE) {
@@ -202,11 +190,6 @@ function connect(): void {
     const data = raw.toString();
     const msg: ServerMessage = JSON.parse(data) as ServerMessage;
     clientLog.log('msg-in', { msgType: msg.type, msg: msg.type === 'state' ? { type: 'state', turn: msg.view.turnNumber, phase: msg.view.phaseState.phase } : msg });
-    if (DEBUG) {
-      const display = data.length > DEBUG_JSON_COMPACT_LIMIT ? JSON.stringify(msg, null, 2) : data;
-      console.log(colorDebug(`<< ${display}`));
-    }
-
     switch (msg.type) {
       case 'assigned':
         playerId = msg.playerId;
@@ -277,9 +260,6 @@ function connect(): void {
             const action = sampleWeighted(weighted);
             const desc = describeAction(action, cardPool, instances, compNames);
             console.log(`AI (${aiStrategy.name}) picks: ${desc}`);
-            if (DEBUG) {
-              console.log(colorDebug(`>> ${formatJson(action)}`));
-            }
             clientLog.log('msg-out', { msgType: 'action', action });
             const outMsg: ClientMessage = { type: 'action', action };
             ws.send(JSON.stringify(outMsg));
@@ -290,19 +270,14 @@ function connect(): void {
             console.log('Legal actions:');
             for (let i = 0; i < lastLegalActions.length; i++) {
               const desc = describeAction(lastLegalActions[i], cardPool, instances, compNames);
-              if (DEBUG) {
-                const { player: _p, ...payload } = lastLegalActions[i];
-                console.log(`  [${i + 1}] ${desc}  ${colorDebug(formatJson(payload))}`);
-              } else {
-                console.log(`  [${i + 1}] ${desc}`);
-              }
+              console.log(`  [${i + 1}] ${desc}`);
             }
           }
           if (nonViable.length > 0) {
             console.log('Not available:');
             for (const ea of nonViable) {
               const desc = describeAction(ea.action, cardPool, instances, compNames);
-              console.log(`  \x1b[90m${desc} — ${ea.reason ?? '?'}\x1b[0m`);
+              console.log(`  ${desc} — ${ea.reason ?? '?'}`);
             }
           }
           console.log('');
@@ -407,9 +382,6 @@ rl.on('line', (line) => {
   }
   const action = lastLegalActions[num - 1];
 
-  if (DEBUG) {
-    console.log(colorDebug(`>> ${formatJson(action)}`));
-  }
   clientLog.log('msg-out', { msgType: 'action', action });
   const msg: ClientMessage = { type: 'action', action };
   ws.send(JSON.stringify(msg));
