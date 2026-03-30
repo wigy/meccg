@@ -547,5 +547,25 @@
     "hazardDraws": 2,
     "text": "Nearest Haven: Edhellond. Playable: Items (minor, major, greater*) *-Scroll of Isildur only. Automatic-attacks: Undead — 3 strikes with 7 prowess; each character wounded must make a corruption check.",
     "effects": []
+  },
+  {
+    "cardType": "hero-site",
+    "alignment": "wizard",
+    "id": "tw-437",
+    "name": "Wellinghall",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Wellinghall.jpg",
+    "siteType": "free-hold",
+    "sitePath": [
+      "wilderness",
+      "wilderness"
+    ],
+    "nearestHaven": "Lórien",
+    "region": "Fangorn",
+    "playableResources": [],
+    "automaticAttacks": [],
+    "resourceDraws": 1,
+    "hazardDraws": 1,
+    "text": "Nearest Haven: Lórien.",
+    "effects": []
   }
 ]
