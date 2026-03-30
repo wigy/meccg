@@ -225,5 +225,18 @@
     "marshallingCategory": "misc",
     "effects": [],
     "text": "Target character does not tap against one strike (unless he is wounded by the strike). If wounded by the strike, his body is modified by -1 for the resulting body check."
+  },
+  {
+    "cardType": "hero-resource-event",
+    "alignment": "wizard",
+    "id": "tw-248",
+    "name": "Great Ship",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/GreatShip.jpg",
+    "unique": false,
+    "eventType": "short",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Tap a character in target company during the organization phase to play Great Ship on that company. Until the end of the turn, if the company's current site path contains a Coastal Sea region and no consecutive non-Coastal Seas regions, any character in the company may tap to cancel a hazard that targets (as an active condition of playing the card itself) the company or an entity associated with the company."
   }
 ]
