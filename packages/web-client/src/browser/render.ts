@@ -2240,21 +2240,25 @@ export function renderPassButton(view: PlayerView, onAction: (action: GameAction
   const existingHazSbBtns = document.querySelectorAll('.hazard-sb-btn');
   existingHazSbBtns.forEach(b => b.remove());
   if (view.phaseState.phase === Phase.Untap && view.activePlayer !== view.self.id) {
-    const toDeckEval = view.legalActions.find(ea => ea.viable && ea.action.type === 'start-hazard-sideboard-to-deck');
-    if (toDeckEval) {
-      const toDeckBtn = document.createElement('button');
-      toDeckBtn.className = 'enter-site-btn hazard-sb-btn';
-      toDeckBtn.textContent = 'Hazard to Deck';
-      toDeckBtn.onclick = () => onAction(toDeckEval.action);
-      btn.parentElement?.insertBefore(toDeckBtn, btn.nextSibling);
-    }
+    let hazBtnOffset = 0;
     const toDiscardEval = view.legalActions.find(ea => ea.viable && ea.action.type === 'start-hazard-sideboard-to-discard');
     if (toDiscardEval) {
       const toDiscardBtn = document.createElement('button');
       toDiscardBtn.className = 'enter-site-btn hazard-sb-btn';
       toDiscardBtn.textContent = 'Hazards to Discard';
+      toDiscardBtn.style.bottom = `${5.4 + hazBtnOffset * 3.4}rem`;
       toDiscardBtn.onclick = () => onAction(toDiscardEval.action);
       btn.parentElement?.insertBefore(toDiscardBtn, btn.nextSibling);
+      hazBtnOffset++;
+    }
+    const toDeckEval = view.legalActions.find(ea => ea.viable && ea.action.type === 'start-hazard-sideboard-to-deck');
+    if (toDeckEval) {
+      const toDeckBtn = document.createElement('button');
+      toDeckBtn.className = 'enter-site-btn hazard-sb-btn';
+      toDeckBtn.textContent = 'Hazard to Deck';
+      toDeckBtn.style.bottom = `${5.4 + hazBtnOffset * 3.4}rem`;
+      toDeckBtn.onclick = () => onAction(toDeckEval.action);
+      btn.parentElement?.insertBefore(toDeckBtn, btn.nextSibling);
     }
   }
 
