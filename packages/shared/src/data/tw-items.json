@@ -223,5 +223,27 @@
       }
     ],
     "text": "+2 to direct influence against factions. Cannot be duplicated on a given character."
+  },
+  {
+    "cardType": "hero-resource-item",
+    "alignment": "wizard",
+    "id": "tw-254",
+    "name": "Hauberk of Bright Mail",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/HauberkofBrightMail.jpg",
+    "unique": true,
+    "subtype": "major",
+    "keywords": ["armor"],
+    "marshallingPoints": 2,
+    "marshallingCategory": "item",
+    "corruptionPoints": 1,
+    "prowessModifier": 0,
+    "bodyModifier": 2,
+    "playableAt": [
+      "ruins-and-lairs",
+      "shadow-hold",
+      "dark-hold"
+    ],
+    "effects": [],
+    "text": "Unique. Armor. Warrior only: +2 to body to a maximum of 9."
   }
 ]
