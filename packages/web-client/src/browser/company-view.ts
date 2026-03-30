@@ -35,7 +35,7 @@ import type {
 import { cardImageProxyPath, isCharacterCard, isItemCard, isSiteCard, Phase, CardStatus, viableActions, describeAction, getTitleCharacter, buildInstanceLookup } from '@meccg/shared';
 import type { CardDefinitionId } from '@meccg/shared';
 import { $, createCardImage, createRegionTypeIcon } from './render-utils.js';
-import { getSelectedCharacterForPlay, clearCharacterPlaySelection, openMovementViewer, setTargetingInstruction } from './render.js';
+import { getSelectedCharacterForPlay, clearCharacterPlaySelection, getSelectedFactionForInfluence, clearFactionInfluenceSelection, openMovementViewer, setTargetingInstruction } from './render.js';
 import { renderCombatView, clearCombatButtons } from './combat-view.js';
 
 // ---- View state ----
@@ -1272,6 +1272,27 @@ function renderCompanyBlock(
 
   /** Combine all character click handlers into one: if one action type, take it; if multiple, show tooltip. */
   const buildCombinedClick = (charInstId: CardInstanceId): { cls: string; handler: (e: Event) => void } | undefined => {
+    // Faction influence targeting takes priority when active
+    const selectedFaction = getSelectedFactionForInfluence();
+    if (selectedFaction) {
+      const influenceAction = viableActions(view.legalActions).find(
+        a => a.type === 'influence-attempt'
+          && a.factionInstanceId === selectedFaction
+          && a.influencingCharacterId === charInstId,
+      );
+      if (influenceAction) {
+        return {
+          cls: 'company-card--influence-target',
+          handler: (e) => {
+            e.stopPropagation();
+            clearFactionInfluenceSelection();
+            options?.onAction?.(influenceAction);
+          },
+        };
+      }
+      return undefined;
+    }
+
     // Transfer targeting takes priority when active
     if (transferItemSourceId) return buildTransferTargetClick(charInstId);
 

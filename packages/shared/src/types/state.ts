@@ -521,12 +521,14 @@ export interface SetupPhaseState {
 }
 
 /**
- * State for the Untap phase. Minimal bookkeeping -- the engine automatically
- * untaps all tapped cards and heals inverted (wounded) characters at havens.
+ * State for the Untap phase. The resource player must explicitly untap
+ * their cards, and the hazard player may access their sideboard.
  */
 export interface UntapPhaseState {
   /** Phase discriminant. */
   readonly phase: Phase.Untap;
+  /** Whether the resource player has executed the untap action. */
+  readonly untapped: boolean;
   /**
    * Which destination the hazard player chose for sideboard access, or null
    * if not yet declared. Set by start-hazard-sideboard-to-deck/discard.
@@ -537,7 +539,7 @@ export interface UntapPhaseState {
    * Used to enforce the limit of 5 to discard or 1 to deck.
    */
   readonly hazardSideboardFetched: number;
-  /** Whether the active (resource) player has passed the untap phase. */
+  /** Whether the active (resource) player has passed the untap phase (after untapping). */
   readonly resourcePlayerPassed: boolean;
   /** Whether the non-active (hazard) player has passed the untap phase. */
   readonly hazardPlayerPassed: boolean;

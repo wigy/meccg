@@ -150,7 +150,9 @@
     "influenceNumber": 9,
     "race": "orc",
     "playableAt": [{ "site": "Goblin-gate" }],
-    "effects": [],
+    "effects": [
+      { "type": "check-modifier", "check": "influence", "value": 2, "when": { "controlsFaction": "Grey Mountain Goblins" } }
+    ],
     "text": "Unique. Playable at Goblin-gate if the influence check is greater than 8. Standard Modifications: Grey Mountain Goblins (+2)."
   },
   {

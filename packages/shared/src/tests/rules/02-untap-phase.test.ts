@@ -49,10 +49,10 @@ describe('2.I Untap phase', () => {
     const activePlayer = state.activePlayer!;
     const hazardPlayer = state.players.find(p => p.id !== activePlayer)!.id;
 
-    // Both players pass to advance
+    // Resource player untaps, hazard player passes to advance
     state = runActions(state, [
+      { type: 'untap', player: activePlayer },
       { type: 'pass', player: hazardPlayer },
-      { type: 'pass', player: activePlayer },
     ]);
 
     // Should advance to organization phase
@@ -70,12 +70,12 @@ describe('2.I Untap phase', () => {
     expect(viable.some(a => a.action.type === 'pass')).toBe(true);
   });
 
-  test('untap phase actions: resource player can pass', () => {
+  test('untap phase actions: resource player can untap', () => {
     const state = runFullSetup();
     const activePlayer = state.activePlayer!;
     const actions = computeLegalActions(state, activePlayer);
-    const passActions = viableOfType(actions, 'pass');
-    expect(passActions.length).toBeGreaterThan(0);
+    const untapActions = viableOfType(actions, 'untap');
+    expect(untapActions.length).toBeGreaterThan(0);
   });
 
   test('[2.I] heal wounded characters at havens to tapped position', () => {
@@ -89,10 +89,8 @@ describe('2.I Untap phase', () => {
       ],
     });
 
-    // Both players pass untap phase
-    let result = reduce(state, { type: 'pass', player: PLAYER_2 });
-    expect(result.error).toBeUndefined();
-    result = reduce(result.state, { type: 'pass', player: PLAYER_1 });
+    // Resource player untaps (heals wounded at haven), hazard player passes
+    const result = reduce(state, { type: 'untap', player: PLAYER_1 });
     expect(result.error).toBeUndefined();
 
     // Wounded character at haven should be healed to tapped (not untapped)
@@ -112,10 +110,8 @@ describe('2.I Untap phase', () => {
       ],
     });
 
-    // Both players pass untap phase
-    let result = reduce(state, { type: 'pass', player: PLAYER_2 });
-    expect(result.error).toBeUndefined();
-    result = reduce(result.state, { type: 'pass', player: PLAYER_1 });
+    // Resource player untaps, hazard player passes
+    const result = reduce(state, { type: 'untap', player: PLAYER_1 });
     expect(result.error).toBeUndefined();
 
     // Wounded character at non-haven should remain wounded (inverted)

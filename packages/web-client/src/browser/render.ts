@@ -114,6 +114,39 @@ function reRenderCharacterPlay(): void {
   void import('./company-view.js').then(m => m.renderCompanyViews(view, cardPool, onAction));
 }
 
+/**
+ * Selected faction instance ID for the two-step influence attempt flow.
+ * When a player clicks a playable faction in the hand arc, the faction
+ * instance ID is stored here and the company view highlights untapped characters.
+ */
+let selectedFactionInstanceId: CardInstanceId | null = null;
+
+/** Cached arguments for re-rendering during faction influence target selection. */
+let factionInfluenceRenderCache: {
+  view: PlayerView;
+  cardPool: Readonly<Record<string, CardDefinition>>;
+  onAction: (action: GameAction) => void;
+} | null = null;
+
+/** Returns the currently selected faction instance ID for the influence-attempt flow. */
+export function getSelectedFactionForInfluence(): CardInstanceId | null {
+  return selectedFactionInstanceId;
+}
+
+/** Clear the faction influence selection (called by company-view after action is sent). */
+export function clearFactionInfluenceSelection(): void {
+  selectedFactionInstanceId = null;
+  setTargetingInstruction(null);
+}
+
+/** Re-render hand and company views using cached state (for faction influence selection flow). */
+function reRenderFactionInfluence(): void {
+  if (!factionInfluenceRenderCache) return;
+  const { view, cardPool, onAction } = factionInfluenceRenderCache;
+  renderHand(view, cardPool, onAction);
+  void import('./company-view.js').then(m => m.renderCompanyViews(view, cardPool, onAction));
+}
+
 
 
 
@@ -1456,10 +1489,10 @@ function populateBrowserGrid(): void {
 
   const isSelecting = siteSelectionActions.length > 0;
 
-  // Sort cards with active legal actions to the front
+  // Sort cards with active legal actions to the end (last row, on top when overlapping)
   const sortedCards = [...cachedBrowserCards].sort((a, b) => {
-    const aActive = actionableInstanceIds.has(a.instanceId as string) ? 0 : 1;
-    const bActive = actionableInstanceIds.has(b.instanceId as string) ? 0 : 1;
+    const aActive = actionableInstanceIds.has(a.instanceId as string) ? 1 : 0;
+    const bActive = actionableInstanceIds.has(b.instanceId as string) ? 1 : 0;
     return aActive - bActive;
   });
 
@@ -1496,6 +1529,54 @@ function populateBrowserGrid(): void {
     grid.appendChild(img);
   }
   modal.classList.remove('hidden');
+
+  // Overlap rows when there are more than 3 so everything fits without scrolling.
+  // Defer to next frame so the grid has been laid out and clientWidth is available.
+  requestAnimationFrame(() => applyRowOverlap(grid));
+}
+
+/**
+ * When the pile browser grid has more than 3 rows, apply negative margins
+ * so all rows fit on screen without a scrollbar.
+ */
+function applyRowOverlap(grid: HTMLElement): void {
+  const imgs = grid.querySelectorAll<HTMLImageElement>('img');
+  if (imgs.length === 0) return;
+
+  // Reset any previous overlap
+  for (const img of imgs) {
+    img.style.marginTop = '';
+    img.style.zIndex = '';
+    img.style.position = '';
+  }
+  grid.closest('#pile-browser-dialog')?.classList.remove('pile-browser--overlapping');
+
+  const cardHeight = window.innerHeight * 0.25; // 25vh
+  const cardWidth = cardHeight * 0.7; // card aspect ratio
+  const gap = parseFloat(getComputedStyle(grid).gap) || 3;
+  const gridWidth = grid.clientWidth;
+  const cardsPerRow = Math.max(1, Math.floor((gridWidth + gap) / (cardWidth + gap)));
+  const numRows = Math.ceil(imgs.length / cardsPerRow);
+
+  if (numRows <= 3) return;
+
+  // Available height: 85vh dialog minus ~4rem for title and padding
+  const availableHeight = window.innerHeight * 0.85 - 80;
+  // step = vertical distance between row tops so everything fits
+  const step = (availableHeight - cardHeight) / (numRows - 1);
+  const overlap = step - cardHeight - gap;
+
+  if (overlap >= 0) return; // no overlap needed
+
+  for (let i = 0; i < imgs.length; i++) {
+    const row = Math.floor(i / cardsPerRow);
+    imgs[i].style.position = 'relative';
+    imgs[i].style.zIndex = String(row);
+    if (row > 0) {
+      imgs[i].style.marginTop = `${Math.round(overlap)}px`;
+    }
+  }
+  grid.closest('#pile-browser-dialog')?.classList.add('pile-browser--overlapping');
 }
 
 /** Install the backdrop click handler for the pile browser modal (once). */
@@ -1509,6 +1590,42 @@ function installPileBrowserBackdrop(): void {
   backdrop.addEventListener('click', () => {
     closeSelectionViewer();
   });
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key !== 'Escape') return;
+    const modal = document.getElementById('pile-browser-modal');
+    if (modal && !modal.classList.contains('hidden')) {
+      closeSelectionViewer();
+    }
+  });
+
+  // Card preview on hover inside the pile browser grid
+  const grid = document.getElementById('pile-browser-grid');
+  const preview = document.getElementById('card-preview');
+  if (grid && preview) {
+    grid.addEventListener('mouseover', (e) => {
+      const img = (e.target as HTMLElement).closest('img');
+      if (!img?.dataset.cardId || !cachedCardPool) return;
+      const def = cachedCardPool[img.dataset.cardId];
+      if (!def) return;
+      preview.innerHTML = '';
+      const info = document.createElement('div');
+      info.className = 'card-preview-info';
+      const name = document.createElement('div');
+      name.className = 'card-preview-name';
+      name.textContent = def.name;
+      info.appendChild(name);
+      const clone = document.createElement('img');
+      clone.src = img.src;
+      clone.alt = img.alt;
+      info.appendChild(clone);
+      buildCardAttributes(info, def);
+      preview.appendChild(info);
+    });
+    grid.addEventListener('mouseout', (e) => {
+      if ((e.target as HTMLElement).closest('img')) preview.innerHTML = '';
+    });
+  }
 }
 
 /** Cached site deck for the site pile click handler. */
@@ -1730,6 +1847,20 @@ function findResourcePlayActions(
 }
 
 /**
+ * Find all influence-attempt actions for a given faction card instance.
+ * One action per eligible untapped character.
+ */
+function findInfluenceActions(
+  instanceId: CardInstanceId | null,
+  legalActions: readonly GameAction[],
+): GameAction[] {
+  if (!instanceId) return [];
+  return legalActions.filter(
+    a => a.type === 'influence-attempt' && a.factionInstanceId === instanceId,
+  );
+}
+
+/**
  * Find all play-hazard actions for a given card instance.
  * Creatures may have multiple entries with different keying methods.
  */
@@ -1864,15 +1995,17 @@ function showResourceTargetMenu(
   for (const action of actions) {
     const charId = action.type === 'play-hero-resource' ? action.attachToCharacterId
       : action.type === 'play-minor-item' ? action.attachToCharacterId
-        : undefined;
+        : action.type === 'influence-attempt' ? action.influencingCharacterId
+          : undefined;
     if (!charId) continue;
     const charDefId = cachedInstanceLookup(charId);
     const charDef = charDefId ? cardPool[charDefId as string] : undefined;
     const charName = charDef ? charDef.name : (charId as string);
 
+    const label = action.type === 'influence-attempt' ? `Influence with ${charName}` : `Play on ${charName}`;
     const btn = document.createElement('button');
     btn.className = 'char-action-tooltip__btn';
-    btn.textContent = `Play on ${charName}`;
+    btn.textContent = label;
     btn.addEventListener('click', () => {
       backdrop.remove();
       onAction(action);
@@ -1901,6 +2034,12 @@ function isPlayCharacterCard(
 /** Map region type codes to icon file names for inline path display. */
 const REGION_ICON_CODES: Record<string, string> = {
   wilderness: 'w', shadow: 's', dark: 'd', coastal: 'c', free: 'f', border: 'b',
+};
+
+/** Map site type codes to icon file names for inline display. */
+const SITE_ICON_CODES: Record<string, string> = {
+  'haven': 'haven', 'free-hold': 'free-hold', 'border-hold': 'border-hold',
+  'ruins-and-lairs': 'ruins-and-lairs', 'shadow-hold': 'shadow-hold', 'dark-hold': 'dark-hold',
 };
 
 /**
@@ -2152,7 +2291,7 @@ export function renderPassButton(view: PlayerView, onAction: (action: GameAction
     || ea.action.type === 'shuffle-play-deck' || ea.action.type === 'draw-cards'
     || ea.action.type === 'roll-initiative' || ea.action.type === 'corruption-check'
     || ea.action.type === 'pass-chain-priority' || ea.action.type === 'deck-exhaust'
-    || ea.action.type === 'finished'));
+    || ea.action.type === 'finished' || ea.action.type === 'untap'));
   const passAction = passEval?.action;
   if (!passAction) {
     btn.classList.add('hidden');
@@ -2177,9 +2316,10 @@ export function renderPassButton(view: PlayerView, onAction: (action: GameAction
     label = 'Exhaust';
   } else if (passAction.type === 'finished') {
     label = 'Finished';
+  } else if (passAction.type === 'untap') {
+    label = 'Untap';
   } else if (view.phaseState.phase === Phase.Untap) {
-    // Hazard player (non-active) sees "Pass"; resource player (active) sees "Organization"
-    label = view.activePlayer !== view.self.id ? 'Pass' : 'Organization';
+    label = 'Pass';
   } else if (view.phaseState.phase === Phase.Organization) {
     label = 'Long-event';
   } else if (view.phaseState.phase === Phase.LongEvent) {
@@ -2683,6 +2823,25 @@ export function renderHand(
     playCharacterRenderCache = null;
   }
 
+  // Cache render state for faction influence re-rendering
+  const hasInfluenceActions = viable.some(a => a.type === 'influence-attempt');
+  if (onAction && hasInfluenceActions) {
+    factionInfluenceRenderCache = { view, cardPool, onAction };
+    if (selectedFactionInstanceId) {
+      const stillViable = viable.some(
+        a => a.type === 'influence-attempt' && a.factionInstanceId === selectedFactionInstanceId,
+      );
+      if (!stillViable) {
+        selectedFactionInstanceId = null;
+        setTargetingInstruction(null);
+      }
+    }
+  } else if (!hasInfluenceActions) {
+    if (selectedFactionInstanceId) setTargetingInstruction(null);
+    selectedFactionInstanceId = null;
+    factionInfluenceRenderCache = null;
+  }
+
   for (let i = 0; i < total; i++) {
     const { defId: cardDefId, instanceId: cardInstanceId } = cards[i];
     const def = cardPool[cardDefId as string];
@@ -2699,10 +2858,12 @@ export function renderHand(
     const isHazard = hazardActions.length > 0;
     const resourceActions = findResourcePlayActions(cardInstanceId, viable);
     const isResource = resourceActions.length > 0;
+    const influenceActions = findInfluenceActions(cardInstanceId, viable);
+    const isInfluence = influenceActions.length > 0;
     const discardAction = cardInstanceId
       ? viable.find(a => a.type === 'discard-card' && a.cardInstanceId === cardInstanceId)
       : undefined;
-    const nonViableReason = !action && !isItemDraft && !isPlayChar && !isShortEvent && !isHazard && !isResource && !discardAction
+    const nonViableReason = !action && !isItemDraft && !isPlayChar && !isShortEvent && !isHazard && !isResource && !isInfluence && !discardAction
       ? findNonViableReason(cardDefId, view.legalActions, cachedInstanceLookup)
       : undefined;
     const isSelected = selectedItemDefId === cardDefId;
@@ -2710,6 +2871,10 @@ export function renderHand(
     const isCharSelected = selectedCharacterInstanceId !== null
       && cardInstanceId !== null
       && selectedCharacterInstanceId === cardInstanceId;
+
+    const isFactionSelected = selectedFactionInstanceId !== null
+      && cardInstanceId !== null
+      && selectedFactionInstanceId === cardInstanceId;
 
     const img = document.createElement('img');
     img.src = imgPath;
@@ -2786,6 +2951,21 @@ export function renderHand(
             showResourceTargetMenu(e, resourceActions, view, cardPool, onAction);
           });
         }
+      }
+    } else if (isInfluence) {
+      // Faction influence two-step flow: click to select, then click a character in company
+      img.className = isFactionSelected
+        ? 'hand-card hand-card-selected'
+        : 'hand-card hand-card-playable';
+      if (onAction && cardInstanceId) {
+        const instId = cardInstanceId;
+        img.addEventListener('click', () => {
+          selectedFactionInstanceId = isFactionSelected ? null : instId;
+          setTargetingInstruction(
+            selectedFactionInstanceId ? `Click an untapped character to influence ${def.name}` : null,
+          );
+          reRenderFactionInfluence();
+        });
       }
     } else if (action) {
       img.className = 'hand-card hand-card-playable';
@@ -2986,12 +3166,34 @@ function formatCardType(cardType: string): string {
     .replace(/\b\w/g, c => c.toUpperCase());
 }
 
-/** Add an attribute row to the info panel. */
+/** Add an attribute row to the info panel. Value may contain HTML. */
 function addAttr(parent: HTMLElement, label: string, value: string | number): void {
   const row = document.createElement('div');
   row.className = 'card-preview-attr';
   row.innerHTML = `<span class="attr-label">${label}</span><span class="attr-value">${value}</span>`;
   parent.appendChild(row);
+}
+
+/** Render an array of region types as inline icon images. */
+function regionIconsHtml(regions: readonly string[]): string {
+  return regions.map(r => {
+    const code = REGION_ICON_CODES[r];
+    if (code) {
+      return `<img src="/images/regions/${code}.png" alt="${formatLabel(r)}" title="${formatLabel(r)}" style="width:16px;height:16px;display:inline-block">`;
+    }
+    return formatLabel(r);
+  }).join('');
+}
+
+/** Render an array of site types as inline icon images. */
+function siteIconsHtml(siteTypes: readonly string[]): string {
+  return siteTypes.map(s => {
+    const code = SITE_ICON_CODES[s];
+    if (code) {
+      return `<img src="/images/sites/${code}.png" alt="${formatLabel(s)}" title="${formatLabel(s)}" style="width:16px;height:16px;display:inline-block">`;
+    }
+    return formatLabel(s);
+  }).join('');
 }
 
 /** Build attribute rows for a card definition based on its type. */
@@ -3046,6 +3248,15 @@ export function buildCardAttributes(el: HTMLElement, def: CardDefinition): void 
       addAttr(el, 'Prowess', def.prowess);
       if (def.body !== null) addAttr(el, 'Body', def.body);
       if (def.killMarshallingPoints !== 0) addAttr(el, 'Kill MP', def.killMarshallingPoints);
+      if (def.keyedTo.length > 0) {
+        for (const key of def.keyedTo) {
+          const parts: string[] = [];
+          if (key.regionTypes && key.regionTypes.length > 0) parts.push(regionIconsHtml(key.regionTypes));
+          if (key.regionNames && key.regionNames.length > 0) parts.push(key.regionNames.join(', '));
+          if (key.siteTypes && key.siteTypes.length > 0) parts.push(siteIconsHtml(key.siteTypes));
+          addAttr(el, 'Keyed To', parts.join(' '));
+        }
+      }
       break;
     }
     case 'hazard-event': {
@@ -3065,12 +3276,12 @@ export function buildCardAttributes(el: HTMLElement, def: CardDefinition): void 
     case 'minion-site':
     case 'fallen-wizard-site':
     case 'balrog-site': {
-      addAttr(el, 'Site Type', formatLabel(def.siteType));
+      addAttr(el, 'Site Type', siteIconsHtml([def.siteType]));
       if (def.nearestHaven) addAttr(el, 'Nearest Haven', def.nearestHaven);
-      if (def.sitePath.length > 0) addAttr(el, 'Path', def.sitePath.map(formatLabel).join(', '));
+      if (def.sitePath.length > 0) addAttr(el, 'Path', regionIconsHtml(def.sitePath));
       if (def.havenPaths) {
         for (const [haven, path] of Object.entries(def.havenPaths)) {
-          addAttr(el, `Path to ${haven}`, path.map(formatLabel).join(', '));
+          addAttr(el, haven, regionIconsHtml(path));
         }
       }
       if (def.playableResources.length > 0) addAttr(el, 'Resources', def.playableResources.map(formatLabel).join(', '));

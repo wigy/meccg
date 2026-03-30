@@ -76,6 +76,7 @@ export const LEGAL_ACTIONS_BY_PHASE: Readonly<Record<Phase, readonly GameAction[
   ],
 
   [Phase.Untap]: [
+    'untap',
     'start-hazard-sideboard-to-deck',
     'start-hazard-sideboard-to-discard',
     'fetch-hazard-from-sideboard',

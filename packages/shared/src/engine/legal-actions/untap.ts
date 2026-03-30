@@ -116,14 +116,20 @@ export function untapActions(state: GameState, playerId: PlayerId): EvaluatedAct
 
   // ── Active (resource) player actions ──
 
-  // If hazard sideboard sub-flow is active or resource player already passed, no actions
-  if (untapState.hazardSideboardDestination !== null || untapState.resourcePlayerPassed) {
-    logDetail('Untap phase: resource player waiting for hazard player');
+  // If hazard sideboard sub-flow is active, resource player waits
+  if (untapState.hazardSideboardDestination !== null) {
+    logDetail('Untap phase: resource player waiting for hazard sideboard sub-flow');
     return actions;
   }
 
-  actions.push({ action: { type: 'pass', player: playerId }, viable: true });
-  logDetail(`Untap phase: pass available for player ${playerId as string}`);
+  // If not yet untapped, offer the untap action
+  if (!untapState.untapped) {
+    actions.push({ action: { type: 'untap', player: playerId }, viable: true });
+    logDetail(`Untap phase: untap action available for player ${playerId as string}`);
+  } else {
+    // Already untapped — waiting for hazard player to pass
+    logDetail('Untap phase: resource player already untapped, waiting for hazard player');
+  }
 
   for (const cardInstanceId of player.hand) {
     actions.push({

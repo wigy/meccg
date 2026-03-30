@@ -979,6 +979,9 @@ export function organizationActions(state: GameState, playerId: PlayerId): Evalu
         ...char.allies.map(a => a.instanceId),
         ...char.corruptionCards,
       ];
+      const ccNeed = cp + 1 - modifier;
+      const ccParts = [`CP ${cp}`];
+      if (modifier !== 0) ccParts.push(`modifier ${modifier >= 0 ? '+' : ''}${modifier}`);
       logDetail(`Pending corruption check for ${charName} (CP ${cp} incl. transferred item, modifier ${modifier >= 0 ? '+' : ''}${modifier}, ${possessions.length} possession(s)) after item transfer`);
       return [{
         action: {
@@ -988,6 +991,8 @@ export function organizationActions(state: GameState, playerId: PlayerId): Evalu
           corruptionPoints: cp,
           corruptionModifier: modifier,
           possessions,
+          need: ccNeed,
+          explanation: `Need roll > ${cp - modifier} (${ccParts.join(', ')})`,
         },
         viable: true,
       }];

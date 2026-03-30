@@ -126,6 +126,19 @@ export interface RollInitiativeAction {
   readonly player: PlayerId;
 }
 
+// ---- Untap phase ----
+
+/**
+ * The resource player untaps all their tapped cards and heals wounded
+ * characters at havens. This is an explicit action so the player sees
+ * their cards change state before proceeding.
+ */
+export interface UntapAction {
+  readonly type: 'untap';
+  /** The active (resource) player performing the untap. */
+  readonly player: PlayerId;
+}
+
 // ---- Organization phase ----
 
 /**
@@ -470,6 +483,10 @@ export interface ResolveStrikeAction {
   readonly player: PlayerId;
   /** Whether the character taps (exhausts) to gain +1 prowess bonus for this strike. */
   readonly tapToFight: boolean;
+  /** The unmodified 2d6 value needed for the character to defeat the strike. */
+  readonly need: number;
+  /** Human-readable breakdown of character prowess vs creature prowess. */
+  readonly explanation: string;
 }
 
 /**
@@ -515,6 +532,10 @@ export interface BodyCheckRollAction {
   readonly type: 'body-check-roll';
   /** The player rolling the body check (attacking player). */
   readonly player: PlayerId;
+  /** The unmodified 2d6 value needed to eliminate the target (roll >= body). */
+  readonly need: number;
+  /** Human-readable breakdown of the body check target. */
+  readonly explanation: string;
 }
 
 // ---- Site phase ----
@@ -607,6 +628,10 @@ export interface InfluenceAttemptAction {
   readonly factionInstanceId: CardInstanceId;
   /** The character making the influence roll. */
   readonly influencingCharacterId: CardInstanceId;
+  /** The unmodified 2d6 value needed for success (roll + modifiers >= influence #). */
+  readonly need: number;
+  /** Human-readable breakdown of the target number, DI, and bonuses. */
+  readonly explanation: string;
 }
 
 /**
@@ -660,6 +685,10 @@ export interface CorruptionCheckAction {
    * generation time so the client can display what's at stake.
    */
   readonly possessions: readonly CardInstanceId[];
+  /** The unmodified 2d6 value needed for success (roll > CP, adjusted for modifier). */
+  readonly need: number;
+  /** Human-readable breakdown of the target number and modifiers. */
+  readonly explanation: string;
 }
 
 /**
@@ -919,6 +948,7 @@ export type GameAction =
   | SelectStartingSiteAction
   | PlaceCharacterAction
   | RollInitiativeAction
+  | UntapAction
   | PlayCharacterAction
   | SplitCompanyAction
   | MoveToCompanyAction

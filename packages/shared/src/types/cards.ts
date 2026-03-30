@@ -1007,6 +1007,19 @@ export function isAllyCard(card: CardDefinition | undefined): card is AllyCard {
   return card !== undefined && ALLY_CARD_TYPES.has(card.cardType);
 }
 
+/** Faction card type discriminants. */
+export const FACTION_CARD_TYPES: ReadonlySet<string> = new Set(['hero-resource-faction', 'minion-resource-faction']);
+
+/** Union of all faction card types. */
+export type FactionCard = HeroFactionCard | MinionFactionCard;
+
+/**
+ * Type guard that narrows a CardDefinition to {@link FactionCard}.
+ */
+export function isFactionCard(card: CardDefinition | undefined): card is FactionCard {
+  return card !== undefined && FACTION_CARD_TYPES.has(card.cardType);
+}
+
 /**
  * Union of all site card types (hero, minion, and fallen-wizard). Use this
  * when code needs to handle sites generically regardless of alignment.

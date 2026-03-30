@@ -923,6 +923,8 @@ export function describeAction(
     }
     case 'roll-initiative':
       return 'Roll 2d6 for initiative';
+    case 'untap':
+      return 'Untap all cards';
     case 'play-character':
       return `Play character ${instName(action.characterInstanceId)} at site ${instName(action.atSite)}`;
     case 'split-company':

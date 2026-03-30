@@ -54,6 +54,9 @@
         "site": "Bree"
       }
     ],
+    "effects": [
+      { "type": "check-modifier", "check": "influence", "value": 1, "when": { "bearer.race": "dunadan" } }
+    ],
     "text": "Unique. Playable at Bree if the influence check is greater than 9. Standard Modifications: Dúnedain (+1)."
   },
   {
@@ -71,6 +74,10 @@
       {
         "site": "Edoras"
       }
+    ],
+    "effects": [
+      { "type": "check-modifier", "check": "influence", "value": 1, "when": { "bearer.race": "hobbit" } },
+      { "type": "check-modifier", "check": "influence", "value": 1, "when": { "bearer.race": "dunadan" } }
     ],
     "text": "Unique. Playable at Edoras if the influence check is greater than 9. Standard Modifications: Hobbits (+1), Dúnedain (+1)."
   },
@@ -90,6 +97,9 @@
         "site": "Dol Amroth"
       }
     ],
+    "effects": [
+      { "type": "check-modifier", "check": "influence", "value": 1, "when": { "bearer.race": "dunadan" } }
+    ],
     "text": "Unique. Playable at Dol Amroth if the influence check is greater than 8. Standard Modifications: Dúnedain (+1)."
   },
   {
@@ -108,7 +118,9 @@
         "site": "Lond Galen"
       }
     ],
-    "effects": [],
+    "effects": [
+      { "type": "check-modifier", "check": "influence", "value": 1, "when": { "bearer.race": "dunadan" } }
+    ],
     "text": "Unique. Playable at Lond Galen if the influence check is greater than 8. Standard Modifications: Dúnedain (+1)."
   },
   {
@@ -301,7 +313,9 @@
         "site": "Minas Tirith"
       }
     ],
-    "effects": [],
+    "effects": [
+      { "type": "check-modifier", "check": "influence", "value": 1, "when": { "bearer.race": "dunadan" } }
+    ],
     "text": "Unique. Playable at Minas Tirith if the influence check is greater than 7. Standard Modifications: Dúnedain (+1)."
   },
   {
@@ -320,7 +334,9 @@
         "site": "Pelargir"
       }
     ],
-    "effects": [],
+    "effects": [
+      { "type": "check-modifier", "check": "influence", "value": 1, "when": { "bearer.race": "dunadan" } }
+    ],
     "text": "Unique. Playable at Pelargir if the influence check is greater than 7. Standard Modifications: Dúnedain (+1)."
   },
   {
@@ -339,7 +355,9 @@
         "site": "Henneth Annûn"
       }
     ],
-    "effects": [],
+    "effects": [
+      { "type": "check-modifier", "check": "influence", "value": 1, "when": { "bearer.race": "dunadan" } }
+    ],
     "text": "Unique. Playable at Henneth Annûn if the influence check is greater than 7. Standard Modifications: Dúnedain (+1)."
   },
   {
@@ -379,7 +397,7 @@
     "alignment": "wizard",
     "id": "tw-348",
     "name": "The White Tree",
-    "image": "https://cdn.jsdelivr.net/gh/council-of-rivendell/meccg-remaster/en-remaster/tw/TheWhiteTree.jpg",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/TheWhiteTree.jpg",
     "unique": true,
     "eventType": "permanent",
     "marshallingPoints": 5,
@@ -392,7 +410,7 @@
     "alignment": "wizard",
     "id": "tw-356",
     "name": "Vanishment",
-    "image": "https://cdn.jsdelivr.net/gh/council-of-rivendell/meccg-remaster/en-remaster/tw/Vanishment.jpg",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Vanishment.jpg",
     "unique": false,
     "eventType": "short",
     "marshallingPoints": 0,
@@ -405,7 +423,7 @@
     "alignment": "wizard",
     "id": "tw-362",
     "name": "Wizard\u2019s Laughter",
-    "image": "https://cdn.jsdelivr.net/gh/council-of-rivendell/meccg-remaster/en-remaster/tw/WizardsLaughter.jpg",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/WizardsLaughter.jpg",
     "unique": false,
     "eventType": "short",
     "keywords": [

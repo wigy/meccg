@@ -50,10 +50,17 @@ Stats: `prowess`, `body`, `direct-influence`, `corruption-points`.
 
 Modifies a roll for a specific check type.
 
+Check types: `corruption`, `influence`.
+
 ```json
 { "type": "check-modifier", "check": "corruption", "value": 1 }
-{ "type": "check-modifier", "check": "faction-influence", "value": -1 }
+{ "type": "check-modifier", "check": "influence", "value": 1,
+  "when": { "bearer.race": "dunadan" } }
 ```
+
+The `influence` check type is used on faction cards for standard modifications.
+The resolver context includes `bearer` (influencing character) and `faction`
+(faction being influenced) fields.
 
 ### 3. `mp-modifier`
 
