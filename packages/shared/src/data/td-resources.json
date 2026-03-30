@@ -27,5 +27,18 @@
     "marshallingCategory": "misc",
     "effects": [],
     "text": "Sage only. Ritual. Tap a sage to force the discard of a hazard non-environment permanent-event or long-event. Sage makes a corruption check modified by -2."
+  },
+  {
+    "cardType": "hero-resource-event",
+    "alignment": "wizard",
+    "id": "td-132",
+    "name": "Many Turns and Doublings",
+    "image": "https://cdn.jsdelivr.net/gh/council-of-rivendell/meccg-remaster/en-remaster/td/ManyTurnsandDoublings.jpg",
+    "unique": false,
+    "eventType": "short",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Ranger only. Cancel an attack by Wolves, Spiders, Animals, or Undead against a ranger's company. Alternatively, if Gates of Morning is in play, decrease the hazard limit against the ranger's company by one (no minimum)."
   }
 ]
