@@ -1955,6 +1955,14 @@ h2 {
   filter: grayscale(0.6);
 }
 
+.pile-browser-empty {
+  color: #888;
+  font-style: italic;
+  padding: 2rem;
+  text-align: center;
+  grid-column: 1 / -1;
+}
+
 /* ---- Snapshot modal ---- */
 
 #snapshot-modal {

@@ -5,7 +5,7 @@
  * action buttons, draft info, and a message log.
  */
 
-import type { PlayerView, GameAction, EvaluatedAction, CardDefinition, CardDefinitionId, CardInstanceId, CharacterInPlay, SiteInPlay, ChainEntry, RevealedCard } from '@meccg/shared';
+import type { PlayerView, GameAction, EvaluatedAction, CardDefinition, CardDefinitionId, CardInstanceId, CharacterInPlay, SiteInPlay, ChainEntry, RevealedCard, ViewCard } from '@meccg/shared';
 import { describeAction, formatPlayerView, formatCardList, formatCardName, cardImageProxyPath, isCharacterCard, GENERAL_INFLUENCE, getAlignmentRules, viableActions, formatSignedNumber, Phase, computeTournamentScore, computeTournamentBreakdown } from '@meccg/shared';
 import type { MarshallingPointTotals } from '@meccg/shared';
 import { $, createCardImage, createFaceDownCard, appendItemCards } from './render-utils.js';
@@ -1332,6 +1332,10 @@ export function renderDeckPiles(view: PlayerView, cardPool?: Readonly<Record<str
   cachedSiteDeck = view.self.siteDeck;
   cachedSelfSideboard = view.self.sideboard;
   cachedSelfDiscard = view.self.discardPile;
+  cachedOppDiscard = view.opponent.discardPile;
+  cachedSelfPlayDeck = toHiddenCards(view.self.playDeck);
+  cachedOppPlayDeck = toHiddenCards(view.opponent.playDeck);
+  cachedOppSiteDeck = toHiddenCards(view.opponent.siteDeck);
   cachedSelfVictoryCards = selfVictoryCards;
   cachedOppVictoryCards = oppVictoryCards;
   if (cardPool) cachedCardPool = cardPool;
@@ -1339,10 +1343,15 @@ export function renderDeckPiles(view: PlayerView, cardPool?: Readonly<Record<str
   installPileBrowserClickHandlers();
 }
 
+/** Convert an array of hidden instance IDs into HiddenCard objects for the pile browser. */
+function toHiddenCards(ids: readonly CardInstanceId[]): readonly ViewCard[] {
+  return ids.map(id => ({ instanceId: id, known: false as const }));
+}
+
 // ---- Pile browser modal (shared by site deck, sideboard, victory display) ----
 
 /** Cached cards for the current pile browser view. */
-let cachedBrowserCards: readonly RevealedCard[] = [];
+let cachedBrowserCards: readonly ViewCard[] = [];
 /** Cached title for the current pile browser view. */
 let cachedBrowserTitle = '';
 let cachedCardPool: Readonly<Record<string, CardDefinition>> | null = null;
@@ -1358,7 +1367,7 @@ let siteSelectionMatcher: ((card: { instanceId: CardInstanceId }) => EvaluatedAc
  * Open the pile browser modal showing a list of cards (known or unknown).
  * Used by site deck, sideboard, and victory display piles.
  */
-function openPileBrowser(title: string, cards: readonly RevealedCard[], cardPool: Readonly<Record<string, CardDefinition>>): void {
+function openPileBrowser(title: string, cards: readonly ViewCard[], cardPool: Readonly<Record<string, CardDefinition>>): void {
   cachedBrowserCards = cards;
   cachedBrowserTitle = title;
   cachedCardPool = cardPool;
@@ -1370,20 +1379,30 @@ function populateBrowserGrid(): void {
   const grid = document.getElementById('pile-browser-grid');
   const modal = document.getElementById('pile-browser-modal');
   const titleEl = document.getElementById('pile-browser-title');
-  if (!grid || !modal || !cachedCardPool || cachedBrowserCards.length === 0) return;
+  if (!grid || !modal || !cachedCardPool) return;
 
   grid.innerHTML = '';
   if (titleEl) titleEl.textContent = cachedBrowserTitle;
+
+  if (cachedBrowserCards.length === 0) {
+    const empty = document.createElement('div');
+    empty.className = 'pile-browser-empty';
+    empty.textContent = 'Empty';
+    grid.appendChild(empty);
+    modal.classList.remove('hidden');
+    return;
+  }
   const isSelecting = siteSelectionActions.length > 0;
 
   for (const card of cachedBrowserCards) {
-    const def = cachedCardPool[card.definitionId as string];
+    const defId = card.known ? card.definitionId as string : undefined;
+    const def = defId ? cachedCardPool[defId] : undefined;
     const imgPath = def ? cardImageProxyPath(def) : undefined;
 
     const img = document.createElement('img');
-    img.src = imgPath ?? '/images/card-back.jpg';
+    img.src = card.known ? (imgPath ?? '/images/card-back.jpg') : '/images/card-back.jpg';
     img.alt = def?.name ?? 'Unknown card';
-    if (def) img.dataset.cardId = card.definitionId as string;
+    if (defId) img.dataset.cardId = defId;
 
     if (isSelecting) {
       const ea = siteSelectionMatcher?.(card);
@@ -1429,6 +1448,14 @@ let cachedSiteDeck: PlayerView['self']['siteDeck'] = [];
 let cachedSelfSideboard: readonly RevealedCard[] = [];
 /** Cached discard pile for the discard pile click handler. */
 let cachedSelfDiscard: readonly RevealedCard[] = [];
+/** Cached opponent discard pile for the discard pile click handler. */
+let cachedOppDiscard: readonly RevealedCard[] = [];
+/** Cached self play deck as hidden cards for browsing. */
+let cachedSelfPlayDeck: readonly ViewCard[] = [];
+/** Cached opponent play deck as hidden cards for browsing. */
+let cachedOppPlayDeck: readonly ViewCard[] = [];
+/** Cached opponent site deck as hidden cards for browsing. */
+let cachedOppSiteDeck: readonly ViewCard[] = [];
 /** Cached victory display cards for click handlers. */
 let cachedSelfVictoryCards: readonly RevealedCard[] = [];
 let cachedOppVictoryCards: readonly RevealedCard[] = [];
@@ -1452,48 +1479,35 @@ function installSiteDeckViewer(): void {
   });
 }
 
-/** Install click handlers on sideboard and victory display piles to open the pile browser. */
+/** Install click handlers on all piles to open the pile browser. */
 function installPileBrowserClickHandlers(): void {
   installPileBrowserBackdrop();
 
   if (pileBrowserClickHandlersInstalled) return;
   pileBrowserClickHandlersInstalled = true;
 
-  const selfSideboard = document.getElementById('self-sideboard-pile');
-  if (selfSideboard) {
-    selfSideboard.addEventListener('click', () => {
-      if (cachedCardPool) openPileBrowser('Sideboard', cachedSelfSideboard, cachedCardPool);
-    });
+  /** Helper to wire a pile element to the browser modal. */
+  function wirePile(elementId: string, title: string, getCards: () => readonly ViewCard[]): void {
+    const el = document.getElementById(elementId);
+    if (el) {
+      el.addEventListener('click', () => {
+        if (cachedCardPool) openPileBrowser(title, getCards(), cachedCardPool);
+      });
+    }
   }
 
-  const selfVictory = document.getElementById('self-victory-pile');
-  if (selfVictory) {
-    selfVictory.addEventListener('click', () => {
-      if (cachedCardPool) openPileBrowser('Victory Display', cachedSelfVictoryCards, cachedCardPool);
-    });
-  }
+  // Self piles
+  wirePile('self-sideboard-pile', 'Sideboard', () => cachedSelfSideboard);
+  wirePile('self-victory-pile', 'Victory Display', () => cachedSelfVictoryCards);
+  wirePile('self-discard-pile', 'Discard Pile', () => cachedSelfDiscard);
+  wirePile('self-deck-pile', 'Play Deck', () => cachedSelfPlayDeck);
 
-  const oppVictory = document.getElementById('opponent-victory-pile');
-  if (oppVictory) {
-    oppVictory.addEventListener('click', () => {
-      if (cachedCardPool) openPileBrowser('Victory Display', cachedOppVictoryCards, cachedCardPool);
-    });
-  }
-
-  const oppSideboard = document.getElementById('opponent-sideboard-pile');
-  if (oppSideboard) {
-    oppSideboard.addEventListener('click', () => {
-      // Opponent sideboard is hidden — show empty browser
-      if (cachedCardPool) openPileBrowser('Sideboard', [], cachedCardPool);
-    });
-  }
-
-  const selfDiscard = document.getElementById('self-discard-pile');
-  if (selfDiscard) {
-    selfDiscard.addEventListener('click', () => {
-      if (cachedCardPool) openPileBrowser('Discard Pile', cachedSelfDiscard, cachedCardPool);
-    });
-  }
+  // Opponent piles
+  wirePile('opponent-victory-pile', 'Victory Display', () => cachedOppVictoryCards);
+  wirePile('opponent-sideboard-pile', 'Sideboard', () => toHiddenCards([]));
+  wirePile('opponent-discard-pile', 'Discard Pile', () => cachedOppDiscard);
+  wirePile('opponent-deck-pile', 'Play Deck', () => cachedOppPlayDeck);
+  wirePile('opponent-site-pile', 'Site Deck', () => cachedOppSiteDeck);
 }
 
 /**
