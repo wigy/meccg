@@ -91,5 +91,15 @@
     "eventType": "short",
     "effects": [],
     "text": "Playable on a non-Ringwraith, non-Wizard character not bearing The One Ring. The character's player makes a roll. The character returns to his player's hand if the result plus his player's unused general influence is less than 10. Any one item held by the removed character may automatically be transferred to another character in his company (all other non-follower cards he controls are discarded)."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "tw-67",
+    "name": "Muster Disperses",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/MusterDisperses.jpg",
+    "unique": false,
+    "eventType": "short",
+    "effects": [],
+    "text": "Playable on a faction. The faction's player makes a roll. The faction is discarded if the result plus his unused general influence is less than 11."
   }
 ]
