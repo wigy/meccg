@@ -1,0 +1,12 @@
+[
+  {
+    "cardType": "hazard-event",
+    "id": "td-21",
+    "name": "Eärcaraxë Ahunt",
+    "image": "https://cdn.jsdelivr.net/gh/council-of-rivendell/meccg-remaster/en-remaster/td/EarcaraxeAhunt.jpg",
+    "unique": true,
+    "eventType": "long",
+    "effects": [],
+    "text": "Unique. Any company moving in Andrast Coast, Bay of Belfalas, Eriadoran Coast, and/or Andrast faces one Dragon attack (considered a hazard creature attack) — 3 strikes at 15/6 (attacker chooses defending characters). If Doors of Night is in play, this attack also affects: Old Pûkel-land, Enedhwaith, Anfalas, and any Coastal Sea region (or region type)."
+  }
+]
