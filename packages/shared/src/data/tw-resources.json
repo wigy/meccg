@@ -354,5 +354,24 @@
     "marshallingCategory": "misc",
     "effects": [],
     "text": "Scout only. Tap a scout to play at the end of the organization phase only if the scout's company size is less than three. No creature hazards may be played on his company this turn."
+  },
+  {
+    "cardType": "hero-resource-ally",
+    "alignment": "wizard",
+    "id": "tw-353",
+    "name": "Treebeard",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Treebeard.jpg",
+    "unique": true,
+    "prowess": 8,
+    "body": 9,
+    "marshallingPoints": 2,
+    "marshallingCategory": "ally",
+    "playableAt": [
+      {
+        "site": "Wellinghall"
+      }
+    ],
+    "effects": [],
+    "text": "Unique. Playable at Wellinghall. May not be attacked by automatic-attacks or hazards keyed to his site. Discard Treebeard if his company moves to a site that is not in: Fangorn, Rohan, Gap of Isen, Wold & Foothills, Enedhwaith, Old Pûkel-land, Brown Lands, Anduin Vales, or Redhorn Gate."
   }
 ]
