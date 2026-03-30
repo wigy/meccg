@@ -10,7 +10,9 @@
  */
 
 import type { GameState, PlayerId, GameAction, EvaluatedAction, SitePhaseState, HeroItemCard, HeroResourceEventCard, SiteCard, PlayableAtEntry, FactionCard } from '../../index.js';
-import { getPlayerIndex, isSiteCard, isItemCard, isAllyCard, isFactionCard, CardStatus } from '../../index.js';
+import { getPlayerIndex, isSiteCard, isItemCard, isAllyCard, isFactionCard, isCharacterCard, CardStatus, matchesCondition } from '../../index.js';
+import { collectCharacterEffects, resolveCheckModifier } from '../effects/index.js';
+import type { ResolverContext } from '../effects/index.js';
 import { logDetail, logHeading } from './log.js';
 
 /**
@@ -524,13 +526,48 @@ function playResourcesActions(
       for (const ch of untappedCharacters) {
         const charDef = state.cardPool[ch.definitionId as string];
         const charName = charDef?.name ?? ch.instanceId;
-        logDetail(`Faction ${factionDef.name}: influenceable by ${charName}`);
+
+        // Compute modifier for this character
+        let infModifier = 0;
+        const infParts: string[] = [`influence # ${factionDef.influenceNumber}`];
+        if (charDef && isCharacterCard(charDef)) {
+          infModifier += charDef.directInfluence;
+          infParts.push(`DI ${charDef.directInfluence}`);
+
+          // DSL effects
+          const resolverCtx: ResolverContext = {
+            reason: 'faction-influence-check',
+            bearer: {
+              race: charDef.race, skills: charDef.skills,
+              baseProwess: charDef.prowess, baseBody: charDef.body,
+              baseDirectInfluence: charDef.directInfluence, name: charDef.name,
+            },
+            faction: { name: factionDef.name, race: factionDef.race },
+          };
+          const charEffects = collectCharacterEffects(state, ch, resolverCtx);
+          if (factionDef.effects) {
+            for (const effect of factionDef.effects) {
+              if (effect.when && !matchesCondition(effect.when, resolverCtx as unknown as Record<string, unknown>)) continue;
+              charEffects.push({ effect, sourceDef: factionDef });
+            }
+          }
+          const dslMod = resolveCheckModifier(charEffects, 'influence');
+          if (dslMod !== 0) {
+            infModifier += dslMod;
+            infParts.push(`bonus ${dslMod >= 0 ? '+' : ''}${dslMod}`);
+          }
+        }
+        const infNeed = factionDef.influenceNumber - infModifier;
+
+        logDetail(`Faction ${factionDef.name}: influenceable by ${charName} (need ${infNeed})`);
         actions.push({
           action: {
             type: 'influence-attempt',
             player: playerId,
             factionInstanceId: cardInstanceId,
             influencingCharacterId: ch.instanceId,
+            need: infNeed,
+            explanation: `Need roll >= ${infNeed} (${infParts.join(', ')})`,
           },
           viable: true,
         });

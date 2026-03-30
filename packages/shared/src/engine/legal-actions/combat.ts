@@ -12,7 +12,7 @@
  * 4. body-check: attacking player rolls body check
  */
 
-import type { GameState, PlayerId, EvaluatedAction, CombatState } from '../../index.js';
+import type { GameState, PlayerId, EvaluatedAction, CombatState, CardInstanceId } from '../../index.js';
 import { CardStatus } from '../../types/common.js';
 import { logHeading, logDetail } from './log.js';
 
@@ -180,14 +180,29 @@ function resolveStrikeActions(
   const playerIndex0 = state.players.findIndex(p => p.id === playerId);
   const charData = state.players[playerIndex0].characters[currentStrike.characterId as string];
   const isUntapped = charData?.status === CardStatus.Untapped;
-  logDetail(`Defender can resolve strike against ${currentStrike.characterId as string} (${isUntapped ? 'untapped' : 'tapped/wounded'})`);
+  // Compute prowess and need for both tap/untap options
+  const charDef = state.cardPool[charData?.definitionId as string];
+  const charName = charDef && 'name' in charDef ? (charDef as { name: string }).name : (currentStrike.characterId as string);
+  const baseProwess = charData?.effectiveStats?.prowess ?? 0;
+  const strikeProwess = combat.strikeProwess;
+
+  // Tap: full prowess; Untap: -3 prowess penalty
+  const tapProwess = baseProwess;
+  const untapProwess = Math.max(0, baseProwess - 3);
+
+  const tapNeed = Math.max(2, strikeProwess - tapProwess + 1);
+  const tapExplanation = `Need roll >= ${tapNeed} (creature ${strikeProwess}, prowess ${tapProwess})`;
+  const untapNeed = Math.max(2, strikeProwess - untapProwess + 1);
+  const untapExplanation = `Need roll >= ${untapNeed} (creature ${strikeProwess}, prowess ${untapProwess} [-3 untapped])`;
+
+  logDetail(`Defender can resolve strike against ${charName} (${isUntapped ? 'untapped' : 'tapped/wounded'})`);
   actions.push({
-    action: { type: 'resolve-strike', player: playerId, tapToFight: true },
+    action: { type: 'resolve-strike', player: playerId, tapToFight: true, need: tapNeed, explanation: tapExplanation },
     viable: true,
   });
   if (isUntapped) {
     actions.push({
-      action: { type: 'resolve-strike', player: playerId, tapToFight: false },
+      action: { type: 'resolve-strike', player: playerId, tapToFight: false, need: untapNeed, explanation: untapExplanation },
       viable: true,
     });
   }
@@ -246,15 +261,44 @@ function resolveStrikeActions(
  * The attacking player rolls 2d6 against the body value.
  */
 function bodyCheckActions(
-  _state: GameState,
+  state: GameState,
   playerId: PlayerId,
   combat: CombatState,
 ): EvaluatedAction[] {
   if (playerId !== combat.attackingPlayerId) return [];
 
-  logDetail('Attacker rolls body check');
+  let body: number;
+  let targetLabel: string;
+  if (combat.bodyCheckTarget === 'creature') {
+    body = combat.creatureBody ?? 0;
+    targetLabel = 'creature';
+  } else {
+    const strike = combat.strikeAssignments[combat.currentStrikeIndex];
+    const defPlayer = state.players.find(p => p.id === combat.defendingPlayerId);
+    const charData = defPlayer?.characters[strike?.characterId as string];
+    const charDef = charData ? state.cardPool[charData.definitionId as string] : undefined;
+    body = (charDef as { body?: number } | undefined)?.body ?? 9;
+    targetLabel = charDef && 'name' in charDef ? (charDef as { name: string }).name : 'character';
+  }
+  // Wounded characters get +1 to the body check roll, lowering the raw need
+  const isWounded = combat.bodyCheckTarget === 'character' && (() => {
+    const strike = combat.strikeAssignments[combat.currentStrikeIndex];
+    const defPlayer = state.players.find(p => p.id === combat.defendingPlayerId);
+    return defPlayer?.characters[strike?.characterId as string]?.status === CardStatus.Inverted;
+  })();
+  const woundedBonus = isWounded ? 1 : 0;
+  const bcNeed = body + 1 - woundedBonus;
+  const bcParts = [`${targetLabel} body ${body}`];
+  if (woundedBonus) bcParts.push('+1 wounded');
+
+  logDetail(`Attacker rolls body check vs ${targetLabel} (body ${body}${isWounded ? ', wounded +1' : ''})`);
   return [{
-    action: { type: 'body-check-roll', player: playerId },
+    action: {
+      type: 'body-check-roll',
+      player: playerId,
+      need: bcNeed,
+      explanation: `Need roll > ${body - woundedBonus} (${bcParts.join(', ')})`,
+    },
     viable: true,
   }];
 }

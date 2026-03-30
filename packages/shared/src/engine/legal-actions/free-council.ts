@@ -42,6 +42,9 @@ export function freeCouncilActions(state: GameState, playerId: PlayerId): GameAc
       ...charInPlay.allies.map(a => a.instanceId),
       ...charInPlay.corruptionCards,
     ];
+    const ccNeed = cp + 1 - modifier;
+    const ccParts = [`CP ${cp}`];
+    if (modifier !== 0) ccParts.push(`modifier ${modifier >= 0 ? '+' : ''}${modifier}`);
     logDetail(`Corruption check available for '${charDef?.name ?? charId}' (CP ${cp}, modifier ${modifier >= 0 ? '+' : ''}${modifier})`);
     actions.push({
       type: 'corruption-check',
@@ -50,6 +53,8 @@ export function freeCouncilActions(state: GameState, playerId: PlayerId): GameAc
       corruptionPoints: cp,
       corruptionModifier: modifier,
       possessions,
+      need: ccNeed,
+      explanation: `Need roll > ${cp - modifier} (${ccParts.join(', ')})`,
     });
   }
 
