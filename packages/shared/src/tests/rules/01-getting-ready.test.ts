@@ -5,7 +5,7 @@
  * Covers deck construction, character draft, starting items,
  * starting sites, starting hands, general influence, and initiative.
  *
- * Rule references use the numbering from docs/coe-rules.txt.
+ * Rule references use the numbering from docs/coe-rules.md.
  */
 
 import { describe, test, expect } from 'vitest';

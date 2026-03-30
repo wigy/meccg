@@ -79,7 +79,7 @@ Chain state is visible to both players (all declared cards are face-up). `ChainS
 
 ## CoE Rules Covered
 
-From `docs/coe-rules.txt` lines 671–687:
+From `docs/coe-rules.md`:
 
 | Rule | Line | Summary |
 |------|------|---------|

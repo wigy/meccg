@@ -3,7 +3,7 @@
  *
  * Tests for CoE Rules Section 2.I: Untap Phase.
  *
- * Rule references from docs/coe-rules.txt lines 179-183.
+ * Rule references from docs/coe-rules.md.
  */
 
 import { describe, test, expect, beforeEach } from 'vitest';

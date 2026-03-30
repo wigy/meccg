@@ -3,7 +3,7 @@
  *
  * Tests for CoE Rules Section 7: Corruption.
  *
- * Rule references from docs/coe-rules.txt lines 585-603.
+ * Rule references from docs/coe-rules.md.
  *
  * Corruption checks are triggered after item transfers during Organization.
  * The character rolls 2d6 + modifier vs their corruption point total:

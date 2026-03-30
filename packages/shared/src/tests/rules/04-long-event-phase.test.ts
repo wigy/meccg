@@ -3,7 +3,7 @@
  *
  * Tests for CoE Rules Section 2.III: Long-event Phase.
  *
- * Rule references from docs/coe-rules.txt lines 272-274.
+ * Rule references from docs/coe-rules.md.
  *
  * Tests construct explicit game states in the Organization or Long-event
  * phase and verify the engine correctly handles long-event discard and play.

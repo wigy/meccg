@@ -3,7 +3,7 @@
  *
  * Tests for CoE Rules Section 10: Ending the Game.
  *
- * Rule references from docs/coe-rules.txt lines 690-726.
+ * Rule references from docs/coe-rules.md.
  */
 
 import { describe, test, expect, beforeEach } from 'vitest';

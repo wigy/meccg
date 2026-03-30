@@ -3,7 +3,7 @@
  *
  * Tests for CoE Rules Section 5: Events (Short, Long, Permanent).
  *
- * Rule references from docs/coe-rules.txt lines 548-565.
+ * Rule references from docs/coe-rules.md.
  */
 
 import { describe, test } from 'vitest';

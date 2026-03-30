@@ -3,7 +3,7 @@
  *
  * Tests for CoE Rules Section 6: Items and Rings.
  *
- * Rule references from docs/coe-rules.txt lines 566-599.
+ * Rule references from docs/coe-rules.md.
  */
 
 import { describe, test } from 'vitest';

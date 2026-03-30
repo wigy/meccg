@@ -3,7 +3,7 @@
  *
  * Tests for CoE Rules Section 4: Agents.
  *
- * Rule references from docs/coe-rules.txt lines 524-547.
+ * Rule references from docs/coe-rules.md.
  */
 
 import { describe, test } from 'vitest';

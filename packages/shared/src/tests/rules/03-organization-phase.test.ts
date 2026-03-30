@@ -3,7 +3,7 @@
  *
  * Tests for CoE Rules Section 2.II: Organization Phase.
  *
- * Rule references from docs/coe-rules.txt lines 184-271.
+ * Rule references from docs/coe-rules.md.
  *
  * Tests construct explicit game states in the Organization phase and
  * verify the engine computes correct legal actions or handles actions

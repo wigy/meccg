@@ -3,7 +3,7 @@
  *
  * Tests for CoE Rules Section 2.VI: End-of-Turn Phase.
  *
- * Rule references from docs/coe-rules.txt lines 396-399.
+ * Rule references from docs/coe-rules.md.
  *
  * The end-of-turn phase has three steps:
  * 1. Either player may discard a card from their own hand.

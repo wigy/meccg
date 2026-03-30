@@ -3,7 +3,7 @@
  *
  * Tests for CoE Rules Section 2.V: Site Phase.
  *
- * Rule references from docs/coe-rules.txt lines 331-395.
+ * Rule references from docs/coe-rules.md.
  */
 
 import { describe, test } from 'vitest';

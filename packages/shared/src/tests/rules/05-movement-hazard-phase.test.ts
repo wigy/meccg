@@ -3,7 +3,7 @@
  *
  * Tests for CoE Rules Section 2.IV: Movement/Hazard Phase.
  *
- * Rule references from docs/coe-rules.txt lines 278-395.
+ * Rule references from docs/coe-rules.md.
  */
 
 import { describe, test } from 'vitest';

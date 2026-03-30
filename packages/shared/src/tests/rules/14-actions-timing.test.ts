@@ -3,7 +3,7 @@
  *
  * Tests for CoE Rules Section 9: Actions, Conditions, and Timing.
  *
- * Rule references from docs/coe-rules.txt lines 641-689.
+ * Rule references from docs/coe-rules.md.
  */
 
 import { describe, test } from 'vitest';

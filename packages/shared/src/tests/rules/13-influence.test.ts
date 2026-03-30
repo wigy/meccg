@@ -3,7 +3,7 @@
  *
  * Tests for CoE Rules Section 8: Influence Attempts.
  *
- * Rule references from docs/coe-rules.txt lines 604-640.
+ * Rule references from docs/coe-rules.md.
  */
 
 import { describe, test } from 'vitest';

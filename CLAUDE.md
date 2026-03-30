@@ -121,7 +121,7 @@ All server-side logic must include detailed logging so that the game's decision-
 
 Tests verify the **official CoE rules**, not internal implementation. There are no unit tests — only rules-as-specification tests and card tests.
 
-- **Rules tests** (`packages/shared/src/tests/rules/`): Each sentence in the official Council of Elrond rules (source: `docs/coe-rules.txt`) maps to a `test()` or `test.todo()`. Tests set up a valid game state and verify the engine computes correct legal actions.
+- **Rules tests** (`packages/shared/src/tests/rules/`): Each sentence in the official Council of Elrond rules (source: `docs/coe-rules.md`) maps to a `test()` or `test.todo()`. Tests set up a valid game state and verify the engine computes correct legal actions.
 - **Card tests** (`packages/shared/src/tests/cards/`, nightly): One test per card with special rules/effects. Builds game states that trigger each card's rules and verifies correct legal actions.
 - **Pattern**: Every test follows: build state → call `computeLegalActions()` or `reduce()` → assert on legal actions or resulting state.
 - **`test.todo()`** marks unimplemented rules — a living spec showing what's left to build.

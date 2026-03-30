@@ -3,7 +3,7 @@
  *
  * Tests for CoE Rules Section 3: Combat.
  *
- * Rule references from docs/coe-rules.txt lines 400-523.
+ * Rule references from docs/coe-rules.md.
  */
 
 import { describe, test } from 'vitest';
