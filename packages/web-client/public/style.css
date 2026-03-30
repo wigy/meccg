@@ -1833,6 +1833,22 @@ h2 {
   pointer-events: auto;
 }
 
+.dice-tray {
+  display: flex;
+  justify-content: center;
+  gap: 0.4rem;
+  background: rgba(60, 55, 45, 0.75);
+  border: 1px solid rgba(196, 163, 90, 0.3);
+  border-radius: 8px;
+  padding: 0.3rem 0.5rem;
+  min-height: 1.8rem;
+  perspective: 300px;
+}
+
+.dice-tray:empty {
+  display: none;
+}
+
 .pile-cell--wide {
   grid-column: span 2;
   justify-self: center;

@@ -179,6 +179,30 @@ export class GameLog {
   }
 
   /**
+   * Read the state snapshot at a specific stateSeq from the game log.
+   * Returns the `state` field of the matching entry, or null if not found.
+   */
+  readStateAt(seq: number): Record<string, unknown> | null {
+    if (!this.currentGameId) return null;
+    const filePath = path.join(GAME_LOG_DIR, `${this.currentGameId}.jsonl`);
+    if (!fs.existsSync(filePath)) return null;
+
+    const lines = fs.readFileSync(filePath, 'utf-8').split('\n').filter(l => l.trim());
+    for (const line of lines) {
+      try {
+        const entry = JSON.parse(line) as Record<string, unknown>;
+        if (entry.event !== 'state') continue;
+        if (entry.stateSeq === seq && entry.state) {
+          return entry.state as Record<string, unknown>;
+        }
+      } catch {
+        // skip unparseable lines
+      }
+    }
+    return null;
+  }
+
+  /**
    * Remove the last game log entry whose stateSeq equals the given value.
    * Used by undo to delete the current state's log entry before reverting.
    */

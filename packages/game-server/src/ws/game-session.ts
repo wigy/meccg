@@ -106,14 +106,6 @@ export class GameSession {
   gracefulShutdown(): void {
     this.serverLog.log('shutdown');
     if (this.state) {
-      // Clear dice rolls so they don't persist across sessions
-      this.state = {
-        ...this.state,
-        players: [
-          { ...this.state.players[0], lastDiceRoll: null },
-          { ...this.state.players[1], lastDiceRoll: null },
-        ],
-      };
       this.writeSave(this.autosaveFilePath());
     }
 
@@ -341,6 +333,24 @@ export class GameSession {
       this.state.instanceMap as unknown as Record<string, { definitionId: string }>,
     );
     this.gameLog.truncateAfterSeq(this.state.stateSeq);
+
+    // Repair null lastDiceRoll from saves written by old code that cleared dice on shutdown.
+    // Recover the correct values from the game log's state entry for this seq.
+    if (this.state.players.some(p => p.lastDiceRoll === null)) {
+      const logEntry = this.gameLog.readStateAt(this.state.stateSeq);
+      if (logEntry) {
+        const logPlayers = (logEntry as { players?: { lastDiceRoll?: unknown }[] }).players;
+        if (logPlayers) {
+          const players = [...this.state.players] as [PlayerState, PlayerState];
+          for (let i = 0; i < 2; i++) {
+            if (players[i].lastDiceRoll === null && logPlayers[i]?.lastDiceRoll) {
+              players[i] = { ...players[i], lastDiceRoll: logPlayers[i].lastDiceRoll as PlayerState['lastDiceRoll'] };
+            }
+          }
+          this.state = { ...this.state, players };
+        }
+      }
+    }
 
     // Rebuild undo history from the game log
     const logStates = this.gameLog.readStatesBefore(this.state.stateSeq);
@@ -661,14 +671,6 @@ export class GameSession {
     if (!disconnectedId || !disconnectedName) return;
 
     if (this.state) {
-      // Clear dice rolls so they don't persist across sessions
-      this.state = {
-        ...this.state,
-        players: [
-          { ...this.state.players[0], lastDiceRoll: null },
-          { ...this.state.players[1], lastDiceRoll: null },
-        ],
-      };
       this.writeSave(this.autosaveFilePath());
     }
 

@@ -434,6 +434,7 @@ interface RenderPlayerInput {
 
 interface RenderInput {
   readonly turnNumber: number;
+  readonly stateSeq?: number;
   readonly phaseState: PhaseState;
   readonly combat: CombatState | null;
   readonly chain: ChainState | null;
@@ -484,7 +485,8 @@ function renderState(input: RenderInput): string {
       : input.phaseState.phase === 'site'
         ? `Site / ${SITE_STEP_LABELS[input.phaseState.step] ?? input.phaseState.step}`
         : input.phaseState.phase;
-  lines.push(`Turn ${input.turnNumber} — Phase: ${phaseLabel}`);
+  const seqSuffix = input.stateSeq !== undefined ? ` (${input.stateSeq})` : '';
+  lines.push(`Turn ${input.turnNumber}${seqSuffix} — Phase: ${phaseLabel}`);
 
   // Determine the active company ID for M/H and Site phases
   let activeCompanyId: string | null = null;
@@ -652,6 +654,7 @@ export function formatGameState(state: GameState): string {
 
   return stripCardMarkers(renderState({
     turnNumber: state.turnNumber,
+    stateSeq: state.stateSeq,
     phaseState: state.phaseState,
     combat: state.combat,
     chain: state.chain,
@@ -718,6 +721,7 @@ export function formatPlayerView(
 
   return renderState({
     turnNumber: view.turnNumber,
+    stateSeq: view.stateSeq,
     phaseState: view.phaseState,
     combat: view.combat,
     chain: view.chain,

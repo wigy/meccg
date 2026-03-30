@@ -131,7 +131,7 @@ export function waitForDice(): Promise<void> {
   return animationPromise;
 }
 
-/** Remove all dice overlays and clear stored roll state. */
+/** Remove all dice overlays, clear stored roll state, and empty dice trays. */
 export function clearDice(): void {
   for (const key of Object.keys(overlays)) {
     overlays[key].remove();
@@ -139,6 +139,10 @@ export function clearDice(): void {
   }
   for (const key of Object.keys(lastRolls)) {
     delete lastRolls[key];
+  }
+  for (const id of ['self-dice-tray', 'opponent-dice-tray']) {
+    const tray = document.getElementById(id);
+    if (tray) tray.innerHTML = '';
   }
 }
 
@@ -202,36 +206,10 @@ export function rollDice(die1: number, die2: number, variant: 'red' | 'black' = 
   animateDie(dieEl1, die1, 0);
   animateDie(dieEl2, die2, 100);
 
-  // After roll animation, slide dice to sit next to the player name
+  // After roll animation, dismiss overlay and place dice in the tray
   setTimeout(() => {
-    const targetId = variant === 'black' ? 'self-name' : 'opponent-name';
-    const target = document.getElementById(targetId);
-    if (target && container) {
-      // Capture current center position
-      const contRect = container.getBoundingClientRect();
-      const startX = contRect.left + contRect.width / 2;
-      const startY = contRect.top + contRect.height / 2;
-
-      // Set initial fixed position at current location
-      container.style.position = 'fixed';
-      container.style.left = `${startX}px`;
-      container.style.top = `${startY}px`;
-      container.style.transform = 'translate(-50%, -50%)';
-
-      // Force layout, then animate to target
-      void container.offsetWidth;
-      container.style.transformOrigin = 'left center';
-      const nameRect = target.getBoundingClientRect();
-      container.style.transition = 'left 0.6s ease-in-out, top 0.6s ease-in-out, transform 0.6s ease-in-out';
-      container.style.left = `${nameRect.left}px`;
-      if (variant === 'black') {
-        container.style.top = `${window.innerHeight * 0.55}px`;
-        container.style.transform = 'translate(0, -50%) scale(0.35)';
-      } else {
-        container.style.top = `${window.innerHeight * 0.45}px`;
-        container.style.transform = 'translate(0, -50%) scale(0.35)';
-      }
-    }
+    dismiss(variant);
+    restoreDice();
   }, 1800);
 }
 
@@ -242,31 +220,21 @@ export function rollDice(die1: number, die2: number, variant: 'red' | 'black' = 
 export function restoreDice(): void {
   for (const variant of ['red', 'black'] as const) {
     const roll = lastRolls[variant];
-    if (!roll) continue;
-    if (overlays[variant]) continue; // already visible
+    const trayId = variant === 'black' ? 'self-dice-tray' : 'opponent-dice-tray';
+    const tray = document.getElementById(trayId);
+    if (!tray) continue;
 
-    const targetId = variant === 'black' ? 'self-name' : 'opponent-name';
-    const target = document.getElementById(targetId);
-    if (!target) continue;
-
-    const overlay = document.createElement('div');
-    overlay.className = 'dice-overlay';
-    overlays[variant] = overlay;
-
-    const container = document.createElement('div');
-    container.className = `dice-container`;
-
-    const diceRow = document.createElement('div');
-    diceRow.className = 'dice-row';
+    // Clear tray and skip if no roll
+    if (!roll) { tray.innerHTML = ''; continue; }
+    // Already populated
+    if (tray.children.length > 0) continue;
 
     const dieEl1 = createDie(variant);
     const dieEl2 = createDie(variant);
-    diceRow.appendChild(dieEl1);
-    diceRow.appendChild(dieEl2);
 
-    container.appendChild(diceRow);
-    overlay.appendChild(container);
-    document.body.appendChild(overlay);
+    // Apply mini size
+    dieEl1.classList.add('dice-mini');
+    dieEl2.classList.add('dice-mini');
 
     // Set dice to their final values immediately
     const cube1 = dieEl1.querySelector('.dice-cube') as HTMLElement;
@@ -276,18 +244,9 @@ export function restoreDice(): void {
     cube1.style.transform = `rotateX(${x1}deg) rotateY(${y1}deg)`;
     cube2.style.transform = `rotateX(${x2}deg) rotateY(${y2}deg)`;
 
-    // Position at resting spot immediately
-    const nameRect = target.getBoundingClientRect();
-    container.style.position = 'fixed';
-    container.style.transformOrigin = 'left center';
-    container.style.left = `${nameRect.left}px`;
-    if (variant === 'black') {
-      container.style.top = `${window.innerHeight * 0.55}px`;
-      container.style.transform = 'translate(0, -50%) scale(0.35)';
-    } else {
-      container.style.top = `${window.innerHeight * 0.45}px`;
-      container.style.transform = 'translate(0, -50%) scale(0.35)';
-    }
+    tray.innerHTML = '';
+    tray.appendChild(dieEl1);
+    tray.appendChild(dieEl2);
   }
 }
 

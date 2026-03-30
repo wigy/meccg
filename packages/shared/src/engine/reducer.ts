@@ -766,14 +766,19 @@ function handleCharacterDeckDraft(
     done: newPool.length === 0,
   };
 
-  return {
-    state: {
-      ...state,
-      players: newPlayers,
-      instanceMap: newInstanceMap,
-      phaseState: setupPhase({ ...stepState, deckDraftState: newDeckDraftState }),
-    },
+  const newState = {
+    ...state,
+    players: newPlayers,
+    instanceMap: newInstanceMap,
+    phaseState: setupPhase({ ...stepState, deckDraftState: newDeckDraftState }),
   };
+
+  // Both done → enter site selection (pool exhausted for both players)
+  if (newDeckDraftState[0].done && newDeckDraftState[1].done) {
+    return { state: enterSiteSelection(newState) };
+  }
+
+  return { state: newState };
 }
 
 // ---- Starting site selection handler ----
