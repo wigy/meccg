@@ -166,7 +166,7 @@ function connect(name: string): void {
             if (copyBtn) {
               copyBtn.classList.remove('hidden');
               copyBtn.onclick = () => {
-                void navigator.clipboard.writeText(msg.gameId).then(() => showNotification('Game code copied!'));
+                void navigator.clipboard.writeText(`game ${msg.gameId} seq ${currentStateSeq}`).then(() => showNotification('Copied!'));
               };
             }
           }
@@ -183,6 +183,12 @@ function connect(name: string): void {
         // state, so the outcome isn't spoiled while dice are still rolling.
         await waitForDice();
         currentStateSeq = msg.view.stateSeq;
+        // Update heading to show game ID + seq
+        { const h = document.getElementById('state-heading');
+          if (h && currentGameId) {
+            h.childNodes[0].textContent = `Game State — ${currentGameId} seq ${currentStateSeq}`;
+          }
+        }
         lastInstanceLookup = buildInstanceLookup(msg.view);
         lastCompanyNames = {
           ...buildCompanyNames(msg.view.self.companies, msg.view.self.characters, cardPool),
