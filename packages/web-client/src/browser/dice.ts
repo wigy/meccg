@@ -206,10 +206,36 @@ export function rollDice(die1: number, die2: number, variant: 'red' | 'black' = 
   animateDie(dieEl1, die1, 0);
   animateDie(dieEl2, die2, 100);
 
-  // After roll animation, dismiss overlay and place dice in the tray
+  // After roll animation, slide dice toward the tray, then settle into it
   setTimeout(() => {
-    dismiss(variant);
-    restoreDice();
+    const trayId = variant === 'black' ? 'self-dice-tray' : 'opponent-dice-tray';
+    const tray = document.getElementById(trayId);
+    if (tray && container) {
+      const trayRect = tray.getBoundingClientRect();
+      const contRect = container.getBoundingClientRect();
+      const startX = contRect.left + contRect.width / 2;
+      const startY = contRect.top + contRect.height / 2;
+
+      container.style.position = 'fixed';
+      container.style.left = `${startX}px`;
+      container.style.top = `${startY}px`;
+      container.style.transform = 'translate(-50%, -50%)';
+
+      void container.offsetWidth;
+      container.style.transition = 'left 0.6s ease-in-out, top 0.6s ease-in-out, transform 0.6s ease-in-out';
+      container.style.left = `${trayRect.left + trayRect.width / 2}px`;
+      container.style.top = `${trayRect.top + trayRect.height / 2}px`;
+      container.style.transform = 'translate(-50%, -50%) scale(0.35)';
+
+      // After slide completes, dismiss overlay and render in tray
+      setTimeout(() => {
+        dismiss(variant);
+        restoreDice();
+      }, 650);
+    } else {
+      dismiss(variant);
+      restoreDice();
+    }
   }, 1800);
 }
 
