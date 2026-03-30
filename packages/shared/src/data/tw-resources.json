@@ -10,7 +10,11 @@
     "body": 8,
     "marshallingPoints": 2,
     "marshallingCategory": "ally",
-    "playableAt": [{ "site": "Eagles' Eyrie" }],
+    "playableAt": [
+      {
+        "site": "Eagles' Eyrie"
+      }
+    ],
     "text": "Unique. Playable at Eagles' Eyrie. If his company's size is two or less, you may discard Gwaihir during the organization phase to allow his company to move to any site that is not in a Shadow-land, Dark-domain, or Under-deeps; only hazard creatures keyed to the site may be played on a company that moves in this fashion."
   },
   {
@@ -24,7 +28,14 @@
     "body": 8,
     "marshallingPoints": 1,
     "marshallingCategory": "ally",
-    "playableAt": [{ "site": "Edoras" }, { "site": "Dunharrow" }],
+    "playableAt": [
+      {
+        "site": "Edoras"
+      },
+      {
+        "site": "Dunharrow"
+      }
+    ],
     "text": "Unique. Playable at Edoras or Dunharrow. If his company has only one character or one character and a Hobbit at the end of the movement/hazard phase, tap Shadowfax to allow his company to immediately move again; an additional site card may be played and an additional movement/hazard phase follows for that company."
   },
   {
@@ -38,7 +49,11 @@
     "marshallingCategory": "faction",
     "influenceNumber": 10,
     "race": "dunadan",
-    "playableAt": [{ "site": "Bree" }],
+    "playableAt": [
+      {
+        "site": "Bree"
+      }
+    ],
     "text": "Unique. Playable at Bree if the influence check is greater than 9. Standard Modifications: Dúnedain (+1)."
   },
   {
@@ -52,7 +67,11 @@
     "marshallingCategory": "faction",
     "influenceNumber": 10,
     "race": "man",
-    "playableAt": [{ "site": "Edoras" }],
+    "playableAt": [
+      {
+        "site": "Edoras"
+      }
+    ],
     "text": "Unique. Playable at Edoras if the influence check is greater than 9. Standard Modifications: Hobbits (+1), Dúnedain (+1)."
   },
   {
@@ -66,7 +85,11 @@
     "marshallingCategory": "faction",
     "influenceNumber": 9,
     "race": "dunadan",
-    "playableAt": [{ "site": "Dol Amroth" }],
+    "playableAt": [
+      {
+        "site": "Dol Amroth"
+      }
+    ],
     "text": "Unique. Playable at Dol Amroth if the influence check is greater than 8. Standard Modifications: Dúnedain (+1)."
   },
   {
@@ -77,7 +100,9 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/GatesofMorning.jpg",
     "unique": false,
     "eventType": "permanent",
-    "keywords": ["environment"],
+    "keywords": [
+      "environment"
+    ],
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
     "effects": [
@@ -97,7 +122,9 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Sun.jpg",
     "unique": false,
     "eventType": "long",
-    "keywords": ["environment"],
+    "keywords": [
+      "environment"
+    ],
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
     "effects": [
@@ -111,14 +138,18 @@
         "stat": "prowess",
         "value": 1,
         "target": "all-characters",
-        "when": { "target.race": "dunadan" }
+        "when": {
+          "target.race": "dunadan"
+        }
       },
       {
         "type": "stat-modifier",
         "stat": "prowess",
         "value": -1,
         "target": "all-attacks",
-        "when": { "inPlay": "Gates of Morning" }
+        "when": {
+          "inPlay": "Gates of Morning"
+        }
       },
       {
         "type": "stat-modifier",
@@ -127,8 +158,17 @@
         "target": "all-characters",
         "when": {
           "$and": [
-            { "inPlay": "Gates of Morning" },
-            { "target.race": { "$in": ["man", "dunadan"] } }
+            {
+              "inPlay": "Gates of Morning"
+            },
+            {
+              "target.race": {
+                "$in": [
+                  "man",
+                  "dunadan"
+                ]
+              }
+            }
           ]
         }
       }
@@ -172,5 +212,18 @@
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
     "text": ""
+  },
+  {
+    "cardType": "hero-resource-event",
+    "alignment": "wizard",
+    "id": "tw-209",
+    "name": "Dodge",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Dodge.jpg",
+    "unique": false,
+    "eventType": "short",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Target character does not tap against one strike (unless he is wounded by the strike). If wounded by the strike, his body is modified by -1 for the resulting body check."
   }
 ]
