@@ -1456,10 +1456,10 @@ function populateBrowserGrid(): void {
 
   const isSelecting = siteSelectionActions.length > 0;
 
-  // Sort cards with active legal actions to the front
+  // Sort cards with active legal actions to the end (last row, on top when overlapping)
   const sortedCards = [...cachedBrowserCards].sort((a, b) => {
-    const aActive = actionableInstanceIds.has(a.instanceId as string) ? 0 : 1;
-    const bActive = actionableInstanceIds.has(b.instanceId as string) ? 0 : 1;
+    const aActive = actionableInstanceIds.has(a.instanceId as string) ? 1 : 0;
+    const bActive = actionableInstanceIds.has(b.instanceId as string) ? 1 : 0;
     return aActive - bActive;
   });
 
@@ -1496,6 +1496,53 @@ function populateBrowserGrid(): void {
     grid.appendChild(img);
   }
   modal.classList.remove('hidden');
+
+  // Overlap rows when there are more than 3 so everything fits without scrolling
+  applyRowOverlap(grid);
+}
+
+/**
+ * When the pile browser grid has more than 3 rows, apply negative margins
+ * so all rows fit on screen without a scrollbar.
+ */
+function applyRowOverlap(grid: HTMLElement): void {
+  const imgs = grid.querySelectorAll<HTMLImageElement>('img');
+  if (imgs.length === 0) return;
+
+  // Reset any previous overlap
+  for (const img of imgs) {
+    img.style.marginTop = '';
+    img.style.zIndex = '';
+    img.style.position = '';
+  }
+  grid.closest('#pile-browser-dialog')?.classList.remove('pile-browser--overlapping');
+
+  const cardHeight = window.innerHeight * 0.25; // 25vh
+  const cardWidth = cardHeight * 0.7; // card aspect ratio
+  const gap = parseFloat(getComputedStyle(grid).gap) || 3;
+  const gridWidth = grid.clientWidth;
+  const cardsPerRow = Math.max(1, Math.floor((gridWidth + gap) / (cardWidth + gap)));
+  const numRows = Math.ceil(imgs.length / cardsPerRow);
+
+  if (numRows <= 3) return;
+
+  // Available height: 85vh dialog minus ~4rem for title and padding
+  const availableHeight = window.innerHeight * 0.85 - 80;
+  // step = vertical distance between row tops so everything fits
+  const step = (availableHeight - cardHeight) / (numRows - 1);
+  const overlap = step - cardHeight - gap;
+
+  if (overlap >= 0) return; // no overlap needed
+
+  for (let i = 0; i < imgs.length; i++) {
+    const row = Math.floor(i / cardsPerRow);
+    imgs[i].style.position = 'relative';
+    imgs[i].style.zIndex = String(row);
+    if (row > 0) {
+      imgs[i].style.marginTop = `${Math.round(overlap)}px`;
+    }
+  }
+  grid.closest('#pile-browser-dialog')?.classList.add('pile-browser--overlapping');
 }
 
 /** Install the backdrop click handler for the pile browser modal (once). */
@@ -1508,6 +1555,14 @@ function installPileBrowserBackdrop(): void {
 
   backdrop.addEventListener('click', () => {
     closeSelectionViewer();
+  });
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key !== 'Escape') return;
+    const modal = document.getElementById('pile-browser-modal');
+    if (modal && !modal.classList.contains('hidden')) {
+      closeSelectionViewer();
+    }
   });
 }
 

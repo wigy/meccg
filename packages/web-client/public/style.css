@@ -1933,6 +1933,10 @@ h2 {
   box-shadow: 0 4px 24px rgba(0, 0, 0, 0.9);
 }
 
+#pile-browser-dialog.pile-browser--overlapping {
+  overflow-y: hidden;
+}
+
 #pile-browser-dialog h3 {
   margin: 0 0 1rem;
   color: #c4a35a;
@@ -1953,6 +1957,7 @@ h2 {
   border-radius: 6px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.6);
   transition: transform 0.15s, box-shadow 0.15s;
+  background: #000;
 }
 
 #pile-browser-grid img.site-selectable {
@@ -1967,8 +1972,7 @@ h2 {
 }
 
 #pile-browser-grid img.site-dimmed {
-  opacity: 0.35;
-  filter: grayscale(0.6);
+  filter: grayscale(0.6) brightness(0.3);
 }
 
 .pile-browser-empty {
