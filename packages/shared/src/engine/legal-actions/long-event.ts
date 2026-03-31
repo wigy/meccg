@@ -40,10 +40,9 @@ export function longEventActions(state: GameState, playerId: PlayerId): Evaluate
   const evaluatedInstances = new Set<string>();
 
   // Scan hand for resource long-events
-  for (const cardInstanceId of player.hand) {
-    const inst = state.instanceMap[cardInstanceId as string];
-    if (!inst) continue;
-    const def = state.cardPool[inst.definitionId as string] as HeroResourceEventCard | undefined;
+  for (const handCard of player.hand) {
+    const cardInstanceId = handCard.instanceId;
+    const def = state.cardPool[handCard.definitionId as string] as HeroResourceEventCard | undefined;
     if (!def || def.cardType !== 'hero-resource-event' || def.eventType !== 'long') continue;
 
     evaluatedInstances.add(cardInstanceId as string);
@@ -97,10 +96,10 @@ export function longEventActions(state: GameState, playerId: PlayerId): Evaluate
   }
 
   // Mark remaining hand cards as not playable during long-event phase
-  for (const cardInstanceId of player.hand) {
-    if (evaluatedInstances.has(cardInstanceId as string)) continue;
+  for (const handCard of player.hand) {
+    if (evaluatedInstances.has(handCard.instanceId as string)) continue;
     actions.push({
-      action: { type: 'not-playable', player: playerId, cardInstanceId },
+      action: { type: 'not-playable', player: playerId, cardInstanceId: handCard.instanceId },
       viable: false,
       reason: 'Only resource long-events can be played during the long-event phase',
     });

@@ -27,6 +27,7 @@ import type {
   CardInstanceId,
 } from '../../index.js';
 import { matchesCondition } from '../../index.js';
+import { resolveInstanceId } from '../../types/state.js';
 import { evaluateExpr } from './expression-eval.js';
 
 /**
@@ -83,9 +84,9 @@ interface CollectedEffect {
  * map and then the card pool. Returns undefined if the instance is missing.
  */
 export function resolveDef(state: GameState, instanceId: CardInstanceId): CardDefinition | undefined {
-  const inst = state.instanceMap[instanceId as string];
-  if (!inst) return undefined;
-  return state.cardPool[inst.definitionId as string];
+  const defId = resolveInstanceId(state, instanceId);
+  if (!defId) return undefined;
+  return state.cardPool[defId as string];
 }
 
 /**

@@ -8,10 +8,10 @@ Game logs consist of two files per game in `~/.meccg/logs/games/`:
 
 - **`{gameId}.jsonl`** — JSONL state log. Each line is a state snapshot after an action:
   ```
-  { "ts", "event": "state", "stateSeq": N, "reason": "action-type", "action": <full action>, "turn", "phase", "step", "activePlayer", "state": <GameState without cardPool and instanceMap> }
+  { "ts", "event": "state", "stateSeq": N, "reason": "action-type", "action": <full action>, "turn", "phase", "step", "activePlayer", "state": <GameState without cardPool> }
   ```
   The `action` field contains the complete action that caused the transition (e.g. `{ "type": "play-character", "player": "p1", "cardInstanceId": "i-42", "companyId": "c-1" }`). It is absent for non-action entries like `new-game`, `undo`, and `restore`.
-  The `state` object omits `cardPool` and `instanceMap` — these are static within a game and stored in the cards file.
+  The `state` object omits `cardPool` — it is static within a game and stored in the cards file. Piles (hand, playDeck, etc.) contain `CardInstance` objects with `instanceId` and `definitionId`.
 
 - **`{gameId}-cards.json`** — Static game data written once at game start. Contains:
   - `instances`: compact instance-to-definition mapping (`{ "i-0": "tw-156", ... }`)
@@ -36,9 +36,10 @@ Game logs consist of two files per game in `~/.meccg/logs/games/`:
 
 4. **Trace backwards**: Walk backwards through stateSeq values to find the transition where the illegal state was introduced. Compare consecutive states to identify what changed.
 
-5. **Resolve card identities**: The state uses `CardInstanceId` values (e.g. `"i-42"`). To find what card an instance is:
-   - Look up `state.instanceMap["i-42"].definitionId` to get the card definition ID (e.g. `"tw-156"`)
-   - Look up `state.cardPool["tw-156"]` to get the card name and stats
+5. **Resolve card identities**: The state uses `CardInstanceId` values (e.g. `"i-42"`). Piles store `CardInstance` objects with `{ instanceId, definitionId }`. To find what card an instance is:
+   - Find the card in a pile: its `definitionId` gives the card definition ID (e.g. `"tw-156"`)
+   - Or look up `instances["i-42"]` in `{gameId}-cards.json` for the definition ID
+   - Look up `cards["tw-156"]` for the card's name and stats
    - Always report card names, not raw IDs, when presenting findings
 
 6. **Load static data**: Read `{gameId}-cards.json`. Use `instances[instanceId]` to get the definition ID, then `cards[definitionId]` for the card's name, stats, and text.
@@ -54,8 +55,7 @@ Game logs consist of two files per game in `~/.meccg/logs/games/`:
 - `state.phaseState` — current phase, step, and phase-specific bookkeeping
 - `state.players[N].companies` — company membership, sites, movement
 - `state.players[N].characters` — characters in play with items, stats, status
-- `state.players[N].hand / playDeck / discardPile` — card zones
-- `state.instanceMap` — resolves instance IDs to card definitions
+- `state.players[N].hand / playDeck / discardPile` — card zones (each card is `{ instanceId, definitionId }`)
 - `state.turnNumber` — which turn
 - `state.reverseActions` — reverse actions accumulated this phase
 - `state.pendingEffects` — queued effects

@@ -14,7 +14,7 @@ import {
   Phase,
   Alignment,
 } from '../index.js';
-import type { PlayerId, GameState, CardDefinitionId, CardInstanceId, GameAction } from '../index.js';
+import type { PlayerId, GameState, CardDefinitionId, CardInstanceId, CardInstance, GameAction } from '../index.js';
 import {
   ARAGORN, BILBO, FRODO, LEGOLAS, GIMLI, FARAMIR,
   EOWYN, BEREGOND, BERGIL, BARD_BOWMAN, ANBORN, SAM_GAMGEE,
@@ -126,8 +126,8 @@ export function draftInstId(state: GameState, playerIndex: number, defId: CardDe
     throw new Error('Not in character draft phase');
   }
   const draftPool = state.phaseState.setupStep.draftState[playerIndex].pool;
-  for (const instId of draftPool) {
-    if (state.instanceMap[instId as string]?.definitionId === defId) return instId;
+  for (const inst of draftPool) {
+    if (inst.definitionId === defId) return inst.instanceId;
   }
   throw new Error(`Definition ${defId} not found in player ${playerIndex}'s draft pool`);
 }
@@ -188,8 +188,8 @@ export function runFullSetup(config?: GameConfig): GameState {
 
   // Site selection: pick first available site
   if (state.phaseState.phase === Phase.Setup && state.phaseState.setupStep.step === 'starting-site-selection') {
-    const p1Site = state.players[0].siteDeck[0];
-    const p2Site = state.players[1].siteDeck[0];
+    const p1Site = state.players[0].siteDeck[0].instanceId;
+    const p2Site = state.players[1].siteDeck[0].instanceId;
     state = runActions(state, [
       { type: 'select-starting-site', player: PLAYER_1, siteInstanceId: p1Site },
       { type: 'pass', player: PLAYER_1 },
@@ -312,43 +312,33 @@ export interface BuildTestStateOpts {
 export function buildTestState(opts: BuildTestStateOpts): GameState {
   resetMint();
 
-  const instanceMap: Record<string, { instanceId: CardInstanceId; definitionId: CardDefinitionId }> = {};
-
-  function mintFor(defId: CardDefinitionId): CardInstanceId {
+  function mintFor(defId: CardDefinitionId): CardInstance {
     const id = mint();
-    instanceMap[id as string] = { instanceId: id, definitionId: defId };
-    return id;
+    return { instanceId: id, definitionId: defId };
   }
 
   const playerStates = opts.players.map((setup) => {
     const hand = setup.hand.map(defId => mintFor(defId));
     const siteDeck = setup.siteDeck.map(defId => mintFor(defId));
 
-    // Register pre-built cardsInPlay instances
-    if (setup.cardsInPlay) {
-      for (const card of setup.cardsInPlay) {
-        instanceMap[card.instanceId as string] = { instanceId: card.instanceId, definitionId: card.definitionId };
-      }
-    }
-
     const characters: Record<string, CharacterInPlay> = {};
     const companies: Company[] = [];
 
     for (const companySetup of setup.companies) {
-      const siteInstId = mintFor(companySetup.site);
+      const siteInst = mintFor(companySetup.site);
       const charInstIds: CardInstanceId[] = [];
 
       for (const charSetup of companySetup.characters) {
-        const charInstId = mintFor(charSetup.defId);
-        charInstIds.push(charInstId);
+        const charInst = mintFor(charSetup.defId);
+        charInstIds.push(charInst.instanceId);
 
         const items = (charSetup.items ?? []).map(itemDefId => {
-          const itemInstId = mintFor(itemDefId);
-          return { instanceId: itemInstId, definitionId: itemDefId, status: CardStatus.Untapped };
+          const itemInst = mintFor(itemDefId);
+          return { instanceId: itemInst.instanceId, definitionId: itemDefId, status: CardStatus.Untapped };
         });
 
-        characters[charInstId as string] = {
-          instanceId: charInstId,
+        characters[charInst.instanceId as string] = {
+          instanceId: charInst.instanceId,
           definitionId: charSetup.defId,
           status: charSetup.status ?? CardStatus.Untapped,
           items,
@@ -381,7 +371,7 @@ export function buildTestState(opts: BuildTestStateOpts): GameState {
       companies.push({
         id: `company-${setup.id as string}-${companies.length}` as CompanyId,
         characters: charInstIds,
-        currentSite: { instanceId: siteInstId, definitionId: companySetup.site, status: CardStatus.Untapped },
+        currentSite: { instanceId: siteInst.instanceId, definitionId: companySetup.site, status: CardStatus.Untapped },
         siteCardOwned: true,
         destinationSite: null,
         movementPath: [],
@@ -404,10 +394,10 @@ export function buildTestState(opts: BuildTestStateOpts): GameState {
       playDeck,
       discardPile,
       siteDeck,
-      siteDiscardPile: [] as CardInstanceId[],
+      siteDiscardPile: [] as CardInstance[],
       sideboard,
-      killPile: [] as CardInstanceId[],
-      eliminatedPile: [] as CardInstanceId[],
+      killPile: [] as CardInstance[],
+      eliminatedPile: [] as CardInstance[],
       companies,
       characters,
       cardsInPlay: setup.cardsInPlay ?? ([] as CardInPlay[]),
@@ -472,8 +462,8 @@ export function buildTestState(opts: BuildTestStateOpts): GameState {
     chain: null,
     eventsInPlay: [],
     cardPool: pool,
-    instanceMap,
     turnNumber: 1,
+    startingPlayer: null,
     pendingEffects: [],
     rng: { seed: opts.seed ?? 42, counter: 0 },
     stateSeq: 0,
@@ -496,4 +486,4 @@ export {
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH, MOUNT_DOOM,
   CardStatus, ZERO_EFFECTIVE_STATS, ZERO_MARSHALLING_POINTS,
 };
-export type { GameConfig, QuickStartGameConfig, ReducerResult, CardInPlay, CardInstanceId, CardDefinitionId, CompanyId };
+export type { GameConfig, QuickStartGameConfig, ReducerResult, CardInPlay, CardInstance, CardInstanceId, CardDefinitionId, CompanyId };

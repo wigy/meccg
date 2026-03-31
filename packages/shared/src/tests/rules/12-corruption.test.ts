@@ -26,6 +26,7 @@ import type {
   EvaluatedAction, GameState, PlayerId,
   TransferItemAction,
 } from '../../index.js';
+import { resolveInstanceId } from '../../index.js';
 import type { CorruptionCheckAction } from '../../types/actions.js';
 
 function buildOrgState(opts: { activePlayer: PlayerId; players: Parameters<typeof buildTestState>[0]['players']; seed?: number }) {
@@ -74,8 +75,8 @@ function setupCorruptionCheck(seed: number): { state: GameState; checkAction: Co
   // Find the Dagger transfer (not The One Ring)
   const daggerTransfer = transfers.find(ea => {
     const a = ea.action as TransferItemAction;
-    const inst = state.instanceMap[a.itemInstanceId as string];
-    return inst?.definitionId === DAGGER_OF_WESTERNESSE;
+    const defId = resolveInstanceId(state, a.itemInstanceId);
+    return defId === DAGGER_OF_WESTERNESSE;
   });
   expect(daggerTransfer).toBeDefined();
 
@@ -211,8 +212,8 @@ describe('7 Corruption checks', () => {
     const transfers = viableOfType(actions, 'transfer-item');
     const daggerToLegolas = transfers.find(ea => {
       const a = ea.action as TransferItemAction;
-      const inst = state.instanceMap[a.itemInstanceId as string];
-      return inst?.definitionId === DAGGER_OF_WESTERNESSE;
+      const defId = resolveInstanceId(state, a.itemInstanceId);
+      return defId === DAGGER_OF_WESTERNESSE;
     });
     expect(daggerToLegolas).toBeDefined();
 

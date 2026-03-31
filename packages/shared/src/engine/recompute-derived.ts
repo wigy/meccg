@@ -219,8 +219,8 @@ function recomputePlayer(state: GameState, player: PlayerState, inPlayNames: rea
   }
 
   // Kill pile: defeated creatures earn kill MP
-  for (const id of player.killPile) {
-    const def = resolveDef(state, id);
+  for (const card of player.killPile) {
+    const def = resolveDef(state, card.instanceId);
     if (def && 'killMarshallingPoints' in def) {
       const killMP = (def as { killMarshallingPoints: number }).killMarshallingPoints;
       if (killMP !== 0) {
@@ -230,8 +230,8 @@ function recomputePlayer(state: GameState, player: PlayerState, inPlayNames: rea
   }
 
   // Eliminated pile: apply mp-modifier effects with reason "elimination"
-  for (const id of player.eliminatedPile) {
-    const def = resolveDef(state, id);
+  for (const card of player.eliminatedPile) {
+    const def = resolveDef(state, card.instanceId);
     if (def && 'effects' in def) {
       const effects = (def as { effects?: readonly CardEffect[] }).effects;
       if (effects) {

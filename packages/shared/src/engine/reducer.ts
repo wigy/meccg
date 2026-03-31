@@ -14,7 +14,7 @@
  * (or the original state plus an error string if the action was illegal).
  */
 
-import type { GameState, PlayerState, DraftPlayerState, ItemDraftPlayerState, CharacterDeckDraftPlayerState, SetupStepState, CardDefinitionId, CardInstanceId, CompanyId, CharacterInPlay, CardInstance, ChainEntryPayload, UntapPhaseState, OrganizationPhaseState, MovementHazardPhaseState, SitePhaseState, EndOfTurnPhaseState, FreeCouncilPhaseState, Company, CreatureCard, SiteInPlay, HeroItemCard, CombatState, StrikeAssignment, PlayerId } from '../index.js';
+import type { GameState, PlayerState, DraftPlayerState, ItemDraftPlayerState, CharacterDeckDraftPlayerState, SetupStepState, CardInstanceId, CompanyId, CharacterInPlay, CardInstance, ChainEntryPayload, UntapPhaseState, OrganizationPhaseState, MovementHazardPhaseState, SitePhaseState, EndOfTurnPhaseState, FreeCouncilPhaseState, Company, CreatureCard, SiteInPlay, HeroItemCard, CombatState, StrikeAssignment, PlayerId } from '../index.js';
 import type { GameAction } from '../index.js';
 import { Phase, SetupStep, LEGAL_ACTIONS_BY_PHASE, getAlignmentRules, shuffle, nextInt, CardStatus, isCharacterCard, isItemCard, isAllyCard, isFactionCard, isSiteCard, SiteType, RegionType, Race, Skill, getPlayerIndex, ZERO_EFFECTIVE_STATS, MAX_STARTING_ITEMS, BASE_MAX_REGION_DISTANCE, HAND_SIZE } from '../index.js';
 import { logHeading, logDetail } from './legal-actions/log.js';
@@ -26,6 +26,38 @@ import type { ResolverContext } from './effects/index.js';
 import { matchesCondition } from '../effects/index.js';
 import { computeTournamentScore } from '../state-utils.js';
 import { handleChainAction, initiateChain, pushChainEntry } from './chain-reducer.js';
+import { resolveInstanceId } from '../types/state.js';
+
+/** Pile names on PlayerState that contain CardInstance objects. */
+const PILE_NAMES = [
+  'hand', 'playDeck', 'discardPile', 'siteDeck', 'siteDiscardPile',
+  'sideboard', 'killPile', 'eliminatedPile',
+] as const;
+
+/**
+ * Counts the total number of card instances across all players' piles,
+ * characters, items, allies, cards in play, company sites, and events.
+ * Used to mint globally unique instance IDs (e.g. `i-{count}`).
+ */
+function countAllInstances(state: GameState): number {
+  let count = 0;
+  for (const player of state.players) {
+    for (const pileName of PILE_NAMES) {
+      count += player[pileName].length;
+    }
+    for (const char of Object.values(player.characters)) {
+      count++; // the character itself
+      count += char.items.length;
+      count += char.allies.length;
+    }
+    count += player.cardsInPlay.length;
+    for (const company of player.companies) {
+      if (company.currentSite) count++;
+    }
+  }
+  count += state.eventsInPlay.length;
+  return count;
+}
 
 /**
  * Roll 2d6, respecting an optional cheat roll target. If `cheatRollTotal` is
@@ -147,28 +179,28 @@ function handleExchangeSideboard(state: GameState, action: GameAction): ReducerR
     return { state, error: 'Already exchanged 5 cards' };
   }
 
-  const discardIdx = player.discardPile.indexOf(action.discardCardInstanceId);
+  const discardIdx = player.discardPile.findIndex(c => c.instanceId === action.discardCardInstanceId);
   if (discardIdx === -1) {
     return { state, error: 'Card not found in discard pile' };
   }
-  const sideboardIdx = player.sideboard.indexOf(action.sideboardCardInstanceId);
+  const sideboardIdx = player.sideboard.findIndex(c => c.instanceId === action.sideboardCardInstanceId);
   if (sideboardIdx === -1) {
     return { state, error: 'Card not found in sideboard' };
   }
 
-  const discardInst = state.instanceMap[action.discardCardInstanceId as string];
-  const sideboardInst = state.instanceMap[action.sideboardCardInstanceId as string];
-  const discardName = discardInst ? state.cardPool[discardInst.definitionId as string]?.name ?? '?' : '?';
-  const sideboardName = sideboardInst ? state.cardPool[sideboardInst.definitionId as string]?.name ?? '?' : '?';
+  const discardCard = player.discardPile[discardIdx];
+  const sideboardCard = player.sideboard[sideboardIdx];
+  const discardName = state.cardPool[discardCard.definitionId as string]?.name ?? '?';
+  const sideboardName = state.cardPool[sideboardCard.definitionId as string]?.name ?? '?';
   logDetail(`Exchange: ${discardName} (discard → sideboard) ↔ ${sideboardName} (sideboard → discard)`);
 
   const newDiscard = [...player.discardPile];
   newDiscard.splice(discardIdx, 1);
-  newDiscard.push(action.sideboardCardInstanceId);
+  newDiscard.push(sideboardCard);
 
   const newSideboard = [...player.sideboard];
   newSideboard.splice(sideboardIdx, 1);
-  newSideboard.push(action.discardCardInstanceId);
+  newSideboard.push(discardCard);
 
   const newPlayers = clonePlayers(state);
   newPlayers[playerIndex] = {
@@ -473,19 +505,19 @@ function handleCharacterDraft(
       if (playerDraft.currentPick !== null) {
         return { state, error: 'Waiting for opponent to pick' };
       }
-      if (!playerDraft.pool.includes(action.characterInstanceId)) {
+      const poolCard = playerDraft.pool.find(c => c.instanceId === action.characterInstanceId);
+      if (!poolCard) {
         return { state, error: 'Character not in your draft pool' };
       }
       // Resolve definition from instance
-      const charDefId = state.instanceMap[action.characterInstanceId as string]?.definitionId;
+      const charDefId = poolCard.definitionId;
       // Check mind constraint
       const charDef = charDefId ? state.cardPool[charDefId as string] : undefined;
       if (!isCharacterCard(charDef)) {
         return { state, error: 'Invalid character' };
       }
-      const currentMind = playerDraft.drafted.reduce((sum, instId) => {
-        const defId = state.instanceMap[instId as string]?.definitionId;
-        const def = defId ? state.cardPool[defId as string] : undefined;
+      const currentMind = playerDraft.drafted.reduce((sum, card) => {
+        const def = state.cardPool[card.definitionId as string];
         return sum + (isCharacterCard(def) && def.mind !== null ? def.mind : 0);
       }, 0);
       if (charDef.mind !== null && currentMind + charDef.mind > 20) {
@@ -500,8 +532,8 @@ function handleCharacterDraft(
       const newDraftState = [...draft.draftState] as [DraftPlayerState, DraftPlayerState];
       newDraftState[playerIndex] = {
         ...playerDraft,
-        currentPick: action.characterInstanceId,
-        pool: playerDraft.pool.filter(id => id !== action.characterInstanceId),
+        currentPick: poolCard,
+        pool: playerDraft.pool.filter(c => c.instanceId !== action.characterInstanceId),
       };
 
       // Check if both players have submitted (or the other has stopped)
@@ -564,15 +596,11 @@ function resolveDraftRound(
   state: GameState,
   draftState: [DraftPlayerState, DraftPlayerState],
   round: number,
-  setAside: readonly CardInstanceId[],
+  setAside: readonly CardInstance[],
 ): ReducerResult {
   const pick0 = draftState[0].currentPick;
   const pick1 = draftState[1].currentPick;
   const newSetAside = [...setAside];
-
-  /** Resolve a draft instance ID to its definition ID. */
-  const defOf = (instId: CardInstanceId): CardDefinitionId =>
-    state.instanceMap[instId as string].definitionId;
 
   // Resolve each player's pick
   const newDraft: [DraftPlayerState, DraftPlayerState] = [
@@ -581,13 +609,13 @@ function resolveDraftRound(
   ];
 
   // Collision detection: compare by definition ID (both players may pick the same character)
-  const def0 = pick0 !== null ? defOf(pick0) : null;
-  const def1 = pick1 !== null ? defOf(pick1) : null;
+  const def0 = pick0 !== null ? pick0.definitionId : null;
+  const def1 = pick1 !== null ? pick1.definitionId : null;
   if (pick0 !== null && pick1 !== null && def0 === def1) {
     // Duplicate! Neither gets it — set aside both instances, remove same definition from both pools
     newSetAside.push(pick0);
-    newDraft[0] = { ...newDraft[0], pool: newDraft[0].pool.filter(id => defOf(id) !== def0) };
-    newDraft[1] = { ...newDraft[1], pool: newDraft[1].pool.filter(id => defOf(id) !== def0) };
+    newDraft[0] = { ...newDraft[0], pool: newDraft[0].pool.filter(c => c.definitionId !== def0) };
+    newDraft[1] = { ...newDraft[1], pool: newDraft[1].pool.filter(c => c.definitionId !== def0) };
   } else {
     if (pick0 !== null) {
       newDraft[0] = { ...newDraft[0], drafted: [...newDraft[0].drafted, pick0] };
@@ -600,8 +628,8 @@ function resolveDraftRound(
   // Auto-stop players who hit limits
   for (let i = 0; i < 2; i++) {
     if (!newDraft[i].stopped) {
-      const mind = newDraft[i].drafted.reduce((sum, instId) => {
-        const def = state.cardPool[defOf(instId) as string];
+      const mind = newDraft[i].drafted.reduce((sum, card) => {
+        const def = state.cardPool[card.definitionId as string];
         return sum + (isCharacterCard(def) && def.mind !== null ? def.mind : 0);
       }, 0);
       const { maxStartingCompanySize: max } = getAlignmentRules(state.players[i].alignment);
@@ -640,7 +668,7 @@ function resolveDraftRound(
 function finalizeDraft(
   state: GameState,
   draftState: readonly [DraftPlayerState, DraftPlayerState],
-  setAside: readonly CardInstanceId[],
+  setAside: readonly CardInstance[],
 ): ReducerResult {
   return {
     state: applyDraftResults(state, draftState, setAside),
@@ -700,13 +728,11 @@ function handleItemDraft(
   }
 
   // Resolve definition ID to the first matching unassigned instance
-  const itemInstanceId = itemDraft.unassignedItems.find(instId => {
-    const inst = state.instanceMap[instId as string];
-    return inst && inst.definitionId === action.itemDefId;
-  });
-  if (!itemInstanceId) {
+  const itemCard = itemDraft.unassignedItems.find(card => card.definitionId === action.itemDefId);
+  if (!itemCard) {
     return { state, error: 'Item is not in your unassigned items' };
   }
+  const itemInstanceId = itemCard.instanceId;
 
   // Validate character belongs to this player's company
   const allCharIds = player.companies.flatMap(c => c.characters);
@@ -719,16 +745,15 @@ function handleItemDraft(
     return { state, error: 'Character not found' };
   }
 
-  const itemDef = state.instanceMap[itemInstanceId as string];
   const updatedChar: CharacterInPlay = {
     ...existingChar,
-    items: [...existingChar.items, { instanceId: itemInstanceId, definitionId: itemDef.definitionId, status: CardStatus.Untapped }],
+    items: [...existingChar.items, { instanceId: itemInstanceId, definitionId: itemCard.definitionId, status: CardStatus.Untapped }],
   };
   const updatedCharacters = { ...player.characters, [charKey]: updatedChar };
   const updatedPlayer = { ...player, characters: updatedCharacters };
 
   // Remove item from unassigned list
-  const newUnassigned = itemDraft.unassignedItems.filter(id => id !== itemInstanceId);
+  const newUnassigned = itemDraft.unassignedItems.filter(c => c.instanceId !== itemInstanceId);
   const newItemDraft: ItemDraftPlayerState = {
     unassignedItems: newUnassigned,
     done: newUnassigned.length === 0,
@@ -802,21 +827,20 @@ function handleCharacterDeckDraft(
   }
 
   // Validate character is in remaining pool
-  if (!deckDraft.remainingPool.includes(action.characterInstanceId)) {
+  const poolCard = deckDraft.remainingPool.find(c => c.instanceId === action.characterInstanceId);
+  if (!poolCard) {
     return { state, error: 'Character is not in your remaining pool' };
   }
 
   // Resolve definition from draft instance
-  const draftDefId = state.instanceMap[action.characterInstanceId as string]?.definitionId;
+  const draftDefId = poolCard.definitionId;
   const def = draftDefId ? state.cardPool[draftDefId as string] : undefined;
 
   // Validate non-avatar limit
   if (isCharacterCard(def) && def.mind !== null) {
     let nonAvatarCount = 0;
-    for (const instId of state.players[playerIndex].playDeck) {
-      const inst = state.instanceMap[instId as string];
-      if (!inst) continue;
-      const d = state.cardPool[inst.definitionId as string];
+    for (const card of state.players[playerIndex].playDeck) {
+      const d = state.cardPool[card.definitionId as string];
       if (isCharacterCard(d) && d.mind !== null) nonAvatarCount++;
     }
     if (nonAvatarCount >= 10) {
@@ -826,18 +850,17 @@ function handleCharacterDeckDraft(
 
   // Mint a new play-deck instance from the draft card's definition and add to play deck
   if (!draftDefId) return { state, error: 'Invalid character instance' };
-  const counter = Object.keys(state.instanceMap).length;
+  const counter = countAllInstances(state);
   const instanceId = `i-${counter}` as CardInstanceId;
   const newInstance: CardInstance = { instanceId, definitionId: draftDefId };
-  const newInstanceMap = { ...state.instanceMap, [instanceId as string]: newInstance };
 
   const player = state.players[playerIndex];
-  const newPlayDeck = [...player.playDeck, instanceId];
+  const newPlayDeck = [...player.playDeck, newInstance];
   const newPlayers = clonePlayers(state);
   newPlayers[playerIndex] = { ...player, playDeck: newPlayDeck };
 
   // Remove from remaining pool
-  const newPool = deckDraft.remainingPool.filter(id => id !== action.characterInstanceId);
+  const newPool = deckDraft.remainingPool.filter(c => c.instanceId !== action.characterInstanceId);
   const newDeckDraftState = [...stepState.deckDraftState] as [CharacterDeckDraftPlayerState, CharacterDeckDraftPlayerState];
   newDeckDraftState[playerIndex] = {
     remainingPool: newPool,
@@ -847,7 +870,6 @@ function handleCharacterDeckDraft(
   const newState = {
     ...state,
     players: newPlayers,
-    instanceMap: newInstanceMap,
     phaseState: setupPhase({ ...stepState, deckDraftState: newDeckDraftState }),
   };
 
@@ -906,7 +928,8 @@ function handleStartingSiteSelection(
 
   // Validate site is in player's site deck and not already selected
   const player = state.players[playerIndex];
-  if (!player.siteDeck.includes(action.siteInstanceId)) {
+  const siteCard = player.siteDeck.find(c => c.instanceId === action.siteInstanceId);
+  if (!siteCard) {
     return { state, error: 'Site is not in your site deck' };
   }
   if (siteSelection.selectedSites.some(s => s.instanceId === action.siteInstanceId)) {
@@ -917,7 +940,7 @@ function handleStartingSiteSelection(
   }
 
   // Remove site from site deck
-  const newSiteDeck = player.siteDeck.filter(id => id !== action.siteInstanceId);
+  const newSiteDeck = player.siteDeck.filter(c => c.instanceId !== action.siteInstanceId);
   const newPlayers = clonePlayers(state);
   newPlayers[playerIndex] = { ...player, siteDeck: newSiteDeck };
 
@@ -926,7 +949,7 @@ function handleStartingSiteSelection(
     ...siteSelection,
     selectedSites: [...siteSelection.selectedSites, {
       instanceId: action.siteInstanceId,
-      definitionId: state.instanceMap[action.siteInstanceId as string].definitionId,
+      definitionId: siteCard.definitionId,
     }],
   };
 
@@ -1012,14 +1035,15 @@ function cleanupEmptyCompanies(state: GameState): GameState {
     const keptCompanies = player.companies.filter(c => c.characters.length > 0);
 
     // Return sites from empty companies: tapped sites go to discard, untapped to site deck
-    const untappedSites: CardInstanceId[] = [];
-    const tappedSites: CardInstanceId[] = [];
+    const untappedSites: CardInstance[] = [];
+    const tappedSites: CardInstance[] = [];
     for (const c of emptyCompanies) {
       if (c.currentSite) {
+        const siteCardInst: CardInstance = { instanceId: c.currentSite.instanceId, definitionId: c.currentSite.definitionId };
         if (c.currentSite.status === CardStatus.Tapped) {
-          tappedSites.push(c.currentSite.instanceId);
+          tappedSites.push(siteCardInst);
         } else {
-          untappedSites.push(c.currentSite.instanceId);
+          untappedSites.push(siteCardInst);
         }
       }
     }
@@ -1398,14 +1422,14 @@ function handleFetchHazardFromSideboard(state: GameState, action: GameAction): R
   const player = state.players[playerIndex];
 
   // Validate card is in sideboard
-  const cardIdx = player.sideboard.indexOf(action.sideboardCardInstanceId);
+  const cardIdx = player.sideboard.findIndex(c => c.instanceId === action.sideboardCardInstanceId);
   if (cardIdx === -1) {
     return { state, error: 'Card not found in sideboard' };
   }
 
   // Validate card type is hazard
-  const inst = state.instanceMap[action.sideboardCardInstanceId as string];
-  const def = inst ? state.cardPool[inst.definitionId as string] : undefined;
+  const sideboardCard = player.sideboard[cardIdx];
+  const def = state.cardPool[sideboardCard.definitionId as string];
   if (!def || !def.cardType.includes('hazard')) {
     return { state, error: 'Only hazard cards can be fetched during untap sideboard access' };
   }
@@ -1431,11 +1455,11 @@ function handleFetchHazardFromSideboard(state: GameState, action: GameAction): R
     newPlayers[playerIndex] = {
       ...newPlayers[playerIndex],
       sideboard: newSideboard,
-      discardPile: [...player.discardPile, action.sideboardCardInstanceId],
+      discardPile: [...player.discardPile, sideboardCard],
     };
   } else {
     logDetail(`Hazard sideboard → play deck: ${def.name} (${action.sideboardCardInstanceId as string}), shuffling`);
-    const [shuffledDeck, nextRng] = shuffle([...player.playDeck, action.sideboardCardInstanceId], state.rng);
+    const [shuffledDeck, nextRng] = shuffle([...player.playDeck, sideboardCard], state.rng);
     newRng = nextRng;
     newPlayers[playerIndex] = {
       ...newPlayers[playerIndex],
@@ -1574,12 +1598,12 @@ function handleOrganization(state: GameState, action: GameAction): ReducerResult
     const activePlayer = state.activePlayer!;
     const activeIndex = getPlayerIndex(state, activePlayer);
     const player = state.players[activeIndex];
-    const discardedEventIds: CardInstanceId[] = [];
+    const discardedEvents: CardInstance[] = [];
     const remainingCards = player.cardsInPlay.filter(card => {
       const def = state.cardPool[card.definitionId as string];
       if (def && def.cardType === 'hero-resource-event' && def.eventType === 'long') {
         logDetail(`Long-event entry: discarding resource long-event "${def.name}" (${card.instanceId as string})`);
-        discardedEventIds.push(card.instanceId);
+        discardedEvents.push({ instanceId: card.instanceId, definitionId: card.definitionId });
         return false;
       }
       return true;
@@ -1589,7 +1613,7 @@ function handleOrganization(state: GameState, action: GameAction): ReducerResult
     newPlayers[activeIndex] = {
       ...newPlayers[activeIndex],
       cardsInPlay: remainingCards,
-      discardPile: [...newPlayers[activeIndex].discardPile, ...discardedEventIds],
+      discardPile: [...newPlayers[activeIndex].discardPile, ...discardedEvents],
     };
 
     return {
@@ -1660,14 +1684,13 @@ function handlePlayCharacter(state: GameState, action: GameAction): ReducerResul
 
   // Validate: character must be in hand
   const charInstId = action.characterInstanceId;
-  if (!player.hand.includes(charInstId)) {
+  const handCard = player.hand.find(c => c.instanceId === charInstId);
+  if (!handCard) {
     return { state, error: 'Character not in hand' };
   }
 
   // Validate: must be a character card
-  const instance = state.instanceMap[charInstId as string];
-  if (!instance) return { state, error: 'Card instance not found' };
-  const charDef = state.cardPool[instance.definitionId as string];
+  const charDef = state.cardPool[handCard.definitionId as string];
   if (!charDef || !isCharacterCard(charDef)) {
     return { state, error: 'Card is not a character' };
   }
@@ -1677,7 +1700,7 @@ function handlePlayCharacter(state: GameState, action: GameAction): ReducerResul
   // Build the new CharacterInPlay
   const newChar: CharacterInPlay = {
     instanceId: charInstId,
-    definitionId: instance.definitionId,
+    definitionId: handCard.definitionId,
     status: CardStatus.Untapped,
     items: [],
     allies: [],
@@ -1688,7 +1711,7 @@ function handlePlayCharacter(state: GameState, action: GameAction): ReducerResul
   };
 
   // Remove character from hand
-  const newHand = player.hand.filter(id => id !== charInstId);
+  const newHand = player.hand.filter(c => c.instanceId !== charInstId);
 
   // Find existing company at the target site
   const companies = [...player.companies];
@@ -1709,12 +1732,13 @@ function handlePlayCharacter(state: GameState, action: GameAction): ReducerResul
     const siteInstId = action.atSite;
 
     // Validate: site must be in the site deck
-    if (!player.siteDeck.includes(siteInstId)) {
+    const siteCard = player.siteDeck.find(c => c.instanceId === siteInstId);
+    if (!siteCard) {
       return { state, error: 'Site not available in site deck' };
     }
 
     // Validate: must be a valid site (haven or homesite)
-    const siteDef = state.cardPool[state.instanceMap[siteInstId as string]?.definitionId as string];
+    const siteDef = state.cardPool[siteCard.definitionId as string];
     if (!siteDef || !isSiteCard(siteDef)) {
       return { state, error: 'Not a valid site card' };
     }
@@ -1727,13 +1751,13 @@ function handlePlayCharacter(state: GameState, action: GameAction): ReducerResul
     logDetail(`  Creating new company at ${siteDef.name} (from site deck)`);
 
     // Remove site from site deck
-    newSiteDeck = player.siteDeck.filter(id => id !== siteInstId);
+    newSiteDeck = player.siteDeck.filter(c => c.instanceId !== siteInstId);
 
     // Create new company
     const newCompany: Company = {
       id: nextCompanyId({ ...player, companies }),
       characters: [charInstId],
-      currentSite: { instanceId: siteInstId, definitionId: state.instanceMap[siteInstId as string].definitionId, status: CardStatus.Untapped },
+      currentSite: { instanceId: siteInstId, definitionId: siteCard.definitionId, status: CardStatus.Untapped },
       siteCardOwned: true,
       destinationSite: null,
       movementPath: [],
@@ -1792,7 +1816,8 @@ function handleMoveToInfluence(state: GameState, action: GameAction): ReducerRes
   const char = player.characters[charInstId as string];
   if (!char) return { state, error: 'Character not found' };
 
-  const charDef = state.cardPool[state.instanceMap[charInstId as string]?.definitionId as string];
+  const charDefId = resolveInstanceId(state, charInstId);
+  const charDef = charDefId ? state.cardPool[charDefId as string] : undefined;
   if (!charDef || !isCharacterCard(charDef)) return { state, error: 'Not a character card' };
 
   logDetail(`Move to influence: ${charDef.name} → ${action.controlledBy as string}`);
@@ -1913,9 +1938,12 @@ function handleTransferItem(state: GameState, action: GameAction): ReducerResult
   }
 
   const item = fromChar.items[itemIndex];
-  const itemDef = state.cardPool[state.instanceMap[itemInstId as string]?.definitionId as string];
-  const fromDef = state.cardPool[state.instanceMap[fromCharId as string]?.definitionId as string];
-  const toDef = state.cardPool[state.instanceMap[toCharId as string]?.definitionId as string];
+  const itemDefId = resolveInstanceId(state, itemInstId);
+  const itemDef = itemDefId ? state.cardPool[itemDefId as string] : undefined;
+  const fromDefId = resolveInstanceId(state, fromCharId);
+  const fromDef = fromDefId ? state.cardPool[fromDefId as string] : undefined;
+  const toDefId = resolveInstanceId(state, toCharId);
+  const toDef = toDefId ? state.cardPool[toDefId as string] : undefined;
   logDetail(`Transfer item: ${itemDef?.name ?? '?'} from ${fromDef?.name ?? '?'} to ${toDef?.name ?? '?'}`);
 
   // Move the item
@@ -2010,14 +2038,14 @@ function handleFetchFromSideboard(state: GameState, action: GameAction): Reducer
   }
 
   // Validate card is in sideboard
-  const cardIdx = player.sideboard.indexOf(action.sideboardCardInstanceId);
+  const cardIdx = player.sideboard.findIndex(c => c.instanceId === action.sideboardCardInstanceId);
   if (cardIdx === -1) {
     return { state, error: 'Card not found in sideboard' };
   }
 
   // Validate card type is resource or character
-  const inst = state.instanceMap[action.sideboardCardInstanceId as string];
-  const def = inst ? state.cardPool[inst.definitionId as string] : undefined;
+  const sideboardCard = player.sideboard[cardIdx];
+  const def = state.cardPool[sideboardCard.definitionId as string];
   if (!def || (!def.cardType.includes('character') && !def.cardType.includes('resource'))) {
     return { state, error: 'Only resources and characters can be fetched from sideboard' };
   }
@@ -2043,11 +2071,11 @@ function handleFetchFromSideboard(state: GameState, action: GameAction): Reducer
     newPlayers[playerIndex] = {
       ...newPlayers[playerIndex],
       sideboard: newSideboard,
-      discardPile: [...player.discardPile, action.sideboardCardInstanceId],
+      discardPile: [...player.discardPile, sideboardCard],
     };
   } else {
     logDetail(`Sideboard → play deck: ${def.name} (${action.sideboardCardInstanceId as string}), shuffling`);
-    const [shuffledDeck, nextRng] = shuffle([...player.playDeck, action.sideboardCardInstanceId], state.rng);
+    const [shuffledDeck, nextRng] = shuffle([...player.playDeck, sideboardCard], state.rng);
     newRng = nextRng;
     newPlayers[playerIndex] = {
       ...newPlayers[playerIndex],
@@ -2100,7 +2128,8 @@ function handleOrganizationCorruptionCheck(state: GameState, action: GameAction)
   const char = player.characters[action.characterId as string];
   if (!char) return { state, error: 'Character not found' };
 
-  const charDef = state.cardPool[state.instanceMap[action.characterId as string]?.definitionId as string];
+  const charDefId = resolveInstanceId(state, action.characterId);
+  const charDef = charDefId ? state.cardPool[charDefId as string] : undefined;
   const charName = charDef?.name ?? '?';
   const cp = action.corruptionPoints;
   const modifier = action.corruptionModifier;
@@ -2172,7 +2201,10 @@ function handleOrganizationCorruptionCheck(state: GameState, action: GameAction)
       }
     }
 
-    const toDiscard = [action.characterId, ...action.possessions];
+    const toDiscard: CardInstance[] = [
+      { instanceId: action.characterId, definitionId: char.definitionId },
+      ...action.possessions.map(id => ({ instanceId: id, definitionId: resolveInstanceId(state, id)! })),
+    ];
     const newDiscardPile = [...player.discardPile, ...toDiscard];
 
     playersAfterRoll[playerIndex] = {
@@ -2201,8 +2233,8 @@ function handleOrganizationCorruptionCheck(state: GameState, action: GameAction)
       }
     }
 
-    const newEliminatedPile = [...player.eliminatedPile, action.characterId];
-    const newDiscardPile = [...player.discardPile, ...action.possessions];
+    const newEliminatedPile = [...player.eliminatedPile, { instanceId: action.characterId, definitionId: char.definitionId }];
+    const newDiscardPile = [...player.discardPile, ...action.possessions.map(id => ({ instanceId: id, definitionId: resolveInstanceId(state, id)! }))];
 
     playersAfterRoll[playerIndex] = {
       ...playersAfterRoll[playerIndex],
@@ -2337,7 +2369,8 @@ function handleMoveToCompany(state: GameState, action: GameAction): ReducerResul
     return { state, error: 'Source company would become empty' };
   }
 
-  const charDef = state.cardPool[state.instanceMap[charInstId as string]?.definitionId as string];
+  const charDefId2 = resolveInstanceId(state, charInstId);
+  const charDef = charDefId2 ? state.cardPool[charDefId2 as string] : undefined;
   logDetail(`Move to company: ${charDef?.name ?? '?'} (+ ${char.followers.length} followers) from ${sourceCompany.id as string} to ${targetCompany.id as string}`);
 
   // Build the moving character list preserving order from source
@@ -2462,7 +2495,7 @@ function handlePlanMovement(state: GameState, action: GameAction): ReducerResult
 
   const company = player.companies[companyIdx];
   if (company.destinationSite) return { state, error: 'Company already has planned movement' };
-  if (!player.siteDeck.includes(action.destinationSite)) {
+  if (!player.siteDeck.some(c => c.instanceId === action.destinationSite)) {
     return { state, error: 'Destination site not in site deck' };
   }
 
@@ -2476,7 +2509,7 @@ function handlePlanMovement(state: GameState, action: GameAction): ReducerResult
   };
 
   // Remove destination site from site deck
-  const siteDeck = player.siteDeck.filter(id => id !== action.destinationSite);
+  const siteDeck = player.siteDeck.filter(c => c.instanceId !== action.destinationSite);
 
   const newPlayers = clonePlayers(state);
   newPlayers[playerIndex] = { ...player, companies, siteDeck };
@@ -2518,7 +2551,8 @@ function handleCancelMovement(state: GameState, action: GameAction): ReducerResu
   };
 
   // Return the destination site to the site deck
-  const siteDeck = [...player.siteDeck, company.destinationSite];
+  const destSiteDefId = resolveInstanceId(state, company.destinationSite);
+  const siteDeck = [...player.siteDeck, { instanceId: company.destinationSite, definitionId: destSiteDefId! }];
 
   const newPlayers = clonePlayers(state);
   newPlayers[playerIndex] = { ...player, companies, siteDeck };
@@ -2544,13 +2578,11 @@ function handlePlayPermanentEvent(state: GameState, action: GameAction): Reducer
   const playerIndex = getPlayerIndex(state, action.player);
   const player = state.players[playerIndex];
 
-  const cardIdx = player.hand.indexOf(action.cardInstanceId);
+  const cardIdx = player.hand.findIndex(c => c.instanceId === action.cardInstanceId);
   if (cardIdx === -1) return { state, error: 'Card not in hand' };
 
-  const inst = state.instanceMap[action.cardInstanceId as string];
-  if (!inst) return { state, error: 'Card instance not found' };
-
-  const def = state.cardPool[inst.definitionId as string];
+  const handCard = player.hand[cardIdx];
+  const def = state.cardPool[handCard.definitionId as string];
   if (!def || def.cardType !== 'hero-resource-event' || def.eventType !== 'permanent') {
     return { state, error: 'Card is not a permanent resource event' };
   }
@@ -2578,7 +2610,7 @@ function handlePlayPermanentEvent(state: GameState, action: GameAction): Reducer
 
   const newCardsInPlay = [...player.cardsInPlay, {
     instanceId: action.cardInstanceId,
-    definitionId: inst.definitionId,
+    definitionId: handCard.definitionId,
     status: CardStatus.Untapped,
   }];
 
@@ -2599,13 +2631,11 @@ function handlePlayShortEvent(state: GameState, action: GameAction): ReducerResu
   const playerIndex = getPlayerIndex(state, action.player);
   const player = state.players[playerIndex];
 
-  const cardIdx = player.hand.indexOf(action.cardInstanceId);
+  const cardIdx = player.hand.findIndex(c => c.instanceId === action.cardInstanceId);
   if (cardIdx === -1) return { state, error: 'Card not in hand' };
 
-  const inst = state.instanceMap[action.cardInstanceId as string];
-  if (!inst) return { state, error: 'Card instance not found' };
-
-  const def = state.cardPool[inst.definitionId as string];
+  const handCard = player.hand[cardIdx];
+  const def = state.cardPool[handCard.definitionId as string];
   if (!def || def.cardType !== 'hazard-event' || def.eventType !== 'short') {
     return { state, error: 'Card is not a hazard short-event' };
   }
@@ -2622,9 +2652,8 @@ function handlePlayShortEvent(state: GameState, action: GameAction): ReducerResu
     return { state, error: 'Target environment not in play or on chain' };
   }
 
-  const targetDef = state.cardPool[
-    state.instanceMap[action.targetInstanceId as string]?.definitionId as string
-  ];
+  const targetDefId = resolveInstanceId(state, action.targetInstanceId);
+  const targetDef = targetDefId ? state.cardPool[targetDefId as string] : undefined;
   logDetail(`Playing short event ${def.name}: targeting environment ${targetDef?.name ?? action.targetInstanceId} (chain will resolve the cancel)`);
 
   // Move short event from hand → discard
@@ -2635,7 +2664,7 @@ function handlePlayShortEvent(state: GameState, action: GameAction): ReducerResu
   newPlayers[playerIndex] = {
     ...player,
     hand: newHand,
-    discardPile: [...player.discardPile, action.cardInstanceId],
+    discardPile: [...player.discardPile, handCard],
   };
 
   let newState: GameState = { ...state, players: newPlayers };
@@ -2643,9 +2672,9 @@ function handlePlayShortEvent(state: GameState, action: GameAction): ReducerResu
   // Initiate chain or push onto existing chain — target stored in payload
   const payload: ChainEntryPayload = { type: 'short-event', targetInstanceId: action.targetInstanceId };
   if (newState.chain === null) {
-    newState = initiateChain(newState, action.player, action.cardInstanceId, inst.definitionId, payload);
+    newState = initiateChain(newState, action.player, action.cardInstanceId, handCard.definitionId, payload);
   } else {
-    newState = pushChainEntry(newState, action.player, action.cardInstanceId, inst.definitionId, payload);
+    newState = pushChainEntry(newState, action.player, action.cardInstanceId, handCard.definitionId, payload);
   }
 
   return { state: newState };
@@ -2666,12 +2695,12 @@ function handleLongEvent(state: GameState, action: GameAction): ReducerResult {
     const activePlayer = state.activePlayer!;
     const hazardPlayerIndex = (getPlayerIndex(state, activePlayer) + 1) % state.players.length;
     const hazardPlayer = state.players[hazardPlayerIndex];
-    const discardedEventIds: CardInstanceId[] = [];
+    const discardedEvents: CardInstance[] = [];
     const remainingCards = hazardPlayer.cardsInPlay.filter(card => {
       const def = state.cardPool[card.definitionId as string];
       if (def && def.cardType === 'hazard-event' && def.eventType === 'long') {
         logDetail(`Long-event exit: discarding hazard long-event "${def.name}" (${card.instanceId as string})`);
-        discardedEventIds.push(card.instanceId);
+        discardedEvents.push({ instanceId: card.instanceId, definitionId: card.definitionId });
         return false;
       }
       return true;
@@ -2681,7 +2710,7 @@ function handleLongEvent(state: GameState, action: GameAction): ReducerResult {
     newPlayers[hazardPlayerIndex] = {
       ...newPlayers[hazardPlayerIndex],
       cardsInPlay: remainingCards,
-      discardPile: [...newPlayers[hazardPlayerIndex].discardPile, ...discardedEventIds],
+      discardPile: [...newPlayers[hazardPlayerIndex].discardPile, ...discardedEvents],
     };
 
     logDetail(`Long-event: active player ${action.player as string} passed → advancing to Movement/Hazard phase`);
@@ -2730,13 +2759,11 @@ function handlePlayLongEvent(state: GameState, action: GameAction): ReducerResul
   const playerIndex = getPlayerIndex(state, action.player);
   const player = state.players[playerIndex];
 
-  const cardIdx = player.hand.indexOf(action.cardInstanceId);
+  const cardIdx = player.hand.findIndex(c => c.instanceId === action.cardInstanceId);
   if (cardIdx === -1) return { state, error: 'Card not in hand' };
 
-  const inst = state.instanceMap[action.cardInstanceId as string];
-  if (!inst) return { state, error: 'Card instance not found' };
-
-  const def = state.cardPool[inst.definitionId as string];
+  const handCard = player.hand[cardIdx];
+  const def = state.cardPool[handCard.definitionId as string];
   if (!def || def.cardType !== 'hero-resource-event' || def.eventType !== 'long') {
     return { state, error: 'Card is not a resource long-event' };
   }
@@ -2776,7 +2803,7 @@ function handlePlayLongEvent(state: GameState, action: GameAction): ReducerResul
     hand: newHand,
     cardsInPlay: [...player.cardsInPlay, {
       instanceId: action.cardInstanceId,
-      definitionId: inst.definitionId,
+      definitionId: handCard.definitionId,
       status: CardStatus.Untapped,
     }],
   };
@@ -2922,13 +2949,11 @@ function handlePlayHazardCard(
   const hazardPlayer = state.players[hazardIndex];
 
   // Validate card is in hand
-  const cardIdx = hazardPlayer.hand.indexOf(action.cardInstanceId);
+  const cardIdx = hazardPlayer.hand.findIndex(c => c.instanceId === action.cardInstanceId);
   if (cardIdx === -1) return { state, error: 'Card not in hand' };
 
-  const inst = state.instanceMap[action.cardInstanceId as string];
-  if (!inst) return { state, error: 'Card instance not found' };
-
-  const def = state.cardPool[inst.definitionId as string];
+  const handCard = hazardPlayer.hand[cardIdx];
+  const def = state.cardPool[handCard.definitionId as string];
   if (!def) return { state, error: 'Card definition not found' };
 
   // --- Creature handling (via chain of effects) ---
@@ -2950,7 +2975,7 @@ function handlePlayHazardCard(
     newPlayers[hazardIndex] = {
       ...hazardPlayer,
       hand: newHand,
-      discardPile: [...hazardPlayer.discardPile, action.cardInstanceId],
+      discardPile: [...hazardPlayer.discardPile, handCard],
     };
 
     let newState: GameState = {
@@ -2964,7 +2989,7 @@ function handlePlayHazardCard(
     };
 
     // Initiate chain — when creature entry resolves, combat will start (TODO)
-    newState = initiateChain(newState, action.player, action.cardInstanceId, inst.definitionId, { type: 'creature' });
+    newState = initiateChain(newState, action.player, action.cardInstanceId, handCard.definitionId, { type: 'creature' });
 
     return { state: newState };
   }
@@ -2982,7 +3007,7 @@ function handlePlayHazardCard(
     newPlayers[hazardIndex] = {
       ...hazardPlayer,
       hand: newHand,
-      discardPile: [...hazardPlayer.discardPile, action.cardInstanceId],
+      discardPile: [...hazardPlayer.discardPile, handCard],
     };
 
     let newState: GameState = {
@@ -2997,9 +3022,9 @@ function handlePlayHazardCard(
 
     // Initiate chain or push onto existing chain
     if (newState.chain === null) {
-      newState = initiateChain(newState, action.player, action.cardInstanceId, inst.definitionId, { type: 'short-event' });
+      newState = initiateChain(newState, action.player, action.cardInstanceId, handCard.definitionId, { type: 'short-event' });
     } else {
-      newState = pushChainEntry(newState, action.player, action.cardInstanceId, inst.definitionId, { type: 'short-event' });
+      newState = pushChainEntry(newState, action.player, action.cardInstanceId, handCard.definitionId, { type: 'short-event' });
     }
 
     return { state: newState };
@@ -3046,7 +3071,7 @@ function handlePlayHazardCard(
     hand: newHand,
     cardsInPlay: [...hazardPlayer.cardsInPlay, {
       instanceId: action.cardInstanceId,
-      definitionId: inst.definitionId,
+      definitionId: handCard.definitionId,
       status: CardStatus.Untapped,
     }],
   };
@@ -3096,7 +3121,7 @@ function endCompanyMH(state: GameState, mhState: MovementHazardPhaseState): Redu
     const updatedCompanies = [...resourcePlayer.companies];
     updatedCompanies[mhState.activeCompanyIndex] = {
       ...company,
-      currentSite: { instanceId: destSiteId, definitionId: state.instanceMap[destSiteId as string].definitionId, status: CardStatus.Untapped },
+      currentSite: { instanceId: destSiteId, definitionId: resolveInstanceId(state, destSiteId)!, status: CardStatus.Untapped },
       destinationSite: null,
       moved: true,
       siteOfOrigin: null,
@@ -3108,13 +3133,13 @@ function endCompanyMH(state: GameState, mhState: MovementHazardPhaseState): Redu
     if (originSite) {
       const originDef = state.cardPool[originSite.definitionId as string];
       const isHaven = originDef && isSiteCard(originDef) && originDef.siteType === 'haven';
-      newSiteDeck = newSiteDeck.filter(id => id !== originSite.instanceId);
+      newSiteDeck = newSiteDeck.filter(c => c.instanceId !== originSite.instanceId);
       if (isHaven) {
         logDetail(`Step 8: site of origin is a haven — returning to location deck`);
       } else {
         logDetail(`Step 8: site of origin is non-haven — returning to location deck (TODO: discard if tapped)`);
       }
-      newSiteDeck.push(originSite.instanceId);
+      newSiteDeck.push({ instanceId: originSite.instanceId, definitionId: originSite.definitionId });
     }
 
     logDetail(`Step 8: company moved to ${mhState.destinationSiteName ?? '?'}, origin site handled`);
@@ -3200,11 +3225,12 @@ function handleResetHand(
     return { state, error: `Player ${player.name} does not need to discard (hand: ${player.hand.length}/${handSize})` };
   }
 
-  const cardIdx = player.hand.indexOf(action.cardInstanceId);
+  const cardIdx = player.hand.findIndex(c => c.instanceId === action.cardInstanceId);
   if (cardIdx === -1) {
     return { state, error: 'Card not in hand' };
   }
 
+  const discardedCard = player.hand[cardIdx];
   const newHand = [...player.hand];
   newHand.splice(cardIdx, 1);
 
@@ -3212,7 +3238,7 @@ function handleResetHand(
   newPlayers[playerIndex] = {
     ...player,
     hand: newHand,
-    discardPile: [...player.discardPile, action.cardInstanceId],
+    discardPile: [...player.discardPile, discardedCard],
   };
 
   logDetail(`Reset-hand: player ${player.name} discards 1 card (${newHand.length}/${handSize})`);
@@ -3470,8 +3496,8 @@ function handleRevealNewSite(
   }
 
   const originDef = company.currentSite ? state.cardPool[company.currentSite.definitionId as string] : undefined;
-  const destInst = state.instanceMap[company.destinationSite as string];
-  const destDef = destInst ? state.cardPool[destInst.definitionId as string] : undefined;
+  const destDefId = resolveInstanceId(state, company.destinationSite);
+  const destDef = destDefId ? state.cardPool[destDefId as string] : undefined;
 
   if (!originDef || !isSiteCard(originDef) || !destDef || !isSiteCard(destDef)) {
     return { state, error: `Could not resolve origin or destination site definitions` };
@@ -3549,9 +3575,9 @@ function getCompanySize(state: GameState, company: Company): number {
   let halfCount = 0;
   let fullCount = 0;
   for (const charInstId of company.characters) {
-    const inst = state.instanceMap[charInstId as string];
-    if (!inst) { fullCount++; continue; }
-    const def = state.cardPool[inst.definitionId as string];
+    const charDefId = resolveInstanceId(state, charInstId);
+    if (!charDefId) { fullCount++; continue; }
+    const def = state.cardPool[charDefId as string];
     if (!def || !isCharacterCard(def)) { fullCount++; continue; }
     const isHobbit = def.race === Race.Hobbit;
     const isOrcScout = def.race === Race.Orc && def.skills.includes(Skill.Scout);
@@ -3626,8 +3652,8 @@ function transitionToDrawCards(state: GameState, mhState: MovementHazardPhaseSta
   }
 
   // Determine which site card provides draw numbers
-  const destInst = state.instanceMap[company.destinationSite as string];
-  const destDef = destInst ? state.cardPool[destInst.definitionId as string] : undefined;
+  const destDefId2 = company.destinationSite ? resolveInstanceId(state, company.destinationSite) : undefined;
+  const destDef = destDefId2 ? state.cardPool[destDefId2 as string] : undefined;
   const originDef = company.currentSite ? state.cardPool[company.currentSite.definitionId as string] : undefined;
 
   // Use new site for non-haven destination, site of origin for haven destination
@@ -3642,9 +3668,9 @@ function transitionToDrawCards(state: GameState, mhState: MovementHazardPhaseSta
 
     // Resource player may only draw if company has an avatar or character with mind ≥ 3
     const hasEligibleCharacter = company.characters.some(charInstId => {
-      const inst = state.instanceMap[charInstId as string];
-      if (!inst) return false;
-      const def = state.cardPool[inst.definitionId as string];
+      const cDefId = resolveInstanceId(state, charInstId);
+      if (!cDefId) return false;
+      const def = state.cardPool[cDefId as string];
       if (!def || !isCharacterCard(def)) return false;
       return def.mind === null || def.mind >= 3;
     });
@@ -4130,13 +4156,11 @@ function handleSitePlayHeroResource(
   const company = player.companies[siteState.activeCompanyIndex];
 
   // Validate card is in hand
-  const cardIdx = player.hand.indexOf(action.cardInstanceId);
+  const cardIdx = player.hand.findIndex(c => c.instanceId === action.cardInstanceId);
   if (cardIdx === -1) return { state, error: 'Card not in hand' };
 
-  const inst = state.instanceMap[action.cardInstanceId as string];
-  if (!inst) return { state, error: 'Card instance not found' };
-
-  const def = state.cardPool[inst.definitionId as string];
+  const handCard = player.hand[cardIdx];
+  const def = state.cardPool[handCard.definitionId as string];
   const isItem = isItemCard(def);
   const isAlly = !isItem && isAllyCard(def);
   if (!def || (!isItem && !isAlly)) return { state, error: 'Card is not an item or ally' };
@@ -4184,10 +4208,10 @@ function handleSitePlayHeroResource(
     ...charInPlay,
     status: CardStatus.Tapped,
     items: isItem
-      ? [...charInPlay.items, { instanceId: action.cardInstanceId, definitionId: inst.definitionId, status: CardStatus.Untapped }]
+      ? [...charInPlay.items, { instanceId: action.cardInstanceId, definitionId: handCard.definitionId, status: CardStatus.Untapped }]
       : charInPlay.items,
     allies: isAlly
-      ? [...charInPlay.allies, { instanceId: action.cardInstanceId, definitionId: inst.definitionId, status: CardStatus.Untapped }]
+      ? [...charInPlay.allies, { instanceId: action.cardInstanceId, definitionId: handCard.definitionId, status: CardStatus.Untapped }]
       : charInPlay.allies,
   };
 
@@ -4237,13 +4261,11 @@ function handleInfluenceAttempt(
   const company = player.companies[siteState.activeCompanyIndex];
 
   // Validate faction card is in hand
-  const cardIdx = player.hand.indexOf(action.factionInstanceId);
+  const cardIdx = player.hand.findIndex(c => c.instanceId === action.factionInstanceId);
   if (cardIdx === -1) return { state, error: 'Faction card not in hand' };
 
-  const inst = state.instanceMap[action.factionInstanceId as string];
-  if (!inst) return { state, error: 'Faction instance not found' };
-
-  const def = state.cardPool[inst.definitionId as string];
+  const handCard = player.hand[cardIdx];
+  const def = state.cardPool[handCard.definitionId as string];
   if (!def || !isFactionCard(def)) return { state, error: 'Card is not a faction' };
 
   // Validate influencing character
@@ -4351,7 +4373,7 @@ function handleInfluenceAttempt(
   if (total >= influenceNumber) {
     // Success — faction goes to cardsInPlay (marshalling point pile)
     logDetail(`Influence attempt succeeded (${total} >= ${influenceNumber})`);
-    const newCardsInPlay = [...player.cardsInPlay, { instanceId: action.factionInstanceId, definitionId: inst.definitionId, status: CardStatus.Untapped }];
+    const newCardsInPlay = [...player.cardsInPlay, { instanceId: action.factionInstanceId, definitionId: handCard.definitionId, status: CardStatus.Untapped }];
     newPlayers[playerIndex] = { ...newPlayers[playerIndex], cardsInPlay: newCardsInPlay };
 
     return {
@@ -4370,7 +4392,7 @@ function handleInfluenceAttempt(
 
   // Failure — faction goes to discard pile
   logDetail(`Influence attempt failed (${total} < ${influenceNumber})`);
-  const newDiscard = [...player.discardPile, action.factionInstanceId];
+  const newDiscard = [...player.discardPile, handCard];
   newPlayers[playerIndex] = { ...newPlayers[playerIndex], discardPile: newDiscard };
 
   return {
@@ -4539,12 +4561,13 @@ function handleEndOfTurnDiscard(
 
   if (action.type === 'discard-card') {
     const player = state.players[playerIndex];
-    const cardIdx = player.hand.indexOf(action.cardInstanceId);
+    const cardIdx = player.hand.findIndex(c => c.instanceId === action.cardInstanceId);
 
     if (cardIdx === -1) {
       return { state, error: 'Card not in hand' };
     }
 
+    const discardedCard = player.hand[cardIdx];
     const newHand = [...player.hand];
     newHand.splice(cardIdx, 1);
 
@@ -4552,7 +4575,7 @@ function handleEndOfTurnDiscard(
     newPlayers[playerIndex] = {
       ...player,
       hand: newHand,
-      discardPile: [...player.discardPile, action.cardInstanceId],
+      discardPile: [...player.discardPile, discardedCard],
     };
 
     logDetail(`End-of-Turn discard: player ${player.name} discarded 1 card (hand now ${newHand.length})`);
@@ -4619,11 +4642,12 @@ function handleEndOfTurnResetHand(
       return { state, error: `Player ${player.name} does not need to discard (hand: ${player.hand.length}/${handSize})` };
     }
 
-    const cardIdx = player.hand.indexOf(action.cardInstanceId);
+    const cardIdx = player.hand.findIndex(c => c.instanceId === action.cardInstanceId);
     if (cardIdx === -1) {
       return { state, error: 'Card not in hand' };
     }
 
+    const discardedCard = player.hand[cardIdx];
     const newHand = [...player.hand];
     newHand.splice(cardIdx, 1);
 
@@ -4631,7 +4655,7 @@ function handleEndOfTurnResetHand(
     newPlayers[playerIndex] = {
       ...player,
       hand: newHand,
-      discardPile: [...player.discardPile, action.cardInstanceId],
+      discardPile: [...player.discardPile, discardedCard],
     };
 
     logDetail(`End-of-Turn reset-hand: player ${player.name} discards 1 card (${newHand.length}/${handSize})`);
@@ -4818,7 +4842,8 @@ function handleFreeCouncil(state: GameState, action: GameAction): ReducerResult 
     const char = player.characters[action.characterId as string];
     if (!char) return { state, error: 'Character not found' };
 
-    const charDef = state.cardPool[state.instanceMap[action.characterId as string]?.definitionId as string];
+    const fcCharDefId = resolveInstanceId(state, action.characterId);
+    const charDef = fcCharDefId ? state.cardPool[fcCharDefId as string] : undefined;
     const charName = charDef?.name ?? '?';
     const cp = action.corruptionPoints;
     const modifier = action.corruptionModifier;
@@ -4875,7 +4900,10 @@ function handleFreeCouncil(state: GameState, action: GameAction): ReducerResult 
     if (total >= cp - 1) {
       // Roll == CP or CP-1: character and possessions discarded
       logDetail(`Free Council corruption check FAILED (${total} within 1 of ${cp}) — discarding ${charName}`);
-      const toDiscard = [action.characterId, ...action.possessions];
+      const toDiscard: CardInstance[] = [
+        { instanceId: action.characterId, definitionId: char.definitionId },
+        ...action.possessions.map(id => ({ instanceId: id, definitionId: resolveInstanceId(state, id)! })),
+      ];
       newPlayers[playerIndex] = {
         ...newPlayers[playerIndex],
         characters: newCharacters,
@@ -4889,8 +4917,8 @@ function handleFreeCouncil(state: GameState, action: GameAction): ReducerResult 
         ...newPlayers[playerIndex],
         characters: newCharacters,
         companies: newCompanies,
-        eliminatedPile: [...player.eliminatedPile, action.characterId],
-        discardPile: [...player.discardPile, ...action.possessions],
+        eliminatedPile: [...player.eliminatedPile, { instanceId: action.characterId, definitionId: char.definitionId }],
+        discardPile: [...player.discardPile, ...action.possessions.map(id => ({ instanceId: id, definitionId: resolveInstanceId(state, id)! }))],
       };
     }
 
@@ -4986,10 +5014,8 @@ function computeFinalScoresAndEnd(state: GameState): GameState {
  */
 function hasEliminatedAvatar(state: GameState, playerIndex: 0 | 1): boolean {
   const player = state.players[playerIndex];
-  for (const cardId of player.eliminatedPile) {
-    const inst = state.instanceMap[cardId as string];
-    if (!inst) continue;
-    const def = state.cardPool[inst.definitionId as string];
+  for (const card of player.eliminatedPile) {
+    const def = state.cardPool[card.definitionId as string];
     if (def && isCharacterCard(def) && (def.race === Race.Wizard || def.race === Race.Ringwraith)) {
       return true;
     }
@@ -5366,7 +5392,8 @@ function handleBodyCheckRoll(state: GameState, action: GameAction, combat: Comba
         newPlayerData.companies = newCompanies;
       }
       // Move to eliminated pile (full item transfer deferred to Phase 4)
-      newPlayerData.eliminatedPile = [...newPlayerData.eliminatedPile, strike.characterId];
+      const elimCharDefId = resolveInstanceId(state, strike.characterId);
+      newPlayerData.eliminatedPile = [...newPlayerData.eliminatedPile, { instanceId: strike.characterId, definitionId: elimCharDefId! }];
       const { [strike.characterId as string]: _, ...remainingChars } = newPlayerData.characters;
       newPlayerData.characters = remainingChars;
       newPlayers2[defPlayerIndex] = newPlayerData;
@@ -5414,11 +5441,12 @@ function finalizeCombat(state: GameState, effects: GameEffect[] = []): ReducerRe
     const defIdx = state.players.findIndex(p => p.id === combat.defendingPlayerId);
     const creatureInstanceId = combat.attackSource.instanceId;
 
-    const atkDiscard = newPlayers[atkIdx].discardPile.filter(id => id !== creatureInstanceId);
+    const creatureCard = newPlayers[atkIdx].discardPile.find(c => c.instanceId === creatureInstanceId);
+    const atkDiscard = newPlayers[atkIdx].discardPile.filter(c => c.instanceId !== creatureInstanceId);
     newPlayers[atkIdx] = { ...newPlayers[atkIdx], discardPile: atkDiscard };
     newPlayers[defIdx] = {
       ...newPlayers[defIdx],
-      killPile: [...newPlayers[defIdx].killPile, creatureInstanceId],
+      killPile: [...newPlayers[defIdx].killPile, ...(creatureCard ? [creatureCard] : [])],
     };
 
     logDetail(`All strikes defeated — creature moved to defender's MP pile`);

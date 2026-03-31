@@ -28,6 +28,7 @@ import type {
   PlayCharacterAction, MoveToInfluenceAction, TransferItemAction, PlanMovementAction,
   CardStatus,
 } from '../../index.js';
+import { resolveInstanceId } from '../../index.js';
 
 function buildOrgState(opts: { activePlayer: PlayerId; players: Parameters<typeof buildTestState>[0]['players'] }) {
   return buildTestState({ ...opts, recompute: true });
@@ -102,8 +103,8 @@ describe('2.II Playing/discarding characters', () => {
 
     // Play Eowyn at Rivendell (haven)
     const eowyn = playActions.find(ea => {
-      const inst = state.instanceMap[(ea.action as PlayCharacterAction).characterInstanceId as string];
-      return inst?.definitionId === EOWYN;
+      const defId = resolveInstanceId(state, (ea.action as PlayCharacterAction).characterInstanceId);
+      return defId === EOWYN;
     })!;
     const state2 = runActions(state, [eowyn.action]);
 
@@ -150,10 +151,10 @@ describe('2.II Playing/discarding characters', () => {
     expect(playActions.length).toBeGreaterThan(0);
     for (const ea of playActions) {
       const atSite = (ea.action as PlayCharacterAction).atSite;
-      const siteInst = state.instanceMap[atSite as string];
-      const siteDef = pool[siteInst.definitionId as string] as { siteType?: string; name?: string };
+      const siteDefId = resolveInstanceId(state, atSite);
+      const siteDef = siteDefId ? pool[siteDefId as string] as { siteType?: string; name?: string } : undefined;
       // Must be a haven or homesite
-      expect(siteDef.siteType === 'haven' || siteDef.name === 'Henneth Annûn').toBe(true);
+      expect(siteDef?.siteType === 'haven' || siteDef?.name === 'Henneth Annûn').toBe(true);
     }
   });
 
@@ -195,7 +196,7 @@ describe('2.II Playing/discarding characters', () => {
     expect(char.controlledBy).toBe('general');
 
     // Character removed from hand
-    expect(state2.players[0].hand).not.toContain(charInstId);
+    expect(state2.players[0].hand.map(c => c.instanceId)).not.toContain(charInstId);
   });
 
   test('[2.II.2.2.1] play under direct influence as follower of general-influence character', () => {
@@ -346,8 +347,8 @@ describe('2.II Playing/discarding characters', () => {
     // Find the Minas Tirith play
     const mtPlay = playActions.find(ea => {
       const atSite = (ea.action as PlayCharacterAction).atSite;
-      const inst = state.instanceMap[atSite as string];
-      return inst?.definitionId === MINAS_TIRITH;
+      const defId = resolveInstanceId(state, atSite);
+      return defId === MINAS_TIRITH;
     });
     expect(mtPlay).toBeDefined();
 
@@ -925,7 +926,7 @@ describe('2.II Declaring movement', () => {
     const moveAction = moveActions[0].action as PlanMovementAction;
 
     // Destination should be in site deck
-    expect(state.players[0].siteDeck).toContain(moveAction.destinationSite);
+    expect(state.players[0].siteDeck.map(c => c.instanceId)).toContain(moveAction.destinationSite);
 
     const state2 = runActions(state, [moveAction]);
 
@@ -934,7 +935,7 @@ describe('2.II Declaring movement', () => {
     expect(company.destinationSite).toBe(moveAction.destinationSite);
 
     // Site removed from site deck
-    expect(state2.players[0].siteDeck).not.toContain(moveAction.destinationSite);
+    expect(state2.players[0].siteDeck.map(c => c.instanceId)).not.toContain(moveAction.destinationSite);
   });
 
   test('[2.II.7] cancel movement returns site to site deck', () => {
@@ -969,7 +970,7 @@ describe('2.II Declaring movement', () => {
     const state3 = runActions(state2, [cancelActions[0].action]);
 
     // Site back in deck, no destination
-    expect(state3.players[0].siteDeck).toContain(destSite);
+    expect(state3.players[0].siteDeck.map(c => c.instanceId)).toContain(destSite);
     expect(state3.players[0].companies[0].destinationSite).toBeNull();
   });
 

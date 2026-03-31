@@ -14,6 +14,7 @@
 
 import type { GameState, GameAction, PlayerId, PlayerState, CardInstanceId, CardDefinitionId, ChainState, ChainEntry, ChainEntryPayload, ChainRestriction, DeferredPassive, CombatState, CreatureCard } from '../index.js';
 import { getPlayerIndex } from '../index.js';
+import { resolveInstanceId } from '../types/state.js';
 import { logHeading, logDetail } from './legal-actions/log.js';
 import type { ReducerResult } from './reducer.js';
 
@@ -320,9 +321,8 @@ interface ResolveResult {
  * it first), this is a no-op — the cancel fizzles.
  */
 function resolveEnvironmentCancel(state: GameState, targetInstanceId: CardInstanceId, chain: ChainState): GameState {
-  const targetDef = state.cardPool[
-    state.instanceMap[targetInstanceId as string]?.definitionId as string
-  ];
+  const targetDefId = resolveInstanceId(state, targetInstanceId);
+  const targetDef = targetDefId ? state.cardPool[targetDefId as string] : undefined;
   const targetName = targetDef?.name ?? (targetInstanceId as string);
 
   // Check if target is on the chain (environment declared earlier in the same chain)
@@ -347,7 +347,8 @@ function resolveEnvironmentCancel(state: GameState, targetInstanceId: CardInstan
     newEventsInPlay.splice(evtIdx, 1);
     const owner = state.players[ownerIndex];
     const newPlayers: [PlayerState, PlayerState] = [state.players[0], state.players[1]];
-    newPlayers[ownerIndex] = { ...owner, discardPile: [...owner.discardPile, targetInstanceId] };
+    const discardEntry = { instanceId: targetInstanceId, definitionId: ev.definitionId };
+    newPlayers[ownerIndex] = { ...owner, discardPile: [...owner.discardPile, discardEntry] };
     return { ...state, players: newPlayers, eventsInPlay: newEventsInPlay };
   }
 
@@ -356,11 +357,12 @@ function resolveEnvironmentCancel(state: GameState, targetInstanceId: CardInstan
     const player = state.players[pi];
     if (player.cardsInPlay.some(c => c.instanceId === targetInstanceId)) {
       logDetail(`Environment cancel: removing ${targetName} from player ${pi} cardsInPlay → discard`);
+      const removedCard = player.cardsInPlay.find(c => c.instanceId === targetInstanceId)!;
       const newPlayers: [PlayerState, PlayerState] = [state.players[0], state.players[1]];
       newPlayers[pi as 0 | 1] = {
         ...player,
         cardsInPlay: player.cardsInPlay.filter(c => c.instanceId !== targetInstanceId),
-        discardPile: [...player.discardPile, targetInstanceId],
+        discardPile: [...player.discardPile, { instanceId: targetInstanceId, definitionId: removedCard.definitionId }],
       };
       return { ...state, players: newPlayers };
     }

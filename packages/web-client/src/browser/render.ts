@@ -515,15 +515,17 @@ export function renderDraft(view: PlayerView, cardPool: Readonly<Record<string, 
   const resolve = (ids: readonly CardInstanceId[]) =>
     ids.map(id => cachedInstanceLookup(id) ?? id as unknown as CardDefinitionId);
   const list = (ids: readonly CardInstanceId[]) => formatCardList(resolve(ids), cardPool);
+  const instIds = (cards: readonly { readonly instanceId: CardInstanceId }[]) =>
+    cards.map(c => c.instanceId);
 
   const lines: string[] = [];
   lines.push(`Draft round: ${draft.round}`);
-  lines.push(`Pool [0]: ${list(draft.draftState[0].pool)}`);
-  lines.push(`Drafted [0]: ${list(draft.draftState[0].drafted)}`);
-  lines.push(`Pool [1]: ${list(draft.draftState[1].pool)}`);
-  lines.push(`Drafted [1]: ${list(draft.draftState[1].drafted)}`);
+  lines.push(`Pool [0]: ${list(instIds(draft.draftState[0].pool))}`);
+  lines.push(`Drafted [0]: ${list(instIds(draft.draftState[0].drafted))}`);
+  lines.push(`Pool [1]: ${list(instIds(draft.draftState[1].pool))}`);
+  lines.push(`Drafted [1]: ${list(instIds(draft.draftState[1].drafted))}`);
   if (draft.setAside.length > 0) {
-    lines.push(`Set aside: ${list(draft.setAside)}`);
+    lines.push(`Set aside: ${list(instIds(draft.setAside))}`);
   }
 
   el.innerHTML = textToHtml(lines.join('\n'));
@@ -980,18 +982,16 @@ function getHandCards(view: PlayerView): HandCard[] {
   if (view.phaseState.phase === 'setup' && view.phaseState.setupStep.step === 'character-draft') {
     const draft = view.phaseState.setupStep;
     const selfIdx = findSelfIndex(draft.draftState[0].pool, draft.draftState[1].pool);
-    return draft.draftState[selfIdx].pool.map(instId => {
-      const defId = cachedInstanceLookup(instId);
-      return { defId: defId ?? instId as unknown as CardDefinitionId, instanceId: instId };
+    return draft.draftState[selfIdx].pool.map(card => {
+      return { defId: card.definitionId, instanceId: card.instanceId };
     });
   }
   // During character deck draft, show remaining pool characters
   if (view.phaseState.phase === 'setup' && view.phaseState.setupStep.step === 'character-deck-draft') {
     const deckDraft = view.phaseState.setupStep.deckDraftState;
     const selfIdx = findSelfIndex(deckDraft[0].remainingPool, deckDraft[1].remainingPool);
-    return deckDraft[selfIdx].remainingPool.map(instId => {
-      const defId = cachedInstanceLookup(instId);
-      return { defId: defId ?? instId as unknown as CardDefinitionId, instanceId: instId };
+    return deckDraft[selfIdx].remainingPool.map(card => {
+      return { defId: card.definitionId, instanceId: card.instanceId };
     });
   }
   // During item draft, show remaining pool (undrafted characters) + unassigned items
@@ -1001,17 +1001,15 @@ function getHandCards(view: PlayerView): HandCard[] {
     const step = view.phaseState.setupStep;
     // Remaining pool: undrafted characters (shown dimmed as non-items)
     const selfPoolIdx = findSelfIndex(step.remainingPool[0], step.remainingPool[1]);
-    for (const instId of step.remainingPool[selfPoolIdx]) {
-      const defId = cachedInstanceLookup(instId);
-      if (defId) cards.push({ defId, instanceId: instId });
+    for (const card of step.remainingPool[selfPoolIdx]) {
+      cards.push({ defId: card.definitionId, instanceId: card.instanceId });
     }
 
     // Unassigned items (assigned items are removed from pool)
     const selfItemIdx = step.itemDraftState[0].unassignedItems.length > 0
-      && cachedInstanceLookup(step.itemDraftState[0].unassignedItems[0]) ? 0 : 1;
-    for (const instId of step.itemDraftState[selfItemIdx].unassignedItems) {
-      const defId = cachedInstanceLookup(instId);
-      if (defId) cards.push({ defId, instanceId: instId });
+      ? 0 : 1;
+    for (const card of step.itemDraftState[selfItemIdx].unassignedItems) {
+      cards.push({ defId: card.definitionId, instanceId: card.instanceId });
     }
 
     return cards;
@@ -1167,10 +1165,8 @@ export function renderPlayerNames(view: PlayerView, cardPool: Readonly<Record<st
     const draft = view.phaseState.setupStep;
     const selfIdx = hasRealCards(draft.draftState[0].pool) ? 0 : 1;
     const oppIdx = 1 - selfIdx;
-    const resolveDraft = (ids: readonly CardInstanceId[]): CardDefinitionId[] =>
-      ids.map(id => cachedInstanceLookup(id)).filter((d): d is CardDefinitionId => d !== undefined);
-    const selfDrafted = resolveDraft(draft.draftState[selfIdx].drafted);
-    const oppDrafted = resolveDraft(draft.draftState[oppIdx].drafted);
+    const selfDrafted = draft.draftState[selfIdx].drafted.map(c => c.definitionId);
+    const oppDrafted = draft.draftState[oppIdx].drafted.map(c => c.definitionId);
     const selfMind = sumDraftedMind(selfDrafted, cardPool);
     const oppMind = sumDraftedMind(oppDrafted, cardPool);
     selfGI = GENERAL_INFLUENCE - selfMind;
@@ -2625,18 +2621,18 @@ export function renderDrafted(
     const selfIdx = findSelfIndex(draft.draftState[0].pool, draft.draftState[1].pool);
     const oppIdx = 1 - selfIdx;
 
-    /** Resolve draft instance IDs to definition IDs via instance lookup. */
-    const resolveDraft = (ids: readonly CardInstanceId[]): CardDefinitionId[] =>
-      ids.map(id => cachedInstanceLookup(id)).filter((d): d is CardDefinitionId => d !== undefined);
+    /** Extract definition IDs from draft CardInstance arrays. */
+    const draftDefIds = (cards: readonly { readonly definitionId: CardDefinitionId }[]): CardDefinitionId[] =>
+      cards.map(c => c.definitionId);
 
-    renderCardRow(selfEl, resolveDraft(draft.draftState[selfIdx].drafted), cardPool);
+    renderCardRow(selfEl, draftDefIds(draft.draftState[selfIdx].drafted), cardPool);
 
     // Show face-down pick if player has picked this round
     if (draft.draftState[selfIdx].currentPick !== null) {
       selfEl.appendChild(createFaceDownCard('Your pick (face down)'));
     }
 
-    renderCardRow(oppEl, resolveDraft(draft.draftState[oppIdx].drafted), cardPool);
+    renderCardRow(oppEl, draftDefIds(draft.draftState[oppIdx].drafted), cardPool);
 
     // Show face-down pick if opponent has picked this round
     if (draft.draftState[oppIdx].currentPick !== null) {
@@ -2649,7 +2645,7 @@ export function renderDrafted(
       label.className = 'set-aside-label';
       label.textContent = 'Set Aside';
       setAsideEl.appendChild(label);
-      const resolvedSetAside = resolveDraft(draft.setAside);
+      const resolvedSetAside = draftDefIds(draft.setAside);
       for (let j = 0; j < resolvedSetAside.length; j++) {
         const defId = resolvedSetAside[j];
         const def = cardPool[defId as string];

@@ -16,6 +16,7 @@
 import type { CardDefinition } from './types/cards.js';
 import { isCharacterCard, isItemCard } from './types/cards.js';
 import type { GameState, Company, CharacterInPlay, ItemInPlay, AllyInPlay, CombatState, ChainState, PhaseState, MarshallingPointTotals } from './types/state.js';
+import { resolveInstanceId } from './types/state.js';
 import type { PlayerView, OpponentCompanyView } from './types/player-view.js';
 import { computeTournamentBreakdown } from './state-utils.js';
 import type { GameAction } from './types/actions.js';
@@ -75,9 +76,43 @@ type InstanceLookup = (instId: CardInstanceId) => CardDefinitionId | undefined;
  * included but harmless since no card pool entry will match them.
  */
 export function buildInstanceLookup(view: PlayerView): InstanceLookup {
-  // The server provides a pre-built instance map covering all visible cards
-  // (piles, characters, phase-state cards like draft pools, combat, chain, etc.).
-  const map = view.instanceMap;
+  // Build instance-to-definition map from all ViewCard piles in the view.
+  const map: Record<string, CardDefinitionId> = {};
+  const addCards = (cards: readonly { readonly instanceId: CardInstanceId; readonly definitionId: CardDefinitionId }[]) => {
+    for (const c of cards) map[c.instanceId as string] = c.definitionId;
+  };
+
+  // Self piles
+  const s = view.self;
+  addCards(s.hand); addCards(s.playDeck); addCards(s.siteDeck);
+  addCards(s.discardPile); addCards(s.siteDiscardPile); addCards(s.sideboard);
+  addCards(s.killPile); addCards(s.eliminatedPile); addCards(s.cardsInPlay);
+
+  // Self characters, items, allies
+  for (const ch of Object.values(s.characters)) {
+    map[ch.instanceId as string] = ch.definitionId;
+    for (const item of ch.items) map[item.instanceId as string] = item.definitionId;
+    for (const ally of ch.allies) map[ally.instanceId as string] = ally.definitionId;
+  }
+
+  // Opponent piles
+  const o = view.opponent;
+  addCards(o.hand); addCards(o.playDeck); addCards(o.siteDeck);
+  addCards(o.discardPile); addCards(o.siteDiscardPile);
+  addCards(o.killPile); addCards(o.eliminatedPile); addCards(o.cardsInPlay);
+
+  // Opponent characters, items, allies
+  for (const ch of Object.values(o.characters)) {
+    map[ch.instanceId as string] = ch.definitionId;
+    for (const item of ch.items) map[item.instanceId as string] = item.definitionId;
+    for (const ally of ch.allies) map[ally.instanceId as string] = ally.definitionId;
+  }
+
+  // Events in play
+  for (const ev of view.eventsInPlay) {
+    map[ev.instanceId as string] = ev.definitionId;
+  }
+
   return (id) => map[id as string];
 }
 
@@ -602,10 +637,7 @@ function renderState(input: RenderInput): string {
  */
 export function formatGameState(state: GameState): string {
   const defOf: CardLookup = (id) => state.cardPool[id as string];
-  const instOf: InstanceLookup = (id) => {
-    const inst = state.instanceMap[id as string];
-    return inst?.definitionId;
-  };
+  const instOf: InstanceLookup = (id) => resolveInstanceId(state, id);
 
   return stripCardMarkers(renderState({
     turnNumber: state.turnNumber,
@@ -617,13 +649,13 @@ export function formatGameState(state: GameState): string {
       alignment: p.alignment,
       wizard: p.wizard,
       isActive: state.activePlayer !== null && p.id === state.activePlayer,
-      handCards: p.hand,
-      deckCards: p.playDeck,
-      siteDeckCards: p.siteDeck,
-      discardCards: p.discardPile,
-      killCards: p.killPile,
-      eliminatedCards: p.eliminatedPile,
-      sideboardCards: p.sideboard,
+      handCards: p.hand.map(c => c.instanceId),
+      deckCards: p.playDeck.map(c => c.instanceId),
+      siteDeckCards: p.siteDeck.map(c => c.instanceId),
+      discardCards: p.discardPile.map(c => c.instanceId),
+      killCards: p.killPile.map(c => c.instanceId),
+      eliminatedCards: p.eliminatedPile.map(c => c.instanceId),
+      sideboardCards: p.sideboard.map(c => c.instanceId),
       marshallingPoints: p.marshallingPoints,
       generalInfluenceUsed: p.generalInfluenceUsed,
       lastDiceRoll: p.lastDiceRoll,
@@ -654,17 +686,17 @@ export function formatPlayerView(
     const step = view.phaseState.setupStep;
     if (step.step === 'character-draft') {
       const selfIdx = step.draftState[0].pool.length > 0
-        && (step.draftState[0].pool[0] as string) !== 'unknown-instance' ? 0 : 1;
+        && (step.draftState[0].pool[0].instanceId as string) !== 'unknown-instance' ? 0 : 1;
       selfPoolSize = step.draftState[selfIdx].pool.length;
       opponentPoolSize = step.draftState[1 - selfIdx].pool.length;
     } else if (step.step === 'item-draft') {
       const selfIdx = step.itemDraftState[0].unassignedItems.length > 0
-        && instOf(step.itemDraftState[0].unassignedItems[0]) ? 0 : 1;
+        && instOf(step.itemDraftState[0].unassignedItems[0].instanceId) ? 0 : 1;
       selfPoolSize = step.itemDraftState[selfIdx].unassignedItems.length;
       opponentPoolSize = step.itemDraftState[1 - selfIdx].unassignedItems.length;
     } else if (step.step === 'character-deck-draft') {
       const selfIdx = step.deckDraftState[0].remainingPool.length > 0
-        && (step.deckDraftState[0].remainingPool[0] as string) !== 'unknown-instance' ? 0 : 1;
+        && (step.deckDraftState[0].remainingPool[0].instanceId as string) !== 'unknown-instance' ? 0 : 1;
       selfPoolSize = step.deckDraftState[selfIdx].remainingPool.length;
       opponentPoolSize = step.deckDraftState[1 - selfIdx].remainingPool.length;
     }

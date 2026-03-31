@@ -70,14 +70,14 @@ describe('Twilight (tw-106)', () => {
       ],
     });
 
-    const twilightId = state.players[0].hand[0];
+    const twilightId = state.players[0].hand[0].instanceId;
     const s = playAndResolve(state, PLAYER_1, twilightId, 'gom-1' as CardInstanceId);
 
     // Gates of Morning removed from cardsInPlay → discard
     expect(s.players[0].cardsInPlay).toHaveLength(0);
-    expect(s.players[0].discardPile).toContain('gom-1' as CardInstanceId);
+    expect(s.players[0].discardPile.map(c => c.instanceId)).toContain('gom-1' as CardInstanceId);
     // Twilight also in discard
-    expect(s.players[0].discardPile).toContain(twilightId);
+    expect(s.players[0].discardPile.map(c => c.instanceId)).toContain(twilightId);
     // Chain resolved and cleared
     expect(s.chain).toBeNull();
   });
@@ -97,14 +97,14 @@ describe('Twilight (tw-106)', () => {
       ],
     });
 
-    const twilightId = state.players[0].hand[0];
+    const twilightId = state.players[0].hand[0].instanceId;
     const s = playAndResolve(state, PLAYER_1, twilightId, 'gom-1' as CardInstanceId);
 
     // GoM removed from opponent's cardsInPlay → opponent's discard
     expect(s.players[1].cardsInPlay).toHaveLength(0);
-    expect(s.players[1].discardPile).toContain('gom-1' as CardInstanceId);
+    expect(s.players[1].discardPile.map(c => c.instanceId)).toContain('gom-1' as CardInstanceId);
     // Twilight in P1's discard
-    expect(s.players[0].discardPile).toContain(twilightId);
+    expect(s.players[0].discardPile.map(c => c.instanceId)).toContain(twilightId);
   });
 
   test('not playable when no environment is in play', () => {
@@ -122,7 +122,7 @@ describe('Twilight (tw-106)', () => {
     // Should show as not-playable
     const notPlayable = computeLegalActions(state, PLAYER_1)
       .filter(ea => !ea.viable && ea.action.type === 'not-playable'
-        && (ea.action as { cardInstanceId: CardInstanceId }).cardInstanceId === state.players[0].hand[0]);
+        && (ea.action as { cardInstanceId: CardInstanceId }).cardInstanceId === state.players[0].hand[0].instanceId);
     expect(notPlayable).toHaveLength(1);
   });
 
@@ -171,8 +171,8 @@ describe('Twilight (tw-106)', () => {
       ],
     });
 
-    const twilight1 = state.players[0].hand[0];
-    const twilight2 = state.players[0].hand[1];
+    const twilight1 = state.players[0].hand[0].instanceId;
+    const twilight2 = state.players[0].hand[1].instanceId;
 
     // P1 plays Twilight #1 targeting Gates of Morning → chain starts
     let result = reduce(state, { type: 'play-short-event', player: PLAYER_1, cardInstanceId: twilight1, targetInstanceId: 'gom-1' as CardInstanceId });
@@ -206,8 +206,8 @@ describe('Twilight (tw-106)', () => {
     expect(s.players[0].cardsInPlay).toHaveLength(1);
     expect(s.players[0].cardsInPlay[0].instanceId).toBe('gom-1' as CardInstanceId);
     // Both Twilights in discard
-    expect(s.players[0].discardPile).toContain(twilight1);
-    expect(s.players[0].discardPile).toContain(twilight2);
+    expect(s.players[0].discardPile.map(c => c.instanceId)).toContain(twilight1);
+    expect(s.players[0].discardPile.map(c => c.instanceId)).toContain(twilight2);
   });
 
   test('opponent can respond with Twilight to cancel player\'s Twilight', () => {
@@ -225,8 +225,8 @@ describe('Twilight (tw-106)', () => {
       ],
     });
 
-    const p1Twilight = state.players[0].hand[0];
-    const p2Twilight = state.players[1].hand[0];
+    const p1Twilight = state.players[0].hand[0].instanceId;
+    const p2Twilight = state.players[1].hand[0].instanceId;
 
     // P1 plays Twilight targeting Gates of Morning → chain starts, P2 gets priority
     let result = reduce(state, { type: 'play-short-event', player: PLAYER_1, cardInstanceId: p1Twilight, targetInstanceId: 'gom-1' as CardInstanceId });
@@ -272,7 +272,7 @@ describe('Twilight (tw-106)', () => {
       ],
     });
 
-    const twilightId = state.players[0].hand[0];
+    const twilightId = state.players[0].hand[0].instanceId;
 
     // P1 plays Twilight → chain starts, P2 has priority
     let result = reduce(state, { type: 'play-short-event', player: PLAYER_1, cardInstanceId: twilightId, targetInstanceId: 'gom-1' as CardInstanceId });
@@ -293,7 +293,7 @@ describe('Twilight (tw-106)', () => {
 
     // GoM canceled and discarded
     expect(result.state.players[0].cardsInPlay).toHaveLength(0);
-    expect(result.state.players[0].discardPile).toContain('gom-1' as CardInstanceId);
+    expect(result.state.players[0].discardPile.map(c => c.instanceId)).toContain('gom-1' as CardInstanceId);
   });
 
   test('not playable during M/H phase when no environment in play', () => {
@@ -341,7 +341,7 @@ describe('Twilight (tw-106)', () => {
     const allActions = computeLegalActions(mhGameState, PLAYER_2);
     const twilightAction = allActions.find(
       ea => ea.action.type === 'play-hazard'
-        && ea.action.cardInstanceId === mhGameState.players[1].hand[0],
+        && ea.action.cardInstanceId === mhGameState.players[1].hand[0].instanceId,
     );
     expect(twilightAction).toBeDefined();
     expect(twilightAction!.viable).toBe(false);
@@ -392,7 +392,7 @@ describe('Twilight (tw-106)', () => {
     const mhGameState: GameState = { ...state, phaseState: mhState };
 
     // P1 plays Twilight targeting GoM via play-short-event (as resource player response)
-    const twilightId = mhGameState.players[0].hand[0];
+    const twilightId = mhGameState.players[0].hand[0].instanceId;
     const result = reduce(mhGameState, { type: 'play-short-event', player: PLAYER_1, cardInstanceId: twilightId, targetInstanceId: 'gom-1' as CardInstanceId });
     expect(result.error).toBeUndefined();
 
@@ -416,8 +416,8 @@ describe('Twilight (tw-106)', () => {
       ],
     });
 
-    const twilight1 = state.players[0].hand[0];
-    const twilight2 = state.players[0].hand[1];
+    const twilight1 = state.players[0].hand[0].instanceId;
+    const twilight2 = state.players[0].hand[1].instanceId;
 
     // P1 plays Twilight #1 targeting GoM
     let result = reduce(state, { type: 'play-short-event', player: PLAYER_1, cardInstanceId: twilight1, targetInstanceId: 'gom-1' as CardInstanceId });
@@ -441,8 +441,8 @@ describe('Twilight (tw-106)', () => {
     expect(s.chain).toBeNull();
     // Twilight #2 resolves first → cancels GoM. Twilight #1 resolves second → fizzles (GoM already gone)
     expect(s.players[0].cardsInPlay).toHaveLength(0);
-    expect(s.players[0].discardPile).toContain('gom-1' as CardInstanceId);
-    expect(s.players[0].discardPile).toContain(twilight1);
-    expect(s.players[0].discardPile).toContain(twilight2);
+    expect(s.players[0].discardPile.map(c => c.instanceId)).toContain('gom-1' as CardInstanceId);
+    expect(s.players[0].discardPile.map(c => c.instanceId)).toContain(twilight1);
+    expect(s.players[0].discardPile.map(c => c.instanceId)).toContain(twilight2);
   });
 });

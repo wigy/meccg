@@ -290,22 +290,22 @@ export interface PlayerState {
   readonly alignment: Alignment;
   /** The wizard (Istari) this player controls, or null before wizard selection. */
   readonly wizard: WizardName | null;
-  /** Card instance IDs currently in the player's hand (hidden from opponent). */
-  readonly hand: readonly CardInstanceId[];
+  /** Cards currently in the player's hand (hidden from opponent). */
+  readonly hand: readonly CardInstance[];
   /** The shuffled draw pile of resource and hazard cards (hidden from both players). */
-  readonly playDeck: readonly CardInstanceId[];
+  readonly playDeck: readonly CardInstance[];
   /** Face-up pile of discarded play deck cards. */
-  readonly discardPile: readonly CardInstanceId[];
+  readonly discardPile: readonly CardInstance[];
   /** The player's available site cards (hidden from opponent). */
-  readonly siteDeck: readonly CardInstanceId[];
+  readonly siteDeck: readonly CardInstance[];
   /** Face-up pile of used/discarded site cards. */
-  readonly siteDiscardPile: readonly CardInstanceId[];
+  readonly siteDiscardPile: readonly CardInstance[];
   /** Reserve cards that can be fetched under specific game conditions. */
-  readonly sideboard: readonly CardInstanceId[];
+  readonly sideboard: readonly CardInstance[];
   /** Defeated creature cards earning kill marshalling points. */
-  readonly killPile: readonly CardInstanceId[];
+  readonly killPile: readonly CardInstance[];
   /** Cards removed from the game (e.g. characters eliminated by failed corruption checks). */
-  readonly eliminatedPile: readonly CardInstanceId[];
+  readonly eliminatedPile: readonly CardInstance[];
   /** All companies this player controls on the map. */
   readonly companies: readonly Company[];
   /** All characters this player has in play, keyed by their CardInstanceId for fast lookup. */
@@ -416,12 +416,12 @@ export enum SetupStep {
  * is set aside and neither player gets it. Players may stop drafting early.
  */
 export interface DraftPlayerState {
-  /** Card instance IDs available to draft from (up to 10). */
-  readonly pool: readonly CardInstanceId[];
-  /** Card instance IDs successfully drafted so far. */
-  readonly drafted: readonly CardInstanceId[];
+  /** Cards available to draft from (up to 10). */
+  readonly pool: readonly CardInstance[];
+  /** Cards successfully drafted so far. */
+  readonly drafted: readonly CardInstance[];
   /** The face-down pick for the current draft round, or null if not yet picked. */
-  readonly currentPick: CardInstanceId | null;
+  readonly currentPick: CardInstance | null;
   /** Whether this player has voluntarily stopped drafting (they keep what they have). */
   readonly stopped: boolean;
 }
@@ -430,8 +430,8 @@ export interface DraftPlayerState {
  * Per-player state during the item draft step.
  */
 export interface ItemDraftPlayerState {
-  /** Minor item instance IDs not yet assigned to a character. */
-  readonly unassignedItems: readonly CardInstanceId[];
+  /** Minor items not yet assigned to a character. */
+  readonly unassignedItems: readonly CardInstance[];
   /** Whether this player has finished assigning items (or had none). */
   readonly done: boolean;
 }
@@ -440,8 +440,8 @@ export interface ItemDraftPlayerState {
  * Per-player state during the character deck draft step.
  */
 export interface CharacterDeckDraftPlayerState {
-  /** Remaining pool character instance IDs available to add to the play deck. */
-  readonly remainingPool: readonly CardInstanceId[];
+  /** Remaining pool characters available to add to the play deck. */
+  readonly remainingPool: readonly CardInstance[];
   /** Whether this player has finished adding characters. */
   readonly done: boolean;
 }
@@ -468,15 +468,15 @@ export type SetupStepState =
       readonly round: number;
       /** Draft state for each player (indexed by player order). */
       readonly draftState: readonly [DraftPlayerState, DraftPlayerState];
-      /** Card instance IDs set aside due to collisions. */
-      readonly setAside: readonly CardInstanceId[];
+      /** Cards set aside due to collisions. */
+      readonly setAside: readonly CardInstance[];
     }
   | {
       readonly step: SetupStep.ItemDraft;
       /** Item assignment state for each player. */
       readonly itemDraftState: readonly [ItemDraftPlayerState, ItemDraftPlayerState];
-      /** Character instance IDs remaining in each player's draft pool. */
-      readonly remainingPool: readonly [readonly CardInstanceId[], readonly CardInstanceId[]];
+      /** Characters remaining in each player's draft pool. */
+      readonly remainingPool: readonly [readonly CardInstance[], readonly CardInstance[]];
     }
   | {
       readonly step: SetupStep.CharacterDeckDraft;
@@ -1257,8 +1257,6 @@ export interface GameState {
   readonly eventsInPlay: readonly EventInPlay[];
   /** The static card definition pool, keyed by CardDefinitionId. Loaded once at game start. */
   readonly cardPool: Readonly<Record<string, CardDefinition>>;
-  /** Map from CardInstanceId to CardInstance, for resolving instance IDs to definitions. */
-  readonly instanceMap: Readonly<Record<string, CardInstance>>;
   /** Current turn number (1-based), incremented each time the active player changes. */
   readonly turnNumber: number;
   /** The player who won the initiative roll and took the first turn. Null during setup before the roll. */
@@ -1288,4 +1286,64 @@ export interface GameState {
    * sum to the target. Consumed (reset to null) after one roll.
    */
   readonly cheatRollTotal: number | null;
+}
+
+// ---- Instance resolution helpers ----
+
+/** All pile names on PlayerState that store CardInstance arrays. */
+const PILE_NAMES = [
+  'hand', 'playDeck', 'discardPile', 'siteDeck', 'siteDiscardPile',
+  'sideboard', 'killPile', 'eliminatedPile',
+] as const;
+
+/**
+ * Resolves a {@link CardInstanceId} to its {@link CardDefinitionId} by
+ * searching all piles, in-play cards, characters, items, allies, and events.
+ *
+ * This replaces the old `state.instanceMap` lookup. It searches in-play
+ * structures first (O(1) character lookup) then falls through to piles.
+ *
+ * @returns The definition ID, or undefined if the instance ID is not found.
+ */
+export function resolveInstanceId(state: GameState, instanceId: CardInstanceId): CardDefinitionId | undefined {
+  for (const player of state.players) {
+    // Characters (Record keyed by instanceId — O(1))
+    const char = player.characters[instanceId as string];
+    if (char) return char.definitionId;
+
+    // Items, allies on characters
+    for (const ch of Object.values(player.characters)) {
+      for (const item of ch.items) {
+        if (item.instanceId === instanceId) return item.definitionId;
+      }
+      for (const ally of ch.allies) {
+        if (ally.instanceId === instanceId) return ally.definitionId;
+      }
+    }
+
+    // General cards in play
+    for (const card of player.cardsInPlay) {
+      if (card.instanceId === instanceId) return card.definitionId;
+    }
+
+    // Company sites
+    for (const company of player.companies) {
+      if (company.currentSite?.instanceId === instanceId) return company.currentSite.definitionId;
+    }
+
+    // Piles
+    for (const pileName of PILE_NAMES) {
+      const pile = player[pileName];
+      for (const card of pile) {
+        if (card.instanceId === instanceId) return card.definitionId;
+      }
+    }
+  }
+
+  // Events in play
+  for (const event of state.eventsInPlay) {
+    if (event.instanceId === instanceId) return event.definitionId;
+  }
+
+  return undefined;
 }

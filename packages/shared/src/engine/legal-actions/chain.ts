@@ -65,10 +65,9 @@ function playShortEventChainActions(state: GameState, playerId: PlayerId): Evalu
   const player = state.players.find(p => p.id === playerId)!;
   const actions: EvaluatedAction[] = [];
 
-  for (const cardInstanceId of player.hand) {
-    const inst = state.instanceMap[cardInstanceId as string];
-    if (!inst) continue;
-    const def = state.cardPool[inst.definitionId as string] as HazardEventCard | undefined;
+  for (const handCard of player.hand) {
+    const cardInstanceId = handCard.instanceId;
+    const def = state.cardPool[handCard.definitionId as string] as HazardEventCard | undefined;
     if (!def || def.cardType !== 'hazard-event' || def.eventType !== 'short') continue;
     if (!def.effects?.some(e => e.type === 'play-restriction' && e.rule === 'playable-as-resource')) continue;
 

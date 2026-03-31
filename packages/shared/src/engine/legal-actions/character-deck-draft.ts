@@ -19,10 +19,8 @@ const MAX_NON_AVATAR_IN_DECK = 10;
 function countNonAvatarInDeck(state: GameState, playerIndex: number): number {
   const player = state.players[playerIndex];
   let count = 0;
-  for (const instId of player.playDeck) {
-    const inst = state.instanceMap[instId as string];
-    if (!inst) continue;
-    const def = state.cardPool[inst.definitionId as string];
+  for (const card of player.playDeck) {
+    const def = state.cardPool[card.definitionId as string];
     if (def && isCharacterCard(def) && def.mind !== null) {
       count++;
     }
@@ -46,14 +44,13 @@ export function characterDeckDraftActions(state: GameState, playerId: PlayerId):
 
   const evaluated: EvaluatedAction[] = [];
 
-  for (const charInstId of deckDraft.remainingPool) {
-    const charDefId = state.instanceMap[charInstId as string]?.definitionId;
-    const def = charDefId ? state.cardPool[charDefId as string] : undefined;
+  for (const charCard of deckDraft.remainingPool) {
+    const def = state.cardPool[charCard.definitionId as string];
     const isChar = isCharacterCard(def);
 
     const context = {
       card: {
-        name: def?.name ?? (charInstId as string),
+        name: def?.name ?? (charCard.instanceId as string),
         isCharacter: isChar,
         isAvatar: isChar && def.mind === null,
       },
@@ -63,7 +60,7 @@ export function characterDeckDraftActions(state: GameState, playerId: PlayerId):
       },
     };
 
-    const action = { type: 'add-character-to-deck' as const, player: playerId, characterInstanceId: charInstId };
+    const action = { type: 'add-character-to-deck' as const, player: playerId, characterInstanceId: charCard.instanceId };
     const result = evaluateAction(action, CHARACTER_DECK_DRAFT_RULES, context);
 
     logDetail(`${context.card.name}: ${result.viable ? 'eligible' : result.reason}`);

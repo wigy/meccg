@@ -209,30 +209,32 @@ function connect(): void {
           const resolve = (ids: readonly CardInstanceId[]) =>
             ids.map(id => instanceLookup(id) ?? id as unknown as CardDefinitionId);
           const list = (ids: readonly CardInstanceId[]) => formatCardList(resolve(ids), cardPool);
+          const ids = (cards: readonly { readonly instanceId: CardInstanceId }[]) =>
+            cards.map(c => c.instanceId);
           console.log(`Draft round: ${draft.round}`);
 
           const isSpectator = playerId === 'spectator';
           if (isSpectator) {
-            console.log(`${msg.view.self.name} pool: ${list(draft.draftState[0].pool)}`);
-            console.log(`${msg.view.self.name} drafted: ${list(draft.draftState[0].drafted)}`);
-            console.log(`${msg.view.opponent.name} pool: ${list(draft.draftState[1].pool)}`);
-            console.log(`${msg.view.opponent.name} drafted: ${list(draft.draftState[1].drafted)}`);
+            console.log(`${msg.view.self.name} pool: ${list(ids(draft.draftState[0].pool))}`);
+            console.log(`${msg.view.self.name} drafted: ${list(ids(draft.draftState[0].drafted))}`);
+            console.log(`${msg.view.opponent.name} pool: ${list(ids(draft.draftState[1].pool))}`);
+            console.log(`${msg.view.opponent.name} drafted: ${list(ids(draft.draftState[1].drafted))}`);
           } else {
             // Self pool has real instance IDs; opponent pool has 'unknown-instance' placeholders
-            const hasRealCards = (pool: readonly CardInstanceId[]) =>
-              pool.length > 0 && (pool[0] as string) !== 'unknown-instance';
+            const hasRealCards = (pool: readonly { readonly instanceId: CardInstanceId }[]) =>
+              pool.length > 0 && (pool[0].instanceId as string) !== 'unknown-instance';
             const selfIdx = hasRealCards(draft.draftState[0].pool) ? 0
               : hasRealCards(draft.draftState[1].pool) ? 1
               : 0;
             const oppIdx = 1 - selfIdx;
-            console.log(`Your pool: ${list(draft.draftState[selfIdx].pool)}`);
-            console.log(`Your drafted: ${list(draft.draftState[selfIdx].drafted)}`);
-            console.log(`Opponent pool: ${list(draft.draftState[oppIdx].pool)}`);
-            console.log(`Opponent drafted: ${list(draft.draftState[oppIdx].drafted)}`);
+            console.log(`Your pool: ${list(ids(draft.draftState[selfIdx].pool))}`);
+            console.log(`Your drafted: ${list(ids(draft.draftState[selfIdx].drafted))}`);
+            console.log(`Opponent pool: ${list(ids(draft.draftState[oppIdx].pool))}`);
+            console.log(`Opponent drafted: ${list(ids(draft.draftState[oppIdx].drafted))}`);
           }
 
           if (draft.setAside.length > 0) {
-            console.log(`Set aside: ${list(draft.setAside)}`);
+            console.log(`Set aside: ${list(ids(draft.setAside))}`);
           }
         }
 

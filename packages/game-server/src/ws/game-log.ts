@@ -86,14 +86,40 @@ export class GameLog {
    * Write static game data to a separate JSON file: card definitions and
    * the instance-to-definition mapping. Both are immutable within a game,
    * so they are written once at game start and omitted from every JSONL entry.
+   *
+   * Instance mappings are collected by scanning all player piles, characters,
+   * items, allies, companies, and events in the game state.
    */
-  writeStaticData(cardPool: Record<string, unknown>, instanceMap: Record<string, { definitionId: string }>): void {
+  writeStaticData(cardPool: Record<string, unknown>, state: { players: readonly { hand: readonly { instanceId: string; definitionId: string }[]; playDeck: readonly { instanceId: string; definitionId: string }[]; discardPile: readonly { instanceId: string; definitionId: string }[]; siteDeck: readonly { instanceId: string; definitionId: string }[]; siteDiscardPile: readonly { instanceId: string; definitionId: string }[]; sideboard: readonly { instanceId: string; definitionId: string }[]; killPile: readonly { instanceId: string; definitionId: string }[]; eliminatedPile: readonly { instanceId: string; definitionId: string }[]; characters: Record<string, { instanceId: string; definitionId: string; items: readonly { instanceId: string; definitionId: string }[]; allies: readonly { instanceId: string; definitionId: string }[] }>; companies: readonly { currentSite: { instanceId: string; definitionId: string } | null }[]; cardsInPlay: readonly { instanceId: string; definitionId: string }[] }[]; eventsInPlay: readonly { instanceId: string; definitionId: string }[] }): void {
     if (!this.currentGameId) return;
     // Compact instance map: { "i-0": "tw-156", ... }
     const instances: Record<string, string> = {};
-    for (const [id, inst] of Object.entries(instanceMap)) {
-      instances[id] = inst.definitionId;
+    const addCard = (card: { instanceId: string; definitionId: string }) => {
+      instances[card.instanceId] = card.definitionId;
+    };
+    const addPile = (pile: readonly { instanceId: string; definitionId: string }[]) => {
+      for (const card of pile) addCard(card);
+    };
+    for (const player of state.players) {
+      addPile(player.hand);
+      addPile(player.playDeck);
+      addPile(player.discardPile);
+      addPile(player.siteDeck);
+      addPile(player.siteDiscardPile);
+      addPile(player.sideboard);
+      addPile(player.killPile);
+      addPile(player.eliminatedPile);
+      for (const char of Object.values(player.characters)) {
+        addCard(char);
+        addPile(char.items);
+        addPile(char.allies);
+      }
+      for (const company of player.companies) {
+        if (company.currentSite) addCard(company.currentSite);
+      }
+      addPile(player.cardsInPlay);
     }
+    addPile(state.eventsInPlay);
     // Only include card definitions actually referenced
     const usedDefIds = new Set(Object.values(instances));
     const cards: Record<string, unknown> = {};
@@ -154,7 +180,7 @@ export class GameLog {
   /**
    * Read state snapshots from the game log, returning them ordered by stateSeq.
    * Only entries with event === 'state' and a numeric stateSeq are included.
-   * The `state` field of each entry contains the full game state minus cardPool/instanceMap.
+   * The `state` field of each entry contains the full game state minus cardPool.
    */
   readStatesBefore(seq: number): Record<string, unknown>[] {
     if (!this.currentGameId) return [];

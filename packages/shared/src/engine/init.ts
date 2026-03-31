@@ -79,32 +79,29 @@ export interface GameConfig {
 // ---- Instance minting ----
 
 /**
- * Mutable helper that stamps out unique {@link CardInstanceId}s and records
- * the definition→instance mapping. Passed through initialisation functions
- * so that every card in the game — across both players — gets a distinct ID.
+ * Mutable helper that stamps out unique {@link CardInstance}s.
+ * Passed through initialisation functions so that every card in the game
+ * — across both players — gets a distinct ID.
  */
 interface InstanceMinter {
-  instanceMap: Record<string, CardInstance>;
   counter: number;
   prefix: string;
 }
 
 /** Creates a fresh minter with the given ID prefix (typically "i"). */
 function createMinter(prefix: string): InstanceMinter {
-  return { instanceMap: {}, counter: 0, prefix };
+  return { counter: 0, prefix };
 }
 
 /**
- * Mints a new {@link CardInstanceId} for a given definition, records the
- * mapping in the minter's instance map, and increments the counter.
+ * Mints a new {@link CardInstance} for a given definition and increments the counter.
  *
- * @returns The newly created instance ID (e.g. "i-0", "i-1", ...).
+ * @returns A new CardInstance (e.g. instanceId "i-0", "i-1", ...).
  */
-function mint(minter: InstanceMinter, definitionId: CardDefinitionId): CardInstanceId {
+function mint(minter: InstanceMinter, definitionId: CardDefinitionId): CardInstance {
   const instanceId = `${minter.prefix}-${minter.counter}` as CardInstanceId;
-  minter.instanceMap[instanceId as string] = { instanceId, definitionId };
   minter.counter++;
-  return instanceId;
+  return { instanceId, definitionId };
 }
 
 // ---- Game creation: starts in character draft phase ----
@@ -157,7 +154,6 @@ export function createGame(
     chain: null,
     eventsInPlay: [],
     cardPool,
-    instanceMap: minter.instanceMap,
     turnNumber: 0,
     startingPlayer: null,
     pendingEffects: [],
@@ -190,15 +186,15 @@ function initPlayerPreDraft(
   rng: RngState,
 ): [PlayerState, RngState] {
   // Mint and shuffle play deck (no hand dealt yet — that happens after draft)
-  const playDeckDefIds = config.playDeck.map(defId => mint(minter, defId));
-  let shuffledDeck: CardInstanceId[];
-  [shuffledDeck, rng] = shuffle(playDeckDefIds, rng);
+  const playDeckMinted = config.playDeck.map(defId => mint(minter, defId));
+  let shuffledDeck: CardInstance[];
+  [shuffledDeck, rng] = shuffle(playDeckMinted, rng);
 
   // Mint site deck
-  const siteDeckIds = config.siteDeck.map(defId => mint(minter, defId));
+  const siteDeckCards = config.siteDeck.map(defId => mint(minter, defId));
 
   // Mint sideboard
-  const sideboardIds = config.sideboard.map(defId => mint(minter, defId));
+  const sideboardCards = config.sideboard.map(defId => mint(minter, defId));
 
   const playerState: PlayerState = {
     id: config.id,
@@ -208,9 +204,9 @@ function initPlayerPreDraft(
     hand: [],
     playDeck: shuffledDeck,
     discardPile: [],
-    siteDeck: siteDeckIds,
+    siteDeck: siteDeckCards,
     siteDiscardPile: [],
-    sideboard: sideboardIds,
+    sideboard: sideboardCards,
     killPile: [],
     eliminatedPile: [],
     companies: [],
@@ -244,28 +240,25 @@ function initPlayerPreDraft(
 export function applyDraftResults(
   state: GameState,
   draftState: readonly [DraftPlayerState, DraftPlayerState],
-  setAside: readonly CardInstanceId[] = [],
+  setAside: readonly CardInstance[] = [],
 ): GameState {
-  const minter: InstanceMinter = {
-    instanceMap: { ...state.instanceMap } as Record<string, CardInstance>,
-    counter: Object.keys(state.instanceMap).length,
-    prefix: 'i',
-  };
-
-  /** Resolve a draft instance ID to its definition ID via the instance map. */
-  const defOf = (instId: CardInstanceId): CardDefinitionId =>
-    state.instanceMap[instId as string].definitionId;
+  // Continue minting from where we left off — count all existing instances across piles and draft state
+  const existingCount = state.players.reduce((sum, p) =>
+    sum + p.playDeck.length + p.siteDeck.length + p.sideboard.length, 0)
+    + draftState[0].pool.length + draftState[0].drafted.length
+    + draftState[1].pool.length + draftState[1].drafted.length
+    + setAside.length;
+  const minter: InstanceMinter = { counter: existingCount, prefix: 'i' };
 
   const results = state.players.map((player, index) => {
     const drafted = draftState[index].drafted;
     const pool = draftState[index].pool;
 
     // Extract items from the pool (items are not drafted during character draft)
-    const minorItemInstanceIds: CardInstanceId[] = [];
-    for (const instId of pool) {
-      const defId = defOf(instId);
-      if (isItemCard(state.cardPool[defId as string])) {
-        minorItemInstanceIds.push(mint(minter, defId));
+    const minorItems: CardInstance[] = [];
+    for (const card of pool) {
+      if (isItemCard(state.cardPool[card.definitionId as string])) {
+        minorItems.push(mint(minter, card.definitionId));
       }
     }
 
@@ -273,15 +266,14 @@ export function applyDraftResults(
     const characters: Record<string, CharacterInPlay> = {};
     const characterInstanceIds: CardInstanceId[] = [];
 
-    for (const instId of drafted) {
-      const charDefId = defOf(instId);
-      const def = state.cardPool[charDefId as string];
+    for (const card of drafted) {
+      const def = state.cardPool[card.definitionId as string];
       if (!isCharacterCard(def)) continue;
-      const instanceId = mint(minter, charDefId);
-      characterInstanceIds.push(instanceId);
-      characters[instanceId as string] = {
-        instanceId,
-        definitionId: charDefId,
+      const minted = mint(minter, card.definitionId);
+      characterInstanceIds.push(minted.instanceId);
+      characters[minted.instanceId as string] = {
+        instanceId: minted.instanceId,
+        definitionId: card.definitionId,
         status: CardStatus.Untapped,
         items: [],
         allies: [],
@@ -312,16 +304,16 @@ export function applyDraftResults(
         companies: [company],
         characters,
       } satisfies PlayerState,
-      unassignedItems: minorItemInstanceIds,
+      unassignedItems: minorItems,
     };
   });
 
   const newPlayers: readonly [PlayerState, PlayerState] = [results[0].player, results[1].player];
   // Remaining pool for character deck draft: undrafted characters + set-aside characters
   // (items are excluded — already extracted above)
-  const remainingPool: readonly [readonly CardInstanceId[], readonly CardInstanceId[]] = [
-    [...draftState[0].pool.filter(id => !isItemCard(state.cardPool[defOf(id) as string])), ...setAside],
-    [...draftState[1].pool.filter(id => !isItemCard(state.cardPool[defOf(id) as string])), ...setAside],
+  const remainingPool: readonly [readonly CardInstance[], readonly CardInstance[]] = [
+    [...draftState[0].pool.filter(card => !isItemCard(state.cardPool[card.definitionId as string])), ...setAside],
+    [...draftState[1].pool.filter(card => !isItemCard(state.cardPool[card.definitionId as string])), ...setAside],
   ];
   const itemDraftState: readonly [ItemDraftPlayerState, ItemDraftPlayerState] = [
     { unassignedItems: results[0].unassignedItems, done: results[0].unassignedItems.length === 0 },
@@ -330,14 +322,13 @@ export function applyDraftResults(
 
   // If neither player has items to assign, skip to character deck draft (or Untap)
   if (itemDraftState[0].done && itemDraftState[1].done) {
-    return transitionAfterItemDraft({ ...state, players: newPlayers, instanceMap: minter.instanceMap }, remainingPool);
+    return transitionAfterItemDraft({ ...state, players: newPlayers }, remainingPool);
   }
 
   return {
     ...state,
     players: newPlayers,
     activePlayer: null,
-    instanceMap: minter.instanceMap,
     phaseState: { phase: Phase.Setup, setupStep: { step: SetupStep.ItemDraft, itemDraftState, remainingPool } },
     turnNumber: 0,
   };
@@ -350,7 +341,7 @@ export function applyDraftResults(
  */
 export function transitionAfterItemDraft(
   state: GameState,
-  remainingPool: readonly [readonly CardInstanceId[], readonly CardInstanceId[]],
+  remainingPool: readonly [readonly CardInstance[], readonly CardInstance[]],
 ): GameState {
   if (remainingPool[0].length > 0 || remainingPool[1].length > 0) {
     return {
@@ -457,7 +448,6 @@ export function createGameQuickStart(
     chain: null,
     eventsInPlay: [],
     cardPool,
-    instanceMap: minter.instanceMap,
     turnNumber: 1,
     startingPlayer: config.players[0].id,
     pendingEffects: [],
@@ -488,7 +478,7 @@ function initPlayerWithCharacters(
   if (!firstHaven) {
     throw new Error('No haven found in site deck');
   }
-  const havenInstanceId = mint(minter, firstHaven);
+  const havenCard = mint(minter, firstHaven);
 
   const characters: Record<string, CharacterInPlay> = {};
   const characterInstanceIds: CardInstanceId[] = [];
@@ -498,11 +488,11 @@ function initPlayerWithCharacters(
     if (!isCharacterCard(charDef)) {
       throw new Error(`Starting character '${charDefId}' not found or not a character`);
     }
-    const instanceId = mint(minter, charDefId);
-    characterInstanceIds.push(instanceId);
-    characters[instanceId as string] = {
-      instanceId,
-      definitionId: charDefId,
+    const card = mint(minter, charDefId);
+    characterInstanceIds.push(card.instanceId);
+    characters[card.instanceId as string] = {
+      instanceId: card.instanceId,
+      definitionId: card.definitionId,
       status: CardStatus.Untapped,
       items: [],
       allies: [],
@@ -516,7 +506,7 @@ function initPlayerWithCharacters(
   const company: Company = {
     id: `company-${config.id}-0` as CompanyId,
     characters: characterInstanceIds,
-    currentSite: { instanceId: havenInstanceId, definitionId: firstHaven, status: CardStatus.Untapped },
+    currentSite: { instanceId: havenCard.instanceId, definitionId: havenCard.definitionId, status: CardStatus.Untapped },
     siteCardOwned: true,
     destinationSite: null,
     movementPath: [],
@@ -525,14 +515,14 @@ function initPlayerWithCharacters(
     onGuardCards: [],
   };
 
-  const playDeckDefIds = config.playDeck.map(defId => mint(minter, defId));
-  let shuffledDeck: CardInstanceId[];
-  [shuffledDeck, rng] = shuffle(playDeckDefIds, rng);
+  const playDeckMinted = config.playDeck.map(defId => mint(minter, defId));
+  let shuffledDeck: CardInstance[];
+  [shuffledDeck, rng] = shuffle(playDeckMinted, rng);
 
   const hand = shuffledDeck.slice(0, HAND_SIZE);
   const remainingDeck = shuffledDeck.slice(HAND_SIZE);
-  const siteDeckIds = config.siteDeck.map(defId => mint(minter, defId));
-  const sideboardIds = config.sideboard.map(defId => mint(minter, defId));
+  const siteDeckCards = config.siteDeck.map(defId => mint(minter, defId));
+  const sideboardCards = config.sideboard.map(defId => mint(minter, defId));
 
   // GI and MP are left at zero — recomputeDerived() is called on the final state
   const playerState: PlayerState = {
@@ -543,9 +533,9 @@ function initPlayerWithCharacters(
     hand,
     playDeck: remainingDeck,
     discardPile: [],
-    siteDeck: siteDeckIds,
+    siteDeck: siteDeckCards,
     siteDiscardPile: [],
-    sideboard: sideboardIds,
+    sideboard: sideboardCards,
     killPile: [],
     eliminatedPile: [],
     companies: [company],

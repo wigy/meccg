@@ -55,7 +55,7 @@ describe('2.III Long-event phase', () => {
     expect(result.state.players[0].cardsInPlay).toHaveLength(0);
 
     // It should be in P1's discard pile
-    expect(result.state.players[0].discardPile).toContain(sunCardInPlay.instanceId);
+    expect(result.state.players[0].discardPile.map(c => c.instanceId)).toContain(sunCardInPlay.instanceId);
   });
 
   test('[2.III.2] resource player may play resource long-events during this phase only', () => {
@@ -77,7 +77,7 @@ describe('2.III Long-event phase', () => {
     expect(playActions[0].viable).toBe(true);
 
     // Play the long-event
-    const sunInstanceId = state.players[0].hand[0];
+    const sunInstanceId = state.players[0].hand[0].instanceId;
     const result = reduce(state, { type: 'play-long-event', player: PLAYER_1, cardInstanceId: sunInstanceId });
     expect(result.error).toBeUndefined();
 
@@ -86,7 +86,7 @@ describe('2.III Long-event phase', () => {
     expect(sunCard).toBeDefined();
 
     // Sun should be removed from hand
-    expect(result.state.players[0].hand).not.toContain(sunInstanceId);
+    expect(result.state.players[0].hand.map(c => c.instanceId)).not.toContain(sunInstanceId);
   });
 
   test('[2.III.3] at end: hazard player immediately discards own hazard long-events', () => {
@@ -117,6 +117,6 @@ describe('2.III Long-event phase', () => {
     expect(result.state.players[1].cardsInPlay).toHaveLength(0);
 
     // It should be in P2's discard pile
-    expect(result.state.players[1].discardPile).toContain(eyeCardInPlay.instanceId);
+    expect(result.state.players[1].discardPile.map(c => c.instanceId)).toContain(eyeCardInPlay.instanceId);
   });
 });

@@ -6,8 +6,9 @@
  * sub-states further constrain available actions.
  */
 
-import type { GameState, PlayerId, GameAction, EvaluatedAction, MovementHazardPhaseState, SiteCard, CardDefinitionId, CardInstanceId, CreatureCard, CreatureKeyingMatch } from '../../index.js';
+import type { GameState, PlayerId, GameAction, EvaluatedAction, MovementHazardPhaseState, SiteCard, CardDefinitionId, CardInstanceId, CreatureCard, CreatureKeyingMatch, PlayHazardAction } from '../../index.js';
 import { getPlayerIndex, isSiteCard, buildMovementMap, findRegionPaths, HAND_SIZE, RegionType } from '../../index.js';
+import { resolveInstanceId } from '../../types/state.js';
 import { MovementType } from '../../types/common.js';
 import { logDetail, logHeading } from './log.js';
 
@@ -177,9 +178,9 @@ function resolveSiteDef(
   siteInstanceId: import('../../index.js').CardInstanceId | null,
 ): SiteCard | undefined {
   if (!siteInstanceId) return undefined;
-  const inst = state.instanceMap[siteInstanceId as string];
-  if (!inst) return undefined;
-  const def = state.cardPool[inst.definitionId as string];
+  const defId = resolveInstanceId(state, siteInstanceId);
+  if (!defId) return undefined;
+  const def = state.cardPool[defId as string];
   if (!def || !isSiteCard(def)) return undefined;
   return def;
 }
@@ -345,10 +346,9 @@ function playHazardsActions(
     const resourcePlayer = state.players[activeIndex];
     const targetCompany = resourcePlayer.companies[mhState.activeCompanyIndex];
 
-    for (const cardInstId of player.hand) {
-      const inst = state.instanceMap[cardInstId as string];
-      if (!inst) continue;
-      const def = state.cardPool[inst.definitionId as string];
+    for (const handCard of player.hand) {
+      const cardInstId = handCard.instanceId;
+      const def = state.cardPool[handCard.definitionId as string];
       if (!def) continue;
 
       const isCreature = def.cardType === 'hazard-creature';
@@ -357,7 +357,7 @@ function playHazardsActions(
         && (def.eventType === 'long' || def.eventType === 'permanent');
       if (!isCreature && !isEvent && !isShortEvent) continue;
 
-      const action: GameAction = {
+      const action: PlayHazardAction = {
         type: 'play-hazard',
         player: playerId,
         cardInstanceId: cardInstId,
@@ -535,8 +535,8 @@ function resetHandActions(
   const excess = player.hand.length - handSize;
   logDetail(`Reset-hand: player ${player.name} must discard ${excess} card(s) (${player.hand.length}/${handSize})`);
 
-  return player.hand.map(cardInstId => ({
-    action: { type: 'discard-card' as const, player: playerId, cardInstanceId: cardInstId },
+  return player.hand.map(handCard => ({
+    action: { type: 'discard-card' as const, player: playerId, cardInstanceId: handCard.instanceId },
     viable: true,
   }));
 }
@@ -618,7 +618,7 @@ function describeKeyingRequirement(def: CreatureCard): string {
  */
 export function deckExhaustExchangeActions(
   state: GameState,
-  player: { readonly discardPile: readonly CardInstanceId[]; readonly sideboard: readonly CardInstanceId[]; readonly deckExhaustExchangeCount: number },
+  player: { readonly discardPile: readonly import('../../index.js').CardInstance[]; readonly sideboard: readonly import('../../index.js').CardInstance[]; readonly deckExhaustExchangeCount: number },
   playerId: PlayerId,
 ): GameAction[] {
   const actions: GameAction[] = [];
@@ -628,13 +628,13 @@ export function deckExhaustExchangeActions(
     && player.discardPile.length > 0
     && player.sideboard.length > 0) {
     // Generate one exchange action per (discard, sideboard) pair
-    for (const discardCardInstanceId of player.discardPile) {
-      for (const sideboardCardInstanceId of player.sideboard) {
+    for (const discardCard of player.discardPile) {
+      for (const sideboardCard of player.sideboard) {
         actions.push({
           type: 'exchange-sideboard',
           player: playerId,
-          discardCardInstanceId,
-          sideboardCardInstanceId,
+          discardCardInstanceId: discardCard.instanceId,
+          sideboardCardInstanceId: sideboardCard.instanceId,
         });
       }
     }

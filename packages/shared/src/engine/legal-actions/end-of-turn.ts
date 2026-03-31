@@ -58,8 +58,8 @@ function discardStepActions(state: GameState, playerId: PlayerId): GameAction[] 
   const actions: GameAction[] = [];
 
   // Each card in hand can be discarded
-  for (const cardId of player.hand) {
-    actions.push({ type: 'discard-card', player: playerId, cardInstanceId: cardId });
+  for (const card of player.hand) {
+    actions.push({ type: 'discard-card', player: playerId, cardInstanceId: card.instanceId });
   }
 
   // Always offer pass
@@ -87,8 +87,8 @@ function resetHandStepActions(state: GameState, playerId: PlayerId): GameAction[
   if (player.hand.length > handSize) {
     // Must discard down — offer each card as a discard option
     logDetail(`End-of-Turn reset-hand: player ${player.name} has ${player.hand.length} cards, must discard to ${handSize}`);
-    for (const cardId of player.hand) {
-      actions.push({ type: 'discard-card', player: playerId, cardInstanceId: cardId });
+    for (const card of player.hand) {
+      actions.push({ type: 'discard-card', player: playerId, cardInstanceId: card.instanceId });
     }
   } else if (player.hand.length < handSize) {
     if (player.playDeck.length === 0 && player.discardPile.length > 0) {

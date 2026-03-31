@@ -11,6 +11,7 @@
 
 import type { GameState, PlayerId, GameAction, EvaluatedAction, SitePhaseState, HeroItemCard, HeroResourceEventCard, SiteCard, PlayableAtEntry, FactionCard } from '../../index.js';
 import { getPlayerIndex, isSiteCard, isItemCard, isAllyCard, isFactionCard, isCharacterCard, CardStatus, matchesCondition } from '../../index.js';
+import { resolveInstanceId } from '../../types/state.js';
 import { collectCharacterEffects, resolveCheckModifier } from '../effects/index.js';
 import type { ResolverContext } from '../effects/index.js';
 import { logDetail, logHeading } from './log.js';
@@ -254,8 +255,8 @@ function playResourcesActions(
 
   // Look up the site's playable resource types
   const siteInstanceId = company.currentSite?.instanceId ?? null;
-  const siteInstance = siteInstanceId ? state.instanceMap[siteInstanceId as string] : undefined;
-  const siteDef = siteInstance ? state.cardPool[siteInstance.definitionId as string] : undefined;
+  const siteDefId = siteInstanceId ? resolveInstanceId(state, siteInstanceId) : undefined;
+  const siteDef = siteDefId ? state.cardPool[siteDefId as string] : undefined;
   const playableTypes = siteDef && isSiteCard(siteDef) ? new Set(siteDef.playableResources) : new Set<string>();
   const siteName = siteDef?.name ?? 'unknown site';
 
@@ -272,10 +273,9 @@ function playResourcesActions(
   // Evaluate each hand card
   const evaluatedInstances = new Set<string>();
 
-  for (const cardInstanceId of player.hand) {
-    const inst = state.instanceMap[cardInstanceId as string];
-    if (!inst) continue;
-    const def = state.cardPool[inst.definitionId as string];
+  for (const handCard of player.hand) {
+    const cardInstanceId = handCard.instanceId;
+    const def = state.cardPool[handCard.definitionId as string];
     if (!def) continue;
 
     // Permanent resource events — playable like in organization phase
@@ -579,13 +579,12 @@ function playResourcesActions(
   }
 
   // Mark remaining hand cards as not playable
-  for (const cardInstanceId of player.hand) {
-    if (evaluatedInstances.has(cardInstanceId as string)) continue;
-    const inst = state.instanceMap[cardInstanceId as string];
-    const def = inst ? state.cardPool[inst.definitionId as string] : undefined;
+  for (const handCard of player.hand) {
+    if (evaluatedInstances.has(handCard.instanceId as string)) continue;
+    const def = state.cardPool[handCard.definitionId as string];
     const name = def?.name ?? 'card';
     actions.push({
-      action: { type: 'not-playable', player: playerId, cardInstanceId },
+      action: { type: 'not-playable', player: playerId, cardInstanceId: handCard.instanceId },
       viable: false,
       reason: `${name}: not playable during site phase`,
     });

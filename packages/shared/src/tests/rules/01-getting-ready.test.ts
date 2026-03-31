@@ -22,7 +22,7 @@ import {
 import { computeLegalActions } from '../../engine/legal-actions/index.js';
 import type { EvaluatedAction, GameState, CardDefinitionId, PlayerId, GameAction } from '../../index.js';
 import type { GameConfig } from '../../engine/init.js';
-import { GENERAL_INFLUENCE, HAND_SIZE, getPlayerIndex } from '../../index.js';
+import { GENERAL_INFLUENCE, HAND_SIZE, getPlayerIndex, resolveInstanceId } from '../../index.js';
 
 /** Draft a character by definition ID, returning the updated state. */
 function draftChar(state: GameState, player: PlayerId, defId: CardDefinitionId): GameState {
@@ -94,9 +94,9 @@ describe('1.9 Character draft', () => {
 
     // Each player should have 1 drafted character in the draft state
     if (state.phaseState.phase === Phase.Setup && state.phaseState.setupStep.step === 'character-draft') {
-      // Drafted contains instance IDs — verify by resolving to definitions
-      const drafted0Defs = state.phaseState.setupStep.draftState[0].drafted.map(id => state.instanceMap[id as string]?.definitionId);
-      const drafted1Defs = state.phaseState.setupStep.draftState[1].drafted.map(id => state.instanceMap[id as string]?.definitionId);
+      // Drafted contains CardInstance objects — verify definitions
+      const drafted0Defs = state.phaseState.setupStep.draftState[0].drafted.map(inst => inst.definitionId);
+      const drafted1Defs = state.phaseState.setupStep.draftState[1].drafted.map(inst => inst.definitionId);
       expect(drafted0Defs).toContain(ARAGORN);
       expect(drafted1Defs).toContain(LEGOLAS);
     }
@@ -156,8 +156,8 @@ describe('1.9 Character draft', () => {
     const nonViablePicks = nonViableOfType(actions, 'draft-pick');
     for (const nv of nonViablePicks) {
       if ('characterInstanceId' in nv.action) {
-        const instEntry = state.instanceMap[nv.action.characterInstanceId as string];
-        const charDef = instEntry ? pool[instEntry.definitionId as string] : undefined;
+        const defId = resolveInstanceId(state, nv.action.characterInstanceId);
+        const charDef = defId ? pool[defId as string] : undefined;
         if (charDef && 'mind' in charDef && charDef.mind != null) {
           const currentMind = state.players[0].generalInfluenceUsed;
           // If non-viable due to mind, the sum should exceed 20

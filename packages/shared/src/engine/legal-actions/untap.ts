@@ -51,13 +51,13 @@ function activePlayerHasAvatar(state: GameState): boolean {
  */
 function getEligibleHazardCards(
   state: GameState,
-  player: { readonly sideboard: readonly CardInstanceId[] },
+  player: { readonly sideboard: readonly import('../../index.js').CardInstance[] },
 ): { instanceId: CardInstanceId; name: string }[] {
   const result: { instanceId: CardInstanceId; name: string }[] = [];
-  for (const cardId of player.sideboard) {
-    const def = resolveDef(state, cardId);
+  for (const card of player.sideboard) {
+    const def = state.cardPool[card.definitionId as string];
     if (def && isHazardEligible(def.cardType)) {
-      result.push({ instanceId: cardId, name: def.name });
+      result.push({ instanceId: card.instanceId, name: def.name });
     }
   }
   return result;
@@ -131,9 +131,9 @@ export function untapActions(state: GameState, playerId: PlayerId): EvaluatedAct
     logDetail('Untap phase: resource player already untapped, waiting for hazard player');
   }
 
-  for (const cardInstanceId of player.hand) {
+  for (const handCard of player.hand) {
     actions.push({
-      action: { type: 'not-playable', player: playerId, cardInstanceId },
+      action: { type: 'not-playable', player: playerId, cardInstanceId: handCard.instanceId },
       viable: false,
       reason: 'Cards cannot be played during the untap phase',
     });

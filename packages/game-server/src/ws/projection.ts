@@ -24,126 +24,17 @@ import type {
   OpponentCompanyView,
   ViewCard,
   PlayerId,
-  CardInstanceId,
-  CardDefinitionId,
+  CardInstance,
   PhaseState,
   DraftPlayerState,
   CharacterDeckDraftPlayerState,
 } from '@meccg/shared';
-import { UNKNOWN_INSTANCE, UNKNOWN_CARD, UNKNOWN_SITE, getPlayerIndex, Phase, SetupStep } from '@meccg/shared';
+import { UNKNOWN_INSTANCE, UNKNOWN_CARD, UNKNOWN_SITE, getPlayerIndex, Phase } from '@meccg/shared';
 import { computeLegalActions } from '@meccg/shared';
 
-/**
- * Builds a flat map of all instance IDs the player is allowed to see,
- * resolved to their definition IDs. This covers piles, characters, items,
- * phase-state cards (draft pools, site selections, combat, chain, etc.)
- * so the client can resolve any instance ID referenced by legal actions.
- */
-function buildVisibleInstanceMap(
-  state: GameState,
-  selfIndex: number,
-  redactedPhase: PhaseState,
-): Record<string, CardDefinitionId> {
-  const map: Record<string, CardDefinitionId> = {};
-
-  const addInst = (id: CardInstanceId) => {
-    if (id === UNKNOWN_INSTANCE || map[id as string]) return;
-    const inst = state.instanceMap[id as string];
-    if (inst) map[id as string] = inst.definitionId;
-  };
-
-  const addPile = (ids: readonly CardInstanceId[]) => {
-    for (const id of ids) addInst(id);
-  };
-
-  // Both players' piles, characters, items, companies
-  for (const player of state.players) {
-    addPile(player.hand);
-    addPile(player.playDeck);
-    addPile(player.discardPile);
-    addPile(player.siteDeck);
-    addPile(player.siteDiscardPile);
-    addPile(player.sideboard);
-    addPile(player.killPile);
-    addPile(player.eliminatedPile);
-    for (const char of Object.values(player.characters)) {
-      addInst(char.instanceId);
-      for (const item of char.items) addInst(item.instanceId);
-      for (const ally of char.allies) addInst(ally.instanceId);
-      addPile(char.corruptionCards);
-    }
-    for (const c of player.companies) {
-      if (c.currentSite) addInst(c.currentSite.instanceId);
-      if (c.destinationSite) addInst(c.destinationSite);
-      addPile(c.movementPath);
-      addPile(c.onGuardCards);
-      if (c.siteOfOrigin) addInst(c.siteOfOrigin);
-    }
-    for (const c of player.cardsInPlay) addInst(c.instanceId);
-  }
-
-  // Phase-state instance IDs (uses the redacted phase so hidden IDs stay hidden)
-  if (redactedPhase.phase === 'setup') {
-    const step = redactedPhase.setupStep;
-    if (step.step === SetupStep.CharacterDraft) {
-      for (const ds of step.draftState) {
-        addPile(ds.pool);
-        addPile(ds.drafted);
-        if (ds.currentPick) addInst(ds.currentPick);
-      }
-      addPile(step.setAside);
-    } else if (step.step === SetupStep.ItemDraft) {
-      for (const ds of step.itemDraftState) addPile(ds.unassignedItems);
-      for (const rp of step.remainingPool) addPile(rp);
-    } else if (step.step === SetupStep.CharacterDeckDraft) {
-      for (const ds of step.deckDraftState) addPile(ds.remainingPool);
-    } else if (step.step === SetupStep.StartingSiteSelection) {
-      for (const ss of step.siteSelectionState) {
-        for (const site of ss.selectedSites) addInst(site.instanceId);
-      }
-    }
-  }
-
-  // Combat state
-  if (state.combat) {
-    if (state.combat.attackSource.type === 'creature') addInst(state.combat.attackSource.instanceId);
-    if (state.combat.attackSource.type === 'agent') addInst(state.combat.attackSource.instanceId);
-    if (state.combat.attackSource.type === 'automatic-attack') addInst(state.combat.attackSource.siteInstanceId);
-    for (const sa of state.combat.strikeAssignments) addInst(sa.characterId);
-  }
-
-  // Chain state
-  if (state.chain) {
-    for (const entry of state.chain.entries) {
-      if (entry.cardInstanceId) addInst(entry.cardInstanceId);
-      if (entry.payload.type === 'short-event' && entry.payload.targetInstanceId) {
-        addInst(entry.payload.targetInstanceId);
-      }
-    }
-  }
-
-  // Events in play
-  for (const e of state.eventsInPlay) addInst(e.instanceId);
-
-  return map;
-}
-
-/**
- * Resolves a card instance to a {@link ViewCard} containing both the
- * instance ID and its underlying definition ID. Used for cards the
- * requesting player is allowed to see (e.g. their own hand).
- */
-function resolveCard(state: GameState, instanceId: CardInstanceId): ViewCard {
-  const inst = state.instanceMap[instanceId as string];
-  return {
-    instanceId,
-    definitionId: inst?.definitionId ?? ('' as CardDefinitionId),
-  };
-}
-
-/** Resolve an entire pile of card instances to view cards. */
-function resolvePile(state: GameState, ids: readonly CardInstanceId[]): ViewCard[] {
-  return ids.map(id => resolveCard(state, id));
+/** Convert a pile of card instances to view cards (structurally identical). */
+function toViewCards(pile: readonly CardInstance[]): ViewCard[] {
+  return pile.map(c => ({ instanceId: c.instanceId, definitionId: c.definitionId }));
 }
 
 /** Creates a hidden card pile of the given length using the `UNKNOWN_CARD` sentinel. */
@@ -162,20 +53,20 @@ function hiddenSitePile(length: number): readonly ViewCard[] {
  * sideboard, companies, and characters — but only the *size* of their play
  * deck (not its order).
  */
-function buildSelfView(state: GameState, player: PlayerState): SelfView {
+function buildSelfView(_state: GameState, player: PlayerState): SelfView {
   return {
     id: player.id,
     name: player.name,
     alignment: player.alignment,
     wizard: player.wizard,
-    hand: resolvePile(state, player.hand),
+    hand: toViewCards(player.hand),
     playDeck: hiddenCardPile(player.playDeck.length),
-    discardPile: resolvePile(state, player.discardPile),
-    siteDeck: resolvePile(state, player.siteDeck),
-    siteDiscardPile: resolvePile(state, player.siteDiscardPile),
-    sideboard: resolvePile(state, player.sideboard),
-    killPile: resolvePile(state, player.killPile),
-    eliminatedPile: resolvePile(state, player.eliminatedPile),
+    discardPile: toViewCards(player.discardPile),
+    siteDeck: toViewCards(player.siteDeck),
+    siteDiscardPile: toViewCards(player.siteDiscardPile),
+    sideboard: toViewCards(player.sideboard),
+    killPile: toViewCards(player.killPile),
+    eliminatedPile: toViewCards(player.eliminatedPile),
     companies: player.companies,
     characters: player.characters,
     cardsInPlay: player.cardsInPlay,
@@ -194,7 +85,7 @@ function buildSelfView(state: GameState, player: PlayerState): SelfView {
  * Public information — characters in play, company locations, discard piles —
  * is passed through.
  */
-function buildOpponentView(state: GameState, player: PlayerState): OpponentView {
+function buildOpponentView(_state: GameState, player: PlayerState): OpponentView {
   const companies: OpponentCompanyView[] = player.companies.map(c => ({
     id: c.id,
     characters: c.characters,
@@ -214,10 +105,10 @@ function buildOpponentView(state: GameState, player: PlayerState): OpponentView 
     hand: hiddenCardPile(player.hand.length),
     playDeck: hiddenCardPile(player.playDeck.length),
     siteDeck: hiddenSitePile(player.siteDeck.length),
-    discardPile: resolvePile(state, player.discardPile),
-    siteDiscardPile: resolvePile(state, player.siteDiscardPile),
-    killPile: resolvePile(state, player.killPile),
-    eliminatedPile: resolvePile(state, player.eliminatedPile),
+    discardPile: toViewCards(player.discardPile),
+    siteDiscardPile: toViewCards(player.siteDiscardPile),
+    killPile: toViewCards(player.killPile),
+    eliminatedPile: toViewCards(player.eliminatedPile),
     companies,
     characters: player.characters,
     cardsInPlay: player.cardsInPlay,
@@ -284,7 +175,6 @@ export function projectSpectatorView(state: GameState): PlayerView {
     startingPlayer: state.startingPlayer,
     stateSeq: state.stateSeq,
     legalActions: [],
-    instanceMap: {},
   };
 }
 
@@ -310,11 +200,12 @@ function redactPhaseForPlayer(phaseState: PhaseState, selfIndex: number): PhaseS
       step.draftState[1],
     ];
     const oppPool = step.draftState[opponentIndex].pool;
+    const hiddenCard: CardInstance = { instanceId: UNKNOWN_INSTANCE, definitionId: UNKNOWN_CARD };
     newDraftState[opponentIndex] = {
       ...step.draftState[opponentIndex],
-      pool: oppPool.map(() => UNKNOWN_INSTANCE),
+      pool: oppPool.map(() => hiddenCard),
       // Show that opponent has picked (face-down) without revealing what
-      currentPick: step.draftState[opponentIndex].currentPick !== null ? UNKNOWN_INSTANCE : null,
+      currentPick: step.draftState[opponentIndex].currentPick !== null ? hiddenCard : null,
       // drafted stays visible — it's public after reveal
     };
     return { ...phaseState, setupStep: { ...step, draftState: newDraftState } };
@@ -327,7 +218,9 @@ function redactPhaseForPlayer(phaseState: PhaseState, selfIndex: number): PhaseS
     ];
     newDeckDraftState[opponentIndex] = {
       ...step.deckDraftState[opponentIndex],
-      remainingPool: step.deckDraftState[opponentIndex].remainingPool.map(() => UNKNOWN_INSTANCE),
+      remainingPool: step.deckDraftState[opponentIndex].remainingPool.map(
+        () => ({ instanceId: UNKNOWN_INSTANCE, definitionId: UNKNOWN_CARD }),
+      ),
     };
     return { ...phaseState, setupStep: { ...step, deckDraftState: newDeckDraftState } };
   }
@@ -345,7 +238,7 @@ function redactPhaseForSpectator(phaseState: PhaseState): PhaseState {
   const step = phaseState.setupStep;
   const redact = (d: DraftPlayerState): DraftPlayerState => ({
     ...d,
-    pool: d.pool.map(() => UNKNOWN_INSTANCE),
+    pool: d.pool.map(() => ({ instanceId: UNKNOWN_INSTANCE, definitionId: UNKNOWN_CARD })),
     // drafted stays visible — it's public after reveal
     currentPick: null,
   });
@@ -387,7 +280,6 @@ export function projectPlayerView(state: GameState, playerId: PlayerId): PlayerV
 
   const legalActions = computeLegalActions(state, playerId);
   const redactedPhase = redactPhaseForPlayer(state.phaseState, selfIndex);
-  const instanceMap = buildVisibleInstanceMap(state, selfIndex, redactedPhase);
 
   return {
     self,
@@ -402,6 +294,5 @@ export function projectPlayerView(state: GameState, playerId: PlayerId): PlayerV
     startingPlayer: state.startingPlayer,
     stateSeq: state.stateSeq,
     legalActions,
-    instanceMap,
   };
 }

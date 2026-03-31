@@ -305,7 +305,7 @@ export class GameSession {
     this.gameLog.open(this.state.gameId);
     this.gameLog.writeStaticData(
       this.state.cardPool as unknown as Record<string, unknown>,
-      this.state.instanceMap as unknown as Record<string, { definitionId: string }>,
+      this.state,
     );
     this.logState('new-game');
 
@@ -330,7 +330,7 @@ export class GameSession {
     this.gameLog.open(this.state.gameId);
     this.gameLog.writeStaticData(
       this.state.cardPool as unknown as Record<string, unknown>,
-      this.state.instanceMap as unknown as Record<string, { definitionId: string }>,
+      this.state,
     );
     this.gameLog.truncateAfterSeq(this.state.stateSeq);
 
@@ -357,7 +357,6 @@ export class GameSession {
     this.stateHistory = logStates.map(s => ({
       ...s,
       cardPool: this.state!.cardPool,
-      instanceMap: this.state!.instanceMap,
     }) as GameState);
     this.gameLog.log('restore', { stateSeq: this.state.stateSeq, player1: name1, player2: name2 });
 
@@ -452,8 +451,8 @@ export class GameSession {
       if (roundAdvanced || draftEnded) {
         const pick0 = prevDraft.draftState[0].currentPick;
         const pick1 = prevDraft.draftState[1].currentPick;
-        const def0 = pick0 !== null ? this.state.instanceMap[pick0 as string]?.definitionId : null;
-        const def1 = pick1 !== null ? this.state.instanceMap[pick1 as string]?.definitionId : null;
+        const def0 = pick0 !== null ? pick0.definitionId : null;
+        const def1 = pick1 !== null ? pick1.definitionId : null;
         const collision = def0 !== null && def1 !== null && def0 === def1;
 
         const revealMsg: ServerMessage = {
@@ -511,7 +510,7 @@ export class GameSession {
   /** Log a state snapshot to the per-game log. */
   private logState(reason: string, action?: Record<string, unknown>): void {
     if (this.state) {
-      const { cardPool: _cardPool, instanceMap: _instanceMap, ...stateWithoutStatic } = this.state;
+      const { cardPool: _cardPool, ...stateWithoutStatic } = this.state;
       this.gameLog.log('state', {
         stateSeq: this.state.stateSeq,
         reason,
@@ -613,27 +612,36 @@ export class GameSession {
 
     // Find the highest existing instance counter to avoid ID collisions
     let maxCounter = 0;
-    for (const key of Object.keys(this.state.instanceMap)) {
-      const match = /^i-(\d+)$/.exec(key);
-      if (match) maxCounter = Math.max(maxCounter, parseInt(match[1], 10));
+    const countInstances = (pile: readonly { instanceId: CardInstanceId }[]) => {
+      for (const card of pile) {
+        const m = /^i-(\d+)$/.exec(card.instanceId as string);
+        if (m) maxCounter = Math.max(maxCounter, parseInt(m[1], 10));
+      }
+    };
+    for (const player of this.state.players) {
+      countInstances(player.hand);
+      countInstances(player.playDeck);
+      countInstances(player.discardPile);
+      countInstances(player.siteDeck);
+      countInstances(player.siteDiscardPile);
+      countInstances(player.sideboard);
+      countInstances(player.killPile);
+      countInstances(player.eliminatedPile);
     }
     const newInstanceId = `i-${maxCounter + 1}` as CardInstanceId;
     const definitionId = matchDefId as CardDefinitionId;
 
-    // Add to instance map and player's hand
+    // Add card instance to the player's hand
     const playerIdx = this.state.players.findIndex(p => p.id === playerId);
     if (playerIdx < 0) return;
 
-    const newInstanceMap = {
-      ...this.state.instanceMap,
-      [newInstanceId as string]: { instanceId: newInstanceId, definitionId },
-    };
+    const newCard = { instanceId: newInstanceId, definitionId };
 
     const updatedPlayers = this.state.players.map((p, i) =>
-      i === playerIdx ? { ...p, hand: [...p.hand, newInstanceId] } : p,
+      i === playerIdx ? { ...p, hand: [...p.hand, newCard] } : p,
     ) as unknown as readonly [PlayerState, PlayerState];
 
-    this.state = { ...this.state, instanceMap: newInstanceMap, players: updatedPlayers };
+    this.state = { ...this.state, players: updatedPlayers };
 
     this.broadcastStateWithLogs();
     this.broadcastToAll({ type: 'info', message: `CHEAT: summoned ${matchName}.` });

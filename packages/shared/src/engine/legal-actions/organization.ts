@@ -27,6 +27,7 @@ import type {
 import { GENERAL_INFLUENCE, SiteType, CardStatus, isCharacterCard, isSiteCard, buildMovementMap, getReachableSites } from '../../index.js';
 import { logDetail, logHeading } from './log.js';
 import { resolveDef } from '../effects/index.js';
+import { resolveInstanceId } from '../../types/state.js';
 import { isRegressive } from '../reverse-actions.js';
 
 /** Maximum number of sideboard cards fetchable to the discard pile per avatar tap. */
@@ -74,7 +75,7 @@ function findPlayableSites(
   state: GameState,
   player: {
     readonly companies: readonly import('../../index.js').Company[];
-    readonly siteDeck: readonly CardInstanceId[];
+    readonly siteDeck: readonly import('../../index.js').CardInstance[];
   },
   charDef: CharacterCard,
 ): { instanceId: CardInstanceId; siteDef: SiteCard; siteName: string }[] {
@@ -104,16 +105,16 @@ function findPlayableSites(
   // Sites available in the player's site deck (character forms a new company).
   // Deduplicate by site name: multiple copies of the same site in the deck
   // should only produce one legal action (using the first matching instance).
-  for (const siteId of player.siteDeck) {
-    const siteDef = resolveDef(state, siteId);
-    if (!isSiteCard(siteDef)) continue;
+  for (const siteCard of player.siteDeck) {
+    const siteDef = state.cardPool[siteCard.definitionId as string];
+    if (!siteDef || !isSiteCard(siteDef)) continue;
     if (seenSiteNames.has(siteDef.name)) continue;
 
     const isHaven = siteDef.siteType === SiteType.Haven;
     const isHomesite = siteDef.name === charDef.homesite;
 
     if (isHaven || isHomesite) {
-      results.push({ instanceId: siteId, siteDef, siteName: siteDef.name });
+      results.push({ instanceId: siteCard.instanceId, siteDef, siteName: siteDef.name });
       seenSiteNames.add(siteDef.name);
     }
   }
@@ -158,8 +159,9 @@ function playCharacterActions(
   const player = state.players.find(p => p.id === playerId)!;
   const results: EvaluatedAction[] = [];
 
-  for (const cardInstanceId of player.hand) {
-    const cardDef = resolveDef(state, cardInstanceId);
+  for (const handCard of player.hand) {
+    const cardInstanceId = handCard.instanceId;
+    const cardDef = state.cardPool[handCard.definitionId as string];
     if (!isCharacterCard(cardDef)) continue;
 
     const charName = cardDef.name;
@@ -297,10 +299,9 @@ function playPermanentEventActions(state: GameState, playerId: PlayerId): Evalua
   const player = state.players.find(p => p.id === playerId)!;
   const actions: EvaluatedAction[] = [];
 
-  for (const cardInstanceId of player.hand) {
-    const inst = state.instanceMap[cardInstanceId as string];
-    if (!inst) continue;
-    const def = state.cardPool[inst.definitionId as string] as HeroResourceEventCard | undefined;
+  for (const handCard of player.hand) {
+    const cardInstanceId = handCard.instanceId;
+    const def = state.cardPool[handCard.definitionId as string] as HeroResourceEventCard | undefined;
     if (!def || def.cardType !== 'hero-resource-event' || def.eventType !== 'permanent') continue;
 
     // Check uniqueness: unique permanent events can't be played if already in play
@@ -364,10 +365,9 @@ function playShortEventActions(state: GameState, playerId: PlayerId): EvaluatedA
   const player = state.players.find(p => p.id === playerId)!;
   const actions: EvaluatedAction[] = [];
 
-  for (const cardInstanceId of player.hand) {
-    const inst = state.instanceMap[cardInstanceId as string];
-    if (!inst) continue;
-    const def = state.cardPool[inst.definitionId as string] as HazardEventCard | undefined;
+  for (const handCard of player.hand) {
+    const cardInstanceId = handCard.instanceId;
+    const def = state.cardPool[handCard.definitionId as string] as HazardEventCard | undefined;
     if (!def || def.cardType !== 'hazard-event' || def.eventType !== 'short') continue;
 
     // Only cards with the playable-as-resource effect
@@ -444,21 +444,17 @@ function planMovementActions(state: GameState, playerId: PlayerId): EvaluatedAct
     if (!company.currentSite) continue;
     if (company.destinationSite !== null) continue;
 
-    const currentSiteInst = state.instanceMap[company.currentSite.instanceId as string];
-    if (!currentSiteInst) continue;
-    const currentSiteDef = state.cardPool[currentSiteInst.definitionId as string];
+    const currentSiteDef = resolveDef(state, company.currentSite.instanceId);
     if (!currentSiteDef || !isSiteCard(currentSiteDef)) continue;
 
     // Build candidate sites from the player's site deck
     const candidateSites: SiteCard[] = [];
     const siteInstMap = new Map<string, CardInstanceId>();
-    for (const siteInstId of player.siteDeck) {
-      const siteInst = state.instanceMap[siteInstId as string];
-      if (!siteInst) continue;
-      const siteDef = state.cardPool[siteInst.definitionId as string];
+    for (const siteCard of player.siteDeck) {
+      const siteDef = state.cardPool[siteCard.definitionId as string];
       if (!siteDef || !isSiteCard(siteDef)) continue;
       candidateSites.push(siteDef);
-      siteInstMap.set(siteDef.name, siteInstId);
+      siteInstMap.set(siteDef.name, siteCard.instanceId);
     }
 
     const reachable = getReachableSites(movementMap, currentSiteDef, candidateSites);
@@ -605,9 +601,7 @@ function transferItemActions(state: GameState, playerId: PlayerId): EvaluatedAct
       const charName = isCharacterCard(charDef) ? charDef.name : '?';
 
       for (const item of char.items) {
-        const itemInst = state.instanceMap[item.instanceId as string];
-        if (!itemInst) continue;
-        const itemDef = state.cardPool[itemInst.definitionId as string];
+        const itemDef = state.cardPool[item.definitionId as string];
         const itemName = itemDef?.name ?? '?';
 
         for (const targetInstId of charsAtSite) {
@@ -819,13 +813,13 @@ function isSideboardEligible(cardType: string): boolean {
  */
 function getEligibleSideboardCards(
   state: GameState,
-  player: { readonly sideboard: readonly CardInstanceId[] },
+  player: { readonly sideboard: readonly import('../../index.js').CardInstance[] },
 ): { instanceId: CardInstanceId; name: string }[] {
   const result: { instanceId: CardInstanceId; name: string }[] = [];
-  for (const cardId of player.sideboard) {
-    const def = resolveDef(state, cardId);
+  for (const card of player.sideboard) {
+    const def = state.cardPool[card.definitionId as string];
     if (def && isSideboardEligible(def.cardType)) {
-      result.push({ instanceId: cardId, name: def.name });
+      result.push({ instanceId: card.instanceId, name: def.name });
     }
   }
   return result;
@@ -964,8 +958,8 @@ export function organizationActions(state: GameState, playerId: PlayerId): Evalu
       const charName = isCharacterCard(charDef) ? charDef.name : '?';
 
       // Include CP from the transferred item (already moved to target character)
-      const transferredInst = state.instanceMap[transferredItemId as string];
-      const transferredDef = transferredInst ? state.cardPool[transferredInst.definitionId as string] : undefined;
+      const transferredDefId = resolveInstanceId(state, transferredItemId);
+      const transferredDef = transferredDefId ? state.cardPool[transferredDefId as string] : undefined;
       const transferredCp = transferredDef && 'corruptionPoints' in transferredDef
         ? (transferredDef as { corruptionPoints: number }).corruptionPoints : 0;
       const cp = char.effectiveStats.corruptionPoints + transferredCp;
@@ -1056,12 +1050,12 @@ export function organizationActions(state: GameState, playerId: PlayerId): Evalu
   );
 
   // Mark remaining hand cards as not playable during organization
-  for (const cardInstanceId of player.hand) {
-    if (evaluatedInstances.has(cardInstanceId as string)) continue;
-    if (permanentEventInstances.has(cardInstanceId as string)) continue;
-    if (shortEventInstances.has(cardInstanceId as string)) continue;
+  for (const handCard of player.hand) {
+    if (evaluatedInstances.has(handCard.instanceId as string)) continue;
+    if (permanentEventInstances.has(handCard.instanceId as string)) continue;
+    if (shortEventInstances.has(handCard.instanceId as string)) continue;
     actions.push({
-      action: { type: 'not-playable', player: playerId, cardInstanceId },
+      action: { type: 'not-playable', player: playerId, cardInstanceId: handCard.instanceId },
       viable: false,
       reason: 'Not playable during the organization',
     });

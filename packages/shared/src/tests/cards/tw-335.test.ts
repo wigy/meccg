@@ -55,7 +55,7 @@ describe('Sun (tw-335)', () => {
       ],
     });
 
-    const sunInstanceId = state.players[0].hand[0];
+    const sunInstanceId = state.players[0].hand[0].instanceId;
     const result = reduce(state, { type: 'play-long-event', player: PLAYER_1, cardInstanceId: sunInstanceId });
     expect(result.error).toBeUndefined();
 
@@ -82,7 +82,7 @@ describe('Sun (tw-335)', () => {
       ],
     });
 
-    const sunInstanceId = state.players[0].hand[0];
+    const sunInstanceId = state.players[0].hand[0].instanceId;
     const result = reduce(state, { type: 'play-long-event', player: PLAYER_1, cardInstanceId: sunInstanceId });
     expect(result.error).toBeUndefined();
 
@@ -130,7 +130,7 @@ describe('Sun (tw-335)', () => {
       ],
     });
 
-    const sunInstanceId = state.players[0].hand[0];
+    const sunInstanceId = state.players[0].hand[0].instanceId;
     const result = reduce(state, { type: 'play-long-event', player: PLAYER_1, cardInstanceId: sunInstanceId });
     expect(result.error).toBeUndefined();
 

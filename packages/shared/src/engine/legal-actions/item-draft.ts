@@ -35,14 +35,14 @@ export function itemDraftActions(state: GameState, playerId: PlayerId): Evaluate
 
   // Emit non-viable entries for drafted characters (they're in companies, not assignable)
   for (const charInstId of allCharIds) {
-    const inst = state.instanceMap[charInstId as string];
-    if (!inst) continue;
-    const def = state.cardPool[inst.definitionId as string];
+    const charInPlay = player.characters[charInstId as string];
+    if (!charInPlay) continue;
+    const def = state.cardPool[charInPlay.definitionId as string];
     if (!def || !isCharacterCard(def)) continue;
 
     const context = { card: { name: def.name, isItem: false, unique: false }, ctx: { assignedCount, maxStartingItems: MAX_STARTING_ITEMS } };
     // Use a dummy action — the character isn't an item, so this is always rejected
-    const action = { type: 'assign-starting-item' as const, player: playerId, itemDefId: inst.definitionId, characterInstanceId: charInstId };
+    const action = { type: 'assign-starting-item' as const, player: playerId, itemDefId: charInPlay.definitionId, characterInstanceId: charInstId };
     const result = evaluateAction(action, ITEM_DRAFT_RULES, context);
     logDetail(`${def.name}: ${result.reason}`);
     evaluated.push(result);
@@ -61,12 +61,10 @@ export function itemDraftActions(state: GameState, playerId: PlayerId): Evaluate
 
   // Unassigned items: evaluate each through the rules engine
   const seenDefIds = new Set<string>();
-  for (const itemId of itemDraft.unassignedItems) {
-    const inst = state.instanceMap[itemId as string];
-    if (!inst) continue;
-    const defId = inst.definitionId;
+  for (const itemCard of itemDraft.unassignedItems) {
+    const defId = itemCard.definitionId;
     if (seenDefIds.has(defId as string)) {
-      logDetail(`Skipping duplicate item instance ${itemId as string} (defId ${defId as string} already offered)`);
+      logDetail(`Skipping duplicate item instance ${itemCard.instanceId as string} (defId ${defId as string} already offered)`);
       continue;
     }
     seenDefIds.add(defId as string);

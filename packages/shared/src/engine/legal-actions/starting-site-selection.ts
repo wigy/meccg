@@ -33,14 +33,8 @@ export function startingSiteSelectionActions(state: GameState, playerId: PlayerI
 
   // Only offer sites if we haven't hit the max yet
   if (siteSelection.selectedSites.length < maxStartingSites) {
-    for (const siteInstId of player.siteDeck) {
-      const inst = state.instanceMap[siteInstId as string];
-      if (!inst) {
-        logDetail(`Skipping site instance ${siteInstId as string}: not found in instance map`);
-        continue;
-      }
-
-      const defIdStr = inst.definitionId as string;
+    for (const siteCard of player.siteDeck) {
+      const defIdStr = siteCard.definitionId as string;
       const siteDef = state.cardPool[defIdStr];
       const context = {
         card: {
@@ -48,11 +42,11 @@ export function startingSiteSelectionActions(state: GameState, playerId: PlayerI
         },
         ctx: {
           isAllowedSite: allowedDefIds.has(defIdStr),
-          alreadySelected: selectedSet.has(siteInstId as string),
+          alreadySelected: selectedSet.has(siteCard.instanceId as string),
         },
       };
 
-      const action = { type: 'select-starting-site' as const, player: playerId, siteInstanceId: siteInstId };
+      const action = { type: 'select-starting-site' as const, player: playerId, siteInstanceId: siteCard.instanceId };
       const result = evaluateAction(action, SITE_SELECTION_RULES, context);
 
       logDetail(`${context.card.name}: ${result.viable ? 'eligible' : result.reason}`);

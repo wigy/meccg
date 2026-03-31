@@ -140,7 +140,7 @@ describe('2.VI End-of-turn phase', () => {
     ]);
     const p2Hand = s.players[1].hand;
     s = runActions(s, [
-      { type: 'discard-card', player: PLAYER_2, cardInstanceId: p2Hand[0] },
+      { type: 'discard-card', player: PLAYER_2, cardInstanceId: p2Hand[0].instanceId },
     ]);
     expect((s.phaseState as EndOfTurnPhaseState).step).toBe('reset-hand');
     expect(s.players[0].hand.length).toBe(HAND_SIZE); // P1 still at 8
@@ -196,8 +196,8 @@ describe('2.VI End-of-turn phase', () => {
     // P1 still needs to discard 2 cards
     const p1Hand = s.players[0].hand;
     s = runActions(s, [
-      { type: 'discard-card', player: PLAYER_1, cardInstanceId: p1Hand[0] },
-      { type: 'discard-card', player: PLAYER_1, cardInstanceId: p1Hand[1] },
+      { type: 'discard-card', player: PLAYER_1, cardInstanceId: p1Hand[0].instanceId },
+      { type: 'discard-card', player: PLAYER_1, cardInstanceId: p1Hand[1].instanceId },
     ]);
 
     // Both at hand size → should have advanced to signal-end
