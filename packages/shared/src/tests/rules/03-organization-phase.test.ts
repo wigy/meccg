@@ -932,7 +932,7 @@ describe('2.II Declaring movement', () => {
 
     // Company has destination set
     const company = state2.players[0].companies.find(c => c.id === moveAction.companyId)!;
-    expect(company.destinationSite).toBe(moveAction.destinationSite);
+    expect(company.destinationSite?.instanceId).toBe(moveAction.destinationSite);
 
     // Site removed from site deck
     expect(state2.players[0].siteDeck.map(c => c.instanceId)).not.toContain(moveAction.destinationSite);

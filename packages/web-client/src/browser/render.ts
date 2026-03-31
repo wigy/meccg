@@ -231,13 +231,13 @@ function renderCollapsibleJson(value: unknown, indent: string): string {
 }
 
 /**
- * Convert plain text with embedded \x02id\x02name card markers to HTML.
+ * Convert plain text with embedded \x02id\x02name\x02 card markers to HTML.
  * Card markers become `<span class="card-name" data-card-id="id">name</span>`.
  */
 function textToHtml(text: string): string {
   const escaped = escapeHtml(text);
   // eslint-disable-next-line no-control-regex
-  return escaped.replace(/\x02([^\x02]+)\x02([^\x02]*)/g,
+  return escaped.replace(/\x02([^\x02]+)\x02([^\x02]*)\x02/g,
     (_m, id: string, name: string) =>
       `<span class="card-name" data-card-id="${id}">${name}</span>`);
 }
@@ -1495,11 +1495,12 @@ function applyRowOverlap(grid: HTMLElement): void {
   grid.closest('#pile-browser-dialog')?.classList.remove('pile-browser--overlapping');
 
   const cardHeight = window.innerHeight * 0.25; // 25vh
-  const cardWidth = cardHeight * 0.7; // card aspect ratio
   const gap = parseFloat(getComputedStyle(grid).gap) || 3;
-  const gridWidth = grid.clientWidth;
-  const cardsPerRow = Math.max(1, Math.floor((gridWidth + gap) / (cardWidth + gap)));
-  const numRows = Math.ceil(imgs.length / cardsPerRow);
+
+  // Determine rows from actual layout: count how many distinct offsetTop values exist
+  const rowTops = new Set<number>();
+  for (const img of imgs) rowTops.add(img.offsetTop);
+  const numRows = rowTops.size || Math.ceil(imgs.length / Math.max(1, Math.floor(grid.clientWidth / (cardHeight * 0.7))));
 
   if (numRows <= 3) return;
 
@@ -1511,8 +1512,12 @@ function applyRowOverlap(grid: HTMLElement): void {
 
   if (overlap >= 0) return; // no overlap needed
 
+  // Map each distinct offsetTop to a row index
+  const sortedTops = [...rowTops].sort((a, b) => a - b);
+  const topToRow = new Map(sortedTops.map((t, i) => [t, i]));
+
   for (let i = 0; i < imgs.length; i++) {
-    const row = Math.floor(i / cardsPerRow);
+    const row = topToRow.get(imgs[i].offsetTop) ?? 0;
     imgs[i].style.position = 'relative';
     imgs[i].style.zIndex = String(row);
     if (row > 0) {

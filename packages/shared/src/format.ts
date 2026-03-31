@@ -16,6 +16,7 @@
 import type { CardDefinition } from './types/cards.js';
 import { isCharacterCard, isItemCard } from './types/cards.js';
 import type { GameState, Company, CharacterInPlay, ItemInPlay, AllyInPlay, CombatState, ChainState, PhaseState, MarshallingPointTotals } from './types/state.js';
+import { Phase, SetupStep } from './types/state.js';
 import { resolveInstanceId } from './types/state.js';
 import type { PlayerView, OpponentCompanyView } from './types/player-view.js';
 import { computeTournamentBreakdown } from './state-utils.js';
@@ -58,10 +59,10 @@ export const CARD_TYPE_CSS: Readonly<Record<string, string>> = {
   'region': 'color:#6090e0;opacity:0.6',
 };
 
-/** Strip STX card-ID markers (\x02id\x02), «MP:…», and «DICE:…» markers from formatted output. */
+/** Strip STX card-ID markers (\x02id\x02name\x02), «MP:…», and «DICE:…» markers from formatted output. */
 export function stripCardMarkers(text: string): string {
   // eslint-disable-next-line no-control-regex
-  return text.replace(/\x02[^\x02]*\x02/g, '').replace(/«MP:[^»]*»/g, '').replace(/«DICE:[^»]*»/g, '').replace(/«ACTIVE-(?:START|END)»\n?/g, '');
+  return text.replace(/\x02[^\x02]*\x02([^\x02]*)\x02/g, '$1').replace(/«MP:[^»]*»/g, '').replace(/«DICE:[^»]*»/g, '').replace(/«ACTIVE-(?:START|END)»\n?/g, '');
 }
 
 // ---- Resolve helpers ----
@@ -88,11 +89,15 @@ export function buildInstanceLookup(view: PlayerView): InstanceLookup {
   addCards(s.discardPile); addCards(s.siteDiscardPile); addCards(s.sideboard);
   addCards(s.killPile); addCards(s.eliminatedPile); addCards(s.cardsInPlay);
 
-  // Self characters, items, allies
+  // Self characters, items, allies, company sites
   for (const ch of Object.values(s.characters)) {
     map[ch.instanceId as string] = ch.definitionId;
     for (const item of ch.items) map[item.instanceId as string] = item.definitionId;
     for (const ally of ch.allies) map[ally.instanceId as string] = ally.definitionId;
+  }
+  for (const company of s.companies) {
+    if (company.currentSite) map[company.currentSite.instanceId as string] = company.currentSite.definitionId;
+    if (company.destinationSite) map[company.destinationSite.instanceId as string] = company.destinationSite.definitionId;
   }
 
   // Opponent piles
@@ -101,16 +106,40 @@ export function buildInstanceLookup(view: PlayerView): InstanceLookup {
   addCards(o.discardPile); addCards(o.siteDiscardPile);
   addCards(o.killPile); addCards(o.eliminatedPile); addCards(o.cardsInPlay);
 
-  // Opponent characters, items, allies
+  // Opponent characters, items, allies, company sites
   for (const ch of Object.values(o.characters)) {
     map[ch.instanceId as string] = ch.definitionId;
     for (const item of ch.items) map[item.instanceId as string] = item.definitionId;
     for (const ally of ch.allies) map[ally.instanceId as string] = ally.definitionId;
   }
+  for (const company of o.companies) {
+    if (company.currentSite) map[company.currentSite.instanceId as string] = company.currentSite.definitionId;
+    if (company.revealedDestinationSite) map[company.revealedDestinationSite.instanceId as string] = company.revealedDestinationSite.definitionId;
+  }
 
   // Events in play
   for (const ev of view.eventsInPlay) {
     map[ev.instanceId as string] = ev.definitionId;
+  }
+
+  // Setup phase cards (draft pools, drafted characters, items, deck draft)
+  if (view.phaseState.phase === Phase.Setup) {
+    const step = view.phaseState.setupStep;
+    if (step.step === SetupStep.CharacterDraft) {
+      for (const ds of step.draftState) {
+        addCards(ds.pool);
+        addCards(ds.drafted);
+        if (ds.currentPick) addCards([ds.currentPick]);
+      }
+      addCards(step.setAside);
+    } else if (step.step === SetupStep.ItemDraft) {
+      for (const ids of step.itemDraftState) addCards(ids.unassignedItems);
+      for (const pool of step.remainingPool) addCards(pool);
+    } else if (step.step === SetupStep.CharacterDeckDraft) {
+      for (const dds of step.deckDraftState) addCards(dds.remainingPool);
+    } else if (step.step === SetupStep.StartingSiteSelection) {
+      for (const ss of step.siteSelectionState) addCards(ss.selectedSites);
+    }
   }
 
   return (id) => map[id as string];
@@ -126,14 +155,14 @@ function resolve(instId: CardInstanceId, instOf: InstanceLookup, defOf: CardLook
 /**
  * Formats a card name as plain text.
  * If the card definition is not found, returns "[unknown]".
- * Embeds the card definition ID as \x02id\x02 marker before the name
+ * Embeds the card definition ID as \x02id\x02name\x02 marker
  * so the web client can parse it into data attributes.
  */
 export function formatCardName(
   def: CardDefinition | undefined,
 ): string {
   if (!def) return 'a card';
-  return `\x02${def.id}\x02${def.name}`;
+  return `\x02${def.id}\x02${def.name}\x02`;
 }
 
 /**
@@ -270,7 +299,7 @@ function formatCompany(
   const siteName = company.currentSite ? formatSiteName(company.currentSite.instanceId, defOf, instOf) : ('(no site)');
   const noSiteTag = company.siteCardOwned === false ? ' (no site)' : '';
   if (company.destinationSite) {
-    const destName = formatSiteName(company.destinationSite, defOf, instOf);
+    const destName = formatSiteName(company.destinationSite.instanceId, defOf, instOf);
     lines.push(`${indent}${activeMarker}Company ${index + 1} → ${destName} (from ${siteStatus}${siteName})${noSiteTag}:`);
   } else {
     lines.push(`${indent}${activeMarker}Company ${index + 1} @ ${siteStatus}${siteName}${noSiteTag}:`);

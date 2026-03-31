@@ -39,11 +39,6 @@
       "qty": 2
     },
     {
-      "name": "Pallando",
-      "card": null,
-      "qty": 3
-    },
-    {
       "name": "Balin",
       "card": "tw-123",
       "qty": 1
@@ -70,7 +65,13 @@
     }
   ],
   "deck": {
-    "characters": [],
+    "characters": [
+        {
+          "name": "Pallando",
+          "card": null,
+          "qty": 3
+        }
+      ],
     "hazards": [
       {
         "name": "Cave-worm",

@@ -38,11 +38,6 @@
       "qty": 1
     },
     {
-      "name": "Indur the Ringwraith",
-      "card": null,
-      "qty": 3
-    },
-    {
       "name": "Ill-favoured Fellow",
       "card": null,
       "qty": 3
@@ -64,7 +59,13 @@
     }
   ],
   "deck": {
-    "characters": [],
+    "characters": [
+        {
+          "name": "Indur the Ringwraith",
+          "card": null,
+          "qty": 3
+        }
+      ],
     "hazards": [
       {
         "name": "Slayer",

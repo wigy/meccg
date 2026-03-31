@@ -38,11 +38,6 @@
       "qty": 1
     },
     {
-      "name": "Alatar",
-      "card": "tw-117",
-      "qty": 3
-    },
-    {
       "name": "Beretar",
       "card": null,
       "qty": 1
@@ -74,7 +69,13 @@
     }
   ],
   "deck": {
-    "characters": [],
+    "characters": [
+        {
+          "name": "Alatar",
+          "card": "tw-117",
+          "qty": 3
+        }
+      ],
     "hazards": [
       {
         "name": "Barrow-wight",
