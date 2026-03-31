@@ -14,6 +14,16 @@ A web-based implementation of the **Middle-Earth Collectible Card Game** (MECCG)
 
 ![Organization phase](docs/screenshot-organization.png)
 
+## Project Status
+
+| Metric | Done | Total | Progress |
+|:-------|-----:|------:|---------:|
+| Rule tests | 8 | 295 | 2.7% |
+| Card tests | 3 | 39 | 7.7% |
+| Cards created | 197 | 1683 | 11.7% |
+| Cards certified | 1 | 197 | 0.5% |
+| **Total** | **209** | **2214** | **9.4%** |
+
 ## Getting Started
 
 ### Prerequisites
@@ -118,7 +128,6 @@ npm run docs
 Additional docs in `docs/`:
 - `rules.md` — CoE rules reference
 - `card-effects-dsl.md` — Declarative card effects DSL design
-- `movement-hazard-phase.md` — Movement/Hazard phase rules
 - `testing-plan.md` — Testing strategy
 - `glossary.md` — Architecture terms
 

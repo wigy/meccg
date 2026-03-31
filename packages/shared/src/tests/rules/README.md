@@ -6,14 +6,14 @@
 
 | Total Rules | Implemented | Remaining | Progress |
 |:-----------:|:-----------:|:---------:|:--------:|
-| 295 | 10 | 285 | 3.4% |
+| 295 | 8 | 287 | 2.7% |
 
 ## Section Breakdown
 
 | # | Section | Rules | Done | % |
 |:-:|:--------|:-----:|:----:|:-:|
 | 01 | [Deck Construction & Setup](01-deck-construction/) | 58 | 1 | 1.7% |
-| 02 | [Untap Phase](02-untap-phase/) | 13 | 9 | 69.2% |
+| 02 | [Untap Phase](02-untap-phase/) | 13 | 7 | 53.8% |
 | 03 | [Organization Phase](03-organization-phase/) | 48 | 0 | 0.0% |
 | 04 | [Long-Event Phase](04-long-event-phase/) | 3 | 0 | 0.0% |
 | 05 | [Movement/Hazard Phase](05-movement-hazard-phase/) | 33 | 0 | 0.0% |
@@ -92,12 +92,12 @@
 | 2.05 | Untap Phase | [Avatar Eliminated](02-untap-phase/rule-2.05-avatar-eliminated.test.ts) | ☐ |
 | 2.06 | Untap Phase | [Fallen-Wizard Avatar Leaves Play](02-untap-phase/rule-2.06-fw-avatar-leaves-play.test.ts) | ☐ |
 | 2.07 | Untap Phase | [Company Loses All Characters](02-untap-phase/rule-2.07-company-loses-all-characters.test.ts) | ☐ |
-| 2.08 | Untap Phase | [Play Deck Exhaustion](02-untap-phase/rule-2.08-play-deck-exhaustion.test.ts) | ☑ |
+| 2.08 | Untap Phase | [Play Deck Exhaustion](02-untap-phase/rule-2.08-play-deck-exhaustion.test.ts) | ◐ |
 | 2.09 | Untap Phase | [Empty Play Deck and Discard](02-untap-phase/rule-2.09-empty-play-deck-and-discard.test.ts) | ☐ |
 | 2.10 | Untap Phase | [No Mechanical Tracking](02-untap-phase/rule-2.10-no-mechanical-tracking.test.ts) | ☑ |
 | 2.11 | Untap Phase | [Phase Transitions](02-untap-phase/rule-2.11-phase-transitions.test.ts) | ☑ |
 | 2.12 | Untap Phase | [Untap Phase - Untap or Heal](02-untap-phase/rule-2.12-untap-phase-rules.test.ts) | ☑ |
-| 2.13 | Untap Phase | [Hazard Sideboard Access at Untap](02-untap-phase/rule-2.13-hazard-sideboard-access.test.ts) | ☑ |
+| 2.13 | Untap Phase | [Hazard Sideboard Access at Untap](02-untap-phase/rule-2.13-hazard-sideboard-access.test.ts) | ◐ |
 | 3.01 | Organization Phase | [Organizing Declaration](03-organization-phase/rule-3.01-organizing-declaration.test.ts) | ☐ |
 | 3.02 | Organization Phase | [Play or Discard a Character](03-organization-phase/rule-3.02-play-discard-character.test.ts) | ☐ |
 | 3.03 | Organization Phase | [Avatar Play Location](03-organization-phase/rule-3.03-avatar-play-location.test.ts) | ☐ |
