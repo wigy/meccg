@@ -42,31 +42,30 @@
       "name": "Strange Rations",
       "card": null,
       "qty": 1
+    },
+    {
+      "name": "Hoarmurath the Ringwraith",
+      "card": null,
+      "qty": 3
+    },
+    {
+      "name": "Ill-favoured Fellow",
+      "card": null,
+      "qty": 2
+    },
+    {
+      "name": "Orc Tracker",
+      "card": null,
+      "qty": 2
+    },
+    {
+      "name": "Sly Southerner",
+      "card": null,
+      "qty": 3
     }
   ],
   "deck": {
-    "characters": [
-      {
-        "name": "Hoarmurath the Ringwraith",
-        "card": null,
-        "qty": 3
-      },
-      {
-        "name": "Ill-favoured Fellow",
-        "card": null,
-        "qty": 2
-      },
-      {
-        "name": "Orc Tracker",
-        "card": null,
-        "qty": 2
-      },
-      {
-        "name": "Sly Southerner",
-        "card": null,
-        "qty": 3
-      }
-    ],
+    "characters": [],
     "hazards": [
       {
         "name": "Barrow-wight",

@@ -36,46 +36,45 @@
       "name": "Star-glass",
       "card": null,
       "qty": 1
+    },
+    {
+      "name": "Gandalf",
+      "card": "tw-156",
+      "qty": 3
+    },
+    {
+      "name": "Beretar",
+      "card": null,
+      "qty": 1
+    },
+    {
+      "name": "Bergil",
+      "card": "tw-129",
+      "qty": 1
+    },
+    {
+      "name": "Boromir II",
+      "card": null,
+      "qty": 1
+    },
+    {
+      "name": "Forlong",
+      "card": null,
+      "qty": 1
+    },
+    {
+      "name": "Imrahil",
+      "card": null,
+      "qty": 1
+    },
+    {
+      "name": "Thranduil",
+      "card": null,
+      "qty": 1
     }
   ],
   "deck": {
-    "characters": [
-      {
-        "name": "Gandalf",
-        "card": "tw-156",
-        "qty": 3
-      },
-      {
-        "name": "Beretar",
-        "card": null,
-        "qty": 1
-      },
-      {
-        "name": "Bergil",
-        "card": "tw-129",
-        "qty": 1
-      },
-      {
-        "name": "Boromir II",
-        "card": null,
-        "qty": 1
-      },
-      {
-        "name": "Forlong",
-        "card": null,
-        "qty": 1
-      },
-      {
-        "name": "Imrahil",
-        "card": null,
-        "qty": 1
-      },
-      {
-        "name": "Thranduil",
-        "card": null,
-        "qty": 1
-      }
-    ],
+    "characters": [],
     "hazards": [
       {
         "name": "Ambusher",

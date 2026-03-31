@@ -36,41 +36,40 @@
       "name": "Foul-smelling Paste",
       "card": "le-310",
       "qty": 1
+    },
+    {
+      "name": "Adunaphel the Ringwraith",
+      "card": null,
+      "qty": 3
+    },
+    {
+      "name": "Eradan",
+      "card": null,
+      "qty": 1
+    },
+    {
+      "name": "Layos",
+      "card": null,
+      "qty": 1
+    },
+    {
+      "name": "Nevido Smod",
+      "card": null,
+      "qty": 1
+    },
+    {
+      "name": "Orc Captain",
+      "card": null,
+      "qty": 2
+    },
+    {
+      "name": "Perchen",
+      "card": "as-4",
+      "qty": 1
     }
   ],
   "deck": {
-    "characters": [
-      {
-        "name": "Adunaphel the Ringwraith",
-        "card": null,
-        "qty": 3
-      },
-      {
-        "name": "Eradan",
-        "card": null,
-        "qty": 1
-      },
-      {
-        "name": "Layos",
-        "card": null,
-        "qty": 1
-      },
-      {
-        "name": "Nevido Smod",
-        "card": null,
-        "qty": 1
-      },
-      {
-        "name": "Orc Captain",
-        "card": null,
-        "qty": 2
-      },
-      {
-        "name": "Perchen",
-        "card": "as-4",
-        "qty": 1
-      }
-    ],
+    "characters": [],
     "hazards": [
       {
         "name": "Slayer",

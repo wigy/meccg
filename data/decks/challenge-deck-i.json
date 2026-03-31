@@ -37,31 +37,30 @@
       "name": "Blazon of the Eye",
       "card": null,
       "qty": 2
+    },
+    {
+      "name": "The Witch-king",
+      "card": null,
+      "qty": 3
+    },
+    {
+      "name": "Orc Brawler",
+      "card": null,
+      "qty": 2
+    },
+    {
+      "name": "Orc Captain",
+      "card": null,
+      "qty": 1
+    },
+    {
+      "name": "Orc Tracker",
+      "card": null,
+      "qty": 3
     }
   ],
   "deck": {
-    "characters": [
-      {
-        "name": "The Witch-king",
-        "card": null,
-        "qty": 3
-      },
-      {
-        "name": "Orc Brawler",
-        "card": null,
-        "qty": 2
-      },
-      {
-        "name": "Orc Captain",
-        "card": null,
-        "qty": 1
-      },
-      {
-        "name": "Orc Tracker",
-        "card": null,
-        "qty": 3
-      }
-    ],
+    "characters": [],
     "hazards": [
       {
         "name": "Slayer",

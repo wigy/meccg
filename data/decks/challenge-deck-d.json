@@ -36,46 +36,45 @@
       "name": "Cram",
       "card": "td-105",
       "qty": 1
+    },
+    {
+      "name": "Radagast",
+      "card": null,
+      "qty": 3
+    },
+    {
+      "name": "Brand",
+      "card": null,
+      "qty": 1
+    },
+    {
+      "name": "Celeborn",
+      "card": "tw-136",
+      "qty": 1
+    },
+    {
+      "name": "Elrohir",
+      "card": null,
+      "qty": 1
+    },
+    {
+      "name": "Haldir",
+      "card": "tw-164",
+      "qty": 1
+    },
+    {
+      "name": "Hama",
+      "card": null,
+      "qty": 1
+    },
+    {
+      "name": "Thranduil",
+      "card": null,
+      "qty": 1
     }
   ],
   "deck": {
-    "characters": [
-      {
-        "name": "Radagast",
-        "card": null,
-        "qty": 3
-      },
-      {
-        "name": "Brand",
-        "card": null,
-        "qty": 1
-      },
-      {
-        "name": "Celeborn",
-        "card": "tw-136",
-        "qty": 1
-      },
-      {
-        "name": "Elrohir",
-        "card": null,
-        "qty": 1
-      },
-      {
-        "name": "Haldir",
-        "card": "tw-164",
-        "qty": 1
-      },
-      {
-        "name": "Hama",
-        "card": null,
-        "qty": 1
-      },
-      {
-        "name": "Thranduil",
-        "card": null,
-        "qty": 1
-      }
-    ],
+    "characters": [],
     "hazards": [
       {
         "name": "Abductor",

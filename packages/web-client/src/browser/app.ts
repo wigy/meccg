@@ -890,7 +890,7 @@ function renderCompactDeck(container: HTMLElement, deck: FullDeck): void {
       heading.className = 'compact-deck-heading';
       heading.textContent = section.label;
       col.appendChild(heading);
-      for (const entry of section.entries) {
+      for (const entry of sortDeckEntries(section.entries)) {
         const row = document.createElement('div');
         row.className = 'compact-deck-entry' + (entry.card === null ? ' compact-deck-entry--missing' : '');
         const star = entry.favourite ? ' \u2605' : '';
@@ -943,10 +943,9 @@ async function addDeckToCollection(deck: FullDeck): Promise<void> {
 /** Set of "deckId:cardName" keys for already-requested cards. */
 let requestedCards = new Set<string>();
 
-/** Render a list of card entries into a container element, sorted by card type then name. */
-function renderCardList(container: HTMLElement, entries: DeckListEntry[], deckId: string): void {
-  container.innerHTML = '';
-  const sorted = [...entries].sort((a, b) => {
+/** Sort deck entries: known cards first, then by card type, then by name. */
+function sortDeckEntries(entries: DeckListEntry[]): DeckListEntry[] {
+  return [...entries].sort((a, b) => {
     const defA = a.card ? cardPool[a.card] : undefined;
     const defB = b.card ? cardPool[b.card] : undefined;
     if (!defA !== !defB) return defA ? -1 : 1;
@@ -957,6 +956,12 @@ function renderCardList(container: HTMLElement, entries: DeckListEntry[], deckId
     const nameB = defB?.name ?? b.name;
     return nameA.localeCompare(nameB);
   });
+}
+
+/** Render a list of card entries into a container element, sorted by card type then name. */
+function renderCardList(container: HTMLElement, entries: DeckListEntry[], deckId: string): void {
+  container.innerHTML = '';
+  const sorted = sortDeckEntries(entries);
   for (const entry of sorted) {
     const row = document.createElement('div');
     row.className = 'deck-editor-card';

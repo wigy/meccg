@@ -36,41 +36,40 @@
       "card": "tw-180",
       "qty": 1,
       "favourite": true
+    },
+    {
+      "name": "Saruman",
+      "card": "tw-181",
+      "qty": 3
+    },
+    {
+      "name": "Balin",
+      "card": "tw-123",
+      "qty": 1
+    },
+    {
+      "name": "Haldir",
+      "card": "tw-164",
+      "qty": 1
+    },
+    {
+      "name": "Ioreth",
+      "card": "td-93",
+      "qty": 1
+    },
+    {
+      "name": "Peath",
+      "card": "tw-176",
+      "qty": 1
+    },
+    {
+      "name": "Theoden",
+      "card": "tw-182",
+      "qty": 1
     }
   ],
   "deck": {
-    "characters": [
-      {
-        "name": "Saruman",
-        "card": "tw-181",
-        "qty": 3
-      },
-      {
-        "name": "Balin",
-        "card": "tw-123",
-        "qty": 1
-      },
-      {
-        "name": "Haldir",
-        "card": "tw-164",
-        "qty": 1
-      },
-      {
-        "name": "Ioreth",
-        "card": "td-93",
-        "qty": 1
-      },
-      {
-        "name": "Peath",
-        "card": "tw-176",
-        "qty": 1
-      },
-      {
-        "name": "Theoden",
-        "card": "tw-182",
-        "qty": 1
-      }
-    ],
+    "characters": [],
     "hazards": [
       {
         "name": "Bert (Burat)",

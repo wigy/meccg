@@ -37,41 +37,40 @@
       "name": "Cram",
       "card": "td-105",
       "qty": 2
+    },
+    {
+      "name": "Pallando",
+      "card": null,
+      "qty": 3
+    },
+    {
+      "name": "Balin",
+      "card": "tw-123",
+      "qty": 1
+    },
+    {
+      "name": "Boromir II",
+      "card": null,
+      "qty": 1
+    },
+    {
+      "name": "Celeborn",
+      "card": "tw-136",
+      "qty": 1
+    },
+    {
+      "name": "Fili",
+      "card": null,
+      "qty": 1
+    },
+    {
+      "name": "Gildor Inglorion",
+      "card": null,
+      "qty": 1
     }
   ],
   "deck": {
-    "characters": [
-      {
-        "name": "Pallando",
-        "card": null,
-        "qty": 3
-      },
-      {
-        "name": "Balin",
-        "card": "tw-123",
-        "qty": 1
-      },
-      {
-        "name": "Boromir II",
-        "card": null,
-        "qty": 1
-      },
-      {
-        "name": "Celeborn",
-        "card": "tw-136",
-        "qty": 1
-      },
-      {
-        "name": "Fili",
-        "card": null,
-        "qty": 1
-      },
-      {
-        "name": "Gildor Inglorion",
-        "card": null,
-        "qty": 1
-      }
-    ],
+    "characters": [],
     "hazards": [
       {
         "name": "Cave-worm",

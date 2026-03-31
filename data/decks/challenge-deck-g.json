@@ -37,46 +37,45 @@
       "name": "Foul-smelling Paste",
       "card": "le-310",
       "qty": 2
+    },
+    {
+      "name": "Dwar the Ringwraith",
+      "card": null,
+      "qty": 3
+    },
+    {
+      "name": "Burat",
+      "card": null,
+      "qty": 1
+    },
+    {
+      "name": "Orc Captain",
+      "card": null,
+      "qty": 1
+    },
+    {
+      "name": "Orc Veteran",
+      "card": null,
+      "qty": 2
+    },
+    {
+      "name": "Shagrat",
+      "card": "le-39",
+      "qty": 1
+    },
+    {
+      "name": "Tuma",
+      "card": null,
+      "qty": 1
+    },
+    {
+      "name": "Wuluag",
+      "card": null,
+      "qty": 1
     }
   ],
   "deck": {
-    "characters": [
-      {
-        "name": "Dwar the Ringwraith",
-        "card": null,
-        "qty": 3
-      },
-      {
-        "name": "Burat",
-        "card": null,
-        "qty": 1
-      },
-      {
-        "name": "Orc Captain",
-        "card": null,
-        "qty": 1
-      },
-      {
-        "name": "Orc Veteran",
-        "card": null,
-        "qty": 2
-      },
-      {
-        "name": "Shagrat",
-        "card": "le-39",
-        "qty": 1
-      },
-      {
-        "name": "Tuma",
-        "card": null,
-        "qty": 1
-      },
-      {
-        "name": "Wuluag",
-        "card": null,
-        "qty": 1
-      }
-    ],
+    "characters": [],
     "hazards": [
       {
         "name": "Ambusher",
