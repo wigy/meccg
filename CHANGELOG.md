@@ -1,5 +1,36 @@
 # Changelog
 
+## 0.18.0 — 2026-03-31
+
+Testing system and status
+
+### Game Engine
+- **Structured CoE rules:** Replace coe-rules.txt with structured markdown from CoE website.
+- **Comprehensive rules test scaffold:** Add 295 test.todo() entries covering all CoE rules sections.
+- **Per-rule test structure:** Replace old rules tests with individual test files per rule.
+- **Implemented rule tests:** Rule 1.02 (player type), 2.01 (resource/hazard roles), 2.02 (resource player actions), 2.11 (phase transitions with end-of-turn).
+- **DeckList alignment type fix:** Fix alignment type in DeckList to match player type test.
+- **Remove instanceMap:** Piles now store CardInstance objects directly.
+- **Move deck characters to pool:** Challenge decks now keep characters in pool, share sort function.
+- **Block avatar drafting:** Move avatars from pool to deck.characters, change destinationSite to SiteInPlay.
+
+### Card Data
+- **Complete CoE card database:** Local copy of authoritative card database at data/cards.json.
+- **Card data policy:** Always reference local database copy for card stats.
+- **New card:** William (Wuluag) hazard creature added, fix challenge deck A reference.
+
+### Web Client
+- **Sort favourites first:** Favourite decks appear at top of deck listing.
+- **Default AI deck:** AI deck selection defaults to hero development deck in lobby.
+
+### Infrastructure
+- **Project status tracking:** Add Project Status section to README with coverage metrics.
+- **Card tests README:** Add per-card test matrix tracking certification progress.
+- **/update-readme command:** New slash command to refresh all progress metrics.
+- **Updated README screenshot:** Replace character draft with organization phase screenshot.
+- **Remove --debug features:** Strip ANSI coloring from servers and clients.
+- **Lint cleanup:** Remove unused imports across untap phase tests.
+
 ## 0.17.0 — 2026-03-30
 
 Playing a faction
