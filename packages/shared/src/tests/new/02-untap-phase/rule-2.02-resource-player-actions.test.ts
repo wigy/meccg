@@ -15,12 +15,11 @@
 
 import { describe, test, expect, beforeEach } from 'vitest';
 import {
-  buildTestState, resetMint, reduce, Phase,
+  buildTestState, resetMint, Phase,
   PLAYER_1, PLAYER_2,
   GANDALF, LEGOLAS,
-  GATES_OF_MORNING, SUN, DOORS_OF_NIGHT, CAVE_DRAKE, ORC_PATROL,
+  GATES_OF_MORNING, SUN, DOORS_OF_NIGHT, CAVE_DRAKE,
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
-  makePlayDeck,
 } from '../../test-helpers.js';
 import { computeLegalActions } from '../../../engine/legal-actions/index.js';
 import type { EvaluatedAction } from '../../../index.js';

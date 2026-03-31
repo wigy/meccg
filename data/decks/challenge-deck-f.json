@@ -38,11 +38,6 @@
       "qty": 1
     },
     {
-      "name": "Adunaphel the Ringwraith",
-      "card": null,
-      "qty": 3
-    },
-    {
       "name": "Eradan",
       "card": null,
       "qty": 1
@@ -69,7 +64,13 @@
     }
   ],
   "deck": {
-    "characters": [],
+    "characters": [
+        {
+          "name": "Adunaphel the Ringwraith",
+          "card": null,
+          "qty": 3
+        }
+      ],
     "hazards": [
       {
         "name": "Slayer",

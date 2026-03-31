@@ -39,11 +39,6 @@
       "qty": 2
     },
     {
-      "name": "Dwar the Ringwraith",
-      "card": null,
-      "qty": 3
-    },
-    {
       "name": "Burat",
       "card": null,
       "qty": 1
@@ -75,7 +70,13 @@
     }
   ],
   "deck": {
-    "characters": [],
+    "characters": [
+        {
+          "name": "Dwar the Ringwraith",
+          "card": null,
+          "qty": 3
+        }
+      ],
     "hazards": [
       {
         "name": "Ambusher",

@@ -184,7 +184,13 @@ export interface Company {
    * The planned destination site, set during Organization phase.
    * Null if the company is staying put this turn.
    */
-  readonly destinationSite: CardInstanceId | null;
+  /**
+   * The planned destination site, set during Organization phase.
+   * Stored as a full {@link SiteInPlay} so the definition ID is always
+   * available even after the card is removed from the site deck.
+   * Null if the company is staying put this turn.
+   */
+  readonly destinationSite: SiteInPlay | null;
   /** Region card instances defining the travel path from current site to destination. */
   readonly movementPath: readonly CardInstanceId[];
   /** Whether this company has already completed movement this turn. */
@@ -1329,6 +1335,7 @@ export function resolveInstanceId(state: GameState, instanceId: CardInstanceId):
     // Company sites
     for (const company of player.companies) {
       if (company.currentSite?.instanceId === instanceId) return company.currentSite.definitionId;
+      if (company.destinationSite?.instanceId === instanceId) return company.destinationSite.definitionId;
     }
 
     // Piles

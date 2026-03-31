@@ -28,6 +28,11 @@ export const CHARACTER_DRAFT_RULES: RuleSet = {
       failMessage: '{{card.name}} is not a character',
     },
     {
+      id: 'not-avatar',
+      condition: { 'card.mind': { $ne: null } },
+      failMessage: '{{card.name}} is an avatar and cannot be drafted as a starting character',
+    },
+    {
       id: 'unique-available',
       condition: {
         $or: [

@@ -38,11 +38,6 @@
       "qty": 1
     },
     {
-      "name": "Radagast",
-      "card": null,
-      "qty": 3
-    },
-    {
       "name": "Brand",
       "card": null,
       "qty": 1
@@ -74,7 +69,13 @@
     }
   ],
   "deck": {
-    "characters": [],
+    "characters": [
+        {
+          "name": "Radagast",
+          "card": null,
+          "qty": 3
+        }
+      ],
     "hazards": [
       {
         "name": "Abductor",

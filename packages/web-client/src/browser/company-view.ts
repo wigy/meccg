@@ -466,7 +466,7 @@ function renderSiteArea(
     ) : [];
     if (pathActions.length > 0) {
       const originDef = company.currentSite ? resolveCardDef(company.currentSite.instanceId, view, cardPool) : undefined;
-      const destSiteId = 'destinationSite' in company ? company.destinationSite : null;
+      const destSiteId = 'destinationSite' in company ? company.destinationSite?.instanceId ?? null : null;
       const destDef = destSiteId ? resolveCardDef(destSiteId, view, cardPool) : undefined;
 
       const pathList = document.createElement('div');
@@ -526,7 +526,7 @@ function renderSiteArea(
     }
 
     // Destination site — highlight and make clickable if cancel-movement is available
-    const destDefId = cachedInstanceLookup(company.destinationSite);
+    const destDefId = cachedInstanceLookup(company.destinationSite.instanceId);
     if (destDefId) {
       const destDef = cardPool[destDefId as string];
       if (destDef) {
@@ -538,7 +538,7 @@ function renderSiteArea(
           const cls = cancelAction
             ? 'company-card company-card--site company-card--cancelable'
             : 'company-card company-card--site';
-          const img = createCardImage(destDefId as string, destDef, imgPath, cls, company.destinationSite as string);
+          const img = createCardImage(destDefId as string, destDef, imgPath, cls, company.destinationSite.instanceId as string);
           if (cancelAction && options?.onAction) {
             const onAction = options.onAction;
             img.addEventListener('click', (e) => {
@@ -559,11 +559,11 @@ function renderSiteArea(
       + '</svg>';
     area.appendChild(arrow);
     const revealedSite = company.revealedDestinationSite;
-    const revealedDefId = revealedSite ? cachedInstanceLookup(revealedSite) : undefined;
+    const revealedDefId = revealedSite?.definitionId;
     const revealedDef = revealedDefId ? cardPool[revealedDefId as string] : undefined;
     const revealedImg = revealedDef ? cardImageProxyPath(revealedDef) : undefined;
     if (revealedDefId && revealedDef && revealedImg) {
-      area.appendChild(createCardImage(revealedDefId as string, revealedDef, revealedImg, 'company-card company-card--site', revealedSite as string));
+      area.appendChild(createCardImage(revealedDefId as string, revealedDef, revealedImg, 'company-card company-card--site', revealedSite.instanceId as string));
     } else {
       const back = document.createElement('img');
       back.src = '/images/site-back.jpg';

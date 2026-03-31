@@ -93,7 +93,8 @@ All server-side logic must include detailed logging so that the game's decision-
 
 ### Card Data Policy
 
-- When adding or modifying card data, always fetch the card from the authoritative card database at https://raw.githubusercontent.com/council-of-elrond-meccg/meccg-cards-database/master/cards.json — never rely on model knowledge for card text, stats, or IDs. The database is keyed by set code (AS, BA, DM, LE, TD, TW, WH), each containing a `cards` dict keyed by card ID.
+- When adding or modifying card data, always look up the card from the local copy of the authoritative card database at `data/cards.json` — never rely on model knowledge for card text, stats, or IDs. The database is keyed by set code (AS, BA, DM, LE, TD, TW, WH), each containing a `cards` dict keyed by card ID.
+- The upstream source is https://raw.githubusercontent.com/council-of-elrond-meccg/meccg-cards-database/master/cards.json — refresh the local copy from there when needed.
 
 ### Card Certification
 

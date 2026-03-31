@@ -854,6 +854,7 @@ async function loadDecks(): Promise<void> {
       opt.value = deck.id;
       const missing = missingCards(deck);
       opt.textContent = missing.length > 0 ? `\u26A0 ${deck.name}` : deck.name;
+      if (deck.id === 'development-proto-hero') opt.selected = true;
       aiSelect.appendChild(opt);
     }
   }
@@ -943,9 +944,10 @@ async function addDeckToCollection(deck: FullDeck): Promise<void> {
 /** Set of "deckId:cardName" keys for already-requested cards. */
 let requestedCards = new Set<string>();
 
-/** Sort deck entries: known cards first, then by card type, then by name. */
+/** Sort deck entries: favourites first, then known cards, then by card type, then by name. */
 function sortDeckEntries(entries: DeckListEntry[]): DeckListEntry[] {
   return [...entries].sort((a, b) => {
+    if (a.favourite !== b.favourite) return a.favourite ? -1 : 1;
     const defA = a.card ? cardPool[a.card] : undefined;
     const defB = b.card ? cardPool[b.card] : undefined;
     if (!defA !== !defB) return defA ? -1 : 1;

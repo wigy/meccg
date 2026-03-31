@@ -39,11 +39,6 @@
       "qty": 2
     },
     {
-      "name": "The Witch-king",
-      "card": null,
-      "qty": 3
-    },
-    {
       "name": "Orc Brawler",
       "card": null,
       "qty": 2
@@ -60,7 +55,13 @@
     }
   ],
   "deck": {
-    "characters": [],
+    "characters": [
+        {
+          "name": "The Witch-king",
+          "card": null,
+          "qty": 3
+        }
+      ],
     "hazards": [
       {
         "name": "Slayer",

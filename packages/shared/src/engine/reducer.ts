@@ -2502,9 +2502,10 @@ function handlePlanMovement(state: GameState, action: GameAction): ReducerResult
   logDetail(`Plan movement: company ${company.id as string} → ${action.destinationSite as string}`);
 
   const companies = [...player.companies];
+  const destCard = player.siteDeck.find(c => c.instanceId === action.destinationSite);
   companies[companyIdx] = {
     ...company,
-    destinationSite: action.destinationSite,
+    destinationSite: { instanceId: destCard!.instanceId, definitionId: destCard!.definitionId, status: CardStatus.Untapped },
     movementPath: [],
   };
 
@@ -2541,7 +2542,7 @@ function handleCancelMovement(state: GameState, action: GameAction): ReducerResu
   const company = player.companies[companyIdx];
   if (!company.destinationSite) return { state, error: 'Company has no planned movement' };
 
-  logDetail(`Cancel movement: company ${company.id as string}, returning site ${company.destinationSite as string} to site deck`);
+  logDetail(`Cancel movement: company ${company.id as string}, returning site ${company.destinationSite.instanceId as string} to site deck`);
 
   const companies = [...player.companies];
   companies[companyIdx] = {
@@ -2551,8 +2552,7 @@ function handleCancelMovement(state: GameState, action: GameAction): ReducerResu
   };
 
   // Return the destination site to the site deck
-  const destSiteDefId = resolveInstanceId(state, company.destinationSite);
-  const siteDeck = [...player.siteDeck, { instanceId: company.destinationSite, definitionId: destSiteDefId! }];
+  const siteDeck = [...player.siteDeck, { instanceId: company.destinationSite.instanceId, definitionId: company.destinationSite.definitionId }];
 
   const newPlayers = clonePlayers(state);
   newPlayers[playerIndex] = { ...player, companies, siteDeck };
@@ -2562,7 +2562,7 @@ function handleCancelMovement(state: GameState, action: GameAction): ReducerResu
     type: 'plan-movement',
     player: action.player,
     companyId: action.companyId,
-    destinationSite: company.destinationSite,
+    destinationSite: company.destinationSite.instanceId,
   };
 
   return { state: { ...state, players: newPlayers, reverseActions: [...state.reverseActions, reverseAction] } };
@@ -3116,12 +3116,10 @@ function endCompanyMH(state: GameState, mhState: MovementHazardPhaseState): Redu
 
   if (company.destinationSite && !mhState.returnedToOrigin) {
     const originSite = company.currentSite;
-    const destSiteId = company.destinationSite;
-
     const updatedCompanies = [...resourcePlayer.companies];
     updatedCompanies[mhState.activeCompanyIndex] = {
       ...company,
-      currentSite: { instanceId: destSiteId, definitionId: resolveInstanceId(state, destSiteId)!, status: CardStatus.Untapped },
+      currentSite: { instanceId: company.destinationSite.instanceId, definitionId: company.destinationSite.definitionId, status: CardStatus.Untapped },
       destinationSite: null,
       moved: true,
       siteOfOrigin: null,
@@ -3496,7 +3494,7 @@ function handleRevealNewSite(
   }
 
   const originDef = company.currentSite ? state.cardPool[company.currentSite.definitionId as string] : undefined;
-  const destDefId = resolveInstanceId(state, company.destinationSite);
+  const destDefId = company.destinationSite.definitionId;
   const destDef = destDefId ? state.cardPool[destDefId as string] : undefined;
 
   if (!originDef || !isSiteCard(originDef) || !destDef || !isSiteCard(destDef)) {
@@ -3652,7 +3650,7 @@ function transitionToDrawCards(state: GameState, mhState: MovementHazardPhaseSta
   }
 
   // Determine which site card provides draw numbers
-  const destDefId2 = company.destinationSite ? resolveInstanceId(state, company.destinationSite) : undefined;
+  const destDefId2 = company.destinationSite ? company.destinationSite.definitionId : undefined;
   const destDef = destDefId2 ? state.cardPool[destDefId2 as string] : undefined;
   const originDef = company.currentSite ? state.cardPool[company.currentSite.definitionId as string] : undefined;
 
