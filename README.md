@@ -1,6 +1,6 @@
 # MECCG
 
-A web-based implementation of the **Middle-Earth Collectible Card Game** (MECCG), the classic trading card game set in Tolkien's Middle-earth. Built with TypeScript and Node.js using a client/server architecture.
+A web-based implementation of the **Middle-Earth Collectible Card Game** (MECCG), the classic trading card game set in Tolkien's Middle-earth. Built almost entirely by AI using Claude Code — from the game engine and rules enforcement to the browser UI and AI opponents. The codebase uses TypeScript and Node.js with a client/server architecture, and AI agents handle ongoing development tasks like bug fixes, feature planning, and card certification.
 
 ## Features
 
@@ -90,6 +90,21 @@ Additional docs in `docs/`:
 - [`coe-rules.md`](docs/coe-rules.md) — CoE rules reference
 - [`card-effects-dsl.md`](docs/card-effects-dsl.md) — Declarative card effects DSL design
 - [`glossary.md`](docs/glossary.md) — Architecture terms
+
+## Claude Commands
+
+| Command | Description |
+|---------|-------------|
+| `/ai-processor` | Process the next pending message from the AI inbox |
+| `/handle-bug-report` | Investigate and fix a bug from a mail report |
+| `/handle-card-request` | Add a card from the CoE database to the card data files |
+| `/handle-certify-card` | Verify a card's effects are supported by the game engine |
+| `/handle-implementation-request` | Implement a feature from a mailed implementation plan |
+| `/handle-mail` | Dispatch a mail message to the appropriate handler |
+| `/handle-planning-request` | Create an implementation plan from a feature description |
+| `/investigate` | Analyze a game log to diagnose an unexpected game state |
+| `/release` | Perform a versioned release with changelog and git tag |
+| `/update-readme` | Refresh the Project Status section with current metrics |
 
 ## License
 
