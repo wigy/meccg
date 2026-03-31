@@ -17,8 +17,8 @@ import { describe, test, expect, beforeEach } from 'vitest';
 import {
   buildTestState, resetMint, Phase,
   PLAYER_1, PLAYER_2,
-  ARAGORN, LEGOLAS, GANDALF, EOWYN,
-  RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
+  ARAGORN, LEGOLAS, EOWYN,
+  RIVENDELL, LORIEN,
 } from '../../test-helpers.js';
 import { computeLegalActions } from '../../../engine/legal-actions/index.js';
 import type { EvaluatedAction } from '../../../index.js';

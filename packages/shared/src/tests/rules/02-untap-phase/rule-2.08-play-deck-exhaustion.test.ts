@@ -15,12 +15,11 @@
 
 import { describe, test, expect, beforeEach } from 'vitest';
 import {
-  buildTestState, resetMint, reduce, Phase,
+  buildTestState, resetMint, Phase,
   PLAYER_1, PLAYER_2,
   GANDALF, LEGOLAS,
   DAGGER_OF_WESTERNESSE, CAVE_DRAKE, ORC_PATROL,
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
-  makePlayDeck,
 } from '../../test-helpers.js';
 
 describe('Rule 2.08 — Play Deck Exhaustion', () => {

@@ -13,12 +13,9 @@
  * If a player's avatar is eliminated during the game (e.g. by failing a body check or corruption check), it is placed in its player's removed-from-play pile and provides -5 miscellaneous marshalling points to that player. A player whose avatar has been eliminated cannot reveal another avatar.
  */
 
-import { describe, test, expect, beforeEach } from 'vitest';
+import { describe, test, beforeEach } from 'vitest';
 import {
-  buildTestState, resetMint, Phase,
-  PLAYER_1, PLAYER_2,
-  GANDALF, LEGOLAS, ARAGORN,
-  RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
+  resetMint,
 } from '../../test-helpers.js';
 
 describe('Rule 2.05 — Avatar Eliminated', () => {

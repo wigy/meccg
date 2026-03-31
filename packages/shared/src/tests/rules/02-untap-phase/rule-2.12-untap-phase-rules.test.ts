@@ -17,15 +17,10 @@ import { describe, test, expect, beforeEach } from 'vitest';
 import {
   buildTestState, resetMint, reduce, Phase, CardStatus,
   PLAYER_1, PLAYER_2,
-  ARAGORN, LEGOLAS, GANDALF, EOWYN,
+  ARAGORN, LEGOLAS,
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
 } from '../../test-helpers.js';
-import { computeLegalActions } from '../../../engine/legal-actions/index.js';
-import type { EvaluatedAction } from '../../../index.js';
 
-function viableOfType(actions: EvaluatedAction[], type: string): EvaluatedAction[] {
-  return actions.filter(a => a.viable && a.action.type === type);
-}
 
 describe('Rule 2.12 — Untap Phase - Untap or Heal', () => {
   beforeEach(() => resetMint());
