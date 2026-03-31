@@ -6,27 +6,32 @@
     {
       "name": "Ill-favoured Fellow",
       "card": null,
-      "qty": 1
+      "qty": 1,
+      "favourite": true
     },
     {
       "name": "Gorbag",
       "card": "le-11",
-      "qty": 1
+      "qty": 1,
+      "favourite": true
     },
     {
       "name": "Lugdush",
       "card": null,
-      "qty": 1
+      "qty": 1,
+      "favourite": true
     },
     {
       "name": "Ufthak",
       "card": null,
-      "qty": 1
+      "qty": 1,
+      "favourite": true
     },
     {
       "name": "Grishnakh",
       "card": null,
-      "qty": 1
+      "qty": 1,
+      "favourite": true
     },
     {
       "name": "Blazon of the Eye",

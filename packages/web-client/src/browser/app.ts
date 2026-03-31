@@ -578,7 +578,7 @@ let myDeckSelectInstalled = false;
 let currentDeckId: string | null = null;
 
 interface DeckSummary { id: string; name: string; alignment: string }
-interface DeckListEntry { name: string; card: string | null; qty: number }
+interface DeckListEntry { name: string; card: string | null; qty: number; favourite?: boolean }
 interface FullDeck extends DeckSummary {
   pool: DeckListEntry[];
   deck: { characters: DeckListEntry[]; hazards: DeckListEntry[]; resources: DeckListEntry[] };
@@ -893,7 +893,8 @@ function renderCompactDeck(container: HTMLElement, deck: FullDeck): void {
       for (const entry of section.entries) {
         const row = document.createElement('div');
         row.className = 'compact-deck-entry' + (entry.card === null ? ' compact-deck-entry--missing' : '');
-        row.textContent = entry.qty > 1 ? `${entry.qty}\u00d7 ${entry.name}` : entry.name;
+        const star = entry.favourite ? ' \u2605' : '';
+        row.textContent = (entry.qty > 1 ? `${entry.qty}\u00d7 ${entry.name}` : entry.name) + star;
         if (entry.card) {
           const def = cardPool[entry.card];
           const style = def ? CARD_TYPE_CSS[def.cardType] : undefined;
@@ -966,7 +967,8 @@ function renderCardList(container: HTMLElement, entries: DeckListEntry[], deckId
     nameEl.className = 'deck-editor-card-name';
     // Use official name and color from card pool if mapped
     const def = entry.card ? cardPool[entry.card] : undefined;
-    nameEl.textContent = def ? def.name : entry.name;
+    const favStar = entry.favourite ? ' \u2605' : '';
+    nameEl.textContent = (def ? def.name : entry.name) + favStar;
     const badge = document.createElement('span');
     badge.className = 'deck-editor-certified-badge';
     if (def) {

@@ -6,27 +6,32 @@
     {
       "name": "Orc Brawler",
       "card": null,
-      "qty": 1
+      "qty": 1,
+      "favourite": true
     },
     {
       "name": "Orc Captain",
       "card": null,
-      "qty": 1
+      "qty": 1,
+      "favourite": true
     },
     {
       "name": "Horseman in the Night",
       "card": null,
-      "qty": 1
+      "qty": 1,
+      "favourite": true
     },
     {
       "name": "Ill-favoured Fellow",
       "card": null,
-      "qty": 1
+      "qty": 1,
+      "favourite": true
     },
     {
       "name": "Orc Veteran",
       "card": null,
-      "qty": 1
+      "qty": 1,
+      "favourite": true
     },
     {
       "name": "Blazon of the Eye",

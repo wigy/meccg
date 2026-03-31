@@ -6,27 +6,32 @@
     {
       "name": "Lagduf",
       "card": null,
-      "qty": 1
+      "qty": 1,
+      "favourite": true
     },
     {
       "name": "Lieutenant of Morgul",
       "card": null,
-      "qty": 1
+      "qty": 1,
+      "favourite": true
     },
     {
       "name": "Muzgash",
       "card": null,
-      "qty": 1
+      "qty": 1,
+      "favourite": true
     },
     {
       "name": "Radbug",
       "card": null,
-      "qty": 1
+      "qty": 1,
+      "favourite": true
     },
     {
       "name": "Tros Hesnef",
       "card": null,
-      "qty": 1
+      "qty": 1,
+      "favourite": true
     },
     {
       "name": "Foul-smelling Paste",

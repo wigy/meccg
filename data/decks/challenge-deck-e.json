@@ -6,22 +6,26 @@
     {
       "name": "Annalena",
       "card": null,
-      "qty": 1
+      "qty": 1,
+      "favourite": true
     },
     {
       "name": "Aragorn II",
       "card": "tw-120",
-      "qty": 1
+      "qty": 1,
+      "favourite": true
     },
     {
       "name": "Arwen",
       "card": null,
-      "qty": 1
+      "qty": 1,
+      "favourite": true
     },
     {
       "name": "Faramir",
       "card": "tw-149",
-      "qty": 1
+      "qty": 1,
+      "favourite": true
     },
     {
       "name": "Elf-stone",

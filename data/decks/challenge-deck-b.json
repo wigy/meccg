@@ -6,22 +6,26 @@
     {
       "name": "Elladan",
       "card": "tw-143",
-      "qty": 1
+      "qty": 1,
+      "favourite": true
     },
     {
       "name": "Erkenbrand",
       "card": null,
-      "qty": 1
+      "qty": 1,
+      "favourite": true
     },
     {
       "name": "Orophin",
       "card": null,
-      "qty": 1
+      "qty": 1,
+      "favourite": true
     },
     {
       "name": "Elrond",
       "card": "tw-145",
-      "qty": 1
+      "qty": 1,
+      "favourite": true
     },
     {
       "name": "Cram",

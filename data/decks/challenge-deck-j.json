@@ -6,22 +6,26 @@
     {
       "name": "Hador",
       "card": null,
-      "qty": 1
+      "qty": 1,
+      "favourite": true
     },
     {
       "name": "Horseman in the Night",
       "card": null,
-      "qty": 1
+      "qty": 1,
+      "favourite": true
     },
     {
       "name": "Odoacer",
       "card": null,
-      "qty": 1
+      "qty": 1,
+      "favourite": true
     },
     {
       "name": "The Mouth",
       "card": "le-24",
-      "qty": 1
+      "qty": 1,
+      "favourite": true
     },
     {
       "name": "Blazon of the Eye",

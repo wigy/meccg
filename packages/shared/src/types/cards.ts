@@ -886,6 +886,8 @@ export interface DeckListEntry {
   readonly card: CardDefinitionId | null;
   /** Number of copies in this deck section. */
   readonly qty: number;
+  /** Whether this is a favourite character (starting company pick) in the pool. */
+  readonly favourite?: boolean;
 }
 
 /**
