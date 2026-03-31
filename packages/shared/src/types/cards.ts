@@ -917,8 +917,8 @@ export interface DeckList {
   readonly id: string;
   /** Deck name (e.g. "Stewards of Gondor"). */
   readonly name: string;
-  /** Deck alignment: "hero" or "minion". */
-  readonly alignment: 'hero' | 'minion';
+  /** Deck alignment: hero, minion, fallen-wizard, or balrog. */
+  readonly alignment: 'hero' | 'minion' | 'fallen-wizard' | 'balrog';
   /** Starting company -- characters and minor items available for the pre-game draft. */
   readonly pool: readonly DeckListEntry[];
   /** The main deck split into characters, hazards, and resources. */

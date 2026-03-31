@@ -6,13 +6,13 @@
 
 | Total Rules | Implemented | Remaining | Progress |
 |:-----------:|:-----------:|:---------:|:--------:|
-| 295 | 0 | 295 | 0.0% |
+| 295 | 1 | 294 | 0.3% |
 
 ## Section Breakdown
 
 | # | Section | Rules | Done | % |
 |:-:|:--------|:-----:|:----:|:-:|
-| 01 | [Deck Construction & Setup](01-deck-construction/) | 58 | 0 | 0.0% |
+| 01 | [Deck Construction & Setup](01-deck-construction/) | 58 | 1 | 1.7% |
 | 02 | [Untap Phase](02-untap-phase/) | 13 | 0 | 0.0% |
 | 03 | [Organization Phase](03-organization-phase/) | 48 | 0 | 0.0% |
 | 04 | [Long-Event Phase](04-long-event-phase/) | 3 | 0 | 0.0% |
@@ -28,7 +28,7 @@
 | Rule | Section | Test | Status |
 |:-----|:--------|:-----|:------:|
 | 1.01 | Deck Construction & Setup | [Game Length](01-deck-construction/rule-1.01-game-length.test.ts) | ☐ |
-| 1.02 | Deck Construction & Setup | [Player Type](01-deck-construction/rule-1.02-player-type.test.ts) | ☐ |
+| 1.02 | Deck Construction & Setup | [Player Type](01-deck-construction/rule-1.02-player-type.test.ts) | ☑ |
 | 1.03 | Deck Construction & Setup | [Deck Composition](01-deck-construction/rule-1.03-deck-composition.test.ts) | ☐ |
 | 1.04 | Deck Construction & Setup | [Unique Card Limits](01-deck-construction/rule-1.04-unique-card-limits.test.ts) | ☐ |
 | 1.05 | Deck Construction & Setup | [Agent Mind Limit](01-deck-construction/rule-1.05-agent-mind-limit.test.ts) | ☐ |
