@@ -54,6 +54,13 @@ function saveGameSession(): void {
   if (opponentName) {
     sessionStorage.setItem(GAME_OPPONENT_KEY, opponentName);
   }
+  if (isPseudoAi) {
+    sessionStorage.setItem(PSEUDO_AI_KEY, '1');
+    if (pseudoAiToken) sessionStorage.setItem(PSEUDO_AI_TOKEN_KEY, pseudoAiToken);
+  } else {
+    sessionStorage.removeItem(PSEUDO_AI_KEY);
+    sessionStorage.removeItem(PSEUDO_AI_TOKEN_KEY);
+  }
 }
 
 /** Clear persisted game session on disconnect. */
@@ -61,6 +68,8 @@ function clearGameSession(): void {
   sessionStorage.removeItem(GAME_PORT_KEY);
   sessionStorage.removeItem(GAME_TOKEN_KEY);
   sessionStorage.removeItem(GAME_OPPONENT_KEY);
+  sessionStorage.removeItem(PSEUDO_AI_KEY);
+  sessionStorage.removeItem(PSEUDO_AI_TOKEN_KEY);
 }
 
 /** Restore game connection info from sessionStorage (returns true if found). */
@@ -72,6 +81,8 @@ function restoreGameSession(): boolean {
     gamePort = Number(port);
     gameToken = token;
     opponentName = opponent;
+    isPseudoAi = sessionStorage.getItem(PSEUDO_AI_KEY) === '1';
+    pseudoAiToken = sessionStorage.getItem(PSEUDO_AI_TOKEN_KEY);
     return true;
   }
   return false;
@@ -90,6 +101,16 @@ let currentGameId: string | null = null;
 let currentStateSeq = 0;
 /** Opponent player name (lobby mode, set on 'game-starting'). */
 let opponentName: string | null = null;
+/** Whether the current game is a pseudo-AI game (human controls both sides). */
+let isPseudoAi = false;
+const PSEUDO_AI_KEY = 'meccg-pseudo-ai';
+/** Second WebSocket for pseudo-AI: connects as the AI player. */
+let pseudoAiWs: WebSocket | null = null;
+/** AI player's game token (pseudo-AI mode). */
+let pseudoAiToken: string | null = null;
+/** The AI's selected deck, captured when the user clicks Play vs Pseudo-AI. */
+let pendingAiDeck: FullDeck | null = null;
+const PSEUDO_AI_TOKEN_KEY = 'meccg-pseudo-ai-token';
 let autoPassTimer: ReturnType<typeof setTimeout> | null = null;
 /** Stack of log entry counts, pushed before each action for undo support. */
 const logCountStack: number[] = [];
@@ -108,6 +129,163 @@ function sendAction(action: GameAction): void {
   if (action.type === 'finished') {
     disconnect();
   }
+}
+
+/** A described action for the pseudo-AI panel: pre-rendered text + the raw action and viability. */
+interface DescribedAction {
+  readonly text: string;
+  readonly action: GameAction;
+  readonly viable: boolean;
+  readonly reason?: string;  // from EvaluatedAction — why the action is not viable
+}
+
+/** Send a pseudo-AI action pick via the AI's game WebSocket. */
+function sendPseudoAiPick(action: GameAction): void {
+  if (!pseudoAiWs || pseudoAiWs.readyState !== WebSocket.OPEN) return;
+  const msg: ClientMessage = { type: 'action', action };
+  pseudoAiWs.send(JSON.stringify(msg));
+}
+
+/** Clean action text for display: extract card names from markers, strip IDs and brackets. */
+function cleanActionText(text: string): string {
+  // \x02id\x02name\x02 → name
+  let s = text.replace(/\x02[^\x02]*\x02([^\x02]*)\x02/g, '$1');
+  // Remove any remaining control chars, bracketed content, and bare IDs
+  s = s.replace(/[\x00-\x1f]+/g, '');
+  s = s.replace(/\{[^}]*\}/g, '');
+  s = s.replace(/\([^)]*\)/g, '');
+  s = s.replace(/\[[^\]]*\]/g, '');
+  return s.replace(/\s{2,}/g, ' ').trim();
+}
+
+/** Action types that represent "pass" or "do nothing". */
+const PASS_ACTION_TYPES = new Set(['pass', 'draft-stop']);
+
+/** Render the pseudo-AI action panel with pre-described actions. */
+function renderPseudoAiActions(actions: readonly DescribedAction[]): void {
+  const panel = document.getElementById('pseudo-ai-panel')!;
+  const container = document.getElementById('pseudo-ai-actions')!;
+  const nonViableToggle = document.getElementById('pseudo-ai-nonviable-toggle')!;
+
+  container.innerHTML = '';
+
+  const viable = actions.filter(a => a.viable);
+  const nonViable = actions.filter(a => !a.viable);
+
+  // Sort: pass actions first
+  viable.sort((a, b) => {
+    const aPass = PASS_ACTION_TYPES.has(a.action.type) ? 0 : 1;
+    const bPass = PASS_ACTION_TYPES.has(b.action.type) ? 0 : 1;
+    return aPass - bPass;
+  });
+
+  // Show panel and pulsing border when there are actions to pick
+  const instruction = document.getElementById('pseudo-ai-instruction')!;
+  if (viable.length > 0) {
+    panel.classList.remove('hidden');
+    panel.classList.add('waiting');
+    instruction.classList.remove('hidden');
+  } else {
+    panel.classList.remove('waiting');
+    instruction.classList.add('hidden');
+  }
+
+  // Render viable actions as clickable buttons
+  for (const da of viable) {
+    const btn = document.createElement('button');
+    btn.textContent = cleanActionText(da.text);
+    if ('regress' in da.action && da.action.regress) {
+      btn.classList.add('action-regress');
+    }
+    btn.addEventListener('click', () => {
+      sendPseudoAiPick(da.action);
+      container.innerHTML = '';
+      nonViableToggle.classList.add('hidden');
+      panel.classList.remove('waiting');
+      panel.classList.add('hidden');
+      instruction.classList.add('hidden');
+    });
+    container.appendChild(btn);
+  }
+
+  // Non-viable actions: hidden by default, toggleable
+  if (nonViable.length > 0) {
+    nonViableToggle.classList.remove('hidden');
+    nonViableToggle.textContent = `+ Show non-viable (${nonViable.length})`;
+
+    const nonViableContainer = document.createElement('div');
+    nonViableContainer.classList.add('hidden');
+    nonViableContainer.id = 'pseudo-ai-nonviable-list';
+
+    for (const da of nonViable) {
+      const btn = document.createElement('button');
+      btn.disabled = true;
+      btn.textContent = cleanActionText(da.text);
+      if (da.reason) {
+        btn.title = da.reason;
+      }
+      nonViableContainer.appendChild(btn);
+    }
+    container.appendChild(nonViableContainer);
+
+    const newToggle = nonViableToggle.cloneNode(true) as HTMLButtonElement;
+    nonViableToggle.replaceWith(newToggle);
+    let showing = false;
+    newToggle.addEventListener('click', () => {
+      showing = !showing;
+      nonViableContainer.classList.toggle('hidden', !showing);
+      newToggle.textContent = showing
+        ? `\u2212 Hide non-viable (${nonViable.length})`
+        : `+ Show non-viable (${nonViable.length})`;
+    });
+  } else {
+    nonViableToggle.classList.add('hidden');
+  }
+}
+
+/** Connect a second WebSocket to the game server as the AI player (pseudo-AI mode). */
+function connectPseudoAi(aiName: string, aiDeck?: FullDeck | null): void {
+  if (!gamePort || !pseudoAiToken) return;
+  const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+  const url = `${protocol}//${window.location.hostname}:${gamePort}`;
+  pseudoAiWs = new WebSocket(url);
+
+  pseudoAiWs.onopen = () => {
+    let joinMsg: JoinMessage;
+    if (aiDeck) {
+      joinMsg = buildJoinFromDeck(aiDeck, aiName);
+    } else {
+      // Rejoin — server already has the deck from autosave
+      joinMsg = { type: 'join', name: aiName, alignment: Alignment.Wizard, draftPool: [], playDeck: [], siteDeck: [], sideboard: [] };
+    }
+    const msg: ClientMessage = { ...joinMsg, token: pseudoAiToken } as ClientMessage;
+    pseudoAiWs!.send(JSON.stringify(msg));
+  };
+
+  pseudoAiWs.onmessage = (event) => {
+    const msg = JSON.parse(event.data as string) as ServerMessage;
+    if (msg.type === 'state') {
+      const actions = msg.view.legalActions;
+      if (actions && actions.length > 0) {
+        const aiLookup = buildInstanceLookup(msg.view);
+        const aiCompanyNames = {
+          ...buildCompanyNames(msg.view.self.companies, msg.view.self.characters, cardPool),
+          ...buildCompanyNames(msg.view.opponent.companies as never, msg.view.opponent.characters, cardPool),
+        };
+        const described: DescribedAction[] = actions.map(ea => ({
+          text: describeAction(ea.action, cardPool, aiLookup, aiCompanyNames),
+          action: ea.action,
+          viable: ea.viable,
+          reason: ea.reason,
+        }));
+        renderPseudoAiActions(described);
+      }
+    }
+  };
+
+  pseudoAiWs.onclose = () => {
+    pseudoAiWs = null;
+  };
 }
 
 function connect(name: string): void {
@@ -356,6 +534,9 @@ function disconnect(): void {
   playerId = null;
   gamePort = null;
   gameToken = null;
+  isPseudoAi = false;
+  pseudoAiToken = null;
+  if (pseudoAiWs) { pseudoAiWs.close(); pseudoAiWs = null; }
   clearGameSession();
 
   // Reset game state
@@ -363,6 +544,13 @@ function disconnect(): void {
   document.getElementById('draft')!.textContent = '';
   document.getElementById('actions')!.innerHTML = '';
   document.getElementById('log')!.innerHTML = '';
+  // Hide pseudo-AI panel
+  const pseudoPanel = document.getElementById('pseudo-ai-panel');
+  if (pseudoPanel) {
+    pseudoPanel.classList.add('hidden');
+    pseudoPanel.classList.remove('minimized');
+    document.getElementById('pseudo-ai-actions')!.innerHTML = '';
+  }
   clearDice();
   resetVisualBoard();
   resetCompanyViews();
@@ -435,16 +623,21 @@ function requestRejoin(): void {
         gamePort = msg.port as number;
         gameToken = msg.token as string;
         opponentName = (msg.opponent as string) ?? opponent;
+        isPseudoAi = (msg.pseudoAi as boolean) ?? false;
+        pseudoAiToken = (msg.aiToken as string) ?? null;
         saveGameSession();
         // Keep this WS as the lobby WS (it's authenticated)
         lobbyWs = rejoinWs;
         lobbyWs.onclose = () => { lobbyWs = null; };
-        // Close lobby WS during game (same as normal game-starting)
+        // Close lobby WS during game
         lobbyWs.close();
         lobbyWs = null;
         autoReconnect = true;
         renderLog(`Game relaunched on port ${gamePort}. Connecting...`);
         connect(lobbyPlayerName!);
+        if (isPseudoAi && opponentName) {
+          connectPseudoAi(opponentName);
+        }
       } else if (msg.type === 'error') {
         renderLog(`Lobby: ${msg.message as string}`);
         cleanup();
@@ -573,6 +766,8 @@ function showScreen(id: ScreenId): void {
 
 /** IDs of decks the player already owns. */
 let ownedDeckIds = new Set<string>();
+/** Cached deck catalog for looking up AI decks. */
+let cachedCatalog: FullDeck[] = [];
 let myDeckSelectInstalled = false;
 /** Currently selected deck ID. */
 let currentDeckId: string | null = null;
@@ -754,6 +949,7 @@ async function loadDecks(): Promise<void> {
     fetch('/api/my-decks'),
   ]);
   const catalog = catalogResp.ok ? await catalogResp.json() as FullDeck[] : [];
+  cachedCatalog = catalog;
   const myData = myResp.ok
     ? await myResp.json() as { decks: FullDeck[]; currentDeck: string | null; currentFullDeck: FullDeck | null }
     : { decks: [] as FullDeck[], currentDeck: null, currentFullDeck: null };
@@ -1499,6 +1695,8 @@ function connectLobbyWs(): void {
         gamePort = msg.port as number;
         gameToken = msg.token as string;
         opponentName = (msg.opponent as string) ?? null;
+        isPseudoAi = (msg.pseudoAi as boolean) ?? false;
+        pseudoAiToken = (msg.aiToken as string) ?? null;
         const opponentDisplay = (msg.opponentDisplayName as string) ?? (msg.opponent as string);
         saveGameSession();
         // Close lobby WS during game
@@ -1511,6 +1709,11 @@ function connectLobbyWs(): void {
         autoReconnect = true;
         renderLog(`Game starting vs ${opponentDisplay} on port ${gamePort}...`);
         connect(lobbyPlayerName!);
+        // For pseudo-AI, open a second WS as the AI player with the captured deck
+        if (isPseudoAi && opponentName) {
+          connectPseudoAi(opponentName, pendingAiDeck);
+          pendingAiDeck = null;
+        }
         break;
       }
       case 'error': {
@@ -1563,6 +1766,10 @@ async function initLobby(): Promise<void> {
         autoReconnect = true;
         renderLog(`Reconnecting to game on port ${gamePort}...`);
         connect(lobbyPlayerName);
+        // For pseudo-AI games, reconnect the AI WS
+        if (isPseudoAi && opponentName) {
+          connectPseudoAi(opponentName);
+        }
         return;
       }
 
@@ -1641,6 +1848,17 @@ document.addEventListener('DOMContentLoaded', () => {
   viewToggleBtn.addEventListener('click', () => {
     setViewMode(!debugView.classList.contains('hidden'));
   });
+
+  // Pseudo-AI panel minimize/restore toggle
+  const pseudoAiMinimizeBtn = document.getElementById('pseudo-ai-minimize-btn');
+  if (pseudoAiMinimizeBtn) {
+    pseudoAiMinimizeBtn.addEventListener('click', () => {
+      const panel = document.getElementById('pseudo-ai-panel')!;
+      const minimized = panel.classList.toggle('minimized');
+      pseudoAiMinimizeBtn.textContent = minimized ? '\u25a1' : '_';
+      pseudoAiMinimizeBtn.title = minimized ? 'Restore' : 'Minimize';
+    });
+  }
 
   /** Flash a button to confirm the action was triggered. */
   function flashBtn(btn: HTMLElement): void {
@@ -1790,6 +2008,52 @@ document.addEventListener('DOMContentLoaded', () => {
         body: JSON.stringify({ opponent: 'AI-Random' }),
       });
       launchAiGame();
+    })(); });
+
+    // ---- Pseudo-AI ----
+    const playPseudoAiBtn = document.getElementById('play-pseudo-ai-btn') as HTMLButtonElement;
+    const pseudoSavePrompt = document.getElementById('pseudo-save-prompt')!;
+    const pseudoContinueBtn = document.getElementById('pseudo-continue-game-btn') as HTMLButtonElement;
+    const pseudoNewBtn = document.getElementById('pseudo-new-game-btn') as HTMLButtonElement;
+
+    /** Send the play-pseudo-ai message and disable the UI. */
+    function launchPseudoAiGame(): void {
+      if (lobbyWs && lobbyWs.readyState === WebSocket.OPEN) {
+        const aiDeckSelect = document.getElementById('ai-deck-select') as HTMLSelectElement;
+        const deckId = aiDeckSelect.value;
+        // Capture the AI deck now, before the lobby screen is hidden
+        pendingAiDeck = cachedCatalog.find(d => d.id === deckId) ?? null;
+        lobbyWs.send(JSON.stringify({ type: 'play-pseudo-ai', deckId }));
+        playPseudoAiBtn.textContent = 'Starting...';
+        playPseudoAiBtn.disabled = true;
+        pseudoSavePrompt.classList.add('hidden');
+      }
+    }
+
+    playPseudoAiBtn.addEventListener('click', () => { void (async () => {
+      const resp = await fetch('/api/saves/check?opponent=AI-Pseudo');
+      if (resp.ok) {
+        const data = await resp.json() as { hasSave: boolean };
+        if (data.hasSave) {
+          playPseudoAiBtn.classList.add('hidden');
+          pseudoSavePrompt.classList.remove('hidden');
+          return;
+        }
+      }
+      launchPseudoAiGame();
+    })(); });
+
+    pseudoContinueBtn.addEventListener('click', () => {
+      launchPseudoAiGame();
+    });
+
+    pseudoNewBtn.addEventListener('click', () => { void (async () => {
+      await fetch('/api/saves/delete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ opponent: 'AI-Pseudo' }),
+      });
+      launchPseudoAiGame();
     })(); });
 
     acceptChallengeBtn.addEventListener('click', () => {

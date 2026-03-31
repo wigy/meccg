@@ -3871,4 +3871,133 @@ h2 {
   border-top: 2px solid rgba(196, 163, 90, 0.3);
 }
 
+/* ---- Pseudo-AI Action Panel ---- */
+
+#pseudo-ai-panel {
+  position: fixed;
+  top: 4rem;
+  right: 110px;
+  width: 340px;
+  max-height: 60vh;
+  overflow-y: auto;
+  background: #0e1a2e;
+  border: 2px solid #5a8a5a;
+  border-radius: 6px;
+  z-index: 200;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
+}
+
+#pseudo-ai-panel.waiting {
+  animation: pseudo-ai-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes pseudo-ai-pulse {
+  0%, 100% { border-color: #5a8a5a; box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5); }
+  50% { border-color: #8aca8a; box-shadow: 0 0 12px rgba(90, 138, 90, 0.4); }
+}
+
+#pseudo-ai-panel.minimized {
+  max-height: none;
+  overflow: hidden;
+}
+
+#pseudo-ai-panel.minimized #pseudo-ai-actions,
+#pseudo-ai-panel.minimized #pseudo-ai-nonviable-toggle {
+  display: none;
+}
+
+.pseudo-ai-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.4rem 0.6rem;
+  background: #162040;
+  border-bottom: 1px solid #c4a35a44;
+  font-size: 0.85rem;
+  font-weight: bold;
+  color: #c4a35a;
+}
+
+.pseudo-ai-instruction {
+  font-size: 0.75rem;
+  font-weight: normal;
+  color: #8aca8a;
+  font-style: italic;
+}
+
+#pseudo-ai-minimize-btn {
+  background: none;
+  border: 1px solid #c4a35a44;
+  color: #c4a35a;
+  cursor: pointer;
+  border-radius: 3px;
+  padding: 0 6px;
+  font-size: 0.8rem;
+  line-height: 1.4;
+}
+
+#pseudo-ai-minimize-btn:hover {
+  background: #1e3a60;
+}
+
+#pseudo-ai-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  padding: 0.5rem;
+}
+
+#pseudo-ai-actions button {
+  padding: 0.3rem 0.45rem;
+  font-size: 0.78rem;
+  background: #1a2a4a;
+  color: #e0e0e0;
+  border: 1px solid #5a8a5a44;
+  border-left: 3px solid #5a8a5a;
+  border-radius: 4px;
+  cursor: pointer;
+  text-align: left;
+  word-break: break-word;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+#pseudo-ai-actions button:hover {
+  background: #1e3a60;
+  border-color: #5a8a5a;
+  border-left-color: #6a9a6a;
+}
+
+#pseudo-ai-actions button:active {
+  background: #254a70;
+}
+
+#pseudo-ai-actions button:disabled {
+  opacity: 0.5;
+  cursor: default;
+  border-color: #444;
+}
+
+#pseudo-ai-actions button.action-regress {
+  opacity: 0.5;
+}
+
+#pseudo-ai-nonviable-toggle {
+  display: block;
+  width: calc(100% - 1rem);
+  margin: 0.3rem 0.5rem 0.5rem;
+  padding: 0.25rem;
+  font-size: 0.75rem;
+  background: #162040;
+  color: #888;
+  border: 1px solid #333;
+  border-radius: 3px;
+  cursor: pointer;
+  text-align: center;
+}
+
+#pseudo-ai-nonviable-toggle:hover {
+  background: #1e3a60;
+  color: #aaa;
+}
+
 

@@ -33,6 +33,20 @@ export interface PlayAiMessage {
   readonly deckId: string;
 }
 
+/** Start a game against the pseudo-AI (human controls both sides). */
+export interface PlayPseudoAiMessage {
+  readonly type: 'play-pseudo-ai';
+  /** Catalog deck ID for the pseudo-AI opponent to use. */
+  readonly deckId: string;
+}
+
+/** Forward the human's chosen action to the pseudo-AI client. */
+export interface PseudoAiPickMessage {
+  readonly type: 'pseudo-ai-pick';
+  /** The action chosen by the human for the AI player. */
+  readonly action: import('@meccg/shared').GameAction;
+}
+
 /** Request the lobby to relaunch a game server after the previous one died. */
 export interface RejoinGameMessage {
   readonly type: 'rejoin-game';
@@ -46,6 +60,8 @@ export type LobbyClientMessage =
   | AcceptChallengeMessage
   | DeclineChallengeMessage
   | PlayAiMessage
+  | PlayPseudoAiMessage
+  | PseudoAiPickMessage
   | RejoinGameMessage;
 
 // ---- Lobby → Client ----
@@ -83,6 +99,10 @@ export interface GameStartingMessage {
   readonly token: string;
   readonly opponent: string;
   readonly opponentDisplayName: string;
+  /** True when the opponent is a pseudo-AI controlled by the human player. */
+  readonly pseudoAi?: boolean;
+  /** Game token for the AI player (pseudo-AI mode only — human controls both sides). */
+  readonly aiToken?: string;
 }
 
 /** Error message from the lobby. */
@@ -104,6 +124,15 @@ export interface MailNotificationMessage {
   readonly unreadCount: number;
 }
 
+/** Pseudo-AI legal actions forwarded to the human player for decision. */
+export interface PseudoAiActionsMessage {
+  readonly type: 'pseudo-ai-actions';
+  /** The AI player's evaluated legal actions. */
+  readonly actions: readonly import('@meccg/shared').EvaluatedAction[];
+  /** Current game phase name. */
+  readonly phase: string;
+}
+
 /** Union of all lobby → client messages. */
 export type LobbyServerMessage =
   | OnlinePlayersMessage
@@ -112,4 +141,5 @@ export type LobbyServerMessage =
   | GameStartingMessage
   | LobbyErrorMessage
   | SystemNotificationMessage
-  | MailNotificationMessage;
+  | MailNotificationMessage
+  | PseudoAiActionsMessage;

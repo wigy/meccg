@@ -163,6 +163,15 @@ function handleMessage(fromName: string, msg: LobbyClientMessage): void {
       break;
     }
 
+    case 'play-pseudo-ai': {
+      if (from.inGame) {
+        send(from.ws, { type: 'error', message: 'You are already in a game' });
+        return;
+      }
+      void startPseudoAiGame(from, msg.deckId);
+      break;
+    }
+
     case 'rejoin-game': {
       const opponentName = msg.opponent;
       const isAi = opponentName.startsWith('AI-');
@@ -179,7 +188,9 @@ function handleMessage(fromName: string, msg: LobbyClientMessage): void {
       from.inGame = false;
       from.activeGame = null;
 
-      if (isAi) {
+      if (opponentName === 'AI-Pseudo') {
+        void startPseudoAiGame(from);
+      } else if (isAi) {
         void startAiGame(from);
       } else {
         const opponent = onlinePlayers.get(opponentName);
@@ -271,6 +282,44 @@ async function startAiGame(player: OnlinePlayer, deckId?: string): Promise<void>
     });
   } catch (err) {
     lobbyLog.log('error', { context: 'ai-game-start', error: String(err) });
+    player.inGame = false;
+    player.activeGame = null;
+    send(player.ws, { type: 'error', message: 'Failed to start game server' });
+  }
+}
+
+/** Launch a pseudo-AI game where the human controls both sides via two WS connections. */
+async function startPseudoAiGame(player: OnlinePlayer, deckId?: string): Promise<void> {
+  player.inGame = true;
+  const aiName = 'AI-Pseudo';
+
+  try {
+    // No AI client process — the web client connects twice (as human + AI)
+    const result = await launchGame(player.name, aiName, { aiDeckId: deckId });
+    lobbyLog.log('game-start', { player1: player.name, player2: aiName, pseudoAi: true, port: result.port });
+
+    player.activeGame = {
+      port: result.port,
+      token: result.tokens[0],
+      opponent: aiName,
+      opponentDisplayName: aiName,
+    };
+    send(player.ws, {
+      type: 'game-starting',
+      ...player.activeGame,
+      pseudoAi: true,
+      aiToken: result.tokens[1],
+    });
+
+    result.onEnd(() => {
+      player.inGame = false;
+      player.activeGame = null;
+      player.pendingFrom.clear();
+      broadcastPlayerList();
+      lobbyLog.log('game-end', { player1: player.name, player2: aiName, pseudoAi: true });
+    });
+  } catch (err) {
+    lobbyLog.log('error', { context: 'pseudo-ai-game-start', error: String(err) });
     player.inGame = false;
     player.activeGame = null;
     send(player.ws, { type: 'error', message: 'Failed to start game server' });

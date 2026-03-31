@@ -11,6 +11,7 @@
 import { spawn, type ChildProcess } from 'child_process';
 import * as net from 'net';
 import * as path from 'path';
+import type { GameAction, EvaluatedAction } from '@meccg/shared';
 import { GAME_PORT_BASE, JWT_SECRET, DEV } from '../config.js';
 import { signGameToken } from '../auth/jwt.js';
 import { lobbyLog } from '../lobby-log.js';
@@ -23,6 +24,14 @@ let nextPort = GAME_PORT_BASE;
 /** Active game processes keyed by port. */
 const activeGames = new Map<number, ChildProcess>();
 
+/** IPC relay for pseudo-AI games, allowing the lobby to forward actions. */
+export interface PseudoAiRelay {
+  /** Register callback for when the AI receives legal actions from the game server. */
+  onActions(callback: (actions: readonly EvaluatedAction[], phase: string) => void): void;
+  /** Send the human's chosen action to the pseudo-AI client. */
+  sendPick(action: GameAction): void;
+}
+
 /** Result of launching a game. */
 export interface LaunchResult {
   /** Port the game server is listening on. */
@@ -31,6 +40,8 @@ export interface LaunchResult {
   readonly tokens: [string, string];
   /** Register a callback for when the game ends (child process exits). */
   onEnd(callback: () => void): void;
+  /** IPC relay for pseudo-AI games. Null for regular and random-AI games. */
+  readonly pseudoAiRelay: PseudoAiRelay | null;
 }
 
 /** Options for launching a game. */
@@ -39,6 +50,8 @@ export interface LaunchOptions {
   ai?: boolean;
   /** Catalog deck ID for the AI opponent to use. */
   aiDeckId?: string;
+  /** Whether the AI is a pseudo-AI (human controls both sides via IPC relay). */
+  pseudoAi?: boolean;
 }
 
 /**
@@ -120,13 +133,16 @@ export async function launchGame(player1: string, player2: string, options?: Lau
   });
 
   // If this is an AI game, spawn the AI client now (server is ready)
+  let pseudoAiRelay: PseudoAiRelay | null = null;
+
   if (options?.ai) {
-    const aiScript = path.join(__dirname, './ai-client.ts');
+    const isPseudo = options.pseudoAi ?? false;
+    const aiScript = path.join(__dirname, isPseudo ? './pseudo-ai-client.ts' : './ai-client.ts');
     const aiArgs = ['tsx', aiScript, String(port), player2, tokens[1]];
     if (options?.aiDeckId) aiArgs.push('--deck', options.aiDeckId);
     const aiChild = spawn('npx', aiArgs, {
       env: process.env,
-      stdio: ['ignore', 'pipe', 'pipe'],
+      stdio: isPseudo ? ['ignore', 'pipe', 'pipe', 'ipc'] : ['ignore', 'pipe', 'pipe'],
     });
     aiChild.stdout?.on('data', (data: Buffer) => {
       for (const line of data.toString().split('\n').filter(Boolean)) {
@@ -141,6 +157,20 @@ export async function launchGame(player1: string, player2: string, options?: Lau
     child.on('exit', () => {
       if (!aiChild.killed) aiChild.kill();
     });
+
+    // Wire up IPC relay for pseudo-AI games
+    if (isPseudo) {
+      const actionCallbacks: ((actions: readonly EvaluatedAction[], phase: string) => void)[] = [];
+      aiChild.on('message', (msg: { type: string; actions?: readonly EvaluatedAction[]; phase?: string }) => {
+        if (msg.type === 'pseudo-ai-actions' && msg.actions && msg.phase) {
+          for (const cb of actionCallbacks) cb(msg.actions, msg.phase);
+        }
+      });
+      pseudoAiRelay = {
+        onActions(callback) { actionCallbacks.push(callback); },
+        sendPick(action) { aiChild.send({ type: 'pseudo-ai-pick', action }); },
+      };
+    }
   }
 
   return {
@@ -149,6 +179,7 @@ export async function launchGame(player1: string, player2: string, options?: Lau
     onEnd(callback: () => void) {
       endCallbacks.push(callback);
     },
+    pseudoAiRelay,
   };
 }
 
