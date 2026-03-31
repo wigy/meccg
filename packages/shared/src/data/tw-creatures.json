@@ -246,5 +246,32 @@
     "effects": [],
     "text": "Unique. Troll. One strike. If played against a company that faced \"Bert\" or \"William\" this turn, each character wounded by \"Tom\" discards all non-special items he bears.",
     "race": "troll"
+  },
+  {
+    "cardType": "hazard-creature",
+    "id": "tw-112",
+    "name": "William (Wuluag)",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/WilliamWuluag.jpg",
+    "unique": true,
+    "strikes": 1,
+    "prowess": 11,
+    "body": null,
+    "killMarshallingPoints": 1,
+    "keyedTo": [
+      {
+        "regionTypes": [
+          "wilderness",
+          "shadow",
+          "dark"
+        ],
+        "siteTypes": [
+          "shadow-hold",
+          "dark-hold"
+        ]
+      }
+    ],
+    "effects": [],
+    "text": "Unique. Troll. One strike. If played against a company that faced \"Bert\" or \"Tom\" this turn, each character wounded by \"William\" discards all non-special items he bears.",
+    "race": "troll"
   }
 ]
