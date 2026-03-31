@@ -6,9 +6,9 @@ A web-based implementation of the **Middle-Earth Collectible Card Game** (MECCG)
 
 - **Pure reducer game engine** — all game state transitions are side-effect-free: `(state, action) → state`
 - **Server-authoritative** — the server enforces all rules; clients are presentation layers
-- **Two client options** — a browser-based visual client and an interactive text console client
 - **Card data** from The Wizards, The Lidless Eye, Against the Shadow, The White Hand, and The Balrog sets
 - **Card images** served via caching proxy from the [council-of-rivendell/meccg-remaster](https://github.com/council-of-rivendell/meccg-remaster) repository
+- **Easy to learn** — the server handles all rules, so new players can focus on strategy without memorizing the rulebook
 
 ## Screenshots
 
