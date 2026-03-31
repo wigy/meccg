@@ -37,54 +37,15 @@ A web-based implementation of the **Middle-Earth Collectible Card Game** (MECCG)
 npm install
 ```
 
-### Run with Lobby (Recommended)
+### Run the Dev Server
 
-Start the lobby server — it handles registration, login, matchmaking, and spawns game servers automatically:
+Start the development server with hot-reload:
 
 ```bash
-npm run start -w @meccg/lobby-server
+bin/run-dev-server
 ```
 
 Open **http://localhost:8080**, register an account, and start a game against another player or against AI.
-
-### Run a Standalone Game
-
-For direct play without accounts, start the game server with two player names:
-
-```bash
-npm run start -w @meccg/game-server -- Alice Bob
-```
-
-Then start the web client in another terminal:
-
-```bash
-npm run start -w @meccg/web-client
-```
-
-Open **http://localhost:8080** in your browser, enter a player name, and connect.
-
-Alternatively, use the text client:
-
-```bash
-npm run start -w @meccg/text-client -- Alice
-```
-
-### Development Mode
-
-Use `dev` instead of `start` for hot-reload:
-
-```bash
-npm run dev -w @meccg/lobby-server
-```
-
-Or for standalone mode:
-
-```bash
-npm run dev -w @meccg/game-server -- Alice Bob
-npm run dev -w @meccg/web-client
-```
-
-Add `--debug` to see raw JSON messages and card IDs.
 
 ## Project Structure
 
@@ -126,10 +87,9 @@ npm run docs
 ```
 
 Additional docs in `docs/`:
-- `rules.md` — CoE rules reference
-- `card-effects-dsl.md` — Declarative card effects DSL design
-- `testing-plan.md` — Testing strategy
-- `glossary.md` — Architecture terms
+- [`coe-rules.md`](docs/coe-rules.md) — CoE rules reference
+- [`card-effects-dsl.md`](docs/card-effects-dsl.md) — Declarative card effects DSL design
+- [`glossary.md`](docs/glossary.md) — Architecture terms
 
 ## License
 

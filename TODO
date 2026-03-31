@@ -28,4 +28,6 @@ Uploading Gccg deck format.
 
 Managing AI requests in a different copy of the server repository, but on the same server. After fix is pushed, tell server using master key and 'server' user to log in and to restart everything. Server must notify everyone, pull the code and then restart all processes and reload web client code.
 
-One single full game played with 2 Cypress robots running in parallel. Need to have --seed <num> support for game server and ability to Cypress clients to set it. Maybe we need to check result of every roll so that we can see if random system diverges due to additional die roll for example.
+Pseudo AI: You will get list of actions as an opponent of AI and select it in every step. Displayed in both debug or visual UI.
+
+One single full game played with 2 Cypress robots running in parallel. Need to have --seed <num> support for game server and ability to Cypress clients to set it. Maybe we need to check result of every roll so that we can see if random system diverges due to additional die roll for example. Or vs. pseudo ai.
