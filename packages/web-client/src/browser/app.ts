@@ -854,6 +854,7 @@ async function loadDecks(): Promise<void> {
       opt.value = deck.id;
       const missing = missingCards(deck);
       opt.textContent = missing.length > 0 ? `\u26A0 ${deck.name}` : deck.name;
+      if (deck.id === 'development-proto-hero') opt.selected = true;
       aiSelect.appendChild(opt);
     }
   }
