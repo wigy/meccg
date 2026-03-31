@@ -16,5 +16,13 @@
 import { describe, test } from 'vitest';
 
 describe('Rule 2.07 — Company Loses All Characters', () => {
-  test.todo('If all characters leave play, discard company permanent-events; site handling depends on context');
+  test.todo('All characters leave play: company permanent-events are discarded');
+
+  test.todo('No other company at same site and site untapped: site returned to location deck');
+
+  test.todo('No other company at same site and site tapped: site discarded');
+
+  test.todo('During movement/hazard phase: site stays until end of all M/H phases');
+
+  test.todo('Another company at same site: site remains in play');
 });

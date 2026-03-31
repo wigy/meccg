@@ -16,5 +16,9 @@
 import { describe, test } from 'vitest';
 
 describe('Rule 2.09 — Empty Play Deck and Discard', () => {
-  test.todo('If both play deck and discard pile are empty, next discarded card immediately becomes play deck');
+  test.todo('Both play deck and discard pile empty: next discarded card immediately becomes play deck');
+
+  test.todo('Rule does not trigger if play deck is empty but discard has cards');
+
+  test.todo('Rule does not trigger if discard is empty but play deck has cards');
 });

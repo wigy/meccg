@@ -17,5 +17,11 @@
 import { describe, test } from 'vitest';
 
 describe('Rule 2.06 — Fallen-Wizard Avatar Leaves Play', () => {
-  test.todo('[FALLEN-WIZARD] If FW avatar leaves play, discard avatar-specific Stage permanents; if eliminated, cannot play avatar-specific Stage cards');
+  // Fallen-wizard alignment is not yet implemented — these remain as todo specs.
+
+  test.todo('[FALLEN-WIZARD] FW avatar leaves play: discard all avatar-specific Stage resource permanent-events');
+
+  test.todo('[FALLEN-WIZARD] FW avatar eliminated: cannot play avatar-specific Stage resource cards');
+
+  test.todo('[FALLEN-WIZARD] FW avatar eliminated: player no longer counts as that FW for non-specific Stage resources');
 });
