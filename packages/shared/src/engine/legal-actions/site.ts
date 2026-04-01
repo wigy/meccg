@@ -12,7 +12,7 @@
 import type { GameState, PlayerId, GameAction, EvaluatedAction, SitePhaseState, HeroItemCard, HeroResourceEventCard, SiteCard, PlayableAtEntry, FactionCard } from '../../index.js';
 import { getPlayerIndex, isSiteCard, isItemCard, isAllyCard, isFactionCard, isCharacterCard, CardStatus, matchesCondition } from '../../index.js';
 import { resolveInstanceId } from '../../types/state.js';
-import { collectCharacterEffects, resolveCheckModifier } from '../effects/index.js';
+import { collectCharacterEffects, resolveCheckModifier, resolveStatModifiers } from '../effects/index.js';
 import type { ResolverContext } from '../effects/index.js';
 import { logDetail, logHeading } from './log.js';
 
@@ -554,7 +554,14 @@ function playResourcesActions(
           const dslMod = resolveCheckModifier(charEffects, 'influence');
           if (dslMod !== 0) {
             infModifier += dslMod;
-            infParts.push(`bonus ${dslMod >= 0 ? '+' : ''}${dslMod}`);
+            infParts.push(`check bonus ${dslMod >= 0 ? '+' : ''}${dslMod}`);
+          }
+
+          // Resolve stat-modifier effects on direct-influence (e.g. Glorfindel +1 DI vs elf factions)
+          const dslDI = resolveStatModifiers(charEffects, 'direct-influence', 0, resolverCtx);
+          if (dslDI !== 0) {
+            infModifier += dslDI;
+            infParts.push(`DI bonus ${dslDI >= 0 ? '+' : ''}${dslDI}`);
           }
         }
         const infNeed = factionDef.influenceNumber - infModifier;

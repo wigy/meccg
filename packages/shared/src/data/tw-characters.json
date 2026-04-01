@@ -453,6 +453,7 @@
     "marshallingCategory": "character",
     "corruptionModifier": 0,
     "homesite": "Rivendell",
+    "certified": "2026-04-01",
     "effects": [
       {
         "type": "stat-modifier",
@@ -461,6 +462,15 @@
         "when": {
           "reason": "influence-check",
           "target.race": "elf"
+        }
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": 1,
+        "when": {
+          "reason": "faction-influence-check",
+          "faction.race": "elf"
         }
       }
     ],
