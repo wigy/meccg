@@ -45,11 +45,11 @@ Start the development server with hot-reload:
 bin/run-dev-server
 ```
 
-Open **http://localhost:8080**, register an account, and start a game against another player or against AI.
+Open **<http://localhost:8080>**, register an account, and start a game against another player or against AI.
 
 ## Project Structure
 
-```
+```text
 packages/
 ├── shared/         # Game engine, types, card data, tests (pure TypeScript)
 ├── lobby-server/   # Lobby: auth, matchmaking, game lifecycle, browser UI
@@ -85,6 +85,7 @@ npm run docs
 ```
 
 Additional docs in `docs/`:
+
 - [`coe-rules.md`](docs/coe-rules.md) — CoE rules reference
 - [`card-effects-dsl.md`](docs/card-effects-dsl.md) — Declarative card effects DSL design
 - [`glossary.md`](docs/glossary.md) — Architecture terms

@@ -1,0 +1,17 @@
+{
+  "config": {
+    // Disable line-length — docs have URLs, tables, and long descriptions
+    "MD013": false,
+    // Allow duplicate headings in different sections (e.g. CHANGELOG repeats "Game Engine")
+    "MD024": { "siblings_only": true },
+    // Allow raw HTML (used in some docs)
+    "MD033": false,
+    // Allow emphasis as heading (used for legends in test coverage tables)
+    "MD036": false,
+    // Don't require link destinations to be defined
+    "MD042": false,
+    // Allow compact table style (no spaces around pipes)
+    "MD060": false
+  },
+  "ignores": ["**/node_modules", "docs/api", ".claude", "docs/plans"]
+}

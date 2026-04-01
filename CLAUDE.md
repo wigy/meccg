@@ -37,12 +37,13 @@ Do NOT run tests or lint after making changes. Tests and lint are run once befor
 
 ### Pre-Commit Checklist
 
-Before every commit, always run all four of these **in parallel** and fix any failures:
+Before every commit, always run all five of these **in parallel** and fix any failures:
 
 1. `npm run build` — type-check (must pass)
 2. `npm test` — rules tests (must all pass)
 3. `npm run test:nightly` — card tests (must not introduce new failures)
 4. `npm run lint` — linting (fix with `npm run lint:fix`)
+5. `npm run lint:md` — markdown linting (fix with `npm run lint:md:fix`)
 
 ## Architecture
 
@@ -91,7 +92,7 @@ All server-side logic must include detailed logging so that the game's decision-
 ### Card Data Policy
 
 - When adding or modifying card data, always look up the card from the local copy of the authoritative card database at `data/cards.json` — never rely on model knowledge for card text, stats, or IDs. The database is keyed by set code (AS, BA, DM, LE, TD, TW, WH), each containing a `cards` dict keyed by card ID.
-- The upstream source is https://raw.githubusercontent.com/council-of-elrond-meccg/meccg-cards-database/master/cards.json — refresh the local copy from there when needed.
+- The upstream source is <https://raw.githubusercontent.com/council-of-elrond-meccg/meccg-cards-database/master/cards.json> — refresh the local copy from there when needed.
 
 ### Card Certification
 

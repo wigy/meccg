@@ -5,6 +5,7 @@
 Testing system and status
 
 ### Game Engine
+
 - **Structured CoE rules:** Replace coe-rules.txt with structured markdown from CoE website.
 - **Comprehensive rules test scaffold:** Add 295 test.todo() entries covering all CoE rules sections.
 - **Per-rule test structure:** Replace old rules tests with individual test files per rule.
@@ -15,15 +16,18 @@ Testing system and status
 - **Block avatar drafting:** Move avatars from pool to deck.characters, change destinationSite to SiteInPlay.
 
 ### Card Data
+
 - **Complete CoE card database:** Local copy of authoritative card database at data/cards.json.
 - **Card data policy:** Always reference local database copy for card stats.
 - **New card:** William (Wuluag) hazard creature added, fix challenge deck A reference.
 
 ### Web Client
+
 - **Sort favourites first:** Favourite decks appear at top of deck listing.
 - **Default AI deck:** AI deck selection defaults to hero development deck in lobby.
 
 ### Infrastructure
+
 - **Project status tracking:** Add Project Status section to README with coverage metrics.
 - **Card tests README:** Add per-card test matrix tracking certification progress.
 - **/update-readme command:** New slash command to refresh all progress metrics.
@@ -36,6 +40,7 @@ Testing system and status
 Playing a faction
 
 ### Game Engine
+
 - **Faction influence attempts:** Play factions at their designated sites during
   the site phase. Two-step UI: select faction from hand, then click an untapped
   character to make the influence roll (2d6 + direct influence vs influence number).
@@ -52,6 +57,7 @@ Playing a faction
 - **Type guard:** Added `isFactionCard` type guard and `FactionCard` union type.
 
 ### Web Client
+
 - **Pile browser improvements:** Close with Escape key. Rows overlap when more
   than 3 to fit on screen without scrollbar, with per-row z-indexing.
 - **Card preview in pile browser:** Hovering cards in the pile browser shows the
@@ -65,6 +71,7 @@ Playing a faction
   (C=x I=x F=x A=x K=x M=x).
 
 ### Data
+
 - **Faction card effects:** All 8 faction cards now have DSL effects for their
   standard modifications.
 - **Card image fixes:** Fixed 9 cards using wrong `cdn.jsdelivr.net` image URLs
@@ -75,6 +82,7 @@ Playing a faction
 Sideboard handling
 
 ### Game Engine
+
 - **Sideboard access during organization:** Tap avatar to access sideboard during
   organization phase (CoE 2.II.6)
 - **Hazard sideboard access during untap:** Hazard sideboard access during untap
@@ -90,6 +98,7 @@ Sideboard handling
 - **Fix multiple game bugs:** Various game bug fixes including dice tray UI
 
 ### Card Pool
+
 - **New sites:** Dol Amroth, Edoras, Glittering Caves, Isengard, Isle of the Ulond,
   Lond Galen, Pelargir, Tolfalas, Wellinghall
 - **New characters:** Alatar, Wûluag
@@ -105,6 +114,7 @@ Sideboard handling
   Rebel-talk, Tom (Tuma), Two or Three Tribes Present
 
 ### Web Client
+
 - **Sideboard UI:** Victory display and browsable sideboard piles in deck box;
   hazard sideboard buttons (Pass, Hazard to Deck/Discard) stacked vertically
 - **Pile browsing:** All card piles clickable to browse contents with overlapping
@@ -119,6 +129,7 @@ Sideboard handling
   admin approve/decline, one-click implementation requests
 
 ### Lobby Server
+
 - **Game reliability:** Fix web UI reload failing to rejoin active game; relaunch
   game server via lobby on disconnect; fix AI client without deck and port
   collisions
@@ -127,6 +138,7 @@ Sideboard handling
 - **AI runner:** Added AI runner for automated gameplay
 
 ### Infrastructure
+
 - **Card instance arrays:** Replace card pile count fields with UNKNOWN_INSTANCE
   arrays for consistent card tracking
 - **Mail improvements:** Save recipients alongside mail messages; game log validation
@@ -138,13 +150,16 @@ Sideboard handling
 Feature requests and bug handling
 
 ### Game Engine
+
 - **Fix duplicate haven actions:** Resolved bug where playing characters showed
   duplicate haven site actions
 
 ### Card Pool
+
 - **Foul-smelling Paste (le-310):** New resource added from card request
 
 ### Web Client
+
 - **Bug report button:** New toolbar button and dialog for submitting bug reports
   during gameplay
 - **Feature request workflow:** New Feature Request button and modal on the mail
@@ -161,6 +176,7 @@ Feature requests and bug handling
 - **Renamed Dashboard to Lobby** in navigation
 
 ### Lobby Server
+
 - **Bug report mail topic:** New `bug-reply` topic for bug report handling
 - **Planning request topic:** New `planning-reply` and `feature-implementation-request`
   topics for feature workflow
@@ -168,6 +184,7 @@ Feature requests and bug handling
   approved requests copied to sent
 
 ### Infrastructure
+
 - **Build step in release:** Added `npm run build` type-check to release command
   checks
 - **Skill updates:** Added `/handle-bug-report` command, renamed `certify-card`
@@ -179,12 +196,14 @@ Feature requests and bug handling
 Internal mail system
 
 ### Card Pool
+
 - **Smoke Rings (dm-159):** New resource event added from card request
 - **Concealment (tw-204):** New resource event added from card request
 - **Peath (tw-176), Ioreth (td-93), Haldir (tw-164), Balin (tw-123),
   Saruman (tw-181), Cram (td-105):** New cards added via card request workflow
 
 ### Web Client
+
 - **3-column lobby layout:** Decks in column 1, players and playing in column 2,
   column 3 reserved for future use
 - **AI deck selection:** Pick any catalog deck for the AI opponent from a dropdown
@@ -201,6 +220,7 @@ Internal mail system
 - **System notifications:** Persistent reddish toasts with close button
 
 ### Lobby Server
+
 - **Internal mail system:** File-based inbox with send, read, delete, sent
   folder, and replyTo support
 - **Mail API:** Endpoints for inbox, sent, and message status management
@@ -211,15 +231,18 @@ Internal mail system
 - **System API:** Admin notification broadcast and mail update endpoints
 
 ### Game Engine
+
 - **Remove startingHavens:** Starting haven is now derived from the first
   haven in the site deck, simplifying deck configuration
 - **Remove sample-decks:** All clients load decks from catalog JSON files
   instead of hardcoded sample decks
 
 ### Text Client
+
 - **Catalog deck loading:** `--deck` flag now loads from catalog files on disk
 
 ### Infrastructure
+
 - **AI client deck loading:** AI loads deck from catalog files via `--deck` arg
 - **Mail glossary:** Added mail system terminology to project glossary
 - **AI processor command:** Automated mail queue processing skill
@@ -230,6 +253,7 @@ Internal mail system
 Decks on lobby
 
 ### Card Pool
+
 - **Elladan (tw-143):** New hero character added via card request workflow
 - **Rivendell (tw-421) certified:** Full card test covering data validation,
   site phase behavior, starter movement, and region movement
@@ -237,6 +261,7 @@ Decks on lobby
   all effects are engine-supported and fully tested
 
 ### Web Client
+
 - **Deck browser:** Personal deck collection with save/load in the lobby
 - **Deck editor:** Card preview panel with type-colored names, quantity
   controls, and bronze star badge for certified cards
@@ -248,6 +273,7 @@ Decks on lobby
   distinct from regular auto-dismissing notifications
 
 ### Lobby Server
+
 - **Deck management API:** Browse, save, and select decks per player
 - **System API:** Admin notification broadcast endpoint with master key auth
 - **Card request API:** Submit and track card addition requests with unique
@@ -256,6 +282,7 @@ Decks on lobby
   restart loops
 
 ### Shared
+
 - **Challenge decks:** 10 predefined deck definitions (A-J) with full card
   ID mapping
 - **DeckList types:** New types for deck editing and planning
@@ -264,6 +291,7 @@ Decks on lobby
   (haven paths, auto-attacks, playable resources, region types)
 
 ### Infrastructure
+
 - **Web-client bundle rebuild:** Automatically rebuild bundle when shared
   data files change
 - **Verify-card command:** Check card playability against engine support
@@ -273,6 +301,7 @@ Decks on lobby
 End Game
 
 ### Game Engine
+
 - **Deck exhaustion:** Second deck exhaustion triggers automatic Free
   Council transition
 - **Free Council:** Full corruption check phase — each player must check
@@ -290,6 +319,7 @@ End Game
   Council, restore 25-point threshold
 
 ### Web Client
+
 - **Free Council company view:** Reuse normal all-companies view during
   Free Council instead of a custom flat character list — characters stay
   in their companies at sites for correct tapping support
@@ -307,6 +337,7 @@ End Game
 - **Deck boxes and hand hidden on Game Over**
 
 ### Infrastructure
+
 - **Game reconnection:** Browser persists game port/token in
   sessionStorage; game server keeps state alive on disconnect and
   accepts immediate reconnection; AI client always reconnects
@@ -318,6 +349,7 @@ End Game
 Lobby-server
 
 ### Infrastructure
+
 - **Lobby server:** New `@meccg/lobby-server` package with player
   registration, authentication (scrypt-hashed passwords, JWT session
   cookies), online presence tracking, and matchmaking
@@ -330,6 +362,7 @@ Lobby-server
 - **End-game plan:** Design for end-game scoring and victory conditions
 
 ### Web Client
+
 - **Lobby UI:** Login, register, and lobby screens with challenge flow
 - **Snapshot remapping:** Snapshot loading remaps player names so
   snapshots work across different game sessions
@@ -340,6 +373,7 @@ Lobby-server
 Combat and auto-attacks
 
 ### Game Engine
+
 - **Combat framework:** Full combat phase implementation — creature chain
   resolution, strike assignment, defender-chooses-strike-order, prowess/body
   checks, kill/elimination marshalling points
@@ -356,6 +390,7 @@ Combat and auto-attacks
 - **Player view:** Add startingPlayer and stateSeq to PlayerView
 
 ### Web Client
+
 - **Combat UI:** Combat visual view with action buttons, instruction text,
   creature race display, and chain frame integration
 - **Tapped/wounded display:** Fix character card rendering when tapped or
@@ -369,6 +404,7 @@ Combat and auto-attacks
   and resource play during combat
 
 ### Infrastructure
+
 - **Package renames:** server→game-server, client-text→text-client,
   client-web→web-client (directories and npm package names)
 - **Save files:** Separate manual and automatic save files
@@ -378,6 +414,7 @@ Combat and auto-attacks
 Chain of Effects
 
 ### Game Engine
+
 - **Chain of effects framework:** Full chain-of-effects implementation across
   8 phases — types/plumbing, initiation/priority, resolution loop, short-event
   wiring, creature hazard wiring, passive conditions with nested chains,
@@ -392,6 +429,7 @@ Chain of Effects
 - **Card data:** Add keywords field to card types and data; add Twilight card
 
 ### Web Client
+
 - **Chain of effects UI:** Visual chain panel showing declared/resolving entries
   with priority indicators and response actions
 - **FLIP card animations:** Smooth card movement animations between positions
@@ -414,6 +452,7 @@ Chain of Effects
   consolidated z-index CSS custom properties; stacked dev toolbar
 
 ### Infrastructure
+
 - **Sample decks:** Remove Sting, Thrall of the Voice, and one Horn of Anor
   from all sample deck draft pools
 - **Card tests:** Twilight card tests covering cancel, chain interactions,
@@ -425,6 +464,7 @@ Chain of Effects
 End of Turn phase
 
 ### Game Engine
+
 - **End-of-turn phase:** Implement 3-step state machine for end-of-turn
   processing (CoE 2.VI) covering discard, hand refill, and cleanup
 
@@ -433,6 +473,7 @@ End of Turn phase
 Site phase basic flow
 
 ### Game Engine
+
 - **Site phase state machine:** Step-based site phase with company selection,
   item play with site tapping, and phase entry steps
 - **Untap phase:** Implement untap logic to untap active player's cards at
@@ -442,6 +483,7 @@ Site phase basic flow
 - **Company ID generation:** Fix duplicate company ID generation after merge
 
 ### Infrastructure
+
 - **Pre-commit checks:** Note parallel execution for pre-commit checks in
   CLAUDE.md and fix lint error
 
@@ -450,6 +492,7 @@ Site phase basic flow
 Movement and Hazard basics
 
 ### Game Engine
+
 - **Movement/Hazard phase:** Full implementation of MH steps including company
   selection, site reveal, path declaration with region resolution, hazard limit,
   order effects, card drawing, playing hazard long-events, and interactive hand
@@ -463,6 +506,7 @@ Movement and Hazard basics
   resource/hazard draw counts for all sites
 
 ### Web Client
+
 - **Movement UI:** Path choice buttons under origin site, region types shown on
   path buttons, dimmed non-active companies, debug info box for MH sub-steps
 - **UX improvements:** Press Enter to activate single action button, improved
@@ -472,6 +516,7 @@ Movement and Hazard basics
   forwarded to web client in dev mode
 
 ### Infrastructure
+
 - **Project README** added
 
 ## 0.5.0 — 2026-03-23
@@ -479,6 +524,7 @@ Movement and Hazard basics
 Long-event phase done
 
 ### Game Engine
+
 - **Long-event phase:** Play long-events to cardsInPlay with full phase handler
   and UI support
 - **Global stat-modifier effects:** DSL effects with `target: "all-characters"`
@@ -491,6 +537,7 @@ Long-event phase done
   effects for Sun; glossary entry for DSL Effect
 
 ### Web Client
+
 - **Corruption points badge:** Items in company view now show a CP badge overlay
   when they have corruption points
 - **Site selection UI:** Replaced auto-opening site deck viewer with highlighted
@@ -502,6 +549,7 @@ Long-event phase done
 Organization phase basics done
 
 ### Game Engine
+
 - **Organization phase:** Play characters, split/merge companies, transfer items,
   plan movement, cancel movement, move characters between general and direct
   influence, and pass to advance phases
@@ -523,6 +571,7 @@ Organization phase basics done
   PlanMovementAction
 
 ### Web Client
+
 - **Company view:** Three view modes for play phases with leader-first rendering,
   dice-colored labels, horizontal card layout, faded non-bottom cards, items
   side-by-side
@@ -547,10 +596,12 @@ Organization phase basics done
   display, deck pile count badge, collapsible card lists in debug view
 
 ### Text Client
+
 - **Dice display:** Track and show last dice roll
 - **Pool size:** Shown during setup phases for both players
 
 ### Infrastructure
+
 - **Package reorganization:** Moved game engine and tests from server to shared
   package
 - **API documentation:** JSDoc generation with typedoc
@@ -569,6 +620,7 @@ Organization phase basics done
 Fully functional setup phase for hero
 
 ### Game Engine
+
 - **Untap phase:** Both players pass to advance to organization phase
 - **Two-step item draft:** Select item, then pick target character
 - **Separate deck shuffle and initial draw:** Split into distinct setup steps
@@ -586,6 +638,7 @@ Fully functional setup phase for hero
 - **Alignment starting sites:** Correct per-alignment allowed starting sites
 
 ### Web Client
+
 - **Visual board:** Middle-Earth backgrounds (20 total), card art, dark overlay,
   hand arc (dynamic per phase), opponent hand arc, player names with scores
 - **Dice system:** Red/black dice pairs, slide-to-name animation, initiative
@@ -601,6 +654,7 @@ Fully functional setup phase for hero
 - **Local fonts:** Medieval-themed local fonts
 
 ### Infrastructure
+
 - **Save location:** Moved saves to `~/.meccg/`
 - **Case-insensitive player names** with validation
 - **tsx as root dev dependency**
@@ -610,6 +664,7 @@ Fully functional setup phase for hero
 Complete pre-game setup flow, alignment system, and visual feedback.
 
 ### Game Engine
+
 - **Setup phase consolidation:** All pre-game steps (character draft, item draft,
   deck draft, site selection, character placement, shuffle, draw, initiative roll)
   merged into a single `Phase.Setup` with `SetupStep` discriminant
@@ -635,6 +690,7 @@ Complete pre-game setup flow, alignment system, and visual feedback.
 - **Card data corrections:** Character stats verified against Council of Elrond database
 
 ### Web Client
+
 - Card image hover preview on card names (ID-based lookup via STX markers)
 - Card back images for unknown cards/sites
 - Live-reload in dev mode (esbuild watch + SSE)
@@ -645,12 +701,14 @@ Complete pre-game setup flow, alignment system, and visual feedback.
 - Debug/visual view toggle persisted in localStorage
 
 ### Text Client
+
 - Number-only action selection (removed text commands)
 - Reset command for game state
 - Pretty-printed debug JSON (over 80 chars)
 - AI strategy handles optional actions to avoid infinite loops
 
 ### Infrastructure
+
 - Tests moved to `packages/server/src/tests/`
 - `/release` slash command for automated releases
 - Card data policy in CLAUDE.md (fetch from authoritative database)
@@ -662,6 +720,7 @@ First milestone release. The core technical stack is functional end-to-end:
 game server, text client, web client, card images, and CI.
 
 ### Game Engine
+
 - Pure reducer architecture: `(state, action) -> state`
 - Character draft with simultaneous picks, collision handling, and set-aside
 - Company management: formation, splitting, merging, movement planning
@@ -674,6 +733,7 @@ game server, text client, web client, card images, and CI.
 - Card draw, discard, and sideboard fetch
 
 ### Shared Types & Data
+
 - Full card definition types for all 10 card categories
 - Card data (JSON) for The Wizards base set (characters, items, creatures, sites, regions)
 - Card image URLs pointing to council-of-rivendell/meccg-remaster repository
@@ -681,12 +741,14 @@ game server, text client, web client, card images, and CI.
 - Player view projection with hidden information redacted
 
 ### Server
+
 - WebSocket game server with two-player sessions
 - Spectator support
 - Game state save/load
 - Auto-restart on code changes (dev mode)
 
 ### Text Client
+
 - Interactive terminal client over WebSocket
 - ANSI-colored card display by type
 - Numbered action selection
@@ -695,6 +757,7 @@ game server, text client, web client, card images, and CI.
 - Debug mode for raw message inspection
 
 ### Web Client
+
 - Browser client with HTTP static serving + WebSocket proxy to game server
 - Debug view: game state, draft info, action buttons, log panel
 - Visual view: card image display (proof of concept)
@@ -705,6 +768,7 @@ game server, text client, web client, card images, and CI.
 - ANSI-to-HTML color conversion for rich text display
 
 ### Infrastructure
+
 - TypeScript strict mode throughout
 - npm workspaces monorepo
 - GitHub Actions CI (lint + test on push)

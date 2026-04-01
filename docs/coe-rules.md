@@ -1,6 +1,6 @@
 # Council of Elrond Official Game Rules for Middle-earth CCG
 
-*Source: https://www.councilofelrond.org/rules/*
+*Source: <https://www.councilofelrond.org/rules/>*
 *Last update: February 7, 2026*
 
 ABOUT THIS PROJECT
@@ -402,6 +402,7 @@ You are represented in the game by a unique Wizard avatar card, a powerful chara
 On a typical turn, you will organize your characters into companies and then move those companies to new sites, where you can attempt to obtain powerful objects or recruit allies or armies to your cause.
 A player should examine the resources in his hand and then select a nearby site to travel to. Initially, do not worry too much about which site to use, just pick one that has the resource type you want to play. ... You will draw multiple cards each turn, and in some cases you will have to discard a number of cards each turn. ... Just keep cards that are immediately useful during the next turn or that are crucial to your overall strategy.
 Here’s a brief summary of the phases of a turn:
+
 - Untap Phase — Heal (if at a Haven site) or untap your characters and other tapped non-site cards.
 - Organization Phase — You may play a character, reorganize your companies, transfer/store items, and decide where each of your companies is going to move.
 - Long-event Phase — Remove and play certain “long-event” cards.
@@ -1343,6 +1344,7 @@ Additionally, the following conditions must also be true depending on the type o
 6) Apply any other modifications.
 
 This modified result is then compared to a second value depending on the type of card being influenced (i.e. the modified roll must normally be higher than the following number), except that this second value is treated as zero if an identical non-item card was revealed prior to the roll:
+
 - Allies - The mind value of the target ally
 
 - Characters - The mind value of the target character being influenced
@@ -1908,4 +1910,3 @@ Wizardhaven - A Fallen-wizard haven site, denoted by a  symbol (and a light gray
 Wilderness - A type of region denoted by a  symbol.
 
 wound - An action that rotates an upright card 180° to an inverted (“wounded”) position, or which rotates a tapped card 90° to a wounded position, or which would affect a card that is already wounded without actually rotating it but which would still re-cause the character to “be” wounded (but not “becoming” wounded, which would only be triggered if the card is actually rotated). Wounded and tapped are considered separate orientations (i.e. a wounded character is not also considered tapped).
-

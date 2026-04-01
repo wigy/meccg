@@ -157,7 +157,7 @@ Caps how many copies of this card can be in a given scope.
 
 The engine calls a resolver at each decision point:
 
-```
+```text
 resolve(context, stat) → final value
 ```
 

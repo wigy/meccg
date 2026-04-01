@@ -1,0 +1,17 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "jq -r '.tool_input.file_path // .tool_response.filePath' | { read -r f; echo \"$f\" | grep -qE '\\.md$' && npm run lint:md 2>&1 || true; }",
+            "timeout": 30,
+            "statusMessage": "Linting markdown..."
+          }
+        ]
+      }
+    ]
+  }
+}
