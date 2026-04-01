@@ -103,7 +103,7 @@ export const LEGAL_ACTIONS_BY_PHASE: Readonly<Record<Phase, readonly GameAction[
     'pass',
   ],
 
-  [Phase.LongEvent]: ['play-long-event', 'pass'],
+  [Phase.LongEvent]: ['play-long-event', 'play-short-event', 'pass-chain-priority', 'order-passives', 'pass'],
 
   [Phase.MovementHazard]: [
     'select-company',

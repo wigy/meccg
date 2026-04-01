@@ -22,12 +22,12 @@ import {
   CardStatus,
   buildTestState, resetMint,
 } from '../test-helpers.js';
-import type { CardInPlay, CardInstanceId, CardDefinitionId, CharacterCard } from '../../index.js';
+import type { CardInPlay, CardInstanceId, CardDefinitionId, CharacterCard, GameState } from '../../index.js';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 /** Look up a character's instance ID by definition ID in the resulting state. */
-function findCharInstance(state: import('../../index.js').GameState, playerIdx: number, defId: CardDefinitionId): string {
+function findCharInstance(state: GameState, playerIdx: number, defId: CardDefinitionId): string {
   for (const [key, char] of Object.entries(state.players[playerIdx].characters)) {
     if (char.definitionId === defId) return key;
   }
@@ -36,6 +36,22 @@ function findCharInstance(state: import('../../index.js').GameState, playerIdx: 
 
 function baseProwess(defId: CardDefinitionId): number {
   return (pool[defId as string] as CharacterCard).prowess;
+}
+
+/** Play a long event and both players pass chain priority to resolve it. */
+function playLongAndResolve(
+  state: GameState,
+  player: typeof PLAYER_1,
+  cardInstanceId: CardInstanceId,
+): GameState {
+  let result = reduce(state, { type: 'play-long-event', player, cardInstanceId });
+  expect(result.error).toBeUndefined();
+  const opponent = player === PLAYER_1 ? PLAYER_2 : PLAYER_1;
+  result = reduce(result.state, { type: 'pass-chain-priority', player: opponent });
+  expect(result.error).toBeUndefined();
+  result = reduce(result.state, { type: 'pass-chain-priority', player });
+  expect(result.error).toBeUndefined();
+  return result.state;
 }
 
 // ─── Tests ────────────────────────────────────────────────────────────────────
@@ -56,10 +72,8 @@ describe('Sun (tw-335)', () => {
     });
 
     const sunInstanceId = state.players[0].hand[0].instanceId;
-    const result = reduce(state, { type: 'play-long-event', player: PLAYER_1, cardInstanceId: sunInstanceId });
-    expect(result.error).toBeUndefined();
+    const s = playLongAndResolve(state, PLAYER_1, sunInstanceId);
 
-    const s = result.state;
     expect(s.players[0].characters[findCharInstance(s, 0, ARAGORN)].effectiveStats.prowess).toBe(baseProwess(ARAGORN) + 1);
     expect(s.players[1].characters[findCharInstance(s, 1, LEGOLAS)].effectiveStats.prowess).toBe(baseProwess(LEGOLAS));
   });
@@ -83,10 +97,8 @@ describe('Sun (tw-335)', () => {
     });
 
     const sunInstanceId = state.players[0].hand[0].instanceId;
-    const result = reduce(state, { type: 'play-long-event', player: PLAYER_1, cardInstanceId: sunInstanceId });
-    expect(result.error).toBeUndefined();
+    const s = playLongAndResolve(state, PLAYER_1, sunInstanceId);
 
-    const s = result.state;
     // Aragorn (dunadan): +1 unconditional + +1 with GoM = +2
     expect(s.players[0].characters[findCharInstance(s, 0, ARAGORN)].effectiveStats.prowess).toBe(baseProwess(ARAGORN) + 2);
     // Bard Bowman (man): +1 with GoM
@@ -131,10 +143,8 @@ describe('Sun (tw-335)', () => {
     });
 
     const sunInstanceId = state.players[0].hand[0].instanceId;
-    const result = reduce(state, { type: 'play-long-event', player: PLAYER_1, cardInstanceId: sunInstanceId });
-    expect(result.error).toBeUndefined();
+    const s = playLongAndResolve(state, PLAYER_1, sunInstanceId);
 
-    const s = result.state;
     const aragornDef = pool[ARAGORN as string] as CharacterCard;
     const stats = s.players[0].characters[findCharInstance(s, 0, ARAGORN)].effectiveStats;
     expect(stats.body).toBe(aragornDef.body);

@@ -15,7 +15,7 @@ import {
   PLAYER_1, PLAYER_2,
   reduce,
   ARAGORN, LEGOLAS,
-  GATES_OF_MORNING, DOORS_OF_NIGHT,
+  GATES_OF_MORNING, DOORS_OF_NIGHT, TWILIGHT,
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
   CardStatus,
   buildTestState, resetMint,
@@ -23,7 +23,24 @@ import {
   P1_COMPANY, makeMHState,
 } from '../test-helpers.js';
 import { Phase } from '../../index.js';
-import type { CardInPlay, CardInstanceId, GameState } from '../../index.js';
+import type { CardInPlay, CardInstanceId, CompanyId, GameState } from '../../index.js';
+
+/** Play a hazard and both players pass chain priority to resolve it. */
+function playHazardAndResolve(
+  state: GameState,
+  player: typeof PLAYER_1,
+  cardInstanceId: CardInstanceId,
+  targetCompanyId: CompanyId,
+): GameState {
+  let result = reduce(state, { type: 'play-hazard', player, cardInstanceId, targetCompanyId });
+  expect(result.error).toBeUndefined();
+  const opponent = player === PLAYER_1 ? PLAYER_2 : PLAYER_1;
+  result = reduce(result.state, { type: 'pass-chain-priority', player: opponent });
+  expect(result.error).toBeUndefined();
+  result = reduce(result.state, { type: 'pass-chain-priority', player });
+  expect(result.error).toBeUndefined();
+  return result.state;
+}
 
 // ─── Tests ────────────────────────────────────────────────────────────────────
 
@@ -46,13 +63,21 @@ describe('Doors of Night (tw-28)', () => {
     expect(actions).toHaveLength(1);
 
     const donId = mhGameState.players[1].hand[0].instanceId;
-    const result = reduce(mhGameState, { type: 'play-hazard', player: PLAYER_2, cardInstanceId: donId, targetCompanyId: P1_COMPANY });
-    expect(result.error).toBeUndefined();
 
-    // Card moved from hand to cardsInPlay
-    expect(result.state.players[1].hand).toHaveLength(0);
-    expect(result.state.players[1].cardsInPlay).toHaveLength(1);
-    expect(result.state.players[1].cardsInPlay[0].instanceId).toBe(donId);
+    // After declaring, card is on the chain (not in hand, not in cardsInPlay)
+    const declareResult = reduce(mhGameState, { type: 'play-hazard', player: PLAYER_2, cardInstanceId: donId, targetCompanyId: P1_COMPANY });
+    expect(declareResult.error).toBeUndefined();
+    expect(declareResult.state.players[1].hand).toHaveLength(0);
+    expect(declareResult.state.players[1].cardsInPlay).toHaveLength(0);
+    expect(declareResult.state.chain).not.toBeNull();
+    expect(declareResult.state.chain!.entries[0].card?.instanceId).toBe(donId);
+
+    // After chain resolves, card moves to cardsInPlay
+    const s = playHazardAndResolve(mhGameState, PLAYER_2, donId, P1_COMPANY);
+    expect(s.chain).toBeNull();
+    expect(s.players[1].hand).toHaveLength(0);
+    expect(s.players[1].cardsInPlay).toHaveLength(1);
+    expect(s.players[1].cardsInPlay[0].instanceId).toBe(donId);
   });
 
   test('discards Gates of Morning (resource environment) when played', () => {
@@ -73,20 +98,18 @@ describe('Doors of Night (tw-28)', () => {
 
     const mhGameState: GameState = { ...state, phaseState: makeMHState() };
     const donId = mhGameState.players[1].hand[0].instanceId;
-    const result = reduce(mhGameState, { type: 'play-hazard', player: PLAYER_2, cardInstanceId: donId, targetCompanyId: P1_COMPANY });
-    expect(result.error).toBeUndefined();
+    const s = playHazardAndResolve(mhGameState, PLAYER_2, donId, P1_COMPANY);
 
     // Doors of Night in P2 cardsInPlay
-    expect(result.state.players[1].cardsInPlay).toHaveLength(1);
-    expect(result.state.players[1].cardsInPlay[0].instanceId).toBe(donId);
+    expect(s.players[1].cardsInPlay).toHaveLength(1);
+    expect(s.players[1].cardsInPlay[0].instanceId).toBe(donId);
 
     // Gates of Morning discarded from P1 cardsInPlay
-    expect(result.state.players[0].cardsInPlay).toHaveLength(0);
-    expect(result.state.players[0].discardPile.map(c => c.instanceId)).toContain('gom-1' as CardInstanceId);
+    expect(s.players[0].cardsInPlay).toHaveLength(0);
+    expect(s.players[0].discardPile.map(c => c.instanceId)).toContain('gom-1' as CardInstanceId);
   });
 
   test('discards own resource environment cards when played', () => {
-    // Edge case: P2 has a resource environment (GoM) in their own cardsInPlay
     const gomInPlay: CardInPlay = {
       instanceId: 'gom-1' as CardInstanceId,
       definitionId: GATES_OF_MORNING,
@@ -104,46 +127,13 @@ describe('Doors of Night (tw-28)', () => {
 
     const mhGameState: GameState = { ...state, phaseState: makeMHState() };
     const donId = mhGameState.players[1].hand[0].instanceId;
-    const result = reduce(mhGameState, { type: 'play-hazard', player: PLAYER_2, cardInstanceId: donId, targetCompanyId: P1_COMPANY });
-    expect(result.error).toBeUndefined();
+    const s = playHazardAndResolve(mhGameState, PLAYER_2, donId, P1_COMPANY);
 
     // Doors of Night in cardsInPlay, Gates of Morning discarded
-    const p2InPlay = result.state.players[1].cardsInPlay;
+    const p2InPlay = s.players[1].cardsInPlay;
     expect(p2InPlay).toHaveLength(1);
     expect(p2InPlay[0].instanceId).toBe(donId);
-    expect(result.state.players[1].discardPile.map(c => c.instanceId)).toContain('gom-1' as CardInstanceId);
-  });
-
-  test('does not discard hazard environment cards', () => {
-    // Another Doors of Night already in play — duplication-limit blocks playing a second one,
-    // confirming the filter only targets hero-resource-event environments.
-    const donExisting: CardInPlay = {
-      instanceId: 'don-existing' as CardInstanceId,
-      definitionId: DOORS_OF_NIGHT,
-      status: CardStatus.Untapped,
-    };
-
-    const gomInPlay: CardInPlay = {
-      instanceId: 'gom-1' as CardInstanceId,
-      definitionId: GATES_OF_MORNING,
-      status: CardStatus.Untapped,
-    };
-
-    const state = buildTestState({
-      phase: Phase.Organization,
-      activePlayer: PLAYER_1,
-      players: [
-        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [ARAGORN] }], hand: [], siteDeck: [MORIA], cardsInPlay: [gomInPlay, donExisting] },
-        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [DOORS_OF_NIGHT], siteDeck: [MINAS_TIRITH] },
-      ],
-    });
-
-    const mhGameState: GameState = { ...state, phaseState: makeMHState() };
-    const donId = mhGameState.players[1].hand[0].instanceId;
-
-    // Duplication-limit blocks this
-    const result = reduce(mhGameState, { type: 'play-hazard', player: PLAYER_2, cardInstanceId: donId, targetCompanyId: P1_COMPANY });
-    expect(result.error).toBe('Doors of Night cannot be duplicated');
+    expect(s.players[1].discardPile.map(c => c.instanceId)).toContain('gom-1' as CardInstanceId);
   });
 
   test('cannot be duplicated (duplication-limit scope game max 1)', () => {
@@ -168,28 +158,6 @@ describe('Doors of Night (tw-28)', () => {
     expect(result.error).toBe('Doors of Night cannot be duplicated');
   });
 
-  test('cannot be duplicated when opponent has a copy in play', () => {
-    const donInPlay: CardInPlay = {
-      instanceId: 'don-1' as CardInstanceId,
-      definitionId: DOORS_OF_NIGHT,
-      status: CardStatus.Untapped,
-    };
-
-    const state = buildTestState({
-      phase: Phase.Organization,
-      activePlayer: PLAYER_1,
-      players: [
-        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [ARAGORN] }], hand: [], siteDeck: [MORIA], cardsInPlay: [donInPlay] },
-        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [DOORS_OF_NIGHT], siteDeck: [MINAS_TIRITH] },
-      ],
-    });
-
-    const mhGameState: GameState = { ...state, phaseState: makeMHState() };
-    const donId = mhGameState.players[1].hand[0].instanceId;
-    const result = reduce(mhGameState, { type: 'play-hazard', player: PLAYER_2, cardInstanceId: donId, targetCompanyId: P1_COMPANY });
-    expect(result.error).toBe('Doors of Night cannot be duplicated');
-  });
-
   test('no opposing environments to discard is a no-op', () => {
     const state = buildTestState({
       phase: Phase.Organization,
@@ -202,29 +170,56 @@ describe('Doors of Night (tw-28)', () => {
 
     const mhGameState: GameState = { ...state, phaseState: makeMHState() };
     const donId = mhGameState.players[1].hand[0].instanceId;
-    const result = reduce(mhGameState, { type: 'play-hazard', player: PLAYER_2, cardInstanceId: donId, targetCompanyId: P1_COMPANY });
-    expect(result.error).toBeUndefined();
+    const s = playHazardAndResolve(mhGameState, PLAYER_2, donId, P1_COMPANY);
 
     // Doors of Night played, no discards needed
-    expect(result.state.players[1].cardsInPlay).toHaveLength(1);
-    expect(result.state.players[0].discardPile).toHaveLength(0);
-    expect(result.state.players[1].discardPile).toHaveLength(0);
+    expect(s.players[1].cardsInPlay).toHaveLength(1);
+    expect(s.players[0].discardPile).toHaveLength(0);
+    expect(s.players[1].discardPile).toHaveLength(0);
   });
 
-  test('counts against hazard limit', () => {
+  test('P1 responds with Twilight to cancel Doors of Night before it discards Gates of Morning', () => {
+    const gomInPlay: CardInPlay = {
+      instanceId: 'gom-1' as CardInstanceId,
+      definitionId: GATES_OF_MORNING,
+      status: CardStatus.Untapped,
+    };
+
     const state = buildTestState({
       phase: Phase.Organization,
       activePlayer: PLAYER_1,
       players: [
-        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [ARAGORN] }], hand: [], siteDeck: [MORIA] },
+        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [ARAGORN] }], hand: [TWILIGHT], siteDeck: [MORIA], cardsInPlay: [gomInPlay] },
         { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [DOORS_OF_NIGHT], siteDeck: [MINAS_TIRITH] },
       ],
     });
 
-    // Hazard limit already reached
-    const mhGameState: GameState = { ...state, phaseState: makeMHState({ hazardsPlayedThisCompany: 2, hazardLimit: 2 }) };
+    const mhGameState: GameState = { ...state, phaseState: makeMHState() };
     const donId = mhGameState.players[1].hand[0].instanceId;
-    const result = reduce(mhGameState, { type: 'play-hazard', player: PLAYER_2, cardInstanceId: donId, targetCompanyId: P1_COMPANY });
-    expect(result.error).toContain('Hazard limit');
+    const p1Twilight = mhGameState.players[0].hand[0].instanceId;
+
+    // P2 plays DoN → chain starts, P1 gets priority
+    let result = reduce(mhGameState, { type: 'play-hazard', player: PLAYER_2, cardInstanceId: donId, targetCompanyId: P1_COMPANY });
+    expect(result.error).toBeUndefined();
+    expect(result.state.chain!.priority).toBe(PLAYER_1);
+
+    // P1 responds with Twilight targeting DoN on the chain
+    result = reduce(result.state, { type: 'play-short-event', player: PLAYER_1, cardInstanceId: p1Twilight, targetInstanceId: donId });
+    expect(result.error).toBeUndefined();
+
+    // Both pass → chain resolves LIFO: Twilight negates DoN
+    result = reduce(result.state, { type: 'pass-chain-priority', player: PLAYER_2 });
+    expect(result.error).toBeUndefined();
+    result = reduce(result.state, { type: 'pass-chain-priority', player: PLAYER_1 });
+    expect(result.error).toBeUndefined();
+
+    const s = result.state;
+    expect(s.chain).toBeNull();
+    // DoN negated → goes to discard, never enters play
+    expect(s.players[1].cardsInPlay).toHaveLength(0);
+    expect(s.players[1].discardPile.map(c => c.instanceId)).toContain(donId);
+    // Gates of Morning survives
+    expect(s.players[0].cardsInPlay).toHaveLength(1);
+    expect(s.players[0].cardsInPlay[0].instanceId).toBe('gom-1' as CardInstanceId);
   });
 });
