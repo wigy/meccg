@@ -103,6 +103,7 @@ Additional docs in `docs/`:
 | `/handle-mail` | Dispatch a mail message to the appropriate handler |
 | `/handle-planning-request` | Create an implementation plan from a feature description |
 | `/investigate` | Analyze a game log to diagnose an unexpected game state |
+| `/list-requests` | List all incoming requests in the AI user's inbox |
 | `/release` | Perform a versioned release with changelog and git tag |
 | `/update-readme` | Refresh the Project Status section with current metrics |
 
