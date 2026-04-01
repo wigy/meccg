@@ -20,42 +20,10 @@ import {
   CardStatus,
   buildTestState, resetMint,
   viableActions,
+  P1_COMPANY, makeMHState,
 } from '../test-helpers.js';
 import { Phase } from '../../index.js';
-import type { CardInPlay, CardInstanceId, CompanyId, GameState, MovementHazardPhaseState } from '../../index.js';
-
-/** The company ID for PLAYER_1's first company (target of hazards). */
-const P1_COMPANY = `company-${PLAYER_1 as string}-0` as CompanyId;
-
-/** Build a MovementHazardPhaseState in the play-hazards step. */
-function makeMHState(overrides?: Partial<MovementHazardPhaseState>): MovementHazardPhaseState {
-  return {
-    phase: Phase.MovementHazard,
-    step: 'play-hazards',
-    activeCompanyIndex: 0,
-    handledCompanyIds: [],
-    movementType: null,
-    declaredRegionPath: [],
-    maxRegionDistance: 4,
-    pendingEffectsToOrder: [],
-    hazardsPlayedThisCompany: 0,
-    hazardLimit: 4,
-    resolvedSitePath: [],
-    resolvedSitePathNames: [],
-    destinationSiteType: null,
-    destinationSiteName: null,
-    resourceDrawMax: 0,
-    hazardDrawMax: 0,
-    resourceDrawCount: 0,
-    hazardDrawCount: 0,
-    resourcePlayerPassed: false,
-    hazardPlayerPassed: false,
-    onGuardPlacedThisCompany: false,
-    siteRevealed: false,
-    returnedToOrigin: false,
-    ...overrides,
-  };
-}
+import type { CardInPlay, CardInstanceId, GameState } from '../../index.js';
 
 // ─── Tests ────────────────────────────────────────────────────────────────────
 
