@@ -245,6 +245,8 @@ export interface TriggeredAction {
   readonly check?: string;
   /** Modifier to the forced check. */
   readonly modifier?: number;
+  /** Filter condition for 'discard-cards-in-play' — matches against card definitions. */
+  readonly filter?: Condition;
 }
 
 /**

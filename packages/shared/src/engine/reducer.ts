@@ -2578,12 +2578,12 @@ function handleCancelMovement(state: GameState, action: GameAction): ReducerResu
  *
  * Affected cards are moved from their owner's cardsInPlay to their discardPile.
  *
- * @param state - Current game state (after the environment card has been added to cardsInPlay).
- * @param alignment - The alignment of the card just played ('resource' or 'hazard').
- * @returns Updated game state with opposing environments discarded.
+ * @param state - Current game state (after the card has been added to cardsInPlay).
+ * @param filter - A DSL condition evaluated against each card definition in play.
+ *                 Cards whose definitions match the filter are discarded.
+ * @returns Updated game state with matching cards discarded.
  */
-function discardOpposingEnvironments(state: GameState, alignment: 'resource' | 'hazard'): GameState {
-  const opposingCardType = alignment === 'resource' ? 'hazard-event' : 'hero-resource-event';
+function discardCardsInPlay(state: GameState, filter: import('../types/effects.js').Condition): GameState {
   const newPlayers = clonePlayers(state);
   let discardedAny = false;
 
@@ -2593,10 +2593,9 @@ function discardOpposingEnvironments(state: GameState, alignment: 'resource' | '
     const remaining = player.cardsInPlay.filter(card => {
       const cardDef = state.cardPool[card.definitionId as string];
       if (!cardDef) return true;
-      if (cardDef.cardType !== opposingCardType) return true;
-      if (!('keywords' in cardDef) || !cardDef.keywords?.includes('environment')) return true;
-      // This is an opposing environment — discard it
-      logDetail(`Discarding opposing environment: ${cardDef.name} (${card.instanceId as string}) from player ${pi}`);
+      if (!matchesCondition(filter, cardDef as unknown as Record<string, unknown>)) return true;
+      // This card matches the filter — discard it
+      logDetail(`Discarding card in play: ${cardDef.name} (${card.instanceId as string}) from player ${pi}`);
       toDiscard.push({ instanceId: card.instanceId, definitionId: card.definitionId });
       return false;
     });
@@ -2612,7 +2611,7 @@ function discardOpposingEnvironments(state: GameState, alignment: 'resource' | '
   }
 
   if (!discardedAny) {
-    logDetail('No opposing environment cards to discard');
+    logDetail('No matching cards in play to discard');
     return state;
   }
 
@@ -2669,10 +2668,14 @@ function handlePlayPermanentEvent(state: GameState, action: GameAction): Reducer
   newPlayers[playerIndex] = { ...player, hand: newHand, cardsInPlay: newCardsInPlay };
   let newState: GameState = { ...state, players: newPlayers };
 
-  // Environment permanent events discard all opposing environment cards on entry
-  if (def.keywords?.includes('environment')) {
-    logDetail(`Environment permanent event "${def.name}" entered play — discarding opposing environments`);
-    newState = discardOpposingEnvironments(newState, 'resource');
+  // Check for on-event effects with discard-cards-in-play when the card enters play
+  if (def.effects) {
+    for (const effect of def.effects) {
+      if (effect.type === 'on-event' && effect.event === 'self-enters-play' && effect.apply.type === 'discard-cards-in-play' && effect.apply.filter) {
+        logDetail(`"${def.name}" entered play — discarding cards matching filter`);
+        newState = discardCardsInPlay(newState, effect.apply.filter);
+      }
+    }
   }
 
   return { state: newState };
@@ -3146,10 +3149,14 @@ function handlePlayHazardCard(
     },
   };
 
-  // Environment permanent events discard all opposing environment cards on entry
-  if (def.eventType === 'permanent' && def.keywords?.includes('environment')) {
-    logDetail(`Hazard environment permanent event "${def.name}" entered play — discarding opposing environments`);
-    newState = discardOpposingEnvironments(newState, 'hazard');
+  // Check for on-event effects with discard-cards-in-play when the card enters play
+  if (def.eventType === 'permanent' && def.effects) {
+    for (const effect of def.effects) {
+      if (effect.type === 'on-event' && effect.event === 'self-enters-play' && effect.apply.type === 'discard-cards-in-play' && effect.apply.filter) {
+        logDetail(`"${def.name}" entered play — discarding cards matching filter`);
+        newState = discardCardsInPlay(newState, effect.apply.filter);
+      }
+    }
   }
 
   return { state: newState };

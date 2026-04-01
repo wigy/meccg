@@ -3,7 +3,7 @@
  *
  * Card test: Gates of Morning (tw-243)
  * Type: hero-resource-event (permanent, environment)
- * Effects: 2 (duplication-limit scope:game max:1, on-event self-enters-play discard-opposing-environments)
+ * Effects: 2 (duplication-limit scope:game max:1, on-event self-enters-play discard-cards-in-play filter:hazard-environment)
  *
  * "Environment. When Gates of Morning is played, all environment hazard
  *  cards in play are immediately discarded, and all hazard environment

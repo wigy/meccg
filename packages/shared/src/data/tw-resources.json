@@ -168,7 +168,7 @@
       {
         "type": "on-event",
         "event": "self-enters-play",
-        "apply": { "type": "discard-opposing-environments" }
+        "apply": { "type": "discard-cards-in-play", "filter": { "cardType": "hazard-event", "keywords": { "$includes": "environment" } } }
       }
     ],
     "text": "Environment. When Gates of Morning is played, all environment hazard cards in play are immediately discarded, and all hazard environment effects are canceled. Cannot be duplicated.",

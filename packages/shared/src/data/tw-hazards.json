@@ -16,7 +16,7 @@
       {
         "type": "on-event",
         "event": "self-enters-play",
-        "apply": { "type": "discard-opposing-environments" }
+        "apply": { "type": "discard-cards-in-play", "filter": { "cardType": "hero-resource-event", "keywords": { "$includes": "environment" } } }
       }
     ],
     "text": "Environment. When Doors of Night is played, all resource environment cards in play are immediately discarded, and all resource environment effects are canceled. Cannot be duplicated."
