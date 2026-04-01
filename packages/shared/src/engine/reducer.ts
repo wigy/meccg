@@ -21,7 +21,7 @@ import { logHeading, logDetail } from './legal-actions/log.js';
 import type { TwoDiceSix, DieRoll, GameEffect } from '../index.js';
 import { applyDraftResults, transitionAfterItemDraft, enterSiteSelection, startFirstTurn } from './init.js';
 import { recomputeDerived } from './recompute-derived.js';
-import { collectCharacterEffects, resolveCheckModifier } from './effects/index.js';
+import { collectCharacterEffects, resolveCheckModifier, resolveStatModifiers } from './effects/index.js';
 import type { ResolverContext } from './effects/index.js';
 import { matchesCondition } from '../effects/index.js';
 import { computeTournamentScore } from '../state-utils.js';
@@ -4323,9 +4323,16 @@ function handleInfluenceAttempt(
     // Sum all check-modifier effects for influence checks
     const dslModifier = resolveCheckModifier(charEffects, 'influence');
     if (dslModifier !== 0) {
-      logDetail(`DSL influence modifiers: ${dslModifier >= 0 ? '+' : ''}${dslModifier}`);
+      logDetail(`DSL influence check-modifiers: ${dslModifier >= 0 ? '+' : ''}${dslModifier}`);
     }
     modifier += dslModifier;
+
+    // Resolve stat-modifier effects on direct-influence (e.g. Gimli +2 DI for Iron Hill Dwarves)
+    const dslDI = resolveStatModifiers(charEffects, 'direct-influence', 0, resolverCtx);
+    if (dslDI !== 0) {
+      logDetail(`DSL direct-influence modifiers: ${dslDI >= 0 ? '+' : ''}${dslDI}`);
+    }
+    modifier += dslDI;
   }
 
   // Roll 2d6 + modifier vs influence number

@@ -26,7 +26,8 @@ import type {
 } from '../../index.js';
 import { GENERAL_INFLUENCE, SiteType, CardStatus, isCharacterCard, isSiteCard, buildMovementMap, getReachableSites } from '../../index.js';
 import { logDetail, logHeading } from './log.js';
-import { resolveDef } from '../effects/index.js';
+import { resolveDef, collectCharacterEffects, resolveStatModifiers } from '../effects/index.js';
+import type { ResolverContext } from '../effects/index.js';
 import { resolveInstanceId } from '../../types/state.js';
 import { isRegressive } from '../reverse-actions.js';
 
@@ -37,15 +38,24 @@ const MAX_SIDEBOARD_TO_DISCARD = 5;
 const MIN_DECK_SIZE_FOR_SIDEBOARD_TO_DECK = 5;
 
 /**
- * Computes the available (unused) direct influence for a character in play.
+ * Computes the available (unused) direct influence for a character in play,
+ * optionally factoring in conditional DI bonuses against a specific target.
  *
  * A character's DI is their effectiveStats.directInfluence minus the sum
- * of mind values of all their followers.
+ * of mind values of all their followers. When a target character is specified,
+ * conditional DI bonuses (e.g. Glorfindel's "+1 DI against Elves") are
+ * resolved using an `influence-check` context.
+ *
+ * @param state - The full game state.
+ * @param controllerInstanceId - The controlling character's instance ID.
+ * @param player - The player who owns the controller.
+ * @param targetDef - Optional target character definition for conditional DI resolution.
  */
 function availableDI(
   state: GameState,
   controllerInstanceId: CardInstanceId,
   player: { readonly characters: Readonly<Record<string, import('../../index.js').CharacterInPlay>> },
+  targetDef?: CharacterCard,
 ): number {
   const controller = player.characters[controllerInstanceId as string];
   if (!controller) return 0;
@@ -60,7 +70,38 @@ function availableDI(
     }
   }
 
-  return controller.effectiveStats.directInfluence - usedDI;
+  let baseDI = controller.effectiveStats.directInfluence;
+
+  // When checking DI for a specific target, resolve conditional DI bonuses
+  // (e.g. Glorfindel II "+1 DI against Elves" uses reason: "influence-check")
+  if (targetDef) {
+    const ctrlDef = resolveDef(state, controller.instanceId);
+    if (ctrlDef && isCharacterCard(ctrlDef)) {
+      const resolverCtx: ResolverContext = {
+        reason: 'influence-check',
+        bearer: {
+          race: ctrlDef.race,
+          skills: ctrlDef.skills,
+          baseProwess: ctrlDef.prowess,
+          baseBody: ctrlDef.body,
+          baseDirectInfluence: ctrlDef.directInfluence,
+          name: ctrlDef.name,
+        },
+        target: {
+          name: targetDef.name,
+          race: targetDef.race,
+        },
+      };
+      const charEffects = collectCharacterEffects(state, controller, resolverCtx);
+      const conditionalDI = resolveStatModifiers(charEffects, 'direct-influence', 0, resolverCtx);
+      if (conditionalDI !== 0) {
+        logDetail(`  DI bonus from influence-check effects: ${conditionalDI >= 0 ? '+' : ''}${conditionalDI} against ${targetDef.name} (${targetDef.race})`);
+      }
+      baseDI += conditionalDI;
+    }
+  }
+
+  return baseDI - usedDI;
 }
 
 /**
@@ -231,7 +272,7 @@ function playCharacterActions(
         if (char.controlledBy !== 'general') continue;
         const ctrlDef = resolveDef(state, char.instanceId);
         if (!isCharacterCard(ctrlDef)) continue;
-        const avail = availableDI(state, char.instanceId, player);
+        const avail = availableDI(state, char.instanceId, player, cardDef);
         if (avail >= charMind) {
           diControllers.push({ instanceId: key as CardInstanceId, name: ctrlDef.name, availDI: avail });
         }
@@ -520,7 +561,7 @@ function moveToInfluenceActions(state: GameState, playerId: PlayerId): Evaluated
           if (!ctrl) continue;
           // Controller must be under GI (non-follower)
           if (ctrl.controlledBy !== 'general') continue;
-          const avail = availableDI(state, ctrl.instanceId, player);
+          const avail = availableDI(state, ctrl.instanceId, player, charDef);
           if (avail >= charDef.mind) {
             const ctrlDef = resolveDef(state, ctrl.instanceId);
             const ctrlName = isCharacterCard(ctrlDef) ? ctrlDef.name : '?';
