@@ -1224,37 +1224,7 @@ function renderCompanyBlock(
     ].every(a => 'regress' in a && a.regress);
     const cls = allRegress ? '' : 'company-card--influence-source';
 
-    // Split action only, no move actions — execute directly
-    if (splitAction && (!moveActions || moveActions.length === 0)) {
-      return {
-        cls,
-        handler: (e) => {
-          e.stopPropagation();
-          pendingFocusCharacterId = splitAction.characterId;
-          onAction(splitAction);
-        },
-      };
-    }
-
-    // Only move-to-company actions (no split) — enter targeting mode directly
-    if (!splitAction && moveActions && moveActions.length > 0) {
-      return {
-        cls,
-        handler: (e) => {
-          e.stopPropagation();
-          companyMoveSourceId = charInstId;
-          companyMoveSourceCompanyId = moveActions[0].sourceCompanyId;
-          const sourceDefId = cachedInstanceLookup(charInstId);
-          const sourceName = sourceDefId ? cardPool[sourceDefId as string]?.name : undefined;
-          setTargetingInstruction(
-            `Click a company to move ${sourceName ?? 'character'} there`,
-          );
-          renderCompanyViews(lastView!, lastCardPool!, lastOnAction!);
-        },
-      };
-    }
-
-    // Both split and move available — show tooltip for disambiguation
+    // Always show tooltip menu for character actions
     return {
       cls,
       handler: (e) => {
