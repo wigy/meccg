@@ -33,8 +33,8 @@ describe('Rule 2.11 — Phase Transitions', () => {
       activePlayer: PLAYER_1,
       phase: Phase.Untap,
       players: [
-        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [{ defId: GANDALF }] }], hand: [], siteDeck: [MORIA] },
-        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [{ defId: LEGOLAS }] }], hand: [], siteDeck: [MINAS_TIRITH] },
+        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [GANDALF] }], hand: [], siteDeck: [MORIA] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [MINAS_TIRITH] },
       ],
     });
 
@@ -57,8 +57,8 @@ describe('Rule 2.11 — Phase Transitions', () => {
       activePlayer: PLAYER_1,
       phase: Phase.Organization,
       players: [
-        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [{ defId: ARAGORN }] }], hand: [], siteDeck: [] },
-        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [{ defId: LEGOLAS }] }], hand: [], siteDeck: [] },
+        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [ARAGORN] }], hand: [], siteDeck: [] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [] },
       ],
     });
 
@@ -71,8 +71,8 @@ describe('Rule 2.11 — Phase Transitions', () => {
       activePlayer: PLAYER_1,
       phase: Phase.LongEvent,
       players: [
-        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [{ defId: ARAGORN }] }], hand: [], siteDeck: [] },
-        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [{ defId: LEGOLAS }] }], hand: [], siteDeck: [] },
+        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [ARAGORN] }], hand: [], siteDeck: [] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [] },
       ],
     });
 
@@ -92,8 +92,8 @@ describe('Rule 2.11 — Phase Transitions', () => {
       activePlayer: PLAYER_1,
       phase: Phase.EndOfTurn,
       players: [
-        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [{ defId: ARAGORN }] }], hand: hand8, siteDeck: [MORIA], playDeck: cardDefs },
-        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [{ defId: LEGOLAS }] }], hand: hand8, siteDeck: [MINAS_TIRITH], playDeck: cardDefs },
+        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [ARAGORN] }], hand: hand8, siteDeck: [MORIA], playDeck: cardDefs },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: hand8, siteDeck: [MINAS_TIRITH], playDeck: cardDefs },
       ],
     });
 

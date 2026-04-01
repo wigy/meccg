@@ -567,5 +567,27 @@
     "hazardDraws": 1,
     "text": "Nearest Haven: Lórien.",
     "effects": []
+  },
+  {
+    "cardType": "hero-site",
+    "alignment": "wizard",
+    "id": "tw-432",
+    "name": "Thranduil's Halls",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/ThranduilsHalls.jpg",
+    "siteType": "free-hold",
+    "sitePath": [
+      "wilderness",
+      "border",
+      "border"
+    ],
+    "nearestHaven": "Lórien",
+    "region": "Woodland Realm",
+    "playableResources": [
+      "faction"
+    ],
+    "automaticAttacks": [],
+    "resourceDraws": 2,
+    "hazardDraws": 2,
+    "text": "Nearest Haven: Lórien."
   }
 ]

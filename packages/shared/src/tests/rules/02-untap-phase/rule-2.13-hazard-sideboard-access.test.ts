@@ -44,7 +44,7 @@ describe('Rule 2.13 — Hazard Sideboard Access at Untap', () => {
           id: PLAYER_1,
           hand: [],
           siteDeck: [MORIA],
-          companies: [{ site: RIVENDELL, characters: [{ defId: GANDALF }] }],
+          companies: [{ site: RIVENDELL, characters: [GANDALF] }],
         },
         {
           id: PLAYER_2,
@@ -52,7 +52,7 @@ describe('Rule 2.13 — Hazard Sideboard Access at Untap', () => {
           siteDeck: [MINAS_TIRITH],
           playDeck: makePlayDeck(),
           sideboard: [CAVE_DRAKE, ORC_PATROL],
-          companies: [{ site: LORIEN, characters: [{ defId: LEGOLAS }] }],
+          companies: [{ site: LORIEN, characters: [LEGOLAS] }],
         },
       ],
     });
@@ -74,14 +74,14 @@ describe('Rule 2.13 — Hazard Sideboard Access at Untap', () => {
           id: PLAYER_1,
           hand: [],
           siteDeck: [MORIA],
-          companies: [{ site: RIVENDELL, characters: [{ defId: ARAGORN }] }],
+          companies: [{ site: RIVENDELL, characters: [ARAGORN] }],
         },
         {
           id: PLAYER_2,
           hand: [],
           siteDeck: [MINAS_TIRITH],
           sideboard: [CAVE_DRAKE],
-          companies: [{ site: LORIEN, characters: [{ defId: LEGOLAS }] }],
+          companies: [{ site: LORIEN, characters: [LEGOLAS] }],
         },
       ],
     });
@@ -100,14 +100,14 @@ describe('Rule 2.13 — Hazard Sideboard Access at Untap', () => {
           id: PLAYER_1,
           hand: [],
           siteDeck: [MORIA],
-          companies: [{ site: RIVENDELL, characters: [{ defId: GANDALF }] }],
+          companies: [{ site: RIVENDELL, characters: [GANDALF] }],
         },
         {
           id: PLAYER_2,
           hand: [],
           siteDeck: [MINAS_TIRITH],
           sideboard: [CAVE_DRAKE, ORC_PATROL],
-          companies: [{ site: LORIEN, characters: [{ defId: LEGOLAS }] }],
+          companies: [{ site: LORIEN, characters: [LEGOLAS] }],
         },
       ],
     });
@@ -144,7 +144,7 @@ describe('Rule 2.13 — Hazard Sideboard Access at Untap', () => {
           id: PLAYER_1,
           hand: [],
           siteDeck: [MORIA],
-          companies: [{ site: RIVENDELL, characters: [{ defId: GANDALF }] }],
+          companies: [{ site: RIVENDELL, characters: [GANDALF] }],
         },
         {
           id: PLAYER_2,
@@ -152,7 +152,7 @@ describe('Rule 2.13 — Hazard Sideboard Access at Untap', () => {
           siteDeck: [MINAS_TIRITH],
           playDeck: makePlayDeck(),
           sideboard: [CAVE_DRAKE],
-          companies: [{ site: LORIEN, characters: [{ defId: LEGOLAS }] }],
+          companies: [{ site: LORIEN, characters: [LEGOLAS] }],
         },
       ],
     });
@@ -186,7 +186,7 @@ describe('Rule 2.13 — Hazard Sideboard Access at Untap', () => {
           id: PLAYER_1,
           hand: [],
           siteDeck: [MORIA],
-          companies: [{ site: RIVENDELL, characters: [{ defId: GANDALF }] }],
+          companies: [{ site: RIVENDELL, characters: [GANDALF] }],
         },
         {
           id: PLAYER_2,
@@ -194,7 +194,7 @@ describe('Rule 2.13 — Hazard Sideboard Access at Untap', () => {
           siteDeck: [MINAS_TIRITH],
           playDeck: [CAVE_DRAKE, ORC_PATROL], // Only 2 cards — below 5
           sideboard: [BARROW_WIGHT],
-          companies: [{ site: LORIEN, characters: [{ defId: LEGOLAS }] }],
+          companies: [{ site: LORIEN, characters: [LEGOLAS] }],
         },
       ],
     });
@@ -215,14 +215,14 @@ describe('Rule 2.13 — Hazard Sideboard Access at Untap', () => {
           id: PLAYER_1,
           hand: [],
           siteDeck: [MORIA],
-          companies: [{ site: RIVENDELL, characters: [{ defId: GANDALF }] }],
+          companies: [{ site: RIVENDELL, characters: [GANDALF] }],
         },
         {
           id: PLAYER_2,
           hand: [],
           siteDeck: [MINAS_TIRITH],
           sideboard: [CAVE_DRAKE],
-          companies: [{ site: LORIEN, characters: [{ defId: LEGOLAS }] }],
+          companies: [{ site: LORIEN, characters: [LEGOLAS] }],
         },
       ],
     });

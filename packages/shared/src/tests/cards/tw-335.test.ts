@@ -50,8 +50,8 @@ describe('Sun (tw-335)', () => {
       activePlayer: PLAYER_1,
       phase: Phase.LongEvent,
       players: [
-        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [{ defId: ARAGORN }] }], hand: [SUN], siteDeck: [MORIA] },
-        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [{ defId: LEGOLAS }] }], hand: [], siteDeck: [MINAS_TIRITH] },
+        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [ARAGORN] }], hand: [SUN], siteDeck: [MORIA] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [MINAS_TIRITH] },
       ],
     });
 
@@ -77,8 +77,8 @@ describe('Sun (tw-335)', () => {
       activePlayer: PLAYER_1,
       phase: Phase.LongEvent,
       players: [
-        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [{ defId: ARAGORN }, { defId: BARD_BOWMAN }] }], hand: [SUN], siteDeck: [MORIA], cardsInPlay: [gomInPlay] },
-        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [{ defId: LEGOLAS }] }], hand: [], siteDeck: [MINAS_TIRITH] },
+        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [ARAGORN, BARD_BOWMAN] }], hand: [SUN], siteDeck: [MORIA], cardsInPlay: [gomInPlay] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [MINAS_TIRITH] },
       ],
     });
 
@@ -106,8 +106,8 @@ describe('Sun (tw-335)', () => {
       activePlayer: PLAYER_1,
       phase: Phase.LongEvent,
       players: [
-        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [{ defId: LEGOLAS }] }], hand: [], siteDeck: [MORIA], cardsInPlay: [sunInPlay] },
-        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [{ defId: ARAGORN }] }], hand: [], siteDeck: [MINAS_TIRITH] },
+        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [LEGOLAS] }], hand: [], siteDeck: [MORIA], cardsInPlay: [sunInPlay] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [ARAGORN] }], hand: [], siteDeck: [MINAS_TIRITH] },
       ],
     });
 
@@ -125,8 +125,8 @@ describe('Sun (tw-335)', () => {
       activePlayer: PLAYER_1,
       phase: Phase.LongEvent,
       players: [
-        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [{ defId: ARAGORN }] }], hand: [SUN], siteDeck: [MORIA] },
-        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [{ defId: LEGOLAS }] }], hand: [], siteDeck: [MINAS_TIRITH] },
+        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [ARAGORN] }], hand: [SUN], siteDeck: [MORIA] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [MINAS_TIRITH] },
       ],
     });
 

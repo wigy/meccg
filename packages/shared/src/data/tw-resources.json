@@ -105,6 +105,29 @@
   {
     "cardType": "hero-resource-faction",
     "alignment": "wizard",
+    "id": "tw-367",
+    "name": "Wood-elves",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Woodelves.jpg",
+    "unique": true,
+    "marshallingPoints": 3,
+    "marshallingCategory": "faction",
+    "influenceNumber": 8,
+    "race": "elf",
+    "playableAt": [
+      {
+        "site": "Thranduil's Halls"
+      }
+    ],
+    "effects": [
+      { "type": "check-modifier", "check": "influence", "value": -1, "when": { "bearer.race": "man" } },
+      { "type": "check-modifier", "check": "influence", "value": 1, "when": { "bearer.race": "elf" } },
+      { "type": "check-modifier", "check": "influence", "value": -2, "when": { "bearer.race": "dwarf" } }
+    ],
+    "text": "Unique. Playable at Thranduil's Halls if the influence check is greater than 8. Standard Modifications: Men (-1), Elves (+1), Dwarves (-2)."
+  },
+  {
+    "cardType": "hero-resource-faction",
+    "alignment": "wizard",
     "id": "tw-276",
     "name": "Men of Anfalas",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/MenofAnfalas.jpg",

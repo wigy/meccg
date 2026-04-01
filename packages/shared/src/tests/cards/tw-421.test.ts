@@ -35,56 +35,18 @@
 
 import { describe, test, expect, beforeEach } from 'vitest';
 import {
-  PLAYER_1, PLAYER_2,
-  ARAGORN, LEGOLAS,
-  RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
-  CardStatus,
-  buildTestState, resetMint, pool,
+  PLAYER_1,
+  RIVENDELL, LORIEN,
+  resetMint, pool,
+  buildSitePhaseState,
 } from '../test-helpers.js';
 import {
-  computeLegalActions, Phase,
+  computeLegalActions,
   GREY_HAVENS,
   ETTENMOORS_HERO, THE_WHITE_TOWERS_HERO, BARROW_DOWNS, OLD_FOREST, BAG_END,
   isSiteCard, buildMovementMap, getReachableSites,
 } from '../../index.js';
-import type { SitePhaseState, CardDefinitionId, SiteCard } from '../../index.js';
-
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
-/** Advance state to site phase with the given company already selected. */
-function buildSitePhaseState(opts: {
-  site: CardDefinitionId;
-  siteStatus?: CardStatus;
-}) {
-  const state = buildTestState({
-    activePlayer: PLAYER_1,
-    players: [
-      { id: PLAYER_1, companies: [{ site: opts.site, characters: [{ defId: ARAGORN }] }], hand: [], siteDeck: [MORIA] },
-      { id: PLAYER_2, companies: [{ site: LORIEN, characters: [{ defId: LEGOLAS }] }], hand: [], siteDeck: [MINAS_TIRITH] },
-    ],
-    phase: Phase.Site,
-  });
-
-  // Set up site phase state at play-resources step
-  const company = state.players[0].companies[0];
-  if (opts.siteStatus) {
-    (company.currentSite as { status: CardStatus }).status = opts.siteStatus;
-  }
-
-  const sitePhaseState: SitePhaseState = {
-    phase: Phase.Site,
-    step: 'play-resources',
-    activeCompanyIndex: 0,
-    handledCompanyIds: [],
-    siteEntered: true,
-    resourcePlayed: false,
-    minorItemAvailable: false,
-    declaredOnGuardAttacks: [],
-    declaredAgentAttack: null,
-    automaticAttacksResolved: 0,
-  };
-  return { ...state, phaseState: sitePhaseState };
-}
+import type { SiteCard } from '../../index.js';
 
 // ─── Tests ───────────────────────────────────────────────────────────────────
 
@@ -241,7 +203,7 @@ describe('Rivendell (tw-421)', () => {
     // dist 1 (same region): Ettenmoors (Rhudaur)
     // dist 2 (adjacent): Barrow-downs, Old Forest (Cardolan), The White Towers, Weathertop (Arthedain)
     // dist 3: Bag End (The Shire), Grey Havens (Lindon), Moria, The Under-gates (Redhorn Gate), Eagles' Eyrie (Anduin Vales)
-    // dist 4: Lórien (Wold & Foothills), Dol Guldur (Southern Mirkwood), Glittering Caves, Isengard, Isle of the Ulond (Gap of Isen/Andrast Coast)
+    // dist 4: Lórien (Wold & Foothills), Dol Guldur (Southern Mirkwood), Glittering Caves, Isengard, Isle of the Ulond (Gap of Isen/Andrast Coast), Thranduil's Halls (Woodland Realm)
     expect(regionNames).toEqual([
       'Bag End',
       'Barrow-downs',
@@ -257,6 +219,7 @@ describe('Rivendell (tw-421)', () => {
       'Old Forest',
       'The Under-gates',
       'The White Towers',
+      "Thranduil's Halls",
       'Weathertop',
     ]);
   });
@@ -291,5 +254,6 @@ describe('Rivendell (tw-421)', () => {
     // 4 regions away (max)
     expect(distMap.get('Lórien')).toBe(4);
     expect(distMap.get('Dol Guldur')).toBe(4);
+    expect(distMap.get("Thranduil's Halls")).toBe(4);
   });
 });

@@ -37,13 +37,13 @@ describe('Rule 2.08 — Play Deck Exhaustion', () => {
           siteDeck: [MORIA],
           playDeck: [DAGGER_OF_WESTERNESSE], // Only 1 card left
           discardPile: [CAVE_DRAKE, ORC_PATROL, DAGGER_OF_WESTERNESSE], // These become new play deck
-          companies: [{ site: RIVENDELL, characters: [{ defId: GANDALF }] }],
+          companies: [{ site: RIVENDELL, characters: [GANDALF] }],
         },
         {
           id: PLAYER_2,
           hand: [],
           siteDeck: [MINAS_TIRITH],
-          companies: [{ site: LORIEN, characters: [{ defId: LEGOLAS }] }],
+          companies: [{ site: LORIEN, characters: [LEGOLAS] }],
         },
       ],
     });

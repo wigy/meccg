@@ -93,6 +93,8 @@ export const RANGERS_OF_THE_NORTH = did('tw-311');
 export const RIDERS_OF_ROHAN = did('tw-317');
 /** Knights of Dol Amroth — Dúnadan faction, 3 MP, playable at Dol Amroth. */
 export const KNIGHTS_OF_DOL_AMROTH = did('tw-263');
+/** Wood-elves — Elf faction, 3 MP, playable at Thranduil's Halls. */
+export const WOOD_ELVES = did('tw-367');
 
 // ---- Resource Events ----
 
@@ -151,6 +153,8 @@ export const HENNETH_ANNUN = did('tw-400');
 export const OLD_FOREST = did('tw-417');
 /** Bag End — hero free-hold in The Shire, nearest haven Rivendell. */
 export const BAG_END = did('tw-372');
+/** Thranduil's Halls — hero free-hold in Woodland Realm, nearest haven Lórien. */
+export const THRANDUILS_HALLS = did('tw-432');
 
 // ---- Regions ----
 

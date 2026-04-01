@@ -13,8 +13,9 @@ import {
   loadCardPool,
   Phase,
   Alignment,
+  computeLegalActions,
 } from '../index.js';
-import type { PlayerId, GameState, CardDefinitionId, CardInstanceId, CardInstance, GameAction } from '../index.js';
+import type { PlayerId, GameState, CardDefinitionId, CardInstanceId, CardInstance, GameAction, PlayCharacterAction, SitePhaseState } from '../index.js';
 import {
   ARAGORN, BILBO, FRODO, LEGOLAS, GIMLI, FARAMIR,
   EOWYN, BEREGOND, BERGIL, BARD_BOWMAN, ANBORN, SAM_GAMGEE,
@@ -22,7 +23,8 @@ import {
   GLAMDRING, STING, THE_MITHRIL_COAT, THE_ONE_RING, DAGGER_OF_WESTERNESSE, HORN_OF_ANOR,
   CAVE_DRAKE, ORC_PATROL, BARROW_WIGHT,
   SUN, EYE_OF_SAURON, GATES_OF_MORNING, TWILIGHT, DOORS_OF_NIGHT,
-  RIVENDELL, LORIEN, MORIA, MINAS_TIRITH, MOUNT_DOOM,
+  RIVENDELL, LORIEN, MORIA, MINAS_TIRITH, MOUNT_DOOM, THRANDUILS_HALLS,
+  WOOD_ELVES,
 } from '../index.js';
 
 export const PLAYER_1 = 'p1' as PlayerId;
@@ -269,10 +271,13 @@ export interface CharacterSetup {
   followerOf?: number;
 }
 
+/** A character entry can be a full setup object or just a definition ID. */
+export type CharacterEntry = CharacterSetup | CardDefinitionId;
+
 /** Setup for a company at a site with characters. */
 export interface CompanySetup {
   site: CardDefinitionId;
-  characters: CharacterSetup[];
+  characters: CharacterEntry[];
 }
 
 /** Setup for one player's starting state. */
@@ -328,7 +333,11 @@ export function buildTestState(opts: BuildTestStateOpts): GameState {
       const siteInst = mintFor(companySetup.site);
       const charInstIds: CardInstanceId[] = [];
 
-      for (const charSetup of companySetup.characters) {
+      const normalizedChars = companySetup.characters.map(
+        c => (typeof c === 'string' ? { defId: c as CardDefinitionId } : c) as CharacterSetup,
+      );
+
+      for (const charSetup of normalizedChars) {
         const charInst = mintFor(charSetup.defId);
         charInstIds.push(charInst.instanceId);
 
@@ -351,8 +360,8 @@ export function buildTestState(opts: BuildTestStateOpts): GameState {
       }
 
       // Wire up followers after all characters in company are created
-      for (let i = 0; i < companySetup.characters.length; i++) {
-        const charSetup = companySetup.characters[i];
+      for (let i = 0; i < normalizedChars.length; i++) {
+        const charSetup = normalizedChars[i];
         if (charSetup.followerOf !== undefined) {
           const followerInstId = charInstIds[i];
           const controllerInstId = charInstIds[charSetup.followerOf];
@@ -473,6 +482,59 @@ export function buildTestState(opts: BuildTestStateOpts): GameState {
   } as unknown as GameState;
 }
 
+// ─── Shared test helpers ─────────────────────────────────────────────────────
+
+/** Find the instance ID of a character in play by definition ID. */
+export function findCharInstanceId(state: GameState, playerIdx: number, defId: CardDefinitionId): CardInstanceId {
+  for (const [key, char] of Object.entries(state.players[playerIdx].characters)) {
+    if (char.definitionId === defId) return key as CardInstanceId;
+  }
+  throw new Error(`Character ${defId} not found for player ${playerIdx}`);
+}
+
+/** Get all viable play-character actions for a player. */
+export function viablePlayCharacterActions(state: GameState, playerId: PlayerId) {
+  return computeLegalActions(state, playerId)
+    .filter(ea => ea.viable && ea.action.type === 'play-character')
+    .map(ea => ea.action as PlayCharacterAction);
+}
+
+/** Build a state in site phase at play-resources step with a company at a site. */
+export function buildSitePhaseState(opts: {
+  characters?: CharacterEntry[];
+  site: CardDefinitionId;
+  hand?: CardDefinitionId[];
+  siteStatus?: CardStatus;
+}) {
+  const state = buildTestState({
+    activePlayer: PLAYER_1,
+    players: [
+      { id: PLAYER_1, companies: [{ site: opts.site, characters: opts.characters ?? [ARAGORN] }], hand: opts.hand ?? [], siteDeck: [MORIA] },
+      { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [MINAS_TIRITH] },
+    ],
+    phase: Phase.Site,
+  });
+
+  const company = state.players[0].companies[0];
+  if (opts.siteStatus) {
+    (company.currentSite as { status: CardStatus }).status = opts.siteStatus;
+  }
+
+  const sitePhaseState: SitePhaseState = {
+    phase: Phase.Site,
+    step: 'play-resources',
+    activeCompanyIndex: 0,
+    handledCompanyIds: [],
+    siteEntered: true,
+    resourcePlayed: false,
+    minorItemAvailable: false,
+    declaredOnGuardAttacks: [],
+    declaredAgentAttack: null,
+    automaticAttacksResolved: 0,
+  };
+  return { ...state, phaseState: sitePhaseState };
+}
+
 // Re-export commonly used things
 export {
   createGame, reduce,
@@ -483,7 +545,8 @@ export {
   GLAMDRING, STING, THE_MITHRIL_COAT, THE_ONE_RING, DAGGER_OF_WESTERNESSE, HORN_OF_ANOR,
   CAVE_DRAKE, ORC_PATROL, BARROW_WIGHT,
   SUN, EYE_OF_SAURON, GATES_OF_MORNING, TWILIGHT, DOORS_OF_NIGHT,
-  RIVENDELL, LORIEN, MORIA, MINAS_TIRITH, MOUNT_DOOM,
+  RIVENDELL, LORIEN, MORIA, MINAS_TIRITH, MOUNT_DOOM, THRANDUILS_HALLS,
+  WOOD_ELVES,
   CardStatus, ZERO_EFFECTIVE_STATS, ZERO_MARSHALLING_POINTS,
 };
 export type { GameConfig, QuickStartGameConfig, ReducerResult, CardInPlay, CardInstance, CardInstanceId, CardDefinitionId, CompanyId };
