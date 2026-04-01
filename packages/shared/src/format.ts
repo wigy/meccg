@@ -54,7 +54,7 @@ export const CARD_TYPE_CSS: Readonly<Record<string, string>> = {
   'minion-resource-faction': 'color:#a080a0',
   'minion-resource-ally': 'color:#a080a0',
   'minion-site': 'color:#d0d0d0',
-  'balrog-site': 'color:#d0d040',
+  'balrog-site': 'color:#e08030',
   'fallen-wizard-site': 'color:#d0d0d0',
   'region': 'color:#6090e0;opacity:0.6',
 };
