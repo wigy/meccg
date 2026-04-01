@@ -193,5 +193,29 @@
       }
     ],
     "text": "Unique. Uruk-hai. Leader. Discard on a body check result of 9. +4 direct influence against Orcs and Orc factions."
+  },
+  {
+    "cardType": "minion-character",
+    "alignment": "ringwraith",
+    "id": "le-50",
+    "name": "Adûnaphel the Ringwraith",
+    "image": "https://cdn.jsdelivr.net/gh/council-of-rivendell/meccg-remaster/en-remaster/le/AdunapheltheRingwraith.jpg",
+    "unique": true,
+    "race": "ringwraith",
+    "skills": [
+      "warrior",
+      "scout",
+      "diplomat"
+    ],
+    "prowess": 8,
+    "body": 10,
+    "mind": null,
+    "directInfluence": 4,
+    "marshallingPoints": 0,
+    "marshallingCategory": "character",
+    "corruptionModifier": 0,
+    "homesite": "Urlurtsu Nurn",
+    "effects": [],
+    "text": "Unique. Manifestation of Adûnaphel. Can use spirit-magic. +2 direct influence in Heralded Lord mode. -2 prowess in Fell Rider mode. As your Ringwraith, if at a Darkhaven, she may tap to cancel one hazard creature attack not played at a site against any one of your companies."
   }
 ]

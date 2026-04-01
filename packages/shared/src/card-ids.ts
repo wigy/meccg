@@ -189,6 +189,8 @@ export const LIEUTENANT_OF_DOL_GULDUR = did('le-21');
 export const GORBAG = did('le-11');
 /** Shagrat — Uruk-hai orc leader from Cirith Ungol, prowess 6. */
 export const SHAGRAT = did('le-39');
+/** Adûnaphel the Ringwraith — Ringwraith avatar, warrior/scout/diplomat, spirit-magic. */
+export const ADUNAPHEL_THE_RINGWRAITH = did('le-50');
 
 // ---- The Lidless Eye — Minion Resources ----
 
