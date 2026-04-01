@@ -1,40 +1,28 @@
 #!/usr/bin/env bash
 # Filter Claude's stream-json output into human-readable progress lines.
-# Usage: claude --output-format stream-json -p ... | stream-filter
+# Usage: claude --verbose --output-format stream-json -p ... | stream-filter
 
 while IFS= read -r line; do
   type=$(echo "$line" | jq -r '.type // empty' 2>/dev/null)
 
   case "$type" in
     assistant)
-      # Assistant text output
-      text=$(echo "$line" | jq -r '.message.content[]? | select(.type=="text") | .text // empty' 2>/dev/null)
+      # Assistant text — may contain multiple content blocks
+      text=$(echo "$line" | jq -r '[.message.content[]? | select(.type=="text") | .text] | join("")' 2>/dev/null)
       [ -n "$text" ] && echo "$text"
-      ;;
-    content_block_delta)
-      # Streaming text delta
-      delta=$(echo "$line" | jq -r '.delta.text // empty' 2>/dev/null)
-      [ -n "$delta" ] && printf '%s' "$delta"
-      ;;
-    content_block_stop)
-      echo
-      ;;
-    result)
-      # Final result text
-      text=$(echo "$line" | jq -r '.result // empty' 2>/dev/null)
-      [ -n "$text" ] && echo "$text"
-      # Also show cost/duration summary
-      duration=$(echo "$line" | jq -r '.duration_seconds // empty' 2>/dev/null)
-      cost=$(echo "$line" | jq -r '.total_cost_usd // empty' 2>/dev/null)
-      [ -n "$duration" ] && echo "--- Duration: ${duration}s, Cost: \$${cost} ---"
       ;;
     tool_use)
       # Show which tool is being called
-      tool=$(echo "$line" | jq -r '.tool // empty' 2>/dev/null)
+      tool=$(echo "$line" | jq -r '.name // .tool // empty' 2>/dev/null)
       case "$tool" in
         Bash)
+          desc=$(echo "$line" | jq -r '.input.description // empty' 2>/dev/null)
           cmd=$(echo "$line" | jq -r '.input.command // empty' 2>/dev/null)
-          echo "  > $cmd"
+          if [ -n "$desc" ]; then
+            echo "  > $desc"
+          else
+            echo "  > ${cmd:0:120}"
+          fi
           ;;
         Agent)
           desc=$(echo "$line" | jq -r '.input.description // empty' 2>/dev/null)
@@ -44,10 +32,36 @@ while IFS= read -r line; do
           skill=$(echo "$line" | jq -r '.input.skill // empty' 2>/dev/null)
           echo "  [skill] /$skill"
           ;;
-        Read|Write|Edit|Glob|Grep)
-          echo "  [$tool]"
+        Read)
+          path=$(echo "$line" | jq -r '.input.file_path // empty' 2>/dev/null)
+          echo "  [read] $path"
+          ;;
+        Write)
+          path=$(echo "$line" | jq -r '.input.file_path // empty' 2>/dev/null)
+          echo "  [write] $path"
+          ;;
+        Edit)
+          path=$(echo "$line" | jq -r '.input.file_path // empty' 2>/dev/null)
+          echo "  [edit] $path"
+          ;;
+        Glob)
+          pattern=$(echo "$line" | jq -r '.input.pattern // empty' 2>/dev/null)
+          echo "  [glob] $pattern"
+          ;;
+        Grep)
+          pattern=$(echo "$line" | jq -r '.input.pattern // empty' 2>/dev/null)
+          echo "  [grep] $pattern"
           ;;
       esac
+      ;;
+    result)
+      # Final summary
+      duration_ms=$(echo "$line" | jq -r '.duration_ms // empty' 2>/dev/null)
+      cost=$(echo "$line" | jq -r '.total_cost_usd // empty' 2>/dev/null)
+      if [ -n "$duration_ms" ]; then
+        duration_s=$(awk "BEGIN {printf \"%.1f\", $duration_ms / 1000}")
+        echo "--- Duration: ${duration_s}s, Cost: \$${cost} ---"
+      fi
       ;;
   esac
 done

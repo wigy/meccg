@@ -11,7 +11,7 @@ mkdir -p "$LOG_DIR"
 while true; do
   git pull 2>&1 | tee -a "$LOG_FILE"
   echo "=== AI run started at $(date -Iseconds) ===" | tee -a "$LOG_FILE"
-  claude --dangerously-skip-permissions --output-format stream-json -p /ai-processor 2>>"$LOG_FILE" \
+  claude --dangerously-skip-permissions --verbose --output-format stream-json -p /ai-processor 2>>"$LOG_FILE" \
     | tee -a "$RAW_LOG_FILE" \
     | "$SCRIPT_DIR/stream-filter" \
     | tee -a "$LOG_FILE"
