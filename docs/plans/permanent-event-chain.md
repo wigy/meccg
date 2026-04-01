@@ -34,21 +34,62 @@ being played. For example:
 
 ## Design
 
-### Card Lifecycle Through the Chain
+### The Chain as a Card Container
 
-1. **Declaration**: Card leaves hand, goes to discard pile (same pattern as
-   short events and creatures). A chain entry with payload type
-   `'permanent-event'` is pushed onto the chain.
-2. **Response window**: Opponent gets priority. Can respond with Twilight or
-   other chain-eligible actions. Player can also respond.
-3. **Resolution**: If not negated, card moves from discard to `cardsInPlay`
-   and its `self-enters-play` effects execute. If negated (rule 9.5.5),
-   card stays in discard.
+The chain of effects becomes a real container for cards. When a card is
+declared (played), it leaves the player's hand and physically resides on
+the chain until resolution determines its final destination. This is the
+correct model per the glossary definition of "play (a card)": the card
+leaves hand "when declared" and enters play "upon resolution."
 
-Why discard as the intermediate location (not a new "limbo" zone): this
-matches the existing pattern for short events and creatures, keeps the state
-model simple, and is correct per the rules — a negated card ends up
-discarded, which is where it already is.
+Currently, short events and creatures are moved to discard at declaration
+time as a shortcut. This plan corrects the model for all card types:
+
+| Card type | Declaration | Resolution (success) | Resolution (negated) |
+|---|---|---|---|
+| Short event | hand → chain | chain → discard | chain → discard |
+| Creature | hand → chain | chain → in-play (combat) | chain → discard |
+| Permanent event | hand → chain | chain → cardsInPlay | chain → discard |
+| Long event | hand → chain | chain → cardsInPlay | chain → discard |
+
+For creatures, "in-play" means the creature exists as an entity during
+combat. After combat resolves, it moves to the defeating player's MP pile
+(if defeated) or the hazard player's discard pile (if not defeated).
+
+The `ChainEntry` already stores `cardInstanceId` and `definitionId`, which
+is all a `CardInstance` needs. So the chain is structurally a container
+already — we just need to stop prematurely moving cards to discard at
+declaration time, and instead move them to their correct destination on
+resolution.
+
+### Phased Rollout
+
+This plan implements the new model for permanent events and long events
+(which currently bypass the chain entirely), and replaces Twilight's
+hardcoded cancel logic with a proper DSL effect. Short events and creatures
+already go through the chain but with the premature-discard shortcut; a
+follow-up change can correct those to use the container model too.
+
+### Refactor `ChainEntry` to Hold the Card
+
+Replace the separate `cardInstanceId` and `definitionId` fields with a
+single `card` field in `types/state.ts`:
+
+```typescript
+export interface ChainEntry {
+  readonly index: number;
+  readonly declaredBy: PlayerId;
+  readonly card: CardInstance | null;  // null for non-card entries (passive conditions)
+  readonly payload: ChainEntryPayload;
+  readonly resolved: boolean;
+  readonly negated: boolean;
+}
+```
+
+The chain entry literally holds the card — it's moved in at declaration and
+extracted at resolution. All existing references to `entry.card`
+and `entry.card?.definitionId` become `entry.card?.instanceId` and
+`entry.card?.definitionId`.
 
 ### New Chain Entry Payloads
 
@@ -59,17 +100,25 @@ Add to `ChainEntryPayload` in `types/state.ts`:
 | { readonly type: 'long-event' }
 ```
 
-No extra fields needed — the `ChainEntry` already has `declaredBy`,
-`cardInstanceId`, and `definitionId`.
-
 ## Implementation Steps
 
-### Step 1: Add New Payload Types
+### Step 1: Refactor `ChainEntry` and Add Payload Types
 
 **File**: `packages/shared/src/types/state.ts`
 
-Add `| { readonly type: 'permanent-event' }` and
-`| { readonly type: 'long-event' }` to `ChainEntryPayload`.
+1. Replace `cardInstanceId` and `definitionId` with `card: CardInstance | null`
+   on `ChainEntry`.
+2. Add `| { readonly type: 'permanent-event' }` and
+   `| { readonly type: 'long-event' }` to `ChainEntryPayload`.
+3. Update `initiateChain()` and `pushChainEntry()` signatures in
+   `chain-reducer.ts` to accept `card: CardInstance | null` instead of
+   separate `cardInstanceId` and `definitionId` parameters.
+4. Update all call sites and all code that reads `entry.cardInstanceId` /
+   `entry.definitionId` to use `entry.card?.instanceId` /
+   `entry.card?.definitionId`.
+5. Update `resolveInstanceId()` and any card-lookup functions to also
+   search the chain entries — cards on the chain are not in any pile, so
+   lookups that scan hand/discard/cardsInPlay will miss them (see Step 9).
 
 ### Step 2: Modify `handlePlayPermanentEvent` (Resource Permanent Events)
 
@@ -79,7 +128,7 @@ Current behavior: hand → `cardsInPlay` immediately.
 
 New behavior:
 1. Validate the card (type checks, duplication-limit — same as now).
-2. Move card from hand → discard pile.
+2. Remove card from hand (card is now "on the chain" — not in any pile).
 3. Initiate or push onto chain with payload `{ type: 'permanent-event' }`.
 4. Do **not** add to `cardsInPlay` yet.
 5. Do **not** execute `self-enters-play` effects yet.
@@ -92,7 +141,7 @@ Current behavior: hand → `cardsInPlay` immediately.
 
 New behavior:
 1. Validate the card (type checks, uniqueness, duplication-limit — same).
-2. Move card from hand → discard pile.
+2. Remove card from hand.
 3. Initiate or push onto chain with payload `{ type: 'long-event' }`.
 4. Do **not** add to `cardsInPlay` yet.
 
@@ -105,14 +154,14 @@ Current behavior (lines 3095–3162): hand → `cardsInPlay` immediately,
 
 New behavior for permanent events:
 1. Validate the card (type checks, uniqueness, duplication-limit — same).
-2. Move card from hand → discard pile.
+2. Remove card from hand.
 3. Increment `hazardsPlayedThisCompany`.
 4. Initiate or push onto chain with payload `{ type: 'permanent-event' }`.
 5. Do **not** add to `cardsInPlay` or execute effects yet.
 
 New behavior for long events:
 1. Same validation.
-2. Move card from hand → discard pile.
+2. Remove card from hand.
 3. Increment `hazardsPlayedThisCompany`.
 4. Initiate or push onto chain with payload `{ type: 'long-event' }`.
 5. Do **not** add to `cardsInPlay` yet.
@@ -124,51 +173,101 @@ New behavior for long events:
 In `resolveEntry()`, add cases for both payload types:
 
 ```typescript
-if (entry.payload.type === 'permanent-event'
-    && !entry.negated
-    && entry.cardInstanceId
-    && entry.definitionId) {
+if (entry.payload.type === 'permanent-event' && !entry.negated && entry.card) {
   current = resolvePermanentEvent(current, entry);
 }
 
-if (entry.payload.type === 'long-event'
-    && !entry.negated
-    && entry.cardInstanceId
-    && entry.definitionId) {
+if (entry.payload.type === 'long-event' && !entry.negated && entry.card) {
   current = resolveLongEvent(current, entry);
 }
 ```
 
 `resolvePermanentEvent()` does:
-1. Find the card in the declaring player's discard pile.
-2. Move it from discard → `cardsInPlay` (untapped).
-3. Execute `self-enters-play` effects (the `discard-cards-in-play` logic
+1. Take `entry.card` and add it to the declaring player's `cardsInPlay`
+   (untapped).
+2. Execute `self-enters-play` effects (the `discard-cards-in-play` logic
    currently in `handlePlayPermanentEvent` and `handlePlayHazardCard`).
-4. Run any other DSL effect resolution needed.
+3. Run any other DSL effect resolution needed.
 
 `resolveLongEvent()` does:
-1. Find the card in the declaring player's discard pile.
-2. Move it from discard → `cardsInPlay` (untapped).
-3. Execute any DSL effects if applicable.
+1. Take `entry.card` and add it to the declaring player's `cardsInPlay`
+   (untapped).
+2. Execute any DSL effects if applicable.
 
-If either entry is negated, the card stays in discard (rule 9.5.5) — no
-special handling needed since it's already there.
+If either entry is negated, the card goes to the declaring player's discard
+pile (rule 9.5.5). This must be handled explicitly since the card is not in
+any pile during the chain window.
 
-### Step 6: Update Chain Legal Actions for Twilight Targeting
+### Step 5b: Handle Negated Entries in `completeChain`
+
+When the chain completes, any negated entries whose cards are still "on the
+chain" (not yet moved anywhere) must be flushed to their declaring player's
+discard pile. Add a sweep in `completeChain()` that checks all entries: if
+`negated && entry.card != null`, move the card to the declaring player's
+discard.
+
+This also prepares for the follow-up change where short events and
+creatures use the same container model.
+
+### Step 6: Give Twilight a Proper DSL Effect and Remove Hardcoded Logic
+
+Twilight's cancel logic is currently hardcoded as `resolveEnvironmentCancel`
+in `chain-reducer.ts` (line 323). This function has three branches: cancel
+a chain entry (negate it), cancel a card in `eventsInPlay`, cancel a card
+in `cardsInPlay`. Meanwhile, Twilight's card data has no DSL effect for the
+cancel — only play-restrictions (`playable-as-resource`, `no-hazard-limit`).
+
+This must be fixed as part of this plan because:
+- The hardcoded function references `entry.cardInstanceId` (old field).
+- It needs to understand the chain-as-container model.
+- DoN/GoM use the general DSL (`on-event: self-enters-play`), but Twilight
+  doesn't — this inconsistency means chain resolution has two paths for
+  environment interactions instead of one.
+
+**Step 6a: Add DSL effect to Twilight's card data**
+
+Add a `cancel-environment` effect type to the DSL and to Twilight's JSON:
+
+```json
+{
+  "type": "cancel-environment",
+  "target": "chain-or-in-play"
+}
+```
+
+The target is chosen at play time via the `targetInstanceId` on the action.
+Document the new effect type in `docs/card-effects-dsl.md`.
+
+**Step 6b: Implement `cancel-environment` in chain resolution**
+
+In `resolveEntry()` for `short-event` entries, resolve the DSL effect
+instead of calling the hardcoded `resolveEnvironmentCancel`. The resolver:
+1. Look up the target by `instanceId` — check chain entries first, then
+   `cardsInPlay`, then `eventsInPlay`.
+2. If target is a chain entry: negate it (card will be flushed to discard
+   by `completeChain`).
+3. If target is in `cardsInPlay` or `eventsInPlay`: remove and discard.
+4. If target is already gone: fizzle (no-op).
+
+**Step 6c: Remove `resolveEnvironmentCancel`**
+
+Delete the hardcoded function. The chain resolver now uses the general DSL
+path for all short-event resolution.
+
+**Step 6d: Update chain legal actions for Twilight targeting**
 
 **File**: `packages/shared/src/engine/legal-actions/chain.ts`
 
-The `playShortEventChainActions` function already scans unresolved chain
-entries for environment keywords (lines 89–97). This will automatically
-pick up `permanent-event` and `long-event` entries on the chain, since it
-checks `isEnv()` against the entry's `definitionId`. **No change needed
-here** — Twilight will naturally be able to target a Doors of Night, Gates
-of Morning, Eye of Sauron, or Sun that's on the chain but hasn't resolved.
+The `playShortEventChainActions` function currently has Twilight-specific
+logic scanning for environment keywords. Refactor to read Twilight's DSL
+effects instead of hardcoding the `playable-as-resource` check. The
+function should:
+1. Check if any hand card has a `cancel-environment` effect.
+2. If so, collect valid targets: environment cards in `cardsInPlay`,
+   `eventsInPlay`, and unresolved chain entries with the environment keyword.
+3. Emit one legal action per target.
 
-However, verify that the `resolveEnvironmentCancel` function in
-`chain-reducer.ts` handles canceling a chain entry (negating it) vs.
-canceling a card in `cardsInPlay`. Currently it handles both — confirm
-this still works when permanent events are on the chain instead of in play.
+This naturally picks up permanent-event and long-event entries on the chain.
 
 ### Step 7: Update Legal Actions for Events Outside Chain
 
@@ -186,11 +285,35 @@ Also add `packages/shared/src/engine/legal-actions/long-event.ts` to this
 check — resource long events played during the long-event phase need the
 same treatment.
 
-### Step 8: Handle the "Self-Enters-Play Discards" Interaction
+### Step 9: Update Card Instance Lookups to Search the Chain
+
+**File**: `packages/shared/src/types/state.ts`
+
+`resolveInstanceId()` (line 1314) searches all piles, characters, items,
+allies, cardsInPlay, and eventsInPlay — but not the chain. Cards that are
+"on the chain" would be invisible to any code using this function.
+
+Add a chain search after the existing scans:
+
+```typescript
+// Cards on the chain of effects
+if (state.chain) {
+  for (const entry of state.chain.entries) {
+    if (entry.card?.instanceId === instanceId) return entry.card.definitionId;
+  }
+}
+```
+
+Audit other card-finding functions for the same gap. The chain legal actions
+code in `chain.ts` already scans chain entries directly (for Twilight
+targeting), but any generic "find a card by instance ID" utility needs to
+know about the chain as a card location.
+
+### Step 10: Handle the "Self-Enters-Play Discards" Interaction
 
 The key interaction to get right:
 
-1. P1 plays Gates of Morning → enters chain (card in P1's discard).
+1. P1 plays Gates of Morning → enters chain (card on the chain, not in any pile).
 2. P2 has Doors of Night in play.
 3. P2 passes (or responds with something).
 4. P1 passes → chain resolves.
@@ -204,7 +327,7 @@ Counter-scenario:
 2. P2 responds with Twilight targeting Gates of Morning on the chain.
 3. Chain resolves LIFO: Twilight resolves first → negates Gates of Morning
    entry.
-4. Gates of Morning is negated → stays in discard. Doors of Night survives.
+4. Gates of Morning is negated → goes to discard. Doors of Night survives.
 
 ## Test Changes
 
@@ -216,9 +339,9 @@ All existing tests need updating because the single-action play pattern
 changes to a multi-step chain pattern:
 
 1. **"can be played as a permanent event during organization"**: After
-   `play-permanent-event`, card should be in discard (not `cardsInPlay`
-   yet) and chain should be active. Both players pass → card moves to
-   `cardsInPlay`.
+   `play-permanent-event`, card should be gone from hand (not in
+   `cardsInPlay` yet, not in discard — it's on the chain) and chain
+   should be active. Both players pass → card moves to `cardsInPlay`.
 
 2. **"discards Doors of Night when played"**: After `play-permanent-event`,
    Doors of Night should still be in play (not discarded yet). Both players
@@ -244,7 +367,7 @@ changes to a multi-step chain pattern:
 7. **"opponent can cancel Gates of Morning with Twilight before it
    resolves"**: P1 plays Gates of Morning (Doors of Night in play). P2
    responds with Twilight targeting Gates of Morning on the chain. Chain
-   resolves: Twilight negates GoM → GoM stays in discard, DoN survives.
+   resolves: Twilight negates GoM → GoM goes to discard, DoN survives.
 
 8. **"Gates of Morning on chain is a valid Twilight target"**: After P1
    declares GoM, verify Twilight appears in P2's legal actions targeting
@@ -278,53 +401,71 @@ Currently no dedicated test file exists. Create one covering:
 
 14. **"cannot be duplicated"**: duplication-limit check at declaration.
 
-### Tests to Update: Long-Event Phase Rules Tests
+### Tests to Update: `tw-335.test.ts` (Sun, Resource Long Event)
 
-Existing tests in `packages/shared/src/tests/rules/04-long-event-phase/`
-need updating:
+All 4 existing tests assume `play-long-event` immediately puts Sun into
+`cardsInPlay` and applies stat effects. They need the chain pass pattern:
 
-16. **`rule-4.02-play-resource-long-events.test.ts`**: After
-    `play-long-event`, card should be in discard (not `cardsInPlay` yet)
-    and chain should be active. Both players pass → card moves to
-    `cardsInPlay`.
+16. **"Dúnadan prowess +1 when Sun is in play"**: After `play-long-event`,
+    Sun is on the chain. Both players pass → Sun enters `cardsInPlay` →
+    `recomputeDerived` applies stat modifiers.
 
-17. **`rule-5.22-playing-event-hazard.test.ts`**: If hazard long events
-    are tested here, same pattern — goes through chain before entering
-    play.
+17. **"with Gates of Morning: Man and Dúnadan prowess +1 additional"**:
+    Same chain pattern before checking stat modifiers.
 
-### Tests to Update: Long-Event Card Tests
+18. **"affects opponent characters too"**: Uses a pre-placed Sun in
+    `cardsInPlay` — no change needed (tests ongoing effects, not play).
 
-18. **`tw-335.test.ts`** (Sun, resource long event, environment): Verify
-    that playing Sun goes through the chain. Twilight should be able to
-    cancel Sun on the chain before it resolves.
+19. **"body and direct influence are not modified"**: Same chain pattern.
 
-### New Long-Event Tests
+### New Long-Event Tests (in `tw-335.test.ts` or new file)
 
-19. **"resource long event goes through chain during long-event phase"**:
+20. **"resource long event goes through chain during long-event phase"**:
     Play Sun → chain starts → both pass → Sun enters `cardsInPlay`.
 
-20. **"hazard long event goes through chain during M/H"**: Play Eye of
+21. **"hazard long event goes through chain during M/H"**: Play Eye of
     Sauron → chain starts → both pass → enters `cardsInPlay`.
 
-21. **"Twilight can cancel a long event on the chain"**: P2 plays Eye of
+22. **"Twilight can cancel a long event on the chain"**: P2 plays Eye of
     Sauron → P1 responds with Twilight targeting it → chain resolves →
-    Eye of Sauron negated, stays in discard.
+    Eye of Sauron negated, goes to discard.
 
-22. **"long event negated on chain stays in discard"**: Verify that a
+23. **"long event negated on chain goes to discard"**: Verify that a
     negated long event is properly discarded (rule 9.5.5) and does not
     enter play.
 
+### New Rules Test: `rule-4.02-play-resource-long-events.test.ts`
+
+Currently a `test.todo()` stub. Implement with:
+
+27. **"resource long event goes through chain before entering play"**:
+    Play a resource long event → chain starts → both pass → card enters
+    `cardsInPlay`.
+
+28. **"resource long event can be canceled on the chain"**: Play a
+    resource long event → opponent responds → event negated → goes to
+    discard, never enters play.
+
 ### Cross-Card Interaction Tests
 
-23. **"Gates of Morning and Doors of Night chain interaction"**: P1 has
+All rules tests (`rule-9.09`, `rule-9.12`, `rule-9.13`, `rule-10.29`) are
+`test.todo()` stubs — no suitable home there. Embed these in the card test
+files where the participating cards are tested:
+
+24. **`tw-28.test.ts` (Doors of Night)**: "P1 responds with Twilight to
+    cancel Doors of Night before it discards Gates of Morning" — P1 has
     GoM in play. P2 plays DoN during M/H → chain starts. P1 responds
     with Twilight targeting DoN → chain resolves LIFO: Twilight negates
     DoN, GoM survives.
 
-24. **"Twilight targets environment long event on chain alongside
-    permanent event in play"**: Both an environment long event on the
-    chain and a permanent event in play exist — Twilight's legal actions
-    should include both as targets.
+25. **`tw-243.test.ts` (Gates of Morning)**: "P2 responds with Twilight
+    to cancel Gates of Morning before it discards Doors of Night" —
+    mirror of test 24 from GoM's perspective.
+
+26. **`tw-106.test.ts` (Twilight)**: "targets environment long event on
+    chain alongside permanent event in play" — both an environment long
+    event (e.g. Eye of Sauron) on the chain and a permanent event in
+    play exist — Twilight's legal actions should include both as targets.
 
 ## Migration Notes
 
@@ -341,3 +482,25 @@ need updating:
   events at start, hazard long events at end) is unaffected — that logic
   operates on `cardsInPlay` after events have already resolved through
   chains on previous turns.
+
+## Follow-Up: Short Events and Creatures
+
+Short events and creatures currently use a premature-discard shortcut:
+cards go to discard at declaration time instead of residing on the chain.
+A follow-up change should correct these to use the same container model:
+
+- **Short events**: Stop moving to discard in `handlePlayShortEvent`.
+  In `resolveEntry` for `short-event`, move from chain → discard after
+  applying the effect.
+- **Creatures**: Stop moving to discard in creature declaration. In
+  `resolveEntry` for `creature`, move from chain → in-play when combat
+  initiates. The creature exists in play during combat. After combat
+  resolves, move to the defeating player's MP pile (if defeated) or the
+  hazard player's discard pile (if not defeated).
+
+This is lower priority since the shortcut produces correct end-state for
+short events, but the container model is architecturally cleaner and
+prevents potential issues with "when discarded" passive conditions firing
+at the wrong time. For creatures, getting the in-play state right matters
+more — it affects interactions with cards that reference creatures in play
+during combat.
