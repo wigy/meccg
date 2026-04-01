@@ -54,7 +54,7 @@
     },
     {
       "name": "Orc Captain",
-      "card": null,
+      "card": "le-31",
       "qty": 2
     },
     {
@@ -65,12 +65,12 @@
   ],
   "deck": {
     "characters": [
-        {
-          "name": "Adûnaphel the Ringwraith",
-          "card": "le-50",
-          "qty": 3
-        }
-      ],
+      {
+        "name": "Ad\u00fbnaphel the Ringwraith",
+        "card": "le-50",
+        "qty": 3
+      }
+    ],
     "hazards": [
       {
         "name": "Slayer",

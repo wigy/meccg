@@ -11,7 +11,7 @@
     },
     {
       "name": "Orc Captain",
-      "card": null,
+      "card": "le-31",
       "qty": 1,
       "favourite": true
     },
@@ -45,7 +45,7 @@
     },
     {
       "name": "Orc Captain",
-      "card": null,
+      "card": "le-31",
       "qty": 1
     },
     {
@@ -56,12 +56,12 @@
   ],
   "deck": {
     "characters": [
-        {
-          "name": "The Witch-king",
-          "card": null,
-          "qty": 3
-        }
-      ],
+      {
+        "name": "The Witch-king",
+        "card": null,
+        "qty": 3
+      }
+    ],
     "hazards": [
       {
         "name": "Slayer",
@@ -331,7 +331,7 @@
       "qty": 1
     },
     {
-      "name": "Eärcaraxë Ahunt",
+      "name": "E\u00e4rcarax\u00eb Ahunt",
       "card": "td-21",
       "qty": 1
     },

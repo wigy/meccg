@@ -54,18 +54,18 @@
     },
     {
       "name": "Orc Captain",
-      "card": null,
+      "card": "le-31",
       "qty": 3
     }
   ],
   "deck": {
     "characters": [
-        {
-          "name": "Indur the Ringwraith",
-          "card": null,
-          "qty": 3
-        }
-      ],
+      {
+        "name": "Indur the Ringwraith",
+        "card": null,
+        "qty": 3
+      }
+    ],
     "hazards": [
       {
         "name": "Slayer",
@@ -320,7 +320,7 @@
       "qty": 1
     },
     {
-      "name": "Focus Palantír",
+      "name": "Focus Palant\u00edr",
       "card": null,
       "qty": 1
     },
