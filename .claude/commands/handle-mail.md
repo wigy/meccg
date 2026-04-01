@@ -14,6 +14,8 @@ curl -s http://localhost:8080/api/mail/inbox -b "meccg-session=$(curl -s -X POST
 ```
 Then stop and show the list so the user can pick one.
 
+**Logging:** At every numbered step below, print a short status line to stdout so the operator can follow progress in the terminal. Use the format `[handle-mail] <message>`. Always print before AND after long-running steps (especially agent dispatches).
+
 Follow these steps:
 
 1. **Log in as ai:** Get a session cookie for the ai account:
@@ -26,15 +28,16 @@ Follow these steps:
    curl -s http://localhost:8080/api/mail/inbox/<msg-id> -b "meccg-session=$SESSION"
    ```
    If not found, stop and report.
+   Print: `[handle-mail] Message <msg-id>: "<subject>" from <from> (topic: <topic>)`
 
 3. **Mark as processing:** Update the message status to `processing`:
    ```
    curl -s -X PUT http://localhost:8080/api/system/mail/ai/<msg-id> -H "Authorization: Bearer $(jq -r .masterKey ~/.meccg/secrets.json)" -H "Content-Type: application/json" -d '{"status":"processing"}'
    ```
 
-4. **Dispatch based on topic:** Look at the message `topic` and `keywords` fields to determine what action to take:
+4. **Dispatch based on topic:** Look at the message `topic` and `keywords` fields to determine what action to take. Print `[handle-mail] Dispatching topic "<topic>" to handler...` before launching the agent, and `[handle-mail] Handler completed` after it returns.
 
-   - **`card-request`**: The keywords should contain `cardName`, `deckId`, and `userName`. Use the **Agent tool** (not the Skill tool) to run the `/handle-card-request` skill with `<cardName> <deckId>` as arguments — read `.claude/commands/handle-card-request.md`, substitute `$ARGUMENTS` with `<cardName> <deckId>`, and pass the full content as the agent prompt. After it completes:
+   - **`card-request`**: The keywords should contain `cardName`, `deckId`, and `userName`. Print `[handle-mail] Card request: <cardName> for deck <deckId> (requested by <userName>)`. Use the **Agent tool** (not the Skill tool) to run the `/handle-card-request` skill with `<cardName> <deckId>` as arguments — read `.claude/commands/handle-card-request.md`, substitute `$ARGUMENTS` with `<cardName> <deckId>`, and pass the full content as the agent prompt. After it completes:
      - If the card was successfully added: mark success, send a reply mail to the requesting user. Include the card image using markdown image syntax `![Card Name](image-url)` (the image URL is in the card definition's `image` field, proxied through `/cards/images/<set>/<filename>`), followed by the full card definition JSON in a fenced code block. Add the `gitHash` from the card request report to the reply mail keywords.
      - Then send a **review request** to all admins (`["wigy", "karmi", "admin"]`) with status `waiting`:
        - `topic`: `"review-request"`
@@ -75,7 +78,7 @@ Follow these steps:
 
    - **Any other topic or missing keywords**: Mark as processed with `success: false`. Send a reply mail explaining the message could not be processed.
 
-5. **Send reply mail:** After processing, send a reply mail to the original requester (from the `userName` keyword, or if not present, use the `from` field of the original message). This is the **only** notification mechanism — do not use `/api/system/notify`. Use the system mail API with this exact JSON structure:
+5. **Send reply mail:** Print `[handle-mail] Sending reply to <recipient>...` before sending. After processing, send a reply mail to the original requester (from the `userName` keyword, or if not present, use the `from` field of the original message). This is the **only** notification mechanism — do not use `/api/system/notify`. Use the system mail API with this exact JSON structure:
    ```json
    {
      "recipients": ["<userName>"],
@@ -106,7 +109,7 @@ Follow these steps:
    - `replyTo`: the original message ID being handled (this links the reply to the request)
    - `sentBy`: `"ai"` (saves a copy to ai's sent folder)
 
-6. **Mark as processed:** Update the message status to `processed` with the appropriate `success` value:
+6. **Mark as processed:** Print `[handle-mail] Marking message as processed (success: <true/false>)`. Update the message status to `processed` with the appropriate `success` value:
    ```
    curl -s -X PUT http://localhost:8080/api/system/mail/ai/<msg-id> -H "Authorization: Bearer $(jq -r .masterKey ~/.meccg/secrets.json)" -H "Content-Type: application/json" -d '{"status":"processed","success":true}'
    ```
