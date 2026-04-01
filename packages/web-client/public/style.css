@@ -1954,6 +1954,7 @@ h2 {
 
 #pile-browser-grid img {
   height: 25vh;
+  aspect-ratio: 5 / 7;
   border-radius: 6px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.6);
   transition: transform 0.15s, box-shadow 0.15s;

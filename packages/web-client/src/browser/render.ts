@@ -1474,8 +1474,13 @@ function populateBrowserGrid(): void {
   modal.classList.remove('hidden');
 
   // Overlap rows when there are more than 3 so everything fits without scrolling.
-  // Defer to next frame so the grid has been laid out and clientWidth is available.
-  requestAnimationFrame(() => applyRowOverlap(grid));
+  // We must wait for images to load so they have intrinsic dimensions and the
+  // flex-wrap layout produces correct offsetTop values for row detection.
+  const gridImgs = grid.querySelectorAll<HTMLImageElement>('img');
+  const imgLoaded = Array.from(gridImgs).map(img =>
+    img.complete ? Promise.resolve() : new Promise<void>(r => { img.onload = img.onerror = () => r(); })
+  );
+  void Promise.all(imgLoaded).then(() => requestAnimationFrame(() => applyRowOverlap(grid)));
 }
 
 /**
@@ -1512,12 +1517,14 @@ function applyRowOverlap(grid: HTMLElement): void {
 
   if (overlap >= 0) return; // no overlap needed
 
-  // Map each distinct offsetTop to a row index
+  // Map each distinct offsetTop to a row index — read ALL positions before writing
+  // any styles, because writing marginTop triggers reflow and shifts later rows.
   const sortedTops = [...rowTops].sort((a, b) => a - b);
   const topToRow = new Map(sortedTops.map((t, i) => [t, i]));
+  const rowAssignments = Array.from(imgs, img => topToRow.get(img.offsetTop) ?? 0);
 
   for (let i = 0; i < imgs.length; i++) {
-    const row = topToRow.get(imgs[i].offsetTop) ?? 0;
+    const row = rowAssignments[i];
     imgs[i].style.position = 'relative';
     imgs[i].style.zIndex = String(row);
     if (row > 0) {
