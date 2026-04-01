@@ -6,7 +6,7 @@
  */
 
 import type { PlayerView, GameAction, EvaluatedAction, CardDefinition, CardDefinitionId, CardInstanceId, CharacterInPlay, SiteInPlay, ChainEntry, ViewCard } from '@meccg/shared';
-import { describeAction, formatPlayerView, formatCardList, formatCardName, cardImageProxyPath, isCharacterCard, GENERAL_INFLUENCE, getAlignmentRules, viableActions, formatSignedNumber, Phase, computeTournamentScore, computeTournamentBreakdown, isCardHidden, buildInstanceLookup, CARD_TYPE_CSS } from '@meccg/shared';
+import { describeAction, formatPlayerView, formatCardList, formatCardName, cardImageProxyPath, isCharacterCard, GENERAL_INFLUENCE, getAlignmentRules, viableActions, formatSignedNumber, Phase, computeTournamentScore, computeTournamentBreakdown, isCardHidden, buildInstanceLookup, getCardCss } from '@meccg/shared';
 import type { MarshallingPointTotals } from '@meccg/shared';
 import { $, createCardImage, createFaceDownCard, appendItemCards } from './render-utils.js';
 import { createMiniDie, seedDiceFromState, restoreDice, clearDice } from './dice.js';
@@ -274,7 +274,7 @@ function tagCardImages(el: HTMLElement, cardPool: Readonly<Record<string, CardDe
       (span as HTMLElement).dataset.cardImage = imgPath;
     }
     const def = cardPool[id];
-    const css = def ? CARD_TYPE_CSS[def.cardType] : undefined;
+    const css = def ? getCardCss(def) : undefined;
     if (css) {
       (span as HTMLElement).style.cssText += css;
     }

@@ -7,7 +7,7 @@
  */
 
 import type { ServerMessage, ClientMessage, GameAction, CardDefinitionId, CardInstanceId, JoinMessage } from '@meccg/shared';
-import { loadCardPool, describeAction, buildCompanyNames, cardImageProxyPath, Alignment, buildInstanceLookup, CARD_TYPE_CSS } from '@meccg/shared';
+import { loadCardPool, describeAction, buildCompanyNames, cardImageProxyPath, Alignment, buildInstanceLookup, getCardCss } from '@meccg/shared';
 import { renderState, renderDraft, renderMHInfo, renderSiteInfo, renderFreeCouncilInfo, renderGameOverView, renderActions, renderLog, renderHand, renderOpponentHand, renderPlayerNames, renderInstructions, renderDrafted, renderPassButton, renderDeckPiles, resetDeckPiles, setupCardPreview, showNotification, prepareSiteSelection, clearSiteSelection, renderChainPanel, buildCardAttributes } from './render.js';
 import { renderCompanyViews, resetCompanyViews } from './company-view.js';
 import { rollDice, clearDice, restoreDice, waitForDice } from './dice.js';
@@ -1151,7 +1151,7 @@ function renderCompactDeck(container: HTMLElement, deck: FullDeck): void {
         row.textContent = (entry.qty > 1 ? `${entry.qty}\u00d7 ${entry.name}` : entry.name) + star;
         if (entry.card) {
           const def = cardPool[entry.card];
-          const style = def ? CARD_TYPE_CSS[def.cardType] : undefined;
+          const style = def ? getCardCss(def) : undefined;
           if (style) row.setAttribute('style', style);
         }
         col.appendChild(row);
@@ -1235,7 +1235,7 @@ function renderCardList(container: HTMLElement, entries: DeckListEntry[], deckId
     const badge = document.createElement('span');
     badge.className = 'deck-editor-certified-badge';
     if (def) {
-      const style = CARD_TYPE_CSS[def.cardType] ?? '';
+      const style = getCardCss(def) ?? '';
       if (style) nameEl.setAttribute('style', style);
       row.dataset.cardId = entry.card!;
       row.style.cursor = 'pointer';
