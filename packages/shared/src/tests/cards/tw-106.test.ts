@@ -20,17 +20,10 @@ import {
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
   CardStatus,
   buildTestState, resetMint,
+  viableActions,
 } from '../test-helpers.js';
 import { computeLegalActions, Phase } from '../../index.js';
 import type { CardInPlay, CardInstanceId, GameState, MovementHazardPhaseState } from '../../index.js';
-
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
-/** Find viable actions of a specific type for a player. */
-function viableActions(state: GameState, playerId: typeof PLAYER_1, actionType: string) {
-  return computeLegalActions(state, playerId)
-    .filter(ea => ea.viable && ea.action.type === actionType);
-}
 
 /** Play a short event and both players pass chain priority to resolve it. */
 function playAndResolve(

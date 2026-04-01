@@ -492,6 +492,12 @@ export function findCharInstanceId(state: GameState, playerIdx: number, defId: C
   throw new Error(`Character ${defId} not found for player ${playerIdx}`);
 }
 
+/** Get all viable actions of a specific type for a player. */
+export function viableActions(state: GameState, playerId: PlayerId, actionType: string) {
+  return computeLegalActions(state, playerId)
+    .filter(ea => ea.viable && ea.action.type === actionType);
+}
+
 /** Get all viable play-character actions for a player. */
 export function viablePlayCharacterActions(state: GameState, playerId: PlayerId) {
   return computeLegalActions(state, playerId)
