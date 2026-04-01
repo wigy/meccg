@@ -149,8 +149,10 @@ function sendPseudoAiPick(action: GameAction): void {
 /** Clean action text for display: extract card names from markers, strip IDs and brackets. */
 function cleanActionText(text: string): string {
   // \x02id\x02name\x02 → name
+  // eslint-disable-next-line no-control-regex
   let s = text.replace(/\x02[^\x02]*\x02([^\x02]*)\x02/g, '$1');
   // Remove any remaining control chars, bracketed content, and bare IDs
+  // eslint-disable-next-line no-control-regex
   s = s.replace(/[\x00-\x1f]+/g, '');
   s = s.replace(/\{[^}]*\}/g, '');
   s = s.replace(/\([^)]*\)/g, '');

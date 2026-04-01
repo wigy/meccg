@@ -1185,7 +1185,6 @@ function renderCompanyBlock(
   /** Build click handler for split/move-company actions on a character. */
   const buildCompanyMoveClick = (charInstId: CardInstanceId): { cls: string; handler: (e: Event) => void } | undefined => {
     if (!options?.onAction) return undefined;
-    const onAction = options.onAction;
 
     // In company-move targeting mode, this character is the source — clicking deselects
     if (companyMoveSourceId === charInstId) {

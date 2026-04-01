@@ -334,7 +334,7 @@ export function buildTestState(opts: BuildTestStateOpts): GameState {
       const charInstIds: CardInstanceId[] = [];
 
       const normalizedChars = companySetup.characters.map(
-        c => (typeof c === 'string' ? { defId: c as CardDefinitionId } : c) as CharacterSetup,
+        c => typeof c === 'string' ? { defId: c } : c,
       );
 
       for (const charSetup of normalizedChars) {
