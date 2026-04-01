@@ -22,7 +22,7 @@ Follow these steps:
 
    **Partially implemented:**
    - `mp-modifier` — works for elimination pile with numeric values only; expression strings are ignored (`packages/shared/src/engine/recompute-derived.ts`)
-   - `on-event` — infrastructure exists but `matchesTrigger()` is stubbed to always return false; no triggers fire (`packages/shared/src/engine/chain-reducer.ts`)
+   - `on-event` — infrastructure exists but `matchesTrigger()` is stubbed to always return false; no triggers fire (`packages/shared/src/engine/chain-reducer.ts`). Exception: `self-enters-play` with `discard-cards-in-play` is implemented directly in the reducer play handlers for permanent events (`packages/shared/src/engine/reducer.ts`)
    - `play-restriction` — only "no-hazard-limit" and "playable-as-resource" rules are implemented (`packages/shared/src/engine/reducer.ts`)
    - `combat-rule` — only "attacker-chooses-defenders" is implemented
 
@@ -88,3 +88,12 @@ Follow these steps:
 12. **Verify everything passes:** Run `npm run build`, `npm run lint`, `npm test`, and `npm run test:nightly` in parallel. Fix any type errors, lint violations, test failures, or new nightly test failures. Repeat until all four pass cleanly. If `npm run lint` fails, try `npm run lint:fix` first.
 
 13. **Certify on success:** If the result is **YES** (all effects fully implemented, or no effects) AND a complete card test exists with no `test.todo()` gaps, set the `certified` field on the card definition in its data JSON file to today's date (ISO 8601 format, e.g. `"2026-03-28"`). This records when the card was last verified as engine-compatible and fully tested. If the card was already certified, update the date. If the result is PARTIALLY or NO, or tests are incomplete, remove any existing `certified` field.
+
+14. **Create branch and open PR:** ⚠️ **MANDATORY — do NOT commit to master.** All certification changes include test files, and CLAUDE.md requires all test changes to go through a PR. You MUST:
+    - Create a branch named `certify-<cardId>-<card-slug>` (e.g. `certify-tw-243-gates-of-morning`)
+    - Commit all changes to that branch
+    - Push the branch to origin
+    - Open a pull request using `gh pr create`
+    - Report the PR URL and the git hash of the commit
+
+    Never merge directly to master. This is a hard requirement.

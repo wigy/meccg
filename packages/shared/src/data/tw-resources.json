@@ -164,9 +164,15 @@
         "type": "duplication-limit",
         "scope": "game",
         "max": 1
+      },
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "apply": { "type": "discard-cards-in-play", "filter": { "cardType": "hazard-event", "keywords": { "$includes": "environment" } } }
       }
     ],
-    "text": "Environment. When Gates of Morning is played, all environment hazard cards in play are immediately discarded, and all hazard environment effects are canceled. Cannot be duplicated."
+    "text": "Environment. When Gates of Morning is played, all environment hazard cards in play are immediately discarded, and all hazard environment effects are canceled. Cannot be duplicated.",
+    "certified": "2026-04-01"
   },
   {
     "cardType": "hero-resource-event",

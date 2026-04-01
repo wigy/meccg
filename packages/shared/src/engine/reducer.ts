@@ -2569,6 +2569,56 @@ function handleCancelMovement(state: GameState, action: GameAction): ReducerResu
 }
 
 /**
+ * Discards all environment cards belonging to the opposing alignment.
+ *
+ * When an environment permanent-event enters play, it immediately discards
+ * all environment cards of the opposing alignment (CoE environment rules):
+ * - Resource environments (e.g. Gates of Morning) discard all hazard environments
+ * - Hazard environments (e.g. Doors of Night) discard all resource environments
+ *
+ * Affected cards are moved from their owner's cardsInPlay to their discardPile.
+ *
+ * @param state - Current game state (after the card has been added to cardsInPlay).
+ * @param filter - A DSL condition evaluated against each card definition in play.
+ *                 Cards whose definitions match the filter are discarded.
+ * @returns Updated game state with matching cards discarded.
+ */
+function discardCardsInPlay(state: GameState, filter: import('../types/effects.js').Condition): GameState {
+  const newPlayers = clonePlayers(state);
+  let discardedAny = false;
+
+  for (let pi = 0; pi < state.players.length; pi++) {
+    const player = state.players[pi];
+    const toDiscard: CardInstance[] = [];
+    const remaining = player.cardsInPlay.filter(card => {
+      const cardDef = state.cardPool[card.definitionId as string];
+      if (!cardDef) return true;
+      if (!matchesCondition(filter, cardDef as unknown as Record<string, unknown>)) return true;
+      // This card matches the filter — discard it
+      logDetail(`Discarding card in play: ${cardDef.name} (${card.instanceId as string}) from player ${pi}`);
+      toDiscard.push({ instanceId: card.instanceId, definitionId: card.definitionId });
+      return false;
+    });
+
+    if (toDiscard.length > 0) {
+      discardedAny = true;
+      newPlayers[pi] = {
+        ...player,
+        cardsInPlay: remaining,
+        discardPile: [...player.discardPile, ...toDiscard],
+      };
+    }
+  }
+
+  if (!discardedAny) {
+    logDetail('No matching cards in play to discard');
+    return state;
+  }
+
+  return { ...state, players: newPlayers };
+}
+
+/**
  * Handle playing a permanent-event resource card during organization.
  * Removes the card from hand and adds it to the player's cardsInPlay.
  */
@@ -2616,7 +2666,19 @@ function handlePlayPermanentEvent(state: GameState, action: GameAction): Reducer
 
   const newPlayers = clonePlayers(state);
   newPlayers[playerIndex] = { ...player, hand: newHand, cardsInPlay: newCardsInPlay };
-  return { state: { ...state, players: newPlayers } };
+  let newState: GameState = { ...state, players: newPlayers };
+
+  // Check for on-event effects with discard-cards-in-play when the card enters play
+  if (def.effects) {
+    for (const effect of def.effects) {
+      if (effect.type === 'on-event' && effect.event === 'self-enters-play' && effect.apply.type === 'discard-cards-in-play' && effect.apply.filter) {
+        logDetail(`"${def.name}" entered play — discarding cards matching filter`);
+        newState = discardCardsInPlay(newState, effect.apply.filter);
+      }
+    }
+  }
+
+  return { state: newState };
 }
 
 /**
@@ -3076,18 +3138,28 @@ function handlePlayHazardCard(
     }],
   };
 
-  return {
-    state: {
-      ...state,
-      players: newPlayers,
-      phaseState: {
-        ...mhState,
-        hazardsPlayedThisCompany: mhState.hazardsPlayedThisCompany + 1,
-        // Reset resource player's pass — they may respond
-        resourcePlayerPassed: false,
-      },
+  let newState: GameState = {
+    ...state,
+    players: newPlayers,
+    phaseState: {
+      ...mhState,
+      hazardsPlayedThisCompany: mhState.hazardsPlayedThisCompany + 1,
+      // Reset resource player's pass — they may respond
+      resourcePlayerPassed: false,
     },
   };
+
+  // Check for on-event effects with discard-cards-in-play when the card enters play
+  if (def.eventType === 'permanent' && def.effects) {
+    for (const effect of def.effects) {
+      if (effect.type === 'on-event' && effect.event === 'self-enters-play' && effect.apply.type === 'discard-cards-in-play' && effect.apply.filter) {
+        logDetail(`"${def.name}" entered play — discarding cards matching filter`);
+        newState = discardCardsInPlay(newState, effect.apply.filter);
+      }
+    }
+  }
+
+  return { state: newState };
 }
 
 /**

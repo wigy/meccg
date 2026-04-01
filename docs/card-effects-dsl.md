@@ -116,6 +116,16 @@ Triggered effect that fires when a game event occurs.
   "target": "wounded-character" }
 ```
 
+Events:
+
+- `character-wounded-by-self` -- fires when a creature's strike wounds a character (not yet implemented)
+- `self-enters-play` -- fires when this card enters play. Used by environment permanent events to discard opposing cards (implemented in reducer play handlers)
+
+Apply types:
+
+- `force-check` -- force a check roll on the target
+- `discard-cards-in-play` -- discard all cards in play that match the `filter` condition (evaluated against card definitions)
+
 ### 9. `cancel-strike`
 
 Pay a cost to cancel an incoming strike, with optional exclusions.
@@ -286,6 +296,17 @@ The resolver:
   { "type": "on-event", "event": "character-wounded-by-self",
     "apply": { "type": "force-check", "check": "corruption", "modifier": -2 },
     "target": "wounded-character" }
+]
+```
+
+### Gates of Morning
+
+```json
+"effects": [
+  { "type": "duplication-limit", "scope": "game", "max": 1 },
+  { "type": "on-event", "event": "self-enters-play",
+    "apply": { "type": "discard-cards-in-play",
+               "filter": { "cardType": "hazard-event", "keywords": { "$includes": "environment" } } } }
 ]
 ```
 
