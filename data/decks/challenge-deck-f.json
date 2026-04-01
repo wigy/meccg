@@ -5,7 +5,7 @@
   "pool": [
     {
       "name": "Asternak",
-      "card": null,
+      "card": "le-1",
       "qty": 1,
       "favourite": true
     },

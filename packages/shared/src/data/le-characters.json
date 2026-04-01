@@ -217,5 +217,28 @@
     "homesite": "Urlurtsu Nurn",
     "effects": [],
     "text": "Unique. Manifestation of Adûnaphel. Can use spirit-magic. +2 direct influence in Heralded Lord mode. -2 prowess in Fell Rider mode. As your Ringwraith, if at a Darkhaven, she may tap to cancel one hazard creature attack not played at a site against any one of your companies."
+  },
+  {
+    "cardType": "minion-character",
+    "alignment": "ringwraith",
+    "id": "le-1",
+    "name": "Asternak",
+    "image": "https://cdn.jsdelivr.net/gh/council-of-rivendell/meccg-remaster/en-remaster/le/Asternak.jpg",
+    "unique": true,
+    "race": "man",
+    "skills": [
+      "warrior",
+      "diplomat"
+    ],
+    "prowess": 5,
+    "body": 7,
+    "mind": 5,
+    "directInfluence": 2,
+    "marshallingPoints": 2,
+    "marshallingCategory": "character",
+    "corruptionModifier": 0,
+    "homesite": "Variag Camp",
+    "effects": [],
+    "text": "Unique. +2 direct influence against any faction playable at Variag Camp."
   }
 ]
