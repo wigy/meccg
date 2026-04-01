@@ -49,12 +49,12 @@ Follow these steps:
          Do this for each admin recipient.
      - If it failed: mark failure, send a failure reply mail to the requesting user.
 
-   - **`certification-request`**: The keywords should contain `cardId`. Use the **Agent tool** (not the Skill tool) to run the `/handle-certify-card` skill — read `.claude/commands/handle-certify-card.md`, substitute `$ARGUMENTS` with the `cardId` value, and pass the full content as the agent prompt. After it completes:
-     - If certification passed: mark success, send reply mail. Then send a **review request** to all admins (`["wigy", "karmi", "admin"]`) with status `waiting`:
+   - **`certification-request`**: The keywords should contain `cardId`. Use the **Agent tool** (not the Skill tool) to run the `/handle-certify-card` skill — read `.claude/commands/handle-certify-card.md`, substitute `$ARGUMENTS` with the `cardId` value, and pass the full content as the agent prompt. ⚠️ **The agent MUST create a branch and open a PR** (step 14 in handle-certify-card.md) — never commit directly to master. Include this instruction explicitly in the agent prompt: "You MUST create a branch named `certify-<cardId>-<card-slug>`, commit there, push, and open a PR. Do NOT commit to master." After it completes:
+     - If certification passed: mark success, send reply mail (include the PR URL). Then send a **review request** to all admins (`["wigy", "karmi", "admin"]`) with status `waiting`:
        - `topic`: `"review-request"`
        - `subject`: `"Review: <card name> certified"`
-       - `body`: summary of the certification result with the card image `![Card Name](image-url)`, a link to the GitHub commit: `https://github.com/wigy/meccg/commit/<gitHash>`, plus the certification status table
-       - `keywords`: include `cardName`, `cardId`, `gitHash`, `userName` (original requester)
+       - `body`: summary of the certification result with the card image `![Card Name](image-url)`, a link to the PR (e.g. `https://github.com/wigy/meccg/pull/<number>`), plus the certification status table
+       - `keywords`: include `cardName`, `cardId`, `gitHash`, `prUrl`, `userName` (original requester)
        - `replyTo`: the original message ID
        - Mark the review message status as `waiting` after sending (same as for card-request).
      - If certification failed or card has unimplemented effects: mark failure, send reply mail.
