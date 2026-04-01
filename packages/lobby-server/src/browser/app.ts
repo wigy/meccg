@@ -797,6 +797,27 @@ function missingCards(deck: FullDeck): string[] {
   return allEntries.filter(e => e.card === null).map(e => e.name);
 }
 
+/** Return names of cards that exist but are not yet certified. */
+function uncertifiedCards(deck: FullDeck): string[] {
+  const allEntries = [
+    ...deck.pool,
+    ...deck.deck.characters, ...deck.deck.hazards, ...deck.deck.resources,
+    ...deck.sites,
+    ...(deck.sideboard ?? []),
+  ];
+  const seen = new Set<string>();
+  const result: string[] = [];
+  for (const e of allEntries) {
+    if (e.card === null || seen.has(e.card)) continue;
+    seen.add(e.card);
+    const def = cardPool[e.card];
+    if (def && !('certified' in def && (def as unknown as Record<string, unknown>).certified)) {
+      result.push(e.name);
+    }
+  }
+  return result;
+}
+
 /** Map deck file alignment strings to the Alignment enum used in JoinMessage. */
 const ALIGNMENT_MAP: Record<string, Alignment> = {
   hero: Alignment.Wizard,
@@ -855,6 +876,14 @@ function renderMyDeckItem(deck: FullDeck, isCurrent: boolean): HTMLElement {
     warn.title = missing.join(', ');
     info.appendChild(warn);
   }
+  const uncertified = uncertifiedCards(deck);
+  if (uncertified.length > 0) {
+    const warn = document.createElement('span');
+    warn.className = 'lobby-deck-warning lobby-deck-warning--uncertified';
+    warn.textContent = `\u26A0 ${uncertified.length} uncertified card${uncertified.length > 1 ? 's' : ''}`;
+    warn.title = uncertified.join(', ');
+    info.appendChild(warn);
+  }
   item.appendChild(info);
   const btns = document.createElement('div');
   btns.style.display = 'flex';
@@ -907,6 +936,14 @@ function renderCatalogDeckItem(deck: FullDeck, owned: boolean, onAdd: () => void
     warn.className = 'lobby-deck-warning';
     warn.textContent = `\u26A0 ${missing.length} missing card${missing.length > 1 ? 's' : ''}`;
     warn.title = missing.join(', ');
+    info.appendChild(warn);
+  }
+  const uncertified = uncertifiedCards(deck);
+  if (uncertified.length > 0) {
+    const warn = document.createElement('span');
+    warn.className = 'lobby-deck-warning lobby-deck-warning--uncertified';
+    warn.textContent = `\u26A0 ${uncertified.length} uncertified card${uncertified.length > 1 ? 's' : ''}`;
+    warn.title = uncertified.join(', ');
     info.appendChild(warn);
   }
   item.appendChild(info);
@@ -1015,7 +1052,11 @@ async function loadDecks(): Promise<void> {
           const opt = document.createElement('option');
           opt.value = deck.id;
           const missing = missingCards(deck);
-          opt.textContent = missing.length > 0 ? `\u26A0 ${deck.name}` : deck.name;
+          const uncert = uncertifiedCards(deck);
+          let label = deck.name;
+          if (missing.length > 0) label = `\u26A0 ${label}`;
+          if (uncert.length > 0) label = `\u2606 ${label}`;
+          opt.textContent = label;
           opt.selected = deck.id === currentDeckId;
           group.appendChild(opt);
         }
@@ -1028,7 +1069,11 @@ async function loadDecks(): Promise<void> {
           const opt = document.createElement('option');
           opt.value = deck.id;
           const missing = missingCards(deck);
-          opt.textContent = missing.length > 0 ? `\u26A0 ${deck.name}` : deck.name;
+          const uncert = uncertifiedCards(deck);
+          let label = deck.name;
+          if (missing.length > 0) label = `\u26A0 ${label}`;
+          if (uncert.length > 0) label = `\u2606 ${label}`;
+          opt.textContent = label;
           opt.selected = deck.id === currentDeckId;
           group.appendChild(opt);
         }

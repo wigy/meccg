@@ -987,6 +987,10 @@ h2 {
   font-size: 0.75rem;
 }
 
+.lobby-deck-warning--uncertified {
+  color: #d4a530;
+}
+
 .lobby-deck-item button {
   padding: 0.25rem 0.6rem;
   font-size: 0.8rem;

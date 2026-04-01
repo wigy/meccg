@@ -5,3 +5,4 @@ packages/web-client/public/bundle.js
 docs/api/
 .claude/settings.local.json
 .claude/worktrees/
+packages/lobby-server/public/bundle.js
