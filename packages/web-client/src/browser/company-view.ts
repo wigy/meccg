@@ -53,6 +53,12 @@ let savedFocusedCompanyId: CompanyId | null = null;
 let allCompaniesOverride = false;
 
 /**
+ * After a split-company action, stores the character ID that was split off.
+ * On the next render, the view auto-focuses on the new company containing this character.
+ */
+let pendingFocusCharacterId: CardInstanceId | null = null;
+
+/**
  * Move-to-influence two-step selection state.
  * When a character with move-to-influence options is clicked, its instance ID
  * is stored here and valid controller targets are highlighted.
@@ -847,6 +853,7 @@ function showCharacterActionTooltip(
     btn.onclick = (e) => {
       e.stopPropagation();
       dismissTooltip();
+      pendingFocusCharacterId = splitActions.characterId;
       onAction(splitActions);
     };
     tooltip.appendChild(btn);
@@ -1217,36 +1224,7 @@ function renderCompanyBlock(
     ].every(a => 'regress' in a && a.regress);
     const cls = allRegress ? '' : 'company-card--influence-source';
 
-    // Split action only, no move actions — execute directly
-    if (splitAction && (!moveActions || moveActions.length === 0)) {
-      return {
-        cls,
-        handler: (e) => {
-          e.stopPropagation();
-          onAction(splitAction);
-        },
-      };
-    }
-
-    // Only move-to-company actions (no split) — enter targeting mode directly
-    if (!splitAction && moveActions && moveActions.length > 0) {
-      return {
-        cls,
-        handler: (e) => {
-          e.stopPropagation();
-          companyMoveSourceId = charInstId;
-          companyMoveSourceCompanyId = moveActions[0].sourceCompanyId;
-          const sourceDefId = cachedInstanceLookup(charInstId);
-          const sourceName = sourceDefId ? cardPool[sourceDefId as string]?.name : undefined;
-          setTargetingInstruction(
-            `Click a company to move ${sourceName ?? 'character'} there`,
-          );
-          renderCompanyViews(lastView!, lastCardPool!, lastOnAction!);
-        },
-      };
-    }
-
-    // Both split and move available — show tooltip for disambiguation
+    // Always show tooltip menu for character actions
     return {
       cls,
       handler: (e) => {
@@ -2020,6 +1998,19 @@ export function renderCompanyViews(
     }
   }
   lastMhSiteStep = curStep;
+
+  // After a split-company action, focus on the new company containing the split character
+  if (pendingFocusCharacterId) {
+    const charId = pendingFocusCharacterId;
+    pendingFocusCharacterId = null;
+    const newCompany = view.self.companies.find(
+      c => c.characters.includes(charId),
+    );
+    if (newCompany) {
+      focusedCompanyId = newCompany.id;
+      allCompaniesOverride = false;
+    }
+  }
 
   // Clear influence move selection if the source character no longer has valid actions
   if (influenceMoveSourceId) {
