@@ -194,7 +194,6 @@ describe('Rule 10.29 — Chain of Effects', () => {
     });
 
     const gomId = state.players[0].hand[0].instanceId;
-    const p2Twilight = state.players[1].hand[0].instanceId;
 
     // P1 plays GoM → P2 gets priority
     let result = reduce(state, { type: 'play-permanent-event', player: PLAYER_1, cardInstanceId: gomId });
@@ -263,7 +262,7 @@ describe('Rule 10.29 — Chain of Effects', () => {
     const gomId = state.players[0].hand[0].instanceId;
 
     // P1 plays GoM → it goes on the chain
-    let result = reduce(state, { type: 'play-permanent-event', player: PLAYER_1, cardInstanceId: gomId });
+    const result = reduce(state, { type: 'play-permanent-event', player: PLAYER_1, cardInstanceId: gomId });
     expect(result.error).toBeUndefined();
 
     // P2 can target GoM on the chain with Twilight
