@@ -11,7 +11,7 @@ import type WebSocket from 'ws';
 import type { LobbyClientMessage, LobbyServerMessage } from './protocol.js';
 import { launchGame } from '../games/launcher.js';
 import { lobbyLog } from '../lobby-log.js';
-import { getDisplayName } from '../players/store.js';
+import { getDisplayName, getCredits } from '../players/store.js';
 
 /** Connection info for an active game that a player can rejoin. */
 interface ActiveGameInfo {
@@ -48,6 +48,7 @@ function broadcastPlayerList(): void {
   const players = Array.from(onlinePlayers.keys()).map(name => ({
     name,
     displayName: getDisplayName(name),
+    credits: getCredits(name),
   }));
   const msg: LobbyServerMessage = { type: 'online-players', players };
   for (const p of onlinePlayers.values()) {

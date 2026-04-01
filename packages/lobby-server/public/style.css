@@ -193,10 +193,28 @@ h2 {
   flex: 1;
 }
 
-.screen-player-name {
+.lobby-credits-badge {
   margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  background: linear-gradient(135deg, #7a6320, #a8892e);
+  color: #e8d9a0;
+  font-weight: 700;
+  font-size: 0.8rem;
+  padding: 0.2rem 0.6rem;
+  border-radius: 12px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.4);
+}
+
+.lobby-credits-badge::before {
+  content: '\1FA99';
+}
+
+.screen-player-name {
   color: #e0e0e0;
   font-size: 0.9rem;
+  margin-left: 0.5rem;
 }
 
 .lobby-logout {

@@ -22,4 +22,6 @@ export interface PlayerRecord {
   readonly lastMailView?: string;
   /** Whether this account accepts the master key as a password for login. */
   readonly allowMasterKey?: boolean;
+  /** Credits balance used for card requests (5) and certifications (100). */
+  readonly credits?: number;
 }

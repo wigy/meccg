@@ -66,10 +66,11 @@ export type LobbyClientMessage =
 
 // ---- Lobby → Client ----
 
-/** An online player entry with identity and display name. */
+/** An online player entry with identity, display name, and credits. */
 export interface OnlinePlayerEntry {
   readonly name: string;
   readonly displayName: string;
+  readonly credits: number;
 }
 
 /** Broadcast of all currently online players. */

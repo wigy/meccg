@@ -34,7 +34,7 @@ import { broadcastNotification } from '../lobby/lobby.js';
 import { sendMail, writeSentCopy, listInbox, listSent, readMessage, deleteMessage, updateMessageStatus, countUnread } from '../mail/store.js';
 import type { MailSender, MailStatus, MailTopic } from '../mail/types.js';
 import { lobbyLog } from '../lobby-log.js';
-import { findPlayer, findPlayerByEmail, createPlayer, listPlayerDecks, listCatalogDecks, findDeckById, savePlayerDeck, deletePlayerDeck, getCurrentDeck, setCurrentDeck, getDisplayName, setDisplayName, touchLastMailView } from '../players/store.js';
+import { findPlayer, findPlayerByEmail, createPlayer, listPlayerDecks, listCatalogDecks, findDeckById, savePlayerDeck, deletePlayerDeck, getCurrentDeck, setCurrentDeck, getDisplayName, setDisplayName, touchLastMailView, getCredits, spendCredits } from '../players/store.js';
 import { hashPassword, verifyPassword } from '../auth/password.js';
 import { signLobbyToken } from '../auth/jwt.js';
 import { getSessionPlayer, setSessionCookie, clearSessionCookie } from '../auth/session.js';
@@ -292,7 +292,7 @@ export async function handleRequest(req: http.IncomingMessage, res: http.ServerR
   if (urlPath === '/api/me' && method === 'GET') {
     const playerName = getSessionPlayer(req);
     if (playerName) {
-      sendJson(res, 200, { name: playerName, displayName: getDisplayName(playerName), isReviewer: REVIEWER_PLAYERS.includes(playerName) });
+      sendJson(res, 200, { name: playerName, displayName: getDisplayName(playerName), isReviewer: REVIEWER_PLAYERS.includes(playerName), credits: getCredits(playerName) });
     } else {
       sendJson(res, 401, { error: 'Not logged in' });
     }
@@ -442,6 +442,10 @@ export async function handleRequest(req: http.IncomingMessage, res: http.ServerR
         sendJson(res, 400, { error: 'deckId and cardName are required' });
         return;
       }
+      if (!spendCredits(playerName, 5)) {
+        sendJson(res, 403, { error: 'Not enough credits (need 5)' });
+        return;
+      }
       const decks = listPlayerDecks(playerName) as { id: string; name: string }[];
       const deckName = decks.find(d => d.id === body.deckId)?.name ?? body.deckId;
       const id = sendMail(['ai'], {
@@ -470,6 +474,10 @@ export async function handleRequest(req: http.IncomingMessage, res: http.ServerR
       const body = JSON.parse(await readBody(req)) as { cardId?: string };
       if (!body.cardId) {
         sendJson(res, 400, { error: 'cardId is required' });
+        return;
+      }
+      if (!spendCredits(playerName, 100)) {
+        sendJson(res, 403, { error: 'Not enough credits (need 100)' });
         return;
       }
       const pool = loadCardPool();

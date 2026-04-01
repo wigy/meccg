@@ -90,6 +90,7 @@ function restoreGameSession(): boolean {
 /** Current logged-in player name (lobby mode). */
 let lobbyPlayerName: string | null = null;
 let lobbyPlayerIsReviewer = false;
+let lobbyPlayerCredits = 0;
 /** Name of the player who sent us a challenge (lobby mode). */
 let challengeFrom: string | null = null;
 let lastInstanceLookup: (instId: CardInstanceId) => CardDefinitionId | undefined = () => undefined;
@@ -733,6 +734,12 @@ const ALL_SCREENS: ScreenId[] = ['login-screen', 'register-screen', 'lobby-scree
 /** Screens that should show the persistent nav bar. */
 const NAV_SCREENS: ScreenId[] = ['lobby-screen', 'decks-screen', 'deck-editor-screen', 'inbox-screen'];
 
+/** Update the credits badge in the nav bar. */
+function updateCreditsBadge(): void {
+  const el = document.getElementById('lobby-credits-badge');
+  if (el) el.textContent = String(lobbyPlayerCredits);
+}
+
 /** Show one screen, hiding all others. */
 function showScreen(id: ScreenId): void {
   for (const screenId of ALL_SCREENS) {
@@ -749,10 +756,11 @@ function showScreen(id: ScreenId): void {
     id === 'decks-screen' || id === 'deck-editor-screen');
   document.getElementById('nav-mail')?.classList.toggle('lobby-nav-item--active',
     id === 'inbox-screen');
-  // Update player name on all screens
+  // Update player name and credits on all screens
   for (const el of document.querySelectorAll('.screen-player-name')) {
     el.textContent = lobbyPlayerName ?? '';
   }
+  updateCreditsBadge();
   // Reset lobby button state when showing the lobby
   if (id === 'lobby-screen') {
     const btn = document.getElementById('play-ai-btn') as HTMLButtonElement | null;
@@ -1254,6 +1262,14 @@ function renderCardList(container: HTMLElement, entries: DeckListEntry[], deckId
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ deckId, cardName: entry.name }),
+          }).then(async r => {
+            if (!r.ok) {
+              const data = await r.json() as { error?: string };
+              btn.disabled = false;
+              btn.textContent = 'Request';
+              requestedCards.delete(requestKey);
+              alert(data.error ?? 'Request failed');
+            }
           });
         });
       }
@@ -1284,6 +1300,14 @@ function renderCardList(container: HTMLElement, entries: DeckListEntry[], deckId
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ cardId: entry.card }),
+          }).then(async r => {
+            if (!r.ok) {
+              const data = await r.json() as { error?: string };
+              certBtn.disabled = false;
+              certBtn.textContent = 'Certify';
+              requestedCertifications.delete(entry.card!);
+              alert(data.error ?? 'Certification request failed');
+            }
           });
         });
       }
@@ -1756,13 +1780,20 @@ function connectLobbyWs(): void {
     const msg = JSON.parse(event.data as string) as { type: string; [key: string]: unknown };
     switch (msg.type) {
       case 'online-players': {
-        const players = (msg.players as { name: string; displayName: string }[]).filter(p => p.name !== lobbyPlayerName);
+        const players = (msg.players as { name: string; displayName: string; credits: number }[]);
+        // Update own credits from the broadcast
+        const self = players.find(p => p.name === lobbyPlayerName);
+        if (self) {
+          lobbyPlayerCredits = self.credits;
+          updateCreditsBadge();
+        }
+        const others = players.filter(p => p.name !== lobbyPlayerName);
         const container = document.getElementById('online-players')!;
-        if (players.length === 0) {
+        if (others.length === 0) {
           container.innerHTML = '<p class="lobby-empty">No other players online</p>';
         } else {
           container.innerHTML = '';
-          for (const player of players) {
+          for (const player of others) {
             const item = document.createElement('div');
             item.className = 'lobby-player-item';
             const span = document.createElement('span');
@@ -1857,9 +1888,10 @@ async function initLobby(): Promise<void> {
   try {
     const resp = await fetch('/api/me');
     if (resp.ok) {
-      const data = await resp.json() as { name: string; isReviewer?: boolean };
+      const data = await resp.json() as { name: string; isReviewer?: boolean; credits?: number };
       lobbyPlayerName = data.name;
       lobbyPlayerIsReviewer = data.isReviewer ?? false;
+      lobbyPlayerCredits = data.credits ?? 0;
 
       // Rejoin active game if session was saved (e.g. page refresh)
       if (restoreGameSession()) {
