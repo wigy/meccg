@@ -244,42 +244,42 @@
   "sites": [
     {
       "name": "Bag End",
-      "card": "tw-372",
+      "card": "le-350",
       "qty": 1
     },
     {
       "name": "Bandit Lair",
-      "card": null,
+      "card": "le-351",
       "qty": 1
     },
     {
       "name": "Beorn's House",
-      "card": null,
+      "card": "le-354",
       "qty": 1
     },
     {
       "name": "Dimrill Dale",
-      "card": null,
+      "card": "le-365",
       "qty": 1
     },
     {
       "name": "Eagles' Eyrie",
-      "card": "tw-391",
+      "card": "as-144",
       "qty": 1
     },
     {
       "name": "Edoras",
-      "card": "tw-394",
+      "card": "le-372",
       "qty": 1
     },
     {
       "name": "Barad-dur",
-      "card": null,
+      "card": "le-352",
       "qty": 4
     },
     {
       "name": "Carn Dum",
-      "card": null,
+      "card": "le-359",
       "qty": 4
     },
     {
@@ -289,22 +289,22 @@
     },
     {
       "name": "Goblin-gate",
-      "card": null,
+      "card": "le-378",
       "qty": 1
     },
     {
       "name": "Moria",
-      "card": "ba-93",
+      "card": "le-392",
       "qty": 1
     },
     {
       "name": "The Worthy Hills",
-      "card": null,
+      "card": "le-415",
       "qty": 1
     },
     {
       "name": "Thranduil's Halls",
-      "card": null,
+      "card": "le-408",
       "qty": 1
     }
   ],
