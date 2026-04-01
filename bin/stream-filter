@@ -1,0 +1,53 @@
+#!/usr/bin/env bash
+# Filter Claude's stream-json output into human-readable progress lines.
+# Usage: claude --output-format stream-json -p ... | stream-filter
+
+while IFS= read -r line; do
+  type=$(echo "$line" | jq -r '.type // empty' 2>/dev/null)
+
+  case "$type" in
+    assistant)
+      # Assistant text output
+      text=$(echo "$line" | jq -r '.message.content[]? | select(.type=="text") | .text // empty' 2>/dev/null)
+      [ -n "$text" ] && echo "$text"
+      ;;
+    content_block_delta)
+      # Streaming text delta
+      delta=$(echo "$line" | jq -r '.delta.text // empty' 2>/dev/null)
+      [ -n "$delta" ] && printf '%s' "$delta"
+      ;;
+    content_block_stop)
+      echo
+      ;;
+    result)
+      # Final result text
+      text=$(echo "$line" | jq -r '.result // empty' 2>/dev/null)
+      [ -n "$text" ] && echo "$text"
+      # Also show cost/duration summary
+      duration=$(echo "$line" | jq -r '.duration_seconds // empty' 2>/dev/null)
+      cost=$(echo "$line" | jq -r '.total_cost_usd // empty' 2>/dev/null)
+      [ -n "$duration" ] && echo "--- Duration: ${duration}s, Cost: \$${cost} ---"
+      ;;
+    tool_use)
+      # Show which tool is being called
+      tool=$(echo "$line" | jq -r '.tool // empty' 2>/dev/null)
+      case "$tool" in
+        Bash)
+          cmd=$(echo "$line" | jq -r '.input.command // empty' 2>/dev/null)
+          echo "  > $cmd"
+          ;;
+        Agent)
+          desc=$(echo "$line" | jq -r '.input.description // empty' 2>/dev/null)
+          echo "  [agent] $desc"
+          ;;
+        Skill)
+          skill=$(echo "$line" | jq -r '.input.skill // empty' 2>/dev/null)
+          echo "  [skill] /$skill"
+          ;;
+        Read|Write|Edit|Glob|Grep)
+          echo "  [$tool]"
+          ;;
+      esac
+      ;;
+  esac
+done
