@@ -4,6 +4,8 @@ Handle a mail message from the ai inbox by dispatching it to the appropriate ski
 
 **⚠️ MAIL API RULE:** Every call to `/api/system/mail` MUST pass `"recipients"` as a JSON **array** (e.g. `["wigy"]` or `["wigy", "karmi", "admin"]`). A bare string will be split into single-character usernames. This is a hard requirement — never use a string.
 
+**⚠️ CARD IMAGE RULE:** To include a card image in mail, read the card definition's `image` field from the data JSON file and derive the proxy path. The `image` field is a GitHub URL like `https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/GlorfindelII.jpg` — extract the set (`tw`) and filename (`GlorfindelII.jpg`) and use `/cards/images/tw/GlorfindelII.jpg` as the image URL. The set is **lowercase** and the filename is **case-sensitive**. Never guess the filename — always read it from the card data.
+
 The message ID argument is: $ARGUMENTS
 
 If no message ID is given, list all messages in the ai inbox by running:
