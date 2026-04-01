@@ -9,7 +9,7 @@ mkdir -p "$LOG_DIR"
 while true; do
   git pull 2>&1 | tee -a "$LOG_FILE"
   echo "=== AI run started at $(date -Iseconds) ===" | tee -a "$LOG_FILE"
-  claude --dangerously-skip-permissions --verbose --output-format stream-json -p /ai-processor 2>&1 | tee -a "$LOG_FILE"
+  claude --dangerously-skip-permissions --verbose -p /ai-processor 2>&1 | tee -a "$LOG_FILE"
   echo "=== AI run finished at $(date -Iseconds) ===" | tee -a "$LOG_FILE"
   sleep 60
 done
