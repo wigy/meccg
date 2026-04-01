@@ -39,6 +39,7 @@ describe('Haldir (tw-164)', () => {
     // Build an organization phase state with Haldir holding Glamdring,
     // and a pending corruption check (as if Haldir just transferred an item).
     const state = buildTestState({
+      phase: Phase.Organization,
       activePlayer: PLAYER_1,
       recompute: true,
       players: [
