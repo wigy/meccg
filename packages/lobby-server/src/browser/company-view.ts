@@ -1110,7 +1110,6 @@ function renderCompanyBlock(
   /** Build the item click handler for an item on a character, if applicable. */
   const buildItemClick = (itemInstId: CardInstanceId, charInstId: CardInstanceId): { cls: string; handler: (e: Event) => void } | undefined => {
     if (!options?.onAction) return undefined;
-    const onAction = options.onAction;
 
     if (transferItemSourceId) {
       // We're in targeting mode — clicking a character card is the target, not items
@@ -1138,19 +1137,7 @@ function renderCompanyBlock(
     const allRegress = actions.every(a => a.regress);
     const cls = allRegress ? '' : 'company-card--transfer-source';
 
-    if (actions.length === 1) {
-      // Single target — execute directly
-      const action = actions[0];
-      return {
-        cls,
-        handler: (e) => {
-          e.stopPropagation();
-          onAction(action);
-        },
-      };
-    }
-
-    // Multiple targets — enter targeting mode
+    // Always enter targeting mode — even with a single target, ask explicitly
     return {
       cls,
       handler: (e) => {
