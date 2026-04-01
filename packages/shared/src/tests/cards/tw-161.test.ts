@@ -21,7 +21,7 @@ import {
   buildTestState, resetMint,
   findCharInstanceId, viablePlayCharacterActions, buildSitePhaseState,
 } from '../test-helpers.js';
-import { computeLegalActions } from '../../index.js';
+import { computeLegalActions, Phase } from '../../index.js';
 import type { CharacterCard, InfluenceAttemptAction } from '../../index.js';
 
 // ─── Tests ────────────────────────────────────────────────────────────────────
@@ -31,6 +31,7 @@ describe('Glorfindel II (tw-161)', () => {
 
   test('base effective DI is 2 (conditional bonus does not inflate base stats)', () => {
     const state = buildTestState({
+      phase: Phase.Organization,
       activePlayer: PLAYER_1,
       recompute: true,
       players: [
@@ -50,6 +51,7 @@ describe('Glorfindel II (tw-161)', () => {
     // Without the +1 DI bonus against Elves, DI 2 < mind 3 → cannot control.
     // With the bonus, DI 3 >= mind 3 → can control as a follower.
     const state = buildTestState({
+      phase: Phase.Organization,
       activePlayer: PLAYER_1,
       recompute: true,
       players: [
@@ -76,6 +78,7 @@ describe('Glorfindel II (tw-161)', () => {
     // Beregond is a dunadan with mind 2. Glorfindel has base DI 2 — enough
     // to control Beregond without any bonus (DI 2 >= mind 2).
     const state = buildTestState({
+      phase: Phase.Organization,
       activePlayer: PLAYER_1,
       recompute: true,
       players: [

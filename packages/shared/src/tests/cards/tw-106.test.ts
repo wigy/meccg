@@ -20,17 +20,10 @@ import {
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
   CardStatus,
   buildTestState, resetMint,
+  viableActions,
 } from '../test-helpers.js';
 import { computeLegalActions, Phase } from '../../index.js';
 import type { CardInPlay, CardInstanceId, GameState, MovementHazardPhaseState } from '../../index.js';
-
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
-/** Find viable actions of a specific type for a player. */
-function viableActions(state: GameState, playerId: typeof PLAYER_1, actionType: string) {
-  return computeLegalActions(state, playerId)
-    .filter(ea => ea.viable && ea.action.type === actionType);
-}
 
 /** Play a short event and both players pass chain priority to resolve it. */
 function playAndResolve(
@@ -63,6 +56,7 @@ describe('Twilight (tw-106)', () => {
     };
 
     const state = buildTestState({
+      phase: Phase.Organization,
       activePlayer: PLAYER_1,
       players: [
         { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [ARAGORN] }], hand: [TWILIGHT], siteDeck: [MORIA], cardsInPlay: [gomInPlay] },
@@ -90,6 +84,7 @@ describe('Twilight (tw-106)', () => {
     };
 
     const state = buildTestState({
+      phase: Phase.Organization,
       activePlayer: PLAYER_1,
       players: [
         { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [ARAGORN] }], hand: [TWILIGHT], siteDeck: [MORIA] },
@@ -109,6 +104,7 @@ describe('Twilight (tw-106)', () => {
 
   test('not playable when no environment is in play', () => {
     const state = buildTestState({
+      phase: Phase.Organization,
       activePlayer: PLAYER_1,
       players: [
         { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [ARAGORN] }], hand: [TWILIGHT], siteDeck: [MORIA] },
@@ -139,6 +135,7 @@ describe('Twilight (tw-106)', () => {
     };
 
     const state = buildTestState({
+      phase: Phase.Organization,
       activePlayer: PLAYER_1,
       players: [
         { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [ARAGORN] }], hand: [TWILIGHT], siteDeck: [MORIA], cardsInPlay: [gomInPlay, donInPlay] },
@@ -164,6 +161,7 @@ describe('Twilight (tw-106)', () => {
     };
 
     const state = buildTestState({
+      phase: Phase.Organization,
       activePlayer: PLAYER_1,
       players: [
         { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [ARAGORN] }], hand: [TWILIGHT, TWILIGHT], siteDeck: [MORIA], cardsInPlay: [gomInPlay] },
@@ -218,6 +216,7 @@ describe('Twilight (tw-106)', () => {
     };
 
     const state = buildTestState({
+      phase: Phase.Organization,
       activePlayer: PLAYER_1,
       players: [
         { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [ARAGORN] }], hand: [TWILIGHT], siteDeck: [MORIA], cardsInPlay: [gomInPlay] },
@@ -265,6 +264,7 @@ describe('Twilight (tw-106)', () => {
     };
 
     const state = buildTestState({
+      phase: Phase.Organization,
       activePlayer: PLAYER_1,
       players: [
         { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [ARAGORN] }], hand: [TWILIGHT], siteDeck: [MORIA], cardsInPlay: [gomInPlay] },
@@ -298,6 +298,7 @@ describe('Twilight (tw-106)', () => {
 
   test('not playable during M/H phase when no environment in play', () => {
     const state = buildTestState({
+      phase: Phase.Organization,
       activePlayer: PLAYER_1,
       players: [
         { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [ARAGORN] }], hand: [], siteDeck: [MORIA] },
@@ -356,6 +357,7 @@ describe('Twilight (tw-106)', () => {
     };
 
     const state = buildTestState({
+      phase: Phase.Organization,
       activePlayer: PLAYER_1,
       players: [
         { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [ARAGORN] }], hand: [TWILIGHT], siteDeck: [MORIA], cardsInPlay: [gomInPlay] },
@@ -409,6 +411,7 @@ describe('Twilight (tw-106)', () => {
     };
 
     const state = buildTestState({
+      phase: Phase.Organization,
       activePlayer: PLAYER_1,
       players: [
         { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [ARAGORN] }], hand: [TWILIGHT, TWILIGHT], siteDeck: [MORIA], cardsInPlay: [gomInPlay] },

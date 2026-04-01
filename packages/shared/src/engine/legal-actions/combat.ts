@@ -191,9 +191,9 @@ function resolveStrikeActions(
   const untapProwess = Math.max(0, baseProwess - 3);
 
   const tapNeed = Math.max(2, strikeProwess - tapProwess + 1);
-  const tapExplanation = `Need roll >= ${tapNeed} (creature ${strikeProwess}, prowess ${tapProwess})`;
+  const tapExplanation = `Tapped: need ${tapNeed}+ (prowess ${tapProwess} vs ${strikeProwess})`;
   const untapNeed = Math.max(2, strikeProwess - untapProwess + 1);
-  const untapExplanation = `Need roll >= ${untapNeed} (creature ${strikeProwess}, prowess ${untapProwess} [-3 untapped])`;
+  const untapExplanation = `Untapped: need ${untapNeed}+ (prowess ${untapProwess} vs ${strikeProwess})`;
 
   logDetail(`Defender can resolve strike against ${charName} (${isUntapped ? 'untapped' : 'tapped/wounded'})`);
   actions.push({
@@ -297,7 +297,7 @@ function bodyCheckActions(
       type: 'body-check-roll',
       player: playerId,
       need: bcNeed,
-      explanation: `Need roll > ${body - woundedBonus} (${bcParts.join(', ')})`,
+      explanation: `Body check: need ${bcNeed}+ (${bcParts.join(', ')})`,
     },
     viable: true,
   }];

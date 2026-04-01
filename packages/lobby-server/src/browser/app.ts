@@ -222,7 +222,9 @@ function renderPseudoAiActions(actions: readonly DescribedAction[]): void {
     for (const da of nonViable) {
       const btn = document.createElement('button');
       btn.disabled = true;
-      btn.textContent = cleanActionText(da.text);
+      btn.textContent = da.reason
+        ? `${cleanActionText(da.text)} \u2014 ${da.reason}`
+        : cleanActionText(da.text);
       if (da.reason) {
         btn.title = da.reason;
       }
@@ -2379,6 +2381,13 @@ document.addEventListener('DOMContentLoaded', () => {
     if (chainPanel) { chainPanel.classList.add('hidden'); chainPanel.innerHTML = ''; }
     for (const id of ['self-deck-box', 'opponent-deck-box']) {
       document.getElementById(id)?.classList.add('hidden');
+    }
+    // Clear pseudo-AI action list
+    const pseudoPanel = document.getElementById('pseudo-ai-panel');
+    if (pseudoPanel) {
+      pseudoPanel.classList.add('hidden');
+      pseudoPanel.classList.remove('minimized');
+      document.getElementById('pseudo-ai-actions')!.innerHTML = '';
     }
     resetCompanyViews();
     clearDice();
