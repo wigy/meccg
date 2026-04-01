@@ -15,7 +15,7 @@ import {
   Alignment,
   computeLegalActions,
 } from '../index.js';
-import type { PlayerId, GameState, CardDefinitionId, CardInstanceId, CardInstance, GameAction, PlayCharacterAction, SitePhaseState } from '../index.js';
+import type { PlayerId, GameState, CardDefinitionId, CardInstanceId, CardInstance, GameAction, PlayCharacterAction, SitePhaseState, MovementHazardPhaseState } from '../index.js';
 import {
   ARAGORN, BILBO, FRODO, LEGOLAS, GIMLI, FARAMIR,
   EOWYN, BEREGOND, BERGIL, BARD_BOWMAN, ANBORN, SAM_GAMGEE,
@@ -539,6 +539,39 @@ export function buildSitePhaseState(opts: {
     automaticAttacksResolved: 0,
   };
   return { ...state, phaseState: sitePhaseState };
+}
+
+/** The company ID for PLAYER_1's first company (target of hazards). */
+export const P1_COMPANY = `company-${PLAYER_1 as string}-0` as CompanyId;
+
+/** Build a MovementHazardPhaseState in the play-hazards step. */
+export function makeMHState(overrides?: Partial<MovementHazardPhaseState>): MovementHazardPhaseState {
+  return {
+    phase: Phase.MovementHazard,
+    step: 'play-hazards',
+    activeCompanyIndex: 0,
+    handledCompanyIds: [],
+    movementType: null,
+    declaredRegionPath: [],
+    maxRegionDistance: 4,
+    pendingEffectsToOrder: [],
+    hazardsPlayedThisCompany: 0,
+    hazardLimit: 4,
+    resolvedSitePath: [],
+    resolvedSitePathNames: [],
+    destinationSiteType: null,
+    destinationSiteName: null,
+    resourceDrawMax: 0,
+    hazardDrawMax: 0,
+    resourceDrawCount: 0,
+    hazardDrawCount: 0,
+    resourcePlayerPassed: false,
+    hazardPlayerPassed: false,
+    onGuardPlacedThisCompany: false,
+    siteRevealed: false,
+    returnedToOrigin: false,
+    ...overrides,
+  };
 }
 
 // Re-export commonly used things
