@@ -637,6 +637,24 @@ h2 {
   margin: 0.4rem 0;
 }
 
+.inbox-message-body table {
+  border-collapse: collapse;
+  margin: 0.5rem 0;
+  width: 100%;
+  font-size: 0.85em;
+}
+
+.inbox-message-body th, .inbox-message-body td {
+  border: 1px solid rgba(255,255,255,0.15);
+  padding: 0.3rem 0.5rem;
+  text-align: left;
+}
+
+.inbox-message-body th {
+  background: rgba(255,255,255,0.08);
+  color: #c4a35a;
+}
+
 /* Feature request modal */
 
 #feature-request-modal,

@@ -3,7 +3,7 @@
  *
  * Minimal Markdown-to-HTML renderer for displaying mail message bodies.
  * Supports headings, bold, italic, inline code, code blocks, images,
- * links, unordered/ordered lists, and paragraphs. Output is sanitized to
+ * links, unordered/ordered lists, tables, and paragraphs. Output is sanitized to
  * prevent XSS — no raw HTML passes through.
  */
 
@@ -84,6 +84,29 @@ export function renderMarkdown(source: string): string {
         i++;
       }
       html.push('</ol>');
+      continue;
+    }
+
+    // Table
+    if (line.includes('|') && line.trim().startsWith('|')) {
+      const rows: string[][] = [];
+      while (i < lines.length && lines[i].includes('|') && lines[i].trim().startsWith('|')) {
+        const cells = lines[i].trim().replace(/^\|/, '').replace(/\|$/, '').split('|').map(c => c.trim());
+        // Skip separator rows (e.g. |---|---|)
+        if (cells.every(c => /^[-: ]+$/.test(c))) {
+          i++;
+          continue;
+        }
+        rows.push(cells);
+        i++;
+      }
+      if (rows.length > 0) {
+        const headerCells = rows[0].map(c => `<th>${renderInline(c)}</th>`).join('');
+        const bodyRows = rows.slice(1).map(row =>
+          `<tr>${row.map(c => `<td>${renderInline(c)}</td>`).join('')}</tr>`
+        ).join('\n');
+        html.push(`<table><thead><tr>${headerCells}</tr></thead><tbody>\n${bodyRows}\n</tbody></table>`);
+      }
       continue;
     }
 
