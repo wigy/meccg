@@ -22,6 +22,7 @@ import type {
   AssignStrikeAction,
   SupportStrikeAction,
   ChooseStrikeOrderAction,
+  EvaluatedAction,
 } from '@meccg/shared';
 import { cardImageProxyPath, viableActions, CardStatus, buildInstanceLookup } from '@meccg/shared';
 import type { CardInstanceId, CardDefinitionId } from '@meccg/shared';
@@ -122,7 +123,7 @@ export function renderCombatView(
 
 // ---- Phase banner ----
 
-/** Render the combat phase heading and status info. */
+/** Render the situation banner for the current combat phase. */
 function renderPhaseBanner(
   combat: CombatState,
   iAmDefender: boolean,
@@ -130,7 +131,7 @@ function renderPhaseBanner(
   cardPool: Readonly<Record<string, CardDefinition>>,
 ): HTMLElement {
   const banner = document.createElement('div');
-  banner.className = 'combat-phase-banner';
+  banner.className = 'situation-banner';
 
   // Resolve attacker race from card definition or auto-attack creature type
   let attackerRace = '';
@@ -171,7 +172,30 @@ function renderPhaseBanner(
   }
 
   banner.textContent = phaseText;
+
+  // Append roll explanations from legal actions
+  const explanations = collectRollExplanations(view.legalActions);
+  for (const text of explanations) {
+    const line = document.createElement('div');
+    line.className = 'situation-banner-detail';
+    line.textContent = text;
+    banner.appendChild(line);
+  }
+
   return banner;
+}
+
+/** Extract roll explanation strings from legal actions that carry them. */
+function collectRollExplanations(actions: readonly EvaluatedAction[]): string[] {
+  const explanations: string[] = [];
+  for (const ea of actions) {
+    if (!ea.viable) continue;
+    const a = ea.action;
+    if ('explanation' in a && typeof (a as { explanation: string }).explanation === 'string') {
+      explanations.push((a as { explanation: string }).explanation);
+    }
+  }
+  return explanations;
 }
 
 // ---- Attacker row ----
