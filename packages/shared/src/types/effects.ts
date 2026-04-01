@@ -233,8 +233,8 @@ export interface OnEventEffect extends EffectBase {
   readonly event: string;
   /** The effect to apply when triggered. */
   readonly apply: TriggeredAction;
-  /** Who the triggered effect targets. */
-  readonly target: string;
+  /** Who the triggered effect targets. Omit for effects that target implicitly (e.g. all opposing environments). */
+  readonly target?: string;
 }
 
 /** An action performed by a triggered effect. */

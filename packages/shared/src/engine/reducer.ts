@@ -2569,6 +2569,57 @@ function handleCancelMovement(state: GameState, action: GameAction): ReducerResu
 }
 
 /**
+ * Discards all environment cards belonging to the opposing alignment.
+ *
+ * When an environment permanent-event enters play, it immediately discards
+ * all environment cards of the opposing alignment (CoE environment rules):
+ * - Resource environments (e.g. Gates of Morning) discard all hazard environments
+ * - Hazard environments (e.g. Doors of Night) discard all resource environments
+ *
+ * Affected cards are moved from their owner's cardsInPlay to their discardPile.
+ *
+ * @param state - Current game state (after the environment card has been added to cardsInPlay).
+ * @param alignment - The alignment of the card just played ('resource' or 'hazard').
+ * @returns Updated game state with opposing environments discarded.
+ */
+function discardOpposingEnvironments(state: GameState, alignment: 'resource' | 'hazard'): GameState {
+  const opposingCardType = alignment === 'resource' ? 'hazard-event' : 'hero-resource-event';
+  const newPlayers = clonePlayers(state);
+  let discardedAny = false;
+
+  for (let pi = 0; pi < state.players.length; pi++) {
+    const player = state.players[pi];
+    const toDiscard: CardInstance[] = [];
+    const remaining = player.cardsInPlay.filter(card => {
+      const cardDef = state.cardPool[card.definitionId as string];
+      if (!cardDef) return true;
+      if (cardDef.cardType !== opposingCardType) return true;
+      if (!('keywords' in cardDef) || !cardDef.keywords?.includes('environment')) return true;
+      // This is an opposing environment — discard it
+      logDetail(`Discarding opposing environment: ${cardDef.name} (${card.instanceId as string}) from player ${pi}`);
+      toDiscard.push({ instanceId: card.instanceId, definitionId: card.definitionId });
+      return false;
+    });
+
+    if (toDiscard.length > 0) {
+      discardedAny = true;
+      newPlayers[pi] = {
+        ...player,
+        cardsInPlay: remaining,
+        discardPile: [...player.discardPile, ...toDiscard],
+      };
+    }
+  }
+
+  if (!discardedAny) {
+    logDetail('No opposing environment cards to discard');
+    return state;
+  }
+
+  return { ...state, players: newPlayers };
+}
+
+/**
  * Handle playing a permanent-event resource card during organization.
  * Removes the card from hand and adds it to the player's cardsInPlay.
  */
@@ -2616,7 +2667,15 @@ function handlePlayPermanentEvent(state: GameState, action: GameAction): Reducer
 
   const newPlayers = clonePlayers(state);
   newPlayers[playerIndex] = { ...player, hand: newHand, cardsInPlay: newCardsInPlay };
-  return { state: { ...state, players: newPlayers } };
+  let newState: GameState = { ...state, players: newPlayers };
+
+  // Environment permanent events discard all opposing environment cards on entry
+  if (def.keywords?.includes('environment')) {
+    logDetail(`Environment permanent event "${def.name}" entered play — discarding opposing environments`);
+    newState = discardOpposingEnvironments(newState, 'resource');
+  }
+
+  return { state: newState };
 }
 
 /**
@@ -3076,18 +3135,24 @@ function handlePlayHazardCard(
     }],
   };
 
-  return {
-    state: {
-      ...state,
-      players: newPlayers,
-      phaseState: {
-        ...mhState,
-        hazardsPlayedThisCompany: mhState.hazardsPlayedThisCompany + 1,
-        // Reset resource player's pass — they may respond
-        resourcePlayerPassed: false,
-      },
+  let newState: GameState = {
+    ...state,
+    players: newPlayers,
+    phaseState: {
+      ...mhState,
+      hazardsPlayedThisCompany: mhState.hazardsPlayedThisCompany + 1,
+      // Reset resource player's pass — they may respond
+      resourcePlayerPassed: false,
     },
   };
+
+  // Environment permanent events discard all opposing environment cards on entry
+  if (def.eventType === 'permanent' && def.keywords?.includes('environment')) {
+    logDetail(`Hazard environment permanent event "${def.name}" entered play — discarding opposing environments`);
+    newState = discardOpposingEnvironments(newState, 'hazard');
+  }
+
+  return { state: newState };
 }
 
 /**
