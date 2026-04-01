@@ -34,7 +34,7 @@ Follow these steps:
    - `id`: lowercase set-number (e.g. "tw-120")
    - `name`: from `name.en`
    - `cardType`: derive from CoE `type`, `alignment`, and `attributes.subtype`
-   - `image`: construct URL using the set's `imageBaseUrl` + card `image` field
+   - `image`: construct URL as `https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/{set}/{image}` where `{set}` is the lowercase set code and `{image}` is the card's `image` field. Do NOT use `imageBaseUrl` from the database — it uses jsDelivr which is incompatible with our image proxy.
    - Map all relevant stats (prowess, body, mind, skills, race, etc.)
    - For items: map subtype, prowessModifier, bodyModifier, corruptionPoints
    - For creatures: map strikes, prowess, body, keyedTo, killMarshallingPoints

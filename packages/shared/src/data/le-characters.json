@@ -199,7 +199,7 @@
     "alignment": "ringwraith",
     "id": "le-50",
     "name": "Adûnaphel the Ringwraith",
-    "image": "https://cdn.jsdelivr.net/gh/council-of-rivendell/meccg-remaster/en-remaster/le/AdunapheltheRingwraith.jpg",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/AdunapheltheRingwraith.jpg",
     "unique": true,
     "race": "ringwraith",
     "skills": [
@@ -223,7 +223,7 @@
     "alignment": "ringwraith",
     "id": "le-1",
     "name": "Asternak",
-    "image": "https://cdn.jsdelivr.net/gh/council-of-rivendell/meccg-remaster/en-remaster/le/Asternak.jpg",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/Asternak.jpg",
     "unique": true,
     "race": "man",
     "skills": [
