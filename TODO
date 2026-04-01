@@ -7,8 +7,6 @@ FIXES
 FEATS
 -----
 
-Add credits to players. Show them next to player name in lobby. Adding a card costs 5 credits. Certifying costs 100 credits. If you don't have enough credits, an error message is shown if trying either one of them. After accepting the request, reduce credits.
-
 EPICS
 -----
 
