@@ -46,6 +46,8 @@ export const THEODEN = did('tw-182');
 export const ELROND = did('tw-145');
 /** Glorfindel II — elf warrior/sage, prowess 8, mind 8. */
 export const GLORFINDEL_II = did('tw-161');
+/** Haldir — elf warrior, mind 3, Lorien. */
+export const HALDIR = did('tw-164');
 /** Celeborn — elf, mind 6, Lórien leader, +5 DI against Galadriel. */
 export const CELEBORN = did('tw-136');
 /** Éowyn — woman of Rohan, mind 2, anti-Nazgûl prowess bonus. */
