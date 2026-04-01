@@ -1869,7 +1869,7 @@ function showShortEventTargetMenu(
     const targetName = targetDef ? targetDef.name : '?';
 
     // Find the chain entry owner for this target
-    const chainEntry = view.chain?.entries.find(e => e.cardInstanceId === action.targetInstanceId);
+    const chainEntry = view.chain?.entries.find(e => e.card?.instanceId === action.targetInstanceId);
     const ownerName = chainEntry
       ? (chainEntry.declaredBy === view.self.id ? 'You' : view.opponent.name)
       : null;
@@ -3319,12 +3319,12 @@ export function renderChainPanel(
     if (entry.resolved) row.classList.add('chain-entry--resolved');
     if (entry.negated) row.classList.add('chain-entry--negated');
     // Instance ID for FLIP animation tracking
-    if (entry.cardInstanceId) {
-      row.dataset.instanceId = entry.cardInstanceId as string;
+    if (entry.card) {
+      row.dataset.instanceId = entry.card.instanceId as string;
     }
 
     // Card thumbnail
-    const thumb = createChainThumb(entry.definitionId, cardPool);
+    const thumb = createChainThumb(entry.card?.definitionId ?? null, cardPool);
     row.appendChild(thumb);
 
     // Card name and payload description
@@ -3369,7 +3369,7 @@ function formatChainEntry(
   view: PlayerView,
   cardPool: Readonly<Record<string, CardDefinition>>,
 ): string {
-  const cardName = resolveCardName(entry.definitionId, cardPool);
+  const cardName = resolveCardName(entry.card?.definitionId ?? null, cardPool);
   const declarer = entry.declaredBy === view.self.id ? 'You' : view.opponent.name;
 
   switch (entry.payload.type) {
@@ -3399,6 +3399,12 @@ function formatChainEntry(
         + `<span class="chain-declarer">${declarer}</span>`;
     case 'body-check':
       return `<span class="chain-card-name">${cardName}</span> body check`
+        + `<span class="chain-declarer">${declarer}</span>`;
+    case 'permanent-event':
+      return `<span class="chain-card-name">${cardName}</span>`
+        + `<span class="chain-declarer">${declarer}</span>`;
+    case 'long-event':
+      return `<span class="chain-card-name">${cardName}</span>`
         + `<span class="chain-declarer">${declarer}</span>`;
   }
 }

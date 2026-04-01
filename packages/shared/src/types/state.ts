@@ -1102,6 +1102,8 @@ export interface CombatState {
 export type ChainEntryPayload =
   | { readonly type: 'short-event'; readonly targetInstanceId?: CardInstanceId }
   | { readonly type: 'creature' }
+  | { readonly type: 'permanent-event' }
+  | { readonly type: 'long-event' }
   | { readonly type: 'corruption-card' }
   | { readonly type: 'passive-condition'; readonly trigger: string }
   | { readonly type: 'activated-ability' }
@@ -1120,10 +1122,8 @@ export interface ChainEntry {
   readonly index: number;
   /** The player who declared this entry. */
   readonly declaredBy: PlayerId;
-  /** The card instance being played, or null for non-card actions (e.g. passive conditions). */
-  readonly cardInstanceId: CardInstanceId | null;
-  /** The card definition ID, for quick lookup without going through instanceMap. */
-  readonly definitionId: CardDefinitionId | null;
+  /** The card being played, physically held by the chain until resolution. Null for non-card actions (e.g. passive conditions). */
+  readonly card: CardInstance | null;
   /** What kind of action this entry represents, with variant-specific data. */
   readonly payload: ChainEntryPayload;
   /** Whether this entry has been resolved. */
@@ -1350,6 +1350,13 @@ export function resolveInstanceId(state: GameState, instanceId: CardInstanceId):
   // Events in play
   for (const event of state.eventsInPlay) {
     if (event.instanceId === instanceId) return event.definitionId;
+  }
+
+  // Cards on the chain of effects
+  if (state.chain) {
+    for (const entry of state.chain.entries) {
+      if (entry.card?.instanceId === instanceId) return entry.card.definitionId;
+    }
   }
 
   return undefined;

@@ -89,9 +89,9 @@ function playShortEventChainActions(state: GameState, playerId: PlayerId): Evalu
     if (state.chain) {
       for (const entry of state.chain.entries) {
         if (entry.resolved || entry.negated) continue;
-        if (!entry.definitionId || !entry.cardInstanceId) continue;
-        if (isEnv(entry.definitionId as string)) {
-          envTargets.push({ instanceId: entry.cardInstanceId, definitionId: entry.definitionId as string });
+        if (!entry.card) continue;
+        if (isEnv(entry.card.definitionId as string)) {
+          envTargets.push({ instanceId: entry.card.instanceId, definitionId: entry.card.definitionId as string });
         }
       }
     }

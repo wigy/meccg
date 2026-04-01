@@ -2583,7 +2583,7 @@ function handleCancelMovement(state: GameState, action: GameAction): ReducerResu
  *                 Cards whose definitions match the filter are discarded.
  * @returns Updated game state with matching cards discarded.
  */
-function discardCardsInPlay(state: GameState, filter: import('../types/effects.js').Condition): GameState {
+export function discardCardsInPlay(state: GameState, filter: import('../types/effects.js').Condition): GameState {
   const newPlayers = clonePlayers(state);
   let discardedAny = false;
 
@@ -2619,8 +2619,9 @@ function discardCardsInPlay(state: GameState, filter: import('../types/effects.j
 }
 
 /**
- * Handle playing a permanent-event resource card during organization.
- * Removes the card from hand and adds it to the player's cardsInPlay.
+ * Handle playing a permanent-event resource card.
+ * Removes the card from hand, places it on the chain, and initiates/pushes
+ * a chain of effects. The card enters play upon resolution (see chain-reducer).
  */
 function handlePlayPermanentEvent(state: GameState, action: GameAction): ReducerResult {
   if (action.type !== 'play-permanent-event') return { state, error: 'Expected play-permanent-event action' };
@@ -2653,29 +2654,21 @@ function handlePlayPermanentEvent(state: GameState, action: GameAction): Reducer
     }
   }
 
-  logDetail(`Playing permanent event: ${def.name}`);
+  logDetail(`Playing permanent event: ${def.name} → enters chain`);
 
+  // Remove card from hand — it now resides on the chain
   const newHand = [...player.hand];
   newHand.splice(cardIdx, 1);
 
-  const newCardsInPlay = [...player.cardsInPlay, {
-    instanceId: action.cardInstanceId,
-    definitionId: handCard.definitionId,
-    status: CardStatus.Untapped,
-  }];
-
   const newPlayers = clonePlayers(state);
-  newPlayers[playerIndex] = { ...player, hand: newHand, cardsInPlay: newCardsInPlay };
+  newPlayers[playerIndex] = { ...player, hand: newHand };
   let newState: GameState = { ...state, players: newPlayers };
 
-  // Check for on-event effects with discard-cards-in-play when the card enters play
-  if (def.effects) {
-    for (const effect of def.effects) {
-      if (effect.type === 'on-event' && effect.event === 'self-enters-play' && effect.apply.type === 'discard-cards-in-play' && effect.apply.filter) {
-        logDetail(`"${def.name}" entered play — discarding cards matching filter`);
-        newState = discardCardsInPlay(newState, effect.apply.filter);
-      }
-    }
+  // Initiate or push onto chain — card enters play upon resolution
+  if (newState.chain === null) {
+    newState = initiateChain(newState, action.player, handCard, { type: 'permanent-event' });
+  } else {
+    newState = pushChainEntry(newState, action.player, handCard, { type: 'permanent-event' });
   }
 
   return { state: newState };
@@ -2708,7 +2701,7 @@ function handlePlayShortEvent(state: GameState, action: GameAction): ReducerResu
     p.cardsInPlay.some(c => c.instanceId === action.targetInstanceId),
   );
   const targetInChain = state.chain?.entries.some(
-    e => e.cardInstanceId === action.targetInstanceId && !e.resolved && !e.negated,
+    e => e.card?.instanceId === action.targetInstanceId && !e.resolved && !e.negated,
   ) ?? false;
   if (!targetInEvents && !targetInCards && !targetInChain) {
     return { state, error: 'Target environment not in play or on chain' };
@@ -2734,9 +2727,9 @@ function handlePlayShortEvent(state: GameState, action: GameAction): ReducerResu
   // Initiate chain or push onto existing chain — target stored in payload
   const payload: ChainEntryPayload = { type: 'short-event', targetInstanceId: action.targetInstanceId };
   if (newState.chain === null) {
-    newState = initiateChain(newState, action.player, action.cardInstanceId, handCard.definitionId, payload);
+    newState = initiateChain(newState, action.player, handCard, payload);
   } else {
-    newState = pushChainEntry(newState, action.player, action.cardInstanceId, handCard.definitionId, payload);
+    newState = pushChainEntry(newState, action.player, handCard, payload);
   }
 
   return { state: newState };
@@ -2813,7 +2806,8 @@ function handleLongEvent(state: GameState, action: GameAction): ReducerResult {
 
 /**
  * Handle playing a resource long-event card during the long-event phase.
- * Removes the card from hand and adds it to eventsInPlay.
+ * Removes the card from hand, places it on the chain, and initiates/pushes
+ * a chain of effects. The card enters play upon resolution (see chain-reducer).
  */
 function handlePlayLongEvent(state: GameState, action: GameAction): ReducerResult {
   if (action.type !== 'play-long-event') return { state, error: 'Expected play-long-event action' };
@@ -2854,23 +2848,24 @@ function handlePlayLongEvent(state: GameState, action: GameAction): ReducerResul
     }
   }
 
-  logDetail(`Playing resource long-event: ${def.name}`);
+  logDetail(`Playing resource long-event: ${def.name} → enters chain`);
 
+  // Remove card from hand — it now resides on the chain
   const newHand = [...player.hand];
   newHand.splice(cardIdx, 1);
 
   const newPlayers = clonePlayers(state);
-  newPlayers[playerIndex] = {
-    ...player,
-    hand: newHand,
-    cardsInPlay: [...player.cardsInPlay, {
-      instanceId: action.cardInstanceId,
-      definitionId: handCard.definitionId,
-      status: CardStatus.Untapped,
-    }],
-  };
+  newPlayers[playerIndex] = { ...player, hand: newHand };
+  let newState: GameState = { ...state, players: newPlayers };
 
-  return { state: { ...state, players: newPlayers } };
+  // Initiate or push onto chain — card enters play upon resolution
+  if (newState.chain === null) {
+    newState = initiateChain(newState, action.player, handCard, { type: 'long-event' });
+  } else {
+    newState = pushChainEntry(newState, action.player, handCard, { type: 'long-event' });
+  }
+
+  return { state: newState };
 }
 
 /**
@@ -3051,7 +3046,7 @@ function handlePlayHazardCard(
     };
 
     // Initiate chain — when creature entry resolves, combat will start (TODO)
-    newState = initiateChain(newState, action.player, action.cardInstanceId, handCard.definitionId, { type: 'creature' });
+    newState = initiateChain(newState, action.player, handCard, { type: 'creature' });
 
     return { state: newState };
   }
@@ -3084,9 +3079,9 @@ function handlePlayHazardCard(
 
     // Initiate chain or push onto existing chain
     if (newState.chain === null) {
-      newState = initiateChain(newState, action.player, action.cardInstanceId, handCard.definitionId, { type: 'short-event' });
+      newState = initiateChain(newState, action.player, handCard, { type: 'short-event' });
     } else {
-      newState = pushChainEntry(newState, action.player, action.cardInstanceId, handCard.definitionId, { type: 'short-event' });
+      newState = pushChainEntry(newState, action.player, handCard, { type: 'short-event' });
     }
 
     return { state: newState };
@@ -3121,22 +3116,14 @@ function handlePlayHazardCard(
     }
   }
 
-  logDetail(`Play-hazards: hazard player plays event "${def.name}" (${mhState.hazardsPlayedThisCompany + 1}/${mhState.hazardLimit})`);
+  logDetail(`Play-hazards: hazard player plays ${def.eventType}-event "${def.name}" (${mhState.hazardsPlayedThisCompany + 1}/${mhState.hazardLimit}) → enters chain`);
 
-  // Move card from hand to cardsInPlay
+  // Remove card from hand — it now resides on the chain
   const newHand = [...hazardPlayer.hand];
   newHand.splice(cardIdx, 1);
 
   const newPlayers = clonePlayers(state);
-  newPlayers[hazardIndex] = {
-    ...hazardPlayer,
-    hand: newHand,
-    cardsInPlay: [...hazardPlayer.cardsInPlay, {
-      instanceId: action.cardInstanceId,
-      definitionId: handCard.definitionId,
-      status: CardStatus.Untapped,
-    }],
-  };
+  newPlayers[hazardIndex] = { ...hazardPlayer, hand: newHand };
 
   let newState: GameState = {
     ...state,
@@ -3149,14 +3136,12 @@ function handlePlayHazardCard(
     },
   };
 
-  // Check for on-event effects with discard-cards-in-play when the card enters play
-  if (def.eventType === 'permanent' && def.effects) {
-    for (const effect of def.effects) {
-      if (effect.type === 'on-event' && effect.event === 'self-enters-play' && effect.apply.type === 'discard-cards-in-play' && effect.apply.filter) {
-        logDetail(`"${def.name}" entered play — discarding cards matching filter`);
-        newState = discardCardsInPlay(newState, effect.apply.filter);
-      }
-    }
+  // Initiate or push onto chain — card enters play upon resolution
+  const payloadType = def.eventType === 'permanent' ? 'permanent-event' : 'long-event';
+  if (newState.chain === null) {
+    newState = initiateChain(newState, action.player, handCard, { type: payloadType });
+  } else {
+    newState = pushChainEntry(newState, action.player, handCard, { type: payloadType });
   }
 
   return { state: newState };

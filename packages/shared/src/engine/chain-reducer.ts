@@ -12,10 +12,11 @@
  * helpers from this module to push entries onto the chain stack.
  */
 
-import type { GameState, GameAction, PlayerId, PlayerState, CardInstanceId, CardDefinitionId, ChainState, ChainEntry, ChainEntryPayload, ChainRestriction, DeferredPassive, CombatState, CreatureCard } from '../index.js';
-import { getPlayerIndex } from '../index.js';
+import type { GameState, GameAction, PlayerId, PlayerState, CardInstance, CardInstanceId, ChainState, ChainEntry, ChainEntryPayload, ChainRestriction, DeferredPassive, CombatState, CreatureCard } from '../index.js';
+import { getPlayerIndex, CardStatus } from '../index.js';
 import { resolveInstanceId } from '../types/state.js';
 import { logHeading, logDetail } from './legal-actions/log.js';
+import { discardCardsInPlay } from './reducer.js';
 import type { ReducerResult } from './reducer.js';
 
 /**
@@ -33,8 +34,7 @@ function opponent(state: GameState, playerId: PlayerId): PlayerId {
  *
  * @param state - Current game state (chain must be null).
  * @param declaredBy - The player initiating the chain.
- * @param cardInstanceId - The card being played, or null for non-card entries.
- * @param definitionId - The card definition ID, or null.
+ * @param card - The card being played (physically held by the chain), or null for non-card entries.
  * @param payload - What kind of chain entry this is.
  * @param restriction - Chain restriction mode (default: 'normal').
  * @returns New game state with chain active.
@@ -42,8 +42,7 @@ function opponent(state: GameState, playerId: PlayerId): PlayerId {
 export function initiateChain(
   state: GameState,
   declaredBy: PlayerId,
-  cardInstanceId: CardInstanceId | null,
-  definitionId: CardDefinitionId | null,
+  card: CardInstance | null,
   payload: ChainEntryPayload,
   restriction: ChainRestriction = 'normal',
 ): GameState {
@@ -53,8 +52,7 @@ export function initiateChain(
   const entry: ChainEntry = {
     index: 0,
     declaredBy,
-    cardInstanceId,
-    definitionId,
+    card,
     payload,
     resolved: false,
     negated: false,
@@ -84,16 +82,14 @@ export function initiateChain(
  *
  * @param state - Current game state (chain must be non-null and in declaring mode).
  * @param declaredBy - The player declaring the response.
- * @param cardInstanceId - The card being played, or null.
- * @param definitionId - The card definition ID, or null.
+ * @param card - The card being played (physically held by the chain), or null.
  * @param payload - What kind of chain entry this is.
  * @returns New game state with entry added and priority flipped.
  */
 export function pushChainEntry(
   state: GameState,
   declaredBy: PlayerId,
-  cardInstanceId: CardInstanceId | null,
-  definitionId: CardDefinitionId | null,
+  card: CardInstance | null,
   payload: ChainEntryPayload,
 ): GameState {
   const chain = state.chain!;
@@ -102,8 +98,7 @@ export function pushChainEntry(
   const entry: ChainEntry = {
     index: chain.entries.length,
     declaredBy,
-    cardInstanceId,
-    definitionId,
+    card,
     payload,
     resolved: false,
     negated: false,
@@ -327,7 +322,7 @@ function resolveEnvironmentCancel(state: GameState, targetInstanceId: CardInstan
 
   // Check if target is on the chain (environment declared earlier in the same chain)
   const chainIdx = chain.entries.findIndex(
-    e => e.cardInstanceId === targetInstanceId && !e.resolved && !e.negated,
+    e => e.card?.instanceId === targetInstanceId && !e.resolved && !e.negated,
   );
   if (chainIdx !== -1) {
     logDetail(`Environment cancel: negating chain entry #${chainIdx} (${targetName})`);
@@ -374,6 +369,68 @@ function resolveEnvironmentCancel(state: GameState, targetInstanceId: CardInstan
 }
 
 /**
+ * Resolves a permanent-event chain entry: moves the card from the chain
+ * into the declaring player's `cardsInPlay` and executes `self-enters-play`
+ * effects (e.g. Gates of Morning discarding hazard environments).
+ */
+function resolvePermanentEvent(state: GameState, entry: ChainEntry): GameState {
+  const card = entry.card!;
+  const def = state.cardPool[card.definitionId as string];
+  const playerIndex = getPlayerIndex(state, entry.declaredBy);
+
+  logDetail(`Permanent event resolves: "${def?.name ?? card.definitionId}" enters play for player ${entry.declaredBy as string}`);
+
+  // Add card to cardsInPlay
+  const newPlayers: [PlayerState, PlayerState] = [state.players[0], state.players[1]];
+  newPlayers[playerIndex] = {
+    ...newPlayers[playerIndex],
+    cardsInPlay: [...newPlayers[playerIndex].cardsInPlay, {
+      instanceId: card.instanceId,
+      definitionId: card.definitionId,
+      status: CardStatus.Untapped,
+    }],
+  };
+  let newState: GameState = { ...state, players: newPlayers };
+
+  // Execute self-enters-play effects (e.g. discard-cards-in-play)
+  if (def && 'effects' in def && def.effects) {
+    for (const effect of def.effects) {
+      if (effect.type === 'on-event' && effect.event === 'self-enters-play' && effect.apply.type === 'discard-cards-in-play' && effect.apply.filter) {
+        logDetail(`"${def.name}" entered play — discarding cards matching filter`);
+        newState = discardCardsInPlay(newState, effect.apply.filter);
+      }
+    }
+  }
+
+  return newState;
+}
+
+/**
+ * Resolves a long-event chain entry: moves the card from the chain
+ * into the declaring player's `cardsInPlay`.
+ */
+function resolveLongEvent(state: GameState, entry: ChainEntry): GameState {
+  const card = entry.card!;
+  const def = state.cardPool[card.definitionId as string];
+  const playerIndex = getPlayerIndex(state, entry.declaredBy);
+
+  logDetail(`Long event resolves: "${def?.name ?? card.definitionId}" enters play for player ${entry.declaredBy as string}`);
+
+  // Add card to cardsInPlay
+  const newPlayers: [PlayerState, PlayerState] = [state.players[0], state.players[1]];
+  newPlayers[playerIndex] = {
+    ...newPlayers[playerIndex],
+    cardsInPlay: [...newPlayers[playerIndex].cardsInPlay, {
+      instanceId: card.instanceId,
+      definitionId: card.definitionId,
+      status: CardStatus.Untapped,
+    }],
+  };
+
+  return { ...state, players: newPlayers };
+}
+
+/**
  * Creates a CombatState when a creature chain entry resolves.
  *
  * The creature card was already moved to the hazard player's discard pile
@@ -381,7 +438,7 @@ function resolveEnvironmentCancel(state: GameState, targetInstanceId: CardInstan
  * player's marshalling point pile (all strikes defeated) or stays in discard.
  */
 function initiateCreatureCombat(state: GameState, entry: ChainEntry): GameState {
-  const creatureDef = state.cardPool[entry.definitionId as string] as CreatureCard | undefined;
+  const creatureDef = state.cardPool[entry.card?.definitionId as string] as CreatureCard | undefined;
   if (!creatureDef || creatureDef.cardType !== 'hazard-creature') {
     logDetail(`Creature resolution: definition not found or not a creature — fizzle`);
     return state;
@@ -412,7 +469,7 @@ function initiateCreatureCombat(state: GameState, entry: ChainEntry): GameState 
   }
 
   const combat: CombatState = {
-    attackSource: { type: 'creature', instanceId: entry.cardInstanceId! },
+    attackSource: { type: 'creature', instanceId: entry.card!.instanceId },
     companyId: company.id,
     defendingPlayerId: state.activePlayer!,
     attackingPlayerId: hazardPlayerId,
@@ -454,8 +511,16 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
     current = resolveEnvironmentCancel(current, entry.payload.targetInstanceId, chain);
   }
 
-  if (entry.payload.type === 'creature' && entry.cardInstanceId && entry.definitionId) {
+  if (entry.payload.type === 'creature' && entry.card) {
     current = initiateCreatureCombat(current, entry);
+  }
+
+  if (entry.payload.type === 'permanent-event' && !entry.negated && entry.card) {
+    current = resolvePermanentEvent(current, entry);
+  }
+
+  if (entry.payload.type === 'long-event' && !entry.negated && entry.card) {
+    current = resolveLongEvent(current, entry);
   }
 
   // Mark entry as resolved
@@ -554,21 +619,38 @@ function completeChain(state: GameState): GameState {
   const chain = state.chain!;
   logHeading(`Chain complete — ${chain.entries.length} entries resolved`);
 
+  // Flush negated entries: cards still on the chain go to their declaring player's discard
+  let current = state;
+  for (const entry of chain.entries) {
+    if (entry.negated && entry.card) {
+      const playerIndex = getPlayerIndex(current, entry.declaredBy);
+      const player = current.players[playerIndex];
+      const def = current.cardPool[entry.card.definitionId as string];
+      logDetail(`Flushing negated card "${def?.name ?? entry.card.definitionId}" to player ${entry.declaredBy as string} discard`);
+      const newPlayers: [PlayerState, PlayerState] = [current.players[0], current.players[1]];
+      newPlayers[playerIndex] = {
+        ...player,
+        discardPile: [...player.discardPile, { instanceId: entry.card.instanceId, definitionId: entry.card.definitionId }],
+      };
+      current = { ...current, players: newPlayers };
+    }
+  }
+
   // If deferred passives were triggered, create a follow-up chain
   if (chain.deferredPassives.length > 0) {
     logDetail(`${chain.deferredPassives.length} deferred passive(s) — creating follow-up chain`);
-    return createFollowUpChain(state, chain);
+    return createFollowUpChain(current, chain);
   }
 
   // Restore parent chain if this was a nested sub-chain
   if (chain.parentChain) {
     logDetail(`Restoring parent chain`);
-    return { ...state, chain: chain.parentChain };
+    return { ...current, chain: chain.parentChain };
   }
 
   // Chain fully complete — clear it
   logDetail(`No parent chain — clearing chain state`);
-  return { ...state, chain: null };
+  return { ...current, chain: null };
 }
 
 /**
@@ -591,8 +673,7 @@ function createFollowUpChain(state: GameState, completedChain: ChainState): Game
   const entries: ChainEntry[] = passives.map((passive, index) => ({
     index,
     declaredBy: resourcePlayer,
-    cardInstanceId: passive.sourceCardId,
-    definitionId: null,
+    card: null, // Passive conditions don't move a card onto the chain — source card stays in play
     payload: passive.payload,
     resolved: false,
     negated: false,
@@ -623,8 +704,7 @@ function createFollowUpChain(state: GameState, completedChain: ChainState): Game
  *
  * @param state - Current game state (chain must be non-null).
  * @param declaredBy - The player initiating the sub-chain.
- * @param cardInstanceId - The card triggering the sub-chain, or null.
- * @param definitionId - The card definition ID, or null.
+ * @param card - The card triggering the sub-chain, or null.
  * @param payload - What kind of sub-chain entry this is.
  * @param restriction - Sub-chain restriction mode.
  * @returns New game state with the sub-chain active and parent chain saved.
@@ -632,8 +712,7 @@ function createFollowUpChain(state: GameState, completedChain: ChainState): Game
 export function interruptWithSubChain(
   state: GameState,
   declaredBy: PlayerId,
-  cardInstanceId: CardInstanceId | null,
-  definitionId: CardDefinitionId | null,
+  card: CardInstance | null,
   payload: ChainEntryPayload,
   restriction: ChainRestriction = 'normal',
 ): GameState {
@@ -642,8 +721,7 @@ export function interruptWithSubChain(
   const entry: ChainEntry = {
     index: 0,
     declaredBy,
-    cardInstanceId,
-    definitionId,
+    card,
     payload,
     resolved: false,
     negated: false,
@@ -724,8 +802,7 @@ export function scanPhaseBoundary(
   const entries: ChainEntry[] = passives.map((passive, index) => ({
     index,
     declaredBy: resourcePlayer,
-    cardInstanceId: passive.sourceCardId,
-    definitionId: null,
+    card: null, // Passive conditions don't move a card onto the chain
     payload: passive.payload,
     resolved: false,
     negated: false,

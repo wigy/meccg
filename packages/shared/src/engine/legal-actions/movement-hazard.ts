@@ -503,9 +503,9 @@ function findEnvironmentTargets(state: GameState): { instanceId: CardInstanceId;
   if (state.chain) {
     for (const entry of state.chain.entries) {
       if (entry.resolved || entry.negated) continue;
-      if (!entry.definitionId) continue;
-      if (isEnv(entry.definitionId as string) && entry.cardInstanceId) {
-        targets.push({ instanceId: entry.cardInstanceId, definitionId: entry.definitionId as string });
+      if (!entry.card) continue;
+      if (isEnv(entry.card.definitionId as string)) {
+        targets.push({ instanceId: entry.card.instanceId, definitionId: entry.card.definitionId as string });
       }
     }
   }

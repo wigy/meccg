@@ -550,8 +550,8 @@ function renderState(input: RenderInput): string {
     for (let i = input.chain.entries.length - 1; i >= 0; i--) {
       const entry = input.chain.entries[i];
       const status = entry.negated ? ' [negated]' : entry.resolved ? ' [resolved]' : '';
-      const cardName = entry.cardInstanceId
-        ? formatInstanceName(entry.cardInstanceId, defOf, instOf)
+      const cardName = entry.card
+        ? formatInstanceName(entry.card.instanceId, defOf, instOf)
         : entry.payload.type;
       const target = entry.payload.type === 'short-event' && entry.payload.targetInstanceId
         ? ` → ${formatInstanceName(entry.payload.targetInstanceId, defOf, instOf)}`
