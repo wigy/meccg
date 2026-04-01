@@ -867,15 +867,13 @@
         "value": -1
       },
       {
-        "type": "stat-modifier",
-        "stat": "direct-influence",
-        "value": -1,
-        "when": {
-          "reason": "faction-influence-check"
-        }
+        "type": "check-modifier",
+        "check": "influence",
+        "value": -1
       }
     ],
-    "text": "Unique. -1 to all of his corruption checks. -1 to influence checks against factions."
+    "text": "Unique. -1 to all of his corruption checks. -1 to influence checks against factions.",
+    "certified": "2026-04-01"
   },
   {
     "cardType": "hero-character",
