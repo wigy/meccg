@@ -1,13 +1,15 @@
 {
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
-    "outDir": "./dist",
-    "rootDir": "./src",
+    "outDir": "./dist/browser",
+    "rootDir": "./src/browser",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "noEmit": true,
     "paths": {
       "@meccg/shared": ["../shared/src/index.ts"]
     }
   },
-  "include": ["src"],
+  "include": ["src/browser"],
   "references": [
     { "path": "../shared" }
   ]

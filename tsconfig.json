@@ -4,7 +4,7 @@
     { "path": "packages/shared" },
     { "path": "packages/game-server" },
     { "path": "packages/text-client" },
-    { "path": "packages/web-client" },
-    { "path": "packages/lobby-server" }
+    { "path": "packages/lobby-server" },
+    { "path": "packages/lobby-server/tsconfig.browser.json" }
   ]
 }

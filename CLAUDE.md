@@ -27,10 +27,8 @@ For implementation-specific terminology (mail, game state, card instances, etc.)
 - **Build API docs:** `npm run docs` (outputs to `docs/api/`)
 - **Start server:** `npm run start -w @meccg/game-server -- <player1> <player2>` (two player names required)
 - **Start text client:** `npm run start -w @meccg/text-client -- <name>`
-- **Start web client:** `npm run start -w @meccg/web-client` (serves on port 8080, proxies WS to game server on 3000)
 - **Hot reload:** Use `dev` instead of `start` (e.g. `npm run dev -w @meccg/game-server -- Alice Bob`)
-- **Web client dev mode:** `npm run dev -w @meccg/web-client` (esbuild watch + live-reload via SSE)
-- **Start lobby server:** `npm run start -w @meccg/lobby-server` (serves on port 8080 with auth + matchmaking)
+- **Start lobby server:** `npm run start -w @meccg/lobby-server` (serves on port 8080 with auth + matchmaking, includes browser UI)
 - **Lobby dev mode:** `npm run dev -w @meccg/lobby-server` (hot-reload, spawns game servers on demand)
 
 ### Verification During Development
@@ -48,12 +46,11 @@ Before every commit, always run all four of these **in parallel** and fix any fa
 
 ## Architecture
 
-- **Monorepo** using npm workspaces: `packages/shared`, `packages/game-server`, `packages/text-client`, `packages/web-client`, `packages/lobby-server`
+- **Monorepo** using npm workspaces: `packages/shared`, `packages/game-server`, `packages/text-client`, `packages/lobby-server`
 - **`@meccg/shared`** — Pure TypeScript types, constants, and the game engine (pure reducer: `(state, action) → state`). Engine code in `src/engine/`, phase handlers in `src/engine/legal-actions/`. Tests in `src/tests/`.
 - **`@meccg/game-server`** — WebSocket server, game session management, and state projection. Re-exports engine from shared.
 - **`@meccg/text-client`** — Text console client over WebSocket.
-- **`@meccg/web-client`** — Browser web client. Serves HTML/JS/CSS on HTTP, proxies WebSocket to game server, and caches card images from GitHub to `~/.meccg/image-cache/`.
-- **`@meccg/lobby-server`** — Lobby server with player registration, auth, online presence, matchmaking, and game lifecycle management. Spawns game-server child processes on demand.
+- **`@meccg/lobby-server`** — Lobby server with player registration, auth, online presence, matchmaking, game lifecycle management, and browser UI. Spawns game-server child processes on demand. Browser code lives in `src/browser/`, static assets in `public/`.
 - **State model:** Full game state (server-only) → projection function → player view (per-player, hidden info redacted).
 - Project references: game-server and clients reference shared via `tsconfig.json` references + path mappings.
 

@@ -7,12 +7,12 @@ ROOT=`dirname "$FILE"`/..
 
 cd "$ROOT"
 
-# Build web-client bundle once up front
-npm run build -w @meccg/web-client
+# Build browser bundle once up front
+npm run build:browser -w @meccg/lobby-server
 
-# Start esbuild watcher for web-client in background
-npx esbuild packages/web-client/src/browser/app.ts \
-  --bundle --outfile=packages/web-client/public/bundle.js \
+# Start esbuild watcher for browser code in background
+npx esbuild packages/lobby-server/src/browser/app.ts \
+  --bundle --outfile=packages/lobby-server/public/bundle.js \
   --format=iife --platform=browser --watch=forever &
 ESBUILD_PID=$!
 

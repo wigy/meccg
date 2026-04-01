@@ -8,6 +8,7 @@
     }
   },
   "include": ["src"],
+  "exclude": ["src/browser"],
   "references": [
     { "path": "../shared" }
   ]

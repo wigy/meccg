@@ -52,16 +52,14 @@ Open **http://localhost:8080**, register an account, and start a game against an
 ```
 packages/
 ├── shared/         # Game engine, types, card data, tests (pure TypeScript)
-├── lobby-server/   # Lobby: auth, matchmaking, game lifecycle
+├── lobby-server/   # Lobby: auth, matchmaking, game lifecycle, browser UI
 ├── game-server/    # WebSocket game server, state projection
-├── web-client/     # Browser UI (HTML/CSS/JS, esbuild)
 └── text-client/    # Text console client
 ```
 
 - **`@meccg/shared`** — The game engine (pure reducer), card definitions, type system, and all tests
-- **`@meccg/lobby-server`** — Lobby server with player registration, login, online presence, matchmaking, and game server lifecycle management
+- **`@meccg/lobby-server`** — Lobby server with player registration, login, online presence, matchmaking, game server lifecycle management, and browser UI (card art, dice, hand arcs)
 - **`@meccg/game-server`** — WebSocket server managing game sessions, projecting per-player views with hidden info redacted
-- **`@meccg/web-client`** — Browser client with a visual board (card art, dice, hand arcs) and a debug view
 - **`@meccg/text-client`** — Terminal client with ANSI colors and a pluggable AI strategy system
 
 ## Testing

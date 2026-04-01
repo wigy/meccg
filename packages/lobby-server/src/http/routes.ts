@@ -17,7 +17,7 @@
  * - GET /api/saves/check?opponent=NAME — check if a saved game exists
  * - POST /api/saves/delete — delete saved game files for an opponent
  * - GET /cards/images/* — card image proxy with disk cache
- * - GET /* — static files from web-client/public/
+ * - GET /* — static files from public/
  *
  * The lobby server replaces the web-client's serve.ts as the HTTP
  * entry point, serving the same static files but adding auth routes.
@@ -41,7 +41,7 @@ import { getSessionPlayer, setSessionCookie, clearSessionCookie } from '../auth/
 
 const IMAGE_CACHE_DIR = process.env.IMAGE_CACHE_DIR ?? path.join(os.homedir(), '.meccg', 'image-cache');
 const SAVE_DIR = process.env.SAVE_DIR ?? path.join(os.homedir(), '.meccg', 'saves');
-const WEB_CLIENT_PUBLIC = path.join(__dirname, '../../../web-client/public');
+const WEB_CLIENT_PUBLIC = path.join(__dirname, '../../public');
 const GAME_SERVER_SNAPSHOTS = path.join(__dirname, '../../../game-server/data/dev/snapshots/index.json');
 
 /** Names that cannot be registered by players. Checked case-insensitively. */

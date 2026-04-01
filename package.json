@@ -9,7 +9,7 @@
     "test:nightly": "npm run test:nightly -w @meccg/shared",
     "lint": "eslint packages/*/src/",
     "lint:fix": "eslint --fix packages/*/src/",
-    "build": "tsc --build packages/game-server/tsconfig.json packages/text-client/tsconfig.json packages/web-client/tsconfig.json packages/lobby-server/tsconfig.json",
+    "build": "tsc --build packages/game-server/tsconfig.json packages/text-client/tsconfig.json packages/lobby-server/tsconfig.json packages/lobby-server/tsconfig.browser.json",
     "docs": "typedoc"
   },
   "devDependencies": {
