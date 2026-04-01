@@ -6,19 +6,19 @@
 
 | Total Cards | Certified | Remaining | Progress |
 |:-----------:|:---------:|:---------:|:--------:|
-| 39          | 3         | 36        | 7.7%     |
+| 43          | 8         | 35        | 18.6%    |
 
 ## Category Breakdown
 
 | Category | Cards | Done | % |
 |:---------|:-----:|:----:|:-:|
-| Hero Characters | 19 | 0 | 0.0% |
+| Hero Characters | 18 | 2 | 11.1% |
 | Hero Resource Items | 6 | 0 | 0.0% |
-| Hero Resource Events | 1 | 1 | 100.0% |
-| Hero Sites | 1 | 1 | 100.0% |
-| Hazard Events | 1 | 1 | 100.0% |
+| Hero Resource Events | 2 | 2 | 100.0% |
+| Hero Sites | 2 | 2 | 100.0% |
+| Hazard Events | 2 | 2 | 100.0% |
 | Hazard Creatures | 2 | 0 | 0.0% |
-| Minion Characters | 7 | 0 | 0.0% |
+| Minion Characters | 8 | 0 | 0.0% |
 | Minion Resource Items | 2 | 0 | 0.0% |
 | Minion Resource Allies | 1 | 0 | 0.0% |
 
@@ -39,7 +39,8 @@
 | le-313 | High Helm | minion-resource-item | 2 | ☐ |
 | tw-015 | Barrow-wight | hazard-creature | 1 | ☐ |
 | tw-020 | Cave-drake | hazard-creature | 1 | ☐ |
-| tw-106 | Twilight | hazard-event | 2 | ☑ |
+| tw-028 | Doors of Night | hazard-event | 6 | ☑ |
+| tw-106 | Twilight | hazard-event | 10 | ☑ |
 | tw-118 | Anborn | hero-character | 1 | ☐ |
 | tw-120 | Aragorn II | hero-character | 2 | ☐ |
 | tw-124 | Bard Bowman | hero-character | 1 | ☐ |
@@ -53,15 +54,18 @@
 | tw-152 | Frodo | hero-character | 3 | ☐ |
 | tw-156 | Gandalf | hero-character | 2 | ☐ |
 | tw-159 | Gimli | hero-character | 4 | ☐ |
-| tw-161 | Glorfindel II | hero-character | 1 | ☐ |
+| tw-161 | Glorfindel II | hero-character | 4 | ☑ |
+| tw-164 | Haldir | hero-character | 4 | ☑ |
 | tw-168 | Legolas | hero-character | 1 | ☐ |
 | tw-180 | Sam Gamgee | hero-character | 1 | ☐ |
 | tw-182 | Theoden | hero-character | 1 | ☐ |
 | tw-206 | Dagger of Westernesse | hero-resource-item | 1 | ☐ |
+| tw-243 | Gates of Morning | hero-resource-event | 9 | ☑ |
 | tw-244 | Glamdring | hero-resource-item | 2 | ☐ |
 | tw-259 | Horn of Anor | hero-resource-item | 2 | ☐ |
 | tw-333 | Sting | hero-resource-item | 2 | ☐ |
 | tw-335 | Sun | hero-resource-event | 4 | ☑ |
 | tw-345 | The Mithril-coat | hero-resource-item | 1 | ☐ |
 | tw-347 | The One Ring | hero-resource-item | 5 | ☐ |
+| tw-408 | Lórien | hero-site | 12 | ☑ |
 | tw-421 | Rivendell | hero-site | 12 | ☑ |
