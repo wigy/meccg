@@ -8,9 +8,11 @@ Follow these steps:
 
 1. **Load the card:** Read the card definition from the appropriate data file in `packages/shared/src/data/`. The card ID prefix indicates the set (tw-, le-, as-, wh-, ba-). If the card is not found, report it and stop.
 
-2. **List the card's effects:** Show the card name, card type, and all effects defined in the card's `effects` array. For each effect, show its `type` and a brief summary of what it does (condition, value, etc.).
+2. **Generate DSL effects from card text:** Read the card's `text` field (the official rules text). Using `docs/card-effects-dsl.md` as the reference for all supported effect types, conditions, and value expressions, generate the complete `effects` array that faithfully represents every rule and ability described in the card text. Compare the generated effects with the card's existing `effects` array. If the card has no `effects` array yet, or if the existing effects are missing rules from the text, update the card's data JSON file with the correct effects. Show what was added or changed.
 
-3. **Check each effect against engine support:** For each effect, verify it is actually handled by the game engine. The current implementation status is:
+3. **List the card's effects:** Show the card name, card type, and all effects defined in the card's `effects` array. For each effect, show its `type` and a brief summary of what it does (condition, value, etc.).
+
+4. **Check each effect against engine support:** For each effect, verify it is actually handled by the game engine. The current implementation status is:
 
    **Fully implemented:**
    - `stat-modifier` — prowess, body, direct-influence, corruption-points modifiers with value expressions, max caps, and override mechanism (`packages/shared/src/engine/effects/resolver.ts`)
@@ -30,11 +32,11 @@ Follow these steps:
    - `grant-action` — no engine code
    - `cancel-strike` — no engine code
 
-4. **Check conditions:** For each effect with a `when` condition, verify that the condition uses only supported operators and context paths. All operators ($includes, $gt, $gte, $lt, $lte, $ne, $in, $and, $or, $not) are implemented in `packages/shared/src/effects/condition-matcher.ts`. Check that the context paths referenced (e.g. `bearer.race`, `enemy.race`) are actually populated by the resolver.
+5. **Check conditions:** For each effect with a `when` condition, verify that the condition uses only supported operators and context paths. All operators ($includes, $gt, $gte, $lt, $lte, $ne, $in, $and, $or, $not) are implemented in `packages/shared/src/effects/condition-matcher.ts`. Check that the context paths referenced (e.g. `bearer.race`, `enemy.race`) are actually populated by the resolver.
 
-5. **Check value expressions:** For effects with expression strings (e.g. `"max": "bearer.baseProwess * 2"`), verify the expression uses context variables that are actually provided by `packages/shared/src/engine/effects/resolver.ts`.
+6. **Check value expressions:** For effects with expression strings (e.g. `"max": "bearer.baseProwess * 2"`), verify the expression uses context variables that are actually provided by `packages/shared/src/engine/effects/resolver.ts`.
 
-6. **Report:** Produce a summary table:
+7. **Report:** Produce a summary table:
 
    ```
    Card: <name> (<id>)
@@ -57,7 +59,7 @@ Follow these steps:
 
    For partially/no cases, explain specifically what won't work and what would need to be implemented.
 
-7. **If the card is a site** (hero-site, minion-site, fallen-wizard-site, balrog-site), check site-specific properties:
+8. **If the card is a site** (hero-site, minion-site, fallen-wizard-site, balrog-site), check site-specific properties:
 
    **Structural checks (always verifiable from data):**
    - `siteType` is a valid type (haven, shadow-hold, free-hold, border-hold, ruins-and-lairs)
@@ -77,8 +79,8 @@ Follow these steps:
 
    Include the site-specific findings in the report table alongside any effects.
 
-8. **If the card has no effects and is not a site:** Report that the card has no special effects and is fully playable (basic stats like prowess/body are always handled by the engine).
+9. **If the card has no effects and is not a site:** Report that the card has no special effects and is fully playable (basic stats like prowess/body are always handled by the engine).
 
-9. **Check card test:** Verify that a complete card test exists in `packages/shared/src/tests/cards/` for this card. The test file should cover every rule and special ability described in the card's text. If no test exists, or the test has `test.todo()` entries for untested rules, the card cannot be certified — report what's missing and stop (do not set `certified`).
+10. **Check card test:** Verify that a complete card test exists in `packages/shared/src/tests/cards/` for this card. The test file should cover every rule and special ability described in the card's text. If no test exists, or the test has `test.todo()` entries for untested rules, the card cannot be certified — report what's missing and stop (do not set `certified`).
 
-10. **Certify on success:** If the result is **YES** (all effects fully implemented, or no effects) AND a complete card test exists with no `test.todo()` gaps, set the `certified` field on the card definition in its data JSON file to today's date (ISO 8601 format, e.g. `"2026-03-28"`). This records when the card was last verified as engine-compatible and fully tested. If the card was already certified, update the date. If the result is PARTIALLY or NO, or tests are incomplete, remove any existing `certified` field.
+11. **Certify on success:** If the result is **YES** (all effects fully implemented, or no effects) AND a complete card test exists with no `test.todo()` gaps, set the `certified` field on the card definition in its data JSON file to today's date (ISO 8601 format, e.g. `"2026-03-28"`). This records when the card was last verified as engine-compatible and fully tested. If the card was already certified, update the date. If the result is PARTIALLY or NO, or tests are incomplete, remove any existing `certified` field.
