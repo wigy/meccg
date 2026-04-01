@@ -1322,12 +1322,13 @@ async function openDeckEditor(deckId: string): Promise<void> {
   requestedCards = new Set<string>();
   requestedCertifications = new Set<string>();
   if (sentResp.ok) {
-    const sent = await sentResp.json() as { messages: { topic: string; keywords: Record<string, string> }[] };
+    const sent = await sentResp.json() as { messages: { topic: string; status: string; keywords: Record<string, string> }[] };
     for (const msg of sent.messages) {
-      if (msg.topic === 'card-request' && msg.keywords.deckId && msg.keywords.cardName) {
+      const pending = msg.status !== 'processed';
+      if (pending && msg.topic === 'card-request' && msg.keywords.deckId && msg.keywords.cardName) {
         requestedCards.add(`${msg.keywords.deckId}:${msg.keywords.cardName}`);
       }
-      if (msg.topic === 'certification-request' && msg.keywords.cardId) {
+      if (pending && msg.topic === 'certification-request' && msg.keywords.cardId) {
         requestedCertifications.add(msg.keywords.cardId);
       }
     }
