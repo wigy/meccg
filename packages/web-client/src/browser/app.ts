@@ -1140,6 +1140,9 @@ async function addDeckToCollection(deck: FullDeck): Promise<void> {
 /** Set of "deckId:cardName" keys for already-requested cards. */
 let requestedCards = new Set<string>();
 
+/** Set of card definition IDs for already-requested certifications. */
+let requestedCertifications = new Set<string>();
+
 /** Sort deck entries: favourites first, then known cards, then by card type, then by name. */
 function sortDeckEntries(entries: DeckListEntry[]): DeckListEntry[] {
   return [...entries].sort((a, b) => {
@@ -1215,6 +1218,28 @@ function renderCardList(container: HTMLElement, entries: DeckListEntry[], deckId
     row.appendChild(qtyEl);
     row.appendChild(badge);
     row.appendChild(nameEl);
+    if (def && !('certified' in def && (def as unknown as Record<string, unknown>).certified)) {
+      const certBtn = document.createElement('button');
+      certBtn.className = 'deck-editor-certify-btn';
+      certBtn.title = 'Request certification for this card';
+      if (requestedCertifications.has(entry.card!)) {
+        certBtn.textContent = 'Requested';
+        certBtn.disabled = true;
+      } else {
+        certBtn.textContent = 'Certify';
+        certBtn.addEventListener('click', () => {
+          certBtn.disabled = true;
+          certBtn.textContent = 'Requested';
+          requestedCertifications.add(entry.card!);
+          void fetch('/api/certification-requests', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ cardId: entry.card }),
+          });
+        });
+      }
+      row.appendChild(certBtn);
+    }
     container.appendChild(row);
   }
 }
@@ -1293,13 +1318,17 @@ async function openDeckEditor(deckId: string): Promise<void> {
   const deck = data.decks.find(d => d.id === deckId);
   if (!deck) return;
 
-  // Load sent card-request mails to mark already-requested cards
+  // Load sent mails to mark already-requested cards and certifications
   requestedCards = new Set<string>();
+  requestedCertifications = new Set<string>();
   if (sentResp.ok) {
     const sent = await sentResp.json() as { messages: { topic: string; keywords: Record<string, string> }[] };
     for (const msg of sent.messages) {
       if (msg.topic === 'card-request' && msg.keywords.deckId && msg.keywords.cardName) {
         requestedCards.add(`${msg.keywords.deckId}:${msg.keywords.cardName}`);
+      }
+      if (msg.topic === 'certification-request' && msg.keywords.cardId) {
+        requestedCertifications.add(msg.keywords.cardId);
       }
     }
   }
@@ -1454,6 +1483,31 @@ function renderMessage(messageEl: HTMLElement, full: InboxMessage): void {
     btnContainer.appendChild(implementBtn);
     messageEl.appendChild(btnContainer);
   }
+
+  // Delete button
+  const deleteContainer = document.createElement('div');
+  deleteContainer.className = 'inbox-review-actions';
+  const deleteBtn = document.createElement('button');
+  deleteBtn.className = 'inbox-delete-btn';
+  deleteBtn.textContent = 'Delete';
+  deleteBtn.addEventListener('click', () => {
+    void (async () => {
+      deleteBtn.disabled = true;
+      deleteBtn.textContent = 'Deleting...';
+      const resp = await fetch(`/api/mail/inbox/${full.id}`, { method: 'DELETE' });
+      if (resp.ok) {
+        deleteBtn.textContent = 'Deleted';
+        const listRow = document.querySelector(`.inbox-item[data-msg-id="${full.id}"]`);
+        if (listRow) listRow.remove();
+        messageEl.innerHTML = '';
+      } else {
+        deleteBtn.textContent = 'Failed';
+        deleteBtn.disabled = false;
+      }
+    })();
+  });
+  deleteContainer.appendChild(deleteBtn);
+  messageEl.appendChild(deleteContainer);
 }
 
 /** Render a list of messages into the list panel. */

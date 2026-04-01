@@ -28,7 +28,7 @@ import * as https from 'https';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
-import { cardImageRawUrl } from '@meccg/shared';
+import { cardImageRawUrl, loadCardPool } from '@meccg/shared';
 import { DEV, MASTER_KEY, REVIEWER_PLAYERS } from '../config.js';
 import { broadcastNotification } from '../lobby/lobby.js';
 import { sendMail, writeSentCopy, listInbox, listSent, readMessage, deleteMessage, updateMessageStatus, countUnread } from '../mail/store.js';
@@ -457,6 +457,37 @@ export async function handleRequest(req: http.IncomingMessage, res: http.ServerR
     } catch (err) {
       lobbyLog.log('error', { context: 'card-request', error: String(err) });
       sendJson(res, 500, { error: 'Failed to save card request' });
+    }
+    return;
+  }
+
+  // ---- Certification requests (via mail) ----
+
+  if (urlPath === '/api/certification-requests' && method === 'POST') {
+    const playerName = getSessionPlayer(req);
+    if (!playerName) { sendJson(res, 401, { error: 'Not logged in' }); return; }
+    try {
+      const body = JSON.parse(await readBody(req)) as { cardId?: string };
+      if (!body.cardId) {
+        sendJson(res, 400, { error: 'cardId is required' });
+        return;
+      }
+      const pool = loadCardPool();
+      const def = pool[body.cardId];
+      const cardName = def ? def.name : body.cardId;
+      const id = sendMail(['ai'], {
+        from: getDisplayName(playerName),
+        sender: 'player',
+        topic: 'certification-request',
+        body: `**${getDisplayName(playerName)}** requested certification for card **${cardName}** (\`${body.cardId}\`).`,
+        subject: `${getDisplayName(playerName)} requested certification for "${cardName}"`,
+        keywords: { cardId: body.cardId, cardName, userName: playerName },
+        sentBy: playerName,
+      });
+      sendJson(res, 201, { ok: true, id });
+    } catch (err) {
+      lobbyLog.log('error', { context: 'certification-request', error: String(err) });
+      sendJson(res, 500, { error: 'Failed to save certification request' });
     }
     return;
   }
