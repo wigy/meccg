@@ -825,25 +825,23 @@ function showCharacterActionTooltip(
   const moveActions = options.moveToCompanyActions?.get(charInstId as string);
 
   if (influenceActions && influenceActions.length > 0) {
-    const btn = document.createElement('button');
-    btn.className = 'char-action-tooltip__btn';
-    btn.textContent = 'Reassign Influence';
-    btn.onclick = (e) => {
-      e.stopPropagation();
-      dismissTooltip();
-      if (influenceActions.length === 1 && influenceActions[0].controlledBy === 'general') {
-        onAction(influenceActions[0]);
+    for (const ia of influenceActions) {
+      const btn = document.createElement('button');
+      btn.className = 'char-action-tooltip__btn';
+      if (ia.controlledBy === 'general') {
+        btn.textContent = 'Move under GI';
       } else {
-        influenceMoveSourceId = charInstId;
-        const sourceDefId = cachedInstanceLookup(charInstId);
-        const sourceName = sourceDefId ? cardPool[sourceDefId as string]?.name : undefined;
-        setTargetingInstruction(
-          `Click a highlighted character to reassign ${sourceName ?? 'character'} influence`,
-        );
-        renderCompanyViews(lastView!, lastCardPool!, lastOnAction!);
+        const ctrlDef = cachedInstanceLookup(ia.controlledBy);
+        const ctrlName = ctrlDef ? cardPool[ctrlDef as string]?.name : undefined;
+        btn.textContent = `Move under DI of ${ctrlName ?? 'character'}`;
       }
-    };
-    tooltip.appendChild(btn);
+      btn.onclick = (e) => {
+        e.stopPropagation();
+        dismissTooltip();
+        onAction(ia);
+      };
+      tooltip.appendChild(btn);
+    }
   }
 
   if (splitActions) {
@@ -1080,7 +1078,8 @@ function renderCompanyBlock(
     const cls = allRegress ? '' : 'company-card--influence-source';
 
     if (actions.length === 1 && actions[0].controlledBy === 'general') {
-      // Single option: move to GI — execute directly
+      // Single option: move to GI — mark as available but don't auto-execute.
+      // The tooltip (shown by buildCombinedClick) will let the user confirm.
       const action = actions[0];
       return {
         cls,
@@ -1360,9 +1359,24 @@ function renderCompanyBlock(
       };
     }
 
-    // Single type: influence or company-move only
-    if (!companyResult) return influenceResult;
-    return companyResult;
+    // Single type: company-move only
+    if (companyResult && !influenceResult) return companyResult;
+
+    // Single type: influence only — show tooltip so the user confirms
+    if (influenceResult && !companyResult) {
+      return {
+        cls: influenceResult.cls,
+        handler: (e) => {
+          e.stopPropagation();
+          showCharacterActionTooltip(e.target as HTMLElement, charInstId, cardPool, {
+            ...options!,
+            companyId: company.id,
+          });
+        },
+      };
+    }
+
+    return influenceResult ?? companyResult;
   };
 
   if (titleChar) {
