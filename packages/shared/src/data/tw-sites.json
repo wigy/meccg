@@ -59,7 +59,8 @@
     "automaticAttacks": [],
     "resourceDraws": 2,
     "hazardDraws": 2,
-    "text": "Site Path From Rivendell: Wilderness/Wilderness/Border-land/Wilderness. Site Path From Edhellond: Wilderness/Border-land/Free-domain/Free-domain/Border-land/Wilderness."
+    "text": "Site Path From Rivendell: Wilderness/Wilderness/Border-land/Wilderness. Site Path From Edhellond: Wilderness/Border-land/Free-domain/Free-domain/Border-land/Wilderness.",
+    "certified": "2026-04-01"
   },
   {
     "cardType": "hero-site",
