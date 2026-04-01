@@ -56,6 +56,7 @@ describe('Twilight (tw-106)', () => {
     };
 
     const state = buildTestState({
+      phase: Phase.Organization,
       activePlayer: PLAYER_1,
       players: [
         { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [ARAGORN] }], hand: [TWILIGHT], siteDeck: [MORIA], cardsInPlay: [gomInPlay] },
@@ -83,6 +84,7 @@ describe('Twilight (tw-106)', () => {
     };
 
     const state = buildTestState({
+      phase: Phase.Organization,
       activePlayer: PLAYER_1,
       players: [
         { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [ARAGORN] }], hand: [TWILIGHT], siteDeck: [MORIA] },
@@ -102,6 +104,7 @@ describe('Twilight (tw-106)', () => {
 
   test('not playable when no environment is in play', () => {
     const state = buildTestState({
+      phase: Phase.Organization,
       activePlayer: PLAYER_1,
       players: [
         { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [ARAGORN] }], hand: [TWILIGHT], siteDeck: [MORIA] },
@@ -132,6 +135,7 @@ describe('Twilight (tw-106)', () => {
     };
 
     const state = buildTestState({
+      phase: Phase.Organization,
       activePlayer: PLAYER_1,
       players: [
         { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [ARAGORN] }], hand: [TWILIGHT], siteDeck: [MORIA], cardsInPlay: [gomInPlay, donInPlay] },
@@ -157,6 +161,7 @@ describe('Twilight (tw-106)', () => {
     };
 
     const state = buildTestState({
+      phase: Phase.Organization,
       activePlayer: PLAYER_1,
       players: [
         { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [ARAGORN] }], hand: [TWILIGHT, TWILIGHT], siteDeck: [MORIA], cardsInPlay: [gomInPlay] },
@@ -211,6 +216,7 @@ describe('Twilight (tw-106)', () => {
     };
 
     const state = buildTestState({
+      phase: Phase.Organization,
       activePlayer: PLAYER_1,
       players: [
         { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [ARAGORN] }], hand: [TWILIGHT], siteDeck: [MORIA], cardsInPlay: [gomInPlay] },
@@ -258,6 +264,7 @@ describe('Twilight (tw-106)', () => {
     };
 
     const state = buildTestState({
+      phase: Phase.Organization,
       activePlayer: PLAYER_1,
       players: [
         { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [ARAGORN] }], hand: [TWILIGHT], siteDeck: [MORIA], cardsInPlay: [gomInPlay] },
@@ -291,6 +298,7 @@ describe('Twilight (tw-106)', () => {
 
   test('not playable during M/H phase when no environment in play', () => {
     const state = buildTestState({
+      phase: Phase.Organization,
       activePlayer: PLAYER_1,
       players: [
         { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [ARAGORN] }], hand: [], siteDeck: [MORIA] },
@@ -349,6 +357,7 @@ describe('Twilight (tw-106)', () => {
     };
 
     const state = buildTestState({
+      phase: Phase.Organization,
       activePlayer: PLAYER_1,
       players: [
         { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [ARAGORN] }], hand: [TWILIGHT], siteDeck: [MORIA], cardsInPlay: [gomInPlay] },
@@ -402,6 +411,7 @@ describe('Twilight (tw-106)', () => {
     };
 
     const state = buildTestState({
+      phase: Phase.Organization,
       activePlayer: PLAYER_1,
       players: [
         { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [ARAGORN] }], hand: [TWILIGHT, TWILIGHT], siteDeck: [MORIA], cardsInPlay: [gomInPlay] },

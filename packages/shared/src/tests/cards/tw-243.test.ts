@@ -60,6 +60,7 @@ describe('Gates of Morning (tw-243)', () => {
     };
 
     const state = buildTestState({
+      phase: Phase.Organization,
       activePlayer: PLAYER_1,
       players: [
         { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [ARAGORN] }], hand: [GATES_OF_MORNING], siteDeck: [MORIA] },
@@ -89,6 +90,7 @@ describe('Gates of Morning (tw-243)', () => {
     };
 
     const state = buildTestState({
+      phase: Phase.Organization,
       activePlayer: PLAYER_1,
       players: [
         { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [ARAGORN] }], hand: [GATES_OF_MORNING], siteDeck: [MORIA], cardsInPlay: [donInPlay] },
@@ -118,6 +120,7 @@ describe('Gates of Morning (tw-243)', () => {
     // Use a second player's cardsInPlay with a resource environment
     // (this would normally be blocked by duplication-limit, but we test the discard logic)
     const state = buildTestState({
+      phase: Phase.Organization,
       activePlayer: PLAYER_1,
       players: [
         { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [ARAGORN] }], hand: [GATES_OF_MORNING], siteDeck: [MORIA] },
@@ -138,6 +141,7 @@ describe('Gates of Morning (tw-243)', () => {
     };
 
     const state = buildTestState({
+      phase: Phase.Organization,
       activePlayer: PLAYER_1,
       players: [
         { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [ARAGORN] }], hand: [GATES_OF_MORNING], siteDeck: [MORIA], cardsInPlay: [gomInPlay] },
@@ -158,6 +162,7 @@ describe('Gates of Morning (tw-243)', () => {
     };
 
     const state = buildTestState({
+      phase: Phase.Organization,
       activePlayer: PLAYER_1,
       players: [
         { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [ARAGORN] }], hand: [GATES_OF_MORNING], siteDeck: [MORIA] },
@@ -172,6 +177,7 @@ describe('Gates of Morning (tw-243)', () => {
 
   test('no opposing environments to discard is a no-op', () => {
     const state = buildTestState({
+      phase: Phase.Organization,
       activePlayer: PLAYER_1,
       players: [
         { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [ARAGORN] }], hand: [GATES_OF_MORNING], siteDeck: [MORIA] },

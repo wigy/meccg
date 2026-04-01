@@ -296,8 +296,8 @@ export interface PlayerSetup {
 export interface BuildTestStateOpts {
   activePlayer: PlayerId;
   players: [PlayerSetup, PlayerSetup];
-  /** Which phase the state starts in. Defaults to Organization. */
-  phase?: Phase;
+  /** Which phase the state starts in. */
+  phase: Phase;
   /** RNG seed for deterministic dice rolls. Defaults to 42. */
   seed?: number;
   /**
@@ -421,7 +421,7 @@ export function buildTestState(opts: BuildTestStateOpts): GameState {
     };
   });
 
-  const phase = opts.phase ?? Phase.Organization;
+  const phase = opts.phase;
   let phaseState: GameState['phaseState'];
   if (phase === Phase.Organization) {
     phaseState = { phase: Phase.Organization, characterPlayedThisTurn: false, sideboardFetchedThisTurn: 0, sideboardFetchDestination: null, pendingCorruptionCheck: null } as GameState['phaseState'];
