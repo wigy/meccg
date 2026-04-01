@@ -17,12 +17,12 @@ Follow these steps:
 4. **Display a summary table** sorted by timestamp ascending (oldest first):
 
    ```
-   | # | Status     | Topic                  | Subject                          | From   | Date       |
-   |---|------------|------------------------|----------------------------------|--------|------------|
-   | 1 | new        | card-request           | wigy requested card "Orcrist"    | wigy   | 2026-03-28 |
-   | 2 | processing | certification-request  | wigy requested cert for "Glamdring" | wigy | 2026-03-29 |
+   | # | Msg ID           | Status     | Subject                          | From   | Date       |
+   |---|------------------|------------|----------------------------------|--------|------------|
+   | 1 | 3e79ff7f338fdd9b | new        | wigy requested card "Orcrist"    | wigy   | 2026-03-28 |
+   | 2 | a1b2c3d4e5f67890 | processing | wigy requested cert for "Glamdring" | wigy | 2026-03-29 |
    ```
 
-5. **Show totals** by status (e.g. "3 new, 1 processing, 2 processed") and by topic (e.g. "2 card-request, 1 certification-request, 3 feature-request").
+5. **Show totals** by status (e.g. "3 new, 1 processing, 2 processed").
 
 6. If there are no request messages, report that the AI inbox has no pending requests.
