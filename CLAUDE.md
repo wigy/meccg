@@ -33,11 +33,17 @@ For implementation-specific terminology (mail, game state, card instances, etc.)
 
 ### Verification During Development
 
-Do NOT run tests or lint after making changes. Tests and lint are run once before committing, not during development.
+Do NOT run tests or lint after making changes. Tests and lint are run once before pushing, not during development.
 
 ### Pre-Commit Checklist
 
-Before every commit, always run all five of these **in parallel** and fix any failures:
+Before every commit, run:
+
+1. `npm run build` — type-check (must pass)
+
+### Pre-Push Checklist
+
+Before every push, always run all five of these **in parallel** and fix any failures:
 
 1. `npm run build` — type-check (must pass)
 2. `npm test` — rules tests (must all pass)
