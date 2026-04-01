@@ -754,7 +754,7 @@ function showScreen(id: ScreenId): void {
   // Reset lobby button state when showing the lobby
   if (id === 'lobby-screen') {
     const btn = document.getElementById('play-ai-btn') as HTMLButtonElement | null;
-    if (btn) { btn.textContent = 'Play vs AI'; btn.classList.remove('hidden'); }
+    if (btn) { btn.textContent = 'Play vs Random-AI'; btn.classList.remove('hidden'); }
     document.getElementById('save-prompt')?.classList.add('hidden');
     void loadDecks();
   }
