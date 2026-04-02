@@ -139,6 +139,28 @@
     "text": "The bearer can discard this item to heal a wounded character in his company\u2014change the character\u2019s status from wounded to well and untapped."
   },
   {
+    "cardType": "minion-resource-item",
+    "alignment": "ringwraith",
+    "id": "le-302",
+    "name": "Blazon of the Eye",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/BlazonoftheEye.jpg",
+    "unique": false,
+    "subtype": "minor",
+    "marshallingPoints": 0,
+    "marshallingCategory": "item",
+    "corruptionPoints": 1,
+    "prowessModifier": 0,
+    "bodyModifier": 0,
+    "playableAt": [
+      "ruins-and-lairs",
+      "shadow-hold",
+      "dark-hold",
+      "border-hold"
+    ],
+    "effects": [],
+    "text": "+2 to direct influence against factions. Cannot be duplicated on a given character."
+  },
+  {
     "cardType": "minion-resource-faction",
     "alignment": "ringwraith",
     "id": "le-265",
