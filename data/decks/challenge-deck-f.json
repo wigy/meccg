@@ -141,7 +141,7 @@
     "resources": [
       {
         "name": "A Nice Place to Hide",
-        "card": null,
+        "card": "le-160",
         "qty": 3
       },
       {

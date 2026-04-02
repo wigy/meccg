@@ -233,5 +233,18 @@
     "marshallingCategory": "misc",
     "effects": [],
     "text": "Bring one resource or character (including a Ringwraith) from your sideboard or discard pile into your play deck and shuffle."
+  },
+  {
+    "cardType": "minion-resource-event",
+    "alignment": "ringwraith",
+    "id": "le-160",
+    "name": "A Nice Place to Hide",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/ANicePlacetoHide.jpg",
+    "unique": false,
+    "eventType": "short",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Scout only. Tap scout to cancel an attack against his company."
   }
 ]

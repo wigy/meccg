@@ -61,12 +61,12 @@
   ],
   "deck": {
     "characters": [
-        {
-          "name": "Hoarmurath the Ringwraith",
-          "card": null,
-          "qty": 3
-        }
-      ],
+      {
+        "name": "Hoarmurath the Ringwraith",
+        "card": null,
+        "qty": 3
+      }
+    ],
     "hazards": [
       {
         "name": "Barrow-wight",
@@ -137,7 +137,7 @@
     "resources": [
       {
         "name": "A Nice Place to Hide",
-        "card": null,
+        "card": "le-160",
         "qty": 3
       },
       {
