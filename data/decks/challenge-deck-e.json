@@ -5,7 +5,7 @@
   "pool": [
     {
       "name": "Annalena",
-      "card": null,
+      "card": "tw-119",
       "qty": 1,
       "favourite": true
     },
@@ -70,12 +70,12 @@
   ],
   "deck": {
     "characters": [
-        {
-          "name": "Gandalf",
-          "card": "tw-156",
-          "qty": 3
-        }
-      ],
+      {
+        "name": "Gandalf",
+        "card": "tw-156",
+        "qty": 3
+      }
+    ],
     "hazards": [
       {
         "name": "Ambusher",
