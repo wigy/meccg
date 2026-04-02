@@ -10,7 +10,6 @@ PROJECT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 SECRETS="$HOME/.meccg/secrets.json"
 AI_INFO="$HOME/.meccg/players/ai/info.json"
 BASE_URL="http://localhost:8080"
-COMMANDS_DIR="$PROJECT_DIR/.claude/commands"
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -61,15 +60,9 @@ build_mail() {
   jq -n "$@"
 }
 
-run_skill() {
+run_add_card() {
   cd "$PROJECT_DIR"
-  claude --dangerously-skip-permissions --verbose --output-format text -p "$1" 2>/dev/null
-}
-
-load_skill() {
-  local content
-  content=$(cat "$COMMANDS_DIR/$1")
-  echo "${content//\$ARGUMENTS/$2}"
+  node bin/add-card.mjs "$@" 2>&1
 }
 
 send_review_request() {
@@ -186,10 +179,9 @@ if [ -z "$CARD_NAME" ] || [ -z "$DECK_ID" ]; then
   log "ERROR: Missing cardName or deckId in message keywords."
 else
   log "Card request: $CARD_NAME for deck $DECK_ID (requested by $USER_NAME)"
-  log "Dispatching to handler..."
+  log "Dispatching to add-card script..."
 
-  PROMPT=$(load_skill "handle-card-request.md" "$CARD_NAME $DECK_ID")
-  SKILL_OUTPUT=$(run_skill "$PROMPT") && RC=$? || RC=$?
+  SKILL_OUTPUT=$(run_add_card "$CARD_NAME" "$DECK_ID") && RC=$? || RC=$?
   log "Handler completed (exit $RC)."
 
   # Try to extract git hash from the output
