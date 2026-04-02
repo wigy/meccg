@@ -932,28 +932,5 @@
     "homesite": "Edhellond",
     "effects": [],
     "text": "Unique. The number of cards your opponent draws based on Alatar's company's movement is reduced by one (to minimum of 0). If at a Haven when a hazard creature attacks one of your companies, he may immediately join that company (discard allies he controls). Alatar must face a strike from that creature (in all cases). Following the attack, Alatar must tap (if untapped) and make a corruption check."
-  },
-  {
-    "cardType": "hero-character",
-    "alignment": "wizard",
-    "id": "tw-119",
-    "name": "Annalena",
-    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Annalena.jpg",
-    "unique": true,
-    "race": "elf",
-    "skills": [
-      "scout",
-      "sage"
-    ],
-    "prowess": 3,
-    "body": 8,
-    "mind": 3,
-    "directInfluence": 0,
-    "marshallingPoints": 1,
-    "marshallingCategory": "character",
-    "corruptionModifier": 0,
-    "homesite": "Edhellond",
-    "effects": [],
-    "text": "Unique."
   }
 ]
