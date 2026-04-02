@@ -12,6 +12,20 @@
   },
   {
     "cardType": "hazard-event",
+    "id": "le-145",
+    "name": "Twilight",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/Twilight.jpg",
+    "unique": false,
+    "eventType": "short",
+    "keywords": ["environment"],
+    "effects": [
+      { "type": "play-restriction", "rule": "playable-as-resource" },
+      { "type": "play-restriction", "rule": "no-hazard-limit" }
+    ],
+    "text": "Environment. One environment card (in play or declared earlier in the same chain of effects) is canceled and discarded. Twilight may also be played as a resource, may be played at any point during any player's turn and does not count against the hazard limit."
+  },
+  {
+    "cardType": "hazard-event",
     "id": "le-132",
     "name": "Rebel-talk",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/Rebeltalk.jpg",
