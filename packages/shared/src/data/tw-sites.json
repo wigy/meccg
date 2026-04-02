@@ -476,7 +476,8 @@
     "resourceDraws": 2,
     "hazardDraws": 2,
     "text": "Nearest Haven: Lórien. Playable: Items (minor, major, gold ring). Automatic-attacks: Wolves — 3 strikes with 7 prowess.",
-    "effects": []
+    "effects": [],
+    "certified": "2026-04-02"
   },
   {
     "cardType": "hero-site",
