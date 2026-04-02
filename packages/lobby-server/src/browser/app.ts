@@ -1630,7 +1630,9 @@ function renderMailList(
   }
   for (const msg of messages) {
     const row = document.createElement('div');
-    row.className = 'inbox-item' + (msg.status === 'new' ? ' inbox-item--unread' : '');
+    row.className = 'inbox-item'
+      + (msg.status === 'new' ? ' inbox-item--unread' : '')
+      + (msg.status === 'waiting' ? ' inbox-item--waiting' : '');
     row.dataset.msgId = msg.id;
 
     const info = document.createElement('div');
