@@ -128,6 +128,28 @@
   {
     "cardType": "hero-resource-faction",
     "alignment": "wizard",
+    "id": "tw-200",
+    "name": "Blue Mountain Dwarves",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/BlueMountainDwarves.jpg",
+    "unique": true,
+    "marshallingPoints": 3,
+    "marshallingCategory": "faction",
+    "influenceNumber": 9,
+    "race": "dwarf",
+    "playableAt": [
+      {
+        "site": "Blue Mountain Dwarf-hold"
+      }
+    ],
+    "effects": [
+      { "type": "check-modifier", "check": "influence", "value": -2, "when": { "bearer.race": "elf" } },
+      { "type": "check-modifier", "check": "influence", "value": 2, "when": { "bearer.race": "dwarf" } }
+    ],
+    "text": "Unique. Playable at Blue Mountain Dwarf-hold if the influence check is greater than 9. Standard Modifications: Elves (-2), Dwarves (+2)."
+  },
+  {
+    "cardType": "hero-resource-faction",
+    "alignment": "wizard",
     "id": "tw-276",
     "name": "Men of Anfalas",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/MenofAnfalas.jpg",

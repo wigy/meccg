@@ -62,6 +62,10 @@ export const BARD_BOWMAN = did('tw-124');
 export const ALATAR = did('tw-117');
 /** Anborn — Dúnadan scout/ranger, mind 2, Pelargir. */
 export const ANBORN = did('tw-118');
+/** Balin — dwarf warrior/sage, DI 2, +2 prowess vs Orcs, +1 DI vs Dwarves. */
+export const BALIN = did('tw-123');
+/** Kíli — dwarf warrior/scout, mind 3, +1 prowess vs Orcs, corruption/faction penalties. */
+export const KILI = did('tw-167');
 
 // ---- Items ----
 
@@ -95,6 +99,8 @@ export const RIDERS_OF_ROHAN = did('tw-317');
 export const KNIGHTS_OF_DOL_AMROTH = did('tw-263');
 /** Wood-elves — Elf faction, 3 MP, playable at Thranduil's Halls. */
 export const WOOD_ELVES = did('tw-367');
+/** Blue Mountain Dwarves — Dwarf faction, 3 MP, playable at Blue Mountain Dwarf-hold. */
+export const BLUE_MOUNTAIN_DWARVES = did('tw-200');
 
 // ---- Resource Events ----
 
@@ -155,6 +161,8 @@ export const OLD_FOREST = did('tw-417');
 export const BAG_END = did('tw-372');
 /** Thranduil's Halls — hero free-hold in Woodland Realm, nearest haven Lórien. */
 export const THRANDUILS_HALLS = did('tw-432');
+/** Blue Mountain Dwarf-hold — hero free-hold in Númeriador, nearest haven Grey Havens. */
+export const BLUE_MOUNTAIN_DWARF_HOLD = did('tw-377');
 
 // ---- Regions ----
 
