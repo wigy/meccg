@@ -220,5 +220,18 @@
     "marshallingCategory": "misc",
     "effects": [],
     "text": "Playable on an Orc, Troll, or Man attack. The attack is canceled. Alternatively, playable on any attack if Skies of Fire is in play. The number of strikes from the attack is reduced to half of its original number (rounded up)."
+  },
+  {
+    "cardType": "minion-resource-event",
+    "alignment": "ringwraith",
+    "id": "le-253",
+    "name": "Weigh All Things to a Nicety",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/WeighAllThingstoaNicety.jpg",
+    "unique": false,
+    "eventType": "short",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Bring one resource or character (including a Ringwraith) from your sideboard or discard pile into your play deck and shuffle."
   }
 ]
