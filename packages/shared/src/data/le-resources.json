@@ -185,5 +185,18 @@
       }
     ],
     "text": "Unique. Playable at any tapped or untapped Ruins & Lairs with a Wolf automatic-attack. Tap to cancel a Wolf or Animal attack against his company. +2 to any influence attempt by a character in his company against a Wolf faction."
+  },
+  {
+    "cardType": "minion-resource-event",
+    "alignment": "ringwraith",
+    "id": "le-216",
+    "name": "Orc Quarrels",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/OrcQuarrels.jpg",
+    "unique": false,
+    "eventType": "short",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Playable on an Orc, Troll, or Man attack. The attack is canceled. Alternatively, playable on any attack if Skies of Fire is in play. The number of strikes from the attack is reduced to half of its original number (rounded up)."
   }
 ]

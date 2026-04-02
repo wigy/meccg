@@ -638,6 +638,48 @@ export interface MinionAllyCard {
   readonly certified?: string;
 }
 
+// ---- Minion Resource Events ----
+
+/**
+ * A minion resource event card -- the minion counterpart to {@link HeroResourceEventCard}.
+ *
+ * Minion resource events are beneficial cards played by the minion player.
+ * Like hero resource events, they have a duration class:
+ * - `short` -- Resolved immediately and discarded.
+ * - `long` -- Stays in play until the next Long-event phase, then discarded.
+ * - `permanent` -- Remains in play indefinitely.
+ *
+ * They score marshalling points in the 'misc' category (usually 0).
+ */
+export interface MinionResourceEventCard {
+  /** Discriminant for the card type union. */
+  readonly cardType: 'minion-resource-event';
+  /** Which alignment this card belongs to. */
+  readonly alignment: Alignment;
+  /** Unique identifier in the static card pool. */
+  readonly id: CardDefinitionId;
+  /** Display name (e.g. "Orc Quarrels", "A Nice Place to Hide"). */
+  readonly name: string;
+  /** Full URL to the card's remastered image in the meccg-remaster repository. */
+  readonly image: string;
+  /** Whether only one copy of this event can be in play. Mainly relevant for long/permanent events. */
+  readonly unique: boolean;
+  /** Duration class determining when this event is removed from play. */
+  readonly eventType: 'short' | 'long' | 'permanent';
+  /** Victory points scored at the Free Council (typically 0 for events). */
+  readonly marshallingPoints: number;
+  /** Always 'misc' -- resource events fall into the miscellaneous scoring category. */
+  readonly marshallingCategory: MarshallingCategory.Misc;
+  /** Game keywords that affect card interactions. */
+  readonly keywords?: readonly string[];
+  /** Declarative effects describing this event's abilities. */
+  readonly effects?: readonly CardEffect[];
+  /** Flavor/rules text describing the event's effect. */
+  readonly text: string;
+  /** Date when /certify-card confirmed all effects are engine-supported (ISO 8601). */
+  readonly certified?: string;
+}
+
 // ---- Minion Characters ----
 
 /**
@@ -954,9 +996,9 @@ export type PlayDeckCard = HeroResourceCard | HazardCard;
 /**
  * All minion resource card types -- beneficial cards played by the minion player.
  * Discriminated by `cardType`: `'minion-resource-item'`, `'minion-resource-faction'`,
- * or `'minion-resource-ally'`.
+ * `'minion-resource-ally'`, or `'minion-resource-event'`.
  */
-export type MinionResourceCard = MinionItemCard | MinionFactionCard | MinionAllyCard;
+export type MinionResourceCard = MinionItemCard | MinionFactionCard | MinionAllyCard | MinionResourceEventCard;
 
 /**
  * Union of all character card types (hero and minion). Use this when code
@@ -1058,6 +1100,7 @@ export type CardDefinition =
   | MinionItemCard
   | MinionFactionCard
   | MinionAllyCard
+  | MinionResourceEventCard
   | MinionSiteCard
   | FallenWizardSiteCard
   | BalrogSiteCard
