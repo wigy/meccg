@@ -1,15 +1,30 @@
 #!/bin/bash
 set -e
 
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 LOG_DIR="$HOME/.meccg/logs"
 LOG_FILE="$LOG_DIR/ai.log"
+RAW_LOG_FILE="$LOG_DIR/ai-raw.log"
 
 mkdir -p "$LOG_DIR"
 
 while true; do
   git pull 2>&1 | tee -a "$LOG_FILE"
-  echo "=== AI run started at $(date -Iseconds) ===" | tee -a "$LOG_FILE"
-  claude --dangerously-skip-permissions --verbose -p /ai-processor 2>&1 | tee -a "$LOG_FILE"
-  echo "=== AI run finished at $(date -Iseconds) ===" | tee -a "$LOG_FILE"
+
+  # Check for unhandled requests
+  MSG_ID=$("$SCRIPT_DIR/list-requests" | head -1 | awk '{print $2}')
+
+  if [ -z "$MSG_ID" ]; then
+    echo "=== No pending requests at $(date -Iseconds), sleeping ===" | tee -a "$LOG_FILE"
+    sleep 60
+    continue
+  fi
+
+  echo "=== Handling $MSG_ID at $(date -Iseconds) ===" | tee -a "$LOG_FILE"
+  claude --dangerously-skip-permissions --verbose --output-format stream-json -p "/handle-mail $MSG_ID" 2>>"$LOG_FILE" \
+    | tee -a "$RAW_LOG_FILE" \
+    | "$SCRIPT_DIR/stream-filter" \
+    | tee -a "$LOG_FILE"
+  echo "=== Finished $MSG_ID at $(date -Iseconds) ===" | tee -a "$LOG_FILE"
   sleep 60
 done

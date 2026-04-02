@@ -1,0 +1,67 @@
+#!/usr/bin/env bash
+# Filter Claude's stream-json output into human-readable progress lines.
+# Usage: claude --verbose --output-format stream-json -p ... | stream-filter
+
+while IFS= read -r line; do
+  type=$(echo "$line" | jq -r '.type // empty' 2>/dev/null)
+
+  case "$type" in
+    assistant)
+      # Assistant text — may contain multiple content blocks
+      text=$(echo "$line" | jq -r '[.message.content[]? | select(.type=="text") | .text] | join("")' 2>/dev/null)
+      [ -n "$text" ] && echo "$text"
+      ;;
+    tool_use)
+      # Show which tool is being called
+      tool=$(echo "$line" | jq -r '.name // .tool // empty' 2>/dev/null)
+      case "$tool" in
+        Bash)
+          desc=$(echo "$line" | jq -r '.input.description // empty' 2>/dev/null)
+          cmd=$(echo "$line" | jq -r '.input.command // empty' 2>/dev/null)
+          if [ -n "$desc" ]; then
+            echo "  > $desc"
+          else
+            echo "  > ${cmd:0:120}"
+          fi
+          ;;
+        Agent)
+          desc=$(echo "$line" | jq -r '.input.description // empty' 2>/dev/null)
+          echo "  [agent] $desc"
+          ;;
+        Skill)
+          skill=$(echo "$line" | jq -r '.input.skill // empty' 2>/dev/null)
+          echo "  [skill] /$skill"
+          ;;
+        Read)
+          path=$(echo "$line" | jq -r '.input.file_path // empty' 2>/dev/null)
+          echo "  [read] $path"
+          ;;
+        Write)
+          path=$(echo "$line" | jq -r '.input.file_path // empty' 2>/dev/null)
+          echo "  [write] $path"
+          ;;
+        Edit)
+          path=$(echo "$line" | jq -r '.input.file_path // empty' 2>/dev/null)
+          echo "  [edit] $path"
+          ;;
+        Glob)
+          pattern=$(echo "$line" | jq -r '.input.pattern // empty' 2>/dev/null)
+          echo "  [glob] $pattern"
+          ;;
+        Grep)
+          pattern=$(echo "$line" | jq -r '.input.pattern // empty' 2>/dev/null)
+          echo "  [grep] $pattern"
+          ;;
+      esac
+      ;;
+    result)
+      # Final summary
+      duration_ms=$(echo "$line" | jq -r '.duration_ms // empty' 2>/dev/null)
+      cost=$(echo "$line" | jq -r '.total_cost_usd // empty' 2>/dev/null)
+      if [ -n "$duration_ms" ]; then
+        duration_s=$(awk "BEGIN {printf \"%.1f\", $duration_ms / 1000}")
+        echo "--- Duration: ${duration_s}s, Cost: \$${cost} ---"
+      fi
+      ;;
+  esac
+done

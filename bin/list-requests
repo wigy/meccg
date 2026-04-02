@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+# List unhandled requests in the AI inbox (status: new, topic: *-request)
+set -euo pipefail
+
+INBOX_DIR="$HOME/.meccg/players/ai/mail/inbox"
+
+if [ ! -d "$INBOX_DIR" ]; then
+  echo "No inbox directory found at $INBOX_DIR" >&2
+  exit 1
+fi
+
+shopt -s nullglob
+files=("$INBOX_DIR"/*.json)
+shopt -u nullglob
+
+if [ ${#files[@]} -eq 0 ]; then
+  echo "No messages in inbox."
+  exit 0
+fi
+
+# Filter to unhandled requests (status=new, topic ends with -request)
+# Output: timestamp | id | topic | subject
+jq -r 'select(.status == "new" and (.topic | endswith("-request"))) |
+  [.timestamp, .id, .topic, .subject] | @tsv' "${files[@]}" |
+  sort |
+  while IFS=$'\t' read -r ts id topic subject; do
+    printf "%-20s  %-18s  %-25s  %s\n" "$ts" "$id" "$topic" "$subject"
+  done

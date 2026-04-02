@@ -18,7 +18,7 @@
     "marshallingPoints": 3,
     "marshallingCategory": "character",
     "corruptionModifier": 0,
-    "homesite": "Barad-dûr",
+    "homesite": "Barad-d\u00fbr",
     "effects": [
       {
         "type": "stat-modifier",
@@ -198,7 +198,7 @@
     "cardType": "minion-character",
     "alignment": "ringwraith",
     "id": "le-50",
-    "name": "Adûnaphel the Ringwraith",
+    "name": "Ad\u00fbnaphel the Ringwraith",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/AdunapheltheRingwraith.jpg",
     "unique": true,
     "race": "ringwraith",
@@ -216,7 +216,7 @@
     "corruptionModifier": 0,
     "homesite": "Urlurtsu Nurn",
     "effects": [],
-    "text": "Unique. Manifestation of Adûnaphel. Can use spirit-magic. +2 direct influence in Heralded Lord mode. -2 prowess in Fell Rider mode. As your Ringwraith, if at a Darkhaven, she may tap to cancel one hazard creature attack not played at a site against any one of your companies."
+    "text": "Unique. Manifestation of Ad\u00fbnaphel. Can use spirit-magic. +2 direct influence in Heralded Lord mode. -2 prowess in Fell Rider mode. As your Ringwraith, if at a Darkhaven, she may tap to cancel one hazard creature attack not played at a site against any one of your companies."
   },
   {
     "cardType": "minion-character",

@@ -71,12 +71,12 @@
   ],
   "deck": {
     "characters": [
-        {
-          "name": "Dwar the Ringwraith",
-          "card": null,
-          "qty": 3
-        }
-      ],
+      {
+        "name": "Dwar the Ringwraith",
+        "card": null,
+        "qty": 3
+      }
+    ],
     "hazards": [
       {
         "name": "Ambusher",
@@ -316,7 +316,7 @@
       "qty": 1
     },
     {
-      "name": "Orders from Lugbúrz",
+      "name": "Orders from Lugb\u00farz",
       "card": null,
       "qty": 1
     },
@@ -346,7 +346,7 @@
       "qty": 2
     },
     {
-      "name": "Eärcaraxë Ahunt",
+      "name": "E\u00e4rcarax\u00eb Ahunt",
       "card": "td-21",
       "qty": 1
     },
