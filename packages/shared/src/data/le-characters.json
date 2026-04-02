@@ -240,5 +240,49 @@
     "homesite": "Variag Camp",
     "effects": [],
     "text": "Unique. +2 direct influence against any faction playable at Variag Camp."
+  },
+  {
+    "cardType": "minion-character",
+    "alignment": "ringwraith",
+    "id": "le-31",
+    "name": "Orc Captain",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/OrcCaptain.jpg",
+    "unique": false,
+    "race": "orc",
+    "skills": [
+      "warrior"
+    ],
+    "prowess": 5,
+    "body": 8,
+    "mind": 5,
+    "directInfluence": 0,
+    "marshallingPoints": 2,
+    "marshallingCategory": "character",
+    "corruptionModifier": 0,
+    "homesite": "Any Dark-hold",
+    "keywords": [
+      "Leader"
+    ],
+    "effects": [
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": 3,
+        "when": {
+          "reason": "influence-check",
+          "target.race": "orc"
+        }
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": 3,
+        "when": {
+          "reason": "faction-influence-check",
+          "faction.race": "orc"
+        }
+      }
+    ],
+    "text": "Leader. Discard on a body check result of 8. +3 direct influence against Orcs and Orc factions."
   }
 ]
