@@ -6,7 +6,7 @@
  * sub-states further constrain available actions.
  */
 
-import type { GameState, PlayerId, GameAction, EvaluatedAction, MovementHazardPhaseState, SiteCard, CardDefinitionId, CardInstanceId, CreatureCard, CreatureKeyingMatch, PlayHazardAction } from '../../index.js';
+import type { GameState, PlayerId, GameAction, EvaluatedAction, MovementHazardPhaseState, SiteCard, CardDefinitionId, CardInstanceId, CreatureCard, CreatureKeyingMatch, PlayHazardAction, PlaceOnGuardAction } from '../../index.js';
 import { getPlayerIndex, isSiteCard, buildMovementMap, findRegionPaths, HAND_SIZE, RegionType } from '../../index.js';
 import { resolveInstanceId } from '../../types/state.js';
 import { MovementType } from '../../types/common.js';
@@ -327,7 +327,7 @@ function drawCardsActions(
  * hazard limit). Both players always have a pass action available.
  * The company's M/H phase ends when both players have passed.
  *
- * TODO: creatures, short-events, permanent-events, on-guard cards
+ * TODO: creatures, short-events, permanent-events
  */
 function playHazardsActions(
   state: GameState,
@@ -464,6 +464,25 @@ function playHazardsActions(
       logDetail(`Hazard event "${def.name}" is playable`);
       actions.push({ action, viable: true });
     }
+
+    // --- On-guard placement ---
+    // One on-guard card per company per M/H phase; any hand card is eligible (bluffing allowed).
+    // Counts against hazard limit. Must not be in a chain (placement starts no chain).
+    if (!mhState.onGuardPlacedThisCompany && state.chain == null) {
+      for (const handCard of player.hand) {
+        const ogAction: PlaceOnGuardAction = {
+          type: 'place-on-guard',
+          player: playerId,
+          cardInstanceId: handCard.instanceId,
+        };
+        if (limitReached) {
+          actions.push({ action: ogAction, viable: false, reason: `Hazard limit reached (${mhState.hazardLimit})` });
+        } else {
+          logDetail(`On-guard: card ${handCard.instanceId} eligible for placement`);
+          actions.push({ action: ogAction, viable: true });
+        }
+      }
+    }
   }
 
   // Player who already passed gets no actions (waiting for opponent)
@@ -476,7 +495,7 @@ function playHazardsActions(
   // Pass is always available if not already passed
   actions.push({ action: { type: 'pass', player: playerId }, viable: true });
 
-  const viableCount = actions.filter(a => a.viable && (a.action.type === 'play-hazard' || a.action.type === 'play-short-event')).length;
+  const viableCount = actions.filter(a => a.viable && (a.action.type === 'play-hazard' || a.action.type === 'play-short-event' || a.action.type === 'place-on-guard')).length;
   logDetail(`Play-hazards: ${isResourcePlayer ? 'resource' : 'hazard'} player has ${viableCount} viable hazard(s), ${actions.length} total action(s)`);
   return actions;
 }

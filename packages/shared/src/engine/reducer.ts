@@ -2983,6 +2983,20 @@ function handlePlayHazards(
     return handlePlayShortEvent(state, action);
   }
 
+  // --- Place on-guard ---
+  if (action.type === 'place-on-guard') {
+    if (isResourcePlayer) {
+      return { state, error: 'Only the hazard player may place on-guard cards' };
+    }
+    if (mhState.onGuardPlacedThisCompany) {
+      return { state, error: 'Already placed an on-guard card this company' };
+    }
+    if (mhState.hazardsPlayedThisCompany >= mhState.hazardLimit) {
+      return { state, error: `Hazard limit reached (${mhState.hazardLimit})` };
+    }
+    return handlePlaceOnGuard(state, action, mhState);
+  }
+
   return { state, error: `Unexpected action '${action.type}' during play-hazards step` };
 }
 
@@ -3145,6 +3159,62 @@ function handlePlayHazardCard(
   }
 
   return { state: newState };
+}
+
+/**
+ * Place a card from the hazard player's hand face-down on the active
+ * company as an on-guard card. Any card may be placed (bluffing is
+ * allowed). Counts against the hazard limit and resets the resource
+ * player's pass.
+ */
+function handlePlaceOnGuard(
+  state: GameState,
+  action: GameAction,
+  mhState: MovementHazardPhaseState,
+): ReducerResult {
+  if (action.type !== 'place-on-guard') return { state, error: 'Expected place-on-guard action' };
+
+  const hazardIndex = getPlayerIndex(state, action.player);
+  const hazardPlayer = state.players[hazardIndex];
+
+  // Validate card is in hand
+  const cardIdx = hazardPlayer.hand.findIndex(c => c.instanceId === action.cardInstanceId);
+  if (cardIdx === -1) return { state, error: 'Card not in hand' };
+
+  const handCard = hazardPlayer.hand[cardIdx];
+
+  logDetail(`Play-hazards: hazard player places on-guard card "${action.cardInstanceId}" (${mhState.hazardsPlayedThisCompany + 1}/${mhState.hazardLimit})`);
+
+  // Remove card from hand
+  const newHand = [...hazardPlayer.hand];
+  newHand.splice(cardIdx, 1);
+
+  // Add card to the active company's on-guard cards
+  const activeIndex = getPlayerIndex(state, state.activePlayer!);
+  const newPlayers = clonePlayers(state);
+  newPlayers[hazardIndex] = { ...hazardPlayer, hand: newHand };
+
+  const resourcePlayer = newPlayers[activeIndex];
+  const newCompanies = [...resourcePlayer.companies];
+  const company = newCompanies[mhState.activeCompanyIndex];
+  newCompanies[mhState.activeCompanyIndex] = {
+    ...company,
+    onGuardCards: [...company.onGuardCards, handCard],
+  };
+  newPlayers[activeIndex] = { ...resourcePlayer, companies: newCompanies };
+
+  return {
+    state: {
+      ...state,
+      players: newPlayers,
+      phaseState: {
+        ...mhState,
+        hazardsPlayedThisCompany: mhState.hazardsPlayedThisCompany + 1,
+        onGuardPlacedThisCompany: true,
+        resourcePlayerPassed: false,
+      },
+    },
+  };
 }
 
 /**
@@ -4511,6 +4581,36 @@ function handleSitePassStep(
  * Advance the site phase to the next company or to End-of-Turn if all
  * companies have been handled.
  */
+/**
+ * Return all remaining on-guard cards from the resource player's companies
+ * back to the hazard player's hand. Called at the end of all site phases.
+ */
+function returnOnGuardCardsToHand(state: GameState): GameState {
+  const activeIndex = getPlayerIndex(state, state.activePlayer!);
+  const hazardIndex = 1 - activeIndex;
+
+  const resourcePlayer = state.players[activeIndex];
+  const hazardPlayer = state.players[hazardIndex];
+
+  const returnedCards: CardInstance[] = [];
+  const newCompanies = resourcePlayer.companies.map(company => {
+    if (company.onGuardCards.length > 0) {
+      logDetail(`Cleanup: returning ${company.onGuardCards.length} on-guard card(s) from company ${company.id} to hazard player's hand`);
+      returnedCards.push(...company.onGuardCards);
+      return { ...company, onGuardCards: [] as readonly CardInstance[] };
+    }
+    return company;
+  });
+
+  if (returnedCards.length === 0) return state;
+
+  const newPlayers = clonePlayers(state);
+  newPlayers[activeIndex] = { ...resourcePlayer, companies: newCompanies };
+  newPlayers[hazardIndex] = { ...hazardPlayer, hand: [...hazardPlayer.hand, ...returnedCards] };
+
+  return { ...state, players: newPlayers };
+}
+
 function advanceSiteToNextCompany(
   state: GameState,
   siteState: SitePhaseState,
@@ -4523,9 +4623,11 @@ function advanceSiteToNextCompany(
 
   if (remainingCount <= 0) {
     logDetail(`Site: all companies handled → advancing to End-of-Turn phase`);
+    // Return remaining on-guard cards to hazard player's hand
+    const cleanedState = returnOnGuardCardsToHand(state);
     return {
       state: cleanupEmptyCompanies({
-        ...state,
+        ...cleanedState,
         phaseState: { phase: Phase.EndOfTurn, step: 'discard' as const, discardDone: [false, false] as const },
       }),
     };

@@ -579,6 +579,37 @@ function renderSiteArea(
     }
   }
 
+  // On-guard cards — rendered overlapping the site (offset down 50%)
+  const ogCards = company.onGuardCards;
+  if (ogCards.length > 0) {
+    // Find the last site image in the area to attach on-guard overlay
+    const siteImages = area.querySelectorAll<HTMLImageElement>('.company-card--site');
+    const targetSite = siteImages[siteImages.length - 1];
+    if (targetSite) {
+      // Wrap the target site in a positioned container
+      const wrapper = document.createElement('div');
+      wrapper.className = 'on-guard-wrapper';
+      targetSite.replaceWith(wrapper);
+      wrapper.appendChild(targetSite);
+
+      for (const og of ogCards) {
+        const ogDefId = cachedInstanceLookup(og.instanceId);
+        const ogDef = ogDefId ? cardPool[ogDefId as string] : undefined;
+        const ogImgPath = ogDef ? cardImageProxyPath(ogDef) : undefined;
+        let ogImg: HTMLImageElement;
+        if (ogDef && ogImgPath) {
+          ogImg = createCardImage(ogDefId as string, ogDef, ogImgPath, 'company-card company-card--site on-guard-card', og.instanceId as string);
+        } else {
+          ogImg = document.createElement('img');
+          ogImg.src = '/images/card-back.jpg';
+          ogImg.alt = 'On-guard card';
+          ogImg.className = 'company-card company-card--site on-guard-card';
+        }
+        wrapper.appendChild(ogImg);
+      }
+    }
+  }
+
   return area;
 }
 

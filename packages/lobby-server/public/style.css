@@ -3078,6 +3078,27 @@ h2 {
 .company-card--site {
 }
 
+/* On-guard card wrapper: positioned container so on-guard cards stack over the site */
+.on-guard-wrapper {
+  position: relative;
+  display: inline-block;
+}
+
+/* On-guard cards stacked vertically below the site, each offset further down */
+.on-guard-card {
+  position: absolute;
+  left: 0;
+  z-index: 1;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.6);
+  top: calc(25% * var(--og-index, 1));
+}
+
+.on-guard-card:nth-child(2) { --og-index: 1; z-index: 1; }
+.on-guard-card:nth-child(3) { --og-index: 2; z-index: 2; }
+.on-guard-card:nth-child(4) { --og-index: 3; z-index: 3; }
+.on-guard-card:nth-child(5) { --og-index: 4; z-index: 4; }
+.on-guard-card:nth-child(6) { --og-index: 5; z-index: 5; }
+
 /* Site card not physically owned (split-off company) — ghosted with dashed border */
 .company-card--site-ghost {
   opacity: 0.2;

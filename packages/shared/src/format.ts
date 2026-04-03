@@ -120,6 +120,7 @@ export function buildInstanceLookup(view: PlayerView): InstanceLookup {
   for (const company of s.companies) {
     if (company.currentSite) map[company.currentSite.instanceId as string] = company.currentSite.definitionId;
     if (company.destinationSite) map[company.destinationSite.instanceId as string] = company.destinationSite.definitionId;
+    addCards(company.onGuardCards);
   }
 
   // Opponent piles
@@ -137,6 +138,7 @@ export function buildInstanceLookup(view: PlayerView): InstanceLookup {
   for (const company of o.companies) {
     if (company.currentSite) map[company.currentSite.instanceId as string] = company.currentSite.definitionId;
     if (company.revealedDestinationSite) map[company.revealedDestinationSite.instanceId as string] = company.revealedDestinationSite.definitionId;
+    addCards(company.onGuardCards);
   }
 
   // Events in play
@@ -327,6 +329,12 @@ function formatCompany(
     lines.push(`${indent}${activeMarker}Company ${index + 1} @ ${siteStatus}${siteName}${noSiteTag}:`);
   }
 
+  // On-guard cards
+  if (company.onGuardCards.length > 0) {
+    const ogNames = company.onGuardCards.map(c => formatInstanceName(c.instanceId, defOf, instOf));
+    lines.push(`${indent}  Onguard: ${ogNames.join(', ')}`);
+  }
+
   // Collect follower IDs so we skip them in the main loop (they appear under their controller)
   const followerIds = new Set<string>();
   for (const charId of company.characters) {
@@ -382,6 +390,12 @@ function formatOpponentCompany(
     lines.push(`${indent}${activeMarker}Company ${index + 1} → ${('(planned)')} (from ${siteStatus}${siteName})${noSiteTag}:`);
   } else {
     lines.push(`${indent}${activeMarker}Company ${index + 1} @ ${siteStatus}${siteName}${noSiteTag}:`);
+  }
+
+  // On-guard cards
+  if (company.onGuardCards.length > 0) {
+    const ogNames = company.onGuardCards.map(c => formatInstanceName(c.instanceId, defOf, instOf));
+    lines.push(`${indent}  Onguard: ${ogNames.join(', ')}`);
   }
 
   // Collect follower IDs so we skip them in the main loop
@@ -1034,6 +1048,8 @@ export function describeAction(
       return `Order ${action.effectOrder.length} ongoing effect(s)`;
     case 'enter-site':
       return `Enter site with ${compName(action.companyId)}`;
+    case 'place-on-guard':
+      return `Place on-guard card ${instName(action.cardInstanceId)}`;
     case 'reveal-on-guard':
       return `Reveal on-guard card ${instName(action.cardInstanceId)}`;
     case 'declare-agent-attack':

@@ -210,7 +210,7 @@ export interface Company {
    * phase where cards may be revealed under specific conditions. The cards'
    * identities are hidden from the resource player.
    */
-  readonly onGuardCards: readonly CardInstanceId[];
+  readonly onGuardCards: readonly CardInstance[];
 }
 
 // ---- Events in play (long/permanent) ----
@@ -1332,10 +1332,13 @@ export function resolveInstanceId(state: GameState, instanceId: CardInstanceId):
       if (card.instanceId === instanceId) return card.definitionId;
     }
 
-    // Company sites
+    // Company sites and on-guard cards
     for (const company of player.companies) {
       if (company.currentSite?.instanceId === instanceId) return company.currentSite.definitionId;
       if (company.destinationSite?.instanceId === instanceId) return company.destinationSite.definitionId;
+      for (const card of company.onGuardCards) {
+        if (card.instanceId === instanceId) return card.definitionId;
+      }
     }
 
     // Piles

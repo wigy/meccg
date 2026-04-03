@@ -29,7 +29,7 @@ import type {
   DraftPlayerState,
   CharacterDeckDraftPlayerState,
 } from '@meccg/shared';
-import { UNKNOWN_INSTANCE, UNKNOWN_CARD, UNKNOWN_SITE, getPlayerIndex, Phase } from '@meccg/shared';
+import { UNKNOWN_CARD, UNKNOWN_SITE, getPlayerIndex, Phase } from '@meccg/shared';
 import { computeLegalActions } from '@meccg/shared';
 
 /** Convert a pile of card instances to view cards (structurally identical). */
@@ -37,14 +37,14 @@ function toViewCards(pile: readonly CardInstance[]): ViewCard[] {
   return pile.map(c => ({ instanceId: c.instanceId, definitionId: c.definitionId }));
 }
 
-/** Creates a hidden card pile of the given length using the `UNKNOWN_CARD` sentinel. */
-function hiddenCardPile(length: number): readonly ViewCard[] {
-  return Array.from({ length }, () => ({ instanceId: UNKNOWN_INSTANCE, definitionId: UNKNOWN_CARD }));
+/** Redacts a pile of card instances: keeps real instance IDs, replaces definition with UNKNOWN_CARD. */
+function hiddenCardPile(pile: readonly CardInstance[]): readonly ViewCard[] {
+  return pile.map(c => ({ instanceId: c.instanceId, definitionId: UNKNOWN_CARD }));
 }
 
-/** Creates a hidden site pile of the given length using the `UNKNOWN_SITE` sentinel. */
-function hiddenSitePile(length: number): readonly ViewCard[] {
-  return Array.from({ length }, () => ({ instanceId: UNKNOWN_INSTANCE, definitionId: UNKNOWN_SITE }));
+/** Redacts a pile of site instances: keeps real instance IDs, replaces definition with UNKNOWN_SITE. */
+function hiddenSitePile(pile: readonly CardInstance[]): readonly ViewCard[] {
+  return pile.map(c => ({ instanceId: c.instanceId, definitionId: UNKNOWN_SITE }));
 }
 
 /**
@@ -54,20 +54,27 @@ function hiddenSitePile(length: number): readonly ViewCard[] {
  * deck (not its order).
  */
 function buildSelfView(_state: GameState, player: PlayerState): SelfView {
+  // Redact on-guard card identities — the resource player must not see
+  // what the hazard player placed face-down at their companies.
+  const companies = player.companies.map(c =>
+    c.onGuardCards.length > 0
+      ? { ...c, onGuardCards: hiddenCardPile(c.onGuardCards) }
+      : c,
+  );
   return {
     id: player.id,
     name: player.name,
     alignment: player.alignment,
     wizard: player.wizard,
     hand: toViewCards(player.hand),
-    playDeck: hiddenCardPile(player.playDeck.length),
+    playDeck: hiddenCardPile(player.playDeck),
     discardPile: toViewCards(player.discardPile),
     siteDeck: toViewCards(player.siteDeck),
     siteDiscardPile: toViewCards(player.siteDiscardPile),
     sideboard: toViewCards(player.sideboard),
     killPile: toViewCards(player.killPile),
     eliminatedPile: toViewCards(player.eliminatedPile),
-    companies: player.companies,
+    companies,
     characters: player.characters,
     cardsInPlay: player.cardsInPlay,
     marshallingPoints: player.marshallingPoints,
@@ -94,7 +101,7 @@ function buildOpponentView(_state: GameState, player: PlayerState): OpponentView
     hasPlannedMovement: c.destinationSite !== null,
     revealedDestinationSite: null,
     moved: c.moved,
-    hasOnGuardCard: c.onGuardCards.length > 0,
+    onGuardCards: hiddenCardPile(c.onGuardCards),
   }));
 
   return {
@@ -102,9 +109,9 @@ function buildOpponentView(_state: GameState, player: PlayerState): OpponentView
     name: player.name,
     alignment: player.alignment,
     wizard: player.wizard,
-    hand: hiddenCardPile(player.hand.length),
-    playDeck: hiddenCardPile(player.playDeck.length),
-    siteDeck: hiddenSitePile(player.siteDeck.length),
+    hand: hiddenCardPile(player.hand),
+    playDeck: hiddenCardPile(player.playDeck),
+    siteDeck: hiddenSitePile(player.siteDeck),
     discardPile: toViewCards(player.discardPile),
     siteDiscardPile: toViewCards(player.siteDiscardPile),
     killPile: toViewCards(player.killPile),
@@ -149,7 +156,7 @@ export function projectSpectatorView(state: GameState): PlayerView {
       alignment: p1.alignment,
       wizard: p1.wizard,
       hand: [],
-      playDeck: hiddenCardPile(p1.playDeck.length),
+      playDeck: hiddenCardPile(p1.playDeck),
       discardPile: [],
       siteDeck: [],
       siteDiscardPile: [],
@@ -200,12 +207,11 @@ function redactPhaseForPlayer(phaseState: PhaseState, selfIndex: number): PhaseS
       step.draftState[1],
     ];
     const oppPool = step.draftState[opponentIndex].pool;
-    const hiddenCard: CardInstance = { instanceId: UNKNOWN_INSTANCE, definitionId: UNKNOWN_CARD };
     newDraftState[opponentIndex] = {
       ...step.draftState[opponentIndex],
-      pool: oppPool.map(() => hiddenCard),
+      pool: hiddenCardPile(oppPool),
       // Show that opponent has picked (face-down) without revealing what
-      currentPick: step.draftState[opponentIndex].currentPick !== null ? hiddenCard : null,
+      currentPick: step.draftState[opponentIndex].currentPick !== null ? { instanceId: step.draftState[opponentIndex].currentPick.instanceId, definitionId: UNKNOWN_CARD } : null,
       // drafted stays visible — it's public after reveal
     };
     return { ...phaseState, setupStep: { ...step, draftState: newDraftState } };
@@ -218,9 +224,7 @@ function redactPhaseForPlayer(phaseState: PhaseState, selfIndex: number): PhaseS
     ];
     newDeckDraftState[opponentIndex] = {
       ...step.deckDraftState[opponentIndex],
-      remainingPool: step.deckDraftState[opponentIndex].remainingPool.map(
-        () => ({ instanceId: UNKNOWN_INSTANCE, definitionId: UNKNOWN_CARD }),
-      ),
+      remainingPool: hiddenCardPile(step.deckDraftState[opponentIndex].remainingPool),
     };
     return { ...phaseState, setupStep: { ...step, deckDraftState: newDeckDraftState } };
   }
@@ -238,7 +242,7 @@ function redactPhaseForSpectator(phaseState: PhaseState): PhaseState {
   const step = phaseState.setupStep;
   const redact = (d: DraftPlayerState): DraftPlayerState => ({
     ...d,
-    pool: d.pool.map(() => ({ instanceId: UNKNOWN_INSTANCE, definitionId: UNKNOWN_CARD })),
+    pool: hiddenCardPile(d.pool),
     // drafted stays visible — it's public after reveal
     currentPick: null,
   });
@@ -275,6 +279,21 @@ export function projectPlayerView(state: GameState, playerId: PlayerId): PlayerV
           ),
         };
       }
+    }
+  }
+
+  // The hazard player (non-active) can see on-guard cards they placed on
+  // the opponent's companies. Reveal full identities in the opponent view.
+  if (state.activePlayer !== playerId) {
+    const hasOnGuard = opponentPlayer.companies.some(c => c.onGuardCards.length > 0);
+    if (hasOnGuard) {
+      opponent = {
+        ...opponent,
+        companies: opponent.companies.map((c, i) => ({
+          ...c,
+          onGuardCards: toViewCards(opponentPlayer.companies[i].onGuardCards),
+        })),
+      };
     }
   }
 

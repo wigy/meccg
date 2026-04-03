@@ -72,8 +72,12 @@ export interface OpponentCompanyView {
   readonly revealedDestinationSite: SiteInPlay | null;
   /** Whether this company has already moved this turn. */
   readonly moved: boolean;
-  /** Whether an on-guard card has been placed at this company's site (identity hidden). */
-  readonly hasOnGuardCard: boolean;
+  /**
+   * On-guard cards placed at this company's site. For the resource player,
+   * card identities are redacted (unknown sentinels); for the hazard player,
+   * full card details are shown.
+   */
+  readonly onGuardCards: readonly ViewCard[];
 }
 
 // ---- Opponent view (hidden info redacted) ----

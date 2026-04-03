@@ -1897,6 +1897,7 @@ function showHazardKeyingMenu(
   event: MouseEvent,
   actions: readonly GameAction[],
   onAction: (action: GameAction) => void,
+  onGuardAction?: GameAction,
 ): void {
   document.querySelector('.chain-target-backdrop')?.remove();
 
@@ -1917,6 +1918,30 @@ function showHazardKeyingMenu(
     btn.addEventListener('click', () => {
       backdrop.remove();
       onAction(action);
+    });
+    tooltip.appendChild(btn);
+  }
+
+  // Non-keyed hazard events (single play action without keying)
+  for (const action of actions) {
+    if (action.type !== 'play-hazard' || action.keyedBy) continue;
+    const btn = document.createElement('button');
+    btn.className = 'char-action-tooltip__btn';
+    btn.textContent = 'Play hazard';
+    btn.addEventListener('click', () => {
+      backdrop.remove();
+      onAction(action);
+    });
+    tooltip.appendChild(btn);
+  }
+
+  if (onGuardAction) {
+    const btn = document.createElement('button');
+    btn.className = 'char-action-tooltip__btn';
+    btn.textContent = 'Place on-guard';
+    btn.addEventListener('click', () => {
+      backdrop.remove();
+      onAction(onGuardAction);
     });
     tooltip.appendChild(btn);
   }
@@ -2810,6 +2835,9 @@ export function renderHand(
     const shortEventActions = findShortEventActions(cardInstanceId, viable);
     const isShortEvent = shortEventActions.length > 0;
     const hazardActions = findHazardActions(cardInstanceId, viable);
+    const onGuardAction = cardInstanceId
+      ? viable.find(a => a.type === 'place-on-guard' && a.cardInstanceId === cardInstanceId)
+      : undefined;
     const isHazard = hazardActions.length > 0;
     const resourceActions = findResourcePlayActions(cardInstanceId, viable);
     const isResource = resourceActions.length > 0;
@@ -2818,7 +2846,7 @@ export function renderHand(
     const discardAction = cardInstanceId
       ? viable.find(a => a.type === 'discard-card' && a.cardInstanceId === cardInstanceId)
       : undefined;
-    const nonViableReason = !action && !isItemDraft && !isPlayChar && !isShortEvent && !isHazard && !isResource && !isInfluence && !discardAction
+    const nonViableReason = !action && !isItemDraft && !isPlayChar && !isShortEvent && !isHazard && !isResource && !isInfluence && !discardAction && !onGuardAction
       ? findNonViableReason(cardDefId, view.legalActions, cachedInstanceLookup)
       : undefined;
     const isSelected = selectedItemDefId === cardDefId;
@@ -2884,14 +2912,14 @@ export function renderHand(
         }
       }
     } else if (isHazard) {
-      // Hazard creature/event: single keying plays directly, multiple show menu
+      // Hazard creature/event: if on-guard is also available, always show menu
       img.className = 'hand-card hand-card-playable';
       if (onAction) {
-        if (hazardActions.length === 1) {
+        if (hazardActions.length === 1 && !onGuardAction) {
           img.addEventListener('click', () => onAction(hazardActions[0]));
         } else {
           img.addEventListener('click', (e) => {
-            showHazardKeyingMenu(e, hazardActions, onAction);
+            showHazardKeyingMenu(e, hazardActions, onAction, onGuardAction);
           });
         }
       }
@@ -2931,6 +2959,15 @@ export function renderHand(
       img.className = 'hand-card hand-card-playable';
       if (onAction) {
         img.addEventListener('click', () => onAction(discardAction));
+      }
+    } else if (onGuardAction) {
+      // Non-playable card but can be placed on-guard — stays dimmed, click shows menu
+      img.className = 'hand-card hand-card-dimmed';
+      if (onAction) {
+        img.style.cursor = 'pointer';
+        img.addEventListener('click', (e) => {
+          showHazardKeyingMenu(e, [], onAction, onGuardAction);
+        });
       }
     } else {
       img.className = 'hand-card hand-card-dimmed';

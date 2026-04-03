@@ -558,6 +558,23 @@ export interface EnterSiteAction {
 }
 
 /**
+ * Place a card face-down as an on-guard card at the active company's site
+ * during the Movement/Hazard phase.
+ *
+ * Any card in the hazard player's hand may be placed on-guard (bluffing is
+ * allowed). Only one on-guard placement per company per M/H phase.
+ * Counts against the hazard limit.
+ */
+export interface PlaceOnGuardAction {
+  /** Action discriminant. */
+  readonly type: 'place-on-guard';
+  /** The hazard player placing the on-guard card. */
+  readonly player: PlayerId;
+  /** The card instance being placed face-down. */
+  readonly cardInstanceId: CardInstanceId;
+}
+
+/**
  * Reveal an on-guard card placed on a company's site during the site phase.
  *
  * Used at two points:
@@ -970,6 +987,7 @@ export type GameAction =
   | ChooseStrikeOrderAction
   | BodyCheckRollAction
   | EnterSiteAction
+  | PlaceOnGuardAction
   | RevealOnGuardAction
   | DeclareAgentAttackAction
   | PlayHeroResourceAction
