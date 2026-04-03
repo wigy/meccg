@@ -3093,6 +3093,13 @@ h2 {
   top: calc(25% * var(--og-index, 1));
 }
 
+/* Revealable on-guard card — golden glow to indicate it can be clicked */
+.on-guard-card--revealable {
+  box-shadow:
+    0 0 8px rgba(var(--color-selectable), 0.7),
+    0 0 16px rgba(var(--color-selectable), 0.4);
+}
+
 .on-guard-card:nth-child(2) { --og-index: 1; z-index: 1; }
 .on-guard-card:nth-child(3) { --og-index: 2; z-index: 2; }
 .on-guard-card:nth-child(4) { --og-index: 3; z-index: 3; }

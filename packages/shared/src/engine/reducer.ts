@@ -424,6 +424,12 @@ function validateActionPlayer(state: GameState, action: GameAction): string | un
     return undefined;
   }
 
+  // During site phase reveal-on-guard-attacks, the hazard player acts
+  if (phase === 'site' && 'step' in state.phaseState
+    && state.phaseState.step === 'reveal-on-guard-attacks') {
+    return undefined;
+  }
+
   // During untap, the hazard player can access their sideboard
   if (phase === 'untap') {
     return undefined;
@@ -3996,7 +4002,7 @@ function handleSite(state: GameState, action: GameAction): ReducerResult {
   }
 
   if (siteState.step === 'reveal-on-guard-attacks') {
-    return handleSitePassStep(state, action, siteState, 'reveal-on-guard-attacks', 'automatic-attacks');
+    return handleRevealOnGuardAttacks(state, action, siteState);
   }
 
   if (siteState.step === 'automatic-attacks') {
@@ -4144,6 +4150,72 @@ function handleSiteEnterOrSkip(
       },
     },
   };
+}
+
+/**
+ * Handle the 'reveal-on-guard-attacks' step (CoE Step 1, line 345).
+ *
+ * The hazard player (non-active) may reveal on-guard creatures keyed to
+ * the site, adding them to {@link SitePhaseState.declaredOnGuardAttacks}.
+ * Passing advances to the 'automatic-attacks' step.
+ */
+function handleRevealOnGuardAttacks(
+  state: GameState,
+  action: GameAction,
+  siteState: SitePhaseState,
+): ReducerResult {
+  // Pass: advance to automatic-attacks
+  if (action.type === 'pass') {
+    logDetail(`Site: reveal-on-guard-attacks → advancing to automatic-attacks`);
+    return {
+      state: {
+        ...state,
+        phaseState: { ...siteState, step: 'automatic-attacks' as const },
+      },
+    };
+  }
+
+  // Reveal on-guard creature
+  if (action.type === 'reveal-on-guard') {
+    if (action.player === state.activePlayer) {
+      return { state, error: 'Only the hazard player may reveal on-guard cards' };
+    }
+
+    const activeIndex = getPlayerIndex(state, state.activePlayer!);
+    const resourcePlayer = state.players[activeIndex];
+    const company = resourcePlayer.companies[siteState.activeCompanyIndex];
+    if (!company) return { state, error: 'No active company' };
+
+    const ogIdx = company.onGuardCards.findIndex(c => c.instanceId === action.cardInstanceId);
+    if (ogIdx === -1) return { state, error: 'Card not in on-guard cards' };
+
+    const revealedCard = company.onGuardCards[ogIdx];
+    const def = state.cardPool[revealedCard.definitionId as string];
+    logDetail(`Site: hazard player reveals on-guard creature "${def?.name ?? revealedCard.definitionId}"`);
+
+    // Remove from on-guard, add to declared attacks
+    const newOnGuardCards = [...company.onGuardCards];
+    newOnGuardCards.splice(ogIdx, 1);
+
+    const newCompanies = [...resourcePlayer.companies];
+    newCompanies[siteState.activeCompanyIndex] = { ...company, onGuardCards: newOnGuardCards };
+
+    const newPlayers = clonePlayers(state);
+    newPlayers[activeIndex] = { ...resourcePlayer, companies: newCompanies };
+
+    return {
+      state: {
+        ...state,
+        players: newPlayers,
+        phaseState: {
+          ...siteState,
+          declaredOnGuardAttacks: [...siteState.declaredOnGuardAttacks, revealedCard.instanceId],
+        },
+      },
+    };
+  }
+
+  return { state, error: `Unexpected action '${action.type}' during reveal-on-guard-attacks step` };
 }
 
 /**

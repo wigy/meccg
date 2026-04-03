@@ -54,7 +54,7 @@ export function siteActions(state: GameState, playerId: PlayerId): EvaluatedActi
   }
 
   if (siteState.step === 'reveal-on-guard-attacks') {
-    return viable(revealOnGuardAttacksActions(state, playerId));
+    return viable(revealOnGuardAttacksActions(state, playerId, siteState));
   }
 
   if (siteState.step === 'automatic-attacks') {
@@ -150,22 +150,82 @@ function enterOrSkipActions(
 }
 
 /**
- * Stub: reveal-on-guard-attacks step (CoE Step 1, line 345).
+ * Reveal-on-guard-attacks step (CoE Step 1, line 345).
  *
- * The hazard player may reveal on-guard creatures keyed to the site or
- * events affecting automatic-attacks. For now, only active player can pass.
+ * The hazard player (non-active) may reveal on-guard creatures keyed
+ * to the company's current site, or pass. If there are no on-guard
+ * cards or no eligible creatures, only pass is offered.
  */
 function revealOnGuardAttacksActions(
   state: GameState,
   playerId: PlayerId,
+  siteState: SitePhaseState,
 ): GameAction[] {
   const isActive = state.activePlayer === playerId;
-  if (!isActive) {
-    logDetail(`Not active player — no actions during reveal-on-guard-attacks step`);
+
+  // Only the hazard player (non-active) reveals on-guard cards
+  if (isActive) {
+    logDetail(`Active player waits during reveal-on-guard-attacks step`);
     return [];
   }
-  logDetail(`Reveal on-guard attacks — pass to advance`);
-  return [{ type: 'pass', player: playerId }];
+
+  const activeIndex = getPlayerIndex(state, state.activePlayer!);
+  const resourcePlayer = state.players[activeIndex];
+  const company = resourcePlayer.companies[siteState.activeCompanyIndex];
+
+  if (!company || company.onGuardCards.length === 0) {
+    logDetail(`No on-guard cards — pass to advance`);
+    return [{ type: 'pass', player: playerId }];
+  }
+
+  // Look up the site definition for keying checks
+  const siteDef = company.currentSite
+    ? state.cardPool[company.currentSite.definitionId as string]
+    : undefined;
+
+  const actions: GameAction[] = [];
+
+  for (const ogCard of company.onGuardCards) {
+    const def = state.cardPool[ogCard.definitionId as string];
+    if (!def || def.cardType !== 'hazard-creature') continue;
+
+    // Check creature keying against the site
+    if (siteDef && isSiteCard(siteDef)) {
+      let keyable = false;
+      for (const key of def.keyedTo) {
+        if (key.siteTypes && key.siteTypes.includes(siteDef.siteType)) {
+          logDetail(`On-guard creature "${def.name}" keyable by site-type: ${siteDef.siteType}`);
+          keyable = true;
+          break;
+        }
+        if (key.regionTypes && key.regionTypes.some(rt => siteDef.sitePath.includes(rt))) {
+          logDetail(`On-guard creature "${def.name}" keyable by region-type in site path`);
+          keyable = true;
+          break;
+        }
+      }
+      if (!keyable) {
+        logDetail(`On-guard creature "${def.name}" not keyable to ${siteDef.name}`);
+        continue;
+      }
+    }
+
+    actions.push({
+      type: 'reveal-on-guard',
+      player: playerId,
+      cardInstanceId: ogCard.instanceId,
+    });
+  }
+
+  if (actions.length > 0) {
+    logDetail(`Reveal on-guard: ${actions.length} creature(s) eligible for reveal`);
+  } else {
+    logDetail(`No eligible on-guard creatures to reveal`);
+  }
+
+  // Always offer pass
+  actions.push({ type: 'pass', player: playerId });
+  return actions;
 }
 
 /**

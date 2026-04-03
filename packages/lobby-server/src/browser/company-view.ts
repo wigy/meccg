@@ -582,6 +582,13 @@ function renderSiteArea(
   // On-guard cards — rendered overlapping the site (offset down 50%)
   const ogCards = company.onGuardCards;
   if (ogCards.length > 0) {
+    // Find reveal-on-guard legal actions (hazard player during reveal step)
+    const revealActions = options?.onAction
+      ? viableActions(view.legalActions).filter(
+        (a): a is import('@meccg/shared').RevealOnGuardAction => a.type === 'reveal-on-guard',
+      )
+      : [];
+
     // Find the last site image in the area to attach on-guard overlay
     const siteImages = area.querySelectorAll<HTMLImageElement>('.company-card--site');
     const targetSite = siteImages[siteImages.length - 1];
@@ -597,13 +604,23 @@ function renderSiteArea(
         const ogDef = ogDefId ? cardPool[ogDefId as string] : undefined;
         const ogImgPath = ogDef ? cardImageProxyPath(ogDef) : undefined;
         let ogImg: HTMLImageElement;
+        const revealAction = revealActions.find(a => a.cardInstanceId === og.instanceId);
+        const revealCls = revealAction ? ' on-guard-card--revealable' : '';
         if (ogDef && ogImgPath) {
-          ogImg = createCardImage(ogDefId as string, ogDef, ogImgPath, 'company-card company-card--site on-guard-card', og.instanceId as string);
+          ogImg = createCardImage(ogDefId as string, ogDef, ogImgPath, `company-card company-card--site on-guard-card${revealCls}`, og.instanceId as string);
         } else {
           ogImg = document.createElement('img');
           ogImg.src = '/images/card-back.jpg';
           ogImg.alt = 'On-guard card';
-          ogImg.className = 'company-card company-card--site on-guard-card';
+          ogImg.className = `company-card company-card--site on-guard-card${revealCls}`;
+        }
+        if (revealAction && options?.onAction) {
+          ogImg.style.cursor = 'pointer';
+          const onAction = options.onAction;
+          ogImg.addEventListener('click', (e) => {
+            e.stopPropagation();
+            onAction(revealAction);
+          });
         }
         wrapper.appendChild(ogImg);
       }
