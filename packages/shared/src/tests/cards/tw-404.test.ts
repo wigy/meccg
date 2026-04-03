@@ -190,6 +190,10 @@ describe('Isengard (tw-404)', () => {
     expect(starterNames).not.toContain('Isengard');
   });
 
+  // ─── Automatic attacks ──────────────────────────────────────────────────────
+
+  test.todo('Wolves automatic attack triggers when entering Isengard');
+
   // ─── No special effects ───────────────────────────────────────────────────
 
   test('has no special effects beyond standard site properties', () => {
