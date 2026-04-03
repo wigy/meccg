@@ -207,6 +207,7 @@ describe('Rivendell (tw-421)', () => {
     expect(regionNames).toEqual([
       'Bag End',
       'Barrow-downs',
+      'Blue Mountain Dwarf-hold',
       'Dol Guldur',
       "Eagles' Eyrie",
       'Ettenmoors',

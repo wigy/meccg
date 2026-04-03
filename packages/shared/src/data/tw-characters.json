@@ -840,7 +840,54 @@
         }
       }
     ],
-    "text": "Unique. +2 prowess against Orcs, +1 direct influence against Dwarves and Dwarf factions."
+    "text": "Unique. +2 prowess against Orcs, +1 direct influence against Dwarves and Dwarf factions.",
+    "certified": "2026-04-02"
+  },
+  {
+    "cardType": "hero-character",
+    "alignment": "wizard",
+    "id": "tw-167",
+    "name": "Kíli",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Kili.jpg",
+    "unique": true,
+    "race": "dwarf",
+    "skills": [
+      "warrior",
+      "scout"
+    ],
+    "prowess": 3,
+    "body": 8,
+    "mind": 3,
+    "directInfluence": 0,
+    "marshallingPoints": 1,
+    "marshallingCategory": "character",
+    "corruptionModifier": -1,
+    "homesite": "Blue Mountain Dwarf-hold",
+    "effects": [
+      {
+        "type": "stat-modifier",
+        "stat": "prowess",
+        "value": 1,
+        "when": {
+          "reason": "combat",
+          "enemy.race": "orc"
+        }
+      },
+      {
+        "type": "check-modifier",
+        "check": "corruption",
+        "value": -1
+      },
+      {
+        "type": "check-modifier",
+        "check": "influence",
+        "value": -1,
+        "when": {
+          "reason": "faction-influence-check"
+        }
+      }
+    ],
+    "text": "Unique. +1 prowess against Orcs. -1 to all of his corruption checks. -1 to influence checks against factions."
   },
   {
     "cardType": "hero-character",

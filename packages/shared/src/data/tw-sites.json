@@ -590,5 +590,26 @@
     "resourceDraws": 2,
     "hazardDraws": 2,
     "text": "Nearest Haven: Lórien."
+  },
+  {
+    "cardType": "hero-site",
+    "alignment": "wizard",
+    "id": "tw-377",
+    "name": "Blue Mountain Dwarf-hold",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/BlueMountainDwarfhold.jpg",
+    "siteType": "free-hold",
+    "sitePath": [
+      "free",
+      "wilderness"
+    ],
+    "nearestHaven": "Grey Havens",
+    "region": "Númeriador",
+    "playableResources": [
+      "faction"
+    ],
+    "automaticAttacks": [],
+    "resourceDraws": 1,
+    "hazardDraws": 1,
+    "text": "Nearest Haven: Grey Havens."
   }
 ]
