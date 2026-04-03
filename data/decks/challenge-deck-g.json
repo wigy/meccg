@@ -120,7 +120,7 @@
       },
       {
         "name": "Twilight",
-        "card": "tw-106",
+        "card": "le-145",
         "qty": 2
       },
       {
@@ -312,7 +312,7 @@
     },
     {
       "name": "Orc Quarrels",
-      "card": null,
+      "card": "le-216",
       "qty": 1
     },
     {
@@ -372,7 +372,7 @@
     },
     {
       "name": "Twilight",
-      "card": "tw-106",
+      "card": "le-145",
       "qty": 1
     }
   ]

@@ -1150,6 +1150,7 @@ function renderCompactDeck(container: HTMLElement, deck: FullDeck): void {
         const star = entry.favourite ? ' \u2605' : '';
         row.textContent = (entry.qty > 1 ? `${entry.qty}\u00d7 ${entry.name}` : entry.name) + star;
         if (entry.card) {
+          row.dataset.cardId = entry.card;
           const def = cardPool[entry.card];
           const style = def ? getCardCss(def) : undefined;
           if (style) row.setAttribute('style', style);
@@ -1374,6 +1375,56 @@ function setupDeckEditorPreview(): void {
 
   screen.addEventListener('mouseout', (e) => {
     const row = (e.target as HTMLElement).closest('.deck-editor-card[data-card-id]');
+    if (!row) return;
+    preview.innerHTML = '';
+    preview.style.left = '';
+  });
+}
+
+/** Set up hover preview for card entries on the decks overview screen. */
+function setupDecksPreview(): void {
+  const screen = document.getElementById('decks-screen')!;
+  const preview = document.getElementById('decks-preview')!;
+
+  screen.addEventListener('mouseover', (e) => {
+    const row = (e.target as HTMLElement).closest<HTMLElement>('.compact-deck-entry[data-card-id]');
+    if (!row) return;
+    const def = cardPool[row.dataset.cardId!];
+    if (!def) return;
+
+    // Position preview over the middle column, offset to the right
+    const columns = [...screen.querySelectorAll('.lobby-column')];
+    const targetCol = columns[1] as HTMLElement | undefined;
+    preview.className = 'deck-editor-preview';
+    if (targetCol) {
+      const targetRect = targetCol.getBoundingClientRect();
+      preview.style.left = `${targetRect.left + targetRect.width * 0.25}px`;
+      preview.style.right = '';
+    }
+
+    preview.innerHTML = '';
+    const info = document.createElement('div');
+    info.className = 'card-preview-info';
+
+    const name = document.createElement('div');
+    name.className = 'card-preview-name';
+    name.textContent = def.name;
+    info.appendChild(name);
+
+    const imgPath = cardImageProxyPath(def);
+    if (imgPath) {
+      const img = document.createElement('img');
+      img.src = imgPath;
+      img.alt = def.name;
+      info.appendChild(img);
+    }
+
+    buildCardAttributes(info, def);
+    preview.appendChild(info);
+  });
+
+  screen.addEventListener('mouseout', (e) => {
+    const row = (e.target as HTMLElement).closest('.compact-deck-entry[data-card-id]');
     if (!row) return;
     preview.innerHTML = '';
     preview.style.left = '';
@@ -1630,7 +1681,9 @@ function renderMailList(
   }
   for (const msg of messages) {
     const row = document.createElement('div');
-    row.className = 'inbox-item' + (msg.status === 'new' ? ' inbox-item--unread' : '');
+    row.className = 'inbox-item'
+      + (msg.status === 'new' ? ' inbox-item--unread' : '')
+      + (msg.status === 'waiting' ? ' inbox-item--waiting' : '');
     row.dataset.msgId = msg.id;
 
     const info = document.createElement('div');
@@ -1958,6 +2011,7 @@ document.addEventListener('DOMContentLoaded', () => {
   applyBackground();
   setupCardPreview(cardPool);
   setupDeckEditorPreview();
+  setupDecksPreview();
   const undoBtn = document.getElementById('undo-btn') as HTMLButtonElement;
   const saveBtn = document.getElementById('save-btn') as HTMLButtonElement;
   const loadBtn = document.getElementById('load-btn') as HTMLButtonElement;

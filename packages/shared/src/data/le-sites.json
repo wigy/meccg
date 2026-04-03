@@ -143,5 +143,37 @@
     "resourceDraws": 1,
     "hazardDraws": 2,
     "text": "Nearest Darkhaven: Geann a-Lisch. Playable: Information, Items (minor, major, gold ring). Automatic-attacks: Wolves — 3 strikes with 7 prowess."
+  },
+  {
+    "cardType": "minion-site",
+    "alignment": "ringwraith",
+    "id": "le-392",
+    "name": "Moria",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/Moria.jpg",
+    "siteType": "shadow-hold",
+    "sitePath": [
+      "dark",
+      "shadow",
+      "wilderness",
+      "wilderness"
+    ],
+    "nearestHaven": "Dol Guldur",
+    "region": "Redhorn Gate",
+    "playableResources": [
+      "minor",
+      "major",
+      "greater",
+      "gold-ring"
+    ],
+    "automaticAttacks": [
+      {
+        "creatureType": "Orcs",
+        "strikes": 4,
+        "prowess": 7
+      }
+    ],
+    "resourceDraws": 2,
+    "hazardDraws": 3,
+    "text": "Non-Nazgûl creatures played at this site attack normally, not as detainment. Playable: Items (minor, major, greater, gold ring). Automatic-attacks: Orcs — 4 strikes with 7 prowess."
   }
 ]
