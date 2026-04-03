@@ -21,6 +21,10 @@ phase. Cards return to hand at end of site phases.
   card storage works (hand, discard, etc.) and avoids needing a lookup
   registry
 - Update all places that initialize companies (reducer.ts, test helpers)
+- Add `onGuardCards` to `resolveInstanceId()` in `state.ts` — it scans
+  company sites but not on-guard cards; add a loop over
+  `company.onGuardCards` alongside the existing `currentSite`/`destinationSite`
+  checks
 
 ### 1.2 Add `PlaceOnGuardAction`
 
@@ -64,11 +68,12 @@ phase. Cards return to hand at end of site phases.
 ### 1.6 Projection adjustment
 
 - **File**: `packages/game-server/src/ws/projection.ts`
-- Resource player's self view: strip on-guard card details (already shows
-  `hasOnGuardCard: boolean` on opponent companies)
-- Hazard player viewing opponent companies: show on-guard cards they placed
-  (add `onGuardCards: ViewCard[]` to the opponent company view for the hazard
-  player)
+- Both players see `onGuardCards` as a list on each company
+- Resource player's view: each on-guard card is redacted to a face-down
+  placeholder (no identity, no definition ID — just "a card")
+- Hazard player's view: full card details for on-guard cards they placed
+- Remove `hasOnGuardCard: boolean` — replaced by checking
+  `onGuardCards.length > 0`
 
 ## Phase 2: Placement UI
 
@@ -87,8 +92,8 @@ the browser UI.
 ### 2.2 On-guard indicator on company site
 
 - **File**: `packages/lobby-server/src/browser/company-view.ts`
-- In `renderSiteArea()`: when `company.hasOnGuardCard` is true, show a
-  face-down card image or badge overlay near the site card
+- In `renderSiteArea()`: when `company.onGuardCards.length > 0`, show
+  face-down card image(s) or badge overlay near the site card
 - Use the existing `createFaceDownCard()` from render-utils.ts
 - For the hazard player viewing their own placed cards: show actual card
   image(s) at the site (they know what they placed)
