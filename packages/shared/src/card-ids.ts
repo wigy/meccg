@@ -165,6 +165,8 @@ export const BAG_END = did('tw-372');
 export const DOL_AMROTH = did('tw-386');
 /** Thranduil's Halls — hero free-hold in Woodland Realm, nearest haven Lórien. */
 export const THRANDUILS_HALLS = did('tw-432');
+/** Isengard — hero ruins-and-lairs in Gap of Isen, nearest haven Lórien. */
+export const ISENGARD = did('tw-404');
 /** Blue Mountain Dwarf-hold — hero free-hold in Númeriador, nearest haven Grey Havens. */
 export const BLUE_MOUNTAIN_DWARF_HOLD = did('tw-377');
 
