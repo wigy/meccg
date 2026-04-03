@@ -35,10 +35,10 @@
 
 import { describe, test, expect, beforeEach } from 'vitest';
 import {
-  PLAYER_1, PLAYER_2,
+  PLAYER_1,
   LORIEN,
   resetMint, pool, reduce,
-  buildSitePhaseState, buildTestState, Phase,
+  buildSitePhaseState,
 } from '../test-helpers.js';
 import {
   computeLegalActions,
@@ -196,7 +196,7 @@ describe('Isengard (tw-404)', () => {
     // Build a state at the automatic-attacks step with a company at Isengard.
     const state = buildSitePhaseState({ site: ISENGARD });
     const autoAttackState: SitePhaseState = {
-      ...(state.phaseState as SitePhaseState),
+      ...state.phaseState,
       step: 'automatic-attacks',
       siteEntered: false,
       automaticAttacksResolved: 0,
