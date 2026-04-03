@@ -27,7 +27,7 @@
  * | 3 | Haven path movement     | IMPLEMENTED | movement-map.ts                     |
  * | 4 | Region movement         | IMPLEMENTED | sites reachable within 4 regions    |
  * | 5 | Card draws              | IMPLEMENTED | resourceDraws/hazardDraws used      |
- * | 6 | Automatic attacks       | STUBBED     | pass through, not yet triggered     |
+ * | 6 | Automatic attacks       | IMPLEMENTED | combat initiated with correct stats  |
  *
  * Playable: YES
  * Certified: 2026-04-02
@@ -35,17 +35,17 @@
 
 import { describe, test, expect, beforeEach } from 'vitest';
 import {
-  PLAYER_1,
+  PLAYER_1, PLAYER_2,
   LORIEN,
-  resetMint, pool,
-  buildSitePhaseState,
+  resetMint, pool, reduce,
+  buildSitePhaseState, buildTestState, Phase,
 } from '../test-helpers.js';
 import {
   computeLegalActions,
   ISENGARD, GLAMDRING, DAGGER_OF_WESTERNESSE,
   isSiteCard, buildMovementMap, getReachableSites,
 } from '../../index.js';
-import type { SiteCard } from '../../index.js';
+import type { SiteCard, SitePhaseState } from '../../index.js';
 
 // ─── Tests ───────────────────────────────────────────────────────────────────
 
@@ -192,7 +192,25 @@ describe('Isengard (tw-404)', () => {
 
   // ─── Automatic attacks ──────────────────────────────────────────────────────
 
-  test.todo('Wolves automatic attack triggers when entering Isengard');
+  test('Wolves automatic attack triggers with 3 strikes and 7 prowess', () => {
+    // Build a state at the automatic-attacks step with a company at Isengard.
+    const state = buildSitePhaseState({ site: ISENGARD });
+    const autoAttackState: SitePhaseState = {
+      ...(state.phaseState as SitePhaseState),
+      step: 'automatic-attacks',
+      siteEntered: false,
+      automaticAttacksResolved: 0,
+    };
+    const readyState = { ...state, phaseState: autoAttackState };
+
+    // Active player passes to trigger the automatic attack combat.
+    const result = reduce(readyState, { type: 'pass', player: PLAYER_1 });
+    expect(result.error).toBeUndefined();
+    expect(result.state.combat).toBeDefined();
+    expect(result.state.combat!.strikesTotal).toBe(3);
+    expect(result.state.combat!.strikeProwess).toBe(7);
+    expect(result.state.combat!.attackSource.type).toBe('automatic-attack');
+  });
 
   // ─── No special effects ───────────────────────────────────────────────────
 
