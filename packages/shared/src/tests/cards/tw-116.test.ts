@@ -74,7 +74,7 @@ describe('Adrazar (tw-116)', () => {
     );
     expect(adrazarAttempt).toBeDefined();
 
-    // influenceNumber(9) - baseDI(1) - diBonusAllFactions(1) - dungeonCheckMod(1) = 6
+    // influenceNumber(9) - baseDI(1) - diBonusAllFactions(1) - dúnadanCheckMod(1) = 6
     expect(adrazarAttempt!.need).toBe(6);
   });
 
