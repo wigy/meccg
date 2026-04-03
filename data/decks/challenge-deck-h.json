@@ -35,7 +35,7 @@
     },
     {
       "name": "Blazon of the Eye",
-      "card": null,
+      "card": "le-302",
       "qty": 1
     },
     {
@@ -61,12 +61,12 @@
   ],
   "deck": {
     "characters": [
-        {
-          "name": "Hoarmurath the Ringwraith",
-          "card": null,
-          "qty": 3
-        }
-      ],
+      {
+        "name": "Hoarmurath the Ringwraith",
+        "card": null,
+        "qty": 3
+      }
+    ],
     "hazards": [
       {
         "name": "Barrow-wight",
@@ -125,7 +125,7 @@
       },
       {
         "name": "Twilight",
-        "card": "tw-106",
+        "card": "le-145",
         "qty": 2
       },
       {
@@ -137,7 +137,7 @@
     "resources": [
       {
         "name": "A Nice Place to Hide",
-        "card": null,
+        "card": "le-160",
         "qty": 3
       },
       {
@@ -167,7 +167,7 @@
       },
       {
         "name": "Orc Quarrels",
-        "card": null,
+        "card": "le-216",
         "qty": 2
       },
       {
@@ -307,7 +307,7 @@
     },
     {
       "name": "Orc Quarrels",
-      "card": null,
+      "card": "le-216",
       "qty": 1
     },
     {
@@ -352,7 +352,7 @@
     },
     {
       "name": "Twilight",
-      "card": "tw-106",
+      "card": "le-145",
       "qty": 1
     }
   ]

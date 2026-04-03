@@ -358,6 +358,15 @@ h2 {
   color: #f0e8d8;
 }
 
+.inbox-item--waiting {
+  border-left: 3px solid #b482ff;
+}
+
+.inbox-item--waiting .inbox-item-subject {
+  font-weight: bold;
+  color: #d4bfff;
+}
+
 .inbox-item-from {
   font-size: 0.75rem;
   color: #888;

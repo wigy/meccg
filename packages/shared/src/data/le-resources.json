@@ -139,6 +139,28 @@
     "text": "The bearer can discard this item to heal a wounded character in his company\u2014change the character\u2019s status from wounded to well and untapped."
   },
   {
+    "cardType": "minion-resource-item",
+    "alignment": "ringwraith",
+    "id": "le-302",
+    "name": "Blazon of the Eye",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/BlazonoftheEye.jpg",
+    "unique": false,
+    "subtype": "minor",
+    "marshallingPoints": 0,
+    "marshallingCategory": "item",
+    "corruptionPoints": 1,
+    "prowessModifier": 0,
+    "bodyModifier": 0,
+    "playableAt": [
+      "ruins-and-lairs",
+      "shadow-hold",
+      "dark-hold",
+      "border-hold"
+    ],
+    "effects": [],
+    "text": "+2 to direct influence against factions. Cannot be duplicated on a given character."
+  },
+  {
     "cardType": "minion-resource-faction",
     "alignment": "ringwraith",
     "id": "le-265",
@@ -185,5 +207,44 @@
       }
     ],
     "text": "Unique. Playable at any tapped or untapped Ruins & Lairs with a Wolf automatic-attack. Tap to cancel a Wolf or Animal attack against his company. +2 to any influence attempt by a character in his company against a Wolf faction."
+  },
+  {
+    "cardType": "minion-resource-event",
+    "alignment": "ringwraith",
+    "id": "le-216",
+    "name": "Orc Quarrels",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/OrcQuarrels.jpg",
+    "unique": false,
+    "eventType": "short",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Playable on an Orc, Troll, or Man attack. The attack is canceled. Alternatively, playable on any attack if Skies of Fire is in play. The number of strikes from the attack is reduced to half of its original number (rounded up)."
+  },
+  {
+    "cardType": "minion-resource-event",
+    "alignment": "ringwraith",
+    "id": "le-253",
+    "name": "Weigh All Things to a Nicety",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/WeighAllThingstoaNicety.jpg",
+    "unique": false,
+    "eventType": "short",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Bring one resource or character (including a Ringwraith) from your sideboard or discard pile into your play deck and shuffle."
+  },
+  {
+    "cardType": "minion-resource-event",
+    "alignment": "ringwraith",
+    "id": "le-160",
+    "name": "A Nice Place to Hide",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/ANicePlacetoHide.jpg",
+    "unique": false,
+    "eventType": "short",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Scout only. Tap scout to cancel an attack against his company."
   }
 ]

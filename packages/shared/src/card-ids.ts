@@ -60,6 +60,8 @@ export const BERGIL = did('tw-129');
 export const BARD_BOWMAN = did('tw-124');
 /** Alatar — wizard, warrior/scout/ranger/sage, home site Edhellond. */
 export const ALATAR = did('tw-117');
+/** Adrazar — Dúnadan scout/diplomat, +1 DI against all factions. */
+export const ADRAZAR = did('tw-116');
 /** Anborn — Dúnadan scout/ranger, mind 2, Pelargir. */
 export const ANBORN = did('tw-118');
 /** Balin — dwarf warrior/sage, DI 2, +2 prowess vs Orcs, +1 DI vs Dwarves. */
@@ -159,6 +161,8 @@ export const HENNETH_ANNUN = did('tw-400');
 export const OLD_FOREST = did('tw-417');
 /** Bag End — hero free-hold in The Shire, nearest haven Rivendell. */
 export const BAG_END = did('tw-372');
+/** Dol Amroth — hero free-hold in Belfalas, nearest haven Edhellond. */
+export const DOL_AMROTH = did('tw-386');
 /** Thranduil's Halls — hero free-hold in Woodland Realm, nearest haven Lórien. */
 export const THRANDUILS_HALLS = did('tw-432');
 /** Isengard — hero ruins-and-lairs in Gap of Isen, nearest haven Lórien. */

@@ -43,7 +43,7 @@ describe('Balin (tw-123)', () => {
     });
 
     const balinId = findCharInstanceId(state, 0, BALIN);
-    const baseDef = pool[BALIN as string] as CharacterCard;
+    const baseDef = pool[BALIN] as CharacterCard;
     expect(state.players[0].characters[balinId as string].effectiveStats.directInfluence).toBe(baseDef.directInfluence);
     expect(baseDef.directInfluence).toBe(2);
   });
@@ -60,7 +60,7 @@ describe('Balin (tw-123)', () => {
     });
 
     const balinId = findCharInstanceId(state, 0, BALIN);
-    const baseDef = pool[BALIN as string] as CharacterCard;
+    const baseDef = pool[BALIN] as CharacterCard;
     expect(state.players[0].characters[balinId as string].effectiveStats.prowess).toBe(baseDef.prowess);
     expect(baseDef.prowess).toBe(4);
   });
