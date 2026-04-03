@@ -24,14 +24,19 @@ Follow these steps:
    curl -s -X PUT http://localhost:8080/api/system/mail/ai/<msg-id> -H "Authorization: Bearer $(jq -r .masterKey ~/.meccg/secrets.json)" -H "Content-Type: application/json" -d '{"status":"processing"}'
    ```
 
-4. **Implement the feature:** The message body contains a full implementation plan (created by `/handle-planning-request`). Read and understand the plan, then implement all changes described in it:
+4. **Check out master:** Always start implementation from the master branch to avoid building on stale or unrelated branches:
+   ```
+   git checkout master && git pull
+   ```
+
+5. **Implement the feature:** The message body contains a full implementation plan (created by `/handle-planning-request`). Read and understand the plan, then implement all changes described in it:
    - Read the relevant source files mentioned in the plan
    - Make all code changes described in the implementation steps
    - Follow the project's coding conventions (see CLAUDE.md)
    - Ensure all new code has proper JSDoc documentation
    - Follow the server-side logging policy if adding engine code
 
-5. **Iterate until green:** Run all four checks **in parallel** and fix any failures. Repeat until all pass:
+6. **Iterate until green:** Run all four checks **in parallel** and fix any failures. Repeat until all pass:
    - `npm run build` — type-check (must pass)
    - `npm test` — rules tests (must all pass)
    - `npm run test:nightly` — card tests (must not introduce new failures)
@@ -39,7 +44,7 @@ Follow these steps:
 
    If a check fails, read the error output, fix the issue, and re-run. Keep iterating until all four pass cleanly.
 
-6. **Commit and push:** Create a single commit with all changes and push to the remote:
+7. **Commit and push:** Create a single commit with all changes and push to the remote:
    ```
    git add <changed-files>
    git commit -m "<descriptive message>
@@ -49,7 +54,7 @@ Follow these steps:
    ```
    Capture the commit hash from the output. The commit message should summarize what feature was implemented.
 
-7. **Send review request to reviewers:** Send a mail to all reviewers (`["wigy", "karmi", "admin"]`) with a review request:
+8. **Send review request to reviewers:** Send a mail to all reviewers (`["wigy", "karmi", "admin"]`) with a review request:
    ```
    curl -s -X POST http://localhost:8080/api/system/mail -H "Authorization: Bearer $(jq -r .masterKey ~/.meccg/secrets.json)" -H "Content-Type: application/json" -d '<json>'
    ```
@@ -87,12 +92,12 @@ Follow these steps:
    ```
    Do this for each reviewer: `wigy`, `karmi`, `admin`.
 
-8. **Mark as processed:** Update the message status to `processed` with `success: true`:
+9. **Mark as processed:** Update the message status to `processed` with `success: true`:
    ```
    curl -s -X PUT http://localhost:8080/api/system/mail/ai/<msg-id> -H "Authorization: Bearer $(jq -r .masterKey ~/.meccg/secrets.json)" -H "Content-Type: application/json" -d '{"status":"processed","success":true}'
    ```
 
-9. **Report:** Summarize what happened — which feature was implemented, the commit hash, and that the review request was sent.
+10. **Report:** Summarize what happened — which feature was implemented, the commit hash, and that the review request was sent.
 
 If any step fails unexpectedly (implementation too complex, tests can't be fixed after multiple attempts, etc.), mark the message as processed with `success: false` and send a reply mail to the requester explaining what went wrong:
 ```json
