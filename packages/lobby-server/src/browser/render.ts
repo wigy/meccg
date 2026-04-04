@@ -1266,8 +1266,8 @@ export function resetDeckPiles(): void {
     ['opponent-sideboard-pile', 'Sideboard'],
     ['self-discard-pile', 'Discard Pile'],
     ['opponent-discard-pile', 'Discard Pile'],
-    ['self-victory-pile', 'Victory Display'],
-    ['opponent-victory-pile', 'Victory Display'],
+    ['self-victory-pile', 'Eliminated'],
+    ['opponent-victory-pile', 'Eliminated'],
   ];
   for (const [id, title] of piles) {
     const el = document.getElementById(id);
@@ -1310,9 +1310,9 @@ export function renderDeckPiles(view: PlayerView, cardPool?: Readonly<Record<str
   const selfVictoryCards = buildVictoryCards(view.self);
   const oppVictoryCards = buildVictoryCards(view.opponent);
   const selfVictoryEl = document.getElementById('self-victory-pile');
-  if (selfVictoryEl) fillDeckPile(selfVictoryEl, selfVictoryCards.length, topCardImage(selfVictoryCards, pool), 'Victory Display', ids(selfVictoryCards));
+  if (selfVictoryEl) fillDeckPile(selfVictoryEl, selfVictoryCards.length, topCardImage(selfVictoryCards, pool), 'Eliminated', ids(selfVictoryCards));
   const oppVictoryEl = document.getElementById('opponent-victory-pile');
-  if (oppVictoryEl) fillDeckPile(oppVictoryEl, oppVictoryCards.length, topCardImage(oppVictoryCards, pool), 'Victory Display', ids(oppVictoryCards));
+  if (oppVictoryEl) fillDeckPile(oppVictoryEl, oppVictoryCards.length, topCardImage(oppVictoryCards, pool), 'Eliminated', ids(oppVictoryCards));
 
   // Cache for pile browser click handlers
   cachedSiteDeck = view.self.siteDeck;
@@ -1640,12 +1640,12 @@ function installPileBrowserClickHandlers(): void {
 
   // Self piles
   wirePile('self-sideboard-pile', 'Sideboard', () => cachedSelfSideboard);
-  wirePile('self-victory-pile', 'Victory Display', () => cachedSelfVictoryCards);
+  wirePile('self-victory-pile', 'Eliminated', () => cachedSelfVictoryCards);
   wirePile('self-discard-pile', 'Discard Pile', () => cachedSelfDiscard);
   wirePile('self-deck-pile', 'Play Deck', () => cachedSelfPlayDeck);
 
   // Opponent piles
-  wirePile('opponent-victory-pile', 'Victory Display', () => cachedOppVictoryCards);
+  wirePile('opponent-victory-pile', 'Eliminated', () => cachedOppVictoryCards);
   wirePile('opponent-sideboard-pile', 'Sideboard', () => []);
   wirePile('opponent-discard-pile', 'Discard Pile', () => cachedOppDiscard);
   wirePile('opponent-deck-pile', 'Play Deck', () => cachedOppPlayDeck);
@@ -3099,9 +3099,11 @@ export function setupCardPreview(cardPool: Readonly<Record<string, CardDefinitio
       name.textContent = def.name;
       info.appendChild(name);
 
-      // Card image
+      // Card image — use the definition's actual image if the displayed card
+      // is face-down (e.g. on-guard cards showing card-back to the owner)
       const clone = document.createElement('img');
-      clone.src = img.src;
+      const defImgPath = cardImageProxyPath(def);
+      clone.src = defImgPath ?? img.src;
       clone.alt = img.alt;
       info.appendChild(clone);
 

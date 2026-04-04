@@ -603,17 +603,19 @@ function renderSiteArea(
         const ogDefId = cachedInstanceLookup(og.instanceId);
         const ogDef = ogDefId ? cardPool[ogDefId as string] : undefined;
         const ogImgPath = ogDef ? cardImageProxyPath(ogDef) : undefined;
-        let ogImg: HTMLImageElement;
         const revealAction = revealActions.find(a => a.cardInstanceId === og.instanceId);
         const revealCls = revealAction ? ' on-guard-card--revealable' : '';
+
+        let ogImg: HTMLImageElement;
         if (ogDef && ogImgPath) {
           ogImg = createCardImage(ogDefId as string, ogDef, ogImgPath, `company-card company-card--site on-guard-card${revealCls}`, og.instanceId as string);
         } else {
           ogImg = document.createElement('img');
-          ogImg.src = '/images/card-back.jpg';
           ogImg.alt = 'On-guard card';
           ogImg.className = `company-card company-card--site on-guard-card${revealCls}`;
         }
+        // Always show card-back on the board; hover preview reveals the real card
+        ogImg.src = '/images/card-back.jpg';
         if (revealAction && options?.onAction) {
           ogImg.style.cursor = 'pointer';
           const onAction = options.onAction;

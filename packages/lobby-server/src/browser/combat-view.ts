@@ -135,8 +135,9 @@ function renderPhaseBanner(
 
   // Resolve attacker race from card definition or auto-attack creature type
   let attackerRace = '';
-  if (combat.attackSource.type === 'creature') {
-    const defId = cachedInstanceLookup(combat.attackSource.instanceId);
+  if (combat.attackSource.type === 'creature' || combat.attackSource.type === 'on-guard-creature') {
+    const instId = combat.attackSource.type === 'creature' ? combat.attackSource.instanceId : combat.attackSource.cardInstanceId;
+    const defId = cachedInstanceLookup(instId);
     const def = defId ? cardPool[defId as string] : undefined;
     if (def && def.cardType === 'hazard-creature' && def.race) {
       attackerRace = def.race;
@@ -209,13 +210,14 @@ function renderAttackerRow(
   const container = document.createElement('div');
   container.className = 'combat-attacker';
 
-  if (combat.attackSource.type === 'creature') {
-    const defId = cachedInstanceLookup(combat.attackSource.instanceId);
+  if (combat.attackSource.type === 'creature' || combat.attackSource.type === 'on-guard-creature') {
+    const instId = combat.attackSource.type === 'creature' ? combat.attackSource.instanceId : combat.attackSource.cardInstanceId;
+    const defId = cachedInstanceLookup(instId);
     const def = defId ? cardPool[defId as string] : undefined;
     if (def) {
       const imgPath = cardImageProxyPath(def);
       if (imgPath) {
-        const img = createCardImage(defId as string, def, imgPath, 'combat-card combat-card--attacker', combat.attackSource.instanceId as string);
+        const img = createCardImage(defId as string, def, imgPath, 'combat-card combat-card--attacker', instId as string);
         container.appendChild(img);
       }
     }
