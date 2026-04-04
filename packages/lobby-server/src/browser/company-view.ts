@@ -545,6 +545,13 @@ function renderSiteArea(
             ? 'company-card company-card--site company-card--cancelable'
             : 'company-card company-card--site';
           const img = createCardImage(destDefId as string, destDef, imgPath, cls, company.destinationSite.instanceId as string);
+          // Show site-back until the site is revealed during M/H. Covers Org,
+          // Long-Event, and early M/H steps before reveal-new-site.
+          const notYetRevealed = view.phaseState.phase !== Phase.MovementHazard
+            || !view.phaseState.siteRevealed;
+          if (notYetRevealed) {
+            img.src = '/images/site-back.jpg';
+          }
           if (cancelAction && options?.onAction) {
             const onAction = options.onAction;
             img.addEventListener('click', (e) => {

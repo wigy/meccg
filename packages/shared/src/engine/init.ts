@@ -394,7 +394,7 @@ export function startFirstTurn(state: GameState): GameState {
     ...state,
     // activePlayer should already be set by initiative roll
     activePlayer: state.activePlayer ?? state.players[0].id,
-    phaseState: { phase: Phase.Untap, untapped: false, hazardSideboardDestination: null, hazardSideboardFetched: 0, resourcePlayerPassed: false, hazardPlayerPassed: false },
+    phaseState: { phase: Phase.Untap, untapped: false, hazardSideboardDestination: null, hazardSideboardFetched: 0, hazardSideboardAccessed: false, resourcePlayerPassed: false, hazardPlayerPassed: false },
     turnNumber: 1,
   };
 }
@@ -443,7 +443,7 @@ export function createGameQuickStart(
     gameId,
     players,
     activePlayer: config.players[0].id,
-    phaseState: { phase: Phase.Untap, untapped: false, hazardSideboardDestination: null, hazardSideboardFetched: 0, resourcePlayerPassed: false, hazardPlayerPassed: false },
+    phaseState: { phase: Phase.Untap, untapped: false, hazardSideboardDestination: null, hazardSideboardFetched: 0, hazardSideboardAccessed: false, resourcePlayerPassed: false, hazardPlayerPassed: false },
     combat: null,
     chain: null,
     eventsInPlay: [],

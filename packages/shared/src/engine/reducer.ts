@@ -1342,7 +1342,7 @@ function handleUntap(state: GameState, action: GameAction): ReducerResult {
     return {
       state: {
         ...state,
-        phaseState: { ...untapState, hazardSideboardDestination: destination, hazardPlayerPassed: false },
+        phaseState: { ...untapState, hazardSideboardDestination: destination, hazardSideboardAccessed: true, hazardPlayerPassed: false },
       },
     };
   }
@@ -1563,7 +1563,7 @@ function performUntap(state: GameState): GameState {
 function enterUntapPhase(state: GameState): GameState {
   return {
     ...state,
-    phaseState: { phase: Phase.Untap, untapped: false, hazardSideboardDestination: null, hazardSideboardFetched: 0, resourcePlayerPassed: false, hazardPlayerPassed: false },
+    phaseState: { phase: Phase.Untap, untapped: false, hazardSideboardDestination: null, hazardSideboardFetched: 0, hazardSideboardAccessed: false, resourcePlayerPassed: false, hazardPlayerPassed: false },
   };
 }
 

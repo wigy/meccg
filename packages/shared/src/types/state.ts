@@ -545,6 +545,8 @@ export interface UntapPhaseState {
    * Used to enforce the limit of 5 to discard or 1 to deck.
    */
   readonly hazardSideboardFetched: number;
+  /** Whether the hazard player has already accessed the sideboard this untap phase. */
+  readonly hazardSideboardAccessed: boolean;
   /** Whether the active (resource) player has passed the untap phase (after untapping). */
   readonly resourcePlayerPassed: boolean;
   /** Whether the non-active (hazard) player has passed the untap phase. */

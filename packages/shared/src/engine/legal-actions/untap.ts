@@ -85,8 +85,8 @@ export function untapActions(state: GameState, playerId: PlayerId): EvaluatedAct
       return hazardSideboardFetchActions(state, playerId, untapState);
     }
 
-    // Check if hazard sideboard intent actions are available
-    if (activePlayerHasAvatar(state)) {
+    // Check if hazard sideboard intent actions are available (once per untap)
+    if (!untapState.hazardSideboardAccessed && activePlayerHasAvatar(state)) {
       const eligible = getEligibleHazardCards(state, player);
       if (eligible.length > 0) {
         logDetail('Untap: hazard player may access sideboard (resource avatar in play)');
