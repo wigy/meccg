@@ -903,7 +903,7 @@ export interface SitePhaseState {
    * On-guard creature instance IDs revealed in step 1 that will attack
    * during step 4 (resolve-attacks).
    */
-  readonly declaredOnGuardAttacks: readonly CardInstanceId[];
+  readonly declaredOnGuardAttacks: readonly CardInstance[];
   /**
    * Agent instance ID declared as attacking in step 3, or null if no
    * agent attack was declared.

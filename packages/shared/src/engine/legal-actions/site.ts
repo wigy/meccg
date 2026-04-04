@@ -189,16 +189,20 @@ function revealOnGuardAttacksActions(
     return [{ type: 'pass', player: playerId }];
   }
 
-  // Look up the site definition for keying checks
+  // Look up the site definition for keying and auto-attack checks
   const siteDef = company.currentSite
     ? state.cardPool[company.currentSite.definitionId as string]
     : undefined;
+
+  // Rule 2.V.i: creature reveals only allowed if the site has automatic-attacks
+  const hasAutoAttacks = siteDef && isSiteCard(siteDef) && siteDef.automaticAttacks.length > 0;
 
   const actions: GameAction[] = [];
 
   for (const ogCard of company.onGuardCards) {
     const def = state.cardPool[ogCard.definitionId as string];
     if (!def || def.cardType !== 'hazard-creature') continue;
+    if (!hasAutoAttacks) continue;
 
     // Check creature keying against the site
     if (siteDef && isSiteCard(siteDef)) {

@@ -4018,7 +4018,7 @@ function handleSite(state: GameState, action: GameAction): ReducerResult {
   }
 
   if (siteState.step === 'resolve-attacks') {
-    return handleSitePassStep(state, action, siteState, 'resolve-attacks', 'play-resources');
+    return handleSiteResolveAttacks(state, action, siteState);
   }
 
   if (siteState.step === 'play-resources') {
@@ -4218,7 +4218,7 @@ function handleRevealOnGuardAttacks(
     const def = state.cardPool[revealedCard.definitionId as string];
     logDetail(`Site: hazard player reveals on-guard creature "${def?.name ?? revealedCard.definitionId}"`);
 
-    // Remove from on-guard — card resides on the chain entry until combat resolves
+    // Remove from on-guard, add to declared attacks (combat happens at Step 4)
     const newOnGuardCards = [...company.onGuardCards];
     newOnGuardCards.splice(ogIdx, 1);
 
@@ -4228,11 +4228,16 @@ function handleRevealOnGuardAttacks(
     const newPlayers = clonePlayers(state);
     newPlayers[activeIndex] = { ...resourcePlayer, companies: newCompanies };
 
-    // Creature enters the chain so the resource player can respond
-    let newState: GameState = { ...state, players: newPlayers };
-    newState = initiateChain(newState, action.player, revealedCard, { type: 'creature' });
-
-    return { state: newState };
+    return {
+      state: {
+        ...state,
+        players: newPlayers,
+        phaseState: {
+          ...siteState,
+          declaredOnGuardAttacks: [...siteState.declaredOnGuardAttacks, revealedCard],
+        },
+      },
+    };
   }
 
   return { state, error: `Unexpected action '${action.type}' during reveal-on-guard-attacks step` };
@@ -4315,6 +4320,49 @@ function handleSiteAutomaticAttacks(
  * resource that would tap the site. The revealed card initiates a nested
  * chain. Passing clears the window and executes the pending resource action.
  */
+/**
+ * Handle the 'resolve-attacks' step (CoE Step 4, 2.V.iv).
+ *
+ * Declared on-guard creature attacks are initiated one at a time via the
+ * chain of effects. Each creature enters the chain (allowing responses),
+ * then combat starts when the chain resolves. When all declared attacks
+ * are resolved, advances to 'play-resources'.
+ */
+function handleSiteResolveAttacks(
+  state: GameState,
+  action: GameAction,
+  siteState: SitePhaseState,
+): ReducerResult {
+  if (action.type !== 'pass') {
+    return { state, error: `Expected 'pass' during resolve-attacks step` };
+  }
+
+  // If declared on-guard attacks remain, initiate the next one via chain
+  if (siteState.declaredOnGuardAttacks.length > 0) {
+    const attackCard = siteState.declaredOnGuardAttacks[0];
+    const remaining = siteState.declaredOnGuardAttacks.slice(1);
+    const def = state.cardPool[attackCard.definitionId as string];
+    logDetail(`Site: initiating on-guard creature attack "${def?.name ?? attackCard.definitionId}" via chain`);
+
+    const hazardPlayerId = state.players.find(p => p.id !== state.activePlayer)!.id;
+    let newState: GameState = {
+      ...state,
+      phaseState: { ...siteState, declaredOnGuardAttacks: remaining },
+    };
+    newState = initiateChain(newState, hazardPlayerId, attackCard, { type: 'creature' });
+    return { state: newState };
+  }
+
+  // All attacks resolved — advance to play-resources
+  logDetail('Site: all attacks resolved → play-resources');
+  return {
+    state: {
+      ...state,
+      phaseState: { ...siteState, step: 'play-resources' as const },
+    },
+  };
+}
+
 function handleOnGuardRevealAtResource(
   state: GameState,
   action: GameAction,
