@@ -494,7 +494,20 @@ function initiateCreatureCombat(state: GameState, entry: ChainEntry): GameState 
 
   logDetail(`Creature combat initiated: ${creatureDef.name} (${creatureDef.strikes} strikes, ${creatureDef.prowess} prowess) vs company ${company.id as string}`);
 
-  return { ...state, combat };
+  // Place the creature card in the hazard player's cardsInPlay during combat.
+  // After combat, finalizeCombat moves it to discard or the defender's kill pile.
+  const hazardIndex = state.players.findIndex(p => p.id === hazardPlayerId);
+  const newPlayers: [PlayerState, PlayerState] = [state.players[0], state.players[1]];
+  newPlayers[hazardIndex] = {
+    ...newPlayers[hazardIndex],
+    cardsInPlay: [...newPlayers[hazardIndex].cardsInPlay, {
+      instanceId: entry.card!.instanceId,
+      definitionId: entry.card!.definitionId,
+      status: CardStatus.Untapped,
+    }],
+  };
+
+  return { ...state, players: newPlayers, combat };
 }
 
 /**

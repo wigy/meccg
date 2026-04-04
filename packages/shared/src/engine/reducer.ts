@@ -3045,15 +3045,11 @@ function handlePlayHazardCard(
 
     logDetail(`Play-hazards: hazard player plays creature "${def.name}" (${mhState.hazardsPlayedThisCompany + 1}/${mhState.hazardLimit}) — initiating chain`);
 
-    // Move card from hand to discard
+    // Remove card from hand — it resides on the chain entry until combat resolves
     const newHand = [...hazardPlayer.hand];
     newHand.splice(cardIdx, 1);
     const newPlayers = clonePlayers(state);
-    newPlayers[hazardIndex] = {
-      ...hazardPlayer,
-      hand: newHand,
-      discardPile: [...hazardPlayer.discardPile, handCard],
-    };
+    newPlayers[hazardIndex] = { ...hazardPlayer, hand: newHand };
 
     let newState: GameState = {
       ...state,
@@ -4193,20 +4189,15 @@ function handleRevealOnGuardAttacks(
     const def = state.cardPool[revealedCard.definitionId as string];
     logDetail(`Site: hazard player reveals on-guard creature "${def?.name ?? revealedCard.definitionId}"`);
 
-    // Remove from on-guard, move to hazard player's discard, initiate chain
+    // Remove from on-guard — card resides on the chain entry until combat resolves
     const newOnGuardCards = [...company.onGuardCards];
     newOnGuardCards.splice(ogIdx, 1);
 
     const newCompanies = [...resourcePlayer.companies];
     newCompanies[siteState.activeCompanyIndex] = { ...company, onGuardCards: newOnGuardCards };
 
-    const hazardIndex = 1 - activeIndex;
     const newPlayers = clonePlayers(state);
     newPlayers[activeIndex] = { ...resourcePlayer, companies: newCompanies };
-    newPlayers[hazardIndex] = {
-      ...state.players[hazardIndex],
-      discardPile: [...state.players[hazardIndex].discardPile, revealedCard],
-    };
 
     // Creature enters the chain so the resource player can respond
     let newState: GameState = { ...state, players: newPlayers };
@@ -5671,28 +5662,42 @@ function finalizeCombat(state: GameState, effects: GameEffect[] = []): ReducerRe
 
   const newPlayers = clonePlayers(state);
 
-  // Creature attacks (M/H or on-guard): if all strikes defeated, move from
-  // attacker's discard to defender's kill pile for marshalling points.
+  // Creature attacks (M/H or on-guard): the creature card is in the
+  // attacker's cardsInPlay during combat. After combat it moves to:
+  // - defender's kill pile (all strikes defeated) for marshalling points
+  // - attacker's discard pile (any strike not defeated)
   const creatureInstanceId =
     combat.attackSource.type === 'creature' ? combat.attackSource.instanceId
       : combat.attackSource.type === 'on-guard-creature' ? combat.attackSource.cardInstanceId
         : null;
 
-  if (allDefeated && creatureInstanceId) {
+  if (creatureInstanceId) {
     const atkIdx = state.players.findIndex(p => p.id === combat.attackingPlayerId);
     const defIdx = state.players.findIndex(p => p.id === combat.defendingPlayerId);
 
-    const creatureCard = newPlayers[atkIdx].discardPile.find(c => c.instanceId === creatureInstanceId);
-    const atkDiscard = newPlayers[atkIdx].discardPile.filter(c => c.instanceId !== creatureInstanceId);
-    newPlayers[atkIdx] = { ...newPlayers[atkIdx], discardPile: atkDiscard };
-    newPlayers[defIdx] = {
-      ...newPlayers[defIdx],
-      killPile: [...newPlayers[defIdx].killPile, ...(creatureCard ? [creatureCard] : [])],
+    // Remove creature from attacker's cardsInPlay
+    const creatureInPlay = newPlayers[atkIdx].cardsInPlay.find(c => c.instanceId === creatureInstanceId);
+    const creatureCard = creatureInPlay
+      ? { instanceId: creatureInPlay.instanceId, definitionId: creatureInPlay.definitionId }
+      : undefined;
+    newPlayers[atkIdx] = {
+      ...newPlayers[atkIdx],
+      cardsInPlay: newPlayers[atkIdx].cardsInPlay.filter(c => c.instanceId !== creatureInstanceId),
     };
 
-    logDetail(`All strikes defeated — creature moved to defender's MP pile`);
-  } else {
-    logDetail(`Combat ended — creature stays in attacker's discard`);
+    if (allDefeated && creatureCard) {
+      newPlayers[defIdx] = {
+        ...newPlayers[defIdx],
+        killPile: [...newPlayers[defIdx].killPile, creatureCard],
+      };
+      logDetail(`All strikes defeated — creature moved to defender's kill pile`);
+    } else if (creatureCard) {
+      newPlayers[atkIdx] = {
+        ...newPlayers[atkIdx],
+        discardPile: [...newPlayers[atkIdx].discardPile, creatureCard],
+      };
+      logDetail(`Combat ended — creature moved to attacker's discard`);
+    }
   }
 
   logDetail('Combat finalized — returning to enclosing phase');
