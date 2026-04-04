@@ -61,6 +61,11 @@
         "name": "Barrow-wight",
         "card": "tw-015",
         "qty": 3
+      },
+      {
+        "name": "Foolish Words",
+        "card": "td-25",
+        "qty": 2
       }
     ],
     "resources": []

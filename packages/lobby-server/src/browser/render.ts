@@ -2172,6 +2172,11 @@ function getInstructionText(
       case 'resolve-attacks':
         return 'Site — Resolving attacks.';
       case 'play-resources':
+        if (view.phaseState.awaitingOnGuardReveal) {
+          return isSelf
+            ? 'Site — Opponent may reveal on-guard cards.'
+            : 'Site — Reveal on-guard card or pass to allow resource play.';
+        }
         return isSelf
           ? 'Site — Play a resource or pass.'
           : 'Site — Opponent may play a resource.';

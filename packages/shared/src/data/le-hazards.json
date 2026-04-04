@@ -34,5 +34,31 @@
     "keywords": [],
     "effects": [],
     "text": "Playable on a non-Ringwraith, non-Wizard character with mind of 7 or less. Character cannot be controlled by direct influence. Once during each of his organization phases, the character may attempt to remove this card. Make a roll\u2014if the result is greater than 7, discard this card. Cannot be duplicated on a given character."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "le-112",
+    "name": "Foolish Words",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/FoolishWords.jpg",
+    "unique": false,
+    "eventType": "permanent",
+    "keywords": [],
+    "effects": [
+      {
+        "type": "on-guard-reveal",
+        "trigger": "influence-attempt"
+      },
+      {
+        "type": "duplication-limit",
+        "scope": "character",
+        "max": 1
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "influence",
+        "value": -4
+      }
+    ],
+    "text": "Playable on a character. Any riddling roll, offering attempt, or influence attempt by target character is modified by -4. If placed on-guard, it may be revealed and played when a character in the company declares such an attempt. During his organization phase, the character may tap to attempt to remove this card. Make a roll\u2014if the result is greater than 7, discard this card. Cannot be duplicated on a given character."
   }
 ]

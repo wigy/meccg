@@ -130,6 +130,8 @@ export const CAVE_DRAKE = did('tw-020');
 export const ORC_PATROL = did('tw-074');
 /** Barrow-wight — undead hazard found near ruins and shadow-lands. */
 export const BARROW_WIGHT = did('tw-015');
+/** Foolish Words — hazard permanent-event, -4 to influence attempts, revealable on-guard. */
+export const FOOLISH_WORDS = did('td-25');
 
 // ---- Sites ----
 

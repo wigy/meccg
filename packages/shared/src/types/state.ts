@@ -905,6 +905,19 @@ export interface SitePhaseState {
    * agent attack was declared.
    */
   readonly declaredAgentAttack: CardInstanceId | null;
+  /**
+   * Whether the hazard player has a window to reveal on-guard cards
+   * in response to a site-tapping resource play. Set when the resource
+   * player plays a resource that would tap the site and on-guard cards
+   * exist. The hazard player may reveal or pass before the resource resolves.
+   */
+  readonly awaitingOnGuardReveal: boolean;
+  /**
+   * The resource action that triggered the on-guard reveal window.
+   * Executed when the hazard player passes on revealing. Null when
+   * no on-guard window is active.
+   */
+  readonly pendingResourceAction: GameAction | null;
 }
 
 /**

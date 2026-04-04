@@ -424,9 +424,10 @@ function validateActionPlayer(state: GameState, action: GameAction): string | un
     return undefined;
   }
 
-  // During site phase reveal-on-guard-attacks, the hazard player acts
+  // During site phase on-guard steps, the hazard player acts
   if (phase === 'site' && 'step' in state.phaseState
-    && state.phaseState.step === 'reveal-on-guard-attacks') {
+    && (state.phaseState.step === 'reveal-on-guard-attacks'
+      || state.phaseState.awaitingOnGuardReveal)) {
     return undefined;
   }
 
@@ -3407,6 +3408,8 @@ function advanceAfterCompanyMH(state: GameState, mhState: MovementHazardPhaseSta
           minorItemAvailable: false,
           declaredOnGuardAttacks: [],
           declaredAgentAttack: null,
+          awaitingOnGuardReveal: false,
+          pendingResourceAction: null,
         },
       }),
     };
@@ -4014,6 +4017,22 @@ function handleSite(state: GameState, action: GameAction): ReducerResult {
   }
 
   if (siteState.step === 'play-resources') {
+    if (siteState.awaitingOnGuardReveal) {
+      return handleOnGuardRevealAtResource(state, action, siteState);
+    }
+    // Auto-execute pending resource action after on-guard chain resolves.
+    // The resource was already declared — it proceeds once the on-guard
+    // chain (if any) has resolved. The incoming action (typically pass) is
+    // consumed to advance the state.
+    if (siteState.pendingResourceAction && state.chain === null) {
+      logDetail(`Site: on-guard window closed — executing pending resource action`);
+      const pendingAction = siteState.pendingResourceAction;
+      const clearedState: GameState = {
+        ...state,
+        phaseState: { ...siteState, pendingResourceAction: null },
+      };
+      return handleSitePlayResources(clearedState, pendingAction, clearedState.phaseState as SitePhaseState);
+    }
     return handleSitePlayResources(state, action, siteState);
   }
 
@@ -4079,6 +4098,8 @@ function handleSiteSelectCompany(
         minorItemAvailable: false,
         declaredOnGuardAttacks: [],
         declaredAgentAttack: null,
+        awaitingOnGuardReveal: false,
+        pendingResourceAction: null,
       },
     },
   };
@@ -4280,6 +4301,85 @@ function handleSiteAutomaticAttacks(
 }
 
 /**
+ * Handle the on-guard reveal window during resource play (CoE rule 2.V.6).
+ *
+ * The hazard player may reveal an on-guard hazard event in response to a
+ * resource that would tap the site. The revealed card initiates a nested
+ * chain. Passing clears the window and executes the pending resource action.
+ */
+function handleOnGuardRevealAtResource(
+  state: GameState,
+  action: GameAction,
+  siteState: SitePhaseState,
+): ReducerResult {
+  // Pass: clear the window and execute the pending resource action
+  if (action.type === 'pass') {
+    logDetail(`Site: hazard player passes on-guard reveal → executing pending resource`);
+    const clearedState: GameState = {
+      ...state,
+      phaseState: {
+        ...siteState,
+        awaitingOnGuardReveal: false,
+        pendingResourceAction: null,
+      },
+    };
+    if (siteState.pendingResourceAction) {
+      return handleSitePlayResources(clearedState, siteState.pendingResourceAction, clearedState.phaseState as SitePhaseState);
+    }
+    return { state: clearedState };
+  }
+
+  // Reveal on-guard event
+  if (action.type === 'reveal-on-guard') {
+    if (action.player === state.activePlayer) {
+      return { state, error: 'Only the hazard player may reveal on-guard cards' };
+    }
+
+    const activeIndex = getPlayerIndex(state, state.activePlayer!);
+    const resourcePlayer = state.players[activeIndex];
+    const company = resourcePlayer.companies[siteState.activeCompanyIndex];
+    if (!company) return { state, error: 'No active company' };
+
+    const ogIdx = company.onGuardCards.findIndex(c => c.instanceId === action.cardInstanceId);
+    if (ogIdx === -1) return { state, error: 'Card not in on-guard cards' };
+
+    const revealedCard = company.onGuardCards[ogIdx];
+    const def = state.cardPool[revealedCard.definitionId as string];
+    logDetail(`Site: hazard player reveals on-guard event "${def?.name ?? revealedCard.definitionId}" in response to resource play`);
+
+    // Remove from on-guard
+    const newOnGuardCards = [...company.onGuardCards];
+    newOnGuardCards.splice(ogIdx, 1);
+
+    const newCompanies = [...resourcePlayer.companies];
+    newCompanies[siteState.activeCompanyIndex] = { ...company, onGuardCards: newOnGuardCards };
+
+    const newPlayers = clonePlayers(state);
+    newPlayers[activeIndex] = { ...resourcePlayer, companies: newCompanies };
+
+    // Clear the reveal window (pending resource action stays for after chain resolves)
+    let newState: GameState = {
+      ...state,
+      players: newPlayers,
+      phaseState: {
+        ...siteState,
+        awaitingOnGuardReveal: false,
+      },
+    };
+
+    // Initiate a nested chain for the on-guard event (rule 2.V.6.1)
+    const payloadType = def && 'eventType' in def && def.eventType === 'permanent'
+      ? 'permanent-event' as const
+      : 'short-event' as const;
+    newState = initiateChain(newState, action.player, revealedCard, { type: payloadType });
+
+    return { state: newState };
+  }
+
+  return { state, error: `Unexpected action '${action.type}' during on-guard reveal window` };
+}
+
+/**
  * Handle the 'play-resources' step: resource player plays items or
  * permanent events, or passes to end the company's site phase.
  *
@@ -4310,6 +4410,24 @@ function handleSitePlayResources(
   // Permanent events — reuse the existing handler (phase-independent)
   if (action.type === 'play-permanent-event') {
     return handlePlayPermanentEvent(state, action);
+  }
+
+  // On-guard intercept: when a site-tapping resource is about to be played
+  // and on-guard cards exist, pause for the hazard player to reveal.
+  if ((action.type === 'play-hero-resource' || action.type === 'influence-attempt')
+    && company.onGuardCards.length > 0
+    && company.currentSite?.status !== CardStatus.Tapped) {
+    logDetail(`Site: resource play intercepted — hazard player may reveal on-guard cards`);
+    return {
+      state: {
+        ...state,
+        phaseState: {
+          ...siteState,
+          awaitingOnGuardReveal: true,
+          pendingResourceAction: action,
+        },
+      },
+    };
   }
 
   // Play hero resource (items, allies)
@@ -4710,6 +4828,8 @@ function advanceSiteToNextCompany(
         minorItemAvailable: false,
         declaredOnGuardAttacks: [],
         declaredAgentAttack: null,
+        awaitingOnGuardReveal: false,
+        pendingResourceAction: null,
       },
     },
   };

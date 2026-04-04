@@ -537,6 +537,8 @@ export function buildSitePhaseState(opts: {
     declaredOnGuardAttacks: [],
     declaredAgentAttack: null,
     automaticAttacksResolved: 0,
+    awaitingOnGuardReveal: false,
+    pendingResourceAction: null,
   };
   return { ...state, phaseState: sitePhaseState };
 }

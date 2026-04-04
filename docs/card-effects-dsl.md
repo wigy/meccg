@@ -163,6 +163,22 @@ Caps how many copies of this card can be in a given scope.
 { "type": "duplication-limit", "scope": "character", "max": 1 }
 ```
 
+### 13. `on-guard-reveal`
+
+Declares when an on-guard card may be revealed during the site phase.
+The `trigger` field specifies the game event that allows the reveal.
+
+```json
+{ "type": "on-guard-reveal", "trigger": "influence-attempt" }
+```
+
+Supported triggers:
+
+- `influence-attempt` — when a character in the company declares an
+  influence attempt (faction play)
+- `resource-play` — when the resource player plays any resource that
+  taps the site (generic catch-all)
+
 ## Resolver Architecture
 
 The engine calls a resolver at each decision point:
@@ -325,5 +341,15 @@ The resolver:
   { "type": "stat-modifier", "stat": "direct-influence", "value": 2,
     "when": { "reason": "faction-influence-check" } },
   { "type": "duplication-limit", "scope": "character", "max": 1 }
+]
+```
+
+### Foolish Words
+
+```json
+"effects": [
+  { "type": "on-guard-reveal", "trigger": "influence-attempt" },
+  { "type": "duplication-limit", "scope": "character", "max": 1 },
+  { "type": "stat-modifier", "stat": "influence", "value": -4 }
 ]
 ```
