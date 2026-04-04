@@ -4031,12 +4031,15 @@ function handleSite(state: GameState, action: GameAction): ReducerResult {
     // consumed to advance the state.
     if (siteState.pendingResourceAction && state.chain === null) {
       logDetail(`Site: on-guard window closed — executing pending resource action`);
-      const pendingAction = siteState.pendingResourceAction;
-      const clearedState: GameState = {
-        ...state,
-        phaseState: { ...siteState, pendingResourceAction: null },
-      };
-      return handleSitePlayResources(clearedState, pendingAction, clearedState.phaseState as SitePhaseState);
+      const pending = siteState.pendingResourceAction;
+      const clearedSiteState: SitePhaseState = { ...siteState, pendingResourceAction: null };
+      const clearedState: GameState = { ...state, phaseState: clearedSiteState };
+      if (pending.type === 'play-hero-resource') {
+        return handleSitePlayHeroResource(clearedState, pending, clearedSiteState);
+      }
+      if (pending.type === 'influence-attempt') {
+        return handleInfluenceAttempt(clearedState, pending, clearedSiteState);
+      }
     }
     return handleSitePlayResources(state, action, siteState);
   }
@@ -4317,19 +4320,18 @@ function handleOnGuardRevealAtResource(
   action: GameAction,
   siteState: SitePhaseState,
 ): ReducerResult {
-  // Pass: clear the window and execute the pending resource action
+  // Pass: clear the window and execute the pending resource action directly
+  // (bypassing handleSitePlayResources to avoid re-triggering the on-guard intercept)
   if (action.type === 'pass') {
     logDetail(`Site: hazard player passes on-guard reveal → executing pending resource`);
-    const clearedState: GameState = {
-      ...state,
-      phaseState: {
-        ...siteState,
-        awaitingOnGuardReveal: false,
-        pendingResourceAction: null,
-      },
-    };
-    if (siteState.pendingResourceAction) {
-      return handleSitePlayResources(clearedState, siteState.pendingResourceAction, clearedState.phaseState as SitePhaseState);
+    const clearedSiteState: SitePhaseState = { ...siteState, awaitingOnGuardReveal: false, pendingResourceAction: null };
+    const clearedState: GameState = { ...state, phaseState: clearedSiteState };
+    const pending = siteState.pendingResourceAction;
+    if (pending?.type === 'play-hero-resource') {
+      return handleSitePlayHeroResource(clearedState, pending, clearedSiteState);
+    }
+    if (pending?.type === 'influence-attempt') {
+      return handleInfluenceAttempt(clearedState, pending, clearedSiteState);
     }
     return { state: clearedState };
   }

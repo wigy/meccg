@@ -21,9 +21,9 @@ import {
   EOWYN, BEREGOND, BERGIL, BARD_BOWMAN, ANBORN, SAM_GAMGEE,
   THEODEN, ELROND, CELEBORN, GLORFINDEL_II, HALDIR, GANDALF, BALIN, KILI,
   GLAMDRING, STING, THE_MITHRIL_COAT, THE_ONE_RING, DAGGER_OF_WESTERNESSE, HORN_OF_ANOR,
-  CAVE_DRAKE, ORC_PATROL, BARROW_WIGHT,
+  CAVE_DRAKE, ORC_PATROL, BARROW_WIGHT, FOOLISH_WORDS,
   SUN, EYE_OF_SAURON, GATES_OF_MORNING, TWILIGHT, DOORS_OF_NIGHT,
-  RIVENDELL, LORIEN, MORIA, MINAS_TIRITH, MOUNT_DOOM, THRANDUILS_HALLS, BLUE_MOUNTAIN_DWARF_HOLD, DOL_AMROTH,
+  RIVENDELL, LORIEN, MORIA, MINAS_TIRITH, MOUNT_DOOM, THRANDUILS_HALLS, BLUE_MOUNTAIN_DWARF_HOLD, DOL_AMROTH, BREE,
   WOOD_ELVES, BLUE_MOUNTAIN_DWARVES, KNIGHTS_OF_DOL_AMROTH,
 } from '../index.js';
 
@@ -577,6 +577,79 @@ export function makeMHState(overrides?: Partial<MovementHazardPhaseState>): Move
   };
 }
 
+/** Build a SitePhaseState at the play-resources step. */
+export function makeSitePhase(overrides?: Partial<SitePhaseState>): SitePhaseState {
+  return {
+    phase: Phase.Site,
+    step: 'play-resources',
+    activeCompanyIndex: 0,
+    handledCompanyIds: [],
+    siteEntered: true,
+    resourcePlayed: false,
+    minorItemAvailable: false,
+    declaredOnGuardAttacks: [],
+    declaredAgentAttack: null,
+    automaticAttacksResolved: 0,
+    awaitingOnGuardReveal: false,
+    pendingResourceAction: null,
+    ...overrides,
+  };
+}
+
+/** Attach a hazard card to a character and return the updated GameState. */
+export function attachHazardToChar(
+  state: GameState,
+  playerIdx: number,
+  charDefId: CardDefinitionId,
+  hazardDefId: CardDefinitionId,
+): GameState {
+  const charId = findCharInstanceId(state, playerIdx, charDefId);
+  const hazardCard: CardInstance = { instanceId: mint(), definitionId: hazardDefId };
+  const char = state.players[playerIdx].characters[charId as string];
+  const updatedChar = { ...char, hazards: [...char.hazards, hazardCard] };
+  const updatedCharacters = { ...state.players[playerIdx].characters, [charId as string]: updatedChar };
+  const updatedPlayer = { ...state.players[playerIdx], characters: updatedCharacters };
+  const p0 = playerIdx === 0 ? updatedPlayer : state.players[0];
+  const p1 = playerIdx === 1 ? updatedPlayer : state.players[1];
+  return { ...state, players: [p0, p1] as unknown as typeof state.players };
+}
+
+/** Place an on-guard card on a player's company and return the updated GameState + card. */
+export function placeOnGuard(
+  state: GameState,
+  playerIdx: number,
+  companyIdx: number,
+  hazardDefId: CardDefinitionId,
+): { state: GameState; ogCard: CardInstance } {
+  const ogCard: CardInstance = { instanceId: mint(), definitionId: hazardDefId };
+  const company = state.players[playerIdx].companies[companyIdx];
+  const updatedCompany = { ...company, onGuardCards: [...company.onGuardCards, ogCard] };
+  const updatedCompanies = [...state.players[playerIdx].companies];
+  updatedCompanies[companyIdx] = updatedCompany;
+  const updatedPlayer = { ...state.players[playerIdx], companies: updatedCompanies };
+  const p0 = playerIdx === 0 ? updatedPlayer : state.players[0];
+  const p1 = playerIdx === 1 ? updatedPlayer : state.players[1];
+  return { state: { ...state, players: [p0, p1] as unknown as typeof state.players }, ogCard };
+}
+
+/**
+ * Resolve an active chain by having both players pass priority until
+ * the chain is cleared. Returns the resulting state.
+ */
+export function resolveChain(state: GameState): GameState {
+  let current = state;
+  for (let i = 0; i < 20 && current.chain !== null; i++) {
+    const priorityPlayer = current.chain.priority;
+    const actions = computeLegalActions(current, priorityPlayer);
+    const pass = actions.find(ea => ea.viable && ea.action.type === 'pass-chain-priority');
+    if (!pass) break;
+    const result = reduce(current, pass.action);
+    if (result.error) break;
+    current = result.state;
+  }
+  return current;
+}
+
 // Re-export commonly used things
 export {
   createGame, reduce,
@@ -585,9 +658,9 @@ export {
   EOWYN, BEREGOND, BERGIL, BARD_BOWMAN, ANBORN, SAM_GAMGEE,
   THEODEN, ELROND, CELEBORN, GLORFINDEL_II, HALDIR, GANDALF, BALIN, KILI,
   GLAMDRING, STING, THE_MITHRIL_COAT, THE_ONE_RING, DAGGER_OF_WESTERNESSE, HORN_OF_ANOR,
-  CAVE_DRAKE, ORC_PATROL, BARROW_WIGHT,
+  CAVE_DRAKE, ORC_PATROL, BARROW_WIGHT, FOOLISH_WORDS,
   SUN, EYE_OF_SAURON, GATES_OF_MORNING, TWILIGHT, DOORS_OF_NIGHT,
-  RIVENDELL, LORIEN, MORIA, MINAS_TIRITH, MOUNT_DOOM, THRANDUILS_HALLS, BLUE_MOUNTAIN_DWARF_HOLD, DOL_AMROTH,
+  RIVENDELL, LORIEN, MORIA, MINAS_TIRITH, MOUNT_DOOM, THRANDUILS_HALLS, BLUE_MOUNTAIN_DWARF_HOLD, DOL_AMROTH, BREE,
   WOOD_ELVES, BLUE_MOUNTAIN_DWARVES, KNIGHTS_OF_DOL_AMROTH,
   CardStatus, ZERO_EFFECTIVE_STATS, ZERO_MARSHALLING_POINTS,
 };
