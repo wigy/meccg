@@ -163,7 +163,20 @@ Caps how many copies of this card can be in a given scope.
 { "type": "duplication-limit", "scope": "character", "max": 1 }
 ```
 
-### 13. `on-guard-reveal`
+### 13. `play-target`
+
+Declares what this card targets when played. The engine uses this to
+generate per-target actions (one per eligible character, company, etc.).
+
+```json
+{ "type": "play-target", "target": "character" }
+```
+
+Supported targets:
+
+- `character` — targets a single character in the company
+
+### 14. `on-guard-reveal`
 
 Declares when an on-guard card may be revealed during the site phase.
 The `trigger` field specifies the game event that allows the reveal.
@@ -350,6 +363,6 @@ The resolver:
 "effects": [
   { "type": "on-guard-reveal", "trigger": "influence-attempt" },
   { "type": "duplication-limit", "scope": "character", "max": 1 },
-  { "type": "stat-modifier", "stat": "influence", "value": -4 }
+  { "type": "check-modifier", "check": "influence", "value": -4 }
 ]
 ```

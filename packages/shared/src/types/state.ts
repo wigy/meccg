@@ -143,8 +143,8 @@ export interface CharacterInPlay {
   readonly items: readonly ItemInPlay[];
   /** Allies traveling with this character. */
   readonly allies: readonly AllyInPlay[];
-  /** Corruption hazard card instance IDs attached to this character, adding to their corruption total. */
-  readonly corruptionCards: readonly CardInstanceId[];
+  /** Hazard cards attached to this character (corruption cards, Foolish Words, etc.). */
+  readonly hazards: readonly CardInPlay[];
   /** Character instance IDs controlled by this character via direct influence. */
   readonly followers: readonly CardInstanceId[];
   /**
@@ -211,6 +211,8 @@ export interface Company {
    * identities are hidden from the resource player.
    */
   readonly onGuardCards: readonly CardInstance[];
+  /** Hazard cards targeting this company as a whole (not a specific character). */
+  readonly hazards: readonly CardInPlay[];
 }
 
 // ---- Events in play (long/permanent) ----
@@ -1118,7 +1120,7 @@ export interface CombatState {
 export type ChainEntryPayload =
   | { readonly type: 'short-event'; readonly targetInstanceId?: CardInstanceId }
   | { readonly type: 'creature' }
-  | { readonly type: 'permanent-event' }
+  | { readonly type: 'permanent-event'; readonly targetCharacterId?: CardInstanceId }
   | { readonly type: 'long-event' }
   | { readonly type: 'corruption-card' }
   | { readonly type: 'passive-condition'; readonly trigger: string }
@@ -1333,13 +1335,16 @@ export function resolveInstanceId(state: GameState, instanceId: CardInstanceId):
     const char = player.characters[instanceId as string];
     if (char) return char.definitionId;
 
-    // Items, allies on characters
+    // Items, allies, hazards on characters
     for (const ch of Object.values(player.characters)) {
       for (const item of ch.items) {
         if (item.instanceId === instanceId) return item.definitionId;
       }
       for (const ally of ch.allies) {
         if (ally.instanceId === instanceId) return ally.definitionId;
+      }
+      for (const hazard of ch.hazards) {
+        if (hazard.instanceId === instanceId) return hazard.definitionId;
       }
     }
 
@@ -1354,6 +1359,9 @@ export function resolveInstanceId(state: GameState, instanceId: CardInstanceId):
       if (company.destinationSite?.instanceId === instanceId) return company.destinationSite.definitionId;
       for (const card of company.onGuardCards) {
         if (card.instanceId === instanceId) return card.definitionId;
+      }
+      for (const hazard of company.hazards) {
+        if (hazard.instanceId === instanceId) return hazard.definitionId;
       }
     }
 

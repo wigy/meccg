@@ -1012,7 +1012,7 @@ export function organizationActions(state: GameState, playerId: PlayerId): Evalu
         transferredItemId,
         ...char.items.map(i => i.instanceId),
         ...char.allies.map(a => a.instanceId),
-        ...char.corruptionCards,
+        ...char.hazards.map(h => h.instanceId),
       ];
       const ccNeed = cp + 1 - modifier;
       const ccParts = [`CP ${cp}`];

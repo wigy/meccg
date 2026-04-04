@@ -137,10 +137,10 @@ export function collectEffects(
       if (allyDef) collectFromDef(allyDef, context, results);
     }
 
-    // Corruption card effects
-    for (const ccId of char.corruptionCards) {
-      const ccDef = resolveDef(state, ccId);
-      if (ccDef) collectFromDef(ccDef, context, results);
+    // Hazard card effects (corruption cards, Foolish Words, etc.)
+    for (const hazard of char.hazards) {
+      const hDef = resolveDef(state, hazard.instanceId);
+      if (hDef) collectFromDef(hDef, context, results);
     }
   }
 
@@ -227,10 +227,10 @@ export function collectCharacterEffects(
     if (itemDef) collectFromDef(itemDef, context, results);
   }
 
-  // Corruption card effects
-  for (const ccId of char.corruptionCards) {
-    const ccDef = resolveDef(state, ccId);
-    if (ccDef) collectFromDef(ccDef, context, results);
+  // Hazard card effects
+  for (const hazard of char.hazards) {
+    const hDef = resolveDef(state, hazard.instanceId);
+    if (hDef) collectFromDef(hDef, context, results);
   }
 
   return results;

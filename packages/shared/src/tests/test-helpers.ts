@@ -352,7 +352,7 @@ export function buildTestState(opts: BuildTestStateOpts): GameState {
           status: charSetup.status ?? CardStatus.Untapped,
           items,
           allies: [],
-          corruptionCards: [],
+          hazards: [],
           followers: [],
           controlledBy: 'general' as const,
           effectiveStats: ZERO_EFFECTIVE_STATS,
@@ -387,6 +387,7 @@ export function buildTestState(opts: BuildTestStateOpts): GameState {
         moved: false,
         siteOfOrigin: null,
         onGuardCards: [],
+        hazards: [],
       });
     }
 

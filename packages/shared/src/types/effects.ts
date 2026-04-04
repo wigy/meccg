@@ -298,6 +298,26 @@ export interface DuplicationLimitEffect extends EffectBase {
 }
 
 /**
+ * Declares what this card targets when played. The engine uses this to
+ * generate per-target actions (e.g. one per eligible character).
+ */
+export interface PlayTargetEffect extends EffectBase {
+  readonly type: 'play-target';
+  /** What kind of target this card requires. */
+  readonly target: 'character';
+}
+
+/**
+ * Declares when an on-guard card may be revealed during the site phase.
+ * The trigger specifies the game event that opens the reveal window.
+ */
+export interface OnGuardRevealEffect extends EffectBase {
+  readonly type: 'on-guard-reveal';
+  /** The game event that allows the on-guard card to be revealed. */
+  readonly trigger: string;
+}
+
+/**
  * Discriminated union of all card effect types.
  * The `type` field serves as the discriminant for type narrowing.
  */
@@ -313,4 +333,6 @@ export type CardEffect =
   | CancelStrikeEffect
   | CombatRuleEffect
   | PlayRestrictionEffect
-  | DuplicationLimitEffect;
+  | DuplicationLimitEffect
+  | PlayTargetEffect
+  | OnGuardRevealEffect;

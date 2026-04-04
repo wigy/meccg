@@ -163,6 +163,8 @@ export const HENNETH_ANNUN = did('tw-400');
 export const OLD_FOREST = did('tw-417');
 /** Bag End — hero free-hold in The Shire, nearest haven Rivendell. */
 export const BAG_END = did('tw-372');
+/** Bree — border-hold in Arthedain, nearest haven Rivendell. */
+export const BREE = did('tw-378');
 /** Dol Amroth — hero free-hold in Belfalas, nearest haven Edhellond. */
 export const DOL_AMROTH = did('tw-386');
 /** Thranduil's Halls — hero free-hold in Woodland Realm, nearest haven Lórien. */

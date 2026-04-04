@@ -40,7 +40,7 @@ export function freeCouncilActions(state: GameState, playerId: PlayerId): GameAc
     const possessions: CardInstanceId[] = [
       ...charInPlay.items.map(i => i.instanceId),
       ...charInPlay.allies.map(a => a.instanceId),
-      ...charInPlay.corruptionCards,
+      ...charInPlay.hazards.map(h => h.instanceId),
     ];
     const ccNeed = cp + 1 - modifier;
     const ccParts = [`CP ${cp}`];

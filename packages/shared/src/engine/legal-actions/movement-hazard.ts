@@ -461,8 +461,22 @@ function playHazardsActions(
         if (blocked) continue;
       }
 
-      logDetail(`Hazard event "${def.name}" is playable`);
-      actions.push({ action, viable: true });
+      // play-target DSL: permanent events targeting a character get one action per character
+      const isCharTargeting = def.effects?.some(
+        e => e.type === 'play-target' && e.target === 'character',
+      ) ?? false;
+      if (isCharTargeting) {
+        for (const charId of targetCompany.characters) {
+          logDetail(`Hazard event "${def.name}" playable on character ${charId as string}`);
+          actions.push({
+            action: { ...action, targetCharacterId: charId },
+            viable: true,
+          });
+        }
+      } else {
+        logDetail(`Hazard event "${def.name}" is playable`);
+        actions.push({ action, viable: true });
+      }
     }
 
     // --- On-guard placement ---

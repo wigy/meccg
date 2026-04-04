@@ -327,12 +327,28 @@ function onGuardRevealAtResourceActions(
       if (!def) continue;
       // Allow revealing hazard events (permanent or short) that affect the company
       if (def.cardType === 'hazard-event') {
-        logDetail(`On-guard reveal at resource: "${def.name}" eligible`);
-        actions.push({
-          type: 'reveal-on-guard',
-          player: playerId,
-          cardInstanceId: ogCard.instanceId,
-        });
+        // play-target DSL: character-targeting events get one action per character
+        const isCharTargeting = 'effects' in def && def.effects?.some(
+          e => e.type === 'play-target' && e.target === 'character',
+        );
+        if (isCharTargeting) {
+          for (const charId of company.characters) {
+            logDetail(`On-guard reveal at resource: "${def.name}" targeting ${charId as string}`);
+            actions.push({
+              type: 'reveal-on-guard',
+              player: playerId,
+              cardInstanceId: ogCard.instanceId,
+              targetCharacterId: charId,
+            });
+          }
+        } else {
+          logDetail(`On-guard reveal at resource: "${def.name}" eligible`);
+          actions.push({
+            type: 'reveal-on-guard',
+            player: playerId,
+            cardInstanceId: ogCard.instanceId,
+          });
+        }
       }
     }
   }

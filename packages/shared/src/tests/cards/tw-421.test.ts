@@ -43,7 +43,7 @@ import {
 import {
   computeLegalActions,
   GREY_HAVENS,
-  ETTENMOORS_HERO, THE_WHITE_TOWERS_HERO, BARROW_DOWNS, OLD_FOREST, BAG_END,
+  ETTENMOORS_HERO, THE_WHITE_TOWERS_HERO, BARROW_DOWNS, OLD_FOREST, BAG_END, BREE,
   isSiteCard, buildMovementMap, getReachableSites,
 } from '../../index.js';
 import type { SiteCard } from '../../index.js';
@@ -169,6 +169,7 @@ describe('Rivendell (tw-421)', () => {
       pool[BARROW_DOWNS as string],
       pool[OLD_FOREST as string],
       pool[BAG_END as string],
+      pool[BREE as string],
     ].map(d => d.name).sort();
 
     expect(starterSites).toEqual(expectedSites);
@@ -201,13 +202,14 @@ describe('Rivendell (tw-421)', () => {
 
     // Rivendell is in Rhudaur. Region movement (max 4 regions) reaches:
     // dist 1 (same region): Ettenmoors (Rhudaur)
-    // dist 2 (adjacent): Barrow-downs, Old Forest (Cardolan), The White Towers, Weathertop (Arthedain)
+    // dist 2 (adjacent): Barrow-downs, Old Forest (Cardolan), Bree, The White Towers, Weathertop (Arthedain)
     // dist 3: Bag End (The Shire), Grey Havens (Lindon), Moria, The Under-gates (Redhorn Gate), Eagles' Eyrie (Anduin Vales)
     // dist 4: Lórien (Wold & Foothills), Dol Guldur (Southern Mirkwood), Glittering Caves, Isengard, Isle of the Ulond (Gap of Isen/Andrast Coast), Thranduil's Halls (Woodland Realm)
     expect(regionNames).toEqual([
       'Bag End',
       'Barrow-downs',
       'Blue Mountain Dwarf-hold',
+      'Bree',
       'Dol Guldur',
       "Eagles' Eyrie",
       'Ettenmoors',

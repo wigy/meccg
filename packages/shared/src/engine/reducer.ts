@@ -1002,6 +1002,7 @@ function finalizeSiteSelection(
         moved: false,
         siteOfOrigin: null,
         onGuardCards: [],
+        hazards: [],
       });
     }
 
@@ -1711,7 +1712,7 @@ function handlePlayCharacter(state: GameState, action: GameAction): ReducerResul
     status: CardStatus.Untapped,
     items: [],
     allies: [],
-    corruptionCards: [],
+    hazards: [],
     followers: [],
     controlledBy: action.controlledBy,
     effectiveStats: ZERO_EFFECTIVE_STATS,
@@ -1771,6 +1772,7 @@ function handlePlayCharacter(state: GameState, action: GameAction): ReducerResul
       moved: false,
       siteOfOrigin: null,
       onGuardCards: [],
+      hazards: [],
     };
     companies.push(newCompany);
   }
@@ -2311,6 +2313,7 @@ function handleSplitCompany(state: GameState, action: GameAction): ReducerResult
     moved: false,
     siteOfOrigin: null,
     onGuardCards: [],
+    hazards: [],
   };
 
   const companies = player.companies.map((c, i) =>
@@ -3154,11 +3157,13 @@ function handlePlayHazardCard(
   };
 
   // Initiate or push onto chain — card enters play upon resolution
-  const payloadType = def.eventType === 'permanent' ? 'permanent-event' : 'long-event';
+  const payload: import('../index.js').ChainEntryPayload = def.eventType === 'permanent'
+    ? { type: 'permanent-event', targetCharacterId: action.type === 'play-hazard' ? action.targetCharacterId : undefined }
+    : { type: 'long-event' };
   if (newState.chain === null) {
-    newState = initiateChain(newState, action.player, handCard, { type: payloadType });
+    newState = initiateChain(newState, action.player, handCard, payload);
   } else {
-    newState = pushChainEntry(newState, action.player, handCard, { type: payloadType });
+    newState = pushChainEntry(newState, action.player, handCard, payload);
   }
 
   return { state: newState };
@@ -4368,10 +4373,11 @@ function handleOnGuardRevealAtResource(
     };
 
     // Initiate a nested chain for the on-guard event (rule 2.V.6.1)
-    const payloadType = def && 'eventType' in def && def.eventType === 'permanent'
-      ? 'permanent-event' as const
-      : 'short-event' as const;
-    newState = initiateChain(newState, action.player, revealedCard, { type: payloadType });
+    const isPermanent = def && 'eventType' in def && def.eventType === 'permanent';
+    const payload = isPermanent
+      ? { type: 'permanent-event' as const, targetCharacterId: action.targetCharacterId }
+      : { type: 'short-event' as const };
+    newState = initiateChain(newState, action.player, revealedCard, payload);
 
     return { state: newState };
   }

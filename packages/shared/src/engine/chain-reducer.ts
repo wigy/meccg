@@ -380,16 +380,45 @@ function resolvePermanentEvent(state: GameState, entry: ChainEntry): GameState {
 
   logDetail(`Permanent event resolves: "${def?.name ?? card.definitionId}" enters play for player ${entry.declaredBy as string}`);
 
-  // Add card to cardsInPlay
   const newPlayers: [PlayerState, PlayerState] = [state.players[0], state.players[1]];
-  newPlayers[playerIndex] = {
-    ...newPlayers[playerIndex],
-    cardsInPlay: [...newPlayers[playerIndex].cardsInPlay, {
-      instanceId: card.instanceId,
-      definitionId: card.definitionId,
-      status: CardStatus.Untapped,
-    }],
-  };
+
+  // "Playable on a character" — attach to target character's corruptionCards
+  const targetCharId = entry.payload.type === 'permanent-event' ? entry.payload.targetCharacterId : undefined;
+  if (targetCharId) {
+    // Find which player owns the target character
+    for (let pi = 0; pi < 2; pi++) {
+      const charInPlay = state.players[pi].characters[targetCharId as string];
+      if (charInPlay) {
+        logDetail(`Attaching "${def?.name ?? card.definitionId}" to character ${targetCharId as string}`);
+        newPlayers[pi] = {
+          ...newPlayers[pi],
+          characters: {
+            ...newPlayers[pi].characters,
+            [targetCharId as string]: {
+              ...charInPlay,
+              hazards: [...charInPlay.hazards, {
+                instanceId: card.instanceId,
+                definitionId: card.definitionId,
+                status: CardStatus.Untapped,
+              }],
+            },
+          },
+        };
+        break;
+      }
+    }
+  } else {
+    // General permanent event — just add to cardsInPlay
+    newPlayers[playerIndex] = {
+      ...newPlayers[playerIndex],
+      cardsInPlay: [...newPlayers[playerIndex].cardsInPlay, {
+        instanceId: card.instanceId,
+        definitionId: card.definitionId,
+        status: CardStatus.Untapped,
+      }],
+    };
+  }
+
   let newState: GameState = { ...state, players: newPlayers };
 
   // Execute self-enters-play effects (e.g. discard-cards-in-play)

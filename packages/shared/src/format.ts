@@ -116,6 +116,7 @@ export function buildInstanceLookup(view: PlayerView): InstanceLookup {
     map[ch.instanceId as string] = ch.definitionId;
     for (const item of ch.items) map[item.instanceId as string] = item.definitionId;
     for (const ally of ch.allies) map[ally.instanceId as string] = ally.definitionId;
+    for (const hazard of ch.hazards) map[hazard.instanceId as string] = hazard.definitionId;
   }
   for (const company of s.companies) {
     if (company.currentSite) map[company.currentSite.instanceId as string] = company.currentSite.definitionId;
@@ -134,6 +135,7 @@ export function buildInstanceLookup(view: PlayerView): InstanceLookup {
     map[ch.instanceId as string] = ch.definitionId;
     for (const item of ch.items) map[item.instanceId as string] = item.definitionId;
     for (const ally of ch.allies) map[ally.instanceId as string] = ally.definitionId;
+    for (const hazard of ch.hazards) map[hazard.instanceId as string] = hazard.definitionId;
   }
   for (const company of o.companies) {
     if (company.currentSite) map[company.currentSite.instanceId as string] = company.currentSite.definitionId;
@@ -294,11 +296,12 @@ function formatAllyLine(ally: AllyInPlay, defOf: CardLookup, instOf: InstanceLoo
 
 function formatCorruptionCardLine(instId: CardInstanceId, defOf: CardLookup, instOf: InstanceLookup): string {
   const def = resolve(instId, instOf, defOf);
-  if (!def || def.cardType !== 'hazard-corruption') {
-    return ('a corruption');
-  }
+  if (!def) return 'a hazard';
   const label = formatInstanceName(instId, defOf, instOf);
-  return `${label} (${def.corruptionPoints} CP)`;
+  if (def.cardType === 'hazard-corruption') {
+    return `${label} (${def.corruptionPoints} CP)`;
+  }
+  return label;
 }
 
 function formatSiteName(instId: CardInstanceId, defOf: CardLookup, instOf: InstanceLookup): string {
@@ -355,8 +358,8 @@ function formatCompany(
     for (const ally of char.allies) {
       lines.push(`${indent}    ${formatAllyLine(ally, defOf, instOf)}`);
     }
-    for (const ccId of char.corruptionCards) {
-      lines.push(`${indent}    ${formatCorruptionCardLine(ccId, defOf, instOf)}`);
+    for (const hazard of char.hazards) {
+      lines.push(`${indent}    ${formatCorruptionCardLine(hazard.instanceId, defOf, instOf)}`);
     }
     for (const followerId of char.followers) {
       const follower = characters[followerId as string];
@@ -418,8 +421,8 @@ function formatOpponentCompany(
     for (const ally of char.allies) {
       lines.push(`${indent}    ${formatAllyLine(ally, defOf, instOf)}`);
     }
-    for (const ccId of char.corruptionCards) {
-      lines.push(`${indent}    ${formatCorruptionCardLine(ccId, defOf, instOf)}`);
+    for (const hazard of char.hazards) {
+      lines.push(`${indent}    ${formatCorruptionCardLine(hazard.instanceId, defOf, instOf)}`);
     }
     for (const followerId of char.followers) {
       const follower = characters[followerId as string];

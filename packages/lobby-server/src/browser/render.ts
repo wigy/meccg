@@ -1898,6 +1898,7 @@ function showHazardKeyingMenu(
   actions: readonly GameAction[],
   onAction: (action: GameAction) => void,
   onGuardAction?: GameAction,
+  cardPool?: Readonly<Record<string, CardDefinition>>,
 ): void {
   document.querySelector('.chain-target-backdrop')?.remove();
 
@@ -1927,7 +1928,13 @@ function showHazardKeyingMenu(
     if (action.type !== 'play-hazard' || action.keyedBy) continue;
     const btn = document.createElement('button');
     btn.className = 'char-action-tooltip__btn';
-    btn.textContent = 'Play hazard';
+    let label = 'Play hazard';
+    if (action.targetCharacterId && cardPool) {
+      const charDefId = cachedInstanceLookup(action.targetCharacterId);
+      const charDef = charDefId ? cardPool[charDefId as string] : undefined;
+      label = charDef ? `Play on ${charDef.name}` : `Play on ${action.targetCharacterId as string}`;
+    }
+    btn.textContent = label;
     btn.addEventListener('click', () => {
       backdrop.remove();
       onAction(action);
@@ -2924,7 +2931,7 @@ export function renderHand(
           img.addEventListener('click', () => onAction(hazardActions[0]));
         } else {
           img.addEventListener('click', (e) => {
-            showHazardKeyingMenu(e, hazardActions, onAction, onGuardAction);
+            showHazardKeyingMenu(e, hazardActions, onAction, onGuardAction, cardPool);
           });
         }
       }
@@ -2971,7 +2978,7 @@ export function renderHand(
       if (onAction) {
         img.style.cursor = 'pointer';
         img.addEventListener('click', (e) => {
-          showHazardKeyingMenu(e, [], onAction, onGuardAction);
+          showHazardKeyingMenu(e, [], onAction, onGuardAction, cardPool);
         });
       }
     } else {

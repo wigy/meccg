@@ -156,7 +156,7 @@ function hazardSideboardFetchActions(
 
   if (untapState.hazardSideboardDestination === 'deck') {
     if (untapState.hazardSideboardFetched >= 1) {
-      logDetail('Hazard sideboard: already fetched 1 card to deck');
+      logDetail('Hazard sideboard: already fetched 1 card to deck — sub-flow auto-exits');
       return actions;
     }
     // Must pick exactly 1 — no pass
@@ -172,19 +172,17 @@ function hazardSideboardFetchActions(
   }
 
   if (untapState.hazardSideboardDestination === 'discard') {
-    if (untapState.hazardSideboardFetched >= MAX_HAZARD_SIDEBOARD_TO_DISCARD) {
-      logDetail('Hazard sideboard: already fetched 5 cards to discard');
-      return actions;
+    if (untapState.hazardSideboardFetched < MAX_HAZARD_SIDEBOARD_TO_DISCARD) {
+      const eligible = getEligibleHazardCards(state, player);
+      for (const card of eligible) {
+        logDetail(`Hazard sideboard: ${card.name} → discard pile (viable)`);
+        actions.push({
+          action: { type: 'fetch-hazard-from-sideboard', player: playerId, sideboardCardInstanceId: card.instanceId },
+          viable: true,
+        });
+      }
     }
-    const eligible = getEligibleHazardCards(state, player);
-    for (const card of eligible) {
-      logDetail(`Hazard sideboard: ${card.name} → discard pile (viable)`);
-      actions.push({
-        action: { type: 'fetch-hazard-from-sideboard', player: playerId, sideboardCardInstanceId: card.instanceId },
-        viable: true,
-      });
-    }
-    // Pass available after at least 1 card fetched
+    // Pass available after at least 1 card fetched, or when limit reached
     if (untapState.hazardSideboardFetched >= 1) {
       actions.push({ action: { type: 'pass', player: playerId }, viable: true });
     }

@@ -277,7 +277,7 @@ export function applyDraftResults(
         status: CardStatus.Untapped,
         items: [],
         allies: [],
-        corruptionCards: [],
+        hazards: [],
         followers: [],
         controlledBy: 'general',
         effectiveStats: ZERO_EFFECTIVE_STATS,
@@ -295,6 +295,7 @@ export function applyDraftResults(
       moved: false,
       siteOfOrigin: null,
       onGuardCards: [],
+      hazards: [],
     };
 
     // GI and MP are left at zero — recomputeDerived() runs after the reducer
@@ -496,7 +497,7 @@ function initPlayerWithCharacters(
       status: CardStatus.Untapped,
       items: [],
       allies: [],
-      corruptionCards: [],
+      hazards: [],
       followers: [],
       controlledBy: 'general',
       effectiveStats: ZERO_EFFECTIVE_STATS,
@@ -513,6 +514,7 @@ function initPlayerWithCharacters(
     moved: false,
     siteOfOrigin: null,
     onGuardCards: [],
+    hazards: [],
   };
 
   const playDeckMinted = config.playDeck.map(defId => mint(minter, defId));

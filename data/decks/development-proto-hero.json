@@ -129,11 +129,6 @@
         "qty": 2
       },
       {
-        "name": "Twilight",
-        "card": "tw-106",
-        "qty": 3
-      },
-      {
         "name": "Foolish Words",
         "card": "td-25",
         "qty": 2
@@ -156,23 +151,8 @@
         "qty": 1
       },
       {
-        "name": "Shadowfax",
-        "card": "tw-326",
-        "qty": 1
-      },
-      {
         "name": "Rangers of the North",
         "card": "tw-311",
-        "qty": 1
-      },
-      {
-        "name": "Riders of Rohan",
-        "card": "tw-317",
-        "qty": 1
-      },
-      {
-        "name": "Knights of Dol Amroth",
-        "card": "tw-263",
         "qty": 1
       },
       {
@@ -219,11 +199,6 @@
       "qty": 1
     },
     {
-      "name": "Mount Doom",
-      "card": "tw-414",
-      "qty": 1
-    },
-    {
       "name": "Barrow-downs",
       "card": "tw-375",
       "qty": 1
@@ -231,11 +206,6 @@
     {
       "name": "Eagles' Eyrie",
       "card": "tw-391",
-      "qty": 1
-    },
-    {
-      "name": "Henneth Annûn",
-      "card": "tw-400",
       "qty": 1
     },
     {
@@ -247,7 +217,18 @@
       "name": "Bag End",
       "card": "tw-372",
       "qty": 1
+    },
+    {
+      "name": "Bree",
+      "card": "tw-378",
+      "qty": 1
     }
   ],
-  "sideboard": []
+  "sideboard": [
+    {
+      "name": "Twilight",
+      "card": "tw-106",
+      "qty": 3
+    }
+  ]
 }

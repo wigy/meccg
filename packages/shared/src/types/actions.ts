@@ -592,6 +592,8 @@ export interface RevealOnGuardAction {
   readonly player: PlayerId;
   /** The on-guard card instance being revealed. */
   readonly cardInstanceId: CardInstanceId;
+  /** Target character for hazard events "playable on a character" (e.g. Foolish Words). */
+  readonly targetCharacterId?: CardInstanceId;
 }
 
 /**

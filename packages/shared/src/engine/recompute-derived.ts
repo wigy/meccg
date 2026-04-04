@@ -153,10 +153,10 @@ function computeEffectiveStats(
     }
   }
 
-  for (const ccId of char.corruptionCards) {
-    const ccDef = resolveDef(state, ccId);
-    if (ccDef && ccDef.cardType === 'hazard-corruption') {
-      corruptionPoints += ccDef.corruptionPoints;
+  for (const hazard of char.hazards) {
+    const hDef = resolveDef(state, hazard.instanceId);
+    if (hDef && hDef.cardType === 'hazard-corruption') {
+      corruptionPoints += hDef.corruptionPoints;
     }
   }
 

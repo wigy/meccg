@@ -45,6 +45,10 @@
     "keywords": [],
     "effects": [
       {
+        "type": "play-target",
+        "target": "character"
+      },
+      {
         "type": "on-guard-reveal",
         "trigger": "influence-attempt"
       },
@@ -54,8 +58,8 @@
         "max": 1
       },
       {
-        "type": "stat-modifier",
-        "stat": "influence",
+        "type": "check-modifier",
+        "check": "influence",
         "value": -4
       }
     ],

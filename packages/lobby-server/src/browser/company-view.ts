@@ -170,7 +170,7 @@ function renderCharacterColumn(
   wrap.className = 'character-card-wrap';
 
   const hasFollowers = charMap != null && char.followers.length > 0;
-  const hasAttachments = char.items.length > 0 || char.allies.length > 0 || hasFollowers;
+  const hasAttachments = char.items.length > 0 || char.allies.length > 0 || char.hazards.length > 0 || hasFollowers;
   const img = createCardImage(char.definitionId as string, def, imgPath, 'company-card', char.instanceId as string);
 
   // Inner wrapper rotates both card image and badges together
@@ -219,7 +219,7 @@ function renderCharacterColumn(
   col.appendChild(wrap);
 
   // Items, allies, and followers — shown side by side in one row
-  const allAttachments = [...char.items, ...char.allies];
+  const allAttachments = [...char.items, ...char.allies, ...char.hazards];
   if (allAttachments.length > 0 || hasFollowers) {
     const attachments = document.createElement('div');
     attachments.className = 'character-attachments';
