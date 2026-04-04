@@ -150,6 +150,7 @@ export class GameSession {
       case 'cheat-roll':
       case 'summon-card':
       case 'load-snapshot':
+      case 'swap-hand':
         if (!this.dev) {
           this.send(ws, { type: 'error', message: `'${msg.type}' is only available in development mode (--dev)` });
           break;
@@ -162,6 +163,7 @@ export class GameSession {
         else if (msg.type === 'cheat-roll') this.handleCheatRoll(ws, msg.total);
         else if (msg.type === 'summon-card') this.handleSummonCard(ws, msg.cardName);
         else if (msg.type === 'load-snapshot') this.handleLoadSnapshot(ws, msg.file);
+        else if (msg.type === 'swap-hand') this.handleSwapHand(ws);
         break;
     }
   }
@@ -794,6 +796,22 @@ export class GameSession {
   }
 
   /** Dev-only: load a bundled snapshot file as the current save and restart all clients. */
+  private handleSwapHand(ws: WebSocket): void {
+    if (!this.state) return;
+
+    const p0 = this.state.players[0];
+    const p1 = this.state.players[1];
+    const newPlayers: [typeof p0, typeof p1] = [
+      { ...p0, hand: p1.hand },
+      { ...p1, hand: p0.hand },
+    ];
+    this.state = { ...this.state, players: newPlayers };
+
+    console.log(`[swap-hand] Swapped hands: ${p0.name} (${p0.hand.length} cards) ↔ ${p1.name} (${p1.hand.length} cards)`);
+    this.send(ws, { type: 'info', message: `Hands swapped: ${p0.name} ↔ ${p1.name}` });
+    this.broadcastState();
+  }
+
   private handleLoadSnapshot(ws: WebSocket, file: string): void {
     // Validate filename: exactly 3 digits + .json extension
     if (!/^\d{3}\.json$/.test(file)) {

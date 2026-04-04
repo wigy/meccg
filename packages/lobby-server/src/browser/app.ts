@@ -2382,6 +2382,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const cheatRollSelect = document.getElementById('cheat-roll-select') as HTMLSelectElement;
   const summonBtn = document.getElementById('summon-btn') as HTMLButtonElement;
+  const swapHandBtn = document.getElementById('swap-hand-btn') as HTMLButtonElement;
   const toolbarDev = document.getElementById('toolbar-dev') as HTMLElement;
 
   function applyDevMode(on: boolean): void {
@@ -2504,6 +2505,15 @@ document.addEventListener('DOMContentLoaded', () => {
       ws.send(JSON.stringify(msg));
       renderLog(`>> Cheat: summoning "${cardName}"`, cardPool);
       flashBtn(summonBtn);
+    }
+  });
+
+  swapHandBtn.addEventListener('click', () => {
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      const msg: ClientMessage = { type: 'swap-hand' };
+      ws.send(JSON.stringify(msg));
+      renderLog('>> Cheat: swapping hands', cardPool);
+      flashBtn(swapHandBtn);
     }
   });
 

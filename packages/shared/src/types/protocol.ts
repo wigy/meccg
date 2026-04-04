@@ -147,7 +147,16 @@ export interface LoadSnapshotMessage {
   readonly file: string;
 }
 
-export type ClientMessage = JoinMessage | ActionMessage | ResetMessage | SaveMessage | LoadMessage | ReseedMessage | UndoMessage | CheatRollMessage | SummonCardMessage | LoadSnapshotMessage;
+/**
+ * Dev-only: swap hands between the two players.
+ * Both players' hand contents are exchanged.
+ */
+export interface SwapHandMessage {
+  /** Message type discriminant. */
+  readonly type: 'swap-hand';
+}
+
+export type ClientMessage = JoinMessage | ActionMessage | ResetMessage | SaveMessage | LoadMessage | ReseedMessage | UndoMessage | CheatRollMessage | SummonCardMessage | LoadSnapshotMessage | SwapHandMessage;
 
 // ---- Server → Client ----
 
