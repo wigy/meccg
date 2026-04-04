@@ -444,15 +444,19 @@ function initiateCreatureCombat(state: GameState, entry: ChainEntry): GameState 
     return state;
   }
 
-  // Determine defending company from M/H phase state
-  if (state.phaseState.phase !== 'movement-hazard') {
-    logDetail(`Creature resolution: not in M/H phase — fizzle`);
+  // Determine defending company from phase state (M/H or Site phase)
+  let activeCompanyIndex: number;
+  if (state.phaseState.phase === 'movement-hazard') {
+    activeCompanyIndex = state.phaseState.activeCompanyIndex;
+  } else if (state.phaseState.phase === 'site') {
+    activeCompanyIndex = state.phaseState.activeCompanyIndex;
+  } else {
+    logDetail(`Creature resolution: not in M/H or Site phase — fizzle`);
     return state;
   }
-  const mhState = state.phaseState;
   const activePlayerIndex = state.players.findIndex(p => p.id === state.activePlayer);
   const resourcePlayer = state.players[activePlayerIndex];
-  const company = resourcePlayer.companies[mhState.activeCompanyIndex];
+  const company = resourcePlayer.companies[activeCompanyIndex];
   if (!company) {
     logDetail(`Creature resolution: no active company — fizzle`);
     return state;
@@ -468,8 +472,12 @@ function initiateCreatureCombat(state: GameState, entry: ChainEntry): GameState 
     logDetail('Creature has attacker-chooses-defenders — skipping defender assignment');
   }
 
+  const attackSource = state.phaseState.phase === 'site'
+    ? { type: 'on-guard-creature' as const, cardInstanceId: entry.card!.instanceId }
+    : { type: 'creature' as const, instanceId: entry.card!.instanceId };
+
   const combat: CombatState = {
-    attackSource: { type: 'creature', instanceId: entry.card!.instanceId },
+    attackSource,
     companyId: company.id,
     defendingPlayerId: state.activePlayer!,
     attackingPlayerId: hazardPlayerId,

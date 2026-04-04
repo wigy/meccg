@@ -4193,26 +4193,26 @@ function handleRevealOnGuardAttacks(
     const def = state.cardPool[revealedCard.definitionId as string];
     logDetail(`Site: hazard player reveals on-guard creature "${def?.name ?? revealedCard.definitionId}"`);
 
-    // Remove from on-guard, add to declared attacks
+    // Remove from on-guard, move to hazard player's discard, initiate chain
     const newOnGuardCards = [...company.onGuardCards];
     newOnGuardCards.splice(ogIdx, 1);
 
     const newCompanies = [...resourcePlayer.companies];
     newCompanies[siteState.activeCompanyIndex] = { ...company, onGuardCards: newOnGuardCards };
 
+    const hazardIndex = 1 - activeIndex;
     const newPlayers = clonePlayers(state);
     newPlayers[activeIndex] = { ...resourcePlayer, companies: newCompanies };
-
-    return {
-      state: {
-        ...state,
-        players: newPlayers,
-        phaseState: {
-          ...siteState,
-          declaredOnGuardAttacks: [...siteState.declaredOnGuardAttacks, revealedCard.instanceId],
-        },
-      },
+    newPlayers[hazardIndex] = {
+      ...state.players[hazardIndex],
+      discardPile: [...state.players[hazardIndex].discardPile, revealedCard],
     };
+
+    // Creature enters the chain so the resource player can respond
+    let newState: GameState = { ...state, players: newPlayers };
+    newState = initiateChain(newState, action.player, revealedCard, { type: 'creature' });
+
+    return { state: newState };
   }
 
   return { state, error: `Unexpected action '${action.type}' during reveal-on-guard-attacks step` };
@@ -5671,11 +5671,16 @@ function finalizeCombat(state: GameState, effects: GameEffect[] = []): ReducerRe
 
   const newPlayers = clonePlayers(state);
 
-  if (allDefeated && combat.attackSource.type === 'creature') {
-    // Move creature from attacker's discard to defender's MP pile
+  // Creature attacks (M/H or on-guard): if all strikes defeated, move from
+  // attacker's discard to defender's kill pile for marshalling points.
+  const creatureInstanceId =
+    combat.attackSource.type === 'creature' ? combat.attackSource.instanceId
+      : combat.attackSource.type === 'on-guard-creature' ? combat.attackSource.cardInstanceId
+        : null;
+
+  if (allDefeated && creatureInstanceId) {
     const atkIdx = state.players.findIndex(p => p.id === combat.attackingPlayerId);
     const defIdx = state.players.findIndex(p => p.id === combat.defendingPlayerId);
-    const creatureInstanceId = combat.attackSource.instanceId;
 
     const creatureCard = newPlayers[atkIdx].discardPile.find(c => c.instanceId === creatureInstanceId);
     const atkDiscard = newPlayers[atkIdx].discardPile.filter(c => c.instanceId !== creatureInstanceId);
