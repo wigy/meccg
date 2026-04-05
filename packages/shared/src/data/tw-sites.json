@@ -681,5 +681,30 @@
     "resourceDraws": 1,
     "hazardDraws": 1,
     "text": "Nearest Haven: LórienPlayable: InformationAutomatic-attacks: Orcs — 1 strike with 6 prowess"
+  },
+  {
+    "cardType": "hero-site",
+    "alignment": "wizard",
+    "id": "tw-398",
+    "name": "Goblin-gate",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Goblingate.jpg",
+    "siteType": "shadow-hold",
+    "sitePath": [
+      "wilderness",
+      "wilderness"
+    ],
+    "nearestHaven": "Rivendell",
+    "region": "High Pass",
+    "playableResources": [],
+    "automaticAttacks": [
+      {
+        "creatureType": "Orcs",
+        "strikes": 3,
+        "prowess": 6
+      }
+    ],
+    "resourceDraws": 1,
+    "hazardDraws": 2,
+    "text": "Nearest Haven: RivendellPlayable: Items (minor, gold ring)Automatic-attacks: Orcs — 3 strikes with 6 prowess"
   }
 ]

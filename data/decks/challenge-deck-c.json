@@ -66,12 +66,12 @@
   ],
   "deck": {
     "characters": [
-        {
-          "name": "Pallando",
-          "card": null,
-          "qty": 3
-        }
-      ],
+      {
+        "name": "Pallando",
+        "card": null,
+        "qty": 3
+      }
+    ],
     "hazards": [
       {
         "name": "Cave-worm",
@@ -280,7 +280,7 @@
     },
     {
       "name": "Goblin-gate",
-      "card": null,
+      "card": "tw-398",
       "qty": 1
     },
     {

@@ -70,12 +70,12 @@
   ],
   "deck": {
     "characters": [
-        {
-          "name": "Alatar",
-          "card": "tw-117",
-          "qty": 3
-        }
-      ],
+      {
+        "name": "Alatar",
+        "card": "tw-117",
+        "qty": 3
+      }
+    ],
     "hazards": [
       {
         "name": "Barrow-wight",
@@ -264,7 +264,7 @@
     },
     {
       "name": "Goblin-gate",
-      "card": null,
+      "card": "tw-398",
       "qty": 1
     },
     {
