@@ -2309,6 +2309,14 @@ export function renderPassButton(view: PlayerView, onAction: (action: GameAction
   const btn = document.getElementById('pass-btn') as HTMLButtonElement | null;
   if (!btn) return;
 
+  // Remove all dynamic buttons from previous renders before rebuilding from
+  // the current legal actions. This prevents stale buttons when the early
+  // return (no pass action) skips the conditional re-creation below.
+  document.getElementById('enter-site-btn')?.remove();
+  document.getElementById('secondary-pass-btn')?.remove();
+  document.getElementById('call-council-btn')?.remove();
+  document.querySelectorAll('.hazard-sb-btn').forEach(b => b.remove());
+
   // Find a viable pass-like or single-step action (including chain priority pass)
   const passEval = view.legalActions.find(ea =>
     ea.viable && (ea.action.type === 'pass' || ea.action.type === 'draft-stop'
@@ -2389,8 +2397,6 @@ export function renderPassButton(view: PlayerView, onAction: (action: GameAction
 
   // When the primary button is a non-pass action (e.g. Draw) and a pass action
   // also exists, show a secondary Pass button so both options are available.
-  const existingSecondaryPass = document.getElementById('secondary-pass-btn');
-  if (existingSecondaryPass) existingSecondaryPass.remove();
   if (passAction.type !== 'pass' && passAction.type !== 'pass-chain-priority') {
     const secondaryPass = view.legalActions.find(ea => ea.viable && ea.action.type === 'pass');
     if (secondaryPass) {
@@ -2404,8 +2410,6 @@ export function renderPassButton(view: PlayerView, onAction: (action: GameAction
   }
 
   // During untap phase, add hazard sideboard buttons for the hazard player
-  const existingHazSbBtns = document.querySelectorAll('.hazard-sb-btn');
-  existingHazSbBtns.forEach(b => b.remove());
   if (view.phaseState.phase === Phase.Untap && view.activePlayer !== view.self.id) {
     let hazBtnOffset = 0;
     const toDiscardEval = view.legalActions.find(ea => ea.viable && ea.action.type === 'start-hazard-sideboard-to-discard');
@@ -2430,8 +2434,6 @@ export function renderPassButton(view: PlayerView, onAction: (action: GameAction
   }
 
   // During signal-end, add a "Call Council" button if available
-  const existingCouncilBtn = document.getElementById('call-council-btn');
-  if (existingCouncilBtn) existingCouncilBtn.remove();
   if (view.phaseState.phase === Phase.EndOfTurn && view.phaseState.step === 'signal-end') {
     const councilEval = view.legalActions.find(ea => ea.viable && ea.action.type === 'call-free-council');
     if (councilEval) {
@@ -2445,8 +2447,6 @@ export function renderPassButton(view: PlayerView, onAction: (action: GameAction
   }
 
   // During enter-or-skip, add an "Enter" button for the enter-site action
-  const existingEnterBtn = document.getElementById('enter-site-btn');
-  if (existingEnterBtn) existingEnterBtn.remove();
   if (view.phaseState.phase === Phase.Site && view.phaseState.step === 'enter-or-skip') {
     const enterEval = view.legalActions.find(ea => ea.viable && ea.action.type === 'enter-site');
     if (enterEval) {
