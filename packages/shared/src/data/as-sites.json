@@ -25,5 +25,24 @@
     "resourceDraws": 1,
     "hazardDraws": 1,
     "text": "Playable: Information. Automatic-attacks: Wolves — 2 strikes with 6 prowess."
+  },
+  {
+    "cardType": "hero-site",
+    "alignment": "wizard",
+    "id": "as-142",
+    "name": "The Worthy Hills",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/as/TheWorthyHills.jpg",
+    "siteType": "ruins-and-lairs",
+    "sitePath": [
+      "wilderness",
+      "wilderness"
+    ],
+    "nearestHaven": "Rivendell",
+    "region": "Cardolan",
+    "playableResources": [],
+    "automaticAttacks": [],
+    "resourceDraws": 1,
+    "hazardDraws": 2,
+    "text": "Nearest Haven: RivendellPlayable: InformationAutomatic-attacks: Men — each character faces 1 strike with 9 prowess (detainment).Special: During the site phase, you may tap two characters to untap this site—one a sage, one a scout."
   }
 ]
