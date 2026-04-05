@@ -154,12 +154,6 @@ function reRenderFactionInfluence(): void {
  */
 let selectedInfluencerForOpponent: CardInstanceId | null = null;
 
-/** Cached arguments for re-rendering during opponent influence target selection. */
-let opponentInfluenceRenderCache: {
-  view: PlayerView;
-  cardPool: Readonly<Record<string, CardDefinition>>;
-  onAction: (action: GameAction) => void;
-} | null = null;
 
 /** Returns the currently selected influencer for the opponent influence flow. */
 export function getSelectedInfluencerForOpponent(): CardInstanceId | null {
@@ -175,13 +169,6 @@ export function setSelectedInfluencerForOpponent(id: CardInstanceId | null): voi
 export function clearOpponentInfluenceSelection(): void {
   selectedInfluencerForOpponent = null;
   setTargetingInstruction(null);
-}
-
-/** Re-render company views using cached state (for opponent influence selection flow). */
-function reRenderOpponentInfluence(): void {
-  if (!opponentInfluenceRenderCache) return;
-  const { view, cardPool, onAction } = opponentInfluenceRenderCache;
-  void import('./company-view.js').then(m => m.renderCompanyViews(view, cardPool, onAction));
 }
 
 
@@ -2872,7 +2859,6 @@ export function renderHand(
   // Cache render state for opponent influence re-rendering
   const hasOppInfluenceActions = viable.some(a => a.type === 'opponent-influence-attempt');
   if (onAction && hasOppInfluenceActions) {
-    opponentInfluenceRenderCache = { view, cardPool, onAction };
     if (selectedInfluencerForOpponent) {
       const stillViable = viable.some(
         a => a.type === 'opponent-influence-attempt' && a.influencingCharacterId === selectedInfluencerForOpponent,
@@ -2885,7 +2871,6 @@ export function renderHand(
   } else if (!hasOppInfluenceActions) {
     if (selectedInfluencerForOpponent) setTargetingInstruction(null);
     selectedInfluencerForOpponent = null;
-    opponentInfluenceRenderCache = null;
   }
 
   for (let i = 0; i < total; i++) {

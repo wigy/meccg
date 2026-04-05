@@ -9,7 +9,7 @@
  * CoE rules section 2.V (lines 340–393).
  */
 
-import type { GameState, PlayerId, GameAction, EvaluatedAction, SitePhaseState, HeroItemCard, HeroResourceEventCard, SiteCard, PlayableAtEntry, FactionCard, CharacterCard, AllyCard } from '../../index.js';
+import type { GameState, PlayerId, GameAction, EvaluatedAction, SitePhaseState, HeroItemCard, HeroResourceEventCard, SiteCard, PlayableAtEntry, FactionCard } from '../../index.js';
 import { getPlayerIndex, isSiteCard, isItemCard, isAllyCard, isFactionCard, isCharacterCard, CardStatus, matchesCondition, GENERAL_INFLUENCE } from '../../index.js';
 import { resolveInstanceId } from '../../types/state.js';
 import { collectCharacterEffects, resolveCheckModifier, resolveStatModifiers } from '../effects/index.js';
@@ -914,8 +914,7 @@ function opponentInfluenceActions(
         const allyDef = state.cardPool[allyInst.definitionId as string];
         if (!allyDef || !isAllyCard(allyDef)) continue;
 
-        const allyCard = allyDef as AllyCard;
-        const allyMind = allyCard.mind;
+        const allyMind = allyDef.mind;
 
         // Controller DI for ally = DI of the character controlling it
         const allyControllerDI = availableDI(state, oppCharId, opponent);
@@ -927,7 +926,7 @@ function opponentInfluenceActions(
           const influencerDI = availableDI(state, ch.instanceId, player);
           const explanation = `Influencer DI: ${influencerDI}, opponent GI: ${opponentGI}, target mind: ${allyMind}, controller DI: ${allyControllerDI}`;
 
-          logDetail(`Opponent influence: ${charDef.name} can target ally ${allyCard.name} (${explanation})`);
+          logDetail(`Opponent influence: ${charDef.name} can target ally ${allyDef.name} (${explanation})`);
           // Base action (no reveal)
           actions.push({
             action: {
@@ -945,11 +944,11 @@ function opponentInfluenceActions(
           // Identical card reveal variant
           const identicalAllyInHand = player.hand.find(h => {
             const hDef = state.cardPool[h.definitionId as string];
-            return hDef && (isCharacterCard(hDef) || isAllyCard(hDef)) && hDef.name === allyCard.name;
+            return hDef && (isCharacterCard(hDef) || isAllyCard(hDef)) && hDef.name === allyDef.name;
           });
           if (identicalAllyInHand) {
             const revealExplanation = `${explanation} (reveal identical → mind treated as 0)`;
-            logDetail(`Opponent influence: ${charDef.name} can reveal identical ${allyCard.name} from hand`);
+            logDetail(`Opponent influence: ${charDef.name} can reveal identical ${allyDef.name} from hand`);
             actions.push({
               action: {
                 type: 'opponent-influence-attempt',

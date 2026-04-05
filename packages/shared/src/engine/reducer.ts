@@ -4883,7 +4883,7 @@ function handleOpponentInfluenceAttempt(
   // Handle identical card reveal (rule 10.11)
   let revealedCard: { instanceId: CardInstanceId; definitionId: import('../index.js').CardDefinitionId } | null = null;
   let effectiveTargetMind = targetMind;
-  let newHand = [...player.hand];
+  const newHand = [...player.hand];
 
   if (action.revealedCardInstanceId) {
     const revealIdx = newHand.findIndex(c => c.instanceId === action.revealedCardInstanceId);
