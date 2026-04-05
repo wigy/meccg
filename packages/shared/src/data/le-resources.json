@@ -316,5 +316,24 @@
     "marshallingCategory": "misc",
     "effects": [],
     "text": "Sage only. Tap a sage to discard one non-environment hazard permanent-event or non-environment hazard long-event. Sage makes a corruption check modified by -2."
+  },
+  {
+    "cardType": "minion-resource-faction",
+    "alignment": "ringwraith",
+    "id": "le-278",
+    "name": "Orcs of Moria",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/OrcsofMoria.jpg",
+    "unique": true,
+    "marshallingPoints": 3,
+    "marshallingCategory": "faction",
+    "influenceNumber": 11,
+    "race": "orc",
+    "playableAt": [
+      {
+        "site": "Moria"
+      }
+    ],
+    "effects": [],
+    "text": "Unique. Playable at Moria if the influence check is greater than 10. Once in play, the number required to influence this faction is 0. Standard Modifications: Goblins of Goblin-gate (+2), Orcs of Dol Guldur (-2)."
   }
 ]
