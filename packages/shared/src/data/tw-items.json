@@ -7,7 +7,9 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Glamdring.jpg",
     "unique": true,
     "subtype": "major",
-    "keywords": ["weapon"],
+    "keywords": [
+      "weapon"
+    ],
     "marshallingPoints": 2,
     "marshallingCategory": "item",
     "corruptionPoints": 1,
@@ -48,7 +50,9 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Sting.jpg",
     "unique": true,
     "subtype": "minor",
-    "keywords": ["weapon"],
+    "keywords": [
+      "weapon"
+    ],
     "marshallingPoints": 0,
     "marshallingCategory": "item",
     "corruptionPoints": 1,
@@ -147,7 +151,9 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/TheMithrilcoat.jpg",
     "unique": true,
     "subtype": "greater",
-    "keywords": ["armor"],
+    "keywords": [
+      "armor"
+    ],
     "marshallingPoints": 4,
     "marshallingCategory": "item",
     "corruptionPoints": 2,
@@ -176,7 +182,9 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/DaggerofWesternesse.jpg",
     "unique": false,
     "subtype": "minor",
-    "keywords": ["weapon"],
+    "keywords": [
+      "weapon"
+    ],
     "marshallingPoints": 0,
     "marshallingCategory": "item",
     "corruptionPoints": 1,
@@ -232,7 +240,9 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/HauberkofBrightMail.jpg",
     "unique": true,
     "subtype": "major",
-    "keywords": ["armor"],
+    "keywords": [
+      "armor"
+    ],
     "marshallingPoints": 2,
     "marshallingCategory": "item",
     "corruptionPoints": 1,
@@ -254,7 +264,9 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/PalantirofOrthanc.jpg",
     "unique": true,
     "subtype": "special",
-    "keywords": ["palantir"],
+    "keywords": [
+      "palantir"
+    ],
     "marshallingPoints": 2,
     "marshallingCategory": "item",
     "corruptionPoints": 2,
@@ -303,5 +315,23 @@
     ],
     "effects": [],
     "text": "Unique. When a gold ring is tested in a company with the Scroll of Isildur, the result of the roll is modified by +2."
+  },
+  {
+    "cardType": "hero-resource-item",
+    "alignment": "wizard",
+    "id": "tw-313",
+    "name": "Red Book of Westmarch",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/RedBookofWestmarch.jpg",
+    "unique": true,
+    "subtype": "special",
+    "keywords": [],
+    "marshallingPoints": 0,
+    "marshallingCategory": "item",
+    "corruptionPoints": 1,
+    "prowessModifier": 0,
+    "bodyModifier": 0,
+    "playableAt": [],
+    "effects": [],
+    "text": "Unique. Only playable at Bag End. +2 to direct influence against a Hobbit character or faction. 1 marshalling point if stored at a Haven [{H}]."
   }
 ]
