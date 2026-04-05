@@ -104,7 +104,11 @@ function buildOpponentView(_state: GameState, player: PlayerState): OpponentView
     hasPlannedMovement: c.destinationSite !== null,
     revealedDestinationSite: null,
     moved: c.moved,
-    onGuardCards: hiddenCardPile(c.onGuardCards),
+    onGuardCards: c.onGuardCards.map(og =>
+      og.revealed
+        ? { instanceId: og.instanceId, definitionId: og.definitionId, revealed: true }
+        : { instanceId: og.instanceId, definitionId: UNKNOWN_CARD },
+    ),
   }));
 
   return {
@@ -294,7 +298,7 @@ export function projectPlayerView(state: GameState, playerId: PlayerId): PlayerV
         ...opponent,
         companies: opponent.companies.map((c, i) => ({
           ...c,
-          onGuardCards: opponentPlayer.companies[i].onGuardCards.map(og => ({ instanceId: og.instanceId, definitionId: og.definitionId })),
+          onGuardCards: opponentPlayer.companies[i].onGuardCards.map(og => ({ instanceId: og.instanceId, definitionId: og.definitionId, revealed: og.revealed })),
         })),
       };
     }
