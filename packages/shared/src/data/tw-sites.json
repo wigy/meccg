@@ -656,5 +656,30 @@
     "resourceDraws": 1,
     "hazardDraws": 2,
     "text": "Nearest Haven: LórienPlayable: Items (minor, gold ring)Automatic-attacks: Men — 3 strikes with 6 prowess"
+  },
+  {
+    "cardType": "hero-site",
+    "alignment": "wizard",
+    "id": "tw-385",
+    "name": "Dimrill Dale",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/DimrillDale.jpg",
+    "siteType": "ruins-and-lairs",
+    "sitePath": [
+      "wilderness",
+      "wilderness"
+    ],
+    "nearestHaven": "Lórien",
+    "region": "Redhorn Gate",
+    "playableResources": [],
+    "automaticAttacks": [
+      {
+        "creatureType": "Orcs",
+        "strikes": 1,
+        "prowess": 6
+      }
+    ],
+    "resourceDraws": 1,
+    "hazardDraws": 1,
+    "text": "Nearest Haven: LórienPlayable: InformationAutomatic-attacks: Orcs — 1 strike with 6 prowess"
   }
 ]
