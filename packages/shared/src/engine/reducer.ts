@@ -14,7 +14,7 @@
  * (or the original state plus an error string if the action was illegal).
  */
 
-import type { GameState, PlayerState, DraftPlayerState, ItemDraftPlayerState, CharacterDeckDraftPlayerState, SetupStepState, CardInstanceId, CompanyId, CharacterInPlay, CardInstance, ChainEntryPayload, UntapPhaseState, OrganizationPhaseState, MovementHazardPhaseState, SitePhaseState, EndOfTurnPhaseState, FreeCouncilPhaseState, Company, CreatureCard, SiteInPlay, HeroItemCard, CombatState, StrikeAssignment, PlayerId } from '../index.js';
+import type { GameState, PlayerState, DraftPlayerState, ItemDraftPlayerState, CharacterDeckDraftPlayerState, SetupStepState, CardInstanceId, CompanyId, CharacterInPlay, CardInstance, ChainEntryPayload, UntapPhaseState, OrganizationPhaseState, MovementHazardPhaseState, SitePhaseState, EndOfTurnPhaseState, FreeCouncilPhaseState, Company, CreatureCard, SiteInPlay, HeroItemCard, CombatState, StrikeAssignment, PlayerId, OnGuardCard } from '../index.js';
 import type { GameAction } from '../index.js';
 import { Phase, SetupStep, LEGAL_ACTIONS_BY_PHASE, getAlignmentRules, shuffle, nextInt, CardStatus, isCharacterCard, isItemCard, isAllyCard, isFactionCard, isSiteCard, SiteType, RegionType, Race, Skill, getPlayerIndex, ZERO_EFFECTIVE_STATS, MAX_STARTING_ITEMS, BASE_MAX_REGION_DISTANCE, HAND_SIZE } from '../index.js';
 import { logHeading, logDetail } from './legal-actions/log.js';
@@ -3207,7 +3207,7 @@ function handlePlaceOnGuard(
   const company = newCompanies[mhState.activeCompanyIndex];
   newCompanies[mhState.activeCompanyIndex] = {
     ...company,
-    onGuardCards: [...company.onGuardCards, handCard],
+    onGuardCards: [...company.onGuardCards, { instanceId: handCard.instanceId, definitionId: handCard.definitionId, revealed: false }],
   };
   newPlayers[activeIndex] = { ...resourcePlayer, companies: newCompanies };
 
@@ -3411,7 +3411,7 @@ function advanceAfterCompanyMH(state: GameState, mhState: MovementHazardPhaseSta
           siteEntered: false,
           resourcePlayed: false,
           minorItemAvailable: false,
-          declaredOnGuardAttacks: [],
+
           declaredAgentAttack: null,
           awaitingOnGuardReveal: false,
           pendingResourceAction: null,
@@ -4104,7 +4104,6 @@ function handleSiteSelectCompany(
         siteEntered: false,
         resourcePlayed: false,
         minorItemAvailable: false,
-        declaredOnGuardAttacks: [],
         declaredAgentAttack: null,
         awaitingOnGuardReveal: false,
         pendingResourceAction: null,
@@ -4181,7 +4180,7 @@ function handleSiteEnterOrSkip(
  * Handle the 'reveal-on-guard-attacks' step (CoE Step 1, line 345).
  *
  * The hazard player (non-active) may reveal on-guard creatures keyed to
- * the site, adding them to {@link SitePhaseState.declaredOnGuardAttacks}.
+ * the site, marking them as revealed in the company's onGuardCards.
  * Passing advances to the 'automatic-attacks' step.
  */
 function handleRevealOnGuardAttacks(
@@ -4218,9 +4217,9 @@ function handleRevealOnGuardAttacks(
     const def = state.cardPool[revealedCard.definitionId as string];
     logDetail(`Site: hazard player reveals on-guard creature "${def?.name ?? revealedCard.definitionId}"`);
 
-    // Remove from on-guard, add to declared attacks (combat happens at Step 4)
+    // Mark the on-guard card as revealed (combat happens at Step 4)
     const newOnGuardCards = [...company.onGuardCards];
-    newOnGuardCards.splice(ogIdx, 1);
+    newOnGuardCards[ogIdx] = { ...revealedCard, revealed: true };
 
     const newCompanies = [...resourcePlayer.companies];
     newCompanies[siteState.activeCompanyIndex] = { ...company, onGuardCards: newOnGuardCards };
@@ -4228,16 +4227,7 @@ function handleRevealOnGuardAttacks(
     const newPlayers = clonePlayers(state);
     newPlayers[activeIndex] = { ...resourcePlayer, companies: newCompanies };
 
-    return {
-      state: {
-        ...state,
-        players: newPlayers,
-        phaseState: {
-          ...siteState,
-          declaredOnGuardAttacks: [...siteState.declaredOnGuardAttacks, revealedCard],
-        },
-      },
-    };
+    return { state: { ...state, players: newPlayers } };
   }
 
   return { state, error: `Unexpected action '${action.type}' during reveal-on-guard-attacks step` };
@@ -4337,20 +4327,37 @@ function handleSiteResolveAttacks(
     return { state, error: `Expected 'pass' during resolve-attacks step` };
   }
 
-  // If declared on-guard attacks remain, initiate the next one via chain
-  if (siteState.declaredOnGuardAttacks.length > 0) {
-    const attackCard = siteState.declaredOnGuardAttacks[0];
-    const remaining = siteState.declaredOnGuardAttacks.slice(1);
-    const def = state.cardPool[attackCard.definitionId as string];
-    logDetail(`Site: initiating on-guard creature attack "${def?.name ?? attackCard.definitionId}" via chain`);
+  // If revealed on-guard creature attacks remain, initiate the next one via chain
+  const activePlayerIndex = getPlayerIndex(state, state.activePlayer!);
+  const company = state.players[activePlayerIndex].companies[siteState.activeCompanyIndex];
+  if (company) {
+    const revealedIdx = company.onGuardCards.findIndex(og => {
+      if (!og.revealed) return false;
+      const def = state.cardPool[og.definitionId as string];
+      return def?.cardType === 'hazard-creature';
+    });
+    if (revealedIdx !== -1) {
+      const attackCard = company.onGuardCards[revealedIdx];
+      const def = state.cardPool[attackCard.definitionId as string];
+      logDetail(`Site: initiating on-guard creature attack "${def?.name ?? attackCard.definitionId}" via chain`);
 
-    const hazardPlayerId = state.players.find(p => p.id !== state.activePlayer)!.id;
-    let newState: GameState = {
-      ...state,
-      phaseState: { ...siteState, declaredOnGuardAttacks: remaining },
-    };
-    newState = initiateChain(newState, hazardPlayerId, attackCard, { type: 'creature' });
-    return { state: newState };
+      // Remove from onGuardCards
+      const newOnGuardCards = [...company.onGuardCards];
+      newOnGuardCards.splice(revealedIdx, 1);
+
+      // Update company, players
+      const newCompanies = [...state.players[activePlayerIndex].companies];
+      newCompanies[siteState.activeCompanyIndex] = { ...company, onGuardCards: newOnGuardCards };
+      const newPlayers = clonePlayers(state);
+      newPlayers[activePlayerIndex] = { ...state.players[activePlayerIndex], companies: newCompanies };
+
+      // Initiate chain with CardInstance
+      const hazardPlayerId = state.players.find(p => p.id !== state.activePlayer)!.id;
+      const cardInstance: CardInstance = { instanceId: attackCard.instanceId, definitionId: attackCard.definitionId };
+      let newState: GameState = { ...state, players: newPlayers };
+      newState = initiateChain(newState, hazardPlayerId, cardInstance, { type: 'creature' });
+      return { state: newState };
+    }
   }
 
   // All attacks resolved — advance to play-resources
@@ -4427,7 +4434,8 @@ function handleOnGuardRevealAtResource(
     const payload = isPermanent
       ? { type: 'permanent-event' as const, targetCharacterId: action.targetCharacterId }
       : { type: 'short-event' as const };
-    newState = initiateChain(newState, action.player, revealedCard, payload);
+    const cardInstance: CardInstance = { instanceId: revealedCard.instanceId, definitionId: revealedCard.definitionId };
+    newState = initiateChain(newState, action.player, cardInstance, payload);
 
     return { state: newState };
   }
@@ -4833,8 +4841,8 @@ function returnOnGuardCardsToHand(state: GameState): GameState {
   const newCompanies = resourcePlayer.companies.map(company => {
     if (company.onGuardCards.length > 0) {
       logDetail(`Cleanup: returning ${company.onGuardCards.length} on-guard card(s) from company ${company.id} to hazard player's hand`);
-      returnedCards.push(...company.onGuardCards);
-      return { ...company, onGuardCards: [] as readonly CardInstance[] };
+      returnedCards.push(...company.onGuardCards.map(og => ({ instanceId: og.instanceId, definitionId: og.definitionId })));
+      return { ...company, onGuardCards: [] as readonly OnGuardCard[] };
     }
     return company;
   });
@@ -4882,7 +4890,6 @@ function advanceSiteToNextCompany(
         siteEntered: false,
         resourcePlayed: false,
         minorItemAvailable: false,
-        declaredOnGuardAttacks: [],
         declaredAgentAttack: null,
         awaitingOnGuardReveal: false,
         pendingResourceAction: null,

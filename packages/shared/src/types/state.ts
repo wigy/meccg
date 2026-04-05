@@ -119,6 +119,21 @@ export interface CardInPlay {
 }
 
 /**
+ * An on-guard card placed face-down at a company's site by the hazard player.
+ * Tracks whether the card has been revealed (flipped face-up) during the site phase.
+ * Revealed cards remain in the onGuardCards array with `revealed: true` until
+ * they are consumed (e.g. creature attacks resolve) or returned to hand at cleanup.
+ */
+export interface OnGuardCard {
+  /** The card instance ID of this on-guard card. */
+  readonly instanceId: CardInstanceId;
+  /** Reference to the static card definition. */
+  readonly definitionId: CardDefinitionId;
+  /** Whether this card has been revealed (flipped face-up). */
+  readonly revealed: boolean;
+}
+
+/**
  * A site card currently in play, associated with a company.
  * Sites track their tapped/untapped state — a tapped site cannot
  * be used to play another resource that requires tapping.
@@ -210,7 +225,7 @@ export interface Company {
    * phase where cards may be revealed under specific conditions. The cards'
    * identities are hidden from the resource player.
    */
-  readonly onGuardCards: readonly CardInstance[];
+  readonly onGuardCards: readonly OnGuardCard[];
   /** Hazard cards targeting this company as a whole (not a specific character). */
   readonly hazards: readonly CardInPlay[];
 }
@@ -899,11 +914,6 @@ export interface SitePhaseState {
    * Set to true after a resource that taps the site is successfully played.
    */
   readonly minorItemAvailable: boolean;
-  /**
-   * On-guard creature instance IDs revealed in step 1 that will attack
-   * during step 4 (resolve-attacks).
-   */
-  readonly declaredOnGuardAttacks: readonly CardInstance[];
   /**
    * Agent instance ID declared as attacking in step 3, or null if no
    * agent attack was declared.

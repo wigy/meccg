@@ -651,9 +651,6 @@ export function renderSiteInfo(
   if (site.minorItemAvailable) lines.push('Minor item available');
 
   // Declared attacks
-  if (site.declaredOnGuardAttacks.length > 0) {
-    lines.push(`On-guard attacks: ${site.declaredOnGuardAttacks.length}`);
-  }
   if (site.declaredAgentAttack) {
     lines.push(`Agent attack declared`);
   }

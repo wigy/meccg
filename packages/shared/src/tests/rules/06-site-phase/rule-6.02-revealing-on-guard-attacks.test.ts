@@ -75,17 +75,17 @@ describe('Rule 6.02 — Step 1: Revealing On-Guard Attacks', () => {
     expect((result.state.phaseState as SitePhaseState).step).toBe('automatic-attacks');
   });
 
-  test('revealing a creature removes it from onGuardCards and adds to declaredOnGuardAttacks', () => {
+  test('revealing a creature marks it as revealed in onGuardCards', () => {
     const base = buildSiteState(MORIA);
     const { state: withOG, ogCard } = placeOnGuard(base, 0, 0, BARROW_WIGHT);
     const testState = { ...withOG, phaseState: makeSitePhase({ step: 'reveal-on-guard-attacks', siteEntered: false }) };
 
     const result = reduce(testState, { type: 'reveal-on-guard', player: PLAYER_2, cardInstanceId: ogCard.instanceId });
     expect(result.error).toBeUndefined();
-    expect(result.state.players[0].companies[0].onGuardCards).toHaveLength(0);
-    const ps = result.state.phaseState as SitePhaseState;
-    expect(ps.declaredOnGuardAttacks).toHaveLength(1);
-    expect(ps.declaredOnGuardAttacks[0].instanceId).toBe(ogCard.instanceId);
+    const og = result.state.players[0].companies[0].onGuardCards;
+    expect(og).toHaveLength(1);
+    expect(og[0].instanceId).toBe(ogCard.instanceId);
+    expect(og[0].revealed).toBe(true);
   });
 
   test('creature reveal is NOT offered at sites without automatic-attacks', () => {

@@ -18,14 +18,32 @@
 
 import { describe, test, expect, beforeEach } from 'vitest';
 import {
-  buildTestState, resetMint, Phase, reduce,
+  buildTestState, resetMint, Phase, reduce, mint,
   makeSitePhase, placeOnGuard, viableActions, resolveChain,
   PLAYER_1, PLAYER_2,
   LEGOLAS, ARAGORN,
   BARROW_WIGHT, FOOLISH_WORDS, KNIGHTS_OF_DOL_AMROTH,
   LORIEN, MORIA, MINAS_TIRITH, DOL_AMROTH,
 } from '../../test-helpers.js';
-import type { SitePhaseState } from '../../../index.js';
+import type { OnGuardCard, CardDefinitionId, GameState } from '../../../index.js';
+
+/** Place a revealed on-guard card on a company. */
+function placeRevealedOnGuard(
+  state: GameState,
+  playerIdx: number,
+  companyIdx: number,
+  hazardDefId: CardDefinitionId,
+): { state: GameState; ogCard: OnGuardCard } {
+  const ogCard: OnGuardCard = { instanceId: mint(), definitionId: hazardDefId, revealed: true };
+  const company = state.players[playerIdx].companies[companyIdx];
+  const updatedCompany = { ...company, onGuardCards: [...company.onGuardCards, ogCard] };
+  const updatedCompanies = [...state.players[playerIdx].companies];
+  updatedCompanies[companyIdx] = updatedCompany;
+  const updatedPlayer = { ...state.players[playerIdx], companies: updatedCompanies };
+  const p0 = playerIdx === 0 ? updatedPlayer : state.players[0];
+  const p1 = playerIdx === 1 ? updatedPlayer : state.players[1];
+  return { state: { ...state, players: [p0, p1] as unknown as typeof state.players }, ogCard };
+}
 
 describe('Rule 6.16 — On-Guard Chain of Effects', () => {
   beforeEach(() => resetMint());
@@ -45,7 +63,9 @@ describe('Rule 6.16 — On-Guard Chain of Effects', () => {
     expect(result.error).toBeUndefined();
     expect(result.state.chain).toBeNull();
     expect(result.state.combat).toBeNull();
-    expect((result.state.phaseState as SitePhaseState).declaredOnGuardAttacks).toHaveLength(1);
+    const og = result.state.players[0].companies[0].onGuardCards;
+    expect(og).toHaveLength(1);
+    expect(og[0].revealed).toBe(true);
   });
 
   test('at Step 4 (resolve-attacks), declared creature enters the chain', () => {
@@ -56,10 +76,10 @@ describe('Rule 6.16 — On-Guard Chain of Effects', () => {
         { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [MINAS_TIRITH] },
       ],
     });
-    const { ogCard } = placeOnGuard(base, 0, 0, BARROW_WIGHT);
+    const { state: withOG } = placeRevealedOnGuard(base, 0, 0, BARROW_WIGHT);
     const testState = {
-      ...base,
-      phaseState: makeSitePhase({ step: 'resolve-attacks', siteEntered: true, declaredOnGuardAttacks: [ogCard] }),
+      ...withOG,
+      phaseState: makeSitePhase({ step: 'resolve-attacks', siteEntered: true }),
     };
 
     const afterResolve = reduce(testState, { type: 'pass', player: PLAYER_1 });
@@ -76,10 +96,10 @@ describe('Rule 6.16 — On-Guard Chain of Effects', () => {
         { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [MINAS_TIRITH] },
       ],
     });
-    const { ogCard } = placeOnGuard(base, 0, 0, BARROW_WIGHT);
+    const { state: withOG } = placeRevealedOnGuard(base, 0, 0, BARROW_WIGHT);
     const testState = {
-      ...base,
-      phaseState: makeSitePhase({ step: 'resolve-attacks', siteEntered: true, declaredOnGuardAttacks: [ogCard] }),
+      ...withOG,
+      phaseState: makeSitePhase({ step: 'resolve-attacks', siteEntered: true }),
     };
 
     const afterPass = reduce(testState, { type: 'pass', player: PLAYER_1 });

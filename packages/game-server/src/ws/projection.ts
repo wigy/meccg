@@ -25,6 +25,8 @@ import type {
   ViewCard,
   PlayerId,
   CardInstance,
+  CardInstanceId,
+  CardDefinitionId,
   PhaseState,
   DraftPlayerState,
   CharacterDeckDraftPlayerState,
@@ -38,7 +40,7 @@ function toViewCards(pile: readonly CardInstance[]): ViewCard[] {
 }
 
 /** Redacts a pile of card instances: keeps real instance IDs, replaces definition with UNKNOWN_CARD. */
-function hiddenCardPile(pile: readonly CardInstance[]): readonly ViewCard[] {
+function hiddenCardPile(pile: readonly { readonly instanceId: CardInstanceId; readonly definitionId: CardDefinitionId }[]): readonly ViewCard[] {
   return pile.map(c => ({ instanceId: c.instanceId, definitionId: UNKNOWN_CARD }));
 }
 
@@ -56,9 +58,10 @@ function hiddenSitePile(pile: readonly CardInstance[]): readonly ViewCard[] {
 function buildSelfView(_state: GameState, player: PlayerState): SelfView {
   // Redact on-guard card identities — the resource player must not see
   // what the hazard player placed face-down at their companies.
+  // Revealed cards keep their identity; unrevealed cards are hidden.
   const companies = player.companies.map(c =>
     c.onGuardCards.length > 0
-      ? { ...c, onGuardCards: hiddenCardPile(c.onGuardCards) }
+      ? { ...c, onGuardCards: c.onGuardCards.map(og => og.revealed ? og : { ...og, definitionId: UNKNOWN_CARD }) }
       : c,
   );
   return {
@@ -291,7 +294,7 @@ export function projectPlayerView(state: GameState, playerId: PlayerId): PlayerV
         ...opponent,
         companies: opponent.companies.map((c, i) => ({
           ...c,
-          onGuardCards: toViewCards(opponentPlayer.companies[i].onGuardCards),
+          onGuardCards: opponentPlayer.companies[i].onGuardCards.map(og => ({ instanceId: og.instanceId, definitionId: og.definitionId })),
         })),
       };
     }

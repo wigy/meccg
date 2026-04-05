@@ -184,8 +184,9 @@ function revealOnGuardAttacksActions(
   const resourcePlayer = state.players[activeIndex];
   const company = resourcePlayer.companies[siteState.activeCompanyIndex];
 
-  if (!company || company.onGuardCards.length === 0) {
-    logDetail(`No on-guard cards — pass to advance`);
+  const unrevealedCards = company ? company.onGuardCards.filter(og => !og.revealed) : [];
+  if (!company || unrevealedCards.length === 0) {
+    logDetail(`No unrevealed on-guard cards — pass to advance`);
     return [{ type: 'pass', player: playerId }];
   }
 
@@ -200,6 +201,7 @@ function revealOnGuardAttacksActions(
   const actions: GameAction[] = [];
 
   for (const ogCard of company.onGuardCards) {
+    if (ogCard.revealed) continue;
     const def = state.cardPool[ogCard.definitionId as string];
     if (!def || def.cardType !== 'hazard-creature') continue;
     if (!hasAutoAttacks) continue;
@@ -327,6 +329,7 @@ function onGuardRevealAtResourceActions(
 
   if (company) {
     for (const ogCard of company.onGuardCards) {
+      if (ogCard.revealed) continue;
       const def = state.cardPool[ogCard.definitionId as string];
       if (!def) continue;
       // Allow revealing hazard events (permanent or short) that affect the company

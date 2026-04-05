@@ -246,7 +246,7 @@ export function runFullSetup(config?: GameConfig): GameState {
 
 import type {
   CompanyId, CardInPlay, CharacterInPlay, Company,
-  PlayerState, EffectiveStats,
+  PlayerState, EffectiveStats, OnGuardCard,
 } from '../index.js';
 import { CardStatus, ZERO_EFFECTIVE_STATS, ZERO_MARSHALLING_POINTS } from '../index.js';
 
@@ -535,7 +535,6 @@ export function buildSitePhaseState(opts: {
     siteEntered: true,
     resourcePlayed: false,
     minorItemAvailable: false,
-    declaredOnGuardAttacks: [],
     declaredAgentAttack: null,
     automaticAttacksResolved: 0,
     awaitingOnGuardReveal: false,
@@ -587,7 +586,6 @@ export function makeSitePhase(overrides?: Partial<SitePhaseState>): SitePhaseSta
     siteEntered: true,
     resourcePlayed: false,
     minorItemAvailable: false,
-    declaredOnGuardAttacks: [],
     declaredAgentAttack: null,
     automaticAttacksResolved: 0,
     awaitingOnGuardReveal: false,
@@ -620,8 +618,8 @@ export function placeOnGuard(
   playerIdx: number,
   companyIdx: number,
   hazardDefId: CardDefinitionId,
-): { state: GameState; ogCard: CardInstance } {
-  const ogCard: CardInstance = { instanceId: mint(), definitionId: hazardDefId };
+): { state: GameState; ogCard: OnGuardCard } {
+  const ogCard: OnGuardCard = { instanceId: mint(), definitionId: hazardDefId, revealed: false };
   const company = state.players[playerIdx].companies[companyIdx];
   const updatedCompany = { ...company, onGuardCards: [...company.onGuardCards, ogCard] };
   const updatedCompanies = [...state.players[playerIdx].companies];
