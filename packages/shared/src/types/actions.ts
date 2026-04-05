@@ -468,6 +468,8 @@ export interface AssignStrikeAction {
   readonly characterId: CardInstanceId;
   /** True when this is an excess strike (-1 prowess penalty) on an already-assigned character. */
   readonly excess?: boolean;
+  /** Whether the character is currently tapped (informational, for UI display). */
+  readonly tapped?: boolean;
 }
 
 /**
@@ -520,6 +522,10 @@ export interface ChooseStrikeOrderAction {
   readonly player: PlayerId;
   /** Index into strikeAssignments for the strike to resolve next. */
   readonly strikeIndex: number;
+  /** The character facing this strike (informational, for UI display). */
+  readonly characterId?: CardInstanceId;
+  /** Whether the character is currently tapped (informational, for UI display). */
+  readonly tapped?: boolean;
 }
 
 /**

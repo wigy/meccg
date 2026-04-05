@@ -984,16 +984,21 @@ export function describeAction(
       if (action.keyedBy) return `${base} (keyed by ${action.keyedBy.method}: ${action.keyedBy.value})`;
       return base;
     }
-    case 'assign-strike':
+    case 'assign-strike': {
+      const tapTag = action.tapped ? ' [tapped]' : '';
       return action.excess
-        ? `Assign excess strike to ${instName(action.characterId)} (-1 prowess)`
-        : `Assign strike to ${instName(action.characterId)}`;
+        ? `Assign excess strike to ${instName(action.characterId)}${tapTag} (-1 prowess)`
+        : `Assign strike to ${instName(action.characterId)}${tapTag}`;
+    }
     case 'resolve-strike':
       return action.tapToFight ? 'Resolve strike (tap to fight)' : 'Resolve strike (stay untapped, -3 prowess)';
     case 'support-strike':
       return `Tap ${instName(action.supportingCharacterId)} to support ${instName(action.targetCharacterId)} (+1 prowess)`;
-    case 'choose-strike-order':
-      return `Resolve strike ${action.strikeIndex + 1}`;
+    case 'choose-strike-order': {
+      const charLabel = action.characterId ? ` on ${instName(action.characterId)}` : '';
+      const tapLabel = action.tapped ? ' [tapped]' : '';
+      return `Resolve strike ${action.strikeIndex + 1}${charLabel}${tapLabel}`;
+    }
     case 'body-check-roll':
       return 'Roll body check';
     case 'play-hero-resource':

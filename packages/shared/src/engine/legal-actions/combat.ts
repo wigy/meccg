@@ -30,7 +30,7 @@ export function combatActions(state: GameState, playerId: PlayerId): EvaluatedAc
     case 'assign-strikes':
       return assignStrikeActions(state, playerId, combat);
     case 'choose-strike-order':
-      return chooseStrikeOrderActions(playerId, combat);
+      return chooseStrikeOrderActions(state, playerId, combat);
     case 'resolve-strike':
       return resolveStrikeActions(state, playerId, combat);
     case 'body-check':
@@ -75,9 +75,9 @@ function assignStrikeActions(
         logDetail(`Character ${charId as string} is ${charData.status} — not available for defender assignment`);
         continue;
       }
-      logDetail(`Defender can assign strike to ${charId as string}`);
+      logDetail(`Defender can assign strike to ${charId as string} (untapped)`);
       actions.push({
-        action: { type: 'assign-strike', player: playerId, characterId: charId },
+        action: { type: 'assign-strike', player: playerId, characterId: charId, tapped: false },
         viable: true,
       });
     }
@@ -111,18 +111,22 @@ function assignStrikeActions(
     if (unassignedChars.length > 0) {
       // Still unassigned characters — must assign to them first
       for (const charId of unassignedChars) {
-        logDetail(`Attacker can assign strike to unassigned ${charId as string}`);
+        const charData = defPlayer.characters[charId as string];
+        const isTapped = charData?.status !== CardStatus.Untapped;
+        logDetail(`Attacker can assign strike to unassigned ${charId as string} (${isTapped ? 'tapped' : 'untapped'})`);
         actions.push({
-          action: { type: 'assign-strike', player: playerId, characterId: charId },
+          action: { type: 'assign-strike', player: playerId, characterId: charId, tapped: isTapped },
           viable: true,
         });
       }
     } else {
       // All characters have a strike — distribute excess as -1 prowess
       for (const charId of company.characters) {
-        logDetail(`Attacker can assign excess strike to ${charId as string}`);
+        const charData = defPlayer.characters[charId as string];
+        const isTapped = charData?.status !== CardStatus.Untapped;
+        logDetail(`Attacker can assign excess strike to ${charId as string} (${isTapped ? 'tapped' : 'untapped'})`);
         actions.push({
-          action: { type: 'assign-strike', player: playerId, characterId: charId, excess: true },
+          action: { type: 'assign-strike', player: playerId, characterId: charId, excess: true, tapped: isTapped },
           viable: true,
         });
       }
@@ -141,16 +145,21 @@ function assignStrikeActions(
  * Per CRF: "In an order chosen by the defending player, each assigned
  * strike is then resolved by proceeding through an individual strike sequence."
  */
-function chooseStrikeOrderActions(playerId: PlayerId, combat: CombatState): EvaluatedAction[] {
+function chooseStrikeOrderActions(state: GameState, playerId: PlayerId, combat: CombatState): EvaluatedAction[] {
   if (playerId !== combat.defendingPlayerId) return [];
+
+  const defPlayerIndex = state.players.findIndex(p => p.id === combat.defendingPlayerId);
+  const defPlayer = state.players[defPlayerIndex];
 
   const actions: EvaluatedAction[] = [];
   for (let i = 0; i < combat.strikeAssignments.length; i++) {
     const sa = combat.strikeAssignments[i];
     if (sa.resolved) continue;
-    logDetail(`Defender can choose to resolve strike ${i} (character ${sa.characterId as string})`);
+    const charData = defPlayer.characters[sa.characterId as string];
+    const isTapped = charData?.status !== CardStatus.Untapped;
+    logDetail(`Defender can choose to resolve strike ${i} (character ${sa.characterId as string}, ${isTapped ? 'tapped' : 'untapped'})`);
     actions.push({
-      action: { type: 'choose-strike-order', player: playerId, strikeIndex: i },
+      action: { type: 'choose-strike-order', player: playerId, strikeIndex: i, characterId: sa.characterId, tapped: isTapped },
       viable: true,
     });
   }
