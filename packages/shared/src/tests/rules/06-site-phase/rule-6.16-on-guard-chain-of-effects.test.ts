@@ -11,11 +11,9 @@
  * RULING:
  *
  * When an on-guard card is revealed in response to a resource being played, it initiates a separate chain of events that is treated as if it had been declared immediately prior to the chain of effects during which it was revealed. Once players finish responding to this on-guard-initiated chain of effects and the on-guard chain resolves (as well as any passive-condition-initiated chains of effects that would normally follow), the original chain of effects then resumes.
- * Only declared or ongoing effects may be considered when determining the validity of revealing an on-guard card. Potential effects cannot be considered (except for passive conditions that would depend on the result of a declared influence attempt).
- * Cards that are specifically playable on a character facing an attack or strike cannot be revealed on-guard because the target did not exist during the movement/hazard phase.
- * If an on-guard card is revealed that would (indirectly) tap a character that was just tapped to play a resource, the character remains tapped and the play of the resource proceeds normally.
- * On-guard cards placed on a company's site can only be revealed against, and can only affect, the same company on which the on-guard card was placed or a new company comprising that same company (unless the hazard states that it affects all versions of the site).
- * When an on-guard card is revealed, it immediately ceases to be considered an on-guard card.
+ *
+ * On-guard creatures revealed at Step 1 are declared for attack but do not
+ * initiate combat until Step 4 (resolve-attacks), where they enter the chain.
  */
 
 import { describe, test, expect, beforeEach } from 'vitest';
@@ -27,11 +25,12 @@ import {
   BARROW_WIGHT, FOOLISH_WORDS, KNIGHTS_OF_DOL_AMROTH,
   LORIEN, MORIA, MINAS_TIRITH, DOL_AMROTH,
 } from '../../test-helpers.js';
+import type { SitePhaseState } from '../../../index.js';
 
 describe('Rule 6.16 — On-Guard Chain of Effects', () => {
   beforeEach(() => resetMint());
 
-  test('revealed on-guard creature initiates a chain, not direct combat', () => {
+  test('creature reveal at Step 1 is a declaration — no chain yet', () => {
     const base = buildTestState({
       activePlayer: PLAYER_1, phase: Phase.Site,
       players: [
@@ -44,11 +43,12 @@ describe('Rule 6.16 — On-Guard Chain of Effects', () => {
 
     const result = reduce(testState, { type: 'reveal-on-guard', player: PLAYER_2, cardInstanceId: ogCard.instanceId });
     expect(result.error).toBeUndefined();
-    expect(result.state.chain).not.toBeNull();
+    expect(result.state.chain).toBeNull();
     expect(result.state.combat).toBeNull();
+    expect((result.state.phaseState as SitePhaseState).declaredOnGuardAttacks).toHaveLength(1);
   });
 
-  test('resource player gets chain priority after creature reveal', () => {
+  test('at Step 4 (resolve-attacks), declared creature enters the chain', () => {
     const base = buildTestState({
       activePlayer: PLAYER_1, phase: Phase.Site,
       players: [
@@ -56,14 +56,19 @@ describe('Rule 6.16 — On-Guard Chain of Effects', () => {
         { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [MINAS_TIRITH] },
       ],
     });
-    const { state, ogCard } = placeOnGuard(base, 0, 0, BARROW_WIGHT);
-    const testState = { ...state, phaseState: makeSitePhase({ step: 'reveal-on-guard-attacks', siteEntered: false }) };
+    const { ogCard } = placeOnGuard(base, 0, 0, BARROW_WIGHT);
+    const testState = {
+      ...base,
+      phaseState: makeSitePhase({ step: 'resolve-attacks', siteEntered: true, declaredOnGuardAttacks: [ogCard] }),
+    };
 
-    const result = reduce(testState, { type: 'reveal-on-guard', player: PLAYER_2, cardInstanceId: ogCard.instanceId });
-    expect(result.state.chain!.priority).toBe(PLAYER_1);
+    const afterResolve = reduce(testState, { type: 'pass', player: PLAYER_1 });
+    expect(afterResolve.error).toBeUndefined();
+    expect(afterResolve.state.chain).not.toBeNull();
+    expect(afterResolve.state.chain!.priority).toBe(PLAYER_1);
   });
 
-  test('after chain resolves, creature combat is initiated', () => {
+  test('after creature chain resolves at Step 4, combat is initiated', () => {
     const base = buildTestState({
       activePlayer: PLAYER_1, phase: Phase.Site,
       players: [
@@ -71,11 +76,14 @@ describe('Rule 6.16 — On-Guard Chain of Effects', () => {
         { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [MINAS_TIRITH] },
       ],
     });
-    const { state, ogCard } = placeOnGuard(base, 0, 0, BARROW_WIGHT);
-    const testState = { ...state, phaseState: makeSitePhase({ step: 'reveal-on-guard-attacks', siteEntered: false }) };
+    const { ogCard } = placeOnGuard(base, 0, 0, BARROW_WIGHT);
+    const testState = {
+      ...base,
+      phaseState: makeSitePhase({ step: 'resolve-attacks', siteEntered: true, declaredOnGuardAttacks: [ogCard] }),
+    };
 
-    const afterReveal = reduce(testState, { type: 'reveal-on-guard', player: PLAYER_2, cardInstanceId: ogCard.instanceId });
-    const afterChain = resolveChain(afterReveal.state);
+    const afterPass = reduce(testState, { type: 'pass', player: PLAYER_1 });
+    const afterChain = resolveChain(afterPass.state);
     expect(afterChain.combat).not.toBeNull();
   });
 

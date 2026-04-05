@@ -23,7 +23,7 @@ import {
   makeSitePhase, placeOnGuard, viableActions,
   PLAYER_1, PLAYER_2,
   LEGOLAS, ARAGORN,
-  CAVE_DRAKE, BARROW_WIGHT,
+  BARROW_WIGHT,
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
 } from '../../test-helpers.js';
 import type { SitePhaseState, RevealOnGuardAction } from '../../../index.js';
@@ -45,7 +45,7 @@ describe('Rule 6.02 — Step 1: Revealing On-Guard Attacks', () => {
   beforeEach(() => resetMint());
 
   test('hazard player gets RevealOnGuardAction for creatures keyed to the site', () => {
-    // Barrow-wight is keyed to shadow-hold sites. Moria is a shadow-hold.
+    // Barrow-wight is keyed to shadow-hold sites. Moria is a shadow-hold with auto-attacks.
     const base = buildSiteState(MORIA);
     const { state: withOG, ogCard } = placeOnGuard(base, 0, 0, BARROW_WIGHT);
     const testState = { ...withOG, phaseState: makeSitePhase({ step: 'reveal-on-guard-attacks', siteEntered: false }) };
@@ -55,16 +55,7 @@ describe('Rule 6.02 — Step 1: Revealing On-Guard Attacks', () => {
     expect((revealActions[0].action as RevealOnGuardAction).cardInstanceId).toBe(ogCard.instanceId);
   });
 
-  test('non-keyable creatures are NOT offered for reveal', () => {
-    // Cave-drake is keyed to ruins-and-lairs / wilderness. Rivendell is a haven with empty path.
-    const base = buildSiteState(RIVENDELL);
-    const { state: withOG } = placeOnGuard(base, 0, 0, CAVE_DRAKE);
-    const testState = { ...withOG, phaseState: makeSitePhase({ step: 'reveal-on-guard-attacks', siteEntered: false }) };
-
-    const revealActions = viableActions(testState, PLAYER_2, 'reveal-on-guard');
-    expect(revealActions).toHaveLength(0);
-    expect(viableActions(testState, PLAYER_2, 'pass')).toHaveLength(1);
-  });
+  test.todo('non-keyable creatures are NOT offered for reveal (needs a creature not keyable to any site with auto-attacks)');
 
   test('active player (resource) has no actions during reveal-on-guard-attacks step', () => {
     const base = buildSiteState(MORIA);
@@ -84,7 +75,7 @@ describe('Rule 6.02 — Step 1: Revealing On-Guard Attacks', () => {
     expect((result.state.phaseState as SitePhaseState).step).toBe('automatic-attacks');
   });
 
-  test('revealing a creature removes it from onGuardCards and initiates a chain', () => {
+  test('revealing a creature removes it from onGuardCards and adds to declaredOnGuardAttacks', () => {
     const base = buildSiteState(MORIA);
     const { state: withOG, ogCard } = placeOnGuard(base, 0, 0, BARROW_WIGHT);
     const testState = { ...withOG, phaseState: makeSitePhase({ step: 'reveal-on-guard-attacks', siteEntered: false }) };
@@ -92,6 +83,20 @@ describe('Rule 6.02 — Step 1: Revealing On-Guard Attacks', () => {
     const result = reduce(testState, { type: 'reveal-on-guard', player: PLAYER_2, cardInstanceId: ogCard.instanceId });
     expect(result.error).toBeUndefined();
     expect(result.state.players[0].companies[0].onGuardCards).toHaveLength(0);
-    expect(result.state.chain).not.toBeNull();
+    const ps = result.state.phaseState as SitePhaseState;
+    expect(ps.declaredOnGuardAttacks).toHaveLength(1);
+    expect(ps.declaredOnGuardAttacks[0].instanceId).toBe(ogCard.instanceId);
+  });
+
+  test('creature reveal is NOT offered at sites without automatic-attacks', () => {
+    // Rivendell is a haven with no automatic-attacks.
+    // Even a keyable creature cannot be revealed here per rule 2.V.i.
+    const base = buildSiteState(RIVENDELL);
+    const { state: withOG } = placeOnGuard(base, 0, 0, BARROW_WIGHT);
+    const testState = { ...withOG, phaseState: makeSitePhase({ step: 'reveal-on-guard-attacks', siteEntered: false }) };
+
+    const revealActions = viableActions(testState, PLAYER_2, 'reveal-on-guard');
+    expect(revealActions).toHaveLength(0);
+    expect(viableActions(testState, PLAYER_2, 'pass')).toHaveLength(1);
   });
 });
