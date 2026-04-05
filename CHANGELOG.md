@@ -1,5 +1,57 @@
 # Changelog
 
+## 0.19.0 — 2026-04-05
+
+On-guard handling
+
+### Game Engine
+
+- **On-guard card placement:** Hazard player can place any hand card face-down on a company's site during M/H phase. Counts against hazard limit, one per company.
+- **On-guard creature reveal at site phase:** Creatures keyed to the site can be revealed at Step 1 (only if site has auto-attacks). Declared creatures enter the chain at Step 4 for combat.
+- **On-guard event reveal at resource play:** When resource player plays a site-tapping resource, hazard player gets a window to reveal on-guard hazard events. Initiates nested chain per rule 2.V.6.1.
+- **OnGuardCard type:** New type with `revealed` flag — cards stay in `onGuardCards` throughout, flipping to face-up when revealed. Replaces the removed `declaredOnGuardAttacks`.
+- **Character hazard storage:** Replace `corruptionCards: CardInstanceId[]` with `hazards: CardInPlay[]` on characters. Add `Company.hazards` for company-targeting hazards.
+- **Creature card lifecycle fix:** Creatures now enter `cardsInPlay` during combat (not discard). After combat: kill pile (defeated) or discard (not defeated).
+- **Chain of effects for creatures:** Both M/H creatures and on-guard creature reveals go through the chain, allowing responses before combat.
+- **play-target DSL effect:** New effect type for declaring character-targeting cards (e.g. Foolish Words).
+- **on-guard-reveal DSL effect:** New effect type declaring when on-guard cards can be revealed.
+- **Hazard sideboard once-per-untap:** Added `hazardSideboardAccessed` flag to prevent repeated access.
+- **on-guard-creature attack source:** New `AttackSource` type for on-guard creature combat.
+- **Tapped status on strike actions:** `AssignStrikeAction` and `ChooseStrikeOrderAction` include tapped flag.
+
+### Cards & Data
+
+- **Foolish Words** (le-112, td-25): Hazard permanent-event with play-target, on-guard-reveal, check-modifier effects.
+- **Bree** (tw-378): Border-hold site in Arthedain, nearest haven Rivendell.
+- **Development decks:** Added 2× Foolish Words to all development decks. Added Bree to hero deck. Moved Twilight to sideboard in hero deck.
+
+### Web Client
+
+- **On-guard card rendering:** Face-down cards on site with vertical stacking (up to 5). Card-back display with hover preview for hazard player. Revealed cards show face-up.
+- **On-guard placement UI:** Hazard cards show "Place on-guard" in click menu alongside normal play options.
+- **On-guard reveal UI:** Revealable cards get golden glow, clickable during reveal steps.
+- **Combat card display:** On-guard creature attacks show the creature card in combat view.
+- **Character-targeting menus:** "Play on <character name>" labels for targeted hazard events.
+- **Destination site face-down:** Shows site-back until revealed during M/H, with hover preview.
+- **Rename "Victory Display" to "Eliminated"** in pile labels.
+- **Swap Hand debug feature:** Dev toolbar button to exchange hands between players.
+- **Projection fix:** Hidden cards keep real instance IDs (no more UNKNOWN_INSTANCE collisions).
+
+### Testing
+
+- **On-guard rules tests:** 19 tests across rule-5.23, rule-6.02, rule-6.14, rule-6.16.
+- **Foolish Words card test:** 4 tests for character targeting, influence modifier, on-guard placement and reveal.
+- **Shared test helpers:** `makeSitePhase`, `attachHazardToChar`, `placeOnGuard`, `resolveChain`.
+
+### Infrastructure
+
+- **Card certifications:** Balin (tw-123), Adrazar (tw-116), Isengard (tw-404), Doors of Night (tw-28), Gates of Morning (tw-243), Haldir (tw-164), Lórien (tw-408).
+- **Chain of effects:** Permanent and long events now route through the chain.
+- **Card request handling:** Deterministic Node.js script replaces Claude skill.
+- **Markdown linting:** Added markdownlint-cli2 to CI.
+- **Pseudo-AI mode:** Human controls both sides via dual WebSocket.
+- **Player credits system** for card requests and certifications.
+
 ## 0.18.0 — 2026-03-31
 
 Testing system and status
