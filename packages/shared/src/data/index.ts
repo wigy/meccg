@@ -32,6 +32,7 @@ import leCreatures from './le-creatures.json';
 import leHazards from './le-hazards.json';
 import leResources from './le-resources.json';
 import leSites from './le-sites.json';
+import leItems from './le-items.json';
 
 // ---- The White Hand (WH) — fallen-wizard expansion ----
 import whResources from './wh-resources.json';
@@ -77,6 +78,7 @@ const allCards: readonly CardDefinition[] = [
   ...(leHazards as unknown as CardDefinition[]),
   ...(leResources as unknown as CardDefinition[]),
   ...(leSites as unknown as CardDefinition[]),
+  ...(leItems as unknown as CardDefinition[]),
   // The White Hand
   ...(whResources as unknown as CardDefinition[]),
   ...(whSites as unknown as CardDefinition[]),
