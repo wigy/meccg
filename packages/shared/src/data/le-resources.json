@@ -7,7 +7,9 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/BlackMace.jpg",
     "unique": false,
     "subtype": "greater",
-    "keywords": ["weapon"],
+    "keywords": [
+      "weapon"
+    ],
     "marshallingPoints": 2,
     "marshallingCategory": "item",
     "corruptionPoints": 3,
@@ -43,7 +45,9 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/HighHelm.jpg",
     "unique": true,
     "subtype": "major",
-    "keywords": ["helmet"],
+    "keywords": [
+      "helmet"
+    ],
     "marshallingPoints": 2,
     "marshallingCategory": "item",
     "corruptionPoints": 2,
@@ -79,7 +83,9 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/SawtoothedBlade.jpg",
     "unique": false,
     "subtype": "minor",
-    "keywords": ["weapon"],
+    "keywords": [
+      "weapon"
+    ],
     "marshallingPoints": 0,
     "marshallingCategory": "item",
     "corruptionPoints": 1,
@@ -136,7 +142,7 @@
       "border-hold"
     ],
     "effects": [],
-    "text": "The bearer can discard this item to heal a wounded character in his company\u2014change the character\u2019s status from wounded to well and untapped."
+    "text": "The bearer can discard this item to heal a wounded character in his company—change the character’s status from wounded to well and untapped."
   },
   {
     "cardType": "minion-resource-item",
@@ -171,9 +177,20 @@
     "marshallingCategory": "faction",
     "influenceNumber": 9,
     "race": "orc",
-    "playableAt": [{ "site": "Goblin-gate" }],
+    "playableAt": [
+      {
+        "site": "Goblin-gate"
+      }
+    ],
     "effects": [
-      { "type": "check-modifier", "check": "influence", "value": 2, "when": { "controlsFaction": "Grey Mountain Goblins" } }
+      {
+        "type": "check-modifier",
+        "check": "influence",
+        "value": 2,
+        "when": {
+          "controlsFaction": "Grey Mountain Goblins"
+        }
+      }
     ],
     "text": "Unique. Playable at Goblin-gate if the influence check is greater than 8. Standard Modifications: Grey Mountain Goblins (+2)."
   },
@@ -189,7 +206,14 @@
     "mind": 3,
     "marshallingPoints": 2,
     "marshallingCategory": "ally",
-    "playableAt": [{ "siteType": "ruins-and-lairs", "when": { "site.autoAttack.race": "Wolf" } }],
+    "playableAt": [
+      {
+        "siteType": "ruins-and-lairs",
+        "when": {
+          "site.autoAttack.race": "Wolf"
+        }
+      }
+    ],
     "effects": [
       {
         "type": "grant-action",
@@ -247,5 +271,18 @@
     "marshallingCategory": "misc",
     "effects": [],
     "text": "Scout only. Tap scout to cancel an attack against his company."
+  },
+  {
+    "cardType": "minion-resource-event",
+    "alignment": "ringwraith",
+    "id": "le-225",
+    "name": "Ruse",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/Ruse.jpg",
+    "unique": false,
+    "eventType": "short",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Diplomat only. Scout only. Playable on a untapped diplomat in a covert company facing an attack. Tap the diplomat. The attack is canceled. Alternatively, playable on a scout facing an attack. No strikes of the attack may be assigned to the scout."
   }
 ]
