@@ -20,5 +20,29 @@
     "effects": [],
     "text": "Orcs. Two strikes.",
     "race": "orc"
+  },
+  {
+    "cardType": "hazard-creature",
+    "id": "le-90",
+    "name": "Slayer",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/Slayer.jpg",
+    "unique": false,
+    "strikes": 1,
+    "prowess": 11,
+    "body": null,
+    "killMarshallingPoints": 2,
+    "race": "slayer",
+    "keyedTo": [
+      {
+        "regionTypes": [
+          "border"
+        ],
+        "siteTypes": [
+          "border-hold"
+        ]
+      }
+    ],
+    "effects": [],
+    "text": "Slayer. Two attacks (of one strike each) all against the same character. Attacker chooses defending character. The defender may tap any one character in the company to cancel one of these attacks. This may be done even after a strike is assigned and after facing another attack.If an attack from Slayer is given more than one strike, each additional strike becomes an excess strike (-1 prowess modification) against the attacked character."
   }
 ]
