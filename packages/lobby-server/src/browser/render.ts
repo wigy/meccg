@@ -147,7 +147,42 @@ function reRenderFactionInfluence(): void {
   void import('./company-view.js').then(m => m.renderCompanyViews(view, cardPool, onAction));
 }
 
+/**
+ * Selected character instance ID for the opponent influence two-step flow.
+ * When a player clicks an untapped character that has opponent-influence-attempt
+ * actions, the character is stored here and opponent cards are highlighted.
+ */
+let selectedInfluencerForOpponent: CardInstanceId | null = null;
 
+/** Cached arguments for re-rendering during opponent influence target selection. */
+let opponentInfluenceRenderCache: {
+  view: PlayerView;
+  cardPool: Readonly<Record<string, CardDefinition>>;
+  onAction: (action: GameAction) => void;
+} | null = null;
+
+/** Returns the currently selected influencer for the opponent influence flow. */
+export function getSelectedInfluencerForOpponent(): CardInstanceId | null {
+  return selectedInfluencerForOpponent;
+}
+
+/** Set the selected influencer for opponent influence targeting. */
+export function setSelectedInfluencerForOpponent(id: CardInstanceId | null): void {
+  selectedInfluencerForOpponent = id;
+}
+
+/** Clear the opponent influence selection (called by company-view after action is sent). */
+export function clearOpponentInfluenceSelection(): void {
+  selectedInfluencerForOpponent = null;
+  setTargetingInstruction(null);
+}
+
+/** Re-render company views using cached state (for opponent influence selection flow). */
+function reRenderOpponentInfluence(): void {
+  if (!opponentInfluenceRenderCache) return;
+  const { view, cardPool, onAction } = opponentInfluenceRenderCache;
+  void import('./company-view.js').then(m => m.renderCompanyViews(view, cardPool, onAction));
+}
 
 
 /** Escape HTML special characters for safe insertion into innerHTML. */
@@ -2280,7 +2315,8 @@ export function renderPassButton(view: PlayerView, onAction: (action: GameAction
     || ea.action.type === 'shuffle-play-deck' || ea.action.type === 'draw-cards'
     || ea.action.type === 'roll-initiative' || ea.action.type === 'corruption-check'
     || ea.action.type === 'pass-chain-priority' || ea.action.type === 'deck-exhaust'
-    || ea.action.type === 'finished' || ea.action.type === 'untap'));
+    || ea.action.type === 'finished' || ea.action.type === 'untap'
+    || ea.action.type === 'opponent-influence-defend'));
   const passAction = passEval?.action;
   if (!passAction) {
     btn.classList.add('hidden');
@@ -2307,6 +2343,8 @@ export function renderPassButton(view: PlayerView, onAction: (action: GameAction
     label = 'Finished';
   } else if (passAction.type === 'untap') {
     label = 'Untap';
+  } else if (passAction.type === 'opponent-influence-defend') {
+    label = 'Roll Defense';
   } else if (view.phaseState.phase === Phase.Untap) {
     label = 'Pass';
   } else if (view.phaseState.phase === Phase.Organization) {
@@ -2829,6 +2867,25 @@ export function renderHand(
     if (selectedFactionInstanceId) setTargetingInstruction(null);
     selectedFactionInstanceId = null;
     factionInfluenceRenderCache = null;
+  }
+
+  // Cache render state for opponent influence re-rendering
+  const hasOppInfluenceActions = viable.some(a => a.type === 'opponent-influence-attempt');
+  if (onAction && hasOppInfluenceActions) {
+    opponentInfluenceRenderCache = { view, cardPool, onAction };
+    if (selectedInfluencerForOpponent) {
+      const stillViable = viable.some(
+        a => a.type === 'opponent-influence-attempt' && a.influencingCharacterId === selectedInfluencerForOpponent,
+      );
+      if (!stillViable) {
+        selectedInfluencerForOpponent = null;
+        setTargetingInstruction(null);
+      }
+    }
+  } else if (!hasOppInfluenceActions) {
+    if (selectedInfluencerForOpponent) setTargetingInstruction(null);
+    selectedInfluencerForOpponent = null;
+    opponentInfluenceRenderCache = null;
   }
 
   for (let i = 0; i < total; i++) {

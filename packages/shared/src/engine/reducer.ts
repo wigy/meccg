@@ -4983,12 +4983,12 @@ function handleOpponentInfluenceDefend(
     discardInfluencedCard(newPlayers, opponentIndex, pending, state);
 
     return {
-      state: {
+      state: cleanupEmptyCompanies({
         ...state,
         players: newPlayers,
         rng, cheatRollTotal,
         phaseState: clearedSiteState,
-      },
+      }),
       effects: [rollEffect],
     };
   }

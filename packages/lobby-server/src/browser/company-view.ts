@@ -31,11 +31,12 @@ import type {
   StartSideboardToDeckAction,
   StartSideboardToDiscardAction,
   CorruptionCheckAction,
+  OpponentInfluenceAttemptAction,
 } from '@meccg/shared';
 import { cardImageProxyPath, isCharacterCard, isItemCard, isSiteCard, Phase, CardStatus, viableActions, describeAction, getTitleCharacter, buildInstanceLookup } from '@meccg/shared';
 import type { CardDefinitionId } from '@meccg/shared';
 import { $, createCardImage, createRegionTypeIcon } from './render-utils.js';
-import { getSelectedCharacterForPlay, clearCharacterPlaySelection, getSelectedFactionForInfluence, clearFactionInfluenceSelection, openMovementViewer, setTargetingInstruction } from './render.js';
+import { getSelectedCharacterForPlay, clearCharacterPlaySelection, getSelectedFactionForInfluence, clearFactionInfluenceSelection, getSelectedInfluencerForOpponent, setSelectedInfluencerForOpponent, clearOpponentInfluenceSelection, openMovementViewer, setTargetingInstruction } from './render.js';
 import { renderCombatView, clearCombatButtons } from './combat-view.js';
 
 // ---- View state ----
@@ -987,6 +988,32 @@ function showCharacterActionTooltip(
     tooltip.appendChild(btn);
   }
 
+  // Opponent influence: enter targeting mode
+  if (lastView) {
+    const oppInfluenceActions = viableActions(lastView.legalActions).filter(
+      (a): a is OpponentInfluenceAttemptAction =>
+        a.type === 'opponent-influence-attempt' && a.influencingCharacterId === charInstId,
+    );
+    if (oppInfluenceActions.length > 0) {
+      const charDefId = cachedInstanceLookup(charInstId);
+      const charName = charDefId ? cardPool[charDefId as string]?.name : undefined;
+      const btn = document.createElement('button');
+      btn.className = 'char-action-tooltip__btn';
+      btn.textContent = 'Influence Opponent';
+      btn.onclick = (e) => {
+        e.stopPropagation();
+        dismissTooltip();
+        setSelectedInfluencerForOpponent(charInstId);
+        setTargetingInstruction(
+          `Click an opponent's card to attempt influence with ${charName ?? 'character'}`,
+        );
+        switchToAllCompanies();
+        renderCompanyViews(lastView!, lastCardPool!, lastOnAction!);
+      };
+      tooltip.appendChild(btn);
+    }
+  }
+
   // Create a modal backdrop that blocks interaction and dismisses on click
   const backdrop = document.createElement('div');
   backdrop.className = 'char-action-backdrop';
@@ -1315,6 +1342,23 @@ function renderCompanyBlock(
       return undefined;
     }
 
+    // Opponent influence targeting: selected influencer deselects on re-click
+    const selectedOppInfluencer = getSelectedInfluencerForOpponent();
+    if (selectedOppInfluencer) {
+      if (selectedOppInfluencer === charInstId) {
+        return {
+          cls: 'company-card--influence-selected',
+          handler: (e) => {
+            e.stopPropagation();
+            clearOpponentInfluenceSelection();
+            renderCompanyViews(lastView!, lastCardPool!, lastOnAction!);
+          },
+        };
+      }
+      // Other own characters are not clickable during opponent targeting
+      return undefined;
+    }
+
     // Transfer targeting takes priority when active
     if (transferItemSourceId) return buildTransferTargetClick(charInstId);
 
@@ -1339,8 +1383,15 @@ function renderCompanyBlock(
     const hasSideboard = sideboardIntents && sideboardIntents.length > 0;
     const ccAction = options?.corruptionCheckActions?.get(charInstId as string);
 
+    // Check for opponent influence actions
+    const oppInfluenceActions = viableActions(view.legalActions).filter(
+      (a): a is OpponentInfluenceAttemptAction =>
+        a.type === 'opponent-influence-attempt' && a.influencingCharacterId === charInstId,
+    );
+    const hasOppInfluence = oppInfluenceActions.length > 0;
+
     // Count how many action types are available
-    const actionTypes = [influenceResult, companyResult, mergeActionsForChar, hasSideboard, ccAction].filter(Boolean).length;
+    const actionTypes = [influenceResult, companyResult, mergeActionsForChar, hasSideboard, ccAction, hasOppInfluence].filter(Boolean).length;
 
     if (actionTypes === 0) return undefined;
 
@@ -1363,6 +1414,25 @@ function renderCompanyBlock(
             ...options!,
             companyId: company.id,
           });
+        },
+      };
+    }
+
+    // Single type: opponent influence — enter targeting mode to select opponent's card
+    if (hasOppInfluence) {
+      const charDefId = cachedInstanceLookup(charInstId);
+      const charName = charDefId ? cardPool[charDefId as string]?.name : undefined;
+      return {
+        cls: 'company-card--influence-source',
+        handler: (e) => {
+          e.stopPropagation();
+          setSelectedInfluencerForOpponent(charInstId);
+          setTargetingInstruction(
+            `Click an opponent's card to attempt influence with ${charName ?? 'character'}`,
+          );
+          // Switch to all-companies view so opponent cards are visible
+          switchToAllCompanies();
+          renderCompanyViews(lastView!, lastCardPool!, lastOnAction!);
         },
       };
     }
@@ -1886,9 +1956,23 @@ function renderAllCompaniesView(
     }
   }
 
-  // Opponent companies
+  // Opponent companies — add click handlers when opponent influence targeting is active
+  const oppInfluencer = getSelectedInfluencerForOpponent();
+  const oppInfluenceActions = oppInfluencer
+    ? viableActions(view.legalActions).filter(
+      (a): a is OpponentInfluenceAttemptAction =>
+        a.type === 'opponent-influence-attempt' && a.influencingCharacterId === oppInfluencer,
+    )
+    : [];
+
   for (const company of view.opponent.companies) {
     const block = renderCompanyBlock(company, view.opponent.characters, view, cardPool, 'opponent');
+
+    // When targeting, add click handlers to opponent cards
+    if (oppInfluencer && oppInfluenceActions.length > 0 && lastOnAction) {
+      addOpponentInfluenceTargets(block, oppInfluenceActions, lastOnAction);
+    }
+
     overview.appendChild(block);
   }
 
@@ -2007,6 +2091,62 @@ const COMPANY_VIEW_PHASES = new Set([
   Phase.EndOfTurn,
   Phase.FreeCouncil,
 ]);
+
+/**
+ * Walk an opponent company block's DOM to add click handlers on cards
+ * that are valid targets for an opponent influence attempt.
+ *
+ * Finds character columns and ally/item images by their `data-instance-id`
+ * attribute and highlights targetable ones with a click handler.
+ */
+function addOpponentInfluenceTargets(
+  block: HTMLElement,
+  actions: OpponentInfluenceAttemptAction[],
+  onAction: (action: GameAction) => void,
+): void {
+  const targetIds = new Map<string, OpponentInfluenceAttemptAction>();
+  for (const action of actions) {
+    targetIds.set(action.targetInstanceId as string, action);
+  }
+
+  // Find all card images with instance IDs in this block
+  const images = block.querySelectorAll<HTMLImageElement>('[data-instance-id]');
+  for (const img of images) {
+    const instId = img.dataset.instanceId;
+    if (!instId) continue;
+    const action = targetIds.get(instId);
+    if (!action) continue;
+
+    img.classList.add('company-card--influence-target');
+    img.style.cursor = 'pointer';
+    img.addEventListener('click', (e) => {
+      e.stopPropagation();
+      clearOpponentInfluenceSelection();
+      onAction(action);
+    });
+  }
+
+  // Also check character columns (the column div has data-instance-id)
+  const cols = block.querySelectorAll<HTMLElement>('.character-column[data-instance-id]');
+  for (const col of cols) {
+    const instId = col.dataset.instanceId;
+    if (!instId) continue;
+    const action = targetIds.get(instId);
+    if (!action) continue;
+
+    // Find the character card image inside the column
+    const charImg = col.querySelector<HTMLImageElement>('.company-card[data-instance-id="' + instId + '"]');
+    if (charImg) {
+      charImg.classList.add('company-card--influence-target');
+      charImg.style.cursor = 'pointer';
+      charImg.addEventListener('click', (e) => {
+        e.stopPropagation();
+        clearOpponentInfluenceSelection();
+        onAction(action);
+      });
+    }
+  }
+}
 
 /**
  * Render company views in the visual board area.
