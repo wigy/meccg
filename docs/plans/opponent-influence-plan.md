@@ -10,7 +10,7 @@ This plan covers engine (shared package) and UI (lobby-server browser).
 
 1. **New action type `opponent-influence-attempt`** — separate from existing `influence-attempt` (which handles playing factions from hand). The mechanics are fundamentally different: two rolls, targets opponent's in-play cards, results in discard not play.
 
-2. **Both rolls in a single reducer call** — the defender has no strategic choice about their roll, so no reason to split into two actions. The reducer calls `roll2d6()` twice, emitting two `DiceRollEffect` entries.
+2. **Separate explicit roll actions for both players** — each roll is its own action for excitement/suspense. The influencer rolls first, then the game waits for the defender to roll. Each emits a `DiceRollEffect`.
 
 3. **Identical card reveal as an optional field on the action** (`revealedCardInstanceId?`). Legal action generation produces two action variants (with/without reveal) for character/ally/faction targets, and only with-reveal for items.
 
@@ -51,7 +51,16 @@ export interface OpponentInfluenceAttemptAction {
 }
 ```
 
-Add to `GameAction` union. Register `'opponent-influence-attempt'` in `SiteStep` action types in `types/phases.ts`.
+Also add a defend action for the hazard player's roll:
+
+```typescript
+export interface OpponentInfluenceDefendAction {
+  readonly type: 'opponent-influence-defend';
+  readonly player: PlayerId;
+}
+```
+
+Add both to `GameAction` union. Register `'opponent-influence-attempt'` and `'opponent-influence-defend'` in `SiteStep` action types in `types/phases.ts`.
 
 ### Step 3: State tracking
 
@@ -68,19 +77,19 @@ Initialize as `null` in all `SitePhaseState` construction sites in `reducer.ts`.
 **`packages/shared/src/engine/legal-actions/site.ts`** — new function `opponentInfluenceActions()` called during `play-resources` step.
 
 Guards (return empty if any fail):
-- `state.turnNumber <= 2` (first turn for either player)
-- `!siteState.siteEntered`
-- `siteState.opponentInteractionThisTurn !== null`
+- It is the resource player's first turn
+- `!siteState.siteEntered` (company hasn't entered site)
+- `siteState.opponentInteractionThisTurn !== null` (already made interaction)
 
 Logic:
 1. Get untapped characters in active company
 2. Get opponent player index, find opponent companies at same site (compare `currentSite.definitionId`)
 3. For each opponent character at same site:
    - Skip if avatar (`mind === null`) or controlled by avatar
-   - For each untapped influencer: generate action with explanation
+   - For each untapped influencer: skip if avatar played this turn (rule 8.1). Generate action with explanation
 4. For each opponent ally on characters at same site:
    - Skip if controlling character is avatar
-   - Generate action per (influencer, ally) pair
+   - Generate action per (influencer, ally) pair — same avatar-played-this-turn guard on influencer
 
 Explanation string includes: influencer's unused DI, opponent's unused GI, target's mind, controller's unused DI.
 
@@ -90,20 +99,28 @@ Uses existing `availableDI()` from `organization.ts` for DI calculations.
 
 **`packages/shared/src/engine/reducer.ts`** — new `handleOpponentInfluenceAttempt()`:
 
-1. Validate: character untapped + in active company, site entered, no prior interaction, target exists at same site, not avatar-controlled
+The influence attempt uses two separate actions (two explicit rolls):
+
+**Action 1: `opponent-influence-attempt`** (resource player declares + rolls)
+1. Validate: character untapped + in active company, site entered, no prior interaction, target exists at same site, not avatar-controlled, avatar influencer not played this turn (rule 8.1)
 2. Tap influencing character
-3. Roll attacker 2d6 via `roll2d6(state)`
-4. Calculate modifier:
+3. Roll attacker 2d6 via `roll2d6(state)`, emit `DiceRollEffect`
+4. Set `opponentInteractionThisTurn = 'influence'`
+5. Store intermediate state in `SitePhaseState`: influencer, target, attacker roll, calculated modifiers
+6. Transition to awaiting defender roll
+
+**Action 2: `opponent-influence-defend`** (hazard player rolls)
+1. Roll defender 2d6 via `roll2d6(state)`, emit `DiceRollEffect`
+2. Calculate final result:
+   - Attacker roll (from stored state)
    - `+` influencer's unused DI (`availableDI()`)
    - `-` opponent's unused GI (`GENERAL_INFLUENCE - opponent.generalInfluenceUsed`)
-   - `-` controller's unused DI (if target under DI, not GI)
-5. Roll defender 2d6 via `roll2d6(updatedState)` (uses RNG from step 3)
-6. Subtract defender roll from total
-7. Compare to target's mind value
-8. **Success**: discard target + all non-follower cards it controlled (items, allies). Followers of a discarded character become uncontrolled (fall to GI if room, else discard)
-9. **Failure**: nothing beyond tapping the influencer
-10. Set `opponentInteractionThisTurn = 'influence'`
-11. Return two `DiceRollEffect` entries (attacker label, defender label)
+   - `-` defender roll
+   - `-` controller's unused DI (only if target is controlled by a character under DI, not under GI — rule 8.3 step 5)
+3. Compare to target's mind value (must be strictly greater)
+4. **Success**: discard target + all non-follower cards it controlled (items, allies). Followers of a discarded character become uncontrolled (fall to GI if room, else discard)
+5. **Failure**: nothing beyond tapping the influencer
+6. Clear intermediate state, return to play-resources
 
 Wire into `handleSitePlayResources()` (~line 4191).
 
@@ -134,11 +151,7 @@ Extract a reusable `discardCharacterCascade()` function:
   - Add `company-card--influence-target` CSS class to targetable cards
   - Click handler dispatches action and clears selection
 
-### Step 9: UI — dual dice display
-
-**`packages/lobby-server/src/browser/app.ts`** — the effect handler already processes `DiceRollEffect` entries. Two effects will trigger two `rollDice()` calls. Verify the dice animation system queues properly (attacker = black dice, defender = red dice per existing variant convention).
-
-### Step 10: Tests
+### Step 9: Tests
 
 Replace `.todo()` in test files with real tests. Each test: build state -> `computeLegalActions()` or `reduce()` -> assert.
 
@@ -148,6 +161,7 @@ Replace `.todo()` in test files with real tests. Each test: build state -> `comp
 - Cannot influence if already made opponent interaction this turn
 - Cannot target avatar or avatar-controlled card
 - Only untapped characters can attempt
+- Avatar influencer cannot have been played this turn (rule 8.1)
 
 **`rule-10.11-influence-attempt-targets.test.ts`**:
 - Character at same site is valid target
@@ -160,6 +174,7 @@ Replace `.todo()` in test files with real tests. Each test: build state -> `comp
 - Successful influence on ally discards ally
 - Failed influence only taps influencer
 - Modifier math: attacker DI, opponent GI, defender roll, controller DI all applied correctly
+- Controller DI only subtracted when target is under DI (not GI)
 - Discard cascade: items/allies on character discarded, followers survive
 
 ---
@@ -198,10 +213,15 @@ When both reveal/non-reveal actions exist for a target, show tooltip menu: "Infl
 - Same site + no permanent-event on item + MUST reveal identical item from hand
 - Comparison value = controlling character's mind (NOT zeroed by reveal)
 
-### Step 17: Cross-alignment penalties (rule 10.15)
-- -5 modifier when player alignments cross (wizard<->ringwraith, wizard<->balrog, etc.)
+### Step 17: Cross-alignment penalties (rules 8.W1, 8.R1, 8.F1, 8.B1)
+- -5 modifier when player alignments cross (wizard vs ringwraith/balrog, ringwraith vs wizard/fallen-wizard, fallen-wizard vs ringwraith/balrog, balrog vs wizard/fallen-wizard)
 
-### Step 18: Tests for rules 10.14-10.16
+### Step 18: Fallen-wizard specific rules
+- **8.F2**: For a FW player to reveal a matching card, it must also match the alignment of the site where the influence attempt is declared
+- **8.F3**: A matching manifestation may be revealed at a site where the FW player cannot play MP cards, but the revealed card cannot be played on success
+
+### Step 19: Tests for rules 10.14-10.16
+
 
 ---
 
