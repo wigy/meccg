@@ -432,6 +432,13 @@ function validateActionPlayer(state: GameState, action: GameAction): string | un
     return undefined;
   }
 
+  // During opponent influence defense, the hazard player rolls
+  if (phase === 'site' && action.type === 'opponent-influence-defend'
+    && 'pendingOpponentInfluence' in state.phaseState
+    && state.phaseState.pendingOpponentInfluence != null) {
+    return undefined;
+  }
+
   // During untap, the hazard player can access their sideboard
   if (phase === 'untap') {
     return undefined;
