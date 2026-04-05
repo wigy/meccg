@@ -660,6 +660,49 @@ export interface InfluenceAttemptAction {
 }
 
 /**
+ * Declare an influence attempt against an opponent's in-play character or ally.
+ *
+ * The resource player taps one of their untapped characters to attempt to
+ * influence away an opponent's card at the same site. This triggers a
+ * two-roll resolution: the attacker rolls first, then the defender rolls.
+ * The attacker's roll is modified by their unused DI, minus the opponent's
+ * unused GI, minus the defender's roll, minus the controller's unused DI.
+ * The result must exceed the target's mind value to succeed.
+ *
+ * CoE rules section 10, rules 10.10–10.12.
+ */
+export interface OpponentInfluenceAttemptAction {
+  readonly type: 'opponent-influence-attempt';
+  /** The resource player making the influence attempt. */
+  readonly player: PlayerId;
+  /** The untapped character being tapped to make the attempt. */
+  readonly influencingCharacterId: CardInstanceId;
+  /** The opponent player whose card is being targeted. */
+  readonly targetPlayer: PlayerId;
+  /** The instance ID of the opponent's card being influenced. */
+  readonly targetInstanceId: CardInstanceId;
+  /** Whether the target is a character or ally. */
+  readonly targetKind: 'character' | 'ally';
+  /** Human-readable breakdown of modifiers for the influence check. */
+  readonly explanation: string;
+}
+
+/**
+ * The hazard player rolls their defensive dice for an opponent influence attempt.
+ *
+ * After the resource player has rolled their attack dice, the hazard player
+ * rolls 2d6 which is subtracted from the attacker's modified result.
+ * The final result is then compared to the target's mind value.
+ *
+ * CoE rules section 10, rule 10.12 step 4.
+ */
+export interface OpponentInfluenceDefendAction {
+  readonly type: 'opponent-influence-defend';
+  /** The hazard player rolling the defensive dice. */
+  readonly player: PlayerId;
+}
+
+/**
  * Play a minor item on a character without requiring a specific site type.
  *
  * Minor items have relaxed play conditions compared to major/greater items.
@@ -1000,6 +1043,8 @@ export type GameAction =
   | DeclareAgentAttackAction
   | PlayHeroResourceAction
   | InfluenceAttemptAction
+  | OpponentInfluenceAttemptAction
+  | OpponentInfluenceDefendAction
   | PlayMinorItemAction
   | CorruptionCheckAction
   | DrawCardsAction

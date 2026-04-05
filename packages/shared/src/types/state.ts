@@ -932,6 +932,38 @@ export interface SitePhaseState {
    * no on-guard window is active.
    */
   readonly pendingResourceAction: GameAction | null;
+  /**
+   * Tracks whether the resource player has made an opponent influence
+   * attempt or company-vs-company attack this turn. At most one such
+   * interaction is allowed per turn (CoE rule 10.10 bullet 3).
+   * Null means no interaction has occurred yet.
+   */
+  readonly opponentInteractionThisTurn: 'influence' | 'attack' | null;
+  /**
+   * Intermediate state while awaiting the hazard player's defensive roll
+   * during an opponent influence attempt. Null when no influence attempt
+   * is pending resolution.
+   */
+  readonly pendingOpponentInfluence: {
+    /** The influencing character's instance ID. */
+    readonly influencerId: CardInstanceId;
+    /** The opponent's targeted card instance ID. */
+    readonly targetInstanceId: CardInstanceId;
+    /** Whether the target is a character or ally. */
+    readonly targetKind: 'character' | 'ally';
+    /** The target's player ID. */
+    readonly targetPlayer: PlayerId;
+    /** The attacker's 2d6 roll result. */
+    readonly attackerRoll: number;
+    /** The influencer's unused direct influence. */
+    readonly influencerDI: number;
+    /** The opponent's unused general influence. */
+    readonly opponentGI: number;
+    /** The target's mind value (comparison threshold). */
+    readonly targetMind: number;
+    /** Unused DI of the character controlling the target (0 if under GI). */
+    readonly controllerDI: number;
+  } | null;
 }
 
 /**

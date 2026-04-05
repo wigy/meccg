@@ -9,12 +9,13 @@
  * CoE rules section 2.V (lines 340–393).
  */
 
-import type { GameState, PlayerId, GameAction, EvaluatedAction, SitePhaseState, HeroItemCard, HeroResourceEventCard, SiteCard, PlayableAtEntry, FactionCard } from '../../index.js';
-import { getPlayerIndex, isSiteCard, isItemCard, isAllyCard, isFactionCard, isCharacterCard, CardStatus, matchesCondition } from '../../index.js';
+import type { GameState, PlayerId, GameAction, EvaluatedAction, SitePhaseState, HeroItemCard, HeroResourceEventCard, SiteCard, PlayableAtEntry, FactionCard, CharacterCard, AllyCard } from '../../index.js';
+import { getPlayerIndex, isSiteCard, isItemCard, isAllyCard, isFactionCard, isCharacterCard, CardStatus, matchesCondition, GENERAL_INFLUENCE } from '../../index.js';
 import { resolveInstanceId } from '../../types/state.js';
 import { collectCharacterEffects, resolveCheckModifier, resolveStatModifiers } from '../effects/index.js';
 import type { ResolverContext } from '../effects/index.js';
 import { logDetail, logHeading } from './log.js';
+import { availableDI } from './organization.js';
 
 /**
  * Check whether a site satisfies a {@link PlayableAtEntry}.
@@ -70,6 +71,13 @@ export function siteActions(state: GameState, playerId: PlayerId): EvaluatedActi
   }
 
   if (siteState.step === 'play-resources') {
+    // Awaiting hazard player's defensive roll for opponent influence attempt
+    if (siteState.pendingOpponentInfluence) {
+      if (!isActive) {
+        return viable([{ type: 'opponent-influence-defend', player: playerId }]);
+      }
+      return [];
+    }
     // On-guard reveal window: hazard player may reveal or pass
     if (siteState.awaitingOnGuardReveal) {
       return viable(onGuardRevealAtResourceActions(state, playerId, siteState));
@@ -742,8 +750,176 @@ function playResourcesActions(
     });
   }
 
+  // Opponent influence attempts (rule 10.10)
+  const oppInfluence = opponentInfluenceActions(state, playerId, siteState, company, player, untappedCharacters);
+  actions.push(...oppInfluence);
+
   // Pass to end this company's site phase
   actions.push({ action: { type: 'pass', player: playerId }, viable: true });
+
+  return actions;
+}
+
+/**
+ * Generate legal actions for influencing an opponent's in-play characters
+ * or allies at the same site.
+ *
+ * Guards (return empty if any fail):
+ * - It is not the resource player's first turn
+ * - The company has entered its site this turn
+ * - No prior opponent interaction (influence or CvCC attack) this turn
+ *
+ * For each untapped character in the active company, checks opponent companies
+ * at the same site for targetable characters and allies. Avatars and cards
+ * controlled by avatars cannot be targeted.
+ *
+ * CoE rules 10.10–10.11.
+ */
+function opponentInfluenceActions(
+  state: GameState,
+  playerId: PlayerId,
+  siteState: SitePhaseState,
+  company: { readonly characters: readonly import('../../index.js').CardInstanceId[]; readonly currentSite: import('../../index.js').SiteInPlay | null },
+  player: import('../../index.js').PlayerState,
+  untappedCharacters: import('../../index.js').CharacterInPlay[],
+): EvaluatedAction[] {
+  const actions: EvaluatedAction[] = [];
+
+  // Guard: must have entered the site
+  if (!siteState.siteEntered) {
+    logDetail(`Opponent influence: company hasn't entered site`);
+    return [];
+  }
+
+  // Guard: not first turn
+  if (state.turnNumber <= 2) {
+    logDetail(`Opponent influence: first turn (turnNumber ${state.turnNumber}) — not allowed`);
+    return [];
+  }
+
+  // Guard: no prior opponent interaction this turn
+  if (siteState.opponentInteractionThisTurn !== null) {
+    logDetail(`Opponent influence: already made ${siteState.opponentInteractionThisTurn} this turn`);
+    return [];
+  }
+
+  // Guard: need untapped characters
+  if (untappedCharacters.length === 0) {
+    logDetail(`Opponent influence: no untapped characters`);
+    return [];
+  }
+
+  // Find active company's site definition
+  const siteInstanceId = company.currentSite?.instanceId ?? null;
+  const siteDefId = siteInstanceId ? resolveInstanceId(state, siteInstanceId) : undefined;
+  const siteDef = siteDefId ? state.cardPool[siteDefId as string] : undefined;
+  if (!siteDef || !isSiteCard(siteDef)) return [];
+
+  const playerIndex = getPlayerIndex(state, playerId);
+  const opponentIndex = 1 - playerIndex;
+  const opponent = state.players[opponentIndex];
+  const opponentGI = GENERAL_INFLUENCE - opponent.generalInfluenceUsed;
+
+  // Find opponent companies at the same site
+  for (const oppCompany of opponent.companies) {
+    if (!oppCompany.currentSite) continue;
+    const oppSiteDefId = resolveInstanceId(state, oppCompany.currentSite.instanceId);
+    const oppSiteDef = oppSiteDefId ? state.cardPool[oppSiteDefId as string] : undefined;
+    if (!oppSiteDef || !isSiteCard(oppSiteDef) || oppSiteDef.name !== siteDef.name) continue;
+
+    logDetail(`Opponent influence: opponent company at same site ${siteDef.name}`);
+
+    // Check each opponent character at this site
+    for (const oppCharId of oppCompany.characters) {
+      const oppChar = opponent.characters[oppCharId as string];
+      if (!oppChar) continue;
+      const oppCharDef = state.cardPool[oppChar.definitionId as string];
+      if (!oppCharDef || !isCharacterCard(oppCharDef)) continue;
+
+      // Skip avatars (mind === null)
+      if (oppCharDef.mind === null) {
+        logDetail(`Opponent influence: ${oppCharDef.name} is avatar — skip`);
+        continue;
+      }
+
+      // Skip characters controlled by avatar (follower of avatar)
+      // controlledBy is 'general' or a CardInstanceId of the controlling character
+      if (oppChar.controlledBy !== 'general') {
+        const ctrlChar = opponent.characters[oppChar.controlledBy as string];
+        if (ctrlChar) {
+          const ctrlDef = state.cardPool[ctrlChar.definitionId as string];
+          if (ctrlDef && isCharacterCard(ctrlDef) && ctrlDef.mind === null) {
+            logDetail(`Opponent influence: ${oppCharDef.name} controlled by avatar ${ctrlDef.name} — skip`);
+            continue;
+          }
+        }
+      }
+
+      // Determine controller's unused DI (rule 10.12 step 5)
+      // Only applies when the target is under direct influence (not GI)
+      let controllerDI = 0;
+      if (oppChar.controlledBy !== 'general') {
+        controllerDI = availableDI(state, oppChar.controlledBy, opponent);
+      }
+
+      // Generate action per untapped influencer
+      for (const ch of untappedCharacters) {
+        const charDef = state.cardPool[ch.definitionId as string];
+        if (!charDef || !isCharacterCard(charDef)) continue;
+
+        const influencerDI = availableDI(state, ch.instanceId, player);
+        const explanation = `Influencer DI: ${influencerDI}, opponent GI: ${opponentGI}, target mind: ${oppCharDef.mind}, controller DI: ${controllerDI}`;
+
+        logDetail(`Opponent influence: ${charDef.name} can target ${oppCharDef.name} (${explanation})`);
+        actions.push({
+          action: {
+            type: 'opponent-influence-attempt',
+            player: playerId,
+            influencingCharacterId: ch.instanceId,
+            targetPlayer: opponent.id,
+            targetInstanceId: oppCharId,
+            targetKind: 'character',
+            explanation,
+          },
+          viable: true,
+        });
+      }
+
+      // Check allies on this character
+      for (const allyInst of oppChar.allies) {
+        const allyDef = state.cardPool[allyInst.definitionId as string];
+        if (!allyDef || !isAllyCard(allyDef)) continue;
+
+        const allyCard = allyDef as AllyCard;
+        const allyMind = allyCard.mind;
+
+        // Controller DI for ally = DI of the character controlling it
+        const allyControllerDI = availableDI(state, oppCharId, opponent);
+
+        for (const ch of untappedCharacters) {
+          const charDef = state.cardPool[ch.definitionId as string];
+          if (!charDef || !isCharacterCard(charDef)) continue;
+
+          const influencerDI = availableDI(state, ch.instanceId, player);
+          const explanation = `Influencer DI: ${influencerDI}, opponent GI: ${opponentGI}, target mind: ${allyMind}, controller DI: ${allyControllerDI}`;
+
+          logDetail(`Opponent influence: ${charDef.name} can target ally ${allyCard.name} (${explanation})`);
+          actions.push({
+            action: {
+              type: 'opponent-influence-attempt',
+              player: playerId,
+              influencingCharacterId: ch.instanceId,
+              targetPlayer: opponent.id,
+              targetInstanceId: allyInst.instanceId,
+              targetKind: 'ally',
+              explanation,
+            },
+            viable: true,
+          });
+        }
+      }
+    }
+  }
 
   return actions;
 }

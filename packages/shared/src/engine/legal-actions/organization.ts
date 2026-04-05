@@ -51,7 +51,7 @@ const MIN_DECK_SIZE_FOR_SIDEBOARD_TO_DECK = 5;
  * @param player - The player who owns the controller.
  * @param targetDef - Optional target character definition for conditional DI resolution.
  */
-function availableDI(
+export function availableDI(
   state: GameState,
   controllerInstanceId: CardInstanceId,
   player: { readonly characters: Readonly<Record<string, import('../../index.js').CharacterInPlay>> },

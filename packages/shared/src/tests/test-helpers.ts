@@ -539,6 +539,8 @@ export function buildSitePhaseState(opts: {
     automaticAttacksResolved: 0,
     awaitingOnGuardReveal: false,
     pendingResourceAction: null,
+    opponentInteractionThisTurn: null,
+    pendingOpponentInfluence: null,
   };
   return { ...state, phaseState: sitePhaseState };
 }
@@ -590,6 +592,8 @@ export function makeSitePhase(overrides?: Partial<SitePhaseState>): SitePhaseSta
     automaticAttacksResolved: 0,
     awaitingOnGuardReveal: false,
     pendingResourceAction: null,
+    opponentInteractionThisTurn: null,
+    pendingOpponentInfluence: null,
     ...overrides,
   };
 }

@@ -8,6 +8,7 @@
     "unique": true,
     "prowess": 4,
     "body": 8,
+    "mind": 4,
     "marshallingPoints": 2,
     "marshallingCategory": "ally",
     "playableAt": [
@@ -26,6 +27,7 @@
     "unique": true,
     "prowess": 2,
     "body": 8,
+    "mind": 2,
     "marshallingPoints": 1,
     "marshallingCategory": "ally",
     "playableAt": [
@@ -433,6 +435,7 @@
     "unique": true,
     "prowess": 8,
     "body": 9,
+    "mind": 3,
     "marshallingPoints": 2,
     "marshallingCategory": "ally",
     "playableAt": [

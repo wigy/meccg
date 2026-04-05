@@ -1007,6 +1007,10 @@ export function describeAction(
         : `Play resource ${instName(action.cardInstanceId)} at ${compName(action.companyId)}`;
     case 'influence-attempt':
       return `Influence faction ${instName(action.factionInstanceId)} with ${instName(action.influencingCharacterId)}`;
+    case 'opponent-influence-attempt':
+      return `Influence opponent's ${instName(action.targetInstanceId)} with ${instName(action.influencingCharacterId)}`;
+    case 'opponent-influence-defend':
+      return `Roll defense against influence attempt`;
     case 'play-minor-item':
       return `Play minor item ${instName(action.cardInstanceId)} on ${instName(action.attachToCharacterId)}`;
     case 'corruption-check': {

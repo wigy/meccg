@@ -16,7 +16,7 @@
 
 import type { GameState, PlayerState, DraftPlayerState, ItemDraftPlayerState, CharacterDeckDraftPlayerState, SetupStepState, CardInstanceId, CompanyId, CharacterInPlay, CardInstance, ChainEntryPayload, UntapPhaseState, OrganizationPhaseState, MovementHazardPhaseState, SitePhaseState, EndOfTurnPhaseState, FreeCouncilPhaseState, Company, CreatureCard, SiteInPlay, HeroItemCard, CombatState, StrikeAssignment, PlayerId, OnGuardCard } from '../index.js';
 import type { GameAction } from '../index.js';
-import { Phase, SetupStep, LEGAL_ACTIONS_BY_PHASE, getAlignmentRules, shuffle, nextInt, CardStatus, isCharacterCard, isItemCard, isAllyCard, isFactionCard, isSiteCard, SiteType, RegionType, Race, Skill, getPlayerIndex, ZERO_EFFECTIVE_STATS, MAX_STARTING_ITEMS, BASE_MAX_REGION_DISTANCE, HAND_SIZE } from '../index.js';
+import { Phase, SetupStep, LEGAL_ACTIONS_BY_PHASE, getAlignmentRules, shuffle, nextInt, CardStatus, isCharacterCard, isItemCard, isAllyCard, isFactionCard, isSiteCard, SiteType, RegionType, Race, Skill, getPlayerIndex, ZERO_EFFECTIVE_STATS, MAX_STARTING_ITEMS, BASE_MAX_REGION_DISTANCE, HAND_SIZE, GENERAL_INFLUENCE } from '../index.js';
 import { logHeading, logDetail } from './legal-actions/log.js';
 import type { TwoDiceSix, DieRoll, GameEffect } from '../index.js';
 import { applyDraftResults, transitionAfterItemDraft, enterSiteSelection, startFirstTurn } from './init.js';
@@ -27,6 +27,7 @@ import { matchesCondition } from '../effects/index.js';
 import { computeTournamentScore } from '../state-utils.js';
 import { handleChainAction, initiateChain, pushChainEntry } from './chain-reducer.js';
 import { resolveInstanceId } from '../types/state.js';
+import { availableDI } from './legal-actions/organization.js';
 
 /** Pile names on PlayerState that contain CardInstance objects. */
 const PILE_NAMES = [
@@ -3415,6 +3416,8 @@ function advanceAfterCompanyMH(state: GameState, mhState: MovementHazardPhaseSta
           declaredAgentAttack: null,
           awaitingOnGuardReveal: false,
           pendingResourceAction: null,
+          opponentInteractionThisTurn: null,
+          pendingOpponentInfluence: null,
         },
       }),
     };
@@ -4022,6 +4025,10 @@ function handleSite(state: GameState, action: GameAction): ReducerResult {
   }
 
   if (siteState.step === 'play-resources') {
+    // Hazard player's defensive roll for opponent influence attempt
+    if (siteState.pendingOpponentInfluence && action.type === 'opponent-influence-defend') {
+      return handleOpponentInfluenceDefend(state, action, siteState);
+    }
     if (siteState.awaitingOnGuardReveal) {
       return handleOnGuardRevealAtResource(state, action, siteState);
     }
@@ -4504,6 +4511,11 @@ function handleSitePlayResources(
     return handleInfluenceAttempt(state, action, siteState);
   }
 
+  // Opponent influence attempt
+  if (action.type === 'opponent-influence-attempt') {
+    return handleOpponentInfluenceAttempt(state, action, siteState);
+  }
+
   return { state, error: `Unexpected action '${action.type}' in play-resources step` };
 }
 
@@ -4787,6 +4799,322 @@ function handleInfluenceAttempt(
 }
 
 /**
+ * Handle an opponent influence attempt (resource player declares + rolls).
+ *
+ * Validates the influencing character is untapped and in the active company,
+ * the target exists at the same site and is not avatar-controlled, then
+ * taps the influencer, rolls 2d6, and transitions to awaiting the
+ * hazard player's defensive roll.
+ *
+ * CoE rules 10.10–10.12 step 1.
+ */
+function handleOpponentInfluenceAttempt(
+  state: GameState,
+  action: GameAction,
+  siteState: SitePhaseState,
+): ReducerResult {
+  if (action.type !== 'opponent-influence-attempt') return { state, error: 'Expected opponent-influence-attempt action' };
+
+  const playerIndex = getPlayerIndex(state, action.player);
+  const player = state.players[playerIndex];
+  const company = player.companies[siteState.activeCompanyIndex];
+
+  // Validate influencing character is untapped and in company
+  const charId = action.influencingCharacterId;
+  if (!company.characters.includes(charId)) {
+    return { state, error: 'Influencing character is not in this company' };
+  }
+  const charInPlay = player.characters[charId as string];
+  if (!charInPlay) return { state, error: 'Influencing character not found' };
+  if (charInPlay.status !== CardStatus.Untapped) {
+    return { state, error: 'Influencing character is not untapped' };
+  }
+
+  // Validate target exists on the opponent
+  const opponentIndex = 1 - playerIndex;
+  const opponent = state.players[opponentIndex];
+  if (action.targetPlayer !== opponent.id) {
+    return { state, error: 'Target player is not the opponent' };
+  }
+
+  // Find the target
+  let targetMind = 0;
+  let controllerDI = 0;
+
+  if (action.targetKind === 'character') {
+    const targetChar = opponent.characters[action.targetInstanceId as string];
+    if (!targetChar) return { state, error: 'Target character not found' };
+    const targetDef = state.cardPool[targetChar.definitionId as string];
+    if (!targetDef || !isCharacterCard(targetDef)) return { state, error: 'Target is not a character' };
+    if (targetDef.mind === null) return { state, error: 'Cannot influence an avatar' };
+    targetMind = targetDef.mind;
+
+    // Controller DI (rule 10.12 step 5) — only if under DI, not GI
+    if (targetChar.controlledBy !== 'general') {
+      controllerDI = availableDI(state, targetChar.controlledBy, opponent);
+    }
+  } else if (action.targetKind === 'ally') {
+    // Find the ally on an opponent character
+    let allyFound = false;
+    for (const [oppCharId, oppChar] of Object.entries(opponent.characters)) {
+      const allyInst = oppChar.allies.find(a => a.instanceId === action.targetInstanceId);
+      if (allyInst) {
+        const allyDef = state.cardPool[allyInst.definitionId as string];
+        if (!allyDef || !isAllyCard(allyDef)) return { state, error: 'Target is not an ally' };
+        targetMind = (allyDef as { mind: number }).mind;
+        controllerDI = availableDI(state, oppCharId as CardInstanceId, opponent);
+        allyFound = true;
+        break;
+      }
+    }
+    if (!allyFound) return { state, error: 'Target ally not found' };
+  }
+
+  const charDef = state.cardPool[charInPlay.definitionId as string];
+  const charName = charDef?.name ?? charId;
+
+  // Tap the influencing character
+  const updatedChar: CharacterInPlay = { ...charInPlay, status: CardStatus.Tapped };
+  const newPlayers = clonePlayers(state);
+  newPlayers[playerIndex] = {
+    ...player,
+    characters: { ...player.characters, [charId as string]: updatedChar },
+  };
+
+  // Roll attacker 2d6
+  const { roll, rng, cheatRollTotal } = roll2d6(state);
+  const attackerRoll = roll.die1 + roll.die2;
+
+  const rollEffect: GameEffect = {
+    effect: 'dice-roll',
+    playerName: player.name,
+    die1: roll.die1,
+    die2: roll.die2,
+    label: `Opponent influence: ${charName} attacks`,
+  };
+
+  // Calculate modifiers
+  const influencerDI = availableDI(state, charId, player);
+  const opponentGI = GENERAL_INFLUENCE - opponent.generalInfluenceUsed;
+
+  logDetail(`Opponent influence attempt: ${charName} rolls ${roll.die1} + ${roll.die2} = ${attackerRoll} (DI: ${influencerDI}, opponent GI: ${opponentGI}, target mind: ${targetMind}, controller DI: ${controllerDI})`);
+
+  return {
+    state: {
+      ...state,
+      players: newPlayers,
+      rng, cheatRollTotal,
+      phaseState: {
+        ...siteState,
+        opponentInteractionThisTurn: 'influence',
+        pendingOpponentInfluence: {
+          influencerId: charId,
+          targetInstanceId: action.targetInstanceId,
+          targetKind: action.targetKind,
+          targetPlayer: action.targetPlayer,
+          attackerRoll,
+          influencerDI,
+          opponentGI,
+          targetMind,
+          controllerDI,
+        },
+      },
+    },
+    effects: [rollEffect],
+  };
+}
+
+/**
+ * Handle the hazard player's defensive roll for an opponent influence attempt.
+ *
+ * Rolls 2d6 for the defender, calculates the final result, and resolves
+ * the influence attempt: on success, the target and its controlled non-follower
+ * cards are discarded; on failure, only the influencer was tapped.
+ *
+ * CoE rules 10.12 steps 2–6.
+ */
+function handleOpponentInfluenceDefend(
+  state: GameState,
+  action: GameAction,
+  siteState: SitePhaseState,
+): ReducerResult {
+  if (action.type !== 'opponent-influence-defend') return { state, error: 'Expected opponent-influence-defend action' };
+
+  const pending = siteState.pendingOpponentInfluence;
+  if (!pending) return { state, error: 'No pending opponent influence attempt' };
+
+  // Validate the hazard player is rolling
+  const playerIndex = getPlayerIndex(state, state.activePlayer!);
+  const opponentIndex = 1 - playerIndex;
+  const opponent = state.players[opponentIndex];
+  if (action.player !== opponent.id) {
+    return { state, error: 'Only the hazard player may roll the defensive dice' };
+  }
+
+  // Roll defender 2d6
+  const { roll, rng, cheatRollTotal } = roll2d6(state);
+  const defenderRoll = roll.die1 + roll.die2;
+
+  const rollEffect: GameEffect = {
+    effect: 'dice-roll',
+    playerName: opponent.name,
+    die1: roll.die1,
+    die2: roll.die2,
+    label: `Opponent influence: defense`,
+  };
+
+  // Calculate final result:
+  // attacker roll + influencer DI - opponent GI - defender roll - controller DI
+  const finalResult = pending.attackerRoll + pending.influencerDI - pending.opponentGI - defenderRoll - pending.controllerDI;
+
+  logDetail(`Opponent influence resolution: ${pending.attackerRoll} + ${pending.influencerDI} - ${pending.opponentGI} - ${defenderRoll} - ${pending.controllerDI} = ${finalResult} vs mind ${pending.targetMind}`);
+
+  const newPlayers = clonePlayers(state);
+
+  // Clear pending state
+  const clearedSiteState: SitePhaseState = {
+    ...siteState,
+    pendingOpponentInfluence: null,
+  };
+
+  if (finalResult > pending.targetMind) {
+    // Success — discard target and controlled non-follower cards
+    logDetail(`Opponent influence succeeded (${finalResult} > ${pending.targetMind})`);
+    discardInfluencedCard(newPlayers, opponentIndex, pending, state);
+
+    return {
+      state: {
+        ...state,
+        players: newPlayers,
+        rng, cheatRollTotal,
+        phaseState: clearedSiteState,
+      },
+      effects: [rollEffect],
+    };
+  }
+
+  // Failure — influencer was already tapped, nothing else happens
+  logDetail(`Opponent influence failed (${finalResult} <= ${pending.targetMind})`);
+  return {
+    state: {
+      ...state,
+      players: newPlayers,
+      rng, cheatRollTotal,
+      phaseState: clearedSiteState,
+    },
+    effects: [rollEffect],
+  };
+}
+
+/**
+ * Discard a card that was successfully influenced away from the opponent.
+ *
+ * For characters: moves the character, their items, allies to the discard pile.
+ * Followers of the discarded character fall to GI if room, otherwise are discarded.
+ * For allies: just moves the ally to the discard pile.
+ */
+function discardInfluencedCard(
+  players: [PlayerState, PlayerState],
+  opponentIndex: number,
+  pending: NonNullable<SitePhaseState['pendingOpponentInfluence']>,
+  state: GameState,
+): void {
+  const opponent = players[opponentIndex];
+
+  if (pending.targetKind === 'ally') {
+    // Find and remove the ally from its controlling character
+    for (const [charId, charInPlay] of Object.entries(opponent.characters)) {
+      const allyIdx = charInPlay.allies.findIndex(a => a.instanceId === pending.targetInstanceId);
+      if (allyIdx !== -1) {
+        const ally = charInPlay.allies[allyIdx];
+        const newAllies = [...charInPlay.allies];
+        newAllies.splice(allyIdx, 1);
+        const updatedChar = { ...charInPlay, allies: newAllies };
+        const newChars = { ...opponent.characters, [charId]: updatedChar };
+        const newDiscard = [...opponent.discardPile, { instanceId: ally.instanceId, definitionId: ally.definitionId }];
+        players[opponentIndex] = { ...opponent, characters: newChars, discardPile: newDiscard };
+        logDetail(`Discarded ally ${ally.instanceId}`);
+        return;
+      }
+    }
+    return;
+  }
+
+  // Character target — discard character + items + allies, handle followers
+  const targetChar = opponent.characters[pending.targetInstanceId as string];
+  if (!targetChar) return;
+
+  const newDiscard = [...opponent.discardPile];
+
+  // Discard items
+  for (const item of targetChar.items) {
+    newDiscard.push({ instanceId: item.instanceId, definitionId: item.definitionId });
+    logDetail(`Discarded item ${item.instanceId} from influenced character`);
+  }
+
+  // Discard allies
+  for (const ally of targetChar.allies) {
+    newDiscard.push({ instanceId: ally.instanceId, definitionId: ally.definitionId });
+    logDetail(`Discarded ally ${ally.instanceId} from influenced character`);
+  }
+
+  // Discard the character itself
+  newDiscard.push({ instanceId: targetChar.instanceId, definitionId: targetChar.definitionId });
+  logDetail(`Discarded influenced character ${targetChar.instanceId}`);
+
+  // Handle followers — try to place under GI, otherwise discard
+  const newCharacters = { ...opponent.characters };
+  for (const followerId of targetChar.followers) {
+    const follower = newCharacters[followerId as string];
+    if (!follower) continue;
+    const followerDef = state.cardPool[follower.definitionId as string];
+    const followerMind = followerDef && isCharacterCard(followerDef) && followerDef.mind !== null ? followerDef.mind : 0;
+
+    // Check if there's room under GI
+    const currentGIUsed = Object.values(newCharacters)
+      .filter(ch => ch.controlledBy === 'general' && ch.instanceId !== pending.targetInstanceId)
+      .reduce((sum, ch) => {
+        const def = state.cardPool[ch.definitionId as string];
+        return sum + (def && isCharacterCard(def) && def.mind !== null ? def.mind : 0);
+      }, 0);
+
+    if (currentGIUsed + followerMind <= GENERAL_INFLUENCE) {
+      // Move to GI
+      newCharacters[followerId as string] = { ...follower, controlledBy: 'general' };
+      logDetail(`Follower ${followerId} falls to GI (mind ${followerMind}, GI used ${currentGIUsed})`);
+    } else {
+      // Discard follower and their items/allies
+      for (const item of follower.items) {
+        newDiscard.push({ instanceId: item.instanceId, definitionId: item.definitionId });
+      }
+      for (const ally of follower.allies) {
+        newDiscard.push({ instanceId: ally.instanceId, definitionId: ally.definitionId });
+      }
+      newDiscard.push({ instanceId: follower.instanceId, definitionId: follower.definitionId });
+      delete newCharacters[followerId as string];
+      logDetail(`Follower ${followerId} discarded (no GI room)`);
+    }
+  }
+
+  // Remove the target character
+  delete newCharacters[pending.targetInstanceId as string];
+
+  // Remove from companies
+  const newCompanies = opponent.companies.map(company => {
+    if (!company.characters.includes(pending.targetInstanceId)) return company;
+    const newChars = company.characters.filter(id => id !== pending.targetInstanceId);
+    return { ...company, characters: newChars };
+  });
+
+  players[opponentIndex] = {
+    ...opponent,
+    characters: newCharacters,
+    companies: newCompanies,
+    discardPile: newDiscard,
+  };
+}
+
+/**
  * Handle a site phase step that currently only accepts 'pass' to advance
  * to the next step. Used as a stub for reveal-on-guard-attacks,
  * automatic-attacks, and declare-agent-attack until full logic is implemented.
@@ -4893,6 +5221,8 @@ function advanceSiteToNextCompany(
         declaredAgentAttack: null,
         awaitingOnGuardReveal: false,
         pendingResourceAction: null,
+        opponentInteractionThisTurn: null,
+        pendingOpponentInfluence: null,
       },
     },
   };

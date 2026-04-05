@@ -186,6 +186,7 @@
     "unique": true,
     "prowess": 4,
     "body": 8,
+    "mind": 3,
     "marshallingPoints": 2,
     "marshallingCategory": "ally",
     "playableAt": [{ "siteType": "ruins-and-lairs", "when": { "site.autoAttack.race": "Wolf" } }],

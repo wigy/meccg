@@ -135,6 +135,8 @@ export const LEGAL_ACTIONS_BY_PHASE: Readonly<Record<Phase, readonly GameAction[
     'play-permanent-event',
     'play-hero-resource',
     'influence-attempt',
+    'opponent-influence-attempt',
+    'opponent-influence-defend',
     'play-minor-item',
     'assign-strike',
     'choose-strike-order',

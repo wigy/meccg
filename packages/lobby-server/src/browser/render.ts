@@ -3242,6 +3242,7 @@ export function buildCardAttributes(el: HTMLElement, def: CardDefinition): void 
     case 'hero-resource-ally':
     case 'minion-resource-ally': {
       addAttr(el, 'Prowess / Body', `${def.prowess} / ${def.body}`);
+      addAttr(el, 'Mind', def.mind);
       addAttr(el, 'MP', def.marshallingPoints);
       break;
     }

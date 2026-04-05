@@ -235,6 +235,8 @@ export interface HeroAllyCard {
   readonly prowess: number;
   /** The ally's resistance to being eliminated in combat. */
   readonly body: number;
+  /** The ally's mind value, used as the comparison value in opponent influence attempts. */
+  readonly mind: number;
   /** Victory points scored at the Free Council for controlling this ally. */
   readonly marshallingPoints: number;
   /** Always 'ally' -- used for scoring category calculations. */
@@ -624,6 +626,8 @@ export interface MinionAllyCard {
   readonly prowess: number;
   /** The ally's resistance to being eliminated in combat. */
   readonly body: number;
+  /** The ally's mind value, used as the comparison value in opponent influence attempts. */
+  readonly mind: number;
   /** Victory points scored for controlling this ally. */
   readonly marshallingPoints: number;
   /** Always 'ally' -- used for scoring category calculations. */
