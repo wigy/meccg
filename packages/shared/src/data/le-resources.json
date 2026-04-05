@@ -284,5 +284,24 @@
     "marshallingCategory": "misc",
     "effects": [],
     "text": "Diplomat only. Scout only. Playable on a untapped diplomat in a covert company facing an attack. Tap the diplomat. The attack is canceled. Alternatively, playable on a scout facing an attack. No strikes of the attack may be assigned to the scout."
+  },
+  {
+    "cardType": "minion-resource-ally",
+    "alignment": "ringwraith",
+    "id": "le-154",
+    "name": "Stinker",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/Stinker.jpg",
+    "unique": true,
+    "prowess": 2,
+    "body": 9,
+    "marshallingPoints": 2,
+    "marshallingCategory": "ally",
+    "playableAt": [
+      {
+        "site": "Goblin-gate or Moria"
+      }
+    ],
+    "effects": [],
+    "text": "Unique. Playable at Goblin-gate or Moria. Manifestation of Gollum and My Precious. If his company's size is less than three, tap Stinker to cancel one attack against his company keyed to Wilderness [{w}] or Shadow-land [{s}]. You may tap Stinker if he is at the same non-Darkhaven site as The One Ring; then both Stinker and The One Ring are discarded."
   }
 ]
