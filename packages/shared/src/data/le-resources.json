@@ -303,5 +303,18 @@
     ],
     "effects": [],
     "text": "Unique. Playable at Goblin-gate or Moria. Manifestation of Gollum and My Precious. If his company's size is less than three, tap Stinker to cancel one attack against his company keyed to Wilderness [{w}] or Shadow-land [{s}]. You may tap Stinker if he is at the same non-Darkhaven site as The One Ring; then both Stinker and The One Ring are discarded."
+  },
+  {
+    "cardType": "minion-resource-event",
+    "alignment": "ringwraith",
+    "id": "le-250",
+    "name": "Voices of Malice",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/VoicesofMalice.jpg",
+    "unique": false,
+    "eventType": "short",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Sage only. Tap a sage to discard one non-environment hazard permanent-event or non-environment hazard long-event. Sage makes a corruption check modified by -2."
   }
 ]
