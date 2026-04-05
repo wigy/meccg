@@ -621,8 +621,10 @@ function renderSiteArea(
           ogImg.alt = 'On-guard card';
           ogImg.className = `company-card company-card--site on-guard-card${revealCls}`;
         }
-        // Always show card-back on the board; hover preview reveals the real card
-        ogImg.src = '/images/card-back.jpg';
+        // Show card-back unless revealed (face-up); hover preview shows real card either way
+        if (!('revealed' in og) || !og.revealed) {
+          ogImg.src = '/images/card-back.jpg';
+        }
         if (revealAction && options?.onAction) {
           ogImg.style.cursor = 'pointer';
           const onAction = options.onAction;
