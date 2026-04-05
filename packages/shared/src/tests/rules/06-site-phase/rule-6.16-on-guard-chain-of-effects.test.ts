@@ -18,8 +18,82 @@
  * When an on-guard card is revealed, it immediately ceases to be considered an on-guard card.
  */
 
-import { describe, test } from 'vitest';
+import { describe, test, expect, beforeEach } from 'vitest';
+import {
+  buildTestState, resetMint, Phase, reduce,
+  makeSitePhase, placeOnGuard, viableActions, resolveChain,
+  PLAYER_1, PLAYER_2,
+  LEGOLAS, ARAGORN,
+  BARROW_WIGHT, FOOLISH_WORDS, KNIGHTS_OF_DOL_AMROTH,
+  LORIEN, MORIA, MINAS_TIRITH, DOL_AMROTH,
+} from '../../test-helpers.js';
 
 describe('Rule 6.16 — On-Guard Chain of Effects', () => {
-  test.todo('Revealed on-guard initiates separate chain treated as declared immediately prior to the triggering chain');
+  beforeEach(() => resetMint());
+
+  test('revealed on-guard creature initiates a chain, not direct combat', () => {
+    const base = buildTestState({
+      activePlayer: PLAYER_1, phase: Phase.Site,
+      players: [
+        { id: PLAYER_1, companies: [{ site: MORIA, characters: [ARAGORN] }], hand: [], siteDeck: [] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [MINAS_TIRITH] },
+      ],
+    });
+    const { state, ogCard } = placeOnGuard(base, 0, 0, BARROW_WIGHT);
+    const testState = { ...state, phaseState: makeSitePhase({ step: 'reveal-on-guard-attacks', siteEntered: false }) };
+
+    const result = reduce(testState, { type: 'reveal-on-guard', player: PLAYER_2, cardInstanceId: ogCard.instanceId });
+    expect(result.error).toBeUndefined();
+    expect(result.state.chain).not.toBeNull();
+    expect(result.state.combat).toBeNull();
+  });
+
+  test('resource player gets chain priority after creature reveal', () => {
+    const base = buildTestState({
+      activePlayer: PLAYER_1, phase: Phase.Site,
+      players: [
+        { id: PLAYER_1, companies: [{ site: MORIA, characters: [ARAGORN] }], hand: [], siteDeck: [] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [MINAS_TIRITH] },
+      ],
+    });
+    const { state, ogCard } = placeOnGuard(base, 0, 0, BARROW_WIGHT);
+    const testState = { ...state, phaseState: makeSitePhase({ step: 'reveal-on-guard-attacks', siteEntered: false }) };
+
+    const result = reduce(testState, { type: 'reveal-on-guard', player: PLAYER_2, cardInstanceId: ogCard.instanceId });
+    expect(result.state.chain!.priority).toBe(PLAYER_1);
+  });
+
+  test('after chain resolves, creature combat is initiated', () => {
+    const base = buildTestState({
+      activePlayer: PLAYER_1, phase: Phase.Site,
+      players: [
+        { id: PLAYER_1, companies: [{ site: MORIA, characters: [ARAGORN] }], hand: [], siteDeck: [] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [MINAS_TIRITH] },
+      ],
+    });
+    const { state, ogCard } = placeOnGuard(base, 0, 0, BARROW_WIGHT);
+    const testState = { ...state, phaseState: makeSitePhase({ step: 'reveal-on-guard-attacks', siteEntered: false }) };
+
+    const afterReveal = reduce(testState, { type: 'reveal-on-guard', player: PLAYER_2, cardInstanceId: ogCard.instanceId });
+    const afterChain = resolveChain(afterReveal.state);
+    expect(afterChain.combat).not.toBeNull();
+  });
+
+  test('revealed on-guard event at resource play initiates a nested chain', () => {
+    const base = buildTestState({
+      activePlayer: PLAYER_1, phase: Phase.Site, recompute: true,
+      players: [
+        { id: PLAYER_1, companies: [{ site: DOL_AMROTH, characters: [ARAGORN] }], hand: [KNIGHTS_OF_DOL_AMROTH], siteDeck: [] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [MINAS_TIRITH] },
+      ],
+    });
+    const { state } = placeOnGuard(base, 0, 0, FOOLISH_WORDS);
+    const testState = { ...state, phaseState: makeSitePhase() };
+
+    const afterAttempt = reduce(testState, viableActions(testState, PLAYER_1, 'influence-attempt')[0].action);
+    const afterReveal = reduce(afterAttempt.state, viableActions(afterAttempt.state, PLAYER_2, 'reveal-on-guard')[0].action);
+
+    expect(afterReveal.state.chain).not.toBeNull();
+    expect(afterReveal.state.chain!.priority).toBe(PLAYER_1);
+  });
 });
