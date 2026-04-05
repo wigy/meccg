@@ -70,12 +70,12 @@
   ],
   "deck": {
     "characters": [
-        {
-          "name": "Gandalf",
-          "card": "tw-156",
-          "qty": 3
-        }
-      ],
+      {
+        "name": "Gandalf",
+        "card": "tw-156",
+        "qty": 3
+      }
+    ],
     "hazards": [
       {
         "name": "Ambusher",
@@ -264,7 +264,7 @@
   "sites": [
     {
       "name": "Bandit Lair",
-      "card": null,
+      "card": "tw-373",
       "qty": 1
     },
     {

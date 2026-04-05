@@ -631,5 +631,30 @@
     "resourceDraws": 1,
     "hazardDraws": 1,
     "text": ""
+  },
+  {
+    "cardType": "hero-site",
+    "alignment": "wizard",
+    "id": "tw-373",
+    "name": "Bandit Lair",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/BanditLair.jpg",
+    "siteType": "ruins-and-lairs",
+    "sitePath": [
+      "wilderness",
+      "shadow"
+    ],
+    "nearestHaven": "Lórien",
+    "region": "Brown Lands",
+    "playableResources": [],
+    "automaticAttacks": [
+      {
+        "creatureType": "Men",
+        "strikes": 3,
+        "prowess": 6
+      }
+    ],
+    "resourceDraws": 1,
+    "hazardDraws": 2,
+    "text": "Nearest Haven: LórienPlayable: Items (minor, gold ring)Automatic-attacks: Men — 3 strikes with 6 prowess"
   }
 ]
