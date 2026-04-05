@@ -963,6 +963,12 @@ export interface SitePhaseState {
     readonly targetMind: number;
     /** Unused DI of the character controlling the target (0 if under GI). */
     readonly controllerDI: number;
+    /**
+     * The card instance revealed from hand for a comparison value of 0.
+     * Null if no card was revealed. Stored so it can be discarded on failure
+     * or played on success (Phase 2).
+     */
+    readonly revealedCard: { readonly instanceId: CardInstanceId; readonly definitionId: CardDefinitionId } | null;
   } | null;
 }
 

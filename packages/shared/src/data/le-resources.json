@@ -294,6 +294,7 @@
     "unique": true,
     "prowess": 2,
     "body": 9,
+    "mind": 4,
     "marshallingPoints": 2,
     "marshallingCategory": "ally",
     "playableAt": [

@@ -871,6 +871,7 @@ function opponentInfluenceActions(
         const explanation = `Influencer DI: ${influencerDI}, opponent GI: ${opponentGI}, target mind: ${oppCharDef.mind}, controller DI: ${controllerDI}`;
 
         logDetail(`Opponent influence: ${charDef.name} can target ${oppCharDef.name} (${explanation})`);
+        // Base action (no reveal)
         actions.push({
           action: {
             type: 'opponent-influence-attempt',
@@ -883,6 +884,29 @@ function opponentInfluenceActions(
           },
           viable: true,
         });
+
+        // Identical card reveal variant (rule 10.11): same name, any alignment
+        const identicalInHand = player.hand.find(h => {
+          const hDef = state.cardPool[h.definitionId as string];
+          return hDef && (isCharacterCard(hDef) || isAllyCard(hDef)) && hDef.name === oppCharDef.name;
+        });
+        if (identicalInHand) {
+          const revealExplanation = `${explanation} (reveal identical → mind treated as 0)`;
+          logDetail(`Opponent influence: ${charDef.name} can reveal identical ${oppCharDef.name} from hand`);
+          actions.push({
+            action: {
+              type: 'opponent-influence-attempt',
+              player: playerId,
+              influencingCharacterId: ch.instanceId,
+              targetPlayer: opponent.id,
+              targetInstanceId: oppCharId,
+              targetKind: 'character',
+              revealedCardInstanceId: identicalInHand.instanceId,
+              explanation: revealExplanation,
+            },
+            viable: true,
+          });
+        }
       }
 
       // Check allies on this character
@@ -904,6 +928,7 @@ function opponentInfluenceActions(
           const explanation = `Influencer DI: ${influencerDI}, opponent GI: ${opponentGI}, target mind: ${allyMind}, controller DI: ${allyControllerDI}`;
 
           logDetail(`Opponent influence: ${charDef.name} can target ally ${allyCard.name} (${explanation})`);
+          // Base action (no reveal)
           actions.push({
             action: {
               type: 'opponent-influence-attempt',
@@ -916,6 +941,29 @@ function opponentInfluenceActions(
             },
             viable: true,
           });
+
+          // Identical card reveal variant
+          const identicalAllyInHand = player.hand.find(h => {
+            const hDef = state.cardPool[h.definitionId as string];
+            return hDef && (isCharacterCard(hDef) || isAllyCard(hDef)) && hDef.name === allyCard.name;
+          });
+          if (identicalAllyInHand) {
+            const revealExplanation = `${explanation} (reveal identical → mind treated as 0)`;
+            logDetail(`Opponent influence: ${charDef.name} can reveal identical ${allyCard.name} from hand`);
+            actions.push({
+              action: {
+                type: 'opponent-influence-attempt',
+                player: playerId,
+                influencingCharacterId: ch.instanceId,
+                targetPlayer: opponent.id,
+                targetInstanceId: allyInst.instanceId,
+                targetKind: 'ally',
+                revealedCardInstanceId: identicalAllyInHand.instanceId,
+                explanation: revealExplanation,
+              },
+              viable: true,
+            });
+          }
         }
       }
     }

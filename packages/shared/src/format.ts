@@ -1008,7 +1008,9 @@ export function describeAction(
     case 'influence-attempt':
       return `Influence faction ${instName(action.factionInstanceId)} with ${instName(action.influencingCharacterId)}`;
     case 'opponent-influence-attempt':
-      return `Influence opponent's ${instName(action.targetInstanceId)} with ${instName(action.influencingCharacterId)}`;
+      return action.revealedCardInstanceId
+        ? `Influence opponent's ${instName(action.targetInstanceId)} with ${instName(action.influencingCharacterId)} (reveal ${instName(action.revealedCardInstanceId)})`
+        : `Influence opponent's ${instName(action.targetInstanceId)} with ${instName(action.influencingCharacterId)}`;
     case 'opponent-influence-defend':
       return `Roll defense against influence attempt`;
     case 'play-minor-item':

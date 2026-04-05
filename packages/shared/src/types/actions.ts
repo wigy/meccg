@@ -683,6 +683,16 @@ export interface OpponentInfluenceAttemptAction {
   readonly targetInstanceId: CardInstanceId;
   /** Whether the target is a character or ally. */
   readonly targetKind: 'character' | 'ally';
+  /**
+   * Optional: instance ID of an identical card revealed from hand.
+   * When set, the comparison value (target mind) is treated as 0.
+   * The revealed card is removed from hand regardless of outcome;
+   * on failure it goes to the discard pile.
+   *
+   * CoE rule 10.11: "the resource player may reveal an identical resource
+   * card in their hand (of any alignment)".
+   */
+  readonly revealedCardInstanceId?: CardInstanceId;
   /** Human-readable breakdown of modifiers for the influence check. */
   readonly explanation: string;
 }

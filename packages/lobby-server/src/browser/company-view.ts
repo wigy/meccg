@@ -2104,48 +2104,105 @@ function addOpponentInfluenceTargets(
   actions: OpponentInfluenceAttemptAction[],
   onAction: (action: GameAction) => void,
 ): void {
-  const targetIds = new Map<string, OpponentInfluenceAttemptAction>();
+  // Group actions by target instance ID (may have reveal/no-reveal variants)
+  const targetActions = new Map<string, OpponentInfluenceAttemptAction[]>();
   for (const action of actions) {
-    targetIds.set(action.targetInstanceId as string, action);
+    const key = action.targetInstanceId as string;
+    const existing = targetActions.get(key) ?? [];
+    existing.push(action);
+    targetActions.set(key, existing);
   }
 
-  // Find all card images with instance IDs in this block
-  const images = block.querySelectorAll<HTMLImageElement>('[data-instance-id]');
-  for (const img of images) {
-    const instId = img.dataset.instanceId;
-    if (!instId) continue;
-    const action = targetIds.get(instId);
-    if (!action) continue;
-
+  /** Attach click handler to a card image for the given target actions. */
+  const attachHandler = (img: HTMLImageElement, acts: OpponentInfluenceAttemptAction[]): void => {
     img.classList.add('company-card--influence-target');
     img.style.cursor = 'pointer';
     img.addEventListener('click', (e) => {
       e.stopPropagation();
-      clearOpponentInfluenceSelection();
-      onAction(action);
+      if (acts.length === 1) {
+        // Single variant — dispatch directly
+        clearOpponentInfluenceSelection();
+        onAction(acts[0]);
+      } else {
+        // Multiple variants (with/without reveal) — show tooltip menu
+        showOpponentInfluenceMenu(e, acts, onAction);
+      }
     });
+  };
+
+  // Walk all card images with instance IDs
+  const allImages = block.querySelectorAll<HTMLImageElement>('[data-instance-id]');
+  const handled = new Set<string>();
+  for (const img of allImages) {
+    const instId = img.dataset.instanceId;
+    if (!instId || handled.has(instId)) continue;
+    const acts = targetActions.get(instId);
+    if (!acts) continue;
+    handled.add(instId);
+    attachHandler(img, acts);
   }
 
-  // Also check character columns (the column div has data-instance-id)
+  // Character columns have their own data-instance-id — check those too
   const cols = block.querySelectorAll<HTMLElement>('.character-column[data-instance-id]');
   for (const col of cols) {
     const instId = col.dataset.instanceId;
-    if (!instId) continue;
-    const action = targetIds.get(instId);
-    if (!action) continue;
-
-    // Find the character card image inside the column
+    if (!instId || handled.has(instId)) continue;
+    const acts = targetActions.get(instId);
+    if (!acts) continue;
+    handled.add(instId);
     const charImg = col.querySelector<HTMLImageElement>('.company-card[data-instance-id="' + instId + '"]');
-    if (charImg) {
-      charImg.classList.add('company-card--influence-target');
-      charImg.style.cursor = 'pointer';
-      charImg.addEventListener('click', (e) => {
-        e.stopPropagation();
-        clearOpponentInfluenceSelection();
-        onAction(action);
-      });
-    }
+    if (charImg) attachHandler(charImg, acts);
   }
+}
+
+/**
+ * Show a tooltip menu for choosing between opponent influence variants
+ * (with or without revealing an identical card from hand).
+ */
+function showOpponentInfluenceMenu(
+  e: Event,
+  actions: OpponentInfluenceAttemptAction[],
+  onAction: (action: GameAction) => void,
+): void {
+  dismissTooltip();
+
+  const tooltip = document.createElement('div');
+  tooltip.className = 'char-action-tooltip';
+
+  for (const action of actions) {
+    const btn = document.createElement('button');
+    btn.className = 'char-action-tooltip__btn';
+    if (action.revealedCardInstanceId) {
+      const revealDef = lastCardPool
+        ? lastCardPool[cachedInstanceLookup(action.revealedCardInstanceId) as string]
+        : undefined;
+      btn.textContent = `Influence (reveal ${revealDef?.name ?? 'card'})`;
+    } else {
+      btn.textContent = 'Influence (no reveal)';
+    }
+    btn.onclick = (ev) => {
+      ev.stopPropagation();
+      dismissTooltip();
+      clearOpponentInfluenceSelection();
+      onAction(action);
+    };
+    tooltip.appendChild(btn);
+  }
+
+  // Backdrop (uses same class as character action tooltip for cleanup)
+  const backdrop = document.createElement('div');
+  backdrop.className = 'char-action-backdrop';
+  backdrop.onclick = () => dismissTooltip();
+  document.body.appendChild(backdrop);
+
+  document.body.appendChild(tooltip);
+
+  // Position near click target
+  const anchor = e.target as HTMLElement;
+  const rect = anchor.getBoundingClientRect();
+  tooltip.style.position = 'fixed';
+  tooltip.style.left = `${rect.left}px`;
+  tooltip.style.top = `${rect.bottom + 4}px`;
 }
 
 /**

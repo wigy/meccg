@@ -4873,11 +4873,48 @@ function handleOpponentInfluenceAttempt(
   const charDef = state.cardPool[charInPlay.definitionId as string];
   const charName = charDef?.name ?? charId;
 
+  // Handle identical card reveal (rule 10.11)
+  let revealedCard: { instanceId: CardInstanceId; definitionId: import('../index.js').CardDefinitionId } | null = null;
+  let effectiveTargetMind = targetMind;
+  let newHand = [...player.hand];
+
+  if (action.revealedCardInstanceId) {
+    const revealIdx = newHand.findIndex(c => c.instanceId === action.revealedCardInstanceId);
+    if (revealIdx === -1) return { state, error: 'Revealed card not in hand' };
+    const revealedHandCard = newHand[revealIdx];
+    const revealedDef = state.cardPool[revealedHandCard.definitionId as string];
+
+    // Validate: must be same name as target
+    let targetName: string | undefined;
+    if (action.targetKind === 'character') {
+      const tDef = state.cardPool[opponent.characters[action.targetInstanceId as string]?.definitionId as string];
+      targetName = tDef?.name;
+    } else {
+      for (const ch of Object.values(opponent.characters)) {
+        const ally = ch.allies.find(a => a.instanceId === action.targetInstanceId);
+        if (ally) {
+          const aDef = state.cardPool[ally.definitionId as string];
+          targetName = aDef?.name;
+          break;
+        }
+      }
+    }
+    if (!revealedDef || revealedDef.name !== targetName) {
+      return { state, error: 'Revealed card does not match target name' };
+    }
+
+    revealedCard = { instanceId: revealedHandCard.instanceId, definitionId: revealedHandCard.definitionId };
+    newHand.splice(revealIdx, 1);
+    effectiveTargetMind = 0;
+    logDetail(`Opponent influence: revealing identical ${revealedDef.name} from hand — target mind treated as 0`);
+  }
+
   // Tap the influencing character
   const updatedChar: CharacterInPlay = { ...charInPlay, status: CardStatus.Tapped };
   const newPlayers = clonePlayers(state);
   newPlayers[playerIndex] = {
     ...player,
+    hand: newHand,
     characters: { ...player.characters, [charId as string]: updatedChar },
   };
 
@@ -4890,14 +4927,14 @@ function handleOpponentInfluenceAttempt(
     playerName: player.name,
     die1: roll.die1,
     die2: roll.die2,
-    label: `Opponent influence: ${charName} attacks`,
+    label: `Opponent influence: ${charName} attacks${revealedCard ? ' (identical revealed)' : ''}`,
   };
 
   // Calculate modifiers
   const influencerDI = availableDI(state, charId, player);
   const opponentGI = GENERAL_INFLUENCE - opponent.generalInfluenceUsed;
 
-  logDetail(`Opponent influence attempt: ${charName} rolls ${roll.die1} + ${roll.die2} = ${attackerRoll} (DI: ${influencerDI}, opponent GI: ${opponentGI}, target mind: ${targetMind}, controller DI: ${controllerDI})`);
+  logDetail(`Opponent influence attempt: ${charName} rolls ${roll.die1} + ${roll.die2} = ${attackerRoll} (DI: ${influencerDI}, opponent GI: ${opponentGI}, target mind: ${effectiveTargetMind}${revealedCard ? ' [revealed]' : ''}, controller DI: ${controllerDI})`);
 
   return {
     state: {
@@ -4915,8 +4952,9 @@ function handleOpponentInfluenceAttempt(
           attackerRoll,
           influencerDI,
           opponentGI,
-          targetMind,
+          targetMind: effectiveTargetMind,
           controllerDI,
+          revealedCard,
         },
       },
     },
@@ -4993,8 +5031,20 @@ function handleOpponentInfluenceDefend(
     };
   }
 
-  // Failure — influencer was already tapped, nothing else happens
+  // Failure — influencer was already tapped; revealed card goes to discard
   logDetail(`Opponent influence failed (${finalResult} <= ${pending.targetMind})`);
+
+  // If an identical card was revealed, discard it
+  if (pending.revealedCard) {
+    const attackerIndex = getPlayerIndex(state, state.activePlayer!);
+    const attacker = newPlayers[attackerIndex];
+    newPlayers[attackerIndex] = {
+      ...attacker,
+      discardPile: [...attacker.discardPile, { instanceId: pending.revealedCard.instanceId, definitionId: pending.revealedCard.definitionId }],
+    };
+    logDetail(`Revealed card ${pending.revealedCard.instanceId} discarded after failed influence`);
+  }
+
   return {
     state: {
       ...state,
