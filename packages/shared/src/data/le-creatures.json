@@ -65,5 +65,27 @@
     ],
     "effects": [],
     "text": "Drake. Two strikes. Only two Wildernesses [{w}] in site path are required if Doors of Night is in play."
+  },
+  {
+    "cardType": "hazard-creature",
+    "id": "le-59",
+    "name": "Ambusher",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/Ambusher.jpg",
+    "unique": false,
+    "strikes": 2,
+    "prowess": 10,
+    "body": null,
+    "killMarshallingPoints": 1,
+    "race": "men",
+    "keyedTo": [
+      {
+        "regionTypes": [
+          "border",
+          "free"
+        ]
+      }
+    ],
+    "effects": [],
+    "text": "Men. Two strikes. Attacker chooses defending characters."
   }
 ]
