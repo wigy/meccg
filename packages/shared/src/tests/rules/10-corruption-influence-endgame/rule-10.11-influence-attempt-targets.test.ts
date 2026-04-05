@@ -24,10 +24,10 @@ import {
   viableActions, PLAYER_1, PLAYER_2,
 } from '../../test-helpers.js';
 import {
-  Phase, CardStatus, ARAGORN, LEGOLAS, GIMLI, BILBO,
+  Phase, ARAGORN, LEGOLAS, GIMLI, BILBO,
   MORIA, LORIEN, MINAS_TIRITH,
 } from '../../../index.js';
-import type { SitePhaseState, OpponentInfluenceAttemptAction } from '../../../index.js';
+import type { OpponentInfluenceAttemptAction } from '../../../index.js';
 
 /** Build a state with both players' companies and configurable sites. */
 function buildTargetState(opts: {

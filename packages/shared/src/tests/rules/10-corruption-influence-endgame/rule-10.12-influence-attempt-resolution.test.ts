@@ -32,7 +32,7 @@ import {
 } from '../../test-helpers.js';
 import {
   Phase, CardStatus, reduce,
-  ARAGORN, LEGOLAS, GIMLI, BILBO, EOWYN, BERGIL,
+  ARAGORN, LEGOLAS, GIMLI, BILBO, EOWYN,
   GLAMDRING,
   MORIA, LORIEN, MINAS_TIRITH,
 } from '../../../index.js';

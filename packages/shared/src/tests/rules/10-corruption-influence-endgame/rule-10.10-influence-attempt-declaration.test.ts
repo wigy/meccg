@@ -24,7 +24,7 @@ import {
   viableActions, PLAYER_1, PLAYER_2,
 } from '../../test-helpers.js';
 import {
-  Phase, CardStatus, ARAGORN, LEGOLAS, GIMLI, BILBO, GANDALF,
+  Phase, CardStatus, ARAGORN, LEGOLAS, BILBO, GANDALF,
   MORIA, LORIEN, MINAS_TIRITH,
 } from '../../../index.js';
 import type { SitePhaseState, OpponentInfluenceAttemptAction } from '../../../index.js';
