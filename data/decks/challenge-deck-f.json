@@ -17,7 +17,7 @@
     },
     {
       "name": "Luitprand",
-      "card": null,
+      "card": "le-23",
       "qty": 1,
       "favourite": true
     },
@@ -39,12 +39,12 @@
     },
     {
       "name": "Eradan",
-      "card": null,
+      "card": "le-10",
       "qty": 1
     },
     {
       "name": "Layos",
-      "card": null,
+      "card": "le-19",
       "qty": 1
     },
     {
@@ -66,7 +66,7 @@
   "deck": {
     "characters": [
       {
-        "name": "Ad\u00fbnaphel the Ringwraith",
+        "name": "Adûnaphel the Ringwraith",
         "card": "le-50",
         "qty": 3
       }
@@ -74,7 +74,7 @@
     "hazards": [
       {
         "name": "Slayer",
-        "card": null,
+        "card": "le-90",
         "qty": 3
       },
       {
@@ -129,7 +129,7 @@
       },
       {
         "name": "True Fire-drake",
-        "card": null,
+        "card": "le-95",
         "qty": 2
       },
       {
@@ -186,12 +186,12 @@
       },
       {
         "name": "Red Book of Westmarch",
-        "card": null,
+        "card": "tw-313",
         "qty": 1
       },
       {
         "name": "Ruse",
-        "card": null,
+        "card": "le-225",
         "qty": 1
       },
       {
@@ -201,7 +201,7 @@
       },
       {
         "name": "Stinker",
-        "card": null,
+        "card": "le-154",
         "qty": 1
       },
       {
@@ -211,7 +211,7 @@
       },
       {
         "name": "The Least of Gold Rings",
-        "card": null,
+        "card": "le-315",
         "qty": 2
       },
       {
@@ -326,7 +326,7 @@
     },
     {
       "name": "Orcs of Moria",
-      "card": null,
+      "card": "le-278",
       "qty": 1
     },
     {
@@ -351,12 +351,12 @@
     },
     {
       "name": "Voices of Malice",
-      "card": null,
+      "card": "le-250",
       "qty": 2
     },
     {
       "name": "Ambusher",
-      "card": null,
+      "card": "le-59",
       "qty": 3
     },
     {

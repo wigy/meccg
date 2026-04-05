@@ -175,5 +175,306 @@
     "resourceDraws": 2,
     "hazardDraws": 3,
     "text": "Non-Nazgûl creatures played at this site attack normally, not as detainment. Playable: Items (minor, major, greater, gold ring). Automatic-attacks: Orcs — 4 strikes with 7 prowess."
+  },
+  {
+    "cardType": "minion-site",
+    "alignment": "ringwraith",
+    "id": "le-350",
+    "name": "Bag End",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/BagEnd.jpg",
+    "siteType": "free-hold",
+    "sitePath": [
+      "shadow",
+      "wilderness",
+      "free"
+    ],
+    "nearestHaven": "Carn Dûm",
+    "region": "The Shire",
+    "playableResources": [
+      "information",
+      "minor",
+      "major",
+      "greater-hero-only",
+      "gold-ring"
+    ],
+    "automaticAttacks": [
+      {
+        "creatureType": "Hobbits",
+        "strikes": 5,
+        "prowess": 5
+      },
+      {
+        "creatureType": "Dúnedain",
+        "strikes": 3,
+        "prowess": 11
+      }
+    ],
+    "resourceDraws": 1,
+    "hazardDraws": 3,
+    "text": "Playable: Information, Items (minor, major, greater*, gold ring) *—hero item only. Automatic-attacks (2): (1st) Hobbits — 5 strikes with 5 prowess; (2nd) Dúnedain — 3 strikes with 11 prowess."
+  },
+  {
+    "cardType": "minion-site",
+    "alignment": "ringwraith",
+    "id": "le-351",
+    "name": "Bandit Lair",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/BanditLair.jpg",
+    "siteType": "ruins-and-lairs",
+    "sitePath": [
+      "dark",
+      "shadow"
+    ],
+    "nearestHaven": "Dol Guldur",
+    "region": "Brown Lands",
+    "playableResources": [
+      "minor",
+      "gold-ring"
+    ],
+    "automaticAttacks": [
+      {
+        "creatureType": "Men",
+        "strikes": 3,
+        "prowess": 6
+      }
+    ],
+    "resourceDraws": 1,
+    "hazardDraws": 1,
+    "text": "Playable: Items (minor, gold ring). Automatic-attacks: Men — 3 strikes with 6 prowess."
+  },
+  {
+    "cardType": "minion-site",
+    "alignment": "ringwraith",
+    "id": "le-352",
+    "name": "Barad-dûr",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/Baraddur.jpg",
+    "siteType": "dark-hold",
+    "sitePath": [
+      "shadow",
+      "dark"
+    ],
+    "nearestHaven": "Minas Morgul",
+    "region": "Gorgoroth",
+    "playableResources": [],
+    "automaticAttacks": [],
+    "resourceDraws": 2,
+    "hazardDraws": 1,
+    "text": "Treat this site as a Darkhaven during the untap phase. Any gold ring item at this site is automatically tested during the site phase (the site need not be entered). All ring tests at this site are modified by -3."
+  },
+  {
+    "cardType": "minion-site",
+    "alignment": "ringwraith",
+    "id": "le-354",
+    "name": "Beorn's House",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/BeornsHouse.jpg",
+    "siteType": "free-hold",
+    "sitePath": [
+      "dark",
+      "shadow"
+    ],
+    "nearestHaven": "Dol Guldur",
+    "region": "Anduin Vales",
+    "playableResources": [
+      "gold-ring"
+    ],
+    "automaticAttacks": [
+      {
+        "creatureType": "Men",
+        "strikes": -1,
+        "prowess": 10,
+        "special": "each character faces 1 strike",
+        "detainmentAgainstCovert": true
+      }
+    ],
+    "resourceDraws": 1,
+    "hazardDraws": 1,
+    "text": "Playable: Items (gold ring). Automatic-attacks: Men — each character faces 1 strike with 10 prowess (detainment against covert company)."
+  },
+  {
+    "cardType": "minion-site",
+    "alignment": "ringwraith",
+    "id": "le-359",
+    "name": "Carn Dûm",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/CarnDum.jpg",
+    "siteType": "haven",
+    "sitePath": [],
+    "nearestHaven": "",
+    "region": "Angmar",
+    "havenPaths": {
+      "Dol Guldur": [
+        "dark",
+        "shadow",
+        "dark",
+        "shadow"
+      ],
+      "Geann a-Lisch": [
+        "wilderness",
+        "wilderness",
+        "wilderness",
+        "wilderness",
+        "shadow"
+      ]
+    },
+    "playableResources": [],
+    "automaticAttacks": [],
+    "resourceDraws": 2,
+    "hazardDraws": 2,
+    "text": "Unless this site is a character's home site, a non-Orc, non-Troll character may not be brought into play at this site. Any gold ring stored at this site is automatically tested (modify the roll by -2). Any attack against a minion company at this site is canceled."
+  },
+  {
+    "cardType": "minion-site",
+    "alignment": "ringwraith",
+    "id": "le-365",
+    "name": "Dimrill Dale",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/DimrillDale.jpg",
+    "siteType": "ruins-and-lairs",
+    "sitePath": [
+      "dark",
+      "shadow",
+      "wilderness",
+      "wilderness"
+    ],
+    "nearestHaven": "Dol Guldur",
+    "region": "Redhorn Gate",
+    "playableResources": [
+      "information"
+    ],
+    "automaticAttacks": [
+      {
+        "creatureType": "Orcs",
+        "strikes": 1,
+        "prowess": 6
+      }
+    ],
+    "resourceDraws": 2,
+    "hazardDraws": 2,
+    "text": "Playable: Information. Automatic-attacks: Orcs — 1 strike with 6 prowess."
+  },
+  {
+    "cardType": "minion-site",
+    "alignment": "ringwraith",
+    "id": "le-372",
+    "name": "Edoras",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/Edoras.jpg",
+    "siteType": "free-hold",
+    "sitePath": [
+      "shadow",
+      "wilderness",
+      "free",
+      "shadow"
+    ],
+    "nearestHaven": "Minas Morgul",
+    "region": "Rohan",
+    "playableResources": [
+      "gold-ring"
+    ],
+    "automaticAttacks": [
+      {
+        "creatureType": "Men",
+        "strikes": -1,
+        "prowess": 10,
+        "special": "each character faces 1 strike",
+        "detainmentAgainstCovert": true
+      }
+    ],
+    "resourceDraws": 2,
+    "hazardDraws": 3,
+    "text": "Playable: Items (gold ring). Automatic-attacks: Men — each character faces 1 strike with 10 prowess (detainment against covert company)."
+  },
+  {
+    "cardType": "minion-site",
+    "alignment": "ringwraith",
+    "id": "le-378",
+    "name": "Goblin-gate",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/Goblingate.jpg",
+    "siteType": "shadow-hold",
+    "sitePath": [
+      "wilderness",
+      "wilderness"
+    ],
+    "nearestHaven": "Carn Dûm",
+    "region": "High Pass",
+    "playableResources": [
+      "minor",
+      "gold-ring"
+    ],
+    "automaticAttacks": [
+      {
+        "creatureType": "Orcs",
+        "strikes": 3,
+        "prowess": 6
+      }
+    ],
+    "resourceDraws": 2,
+    "hazardDraws": 2,
+    "text": "Non-Nazgûl creatures played at this site attack normally, not as detainment. Playable: Items (minor, gold ring). Automatic-attacks: Orcs — 3 strikes with 6 prowess."
+  },
+  {
+    "cardType": "minion-site",
+    "alignment": "ringwraith",
+    "id": "le-408",
+    "name": "Thranduil's Halls",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/ThranduilsHalls.jpg",
+    "siteType": "free-hold",
+    "sitePath": [
+      "dark",
+      "wilderness",
+      "shadow"
+    ],
+    "nearestHaven": "Dol Guldur",
+    "region": "Woodland Realm",
+    "playableResources": [
+      "information",
+      "minor",
+      "major",
+      "gold-ring"
+    ],
+    "automaticAttacks": [
+      {
+        "creatureType": "Elves",
+        "strikes": -1,
+        "prowess": 9,
+        "special": "each character faces 1 strike",
+        "detainmentAgainstCovert": true
+      },
+      {
+        "creatureType": "Elves",
+        "strikes": 3,
+        "prowess": 10,
+        "special": "against overt company only"
+      }
+    ],
+    "resourceDraws": 1,
+    "hazardDraws": 2,
+    "text": "Playable: Information, Items (minor, major, gold ring). Automatic-attacks (2): (1st) Elves — each character faces 1 strike with 9 prowess (detainment against covert company); (2nd) Elves — 3 strikes with 10 prowess (against overt company only)."
+  },
+  {
+    "cardType": "minion-site",
+    "alignment": "ringwraith",
+    "id": "le-415",
+    "name": "The Worthy Hills",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/TheWorthyHills.jpg",
+    "siteType": "ruins-and-lairs",
+    "sitePath": [
+      "shadow",
+      "wilderness",
+      "wilderness"
+    ],
+    "nearestHaven": "Carn Dûm",
+    "region": "Cardolan",
+    "playableResources": [
+      "information"
+    ],
+    "automaticAttacks": [
+      {
+        "creatureType": "Men",
+        "strikes": -1,
+        "prowess": 9,
+        "special": "each character faces 1 strike",
+        "detainmentAgainstCovert": true
+      }
+    ],
+    "resourceDraws": 1,
+    "hazardDraws": 2,
+    "text": "Playable: Information. Automatic-attacks: Men — each character faces 1 strike with 9 prowess (detainment against covert company). Special: This site never taps."
   }
 ]

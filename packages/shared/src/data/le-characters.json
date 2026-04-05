@@ -18,7 +18,7 @@
     "marshallingPoints": 3,
     "marshallingCategory": "character",
     "corruptionModifier": 0,
-    "homesite": "Barad-d\u00fbr",
+    "homesite": "Barad-dûr",
     "effects": [
       {
         "type": "stat-modifier",
@@ -198,7 +198,7 @@
     "cardType": "minion-character",
     "alignment": "ringwraith",
     "id": "le-50",
-    "name": "Ad\u00fbnaphel the Ringwraith",
+    "name": "Adûnaphel the Ringwraith",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/AdunapheltheRingwraith.jpg",
     "unique": true,
     "race": "ringwraith",
@@ -216,7 +216,7 @@
     "corruptionModifier": 0,
     "homesite": "Urlurtsu Nurn",
     "effects": [],
-    "text": "Unique. Manifestation of Ad\u00fbnaphel. Can use spirit-magic. +2 direct influence in Heralded Lord mode. -2 prowess in Fell Rider mode. As your Ringwraith, if at a Darkhaven, she may tap to cancel one hazard creature attack not played at a site against any one of your companies."
+    "text": "Unique. Manifestation of Adûnaphel. Can use spirit-magic. +2 direct influence in Heralded Lord mode. -2 prowess in Fell Rider mode. As your Ringwraith, if at a Darkhaven, she may tap to cancel one hazard creature attack not played at a site against any one of your companies."
   },
   {
     "cardType": "minion-character",
@@ -284,5 +284,73 @@
       }
     ],
     "text": "Leader. Discard on a body check result of 8. +3 direct influence against Orcs and Orc factions."
+  },
+  {
+    "cardType": "minion-character",
+    "alignment": "ringwraith",
+    "id": "le-10",
+    "name": "Eradan",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/Eradan.jpg",
+    "unique": true,
+    "race": "dúnadan",
+    "skills": [
+      "scout",
+      "ranger"
+    ],
+    "prowess": 4,
+    "body": 8,
+    "mind": 4,
+    "directInfluence": 1,
+    "marshallingPoints": 1,
+    "marshallingCategory": "character",
+    "corruptionModifier": 0,
+    "homesite": "Sarn Goriwing",
+    "effects": [],
+    "text": "Unique."
+  },
+  {
+    "cardType": "minion-character",
+    "alignment": "ringwraith",
+    "id": "le-19",
+    "name": "Layos",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/Layos.jpg",
+    "unique": true,
+    "race": "man",
+    "skills": [
+      "sage",
+      "diplomat"
+    ],
+    "prowess": 3,
+    "body": 8,
+    "mind": 5,
+    "directInfluence": 2,
+    "marshallingPoints": 2,
+    "marshallingCategory": "character",
+    "corruptionModifier": 0,
+    "homesite": "Shrel-Kain",
+    "effects": [],
+    "text": "Unique. +2 direct influence against the Men of Dorwinion faction."
+  },
+  {
+    "cardType": "minion-character",
+    "alignment": "ringwraith",
+    "id": "le-23",
+    "name": "Luitprand",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/Luitprand.jpg",
+    "unique": true,
+    "race": "man",
+    "skills": [
+      "scout"
+    ],
+    "prowess": 3,
+    "body": 7,
+    "mind": 1,
+    "directInfluence": 0,
+    "marshallingPoints": 0,
+    "marshallingCategory": "character",
+    "corruptionModifier": 0,
+    "homesite": "Lake-town",
+    "effects": [],
+    "text": "Unique."
   }
 ]

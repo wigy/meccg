@@ -44,5 +44,35 @@
     "resourceDraws": 1,
     "hazardDraws": 2,
     "text": "Nearest Haven: RivendellPlayable: InformationAutomatic-attacks: Men — each character faces 1 strike with 9 prowess (detainment).Special: During the site phase, you may tap two characters to untap this site—one a sage, one a scout."
+  },
+  {
+    "cardType": "minion-site",
+    "alignment": "ringwraith",
+    "id": "as-144",
+    "name": "Eagles' Eyrie",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/as/EaglesEyrie.jpg",
+    "siteType": "free-hold",
+    "sitePath": [
+      "dark",
+      "shadow"
+    ],
+    "nearestHaven": "Dol Guldur",
+    "region": "Anduin Vales",
+    "playableResources": [
+      "information",
+      "minor",
+      "major"
+    ],
+    "automaticAttacks": [
+      {
+        "creatureType": "Animals",
+        "strikes": 2,
+        "prowess": 10,
+        "special": "attacker chooses defending characters"
+      }
+    ],
+    "resourceDraws": 1,
+    "hazardDraws": 2,
+    "text": "Playable: Information, Items (minor, major). Automatic-attacks: Animals — 2 strikes with 10 prowess (attacker chooses defending characters)."
   }
 ]
