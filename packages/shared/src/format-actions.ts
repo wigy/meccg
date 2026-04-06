@@ -273,6 +273,8 @@ export function describeAction(
       return `Fetch ${instName(action.cardInstanceId)} from ${action.source}`;
     case 'finished':
       return `Finished`;
+    case 'activate-granted-action':
+      return `Activate ${action.actionId} on ${instName(action.sourceCardId)} (${instName(action.characterId)} taps)`;
     default: {
       const _exhaustive: never = action;
       return `Unknown action`;

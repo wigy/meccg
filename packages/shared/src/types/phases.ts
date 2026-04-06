@@ -87,6 +87,7 @@ export const LEGAL_ACTIONS_BY_PHASE: Readonly<Record<Phase, readonly GameAction[
     'play-character',
     'play-permanent-event',
     'play-short-event',
+    'activate-granted-action',
     'split-company',
     'move-to-company',
     'merge-companies',

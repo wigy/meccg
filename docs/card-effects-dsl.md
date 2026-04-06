@@ -104,12 +104,21 @@ Modifies the player's hand size.
 
 ### 7. `grant-action`
 
-Gives the card bearer a new activated ability.
+Gives the card bearer a new activated ability. For roll-based actions,
+`rollThreshold` specifies the minimum 2d6 total for success.
+
+Actions:
+
+- `test-gold-ring` — tap to test a gold ring (not yet implemented)
+- `remove-self-on-roll` — tap bearer, roll 2d6, discard this card on
+  success (implemented in `reducer-organization.ts`)
 
 ```json
 { "type": "grant-action", "action": "test-gold-ring",
   "cost": { "tap": "self" },
   "when": { "company.hasItem": { "subtype": "gold-ring" } } }
+{ "type": "grant-action", "action": "remove-self-on-roll",
+  "cost": { "tap": "bearer" }, "rollThreshold": 8 }
 ```
 
 ### 8. `on-event`
@@ -400,6 +409,8 @@ The resolver:
 "effects": [
   { "type": "on-guard-reveal", "trigger": "influence-attempt" },
   { "type": "duplication-limit", "scope": "character", "max": 1 },
-  { "type": "check-modifier", "check": "influence", "value": -4 }
+  { "type": "check-modifier", "check": "influence", "value": -4 },
+  { "type": "grant-action", "action": "remove-self-on-roll",
+    "cost": { "tap": "bearer" }, "rollThreshold": 8 }
 ]
 ```

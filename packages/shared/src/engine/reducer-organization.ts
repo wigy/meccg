@@ -113,6 +113,9 @@ export function handleOrganization(state: GameState, action: GameAction): Reduce
   if (action.type === 'corruption-check') {
     return handleOrganizationCorruptionCheck(state, action);
   }
+  if (action.type === 'activate-granted-action') {
+    return handleActivateGrantedAction(state, action);
+  }
   return { state, error: `Unhandled organization action: ${action.type}` };
 }
 
@@ -600,17 +603,115 @@ function handleFetchFromSideboard(state: GameState, action: GameAction): Reducer
 }
 
 /**
- * Handle corruption check during organization (after item transfer).
+ * Handle activation of a grant-action effect during organization.
  *
- * Per CoE rules (2.II.5), after transferring an item the initial bearer
- * must make a corruption check: roll 2d6 + modifier vs corruption points.
- * - roll > CP: check passes, no effect.
- * - roll == CP or CP-1: character and possessions are discarded. Followers
- *   stay in play, promoted to general influence.
- * - roll < CP-1: character is eliminated (removed from game), possessions
- *   are discarded. Followers stay in play, promoted to general influence.
+ * Currently supports:
+ * - `remove-self-on-roll` — Taps the character, rolls 2d6, and if the total
+ *   meets the threshold, discards the source card (the attached hazard).
+ *   Used by Foolish Words: "character may tap to attempt to remove this card.
+ *   Make a roll — if the result is greater than 7, discard this card."
  */
+function handleActivateGrantedAction(state: GameState, action: GameAction): ReducerResult {
+  if (action.type !== 'activate-granted-action') return { state, error: 'Expected activate-granted-action' };
 
+  const playerIndex = getPlayerIndex(state, action.player);
+  const player = state.players[playerIndex];
+  const char = player.characters[action.characterId as string];
+  if (!char) return { state, error: 'Character not found' };
+
+  const charDefId = resolveInstanceId(state, action.characterId);
+  const charDef = charDefId ? state.cardPool[charDefId as string] : undefined;
+  const charName = charDef?.name ?? '?';
+  const sourceDef = state.cardPool[action.sourceCardDefinitionId as string];
+  const sourceName = sourceDef?.name ?? '?';
+
+  // Validate: character must be untapped (cost: tap bearer)
+  if (char.status !== CardStatus.Untapped) {
+    return { state, error: `${charName} is not untapped` };
+  }
+
+  // Validate: source card must be attached to the character
+  const hazardIdx = char.hazards.findIndex(h => h.instanceId === action.sourceCardId);
+  if (hazardIdx < 0) {
+    return { state, error: `${sourceName} is not attached to ${charName}` };
+  }
+
+  logDetail(`Activate grant-action '${action.actionId}': ${charName} taps to attempt to remove ${sourceName}`);
+
+  // Pay cost: tap the character
+  const tappedChar: CharacterInPlay = { ...char, status: CardStatus.Tapped };
+
+  // Roll 2d6
+  const { roll, rng, cheatRollTotal } = roll2d6(state);
+  const d1 = roll.die1;
+  const d2 = roll.die2;
+  const total = d1 + d2;
+  logDetail(`Grant-action roll for ${charName}: ${d1} + ${d2} = ${total} vs threshold ${action.rollThreshold}`);
+
+  const rollEffect: GameEffect = {
+    effect: 'dice-roll',
+    playerName: player.name,
+    die1: roll.die1,
+    die2: roll.die2,
+    label: `Remove ${sourceName}: ${charName}`,
+  };
+
+  const newPlayers = clonePlayers(state);
+
+  if (total >= action.rollThreshold) {
+    // Success: discard the source card
+    logDetail(`Roll succeeded (${total} >= ${action.rollThreshold}) — discarding ${sourceName}`);
+    const updatedHazards = char.hazards.filter(h => h.instanceId !== action.sourceCardId);
+    const discardedCard: CardInstance = { instanceId: action.sourceCardId, definitionId: action.sourceCardDefinitionId };
+
+    newPlayers[playerIndex] = {
+      ...newPlayers[playerIndex],
+      characters: {
+        ...newPlayers[playerIndex].characters,
+        [action.characterId as string]: { ...tappedChar, hazards: updatedHazards },
+      },
+      // Hazard permanent events go to the opponent's discard pile
+      // Actually — the card belongs to the hazard player. We need to find which player owns it.
+    };
+
+    // Hazard cards are owned by the opponent (other player). Discard to opponent's pile.
+    const opponentIndex = 1 - playerIndex;
+    newPlayers[opponentIndex] = {
+      ...newPlayers[opponentIndex],
+      discardPile: [...newPlayers[opponentIndex].discardPile, discardedCard],
+    };
+    // Also update the character on the correct player
+    newPlayers[playerIndex] = {
+      ...newPlayers[playerIndex],
+      characters: {
+        ...newPlayers[playerIndex].characters,
+        [action.characterId as string]: { ...tappedChar, hazards: updatedHazards },
+      },
+    };
+  } else {
+    // Failure: character is tapped but card stays
+    logDetail(`Roll failed (${total} < ${action.rollThreshold}) — ${sourceName} stays attached to ${charName}`);
+    newPlayers[playerIndex] = {
+      ...newPlayers[playerIndex],
+      characters: {
+        ...newPlayers[playerIndex].characters,
+        [action.characterId as string]: tappedChar,
+      },
+    };
+  }
+
+  // Store the roll on the player
+  newPlayers[playerIndex] = { ...newPlayers[playerIndex], lastDiceRoll: roll };
+
+  return {
+    state: {
+      ...state,
+      players: newPlayers,
+      rng, cheatRollTotal,
+    },
+    effects: [rollEffect],
+  };
+}
 
 /**
  * Handle corruption check during organization (after item transfer).
