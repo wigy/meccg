@@ -507,7 +507,8 @@
         }
       }
     ],
-    "text": "Unique. +5 direct influence that is only usable against Galadriel."
+    "text": "Unique. +5 direct influence that is only usable against Galadriel.",
+    "certified": "2026-04-06"
   },
   {
     "cardType": "hero-character",
@@ -981,5 +982,44 @@
     "homesite": "Edhellond",
     "effects": [],
     "text": "Unique. The number of cards your opponent draws based on Alatar's company's movement is reduced by one (to minimum of 0). If at a Haven when a hazard creature attacks one of your companies, he may immediately join that company (discard allies he controls). Alatar must face a strike from that creature (in all cases). Following the attack, Alatar must tap (if untapped) and make a corruption check."
+  },
+  {
+    "cardType": "hero-character",
+    "alignment": "wizard",
+    "id": "tw-153",
+    "name": "Galadriel",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Galadriel.jpg",
+    "unique": true,
+    "race": "elf",
+    "skills": [
+      "scout",
+      "sage",
+      "diplomat"
+    ],
+    "prowess": 3,
+    "body": 10,
+    "mind": 9,
+    "directInfluence": 4,
+    "marshallingPoints": 3,
+    "marshallingCategory": "character",
+    "corruptionModifier": 0,
+    "homesite": "Lórien",
+    "effects": [
+      {
+        "type": "hand-size-modifier",
+        "value": 1,
+        "when": {
+          "self.location": "Lórien"
+        }
+      },
+      {
+        "type": "mp-modifier",
+        "value": -3,
+        "when": {
+          "reason": "elimination"
+        }
+      }
+    ],
+    "text": "Unique. When Galadriel is at Lórien, you may keep one more card than normal in your hand. -3 marshalling points if eliminated."
   }
 ]
