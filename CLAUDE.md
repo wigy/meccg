@@ -138,7 +138,7 @@ Tests verify the **official CoE rules**, not internal implementation. There are 
 - **Pattern**: Every test follows: build state → call `computeLegalActions()` or `reduce()` → assert on legal actions or resulting state.
 - **`test.todo()`** marks unimplemented rules — a living spec showing what's left to build.
 - **No utility tests**: If internal utilities (condition matcher, formatting) break, the rules tests catch it.
-- **No helpers in test files**: Reusable helper functions (play-and-resolve, state builders, lookups) belong in `test-helpers.ts`, not in individual test files. Test files should only contain `describe`/`test` blocks and test-specific setup that is not reusable.
+- **NEVER put helpers in test files**: All helper functions must go in `test-helpers.ts`. Test files must only contain `describe`/`test` blocks and inline constants — no `function` declarations.
 - See `docs/testing-plan.md` for the full plan.
 - **All test changes must go through a PR** — never commit test modifications directly to master. Create a branch and open a pull request for review.
 

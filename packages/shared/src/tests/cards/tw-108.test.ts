@@ -18,48 +18,27 @@ import {
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
   CardStatus,
   buildTestState, resetMint, buildSitePhaseState, makeMHState,
+  addP2CardsInPlay, setupAutoAttackStep,
   Phase,
 } from '../test-helpers.js';
-import type { CardInPlay, CardInstanceId, SitePhaseState, MovementHazardPhaseState } from '../../index.js';
+import type { CardInPlay, CardInstanceId, MovementHazardPhaseState } from '../../index.js';
 import { ISENGARD, WAKE_OF_WAR, DOORS_OF_NIGHT } from '../../index.js';
 
-// ─── Helpers ─────────────���────────────────────────────────────────────────────
+// ─── Tests ─────────────────────────────────────────────────────────────────
 
-/** Pre-place Wake of War in the hazard player's cardsInPlay. */
-function placeWakeOfWar(
-  state: ReturnType<typeof buildSitePhaseState>,
-): ReturnType<typeof buildSitePhaseState> {
+describe('Wake of War (tw-108)', () => {
+  beforeEach(() => resetMint());
+
   const wowInPlay: CardInPlay = {
     instanceId: 'wow-1' as CardInstanceId,
     definitionId: WAKE_OF_WAR,
     status: CardStatus.Untapped,
   };
-  const players = state.players.map((p, i) =>
-    i === 1 ? { ...p, cardsInPlay: [...p.cardsInPlay, wowInPlay] } : p,
-  ) as [typeof state.players[0], typeof state.players[1]];
-  return { ...state, players };
-}
-
-/** Set up the automatic-attacks step for a given state. */
-function setupAutoAttack(state: ReturnType<typeof buildSitePhaseState>) {
-  const autoAttackState: SitePhaseState = {
-    ...state.phaseState,
-    step: 'automatic-attacks',
-    siteEntered: false,
-    automaticAttacksResolved: 0,
-  };
-  return { ...state, phaseState: autoAttackState };
-}
-
-// ─── Tests ────────────────────────────────────��───────────────────────────────
-
-describe('Wake of War (tw-108)', () => {
-  beforeEach(() => resetMint());
 
   test('Wolves auto-attack prowess increased by +1', () => {
     // Isengard: Wolves — 3 strikes, 7 prowess
     // With Wake of War: 7 + 1 = 8 prowess
-    const state = setupAutoAttack(placeWakeOfWar(buildSitePhaseState({ site: ISENGARD })));
+    const state = setupAutoAttackStep(addP2CardsInPlay(buildSitePhaseState({ site: ISENGARD }), [wowInPlay]));
 
     const result = reduce(state, { type: 'pass', player: PLAYER_1 });
     expect(result.error).toBeUndefined();
@@ -70,7 +49,7 @@ describe('Wake of War (tw-108)', () => {
   test('Wolves auto-attack strikes increased by +1', () => {
     // Isengard: Wolves — 3 strikes, 7 prowess
     // With Wake of War: 3 + 1 = 4 strikes
-    const state = setupAutoAttack(placeWakeOfWar(buildSitePhaseState({ site: ISENGARD })));
+    const state = setupAutoAttackStep(addP2CardsInPlay(buildSitePhaseState({ site: ISENGARD }), [wowInPlay]));
 
     const result = reduce(state, { type: 'pass', player: PLAYER_1 });
     expect(result.error).toBeUndefined();
@@ -87,16 +66,7 @@ describe('Wake of War (tw-108)', () => {
       status: CardStatus.Untapped,
     };
 
-    const base = buildSitePhaseState({ site: ISENGARD });
-    const wowInPlay: CardInPlay = {
-      instanceId: 'wow-1' as CardInstanceId,
-      definitionId: WAKE_OF_WAR,
-      status: CardStatus.Untapped,
-    };
-    const players = base.players.map((p, i) =>
-      i === 1 ? { ...p, cardsInPlay: [...p.cardsInPlay, wowInPlay, donInPlay] } : p,
-    ) as [typeof base.players[0], typeof base.players[1]];
-    const state = setupAutoAttack({ ...base, players });
+    const state = setupAutoAttackStep(addP2CardsInPlay(buildSitePhaseState({ site: ISENGARD }), [wowInPlay, donInPlay]));
 
     const result = reduce(state, { type: 'pass', player: PLAYER_1 });
     expect(result.error).toBeUndefined();
@@ -108,7 +78,7 @@ describe('Wake of War (tw-108)', () => {
   test('Orc auto-attack unaffected by Wake of War', () => {
     // Moria: Orcs — 4 strikes, 7 prowess
     // Wake of War only affects Wolf, Spider, Animal — Orcs should be unchanged
-    const state = setupAutoAttack(placeWakeOfWar(buildSitePhaseState({ site: MORIA })));
+    const state = setupAutoAttackStep(addP2CardsInPlay(buildSitePhaseState({ site: MORIA }), [wowInPlay]));
 
     const result = reduce(state, { type: 'pass', player: PLAYER_1 });
     expect(result.error).toBeUndefined();
@@ -119,12 +89,6 @@ describe('Wake of War (tw-108)', () => {
 
   test('cannot be duplicated (duplication-limit scope game max 1)', () => {
     // Place Wake of War in play, then try to play another from hand
-    const wowInPlay: CardInPlay = {
-      instanceId: 'wow-1' as CardInstanceId,
-      definitionId: WAKE_OF_WAR,
-      status: CardStatus.Untapped,
-    };
-
     const state = buildTestState({
       activePlayer: PLAYER_1,
       phase: Phase.MovementHazard,
@@ -147,7 +111,7 @@ describe('Wake of War (tw-108)', () => {
 
   test('without Wake of War: Wolves auto-attack unchanged', () => {
     // Isengard: Wolves — 3 strikes, 7 prowess (baseline, no Wake of War)
-    const state = setupAutoAttack(buildSitePhaseState({ site: ISENGARD }));
+    const state = setupAutoAttackStep(buildSitePhaseState({ site: ISENGARD }));
 
     const result = reduce(state, { type: 'pass', player: PLAYER_1 });
     expect(result.error).toBeUndefined();
