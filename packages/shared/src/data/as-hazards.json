@@ -7,6 +7,16 @@
     "unique": false,
     "corruptionPoints": 4,
     "effects": [],
-    "text": "Corruption. Playable on a non-Wizard, non-Ringwraith character in a company with 3 or fewer characters. Target character makes a corruption check at the end of his movement/hazard phase for each region he moved through. All of his corruption checks are modified by adding the number of characters in his company. During his organization phase, the character may tap to attempt to remove this card. Make a roll\u2014if the result is greater than 6, discard this card. Discard this card if his company has 4 or more characters. Cannot be duplicated on a given character."
+    "text": "Corruption. Playable on a non-Wizard, non-Ringwraith character in a company with 3 or fewer characters. Target character makes a corruption check at the end of his movement/hazard phase for each region he moved through. All of his corruption checks are modified by adding the number of characters in his company. During his organization phase, the character may tap to attempt to remove this card. Make a roll—if the result is greater than 6, discard this card. Discard this card if his company has 4 or more characters. Cannot be duplicated on a given character."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "as-39",
+    "name": "Summons from Long Sleep",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/as/SummonsfromLongSleep.jpg",
+    "unique": false,
+    "eventType": "permanent",
+    "effects": [],
+    "text": "This card reserves up to one Dragon or Drake hazard creature at a time. To reserve a Dragon or Drake creature, place it face up “off to the side” with this card (not counting against the hazard limit). You may play a reserved creature as though it were in your hand. Discard this card after the reserved creature attacks. A reserved Dragon or Drake receives +2 prowess when attacking."
   }
 ]
