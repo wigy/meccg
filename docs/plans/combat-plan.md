@@ -105,7 +105,7 @@ Action buttons already work via existing `describeAction` cases for combat actio
 
 `formatCombat` already renders combat state. Add command parsers for:
 
-```
+```text
 assign-strike <characterInstId>
 resolve-strike [tap|untap]
 support-strike <supporterId> <targetId>

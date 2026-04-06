@@ -5,6 +5,7 @@
 CvCC is a core MECCG mechanic where one player's company attacks another player's company at the same site. The rules are fully documented in `docs/coe-rules.md` (3.V) and test skeletons exist in `rule-8.38` through `rule-8.42`. The `AttackSource` type already has a `'company-attack'` variant, but no engine logic, legal actions, or UI support exists yet.
 
 CvCC reuses the combat sub-state machine but differs from creature combat in several key ways:
+
 - **Per-strike prowess**: each strike has the attacking character's prowess, not a single value
 - **Both sides roll**: attacker rolls 2d6 + prowess too (not just defender)
 - **Attacker can be wounded**: if defender wins, attacker character gets body check
@@ -30,10 +31,12 @@ No behavioral changes — extend types so everything compiles.
 ### Files: `packages/shared/src/types/actions.ts`
 
 1. Add `DeclareCompanyAttackAction` interface:
+
    ```typescript
    { type: 'declare-company-attack'; player: PlayerId;
      attackingCompanyId: CompanyId; targetCompanyId: CompanyId }
    ```
+
 2. Add to `GameAction` union
 3. Add optional `attackingCharacterId?: CardInstanceId` to `AssignStrikeAction` (for CvCC attacker phase)
 

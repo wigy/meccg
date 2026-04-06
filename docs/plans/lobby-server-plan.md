@@ -6,7 +6,7 @@ A new `packages/lobby-server` package (`@meccg/lobby-server`) that handles playe
 
 ## Architecture
 
-```
+```text
 Browser
   |--- HTTP (8080) ──→ Lobby Server (login, register, static files, card images)
   |--- WS  (8080)  ──→ Lobby Server (online players, challenges, game signals)
@@ -19,7 +19,7 @@ Browsers connect directly to game servers (no proxy). The lobby spawns game-serv
 
 ## Package Structure
 
-```
+```text
 packages/lobby-server/
   package.json
   tsconfig.json
@@ -172,44 +172,44 @@ export interface JoinMessage {
 
 ### Phase 2: Player Registration and Auth
 
-4. Implement `players/types.ts` and `players/store.ts` — CRUD for player JSON files.
-5. Implement `auth/password.ts` — `hashPassword()` and `verifyPassword()` using bcryptjs.
-6. Implement `auth/jwt.ts` — `signLobbyToken()`, `verifyLobbyToken()`, `signGameToken()`, `verifyGameToken()`.
-7. Implement `auth/session.ts` — parse/set JWT from HttpOnly cookie `meccg-session`.
+1. Implement `players/types.ts` and `players/store.ts` — CRUD for player JSON files.
+2. Implement `auth/password.ts` — `hashPassword()` and `verifyPassword()` using bcryptjs.
+3. Implement `auth/jwt.ts` — `signLobbyToken()`, `verifyLobbyToken()`, `signGameToken()`, `verifyGameToken()`.
+4. Implement `auth/session.ts` — parse/set JWT from HttpOnly cookie `meccg-session`.
 
 ### Phase 3: HTTP Routes
 
-8. Implement `http/routes.ts` — register, login, logout, /api/me, static files, card image proxy.
+1. Implement `http/routes.ts` — register, login, logout, /api/me, static files, card image proxy.
 
 ### Phase 4: Lobby WebSocket
 
-9. Implement `lobby/protocol.ts` — message type definitions.
-10. Implement `lobby/lobby.ts` — online player tracking, challenge/accept/decline, trigger game launch.
+1. Implement `lobby/protocol.ts` — message type definitions.
+2. Implement `lobby/lobby.ts` — online player tracking, challenge/accept/decline, trigger game launch.
 
 ### Phase 5: Game Launcher
 
-11. Implement `games/launcher.ts` — spawn game-server with `PORT` and `JWT_SECRET` env vars, track active games, clean up on exit.
-12. Implement `games/ai-client.ts` — headless WS client with random strategy.
+1. Implement `games/launcher.ts` — spawn game-server with `PORT` and `JWT_SECRET` env vars, track active games, clean up on exit.
+2. Implement `games/ai-client.ts` — headless WS client with random strategy.
 
 ### Phase 6: Entry Point
 
-13. Implement `src/server.ts` — HTTP server with routes, lobby WS, dev-mode live-reload injection.
+1. Implement `src/server.ts` — HTTP server with routes, lobby WS, dev-mode live-reload injection.
 
 ### Phase 7: Game Server Token Verification
 
-14. Add `token` field to `JoinMessage` in shared.
-15. Add JWT verification to `handleJoin()` in game-server.
+1. Add `token` field to `JoinMessage` in shared.
+2. Add JWT verification to `handleJoin()` in game-server.
 
 ### Phase 8: Browser UI
 
-16. Add login/register/lobby HTML screens to `web-client/public/index.html`.
-17. Modify `web-client/src/browser/app.ts` for lobby mode.
-18. Add CSS for new screens.
+1. Add login/register/lobby HTML screens to `web-client/public/index.html`.
+2. Modify `web-client/src/browser/app.ts` for lobby mode.
+3. Add CSS for new screens.
 
 ### Phase 9: AI Client and Polish
 
-19. Wire up AI client spawning in the launcher.
-20. Add package scripts: `start`, `dev`.
+1. Wire up AI client spawning in the launcher.
+2. Add package scripts: `start`, `dev`.
 
 ## Potential Challenges
 

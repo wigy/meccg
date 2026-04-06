@@ -23,7 +23,7 @@ Replace direct notifications with a persistent mail system. Messages are stored 
 
 ## Storage Layout
 
-```
+```text
 ~/.meccg/players/<player>/mail/inbox/<msg-id>.json
 ~/.meccg/players/<player>/mail/deleted/<msg-id>.json
 ```

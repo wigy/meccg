@@ -18,6 +18,7 @@ The chain doesn't replace phases — it **layers on top**, like `CombatState` al
 ### `ChainEntry`
 
 Each entry on the stack tracks:
+
 - `index`: sequential position (0 = first declared)
 - `declaredBy`: player who declared it
 - `cardInstanceId` / `definitionId`: the card being played (null for non-card actions like passive conditions)
@@ -27,6 +28,7 @@ Each entry on the stack tracks:
 ### `DeferredPassive`
 
 Passive conditions triggered during resolution, queued for a follow-up chain:
+
 - `sourceCardId`: the card whose passive triggered
 - `trigger`: description of the trigger condition
 - `payload`: `ChainEntryPayload` for declaring in the follow-up chain
@@ -48,11 +50,13 @@ No separate "declare chain action" exists. Existing card-play actions (`play-sho
 ### `computeLegalActions` (legal-actions/index.ts)
 
 New early check before the phase switch:
+
 ```typescript
 if (state.chain !== null) {
   return chainActions(state, playerId);
 }
 ```
+
 Chain takes priority over combat, which takes priority over phase.
 
 ### `reduce()` (reducer.ts)
@@ -102,6 +106,7 @@ From `docs/coe-rules.md`:
 ## Implementation Sequence
 
 ### Phase 1: Types & Plumbing (no behavioral change)
+
 1. Add `ChainState`, `ChainEntry`, `ChainEntryPayload`, `DeferredPassive` types to `state.ts`
 2. Add `chain: ChainState | null` to `GameState` (initialized to `null`)
 3. Add `pass-chain-priority` and `order-passives` actions to `actions.ts` and `GameAction` union
@@ -109,39 +114,46 @@ From `docs/coe-rules.md`:
 5. Wire early dispatch in `computeLegalActions` and `reduce()`
 
 ### Phase 2: Chain Initiation & Priority Passing
-6. Implement `initiateChain()` — creates `ChainState` from first card-play action
-7. Make existing card-play reducers chain-aware — if chain exists, push entry + flip priority; if not, call `initiateChain()`
-8. Implement `pass-chain-priority` reducer — set flags, transition to resolving when both pass
-9. Implement `chainActions()` legal action computation — playable response cards + `pass-chain-priority`
+
+1. Implement `initiateChain()` — creates `ChainState` from first card-play action
+2. Make existing card-play reducers chain-aware — if chain exists, push entry + flip priority; if not, call `initiateChain()`
+3. Implement `pass-chain-priority` reducer — set flags, transition to resolving when both pass
+4. Implement `chainActions()` legal action computation — playable response cards + `pass-chain-priority`
 
 ### Phase 3: Chain Resolution
-10. Implement `resolveNextEntry()` — resolve single entry, check negation/validity, apply effects
-11. Implement `completeChain()` — clean up chain, handle deferred passives, restore parent
-12. Auto-advance: resolver processes entries in sequence, returning intermediate states
+
+1. Implement `resolveNextEntry()` — resolve single entry, check negation/validity, apply effects
+2. Implement `completeChain()` — clean up chain, handle deferred passives, restore parent
+3. Auto-advance: resolver processes entries in sequence, returning intermediate states
 
 ### Phase 4: Short Events on the Chain
-13. Short events initiate a chain (or add to current chain as response)
-14. Resolution applies card effects via the DSL resolver
+
+1. Short events initiate a chain (or add to current chain as response)
+2. Resolution applies card effects via the DSL resolver
 
 ### Phase 5: Creatures on the Chain
-15. Creature play initiates a chain instead of directly resolving
-16. When creature entry resolves, transition into `CombatState`
-17. After combat completes, resume chain resolution
+
+1. Creature play initiates a chain instead of directly resolving
+2. When creature entry resolves, transition into `CombatState`
+3. After combat completes, resume chain resolution
 
 ### Phase 6: Passive Conditions
-18. Detect passive conditions during resolution (scan in-play `on-event` triggers)
-19. Queue triggered passives into `deferredPassives`
-20. Implement immediate-discard exception
-21. Implement `order-passives` action and follow-up chain creation
+
+1. Detect passive conditions during resolution (scan in-play `on-event` triggers)
+2. Queue triggered passives into `deferredPassives`
+3. Implement immediate-discard exception
+4. Implement `order-passives` action and follow-up chain creation
 
 ### Phase 7: Nested Chains
-22. Implement `interruptWithSubChain()` for on-guard reveals
-23. Implement body-check sub-chains with `'body-check'` restriction
-24. Test parent chain restoration after sub-chain completion
+
+1. Implement `interruptWithSubChain()` for on-guard reveals
+2. Implement body-check sub-chains with `'body-check'` restriction
+3. Test parent chain restoration after sub-chain completion
 
 ### Phase 8: Phase Boundary Chains
-25. At phase transitions, scan for beginning-of-phase passives → create restricted chain
-26. Before advancing from a phase, scan for end-of-phase passives → create restricted chain
+
+1. At phase transitions, scan for beginning-of-phase passives → create restricted chain
+2. Before advancing from a phase, scan for end-of-phase passives → create restricted chain
 
 ## UI Display
 
@@ -156,12 +168,13 @@ The chain gets its own dedicated section/box, following the same pattern as the 
 #### `renderChainInfo()` (in `render.ts`)
 
 Follows the `renderDraft()` / `renderMHInfo()` / `renderSiteInfo()` pattern:
+
 - Own `<section id="chain-section">` in the HTML, hidden when `state.chain` is null
 - Renders lines of text into a `<pre id="chain-info">` element via `ansiToHtml()`
 
 #### Chain Display Format
 
-```
+```text
 Mode: declaring — Alice has priority
   1. [Alice] Play ‹Dark Numbers› targeting [Mordor]
   2. [Bob]   Play ‹Twilight› in response
@@ -169,18 +182,21 @@ Mode: declaring — Alice has priority
 ```
 
 During resolution:
-```
+
+```text
 Mode: resolving 2/2
   1. [Alice] Play ‹Dark Numbers› targeting [Mordor]
   > 2. [Bob]   ‹Twilight› — RESOLVING
 ```
 
 After negation:
-```
+
+```text
   2. [Bob]   ‹Twilight› — NEGATED (target no longer valid)
 ```
 
 Key formatting rules:
+
 - Cards use the existing ANSI color scheme (hazard events = magenta, resource events = cyan, creatures = red, etc.)
 - Card names use `\x02` markers so the web client renders hover-preview spans
 - `>` marker indicates the current entry (priority holder during declaring, resolving entry during resolution)
@@ -194,7 +210,7 @@ The visual view displays the chain as a **horizontal strip in the center of the 
 
 #### Chain Strip Layout
 
-```
+```text
 ┌─────────────────────────────────────────────────┐
 │  Opponent area (companies, hand count, etc.)    │
 ├─────────────────────────────────────────────────┤
@@ -211,23 +227,27 @@ The visual view displays the chain as a **horizontal strip in the center of the 
 #### Visual Elements
 
 **Cards on the chain:**
+
 - Displayed as standard card images (using existing `createCardImage()` helper)
 - Arranged left-to-right in declaration order (first declared = leftmost)
 - Arrow connectors (`→`) between cards to show the chain
 - Small player-name label below each card (whose declaration it is)
 
 **Active entry highlighting:**
+
 - During `declaring`: the last-declared card has a **golden border** (same as selectable highlight)
 - During `resolving`: the currently-resolving card has a **pulsing glow** effect; already-resolved cards are **dimmed**
 - Negated cards get a **red strikethrough overlay** and are dimmed
 
 **Priority indicator:**
+
 - Instruction text below the chain strip shows whose turn it is:
   - Declaring: `"Chain: [PlayerName] may respond or pass"`
   - Resolving: `"Resolving: [CardName]"`
   - For the non-priority player: `"Waiting for [PlayerName] to respond..."`
 
 **Legal action buttons:**
+
 - When the current player has priority, playable response cards in hand get **golden highlight** (existing selectable style)
 - A **"Pass"** button appears in the action panel
 - Clicking a hand card to play it as a response follows the existing two-step selection pattern (golden → green → target if needed)
@@ -235,12 +255,14 @@ The visual view displays the chain as a **horizontal strip in the center of the 
 #### Chain Restriction Indicators
 
 When the chain has a restriction (`body-check`, `end-of-phase`, etc.), the instruction text includes the restriction:
+
 - `"Body Check Chain: only actions affecting the body check"`
 - `"End of Phase: only 'at the end' actions"`
 
 #### Nested Chains (On-Guard Interrupts)
 
 When a sub-chain interrupts:
+
 1. The parent chain strip slides up and dims (smaller scale, reduced opacity)
 2. The sub-chain appears in the main chain strip position
 3. A label shows `"On-Guard Interrupt"` or `"Body Check"`
@@ -249,6 +271,7 @@ When a sub-chain interrupts:
 #### Animations
 
 Using the existing FLIP animation system (`flip-animate.ts`):
+
 - **Declaration**: Card slides from hand to chain strip position (FLIP transition)
 - **Resolution**: Card briefly enlarges (pulse), then fades/dims
 - **Negation**: Card flashes red, then dims with strikethrough

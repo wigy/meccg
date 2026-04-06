@@ -21,7 +21,7 @@ After all companies: must join companies at same non-haven site; may choose to j
 
 ## Phase Sub-Steps (`MHStep`)
 
-```
+```text
 'declare-path' → 'order-effects' → 'play-hazards'
 ```
 

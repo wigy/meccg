@@ -127,6 +127,7 @@ Add to `ChainEntryPayload` in `types/state.ts`:
 Current behavior: hand → `cardsInPlay` immediately.
 
 New behavior:
+
 1. Validate the card (type checks, duplication-limit — same as now).
 2. Remove card from hand (card is now "on the chain" — not in any pile).
 3. Initiate or push onto chain with payload `{ type: 'permanent-event' }`.
@@ -140,6 +141,7 @@ New behavior:
 Current behavior: hand → `cardsInPlay` immediately.
 
 New behavior:
+
 1. Validate the card (type checks, uniqueness, duplication-limit — same).
 2. Remove card from hand.
 3. Initiate or push onto chain with payload `{ type: 'long-event' }`.
@@ -153,6 +155,7 @@ Current behavior (lines 3095–3162): hand → `cardsInPlay` immediately,
 `self-enters-play` effects execute immediately.
 
 New behavior for permanent events:
+
 1. Validate the card (type checks, uniqueness, duplication-limit — same).
 2. Remove card from hand.
 3. Increment `hazardsPlayedThisCompany`.
@@ -160,6 +163,7 @@ New behavior for permanent events:
 5. Do **not** add to `cardsInPlay` or execute effects yet.
 
 New behavior for long events:
+
 1. Same validation.
 2. Remove card from hand.
 3. Increment `hazardsPlayedThisCompany`.
@@ -183,6 +187,7 @@ if (entry.payload.type === 'long-event' && !entry.negated && entry.card) {
 ```
 
 `resolvePermanentEvent()` does:
+
 1. Take `entry.card` and add it to the declaring player's `cardsInPlay`
    (untapped).
 2. Execute `self-enters-play` effects (the `discard-cards-in-play` logic
@@ -190,6 +195,7 @@ if (entry.payload.type === 'long-event' && !entry.negated && entry.card) {
 3. Run any other DSL effect resolution needed.
 
 `resolveLongEvent()` does:
+
 1. Take `entry.card` and add it to the declaring player's `cardsInPlay`
    (untapped).
 2. Execute any DSL effects if applicable.
@@ -218,6 +224,7 @@ in `cardsInPlay`. Meanwhile, Twilight's card data has no DSL effect for the
 cancel — only play-restrictions (`playable-as-resource`, `no-hazard-limit`).
 
 This must be fixed as part of this plan because:
+
 - The hardcoded function references `entry.cardInstanceId` (old field).
 - It needs to understand the chain-as-container model.
 - DoN/GoM use the general DSL (`on-event: self-enters-play`), but Twilight
@@ -242,6 +249,7 @@ Document the new effect type in `docs/card-effects-dsl.md`.
 
 In `resolveEntry()` for `short-event` entries, resolve the DSL effect
 instead of calling the hardcoded `resolveEnvironmentCancel`. The resolver:
+
 1. Look up the target by `instanceId` — check chain entries first, then
    `cardsInPlay`, then `eventsInPlay`.
 2. If target is a chain entry: negate it (card will be flushed to discard
@@ -262,6 +270,7 @@ The `playShortEventChainActions` function currently has Twilight-specific
 logic scanning for environment keywords. Refactor to read Twilight's DSL
 effects instead of hardcoding the `playable-as-resource` check. The
 function should:
+
 1. Check if any hand card has a `cancel-environment` effect.
 2. If so, collect valid targets: environment cards in `cardsInPlay`,
    `eventsInPlay`, and unresolved chain entries with the environment keyword.
@@ -364,12 +373,12 @@ changes to a multi-step chain pattern:
 
 ### New Tests: `tw-243.test.ts`
 
-7. **"opponent can cancel Gates of Morning with Twilight before it
+1. **"opponent can cancel Gates of Morning with Twilight before it
    resolves"**: P1 plays Gates of Morning (Doors of Night in play). P2
    responds with Twilight targeting Gates of Morning on the chain. Chain
    resolves: Twilight negates GoM → GoM goes to discard, DoN survives.
 
-8. **"Gates of Morning on chain is a valid Twilight target"**: After P1
+2. **"Gates of Morning on chain is a valid Twilight target"**: After P1
    declares GoM, verify Twilight appears in P2's legal actions targeting
    the GoM chain entry.
 
@@ -378,11 +387,11 @@ changes to a multi-step chain pattern:
 Most Twilight tests target environments already in `cardsInPlay`, which
 still works. Key interactions to verify/add:
 
-9. **"Twilight can target a permanent event on the chain"**: New test.
+1. **"Twilight can target a permanent event on the chain"**: New test.
    Doors of Night declared on chain → P1 responds with Twilight targeting
    the DoN chain entry → resolves → DoN negated.
 
-10. **"Twilight targeting permanent event on chain vs in play"**: Verify
+2. **"Twilight targeting permanent event on chain vs in play"**: Verify
     that Twilight's legal actions include both environments in play AND
     permanent-event entries on the chain.
 
@@ -390,47 +399,47 @@ still works. Key interactions to verify/add:
 
 Currently no dedicated test file exists. Create one covering:
 
-11. **"can be played as hazard permanent event during M/H"**: Basic play →
+1. **"can be played as hazard permanent event during M/H"**: Basic play →
     chain → resolve → enters play.
 
-12. **"discards Gates of Morning when played"**: DoN resolves → enters
+2. **"discards Gates of Morning when played"**: DoN resolves → enters
     play → discards resource environments.
 
-13. **"opponent can cancel Doors of Night with Twilight"**: P2 plays DoN,
+3. **"opponent can cancel Doors of Night with Twilight"**: P2 plays DoN,
     P1 responds with Twilight targeting DoN on chain → negated.
 
-14. **"cannot be duplicated"**: duplication-limit check at declaration.
+4. **"cannot be duplicated"**: duplication-limit check at declaration.
 
 ### Tests to Update: `tw-335.test.ts` (Sun, Resource Long Event)
 
 All 4 existing tests assume `play-long-event` immediately puts Sun into
 `cardsInPlay` and applies stat effects. They need the chain pass pattern:
 
-16. **"Dúnadan prowess +1 when Sun is in play"**: After `play-long-event`,
+1. **"Dúnadan prowess +1 when Sun is in play"**: After `play-long-event`,
     Sun is on the chain. Both players pass → Sun enters `cardsInPlay` →
     `recomputeDerived` applies stat modifiers.
 
-17. **"with Gates of Morning: Man and Dúnadan prowess +1 additional"**:
+2. **"with Gates of Morning: Man and Dúnadan prowess +1 additional"**:
     Same chain pattern before checking stat modifiers.
 
-18. **"affects opponent characters too"**: Uses a pre-placed Sun in
+3. **"affects opponent characters too"**: Uses a pre-placed Sun in
     `cardsInPlay` — no change needed (tests ongoing effects, not play).
 
-19. **"body and direct influence are not modified"**: Same chain pattern.
+4. **"body and direct influence are not modified"**: Same chain pattern.
 
 ### New Long-Event Tests (in `tw-335.test.ts` or new file)
 
-20. **"resource long event goes through chain during long-event phase"**:
+1. **"resource long event goes through chain during long-event phase"**:
     Play Sun → chain starts → both pass → Sun enters `cardsInPlay`.
 
-21. **"hazard long event goes through chain during M/H"**: Play Eye of
+2. **"hazard long event goes through chain during M/H"**: Play Eye of
     Sauron → chain starts → both pass → enters `cardsInPlay`.
 
-22. **"Twilight can cancel a long event on the chain"**: P2 plays Eye of
+3. **"Twilight can cancel a long event on the chain"**: P2 plays Eye of
     Sauron → P1 responds with Twilight targeting it → chain resolves →
     Eye of Sauron negated, goes to discard.
 
-23. **"long event negated on chain goes to discard"**: Verify that a
+4. **"long event negated on chain goes to discard"**: Verify that a
     negated long event is properly discarded (rule 9.5.5) and does not
     enter play.
 
@@ -438,11 +447,11 @@ All 4 existing tests assume `play-long-event` immediately puts Sun into
 
 Currently a `test.todo()` stub. Implement with:
 
-27. **"resource long event goes through chain before entering play"**:
+1. **"resource long event goes through chain before entering play"**:
     Play a resource long event → chain starts → both pass → card enters
     `cardsInPlay`.
 
-28. **"resource long event can be canceled on the chain"**: Play a
+2. **"resource long event can be canceled on the chain"**: Play a
     resource long event → opponent responds → event negated → goes to
     discard, never enters play.
 
@@ -452,17 +461,17 @@ All rules tests (`rule-9.09`, `rule-9.12`, `rule-9.13`, `rule-10.29`) are
 `test.todo()` stubs — no suitable home there. Embed these in the card test
 files where the participating cards are tested:
 
-24. **`tw-28.test.ts` (Doors of Night)**: "P1 responds with Twilight to
+1. **`tw-28.test.ts` (Doors of Night)**: "P1 responds with Twilight to
     cancel Doors of Night before it discards Gates of Morning" — P1 has
     GoM in play. P2 plays DoN during M/H → chain starts. P1 responds
     with Twilight targeting DoN → chain resolves LIFO: Twilight negates
     DoN, GoM survives.
 
-25. **`tw-243.test.ts` (Gates of Morning)**: "P2 responds with Twilight
+2. **`tw-243.test.ts` (Gates of Morning)**: "P2 responds with Twilight
     to cancel Gates of Morning before it discards Doors of Night" —
     mirror of test 24 from GoM's perspective.
 
-26. **`tw-106.test.ts` (Twilight)**: "targets environment long event on
+3. **`tw-106.test.ts` (Twilight)**: "targets environment long event on
     chain alongside permanent event in play" — both an environment long
     event (e.g. Eye of Sauron) on the chain and a permanent event in
     play exist — Twilight's legal actions should include both as targets.

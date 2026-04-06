@@ -27,9 +27,11 @@ This plan covers engine (shared package) and UI (lobby-server browser).
 Allies need a `mind` field for the comparison value.
 
 **`packages/shared/src/types/cards.ts`**
+
 - Add `readonly mind: number;` to `HeroAllyCard` (~line 237) and `MinionAllyCard` (~line 610)
 
 **`packages/shared/src/data/tw-resources.json`** (and other ally data files)
+
 - Add `mind` values from authoritative `data/cards.json` to each ally entry
 
 **`packages/shared/src/types/cards.ts`** — update `isAllyCard()` type guard if needed
@@ -77,11 +79,13 @@ Initialize as `null` in all `SitePhaseState` construction sites in `reducer.ts`.
 **`packages/shared/src/engine/legal-actions/site.ts`** — new function `opponentInfluenceActions()` called during `play-resources` step.
 
 Guards (return empty if any fail):
+
 - It is the resource player's first turn
 - `!siteState.siteEntered` (company hasn't entered site)
 - `siteState.opponentInteractionThisTurn !== null` (already made interaction)
 
 Logic:
+
 1. Get untapped characters in active company
 2. Get opponent player index, find opponent companies at same site (compare `currentSite.definitionId`)
 3. For each opponent character at same site:
@@ -102,6 +106,7 @@ Uses existing `availableDI()` from `organization.ts` for DI calculations.
 The influence attempt uses two separate actions (two explicit rolls):
 
 **Action 1: `opponent-influence-attempt`** (resource player declares + rolls)
+
 1. Validate: character untapped + in active company, site entered, no prior interaction, target exists at same site, not avatar-controlled, avatar influencer not played this turn (rule 8.1)
 2. Tap influencing character
 3. Roll attacker 2d6 via `roll2d6(state)`, emit `DiceRollEffect`
@@ -110,6 +115,7 @@ The influence attempt uses two separate actions (two explicit rolls):
 6. Transition to awaiting defender roll
 
 **Action 2: `opponent-influence-defend`** (hazard player rolls)
+
 1. Roll defender 2d6 via `roll2d6(state)`, emit `DiceRollEffect`
 2. Calculate final result:
    - Attacker roll (from stored state)
@@ -127,6 +133,7 @@ Wire into `handleSitePlayResources()` (~line 4191).
 ### Step 6: Discard cascade helper
 
 Extract a reusable `discardCharacterCascade()` function:
+
 - Move target character to opponent's discard pile
 - Move all items on the character to discard pile
 - Move all allies on the character to discard pile
@@ -140,12 +147,14 @@ Extract a reusable `discardCharacterCascade()` function:
 ### Step 8: UI — targeting opponent's cards
 
 **`packages/lobby-server/src/browser/render.ts`**:
+
 - New module state: `selectedInfluencerForOpponent: CardInstanceId | null`
 - During `play-resources`, detect `opponent-influence-attempt` actions in viable actions
 - When player's untapped character is clicked and has opponent-influence actions: set as selected influencer, show targeting instruction "Click an opponent's card to attempt influence"
 - Re-render to highlight targetable opponent cards
 
 **`packages/lobby-server/src/browser/company-view.ts`**:
+
 - In opponent company rendering, when `selectedInfluencerForOpponent` is set:
   - Find matching actions where `influencingCharacterId === selectedInfluencer`
   - Add `company-card--influence-target` CSS class to targetable cards
@@ -156,6 +165,7 @@ Extract a reusable `discardCharacterCascade()` function:
 Replace `.todo()` in test files with real tests. Each test: build state -> `computeLegalActions()` or `reduce()` -> assert.
 
 **`rule-10.10-influence-attempt-declaration.test.ts`**:
+
 - Cannot influence on first turn
 - Cannot influence if company hasn't entered site (`siteEntered: false`)
 - Cannot influence if already made opponent interaction this turn
@@ -164,12 +174,14 @@ Replace `.todo()` in test files with real tests. Each test: build state -> `comp
 - Avatar influencer cannot have been played this turn (rule 8.1)
 
 **`rule-10.11-influence-attempt-targets.test.ts`**:
+
 - Character at same site is valid target
 - Ally at same site is valid target
 - Character at different site is NOT valid
 - Avatar is NOT valid
 
 **`rule-10.12-influence-attempt-resolution.test.ts`**:
+
 - Successful influence discards target character
 - Successful influence on ally discards ally
 - Failed influence only taps influencer
@@ -184,6 +196,7 @@ Replace `.todo()` in test files with real tests. Each test: build state -> `comp
 ### Step 11: Legal actions with reveal variants
 
 For each (influencer, target) pair against character/ally:
+
 - Check if player has identical card in hand (same `name`, any alignment)
 - Generate action WITH `revealedCardInstanceId` (comparison value = 0)
 - Generate action WITHOUT reveal (comparison value = mind)
@@ -206,22 +219,25 @@ When both reveal/non-reveal actions exist for a target, show tooltip menu: "Infl
 ## Phase 3: Factions, Items, Cross-Alignment
 
 ### Step 15: Faction targets
+
 - Target opponent's in-play factions when influencer is at a site where faction is playable
 - Comparison value = faction's `influenceNumber`
 
 ### Step 16: Item targets
+
 - Same site + no permanent-event on item + MUST reveal identical item from hand
 - Comparison value = controlling character's mind (NOT zeroed by reveal)
 
 ### Step 17: Cross-alignment penalties (rules 8.W1, 8.R1, 8.F1, 8.B1)
+
 - -5 modifier when player alignments cross (wizard vs ringwraith/balrog, ringwraith vs wizard/fallen-wizard, fallen-wizard vs ringwraith/balrog, balrog vs wizard/fallen-wizard)
 
 ### Step 18: Fallen-wizard specific rules
+
 - **8.F2**: For a FW player to reveal a matching card, it must also match the alignment of the site where the influence attempt is declared
 - **8.F3**: A matching manifestation may be revealed at a site where the FW player cannot play MP cards, but the revealed card cannot be played on success
 
 ### Step 19: Tests for rules 10.14-10.16
-
 
 ---
 

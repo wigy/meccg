@@ -18,7 +18,7 @@ All tests follow the same pattern: build a valid game state, check that the engi
 
 ## Structure
 
-```
+```text
 packages/server/src/tests/
   rules/                              # Official CoE rules tests
     helpers/
@@ -48,9 +48,10 @@ packages/server/src/tests/
 
 ## Rules Source
 
-Official Council of Elrond rules: https://www.councilofelrond.org/rules/
+Official Council of Elrond rules: <https://www.councilofelrond.org/rules/>
 
 Estimated scope from the rules document:
+
 - Section 1 (Getting Ready): ~80 rules
 - Section 2 (Turn Phases): ~120 rules
 - Sections 3-11 (Combat, Agents, Events, Items, Corruption, Influence, Timing, Endgame): ~150-200 rules
@@ -143,7 +144,7 @@ test.todo('[3.I.2] body check: attacker rolls 2d6, if > body character is elimin
 | `le-313.test.ts` | High Helm | minion-resource-item | 0 | 2 | Not started |
 | | **TOTAL** | | **0** | **65** | |
 
-## Test Pattern
+## Test Pattern (Card Tests)
 
 Each rule becomes a test or test.todo:
 

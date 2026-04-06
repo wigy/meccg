@@ -9,6 +9,7 @@ The game currently has no way to end. The type scaffolding exists (`Phase.FreeCo
 Only implement the **Short ("2-deck") Game** rules for now. The game length variants (Starter/Long/Campaign) follow the same pattern with different thresholds — they can be added later by parameterizing the call conditions. No `gameLength` config field needed yet.
 
 Short game call conditions:
+
 - **Manual call:** MP >= 25 AND exhaustions >= 1, OR exhaustions >= 2
 - **Auto-end:** Both players have exhausted their deck twice each
 
@@ -21,10 +22,12 @@ Short game call conditions:
 **Why first:** Calling the council depends on `deckExhaustionCount`, which is never incremented.
 
 **Files:**
+
 - `packages/shared/src/engine/reducer.ts` — two TODO sites (~lines 3240, 3979)
 
 **What to build:**
 When `player.playDeck.length === 0` after drawing:
+
 1. Return discarded site cards to the player's location deck
 2. *(Skip sideboard exchange for now — interactive step, can be added later)*
 3. Shuffle the discard pile into a new play deck (using RNG)
@@ -36,6 +39,7 @@ Extract a helper function `exhaustPlayDeck(state, playerIndex)` since it happens
 ### Part B: Calling the Council (End-of-Turn Signal-End)
 
 **Files:**
+
 - `packages/shared/src/engine/legal-actions/end-of-turn.ts` — `signalEndStepActions()`
 - `packages/shared/src/engine/reducer.ts` — `handleEndOfTurnSignalEnd()`
 - `packages/shared/src/types/state.ts` — add `lastTurnFor` to `GameState`
@@ -62,30 +66,35 @@ Extract a helper function `exhaustPlayDeck(state, playerIndex)` since it happens
 ### Part C: Free Council Phase
 
 **Files:**
+
 - `packages/shared/src/types/state.ts` — expand `FreeCouncilPhaseState`
 - `packages/shared/src/engine/legal-actions/free-council.ts`
 - `packages/shared/src/engine/reducer.ts` — `handleFreeCouncil()`
 - `packages/shared/src/state-utils.ts` — add step 5 (duplicate reveals) and step 6 (avatar penalty)
 
 **State expansion — `FreeCouncilPhaseState`:**
-```
+
+```typescript
 step: 'corruption-checks' | 'duplicate-reveals' | 'done'
 currentPlayer: PlayerId        // who is making checks / revealing now
 checkedCharacters: string[]    // instance IDs already checked
 ```
 
 **Step 1 — Corruption Checks:**
+
 - Start with the player who took the last turn (the one whose end-of-turn triggered the council)
 - For each player, offer corruption-check actions for each non-avatar character (already implemented in `freeCouncilActions`)
 - When a player passes (all characters checked or they choose to stop), switch to the other player
 - When both done, advance to `'duplicate-reveals'`
 
 **Step 5 — Duplicate Reveals:**
+
 - New action type: `reveal-duplicate` with `{ card: CardInstanceId }` — player reveals a hand card matching an opponent's unique card in play
 - Both players get a chance to reveal, then pass
 - Each reveal reduces opponent's final score by 1
 
 **Steps 2-4, 6-7 — Automated Scoring:**
+
 - When duplicate reveals are done, compute final scores:
   - `computeTournamentBreakdown()` already handles steps 2-4
   - Apply step 6: if avatar eliminated, subtract 5 from misc
@@ -96,10 +105,12 @@ checkedCharacters: string[]    // instance IDs already checked
 ### Part D: Game Over Phase
 
 **Files:**
+
 - `packages/shared/src/engine/reducer.ts` — add `handleGameOver()` (no-op, terminal state)
 - `packages/shared/src/engine/legal-actions/` — game-over returns empty actions (already configured)
 
 **What to build:**
+
 - `GameOverPhaseState` already has `winner` and `finalScores` — just populate them correctly when transitioning from Free Council
 - The reducer returns unchanged state for any action (game is over)
 - Clients can read the phase state to display results

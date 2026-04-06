@@ -13,5 +13,5 @@
     // Allow compact table style (no spaces around pipes)
     "MD060": false
   },
-  "ignores": ["**/node_modules", "docs/api", ".claude", "docs/plans"]
+  "ignores": ["**/node_modules", "docs/api", ".claude"]
 }

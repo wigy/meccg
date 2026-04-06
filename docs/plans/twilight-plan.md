@@ -47,6 +47,7 @@ interface PlayShortEventAction {
 ```
 
 The DSL tags drive the engine:
+
 - `playable-as-resource` tells legal-actions code to offer it during resource windows
 - `no-hazard-limit` tells the hazard counter to skip it
 
@@ -105,12 +106,14 @@ Wire it into the main org function (around line 815) and add instances to the `e
 
 Added `'play-short-event'` to `LEGAL_ACTIONS_BY_PHASE` for Organization phase.
 Still TODO for M/H and Site phases:
+
 - **MovementHazard** (either player, Twilight is playable during any player's turn)
 - **Site** (resource player)
 
 ## 5. Reducer: Handle `play-short-event` (DONE)
 
 Handler `handlePlayShortEvent` added to the reducer:
+
 1. Moves Twilight from hand → player's discard pile
 2. Initiates (or pushes onto) a chain of effects with `targetInstanceId` in the payload
 3. Target environment stays in play until chain resolves — both players may respond
@@ -128,6 +131,7 @@ effects (rule 807). "Environment" is a keyword (rule 781), as are "weapon", "arm
 "helmet", "corruption", "detainment", "spawn", etc.
 
 Keywords have been added to card data:
+
 - **Environment:** tw-28 (Doors of Night), tw-106 (Twilight), tw-243 (Gates of Morning), tw-335 (Sun)
 - **Weapon:** tw-244 (Glamdring), tw-333 (Sting), tw-206 (Dagger of Westernesse), le-299 (Black Mace), le-342 (Saw-toothed Blade)
 - **Armor:** tw-345 (The Mithril-coat)

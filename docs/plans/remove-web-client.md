@@ -5,6 +5,7 @@ Absorb `@meccg/web-client` into `@meccg/lobby-server` and delete the package.
 ## Background
 
 The web-client package has two halves:
+
 - **Browser code** (`src/browser/`, ~9,400 lines) — bundled by esbuild into `public/bundle.js`
 - **Standalone server** (`src/server/serve.ts`) — HTTP+WS server, fully superseded by lobby-server
 
@@ -19,6 +20,7 @@ Move `packages/web-client/src/browser/*.ts` (8 files) to `packages/lobby-server/
 ### Phase 2: Move static assets into lobby-server
 
 Move `packages/web-client/public/` contents to `packages/lobby-server/public/`:
+
 - `index.html`, `style.css`, `favicon.svg`
 - `fonts/` (Cinzel-Bold.ttf, MedievalSharp.ttf)
 - `images/` (~15MB of card backs, icons, backgrounds)

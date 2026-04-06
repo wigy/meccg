@@ -6,7 +6,7 @@ New AI mode where the human player makes all decisions for the AI opponent. The 
 
 ## Architecture: Lobby as IPC Relay
 
-```
+```text
 Game Server  <--WS-->  Pseudo-AI Client  <--IPC-->  Lobby Server  <--WS-->  Web Client
 ```
 
@@ -17,10 +17,12 @@ The pseudo-AI client connects to the game server like the regular AI client. Ins
 ### 1. Protocol types — `packages/lobby-server/src/lobby/protocol.ts`
 
 New client-to-lobby messages:
+
 - `PlayPseudoAiMessage` — `{ type: 'play-pseudo-ai', deckId: string }`
 - `PseudoAiPickMessage` — `{ type: 'pseudo-ai-pick', action: GameAction }`
 
 New lobby-to-client message:
+
 - `PseudoAiActionsMessage` — `{ type: 'pseudo-ai-actions', actions: EvaluatedAction[], phase: string }`
 
 Add `pseudoAi?: boolean` to `GameStartingMessage`.
@@ -28,6 +30,7 @@ Add `pseudoAi?: boolean` to `GameStartingMessage`.
 ### 2. Pseudo-AI client — `packages/lobby-server/src/games/pseudo-ai-client.ts` (new)
 
 Fork of `ai-client.ts` with these differences:
+
 - On receiving `state` message, instead of `pickAction()`, sends IPC: `process.send({ type: 'pseudo-ai-actions', actions: evaluated, phase })`
 - Listens for IPC: `process.on('message', msg => ...)`, when `pseudo-ai-pick` received, sends `{ type: 'action', action }` to game server WS
 - Shares deck loading, join message, reconnection logic with `ai-client.ts`
@@ -53,6 +56,7 @@ Fork of `ai-client.ts` with these differences:
 - Add `<button id="play-pseudo-ai-btn">Play vs Pseudo-AI</button>` after the existing Play vs AI button
 - Add save prompt for pseudo-AI (similar to existing `save-prompt`)
 - Add pseudo-AI action panel in `#game`:
+
   ```html
   <div id="pseudo-ai-panel" class="hidden">
     <div class="pseudo-ai-header">
