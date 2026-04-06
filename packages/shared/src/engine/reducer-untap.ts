@@ -206,12 +206,18 @@ function performUntap(state: GameState): GameState {
   const playerIndex = getPlayerIndex(state, state.activePlayer!);
   const player = state.players[playerIndex];
 
-  // Build a set of character IDs at havens for healing wounded characters
+  // Build a set of character IDs at havens (or sites with healing-affects-all rule)
+  // for healing wounded characters
   const charsAtHaven = new Set<string>();
   for (const company of player.companies) {
     if (!company.currentSite) continue;
     const siteDef = state.cardPool[company.currentSite.definitionId];
-    if (siteDef && isSiteCard(siteDef) && siteDef.siteType === SiteType.Haven) {
+    if (!siteDef || !isSiteCard(siteDef)) continue;
+    const isHaven = siteDef.siteType === SiteType.Haven;
+    const hasHealingRule = siteDef.effects?.some(
+      e => e.type === 'site-rule' && e.rule === 'healing-affects-all',
+    ) ?? false;
+    if (isHaven || hasHealingRule) {
       for (const charId of company.characters) {
         charsAtHaven.add(charId as string);
       }
@@ -250,7 +256,7 @@ function performUntap(state: GameState): GameState {
   );
 
   const tappedCharCount = Object.values(player.characters).filter(ch => ch.status === CardStatus.Tapped).length;
-  logDetail(`Untap: untapping ${tappedCharCount} character(s), healing ${healedCount} wounded character(s) at havens`);
+  logDetail(`Untap: untapping ${tappedCharCount} character(s), healing ${healedCount} wounded character(s) at havens/healing sites`);
 
   const newPlayers = clonePlayers(state);
   newPlayers[playerIndex] = { ...player, characters: newCharacters, cardsInPlay: newCardsInPlay };

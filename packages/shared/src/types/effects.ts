@@ -324,6 +324,19 @@ export interface OnGuardRevealEffect extends EffectBase {
 }
 
 /**
+ * Declares a site-specific rule that modifies standard game mechanics
+ * when a company is at this site.
+ *
+ * Example: Old Forest — healing effects affect all characters at the site
+ * (wounded characters heal during untap as if the site were a haven).
+ */
+export interface SiteRuleEffect extends EffectBase {
+  readonly type: 'site-rule';
+  /** The site rule identifier. */
+  readonly rule: string;
+}
+
+/**
  * Fetches a card from one or more source piles into the play deck and shuffles.
  *
  * Used by short events like Smoke Rings that let the player retrieve a
@@ -360,4 +373,5 @@ export type CardEffect =
   | DuplicationLimitEffect
   | PlayTargetEffect
   | OnGuardRevealEffect
-  | FetchToDeckEffect;
+  | FetchToDeckEffect
+  | SiteRuleEffect;
