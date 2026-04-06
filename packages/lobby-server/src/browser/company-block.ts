@@ -28,7 +28,7 @@ import type {
   CorruptionCheckAction,
   OpponentInfluenceAttemptAction,
 } from '@meccg/shared';
-import { cardImageProxyPath, isItemCard, Phase, CardStatus, viableActions, getTitleCharacter } from '@meccg/shared';
+import { cardImageProxyPath, Phase, CardStatus, viableActions, getTitleCharacter } from '@meccg/shared';
 import type { CardDefinitionId } from '@meccg/shared';
 import { createCardImage } from './render-utils.js';
 import { getSelectedFactionForInfluence, clearFactionInfluenceSelection, getSelectedInfluencerForOpponent, setSelectedInfluencerForOpponent, clearOpponentInfluenceSelection, setTargetingInstruction } from './render.js';
@@ -114,7 +114,7 @@ export function renderCompanyBlock(
 ): HTMLElement {
   const cachedInstanceLookup = getCachedInstanceLookup();
   const lastView = getLastView();
-  const lastOnAction = getLastOnAction();
+  const _lastOnAction = getLastOnAction();
   const influenceMoveSourceId = getInfluenceMoveSourceId();
   const transferItemSourceId = getTransferItemSourceId();
   const transferItemFromCharId = getTransferItemFromCharId();

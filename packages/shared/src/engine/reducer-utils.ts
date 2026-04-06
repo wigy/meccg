@@ -6,7 +6,7 @@
  * and card effect resolution helpers.
  */
 
-import type { GameState, PlayerState, CardInstanceId, CardInstance, CompanyId, PendingEffect, GameAction } from '../index.js';
+import type { GameState, PlayerState, CardInstanceId, CardInstance, CompanyId, GameAction } from '../index.js';
 import type { TwoDiceSix, DieRoll, GameEffect } from '../index.js';
 import type { Condition } from '../types/effects.js';
 import { shuffle, nextInt, CardStatus, getPlayerIndex } from '../index.js';

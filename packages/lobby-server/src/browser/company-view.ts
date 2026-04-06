@@ -26,7 +26,6 @@ import { setTargetingInstruction } from './render.js';
 import { renderCombatView, clearCombatButtons } from './combat-view.js';
 import {
   getFocusedCompanyId, setFocusedCompanyId,
-  getSavedFocusedCompanyId,
   getAllCompaniesOverride, setAllCompaniesOverride,
   getPendingFocusCharacterId, setPendingFocusCharacterId,
   getInfluenceMoveSourceId, setInfluenceMoveSourceId,

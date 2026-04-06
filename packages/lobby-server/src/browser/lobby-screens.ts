@@ -8,18 +8,18 @@
  */
 
 import {
-  appState, cardPool, type ScreenId,
-  LOBBY_MODE, BACKGROUNDS, BG_KEY,
+  appState, type ScreenId,
+  BACKGROUNDS, BG_KEY,
   EDITING_DECK_KEY, VIEWING_INBOX_KEY, VIEWING_DECKS_KEY,
   MAIL_TAB_KEY, MAIL_MSG_KEY,
 } from './app-state.js';
 import { restoreGameSession, saveGameSession } from './session.js';
 import { connect, setLobbyCallbacks } from './game-connection.js';
 import { connectPseudoAi } from './pseudo-ai.js';
-import { loadDecks, updatePlayControls } from './deck-browser.js';
+import { loadDecks } from './deck-browser.js';
 import { openDeckEditor } from './deck-editor.js';
 import { openInbox, openSent, autoSelectMessage, updateMailBadge } from './inbox.js';
-import { renderLog, showNotification } from './render.js';
+import { renderLog } from './render.js';
 
 /** All screen IDs in the lobby UI. */
 const ALL_SCREENS: ScreenId[] = ['login-screen', 'register-screen', 'lobby-screen', 'decks-screen', 'deck-editor-screen', 'inbox-screen', 'connect-form'];

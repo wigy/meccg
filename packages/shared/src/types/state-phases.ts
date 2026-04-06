@@ -16,7 +16,7 @@ import {
   SiteType,
   MovementType,
 } from './common.js';
-import type { ViewCard } from './common.js';
+// ViewCard is used indirectly via SiteSelectionPlayerState
 import type {
   CardInstance,
   DraftPlayerState,

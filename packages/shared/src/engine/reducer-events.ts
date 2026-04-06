@@ -8,12 +8,11 @@
 
 import type { GameState, CardInstance, ChainEntryPayload, PendingEffect, GameAction } from '../index.js';
 import { Phase, getPlayerIndex, BASE_MAX_REGION_DISTANCE } from '../index.js';
-import { logHeading, logDetail } from './legal-actions/log.js';
+import { logDetail } from './legal-actions/log.js';
 import { initiateChain, pushChainEntry } from './chain-reducer.js';
 import { resolveInstanceId } from '../types/state.js';
 import type { ReducerResult } from './reducer-utils.js';
 import { clonePlayers } from './reducer-utils.js';
-import { reduce } from './reducer.js';
 
 
 /**

@@ -7,8 +7,8 @@
  * for short-events and hazard keying, and resource/item target menus.
  */
 
-import type { PlayerView, CardDefinition, CardDefinitionId, CardInstanceId, GameAction, EvaluatedAction } from '@meccg/shared';
-import { cardImageProxyPath, viableActions, Phase, isCardHidden } from '@meccg/shared';
+import type { PlayerView, CardDefinition, CardDefinitionId, CardInstanceId, GameAction } from '@meccg/shared';
+import { cardImageProxyPath, viableActions, Phase } from '@meccg/shared';
 import { getCachedInstanceLookup, findNonViableReason } from './render-text-format.js';
 import {
   setTargetingInstruction,
@@ -20,7 +20,7 @@ import {
   getFactionInfluenceRenderCache, setFactionInfluenceRenderCache,
   getSelectedInfluencerForOpponent, setSelectedInfluencerForOpponent,
 } from './render-selection-state.js';
-import { findSelfIndex, hasRealCards } from './render-debug-panels.js';
+import { findSelfIndex } from './render-debug-panels.js';
 
 // ---- Card action finders ----
 

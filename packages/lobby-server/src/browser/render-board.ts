@@ -233,7 +233,7 @@ export function renderDrafted(
   cardPool: Readonly<Record<string, CardDefinition>>,
   onAction?: (action: GameAction) => void,
 ): void {
-  const cachedInstanceLookup = getCachedInstanceLookup();
+  const _cachedInstanceLookup = getCachedInstanceLookup();
   const selfEl = document.getElementById('drafted-self');
   const oppEl = document.getElementById('drafted-opponent');
   const setAsideEl = document.getElementById('set-aside');

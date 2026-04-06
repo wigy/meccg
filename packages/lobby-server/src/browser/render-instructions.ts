@@ -6,8 +6,8 @@
  * each phase and step of the game.
  */
 
-import type { PlayerView, CardDefinition, GameAction, CardInstanceId } from '@meccg/shared';
-import { getAlignmentRules, viableActions, isCharacterCard, Phase } from '@meccg/shared';
+import type { PlayerView, CardDefinition, GameAction } from '@meccg/shared';
+import { getAlignmentRules, isCharacterCard, Phase } from '@meccg/shared';
 import { getCachedInstanceLookup, REGION_ICON_CODES } from './render-text-format.js';
 import { getTargetingInstruction } from './render-selection-state.js';
 

@@ -6,15 +6,14 @@
  * and hand reset sub-steps.
  */
 
-import type { GameState, ChainEntryPayload, MovementHazardPhaseState, Company, CreatureCard, GameAction } from '../index.js';
+import type { GameState, MovementHazardPhaseState, Company, CreatureCard, GameAction } from '../index.js';
 import { Phase, CardStatus, isCharacterCard, isSiteCard, RegionType, Race, Skill, getPlayerIndex, BASE_MAX_REGION_DISTANCE, HAND_SIZE } from '../index.js';
-import { logHeading, logDetail } from './legal-actions/log.js';
+import { logDetail } from './legal-actions/log.js';
 import { initiateChain, pushChainEntry } from './chain-reducer.js';
 import { resolveInstanceId } from '../types/state.js';
 import type { ReducerResult } from './reducer-utils.js';
 import { clonePlayers, startDeckExhaust, completeDeckExhaust, handleExchangeSideboard, cleanupEmptyCompanies } from './reducer-utils.js';
 import { handlePlayShortEvent } from './reducer-events.js';
-import { reduce } from './reducer.js';
 
 
 /**

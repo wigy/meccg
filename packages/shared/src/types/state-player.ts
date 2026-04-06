@@ -8,7 +8,6 @@
 
 import {
   PlayerId,
-  CardStatus,
   WizardName,
   Alignment,
   TwoDiceSix,

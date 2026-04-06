@@ -12,7 +12,6 @@ import {
   CompanyId,
   CardDefinitionId,
   CardStatus,
-  MovementType,
 } from './common.js';
 import type { ViewCard } from './common.js';
 

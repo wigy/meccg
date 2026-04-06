@@ -5,9 +5,9 @@
  * hazard sideboard access, and transition to the organization phase.
  */
 
-import type { GameState, CharacterInPlay, UntapPhaseState, OrganizationPhaseState, GameAction } from '../index.js';
+import type { GameState, CharacterInPlay, UntapPhaseState, GameAction } from '../index.js';
 import { Phase, shuffle, CardStatus, isSiteCard, SiteType, getPlayerIndex } from '../index.js';
-import { logHeading, logDetail } from './legal-actions/log.js';
+import { logDetail } from './legal-actions/log.js';
 import type { ReducerResult } from './reducer-utils.js';
 import { clonePlayers } from './reducer-utils.js';
 

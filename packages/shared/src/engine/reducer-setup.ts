@@ -6,14 +6,13 @@
  * character placement, deck shuffle, initial draw, and initiative roll.
  */
 
-import type { GameState, DraftPlayerState, ItemDraftPlayerState, CharacterDeckDraftPlayerState, SetupStepState, CardInstanceId, CharacterInPlay, CardInstance, Company, GameAction } from '../index.js';
+import type { GameState, DraftPlayerState, ItemDraftPlayerState, CharacterDeckDraftPlayerState, SetupStepState, CardInstanceId, CharacterInPlay, CardInstance, GameAction } from '../index.js';
 import type { TwoDiceSix, GameEffect } from '../index.js';
 import { Phase, SetupStep, getAlignmentRules, shuffle, CardStatus, isCharacterCard, getPlayerIndex, MAX_STARTING_ITEMS } from '../index.js';
-import { logHeading, logDetail } from './legal-actions/log.js';
+import { logDetail } from './legal-actions/log.js';
 import { applyDraftResults, transitionAfterItemDraft, enterSiteSelection, startFirstTurn } from './init.js';
 import type { ReducerResult } from './reducer-utils.js';
 import { countAllInstances, roll2d6, clonePlayers, cleanupEmptyCompanies, nextCompanyId } from './reducer-utils.js';
-import { reduce } from './reducer.js';
 
 
 export function handleSetup(state: GameState, action: GameAction): ReducerResult {

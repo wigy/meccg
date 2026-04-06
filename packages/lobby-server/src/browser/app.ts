@@ -25,8 +25,8 @@ import {
   MAIL_TAB_KEY, MAIL_MSG_KEY,
 } from './app-state.js';
 import { savePlayerName, loadPlayerName } from './session.js';
-import { connect, disconnect, sendAction, resetVisualBoard } from './game-connection.js';
-import { loadDecks, setDeckBrowserCallbacks } from './deck-browser.js';
+import { connect, disconnect, resetVisualBoard } from './game-connection.js';
+import { setDeckBrowserCallbacks } from './deck-browser.js';
 import { setupDeckEditorPreview, setupDecksPreview, openDeckEditor, setDeckEditorCallbacks } from './deck-editor.js';
 import { openInbox, openSent } from './inbox.js';
 import { setInboxCallbacks } from './inbox.js';
@@ -35,7 +35,7 @@ import {
   connectLobbyWs, initLobby,
 } from './lobby-screens.js';
 import { renderLog, setupCardPreview, showNotification } from './render.js';
-import { renderCompanyViews, resetCompanyViews } from './company-view.js';
+import { resetCompanyViews } from './company-view.js';
 import { clearDice, restoreDice } from './dice.js';
 
 declare global {

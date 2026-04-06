@@ -6,12 +6,11 @@
  */
 
 import type { GameState, CombatState, StrikeAssignment, GameAction, GameEffect } from '../index.js';
-import { Phase, CardStatus } from '../index.js';
-import { logHeading, logDetail } from './legal-actions/log.js';
+import { CardStatus } from '../index.js';
+import { logDetail } from './legal-actions/log.js';
 import { resolveInstanceId } from '../types/state.js';
 import type { ReducerResult } from './reducer-utils.js';
 import { roll2d6, clonePlayers } from './reducer-utils.js';
-import { reduce } from './reducer.js';
 
 
 /**

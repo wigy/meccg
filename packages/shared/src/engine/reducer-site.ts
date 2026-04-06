@@ -6,18 +6,17 @@
  * influence attempts, and site phase advancement.
  */
 
-import type { GameState, PlayerState, CardInstanceId, CompanyId, CharacterInPlay, CardInstance, SitePhaseState, Company, HeroItemCard, CombatState, OnGuardCard, GameAction, GameEffect } from '../index.js';
+import type { GameState, PlayerState, CardInstanceId, CompanyId, CharacterInPlay, CardInstance, SitePhaseState, HeroItemCard, CombatState, OnGuardCard, GameAction, GameEffect } from '../index.js';
 import { Phase, CardStatus, isCharacterCard, isItemCard, isAllyCard, isFactionCard, isSiteCard, getPlayerIndex, GENERAL_INFLUENCE } from '../index.js';
-import { logHeading, logDetail } from './legal-actions/log.js';
+import { logDetail } from './legal-actions/log.js';
 import { collectCharacterEffects, resolveCheckModifier, resolveStatModifiers } from './effects/index.js';
 import type { ResolverContext } from './effects/index.js';
 import { matchesCondition } from '../effects/index.js';
-import { initiateChain, pushChainEntry } from './chain-reducer.js';
+import { initiateChain } from './chain-reducer.js';
 import { availableDI } from './legal-actions/organization.js';
 import type { ReducerResult } from './reducer-utils.js';
 import { roll2d6, clonePlayers, cleanupEmptyCompanies } from './reducer-utils.js';
 import { handlePlayPermanentEvent } from './reducer-events.js';
-import { reduce } from './reducer.js';
 
 
 /**

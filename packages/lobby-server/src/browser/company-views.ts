@@ -19,18 +19,16 @@ import type {
   MergeCompaniesAction,
   OpponentInfluenceAttemptAction,
 } from '@meccg/shared';
-import { cardImageProxyPath, viableActions, Phase } from '@meccg/shared';
-import { createCardImage } from './render-utils.js';
+import { viableActions } from '@meccg/shared';
 import { getSelectedCharacterForPlay, clearCharacterPlaySelection, getSelectedInfluencerForOpponent } from './render.js';
 import {
   getFocusedCompanyId, setFocusedCompanyId,
   getSavedFocusedCompanyId, setSavedFocusedCompanyId,
-  getAllCompaniesOverride, setAllCompaniesOverride,
+  setAllCompaniesOverride,
   getCompanyMoveSourceId, setCompanyMoveSourceId,
   getCompanyMoveSourceCompanyId, setCompanyMoveSourceCompanyId,
   getMergeSourceCompanyId, setMergeSourceCompanyId,
   getLastOnAction,
-  getCachedInstanceLookup,
   rerender,
 } from './company-view-state.js';
 import { renderCompanyBlock, renderDummyCompanyBlock } from './company-block.js';
@@ -55,7 +53,7 @@ export function renderSingleView(
   cardPool: Readonly<Record<string, CardDefinition>>,
 ): void {
   const lastOnAction = getLastOnAction()!;
-  let focusedCompanyId = getFocusedCompanyId();
+  const focusedCompanyId = getFocusedCompanyId();
 
   // Find the focused company across both players
   let company: Company | OpponentCompanyView | undefined;
@@ -304,8 +302,8 @@ export function renderAllCompaniesView(
 export function renderViewToggle(
   container: HTMLElement,
   showingSingle: boolean,
-  view: PlayerView,
-  cardPool: Readonly<Record<string, CardDefinition>>,
+  _view: PlayerView,
+  _cardPool: Readonly<Record<string, CardDefinition>>,
 ): void {
   const btn = document.createElement('button');
   btn.className = 'company-view-toggle';

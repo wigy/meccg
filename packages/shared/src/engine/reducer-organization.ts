@@ -8,14 +8,11 @@
 
 import type { GameState, CardInstanceId, CharacterInPlay, CardInstance, OrganizationPhaseState, Company, SiteInPlay, GameAction, GameEffect } from '../index.js';
 import { Phase, shuffle, CardStatus, isCharacterCard, isSiteCard, SiteType, getPlayerIndex, ZERO_EFFECTIVE_STATS } from '../index.js';
-import { logHeading, logDetail } from './legal-actions/log.js';
+import { logDetail } from './legal-actions/log.js';
 import { resolveInstanceId } from '../types/state.js';
 import type { ReducerResult } from './reducer-utils.js';
 import { roll2d6, clonePlayers, cleanupEmptyCompanies, nextCompanyId, handleFetchFromPile } from './reducer-utils.js';
 import { handlePlayPermanentEvent, handlePlayShortEvent, handlePlayResourceShortEvent } from './reducer-events.js';
-import { collectCharacterEffects, resolveCheckModifier, resolveStatModifiers } from './effects/index.js';
-import type { ResolverContext } from './effects/index.js';
-import { availableDI } from './legal-actions/organization.js';
 
 
 export function handleOrganization(state: GameState, action: GameAction): ReducerResult {

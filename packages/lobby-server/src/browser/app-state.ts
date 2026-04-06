@@ -7,7 +7,7 @@
  * making state a leaf dependency.
  */
 
-import type { CardDefinitionId, CardInstanceId, CardDefinition, GameAction, JoinMessage } from '@meccg/shared';
+import type { CardDefinitionId, CardInstanceId, CardDefinition, JoinMessage } from '@meccg/shared';
 import { loadCardPool, Alignment } from '@meccg/shared';
 
 // ---- Deck types ----
