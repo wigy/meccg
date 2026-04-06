@@ -11,7 +11,8 @@
  * The function is pure: `(GameState, PlayerId) → EvaluatedAction[]`.
  */
 
-import type { GameState, PlayerId, GameAction, EvaluatedAction } from '../../index.js';
+import type { GameState, PlayerId, GameAction, EvaluatedAction, CardInstanceId, FetchToDeckEffect } from '../../index.js';
+import { matchesCondition } from '../../index.js';
 import { setupActions } from './setup.js';
 import { untapActions } from './untap.js';
 import { organizationActions } from './organization.js';
@@ -23,6 +24,44 @@ import { freeCouncilActions } from './free-council.js';
 import { chainActions } from './chain.js';
 import { combatActions } from './combat.js';
 import { logHeading, logResult } from './log.js';
+
+/**
+ * Computes legal actions when a pending card effect is being resolved.
+ * Dispatches to the appropriate handler based on the effect type.
+ */
+function pendingEffectLegalActions(state: GameState, playerId: PlayerId): EvaluatedAction[] {
+  const current = state.pendingEffects[0];
+  if (current.type === 'card-effect' && current.effect.type === 'fetch-to-deck') {
+    return fetchFromPileLegalActions(state, playerId, current.effect as FetchToDeckEffect);
+  }
+  // Unknown effect type: allow pass to skip
+  return [{ action: { type: 'pass', player: playerId }, viable: true }];
+}
+
+/** Computes legal fetch-from-pile actions for a fetch-to-deck effect. */
+function fetchFromPileLegalActions(state: GameState, playerId: PlayerId, effect: FetchToDeckEffect): EvaluatedAction[] {
+  const playerIndex = state.players.findIndex(p => p.id === playerId);
+  if (playerIndex === -1) return [];
+  const player = state.players[playerIndex];
+  const actions: EvaluatedAction[] = [];
+
+  for (const source of effect.source) {
+    const pile = source === 'sideboard' ? player.sideboard : player.discardPile;
+    const pileSource = source === 'sideboard' ? 'sideboard' : 'discard-pile';
+    for (const card of pile) {
+      const def = state.cardPool[card.definitionId as string];
+      if (!def || !matchesCondition(effect.filter, def as unknown as Record<string, unknown>)) continue;
+      actions.push({
+        action: { type: 'fetch-from-pile', player: playerId, cardInstanceId: card.instanceId, source: pileSource } as
+          { type: 'fetch-from-pile'; player: PlayerId; cardInstanceId: CardInstanceId; source: 'sideboard' | 'discard-pile' },
+        viable: true,
+      });
+    }
+  }
+
+  actions.push({ action: { type: 'pass', player: playerId }, viable: true });
+  return actions;
+}
 
 /** Wraps plain GameActions as viable EvaluatedActions (for non-setup phases). */
 function asViable(actions: GameAction[]): EvaluatedAction[] {
@@ -51,6 +90,20 @@ export function computeLegalActions(state: GameState, playerId: PlayerId): Evalu
   if (state.combat != null) {
     logHeading(`Combat active (phase: ${state.combat.phase}) — delegating to combat actions`);
     const evaluated = combatActions(state, playerId);
+    const viableCount = evaluated.filter(e => e.viable).length;
+    logResult(viableCount, evaluated.filter(e => e.viable).map(e => e.action) as unknown as Record<string, unknown>[]);
+    return evaluated;
+  }
+
+  // Pending card effects take priority over phase actions
+  if (state.pendingEffects.length > 0) {
+    // Only the active player can resolve pending effects
+    if (playerId !== state.activePlayer) {
+      logResult(0, []);
+      return [];
+    }
+    logHeading(`Pending effects active (${state.pendingEffects[0].type}) — delegating to effect actions`);
+    const evaluated = pendingEffectLegalActions(state, playerId);
     const viableCount = evaluated.filter(e => e.viable).length;
     logResult(viableCount, evaluated.filter(e => e.viable).map(e => e.action) as unknown as Record<string, unknown>[]);
     return evaluated;

@@ -14,7 +14,7 @@
  * (or the original state plus an error string if the action was illegal).
  */
 
-import type { GameState, PlayerState, DraftPlayerState, ItemDraftPlayerState, CharacterDeckDraftPlayerState, SetupStepState, CardInstanceId, CompanyId, CharacterInPlay, CardInstance, ChainEntryPayload, UntapPhaseState, OrganizationPhaseState, LongEventPhaseState, MovementHazardPhaseState, SitePhaseState, EndOfTurnPhaseState, FreeCouncilPhaseState, Company, CreatureCard, SiteInPlay, HeroItemCard, CombatState, StrikeAssignment, PlayerId, OnGuardCard } from '../index.js';
+import type { GameState, PlayerState, DraftPlayerState, ItemDraftPlayerState, CharacterDeckDraftPlayerState, SetupStepState, CardInstanceId, CompanyId, CharacterInPlay, CardInstance, ChainEntryPayload, UntapPhaseState, OrganizationPhaseState, LongEventPhaseState, MovementHazardPhaseState, SitePhaseState, EndOfTurnPhaseState, FreeCouncilPhaseState, Company, CreatureCard, SiteInPlay, HeroItemCard, CombatState, StrikeAssignment, PlayerId, OnGuardCard, PendingEffect } from '../index.js';
 import type { GameAction } from '../index.js';
 import { Phase, SetupStep, LEGAL_ACTIONS_BY_PHASE, getAlignmentRules, shuffle, nextInt, CardStatus, isCharacterCard, isItemCard, isAllyCard, isFactionCard, isSiteCard, SiteType, RegionType, Race, Skill, getPlayerIndex, ZERO_EFFECTIVE_STATS, MAX_STARTING_ITEMS, BASE_MAX_REGION_DISTANCE, HAND_SIZE, GENERAL_INFLUENCE } from '../index.js';
 import { logHeading, logDetail } from './legal-actions/log.js';
@@ -285,6 +285,22 @@ export function reduce(state: GameState, action: GameAction): ReducerResult {
       };
     }
     return combatResult;
+  }
+
+  // 2d. Pending effects: resolve card effects awaiting player interaction
+  if (state.pendingEffects.length > 0 && (action.type === 'fetch-from-pile' || action.type === 'pass')) {
+    logDetail(`Pending effect active — dispatching '${action.type}' to effect handler`);
+    let effectResult: ReducerResult;
+    if (action.type === 'fetch-from-pile') {
+      effectResult = handleFetchFromPile(state, action);
+    } else {
+      effectResult = resolvePendingEffect(state);
+    }
+    if (!effectResult.error) {
+      const recomputed = recomputeDerived(effectResult.state);
+      return { state: { ...recomputed, stateSeq: recomputed.stateSeq + 1 } };
+    }
+    return effectResult;
   }
 
   // 3. Dispatch to phase handler
@@ -1636,7 +1652,7 @@ function handleOrganization(state: GameState, action: GameAction): ReducerResult
       state: {
         ...state,
         players: newPlayers,
-        phaseState: { phase: Phase.LongEvent, pendingFetch: null },
+        phaseState: { phase: Phase.LongEvent },
       },
     };
   }
@@ -1650,7 +1666,20 @@ function handleOrganization(state: GameState, action: GameAction): ReducerResult
     return handlePlayPermanentEvent(state, action);
   }
   if (action.type === 'play-short-event') {
+    // Dispatch based on card type: hazard short events target environments,
+    // resource short events resolve their DSL effects
+    if (action.cardInstanceId) {
+      const player = state.players.find(p => p.id === action.player);
+      const card = player?.hand.find(c => c.instanceId === action.cardInstanceId);
+      const def = card ? state.cardPool[card.definitionId as string] : undefined;
+      if (def && def.cardType === 'hero-resource-event') {
+        return handlePlayResourceShortEvent(state, action);
+      }
+    }
     return handlePlayShortEvent(state, action);
+  }
+  if (action.type === 'fetch-from-pile') {
+    return handleFetchFromPile(state, action);
   }
   if (action.type === 'move-to-influence') {
     return handleMoveToInfluence(state, action);
@@ -2713,6 +2742,10 @@ function handlePlayShortEvent(state: GameState, action: GameAction): ReducerResu
     return { state, error: 'Card is not a hazard short-event' };
   }
 
+  if (!action.targetInstanceId) {
+    return { state, error: 'Target environment required for hazard short-event' };
+  }
+
   // Validate target exists (in eventsInPlay, cardsInPlay, or the current chain)
   const targetInEvents = state.eventsInPlay.some(ev => ev.instanceId === action.targetInstanceId);
   const targetInCards = state.players.some(p =>
@@ -2765,24 +2798,10 @@ function handleLongEvent(state: GameState, action: GameAction): ReducerResult {
   if (action.type === 'play-long-event') {
     return handlePlayLongEvent(state, action);
   }
-  if (action.type === 'play-resource-short-event') {
+  if (action.type === 'play-short-event') {
     return handlePlayResourceShortEvent(state, action);
   }
-  if (action.type === 'fetch-from-pile') {
-    return handleFetchFromPile(state, action);
-  }
   if (action.type === 'pass') {
-    // If in fetch sub-flow, pass means skip (no eligible cards or player declines)
-    const leState = state.phaseState as LongEventPhaseState;
-    if (leState.pendingFetch) {
-      logDetail('Fetch sub-flow: player passed — clearing pending fetch');
-      return {
-        state: {
-          ...state,
-          phaseState: { ...leState, pendingFetch: null },
-        },
-      };
-    }
     // [2.III.3] At end of long-event phase: hazard player discards own hazard long-events
     const activePlayer = state.activePlayer!;
     const hazardPlayerIndex = (getPlayerIndex(state, activePlayer) + 1) % state.players.length;
@@ -2848,7 +2867,7 @@ function handleLongEvent(state: GameState, action: GameAction): ReducerResult {
  * effect, sets up the pendingFetch sub-flow on the phase state.
  */
 function handlePlayResourceShortEvent(state: GameState, action: GameAction): ReducerResult {
-  if (action.type !== 'play-resource-short-event') return { state, error: 'Expected play-resource-short-event action' };
+  if (action.type !== 'play-short-event') return { state, error: 'Expected play-short-event action' };
 
   const playerIndex = getPlayerIndex(state, action.player);
   const player = state.players[playerIndex];
@@ -2864,53 +2883,55 @@ function handlePlayResourceShortEvent(state: GameState, action: GameAction): Red
 
   logDetail(`Playing resource short-event: ${def.name} (${action.cardInstanceId as string})`);
 
-  // Move from hand → discard
   const newHand = [...player.hand];
   newHand.splice(cardIdx, 1);
-  const newPlayers = clonePlayers(state);
-  newPlayers[playerIndex] = {
-    ...player,
-    hand: newHand,
-    discardPile: [...player.discardPile, handCard],
-  };
 
-  // Check for fetch-to-deck effects
-  const leState = state.phaseState as LongEventPhaseState;
-  let pendingFetch: LongEventPhaseState['pendingFetch'] = null;
-  if (def.effects) {
-    for (const effect of def.effects) {
-      if (effect.type === 'fetch-to-deck') {
-        logDetail(`Fetch-to-deck effect: sources=[${effect.source.join(', ')}], filter=${JSON.stringify(effect.filter)}`);
-        pendingFetch = {
-          sources: effect.source,
-          filter: effect.filter,
-        };
-        break;
-      }
-    }
+  // Collect all effects that require player interaction to resolve
+  const interactiveEffects: PendingEffect[] = (def.effects ?? [])
+    .filter(e => e.type === 'fetch-to-deck')
+    .map(effect => ({ type: 'card-effect' as const, cardInstanceId: handCard.instanceId, effect }));
+
+  const newPlayers = clonePlayers(state);
+  newPlayers[playerIndex] = { ...player, hand: newHand };
+
+  if (interactiveEffects.length > 0) {
+    // Card goes to eventsInPlay (visible on table) while effects resolve
+    logDetail(`${def.name} → eventsInPlay, resolving ${interactiveEffects.length} effect(s)`);
+    return {
+      state: {
+        ...state,
+        players: newPlayers,
+        eventsInPlay: [...state.eventsInPlay, { ...handCard, owner: action.player }],
+        pendingEffects: [...state.pendingEffects, ...interactiveEffects],
+      },
+    };
   }
 
-  return {
-    state: {
-      ...state,
-      players: newPlayers,
-      phaseState: { ...leState, pendingFetch },
-    },
+  // No interactive effects: discard immediately
+  newPlayers[playerIndex] = {
+    ...newPlayers[playerIndex],
+    discardPile: [...newPlayers[playerIndex].discardPile, handCard],
   };
+  return { state: { ...state, players: newPlayers } };
 }
 
 /**
  * Handle fetching a card from sideboard or discard pile into the play deck.
  *
- * Part of the fetch-to-deck sub-flow initiated by resource short events.
- * Moves the selected card to the play deck and shuffles.
+ * Part of the fetch-to-deck effect resolution. The current effect is the
+ * first entry in {@link LongEventPhaseState.pendingEffects}. After the fetch,
+ * the effect is consumed; if no more effects remain, the event card moves
+ * from eventsInPlay to the player's discard pile.
  */
 function handleFetchFromPile(state: GameState, action: GameAction): ReducerResult {
   if (action.type !== 'fetch-from-pile') return { state, error: 'Expected fetch-from-pile action' };
 
-  const leState = state.phaseState as LongEventPhaseState;
-  if (!leState.pendingFetch) {
-    return { state, error: 'No fetch sub-flow active' };
+  if (state.pendingEffects.length === 0) {
+    return { state, error: 'No effect sub-flow active' };
+  }
+  const current = state.pendingEffects[0];
+  if (current.type !== 'card-effect' || current.effect.type !== 'fetch-to-deck') {
+    return { state, error: `Expected fetch-to-deck effect, got ${current.type}` };
   }
 
   const playerIndex = getPlayerIndex(state, action.player);
@@ -2927,7 +2948,7 @@ function handleFetchFromPile(state: GameState, action: GameAction): ReducerResul
   const def = state.cardPool[fetchedCard.definitionId as string];
 
   // Validate card matches filter condition
-  if (!def || !matchesCondition(leState.pendingFetch.filter, def as unknown as Record<string, unknown>)) {
+  if (!def || !matchesCondition(current.effect.filter, def as unknown as Record<string, unknown>)) {
     return { state, error: 'Card does not match fetch filter' };
   }
 
@@ -2941,26 +2962,49 @@ function handleFetchFromPile(state: GameState, action: GameAction): ReducerResul
 
   const newPlayers = clonePlayers(state);
   if (action.source === 'sideboard') {
-    newPlayers[playerIndex] = {
-      ...player,
-      sideboard: newSourcePile,
-      playDeck: shuffledDeck,
-    };
+    newPlayers[playerIndex] = { ...player, sideboard: newSourcePile, playDeck: shuffledDeck };
   } else {
-    newPlayers[playerIndex] = {
-      ...player,
-      discardPile: newSourcePile,
-      playDeck: shuffledDeck,
-    };
+    newPlayers[playerIndex] = { ...player, discardPile: newSourcePile, playDeck: shuffledDeck };
   }
 
+  // Consume this effect; if all done, move event card from eventsInPlay → discard
+  const remaining = state.pendingEffects.slice(1);
+  let newState: GameState = { ...state, players: newPlayers, rng: nextRng, pendingEffects: remaining };
+  if (remaining.length === 0) {
+    newState = discardEventCard(newState, current.cardInstanceId, playerIndex);
+  }
+  return { state: newState };
+}
+
+/**
+ * Resolve (skip) the current pending effect and advance to the next one.
+ * If no more effects remain, move the event card from eventsInPlay to discard.
+ */
+function resolvePendingEffect(state: GameState): ReducerResult {
+  const current = state.pendingEffects[0];
+  const remaining = state.pendingEffects.slice(1);
+  const activePlayerIndex = getPlayerIndex(state, state.activePlayer!);
+
+  let newState: GameState = { ...state, pendingEffects: remaining };
+  if (remaining.length === 0 && current.type === 'card-effect') {
+    newState = discardEventCard(newState, current.cardInstanceId, activePlayerIndex);
+  }
+  return { state: newState };
+}
+
+/** Move a card from eventsInPlay to the specified player's discard pile. */
+function discardEventCard(state: GameState, cardInstanceId: CardInstanceId, playerIndex: number): GameState {
+  const eventCard = state.eventsInPlay.find(c => c.instanceId === cardInstanceId);
+  if (!eventCard) return state;
+  const newPlayers = clonePlayers(state);
+  newPlayers[playerIndex] = {
+    ...newPlayers[playerIndex],
+    discardPile: [...newPlayers[playerIndex].discardPile, eventCard],
+  };
   return {
-    state: {
-      ...state,
-      players: newPlayers,
-      rng: nextRng,
-      phaseState: { ...leState, pendingFetch: null },
-    },
+    ...state,
+    players: newPlayers,
+    eventsInPlay: state.eventsInPlay.filter(c => c.instanceId !== cardInstanceId),
   };
 }
 

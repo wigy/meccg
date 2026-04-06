@@ -8,7 +8,7 @@
 
 import type { ServerMessage, ClientMessage, GameAction, CardDefinitionId, CardInstanceId, JoinMessage } from '@meccg/shared';
 import { loadCardPool, describeAction, buildCompanyNames, cardImageProxyPath, Alignment, buildInstanceLookup, getCardCss } from '@meccg/shared';
-import { renderState, renderDraft, renderMHInfo, renderSiteInfo, renderFreeCouncilInfo, renderGameOverView, renderActions, renderLog, renderHand, renderOpponentHand, renderPlayerNames, renderInstructions, renderDrafted, renderPassButton, renderDeckPiles, resetDeckPiles, setupCardPreview, showNotification, prepareSiteSelection, clearSiteSelection, renderChainPanel, buildCardAttributes } from './render.js';
+import { renderState, renderDraft, renderMHInfo, renderSiteInfo, renderFreeCouncilInfo, renderGameOverView, renderActions, renderLog, renderHand, renderOpponentHand, renderPlayerNames, renderInstructions, renderDrafted, renderPassButton, renderDeckPiles, resetDeckPiles, setupCardPreview, showNotification, prepareSiteSelection, prepareFetchFromPile, clearSiteSelection, clearSelectionState, renderChainPanel, buildCardAttributes } from './render.js';
 import { renderCompanyViews, resetCompanyViews } from './company-view.js';
 import { rollDice, clearDice, restoreDice, waitForDice } from './dice.js';
 import { snapshotPositions, animateFromSnapshot } from './flip-animate.js';
@@ -404,11 +404,13 @@ function connect(name: string): void {
           showNotification(isMine ? 'Your turn' : "Opponent's turn");
         }
         lastPhase = msg.view.phaseState.phase;
-        // Prepare/clear site selection based on legal actions
+        // Prepare/clear site selection or fetch-from-pile based on legal actions
         if (msg.view.legalActions.some(ea => ea.action.type === 'select-starting-site')) {
           prepareSiteSelection(msg.view, cardPool, sendAction);
+        } else if (msg.view.legalActions.some(ea => ea.viable && ea.action.type === 'fetch-from-pile')) {
+          prepareFetchFromPile(msg.view, cardPool, sendAction);
         } else {
-          clearSiteSelection();
+          clearSelectionState();
         }
         // Auto-pass: if exactly one viable action, send it after a delay
         if (autoPassTimer) { clearTimeout(autoPassTimer); autoPassTimer = null; }

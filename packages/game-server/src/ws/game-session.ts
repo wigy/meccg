@@ -25,7 +25,7 @@ import type {
   JoinMessage,
   GameAction,
 } from '@meccg/shared';
-import { loadCardPool, createRng, buildMovementMap, createGame, reduce, startCapture, flushCapture, Phase, computeTournamentBreakdown } from '@meccg/shared';
+import { loadCardPool, createRng, buildMovementMap, createGame, reduce, startCapture, flushCapture, Phase, computeTournamentBreakdown, computeLegalActions } from '@meccg/shared';
 import type { MovementMap, PlayerConfig, GameConfig } from '@meccg/shared';
 import { projectPlayerView, projectSpectatorView } from './projection.js';
 import { ServerLog, GameLog } from './game-log.js';
@@ -513,6 +513,16 @@ export class GameSession {
   private logState(reason: string, action?: Record<string, unknown>): void {
     if (this.state) {
       const { cardPool: _cardPool, ...stateWithoutStatic } = this.state;
+      // Compute legal actions for both players and include in the log
+      const legalActions: Record<string, unknown[]> = {};
+      for (const player of this.state.players) {
+        const evaluated = computeLegalActions(this.state, player.id);
+        legalActions[player.id as string] = evaluated.map(e =>
+          e.viable
+            ? { action: e.action }
+            : { action: e.action, reason: e.reason },
+        );
+      }
       this.gameLog.log('state', {
         stateSeq: this.state.stateSeq,
         reason,
@@ -521,6 +531,7 @@ export class GameSession {
         phase: this.state.phaseState.phase,
         step: this.state.phaseState.phase === 'setup' ? this.state.phaseState.setupStep.step : null,
         activePlayer: this.state.activePlayer,
+        legalActions,
         state: stateWithoutStatic,
       });
     }

@@ -7,70 +7,17 @@
  * on pass, hazard long-events belonging to the opponent are discarded
  * automatically.
  *
- * When a resource short-event with a `fetch-to-deck` effect is played,
- * the phase enters a fetch sub-flow where the player must select a card
- * from their sideboard or discard pile.
+ * When a resource short-event with interactive DSL effects (e.g.
+ * `fetch-to-deck`) is played, the game enters an effect resolution
+ * sub-flow driven by {@link GameState.pendingEffects}, which is handled
+ * at the top level of {@link computeLegalActions}.
  *
  * Returns {@link EvaluatedAction} entries so the UI can highlight playable
  * cards and show reasons for non-playable ones.
  */
 
-import type { GameState, PlayerId, EvaluatedAction, HeroResourceEventCard, LongEventPhaseState, CardInstanceId } from '../../index.js';
-import { matchesCondition } from '../../index.js';
+import type { GameState, PlayerId, EvaluatedAction, HeroResourceEventCard } from '../../index.js';
 import { logHeading, logDetail } from './log.js';
-
-/**
- * Computes legal actions for the fetch-to-deck sub-flow.
- *
- * When {@link LongEventPhaseState.pendingFetch} is active, the player must
- * select one eligible card from the specified source piles.
- */
-function fetchFromPileActions(state: GameState, playerId: PlayerId): EvaluatedAction[] {
-  const leState = state.phaseState as LongEventPhaseState;
-  const pending = leState.pendingFetch;
-  if (!pending) return [];
-
-  const playerIndex = state.players.findIndex(p => p.id === playerId);
-  if (playerIndex === -1) return [];
-  const player = state.players[playerIndex];
-
-  const actions: EvaluatedAction[] = [];
-
-  for (const source of pending.sources) {
-    const pile = source === 'sideboard' ? player.sideboard : player.discardPile;
-    const pileSource = source === 'sideboard' ? 'sideboard' : 'discard-pile';
-
-    for (const card of pile) {
-      const def = state.cardPool[card.definitionId as string];
-      if (!def) continue;
-
-      // Apply filter
-      if (!matchesCondition(pending.filter, def as unknown as Record<string, unknown>)) {
-        continue;
-      }
-
-      logDetail(`Fetch eligible: ${def.name} from ${source} (${card.instanceId as string})`);
-      actions.push({
-        action: {
-          type: 'fetch-from-pile',
-          player: playerId,
-          cardInstanceId: card.instanceId,
-          source: pileSource,
-        } as { type: 'fetch-from-pile'; player: PlayerId; cardInstanceId: CardInstanceId; source: 'sideboard' | 'discard-pile' },
-        viable: true,
-      });
-    }
-  }
-
-  // If no eligible cards, allow pass to skip
-  if (actions.length === 0) {
-    logDetail('Fetch sub-flow: no eligible cards — pass to skip');
-  }
-  actions.push({ action: { type: 'pass', player: playerId }, viable: true });
-
-  logDetail(`Fetch sub-flow: ${actions.length - 1} eligible cards + pass`);
-  return actions;
-}
 
 /**
  * Computes the legal actions for the active player during the long-event phase.
@@ -87,13 +34,6 @@ export function longEventActions(state: GameState, playerId: PlayerId): Evaluate
   if (playerId !== state.activePlayer) {
     logDetail('Not active player — no actions during long-event phase');
     return [];
-  }
-
-  // If fetch sub-flow is active, only fetch actions are legal
-  const leState = state.phaseState as LongEventPhaseState;
-  if (leState.pendingFetch) {
-    logHeading('Fetch-to-deck sub-flow active');
-    return fetchFromPileActions(state, playerId);
   }
 
   const actions: EvaluatedAction[] = [];
@@ -166,7 +106,7 @@ export function longEventActions(state: GameState, playerId: PlayerId): Evaluate
 
       logDetail(`Resource short-event playable: ${def.name} (${cardInstanceId as string})`);
       actions.push({
-        action: { type: 'play-resource-short-event', player: playerId, cardInstanceId },
+        action: { type: 'play-short-event', player: playerId, cardInstanceId },
         viable: true,
       });
     }

@@ -1651,7 +1651,7 @@ h2 {
   border-radius: 4px;
   font-family: 'Courier New', monospace;
   font-size: 0.8rem;
-  max-height: 200px;
+  max-height: 1000px;
   overflow-y: auto;
   color: #888;
 }
@@ -1991,6 +1991,13 @@ h2 {
   50% { box-shadow: 0 0 22px 8px rgba(196, 163, 90, 1); }
 }
 
+/* Fetch-from-pile: highlight sideboard/discard pile during fetch sub-flow */
+.pile--fetch-active {
+  box-shadow: 0 0 14px 5px rgba(196, 163, 90, 0.9);
+  border-radius: 6px;
+  animation: site-pile-pulse 1.5s ease-in-out infinite;
+}
+
 /* Clickable pile cells (sideboard, victory display) */
 .pile-cell--clickable {
   cursor: pointer;
@@ -2025,7 +2032,7 @@ h2 {
   border-radius: 8px;
   padding: 1.5rem;
   width: 80vw;
-  max-height: 85vh;
+  max-height: 92vh;
   overflow-y: auto;
   overflow-x: hidden;
   color: #e0e0e0;
@@ -3325,6 +3332,11 @@ h2 {
 
 .cards-in-play-group--inactive {
   filter: brightness(0.5) saturate(0.6);
+}
+
+.cards-in-play-group--events {
+  border: 1px solid rgba(196, 163, 90, 0.5);
+  box-shadow: 0 0 8px rgba(196, 163, 90, 0.4);
 }
 
 /* Overview grid */

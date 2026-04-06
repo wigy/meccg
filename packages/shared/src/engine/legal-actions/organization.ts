@@ -1090,11 +1090,26 @@ export function organizationActions(state: GameState, playerId: PlayerId): Evalu
     ),
   );
 
+  // Play resource short-events from hand (e.g. Smoke Rings)
+  const resourceShortEventInstances = new Set<string>();
+  for (const handCard of player.hand) {
+    const def = state.cardPool[handCard.definitionId as string] as HeroResourceEventCard | undefined;
+    if (!def || def.cardType !== 'hero-resource-event' || def.eventType !== 'short') continue;
+    if (evaluatedInstances.has(handCard.instanceId as string)) continue;
+    resourceShortEventInstances.add(handCard.instanceId as string);
+    logDetail(`Resource short-event playable: ${def.name} (${handCard.instanceId as string})`);
+    actions.push({
+      action: { type: 'play-short-event', player: playerId, cardInstanceId: handCard.instanceId },
+      viable: true,
+    });
+  }
+
   // Mark remaining hand cards as not playable during organization
   for (const handCard of player.hand) {
     if (evaluatedInstances.has(handCard.instanceId as string)) continue;
     if (permanentEventInstances.has(handCard.instanceId as string)) continue;
     if (shortEventInstances.has(handCard.instanceId as string)) continue;
+    if (resourceShortEventInstances.has(handCard.instanceId as string)) continue;
     actions.push({
       action: { type: 'not-playable', player: playerId, cardInstanceId: handCard.instanceId },
       viable: false,

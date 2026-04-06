@@ -1712,16 +1712,17 @@ function renderCardsInPlayRow(
 ): void {
   const selfCards = view.self.cardsInPlay;
   const oppCards = view.opponent.cardsInPlay;
-  if (selfCards.length === 0 && oppCards.length === 0) return;
+  const events = view.eventsInPlay;
+  if (selfCards.length === 0 && oppCards.length === 0 && events.length === 0) return;
 
   const row = document.createElement('div');
   row.className = 'cards-in-play-row';
   row.style.setProperty('--company-scale', '0.6');
 
-  const renderGroup = (cards: readonly CardInPlay[], inactive: boolean) => {
+  const renderGroup = (cards: readonly { instanceId: CardInstanceId; definitionId: CardDefinitionId; status?: string }[], className: string) => {
     if (cards.length === 0) return;
     const group = document.createElement('div');
-    group.className = inactive ? 'cards-in-play-group cards-in-play-group--inactive' : 'cards-in-play-group';
+    group.className = className;
     for (const card of cards) {
       const def = cardPool[card.definitionId as string];
       if (!def) continue;
@@ -1734,8 +1735,10 @@ function renderCardsInPlayRow(
     row.appendChild(group);
   };
 
-  renderGroup(selfCards, false);
-  renderGroup(oppCards, false);
+  // Events in play (long-events, permanent events, resolving short events)
+  renderGroup(events, 'cards-in-play-group cards-in-play-group--events');
+  renderGroup(selfCards, 'cards-in-play-group');
+  renderGroup(oppCards, 'cards-in-play-group');
   container.appendChild(row);
 }
 

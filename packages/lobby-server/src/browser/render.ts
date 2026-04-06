@@ -1529,7 +1529,7 @@ function applyRowOverlap(grid: HTMLElement): void {
   if (numRows <= 3) return;
 
   // Available height: 85vh dialog minus ~4rem for title and padding
-  const availableHeight = window.innerHeight * 0.85 - 80;
+  const availableHeight = window.innerHeight * 0.92 - 80;
   // step = vertical distance between row tops so everything fits
   const step = (availableHeight - cardHeight) / (numRows - 1);
   const overlap = step - cardHeight - gap;
@@ -1730,15 +1730,74 @@ export function openMovementViewer(
   populateBrowserGrid();
 }
 
+/**
+ * Prepare the fetch-from-pile sub-flow UI.
+ *
+ * Opens the deck box, highlights the sideboard and discard pile cells,
+ * and wires up the pile browser so clicking an eligible card sends
+ * the corresponding fetch-from-pile action.
+ */
+export function prepareFetchFromPile(
+  view: PlayerView,
+  cardPool: Readonly<Record<string, CardDefinition>>,
+  onAction: (action: GameAction) => void,
+): void {
+  const fetchActions = view.legalActions.filter(ea => ea.viable && ea.action.type === 'fetch-from-pile');
+  if (fetchActions.length === 0) return;
+
+  cachedCardPool = cardPool;
+
+  // Open deck box so piles are visible
+  document.getElementById('self-deck-box')?.classList.remove('deck-box--compact');
+
+  // Highlight sideboard and discard pile cells
+  const hasSideboard = fetchActions.some(ea => (ea.action as { source: string }).source === 'sideboard');
+  const hasDiscard = fetchActions.some(ea => (ea.action as { source: string }).source === 'discard-pile');
+  if (hasSideboard) {
+    document.getElementById('self-sideboard-pile')?.classList.add('pile--fetch-active');
+  }
+  if (hasDiscard) {
+    document.getElementById('self-discard-pile')?.classList.add('pile--fetch-active');
+  }
+
+  // Set up selection state so pile browser highlights eligible cards
+  fetchSubFlowActive = true;
+  siteSelectionActions = fetchActions;
+  siteSelectionMatcher = (card) => fetchActions.find(
+    ea => ea.action.type === 'fetch-from-pile'
+      && ea.action.cardInstanceId === card.instanceId,
+  );
+  siteSelectionCallback = onAction;
+}
+
+/** Whether the fetch-from-pile sub-flow is active (pile highlights should persist). */
+let fetchSubFlowActive = false;
+
 /** Close the pile browser and clear selection state. */
 export function closeSelectionViewer(): void {
+  const modal = document.getElementById('pile-browser-modal');
+  if (modal) modal.classList.add('hidden');
+
+  if (fetchSubFlowActive) {
+    // Keep selection wiring and pile highlights — only hide the modal.
+    // The next state update will re-call prepareFetchFromPile if still active,
+    // or clearSelectionState if no longer needed.
+    return;
+  }
+
+  clearSelectionState();
+}
+
+/** Fully clear all selection/highlight state. Called when no sub-flow is active. */
+export function clearSelectionState(): void {
   siteSelectionActions = [];
   siteSelectionCallback = null;
   siteSelectionMatcher = null;
-  const modal = document.getElementById('pile-browser-modal');
-  if (modal) modal.classList.add('hidden');
+  fetchSubFlowActive = false;
   const pile = document.getElementById('self-site-pile');
   if (pile) pile.classList.remove('site-pile--active');
+  document.getElementById('self-sideboard-pile')?.classList.remove('pile--fetch-active');
+  document.getElementById('self-discard-pile')?.classList.remove('pile--fetch-active');
 }
 
 /** @deprecated Use closeSelectionViewer instead. */
@@ -1882,7 +1941,7 @@ function showShortEventTargetMenu(
   tooltip.style.top = `${event.clientY}px`;
 
   for (const action of actions) {
-    if (action.type !== 'play-short-event') continue;
+    if (action.type !== 'play-short-event' || !action.targetInstanceId) continue;
     const targetDefId = cachedInstanceLookup(action.targetInstanceId);
     const targetDef = targetDefId ? cardPool[targetDefId as string] : undefined;
     const targetName = targetDef ? targetDef.name : '?';

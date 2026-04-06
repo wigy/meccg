@@ -616,17 +616,6 @@ export interface OrganizationPhaseState {
 export interface LongEventPhaseState {
   /** Phase discriminant. */
   readonly phase: Phase.LongEvent;
-  /**
-   * When non-null, a fetch-to-deck sub-flow is active. The player must
-   * select a card from the eligible sources (sideboard and/or discard pile).
-   * Set when a resource short event with a `fetch-to-deck` effect is played.
-   */
-  readonly pendingFetch: {
-    /** Which piles the player may fetch from. */
-    readonly sources: readonly string[];
-    /** DSL condition evaluated against each card definition to decide eligibility. */
-    readonly filter: import('./effects.js').Condition;
-  } | null;
 }
 
 /**
@@ -1275,14 +1264,22 @@ export interface ChainState {
  * A queued game effect waiting to be resolved.
  *
  * Some actions trigger effects that require additional input or sequencing
- * (e.g. a card ability that triggers after combat). Pending effects are
- * processed in order before the game continues.
+ * (e.g. a resource short event with a fetch-to-deck effect). Pending effects
+ * are processed in order before the game continues; when the queue is non-empty,
+ * only effect-resolution actions are legal.
  */
-export interface PendingEffect {
-  /** Discriminant identifying the type of effect to resolve. */
-  readonly type: string;
-  /** Effect-specific payload data. */
-  readonly data: unknown;
+export type PendingEffect = CardEffectPendingEffect;
+
+/**
+ * A DSL card effect awaiting player interaction (e.g. fetch-to-deck).
+ * The source card is in {@link GameState.eventsInPlay} while this resolves.
+ */
+export interface CardEffectPendingEffect {
+  readonly type: 'card-effect';
+  /** Instance ID of the card in eventsInPlay that triggered this effect. */
+  readonly cardInstanceId: CardInstanceId;
+  /** The DSL effect being resolved (carries all parameters). */
+  readonly effect: import('./effects.js').CardEffect;
 }
 
 // ---- RNG ----

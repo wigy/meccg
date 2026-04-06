@@ -15,7 +15,7 @@
 
 import type { CardDefinition } from './types/cards.js';
 import { isCharacterCard, isItemCard } from './types/cards.js';
-import type { GameState, Company, CharacterInPlay, ItemInPlay, AllyInPlay, CombatState, ChainState, PhaseState, MarshallingPointTotals } from './types/state.js';
+import type { GameState, Company, CharacterInPlay, ItemInPlay, AllyInPlay, CombatState, ChainState, PhaseState, MarshallingPointTotals, PendingEffect } from './types/state.js';
 import { Phase, SetupStep } from './types/state.js';
 import { resolveInstanceId } from './types/state.js';
 import type { PlayerView, OpponentCompanyView } from './types/player-view.js';
@@ -517,6 +517,8 @@ interface RenderInput {
   readonly phaseState: PhaseState;
   readonly combat: CombatState | null;
   readonly chain: ChainState | null;
+  readonly eventsInPlay: readonly CardInstanceId[];
+  readonly pendingEffects: readonly PendingEffect[];
   readonly players: readonly [RenderPlayerInput, RenderPlayerInput];
   readonly defOf: CardLookup;
   readonly instOf: InstanceLookup;
@@ -605,6 +607,25 @@ function renderState(input: RenderInput): string {
     lines.push('«COMBAT-START»');
     lines.push(...formatCombat(input.combat, defOf, instOf, '  '));
     lines.push('«COMBAT-END»');
+  }
+
+  // Events in play (long-events, permanent events, short events resolving)
+  if (input.eventsInPlay.length > 0) {
+    lines.push('Events in play:');
+    for (const id of input.eventsInPlay) {
+      lines.push(`  · ${formatInstanceName(id, defOf, instOf)}`);
+    }
+  }
+
+  // Pending effects (card effect sub-flows in progress)
+  if (input.pendingEffects.length > 0) {
+    lines.push('Pending effects:');
+    for (const pe of input.pendingEffects) {
+      if (pe.type === 'card-effect') {
+        const cardName = formatInstanceName(pe.cardInstanceId, defOf, instOf);
+        lines.push(`  · ${cardName}: ${pe.effect.type}`);
+      }
+    }
   }
 
   for (let pi = 0; pi < input.players.length; pi++) {
@@ -712,6 +733,8 @@ export function formatGameState(state: GameState): string {
     phaseState: state.phaseState,
     combat: state.combat,
     chain: state.chain,
+    eventsInPlay: state.eventsInPlay.map(e => e.instanceId),
+    pendingEffects: state.pendingEffects,
     players: state.players.map(p => ({
       name: p.name,
       alignment: p.alignment,
@@ -775,6 +798,8 @@ export function formatPlayerView(
     phaseState: view.phaseState,
     combat: view.combat,
     chain: view.chain,
+    eventsInPlay: view.eventsInPlay.map(e => e.instanceId),
+    pendingEffects: view.pendingEffects,
     players: [
       {
         name: view.self.name,
@@ -978,7 +1003,9 @@ export function describeAction(
     case 'play-permanent-event':
       return `Play permanent event ${instName(action.cardInstanceId)}`;
     case 'play-short-event':
-      return `Play ${instName(action.cardInstanceId)} to cancel ${instName(action.targetInstanceId)}`;
+      return action.targetInstanceId
+        ? `Play ${instName(action.cardInstanceId)} to cancel ${instName(action.targetInstanceId)}`
+        : `Play short-event ${instName(action.cardInstanceId)}`;
     case 'play-hazard': {
       const base = `Play hazard ${instName(action.cardInstanceId)} against ${compName(action.targetCompanyId)}`;
       if (action.keyedBy) return `${base} (keyed by ${action.keyedBy.method}: ${action.keyedBy.value})`;
@@ -1074,8 +1101,6 @@ export function describeAction(
       return `Order ${action.order.length} passive condition(s)`;
     case 'deck-exhaust':
       return `Exhaust deck (reshuffle discard)`;
-    case 'play-resource-short-event':
-      return `Play resource short-event ${instName(action.cardInstanceId)}`;
     case 'fetch-from-pile':
       return `Fetch ${instName(action.cardInstanceId)} from ${action.source}`;
     case 'finished':

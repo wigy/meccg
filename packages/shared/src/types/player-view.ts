@@ -39,6 +39,7 @@ import type {
   CardInPlay,
   MarshallingPointTotals,
   SiteInPlay,
+  PendingEffect,
 } from './state.js';
 import type { EvaluatedAction } from '../rules/types.js';
 
@@ -215,6 +216,8 @@ export interface PlayerView {
   readonly chain: ChainState | null;
   /** Long-duration and permanent events currently in play on the table. */
   readonly eventsInPlay: readonly EventInPlay[];
+  /** Pending card effects awaiting player interaction. */
+  readonly pendingEffects: readonly PendingEffect[];
   /** Current turn number (1-based). */
   readonly turnNumber: number;
   /**

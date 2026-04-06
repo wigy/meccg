@@ -328,10 +328,13 @@ export interface PlayPermanentEventAction {
 /**
  * Play a short-event card as a resource to cancel and discard an environment.
  *
- * Cards with the `playable-as-resource` effect (e.g. Twilight) can be played
- * from hand during any phase to target an environment card in play. The short
- * event resolves immediately: the target environment is discarded, then the
- * short event itself is discarded.
+ * When targeting an environment card (e.g. Twilight canceling a long-event),
+ * the `targetInstanceId` identifies the card to cancel. The short event
+ * initiates a chain so both players can respond before resolution.
+ *
+ * When played during the long-event phase as a resource short-event (e.g.
+ * Smoke Rings), no target is needed. The card may trigger sub-flows such as
+ * fetching a card from the sideboard or discard pile.
  */
 export interface PlayShortEventAction {
   readonly type: 'play-short-event';
@@ -339,22 +342,8 @@ export interface PlayShortEventAction {
   readonly player: PlayerId;
   /** The short-event card instance to play from hand. */
   readonly cardInstanceId: CardInstanceId;
-  /** The environment card instance to cancel and discard. */
-  readonly targetInstanceId: CardInstanceId;
-}
-
-/**
- * Play a resource short-event card from hand during the Long-event phase.
- *
- * Resource short events (like Smoke Rings) are played and discarded immediately.
- * They may trigger a sub-flow (e.g. fetching a card from sideboard/discard pile).
- */
-export interface PlayResourceShortEventAction {
-  readonly type: 'play-resource-short-event';
-  /** The player playing the short event. */
-  readonly player: PlayerId;
-  /** The short-event card instance to play from hand. */
-  readonly cardInstanceId: CardInstanceId;
+  /** The environment card instance to cancel and discard (when targeting an environment). */
+  readonly targetInstanceId?: CardInstanceId;
 }
 
 /**
@@ -1068,7 +1057,6 @@ export type GameAction =
   | CancelMovementAction
   | PlayPermanentEventAction
   | PlayShortEventAction
-  | PlayResourceShortEventAction
   | FetchFromPileAction
   | PlayLongEventAction
   | SelectCompanyAction
