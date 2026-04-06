@@ -6,7 +6,7 @@
 
 | Total Cards | Certified | Remaining | Progress |
 |:-----------:|:---------:|:---------:|:--------:|
-| 43          | 8         | 35        | 18.6%    |
+| 44          | 9         | 35        | 20.5%    |
 
 ## Category Breakdown
 
@@ -15,7 +15,7 @@
 | Hero Characters | 18 | 2 | 11.1% |
 | Hero Resource Items | 6 | 0 | 0.0% |
 | Hero Resource Events | 2 | 2 | 100.0% |
-| Hero Sites | 2 | 2 | 100.0% |
+| Hero Sites | 3 | 3 | 100.0% |
 | Hazard Events | 2 | 2 | 100.0% |
 | Hazard Creatures | 2 | 0 | 0.0% |
 | Minion Characters | 8 | 0 | 0.0% |
@@ -67,5 +67,6 @@
 | tw-335 | Sun | hero-resource-event | 4 | ☑ |
 | tw-345 | The Mithril-coat | hero-resource-item | 1 | ☐ |
 | tw-347 | The One Ring | hero-resource-item | 5 | ☐ |
+| tw-378 | Bree | hero-site | 10 | ☑ |
 | tw-408 | Lórien | hero-site | 12 | ☑ |
 | tw-421 | Rivendell | hero-site | 12 | ☑ |
