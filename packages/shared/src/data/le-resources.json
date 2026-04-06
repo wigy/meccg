@@ -308,6 +308,19 @@
   {
     "cardType": "minion-resource-event",
     "alignment": "ringwraith",
+    "id": "le-235",
+    "name": "Sudden Call",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/SuddenCall.jpg",
+    "unique": false,
+    "eventType": "short",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "You may play this card as a resource or a hazard according to The Audience of Sauron Rules. This card may not be played as a hazard against a Wizard player, and may be included as a hazard in a Wizard's deck. You may reshuffle this card into your play deck at any time that it is in your hand (show opponent)."
+  },
+  {
+    "cardType": "minion-resource-event",
+    "alignment": "ringwraith",
     "id": "le-250",
     "name": "Voices of Malice",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/VoicesofMalice.jpg",

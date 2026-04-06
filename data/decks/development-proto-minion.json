@@ -68,7 +68,58 @@
         "qty": 2
       }
     ],
-    "resources": []
+    "resources": [
+      {
+        "name": "Black Mace",
+        "card": "le-299",
+        "qty": 1
+      },
+      {
+        "name": "High Helm",
+        "card": "le-313",
+        "qty": 1
+      },
+      {
+        "name": "Blazon of the Eye",
+        "card": "le-302",
+        "qty": 3
+      },
+      {
+        "name": "Foul-smelling Paste",
+        "card": "le-310",
+        "qty": 3
+      },
+      {
+        "name": "Goblins of Goblin-gate",
+        "card": "le-265",
+        "qty": 1
+      },
+      {
+        "name": "Stinker",
+        "card": "le-154",
+        "qty": 1
+      },
+      {
+        "name": "The Warg-king",
+        "card": "le-158",
+        "qty": 1
+      },
+      {
+        "name": "Orc Quarrels",
+        "card": "le-216",
+        "qty": 3
+      },
+      {
+        "name": "A Nice Place to Hide",
+        "card": "le-160",
+        "qty": 3
+      },
+      {
+        "name": "Voices of Malice",
+        "card": "le-250",
+        "qty": 2
+      }
+    ]
   },
   "sites": [
     {
@@ -95,7 +146,23 @@
       "name": "Weathertop",
       "card": "as-169",
       "qty": 1
+    },
+    {
+      "name": "Goblin-gate",
+      "card": "le-378",
+      "qty": 1
+    },
+    {
+      "name": "Moria",
+      "card": "le-392",
+      "qty": 1
     }
   ],
-  "sideboard": []
+  "sideboard": [
+    {
+      "name": "Sudden Call",
+      "card": "le-235",
+      "qty": 3
+    }
+  ]
 }
