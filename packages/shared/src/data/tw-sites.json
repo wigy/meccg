@@ -94,7 +94,8 @@
     "automaticAttacks": [],
     "resourceDraws": 2,
     "hazardDraws": 2,
-    "text": "Site Path From Grey Havens: Free-domain/Coastland/Coastland/Coastland/Coastland/Wilderness. Site Path From Lórien: Wilderness/Border-land/Free-domain/Free-domain/Border-land/Wilderness."
+    "text": "Site Path From Grey Havens: Free-domain/Coastland/Coastland/Coastland/Coastland/Wilderness. Site Path From Lórien: Wilderness/Border-land/Free-domain/Free-domain/Border-land/Wilderness.",
+    "certified": "2026-04-06"
   },
   {
     "cardType": "hero-site",
