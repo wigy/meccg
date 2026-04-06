@@ -21,7 +21,7 @@
 import { describe, test, expect } from 'vitest';
 import {
   buildTargetState, findCharInstanceId,
-  viableActions, PLAYER_1, PLAYER_2,
+  viableActions, PLAYER_1,
   ARAGORN, LEGOLAS, GIMLI, BILBO,
   MORIA, LORIEN,
 } from '../../test-helpers.js';

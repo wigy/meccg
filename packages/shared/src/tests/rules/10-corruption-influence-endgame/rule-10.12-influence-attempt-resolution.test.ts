@@ -28,7 +28,7 @@
 import { describe, test, expect } from 'vitest';
 import {
   buildResolutionState, attemptInfluence, defendInfluence,
-  findCharInstanceId, viableActions, PLAYER_1, PLAYER_2,
+  findCharInstanceId, viableActions, PLAYER_1,
   CardStatus, reduce,
   ARAGORN, LEGOLAS, GIMLI, BILBO, EOWYN,
   GLAMDRING,
