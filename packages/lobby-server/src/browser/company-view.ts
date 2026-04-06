@@ -14,7 +14,6 @@ import type {
   GameAction,
   CardDefinition,
   CardInstanceId,
-  CardInPlay,
   CharacterInPlay,
   Company,
   CompanyId,

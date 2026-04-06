@@ -32,7 +32,7 @@ import { logHeading, logResult } from './log.js';
 function pendingEffectLegalActions(state: GameState, playerId: PlayerId): EvaluatedAction[] {
   const current = state.pendingEffects[0];
   if (current.type === 'card-effect' && current.effect.type === 'fetch-to-deck') {
-    return fetchFromPileLegalActions(state, playerId, current.effect as FetchToDeckEffect);
+    return fetchFromPileLegalActions(state, playerId, current.effect);
   }
   // Unknown effect type: allow pass to skip
   return [{ action: { type: 'pass', player: playerId }, viable: true }];

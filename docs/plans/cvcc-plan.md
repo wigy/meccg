@@ -112,6 +112,7 @@ Modify `resolveStrikeActions()` for `combat.isCvCC`:
 Track this with `attackerTapToFight` on `StrikeAssignment`: when `undefined`, attacker hasn't chosen yet.
 
 **Support in CvCC**: The existing `SupportStrikeAction` allows untapped characters without strikes to support the defender. For CvCC, both sides should be able to support:
+
 - Defender's untapped characters not facing strikes can support the defending character (+1 each)
 - Attacker's untapped characters not committed to strikes can support the attacking character (+1 each)
 - Support actions should be available during the respective player's sub-step

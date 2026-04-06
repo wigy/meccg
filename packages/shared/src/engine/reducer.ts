@@ -14,7 +14,7 @@
  * (or the original state plus an error string if the action was illegal).
  */
 
-import type { GameState, PlayerState, DraftPlayerState, ItemDraftPlayerState, CharacterDeckDraftPlayerState, SetupStepState, CardInstanceId, CompanyId, CharacterInPlay, CardInstance, ChainEntryPayload, UntapPhaseState, OrganizationPhaseState, LongEventPhaseState, MovementHazardPhaseState, SitePhaseState, EndOfTurnPhaseState, FreeCouncilPhaseState, Company, CreatureCard, SiteInPlay, HeroItemCard, CombatState, StrikeAssignment, PlayerId, OnGuardCard, PendingEffect } from '../index.js';
+import type { GameState, PlayerState, DraftPlayerState, ItemDraftPlayerState, CharacterDeckDraftPlayerState, SetupStepState, CardInstanceId, CompanyId, CharacterInPlay, CardInstance, ChainEntryPayload, UntapPhaseState, OrganizationPhaseState, MovementHazardPhaseState, SitePhaseState, EndOfTurnPhaseState, FreeCouncilPhaseState, Company, CreatureCard, SiteInPlay, HeroItemCard, CombatState, StrikeAssignment, PlayerId, OnGuardCard, PendingEffect } from '../index.js';
 import type { GameAction } from '../index.js';
 import { Phase, SetupStep, LEGAL_ACTIONS_BY_PHASE, getAlignmentRules, shuffle, nextInt, CardStatus, isCharacterCard, isItemCard, isAllyCard, isFactionCard, isSiteCard, SiteType, RegionType, Race, Skill, getPlayerIndex, ZERO_EFFECTIVE_STATS, MAX_STARTING_ITEMS, BASE_MAX_REGION_DISTANCE, HAND_SIZE, GENERAL_INFLUENCE } from '../index.js';
 import { logHeading, logDetail } from './legal-actions/log.js';
@@ -2919,7 +2919,7 @@ function handlePlayResourceShortEvent(state: GameState, action: GameAction): Red
  * Handle fetching a card from sideboard or discard pile into the play deck.
  *
  * Part of the fetch-to-deck effect resolution. The current effect is the
- * first entry in {@link LongEventPhaseState.pendingEffects}. After the fetch,
+ * first entry in {@link GameState.pendingEffects}. After the fetch,
  * the effect is consumed; if no more effects remain, the event card moves
  * from eventsInPlay to the player's discard pile.
  */
