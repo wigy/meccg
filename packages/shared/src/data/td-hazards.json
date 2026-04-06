@@ -57,5 +57,15 @@
     "eventType": "long",
     "effects": [],
     "text": "At the end of each turn, each player may take one unique Dragon manifestation or one Drake hazard creature from his discard pile and shuffle it into his play deck.Alternatively, if Doors of Night is in play, at the end of each turn, each player may return one unique Dragon manifestation and/or one Drake hazard creature from his discard pile to his hand.Cannot be duplicated."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "td-37",
+    "name": "Itangast Ahunt",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/td/ItangastAhunt.jpg",
+    "unique": true,
+    "eventType": "long",
+    "effects": [],
+    "text": "Unique. Any company moving in Withered Heath, Northern Rhovanion, Iron Hills, and/or Grey Mountain Narrows faces one Dragon attack (considered a hazard creature attack) — 4 strikes at 16/7.If Doors of Night is in play, this attack also affects: Southern Rhovanion, Dorwinion, Heart of Mirkwood, and Woodland Realm."
   }
 ]
