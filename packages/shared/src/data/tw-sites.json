@@ -338,7 +338,11 @@
     "automaticAttacks": [],
     "resourceDraws": 1,
     "hazardDraws": 1,
-    "text": "Healing effects affect all characters at the site."
+    "text": "Healing effects affect all characters at the site.",
+    "effects": [
+      { "type": "site-rule", "rule": "healing-affects-all" }
+    ],
+    "certified": "2026-04-06"
   },
   {
     "cardType": "hero-site",

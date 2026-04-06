@@ -228,6 +228,20 @@ Sources: `sideboard`, `discard-pile`.
 
 The `filter` is a standard DSL condition evaluated against each card definition.
 
+### 16. `site-rule`
+
+Declares a site-specific rule that modifies standard game mechanics
+when a company is at this site.
+
+```json
+{ "type": "site-rule", "rule": "healing-affects-all" }
+```
+
+Rules:
+
+- `healing-affects-all` — wounded characters at this site heal during untap
+  as if the site were a haven
+
 ## Resolver Architecture
 
 The engine calls a resolver at each decision point:

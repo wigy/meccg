@@ -211,7 +211,8 @@ function performUntap(state: GameState): GameState {
   for (const company of player.companies) {
     if (!company.currentSite) continue;
     const siteDef = state.cardPool[company.currentSite.definitionId];
-    if (siteDef && isSiteCard(siteDef) && siteDef.siteType === SiteType.Haven) {
+    if (!siteDef || !isSiteCard(siteDef)) continue;
+    if (siteDef.siteType === SiteType.Haven) {
       for (const charId of company.characters) {
         charsAtHaven.add(charId as string);
       }
@@ -250,7 +251,7 @@ function performUntap(state: GameState): GameState {
   );
 
   const tappedCharCount = Object.values(player.characters).filter(ch => ch.status === CardStatus.Tapped).length;
-  logDetail(`Untap: untapping ${tappedCharCount} character(s), healing ${healedCount} wounded character(s) at havens`);
+  logDetail(`Untap: untapping ${tappedCharCount} character(s), healing ${healedCount} wounded character(s) at havens/healing sites`);
 
   const newPlayers = clonePlayers(state);
   newPlayers[playerIndex] = { ...player, characters: newCharacters, cardsInPlay: newCardsInPlay };

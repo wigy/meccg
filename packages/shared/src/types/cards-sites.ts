@@ -15,6 +15,7 @@ import type {
   RegionType,
   SiteType,
 } from './common.js';
+import type { CardEffect } from './effects.js';
 import type { ItemSubtype } from './cards-resources.js';
 
 // ---- Sites & Regions ----
@@ -91,6 +92,8 @@ export interface HeroSiteCard {
   readonly hazardDraws: number;
   /** Flavor/rules text with additional site-specific conditions. */
   readonly text: string;
+  /** Declarative effects for site-specific rules (e.g. healing, hazard-limit modifiers). */
+  readonly effects?: readonly CardEffect[];
   /** Date when /certify-card confirmed all effects are engine-supported (ISO 8601). */
   readonly certified?: string;
 }
@@ -172,6 +175,8 @@ export interface MinionSiteCard {
   readonly hazardDraws: number;
   /** Flavor/rules text with additional site-specific conditions. */
   readonly text: string;
+  /** Declarative effects for site-specific rules (e.g. healing, hazard-limit modifiers). */
+  readonly effects?: readonly CardEffect[];
   /** Date when /certify-card confirmed all effects are engine-supported (ISO 8601). */
   readonly certified?: string;
 }
@@ -225,6 +230,8 @@ export interface FallenWizardSiteCard {
   readonly hazardDraws: number;
   /** Flavor/rules text with additional site-specific conditions. */
   readonly text: string;
+  /** Declarative effects for site-specific rules (e.g. healing, hazard-limit modifiers). */
+  readonly effects?: readonly CardEffect[];
   /** Date when /certify-card confirmed all effects are engine-supported (ISO 8601). */
   readonly certified?: string;
 }
@@ -280,6 +287,8 @@ export interface BalrogSiteCard {
   readonly underDeeps: boolean;
   /** Flavor/rules text with additional site-specific conditions. */
   readonly text: string;
+  /** Declarative effects for site-specific rules (e.g. healing, hazard-limit modifiers). */
+  readonly effects?: readonly CardEffect[];
   /** Date when /certify-card confirmed all effects are engine-supported (ISO 8601). */
   readonly certified?: string;
 }
