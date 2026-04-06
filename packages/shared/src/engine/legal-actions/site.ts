@@ -9,10 +9,10 @@
  * CoE rules section 2.V (lines 340–393).
  */
 
-import type { GameState, PlayerId, GameAction, EvaluatedAction, SitePhaseState, HeroItemCard, HeroResourceEventCard, SiteCard, PlayableAtEntry, FactionCard } from '../../index.js';
+import type { GameState, PlayerId, GameAction, EvaluatedAction, SitePhaseState, HeroItemCard, HeroResourceEventCard, SiteCard, PlayableAtEntry, FactionCard, CardInstanceId } from '../../index.js';
 import { getPlayerIndex, isSiteCard, isItemCard, isAllyCard, isFactionCard, isCharacterCard, CardStatus, matchesCondition, GENERAL_INFLUENCE } from '../../index.js';
 import { resolveInstanceId } from '../../types/state.js';
-import { collectCharacterEffects, resolveCheckModifier, resolveStatModifiers } from '../effects/index.js';
+import { collectCharacterEffects, resolveCheckModifier, resolveStatModifiers, resolveDef } from '../effects/index.js';
 import type { ResolverContext } from '../effects/index.js';
 import { logDetail, logHeading } from './log.js';
 import { availableDI } from './organization.js';
@@ -45,6 +45,15 @@ export function siteActions(state: GameState, playerId: PlayerId): EvaluatedActi
   const siteState = state.phaseState as SitePhaseState;
 
   logHeading(`Site phase (step: ${siteState.step}): player is ${isActive ? 'active (resource)' : 'non-active (hazard)'}`);
+
+  // When wound corruption checks are pending (e.g. Barrow-downs auto-attack),
+  // only the active player's corruption-check actions are legal.
+  if (siteState.pendingWoundCorruptionChecks.length > 0 && isActive) {
+    return woundCorruptionCheckActions(state, playerId, siteState);
+  }
+  if (siteState.pendingWoundCorruptionChecks.length > 0 && !isActive) {
+    return [];
+  }
 
   if (siteState.step === 'select-company') {
     return viable(selectCompanyActions(state, playerId, siteState));
@@ -270,6 +279,65 @@ function automaticAttacksActions(
   }
   logDetail(`Automatic attacks — pass to advance`);
   return [{ type: 'pass', player: playerId }];
+}
+
+/**
+ * Generate corruption-check actions for characters wounded by an automatic
+ * attack that has an `on-event: character-wounded-by-self` effect.
+ *
+ * Only the first pending check is offered at a time (processed sequentially).
+ */
+function woundCorruptionCheckActions(
+  state: GameState,
+  playerId: PlayerId,
+  siteState: SitePhaseState,
+): EvaluatedAction[] {
+  const pending = siteState.pendingWoundCorruptionChecks[0];
+  if (!pending) return [];
+
+  const playerIndex = getPlayerIndex(state, playerId);
+  const player = state.players[playerIndex];
+  const char = player.characters[pending.characterId as string];
+  if (!char) {
+    // Character was eliminated — skip this check (will be cleaned up by reducer)
+    logDetail(`Wound corruption check: character ${pending.characterId as string} no longer in play — skipping`);
+    return viable([{ type: 'pass', player: playerId }]);
+  }
+
+  const charDef = resolveDef(state, char.instanceId);
+  const charName = isCharacterCard(charDef) ? charDef.name : '?';
+
+  const cp = char.effectiveStats.corruptionPoints;
+  const baseModifier = isCharacterCard(charDef) ? charDef.corruptionModifier : 0;
+
+  // Collect check-modifier effects for corruption checks
+  const charEffects = collectCharacterEffects(state, char, { reason: 'corruption-check' });
+  const effectModifier = resolveCheckModifier(charEffects, 'corruption');
+
+  const totalModifier = baseModifier + effectModifier + pending.modifier;
+  const possessions: CardInstanceId[] = [
+    ...char.items.map(i => i.instanceId),
+    ...char.allies.map(a => a.instanceId),
+    ...char.hazards.map(h => h.instanceId),
+  ];
+  const ccNeed = cp + 1 - totalModifier;
+  const ccParts = [`CP ${cp}`];
+  if (totalModifier !== 0) ccParts.push(`modifier ${totalModifier >= 0 ? '+' : ''}${totalModifier}`);
+  logDetail(`Wound corruption check for ${charName} (CP ${cp}, modifier ${totalModifier >= 0 ? '+' : ''}${totalModifier})`);
+
+  return [{
+    action: {
+      type: 'corruption-check',
+      player: playerId,
+      characterId: pending.characterId,
+      corruptionPoints: cp,
+      corruptionModifier: totalModifier,
+      possessions,
+      need: ccNeed,
+      explanation: `Wound corruption: need roll > ${cp - totalModifier} (${ccParts.join(', ')})`,
+    },
+    viable: true,
+  }];
 }
 
 /**

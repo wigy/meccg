@@ -543,6 +543,7 @@ export function buildSitePhaseState(opts: {
     awaitingOnGuardReveal: false,
     pendingResourceAction: null,
     opponentInteractionThisTurn: null,
+    pendingWoundCorruptionChecks: [],
     pendingOpponentInfluence: null,
   };
   return { ...state, phaseState: sitePhaseState };
@@ -596,6 +597,7 @@ export function makeSitePhase(overrides?: Partial<SitePhaseState>): SitePhaseSta
     awaitingOnGuardReveal: false,
     pendingResourceAction: null,
     opponentInteractionThisTurn: null,
+    pendingWoundCorruptionChecks: [],
     pendingOpponentInfluence: null,
     ...overrides,
   };
@@ -886,13 +888,78 @@ export function addP2CardsInPlay<T extends GameState>(
  * @param state - A state with a SitePhaseState (e.g. from `buildSitePhaseState`).
  */
 export function setupAutoAttackStep<T extends GameState>(state: T): T {
+  const base = state.phaseState as SitePhaseState;
   const autoAttackState: SitePhaseState = {
-    ...state.phaseState as SitePhaseState,
+    phase: base.phase,
     step: 'automatic-attacks',
+    activeCompanyIndex: base.activeCompanyIndex,
+    handledCompanyIds: base.handledCompanyIds,
     siteEntered: false,
+    resourcePlayed: base.resourcePlayed,
+    minorItemAvailable: base.minorItemAvailable,
+    declaredAgentAttack: base.declaredAgentAttack,
     automaticAttacksResolved: 0,
+    awaitingOnGuardReveal: base.awaitingOnGuardReveal,
+    pendingResourceAction: base.pendingResourceAction,
+    opponentInteractionThisTurn: base.opponentInteractionThisTurn,
+    pendingWoundCorruptionChecks: [],
+    pendingOpponentInfluence: base.pendingOpponentInfluence,
   };
   return { ...state, phaseState: autoAttackState };
+}
+
+/**
+ * Run through auto-attack combat at a site. Triggers the attack via a pass
+ * action, assigns a single strike to the specified character, resolves it
+ * with the given dice roll, and optionally handles the body check.
+ *
+ * @param baseState - State at the automatic-attacks step (use setupAutoAttackStep)
+ * @param characterDefId - Definition ID of the character to assign the strike to
+ * @param strikeRoll - Cheat roll total for strike resolution
+ * @param bodyRoll - Cheat roll total for the body check (null to skip)
+ * @param tapToFight - Whether to pick the tap-to-fight variant (default true)
+ * @param attacker - Player triggering the attack (default PLAYER_1)
+ * @param defender - Opponent player for body checks (default PLAYER_2)
+ */
+export function runAutoAttackCombat(
+  baseState: GameState,
+  characterDefId: CardDefinitionId,
+  strikeRoll: number,
+  bodyRoll: number | null,
+  tapToFight = true,
+  attacker: PlayerId = PLAYER_1,
+  defender: PlayerId = PLAYER_2,
+): ReducerResult {
+  // Trigger auto-attack
+  let result = reduce(baseState, { type: 'pass', player: attacker });
+  expect(result.error).toBeUndefined();
+  expect(result.state.combat).toBeDefined();
+
+  const charId = findCharInstanceId(result.state, attacker === PLAYER_1 ? 0 : 1, characterDefId);
+
+  // Assign strike
+  result = reduce(result.state, { type: 'assign-strike', player: attacker, characterId: charId });
+  expect(result.error).toBeUndefined();
+
+  // Get resolve-strike action from legal actions
+  const resolveActions = viableActions({ ...result.state, cheatRollTotal: strikeRoll }, attacker, 'resolve-strike');
+  expect(resolveActions.length).toBeGreaterThan(0);
+  const selectedAction = tapToFight
+    ? (resolveActions.find(a => 'tapToFight' in a.action && a.action.tapToFight)?.action ?? resolveActions[0].action)
+    : (resolveActions.find(a => 'tapToFight' in a.action && !a.action.tapToFight)?.action ?? resolveActions[0].action);
+
+  result = reduce({ ...result.state, cheatRollTotal: strikeRoll }, selectedAction);
+  expect(result.error).toBeUndefined();
+
+  // If body check is needed
+  if (result.state.combat?.phase === 'body-check' && bodyRoll !== null) {
+    const bodyActions = viableActions(result.state, defender, 'body-check-roll');
+    expect(bodyActions.length).toBeGreaterThan(0);
+    result = reduce({ ...result.state, cheatRollTotal: bodyRoll }, bodyActions[0].action);
+    expect(result.error).toBeUndefined();
+  }
+
+  return result;
 }
 
 // Re-export commonly used things
