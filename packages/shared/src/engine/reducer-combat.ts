@@ -6,7 +6,8 @@
  */
 
 import type { GameState, CombatState, StrikeAssignment, GameAction, GameEffect } from '../index.js';
-import { CardStatus } from '../index.js';
+import { CardStatus, Phase, isSiteCard } from '../index.js';
+import type { OnEventEffect } from '../types/effects.js';
 import { logDetail } from './legal-actions/log.js';
 import { resolveInstanceId } from '../types/state.js';
 import type { ReducerResult } from './reducer-utils.js';
@@ -492,9 +493,57 @@ function finalizeCombat(state: GameState, effects: GameEffect[] = []): ReducerRe
 
   logDetail('Combat finalized — returning to enclosing phase');
 
+  // Check for on-event: character-wounded-by-self effects on the attack source.
+  // If any characters were wounded (not eliminated) and the attack source card
+  // has this effect, queue corruption checks in the site phase state.
+  let newPhaseState = state.phaseState;
+  const woundedCharIds = combat.strikeAssignments
+    .filter(a => a.result === 'wounded')
+    .map(a => a.characterId);
+
+  if (woundedCharIds.length > 0 && state.phaseState.phase === Phase.Site) {
+    const siteState = state.phaseState;
+    const sourceCard = getAttackSourceCard(state, combat);
+    if (sourceCard?.effects) {
+      const woundEvent = sourceCard.effects.find(
+        (e): e is OnEventEffect => e.type === 'on-event' && e.event === 'character-wounded-by-self',
+      );
+      if (woundEvent) {
+        const modifier = woundEvent.apply.modifier ?? 0;
+        const checks = woundedCharIds.map(characterId => ({ characterId, modifier }));
+        logDetail(`Wound corruption checks queued for ${checks.length} character(s) (modifier ${modifier})`);
+        newPhaseState = { ...siteState, pendingWoundCorruptionChecks: [...siteState.pendingWoundCorruptionChecks, ...checks] };
+      }
+    }
+  }
+
   return {
-    state: { ...state, players: newPlayers, combat: null },
+    state: { ...state, players: newPlayers, combat: null, phaseState: newPhaseState },
     effects,
   };
+}
+
+/**
+ * Look up the card definition for the attack source in combat.
+ * For automatic attacks, returns the site card. For creature attacks,
+ * returns the creature card definition.
+ */
+function getAttackSourceCard(
+  state: GameState,
+  combat: CombatState,
+): { effects?: readonly import('../types/effects.js').CardEffect[] } | undefined {
+  if (combat.attackSource.type === 'automatic-attack') {
+    const siteInstanceId = combat.attackSource.siteInstanceId;
+    const siteDefId = resolveInstanceId(state, siteInstanceId);
+    if (!siteDefId) return undefined;
+    const siteDef = state.cardPool[siteDefId as string];
+    return siteDef && isSiteCard(siteDef) ? siteDef : undefined;
+  }
+  if (combat.attackSource.type === 'creature') {
+    const creatureDefId = resolveInstanceId(state, combat.attackSource.instanceId);
+    if (!creatureDefId) return undefined;
+    return state.cardPool[creatureDefId as string] as { effects?: readonly import('../types/effects.js').CardEffect[] } | undefined;
+  }
+  return undefined;
 }
 

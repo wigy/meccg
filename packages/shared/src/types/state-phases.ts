@@ -542,6 +542,17 @@ export interface SitePhaseState {
    */
   readonly opponentInteractionThisTurn: 'influence' | 'attack' | null;
   /**
+   * Queue of character IDs that must make corruption checks after being
+   * wounded by an automatic attack with an `on-event: character-wounded-by-self`
+   * effect (e.g. Barrow-downs). Empty when no wound corruption checks are pending.
+   */
+  readonly pendingWoundCorruptionChecks: readonly {
+    /** The wounded character's instance ID. */
+    readonly characterId: CardInstanceId;
+    /** Modifier to the corruption check roll (from the on-event effect). */
+    readonly modifier: number;
+  }[];
+  /**
    * Intermediate state while awaiting the hazard player's defensive roll
    * during an opponent influence attempt. Null when no influence attempt
    * is pending resolution.
