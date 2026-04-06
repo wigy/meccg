@@ -21,26 +21,10 @@ import {
   buildTestState, resetMint,
   viableActions,
   P1_COMPANY, makeMHState,
+  playHazardAndResolve,
 } from '../test-helpers.js';
 import { Phase } from '../../index.js';
-import type { CardInPlay, CardInstanceId, CompanyId, GameState } from '../../index.js';
-
-/** Play a hazard and both players pass chain priority to resolve it. */
-function playHazardAndResolve(
-  state: GameState,
-  player: typeof PLAYER_1,
-  cardInstanceId: CardInstanceId,
-  targetCompanyId: CompanyId,
-): GameState {
-  let result = reduce(state, { type: 'play-hazard', player, cardInstanceId, targetCompanyId });
-  expect(result.error).toBeUndefined();
-  const opponent = player === PLAYER_1 ? PLAYER_2 : PLAYER_1;
-  result = reduce(result.state, { type: 'pass-chain-priority', player: opponent });
-  expect(result.error).toBeUndefined();
-  result = reduce(result.state, { type: 'pass-chain-priority', player });
-  expect(result.error).toBeUndefined();
-  return result.state;
-}
+import type { CardInPlay, CardInstanceId, GameState } from '../../index.js';
 
 // ─── Tests ────────────────────────────────────────────────────────────────────
 

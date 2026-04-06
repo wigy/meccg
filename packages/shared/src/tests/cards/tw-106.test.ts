@@ -21,27 +21,10 @@ import {
   CardStatus,
   buildTestState, resetMint,
   viableActions,
+  playShortEventAndResolve,
 } from '../test-helpers.js';
 import { computeLegalActions, Phase } from '../../index.js';
 import type { CardInPlay, CardInstanceId, GameState, MovementHazardPhaseState } from '../../index.js';
-
-/** Play a short event and both players pass chain priority to resolve it. */
-function playAndResolve(
-  state: GameState,
-  player: typeof PLAYER_1,
-  cardInstanceId: CardInstanceId,
-  targetInstanceId: CardInstanceId,
-): GameState {
-  let result = reduce(state, { type: 'play-short-event', player, cardInstanceId, targetInstanceId });
-  expect(result.error).toBeUndefined();
-  // Both players pass chain priority → chain resolves
-  const opponent = player === PLAYER_1 ? PLAYER_2 : PLAYER_1;
-  result = reduce(result.state, { type: 'pass-chain-priority', player: opponent });
-  expect(result.error).toBeUndefined();
-  result = reduce(result.state, { type: 'pass-chain-priority', player });
-  expect(result.error).toBeUndefined();
-  return result.state;
-}
 
 // ─── Tests ────────────────────────────────────────────────────────────────────
 
@@ -65,7 +48,7 @@ describe('Twilight (tw-106)', () => {
     });
 
     const twilightId = state.players[0].hand[0].instanceId;
-    const s = playAndResolve(state, PLAYER_1, twilightId, 'gom-1' as CardInstanceId);
+    const s = playShortEventAndResolve(state, PLAYER_1, twilightId, 'gom-1' as CardInstanceId);
 
     // Gates of Morning removed from cardsInPlay → discard
     expect(s.players[0].cardsInPlay).toHaveLength(0);
@@ -93,7 +76,7 @@ describe('Twilight (tw-106)', () => {
     });
 
     const twilightId = state.players[0].hand[0].instanceId;
-    const s = playAndResolve(state, PLAYER_1, twilightId, 'gom-1' as CardInstanceId);
+    const s = playShortEventAndResolve(state, PLAYER_1, twilightId, 'gom-1' as CardInstanceId);
 
     // GoM removed from opponent's cardsInPlay → opponent's discard
     expect(s.players[1].cardsInPlay).toHaveLength(0);

@@ -131,8 +131,9 @@ export interface StatModifierEffect extends EffectBase {
    * Scope of this modifier. If absent, affects only the card's bearer.
    * - `"all-characters"` — applies to every character in play (e.g. Sun).
    * - `"all-attacks"` — applies to every automatic-attack and hazard creature.
+   * - `"all-automatic-attacks"` — applies only to site automatic-attacks (not hazard creatures).
    */
-  readonly target?: 'all-characters' | 'all-attacks';
+  readonly target?: 'all-characters' | 'all-attacks' | 'all-automatic-attacks';
 }
 
 /**

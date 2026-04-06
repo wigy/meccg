@@ -794,6 +794,74 @@ export function defendInfluence(state: GameState) {
   return result;
 }
 
+// ─── Play-and-resolve helpers ────────────────────────────────────────────────
+
+/** Play a hazard card and resolve the chain (both players pass). */
+export function playHazardAndResolve(
+  state: GameState,
+  player: PlayerId,
+  cardInstanceId: CardInstanceId,
+  targetCompanyId: CompanyId,
+): GameState {
+  let result = reduce(state, { type: 'play-hazard', player, cardInstanceId, targetCompanyId });
+  expect(result.error).toBeUndefined();
+  const opponent = player === PLAYER_1 ? PLAYER_2 : PLAYER_1;
+  result = reduce(result.state, { type: 'pass-chain-priority', player: opponent });
+  expect(result.error).toBeUndefined();
+  result = reduce(result.state, { type: 'pass-chain-priority', player });
+  expect(result.error).toBeUndefined();
+  return result.state;
+}
+
+/** Play a short event and resolve the chain (both players pass). */
+export function playShortEventAndResolve(
+  state: GameState,
+  player: PlayerId,
+  cardInstanceId: CardInstanceId,
+  targetInstanceId: CardInstanceId,
+): GameState {
+  let result = reduce(state, { type: 'play-short-event', player, cardInstanceId, targetInstanceId });
+  expect(result.error).toBeUndefined();
+  const opponent = player === PLAYER_1 ? PLAYER_2 : PLAYER_1;
+  result = reduce(result.state, { type: 'pass-chain-priority', player: opponent });
+  expect(result.error).toBeUndefined();
+  result = reduce(result.state, { type: 'pass-chain-priority', player });
+  expect(result.error).toBeUndefined();
+  return result.state;
+}
+
+/** Play a permanent event and resolve the chain (both players pass). */
+export function playPermanentEventAndResolve(
+  state: GameState,
+  player: PlayerId,
+  cardInstanceId: CardInstanceId,
+): GameState {
+  let result = reduce(state, { type: 'play-permanent-event', player, cardInstanceId });
+  expect(result.error).toBeUndefined();
+  const opponent = player === PLAYER_1 ? PLAYER_2 : PLAYER_1;
+  result = reduce(result.state, { type: 'pass-chain-priority', player: opponent });
+  expect(result.error).toBeUndefined();
+  result = reduce(result.state, { type: 'pass-chain-priority', player });
+  expect(result.error).toBeUndefined();
+  return result.state;
+}
+
+/** Play a long event and resolve the chain (both players pass). */
+export function playLongEventAndResolve(
+  state: GameState,
+  player: PlayerId,
+  cardInstanceId: CardInstanceId,
+): GameState {
+  let result = reduce(state, { type: 'play-long-event', player, cardInstanceId });
+  expect(result.error).toBeUndefined();
+  const opponent = player === PLAYER_1 ? PLAYER_2 : PLAYER_1;
+  result = reduce(result.state, { type: 'pass-chain-priority', player: opponent });
+  expect(result.error).toBeUndefined();
+  result = reduce(result.state, { type: 'pass-chain-priority', player });
+  expect(result.error).toBeUndefined();
+  return result.state;
+}
+
 // Re-export commonly used things
 export {
   createGame, reduce,

@@ -21,38 +21,17 @@ import {
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
   CardStatus,
   buildTestState, resetMint, buildSitePhaseState,
+  findCharInstanceId,
+  playLongEventAndResolve,
 } from '../test-helpers.js';
 import type { CardInPlay, CardInstanceId, CardDefinitionId, CharacterCard, GameState, SitePhaseState } from '../../index.js';
 import { ISENGARD } from '../../index.js';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-/** Look up a character's instance ID by definition ID in the resulting state. */
-function findCharInstance(state: GameState, playerIdx: number, defId: CardDefinitionId): string {
-  for (const [key, char] of Object.entries(state.players[playerIdx].characters)) {
-    if (char.definitionId === defId) return key;
-  }
-  throw new Error(`Character ${defId} not found for player ${playerIdx}`);
-}
-
+/** Get a character card definition's base prowess from the card pool. */
 function baseProwess(defId: CardDefinitionId): number {
   return (pool[defId as string] as CharacterCard).prowess;
-}
-
-/** Play a long event and both players pass chain priority to resolve it. */
-function playLongAndResolve(
-  state: GameState,
-  player: typeof PLAYER_1,
-  cardInstanceId: CardInstanceId,
-): GameState {
-  let result = reduce(state, { type: 'play-long-event', player, cardInstanceId });
-  expect(result.error).toBeUndefined();
-  const opponent = player === PLAYER_1 ? PLAYER_2 : PLAYER_1;
-  result = reduce(result.state, { type: 'pass-chain-priority', player: opponent });
-  expect(result.error).toBeUndefined();
-  result = reduce(result.state, { type: 'pass-chain-priority', player });
-  expect(result.error).toBeUndefined();
-  return result.state;
 }
 
 // ─── Tests ────────────────────────────────────────────────────────────────────
@@ -73,10 +52,10 @@ describe('Sun (tw-335)', () => {
     });
 
     const sunInstanceId = state.players[0].hand[0].instanceId;
-    const s = playLongAndResolve(state, PLAYER_1, sunInstanceId);
+    const s = playLongEventAndResolve(state, PLAYER_1, sunInstanceId);
 
-    expect(s.players[0].characters[findCharInstance(s, 0, ARAGORN)].effectiveStats.prowess).toBe(baseProwess(ARAGORN) + 1);
-    expect(s.players[1].characters[findCharInstance(s, 1, LEGOLAS)].effectiveStats.prowess).toBe(baseProwess(LEGOLAS));
+    expect(s.players[0].characters[findCharInstanceId(s, 0, ARAGORN)].effectiveStats.prowess).toBe(baseProwess(ARAGORN) + 1);
+    expect(s.players[1].characters[findCharInstanceId(s, 1, LEGOLAS)].effectiveStats.prowess).toBe(baseProwess(LEGOLAS));
   });
 
   test('with Gates of Morning: Man and Dúnadan prowess +1 additional', () => {
@@ -98,14 +77,14 @@ describe('Sun (tw-335)', () => {
     });
 
     const sunInstanceId = state.players[0].hand[0].instanceId;
-    const s = playLongAndResolve(state, PLAYER_1, sunInstanceId);
+    const s = playLongEventAndResolve(state, PLAYER_1, sunInstanceId);
 
     // Aragorn (dunadan): +1 unconditional + +1 with GoM = +2
-    expect(s.players[0].characters[findCharInstance(s, 0, ARAGORN)].effectiveStats.prowess).toBe(baseProwess(ARAGORN) + 2);
+    expect(s.players[0].characters[findCharInstanceId(s, 0, ARAGORN)].effectiveStats.prowess).toBe(baseProwess(ARAGORN) + 2);
     // Bard Bowman (man): +1 with GoM
-    expect(s.players[0].characters[findCharInstance(s, 0, BARD_BOWMAN)].effectiveStats.prowess).toBe(baseProwess(BARD_BOWMAN) + 1);
+    expect(s.players[0].characters[findCharInstanceId(s, 0, BARD_BOWMAN)].effectiveStats.prowess).toBe(baseProwess(BARD_BOWMAN) + 1);
     // Legolas (elf): unaffected
-    expect(s.players[1].characters[findCharInstance(s, 1, LEGOLAS)].effectiveStats.prowess).toBe(baseProwess(LEGOLAS));
+    expect(s.players[1].characters[findCharInstanceId(s, 1, LEGOLAS)].effectiveStats.prowess).toBe(baseProwess(LEGOLAS));
   });
 
   test('affects opponent characters too', () => {
@@ -130,7 +109,7 @@ describe('Sun (tw-335)', () => {
 
     // P2's Aragorn (dunadan) should get +1 from P1's Sun
     const s = result.state;
-    expect(s.players[1].characters[findCharInstance(s, 1, ARAGORN)].effectiveStats.prowess).toBe(baseProwess(ARAGORN) + 1);
+    expect(s.players[1].characters[findCharInstanceId(s, 1, ARAGORN)].effectiveStats.prowess).toBe(baseProwess(ARAGORN) + 1);
   });
 
   test('body and direct influence are not modified', () => {
@@ -144,10 +123,10 @@ describe('Sun (tw-335)', () => {
     });
 
     const sunInstanceId = state.players[0].hand[0].instanceId;
-    const s = playLongAndResolve(state, PLAYER_1, sunInstanceId);
+    const s = playLongEventAndResolve(state, PLAYER_1, sunInstanceId);
 
     const aragornDef = pool[ARAGORN as string] as CharacterCard;
-    const stats = s.players[0].characters[findCharInstance(s, 0, ARAGORN)].effectiveStats;
+    const stats = s.players[0].characters[findCharInstanceId(s, 0, ARAGORN)].effectiveStats;
     expect(stats.body).toBe(aragornDef.body);
     expect(stats.directInfluence).toBe(aragornDef.directInfluence);
   });

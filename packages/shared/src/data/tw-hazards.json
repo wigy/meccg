@@ -29,7 +29,25 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/EyeofSauron.jpg",
     "unique": false,
     "eventType": "long",
-    "text": "The prowess of each automatic-attack is increased by one. Alternatively, if Doors of Night is in play, the prowess of each automatic-attack is increased by three."
+    "effects": [
+      {
+        "type": "stat-modifier",
+        "stat": "prowess",
+        "value": 1,
+        "target": "all-automatic-attacks",
+        "id": "eye-of-sauron-prowess"
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "prowess",
+        "value": 3,
+        "target": "all-automatic-attacks",
+        "overrides": "eye-of-sauron-prowess",
+        "when": { "inPlay": "Doors of Night" }
+      }
+    ],
+    "text": "The prowess of each automatic-attack is increased by one. Alternatively, if Doors of Night is in play, the prowess of each automatic-attack is increased by three.",
+    "certified": "2026-04-06"
   },
   {
     "cardType": "hazard-event",

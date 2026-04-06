@@ -355,7 +355,7 @@ function handleSiteAutomaticAttacks(
   const hazardPlayerId = state.players.find(p => p.id !== state.activePlayer)!.id;
 
   const inPlayNames = buildInPlayNames(state);
-  const effectiveProwess = resolveAttackProwess(state, aa.prowess, inPlayNames);
+  const effectiveProwess = resolveAttackProwess(state, aa.prowess, inPlayNames, true);
   logDetail(`Site: initiating automatic attack ${attackIndex + 1}/${autoAttacks.length}: ${aa.creatureType} (${aa.strikes} strikes, ${aa.prowess} prowess${effectiveProwess !== aa.prowess ? ` → ${effectiveProwess} after global effects` : ''})`);
 
   const combat: CombatState = {
