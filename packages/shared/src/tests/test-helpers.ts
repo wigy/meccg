@@ -543,6 +543,7 @@ export function buildSitePhaseState(opts: {
     awaitingOnGuardReveal: false,
     pendingResourceAction: null,
     opponentInteractionThisTurn: null,
+    pendingWoundCorruptionChecks: [],
     pendingOpponentInfluence: null,
   };
   return { ...state, phaseState: sitePhaseState };
@@ -596,6 +597,7 @@ export function makeSitePhase(overrides?: Partial<SitePhaseState>): SitePhaseSta
     awaitingOnGuardReveal: false,
     pendingResourceAction: null,
     opponentInteractionThisTurn: null,
+    pendingWoundCorruptionChecks: [],
     pendingOpponentInfluence: null,
     ...overrides,
   };
@@ -886,11 +888,22 @@ export function addP2CardsInPlay<T extends GameState>(
  * @param state - A state with a SitePhaseState (e.g. from `buildSitePhaseState`).
  */
 export function setupAutoAttackStep<T extends GameState>(state: T): T {
+  const base = state.phaseState as SitePhaseState;
   const autoAttackState: SitePhaseState = {
-    ...state.phaseState as SitePhaseState,
+    phase: base.phase,
     step: 'automatic-attacks',
+    activeCompanyIndex: base.activeCompanyIndex,
+    handledCompanyIds: base.handledCompanyIds,
     siteEntered: false,
+    resourcePlayed: base.resourcePlayed,
+    minorItemAvailable: base.minorItemAvailable,
+    declaredAgentAttack: base.declaredAgentAttack,
     automaticAttacksResolved: 0,
+    awaitingOnGuardReveal: base.awaitingOnGuardReveal,
+    pendingResourceAction: base.pendingResourceAction,
+    opponentInteractionThisTurn: base.opponentInteractionThisTurn,
+    pendingWoundCorruptionChecks: [],
+    pendingOpponentInfluence: base.pendingOpponentInfluence,
   };
   return { ...state, phaseState: autoAttackState };
 }

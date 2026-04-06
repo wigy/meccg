@@ -280,7 +280,16 @@
     ],
     "resourceDraws": 1,
     "hazardDraws": 2,
-    "text": "Playable: Items (minor, major). Automatic-attacks: Undead — 1 strike with 8 prowess; each character wounded must make a corruption check."
+    "text": "Playable: Items (minor, major). Automatic-attacks: Undead — 1 strike with 8 prowess; each character wounded must make a corruption check.",
+    "certified": "2026-04-06",
+    "effects": [
+      {
+        "type": "on-event",
+        "event": "character-wounded-by-self",
+        "apply": { "type": "force-check", "check": "corruption" },
+        "target": "wounded-character"
+      }
+    ]
   },
   {
     "cardType": "hero-site",

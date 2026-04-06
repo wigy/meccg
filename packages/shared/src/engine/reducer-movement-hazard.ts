@@ -611,6 +611,7 @@ function advanceAfterCompanyMH(state: GameState, mhState: MovementHazardPhaseSta
           awaitingOnGuardReveal: false,
           pendingResourceAction: null,
           opponentInteractionThisTurn: null,
+          pendingWoundCorruptionChecks: [],
           pendingOpponentInfluence: null,
         },
       }),
