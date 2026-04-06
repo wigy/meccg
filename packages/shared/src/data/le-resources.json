@@ -414,5 +414,18 @@
     "marshallingCategory": "misc",
     "effects": [],
     "text": "Playable during the site phase on an untapped character at a Free-hold [{F}]. Tap the character and site. No marshalling points are received and the character may not untap until this card is stored at a Darkhaven [{DH}] during his organization phase."
+  },
+  {
+    "cardType": "minion-resource-event",
+    "alignment": "ringwraith",
+    "id": "le-219",
+    "name": "Poisonous Despair",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/PoisonousDespair.jpg",
+    "unique": false,
+    "eventType": "short",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Magic. Spirit-magic. Playable on a spirit-magic-using character in response to an influence attempt against a character, ally, or item in his company. The attempt is canceled. If the character is a Ringwraith, he can also cancel an influence attempt against any of his factions. May be played during opponent’s site phase. Unless he is a Ringwraith, he makes a corruption check modified by -3."
   }
 ]
