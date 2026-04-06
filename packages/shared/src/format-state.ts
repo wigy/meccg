@@ -19,6 +19,7 @@ import { stripCardMarkers } from './format-helpers.js';
 import type { CardLookup, InstanceLookup } from './format-helpers.js';
 import {
   formatInstanceName,
+  formatGroupedInstances,
   formatCharacterLine,
   formatItemLine,
   formatAllyLine,
@@ -456,38 +457,18 @@ function renderState(input: RenderInput): string {
       : '';
     const mpComponents = `C=${selfAdj.character} I=${selfAdj.item} F=${selfAdj.faction} A=${selfAdj.ally} K=${selfAdj.kill} M=${selfAdj.misc}`;
     lines.push(`${player.name} [${player.alignment}]${wizardLabel}: «MP:${mpData}»${totalMP} MP (${mpComponents})${giLabel}${diceMarker}`);
-    if (player.handCards.length > 0) {
-      // Group duplicate cards: "3 x Cave-drake" instead of "Cave-drake, Cave-drake, Cave-drake"
-      const counts = new Map<string, { name: string; count: number }>();
-      for (const id of player.handCards) {
-        const name = formatInstanceName(id, defOf, instOf);
-        const existing = counts.get(name);
-        if (existing) {
-          existing.count++;
-        } else {
-          counts.set(name, { name, count: 1 });
-        }
+    const renderPile = (label: string, cards: readonly CardInstanceId[], showEmpty = false) => {
+      if (cards.length === 0 && !showEmpty) return;
+      if (cards.length === 0) {
+        lines.push(`  ${label}: (empty)`);
+        return;
       }
-      const grouped = [...counts.values()]
-        .map(({ name, count }) => count > 1 ? `${count} x ${name}` : name)
-        .join(', ');
-      lines.push(`  Hand (${player.handCards.length}): ${grouped}`);
-    } else {
-      lines.push(`  Hand: (empty)`);
-    }
-    // Deck piles — each on its own line, with card list.
-    // All piles use the same renderer so that the debug UI can always show
-    // a "+" toggle to expand contents (hidden piles render as "a card").
-    const renderPile = (label: string, cards: readonly CardInstanceId[]) => {
-      if (cards.length === 0 && label !== 'Deck' && label !== 'Sites' && label !== 'Discard') return;
-      lines.push(`  ${label}: ${cards.length}`);
-      for (const id of cards) {
-        lines.push(`    · ${formatInstanceName(id, defOf, instOf)}`);
-      }
+      lines.push(`  ${label} (${cards.length}): ${formatGroupedInstances(cards, defOf, instOf)}`);
     };
-    renderPile('Deck', player.deckCards);
-    renderPile('Sites', player.siteDeckCards);
-    renderPile('Discard', player.discardCards);
+    renderPile('Hand', player.handCards, true);
+    renderPile('Deck', player.deckCards, true);
+    renderPile('Sites', player.siteDeckCards, true);
+    renderPile('Discard', player.discardCards, true);
     renderPile('Kill pile', player.killCards);
     renderPile('Eliminated', player.eliminatedCards);
     renderPile('Sideboard', player.sideboardCards);

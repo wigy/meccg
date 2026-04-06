@@ -7,8 +7,8 @@
  * tooltips, dice markers, and styled frames into formatted game state text.
  */
 
-import type { CardDefinition, CardDefinitionId, CardInstanceId } from '@meccg/shared';
-import { cardImageProxyPath, buildInstanceLookup, getCardCss } from '@meccg/shared';
+import type { CardDefinition, CardDefinitionId, CardInstanceId, MarshallingPointTotals } from '@meccg/shared';
+import { cardImageProxyPath, buildInstanceLookup, getCardCss, computeTournamentScore } from '@meccg/shared';
 import { createMiniDie } from './dice.js';
 
 // ---- HTML escaping and card marker conversion ----
@@ -182,13 +182,48 @@ export function makeCardListsCollapsible(html: string): string {
 
 /**
  * Wrap MP values in styled tooltips that show the breakdown on hover.
- * Matches patterns like «MP:N» and wraps the number in a tooltip span.
+ * Parses «MP:{JSON}» markers emitted by the shared formatter and replaces
+ * them with an empty string (the score is rendered inline after the marker).
+ * The tooltip table is injected around the following score text.
  */
 export function injectMPTooltips(html: string): string {
   return html.replace(
-    /«MP:(-?\d+)\|([^»]+)»/g,
-    (_m, score: string, breakdown: string) =>
-      `<span class="mp-badge">${score}<span class="mp-tooltip">${breakdown.replace(/\|/g, '<br>')}</span></span>`,
+    /«MP:(\{[^»]+\})»(-?\d+) MP/g,
+    (_m, json: string, score: string) => {
+      try {
+        const data = JSON.parse(json) as {
+          selfName: string; oppName: string;
+          selfRaw: MarshallingPointTotals; oppRaw: MarshallingPointTotals;
+          selfAdj: MarshallingPointTotals; oppAdj: MarshallingPointTotals;
+        };
+        const cats: { key: keyof MarshallingPointTotals; label: string }[] = [
+          { key: 'character', label: 'Chars' },
+          { key: 'item', label: 'Items' },
+          { key: 'faction', label: 'Factions' },
+          { key: 'ally', label: 'Allies' },
+          { key: 'kill', label: 'Kill' },
+          { key: 'misc', label: 'Misc' },
+        ];
+        const selfTotal = computeTournamentScore(data.selfRaw, data.oppRaw);
+        const oppTotal = computeTournamentScore(data.oppRaw, data.selfRaw);
+        let rows = '';
+        for (const { key, label } of cats) {
+          const s = data.selfAdj[key] !== data.selfRaw[key]
+            ? `${data.selfAdj[key]} (${data.selfRaw[key]})` : `${data.selfRaw[key]}`;
+          const o = data.oppAdj[key] !== data.oppRaw[key]
+            ? `${data.oppAdj[key]} (${data.oppRaw[key]})` : `${data.oppRaw[key]}`;
+          rows += `<tr><td class="mp-label">${label}</td><td class="mp-value">${s}</td><td class="mp-value">${o}</td></tr>`;
+        }
+        const tooltip = `<table class="mp-tooltip-table">
+          <thead><tr><th></th><th>${data.selfName}</th><th>${data.oppName}</th></tr></thead>
+          <tbody>${rows}</tbody>
+          <tfoot><tr><td class="mp-label">Total</td><td class="mp-value mp-total">${selfTotal}</td><td class="mp-value mp-total">${oppTotal}</td></tr></tfoot>
+        </table>`;
+        return `<span class="mp-badge">${score} MP<span class="mp-tooltip">${tooltip}</span></span>`;
+      } catch {
+        return `${score} MP`;
+      }
+    },
   );
 }
 
