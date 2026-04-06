@@ -17,10 +17,18 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/Twilight.jpg",
     "unique": false,
     "eventType": "short",
-    "keywords": ["environment"],
+    "keywords": [
+      "environment"
+    ],
     "effects": [
-      { "type": "play-restriction", "rule": "playable-as-resource" },
-      { "type": "play-restriction", "rule": "no-hazard-limit" }
+      {
+        "type": "play-restriction",
+        "rule": "playable-as-resource"
+      },
+      {
+        "type": "play-restriction",
+        "rule": "no-hazard-limit"
+      }
     ],
     "text": "Environment. One environment card (in play or declared earlier in the same chain of effects) is canceled and discarded. Twilight may also be played as a resource, may be played at any point during any player's turn and does not count against the hazard limit."
   },
@@ -33,7 +41,7 @@
     "eventType": "permanent",
     "keywords": [],
     "effects": [],
-    "text": "Playable on a non-Ringwraith, non-Wizard character with mind of 7 or less. Character cannot be controlled by direct influence. Once during each of his organization phases, the character may attempt to remove this card. Make a roll\u2014if the result is greater than 7, discard this card. Cannot be duplicated on a given character."
+    "text": "Playable on a non-Ringwraith, non-Wizard character with mind of 7 or less. Character cannot be controlled by direct influence. Once during each of his organization phases, the character may attempt to remove this card. Make a roll—if the result is greater than 7, discard this card. Cannot be duplicated on a given character."
   },
   {
     "cardType": "hazard-event",
@@ -63,6 +71,16 @@
         "value": -4
       }
     ],
-    "text": "Playable on a character. Any riddling roll, offering attempt, or influence attempt by target character is modified by -4. If placed on-guard, it may be revealed and played when a character in the company declares such an attempt. During his organization phase, the character may tap to attempt to remove this card. Make a roll\u2014if the result is greater than 7, discard this card. Cannot be duplicated on a given character."
+    "text": "Playable on a character. Any riddling roll, offering attempt, or influence attempt by target character is modified by -4. If placed on-guard, it may be revealed and played when a character in the company declares such an attempt. During his organization phase, the character may tap to attempt to remove this card. Make a roll—if the result is greater than 7, discard this card. Cannot be duplicated on a given character."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "le-136",
+    "name": "Searching Eye",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/SearchingEye.jpg",
+    "unique": false,
+    "eventType": "short",
+    "effects": [],
+    "text": "Cancel and discard any card requiring scout skill before it is resolved or cancel any ongoing effect of a card that required scout skill to play. If this card is played as an on-guard card, it can be revealed during the opponent’s site phase to cancel and discard a card requiring scout skill before it is resolved."
   }
 ]
