@@ -34,5 +34,18 @@
     ],
     "effects": [],
     "text": "Light Enchantment. Playable during the organization phase on a ranger. Target ranger may tap to cancel all hazard effects for the rest of the turn that: force his company to return to its site of origin or that tap his company's current or new site. If so tapped, target ranger makes a corruption check. Cannot be duplicated in a given company."
+  },
+  {
+    "cardType": "minion-resource-event",
+    "alignment": "ringwraith",
+    "id": "wh-43",
+    "name": "Crept Along Cleverly",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/wh/CreptAlongCleverly.jpg",
+    "unique": false,
+    "eventType": "short",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Ranger only. Cancels a Wolf, Animal, Spider, Dragon, Drake, or Undead attack against a ranger’s company."
   }
 ]
