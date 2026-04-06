@@ -50,6 +50,8 @@ export const GLORFINDEL_II = did('tw-161');
 export const HALDIR = did('tw-164');
 /** Celeborn — elf, mind 6, Lórien leader, +5 DI against Galadriel. */
 export const CELEBORN = did('tw-136');
+/** Galadriel — elf, mind 9, Lórien leader, +1 hand size at Lórien. */
+export const GALADRIEL = did('tw-153');
 /** Éowyn — woman of Rohan, mind 2, anti-Nazgûl prowess bonus. */
 export const EOWYN = did('tw-147');
 /** Beregond — Dúnadan warrior, mind 2, Minas Tirith. */
