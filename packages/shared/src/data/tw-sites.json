@@ -126,7 +126,8 @@
     "automaticAttacks": [],
     "resourceDraws": 2,
     "hazardDraws": 2,
-    "text": "Site Path From Rivendell: Wilderness/Wilderness/Free-domain. Site Path From Edhellond: Wilderness/Coastland/Coastland/Coastland/Coastland/Free-domain."
+    "text": "Site Path From Rivendell: Wilderness/Wilderness/Free-domain. Site Path From Edhellond: Wilderness/Coastland/Coastland/Coastland/Coastland/Free-domain.",
+    "certified": "2026-04-06"
   },
   {
     "cardType": "hero-site",
