@@ -82,26 +82,9 @@ run_skill() {
   claude --dangerously-skip-permissions --verbose --output-format stream-json -p "$1" > "$raw_tmp" 2>&1
   local rc=$?
   cat "$raw_tmp" >> "$LOG_DIR/ai-raw.log"
-  # Write cost/time to a sidecar file (subshell-safe — caller reads it back)
-  {
-    grep -oP '"total_cost_usd":\s*\K[\d.]+' "$raw_tmp" | tail -1 || true
-    grep -oP '"duration_ms":\s*\K\d+' "$raw_tmp" | tail -1 || true
-  } > "$LOG_DIR/.skill-stats"
-  # Extract the text result for the caller
-  jq -r 'select(.type == "result") | .result // empty' "$raw_tmp" 2>/dev/null || true
-  rm -f "$raw_tmp"
-  return $rc
-}
-
-# Read cost/duration from the sidecar file written by run_skill.
-# Must be called in the parent shell after $(run_skill ...) returns.
-read_skill_stats() {
-  local stats_file="$LOG_DIR/.skill-stats"
-  if [ -f "$stats_file" ]; then
-    SKILL_COST=$(sed -n '1p' "$stats_file")
-    SKILL_DURATION_MS=$(sed -n '2p' "$stats_file")
-    rm -f "$stats_file"
-  fi
+  # Extract cost/time into global variables and print summary lines
+  SKILL_COST=$(grep -oP '"total_cost_usd":\s*\K[\d.]+' "$raw_tmp" | tail -1 || true)
+  SKILL_DURATION_MS=$(grep -oP '"duration_ms":\s*\K\d+' "$raw_tmp" | tail -1 || true)
   if [ -n "$SKILL_COST" ]; then
     log "Cost: \$${SKILL_COST}"
   fi
@@ -111,6 +94,10 @@ read_skill_stats() {
     local rem_secs=$(( secs % 60 ))
     log "Duration: ${mins}m ${rem_secs}s"
   fi
+  # Extract the text result for the caller
+  jq -r 'select(.type == "result") | .result // empty' "$raw_tmp" 2>/dev/null || true
+  rm -f "$raw_tmp"
+  return $rc
 }
 
 # Read a skill file, substitute $ARGUMENTS, and return the content.
@@ -275,7 +262,6 @@ case "$TOPIC" in
 IMPORTANT: You MUST create a branch named certify-${CARD_ID}-<card-slug>, commit there, push, and open a PR. Do NOT commit to master."
 
       SKILL_OUTPUT=$(run_skill "$PROMPT") && RC=$? || RC=$?
-      read_skill_stats
       log "Handler completed (exit $RC)."
 
       # Extract PR URL
@@ -325,7 +311,6 @@ $(echo "$SKILL_OUTPUT" | tail -20)"
 
     PROMPT=$(load_skill "handle-planning-request.md" "$MSG_ID")
     SKILL_OUTPUT=$(run_skill "$PROMPT") && RC=$? || RC=$?
-    read_skill_stats
     log "Handler completed (exit $RC)."
 
     # The planning handler sends its own mail, so we just check success
@@ -347,7 +332,6 @@ $(echo "$SKILL_OUTPUT" | tail -20)"
 
     PROMPT=$(load_skill "handle-implementation-request.md" "$MSG_ID")
     SKILL_OUTPUT=$(run_skill "$PROMPT") && RC=$? || RC=$?
-    read_skill_stats
     log "Handler completed (exit $RC)."
 
     if echo "$SKILL_OUTPUT" | grep -qiP '(implemented|pushed|success|commit.*hash)'; then
@@ -367,7 +351,6 @@ $(echo "$SKILL_OUTPUT" | tail -20)"
 
     PROMPT=$(load_skill "handle-bug-report.md" "$MSG_ID")
     SKILL_OUTPUT=$(run_skill "$PROMPT") && RC=$? || RC=$?
-    read_skill_stats
     log "Handler completed (exit $RC)."
 
     if echo "$SKILL_OUTPUT" | grep -qiP '(fixed|pushed|success|commit.*hash)'; then
