@@ -101,6 +101,8 @@ export const RIDERS_OF_ROHAN = did('tw-317');
 export const KNIGHTS_OF_DOL_AMROTH = did('tw-263');
 /** Wood-elves — Elf faction, 3 MP, playable at Thranduil's Halls. */
 export const WOOD_ELVES = did('tw-367');
+/** Men of Lebennin — Man faction, 2 MP, playable at Pelargir. */
+export const MEN_OF_LEBENNIN = did('tw-280');
 /** Blue Mountain Dwarves — Dwarf faction, 3 MP, playable at Blue Mountain Dwarf-hold. */
 export const BLUE_MOUNTAIN_DWARVES = did('tw-200');
 
@@ -168,6 +170,8 @@ export const OLD_FOREST = did('tw-417');
 export const BAG_END = did('tw-372');
 /** Bree — border-hold in Arthedain, nearest haven Rivendell. */
 export const BREE = did('tw-378');
+/** Pelargir — hero free-hold in Lebennin, nearest haven Edhellond. */
+export const PELARGIR = did('tw-419');
 /** Dol Amroth — hero free-hold in Belfalas, nearest haven Edhellond. */
 export const DOL_AMROTH = did('tw-386');
 /** Thranduil's Halls — hero free-hold in Woodland Realm, nearest haven Lórien. */
