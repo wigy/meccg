@@ -209,6 +209,11 @@ export interface GrantActionEffect extends EffectBase {
   readonly action: string;
   /** The cost to activate this ability. */
   readonly cost: ActionCost;
+  /**
+   * For roll-based actions, the minimum 2d6 total required for success.
+   * E.g. "greater than 7" → rollThreshold: 8 (need roll >= 8).
+   */
+  readonly rollThreshold?: number;
 }
 
 /** The cost required to activate a granted action. */

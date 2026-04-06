@@ -3,8 +3,9 @@
  *
  * Card test: Foolish Words (td-25)
  * Type: hazard-event (permanent, character-targeting)
- * Effects: 4 (play-target character, on-guard-reveal influence-attempt,
- *             duplication-limit scope:character max:1, check-modifier influence -4)
+ * Effects: 5 (play-target character, on-guard-reveal influence-attempt,
+ *             duplication-limit scope:character max:1, check-modifier influence -4,
+ *             grant-action remove-self-on-roll cost:tap-bearer threshold:8)
  *
  * "Playable on a character. Any riddling roll, offering attempt, or influence
  *  attempt by target character is modified by -4. If placed on-guard, it may be
@@ -20,9 +21,10 @@
  * | 2 | Influence check -4 modifier     | IMPLEMENTED | check-modifier effect applied          |
  * | 3 | Place on-guard during M/H       | IMPLEMENTED | any hand card can be placed on-guard   |
  * | 4 | On-guard reveal at influence    | IMPLEMENTED | awaitingOnGuardReveal flow             |
+ * | 5 | Tap to attempt removal (roll>7) | IMPLEMENTED | grant-action remove-self-on-roll       |
  *
  * Playable: YES
- * Certified: 2026-04-03
+ * Certified: 2026-04-06
  */
 
 import { describe, test, expect, beforeEach } from 'vitest';
@@ -33,9 +35,9 @@ import {
   GANDALF, LEGOLAS, ARAGORN,
   FOOLISH_WORDS, KNIGHTS_OF_DOL_AMROTH,
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH, DOL_AMROTH,
-  viableActions,
+  viableActions, CardStatus,
 } from '../test-helpers.js';
-import type { PlayHazardAction, InfluenceAttemptAction } from '../../index.js';
+import type { PlayHazardAction, InfluenceAttemptAction, ActivateGrantedAction } from '../../index.js';
 import { computeLegalActions } from '../../engine/legal-actions/index.js';
 
 // ─── Tests ───────────────────────────────────────────────────────────────────
@@ -145,6 +147,119 @@ describe('Foolish Words (td-25)', () => {
     const fwInstanceId = mhGameState.players[1].hand[0].instanceId;
     const action = ogActions[0].action as { cardInstanceId: string };
     expect(action.cardInstanceId).toBe(fwInstanceId);
+  });
+
+  test('untapped character with Foolish Words can activate removal during organization', () => {
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Organization,
+      players: [
+        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [ARAGORN] }], hand: [], siteDeck: [MORIA] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [MINAS_TIRITH] },
+      ],
+    });
+
+    const withFW = attachHazardToChar(base, 0, ARAGORN, FOOLISH_WORDS);
+    const actions = viableActions(withFW, PLAYER_1, 'activate-granted-action');
+    expect(actions.length).toBe(1);
+
+    const action = actions[0].action as ActivateGrantedAction;
+    expect(action.actionId).toBe('remove-self-on-roll');
+    expect(action.rollThreshold).toBe(8);
+  });
+
+  test('tapped character cannot activate Foolish Words removal', () => {
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Organization,
+      players: [
+        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [ARAGORN] }], hand: [], siteDeck: [MORIA] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [MINAS_TIRITH] },
+      ],
+    });
+
+    const withFW = attachHazardToChar(base, 0, ARAGORN, FOOLISH_WORDS);
+    // Tap the character
+    const aragornId = withFW.players[0].companies[0].characters[0];
+    const tappedState = {
+      ...withFW,
+      players: [
+        {
+          ...withFW.players[0],
+          characters: {
+            ...withFW.players[0].characters,
+            [aragornId as string]: { ...withFW.players[0].characters[aragornId as string], status: CardStatus.Tapped },
+          },
+        },
+        withFW.players[1],
+      ] as typeof withFW.players,
+    };
+
+    const actions = viableActions(tappedState, PLAYER_1, 'activate-granted-action');
+    expect(actions.length).toBe(0);
+  });
+
+  test('successful removal roll (>7) discards Foolish Words and taps character', () => {
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Organization,
+      players: [
+        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [ARAGORN] }], hand: [], siteDeck: [MORIA] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [MINAS_TIRITH] },
+      ],
+    });
+
+    const withFW = attachHazardToChar(base, 0, ARAGORN, FOOLISH_WORDS);
+    // Cheat the roll to 8 (just above 7 = success)
+    const cheated = { ...withFW, cheatRollTotal: 8 };
+
+    const actions = viableActions(cheated, PLAYER_1, 'activate-granted-action');
+    expect(actions.length).toBe(1);
+
+    const result = reduce(cheated, actions[0].action);
+    expect(result.error).toBeUndefined();
+
+    // Character should be tapped
+    const aragornId = result.state.players[0].companies[0].characters[0];
+    expect(result.state.players[0].characters[aragornId as string].status).toBe(CardStatus.Tapped);
+
+    // Foolish Words should be removed from character's hazards
+    expect(result.state.players[0].characters[aragornId as string].hazards).toHaveLength(0);
+
+    // Foolish Words should be in opponent's discard pile (hazard belongs to opponent)
+    expect(result.state.players[1].discardPile.some(c => c.definitionId === FOOLISH_WORDS)).toBe(true);
+  });
+
+  test('failed removal roll (<=7) keeps Foolish Words attached and taps character', () => {
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Organization,
+      players: [
+        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [ARAGORN] }], hand: [], siteDeck: [MORIA] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [MINAS_TIRITH] },
+      ],
+    });
+
+    const withFW = attachHazardToChar(base, 0, ARAGORN, FOOLISH_WORDS);
+    // Cheat the roll to 7 (exactly 7 = failure, need > 7)
+    const cheated = { ...withFW, cheatRollTotal: 7 };
+
+    const actions = viableActions(cheated, PLAYER_1, 'activate-granted-action');
+    expect(actions.length).toBe(1);
+
+    const result = reduce(cheated, actions[0].action);
+    expect(result.error).toBeUndefined();
+
+    // Character should be tapped
+    const aragornId = result.state.players[0].companies[0].characters[0];
+    expect(result.state.players[0].characters[aragornId as string].status).toBe(CardStatus.Tapped);
+
+    // Foolish Words should still be attached
+    expect(result.state.players[0].characters[aragornId as string].hazards).toHaveLength(1);
+    expect(result.state.players[0].characters[aragornId as string].hazards[0].definitionId).toBe(FOOLISH_WORDS);
+
+    // Opponent's discard pile should not have Foolish Words
+    expect(result.state.players[1].discardPile.some(c => c.definitionId === FOOLISH_WORDS)).toBe(false);
   });
 
   test('on-guard Foolish Words revealed at influence-attempt applies -4 to the roll', () => {

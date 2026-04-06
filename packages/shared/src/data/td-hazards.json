@@ -35,8 +35,15 @@
         "type": "check-modifier",
         "check": "influence",
         "value": -4
+      },
+      {
+        "type": "grant-action",
+        "action": "remove-self-on-roll",
+        "cost": { "tap": "bearer" },
+        "rollThreshold": 8
       }
     ],
-    "text": "Playable on a character. Any riddling roll, offering attempt, or influence attempt by target character is modified by -4. If placed on-guard, it may be revealed and played when a character in the company declares such an attempt. During his organization phase, the character may tap to attempt to remove this card. Make a roll\u2014if the result is greater than 7, discard this card. Cannot be duplicated on a given character."
+    "text": "Playable on a character. Any riddling roll, offering attempt, or influence attempt by target character is modified by -4. If placed on-guard, it may be revealed and played when a character in the company declares such an attempt. During his organization phase, the character may tap to attempt to remove this card. Make a roll\u2014if the result is greater than 7, discard this card. Cannot be duplicated on a given character.",
+    "certified": "2026-04-06"
   }
 ]
