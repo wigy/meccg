@@ -51,6 +51,14 @@ Before every push, always run all five of these **in parallel** and fix any fail
 4. `npm run lint` — linting (fix with `npm run lint:fix`)
 5. `npm run lint:md` — markdown linting (fix with `npm run lint:md:fix`)
 
+### Git Policy
+
+- **NEVER rebase.** Do not use `git rebase` under any circumstances.
+- **NEVER amend commits.** Do not use `git commit --amend`. Always create new commits.
+- No history-rewriting operations of any kind (`rebase`, `amend`, `reset --hard`, `filter-branch`, etc.).
+- To move a commit to another branch, use `git cherry-pick` and create a new revert commit on the original branch.
+- In PRs, always push new fix commits — never squash or rewrite.
+
 ## Architecture
 
 - **Monorepo** using npm workspaces: `packages/shared`, `packages/game-server`, `packages/text-client`, `packages/lobby-server`
