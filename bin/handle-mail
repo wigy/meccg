@@ -8,6 +8,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PROJECT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+LOG_DIR="$HOME/.meccg/logs"
 SECRETS="$HOME/.meccg/secrets.json"
 AI_INFO="$HOME/.meccg/players/ai/info.json"
 BASE_URL="http://localhost:8080"
@@ -76,7 +77,15 @@ build_mail() {
 # Prints the output to stdout; returns Claude's exit code.
 run_skill() {
   cd "$PROJECT_DIR"
-  claude --dangerously-skip-permissions --verbose --output-format text -p "$1" 2>/dev/null
+  local stderr_tmp
+  stderr_tmp=$(mktemp)
+  claude --dangerously-skip-permissions --verbose --output-format text -p "$1" 2>"$stderr_tmp"
+  local rc=$?
+  cat "$stderr_tmp" >> "$LOG_DIR/ai-raw.log"
+  # Print cost/time summary lines
+  grep -iP '(cost|duration|token|total)' "$stderr_tmp" || true
+  rm -f "$stderr_tmp"
+  return $rc
 }
 
 # Read a skill file, substitute $ARGUMENTS, and return the content.
