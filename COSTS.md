@@ -13,3 +13,7 @@ Isengard (hero) --- Duration: 421,1s, Cost: $2.05541825 ---
   │ Cave-drake   │ tw-020 │ $2.87 │ 7m 49s   │
   │ Sun          │ tw-335 │ $4.77 │ 14m 14s  │
   │ Bree         │ tw-378 │ $1.31 │ 5m 00s   │
+
+Wake of War     $6.23   14m 27s
+Foolish Words   $5.95   18m 28s
+
