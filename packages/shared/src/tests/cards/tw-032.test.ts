@@ -20,28 +20,12 @@ import {
   CardStatus,
   buildTestState, resetMint, buildSitePhaseState,
   makeMHState, P1_COMPANY,
+  playHazardAndResolve,
 } from '../test-helpers.js';
 import type { CardInPlay, CardInstanceId, GameState, SitePhaseState } from '../../index.js';
 import { ISENGARD } from '../../index.js';
 
-// ─── Helpers ──────────���───────────────────────────────────────────────────────
-
-/** Play a hazard card during M/H phase and resolve the chain (both pass). */
-function playHazardAndResolve(
-  state: GameState,
-  player: typeof PLAYER_1,
-  cardInstanceId: CardInstanceId,
-  targetCompanyId: typeof P1_COMPANY,
-): GameState {
-  let result = reduce(state, { type: 'play-hazard', player, cardInstanceId, targetCompanyId });
-  expect(result.error).toBeUndefined();
-  const opponent = player === PLAYER_1 ? PLAYER_2 : PLAYER_1;
-  result = reduce(result.state, { type: 'pass-chain-priority', player: opponent });
-  expect(result.error).toBeUndefined();
-  result = reduce(result.state, { type: 'pass-chain-priority', player });
-  expect(result.error).toBeUndefined();
-  return result.state;
-}
+// ─── Helpers ─────────────────────────────────────────────────────────────────
 
 /**
  * Build a state in the site phase automatic-attacks step with Eye of Sauron

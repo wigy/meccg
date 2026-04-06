@@ -20,26 +20,10 @@ import {
   CardStatus,
   buildTestState, resetMint,
   viableActions,
+  playPermanentEventAndResolve,
 } from '../test-helpers.js';
 import { Phase } from '../../index.js';
 import type { CardInPlay, CardInstanceId } from '../../index.js';
-
-/** Play a permanent event and both players pass chain priority to resolve it. */
-function playAndResolve(
-  state: import('../../index.js').GameState,
-  player: typeof PLAYER_1,
-  cardInstanceId: CardInstanceId,
-): import('../../index.js').GameState {
-  let result = reduce(state, { type: 'play-permanent-event', player, cardInstanceId });
-  expect(result.error).toBeUndefined();
-  // Both players pass chain priority → chain resolves
-  const opponent = player === PLAYER_1 ? PLAYER_2 : PLAYER_1;
-  result = reduce(result.state, { type: 'pass-chain-priority', player: opponent });
-  expect(result.error).toBeUndefined();
-  result = reduce(result.state, { type: 'pass-chain-priority', player });
-  expect(result.error).toBeUndefined();
-  return result.state;
-}
 
 // ─── Tests ────────────────────────────────────────────────────────────────────
 
@@ -70,7 +54,7 @@ describe('Gates of Morning (tw-243)', () => {
     expect(declareResult.state.chain!.entries[0].card?.instanceId).toBe(gomId);
 
     // After chain resolves, card moves to cardsInPlay
-    const s = playAndResolve(state, PLAYER_1, gomId);
+    const s = playPermanentEventAndResolve(state, PLAYER_1, gomId);
     expect(s.chain).toBeNull();
     expect(s.players[0].hand).toHaveLength(0);
     expect(s.players[0].cardsInPlay).toHaveLength(1);
@@ -94,7 +78,7 @@ describe('Gates of Morning (tw-243)', () => {
     });
 
     const gomId = state.players[0].hand[0].instanceId;
-    const s = playAndResolve(state, PLAYER_1, gomId);
+    const s = playPermanentEventAndResolve(state, PLAYER_1, gomId);
 
     // Gates of Morning in P1 cardsInPlay
     expect(s.players[0].cardsInPlay).toHaveLength(1);
@@ -123,7 +107,7 @@ describe('Gates of Morning (tw-243)', () => {
     });
 
     const gomId = state.players[0].hand[0].instanceId;
-    const s = playAndResolve(state, PLAYER_1, gomId);
+    const s = playPermanentEventAndResolve(state, PLAYER_1, gomId);
 
     // Gates of Morning in cardsInPlay, Doors of Night discarded
     const p1InPlay = s.players[0].cardsInPlay;
@@ -209,7 +193,7 @@ describe('Gates of Morning (tw-243)', () => {
     });
 
     const gomId = state.players[0].hand[0].instanceId;
-    const s = playAndResolve(state, PLAYER_1, gomId);
+    const s = playPermanentEventAndResolve(state, PLAYER_1, gomId);
 
     // Gates of Morning played, no discards needed
     expect(s.players[0].cardsInPlay).toHaveLength(1);
