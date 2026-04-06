@@ -26,7 +26,7 @@
  * |---|-------------------------|-------------|-------------------------------------|
  * | 1 | Site phase flow         | IMPLEMENTED | select-company, enter-or-skip, etc. |
  * | 2 | Haven path movement     | IMPLEMENTED | movement-map.ts                     |
- * | 3 | Region movement         | IMPLEMENTED | 12 sites reachable within 4 regions |
+ * | 3 | Region movement         | IMPLEMENTED | 24 sites reachable within 4 regions |
  * | 4 | Card draws              | IMPLEMENTED | resourceDraws/hazardDraws used      |
  *
  * Playable: YES
@@ -44,6 +44,7 @@ import {
   computeLegalActions,
   GREY_HAVENS,
   ETTENMOORS_HERO, THE_WHITE_TOWERS_HERO, BARROW_DOWNS, OLD_FOREST, BAG_END, BREE,
+  GOBLIN_GATE, THE_WORTHY_HILLS,
   isSiteCard, buildMovementMap, getReachableSites,
 } from '../../index.js';
 import type { SiteCard } from '../../index.js';
@@ -162,7 +163,7 @@ describe('Rivendell (tw-421)', () => {
       .map(r => r.site.name)
       .sort();
 
-    // All TW hero sites with nearestHaven "Rivendell"
+    // All hero sites with nearestHaven "Rivendell"
     const expectedSites = [
       pool[ETTENMOORS_HERO as string],
       pool[THE_WHITE_TOWERS_HERO as string],
@@ -170,6 +171,8 @@ describe('Rivendell (tw-421)', () => {
       pool[OLD_FOREST as string],
       pool[BAG_END as string],
       pool[BREE as string],
+      pool[GOBLIN_GATE as string],
+      pool[THE_WORTHY_HILLS as string],
     ].map(d => d.name).sort();
 
     expect(starterSites).toEqual(expectedSites);
@@ -202,18 +205,23 @@ describe('Rivendell (tw-421)', () => {
 
     // Rivendell is in Rhudaur. Region movement (max 4 regions) reaches:
     // dist 1 (same region): Ettenmoors (Rhudaur)
-    // dist 2 (adjacent): Barrow-downs, Old Forest (Cardolan), Bree, The White Towers, Weathertop (Arthedain)
-    // dist 3: Bag End (The Shire), Grey Havens (Lindon), Moria, The Under-gates (Redhorn Gate), Eagles' Eyrie (Anduin Vales)
-    // dist 4: Lórien (Wold & Foothills), Dol Guldur (Southern Mirkwood), Glittering Caves, Isengard, Isle of the Ulond (Gap of Isen/Andrast Coast), Thranduil's Halls (Woodland Realm)
+    // dist 2 (adjacent): Barrow-downs, Old Forest, The Worthy Hills (Cardolan), Bree, The White Towers, Weathertop (Arthedain), Goblin-gate (High Pass), Carn Dûm (Angmar)
+    // dist 3: Bag End (The Shire), Grey Havens (Lindon), Moria, The Under-gates, Dimrill Dale (Redhorn Gate), Eagles' Eyrie, Beorn's House (Anduin Vales)
+    // dist 4: Lórien (Wold & Foothills), Dol Guldur (Southern Mirkwood), Glittering Caves, Isengard, Isle of the Ulond (Gap of Isen/Andrast Coast), Thranduil's Halls (Woodland Realm), Bandit Lair (Brown Lands), Blue Mountain Dwarf-hold (Númeriador)
     expect(regionNames).toEqual([
       'Bag End',
+      'Bandit Lair',
       'Barrow-downs',
+      "Beorn's House",
       'Blue Mountain Dwarf-hold',
       'Bree',
+      'Carn Dûm',
+      'Dimrill Dale',
       'Dol Guldur',
       "Eagles' Eyrie",
       'Ettenmoors',
       'Glittering Caves',
+      'Goblin-gate',
       'Grey Havens',
       'Isengard',
       'Isle of the Ulond',
@@ -222,6 +230,7 @@ describe('Rivendell (tw-421)', () => {
       'Old Forest',
       'The Under-gates',
       'The White Towers',
+      'The Worthy Hills',
       "Thranduil's Halls",
       'Weathertop',
     ]);
@@ -250,13 +259,19 @@ describe('Rivendell (tw-421)', () => {
     expect(distMap.get('Barrow-downs')).toBe(2);
     expect(distMap.get('The White Towers')).toBe(2);
     expect(distMap.get('Weathertop')).toBe(2);
+    expect(distMap.get('Goblin-gate')).toBe(2);
+    expect(distMap.get('Carn Dûm')).toBe(2);
+    expect(distMap.get('The Worthy Hills')).toBe(2);
     // 3 regions away
     expect(distMap.get('Moria')).toBe(3);
     expect(distMap.get('Bag End')).toBe(3);
     expect(distMap.get('Grey Havens')).toBe(3);
+    expect(distMap.get('Dimrill Dale')).toBe(3);
+    expect(distMap.get("Beorn's House")).toBe(3);
     // 4 regions away (max)
     expect(distMap.get('Lórien')).toBe(4);
     expect(distMap.get('Dol Guldur')).toBe(4);
     expect(distMap.get("Thranduil's Halls")).toBe(4);
+    expect(distMap.get('Bandit Lair')).toBe(4);
   });
 });

@@ -173,6 +173,17 @@ export const THRANDUILS_HALLS = did('tw-432');
 export const ISENGARD = did('tw-404');
 /** Blue Mountain Dwarf-hold — hero free-hold in Númeriador, nearest haven Grey Havens. */
 export const BLUE_MOUNTAIN_DWARF_HOLD = did('tw-377');
+/** Goblin-gate — hero ruins-and-lairs in High Pass, nearest haven Rivendell. */
+export const GOBLIN_GATE = did('tw-398');
+/** Dimrill Dale — hero ruins-and-lairs in Redhorn Gate, nearest haven Lórien. */
+export const DIMRILL_DALE = did('tw-385');
+/** Bandit Lair — hero border-hold in Brown Lands, nearest haven Lórien. */
+export const BANDIT_LAIR = did('tw-373');
+
+// ---- Against the Shadow — Hero Sites ----
+
+/** The Worthy Hills — hero ruins-and-lairs in Cardolan, nearest haven Rivendell. */
+export const THE_WORTHY_HILLS = did('as-142');
 
 // ---- Regions ----
 
