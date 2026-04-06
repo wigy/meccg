@@ -42,6 +42,30 @@ export function formatInstanceName(instId: CardInstanceId, defOf: CardLookup, in
 }
 
 /**
+ * Formats a list of card instance IDs as a comma-separated string,
+ * grouping duplicates with a count prefix (e.g. "3 x Cave-drake").
+ */
+export function formatGroupedInstances(
+  ids: readonly CardInstanceId[],
+  defOf: CardLookup,
+  instOf: InstanceLookup,
+): string {
+  const counts = new Map<string, { name: string; count: number }>();
+  for (const id of ids) {
+    const name = formatInstanceName(id, defOf, instOf);
+    const existing = counts.get(name);
+    if (existing) {
+      existing.count++;
+    } else {
+      counts.set(name, { name, count: 1 });
+    }
+  }
+  return [...counts.values()]
+    .map(({ name, count }) => count > 1 ? `${count} x ${name}` : name)
+    .join(', ');
+}
+
+/**
  * Formats a list of card definition IDs as a comma-separated string,
  * grouping duplicates with a count prefix (e.g. "3 x a card").
  * Returns '(empty)' for empty lists.
