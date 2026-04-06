@@ -1353,7 +1353,7 @@ export function renderDeckPiles(view: PlayerView, cardPool?: Readonly<Record<str
 
 /**
  * Set of card instance IDs referenced by viable legal actions.
- * Used to sort actionable cards to the front of pile browser listings.
+ * Used to sort actionable cards to the end of pile browser listings.
  */
 let actionableInstanceIds: ReadonlySet<string> = new Set();
 
@@ -1451,11 +1451,17 @@ function populateBrowserGrid(): void {
 
   const isSelecting = siteSelectionActions.length > 0;
 
-  // Sort cards with active legal actions to the end (last row, on top when overlapping)
+  // Sort highlighted cards to the end (last row, on top when overlapping).
+  // During site selection, highlighted = selectable via siteSelectionMatcher;
+  // otherwise highlighted = referenced by a viable legal action.
   const sortedCards = [...cachedBrowserCards].sort((a, b) => {
-    const aActive = actionableInstanceIds.has(a.instanceId as string) ? 1 : 0;
-    const bActive = actionableInstanceIds.has(b.instanceId as string) ? 1 : 0;
-    return aActive - bActive;
+    const aHighlighted = isSelecting
+      ? (siteSelectionMatcher?.(a)?.viable ? 1 : 0)
+      : (actionableInstanceIds.has(a.instanceId as string) ? 1 : 0);
+    const bHighlighted = isSelecting
+      ? (siteSelectionMatcher?.(b)?.viable ? 1 : 0)
+      : (actionableInstanceIds.has(b.instanceId as string) ? 1 : 0);
+    return aHighlighted - bHighlighted;
   });
 
   for (const card of sortedCards) {
