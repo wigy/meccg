@@ -38,60 +38,15 @@ import {
   RIVENDELL,
   ARAGORN, GLAMDRING, DAGGER_OF_WESTERNESSE,
   resetMint, pool, reduce, CardStatus,
-  buildSitePhaseState, setupAutoAttackStep, findCharInstanceId, viableActions,
+  buildSitePhaseState, setupAutoAttackStep, findCharInstanceId,
+  runAutoAttackCombat,
 } from '../test-helpers.js';
 import {
   computeLegalActions,
   BARROW_DOWNS,
   isSiteCard, buildMovementMap, getReachableSites,
 } from '../../index.js';
-import type { SiteCard, SitePhaseState, GameState, ReducerResult } from '../../index.js';
-
-/**
- * Run through the auto-attack combat at Barrow-downs. Returns the state
- * after combat finishes.
- *
- * @param strikeRoll - Cheat roll total for the strike resolution
- * @param bodyRoll - Cheat roll total for the body check (if needed)
- * @param tapToFight - Whether to pick the tap-to-fight variant (default true)
- */
-function runAutoAttackCombat(
-  baseState: GameState,
-  strikeRoll: number,
-  bodyRoll: number | null,
-  tapToFight = true,
-): ReducerResult {
-  // Trigger auto-attack
-  let result = reduce(baseState, { type: 'pass', player: PLAYER_1 });
-  expect(result.error).toBeUndefined();
-  expect(result.state.combat).toBeDefined();
-
-  const aragornId = findCharInstanceId(result.state, 0, ARAGORN);
-
-  // Assign strike
-  result = reduce(result.state, { type: 'assign-strike', player: PLAYER_1, characterId: aragornId });
-  expect(result.error).toBeUndefined();
-
-  // Get resolve-strike action from legal actions
-  const resolveActions = viableActions({ ...result.state, cheatRollTotal: strikeRoll }, PLAYER_1, 'resolve-strike');
-  expect(resolveActions.length).toBeGreaterThan(0);
-  const selectedAction = tapToFight
-    ? (resolveActions.find(a => 'tapToFight' in a.action && a.action.tapToFight)?.action ?? resolveActions[0].action)
-    : (resolveActions.find(a => 'tapToFight' in a.action && !a.action.tapToFight)?.action ?? resolveActions[0].action);
-
-  result = reduce({ ...result.state, cheatRollTotal: strikeRoll }, selectedAction);
-  expect(result.error).toBeUndefined();
-
-  // If body check is needed
-  if (result.state.combat?.phase === 'body-check' && bodyRoll !== null) {
-    const bodyActions = viableActions(result.state, PLAYER_2, 'body-check-roll');
-    expect(bodyActions.length).toBeGreaterThan(0);
-    result = reduce({ ...result.state, cheatRollTotal: bodyRoll }, bodyActions[0].action);
-    expect(result.error).toBeUndefined();
-  }
-
-  return result;
-}
+import type { SiteCard, SitePhaseState } from '../../index.js';
 
 // ─── Tests ───────────────────────────────────────────────────────────────────
 
@@ -175,7 +130,7 @@ describe('Barrow-downs (tw-375)', () => {
     const readyState = setupAutoAttackStep(state);
 
     // Stay untapped: prowess 6-3=3, roll 2 → 2+3=5 < 8 → wounded. Body check pass (5 <= 9).
-    const result = runAutoAttackCombat(readyState, 2, 5, false);
+    const result = runAutoAttackCombat(readyState, ARAGORN, 2, 5, false);
     expect(result.state.combat).toBeNull();
 
     // Wound corruption check should be pending
@@ -197,7 +152,7 @@ describe('Barrow-downs (tw-375)', () => {
     const readyState = setupAutoAttackStep(state);
 
     // Wound Aragorn
-    const result = runAutoAttackCombat(readyState, 2, 5, false);
+    const result = runAutoAttackCombat(readyState, ARAGORN, 2, 5, false);
 
     // Get the corruption check action
     const actions = computeLegalActions(result.state, PLAYER_1);
@@ -225,7 +180,7 @@ describe('Barrow-downs (tw-375)', () => {
     const readyState = setupAutoAttackStep(state);
 
     // Wound Aragorn
-    const result = runAutoAttackCombat(readyState, 2, 5, false);
+    const result = runAutoAttackCombat(readyState, ARAGORN, 2, 5, false);
 
     // Get the corruption check action
     const actions = computeLegalActions(result.state, PLAYER_1);
@@ -250,7 +205,7 @@ describe('Barrow-downs (tw-375)', () => {
     const readyState = setupAutoAttackStep(state);
 
     // High strike roll → Aragorn wins (roll 10 + prowess 6 = 16 > 8)
-    const result = runAutoAttackCombat(readyState, 10, null);
+    const result = runAutoAttackCombat(readyState, ARAGORN, 10, null);
     expect(result.state.combat).toBeNull();
 
     // No corruption check should be pending
