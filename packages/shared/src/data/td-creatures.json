@@ -1,0 +1,24 @@
+[
+  {
+    "cardType": "hazard-creature",
+    "id": "td-57",
+    "name": "Rain-drake",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/td/Raindrake.jpg",
+    "unique": false,
+    "strikes": 1,
+    "prowess": 15,
+    "body": null,
+    "killMarshallingPoints": 1,
+    "race": "drake",
+    "keyedTo": [
+      {
+        "regionTypes": [
+          "wilderness",
+          "coastal-sea"
+        ]
+      }
+    ],
+    "effects": [],
+    "text": "Drake. One strike.May also be played at a Ruins & Lairs [{R}] that has two Wildernesses [{w}] or one Coastal Sea [{c}] in its site path."
+  }
+]
