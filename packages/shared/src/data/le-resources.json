@@ -388,5 +388,18 @@
     "marshallingCategory": "misc",
     "effects": [],
     "text": "Playable on an attack by Elves, Dwarves, Dúnedain, or Men. Against a covert company, the attack is canceled. Otherwise, -2 to the attack's prowess. Cannot be duplicated on a given attack."
+  },
+  {
+    "cardType": "minion-resource-event",
+    "alignment": "ringwraith",
+    "id": "le-226",
+    "name": "Secrets of Their Forging",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/SecretsofTheirForging.jpg",
+    "unique": false,
+    "eventType": "short",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Sage only. Playable on a sage during the site phase at a site where Information is playable if a character in his company has a gold ring item. Tap the sage and the site. You may replace the gold ring with a special item ring from your hand (except for The One Ring) for which the gold ring could normally be tested. Discard the gold ring item."
   }
 ]
