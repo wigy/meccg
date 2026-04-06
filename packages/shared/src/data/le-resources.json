@@ -349,5 +349,18 @@
     ],
     "effects": [],
     "text": "Unique. Playable at Moria if the influence check is greater than 10. Once in play, the number required to influence this faction is 0. Standard Modifications: Goblins of Goblin-gate (+2), Orcs of Dol Guldur (-2)."
+  },
+  {
+    "cardType": "minion-resource-event",
+    "alignment": "ringwraith",
+    "id": "le-167",
+    "name": "Bade to Rule",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/BadetoRule.jpg",
+    "unique": false,
+    "eventType": "permanent",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Playable at a Darkhaven [{DH}] during the organization phase on your Ringwraith. -2 to his direct influence, +5 general influence. You may discard this card during any of your organization phases. Discard this card if your Ringwraith moves. Alternatively, playable if your Ringwraith is not in play. +5 general influence. Place this card with your Ringwraith when he comes into play. Cannot be duplicated by a given player.Cannot be included in a Balrog's deck."
   }
 ]
