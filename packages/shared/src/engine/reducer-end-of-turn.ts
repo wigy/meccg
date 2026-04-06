@@ -1,0 +1,386 @@
+/**
+ * @module reducer-end-of-turn
+ *
+ * End-of-turn phase handlers for the game reducer. Covers card discarding,
+ * hand resetting, deck exhaustion during end-of-turn, signaling game end,
+ * and transitioning to Free Council.
+ */
+
+import type { GameState, EndOfTurnPhaseState, PlayerId, GameAction } from '../index.js';
+import { Phase, getPlayerIndex, HAND_SIZE } from '../index.js';
+import { logHeading, logDetail } from './legal-actions/log.js';
+import type { ReducerResult } from './reducer-utils.js';
+import { clonePlayers, startDeckExhaust, completeDeckExhaust, handleExchangeSideboard } from './reducer-utils.js';
+import { enterUntapPhase } from './reducer-untap.js';
+
+
+/**
+ * End-of-turn phase handler (CoE 2.VI).
+ *
+ * Dispatches to sub-step handlers:
+ * 1. discard — voluntary discard by either player
+ * 2. reset-hand — draw/discard to base hand size
+ * 3. signal-end — resource player ends the turn
+ */
+export function handleEndOfTurn(state: GameState, action: GameAction): ReducerResult {
+  const eotState = state.phaseState as EndOfTurnPhaseState;
+
+  switch (eotState.step) {
+    case 'discard':
+      return handleEndOfTurnDiscard(state, action, eotState);
+    case 'reset-hand':
+      return handleEndOfTurnResetHand(state, action, eotState);
+    case 'signal-end':
+      return handleEndOfTurnSignalEnd(state, action);
+    default: {
+      const _exhaustive: never = eotState.step;
+      return { state, error: `Unknown end-of-turn step` };
+    }
+  }
+}
+
+/**
+ * Step 1 (discard): Either player may discard a card from hand.
+ *
+ * Both players act independently. Each may discard one card or pass.
+ * Once both have acted (discard or pass), advance to reset-hand.
+ */
+
+
+/**
+ * Step 1 (discard): Either player may discard a card from hand.
+ *
+ * Both players act independently. Each may discard one card or pass.
+ * Once both have acted (discard or pass), advance to reset-hand.
+ */
+function handleEndOfTurnDiscard(
+  state: GameState,
+  action: GameAction,
+  eotState: EndOfTurnPhaseState,
+): ReducerResult {
+  const playerIndex = getPlayerIndex(state, action.player);
+
+  if (eotState.discardDone[playerIndex]) {
+    return { state, error: `Player already acted in discard step` };
+  }
+
+  /** Mark this player done and advance to reset-hand if both are done. */
+  function markDone(updatedState: GameState, updatedEot: EndOfTurnPhaseState): ReducerResult {
+    const newDone: [boolean, boolean] = [...updatedEot.discardDone] as [boolean, boolean];
+    newDone[playerIndex] = true;
+
+    if (newDone[0] && newDone[1]) {
+      logDetail(`End-of-Turn discard: both players done → advancing to reset-hand`);
+      return {
+        state: {
+          ...updatedState,
+          phaseState: { ...updatedEot, step: 'reset-hand' as const, discardDone: newDone },
+        },
+      };
+    }
+
+    logDetail(`End-of-Turn discard: player ${action.player as string} done, waiting for other player`);
+    return {
+      state: {
+        ...updatedState,
+        phaseState: { ...updatedEot, discardDone: newDone },
+      },
+    };
+  }
+
+  if (action.type === 'pass') {
+    logDetail(`End-of-Turn discard: player ${action.player as string} passed`);
+    return markDone(state, eotState);
+  }
+
+  if (action.type === 'discard-card') {
+    const player = state.players[playerIndex];
+    const cardIdx = player.hand.findIndex(c => c.instanceId === action.cardInstanceId);
+
+    if (cardIdx === -1) {
+      return { state, error: 'Card not in hand' };
+    }
+
+    const discardedCard = player.hand[cardIdx];
+    const newHand = [...player.hand];
+    newHand.splice(cardIdx, 1);
+
+    const newPlayers = clonePlayers(state);
+    newPlayers[playerIndex] = {
+      ...player,
+      hand: newHand,
+      discardPile: [...player.discardPile, discardedCard],
+    };
+
+    logDetail(`End-of-Turn discard: player ${player.name} discarded 1 card (hand now ${newHand.length})`);
+    return markDone({ ...state, players: newPlayers }, eotState);
+  }
+
+  return { state, error: `Unexpected action '${action.type}' in end-of-turn discard step` };
+}
+
+/**
+ * Step 2 (reset-hand): Both players draw or discard to base hand size (8).
+ *
+ * Players above hand size must discard one card at a time. Players below
+ * hand size draw all at once. Once both are at hand size, advance to
+ * signal-end.
+ */
+
+
+/**
+ * Step 2 (reset-hand): Both players draw or discard to base hand size (8).
+ *
+ * Players above hand size must discard one card at a time. Players below
+ * hand size draw all at once. Once both are at hand size, advance to
+ * signal-end.
+ */
+function handleEndOfTurnResetHand(
+  state: GameState,
+  action: GameAction,
+  eotState: EndOfTurnPhaseState,
+): ReducerResult {
+  const handSize = HAND_SIZE; // TODO: compute from DSL hand-size-modifier effects
+
+  // Pass during deck exhaust exchange sub-flow: complete the exhaust
+  if (action.type === 'pass') {
+    const pIdx = getPlayerIndex(state, action.player);
+    if (state.players[pIdx].deckExhaustPending) {
+      logDetail(`End-of-Turn reset-hand: player ${state.players[pIdx].name} completed deck exhaust exchange`);
+      return { state: completeDeckExhaust(state, pIdx) };
+    }
+  }
+
+  if (action.type === 'pass') {
+    // Pass is valid at hand size, or when deck and discard are both empty (can't draw)
+    const playerIndex = getPlayerIndex(state, action.player);
+    const player = state.players[playerIndex];
+    const cannotDraw = player.playDeck.length === 0 && player.discardPile.length === 0;
+    if (player.hand.length !== handSize && !cannotDraw) {
+      return { state, error: `Cannot pass during reset-hand: hand has ${player.hand.length} cards, need ${handSize}` };
+    }
+
+    logDetail(`End-of-Turn reset-hand: player ${player.name} at hand size, passed`);
+
+    // Check if both players are now at hand size
+    const otherIndex = (playerIndex === 0 ? 1 : 0);
+    if (state.players[otherIndex].hand.length === handSize) {
+      logDetail(`End-of-Turn reset-hand: both players at hand size → advancing to signal-end`);
+      return {
+        state: {
+          ...state,
+          phaseState: { ...eotState, step: 'signal-end' as const },
+        },
+      };
+    }
+
+    return { state };
+  }
+
+  if (action.type === 'discard-card') {
+    const playerIndex = getPlayerIndex(state, action.player);
+    const player = state.players[playerIndex];
+
+    if (player.hand.length <= handSize) {
+      return { state, error: `Player ${player.name} does not need to discard (hand: ${player.hand.length}/${handSize})` };
+    }
+
+    const cardIdx = player.hand.findIndex(c => c.instanceId === action.cardInstanceId);
+    if (cardIdx === -1) {
+      return { state, error: 'Card not in hand' };
+    }
+
+    const discardedCard = player.hand[cardIdx];
+    const newHand = [...player.hand];
+    newHand.splice(cardIdx, 1);
+
+    const newPlayers = clonePlayers(state);
+    newPlayers[playerIndex] = {
+      ...player,
+      hand: newHand,
+      discardPile: [...player.discardPile, discardedCard],
+    };
+
+    logDetail(`End-of-Turn reset-hand: player ${player.name} discards 1 card (${newHand.length}/${handSize})`);
+
+    // Check if both players are now at hand size
+    const otherIndex = (playerIndex === 0 ? 1 : 0);
+    if (newHand.length === handSize && newPlayers[otherIndex].hand.length === handSize) {
+      logDetail(`End-of-Turn reset-hand: both players at hand size → advancing to signal-end`);
+      return {
+        state: {
+          ...state,
+          players: newPlayers,
+          phaseState: { ...eotState, step: 'signal-end' as const },
+        },
+      };
+    }
+
+    return { state: { ...state, players: newPlayers } };
+  }
+
+  if (action.type === 'deck-exhaust') {
+    const playerIndex = getPlayerIndex(state, action.player);
+    const player = state.players[playerIndex];
+    if (player.playDeck.length > 0) {
+      return { state, error: 'Cannot exhaust — play deck is not empty' };
+    }
+    if (player.discardPile.length === 0) {
+      return { state, error: 'Cannot exhaust — discard pile is also empty' };
+    }
+    return { state: startDeckExhaust(state, playerIndex) };
+  }
+
+  if (action.type === 'exchange-sideboard') {
+    return handleExchangeSideboard(state, action);
+  }
+
+  if (action.type === 'draw-cards') {
+    const playerIndex = getPlayerIndex(state, action.player);
+    const player = state.players[playerIndex];
+
+    if (player.hand.length >= handSize) {
+      return { state, error: `Player ${player.name} does not need to draw (hand: ${player.hand.length}/${handSize})` };
+    }
+
+    if (player.playDeck.length === 0) {
+      logDetail(`End-of-Turn reset-hand: player ${player.name} has no cards to draw`);
+      // Treat as if they reached hand size (can't draw more)
+      const otherIndex = (playerIndex === 0 ? 1 : 0);
+      if (state.players[otherIndex].hand.length === handSize) {
+        return {
+          state: { ...state, phaseState: { ...eotState, step: 'signal-end' as const } },
+        };
+      }
+      return { state };
+    }
+
+    const drawCount = Math.min(action.count, handSize - player.hand.length);
+    const cardsToDrawCount = Math.min(drawCount, player.playDeck.length);
+    const drawnCards = player.playDeck.slice(0, cardsToDrawCount);
+    const newHand = [...player.hand, ...drawnCards];
+    const newPlayDeck = player.playDeck.slice(cardsToDrawCount);
+
+    const newPlayers = clonePlayers(state);
+    newPlayers[playerIndex] = {
+      ...player,
+      hand: newHand,
+      playDeck: newPlayDeck,
+    };
+
+    logDetail(`End-of-Turn reset-hand: player ${player.name} drew ${cardsToDrawCount} cards (${newHand.length}/${handSize})`);
+
+    // Check if both players are now at hand size
+    const otherIndex = (playerIndex === 0 ? 1 : 0);
+    if (newHand.length === handSize && newPlayers[otherIndex].hand.length === handSize) {
+      logDetail(`End-of-Turn reset-hand: both players at hand size → advancing to signal-end`);
+      return {
+        state: { ...state, players: newPlayers, phaseState: { ...eotState, step: 'signal-end' as const } },
+      };
+    }
+
+    return { state: { ...state, players: newPlayers } };
+  }
+
+  return { state, error: `Unexpected action '${action.type}' in end-of-turn reset-hand step` };
+}
+
+/**
+ * Step 3 (signal-end): Resource player signals end of turn.
+ * Pass switches the active player and advances to the next turn's Untap phase.
+ */
+
+
+/**
+ * Step 3 (signal-end): Resource player signals end of turn.
+ * Pass switches the active player and advances to the next turn's Untap phase.
+ */
+function handleEndOfTurnSignalEnd(state: GameState, action: GameAction): ReducerResult {
+  if (action.type === 'pass') {
+    const currentIndex = getPlayerIndex(state, state.activePlayer!);
+    const nextIndex = (currentIndex === 0 ? 1 : 0);
+    const nextPlayer = state.players[nextIndex].id;
+
+    // Check if this was the opponent's last turn after a Free Council call
+    if (state.lastTurnFor === state.activePlayer) {
+      logDetail(`End-of-Turn signal-end: ${action.player as string} finished their last turn → transitioning to Free Council`);
+      return {
+        state: transitionToFreeCouncil(state, state.activePlayer!),
+      };
+    }
+
+    // Check auto-end: both players exhausted their deck twice
+    if (state.players[0].deckExhaustionCount >= 2 && state.players[1].deckExhaustionCount >= 2) {
+      logDetail(`End-of-Turn signal-end: both players exhausted deck twice → transitioning to Free Council`);
+      return {
+        state: transitionToFreeCouncil(state, state.activePlayer!),
+      };
+    }
+
+    logDetail(`End-of-Turn signal-end: active player ${action.player as string} ended turn → switching to player ${nextPlayer as string}, turn ${state.turnNumber + 1}`);
+    return {
+      state: enterUntapPhase({
+        ...state,
+        activePlayer: nextPlayer,
+        turnNumber: state.turnNumber + 1,
+      }),
+    };
+  }
+
+  if (action.type === 'call-free-council') {
+    const currentIndex = getPlayerIndex(state, state.activePlayer!);
+    const nextIndex = (currentIndex === 0 ? 1 : 0);
+    const nextPlayer = state.players[nextIndex].id;
+
+    const newPlayers = clonePlayers(state);
+    newPlayers[currentIndex] = { ...newPlayers[currentIndex], freeCouncilCalled: true };
+
+    logDetail(`End-of-Turn signal-end: ${action.player as string} called the Free Council — opponent ${nextPlayer as string} gets one last turn`);
+    return {
+      state: enterUntapPhase({
+        ...state,
+        players: newPlayers,
+        activePlayer: nextPlayer,
+        turnNumber: state.turnNumber + 1,
+        lastTurnFor: nextPlayer,
+      }),
+    };
+  }
+
+  return { state, error: `Unexpected action '${action.type}' in end-of-turn signal-end step` };
+}
+
+/**
+ * Creates the initial Free Council phase state. The player who took the last
+ * turn performs corruption checks first.
+ */
+
+
+/**
+ * Creates the initial Free Council phase state. The player who took the last
+ * turn performs corruption checks first.
+ */
+function transitionToFreeCouncil(state: GameState, lastTurnPlayer: PlayerId): GameState {
+  logHeading('Transitioning to Free Council phase');
+  return {
+    ...state,
+    activePlayer: lastTurnPlayer,
+    phaseState: {
+      phase: Phase.FreeCouncil,
+      tiebreaker: false,
+      step: 'corruption-checks',
+      currentPlayer: lastTurnPlayer,
+      checkedCharacters: [],
+      firstPlayerDone: false,
+    },
+  };
+}
+
+/**
+ * Handles actions during the Free Council phase.
+ *
+ * During 'corruption-checks' step, each player performs corruption checks
+ * for their characters in turn. When both players have finished (or passed),
+ * final scores are computed and the game transitions to Game Over.
+ */
+
