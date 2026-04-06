@@ -82,18 +82,9 @@ run_skill() {
   claude --dangerously-skip-permissions --verbose --output-format stream-json -p "$1" > "$raw_tmp" 2>&1
   local rc=$?
   cat "$raw_tmp" >> "$LOG_DIR/ai-raw.log"
-  # Extract cost/time into global variables and print summary lines
-  SKILL_COST=$(grep -oP '"total_cost_usd":\s*\K[\d.]+' "$raw_tmp" | tail -1 || true)
-  SKILL_DURATION_MS=$(grep -oP '"duration_ms":\s*\K\d+' "$raw_tmp" | tail -1 || true)
-  if [ -n "$SKILL_COST" ]; then
-    log "Cost: \$${SKILL_COST}"
-  fi
-  if [ -n "$SKILL_DURATION_MS" ]; then
-    local secs=$(( SKILL_DURATION_MS / 1000 ))
-    local mins=$(( secs / 60 ))
-    local rem_secs=$(( secs % 60 ))
-    log "Duration: ${mins}m ${rem_secs}s"
-  fi
+  # Print cost/time summary lines (to stderr so they show even when stdout is captured)
+  grep -oP '"total_cost_usd":\s*[\d.]+' "$raw_tmp" | tail -1 >&2 || true
+  grep -oP '"duration_ms":\s*\d+' "$raw_tmp" | tail -1 >&2 || true
   # Extract the text result for the caller
   jq -r 'select(.type == "result") | .result // empty' "$raw_tmp" 2>/dev/null || true
   rm -f "$raw_tmp"
@@ -167,8 +158,6 @@ set_status "ai" "$MSG_ID" '{"status":"processing"}'
 
 SUCCESS=false
 DELEGATED=false
-SKILL_COST=""
-SKILL_DURATION_MS=""
 REPLY_TOPIC=""
 REPLY_SUBJECT=""
 REPLY_BODY=""
@@ -438,13 +427,4 @@ log "From:     $FROM"
 log "Success:  $SUCCESS"
 if [ -n "$REPLY_TOPIC" ]; then
   log "Reply:    $REPLY_TOPIC -> $RECIPIENT"
-fi
-if [ -n "${SKILL_COST:-}" ]; then
-  log "Cost:     \$${SKILL_COST}"
-fi
-if [ -n "${SKILL_DURATION_MS:-}" ]; then
-  SUMMARY_SECS=$(( SKILL_DURATION_MS / 1000 ))
-  SUMMARY_MINS=$(( SUMMARY_SECS / 60 ))
-  SUMMARY_REM=$(( SUMMARY_SECS % 60 ))
-  log "Duration: ${SUMMARY_MINS}m ${SUMMARY_REM}s"
 fi
