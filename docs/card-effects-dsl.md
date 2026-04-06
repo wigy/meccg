@@ -200,14 +200,15 @@ Used by resource short events like Smoke Rings.
 ```json
 { "type": "fetch-to-deck",
   "source": ["sideboard", "discard-pile"],
-  "filter": "resource-or-character",
+  "filter": { "cardType": { "$in": ["hero-character", "hero-resource-item",
+    "hero-resource-ally", "hero-resource-faction", "hero-resource-event"] } },
   "count": 1,
   "shuffle": true }
 ```
 
 Sources: `sideboard`, `discard-pile`.
 
-Filters: `resource-or-character` — only resource and character cards.
+The `filter` is a standard DSL condition evaluated against each card definition.
 
 ## Resolver Architecture
 

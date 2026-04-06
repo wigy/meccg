@@ -16,15 +16,8 @@
  */
 
 import type { GameState, PlayerId, EvaluatedAction, HeroResourceEventCard, LongEventPhaseState, CardInstanceId } from '../../index.js';
+import { matchesCondition } from '../../index.js';
 import { logHeading, logDetail } from './log.js';
-
-/**
- * Checks whether a card type qualifies as a resource or character for the
- * fetch-to-deck filter `"resource-or-character"`.
- */
-function isResourceOrCharacter(cardType: string): boolean {
-  return cardType.includes('character') || cardType.includes('resource');
-}
 
 /**
  * Computes legal actions for the fetch-to-deck sub-flow.
@@ -52,7 +45,7 @@ function fetchFromPileActions(state: GameState, playerId: PlayerId): EvaluatedAc
       if (!def) continue;
 
       // Apply filter
-      if (pending.filter === 'resource-or-character' && !isResourceOrCharacter(def.cardType)) {
+      if (!matchesCondition(pending.filter, def as unknown as Record<string, unknown>)) {
         continue;
       }
 

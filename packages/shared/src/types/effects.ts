@@ -327,8 +327,8 @@ export interface FetchToDeckEffect extends EffectBase {
   readonly type: 'fetch-to-deck';
   /** Which piles the player may fetch from (e.g. ["sideboard", "discard-pile"]). */
   readonly source: readonly string[];
-  /** Card type filter — only cards matching this category may be fetched. */
-  readonly filter: string;
+  /** DSL condition evaluated against each card definition to decide eligibility. */
+  readonly filter: Condition;
   /** How many cards to fetch. */
   readonly count: number;
   /** Whether to shuffle the play deck after inserting the card. */

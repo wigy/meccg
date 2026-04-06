@@ -624,8 +624,8 @@ export interface LongEventPhaseState {
   readonly pendingFetch: {
     /** Which piles the player may fetch from. */
     readonly sources: readonly string[];
-    /** Card type filter for eligible cards. */
-    readonly filter: string;
+    /** DSL condition evaluated against each card definition to decide eligibility. */
+    readonly filter: import('./effects.js').Condition;
   } | null;
 }
 

@@ -2880,7 +2880,7 @@ function handlePlayResourceShortEvent(state: GameState, action: GameAction): Red
   if (def.effects) {
     for (const effect of def.effects) {
       if (effect.type === 'fetch-to-deck') {
-        logDetail(`Fetch-to-deck effect: sources=[${effect.source.join(', ')}], filter=${effect.filter}`);
+        logDetail(`Fetch-to-deck effect: sources=[${effect.source.join(', ')}], filter=${JSON.stringify(effect.filter)}`);
         pendingFetch = {
           sources: effect.source,
           filter: effect.filter,
@@ -2926,11 +2926,9 @@ function handleFetchFromPile(state: GameState, action: GameAction): ReducerResul
   const fetchedCard = sourcePile[cardIdx];
   const def = state.cardPool[fetchedCard.definitionId as string];
 
-  // Validate card type matches filter
-  if (leState.pendingFetch.filter === 'resource-or-character') {
-    if (!def || (!def.cardType.includes('character') && !def.cardType.includes('resource'))) {
-      return { state, error: 'Only resources and characters can be fetched' };
-    }
+  // Validate card matches filter condition
+  if (!def || !matchesCondition(leState.pendingFetch.filter, def as unknown as Record<string, unknown>)) {
+    return { state, error: 'Card does not match fetch filter' };
   }
 
   logDetail(`Fetching ${def?.name ?? '?'} from ${action.source as string} → play deck, shuffling`);
