@@ -523,10 +523,34 @@ function playResourcesActions(
         continue;
       }
 
+      // Check character-scoped duplication limit
+      const charDupLimit = itemDef.effects?.find(
+        (e): e is import('../../index.js').DuplicationLimitEffect =>
+          e.type === 'duplication-limit' && e.scope === 'character',
+      );
+
       // One action per untapped character that could carry the item
       for (const ch of untappedCharacters) {
         const charDef = state.cardPool[ch.definitionId as string];
         const charName = charDef?.name ?? ch.instanceId;
+
+        // Check character-scoped duplication: count copies of this item already on the character
+        if (charDupLimit) {
+          const copiesOnChar = ch.items.filter(item => {
+            const iDef = state.cardPool[item.definitionId as string];
+            return iDef && iDef.name === itemDef.name;
+          }).length;
+          if (copiesOnChar >= charDupLimit.max) {
+            logDetail(`Item ${itemDef.name}: cannot be duplicated on ${charName} (${copiesOnChar}/${charDupLimit.max})`);
+            actions.push({
+              action: { type: 'not-playable', player: playerId, cardInstanceId },
+              viable: false,
+              reason: `${itemDef.name}: cannot be duplicated on ${charName}`,
+            });
+            continue;
+          }
+        }
+
         logDetail(`Item ${itemDef.name}: playable on ${charName}`);
         actions.push({
           action: {
