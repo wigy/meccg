@@ -192,6 +192,24 @@ Supported triggers:
 - `resource-play` — when the resource player plays any resource that
   taps the site (generic catch-all)
 
+### 15. `fetch-to-deck`
+
+Fetches a card from one or more source piles into the play deck and shuffles.
+Used by resource short events like Smoke Rings.
+
+```json
+{ "type": "fetch-to-deck",
+  "source": ["sideboard", "discard-pile"],
+  "filter": { "cardType": { "$in": ["hero-character", "hero-resource-item",
+    "hero-resource-ally", "hero-resource-faction", "hero-resource-event"] } },
+  "count": 1,
+  "shuffle": true }
+```
+
+Sources: `sideboard`, `discard-pile`.
+
+The `filter` is a standard DSL condition evaluated against each card definition.
+
 ## Resolver Architecture
 
 The engine calls a resolver at each decision point:

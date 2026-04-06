@@ -318,6 +318,24 @@ export interface OnGuardRevealEffect extends EffectBase {
 }
 
 /**
+ * Fetches a card from one or more source piles into the play deck and shuffles.
+ *
+ * Used by short events like Smoke Rings that let the player retrieve a
+ * resource or character from their sideboard or discard pile.
+ */
+export interface FetchToDeckEffect extends EffectBase {
+  readonly type: 'fetch-to-deck';
+  /** Which piles the player may fetch from (e.g. ["sideboard", "discard-pile"]). */
+  readonly source: readonly string[];
+  /** DSL condition evaluated against each card definition to decide eligibility. */
+  readonly filter: Condition;
+  /** How many cards to fetch. */
+  readonly count: number;
+  /** Whether to shuffle the play deck after inserting the card. */
+  readonly shuffle: boolean;
+}
+
+/**
  * Discriminated union of all card effect types.
  * The `type` field serves as the discriminant for type narrowing.
  */
@@ -335,4 +353,5 @@ export type CardEffect =
   | PlayRestrictionEffect
   | DuplicationLimitEffect
   | PlayTargetEffect
-  | OnGuardRevealEffect;
+  | OnGuardRevealEffect
+  | FetchToDeckEffect;

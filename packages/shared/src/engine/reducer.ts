@@ -14,7 +14,7 @@
  * (or the original state plus an error string if the action was illegal).
  */
 
-import type { GameState, PlayerState, DraftPlayerState, ItemDraftPlayerState, CharacterDeckDraftPlayerState, SetupStepState, CardInstanceId, CompanyId, CharacterInPlay, CardInstance, ChainEntryPayload, UntapPhaseState, OrganizationPhaseState, MovementHazardPhaseState, SitePhaseState, EndOfTurnPhaseState, FreeCouncilPhaseState, Company, CreatureCard, SiteInPlay, HeroItemCard, CombatState, StrikeAssignment, PlayerId, OnGuardCard } from '../index.js';
+import type { GameState, PlayerState, DraftPlayerState, ItemDraftPlayerState, CharacterDeckDraftPlayerState, SetupStepState, CardInstanceId, CompanyId, CharacterInPlay, CardInstance, ChainEntryPayload, UntapPhaseState, OrganizationPhaseState, LongEventPhaseState, MovementHazardPhaseState, SitePhaseState, EndOfTurnPhaseState, FreeCouncilPhaseState, Company, CreatureCard, SiteInPlay, HeroItemCard, CombatState, StrikeAssignment, PlayerId, OnGuardCard } from '../index.js';
 import type { GameAction } from '../index.js';
 import { Phase, SetupStep, LEGAL_ACTIONS_BY_PHASE, getAlignmentRules, shuffle, nextInt, CardStatus, isCharacterCard, isItemCard, isAllyCard, isFactionCard, isSiteCard, SiteType, RegionType, Race, Skill, getPlayerIndex, ZERO_EFFECTIVE_STATS, MAX_STARTING_ITEMS, BASE_MAX_REGION_DISTANCE, HAND_SIZE, GENERAL_INFLUENCE } from '../index.js';
 import { logHeading, logDetail } from './legal-actions/log.js';
@@ -1636,7 +1636,7 @@ function handleOrganization(state: GameState, action: GameAction): ReducerResult
       state: {
         ...state,
         players: newPlayers,
-        phaseState: { phase: Phase.LongEvent },
+        phaseState: { phase: Phase.LongEvent, pendingFetch: null },
       },
     };
   }
@@ -2756,14 +2756,33 @@ function handlePlayShortEvent(state: GameState, action: GameAction): ReducerResu
 /**
  * Handle actions during the long-event phase.
  *
- * The resource player may play resource long-events from hand. On pass,
- * the hazard player's hazard long-events are discarded and the phase advances.
+ * The resource player may play resource long-events and short-events from
+ * hand. On pass, the hazard player's hazard long-events are discarded and
+ * the phase advances. Resource short events with fetch-to-deck effects
+ * enter a sub-flow for card selection.
  */
 function handleLongEvent(state: GameState, action: GameAction): ReducerResult {
   if (action.type === 'play-long-event') {
     return handlePlayLongEvent(state, action);
   }
+  if (action.type === 'play-resource-short-event') {
+    return handlePlayResourceShortEvent(state, action);
+  }
+  if (action.type === 'fetch-from-pile') {
+    return handleFetchFromPile(state, action);
+  }
   if (action.type === 'pass') {
+    // If in fetch sub-flow, pass means skip (no eligible cards or player declines)
+    const leState = state.phaseState as LongEventPhaseState;
+    if (leState.pendingFetch) {
+      logDetail('Fetch sub-flow: player passed — clearing pending fetch');
+      return {
+        state: {
+          ...state,
+          phaseState: { ...leState, pendingFetch: null },
+        },
+      };
+    }
     // [2.III.3] At end of long-event phase: hazard player discards own hazard long-events
     const activePlayer = state.activePlayer!;
     const hazardPlayerIndex = (getPlayerIndex(state, activePlayer) + 1) % state.players.length;
@@ -2820,6 +2839,129 @@ function handleLongEvent(state: GameState, action: GameAction): ReducerResult {
     };
   }
   return { state, error: `Unexpected action '${action.type}' in long-event phase` };
+}
+
+/**
+ * Handle playing a resource short-event card during the long-event phase.
+ *
+ * Removes the card from hand, discards it, and if it has a `fetch-to-deck`
+ * effect, sets up the pendingFetch sub-flow on the phase state.
+ */
+function handlePlayResourceShortEvent(state: GameState, action: GameAction): ReducerResult {
+  if (action.type !== 'play-resource-short-event') return { state, error: 'Expected play-resource-short-event action' };
+
+  const playerIndex = getPlayerIndex(state, action.player);
+  const player = state.players[playerIndex];
+
+  const cardIdx = player.hand.findIndex(c => c.instanceId === action.cardInstanceId);
+  if (cardIdx === -1) return { state, error: 'Card not in hand' };
+
+  const handCard = player.hand[cardIdx];
+  const def = state.cardPool[handCard.definitionId as string];
+  if (!def || def.cardType !== 'hero-resource-event' || def.eventType !== 'short') {
+    return { state, error: 'Card is not a resource short-event' };
+  }
+
+  logDetail(`Playing resource short-event: ${def.name} (${action.cardInstanceId as string})`);
+
+  // Move from hand → discard
+  const newHand = [...player.hand];
+  newHand.splice(cardIdx, 1);
+  const newPlayers = clonePlayers(state);
+  newPlayers[playerIndex] = {
+    ...player,
+    hand: newHand,
+    discardPile: [...player.discardPile, handCard],
+  };
+
+  // Check for fetch-to-deck effects
+  const leState = state.phaseState as LongEventPhaseState;
+  let pendingFetch: LongEventPhaseState['pendingFetch'] = null;
+  if (def.effects) {
+    for (const effect of def.effects) {
+      if (effect.type === 'fetch-to-deck') {
+        logDetail(`Fetch-to-deck effect: sources=[${effect.source.join(', ')}], filter=${JSON.stringify(effect.filter)}`);
+        pendingFetch = {
+          sources: effect.source,
+          filter: effect.filter,
+        };
+        break;
+      }
+    }
+  }
+
+  return {
+    state: {
+      ...state,
+      players: newPlayers,
+      phaseState: { ...leState, pendingFetch },
+    },
+  };
+}
+
+/**
+ * Handle fetching a card from sideboard or discard pile into the play deck.
+ *
+ * Part of the fetch-to-deck sub-flow initiated by resource short events.
+ * Moves the selected card to the play deck and shuffles.
+ */
+function handleFetchFromPile(state: GameState, action: GameAction): ReducerResult {
+  if (action.type !== 'fetch-from-pile') return { state, error: 'Expected fetch-from-pile action' };
+
+  const leState = state.phaseState as LongEventPhaseState;
+  if (!leState.pendingFetch) {
+    return { state, error: 'No fetch sub-flow active' };
+  }
+
+  const playerIndex = getPlayerIndex(state, action.player);
+  const player = state.players[playerIndex];
+
+  // Find the card in the specified source pile
+  const sourcePile = action.source === 'sideboard' ? player.sideboard : player.discardPile;
+  const cardIdx = sourcePile.findIndex(c => c.instanceId === action.cardInstanceId);
+  if (cardIdx === -1) {
+    return { state, error: `Card not found in ${action.source as string}` };
+  }
+
+  const fetchedCard = sourcePile[cardIdx];
+  const def = state.cardPool[fetchedCard.definitionId as string];
+
+  // Validate card matches filter condition
+  if (!def || !matchesCondition(leState.pendingFetch.filter, def as unknown as Record<string, unknown>)) {
+    return { state, error: 'Card does not match fetch filter' };
+  }
+
+  logDetail(`Fetching ${def?.name ?? '?'} from ${action.source as string} → play deck, shuffling`);
+
+  // Remove from source pile, add to play deck, shuffle
+  const newSourcePile = [...sourcePile];
+  newSourcePile.splice(cardIdx, 1);
+
+  const [shuffledDeck, nextRng] = shuffle([...player.playDeck, fetchedCard], state.rng);
+
+  const newPlayers = clonePlayers(state);
+  if (action.source === 'sideboard') {
+    newPlayers[playerIndex] = {
+      ...player,
+      sideboard: newSourcePile,
+      playDeck: shuffledDeck,
+    };
+  } else {
+    newPlayers[playerIndex] = {
+      ...player,
+      discardPile: newSourcePile,
+      playDeck: shuffledDeck,
+    };
+  }
+
+  return {
+    state: {
+      ...state,
+      players: newPlayers,
+      rng: nextRng,
+      phaseState: { ...leState, pendingFetch: null },
+    },
+  };
 }
 
 /**

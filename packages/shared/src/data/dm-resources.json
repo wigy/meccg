@@ -9,8 +9,11 @@
     "eventType": "short",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
-    "text": "Bring one resource or character from your sideboard or discard pile into your play deck and shuffle."
+    "effects": [
+      { "type": "fetch-to-deck", "source": ["sideboard", "discard-pile"], "filter": { "cardType": { "$in": ["hero-character", "hero-resource-item", "hero-resource-ally", "hero-resource-faction", "hero-resource-event"] } }, "count": 1, "shuffle": true }
+    ],
+    "text": "Bring one resource or character from your sideboard or discard pile into your play deck and shuffle.",
+    "certified": "2026-04-06"
   },
   {
     "cardType": "hero-resource-event",
