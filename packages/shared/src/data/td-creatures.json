@@ -20,5 +20,20 @@
     ],
     "effects": [],
     "text": "Drake. One strike.May also be played at a Ruins & Lairs [{R}] that has two Wildernesses [{w}] or one Coastal Sea [{c}] in its site path."
+  },
+  {
+    "cardType": "hazard-creature",
+    "id": "td-59",
+    "name": "Sand-drake",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/td/Sanddrake.jpg",
+    "unique": false,
+    "strikes": 3,
+    "prowess": 12,
+    "body": null,
+    "killMarshallingPoints": 1,
+    "race": "drake",
+    "keyedTo": [],
+    "effects": [],
+    "text": "Drake. Three strikes. Attacker chooses defending characters. May be played keyed to Khand and Harondor.If Doors of Night is in play, may also be played keyed to Ithilien, Nurn, and Horse Plains."
   }
 ]
