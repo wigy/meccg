@@ -21,46 +21,21 @@ import {
   buildTestState, resetMint, buildSitePhaseState,
   makeMHState, P1_COMPANY,
   playHazardAndResolve,
+  addP2CardsInPlay, setupAutoAttackStep,
 } from '../test-helpers.js';
-import type { CardInPlay, CardInstanceId, GameState, SitePhaseState } from '../../index.js';
+import type { CardInPlay, CardInstanceId, GameState } from '../../index.js';
 import { ISENGARD } from '../../index.js';
 
-// ─── Helpers ─────────────────────────────────────────────────────────────────
+// ─── Tests ─────────────────────────────────────────────────────────────────
 
-/**
- * Build a state in the site phase automatic-attacks step with Eye of Sauron
- * already in play as a hazard long-event.
- */
-function buildAutoAttackState(opts?: {
-  /** Additional cards in play for player 2 (the hazard player). */
-  extraP2CardsInPlay?: CardInPlay[];
-}) {
+describe('Eye of Sauron (tw-32)', () => {
+  beforeEach(() => resetMint());
+
   const eosInPlay: CardInPlay = {
     instanceId: 'eos-1' as CardInstanceId,
     definitionId: EYE_OF_SAURON,
     status: CardStatus.Untapped,
   };
-
-  const state = buildSitePhaseState({ site: ISENGARD });
-  const players = state.players.map((p, i) =>
-    i === 1
-      ? { ...p, cardsInPlay: [...p.cardsInPlay, eosInPlay, ...(opts?.extraP2CardsInPlay ?? [])] }
-      : p,
-  ) as [typeof state.players[0], typeof state.players[1]];
-
-  const autoAttackState: SitePhaseState = {
-    ...state.phaseState,
-    step: 'automatic-attacks',
-    siteEntered: false,
-    automaticAttacksResolved: 0,
-  };
-  return { ...state, players, phaseState: autoAttackState };
-}
-
-// ─── Tests ──────────��──────────────────────────��──────────────────────────────
-
-describe('Eye of Sauron (tw-32)', () => {
-  beforeEach(() => resetMint());
 
   test('can be played as a hazard long-event during M/H play-hazards step', () => {
     const state = buildTestState({
@@ -85,7 +60,7 @@ describe('Eye of Sauron (tw-32)', () => {
   test('automatic attack prowess increased by +1 when Eye of Sauron is in play', () => {
     // Isengard has Wolves automatic attack: 3 strikes, 7 prowess
     // With Eye of Sauron, attack prowess should be 7 + 1 = 8
-    const readyState = buildAutoAttackState();
+    const readyState = setupAutoAttackStep(addP2CardsInPlay(buildSitePhaseState({ site: ISENGARD }), [eosInPlay]));
 
     const result = reduce(readyState, { type: 'pass', player: PLAYER_1 });
     expect(result.error).toBeUndefined();
@@ -104,7 +79,7 @@ describe('Eye of Sauron (tw-32)', () => {
       status: CardStatus.Untapped,
     };
 
-    const readyState = buildAutoAttackState({ extraP2CardsInPlay: [donInPlay] });
+    const readyState = setupAutoAttackStep(addP2CardsInPlay(buildSitePhaseState({ site: ISENGARD }), [eosInPlay, donInPlay]));
 
     const result = reduce(readyState, { type: 'pass', player: PLAYER_1 });
     expect(result.error).toBeUndefined();
@@ -139,13 +114,6 @@ describe('Eye of Sauron (tw-32)', () => {
   test('is discarded at end of long-event phase (hazard long-event lifecycle)', () => {
     // Hazard long-events persist until the opponent's long-event phase,
     // at which point they are discarded.
-    const eosInPlay: CardInPlay = {
-      instanceId: 'eos-1' as CardInstanceId,
-      definitionId: EYE_OF_SAURON,
-      status: CardStatus.Untapped,
-    };
-
-    // Build state in long-event phase with EoS already in P2's cardsInPlay
     // P1 is active (resource player), P2 is hazard player
     const state = buildTestState({
       activePlayer: PLAYER_1,

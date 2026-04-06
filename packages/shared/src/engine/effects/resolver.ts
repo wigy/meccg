@@ -345,6 +345,62 @@ export function resolveCompanyModifier(
 }
 
 /**
+ * Maps site automatic attack `creatureType` values (e.g. "Wolves", "Orcs")
+ * to the lowercase singular race identifiers used in creature card data
+ * and DSL conditions (e.g. "wolf", "orc").
+ */
+const CREATURE_TYPE_TO_RACE: Record<string, string> = {
+  wolves: 'wolf',
+  orcs: 'orc',
+  trolls: 'troll',
+  undead: 'undead',
+  men: 'man',
+  animals: 'animal',
+  spiders: 'spider',
+  dragon: 'dragon',
+  dragons: 'dragon',
+  hobbits: 'hobbit',
+  'dúnedain': 'dunadan',
+  elves: 'elf',
+  'pûkel-creature': 'pukel-creature',
+};
+
+/**
+ * Normalizes a site automatic attack's `creatureType` (e.g. "Wolves") to the
+ * lowercase singular race identifier used in creature card data and DSL
+ * conditions (e.g. "wolf").
+ *
+ * Creature cards already use the normalized form in their `race` field, so
+ * this is only needed for automatic attacks.
+ */
+export function normalizeCreatureRace(creatureType: string): string {
+  return CREATURE_TYPE_TO_RACE[creatureType.toLowerCase()] ?? creatureType.toLowerCase();
+}
+
+/**
+ * Builds the resolver context used for attack stat resolution.
+ *
+ * Includes `reason: 'combat'`, `inPlay` (names of events/cards in play),
+ * and optionally `enemy.race` when the creature's race is known.
+ *
+ * @param inPlayNames - Names of all cards currently in play.
+ * @param creatureRace - The lowercase singular race of the attacking creature (e.g. "wolf", "orc").
+ */
+function buildAttackContext(
+  inPlayNames: readonly string[],
+  creatureRace?: string,
+): ResolverContext {
+  const context: ResolverContext = {
+    reason: 'combat',
+    inPlay: inPlayNames,
+  };
+  if (creatureRace) {
+    return { ...context, enemy: { race: creatureRace, name: '', prowess: 0, body: null } };
+  }
+  return context;
+}
+
+/**
  * Resolves attack prowess by applying global attack effects.
  *
  * Collects effects with `target: "all-attacks"` (which apply to both automatic
@@ -355,6 +411,7 @@ export function resolveCompanyModifier(
  * @param state - The full game state.
  * @param baseProwess - The creature's or automatic attack's base prowess.
  * @param inPlayNames - Names of all cards currently in play (for `inPlay` conditions).
+ * @param creatureRace - The lowercase singular race of the attacking creature (e.g. "wolf", "orc").
  * @param isAutomaticAttack - Whether this is a site automatic-attack (not a hazard creature).
  * @returns The modified prowess value after applying attack effects.
  */
@@ -362,15 +419,37 @@ export function resolveAttackProwess(
   state: GameState,
   baseProwess: number,
   inPlayNames: readonly string[],
+  creatureRace?: string,
   isAutomaticAttack = false,
 ): number {
-  const context: ResolverContext = {
-    reason: 'combat',
-    inPlay: inPlayNames,
-  };
+  const context = buildAttackContext(inPlayNames, creatureRace);
   const globalEffects = collectGlobalEffects(state, 'all-attacks', context);
   if (isAutomaticAttack) {
     globalEffects.push(...collectGlobalEffects(state, 'all-automatic-attacks', context));
   }
   return resolveStatModifiers(globalEffects, 'prowess', baseProwess, context);
+}
+
+/**
+ * Resolves attack strikes by applying global `all-attacks` effects.
+ *
+ * Collects all effects with `target: "all-attacks"` from events and cards
+ * in play, evaluates conditions against the context (including `enemy.race`
+ * for creature-type filtering), and sums strikes modifiers.
+ *
+ * @param state - The full game state.
+ * @param baseStrikes - The creature's or automatic attack's base number of strikes.
+ * @param inPlayNames - Names of all cards currently in play (for `inPlay` conditions).
+ * @param creatureRace - The lowercase singular race of the attacking creature (e.g. "wolf", "orc").
+ * @returns The modified strikes value after applying all-attacks effects.
+ */
+export function resolveAttackStrikes(
+  state: GameState,
+  baseStrikes: number,
+  inPlayNames: readonly string[],
+  creatureRace?: string,
+): number {
+  const context = buildAttackContext(inPlayNames, creatureRace);
+  const globalEffects = collectGlobalEffects(state, 'all-attacks', context);
+  return resolveStatModifiers(globalEffects, 'strikes', baseStrikes, context);
 }

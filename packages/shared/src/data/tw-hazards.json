@@ -61,9 +61,42 @@
         "type": "duplication-limit",
         "scope": "game",
         "max": 1
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "prowess",
+        "value": 1,
+        "target": "all-attacks",
+        "id": "wake-of-war-prowess",
+        "when": { "enemy.race": { "$in": ["wolf", "spider", "animal"] } }
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "prowess",
+        "value": 2,
+        "target": "all-attacks",
+        "overrides": "wake-of-war-prowess",
+        "when": { "$and": [{ "enemy.race": "wolf" }, { "inPlay": "Doors of Night" }] }
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "strikes",
+        "value": 1,
+        "target": "all-attacks",
+        "id": "wake-of-war-strikes",
+        "when": { "enemy.race": { "$in": ["wolf", "spider", "animal"] } }
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "strikes",
+        "value": 2,
+        "target": "all-attacks",
+        "overrides": "wake-of-war-strikes",
+        "when": { "$and": [{ "enemy.race": "wolf" }, { "inPlay": "Doors of Night" }] }
       }
     ],
-    "text": "The number of strikes and prowess of each Wolf, Spider, and Animal attack are each increased by one (by two for Wolf attacks if Doors of Night is in play). Cannot be duplicated."
+    "text": "The number of strikes and prowess of each Wolf, Spider, and Animal attack are each increased by one (by two for Wolf attacks if Doors of Night is in play). Cannot be duplicated.",
+    "certified": "2026-04-06"
   },
   {
     "cardType": "hazard-event",

@@ -862,6 +862,39 @@ export function playLongEventAndResolve(
   return result.state;
 }
 
+// ─── Auto-attack state builders ──────────────────────────────────────────────
+
+/**
+ * Adds cards to the hazard player's (P2) cardsInPlay.
+ *
+ * @param state - A state built by `buildSitePhaseState` or similar.
+ * @param cards - Card instances to add to P2's cardsInPlay.
+ */
+export function addP2CardsInPlay<T extends GameState>(
+  state: T,
+  cards: CardInPlay[],
+): T {
+  const players = state.players.map((p, i) =>
+    i === 1 ? { ...p, cardsInPlay: [...p.cardsInPlay, ...cards] } : p,
+  ) as unknown as typeof state.players;
+  return { ...state, players };
+}
+
+/**
+ * Transitions a site phase state to the automatic-attacks step.
+ *
+ * @param state - A state with a SitePhaseState (e.g. from `buildSitePhaseState`).
+ */
+export function setupAutoAttackStep<T extends GameState>(state: T): T {
+  const autoAttackState: SitePhaseState = {
+    ...state.phaseState as SitePhaseState,
+    step: 'automatic-attacks',
+    siteEntered: false,
+    automaticAttacksResolved: 0,
+  };
+  return { ...state, phaseState: autoAttackState };
+}
+
 // Re-export commonly used things
 export {
   createGame, reduce,
