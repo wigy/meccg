@@ -1717,12 +1717,23 @@ export function openMovementViewer(
   siteSelectionActions = view.legalActions.filter(
     ea => ea.action.type === 'plan-movement' && (ea.action.companyId as string) === companyId,
   );
-  // Multiple plan-movement actions may target the same site (different paths).
-  // Pick the first viable one per destination site.
-  siteSelectionMatcher = (card) => siteSelectionActions.find(
-    a => a.action.type === 'plan-movement'
-      && a.action.destinationSite === card.instanceId,
-  );
+  // Match by definition ID so all copies of the same site are highlighted.
+  // Multiple plan-movement actions may target the same site (different paths);
+  // pick the first viable one per destination definition.
+  // Build instance → definitionId map from site deck
+  const siteInstToDef = new Map<string, string>();
+  for (const c of view.self.siteDeck) siteInstToDef.set(c.instanceId as string, c.definitionId as string);
+
+  const destDefIds = new Map<string, EvaluatedAction>();
+  for (const ea of siteSelectionActions) {
+    if (ea.action.type !== 'plan-movement') continue;
+    const destInstId = (ea.action as { destinationSite: CardInstanceId }).destinationSite;
+    const destDefId = siteInstToDef.get(destInstId as string);
+    if (destDefId && !destDefIds.has(destDefId)) {
+      destDefIds.set(destDefId, ea);
+    }
+  }
+  siteSelectionMatcher = (card) => destDefIds.get(siteInstToDef.get(card.instanceId as string) ?? '');
   siteSelectionCallback = onAction;
   installSiteDeckViewer();
   cachedBrowserCards = cachedSiteDeck;
