@@ -43,5 +43,24 @@
     ],
     "effects": [],
     "text": "Unique. Manifestation of minion Woses of the Eryn Vorn. Playable at The Worthy Hills if the influence check is greater than 10. Standard Modifications: none."
+  },
+  {
+    "cardType": "minion-resource-ally",
+    "alignment": "ringwraith",
+    "id": "as-76",
+    "name": "Regiment of Black Crows",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/as/RegimentofBlackCrows.jpg",
+    "unique": false,
+    "prowess": null,
+    "body": null,
+    "marshallingPoints": 1,
+    "marshallingCategory": "ally",
+    "playableAt": [
+      {
+        "site": "a tapped or untapped non-Under-deeps Ruins & Lairs [{R}]"
+      }
+    ],
+    "effects": [],
+    "text": "Playable at a tapped or untapped non-Under-deeps Ruins & Lairs [{R}]. Its controlling character's company is overt. May not be attacked. Discard this ally if its controlling character is wounded. Tap this ally to cancel a hazard creature attack against his company not keyed to a site and to put the creature’s card back into its player’s hand. Cannot be duplicated in a given company."
   }
 ]
