@@ -616,6 +616,17 @@ export interface OrganizationPhaseState {
 export interface LongEventPhaseState {
   /** Phase discriminant. */
   readonly phase: Phase.LongEvent;
+  /**
+   * When non-null, a fetch-to-deck sub-flow is active. The player must
+   * select a card from the eligible sources (sideboard and/or discard pile).
+   * Set when a resource short event with a `fetch-to-deck` effect is played.
+   */
+  readonly pendingFetch: {
+    /** Which piles the player may fetch from. */
+    readonly sources: readonly string[];
+    /** Card type filter for eligible cards. */
+    readonly filter: string;
+  } | null;
 }
 
 /**
