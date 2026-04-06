@@ -87,5 +87,27 @@
     ],
     "effects": [],
     "text": "Men. Two strikes. Attacker chooses defending characters."
+  },
+  {
+    "cardType": "hazard-creature",
+    "id": "le-84",
+    "name": "Marsh-drake",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/Marshdrake.jpg",
+    "unique": false,
+    "strikes": 2,
+    "prowess": 11,
+    "body": null,
+    "killMarshallingPoints": 1,
+    "race": "drake",
+    "keyedTo": [
+      {
+        "regionTypes": [
+          "shadow",
+          "coastal-sea"
+        ]
+      }
+    ],
+    "effects": [],
+    "text": "Drake. Two strikes."
   }
 ]
