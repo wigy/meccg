@@ -27,81 +27,13 @@
 
 import { describe, test, expect } from 'vitest';
 import {
-  buildTestState, makeSitePhase, findCharInstanceId,
-  viableActions, PLAYER_1, PLAYER_2,
-} from '../../test-helpers.js';
-import {
-  Phase, CardStatus, reduce,
+  buildResolutionState, attemptInfluence, defendInfluence,
+  findCharInstanceId, viableActions, PLAYER_1, PLAYER_2,
+  CardStatus, reduce,
   ARAGORN, LEGOLAS, GIMLI, BILBO, EOWYN,
   GLAMDRING,
-  MORIA, LORIEN, MINAS_TIRITH,
-} from '../../../index.js';
-import type {
-  SitePhaseState, OpponentInfluenceAttemptAction,
-} from '../../../index.js';
-
-/**
- * Build a state at play-resources with both players at Moria.
- * P2 has many characters so their unused GI is low (easier to influence).
- */
-function buildResolutionState(opts?: {
-  p1Chars?: Parameters<typeof buildTestState>[0]['players'][0]['companies'][0]['characters'];
-  p2Chars?: Parameters<typeof buildTestState>[0]['players'][0]['companies'][0]['characters'];
-  p1Hand?: Parameters<typeof buildTestState>[0]['players'][0]['hand'];
-  attackerCheatRoll?: number;
-}) {
-  const state = buildTestState({
-    activePlayer: PLAYER_1,
-    players: [
-      {
-        id: PLAYER_1,
-        companies: [{ site: MORIA, characters: opts?.p1Chars ?? [ARAGORN] }],
-        hand: opts?.p1Hand ?? [],
-        siteDeck: [MINAS_TIRITH],
-      },
-      {
-        id: PLAYER_2,
-        // Give P2 many characters to use up GI (20 - sum(minds) = low unused GI)
-        // Legolas(6) + Gimli(6) + Bilbo(5) = 17 mind, unused GI = 3
-        companies: [{ site: MORIA, characters: opts?.p2Chars ?? [LEGOLAS, GIMLI, BILBO] }],
-        hand: [],
-        siteDeck: [LORIEN],
-      },
-    ],
-    phase: Phase.Site,
-    recompute: true,
-  });
-
-  return {
-    ...state,
-    turnNumber: 3,
-    cheatRollTotal: opts?.attackerCheatRoll ?? null,
-    phaseState: makeSitePhase(),
-  };
-}
-
-/** Execute the attacker's influence attempt against a specific target. */
-function attemptInfluence(state: import('../../../index.js').GameState, targetDefId?: string) {
-  const actions = viableActions(state, PLAYER_1, 'opponent-influence-attempt') as { action: OpponentInfluenceAttemptAction }[];
-  expect(actions.length).toBeGreaterThan(0);
-  const attempt = targetDefId
-    ? actions.find(a => {
-      const tChar = state.players[1].characters[a.action.targetInstanceId as string];
-      return tChar && tChar.definitionId === targetDefId && !a.action.revealedCardInstanceId;
-    })
-    : actions.find(a => !a.action.revealedCardInstanceId);
-  expect(attempt).toBeDefined();
-  const result = reduce(state, attempt!.action);
-  expect(result.error).toBeUndefined();
-  return { state: result.state, action: attempt!.action, effects: result.effects };
-}
-
-/** Execute the defender's roll. */
-function defendInfluence(state: import('../../../index.js').GameState) {
-  const result = reduce(state, { type: 'opponent-influence-defend', player: PLAYER_2 });
-  expect(result.error).toBeUndefined();
-  return result;
-}
+} from '../../test-helpers.js';
+import type { SitePhaseState, OpponentInfluenceAttemptAction } from '../../test-helpers.js';
 
 describe('Rule 10.12 — Resolving an Influence Attempt', () => {
   test('attacker roll taps the influencing character', () => {
@@ -193,7 +125,7 @@ describe('Rule 10.12 — Resolving an Influence Attempt', () => {
     // Action targeting Eowyn should have controllerDI > 0
     const eowynAction = actions.find(a => a.action.targetInstanceId === eowynId && !a.action.revealedCardInstanceId);
     expect(eowynAction).toBeDefined();
-    expect(eowynAction!.action.explanation).toMatch(/controller DI: [1-9]/);
+    expect(eowynAction!.action.explanation).toContain('controller DI: 1');
 
     // Action targeting Gimli (under GI) should have controllerDI = 0
     const gimliId = findCharInstanceId(state, 1, GIMLI);

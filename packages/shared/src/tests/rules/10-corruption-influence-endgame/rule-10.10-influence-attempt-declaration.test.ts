@@ -20,53 +20,11 @@
 
 import { describe, test, expect } from 'vitest';
 import {
-  buildTestState, makeSitePhase, findCharInstanceId,
+  buildOpponentInfluenceState, findCharInstanceId,
   viableActions, PLAYER_1, PLAYER_2,
+  CardStatus, ARAGORN, LEGOLAS, BILBO, GANDALF,
 } from '../../test-helpers.js';
-import {
-  Phase, CardStatus, ARAGORN, LEGOLAS, BILBO, GANDALF,
-  MORIA, LORIEN, MINAS_TIRITH,
-} from '../../../index.js';
-import type { SitePhaseState, OpponentInfluenceAttemptAction } from '../../../index.js';
-
-/**
- * Build a state where both players have companies at the same site (Moria)
- * in the play-resources step, with siteEntered = true.
- * P1 is active (resource player), P2 is the hazard player.
- */
-function buildOpponentInfluenceState(opts?: {
-  p1Chars?: Parameters<typeof buildTestState>[0]['players'][0]['companies'][0]['characters'];
-  p2Chars?: Parameters<typeof buildTestState>[0]['players'][0]['companies'][0]['characters'];
-  turnNumber?: number;
-  sitePhaseOverrides?: Partial<SitePhaseState>;
-  p1Hand?: Parameters<typeof buildTestState>[0]['players'][0]['hand'];
-}) {
-  const state = buildTestState({
-    activePlayer: PLAYER_1,
-    players: [
-      {
-        id: PLAYER_1,
-        companies: [{ site: MORIA, characters: opts?.p1Chars ?? [ARAGORN] }],
-        hand: opts?.p1Hand ?? [],
-        siteDeck: [MINAS_TIRITH],
-      },
-      {
-        id: PLAYER_2,
-        companies: [{ site: MORIA, characters: opts?.p2Chars ?? [LEGOLAS] }],
-        hand: [],
-        siteDeck: [LORIEN],
-      },
-    ],
-    phase: Phase.Site,
-    recompute: true,
-  });
-
-  return {
-    ...state,
-    turnNumber: opts?.turnNumber ?? 3,
-    phaseState: makeSitePhase(opts?.sitePhaseOverrides),
-  };
-}
+import type { OpponentInfluenceAttemptAction } from '../../test-helpers.js';
 
 describe('Rule 10.10 — Declaring an Influence Attempt', () => {
   test('untapped character at same site can attempt influence against opponent character', () => {

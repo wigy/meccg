@@ -20,49 +20,12 @@
 
 import { describe, test, expect } from 'vitest';
 import {
-  buildTestState, makeSitePhase, findCharInstanceId,
+  buildTargetState, findCharInstanceId,
   viableActions, PLAYER_1, PLAYER_2,
+  ARAGORN, LEGOLAS, GIMLI, BILBO,
+  MORIA, LORIEN,
 } from '../../test-helpers.js';
-import {
-  Phase, ARAGORN, LEGOLAS, GIMLI, BILBO,
-  MORIA, LORIEN, MINAS_TIRITH,
-} from '../../../index.js';
-import type { OpponentInfluenceAttemptAction } from '../../../index.js';
-
-/** Build a state with both players' companies and configurable sites. */
-function buildTargetState(opts: {
-  p1Site: typeof MORIA;
-  p2Site: typeof MORIA;
-  p1Chars?: Parameters<typeof buildTestState>[0]['players'][0]['companies'][0]['characters'];
-  p2Chars?: Parameters<typeof buildTestState>[0]['players'][0]['companies'][0]['characters'];
-  p1Hand?: Parameters<typeof buildTestState>[0]['players'][0]['hand'];
-}) {
-  const state = buildTestState({
-    activePlayer: PLAYER_1,
-    players: [
-      {
-        id: PLAYER_1,
-        companies: [{ site: opts.p1Site, characters: opts.p1Chars ?? [ARAGORN] }],
-        hand: opts.p1Hand ?? [],
-        siteDeck: [MINAS_TIRITH],
-      },
-      {
-        id: PLAYER_2,
-        companies: [{ site: opts.p2Site, characters: opts.p2Chars ?? [LEGOLAS] }],
-        hand: [],
-        siteDeck: [LORIEN],
-      },
-    ],
-    phase: Phase.Site,
-    recompute: true,
-  });
-
-  return {
-    ...state,
-    turnNumber: 3,
-    phaseState: makeSitePhase(),
-  };
-}
+import type { OpponentInfluenceAttemptAction } from '../../test-helpers.js';
 
 describe('Rule 10.11 — Influence Attempt Target Conditions', () => {
   test('character at same site is a valid target', () => {
