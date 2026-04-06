@@ -24,7 +24,7 @@ import {
   findCharInstanceId,
   playLongEventAndResolve,
 } from '../test-helpers.js';
-import type { CardInPlay, CardInstanceId, CardDefinitionId, CharacterCard, GameState, SitePhaseState } from '../../index.js';
+import type { CardInPlay, CardInstanceId, CardDefinitionId, CharacterCard, SitePhaseState } from '../../index.js';
 import { ISENGARD } from '../../index.js';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
