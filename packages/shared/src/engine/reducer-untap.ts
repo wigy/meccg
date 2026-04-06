@@ -206,18 +206,13 @@ function performUntap(state: GameState): GameState {
   const playerIndex = getPlayerIndex(state, state.activePlayer!);
   const player = state.players[playerIndex];
 
-  // Build a set of character IDs at havens (or sites with healing-affects-all rule)
-  // for healing wounded characters
+  // Build a set of character IDs at havens for healing wounded characters
   const charsAtHaven = new Set<string>();
   for (const company of player.companies) {
     if (!company.currentSite) continue;
     const siteDef = state.cardPool[company.currentSite.definitionId];
     if (!siteDef || !isSiteCard(siteDef)) continue;
-    const isHaven = siteDef.siteType === SiteType.Haven;
-    const hasHealingRule = siteDef.effects?.some(
-      e => e.type === 'site-rule' && e.rule === 'healing-affects-all',
-    ) ?? false;
-    if (isHaven || hasHealingRule) {
+    if (siteDef.siteType === SiteType.Haven) {
       for (const charId of company.characters) {
         charsAtHaven.add(charId as string);
       }

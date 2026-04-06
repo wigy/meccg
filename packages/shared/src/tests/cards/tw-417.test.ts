@@ -23,7 +23,7 @@
  * |---|-------------------------|-------------|-------------------------------------|
  * | 1 | Site phase flow         | IMPLEMENTED | select-company, enter-or-skip, etc. |
  * | 2 | Haven path movement     | IMPLEMENTED | movement-map.ts                     |
- * | 3 | Healing affects all     | IMPLEMENTED | site-rule in reducer-untap.ts       |
+ * | 3 | Healing affects all     | TODO        | needs healing items to test          |
  * | 4 | Card draws              | IMPLEMENTED | resourceDraws/hazardDraws used      |
  *
  * Playable: YES
@@ -34,7 +34,7 @@ import { describe, test, expect, beforeEach } from 'vitest';
 import {
   PLAYER_1, PLAYER_2,
   RIVENDELL, LORIEN, MORIA,
-  ARAGORN, LEGOLAS, GIMLI,
+  ARAGORN, LEGOLAS,
   resetMint, pool, buildTestState, reduce, Phase, CardStatus,
   buildSitePhaseState,
 } from '../test-helpers.js';
@@ -118,8 +118,15 @@ describe('Old Forest (tw-417)', () => {
   });
 
   // ─── Healing ────────────────────────────────────────────────────────────────
+  // Old Forest does not heal by itself. The healing-affects-all rule means
+  // that when a healing effect (e.g. from an item) is used at this site,
+  // it affects ALL characters at the site, not just one.
 
-  test('wounded character at Old Forest heals during untap (healing-affects-all)', () => {
+  test.todo('healing effect from item at Old Forest affects all characters');
+
+  test.todo('healing effect at non-Old-Forest site affects only one character');
+
+  test('wounded character at Old Forest does NOT heal during untap (not a haven)', () => {
     const state = buildTestState({
       activePlayer: PLAYER_1,
       phase: Phase.Untap,
@@ -133,27 +140,8 @@ describe('Old Forest (tw-417)', () => {
     expect(result.error).toBeUndefined();
 
     const charId = result.state.players[0].companies[0].characters[0] as string;
-    // Healed to tapped, same as at a haven
-    expect(result.state.players[0].characters[charId].status).toBe(CardStatus.Tapped);
-  });
-
-  test('multiple wounded characters at Old Forest all heal during untap', () => {
-    const state = buildTestState({
-      activePlayer: PLAYER_1,
-      phase: Phase.Untap,
-      players: [
-        { id: PLAYER_1, companies: [{ site: OLD_FOREST, characters: [{ defId: ARAGORN, status: CardStatus.Inverted }, { defId: GIMLI, status: CardStatus.Inverted }] }], hand: [], siteDeck: [RIVENDELL] },
-        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [MORIA] },
-      ],
-    });
-
-    const result = reduce(state, { type: 'untap', player: PLAYER_1 });
-    expect(result.error).toBeUndefined();
-
-    const char1Id = result.state.players[0].companies[0].characters[0] as string;
-    const char2Id = result.state.players[0].companies[0].characters[1] as string;
-    expect(result.state.players[0].characters[char1Id].status).toBe(CardStatus.Tapped);
-    expect(result.state.players[0].characters[char2Id].status).toBe(CardStatus.Tapped);
+    // Wounded characters stay wounded at non-haven sites
+    expect(result.state.players[0].characters[charId].status).toBe(CardStatus.Inverted);
   });
 
   test('tapped character at Old Forest untaps normally', () => {
