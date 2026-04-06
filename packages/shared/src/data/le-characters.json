@@ -352,5 +352,28 @@
     "homesite": "Lake-town",
     "effects": [],
     "text": "Unique."
+  },
+  {
+    "cardType": "minion-character",
+    "alignment": "ringwraith",
+    "id": "le-6",
+    "name": "Ciryaher",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/Ciryaher.jpg",
+    "unique": true,
+    "race": "dúnadan",
+    "skills": [
+      "scout",
+      "sage"
+    ],
+    "prowess": 2,
+    "body": 7,
+    "mind": 5,
+    "directInfluence": 2,
+    "marshallingPoints": 2,
+    "marshallingCategory": "character",
+    "corruptionModifier": 0,
+    "homesite": "Barad-dûr",
+    "effects": [],
+    "text": "Unique. Can use shadow-magic."
   }
 ]
