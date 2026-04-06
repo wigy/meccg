@@ -401,5 +401,18 @@
     "marshallingCategory": "misc",
     "effects": [],
     "text": "Sage only. Playable on a sage during the site phase at a site where Information is playable if a character in his company has a gold ring item. Tap the sage and the site. You may replace the gold ring with a special item ring from your hand (except for The One Ring) for which the gold ring could normally be tested. Discard the gold ring item."
+  },
+  {
+    "cardType": "minion-resource-event",
+    "alignment": "ringwraith",
+    "id": "le-246",
+    "name": "To Satisfy the Questioner",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/ToSatisfytheQuestioner.jpg",
+    "unique": false,
+    "eventType": "permanent",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Playable during the site phase on an untapped character at a Free-hold [{F}]. Tap the character and site. No marshalling points are received and the character may not untap until this card is stored at a Darkhaven [{DH}] during his organization phase."
   }
 ]
