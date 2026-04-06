@@ -18,8 +18,104 @@
  * • If an avatar is being tapped to make the influence attempt, the avatar cannot have been played this turn.
  */
 
-import { describe, test } from 'vitest';
+import { describe, test, expect } from 'vitest';
+import {
+  buildOpponentInfluenceState, findCharInstanceId,
+  viableActions, PLAYER_1, PLAYER_2,
+  CardStatus, ARAGORN, LEGOLAS, BILBO, GANDALF,
+} from '../../test-helpers.js';
+import type { OpponentInfluenceAttemptAction } from '../../test-helpers.js';
 
 describe('Rule 10.10 — Declaring an Influence Attempt', () => {
-  test.todo('Tap character at site to influence opponent card; not first turn; must have entered site; no prior influence/attack this turn');
+  test('untapped character at same site can attempt influence against opponent character', () => {
+    const state = buildOpponentInfluenceState();
+    const actions = viableActions(state, PLAYER_1, 'opponent-influence-attempt');
+    expect(actions.length).toBeGreaterThan(0);
+    const action = actions[0].action as OpponentInfluenceAttemptAction;
+    expect(action.targetPlayer).toBe(PLAYER_2);
+    expect(action.targetKind).toBe('character');
+  });
+
+  test('cannot influence on first turn (turnNumber <= 2)', () => {
+    const state = buildOpponentInfluenceState({ turnNumber: 1 });
+    const actions = viableActions(state, PLAYER_1, 'opponent-influence-attempt');
+    expect(actions).toHaveLength(0);
+  });
+
+  test('cannot influence on second turn (turnNumber = 2)', () => {
+    const state = buildOpponentInfluenceState({ turnNumber: 2 });
+    const actions = viableActions(state, PLAYER_1, 'opponent-influence-attempt');
+    expect(actions).toHaveLength(0);
+  });
+
+  test('cannot influence if company has not entered site', () => {
+    const state = buildOpponentInfluenceState({
+      sitePhaseOverrides: { siteEntered: false },
+    });
+    const actions = viableActions(state, PLAYER_1, 'opponent-influence-attempt');
+    expect(actions).toHaveLength(0);
+  });
+
+  test('cannot influence if already made opponent interaction this turn', () => {
+    const state = buildOpponentInfluenceState({
+      sitePhaseOverrides: { opponentInteractionThisTurn: 'influence' },
+    });
+    const actions = viableActions(state, PLAYER_1, 'opponent-influence-attempt');
+    expect(actions).toHaveLength(0);
+  });
+
+  test('cannot influence if already attacked opponent this turn', () => {
+    const state = buildOpponentInfluenceState({
+      sitePhaseOverrides: { opponentInteractionThisTurn: 'attack' },
+    });
+    const actions = viableActions(state, PLAYER_1, 'opponent-influence-attempt');
+    expect(actions).toHaveLength(0);
+  });
+
+  test('cannot target an avatar (mind === null)', () => {
+    // P2 has Gandalf (avatar) at Moria
+    const state = buildOpponentInfluenceState({ p2Chars: [GANDALF] });
+    const actions = viableActions(state, PLAYER_1, 'opponent-influence-attempt');
+    expect(actions).toHaveLength(0);
+  });
+
+  test('cannot target a character controlled by an avatar', () => {
+    // P2 has Gandalf (avatar) with Legolas as a follower
+    const state = buildOpponentInfluenceState({
+      p2Chars: [GANDALF, { defId: LEGOLAS, followerOf: 0 }],
+    });
+    const actions = viableActions(state, PLAYER_1, 'opponent-influence-attempt');
+    // Only Gandalf and Legolas are targets; Gandalf is avatar (skip),
+    // Legolas is controlled by avatar (skip)
+    expect(actions).toHaveLength(0);
+  });
+
+  test('only untapped characters can attempt influence', () => {
+    // P1 has Aragorn tapped
+    const state = buildOpponentInfluenceState({
+      p1Chars: [{ defId: ARAGORN, status: CardStatus.Tapped }],
+    });
+    const actions = viableActions(state, PLAYER_1, 'opponent-influence-attempt');
+    expect(actions).toHaveLength(0);
+  });
+
+  test('tapped influencer generates no actions but untapped one does', () => {
+    // P1 has Aragorn (tapped) and Bilbo (untapped)
+    const state = buildOpponentInfluenceState({
+      p1Chars: [{ defId: ARAGORN, status: CardStatus.Tapped }, BILBO],
+    });
+    const actions = viableActions(state, PLAYER_1, 'opponent-influence-attempt') as { action: OpponentInfluenceAttemptAction }[];
+    // Only Bilbo should be able to influence
+    expect(actions.length).toBeGreaterThan(0);
+    for (const a of actions) {
+      const bilboId = findCharInstanceId(state, 0, BILBO);
+      expect(a.action.influencingCharacterId).toBe(bilboId);
+    }
+  });
+
+  test('hazard player has no opponent influence actions', () => {
+    const state = buildOpponentInfluenceState();
+    const actions = viableActions(state, PLAYER_2, 'opponent-influence-attempt');
+    expect(actions).toHaveLength(0);
+  });
 });

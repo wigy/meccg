@@ -5,6 +5,7 @@
  * setup steps. Reduces boilerplate across test files.
  */
 
+import { expect } from 'vitest';
 import { createGame } from '../engine/init.js';
 import type { GameConfig, QuickStartGameConfig } from '../engine/init.js';
 import { reduce } from '../engine/reducer.js';
@@ -15,7 +16,7 @@ import {
   Alignment,
   computeLegalActions,
 } from '../index.js';
-import type { PlayerId, GameState, CardDefinitionId, CardInstanceId, CardInstance, GameAction, PlayCharacterAction, SitePhaseState, MovementHazardPhaseState } from '../index.js';
+import type { PlayerId, GameState, CardDefinitionId, CardInstanceId, CardInstance, GameAction, PlayCharacterAction, SitePhaseState, MovementHazardPhaseState, OpponentInfluenceAttemptAction } from '../index.js';
 import {
   ADRAZAR, ARAGORN, BILBO, FRODO, LEGOLAS, GIMLI, FARAMIR,
   EOWYN, BEREGOND, BERGIL, BARD_BOWMAN, ANBORN, SAM_GAMGEE,
@@ -652,6 +653,145 @@ export function resolveChain(state: GameState): GameState {
   return current;
 }
 
+// ─── Opponent influence helpers ─────────────────────────────────────────────
+
+/**
+ * Build a state where both players have companies at the same site (Moria)
+ * in the play-resources step, with siteEntered = true.
+ * P1 is active (resource player), P2 is the hazard player.
+ */
+export function buildOpponentInfluenceState(opts?: {
+  p1Chars?: Parameters<typeof buildTestState>[0]['players'][0]['companies'][0]['characters'];
+  p2Chars?: Parameters<typeof buildTestState>[0]['players'][0]['companies'][0]['characters'];
+  turnNumber?: number;
+  sitePhaseOverrides?: Partial<SitePhaseState>;
+  p1Hand?: Parameters<typeof buildTestState>[0]['players'][0]['hand'];
+}) {
+  const state = buildTestState({
+    activePlayer: PLAYER_1,
+    players: [
+      {
+        id: PLAYER_1,
+        companies: [{ site: MORIA, characters: opts?.p1Chars ?? [ARAGORN] }],
+        hand: opts?.p1Hand ?? [],
+        siteDeck: [MINAS_TIRITH],
+      },
+      {
+        id: PLAYER_2,
+        companies: [{ site: MORIA, characters: opts?.p2Chars ?? [LEGOLAS] }],
+        hand: [],
+        siteDeck: [LORIEN],
+      },
+    ],
+    phase: Phase.Site,
+    recompute: true,
+  });
+
+  return {
+    ...state,
+    turnNumber: opts?.turnNumber ?? 3,
+    phaseState: makeSitePhase(opts?.sitePhaseOverrides),
+  };
+}
+
+/** Build a state with both players' companies and configurable sites. */
+export function buildTargetState(opts: {
+  p1Site: CardDefinitionId;
+  p2Site: CardDefinitionId;
+  p1Chars?: Parameters<typeof buildTestState>[0]['players'][0]['companies'][0]['characters'];
+  p2Chars?: Parameters<typeof buildTestState>[0]['players'][0]['companies'][0]['characters'];
+  p1Hand?: Parameters<typeof buildTestState>[0]['players'][0]['hand'];
+}) {
+  const state = buildTestState({
+    activePlayer: PLAYER_1,
+    players: [
+      {
+        id: PLAYER_1,
+        companies: [{ site: opts.p1Site, characters: opts.p1Chars ?? [ARAGORN] }],
+        hand: opts.p1Hand ?? [],
+        siteDeck: [MINAS_TIRITH],
+      },
+      {
+        id: PLAYER_2,
+        companies: [{ site: opts.p2Site, characters: opts.p2Chars ?? [LEGOLAS] }],
+        hand: [],
+        siteDeck: [LORIEN],
+      },
+    ],
+    phase: Phase.Site,
+    recompute: true,
+  });
+
+  return {
+    ...state,
+    turnNumber: 3,
+    phaseState: makeSitePhase(),
+  };
+}
+
+/**
+ * Build a state at play-resources with both players at Moria.
+ * P2 has many characters so their unused GI is low (easier to influence).
+ */
+export function buildResolutionState(opts?: {
+  p1Chars?: Parameters<typeof buildTestState>[0]['players'][0]['companies'][0]['characters'];
+  p2Chars?: Parameters<typeof buildTestState>[0]['players'][0]['companies'][0]['characters'];
+  p1Hand?: Parameters<typeof buildTestState>[0]['players'][0]['hand'];
+  attackerCheatRoll?: number;
+}) {
+  const state = buildTestState({
+    activePlayer: PLAYER_1,
+    players: [
+      {
+        id: PLAYER_1,
+        companies: [{ site: MORIA, characters: opts?.p1Chars ?? [ARAGORN] }],
+        hand: opts?.p1Hand ?? [],
+        siteDeck: [MINAS_TIRITH],
+      },
+      {
+        id: PLAYER_2,
+        // Give P2 many characters to use up GI (20 - sum(minds) = low unused GI)
+        // Legolas(6) + Gimli(6) + Bilbo(5) = 17 mind, unused GI = 3
+        companies: [{ site: MORIA, characters: opts?.p2Chars ?? [LEGOLAS, GIMLI, BILBO] }],
+        hand: [],
+        siteDeck: [LORIEN],
+      },
+    ],
+    phase: Phase.Site,
+    recompute: true,
+  });
+
+  return {
+    ...state,
+    turnNumber: 3,
+    cheatRollTotal: opts?.attackerCheatRoll ?? null,
+    phaseState: makeSitePhase(),
+  };
+}
+
+/** Execute the attacker's influence attempt against a specific target. */
+export function attemptInfluence(state: GameState, targetDefId?: string) {
+  const actions = viableActions(state, PLAYER_1, 'opponent-influence-attempt') as { action: OpponentInfluenceAttemptAction }[];
+  expect(actions.length).toBeGreaterThan(0);
+  const attempt = targetDefId
+    ? actions.find(a => {
+      const tChar = state.players[1].characters[a.action.targetInstanceId as string];
+      return tChar && tChar.definitionId === targetDefId && !a.action.revealedCardInstanceId;
+    })
+    : actions.find(a => !a.action.revealedCardInstanceId);
+  expect(attempt).toBeDefined();
+  const result = reduce(state, attempt!.action);
+  expect(result.error).toBeUndefined();
+  return { state: result.state, action: attempt!.action, effects: result.effects };
+}
+
+/** Execute the defender's roll. */
+export function defendInfluence(state: GameState) {
+  const result = reduce(state, { type: 'opponent-influence-defend', player: PLAYER_2 });
+  expect(result.error).toBeUndefined();
+  return result;
+}
+
 // Re-export commonly used things
 export {
   createGame, reduce,
@@ -666,4 +806,4 @@ export {
   WOOD_ELVES, BLUE_MOUNTAIN_DWARVES, KNIGHTS_OF_DOL_AMROTH,
   CardStatus, ZERO_EFFECTIVE_STATS, ZERO_MARSHALLING_POINTS,
 };
-export type { GameConfig, QuickStartGameConfig, ReducerResult, CardInPlay, CardInstance, CardInstanceId, CardDefinitionId, CompanyId };
+export type { GameConfig, QuickStartGameConfig, ReducerResult, CardInPlay, CardInstance, CardInstanceId, CardDefinitionId, CompanyId, OpponentInfluenceAttemptAction, SitePhaseState };
