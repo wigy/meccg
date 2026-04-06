@@ -343,6 +343,37 @@ export interface PlayShortEventAction {
   readonly targetInstanceId: CardInstanceId;
 }
 
+/**
+ * Play a resource short-event card from hand during the Long-event phase.
+ *
+ * Resource short events (like Smoke Rings) are played and discarded immediately.
+ * They may trigger a sub-flow (e.g. fetching a card from sideboard/discard pile).
+ */
+export interface PlayResourceShortEventAction {
+  readonly type: 'play-resource-short-event';
+  /** The player playing the short event. */
+  readonly player: PlayerId;
+  /** The short-event card instance to play from hand. */
+  readonly cardInstanceId: CardInstanceId;
+}
+
+/**
+ * Select a card from the sideboard or discard pile to fetch into the play deck.
+ *
+ * This action is part of the fetch-to-deck sub-flow initiated by resource
+ * short events like Smoke Rings. The player must select exactly one eligible
+ * card from the available sources.
+ */
+export interface FetchFromPileAction {
+  readonly type: 'fetch-from-pile';
+  /** The player fetching the card. */
+  readonly player: PlayerId;
+  /** The card instance to fetch. */
+  readonly cardInstanceId: CardInstanceId;
+  /** Which pile the card is being fetched from. */
+  readonly source: 'sideboard' | 'discard-pile';
+}
+
 // ---- Long-event phase ----
 
 /**
@@ -1037,6 +1068,8 @@ export type GameAction =
   | CancelMovementAction
   | PlayPermanentEventAction
   | PlayShortEventAction
+  | PlayResourceShortEventAction
+  | FetchFromPileAction
   | PlayLongEventAction
   | SelectCompanyAction
   | DeclarePathAction

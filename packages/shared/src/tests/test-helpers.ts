@@ -16,14 +16,14 @@ import {
   Alignment,
   computeLegalActions,
 } from '../index.js';
-import type { PlayerId, GameState, CardDefinitionId, CardInstanceId, CardInstance, GameAction, PlayCharacterAction, SitePhaseState, MovementHazardPhaseState, OpponentInfluenceAttemptAction } from '../index.js';
+import type { PlayerId, GameState, CardDefinitionId, CardInstanceId, CardInstance, GameAction, PlayCharacterAction, SitePhaseState, MovementHazardPhaseState, OpponentInfluenceAttemptAction, LongEventPhaseState } from '../index.js';
 import {
   ADRAZAR, ARAGORN, BILBO, FRODO, LEGOLAS, GIMLI, FARAMIR,
   EOWYN, BEREGOND, BERGIL, BARD_BOWMAN, ANBORN, SAM_GAMGEE,
   THEODEN, ELROND, CELEBORN, GLORFINDEL_II, HALDIR, GANDALF, BALIN, KILI,
   GLAMDRING, STING, THE_MITHRIL_COAT, THE_ONE_RING, DAGGER_OF_WESTERNESSE, HORN_OF_ANOR,
   CAVE_DRAKE, ORC_PATROL, BARROW_WIGHT, FOOLISH_WORDS,
-  SUN, EYE_OF_SAURON, GATES_OF_MORNING, TWILIGHT, DOORS_OF_NIGHT,
+  SUN, EYE_OF_SAURON, GATES_OF_MORNING, TWILIGHT, DOORS_OF_NIGHT, SMOKE_RINGS,
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH, MOUNT_DOOM, THRANDUILS_HALLS, BLUE_MOUNTAIN_DWARF_HOLD, DOL_AMROTH, BREE,
   WOOD_ELVES, BLUE_MOUNTAIN_DWARVES, KNIGHTS_OF_DOL_AMROTH,
 } from '../index.js';
@@ -429,6 +429,8 @@ export function buildTestState(opts: BuildTestStateOpts): GameState {
     phaseState = { phase: Phase.Organization, characterPlayedThisTurn: false, sideboardFetchedThisTurn: 0, sideboardFetchDestination: null, pendingCorruptionCheck: null } as GameState['phaseState'];
   } else if (phase === Phase.Untap) {
     phaseState = { phase: Phase.Untap, untapped: false, hazardSideboardDestination: null, hazardSideboardFetched: 0, hazardSideboardAccessed: false, resourcePlayerPassed: false, hazardPlayerPassed: false } as GameState['phaseState'];
+  } else if (phase === Phase.LongEvent) {
+    phaseState = { phase: Phase.LongEvent, pendingFetch: null } as GameState['phaseState'];
   } else if (phase === Phase.EndOfTurn) {
     phaseState = { phase: Phase.EndOfTurn, step: 'discard', discardDone: [false, false] } as GameState['phaseState'];
   } else {
@@ -801,9 +803,10 @@ export {
   THEODEN, ELROND, CELEBORN, GLORFINDEL_II, HALDIR, GANDALF, BALIN, KILI,
   GLAMDRING, STING, THE_MITHRIL_COAT, THE_ONE_RING, DAGGER_OF_WESTERNESSE, HORN_OF_ANOR,
   CAVE_DRAKE, ORC_PATROL, BARROW_WIGHT, FOOLISH_WORDS,
-  SUN, EYE_OF_SAURON, GATES_OF_MORNING, TWILIGHT, DOORS_OF_NIGHT,
+  SUN, EYE_OF_SAURON, GATES_OF_MORNING, TWILIGHT, DOORS_OF_NIGHT, SMOKE_RINGS,
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH, MOUNT_DOOM, THRANDUILS_HALLS, BLUE_MOUNTAIN_DWARF_HOLD, DOL_AMROTH, BREE,
   WOOD_ELVES, BLUE_MOUNTAIN_DWARVES, KNIGHTS_OF_DOL_AMROTH,
   CardStatus, ZERO_EFFECTIVE_STATS, ZERO_MARSHALLING_POINTS,
 };
-export type { GameConfig, QuickStartGameConfig, ReducerResult, CardInPlay, CardInstance, CardInstanceId, CardDefinitionId, CompanyId, OpponentInfluenceAttemptAction, SitePhaseState };
+export type { GameConfig, QuickStartGameConfig, ReducerResult, CardInPlay, CardInstance, CardInstanceId, CardDefinitionId, CompanyId, OpponentInfluenceAttemptAction, SitePhaseState, LongEventPhaseState };
+

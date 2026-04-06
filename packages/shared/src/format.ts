@@ -1074,6 +1074,10 @@ export function describeAction(
       return `Order ${action.order.length} passive condition(s)`;
     case 'deck-exhaust':
       return `Exhaust deck (reshuffle discard)`;
+    case 'play-resource-short-event':
+      return `Play resource short-event ${instName(action.cardInstanceId)}`;
+    case 'fetch-from-pile':
+      return `Fetch ${instName(action.cardInstanceId)} from ${action.source}`;
     case 'finished':
       return `Finished`;
     default: {

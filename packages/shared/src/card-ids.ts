@@ -111,6 +111,9 @@ export const GATES_OF_MORNING = did('tw-243');
 /** Sun — long environment event, +1 prowess to Dúnadan; with Gates of Morning also buffs Men and weakens enemies. */
 export const SUN = did('tw-335');
 
+/** Smoke Rings — short event, fetch a resource or character from sideboard or discard pile to play deck. */
+export const SMOKE_RINGS = did('dm-159');
+
 // ---- Hazard Events ----
 
 /** Doors of Night — permanent hazard event, environment that cancels resource environments. Cannot be duplicated. */
