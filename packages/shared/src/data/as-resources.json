@@ -24,5 +24,24 @@
     "marshallingCategory": "misc",
     "effects": [],
     "text": "Minion characters may store resources (items and events) during the end-of-turn phase as though it were their organization phase. Cannot be duplicated. Discard when any play deck is exhausted."
+  },
+  {
+    "cardType": "hero-resource-faction",
+    "alignment": "wizard",
+    "id": "as-67",
+    "name": "Woses of the Eryn Vorn",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/as/WosesoftheErynVorn.jpg",
+    "unique": true,
+    "marshallingPoints": 2,
+    "marshallingCategory": "faction",
+    "influenceNumber": 11,
+    "race": "wose",
+    "playableAt": [
+      {
+        "site": "The"
+      }
+    ],
+    "effects": [],
+    "text": "Unique. Manifestation of minion Woses of the Eryn Vorn. Playable at The Worthy Hills if the influence check is greater than 10. Standard Modifications: none."
   }
 ]
