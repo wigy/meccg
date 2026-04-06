@@ -22,5 +22,4 @@ while true; do
   echo "=== Handling $MSG_ID at $(date -Iseconds) ===" | tee -a "$LOG_FILE"
   "$SCRIPT_DIR/handle-mail" "$MSG_ID" 2>&1 | tee -a "$LOG_FILE"
   echo "=== Finished $MSG_ID at $(date -Iseconds) ===" | tee -a "$LOG_FILE"
-  sleep 60
 done

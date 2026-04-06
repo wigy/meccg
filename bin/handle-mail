@@ -77,14 +77,17 @@ build_mail() {
 # Prints the output to stdout; returns Claude's exit code.
 run_skill() {
   cd "$PROJECT_DIR"
-  local stderr_tmp
-  stderr_tmp=$(mktemp)
-  claude --dangerously-skip-permissions --verbose --output-format text -p "$1" 2>"$stderr_tmp"
+  local raw_tmp
+  raw_tmp=$(mktemp)
+  claude --dangerously-skip-permissions --verbose --output-format stream-json -p "$1" > "$raw_tmp" 2>&1
   local rc=$?
-  cat "$stderr_tmp" >> "$LOG_DIR/ai-raw.log"
+  cat "$raw_tmp" >> "$LOG_DIR/ai-raw.log"
   # Print cost/time summary lines
-  grep -iP '(cost|duration|token|total)' "$stderr_tmp" || true
-  rm -f "$stderr_tmp"
+  grep -oP '"total_cost_usd":\s*[\d.]+' "$raw_tmp" | tail -1 || true
+  grep -oP '"duration_ms":\s*\d+' "$raw_tmp" | tail -1 || true
+  # Extract the text result for the caller
+  jq -r 'select(.type == "result") | .result // empty' "$raw_tmp" 2>/dev/null || true
+  rm -f "$raw_tmp"
   return $rc
 }
 
