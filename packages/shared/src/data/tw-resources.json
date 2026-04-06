@@ -288,18 +288,6 @@
   {
     "cardType": "hero-resource-event",
     "alignment": "wizard",
-    "id": "unknown-card",
-    "name": "a card",
-    "image": "/images/card-back.jpg",
-    "unique": false,
-    "eventType": "short",
-    "marshallingPoints": 0,
-    "marshallingCategory": "misc",
-    "text": ""
-  },
-  {
-    "cardType": "hero-resource-event",
-    "alignment": "wizard",
     "id": "tw-209",
     "name": "Dodge",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Dodge.jpg",
