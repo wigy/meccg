@@ -356,7 +356,7 @@ function handleSiteAutomaticAttacks(
 
   const inPlayNames = buildInPlayNames(state);
   const creatureRace = normalizeCreatureRace(aa.creatureType);
-  const effectiveProwess = resolveAttackProwess(state, aa.prowess, inPlayNames, creatureRace);
+  const effectiveProwess = resolveAttackProwess(state, aa.prowess, inPlayNames, creatureRace, true);
   const effectiveStrikes = resolveAttackStrikes(state, aa.strikes, inPlayNames, creatureRace);
   logDetail(`Site: initiating automatic attack ${attackIndex + 1}/${autoAttacks.length}: ${aa.creatureType} (${aa.strikes} strikes${effectiveStrikes !== aa.strikes ? ` → ${effectiveStrikes}` : ''}, ${aa.prowess} prowess${effectiveProwess !== aa.prowess ? ` → ${effectiveProwess}` : ''}${effectiveStrikes !== aa.strikes || effectiveProwess !== aa.prowess ? ' after global effects' : ''})`);
 

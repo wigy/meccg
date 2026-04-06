@@ -22,7 +22,7 @@ import type {
   OrganizationPhaseState,
   GameAction,
 } from '../../index.js';
-import { isCharacterCard } from '../../index.js';
+import { isCharacterCard, CardStatus } from '../../index.js';
 import { logDetail, logHeading } from './log.js';
 import { resolveDef, collectCharacterEffects, resolveStatModifiers } from '../effects/index.js';
 import type { ResolverContext } from '../effects/index.js';
@@ -273,6 +273,66 @@ export function organizationActions(state: GameState, playerId: PlayerId): Evalu
   // Fetch-from-sideboard actions (tap avatar to bring cards from sideboard)
   actions.push(...fetchFromSideboardActions(state, playerId));
 
+  // Grant-action activations from attached hazards (e.g. Foolish Words removal)
+  actions.push(...grantedActionActivations(state, playerId));
+
   actions.push({ action: { type: 'pass', player: playerId }, viable: true });
+  return actions;
+}
+
+/**
+ * Scans all characters owned by the player for `grant-action` effects
+ * on their attached hazards (and items/allies). Returns activate actions
+ * for each available granted ability whose cost can be paid.
+ *
+ * Currently supports:
+ * - `remove-self-on-roll` — character taps, rolls 2d6, on success the
+ *   source card is discarded (e.g. Foolish Words).
+ */
+function grantedActionActivations(state: GameState, playerId: PlayerId): EvaluatedAction[] {
+  const player = state.players.find(p => p.id === playerId);
+  if (!player) return [];
+
+  const actions: EvaluatedAction[] = [];
+
+  for (const [charIdStr, char] of Object.entries(player.characters)) {
+    const charId = charIdStr as unknown as CardInstanceId;
+
+    // Scan hazards attached to this character for grant-action effects
+    for (const hazard of char.hazards) {
+      const def = state.cardPool[hazard.definitionId as string];
+      if (!def || !('effects' in def)) continue;
+      const effects = (def as { effects?: readonly import('../../types/effects.js').CardEffect[] }).effects;
+      if (!effects) continue;
+
+      for (const effect of effects) {
+        if (effect.type !== 'grant-action') continue;
+
+        // Check cost: if tap is "bearer", character must be untapped
+        if (effect.cost.tap === 'bearer' && char.status !== CardStatus.Untapped) {
+          const charDef = state.cardPool[char.definitionId as string];
+          logDetail(`Grant-action ${effect.action} on ${def.name}: ${charDef?.name ?? '?'} is tapped, cannot activate`);
+          continue;
+        }
+
+        const charDef = state.cardPool[char.definitionId as string];
+        logDetail(`Grant-action ${effect.action} available: ${charDef?.name ?? '?'} can tap to activate (source: ${def.name})`);
+
+        actions.push({
+          action: {
+            type: 'activate-granted-action',
+            player: playerId,
+            characterId: charId,
+            sourceCardId: hazard.instanceId,
+            sourceCardDefinitionId: hazard.definitionId,
+            actionId: effect.action,
+            rollThreshold: effect.rollThreshold ?? 0,
+          },
+          viable: true,
+        });
+      }
+    }
+  }
+
   return actions;
 }

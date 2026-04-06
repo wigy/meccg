@@ -49,6 +49,12 @@ Stats: `prowess`, `body`, `direct-influence`, `corruption-points`, `strikes`.
 The `strikes` stat is used with `target: "all-attacks"` to modify the number
 of strikes on creature and automatic attacks (e.g. Wake of War).
 
+Optional `target` scopes:
+
+- `"all-characters"` — applies to every character in play
+- `"all-attacks"` — applies to every automatic-attack and hazard creature
+- `"all-automatic-attacks"` — applies only to site automatic-attacks (not hazard creatures)
+
 ### 2. `check-modifier`
 
 Modifies a roll for a specific check type.
@@ -101,12 +107,21 @@ Modifies the player's hand size.
 
 ### 7. `grant-action`
 
-Gives the card bearer a new activated ability.
+Gives the card bearer a new activated ability. For roll-based actions,
+`rollThreshold` specifies the minimum 2d6 total for success.
+
+Actions:
+
+- `test-gold-ring` — tap to test a gold ring (not yet implemented)
+- `remove-self-on-roll` — tap bearer, roll 2d6, discard this card on
+  success (implemented in `reducer-organization.ts`)
 
 ```json
 { "type": "grant-action", "action": "test-gold-ring",
   "cost": { "tap": "self" },
   "when": { "company.hasItem": { "subtype": "gold-ring" } } }
+{ "type": "grant-action", "action": "remove-self-on-roll",
+  "cost": { "tap": "bearer" }, "rollThreshold": 8 }
 ```
 
 ### 8. `on-event`
@@ -362,6 +377,19 @@ The resolver:
 ]
 ```
 
+### Eye of Sauron
+
+```json
+"effects": [
+  { "type": "stat-modifier", "stat": "prowess", "value": 1,
+    "target": "all-automatic-attacks", "id": "eye-of-sauron-prowess" },
+  { "type": "stat-modifier", "stat": "prowess", "value": 3,
+    "target": "all-automatic-attacks",
+    "overrides": "eye-of-sauron-prowess",
+    "when": { "inPlay": "Doors of Night" } }
+]
+```
+
 ### Cave-drake
 
 ```json
@@ -406,6 +434,8 @@ The resolver:
 "effects": [
   { "type": "on-guard-reveal", "trigger": "influence-attempt" },
   { "type": "duplication-limit", "scope": "character", "max": 1 },
-  { "type": "check-modifier", "check": "influence", "value": -4 }
+  { "type": "check-modifier", "check": "influence", "value": -4 },
+  { "type": "grant-action", "action": "remove-self-on-roll",
+    "cost": { "tap": "bearer" }, "rollThreshold": 8 }
 ]
 ```

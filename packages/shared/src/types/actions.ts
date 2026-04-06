@@ -38,6 +38,7 @@ export type {
   CancelMovementAction,
   MoveToInfluenceAction,
   PlayPermanentEventAction,
+  ActivateGrantedAction,
 } from './actions-organization.js';
 
 // ---- Short-event actions ----
@@ -101,7 +102,7 @@ export type {
 
 // ---- Import concrete types for the union ----
 import type { DraftPickAction, DraftStopAction, AssignStartingItemAction, AddCharacterToDeckAction, ShufflePlayDeckAction, SelectStartingSiteAction, PlaceCharacterAction, RollInitiativeAction } from './actions-setup.js';
-import type { UntapAction, PlayCharacterAction, SplitCompanyAction, MoveToCompanyAction, MergeCompaniesAction, TransferItemAction, PlanMovementAction, CancelMovementAction, MoveToInfluenceAction, PlayPermanentEventAction } from './actions-organization.js';
+import type { UntapAction, PlayCharacterAction, SplitCompanyAction, MoveToCompanyAction, MergeCompaniesAction, TransferItemAction, PlanMovementAction, CancelMovementAction, MoveToInfluenceAction, PlayPermanentEventAction, ActivateGrantedAction } from './actions-organization.js';
 import type { PlayShortEventAction, FetchFromPileAction } from './actions-short-event.js';
 import type { PlayLongEventAction } from './actions-long-event.js';
 import type { SelectCompanyAction, DeclarePathAction, OrderEffectsAction, PlayHazardAction, AssignStrikeAction, ResolveStrikeAction, SupportStrikeAction, ChooseStrikeOrderAction, BodyCheckRollAction } from './actions-movement-hazard.js';
@@ -136,6 +137,7 @@ export type GameAction =
   | PlanMovementAction
   | CancelMovementAction
   | PlayPermanentEventAction
+  | ActivateGrantedAction
   | PlayShortEventAction
   | FetchFromPileAction
   | PlayLongEventAction

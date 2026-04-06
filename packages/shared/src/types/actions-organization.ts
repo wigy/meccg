@@ -9,7 +9,7 @@
  * These actions set up the turn's strategic choices before movement begins.
  */
 
-import type { PlayerId, CardInstanceId, CompanyId } from './common.js';
+import type { PlayerId, CardInstanceId, CompanyId, CardDefinitionId } from './common.js';
 
 // ---- Untap phase ----
 
@@ -206,4 +206,28 @@ export interface PlayPermanentEventAction {
   readonly player: PlayerId;
   /** The permanent-event card instance to play from hand. */
   readonly cardInstanceId: CardInstanceId;
+}
+
+/**
+ * Activate a granted action from a card effect (e.g. tap to attempt
+ * to remove an attached hazard permanent event).
+ *
+ * During Organization, characters with `grant-action` effects on their
+ * attached hazards (or items/allies) can activate those abilities.
+ * The engine handles the cost (tapping) and resolution (dice roll, etc.).
+ */
+export interface ActivateGrantedAction {
+  readonly type: 'activate-granted-action';
+  /** The player activating the ability. */
+  readonly player: PlayerId;
+  /** The character performing the action (will be tapped as cost). */
+  readonly characterId: CardInstanceId;
+  /** The card providing the grant-action effect. */
+  readonly sourceCardId: CardInstanceId;
+  /** The definition ID of the source card (for logging). */
+  readonly sourceCardDefinitionId: CardDefinitionId;
+  /** The grant-action identifier (e.g. "remove-self-on-roll"). */
+  readonly actionId: string;
+  /** The roll threshold required for success (minimum total to succeed). */
+  readonly rollThreshold: number;
 }

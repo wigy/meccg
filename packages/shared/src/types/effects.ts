@@ -131,8 +131,9 @@ export interface StatModifierEffect extends EffectBase {
    * Scope of this modifier. If absent, affects only the card's bearer.
    * - `"all-characters"` — applies to every character in play (e.g. Sun).
    * - `"all-attacks"` — applies to every automatic-attack and hazard creature.
+   * - `"all-automatic-attacks"` — applies only to site automatic-attacks (not hazard creatures).
    */
-  readonly target?: 'all-characters' | 'all-attacks';
+  readonly target?: 'all-characters' | 'all-attacks' | 'all-automatic-attacks';
 }
 
 /**
@@ -209,6 +210,11 @@ export interface GrantActionEffect extends EffectBase {
   readonly action: string;
   /** The cost to activate this ability. */
   readonly cost: ActionCost;
+  /**
+   * For roll-based actions, the minimum 2d6 total required for success.
+   * E.g. "greater than 7" → rollThreshold: 8 (need roll >= 8).
+   */
+  readonly rollThreshold?: number;
 }
 
 /** The cost required to activate a granted action. */
