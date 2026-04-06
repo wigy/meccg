@@ -155,7 +155,8 @@
     ],
     "resourceDraws": 2,
     "hazardDraws": 3,
-    "text": "Playable: Items (minor, major, greater, gold ring). Automatic-attacks: Orcs — 4 strikes with 7 prowess."
+    "text": "Playable: Items (minor, major, greater, gold ring). Automatic-attacks: Orcs — 4 strikes with 7 prowess.",
+    "certified": "2026-04-06"
   },
   {
     "cardType": "hero-site",
