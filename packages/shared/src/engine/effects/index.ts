@@ -15,6 +15,8 @@ export {
   resolveCheckModifier,
   resolveCompanyModifier,
   resolveAttackProwess,
+  resolveAttackStrikes,
+  normalizeCreatureRace,
   resolveDef,
 } from './resolver.js';
 export type { ResolverContext } from './resolver.js';

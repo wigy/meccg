@@ -44,7 +44,10 @@ Modifies a character stat. Supports optional `max` (cap), `id` (for override tar
   "when": { "reason": "combat", "enemy.race": "orc" } }
 ```
 
-Stats: `prowess`, `body`, `direct-influence`, `corruption-points`.
+Stats: `prowess`, `body`, `direct-influence`, `corruption-points`, `strikes`.
+
+The `strikes` stat is used with `target: "all-attacks"` to modify the number
+of strikes on creature and automatic attacks (e.g. Wake of War).
 
 ### 2. `check-modifier`
 
@@ -226,6 +229,8 @@ The context carries everything relevant to the current calculation:
 - `faction` — the faction (in influence checks)
 - `company` — all characters at the same site
 - `cardsInPlay` — all cards in play for both players
+- `inPlay` — names of all events/cards in play (for `target: "all-attacks"` and `"all-characters"` contexts)
+- `enemy.race` — the creature's race (for `target: "all-attacks"` contexts, e.g. `"wolf"`, `"orc"`)
 
 The resolver:
 
@@ -372,6 +377,26 @@ The resolver:
   { "type": "stat-modifier", "stat": "direct-influence", "value": 2,
     "when": { "reason": "faction-influence-check" } },
   { "type": "duplication-limit", "scope": "character", "max": 1 }
+]
+```
+
+### Wake of War
+
+```json
+"effects": [
+  { "type": "duplication-limit", "scope": "game", "max": 1 },
+  { "type": "stat-modifier", "stat": "prowess", "value": 1,
+    "target": "all-attacks", "id": "wake-of-war-prowess",
+    "when": { "enemy.race": { "$in": ["wolf", "spider", "animal"] } } },
+  { "type": "stat-modifier", "stat": "prowess", "value": 2,
+    "target": "all-attacks", "overrides": "wake-of-war-prowess",
+    "when": { "$and": [{ "enemy.race": "wolf" }, { "inPlay": "Doors of Night" }] } },
+  { "type": "stat-modifier", "stat": "strikes", "value": 1,
+    "target": "all-attacks", "id": "wake-of-war-strikes",
+    "when": { "enemy.race": { "$in": ["wolf", "spider", "animal"] } } },
+  { "type": "stat-modifier", "stat": "strikes", "value": 2,
+    "target": "all-attacks", "overrides": "wake-of-war-strikes",
+    "when": { "$and": [{ "enemy.race": "wolf" }, { "inPlay": "Doors of Night" }] } }
 ]
 ```
 

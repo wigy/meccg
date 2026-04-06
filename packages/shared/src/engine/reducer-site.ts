@@ -9,7 +9,7 @@
 import type { GameState, PlayerState, CardInstanceId, CompanyId, CharacterInPlay, CardInstance, SitePhaseState, HeroItemCard, CombatState, OnGuardCard, GameAction, GameEffect } from '../index.js';
 import { Phase, CardStatus, isCharacterCard, isItemCard, isAllyCard, isFactionCard, isSiteCard, getPlayerIndex, GENERAL_INFLUENCE } from '../index.js';
 import { logDetail } from './legal-actions/log.js';
-import { collectCharacterEffects, resolveCheckModifier, resolveStatModifiers, resolveAttackProwess } from './effects/index.js';
+import { collectCharacterEffects, resolveCheckModifier, resolveStatModifiers, resolveAttackProwess, resolveAttackStrikes, normalizeCreatureRace } from './effects/index.js';
 import type { ResolverContext } from './effects/index.js';
 import { matchesCondition } from '../effects/index.js';
 import { initiateChain } from './chain-reducer.js';
@@ -355,15 +355,17 @@ function handleSiteAutomaticAttacks(
   const hazardPlayerId = state.players.find(p => p.id !== state.activePlayer)!.id;
 
   const inPlayNames = buildInPlayNames(state);
-  const effectiveProwess = resolveAttackProwess(state, aa.prowess, inPlayNames);
-  logDetail(`Site: initiating automatic attack ${attackIndex + 1}/${autoAttacks.length}: ${aa.creatureType} (${aa.strikes} strikes, ${aa.prowess} prowess${effectiveProwess !== aa.prowess ? ` → ${effectiveProwess} after global effects` : ''})`);
+  const creatureRace = normalizeCreatureRace(aa.creatureType);
+  const effectiveProwess = resolveAttackProwess(state, aa.prowess, inPlayNames, creatureRace);
+  const effectiveStrikes = resolveAttackStrikes(state, aa.strikes, inPlayNames, creatureRace);
+  logDetail(`Site: initiating automatic attack ${attackIndex + 1}/${autoAttacks.length}: ${aa.creatureType} (${aa.strikes} strikes${effectiveStrikes !== aa.strikes ? ` → ${effectiveStrikes}` : ''}, ${aa.prowess} prowess${effectiveProwess !== aa.prowess ? ` → ${effectiveProwess}` : ''}${effectiveStrikes !== aa.strikes || effectiveProwess !== aa.prowess ? ' after global effects' : ''})`);
 
   const combat: CombatState = {
     attackSource: { type: 'automatic-attack', siteInstanceId: company.currentSite.instanceId, attackIndex },
     companyId: company.id,
     defendingPlayerId: state.activePlayer!,
     attackingPlayerId: hazardPlayerId,
-    strikesTotal: aa.strikes,
+    strikesTotal: effectiveStrikes,
     strikeProwess: effectiveProwess,
     creatureBody: null,
     strikeAssignments: [],
