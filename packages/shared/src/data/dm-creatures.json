@@ -26,5 +26,20 @@
     "effects": [],
     "text": "Orc. One strike. Attacker chooses defending characters. Each ranger in attacked company lowers Little Snuffler's body by 2. If attack is not defeated, any resource that requires a scout in target company cannot be played for the rest of the turn.",
     "race": "orc"
+  },
+  {
+    "cardType": "hazard-creature",
+    "id": "dm-109",
+    "name": "Nameless Thing",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/dm/NamelessThing.jpg",
+    "unique": false,
+    "strikes": 2,
+    "prowess": 10,
+    "body": 4,
+    "killMarshallingPoints": 3,
+    "race": "drake",
+    "keyedTo": [],
+    "effects": [],
+    "text": "Drake. 3 attacks of 2 strikes each. A character can tap to cancel one of these attacks. Playable at any Under-deeps site. If Doors of Night is in play, also playable at an adjacent site of any Under-deeps site or keyed to a Coastal Sea [{c}]."
   }
 ]
