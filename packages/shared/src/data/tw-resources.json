@@ -257,7 +257,8 @@
         }
       }
     ],
-    "text": "Environment. The prowess of each Dúnadan is modified by +1. Additionally, if Gates of Morning is in play, the prowess of each automatic-attack and hazard creature is modified by -1 and the prowess of each Man and Dúnadan is modified by +1. Cannot be duplicated."
+    "text": "Environment. The prowess of each Dúnadan is modified by +1. Additionally, if Gates of Morning is in play, the prowess of each automatic-attack and hazard creature is modified by -1 and the prowess of each Man and Dúnadan is modified by +1. Cannot be duplicated.",
+    "certified": "2026-04-06"
   },
   {
     "cardType": "hero-resource-event",

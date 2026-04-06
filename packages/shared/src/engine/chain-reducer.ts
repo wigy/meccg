@@ -18,6 +18,8 @@ import { resolveInstanceId } from '../types/state.js';
 import { logHeading, logDetail } from './legal-actions/log.js';
 import { discardCardsInPlay } from './reducer.js';
 import type { ReducerResult } from './reducer.js';
+import { resolveAttackProwess } from './effects/index.js';
+import { buildInPlayNames } from './recompute-derived.js';
 
 /**
  * Returns the opponent of the given player in a two-player game.
@@ -505,13 +507,16 @@ function initiateCreatureCombat(state: GameState, entry: ChainEntry): GameState 
     ? { type: 'on-guard-creature' as const, cardInstanceId: entry.card!.instanceId }
     : { type: 'creature' as const, instanceId: entry.card!.instanceId };
 
+  const inPlayNames = buildInPlayNames(state);
+  const effectiveProwess = resolveAttackProwess(state, creatureDef.prowess, inPlayNames);
+
   const combat: CombatState = {
     attackSource,
     companyId: company.id,
     defendingPlayerId: state.activePlayer!,
     attackingPlayerId: hazardPlayerId,
     strikesTotal: creatureDef.strikes,
-    strikeProwess: creatureDef.prowess,
+    strikeProwess: effectiveProwess,
     creatureBody: creatureDef.body,
     strikeAssignments: [],
     currentStrikeIndex: 0,
@@ -521,7 +526,7 @@ function initiateCreatureCombat(state: GameState, entry: ChainEntry): GameState 
     detainment: false,
   };
 
-  logDetail(`Creature combat initiated: ${creatureDef.name} (${creatureDef.strikes} strikes, ${creatureDef.prowess} prowess) vs company ${company.id as string}`);
+  logDetail(`Creature combat initiated: ${creatureDef.name} (${creatureDef.strikes} strikes, ${creatureDef.prowess} prowess${effectiveProwess !== creatureDef.prowess ? ` → ${effectiveProwess} after global effects` : ''}) vs company ${company.id as string}`);
 
   // Place the creature card in the hazard player's cardsInPlay during combat.
   // After combat, finalizeCombat moves it to discard or the defender's kill pile.
