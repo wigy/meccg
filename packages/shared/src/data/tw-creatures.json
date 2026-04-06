@@ -26,7 +26,8 @@
       }
     ],
     "text": "Dragon. Two strikes. Attacker chooses defending characters.",
-    "race": "dragon"
+    "race": "dragon",
+    "certified": "2026-04-06"
   },
   {
     "cardType": "hazard-creature",
