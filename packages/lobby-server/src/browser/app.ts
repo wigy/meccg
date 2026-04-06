@@ -4,2003 +4,55 @@
  * Browser entry point for the MECCG web client. Connects to the
  * client-web server via WebSocket (which proxies to the game server),
  * renders game state, and sends actions on button click.
+ *
+ * Most logic has been extracted into focused modules:
+ * - app-state: shared mutable state and constants
+ * - session: game session persistence (save/restore/clear)
+ * - pseudo-ai: pseudo-AI panel and second WebSocket
+ * - game-connection: game server WebSocket, reconnection, rejoin
+ * - deck-browser: deck listing, catalog, compact previews, CRUD
+ * - deck-editor: deck editor rendering and card list
+ * - inbox: mail inbox/sent UI
+ * - lobby-screens: screen management, auth, lobby WS, init
  */
 
-import type { ServerMessage, ClientMessage, GameAction, CardDefinitionId, CardInstanceId, JoinMessage } from '@meccg/shared';
-import { loadCardPool, describeAction, buildCompanyNames, cardImageProxyPath, Alignment, buildInstanceLookup, getCardCss } from '@meccg/shared';
-import { renderState, renderDraft, renderMHInfo, renderSiteInfo, renderFreeCouncilInfo, renderGameOverView, renderActions, renderLog, renderHand, renderOpponentHand, renderPlayerNames, renderInstructions, renderDrafted, renderPassButton, renderDeckPiles, resetDeckPiles, setupCardPreview, showNotification, prepareSiteSelection, prepareFetchFromPile, clearSelectionState, renderChainPanel, buildCardAttributes } from './render.js';
+import type { ClientMessage } from '@meccg/shared';
+import { cardImageProxyPath } from '@meccg/shared';
+import {
+  appState, cardPool, LOBBY_MODE, SERVER_DEV,
+  VIEW_KEY, DEV_MODE_KEY, AUTO_PASS_KEY,
+  VIEWING_INBOX_KEY, VIEWING_DECKS_KEY, EDITING_DECK_KEY,
+  MAIL_TAB_KEY, MAIL_MSG_KEY,
+} from './app-state.js';
+import { savePlayerName, loadPlayerName } from './session.js';
+import { connect, disconnect, sendAction, resetVisualBoard } from './game-connection.js';
+import { loadDecks, setDeckBrowserCallbacks } from './deck-browser.js';
+import { setupDeckEditorPreview, setupDecksPreview, openDeckEditor, setDeckEditorCallbacks } from './deck-editor.js';
+import { openInbox, openSent } from './inbox.js';
+import { setInboxCallbacks } from './inbox.js';
+import {
+  showScreen, showAuthError, applyBackground, selectRandomBackground,
+  connectLobbyWs, initLobby,
+} from './lobby-screens.js';
+import { renderLog, setupCardPreview, showNotification } from './render.js';
 import { renderCompanyViews, resetCompanyViews } from './company-view.js';
-import { rollDice, clearDice, restoreDice, waitForDice } from './dice.js';
-import { snapshotPositions, animateFromSnapshot } from './flip-animate.js';
-import { renderMarkdown } from './markdown.js';
+import { clearDice, restoreDice } from './dice.js';
 
 declare global {
   interface Window {
-    /** Set by the server — true when the web proxy is started with --dev. */
+    /** Set by the server -- true when the web proxy is started with --dev. */
     __MECCG_DEV?: boolean;
-    /** Set by the lobby server — true when running in lobby mode. */
+    /** Set by the lobby server -- true when running in lobby mode. */
     __LOBBY?: boolean;
   }
 }
 
-/** Whether the server was started in dev mode. Controls dev UI availability. */
-const SERVER_DEV = window.__MECCG_DEV === true;
-
-/** Whether we are running under the lobby server (auth + matchmaking). */
-const LOBBY_MODE = window.__LOBBY === true;
-
-const cardPool = loadCardPool();
-
-let ws: WebSocket | null = null;
-let playerId: string | null = null;
-
-/** Lobby WebSocket connection (only in lobby mode). */
-let lobbyWs: WebSocket | null = null;
-/** Current game server port (lobby mode — direct connection). */
-let gamePort: number | null = null;
-/** Current game token (lobby mode). */
-let gameToken: string | null = null;
-
-const GAME_PORT_KEY = 'meccg-game-port';
-const GAME_TOKEN_KEY = 'meccg-game-token';
-const GAME_OPPONENT_KEY = 'meccg-game-opponent';
-
-/** Persist game connection info in sessionStorage so a page refresh can rejoin. */
-function saveGameSession(): void {
-  if (gamePort !== null && gameToken !== null) {
-    sessionStorage.setItem(GAME_PORT_KEY, String(gamePort));
-    sessionStorage.setItem(GAME_TOKEN_KEY, gameToken);
-  }
-  if (opponentName) {
-    sessionStorage.setItem(GAME_OPPONENT_KEY, opponentName);
-  }
-  if (isPseudoAi) {
-    sessionStorage.setItem(PSEUDO_AI_KEY, '1');
-    if (pseudoAiToken) sessionStorage.setItem(PSEUDO_AI_TOKEN_KEY, pseudoAiToken);
-  } else {
-    sessionStorage.removeItem(PSEUDO_AI_KEY);
-    sessionStorage.removeItem(PSEUDO_AI_TOKEN_KEY);
-  }
-}
-
-/** Clear persisted game session on disconnect. */
-function clearGameSession(): void {
-  sessionStorage.removeItem(GAME_PORT_KEY);
-  sessionStorage.removeItem(GAME_TOKEN_KEY);
-  sessionStorage.removeItem(GAME_OPPONENT_KEY);
-  sessionStorage.removeItem(PSEUDO_AI_KEY);
-  sessionStorage.removeItem(PSEUDO_AI_TOKEN_KEY);
-}
-
-/** Restore game connection info from sessionStorage (returns true if found). */
-function restoreGameSession(): boolean {
-  const port = sessionStorage.getItem(GAME_PORT_KEY);
-  const token = sessionStorage.getItem(GAME_TOKEN_KEY);
-  const opponent = sessionStorage.getItem(GAME_OPPONENT_KEY);
-  if (port && token) {
-    gamePort = Number(port);
-    gameToken = token;
-    opponentName = opponent;
-    isPseudoAi = sessionStorage.getItem(PSEUDO_AI_KEY) === '1';
-    pseudoAiToken = sessionStorage.getItem(PSEUDO_AI_TOKEN_KEY);
-    return true;
-  }
-  return false;
-}
-/** Current logged-in player name (lobby mode). */
-let lobbyPlayerName: string | null = null;
-let lobbyPlayerIsReviewer = false;
-let lobbyPlayerCredits = 0;
-/** Name of the player who sent us a challenge (lobby mode). */
-let challengeFrom: string | null = null;
-let lastInstanceLookup: (instId: CardInstanceId) => CardDefinitionId | undefined = () => undefined;
-let lastCompanyNames: Readonly<Record<string, string>> = {};
-let lastPhase: string | null = null;
-/** Current game ID (set on 'assigned' message). */
-let currentGameId: string | null = null;
-/** Latest state sequence number (updated on each 'state' message). */
-let currentStateSeq = 0;
-/** Opponent player name (lobby mode, set on 'game-starting'). */
-let opponentName: string | null = null;
-/** Whether the current game is a pseudo-AI game (human controls both sides). */
-let isPseudoAi = false;
-const PSEUDO_AI_KEY = 'meccg-pseudo-ai';
-/** Second WebSocket for pseudo-AI: connects as the AI player. */
-let pseudoAiWs: WebSocket | null = null;
-/** AI player's game token (pseudo-AI mode). */
-let pseudoAiToken: string | null = null;
-/** The AI's selected deck, captured when the user clicks Play vs Pseudo-AI. */
-let pendingAiDeck: FullDeck | null = null;
-const PSEUDO_AI_TOKEN_KEY = 'meccg-pseudo-ai-token';
-let autoPassTimer: ReturnType<typeof setTimeout> | null = null;
-/** Stack of log entry counts, pushed before each action for undo support. */
-const logCountStack: number[] = [];
-
-function sendAction(action: GameAction): void {
-  if (!ws || ws.readyState !== WebSocket.OPEN) return;
-  // Snapshot log entry count before adding action log line
-  const logEl = document.getElementById('log');
-  if (logEl) logCountStack.push(logEl.childElementCount);
-  const desc = describeAction(action, cardPool, lastInstanceLookup, lastCompanyNames);
-  renderLog(`>> ${desc}`, cardPool);
-  const msg: ClientMessage = { type: 'action', action };
-  ws.send(JSON.stringify(msg));
-
-  // After acknowledging game result, return to lobby
-  if (action.type === 'finished') {
-    disconnect();
-  }
-}
-
-/** A described action for the pseudo-AI panel: pre-rendered text + the raw action and viability. */
-interface DescribedAction {
-  readonly text: string;
-  readonly action: GameAction;
-  readonly viable: boolean;
-  readonly reason?: string;  // from EvaluatedAction — why the action is not viable
-}
-
-/** Send a pseudo-AI action pick via the AI's game WebSocket. */
-function sendPseudoAiPick(action: GameAction): void {
-  if (!pseudoAiWs || pseudoAiWs.readyState !== WebSocket.OPEN) return;
-  const msg: ClientMessage = { type: 'action', action };
-  pseudoAiWs.send(JSON.stringify(msg));
-}
-
-/** Clean action text for display: extract card names from markers, strip IDs and brackets. */
-function cleanActionText(text: string): string {
-  // \x02id\x02name\x02 → name
-  // eslint-disable-next-line no-control-regex
-  let s = text.replace(/\x02[^\x02]*\x02([^\x02]*)\x02/g, '$1');
-  // Remove any remaining control chars, bracketed content, and bare IDs
-  // eslint-disable-next-line no-control-regex
-  s = s.replace(/[\x00-\x1f]+/g, '');
-  s = s.replace(/\{[^}]*\}/g, '');
-  s = s.replace(/\([^)]*\)/g, '');
-  s = s.replace(/\[[^\]]*\]/g, '');
-  return s.replace(/\s{2,}/g, ' ').trim();
-}
-
-/** Action types that represent "pass" or "do nothing". */
-const PASS_ACTION_TYPES = new Set(['pass', 'draft-stop']);
-
-/** Render the pseudo-AI action panel with pre-described actions. */
-function renderPseudoAiActions(actions: readonly DescribedAction[]): void {
-  const panel = document.getElementById('pseudo-ai-panel')!;
-  const container = document.getElementById('pseudo-ai-actions')!;
-  const nonViableToggle = document.getElementById('pseudo-ai-nonviable-toggle')!;
-
-  container.innerHTML = '';
-
-  const viable = actions.filter(a => a.viable);
-  const nonViable = actions.filter(a => !a.viable);
-
-  // Sort: pass actions first
-  viable.sort((a, b) => {
-    const aPass = PASS_ACTION_TYPES.has(a.action.type) ? 0 : 1;
-    const bPass = PASS_ACTION_TYPES.has(b.action.type) ? 0 : 1;
-    return aPass - bPass;
-  });
-
-  // Show panel and pulsing border when there are actions to pick
-  const instruction = document.getElementById('pseudo-ai-instruction')!;
-  if (viable.length > 0) {
-    panel.classList.remove('hidden');
-    panel.classList.add('waiting');
-    instruction.classList.remove('hidden');
-  } else {
-    panel.classList.remove('waiting');
-    instruction.classList.add('hidden');
-  }
-
-  // Render viable actions as clickable buttons
-  for (const da of viable) {
-    const btn = document.createElement('button');
-    btn.textContent = cleanActionText(da.text);
-    if ('regress' in da.action && da.action.regress) {
-      btn.classList.add('action-regress');
-    }
-    btn.addEventListener('click', () => {
-      sendPseudoAiPick(da.action);
-      container.innerHTML = '';
-      nonViableToggle.classList.add('hidden');
-      panel.classList.remove('waiting');
-      panel.classList.add('hidden');
-      instruction.classList.add('hidden');
-    });
-    container.appendChild(btn);
-  }
-
-  // Non-viable actions: hidden by default, toggleable
-  if (nonViable.length > 0) {
-    nonViableToggle.classList.remove('hidden');
-    nonViableToggle.textContent = `+ Show non-viable (${nonViable.length})`;
-
-    const nonViableContainer = document.createElement('div');
-    nonViableContainer.classList.add('hidden');
-    nonViableContainer.id = 'pseudo-ai-nonviable-list';
-
-    for (const da of nonViable) {
-      const btn = document.createElement('button');
-      btn.disabled = true;
-      btn.textContent = da.reason
-        ? `${cleanActionText(da.text)} \u2014 ${da.reason}`
-        : cleanActionText(da.text);
-      if (da.reason) {
-        btn.title = da.reason;
-      }
-      nonViableContainer.appendChild(btn);
-    }
-    container.appendChild(nonViableContainer);
-
-    const newToggle = nonViableToggle.cloneNode(true) as HTMLButtonElement;
-    nonViableToggle.replaceWith(newToggle);
-    let showing = false;
-    newToggle.addEventListener('click', () => {
-      showing = !showing;
-      nonViableContainer.classList.toggle('hidden', !showing);
-      newToggle.textContent = showing
-        ? `\u2212 Hide non-viable (${nonViable.length})`
-        : `+ Show non-viable (${nonViable.length})`;
-    });
-  } else {
-    nonViableToggle.classList.add('hidden');
-  }
-}
-
-/** Connect a second WebSocket to the game server as the AI player (pseudo-AI mode). */
-function connectPseudoAi(aiName: string, aiDeck?: FullDeck | null): void {
-  if (!gamePort || !pseudoAiToken) return;
-  const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-  const url = `${protocol}//${window.location.hostname}:${gamePort}`;
-  pseudoAiWs = new WebSocket(url);
-
-  pseudoAiWs.onopen = () => {
-    let joinMsg: JoinMessage;
-    if (aiDeck) {
-      joinMsg = buildJoinFromDeck(aiDeck, aiName);
-    } else {
-      // Rejoin — server already has the deck from autosave
-      joinMsg = { type: 'join', name: aiName, alignment: Alignment.Wizard, draftPool: [], playDeck: [], siteDeck: [], sideboard: [] };
-    }
-    const msg: ClientMessage = { ...joinMsg, token: pseudoAiToken } as ClientMessage;
-    pseudoAiWs!.send(JSON.stringify(msg));
-  };
-
-  pseudoAiWs.onmessage = (event) => {
-    const msg = JSON.parse(event.data as string) as ServerMessage;
-    if (msg.type === 'state') {
-      const actions = msg.view.legalActions;
-      if (actions && actions.length > 0) {
-        const aiLookup = buildInstanceLookup(msg.view);
-        const aiCompanyNames = {
-          ...buildCompanyNames(msg.view.self.companies, msg.view.self.characters, cardPool),
-          ...buildCompanyNames(msg.view.opponent.companies as never, msg.view.opponent.characters, cardPool),
-        };
-        const described: DescribedAction[] = actions.map(ea => ({
-          text: describeAction(ea.action, cardPool, aiLookup, aiCompanyNames),
-          action: ea.action,
-          viable: ea.viable,
-          reason: ea.reason,
-        }));
-        renderPseudoAiActions(described);
-      }
-    }
-  };
-
-  pseudoAiWs.onclose = () => {
-    pseudoAiWs = null;
-  };
-}
-
-function connect(name: string): void {
-  const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-  let url: string;
-  if (LOBBY_MODE && gamePort) {
-    // Direct connection to spawned game server
-    url = `${protocol}//${window.location.hostname}:${gamePort}`;
-  } else {
-    // Proxy through the web-client server (standalone mode)
-    url = `${protocol}//${window.location.host}`;
-  }
-
-  renderLog(`Connecting to ${url} as "${name}"...`);
-  ws = new WebSocket(url);
-
-  ws.onopen = () => {
-    renderLog('Connected. Sending join...');
-    if (!currentFullDeck) {
-      // Reconnecting to an existing game (e.g. page refresh) — the server
-      // already has the deck, so send a minimal join with just the name.
-      const minimalJoin: JoinMessage = {
-        type: 'join',
-        name,
-        alignment: Alignment.Wizard,
-        draftPool: [],
-        playDeck: [],
-        siteDeck: [],
-        sideboard: [],
-      };
-      const msg = gameToken ? { ...minimalJoin, token: gameToken } : minimalJoin;
-      ws!.send(JSON.stringify(msg));
-      return;
-    }
-    const joinMsg = buildJoinFromDeck(currentFullDeck, name);
-    // In lobby mode, attach the game token for authentication
-    const msg = gameToken ? { ...joinMsg, token: gameToken } : joinMsg;
-    ws!.send(JSON.stringify(msg));
-  };
-
-  ws.onmessage = async (event) => {
-    const raw = event.data instanceof Blob ? await event.data.text() : event.data as string;
-    const msg: ServerMessage = JSON.parse(raw) as ServerMessage;
-
-    switch (msg.type) {
-      case 'assigned':
-        reconnectAttempts = 0;
-        playerId = msg.playerId;
-        currentGameId = msg.gameId;
-        renderLog(`Game ${msg.gameId} — assigned player ID: ${playerId}`);
-        { const h = document.getElementById('state-heading');
-          if (h) {
-            // Set text without destroying the copy button child
-            h.childNodes[0].textContent = `Game State — ${msg.gameId}`;
-            const copyBtn = document.getElementById('copy-game-code-btn');
-            if (copyBtn) {
-              copyBtn.classList.remove('hidden');
-              copyBtn.onclick = () => {
-                void navigator.clipboard.writeText(`game ${msg.gameId} seq ${currentStateSeq}`).then(() => showNotification('Copied!'));
-              };
-            }
-          }
-        }
-        break;
-
-      case 'waiting':
-        renderLog('Waiting for opponent to connect...');
-        showNotification('Waiting for opponent to connect...');
-        break;
-
-      case 'state':
-        // Wait for any dice animation to finish before rendering the new
-        // state, so the outcome isn't spoiled while dice are still rolling.
-        await waitForDice();
-        currentStateSeq = msg.view.stateSeq;
-        // Update heading to show game ID + seq
-        { const h = document.getElementById('state-heading');
-          if (h && currentGameId) {
-            h.childNodes[0].textContent = `Game State — ${currentGameId} seq ${currentStateSeq}`;
-          }
-        }
-        lastInstanceLookup = buildInstanceLookup(msg.view);
-        lastCompanyNames = {
-          ...buildCompanyNames(msg.view.self.companies, msg.view.self.characters, cardPool),
-          ...buildCompanyNames(msg.view.opponent.companies as never, msg.view.opponent.characters, cardPool),
-        };
-        renderLog(`State update: turn ${msg.view.turnNumber}, phase ${msg.view.phaseState.phase}`);
-        // Snapshot card positions before clearing DOM for FLIP animation
-        snapshotPositions();
-        renderState(msg.view, cardPool);
-        renderDraft(msg.view, cardPool);
-        renderMHInfo(msg.view, cardPool, lastCompanyNames);
-        renderSiteInfo(msg.view, cardPool, lastCompanyNames);
-        renderFreeCouncilInfo(msg.view, cardPool);
-        renderActions(msg.view.legalActions, cardPool, sendAction, lastInstanceLookup, lastCompanyNames);
-        renderHand(msg.view, cardPool, sendAction);
-        renderOpponentHand(msg.view, cardPool);
-        renderPlayerNames(msg.view, cardPool);
-        renderInstructions(msg.view, cardPool);
-        renderDrafted(msg.view, cardPool, sendAction);
-        renderPassButton(msg.view, sendAction);
-        renderDeckPiles(msg.view, cardPool);
-        renderCompanyViews(msg.view, cardPool, sendAction);
-        renderGameOverView(msg.view, cardPool);
-        renderChainPanel(msg.view, cardPool, sendAction);
-        // Animate cards from old positions to new positions
-        animateFromSnapshot();
-        // Show turn notification when entering Untap phase
-        if (msg.view.phaseState.phase === 'untap' && lastPhase !== 'untap') {
-          const isMine = msg.view.activePlayer === msg.view.self.id;
-          showNotification(isMine ? 'Your turn' : "Opponent's turn");
-        }
-        lastPhase = msg.view.phaseState.phase;
-        // Prepare/clear site selection or fetch-from-pile based on legal actions
-        if (msg.view.legalActions.some(ea => ea.action.type === 'select-starting-site')) {
-          prepareSiteSelection(msg.view, cardPool, sendAction);
-        } else if (msg.view.legalActions.some(ea => ea.viable && ea.action.type === 'fetch-from-pile')) {
-          prepareFetchFromPile(msg.view, cardPool, sendAction);
-        } else {
-          clearSelectionState();
-        }
-        // Auto-pass: if exactly one viable action, send it after a delay
-        if (autoPassTimer) { clearTimeout(autoPassTimer); autoPassTimer = null; }
-        if (localStorage.getItem(AUTO_PASS_KEY) === 'true') {
-          const viable = msg.view.legalActions.filter(a => a.viable);
-          if (viable.length === 1) {
-            autoPassTimer = setTimeout(() => {
-              autoPassTimer = null;
-              sendAction(viable[0].action);
-            }, 1500);
-          }
-        }
-        break;
-
-      case 'draft-reveal': {
-        const p1 = msg.player1Pick ? (cardPool[msg.player1Pick as string]?.name ?? msg.player1Pick) : 'stopped';
-        const p2 = msg.player2Pick ? (cardPool[msg.player2Pick as string]?.name ?? msg.player2Pick) : 'stopped';
-        renderLog(`Draft reveal: ${msg.player1Name} → ${p1}, ${msg.player2Name} → ${p2}`, cardPool);
-        if (msg.collision) {
-          renderLog(`  Collision! ${p1} is set aside.`, cardPool);
-        }
-        break;
-      }
-
-      case 'effect':
-        if (msg.effect.effect === 'dice-roll') {
-          const { playerName, die1, die2, label } = msg.effect;
-          renderLog(`${label}: ${playerName} rolled ${die1} + ${die2} = ${die1 + die2}`);
-          const visualView = document.getElementById('visual-view');
-          if (visualView && !visualView.classList.contains('hidden')) {
-            const variant = playerName === name ? 'black' : 'red';
-            rollDice(die1, die2, variant);
-          }
-        }
-        break;
-
-      case 'info':
-        renderLog(msg.message);
-        showNotification(msg.message);
-        break;
-
-      case 'error':
-        renderLog(`ERROR: ${msg.message}`);
-        showNotification(msg.message, true);
-        break;
-
-      case 'disconnected':
-        renderLog(msg.message);
-        showNotification(msg.message);
-        break;
-
-      case 'log':
-        for (const line of msg.lines) {
-          renderLog(line);
-        }
-        break;
-
-      case 'restart':
-        renderLog(msg.message);
-        showNotification(msg.message);
-        resetVisualBoard();
-        resetCompanyViews();
-        resetDeckPiles();
-        clearDice();
-        break;
-    }
-  };
-
-  ws.onclose = () => {
-    if (autoReconnect) {
-      if (LOBBY_MODE && opponentName) {
-        // Ask the lobby to relaunch a fresh game server
-        renderLog('Game server lost. Asking lobby to relaunch...');
-        showNotification('Game server lost. Relaunching...');
-        requestRejoin();
-      } else {
-        // Standalone mode: retry connecting to the same server
-        reconnectAttempts++;
-        if (reconnectAttempts > MAX_RECONNECT_ATTEMPTS) {
-          renderLog('Game server unreachable — returning to lobby.');
-          showNotification('Game server unreachable — returning to lobby.', true);
-          disconnect();
-          return;
-        }
-        renderLog(`Disconnected. Reconnecting in 2s... (attempt ${reconnectAttempts}/${MAX_RECONNECT_ATTEMPTS})`);
-        setTimeout(() => connect(name), 2000);
-      }
-    }
-  };
-
-  ws.onerror = () => {
-    // Will trigger onclose
-  };
-}
-
-// ---- LocalStorage ----
-
-const STORAGE_KEY = 'meccg-player-name';
-const VIEW_KEY = 'meccg-view-mode';
-
-function savePlayerName(name: string): void {
-  localStorage.setItem(STORAGE_KEY, name);
-}
-
-function loadPlayerName(): string | null {
-  return localStorage.getItem(STORAGE_KEY);
-}
-
-function clearPlayerName(): void {
-  localStorage.removeItem(STORAGE_KEY);
-}
-
-// ---- Disconnect ----
-
-let autoReconnect = true;
-/** Number of consecutive failed reconnect attempts. */
-let reconnectAttempts = 0;
-/** Maximum reconnect attempts before giving up and returning to the lobby. */
-const MAX_RECONNECT_ATTEMPTS = 5;
-
-function disconnect(): void {
-  autoReconnect = false;
-  clearPlayerName();
-  if (ws) {
-    ws.close();
-    ws = null;
-  }
-  playerId = null;
-  gamePort = null;
-  gameToken = null;
-  isPseudoAi = false;
-  pseudoAiToken = null;
-  if (pseudoAiWs) { pseudoAiWs.close(); pseudoAiWs = null; }
-  clearGameSession();
-
-  // Reset game state
-  document.getElementById('state')!.textContent = '';
-  document.getElementById('draft')!.textContent = '';
-  document.getElementById('actions')!.innerHTML = '';
-  document.getElementById('log')!.innerHTML = '';
-  // Hide pseudo-AI panel
-  const pseudoPanel = document.getElementById('pseudo-ai-panel');
-  if (pseudoPanel) {
-    pseudoPanel.classList.add('hidden');
-    pseudoPanel.classList.remove('minimized');
-    document.getElementById('pseudo-ai-actions')!.innerHTML = '';
-  }
-  clearDice();
-  resetVisualBoard();
-  resetCompanyViews();
-  for (const id of ['self-deck-box', 'opponent-deck-box']) {
-    document.getElementById(id)?.classList.add('hidden');
-  }
-
-  document.getElementById('game')!.classList.add('hidden');
-
-  if (LOBBY_MODE && lobbyPlayerName) {
-    // Return to lobby
-    showScreen('lobby-screen');
-    connectLobbyWs();
-  } else {
-    // Return to connect form
-    document.getElementById('connect-form')!.style.display = '';
-    (document.getElementById('name-input') as HTMLInputElement).value = '';
-  }
-}
-
-/**
- * Ask the lobby to relaunch the game server after it died. Opens a lobby
- * WebSocket, sends a `rejoin-game` message, and waits for `game-starting`.
- * Retries if the lobby itself is still restarting. Falls back to the lobby
- * screen after MAX_REJOIN_ATTEMPTS failures.
- */
-const MAX_REJOIN_ATTEMPTS = 10;
-const REJOIN_RETRY_DELAY = 2000;
-
-function requestRejoin(): void {
-  autoReconnect = false;
-  if (ws) { ws.close(); ws = null; }
-
-  const opponent = opponentName;
-  if (!opponent) {
-    renderLog('Cannot rejoin — opponent unknown. Returning to lobby.');
-    disconnect();
-    return;
-  }
-
-  let attempts = 0;
-
-  function tryRejoin(): void {
-    attempts++;
-    if (attempts > MAX_REJOIN_ATTEMPTS) {
-      renderLog('Lobby unreachable — returning to lobby.');
-      showNotification('Lobby unreachable — returning to lobby.', true);
-      disconnect();
-      return;
-    }
-    renderLog(`Requesting game relaunch... (attempt ${attempts}/${MAX_REJOIN_ATTEMPTS})`);
-
-    // Close any stale lobby WS
-    if (lobbyWs) { lobbyWs.close(); lobbyWs = null; }
-
-    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const rejoinWs = new WebSocket(`${protocol}//${window.location.host}`);
-
-    const cleanup = () => { rejoinWs.onopen = null; rejoinWs.onclose = null; rejoinWs.onmessage = null; };
-
-    rejoinWs.onopen = () => {
-      rejoinWs.send(JSON.stringify({ type: 'rejoin-game', opponent }));
-    };
-
-    rejoinWs.onmessage = (event) => {
-      const msg = JSON.parse(event.data as string) as { type: string; [key: string]: unknown };
-      if (msg.type === 'game-starting') {
-        cleanup();
-        // Hand off to the normal game-starting flow
-        gamePort = msg.port as number;
-        gameToken = msg.token as string;
-        opponentName = (msg.opponent as string) ?? opponent;
-        isPseudoAi = (msg.pseudoAi as boolean) ?? false;
-        pseudoAiToken = (msg.aiToken as string) ?? null;
-        saveGameSession();
-        // Keep this WS as the lobby WS (it's authenticated)
-        lobbyWs = rejoinWs;
-        lobbyWs.onclose = () => { lobbyWs = null; };
-        // Close lobby WS during game
-        lobbyWs.close();
-        lobbyWs = null;
-        autoReconnect = true;
-        renderLog(`Game relaunched on port ${gamePort}. Connecting...`);
-        connect(lobbyPlayerName!);
-        if (isPseudoAi && opponentName) {
-          connectPseudoAi(opponentName);
-        }
-      } else if (msg.type === 'error') {
-        renderLog(`Lobby: ${msg.message as string}`);
-        cleanup();
-        rejoinWs.close();
-        showNotification(msg.message as string, true);
-        disconnect();
-      }
-      // Ignore other lobby messages (online-players, etc.) during rejoin
-    };
-
-    rejoinWs.onclose = () => {
-      cleanup();
-      // Lobby not ready yet — retry after delay
-      setTimeout(tryRejoin, REJOIN_RETRY_DELAY);
-    };
-  }
-
-  tryRejoin();
-}
-
-/**
- * Clear the visual board and restore its skeleton child elements
- * (instruction text, drafted rows, set-aside) so that subsequent
- * renderDrafted() calls can find them.
- */
-function resetVisualBoard(): void {
-  const board = document.getElementById('visual-board')!;
-  board.innerHTML = '';
-  // Clear instruction text (lives outside visual-board now)
-  const instrEl = document.getElementById('instruction-text');
-  if (instrEl) instrEl.textContent = '';
-  for (const [id, cls] of [
-    ['drafted-opponent', 'drafted-row'],
-    ['set-aside', ''],
-    ['drafted-self', 'drafted-row'],
-  ] as const) {
-    const el = document.createElement('div');
-    el.id = id;
-    if (cls) el.className = cls;
-    board.appendChild(el);
-  }
-}
-
-// ---- Background ----
-
-const BACKGROUNDS = [
-  'images/visual-bg.png',
-  'images/visual-bg-2.png',
-  'images/visual-bg-3.png',
-  'images/visual-bg-4.png',
-  'images/visual-bg-5.png',
-  'images/visual-bg-6.png',
-  'images/visual-bg-7.png',
-  'images/visual-bg-8.png',
-  'images/visual-bg-9.png',
-  'images/visual-bg-10.png',
-  'images/visual-bg-11.png',
-  'images/visual-bg-12.png',
-  'images/visual-bg-13.png',
-  'images/visual-bg-14.png',
-  'images/visual-bg-15.png',
-  'images/visual-bg-16.png',
-  'images/visual-bg-17.png',
-  'images/visual-bg-18.png',
-  'images/visual-bg-19.png',
-  'images/visual-bg-20.png',
-];
-const DEV_MODE_KEY = 'meccg-dev-mode';
-const AUTO_PASS_KEY = 'meccg-auto-pass';
-const BG_KEY = 'meccg-bg';
-
-function applyBackground(): void {
-  const saved = localStorage.getItem(BG_KEY);
-  const bg = saved && BACKGROUNDS.includes(saved) ? saved : BACKGROUNDS[0];
-  document.documentElement.style.setProperty('--visual-bg', `url('${bg}')`);
-}
-
-function selectRandomBackground(): void {
-  const bg = BACKGROUNDS[Math.floor(Math.random() * BACKGROUNDS.length)];
-  localStorage.setItem(BG_KEY, bg);
-  document.documentElement.style.setProperty('--visual-bg', `url('${bg}')`);
-}
-
-// ---- Lobby mode helpers ----
-
-type ScreenId = 'login-screen' | 'register-screen' | 'lobby-screen' | 'decks-screen' | 'deck-editor-screen' | 'inbox-screen' | 'connect-form';
-const ALL_SCREENS: ScreenId[] = ['login-screen', 'register-screen', 'lobby-screen', 'decks-screen', 'deck-editor-screen', 'inbox-screen', 'connect-form'];
-
-/** Screens that should show the persistent nav bar. */
-const NAV_SCREENS: ScreenId[] = ['lobby-screen', 'decks-screen', 'deck-editor-screen', 'inbox-screen'];
-
-/** Update the credits badge in the nav bar. */
-function updateCreditsBadge(): void {
-  const el = document.getElementById('lobby-credits-badge');
-  if (el) el.textContent = String(lobbyPlayerCredits);
-}
-
-/** Show one screen, hiding all others. */
-function showScreen(id: ScreenId): void {
-  for (const screenId of ALL_SCREENS) {
-    const el = document.getElementById(screenId);
-    if (el) el.classList.toggle('hidden', screenId !== id);
-  }
-  // Show/hide the persistent nav bar
-  const nav = document.getElementById('lobby-nav');
-  if (nav) nav.classList.toggle('hidden', !NAV_SCREENS.includes(id));
-  // Update active nav item
-  document.getElementById('nav-lobby')?.classList.toggle('lobby-nav-item--active',
-    id === 'lobby-screen');
-  document.getElementById('nav-decks')?.classList.toggle('lobby-nav-item--active',
-    id === 'decks-screen' || id === 'deck-editor-screen');
-  document.getElementById('nav-mail')?.classList.toggle('lobby-nav-item--active',
-    id === 'inbox-screen');
-  // Update player name and credits on all screens
-  for (const el of document.querySelectorAll('.screen-player-name')) {
-    el.textContent = lobbyPlayerName ?? '';
-  }
-  updateCreditsBadge();
-  // Reset lobby button state when showing the lobby
-  if (id === 'lobby-screen') {
-    const btn = document.getElementById('play-ai-btn') as HTMLButtonElement | null;
-    if (btn) { btn.textContent = 'Play vs Random-AI'; btn.classList.remove('hidden'); }
-    document.getElementById('save-prompt')?.classList.add('hidden');
-    void loadDecks();
-  }
-  // Load decks when showing the decks screen
-  if (id === 'decks-screen') {
-    void loadDecks();
-  }
-}
-
-// ---- Deck browser ----
-
-/** IDs of decks the player already owns. */
-let ownedDeckIds = new Set<string>();
-/** Cached deck catalog for looking up AI decks. */
-let cachedCatalog: FullDeck[] = [];
-let myDeckSelectInstalled = false;
-/** Currently selected deck ID. */
-let currentDeckId: string | null = null;
-
-interface DeckSummary { id: string; name: string; alignment: string }
-interface DeckListEntry { name: string; card: string | null; qty: number; favourite?: boolean }
-interface FullDeck extends DeckSummary {
-  pool: DeckListEntry[];
-  deck: { characters: DeckListEntry[]; hazards: DeckListEntry[]; resources: DeckListEntry[] };
-  sites: DeckListEntry[];
-  sideboard: DeckListEntry[];
-}
-
-/** The current player's selected deck, loaded from the lobby API. */
-let currentFullDeck: FullDeck | null = null;
-
-/** Return names of cards that have no card ID (not yet created). */
-function missingCards(deck: FullDeck): string[] {
-  const allEntries = [
-    ...deck.pool,
-    ...deck.deck.characters, ...deck.deck.hazards, ...deck.deck.resources,
-    ...deck.sites,
-    ...(deck.sideboard ?? []),
-  ];
-  return allEntries.filter(e => e.card === null).map(e => e.name);
-}
-
-/** Return names of cards that exist but are not yet certified. */
-function uncertifiedCards(deck: FullDeck): string[] {
-  const allEntries = [
-    ...deck.pool,
-    ...deck.deck.characters, ...deck.deck.hazards, ...deck.deck.resources,
-    ...deck.sites,
-    ...(deck.sideboard ?? []),
-  ];
-  const seen = new Set<string>();
-  const result: string[] = [];
-  for (const e of allEntries) {
-    if (e.card === null || seen.has(e.card)) continue;
-    seen.add(e.card);
-    const def = cardPool[e.card];
-    if (def && !('certified' in def && (def as unknown as Record<string, unknown>).certified)) {
-      result.push(e.name);
-    }
-  }
-  return result;
-}
-
-/** Map deck file alignment strings to the Alignment enum used in JoinMessage. */
-const ALIGNMENT_MAP: Record<string, Alignment> = {
-  hero: Alignment.Wizard,
-  minion: Alignment.Ringwraith,
-  'fallen-wizard': Alignment.FallenWizard,
-  balrog: Alignment.Balrog,
-};
-
-/** Expand deck list entries into repeated card IDs, filtering out unimplemented cards. */
-function expandEntries(entries: DeckListEntry[]): CardDefinitionId[] {
-  const ids: CardDefinitionId[] = [];
-  for (const e of entries) {
-    if (e.card !== null) {
-      for (let i = 0; i < e.qty; i++) ids.push(e.card as CardDefinitionId);
-    }
-  }
-  return ids;
-}
-
-/** Build a JoinMessage from a player deck, filtering out unimplemented cards. */
-function buildJoinFromDeck(deck: FullDeck, playerName: string): JoinMessage {
-  return {
-    type: 'join',
-    name: playerName,
-    alignment: ALIGNMENT_MAP[deck.alignment] ?? Alignment.Wizard,
-    draftPool: expandEntries(deck.pool),
-    playDeck: [
-      ...expandEntries(deck.deck.characters),
-      ...expandEntries(deck.deck.resources),
-      ...expandEntries(deck.deck.hazards),
-    ],
-    siteDeck: expandEntries(deck.sites),
-    sideboard: expandEntries(deck.sideboard ?? []),
-  };
-}
-
-/** Render a deck item row for "My Decks" — click to select as current. */
-function renderMyDeckItem(deck: FullDeck, isCurrent: boolean): HTMLElement {
-  const missing = missingCards(deck);
-  const item = document.createElement('div');
-  item.className = 'lobby-deck-item lobby-deck-item--owned' + (isCurrent ? ' lobby-deck-item--current' : '');
-  const info = document.createElement('div');
-  info.className = 'lobby-deck-info';
-  const nameEl = document.createElement('span');
-  nameEl.className = 'lobby-deck-name';
-  nameEl.textContent = deck.name;
-  const meta = document.createElement('span');
-  meta.className = 'lobby-deck-meta';
-  meta.textContent = deck.alignment + (isCurrent ? ' — selected' : '');
-  info.appendChild(nameEl);
-  info.appendChild(meta);
-  if (missing.length > 0) {
-    const warn = document.createElement('span');
-    warn.className = 'lobby-deck-warning';
-    warn.textContent = `\u26A0 ${missing.length} missing card${missing.length > 1 ? 's' : ''}`;
-    warn.title = missing.join(', ');
-    info.appendChild(warn);
-  }
-  const uncertified = uncertifiedCards(deck);
-  if (uncertified.length > 0) {
-    const warn = document.createElement('span');
-    warn.className = 'lobby-deck-warning lobby-deck-warning--uncertified';
-    warn.textContent = `\u26A0 ${uncertified.length} uncertified card${uncertified.length > 1 ? 's' : ''}`;
-    warn.title = uncertified.join(', ');
-    info.appendChild(warn);
-  }
-  item.appendChild(info);
-  const btns = document.createElement('div');
-  btns.style.display = 'flex';
-  btns.style.gap = '0.4rem';
-  if (isCurrent) {
-    const editBtn = document.createElement('button');
-    editBtn.textContent = 'Edit';
-    editBtn.addEventListener('click', () => {
-      void openDeckEditor(deck.id);
-    });
-    btns.appendChild(editBtn);
-  } else {
-    const selectBtn = document.createElement('button');
-    selectBtn.textContent = 'Select';
-    selectBtn.addEventListener('click', () => {
-      void selectDeck(deck.id);
-    });
-    btns.appendChild(selectBtn);
-  }
-  const deleteBtn = document.createElement('button');
-  deleteBtn.textContent = 'Delete';
-  deleteBtn.className = 'lobby-delete-btn';
-  deleteBtn.addEventListener('click', () => {
-    if (confirm(`Delete deck "${deck.name}"?`)) {
-      void deleteDeck(deck.id);
-    }
-  });
-  btns.appendChild(deleteBtn);
-  item.appendChild(btns);
-  return item;
-}
-
-/** Render a deck item row for the catalog — "Add" or "Owned". */
-function renderCatalogDeckItem(deck: FullDeck, owned: boolean, onAdd: () => void): HTMLElement {
-  const missing = missingCards(deck);
-  const item = document.createElement('div');
-  item.className = 'lobby-deck-item';
-  const info = document.createElement('div');
-  info.className = 'lobby-deck-info';
-  const nameEl = document.createElement('span');
-  nameEl.className = 'lobby-deck-name';
-  nameEl.textContent = deck.name;
-  const meta = document.createElement('span');
-  meta.className = 'lobby-deck-meta';
-  meta.textContent = deck.alignment;
-  info.appendChild(nameEl);
-  info.appendChild(meta);
-  if (missing.length > 0) {
-    const warn = document.createElement('span');
-    warn.className = 'lobby-deck-warning';
-    warn.textContent = `\u26A0 ${missing.length} missing card${missing.length > 1 ? 's' : ''}`;
-    warn.title = missing.join(', ');
-    info.appendChild(warn);
-  }
-  const uncertified = uncertifiedCards(deck);
-  if (uncertified.length > 0) {
-    const warn = document.createElement('span');
-    warn.className = 'lobby-deck-warning lobby-deck-warning--uncertified';
-    warn.textContent = `\u26A0 ${uncertified.length} uncertified card${uncertified.length > 1 ? 's' : ''}`;
-    warn.title = uncertified.join(', ');
-    info.appendChild(warn);
-  }
-  item.appendChild(info);
-  const btn = document.createElement('button');
-  if (owned) {
-    btn.textContent = 'Owned';
-    btn.disabled = true;
-  } else {
-    btn.textContent = 'Copy';
-    btn.title = 'Make a copy for yourself to edit';
-    btn.addEventListener('click', () => {
-      btn.disabled = true;
-      btn.textContent = 'Copying...';
-      onAdd();
-    });
-  }
-  item.appendChild(btn);
-  return item;
-}
-
-/** Show or hide play controls depending on whether a deck is selected. */
-function updatePlayControls(): void {
-  const hasDeck = currentDeckId !== null;
-  const notice = document.getElementById('no-deck-notice');
-  if (notice) notice.classList.toggle('hidden', hasDeck);
-  const playAiBtn = document.getElementById('play-ai-btn') as HTMLButtonElement | null;
-  if (playAiBtn) playAiBtn.disabled = !hasDeck;
-  const aiDeckSelect = document.getElementById('ai-deck-select') as HTMLSelectElement | null;
-  if (aiDeckSelect) aiDeckSelect.disabled = !hasDeck;
-  // Disable challenge buttons on online player list
-  for (const btn of document.querySelectorAll<HTMLButtonElement>('.lobby-player-item button')) {
-    btn.disabled = !hasDeck;
-  }
-  const acceptBtn = document.getElementById('accept-challenge-btn') as HTMLButtonElement | null;
-  if (acceptBtn) acceptBtn.disabled = !hasDeck;
-}
-
-/** Fetch deck catalog and player's decks, then render both lists. */
-async function loadDecks(): Promise<void> {
-  const [catalogResp, myResp] = await Promise.all([
-    fetch('/api/decks'),
-    fetch('/api/my-decks'),
-  ]);
-  const catalog = catalogResp.ok ? await catalogResp.json() as FullDeck[] : [];
-  cachedCatalog = catalog;
-  const myData = myResp.ok
-    ? await myResp.json() as { decks: FullDeck[]; currentDeck: string | null; currentFullDeck: FullDeck | null }
-    : { decks: [] as FullDeck[], currentDeck: null, currentFullDeck: null };
-  const myDecks = myData.decks;
-  currentDeckId = myData.currentDeck;
-  currentFullDeck = myData.currentFullDeck ?? myDecks.find(d => d.id === currentDeckId) ?? null;
-  ownedDeckIds = new Set(myDecks.map(d => d.id));
-  updatePlayControls();
-
-  // Render my decks
-  const myContainer = document.getElementById('my-decks')!;
-  myContainer.innerHTML = '';
-  if (myDecks.length === 0) {
-    myContainer.innerHTML = '<p class="lobby-empty">No decks yet — add one from the catalog below</p>';
-  } else {
-    for (const deck of myDecks) {
-      myContainer.appendChild(renderMyDeckItem(deck, deck.id === currentDeckId));
-    }
-  }
-
-  // Render catalog
-  const catContainer = document.getElementById('deck-catalog')!;
-  catContainer.innerHTML = '';
-  if (catalog.length === 0) {
-    catContainer.innerHTML = '<p class="lobby-empty">No decks available</p>';
-  } else {
-    for (const deck of catalog) {
-      catContainer.appendChild(renderCatalogDeckItem(deck, ownedDeckIds.has(`${lobbyPlayerName}-${deck.id}`), () => {
-        void addDeckToCollection(deck);
-      }));
-    }
-  }
-
-  // Render current deck compact preview
-  const previewContainer = document.getElementById('current-deck-preview');
-  if (previewContainer) {
-    previewContainer.innerHTML = '';
-    if (currentFullDeck) {
-      renderCompactDeck(previewContainer, currentFullDeck);
-    } else {
-      previewContainer.innerHTML = '<p class="lobby-empty">No deck selected</p>';
-    }
-  }
-
-  // Populate my deck dropdown (personal decks + catalog decks)
-  const mySelect = document.getElementById('my-deck-select') as HTMLSelectElement | null;
-  if (mySelect) {
-    mySelect.innerHTML = '';
-    const allDecks = myDecks.length + catalog.length;
-    if (allDecks === 0) {
-      const opt = document.createElement('option');
-      opt.value = '';
-      opt.textContent = 'No decks available';
-      opt.disabled = true;
-      mySelect.appendChild(opt);
-    } else {
-      if (myDecks.length > 0) {
-        const group = document.createElement('optgroup');
-        group.label = 'My Decks';
-        for (const deck of myDecks) {
-          const opt = document.createElement('option');
-          opt.value = deck.id;
-          const missing = missingCards(deck);
-          const uncert = uncertifiedCards(deck);
-          let label = deck.name;
-          if (missing.length > 0) label = `\u26A0 ${label}`;
-          if (uncert.length > 0) label = `\u2606 ${label}`;
-          opt.textContent = label;
-          opt.selected = deck.id === currentDeckId;
-          group.appendChild(opt);
-        }
-        mySelect.appendChild(group);
-      }
-      if (catalog.length > 0) {
-        const group = document.createElement('optgroup');
-        group.label = 'Stock Decks';
-        for (const deck of catalog) {
-          const opt = document.createElement('option');
-          opt.value = deck.id;
-          const missing = missingCards(deck);
-          const uncert = uncertifiedCards(deck);
-          let label = deck.name;
-          if (missing.length > 0) label = `\u26A0 ${label}`;
-          if (uncert.length > 0) label = `\u2606 ${label}`;
-          opt.textContent = label;
-          opt.selected = deck.id === currentDeckId;
-          group.appendChild(opt);
-        }
-        mySelect.appendChild(group);
-      }
-    }
-    if (!myDeckSelectInstalled) {
-      myDeckSelectInstalled = true;
-      mySelect.addEventListener('change', () => {
-        if (mySelect.value) void selectDeck(mySelect.value);
-      });
-    }
-  }
-
-  // Populate AI deck dropdown
-  const aiSelect = document.getElementById('ai-deck-select') as HTMLSelectElement | null;
-  if (aiSelect) {
-    aiSelect.innerHTML = '';
-    for (const deck of catalog) {
-      const opt = document.createElement('option');
-      opt.value = deck.id;
-      const missing = missingCards(deck);
-      opt.textContent = missing.length > 0 ? `\u26A0 ${deck.name}` : deck.name;
-      if (deck.id === 'development-proto-hero') opt.selected = true;
-      aiSelect.appendChild(opt);
-    }
-  }
-}
-
-/** Render a compact, read-only listing of a deck in a 3-column grid. */
-function renderCompactDeck(container: HTMLElement, deck: FullDeck): void {
-  const sections: { label: string; entries: DeckListEntry[] }[][] = [
-    [
-      { label: 'Pool', entries: deck.pool },
-      { label: 'Characters', entries: deck.deck.characters },
-    ],
-    [{ label: 'Resources', entries: deck.deck.resources }],
-    [{ label: 'Hazards', entries: deck.deck.hazards }],
-    [{ label: 'Sideboard', entries: deck.sideboard ?? [] }],
-    [{ label: 'Sites', entries: deck.sites }],
-  ];
-  const nameEl = document.createElement('div');
-  nameEl.className = 'compact-deck-name';
-  nameEl.textContent = deck.name;
-  container.appendChild(nameEl);
-  const alignEl = document.createElement('div');
-  alignEl.className = 'compact-deck-alignment';
-  alignEl.textContent = deck.alignment;
-  container.appendChild(alignEl);
-  const grid = document.createElement('div');
-  grid.className = 'compact-deck-grid';
-  for (const group of sections) {
-    const col = document.createElement('div');
-    col.className = 'compact-deck-section';
-    for (const section of group) {
-      if (section.entries.length === 0) continue;
-      const heading = document.createElement('div');
-      heading.className = 'compact-deck-heading';
-      heading.textContent = section.label;
-      col.appendChild(heading);
-      for (const entry of sortDeckEntries(section.entries)) {
-        const row = document.createElement('div');
-        row.className = 'compact-deck-entry' + (entry.card === null ? ' compact-deck-entry--missing' : '');
-        const star = entry.favourite ? ' \u2605' : '';
-        row.textContent = (entry.qty > 1 ? `${entry.qty}\u00d7 ${entry.name}` : entry.name) + star;
-        if (entry.card) {
-          row.dataset.cardId = entry.card;
-          const def = cardPool[entry.card];
-          const style = def ? getCardCss(def) : undefined;
-          if (style) row.setAttribute('style', style);
-        }
-        col.appendChild(row);
-      }
-    }
-    if (col.children.length > 0) grid.appendChild(col);
-  }
-  container.appendChild(grid);
-}
-
-/** Set a deck as the player's current deck, then refresh. */
-async function selectDeck(deckId: string): Promise<void> {
-  await fetch('/api/my-decks/current', {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ deckId }),
-  });
-  await loadDecks();
-}
-
-/** Delete a deck from the player's collection, then refresh. */
-async function deleteDeck(deckId: string): Promise<void> {
-  await fetch(`/api/my-decks/${encodeURIComponent(deckId)}`, { method: 'DELETE' });
-  await loadDecks();
-}
-
-/** Add a catalog deck to the player's collection, then refresh. */
-async function addDeckToCollection(deck: FullDeck): Promise<void> {
-  const personalDeck = { ...deck, id: `${lobbyPlayerName}-${deck.id}` };
-  const resp = await fetch('/api/my-decks', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(personalDeck),
-  });
-  if (resp.ok) {
-    await loadDecks();
-  }
-}
-
-// ---- Deck editor ----
-
-
-/** Set of "deckId:cardName" keys for already-requested cards. */
-let requestedCards = new Set<string>();
-
-/** Set of card definition IDs for already-requested certifications. */
-let requestedCertifications = new Set<string>();
-
-/** Sort deck entries: favourites first, then known cards, then by card type, then by name. */
-function sortDeckEntries(entries: DeckListEntry[]): DeckListEntry[] {
-  return [...entries].sort((a, b) => {
-    if (a.favourite !== b.favourite) return a.favourite ? -1 : 1;
-    const defA = a.card ? cardPool[a.card] : undefined;
-    const defB = b.card ? cardPool[b.card] : undefined;
-    if (!defA !== !defB) return defA ? -1 : 1;
-    const typeA = defA?.cardType ?? '';
-    const typeB = defB?.cardType ?? '';
-    if (typeA !== typeB) return typeA.localeCompare(typeB);
-    const nameA = defA?.name ?? a.name;
-    const nameB = defB?.name ?? b.name;
-    return nameA.localeCompare(nameB);
-  });
-}
-
-/** Render a list of card entries into a container element, sorted by card type then name. */
-function renderCardList(container: HTMLElement, entries: DeckListEntry[], deckId: string): void {
-  container.innerHTML = '';
-  const sorted = sortDeckEntries(entries);
-  for (const entry of sorted) {
-    const row = document.createElement('div');
-    row.className = 'deck-editor-card';
-    const qtyEl = document.createElement('span');
-    qtyEl.className = 'deck-editor-card-qty';
-    qtyEl.textContent = String(entry.qty);
-    const nameEl = document.createElement('span');
-    nameEl.className = 'deck-editor-card-name';
-    // Use official name and color from card pool if mapped
-    const def = entry.card ? cardPool[entry.card] : undefined;
-    const favStar = entry.favourite ? ' \u2605' : '';
-    nameEl.textContent = (def ? def.name : entry.name) + favStar;
-    const badge = document.createElement('span');
-    badge.className = 'deck-editor-certified-badge';
-    if (def) {
-      const style = getCardCss(def) ?? '';
-      if (style) nameEl.setAttribute('style', style);
-      row.dataset.cardId = entry.card!;
-      row.style.cursor = 'pointer';
-      if ('certified' in def && (def as unknown as Record<string, unknown>).certified) {
-        badge.textContent = '\u2605';
-        badge.title = `Certified ${(def as unknown as Record<string, unknown>).certified as string}`;
-      }
-    } else {
-      row.classList.add('deck-editor-card--unknown');
-      const requestKey = `${deckId}:${entry.name}`;
-      const btn = document.createElement('button');
-      btn.className = 'deck-editor-request-btn';
-      btn.title = 'Ask the server admin to add this card to the game data';
-      if (requestedCards.has(requestKey)) {
-        btn.textContent = 'Requested';
-        btn.disabled = true;
-      } else {
-        btn.textContent = 'Request';
-        btn.addEventListener('click', () => {
-          btn.disabled = true;
-          btn.textContent = 'Requested';
-          requestedCards.add(requestKey);
-          void fetch('/api/card-requests', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ deckId, cardName: entry.name }),
-          }).then(async r => {
-            if (!r.ok) {
-              const data = await r.json() as { error?: string };
-              btn.disabled = false;
-              btn.textContent = 'Request';
-              requestedCards.delete(requestKey);
-              alert(data.error ?? 'Request failed');
-            }
-          });
-        });
-      }
-      row.appendChild(qtyEl);
-      row.appendChild(badge);
-      row.appendChild(nameEl);
-      row.appendChild(btn);
-      container.appendChild(row);
-      continue;
-    }
-    row.appendChild(qtyEl);
-    row.appendChild(badge);
-    row.appendChild(nameEl);
-    if (def && !('certified' in def && (def as unknown as Record<string, unknown>).certified)) {
-      const certBtn = document.createElement('button');
-      certBtn.className = 'deck-editor-certify-btn';
-      certBtn.title = 'Request certification for this card';
-      if (requestedCertifications.has(entry.card!)) {
-        certBtn.textContent = 'Requested';
-        certBtn.disabled = true;
-      } else {
-        certBtn.textContent = 'Certify';
-        certBtn.addEventListener('click', () => {
-          certBtn.disabled = true;
-          certBtn.textContent = 'Requested';
-          requestedCertifications.add(entry.card!);
-          void fetch('/api/certification-requests', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ cardId: entry.card }),
-          }).then(async r => {
-            if (!r.ok) {
-              const data = await r.json() as { error?: string };
-              certBtn.disabled = false;
-              certBtn.textContent = 'Certify';
-              requestedCertifications.delete(entry.card!);
-              alert(data.error ?? 'Certification request failed');
-            }
-          });
-        });
-      }
-      row.appendChild(certBtn);
-    }
-    container.appendChild(row);
-  }
-}
-
-const EDITING_DECK_KEY = 'meccg-editing-deck';
-const VIEWING_INBOX_KEY = 'meccg-viewing-inbox';
-const VIEWING_DECKS_KEY = 'meccg-viewing-decks';
-const MAIL_TAB_KEY = 'meccg-mail-tab';
-const MAIL_MSG_KEY = 'meccg-mail-msg';
-
-/** Set up hover preview for card rows in the deck editor. */
-function setupDeckEditorPreview(): void {
-  const screen = document.getElementById('deck-editor-screen')!;
-  const preview = document.getElementById('deck-editor-preview')!;
-
-  screen.addEventListener('mouseover', (e) => {
-    const row = (e.target as HTMLElement).closest<HTMLElement>('.deck-editor-card[data-card-id]');
-    if (!row) return;
-    const def = cardPool[row.dataset.cardId!];
-    if (!def) return;
-
-    // Position preview on a specific column based on card type:
-    // Characters → col 2, Resources → col 1, Hazards → col 4, Sites → col 3
-    const section = row.closest('.deck-editor-section');
-    const sections = [...screen.querySelectorAll('.deck-editor-section')];
-    const sectionIdx = section ? sections.indexOf(section) : -1;
-    // Section indices: 0=Pool/Characters, 1=Resources, 2=Hazards, 3=Sites
-    // Target columns:  0→1 (col 2),       1→0 (col 1),  2→3 (col 4), 3→2 (col 3)
-    const targetCol = [1, 0, 3, 2][sectionIdx] ?? 0;
-    const targetSection = sections[targetCol] as HTMLElement | undefined;
-    preview.className = 'deck-editor-preview';
-    if (targetSection) {
-      const targetRect = targetSection.getBoundingClientRect();
-      preview.style.left = `${targetRect.left}px`;
-      preview.style.right = '';
-    }
-
-    preview.innerHTML = '';
-    const info = document.createElement('div');
-    info.className = 'card-preview-info';
-
-    const name = document.createElement('div');
-    name.className = 'card-preview-name';
-    name.textContent = def.name;
-    info.appendChild(name);
-
-    // Card image
-    const imgPath = cardImageProxyPath(def);
-    if (imgPath) {
-      const img = document.createElement('img');
-      img.src = imgPath;
-      img.alt = def.name;
-      info.appendChild(img);
-    }
-
-    buildCardAttributes(info, def);
-    preview.appendChild(info);
-  });
-
-  screen.addEventListener('mouseout', (e) => {
-    const row = (e.target as HTMLElement).closest('.deck-editor-card[data-card-id]');
-    if (!row) return;
-    preview.innerHTML = '';
-    preview.style.left = '';
-  });
-}
-
-/** Set up hover preview for card entries on the decks overview screen. */
-function setupDecksPreview(): void {
-  const screen = document.getElementById('decks-screen')!;
-  const preview = document.getElementById('decks-preview')!;
-
-  screen.addEventListener('mouseover', (e) => {
-    const row = (e.target as HTMLElement).closest<HTMLElement>('.compact-deck-entry[data-card-id]');
-    if (!row) return;
-    const def = cardPool[row.dataset.cardId!];
-    if (!def) return;
-
-    // Position preview over the middle column, offset to the right
-    const columns = [...screen.querySelectorAll('.lobby-column')];
-    const targetCol = columns[1] as HTMLElement | undefined;
-    preview.className = 'deck-editor-preview';
-    if (targetCol) {
-      const targetRect = targetCol.getBoundingClientRect();
-      preview.style.left = `${targetRect.left + targetRect.width * 0.25}px`;
-      preview.style.right = '';
-    }
-
-    preview.innerHTML = '';
-    const info = document.createElement('div');
-    info.className = 'card-preview-info';
-
-    const name = document.createElement('div');
-    name.className = 'card-preview-name';
-    name.textContent = def.name;
-    info.appendChild(name);
-
-    const imgPath = cardImageProxyPath(def);
-    if (imgPath) {
-      const img = document.createElement('img');
-      img.src = imgPath;
-      img.alt = def.name;
-      info.appendChild(img);
-    }
-
-    buildCardAttributes(info, def);
-    preview.appendChild(info);
-  });
-
-  screen.addEventListener('mouseout', (e) => {
-    const row = (e.target as HTMLElement).closest('.compact-deck-entry[data-card-id]');
-    if (!row) return;
-    preview.innerHTML = '';
-    preview.style.left = '';
-  });
-}
-
-/** Open the deck editor for a given deck ID. */
-async function openDeckEditor(deckId: string): Promise<void> {
-  const [decksResp, sentResp] = await Promise.all([
-    fetch('/api/my-decks'),
-    fetch('/api/mail/sent'),
-  ]);
-  if (!decksResp.ok) return;
-  const data = await decksResp.json() as { decks: FullDeck[]; currentDeck: string | null };
-  const deck = data.decks.find(d => d.id === deckId);
-  if (!deck) return;
-
-  // Load sent mails to mark already-requested cards and certifications
-  requestedCards = new Set<string>();
-  requestedCertifications = new Set<string>();
-  if (sentResp.ok) {
-    const sent = await sentResp.json() as { messages: { topic: string; status: string; keywords: Record<string, string> }[] };
-    for (const msg of sent.messages) {
-      const pending = msg.status !== 'processed';
-      if (pending && msg.topic === 'card-request' && msg.keywords.deckId && msg.keywords.cardName) {
-        requestedCards.add(`${msg.keywords.deckId}:${msg.keywords.cardName}`);
-      }
-      if (pending && msg.topic === 'certification-request' && msg.keywords.cardId) {
-        requestedCertifications.add(msg.keywords.cardId);
-      }
-    }
-  }
-
-  sessionStorage.setItem(EDITING_DECK_KEY, deckId);
-  document.getElementById('deck-editor-title')!.textContent = deck.name;
-  renderCardList(document.getElementById('deck-editor-pool')!, deck.pool, deckId);
-  renderCardList(document.getElementById('deck-editor-characters')!, deck.deck.characters, deckId);
-  renderCardList(document.getElementById('deck-editor-hazards')!, deck.deck.hazards, deckId);
-  renderCardList(document.getElementById('deck-editor-resources')!, deck.deck.resources, deckId);
-  renderCardList(document.getElementById('deck-editor-sites')!, deck.sites, deckId);
-  renderCardList(document.getElementById('deck-editor-sideboard')!, deck.sideboard ?? [], deckId);
-  showScreen('deck-editor-screen');
-}
-
-
-// ---- Inbox ----
-
-/** Escape HTML special characters for safe insertion via innerHTML. */
-function escapeHtml(text: string): string {
-  return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-}
-
-/** Render a full message into the message panel. */
-function renderMessage(messageEl: HTMLElement, full: InboxMessage): void {
-  messageEl.innerHTML = '';
-
-  // Subject
-  const h = document.createElement('h3');
-  h.className = 'inbox-msg-subject';
-  h.textContent = full.subject;
-  messageEl.appendChild(h);
-
-  // Metadata table
-  const meta = document.createElement('div');
-  meta.className = 'inbox-msg-meta';
-  const rows = [
-    ['Message ID', `<span class="inbox-meta-id">${escapeHtml(full.id)}<span class="inbox-copy-btn" data-copy="${escapeHtml(full.id)}" title="Copy to clipboard">&#x2398;</span></span>`],
-    ['From', escapeHtml(full.from)],
-    ['Sender', `<span class="inbox-tag inbox-tag--${full.sender}">${escapeHtml(full.sender)}</span>`],
-    ['Topic', `<span class="inbox-tag inbox-tag--topic">${escapeHtml(full.topic)}</span>`],
-    ...(full.recipients?.length ? [['Recipients', full.recipients.map(escapeHtml).join(', ')]] : []),
-    ['Date', new Date(full.timestamp).toLocaleString()],
-    ['Status', `<span class="inbox-status inbox-status--${full.status}">${escapeHtml(full.status)}</span>`],
-    ...(full.replyTo ? [['Reply To', `<span class="inbox-meta-id">${escapeHtml(full.replyTo)}<span class="inbox-copy-btn" data-copy="${escapeHtml(full.replyTo)}" title="Copy to clipboard">&#x2398;</span></span>`]] : []),
-  ];
-  meta.innerHTML = rows.map(([label, value]) =>
-    `<span><span class="inbox-meta-label">${label}:</span> <span class="inbox-meta-value">${value}</span></span>`,
-  ).join('');
-  messageEl.appendChild(meta);
-
-  // Copy button handler
-  for (const copyBtn of meta.querySelectorAll('.inbox-copy-btn')) {
-    copyBtn.addEventListener('click', (e) => {
-      const target = e.currentTarget as HTMLElement;
-      void navigator.clipboard.writeText(target.dataset.copy ?? '');
-      target.textContent = '\u2713';
-      setTimeout(() => { target.textContent = '\u2398'; }, 1500);
-    });
-  }
-
-  // Keywords
-  const kwKeys = Object.keys(full.keywords);
-  if (kwKeys.length > 0) {
-    const kwSection = document.createElement('div');
-    kwSection.className = 'inbox-msg-keywords';
-    kwSection.innerHTML = kwKeys.map(key =>
-      `<span><span class="inbox-meta-label">${escapeHtml(key)}:</span> <span class="inbox-meta-value">${escapeHtml(full.keywords[key])}</span></span>`,
-    ).join('');
-    messageEl.appendChild(kwSection);
-  }
-
-  // Body
-  const body = document.createElement('div');
-  body.className = 'inbox-message-body';
-  body.innerHTML = renderMarkdown(full.body);
-  messageEl.appendChild(body);
-
-  // Approve / Decline buttons for review-request and feature-request messages
-  const reviewable = full.topic === 'review-request'
-    || (full.topic === 'feature-request' && lobbyPlayerName === 'admin');
-  const actionable = full.status === 'waiting' || full.status === 'new' || full.status === 'read';
-  if (actionable && reviewable && lobbyPlayerIsReviewer) {
-    const btnContainer = document.createElement('div');
-    btnContainer.className = 'inbox-review-actions';
-
-    const approveBtn = document.createElement('button');
-    approveBtn.className = 'inbox-approve-btn';
-    approveBtn.textContent = 'Approve';
-
-    const declineBtn = document.createElement('button');
-    declineBtn.className = 'inbox-decline-btn';
-    declineBtn.textContent = 'Decline';
-
-    const handleReview = (action: 'approve' | 'decline', btn: HTMLButtonElement) => {
-      void (async () => {
-        const resp = await fetch(`/api/mail/inbox/${full.id}/${action}`, { method: 'POST' });
-        if (resp.ok) {
-          const newStatus = action === 'approve' ? 'approved' : 'declined';
-          btn.textContent = newStatus.charAt(0).toUpperCase() + newStatus.slice(1);
-          approveBtn.disabled = true;
-          declineBtn.disabled = true;
-          const statusEl = messageEl.querySelector('.inbox-status');
-          if (statusEl) {
-            statusEl.className = `inbox-status inbox-status--${newStatus}`;
-            statusEl.textContent = newStatus;
-          }
-          // Also update the status badge in the mail list row
-          const listRow = document.querySelector(`.inbox-item[data-msg-id="${full.id}"]`);
-          if (listRow) {
-            const listStatus = listRow.querySelector('.inbox-status');
-            if (listStatus) {
-              listStatus.className = `inbox-status inbox-status--${newStatus}`;
-              listStatus.textContent = newStatus;
-            }
-          }
-        }
-      })();
-    };
-
-    approveBtn.addEventListener('click', () => handleReview('approve', approveBtn));
-    declineBtn.addEventListener('click', () => handleReview('decline', declineBtn));
-
-    btnContainer.appendChild(approveBtn);
-    btnContainer.appendChild(declineBtn);
-    messageEl.appendChild(btnContainer);
-  }
-
-  // Implement button for feature-planning-reply messages
-  if (full.topic === 'feature-planning-reply' && lobbyPlayerName === 'admin' && lobbyPlayerIsReviewer) {
-    const btnContainer = document.createElement('div');
-    btnContainer.className = 'inbox-review-actions';
-
-    const implementBtn = document.createElement('button');
-    implementBtn.className = 'inbox-approve-btn';
-    implementBtn.textContent = 'Implement';
-
-    implementBtn.addEventListener('click', () => {
-      void (async () => {
-        implementBtn.disabled = true;
-        implementBtn.textContent = 'Sending...';
-        const resp = await fetch(`/api/mail/inbox/${full.id}/implement`, { method: 'POST' });
-        if (resp.ok) {
-          implementBtn.textContent = 'Sent to AI';
-        } else {
-          implementBtn.textContent = 'Failed';
-          implementBtn.disabled = false;
-        }
-      })();
-    });
-
-    btnContainer.appendChild(implementBtn);
-    messageEl.appendChild(btnContainer);
-  }
-
-  // Delete button
-  const deleteContainer = document.createElement('div');
-  deleteContainer.className = 'inbox-review-actions';
-  const deleteBtn = document.createElement('button');
-  deleteBtn.className = 'inbox-delete-btn';
-  deleteBtn.textContent = 'Delete';
-  deleteBtn.addEventListener('click', () => {
-    void (async () => {
-      deleteBtn.disabled = true;
-      deleteBtn.textContent = 'Deleting...';
-      const resp = await fetch(`/api/mail/inbox/${full.id}`, { method: 'DELETE' });
-      if (resp.ok) {
-        deleteBtn.textContent = 'Deleted';
-        const listRow = document.querySelector(`.inbox-item[data-msg-id="${full.id}"]`);
-        if (listRow) listRow.remove();
-        messageEl.innerHTML = '';
-      } else {
-        deleteBtn.textContent = 'Failed';
-        deleteBtn.disabled = false;
-      }
-    })();
-  });
-  deleteContainer.appendChild(deleteBtn);
-  messageEl.appendChild(deleteContainer);
-}
-
-/** Render a list of messages into the list panel. */
-function renderMailList(
-  listEl: HTMLElement, messageEl: HTMLElement, messages: InboxMessage[],
-  options: { fetchOnClick?: string },
-): void {
-  listEl.innerHTML = '';
-
-  // Render Inbox/Sent tabs at the top of the list panel
-  const tabsDiv = document.createElement('div');
-  tabsDiv.className = 'inbox-tabs';
-  const inboxTab = document.createElement('button');
-  inboxTab.className = 'inbox-tab' + (activeMailTab === 'inbox' ? ' inbox-tab--active' : '');
-  inboxTab.textContent = 'Inbox';
-  inboxTab.addEventListener('click', () => { void openInbox(); });
-  const sentTab = document.createElement('button');
-  sentTab.className = 'inbox-tab' + (activeMailTab === 'sent' ? ' inbox-tab--active' : '');
-  sentTab.textContent = 'Sent';
-  sentTab.addEventListener('click', () => { void openSent(); });
-  tabsDiv.appendChild(inboxTab);
-  tabsDiv.appendChild(sentTab);
-  listEl.appendChild(tabsDiv);
-
-  // Feature request button
-  const featureBtn = document.createElement('button');
-  featureBtn.className = 'inbox-action-btn';
-  featureBtn.textContent = 'Feature Request';
-  featureBtn.addEventListener('click', () => {
-    const modal = document.getElementById('feature-request-modal')!;
-    const subjectEl = document.getElementById('feature-request-subject') as HTMLInputElement;
-    const bodyEl = document.getElementById('feature-request-body') as HTMLTextAreaElement;
-    subjectEl.value = '';
-    bodyEl.value = '';
-    modal.classList.remove('hidden');
-    subjectEl.focus();
-  });
-  listEl.appendChild(featureBtn);
-
-  if (messages.length === 0) {
-    const empty = document.createElement('p');
-    empty.className = 'lobby-empty';
-    empty.textContent = 'No messages';
-    listEl.appendChild(empty);
-    return;
-  }
-  for (const msg of messages) {
-    const row = document.createElement('div');
-    row.className = 'inbox-item'
-      + (msg.status === 'new' ? ' inbox-item--unread' : '')
-      + (msg.status === 'waiting' ? ' inbox-item--waiting' : '');
-    row.dataset.msgId = msg.id;
-
-    const info = document.createElement('div');
-    info.className = 'inbox-item-info';
-    const subject = document.createElement('span');
-    subject.className = 'inbox-item-subject';
-    subject.textContent = msg.subject;
-    const from = document.createElement('span');
-    from.className = 'inbox-item-from';
-    from.textContent = msg.from;
-    const date = document.createElement('span');
-    date.className = 'inbox-item-date';
-    date.textContent = new Date(msg.timestamp).toLocaleDateString();
-    info.appendChild(subject);
-    info.appendChild(from);
-
-    const actions = document.createElement('div');
-    actions.className = 'inbox-item-actions';
-    const statusEl = document.createElement('span');
-    statusEl.className = `inbox-status inbox-status--${msg.status}`;
-    statusEl.textContent = msg.status;
-    actions.appendChild(statusEl);
-    actions.appendChild(date);
-
-    row.appendChild(info);
-    row.appendChild(actions);
-
-    row.addEventListener('click', () => {
-      void (async () => {
-        sessionStorage.setItem(MAIL_MSG_KEY, msg.id);
-        if (options.fetchOnClick) {
-          const msgResp = await fetch(`${options.fetchOnClick}/${msg.id}`);
-          if (!msgResp.ok) return;
-          const full = await msgResp.json() as InboxMessage;
-          row.classList.remove('inbox-item--unread');
-          renderMessage(messageEl, full);
-        } else {
-          renderMessage(messageEl, msg);
-        }
-      })();
-    });
-
-    listEl.appendChild(row);
-  }
-}
-
-/** Which mail tab is active. */
-let activeMailTab: 'inbox' | 'sent' = 'inbox';
-
-/** Update the mail unread badge in the nav bar. */
-function updateMailBadge(count: number): void {
-  const badge = document.getElementById('nav-mail-badge');
-  if (badge) badge.textContent = count > 0 ? `(${count})` : '';
-}
-
-/** Click the inbox row matching the given message ID to restore selection after reload. */
-function autoSelectMessage(msgId: string): void {
-  const listEl = document.getElementById('inbox-list');
-  if (!listEl) return;
-  const row = listEl.querySelector(`.inbox-item[data-msg-id="${msgId}"]`);
-  if (row) (row as HTMLElement).click();
-}
-
-/** Fetch and display inbox messages. */
-async function openInbox(): Promise<void> {
-  sessionStorage.setItem(VIEWING_INBOX_KEY, '1');
-  sessionStorage.setItem(MAIL_TAB_KEY, 'inbox');
-  sessionStorage.removeItem(MAIL_MSG_KEY);
-  showScreen('inbox-screen');
-  activeMailTab = 'inbox';
-  const listEl = document.getElementById('inbox-list')!;
-  const messageEl = document.getElementById('inbox-message')!;
-  listEl.innerHTML = '<p class="lobby-empty">Loading...</p>';
-  messageEl.innerHTML = '<p class="lobby-empty">Select a message to read</p>';
-
-  try {
-    const resp = await fetch('/api/mail/inbox');
-    if (!resp.ok) { listEl.innerHTML = '<p class="lobby-empty">Failed to load inbox</p>'; return; }
-    const data = await resp.json() as { messages: InboxMessage[]; unreadCount: number };
-
-    updateMailBadge(data.unreadCount);
-
-    renderMailList(listEl, messageEl, data.messages, {
-      fetchOnClick: '/api/mail/inbox',
-    });
-  } catch {
-    listEl.innerHTML = '<p class="lobby-empty">Connection error</p>';
-  }
-}
-
-/** Fetch and display sent messages. */
-async function openSent(): Promise<void> {
-  sessionStorage.setItem(VIEWING_INBOX_KEY, '1');
-  sessionStorage.setItem(MAIL_TAB_KEY, 'sent');
-  sessionStorage.removeItem(MAIL_MSG_KEY);
-  showScreen('inbox-screen');
-  activeMailTab = 'sent';
-  const listEl = document.getElementById('inbox-list')!;
-  const messageEl = document.getElementById('inbox-message')!;
-  listEl.innerHTML = '<p class="lobby-empty">Loading...</p>';
-  messageEl.innerHTML = '<p class="lobby-empty">Select a message to read</p>';
-
-  try {
-    const resp = await fetch('/api/mail/sent');
-    if (!resp.ok) { listEl.innerHTML = '<p class="lobby-empty">Failed to load sent mail</p>'; return; }
-    const data = await resp.json() as { messages: InboxMessage[] };
-
-    updateMailBadge(0);
-
-    renderMailList(listEl, messageEl, data.messages, {});
-  } catch {
-    listEl.innerHTML = '<p class="lobby-empty">Connection error</p>';
-  }
-}
-
-/** Shape of a mail message from the API. */
-interface InboxMessage {
-  readonly id: string;
-  readonly status: string;
-  readonly from: string;
-  readonly sender: string;
-  readonly topic: string;
-  readonly body: string;
-  readonly timestamp: string;
-  readonly subject: string;
-  readonly keywords: Record<string, string>;
-  readonly replyTo?: string;
-  readonly recipients?: readonly string[];
-}
-
-/** Show an error message on an auth form. */
-function showAuthError(id: string, msg: string): void {
-  const el = document.getElementById(id);
-  if (el) {
-    el.textContent = msg;
-    el.classList.remove('hidden');
-  }
-}
-
-/** Connect the lobby WebSocket for online presence and challenges. */
-function connectLobbyWs(): void {
-  if (lobbyWs && lobbyWs.readyState === WebSocket.OPEN) return;
-  const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-  lobbyWs = new WebSocket(`${protocol}//${window.location.host}`);
-
-  lobbyWs.onmessage = (event) => {
-    const msg = JSON.parse(event.data as string) as { type: string; [key: string]: unknown };
-    switch (msg.type) {
-      case 'online-players': {
-        const players = (msg.players as { name: string; displayName: string; credits: number }[]);
-        // Update own credits from the broadcast
-        const self = players.find(p => p.name === lobbyPlayerName);
-        if (self) {
-          lobbyPlayerCredits = self.credits;
-          updateCreditsBadge();
-        }
-        const others = players.filter(p => p.name !== lobbyPlayerName);
-        const container = document.getElementById('online-players')!;
-        if (others.length === 0) {
-          container.innerHTML = '<p class="lobby-empty">No other players online</p>';
-        } else {
-          container.innerHTML = '';
-          for (const player of others) {
-            const item = document.createElement('div');
-            item.className = 'lobby-player-item';
-            const span = document.createElement('span');
-            span.textContent = player.displayName;
-            const btn = document.createElement('button');
-            btn.textContent = 'Challenge';
-            if (!currentDeckId) btn.disabled = true;
-            btn.addEventListener('click', () => {
-              lobbyWs?.send(JSON.stringify({ type: 'challenge', opponentName: player.name }));
-              btn.textContent = 'Sent';
-              btn.disabled = true;
-            });
-            item.appendChild(span);
-            item.appendChild(btn);
-            container.appendChild(item);
-          }
-        }
-        break;
-      }
-      case 'challenge-received': {
-        challengeFrom = msg.from as string;
-        const incoming = document.getElementById('challenge-incoming')!;
-        const fromDisplay = (msg.fromDisplayName as string) ?? challengeFrom;
-        document.getElementById('challenge-text')!.textContent = `${fromDisplay} wants to play!`;
-        incoming.classList.remove('hidden');
-        break;
-      }
-      case 'challenge-declined': {
-        const byDisplay = (msg.byDisplayName as string) ?? (msg.by as string);
-        renderLog(`${byDisplay} declined your challenge.`);
-        break;
-      }
-      case 'game-starting': {
-        gamePort = msg.port as number;
-        gameToken = msg.token as string;
-        opponentName = (msg.opponent as string) ?? null;
-        isPseudoAi = (msg.pseudoAi as boolean) ?? false;
-        pseudoAiToken = (msg.aiToken as string) ?? null;
-        const opponentDisplay = (msg.opponentDisplayName as string) ?? (msg.opponent as string);
-        saveGameSession();
-        // Close lobby WS during game
-        if (lobbyWs) { lobbyWs.close(); lobbyWs = null; }
-        // Hide lobby, show game
-        showScreen('login-screen'); // hide all screens
-        document.getElementById('login-screen')!.classList.add('hidden');
-        document.getElementById('game')!.classList.remove('hidden');
-        selectRandomBackground();
-        autoReconnect = true;
-        renderLog(`Game starting vs ${opponentDisplay} on port ${gamePort}...`);
-        connect(lobbyPlayerName!);
-        // For pseudo-AI, open a second WS as the AI player with the captured deck
-        if (isPseudoAi && opponentName) {
-          connectPseudoAi(opponentName, pendingAiDeck);
-          pendingAiDeck = null;
-        }
-        break;
-      }
-      case 'error': {
-        renderLog(`Lobby: ${msg.message as string}`);
-        break;
-      }
-      case 'mail-notification': {
-        const unread = msg.unreadCount as number;
-        updateMailBadge(unread);
-        break;
-      }
-      case 'system-notification': {
-        const container = document.getElementById('toast-container');
-        if (container) {
-          const toast = document.createElement('div');
-          toast.className = 'toast toast--system';
-          toast.textContent = msg.message as string;
-          const closeBtn = document.createElement('span');
-          closeBtn.className = 'toast-close';
-          closeBtn.textContent = '\u2715';
-          closeBtn.addEventListener('click', () => toast.remove());
-          toast.appendChild(closeBtn);
-          container.appendChild(toast);
-        }
-        break;
-      }
-    }
-  };
-
-  lobbyWs.onclose = () => {
-    lobbyWs = null;
-  };
-}
-
-/** Initialize lobby mode on page load. */
-async function initLobby(): Promise<void> {
-  try {
-    const resp = await fetch('/api/me');
-    if (resp.ok) {
-      const data = await resp.json() as { name: string; isReviewer?: boolean; credits?: number };
-      lobbyPlayerName = data.name;
-      lobbyPlayerIsReviewer = data.isReviewer ?? false;
-      lobbyPlayerCredits = data.credits ?? 0;
-
-      // Rejoin active game if session was saved (e.g. page refresh)
-      if (restoreGameSession()) {
-        showScreen('login-screen');
-        document.getElementById('login-screen')!.classList.add('hidden');
-        document.getElementById('game')!.classList.remove('hidden');
-        selectRandomBackground();
-        autoReconnect = true;
-        renderLog(`Reconnecting to game on port ${gamePort}...`);
-        connect(lobbyPlayerName);
-        // For pseudo-AI games, reconnect the AI WS
-        if (isPseudoAi && opponentName) {
-          connectPseudoAi(opponentName);
-        }
-        return;
-      }
-
-      // Restore deck editor if we were editing before reload
-      const editingDeck = sessionStorage.getItem(EDITING_DECK_KEY);
-      if (editingDeck) {
-        connectLobbyWs();
-        void openDeckEditor(editingDeck);
-        return;
-      }
-
-      // Restore inbox if we were viewing it before reload
-      if (sessionStorage.getItem(VIEWING_INBOX_KEY)) {
-        connectLobbyWs();
-        const savedTab = sessionStorage.getItem(MAIL_TAB_KEY);
-        const savedMsg = sessionStorage.getItem(MAIL_MSG_KEY);
-        if (savedTab === 'sent') {
-          void openSent().then(() => { if (savedMsg) autoSelectMessage(savedMsg); });
-        } else {
-          void openInbox().then(() => { if (savedMsg) autoSelectMessage(savedMsg); });
-        }
-        return;
-      }
-
-      // Restore decks screen if we were browsing decks before reload
-      if (sessionStorage.getItem(VIEWING_DECKS_KEY)) {
-        connectLobbyWs();
-        showScreen('decks-screen');
-        return;
-      }
-
-      showScreen('lobby-screen');
-      connectLobbyWs();
-    } else {
-      showScreen('login-screen');
-    }
-  } catch {
-    showScreen('login-screen');
-  }
-}
+// ---- Wire up cross-module callbacks ----
+
+// These break circular dependencies between modules that need each other.
+setDeckBrowserCallbacks(openDeckEditor);
+setDeckEditorCallbacks(showScreen);
+setInboxCallbacks(showScreen);
 
 // ---- UI Setup ----
 
@@ -2067,7 +119,7 @@ document.addEventListener('DOMContentLoaded', () => {
   function startGame(name: string, newBackground = false): void {
     if (newBackground) selectRandomBackground();
     savePlayerName(name);
-    autoReconnect = true;
+    appState.autoReconnect = true;
     connectForm.style.display = 'none';
     document.getElementById('game')!.classList.remove('hidden');
     connect(name);
@@ -2112,7 +164,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
         const data = await resp.json() as { name?: string; error?: string };
         if (!resp.ok) { showAuthError('login-error', data.error ?? 'Login failed'); return; }
-        lobbyPlayerName = data.name!;
+        appState.lobbyPlayerName = data.name!;
         showScreen('lobby-screen');
         connectLobbyWs();
       } catch { showAuthError('login-error', 'Connection error'); }
@@ -2137,7 +189,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
         const data = await resp.json() as { name?: string; error?: string };
         if (!resp.ok) { showAuthError('register-error', data.error ?? 'Registration failed'); return; }
-        lobbyPlayerName = data.name!;
+        appState.lobbyPlayerName = data.name!;
         showScreen('lobby-screen');
         connectLobbyWs();
       } catch { showAuthError('register-error', 'Connection error'); }
@@ -2150,13 +202,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const doLogout = () => { void (async () => {
       await fetch('/api/logout', { method: 'POST' });
-      lobbyPlayerName = null;
+      appState.lobbyPlayerName = null;
       sessionStorage.removeItem(VIEWING_INBOX_KEY);
       sessionStorage.removeItem(MAIL_TAB_KEY);
       sessionStorage.removeItem(MAIL_MSG_KEY);
       sessionStorage.removeItem(EDITING_DECK_KEY);
       sessionStorage.removeItem(VIEWING_DECKS_KEY);
-      if (lobbyWs) { lobbyWs.close(); lobbyWs = null; }
+      if (appState.lobbyWs) { appState.lobbyWs.close(); appState.lobbyWs = null; }
       showScreen('login-screen');
     })(); };
     document.getElementById('logout-btn')!.addEventListener('click', doLogout);
@@ -2167,9 +219,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     /** Send the play-ai message and disable the UI. */
     function launchAiGame(): void {
-      if (lobbyWs && lobbyWs.readyState === WebSocket.OPEN) {
+      if (appState.lobbyWs && appState.lobbyWs.readyState === WebSocket.OPEN) {
         const aiDeckSelect = document.getElementById('ai-deck-select') as HTMLSelectElement;
-        lobbyWs.send(JSON.stringify({ type: 'play-ai', deckId: aiDeckSelect.value }));
+        appState.lobbyWs.send(JSON.stringify({ type: 'play-ai', deckId: aiDeckSelect.value }));
         playAiBtn.textContent = 'Starting...';
         playAiBtn.disabled = true;
         savePrompt.classList.add('hidden');
@@ -2210,12 +262,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
     /** Send the play-pseudo-ai message and disable the UI. */
     function launchPseudoAiGame(): void {
-      if (lobbyWs && lobbyWs.readyState === WebSocket.OPEN) {
+      if (appState.lobbyWs && appState.lobbyWs.readyState === WebSocket.OPEN) {
         const aiDeckSelect = document.getElementById('ai-deck-select') as HTMLSelectElement;
         const deckId = aiDeckSelect.value;
         // Capture the AI deck now, before the lobby screen is hidden
-        pendingAiDeck = cachedCatalog.find(d => d.id === deckId) ?? null;
-        lobbyWs.send(JSON.stringify({ type: 'play-pseudo-ai', deckId }));
+        appState.pendingAiDeck = appState.cachedCatalog.find(d => d.id === deckId) ?? null;
+        appState.lobbyWs.send(JSON.stringify({ type: 'play-pseudo-ai', deckId }));
         playPseudoAiBtn.textContent = 'Starting...';
         playPseudoAiBtn.disabled = true;
         pseudoSavePrompt.classList.add('hidden');
@@ -2249,18 +301,18 @@ document.addEventListener('DOMContentLoaded', () => {
     })(); });
 
     acceptChallengeBtn.addEventListener('click', () => {
-      if (lobbyWs && lobbyWs.readyState === WebSocket.OPEN && challengeFrom) {
-        lobbyWs.send(JSON.stringify({ type: 'accept-challenge', from: challengeFrom }));
+      if (appState.lobbyWs && appState.lobbyWs.readyState === WebSocket.OPEN && appState.challengeFrom) {
+        appState.lobbyWs.send(JSON.stringify({ type: 'accept-challenge', from: appState.challengeFrom }));
         document.getElementById('challenge-incoming')!.classList.add('hidden');
-        challengeFrom = null;
+        appState.challengeFrom = null;
       }
     });
 
     declineChallengeBtn.addEventListener('click', () => {
-      if (lobbyWs && lobbyWs.readyState === WebSocket.OPEN && challengeFrom) {
-        lobbyWs.send(JSON.stringify({ type: 'decline-challenge', from: challengeFrom }));
+      if (appState.lobbyWs && appState.lobbyWs.readyState === WebSocket.OPEN && appState.challengeFrom) {
+        appState.lobbyWs.send(JSON.stringify({ type: 'decline-challenge', from: appState.challengeFrom }));
         document.getElementById('challenge-incoming')!.classList.add('hidden');
-        challengeFrom = null;
+        appState.challengeFrom = null;
       }
     });
 
@@ -2334,7 +386,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const brief = brSubject.value.trim();
     const text = brBody.value.trim();
     if (!brief || !text) return;
-    const fullBody = `Game ID: ${currentGameId ?? 'unknown'}\nSequence number: ${currentStateSeq}\n\n${text}`;
+    const fullBody = `Game ID: ${appState.currentGameId ?? 'unknown'}\nSequence number: ${appState.currentStateSeq}\n\n${text}`;
     void (async () => {
       const resp = await fetch('/api/mail/bug-report', {
         method: 'POST',
@@ -2342,7 +394,7 @@ document.addEventListener('DOMContentLoaded', () => {
         body: JSON.stringify({
           subject: `Bug Report: ${brief}`,
           body: fullBody,
-          otherPlayer: opponentName,
+          otherPlayer: appState.opponentName,
         }),
       });
       if (resp.ok) {
@@ -2425,9 +477,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
   autoPassToggle.addEventListener('change', () => {
     localStorage.setItem(AUTO_PASS_KEY, String(autoPassToggle.checked));
-    if (!autoPassToggle.checked && autoPassTimer) {
-      clearTimeout(autoPassTimer);
-      autoPassTimer = null;
+    if (!autoPassToggle.checked && appState.autoPassTimer) {
+      clearTimeout(appState.autoPassTimer);
+      appState.autoPassTimer = null;
     }
   });
 
@@ -2436,13 +488,13 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   undoBtn.addEventListener('click', () => {
-    if (ws && ws.readyState === WebSocket.OPEN) {
+    if (appState.ws && appState.ws.readyState === WebSocket.OPEN) {
       const msg: ClientMessage = { type: 'undo' };
-      ws.send(JSON.stringify(msg));
+      appState.ws.send(JSON.stringify(msg));
       // Revert game log to the snapshot before the last action
       const logEl = document.getElementById('log');
-      if (logEl && logCountStack.length > 0) {
-        const target = logCountStack.pop()!;
+      if (logEl && appState.logCountStack.length > 0) {
+        const target = appState.logCountStack.pop()!;
         while (logEl.childElementCount > target) {
           logEl.removeChild(logEl.lastChild!);
         }
@@ -2452,9 +504,9 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   saveBtn.addEventListener('click', () => {
-    if (ws && ws.readyState === WebSocket.OPEN) {
+    if (appState.ws && appState.ws.readyState === WebSocket.OPEN) {
       const msg: ClientMessage = { type: 'save' };
-      ws.send(JSON.stringify(msg));
+      appState.ws.send(JSON.stringify(msg));
       flashBtn(saveBtn);
     }
   });
@@ -2483,18 +535,18 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   reseedBtn.addEventListener('click', () => {
-    if (ws && ws.readyState === WebSocket.OPEN) {
+    if (appState.ws && appState.ws.readyState === WebSocket.OPEN) {
       const msg: ClientMessage = { type: 'reseed' };
-      ws.send(JSON.stringify(msg));
+      appState.ws.send(JSON.stringify(msg));
       flashBtn(reseedBtn);
     }
   });
 
   cheatRollSelect.addEventListener('change', () => {
     const total = parseInt(cheatRollSelect.value, 10);
-    if (ws && ws.readyState === WebSocket.OPEN && total >= 2 && total <= 12) {
+    if (appState.ws && appState.ws.readyState === WebSocket.OPEN && total >= 2 && total <= 12) {
       const msg: ClientMessage = { type: 'cheat-roll', total };
-      ws.send(JSON.stringify(msg));
+      appState.ws.send(JSON.stringify(msg));
       renderLog(`>> Cheat: next roll will be ${total}`, cardPool);
     }
     cheatRollSelect.value = '';  // Reset to "Roll" label
@@ -2502,27 +554,27 @@ document.addEventListener('DOMContentLoaded', () => {
 
   summonBtn.addEventListener('click', () => {
     const cardName = prompt('Enter card name to summon:');
-    if (cardName && ws && ws.readyState === WebSocket.OPEN) {
+    if (cardName && appState.ws && appState.ws.readyState === WebSocket.OPEN) {
       const msg: ClientMessage = { type: 'summon-card', cardName };
-      ws.send(JSON.stringify(msg));
+      appState.ws.send(JSON.stringify(msg));
       renderLog(`>> Cheat: summoning "${cardName}"`, cardPool);
       flashBtn(summonBtn);
     }
   });
 
   swapHandBtn.addEventListener('click', () => {
-    if (ws && ws.readyState === WebSocket.OPEN) {
+    if (appState.ws && appState.ws.readyState === WebSocket.OPEN) {
       const msg: ClientMessage = { type: 'swap-hand' };
-      ws.send(JSON.stringify(msg));
+      appState.ws.send(JSON.stringify(msg));
       renderLog('>> Cheat: swapping hands', cardPool);
       flashBtn(swapHandBtn);
     }
   });
 
   loadBtn.addEventListener('click', () => {
-    if (ws && ws.readyState === WebSocket.OPEN) {
+    if (appState.ws && appState.ws.readyState === WebSocket.OPEN) {
       const msg: ClientMessage = { type: 'load' };
-      ws.send(JSON.stringify(msg));
+      appState.ws.send(JSON.stringify(msg));
       flashBtn(loadBtn);
       clearGameBoard();
     }
@@ -2572,9 +624,9 @@ document.addEventListener('DOMContentLoaded', () => {
           item.appendChild(name);
           item.appendChild(desc);
           item.addEventListener('click', () => {
-            if (ws && ws.readyState === WebSocket.OPEN) {
+            if (appState.ws && appState.ws.readyState === WebSocket.OPEN) {
               const msg: ClientMessage = { type: 'load-snapshot', file: snap.file };
-              ws.send(JSON.stringify(msg));
+              appState.ws.send(JSON.stringify(msg));
               clearGameBoard();
             }
             snapshotModal.classList.add('hidden');
@@ -2594,9 +646,9 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   resetBtn.addEventListener('click', () => {
-    if (ws && ws.readyState === WebSocket.OPEN) {
+    if (appState.ws && appState.ws.readyState === WebSocket.OPEN) {
       const msg: ClientMessage = { type: 'reset' };
-      ws.send(JSON.stringify(msg));
+      appState.ws.send(JSON.stringify(msg));
       flashBtn(resetBtn);
       clearGameBoard();
     }
