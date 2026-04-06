@@ -35,5 +35,20 @@
     "keyedTo": [],
     "effects": [],
     "text": "Drake. Three strikes. Attacker chooses defending characters. May be played keyed to Khand and Harondor.If Doors of Night is in play, may also be played keyed to Ithilien, Nurn, and Horse Plains."
+  },
+  {
+    "cardType": "hazard-creature",
+    "id": "td-77",
+    "name": "True Cold-drake",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/td/TrueColddrake.jpg",
+    "unique": false,
+    "strikes": 2,
+    "prowess": 14,
+    "body": null,
+    "killMarshallingPoints": 1,
+    "race": "drake",
+    "keyedTo": [],
+    "effects": [],
+    "text": "Drake. Two strikes. May be played keyed to Númeriador, Forochel, Angmar, Gundabad, Grey Mountain Narrows, Withered Heath, and Iron Hills."
   }
 ]
