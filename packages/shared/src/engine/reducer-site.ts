@@ -9,7 +9,7 @@
 import type { GameState, PlayerState, CardInstanceId, CompanyId, CharacterInPlay, CardInstance, SitePhaseState, HeroItemCard, CombatState, OnGuardCard, GameAction, GameEffect } from '../index.js';
 import { Phase, CardStatus, isCharacterCard, isItemCard, isAllyCard, isFactionCard, isSiteCard, getPlayerIndex, GENERAL_INFLUENCE } from '../index.js';
 import { logDetail } from './legal-actions/log.js';
-import { collectCharacterEffects, resolveCheckModifier, resolveStatModifiers } from './effects/index.js';
+import { collectCharacterEffects, resolveCheckModifier, resolveStatModifiers, resolveAttackProwess } from './effects/index.js';
 import type { ResolverContext } from './effects/index.js';
 import { matchesCondition } from '../effects/index.js';
 import { initiateChain } from './chain-reducer.js';
@@ -17,6 +17,7 @@ import { availableDI } from './legal-actions/organization.js';
 import type { ReducerResult } from './reducer-utils.js';
 import { roll2d6, clonePlayers, cleanupEmptyCompanies } from './reducer-utils.js';
 import { handlePlayPermanentEvent } from './reducer-events.js';
+import { buildInPlayNames } from './recompute-derived.js';
 
 
 /**
@@ -353,7 +354,9 @@ function handleSiteAutomaticAttacks(
   const aa = autoAttacks[attackIndex];
   const hazardPlayerId = state.players.find(p => p.id !== state.activePlayer)!.id;
 
-  logDetail(`Site: initiating automatic attack ${attackIndex + 1}/${autoAttacks.length}: ${aa.creatureType} (${aa.strikes} strikes, ${aa.prowess} prowess)`);
+  const inPlayNames = buildInPlayNames(state);
+  const effectiveProwess = resolveAttackProwess(state, aa.prowess, inPlayNames);
+  logDetail(`Site: initiating automatic attack ${attackIndex + 1}/${autoAttacks.length}: ${aa.creatureType} (${aa.strikes} strikes, ${aa.prowess} prowess${effectiveProwess !== aa.prowess ? ` → ${effectiveProwess} after global effects` : ''})`);
 
   const combat: CombatState = {
     attackSource: { type: 'automatic-attack', siteInstanceId: company.currentSite.instanceId, attackIndex },
@@ -361,7 +364,7 @@ function handleSiteAutomaticAttacks(
     defendingPlayerId: state.activePlayer!,
     attackingPlayerId: hazardPlayerId,
     strikesTotal: aa.strikes,
-    strikeProwess: aa.prowess,
+    strikeProwess: effectiveProwess,
     creatureBody: null,
     strikeAssignments: [],
     currentStrikeIndex: 0,

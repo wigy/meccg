@@ -343,3 +343,28 @@ export function resolveCompanyModifier(
   }
   return total;
 }
+
+/**
+ * Resolves attack prowess by applying global `all-attacks` effects.
+ *
+ * Collects all effects with `target: "all-attacks"` from events and cards
+ * in play, evaluates their conditions against the provided context (which
+ * includes `inPlay` for environment card checks), and sums prowess modifiers.
+ *
+ * @param state - The full game state.
+ * @param baseProwess - The creature's or automatic attack's base prowess.
+ * @param inPlayNames - Names of all cards currently in play (for `inPlay` conditions).
+ * @returns The modified prowess value after applying all-attacks effects.
+ */
+export function resolveAttackProwess(
+  state: GameState,
+  baseProwess: number,
+  inPlayNames: readonly string[],
+): number {
+  const context: ResolverContext = {
+    reason: 'combat',
+    inPlay: inPlayNames,
+  };
+  const globalEffects = collectGlobalEffects(state, 'all-attacks', context);
+  return resolveStatModifiers(globalEffects, 'prowess', baseProwess, context);
+}

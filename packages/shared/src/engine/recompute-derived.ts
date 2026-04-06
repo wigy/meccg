@@ -52,7 +52,7 @@ function addMP(
  * Used to populate the `inPlay` context field so DSL conditions
  * like `{ "inPlay": "Gates of Morning" }` can be evaluated.
  */
-function buildInPlayNames(state: GameState): readonly string[] {
+export function buildInPlayNames(state: GameState): readonly string[] {
   const names: string[] = [];
   for (const event of state.eventsInPlay) {
     const def = resolveDef(state, event.instanceId);

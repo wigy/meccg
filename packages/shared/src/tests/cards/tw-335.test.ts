@@ -20,9 +20,10 @@ import {
   SUN, GATES_OF_MORNING,
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
   CardStatus,
-  buildTestState, resetMint,
+  buildTestState, resetMint, buildSitePhaseState,
 } from '../test-helpers.js';
-import type { CardInPlay, CardInstanceId, CardDefinitionId, CharacterCard, GameState } from '../../index.js';
+import type { CardInPlay, CardInstanceId, CardDefinitionId, CharacterCard, GameState, SitePhaseState } from '../../index.js';
+import { ISENGARD } from '../../index.js';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -149,5 +150,112 @@ describe('Sun (tw-335)', () => {
     const stats = s.players[0].characters[findCharInstance(s, 0, ARAGORN)].effectiveStats;
     expect(stats.body).toBe(aragornDef.body);
     expect(stats.directInfluence).toBe(aragornDef.directInfluence);
+  });
+
+  test('cannot be duplicated (duplication-limit scope game max 1)', () => {
+    const sunInPlay: CardInPlay = {
+      instanceId: 'sun-pre' as CardInstanceId,
+      definitionId: SUN,
+      status: CardStatus.Untapped,
+    };
+
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.LongEvent,
+      players: [
+        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [ARAGORN] }], hand: [SUN], siteDeck: [MORIA], cardsInPlay: [sunInPlay] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [MINAS_TIRITH] },
+      ],
+    });
+
+    const sunInstanceId = state.players[0].hand[0].instanceId;
+    const result = reduce(state, { type: 'play-long-event', player: PLAYER_1, cardInstanceId: sunInstanceId });
+    expect(result.error).toBe('Sun cannot be duplicated');
+  });
+
+  test('cannot be duplicated when opponent has a copy in play', () => {
+    const sunInPlay: CardInPlay = {
+      instanceId: 'sun-opp' as CardInstanceId,
+      definitionId: SUN,
+      status: CardStatus.Untapped,
+    };
+
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.LongEvent,
+      players: [
+        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [ARAGORN] }], hand: [SUN], siteDeck: [MORIA] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [MINAS_TIRITH], cardsInPlay: [sunInPlay] },
+      ],
+    });
+
+    const sunInstanceId = state.players[0].hand[0].instanceId;
+    const result = reduce(state, { type: 'play-long-event', player: PLAYER_1, cardInstanceId: sunInstanceId });
+    expect(result.error).toBe('Sun cannot be duplicated');
+  });
+
+  test('with Gates of Morning: automatic attack prowess reduced by -1', () => {
+    // Isengard has Wolves automatic attack: 3 strikes, 7 prowess
+    // With Sun + Gates of Morning, attack prowess should be 7 - 1 = 6
+    const gomInPlay: CardInPlay = {
+      instanceId: 'gom-1' as CardInstanceId,
+      definitionId: GATES_OF_MORNING,
+      status: CardStatus.Untapped,
+    };
+    const sunInPlay: CardInPlay = {
+      instanceId: 'sun-1' as CardInstanceId,
+      definitionId: SUN,
+      status: CardStatus.Untapped,
+    };
+
+    const state = buildSitePhaseState({ site: ISENGARD });
+    // Add Sun and GoM to player 1's cardsInPlay
+    const players = state.players.map((p, i) =>
+      i === 0 ? { ...p, cardsInPlay: [...p.cardsInPlay, gomInPlay, sunInPlay] } : p,
+    ) as [typeof state.players[0], typeof state.players[1]];
+
+    const autoAttackState: SitePhaseState = {
+      ...state.phaseState,
+      step: 'automatic-attacks',
+      siteEntered: false,
+      automaticAttacksResolved: 0,
+    };
+    const readyState = { ...state, players, phaseState: autoAttackState };
+
+    // Pass to trigger the automatic attack combat
+    const result = reduce(readyState, { type: 'pass', player: PLAYER_1 });
+    expect(result.error).toBeUndefined();
+    expect(result.state.combat).toBeDefined();
+    expect(result.state.combat!.strikesTotal).toBe(3);
+    // Prowess reduced from 7 to 6 by Sun's all-attacks effect
+    expect(result.state.combat!.strikeProwess).toBe(6);
+  });
+
+  test('without Gates of Morning: automatic attack prowess is unchanged', () => {
+    // Without GoM, Sun's all-attacks effect should not apply
+    const sunInPlay: CardInPlay = {
+      instanceId: 'sun-1' as CardInstanceId,
+      definitionId: SUN,
+      status: CardStatus.Untapped,
+    };
+
+    const state = buildSitePhaseState({ site: ISENGARD });
+    const players = state.players.map((p, i) =>
+      i === 0 ? { ...p, cardsInPlay: [...p.cardsInPlay, sunInPlay] } : p,
+    ) as [typeof state.players[0], typeof state.players[1]];
+
+    const autoAttackState: SitePhaseState = {
+      ...state.phaseState,
+      step: 'automatic-attacks',
+      siteEntered: false,
+      automaticAttacksResolved: 0,
+    };
+    const readyState = { ...state, players, phaseState: autoAttackState };
+
+    const result = reduce(readyState, { type: 'pass', player: PLAYER_1 });
+    expect(result.error).toBeUndefined();
+    expect(result.state.combat).toBeDefined();
+    // Prowess unchanged at 7 — Sun's all-attacks effect requires GoM
+    expect(result.state.combat!.strikeProwess).toBe(7);
   });
 });
