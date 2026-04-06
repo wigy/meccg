@@ -578,6 +578,7 @@ export function makeMHState(overrides?: Partial<MovementHazardPhaseState>): Move
     onGuardPlacedThisCompany: false,
     siteRevealed: false,
     returnedToOrigin: false,
+    pendingWoundCorruptionChecks: [],
     ...overrides,
   };
 }

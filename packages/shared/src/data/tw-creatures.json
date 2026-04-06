@@ -91,7 +91,8 @@
       }
     ],
     "text": "Undead. One strike. After the attack, each character wounded by Barrow-wight makes a corruption check modified by -2.",
-    "race": "undead"
+    "race": "undead",
+    "certified": "2026-04-06"
   },
   {
     "cardType": "hazard-creature",

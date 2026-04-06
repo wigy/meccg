@@ -417,6 +417,17 @@ export interface MovementHazardPhaseState {
    * take actions during its site phase.
    */
   readonly returnedToOrigin: boolean;
+  /**
+   * Queue of character IDs that must make corruption checks after being
+   * wounded by a creature with an `on-event: character-wounded-by-self`
+   * effect (e.g. Barrow-wight). Empty when no wound corruption checks are pending.
+   */
+  readonly pendingWoundCorruptionChecks: readonly {
+    /** The wounded character's instance ID. */
+    readonly characterId: CardInstanceId;
+    /** Modifier to the corruption check roll (from the on-event effect). */
+    readonly modifier: number;
+  }[];
 }
 
 /**

@@ -501,8 +501,8 @@ function finalizeCombat(state: GameState, effects: GameEffect[] = []): ReducerRe
     .filter(a => a.result === 'wounded')
     .map(a => a.characterId);
 
-  if (woundedCharIds.length > 0 && state.phaseState.phase === Phase.Site) {
-    const siteState = state.phaseState;
+  if (woundedCharIds.length > 0 && (state.phaseState.phase === Phase.Site || state.phaseState.phase === Phase.MovementHazard)) {
+    const phaseWithChecks = state.phaseState;
     const sourceCard = getAttackSourceCard(state, combat);
     if (sourceCard?.effects) {
       const woundEvent = sourceCard.effects.find(
@@ -512,7 +512,7 @@ function finalizeCombat(state: GameState, effects: GameEffect[] = []): ReducerRe
         const modifier = woundEvent.apply.modifier ?? 0;
         const checks = woundedCharIds.map(characterId => ({ characterId, modifier }));
         logDetail(`Wound corruption checks queued for ${checks.length} character(s) (modifier ${modifier})`);
-        newPhaseState = { ...siteState, pendingWoundCorruptionChecks: [...siteState.pendingWoundCorruptionChecks, ...checks] };
+        newPhaseState = { ...phaseWithChecks, pendingWoundCorruptionChecks: [...phaseWithChecks.pendingWoundCorruptionChecks, ...checks] };
       }
     }
   }
