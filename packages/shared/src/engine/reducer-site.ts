@@ -674,6 +674,23 @@ function handleSitePlayHeroResource(
     return { state, error: 'Target character is not untapped' };
   }
 
+  // Check character-scoped duplication limit for items
+  if (isItem && (def as HeroItemCard).effects) {
+    const charDupLimit = (def as HeroItemCard).effects!.find(
+      (e): e is import('../index.js').DuplicationLimitEffect =>
+        e.type === 'duplication-limit' && e.scope === 'character',
+    );
+    if (charDupLimit) {
+      const copiesOnChar = charInPlay.items.filter(item => {
+        const iDef = state.cardPool[item.definitionId as string];
+        return iDef && iDef.name === def.name;
+      }).length;
+      if (copiesOnChar >= charDupLimit.max) {
+        return { state, error: `${def.name} cannot be duplicated on this character` };
+      }
+    }
+  }
+
   // Check site is not already tapped
   if (siteInPlay!.status === CardStatus.Tapped) {
     return { state, error: 'Site is already tapped' };

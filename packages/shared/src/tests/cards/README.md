@@ -62,7 +62,7 @@
 | tw-206 | Dagger of Westernesse | hero-resource-item | 1 | ☐ |
 | tw-243 | Gates of Morning | hero-resource-event | 9 | ☑ |
 | tw-244 | Glamdring | hero-resource-item | 2 | ☐ |
-| tw-259 | Horn of Anor | hero-resource-item | 2 | ☐ |
+| tw-259 | Horn of Anor | hero-resource-item | 2 | ☑ |
 | tw-333 | Sting | hero-resource-item | 2 | ☐ |
 | tw-335 | Sun | hero-resource-event | 4 | ☑ |
 | tw-345 | The Mithril-coat | hero-resource-item | 1 | ☐ |
