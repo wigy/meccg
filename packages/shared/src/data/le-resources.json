@@ -375,5 +375,18 @@
     "marshallingCategory": "misc",
     "effects": [],
     "text": "Magic. Shadow-magic. Playable during the movement/hazard phase on a moving shadow-magic-using character. In character’s site path, change a Ruins & Lairs [{R}] to a Shadow-hold [{S}] or one Wilderness [{w}] to a Shadow-land [{s}].Alternatively, decrease the hazard limit against his company by one (to no minimum). Unless he is a Ringwraith, he makes a corruption check modified by -3."
+  },
+  {
+    "cardType": "minion-resource-event",
+    "alignment": "ringwraith",
+    "id": "le-212",
+    "name": "Not Slay Needlessly",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/NotSlayNeedlessly.jpg",
+    "unique": false,
+    "eventType": "short",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Playable on an attack by Elves, Dwarves, Dúnedain, or Men. Against a covert company, the attack is canceled. Otherwise, -2 to the attack's prowess. Cannot be duplicated on a given attack."
   }
 ]
