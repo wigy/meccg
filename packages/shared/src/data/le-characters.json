@@ -375,5 +375,27 @@
     "homesite": "Barad-dûr",
     "effects": [],
     "text": "Unique. Can use shadow-magic."
+  },
+  {
+    "cardType": "minion-character",
+    "alignment": "ringwraith",
+    "id": "le-36",
+    "name": "Ostisen",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/Ostisen.jpg",
+    "unique": true,
+    "race": "man",
+    "skills": [
+      "scout"
+    ],
+    "prowess": 3,
+    "body": 9,
+    "mind": 2,
+    "directInfluence": 0,
+    "marshallingPoints": 0,
+    "marshallingCategory": "character",
+    "corruptionModifier": 0,
+    "homesite": "Vale of Erech",
+    "effects": [],
+    "text": "Unique."
   }
 ]
