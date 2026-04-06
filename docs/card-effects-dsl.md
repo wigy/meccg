@@ -46,6 +46,12 @@ Modifies a character stat. Supports optional `max` (cap), `id` (for override tar
 
 Stats: `prowess`, `body`, `direct-influence`, `corruption-points`.
 
+Optional `target` scopes:
+
+- `"all-characters"` — applies to every character in play
+- `"all-attacks"` — applies to every automatic-attack and hazard creature
+- `"all-automatic-attacks"` — applies only to site automatic-attacks (not hazard creatures)
+
 ### 2. `check-modifier`
 
 Modifies a roll for a specific check type.
@@ -354,6 +360,19 @@ The resolver:
   { "type": "on-event", "event": "self-enters-play",
     "apply": { "type": "discard-cards-in-play",
                "filter": { "cardType": "hazard-event", "keywords": { "$includes": "environment" } } } }
+]
+```
+
+### Eye of Sauron
+
+```json
+"effects": [
+  { "type": "stat-modifier", "stat": "prowess", "value": 1,
+    "target": "all-automatic-attacks", "id": "eye-of-sauron-prowess" },
+  { "type": "stat-modifier", "stat": "prowess", "value": 3,
+    "target": "all-automatic-attacks",
+    "overrides": "eye-of-sauron-prowess",
+    "when": { "inPlay": "Doors of Night" } }
 ]
 ```
 

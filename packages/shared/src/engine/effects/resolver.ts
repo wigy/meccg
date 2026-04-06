@@ -345,26 +345,32 @@ export function resolveCompanyModifier(
 }
 
 /**
- * Resolves attack prowess by applying global `all-attacks` effects.
+ * Resolves attack prowess by applying global attack effects.
  *
- * Collects all effects with `target: "all-attacks"` from events and cards
- * in play, evaluates their conditions against the provided context (which
- * includes `inPlay` for environment card checks), and sums prowess modifiers.
+ * Collects effects with `target: "all-attacks"` (which apply to both automatic
+ * attacks and hazard creatures) from events and cards in play. When
+ * `isAutomaticAttack` is true, also collects `target: "all-automatic-attacks"`
+ * effects that only apply to site automatic-attacks.
  *
  * @param state - The full game state.
  * @param baseProwess - The creature's or automatic attack's base prowess.
  * @param inPlayNames - Names of all cards currently in play (for `inPlay` conditions).
- * @returns The modified prowess value after applying all-attacks effects.
+ * @param isAutomaticAttack - Whether this is a site automatic-attack (not a hazard creature).
+ * @returns The modified prowess value after applying attack effects.
  */
 export function resolveAttackProwess(
   state: GameState,
   baseProwess: number,
   inPlayNames: readonly string[],
+  isAutomaticAttack = false,
 ): number {
   const context: ResolverContext = {
     reason: 'combat',
     inPlay: inPlayNames,
   };
   const globalEffects = collectGlobalEffects(state, 'all-attacks', context);
+  if (isAutomaticAttack) {
+    globalEffects.push(...collectGlobalEffects(state, 'all-automatic-attacks', context));
+  }
   return resolveStatModifiers(globalEffects, 'prowess', baseProwess, context);
 }
