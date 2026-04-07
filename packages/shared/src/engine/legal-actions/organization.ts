@@ -282,12 +282,15 @@ export function organizationActions(state: GameState, playerId: PlayerId): Evalu
 
 /**
  * Scans all characters owned by the player for `grant-action` effects
- * on their attached hazards (and items/allies). Returns activate actions
- * for each available granted ability whose cost can be paid.
+ * on their attached hazards, items, and the character card itself.
+ * Returns activate actions for each available granted ability whose
+ * cost can be paid.
  *
  * Currently supports:
  * - `remove-self-on-roll` — character taps, rolls 2d6, on success the
  *   source card is discarded (e.g. Foolish Words).
+ * - `test-gold-ring` — character taps to test a gold ring item in their
+ *   company; rolls 2d6, gold ring is discarded (e.g. Gandalf).
  */
 function grantedActionActivations(state: GameState, playerId: PlayerId): EvaluatedAction[] {
   const player = state.players.find(p => p.id === playerId);
@@ -298,7 +301,7 @@ function grantedActionActivations(state: GameState, playerId: PlayerId): Evaluat
   for (const [charIdStr, char] of Object.entries(player.characters)) {
     const charId = charIdStr as unknown as CardInstanceId;
 
-    // Scan hazards attached to this character for grant-action effects
+    // Collect grant-action effects from hazards attached to this character
     for (const hazard of char.hazards) {
       const def = state.cardPool[hazard.definitionId as string];
       if (!def || !('effects' in def)) continue;
@@ -332,7 +335,98 @@ function grantedActionActivations(state: GameState, playerId: PlayerId): Evaluat
         });
       }
     }
+
+    // Collect grant-action effects from the character card itself
+    const charDef = state.cardPool[char.definitionId as string];
+    if (charDef && 'effects' in charDef) {
+      const charEffects = (charDef as { effects?: readonly import('../../types/effects.js').CardEffect[] }).effects;
+      if (charEffects) {
+        for (const effect of charEffects) {
+          if (effect.type !== 'grant-action') continue;
+
+          // Check cost: if tap is "self", the character must be untapped
+          if (effect.cost.tap === 'self' && char.status !== CardStatus.Untapped) {
+            logDetail(`Grant-action ${effect.action} on ${charDef.name}: character is tapped, cannot activate`);
+            continue;
+          }
+
+          // For test-gold-ring: generate one action per gold ring in the company
+          if (effect.action === 'test-gold-ring') {
+            const goldRings = findGoldRingsInCompany(state, player, charId);
+            if (goldRings.length === 0) {
+              logDetail(`Grant-action test-gold-ring on ${charDef.name}: no gold ring items in company`);
+              continue;
+            }
+            for (const ring of goldRings) {
+              const ringDef = state.cardPool[ring.definitionId as string];
+              logDetail(`Grant-action test-gold-ring available: ${charDef.name} can tap to test ${ringDef?.name ?? '?'}`);
+              actions.push({
+                action: {
+                  type: 'activate-granted-action',
+                  player: playerId,
+                  characterId: charId,
+                  sourceCardId: char.instanceId,
+                  sourceCardDefinitionId: char.definitionId,
+                  actionId: effect.action,
+                  rollThreshold: effect.rollThreshold ?? 0,
+                  targetCardId: ring.instanceId,
+                },
+                viable: true,
+              });
+            }
+            continue;
+          }
+
+          // Generic character grant-action (future use)
+          logDetail(`Grant-action ${effect.action} available: ${charDef.name} can activate`);
+          actions.push({
+            action: {
+              type: 'activate-granted-action',
+              player: playerId,
+              characterId: charId,
+              sourceCardId: char.instanceId,
+              sourceCardDefinitionId: char.definitionId,
+              actionId: effect.action,
+              rollThreshold: effect.rollThreshold ?? 0,
+            },
+            viable: true,
+          });
+        }
+      }
+    }
   }
 
   return actions;
+}
+
+/**
+ * Finds all gold ring items held by any character in the same company
+ * as the given character.
+ *
+ * Returns an array of `{ instanceId, definitionId }` for each gold ring found.
+ */
+function findGoldRingsInCompany(
+  state: GameState,
+  player: { readonly companies: readonly import('../../index.js').Company[]; readonly characters: { readonly [key: string]: import('../../index.js').CharacterInPlay } },
+  charId: CardInstanceId,
+): readonly { instanceId: CardInstanceId; definitionId: import('../../index.js').CardDefinitionId }[] {
+  // Find the company containing this character
+  const company = player.companies.find(c => c.characters.includes(charId));
+  if (!company) return [];
+
+  const goldRings: { instanceId: CardInstanceId; definitionId: import('../../index.js').CardDefinitionId }[] = [];
+
+  // Scan all characters in the company for gold ring items
+  for (const compCharId of company.characters) {
+    const compChar = player.characters[compCharId as string];
+    if (!compChar) continue;
+    for (const item of compChar.items) {
+      const itemDef = state.cardPool[item.definitionId as string];
+      if (itemDef && 'subtype' in itemDef && (itemDef as { subtype: string }).subtype === 'gold-ring') {
+        goldRings.push({ instanceId: item.instanceId, definitionId: item.definitionId });
+      }
+    }
+  }
+
+  return goldRings;
 }

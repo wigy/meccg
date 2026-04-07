@@ -605,13 +605,30 @@ function handleFetchFromSideboard(state: GameState, action: GameAction): Reducer
 /**
  * Handle activation of a grant-action effect during organization.
  *
- * Currently supports:
+ * Dispatches to action-specific handlers based on `actionId`:
  * - `remove-self-on-roll` — Taps the character, rolls 2d6, and if the total
  *   meets the threshold, discards the source card (the attached hazard).
- *   Used by Foolish Words: "character may tap to attempt to remove this card.
- *   Make a roll — if the result is greater than 7, discard this card."
+ * - `test-gold-ring` — Taps the character, rolls 2d6, and discards the target
+ *   gold ring item. The roll result determines which special ring could replace
+ *   it (Rule 9.21).
  */
 function handleActivateGrantedAction(state: GameState, action: GameAction): ReducerResult {
+  if (action.type !== 'activate-granted-action') return { state, error: 'Expected activate-granted-action' };
+
+  if (action.actionId === 'test-gold-ring') {
+    return handleTestGoldRing(state, action);
+  }
+
+  return handleRemoveSelfOnRoll(state, action);
+}
+
+/**
+ * Handle remove-self-on-roll grant-action.
+ *
+ * Taps the bearer, rolls 2d6, and if the total meets the threshold,
+ * discards the source hazard card. Used by Foolish Words.
+ */
+function handleRemoveSelfOnRoll(state: GameState, action: GameAction): ReducerResult {
   if (action.type !== 'activate-granted-action') return { state, error: 'Expected activate-granted-action' };
 
   const playerIndex = getPlayerIndex(state, action.player);
@@ -670,8 +687,6 @@ function handleActivateGrantedAction(state: GameState, action: GameAction): Redu
         ...newPlayers[playerIndex].characters,
         [action.characterId as string]: { ...tappedChar, hazards: updatedHazards },
       },
-      // Hazard permanent events go to the opponent's discard pile
-      // Actually — the card belongs to the hazard player. We need to find which player owns it.
     };
 
     // Hazard cards are owned by the opponent (other player). Discard to opponent's pile.
@@ -679,14 +694,6 @@ function handleActivateGrantedAction(state: GameState, action: GameAction): Redu
     newPlayers[opponentIndex] = {
       ...newPlayers[opponentIndex],
       discardPile: [...newPlayers[opponentIndex].discardPile, discardedCard],
-    };
-    // Also update the character on the correct player
-    newPlayers[playerIndex] = {
-      ...newPlayers[playerIndex],
-      characters: {
-        ...newPlayers[playerIndex].characters,
-        [action.characterId as string]: { ...tappedChar, hazards: updatedHazards },
-      },
     };
   } else {
     // Failure: character is tapped but card stays
@@ -699,6 +706,123 @@ function handleActivateGrantedAction(state: GameState, action: GameAction): Redu
       },
     };
   }
+
+  // Store the roll on the player
+  newPlayers[playerIndex] = { ...newPlayers[playerIndex], lastDiceRoll: roll };
+
+  return {
+    state: {
+      ...state,
+      players: newPlayers,
+      rng, cheatRollTotal,
+    },
+    effects: [rollEffect],
+  };
+}
+
+/**
+ * Handle test-gold-ring grant-action (Rule 9.21).
+ *
+ * Taps the character (e.g. Gandalf), rolls 2d6, and discards the target
+ * gold ring item from its bearer. The roll result is stored for future
+ * special ring replacement support.
+ *
+ * Per CoE rules: "When a gold ring is tested, the item's player makes a ring
+ * test roll... The special ring item replaces the gold ring item, which is
+ * immediately discarded regardless of whether a special ring item was played."
+ */
+function handleTestGoldRing(state: GameState, action: GameAction): ReducerResult {
+  if (action.type !== 'activate-granted-action') return { state, error: 'Expected activate-granted-action' };
+
+  const playerIndex = getPlayerIndex(state, action.player);
+  const player = state.players[playerIndex];
+  const char = player.characters[action.characterId as string];
+  if (!char) return { state, error: 'Character not found' };
+
+  const charDefId = resolveInstanceId(state, action.characterId);
+  const charDef = charDefId ? state.cardPool[charDefId as string] : undefined;
+  const charName = charDef?.name ?? '?';
+
+  // Validate: character must be untapped (cost: tap self)
+  if (char.status !== CardStatus.Untapped) {
+    return { state, error: `${charName} is not untapped` };
+  }
+
+  // Validate: target gold ring must exist
+  if (!action.targetCardId) {
+    return { state, error: 'No target gold ring specified' };
+  }
+
+  // Find the gold ring item on any character in the company
+  const company = player.companies.find(c => c.characters.includes(action.characterId));
+  if (!company) return { state, error: `${charName} is not in any company` };
+
+  let ringBearerCharId: CardInstanceId | null = null;
+  let ringDefId: import('../index.js').CardDefinitionId | null = null;
+  for (const compCharId of company.characters) {
+    const compChar = player.characters[compCharId as string];
+    if (!compChar) continue;
+    const ringItem = compChar.items.find(item => item.instanceId === action.targetCardId);
+    if (ringItem) {
+      ringBearerCharId = compCharId;
+      ringDefId = ringItem.definitionId;
+      break;
+    }
+  }
+
+  if (!ringBearerCharId || !ringDefId) {
+    return { state, error: 'Target gold ring not found in company' };
+  }
+
+  const ringDef = state.cardPool[ringDefId as string];
+  const ringName = ringDef?.name ?? '?';
+
+  logDetail(`Activate grant-action 'test-gold-ring': ${charName} taps to test ${ringName}`);
+
+  // Pay cost: tap the character
+  const tappedChar: CharacterInPlay = { ...char, status: CardStatus.Tapped };
+
+  // Roll 2d6
+  const { roll, rng, cheatRollTotal } = roll2d6(state);
+  const d1 = roll.die1;
+  const d2 = roll.die2;
+  const total = d1 + d2;
+  logDetail(`Gold ring test roll for ${charName}: ${d1} + ${d2} = ${total}`);
+
+  const rollEffect: GameEffect = {
+    effect: 'dice-roll',
+    playerName: player.name,
+    die1: roll.die1,
+    die2: roll.die2,
+    label: `Gold ring test: ${charName} tests ${ringName}`,
+  };
+
+  const newPlayers = clonePlayers(state);
+
+  // Tap the character performing the test
+  newPlayers[playerIndex] = {
+    ...newPlayers[playerIndex],
+    characters: {
+      ...newPlayers[playerIndex].characters,
+      [action.characterId as string]: tappedChar,
+    },
+  };
+
+  // Remove the gold ring from its bearer and discard it
+  const ringBearer = newPlayers[playerIndex].characters[ringBearerCharId as string];
+  const updatedItems = ringBearer.items.filter(item => item.instanceId !== action.targetCardId);
+  const discardedRing: CardInstance = { instanceId: action.targetCardId, definitionId: ringDefId };
+
+  logDetail(`Gold ring test: discarding ${ringName} from ${state.cardPool[ringBearer.definitionId as string]?.name ?? '?'}`);
+
+  newPlayers[playerIndex] = {
+    ...newPlayers[playerIndex],
+    characters: {
+      ...newPlayers[playerIndex].characters,
+      [ringBearerCharId as string]: { ...ringBearer, items: updatedItems },
+    },
+    discardPile: [...newPlayers[playerIndex].discardPile, discardedRing],
+  };
 
   // Store the roll on the player
   newPlayers[playerIndex] = { ...newPlayers[playerIndex], lastDiceRoll: roll };
