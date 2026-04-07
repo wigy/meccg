@@ -11,7 +11,8 @@
  */
 
 import type { GameState, PlayerId, GameAction, EndOfTurnPhaseState } from '../../index.js';
-import { HAND_SIZE, FREE_COUNCIL_MP_THRESHOLD, getPlayerIndex } from '../../index.js';
+import { FREE_COUNCIL_MP_THRESHOLD, getPlayerIndex } from '../../index.js';
+import { resolveHandSize } from '../effects/index.js';
 import { logHeading, logDetail } from './log.js';
 import { deckExhaustExchangeActions } from './movement-hazard.js';
 
@@ -77,7 +78,7 @@ function resetHandStepActions(state: GameState, playerId: PlayerId): GameAction[
   const eotState = state.phaseState as EndOfTurnPhaseState;
   const playerIndex = state.players[0].id === playerId ? 0 : 1;
   const player = state.players[playerIndex];
-  const handSize = HAND_SIZE; // TODO: compute from DSL hand-size-modifier effects
+  const handSize = resolveHandSize(state, playerIndex);
   const actions: GameAction[] = [];
 
   // Already done this step — no actions

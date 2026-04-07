@@ -16,6 +16,7 @@ export {
   resolveCompanyModifier,
   resolveAttackProwess,
   resolveAttackStrikes,
+  resolveHandSize,
   normalizeCreatureRace,
   resolveDef,
 } from './resolver.js';

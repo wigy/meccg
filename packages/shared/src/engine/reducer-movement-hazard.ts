@@ -7,7 +7,8 @@
  */
 
 import type { GameState, MovementHazardPhaseState, Company, CreatureCard, GameAction, CardInstance, GameEffect } from '../index.js';
-import { Phase, CardStatus, isCharacterCard, isSiteCard, RegionType, Race, Skill, getPlayerIndex, BASE_MAX_REGION_DISTANCE, HAND_SIZE } from '../index.js';
+import { Phase, CardStatus, isCharacterCard, isSiteCard, RegionType, Race, Skill, getPlayerIndex, BASE_MAX_REGION_DISTANCE } from '../index.js';
+import { resolveHandSize } from './effects/index.js';
 import { logDetail } from './legal-actions/log.js';
 import { initiateChain, pushChainEntry } from './chain-reducer.js';
 import { resolveInstanceId } from '../types/state.js';
@@ -410,7 +411,6 @@ function handlePlaceOnGuard(
  * 3. If either player exceeds hand size, transition to 'reset-hand' step
  *    for interactive discard. Otherwise advance directly.
  *
- * TODO: hand-size-modifier DSL effects (e.g. Elrond +1 at Rivendell)
  * TODO: passive conditions at end of M/H phase
  * TODO: check if other companies have unresolved movement to site of origin
  */
@@ -424,7 +424,6 @@ function handlePlaceOnGuard(
  * 3. If either player exceeds hand size, transition to 'reset-hand' step
  *    for interactive discard. Otherwise advance directly.
  *
- * TODO: hand-size-modifier DSL effects (e.g. Elrond +1 at Rivendell)
  * TODO: passive conditions at end of M/H phase
  * TODO: check if other companies have unresolved movement to site of origin
  */
@@ -487,9 +486,11 @@ function endCompanyMH(state: GameState, mhState: MovementHazardPhaseState): Redu
   }
 
   // --- Step 8b: Draw up to hand size (automatic) ---
-  const handSize = HAND_SIZE; // TODO: compute from DSL hand-size-modifier effects
+  // Use intermediate state for hand size resolution so updated companies are visible
+  let intermediateState = { ...state, players: newPlayers };
   for (let i = 0; i < 2; i++) {
     const p = newPlayers[i];
+    const handSize = resolveHandSize(intermediateState, i);
     if (p.hand.length < handSize) {
       const drawCount = Math.min(handSize - p.hand.length, p.playDeck.length);
       if (drawCount > 0) {
@@ -499,12 +500,13 @@ function endCompanyMH(state: GameState, mhState: MovementHazardPhaseState): Redu
           hand: [...p.hand, ...p.playDeck.slice(0, drawCount)],
           playDeck: p.playDeck.slice(drawCount),
         };
+        intermediateState = { ...intermediateState, players: newPlayers };
       }
     }
   }
 
   // --- Step 8c: If anyone needs to discard, go to reset-hand step ---
-  const needsDiscard = newPlayers.some(p => p.hand.length > handSize);
+  const needsDiscard = newPlayers.some((p, i) => p.hand.length > resolveHandSize(intermediateState, i));
   const updatedState = { ...state, players: newPlayers };
 
   if (needsDiscard) {
@@ -546,7 +548,7 @@ function handleResetHand(
 
   const playerIndex = getPlayerIndex(state, action.player);
   const player = state.players[playerIndex];
-  const handSize = HAND_SIZE; // TODO: compute from DSL hand-size-modifier effects
+  const handSize = resolveHandSize(state, playerIndex);
 
   if (player.hand.length <= handSize) {
     return { state, error: `Player ${player.name} does not need to discard (hand: ${player.hand.length}/${handSize})` };
@@ -573,7 +575,7 @@ function handleResetHand(
   const updatedState = { ...state, players: newPlayers };
 
   // Check if both players are now at hand size
-  if (newPlayers.every(p => p.hand.length <= handSize)) {
+  if (newPlayers.every((p, i) => p.hand.length <= resolveHandSize(updatedState, i))) {
     logDetail(`Reset-hand: all players at hand size → advancing`);
     return advanceAfterCompanyMH(updatedState, mhState);
   }
