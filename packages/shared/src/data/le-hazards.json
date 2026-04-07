@@ -111,7 +111,17 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/LureofExpedience.jpg",
     "unique": false,
     "eventType": "permanent",
-    "effects": [],
+    "certified": "2026-04-07",
+    "effects": [
+      { "type": "play-target", "target": "character" },
+      { "type": "stat-modifier", "stat": "corruption-points", "value": 2 },
+      { "type": "on-event", "event": "company-member-gains-item",
+        "apply": { "type": "force-check", "check": "corruption" },
+        "target": "bearer" },
+      { "type": "grant-action", "action": "remove-self-on-roll",
+        "cost": { "tap": "bearer" }, "rollThreshold": 6 },
+      { "type": "duplication-limit", "scope": "character", "max": 1 }
+    ],
     "text": "Corruption. Playable on a non-Ringwraith, non-Wizard, non-Hobbit character. Target character receives 2 corruption points and makes a corruption check each time a character in his company gains an item (including a ring special item). During his organization phase, the character may tap to attempt to remove this card. Make a roll—if the result is greater than 5, discard this card. Cannot be duplicated on a given character."
   }
 ]

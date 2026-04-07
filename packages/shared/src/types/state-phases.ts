@@ -564,6 +564,18 @@ export interface SitePhaseState {
     readonly modifier: number;
   }[];
   /**
+   * Queue of characters that must make corruption checks after an item is
+   * gained by a character in their company and they carry a hazard with
+   * `on-event: company-member-gains-item` (e.g. Lure of Expedience).
+   * Empty when no item-gain corruption checks are pending.
+   */
+  readonly pendingItemCorruptionChecks: readonly {
+    /** The character who must make the corruption check. */
+    readonly characterId: CardInstanceId;
+    /** Modifier to the corruption check roll (from the on-event effect). */
+    readonly modifier: number;
+  }[];
+  /**
    * Intermediate state while awaiting the hazard player's defensive roll
    * during an opponent influence attempt. Null when no influence attempt
    * is pending resolution.

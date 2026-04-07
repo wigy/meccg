@@ -632,6 +632,7 @@ function advanceAfterCompanyMH(state: GameState, mhState: MovementHazardPhaseSta
           pendingResourceAction: null,
           opponentInteractionThisTurn: null,
           pendingWoundCorruptionChecks: [],
+          pendingItemCorruptionChecks: [],
           pendingOpponentInfluence: null,
         },
       }),

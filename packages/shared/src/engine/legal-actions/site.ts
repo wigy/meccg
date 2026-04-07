@@ -55,6 +55,15 @@ export function siteActions(state: GameState, playerId: PlayerId): EvaluatedActi
     return [];
   }
 
+  // When item-gain corruption checks are pending (e.g. Lure of Expedience),
+  // only the active player's corruption-check actions are legal.
+  if (siteState.pendingItemCorruptionChecks.length > 0 && isActive) {
+    return itemCorruptionCheckActions(state, playerId, siteState);
+  }
+  if (siteState.pendingItemCorruptionChecks.length > 0 && !isActive) {
+    return [];
+  }
+
   if (siteState.step === 'select-company') {
     return viable(selectCompanyActions(state, playerId, siteState));
   }
@@ -351,6 +360,61 @@ function woundCorruptionCheckActions(
       possessions,
       need: ccNeed,
       explanation: `Wound corruption: need roll > ${cp - totalModifier} (${ccParts.join(', ')})`,
+    },
+    viable: true,
+  }];
+}
+
+/**
+ * Legal actions for a pending item-gain corruption check
+ * (e.g. triggered by Lure of Expedience when a company member gains an item).
+ */
+function itemCorruptionCheckActions(
+  state: GameState,
+  playerId: PlayerId,
+  siteState: SitePhaseState,
+): EvaluatedAction[] {
+  const pending = siteState.pendingItemCorruptionChecks[0];
+  if (!pending) return [];
+
+  const playerIndex = getPlayerIndex(state, playerId);
+  const player = state.players[playerIndex];
+  const char = player.characters[pending.characterId as string];
+  if (!char) {
+    logDetail(`Item corruption check: character ${pending.characterId as string} no longer in play — skipping`);
+    return viable([{ type: 'pass', player: playerId }]);
+  }
+
+  const charDef = resolveDef(state, char.instanceId);
+  const charName = isCharacterCard(charDef) ? charDef.name : '?';
+
+  const cp = char.effectiveStats.corruptionPoints;
+  const baseModifier = isCharacterCard(charDef) ? charDef.corruptionModifier : 0;
+
+  const charEffects = collectCharacterEffects(state, char, { reason: 'corruption-check' });
+  const effectModifier = resolveCheckModifier(charEffects, 'corruption');
+
+  const totalModifier = baseModifier + effectModifier + pending.modifier;
+  const possessions: CardInstanceId[] = [
+    ...char.items.map(i => i.instanceId),
+    ...char.allies.map(a => a.instanceId),
+    ...char.hazards.map(h => h.instanceId),
+  ];
+  const ccNeed = cp + 1 - totalModifier;
+  const ccParts = [`CP ${cp}`];
+  if (totalModifier !== 0) ccParts.push(`modifier ${totalModifier >= 0 ? '+' : ''}${totalModifier}`);
+  logDetail(`Item-gain corruption check for ${charName} (CP ${cp}, modifier ${totalModifier >= 0 ? '+' : ''}${totalModifier})`);
+
+  return [{
+    action: {
+      type: 'corruption-check',
+      player: playerId,
+      characterId: pending.characterId,
+      corruptionPoints: cp,
+      corruptionModifier: totalModifier,
+      possessions,
+      need: ccNeed,
+      explanation: `Item corruption: need roll > ${cp - totalModifier} (${ccParts.join(', ')})`,
     },
     viable: true,
   }];

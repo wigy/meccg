@@ -145,6 +145,8 @@ export const ORC_PATROL = did('tw-074');
 export const BARROW_WIGHT = did('tw-015');
 /** Foolish Words — hazard permanent-event, -4 to influence attempts, revealable on-guard. */
 export const FOOLISH_WORDS = did('td-25');
+/** Lure of Expedience — corruption permanent-event, +2 CP, forces corruption check on item gain. */
+export const LURE_OF_EXPEDIENCE = did('le-122');
 
 // ---- Sites ----
 

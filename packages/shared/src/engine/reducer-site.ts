@@ -6,7 +6,7 @@
  * influence attempts, and site phase advancement.
  */
 
-import type { GameState, PlayerState, CardInstanceId, CompanyId, CharacterInPlay, CardInstance, SitePhaseState, HeroItemCard, CombatState, OnGuardCard, GameAction, GameEffect } from '../index.js';
+import type { GameState, PlayerState, CardInstanceId, CompanyId, CharacterInPlay, CardInstance, SitePhaseState, HeroItemCard, CombatState, OnGuardCard, GameAction, GameEffect, OnEventEffect } from '../index.js';
 import { Phase, CardStatus, isCharacterCard, isItemCard, isAllyCard, isFactionCard, isSiteCard, getPlayerIndex, GENERAL_INFLUENCE } from '../index.js';
 import { logDetail } from './legal-actions/log.js';
 import { resolveInstanceId } from '../types/state.js';
@@ -34,6 +34,11 @@ export function handleSite(state: GameState, action: GameAction): ReducerResult 
   // Handle pending wound corruption checks (e.g. from Barrow-downs auto-attack)
   if (siteState.pendingWoundCorruptionChecks.length > 0) {
     return handleWoundCorruptionCheck(state, action, siteState);
+  }
+
+  // Handle pending item-gain corruption checks (e.g. Lure of Expedience)
+  if (siteState.pendingItemCorruptionChecks.length > 0) {
+    return handleItemCorruptionCheck(state, action, siteState);
   }
 
   if (siteState.step === 'select-company') {
@@ -158,6 +163,7 @@ function handleSiteSelectCompany(
         awaitingOnGuardReveal: false,
         pendingResourceAction: null,
         pendingWoundCorruptionChecks: [],
+        pendingItemCorruptionChecks: [],
       },
     },
   };
@@ -765,6 +771,28 @@ function handleSitePlayHeroResource(
 
   newPlayers[playerIndex] = { ...player, hand: newHand, characters: newCharacters, companies: newCompanies };
 
+  // Check for on-event: company-member-gains-item triggers on all
+  // characters in the company (e.g. Lure of Expedience).
+  const itemGainChecks: { characterId: CardInstanceId; modifier: number }[] = [];
+  if (isItem) {
+    for (const charId of company.characters) {
+      const cip = newCharacters[charId as string] ?? player.characters[charId as string];
+      if (!cip) continue;
+      for (const hazard of cip.hazards) {
+        const hazDef = state.cardPool[hazard.definitionId as string];
+        if (!hazDef || !('effects' in hazDef) || !hazDef.effects) continue;
+        const trigger = (hazDef.effects as readonly OnEventEffect[]).find(
+          (e): e is OnEventEffect => e.type === 'on-event' && e.event === 'company-member-gains-item',
+        );
+        if (trigger) {
+          const modifier = trigger.apply.modifier ?? 0;
+          logDetail(`Item gain triggers corruption check for character ${charId as string} (modifier ${modifier})`);
+          itemGainChecks.push({ characterId: charId, modifier });
+        }
+      }
+    }
+  }
+
   return {
     state: {
       ...state,
@@ -772,6 +800,10 @@ function handleSitePlayHeroResource(
       phaseState: {
         ...siteState,
         resourcePlayed: true,
+        pendingItemCorruptionChecks: [
+          ...siteState.pendingItemCorruptionChecks,
+          ...itemGainChecks,
+        ],
       },
     },
   };
@@ -1623,6 +1655,137 @@ function handleWoundCorruptionCheck(
   };
 }
 
+/**
+ * Handle a corruption check triggered by an item gain when a character
+ * carries a hazard with `on-event: company-member-gains-item` (e.g. Lure
+ * of Expedience).
+ *
+ * Follows the same pattern as wound corruption checks: processes the first
+ * pending check, on pass removes it from the queue, on failure applies
+ * standard corruption check consequences.
+ */
+function handleItemCorruptionCheck(
+  state: GameState,
+  action: GameAction,
+  siteState: SitePhaseState,
+): ReducerResult {
+  if (action.type !== 'corruption-check') {
+    return { state, error: `Expected 'corruption-check' during item-gain corruption checks` };
+  }
+
+  const pending = siteState.pendingItemCorruptionChecks[0];
+  if (!pending) return { state, error: 'No pending item-gain corruption check' };
+
+  if (action.characterId !== pending.characterId) {
+    return { state, error: 'Wrong character for pending item-gain corruption check' };
+  }
+
+  const playerIndex = state.players.findIndex(p => p.id === action.player);
+  const player = state.players[playerIndex];
+  const char = player.characters[action.characterId as string];
+  if (!char) return { state, error: 'Character not found for item-gain corruption check' };
+
+  const charDefId = resolveInstanceId(state, action.characterId);
+  const charDef = charDefId ? state.cardPool[charDefId as string] : undefined;
+  const charName = charDef?.name ?? '?';
+  const cp = action.corruptionPoints;
+  const modifier = action.corruptionModifier;
+
+  const { roll, rng, cheatRollTotal } = roll2d6(state);
+  const total = roll.die1 + roll.die2 + modifier;
+  const modStr = modifier !== 0 ? ` ${modifier >= 0 ? '+' : ''}${modifier}` : '';
+  logDetail(`Item-gain corruption check for ${charName}: rolled ${roll.die1} + ${roll.die2}${modStr} = ${total} vs CP ${cp}`);
+
+  const rollEffect: GameEffect = {
+    effect: 'dice-roll',
+    playerName: player.name,
+    die1: roll.die1,
+    die2: roll.die2,
+    label: `Item corruption: ${charName}`,
+  };
+
+  const newPlayers = clonePlayers(state);
+  newPlayers[playerIndex] = { ...newPlayers[playerIndex], lastDiceRoll: roll };
+  const remainingChecks = siteState.pendingItemCorruptionChecks.slice(1);
+
+  if (total > cp) {
+    logDetail(`Item-gain corruption check passed (${total} > ${cp})`);
+    return {
+      state: cleanupEmptyCompanies({
+        ...state,
+        players: newPlayers,
+        rng, cheatRollTotal,
+        phaseState: { ...siteState, pendingItemCorruptionChecks: remainingChecks },
+      }),
+      effects: [rollEffect],
+    };
+  }
+
+  const newCharacters = { ...player.characters };
+
+  if (total >= cp - 1) {
+    logDetail(`Item-gain corruption check FAILED (${total} within 1 of ${cp}) — discarding ${charName}`);
+
+    delete newCharacters[action.characterId as string];
+    const newCompanies = player.companies.map(c => ({
+      ...c,
+      characters: c.characters.filter(id => id !== action.characterId),
+    }));
+
+    for (const followerId of char.followers) {
+      const follower = newCharacters[followerId as string];
+      if (follower) {
+        newCharacters[followerId as string] = { ...follower, controlledBy: 'general' };
+      }
+    }
+
+    const toDiscard: CardInstance[] = [
+      { instanceId: action.characterId, definitionId: char.definitionId },
+      ...action.possessions.map(id => ({ instanceId: id, definitionId: resolveInstanceId(state, id)! })),
+    ];
+
+    newPlayers[playerIndex] = {
+      ...newPlayers[playerIndex],
+      characters: newCharacters,
+      companies: newCompanies,
+      discardPile: [...player.discardPile, ...toDiscard],
+    };
+  } else {
+    logDetail(`Item-gain corruption check FAILED (${total} < ${cp - 1}) — eliminating ${charName}`);
+
+    delete newCharacters[action.characterId as string];
+    const newCompanies = player.companies.map(c => ({
+      ...c,
+      characters: c.characters.filter(id => id !== action.characterId),
+    }));
+
+    for (const followerId of char.followers) {
+      const follower = newCharacters[followerId as string];
+      if (follower) {
+        newCharacters[followerId as string] = { ...follower, controlledBy: 'general' };
+      }
+    }
+
+    newPlayers[playerIndex] = {
+      ...newPlayers[playerIndex],
+      characters: newCharacters,
+      companies: newCompanies,
+      eliminatedPile: [...player.eliminatedPile, { instanceId: action.characterId, definitionId: char.definitionId }],
+      discardPile: [...player.discardPile, ...action.possessions.map(id => ({ instanceId: id, definitionId: resolveInstanceId(state, id)! }))],
+    };
+  }
+
+  return {
+    state: cleanupEmptyCompanies({
+      ...state,
+      players: newPlayers,
+      rng, cheatRollTotal,
+      phaseState: { ...siteState, pendingItemCorruptionChecks: remainingChecks },
+    }),
+    effects: [rollEffect],
+  };
+}
+
 function advanceSiteToNextCompany(
   state: GameState,
   siteState: SitePhaseState,
@@ -1662,6 +1825,7 @@ function advanceSiteToNextCompany(
         pendingResourceAction: null,
         opponentInteractionThisTurn: null,
         pendingWoundCorruptionChecks: [],
+        pendingItemCorruptionChecks: [],
         pendingOpponentInfluence: null,
       },
     },
