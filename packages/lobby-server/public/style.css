@@ -4106,6 +4106,21 @@ h2 {
   padding: 0.5rem;
 }
 
+.pseudo-ai-action-wrapper {
+  display: flex;
+  align-items: start;
+  gap: 0.25rem;
+}
+
+.pseudo-ai-action-wrapper button {
+  flex: 1;
+  min-width: 0;
+}
+
+.pseudo-ai-action-wrapper .action-json {
+  margin-top: 0.3rem;
+}
+
 #pseudo-ai-actions button {
   padding: 0.3rem 0.45rem;
   font-size: 0.78rem;

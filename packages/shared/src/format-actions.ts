@@ -259,8 +259,10 @@ export function describeAction(
       return `Enter site with ${compName(action.companyId)}`;
     case 'place-on-guard':
       return `Place on-guard card ${instName(action.cardInstanceId)}`;
-    case 'reveal-on-guard':
-      return `Reveal on-guard card ${instName(action.cardInstanceId)}`;
+    case 'reveal-on-guard': {
+      const target = action.targetCharacterId ? ` on ${instName(action.targetCharacterId)}` : '';
+      return `Reveal on-guard card ${instName(action.cardInstanceId)}${target}`;
+    }
     case 'declare-agent-attack':
       return `Declare agent attack ${instName(action.agentInstanceId)}`;
     case 'pass-chain-priority':

@@ -44,6 +44,26 @@ export function cleanActionText(text: string): string {
 /** Action types that represent "pass" or "do nothing". */
 const PASS_ACTION_TYPES = new Set(['pass', 'draft-stop']);
 
+/** Create a "+" toggle that reveals the raw JSON of an action. */
+function addJsonToggle(container: HTMLElement, action: GameAction): void {
+  const toggle = document.createElement('span');
+  toggle.className = 'action-json-toggle';
+  toggle.textContent = '+';
+  toggle.title = 'Show JSON';
+  const pre = document.createElement('pre');
+  pre.className = 'action-json hidden';
+  pre.textContent = JSON.stringify(action, null, 2);
+  toggle.addEventListener('click', (e) => {
+    e.stopPropagation();
+    pre.classList.toggle('hidden');
+    const nowVisible = !pre.classList.contains('hidden');
+    toggle.textContent = nowVisible ? '\u2212' : '+';
+    toggle.title = nowVisible ? 'Hide JSON' : 'Show JSON';
+  });
+  container.appendChild(toggle);
+  container.appendChild(pre);
+}
+
 /** Render the pseudo-AI action panel with pre-described actions. */
 export function renderPseudoAiActions(actions: readonly DescribedAction[]): void {
   const panel = document.getElementById('pseudo-ai-panel')!;
@@ -75,6 +95,9 @@ export function renderPseudoAiActions(actions: readonly DescribedAction[]): void
 
   // Render viable actions as clickable buttons
   for (const da of viable) {
+    const wrapper = document.createElement('div');
+    wrapper.classList.add('pseudo-ai-action-wrapper');
+
     const btn = document.createElement('button');
     btn.textContent = cleanActionText(da.text);
     if ('regress' in da.action && da.action.regress) {
@@ -88,7 +111,9 @@ export function renderPseudoAiActions(actions: readonly DescribedAction[]): void
       panel.classList.add('hidden');
       instruction.classList.add('hidden');
     });
-    container.appendChild(btn);
+    wrapper.appendChild(btn);
+    addJsonToggle(wrapper, da.action);
+    container.appendChild(wrapper);
   }
 
   // Non-viable actions: hidden by default, toggleable
