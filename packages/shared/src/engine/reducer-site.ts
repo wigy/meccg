@@ -375,7 +375,7 @@ function handleSiteAutomaticAttacks(
     strikesTotal: effectiveStrikes,
     strikeProwess: effectiveProwess,
     creatureBody: null,
-    creatureRace: creatureRace ?? null,
+    creatureRace,
     strikeAssignments: [],
     currentStrikeIndex: 0,
     phase: 'assign-strikes',
