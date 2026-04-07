@@ -103,8 +103,11 @@ describe('Rule 2.11 — Phase Transitions', () => {
       { type: 'pass', player: PLAYER_2 },
     ]);
 
-    // Both at hand size → P1 passes through reset-hand, auto-advances to signal-end
-    s = runActions(s, [{ type: 'pass', player: PLAYER_1 }]);
+    // Both at hand size → both pass through reset-hand, advances to signal-end
+    s = runActions(s, [
+      { type: 'pass', player: PLAYER_1 },
+      { type: 'pass', player: PLAYER_2 },
+    ]);
 
     // P1 passes signal-end → immediately in Untap, active player switches
     const result = reduce(s, { type: 'pass', player: PLAYER_1 });
