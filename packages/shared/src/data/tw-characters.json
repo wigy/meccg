@@ -579,10 +579,11 @@
       },
       {
         "type": "check-modifier",
-        "check": "faction-influence",
+        "check": "influence",
         "value": -1
       }
     ],
+    "certified": "2026-04-07",
     "text": "Unique. -1 to all of his corruption checks. -1 to influence checks against factions."
   },
   {
