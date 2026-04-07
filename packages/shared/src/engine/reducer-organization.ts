@@ -185,8 +185,18 @@ function handlePlayCharacter(state: GameState, action: GameAction): ReducerResul
   // Update or create company
   let newSiteDeck = player.siteDeck;
   if (existingCompanyIdx >= 0) {
-    // Add character to existing company
+    // Validate home-site-only restriction against existing company's site
     const company = companies[existingCompanyIdx];
+    const homeSiteOnlyExisting = charDef.effects?.some(
+      e => e.type === 'play-restriction' && e.rule === 'home-site-only',
+    );
+    if (homeSiteOnlyExisting && company.currentSite) {
+      const companySiteDef = state.cardPool[company.currentSite.definitionId as string];
+      if (companySiteDef && isSiteCard(companySiteDef) && companySiteDef.name !== charDef.homesite) {
+        return { state, error: `${charDef.name} can only be played at homesite (${charDef.homesite})` };
+      }
+    }
+    // Add character to existing company
     logDetail(`  Adding to existing company ${company.id as string}`);
     companies[existingCompanyIdx] = {
       ...company,
@@ -211,6 +221,13 @@ function handlePlayCharacter(state: GameState, action: GameAction): ReducerResul
     const isHomesite = siteDef.name === charDef.homesite;
     if (!isHaven && !isHomesite) {
       return { state, error: `${siteDef.name} is neither a haven nor ${charDef.name}'s homesite` };
+    }
+    // Characters with home-site-only restriction cannot be played at havens
+    const homeSiteOnly = charDef.effects?.some(
+      e => e.type === 'play-restriction' && e.rule === 'home-site-only',
+    );
+    if (homeSiteOnly && !isHomesite) {
+      return { state, error: `${charDef.name} can only be played at homesite (${charDef.homesite})` };
     }
 
     logDetail(`  Creating new company at ${siteDef.name} (from site deck)`);

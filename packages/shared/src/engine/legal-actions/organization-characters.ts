@@ -21,12 +21,27 @@ import { resolveDef } from '../effects/index.js';
 import { availableDI } from './organization.js';
 
 /**
+ * Whether a character has a home-site-only play restriction. Characters
+ * with this restriction (e.g. hobbits like Frodo, Sam) may only be brought
+ * into play at their homesite, not at havens (unless they are starting
+ * characters, but that uses a separate code path).
+ */
+function hasHomeSiteOnlyRestriction(charDef: CharacterCard): boolean {
+  return charDef.effects?.some(
+    e => e.type === 'play-restriction' && e.rule === 'home-site-only',
+  ) ?? false;
+}
+
+/**
  * Finds all sites where a character could potentially be played.
  *
  * Returns site instance IDs matching the character's homesite name or
  * havens. Sources include both company current sites (where a company
  * already exists) and the player's site deck (where a new company would
  * be formed).
+ *
+ * Characters with a home-site-only play restriction are limited to their
+ * homesite only (havens are excluded).
  */
 function findPlayableSites(
   state: GameState,
@@ -39,6 +54,11 @@ function findPlayableSites(
   const results: { instanceId: CardInstanceId; siteDef: SiteCard; siteName: string }[] = [];
   const seenInstances = new Set<string>();
   const seenSiteNames = new Set<string>();
+  const homeSiteOnly = hasHomeSiteOnlyRestriction(charDef);
+
+  if (homeSiteOnly) {
+    logDetail(`  → home-site-only restriction: ${charDef.name} can only be played at ${charDef.homesite}`);
+  }
 
   // Sites where the player already has a company
   for (const company of player.companies) {
@@ -53,7 +73,7 @@ function findPlayableSites(
     const isHaven = siteDef.siteType === SiteType.Haven;
     const isHomesite = siteDef.name === charDef.homesite;
 
-    if (isHaven || isHomesite) {
+    if (homeSiteOnly ? isHomesite : (isHaven || isHomesite)) {
       results.push({ instanceId: siteId, siteDef, siteName: siteDef.name });
       seenSiteNames.add(siteDef.name);
     }
@@ -70,7 +90,7 @@ function findPlayableSites(
     const isHaven = siteDef.siteType === SiteType.Haven;
     const isHomesite = siteDef.name === charDef.homesite;
 
-    if (isHaven || isHomesite) {
+    if (homeSiteOnly ? isHomesite : (isHaven || isHomesite)) {
       results.push({ instanceId: siteCard.instanceId, siteDef, siteName: siteDef.name });
       seenSiteNames.add(siteDef.name);
     }
