@@ -282,12 +282,15 @@ export function organizationActions(state: GameState, playerId: PlayerId): Evalu
 
 /**
  * Scans all characters owned by the player for `grant-action` effects
- * on their attached hazards (and items/allies). Returns activate actions
+ * on their attached hazards and allies. Returns activate actions
  * for each available granted ability whose cost can be paid.
  *
  * Currently supports:
  * - `remove-self-on-roll` — character taps, rolls 2d6, on success the
  *   source card is discarded (e.g. Foolish Words).
+ * - `gwaihir-special-movement` — discard the ally to grant the company
+ *   special movement to any non-Shadow-land/Dark-domain/Under-deeps site.
+ *   Requires company size ≤ 2.
  */
 function grantedActionActivations(state: GameState, playerId: PlayerId): EvaluatedAction[] {
   const player = state.players.find(p => p.id === playerId);
@@ -300,23 +303,19 @@ function grantedActionActivations(state: GameState, playerId: PlayerId): Evaluat
 
     // Scan hazards attached to this character for grant-action effects
     for (const hazard of char.hazards) {
-      const def = state.cardPool[hazard.definitionId as string];
-      if (!def || !('effects' in def)) continue;
-      const effects = (def as { effects?: readonly import('../../types/effects.js').CardEffect[] }).effects;
-      if (!effects) continue;
-
-      for (const effect of effects) {
-        if (effect.type !== 'grant-action') continue;
-
+      const grantActions = extractGrantActions(state, hazard.definitionId);
+      for (const effect of grantActions) {
         // Check cost: if tap is "bearer", character must be untapped
         if (effect.cost.tap === 'bearer' && char.status !== CardStatus.Untapped) {
           const charDef = state.cardPool[char.definitionId as string];
-          logDetail(`Grant-action ${effect.action} on ${def.name}: ${charDef?.name ?? '?'} is tapped, cannot activate`);
+          const def = state.cardPool[hazard.definitionId as string];
+          logDetail(`Grant-action ${effect.action} on ${def?.name ?? '?'}: ${charDef?.name ?? '?'} is tapped, cannot activate`);
           continue;
         }
 
         const charDef = state.cardPool[char.definitionId as string];
-        logDetail(`Grant-action ${effect.action} available: ${charDef?.name ?? '?'} can tap to activate (source: ${def.name})`);
+        const def = state.cardPool[hazard.definitionId as string];
+        logDetail(`Grant-action ${effect.action} available: ${charDef?.name ?? '?'} can tap to activate (source: ${def?.name ?? '?'})`);
 
         actions.push({
           action: {
@@ -332,7 +331,83 @@ function grantedActionActivations(state: GameState, playerId: PlayerId): Evaluat
         });
       }
     }
+
+    // Scan allies attached to this character for grant-action effects
+    for (const ally of char.allies) {
+      const grantActions = extractGrantActions(state, ally.definitionId);
+      for (const effect of grantActions) {
+        // Action-specific checks
+        if (effect.action === 'gwaihir-special-movement') {
+          // Gwaihir: company size must be ≤ 2
+          const company = player.companies.find(c => c.characters.includes(charId));
+          if (!company) continue;
+          const companySize = computeCompanySize(state, company);
+          if (companySize > 2) {
+            const def = state.cardPool[ally.definitionId as string];
+            logDetail(`Grant-action ${effect.action}: company size ${companySize} > 2, cannot activate ${def?.name ?? '?'}`);
+            continue;
+          }
+          // Company must not already have planned movement or special movement
+          if (company.destinationSite !== null || company.specialMovement) {
+            const def = state.cardPool[ally.definitionId as string];
+            logDetail(`Grant-action ${effect.action}: company already has movement planned, cannot activate ${def?.name ?? '?'}`);
+            continue;
+          }
+        }
+
+        const charDef = state.cardPool[char.definitionId as string];
+        const def = state.cardPool[ally.definitionId as string];
+        logDetail(`Grant-action ${effect.action} available: ${charDef?.name ?? '?'} can discard ${def?.name ?? '?'} to activate`);
+
+        actions.push({
+          action: {
+            type: 'activate-granted-action',
+            player: playerId,
+            characterId: charId,
+            sourceCardId: ally.instanceId,
+            sourceCardDefinitionId: ally.definitionId,
+            actionId: effect.action,
+            rollThreshold: effect.rollThreshold ?? 0,
+          },
+          viable: true,
+        });
+      }
+    }
   }
 
   return actions;
+}
+
+/**
+ * Extracts grant-action effects from a card definition.
+ */
+function extractGrantActions(state: GameState, definitionId: import('../../index.js').CardDefinitionId) {
+  const def = state.cardPool[definitionId as string];
+  if (!def || !('effects' in def)) return [];
+  const effects = (def as { effects?: readonly import('../../types/effects.js').CardEffect[] }).effects;
+  if (!effects) return [];
+  return effects.filter(
+    (e): e is import('../../types/effects.js').GrantActionEffect => e.type === 'grant-action',
+  );
+}
+
+/**
+ * Compute effective company size for grant-action checks.
+ * Hobbits and orc scouts each count as half (rounded up for total).
+ */
+function computeCompanySize(state: GameState, company: import('../../index.js').Company): number {
+  let halfCount = 0;
+  let fullCount = 0;
+  for (const charInstId of company.characters) {
+    const defId = resolveInstanceId(state, charInstId);
+    if (!defId) { fullCount++; continue; }
+    const def = state.cardPool[defId as string];
+    if (!def || !isCharacterCard(def)) { fullCount++; continue; }
+    if (def.race === 'hobbit') {
+      halfCount++;
+    } else {
+      fullCount++;
+    }
+  }
+  return Math.ceil(fullCount + halfCount / 2);
 }

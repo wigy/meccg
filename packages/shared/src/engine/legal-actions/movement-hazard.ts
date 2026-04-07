@@ -138,6 +138,14 @@ function revealNewSiteActions(
   }
 
   const actions: GameAction[] = [];
+
+  // --- Special movement (e.g. Gwaihir) ---
+  if (company.specialMovement === 'gwaihir') {
+    logDetail(`Special movement (Gwaihir): ${originDef.name} → ${destDef.name}`);
+    actions.push({ type: 'declare-path', player: playerId, movementType: MovementType.Special });
+    return actions;
+  }
+
   const movementMap = buildMovementMap(state.cardPool);
 
   // --- Starter movement ---

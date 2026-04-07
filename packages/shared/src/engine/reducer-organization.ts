@@ -614,6 +614,11 @@ function handleFetchFromSideboard(state: GameState, action: GameAction): Reducer
 function handleActivateGrantedAction(state: GameState, action: GameAction): ReducerResult {
   if (action.type !== 'activate-granted-action') return { state, error: 'Expected activate-granted-action' };
 
+  // Dispatch to gwaihir-special-movement handler if applicable
+  if (action.actionId === 'gwaihir-special-movement') {
+    return handleGwaihirSpecialMovement(state, action);
+  }
+
   const playerIndex = getPlayerIndex(state, action.player);
   const player = state.players[playerIndex];
   const char = player.characters[action.characterId as string];
@@ -710,6 +715,79 @@ function handleActivateGrantedAction(state: GameState, action: GameAction): Redu
       rng, cheatRollTotal,
     },
     effects: [rollEffect],
+  };
+}
+
+/**
+ * Handle Gwaihir's special movement ability: discard Gwaihir (ally) during
+ * the organization phase to grant the company special movement to any site
+ * not in a Shadow-land, Dark-domain, or Under-deeps.
+ *
+ * Cost: discard the ally (Gwaihir) from the character.
+ * Prerequisite: company size ≤ 2 (checked in legal actions).
+ * Effect: marks the company with `specialMovement: 'gwaihir'` so that
+ * plan-movement offers all valid destinations and the M/H phase uses
+ * Special movement type with no region path.
+ */
+function handleGwaihirSpecialMovement(state: GameState, action: GameAction): ReducerResult {
+  if (action.type !== 'activate-granted-action') return { state, error: 'Expected activate-granted-action' };
+
+  const playerIndex = getPlayerIndex(state, action.player);
+  const player = state.players[playerIndex];
+  const char = player.characters[action.characterId as string];
+  if (!char) return { state, error: 'Character not found' };
+
+  const charDefId = resolveInstanceId(state, action.characterId);
+  const charDef = charDefId ? state.cardPool[charDefId as string] : undefined;
+  const charName = charDef?.name ?? '?';
+  const sourceDef = state.cardPool[action.sourceCardDefinitionId as string];
+  const sourceName = sourceDef?.name ?? '?';
+
+  // Validate: source card must be an ally on the character
+  const allyIdx = char.allies.findIndex(a => a.instanceId === action.sourceCardId);
+  if (allyIdx < 0) {
+    return { state, error: `${sourceName} is not an ally of ${charName}` };
+  }
+
+  // Find the company this character belongs to
+  const company = player.companies.find(c => c.characters.includes(action.characterId));
+  if (!company) {
+    return { state, error: `${charName} is not in any company` };
+  }
+
+  logDetail(`Gwaihir special movement: ${charName} discards ${sourceName} to grant company ${company.id as string} special movement`);
+
+  // Pay cost: remove Gwaihir from the character's allies
+  const updatedAllies = char.allies.filter(a => a.instanceId !== action.sourceCardId);
+  const discardedCard: CardInstance = { instanceId: action.sourceCardId, definitionId: action.sourceCardDefinitionId };
+
+  const newPlayers = clonePlayers(state);
+
+  // Update the character (remove ally)
+  newPlayers[playerIndex] = {
+    ...newPlayers[playerIndex],
+    characters: {
+      ...newPlayers[playerIndex].characters,
+      [action.characterId as string]: { ...char, allies: updatedAllies },
+    },
+    // Ally belongs to this player — discard to own pile
+    discardPile: [...newPlayers[playerIndex].discardPile, discardedCard],
+  };
+
+  // Mark the company with special movement
+  const updatedCompanies = newPlayers[playerIndex].companies.map(c =>
+    c.id === company.id ? { ...c, specialMovement: 'gwaihir' as const } : c,
+  );
+  newPlayers[playerIndex] = {
+    ...newPlayers[playerIndex],
+    companies: updatedCompanies,
+  };
+
+  return {
+    state: {
+      ...state,
+      players: newPlayers,
+    },
   };
 }
 
