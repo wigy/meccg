@@ -286,7 +286,7 @@ export function validateActionPlayer(state: GameState, action: GameAction): stri
   }
 
   // During an active chain, the priority player may act
-  if (state.chain != null && (action.type === 'pass-chain-priority' || action.type === 'order-passives' || action.type === 'play-short-event')) {
+  if (state.chain != null && (action.type === 'pass-chain-priority' || action.type === 'order-passives' || action.type === 'play-short-event' || action.type === 'reveal-on-guard')) {
     if (action.player !== state.chain.priority) {
       return 'You do not have chain priority';
     }

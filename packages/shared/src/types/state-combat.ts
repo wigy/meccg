@@ -142,7 +142,8 @@ export type ChainEntryPayload =
   | { readonly type: 'passive-condition'; readonly trigger: string }
   | { readonly type: 'activated-ability' }
   | { readonly type: 'on-guard-reveal' }
-  | { readonly type: 'body-check' };
+  | { readonly type: 'body-check' }
+  | { readonly type: 'influence-attempt'; readonly influencingCharacterId: CardInstanceId };
 
 /**
  * A single entry on the chain of effects stack.

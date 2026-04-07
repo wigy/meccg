@@ -153,6 +153,9 @@ function formatChainEntry(
     case 'long-event':
       return `<span class="chain-card-name">${cardName}</span>`
         + `<span class="chain-declarer">${declarer}</span>`;
+    case 'influence-attempt':
+      return `<span class="chain-card-name">${cardName}</span> influence`
+        + `<span class="chain-declarer">${declarer}</span>`;
   }
 }
 

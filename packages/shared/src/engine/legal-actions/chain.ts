@@ -13,7 +13,8 @@
  * `'declaring'` mode for the player who currently has priority.
  */
 
-import type { GameState, PlayerId, EvaluatedAction, PassChainPriorityAction, CardInstanceId, HazardEventCard } from '../../index.js';
+import type { GameState, PlayerId, EvaluatedAction, PassChainPriorityAction, CardInstanceId, HazardEventCard, SitePhaseState } from '../../index.js';
+import { Phase, getPlayerIndex } from '../../index.js';
 import { logDetail } from './log.js';
 
 /**
@@ -41,6 +42,12 @@ export function chainActions(state: GameState, playerId: PlayerId): EvaluatedAct
   // Short-event response actions (e.g. Twilight canceling an environment)
   if (chain.restriction === 'normal') {
     actions.push(...playShortEventChainActions(state, playerId));
+  }
+
+  // On-guard reveal: hazard player may reveal on-guard events during
+  // an influence-attempt chain (rule 2.V.6)
+  if (chain.restriction === 'normal') {
+    actions.push(...onGuardRevealChainActions(state, playerId));
   }
 
   // The priority player can always pass
@@ -102,6 +109,72 @@ function playShortEventChainActions(state: GameState, playerId: PlayerId): Evalu
           player: playerId,
           cardInstanceId,
           targetInstanceId: target.instanceId,
+        },
+        viable: true,
+      });
+    }
+  }
+
+  return actions;
+}
+
+/**
+ * On-guard reveal actions during chain declaring for influence-attempt chains.
+ *
+ * The hazard player (opponent of the influence-attempt declarer) may reveal
+ * on-guard hazard events that affect the company, just like the old
+ * awaitingOnGuardReveal window but now as part of the chain response.
+ */
+function onGuardRevealChainActions(state: GameState, playerId: PlayerId): EvaluatedAction[] {
+  const chain = state.chain!;
+
+  // Only relevant when the chain has an influence-attempt entry
+  const infEntry = chain.entries.find(e => e.payload.type === 'influence-attempt' && !e.resolved);
+  if (!infEntry) return [];
+
+  // Only the hazard player (opponent of declarer) can reveal on-guard
+  if (playerId === infEntry.declaredBy) return [];
+
+  // Must be in the site phase to access on-guard cards
+  if (state.phaseState.phase !== Phase.Site) return [];
+  const siteState = state.phaseState as SitePhaseState;
+
+  const activeIndex = getPlayerIndex(state, infEntry.declaredBy);
+  const resourcePlayer = state.players[activeIndex];
+  const company = resourcePlayer.companies[siteState.activeCompanyIndex];
+  if (!company) return [];
+
+  const actions: EvaluatedAction[] = [];
+
+  for (const ogCard of company.onGuardCards) {
+    if (ogCard.revealed) continue;
+    const def = state.cardPool[ogCard.definitionId as string];
+    if (!def || def.cardType !== 'hazard-event') continue;
+
+    // Character-targeting events get one action per character
+    const isCharTargeting = 'effects' in def && def.effects?.some(
+      (e: { type: string; target?: string }) => e.type === 'play-target' && e.target === 'character',
+    );
+    if (isCharTargeting) {
+      for (const charId of company.characters) {
+        logDetail(`Chain on-guard reveal: "${def.name}" targeting ${charId as string}`);
+        actions.push({
+          action: {
+            type: 'reveal-on-guard',
+            player: playerId,
+            cardInstanceId: ogCard.instanceId,
+            targetCharacterId: charId,
+          },
+          viable: true,
+        });
+      }
+    } else {
+      logDetail(`Chain on-guard reveal: "${def.name}" eligible`);
+      actions.push({
+        action: {
+          type: 'reveal-on-guard',
+          player: playerId,
+          cardInstanceId: ogCard.instanceId,
         },
         viable: true,
       });

@@ -20,6 +20,7 @@ import { discardCardsInPlay } from './reducer.js';
 import type { ReducerResult } from './reducer.js';
 import { resolveAttackProwess, resolveAttackStrikes } from './effects/index.js';
 import { buildInPlayNames } from './recompute-derived.js';
+import { resolveInfluenceAttemptRoll } from './reducer-site.js';
 
 /**
  * Returns the opponent of the given player in a two-player game.
@@ -136,6 +137,8 @@ export function handleChainAction(state: GameState, action: GameAction): Reducer
       return handlePassChainPriority(state, chain, action.player);
     case 'order-passives':
       return handleOrderPassives(state, chain, action);
+    case 'reveal-on-guard':
+      return handleChainRevealOnGuard(state, chain, action);
     default:
       return { state, error: `Unexpected chain action: ${action.type}` };
   }
@@ -242,6 +245,52 @@ function handleOrderPassives(state: GameState, chain: ChainState, action: GameAc
 }
 
 /**
+ * Handles a reveal-on-guard action during chain declaring.
+ *
+ * Removes the on-guard card from the company, pushes it as a new chain entry
+ * (permanent-event or short-event based on the card definition), and flips
+ * priority to the opponent.
+ */
+function handleChainRevealOnGuard(state: GameState, chain: ChainState, action: GameAction): ReducerResult {
+  if (action.type !== 'reveal-on-guard') return { state, error: 'Expected reveal-on-guard action' };
+  if (chain.mode !== 'declaring') return { state, error: 'Cannot reveal on-guard: chain is resolving' };
+  if (action.player !== chain.priority) return { state, error: 'Cannot reveal on-guard: you do not have priority' };
+
+  const siteState = state.phaseState as import('../index.js').SitePhaseState;
+  const activeIndex = getPlayerIndex(state, state.activePlayer!);
+  const resourcePlayer = state.players[activeIndex];
+  const company = resourcePlayer.companies[siteState.activeCompanyIndex];
+  if (!company) return { state, error: 'No active company' };
+
+  const ogIdx = company.onGuardCards.findIndex(c => c.instanceId === action.cardInstanceId);
+  if (ogIdx === -1) return { state, error: 'Card not in on-guard cards' };
+
+  const revealedCard = company.onGuardCards[ogIdx];
+  const def = state.cardPool[revealedCard.definitionId as string];
+  logDetail(`Chain: hazard player reveals on-guard "${def?.name ?? revealedCard.definitionId}"`);
+
+  // Remove from on-guard
+  const newOnGuardCards = [...company.onGuardCards];
+  newOnGuardCards.splice(ogIdx, 1);
+  const newCompanies = [...resourcePlayer.companies];
+  newCompanies[siteState.activeCompanyIndex] = { ...company, onGuardCards: newOnGuardCards };
+  const newPlayers: [import('../index.js').PlayerState, import('../index.js').PlayerState] = [state.players[0], state.players[1]];
+  newPlayers[activeIndex] = { ...resourcePlayer, companies: newCompanies };
+
+  let newState: GameState = { ...state, players: newPlayers };
+
+  // Push as chain entry
+  const isPermanent = def && 'eventType' in def && (def as { eventType?: string }).eventType === 'permanent';
+  const payload: ChainEntryPayload = isPermanent
+    ? { type: 'permanent-event' as const, targetCharacterId: action.targetCharacterId }
+    : { type: 'short-event' as const };
+  const cardInstance: CardInstance = { instanceId: revealedCard.instanceId, definitionId: revealedCard.definitionId };
+  newState = pushChainEntry(newState, action.player, cardInstance, payload);
+
+  return { state: newState };
+}
+
+/**
  * Auto-resolves chain entries in LIFO order until the chain is complete
  * or player input is needed.
  *
@@ -253,6 +302,7 @@ function handleOrderPassives(state: GameState, chain: ChainState, action: GameAc
  */
 function autoResolve(state: GameState): ReducerResult {
   let current = state;
+  const allEffects: import('../index.js').GameEffect[] = [];
 
   while (current.chain && current.chain.mode === 'resolving') {
     const chain = current.chain;
@@ -270,6 +320,7 @@ function autoResolve(state: GameState): ReducerResult {
     // Resolve this entry
     const result = resolveEntry(current, nextIndex);
     current = result.state;
+    if (result.effects) allEffects.push(...result.effects);
 
     // If resolution needs player input, stop auto-advancing
     if (result.needsInput) {
@@ -278,7 +329,7 @@ function autoResolve(state: GameState): ReducerResult {
     }
   }
 
-  return { state: current };
+  return { state: current, ...(allEffects.length > 0 ? { effects: allEffects } : {}) };
 }
 
 /**
@@ -302,6 +353,8 @@ function findNextUnresolved(chain: ChainState): number {
 interface ResolveResult {
   readonly state: GameState;
   readonly needsInput: boolean;
+  /** Visual effects produced by this resolution (e.g. dice rolls). */
+  readonly effects?: readonly import('../index.js').GameEffect[];
 }
 
 /**
@@ -566,6 +619,14 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
     current = resolveLongEvent(current, entry);
   }
 
+  // Influence attempt: roll using current state (post-on-guard effects)
+  let entryEffects: readonly import('../index.js').GameEffect[] | undefined = undefined;
+  if (entry.payload.type === 'influence-attempt' && !entry.negated && entry.card) {
+    const rollResult = resolveInfluenceAttemptRoll(current, entry as ChainEntry & { payload: { type: 'influence-attempt'; influencingCharacterId: CardInstanceId } });
+    current = rollResult.state;
+    entryEffects = rollResult.effects;
+  }
+
   // Mark entry as resolved
   const resolvedChain = current.chain!;
   const newEntries = resolvedChain.entries.map((e, i) =>
@@ -591,6 +652,7 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
   return {
     state: { ...current, chain: newChain },
     needsInput: false,
+    ...(entryEffects ? { effects: entryEffects } : {}),
   };
 }
 

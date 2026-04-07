@@ -36,6 +36,34 @@ function buildMovementPathHtml(
 }
 
 /**
+ * Build an HTML detail line for an influence-attempt chain entry,
+ * showing the faction name and influencing character name.
+ */
+function buildInfluenceChainDetail(
+  entry: { card: { definitionId: unknown } | null; payload: { type: string; influencingCharacterId?: unknown } },
+  view: PlayerView,
+  cardPool: Readonly<Record<string, CardDefinition>>,
+): string {
+  const factionDef = entry.card ? cardPool[entry.card.definitionId as string] : undefined;
+  const factionName = factionDef?.name ?? 'faction';
+
+  const charId = entry.payload.influencingCharacterId as string | undefined;
+  let charName = 'character';
+  if (charId) {
+    // Look up character in self or opponent
+    const selfChar = view.self.characters?.[charId];
+    const oppChar = view.opponent.characters?.[charId];
+    const charDefId = (selfChar ?? oppChar)?.definitionId;
+    if (charDefId) {
+      const charDef = cardPool[charDefId as string];
+      if (charDef && isCharacterCard(charDef)) charName = charDef.name;
+    }
+  }
+
+  return `<br><span class="situation-banner-detail">${charName} attempting to influence ${factionName}</span>`;
+}
+
+/**
  * Returns instruction text for the current game phase, or null if none is needed.
  * Displayed in the center of the visual board to guide the player.
  * May contain HTML (e.g. inline region type icons).
@@ -99,6 +127,19 @@ function getInstructionText(
   // Chain of effects: show priority/mode context
   if (view.chain) {
     const isSelf = view.chain.priority === view.self.id;
+
+    // Check if the chain is for an influence attempt and show context
+    const infEntry = view.chain.entries.find(e => e.payload.type === 'influence-attempt' && e.card);
+    if (infEntry) {
+      const infDetail = buildInfluenceChainDetail(infEntry, view, cardPool);
+      if (view.chain.mode === 'declaring') {
+        return isSelf
+          ? `Faction Influence — Respond or pass priority.${infDetail}`
+          : `Faction Influence — Waiting for opponent to respond.${infDetail}`;
+      }
+      return `Faction Influence — Resolving...${infDetail}`;
+    }
+
     if (view.chain.mode === 'declaring') {
       return isSelf
         ? 'Chain of Effects — You have priority. Play a response or pass.'
@@ -162,7 +203,7 @@ function getInstructionText(
           : 'Site — Declare an agent attack or pass.';
       case 'resolve-attacks':
         return 'Site — Resolving on-guard/agent attacks.';
-      case 'play-resources':
+      case 'play-resources': {
         if (view.phaseState.awaitingOnGuardReveal) {
           return isSelf
             ? 'Site — Opponent may reveal on-guard cards.'
@@ -171,6 +212,7 @@ function getInstructionText(
         return isSelf
           ? 'Site — Play a resource or pass.'
           : 'Site — Opponent may play a resource.';
+      }
       case 'play-minor-item':
         return isSelf
           ? 'Site — Play an additional minor item or pass.'

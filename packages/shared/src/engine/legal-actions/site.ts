@@ -91,7 +91,7 @@ export function siteActions(state: GameState, playerId: PlayerId): EvaluatedActi
     if (siteState.awaitingOnGuardReveal) {
       return viable(onGuardRevealAtResourceActions(state, playerId, siteState));
     }
-    // Pending resource action: active player passes to trigger execution
+    // Pending resource action (hero resource): active player passes to trigger execution
     if (siteState.pendingResourceAction && state.chain === null) {
       if (isActive) {
         return viable([{ type: 'pass', player: playerId }]);
@@ -1078,3 +1078,4 @@ function opponentInfluenceActions(
 
   return actions;
 }
+

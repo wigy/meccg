@@ -80,9 +80,6 @@ export function handleSite(state: GameState, action: GameAction): ReducerResult 
       if (pending.type === 'play-hero-resource') {
         return handleSitePlayHeroResource(clearedState, pending, clearedSiteState);
       }
-      if (pending.type === 'influence-attempt') {
-        return handleInfluenceAttempt(clearedState, pending, clearedSiteState);
-      }
     }
     return handleSitePlayResources(state, action, siteState);
   }
@@ -515,9 +512,6 @@ function handleOnGuardRevealAtResource(
     if (pending?.type === 'play-hero-resource') {
       return handleSitePlayHeroResource(clearedState, pending, clearedSiteState);
     }
-    if (pending?.type === 'influence-attempt') {
-      return handleInfluenceAttempt(clearedState, pending, clearedSiteState);
-    }
     return { state: clearedState };
   }
 
@@ -619,7 +613,8 @@ function handleSitePlayResources(
 
   // On-guard intercept: when a site-tapping resource is about to be played
   // and on-guard cards exist, pause for the hazard player to reveal.
-  if ((action.type === 'play-hero-resource' || action.type === 'influence-attempt')
+  // (Influence attempts use the chain of effects instead.)
+  if (action.type === 'play-hero-resource'
     && company.onGuardCards.length > 0
     && company.currentSite?.status !== CardStatus.Tapped) {
     logDetail(`Site: resource play intercepted — hazard player may reveal on-guard cards`);
@@ -640,9 +635,10 @@ function handleSitePlayResources(
     return handleSitePlayHeroResource(state, action, siteState);
   }
 
-  // Influence a faction
+  // Influence a faction — initiates chain of effects so the opponent can
+  // reveal on-guard cards in response before the roll resolves.
   if (action.type === 'influence-attempt') {
-    return handleInfluenceAttempt(state, action, siteState);
+    return handleInfluenceAttemptDeclare(state, action, siteState);
   }
 
   // Opponent influence attempt
@@ -803,7 +799,14 @@ function handleSitePlayHeroResource(
  * Note: The influence roll is not yet implemented — for now, the
  * faction is automatically played successfully.
  */
-function handleInfluenceAttempt(
+/**
+ * Handle the declaration of a faction influence attempt.
+ *
+ * Validates the action, removes the faction card from hand, taps the
+ * influencing character, and initiates a chain of effects so the opponent
+ * can reveal on-guard cards or respond before the roll resolves.
+ */
+function handleInfluenceAttemptDeclare(
   state: GameState,
   action: GameAction,
   siteState: SitePhaseState,
@@ -840,15 +843,67 @@ function handleInfluenceAttempt(
     return { state, error: 'Site is already tapped' };
   }
 
+  logDetail(`Site: ${def.name} influence attempt declared by ${player.name} — initiating chain`);
+
+  // Remove faction from hand (it goes onto the chain)
+  const newHand = [...player.hand];
+  newHand.splice(cardIdx, 1);
+
+  // Tap the influencing character
+  const updatedChar: CharacterInPlay = {
+    ...charInPlay,
+    status: CardStatus.Tapped,
+  };
+
+  const newCharacters = { ...player.characters, [charId as string]: updatedChar };
+  const newPlayers = clonePlayers(state);
+  newPlayers[playerIndex] = { ...player, hand: newHand, characters: newCharacters };
+
+  const newState: GameState = { ...state, players: newPlayers };
+
+  // Initiate chain — faction card is held by the chain entry, opponent gets priority
+  const cardInstance: CardInstance = { instanceId: handCard.instanceId, definitionId: handCard.definitionId };
+  const chainState = initiateChain(newState, action.player, cardInstance, {
+    type: 'influence-attempt',
+    influencingCharacterId: charId,
+  });
+
+  return { state: chainState };
+}
+
+/**
+ * Resolve a faction influence attempt from the chain of effects.
+ *
+ * Called by the chain resolver when an `influence-attempt` entry resolves.
+ * Calculates modifiers using the current game state (which includes any
+ * effects from on-guard cards revealed during the chain), rolls 2d6,
+ * and places the faction in cardsInPlay (success) or discard (failure).
+ */
+export function resolveInfluenceAttemptRoll(
+  state: GameState,
+  entry: { readonly card: CardInstance | null; readonly declaredBy: import('../index.js').PlayerId; readonly payload: { readonly type: 'influence-attempt'; readonly influencingCharacterId: CardInstanceId } },
+): { state: GameState; effects: GameEffect[] } {
+  const siteState = state.phaseState as SitePhaseState;
+  const playerIndex = getPlayerIndex(state, entry.declaredBy);
+  const player = state.players[playerIndex];
+
+  if (!entry.card) return { state, effects: [] };
+
+  const def = state.cardPool[entry.card.definitionId as string];
+  if (!def || !isFactionCard(def)) return { state, effects: [] };
+
+  const charId = entry.payload.influencingCharacterId;
+  const charInPlay = player.characters[charId as string];
+  if (!charInPlay) return { state, effects: [] };
+
   const charDef = state.cardPool[charInPlay.definitionId as string];
   const charName = charDef?.name ?? charId;
 
-  // Calculate influence modifier: direct influence + DSL check-modifier effects
+  // Calculate influence modifier using current state (post-on-guard effects)
   let modifier = 0;
   if (charDef && isCharacterCard(charDef)) {
     modifier += charDef.directInfluence;
 
-    // Build resolver context for influence check
     const resolverCtx: ResolverContext = {
       reason: 'faction-influence-check',
       bearer: {
@@ -865,10 +920,8 @@ function handleInfluenceAttempt(
       },
     };
 
-    // Collect effects from the influencing character (and their items/allies)
     const charEffects = collectCharacterEffects(state, charInPlay, resolverCtx);
 
-    // Collect effects from the faction card itself (standard modifications)
     if (def.effects) {
       for (const effect of def.effects) {
         if (effect.when && !matchesCondition(effect.when, resolverCtx as unknown as Record<string, unknown>)) continue;
@@ -876,14 +929,12 @@ function handleInfluenceAttempt(
       }
     }
 
-    // Sum all check-modifier effects for influence checks
     const dslModifier = resolveCheckModifier(charEffects, 'influence');
     if (dslModifier !== 0) {
       logDetail(`DSL influence check-modifiers: ${dslModifier >= 0 ? '+' : ''}${dslModifier}`);
     }
     modifier += dslModifier;
 
-    // Resolve stat-modifier effects on direct-influence (e.g. Gimli +2 DI for Iron Hill Dwarves)
     const dslDI = resolveStatModifiers(charEffects, 'direct-influence', 0, resolverCtx);
     if (dslDI !== 0) {
       logDetail(`DSL direct-influence modifiers: ${dslDI >= 0 ? '+' : ''}${dslDI}`);
@@ -908,33 +959,23 @@ function handleInfluenceAttempt(
     label: `Influence: ${def.name}`,
   };
 
-  // Remove faction from hand
-  const newHand = [...player.hand];
-  newHand.splice(cardIdx, 1);
+  const company = player.companies[siteState.activeCompanyIndex];
+  const siteInPlay = company.currentSite;
 
-  // Tap the influencing character
-  const updatedChar: CharacterInPlay = {
-    ...charInPlay,
-    status: CardStatus.Tapped,
-  };
-
-  const newCharacters = { ...player.characters, [charId as string]: updatedChar };
   const newPlayers = clonePlayers(state);
 
   // Tap the site
   const newCompanies = [...player.companies];
   newCompanies[siteState.activeCompanyIndex] = {
     ...company,
-    currentSite: { ...siteInPlay, status: CardStatus.Tapped },
+    currentSite: siteInPlay ? { ...siteInPlay, status: CardStatus.Tapped } : siteInPlay,
   };
 
-  // Store the roll on the player
-  newPlayers[playerIndex] = { ...player, hand: newHand, characters: newCharacters, companies: newCompanies, lastDiceRoll: roll };
+  newPlayers[playerIndex] = { ...player, ...newPlayers[playerIndex], companies: newCompanies, lastDiceRoll: roll };
 
   if (total >= influenceNumber) {
-    // Success — faction goes to cardsInPlay (marshalling point pile)
     logDetail(`Influence attempt succeeded (${total} >= ${influenceNumber})`);
-    const newCardsInPlay = [...player.cardsInPlay, { instanceId: action.factionInstanceId, definitionId: handCard.definitionId, status: CardStatus.Untapped }];
+    const newCardsInPlay = [...player.cardsInPlay, { instanceId: entry.card.instanceId, definitionId: entry.card.definitionId, status: CardStatus.Untapped }];
     newPlayers[playerIndex] = { ...newPlayers[playerIndex], cardsInPlay: newCardsInPlay };
 
     return {
@@ -942,18 +983,14 @@ function handleInfluenceAttempt(
         ...state,
         players: newPlayers,
         rng, cheatRollTotal,
-        phaseState: {
-          ...siteState,
-          resourcePlayed: true,
-        },
+        phaseState: { ...siteState, resourcePlayed: true },
       },
       effects: [rollEffect],
     };
   }
 
-  // Failure — faction goes to discard pile
   logDetail(`Influence attempt failed (${total} < ${influenceNumber})`);
-  const newDiscard = [...player.discardPile, handCard];
+  const newDiscard = [...player.discardPile, entry.card];
   newPlayers[playerIndex] = { ...newPlayers[playerIndex], discardPile: newDiscard };
 
   return {
@@ -961,10 +998,7 @@ function handleInfluenceAttempt(
       ...state,
       players: newPlayers,
       rng, cheatRollTotal,
-      phaseState: {
-        ...siteState,
-        resourcePlayed: true,
-      },
+      phaseState: { ...siteState, resourcePlayed: true },
     },
     effects: [rollEffect],
   };
