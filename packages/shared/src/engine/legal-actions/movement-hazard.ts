@@ -7,9 +7,9 @@
  */
 
 import type { GameState, PlayerId, GameAction, EvaluatedAction, MovementHazardPhaseState, SiteCard, CardDefinitionId, CardInstanceId, CreatureCard, CreatureKeyingMatch, PlayHazardAction, PlaceOnGuardAction } from '../../index.js';
-import { getPlayerIndex, isCharacterCard, isSiteCard, buildMovementMap, findRegionPaths, HAND_SIZE, RegionType } from '../../index.js';
+import { getPlayerIndex, isCharacterCard, isSiteCard, buildMovementMap, findRegionPaths, RegionType } from '../../index.js';
 import { resolveInstanceId } from '../../types/state.js';
-import { collectCharacterEffects, resolveCheckModifier, resolveDef } from '../effects/index.js';
+import { collectCharacterEffects, resolveCheckModifier, resolveDef, resolveHandSize } from '../effects/index.js';
 import { MovementType } from '../../types/common.js';
 import { logDetail, logHeading } from './log.js';
 
@@ -568,7 +568,7 @@ function resetHandActions(
 ): EvaluatedAction[] {
   const playerIndex = getPlayerIndex(state, playerId);
   const player = state.players[playerIndex];
-  const handSize = HAND_SIZE; // TODO: compute from DSL hand-size-modifier effects
+  const handSize = resolveHandSize(state, playerIndex);
 
   if (player.hand.length <= handSize) {
     logDetail(`Reset-hand: player ${player.name} at hand size (${player.hand.length}/${handSize}) — no actions`);
