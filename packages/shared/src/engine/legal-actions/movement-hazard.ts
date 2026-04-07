@@ -7,8 +7,9 @@
  */
 
 import type { GameState, PlayerId, GameAction, EvaluatedAction, MovementHazardPhaseState, SiteCard, CardDefinitionId, CardInstanceId, CreatureCard, CreatureKeyingMatch, PlayHazardAction, PlaceOnGuardAction } from '../../index.js';
-import { getPlayerIndex, isSiteCard, buildMovementMap, findRegionPaths, HAND_SIZE, RegionType } from '../../index.js';
+import { getPlayerIndex, isCharacterCard, isSiteCard, buildMovementMap, findRegionPaths, HAND_SIZE, RegionType } from '../../index.js';
 import { resolveInstanceId } from '../../types/state.js';
+import { collectCharacterEffects, resolveCheckModifier, resolveDef } from '../effects/index.js';
 import { MovementType } from '../../types/common.js';
 import { logDetail, logHeading } from './log.js';
 
@@ -24,6 +25,15 @@ export function movementHazardActions(state: GameState, playerId: PlayerId): Eva
   const mhState = state.phaseState as MovementHazardPhaseState;
 
   logHeading(`Movement/hazard phase (step: ${mhState.step}): player is ${isActive ? 'active (mover)' : 'non-active (hazard player)'}`);
+
+  // When wound corruption checks are pending (e.g. Barrow-wight creature attack),
+  // only the active player's corruption-check actions are legal.
+  if (mhState.pendingWoundCorruptionChecks.length > 0 && isActive) {
+    return mhWoundCorruptionCheckActions(state, playerId, mhState);
+  }
+  if (mhState.pendingWoundCorruptionChecks.length > 0 && !isActive) {
+    return [];
+  }
 
   if (mhState.step === 'select-company') {
     return viable(selectCompanyActions(state, playerId, mhState));
@@ -676,4 +686,63 @@ export function deckExhaustExchangeActions(
   // Pass is always available (0 exchanges is fine)
   actions.push({ type: 'pass', player: playerId });
   return actions;
+}
+
+/**
+ * Generate corruption-check actions for characters wounded by a creature
+ * attack that has an `on-event: character-wounded-by-self` effect during
+ * the Movement/Hazard phase (e.g. Barrow-wight).
+ *
+ * Only the first pending check is offered at a time (processed sequentially).
+ */
+function mhWoundCorruptionCheckActions(
+  state: GameState,
+  playerId: PlayerId,
+  mhState: MovementHazardPhaseState,
+): EvaluatedAction[] {
+  const pending = mhState.pendingWoundCorruptionChecks[0];
+  if (!pending) return [];
+
+  const playerIndex = getPlayerIndex(state, playerId);
+  const player = state.players[playerIndex];
+  const char = player.characters[pending.characterId as string];
+  if (!char) {
+    logDetail(`Wound corruption check: character ${pending.characterId as string} no longer in play — skipping`);
+    return viable([{ type: 'pass', player: playerId }]);
+  }
+
+  const charDef = resolveDef(state, char.instanceId);
+  const charName = isCharacterCard(charDef) ? charDef.name : '?';
+
+  const cp = char.effectiveStats.corruptionPoints;
+  const baseModifier = isCharacterCard(charDef) ? charDef.corruptionModifier : 0;
+
+  // Collect check-modifier effects for corruption checks
+  const charEffects = collectCharacterEffects(state, char, { reason: 'corruption-check' });
+  const effectModifier = resolveCheckModifier(charEffects, 'corruption');
+
+  const totalModifier = baseModifier + effectModifier + pending.modifier;
+  const possessions: CardInstanceId[] = [
+    ...char.items.map(i => i.instanceId),
+    ...char.allies.map(a => a.instanceId),
+    ...char.hazards.map(h => h.instanceId),
+  ];
+  const ccNeed = cp + 1 - totalModifier;
+  const ccParts = [`CP ${cp}`];
+  if (totalModifier !== 0) ccParts.push(`modifier ${totalModifier >= 0 ? '+' : ''}${totalModifier}`);
+  logDetail(`Wound corruption check for ${charName} (CP ${cp}, modifier ${totalModifier >= 0 ? '+' : ''}${totalModifier})`);
+
+  return [{
+    action: {
+      type: 'corruption-check',
+      player: playerId,
+      characterId: pending.characterId,
+      corruptionPoints: cp,
+      corruptionModifier: totalModifier,
+      possessions,
+      need: ccNeed,
+      explanation: `Wound corruption: need roll > ${cp - totalModifier} (${ccParts.join(', ')})`,
+    },
+    viable: true,
+  }];
 }

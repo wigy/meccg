@@ -6,13 +6,13 @@
  * and hand reset sub-steps.
  */
 
-import type { GameState, MovementHazardPhaseState, Company, CreatureCard, GameAction } from '../index.js';
+import type { GameState, MovementHazardPhaseState, Company, CreatureCard, GameAction, CardInstance, GameEffect } from '../index.js';
 import { Phase, CardStatus, isCharacterCard, isSiteCard, RegionType, Race, Skill, getPlayerIndex, BASE_MAX_REGION_DISTANCE, HAND_SIZE } from '../index.js';
 import { logDetail } from './legal-actions/log.js';
 import { initiateChain, pushChainEntry } from './chain-reducer.js';
 import { resolveInstanceId } from '../types/state.js';
 import type { ReducerResult } from './reducer-utils.js';
-import { clonePlayers, startDeckExhaust, completeDeckExhaust, handleExchangeSideboard, cleanupEmptyCompanies } from './reducer-utils.js';
+import { clonePlayers, startDeckExhaust, completeDeckExhaust, handleExchangeSideboard, cleanupEmptyCompanies, roll2d6 } from './reducer-utils.js';
 import { handlePlayShortEvent } from './reducer-events.js';
 
 
@@ -25,6 +25,11 @@ import { handlePlayShortEvent } from './reducer-events.js';
  */
 export function handleMovementHazard(state: GameState, action: GameAction): ReducerResult {
   const mhState = state.phaseState as MovementHazardPhaseState;
+
+  // Handle pending wound corruption checks (e.g. from Barrow-wight creature attack)
+  if (mhState.pendingWoundCorruptionChecks.length > 0) {
+    return handleMHWoundCorruptionCheck(state, action, mhState);
+  }
 
   if (mhState.step === 'select-company') {
     return handleSelectCompany(state, action, mhState);
@@ -645,6 +650,7 @@ function advanceAfterCompanyMH(state: GameState, mhState: MovementHazardPhaseSta
         siteRevealed: false,
         onGuardPlacedThisCompany: false,
         returnedToOrigin: false,
+        pendingWoundCorruptionChecks: [],
       },
     },
   };
@@ -1263,6 +1269,140 @@ function advanceDrawCards(
       ...state,
       phaseState: newMhState,
     },
+  };
+}
+
+/**
+ * Handle a corruption check triggered by a creature's
+ * `on-event: character-wounded-by-self` effect (e.g. Barrow-wight) during
+ * the Movement/Hazard phase.
+ *
+ * Processes the first pending check. On pass, removes it from the queue.
+ * On failure, applies the standard corruption check consequences
+ * (discard or elimination). After all checks are processed, resumes
+ * the normal M/H phase step.
+ */
+function handleMHWoundCorruptionCheck(
+  state: GameState,
+  action: GameAction,
+  mhState: MovementHazardPhaseState,
+): ReducerResult {
+  if (action.type !== 'corruption-check') {
+    return { state, error: `Expected 'corruption-check' during wound corruption checks` };
+  }
+
+  const pending = mhState.pendingWoundCorruptionChecks[0];
+  if (!pending) return { state, error: 'No pending wound corruption check' };
+
+  if (action.characterId !== pending.characterId) {
+    return { state, error: 'Wrong character for pending wound corruption check' };
+  }
+
+  const playerIndex = state.players.findIndex(p => p.id === action.player);
+  const player = state.players[playerIndex];
+  const char = player.characters[action.characterId as string];
+  if (!char) return { state, error: 'Character not found for wound corruption check' };
+
+  const charDefId = resolveInstanceId(state, action.characterId);
+  const charDef = charDefId ? state.cardPool[charDefId as string] : undefined;
+  const charName = charDef?.name ?? '?';
+  const cp = action.corruptionPoints;
+  const modifier = action.corruptionModifier;
+
+  const { roll, rng, cheatRollTotal } = roll2d6(state);
+  const total = roll.die1 + roll.die2 + modifier;
+  const modStr = modifier !== 0 ? ` ${modifier >= 0 ? '+' : ''}${modifier}` : '';
+  logDetail(`Wound corruption check for ${charName}: rolled ${roll.die1} + ${roll.die2}${modStr} = ${total} vs CP ${cp}`);
+
+  const rollEffect: GameEffect = {
+    effect: 'dice-roll',
+    playerName: player.name,
+    die1: roll.die1,
+    die2: roll.die2,
+    label: `Wound corruption: ${charName}`,
+  };
+
+  const newPlayers = clonePlayers(state);
+  newPlayers[playerIndex] = { ...newPlayers[playerIndex], lastDiceRoll: roll };
+  const remainingChecks = mhState.pendingWoundCorruptionChecks.slice(1);
+
+  if (total > cp) {
+    logDetail(`Wound corruption check passed (${total} > ${cp})`);
+    return {
+      state: cleanupEmptyCompanies({
+        ...state,
+        players: newPlayers,
+        rng, cheatRollTotal,
+        phaseState: { ...mhState, pendingWoundCorruptionChecks: remainingChecks },
+      }),
+      effects: [rollEffect],
+    };
+  }
+
+  const newCharacters = { ...player.characters };
+
+  if (total >= cp - 1) {
+    // Roll == CP or CP-1: character and possessions are discarded
+    logDetail(`Wound corruption check FAILED (${total} within 1 of ${cp}) — discarding ${charName}`);
+
+    delete newCharacters[action.characterId as string];
+    const newCompanies = player.companies.map(c => ({
+      ...c,
+      characters: c.characters.filter(id => id !== action.characterId),
+    }));
+
+    for (const followerId of char.followers) {
+      const follower = newCharacters[followerId as string];
+      if (follower) {
+        newCharacters[followerId as string] = { ...follower, controlledBy: 'general' };
+      }
+    }
+
+    const toDiscard: CardInstance[] = [
+      { instanceId: action.characterId, definitionId: char.definitionId },
+      ...action.possessions.map(id => ({ instanceId: id, definitionId: resolveInstanceId(state, id)! })),
+    ];
+
+    newPlayers[playerIndex] = {
+      ...newPlayers[playerIndex],
+      characters: newCharacters,
+      companies: newCompanies,
+      discardPile: [...player.discardPile, ...toDiscard],
+    };
+  } else {
+    // Roll < CP-1: character is eliminated, possessions discarded
+    logDetail(`Wound corruption check FAILED (${total} < ${cp - 1}) — eliminating ${charName}`);
+
+    delete newCharacters[action.characterId as string];
+    const newCompanies = player.companies.map(c => ({
+      ...c,
+      characters: c.characters.filter(id => id !== action.characterId),
+    }));
+
+    for (const followerId of char.followers) {
+      const follower = newCharacters[followerId as string];
+      if (follower) {
+        newCharacters[followerId as string] = { ...follower, controlledBy: 'general' };
+      }
+    }
+
+    newPlayers[playerIndex] = {
+      ...newPlayers[playerIndex],
+      characters: newCharacters,
+      companies: newCompanies,
+      eliminatedPile: [...player.eliminatedPile, { instanceId: action.characterId, definitionId: char.definitionId }],
+      discardPile: [...player.discardPile, ...action.possessions.map(id => ({ instanceId: id, definitionId: resolveInstanceId(state, id)! }))],
+    };
+  }
+
+  return {
+    state: cleanupEmptyCompanies({
+      ...state,
+      players: newPlayers,
+      rng, cheatRollTotal,
+      phaseState: { ...mhState, pendingWoundCorruptionChecks: remainingChecks },
+    }),
+    effects: [rollEffect],
   };
 }
 

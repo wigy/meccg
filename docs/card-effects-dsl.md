@@ -136,7 +136,7 @@ Triggered effect that fires when a game event occurs.
 
 Events:
 
-- `character-wounded-by-self` -- fires when an automatic attack's strike wounds a character, forcing a corruption check (implemented for automatic attacks in `reducer-combat.ts` and `reducer-site.ts`; not yet implemented for creature attacks via the chain)
+- `character-wounded-by-self` -- fires when a strike wounds a character, forcing a corruption check (implemented for automatic attacks in `reducer-combat.ts` and `reducer-site.ts`, and for creature attacks in `reducer-combat.ts` and `reducer-movement-hazard.ts`)
 - `self-enters-play` -- fires when this card enters play. Used by environment permanent events to discard opposing cards (implemented in reducer play handlers)
 
 Apply types:
