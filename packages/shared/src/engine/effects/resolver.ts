@@ -25,8 +25,9 @@ import type {
   CardEffect,
   StatModifierEffect,
   CardInstanceId,
+  SiteCard,
 } from '../../index.js';
-import { matchesCondition } from '../../index.js';
+import { matchesCondition, HAND_SIZE, isCharacterCard } from '../../index.js';
 import { resolveInstanceId } from '../../types/state.js';
 import { evaluateExpr } from './expression-eval.js';
 
@@ -452,4 +453,66 @@ export function resolveAttackStrikes(
   const context = buildAttackContext(inPlayNames, creatureRace);
   const globalEffects = collectGlobalEffects(state, 'all-attacks', context);
   return resolveStatModifiers(globalEffects, 'strikes', baseStrikes, context);
+}
+
+/**
+ * Resolves the effective hand size for a player by evaluating
+ * `hand-size-modifier` effects from all characters in play.
+ *
+ * Each character's effects are evaluated in a context where `self.location`
+ * is the name of the character's current site. This supports conditions
+ * like Elrond's "+1 hand size when at Rivendell".
+ *
+ * @param state - The full game state.
+ * @param playerIndex - Which player (0 or 1) to compute for.
+ * @returns The effective hand size (base + all matching modifiers).
+ */
+export function resolveHandSize(state: GameState, playerIndex: number): number {
+  const player = state.players[playerIndex];
+  let total = HAND_SIZE;
+
+  for (const company of player.companies) {
+    // Determine the site name for this company
+    let siteName: string | undefined;
+    if (company.currentSite) {
+      const siteDef = state.cardPool[company.currentSite.definitionId as string];
+      if (siteDef && 'name' in siteDef) {
+        siteName = (siteDef as SiteCard).name;
+      }
+    }
+
+    for (const charInstanceId of company.characters) {
+      const char = player.characters[charInstanceId as string];
+      if (!char) continue;
+
+      const charDef = resolveDef(state, char.instanceId);
+      if (!charDef || !isCharacterCard(charDef)) continue;
+
+      // Build context with self.location for condition matching
+      const context: ResolverContext = {
+        reason: 'hand-size',
+        self: { location: siteName },
+        bearer: {
+          race: charDef.race,
+          skills: charDef.skills,
+          baseProwess: charDef.prowess,
+          baseBody: charDef.body,
+          baseDirectInfluence: charDef.directInfluence,
+          name: charDef.name,
+        },
+      };
+
+      // Collect effects from this character and their items
+      const collected = collectCharacterEffects(state, char, context);
+
+      // Sum hand-size-modifier values
+      for (const { effect } of collected) {
+        if (effect.type === 'hand-size-modifier') {
+          total += typeof effect.value === 'number' ? effect.value : 0;
+        }
+      }
+    }
+  }
+
+  return total;
 }

@@ -22,9 +22,10 @@ import {
   EOWYN, BEREGOND, BERGIL, BARD_BOWMAN, ANBORN, SAM_GAMGEE,
   THEODEN, ELROND, CELEBORN, GALADRIEL, GLORFINDEL_II, HALDIR, GANDALF, BALIN, KILI,
   GLAMDRING, STING, THE_MITHRIL_COAT, THE_ONE_RING, DAGGER_OF_WESTERNESSE, HORN_OF_ANOR,
+  GWAIHIR,
   CAVE_DRAKE, ORC_LIEUTENANT, ORC_PATROL, BARROW_WIGHT, FOOLISH_WORDS,
   SUN, EYE_OF_SAURON, GATES_OF_MORNING, TWILIGHT, DOORS_OF_NIGHT, SMOKE_RINGS,
-  RIVENDELL, LORIEN, MORIA, MINAS_TIRITH, MOUNT_DOOM, THRANDUILS_HALLS, BLUE_MOUNTAIN_DWARF_HOLD, DOL_AMROTH, BREE, PELARGIR,
+  RIVENDELL, LORIEN, MORIA, MINAS_TIRITH, MOUNT_DOOM, THRANDUILS_HALLS, BLUE_MOUNTAIN_DWARF_HOLD, DOL_AMROTH, BREE, PELARGIR, EAGLES_EYRIE, BANDIT_LAIR,
   WOOD_ELVES, BLUE_MOUNTAIN_DWARVES, KNIGHTS_OF_DOL_AMROTH, MEN_OF_LEBENNIN, RANGERS_OF_THE_NORTH,
 } from '../index.js';
 
@@ -623,6 +624,24 @@ export function attachHazardToChar(
   return { ...state, players: [p0, p1] as unknown as typeof state.players };
 }
 
+/** Attach an ally card to a character and return the updated GameState. */
+export function attachAllyToChar(
+  state: GameState,
+  playerIdx: number,
+  charDefId: CardDefinitionId,
+  allyDefId: CardDefinitionId,
+): GameState {
+  const charId = findCharInstanceId(state, playerIdx, charDefId);
+  const allyInPlay = { instanceId: mint(), definitionId: allyDefId, status: CardStatus.Untapped };
+  const char = state.players[playerIdx].characters[charId as string];
+  const updatedChar = { ...char, allies: [...char.allies, allyInPlay] };
+  const updatedCharacters = { ...state.players[playerIdx].characters, [charId as string]: updatedChar };
+  const updatedPlayer = { ...state.players[playerIdx], characters: updatedCharacters };
+  const p0 = playerIdx === 0 ? updatedPlayer : state.players[0];
+  const p1 = playerIdx === 1 ? updatedPlayer : state.players[1];
+  return { ...state, players: [p0, p1] as unknown as typeof state.players };
+}
+
 /** Place an on-guard card on a player's company and return the updated GameState + card. */
 export function placeOnGuard(
   state: GameState,
@@ -1058,9 +1077,10 @@ export {
   EOWYN, BEREGOND, BERGIL, BARD_BOWMAN, ANBORN, SAM_GAMGEE,
   THEODEN, ELROND, CELEBORN, GALADRIEL, GLORFINDEL_II, HALDIR, GANDALF, BALIN, KILI,
   GLAMDRING, STING, THE_MITHRIL_COAT, THE_ONE_RING, DAGGER_OF_WESTERNESSE, HORN_OF_ANOR,
+  GWAIHIR,
   CAVE_DRAKE, ORC_LIEUTENANT, ORC_PATROL, BARROW_WIGHT, FOOLISH_WORDS,
   SUN, EYE_OF_SAURON, GATES_OF_MORNING, TWILIGHT, DOORS_OF_NIGHT, SMOKE_RINGS,
-  RIVENDELL, LORIEN, MORIA, MINAS_TIRITH, MOUNT_DOOM, THRANDUILS_HALLS, BLUE_MOUNTAIN_DWARF_HOLD, DOL_AMROTH, BREE, PELARGIR,
+  RIVENDELL, LORIEN, MORIA, MINAS_TIRITH, MOUNT_DOOM, THRANDUILS_HALLS, BLUE_MOUNTAIN_DWARF_HOLD, DOL_AMROTH, BREE, PELARGIR, EAGLES_EYRIE, BANDIT_LAIR,
   WOOD_ELVES, BLUE_MOUNTAIN_DWARVES, KNIGHTS_OF_DOL_AMROTH, MEN_OF_LEBENNIN, RANGERS_OF_THE_NORTH,
   CardStatus, ZERO_EFFECTIVE_STATS, ZERO_MARSHALLING_POINTS,
 };
