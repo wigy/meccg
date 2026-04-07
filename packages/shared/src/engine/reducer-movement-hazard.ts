@@ -917,6 +917,10 @@ function handleRevealNewSite(
         resolvedSitePathNames.push(regionDef.name);
       }
     }
+  } else if (action.movementType === 'special') {
+    // Special movement (e.g. Gwaihir): no region path traversed.
+    // Only site-type keyed creatures can be played against this company.
+    logDetail(`Special movement: no region path — only site-keyed hazards apply`);
   }
 
   logDetail(`Movement/Hazard: path declared (${action.movementType}, ${resolvedSitePath.length} region types: ${resolvedSitePath.join(', ')}) → advancing to set-hazard-limit`);

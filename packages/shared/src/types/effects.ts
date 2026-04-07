@@ -221,6 +221,8 @@ export interface GrantActionEffect extends EffectBase {
 export interface ActionCost {
   /** If set, the card (or "self") must be tapped to pay this cost. */
   readonly tap?: string;
+  /** If set, the card (e.g. "self") must be discarded to pay this cost. */
+  readonly discard?: string;
   /** If set, a check must be passed (e.g. corruption check). */
   readonly check?: string;
   /** Modifier applied to the cost check roll. */
