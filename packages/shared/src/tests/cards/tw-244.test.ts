@@ -23,7 +23,7 @@ import {
   Phase,
   buildTestState, resetMint, makeMHState,
   findCharInstanceId,
-  playCreatureHazardAndResolve, runCreatureCombat,
+  playCreatureHazardAndResolve,
 } from '../test-helpers.js';
 import type { CharacterCard } from '../../index.js';
 import { computeLegalActions, RegionType, SiteType } from '../../index.js';

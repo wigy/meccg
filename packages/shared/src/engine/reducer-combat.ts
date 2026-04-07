@@ -5,7 +5,7 @@
  * strike resolution, support strikes, body checks, and combat finalization.
  */
 
-import type { GameState, CombatState, StrikeAssignment, GameAction, GameEffect, CharacterCard } from '../index.js';
+import type { GameState, CombatState, StrikeAssignment, GameAction, GameEffect } from '../index.js';
 import { CardStatus, Phase, isSiteCard, isCharacterCard } from '../index.js';
 import type { OnEventEffect } from '../types/effects.js';
 import { logDetail } from './legal-actions/log.js';

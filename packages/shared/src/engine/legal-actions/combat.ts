@@ -12,7 +12,7 @@
  * 4. body-check: attacking player rolls body check
  */
 
-import type { GameState, PlayerId, EvaluatedAction, CombatState, CharacterCard } from '../../index.js';
+import type { GameState, PlayerId, EvaluatedAction, CombatState } from '../../index.js';
 import { CardStatus, isCharacterCard } from '../../index.js';
 import { logHeading, logDetail } from './log.js';
 import { computeCombatProwess } from '../recompute-derived.js';
@@ -199,7 +199,7 @@ function resolveStrikeActions(
   // so combat-conditional weapon effects (e.g. Glamdring vs Orcs) apply.
   let baseProwess: number;
   if (combat.creatureRace && charDef && isCharacterCard(charDef) && charData) {
-    baseProwess = computeCombatProwess(state, charData, charDef as CharacterCard, combat.creatureRace);
+    baseProwess = computeCombatProwess(state, charData, charDef, combat.creatureRace);
   } else {
     baseProwess = charData?.effectiveStats?.prowess ?? 0;
   }
