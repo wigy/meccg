@@ -190,14 +190,20 @@ function resolveStrikeActions(
   const charData = state.players[playerIndex0].characters[currentStrike.characterId as string];
   const isUntapped = charData?.status === CardStatus.Untapped;
   // Compute prowess and need for both tap/untap options
+  // Must match the reducer's prowess calculation: base effective prowess,
+  // then -1 if tapped, -2 if wounded, -N for excess strikes (CoE 3.iv.7.3)
   const charDef = state.cardPool[charData?.definitionId as string];
   const charName = charDef && 'name' in charDef ? (charDef as { name: string }).name : (currentStrike.characterId as string);
   const baseProwess = charData?.effectiveStats?.prowess ?? 0;
   const strikeProwess = combat.strikeProwess;
+  let statusPenalty = 0;
+  if (charData?.status === CardStatus.Tapped) statusPenalty = 1;
+  if (charData?.status === CardStatus.Inverted) statusPenalty = 2; // Wounded
+  const excessPenalty = currentStrike.excessStrikes > 0 ? currentStrike.excessStrikes : 0;
 
   // Tap: full prowess; Untap: -3 prowess penalty
-  const tapProwess = baseProwess;
-  const untapProwess = Math.max(0, baseProwess - 3);
+  const tapProwess = baseProwess - statusPenalty - excessPenalty;
+  const untapProwess = baseProwess - 3 - statusPenalty - excessPenalty;
 
   const tapNeed = Math.max(2, strikeProwess - tapProwess + 1);
   const tapExplanation = `Tapped: need ${tapNeed}+ (prowess ${tapProwess} vs ${strikeProwess})`;
