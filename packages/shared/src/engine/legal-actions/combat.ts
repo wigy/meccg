@@ -12,9 +12,10 @@
  * 4. body-check: attacking player rolls body check
  */
 
-import type { GameState, PlayerId, EvaluatedAction, CombatState } from '../../index.js';
-import { CardStatus } from '../../types/common.js';
+import type { GameState, PlayerId, EvaluatedAction, CombatState, CharacterCard } from '../../index.js';
+import { CardStatus, isCharacterCard } from '../../index.js';
 import { logHeading, logDetail } from './log.js';
+import { computeCombatProwess } from '../recompute-derived.js';
 
 /**
  * Compute legal actions for the current combat sub-phase.
@@ -194,7 +195,14 @@ function resolveStrikeActions(
   // then -1 if tapped, -2 if wounded, -N for excess strikes (CoE 3.iv.7.3)
   const charDef = state.cardPool[charData?.definitionId as string];
   const charName = charDef && 'name' in charDef ? (charDef as { name: string }).name : (currentStrike.characterId as string);
-  const baseProwess = charData?.effectiveStats?.prowess ?? 0;
+  // Recompute prowess with combat context when creature race is known,
+  // so combat-conditional weapon effects (e.g. Glamdring vs Orcs) apply.
+  let baseProwess: number;
+  if (combat.creatureRace && charDef && isCharacterCard(charDef) && charData) {
+    baseProwess = computeCombatProwess(state, charData, charDef as CharacterCard, combat.creatureRace);
+  } else {
+    baseProwess = charData?.effectiveStats?.prowess ?? 0;
+  }
   const strikeProwess = combat.strikeProwess;
   let statusPenalty = 0;
   if (charData?.status === CardStatus.Tapped) statusPenalty = 1;

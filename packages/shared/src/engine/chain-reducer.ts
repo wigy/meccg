@@ -520,6 +520,7 @@ function initiateCreatureCombat(state: GameState, entry: ChainEntry): GameState 
     strikesTotal: effectiveStrikes,
     strikeProwess: effectiveProwess,
     creatureBody: creatureDef.body,
+    creatureRace,
     strikeAssignments: [],
     currentStrikeIndex: 0,
     phase: 'assign-strikes',
