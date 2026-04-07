@@ -208,6 +208,13 @@ export interface Company {
   readonly onGuardCards: readonly OnGuardCard[];
   /** Hazard cards targeting this company as a whole (not a specific character). */
   readonly hazards: readonly CardInPlay[];
+  /**
+   * Special movement granted by a card effect (e.g. Gwaihir).
+   * When set, the company uses special movement rules during planning and M/H phase:
+   * - `'gwaihir'`: Can move to any non-Shadow-land/Dark-domain/Under-deeps site.
+   *   Only site-keyed hazard creatures may be played. No region path is traversed.
+   */
+  readonly specialMovement?: 'gwaihir' | undefined;
 }
 
 // ---- Events in play (long/permanent) ----
