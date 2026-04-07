@@ -16,7 +16,7 @@ import {
   Alignment,
   computeLegalActions,
 } from '../index.js';
-import type { PlayerId, GameState, CardDefinitionId, CardInstanceId, CardInstance, GameAction, PlayCharacterAction, SitePhaseState, MovementHazardPhaseState, OpponentInfluenceAttemptAction, LongEventPhaseState } from '../index.js';
+import type { PlayerId, GameState, CardDefinitionId, CardInstanceId, CardInstance, GameAction, PlayCharacterAction, SitePhaseState, MovementHazardPhaseState, OpponentInfluenceAttemptAction, LongEventPhaseState, CreatureKeyingMatch } from '../index.js';
 import {
   ADRAZAR, ARAGORN, BILBO, FRODO, LEGOLAS, GIMLI, FARAMIR,
   EOWYN, BEREGOND, BERGIL, BARD_BOWMAN, ANBORN, SAM_GAMGEE,
@@ -816,6 +816,92 @@ export function playHazardAndResolve(
   return result.state;
 }
 
+/**
+ * Play a creature hazard with keying info and resolve the chain.
+ * Returns the state after chain resolution (combat should be active).
+ */
+export function playCreatureHazardAndResolve(
+  state: GameState,
+  player: PlayerId,
+  cardInstanceId: CardInstanceId,
+  targetCompanyId: CompanyId,
+  keyedBy: CreatureKeyingMatch,
+): GameState {
+  const result = reduce(state, {
+    type: 'play-hazard',
+    player,
+    cardInstanceId,
+    targetCompanyId,
+    keyedBy,
+  });
+  expect(result.error).toBeUndefined();
+  return resolveChain(result.state);
+}
+
+/**
+ * Execute the first viable action of the given type for a player.
+ * Optionally sets a cheat dice roll. For `resolve-strike`, picks the
+ * tap or no-tap variant based on the `tapToFight` parameter (default false).
+ */
+export function executeAction(
+  state: GameState,
+  player: PlayerId,
+  actionType: string,
+  roll?: number,
+  tapToFight = false,
+): GameState {
+  const s = roll !== undefined ? { ...state, cheatRollTotal: roll } : state;
+  const actions = viableActions(s, player, actionType);
+  expect(actions.length).toBeGreaterThan(0);
+  let action = actions[0].action;
+  if (actionType === 'resolve-strike') {
+    const preferred = actions.find(a => 'tapToFight' in a.action && (a.action as { tapToFight: boolean }).tapToFight === tapToFight);
+    if (preferred) action = preferred.action;
+  }
+  const result = reduce(s, action);
+  expect(result.error).toBeUndefined();
+  return result.state;
+}
+
+/**
+ * Run through creature combat: assign a single strike to the specified
+ * character, resolve it with the given dice roll, and optionally handle
+ * the body check. Returns the state after combat finalizes.
+ *
+ * @param state - State with active combat (after playing a creature hazard)
+ * @param characterDefId - Definition ID of the character to assign the strike to
+ * @param strikeRoll - Cheat roll total for strike resolution
+ * @param bodyRoll - Cheat roll total for the body check (null to skip)
+ * @param tapToFight - Whether to pick the tap-to-fight variant (default false)
+ * @param attacker - Player whose character is being struck (default PLAYER_1)
+ * @param defender - Opponent player for body checks (default PLAYER_2)
+ */
+export function runCreatureCombat(
+  state: GameState,
+  characterDefId: CardDefinitionId,
+  strikeRoll: number,
+  bodyRoll: number | null,
+  tapToFight = false,
+  attacker: PlayerId = PLAYER_1,
+  defender: PlayerId = PLAYER_2,
+): GameState {
+  const charId = findCharInstanceId(state, attacker === PLAYER_1 ? 0 : 1, characterDefId);
+
+  // Assign strike
+  let result = reduce(state, { type: 'assign-strike', player: attacker, characterId: charId });
+  expect(result.error).toBeUndefined();
+
+  // Resolve strike
+  const afterStrike = executeAction(result.state, attacker, 'resolve-strike', strikeRoll, tapToFight);
+
+  // Body check if needed
+  if (afterStrike.combat?.phase === 'body-check' && bodyRoll !== null) {
+    return executeAction(afterStrike, defender, 'body-check-roll', bodyRoll);
+  }
+
+  return afterStrike;
+}
+
 /** Play a short event and resolve the chain (both players pass). */
 export function playShortEventAndResolve(
   state: GameState,
@@ -977,5 +1063,5 @@ export {
   WOOD_ELVES, BLUE_MOUNTAIN_DWARVES, KNIGHTS_OF_DOL_AMROTH, MEN_OF_LEBENNIN, RANGERS_OF_THE_NORTH,
   CardStatus, ZERO_EFFECTIVE_STATS, ZERO_MARSHALLING_POINTS,
 };
-export type { GameConfig, QuickStartGameConfig, ReducerResult, CardInPlay, CardInstance, CardInstanceId, CardDefinitionId, CompanyId, OpponentInfluenceAttemptAction, SitePhaseState, LongEventPhaseState };
+export type { GameConfig, QuickStartGameConfig, ReducerResult, CardInPlay, CardInstance, CardInstanceId, CardDefinitionId, CompanyId, OpponentInfluenceAttemptAction, SitePhaseState, LongEventPhaseState, CreatureKeyingMatch };
 
