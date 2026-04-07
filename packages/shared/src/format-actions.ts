@@ -175,7 +175,10 @@ export function describeAction(
         ? `Play ${instName(action.cardInstanceId)} to cancel ${instName(action.targetInstanceId)}`
         : `Play short-event ${instName(action.cardInstanceId)}`;
     case 'play-hazard': {
-      const base = `Play hazard ${instName(action.cardInstanceId)} against ${compName(action.targetCompanyId)}`;
+      const target = action.targetCharacterId
+        ? `on ${instName(action.targetCharacterId)}`
+        : `against ${compName(action.targetCompanyId)}`;
+      const base = `Play hazard ${instName(action.cardInstanceId)} ${target}`;
       if (action.keyedBy) return `${base} (keyed by ${action.keyedBy.method}: ${action.keyedBy.value})`;
       return base;
     }
