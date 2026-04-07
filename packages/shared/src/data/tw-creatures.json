@@ -54,7 +54,8 @@
       }
     ],
     "text": "Orcs. Three strikes.",
-    "race": "orc"
+    "race": "orc",
+    "certified": "2026-04-06"
   },
   {
     "cardType": "hazard-creature",
