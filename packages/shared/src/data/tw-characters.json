@@ -199,11 +199,6 @@
     "homesite": "Bag End",
     "effects": [
       {
-        "type": "check-modifier",
-        "check": "corruption",
-        "value": 4
-      },
-      {
         "type": "play-restriction",
         "rule": "home-site-only",
         "when": {
@@ -220,7 +215,8 @@
         }
       }
     ],
-    "text": "Unique. Unless he is one of the starting characters, he may only be brought into play at his home site. All of his corruption checks are modified by +4. -2 marshalling points if eliminated."
+    "text": "Unique. Unless he is one of the starting characters, he may only be brought into play at his home site. All of his corruption checks are modified by +4. -2 marshalling points if eliminated.",
+    "certified": "2026-04-07"
   },
   {
     "cardType": "hero-character",
