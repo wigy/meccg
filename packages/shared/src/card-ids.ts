@@ -176,6 +176,8 @@ export const BAG_END = did('tw-372');
 export const BREE = did('tw-378');
 /** Pelargir — hero free-hold in Lebennin, nearest haven Edhellond. */
 export const PELARGIR = did('tw-419');
+/** Edoras — hero free-hold in Rohan, nearest haven Lórien. */
+export const EDORAS = did('tw-394');
 /** Dol Amroth — hero free-hold in Belfalas, nearest haven Edhellond. */
 export const DOL_AMROTH = did('tw-386');
 /** Thranduil's Halls — hero free-hold in Woodland Realm, nearest haven Lórien. */
