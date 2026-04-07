@@ -21,12 +21,27 @@ import { resolveDef } from '../effects/index.js';
 import { availableDI } from './organization.js';
 
 /**
+ * Returns true if the character has a `home-site-only` play-restriction
+ * that is active (i.e. the character is not a starting character — during
+ * normal play from hand, the context reason is always "play-character").
+ */
+function hasHomeSiteOnlyRestriction(charDef: CharacterCard): boolean {
+  if (!charDef.effects) return false;
+  return charDef.effects.some(
+    e => e.type === 'play-restriction' && e.rule === 'home-site-only',
+  );
+}
+
+/**
  * Finds all sites where a character could potentially be played.
  *
  * Returns site instance IDs matching the character's homesite name or
  * havens. Sources include both company current sites (where a company
  * already exists) and the player's site deck (where a new company would
  * be formed).
+ *
+ * Characters with a `home-site-only` play-restriction (e.g. Frodo) can
+ * only be played at their homesite, not at havens.
  */
 function findPlayableSites(
   state: GameState,
@@ -39,6 +54,11 @@ function findPlayableSites(
   const results: { instanceId: CardInstanceId; siteDef: SiteCard; siteName: string }[] = [];
   const seenInstances = new Set<string>();
   const seenSiteNames = new Set<string>();
+  const homeSiteOnly = hasHomeSiteOnlyRestriction(charDef);
+
+  if (homeSiteOnly) {
+    logDetail(`  play-restriction: ${charDef.name} has home-site-only — havens excluded`);
+  }
 
   // Sites where the player already has a company
   for (const company of player.companies) {
@@ -53,7 +73,7 @@ function findPlayableSites(
     const isHaven = siteDef.siteType === SiteType.Haven;
     const isHomesite = siteDef.name === charDef.homesite;
 
-    if (isHaven || isHomesite) {
+    if (homeSiteOnly ? isHomesite : (isHaven || isHomesite)) {
       results.push({ instanceId: siteId, siteDef, siteName: siteDef.name });
       seenSiteNames.add(siteDef.name);
     }
@@ -70,7 +90,7 @@ function findPlayableSites(
     const isHaven = siteDef.siteType === SiteType.Haven;
     const isHomesite = siteDef.name === charDef.homesite;
 
-    if (isHaven || isHomesite) {
+    if (homeSiteOnly ? isHomesite : (isHaven || isHomesite)) {
       results.push({ instanceId: siteCard.instanceId, siteDef, siteName: siteDef.name });
       seenSiteNames.add(siteDef.name);
     }
@@ -149,19 +169,11 @@ export function playCharacterActions(
     }
 
     // Find valid sites (homesite or haven — from companies or site deck)
-    let playableSites = findPlayableSites(state, player, cardDef);
-
-    // home-site-only restriction: filter out havens (only homesite is valid)
-    const hasHomeSiteOnly = cardDef.effects?.some(
-      e => e.type === 'play-restriction' && e.rule === 'home-site-only',
-    );
-    if (hasHomeSiteOnly) {
-      playableSites = playableSites.filter(s => s.siteDef.siteType !== SiteType.Haven);
-      logDetail(`  home-site-only restriction: filtered to homesite only (${playableSites.length} sites)`);
-    }
+    // Note: findPlayableSites already handles home-site-only restriction internally
+    const playableSites = findPlayableSites(state, player, cardDef);
 
     if (playableSites.length === 0) {
-      const reason = hasHomeSiteOnly
+      const reason = hasHomeSiteOnlyRestriction(cardDef)
         ? `${charName}: homesite (${cardDef.homesite}) not available (home-site-only restriction)`
         : `${charName}: homesite (${cardDef.homesite}) and no haven available`;
       logDetail(`  → blocked: ${reason}`);

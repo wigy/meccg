@@ -16,6 +16,8 @@ export {
   resolveCompanyModifier,
   resolveAttackProwess,
   resolveAttackStrikes,
+  resolveCombatProwessBonus,
+  resolveEnemyBody,
   resolveHandSize,
   normalizeCreatureRace,
   resolveDef,
