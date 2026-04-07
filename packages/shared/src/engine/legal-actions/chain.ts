@@ -13,7 +13,7 @@
  * `'declaring'` mode for the player who currently has priority.
  */
 
-import type { GameState, PlayerId, EvaluatedAction, PassChainPriorityAction, CardInstanceId, HazardEventCard, SitePhaseState } from '../../index.js';
+import type { GameState, PlayerId, EvaluatedAction, PassChainPriorityAction, CardInstanceId, HazardEventCard } from '../../index.js';
 import { Phase, getPlayerIndex } from '../../index.js';
 import { logDetail } from './log.js';
 
@@ -137,7 +137,7 @@ function onGuardRevealChainActions(state: GameState, playerId: PlayerId): Evalua
 
   // Must be in the site phase to access on-guard cards
   if (state.phaseState.phase !== Phase.Site) return [];
-  const siteState = state.phaseState as SitePhaseState;
+  const siteState = state.phaseState;
 
   const activeIndex = getPlayerIndex(state, infEntry.declaredBy);
   const resourcePlayer = state.players[activeIndex];
