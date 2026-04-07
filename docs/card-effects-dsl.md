@@ -151,6 +151,7 @@ Events:
 
 - `character-wounded-by-self` -- fires when a strike wounds a character, forcing a corruption check (implemented for automatic attacks in `reducer-combat.ts` and `reducer-site.ts`, and for creature attacks in `reducer-combat.ts` and `reducer-movement-hazard.ts`)
 - `self-enters-play` -- fires when this card enters play. Used by environment permanent events to discard opposing cards (implemented in reducer play handlers)
+- `untap-phase-at-haven` -- fires at the end of the untap phase if the bearer is at a haven/darkhaven. Used by Lure corruption hazards to force corruption checks (implemented in `reducer-untap.ts` and `legal-actions/untap.ts`)
 
 Apply types:
 

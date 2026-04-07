@@ -485,7 +485,33 @@ function playHazardsActions(
         e => e.type === 'play-target' && e.target === 'character',
       ) ?? false;
       if (isCharTargeting) {
+        // Check character-scoped duplication limit
+        const charDupLimit = def.effects?.find(
+          (e): e is import('../../index.js').DuplicationLimitEffect =>
+            e.type === 'duplication-limit' && e.scope === 'character',
+        );
+
         for (const charId of targetCompany.characters) {
+          // If character-scoped duplication limit, check how many copies of this card are already on the character
+          if (charDupLimit) {
+            const targetPlayer = state.players.find(p => p.companies.some(c => c.characters.includes(charId)))!;
+            const charInPlay = targetPlayer.characters[charId as string];
+            if (charInPlay) {
+              const copiesOnChar = charInPlay.hazards.filter(h => {
+                const hDef = state.cardPool[h.definitionId as string];
+                return hDef && hDef.name === def.name;
+              }).length;
+              if (copiesOnChar >= charDupLimit.max) {
+                logDetail(`Hazard event "${def.name}" cannot be duplicated on character ${charId as string} (${copiesOnChar}/${charDupLimit.max})`);
+                actions.push({
+                  action: { ...action, targetCharacterId: charId },
+                  viable: false,
+                  reason: `${def.name} cannot be duplicated on this character`,
+                });
+                continue;
+              }
+            }
+          }
           logDetail(`Hazard event "${def.name}" playable on character ${charId as string}`);
           actions.push({
             action: { ...action, targetCharacterId: charId },

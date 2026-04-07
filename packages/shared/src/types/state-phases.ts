@@ -170,6 +170,13 @@ export interface UntapPhaseState {
   readonly resourcePlayerPassed: boolean;
   /** Whether the non-active (hazard) player has passed the untap phase. */
   readonly hazardPlayerPassed: boolean;
+  /**
+   * Character instance IDs that must make corruption checks at the end
+   * of the untap phase due to "Lure" hazard effects (on-event
+   * untap-phase-at-haven). Populated when both players are ready to
+   * advance; consumed one at a time as checks are resolved.
+   */
+  readonly pendingLureChecks: readonly CardInstanceId[];
 }
 
 /**

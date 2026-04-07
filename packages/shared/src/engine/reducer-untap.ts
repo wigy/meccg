@@ -5,11 +5,13 @@
  * hazard sideboard access, and transition to the organization phase.
  */
 
-import type { GameState, CharacterInPlay, UntapPhaseState, GameAction } from '../index.js';
+import type { GameState, CharacterInPlay, UntapPhaseState, GameAction, CardInstanceId, CardInstance } from '../index.js';
+import type { GameEffect } from '../index.js';
 import { Phase, shuffle, CardStatus, isSiteCard, SiteType, getPlayerIndex } from '../index.js';
+import { resolveInstanceId } from '../types/state.js';
 import { logDetail } from './legal-actions/log.js';
 import type { ReducerResult } from './reducer-utils.js';
-import { clonePlayers } from './reducer-utils.js';
+import { clonePlayers, roll2d6, cleanupEmptyCompanies } from './reducer-utils.js';
 
 
 /**
@@ -58,6 +60,11 @@ export function handleUntap(state: GameState, action: GameAction): ReducerResult
     return {
       state: { ...untappedState, phaseState: newUntapState },
     };
+  }
+
+  // ── Corruption check (Lure hazards at havens) ──
+  if (action.type === 'corruption-check') {
+    return handleUntapCorruptionCheck(state, action);
   }
 
   // ── Pass action ──
@@ -271,7 +278,7 @@ function performUntap(state: GameState): GameState {
 export function enterUntapPhase(state: GameState): GameState {
   return {
     ...state,
-    phaseState: { phase: Phase.Untap, untapped: false, hazardSideboardDestination: null, hazardSideboardFetched: 0, hazardSideboardAccessed: false, resourcePlayerPassed: false, hazardPlayerPassed: false },
+    phaseState: { phase: Phase.Untap, untapped: false, hazardSideboardDestination: null, hazardSideboardFetched: 0, hazardSideboardAccessed: false, resourcePlayerPassed: false, hazardPlayerPassed: false, pendingLureChecks: [] },
   };
 }
 
@@ -282,16 +289,210 @@ export function enterUntapPhase(state: GameState): GameState {
 
 
 /**
+ * Scan the active player's characters for "on-event" effects with
+ * event "untap-phase-at-haven" and return instance IDs of characters
+ * at havens that have such hazards attached.
+ */
+function findLureChecks(state: GameState): CardInstanceId[] {
+  const activeIdx = getPlayerIndex(state, state.activePlayer!);
+  const player = state.players[activeIdx];
+  const result: CardInstanceId[] = [];
+
+  for (const company of player.companies) {
+    // Check if company is at a haven
+    if (!company.currentSite) continue;
+    const siteDef = state.cardPool[company.currentSite.definitionId as string];
+    if (!siteDef || !isSiteCard(siteDef)) continue;
+    if (siteDef.siteType !== SiteType.Haven) continue;
+
+    for (const charId of company.characters) {
+      const char = player.characters[charId as string];
+      if (!char) continue;
+      // Check hazards attached to this character for the trigger
+      for (const hazard of char.hazards) {
+        const hazDef = state.cardPool[hazard.definitionId as string];
+        if (!hazDef || !('effects' in hazDef) || !hazDef.effects) continue;
+        const hasLureTrigger = hazDef.effects.some(
+          (e: { type: string; event?: string }) =>
+            e.type === 'on-event' && e.event === 'untap-phase-at-haven',
+        );
+        if (hasLureTrigger) {
+          logDetail(`Lure corruption check queued for character ${charId as string} at haven ${siteDef.name}`);
+          result.push(charId);
+          break; // One check per character even if multiple lure hazards
+        }
+      }
+    }
+  }
+  return result;
+}
+
+/**
  * Advance from the untap phase to the Organization phase.
  * Called when resource player has untapped and hazard player has passed.
+ * Before transitioning, checks for Lure hazard corruption checks.
  */
 function advanceToOrganization(state: GameState): ReducerResult {
+  // Check for characters that need Lure corruption checks at havens
+  const lureChecks = findLureChecks(state);
+  if (lureChecks.length > 0) {
+    logDetail(`Untap: ${lureChecks.length} character(s) need Lure corruption checks before advancing`);
+    const untapState = state.phaseState as UntapPhaseState;
+    return {
+      state: {
+        ...state,
+        phaseState: { ...untapState, pendingLureChecks: lureChecks },
+      },
+    };
+  }
+
   logDetail('Untap: advancing to Organization phase');
   return {
     state: {
       ...state,
       phaseState: { phase: Phase.Organization, characterPlayedThisTurn: false, sideboardFetchedThisTurn: 0, sideboardFetchDestination: null, pendingCorruptionCheck: null },
     },
+  };
+}
+
+/**
+ * Handle corruption check during untap phase (triggered by Lure hazards
+ * on characters at havens). Similar to Free Council corruption checks
+ * but occurs at the end of the untap phase.
+ */
+function handleUntapCorruptionCheck(state: GameState, action: GameAction): ReducerResult {
+  if (action.type !== 'corruption-check') return { state, error: 'Expected corruption-check action' };
+
+  const untapState = state.phaseState as UntapPhaseState;
+  if (untapState.pendingLureChecks.length === 0) {
+    return { state, error: 'No pending Lure corruption checks' };
+  }
+  if (!untapState.pendingLureChecks.includes(action.characterId)) {
+    return { state, error: 'Character not in pending Lure corruption check list' };
+  }
+
+  const playerIndex = getPlayerIndex(state, action.player);
+  const player = state.players[playerIndex];
+  const char = player.characters[action.characterId as string];
+  if (!char) return { state, error: 'Character not found' };
+
+  const charDefId = resolveInstanceId(state, action.characterId);
+  const charDef = charDefId ? state.cardPool[charDefId as string] : undefined;
+  const charName = charDef?.name ?? '?';
+  const cp = action.corruptionPoints;
+  const modifier = action.corruptionModifier;
+
+  // Roll 2d6 + modifier
+  const { roll, rng, cheatRollTotal } = roll2d6(state);
+  const total = roll.die1 + roll.die2 + modifier;
+  const modStr = modifier !== 0 ? ` ${modifier >= 0 ? '+' : ''}${modifier}` : '';
+  logDetail(`Lure corruption check for ${charName}: rolled ${roll.die1} + ${roll.die2}${modStr} = ${total} vs CP ${cp}`);
+
+  const rollEffect: GameEffect = {
+    effect: 'dice-roll',
+    playerName: player.name,
+    die1: roll.die1,
+    die2: roll.die2,
+    label: `Lure Corruption: ${charName}`,
+  };
+
+  const newPlayers = clonePlayers(state);
+  newPlayers[playerIndex] = { ...newPlayers[playerIndex], lastDiceRoll: roll };
+
+  // Remove this character from pending list
+  const remainingChecks = untapState.pendingLureChecks.filter(id => id !== action.characterId);
+
+  if (total > cp) {
+    // Passed — continue with remaining checks or advance
+    logDetail(`Lure corruption check passed (${total} > ${cp})`);
+    if (remainingChecks.length === 0) {
+      logDetail('Untap: all Lure corruption checks resolved, advancing to Organization');
+      return {
+        state: {
+          ...state,
+          players: newPlayers,
+          rng, cheatRollTotal,
+          phaseState: { phase: Phase.Organization, characterPlayedThisTurn: false, sideboardFetchedThisTurn: 0, sideboardFetchDestination: null, pendingCorruptionCheck: null },
+        },
+        effects: [rollEffect],
+      };
+    }
+    return {
+      state: {
+        ...state,
+        players: newPlayers,
+        rng, cheatRollTotal,
+        phaseState: { ...untapState, pendingLureChecks: remainingChecks },
+      },
+      effects: [rollEffect],
+    };
+  }
+
+  // Failed — character is discarded or eliminated
+  const newCharacters = { ...player.characters };
+  delete newCharacters[action.characterId as string];
+
+  const newCompanies = player.companies.map(c => ({
+    ...c,
+    characters: c.characters.filter(id => id !== action.characterId),
+  }));
+
+  // Followers promoted to general influence
+  for (const followerId of char.followers) {
+    const follower = newCharacters[followerId as string];
+    if (follower) {
+      newCharacters[followerId as string] = { ...follower, controlledBy: 'general' };
+    }
+  }
+
+  if (total >= cp - 1) {
+    // Roll == CP or CP-1: character and possessions discarded
+    logDetail(`Lure corruption check FAILED (${total} within 1 of ${cp}) — discarding ${charName}`);
+    const toDiscard: CardInstance[] = [
+      { instanceId: action.characterId, definitionId: char.definitionId },
+      ...action.possessions.map((id: CardInstanceId) => ({ instanceId: id, definitionId: resolveInstanceId(state, id)! })),
+    ];
+    newPlayers[playerIndex] = {
+      ...newPlayers[playerIndex],
+      characters: newCharacters,
+      companies: newCompanies,
+      discardPile: [...player.discardPile, ...toDiscard],
+    };
+  } else {
+    // Roll < CP-1: character eliminated, possessions discarded
+    logDetail(`Lure corruption check FAILED (${total} < ${cp - 1}) — eliminating ${charName}`);
+    newPlayers[playerIndex] = {
+      ...newPlayers[playerIndex],
+      characters: newCharacters,
+      companies: newCompanies,
+      eliminatedPile: [...player.eliminatedPile, { instanceId: action.characterId, definitionId: char.definitionId }],
+      discardPile: [...player.discardPile, ...action.possessions.map((id: CardInstanceId) => ({ instanceId: id, definitionId: resolveInstanceId(state, id)! }))],
+    };
+  }
+
+  const updatedState = cleanupEmptyCompanies({
+    ...state,
+    players: newPlayers,
+    rng, cheatRollTotal,
+  });
+
+  if (remainingChecks.length === 0) {
+    logDetail('Untap: all Lure corruption checks resolved, advancing to Organization');
+    return {
+      state: {
+        ...updatedState,
+        phaseState: { phase: Phase.Organization, characterPlayedThisTurn: false, sideboardFetchedThisTurn: 0, sideboardFetchDestination: null, pendingCorruptionCheck: null },
+      },
+      effects: [rollEffect],
+    };
+  }
+
+  return {
+    state: {
+      ...updatedState,
+      phaseState: { ...untapState, pendingLureChecks: remainingChecks },
+    },
+    effects: [rollEffect],
   };
 }
 

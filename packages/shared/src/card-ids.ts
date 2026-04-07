@@ -145,6 +145,8 @@ export const ORC_PATROL = did('tw-074');
 export const BARROW_WIGHT = did('tw-015');
 /** Foolish Words — hazard permanent-event, -4 to influence attempts, revealable on-guard. */
 export const FOOLISH_WORDS = did('td-25');
+/** Lure of the Senses — corruption hazard, +2 CP, corruption check at haven, removable on roll > 6. */
+export const LURE_OF_THE_SENSES = did('le-124');
 
 // ---- Sites ----
 

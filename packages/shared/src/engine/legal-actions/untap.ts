@@ -14,7 +14,7 @@
 import type { GameState, PlayerId, EvaluatedAction, UntapPhaseState, CardInstanceId } from '../../index.js';
 import { Phase, CardStatus, isCharacterCard } from '../../index.js';
 import { logDetail } from './log.js';
-import { resolveDef } from '../effects/index.js';
+import { resolveDef, collectCharacterEffects, resolveCheckModifier } from '../effects/index.js';
 
 /** Maximum hazard cards that can be fetched to discard per untap. */
 const MAX_HAZARD_SIDEBOARD_TO_DISCARD = 5;
@@ -116,6 +116,11 @@ export function untapActions(state: GameState, playerId: PlayerId): EvaluatedAct
 
   // ── Active (resource) player actions ──
 
+  // ── Pending Lure corruption checks ──
+  if (untapState.pendingLureChecks.length > 0) {
+    return lureCorruptionCheckActions(state, playerId, untapState);
+  }
+
   // If hazard sideboard sub-flow is active, resource player waits
   if (untapState.hazardSideboardDestination !== null) {
     logDetail('Untap phase: resource player waiting for hazard sideboard sub-flow');
@@ -187,6 +192,64 @@ function hazardSideboardFetchActions(
       actions.push({ action: { type: 'pass', player: playerId }, viable: true });
     }
     return actions;
+  }
+
+  return actions;
+}
+
+/**
+ * Generate corruption-check actions for characters with pending Lure
+ * corruption checks (on-event untap-phase-at-haven).
+ */
+function lureCorruptionCheckActions(
+  state: GameState,
+  playerId: PlayerId,
+  untapState: UntapPhaseState,
+): EvaluatedAction[] {
+  const player = state.players.find(p => p.id === playerId)!;
+  const actions: EvaluatedAction[] = [];
+
+  for (const charId of untapState.pendingLureChecks) {
+    const char = player.characters[charId as string];
+    if (!char) continue;
+
+    const charDef = resolveDef(state, char.instanceId);
+    const charName = isCharacterCard(charDef) ? charDef.name : '?';
+    const cp = char.effectiveStats.corruptionPoints;
+    const baseModifier = isCharacterCard(charDef) ? charDef.corruptionModifier : 0;
+
+    // Resolve check-modifier effects for corruption
+    const cd = isCharacterCard(charDef) ? charDef : undefined;
+    const context = {
+      reason: 'corruption-check',
+      bearer: cd ? { race: cd.race, skills: cd.skills, baseProwess: cd.prowess, baseBody: cd.body, baseDirectInfluence: cd.directInfluence, name: cd.name } : undefined,
+    };
+    const collected = collectCharacterEffects(state, char, context);
+    const effectModifier = resolveCheckModifier(collected, 'corruption');
+    const modifier = baseModifier + effectModifier;
+
+    const possessions: CardInstanceId[] = [
+      ...char.items.map(i => i.instanceId),
+      ...char.allies.map(a => a.instanceId),
+      ...char.hazards.map(h => h.instanceId),
+    ];
+
+    const need = cp + 1 - modifier;
+    logDetail(`Lure corruption check available for ${charName} (CP ${cp}, modifier ${modifier >= 0 ? '+' : ''}${modifier}, need > ${cp - modifier})`);
+
+    actions.push({
+      action: {
+        type: 'corruption-check' as const,
+        player: playerId,
+        characterId: charId,
+        corruptionPoints: cp,
+        corruptionModifier: modifier,
+        possessions,
+        need,
+        explanation: `Lure: need roll > ${cp - modifier} (CP ${cp}${modifier !== 0 ? `, modifier ${modifier >= 0 ? '+' : ''}${modifier}` : ''})`,
+      },
+      viable: true,
+    });
   }
 
   return actions;

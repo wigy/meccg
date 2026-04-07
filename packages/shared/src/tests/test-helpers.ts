@@ -23,7 +23,7 @@ import {
   THEODEN, ELROND, CELEBORN, GALADRIEL, GLORFINDEL_II, HALDIR, GANDALF, BALIN, KILI,
   GLAMDRING, STING, THE_MITHRIL_COAT, THE_ONE_RING, DAGGER_OF_WESTERNESSE, HORN_OF_ANOR, PRECIOUS_GOLD_RING,
   GWAIHIR,
-  CAVE_DRAKE, ORC_LIEUTENANT, ORC_PATROL, BARROW_WIGHT, FOOLISH_WORDS,
+  CAVE_DRAKE, ORC_LIEUTENANT, ORC_PATROL, BARROW_WIGHT, FOOLISH_WORDS, LURE_OF_THE_SENSES,
   SUN, EYE_OF_SAURON, GATES_OF_MORNING, TWILIGHT, DOORS_OF_NIGHT, SMOKE_RINGS,
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH, MOUNT_DOOM, THRANDUILS_HALLS, BLUE_MOUNTAIN_DWARF_HOLD, DOL_AMROTH, BREE, PELARGIR, EDORAS, EAGLES_EYRIE, BANDIT_LAIR,
   WOOD_ELVES, BLUE_MOUNTAIN_DWARVES, KNIGHTS_OF_DOL_AMROTH, MEN_OF_LEBENNIN, RANGERS_OF_THE_NORTH, RIDERS_OF_ROHAN,
@@ -430,7 +430,7 @@ export function buildTestState(opts: BuildTestStateOpts): GameState {
   if (phase === Phase.Organization) {
     phaseState = { phase: Phase.Organization, characterPlayedThisTurn: false, sideboardFetchedThisTurn: 0, sideboardFetchDestination: null, pendingCorruptionCheck: null } as GameState['phaseState'];
   } else if (phase === Phase.Untap) {
-    phaseState = { phase: Phase.Untap, untapped: false, hazardSideboardDestination: null, hazardSideboardFetched: 0, hazardSideboardAccessed: false, resourcePlayerPassed: false, hazardPlayerPassed: false } as GameState['phaseState'];
+    phaseState = { phase: Phase.Untap, untapped: false, hazardSideboardDestination: null, hazardSideboardFetched: 0, hazardSideboardAccessed: false, resourcePlayerPassed: false, hazardPlayerPassed: false, pendingLureChecks: [] } as GameState['phaseState'];
   } else if (phase === Phase.LongEvent) {
     phaseState = { phase: Phase.LongEvent } as GameState['phaseState'];
   } else if (phase === Phase.EndOfTurn) {
@@ -1077,7 +1077,7 @@ export {
   THEODEN, ELROND, CELEBORN, GALADRIEL, GLORFINDEL_II, HALDIR, GANDALF, BALIN, KILI,
   GLAMDRING, STING, THE_MITHRIL_COAT, THE_ONE_RING, DAGGER_OF_WESTERNESSE, HORN_OF_ANOR, PRECIOUS_GOLD_RING,
   GWAIHIR,
-  CAVE_DRAKE, ORC_LIEUTENANT, ORC_PATROL, BARROW_WIGHT, FOOLISH_WORDS,
+  CAVE_DRAKE, ORC_LIEUTENANT, ORC_PATROL, BARROW_WIGHT, FOOLISH_WORDS, LURE_OF_THE_SENSES,
   SUN, EYE_OF_SAURON, GATES_OF_MORNING, TWILIGHT, DOORS_OF_NIGHT, SMOKE_RINGS,
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH, MOUNT_DOOM, THRANDUILS_HALLS, BLUE_MOUNTAIN_DWARF_HOLD, DOL_AMROTH, BREE, PELARGIR, EDORAS, EAGLES_EYRIE, BANDIT_LAIR,
   WOOD_ELVES, BLUE_MOUNTAIN_DWARVES, KNIGHTS_OF_DOL_AMROTH, MEN_OF_LEBENNIN, RANGERS_OF_THE_NORTH, RIDERS_OF_ROHAN,
