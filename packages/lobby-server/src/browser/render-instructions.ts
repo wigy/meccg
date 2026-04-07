@@ -161,7 +161,7 @@ function getInstructionText(
           ? 'Site — Opponent may declare an agent attack.'
           : 'Site — Declare an agent attack or pass.';
       case 'resolve-attacks':
-        return 'Site — Resolving attacks.';
+        return 'Site — Resolving on-guard/agent attacks.';
       case 'play-resources':
         if (view.phaseState.awaitingOnGuardReveal) {
           return isSelf
