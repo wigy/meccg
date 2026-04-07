@@ -40,7 +40,7 @@ function hasHomeSiteOnlyRestriction(charDef: CharacterCard): boolean {
  * already exists) and the player's site deck (where a new company would
  * be formed).
  *
- * Characters with a `home-site-only` play-restriction (e.g. Frodo) can
+ * Characters with a `home-site-only` play-restriction (e.g. Frodo, Sam) can
  * only be played at their homesite, not at havens.
  */
 function findPlayableSites(

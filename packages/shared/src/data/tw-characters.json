@@ -322,9 +322,19 @@
         "type": "check-modifier",
         "check": "corruption",
         "value": 3
+      },
+      {
+        "type": "play-restriction",
+        "rule": "home-site-only",
+        "when": {
+          "$not": {
+            "reason": "starting-character"
+          }
+        }
       }
     ],
-    "text": "Unique. Unless he is one of the starting characters, he may only be brought into play at his home site. All of his corruption checks are modified by +3."
+    "text": "Unique. Unless he is one of the starting characters, he may only be brought into play at his home site. All of his corruption checks are modified by +3.",
+    "certified": "2026-04-07"
   },
   {
     "cardType": "hero-character",
