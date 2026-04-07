@@ -42,6 +42,11 @@ function hasHomeSiteOnlyRestriction(charDef: CharacterCard): boolean {
  *
  * Characters with a `home-site-only` play-restriction (e.g. Frodo, Sam) can
  * only be played at their homesite, not at havens.
+ *
+ * Rule 2.II.2.2: if the player's avatar is in play, non-avatar characters
+ * can only be played at the avatar's current site or under DI with an
+ * existing company. When {@link avatarInPlay} is true, sites from the site
+ * deck are excluded (only company current sites are returned).
  */
 function findPlayableSites(
   state: GameState,
@@ -50,6 +55,7 @@ function findPlayableSites(
     readonly siteDeck: readonly import('../../index.js').CardInstance[];
   },
   charDef: CharacterCard,
+  avatarInPlay: boolean,
 ): { instanceId: CardInstanceId; siteDef: SiteCard; siteName: string }[] {
   const results: { instanceId: CardInstanceId; siteDef: SiteCard; siteName: string }[] = [];
   const seenInstances = new Set<string>();
@@ -80,9 +86,14 @@ function findPlayableSites(
   }
 
   // Sites available in the player's site deck (character forms a new company).
+  // Rule 2.II.2.2: when the avatar is in play, characters can only be played
+  // at the avatar's current site or under DI — skip site deck entirely.
   // Deduplicate by site name: multiple copies of the same site in the deck
   // should only produce one legal action (using the first matching instance).
-  for (const siteCard of player.siteDeck) {
+  if (avatarInPlay) {
+    logDetail(`  avatar in play — site deck excluded (rule 2.II.2.2)`);
+  }
+  for (const siteCard of avatarInPlay ? [] : player.siteDeck) {
     const siteDef = state.cardPool[siteCard.definitionId as string];
     if (!siteDef || !isSiteCard(siteDef)) continue;
     if (seenSiteNames.has(siteDef.name)) continue;
@@ -136,6 +147,24 @@ export function playCharacterActions(
   const player = state.players.find(p => p.id === playerId)!;
   const results: EvaluatedAction[] = [];
 
+  // Rule 2.II.2.2: detect if the player's avatar is in play
+  let avatarSiteId: CardInstanceId | null = null;
+  for (const char of Object.values(player.characters)) {
+    const def = resolveDef(state, char.instanceId);
+    if (isCharacterCard(def) && def.mind === null) {
+      // Find the company containing the avatar to get its current site
+      const avatarCompany = player.companies.find(c => c.characters.includes(char.instanceId));
+      if (avatarCompany?.currentSite) {
+        avatarSiteId = avatarCompany.currentSite.instanceId;
+      }
+      break;
+    }
+  }
+  const avatarInPlay = avatarSiteId !== null;
+  if (avatarInPlay) {
+    logDetail(`Avatar in play at site ${avatarSiteId as string} — character play restricted (rule 2.II.2.2)`);
+  }
+
   for (const handCard of player.hand) {
     const cardInstanceId = handCard.instanceId;
     const cardDef = state.cardPool[handCard.definitionId as string];
@@ -169,8 +198,8 @@ export function playCharacterActions(
     }
 
     // Find valid sites (homesite or haven — from companies or site deck)
-    // Note: findPlayableSites already handles home-site-only restriction internally
-    const playableSites = findPlayableSites(state, player, cardDef);
+    // Note: findPlayableSites already handles home-site-only and avatar restrictions
+    const playableSites = findPlayableSites(state, player, cardDef, avatarInPlay && !isAvatar);
 
     if (playableSites.length === 0) {
       const reason = hasHomeSiteOnlyRestriction(cardDef)
@@ -231,7 +260,9 @@ export function playCharacterActions(
 
       // Generate viable actions for each (site, controlledBy) combination
       for (const site of playableSites) {
-        if (canPlayUnderGI) {
+        // Rule 2.II.2.2: with avatar in play, GI play only at avatar's site
+        const giAllowedAtSite = !avatarInPlay || site.instanceId === avatarSiteId;
+        if (canPlayUnderGI && giAllowedAtSite) {
           logDetail(`  → viable: play under GI at ${site.siteName} (mind ${charMind}, remaining GI ${remainingGI})`);
           results.push({
             action: {
