@@ -35,12 +35,13 @@
         },
         "when": {
           "company.hasItem": {
-            "$includes": "gold-ring"
+            "subtype": "gold-ring"
           }
         }
       }
     ],
-    "text": "Unique. +1 to all of his corruption checks. Gandalf may tap to test a gold ring in his company."
+    "text": "Unique. +1 to all of his corruption checks. Gandalf may tap to test a gold ring in his company.",
+    "certified": "2026-04-07"
   },
   {
     "cardType": "hero-character",

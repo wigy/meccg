@@ -117,7 +117,8 @@ Gives the card bearer a new activated ability. For roll-based actions,
 
 Actions:
 
-- `test-gold-ring` — tap to test a gold ring (not yet implemented)
+- `test-gold-ring` — tap to test a gold ring; rolls 2d6, discards gold ring
+  (implemented in `reducer-organization.ts`)
 - `remove-self-on-roll` — tap bearer, roll 2d6, discard this card on
   success (implemented in `reducer-organization.ts`)
 - `gwaihir-special-movement` — discard this ally during organization to

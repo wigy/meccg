@@ -323,6 +323,30 @@
   {
     "cardType": "hero-resource-item",
     "alignment": "wizard",
+    "id": "tw-306",
+    "name": "Precious Gold Ring",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/PreciousGoldRing.jpg",
+    "unique": false,
+    "subtype": "gold-ring",
+    "keywords": [],
+    "marshallingPoints": 1,
+    "marshallingCategory": "item",
+    "corruptionPoints": 1,
+    "prowessModifier": 0,
+    "bodyModifier": 0,
+    "playableAt": [
+      "ruins-and-lairs",
+      "shadow-hold",
+      "dark-hold",
+      "free-hold",
+      "border-hold"
+    ],
+    "effects": [],
+    "text": "Discard Precious Gold Ring when tested. If tested, make a roll to determine which ring card may be immediately played: The One Ring (10,11,12+); a Dwarven ring (8,9,10,11,12+); a Magic Ring (1,2,3,4,5); a Lesser Ring (any result)."
+  },
+  {
+    "cardType": "hero-resource-item",
+    "alignment": "wizard",
     "id": "tw-313",
     "name": "Red Book of Westmarch",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/RedBookofWestmarch.jpg",

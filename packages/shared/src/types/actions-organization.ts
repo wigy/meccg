@@ -230,4 +230,6 @@ export interface ActivateGrantedAction {
   readonly actionId: string;
   /** The roll threshold required for success (minimum total to succeed). */
   readonly rollThreshold: number;
+  /** Optional target card for the action (e.g. which gold ring to test). */
+  readonly targetCardId?: CardInstanceId;
 }
