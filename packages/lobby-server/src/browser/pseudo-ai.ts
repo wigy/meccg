@@ -75,6 +75,14 @@ export function renderPseudoAiActions(actions: readonly DescribedAction[]): void
   const viable = actions.filter(a => a.viable);
   const nonViable = actions.filter(a => !a.viable);
 
+  // Auto-pick when there is only one viable option
+  if (viable.length === 1) {
+    sendPseudoAiPick(viable[0].action);
+    panel.classList.remove('waiting');
+    panel.classList.add('hidden');
+    return;
+  }
+
   // Sort: pass actions first
   viable.sort((a, b) => {
     const aPass = PASS_ACTION_TYPES.has(a.action.type) ? 0 : 1;
