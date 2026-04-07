@@ -16,6 +16,8 @@ export {
   resolveCompanyModifier,
   resolveAttackProwess,
   resolveAttackStrikes,
+  resolveCombatProwessBonus,
+  resolveEnemyBody,
   normalizeCreatureRace,
   resolveDef,
 } from './resolver.js';

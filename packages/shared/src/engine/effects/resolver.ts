@@ -453,3 +453,123 @@ export function resolveAttackStrikes(
   const globalEffects = collectGlobalEffects(state, 'all-attacks', context);
   return resolveStatModifiers(globalEffects, 'strikes', baseStrikes, context);
 }
+
+/**
+ * Builds a {@link ResolverContext} for resolving character combat effects.
+ *
+ * Used during strike resolution to re-resolve character prowess with
+ * enemy information, enabling conditional bonuses like Éowyn's +6 vs Nazgûl.
+ */
+function buildCombatContext(
+  char: { race: string; skills: readonly string[]; baseProwess: number; baseBody: number; baseDirectInfluence: number; name: string },
+  enemy: { race: string; name: string; prowess: number; body: number | null },
+  inPlayNames: readonly string[],
+): ResolverContext {
+  return {
+    reason: 'combat',
+    bearer: char,
+    enemy,
+    inPlay: inPlayNames,
+  };
+}
+
+/**
+ * Resolves a character's combat prowess bonus from conditional effects.
+ *
+ * During strike resolution, character prowess starts from `effectiveStats.prowess`
+ * (computed without combat context). This function collects effects from the
+ * character and their items that have `when: { reason: "combat", ... }` conditions
+ * and returns the additional prowess bonus (which may be 0 if no combat-specific
+ * effects match).
+ *
+ * @param state - The full game state.
+ * @param char - The character in play.
+ * @param enemy - The enemy creature info (race, prowess, body).
+ * @param inPlayNames - Names of all cards currently in play.
+ * @returns The additional prowess bonus from combat-specific effects.
+ */
+export function resolveCombatProwessBonus(
+  state: GameState,
+  char: CharacterInPlay,
+  enemy: { race: string; name: string; prowess: number; body: number | null },
+  inPlayNames: readonly string[],
+): number {
+  const charDef = resolveDef(state, char.instanceId);
+  if (!charDef || !('prowess' in charDef)) return 0;
+
+  const cd = charDef as { race: string; skills: readonly string[]; prowess: number; body: number; directInfluence: number; name: string };
+  const charInfo = {
+    race: cd.race,
+    skills: cd.skills,
+    baseProwess: cd.prowess,
+    baseBody: cd.body,
+    baseDirectInfluence: cd.directInfluence,
+    name: cd.name,
+  };
+
+  // Resolve prowess with combat context (includes enemy info)
+  const combatContext = buildCombatContext(charInfo, enemy, inPlayNames);
+  const combatEffects = collectCharacterEffects(state, char, combatContext);
+
+  // Resolve prowess with effective-stats context (no enemy info) — the baseline
+  const baseContext: ResolverContext = {
+    reason: 'effective-stats',
+    bearer: charInfo,
+    target: charInfo,
+    inPlay: inPlayNames,
+  };
+  const baseEffects = collectCharacterEffects(state, char, baseContext);
+
+  const combatProwess = resolveStatModifiers(combatEffects, 'prowess', cd.prowess, combatContext);
+  const baseProwess = resolveStatModifiers(baseEffects, 'prowess', cd.prowess, baseContext);
+
+  return combatProwess - baseProwess;
+}
+
+/**
+ * Resolves enemy body modifications from character effects.
+ *
+ * Collects `enemy-modifier` effects from a character and their items
+ * that match the combat context, and applies them to the enemy's body value.
+ * Currently supports the `halve-round-up` operation.
+ *
+ * @param state - The full game state.
+ * @param char - The character fighting the enemy.
+ * @param enemy - The enemy creature info.
+ * @param baseBody - The enemy's base body value.
+ * @param inPlayNames - Names of all cards currently in play.
+ * @returns The modified enemy body value.
+ */
+export function resolveEnemyBody(
+  state: GameState,
+  char: CharacterInPlay,
+  enemy: { race: string; name: string; prowess: number; body: number | null },
+  baseBody: number,
+  inPlayNames: readonly string[],
+): number {
+  const charDef = resolveDef(state, char.instanceId);
+  if (!charDef || !('prowess' in charDef)) return baseBody;
+
+  const cd = charDef as { race: string; skills: readonly string[]; prowess: number; body: number; directInfluence: number; name: string };
+  const charInfo = {
+    race: cd.race,
+    skills: cd.skills,
+    baseProwess: cd.prowess,
+    baseBody: cd.body,
+    baseDirectInfluence: cd.directInfluence,
+    name: cd.name,
+  };
+
+  const context = buildCombatContext(charInfo, enemy, inPlayNames);
+  const effects = collectCharacterEffects(state, char, context);
+
+  let body = baseBody;
+  for (const { effect } of effects) {
+    if (effect.type === 'enemy-modifier' && effect.stat === 'body') {
+      if (effect.op === 'halve-round-up') {
+        body = Math.ceil(body / 2);
+      }
+    }
+  }
+  return body;
+}

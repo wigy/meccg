@@ -84,6 +84,8 @@ export interface CombatState {
   readonly strikeProwess: number;
   /** The creature's body value for body checks. Null if no body check applies. */
   readonly creatureBody: number | null;
+  /** The creature's race (e.g. "nazgul", "orc") for condition-based combat effects. */
+  readonly creatureRace: string | null;
   /** The assignment of each strike to a defending character, with resolution status. */
   readonly strikeAssignments: readonly StrikeAssignment[];
   /** Index into strikeAssignments for the strike currently being resolved. */

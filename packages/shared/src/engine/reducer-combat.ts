@@ -12,6 +12,8 @@ import { logDetail } from './legal-actions/log.js';
 import { resolveInstanceId } from '../types/state.js';
 import type { ReducerResult } from './reducer-utils.js';
 import { roll2d6, clonePlayers } from './reducer-utils.js';
+import { resolveCombatProwessBonus, resolveEnemyBody } from './effects/index.js';
+import { buildInPlayNames } from './recompute-derived.js';
 
 
 /**
@@ -186,8 +188,17 @@ function handleResolveStrike(state: GameState, action: GameAction, combat: Comba
   const charData = defPlayer.characters[strike.characterId as string];
   if (!charData) return { state, error: 'Character not found' };
 
-  // Compute effective prowess
+  // Compute effective prowess, including combat-specific bonuses (e.g. Éowyn +6 vs Nazgûl)
   let prowess = charData.effectiveStats.prowess;
+  if (combat.creatureRace) {
+    const inPlayNames = buildInPlayNames(state);
+    const enemy = { race: combat.creatureRace, name: '', prowess: combat.strikeProwess, body: combat.creatureBody };
+    const combatBonus = resolveCombatProwessBonus(state, charData, enemy, inPlayNames);
+    if (combatBonus !== 0) {
+      logDetail(`Combat prowess bonus: +${combatBonus} (enemy race: ${combat.creatureRace})`);
+      prowess += combatBonus;
+    }
+  }
   if (!action.tapToFight) prowess -= 3;  // Stay untapped penalty
   if (charData.status === CardStatus.Tapped) prowess -= 1;
   if (charData.status === CardStatus.Inverted) prowess -= 2; // Wounded
@@ -348,8 +359,22 @@ function handleBodyCheckRoll(state: GameState, action: GameAction, combat: Comba
   const stateWithRoll: GameState = { ...state, players: basePlayers, rng, cheatRollTotal };
 
   if (combat.bodyCheckTarget === 'creature') {
-    // Body check against creature
-    const body = combat.creatureBody ?? 0;
+    // Body check against creature — apply enemy-modifier effects (e.g. Éowyn halves Nazgûl body)
+    let body = combat.creatureBody ?? 0;
+    const strike2 = combat.strikeAssignments[combat.currentStrikeIndex];
+    if (strike2 && combat.creatureRace) {
+      const defIdx2 = stateWithRoll.players.findIndex(p => p.id === combat.defendingPlayerId);
+      const charData2 = stateWithRoll.players[defIdx2].characters[strike2.characterId as string];
+      if (charData2) {
+        const inPlayNames2 = buildInPlayNames(stateWithRoll);
+        const enemy2 = { race: combat.creatureRace, name: '', prowess: combat.strikeProwess, body: combat.creatureBody };
+        const modifiedBody = resolveEnemyBody(stateWithRoll, charData2, enemy2, body, inPlayNames2);
+        if (modifiedBody !== body) {
+          logDetail(`Enemy body modified by character effects: ${body} → ${modifiedBody}`);
+          body = modifiedBody;
+        }
+      }
+    }
     logDetail(`Body check vs creature: roll ${rollTotal} vs body ${body}`);
     if (rollTotal > body) {
       logDetail('Creature body check failed — creature defeated');
