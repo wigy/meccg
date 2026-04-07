@@ -48,6 +48,35 @@ export function planMovementActions(state: GameState, playerId: PlayerId): Evalu
       siteInstMap.set(siteDef.name, siteCard.instanceId);
     }
 
+    // Gwaihir special movement: can reach any non-shadow/dark site
+    if (company.specialMovement === 'gwaihir') {
+      const regionTypeMap = buildRegionTypeMap(state);
+      logDetail(`Company ${company.id as string} at ${currentSiteDef.name}: Gwaihir special movement — filtering sites`);
+      for (const siteDef of candidateSites) {
+        const destInstId = siteInstMap.get(siteDef.name);
+        if (!destInstId) continue;
+        // Exclude sites in Shadow-land (shadow) or Dark-domain (dark) regions
+        const regionType = siteDef.region ? regionTypeMap.get(siteDef.region) : undefined;
+        if (regionType === 'shadow' || regionType === 'dark') {
+          logDetail(`  ${siteDef.name} in ${siteDef.region} (${regionType}) — excluded by Gwaihir`);
+          continue;
+        }
+        logDetail(`  ${siteDef.name} in ${siteDef.region ?? '?'} (${regionType ?? '?'}) — reachable via Gwaihir`);
+        const candidate: GameAction = {
+          type: 'plan-movement',
+          player: playerId,
+          companyId: company.id,
+          destinationSite: destInstId,
+        };
+        const regress = isRegressive(candidate, state.reverseActions);
+        actions.push({
+          action: { ...candidate, ...(regress ? { regress: true } : {}) },
+          viable: true,
+        });
+      }
+      continue;
+    }
+
     const reachable = getReachableSites(movementMap, currentSiteDef, candidateSites);
     // Deduplicate: a site reachable by both starter and region movement only needs one action
     const seen = new Set<string>();
@@ -73,6 +102,20 @@ export function planMovementActions(state: GameState, playerId: PlayerId): Evalu
   }
 
   return actions;
+}
+
+/**
+ * Builds a map from region name to its region type by scanning the card pool.
+ * Used to check whether a site's region is shadow-land, dark-domain, etc.
+ */
+function buildRegionTypeMap(state: GameState): Map<string, string> {
+  const map = new Map<string, string>();
+  for (const [, card] of Object.entries(state.cardPool)) {
+    if (card.cardType === 'region') {
+      map.set(card.name, (card as { regionType: string }).regionType);
+    }
+  }
+  return map;
 }
 
 /**

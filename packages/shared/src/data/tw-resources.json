@@ -16,7 +16,15 @@
         "site": "Eagles' Eyrie"
       }
     ],
-    "text": "Unique. Playable at Eagles' Eyrie. If his company's size is two or less, you may discard Gwaihir during the organization phase to allow his company to move to any site that is not in a Shadow-land, Dark-domain, or Under-deeps; only hazard creatures keyed to the site may be played on a company that moves in this fashion."
+    "text": "Unique. Playable at Eagles' Eyrie. If his company's size is two or less, you may discard Gwaihir during the organization phase to allow his company to move to any site that is not in a Shadow-land, Dark-domain, or Under-deeps; only hazard creatures keyed to the site may be played on a company that moves in this fashion.",
+    "effects": [
+      {
+        "type": "grant-action",
+        "action": "gwaihir-special-movement",
+        "cost": { "discard": "self" }
+      }
+    ],
+    "certified": "2026-04-07"
   },
   {
     "cardType": "hero-resource-ally",
