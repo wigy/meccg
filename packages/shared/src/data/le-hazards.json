@@ -15,6 +15,7 @@
     "id": "le-145",
     "name": "Twilight",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/Twilight.jpg",
+    "certified": "2026-04-07",
     "unique": false,
     "eventType": "short",
     "keywords": [
