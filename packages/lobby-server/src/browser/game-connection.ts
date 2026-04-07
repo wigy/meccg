@@ -34,9 +34,20 @@ export function setLobbyCallbacks(
   connectLobbyWsFn = connectLobbyWs;
 }
 
+/** Guard flag: true while waiting for the server to respond after sending an action. */
+let awaitingResponse = false;
+
+/** Clear the awaiting-response guard (called when new state arrives). */
+export function clearAwaitingResponse(): void {
+  awaitingResponse = false;
+}
+
 /** Send a game action to the server. */
 export function sendAction(action: GameAction): void {
   if (!appState.ws || appState.ws.readyState !== WebSocket.OPEN) return;
+  if (awaitingResponse) return; // Prevent double-sends before next state
+  awaitingResponse = true;
+
   // Snapshot log entry count before adding action log line
   const logEl = document.getElementById('log');
   if (logEl) appState.logCountStack.push(logEl.childElementCount);
@@ -282,6 +293,7 @@ export function connect(name: string): void {
         // Wait for any dice animation to finish before rendering the new
         // state, so the outcome isn't spoiled while dice are still rolling.
         await waitForDice();
+        clearAwaitingResponse();
         appState.currentStateSeq = msg.view.stateSeq;
         // Update heading to show game ID + seq
         { const h = document.getElementById('state-heading');
@@ -370,6 +382,7 @@ export function connect(name: string): void {
         break;
 
       case 'error':
+        clearAwaitingResponse();
         renderLog(`ERROR: ${msg.message}`);
         showNotification(msg.message, true);
         break;
