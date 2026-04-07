@@ -428,6 +428,15 @@ export interface MovementHazardPhaseState {
     /** Modifier to the corruption check roll (from the on-event effect). */
     readonly modifier: number;
   }[];
+  /**
+   * Queue of corruption checks triggered at the end of a company's M/H phase
+   * by cards with `on-event: end-of-mh-phase-per-wilderness` (e.g. Lure of Nature).
+   * One check per Wilderness in the company's site path per affected character.
+   */
+  readonly pendingLureCorruptionChecks: readonly {
+    /** The character's instance ID. */
+    readonly characterId: CardInstanceId;
+  }[];
 }
 
 /**
@@ -562,6 +571,15 @@ export interface SitePhaseState {
     readonly characterId: CardInstanceId;
     /** Modifier to the corruption check roll (from the on-event effect). */
     readonly modifier: number;
+  }[];
+  /**
+   * Queue of corruption checks triggered at the end of a company's M/H phase
+   * by cards with `on-event: end-of-mh-phase-per-wilderness` (e.g. Lure of Nature).
+   * One check per Wilderness in the company's site path per affected character.
+   */
+  readonly pendingLureCorruptionChecks: readonly {
+    /** The character's instance ID. */
+    readonly characterId: CardInstanceId;
   }[];
   /**
    * Intermediate state while awaiting the hazard player's defensive roll

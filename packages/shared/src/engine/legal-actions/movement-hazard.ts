@@ -7,7 +7,7 @@
  */
 
 import type { GameState, PlayerId, GameAction, EvaluatedAction, MovementHazardPhaseState, SiteCard, CardDefinitionId, CardInstanceId, CreatureCard, CreatureKeyingMatch, PlayHazardAction, PlaceOnGuardAction } from '../../index.js';
-import { getPlayerIndex, isCharacterCard, isSiteCard, buildMovementMap, findRegionPaths, RegionType } from '../../index.js';
+import { getPlayerIndex, isCharacterCard, isSiteCard, buildMovementMap, findRegionPaths, RegionType, matchesCondition } from '../../index.js';
 import { resolveInstanceId } from '../../types/state.js';
 import { collectCharacterEffects, resolveCheckModifier, resolveDef, resolveHandSize } from '../effects/index.js';
 import { MovementType } from '../../types/common.js';
@@ -33,6 +33,15 @@ export function movementHazardActions(state: GameState, playerId: PlayerId): Eva
     return mhWoundCorruptionCheckActions(state, playerId, mhState);
   }
   if (mhState.pendingWoundCorruptionChecks.length > 0 && !isActive) {
+    return [];
+  }
+
+  // When lure corruption checks are pending (e.g. Lure of Nature at end of M/H),
+  // only the active player's corruption-check actions are legal.
+  if (mhState.pendingLureCorruptionChecks.length > 0 && isActive) {
+    return mhLureCorruptionCheckActions(state, playerId, mhState);
+  }
+  if (mhState.pendingLureCorruptionChecks.length > 0 && !isActive) {
     return [];
   }
 
@@ -481,11 +490,44 @@ function playHazardsActions(
       }
 
       // play-target DSL: permanent events targeting a character get one action per character
-      const isCharTargeting = def.effects?.some(
-        e => e.type === 'play-target' && e.target === 'character',
-      ) ?? false;
-      if (isCharTargeting) {
+      const playTargetEffect = def.effects?.find(
+        (e): e is import('../../index.js').PlayTargetEffect => e.type === 'play-target' && e.target === 'character',
+      );
+      if (playTargetEffect) {
+        // Character-scoped duplication limit: check if same-named hazard already on character
+        const charDupLimit = def.effects?.find(
+          (e): e is import('../../index.js').DuplicationLimitEffect =>
+            e.type === 'duplication-limit' && e.scope === 'character',
+        );
+
         for (const charId of targetCompany.characters) {
+          // Apply targetFilter against character definition (e.g. race restrictions)
+          if (playTargetEffect.targetFilter) {
+            const charInPlay = resourcePlayer.characters[charId as string];
+            if (charInPlay) {
+              const charDef = state.cardPool[charInPlay.definitionId as string];
+              if (charDef && !matchesCondition(playTargetEffect.targetFilter, charDef as unknown as Record<string, unknown>)) {
+                logDetail(`Hazard event "${def.name}" cannot target ${charDef.name}: fails targetFilter`);
+                continue;
+              }
+            }
+          }
+
+          // Check character-scoped duplication: skip if same-named hazard already attached
+          if (charDupLimit) {
+            const charInPlay = resourcePlayer.characters[charId as string];
+            if (charInPlay) {
+              const copiesOnChar = charInPlay.hazards.filter(h => {
+                const hDef = state.cardPool[h.definitionId as string];
+                return hDef && hDef.name === def.name;
+              }).length;
+              if (copiesOnChar >= charDupLimit.max) {
+                logDetail(`Hazard event "${def.name}" already on character ${charId as string} (${copiesOnChar}/${charDupLimit.max})`);
+                continue;
+              }
+            }
+          }
+
           logDetail(`Hazard event "${def.name}" playable on character ${charId as string}`);
           actions.push({
             action: { ...action, targetCharacterId: charId },
@@ -755,6 +797,64 @@ function mhWoundCorruptionCheckActions(
       possessions,
       need: ccNeed,
       explanation: `Wound corruption: need roll > ${cp - totalModifier} (${ccParts.join(', ')})`,
+    },
+    viable: true,
+  }];
+}
+
+/**
+ * Compute the corruption-check action for a pending lure corruption check
+ * (triggered by Lure of Nature at the end of the M/H phase).
+ *
+ * Only the first pending check is offered at a time (processed sequentially).
+ */
+function mhLureCorruptionCheckActions(
+  state: GameState,
+  playerId: PlayerId,
+  mhState: MovementHazardPhaseState,
+): EvaluatedAction[] {
+  const pending = mhState.pendingLureCorruptionChecks[0];
+  if (!pending) return [];
+
+  const playerIndex = getPlayerIndex(state, playerId);
+  const player = state.players[playerIndex];
+  const char = player.characters[pending.characterId as string];
+  if (!char) {
+    logDetail(`Lure corruption check: character ${pending.characterId as string} no longer in play — skipping`);
+    return viable([{ type: 'pass', player: playerId }]);
+  }
+
+  const charDef = resolveDef(state, char.instanceId);
+  const charName = isCharacterCard(charDef) ? charDef.name : '?';
+
+  const cp = char.effectiveStats.corruptionPoints;
+  const baseModifier = isCharacterCard(charDef) ? charDef.corruptionModifier : 0;
+
+  // Collect check-modifier effects for corruption checks
+  const charEffects = collectCharacterEffects(state, char, { reason: 'corruption-check' });
+  const effectModifier = resolveCheckModifier(charEffects, 'corruption');
+
+  const totalModifier = baseModifier + effectModifier;
+  const possessions: CardInstanceId[] = [
+    ...char.items.map(i => i.instanceId),
+    ...char.allies.map(a => a.instanceId),
+    ...char.hazards.map(h => h.instanceId),
+  ];
+  const ccNeed = cp + 1 - totalModifier;
+  const ccParts = [`CP ${cp}`];
+  if (totalModifier !== 0) ccParts.push(`modifier ${totalModifier >= 0 ? '+' : ''}${totalModifier}`);
+  logDetail(`Lure corruption check for ${charName} (CP ${cp}, modifier ${totalModifier >= 0 ? '+' : ''}${totalModifier})`);
+
+  return [{
+    action: {
+      type: 'corruption-check',
+      player: playerId,
+      characterId: pending.characterId,
+      corruptionPoints: cp,
+      corruptionModifier: totalModifier,
+      possessions,
+      need: ccNeed,
+      explanation: `Lure corruption: need roll > ${cp - totalModifier} (${ccParts.join(', ')})`,
     },
     viable: true,
   }];

@@ -89,9 +89,38 @@
     "id": "le-123",
     "name": "Lure of Nature",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/LureofNature.jpg",
+    "certified": "2026-04-07",
     "unique": false,
     "eventType": "permanent",
-    "effects": [],
+    "keywords": ["corruption"],
+    "effects": [
+      {
+        "type": "play-target",
+        "target": "character",
+        "targetFilter": { "$not": { "race": { "$in": ["hobbit", "dwarf", "orc", "ringwraith"] } } }
+      },
+      {
+        "type": "duplication-limit",
+        "scope": "character",
+        "max": 1
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "corruption-points",
+        "value": 2
+      },
+      {
+        "type": "on-event",
+        "event": "end-of-mh-phase-per-wilderness",
+        "apply": { "type": "force-check", "check": "corruption" }
+      },
+      {
+        "type": "grant-action",
+        "action": "remove-self-on-roll",
+        "cost": { "tap": "bearer" },
+        "rollThreshold": 5
+      }
+    ],
     "text": "Corruption. Playable on a non-Hobbit, non-Dwarf, non-Orc, non-Ringwraith character. Target character receives 2 corruption points and makes a corruption check at the end of his movement/hazard phase for each Wilderness [{w}] in his company’s site path. During his organization phase, the character may tap to attempt to remove this card. Make a roll—if the result is greater than 4, discard this card. Cannot be duplicated on a given character."
   },
   {

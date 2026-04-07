@@ -13,8 +13,8 @@
  * `'declaring'` mode for the player who currently has priority.
  */
 
-import type { GameState, PlayerId, EvaluatedAction, PassChainPriorityAction, CardInstanceId, HazardEventCard } from '../../index.js';
-import { Phase, getPlayerIndex } from '../../index.js';
+import type { GameState, PlayerId, EvaluatedAction, PassChainPriorityAction, CardInstanceId, HazardEventCard, PlayTargetEffect, DuplicationLimitEffect } from '../../index.js';
+import { Phase, getPlayerIndex, matchesCondition } from '../../index.js';
 import { logDetail } from './log.js';
 
 /**
@@ -152,11 +152,32 @@ function onGuardRevealChainActions(state: GameState, playerId: PlayerId): Evalua
     if (!def || def.cardType !== 'hazard-event') continue;
 
     // Character-targeting events get one action per character
-    const isCharTargeting = 'effects' in def && def.effects?.some(
-      (e: { type: string; target?: string }) => e.type === 'play-target' && e.target === 'character',
+    const hazDef = def;
+    const playTarget = hazDef.effects?.find(
+      (e): e is PlayTargetEffect => e.type === 'play-target' && e.target === 'character',
     );
-    if (isCharTargeting) {
+    if (playTarget) {
+      const charDupLimit = hazDef.effects?.find(
+        (e): e is DuplicationLimitEffect => e.type === 'duplication-limit' && e.scope === 'character',
+      );
       for (const charId of company.characters) {
+        if (playTarget.targetFilter) {
+          const charInPlay = resourcePlayer.characters[charId as string];
+          if (charInPlay) {
+            const charDef = state.cardPool[charInPlay.definitionId as string];
+            if (charDef && !matchesCondition(playTarget.targetFilter, charDef as unknown as Record<string, unknown>)) continue;
+          }
+        }
+        if (charDupLimit) {
+          const charInPlay = resourcePlayer.characters[charId as string];
+          if (charInPlay) {
+            const copies = charInPlay.hazards.filter(h => {
+              const hDef = state.cardPool[h.definitionId as string];
+              return hDef && hDef.name === hazDef.name;
+            }).length;
+            if (copies >= charDupLimit.max) continue;
+          }
+        }
         logDetail(`Chain on-guard reveal: "${def.name}" targeting ${charId as string}`);
         actions.push({
           action: {

@@ -427,11 +427,32 @@ function onGuardRevealAtResourceActions(
       // Allow revealing hazard events (permanent or short) that affect the company
       if (def.cardType === 'hazard-event') {
         // play-target DSL: character-targeting events get one action per character
-        const isCharTargeting = 'effects' in def && def.effects?.some(
-          e => e.type === 'play-target' && e.target === 'character',
+        const hazDef = def;
+        const playTarget = hazDef.effects?.find(
+          (e): e is import('../../index.js').PlayTargetEffect => e.type === 'play-target' && e.target === 'character',
         );
-        if (isCharTargeting) {
+        if (playTarget) {
+          const charDupLimit = hazDef.effects?.find(
+            (e): e is import('../../index.js').DuplicationLimitEffect => e.type === 'duplication-limit' && e.scope === 'character',
+          );
           for (const charId of company.characters) {
+            if (playTarget.targetFilter) {
+              const charInPlay = resourcePlayer.characters[charId as string];
+              if (charInPlay) {
+                const charDef = state.cardPool[charInPlay.definitionId as string];
+                if (charDef && !matchesCondition(playTarget.targetFilter, charDef as unknown as Record<string, unknown>)) continue;
+              }
+            }
+            if (charDupLimit) {
+              const charInPlay = resourcePlayer.characters[charId as string];
+              if (charInPlay) {
+                const copies = charInPlay.hazards.filter(h => {
+                  const hDef = state.cardPool[h.definitionId as string];
+                  return hDef && hDef.name === hazDef.name;
+                }).length;
+                if (copies >= charDupLimit.max) continue;
+              }
+            }
             logDetail(`On-guard reveal at resource: "${def.name}" targeting ${charId as string}`);
             actions.push({
               type: 'reveal-on-guard',

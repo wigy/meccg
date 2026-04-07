@@ -158,6 +158,7 @@ function handleSiteSelectCompany(
         awaitingOnGuardReveal: false,
         pendingResourceAction: null,
         pendingWoundCorruptionChecks: [],
+        pendingLureCorruptionChecks: [],
       },
     },
   };
@@ -1662,6 +1663,7 @@ function advanceSiteToNextCompany(
         pendingResourceAction: null,
         opponentInteractionThisTurn: null,
         pendingWoundCorruptionChecks: [],
+        pendingLureCorruptionChecks: [],
         pendingOpponentInfluence: null,
       },
     },

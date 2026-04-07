@@ -33,6 +33,11 @@ export function handleMovementHazard(state: GameState, action: GameAction): Redu
     return handleMHWoundCorruptionCheck(state, action, mhState);
   }
 
+  // Handle pending lure corruption checks (e.g. Lure of Nature at end of M/H)
+  if (mhState.pendingLureCorruptionChecks.length > 0) {
+    return handleMHLureCorruptionCheck(state, action, mhState);
+  }
+
   if (mhState.step === 'select-company') {
     return handleSelectCompany(state, action, mhState);
   }
@@ -491,6 +496,19 @@ function endCompanyMH(state: GameState, mhState: MovementHazardPhaseState): Redu
     newPlayers[activeIndex] = { ...resourcePlayer, companies: updatedCompanies };
   }
 
+  // --- Step 8a.1: Lure corruption checks (end-of-mh-phase-per-wilderness) ---
+  const lureChecks = collectLureCorruptionChecks(state, mhState, activeIndex, newPlayers);
+  if (lureChecks.length > 0) {
+    logDetail(`Step 8: ${lureChecks.length} lure corruption check(s) pending`);
+    return {
+      state: {
+        ...state,
+        players: newPlayers,
+        phaseState: { ...mhState, pendingLureCorruptionChecks: lureChecks },
+      },
+    };
+  }
+
   // --- Step 8b: Draw up to hand size (automatic) ---
   // Use intermediate state for hand size resolution so updated companies are visible
   let intermediateState = { ...state, players: newPlayers };
@@ -602,7 +620,10 @@ function handleResetHand(
 function advanceAfterCompanyMH(state: GameState, mhState: MovementHazardPhaseState): ReducerResult {
   const activeIndex = getPlayerIndex(state, state.activePlayer!);
   const currentCompany = state.players[activeIndex].companies[mhState.activeCompanyIndex];
-  const updatedHandled = [...mhState.handledCompanyIds, currentCompany.id];
+  // Company may have been removed by cleanupEmptyCompanies (all characters discarded/eliminated)
+  const updatedHandled = currentCompany
+    ? [...mhState.handledCompanyIds, currentCompany.id]
+    : [...mhState.handledCompanyIds];
   const remainingCount = state.players[activeIndex].companies.length - updatedHandled.length;
 
   if (remainingCount <= 0) {
@@ -632,6 +653,7 @@ function advanceAfterCompanyMH(state: GameState, mhState: MovementHazardPhaseSta
           pendingResourceAction: null,
           opponentInteractionThisTurn: null,
           pendingWoundCorruptionChecks: [],
+          pendingLureCorruptionChecks: [],
           pendingOpponentInfluence: null,
         },
       }),
@@ -666,6 +688,7 @@ function advanceAfterCompanyMH(state: GameState, mhState: MovementHazardPhaseSta
         onGuardPlacedThisCompany: false,
         returnedToOrigin: false,
         pendingWoundCorruptionChecks: [],
+        pendingLureCorruptionChecks: [],
       },
     },
   };
@@ -1423,6 +1446,254 @@ function handleMHWoundCorruptionCheck(
     }),
     effects: [rollEffect],
   };
+}
+
+/**
+ * Collect pending lure corruption checks for characters with
+ * `on-event: end-of-mh-phase-per-wilderness` hazards (e.g. Lure of Nature).
+ *
+ * For each Wilderness in the resolved site path, adds one corruption check
+ * per affected character.
+ */
+function collectLureCorruptionChecks(
+  state: GameState,
+  mhState: MovementHazardPhaseState,
+  activeIndex: number,
+  players: [import('../index.js').PlayerState, import('../index.js').PlayerState],
+): { readonly characterId: import('../index.js').CardInstanceId }[] {
+  const wildernessCount = mhState.resolvedSitePath.filter(r => r === RegionType.Wilderness).length;
+  if (wildernessCount === 0) return [];
+
+  const resourcePlayer = players[activeIndex];
+  const company = resourcePlayer.companies[mhState.activeCompanyIndex];
+  if (!company) return [];
+
+  const checks: { readonly characterId: import('../index.js').CardInstanceId }[] = [];
+
+  for (const charId of company.characters) {
+    const charInPlay = resourcePlayer.characters[charId as string];
+    if (!charInPlay) continue;
+
+    // Check if character has a hazard with end-of-mh-phase-per-wilderness event
+    const hasLure = charInPlay.hazards.some(h => {
+      const hDef = state.cardPool[h.definitionId as string];
+      if (!hDef || !('effects' in hDef)) return false;
+      const effects = (hDef as { effects?: readonly { type: string; event?: string }[] }).effects;
+      return effects?.some(e => e.type === 'on-event' && e.event === 'end-of-mh-phase-per-wilderness');
+    });
+
+    if (hasLure) {
+      const charDef = state.cardPool[charInPlay.definitionId as string];
+      const charName = charDef?.name ?? '?';
+      logDetail(`Lure corruption: ${charName} must make ${wildernessCount} corruption check(s) (${wildernessCount} Wilderness in path)`);
+      for (let i = 0; i < wildernessCount; i++) {
+        checks.push({ characterId: charId });
+      }
+    }
+  }
+
+  return checks;
+}
+
+/**
+ * Handle a lure corruption check during the M/H phase.
+ *
+ * Processes the first pending check: rolls 2d6 + modifier vs corruption points.
+ * On failure, applies standard corruption check consequences (discard or elimination).
+ * When all checks are processed, resumes end-of-M/H (draw cards, reset hand).
+ */
+function handleMHLureCorruptionCheck(
+  state: GameState,
+  action: GameAction,
+  mhState: MovementHazardPhaseState,
+): ReducerResult {
+  if (action.type !== 'corruption-check') {
+    return { state, error: `Expected 'corruption-check' during lure corruption checks` };
+  }
+
+  const pending = mhState.pendingLureCorruptionChecks[0];
+  if (!pending) return { state, error: 'No pending lure corruption check' };
+
+  if (action.characterId !== pending.characterId) {
+    return { state, error: 'Wrong character for pending lure corruption check' };
+  }
+
+  const playerIndex = state.players.findIndex(p => p.id === action.player);
+  const player = state.players[playerIndex];
+  const char = player.characters[action.characterId as string];
+  if (!char) return { state, error: 'Character not found for lure corruption check' };
+
+  const charDefId = resolveInstanceId(state, action.characterId);
+  const charDef = charDefId ? state.cardPool[charDefId as string] : undefined;
+  const charName = charDef?.name ?? '?';
+  const cp = action.corruptionPoints;
+  const modifier = action.corruptionModifier;
+
+  const { roll, rng, cheatRollTotal } = roll2d6(state);
+  const total = roll.die1 + roll.die2 + modifier;
+  const modStr = modifier !== 0 ? ` ${modifier >= 0 ? '+' : ''}${modifier}` : '';
+  logDetail(`Lure corruption check for ${charName}: rolled ${roll.die1} + ${roll.die2}${modStr} = ${total} vs CP ${cp}`);
+
+  const rollEffect: GameEffect = {
+    effect: 'dice-roll',
+    playerName: player.name,
+    die1: roll.die1,
+    die2: roll.die2,
+    label: `Lure corruption: ${charName}`,
+  };
+
+  const newPlayers = clonePlayers(state);
+  newPlayers[playerIndex] = { ...newPlayers[playerIndex], lastDiceRoll: roll };
+  const remainingChecks = mhState.pendingLureCorruptionChecks.slice(1);
+
+  if (total > cp) {
+    logDetail(`Lure corruption check passed (${total} > ${cp})`);
+    const newMhState = { ...mhState, pendingLureCorruptionChecks: remainingChecks };
+    if (remainingChecks.length === 0) {
+      // All checks done — resume end-of-M/H (draw cards)
+      return resumeEndOfMH({ ...state, players: newPlayers, rng, cheatRollTotal }, newMhState, [rollEffect]);
+    }
+    return {
+      state: cleanupEmptyCompanies({
+        ...state,
+        players: newPlayers,
+        rng, cheatRollTotal,
+        phaseState: newMhState,
+      }),
+      effects: [rollEffect],
+    };
+  }
+
+  const newCharacters = { ...player.characters };
+
+  if (total >= cp - 1) {
+    // Roll == CP or CP-1: character and possessions are discarded
+    logDetail(`Lure corruption check FAILED (${total} within 1 of ${cp}) — discarding ${charName}`);
+
+    delete newCharacters[action.characterId as string];
+    const newCompanies = player.companies.map(c => ({
+      ...c,
+      characters: c.characters.filter(id => id !== action.characterId),
+    }));
+
+    for (const followerId of char.followers) {
+      const follower = newCharacters[followerId as string];
+      if (follower) {
+        newCharacters[followerId as string] = { ...follower, controlledBy: 'general' };
+      }
+    }
+
+    const toDiscard: CardInstance[] = [
+      { instanceId: action.characterId, definitionId: char.definitionId },
+      ...action.possessions.map(id => ({ instanceId: id, definitionId: resolveInstanceId(state, id)! })),
+    ];
+
+    newPlayers[playerIndex] = {
+      ...newPlayers[playerIndex],
+      characters: newCharacters,
+      companies: newCompanies,
+      discardPile: [...player.discardPile, ...toDiscard],
+    };
+  } else {
+    // Roll < CP-1: character is eliminated, possessions discarded
+    logDetail(`Lure corruption check FAILED (${total} < ${cp - 1}) — eliminating ${charName}`);
+
+    delete newCharacters[action.characterId as string];
+    const newCompanies = player.companies.map(c => ({
+      ...c,
+      characters: c.characters.filter(id => id !== action.characterId),
+    }));
+
+    for (const followerId of char.followers) {
+      const follower = newCharacters[followerId as string];
+      if (follower) {
+        newCharacters[followerId as string] = { ...follower, controlledBy: 'general' };
+      }
+    }
+
+    newPlayers[playerIndex] = {
+      ...newPlayers[playerIndex],
+      characters: newCharacters,
+      companies: newCompanies,
+      eliminatedPile: [...player.eliminatedPile, { instanceId: action.characterId, definitionId: char.definitionId }],
+      discardPile: [...player.discardPile, ...action.possessions.map(id => ({ instanceId: id, definitionId: resolveInstanceId(state, id)! }))],
+    };
+  }
+
+  // Remove checks for a character that was just discarded/eliminated
+  const filteredRemaining = remainingChecks.filter(c => c.characterId !== action.characterId);
+  const newMhState = { ...mhState, pendingLureCorruptionChecks: filteredRemaining };
+
+  if (filteredRemaining.length === 0) {
+    return resumeEndOfMH(
+      cleanupEmptyCompanies({ ...state, players: newPlayers, rng, cheatRollTotal }),
+      newMhState,
+      [rollEffect],
+    );
+  }
+
+  return {
+    state: cleanupEmptyCompanies({
+      ...state,
+      players: newPlayers,
+      rng, cheatRollTotal,
+      phaseState: newMhState,
+    }),
+    effects: [rollEffect],
+  };
+}
+
+/**
+ * Resume the end-of-M/H flow after lure corruption checks are done.
+ * Draws cards up to hand size and handles reset-hand if needed.
+ */
+function resumeEndOfMH(
+  state: GameState,
+  mhState: MovementHazardPhaseState,
+  effects: GameEffect[],
+): ReducerResult {
+  const newPlayers = clonePlayers(state);
+
+  // Copy current player state into newPlayers
+  for (let i = 0; i < 2; i++) {
+    newPlayers[i] = state.players[i];
+  }
+
+  // Draw up to hand size
+  let intermediateState = { ...state, players: newPlayers };
+  for (let i = 0; i < 2; i++) {
+    const p = newPlayers[i];
+    const handSize = resolveHandSize(intermediateState, i);
+    if (p.hand.length < handSize) {
+      const drawCount = Math.min(handSize - p.hand.length, p.playDeck.length);
+      if (drawCount > 0) {
+        logDetail(`Step 8 (resume): player ${p.name} draws ${drawCount} card(s) to reach hand size ${handSize}`);
+        newPlayers[i] = {
+          ...p,
+          hand: [...p.hand, ...p.playDeck.slice(0, drawCount)],
+          playDeck: p.playDeck.slice(drawCount),
+        };
+        intermediateState = { ...intermediateState, players: newPlayers };
+      }
+    }
+  }
+
+  const needsDiscard = newPlayers.some((p, i) => p.hand.length > resolveHandSize(intermediateState, i));
+  const updatedState = { ...state, players: newPlayers };
+
+  if (needsDiscard) {
+    logDetail(`Step 8 (resume): player(s) over hand size — entering reset-hand for discard`);
+    return {
+      state: {
+        ...updatedState,
+        phaseState: { ...mhState, step: 'reset-hand' as const },
+      },
+      effects,
+    };
+  }
+
+  const result = advanceAfterCompanyMH(updatedState, mhState);
+  return { ...result, effects: [...(effects || []), ...(result.effects || [])] };
 }
 
 /**

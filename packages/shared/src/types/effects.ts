@@ -313,6 +313,11 @@ export interface PlayTargetEffect extends EffectBase {
   readonly type: 'play-target';
   /** What kind of target this card requires. */
   readonly target: 'character';
+  /**
+   * Optional condition evaluated against each potential target's card definition
+   * to filter eligible targets (e.g. race restrictions like non-Hobbit).
+   */
+  readonly targetFilter?: Condition;
 }
 
 /**

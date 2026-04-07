@@ -151,6 +151,7 @@ Events:
 
 - `character-wounded-by-self` -- fires when a strike wounds a character, forcing a corruption check (implemented for automatic attacks in `reducer-combat.ts` and `reducer-site.ts`, and for creature attacks in `reducer-combat.ts` and `reducer-movement-hazard.ts`)
 - `self-enters-play` -- fires when this card enters play. Used by environment permanent events to discard opposing cards (implemented in reducer play handlers)
+- `end-of-mh-phase-per-wilderness` -- fires at the end of a company's M/H phase once per Wilderness in the site path (implemented in `reducer-movement-hazard.ts`). Used by Lure of Nature for corruption checks
 
 Apply types:
 
@@ -206,6 +207,14 @@ generate per-target actions (one per eligible character, company, etc.).
 Supported targets:
 
 - `character` — targets a single character in the company
+
+Optional `targetFilter` — a DSL condition evaluated against each potential
+target's card definition to filter eligible targets (e.g. race restrictions):
+
+```json
+{ "type": "play-target", "target": "character",
+  "targetFilter": { "$not": { "race": { "$in": ["hobbit", "dwarf"] } } } }
+```
 
 ### 14. `on-guard-reveal`
 
