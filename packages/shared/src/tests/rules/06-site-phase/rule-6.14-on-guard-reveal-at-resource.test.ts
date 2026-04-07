@@ -15,14 +15,13 @@
 
 import { describe, test, expect, beforeEach } from 'vitest';
 import {
-  buildTestState, resetMint, Phase, reduce,
-  makeSitePhase, placeOnGuard, viableActions, resolveChain,
+  buildTestState, resetMint, Phase, reduce, resolveChain,
+  makeSitePhase, placeOnGuard, viableActions,
   PLAYER_1, PLAYER_2,
   GANDALF, LEGOLAS, ARAGORN,
   FOOLISH_WORDS, KNIGHTS_OF_DOL_AMROTH,
   LORIEN, MINAS_TIRITH, DOL_AMROTH,
 } from '../../test-helpers.js';
-import type { SitePhaseState } from '../../../index.js';
 
 /** Build state: PLAYER_1 at Dol Amroth with Aragorn, faction in hand, Foolish Words on-guard. */
 function buildScenario(characters = [ARAGORN]) {
@@ -41,7 +40,7 @@ function buildScenario(characters = [ARAGORN]) {
 describe('Rule 6.14 — On-Guard Reveal When Playing Resource', () => {
   beforeEach(() => resetMint());
 
-  test('influence-attempt with on-guard cards enters awaitingOnGuardReveal', () => {
+  test('influence-attempt with on-guard cards initiates a chain', () => {
     const { testState } = buildScenario();
 
     const influenceAction = viableActions(testState, PLAYER_1, 'influence-attempt')[0];
@@ -49,11 +48,14 @@ describe('Rule 6.14 — On-Guard Reveal When Playing Resource', () => {
 
     const result = reduce(testState, influenceAction.action);
     expect(result.error).toBeUndefined();
-    expect((result.state.phaseState as SitePhaseState).awaitingOnGuardReveal).toBe(true);
-    expect((result.state.phaseState as SitePhaseState).pendingResourceAction).not.toBeNull();
+    // Chain is active (faction card on chain, opponent has priority)
+    expect(result.state.chain).not.toBeNull();
+    expect(result.state.chain!.priority).toBe(PLAYER_2);
+    expect(result.state.chain!.entries).toHaveLength(1);
+    expect(result.state.chain!.entries[0].payload.type).toBe('influence-attempt');
   });
 
-  test('hazard player gets RevealOnGuardAction for on-guard hazard events', () => {
+  test('hazard player gets RevealOnGuardAction during influence-attempt chain', () => {
     const { testState, ogCard } = buildScenario();
 
     const afterAttempt = reduce(testState, viableActions(testState, PLAYER_1, 'influence-attempt')[0].action);
@@ -75,19 +77,17 @@ describe('Rule 6.14 — On-Guard Reveal When Playing Resource', () => {
     expect(new Set(targets).size).toBe(2);
   });
 
-  test('pass clears the on-guard window and executes the pending resource', () => {
+  test('both players passing chain priority resolves influence attempt', () => {
     const { testState } = buildScenario();
 
     const afterAttempt = reduce(testState, viableActions(testState, PLAYER_1, 'influence-attempt')[0].action);
 
-    // Hazard player passes — pending resource should execute
-    const afterPass = reduce(afterAttempt.state, { type: 'pass', player: PLAYER_2 });
-    expect(afterPass.error).toBeUndefined();
-    expect((afterPass.state.phaseState as SitePhaseState).awaitingOnGuardReveal).toBe(false);
-    expect((afterPass.state.phaseState as SitePhaseState).pendingResourceAction).toBeNull();
+    // Resolve chain (both players pass → influence roll resolves)
+    const afterChain = resolveChain(afterAttempt.state);
+    expect(afterChain.chain).toBeNull();
   });
 
-  test('revealing on-guard initiates a chain; after chain resolves, pending resource executes', () => {
+  test('revealing on-guard pushes entry onto chain; after chain resolves, influence roll executes', () => {
     const { testState } = buildScenario();
 
     const afterAttempt = reduce(testState, viableActions(testState, PLAYER_1, 'influence-attempt')[0].action);
@@ -96,14 +96,11 @@ describe('Rule 6.14 — On-Guard Reveal When Playing Resource', () => {
 
     expect(afterReveal.error).toBeUndefined();
     expect(afterReveal.state.chain).not.toBeNull();
+    // Chain now has 2 entries: influence-attempt + on-guard event
+    expect(afterReveal.state.chain!.entries).toHaveLength(2);
 
     // Resolve the chain
     const afterChain = resolveChain(afterReveal.state);
     expect(afterChain.chain).toBeNull();
-
-    // Pass to trigger pending resource execution
-    const afterExec = reduce(afterChain, { type: 'pass', player: PLAYER_1 });
-    expect(afterExec.error).toBeUndefined();
-    expect((afterExec.state.phaseState as SitePhaseState).pendingResourceAction).toBeNull();
   });
 });
