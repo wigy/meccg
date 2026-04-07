@@ -96,6 +96,8 @@ export interface CardInPlay {
   readonly definitionId: CardDefinitionId;
   /** Current state of this card — untapped, tapped, or inverted. */
   readonly status: CardStatus;
+  /** If this event is attached to a specific card (e.g. a corruption card on a character). */
+  readonly attachedTo?: CardInstanceId;
 }
 
 /**
@@ -217,26 +219,6 @@ export interface Company {
   readonly specialMovement?: 'gwaihir' | undefined;
 }
 
-// ---- Events in play (long/permanent) ----
-
-/**
- * A long-duration or permanent event card currently in play.
- *
- * Short events resolve immediately and go to the discard pile, but long
- * and permanent events persist on the table and modify the game environment.
- * Long events are discarded during the Long-event phase; permanent events
- * remain until explicitly removed.
- */
-export interface EventInPlay {
-  /** The card instance ID of this event. */
-  readonly instanceId: CardInstanceId;
-  /** Reference to the static event card definition. */
-  readonly definitionId: CardDefinitionId;
-  /** The player who played this event. */
-  readonly owner: PlayerId;
-  /** If this event is attached to a specific card (e.g. a corruption card on a character). */
-  readonly attachedTo?: CardInstanceId;
-}
 
 // ---- Marshalling Points ----
 

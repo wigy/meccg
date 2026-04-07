@@ -7,7 +7,7 @@
  */
 
 import type { GameState, CardInstance, ChainEntryPayload, PendingEffect, GameAction } from '../index.js';
-import { Phase, getPlayerIndex, BASE_MAX_REGION_DISTANCE } from '../index.js';
+import { Phase, CardStatus, getPlayerIndex, BASE_MAX_REGION_DISTANCE } from '../index.js';
 import { logDetail } from './legal-actions/log.js';
 import { initiateChain, pushChainEntry } from './chain-reducer.js';
 import { resolveInstanceId } from '../types/state.js';
@@ -104,15 +104,14 @@ export function handlePlayShortEvent(state: GameState, action: GameAction): Redu
     return { state, error: 'Target environment required for hazard short-event' };
   }
 
-  // Validate target exists (in eventsInPlay, cardsInPlay, or the current chain)
-  const targetInEvents = state.eventsInPlay.some(ev => ev.instanceId === action.targetInstanceId);
+  // Validate target exists (in cardsInPlay or the current chain)
   const targetInCards = state.players.some(p =>
     p.cardsInPlay.some(c => c.instanceId === action.targetInstanceId),
   );
   const targetInChain = state.chain?.entries.some(
     e => e.card?.instanceId === action.targetInstanceId && !e.resolved && !e.negated,
   ) ?? false;
-  if (!targetInEvents && !targetInCards && !targetInChain) {
+  if (!targetInCards && !targetInChain) {
     return { state, error: 'Target environment not in play or on chain' };
   }
 
@@ -174,23 +173,11 @@ export function handleLongEvent(state: GameState, action: GameAction): ReducerRe
     const activePlayer = state.activePlayer!;
     const hazardPlayerIndex = (getPlayerIndex(state, activePlayer) + 1) % state.players.length;
     const hazardPlayer = state.players[hazardPlayerIndex];
-    const hazardPlayerId = hazardPlayer.id;
     const discardedEvents: CardInstance[] = [];
     const remainingCards = hazardPlayer.cardsInPlay.filter(card => {
       const def = state.cardPool[card.definitionId as string];
       if (def && def.cardType === 'hazard-event' && def.eventType === 'long') {
         logDetail(`Long-event exit: discarding hazard long-event "${def.name}" (${card.instanceId as string})`);
-        discardedEvents.push({ instanceId: card.instanceId, definitionId: card.definitionId });
-        return false;
-      }
-      return true;
-    });
-
-    // Also discard hazard long-events from eventsInPlay (owned by hazard player)
-    const remainingEventsInPlay = state.eventsInPlay.filter(card => {
-      const def = state.cardPool[card.definitionId as string];
-      if (card.owner === hazardPlayerId && def && def.cardType === 'hazard-event' && 'eventType' in def && def.eventType === 'long') {
-        logDetail(`Long-event exit: discarding hazard long-event "${def.name}" from eventsInPlay (${card.instanceId as string})`);
         discardedEvents.push({ instanceId: card.instanceId, definitionId: card.definitionId });
         return false;
       }
@@ -209,7 +196,6 @@ export function handleLongEvent(state: GameState, action: GameAction): ReducerRe
       state: {
         ...state,
         players: newPlayers,
-        eventsInPlay: remainingEventsInPlay,
         phaseState: {
           phase: Phase.MovementHazard,
           step: 'select-company',
@@ -285,13 +271,16 @@ export function handlePlayResourceShortEvent(state: GameState, action: GameActio
   newPlayers[playerIndex] = { ...player, hand: newHand };
 
   if (interactiveEffects.length > 0) {
-    // Card goes to eventsInPlay (visible on table) while effects resolve
-    logDetail(`${def.name} → eventsInPlay, resolving ${interactiveEffects.length} effect(s)`);
+    // Card goes to player's cardsInPlay (visible on table) while effects resolve
+    logDetail(`${def.name} → cardsInPlay, resolving ${interactiveEffects.length} effect(s)`);
+    newPlayers[playerIndex] = {
+      ...newPlayers[playerIndex],
+      cardsInPlay: [...newPlayers[playerIndex].cardsInPlay, { instanceId: handCard.instanceId, definitionId: handCard.definitionId, status: CardStatus.Untapped }],
+    };
     return {
       state: {
         ...state,
         players: newPlayers,
-        eventsInPlay: [...state.eventsInPlay, { ...handCard, owner: action.player }],
         pendingEffects: [...state.pendingEffects, ...interactiveEffects],
       },
     };
@@ -311,7 +300,7 @@ export function handlePlayResourceShortEvent(state: GameState, action: GameActio
  * Part of the fetch-to-deck effect resolution. The current effect is the
  * first entry in {@link GameState.pendingEffects}. After the fetch,
  * the effect is consumed; if no more effects remain, the event card moves
- * from eventsInPlay to the player's discard pile.
+ * from cardsInPlay to the player's discard pile.
  */
 
 

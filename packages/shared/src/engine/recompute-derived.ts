@@ -48,16 +48,12 @@ function addMP(
 }
 
 /**
- * Builds the list of card names currently in play as events.
+ * Builds the list of card names currently in play as events or other cards.
  * Used to populate the `inPlay` context field so DSL conditions
  * like `{ "inPlay": "Gates of Morning" }` can be evaluated.
  */
 export function buildInPlayNames(state: GameState): readonly string[] {
   const names: string[] = [];
-  for (const event of state.eventsInPlay) {
-    const def = resolveDef(state, event.instanceId);
-    if (def && 'name' in def) names.push((def as { name: string }).name);
-  }
   for (const player of state.players) {
     for (const card of player.cardsInPlay) {
       const def = resolveDef(state, card.instanceId);

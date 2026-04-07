@@ -157,7 +157,7 @@ export function collectEffects(
 /**
  * Collects global effects from all events and cards in play across both players.
  *
- * Walks through `state.eventsInPlay` and each player's `cardsInPlay`, gathering
+ * Walks through each player's `cardsInPlay`, gathering
  * effects whose `when` conditions match the given context. Only effects with a
  * matching `target` scope are included (e.g. `"all-characters"` for character
  * stat computation, `"all-attacks"` for attack prowess).
@@ -173,20 +173,7 @@ export function collectGlobalEffects(
 ): CollectedEffect[] {
   const results: CollectedEffect[] = [];
 
-  // Events in play (long-events, permanent events)
-  for (const event of state.eventsInPlay) {
-    const def = resolveDef(state, event.instanceId);
-    if (!def || !('effects' in def) || !def.effects) continue;
-    for (const effect of def.effects) {
-      if (!('target' in effect) || (effect as { target?: string }).target !== targetScope) continue;
-      if (effect.when && !matchesCondition(effect.when, context as unknown as Record<string, unknown>)) {
-        continue;
-      }
-      results.push({ effect, sourceDef: def });
-    }
-  }
-
-  // Both players' cards in play (factions, permanent resources, etc.)
+  // Both players' cards in play (events, factions, permanent resources, etc.)
   for (const player of state.players) {
     for (const card of player.cardsInPlay) {
       const def = resolveDef(state, card.instanceId);

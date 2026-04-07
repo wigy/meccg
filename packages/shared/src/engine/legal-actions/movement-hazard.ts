@@ -534,7 +534,7 @@ function playHazardsActions(
 
 /**
  * Find all environment cards currently in play or declared in the active chain.
- * Searches eventsInPlay, player cardsInPlay, and unresolved chain entries.
+ * Searches player cardsInPlay and unresolved chain entries.
  */
 function findEnvironmentTargets(state: GameState): { instanceId: CardInstanceId; definitionId: string }[] {
   const isEnv = (defId: string): boolean => {
@@ -543,9 +543,6 @@ function findEnvironmentTargets(state: GameState): { instanceId: CardInstanceId;
       && !!(d as { keywords?: readonly string[] }).keywords?.includes('environment');
   };
   const targets: { instanceId: CardInstanceId; definitionId: string }[] = [];
-  for (const ev of state.eventsInPlay) {
-    if (isEnv(ev.definitionId as string)) targets.push(ev);
-  }
   for (const p of state.players) {
     for (const c of p.cardsInPlay) {
       if (isEnv(c.definitionId as string)) targets.push(c);

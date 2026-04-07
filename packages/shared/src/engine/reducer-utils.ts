@@ -54,7 +54,6 @@ export function countAllInstances(state: GameState): number {
       if (company.currentSite) count++;
     }
   }
-  count += state.eventsInPlay.length;
   return count;
 }
 
@@ -502,17 +501,18 @@ export function discardCardsInPlay(state: GameState, filter: Condition): GameSta
 
 
 export function discardEventCard(state: GameState, cardInstanceId: CardInstanceId, playerIndex: number): GameState {
-  const eventCard = state.eventsInPlay.find(c => c.instanceId === cardInstanceId);
+  const player = state.players[playerIndex];
+  const eventCard = player.cardsInPlay.find(c => c.instanceId === cardInstanceId);
   if (!eventCard) return state;
   const newPlayers = clonePlayers(state);
   newPlayers[playerIndex] = {
     ...newPlayers[playerIndex],
-    discardPile: [...newPlayers[playerIndex].discardPile, eventCard],
+    cardsInPlay: player.cardsInPlay.filter(c => c.instanceId !== cardInstanceId),
+    discardPile: [...player.discardPile, { instanceId: eventCard.instanceId, definitionId: eventCard.definitionId }],
   };
   return {
     ...state,
     players: newPlayers,
-    eventsInPlay: state.eventsInPlay.filter(c => c.instanceId !== cardInstanceId),
   };
 }
 
@@ -525,7 +525,7 @@ export function discardEventCard(state: GameState, cardInstanceId: CardInstanceI
 
 /**
  * Resolve (skip) the current pending effect and advance to the next one.
- * If no more effects remain, move the event card from eventsInPlay to discard.
+ * If no more effects remain, move the event card from cardsInPlay to discard.
  */
 export function resolvePendingEffect(state: GameState): ReducerResult {
   const current = state.pendingEffects[0];
@@ -539,7 +539,7 @@ export function resolvePendingEffect(state: GameState): ReducerResult {
   return { state: newState };
 }
 
-/** Move a card from eventsInPlay to the specified player's discard pile. */
+/** Move a card from cardsInPlay to the specified player's discard pile. */
 
 
 /**
@@ -548,7 +548,7 @@ export function resolvePendingEffect(state: GameState): ReducerResult {
  * Part of the fetch-to-deck effect resolution. The current effect is the
  * first entry in {@link GameState.pendingEffects}. After the fetch,
  * the effect is consumed; if no more effects remain, the event card moves
- * from eventsInPlay to the player's discard pile.
+ * from cardsInPlay to the player's discard pile.
  */
 export function handleFetchFromPile(state: GameState, action: GameAction): ReducerResult {
   if (action.type !== 'fetch-from-pile') return { state, error: 'Expected fetch-from-pile action' };
@@ -594,7 +594,7 @@ export function handleFetchFromPile(state: GameState, action: GameAction): Reduc
     newPlayers[playerIndex] = { ...player, discardPile: newSourcePile, playDeck: shuffledDeck };
   }
 
-  // Consume this effect; if all done, move event card from eventsInPlay → discard
+  // Consume this effect; if all done, move event card from cardsInPlay → discard
   const remaining = state.pendingEffects.slice(1);
   let newState: GameState = { ...state, players: newPlayers, rng: nextRng, pendingEffects: remaining };
   if (remaining.length === 0) {
@@ -605,6 +605,6 @@ export function handleFetchFromPile(state: GameState, action: GameAction): Reduc
 
 /**
  * Resolve (skip) the current pending effect and advance to the next one.
- * If no more effects remain, move the event card from eventsInPlay to discard.
+ * If no more effects remain, move the event card from cardsInPlay to discard.
  */
 

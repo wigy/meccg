@@ -81,11 +81,6 @@ export function buildInstanceLookup(view: PlayerView): InstanceLookup {
     addCards(company.onGuardCards);
   }
 
-  // Events in play
-  for (const ev of view.eventsInPlay) {
-    map[ev.instanceId as string] = ev.definitionId;
-  }
-
   // Setup phase cards (draft pools, drafted characters, items, deck draft)
   if (view.phaseState.phase === Phase.Setup) {
     const step = view.phaseState.setupStep;
@@ -321,7 +316,6 @@ interface RenderInput {
   readonly phaseState: PhaseState;
   readonly combat: CombatState | null;
   readonly chain: ChainState | null;
-  readonly eventsInPlay: readonly CardInstanceId[];
   readonly pendingEffects: readonly PendingEffect[];
   readonly players: readonly [RenderPlayerInput, RenderPlayerInput];
   readonly defOf: CardLookup;
@@ -411,14 +405,6 @@ function renderState(input: RenderInput): string {
     lines.push('«COMBAT-START»');
     lines.push(...formatCombat(input.combat, defOf, instOf, '  '));
     lines.push('«COMBAT-END»');
-  }
-
-  // Events in play (long-events, permanent events, short events resolving)
-  if (input.eventsInPlay.length > 0) {
-    lines.push('Events in play:');
-    for (const id of input.eventsInPlay) {
-      lines.push(`  · ${formatInstanceName(id, defOf, instOf)}`);
-    }
   }
 
   // Pending effects (card effect sub-flows in progress)
@@ -517,7 +503,6 @@ export function formatGameState(state: GameState): string {
     phaseState: state.phaseState,
     combat: state.combat,
     chain: state.chain,
-    eventsInPlay: state.eventsInPlay.map(e => e.instanceId),
     pendingEffects: state.pendingEffects,
     players: state.players.map(p => ({
       name: p.name,
@@ -582,7 +567,6 @@ export function formatPlayerView(
     phaseState: view.phaseState,
     combat: view.combat,
     chain: view.chain,
-    eventsInPlay: view.eventsInPlay.map(e => e.instanceId),
     pendingEffects: view.pendingEffects,
     players: [
       {

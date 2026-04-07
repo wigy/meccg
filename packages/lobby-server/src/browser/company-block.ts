@@ -639,8 +639,7 @@ export function renderCardsInPlayRow(
 ): void {
   const selfCards = view.self.cardsInPlay;
   const oppCards = view.opponent.cardsInPlay;
-  const events = view.eventsInPlay;
-  if (selfCards.length === 0 && oppCards.length === 0 && events.length === 0) return;
+  if (selfCards.length === 0 && oppCards.length === 0) return;
 
   const row = document.createElement('div');
   row.className = 'cards-in-play-row';
@@ -662,8 +661,6 @@ export function renderCardsInPlayRow(
     row.appendChild(group);
   };
 
-  // Events in play (long-events, permanent events, resolving short events)
-  renderGroup(events, 'cards-in-play-group cards-in-play-group--events');
   renderGroup(selfCards, 'cards-in-play-group');
   renderGroup(oppCards, 'cards-in-play-group');
   container.appendChild(row);

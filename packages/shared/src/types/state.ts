@@ -31,7 +31,6 @@ export * from './state-combat.js';
 
 // Import types needed for GameState
 import type { PlayerState } from './state-player.js';
-import type { EventInPlay } from './state-cards.js';
 import type { PhaseState } from './state-phases.js';
 import type { CombatState, ChainState, PendingEffect } from './state-combat.js';
 
@@ -86,8 +85,6 @@ export interface GameState {
    * and the enclosing phase's normal actions.
    */
   readonly chain: ChainState | null;
-  /** Long-duration and permanent event cards currently in play on the table. */
-  readonly eventsInPlay: readonly EventInPlay[];
   /** The static card definition pool, keyed by CardDefinitionId. Loaded once at game start. */
   readonly cardPool: Readonly<Record<string, CardDefinition>>;
   /** Current turn number (1-based), incremented each time the active player changes. */
@@ -183,10 +180,6 @@ export function resolveInstanceId(state: GameState, instanceId: CardInstanceId):
     }
   }
 
-  // Events in play
-  for (const event of state.eventsInPlay) {
-    if (event.instanceId === instanceId) return event.definitionId;
-  }
 
   // Cards on the chain of effects
   if (state.chain) {

@@ -58,7 +58,7 @@ export function chainActions(state: GameState, playerId: PlayerId): EvaluatedAct
 /**
  * During chain declaring, the priority player may play short-event cards
  * with `playable-as-resource` (e.g. Twilight) to cancel an environment.
- * Targets include environments in eventsInPlay, cardsInPlay, and unresolved
+ * Targets include environments in cardsInPlay and unresolved
  * chain entries with the environment keyword.
  */
 function playShortEventChainActions(state: GameState, playerId: PlayerId): EvaluatedAction[] {
@@ -78,9 +78,6 @@ function playShortEventChainActions(state: GameState, playerId: PlayerId): Evalu
         && !!(d as { keywords?: readonly string[] }).keywords?.includes('environment');
     };
     const envTargets: { instanceId: CardInstanceId; definitionId: string }[] = [];
-    for (const ev of state.eventsInPlay) {
-      if (isEnv(ev.definitionId as string)) envTargets.push(ev);
-    }
     for (const p of state.players) {
       for (const c of p.cardsInPlay) {
         if (isEnv(c.definitionId as string)) envTargets.push(c);

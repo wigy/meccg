@@ -55,9 +55,9 @@ describe('Smoke Rings (dm-159)', () => {
     const result = reduce(state, { type: 'play-short-event', player: PLAYER_1, cardInstanceId: smokeRingsId });
     expect(result.error).toBeUndefined();
 
-    // Smoke Rings removed from hand, in eventsInPlay while effect resolves
+    // Smoke Rings removed from hand, in cardsInPlay while effect resolves
     expect(result.state.players[0].hand).toHaveLength(0);
-    expect(result.state.eventsInPlay.map(c => c.instanceId)).toContain(smokeRingsId);
+    expect(result.state.players[0].cardsInPlay.map(c => c.instanceId)).toContain(smokeRingsId);
     expect(result.state.players[0].discardPile.map(c => c.instanceId)).not.toContain(smokeRingsId);
 
     // Effect sub-flow is active with fetch-to-deck effect
@@ -82,7 +82,7 @@ describe('Smoke Rings (dm-159)', () => {
     const result = reduce(state, { type: 'play-short-event', player: PLAYER_1, cardInstanceId: smokeRingsId });
     expect(result.error).toBeUndefined();
 
-    // Fetch actions: 2 sideboard cards (Smoke Rings is in eventsInPlay, not in any player pile)
+    // Fetch actions: 2 sideboard cards (Smoke Rings is in cardsInPlay, not in any player pile)
     const fetchActions = viableActions(result.state, PLAYER_1, 'fetch-from-pile');
     expect(fetchActions).toHaveLength(2);
     const sideboardFetches = fetchActions.filter(
@@ -106,7 +106,7 @@ describe('Smoke Rings (dm-159)', () => {
     const result = reduce(state, { type: 'play-short-event', player: PLAYER_1, cardInstanceId: smokeRingsId });
     expect(result.error).toBeUndefined();
 
-    // Fetch actions: Glamdring from discard pile (Smoke Rings is in eventsInPlay)
+    // Fetch actions: Glamdring from discard pile (Smoke Rings is in cardsInPlay)
     const fetchActions = viableActions(result.state, PLAYER_1, 'fetch-from-pile');
     expect(fetchActions).toHaveLength(1);
     expect((fetchActions[0].action as { source: string }).source).toBe('discard-pile');
@@ -146,8 +146,8 @@ describe('Smoke Rings (dm-159)', () => {
     // Sideboard no longer contains Glamdring
     expect(result.state.players[0].sideboard).toHaveLength(0);
 
-    // Smoke Rings moved from eventsInPlay to discard after fetch resolved
-    expect(result.state.eventsInPlay.map(c => c.instanceId)).not.toContain(smokeRingsId);
+    // Smoke Rings moved from cardsInPlay to discard after fetch resolved
+    expect(result.state.players[0].cardsInPlay.map(c => c.instanceId)).not.toContain(smokeRingsId);
     expect(result.state.players[0].discardPile.map(c => c.instanceId)).toContain(smokeRingsId);
 
     // Effect sub-flow is cleared
@@ -185,11 +185,11 @@ describe('Smoke Rings (dm-159)', () => {
     expect(result.state.players[0].playDeck.length).toBe(originalDeckSize + 1);
     expect(result.state.players[0].playDeck.map(c => c.instanceId)).toContain(glamdringId);
 
-    // Discard pile contains Smoke Rings (moved from eventsInPlay after fetch resolved)
+    // Discard pile contains Smoke Rings (moved from cardsInPlay after fetch resolved)
     // Glamdring was moved to play deck
     expect(result.state.players[0].discardPile.map(c => c.instanceId)).toContain(smokeRingsId);
     expect(result.state.players[0].discardPile.map(c => c.instanceId)).not.toContain(glamdringId);
-    expect(result.state.eventsInPlay.map(c => c.instanceId)).not.toContain(smokeRingsId);
+    expect(result.state.players[0].cardsInPlay.map(c => c.instanceId)).not.toContain(smokeRingsId);
 
     // Fetch sub-flow is cleared
     expect(result.state.pendingEffects).toHaveLength(0);
@@ -222,8 +222,8 @@ describe('Smoke Rings (dm-159)', () => {
     // Sideboard unchanged
     expect(result.state.players[0].sideboard).toHaveLength(1);
 
-    // Smoke Rings moved from eventsInPlay to discard after pass
-    expect(result.state.eventsInPlay.map(c => c.instanceId)).not.toContain(smokeRingsId);
+    // Smoke Rings moved from cardsInPlay to discard after pass
+    expect(result.state.players[0].cardsInPlay.map(c => c.instanceId)).not.toContain(smokeRingsId);
     expect(result.state.players[0].discardPile.map(c => c.instanceId)).toContain(smokeRingsId);
   });
 
@@ -243,7 +243,7 @@ describe('Smoke Rings (dm-159)', () => {
     const result = reduce(state, { type: 'play-short-event', player: PLAYER_1, cardInstanceId: smokeRingsId });
     expect(result.error).toBeUndefined();
 
-    // No eligible cards: MORIA (site) doesn't match filter, Smoke Rings is in eventsInPlay
+    // No eligible cards: MORIA (site) doesn't match filter, Smoke Rings is in cardsInPlay
     const fetchActions = viableActions(result.state, PLAYER_1, 'fetch-from-pile');
     expect(fetchActions).toHaveLength(0);
 

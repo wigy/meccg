@@ -33,7 +33,6 @@ import type {
   PhaseState,
   CombatState,
   ChainState,
-  EventInPlay,
   Company,
   CharacterInPlay,
   CardInPlay,
@@ -214,8 +213,6 @@ export interface PlayerView {
    * Chain state is public information — both players see all declared cards.
    */
   readonly chain: ChainState | null;
-  /** Long-duration and permanent events currently in play on the table. */
-  readonly eventsInPlay: readonly EventInPlay[];
   /** Pending card effects awaiting player interaction. */
   readonly pendingEffects: readonly PendingEffect[];
   /** Current turn number (1-based). */

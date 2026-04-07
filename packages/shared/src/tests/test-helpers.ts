@@ -475,7 +475,6 @@ export function buildTestState(opts: BuildTestStateOpts): GameState {
     phaseState,
     combat: null,
     chain: null,
-    eventsInPlay: [],
     cardPool: pool,
     turnNumber: 1,
     startingPlayer: null,

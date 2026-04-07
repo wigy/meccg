@@ -296,28 +296,27 @@ function handleRevealOnGuardAttacks(
       (def.eventType === 'long' || def.eventType === 'permanent');
 
     if (isLongOrPermanent) {
-      // Long/permanent events: remove from on-guard, add to eventsInPlay
-      logDetail(`${def.name} is a ${(def as { eventType: string }).eventType} event → eventsInPlay`);
+      // Long/permanent events: remove from on-guard, add to hazard player's cardsInPlay
+      logDetail(`${def.name} is a ${(def as { eventType: string }).eventType} event → cardsInPlay`);
       const newOnGuardCards = [...company.onGuardCards];
       newOnGuardCards.splice(ogIdx, 1);
 
       const newCompanies = [...resourcePlayer.companies];
       newCompanies[siteState.activeCompanyIndex] = { ...company, onGuardCards: newOnGuardCards };
 
+      const hazardIndex = getPlayerIndex(state, action.player);
       const newPlayers = clonePlayers(state);
       newPlayers[activeIndex] = { ...resourcePlayer, companies: newCompanies };
-
-      return {
-        state: {
-          ...state,
-          players: newPlayers,
-          eventsInPlay: [...state.eventsInPlay, {
-            instanceId: revealedCard.instanceId,
-            definitionId: revealedCard.definitionId,
-            owner: action.player,
-          }],
-        },
+      newPlayers[hazardIndex] = {
+        ...newPlayers[hazardIndex],
+        cardsInPlay: [...newPlayers[hazardIndex].cardsInPlay, {
+          instanceId: revealedCard.instanceId,
+          definitionId: revealedCard.definitionId,
+          status: CardStatus.Untapped,
+        }],
       };
+
+      return { state: { ...state, players: newPlayers } };
     }
 
     // Creatures: mark as revealed (combat happens at Step 4)

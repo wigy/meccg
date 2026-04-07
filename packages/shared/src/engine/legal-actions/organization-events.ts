@@ -99,18 +99,15 @@ export function playShortEventActions(state: GameState, playerId: PlayerId): Eva
     // Only cards with the playable-as-resource effect
     if (!def.effects?.some(e => e.type === 'play-restriction' && e.rule === 'playable-as-resource')) continue;
 
-    // Find environment cards — in eventsInPlay (hazard permanent events like
-    // Doors of Night), in a player's cardsInPlay (resource permanent events
-    // like Gates of Morning), or declared earlier in the same chain of effects.
+    // Find environment cards — in a player's cardsInPlay (permanent events
+    // like Doors of Night / Gates of Morning), or declared earlier in the
+    // same chain of effects.
     const isEnv = (defId: string): boolean => {
       const d = state.cardPool[defId];
       return !!d && 'keywords' in d
         && !!(d as { keywords?: readonly string[] }).keywords?.includes('environment');
     };
     const envTargets: { instanceId: CardInstanceId; definitionId: string }[] = [];
-    for (const ev of state.eventsInPlay) {
-      if (isEnv(ev.definitionId as string)) envTargets.push(ev);
-    }
     for (const p of state.players) {
       for (const c of p.cardsInPlay) {
         if (isEnv(c.definitionId as string)) envTargets.push(c);

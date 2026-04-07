@@ -235,11 +235,11 @@ export type PendingEffect = CardEffectPendingEffect;
 
 /**
  * A DSL card effect awaiting player interaction (e.g. fetch-to-deck).
- * The source card is in {@link GameState.eventsInPlay} while this resolves.
+ * The source card is in the player's cardsInPlay while this resolves.
  */
 export interface CardEffectPendingEffect {
   readonly type: 'card-effect';
-  /** Instance ID of the card in eventsInPlay that triggered this effect. */
+  /** Instance ID of the card in cardsInPlay that triggered this effect. */
   readonly cardInstanceId: CardInstanceId;
   /** The DSL effect being resolved (carries all parameters). */
   readonly effect: CardEffect;

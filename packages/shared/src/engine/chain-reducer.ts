@@ -307,7 +307,7 @@ interface ResolveResult {
 /**
  * Cancel and discard an environment card targeted by a short-event (e.g. Twilight).
  *
- * The target may be in eventsInPlay (hazard permanent events like Doors of Night),
+ * The target may be in a player's cardsInPlay (hazard permanent events like Doors of Night),
  * in a player's cardsInPlay (resource permanent events like Gates of Morning),
  * or on the chain itself (an environment declared earlier in the same chain).
  *
@@ -332,21 +332,6 @@ function resolveEnvironmentCancel(state: GameState, targetInstanceId: CardInstan
       i === chainIdx ? { ...e, negated: true } : e,
     );
     return { ...state, chain: { ...chain, entries: newEntries } };
-  }
-
-  // Check eventsInPlay
-  const evtIdx = state.eventsInPlay.findIndex(ev => ev.instanceId === targetInstanceId);
-  if (evtIdx !== -1) {
-    const ev = state.eventsInPlay[evtIdx];
-    const ownerIndex = getPlayerIndex(state, ev.owner);
-    logDetail(`Environment cancel: removing ${targetName} from eventsInPlay → player ${ownerIndex} discard`);
-    const newEventsInPlay = [...state.eventsInPlay];
-    newEventsInPlay.splice(evtIdx, 1);
-    const owner = state.players[ownerIndex];
-    const newPlayers: [PlayerState, PlayerState] = [state.players[0], state.players[1]];
-    const discardEntry = { instanceId: targetInstanceId, definitionId: ev.definitionId };
-    newPlayers[ownerIndex] = { ...owner, discardPile: [...owner.discardPile, discardEntry] };
-    return { ...state, players: newPlayers, eventsInPlay: newEventsInPlay };
   }
 
   // Check cardsInPlay across all players
