@@ -174,11 +174,23 @@ export function handleLongEvent(state: GameState, action: GameAction): ReducerRe
     const activePlayer = state.activePlayer!;
     const hazardPlayerIndex = (getPlayerIndex(state, activePlayer) + 1) % state.players.length;
     const hazardPlayer = state.players[hazardPlayerIndex];
+    const hazardPlayerId = hazardPlayer.id;
     const discardedEvents: CardInstance[] = [];
     const remainingCards = hazardPlayer.cardsInPlay.filter(card => {
       const def = state.cardPool[card.definitionId as string];
       if (def && def.cardType === 'hazard-event' && def.eventType === 'long') {
         logDetail(`Long-event exit: discarding hazard long-event "${def.name}" (${card.instanceId as string})`);
+        discardedEvents.push({ instanceId: card.instanceId, definitionId: card.definitionId });
+        return false;
+      }
+      return true;
+    });
+
+    // Also discard hazard long-events from eventsInPlay (owned by hazard player)
+    const remainingEventsInPlay = state.eventsInPlay.filter(card => {
+      const def = state.cardPool[card.definitionId as string];
+      if (card.owner === hazardPlayerId && def && def.cardType === 'hazard-event' && 'eventType' in def && def.eventType === 'long') {
+        logDetail(`Long-event exit: discarding hazard long-event "${def.name}" from eventsInPlay (${card.instanceId as string})`);
         discardedEvents.push({ instanceId: card.instanceId, definitionId: card.definitionId });
         return false;
       }
@@ -197,6 +209,7 @@ export function handleLongEvent(state: GameState, action: GameAction): ReducerRe
       state: {
         ...state,
         players: newPlayers,
+        eventsInPlay: remainingEventsInPlay,
         phaseState: {
           phase: Phase.MovementHazard,
           step: 'select-company',

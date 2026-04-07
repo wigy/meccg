@@ -49,6 +49,17 @@ export function handleOrganization(state: GameState, action: GameAction): Reduce
       return true;
     });
 
+    // Also discard resource long-events from eventsInPlay (owned by active player)
+    const remainingEventsInPlay = state.eventsInPlay.filter(card => {
+      const def = state.cardPool[card.definitionId as string];
+      if (card.owner === activePlayer && def && def.cardType === 'hero-resource-event' && 'eventType' in def && def.eventType === 'long') {
+        logDetail(`Long-event entry: discarding resource long-event "${def.name}" from eventsInPlay (${card.instanceId as string})`);
+        discardedEvents.push({ instanceId: card.instanceId, definitionId: card.definitionId });
+        return false;
+      }
+      return true;
+    });
+
     const newPlayers = clonePlayers(state);
     newPlayers[activeIndex] = {
       ...newPlayers[activeIndex],
@@ -60,6 +71,7 @@ export function handleOrganization(state: GameState, action: GameAction): Reduce
       state: {
         ...state,
         players: newPlayers,
+        eventsInPlay: remainingEventsInPlay,
         phaseState: { phase: Phase.LongEvent },
       },
     };
