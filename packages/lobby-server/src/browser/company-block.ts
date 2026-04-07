@@ -68,8 +68,19 @@ function getCompanyName(
   const possessive = name.endsWith('s') ? `${name}'` : `${name}'s`;
   let label = `${possessive} Company`;
 
-  // Append site name if the company is at a site
-  if (company.currentSite) {
+  // Append site info: "moving to [destination]" if moving, otherwise "at [current site]"
+  const destSite = 'destinationSite' in company ? company.destinationSite
+    : 'revealedDestinationSite' in company ? company.revealedDestinationSite
+    : null;
+  if (destSite) {
+    const destDefId = cachedInstanceLookup(destSite.instanceId);
+    if (destDefId) {
+      const destDef = cardPool[destDefId as string];
+      if (destDef) {
+        label += ` moving to ${destDef.name}`;
+      }
+    }
+  } else if (company.currentSite) {
     const siteDefId = cachedInstanceLookup(company.currentSite.instanceId);
     if (siteDefId) {
       const siteDef = cardPool[siteDefId as string];
