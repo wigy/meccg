@@ -191,6 +191,13 @@ export function handleLongEvent(state: GameState, action: GameAction): ReducerRe
       discardPile: [...newPlayers[hazardPlayerIndex].discardPile, ...discardedEvents],
     };
 
+    // Reset moved flags on the active player's companies for the new M/H phase
+    const activeIndex = getPlayerIndex(state, activePlayer);
+    newPlayers[activeIndex] = {
+      ...newPlayers[activeIndex],
+      companies: newPlayers[activeIndex].companies.map(c => ({ ...c, moved: false })),
+    };
+
     logDetail(`Long-event: active player ${action.player as string} passed → advancing to Movement/Hazard phase`);
     return {
       state: {

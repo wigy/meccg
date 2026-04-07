@@ -607,9 +607,16 @@ function advanceAfterCompanyMH(state: GameState, mhState: MovementHazardPhaseSta
 
   if (remainingCount <= 0) {
     logDetail(`Movement/Hazard: all companies handled → advancing to Site phase`);
+    // Reset moved flags so the site phase shows a clean slate
+    const newPlayers = clonePlayers(state);
+    newPlayers[activeIndex] = {
+      ...newPlayers[activeIndex],
+      companies: newPlayers[activeIndex].companies.map(c => ({ ...c, moved: false })),
+    };
     return {
       state: cleanupEmptyCompanies({
         ...state,
+        players: newPlayers,
         phaseState: {
           phase: Phase.Site,
           step: 'select-company',
