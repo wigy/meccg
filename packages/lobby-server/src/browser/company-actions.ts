@@ -21,6 +21,7 @@ import type {
   StartSideboardToDeckAction,
   StartSideboardToDiscardAction,
   CorruptionCheckAction,
+  ActivateGrantedAction,
 } from '@meccg/shared';
 import { viableActions } from '@meccg/shared';
 
@@ -145,6 +146,19 @@ export function getCorruptionCheckActions(view: PlayerView): Map<string, Corrupt
   for (const action of viableActions(view.legalActions)) {
     if (action.type !== 'corruption-check') continue;
     result.set(action.characterId as string, action);
+  }
+  return result;
+}
+
+/**
+ * Collect all viable activate-granted-action actions, keyed by source card instance ID.
+ * Used to highlight hazard cards that offer activatable abilities (e.g. remove-self-on-roll).
+ */
+export function getGrantedActions(view: PlayerView): Map<string, ActivateGrantedAction> {
+  const result = new Map<string, ActivateGrantedAction>();
+  for (const action of viableActions(view.legalActions)) {
+    if (action.type !== 'activate-granted-action') continue;
+    result.set(action.sourceCardId as string, action);
   }
   return result;
 }

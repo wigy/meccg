@@ -41,6 +41,7 @@ import {
   getMergeCompaniesActions,
   getSideboardIntentActions,
   getCorruptionCheckActions,
+  getGrantedActions,
   getPlayCharacterActions,
 } from './company-actions.js';
 import { addOpponentInfluenceTargets } from './company-modals.js';
@@ -109,7 +110,8 @@ export function renderSingleView(
   const moveToCompanyActs = owner === 'self' ? getMoveToCompanyActions(view) : undefined;
   const sideboardIntentActs = owner === 'self' ? getSideboardIntentActions(view) : undefined;
   const ccActions = owner === 'self' ? getCorruptionCheckActions(view) : undefined;
-  single.appendChild(renderCompanyBlock(company, charMap, view, cardPool, owner, { hideTitle: true, hasLegalMovement, onAction: lastOnAction, influenceActions, transferActions, splitActions, moveToCompanyActions: moveToCompanyActs, sideboardIntentActions: sideboardIntentActs, corruptionCheckActions: ccActions }));
+  const grantedActs = owner === 'self' ? getGrantedActions(view) : undefined;
+  single.appendChild(renderCompanyBlock(company, charMap, view, cardPool, owner, { hideTitle: true, hasLegalMovement, onAction: lastOnAction, influenceActions, transferActions, splitActions, moveToCompanyActions: moveToCompanyActs, sideboardIntentActions: sideboardIntentActs, corruptionCheckActions: ccActions, grantedActions: grantedActs }));
 
   // Right arrow — next company
   if (cycleCompanies.length > 1) {
@@ -166,6 +168,7 @@ export function renderAllCompaniesView(
   // Fetch-from-sideboard and corruption-check actions (for avatar / character clicks)
   const sideboardIntentActs = getSideboardIntentActions(view);
   const ccActions = getCorruptionCheckActions(view);
+  const grantedActs = getGrantedActions(view);
 
   // Select-company actions (M/H phase company selection)
   const selectCompanyActions = new Map<string, SelectCompanyAction>();
@@ -184,7 +187,7 @@ export function renderAllCompaniesView(
   // Self companies
   for (const company of view.self.companies) {
     const hasLegalMovement = movableIds.has(company.id as string);
-    const block = renderCompanyBlock(company, view.self.characters, view, cardPool, 'self', { hasLegalMovement, onAction: lastOnAction, influenceActions, transferActions, splitActions, moveToCompanyActions: moveToCompanyActs, mergeActions, sideboardIntentActions: sideboardIntentActs, corruptionCheckActions: ccActions });
+    const block = renderCompanyBlock(company, view.self.characters, view, cardPool, 'self', { hasLegalMovement, onAction: lastOnAction, influenceActions, transferActions, splitActions, moveToCompanyActions: moveToCompanyActs, mergeActions, sideboardIntentActions: sideboardIntentActs, corruptionCheckActions: ccActions, grantedActions: grantedActs });
 
     if (selectCompanyActions.size > 0) {
       // M/H phase select-company step: highlight selectable companies

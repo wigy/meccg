@@ -26,6 +26,7 @@ export function renderCharacterColumn(
   influenceClick?: { cls: string; handler: (e: Event) => void },
   influenceClickBuilder?: (id: CardInstanceId) => { cls: string; handler: (e: Event) => void } | undefined,
   itemClickBuilder?: (itemInstId: CardInstanceId, charInstId: CardInstanceId) => { cls: string; handler: (e: Event) => void } | undefined,
+  hazardClickBuilder?: (hazardInstId: CardInstanceId) => { cls: string; handler: (e: Event) => void } | undefined,
 ): HTMLElement {
   const col = document.createElement('div');
   col.className = 'character-column';
@@ -111,6 +112,16 @@ export function renderCharacterColumn(
           if (itemClick.cls) attEl.classList.add(itemClick.cls);
           attEl.style.cursor = 'pointer';
           attEl.addEventListener('click', itemClick.handler);
+        }
+      }
+      // Hazard granted-action click handler (e.g. remove-self-on-roll)
+      const isHazard = char.hazards.some(h => h.instanceId === att.instanceId);
+      if (isHazard && hazardClickBuilder) {
+        const hazardClick = hazardClickBuilder(att.instanceId);
+        if (hazardClick) {
+          if (hazardClick.cls) attEl.classList.add(hazardClick.cls);
+          attEl.style.cursor = 'pointer';
+          attEl.addEventListener('click', hazardClick.handler);
         }
       }
       // Wrap item in a container for CP badge positioning

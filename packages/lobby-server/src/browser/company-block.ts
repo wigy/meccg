@@ -26,6 +26,7 @@ import type {
   StartSideboardToDeckAction,
   StartSideboardToDiscardAction,
   CorruptionCheckAction,
+  ActivateGrantedAction,
   OpponentInfluenceAttemptAction,
 } from '@meccg/shared';
 import { cardImageProxyPath, Phase, CardStatus, viableActions, getTitleCharacter } from '@meccg/shared';
@@ -121,6 +122,8 @@ export function renderCompanyBlock(
     sideboardIntentActions?: Map<string, (StartSideboardToDeckAction | StartSideboardToDiscardAction)[]>;
     /** Map from character instance ID to corruption-check action. */
     corruptionCheckActions?: Map<string, CorruptionCheckAction>;
+    /** Map from source card instance ID to activate-granted-action action. */
+    grantedActions?: Map<string, ActivateGrantedAction>;
   },
 ): HTMLElement {
   const cachedInstanceLookup = getCachedInstanceLookup();
@@ -309,6 +312,21 @@ export function renderCompanyBlock(
           `Click a highlighted character to receive ${itemName ?? 'item'}`,
         );
         rerender();
+      },
+    };
+  };
+
+  /** Build click handler for hazard cards with granted actions (e.g. remove-self-on-roll). */
+  const buildHazardClick = (hazardInstId: CardInstanceId): { cls: string; handler: (e: Event) => void } | undefined => {
+    if (!options?.onAction || !options.grantedActions) return undefined;
+    const action = options.grantedActions.get(hazardInstId as string);
+    if (!action) return undefined;
+    const onAction = options.onAction;
+    return {
+      cls: 'company-card--transfer-source',
+      handler: (e) => {
+        e.stopPropagation();
+        onAction(action);
       },
     };
   };
@@ -583,14 +601,14 @@ export function renderCompanyBlock(
   };
 
   if (titleChar) {
-    row.appendChild(renderCharacterColumn(titleChar, cardPool, true, charMap, buildCombinedClick(titleChar.instanceId), buildCombinedClick, buildItemClick));
+    row.appendChild(renderCharacterColumn(titleChar, cardPool, true, charMap, buildCombinedClick(titleChar.instanceId), buildCombinedClick, buildItemClick, buildHazardClick));
   }
   for (const charInstId of company.characters) {
     if (followerIds.has(charInstId as string)) continue;
     const char = charMap[charInstId as string];
     if (!char) continue;
     if (titleChar && char.instanceId === titleChar.instanceId) continue;
-    row.appendChild(renderCharacterColumn(char, cardPool, false, charMap, buildCombinedClick(charInstId), buildCombinedClick, buildItemClick));
+    row.appendChild(renderCharacterColumn(char, cardPool, false, charMap, buildCombinedClick(charInstId), buildCombinedClick, buildItemClick, buildHazardClick));
   }
   block.appendChild(row);
 
