@@ -209,6 +209,13 @@ function handlePlayCharacter(state: GameState, action: GameAction): ReducerResul
     }
     const isHaven = siteDef.siteType === SiteType.Haven;
     const isHomesite = siteDef.name === charDef.homesite;
+    // Characters with home-site-only restriction cannot be played at havens
+    const homeSiteOnly = charDef.effects?.some(
+      e => e.type === 'play-restriction' && e.rule === 'home-site-only',
+    );
+    if (homeSiteOnly && !isHomesite) {
+      return { state, error: `${charDef.name} can only be played at home site (${charDef.homesite})` };
+    }
     if (!isHaven && !isHomesite) {
       return { state, error: `${siteDef.name} is neither a haven nor ${charDef.name}'s homesite` };
     }
