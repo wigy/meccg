@@ -3,14 +3,10 @@
  *
  * Legal actions during the item draft phase. Each player assigns their
  * starting minor items to any character in their starting company.
- *
- * Uses the rules engine so that non-item cards (drafted characters) appear
- * as non-viable with an explanation, giving the UI a complete picture of
- * the pool.
  */
 
 import type { GameState, PlayerId, EvaluatedAction } from '../../index.js';
-import { isItemCard, isCharacterCard, evaluateAction, ITEM_DRAFT_RULES, MAX_STARTING_ITEMS, getPlayerIndex } from '../../index.js';
+import { isItemCard, evaluateAction, ITEM_DRAFT_RULES, MAX_STARTING_ITEMS, getPlayerIndex } from '../../index.js';
 import { logDetail } from './log.js';
 
 export function itemDraftActions(state: GameState, playerId: PlayerId): EvaluatedAction[] {
@@ -32,21 +28,6 @@ export function itemDraftActions(state: GameState, playerId: PlayerId): Evaluate
   logDetail(`${itemDraft.unassignedItems.length} unassigned item(s), ${assignedCount}/${MAX_STARTING_ITEMS} assigned, ${allCharIds.length} character(s) available`);
 
   const evaluated: EvaluatedAction[] = [];
-
-  // Emit non-viable entries for drafted characters (they're in companies, not assignable)
-  for (const charInstId of allCharIds) {
-    const charInPlay = player.characters[charInstId as string];
-    if (!charInPlay) continue;
-    const def = state.cardPool[charInPlay.definitionId as string];
-    if (!def || !isCharacterCard(def)) continue;
-
-    const context = { card: { name: def.name, isItem: false, unique: false }, ctx: { assignedCount, maxStartingItems: MAX_STARTING_ITEMS } };
-    // Use a dummy action — the character isn't an item, so this is always rejected
-    const action = { type: 'assign-starting-item' as const, player: playerId, itemDefId: charInPlay.definitionId, characterInstanceId: charInstId };
-    const result = evaluateAction(action, ITEM_DRAFT_RULES, context);
-    logDetail(`${def.name}: ${result.reason}`);
-    evaluated.push(result);
-  }
 
   // Emit non-viable entries for already-assigned items (on characters)
   for (const char of Object.values(player.characters)) {
