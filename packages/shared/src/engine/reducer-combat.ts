@@ -5,13 +5,15 @@
  * strike resolution, support strikes, body checks, and combat finalization.
  */
 
-import type { GameState, CombatState, StrikeAssignment, GameAction, GameEffect } from '../index.js';
-import { CardStatus, Phase, isSiteCard } from '../index.js';
+import type { GameState, CombatState, StrikeAssignment, GameAction, GameEffect, CharacterCard } from '../index.js';
+import { CardStatus, Phase, isSiteCard, isCharacterCard } from '../index.js';
 import type { OnEventEffect } from '../types/effects.js';
 import { logDetail } from './legal-actions/log.js';
 import { resolveInstanceId } from '../types/state.js';
 import type { ReducerResult } from './reducer-utils.js';
 import { roll2d6, clonePlayers } from './reducer-utils.js';
+import { resolveEnemyBody } from './effects/index.js';
+import { computeCombatProwess, buildInPlayNames } from './recompute-derived.js';
 
 
 /**
@@ -186,8 +188,15 @@ function handleResolveStrike(state: GameState, action: GameAction, combat: Comba
   const charData = defPlayer.characters[strike.characterId as string];
   if (!charData) return { state, error: 'Character not found' };
 
-  // Compute effective prowess
-  let prowess = charData.effectiveStats.prowess;
+  // Compute effective prowess — recompute with combat context when creature race
+  // is known so that combat-conditional weapon effects (e.g. Glamdring vs Orcs, Éowyn vs Nazgûl) apply.
+  const charDef = state.cardPool[charData.definitionId as string];
+  let prowess: number;
+  if (combat.creatureRace && charDef && isCharacterCard(charDef)) {
+    prowess = computeCombatProwess(state, charData, charDef, combat.creatureRace);
+  } else {
+    prowess = charData.effectiveStats.prowess;
+  }
   if (!action.tapToFight) prowess -= 3;  // Stay untapped penalty
   if (charData.status === CardStatus.Tapped) prowess -= 1;
   if (charData.status === CardStatus.Inverted) prowess -= 2; // Wounded
@@ -201,7 +210,6 @@ function handleResolveStrike(state: GameState, action: GameAction, combat: Comba
   const defPlayer2 = state.players[defPlayerIndex];
   logDetail(`Strike resolution: ${charData.definitionId as string} rolls ${roll.die1}+${roll.die2}=${rollTotal} + prowess ${prowess} = ${characterTotal} vs creature prowess ${combat.strikeProwess}`);
 
-  const charDef = state.cardPool[charData.definitionId as string];
   const charLabel = charDef && 'name' in charDef ? (charDef as { name: string }).name : (charData.definitionId as string);
   const effects: GameEffect[] = [{
     effect: 'dice-roll', playerName: defPlayer2.name,
@@ -348,8 +356,22 @@ function handleBodyCheckRoll(state: GameState, action: GameAction, combat: Comba
   const stateWithRoll: GameState = { ...state, players: basePlayers, rng, cheatRollTotal };
 
   if (combat.bodyCheckTarget === 'creature') {
-    // Body check against creature
-    const body = combat.creatureBody ?? 0;
+    // Body check against creature — apply enemy-modifier effects (e.g. Éowyn halves Nazgûl body)
+    let body = combat.creatureBody ?? 0;
+    const strike2 = combat.strikeAssignments[combat.currentStrikeIndex];
+    if (strike2 && combat.creatureRace) {
+      const defIdx2 = stateWithRoll.players.findIndex(p => p.id === combat.defendingPlayerId);
+      const charData2 = stateWithRoll.players[defIdx2].characters[strike2.characterId as string];
+      if (charData2) {
+        const inPlayNames2 = buildInPlayNames(stateWithRoll);
+        const enemy2 = { race: combat.creatureRace, name: '', prowess: combat.strikeProwess, body: combat.creatureBody };
+        const modifiedBody = resolveEnemyBody(stateWithRoll, charData2, enemy2, body, inPlayNames2);
+        if (modifiedBody !== body) {
+          logDetail(`Enemy body modified by character effects: ${body} → ${modifiedBody}`);
+          body = modifiedBody;
+        }
+      }
+    }
     logDetail(`Body check vs creature: roll ${rollTotal} vs body ${body}`);
     if (rollTotal > body) {
       logDetail('Creature body check failed — creature defeated');

@@ -84,6 +84,8 @@ export interface CombatState {
   readonly strikeProwess: number;
   /** The creature's body value for body checks. Null if no body check applies. */
   readonly creatureBody: number | null;
+  /** The lowercase singular race of the attacking creature (e.g. "orc", "wolf"). Used to evaluate combat-conditional weapon effects like Glamdring's "max 9 against Orcs". */
+  readonly creatureRace?: string;
   /** The assignment of each strike to a defending character, with resolution status. */
   readonly strikeAssignments: readonly StrikeAssignment[];
   /** Index into strikeAssignments for the strike currently being resolved. */

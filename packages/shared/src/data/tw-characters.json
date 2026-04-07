@@ -199,11 +199,6 @@
     "homesite": "Bag End",
     "effects": [
       {
-        "type": "check-modifier",
-        "check": "corruption",
-        "value": 4
-      },
-      {
         "type": "play-restriction",
         "rule": "home-site-only",
         "when": {
@@ -220,7 +215,8 @@
         }
       }
     ],
-    "text": "Unique. Unless he is one of the starting characters, he may only be brought into play at his home site. All of his corruption checks are modified by +4. -2 marshalling points if eliminated."
+    "text": "Unique. Unless he is one of the starting characters, he may only be brought into play at his home site. All of his corruption checks are modified by +4. -2 marshalling points if eliminated.",
+    "certified": "2026-04-07"
   },
   {
     "cardType": "hero-character",
@@ -404,7 +400,8 @@
         }
       }
     ],
-    "text": "Unique. +2 direct influence against the Riders of Rohan faction."
+    "text": "Unique. +2 direct influence against the Riders of Rohan faction.",
+    "certified": "2026-04-07"
   },
   {
     "cardType": "hero-character",
@@ -563,7 +560,8 @@
         }
       }
     ],
-    "text": "Unique. Against Nazgûl and Ringwraiths, +6 to her prowess and the Nazgûl/Ringwraith's body is halved (rounded up)."
+    "text": "Unique. Against Nazgûl and Ringwraiths, +6 to her prowess and the Nazgûl/Ringwraith's body is halved (rounded up).",
+    "certified": "2026-04-07"
   },
   {
     "cardType": "hero-character",

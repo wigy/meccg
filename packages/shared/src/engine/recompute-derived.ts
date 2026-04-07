@@ -287,3 +287,50 @@ export function recomputeDerived(state: GameState): GameState {
     players: [p0, p1],
   };
 }
+
+/**
+ * Recomputes a character's effective prowess in combat context.
+ *
+ * During normal stat computation (`reason: 'effective-stats'`), combat-conditional
+ * effects like Glamdring's "max 9 against Orcs" are not evaluated because there is
+ * no enemy context. This function re-resolves prowess with `reason: 'combat'` and
+ * the attacking creature's race, so conditional weapon bonuses apply correctly.
+ *
+ * @param state - The current game state (with combat active).
+ * @param char - The character in play whose prowess to compute.
+ * @param charDef - The character's card definition.
+ * @param creatureRace - The lowercase race of the attacking creature (e.g. "orc").
+ * @returns The character's prowess value including combat-conditional effects.
+ */
+export function computeCombatProwess(
+  state: GameState,
+  char: CharacterInPlay,
+  charDef: CharacterCard,
+  creatureRace: string,
+): number {
+  const inPlayNames = buildInPlayNames(state);
+  const charInfo = {
+    race: charDef.race,
+    skills: charDef.skills,
+    baseProwess: charDef.prowess,
+    baseBody: charDef.body,
+    baseDirectInfluence: charDef.directInfluence,
+    name: charDef.name,
+  };
+  const context: ResolverContext = {
+    reason: 'combat',
+    bearer: charInfo,
+    target: charInfo,
+    inPlay: inPlayNames,
+    enemy: { race: creatureRace, name: '', prowess: 0, body: null },
+  };
+
+  const charEffects = collectCharacterEffects(state, char, context);
+  const globalEffects = collectGlobalEffects(state, 'all-characters', context);
+  const collected = [...charEffects, ...globalEffects];
+
+  if (collected.length > 0) {
+    return resolveStatModifiers(collected, 'prowess', charDef.prowess, context);
+  }
+  return charDef.prowess;
+}

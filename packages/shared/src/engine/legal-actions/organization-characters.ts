@@ -21,15 +21,15 @@ import { resolveDef } from '../effects/index.js';
 import { availableDI } from './organization.js';
 
 /**
- * Whether a character has a home-site-only play restriction. Characters
- * with this restriction (e.g. hobbits like Frodo, Sam) may only be brought
- * into play at their homesite, not at havens (unless they are starting
- * characters, but that uses a separate code path).
+ * Returns true if the character has a `home-site-only` play-restriction
+ * that is active (i.e. the character is not a starting character — during
+ * normal play from hand, the context reason is always "play-character").
  */
 function hasHomeSiteOnlyRestriction(charDef: CharacterCard): boolean {
-  return charDef.effects?.some(
+  if (!charDef.effects) return false;
+  return charDef.effects.some(
     e => e.type === 'play-restriction' && e.rule === 'home-site-only',
-  ) ?? false;
+  );
 }
 
 /**
@@ -40,8 +40,8 @@ function hasHomeSiteOnlyRestriction(charDef: CharacterCard): boolean {
  * already exists) and the player's site deck (where a new company would
  * be formed).
  *
- * Characters with a home-site-only play restriction are limited to their
- * homesite only (havens are excluded).
+ * Characters with a `home-site-only` play-restriction (e.g. Frodo, Sam) can
+ * only be played at their homesite, not at havens.
  */
 function findPlayableSites(
   state: GameState,
@@ -57,7 +57,7 @@ function findPlayableSites(
   const homeSiteOnly = hasHomeSiteOnlyRestriction(charDef);
 
   if (homeSiteOnly) {
-    logDetail(`  → home-site-only restriction: ${charDef.name} can only be played at ${charDef.homesite}`);
+    logDetail(`  play-restriction: ${charDef.name} has home-site-only — havens excluded`);
   }
 
   // Sites where the player already has a company
