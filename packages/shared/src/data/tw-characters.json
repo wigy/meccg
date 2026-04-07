@@ -81,7 +81,8 @@
         }
       }
     ],
-    "text": "Unique. +2 direct influence against the Rangers of the North faction. -3 marshalling points if eliminated."
+    "text": "Unique. +2 direct influence against the Rangers of the North faction. -3 marshalling points if eliminated.",
+    "certified": "2026-04-07"
   },
   {
     "cardType": "hero-character",
@@ -274,6 +275,7 @@
     "marshallingCategory": "character",
     "corruptionModifier": 4,
     "homesite": "Bag End",
+    "certified": "2026-04-07",
     "effects": [
       {
         "type": "check-modifier",
@@ -441,7 +443,8 @@
         }
       }
     ],
-    "text": "Unique. When Elrond is at Rivendell, you may keep one more card than normal in your hand. -3 marshalling points if eliminated."
+    "text": "Unique. When Elrond is at Rivendell, you may keep one more card than normal in your hand. -3 marshalling points if eliminated.",
+    "certified": "2026-04-07"
   },
   {
     "cardType": "hero-character",
@@ -589,10 +592,11 @@
       },
       {
         "type": "check-modifier",
-        "check": "faction-influence",
+        "check": "influence",
         "value": -1
       }
     ],
+    "certified": "2026-04-07",
     "text": "Unique. -1 to all of his corruption checks. -1 to influence checks against factions."
   },
   {

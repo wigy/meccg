@@ -169,13 +169,26 @@ export function playCharacterActions(
     }
 
     // Find valid sites (homesite or haven — from companies or site deck)
-    const playableSites = findPlayableSites(state, player, cardDef);
+    let playableSites = findPlayableSites(state, player, cardDef);
+
+    // home-site-only restriction: filter out havens (only homesite is valid)
+    const hasHomeSiteOnly = cardDef.effects?.some(
+      e => e.type === 'play-restriction' && e.rule === 'home-site-only',
+    );
+    if (hasHomeSiteOnly) {
+      playableSites = playableSites.filter(s => s.siteDef.siteType !== SiteType.Haven);
+      logDetail(`  home-site-only restriction: filtered to homesite only (${playableSites.length} sites)`);
+    }
+
     if (playableSites.length === 0) {
-      logDetail(`  → blocked: no homesite (${cardDef.homesite}) or haven available`);
+      const reason = hasHomeSiteOnly
+        ? `${charName}: homesite (${cardDef.homesite}) not available (home-site-only restriction)`
+        : `${charName}: homesite (${cardDef.homesite}) and no haven available`;
+      logDetail(`  → blocked: ${reason}`);
       results.push({
         action: { type: 'play-character', player: playerId, characterInstanceId: cardInstanceId, atSite: '' as CardInstanceId, controlledBy: 'general' },
         viable: false,
-        reason: `${charName}: homesite (${cardDef.homesite}) and no haven available`,
+        reason,
       });
       continue;
     }

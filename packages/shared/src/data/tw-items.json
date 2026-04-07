@@ -172,7 +172,8 @@
         "max": 10
       }
     ],
-    "text": "Unique. Armor. +3 to body (to a maximum of 10)."
+    "text": "Unique. Armor. +3 to body (to a maximum of 10).",
+    "certified": "2026-04-07"
   },
   {
     "cardType": "hero-resource-item",
@@ -199,7 +200,8 @@
         "max": 8
       }
     ],
-    "text": "Weapon. +1 to prowess to a maximum of 8."
+    "text": "Weapon. +1 to prowess to a maximum of 8.",
+    "certified": "2026-04-07"
   },
   {
     "cardType": "hero-resource-item",
