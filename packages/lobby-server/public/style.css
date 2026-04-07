@@ -2844,7 +2844,7 @@ h2 {
 .company-nav-arrow {
   position: fixed;
   top: 42%;
-  transform: translateY(-50%);
+  transform: translateY(0%);
   background: none;
   border: none;
   color: rgba(196, 163, 90, 0.25);
@@ -2877,8 +2877,8 @@ h2 {
 .company-view-toggle {
   position: absolute;
   right: 0.75rem;
-  top: 50%;
-  transform: translateY(-50%);
+  top: calc(50% + 1rem);
+  transform: none;
   background: rgba(30, 30, 30, 0.8);
   border: 1px solid rgba(196, 163, 90, 0.4);
   border-radius: 6px;
