@@ -34,7 +34,7 @@
 
 import { describe, test, expect, beforeEach } from 'vitest';
 import {
-  PLAYER_1, PLAYER_2,
+  PLAYER_1,
   RIVENDELL,
   ARAGORN, GLAMDRING, DAGGER_OF_WESTERNESSE,
   resetMint, pool, reduce, CardStatus,

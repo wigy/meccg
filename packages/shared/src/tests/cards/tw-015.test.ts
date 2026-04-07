@@ -17,7 +17,7 @@ import {
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
   buildTestState, resetMint, makeMHState,
   reduce, pool, findCharInstanceId,
-  viableActions, playCreatureHazardAndResolve, executeAction, runCreatureCombat,
+  playCreatureHazardAndResolve, runCreatureCombat,
 } from '../test-helpers.js';
 import { computeLegalActions, Phase, RegionType, SiteType, CardStatus } from '../../index.js';
 import type { CreatureCard, MovementHazardPhaseState } from '../../index.js';

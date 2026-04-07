@@ -888,7 +888,7 @@ export function runCreatureCombat(
   const charId = findCharInstanceId(state, attacker === PLAYER_1 ? 0 : 1, characterDefId);
 
   // Assign strike
-  let result = reduce(state, { type: 'assign-strike', player: attacker, characterId: charId });
+  const result = reduce(state, { type: 'assign-strike', player: attacker, characterId: charId });
   expect(result.error).toBeUndefined();
 
   // Resolve strike
