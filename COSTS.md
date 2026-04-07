@@ -17,3 +17,6 @@ Eye of Sauron       $3.03     10m 10s
 
 Wake of War     $6.23   14m 27s
 Foolish Words   $5.95   18m 28s
+Edhellond       $1.32    5m 32s
+Eagles' Eyrie   $0.96    4m 13s
+Barrow-downs    $9.65   20m 49s
