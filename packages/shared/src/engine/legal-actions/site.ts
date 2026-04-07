@@ -220,41 +220,57 @@ function revealOnGuardAttacksActions(
   for (const ogCard of company.onGuardCards) {
     if (ogCard.revealed) continue;
     const def = state.cardPool[ogCard.definitionId as string];
-    if (!def || def.cardType !== 'hazard-creature') continue;
-    if (!hasAutoAttacks) continue;
+    if (!def) continue;
 
-    // Check creature keying against the site
-    if (siteDef && isSiteCard(siteDef)) {
-      let keyable = false;
-      for (const key of def.keyedTo) {
-        if (key.siteTypes && key.siteTypes.includes(siteDef.siteType)) {
-          logDetail(`On-guard creature "${def.name}" keyable by site-type: ${siteDef.siteType}`);
-          keyable = true;
-          break;
+    if (def.cardType === 'hazard-creature') {
+      if (!hasAutoAttacks) continue;
+
+      // Check creature keying against the site
+      if (siteDef && isSiteCard(siteDef)) {
+        let keyable = false;
+        for (const key of def.keyedTo) {
+          if (key.siteTypes && key.siteTypes.includes(siteDef.siteType)) {
+            logDetail(`On-guard creature "${def.name}" keyable by site-type: ${siteDef.siteType}`);
+            keyable = true;
+            break;
+          }
+          if (key.regionTypes && key.regionTypes.some(rt => siteDef.sitePath.includes(rt))) {
+            logDetail(`On-guard creature "${def.name}" keyable by region-type in site path`);
+            keyable = true;
+            break;
+          }
         }
-        if (key.regionTypes && key.regionTypes.some(rt => siteDef.sitePath.includes(rt))) {
-          logDetail(`On-guard creature "${def.name}" keyable by region-type in site path`);
-          keyable = true;
-          break;
+        if (!keyable) {
+          logDetail(`On-guard creature "${def.name}" not keyable to ${siteDef.name}`);
+          continue;
         }
       }
-      if (!keyable) {
-        logDetail(`On-guard creature "${def.name}" not keyable to ${siteDef.name}`);
-        continue;
+
+      actions.push({
+        type: 'reveal-on-guard',
+        player: playerId,
+        cardInstanceId: ogCard.instanceId,
+      });
+    } else if (def.cardType === 'hazard-event' && hasAutoAttacks) {
+      // Rule 2.V.i: hazard events that affect automatic-attacks can be revealed here
+      const affectsAutoAttacks = 'effects' in def && def.effects?.some(
+        e => e.type === 'stat-modifier' && (e.target === 'all-automatic-attacks' || e.target === 'all-attacks'),
+      );
+      if (affectsAutoAttacks) {
+        logDetail(`On-guard event "${def.name}" affects automatic-attacks — eligible for reveal`);
+        actions.push({
+          type: 'reveal-on-guard',
+          player: playerId,
+          cardInstanceId: ogCard.instanceId,
+        });
       }
     }
-
-    actions.push({
-      type: 'reveal-on-guard',
-      player: playerId,
-      cardInstanceId: ogCard.instanceId,
-    });
   }
 
   if (actions.length > 0) {
-    logDetail(`Reveal on-guard: ${actions.length} creature(s) eligible for reveal`);
+    logDetail(`Reveal on-guard: ${actions.length} card(s) eligible for reveal`);
   } else {
-    logDetail(`No eligible on-guard creatures to reveal`);
+    logDetail(`No eligible on-guard cards to reveal`);
   }
 
   // Always offer pass

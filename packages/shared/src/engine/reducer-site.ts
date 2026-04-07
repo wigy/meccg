@@ -273,7 +273,7 @@ function handleRevealOnGuardAttacks(
     };
   }
 
-  // Reveal on-guard creature
+  // Reveal on-guard card (creature or event affecting automatic-attacks)
   if (action.type === 'reveal-on-guard') {
     if (action.player === state.activePlayer) {
       return { state, error: 'Only the hazard player may reveal on-guard cards' };
@@ -289,9 +289,38 @@ function handleRevealOnGuardAttacks(
 
     const revealedCard = company.onGuardCards[ogIdx];
     const def = state.cardPool[revealedCard.definitionId as string];
-    logDetail(`Site: hazard player reveals on-guard creature "${def?.name ?? revealedCard.definitionId}"`);
+    logDetail(`Site: hazard player reveals on-guard "${def?.name ?? revealedCard.definitionId}"`);
 
-    // Mark the on-guard card as revealed (combat happens at Step 4)
+    const isEvent = def && def.cardType === 'hazard-event';
+    const isLongOrPermanent = isEvent && 'eventType' in def &&
+      (def.eventType === 'long' || def.eventType === 'permanent');
+
+    if (isLongOrPermanent) {
+      // Long/permanent events: remove from on-guard, add to eventsInPlay
+      logDetail(`${def.name} is a ${(def as { eventType: string }).eventType} event → eventsInPlay`);
+      const newOnGuardCards = [...company.onGuardCards];
+      newOnGuardCards.splice(ogIdx, 1);
+
+      const newCompanies = [...resourcePlayer.companies];
+      newCompanies[siteState.activeCompanyIndex] = { ...company, onGuardCards: newOnGuardCards };
+
+      const newPlayers = clonePlayers(state);
+      newPlayers[activeIndex] = { ...resourcePlayer, companies: newCompanies };
+
+      return {
+        state: {
+          ...state,
+          players: newPlayers,
+          eventsInPlay: [...state.eventsInPlay, {
+            instanceId: revealedCard.instanceId,
+            definitionId: revealedCard.definitionId,
+            owner: action.player,
+          }],
+        },
+      };
+    }
+
+    // Creatures: mark as revealed (combat happens at Step 4)
     const newOnGuardCards = [...company.onGuardCards];
     newOnGuardCards[ogIdx] = { ...revealedCard, revealed: true };
 
