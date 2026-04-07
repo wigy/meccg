@@ -89,7 +89,12 @@ Applies a stat modifier to every character in the bearer's company.
 
 ### 5. `enemy-modifier`
 
-Modifies the enemy's stats during combat.
+Modifies the enemy's stats during combat. The resolver collects
+`enemy-modifier` effects from the defending character and their items,
+evaluates conditions against the combat context (including `enemy.race`),
+and applies operations to the enemy's stat.
+
+Operations: `halve-round-up` — divide by 2, round up.
 
 ```json
 { "type": "enemy-modifier", "stat": "body", "op": "halve-round-up",

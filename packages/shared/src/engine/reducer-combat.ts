@@ -12,7 +12,8 @@ import { logDetail } from './legal-actions/log.js';
 import { resolveInstanceId } from '../types/state.js';
 import type { ReducerResult } from './reducer-utils.js';
 import { roll2d6, clonePlayers } from './reducer-utils.js';
-import { computeCombatProwess } from './recompute-derived.js';
+import { resolveEnemyBody } from './effects/index.js';
+import { computeCombatProwess, buildInPlayNames } from './recompute-derived.js';
 
 
 /**
@@ -188,7 +189,7 @@ function handleResolveStrike(state: GameState, action: GameAction, combat: Comba
   if (!charData) return { state, error: 'Character not found' };
 
   // Compute effective prowess — recompute with combat context when creature race
-  // is known so that combat-conditional weapon effects (e.g. Glamdring vs Orcs) apply.
+  // is known so that combat-conditional weapon effects (e.g. Glamdring vs Orcs, Éowyn vs Nazgûl) apply.
   const charDef = state.cardPool[charData.definitionId as string];
   let prowess: number;
   if (combat.creatureRace && charDef && isCharacterCard(charDef)) {
@@ -355,8 +356,22 @@ function handleBodyCheckRoll(state: GameState, action: GameAction, combat: Comba
   const stateWithRoll: GameState = { ...state, players: basePlayers, rng, cheatRollTotal };
 
   if (combat.bodyCheckTarget === 'creature') {
-    // Body check against creature
-    const body = combat.creatureBody ?? 0;
+    // Body check against creature — apply enemy-modifier effects (e.g. Éowyn halves Nazgûl body)
+    let body = combat.creatureBody ?? 0;
+    const strike2 = combat.strikeAssignments[combat.currentStrikeIndex];
+    if (strike2 && combat.creatureRace) {
+      const defIdx2 = stateWithRoll.players.findIndex(p => p.id === combat.defendingPlayerId);
+      const charData2 = stateWithRoll.players[defIdx2].characters[strike2.characterId as string];
+      if (charData2) {
+        const inPlayNames2 = buildInPlayNames(stateWithRoll);
+        const enemy2 = { race: combat.creatureRace, name: '', prowess: combat.strikeProwess, body: combat.creatureBody };
+        const modifiedBody = resolveEnemyBody(stateWithRoll, charData2, enemy2, body, inPlayNames2);
+        if (modifiedBody !== body) {
+          logDetail(`Enemy body modified by character effects: ${body} → ${modifiedBody}`);
+          body = modifiedBody;
+        }
+      }
+    }
     logDetail(`Body check vs creature: roll ${rollTotal} vs body ${body}`);
     if (rollTotal > body) {
       logDetail('Creature body check failed — creature defeated');
