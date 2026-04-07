@@ -117,6 +117,7 @@ export const LEGAL_ACTIONS_BY_PHASE: Readonly<Record<Phase, readonly GameAction[
     'order-effects',
     'play-hazard',
     'place-on-guard',
+    'play-permanent-event',
     'play-short-event',
     'assign-strike',
     'choose-strike-order',

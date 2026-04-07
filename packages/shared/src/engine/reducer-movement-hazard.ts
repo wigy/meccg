@@ -15,6 +15,7 @@ import { resolveInstanceId } from '../types/state.js';
 import type { ReducerResult } from './reducer-utils.js';
 import { clonePlayers, startDeckExhaust, completeDeckExhaust, handleExchangeSideboard, cleanupEmptyCompanies, roll2d6 } from './reducer-utils.js';
 import { handlePlayShortEvent } from './reducer-events.js';
+import { handlePlayPermanentEvent } from './reducer-events.js';
 
 
 /**
@@ -141,6 +142,11 @@ function handlePlayHazards(
       return { state, error: `Hazard limit reached (${mhState.hazardLimit})` };
     }
     return handlePlayHazardCard(state, action, mhState);
+  }
+
+  // --- Resource permanent event (e.g. Gates of Morning, rule 2.1.1) ---
+  if (action.type === 'play-permanent-event') {
+    return handlePlayPermanentEvent(state, action);
   }
 
   // --- Short event (e.g. Twilight canceling an environment) ---

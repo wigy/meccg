@@ -12,6 +12,7 @@ import { resolveInstanceId } from '../../types/state.js';
 import { collectCharacterEffects, resolveCheckModifier, resolveDef, resolveHandSize } from '../effects/index.js';
 import { MovementType } from '../../types/common.js';
 import { logDetail, logHeading } from './log.js';
+import { playPermanentEventActions, playShortEventActions } from './organization-events.js';
 
 /**
  * Compute legal actions for the movement/hazard phase.
@@ -515,6 +516,13 @@ function playHazardsActions(
         }
       }
     }
+  }
+
+  // Rule 2.1.1: resource player may play resource permanent-events and
+  // resource short-events during any phase of their turn.
+  if (isResourcePlayer) {
+    actions.push(...playPermanentEventActions(state, playerId));
+    actions.push(...playShortEventActions(state, playerId));
   }
 
   // Player who already passed gets no actions (waiting for opponent)
