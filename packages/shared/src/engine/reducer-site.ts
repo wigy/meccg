@@ -97,7 +97,7 @@ export function handleSite(state: GameState, action: GameAction): ReducerResult 
   return {
     state: {
       ...state,
-      phaseState: { phase: Phase.EndOfTurn, step: 'discard' as const, discardDone: [false, false] as const },
+      phaseState: { phase: Phase.EndOfTurn, step: 'discard' as const, discardDone: [false, false] as const, resetHandDone: [false, false] as const },
     },
   };
 }
@@ -1577,7 +1577,7 @@ function advanceSiteToNextCompany(
     return {
       state: cleanupEmptyCompanies({
         ...cleanedState,
-        phaseState: { phase: Phase.EndOfTurn, step: 'discard' as const, discardDone: [false, false] as const },
+        phaseState: { phase: Phase.EndOfTurn, step: 'discard' as const, discardDone: [false, false] as const, resetHandDone: [false, false] as const },
       }),
     };
   }

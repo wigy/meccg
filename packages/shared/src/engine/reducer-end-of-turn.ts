@@ -135,6 +135,30 @@ function handleEndOfTurnDiscard(
  * hand size draw all at once. Once both are at hand size, advance to
  * signal-end.
  */
+/** Mark a player done in the reset-hand step, advancing to signal-end when both are done. */
+function markResetHandDone(state: GameState, eotState: EndOfTurnPhaseState, playerIndex: number): ReducerResult {
+  const newDone: [boolean, boolean] = [...eotState.resetHandDone] as [boolean, boolean];
+  newDone[playerIndex] = true;
+
+  if (newDone[0] && newDone[1]) {
+    logDetail(`End-of-Turn reset-hand: both players done → advancing to signal-end`);
+    return {
+      state: {
+        ...state,
+        phaseState: { ...eotState, step: 'signal-end' as const, resetHandDone: newDone },
+      },
+    };
+  }
+
+  logDetail(`End-of-Turn reset-hand: player ${state.players[playerIndex].name} done, waiting for other player`);
+  return {
+    state: {
+      ...state,
+      phaseState: { ...eotState, resetHandDone: newDone },
+    },
+  };
+}
+
 function handleEndOfTurnResetHand(
   state: GameState,
   action: GameAction,
@@ -161,20 +185,7 @@ function handleEndOfTurnResetHand(
     }
 
     logDetail(`End-of-Turn reset-hand: player ${player.name} at hand size, passed`);
-
-    // Check if both players are now at hand size
-    const otherIndex = (playerIndex === 0 ? 1 : 0);
-    if (state.players[otherIndex].hand.length === handSize) {
-      logDetail(`End-of-Turn reset-hand: both players at hand size → advancing to signal-end`);
-      return {
-        state: {
-          ...state,
-          phaseState: { ...eotState, step: 'signal-end' as const },
-        },
-      };
-    }
-
-    return { state };
+    return markResetHandDone(state, eotState, playerIndex);
   }
 
   if (action.type === 'discard-card') {
@@ -203,20 +214,13 @@ function handleEndOfTurnResetHand(
 
     logDetail(`End-of-Turn reset-hand: player ${player.name} discards 1 card (${newHand.length}/${handSize})`);
 
-    // Check if both players are now at hand size
-    const otherIndex = (playerIndex === 0 ? 1 : 0);
-    if (newHand.length === handSize && newPlayers[otherIndex].hand.length === handSize) {
-      logDetail(`End-of-Turn reset-hand: both players at hand size → advancing to signal-end`);
-      return {
-        state: {
-          ...state,
-          players: newPlayers,
-          phaseState: { ...eotState, step: 'signal-end' as const },
-        },
-      };
+    const updatedState = { ...state, players: newPlayers };
+    // At hand size after discarding → mark done
+    if (newHand.length === handSize) {
+      return markResetHandDone(updatedState, eotState, playerIndex);
     }
 
-    return { state: { ...state, players: newPlayers } };
+    return { state: updatedState };
   }
 
   if (action.type === 'deck-exhaust') {
@@ -245,14 +249,7 @@ function handleEndOfTurnResetHand(
 
     if (player.playDeck.length === 0) {
       logDetail(`End-of-Turn reset-hand: player ${player.name} has no cards to draw`);
-      // Treat as if they reached hand size (can't draw more)
-      const otherIndex = (playerIndex === 0 ? 1 : 0);
-      if (state.players[otherIndex].hand.length === handSize) {
-        return {
-          state: { ...state, phaseState: { ...eotState, step: 'signal-end' as const } },
-        };
-      }
-      return { state };
+      return markResetHandDone(state, eotState, playerIndex);
     }
 
     const drawCount = Math.min(action.count, handSize - player.hand.length);
@@ -270,16 +267,13 @@ function handleEndOfTurnResetHand(
 
     logDetail(`End-of-Turn reset-hand: player ${player.name} drew ${cardsToDrawCount} cards (${newHand.length}/${handSize})`);
 
-    // Check if both players are now at hand size
-    const otherIndex = (playerIndex === 0 ? 1 : 0);
-    if (newHand.length === handSize && newPlayers[otherIndex].hand.length === handSize) {
-      logDetail(`End-of-Turn reset-hand: both players at hand size → advancing to signal-end`);
-      return {
-        state: { ...state, players: newPlayers, phaseState: { ...eotState, step: 'signal-end' as const } },
-      };
+    const updatedState = { ...state, players: newPlayers };
+    // At hand size after drawing → mark done
+    if (newHand.length === handSize) {
+      return markResetHandDone(updatedState, eotState, playerIndex);
     }
 
-    return { state: { ...state, players: newPlayers } };
+    return { state: updatedState };
   }
 
   return { state, error: `Unexpected action '${action.type}' in end-of-turn reset-hand step` };

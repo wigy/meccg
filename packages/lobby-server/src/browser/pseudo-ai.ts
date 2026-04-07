@@ -95,14 +95,12 @@ export function renderPseudoAiActions(actions: readonly DescribedAction[]): void
 
   // Render viable actions as clickable buttons
   for (const da of viable) {
-    const wrapper = document.createElement('div');
-    wrapper.classList.add('pseudo-ai-action-wrapper');
-
     const btn = document.createElement('button');
     btn.textContent = cleanActionText(da.text);
     if ('regress' in da.action && da.action.regress) {
       btn.classList.add('action-regress');
     }
+    addJsonToggle(btn, da.action);
     btn.addEventListener('click', () => {
       sendPseudoAiPick(da.action);
       container.innerHTML = '';
@@ -111,9 +109,7 @@ export function renderPseudoAiActions(actions: readonly DescribedAction[]): void
       panel.classList.add('hidden');
       instruction.classList.add('hidden');
     });
-    wrapper.appendChild(btn);
-    addJsonToggle(wrapper, da.action);
-    container.appendChild(wrapper);
+    container.appendChild(btn);
   }
 
   // Non-viable actions: hidden by default, toggleable

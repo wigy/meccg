@@ -4030,7 +4030,8 @@ h2 {
   right: 110px;
   width: 340px;
   max-height: 60vh;
-  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
   background: #0e1a2e;
   border: 2px solid #5a8a5a;
   border-radius: 6px;
@@ -4104,21 +4105,9 @@ h2 {
   flex-direction: column;
   gap: 0.3rem;
   padding: 0.5rem;
-}
-
-.pseudo-ai-action-wrapper {
-  display: flex;
-  align-items: start;
-  gap: 0.25rem;
-}
-
-.pseudo-ai-action-wrapper button {
+  overflow-y: auto;
   flex: 1;
-  min-width: 0;
-}
-
-.pseudo-ai-action-wrapper .action-json {
-  margin-top: 0.3rem;
+  min-height: 0;
 }
 
 #pseudo-ai-actions button {

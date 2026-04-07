@@ -74,10 +74,17 @@ function discardStepActions(state: GameState, playerId: PlayerId): GameAction[] 
  * Players above hand size must discard; players below draw; at hand size, pass.
  */
 function resetHandStepActions(state: GameState, playerId: PlayerId): GameAction[] {
+  const eotState = state.phaseState as EndOfTurnPhaseState;
   const playerIndex = state.players[0].id === playerId ? 0 : 1;
   const player = state.players[playerIndex];
   const handSize = HAND_SIZE; // TODO: compute from DSL hand-size-modifier effects
   const actions: GameAction[] = [];
+
+  // Already done this step — no actions
+  if (eotState.resetHandDone[playerIndex]) {
+    logDetail(`End-of-Turn reset-hand: player ${player.name} already done, no actions`);
+    return [];
+  }
 
   // Deck exhaust exchange sub-flow: only exchange + pass actions
   if (player.deckExhaustPending) {

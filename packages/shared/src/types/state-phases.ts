@@ -623,6 +623,12 @@ export interface EndOfTurnPhaseState {
    * Advance to reset-hand when both are true.
    */
   readonly discardDone: readonly [boolean, boolean];
+  /**
+   * Per-player done flags for the reset-hand step (CoE 2.VI.2).
+   * Each element is true once that player has drawn/discarded to hand size or passed.
+   * Advance to signal-end when both are true.
+   */
+  readonly resetHandDone: readonly [boolean, boolean];
 }
 
 /**

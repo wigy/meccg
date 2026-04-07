@@ -432,7 +432,7 @@ export function buildTestState(opts: BuildTestStateOpts): GameState {
   } else if (phase === Phase.LongEvent) {
     phaseState = { phase: Phase.LongEvent } as GameState['phaseState'];
   } else if (phase === Phase.EndOfTurn) {
-    phaseState = { phase: Phase.EndOfTurn, step: 'discard', discardDone: [false, false] } as GameState['phaseState'];
+    phaseState = { phase: Phase.EndOfTurn, step: 'discard', discardDone: [false, false], resetHandDone: [false, false] } as GameState['phaseState'];
   } else {
     phaseState = { phase } as GameState['phaseState'];
   }
