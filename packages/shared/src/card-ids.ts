@@ -105,6 +105,8 @@ export const KNIGHTS_OF_DOL_AMROTH = did('tw-263');
 export const WOOD_ELVES = did('tw-367');
 /** Men of Lebennin — Man faction, 2 MP, playable at Pelargir. */
 export const MEN_OF_LEBENNIN = did('tw-280');
+/** Men of Anórien — Man faction, 2 MP, playable at Minas Tirith. */
+export const MEN_OF_ANORIEN = did('tw-277');
 /** Blue Mountain Dwarves — Dwarf faction, 3 MP, playable at Blue Mountain Dwarf-hold. */
 export const BLUE_MOUNTAIN_DWARVES = did('tw-200');
 
