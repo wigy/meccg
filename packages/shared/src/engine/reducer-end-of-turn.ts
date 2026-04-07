@@ -7,7 +7,8 @@
  */
 
 import type { GameState, EndOfTurnPhaseState, PlayerId, GameAction } from '../index.js';
-import { Phase, getPlayerIndex, HAND_SIZE } from '../index.js';
+import { Phase, getPlayerIndex } from '../index.js';
+import { resolveHandSize } from './effects/index.js';
 import { logHeading, logDetail } from './legal-actions/log.js';
 import type { ReducerResult } from './reducer-utils.js';
 import { clonePlayers, startDeckExhaust, completeDeckExhaust, handleExchangeSideboard } from './reducer-utils.js';
@@ -164,8 +165,6 @@ function handleEndOfTurnResetHand(
   action: GameAction,
   eotState: EndOfTurnPhaseState,
 ): ReducerResult {
-  const handSize = HAND_SIZE; // TODO: compute from DSL hand-size-modifier effects
-
   // Pass during deck exhaust exchange sub-flow: complete the exhaust
   if (action.type === 'pass') {
     const pIdx = getPlayerIndex(state, action.player);
@@ -179,6 +178,7 @@ function handleEndOfTurnResetHand(
     // Pass is valid at hand size, or when deck and discard are both empty (can't draw)
     const playerIndex = getPlayerIndex(state, action.player);
     const player = state.players[playerIndex];
+    const handSize = resolveHandSize(state, playerIndex);
     const cannotDraw = player.playDeck.length === 0 && player.discardPile.length === 0;
     if (player.hand.length !== handSize && !cannotDraw) {
       return { state, error: `Cannot pass during reset-hand: hand has ${player.hand.length} cards, need ${handSize}` };
@@ -191,6 +191,7 @@ function handleEndOfTurnResetHand(
   if (action.type === 'discard-card') {
     const playerIndex = getPlayerIndex(state, action.player);
     const player = state.players[playerIndex];
+    const handSize = resolveHandSize(state, playerIndex);
 
     if (player.hand.length <= handSize) {
       return { state, error: `Player ${player.name} does not need to discard (hand: ${player.hand.length}/${handSize})` };
@@ -242,6 +243,7 @@ function handleEndOfTurnResetHand(
   if (action.type === 'draw-cards') {
     const playerIndex = getPlayerIndex(state, action.player);
     const player = state.players[playerIndex];
+    const handSize = resolveHandSize(state, playerIndex);
 
     if (player.hand.length >= handSize) {
       return { state, error: `Player ${player.name} does not need to draw (hand: ${player.hand.length}/${handSize})` };

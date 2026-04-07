@@ -18,6 +18,7 @@ export {
   resolveAttackStrikes,
   resolveCombatProwessBonus,
   resolveEnemyBody,
+  resolveHandSize,
   normalizeCreatureRace,
   resolveDef,
 } from './resolver.js';

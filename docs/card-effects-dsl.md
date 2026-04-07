@@ -120,6 +120,11 @@ Actions:
 - `test-gold-ring` — tap to test a gold ring (not yet implemented)
 - `remove-self-on-roll` — tap bearer, roll 2d6, discard this card on
   success (implemented in `reducer-organization.ts`)
+- `gwaihir-special-movement` — discard this ally during organization to
+  grant the company special movement to any non-Shadow-land/Dark-domain
+  site. Only site-keyed hazard creatures may be played. Requires company
+  size ≤ 2 (implemented in `reducer-organization.ts`,
+  `organization-companies.ts`, `movement-hazard.ts`)
 
 ```json
 { "type": "grant-action", "action": "test-gold-ring",
@@ -127,6 +132,8 @@ Actions:
   "when": { "company.hasItem": { "subtype": "gold-ring" } } }
 { "type": "grant-action", "action": "remove-self-on-roll",
   "cost": { "tap": "bearer" }, "rollThreshold": 8 }
+{ "type": "grant-action", "action": "gwaihir-special-movement",
+  "cost": { "discard": "self" } }
 ```
 
 ### 8. `on-event`

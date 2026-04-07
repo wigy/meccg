@@ -82,9 +82,14 @@ function renderMessage(messageEl: HTMLElement, full: InboxMessage): void {
   if (kwKeys.length > 0) {
     const kwSection = document.createElement('div');
     kwSection.className = 'inbox-msg-keywords';
-    kwSection.innerHTML = kwKeys.map(key =>
-      `<span><span class="inbox-meta-label">${escapeHtml(key)}:</span> <span class="inbox-meta-value">${escapeHtml(full.keywords[key])}</span></span>`,
-    ).join('');
+    kwSection.innerHTML = kwKeys.map(key => {
+      const val = full.keywords[key];
+      const escaped = escapeHtml(val);
+      const rendered = /^https?:\/\/\S+$/.test(val)
+        ? `<a href="${escaped}" target="_blank" rel="noopener">${escaped}</a>`
+        : escaped;
+      return `<span><span class="inbox-meta-label">${escapeHtml(key)}:</span> <span class="inbox-meta-value">${rendered}</span></span>`;
+    }).join('');
     messageEl.appendChild(kwSection);
   }
 
