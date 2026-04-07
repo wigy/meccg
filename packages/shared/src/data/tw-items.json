@@ -200,7 +200,8 @@
         "max": 8
       }
     ],
-    "text": "Weapon. +1 to prowess to a maximum of 8."
+    "text": "Weapon. +1 to prowess to a maximum of 8.",
+    "certified": "2026-04-07"
   },
   {
     "cardType": "hero-resource-item",
