@@ -303,12 +303,9 @@ function bodyCheckActions(
     body = (charDef as { body?: number } | undefined)?.body ?? 9;
     targetLabel = charDef && 'name' in charDef ? (charDef as { name: string }).name : 'character';
   }
-  // Wounded characters get +1 to the body check roll, lowering the raw need
-  const isWounded = combat.bodyCheckTarget === 'character' && (() => {
-    const strike = combat.strikeAssignments[combat.currentStrikeIndex];
-    const defPlayer = state.players.find(p => p.id === combat.defendingPlayerId);
-    return defPlayer?.characters[strike?.characterId as string]?.status === CardStatus.Inverted;
-  })();
+  // +1 to body check roll if the character was already wounded before this strike (CoE rule 3.I)
+  const isWounded = combat.bodyCheckTarget === 'character' &&
+    combat.strikeAssignments[combat.currentStrikeIndex]?.wasAlreadyWounded === true;
   const woundedBonus = isWounded ? 1 : 0;
   const bcNeed = body + 1 - woundedBonus;
   const bcParts = [`${targetLabel} body ${body}`];

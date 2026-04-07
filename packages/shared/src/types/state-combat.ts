@@ -52,6 +52,11 @@ export interface StrikeAssignment {
    * - `'eliminated'` -- The character was killed and removed from play.
    */
   readonly result?: 'success' | 'wounded' | 'eliminated';
+  /**
+   * Whether the character was already wounded before this strike was resolved.
+   * Used for body check calculation: +1 if already wounded (CoE rule 3.I).
+   */
+  readonly wasAlreadyWounded?: boolean;
 }
 
 /**

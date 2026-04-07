@@ -238,9 +238,11 @@ function handleResolveStrike(state: GameState, action: GameAction, combat: Comba
     logDetail('Tie — ineffectual, character taps');
   }
 
-  // Update strike assignment
+  // Update strike assignment — record whether the character was already wounded
+  // before this strike so the body check can apply +1 correctly (CoE rule 3.I).
+  const wasAlreadyWounded = charData.status === CardStatus.Inverted;
   const newAssignments = combat.strikeAssignments.map((a, i) =>
-    i === combat.currentStrikeIndex ? { ...a, resolved: true, result } : a,
+    i === combat.currentStrikeIndex ? { ...a, resolved: true, result, wasAlreadyWounded } : a,
   );
 
   // Tap or wound character
@@ -398,7 +400,7 @@ function handleBodyCheckRoll(state: GameState, action: GameAction, combat: Comba
 
     const charDef2 = stateWithRoll.cardPool[charData.definitionId as string] as { body?: number } | undefined;
     const body = charDef2?.body ?? 9; // Default body if not specified
-    const woundedBonus = charData.status === CardStatus.Inverted ? 1 : 0;
+    const woundedBonus = strike.wasAlreadyWounded ? 1 : 0;
     const effectiveRoll = rollTotal + woundedBonus;
 
     logDetail(`Body check vs character: roll ${rollTotal}${woundedBonus ? '+1(wounded)' : ''} = ${effectiveRoll} vs body ${body}`);
