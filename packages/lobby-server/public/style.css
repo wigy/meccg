@@ -3044,11 +3044,13 @@ h2 {
   margin-bottom: calc(var(--card-table-height) * var(--company-scale, 1) * -0.35);
 }
 
-/* Wounded (upside-down) cards fade from the top instead */
+/* Wounded (upside-down) cards fade from the top instead.
+   Use margin-top (not margin-bottom) so the collapse happens at the top
+   of the rotated inner wrapper, keeping the card at the correct height. */
 .company-card--faded-top {
   -webkit-mask-image: linear-gradient(to top, black 50%, transparent 75%);
   mask-image: linear-gradient(to top, black 50%, transparent 75%);
-  margin-bottom: calc(var(--card-table-height) * var(--company-scale, 1) * -0.35);
+  margin-top: calc(var(--card-table-height) * var(--company-scale, 1) * -0.35);
 }
 
 /* Remove mask when card is highlighted so the glow shows through */
