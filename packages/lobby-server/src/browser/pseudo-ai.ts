@@ -36,7 +36,7 @@ export function cleanActionText(text: string): string {
   // eslint-disable-next-line no-control-regex
   s = s.replace(/[\x00-\x1f]+/g, '');
   s = s.replace(/\{[^}]*\}/g, '');
-  s = s.replace(/\([^)]*\)/g, '');
+  s = s.replace(/\([a-zA-Z0-9_-]+\)/g, '');
   s = s.replace(/\[[^\]]*\]/g, '');
   return s.replace(/\s{2,}/g, ' ').trim();
 }
