@@ -4050,11 +4050,19 @@ h2 {
 #pseudo-ai-panel.minimized {
   max-height: none;
   overflow: hidden;
+  width: auto;
+  min-width: 0;
 }
 
 #pseudo-ai-panel.minimized #pseudo-ai-actions,
-#pseudo-ai-panel.minimized #pseudo-ai-nonviable-toggle {
+#pseudo-ai-panel.minimized #pseudo-ai-nonviable-toggle,
+#pseudo-ai-panel.minimized .pseudo-ai-header span {
   display: none;
+}
+
+#pseudo-ai-panel.minimized .pseudo-ai-header {
+  padding: 0.3rem;
+  border-bottom: none;
 }
 
 .pseudo-ai-header {
