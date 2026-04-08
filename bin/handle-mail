@@ -640,11 +640,14 @@ fi
 # Step 9: Deduct credits from the requestor
 # ---------------------------------------------------------------------------
 # Most replies bill the reply recipient (the person whose request is being
-# answered). Planning requests are different: they are forwarded by admin
-# from a feature-request that originally came from a real user, so the
-# reply goes back to admin but the bill must follow the original requestor.
-# The handle-planning-request skill resolves that user and writes their
-# username into the reply keywords as `originalRequestor`. Honor it here.
+# answered). Planning and implementation requests are different: they are
+# forwarded by a reviewer (typically admin) from a feature-request that
+# originally came from a real user, so the reply goes back to the reviewer
+# but the bill must follow the original requestor. The planning skill
+# resolves that user and writes their username into its reply keywords as
+# `originalRequestor`; the lobby server then forwards that field through to
+# the implementation request, and the implementation skill copies it into
+# its own reply keywords. Honor it here for both flows.
 
 CREDIT_TARGET="$REPLY_RECIPIENT"
 ORIGINAL_REQUESTOR=$(echo "$REPLY_KEYWORDS" | jq -r '.originalRequestor // empty')

@@ -15,7 +15,7 @@ Follow these steps:
    ```
    curl -s http://localhost:8080/api/mail/inbox/<msg-id> -b "meccg-session=$SESSION"
    ```
-   If not found, stop and emit a `success: false` result block. Extract the `body` (implementation plan), `from` (who requested it), `replyTo` (planning reply message ID), `subject`, and `keywords` (especially `originalMessageId` and `planningReplyId`).
+   If not found, stop and emit a `success: false` result block. Extract the `body` (implementation plan), `from` (who requested it — typically a reviewer such as `admin`), `replyTo` (planning reply message ID), `subject`, and `keywords` (especially `originalMessageId`, `planningReplyId`, and `originalRequestor`). The `originalRequestor` keyword identifies the user who filed the original feature request — that user must be billed for the implementation work, just as they were billed for the planning work. It is forwarded by the lobby server from the planning reply that triggered this implementation request.
 
 3. **Check out master:** Always start implementation from the master branch to avoid building on stale or unrelated branches:
    ```
@@ -61,7 +61,8 @@ Follow these steps:
        "keywords": {
          "originalMessageId": "<originalMessageId from the implementation request keywords>",
          "implementationRequestId": "<msg-id of this implementation request>",
-         "gitHash": "<commit hash>"
+         "gitHash": "<commit hash>",
+         "originalRequestor": "<originalRequestor from the implementation request keywords — bin/handle-mail bills this user for the implementation work>"
        }
      },
      "review": {
