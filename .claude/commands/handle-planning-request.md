@@ -15,9 +15,15 @@ Follow these steps:
    ```
    curl -s http://localhost:8080/api/mail/inbox/<msg-id> -b "meccg-session=$SESSION"
    ```
-   If not found, stop and emit a `success: false` result block. Extract the `body` (feature description), `from` (who forwarded it), `replyTo` (original feature request message ID), and `subject`.
+   If not found, stop and emit a `success: false` result block. Extract the `body` (feature description), `from` (who forwarded it — typically `admin`), `replyTo` (original feature request message ID), and `subject`.
 
-3. **Create an implementation plan:** Using the feature description from the message body, analyze the codebase and create a detailed implementation plan. The plan should include:
+3. **Track down the original requestor:** Planning requests are forwarded by `admin` from a feature-request that originally lives in admin's inbox. The `replyTo` field is the ID of that original feature-request. Read it directly from the filesystem (the ai user has no API access to admin's inbox):
+   ```
+   jq -r '.from' ~/.meccg/players/admin/mail/inbox/<replyTo>.json
+   ```
+   This gives you the username of the person who actually filed the feature request — that user is the one who must be billed for the planning work. Save it as `originalRequestor`. If the file does not exist or has no `from` field, fall back to the forwarder (`from` of the planning request) and note it in the report.
+
+4. **Create an implementation plan:** Using the feature description from the message body, analyze the codebase and create a detailed implementation plan. The plan should include:
    - **Summary** of what the feature does and why it's needed
    - **Affected files** — which files need to be created or modified
    - **Implementation steps** — ordered list of concrete changes to make
@@ -26,7 +32,7 @@ Follow these steps:
 
    Use the Explore agent or read relevant source files to understand the current architecture and where the feature fits in.
 
-4. **Emit the structured result block:** As the **last** thing you output, print exactly one block in the form below. `bin/handle-mail` will parse the JSON between the markers and use it to send the reply mail (with credits/time footer). Do not call `/api/system/mail` or `/api/system/mail/.../<msg-id>` anywhere in this skill.
+5. **Emit the structured result block:** As the **last** thing you output, print exactly one block in the form below. `bin/handle-mail` will parse the JSON between the markers and use it to send the reply mail (with credits/time footer). Do not call `/api/system/mail` or `/api/system/mail/.../<msg-id>` anywhere in this skill.
 
    ```
    ===HANDLE_MAIL_RESULT_BEGIN===
@@ -41,7 +47,8 @@ Follow these steps:
        "keywords": {
          "originalMessageId": "<replyTo from the planning request, i.e. the original feature request ID>",
          "planningRequestId": "<msg-id of this planning request>",
-         "requestedBy": "<from field of the planning request>"
+         "requestedBy": "<from field of the planning request — usually admin>",
+         "originalRequestor": "<username of the original feature-request author, looked up in step 3 — bin/handle-mail bills this user for the planning work>"
        }
      }
    }
@@ -52,4 +59,4 @@ Follow these steps:
    - The `reply.body` field is a JSON string — escape newlines as `\n` and quotes as `\"`.
    - Do **not** print anything after `===HANDLE_MAIL_RESULT_END===`.
 
-5. **Report:** Briefly summarize what happened (one or two lines) **before** the result block, so the run log is readable. The result block must still be the final output.
+6. **Report:** Briefly summarize what happened (one or two lines) **before** the result block, so the run log is readable. Mention who the original requestor is so the billing target is visible in the log. The result block must still be the final output.
