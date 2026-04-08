@@ -45,11 +45,21 @@ Follow these steps:
       - Reducer in `packages/shared/src/engine/reducer.ts`
       - Any relevant DSL effect handlers
 
-5. **Validate the bug against the log:** Before proceeding to a fix, confirm that the game log evidence actually supports the reported bug:
-   - The problem described in the report must be visible in the game log state transitions
-   - If the log does not show the reported issue (e.g. the states look correct, the reported sequence number doesn't exist, or the behavior in the log matches expected rules), **do NOT proceed with a code fix**
-   - Instead, emit a `success: false` result block with `reply.body` explaining that the game log was analyzed but does not corroborate the reported issue, including what was actually observed in the log
-   - This prevents making speculative code changes based on misunderstandings or reports that don't match reality
+5. **Validate the bug against the log AND the rules:** Before proceeding to a fix, you must independently confirm two things: (a) the report describes something that actually happened in *this* game save, and (b) what the report claims is wrong is in fact wrong per the official rules. Do not skip either check.
+
+   a. **Tight game-save correspondence.** The bug report must relate tightly to the specific game log identified by the report's game ID:
+      - The reported `gameId` must match a real log file at `~/.meccg/logs/games/<gameId>.jsonl`. If it does not, stop.
+      - The reported sequence number (or surrounding range) must exist in that log. If it does not, stop.
+      - The cards, players, phase, step, and actions named in the report must actually appear in the state at (or near) that sequence. Resolve instance IDs via `<gameId>-cards.json` and verify by name — do not accept the report's framing on faith.
+      - If the report references behavior that the log does not actually show (wrong card, wrong player, wrong phase, action never taken, state never reached), the report is **not corroborated by this save**. Stop and emit `success: false` with a `reply.body` explaining exactly what the log shows instead.
+
+   b. **Rules validation against CoE rules and CRF 22.** Even if the log matches the report, the reported behavior might actually be *correct* per the rules. Before calling it a bug, verify the claim against the authoritative sources:
+      - **CoE rules:** Read the relevant section(s) of `docs/coe-rules.md` for the phase/step/mechanic involved. Quote the rule that supposedly was violated.
+      - **CRF 22 errata and rulings:** Consult <https://meccg.com/rules/collected-rulings-and-errata-crf/crf-22/card-errata-and-rulings/> for any card-specific errata or rulings that affect the cards involved in the reported situation. CRF 22 frequently overrides or clarifies plain card text — a "bug" may simply be the engine correctly applying a CRF ruling the reporter was unaware of.
+      - If both the CoE rules and CRF 22 say the engine's behavior was actually correct, **do NOT proceed with a code fix**. Emit `success: false` with `reply.body` citing the specific rule / CRF ruling that justifies the observed behavior.
+      - Only proceed to step 6 if (a) the log corroborates the report AND (b) the rules + CRF 22 confirm the observed behavior is genuinely incorrect.
+
+   This double validation prevents speculative code changes based on misread saves or misunderstood rules.
 
 6. **Fix the bug:** Implement the fix in the source code:
    - Read the relevant source files
