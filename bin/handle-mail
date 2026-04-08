@@ -159,6 +159,21 @@ format_duration() {
   echo "${mins}m ${secs}s"
 }
 
+# Look up a card's English name from data/cards.json by card ID
+# (e.g. "tw-156"). Returns empty if the card or file is not found.
+# cards.json uses uppercase set codes and card IDs; our internal IDs
+# are lowercase, so we normalize before the lookup.
+lookup_card_name() {
+  local id="$1"
+  if [ -z "$id" ]; then return 0; fi
+  local id_upper set_upper
+  id_upper=$(echo "$id" | tr 'a-z' 'A-Z')
+  set_upper="${id_upper%%-*}"
+  jq -r --arg set "$set_upper" --arg id "$id_upper" \
+    '.[$set].cards[$id].name.en // empty' \
+    "$PROJECT_DIR/data/cards.json" 2>/dev/null || true
+}
+
 # Send the reply mail to a single recipient. The credits/time footer is
 # always appended to the body. This is the SOLE place that emits reply mail.
 #   $1=recipient  $2=topic  $3=subject  $4=body  $5=keywords-json
@@ -430,7 +445,7 @@ IMPORTANT: You MUST create a branch named certify-${CARD_ID}-<card-slug>, commit
 
       PR_URL=$(echo "$SKILL_OUTPUT" | grep -oP 'https://github\.com/wigy/meccg/pull/[0-9]+' | tail -1 || true)
       GIT_HASH=$(echo "$SKILL_OUTPUT" | grep -oP '[0-9a-f]{40}' | tail -1 || true)
-      CARD_NAME=$(echo "$SKILL_OUTPUT" | grep -oP '(?:Card|card)[:\s]+([A-Z][A-Za-z ]+)' | head -1 | sed 's/^[Cc]ard[: ]*//' || true)
+      CARD_NAME=$(lookup_card_name "$CARD_ID")
 
       if echo "$SKILL_OUTPUT" | grep -qiP '(Playable:\s*YES|certification.*passed|certified|PR.*created|pull request)'; then
         SUCCESS=true
@@ -546,10 +561,23 @@ elif [ -n "${SKILL_COST:-}" ]; then
   CREDITS_CHARGED=$(awk -v c="$SKILL_COST" 'BEGIN { printf "%d", (c*100)+0.5 }')
 fi
 
-# Human-readable reason for the credit-history audit log.
+# Human-readable reason for the credit-history audit log. Card-related
+# topics must always name the card — never show only the bare ID code.
 case "$TOPIC" in
-  card-request)                   CREDITS_REASON="Card request: ${CARD_NAME:-unknown}" ;;
-  certification-request)          CREDITS_REASON="Certification: ${CARD_ID:-unknown}" ;;
+  card-request)
+    if [ -n "${CARD_NAME:-}" ] && [ -n "${CARD_ID:-}" ]; then
+      CREDITS_REASON="Card request: $CARD_NAME ($CARD_ID)"
+    else
+      CREDITS_REASON="Card request: ${CARD_NAME:-${CARD_ID:-unknown}}"
+    fi
+    ;;
+  certification-request)
+    if [ -n "${CARD_NAME:-}" ] && [ -n "${CARD_ID:-}" ]; then
+      CREDITS_REASON="Certification: $CARD_NAME ($CARD_ID)"
+    else
+      CREDITS_REASON="Certification: ${CARD_NAME:-${CARD_ID:-unknown}}"
+    fi
+    ;;
   feature-planning-request)       CREDITS_REASON="Feature planning: $SUBJECT" ;;
   feature-implementation-request) CREDITS_REASON="Feature implementation: $SUBJECT" ;;
   bug-report)                     CREDITS_REASON="Bug report: $SUBJECT" ;;
