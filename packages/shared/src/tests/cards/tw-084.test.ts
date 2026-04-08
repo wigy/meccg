@@ -395,6 +395,86 @@ describe('River (tw-84)', () => {
     expect(riverInPlay!.attachedToSite).toBe(MORIA);
   });
 
+  test('tapping a ranger through reduce() removes the River constraint and taps the character', () => {
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Site,
+      players: [
+        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [ARAGORN] }], hand: [], siteDeck: [MORIA] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [MINAS_TIRITH] },
+      ],
+    });
+
+    const targetCompanyId = base.players[0].companies[0].id;
+    const riverInstance = mint();
+    const sitePhaseState: SitePhaseState = {
+      phase: Phase.Site,
+      step: 'enter-or-skip',
+      activeCompanyIndex: 0,
+      handledCompanyIds: [],
+      automaticAttacksResolved: 0,
+      siteEntered: false,
+      resourcePlayed: false,
+      minorItemAvailable: false,
+      declaredAgentAttack: null,
+      awaitingOnGuardReveal: false,
+      pendingResourceAction: null,
+      opponentInteractionThisTurn: null,
+      pendingOpponentInfluence: null,
+    };
+    const stateAtStep = { ...base, phaseState: sitePhaseState };
+    const constrained = addConstraint(stateAtStep, {
+      source: riverInstance,
+      scope: { kind: 'company-site-phase', companyId: targetCompanyId },
+      target: { kind: 'company', companyId: targetCompanyId },
+      kind: { type: 'site-phase-do-nothing-unless-ranger-taps' },
+    });
+
+    const withRiverInPlay = {
+      ...constrained,
+      players: [
+        {
+          ...constrained.players[0],
+          cardsInPlay: [
+            ...constrained.players[0].cardsInPlay,
+            { instanceId: riverInstance, definitionId: RIVER, status: CardStatus.Untapped },
+          ],
+        },
+        constrained.players[1],
+      ] as typeof constrained.players,
+    };
+
+    const aragornId = withRiverInPlay.players[0].companies[0].characters[0];
+
+    // Tap Aragorn to cancel River via the reducer.
+    const result = reduce(withRiverInPlay, {
+      type: 'activate-granted-action',
+      player: PLAYER_1,
+      characterId: aragornId,
+      sourceCardId: riverInstance,
+      sourceCardDefinitionId: RIVER,
+      actionId: 'tap-ranger-to-cancel-river',
+      rollThreshold: 0,
+    } as ActivateGrantedAction);
+
+    expect(result.error).toBeUndefined();
+
+    // Aragorn should now be tapped.
+    const aragornAfter = result.state.players[0].characters[aragornId as string];
+    expect(aragornAfter.status).toBe(CardStatus.Tapped);
+
+    // The River constraint should be gone.
+    expect(result.state.activeConstraints).toHaveLength(0);
+
+    // Still in enter-or-skip — the company can now enter the site.
+    expect((result.state.phaseState as SitePhaseState).step).toBe('enter-or-skip');
+
+    // With the constraint removed, legal actions should include enter-site.
+    const actions = computeLegalActions(result.state, PLAYER_1).filter(ea => ea.viable);
+    const types = actions.map(ea => ea.action.type);
+    expect(types).toContain('enter-site');
+  });
+
   test('two Rivers on different sites only fire when their bound site is the arrival', () => {
     // Place two River instances in P2's cardsInPlay, one bound to Moria
     // and one bound to Lorien. Drive the engine through fireing the
