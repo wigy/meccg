@@ -133,17 +133,19 @@ extract_handler_result() {
     | sed '1d;$d'
 }
 
-# Deduct credits from a player via bin/credits.  $1=player $2=amount(positive integer)
+# Deduct credits from a player via bin/credits, recording an audit-log
+# entry with the supplied reason.
+#   $1=player  $2=amount(positive integer)  $3=reason(human-readable)
 # No-op for empty/system accounts or non-positive amounts.
 deduct_credits() {
-  local user="$1" amount="$2"
+  local user="$1" amount="$2" reason="${3:-request processing}"
   if [ -z "$user" ] || [ "$amount" -le 0 ]; then return 0; fi
   case "$user" in
     ai|admin|server) return 0 ;;
   esac
   local neg=$(( -amount ))
-  if "$SCRIPT_DIR/credits" add "$user" "$neg" >/dev/null; then
-    log "Deducted $amount credits from $user"
+  if "$SCRIPT_DIR/credits" add "$user" "$neg" "$reason" >/dev/null; then
+    log "Deducted $amount credits from $user ($reason)"
   else
     log "WARNING: failed to deduct $amount credits from $user"
   fi
@@ -544,6 +546,16 @@ elif [ -n "${SKILL_COST:-}" ]; then
   CREDITS_CHARGED=$(awk -v c="$SKILL_COST" 'BEGIN { printf "%d", (c*100)+0.5 }')
 fi
 
+# Human-readable reason for the credit-history audit log.
+case "$TOPIC" in
+  card-request)                   CREDITS_REASON="Card request: ${CARD_NAME:-unknown}" ;;
+  certification-request)          CREDITS_REASON="Certification: ${CARD_ID:-unknown}" ;;
+  feature-planning-request)       CREDITS_REASON="Feature planning: $SUBJECT" ;;
+  feature-implementation-request) CREDITS_REASON="Feature implementation: $SUBJECT" ;;
+  bug-report)                     CREDITS_REASON="Bug report: $SUBJECT" ;;
+  *)                              CREDITS_REASON="$TOPIC: $SUBJECT" ;;
+esac
+
 DURATION_HUMAN=$(format_duration "$DISPATCH_DURATION_S")
 
 # ---------------------------------------------------------------------------
@@ -579,7 +591,7 @@ fi
 # ---------------------------------------------------------------------------
 
 if [ "$CREDITS_CHARGED" -gt 0 ]; then
-  deduct_credits "$REPLY_RECIPIENT" "$CREDITS_CHARGED"
+  deduct_credits "$REPLY_RECIPIENT" "$CREDITS_CHARGED" "$CREDITS_REASON"
 fi
 
 # ---------------------------------------------------------------------------

@@ -175,6 +175,42 @@ export function getCredits(name: string): number {
   return findPlayer(name)?.credits ?? DEFAULT_CREDITS;
 }
 
+/**
+ * One entry in a player's credit history log. The file lives at
+ * `~/.meccg/players/<dirname>/credits.json` as a JSON array of these
+ * entries, written by `bin/credits` (the sole credit mutator) and read
+ * by the lobby for the Credit Usage page.
+ */
+export interface CreditHistoryEntry {
+  /** ISO 8601 timestamp of the change. */
+  readonly datetime: string;
+  /** Signed change in credits (positive = added, negative = deducted). */
+  readonly amount: number;
+  /** Resulting credits balance after the change was applied. */
+  readonly balance: number;
+  /** Human-readable reason (e.g. "Card request: Gandalf", "Manual top-up"). */
+  readonly explanation: string;
+}
+
+/** Path to a player's credit history file. */
+function creditsHistoryPath(name: string): string {
+  return path.join(PLAYERS_DIR, toDirName(name), 'credits.json');
+}
+
+/**
+ * Read a player's credit history. Returns the entries in chronological
+ * order (oldest first), or an empty array if no history exists yet.
+ */
+export function readCreditHistory(name: string): CreditHistoryEntry[] {
+  try {
+    const data = fs.readFileSync(creditsHistoryPath(name), 'utf-8');
+    const parsed = JSON.parse(data);
+    return Array.isArray(parsed) ? (parsed as CreditHistoryEntry[]) : [];
+  } catch {
+    return [];
+  }
+}
+
 // ---- Mail view tracking ----
 
 /** Get the player's last mail view timestamp, or null if never viewed. */

@@ -34,7 +34,7 @@ export const cardPool: Readonly<Record<string, CardDefinition>> = loadCardPool()
 // ---- Screen type ----
 
 /** All screen IDs used in the lobby UI. */
-export type ScreenId = 'login-screen' | 'register-screen' | 'lobby-screen' | 'decks-screen' | 'deck-editor-screen' | 'inbox-screen' | 'connect-form';
+export type ScreenId = 'login-screen' | 'register-screen' | 'lobby-screen' | 'decks-screen' | 'deck-editor-screen' | 'inbox-screen' | 'credits-screen' | 'connect-form';
 
 // ---- Global mutable state ----
 

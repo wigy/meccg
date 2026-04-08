@@ -22,10 +22,10 @@ import { openInbox, openSent, autoSelectMessage, updateMailBadge } from './inbox
 import { renderLog } from './render.js';
 
 /** All screen IDs in the lobby UI. */
-const ALL_SCREENS: ScreenId[] = ['login-screen', 'register-screen', 'lobby-screen', 'decks-screen', 'deck-editor-screen', 'inbox-screen', 'connect-form'];
+const ALL_SCREENS: ScreenId[] = ['login-screen', 'register-screen', 'lobby-screen', 'decks-screen', 'deck-editor-screen', 'inbox-screen', 'credits-screen', 'connect-form'];
 
 /** Screens that should show the persistent nav bar. */
-const NAV_SCREENS: ScreenId[] = ['lobby-screen', 'decks-screen', 'deck-editor-screen', 'inbox-screen'];
+const NAV_SCREENS: ScreenId[] = ['lobby-screen', 'decks-screen', 'deck-editor-screen', 'inbox-screen', 'credits-screen'];
 
 /** Update the credits badge in the nav bar. */
 export function updateCreditsBadge(): void {

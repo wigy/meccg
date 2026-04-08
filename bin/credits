@@ -3,19 +3,23 @@
  * @module credits
  *
  * List and modify player credit balances directly on disk by reading/writing
- * each account's info.json under ~/.meccg/players/<dirname>/info.json.
+ * each account's info.json under ~/.meccg/players/<dirname>/info.json. Every
+ * mutation is also recorded as a new entry in the player's credit history
+ * file at ~/.meccg/players/<dirname>/credits.json — `bin/credits` is the
+ * sole writer of credits, so logging here covers every change (including
+ * the deductions that bin/handle-mail performs after request processing).
  *
  * Usage:
- *   bin/credits                       List all players and their credits
- *   bin/credits add <player> <amount> Add <amount> credits to <player>
- *   bin/credits set <player> <amount> Set <player>'s credits to <amount>
+ *   bin/credits                                    List all players and their credits
+ *   bin/credits add <player> <amount> [<reason>]   Add <amount> credits to <player>
+ *   bin/credits set <player> <amount> [<reason>]   Set <player>'s credits to <amount>
  *
  * Mirrors the DEFAULT_CREDITS / getCredits semantics in
  * packages/lobby-server/src/players/store.ts: a missing `credits` field is
  * treated as 0.
  */
 
-import { readFileSync, writeFileSync, readdirSync, statSync } from 'fs';
+import { readFileSync, writeFileSync, readdirSync, statSync, existsSync } from 'fs';
 import { join } from 'path';
 import { homedir } from 'os';
 
@@ -41,6 +45,39 @@ function readPlayer(dirName) {
 function writePlayer(dirName, record) {
   const infoPath = join(PLAYERS_DIR, dirName, 'info.json');
   writeFileSync(infoPath, JSON.stringify(record, null, 2));
+}
+
+/** Path to a player's credit history file. */
+function historyPath(dirName) {
+  return join(PLAYERS_DIR, dirName, 'credits.json');
+}
+
+/** Read a player's credit history. Returns [] if the file doesn't exist or is unreadable. */
+function readHistory(dirName) {
+  const path = historyPath(dirName);
+  if (!existsSync(path)) return [];
+  try {
+    const parsed = JSON.parse(readFileSync(path, 'utf-8'));
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Append an entry to a player's credit history. The entry records the
+ * delta (positive or negative), the resulting balance, an ISO datetime,
+ * and a human-readable explanation.
+ */
+function appendHistory(dirName, delta, balance, explanation) {
+  const entries = readHistory(dirName);
+  entries.push({
+    datetime: new Date().toISOString(),
+    amount: delta,
+    balance,
+    explanation,
+  });
+  writeFileSync(historyPath(dirName), JSON.stringify(entries, null, 2));
 }
 
 /** Find a player by case-insensitive name match. Returns { dirName, record } or null. */
@@ -84,9 +121,9 @@ function parseAmount(raw) {
 
 function usage() {
   console.error('Usage:');
-  console.error('  bin/credits                       List all players and their credits');
-  console.error('  bin/credits add <player> <amount> Add <amount> credits to <player>');
-  console.error('  bin/credits set <player> <amount> Set <player>\'s credits to <amount>');
+  console.error('  bin/credits                                    List all players and their credits');
+  console.error('  bin/credits add <player> <amount> [<reason>]   Add <amount> credits to <player>');
+  console.error('  bin/credits set <player> <amount> [<reason>]   Set <player>\'s credits to <amount>');
   process.exit(1);
 }
 
@@ -112,9 +149,10 @@ if (!cmd) {
 }
 
 if (cmd === 'add' || cmd === 'set') {
-  if (args.length !== 3) usage();
+  if (args.length < 3 || args.length > 4) usage();
   const playerName = args[1];
   const amount = parseAmount(args[2]);
+  const explanation = args[3] && args[3].trim() ? args[3].trim() : 'manual adjustment';
 
   const found = findPlayer(playerName);
   if (!found) {
@@ -124,13 +162,19 @@ if (cmd === 'add' || cmd === 'set') {
 
   const current = found.record.credits ?? DEFAULT_CREDITS;
   const next = cmd === 'add' ? current + amount : amount;
+  const delta = next - current;
 
   // Negative balances are allowed: a request is gated on credits > 0 at
   // submission time, but the post-processing deduction (cost * 100) may
   // overshoot a small remaining balance. The next request will be denied
   // until the player tops up.
   writePlayer(found.dirName, { ...found.record, credits: next });
-  console.log(`${found.record.name}: ${current} -> ${next}`);
+
+  // Always record the change, even if delta is 0 (e.g. `set` to the same
+  // value), so the audit trail captures every command that touched credits.
+  appendHistory(found.dirName, delta, next, explanation);
+
+  console.log(`${found.record.name}: ${current} -> ${next}  (${delta >= 0 ? '+' : ''}${delta}, ${explanation})`);
   process.exit(0);
 }
 

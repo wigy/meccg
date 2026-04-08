@@ -205,10 +205,92 @@ h2 {
   padding: 0.2rem 0.6rem;
   border-radius: 12px;
   box-shadow: 0 1px 3px rgba(0,0,0,0.4);
+  cursor: pointer;
+  transition: filter 0.15s, transform 0.1s;
+}
+
+.lobby-credits-badge:hover {
+  filter: brightness(1.15);
+}
+
+.lobby-credits-badge:active {
+  transform: scale(0.97);
 }
 
 .lobby-credits-badge::before {
   content: '\1FA99';
+}
+
+/* ---- Credit Usage page ---- */
+
+.credits-page {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 1rem 1.5rem 2rem;
+}
+
+.credits-page-title {
+  font-family: 'Cinzel', serif;
+  color: #c4a35a;
+  margin: 0 0 0.75rem;
+}
+
+.credits-page-summary {
+  color: #e8d9a0;
+  font-size: 0.95rem;
+  margin-bottom: 1rem;
+}
+
+.credits-page-list {
+  margin-top: 0.5rem;
+}
+
+.credits-page-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: rgba(20, 20, 36, 0.6);
+  border: 1px solid #334;
+  font-size: 0.9rem;
+}
+
+.credits-page-table th,
+.credits-page-table td {
+  padding: 0.5rem 0.75rem;
+  text-align: left;
+  border-bottom: 1px solid #2a2a40;
+}
+
+.credits-page-table th {
+  background: rgba(196, 163, 90, 0.12);
+  color: #c4a35a;
+  font-family: 'Cinzel', serif;
+  font-weight: 700;
+  font-size: 0.85rem;
+}
+
+.credits-page-table tbody tr:hover {
+  background: rgba(196, 163, 90, 0.06);
+}
+
+.credits-col-amount,
+.credits-col-balance {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  width: 6rem;
+}
+
+.credits-amount-pos {
+  color: #7fdc8a;
+  font-weight: 700;
+}
+
+.credits-amount-neg {
+  color: #ff8a8a;
+  font-weight: 700;
+}
+
+.credits-amount-zero {
+  color: #888;
 }
 
 .screen-player-name {

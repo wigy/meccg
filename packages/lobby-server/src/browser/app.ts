@@ -30,6 +30,7 @@ import { setDeckBrowserCallbacks } from './deck-browser.js';
 import { setupDeckEditorPreview, setupDecksPreview, openDeckEditor, setDeckEditorCallbacks } from './deck-editor.js';
 import { openInbox, openSent } from './inbox.js';
 import { setInboxCallbacks } from './inbox.js';
+import { openCreditsPage, setCreditsPageCallbacks } from './credits-page.js';
 import {
   showScreen, showAuthError, applyBackground, selectRandomBackground,
   connectLobbyWs, initLobby,
@@ -53,6 +54,7 @@ declare global {
 setDeckBrowserCallbacks(openDeckEditor);
 setDeckEditorCallbacks(showScreen);
 setInboxCallbacks(showScreen);
+setCreditsPageCallbacks(showScreen);
 
 // ---- UI Setup ----
 
@@ -343,6 +345,14 @@ document.addEventListener('DOMContentLoaded', () => {
       sessionStorage.removeItem(VIEWING_DECKS_KEY);
       sessionStorage.removeItem(EDITING_DECK_KEY);
       void openInbox();
+    });
+    document.getElementById('lobby-credits-badge')!.addEventListener('click', () => {
+      sessionStorage.removeItem(VIEWING_INBOX_KEY);
+      sessionStorage.removeItem(MAIL_TAB_KEY);
+      sessionStorage.removeItem(MAIL_MSG_KEY);
+      sessionStorage.removeItem(EDITING_DECK_KEY);
+      sessionStorage.removeItem(VIEWING_DECKS_KEY);
+      void openCreditsPage();
     });
 
     // Feature request modal handlers
