@@ -120,15 +120,29 @@ function animateDie(scene: HTMLElement, target: number, delay: number): void {
 const overlays: Record<string, HTMLElement> = {};
 const lastRolls: Record<string, { die1: number; die2: number }> = {};
 
-/** Resolves when the current dice animation has finished tumbling. */
-let animationPromise: Promise<void> = Promise.resolve();
+/**
+ * In-flight dice animations, one promise per active rollDice() call.
+ * Each promise resolves when its own tumble + slide-to-tray sequence
+ * has finished. Tracking these per-variant (not as a single global)
+ * lets two players roll simultaneously without one's animation being
+ * cut short by the other's, and lets waitForDice() wait for all of
+ * them so subsequent state renders don't disturb live animations.
+ */
+const inflightAnimations: Set<Promise<void>> = new Set();
+
+/** Variants whose dice are currently mid-animation; used to guard
+ *  seedDiceFromState() from yanking overlays out during a roll. */
+const animatingVariants: Set<string> = new Set();
 
 /**
- * Wait for any in-progress dice animation to finish before proceeding.
- * Resolves immediately if no animation is active.
+ * Wait for any in-progress dice animations to finish before proceeding.
+ * Resolves immediately if no animations are active. If multiple rolls
+ * are in flight (e.g. both players rolled near-simultaneously), waits
+ * for all of them so the caller doesn't render mid-animation.
  */
 export function waitForDice(): Promise<void> {
-  return animationPromise;
+  if (inflightAnimations.size === 0) return Promise.resolve();
+  return Promise.all(Array.from(inflightAnimations)).then(() => undefined);
 }
 
 /** Remove all dice overlays, clear stored roll state, and empty dice trays. */
@@ -140,6 +154,8 @@ export function clearDice(): void {
   for (const key of Object.keys(lastRolls)) {
     delete lastRolls[key];
   }
+  animatingVariants.clear();
+  inflightAnimations.clear();
   for (const id of ['self-dice-tray', 'opponent-dice-tray']) {
     const tray = document.getElementById(id);
     if (tray) tray.innerHTML = '';
@@ -168,11 +184,21 @@ function dismiss(variant: string): void {
 export function rollDice(die1: number, die2: number, variant: 'red' | 'black' = 'red'): void {
   lastRolls[variant] = { die1, die2 };
 
-  // Set up a promise that resolves when the tumbling animation completes.
-  // State updates wait on this so the result isn't spoiled mid-roll.
-  animationPromise = new Promise(resolve => {
-    setTimeout(resolve, 1800);
-  });
+  // Register this roll as an in-flight animation. The promise resolves
+  // only when the tumble + slide-to-tray sequence below completes, so
+  // state updates that call waitForDice() will wait for the full
+  // animation rather than just an arbitrary fixed delay. Tracking each
+  // roll independently means two players rolling near-simultaneously
+  // both get their full animation without one preempting the other.
+  let resolveAnimation!: () => void;
+  const animationPromise = new Promise<void>(resolve => { resolveAnimation = resolve; });
+  inflightAnimations.add(animationPromise);
+  animatingVariants.add(variant);
+  const finishAnimation = (): void => {
+    inflightAnimations.delete(animationPromise);
+    animatingVariants.delete(variant);
+    resolveAnimation();
+  };
 
   // Remove existing overlay for this variant only
   if (overlays[variant]) {
@@ -231,10 +257,12 @@ export function rollDice(die1: number, die2: number, variant: 'red' | 'black' = 
       setTimeout(() => {
         dismiss(variant);
         restoreDice();
+        finishAnimation();
       }, 650);
     } else {
       dismiss(variant);
       restoreDice();
+      finishAnimation();
     }
   }, 1800);
 }
@@ -281,15 +309,18 @@ export function restoreDice(): void {
  * can recreate the floating dice after a load or reconnect.
  */
 export function seedDiceFromState(view: { self: { lastDiceRoll: { die1: number; die2: number } | null }; opponent: { lastDiceRoll: { die1: number; die2: number } | null } }): void {
+  // Skip removal for variants currently animating: a state message
+  // arriving in the middle of a roll must not yank the in-flight
+  // overlay out from under the animation.
   if (view.self.lastDiceRoll) {
     lastRolls['black'] = view.self.lastDiceRoll;
-  } else {
+  } else if (!animatingVariants.has('black')) {
     delete lastRolls['black'];
     if (overlays['black']) { overlays['black'].remove(); delete overlays['black']; }
   }
   if (view.opponent.lastDiceRoll) {
     lastRolls['red'] = view.opponent.lastDiceRoll;
-  } else {
+  } else if (!animatingVariants.has('red')) {
     delete lastRolls['red'];
     if (overlays['red']) { overlays['red'].remove(); delete overlays['red']; }
   }
