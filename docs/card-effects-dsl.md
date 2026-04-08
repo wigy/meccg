@@ -126,6 +126,12 @@ Actions:
   site. Only site-keyed hazard creatures may be played. Requires company
   size ≤ 2 (implemented in `reducer-organization.ts`,
   `organization-companies.ts`, `movement-hazard.ts`)
+- `untap-bearer` — discard this item during organization to untap its
+  bearer. Bearer must be tapped (implemented in `reducer-organization.ts`)
+- `extra-region-movement` — discard this item during organization to
+  grant the bearer's company +1 max region distance for movement this
+  turn (implemented in `reducer-organization.ts`,
+  `organization-companies.ts`, `reducer-movement-hazard.ts`)
 
 ```json
 { "type": "grant-action", "action": "test-gold-ring",
@@ -134,6 +140,10 @@ Actions:
 { "type": "grant-action", "action": "remove-self-on-roll",
   "cost": { "tap": "bearer" }, "rollThreshold": 8 }
 { "type": "grant-action", "action": "gwaihir-special-movement",
+  "cost": { "discard": "self" } }
+{ "type": "grant-action", "action": "untap-bearer",
+  "cost": { "discard": "self" } }
+{ "type": "grant-action", "action": "extra-region-movement",
   "cost": { "discard": "self" } }
 ```
 

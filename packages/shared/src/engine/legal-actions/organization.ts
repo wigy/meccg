@@ -294,6 +294,10 @@ export function organizationActions(state: GameState, playerId: PlayerId): Evalu
  * - `gwaihir-special-movement` — discard the ally to grant the company
  *   special movement to any non-Shadow-land/Dark-domain/Under-deeps site.
  *   Requires company size ≤ 2.
+ * - `untap-bearer` — discard an item to untap its bearer. Bearer must be
+ *   tapped.
+ * - `extra-region-movement` — discard an item during organization to grant
+ *   the bearer's company +1 max region distance for movement this turn.
  */
 function grantedActionActivations(state: GameState, playerId: PlayerId): EvaluatedAction[] {
   const player = state.players.find(p => p.id === playerId);
@@ -428,6 +432,54 @@ function grantedActionActivations(state: GameState, playerId: PlayerId): Evaluat
             characterId: charId,
             sourceCardId: ally.instanceId,
             sourceCardDefinitionId: ally.definitionId,
+            actionId: effect.action,
+            rollThreshold: effect.rollThreshold ?? 0,
+          },
+          viable: true,
+        });
+      }
+    }
+
+    // Scan items attached to this character for grant-action effects
+    for (const item of char.items) {
+      const grantActions = extractGrantActions(state, item.definitionId);
+      for (const effect of grantActions) {
+        // Action-specific checks
+        if (effect.action === 'untap-bearer') {
+          // Bearer must be tapped for untap to make sense
+          if (char.status !== CardStatus.Tapped) {
+            const def = state.cardPool[item.definitionId as string];
+            logDetail(`Grant-action ${effect.action}: ${charDef?.name ?? '?'} is not tapped, cannot activate ${def?.name ?? '?'}`);
+            continue;
+          }
+        }
+
+        if (effect.action === 'extra-region-movement') {
+          // Company must not already have planned movement or extra region distance
+          const company = player.companies.find(c => c.characters.includes(charId));
+          if (!company) continue;
+          if (company.destinationSite !== null) {
+            const def = state.cardPool[item.definitionId as string];
+            logDetail(`Grant-action ${effect.action}: company already has movement planned, cannot activate ${def?.name ?? '?'}`);
+            continue;
+          }
+          if (company.extraRegionDistance) {
+            const def = state.cardPool[item.definitionId as string];
+            logDetail(`Grant-action ${effect.action}: company already has extra region distance, cannot activate ${def?.name ?? '?'}`);
+            continue;
+          }
+        }
+
+        const def = state.cardPool[item.definitionId as string];
+        logDetail(`Grant-action ${effect.action} available: ${charDef?.name ?? '?'} can discard ${def?.name ?? '?'} to activate`);
+
+        actions.push({
+          action: {
+            type: 'activate-granted-action',
+            player: playerId,
+            characterId: charId,
+            sourceCardId: item.instanceId,
+            sourceCardDefinitionId: item.definitionId,
             actionId: effect.action,
             rollThreshold: effect.rollThreshold ?? 0,
           },

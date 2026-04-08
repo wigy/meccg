@@ -13,6 +13,7 @@ import { resolveInstanceId } from '../types/state.js';
 import type { ReducerResult } from './reducer-utils.js';
 import { roll2d6, clonePlayers, cleanupEmptyCompanies, nextCompanyId, handleFetchFromPile } from './reducer-utils.js';
 import { handlePlayPermanentEvent, handlePlayShortEvent, handlePlayResourceShortEvent } from './reducer-events.js';
+import { recomputeDerived } from './recompute-derived.js';
 
 
 export function handleOrganization(state: GameState, action: GameAction): ReducerResult {
@@ -641,6 +642,16 @@ function handleActivateGrantedAction(state: GameState, action: GameAction): Redu
     return handleGwaihirSpecialMovement(state, action);
   }
 
+  // Dispatch to untap-bearer handler (e.g. Cram)
+  if (action.actionId === 'untap-bearer') {
+    return handleUntapBearer(state, action);
+  }
+
+  // Dispatch to extra-region-movement handler (e.g. Cram)
+  if (action.actionId === 'extra-region-movement') {
+    return handleExtraRegionMovement(state, action);
+  }
+
   return handleRemoveSelfOnRoll(state, action);
 }
 
@@ -930,6 +941,135 @@ function handleGwaihirSpecialMovement(state: GameState, action: GameAction): Red
       ...state,
       players: newPlayers,
     },
+  };
+}
+
+/**
+ * Handle untap-bearer grant-action: discard an item (e.g. Cram) to untap
+ * its bearer character. The item is removed from the character's items and
+ * placed in the player's discard pile.
+ *
+ * Cost: discard the item (source card) from the character.
+ * Prerequisite: bearer must be tapped (checked in legal actions).
+ */
+function handleUntapBearer(state: GameState, action: GameAction): ReducerResult {
+  if (action.type !== 'activate-granted-action') return { state, error: 'Expected activate-granted-action' };
+
+  const playerIndex = getPlayerIndex(state, action.player);
+  const player = state.players[playerIndex];
+  const char = player.characters[action.characterId as string];
+  if (!char) return { state, error: 'Character not found' };
+
+  const charDefId = resolveInstanceId(state, action.characterId);
+  const charDef = charDefId ? state.cardPool[charDefId as string] : undefined;
+  const charName = charDef?.name ?? '?';
+  const sourceDef = state.cardPool[action.sourceCardDefinitionId as string];
+  const sourceName = sourceDef?.name ?? '?';
+
+  // Validate: bearer must be tapped
+  if (char.status !== CardStatus.Tapped) {
+    return { state, error: `${charName} is not tapped` };
+  }
+
+  // Validate: source card must be an item on the character
+  const itemIdx = char.items.findIndex(i => i.instanceId === action.sourceCardId);
+  if (itemIdx < 0) {
+    return { state, error: `${sourceName} is not an item on ${charName}` };
+  }
+
+  logDetail(`Untap bearer: ${charName} discards ${sourceName} to untap`);
+
+  // Pay cost: remove item from character's items and untap character
+  const updatedItems = char.items.filter(i => i.instanceId !== action.sourceCardId);
+  const discardedCard: CardInstance = { instanceId: action.sourceCardId, definitionId: action.sourceCardDefinitionId };
+
+  const newPlayers = clonePlayers(state);
+
+  newPlayers[playerIndex] = {
+    ...newPlayers[playerIndex],
+    characters: {
+      ...newPlayers[playerIndex].characters,
+      [action.characterId as string]: { ...char, items: updatedItems, status: CardStatus.Untapped },
+    },
+    discardPile: [...newPlayers[playerIndex].discardPile, discardedCard],
+  };
+
+  return {
+    state: recomputeDerived({
+      ...state,
+      players: newPlayers,
+    }),
+  };
+}
+
+/**
+ * Handle extra-region-movement grant-action: discard an item (e.g. Cram)
+ * during organization to grant the bearer's company +1 max region distance
+ * for movement this turn. The item is discarded and the company's
+ * `extraRegionDistance` is incremented.
+ *
+ * Cost: discard the item (source card) from the character.
+ * Prerequisite: company must not have planned movement yet.
+ */
+function handleExtraRegionMovement(state: GameState, action: GameAction): ReducerResult {
+  if (action.type !== 'activate-granted-action') return { state, error: 'Expected activate-granted-action' };
+
+  const playerIndex = getPlayerIndex(state, action.player);
+  const player = state.players[playerIndex];
+  const char = player.characters[action.characterId as string];
+  if (!char) return { state, error: 'Character not found' };
+
+  const charDefId = resolveInstanceId(state, action.characterId);
+  const charDef = charDefId ? state.cardPool[charDefId as string] : undefined;
+  const charName = charDef?.name ?? '?';
+  const sourceDef = state.cardPool[action.sourceCardDefinitionId as string];
+  const sourceName = sourceDef?.name ?? '?';
+
+  // Validate: source card must be an item on the character
+  const itemIdx = char.items.findIndex(i => i.instanceId === action.sourceCardId);
+  if (itemIdx < 0) {
+    return { state, error: `${sourceName} is not an item on ${charName}` };
+  }
+
+  // Find the company this character belongs to
+  const company = player.companies.find(c => c.characters.includes(action.characterId));
+  if (!company) {
+    return { state, error: `${charName} is not in any company` };
+  }
+
+  logDetail(`Extra region movement: ${charName} discards ${sourceName} to grant company ${company.id as string} +1 region distance`);
+
+  // Pay cost: remove item from character's items
+  const updatedItems = char.items.filter(i => i.instanceId !== action.sourceCardId);
+  const discardedCard: CardInstance = { instanceId: action.sourceCardId, definitionId: action.sourceCardDefinitionId };
+
+  const newPlayers = clonePlayers(state);
+
+  // Update the character (remove item)
+  newPlayers[playerIndex] = {
+    ...newPlayers[playerIndex],
+    characters: {
+      ...newPlayers[playerIndex].characters,
+      [action.characterId as string]: { ...char, items: updatedItems },
+    },
+    discardPile: [...newPlayers[playerIndex].discardPile, discardedCard],
+  };
+
+  // Mark the company with extra region distance
+  const currentExtra = company.extraRegionDistance ?? 0;
+  const updatedCompanies = newPlayers[playerIndex].companies.map(c =>
+    c.id === company.id ? { ...c, extraRegionDistance: currentExtra + 1 } : c,
+  );
+  newPlayers[playerIndex] = {
+    ...newPlayers[playerIndex],
+    companies: updatedCompanies,
+  };
+
+  return {
+    state: recomputeDerived({
+      ...state,
+      players: newPlayers,
+    }),
   };
 }
 
