@@ -107,6 +107,7 @@ All server-side logic must include detailed logging so that the game's decision-
 
 - When adding or modifying card data, always look up the card from the local copy of the authoritative card database at `data/cards.json` — never rely on model knowledge for card text, stats, or IDs. The database is keyed by set code (AS, BA, DM, LE, TD, TW, WH), each containing a `cards` dict keyed by card ID.
 - The upstream source is <https://raw.githubusercontent.com/council-of-elrond-meccg/meccg-cards-database/master/cards.json> — refresh the local copy from there when needed.
+- For per-card rulings, errata, and clarifications on how a card's text actually plays, consult the CRF 22 card errata and rulings page: <https://meccg.com/rules/collected-rulings-and-errata-crf/crf-22/card-errata-and-rulings/>. Use this whenever a card's behavior is ambiguous or when implementing/certifying a card whose text needs interpretation.
 
 ### Card Certification
 
