@@ -260,7 +260,7 @@
   "sites": [
     {
       "name": "Blue Mountain Dwarf-hold",
-      "card": null,
+      "card": "tw-377",
       "qty": 1
     },
     {
@@ -337,7 +337,7 @@
   "sideboard": [
     {
       "name": "Blue Mountain Dwarves",
-      "card": null,
+      "card": "tw-200",
       "qty": 1
     },
     {
@@ -377,7 +377,7 @@
     },
     {
       "name": "Foolish Words",
-      "card": null,
+      "card": "le-112",
       "qty": 2
     },
     {

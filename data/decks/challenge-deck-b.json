@@ -84,7 +84,7 @@
       },
       {
         "name": "Slayer",
-        "card": null,
+        "card": "le-90",
         "qty": 3
       },
       {
@@ -249,12 +249,12 @@
     },
     {
       "name": "Blue Mountain Dwarf-hold",
-      "card": null,
+      "card": "tw-377",
       "qty": 1
     },
     {
       "name": "Bree",
-      "card": null,
+      "card": "tw-378",
       "qty": 1
     },
     {
@@ -321,7 +321,7 @@
   "sideboard": [
     {
       "name": "Blue Mountain Dwarves",
-      "card": null,
+      "card": "tw-200",
       "qty": 1
     },
     {
@@ -361,7 +361,7 @@
     },
     {
       "name": "Ambusher",
-      "card": null,
+      "card": "le-59",
       "qty": 1
     },
     {
@@ -371,7 +371,7 @@
     },
     {
       "name": "Foolish Words",
-      "card": null,
+      "card": "le-112",
       "qty": 2
     },
     {

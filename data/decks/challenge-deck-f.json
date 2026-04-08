@@ -99,32 +99,32 @@
       },
       {
         "name": "From the Pits of Angband",
-        "card": null,
+        "card": "td-27",
         "qty": 2
       },
       {
         "name": "Marsh-drake",
-        "card": null,
+        "card": "le-84",
         "qty": 3
       },
       {
         "name": "Nameless Thing",
-        "card": null,
+        "card": "dm-109",
         "qty": 1
       },
       {
         "name": "Rain-drake",
-        "card": null,
+        "card": "td-57",
         "qty": 2
       },
       {
         "name": "Searching Eye",
-        "card": null,
+        "card": "le-136",
         "qty": 1
       },
       {
         "name": "Summons from Long Sleep",
-        "card": null,
+        "card": "as-39",
         "qty": 3
       },
       {
@@ -146,7 +146,7 @@
       },
       {
         "name": "Bade to Rule",
-        "card": null,
+        "card": "le-167",
         "qty": 1
       },
       {
@@ -156,7 +156,7 @@
       },
       {
         "name": "Deeper Shadow",
-        "card": null,
+        "card": "le-179",
         "qty": 2
       },
       {
@@ -171,12 +171,12 @@
       },
       {
         "name": "Join With That Power",
-        "card": null,
+        "card": "as-90",
         "qty": 1
       },
       {
         "name": "Not Slay Needlessly",
-        "card": null,
+        "card": "le-212",
         "qty": 3
       },
       {
@@ -196,7 +196,7 @@
       },
       {
         "name": "Secrets of Their Forging",
-        "card": null,
+        "card": "le-226",
         "qty": 2
       },
       {
@@ -216,12 +216,12 @@
       },
       {
         "name": "To Satisfy the Questioner",
-        "card": null,
+        "card": "le-246",
         "qty": 2
       },
       {
         "name": "Tokens to Show",
-        "card": null,
+        "card": "as-101",
         "qty": 1
       },
       {
@@ -236,7 +236,7 @@
       },
       {
         "name": "Woses of the Eryn Vorn",
-        "card": null,
+        "card": "as-67",
         "qty": 1
       }
     ]
@@ -311,7 +311,7 @@
   "sideboard": [
     {
       "name": "Crept Along Cleverly",
-      "card": null,
+      "card": "wh-43",
       "qty": 1
     },
     {
@@ -331,22 +331,22 @@
     },
     {
       "name": "Piercing All Shadows",
-      "card": null,
+      "card": "wh-47",
       "qty": 2
     },
     {
       "name": "Poisonous Despair",
-      "card": null,
+      "card": "le-219",
       "qty": 1
     },
     {
       "name": "Regiment of Black Crows",
-      "card": null,
+      "card": "as-76",
       "qty": 1
     },
     {
       "name": "Sudden Call",
-      "card": null,
+      "card": "le-235",
       "qty": 1
     },
     {
@@ -361,7 +361,7 @@
     },
     {
       "name": "Itangast Ahunt",
-      "card": null,
+      "card": "td-37",
       "qty": 1
     },
     {
@@ -371,12 +371,12 @@
     },
     {
       "name": "Sand-drake",
-      "card": null,
+      "card": "td-59",
       "qty": 1
     },
     {
       "name": "True Cold-drake",
-      "card": null,
+      "card": "td-77",
       "qty": 1
     },
     {

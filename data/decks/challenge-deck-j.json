@@ -69,7 +69,7 @@
     "hazards": [
       {
         "name": "Slayer",
-        "card": null,
+        "card": "le-90",
         "qty": 2
       },
       {
@@ -119,7 +119,7 @@
       },
       {
         "name": "Marsh-drake",
-        "card": null,
+        "card": "le-84",
         "qty": 2
       },
       {
@@ -141,7 +141,7 @@
     "resources": [
       {
         "name": "Bade to Rule",
-        "card": null,
+        "card": "le-167",
         "qty": 1
       },
       {
@@ -166,7 +166,7 @@
       },
       {
         "name": "Crept Along Cleverly",
-        "card": null,
+        "card": "wh-43",
         "qty": 2
       },
       {
@@ -221,7 +221,7 @@
       },
       {
         "name": "Stinker",
-        "card": null,
+        "card": "le-154",
         "qty": 1
       },
       {
@@ -236,7 +236,7 @@
       },
       {
         "name": "Voices of Malice",
-        "card": null,
+        "card": "le-250",
         "qty": 1
       },
       {
@@ -316,7 +316,7 @@
   "sideboard": [
     {
       "name": "Crept Along Cleverly",
-      "card": null,
+      "card": "wh-43",
       "qty": 1
     },
     {
@@ -346,17 +346,17 @@
     },
     {
       "name": "Poisonous Despair",
-      "card": null,
+      "card": "le-219",
       "qty": 1
     },
     {
       "name": "Piercing All Shadows",
-      "card": null,
+      "card": "wh-47",
       "qty": 1
     },
     {
       "name": "Regiment of Black Crows",
-      "card": null,
+      "card": "as-76",
       "qty": 1
     },
     {
@@ -366,12 +366,12 @@
     },
     {
       "name": "Sudden Call",
-      "card": null,
+      "card": "le-235",
       "qty": 1
     },
     {
       "name": "Voices of Malice",
-      "card": null,
+      "card": "le-250",
       "qty": 2
     },
     {

@@ -65,12 +65,12 @@
     "hazards": [
       {
         "name": "Slayer",
-        "card": null,
+        "card": "le-90",
         "qty": 2
       },
       {
         "name": "Ambusher",
-        "card": null,
+        "card": "le-59",
         "qty": 2
       },
       {
@@ -100,7 +100,7 @@
       },
       {
         "name": "Rain-drake",
-        "card": null,
+        "card": "td-57",
         "qty": 3
       },
       {
@@ -110,7 +110,7 @@
       },
       {
         "name": "True Fire-drake",
-        "card": null,
+        "card": "le-95",
         "qty": 3
       },
       {
@@ -207,7 +207,7 @@
       },
       {
         "name": "Voices of Malice",
-        "card": null,
+        "card": "le-250",
         "qty": 2
       },
       {
@@ -297,7 +297,7 @@
     },
     {
       "name": "Crept Along Cleverly",
-      "card": null,
+      "card": "wh-43",
       "qty": 1
     },
     {
@@ -307,12 +307,12 @@
     },
     {
       "name": "Sudden Call",
-      "card": null,
+      "card": "le-235",
       "qty": 1
     },
     {
       "name": "Voices of Malice",
-      "card": null,
+      "card": "le-250",
       "qty": 1
     },
     {
@@ -331,7 +331,7 @@
       "qty": 1
     },
     {
-      "name": "E\u00e4rcarax\u00eb Ahunt",
+      "name": "Eärcaraxë Ahunt",
       "card": "td-21",
       "qty": 1
     },
@@ -347,7 +347,7 @@
     },
     {
       "name": "Nameless Thing",
-      "card": null,
+      "card": "dm-109",
       "qty": 2
     },
     {

@@ -80,7 +80,7 @@
     "hazards": [
       {
         "name": "Ambusher",
-        "card": null,
+        "card": "le-59",
         "qty": 2
       },
       {
@@ -110,7 +110,7 @@
       },
       {
         "name": "Searching Eye",
-        "card": null,
+        "card": "le-136",
         "qty": 1
       },
       {
@@ -147,7 +147,7 @@
     "resources": [
       {
         "name": "Bade to Rule",
-        "card": null,
+        "card": "le-167",
         "qty": 1
       },
       {
@@ -167,7 +167,7 @@
       },
       {
         "name": "Crept Along Cleverly",
-        "card": null,
+        "card": "wh-43",
         "qty": 3
       },
       {
@@ -207,7 +207,7 @@
       },
       {
         "name": "Regiment of Black Crows",
-        "card": null,
+        "card": "as-76",
         "qty": 2
       },
       {
@@ -316,18 +316,18 @@
       "qty": 1
     },
     {
-      "name": "Orders from Lugb\u00farz",
+      "name": "Orders from Lugbúrz",
       "card": null,
       "qty": 1
     },
     {
       "name": "Piercing All Shadows",
-      "card": null,
+      "card": "wh-47",
       "qty": 2
     },
     {
       "name": "Regiment of Black Crows",
-      "card": null,
+      "card": "as-76",
       "qty": 1
     },
     {
@@ -337,27 +337,27 @@
     },
     {
       "name": "Sudden Call",
-      "card": null,
+      "card": "le-235",
       "qty": 1
     },
     {
       "name": "Voices of Malice",
-      "card": null,
+      "card": "le-250",
       "qty": 2
     },
     {
-      "name": "E\u00e4rcarax\u00eb Ahunt",
+      "name": "Eärcaraxë Ahunt",
       "card": "td-21",
       "qty": 1
     },
     {
       "name": "Foolish Words",
-      "card": null,
+      "card": "le-112",
       "qty": 2
     },
     {
       "name": "Nameless Thing",
-      "card": null,
+      "card": "dm-109",
       "qty": 2
     },
     {

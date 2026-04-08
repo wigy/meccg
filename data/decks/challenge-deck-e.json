@@ -79,7 +79,7 @@
     "hazards": [
       {
         "name": "Ambusher",
-        "card": null,
+        "card": "le-59",
         "qty": 2
       },
       {
@@ -104,7 +104,7 @@
       },
       {
         "name": "Foolish Words",
-        "card": null,
+        "card": "le-112",
         "qty": 1
       },
       {
@@ -119,7 +119,7 @@
       },
       {
         "name": "Marsh-drake",
-        "card": null,
+        "card": "le-84",
         "qty": 2
       },
       {
@@ -139,12 +139,12 @@
       },
       {
         "name": "Rain-drake",
-        "card": null,
+        "card": "td-57",
         "qty": 2
       },
       {
         "name": "Searching Eye",
-        "card": null,
+        "card": "le-136",
         "qty": 1
       },
       {
@@ -391,7 +391,7 @@
     },
     {
       "name": "Foolish Words",
-      "card": null,
+      "card": "le-112",
       "qty": 1
     },
     {
@@ -416,7 +416,7 @@
     },
     {
       "name": "Searching Eye",
-      "card": null,
+      "card": "le-136",
       "qty": 1
     },
     {

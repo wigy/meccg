@@ -70,12 +70,12 @@
   ],
   "deck": {
     "characters": [
-        {
-          "name": "Radagast",
-          "card": null,
-          "qty": 3
-        }
-      ],
+      {
+        "name": "Radagast",
+        "card": null,
+        "qty": 3
+      }
+    ],
     "hazards": [
       {
         "name": "Abductor",
@@ -89,12 +89,12 @@
       },
       {
         "name": "Ambusher",
-        "card": null,
+        "card": "le-59",
         "qty": 3
       },
       {
         "name": "Assassin",
-        "card": null,
+        "card": "tw-8",
         "qty": 1
       },
       {
@@ -246,7 +246,7 @@
       },
       {
         "name": "Wood-elves",
-        "card": null,
+        "card": "tw-367",
         "qty": 1
       }
     ]
@@ -254,7 +254,7 @@
   "sites": [
     {
       "name": "Beorn's House",
-      "card": null,
+      "card": "le-354",
       "qty": 1
     },
     {
@@ -324,7 +324,7 @@
     },
     {
       "name": "Thranduil's Halls",
-      "card": null,
+      "card": "tw-432",
       "qty": 1
     }
   ],
@@ -396,7 +396,7 @@
     },
     {
       "name": "Itangast Ahunt",
-      "card": null,
+      "card": "td-37",
       "qty": 1
     },
     {
