@@ -394,7 +394,9 @@ function renderState(input: RenderInput): string {
         : entry.payload.type;
       const target = entry.payload.type === 'short-event' && entry.payload.targetInstanceId
         ? ` → ${formatInstanceName(entry.payload.targetInstanceId, defOf, instOf)}`
-        : '';
+        : entry.payload.type === 'influence-attempt'
+          ? ` → ${formatInstanceName(entry.payload.influencingCharacterId, defOf, instOf)} influence`
+          : '';
       lines.push(`  #${i} ${cardName}${target}${status}`);
     }
     lines.push('«CHAIN-END»');

@@ -153,9 +153,12 @@ function formatChainEntry(
     case 'long-event':
       return `<span class="chain-card-name">${cardName}</span>`
         + `<span class="chain-declarer">${declarer}</span>`;
-    case 'influence-attempt':
-      return `<span class="chain-card-name">${cardName}</span> influence`
+    case 'influence-attempt': {
+      const charName = resolveInstanceName(entry.payload.influencingCharacterId, cachedInstanceLookup, cardPool);
+      return `<span class="chain-card-name">${cardName}</span>`
+        + ` <span class="chain-arrow">\u2192</span> ${charName} influence`
         + `<span class="chain-declarer">${declarer}</span>`;
+    }
   }
 }
 
