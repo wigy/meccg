@@ -379,7 +379,11 @@ document.addEventListener('DOMContentLoaded', () => {
         });
         if (resp.ok) {
           closeFeatureModal();
+          showNotification('Request sent!');
           void openSent();
+        } else {
+          const data = await resp.json().catch(() => ({})) as { error?: string };
+          await showAlert(data.error ?? 'Failed to send feature request');
         }
       })();
     });
