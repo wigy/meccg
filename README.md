@@ -116,7 +116,6 @@ Additional docs in `docs/`:
 |---------|-------------|
 | `/ai-processor` | Process the next pending message from the AI inbox |
 | `/handle-bug-report` | Investigate and fix a bug from a mail report |
-| `/handle-card-request` | Add a card from the CoE database to the card data files |
 | `/handle-certify-card` | Verify a card's effects are supported by the game engine |
 | `/handle-implementation-request` | Implement a feature from a mailed implementation plan |
 | `/handle-mail` | Dispatch a mail message to the appropriate handler |

@@ -1,0 +1,137 @@
+#!/usr/bin/env node
+/**
+ * @module credits
+ *
+ * List and modify player credit balances directly on disk by reading/writing
+ * each account's info.json under ~/.meccg/players/<dirname>/info.json.
+ *
+ * Usage:
+ *   bin/credits                       List all players and their credits
+ *   bin/credits add <player> <amount> Add <amount> credits to <player>
+ *   bin/credits set <player> <amount> Set <player>'s credits to <amount>
+ *
+ * Mirrors the DEFAULT_CREDITS / getCredits semantics in
+ * packages/lobby-server/src/players/store.ts: a missing `credits` field is
+ * treated as 500.
+ */
+
+import { readFileSync, writeFileSync, readdirSync, statSync } from 'fs';
+import { join } from 'path';
+import { homedir } from 'os';
+
+const PLAYERS_DIR = process.env.PLAYERS_DIR ?? join(homedir(), '.meccg', 'players');
+const DEFAULT_CREDITS = 500;
+
+/** Normalize a player name to its directory name (matches store.ts toDirName). */
+function toDirName(name) {
+  return name.toLowerCase().replace(/[^a-z0-9]/g, '-');
+}
+
+/** Read a player's info.json. Returns null if missing or unreadable. */
+function readPlayer(dirName) {
+  const infoPath = join(PLAYERS_DIR, dirName, 'info.json');
+  try {
+    return JSON.parse(readFileSync(infoPath, 'utf-8'));
+  } catch {
+    return null;
+  }
+}
+
+/** Write a player's info.json back to disk. */
+function writePlayer(dirName, record) {
+  const infoPath = join(PLAYERS_DIR, dirName, 'info.json');
+  writeFileSync(infoPath, JSON.stringify(record, null, 2));
+}
+
+/** Find a player by case-insensitive name match. Returns { dirName, record } or null. */
+function findPlayer(name) {
+  const dirName = toDirName(name);
+  const record = readPlayer(dirName);
+  if (record) return { dirName, record };
+  return null;
+}
+
+/** List all player directories that contain an info.json. */
+function listAllPlayers() {
+  let entries;
+  try {
+    entries = readdirSync(PLAYERS_DIR);
+  } catch {
+    return [];
+  }
+  const players = [];
+  for (const entry of entries) {
+    const full = join(PLAYERS_DIR, entry);
+    try {
+      if (!statSync(full).isDirectory()) continue;
+    } catch {
+      continue;
+    }
+    const record = readPlayer(entry);
+    if (record) players.push({ dirName: entry, record });
+  }
+  return players;
+}
+
+function parseAmount(raw) {
+  const n = Number(raw);
+  if (!Number.isFinite(n) || !Number.isInteger(n)) {
+    console.error(`Error: amount must be an integer, got "${raw}"`);
+    process.exit(1);
+  }
+  return n;
+}
+
+function usage() {
+  console.error('Usage:');
+  console.error('  bin/credits                       List all players and their credits');
+  console.error('  bin/credits add <player> <amount> Add <amount> credits to <player>');
+  console.error('  bin/credits set <player> <amount> Set <player>\'s credits to <amount>');
+  process.exit(1);
+}
+
+const args = process.argv.slice(2);
+const cmd = args[0];
+
+if (!cmd) {
+  // ---- List ----
+  const players = listAllPlayers();
+  if (players.length === 0) {
+    console.log('(no players found)');
+    process.exit(0);
+  }
+  players.sort((a, b) => a.record.name.localeCompare(b.record.name));
+  const nameWidth = Math.max(...players.map(p => p.record.name.length), 4);
+  console.log(`${'Name'.padEnd(nameWidth)}  Credits`);
+  console.log(`${'-'.repeat(nameWidth)}  -------`);
+  for (const { record } of players) {
+    const credits = record.credits ?? DEFAULT_CREDITS;
+    console.log(`${record.name.padEnd(nameWidth)}  ${credits}`);
+  }
+  process.exit(0);
+}
+
+if (cmd === 'add' || cmd === 'set') {
+  if (args.length !== 3) usage();
+  const playerName = args[1];
+  const amount = parseAmount(args[2]);
+
+  const found = findPlayer(playerName);
+  if (!found) {
+    console.error(`Error: player "${playerName}" not found`);
+    process.exit(1);
+  }
+
+  const current = found.record.credits ?? DEFAULT_CREDITS;
+  const next = cmd === 'add' ? current + amount : amount;
+
+  // Negative balances are allowed: a request is gated on credits > 0 at
+  // submission time, but the post-processing deduction (cost * 100) may
+  // overshoot a small remaining balance. The next request will be denied
+  // until the player tops up.
+  writePlayer(found.dirName, { ...found.record, credits: next });
+  console.log(`${found.record.name}: ${current} -> ${next}`);
+  process.exit(0);
+}
+
+usage();

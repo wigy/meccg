@@ -1,14 +1,12 @@
-Investigate and fix a bug based on a bug report received via mail. Read the report, find the game log, diagnose the issue, implement a fix, iterate until build/tests/lint pass, commit, push, send review requests, and reply to the reporter.
+Investigate and fix a bug based on a bug report received via mail. Read the report, find the game log, diagnose the issue, implement a fix, iterate until build/tests/lint pass, commit, and push. **Do not send any mail or update any message status** — `bin/handle-mail` is the sole sender; you only do the work and emit a structured result block on stdout.
 
 **IMPORTANT:** This skill must run to completion autonomously. Do NOT stop to ask the user for confirmation at any step.
-
-**Mail API RULE:** Every call to `/api/system/mail` MUST pass `"recipients"` as a JSON **array** (e.g. `["admin"]`). A bare string will be split into single-character usernames. This is a hard requirement.
 
 The message ID argument is: $ARGUMENTS
 
 Follow these steps:
 
-1. **Log in as ai:** Get a session cookie for the ai account:
+1. **Log in as ai (read-only):** Get a session cookie for the ai account so you can fetch the message:
    ```
    SESSION=$(curl -s -c - -X POST http://localhost:8080/api/login -H 'Content-Type: application/json' -d "{\"name\":\"ai\",\"password\":\"$(jq -r .masterKey ~/.meccg/secrets.json)\"}" | grep meccg-session | awk '{print $NF}')
    ```
@@ -17,20 +15,15 @@ Follow these steps:
    ```
    curl -s http://localhost:8080/api/mail/inbox/<msg-id> -b "meccg-session=$SESSION"
    ```
-   If not found, stop and report. Extract the `body` (bug description), `from` (who reported it), `subject`, and `keywords`.
+   If not found, stop and emit a `success: false` result block. Extract the `body` (bug description), `from` (who reported it), `subject`, and `keywords`.
 
-3. **Mark as processing:** Update the message status to `processing`:
-   ```
-   curl -s -X PUT http://localhost:8080/api/system/mail/ai/<msg-id> -H "Authorization: Bearer $(jq -r .masterKey ~/.meccg/secrets.json)" -H "Content-Type: application/json" -d '{"status":"processing"}'
-   ```
-
-4. **Extract bug details:** Read the message body carefully. Look for:
+3. **Extract bug details:** Read the message body carefully. Look for:
    - **Game ID** — needed to find the game log
    - **Sequence number** — the state sequence where the problem occurred
    - **Description** of what went wrong (expected vs actual behavior)
    Note these details for the investigation.
 
-5. **Investigate the bug:** Use the investigation process from `/investigate`:
+4. **Investigate the bug:** Use the investigation process from `/investigate`:
 
    a. **Load card data:** Read `~/.meccg/logs/games/<gameId>-cards.json` to get instance-to-definition mappings and card definitions used in the game.
 
@@ -52,20 +45,20 @@ Follow these steps:
       - Reducer in `packages/shared/src/engine/reducer.ts`
       - Any relevant DSL effect handlers
 
-6. **Validate the bug against the log:** Before proceeding to a fix, confirm that the game log evidence actually supports the reported bug:
+5. **Validate the bug against the log:** Before proceeding to a fix, confirm that the game log evidence actually supports the reported bug:
    - The problem described in the report must be visible in the game log state transitions
    - If the log does not show the reported issue (e.g. the states look correct, the reported sequence number doesn't exist, or the behavior in the log matches expected rules), **do NOT proceed with a code fix**
-   - Instead, mark the message as processed with `success: false` and send a `bug-reply` to the reporter explaining that the game log was analyzed but does not corroborate the reported issue, including what was actually observed in the log
+   - Instead, emit a `success: false` result block with `reply.body` explaining that the game log was analyzed but does not corroborate the reported issue, including what was actually observed in the log
    - This prevents making speculative code changes based on misunderstandings or reports that don't match reality
 
-7. **Fix the bug:** Implement the fix in the source code:
+6. **Fix the bug:** Implement the fix in the source code:
    - Read the relevant source files
    - Make the minimal code changes needed to fix the bug
    - Follow the project's coding conventions (see CLAUDE.md)
    - Ensure new code has proper JSDoc documentation where needed
    - Follow the server-side logging policy if modifying engine code
 
-8. **Iterate until green:** Run all four checks **in parallel** and fix any failures. Repeat until all pass:
+7. **Iterate until green:** Run all four checks **in parallel** and fix any failures. Repeat until all pass:
    - `npm run build` — type-check (must pass)
    - `npm test` — rules tests (must all pass)
    - `npm run test:nightly` — card tests (must not introduce new failures)
@@ -73,7 +66,7 @@ Follow these steps:
 
    If a check fails, read the error output, fix the issue, and re-run. Keep iterating until all four pass cleanly.
 
-9. **Commit and push:** Create a single commit with all changes and push to the remote:
+8. **Commit and push:** Create a single commit with all changes and push to the remote:
    ```
    git add <changed-files>
    git commit -m "<descriptive message>
@@ -83,86 +76,42 @@ Follow these steps:
    ```
    Capture the commit hash from the output. The commit message should summarize the bug fix.
 
-10. **Send review request to reviewers:** Send a mail to all reviewers (`["wigy", "karmi", "admin"]`) with a review request:
-   ```
-   curl -s -X POST http://localhost:8080/api/system/mail -H "Authorization: Bearer $(jq -r .masterKey ~/.meccg/secrets.json)" -H "Content-Type: application/json" -d '<json>'
-   ```
+9. **Emit the structured result block:** As the **last** thing you output, print exactly one block in the form below. `bin/handle-mail` will parse the JSON between the markers and use it to send the bug-reply mail (with credits/time footer) and the review request to admins. Do not call `/api/system/mail` or `/api/system/mail/.../<msg-id>` anywhere in this skill.
 
-   JSON structure:
-   ```json
+   ```
+   ===HANDLE_MAIL_RESULT_BEGIN===
    {
-     "recipients": ["wigy", "karmi", "admin"],
-     "sender": "ai",
-     "from": "<displayName from ~/.meccg/players/ai/info.json>",
-     "topic": "review-request",
-     "subject": "Review: <short bug fix description>",
-     "body": "<markdown body>",
-     "keywords": {
-       "originalMessageId": "<msg-id of the bug report>",
-       "bugReportId": "<msg-id>",
-       "gitHash": "<commit hash>",
-       "reportedBy": "<from field of the bug report>",
-       "gameId": "<game ID from the bug report>"
+     "success": true,
+     "summary": "<one-line summary of the fix>",
+     "reply": {
+       "topic": "bug-reply",
+       "subject": "Fixed: <original subject>",
+       "body": "<markdown body — thanks for the report, summary of the fix, link to https://github.com/wigy/meccg/commit/<gitHash>>",
+       "keywords": {
+         "originalMessageId": "<msg-id>",
+         "gitHash": "<commit hash>",
+         "gameId": "<game ID>"
+       }
      },
-     "replyTo": "<msg-id>",
-     "sentBy": "ai"
+     "review": {
+       "topic": "review-request",
+       "recipients": ["wigy", "karmi", "admin"],
+       "subject": "Review: <short bug fix description>",
+       "body": "<markdown body — bug summary, root cause, fix summary, files changed, commit link>",
+       "keywords": {
+         "originalMessageId": "<msg-id of the bug report>",
+         "bugReportId": "<msg-id>",
+         "gitHash": "<commit hash>",
+         "reportedBy": "<from field of the bug report>",
+         "gameId": "<game ID>"
+       }
+     }
    }
+   ===HANDLE_MAIL_RESULT_END===
    ```
 
-   The body should contain:
-   - A summary of the bug and the fix
-   - A link to the GitHub commit: `https://github.com/wigy/meccg/commit/<gitHash>`
-   - The list of files changed
-   - Root cause analysis (brief)
+   - If the bug cannot be reproduced from the log or you cannot fix it, set `"success": false`, omit the `review` field, and put the explanation in `reply.body` (with subject `"Unable to fix: <original subject>"`).
+   - The `body` fields are JSON strings — escape newlines as `\n` and quotes as `\"`.
+   - Do **not** print anything after `===HANDLE_MAIL_RESULT_END===`.
 
-   After sending, mark each reviewer's copy of the review message as `waiting`:
-   ```
-   curl -s -X PUT http://localhost:8080/api/system/mail/<reviewer>/<review-msg-id> -H "Authorization: Bearer $(jq -r .masterKey ~/.meccg/secrets.json)" -H "Content-Type: application/json" -d '{"status":"waiting"}'
-   ```
-   Do this for each reviewer: `wigy`, `karmi`, `admin`.
-
-11. **Send bug reply to reporter:** Send a `bug-reply` mail to the original reporter:
-    ```json
-    {
-      "recipients": ["<from>"],
-      "sender": "ai",
-      "from": "<displayName from ~/.meccg/players/ai/info.json>",
-      "topic": "bug-reply",
-      "subject": "Fixed: <original subject>",
-      "body": "<markdown body>",
-      "keywords": {
-        "originalMessageId": "<msg-id>",
-        "gitHash": "<commit hash>",
-        "gameId": "<game ID>"
-      },
-      "replyTo": "<msg-id>",
-      "sentBy": "ai"
-    }
-    ```
-
-    The body should contain:
-    - An introduction thanking the reporter for the bug report
-    - A summary of the changes made (same as in the review request)
-    - A link to the GitHub commit
-
-12. **Mark as processed:** Update the message status to `processed` with `success: true`:
-    ```
-    curl -s -X PUT http://localhost:8080/api/system/mail/ai/<msg-id> -H "Authorization: Bearer $(jq -r .masterKey ~/.meccg/secrets.json)" -H "Content-Type: application/json" -d '{"status":"processed","success":true}'
-    ```
-
-13. **Report:** Summarize what happened — what bug was fixed, the root cause, the commit hash, and that the review request and bug reply were sent.
-
-If any step fails unexpectedly (bug too complex, tests can't be fixed after multiple attempts, etc.), mark the message as processed with `success: false` and send a `bug-reply` mail to the reporter explaining what went wrong:
-```json
-{
-  "recipients": ["<from>"],
-  "sender": "ai",
-  "from": "<displayName from ~/.meccg/players/ai/info.json>",
-  "topic": "bug-reply",
-  "subject": "Unable to fix: <original subject>",
-  "body": "<explanation of what was found and why it couldn't be fixed automatically>",
-  "keywords": { "originalMessageId": "<msg-id>" },
-  "replyTo": "<msg-id>",
-  "sentBy": "ai"
-}
-```
+10. **Report:** Briefly summarize what happened (one or two lines) **before** the result block, so the run log is readable. The result block must still be the final output.

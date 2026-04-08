@@ -175,19 +175,6 @@ export function getCredits(name: string): number {
   return findPlayer(name)?.credits ?? DEFAULT_CREDITS;
 }
 
-/**
- * Deduct credits from a player's balance. Returns true if the player had
- * enough credits and the amount was deducted, false otherwise.
- */
-export function spendCredits(name: string, amount: number): boolean {
-  const player = findPlayer(name);
-  if (!player) return false;
-  const balance = player.credits ?? DEFAULT_CREDITS;
-  if (balance < amount) return false;
-  updatePlayer(name, { ...player, credits: balance - amount });
-  return true;
-}
-
 // ---- Mail view tracking ----
 
 /** Get the player's last mail view timestamp, or null if never viewed. */

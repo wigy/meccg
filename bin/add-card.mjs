@@ -3,13 +3,14 @@
  * @module add-card
  *
  * Mechanically adds a card from the Council of Elrond database to the local
- * card data files. Replaces the Claude-based handle-card-request skill with
- * a deterministic script that performs the same field mapping.
+ * card data files. Invoked directly by `bin/handle-mail` for the
+ * `card-request` topic; replaces the older Claude-based handle-card-request
+ * skill with a deterministic script that performs the same field mapping.
  *
  * Usage: node bin/add-card.mjs <cardName> <deckId>
  *
  * Exits 0 on success, 1 on failure. Outputs structured status messages that
- * bin/handle-card-request parses (e.g. "successfully added", card ID, commit hash).
+ * `bin/handle-mail` parses (e.g. "successfully added", card ID, commit hash).
  */
 
 import { readFileSync, writeFileSync, existsSync, readdirSync } from 'fs';

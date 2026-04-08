@@ -1,6 +1,12 @@
 #!/usr/bin/env bash
-# Handle a mail message from the AI inbox by dispatching it to the appropriate
-# Claude skill based on its topic and keywords.
+# Handle a mail message from the AI inbox.
+#
+# Design:
+#   handle-mail is the SOLE sender of reply and review-request mail. Skills
+#   and sub-scripts only do the work and (for AI skills) print a structured
+#   ===HANDLE_MAIL_RESULT_BEGIN===…END=== JSON block on stdout. handle-mail
+#   parses that block, then composes and sends the reply (always with a
+#   credits/time footer) and any optional review-request.
 #
 # Usage: handle-mail [<message-id>]
 #   If no message ID is given, lists all unhandled requests.
@@ -67,14 +73,12 @@ send_mail() {
 }
 
 # Build a JSON mail payload.  Uses jq to avoid injection issues.
-# Arguments are passed as jq --arg pairs followed by the jq filter.
 build_mail() {
   jq -n "$@"
 }
 
 # Run a Claude skill and capture the text output.
 # $1=skill prompt (full text with $ARGUMENTS already substituted)
-# Prints the output to stdout; returns Claude's exit code.
 run_skill() {
   cd "$PROJECT_DIR"
   local raw_tmp
@@ -94,7 +98,6 @@ run_skill() {
 }
 
 # Read cost/duration from the sidecar file written by run_skill.
-# Must be called in the parent shell after $(run_skill ...) returns.
 read_skill_stats() {
   local stats_file="$LOG_DIR/.skill-stats"
   if [ -f "$stats_file" ]; then
@@ -114,11 +117,125 @@ read_skill_stats() {
 }
 
 # Read a skill file, substitute $ARGUMENTS, and return the content.
-# $1=skill filename (e.g. handle-card-request.md)  $2=arguments string
 load_skill() {
   local content
   content=$(cat "$COMMANDS_DIR/$1")
   echo "${content//\$ARGUMENTS/$2}"
+}
+
+# Extract the structured result block printed by an AI skill. Skills must
+# print exactly one block delimited by the begin/end markers; the content
+# between the markers must be a JSON object.
+#   $1 = full skill stdout
+extract_handler_result() {
+  printf '%s\n' "$1" \
+    | sed -n '/^===HANDLE_MAIL_RESULT_BEGIN===$/,/^===HANDLE_MAIL_RESULT_END===$/p' \
+    | sed '1d;$d'
+}
+
+# Deduct credits from a player via bin/credits.  $1=player $2=amount(positive integer)
+# No-op for empty/system accounts or non-positive amounts.
+deduct_credits() {
+  local user="$1" amount="$2"
+  if [ -z "$user" ] || [ "$amount" -le 0 ]; then return 0; fi
+  case "$user" in
+    ai|admin|server) return 0 ;;
+  esac
+  local neg=$(( -amount ))
+  if "$SCRIPT_DIR/credits" add "$user" "$neg" >/dev/null; then
+    log "Deducted $amount credits from $user"
+  else
+    log "WARNING: failed to deduct $amount credits from $user"
+  fi
+}
+
+# Format seconds as "Xm Ys".
+format_duration() {
+  local total="$1"
+  local mins=$(( total / 60 ))
+  local secs=$(( total % 60 ))
+  echo "${mins}m ${secs}s"
+}
+
+# Send the reply mail to a single recipient. The credits/time footer is
+# always appended to the body. This is the SOLE place that emits reply mail.
+#   $1=recipient  $2=topic  $3=subject  $4=body  $5=keywords-json
+send_reply_mail() {
+  local recipient="$1" topic="$2" subject="$3" body="$4" kw="$5"
+  if [ -z "$recipient" ] || [ -z "$topic" ]; then
+    log "WARNING: send_reply_mail called with empty recipient or topic — skipping"
+    return 0
+  fi
+  if [ -z "$kw" ] || [ "$kw" = "{}" ]; then
+    kw=$(jq -n --arg origId "$MSG_ID" '{originalMessageId: $origId}')
+  fi
+
+  local footer
+  footer="
+
+---
+*Processed in ${DURATION_HUMAN}. Charged ${CREDITS_CHARGED} credits.*"
+  body="${body}${footer}"
+
+  local from_name
+  from_name=$(ai_display_name)
+
+  local payload
+  payload=$(build_mail \
+    --argjson recipients "[\"$recipient\"]" \
+    --arg from "$from_name" \
+    --arg topic "$topic" \
+    --arg subject "$subject" \
+    --arg body "$body" \
+    --argjson keywords "$kw" \
+    --arg replyTo "$MSG_ID" \
+    '{recipients: $recipients, sender: "ai", from: $from,
+      topic: $topic, subject: $subject, body: $body,
+      keywords: $keywords, replyTo: $replyTo, sentBy: "ai"}')
+
+  log "Sending reply ($topic) to $recipient..."
+  send_mail "$payload" >/dev/null
+}
+
+# Send a review request to one or more reviewers. No footer (reviews are not
+# user-facing replies). Marks each recipient's copy as 'waiting' afterwards.
+#   $1=topic  $2=subject  $3=body  $4=recipients-json-array  $5=keywords-json
+send_review_request() {
+  local rtopic="$1" rsubj="$2" rbody="$3" rrecipients="$4" rkw="$5"
+  if [ -z "$rtopic" ] || [ -z "$rrecipients" ]; then
+    return 0
+  fi
+  local from_name
+  from_name=$(ai_display_name)
+
+  local payload
+  payload=$(build_mail \
+    --argjson recipients "$rrecipients" \
+    --arg from "$from_name" \
+    --arg topic "$rtopic" \
+    --arg subject "$rsubj" \
+    --arg body "$rbody" \
+    --argjson keywords "$rkw" \
+    --arg replyTo "$MSG_ID" \
+    '{recipients: $recipients, sender: "ai", from: $from,
+      topic: $topic, subject: $subject, body: $body,
+      keywords: $keywords, replyTo: $replyTo, sentBy: "ai"}')
+
+  log "Sending review request: $rsubj"
+  local resp
+  resp=$(send_mail "$payload")
+
+  local review_id
+  review_id=$(echo "$resp" | jq -r '.id // empty')
+  if [ -n "$review_id" ]; then
+    while IFS= read -r reviewer; do
+      [ -n "$reviewer" ] || continue
+      set_status "$reviewer" "$review_id" '{"status":"waiting"}' || true
+    done < <(echo "$rrecipients" | jq -r '.[]')
+    log "Review request sent ($review_id) and marked as waiting."
+  else
+    log "WARNING: Could not extract review message ID from response."
+  fi
 }
 
 # ---------------------------------------------------------------------------
@@ -152,7 +269,6 @@ log "Logged in."
 log "Fetching message $MSG_ID..."
 MSG=$(api_get "/api/mail/inbox/$MSG_ID")
 
-# Check if message was found
 if echo "$MSG" | jq -e '.error' &>/dev/null; then
   log "ERROR: Message not found: $(echo "$MSG" | jq -r '.error')"
   exit 1
@@ -162,7 +278,6 @@ TOPIC=$(echo "$MSG" | jq -r '.topic // empty')
 SUBJECT=$(echo "$MSG" | jq -r '.subject // empty')
 FROM=$(echo "$MSG" | jq -r '.from // empty')
 SENDER=$(echo "$MSG" | jq -r '.sender // empty')
-BODY=$(echo "$MSG" | jq -r '.body // empty')
 KEYWORDS=$(echo "$MSG" | jq -c '.keywords // {}')
 
 log "Message $MSG_ID: \"$SUBJECT\" from $FROM (topic: $TOPIC)"
@@ -175,101 +290,134 @@ log "Marking as processing..."
 set_status "ai" "$MSG_ID" '{"status":"processing"}'
 
 # ---------------------------------------------------------------------------
-# Dispatch helpers
+# Dispatch state
 # ---------------------------------------------------------------------------
 
 SUCCESS=false
-DELEGATED=false
 SKILL_COST=""
 SKILL_DURATION_MS=""
+SKILL_OUTPUT=""
+
+REPLY_RECIPIENT=""
 REPLY_TOPIC=""
 REPLY_SUBJECT=""
 REPLY_BODY=""
 REPLY_KEYWORDS="{}"
-SKILL_OUTPUT=""
 
-# Determine the reply recipient: prefer userName keyword, fall back to sender
-RECIPIENT=$(echo "$KEYWORDS" | jq -r '.userName // empty')
-if [ -z "$RECIPIENT" ]; then
-  RECIPIENT="$SENDER"
+REVIEW_TOPIC=""
+REVIEW_SUBJECT=""
+REVIEW_BODY=""
+REVIEW_RECIPIENTS=""
+REVIEW_KEYWORDS="{}"
+
+# Default reply recipient: prefer userName keyword, fall back to sender.
+DEFAULT_RECIPIENT=$(echo "$KEYWORDS" | jq -r '.userName // empty')
+if [ -z "$DEFAULT_RECIPIENT" ]; then
+  DEFAULT_RECIPIENT="$SENDER"
 fi
-
-# Mark message as processed and send a failure reply.
-# $1=error description
-fail() {
-  local desc="$1"
-  SUCCESS=false
-  REPLY_BODY="$desc"
-  log "Handler failed: $desc"
-}
-
-# Send review request to admins.  $1=topic $2=subject $3=body $4=keywords(json)
-send_review_request() {
-  local rtopic="$1" rsubj="$2" rbody="$3" rkw="$4"
-  local from_name
-  from_name=$(ai_display_name)
-
-  local payload
-  payload=$(build_mail \
-    --arg from "$from_name" \
-    --arg topic "$rtopic" \
-    --arg subject "$rsubj" \
-    --arg body "$rbody" \
-    --argjson keywords "$rkw" \
-    --arg replyTo "$MSG_ID" \
-    '{recipients: ["wigy","karmi","admin"], sender: "ai", from: $from,
-      topic: $topic, subject: $subject, body: $body,
-      keywords: $keywords, replyTo: $replyTo, sentBy: "ai"}')
-
-  log "Sending review request: $rsubj"
-  local resp
-  resp=$(send_mail "$payload")
-
-  # Extract the message ID from the response and mark as waiting for each admin
-  local review_id
-  review_id=$(echo "$resp" | jq -r '.id // empty')
-  if [ -n "$review_id" ]; then
-    for admin in wigy karmi admin; do
-      set_status "$admin" "$review_id" '{"status":"waiting"}' || true
-    done
-    log "Review request sent ($review_id) and marked as waiting."
-  else
-    log "WARNING: Could not extract review message ID from response."
-  fi
-}
 
 # ---------------------------------------------------------------------------
 # Step 4: Dispatch based on topic
 # ---------------------------------------------------------------------------
 
+DISPATCH_START=$(date +%s)
+
 case "$TOPIC" in
 
   # =========================================================================
   card-request)
-    log "Delegating to bin/handle-card-request..."
-    "$SCRIPT_DIR/handle-card-request" "$MSG_ID" && RC=$? || RC=$?
-    if [ "$RC" -eq 0 ]; then
-      SUCCESS=true
+    CARD_NAME=$(echo "$KEYWORDS" | jq -r '.cardName // empty')
+    DECK_ID=$(echo "$KEYWORDS" | jq -r '.deckId // empty')
+    USER_NAME=$(echo "$KEYWORDS" | jq -r '.userName // empty')
+    REPLY_RECIPIENT="$DEFAULT_RECIPIENT"
+    REPLY_TOPIC="card-reply"
+
+    if [ -z "$CARD_NAME" ] || [ -z "$DECK_ID" ]; then
+      REPLY_SUBJECT="Failed to add: $SUBJECT"
+      REPLY_BODY="Missing cardName or deckId in message keywords."
+      log "ERROR: Missing cardName or deckId in message keywords."
+    else
+      log "Card request: $CARD_NAME for deck $DECK_ID (requested by $USER_NAME)"
+      log "Running bin/add-card.mjs..."
+      cd "$PROJECT_DIR"
+      ADD_OUTPUT=$(node bin/add-card.mjs "$CARD_NAME" "$DECK_ID" 2>&1) && RC=$? || RC=$?
+      log "add-card.mjs completed (exit $RC)."
+
+      # Extract git hash
+      GIT_HASH=$(echo "$ADD_OUTPUT" | grep -oP '(?<=commit hash[:\s]*)[0-9a-f]{7,40}' | tail -1 || true)
+      if [ -z "$GIT_HASH" ]; then
+        GIT_HASH=$(echo "$ADD_OUTPUT" | grep -oP '[0-9a-f]{40}' | tail -1 || true)
+      fi
+      if [ -z "$GIT_HASH" ]; then
+        GIT_HASH=$(cd "$PROJECT_DIR" && git rev-parse HEAD)
+      fi
+
+      if echo "$ADD_OUTPUT" | grep -qiP '(successfully added|card.*added|commit.*push|pushed)'; then
+        SUCCESS=true
+
+        # Try to find the card image from data files
+        CARD_ID=$(echo "$ADD_OUTPUT" | grep -oP '(?:card.?id|definition.?id)[:\s]*"?([a-z]+-[0-9]+)"?' | grep -oP '[a-z]+-[0-9]+' | head -1 || true)
+        IMAGE_MD=""
+        if [ -n "$CARD_ID" ]; then
+          SET_PREFIX="${CARD_ID%%-*}"
+          IMAGE_FILE=$(cd "$PROJECT_DIR" && grep -r "\"$CARD_ID\"" packages/shared/src/data/ 2>/dev/null \
+            | head -1 | grep -oP '"image":\s*"[^"]*"' | grep -oP 'https?://[^"]+' || true)
+          if [ -n "$IMAGE_FILE" ]; then
+            IMG_FILENAME=$(basename "$IMAGE_FILE")
+            IMAGE_MD="![${CARD_NAME}](/cards/images/${SET_PREFIX}/${IMG_FILENAME})"
+          fi
+        fi
+
+        REPLY_SUBJECT="Added: $CARD_NAME"
+        REPLY_BODY="$IMAGE_MD
+
+The card **$CARD_NAME** ($CARD_ID) has been added to the card pool.
+
+Commit: https://github.com/wigy/meccg/commit/$GIT_HASH"
+        REPLY_KEYWORDS=$(jq -n \
+          --arg origId "$MSG_ID" \
+          --arg cardName "$CARD_NAME" \
+          --arg cardId "$CARD_ID" \
+          --arg gitHash "$GIT_HASH" \
+          '{originalMessageId: $origId, cardName: $cardName, cardId: $cardId, gitHash: $gitHash}')
+
+        REVIEW_TOPIC="review-request"
+        REVIEW_SUBJECT="Review: $CARD_NAME added"
+        REVIEW_BODY="${IMAGE_MD}
+
+**$CARD_NAME** ($CARD_ID) was added from a card request by $USER_NAME.
+
+Commit: https://github.com/wigy/meccg/commit/$GIT_HASH"
+        REVIEW_RECIPIENTS='["wigy","karmi","admin"]'
+        REVIEW_KEYWORDS=$(jq -n \
+          --arg cardName "$CARD_NAME" \
+          --arg cardId "$CARD_ID" \
+          --arg gitHash "$GIT_HASH" \
+          --arg userName "$USER_NAME" \
+          '{cardName: $cardName, cardId: $cardId, gitHash: $gitHash, userName: $userName}')
+      else
+        REPLY_SUBJECT="Failed to add: $CARD_NAME"
+        REPLY_BODY="Card request handler did not indicate success. Output tail:
+$(echo "$ADD_OUTPUT" | tail -20)"
+      fi
     fi
-    # handle-card-request manages its own reply mail, review request, and
-    # status updates, so skip the generic reply/status steps below.
-    DELEGATED=true
-    REPLY_TOPIC=""
     ;;
 
   # =========================================================================
   certification-request)
     CARD_ID=$(echo "$KEYWORDS" | jq -r '.cardId // empty')
     USER_NAME=$(echo "$KEYWORDS" | jq -r '.userName // empty')
+    REPLY_RECIPIENT="$DEFAULT_RECIPIENT"
+    REPLY_TOPIC="certification-reply"
 
     if [ -z "$CARD_ID" ]; then
-      fail "Missing cardId in message keywords."
+      REPLY_SUBJECT="Certification failed: missing cardId"
+      REPLY_BODY="Missing cardId in message keywords."
+      log "ERROR: Missing cardId in message keywords."
     else
       log "Certification request: $CARD_ID (requested by $USER_NAME)"
-      log "Dispatching topic \"certification-request\" to handler..."
 
       PROMPT=$(load_skill "handle-certify-card.md" "$CARD_ID")
-      # Add explicit PR branch instruction
       PROMPT="$PROMPT
 
 IMPORTANT: You MUST create a branch named certify-${CARD_ID}-<card-slug>, commit there, push, and open a PR. Do NOT commit to master."
@@ -278,14 +426,12 @@ IMPORTANT: You MUST create a branch named certify-${CARD_ID}-<card-slug>, commit
       read_skill_stats
       log "Handler completed (exit $RC)."
 
-      # Extract PR URL
       PR_URL=$(echo "$SKILL_OUTPUT" | grep -oP 'https://github\.com/wigy/meccg/pull/[0-9]+' | tail -1 || true)
       GIT_HASH=$(echo "$SKILL_OUTPUT" | grep -oP '[0-9a-f]{40}' | tail -1 || true)
       CARD_NAME=$(echo "$SKILL_OUTPUT" | grep -oP '(?:Card|card)[:\s]+([A-Z][A-Za-z ]+)' | head -1 | sed 's/^[Cc]ard[: ]*//' || true)
 
       if echo "$SKILL_OUTPUT" | grep -qiP '(Playable:\s*YES|certification.*passed|certified|PR.*created|pull request)'; then
         SUCCESS=true
-        REPLY_TOPIC="certification-reply"
         REPLY_SUBJECT="Certified: $CARD_ID"
         REPLY_BODY="Card **$CARD_ID** has been certified.
 
@@ -297,153 +443,147 @@ PR: $PR_URL"
           --arg gitHash "$GIT_HASH" \
           '{originalMessageId: $origId, cardId: $cardId, prUrl: $prUrl, gitHash: $gitHash}')
 
-        # Send review request
-        REVIEW_KW=$(jq -n \
+        REVIEW_TOPIC="review-request"
+        REVIEW_SUBJECT="Review: $CARD_ID certified"
+        REVIEW_BODY="Card **$CARD_ID** ($CARD_NAME) has been certified.
+
+PR: $PR_URL"
+        REVIEW_RECIPIENTS='["wigy","karmi","admin"]'
+        REVIEW_KEYWORDS=$(jq -n \
           --arg cardName "$CARD_NAME" \
           --arg cardId "$CARD_ID" \
           --arg gitHash "$GIT_HASH" \
           --arg prUrl "$PR_URL" \
           --arg userName "$USER_NAME" \
           '{cardName: $cardName, cardId: $cardId, gitHash: $gitHash, prUrl: $prUrl, userName: $userName}')
-        send_review_request "review-request" "Review: $CARD_ID certified" \
-          "Card **$CARD_ID** ($CARD_NAME) has been certified.
-
-PR: $PR_URL" \
-          "$REVIEW_KW"
       else
-        fail "Certification handler did not indicate success. Output tail:
-$(echo "$SKILL_OUTPUT" | tail -20)"
-        REPLY_TOPIC="certification-reply"
         REPLY_SUBJECT="Certification failed: $CARD_ID"
+        REPLY_BODY="Certification handler did not indicate success. Output tail:
+$(echo "$SKILL_OUTPUT" | tail -20)"
+        log "Handler failed."
       fi
     fi
     ;;
 
   # =========================================================================
-  feature-planning-request)
-    log "Dispatching topic \"feature-planning-request\" to handler..."
+  feature-planning-request|feature-implementation-request|bug-report)
+    case "$TOPIC" in
+      feature-planning-request)       SKILL_FILE="handle-planning-request.md" ;;
+      feature-implementation-request) SKILL_FILE="handle-implementation-request.md" ;;
+      bug-report)                     SKILL_FILE="handle-bug-report.md" ;;
+    esac
 
-    PROMPT=$(load_skill "handle-planning-request.md" "$MSG_ID")
+    log "Dispatching topic \"$TOPIC\" to $SKILL_FILE..."
+    PROMPT=$(load_skill "$SKILL_FILE" "$MSG_ID")
     SKILL_OUTPUT=$(run_skill "$PROMPT") && RC=$? || RC=$?
     read_skill_stats
     log "Handler completed (exit $RC)."
 
-    # The planning handler sends its own mail, so we just check success
-    if echo "$SKILL_OUTPUT" | grep -qiP '(plan.*sent|success|processed)'; then
-      SUCCESS=true
-      # The skill already sends the reply mail; we skip sending another
-      REPLY_TOPIC=""
-    else
-      fail "Planning handler did not indicate success. Output tail:
+    RESULT_JSON=$(extract_handler_result "$SKILL_OUTPUT")
+    if [ -z "$RESULT_JSON" ] || ! echo "$RESULT_JSON" | jq -e . >/dev/null 2>&1; then
+      log "ERROR: Skill did not produce a valid HANDLE_MAIL_RESULT block."
+      REPLY_RECIPIENT="$DEFAULT_RECIPIENT"
+      REPLY_TOPIC="${TOPIC/request/reply}"
+      REPLY_TOPIC="${REPLY_TOPIC/bug-report/bug-reply}"
+      REPLY_SUBJECT="Failed: $SUBJECT"
+      REPLY_BODY="The handler did not produce structured output. Output tail:
 $(echo "$SKILL_OUTPUT" | tail -20)"
-      REPLY_TOPIC="feature-planning-reply"
-      REPLY_SUBJECT="Planning failed: $SUBJECT"
-    fi
-    ;;
-
-  # =========================================================================
-  feature-implementation-request)
-    log "Dispatching topic \"feature-implementation-request\" to handler..."
-
-    PROMPT=$(load_skill "handle-implementation-request.md" "$MSG_ID")
-    SKILL_OUTPUT=$(run_skill "$PROMPT") && RC=$? || RC=$?
-    read_skill_stats
-    log "Handler completed (exit $RC)."
-
-    if echo "$SKILL_OUTPUT" | grep -qiP '(implemented|pushed|success|commit.*hash)'; then
-      SUCCESS=true
-      REPLY_TOPIC=""  # The skill sends its own review request
     else
-      fail "Implementation handler did not indicate success. Output tail:
-$(echo "$SKILL_OUTPUT" | tail -20)"
-      REPLY_TOPIC="feature-reply"
-      REPLY_SUBJECT="Implementation failed: $SUBJECT"
-    fi
-    ;;
+      if [ "$(echo "$RESULT_JSON" | jq -r '.success // false')" = "true" ]; then
+        SUCCESS=true
+      fi
+      REPLY_RECIPIENT=$(echo "$RESULT_JSON" | jq -r '.reply.recipient // empty')
+      [ -z "$REPLY_RECIPIENT" ] && REPLY_RECIPIENT="$DEFAULT_RECIPIENT"
+      REPLY_TOPIC=$(echo "$RESULT_JSON" | jq -r '.reply.topic // empty')
+      REPLY_SUBJECT=$(echo "$RESULT_JSON" | jq -r '.reply.subject // empty')
+      REPLY_BODY=$(echo "$RESULT_JSON" | jq -r '.reply.body // empty')
+      REPLY_KEYWORDS=$(echo "$RESULT_JSON" | jq -c '.reply.keywords // {}')
 
-  # =========================================================================
-  bug-report)
-    log "Dispatching topic \"bug-report\" to handler..."
-
-    PROMPT=$(load_skill "handle-bug-report.md" "$MSG_ID")
-    SKILL_OUTPUT=$(run_skill "$PROMPT") && RC=$? || RC=$?
-    read_skill_stats
-    log "Handler completed (exit $RC)."
-
-    if echo "$SKILL_OUTPUT" | grep -qiP '(fixed|pushed|success|commit.*hash)'; then
-      SUCCESS=true
-      REPLY_TOPIC=""  # The skill sends its own reply and review request
-    else
-      fail "Bug report handler did not indicate success. Output tail:
-$(echo "$SKILL_OUTPUT" | tail -20)"
-      REPLY_TOPIC="bug-reply"
-      REPLY_SUBJECT="Unable to fix: $SUBJECT"
+      REVIEW_TOPIC=$(echo "$RESULT_JSON" | jq -r '.review.topic // empty')
+      REVIEW_SUBJECT=$(echo "$RESULT_JSON" | jq -r '.review.subject // empty')
+      REVIEW_BODY=$(echo "$RESULT_JSON" | jq -r '.review.body // empty')
+      REVIEW_RECIPIENTS=$(echo "$RESULT_JSON" | jq -c '.review.recipients // empty')
+      REVIEW_KEYWORDS=$(echo "$RESULT_JSON" | jq -c '.review.keywords // {}')
     fi
     ;;
 
   # =========================================================================
   feature-request|bug-fix-request)
     log "Topic \"$TOPIC\" cannot be automatically handled."
-    fail "This type of request ($TOPIC) requires manual attention and cannot be processed automatically."
+    REPLY_RECIPIENT="$DEFAULT_RECIPIENT"
     REPLY_TOPIC="${TOPIC/request/reply}"
     REPLY_SUBJECT="Cannot auto-handle: $SUBJECT"
+    REPLY_BODY="This type of request ($TOPIC) requires manual attention and cannot be processed automatically."
     ;;
 
   # =========================================================================
   *)
     log "Unknown or unsupported topic: $TOPIC"
-    fail "Unknown or unsupported topic: $TOPIC. The message could not be processed."
+    REPLY_RECIPIENT="$DEFAULT_RECIPIENT"
     REPLY_TOPIC="error-reply"
     REPLY_SUBJECT="Unprocessable: $SUBJECT"
+    REPLY_BODY="Unknown or unsupported topic: $TOPIC. The message could not be processed."
     ;;
 esac
 
+DISPATCH_END=$(date +%s)
+DISPATCH_DURATION_S=$(( DISPATCH_END - DISPATCH_START ))
+
 # ---------------------------------------------------------------------------
-# Step 5: Send reply mail (if needed)
+# Step 5: Compute credits + duration footer values
+# ---------------------------------------------------------------------------
+# Card requests are mechanical (no AI cost) and charge a flat 5 credits.
+# Everything else charges round(SKILL_COST * 100) credits — i.e. 1 credit
+# per cent of actual Claude usage. Charging happens regardless of success
+# because the cost was incurred either way.
+
+CREDITS_CHARGED=0
+if [ "$TOPIC" = "card-request" ]; then
+  CREDITS_CHARGED=5
+elif [ -n "${SKILL_COST:-}" ]; then
+  CREDITS_CHARGED=$(awk -v c="$SKILL_COST" 'BEGIN { printf "%d", (c*100)+0.5 }')
+fi
+
+DURATION_HUMAN=$(format_duration "$DISPATCH_DURATION_S")
+
+# ---------------------------------------------------------------------------
+# Step 6: Send the reply (with credits/time footer baked in)
 # ---------------------------------------------------------------------------
 
 if [ -n "$REPLY_TOPIC" ]; then
-  log "Sending reply to $RECIPIENT..."
-
-  FROM_NAME=$(ai_display_name)
-
-  # Build keywords — start with originalMessageId, merge any extras
-  if [ -z "$REPLY_KEYWORDS" ] || [ "$REPLY_KEYWORDS" = "{}" ]; then
-    REPLY_KEYWORDS=$(jq -n --arg origId "$MSG_ID" '{originalMessageId: $origId}')
-  fi
-
-  PAYLOAD=$(build_mail \
-    --argjson recipients "[\"$RECIPIENT\"]" \
-    --arg from "$FROM_NAME" \
-    --arg topic "$REPLY_TOPIC" \
-    --arg subject "$REPLY_SUBJECT" \
-    --arg body "$REPLY_BODY" \
-    --argjson keywords "$REPLY_KEYWORDS" \
-    --arg replyTo "$MSG_ID" \
-    '{recipients: $recipients, sender: "ai", from: $from,
-      topic: $topic, subject: $subject, body: $body,
-      keywords: $keywords, replyTo: $replyTo, sentBy: "ai"}')
-
-  send_mail "$PAYLOAD" >/dev/null
-  log "Reply sent to $RECIPIENT."
+  send_reply_mail "$REPLY_RECIPIENT" "$REPLY_TOPIC" "$REPLY_SUBJECT" "$REPLY_BODY" "$REPLY_KEYWORDS"
 fi
 
 # ---------------------------------------------------------------------------
-# Step 6: Mark as processed
+# Step 7: Send the optional review request (no footer)
 # ---------------------------------------------------------------------------
 
-if ! $DELEGATED; then
-  if $SUCCESS; then
-    log "Marking message as processed (success: true)"
-    set_status "ai" "$MSG_ID" '{"status":"processed","success":true}'
-  else
-    log "Marking message as processed (success: false)"
-    set_status "ai" "$MSG_ID" '{"status":"processed","success":false}'
-  fi
+if [ -n "$REVIEW_TOPIC" ] && [ -n "$REVIEW_RECIPIENTS" ]; then
+  send_review_request "$REVIEW_TOPIC" "$REVIEW_SUBJECT" "$REVIEW_BODY" "$REVIEW_RECIPIENTS" "$REVIEW_KEYWORDS"
 fi
 
 # ---------------------------------------------------------------------------
-# Step 7: Report
+# Step 8: Mark message as processed
+# ---------------------------------------------------------------------------
+
+if $SUCCESS; then
+  log "Marking message as processed (success: true)"
+  set_status "ai" "$MSG_ID" '{"status":"processed","success":true}'
+else
+  log "Marking message as processed (success: false)"
+  set_status "ai" "$MSG_ID" '{"status":"processed","success":false}'
+fi
+
+# ---------------------------------------------------------------------------
+# Step 9: Deduct credits from the requestor
+# ---------------------------------------------------------------------------
+
+if [ "$CREDITS_CHARGED" -gt 0 ]; then
+  deduct_credits "$REPLY_RECIPIENT" "$CREDITS_CHARGED"
+fi
+
+# ---------------------------------------------------------------------------
+# Step 10: Report
 # ---------------------------------------------------------------------------
 
 echo ""
@@ -454,14 +594,15 @@ log "Subject:  $SUBJECT"
 log "From:     $FROM"
 log "Success:  $SUCCESS"
 if [ -n "$REPLY_TOPIC" ]; then
-  log "Reply:    $REPLY_TOPIC -> $RECIPIENT"
+  log "Reply:    $REPLY_TOPIC -> $REPLY_RECIPIENT"
+fi
+if [ -n "$REVIEW_TOPIC" ]; then
+  log "Review:   $REVIEW_TOPIC -> $REVIEW_RECIPIENTS"
 fi
 if [ -n "${SKILL_COST:-}" ]; then
   log "Cost:     \$${SKILL_COST}"
 fi
-if [ -n "${SKILL_DURATION_MS:-}" ]; then
-  SUMMARY_SECS=$(( SKILL_DURATION_MS / 1000 ))
-  SUMMARY_MINS=$(( SUMMARY_SECS / 60 ))
-  SUMMARY_REM=$(( SUMMARY_SECS % 60 ))
-  log "Duration: ${SUMMARY_MINS}m ${SUMMARY_REM}s"
+log "Duration: $DURATION_HUMAN"
+if [ "$CREDITS_CHARGED" -gt 0 ]; then
+  log "Credits:  -${CREDITS_CHARGED} (from $REPLY_RECIPIENT)"
 fi
