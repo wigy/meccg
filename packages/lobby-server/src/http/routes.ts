@@ -605,6 +605,7 @@ export async function handleRequest(req: http.IncomingMessage, res: http.ServerR
       body: msg.body,
       keywords: {
         ...(msg.keywords.originalMessageId ? { originalMessageId: msg.keywords.originalMessageId } : {}),
+        ...(msg.keywords.originalRequestor ? { originalRequestor: msg.keywords.originalRequestor } : {}),
         planningReplyId: msgId,
       },
       replyTo: msgId,
