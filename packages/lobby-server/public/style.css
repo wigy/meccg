@@ -932,6 +932,17 @@ h2 {
   background: #d4b36a;
 }
 
+.app-dialog-actions .app-dialog-btn-cancel {
+  background: transparent;
+  color: #aaa;
+  border: 1px solid #555;
+}
+
+.app-dialog-actions .app-dialog-btn-cancel:hover {
+  background: rgba(255,255,255,0.05);
+  color: #ddd;
+}
+
 .lobby-content {
   display: grid;
   grid-template-columns: 1fr 1fr 1fr;

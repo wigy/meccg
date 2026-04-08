@@ -59,3 +59,66 @@ export function showAlert(message: string): Promise<void> {
     okBtn.focus();
   });
 }
+
+/**
+ * Show a modal confirmation dialog with OK and Cancel buttons. Resolves
+ * to `true` if the user confirms, `false` if they cancel (Cancel button,
+ * backdrop click, or Escape). Enter confirms.
+ */
+export function showConfirm(message: string): Promise<boolean> {
+  return new Promise<boolean>((resolve) => {
+    const modal = document.createElement('div');
+    modal.className = 'app-dialog';
+
+    const backdrop = document.createElement('div');
+    backdrop.className = 'app-dialog-backdrop';
+    modal.appendChild(backdrop);
+
+    const dialog = document.createElement('div');
+    dialog.className = 'app-dialog-box';
+
+    const msg = document.createElement('p');
+    msg.className = 'app-dialog-message';
+    msg.textContent = message;
+    dialog.appendChild(msg);
+
+    const actions = document.createElement('div');
+    actions.className = 'app-dialog-actions';
+    const cancelBtn = document.createElement('button');
+    cancelBtn.className = 'app-dialog-btn-cancel';
+    cancelBtn.textContent = 'Cancel';
+    const okBtn = document.createElement('button');
+    okBtn.textContent = 'OK';
+    actions.appendChild(cancelBtn);
+    actions.appendChild(okBtn);
+    dialog.appendChild(actions);
+
+    modal.appendChild(dialog);
+    document.body.appendChild(modal);
+
+    const finish = (result: boolean) => {
+      document.removeEventListener('keydown', onKey, true);
+      modal.remove();
+      resolve(result);
+    };
+
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        e.stopPropagation();
+        finish(true);
+      } else if (e.key === 'Escape') {
+        e.preventDefault();
+        e.stopPropagation();
+        finish(false);
+      }
+    };
+
+    okBtn.addEventListener('click', () => finish(true));
+    cancelBtn.addEventListener('click', () => finish(false));
+    backdrop.addEventListener('click', () => finish(false));
+    document.addEventListener('keydown', onKey, true);
+
+    okBtn.focus();
+  });
+}

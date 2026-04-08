@@ -11,6 +11,7 @@ import {
   appState, cardPool, type FullDeck, type DeckListEntry,
   missingCards, uncertifiedCards, sortDeckEntries,
 } from './app-state.js';
+import { showConfirm } from './dialog.js';
 
 // Forward-declared function references, set by the lobby module at startup.
 let openDeckEditorFn: ((deckId: string) => Promise<void>) | null = null;
@@ -92,9 +93,9 @@ function renderMyDeckItem(deck: FullDeck, isCurrent: boolean): HTMLElement {
   deleteBtn.textContent = 'Delete';
   deleteBtn.className = 'lobby-delete-btn';
   deleteBtn.addEventListener('click', () => {
-    if (confirm(`Delete deck "${deck.name}"?`)) {
-      void deleteDeck(deck.id);
-    }
+    void showConfirm(`Delete deck "${deck.name}"?`).then((ok) => {
+      if (ok) void deleteDeck(deck.id);
+    });
   });
   btns.appendChild(deleteBtn);
   item.appendChild(btns);
