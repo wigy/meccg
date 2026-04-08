@@ -7,6 +7,7 @@
  */
 
 import { appState, type ScreenId, VIEWING_INBOX_KEY, MAIL_TAB_KEY, MAIL_MSG_KEY } from './app-state.js';
+import { showAlert } from './dialog.js';
 import { renderMarkdown } from './markdown.js';
 
 // Forward-declared showScreen, set by the lobby module at startup.
@@ -229,6 +230,10 @@ function renderMailList(
   featureBtn.className = 'inbox-action-btn';
   featureBtn.textContent = 'Feature Request';
   featureBtn.addEventListener('click', () => {
+    if (appState.lobbyPlayerCredits <= 0) {
+      void showAlert('No credits available. Top up your credits before sending a feature request.');
+      return;
+    }
     const modal = document.getElementById('feature-request-modal')!;
     const subjectEl = document.getElementById('feature-request-subject') as HTMLInputElement;
     const bodyEl = document.getElementById('feature-request-body') as HTMLTextAreaElement;
