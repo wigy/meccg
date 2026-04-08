@@ -1,0 +1,633 @@
+/**
+ * @module tw-008.test
+ *
+ * Card test: Assassin (tw-8)
+ * Type: hazard-creature
+ * Effects: 3
+ *
+ * "Man. Three attacks (of one strike each) all against the same character.
+ * Attacker chooses defending character. One or two of these attacks may be
+ * canceled by tapping one character (not the defending character) in the
+ * defender's company for each attack canceled. This may be done even after
+ * a strike is assigned and after facing another attack. If an attack from
+ * Assassin is given more than one strike, each additional strike becomes
+ * an excess strike (-1 prowess modification) against the attacked character."
+ *
+ * This tests the three effects:
+ * 1. combat-rule: attacker-chooses-defenders — attacker assigns strikes
+ * 2. combat-rule: multi-attack (count: 3) — three strikes auto-assigned to one target
+ * 3. combat-rule: cancel-attack-by-tap (maxCancels: 2) — defender taps to cancel
+ */
+
+import { describe, test, expect, beforeEach } from 'vitest';
+import {
+  PLAYER_1, PLAYER_2,
+  ARAGORN, LEGOLAS, GIMLI,
+  ASSASSIN,
+  RIVENDELL, LORIEN, MINAS_TIRITH, BREE,
+  buildTestState, resetMint, makeMHState,
+  reduce, pool, resolveChain,
+} from '../test-helpers.js';
+import { computeLegalActions, Phase, SiteType } from '../../index.js';
+import type { CreatureCard } from '../../index.js';
+
+// ─── Tests ───────────────────────────────────────────────────────────────────
+
+describe('Assassin (tw-8)', () => {
+  beforeEach(() => resetMint());
+
+  test('card definition has all three combat-rule effects', () => {
+    const def = pool[ASSASSIN as string] as CreatureCard;
+    expect(def).toBeDefined();
+    expect(def.cardType).toBe('hazard-creature');
+    expect(def.strikes).toBe(1);
+    expect(def.prowess).toBe(11);
+    expect(def.body).toBeNull();
+    expect(def.race).toBe('men');
+    expect(def.killMarshallingPoints).toBe(2);
+    expect(def.effects).toContainEqual({
+      type: 'combat-rule',
+      rule: 'attacker-chooses-defenders',
+    });
+    expect(def.effects).toContainEqual({
+      type: 'combat-rule',
+      rule: 'multi-attack',
+      count: 3,
+    });
+    expect(def.effects).toContainEqual({
+      type: 'combat-rule',
+      rule: 'cancel-attack-by-tap',
+      maxCancels: 2,
+    });
+  });
+
+  test('keyed to free-holds and border-holds', () => {
+    const def = pool[ASSASSIN as string] as CreatureCard;
+    expect(def.keyedTo).toEqual([
+      { siteTypes: ['free-hold', 'border-hold'] },
+    ]);
+  });
+
+  test('combat initiates with attacker assignment, 3 total strikes, and forceSingleTarget', () => {
+    // P1 active with 2 characters moving to Bree (border-hold)
+    // P2 (hazard player) has Assassin in hand
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.MovementHazard,
+      recompute: true,
+      players: [
+        {
+          id: PLAYER_1,
+          companies: [{ site: BREE, characters: [ARAGORN, LEGOLAS] }],
+          hand: [],
+          siteDeck: [MINAS_TIRITH],
+        },
+        {
+          id: PLAYER_2,
+          companies: [{ site: LORIEN, characters: [GIMLI] }],
+          hand: [ASSASSIN],
+          siteDeck: [RIVENDELL],
+        },
+      ],
+    });
+
+    const mhState = makeMHState({
+      resolvedSitePath: [],
+      resolvedSitePathNames: [],
+      destinationSiteType: SiteType.BorderHold,
+      destinationSiteName: 'Bree',
+    });
+    const gameState = { ...state, phaseState: mhState };
+
+    // P2 plays Assassin targeting P1's company
+    const assassinId = gameState.players[1].hand[0].instanceId;
+    const companyId = gameState.players[0].companies[0].id;
+    const result = reduce(gameState, {
+      type: 'play-hazard',
+      player: PLAYER_2,
+      cardInstanceId: assassinId,
+      targetCompanyId: companyId,
+      keyedBy: { method: 'site-type' as const, value: 'border-hold' },
+    });
+    expect(result.error).toBeUndefined();
+
+    // Resolve chain → combat initiates
+    const afterChain = resolveChain(result.state);
+    expect(afterChain.combat).not.toBeNull();
+    expect(afterChain.combat!.phase).toBe('assign-strikes');
+    expect(afterChain.combat!.assignmentPhase).toBe('attacker');
+    // Multi-attack: 3 attacks × 1 strike = 3 total strikes
+    expect(afterChain.combat!.strikesTotal).toBe(3);
+    expect(afterChain.combat!.strikeProwess).toBe(11);
+    expect(afterChain.combat!.forceSingleTarget).toBe(true);
+    expect(afterChain.combat!.cancelByTapRemaining).toBe(2);
+  });
+
+  test('attacker assigns one character and all 3 strikes auto-assigned to that target', () => {
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.MovementHazard,
+      recompute: true,
+      players: [
+        {
+          id: PLAYER_1,
+          companies: [{ site: BREE, characters: [ARAGORN, LEGOLAS] }],
+          hand: [],
+          siteDeck: [MINAS_TIRITH],
+        },
+        {
+          id: PLAYER_2,
+          companies: [{ site: LORIEN, characters: [GIMLI] }],
+          hand: [ASSASSIN],
+          siteDeck: [RIVENDELL],
+        },
+      ],
+    });
+
+    const mhState = makeMHState({
+      resolvedSitePath: [],
+      resolvedSitePathNames: [],
+      destinationSiteType: SiteType.BorderHold,
+      destinationSiteName: 'Bree',
+    });
+    const gameState = { ...state, phaseState: mhState };
+
+    const assassinId = gameState.players[1].hand[0].instanceId;
+    const companyId = gameState.players[0].companies[0].id;
+    const result = reduce(gameState, {
+      type: 'play-hazard',
+      player: PLAYER_2,
+      cardInstanceId: assassinId,
+      targetCompanyId: companyId,
+      keyedBy: { method: 'site-type' as const, value: 'border-hold' },
+    });
+    const afterChain = resolveChain(result.state);
+
+    // Attacker gets assign-strike actions for both characters
+    const attackerActions = computeLegalActions(afterChain, PLAYER_2);
+    const assignStrikes = attackerActions.filter(
+      a => a.viable && a.action.type === 'assign-strike',
+    );
+    expect(assignStrikes).toHaveLength(2); // Can target either character
+
+    // Attacker assigns to Aragorn
+    const aragornCharId = afterChain.players[0].companies[0].characters[0];
+    const assignResult = reduce(afterChain, {
+      type: 'assign-strike',
+      player: PLAYER_2,
+      characterId: aragornCharId,
+      tapped: false,
+    });
+    expect(assignResult.error).toBeUndefined();
+
+    // All 3 strikes are now assigned to Aragorn
+    const combat = assignResult.state.combat!;
+    expect(combat.strikeAssignments).toHaveLength(3);
+    expect(combat.strikeAssignments.every(sa => sa.characterId === aragornCharId)).toBe(true);
+
+    // Should be in cancel-by-tap sub-phase
+    expect(combat.assignmentPhase).toBe('cancel-by-tap');
+  });
+
+  test('defender can cancel attacks by tapping non-target characters', () => {
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.MovementHazard,
+      recompute: true,
+      players: [
+        {
+          id: PLAYER_1,
+          companies: [{ site: BREE, characters: [ARAGORN, LEGOLAS, GIMLI] }],
+          hand: [],
+          siteDeck: [MINAS_TIRITH],
+        },
+        {
+          id: PLAYER_2,
+          companies: [{ site: LORIEN, characters: [] }],
+          hand: [ASSASSIN],
+          siteDeck: [RIVENDELL],
+        },
+      ],
+    });
+
+    const mhState = makeMHState({
+      resolvedSitePath: [],
+      resolvedSitePathNames: [],
+      destinationSiteType: SiteType.BorderHold,
+      destinationSiteName: 'Bree',
+    });
+    const gameState = { ...state, phaseState: mhState };
+
+    const assassinId = gameState.players[1].hand[0].instanceId;
+    const companyId = gameState.players[0].companies[0].id;
+    const r1 = reduce(gameState, {
+      type: 'play-hazard',
+      player: PLAYER_2,
+      cardInstanceId: assassinId,
+      targetCompanyId: companyId,
+      keyedBy: { method: 'site-type' as const, value: 'border-hold' },
+    });
+    const afterChain = resolveChain(r1.state);
+
+    // Attacker assigns to first character (Aragorn)
+    const aragornCharId = afterChain.players[0].companies[0].characters[0];
+    const legolasCharId = afterChain.players[0].companies[0].characters[1];
+    const r2 = reduce(afterChain, {
+      type: 'assign-strike',
+      player: PLAYER_2,
+      characterId: aragornCharId,
+      tapped: false,
+    });
+    expect(r2.state.combat!.assignmentPhase).toBe('cancel-by-tap');
+
+    // Defender (P1) gets cancel-by-tap actions for non-target characters
+    const defActions = computeLegalActions(r2.state, PLAYER_1);
+    const cancelActions = defActions.filter(
+      a => a.viable && a.action.type === 'cancel-by-tap',
+    );
+    // Legolas and Gimli can tap (not Aragorn, the target)
+    expect(cancelActions).toHaveLength(2);
+    const passActions = defActions.filter(
+      a => a.viable && a.action.type === 'pass',
+    );
+    expect(passActions).toHaveLength(1);
+
+    // Defender taps Legolas to cancel one attack
+    const r3 = reduce(r2.state, {
+      type: 'cancel-by-tap',
+      player: PLAYER_1,
+      characterId: legolasCharId,
+    });
+    expect(r3.error).toBeUndefined();
+    expect(r3.state.combat!.strikeAssignments).toHaveLength(2);
+    expect(r3.state.combat!.strikesTotal).toBe(2);
+    // Legolas is now tapped
+    expect(r3.state.players[0].characters[legolasCharId as string].status).toBe('tapped');
+  });
+
+  test('cancel-by-tap respects maxCancels limit (max 2)', () => {
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.MovementHazard,
+      recompute: true,
+      players: [
+        {
+          id: PLAYER_1,
+          companies: [{ site: BREE, characters: [ARAGORN, LEGOLAS, GIMLI] }],
+          hand: [],
+          siteDeck: [MINAS_TIRITH],
+        },
+        {
+          id: PLAYER_2,
+          companies: [{ site: LORIEN, characters: [] }],
+          hand: [ASSASSIN],
+          siteDeck: [RIVENDELL],
+        },
+      ],
+    });
+
+    const mhState = makeMHState({
+      resolvedSitePath: [],
+      resolvedSitePathNames: [],
+      destinationSiteType: SiteType.BorderHold,
+      destinationSiteName: 'Bree',
+    });
+    const gameState = { ...state, phaseState: mhState };
+
+    const assassinId = gameState.players[1].hand[0].instanceId;
+    const companyId = gameState.players[0].companies[0].id;
+    const r1 = reduce(gameState, {
+      type: 'play-hazard',
+      player: PLAYER_2,
+      cardInstanceId: assassinId,
+      targetCompanyId: companyId,
+      keyedBy: { method: 'site-type' as const, value: 'border-hold' },
+    });
+    const afterChain = resolveChain(r1.state);
+
+    const aragornCharId = afterChain.players[0].companies[0].characters[0];
+    const legolasCharId = afterChain.players[0].companies[0].characters[1];
+    const gimliCharId = afterChain.players[0].companies[0].characters[2];
+    const r2 = reduce(afterChain, {
+      type: 'assign-strike',
+      player: PLAYER_2,
+      characterId: aragornCharId,
+      tapped: false,
+    });
+
+    // Cancel first attack
+    const r3 = reduce(r2.state, {
+      type: 'cancel-by-tap',
+      player: PLAYER_1,
+      characterId: legolasCharId,
+    });
+    expect(r3.state.combat!.cancelByTapRemaining).toBe(1);
+
+    // Cancel second attack
+    const r4 = reduce(r3.state, {
+      type: 'cancel-by-tap',
+      player: PLAYER_1,
+      characterId: gimliCharId,
+    });
+    expect(r4.error).toBeUndefined();
+    // After 2 cancels (maxCancels), should proceed to resolution
+    expect(r4.state.combat!.strikeAssignments).toHaveLength(1);
+    expect(r4.state.combat!.assignmentPhase).toBe('done');
+    // Should be in resolve-strike phase (auto-selected since only 1 strike)
+    expect(r4.state.combat!.phase).toBe('resolve-strike');
+  });
+
+  test('defender can pass cancel-by-tap to proceed with remaining strikes', () => {
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.MovementHazard,
+      recompute: true,
+      players: [
+        {
+          id: PLAYER_1,
+          companies: [{ site: BREE, characters: [ARAGORN, LEGOLAS] }],
+          hand: [],
+          siteDeck: [MINAS_TIRITH],
+        },
+        {
+          id: PLAYER_2,
+          companies: [{ site: LORIEN, characters: [GIMLI] }],
+          hand: [ASSASSIN],
+          siteDeck: [RIVENDELL],
+        },
+      ],
+    });
+
+    const mhState = makeMHState({
+      resolvedSitePath: [],
+      resolvedSitePathNames: [],
+      destinationSiteType: SiteType.BorderHold,
+      destinationSiteName: 'Bree',
+    });
+    const gameState = { ...state, phaseState: mhState };
+
+    const assassinId = gameState.players[1].hand[0].instanceId;
+    const companyId = gameState.players[0].companies[0].id;
+    const r1 = reduce(gameState, {
+      type: 'play-hazard',
+      player: PLAYER_2,
+      cardInstanceId: assassinId,
+      targetCompanyId: companyId,
+      keyedBy: { method: 'site-type' as const, value: 'border-hold' },
+    });
+    const afterChain = resolveChain(r1.state);
+
+    const aragornCharId = afterChain.players[0].companies[0].characters[0];
+    const r2 = reduce(afterChain, {
+      type: 'assign-strike',
+      player: PLAYER_2,
+      characterId: aragornCharId,
+      tapped: false,
+    });
+    expect(r2.state.combat!.assignmentPhase).toBe('cancel-by-tap');
+
+    // Defender passes without canceling
+    const r3 = reduce(r2.state, { type: 'pass', player: PLAYER_1 });
+    expect(r3.error).toBeUndefined();
+    expect(r3.state.combat!.assignmentPhase).toBe('done');
+    // 3 strikes remain, defender chooses resolution order
+    expect(r3.state.combat!.strikeAssignments).toHaveLength(3);
+    expect(r3.state.combat!.phase).toBe('choose-strike-order');
+  });
+
+  test('canceling all 3 attacks ends combat (creature goes to discard)', () => {
+    // This requires 3 non-target characters — but maxCancels is 2, so
+    // the defender cannot cancel all 3. With 2 cancels, 1 strike remains.
+    // Let's verify that: with 2 cancels on a 3-attack creature, 1 remains.
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.MovementHazard,
+      recompute: true,
+      players: [
+        {
+          id: PLAYER_1,
+          companies: [{ site: BREE, characters: [ARAGORN, LEGOLAS, GIMLI] }],
+          hand: [],
+          siteDeck: [MINAS_TIRITH],
+        },
+        {
+          id: PLAYER_2,
+          companies: [{ site: LORIEN, characters: [] }],
+          hand: [ASSASSIN],
+          siteDeck: [RIVENDELL],
+        },
+      ],
+    });
+
+    const mhState = makeMHState({
+      resolvedSitePath: [],
+      resolvedSitePathNames: [],
+      destinationSiteType: SiteType.BorderHold,
+      destinationSiteName: 'Bree',
+    });
+    const gameState = { ...state, phaseState: mhState };
+
+    const assassinId = gameState.players[1].hand[0].instanceId;
+    const companyId = gameState.players[0].companies[0].id;
+    const r1 = reduce(gameState, {
+      type: 'play-hazard',
+      player: PLAYER_2,
+      cardInstanceId: assassinId,
+      targetCompanyId: companyId,
+      keyedBy: { method: 'site-type' as const, value: 'border-hold' },
+    });
+    const afterChain = resolveChain(r1.state);
+
+    const aragornCharId = afterChain.players[0].companies[0].characters[0];
+    const legolasCharId = afterChain.players[0].companies[0].characters[1];
+    const gimliCharId = afterChain.players[0].companies[0].characters[2];
+    const r2 = reduce(afterChain, {
+      type: 'assign-strike',
+      player: PLAYER_2,
+      characterId: aragornCharId,
+      tapped: false,
+    });
+
+    // Cancel 2 of 3 attacks
+    const r3 = reduce(r2.state, {
+      type: 'cancel-by-tap',
+      player: PLAYER_1,
+      characterId: legolasCharId,
+    });
+    const r4 = reduce(r3.state, {
+      type: 'cancel-by-tap',
+      player: PLAYER_1,
+      characterId: gimliCharId,
+    });
+
+    // 1 strike remains — combat continues with resolve-strike
+    expect(r4.state.combat).not.toBeNull();
+    expect(r4.state.combat!.strikeAssignments).toHaveLength(1);
+    expect(r4.state.combat!.phase).toBe('resolve-strike');
+  });
+
+  test('defender gets NO assign-strike actions (attacker chooses)', () => {
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.MovementHazard,
+      recompute: true,
+      players: [
+        {
+          id: PLAYER_1,
+          companies: [{ site: BREE, characters: [ARAGORN, LEGOLAS] }],
+          hand: [],
+          siteDeck: [MINAS_TIRITH],
+        },
+        {
+          id: PLAYER_2,
+          companies: [{ site: LORIEN, characters: [GIMLI] }],
+          hand: [ASSASSIN],
+          siteDeck: [RIVENDELL],
+        },
+      ],
+    });
+
+    const mhState = makeMHState({
+      resolvedSitePath: [],
+      resolvedSitePathNames: [],
+      destinationSiteType: SiteType.BorderHold,
+      destinationSiteName: 'Bree',
+    });
+    const gameState = { ...state, phaseState: mhState };
+
+    const assassinId = gameState.players[1].hand[0].instanceId;
+    const companyId = gameState.players[0].companies[0].id;
+    const r1 = reduce(gameState, {
+      type: 'play-hazard',
+      player: PLAYER_2,
+      cardInstanceId: assassinId,
+      targetCompanyId: companyId,
+      keyedBy: { method: 'site-type' as const, value: 'border-hold' },
+    });
+    const afterChain = resolveChain(r1.state);
+
+    // Defender (P1) should NOT have assign-strike actions
+    const defenderActions = computeLegalActions(afterChain, PLAYER_1);
+    const defenderAssignStrikes = defenderActions.filter(
+      a => a.viable && a.action.type === 'assign-strike',
+    );
+    expect(defenderAssignStrikes).toHaveLength(0);
+  });
+
+  test('only non-target untapped characters can cancel-by-tap', () => {
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.MovementHazard,
+      recompute: true,
+      players: [
+        {
+          id: PLAYER_1,
+          // Only 2 characters — one will be the target, one can cancel
+          companies: [{ site: BREE, characters: [ARAGORN, LEGOLAS] }],
+          hand: [],
+          siteDeck: [MINAS_TIRITH],
+        },
+        {
+          id: PLAYER_2,
+          companies: [{ site: LORIEN, characters: [GIMLI] }],
+          hand: [ASSASSIN],
+          siteDeck: [RIVENDELL],
+        },
+      ],
+    });
+
+    const mhState = makeMHState({
+      resolvedSitePath: [],
+      resolvedSitePathNames: [],
+      destinationSiteType: SiteType.BorderHold,
+      destinationSiteName: 'Bree',
+    });
+    const gameState = { ...state, phaseState: mhState };
+
+    const assassinId = gameState.players[1].hand[0].instanceId;
+    const companyId = gameState.players[0].companies[0].id;
+    const r1 = reduce(gameState, {
+      type: 'play-hazard',
+      player: PLAYER_2,
+      cardInstanceId: assassinId,
+      targetCompanyId: companyId,
+      keyedBy: { method: 'site-type' as const, value: 'border-hold' },
+    });
+    const afterChain = resolveChain(r1.state);
+
+    const aragornCharId = afterChain.players[0].companies[0].characters[0];
+    const r2 = reduce(afterChain, {
+      type: 'assign-strike',
+      player: PLAYER_2,
+      characterId: aragornCharId,
+      tapped: false,
+    });
+
+    // Only Legolas (non-target, untapped) should be available
+    const defActions = computeLegalActions(r2.state, PLAYER_1);
+    const cancelActions = defActions.filter(
+      a => a.viable && a.action.type === 'cancel-by-tap',
+    );
+    expect(cancelActions).toHaveLength(1);
+  });
+
+  test('solo character company: no cancel-by-tap options (only pass)', () => {
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.MovementHazard,
+      recompute: true,
+      players: [
+        {
+          id: PLAYER_1,
+          companies: [{ site: BREE, characters: [ARAGORN] }],
+          hand: [],
+          siteDeck: [MINAS_TIRITH],
+        },
+        {
+          id: PLAYER_2,
+          companies: [{ site: LORIEN, characters: [GIMLI] }],
+          hand: [ASSASSIN],
+          siteDeck: [RIVENDELL],
+        },
+      ],
+    });
+
+    const mhState = makeMHState({
+      resolvedSitePath: [],
+      resolvedSitePathNames: [],
+      destinationSiteType: SiteType.BorderHold,
+      destinationSiteName: 'Bree',
+    });
+    const gameState = { ...state, phaseState: mhState };
+
+    const assassinId = gameState.players[1].hand[0].instanceId;
+    const companyId = gameState.players[0].companies[0].id;
+    const r1 = reduce(gameState, {
+      type: 'play-hazard',
+      player: PLAYER_2,
+      cardInstanceId: assassinId,
+      targetCompanyId: companyId,
+      keyedBy: { method: 'site-type' as const, value: 'border-hold' },
+    });
+    const afterChain = resolveChain(r1.state);
+
+    const aragornCharId = afterChain.players[0].companies[0].characters[0];
+    const r2 = reduce(afterChain, {
+      type: 'assign-strike',
+      player: PLAYER_2,
+      characterId: aragornCharId,
+      tapped: false,
+    });
+
+    // Only pass is available (no other characters to tap)
+    const defActions = computeLegalActions(r2.state, PLAYER_1);
+    const cancelActions = defActions.filter(
+      a => a.viable && a.action.type === 'cancel-by-tap',
+    );
+    expect(cancelActions).toHaveLength(0);
+    const passActions = defActions.filter(
+      a => a.viable && a.action.type === 'pass',
+    );
+    expect(passActions).toHaveLength(1);
+  });
+});

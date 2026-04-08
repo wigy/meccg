@@ -202,6 +202,20 @@ export interface CancelAttackAction {
 }
 
 /**
+ * The defending player taps a non-target character in the company to
+ * cancel one of a multi-attack creature's strikes (e.g. Assassin).
+ * Available during the 'cancel-by-tap' assignment sub-phase.
+ */
+export interface CancelByTapAction {
+  /** Action discriminant. */
+  readonly type: 'cancel-by-tap';
+  /** The defending player canceling a strike. */
+  readonly player: PlayerId;
+  /** The character being tapped to cancel one attack. */
+  readonly characterId: CardInstanceId;
+}
+
+/**
  * The attacking player rolls for a body check after a strike is resolved.
  * The opponent rolls 2d6 against the target's body value to determine
  * if the entity (character or creature) is eliminated/defeated.

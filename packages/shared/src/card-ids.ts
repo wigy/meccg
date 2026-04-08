@@ -143,6 +143,8 @@ export const TWILIGHT = did('tw-106');
 
 // ---- Creatures ----
 
+/** Assassin — men hazard creature, three attacks against one character, keyed to free-holds/border-holds. */
+export const ASSASSIN = did('tw-8');
 /** Cave-drake — wilderness hazard creature with moderate prowess. */
 export const CAVE_DRAKE = did('tw-020');
 /** Orc-lieutenant — orc hazard, one strike, prowess 7. */

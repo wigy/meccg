@@ -206,8 +206,24 @@ Pay a cost to cancel an incoming strike, with optional exclusions.
 
 Overrides a combat mechanic.
 
+Rules:
+
+- `attacker-chooses-defenders` — the attacking player assigns strikes
+  instead of the defender (implemented in `chain-reducer.ts`)
+- `multi-attack` — the creature makes multiple separate attacks, all
+  against the same target character. The `count` field specifies how many
+  attacks. Total strikes = count × effective strikes per attack.
+  All strikes are auto-assigned to the attacker's chosen target.
+  (implemented in `chain-reducer.ts`, `reducer-combat.ts`)
+- `cancel-attack-by-tap` — the defending player may tap non-target
+  characters in the company to cancel attacks. The `maxCancels` field
+  specifies the maximum number of attacks that can be canceled this way.
+  (implemented in `reducer-combat.ts`, `legal-actions/combat.ts`)
+
 ```json
 { "type": "combat-rule", "rule": "attacker-chooses-defenders" }
+{ "type": "combat-rule", "rule": "multi-attack", "count": 3 }
+{ "type": "combat-rule", "rule": "cancel-attack-by-tap", "maxCancels": 2 }
 ```
 
 ### 12. `play-restriction`
@@ -447,6 +463,16 @@ The resolver:
     "target": "all-automatic-attacks",
     "overrides": "eye-of-sauron-prowess",
     "when": { "inPlay": "Doors of Night" } }
+]
+```
+
+### Assassin
+
+```json
+"effects": [
+  { "type": "combat-rule", "rule": "attacker-chooses-defenders" },
+  { "type": "combat-rule", "rule": "multi-attack", "count": 3 },
+  { "type": "combat-rule", "rule": "cancel-attack-by-tap", "maxCancels": 2 }
 ]
 ```
 
