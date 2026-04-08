@@ -12,7 +12,7 @@
  *
  * Mirrors the DEFAULT_CREDITS / getCredits semantics in
  * packages/lobby-server/src/players/store.ts: a missing `credits` field is
- * treated as 500.
+ * treated as 0.
  */
 
 import { readFileSync, writeFileSync, readdirSync, statSync } from 'fs';
@@ -20,7 +20,7 @@ import { join } from 'path';
 import { homedir } from 'os';
 
 const PLAYERS_DIR = process.env.PLAYERS_DIR ?? join(homedir(), '.meccg', 'players');
-const DEFAULT_CREDITS = 500;
+const DEFAULT_CREDITS = 0;
 
 /** Normalize a player name to its directory name (matches store.ts toDirName). */
 function toDirName(name) {

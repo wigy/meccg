@@ -168,7 +168,7 @@ export function setDisplayName(name: string, displayName: string): void {
 // ---- Credits ----
 
 /** Default credits for new player accounts. */
-const DEFAULT_CREDITS = 500;
+const DEFAULT_CREDITS = 0;
 
 /** Get the player's current credits balance. */
 export function getCredits(name: string): number {
