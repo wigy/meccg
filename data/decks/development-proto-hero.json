@@ -149,6 +149,16 @@
         "name": "Sun",
         "card": "tw-335",
         "qty": 2
+      },
+      {
+        "name": "Concealment",
+        "card": "tw-204",
+        "qty": 2
+      },
+      {
+        "name": "Stealth",
+        "card": "tw-332",
+        "qty": 2
       }
     ]
   },
