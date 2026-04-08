@@ -96,6 +96,14 @@ export interface PlayHazardAction {
   readonly targetCompanyId: CompanyId;
   /** For corruption hazards, the specific character being targeted. */
   readonly targetCharacterId?: CardInstanceId;
+  /**
+   * For site-targeting hazards (e.g. *River*), the site definition ID
+   * the hazard is bound to. The card enters play in `cardsInPlay` with
+   * `attachedToSite` set to this value, so the engine can fire the
+   * `company-arrives-at-site` event hook only for arrivals at that
+   * specific site location.
+   */
+  readonly targetSiteDefinitionId?: import('./common.js').CardDefinitionId;
   /** For creatures, describes which keying rule matched the travel path. */
   readonly keyedBy?: CreatureKeyingMatch;
 }

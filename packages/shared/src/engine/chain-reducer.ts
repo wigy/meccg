@@ -449,15 +449,26 @@ function resolvePermanentEvent(state: GameState, entry: ChainEntry): GameState {
       }
     }
   } else {
-    // General permanent event — just add to cardsInPlay
+    // General permanent event — just add to cardsInPlay. Site-targeting
+    // hazards (e.g. River) carry their site binding through the chain
+    // payload; record it on the CardInPlay entry so the
+    // company-arrives-at-site event hook can match arrivals against
+    // the bound site location.
+    const targetSiteDefId = entry.payload.type === 'permanent-event'
+      ? entry.payload.targetSiteDefinitionId
+      : undefined;
     newPlayers[playerIndex] = {
       ...newPlayers[playerIndex],
       cardsInPlay: [...newPlayers[playerIndex].cardsInPlay, {
         instanceId: card.instanceId,
         definitionId: card.definitionId,
         status: CardStatus.Untapped,
+        ...(targetSiteDefId ? { attachedToSite: targetSiteDefId } : {}),
       }],
     };
+    if (targetSiteDefId) {
+      logDetail(`"${def?.name ?? card.definitionId}" attached to site ${targetSiteDefId as string}`);
+    }
   }
 
   let newState: GameState = { ...state, players: newPlayers };

@@ -480,6 +480,17 @@ function playHazardsActions(
       const isCharTargeting = def.effects?.some(
         e => e.type === 'play-target' && e.target === 'character',
       ) ?? false;
+      // play-target DSL: site-targeting hazards (e.g. River) get one
+      // action per candidate site. The candidate sites are the
+      // destination of the active company (the obvious target) plus
+      // any *current* site of any company on either side that the
+      // hazard could meaningfully bind to. CoE rule wording for River
+      // says "Playable on a site" with the understanding that the card
+      // affects companies arriving at that location — the destination
+      // of the company being attacked is the most useful target.
+      const isSiteTargeting = def.effects?.some(
+        e => e.type === 'play-target' && e.target === 'site',
+      ) ?? false;
       if (isCharTargeting) {
         for (const charId of targetCompany.characters) {
           logDetail(`Hazard event "${def.name}" playable on character ${charId as string}`);
@@ -487,6 +498,24 @@ function playHazardsActions(
             action: { ...action, targetCharacterId: charId },
             viable: true,
           });
+        }
+      } else if (isSiteTargeting) {
+        // The destination site of the active company is the canonical
+        // target — that's the site the company is moving to, which is
+        // exactly what River cares about.
+        const destSiteInstanceId = targetCompany.destinationSite?.instanceId
+          ?? targetCompany.currentSite?.instanceId
+          ?? null;
+        if (destSiteInstanceId) {
+          const destSiteDefId = resolveInstanceId(state, destSiteInstanceId);
+          if (destSiteDefId) {
+            const siteDefName = state.cardPool[destSiteDefId as string]?.name ?? (destSiteDefId as string);
+            logDetail(`Hazard event "${def.name}" playable on site ${siteDefName}`);
+            actions.push({
+              action: { ...action, targetSiteDefinitionId: destSiteDefId },
+              viable: true,
+            });
+          }
         }
       } else {
         logDetail(`Hazard event "${def.name}" is playable`);

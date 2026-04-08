@@ -330,7 +330,11 @@ function handlePlayHazardCard(
 
   // Initiate or push onto chain — card enters play upon resolution
   const payload: import('../index.js').ChainEntryPayload = def.eventType === 'permanent'
-    ? { type: 'permanent-event', targetCharacterId: action.type === 'play-hazard' ? action.targetCharacterId : undefined }
+    ? {
+        type: 'permanent-event',
+        targetCharacterId: action.type === 'play-hazard' ? action.targetCharacterId : undefined,
+        targetSiteDefinitionId: action.type === 'play-hazard' ? action.targetSiteDefinitionId : undefined,
+      }
     : { type: 'long-event' };
   if (newState.chain === null) {
     newState = initiateChain(newState, action.player, handCard, payload);
@@ -563,21 +567,29 @@ function endCompanyMH(state: GameState, mhState: MovementHazardPhaseState): Redu
  * `on-event: company-arrives-at-site` entry; for each match, applies
  * the configured triggered action (typically `add-constraint`).
  *
- * The matching event may carry an optional `when: { site.is: 'self' }`
- * which restricts the trigger to cards bound to the arrival site —
- * however, since site-attached hazards aren't yet a structural concept
- * in the engine, this implementation fires the event for *every*
- * matching card in play. River certification will tighten this once
- * site attachment is added.
+ * Site-attached hazards (those with `card.attachedToSite` set, e.g.
+ * *River*) only fire when the company is arriving at the bound site
+ * location — the binding is by site definition ID, so multiple
+ * players' copies of the same site share one trigger condition.
+ * Cards without `attachedToSite` fire on every arrival (no current
+ * card uses this; reserved for future "any arrival" effects).
  */
 function fireCompanyArrivesAtSite(
   state: GameState,
   arrivingCompanyId: import('../index.js').CompanyId,
-  _siteInstanceId: import('../index.js').CardInstanceId,
+  siteInstanceId: import('../index.js').CardInstanceId,
 ): GameState {
+  // Resolve the destination site's definition ID so we can match it
+  // against any `attachedToSite` bindings on cards in play.
+  const arrivalSiteDefId = resolveInstanceId(state, siteInstanceId);
+
   let newState = state;
   for (const player of state.players) {
     for (const card of player.cardsInPlay) {
+      // Site-attached hazards only fire for the bound site location.
+      if (card.attachedToSite && card.attachedToSite !== arrivalSiteDefId) {
+        continue;
+      }
       const def = state.cardPool[card.definitionId as string];
       if (!def || !('effects' in def) || !def.effects) continue;
       for (const effect of def.effects) {
