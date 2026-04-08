@@ -26,7 +26,7 @@
  * |---|-------------------------|-------------|-------------------------------------|
  * | 1 | Site phase flow         | IMPLEMENTED | select-company, enter-or-skip, etc. |
  * | 2 | Haven path movement     | IMPLEMENTED | movement-map.ts                     |
- * | 3 | Region movement         | IMPLEMENTED | 24 sites reachable within 4 regions |
+ * | 3 | Region movement         | IMPLEMENTED | 25 sites reachable within 4 regions |
  * | 4 | Card draws              | IMPLEMENTED | resourceDraws/hazardDraws used      |
  *
  * Playable: YES
@@ -44,7 +44,7 @@ import {
   computeLegalActions,
   GREY_HAVENS,
   ETTENMOORS_HERO, THE_WHITE_TOWERS_HERO, BARROW_DOWNS, OLD_FOREST, BAG_END, BREE,
-  GOBLIN_GATE, THE_WORTHY_HILLS,
+  GOBLIN_GATE, THE_WORTHY_HILLS, DUNNISH_CLAN_HOLD,
   isSiteCard, buildMovementMap, getReachableSites,
 } from '../../index.js';
 import type { SiteCard } from '../../index.js';
@@ -173,6 +173,7 @@ describe('Rivendell (tw-421)', () => {
       pool[BREE as string],
       pool[GOBLIN_GATE as string],
       pool[THE_WORTHY_HILLS as string],
+      pool[DUNNISH_CLAN_HOLD as string],
     ].map(d => d.name).sort();
 
     expect(starterSites).toEqual(expectedSites);
@@ -218,6 +219,7 @@ describe('Rivendell (tw-421)', () => {
       'Carn Dûm',
       'Dimrill Dale',
       'Dol Guldur',
+      'Dunnish Clan-hold',
       "Eagles' Eyrie",
       'Ettenmoors',
       'Glittering Caves',
@@ -264,6 +266,7 @@ describe('Rivendell (tw-421)', () => {
     expect(distMap.get('The Worthy Hills')).toBe(2);
     // 3 regions away
     expect(distMap.get('Moria')).toBe(3);
+    expect(distMap.get('Dunnish Clan-hold')).toBe(3);
     expect(distMap.get('Bag End')).toBe(3);
     expect(distMap.get('Grey Havens')).toBe(3);
     expect(distMap.get('Dimrill Dale')).toBe(3);

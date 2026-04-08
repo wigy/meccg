@@ -727,7 +727,7 @@ function advanceAfterCompanyMH(state: GameState, mhState: MovementHazardPhaseSta
     const newPlayers = clonePlayers(state);
     newPlayers[activeIndex] = {
       ...newPlayers[activeIndex],
-      companies: newPlayers[activeIndex].companies.map(c => ({ ...c, moved: false })),
+      companies: newPlayers[activeIndex].companies.map(c => ({ ...c, moved: false, specialMovement: undefined, extraRegionDistance: undefined })),
     };
     return {
       state: cleanupEmptyCompanies({
@@ -927,9 +927,9 @@ function handleSelectCompany(
   const company = player.companies[companyIndex];
   const isMoving = company.destinationSite !== null;
 
-  // Compute effective max region distance from base + card effects (TODO: card effect modifiers)
-  const maxRegionDistance = BASE_MAX_REGION_DISTANCE;
-  logDetail(`Movement/Hazard: selected company ${action.companyId} (index ${companyIndex}), moving=${isMoving}, maxRegions=${maxRegionDistance} → advancing to reveal-new-site`);
+  // Compute effective max region distance from base + card effects (e.g. Cram's extra-region-movement)
+  const maxRegionDistance = BASE_MAX_REGION_DISTANCE + (company.extraRegionDistance ?? 0);
+  logDetail(`Movement/Hazard: selected company ${action.companyId} (index ${companyIndex}), moving=${isMoving}, maxRegions=${maxRegionDistance} (base ${BASE_MAX_REGION_DISTANCE} + extra ${company.extraRegionDistance ?? 0}) → advancing to reveal-new-site`);
   return {
     state: {
       ...state,

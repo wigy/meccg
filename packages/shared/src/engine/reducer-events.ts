@@ -195,7 +195,7 @@ export function handleLongEvent(state: GameState, action: GameAction): ReducerRe
     const activeIndex = getPlayerIndex(state, activePlayer);
     newPlayers[activeIndex] = {
       ...newPlayers[activeIndex],
-      companies: newPlayers[activeIndex].companies.map(c => ({ ...c, moved: false })),
+      companies: newPlayers[activeIndex].companies.map(c => ({ ...c, moved: false, specialMovement: undefined, extraRegionDistance: undefined })),
     };
 
     logDetail(`Long-event: active player ${action.player as string} passed → advancing to Movement/Hazard phase`);
