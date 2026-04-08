@@ -967,9 +967,22 @@
           "reason": "faction-influence-check",
           "faction.name": "Dunlendings"
         }
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "prowess",
+        "value": 5,
+        "when": { "reason": "combat", "enemy.race": "nazgul" }
+      },
+      {
+        "type": "enemy-modifier",
+        "stat": "body",
+        "op": "halve-round-up",
+        "when": { "reason": "combat", "enemy.race": "nazgul" }
       }
     ],
-    "text": "Unique. +4 direct influence against the Dunlendings faction. Against Nazgûl and Ringwraiths, +5 to her prowess and the Nazgûl/Ringwraith's body is halved (rounded up)."
+    "text": "Unique. +4 direct influence against the Dunlendings faction. Against Nazgûl and Ringwraiths, +5 to her prowess and the Nazgûl/Ringwraith's body is halved (rounded up).",
+    "certified": "2026-04-08"
   },
   {
     "cardType": "hero-character",
