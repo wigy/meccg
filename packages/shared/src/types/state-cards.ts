@@ -216,6 +216,12 @@ export interface Company {
    *   Only site-keyed hazard creatures may be played. No region path is traversed.
    */
   readonly specialMovement?: 'gwaihir' | undefined;
+  /**
+   * Extra region distance granted by a card effect (e.g. Cram).
+   * Added to {@link BASE_MAX_REGION_DISTANCE} when computing maximum region
+   * movement distance for this company. Defaults to 0 when undefined.
+   */
+  readonly extraRegionDistance?: number | undefined;
 }
 
 

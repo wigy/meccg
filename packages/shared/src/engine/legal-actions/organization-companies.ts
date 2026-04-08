@@ -14,7 +14,7 @@ import type {
   GameAction,
   SiteCard,
 } from '../../index.js';
-import { GENERAL_INFLUENCE, isCharacterCard, isSiteCard, buildMovementMap, getReachableSites } from '../../index.js';
+import { GENERAL_INFLUENCE, isCharacterCard, isSiteCard, buildMovementMap, getReachableSites, BASE_MAX_REGION_DISTANCE } from '../../index.js';
 import { logDetail } from './log.js';
 import { resolveDef } from '../effects/index.js';
 import { isRegressive } from '../reverse-actions.js';
@@ -77,7 +77,8 @@ export function planMovementActions(state: GameState, playerId: PlayerId): Evalu
       continue;
     }
 
-    const reachable = getReachableSites(movementMap, currentSiteDef, candidateSites);
+    const effectiveMaxRegions = BASE_MAX_REGION_DISTANCE + (company.extraRegionDistance ?? 0);
+    const reachable = getReachableSites(movementMap, currentSiteDef, candidateSites, effectiveMaxRegions);
     // Deduplicate: a site reachable by both starter and region movement only needs one action
     const seen = new Set<string>();
     logDetail(`Company ${company.id as string} at ${currentSiteDef.name}: ${reachable.length} reachable site(s)`);

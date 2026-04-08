@@ -13,7 +13,11 @@
     "prowessModifier": 0,
     "bodyModifier": 0,
     "playableAt": [],
-    "effects": [],
-    "text": "Discard to untap bearer. Alternatively, discard during organization phase to allow its bearer's company to play an additional region card."
+    "effects": [
+      { "type": "grant-action", "action": "untap-bearer", "cost": { "discard": "self" } },
+      { "type": "grant-action", "action": "extra-region-movement", "cost": { "discard": "self" } }
+    ],
+    "text": "Discard to untap bearer. Alternatively, discard during organization phase to allow its bearer's company to play an additional region card.",
+    "certified": "2026-04-08"
   }
 ]

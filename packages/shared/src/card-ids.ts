@@ -87,6 +87,8 @@ export const DAGGER_OF_WESTERNESSE = did('tw-206');
 export const HORN_OF_ANOR = did('tw-259');
 /** Precious Gold Ring — gold ring item that can be tested to become a special ring. */
 export const PRECIOUS_GOLD_RING = did('tw-306');
+/** Cram — minor item, discard to untap bearer or grant extra region movement. */
+export const CRAM = did('td-105');
 
 // ---- Allies ----
 
