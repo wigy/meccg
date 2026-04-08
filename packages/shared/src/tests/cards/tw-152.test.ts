@@ -19,9 +19,10 @@ import {
   buildTestState, resetMint, pool, mint,
   viablePlayCharacterActions,
   reduce, findCharInstanceId,
+  enqueueTransferCorruptionCheck,
 } from '../test-helpers.js';
 import { computeLegalActions, Phase } from '../../index.js';
-import type { CharacterCard, CardInstanceId, OrganizationPhaseState } from '../../index.js';
+import type { CharacterCard, CardInstanceId } from '../../index.js';
 import { BAG_END } from '../../card-ids.js';
 
 // ─── Tests ───────────────────────────────────────────────────────────────────
@@ -82,16 +83,7 @@ describe('Frodo (tw-152)', () => {
     const frodoId = findCharInstanceId(state, 0, FRODO);
     // Mint a fake transferred item ID to trigger pending corruption check
     const fakeItemId = mint();
-    const withPending = {
-      ...state,
-      phaseState: {
-        ...(state.phaseState as OrganizationPhaseState),
-        pendingCorruptionCheck: {
-          characterId: frodoId,
-          transferredItemId: fakeItemId,
-        },
-      },
-    };
+    const withPending = enqueueTransferCorruptionCheck(state, PLAYER_1, frodoId, fakeItemId);
 
     const actions = computeLegalActions(withPending, PLAYER_1);
     const ccAction = actions.find(a => a.viable && a.action.type === 'corruption-check');

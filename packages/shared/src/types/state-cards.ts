@@ -97,6 +97,16 @@ export interface CardInPlay {
   readonly status: CardStatus;
   /** If this event is attached to a specific card (e.g. a corruption card on a character). */
   readonly attachedTo?: CardInstanceId;
+  /**
+   * If this card is bound to a *site location* rather than a specific
+   * card instance — used by site-targeting hazards like *River* whose
+   * effects fire when any company arrives at the named site.
+   *
+   * Stored as a {@link CardDefinitionId} (not an instance ID) because
+   * multiple players' site decks may contain the same site location;
+   * the binding is to the location itself, not to one player's copy.
+   */
+  readonly attachedToSite?: CardDefinitionId;
 }
 
 /**

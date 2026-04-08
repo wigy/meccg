@@ -33,6 +33,7 @@ export * from './state-combat.js';
 import type { PlayerState } from './state-player.js';
 import type { PhaseState } from './state-phases.js';
 import type { CombatState, ChainState, PendingEffect } from './state-combat.js';
+import type { PendingResolution, ActiveConstraint } from './pending.js';
 
 // ---- RNG ----
 
@@ -93,6 +94,23 @@ export interface GameState {
   readonly startingPlayer: PlayerId | null;
   /** Queue of effects waiting to be resolved before the game can proceed. */
   readonly pendingEffects: readonly PendingEffect[];
+  /**
+   * Discrete pieces of work the engine has queued for the players to
+   * resolve before continuing (Shape A — see `engine/pending.ts`).
+   * Replaces the per-phase ad-hoc `pending*` fields. While any entry
+   * targets the actor of an incoming action, only resolution actions
+   * are legal for that actor. Drains FIFO per actor and is swept
+   * automatically at scope boundaries.
+   */
+  readonly pendingResolutions: readonly PendingResolution[];
+  /**
+   * Scoped restrictions on the legal-action menu of some target
+   * (company, character, or player) — see `engine/pending.ts`.
+   * Filters but never blocks; auto-clears at the matching scope
+   * boundary. Used by River, Lost in Free-domains, Stealth, and
+   * future modal-restriction cards.
+   */
+  readonly activeConstraints: readonly ActiveConstraint[];
   /** Deterministic RNG state for reproducible dice rolls and shuffles. */
   readonly rng: RngState;
   /** Monotonically increasing sequence number for state changes, used for log replay. */

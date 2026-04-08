@@ -124,55 +124,40 @@ export function organizationActions(state: GameState, playerId: PlayerId): Evalu
 
   const orgState = state.phaseState as OrganizationPhaseState;
 
-  // When a corruption check is pending (after item transfer), only that check is legal
-  if (orgState.pendingCorruptionCheck !== null) {
-    const charId = orgState.pendingCorruptionCheck.characterId;
-    const transferredItemId = orgState.pendingCorruptionCheck.transferredItemId;
-    const char = player.characters[charId as string];
-    if (char) {
-      const charDef = resolveDef(state, char.instanceId);
-      const charName = isCharacterCard(charDef) ? charDef.name : '?';
-
-      // Include CP from the transferred item (already moved to target character)
-      const transferredDefId = resolveInstanceId(state, transferredItemId);
-      const transferredDef = transferredDefId ? state.cardPool[transferredDefId as string] : undefined;
-      const transferredCp = transferredDef && 'corruptionPoints' in transferredDef
-        ? (transferredDef as { corruptionPoints: number }).corruptionPoints : 0;
-      const cp = char.effectiveStats.corruptionPoints + transferredCp;
-
-      const modifier = isCharacterCard(charDef) ? charDef.corruptionModifier : 0;
-
-      // Include the transferred item in possessions (it's on the target but belongs to this check)
-      const possessions: CardInstanceId[] = [
-        transferredItemId,
-        ...char.items.map(i => i.instanceId),
-        ...char.allies.map(a => a.instanceId),
-        ...char.hazards.map(h => h.instanceId),
-      ];
-      const ccNeed = cp + 1 - modifier;
-      const ccParts = [`CP ${cp}`];
-      if (modifier !== 0) ccParts.push(`modifier ${modifier >= 0 ? '+' : ''}${modifier}`);
-      logDetail(`Pending corruption check for ${charName} (CP ${cp} incl. transferred item, modifier ${modifier >= 0 ? '+' : ''}${modifier}, ${possessions.length} possession(s)) after item transfer`);
-      return [{
-        action: {
-          type: 'corruption-check',
-          player: playerId,
-          characterId: charId,
-          corruptionPoints: cp,
-          corruptionModifier: modifier,
-          possessions,
-          need: ccNeed,
-          explanation: `Need roll > ${cp - modifier} (${ccParts.join(', ')})`,
-        },
-        viable: true,
-      }];
-    }
-  }
+  // Pending corruption checks (transfer / wound / Lure) are now produced
+  // and consumed via the unified pending-resolution system. The
+  // resolution short-circuit in `legal-actions/index.ts` collapses the
+  // menu to the corruption-check action before this function is reached,
+  // so no per-phase short-circuit is needed here.
 
   // When sideboard sub-flow is active, only fetch actions (+ pass for discard) are legal
   if (orgState.sideboardFetchDestination !== null) {
     logHeading(`Sideboard sub-flow active (destination: ${orgState.sideboardFetchDestination})`);
     return fetchFromSideboardActions(state, playerId);
+  }
+
+  // End-of-organization play window: only short-events explicitly tagged as
+  // end-of-org plays (e.g. Stealth) are legal here, plus `pass` to advance
+  // to the Long-event phase. The active player has already taken their
+  // normal organization actions.
+  if (orgState.step === 'end-of-org') {
+    logHeading(`Organization: end-of-org window — only end-of-org plays + pass are legal`);
+    const endActions: EvaluatedAction[] = [];
+    for (const handCard of player.hand) {
+      const def = state.cardPool[handCard.definitionId as string];
+      if (!def || def.cardType !== 'hero-resource-event') continue;
+      const playWindow = def.effects?.find(
+        e => e.type === 'play-window' && (e as { phase?: string; step?: string }).phase === 'organization' && (e as { phase?: string; step?: string }).step === 'end-of-org',
+      );
+      if (!playWindow) continue;
+      logDetail(`End-of-org: ${def.name} (${handCard.instanceId as string}) is a registered end-of-org play`);
+      endActions.push({
+        action: { type: 'play-short-event', player: playerId, cardInstanceId: handCard.instanceId },
+        viable: true,
+      });
+    }
+    endActions.push({ action: { type: 'pass', player: playerId }, viable: true });
+    return endActions;
   }
 
   const actions: EvaluatedAction[] = [];
@@ -231,6 +216,12 @@ export function organizationActions(state: GameState, playerId: PlayerId): Evalu
     const def = state.cardPool[handCard.definitionId as string] as HeroResourceEventCard | undefined;
     if (!def || def.cardType !== 'hero-resource-event' || def.eventType !== 'short') continue;
     if (evaluatedInstances.has(handCard.instanceId as string)) continue;
+    // Skip cards that declare a play-window restricting them to a
+    // different sub-step (e.g. Stealth plays only at end-of-org).
+    const playWindow = def.effects?.find(e => e.type === 'play-window') as { phase?: string; step?: string } | undefined;
+    if (playWindow && (playWindow.phase !== 'organization' || playWindow.step !== 'play-actions')) {
+      continue;
+    }
     resourceShortEventInstances.add(handCard.instanceId as string);
     logDetail(`Resource short-event playable: ${def.name} (${handCard.instanceId as string})`);
     actions.push({

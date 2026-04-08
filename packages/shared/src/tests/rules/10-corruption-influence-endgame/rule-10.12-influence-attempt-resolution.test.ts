@@ -50,17 +50,21 @@ describe('Rule 10.12 — Resolving an Influence Attempt', () => {
     expect(effects!.some(e => e.effect === 'dice-roll')).toBe(true);
   });
 
-  test('attacker roll stores pending state with correct modifiers', () => {
+  test('attacker roll stores pending resolution with correct modifiers', () => {
     const state = buildResolutionState();
     const { state: afterAttempt } = attemptInfluence(state);
-    const pending = (afterAttempt.phaseState as SitePhaseState).pendingOpponentInfluence;
-    expect(pending).not.toBeNull();
-    expect(pending!.attackerRoll).toBeGreaterThanOrEqual(2);
-    expect(pending!.attackerRoll).toBeLessThanOrEqual(12);
+    // The opponent-influence attempt is now stored in the unified
+    // pending-resolution queue rather than the SitePhaseState field.
+    const pending = afterAttempt.pendingResolutions.find(r => r.kind.type === 'opponent-influence-defend');
+    expect(pending).toBeDefined();
+    if (pending?.kind.type !== 'opponent-influence-defend') return;
+    const attempt = pending.kind.attempt;
+    expect(attempt.attackerRoll).toBeGreaterThanOrEqual(2);
+    expect(attempt.attackerRoll).toBeLessThanOrEqual(12);
     // Aragorn DI=3, no followers, so influencerDI=3
-    expect(pending!.influencerDI).toBe(3);
+    expect(attempt.influencerDI).toBe(3);
     // Opponent GI: 20 - (6+6+5) = 3
-    expect(pending!.opponentGI).toBe(3);
+    expect(attempt.opponentGI).toBe(3);
   });
 
   test('sets opponentInteractionThisTurn to influence after attempt', () => {
@@ -69,11 +73,11 @@ describe('Rule 10.12 — Resolving an Influence Attempt', () => {
     expect((afterAttempt.phaseState as SitePhaseState).opponentInteractionThisTurn).toBe('influence');
   });
 
-  test('defender roll clears pending state', () => {
+  test('defender roll clears the pending resolution', () => {
     const state = buildResolutionState();
     const { state: afterAttempt } = attemptInfluence(state);
     const { state: afterDefend } = defendInfluence(afterAttempt);
-    expect((afterDefend.phaseState as SitePhaseState).pendingOpponentInfluence).toBeNull();
+    expect(afterDefend.pendingResolutions.some(r => r.kind.type === 'opponent-influence-defend')).toBe(false);
   });
 
   test('defender roll emits a dice-roll effect', () => {
@@ -157,9 +161,11 @@ describe('Rule 10.12 — Resolving an Influence Attempt', () => {
 
     const result = reduce(state, revealAction!.action);
     expect(result.error).toBeUndefined();
-    const pending = (result.state.phaseState as SitePhaseState).pendingOpponentInfluence!;
-    expect(pending.targetMind).toBe(0);
-    expect(pending.revealedCard).not.toBeNull();
+    const pending = result.state.pendingResolutions.find(r => r.kind.type === 'opponent-influence-defend');
+    expect(pending).toBeDefined();
+    if (pending?.kind.type !== 'opponent-influence-defend') return;
+    expect(pending.kind.attempt.targetMind).toBe(0);
+    expect(pending.kind.attempt.revealedCard).not.toBeNull();
   });
 
   test('revealed card is removed from hand on attempt', () => {

@@ -24,7 +24,6 @@ import type {
   CharacterDeckDraftPlayerState,
   SiteSelectionPlayerState,
 } from './state-cards.js';
-import type { GameAction } from './actions.js';
 
 // ---- Phases ----
 
@@ -199,16 +198,20 @@ export interface OrganizationPhaseState {
    */
   readonly sideboardFetchDestination: 'discard' | 'deck' | null;
   /**
-   * When non-null, a corruption check is required for the character who
-   * just gave away an item via transfer. No other organization actions
-   * are legal until this check is resolved (CoE 2.II.5).
+   * The active sub-step within the organization phase.
+   *
+   * - `'play-actions'` (default): the active player is taking their
+   *   normal organization actions (play character, transfer item,
+   *   plan movement, etc.).
+   * - `'end-of-org'`: the active player has finished their normal
+   *   actions and the engine has opened a window for short-events
+   *   that are explicitly tagged as end-of-organization plays
+   *   (e.g. *Stealth*). Passing during this step advances to the
+   *   Long-event phase.
+   *
+   * Older callers may omit this field; it defaults to `'play-actions'`.
    */
-  readonly pendingCorruptionCheck: {
-    /** The character who must make the corruption check. */
-    readonly characterId: CardInstanceId;
-    /** The item that was transferred — included in possessions and CP for the check. */
-    readonly transferredItemId: CardInstanceId;
-  } | null;
+  readonly step?: 'play-actions' | 'end-of-org';
 }
 
 /**
@@ -331,13 +334,6 @@ export interface MovementHazardPhaseState {
    * the declare-path step.
    */
   readonly maxRegionDistance: number;
-  /**
-   * Card instance IDs of ongoing effects that the hazard player must order
-   * during the 'order-effects' step (CoE step 4). Empty outside that step.
-   * The hazard player submits a permutation of these IDs to set the resolution order.
-   * Hazard-limit modifications are excluded — they are ordered by the resource player.
-   */
-  readonly pendingEffectsToOrder: readonly CardInstanceId[];
   /** Number of hazard cards the opponent has played against the current company this movement. */
   readonly hazardsPlayedThisCompany: number;
   /**
@@ -417,17 +413,6 @@ export interface MovementHazardPhaseState {
    * take actions during its site phase.
    */
   readonly returnedToOrigin: boolean;
-  /**
-   * Queue of character IDs that must make corruption checks after being
-   * wounded by a creature with an `on-event: character-wounded-by-self`
-   * effect (e.g. Barrow-wight). Empty when no wound corruption checks are pending.
-   */
-  readonly pendingWoundCorruptionChecks: readonly {
-    /** The wounded character's instance ID. */
-    readonly characterId: CardInstanceId;
-    /** Modifier to the corruption check roll (from the on-event effect). */
-    readonly modifier: number;
-  }[];
 }
 
 /**
@@ -533,18 +518,19 @@ export interface SitePhaseState {
    */
   readonly declaredAgentAttack: CardInstanceId | null;
   /**
-   * Whether the hazard player has a window to reveal on-guard cards
-   * in response to a site-tapping resource play. Set when the resource
-   * player plays a resource that would tap the site and on-guard cards
-   * exist. The hazard player may reveal or pass before the resource resolves.
+   * **Deprecated** — the on-guard reveal window is now stored as a
+   * {@link PendingResolution} of kind `on-guard-window` in
+   * `state.pendingResolutions`. This field is retained as `false` for
+   * save-format backwards compatibility and is no longer read by the
+   * engine.
    */
-  readonly awaitingOnGuardReveal: boolean;
+  readonly awaitingOnGuardReveal: false;
   /**
-   * The resource action that triggered the on-guard reveal window.
-   * Executed when the hazard player passes on revealing. Null when
-   * no on-guard window is active.
+   * **Deprecated** — the deferred resource action is now carried on
+   * the `on-guard-window` pending resolution. Retained as `null` for
+   * save-format backwards compatibility.
    */
-  readonly pendingResourceAction: GameAction | null;
+  readonly pendingResourceAction: null;
   /**
    * Tracks whether the resource player has made an opponent influence
    * attempt or company-vs-company attack this turn. At most one such
@@ -553,47 +539,17 @@ export interface SitePhaseState {
    */
   readonly opponentInteractionThisTurn: 'influence' | 'attack' | null;
   /**
-   * Queue of character IDs that must make corruption checks after being
-   * wounded by an automatic attack with an `on-event: character-wounded-by-self`
-   * effect (e.g. Barrow-downs). Empty when no wound corruption checks are pending.
-   */
-  readonly pendingWoundCorruptionChecks: readonly {
-    /** The wounded character's instance ID. */
-    readonly characterId: CardInstanceId;
-    /** Modifier to the corruption check roll (from the on-event effect). */
-    readonly modifier: number;
-  }[];
-  /**
    * Intermediate state while awaiting the hazard player's defensive roll
-   * during an opponent influence attempt. Null when no influence attempt
-   * is pending resolution.
+   * during an opponent influence attempt. **Deprecated** — the engine
+   * now stores the attempt as a {@link PendingResolution} of kind
+   * `opponent-influence-defend` in `state.pendingResolutions`. This
+   * field is retained as `null` for save-format backwards compatibility
+   * but is no longer read by the engine.
+   *
+   * The full payload shape lives in {@link OpponentInfluenceAttempt}
+   * (`types/pending.ts`).
    */
-  readonly pendingOpponentInfluence: {
-    /** The influencing character's instance ID. */
-    readonly influencerId: CardInstanceId;
-    /** The opponent's targeted card instance ID. */
-    readonly targetInstanceId: CardInstanceId;
-    /** Whether the target is a character or ally. */
-    readonly targetKind: 'character' | 'ally';
-    /** The target's player ID. */
-    readonly targetPlayer: PlayerId;
-    /** The attacker's 2d6 roll result. */
-    readonly attackerRoll: number;
-    /** The influencer's unused direct influence. */
-    readonly influencerDI: number;
-    /** The opponent's unused general influence. */
-    readonly opponentGI: number;
-    /** The target's mind value (comparison threshold). */
-    readonly targetMind: number;
-    /** Unused DI of the character controlling the target (0 if under GI). */
-    readonly controllerDI: number;
-    /**
-     * The card instance revealed from hand for a comparison value of 0.
-     * Null if no card was revealed. Stored so it can be discarded on failure
-     * or played on success (Phase 2).
-     */
-    readonly revealedCard: { readonly instanceId: CardInstanceId; readonly definitionId: CardDefinitionId } | null;
-  } | null;
+  readonly pendingOpponentInfluence: null;
 }
 
 /**

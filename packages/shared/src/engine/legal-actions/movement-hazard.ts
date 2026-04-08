@@ -7,9 +7,9 @@
  */
 
 import type { GameState, PlayerId, GameAction, EvaluatedAction, MovementHazardPhaseState, SiteCard, CardDefinitionId, CardInstanceId, CreatureCard, CreatureKeyingMatch, PlayHazardAction, PlaceOnGuardAction } from '../../index.js';
-import { getPlayerIndex, isCharacterCard, isSiteCard, buildMovementMap, findRegionPaths, RegionType } from '../../index.js';
+import { getPlayerIndex, isSiteCard, buildMovementMap, findRegionPaths, RegionType } from '../../index.js';
 import { resolveInstanceId } from '../../types/state.js';
-import { collectCharacterEffects, resolveCheckModifier, resolveDef, resolveHandSize } from '../effects/index.js';
+import { resolveHandSize } from '../effects/index.js';
 import { MovementType } from '../../types/common.js';
 import { logDetail, logHeading } from './log.js';
 import { playPermanentEventActions, playShortEventActions } from './organization-events.js';
@@ -27,14 +27,10 @@ export function movementHazardActions(state: GameState, playerId: PlayerId): Eva
 
   logHeading(`Movement/hazard phase (step: ${mhState.step}): player is ${isActive ? 'active (mover)' : 'non-active (hazard player)'}`);
 
-  // When wound corruption checks are pending (e.g. Barrow-wight creature attack),
-  // only the active player's corruption-check actions are legal.
-  if (mhState.pendingWoundCorruptionChecks.length > 0 && isActive) {
-    return mhWoundCorruptionCheckActions(state, playerId, mhState);
-  }
-  if (mhState.pendingWoundCorruptionChecks.length > 0 && !isActive) {
-    return [];
-  }
+  // Wound corruption checks (Barrow-wight et al.) are now produced and
+  // consumed via the unified pending-resolution system; the
+  // resolution short-circuit in `legal-actions/index.ts` handles them
+  // before this function is reached.
 
   if (mhState.step === 'select-company') {
     return viable(selectCompanyActions(state, playerId, mhState));
@@ -484,6 +480,17 @@ function playHazardsActions(
       const isCharTargeting = def.effects?.some(
         e => e.type === 'play-target' && e.target === 'character',
       ) ?? false;
+      // play-target DSL: site-targeting hazards (e.g. River) get one
+      // action per candidate site. The candidate sites are the
+      // destination of the active company (the obvious target) plus
+      // any *current* site of any company on either side that the
+      // hazard could meaningfully bind to. CoE rule wording for River
+      // says "Playable on a site" with the understanding that the card
+      // affects companies arriving at that location — the destination
+      // of the company being attacked is the most useful target.
+      const isSiteTargeting = def.effects?.some(
+        e => e.type === 'play-target' && e.target === 'site',
+      ) ?? false;
       if (isCharTargeting) {
         for (const charId of targetCompany.characters) {
           logDetail(`Hazard event "${def.name}" playable on character ${charId as string}`);
@@ -491,6 +498,24 @@ function playHazardsActions(
             action: { ...action, targetCharacterId: charId },
             viable: true,
           });
+        }
+      } else if (isSiteTargeting) {
+        // The destination site of the active company is the canonical
+        // target — that's the site the company is moving to, which is
+        // exactly what River cares about.
+        const destSiteInstanceId = targetCompany.destinationSite?.instanceId
+          ?? targetCompany.currentSite?.instanceId
+          ?? null;
+        if (destSiteInstanceId) {
+          const destSiteDefId = resolveInstanceId(state, destSiteInstanceId);
+          if (destSiteDefId) {
+            const siteDefName = state.cardPool[destSiteDefId as string]?.name ?? (destSiteDefId as string);
+            logDetail(`Hazard event "${def.name}" playable on site ${siteDefName}`);
+            actions.push({
+              action: { ...action, targetSiteDefinitionId: destSiteDefId },
+              viable: true,
+            });
+          }
         }
       } else {
         logDetail(`Hazard event "${def.name}" is playable`);
@@ -701,61 +726,7 @@ export function deckExhaustExchangeActions(
   return actions;
 }
 
-/**
- * Generate corruption-check actions for characters wounded by a creature
- * attack that has an `on-event: character-wounded-by-self` effect during
- * the Movement/Hazard phase (e.g. Barrow-wight).
- *
- * Only the first pending check is offered at a time (processed sequentially).
- */
-function mhWoundCorruptionCheckActions(
-  state: GameState,
-  playerId: PlayerId,
-  mhState: MovementHazardPhaseState,
-): EvaluatedAction[] {
-  const pending = mhState.pendingWoundCorruptionChecks[0];
-  if (!pending) return [];
-
-  const playerIndex = getPlayerIndex(state, playerId);
-  const player = state.players[playerIndex];
-  const char = player.characters[pending.characterId as string];
-  if (!char) {
-    logDetail(`Wound corruption check: character ${pending.characterId as string} no longer in play — skipping`);
-    return viable([{ type: 'pass', player: playerId }]);
-  }
-
-  const charDef = resolveDef(state, char.instanceId);
-  const charName = isCharacterCard(charDef) ? charDef.name : '?';
-
-  const cp = char.effectiveStats.corruptionPoints;
-  const baseModifier = isCharacterCard(charDef) ? charDef.corruptionModifier : 0;
-
-  // Collect check-modifier effects for corruption checks
-  const charEffects = collectCharacterEffects(state, char, { reason: 'corruption-check' });
-  const effectModifier = resolveCheckModifier(charEffects, 'corruption');
-
-  const totalModifier = baseModifier + effectModifier + pending.modifier;
-  const possessions: CardInstanceId[] = [
-    ...char.items.map(i => i.instanceId),
-    ...char.allies.map(a => a.instanceId),
-    ...char.hazards.map(h => h.instanceId),
-  ];
-  const ccNeed = cp + 1 - totalModifier;
-  const ccParts = [`CP ${cp}`];
-  if (totalModifier !== 0) ccParts.push(`modifier ${totalModifier >= 0 ? '+' : ''}${totalModifier}`);
-  logDetail(`Wound corruption check for ${charName} (CP ${cp}, modifier ${totalModifier >= 0 ? '+' : ''}${totalModifier})`);
-
-  return [{
-    action: {
-      type: 'corruption-check',
-      player: playerId,
-      characterId: pending.characterId,
-      corruptionPoints: cp,
-      corruptionModifier: totalModifier,
-      possessions,
-      need: ccNeed,
-      explanation: `Wound corruption: need roll > ${cp - totalModifier} (${ccParts.join(', ')})`,
-    },
-    viable: true,
-  }];
-}
+// mhWoundCorruptionCheckActions removed: wound corruption checks are
+// now produced via the unified pending-resolution system. See
+// `legal-actions/pending.ts` (corruptionCheckActions) and
+// `engine/pending-reducers.ts` (applyCorruptionCheckResolution).

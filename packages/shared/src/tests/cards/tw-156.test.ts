@@ -26,9 +26,10 @@ import {
   Phase, CardStatus,
   buildTestState, resetMint,
   findCharInstanceId, viableActions, reduce,
+  enqueueTransferCorruptionCheck,
 } from '../test-helpers.js';
 import { computeLegalActions } from '../../index.js';
-import type { CharacterCard, CorruptionCheckAction, ActivateGrantedAction, OrganizationPhaseState } from '../../index.js';
+import type { CharacterCard, CorruptionCheckAction, ActivateGrantedAction } from '../../index.js';
 
 // ─── Tests ────────────────────────────────────────────────────────────────────
 
@@ -62,18 +63,7 @@ describe('Gandalf (tw-156)', () => {
     const gandalfId = findCharInstanceId(state, 0, GANDALF);
     const glamdringInstId = state.players[0].characters[gandalfId as string].items[0].instanceId;
 
-    // Set up pending corruption check as if Gandalf just transferred an item
-    const orgPhase: OrganizationPhaseState = {
-      phase: Phase.Organization,
-      characterPlayedThisTurn: false,
-      sideboardFetchedThisTurn: 0,
-      sideboardFetchDestination: null,
-      pendingCorruptionCheck: {
-        characterId: gandalfId,
-        transferredItemId: glamdringInstId,
-      },
-    };
-    const stateWithCheck = { ...state, phaseState: orgPhase };
+    const stateWithCheck = enqueueTransferCorruptionCheck(state, PLAYER_1, gandalfId, glamdringInstId);
 
     const actions = computeLegalActions(stateWithCheck, PLAYER_1);
     const ccActions = actions

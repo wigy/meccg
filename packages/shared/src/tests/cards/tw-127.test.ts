@@ -21,9 +21,10 @@ import {
   Phase,
   buildTestState, resetMint,
   findCharInstanceId, buildSitePhaseState,
+  enqueueTransferCorruptionCheck,
 } from '../test-helpers.js';
 import { computeLegalActions } from '../../index.js';
-import type { CharacterCard, InfluenceAttemptAction, CorruptionCheckAction, OrganizationPhaseState } from '../../index.js';
+import type { CharacterCard, InfluenceAttemptAction, CorruptionCheckAction } from '../../index.js';
 
 // ─── Tests ────────────────────────────────────────────────────────────────────
 
@@ -56,18 +57,9 @@ describe('Beregond (tw-127)', () => {
     const beregondId = findCharInstanceId(state, 0, BEREGOND);
     const glamdringInstId = state.players[0].characters[beregondId as string].items[0].instanceId;
 
-    // Set up pending corruption check as if Beregond just gave away an item
-    const orgPhase: OrganizationPhaseState = {
-      phase: Phase.Organization,
-      characterPlayedThisTurn: false,
-      sideboardFetchedThisTurn: 0,
-      sideboardFetchDestination: null,
-      pendingCorruptionCheck: {
-        characterId: beregondId,
-        transferredItemId: glamdringInstId,
-      },
-    };
-    const stateWithCheck = { ...state, phaseState: orgPhase };
+    // Enqueue a pending corruption-check resolution as if Beregond just
+    // gave away an item via transfer.
+    const stateWithCheck = enqueueTransferCorruptionCheck(state, PLAYER_1, beregondId, glamdringInstId);
 
     const actions = computeLegalActions(stateWithCheck, PLAYER_1);
     const ccActions = actions

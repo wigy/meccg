@@ -20,7 +20,7 @@ import {
   playCreatureHazardAndResolve, runCreatureCombat,
 } from '../test-helpers.js';
 import { computeLegalActions, Phase, RegionType, SiteType, CardStatus } from '../../index.js';
-import type { CreatureCard, MovementHazardPhaseState } from '../../index.js';
+import type { CreatureCard } from '../../index.js';
 
 // ─── Constants ──────────────────────────────────────────────────────────────
 
@@ -106,12 +106,16 @@ describe('Barrow-wight (tw-015)', () => {
     const afterWound = runCreatureCombat(afterChain, ARAGORN, 2, 5);
     expect(afterWound.combat).toBeNull();
 
-    const mhAfter = afterWound.phaseState as MovementHazardPhaseState;
-    expect(mhAfter.pendingWoundCorruptionChecks).toHaveLength(1);
-    expect(mhAfter.pendingWoundCorruptionChecks[0].modifier).toBe(-2);
+    // A pending corruption-check resolution should be queued for P1
+    // (Aragorn) with a -2 modifier from Barrow-wight's effect.
+    const pending = afterWound.pendingResolutions.filter(r => r.actor === PLAYER_1);
+    expect(pending).toHaveLength(1);
+    expect(pending[0].kind.type).toBe('corruption-check');
+    if (pending[0].kind.type !== 'corruption-check') return;
+    expect(pending[0].kind.modifier).toBe(-2);
 
     const aragornId = findCharInstanceId(afterWound, 0, ARAGORN);
-    expect(mhAfter.pendingWoundCorruptionChecks[0].characterId).toBe(aragornId);
+    expect(pending[0].kind.characterId).toBe(aragornId);
 
     const actions = computeLegalActions(afterWound, PLAYER_1);
     const viable = actions.filter(a => a.viable);
@@ -148,8 +152,7 @@ describe('Barrow-wight (tw-015)', () => {
     const ccResult = reduce({ ...afterWound, cheatRollTotal: 12 }, ccAction);
     expect(ccResult.error).toBeUndefined();
 
-    const mhAfter = ccResult.state.phaseState as MovementHazardPhaseState;
-    expect(mhAfter.pendingWoundCorruptionChecks).toHaveLength(0);
+    expect(ccResult.state.pendingResolutions).toHaveLength(0);
 
     const aragornId = findCharInstanceId(ccResult.state, 0, ARAGORN);
     expect(ccResult.state.players[0].characters[aragornId as string]).toBeDefined();
@@ -187,8 +190,7 @@ describe('Barrow-wight (tw-015)', () => {
     const ccResult = reduce({ ...afterWound, cheatRollTotal: 2 }, ccAction);
     expect(ccResult.error).toBeUndefined();
 
-    const mhAfter = ccResult.state.phaseState as MovementHazardPhaseState;
-    expect(mhAfter.pendingWoundCorruptionChecks).toHaveLength(0);
+    expect(ccResult.state.pendingResolutions).toHaveLength(0);
     const aragornId = findCharInstanceId(afterWound, 0, ARAGORN);
     expect(ccResult.state.players[0].characters[aragornId as string]).toBeUndefined();
   });
@@ -219,8 +221,8 @@ describe('Barrow-wight (tw-015)', () => {
     const afterStrike = runCreatureCombat(afterChain, ARAGORN, 10, null);
     expect(afterStrike.combat).toBeNull();
 
-    const mhAfter = afterStrike.phaseState as MovementHazardPhaseState;
-    expect(mhAfter.pendingWoundCorruptionChecks).toHaveLength(0);
+    // No pending corruption-check resolutions queued — character won.
+    expect(afterStrike.pendingResolutions).toHaveLength(0);
   });
 
   test('hazard player has no actions during wound corruption check', () => {

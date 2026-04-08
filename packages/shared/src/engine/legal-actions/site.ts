@@ -9,10 +9,10 @@
  * CoE rules section 2.V (lines 340–393).
  */
 
-import type { GameState, PlayerId, GameAction, EvaluatedAction, SitePhaseState, HeroItemCard, HeroResourceEventCard, SiteCard, PlayableAtEntry, FactionCard, CardInstanceId } from '../../index.js';
+import type { GameState, PlayerId, GameAction, EvaluatedAction, SitePhaseState, HeroItemCard, HeroResourceEventCard, SiteCard, PlayableAtEntry, FactionCard } from '../../index.js';
 import { getPlayerIndex, isSiteCard, isItemCard, isAllyCard, isFactionCard, isCharacterCard, CardStatus, matchesCondition, GENERAL_INFLUENCE } from '../../index.js';
 import { resolveInstanceId } from '../../types/state.js';
-import { collectCharacterEffects, resolveCheckModifier, resolveStatModifiers, resolveDef } from '../effects/index.js';
+import { collectCharacterEffects, resolveCheckModifier, resolveStatModifiers } from '../effects/index.js';
 import type { ResolverContext } from '../effects/index.js';
 import { logDetail, logHeading } from './log.js';
 import { availableDI } from './organization.js';
@@ -46,14 +46,10 @@ export function siteActions(state: GameState, playerId: PlayerId): EvaluatedActi
 
   logHeading(`Site phase (step: ${siteState.step}): player is ${isActive ? 'active (resource)' : 'non-active (hazard)'}`);
 
-  // When wound corruption checks are pending (e.g. Barrow-downs auto-attack),
-  // only the active player's corruption-check actions are legal.
-  if (siteState.pendingWoundCorruptionChecks.length > 0 && isActive) {
-    return woundCorruptionCheckActions(state, playerId, siteState);
-  }
-  if (siteState.pendingWoundCorruptionChecks.length > 0 && !isActive) {
-    return [];
-  }
+  // Wound corruption checks (Barrow-downs et al.) are now produced and
+  // consumed via the unified pending-resolution system; the
+  // resolution short-circuit in `legal-actions/index.ts` handles them
+  // before this function is reached.
 
   if (siteState.step === 'select-company') {
     return viable(selectCompanyActions(state, playerId, siteState));
@@ -80,24 +76,9 @@ export function siteActions(state: GameState, playerId: PlayerId): EvaluatedActi
   }
 
   if (siteState.step === 'play-resources') {
-    // Awaiting hazard player's defensive roll for opponent influence attempt
-    if (siteState.pendingOpponentInfluence) {
-      if (!isActive) {
-        return viable([{ type: 'opponent-influence-defend', player: playerId }]);
-      }
-      return [];
-    }
-    // On-guard reveal window: hazard player may reveal or pass
-    if (siteState.awaitingOnGuardReveal) {
-      return viable(onGuardRevealAtResourceActions(state, playerId, siteState));
-    }
-    // Pending resource action (hero resource): active player passes to trigger execution
-    if (siteState.pendingResourceAction && state.chain === null) {
-      if (isActive) {
-        return viable([{ type: 'pass', player: playerId }]);
-      }
-      return [];
-    }
+    // Opponent-influence-defend and on-guard-window are now produced
+    // via the unified pending-resolution dispatcher in
+    // `legal-actions/index.ts` before this function is reached.
     return playResourcesActions(state, playerId, siteState);
   }
 
@@ -297,64 +278,10 @@ function automaticAttacksActions(
   return [{ type: 'pass', player: playerId }];
 }
 
-/**
- * Generate corruption-check actions for characters wounded by an automatic
- * attack that has an `on-event: character-wounded-by-self` effect.
- *
- * Only the first pending check is offered at a time (processed sequentially).
- */
-function woundCorruptionCheckActions(
-  state: GameState,
-  playerId: PlayerId,
-  siteState: SitePhaseState,
-): EvaluatedAction[] {
-  const pending = siteState.pendingWoundCorruptionChecks[0];
-  if (!pending) return [];
-
-  const playerIndex = getPlayerIndex(state, playerId);
-  const player = state.players[playerIndex];
-  const char = player.characters[pending.characterId as string];
-  if (!char) {
-    // Character was eliminated — skip this check (will be cleaned up by reducer)
-    logDetail(`Wound corruption check: character ${pending.characterId as string} no longer in play — skipping`);
-    return viable([{ type: 'pass', player: playerId }]);
-  }
-
-  const charDef = resolveDef(state, char.instanceId);
-  const charName = isCharacterCard(charDef) ? charDef.name : '?';
-
-  const cp = char.effectiveStats.corruptionPoints;
-  const baseModifier = isCharacterCard(charDef) ? charDef.corruptionModifier : 0;
-
-  // Collect check-modifier effects for corruption checks
-  const charEffects = collectCharacterEffects(state, char, { reason: 'corruption-check' });
-  const effectModifier = resolveCheckModifier(charEffects, 'corruption');
-
-  const totalModifier = baseModifier + effectModifier + pending.modifier;
-  const possessions: CardInstanceId[] = [
-    ...char.items.map(i => i.instanceId),
-    ...char.allies.map(a => a.instanceId),
-    ...char.hazards.map(h => h.instanceId),
-  ];
-  const ccNeed = cp + 1 - totalModifier;
-  const ccParts = [`CP ${cp}`];
-  if (totalModifier !== 0) ccParts.push(`modifier ${totalModifier >= 0 ? '+' : ''}${totalModifier}`);
-  logDetail(`Wound corruption check for ${charName} (CP ${cp}, modifier ${totalModifier >= 0 ? '+' : ''}${totalModifier})`);
-
-  return [{
-    action: {
-      type: 'corruption-check',
-      player: playerId,
-      characterId: pending.characterId,
-      corruptionPoints: cp,
-      corruptionModifier: totalModifier,
-      possessions,
-      need: ccNeed,
-      explanation: `Wound corruption: need roll > ${cp - totalModifier} (${ccParts.join(', ')})`,
-    },
-    viable: true,
-  }];
-}
+// woundCorruptionCheckActions removed: wound corruption checks are
+// now produced via the unified pending-resolution system. See
+// `legal-actions/pending.ts` (corruptionCheckActions) and
+// `engine/pending-reducers.ts` (applyCorruptionCheckResolution).
 
 /**
  * Stub: declare-agent-attack step (CoE Step 3, line 358).
@@ -394,73 +321,9 @@ function resolveAttacksActions(
   return [{ type: 'pass', player: playerId }];
 }
 
-/**
- * On-guard reveal window during resource play (CoE line 376 / rule 2.V.6).
- *
- * The hazard player (non-active) may reveal any on-guard hazard event that
- * directly affects the company. Pass executes the pending resource action.
- */
-function onGuardRevealAtResourceActions(
-  state: GameState,
-  playerId: PlayerId,
-  siteState: SitePhaseState,
-): GameAction[] {
-  const isActive = state.activePlayer === playerId;
-
-  // Only the hazard player (non-active) reveals on-guard cards
-  if (isActive) {
-    logDetail(`Active player waits during on-guard reveal window`);
-    return [];
-  }
-
-  const activeIndex = getPlayerIndex(state, state.activePlayer!);
-  const resourcePlayer = state.players[activeIndex];
-  const company = resourcePlayer.companies[siteState.activeCompanyIndex];
-
-  const actions: GameAction[] = [];
-
-  if (company) {
-    for (const ogCard of company.onGuardCards) {
-      if (ogCard.revealed) continue;
-      const def = state.cardPool[ogCard.definitionId as string];
-      if (!def) continue;
-      // Allow revealing hazard events (permanent or short) that affect the company
-      if (def.cardType === 'hazard-event') {
-        // play-target DSL: character-targeting events get one action per character
-        const isCharTargeting = 'effects' in def && def.effects?.some(
-          e => e.type === 'play-target' && e.target === 'character',
-        );
-        if (isCharTargeting) {
-          for (const charId of company.characters) {
-            logDetail(`On-guard reveal at resource: "${def.name}" targeting ${charId as string}`);
-            actions.push({
-              type: 'reveal-on-guard',
-              player: playerId,
-              cardInstanceId: ogCard.instanceId,
-              targetCharacterId: charId,
-            });
-          }
-        } else {
-          logDetail(`On-guard reveal at resource: "${def.name}" eligible`);
-          actions.push({
-            type: 'reveal-on-guard',
-            player: playerId,
-            cardInstanceId: ogCard.instanceId,
-          });
-        }
-      }
-    }
-  }
-
-  if (actions.length > 0) {
-    logDetail(`On-guard reveal window: ${actions.length} hazard event(s) eligible`);
-  } else {
-    logDetail(`No eligible on-guard hazard events to reveal`);
-  }
-
-  actions.push({ type: 'pass', player: playerId });
-  return actions;
-}
+// onGuardRevealAtResourceActions removed: the on-guard reveal window
+// is now produced via the unified pending-resolution dispatcher in
+// `legal-actions/pending.ts:onGuardWindowActions`.
 
 /**
  * Generate play-resources actions for the current company (CoE lines 362–374).

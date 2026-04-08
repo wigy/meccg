@@ -136,7 +136,18 @@ export interface CombatState {
 export type ChainEntryPayload =
   | { readonly type: 'short-event'; readonly targetInstanceId?: CardInstanceId }
   | { readonly type: 'creature' }
-  | { readonly type: 'permanent-event'; readonly targetCharacterId?: CardInstanceId }
+  | {
+      readonly type: 'permanent-event';
+      readonly targetCharacterId?: CardInstanceId;
+      /**
+       * For site-targeting permanent events (e.g. *River*), the site
+       * definition ID this card is bound to. The chain resolver places
+       * the card into `cardsInPlay` with `attachedToSite` set to this
+       * value, so the engine can match arrival events against the
+       * specific site location.
+       */
+      readonly targetSiteDefinitionId?: import('./common.js').CardDefinitionId;
+    }
   | { readonly type: 'long-event' }
   | { readonly type: 'corruption-card' }
   | { readonly type: 'passive-condition'; readonly trigger: string }

@@ -24,13 +24,14 @@ import {
   Phase,
   buildTestState, resetMint,
   findCharInstanceId, viablePlayCharacterActions,
+  enqueueTransferCorruptionCheck,
 } from '../test-helpers.js';
 import {
   computeLegalActions, reduce,
   BAG_END,
 } from '../../index.js';
 import type {
-  CharacterCard, CorruptionCheckAction, OrganizationPhaseState,
+  CharacterCard, CorruptionCheckAction,
   CardInstanceId,
 } from '../../index.js';
 
@@ -67,18 +68,7 @@ describe('Bilbo (tw-131)', () => {
     const bilboId = findCharInstanceId(state, 0, BILBO);
     const glamdringInstId = state.players[0].characters[bilboId as string].items[0].instanceId;
 
-    // Set up pending corruption check
-    const orgPhase: OrganizationPhaseState = {
-      phase: Phase.Organization,
-      characterPlayedThisTurn: false,
-      sideboardFetchedThisTurn: 0,
-      sideboardFetchDestination: null,
-      pendingCorruptionCheck: {
-        characterId: bilboId,
-        transferredItemId: glamdringInstId,
-      },
-    };
-    const stateWithCheck = { ...state, phaseState: orgPhase };
+    const stateWithCheck = enqueueTransferCorruptionCheck(state, PLAYER_1, bilboId, glamdringInstId);
 
     const actions = computeLegalActions(stateWithCheck, PLAYER_1);
     const ccActions = actions

@@ -13,6 +13,7 @@ import { logHeading, logDetail } from './legal-actions/log.js';
 import type { ReducerResult } from './reducer-utils.js';
 import { clonePlayers, startDeckExhaust, completeDeckExhaust, handleExchangeSideboard } from './reducer-utils.js';
 import { enterUntapPhase } from './reducer-untap.js';
+import { sweepExpired } from './pending.js';
 
 
 /**
@@ -314,11 +315,13 @@ function handleEndOfTurnSignalEnd(state: GameState, action: GameAction): Reducer
     }
 
     logDetail(`End-of-Turn signal-end: active player ${action.player as string} ended turn → switching to player ${nextPlayer as string}, turn ${state.turnNumber + 1}`);
+    // Sweep turn-scoped pending resolutions and constraints (Stealth, etc.)
+    const swept = sweepExpired(state, { kind: 'turn-end' });
     return {
       state: enterUntapPhase({
-        ...state,
+        ...swept,
         activePlayer: nextPlayer,
-        turnNumber: state.turnNumber + 1,
+        turnNumber: swept.turnNumber + 1,
       }),
     };
   }

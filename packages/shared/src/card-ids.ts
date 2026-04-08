@@ -151,6 +151,42 @@ export const ORC_PATROL = did('tw-074');
 export const BARROW_WIGHT = did('tw-015');
 /** Foolish Words — hazard permanent-event, -4 to influence attempts, revealable on-guard. */
 export const FOOLISH_WORDS = did('td-25');
+/**
+ * Lure of the Senses — corruption hazard permanent-event playable on a
+ * non-Ringwraith character. Adds 2 corruption points to the bearer and
+ * forces a corruption check at the end of the bearer's untap phase if
+ * at a Haven/Darkhaven. Bearer may tap during their organization phase
+ * to remove the card on a roll greater than 6.
+ */
+export const LURE_OF_THE_SENSES = did('tw-60');
+/**
+ * Lost in Free-domains — hazard permanent-event playable on a company
+ * moving with a Free-domain in its site path. Adds an active constraint
+ * (`site-phase-do-nothing`) that prevents the affected company from
+ * doing anything during its next site phase.
+ */
+export const LOST_IN_FREE_DOMAINS = did('tw-53');
+/**
+ * Stealth — hero short-event resource. Played by tapping a scout at the
+ * end of the organization phase if the scout's company has fewer than
+ * three characters. Adds a `no-creature-hazards-on-company` active
+ * constraint scoped to the current turn — the *opponent* may not play
+ * creature hazards on the protected company until turn-end.
+ */
+export const STEALTH = did('tw-332');
+/**
+ * River — hazard permanent-event playable on a site. A company moving
+ * to that site this turn must do nothing during its site phase. A
+ * ranger in the affected company may tap to cancel the effect (only at
+ * the very start of the company's site phase, per CRF 22).
+ */
+export const RIVER = did('tw-84');
+/** LE printing of Lure of the Senses (mirror of TW-60). */
+export const LURE_OF_THE_SENSES_LE = did('le-124');
+/** LE printing of Lost in Free-domains (mirror of TW-53). */
+export const LOST_IN_FREE_DOMAINS_LE = did('le-119');
+/** LE printing of River (mirror of TW-84). */
+export const RIVER_LE = did('le-134');
 
 // ---- Sites ----
 

@@ -10,6 +10,8 @@ import { Phase, shuffle, CardStatus, isSiteCard, SiteType, getPlayerIndex } from
 import { logDetail } from './legal-actions/log.js';
 import type { ReducerResult } from './reducer-utils.js';
 import { clonePlayers } from './reducer-utils.js';
+import { enqueueResolution } from './pending.js';
+import type { OnEventEffect, CardEffect } from '../types/effects.js';
 
 
 /**
@@ -287,12 +289,62 @@ export function enterUntapPhase(state: GameState): GameState {
  */
 function advanceToOrganization(state: GameState): ReducerResult {
   logDetail('Untap: advancing to Organization phase');
-  return {
-    state: {
-      ...state,
-      phaseState: { phase: Phase.Organization, characterPlayedThisTurn: false, sideboardFetchedThisTurn: 0, sideboardFetchDestination: null, pendingCorruptionCheck: null },
-    },
+
+  // Trigger `untap-phase-at-haven` on-event effects (Lure of the Senses,
+  // etc.). Each character at a haven scans its attached hazards/items/
+  // allies for a matching effect; for every match, enqueue a
+  // corruption-check resolution scoped to the Organization phase.
+  let advanced: GameState = {
+    ...state,
+    phaseState: { phase: Phase.Organization, characterPlayedThisTurn: false, sideboardFetchedThisTurn: 0, sideboardFetchDestination: null },
   };
+
+  for (let pi = 0; pi < state.players.length; pi++) {
+    const player = state.players[pi];
+    const havensCharIds = new Set<string>();
+    for (const company of player.companies) {
+      if (!company.currentSite) continue;
+      const siteDef = state.cardPool[company.currentSite.definitionId];
+      if (siteDef && isSiteCard(siteDef) && siteDef.siteType === SiteType.Haven) {
+        for (const charId of company.characters) havensCharIds.add(charId as string);
+      }
+    }
+
+    for (const [charId, char] of Object.entries(player.characters)) {
+      if (!havensCharIds.has(charId)) continue;
+      // Scan attached hazards, items, allies for `untap-phase-at-haven` effects
+      const attached = [...char.hazards, ...char.items, ...char.allies];
+      for (const card of attached) {
+        const def = state.cardPool[card.definitionId as string];
+        const effects = (def && 'effects' in def
+          ? (def as { effects?: readonly CardEffect[] }).effects
+          : undefined) ?? [];
+        for (const e of effects) {
+          if (e.type !== 'on-event') continue;
+          const oe: OnEventEffect = e;
+          if (oe.event !== 'untap-phase-at-haven') continue;
+          if (oe.apply.type !== 'force-check' || oe.apply.check !== 'corruption') continue;
+          const modifier = oe.apply.modifier ?? 0;
+          logDetail(`Untap-phase-at-haven: enqueuing corruption check for ${def?.name ?? '?'} on ${char.instanceId as string} (modifier ${modifier})`);
+          advanced = enqueueResolution(advanced, {
+            source: card.instanceId,
+            actor: player.id,
+            scope: { kind: 'phase', phase: Phase.Organization },
+            kind: {
+              type: 'corruption-check',
+              characterId: char.instanceId,
+              modifier,
+              reason: def?.name ?? 'Untap-phase haven check',
+              possessions: [],
+              transferredItemId: null,
+            },
+          });
+        }
+      }
+    }
+  }
+
+  return { state: advanced };
 }
 
 /** Handle actions during the organization phase. */

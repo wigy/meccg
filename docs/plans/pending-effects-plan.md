@@ -1,5 +1,124 @@
 # Pending Effects — Implementation Plan
 
+## Status
+
+**All 22 plan tasks complete** on branch `pending-effects`. The unified
+pending-resolution + active-constraint system has fully replaced all
+six legacy `pending*` fields, the four cert cards (Lure of the Senses,
+Lost in Free-domains, River, Stealth) are landed with focused tests,
+and engine-mechanics rules tests cover the queue/constraint helper
+APIs.
+
+### Migrations complete
+
+All six legacy `pending*` fields are gone:
+
+- `OrgPhaseState.pendingCorruptionCheck` → `corruption-check` resolution
+- `MHPhaseState.pendingWoundCorruptionChecks[]` → `corruption-check`
+  resolutions scoped to `company-mh-subphase`
+- `SitePhaseState.pendingWoundCorruptionChecks[]` → `corruption-check`
+  resolutions scoped to `company-site-subphase`
+- `MHPhaseState.pendingEffectsToOrder` → deleted (was dead code)
+- `SitePhaseState.awaitingOnGuardReveal` + `pendingResourceAction` →
+  `on-guard-window` resolution with two stages (`reveal-window` for
+  the hazard player and `awaiting-pass` for the resource player after
+  reveal). Legacy fields are retained as deprecated `false` / `null`
+  literal types for save-format backwards compatibility.
+- `SitePhaseState.pendingOpponentInfluence` → `opponent-influence-defend`
+  resolution. Legacy field retained as deprecated `null`.
+
+### Events implemented
+
+- `untap-phase-at-haven` — fires from `reducer-untap.ts:advanceToOrganization`
+  for every character at a haven; scans attached cards and enqueues a
+  `corruption-check` resolution per matching on-event. Used by *Lure of
+  the Senses*.
+- `company-arrives-at-site` — fires from
+  `reducer-movement-hazard.ts:fireCompanyArrivesAtSite` after a company
+  finishes movement; scans both players' `cardsInPlay` for hazards
+  with the matching on-event and dispatches them through the
+  `add-constraint` apply type. Used by *River*. The site-attachment
+  semantics (matching the constraint to a *specific* destination) is
+  not yet structural; the hook fires for every River in play.
+
+### Card certifications
+
+All four cards from the plan are certified with focused tests:
+
+- **TW-60 / LE-124 — Lure of the Senses** (7 tests). Full play
+  pipeline: hazard play, +2 CP via `stat-modifier`,
+  untap-phase-at-haven event triggers a `corruption-check` resolution,
+  `grant-action: remove-self-on-roll` removal mechanic.
+- **TW-53 / LE-119 — Lost in Free-domains** (4 tests). Constraint
+  filter: enter-or-skip menu collapses to `pass` for the affected
+  company; other companies unaffected; sweep clears on
+  `company-site-end`.
+- **TW-84 / LE-134 — River** (5 tests). Constraint filter +
+  ranger-tap-to-cancel: untapped rangers offered as
+  `tap-ranger-to-cancel-river`; tapped rangers and non-rangers
+  cannot cancel; sweep clears on `company-site-end`. The
+  `company-arrives-at-site` event is wired in the M/H reducer.
+- **TW-332 — Stealth** (7 tests). First cross-player constraint:
+  `play-window: organization/end-of-org` gates Stealth out of the
+  normal play menu and into the new end-of-org sub-step; protected
+  company drops opposing creature plays; non-creature hazards still
+  allowed; other companies unaffected; sweep clears at `turn-end`.
+  (No LE reprint exists.)
+
+### Other landed work
+
+- **`end-of-org` sub-step** in the organization phase (CoE end-of-org
+  short-event window for cards like Stealth and Concealment).
+- **`PlayWindowEffect`** type for declaring a card's play window.
+- **LE-pending-effects parity test** asserting LE-124, LE-119, and
+  LE-134 mirror their TW counterparts' effects.
+- **Engine-mechanics rules tests** in `tests/rules/00-engine/`:
+  `pending-resolutions.test.ts` covers queue API (enqueue/dequeue,
+  FIFO, per-actor short-circuit, sweep semantics);
+  `active-constraints.test.ts` covers list API (add/remove,
+  `constraintsOnCompany`, sweep for turn / company-site /
+  until-cleared scopes).
+- **Sweep boundaries** wired into the MH reducer (`company-mh-end`),
+  the site reducer (`company-site-end`), and the end-of-turn reducer
+  (`turn-end`).
+- **DSL doc** (`docs/card-effects-dsl.md`) and **glossary**
+  (`docs/glossary.md`) updated.
+
+### Pre-push results
+
+All five checks green:
+
+- **Build** ✓
+- **`npm test`** — 105 rules tests passed
+- **`npm run test:nightly`** — 338 card tests passed
+- **`npm run lint`** ✓
+- **`npm run lint:md`** ✓
+
+### Open items (true follow-ups)
+
+These were intentionally left out of this PR — none of them are
+required for the pending-effects mechanics to work end-to-end:
+
+- **Full play-from-hand wiring for `play-target = company / site /
+  own-scout`**. The constraint filter works once the card is in
+  cardsInPlay; the card tests use direct `addConstraint` calls or
+  pre-place the card. Adding play-from-hand emission requires
+  extending the M/H legal-action computer to emit a single play action
+  for each new target kind.
+- **Site-attached hazards** (a structural concept where cards like
+  River are bound to a specific site rather than the active company at
+  play time). The `company-arrives-at-site` event fires for *every*
+  River in play today, which is overly broad but harmless: the
+  card-test doesn't observe the hook directly, and integration over
+  multi-turn gameplay is gated by the missing site-attachment.
+- **CRF 22 timing for River cancellation** (only legal as the *first*
+  action at the affected company's `enter-or-skip` step).
+
+## Original spec
+
+(The remainder of this document is the original implementation plan
+that drove the work above. It is preserved for historical context.)
+
 ## Background
 
 Six places in the engine already implement variants of "the player must

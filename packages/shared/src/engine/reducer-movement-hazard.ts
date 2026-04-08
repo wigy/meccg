@@ -6,16 +6,17 @@
  * and hand reset sub-steps.
  */
 
-import type { GameState, MovementHazardPhaseState, Company, CreatureCard, GameAction, CardInstance, GameEffect } from '../index.js';
+import type { GameState, MovementHazardPhaseState, Company, CreatureCard, GameAction } from '../index.js';
 import { Phase, CardStatus, isCharacterCard, isSiteCard, RegionType, Race, Skill, getPlayerIndex, BASE_MAX_REGION_DISTANCE } from '../index.js';
 import { resolveHandSize } from './effects/index.js';
 import { logDetail } from './legal-actions/log.js';
 import { initiateChain, pushChainEntry } from './chain-reducer.js';
 import { resolveInstanceId } from '../types/state.js';
 import type { ReducerResult } from './reducer-utils.js';
-import { clonePlayers, startDeckExhaust, completeDeckExhaust, handleExchangeSideboard, cleanupEmptyCompanies, roll2d6 } from './reducer-utils.js';
+import { clonePlayers, startDeckExhaust, completeDeckExhaust, handleExchangeSideboard, cleanupEmptyCompanies } from './reducer-utils.js';
 import { handlePlayShortEvent } from './reducer-events.js';
 import { handlePlayPermanentEvent } from './reducer-events.js';
+import { sweepExpired, addConstraint } from './pending.js';
 
 
 /**
@@ -28,10 +29,9 @@ import { handlePlayPermanentEvent } from './reducer-events.js';
 export function handleMovementHazard(state: GameState, action: GameAction): ReducerResult {
   const mhState = state.phaseState as MovementHazardPhaseState;
 
-  // Handle pending wound corruption checks (e.g. from Barrow-wight creature attack)
-  if (mhState.pendingWoundCorruptionChecks.length > 0) {
-    return handleMHWoundCorruptionCheck(state, action, mhState);
-  }
+  // Pending wound corruption checks (Barrow-wight et al.) are now routed
+  // through the unified pending-resolution dispatcher in `reducer.ts` /
+  // `pending-reducers.ts` before this handler is reached.
 
   if (mhState.step === 'select-company') {
     return handleSelectCompany(state, action, mhState);
@@ -330,7 +330,11 @@ function handlePlayHazardCard(
 
   // Initiate or push onto chain — card enters play upon resolution
   const payload: import('../index.js').ChainEntryPayload = def.eventType === 'permanent'
-    ? { type: 'permanent-event', targetCharacterId: action.type === 'play-hazard' ? action.targetCharacterId : undefined }
+    ? {
+        type: 'permanent-event',
+        targetCharacterId: action.type === 'play-hazard' ? action.targetCharacterId : undefined,
+        targetSiteDefinitionId: action.type === 'play-hazard' ? action.targetSiteDefinitionId : undefined,
+      }
     : { type: 'long-event' };
   if (newState.chain === null) {
     newState = initiateChain(newState, action.player, handCard, payload);
@@ -441,6 +445,12 @@ function endCompanyMH(state: GameState, mhState: MovementHazardPhaseState): Redu
   const resourcePlayer = newPlayers[activeIndex];
   const company = resourcePlayer.companies[mhState.activeCompanyIndex];
 
+  // Track an optional `company-arrives-at-site` event to fire after the
+  // base move completes. We compute the post-move state first, then run
+  // the event hook on the resulting state so the destination is the
+  // company's *current* site.
+  let companyArrivedAt: { companyId: typeof company.id; siteInstanceId: typeof company.destinationSite extends null ? never : NonNullable<typeof company.destinationSite>['instanceId'] } | null = null;
+
   if (company.destinationSite && !mhState.returnedToOrigin) {
     const originSite = company.currentSite;
     const updatedCompanies = [...resourcePlayer.companies];
@@ -472,6 +482,13 @@ function endCompanyMH(state: GameState, mhState: MovementHazardPhaseState): Redu
       ...resourcePlayer,
       companies: updatedCompanies,
       siteDeck: newSiteDeck,
+    };
+
+    // Defer firing the company-arrives-at-site event until we've
+    // assembled the final state below.
+    companyArrivedAt = {
+      companyId: company.id,
+      siteInstanceId: company.destinationSite.instanceId as never,
     };
   } else if (mhState.returnedToOrigin) {
     const updatedCompanies = [...resourcePlayer.companies];
@@ -513,7 +530,19 @@ function endCompanyMH(state: GameState, mhState: MovementHazardPhaseState): Redu
 
   // --- Step 8c: If anyone needs to discard, go to reset-hand step ---
   const needsDiscard = newPlayers.some((p, i) => p.hand.length > resolveHandSize(intermediateState, i));
-  const updatedState = { ...state, players: newPlayers };
+  let updatedState: GameState = { ...state, players: newPlayers };
+
+  // Fire the company-arrives-at-site event hook (River, etc.) on the
+  // post-move state. The hook scans both players' cardsInPlay for
+  // hazards with a matching `on-event: company-arrives-at-site` and
+  // dispatches them to the on-event handler.
+  if (companyArrivedAt) {
+    updatedState = fireCompanyArrivesAtSite(
+      updatedState,
+      companyArrivedAt.companyId,
+      companyArrivedAt.siteInstanceId,
+    );
+  }
 
   if (needsDiscard) {
     logDetail(`Step 8: player(s) over hand size — entering reset-hand for discard`);
@@ -529,6 +558,88 @@ function endCompanyMH(state: GameState, mhState: MovementHazardPhaseState): Redu
   }
 
   return advanceAfterCompanyMH(updatedState, mhState);
+}
+
+/**
+ * Dispatch the `company-arrives-at-site` on-event hook for the given
+ * company arriving at the given site. Scans both players' cardsInPlay
+ * for cards whose effects array contains an
+ * `on-event: company-arrives-at-site` entry; for each match, applies
+ * the configured triggered action (typically `add-constraint`).
+ *
+ * Site-attached hazards (those with `card.attachedToSite` set, e.g.
+ * *River*) only fire when the company is arriving at the bound site
+ * location — the binding is by site definition ID, so multiple
+ * players' copies of the same site share one trigger condition.
+ * Cards without `attachedToSite` fire on every arrival (no current
+ * card uses this; reserved for future "any arrival" effects).
+ */
+function fireCompanyArrivesAtSite(
+  state: GameState,
+  arrivingCompanyId: import('../index.js').CompanyId,
+  siteInstanceId: import('../index.js').CardInstanceId,
+): GameState {
+  // Resolve the destination site's definition ID so we can match it
+  // against any `attachedToSite` bindings on cards in play.
+  const arrivalSiteDefId = resolveInstanceId(state, siteInstanceId);
+
+  let newState = state;
+  for (const player of state.players) {
+    for (const card of player.cardsInPlay) {
+      // Site-attached hazards only fire for the bound site location.
+      if (card.attachedToSite && card.attachedToSite !== arrivalSiteDefId) {
+        continue;
+      }
+      const def = state.cardPool[card.definitionId as string];
+      if (!def || !('effects' in def) || !def.effects) continue;
+      for (const effect of def.effects) {
+        if (effect.type !== 'on-event') continue;
+        if (effect.event !== 'company-arrives-at-site') continue;
+        if (effect.apply.type !== 'add-constraint') continue;
+        const constraintKind = effect.apply.constraint;
+        const scopeName = effect.apply.scope;
+        if (!constraintKind || !scopeName) continue;
+
+        // Map scope name to ConstraintScope
+        let scope: import('../types/pending.js').ConstraintScope;
+        switch (scopeName) {
+          case 'company-site-phase':
+            scope = { kind: 'company-site-phase', companyId: arrivingCompanyId };
+            break;
+          case 'turn':
+            scope = { kind: 'turn' };
+            break;
+          case 'until-cleared':
+            scope = { kind: 'until-cleared' };
+            break;
+          default:
+            continue;
+        }
+        let kind: import('../types/pending.js').ActiveConstraint['kind'];
+        switch (constraintKind) {
+          case 'site-phase-do-nothing':
+            kind = { type: 'site-phase-do-nothing' };
+            break;
+          case 'site-phase-do-nothing-unless-ranger-taps':
+            kind = { type: 'site-phase-do-nothing-unless-ranger-taps' };
+            break;
+          case 'no-creature-hazards-on-company':
+            kind = { type: 'no-creature-hazards-on-company' };
+            break;
+          default:
+            continue;
+        }
+        logDetail(`company-arrives-at-site: "${def.name}" fires → adding constraint ${constraintKind} on company ${arrivingCompanyId as string}`);
+        newState = addConstraint(newState, {
+          source: card.instanceId,
+          scope,
+          target: { kind: 'company', companyId: arrivingCompanyId },
+          kind,
+        });
+      }
+    }
+  }
+  return newState;
 }
 
 /**
@@ -603,6 +714,11 @@ function advanceAfterCompanyMH(state: GameState, mhState: MovementHazardPhaseSta
   const activeIndex = getPlayerIndex(state, state.activePlayer!);
   const currentCompany = state.players[activeIndex].companies[mhState.activeCompanyIndex];
   const updatedHandled = [...mhState.handledCompanyIds, currentCompany.id];
+
+  // Sweep any active constraints / pending resolutions scoped to the
+  // company that just finished its M/H sub-phase.
+  state = sweepExpired(state, { kind: 'company-mh-end', companyId: currentCompany.id });
+
   const remainingCount = state.players[activeIndex].companies.length - updatedHandled.length;
 
   if (remainingCount <= 0) {
@@ -631,7 +747,6 @@ function advanceAfterCompanyMH(state: GameState, mhState: MovementHazardPhaseSta
           awaitingOnGuardReveal: false,
           pendingResourceAction: null,
           opponentInteractionThisTurn: null,
-          pendingWoundCorruptionChecks: [],
           pendingOpponentInfluence: null,
         },
       }),
@@ -649,7 +764,6 @@ function advanceAfterCompanyMH(state: GameState, mhState: MovementHazardPhaseSta
         movementType: null,
         declaredRegionPath: [],
         maxRegionDistance: BASE_MAX_REGION_DISTANCE,
-        pendingEffectsToOrder: [],
         hazardsPlayedThisCompany: 0,
         hazardLimit: 0,
         resolvedSitePath: [],
@@ -665,7 +779,6 @@ function advanceAfterCompanyMH(state: GameState, mhState: MovementHazardPhaseSta
         siteRevealed: false,
         onGuardPlacedThisCompany: false,
         returnedToOrigin: false,
-        pendingWoundCorruptionChecks: [],
       },
     },
   };
@@ -1291,139 +1404,9 @@ function advanceDrawCards(
   };
 }
 
-/**
- * Handle a corruption check triggered by a creature's
- * `on-event: character-wounded-by-self` effect (e.g. Barrow-wight) during
- * the Movement/Hazard phase.
- *
- * Processes the first pending check. On pass, removes it from the queue.
- * On failure, applies the standard corruption check consequences
- * (discard or elimination). After all checks are processed, resumes
- * the normal M/H phase step.
- */
-function handleMHWoundCorruptionCheck(
-  state: GameState,
-  action: GameAction,
-  mhState: MovementHazardPhaseState,
-): ReducerResult {
-  if (action.type !== 'corruption-check') {
-    return { state, error: `Expected 'corruption-check' during wound corruption checks` };
-  }
-
-  const pending = mhState.pendingWoundCorruptionChecks[0];
-  if (!pending) return { state, error: 'No pending wound corruption check' };
-
-  if (action.characterId !== pending.characterId) {
-    return { state, error: 'Wrong character for pending wound corruption check' };
-  }
-
-  const playerIndex = state.players.findIndex(p => p.id === action.player);
-  const player = state.players[playerIndex];
-  const char = player.characters[action.characterId as string];
-  if (!char) return { state, error: 'Character not found for wound corruption check' };
-
-  const charDefId = resolveInstanceId(state, action.characterId);
-  const charDef = charDefId ? state.cardPool[charDefId as string] : undefined;
-  const charName = charDef?.name ?? '?';
-  const cp = action.corruptionPoints;
-  const modifier = action.corruptionModifier;
-
-  const { roll, rng, cheatRollTotal } = roll2d6(state);
-  const total = roll.die1 + roll.die2 + modifier;
-  const modStr = modifier !== 0 ? ` ${modifier >= 0 ? '+' : ''}${modifier}` : '';
-  logDetail(`Wound corruption check for ${charName}: rolled ${roll.die1} + ${roll.die2}${modStr} = ${total} vs CP ${cp}`);
-
-  const rollEffect: GameEffect = {
-    effect: 'dice-roll',
-    playerName: player.name,
-    die1: roll.die1,
-    die2: roll.die2,
-    label: `Wound corruption: ${charName}`,
-  };
-
-  const newPlayers = clonePlayers(state);
-  newPlayers[playerIndex] = { ...newPlayers[playerIndex], lastDiceRoll: roll };
-  const remainingChecks = mhState.pendingWoundCorruptionChecks.slice(1);
-
-  if (total > cp) {
-    logDetail(`Wound corruption check passed (${total} > ${cp})`);
-    return {
-      state: cleanupEmptyCompanies({
-        ...state,
-        players: newPlayers,
-        rng, cheatRollTotal,
-        phaseState: { ...mhState, pendingWoundCorruptionChecks: remainingChecks },
-      }),
-      effects: [rollEffect],
-    };
-  }
-
-  const newCharacters = { ...player.characters };
-
-  if (total >= cp - 1) {
-    // Roll == CP or CP-1: character and possessions are discarded
-    logDetail(`Wound corruption check FAILED (${total} within 1 of ${cp}) — discarding ${charName}`);
-
-    delete newCharacters[action.characterId as string];
-    const newCompanies = player.companies.map(c => ({
-      ...c,
-      characters: c.characters.filter(id => id !== action.characterId),
-    }));
-
-    for (const followerId of char.followers) {
-      const follower = newCharacters[followerId as string];
-      if (follower) {
-        newCharacters[followerId as string] = { ...follower, controlledBy: 'general' };
-      }
-    }
-
-    const toDiscard: CardInstance[] = [
-      { instanceId: action.characterId, definitionId: char.definitionId },
-      ...action.possessions.map(id => ({ instanceId: id, definitionId: resolveInstanceId(state, id)! })),
-    ];
-
-    newPlayers[playerIndex] = {
-      ...newPlayers[playerIndex],
-      characters: newCharacters,
-      companies: newCompanies,
-      discardPile: [...player.discardPile, ...toDiscard],
-    };
-  } else {
-    // Roll < CP-1: character is eliminated, possessions discarded
-    logDetail(`Wound corruption check FAILED (${total} < ${cp - 1}) — eliminating ${charName}`);
-
-    delete newCharacters[action.characterId as string];
-    const newCompanies = player.companies.map(c => ({
-      ...c,
-      characters: c.characters.filter(id => id !== action.characterId),
-    }));
-
-    for (const followerId of char.followers) {
-      const follower = newCharacters[followerId as string];
-      if (follower) {
-        newCharacters[followerId as string] = { ...follower, controlledBy: 'general' };
-      }
-    }
-
-    newPlayers[playerIndex] = {
-      ...newPlayers[playerIndex],
-      characters: newCharacters,
-      companies: newCompanies,
-      eliminatedPile: [...player.eliminatedPile, { instanceId: action.characterId, definitionId: char.definitionId }],
-      discardPile: [...player.discardPile, ...action.possessions.map(id => ({ instanceId: id, definitionId: resolveInstanceId(state, id)! }))],
-    };
-  }
-
-  return {
-    state: cleanupEmptyCompanies({
-      ...state,
-      players: newPlayers,
-      rng, cheatRollTotal,
-      phaseState: { ...mhState, pendingWoundCorruptionChecks: remainingChecks },
-    }),
-    effects: [rollEffect],
-  };
-}
+// handleMHWoundCorruptionCheck removed: wound corruption checks are
+// now handled by `applyCorruptionCheckResolution` in
+// `engine/pending-reducers.ts`.
 
 /**
  * Handle all actions during the site phase.

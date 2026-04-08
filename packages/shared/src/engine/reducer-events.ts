@@ -211,7 +211,6 @@ export function handleLongEvent(state: GameState, action: GameAction): ReducerRe
           movementType: null,
           declaredRegionPath: [],
           maxRegionDistance: BASE_MAX_REGION_DISTANCE,
-          pendingEffectsToOrder: [],
           hazardsPlayedThisCompany: 0,
           hazardLimit: 0,
           resolvedSitePath: [],
@@ -227,7 +226,6 @@ export function handleLongEvent(state: GameState, action: GameAction): ReducerRe
           siteRevealed: false,
           onGuardPlacedThisCompany: false,
           returnedToOrigin: false,
-          pendingWoundCorruptionChecks: [],
         },
       },
     };

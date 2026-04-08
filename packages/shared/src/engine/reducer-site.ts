@@ -9,7 +9,6 @@
 import type { GameState, PlayerState, CardInstanceId, CompanyId, CharacterInPlay, CardInstance, SitePhaseState, HeroItemCard, CombatState, OnGuardCard, GameAction, GameEffect } from '../index.js';
 import { Phase, CardStatus, isCharacterCard, isItemCard, isAllyCard, isFactionCard, isSiteCard, getPlayerIndex, GENERAL_INFLUENCE } from '../index.js';
 import { logDetail } from './legal-actions/log.js';
-import { resolveInstanceId } from '../types/state.js';
 import { collectCharacterEffects, resolveCheckModifier, resolveStatModifiers, resolveAttackProwess, resolveAttackStrikes, normalizeCreatureRace } from './effects/index.js';
 import type { ResolverContext } from './effects/index.js';
 import { matchesCondition } from '../effects/index.js';
@@ -19,6 +18,7 @@ import type { ReducerResult } from './reducer-utils.js';
 import { roll2d6, clonePlayers, cleanupEmptyCompanies } from './reducer-utils.js';
 import { handlePlayPermanentEvent } from './reducer-events.js';
 import { buildInPlayNames } from './recompute-derived.js';
+import { sweepExpired, enqueueResolution } from './pending.js';
 
 
 /**
@@ -31,10 +31,9 @@ import { buildInPlayNames } from './recompute-derived.js';
 export function handleSite(state: GameState, action: GameAction): ReducerResult {
   const siteState = state.phaseState as SitePhaseState;
 
-  // Handle pending wound corruption checks (e.g. from Barrow-downs auto-attack)
-  if (siteState.pendingWoundCorruptionChecks.length > 0) {
-    return handleWoundCorruptionCheck(state, action, siteState);
-  }
+  // Pending wound corruption checks (Barrow-downs et al.) are now routed
+  // through the unified pending-resolution dispatcher in `reducer.ts` /
+  // `pending-reducers.ts` before this handler is reached.
 
   if (siteState.step === 'select-company') {
     return handleSiteSelectCompany(state, action, siteState);
@@ -61,26 +60,9 @@ export function handleSite(state: GameState, action: GameAction): ReducerResult 
   }
 
   if (siteState.step === 'play-resources') {
-    // Hazard player's defensive roll for opponent influence attempt
-    if (siteState.pendingOpponentInfluence && action.type === 'opponent-influence-defend') {
-      return handleOpponentInfluenceDefend(state, action, siteState);
-    }
-    if (siteState.awaitingOnGuardReveal) {
-      return handleOnGuardRevealAtResource(state, action, siteState);
-    }
-    // Auto-execute pending resource action after on-guard chain resolves.
-    // The resource was already declared — it proceeds once the on-guard
-    // chain (if any) has resolved. The incoming action (typically pass) is
-    // consumed to advance the state.
-    if (siteState.pendingResourceAction && state.chain === null) {
-      logDetail(`Site: on-guard window closed — executing pending resource action`);
-      const pending = siteState.pendingResourceAction;
-      const clearedSiteState: SitePhaseState = { ...siteState, pendingResourceAction: null };
-      const clearedState: GameState = { ...state, phaseState: clearedSiteState };
-      if (pending.type === 'play-hero-resource') {
-        return handleSitePlayHeroResource(clearedState, pending, clearedSiteState);
-      }
-    }
+    // Opponent-influence-defend and on-guard-window are now produced
+    // and consumed via the unified pending-resolution dispatcher in
+    // `reducer.ts` / `pending-reducers.ts`. The legacy fields are gone.
     return handleSitePlayResources(state, action, siteState);
   }
 
@@ -157,7 +139,6 @@ function handleSiteSelectCompany(
         declaredAgentAttack: null,
         awaitingOnGuardReveal: false,
         pendingResourceAction: null,
-        pendingWoundCorruptionChecks: [],
       },
     },
   };
@@ -497,74 +478,76 @@ function handleSiteResolveAttacks(
 
 
 
-function handleOnGuardRevealAtResource(
+/**
+ * Apply a hazard player's `reveal-on-guard` action during the on-guard
+ * window: remove the revealed card from the active company's on-guard
+ * pile and initiate a nested chain for it. Exported so the unified
+ * pending-resolution dispatcher in `pending-reducers.ts` can drive
+ * this from a queued `on-guard-window` resolution.
+ *
+ * Rule 2.V.6.1.
+ */
+export function applyOnGuardRevealAtResource(
   state: GameState,
   action: GameAction,
-  siteState: SitePhaseState,
 ): ReducerResult {
-  // Pass: clear the window and execute the pending resource action directly
-  // (bypassing handleSitePlayResources to avoid re-triggering the on-guard intercept)
-  if (action.type === 'pass') {
-    logDetail(`Site: hazard player passes on-guard reveal → executing pending resource`);
-    const clearedSiteState: SitePhaseState = { ...siteState, awaitingOnGuardReveal: false, pendingResourceAction: null };
-    const clearedState: GameState = { ...state, phaseState: clearedSiteState };
-    const pending = siteState.pendingResourceAction;
-    if (pending?.type === 'play-hero-resource') {
-      return handleSitePlayHeroResource(clearedState, pending, clearedSiteState);
-    }
-    return { state: clearedState };
+  if (action.type !== 'reveal-on-guard') {
+    return { state, error: `Expected reveal-on-guard action, got '${action.type}'` };
+  }
+  if (action.player === state.activePlayer) {
+    return { state, error: 'Only the hazard player may reveal on-guard cards' };
   }
 
-  // Reveal on-guard event
-  if (action.type === 'reveal-on-guard') {
-    if (action.player === state.activePlayer) {
-      return { state, error: 'Only the hazard player may reveal on-guard cards' };
-    }
+  const siteState = state.phaseState as SitePhaseState;
+  const activeIndex = getPlayerIndex(state, state.activePlayer!);
+  const resourcePlayer = state.players[activeIndex];
+  const company = resourcePlayer.companies[siteState.activeCompanyIndex];
+  if (!company) return { state, error: 'No active company' };
 
-    const activeIndex = getPlayerIndex(state, state.activePlayer!);
-    const resourcePlayer = state.players[activeIndex];
-    const company = resourcePlayer.companies[siteState.activeCompanyIndex];
-    if (!company) return { state, error: 'No active company' };
+  const ogIdx = company.onGuardCards.findIndex(c => c.instanceId === action.cardInstanceId);
+  if (ogIdx === -1) return { state, error: 'Card not in on-guard cards' };
 
-    const ogIdx = company.onGuardCards.findIndex(c => c.instanceId === action.cardInstanceId);
-    if (ogIdx === -1) return { state, error: 'Card not in on-guard cards' };
+  const revealedCard = company.onGuardCards[ogIdx];
+  const def = state.cardPool[revealedCard.definitionId as string];
+  logDetail(`Site: hazard player reveals on-guard event "${def?.name ?? revealedCard.definitionId}" in response to resource play`);
 
-    const revealedCard = company.onGuardCards[ogIdx];
-    const def = state.cardPool[revealedCard.definitionId as string];
-    logDetail(`Site: hazard player reveals on-guard event "${def?.name ?? revealedCard.definitionId}" in response to resource play`);
+  // Remove from on-guard
+  const newOnGuardCards = [...company.onGuardCards];
+  newOnGuardCards.splice(ogIdx, 1);
 
-    // Remove from on-guard
-    const newOnGuardCards = [...company.onGuardCards];
-    newOnGuardCards.splice(ogIdx, 1);
+  const newCompanies = [...resourcePlayer.companies];
+  newCompanies[siteState.activeCompanyIndex] = { ...company, onGuardCards: newOnGuardCards };
 
-    const newCompanies = [...resourcePlayer.companies];
-    newCompanies[siteState.activeCompanyIndex] = { ...company, onGuardCards: newOnGuardCards };
+  const newPlayers = clonePlayers(state);
+  newPlayers[activeIndex] = { ...resourcePlayer, companies: newCompanies };
 
-    const newPlayers = clonePlayers(state);
-    newPlayers[activeIndex] = { ...resourcePlayer, companies: newCompanies };
+  let newState: GameState = { ...state, players: newPlayers };
 
-    // Clear the reveal window (pending resource action stays for after chain resolves)
-    let newState: GameState = {
-      ...state,
-      players: newPlayers,
-      phaseState: {
-        ...siteState,
-        awaitingOnGuardReveal: false,
-      },
-    };
+  // Initiate a nested chain for the on-guard event (rule 2.V.6.1)
+  const isPermanent = def && 'eventType' in def && def.eventType === 'permanent';
+  const payload = isPermanent
+    ? { type: 'permanent-event' as const, targetCharacterId: action.targetCharacterId }
+    : { type: 'short-event' as const };
+  const cardInstance: CardInstance = { instanceId: revealedCard.instanceId, definitionId: revealedCard.definitionId };
+  newState = initiateChain(newState, action.player, cardInstance, payload);
 
-    // Initiate a nested chain for the on-guard event (rule 2.V.6.1)
-    const isPermanent = def && 'eventType' in def && def.eventType === 'permanent';
-    const payload = isPermanent
-      ? { type: 'permanent-event' as const, targetCharacterId: action.targetCharacterId }
-      : { type: 'short-event' as const };
-    const cardInstance: CardInstance = { instanceId: revealedCard.instanceId, definitionId: revealedCard.definitionId };
-    newState = initiateChain(newState, action.player, cardInstance, payload);
+  return { state: newState };
+}
 
-    return { state: newState };
+/**
+ * Execute a deferred site action (the pending action from an on-guard
+ * window). Currently used only for `play-hero-resource`. Exported so
+ * the unified pending-resolution dispatcher can run the deferred action
+ * after the on-guard window closes.
+ */
+export function executeDeferredSiteAction(
+  state: GameState,
+  deferredAction: GameAction,
+): ReducerResult {
+  if (deferredAction.type !== 'play-hero-resource') {
+    return { state, error: `Unsupported deferred site action: ${deferredAction.type}` };
   }
-
-  return { state, error: `Unexpected action '${action.type}' during on-guard reveal window` };
+  return handleSitePlayHeroResource(state, deferredAction, state.phaseState as SitePhaseState);
 }
 
 /**
@@ -617,16 +600,19 @@ function handleSitePlayResources(
   if (action.type === 'play-hero-resource'
     && company.onGuardCards.length > 0
     && company.currentSite?.status !== CardStatus.Tapped) {
-    logDetail(`Site: resource play intercepted — hazard player may reveal on-guard cards`);
+    logDetail(`Site: resource play intercepted — enqueuing on-guard-window resolution for hazard player`);
+    const hazardPlayer = state.players.find(p => p.id !== state.activePlayer)!;
     return {
-      state: {
-        ...state,
-        phaseState: {
-          ...siteState,
-          awaitingOnGuardReveal: true,
-          pendingResourceAction: action,
+      state: enqueueResolution(state, {
+        source: action.cardInstanceId,
+        actor: hazardPlayer.id,
+        scope: { kind: 'phase-step', phase: Phase.Site, step: 'play-resources' },
+        kind: {
+          type: 'on-guard-window',
+          stage: 'reveal-window',
+          deferredAction: action,
         },
-      },
+      }),
     };
   }
 
@@ -1154,15 +1140,27 @@ function handleOpponentInfluenceAttempt(
 
   logDetail(`Opponent influence attempt: ${charName} rolls ${roll.die1} + ${roll.die2} = ${attackerRoll} (DI: ${influencerDI}, opponent GI: ${opponentGI}, target mind: ${effectiveTargetMind}${revealedCard ? ' [revealed]' : ''}, controller DI: ${controllerDI})`);
 
+  // Enqueue a pending opponent-influence-defend resolution for the
+  // hazard player. The unified pending system replaces the old
+  // `pendingOpponentInfluence` field.
+  const stateAfterAttempt: GameState = {
+    ...state,
+    players: newPlayers,
+    rng, cheatRollTotal,
+    phaseState: {
+      ...siteState,
+      opponentInteractionThisTurn: 'influence',
+    },
+  };
+
   return {
-    state: {
-      ...state,
-      players: newPlayers,
-      rng, cheatRollTotal,
-      phaseState: {
-        ...siteState,
-        opponentInteractionThisTurn: 'influence',
-        pendingOpponentInfluence: {
+    state: enqueueResolution(stateAfterAttempt, {
+      source: charId,
+      actor: opponent.id,
+      scope: { kind: 'phase-step', phase: Phase.Site, step: 'play-resources' },
+      kind: {
+        type: 'opponent-influence-defend',
+        attempt: {
           influencerId: charId,
           targetInstanceId: action.targetInstanceId,
           targetKind: action.targetKind,
@@ -1175,7 +1173,7 @@ function handleOpponentInfluenceAttempt(
           revealedCard,
         },
       },
-    },
+    }),
     effects: [rollEffect],
   };
 }
@@ -1192,35 +1190,30 @@ function handleOpponentInfluenceAttempt(
 
 
 /**
- * Handle the hazard player's defensive roll for an opponent influence attempt.
+ * Resolve an opponent influence attempt: roll the defender's 2d6, compute
+ * the final result, and apply the consequences (discard the target on
+ * success, discard the revealed card on failure).
  *
- * Rolls 2d6 for the defender, calculates the final result, and resolves
- * the influence attempt: on success, the target and its controlled non-follower
- * cards are discarded; on failure, only the influencer was tapped.
+ * Exported so the unified pending-resolution dispatcher in
+ * `pending-reducers.ts` can drive this from a queued
+ * `opponent-influence-defend` resolution. The legacy
+ * `handleOpponentInfluenceDefend` wrapper is gone — `applyResolution`
+ * now reads the attempt from the `PendingResolution` payload and calls
+ * this function directly.
  *
  * CoE rules 10.12 steps 2–6.
  */
-function handleOpponentInfluenceDefend(
+export function resolveOpponentInfluenceDefend(
   state: GameState,
-  action: GameAction,
-  siteState: SitePhaseState,
+  attempt: import('../types/pending.js').OpponentInfluenceAttempt,
 ): ReducerResult {
-  if (action.type !== 'opponent-influence-defend') return { state, error: 'Expected opponent-influence-defend action' };
-
-  const pending = siteState.pendingOpponentInfluence;
-  if (!pending) return { state, error: 'No pending opponent influence attempt' };
-
-  // Validate the hazard player is rolling
-  const playerIndex = getPlayerIndex(state, state.activePlayer!);
-  const opponentIndex = 1 - playerIndex;
-  const opponent = state.players[opponentIndex];
-  if (action.player !== opponent.id) {
-    return { state, error: 'Only the hazard player may roll the defensive dice' };
-  }
-
   // Roll defender 2d6
   const { roll, rng, cheatRollTotal } = roll2d6(state);
   const defenderRoll = roll.die1 + roll.die2;
+
+  const playerIndex = getPlayerIndex(state, state.activePlayer!);
+  const opponentIndex = 1 - playerIndex;
+  const opponent = state.players[opponentIndex];
 
   const rollEffect: GameEffect = {
     effect: 'dice-roll',
@@ -1232,46 +1225,39 @@ function handleOpponentInfluenceDefend(
 
   // Calculate final result:
   // attacker roll + influencer DI - opponent GI - defender roll - controller DI
-  const finalResult = pending.attackerRoll + pending.influencerDI - pending.opponentGI - defenderRoll - pending.controllerDI;
+  const finalResult = attempt.attackerRoll + attempt.influencerDI - attempt.opponentGI - defenderRoll - attempt.controllerDI;
 
-  logDetail(`Opponent influence resolution: ${pending.attackerRoll} + ${pending.influencerDI} - ${pending.opponentGI} - ${defenderRoll} - ${pending.controllerDI} = ${finalResult} vs mind ${pending.targetMind}`);
+  logDetail(`Opponent influence resolution: ${attempt.attackerRoll} + ${attempt.influencerDI} - ${attempt.opponentGI} - ${defenderRoll} - ${attempt.controllerDI} = ${finalResult} vs mind ${attempt.targetMind}`);
 
   const newPlayers = clonePlayers(state);
 
-  // Clear pending state
-  const clearedSiteState: SitePhaseState = {
-    ...siteState,
-    pendingOpponentInfluence: null,
-  };
-
-  if (finalResult > pending.targetMind) {
+  if (finalResult > attempt.targetMind) {
     // Success — discard target and controlled non-follower cards
-    logDetail(`Opponent influence succeeded (${finalResult} > ${pending.targetMind})`);
-    discardInfluencedCard(newPlayers, opponentIndex, pending, state);
+    logDetail(`Opponent influence succeeded (${finalResult} > ${attempt.targetMind})`);
+    discardInfluencedCard(newPlayers, opponentIndex, attempt, state);
 
     return {
       state: cleanupEmptyCompanies({
         ...state,
         players: newPlayers,
         rng, cheatRollTotal,
-        phaseState: clearedSiteState,
       }),
       effects: [rollEffect],
     };
   }
 
   // Failure — influencer was already tapped; revealed card goes to discard
-  logDetail(`Opponent influence failed (${finalResult} <= ${pending.targetMind})`);
+  logDetail(`Opponent influence failed (${finalResult} <= ${attempt.targetMind})`);
 
   // If an identical card was revealed, discard it
-  if (pending.revealedCard) {
+  if (attempt.revealedCard) {
     const attackerIndex = getPlayerIndex(state, state.activePlayer!);
     const attacker = newPlayers[attackerIndex];
     newPlayers[attackerIndex] = {
       ...attacker,
-      discardPile: [...attacker.discardPile, { instanceId: pending.revealedCard.instanceId, definitionId: pending.revealedCard.definitionId }],
+      discardPile: [...attacker.discardPile, { instanceId: attempt.revealedCard.instanceId, definitionId: attempt.revealedCard.definitionId }],
     };
-    logDetail(`Revealed card ${pending.revealedCard.instanceId} discarded after failed influence`);
+    logDetail(`Revealed card ${attempt.revealedCard.instanceId as string} discarded after failed influence`);
   }
 
   return {
@@ -1279,7 +1265,6 @@ function handleOpponentInfluenceDefend(
       ...state,
       players: newPlayers,
       rng, cheatRollTotal,
-      phaseState: clearedSiteState,
     },
     effects: [rollEffect],
   };
@@ -1304,7 +1289,7 @@ function handleOpponentInfluenceDefend(
 function discardInfluencedCard(
   players: [PlayerState, PlayerState],
   opponentIndex: number,
-  pending: NonNullable<SitePhaseState['pendingOpponentInfluence']>,
+  pending: import('../types/pending.js').OpponentInfluenceAttempt,
   state: GameState,
 ): void {
   const opponent = players[opponentIndex];
@@ -1490,138 +1475,9 @@ function returnOnGuardCardsToHand(state: GameState): GameState {
 
 
 
-/**
- * Handle a corruption check triggered by an automatic attack's
- * `on-event: character-wounded-by-self` effect (e.g. Barrow-downs).
- *
- * Processes the first pending check. On pass, removes it from the queue.
- * On failure, applies the standard corruption check consequences
- * (discard or elimination). After all checks are processed, resumes
- * the normal site phase step.
- */
-function handleWoundCorruptionCheck(
-  state: GameState,
-  action: GameAction,
-  siteState: SitePhaseState,
-): ReducerResult {
-  if (action.type !== 'corruption-check') {
-    return { state, error: `Expected 'corruption-check' during wound corruption checks` };
-  }
-
-  const pending = siteState.pendingWoundCorruptionChecks[0];
-  if (!pending) return { state, error: 'No pending wound corruption check' };
-
-  if (action.characterId !== pending.characterId) {
-    return { state, error: 'Wrong character for pending wound corruption check' };
-  }
-
-  const playerIndex = state.players.findIndex(p => p.id === action.player);
-  const player = state.players[playerIndex];
-  const char = player.characters[action.characterId as string];
-  if (!char) return { state, error: 'Character not found for wound corruption check' };
-
-  const charDefId = resolveInstanceId(state, action.characterId);
-  const charDef = charDefId ? state.cardPool[charDefId as string] : undefined;
-  const charName = charDef?.name ?? '?';
-  const cp = action.corruptionPoints;
-  const modifier = action.corruptionModifier;
-
-  const { roll, rng, cheatRollTotal } = roll2d6(state);
-  const total = roll.die1 + roll.die2 + modifier;
-  const modStr = modifier !== 0 ? ` ${modifier >= 0 ? '+' : ''}${modifier}` : '';
-  logDetail(`Wound corruption check for ${charName}: rolled ${roll.die1} + ${roll.die2}${modStr} = ${total} vs CP ${cp}`);
-
-  const rollEffect: GameEffect = {
-    effect: 'dice-roll',
-    playerName: player.name,
-    die1: roll.die1,
-    die2: roll.die2,
-    label: `Wound corruption: ${charName}`,
-  };
-
-  const newPlayers = clonePlayers(state);
-  newPlayers[playerIndex] = { ...newPlayers[playerIndex], lastDiceRoll: roll };
-  const remainingChecks = siteState.pendingWoundCorruptionChecks.slice(1);
-
-  if (total > cp) {
-    logDetail(`Wound corruption check passed (${total} > ${cp})`);
-    return {
-      state: cleanupEmptyCompanies({
-        ...state,
-        players: newPlayers,
-        rng, cheatRollTotal,
-        phaseState: { ...siteState, pendingWoundCorruptionChecks: remainingChecks },
-      }),
-      effects: [rollEffect],
-    };
-  }
-
-  const newCharacters = { ...player.characters };
-
-  if (total >= cp - 1) {
-    // Roll == CP or CP-1: character and possessions are discarded
-    logDetail(`Wound corruption check FAILED (${total} within 1 of ${cp}) — discarding ${charName}`);
-
-    delete newCharacters[action.characterId as string];
-    const newCompanies = player.companies.map(c => ({
-      ...c,
-      characters: c.characters.filter(id => id !== action.characterId),
-    }));
-
-    for (const followerId of char.followers) {
-      const follower = newCharacters[followerId as string];
-      if (follower) {
-        newCharacters[followerId as string] = { ...follower, controlledBy: 'general' };
-      }
-    }
-
-    const toDiscard: CardInstance[] = [
-      { instanceId: action.characterId, definitionId: char.definitionId },
-      ...action.possessions.map(id => ({ instanceId: id, definitionId: resolveInstanceId(state, id)! })),
-    ];
-
-    newPlayers[playerIndex] = {
-      ...newPlayers[playerIndex],
-      characters: newCharacters,
-      companies: newCompanies,
-      discardPile: [...player.discardPile, ...toDiscard],
-    };
-  } else {
-    // Roll < CP-1: character is eliminated, possessions discarded
-    logDetail(`Wound corruption check FAILED (${total} < ${cp - 1}) — eliminating ${charName}`);
-
-    delete newCharacters[action.characterId as string];
-    const newCompanies = player.companies.map(c => ({
-      ...c,
-      characters: c.characters.filter(id => id !== action.characterId),
-    }));
-
-    for (const followerId of char.followers) {
-      const follower = newCharacters[followerId as string];
-      if (follower) {
-        newCharacters[followerId as string] = { ...follower, controlledBy: 'general' };
-      }
-    }
-
-    newPlayers[playerIndex] = {
-      ...newPlayers[playerIndex],
-      characters: newCharacters,
-      companies: newCompanies,
-      eliminatedPile: [...player.eliminatedPile, { instanceId: action.characterId, definitionId: char.definitionId }],
-      discardPile: [...player.discardPile, ...action.possessions.map(id => ({ instanceId: id, definitionId: resolveInstanceId(state, id)! }))],
-    };
-  }
-
-  return {
-    state: cleanupEmptyCompanies({
-      ...state,
-      players: newPlayers,
-      rng, cheatRollTotal,
-      phaseState: { ...siteState, pendingWoundCorruptionChecks: remainingChecks },
-    }),
-    effects: [rollEffect],
-  };
-}
+// handleWoundCorruptionCheck removed: wound corruption checks are
+// now handled by `applyCorruptionCheckResolution` in
+// `engine/pending-reducers.ts`.
 
 function advanceSiteToNextCompany(
   state: GameState,
@@ -1630,13 +1486,17 @@ function advanceSiteToNextCompany(
 ): ReducerResult {
   const updatedHandled = [...siteState.handledCompanyIds, handledCompanyId];
 
-  const playerIndex = getPlayerIndex(state, state.activePlayer!);
-  const remainingCount = state.players[playerIndex].companies.length - updatedHandled.length;
+  // Sweep any active constraints / pending resolutions scoped to the
+  // company that just finished its site sub-phase.
+  const sweptState = sweepExpired(state, { kind: 'company-site-end', companyId: handledCompanyId });
+
+  const playerIndex = getPlayerIndex(sweptState, sweptState.activePlayer!);
+  const remainingCount = sweptState.players[playerIndex].companies.length - updatedHandled.length;
 
   if (remainingCount <= 0) {
     logDetail(`Site: all companies handled → advancing to End-of-Turn phase`);
     // Return remaining on-guard cards to hazard player's hand
-    const cleanedState = returnOnGuardCardsToHand(state);
+    const cleanedState = returnOnGuardCardsToHand(sweptState);
     return {
       state: cleanupEmptyCompanies({
         ...cleanedState,
@@ -1648,7 +1508,7 @@ function advanceSiteToNextCompany(
   logDetail(`Site: company ${handledCompanyId} done → returning to select-company (${remainingCount} remaining)`);
   return {
     state: {
-      ...state,
+      ...sweptState,
       phaseState: {
         ...siteState,
         step: 'select-company' as const,
@@ -1661,7 +1521,6 @@ function advanceSiteToNextCompany(
         awaitingOnGuardReveal: false,
         pendingResourceAction: null,
         opponentInteractionThisTurn: null,
-        pendingWoundCorruptionChecks: [],
         pendingOpponentInfluence: null,
       },
     },
