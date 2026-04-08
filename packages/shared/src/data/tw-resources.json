@@ -485,5 +485,28 @@
     "marshallingCategory": "misc",
     "effects": [],
     "text": "Spell. Wizard only during opponent\u2019s site phase. Automatically cancels an influence check against one of the Wizard\u2019s player\u2019s characters, followers, factions, allies, or items. Wizard makes a corruption check modified by -2."
+  },
+  {
+    "cardType": "hero-resource-faction",
+    "alignment": "wizard",
+    "id": "tw-211",
+    "name": "Dunlendings",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Dunlendings.jpg",
+    "unique": true,
+    "marshallingPoints": 2,
+    "marshallingCategory": "faction",
+    "influenceNumber": 9,
+    "race": "man",
+    "playableAt": [
+      {
+        "site": "Dunnish Clan-hold"
+      }
+    ],
+    "effects": [
+      { "type": "check-modifier", "check": "influence", "value": -1, "when": { "bearer.race": "man" } },
+      { "type": "check-modifier", "check": "influence", "value": -1, "when": { "bearer.race": "dunadan" } },
+      { "type": "check-modifier", "check": "influence", "value": -1, "when": { "bearer.race": "dwarf" } }
+    ],
+    "text": "Unique. Playable at Dunnish Clan-hold if the influence check is greater than 9. Standard Modifications: Men (-1), D\u00fanedain (-1), Dwarves (-1)."
   }
 ]

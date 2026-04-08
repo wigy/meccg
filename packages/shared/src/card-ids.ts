@@ -66,6 +66,8 @@ export const ALATAR = did('tw-117');
 export const ADRAZAR = did('tw-116');
 /** Anborn — Dúnadan scout/ranger, mind 2, Pelargir. */
 export const ANBORN = did('tw-118');
+/** Peath — Man ranger/diplomat, +4 DI vs Dunlendings, +5 prowess vs Nazgûl, halves Nazgûl body. */
+export const PEATH = did('tw-176');
 /** Balin — dwarf warrior/sage, DI 2, +2 prowess vs Orcs, +1 DI vs Dwarves. */
 export const BALIN = did('tw-123');
 /** Kíli — dwarf warrior/scout, mind 3, +1 prowess vs Orcs, corruption/faction penalties. */
@@ -111,6 +113,8 @@ export const MEN_OF_LEBENNIN = did('tw-280');
 export const MEN_OF_ANORIEN = did('tw-277');
 /** Blue Mountain Dwarves — Dwarf faction, 3 MP, playable at Blue Mountain Dwarf-hold. */
 export const BLUE_MOUNTAIN_DWARVES = did('tw-200');
+/** Dunlendings — Man faction, 2 MP, playable at Dunnish Clan-hold. */
+export const DUNLENDINGS = did('tw-211');
 
 // ---- Resource Events ----
 
@@ -196,6 +200,8 @@ export const GOBLIN_GATE = did('tw-398');
 export const DIMRILL_DALE = did('tw-385');
 /** Bandit Lair — hero border-hold in Brown Lands, nearest haven Lórien. */
 export const BANDIT_LAIR = did('tw-373');
+/** Dunnish Clan-hold — hero border-hold in Dunland, nearest haven Rivendell. */
+export const DUNNISH_CLAN_HOLD = did('tw-390');
 
 // ---- Against the Shadow — Hero Sites ----
 
