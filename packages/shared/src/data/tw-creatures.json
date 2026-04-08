@@ -276,5 +276,27 @@
     "effects": [],
     "text": "Unique. Troll. One strike. If played against a company that faced \"Bert\" or \"Tom\" this turn, each character wounded by \"William\" discards all non-special items he bears.",
     "race": "troll"
+  },
+  {
+    "cardType": "hazard-creature",
+    "id": "tw-8",
+    "name": "Assassin",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Assassin.jpg",
+    "unique": false,
+    "strikes": 1,
+    "prowess": 11,
+    "body": null,
+    "killMarshallingPoints": 2,
+    "race": "men",
+    "keyedTo": [
+      {
+        "siteTypes": [
+          "free-hold",
+          "border-hold"
+        ]
+      }
+    ],
+    "effects": [],
+    "text": "Man. Three attacks (of one strike each) all against the same character. Attacker chooses defending character.One or two of these attacks may be canceled by tapping one character (not the defending character) in the defender’s company for each attack canceled. This may be done even after a strike is assigned and after facing another attack.If an attack from Assassin is given more than one strike, each additional strike becomes an excess strike (-1 prowess modification) against the attacked character."
   }
 ]
