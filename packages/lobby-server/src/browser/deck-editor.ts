@@ -261,11 +261,18 @@ export async function openDeckEditor(deckId: string): Promise<void> {
 
   sessionStorage.setItem(EDITING_DECK_KEY, deckId);
   document.getElementById('deck-editor-title')!.textContent = deck.name;
-  renderCardList(document.getElementById('deck-editor-pool')!, deck.pool, deckId);
-  renderCardList(document.getElementById('deck-editor-characters')!, deck.deck.characters, deckId);
-  renderCardList(document.getElementById('deck-editor-hazards')!, deck.deck.hazards, deckId);
-  renderCardList(document.getElementById('deck-editor-resources')!, deck.deck.resources, deckId);
-  renderCardList(document.getElementById('deck-editor-sites')!, deck.sites, deckId);
-  renderCardList(document.getElementById('deck-editor-sideboard')!, deck.sideboard ?? [], deckId);
+  const sections: { id: string; label: string; entries: DeckListEntry[] }[] = [
+    { id: 'pool', label: 'Pool', entries: deck.pool },
+    { id: 'characters', label: 'Characters', entries: deck.deck.characters },
+    { id: 'hazards', label: 'Hazards', entries: deck.deck.hazards },
+    { id: 'resources', label: 'Resources', entries: deck.deck.resources },
+    { id: 'sites', label: 'Sites', entries: deck.sites },
+    { id: 'sideboard', label: 'Sideboard', entries: deck.sideboard ?? [] },
+  ];
+  for (const s of sections) {
+    renderCardList(document.getElementById(`deck-editor-${s.id}`)!, s.entries, deckId);
+    const total = s.entries.reduce((sum, e) => sum + e.qty, 0);
+    document.getElementById(`deck-editor-${s.id}-title`)!.textContent = `${s.label} (${total})`;
+  }
   showScreenFn?.('deck-editor-screen');
 }
