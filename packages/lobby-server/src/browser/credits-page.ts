@@ -9,7 +9,6 @@
  */
 
 import { appState, type ScreenId } from './app-state.js';
-import { updateCreditsBadge } from './lobby-screens.js';
 
 // Forward-declared showScreen, set by the lobby module at startup to
 // avoid a circular dependency with lobby-screens.ts.
@@ -18,6 +17,12 @@ let showScreenFn: ((id: ScreenId) => void) | null = null;
 /** Register the showScreen callback. Called once during app init. */
 export function setCreditsPageCallbacks(showScreen: (id: ScreenId) => void): void {
   showScreenFn = showScreen;
+}
+
+/** Update the credits badge in the nav bar. */
+export function updateCreditsBadge(): void {
+  const el = document.getElementById('lobby-credits-badge');
+  if (el) el.textContent = String(appState.lobbyPlayerCredits);
 }
 
 /** One credit history entry as returned by the API. */

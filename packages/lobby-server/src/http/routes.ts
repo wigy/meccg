@@ -660,6 +660,10 @@ export async function handleRequest(req: http.IncomingMessage, res: http.ServerR
         sendJson(res, 400, { error: 'subject and body are required' });
         return;
       }
+      if (getCredits(playerName) <= 0) {
+        sendJson(res, 403, { error: 'No credits available' });
+        return;
+      }
       const id = sendMail(['ai'], {
         from: playerName,
         sender: 'player',

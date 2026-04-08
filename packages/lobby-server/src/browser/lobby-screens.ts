@@ -10,7 +10,7 @@
 import {
   appState, type ScreenId,
   BACKGROUNDS, BG_KEY,
-  EDITING_DECK_KEY, VIEWING_INBOX_KEY, VIEWING_DECKS_KEY,
+  EDITING_DECK_KEY, VIEWING_INBOX_KEY, VIEWING_DECKS_KEY, VIEWING_CREDITS_KEY,
   MAIL_TAB_KEY, MAIL_MSG_KEY,
 } from './app-state.js';
 import { restoreGameSession, saveGameSession } from './session.js';
@@ -19,6 +19,7 @@ import { connectPseudoAi } from './pseudo-ai.js';
 import { loadDecks } from './deck-browser.js';
 import { openDeckEditor } from './deck-editor.js';
 import { openInbox, openSent, autoSelectMessage, updateMailBadge } from './inbox.js';
+import { openCreditsPage, updateCreditsBadge } from './credits-page.js';
 import { renderLog } from './render.js';
 
 /** All screen IDs in the lobby UI. */
@@ -26,12 +27,6 @@ const ALL_SCREENS: ScreenId[] = ['login-screen', 'register-screen', 'lobby-scree
 
 /** Screens that should show the persistent nav bar. */
 const NAV_SCREENS: ScreenId[] = ['lobby-screen', 'decks-screen', 'deck-editor-screen', 'inbox-screen', 'credits-screen'];
-
-/** Update the credits badge in the nav bar. */
-export function updateCreditsBadge(): void {
-  const el = document.getElementById('lobby-credits-badge');
-  if (el) el.textContent = String(appState.lobbyPlayerCredits);
-}
 
 /** Show one screen, hiding all others. */
 export function showScreen(id: ScreenId): void {
@@ -257,6 +252,13 @@ export async function initLobby(): Promise<void> {
       if (sessionStorage.getItem(VIEWING_DECKS_KEY)) {
         connectLobbyWs();
         showScreen('decks-screen');
+        return;
+      }
+
+      // Restore credits page if we were viewing it before reload
+      if (sessionStorage.getItem(VIEWING_CREDITS_KEY)) {
+        connectLobbyWs();
+        void openCreditsPage();
         return;
       }
 

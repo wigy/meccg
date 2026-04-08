@@ -21,7 +21,7 @@ import { cardImageProxyPath } from '@meccg/shared';
 import {
   appState, cardPool, LOBBY_MODE, SERVER_DEV,
   VIEW_KEY, DEV_MODE_KEY, AUTO_PASS_KEY,
-  VIEWING_INBOX_KEY, VIEWING_DECKS_KEY, EDITING_DECK_KEY,
+  VIEWING_INBOX_KEY, VIEWING_DECKS_KEY, VIEWING_CREDITS_KEY, EDITING_DECK_KEY,
   MAIL_TAB_KEY, MAIL_MSG_KEY,
 } from './app-state.js';
 import { savePlayerName, loadPlayerName } from './session.js';
@@ -31,6 +31,7 @@ import { setupDeckEditorPreview, setupDecksPreview, openDeckEditor, setDeckEdito
 import { openInbox, openSent } from './inbox.js';
 import { setInboxCallbacks } from './inbox.js';
 import { openCreditsPage, setCreditsPageCallbacks } from './credits-page.js';
+import { showAlert } from './dialog.js';
 import {
   showScreen, showAuthError, applyBackground, selectRandomBackground,
   connectLobbyWs, initLobby,
@@ -210,6 +211,7 @@ document.addEventListener('DOMContentLoaded', () => {
       sessionStorage.removeItem(MAIL_MSG_KEY);
       sessionStorage.removeItem(EDITING_DECK_KEY);
       sessionStorage.removeItem(VIEWING_DECKS_KEY);
+      sessionStorage.removeItem(VIEWING_CREDITS_KEY);
       if (appState.lobbyWs) { appState.lobbyWs.close(); appState.lobbyWs = null; }
       showScreen('login-screen');
     })(); };
@@ -331,6 +333,7 @@ document.addEventListener('DOMContentLoaded', () => {
       sessionStorage.removeItem(MAIL_MSG_KEY);
       sessionStorage.removeItem(EDITING_DECK_KEY);
       sessionStorage.removeItem(VIEWING_DECKS_KEY);
+      sessionStorage.removeItem(VIEWING_CREDITS_KEY);
       showScreen('lobby-screen');
     });
     document.getElementById('nav-decks')!.addEventListener('click', () => {
@@ -338,12 +341,14 @@ document.addEventListener('DOMContentLoaded', () => {
       sessionStorage.removeItem(MAIL_TAB_KEY);
       sessionStorage.removeItem(MAIL_MSG_KEY);
       sessionStorage.removeItem(EDITING_DECK_KEY);
+      sessionStorage.removeItem(VIEWING_CREDITS_KEY);
       sessionStorage.setItem(VIEWING_DECKS_KEY, '1');
       showScreen('decks-screen');
     });
     document.getElementById('nav-mail')!.addEventListener('click', () => {
       sessionStorage.removeItem(VIEWING_DECKS_KEY);
       sessionStorage.removeItem(EDITING_DECK_KEY);
+      sessionStorage.removeItem(VIEWING_CREDITS_KEY);
       void openInbox();
     });
     document.getElementById('lobby-credits-badge')!.addEventListener('click', () => {
@@ -352,6 +357,7 @@ document.addEventListener('DOMContentLoaded', () => {
       sessionStorage.removeItem(MAIL_MSG_KEY);
       sessionStorage.removeItem(EDITING_DECK_KEY);
       sessionStorage.removeItem(VIEWING_DECKS_KEY);
+      sessionStorage.setItem(VIEWING_CREDITS_KEY, '1');
       void openCreditsPage();
     });
 
@@ -410,10 +416,17 @@ document.addEventListener('DOMContentLoaded', () => {
       if (resp.ok) {
         closeBugModal();
         showNotification('Bug report sent!');
+      } else {
+        const data = await resp.json().catch(() => ({})) as { error?: string };
+        await showAlert(data.error ?? 'Failed to send bug report');
       }
     })();
   });
   document.getElementById('bug-report-btn')!.addEventListener('click', () => {
+    if (appState.lobbyPlayerCredits <= 0) {
+      void showAlert('No credits available. Top up your credits before sending a bug report.');
+      return;
+    }
     brSubject.value = '';
     brBody.value = '';
     brModal.classList.remove('hidden');

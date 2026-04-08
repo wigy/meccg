@@ -12,6 +12,7 @@ import {
   sortDeckEntries, EDITING_DECK_KEY, type ScreenId,
 } from './app-state.js';
 import { buildCardAttributes } from './render.js';
+import { showAlert } from './dialog.js';
 
 // Forward-declared showScreen, set by the lobby module at startup.
 let showScreenFn: ((id: ScreenId) => void) | null = null;
@@ -75,7 +76,7 @@ function renderCardList(container: HTMLElement, entries: DeckListEntry[], deckId
               btn.disabled = false;
               btn.textContent = 'Request';
               appState.requestedCards.delete(requestKey);
-              alert(data.error ?? 'Request failed');
+              await showAlert(data.error ?? 'Request failed');
             }
           });
         });
@@ -113,7 +114,7 @@ function renderCardList(container: HTMLElement, entries: DeckListEntry[], deckId
               certBtn.disabled = false;
               certBtn.textContent = 'Certify';
               appState.requestedCertifications.delete(entry.card!);
-              alert(data.error ?? 'Certification request failed');
+              await showAlert(data.error ?? 'Certification request failed');
             }
           });
         });
