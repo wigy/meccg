@@ -149,6 +149,20 @@ export interface PendingResolution {
     | {
         readonly type: 'opponent-influence-defend';
         readonly attempt: OpponentInfluenceAttempt;
+      }
+    | {
+        /**
+         * Faction influence roll: the chain has resolved, all modifiers are
+         * known, and the game pauses so the UI can display a situation
+         * banner (target number, DI, bonuses/penalties) before the player
+         * commits to rolling.
+         */
+        readonly type: 'faction-influence-roll';
+        /** The faction card instance (held by the now-resolved chain entry). */
+        readonly factionInstanceId: CardInstanceId;
+        readonly factionDefinitionId: CardDefinitionId;
+        /** The character making the influence roll. */
+        readonly influencingCharacterId: CardInstanceId;
       };
 }
 
