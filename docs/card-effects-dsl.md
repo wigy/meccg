@@ -250,11 +250,18 @@ generate per-target actions (one per eligible character, company, etc.).
 
 ```json
 { "type": "play-target", "target": "character" }
+{ "type": "play-target", "target": "own-scout", "maxCompanySize": 2 }
 ```
 
 Supported targets:
 
 - `character` — targets a single character in the company
+- `own-scout` — an untapped scout in one of the resource player's companies (e.g. Stealth)
+
+Optional fields:
+
+- `maxCompanySize` — maximum effective company size for eligibility
+  (hobbits count as half). Used with `own-scout` to enforce size limits.
 
 ### 15. `on-guard-reveal`
 

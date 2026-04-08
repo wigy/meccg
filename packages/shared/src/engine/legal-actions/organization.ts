@@ -22,7 +22,8 @@ import type {
   OrganizationPhaseState,
   GameAction,
 } from '../../index.js';
-import { isCharacterCard, CardStatus } from '../../index.js';
+import { isCharacterCard, CardStatus, Skill } from '../../index.js';
+import type { PlayTargetEffect } from '../../types/effects.js';
 import { logDetail, logHeading } from './log.js';
 import { resolveDef, collectCharacterEffects, resolveStatModifiers } from '../effects/index.js';
 import type { ResolverContext } from '../effects/index.js';
@@ -150,6 +151,41 @@ export function organizationActions(state: GameState, playerId: PlayerId): Evalu
         e => e.type === 'play-window' && (e as { phase?: string; step?: string }).phase === 'organization' && (e as { phase?: string; step?: string }).step === 'end-of-org',
       );
       if (!playWindow) continue;
+
+      // Check play-target constraints (e.g. Stealth requires own-scout + company size limit)
+      const playTarget: PlayTargetEffect | undefined = def.effects?.find(
+        (e): e is PlayTargetEffect => e.type === 'play-target',
+      );
+      if (playTarget?.target === 'own-scout') {
+        const hasEligibleScout = player.companies.some(company => {
+          // Company must contain an untapped scout
+          const hasScout = company.characters.some(charInstId => {
+            const charDefId = resolveInstanceId(state, charInstId);
+            if (!charDefId) return false;
+            const charDef = state.cardPool[charDefId as string];
+            if (!charDef || !isCharacterCard(charDef)) return false;
+            // Check for scout skill and untapped status
+            if (!charDef.skills.includes(Skill.Scout)) return false;
+            const charInPlay = player.characters[charInstId as string];
+            return charInPlay?.status === CardStatus.Untapped;
+          });
+          if (!hasScout) return false;
+          // Check company size limit if specified
+          if (playTarget.maxCompanySize !== undefined) {
+            const size = computeCompanySize(state, company);
+            if (size > playTarget.maxCompanySize) {
+              logDetail(`End-of-org: ${def.name} rejected for company ${company.id as string}: size ${size} > ${playTarget.maxCompanySize}`);
+              return false;
+            }
+          }
+          return true;
+        });
+        if (!hasEligibleScout) {
+          logDetail(`End-of-org: ${def.name} (${handCard.instanceId as string}) — no eligible scout/company found`);
+          continue;
+        }
+      }
+
       logDetail(`End-of-org: ${def.name} (${handCard.instanceId as string}) is a registered end-of-org play`);
       endActions.push({
         action: { type: 'play-short-event', player: playerId, cardInstanceId: handCard.instanceId },
