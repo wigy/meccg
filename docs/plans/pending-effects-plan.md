@@ -281,8 +281,8 @@ For the two new constraint kinds:
 - `site-phase-do-nothing-unless-ranger-taps` — same as above, **plus**
   add a `tap-ranger-to-cancel-river` action for each untapped ranger
   in the company. Resolving that action removes the constraint and
-  returns the company to the normal `enter-or-skip` menu (`enter-site`
-  + `pass`).
+  returns the company to the normal `enter-or-skip` menu
+  (`enter-site` and `pass`).
 - `no-creature-hazards-on-company` — when filtering hazard plays
   during the M/H phase, drop every action whose card is a creature
   *and* whose target company matches the constraint's target. Other
@@ -617,14 +617,14 @@ The PR is large but every step is testable in isolation. Order:
     audited to confirm it walks all constraints regardless of
     `source` ownership.
 18. **LE printings** of Lure, Lost in Free-domains, and River (data
-    + thin parity tests). Stealth has no LE reprint.
-17. **Sweep grep:** `pending` should not appear in `state-phases.ts`.
+    plus thin parity tests). Stealth has no LE reprint.
+19. **Sweep grep:** `pending` should not appear in `state-phases.ts`.
     `awaitingOnGuardReveal` should not appear anywhere. Card tests
     that previously poked phase-state pending fields directly use
     helper functions on `pending.ts` instead.
-18. **Update `docs/card-effects-dsl.md`** with the new event,
+20. **Update `docs/card-effects-dsl.md`** with the new event,
     constraints section, and `add-constraint` apply type.
-19. **Update `docs/glossary.md`** with "pending resolution" and
+21. **Update `docs/glossary.md`** with "pending resolution" and
     "active constraint".
 
 Each step ends with a green build. Steps 5–9 each end with all rules

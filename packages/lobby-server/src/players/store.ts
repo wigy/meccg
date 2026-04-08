@@ -204,7 +204,7 @@ function creditsHistoryPath(name: string): string {
 export function readCreditHistory(name: string): CreditHistoryEntry[] {
   try {
     const data = fs.readFileSync(creditsHistoryPath(name), 'utf-8');
-    const parsed = JSON.parse(data);
+    const parsed: unknown = JSON.parse(data);
     return Array.isArray(parsed) ? (parsed as CreditHistoryEntry[]) : [];
   } catch {
     return [];
