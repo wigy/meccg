@@ -11,6 +11,8 @@ When review is declined, create review-fix-request to handle review comments and
 
 Moving to site in play.
 
+Ensure that every phase state field is displayed in debug ui.
+
 EPICS
 -----
 

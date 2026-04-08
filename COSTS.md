@@ -30,3 +30,6 @@ Elrond                $6.94   15m 52s
 Frodo                 $3.62   10m 40s
 Sam Gamgee            $2.61    9m 2s
 Théoden               $1.56    6m 2s
+Lure of the Senses    $10.22  25m 21s
+Lure of Nature        $10.18  26m 12s
+Lure of Expedience    $6.75   17m 5s
