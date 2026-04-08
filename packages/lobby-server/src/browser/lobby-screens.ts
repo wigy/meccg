@@ -52,8 +52,9 @@ export function showScreen(id: ScreenId): void {
   // Reset lobby button state when showing the lobby
   if (id === 'lobby-screen') {
     const btn = document.getElementById('play-ai-btn') as HTMLButtonElement | null;
-    if (btn) { btn.textContent = 'Play vs Random-AI'; btn.classList.remove('hidden'); }
-    document.getElementById('save-prompt')?.classList.add('hidden');
+    if (btn) { btn.textContent = 'Play vs Random-AI'; btn.disabled = false; }
+    const pseudoBtn = document.getElementById('play-pseudo-ai-btn') as HTMLButtonElement | null;
+    if (pseudoBtn) { pseudoBtn.textContent = 'Play vs Pseudo-AI'; pseudoBtn.disabled = false; }
     void loadDecks();
   }
   // Load decks when showing the decks screen

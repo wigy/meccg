@@ -31,7 +31,7 @@ import { setupDeckEditorPreview, setupDecksPreview, openDeckEditor, setDeckEdito
 import { openInbox, openSent } from './inbox.js';
 import { setInboxCallbacks } from './inbox.js';
 import { openCreditsPage, setCreditsPageCallbacks } from './credits-page.js';
-import { showAlert } from './dialog.js';
+import { showAlert, showConfirm } from './dialog.js';
 import {
   showScreen, showAuthError, applyBackground, selectRandomBackground,
   connectLobbyWs, initLobby,
@@ -217,9 +217,18 @@ document.addEventListener('DOMContentLoaded', () => {
     })(); };
     document.getElementById('logout-btn')!.addEventListener('click', doLogout);
 
-    const savePrompt = document.getElementById('save-prompt')!;
-    const continueGameBtn = document.getElementById('continue-game-btn') as HTMLButtonElement;
-    const newGameBtn = document.getElementById('new-game-btn') as HTMLButtonElement;
+    /**
+     * Disable every play button in the lobby while a game launch is in flight.
+     * The browser dims disabled buttons via the `.lobby-play-btn:disabled` rule.
+     */
+    function setLobbyPlayButtonsDisabled(disabled: boolean): void {
+      for (const btn of document.querySelectorAll<HTMLButtonElement>('#lobby-screen .lobby-play-btn')) {
+        btn.disabled = disabled;
+      }
+      for (const btn of document.querySelectorAll<HTMLButtonElement>('.lobby-player-item button')) {
+        btn.disabled = disabled;
+      }
+    }
 
     /** Send the play-ai message and disable the UI. */
     function launchAiGame(): void {
@@ -227,8 +236,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const aiDeckSelect = document.getElementById('ai-deck-select') as HTMLSelectElement;
         appState.lobbyWs.send(JSON.stringify({ type: 'play-ai', deckId: aiDeckSelect.value }));
         playAiBtn.textContent = 'Starting...';
-        playAiBtn.disabled = true;
-        savePrompt.classList.add('hidden');
+        setLobbyPlayButtonsDisabled(true);
       }
     }
 
@@ -237,32 +245,24 @@ document.addEventListener('DOMContentLoaded', () => {
       if (resp.ok) {
         const data = await resp.json() as { hasSave: boolean };
         if (data.hasSave) {
-          playAiBtn.classList.add('hidden');
-          savePrompt.classList.remove('hidden');
-          return;
+          const cont = await showConfirm(
+            'A saved game exists against Random-AI. Continue the saved game or start a new one?',
+            { okLabel: 'Continue', cancelLabel: 'Start New' },
+          );
+          if (!cont) {
+            await fetch('/api/saves/delete', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ opponent: 'AI-Random' }),
+            });
+          }
         }
       }
       launchAiGame();
     })(); });
 
-    continueGameBtn.addEventListener('click', () => {
-      launchAiGame();
-    });
-
-    newGameBtn.addEventListener('click', () => { void (async () => {
-      await fetch('/api/saves/delete', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ opponent: 'AI-Random' }),
-      });
-      launchAiGame();
-    })(); });
-
     // ---- Pseudo-AI ----
     const playPseudoAiBtn = document.getElementById('play-pseudo-ai-btn') as HTMLButtonElement;
-    const pseudoSavePrompt = document.getElementById('pseudo-save-prompt')!;
-    const pseudoContinueBtn = document.getElementById('pseudo-continue-game-btn') as HTMLButtonElement;
-    const pseudoNewBtn = document.getElementById('pseudo-new-game-btn') as HTMLButtonElement;
 
     /** Send the play-pseudo-ai message and disable the UI. */
     function launchPseudoAiGame(): void {
@@ -273,8 +273,7 @@ document.addEventListener('DOMContentLoaded', () => {
         appState.pendingAiDeck = appState.cachedCatalog.find(d => d.id === deckId) ?? null;
         appState.lobbyWs.send(JSON.stringify({ type: 'play-pseudo-ai', deckId }));
         playPseudoAiBtn.textContent = 'Starting...';
-        playPseudoAiBtn.disabled = true;
-        pseudoSavePrompt.classList.add('hidden');
+        setLobbyPlayButtonsDisabled(true);
       }
     }
 
@@ -283,24 +282,19 @@ document.addEventListener('DOMContentLoaded', () => {
       if (resp.ok) {
         const data = await resp.json() as { hasSave: boolean };
         if (data.hasSave) {
-          playPseudoAiBtn.classList.add('hidden');
-          pseudoSavePrompt.classList.remove('hidden');
-          return;
+          const cont = await showConfirm(
+            'A saved game exists against Pseudo-AI. Continue the saved game or start a new one?',
+            { okLabel: 'Continue', cancelLabel: 'Start New' },
+          );
+          if (!cont) {
+            await fetch('/api/saves/delete', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ opponent: 'AI-Pseudo' }),
+            });
+          }
         }
       }
-      launchPseudoAiGame();
-    })(); });
-
-    pseudoContinueBtn.addEventListener('click', () => {
-      launchPseudoAiGame();
-    });
-
-    pseudoNewBtn.addEventListener('click', () => { void (async () => {
-      await fetch('/api/saves/delete', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ opponent: 'AI-Pseudo' }),
-      });
       launchPseudoAiGame();
     })(); });
 

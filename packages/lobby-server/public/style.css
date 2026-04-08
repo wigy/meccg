@@ -983,34 +983,6 @@ h2 {
   width: 100%;
 }
 
-.lobby-save-prompt {
-  margin-top: 0.75rem;
-  padding: 0.75rem;
-  background: #1e2a4a;
-  border: 1px solid #c4a35a;
-  border-radius: 4px;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-  align-items: center;
-}
-
-.lobby-save-prompt p {
-  margin: 0;
-  color: #e0e0e0;
-  width: 100%;
-  font-size: 0.9rem;
-}
-
-.lobby-play-btn--secondary {
-  background: #666;
-  color: #fff;
-}
-
-.lobby-play-btn--secondary:hover {
-  background: #888;
-}
-
 .lobby-play-btn {
   margin-top: 0.5rem;
   padding: 0.75rem 1.5rem;
@@ -1025,6 +997,14 @@ h2 {
 
 .lobby-play-btn:hover {
   background: #d4b36a;
+}
+
+.lobby-play-btn:disabled,
+.lobby-play-btn:disabled:hover {
+  background: #6b5a3a;
+  color: #1a1a2e;
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .lobby-section-title {

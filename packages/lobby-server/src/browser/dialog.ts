@@ -60,12 +60,18 @@ export function showAlert(message: string): Promise<void> {
   });
 }
 
+/** Optional button label overrides for {@link showConfirm}. */
+export interface ConfirmOptions {
+  readonly okLabel?: string;
+  readonly cancelLabel?: string;
+}
+
 /**
  * Show a modal confirmation dialog with OK and Cancel buttons. Resolves
  * to `true` if the user confirms, `false` if they cancel (Cancel button,
  * backdrop click, or Escape). Enter confirms.
  */
-export function showConfirm(message: string): Promise<boolean> {
+export function showConfirm(message: string, options: ConfirmOptions = {}): Promise<boolean> {
   return new Promise<boolean>((resolve) => {
     const modal = document.createElement('div');
     modal.className = 'app-dialog';
@@ -86,9 +92,9 @@ export function showConfirm(message: string): Promise<boolean> {
     actions.className = 'app-dialog-actions';
     const cancelBtn = document.createElement('button');
     cancelBtn.className = 'app-dialog-btn-cancel';
-    cancelBtn.textContent = 'Cancel';
+    cancelBtn.textContent = options.cancelLabel ?? 'Cancel';
     const okBtn = document.createElement('button');
-    okBtn.textContent = 'OK';
+    okBtn.textContent = options.okLabel ?? 'OK';
     actions.appendChild(cancelBtn);
     actions.appendChild(okBtn);
     dialog.appendChild(actions);
