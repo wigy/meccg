@@ -13,6 +13,7 @@
  */
 
 import type { GameState, PlayerId, EvaluatedAction, CombatState } from '../../index.js';
+import type { CancelAttackEffect } from '../../types/effects.js';
 import { CardStatus, isCharacterCard } from '../../index.js';
 import { logHeading, logDetail } from './log.js';
 import { computeCombatProwess } from '../recompute-derived.js';
@@ -27,9 +28,13 @@ export function combatActions(state: GameState, playerId: PlayerId): EvaluatedAc
 
   logHeading(`Combat actions (phase: ${combat.phase}, assignment: ${combat.assignmentPhase})`);
 
+  // Cancel-attack actions are available to the defending player before
+  // any strikes have been assigned (pre-assignment window per CoE rules).
+  const cancelActions = cancelAttackActions(state, playerId, combat);
+
   switch (combat.phase) {
     case 'assign-strikes':
-      return assignStrikeActions(state, playerId, combat);
+      return [...cancelActions, ...assignStrikeActions(state, playerId, combat)];
     case 'choose-strike-order':
       return chooseStrikeOrderActions(state, playerId, combat);
     case 'resolve-strike':
@@ -321,4 +326,66 @@ function bodyCheckActions(
     },
     viable: true,
   }];
+}
+
+/**
+ * Generate cancel-attack actions for the defending player during the
+ * pre-assignment window (assign-strikes phase before any strikes assigned).
+ *
+ * For each card in the defending player's hand that has a `cancel-attack`
+ * effect, and for each untapped character in the defending company with the
+ * required skill, generate a cancel-attack action.
+ */
+function cancelAttackActions(
+  state: GameState,
+  playerId: PlayerId,
+  combat: CombatState,
+): EvaluatedAction[] {
+  // Only the defending player can cancel, and only before any strikes are assigned
+  if (playerId !== combat.defendingPlayerId) return [];
+  if (combat.phase !== 'assign-strikes') return [];
+  if (combat.strikeAssignments.length > 0) return [];
+
+  const playerIndex = state.players.findIndex(p => p.id === playerId);
+  const player = state.players[playerIndex];
+  const company = player.companies.find(c => c.id === combat.companyId);
+  if (!company) return [];
+
+  const actions: EvaluatedAction[] = [];
+
+  for (const handCard of player.hand) {
+    const cardDef = state.cardPool[handCard.definitionId as string];
+    if (!cardDef || !('effects' in cardDef)) continue;
+    const cardWithEffects = cardDef as { effects?: readonly import('../../types/effects.js').CardEffect[] };
+    if (!cardWithEffects.effects) continue;
+
+    const cancelEffect = cardWithEffects.effects.find(
+      (e): e is CancelAttackEffect => e.type === 'cancel-attack',
+    );
+    if (!cancelEffect) continue;
+
+    // Find untapped characters in the company with the required skill
+    for (const charId of company.characters) {
+      const charData = player.characters[charId as string];
+      if (!charData || charData.status !== CardStatus.Untapped) continue;
+
+      const charDef = state.cardPool[charData.definitionId as string];
+      if (!charDef || !isCharacterCard(charDef)) continue;
+
+      if (!charDef.skills.includes(cancelEffect.requiredSkill as import('../../types/common.js').Skill)) continue;
+
+      logDetail(`Cancel-attack available: ${handCard.definitionId as string} via ${charData.definitionId as string}`);
+      actions.push({
+        action: {
+          type: 'cancel-attack',
+          player: playerId,
+          cardInstanceId: handCard.instanceId,
+          scoutInstanceId: charId,
+        },
+        viable: true,
+      });
+    }
+  }
+
+  return actions;
 }
