@@ -621,9 +621,22 @@ fi
 # ---------------------------------------------------------------------------
 # Step 9: Deduct credits from the requestor
 # ---------------------------------------------------------------------------
+# Most replies bill the reply recipient (the person whose request is being
+# answered). Planning requests are different: they are forwarded by admin
+# from a feature-request that originally came from a real user, so the
+# reply goes back to admin but the bill must follow the original requestor.
+# The handle-planning-request skill resolves that user and writes their
+# username into the reply keywords as `originalRequestor`. Honor it here.
+
+CREDIT_TARGET="$REPLY_RECIPIENT"
+ORIGINAL_REQUESTOR=$(echo "$REPLY_KEYWORDS" | jq -r '.originalRequestor // empty')
+if [ -n "$ORIGINAL_REQUESTOR" ]; then
+  CREDIT_TARGET="$ORIGINAL_REQUESTOR"
+  log "Billing original requestor '$ORIGINAL_REQUESTOR' instead of reply recipient '$REPLY_RECIPIENT'"
+fi
 
 if [ "$CREDITS_CHARGED" -gt 0 ]; then
-  deduct_credits "$REPLY_RECIPIENT" "$CREDITS_CHARGED" "$CREDITS_REASON"
+  deduct_credits "$CREDIT_TARGET" "$CREDITS_CHARGED" "$CREDITS_REASON"
 fi
 
 # ---------------------------------------------------------------------------
@@ -648,5 +661,5 @@ if [ -n "${SKILL_COST:-}" ]; then
 fi
 log "Duration: $DURATION_HUMAN"
 if [ "$CREDITS_CHARGED" -gt 0 ]; then
-  log "Credits:  -${CREDITS_CHARGED} (from $REPLY_RECIPIENT)"
+  log "Credits:  -${CREDITS_CHARGED} (from $CREDIT_TARGET)"
 fi
