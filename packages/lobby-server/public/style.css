@@ -3931,6 +3931,17 @@ h2 {
   --company-scale: 1;
 }
 
+/* Outer row: claims a full flex row in #visual-board and centers its child. */
+.situation-banner-row {
+  flex: 0 0 100%;
+  display: flex;
+  justify-content: center;
+  margin-top: -2rem;
+  position: relative;
+  z-index: var(--z-panel);
+}
+
+/* Inner pill: shrinks to content; never wraps. */
 .situation-banner {
   text-align: center;
   font-size: 1rem;
@@ -3940,10 +3951,7 @@ h2 {
   border: 1px solid rgba(200, 150, 80, 0.5);
   border-radius: 6px;
   padding: 6px 16px;
-  flex: 0 0 100%;
-  margin-top: -2rem;
-  position: relative;
-  z-index: var(--z-panel);
+  white-space: nowrap;
 }
 
 .situation-banner-detail {

@@ -293,7 +293,10 @@ describe('Foolish Words (td-25)', () => {
     expect(afterReveal.error).toBeUndefined();
     expect(afterReveal.state.chain).not.toBeNull();
 
-    // Resolve the chain (both players pass priority)
+    // Resolve the chain (both players pass priority). Auto-resolution stops
+    // at the influence-attempt entry, which pauses the chain (still alive,
+    // entry unresolved, faction card still on it) so the UI can display the
+    // situation banner before the player commits to rolling.
     let current = afterReveal.state;
     for (let i = 0; i < 10 && current.chain !== null; i++) {
       const pass = viableActions(current, current.chain.priority, 'pass-chain-priority');
@@ -302,7 +305,6 @@ describe('Foolish Words (td-25)', () => {
       if (r.error) break;
       current = r.state;
     }
-    expect(current.chain).toBeNull();
 
     // Pending faction-influence-roll resolution — check the need increased by 4
     const rollActions = viableActions(current, PLAYER_1, 'faction-influence-roll');

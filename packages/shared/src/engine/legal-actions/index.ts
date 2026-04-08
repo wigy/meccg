@@ -79,8 +79,29 @@ export function computeLegalActions(state: GameState, playerId: PlayerId): Evalu
   const phase = state.phaseState.phase;
   logHeading(`Computing legal actions for player ${playerId as string} in phase '${phase}'`);
 
-  // Chain of effects takes priority over everything else
+  // Chain of effects takes priority over everything else — except when the
+  // chain is paused mid-resolution awaiting a pending resolution (e.g. a
+  // faction-influence-roll). In that case the pending resolution drives
+  // the legal actions; the chain entry stays alive (so its card is still
+  // findable) and is marked resolved by the pending reducer afterwards.
   if (state.chain != null) {
+    if (state.chain.mode === 'resolving') {
+      const top = topResolutionFor(state, playerId);
+      if (top !== null) {
+        logHeading(`Chain paused mid-resolution by pending ${top.kind.type} — delegating to resolution actions`);
+        const evaluated = resolutionLegalActions(state, playerId, top);
+        const viableCount = evaluated.filter(e => e.viable).length;
+        logResult(viableCount, evaluated.filter(e => e.viable).map(e => e.action) as unknown as Record<string, unknown>[]);
+        return evaluated;
+      }
+      // Chain resolving but no pending resolution for this player — they
+      // must wait for the other player (or for auto-resolve to finish).
+      if (state.pendingResolutions.length > 0) {
+        logHeading(`Chain paused mid-resolution; pending resolution belongs to other player — waiting`);
+        logResult(0, []);
+        return [];
+      }
+    }
     logHeading(`Chain active (${state.chain.mode}) — delegating to chain actions`);
     const evaluated = chainActions(state, playerId);
     const viableCount = evaluated.filter(e => e.viable).length;

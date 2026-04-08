@@ -301,7 +301,7 @@ function handleChainRevealOnGuard(state: GameState, chain: ChainState, action: G
  *
  * When all entries are resolved, the chain completes via {@link completeChain}.
  */
-function autoResolve(state: GameState): ReducerResult {
+export function autoResolve(state: GameState): ReducerResult {
   let current = state;
   const allEffects: import('../index.js').GameEffect[] = [];
 
@@ -728,6 +728,10 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
 
   // Influence attempt: enqueue a pending resolution so the UI can display
   // the situation banner (target number, DI, modifiers) before the roll.
+  // Do NOT mark the entry resolved — leave it on the chain (card and all)
+  // so `buildInstanceLookup` can still find the faction while the player
+  // confirms the roll. The pending faction-influence-roll resolver will
+  // mark the entry resolved and re-enter auto-resolution after the roll.
   if (entry.payload.type === 'influence-attempt' && !entry.negated && entry.card) {
     logDetail(`Enqueuing faction-influence-roll pending resolution for ${entry.card.definitionId as string}`);
     current = enqueueResolution(current, {
@@ -741,6 +745,7 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
         influencingCharacterId: entry.payload.influencingCharacterId,
       },
     });
+    return { state: current, needsInput: true };
   }
 
   // Mark entry as resolved
