@@ -450,7 +450,7 @@ function resolvePermanentEvent(state: GameState, entry: ChainEntry): GameState {
     }
   } else {
     // General permanent event — just add to cardsInPlay. Site-targeting
-    // hazards (e.g. River) carry their site binding through the chain
+    // permanent hazards carry their site binding through the chain
     // payload; record it on the CardInPlay entry so the
     // company-arrives-at-site event hook can match arrivals against
     // the bound site location.
@@ -736,6 +736,22 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
   // Apply card effects based on payload type
   if (entry.payload.type === 'short-event' && entry.payload.targetInstanceId) {
     current = resolveEnvironmentCancel(current, entry.payload.targetInstanceId, chain);
+  }
+
+  // Site-targeting short events (e.g. River): the card is already in
+  // discard, but its on-event effects must still fire when a company
+  // arrives at the target site this turn. Register a PendingSiteEffect.
+  if (entry.payload.type === 'short-event' && entry.payload.targetSiteDefinitionId && !entry.negated && entry.card) {
+    const seDef = current.cardPool[entry.card.definitionId as string];
+    logDetail(`Short-event "${seDef?.name ?? entry.card.definitionId}" resolved with site target ${entry.payload.targetSiteDefinitionId as string} → registering pending site effect`);
+    current = {
+      ...current,
+      pendingSiteEffects: [...current.pendingSiteEffects, {
+        sourceInstanceId: entry.card.instanceId,
+        sourceDefinitionId: entry.card.definitionId,
+        targetSiteDefinitionId: entry.payload.targetSiteDefinitionId,
+      }],
+    };
   }
 
   if (entry.payload.type === 'creature' && entry.card) {

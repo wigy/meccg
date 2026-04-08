@@ -437,6 +437,28 @@ function playHazardsActions(
           }
           continue;
         }
+        // play-target DSL: site-targeting short events (e.g. River) get
+        // one action per candidate site (destination of the active company).
+        const isShortSiteTargeting = def.effects?.some(
+          e => e.type === 'play-target' && e.target === 'site',
+        ) ?? false;
+        if (isShortSiteTargeting) {
+          const destSiteInstanceId = targetCompany.destinationSite?.instanceId
+            ?? targetCompany.currentSite?.instanceId
+            ?? null;
+          if (destSiteInstanceId) {
+            const destSiteDefId = resolveInstanceId(state, destSiteInstanceId);
+            if (destSiteDefId) {
+              const siteDefName = state.cardPool[destSiteDefId as string]?.name ?? (destSiteDefId as string);
+              logDetail(`Hazard short-event "${def.name}" playable on site ${siteDefName}`);
+              actions.push({
+                action: { ...action, targetSiteDefinitionId: destSiteDefId },
+                viable: true,
+              });
+            }
+          }
+          continue;
+        }
         logDetail(`Hazard short-event "${def.name}" is playable`);
         actions.push({ action, viable: true });
         continue;

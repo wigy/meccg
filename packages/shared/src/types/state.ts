@@ -34,6 +34,7 @@ import type { PlayerState } from './state-player.js';
 import type { PhaseState } from './state-phases.js';
 import type { CombatState, ChainState, PendingEffect } from './state-combat.js';
 import type { PendingResolution, ActiveConstraint } from './pending.js';
+import type { PendingSiteEffect } from './state-cards.js';
 
 // ---- RNG ----
 
@@ -111,6 +112,12 @@ export interface GameState {
    * future modal-restriction cards.
    */
   readonly activeConstraints: readonly ActiveConstraint[];
+  /**
+   * Deferred site-targeting effects from short-events that have already
+   * been discarded (e.g. *River*). Scanned by `fireCompanyArrivesAtSite`
+   * alongside `cardsInPlay`; swept at turn end.
+   */
+  readonly pendingSiteEffects: readonly PendingSiteEffect[];
   /** Deterministic RNG state for reproducible dice rolls and shuffles. */
   readonly rng: RngState;
   /** Monotonically increasing sequence number for state changes, used for log replay. */

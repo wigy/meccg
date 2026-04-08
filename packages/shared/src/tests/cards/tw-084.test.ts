@@ -2,7 +2,7 @@
  * @module tw-084.test
  *
  * Card test: River (tw-84)
- * Type: hazard-event (permanent, site-targeting)
+ * Type: hazard-event (short, site-targeting)
  * Effects: 2 (play-target site, on-event company-arrives-at-site → add-constraint
  *             site-phase-do-nothing-unless-ranger-taps scope:company-site-phase)
  *
@@ -20,7 +20,8 @@
  * | 5 | Constraint clears at company-site-end    | IMPLEMENTED | sweepExpired in advanceSiteToNextCompany |
  * | 6 | Non-ranger characters cannot cancel      | IMPLEMENTED | constraint filter checks Skill.Ranger  |
  * | 7 | Tapped ranger cannot cancel              | IMPLEMENTED | constraint filter checks CardStatus    |
- * | 8 | Each River counts vs a particular site   | IMPLEMENTED | CardInPlay.attachedToSite filter in M/H |
+ * | 8 | Each River counts vs a particular site   | IMPLEMENTED | PendingSiteEffect filter in M/H         |
+ * | 9 | River goes to discard after resolution   | IMPLEMENTED | short-event → discard + PendingSiteEffect |
  *
  * Certified: 2026-04-08
  */
@@ -50,7 +51,7 @@ describe('River (tw-84)', () => {
     const def = pool[RIVER as string] as HazardEventCard;
     expect(def).toBeDefined();
     expect(def.cardType).toBe('hazard-event');
-    expect(def.eventType).toBe('permanent');
+    expect(def.eventType).toBe('short');
 
     const playTarget = def.effects?.find(e => e.type === 'play-target');
     expect(playTarget).toBeDefined();
@@ -333,11 +334,11 @@ describe('River (tw-84)', () => {
     expect(riverPlay!.targetSiteDefinitionId).toBe(MORIA);
   });
 
-  test('playing River through reduce attaches it to the targeted site in cardsInPlay', () => {
+  test('playing River through reduce discards it and registers a pending site effect', () => {
     // Build M/H state with a moving company so the play-hazard action
     // is legal, then play River through reduce() and resolve the chain.
-    // The card should land in P2's cardsInPlay with attachedToSite
-    // pointing at Moria's definition ID.
+    // As a short-event, the card should go to P2's discard pile and
+    // register a PendingSiteEffect for Moria.
     const base = buildTestState({
       activePlayer: PLAYER_1,
       phase: Phase.MovementHazard,
@@ -379,6 +380,10 @@ describe('River (tw-84)', () => {
     expect(playResult.error).toBeUndefined();
     expect(playResult.state.chain).not.toBeNull();
 
+    // River should already be in discard (short events go there on play)
+    const riverInDiscard = playResult.state.players[1].discardPile.find(c => c.instanceId === riverInstance);
+    expect(riverInDiscard).toBeDefined();
+
     // Resolve the chain (both players pass priority).
     let current = playResult.state;
     for (let i = 0; i < 10 && current.chain !== null; i++) {
@@ -388,18 +393,20 @@ describe('River (tw-84)', () => {
     }
     expect(current.chain).toBeNull();
 
-    // River is now in P2's cardsInPlay with attachedToSite set to Moria.
+    // River is NOT in cardsInPlay (it's a short event).
     const riverInPlay = current.players[1].cardsInPlay.find(c => c.instanceId === riverInstance);
-    expect(riverInPlay).toBeDefined();
-    expect(riverInPlay!.definitionId).toBe(RIVER);
-    expect(riverInPlay!.attachedToSite).toBe(MORIA);
+    expect(riverInPlay).toBeUndefined();
+
+    // A pending site effect was registered for Moria.
+    expect(current.pendingSiteEffects).toHaveLength(1);
+    expect(current.pendingSiteEffects[0].sourceInstanceId).toBe(riverInstance);
+    expect(current.pendingSiteEffects[0].sourceDefinitionId).toBe(RIVER);
+    expect(current.pendingSiteEffects[0].targetSiteDefinitionId).toBe(MORIA);
   });
 
   test('two Rivers on different sites only fire when their bound site is the arrival', () => {
-    // Place two River instances in P2's cardsInPlay, one bound to Moria
-    // and one bound to Lorien. Drive the engine through fireing the
-    // company-arrives-at-site hook for each site and assert that only
-    // the matching River produces a constraint.
+    // Place two River pending site effects, one bound to Moria and one
+    // to Lorien. Verify that the filter matches only the correct site.
     const base = buildTestState({
       activePlayer: PLAYER_1,
       phase: Phase.MovementHazard,
@@ -413,32 +420,23 @@ describe('River (tw-84)', () => {
     const riverLorienInstance = mint();
     const stateWithRivers = {
       ...base,
-      players: [
-        base.players[0],
-        {
-          ...base.players[1],
-          cardsInPlay: [
-            { instanceId: riverMoriaInstance, definitionId: RIVER, status: CardStatus.Untapped, attachedToSite: MORIA },
-            { instanceId: riverLorienInstance, definitionId: RIVER, status: CardStatus.Untapped, attachedToSite: LORIEN },
-          ],
-        },
-      ] as typeof base.players,
+      pendingSiteEffects: [
+        { sourceInstanceId: riverMoriaInstance, sourceDefinitionId: RIVER, targetSiteDefinitionId: MORIA },
+        { sourceInstanceId: riverLorienInstance, sourceDefinitionId: RIVER, targetSiteDefinitionId: LORIEN },
+      ],
     };
 
-    // We can't easily drive the M/H reducer through a full move here
-    // (that requires a fully-set-up M/H state machine), so exercise
-    // the same logic directly: scan cardsInPlay for cards whose
-    // attachedToSite matches the arrival site definition.
-    const moriaArrival = stateWithRivers.players[1].cardsInPlay.filter(c => !c.attachedToSite || c.attachedToSite === MORIA);
+    // Verify that pending site effects filter correctly by site.
+    const moriaArrival = stateWithRivers.pendingSiteEffects.filter(e => e.targetSiteDefinitionId === MORIA);
     expect(moriaArrival).toHaveLength(1);
-    expect(moriaArrival[0].instanceId).toBe(riverMoriaInstance);
+    expect(moriaArrival[0].sourceInstanceId).toBe(riverMoriaInstance);
 
-    const lorienArrival = stateWithRivers.players[1].cardsInPlay.filter(c => !c.attachedToSite || c.attachedToSite === LORIEN);
+    const lorienArrival = stateWithRivers.pendingSiteEffects.filter(e => e.targetSiteDefinitionId === LORIEN);
     expect(lorienArrival).toHaveLength(1);
-    expect(lorienArrival[0].instanceId).toBe(riverLorienInstance);
+    expect(lorienArrival[0].sourceInstanceId).toBe(riverLorienInstance);
 
     // A site that has no River should not match either entry.
-    const minasTirithArrival = stateWithRivers.players[1].cardsInPlay.filter(c => !c.attachedToSite || c.attachedToSite === MINAS_TIRITH);
+    const minasTirithArrival = stateWithRivers.pendingSiteEffects.filter(e => e.targetSiteDefinitionId === MINAS_TIRITH);
     expect(minasTirithArrival).toHaveLength(0);
   });
 });

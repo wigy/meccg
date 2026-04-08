@@ -179,7 +179,7 @@ export const LOST_IN_FREE_DOMAINS = did('tw-53');
  */
 export const STEALTH = did('tw-332');
 /**
- * River — hazard permanent-event playable on a site. A company moving
+ * River — hazard short-event playable on a site. A company moving
  * to that site this turn must do nothing during its site phase. A
  * ranger in the affected company may tap to cancel the effect (only at
  * the very start of the company's site phase, per CRF 22).
