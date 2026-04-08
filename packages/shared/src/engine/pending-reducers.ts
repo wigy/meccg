@@ -25,6 +25,7 @@ import { resolveInstanceId } from '../types/state.js';
 import { roll2d6, clonePlayers, cleanupEmptyCompanies } from './reducer-utils.js';
 import { logDetail } from './legal-actions/log.js';
 import {
+  resolveInfluenceAttemptRoll,
   resolveOpponentInfluenceDefend,
   applyOnGuardRevealAtResource,
   executeDeferredSiteAction,
@@ -55,6 +56,8 @@ export function applyResolution(
       return applyOnGuardWindowResolution(state, action, top);
     case 'opponent-influence-defend':
       return applyOpponentInfluenceDefendResolution(state, action, top);
+    case 'faction-influence-roll':
+      return applyFactionInfluenceRollResolution(state, action, top);
   }
 }
 
@@ -339,5 +342,46 @@ function applyOpponentInfluenceDefendResolution(
   return {
     state: dequeueResolution(result.state, top.id),
     effects: result.effects,
+  };
+}
+
+/**
+ * Resolve a queued `faction-influence-roll` resolution. The resource
+ * player confirms the roll, the engine computes the dice result against
+ * the faction's influence number (with all post-chain modifiers), and
+ * the faction is placed in cardsInPlay (success) or discard (failure).
+ *
+ * The actual roll-and-resolve logic lives in
+ * `reducer-site.ts:resolveInfluenceAttemptRoll`.
+ */
+function applyFactionInfluenceRollResolution(
+  state: GameState,
+  action: GameAction,
+  top: PendingResolution,
+): ReducerResult | null {
+  if (action.type !== 'faction-influence-roll') {
+    return { state, error: `Pending faction-influence-roll requires that action, got '${action.type}'` };
+  }
+  if (top.kind.type !== 'faction-influence-roll') return null;
+
+  if (action.player !== top.actor) {
+    return { state, error: 'Wrong player for pending faction-influence-roll' };
+  }
+
+  // Reconstruct the chain-entry shape that resolveInfluenceAttemptRoll expects
+  const entry = {
+    card: { instanceId: top.kind.factionInstanceId, definitionId: top.kind.factionDefinitionId },
+    declaredBy: top.actor,
+    payload: {
+      type: 'influence-attempt' as const,
+      influencingCharacterId: top.kind.influencingCharacterId,
+    },
+  };
+
+  const rollResult = resolveInfluenceAttemptRoll(state, entry);
+
+  return {
+    state: dequeueResolution(rollResult.state, top.id),
+    effects: rollResult.effects,
   };
 }

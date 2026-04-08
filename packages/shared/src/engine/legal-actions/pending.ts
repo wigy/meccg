@@ -27,9 +27,10 @@ import type {
   CardInstanceId,
   CompanyId,
 } from '../../index.js';
-import { isCharacterCard, Phase, Skill, CardStatus } from '../../index.js';
+import { isCharacterCard, isFactionCard, Phase, Skill, CardStatus, matchesCondition } from '../../index.js';
 import { resolveInstanceId } from '../../types/state.js';
-import { resolveDef } from '../effects/index.js';
+import { resolveDef, collectCharacterEffects, resolveCheckModifier, resolveStatModifiers } from '../effects/index.js';
+import type { ResolverContext } from '../effects/index.js';
 import { logDetail } from './log.js';
 
 /** Wrap plain GameActions as viable EvaluatedActions. */
@@ -57,6 +58,8 @@ export function resolutionLegalActions(
       return onGuardWindowActions(state, actor, top);
     case 'opponent-influence-defend':
       return opponentInfluenceDefendActions(actor);
+    case 'faction-influence-roll':
+      return factionInfluenceRollActions(state, actor, top);
   }
 }
 
@@ -146,6 +149,98 @@ function onGuardWindowActions(
 function opponentInfluenceDefendActions(actor: PlayerId): EvaluatedAction[] {
   return [{
     action: { type: 'opponent-influence-defend', player: actor },
+    viable: true,
+  }];
+}
+
+/**
+ * Compute the single faction-influence-roll action that resolves a queued
+ * `faction-influence-roll` resolution. Calculates all modifiers from the
+ * current game state (post-chain) so the UI can display a full breakdown
+ * before the player commits to rolling.
+ */
+function factionInfluenceRollActions(
+  state: GameState,
+  playerId: PlayerId,
+  top: PendingResolution,
+): EvaluatedAction[] {
+  if (top.kind.type !== 'faction-influence-roll') return [];
+  const { factionInstanceId, factionDefinitionId, influencingCharacterId } = top.kind;
+
+  const actorIndex = state.players.findIndex(p => p.id === playerId);
+  if (actorIndex === -1) return [];
+  const player = state.players[actorIndex];
+
+  const def = state.cardPool[factionDefinitionId as string];
+  if (!def || !isFactionCard(def)) return [];
+
+  const charInPlay = player.characters[influencingCharacterId as string];
+  if (!charInPlay) return [];
+
+  const charDef = state.cardPool[charInPlay.definitionId as string];
+  const charName = isCharacterCard(charDef) ? charDef.name : '?';
+  const factionName = def.name;
+
+  // Calculate influence modifier using current state (post-chain effects)
+  let modifier = 0;
+  const parts: string[] = [];
+
+  if (charDef && isCharacterCard(charDef)) {
+    modifier += charDef.directInfluence;
+    parts.push(`DI ${charDef.directInfluence}`);
+
+    const resolverCtx: ResolverContext = {
+      reason: 'faction-influence-check',
+      bearer: {
+        race: charDef.race,
+        skills: charDef.skills,
+        baseProwess: charDef.prowess,
+        baseBody: charDef.body,
+        baseDirectInfluence: charDef.directInfluence,
+        name: charDef.name,
+      },
+      faction: {
+        name: def.name,
+        race: def.race,
+      },
+    };
+
+    const charEffects = collectCharacterEffects(state, charInPlay, resolverCtx);
+
+    if (def.effects) {
+      for (const effect of def.effects) {
+        if (effect.when && !matchesCondition(effect.when, resolverCtx as unknown as Record<string, unknown>)) continue;
+        charEffects.push({ effect, sourceDef: def });
+      }
+    }
+
+    const dslModifier = resolveCheckModifier(charEffects, 'influence');
+    if (dslModifier !== 0) {
+      modifier += dslModifier;
+      parts.push(`check mod ${dslModifier >= 0 ? '+' : ''}${dslModifier}`);
+    }
+
+    const dslDI = resolveStatModifiers(charEffects, 'direct-influence', 0, resolverCtx);
+    if (dslDI !== 0) {
+      modifier += dslDI;
+      parts.push(`DI mod ${dslDI >= 0 ? '+' : ''}${dslDI}`);
+    }
+  }
+
+  const influenceNumber = def.influenceNumber;
+  const need = influenceNumber - modifier;
+  const modStr = parts.length > 0 ? ` (${parts.join(', ')})` : '';
+  logDetail(`Pending faction-influence-roll for ${factionName} by ${charName}: need 2d6 >= ${need}${modStr}`);
+
+  return [{
+    action: {
+      type: 'faction-influence-roll' as const,
+      player: playerId,
+      factionInstanceId,
+      influencingCharacterId,
+      need,
+      explanation: `${charName} influences ${factionName}: need roll >= ${need} (influence # ${influenceNumber}, modifier ${modifier >= 0 ? '+' : ''}${modifier}${modStr})`,
+    },
     viable: true,
   }];
 }

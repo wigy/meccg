@@ -582,9 +582,27 @@ case "$TOPIC" in
       CREDITS_REASON="Certification: ${CARD_NAME:-${CARD_ID:-unknown}}"
     fi
     ;;
-  feature-planning-request)       CREDITS_REASON="Feature planning: $SUBJECT" ;;
-  feature-implementation-request) CREDITS_REASON="Feature implementation: $SUBJECT" ;;
-  bug-report)                     CREDITS_REASON="Bug report: $SUBJECT" ;;
+  feature-planning-request)
+    # Subject arrives as "Plan Feature: Feature Request: <brief>" — strip the
+    # nested prefixes so the credit reason isn't double/triple-labelled.
+    CLEAN_SUBJECT="$SUBJECT"
+    CLEAN_SUBJECT="${CLEAN_SUBJECT#Plan Feature: }"
+    CLEAN_SUBJECT="${CLEAN_SUBJECT#Feature Request: }"
+    CREDITS_REASON="Feature planning: $CLEAN_SUBJECT"
+    ;;
+  feature-implementation-request)
+    # Subject arrives as "Implement: Plan Feature: Feature Request: <brief>".
+    CLEAN_SUBJECT="$SUBJECT"
+    CLEAN_SUBJECT="${CLEAN_SUBJECT#Implement: }"
+    CLEAN_SUBJECT="${CLEAN_SUBJECT#Plan Feature: }"
+    CLEAN_SUBJECT="${CLEAN_SUBJECT#Feature Request: }"
+    CREDITS_REASON="Feature implementation: $CLEAN_SUBJECT"
+    ;;
+  bug-report)
+    # Subject arrives as "Bug Report: <brief>".
+    CLEAN_SUBJECT="${SUBJECT#Bug Report: }"
+    CREDITS_REASON="Bug report: $CLEAN_SUBJECT"
+    ;;
   *)                              CREDITS_REASON="$TOPIC: $SUBJECT" ;;
 esac
 

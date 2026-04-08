@@ -179,6 +179,28 @@ export interface OpponentInfluenceDefendAction {
 }
 
 /**
+ * Execute the dice roll for a faction influence attempt.
+ *
+ * Created by the pending-resolution system after the chain of effects
+ * has fully resolved. The game pauses so the UI can display a situation
+ * banner with the target number, DI, and all modifiers before the player
+ * commits to rolling.
+ */
+export interface FactionInfluenceRollAction {
+  readonly type: 'faction-influence-roll';
+  /** The resource player rolling. */
+  readonly player: PlayerId;
+  /** The faction card being influenced. */
+  readonly factionInstanceId: CardInstanceId;
+  /** The character making the influence roll. */
+  readonly influencingCharacterId: CardInstanceId;
+  /** The 2d6 value needed for success (roll + modifiers >= influence #). */
+  readonly need: number;
+  /** Human-readable breakdown of the target number, DI, and bonuses. */
+  readonly explanation: string;
+}
+
+/**
  * Play a minor item on a character without requiring a specific site type.
  *
  * Minor items have relaxed play conditions compared to major/greater items.

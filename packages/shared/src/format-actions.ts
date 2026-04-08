@@ -280,6 +280,8 @@ export function describeAction(
       return `Finished`;
     case 'activate-granted-action':
       return `Activate ${action.actionId} on ${instName(action.sourceCardId)} (${instName(action.characterId)} taps)`;
+    case 'faction-influence-roll':
+      return `Roll influence: ${action.explanation}`;
     default: {
       const _exhaustive: never = action;
       return `Unknown action`;

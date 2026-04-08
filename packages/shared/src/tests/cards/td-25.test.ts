@@ -37,7 +37,7 @@ import {
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH, DOL_AMROTH,
   viableActions, CardStatus,
 } from '../test-helpers.js';
-import type { PlayHazardAction, InfluenceAttemptAction, ActivateGrantedAction } from '../../index.js';
+import type { PlayHazardAction, InfluenceAttemptAction, FactionInfluenceRollAction, ActivateGrantedAction } from '../../index.js';
 import { computeLegalActions } from '../../engine/legal-actions/index.js';
 
 // ─── Tests ───────────────────────────────────────────────────────────────────
@@ -304,19 +304,10 @@ describe('Foolish Words (td-25)', () => {
     }
     expect(current.chain).toBeNull();
 
-    // Pending influence attempt now executes — check the need increased by 4
-    const influenceAfterFW = viableActions(current, PLAYER_1, 'influence-attempt');
-    if (influenceAfterFW.length > 0) {
-      const needAfter = (influenceAfterFW[0].action as InfluenceAttemptAction).need;
-      expect(needAfter).toBe(needBefore + 4);
-    } else {
-      // Pending action auto-executes on pass — the site should be tapped
-      const passResult = reduce(current, { type: 'pass', player: PLAYER_1 });
-      expect(passResult.error).toBeUndefined();
-      // Foolish Words should be attached to Aragorn
-      const aragornId = current.players[0].companies[0].characters[0];
-      const aragorn = passResult.state.players[0].characters[aragornId as string];
-      expect(aragorn.hazards.some(h => h.definitionId === FOOLISH_WORDS)).toBe(true);
-    }
+    // Pending faction-influence-roll resolution — check the need increased by 4
+    const rollActions = viableActions(current, PLAYER_1, 'faction-influence-roll');
+    expect(rollActions.length).toBe(1);
+    const needAfter = (rollActions[0].action as FactionInfluenceRollAction).need;
+    expect(needAfter).toBe(needBefore + 4);
   });
 });

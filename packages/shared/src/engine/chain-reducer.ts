@@ -20,8 +20,8 @@ import { discardCardsInPlay } from './reducer.js';
 import type { ReducerResult } from './reducer.js';
 import { resolveAttackProwess, resolveAttackStrikes } from './effects/index.js';
 import { buildInPlayNames } from './recompute-derived.js';
-import { resolveInfluenceAttemptRoll } from './reducer-site.js';
-import { addConstraint } from './pending.js';
+import { addConstraint, enqueueResolution } from './pending.js';
+import { Phase } from '../index.js';
 
 /**
  * Returns the opponent of the given player in a two-player game.
@@ -726,12 +726,21 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
     current = resolveLongEvent(current, entry);
   }
 
-  // Influence attempt: roll using current state (post-on-guard effects)
-  let entryEffects: readonly import('../index.js').GameEffect[] | undefined = undefined;
+  // Influence attempt: enqueue a pending resolution so the UI can display
+  // the situation banner (target number, DI, modifiers) before the roll.
   if (entry.payload.type === 'influence-attempt' && !entry.negated && entry.card) {
-    const rollResult = resolveInfluenceAttemptRoll(current, entry as ChainEntry & { payload: { type: 'influence-attempt'; influencingCharacterId: CardInstanceId } });
-    current = rollResult.state;
-    entryEffects = rollResult.effects;
+    logDetail(`Enqueuing faction-influence-roll pending resolution for ${entry.card.definitionId as string}`);
+    current = enqueueResolution(current, {
+      source: entry.card.instanceId,
+      actor: entry.declaredBy,
+      scope: { kind: 'phase-step', phase: Phase.Site, step: 'play-resources' },
+      kind: {
+        type: 'faction-influence-roll',
+        factionInstanceId: entry.card.instanceId,
+        factionDefinitionId: entry.card.definitionId,
+        influencingCharacterId: entry.payload.influencingCharacterId,
+      },
+    });
   }
 
   // Mark entry as resolved
@@ -759,7 +768,6 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
   return {
     state: { ...current, chain: newChain },
     needsInput: false,
-    ...(entryEffects ? { effects: entryEffects } : {}),
   };
 }
 
