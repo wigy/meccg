@@ -1,16 +1,23 @@
 #!/usr/bin/env bash
-# List unhandled requests in the AI inbox (status: new, topic: *-request)
+# List unhandled requests in the ai and admin inboxes
+# (status: new, topic: *-request or bug-report).
+#
+# Feature-requests go to the admin inbox; everything else (certification,
+# card, planning, implementation, bug-report) goes to the ai inbox. Both
+# are scanned so all unhandled requests appear in one place.
 set -euo pipefail
 
-INBOX_DIR="$HOME/.meccg/players/ai/mail/inbox"
-
-if [ ! -d "$INBOX_DIR" ]; then
-  echo "No inbox directory found at $INBOX_DIR" >&2
-  exit 1
-fi
+INBOX_DIRS=(
+  "$HOME/.meccg/players/ai/mail/inbox"
+  "$HOME/.meccg/players/admin/mail/inbox"
+)
 
 shopt -s nullglob
-files=("$INBOX_DIR"/*.json)
+files=()
+for dir in "${INBOX_DIRS[@]}"; do
+  [ -d "$dir" ] || continue
+  files+=("$dir"/*.json)
+done
 shopt -u nullglob
 
 if [ ${#files[@]} -eq 0 ]; then
