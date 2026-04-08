@@ -175,6 +175,12 @@ export const STEALTH = did('tw-332');
  * the very start of the company's site phase, per CRF 22).
  */
 export const RIVER = did('tw-84');
+/** LE printing of Lure of the Senses (mirror of TW-60). */
+export const LURE_OF_THE_SENSES_LE = did('le-124');
+/** LE printing of Lost in Free-domains (mirror of TW-53). */
+export const LOST_IN_FREE_DOMAINS_LE = did('le-119');
+/** LE printing of River (mirror of TW-84). */
+export const RIVER_LE = did('le-134');
 
 // ---- Sites ----
 

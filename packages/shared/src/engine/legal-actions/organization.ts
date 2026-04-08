@@ -136,6 +136,30 @@ export function organizationActions(state: GameState, playerId: PlayerId): Evalu
     return fetchFromSideboardActions(state, playerId);
   }
 
+  // End-of-organization play window: only short-events explicitly tagged as
+  // end-of-org plays (e.g. Stealth) are legal here, plus `pass` to advance
+  // to the Long-event phase. The active player has already taken their
+  // normal organization actions.
+  if (orgState.step === 'end-of-org') {
+    logHeading(`Organization: end-of-org window — only end-of-org plays + pass are legal`);
+    const endActions: EvaluatedAction[] = [];
+    for (const handCard of player.hand) {
+      const def = state.cardPool[handCard.definitionId as string];
+      if (!def || def.cardType !== 'hero-resource-event') continue;
+      const playWindow = def.effects?.find(
+        e => e.type === 'play-window' && (e as { phase?: string; step?: string }).phase === 'organization' && (e as { phase?: string; step?: string }).step === 'end-of-org',
+      );
+      if (!playWindow) continue;
+      logDetail(`End-of-org: ${def.name} (${handCard.instanceId as string}) is a registered end-of-org play`);
+      endActions.push({
+        action: { type: 'play-short-event', player: playerId, cardInstanceId: handCard.instanceId },
+        viable: true,
+      });
+    }
+    endActions.push({ action: { type: 'pass', player: playerId }, viable: true });
+    return endActions;
+  }
+
   const actions: EvaluatedAction[] = [];
 
   // Cancel movement for companies with planned destinations
@@ -192,6 +216,12 @@ export function organizationActions(state: GameState, playerId: PlayerId): Evalu
     const def = state.cardPool[handCard.definitionId as string] as HeroResourceEventCard | undefined;
     if (!def || def.cardType !== 'hero-resource-event' || def.eventType !== 'short') continue;
     if (evaluatedInstances.has(handCard.instanceId as string)) continue;
+    // Skip cards that declare a play-window restricting them to a
+    // different sub-step (e.g. Stealth plays only at end-of-org).
+    const playWindow = def.effects?.find(e => e.type === 'play-window') as { phase?: string; step?: string } | undefined;
+    if (playWindow && (playWindow.phase !== 'organization' || playWindow.step !== 'play-actions')) {
+      continue;
+    }
     resourceShortEventInstances.add(handCard.instanceId as string);
     logDetail(`Resource short-event playable: ${def.name} (${handCard.instanceId as string})`);
     actions.push({

@@ -498,6 +498,11 @@
     "marshallingCategory": "misc",
     "effects": [
       {
+        "type": "play-window",
+        "phase": "organization",
+        "step": "end-of-org"
+      },
+      {
         "type": "play-target",
         "target": "own-scout"
       },

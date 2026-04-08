@@ -12,6 +12,58 @@
   },
   {
     "cardType": "hazard-event",
+    "id": "le-119",
+    "name": "Lost in Free-domains",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/LostinFreedomains.jpg",
+    "unique": false,
+    "eventType": "permanent",
+    "effects": [
+      {
+        "type": "play-target",
+        "target": "company"
+      },
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "apply": {
+          "type": "add-constraint",
+          "constraint": "site-phase-do-nothing",
+          "scope": "company-site-phase"
+        },
+        "target": "target-company"
+      }
+    ],
+    "text": "Playable on a company moving with a Free-domain in its site path. The company may do nothing during its site phase.",
+    "certified": "2026-04-08"
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "le-134",
+    "name": "River",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/River.jpg",
+    "unique": false,
+    "eventType": "permanent",
+    "effects": [
+      {
+        "type": "play-target",
+        "target": "site"
+      },
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "apply": {
+          "type": "add-constraint",
+          "constraint": "site-phase-do-nothing-unless-ranger-taps",
+          "scope": "company-site-phase"
+        },
+        "target": "arriving-company"
+      }
+    ],
+    "text": "Playable on a site. A company moving to this site this turn must do nothing during its site phase. A ranger in such a company may tap to cancel this effect, even at the start of his company's site phase.",
+    "certified": "2026-04-08"
+  },
+  {
+    "cardType": "hazard-event",
     "id": "le-145",
     "name": "Twilight",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/Twilight.jpg",

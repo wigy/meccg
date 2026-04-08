@@ -321,6 +321,23 @@ export interface DuplicationLimitEffect extends EffectBase {
 }
 
 /**
+ * Restricts the timing window when a card may be played. The engine
+ * uses this to gate the card out of normal play menus until the
+ * matching window opens.
+ *
+ * Examples:
+ * - Stealth: `{ phase: 'organization', step: 'end-of-org' }` — only
+ *   playable during the end-of-organization window.
+ */
+export interface PlayWindowEffect extends EffectBase {
+  readonly type: 'play-window';
+  /** The phase in which this card may be played. */
+  readonly phase: string;
+  /** The sub-step within the phase. */
+  readonly step: string;
+}
+
+/**
  * Declares what this card targets when played. The engine uses this to
  * generate per-target actions (e.g. one per eligible character).
  */
@@ -396,6 +413,7 @@ export type CardEffect =
   | PlayRestrictionEffect
   | DuplicationLimitEffect
   | PlayTargetEffect
+  | PlayWindowEffect
   | OnGuardRevealEffect
   | FetchToDeckEffect
   | SiteRuleEffect;

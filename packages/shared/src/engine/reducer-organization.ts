@@ -33,7 +33,21 @@ export function handleOrganization(state: GameState, action: GameAction): Reduce
       };
     }
 
-    logDetail(`Organization: player ${action.player as string} passed → advancing to Long-event phase`);
+    // First pass: transition into the end-of-org window so cards
+    // explicitly tagged as end-of-organization plays (e.g. Stealth)
+    // can fire one more time before the Long-event phase opens.
+    if (orgState.step !== 'end-of-org') {
+      logDetail(`Organization: player ${action.player as string} passed → entering end-of-org window`);
+      return {
+        state: {
+          ...state,
+          phaseState: { ...orgState, step: 'end-of-org' as const },
+        },
+      };
+    }
+
+    // Second pass (already in end-of-org): advance to Long-event phase.
+    logDetail(`Organization: player ${action.player as string} passed end-of-org → advancing to Long-event phase`);
 
     // [2.III.1] At beginning of long-event phase: resource player discards own resource long-events
     const activePlayer = state.activePlayer!;

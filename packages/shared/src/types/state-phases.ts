@@ -198,6 +198,21 @@ export interface OrganizationPhaseState {
    * Null if no sideboard access has occurred this turn.
    */
   readonly sideboardFetchDestination: 'discard' | 'deck' | null;
+  /**
+   * The active sub-step within the organization phase.
+   *
+   * - `'play-actions'` (default): the active player is taking their
+   *   normal organization actions (play character, transfer item,
+   *   plan movement, etc.).
+   * - `'end-of-org'`: the active player has finished their normal
+   *   actions and the engine has opened a window for short-events
+   *   that are explicitly tagged as end-of-organization plays
+   *   (e.g. *Stealth*). Passing during this step advances to the
+   *   Long-event phase.
+   *
+   * Older callers may omit this field; it defaults to `'play-actions'`.
+   */
+  readonly step?: 'play-actions' | 'end-of-org';
 }
 
 /**
