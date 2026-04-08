@@ -396,6 +396,21 @@ export interface FetchToDeckEffect extends EffectBase {
 }
 
 /**
+ * Cancels an entire attack against the company by tapping a character
+ * with the required skill. Playable only during combat before strikes
+ * are assigned.
+ *
+ * Example: Concealment — tap a scout to cancel one attack against his company.
+ */
+export interface CancelAttackEffect extends EffectBase {
+  readonly type: 'cancel-attack';
+  /** The cost to cancel the attack. */
+  readonly cost: ActionCost;
+  /** The skill required on the character who pays the cost. */
+  readonly requiredSkill: string;
+}
+
+/**
  * Discriminated union of all card effect types.
  * The `type` field serves as the discriminant for type narrowing.
  */
@@ -409,6 +424,7 @@ export type CardEffect =
   | GrantActionEffect
   | OnEventEffect
   | CancelStrikeEffect
+  | CancelAttackEffect
   | CombatRuleEffect
   | PlayRestrictionEffect
   | DuplicationLimitEffect

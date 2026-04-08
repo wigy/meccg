@@ -38,6 +38,8 @@ export function handleCombatAction(state: GameState, action: GameAction): Reduce
       return handleSupportStrike(state, action, combat);
     case 'body-check-roll':
       return handleBodyCheckRoll(state, action, combat);
+    case 'cancel-attack':
+      return handleCancelAttack(state, action, combat);
     default:
       return { state, error: `Unexpected action '${action.type}' during combat` };
   }
@@ -451,6 +453,74 @@ function handleBodyCheckRoll(state: GameState, action: GameAction, combat: Comba
   }
 
   return { state, error: 'Invalid body check target' };
+}
+
+/**
+ * Cancel an entire attack by tapping a scout and discarding a cancel-attack
+ * card from hand. Only allowed during the assign-strikes phase before any
+ * strikes have been assigned.
+ */
+function handleCancelAttack(state: GameState, action: GameAction, combat: CombatState): ReducerResult {
+  if (action.type !== 'cancel-attack') return { state, error: 'Expected cancel-attack' };
+  if (combat.phase !== 'assign-strikes') return { state, error: 'Can only cancel attack before strikes are assigned' };
+  if (combat.strikeAssignments.length > 0) return { state, error: 'Strikes already assigned — too late to cancel' };
+  if (action.player !== combat.defendingPlayerId) return { state, error: 'Only defending player can cancel an attack' };
+
+  const defPlayerIndex = state.players.findIndex(p => p.id === action.player);
+  const defPlayer = state.players[defPlayerIndex];
+
+  // Validate the card is in hand
+  const cardIndex = defPlayer.hand.findIndex(c => c.instanceId === action.cardInstanceId);
+  if (cardIndex < 0) return { state, error: 'Card not in hand' };
+
+  // Validate the scout is in the defending company and untapped
+  const company = defPlayer.companies.find(c => c.id === combat.companyId);
+  if (!company || !company.characters.includes(action.scoutInstanceId)) {
+    return { state, error: 'Scout not in defending company' };
+  }
+  const scoutData = defPlayer.characters[action.scoutInstanceId as string];
+  if (!scoutData || scoutData.status !== CardStatus.Untapped) {
+    return { state, error: 'Scout must be untapped' };
+  }
+
+  logDetail(`Attack canceled: ${defPlayer.hand[cardIndex].definitionId as string} played, tapping ${scoutData.definitionId as string}`);
+
+  // Tap the scout
+  const newPlayers = clonePlayers(state);
+  const newCharacters = { ...defPlayer.characters };
+  newCharacters[action.scoutInstanceId as string] = { ...scoutData, status: CardStatus.Tapped };
+
+  // Move card from hand to discard
+  const newHand = [...defPlayer.hand];
+  const [discardedCard] = newHand.splice(cardIndex, 1);
+  const newDiscard = [...defPlayer.discardPile, { instanceId: discardedCard.instanceId, definitionId: discardedCard.definitionId }];
+
+  newPlayers[defPlayerIndex] = {
+    ...defPlayer,
+    characters: newCharacters,
+    hand: newHand,
+    discardPile: newDiscard,
+  };
+
+  // If this was a creature attack, move creature card from attacker's cardsInPlay to discard
+  const atkIdx = state.players.findIndex(p => p.id === combat.attackingPlayerId);
+  const creatureInstanceId =
+    combat.attackSource.type === 'creature' ? combat.attackSource.instanceId
+      : combat.attackSource.type === 'on-guard-creature' ? combat.attackSource.cardInstanceId
+        : null;
+  if (creatureInstanceId) {
+    const creatureInPlay = newPlayers[atkIdx].cardsInPlay.find(c => c.instanceId === creatureInstanceId);
+    if (creatureInPlay) {
+      newPlayers[atkIdx] = {
+        ...newPlayers[atkIdx],
+        cardsInPlay: newPlayers[atkIdx].cardsInPlay.filter(c => c.instanceId !== creatureInstanceId),
+        discardPile: [...newPlayers[atkIdx].discardPile, { instanceId: creatureInPlay.instanceId, definitionId: creatureInPlay.definitionId }],
+      };
+    }
+  }
+
+  logDetail('Combat canceled — returning to enclosing phase');
+  return { state: { ...state, players: newPlayers, combat: null } };
 }
 
 /**

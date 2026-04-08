@@ -178,7 +178,19 @@ The engine carries two top-level lists alongside `phaseState`:
 
 Both lists are owned by `engine/pending.ts`; reducers and on-event handlers must go through the helpers (`enqueueResolution`, `addConstraint`, `sweepExpired`, etc.) rather than touching the lists directly.
 
-### 9. `cancel-strike`
+### 9. `cancel-attack`
+
+Cancels an entire attack against a company by tapping a character with the
+required skill. Only playable during combat before strikes are assigned.
+The card is played from hand as part of the cancel action and discarded.
+
+```json
+{ "type": "cancel-attack",
+  "cost": { "tap": "character" },
+  "requiredSkill": "scout" }
+```
+
+### 10. `cancel-strike`
 
 Pay a cost to cancel an incoming strike, with optional exclusions.
 
@@ -190,7 +202,7 @@ Pay a cost to cancel an incoming strike, with optional exclusions.
   ] } } }
 ```
 
-### 10. `combat-rule`
+### 11. `combat-rule`
 
 Overrides a combat mechanic.
 
@@ -198,7 +210,7 @@ Overrides a combat mechanic.
 { "type": "combat-rule", "rule": "attacker-chooses-defenders" }
 ```
 
-### 11. `play-restriction`
+### 12. `play-restriction`
 
 Constrains when or where a card can enter play.
 
@@ -207,7 +219,7 @@ Constrains when or where a card can enter play.
   "when": { "$not": { "reason": "starting-character" } } }
 ```
 
-### 12. `duplication-limit`
+### 13. `duplication-limit`
 
 Caps how many copies of this card can be in a given scope.
 
@@ -215,7 +227,7 @@ Caps how many copies of this card can be in a given scope.
 { "type": "duplication-limit", "scope": "character", "max": 1 }
 ```
 
-### 13. `play-target`
+### 14. `play-target`
 
 Declares what this card targets when played. The engine uses this to
 generate per-target actions (one per eligible character, company, etc.).
@@ -228,7 +240,7 @@ Supported targets:
 
 - `character` — targets a single character in the company
 
-### 14. `on-guard-reveal`
+### 15. `on-guard-reveal`
 
 Declares when an on-guard card may be revealed during the site phase.
 The `trigger` field specifies the game event that allows the reveal.
@@ -244,7 +256,7 @@ Supported triggers:
 - `resource-play` — when the resource player plays any resource that
   taps the site (generic catch-all)
 
-### 15. `fetch-to-deck`
+### 16. `fetch-to-deck`
 
 Fetches a card from one or more source piles into the play deck and shuffles.
 Used by resource short events like Smoke Rings.
@@ -262,7 +274,7 @@ Sources: `sideboard`, `discard-pile`.
 
 The `filter` is a standard DSL condition evaluated against each card definition.
 
-### 16. `site-rule`
+### 17. `site-rule`
 
 Declares a site-specific rule that modifies standard game mechanics
 when a company is at this site.
