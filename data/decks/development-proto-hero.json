@@ -81,12 +81,12 @@
       {
         "name": "Cave-drake",
         "card": "tw-020",
-        "qty": 3
+        "qty": 2
       },
       {
         "name": "Barrow-wight",
         "card": "tw-015",
-        "qty": 3
+        "qty": 1
       },
       {
         "name": "Doors of Night",
@@ -102,6 +102,21 @@
         "name": "Foolish Words",
         "card": "td-25",
         "qty": 2
+      },
+      {
+        "name": "River",
+        "card": "tw-84",
+        "qty": 1
+      },
+      {
+        "name": "Lure of the Senses",
+        "card": "tw-60",
+        "qty": 2
+      },
+      {
+        "name": "Assassin",
+        "card": "tw-8",
+        "qty": 1
       }
     ],
     "resources": [
