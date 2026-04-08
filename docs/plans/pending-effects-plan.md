@@ -162,12 +162,29 @@ export interface ActiveConstraint {
         // River: company may do nothing during its site phase, but a
         // ranger in the company may tap to cancel.
         readonly type: 'site-phase-do-nothing-unless-ranger-taps';
+      }
+    | {
+        // Stealth: opponent may not play creature hazards on this
+        // company for the rest of this turn.
+        readonly type: 'no-creature-hazards-on-company';
       };
 }
 ```
 
 `ActiveConstraint.kind` is the only place new constraint types are
 added.
+
+**Cross-player constraints.** Lost in Free-domains and River filter
+the *owning* player's legal actions, but Stealth filters the
+*opponent's* (hazard player's) legal actions. The design already
+supports this: `applyConstraints(state, playerId, base)` walks every
+constraint whose `target` is in scope for `playerId`'s current
+decision — it does not require the constraint's `source` and the
+acting player to match. The constraint filter must therefore inspect
+the action being filtered, not the player, to decide whether a given
+constraint kind is relevant. (E.g. `no-creature-hazards-on-company`
+fires when `playerId` is computing hazard plays against the target
+company, regardless of whose company it is.)
 
 ### State changes
 
@@ -258,11 +275,19 @@ function resolutionLegalActions(state, actor, r): EvaluatedAction[] {
 For the two new constraint kinds:
 
 - `site-phase-do-nothing` — during the *enter-or-skip* step of the
-  affected company, drop every legal action except `do-nothing`.
+  affected company, drop every legal action except `pass` (the
+  engine action that "do nothing" maps to — see
+  `enterOrSkipActions` in `legal-actions/site.ts:158`).
 - `site-phase-do-nothing-unless-ranger-taps` — same as above, **plus**
   add a `tap-ranger-to-cancel-river` action for each untapped ranger
   in the company. Resolving that action removes the constraint and
-  returns the company to the normal `enter-or-skip` menu.
+  returns the company to the normal `enter-or-skip` menu (`enter-site`
+  + `pass`).
+- `no-creature-hazards-on-company` — when filtering hazard plays
+  during the M/H phase, drop every action whose card is a creature
+  *and* whose target company matches the constraint's target. Other
+  hazard categories (corruption, faction-affecting, etc.) and
+  creature plays against other companies are unaffected.
 
 ## Reducer integration
 
@@ -387,7 +412,7 @@ Tests in `packages/shared/src/tests/cards/tw-053.test.ts`:
 2. play succeeds and adds a constraint with kind
    `site-phase-do-nothing` targeting the company
 3. during the company's `enter-or-skip` step the only legal action is
-   `do-nothing`
+   `pass` (the `enter-site` option is removed)
 4. constraint auto-clears at end of the company's site sub-phase
 5. constraint does not affect *other* companies
 
@@ -421,7 +446,7 @@ available at the *very beginning* of the affected company's site
 phase — i.e. on the first action at the `enter-or-skip` step for that
 company, before any other action has been taken. After the first
 action, the cancellation window has closed and the company is locked
-into `do-nothing` for the rest of its site phase.
+into `pass` for the rest of its site phase.
 
 Implementation: the constraint filter only adds
 `tap-ranger-to-cancel-river` when **all** of the following hold:
@@ -443,12 +468,12 @@ Tests in `packages/shared/src/tests/cards/tw-084.test.ts`:
 
 1. play-target restricted to sites
 2. company arriving at the site has site-phase legal actions reduced
-   to `do-nothing` + `tap-ranger-to-cancel-river` (one per untapped
+   to `pass` + `tap-ranger-to-cancel-river` (one per untapped
    ranger) at the `enter-or-skip` step
 3. cancelling restores the normal site-phase menu and discards River
 4. company *not* arriving at the site is unaffected
 5. constraint clears at end of site phase even if not cancelled
-6. **CRF 22 timing:** if the active player chooses `do-nothing` first,
+6. **CRF 22 timing:** if the active player chooses `pass` first,
    the cancellation window is gone — re-entering the company's site
    phase (e.g. by some hypothetical effect) does not re-offer the
    ranger tap. (Validated by asserting the action is only legal as the
@@ -456,6 +481,78 @@ Tests in `packages/shared/src/tests/cards/tw-084.test.ts`:
 7. only untapped rangers in the affected company are valid cancellers
    — tapped rangers, rangers in other companies, and non-rangers are
    all rejected
+
+### TW-332 — Stealth (cross-player modal restriction)
+
+> *Scout only. Tap a scout to play at the end of the organization
+> phase only if the scout's company size is less than three. No
+> creature hazards may be played on his company this turn.*
+
+A Hero short-event resource. Played by the resource player on their
+own company; the resulting constraint then filters the *hazard*
+player's legal actions for the rest of the turn. This is the first
+constraint in the system that targets opponent action computation
+(see "Cross-player constraints" above).
+
+Effects (DSL):
+
+```json
+[
+  { "type": "play-window", "phase": "organization", "step": "end-of-org" },
+  { "type": "play-target", "target": "own-scout",
+    "when": { "company.size": { "lt": 3 } } },
+  { "type": "play-cost", "cost": { "tap": "target" } },
+  { "type": "on-event", "event": "self-enters-play",
+    "apply": { "type": "add-constraint",
+               "constraint": "no-creature-hazards-on-company",
+               "scope": "turn" },
+    "target": "scout-company" }
+]
+```
+
+Notes on plumbing:
+
+- The "end of organization phase" play-window is a new sub-step
+  inside Org. Today the Org phase ends abruptly when the active
+  player chooses to advance; the engine will need an explicit
+  `end-of-org` step where short-events with that timing are legal
+  before the transition to M/H. This is **not** pending-effects
+  related, but Stealth forces the issue and the step is added in
+  this PR alongside the cert.
+- `play-cost: tap target` extends the existing cost machinery — the
+  scout being targeted is also the scout being tapped. The
+  precondition `company.size < 3` is evaluated at play-time against
+  the target scout's company.
+- The `on-event: self-enters-play` handler routes through the same
+  `add-constraint` apply type used by Lost in Free-domains and
+  River. No new event is required.
+- `scope: turn` is already present in `ConstraintScope`. The
+  `turn-end` sweep in the existing turn-end reducer will pick this
+  up automatically.
+
+Tests in `packages/shared/src/tests/cards/tw-332.test.ts`:
+
+1. play-target restricted to scouts in companies of size < 3,
+   rejected for size 3 and for non-scout characters
+2. play-window restricted to the end of the organization phase —
+   illegal earlier in Org and illegal in any other phase
+3. playing taps the chosen scout and adds a constraint with kind
+   `no-creature-hazards-on-company`, scope `turn`, targeting the
+   scout's company
+4. during the following M/H phase the opposing player's hazard menu
+   has every creature-on-this-company play removed
+5. opposing player can still play creature hazards on the resource
+   player's *other* companies
+6. opposing player can still play *non-creature* hazards (corruption,
+   etc.) on the protected company
+7. constraint clears at end of turn — on the next turn, creature
+   hazards are legal against the company again
+8. constraint also clears if the protected company merges, splits,
+   or is otherwise dissolved before turn-end (covered by the
+   constraint sweep on company lifecycle, which Stealth motivates)
+
+No LE reprint exists for Stealth (verified against `data/cards.json`),
+so no parity test is needed.
 
 ## Migration map (existing → new)
 
@@ -512,7 +609,15 @@ The PR is large but every step is testable in isolation. Order:
 13. **Certify TW-60 (Lure of the Senses)** + test.
 14. **Certify TW-53 (Lost in Free-domains)** + test.
 15. **Certify TW-84 (River)** + test.
-16. **LE printings** of all three cards (data + thin parity tests).
+16. **Add `end-of-org` step** to the organization phase reducer so
+    Stealth (and future end-of-org short-events) has a legal play
+    window. Existing Org tests must remain green.
+17. **Certify TW-332 (Stealth)** + test. First exercise of a
+    cross-player active constraint; the constraint filter must be
+    audited to confirm it walks all constraints regardless of
+    `source` ownership.
+18. **LE printings** of Lure, Lost in Free-domains, and River (data
+    + thin parity tests). Stealth has no LE reprint.
 17. **Sweep grep:** `pending` should not appear in `state-phases.ts`.
     `awaitingOnGuardReveal` should not appear anywhere. Card tests
     that previously poked phase-state pending fields directly use
