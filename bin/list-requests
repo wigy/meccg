@@ -28,7 +28,7 @@ fi
 # Filter to unhandled requests (status=new, topic ends with -request, or bug-report)
 # Output: timestamp | id | topic | subject
 jq -r 'select(.status == "new" and ((.topic | endswith("-request")) or .topic == "bug-report")) |
-  [.timestamp, .id, .topic, .subject] | @tsv' "${files[@]}" |
+  [.timestamp, .id, (if .topic == "feature-request" then "feature-request [REVIEW]" else .topic end), .subject] | @tsv' "${files[@]}" |
   sort |
   while IFS=$'\t' read -r ts id topic subject; do
     printf "%-20s  %-18s  %-25s  %s\n" "$ts" "$id" "$topic" "$subject"
