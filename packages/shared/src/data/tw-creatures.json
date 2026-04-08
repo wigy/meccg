@@ -296,7 +296,12 @@
         ]
       }
     ],
-    "effects": [],
-    "text": "Man. Three attacks (of one strike each) all against the same character. Attacker chooses defending character.One or two of these attacks may be canceled by tapping one character (not the defending character) in the defender’s company for each attack canceled. This may be done even after a strike is assigned and after facing another attack.If an attack from Assassin is given more than one strike, each additional strike becomes an excess strike (-1 prowess modification) against the attacked character."
+    "effects": [
+      { "type": "combat-rule", "rule": "attacker-chooses-defenders" },
+      { "type": "combat-rule", "rule": "multi-attack", "count": 3 },
+      { "type": "combat-rule", "rule": "cancel-attack-by-tap", "maxCancels": 2 }
+    ],
+    "text": "Man. Three attacks (of one strike each) all against the same character. Attacker chooses defending character.One or two of these attacks may be canceled by tapping one character (not the defending character) in the defender’s company for each attack canceled. This may be done even after a strike is assigned and after facing another attack.If an attack from Assassin is given more than one strike, each additional strike becomes an excess strike (-1 prowess modification) against the attacked character.",
+    "certified": "2026-04-08"
   }
 ]

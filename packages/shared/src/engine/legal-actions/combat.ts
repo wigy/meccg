@@ -34,6 +34,9 @@ export function combatActions(state: GameState, playerId: PlayerId): EvaluatedAc
 
   switch (combat.phase) {
     case 'assign-strikes':
+      if (combat.assignmentPhase === 'cancel-by-tap') {
+        return cancelByTapActions(state, playerId, combat);
+      }
       return [...cancelActions, ...assignStrikeActions(state, playerId, combat)];
     case 'choose-strike-order':
       return chooseStrikeOrderActions(state, playerId, combat);
@@ -386,6 +389,54 @@ function cancelAttackActions(
       });
     }
   }
+
+  return actions;
+}
+
+/**
+ * Generate cancel-by-tap actions for the defending player during the
+ * cancel-by-tap sub-phase. The defender can tap untapped non-target
+ * characters in the company to cancel one strike each (e.g. Assassin).
+ */
+function cancelByTapActions(
+  state: GameState,
+  playerId: PlayerId,
+  combat: CombatState,
+): EvaluatedAction[] {
+  if (playerId !== combat.defendingPlayerId) return [];
+  if (combat.assignmentPhase !== 'cancel-by-tap') return [];
+  if (!combat.cancelByTapRemaining || combat.cancelByTapRemaining <= 0) return [];
+
+  const playerIndex = state.players.findIndex(p => p.id === playerId);
+  const player = state.players[playerIndex];
+  const company = player.companies.find(c => c.id === combat.companyId);
+  if (!company) return [];
+
+  // The target character is the one all strikes are assigned to
+  const targetCharId = combat.strikeAssignments[0]?.characterId;
+  if (!targetCharId) return [];
+
+  const actions: EvaluatedAction[] = [];
+
+  for (const charId of company.characters) {
+    // Cannot tap the target character
+    if (charId === targetCharId) continue;
+    const charData = player.characters[charId as string];
+    if (!charData || charData.status !== CardStatus.Untapped) continue;
+
+    logDetail(`Cancel-by-tap available: tap ${charId as string} to cancel one attack`);
+    actions.push({
+      action: { type: 'cancel-by-tap', player: playerId, characterId: charId },
+      viable: true,
+    });
+  }
+
+  // Defender can always pass (decline to cancel more attacks)
+  logDetail(`Defender can pass cancel-by-tap (${combat.cancelByTapRemaining} cancel(s) remaining)`);
+  actions.push({
+    action: { type: 'pass', player: playerId },
+    viable: true,
+  });
 
   return actions;
 }

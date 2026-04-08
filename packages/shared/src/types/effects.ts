@@ -293,6 +293,17 @@ export interface CombatRuleEffect extends EffectBase {
   readonly type: 'combat-rule';
   /** The combat rule override identifier. */
   readonly rule: string;
+  /**
+   * For `multi-attack`: how many separate attacks the creature makes,
+   * all against the same target character. Each attack uses the creature's
+   * base strike count.
+   */
+  readonly count?: number;
+  /**
+   * For `cancel-attack-by-tap`: maximum number of attacks that can be
+   * canceled by tapping non-target characters in the defending company.
+   */
+  readonly maxCancels?: number;
 }
 
 /**
