@@ -131,7 +131,19 @@ export interface PendingResolution {
       }
     | {
         readonly type: 'on-guard-window';
-        /** The action that runs if the hazard player passes the window. */
+        /**
+         * Stage of the on-guard window flow:
+         *  - `'reveal-window'` — actor is the hazard player; they may
+         *    reveal one on-guard card or pass. On reveal, the resolution
+         *    is replaced by an `awaiting-pass` entry whose actor is the
+         *    resource player; on pass, the deferred action runs.
+         *  - `'awaiting-pass'` — actor is the resource player; their
+         *    only legal action is `pass`, which runs the deferred
+         *    action. Used after the hazard player has revealed one
+         *    on-guard card and the resulting chain has resolved.
+         */
+        readonly stage: 'reveal-window' | 'awaiting-pass';
+        /** The action that runs when the window closes. */
         readonly deferredAction: GameAction;
       }
     | {

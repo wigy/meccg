@@ -174,7 +174,7 @@
       },
       {
         "type": "on-event",
-        "event": "self-enters-play",
+        "event": "company-arrives-at-site",
         "apply": {
           "type": "add-constraint",
           "constraint": "site-phase-do-nothing-unless-ranger-taps",

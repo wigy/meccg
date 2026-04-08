@@ -76,24 +76,9 @@ export function siteActions(state: GameState, playerId: PlayerId): EvaluatedActi
   }
 
   if (siteState.step === 'play-resources') {
-    // Awaiting hazard player's defensive roll for opponent influence attempt
-    if (siteState.pendingOpponentInfluence) {
-      if (!isActive) {
-        return viable([{ type: 'opponent-influence-defend', player: playerId }]);
-      }
-      return [];
-    }
-    // On-guard reveal window: hazard player may reveal or pass
-    if (siteState.awaitingOnGuardReveal) {
-      return viable(onGuardRevealAtResourceActions(state, playerId, siteState));
-    }
-    // Pending resource action (hero resource): active player passes to trigger execution
-    if (siteState.pendingResourceAction && state.chain === null) {
-      if (isActive) {
-        return viable([{ type: 'pass', player: playerId }]);
-      }
-      return [];
-    }
+    // Opponent-influence-defend and on-guard-window are now produced
+    // via the unified pending-resolution dispatcher in
+    // `legal-actions/index.ts` before this function is reached.
     return playResourcesActions(state, playerId, siteState);
   }
 
@@ -336,73 +321,9 @@ function resolveAttacksActions(
   return [{ type: 'pass', player: playerId }];
 }
 
-/**
- * On-guard reveal window during resource play (CoE line 376 / rule 2.V.6).
- *
- * The hazard player (non-active) may reveal any on-guard hazard event that
- * directly affects the company. Pass executes the pending resource action.
- */
-function onGuardRevealAtResourceActions(
-  state: GameState,
-  playerId: PlayerId,
-  siteState: SitePhaseState,
-): GameAction[] {
-  const isActive = state.activePlayer === playerId;
-
-  // Only the hazard player (non-active) reveals on-guard cards
-  if (isActive) {
-    logDetail(`Active player waits during on-guard reveal window`);
-    return [];
-  }
-
-  const activeIndex = getPlayerIndex(state, state.activePlayer!);
-  const resourcePlayer = state.players[activeIndex];
-  const company = resourcePlayer.companies[siteState.activeCompanyIndex];
-
-  const actions: GameAction[] = [];
-
-  if (company) {
-    for (const ogCard of company.onGuardCards) {
-      if (ogCard.revealed) continue;
-      const def = state.cardPool[ogCard.definitionId as string];
-      if (!def) continue;
-      // Allow revealing hazard events (permanent or short) that affect the company
-      if (def.cardType === 'hazard-event') {
-        // play-target DSL: character-targeting events get one action per character
-        const isCharTargeting = 'effects' in def && def.effects?.some(
-          e => e.type === 'play-target' && e.target === 'character',
-        );
-        if (isCharTargeting) {
-          for (const charId of company.characters) {
-            logDetail(`On-guard reveal at resource: "${def.name}" targeting ${charId as string}`);
-            actions.push({
-              type: 'reveal-on-guard',
-              player: playerId,
-              cardInstanceId: ogCard.instanceId,
-              targetCharacterId: charId,
-            });
-          }
-        } else {
-          logDetail(`On-guard reveal at resource: "${def.name}" eligible`);
-          actions.push({
-            type: 'reveal-on-guard',
-            player: playerId,
-            cardInstanceId: ogCard.instanceId,
-          });
-        }
-      }
-    }
-  }
-
-  if (actions.length > 0) {
-    logDetail(`On-guard reveal window: ${actions.length} hazard event(s) eligible`);
-  } else {
-    logDetail(`No eligible on-guard hazard events to reveal`);
-  }
-
-  actions.push({ type: 'pass', player: playerId });
-  return actions;
-}
+// onGuardRevealAtResourceActions removed: the on-guard reveal window
+// is now produced via the unified pending-resolution dispatcher in
+// `legal-actions/pending.ts:onGuardWindowActions`.
 
 /**
  * Generate play-resources actions for the current company (CoE lines 362–374).

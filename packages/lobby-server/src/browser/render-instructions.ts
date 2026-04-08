@@ -204,7 +204,13 @@ function getInstructionText(
       case 'resolve-attacks':
         return 'Site — Resolving on-guard/agent attacks.';
       case 'play-resources': {
-        if (view.phaseState.awaitingOnGuardReveal) {
+        // On-guard reveal window is now driven by an `on-guard-window`
+        // pending resolution; detect it via legalActions instead of the
+        // legacy phase-state field.
+        const onGuardActive = view.legalActions.some(
+          ea => ea.viable && ea.action.type === 'reveal-on-guard',
+        );
+        if (onGuardActive) {
           return isSelf
             ? 'Site — Opponent may reveal on-guard cards.'
             : 'Site — Reveal on-guard card or pass to allow resource play.';

@@ -19,11 +19,16 @@ import type {
   GameEffect,
 } from '../index.js';
 import type { ReducerResult } from './reducer-utils.js';
-import { dequeueResolution } from './pending.js';
+import { dequeueResolution, enqueueResolution } from './pending.js';
 import { getPlayerIndex } from '../index.js';
 import { resolveInstanceId } from '../types/state.js';
 import { roll2d6, clonePlayers, cleanupEmptyCompanies } from './reducer-utils.js';
 import { logDetail } from './legal-actions/log.js';
+import {
+  resolveOpponentInfluenceDefend,
+  applyOnGuardRevealAtResource,
+  executeDeferredSiteAction,
+} from './reducer-site.js';
 
 /**
  * Resolve the top pending resolution for the action's actor by dispatching
@@ -238,18 +243,101 @@ function applyOrderEffectsResolution(
   return null;
 }
 
+/**
+ * Resolve a queued `on-guard-window` resolution.
+ *
+ * Two stages:
+ *
+ *  - **`reveal-window`** — actor is the hazard player. They may reveal
+ *    one on-guard card, which dequeues this resolution, requeues a new
+ *    `awaiting-pass` resolution for the *resource* player, and
+ *    initiates a chain for the revealed card. Or they may pass, which
+ *    dequeues the resolution and runs the deferred action immediately.
+ *  - **`awaiting-pass`** — actor is the resource player. Their only
+ *    legal action is `pass`, which dequeues the resolution and runs
+ *    the deferred action.
+ */
 function applyOnGuardWindowResolution(
-  _state: GameState,
-  _action: GameAction,
-  _top: PendingResolution,
+  state: GameState,
+  action: GameAction,
+  top: PendingResolution,
 ): ReducerResult | null {
-  return null;
+  if (top.kind.type !== 'on-guard-window') return null;
+  const { stage, deferredAction } = top.kind;
+
+  if (action.player !== top.actor) {
+    return { state, error: 'Wrong player for pending on-guard-window' };
+  }
+
+  if (stage === 'reveal-window') {
+    if (action.type === 'pass') {
+      logDetail('On-guard window: hazard player passes — running deferred action');
+      const dequeued = dequeueResolution(state, top.id);
+      return executeDeferredSiteAction(dequeued, deferredAction);
+    }
+    if (action.type === 'reveal-on-guard') {
+      logDetail('On-guard window: hazard player reveals — initiating chain, replacing resolution with awaiting-pass for active player');
+      const revealResult = applyOnGuardRevealAtResource(state, action);
+      if (revealResult.error) return revealResult;
+      // Dequeue the reveal-window resolution and enqueue an awaiting-pass
+      // resolution for the resource player. The chain takes priority
+      // over the resolution; once it resolves, the active player's only
+      // legal action is `pass`, which runs the deferred action.
+      let newState = dequeueResolution(revealResult.state, top.id);
+      const activePlayer = newState.activePlayer;
+      if (activePlayer !== null) {
+        newState = enqueueResolution(newState, {
+          source: top.source,
+          actor: activePlayer,
+          scope: top.scope,
+          kind: {
+            type: 'on-guard-window',
+            stage: 'awaiting-pass',
+            deferredAction,
+          },
+        });
+      }
+      return { state: newState, effects: revealResult.effects };
+    }
+    return { state, error: `Expected pass or reveal-on-guard during on-guard window, got '${action.type}'` };
+  }
+
+  // stage === 'awaiting-pass'
+  if (action.type !== 'pass') {
+    return { state, error: `Expected pass to close on-guard window awaiting-pass, got '${action.type}'` };
+  }
+  logDetail('On-guard window: active player passes — running deferred action');
+  const dequeued = dequeueResolution(state, top.id);
+  return executeDeferredSiteAction(dequeued, deferredAction);
 }
 
+/**
+ * Resolve a queued `opponent-influence-defend` resolution. The hazard
+ * player rolls 2d6, the engine computes the final result, and the
+ * consequences are applied (target discarded on success, revealed card
+ * discarded on failure). The actual roll-and-resolve logic lives in
+ * `reducer-site.ts:resolveOpponentInfluenceDefend` and is invoked here.
+ */
 function applyOpponentInfluenceDefendResolution(
-  _state: GameState,
-  _action: GameAction,
-  _top: PendingResolution,
+  state: GameState,
+  action: GameAction,
+  top: PendingResolution,
 ): ReducerResult | null {
-  return null;
+  if (action.type !== 'opponent-influence-defend') {
+    return { state, error: `Pending opponent-influence-defend requires that action, got '${action.type}'` };
+  }
+  if (top.kind.type !== 'opponent-influence-defend') return null;
+
+  // Validate the actor is the resolution's actor (the hazard player).
+  if (action.player !== top.actor) {
+    return { state, error: 'Wrong player for pending opponent-influence-defend' };
+  }
+
+  const result = resolveOpponentInfluenceDefend(state, top.kind.attempt);
+  if (result.error) return result;
+
+  return {
+    state: dequeueResolution(result.state, top.id),
+    effects: result.effects,
+  };
 }

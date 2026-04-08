@@ -16,7 +16,7 @@ import type { ReducerResult } from './reducer-utils.js';
 import { clonePlayers, startDeckExhaust, completeDeckExhaust, handleExchangeSideboard, cleanupEmptyCompanies } from './reducer-utils.js';
 import { handlePlayShortEvent } from './reducer-events.js';
 import { handlePlayPermanentEvent } from './reducer-events.js';
-import { sweepExpired } from './pending.js';
+import { sweepExpired, addConstraint } from './pending.js';
 
 
 /**
@@ -441,6 +441,12 @@ function endCompanyMH(state: GameState, mhState: MovementHazardPhaseState): Redu
   const resourcePlayer = newPlayers[activeIndex];
   const company = resourcePlayer.companies[mhState.activeCompanyIndex];
 
+  // Track an optional `company-arrives-at-site` event to fire after the
+  // base move completes. We compute the post-move state first, then run
+  // the event hook on the resulting state so the destination is the
+  // company's *current* site.
+  let companyArrivedAt: { companyId: typeof company.id; siteInstanceId: typeof company.destinationSite extends null ? never : NonNullable<typeof company.destinationSite>['instanceId'] } | null = null;
+
   if (company.destinationSite && !mhState.returnedToOrigin) {
     const originSite = company.currentSite;
     const updatedCompanies = [...resourcePlayer.companies];
@@ -472,6 +478,13 @@ function endCompanyMH(state: GameState, mhState: MovementHazardPhaseState): Redu
       ...resourcePlayer,
       companies: updatedCompanies,
       siteDeck: newSiteDeck,
+    };
+
+    // Defer firing the company-arrives-at-site event until we've
+    // assembled the final state below.
+    companyArrivedAt = {
+      companyId: company.id,
+      siteInstanceId: company.destinationSite.instanceId as never,
     };
   } else if (mhState.returnedToOrigin) {
     const updatedCompanies = [...resourcePlayer.companies];
@@ -513,7 +526,19 @@ function endCompanyMH(state: GameState, mhState: MovementHazardPhaseState): Redu
 
   // --- Step 8c: If anyone needs to discard, go to reset-hand step ---
   const needsDiscard = newPlayers.some((p, i) => p.hand.length > resolveHandSize(intermediateState, i));
-  const updatedState = { ...state, players: newPlayers };
+  let updatedState: GameState = { ...state, players: newPlayers };
+
+  // Fire the company-arrives-at-site event hook (River, etc.) on the
+  // post-move state. The hook scans both players' cardsInPlay for
+  // hazards with a matching `on-event: company-arrives-at-site` and
+  // dispatches them to the on-event handler.
+  if (companyArrivedAt) {
+    updatedState = fireCompanyArrivesAtSite(
+      updatedState,
+      companyArrivedAt.companyId,
+      companyArrivedAt.siteInstanceId,
+    );
+  }
 
   if (needsDiscard) {
     logDetail(`Step 8: player(s) over hand size — entering reset-hand for discard`);
@@ -529,6 +554,80 @@ function endCompanyMH(state: GameState, mhState: MovementHazardPhaseState): Redu
   }
 
   return advanceAfterCompanyMH(updatedState, mhState);
+}
+
+/**
+ * Dispatch the `company-arrives-at-site` on-event hook for the given
+ * company arriving at the given site. Scans both players' cardsInPlay
+ * for cards whose effects array contains an
+ * `on-event: company-arrives-at-site` entry; for each match, applies
+ * the configured triggered action (typically `add-constraint`).
+ *
+ * The matching event may carry an optional `when: { site.is: 'self' }`
+ * which restricts the trigger to cards bound to the arrival site —
+ * however, since site-attached hazards aren't yet a structural concept
+ * in the engine, this implementation fires the event for *every*
+ * matching card in play. River certification will tighten this once
+ * site attachment is added.
+ */
+function fireCompanyArrivesAtSite(
+  state: GameState,
+  arrivingCompanyId: import('../index.js').CompanyId,
+  _siteInstanceId: import('../index.js').CardInstanceId,
+): GameState {
+  let newState = state;
+  for (const player of state.players) {
+    for (const card of player.cardsInPlay) {
+      const def = state.cardPool[card.definitionId as string];
+      if (!def || !('effects' in def) || !def.effects) continue;
+      for (const effect of def.effects) {
+        if (effect.type !== 'on-event') continue;
+        if (effect.event !== 'company-arrives-at-site') continue;
+        if (effect.apply.type !== 'add-constraint') continue;
+        const constraintKind = effect.apply.constraint;
+        const scopeName = effect.apply.scope;
+        if (!constraintKind || !scopeName) continue;
+
+        // Map scope name to ConstraintScope
+        let scope: import('../types/pending.js').ConstraintScope;
+        switch (scopeName) {
+          case 'company-site-phase':
+            scope = { kind: 'company-site-phase', companyId: arrivingCompanyId };
+            break;
+          case 'turn':
+            scope = { kind: 'turn' };
+            break;
+          case 'until-cleared':
+            scope = { kind: 'until-cleared' };
+            break;
+          default:
+            continue;
+        }
+        let kind: import('../types/pending.js').ActiveConstraint['kind'];
+        switch (constraintKind) {
+          case 'site-phase-do-nothing':
+            kind = { type: 'site-phase-do-nothing' };
+            break;
+          case 'site-phase-do-nothing-unless-ranger-taps':
+            kind = { type: 'site-phase-do-nothing-unless-ranger-taps' };
+            break;
+          case 'no-creature-hazards-on-company':
+            kind = { type: 'no-creature-hazards-on-company' };
+            break;
+          default:
+            continue;
+        }
+        logDetail(`company-arrives-at-site: "${def.name}" fires → adding constraint ${constraintKind} on company ${arrivingCompanyId as string}`);
+        newState = addConstraint(newState, {
+          source: card.instanceId,
+          scope,
+          target: { kind: 'company', companyId: arrivingCompanyId },
+          kind,
+        });
+      }
+    }
+  }
+  return newState;
 }
 
 /**

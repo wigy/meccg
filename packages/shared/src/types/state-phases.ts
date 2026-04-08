@@ -24,7 +24,6 @@ import type {
   CharacterDeckDraftPlayerState,
   SiteSelectionPlayerState,
 } from './state-cards.js';
-import type { GameAction } from './actions.js';
 
 // ---- Phases ----
 
@@ -519,18 +518,19 @@ export interface SitePhaseState {
    */
   readonly declaredAgentAttack: CardInstanceId | null;
   /**
-   * Whether the hazard player has a window to reveal on-guard cards
-   * in response to a site-tapping resource play. Set when the resource
-   * player plays a resource that would tap the site and on-guard cards
-   * exist. The hazard player may reveal or pass before the resource resolves.
+   * **Deprecated** — the on-guard reveal window is now stored as a
+   * {@link PendingResolution} of kind `on-guard-window` in
+   * `state.pendingResolutions`. This field is retained as `false` for
+   * save-format backwards compatibility and is no longer read by the
+   * engine.
    */
-  readonly awaitingOnGuardReveal: boolean;
+  readonly awaitingOnGuardReveal: false;
   /**
-   * The resource action that triggered the on-guard reveal window.
-   * Executed when the hazard player passes on revealing. Null when
-   * no on-guard window is active.
+   * **Deprecated** — the deferred resource action is now carried on
+   * the `on-guard-window` pending resolution. Retained as `null` for
+   * save-format backwards compatibility.
    */
-  readonly pendingResourceAction: GameAction | null;
+  readonly pendingResourceAction: null;
   /**
    * Tracks whether the resource player has made an opponent influence
    * attempt or company-vs-company attack this turn. At most one such
@@ -540,35 +540,16 @@ export interface SitePhaseState {
   readonly opponentInteractionThisTurn: 'influence' | 'attack' | null;
   /**
    * Intermediate state while awaiting the hazard player's defensive roll
-   * during an opponent influence attempt. Null when no influence attempt
-   * is pending resolution.
+   * during an opponent influence attempt. **Deprecated** — the engine
+   * now stores the attempt as a {@link PendingResolution} of kind
+   * `opponent-influence-defend` in `state.pendingResolutions`. This
+   * field is retained as `null` for save-format backwards compatibility
+   * but is no longer read by the engine.
+   *
+   * The full payload shape lives in {@link OpponentInfluenceAttempt}
+   * (`types/pending.ts`).
    */
-  readonly pendingOpponentInfluence: {
-    /** The influencing character's instance ID. */
-    readonly influencerId: CardInstanceId;
-    /** The opponent's targeted card instance ID. */
-    readonly targetInstanceId: CardInstanceId;
-    /** Whether the target is a character or ally. */
-    readonly targetKind: 'character' | 'ally';
-    /** The target's player ID. */
-    readonly targetPlayer: PlayerId;
-    /** The attacker's 2d6 roll result. */
-    readonly attackerRoll: number;
-    /** The influencer's unused direct influence. */
-    readonly influencerDI: number;
-    /** The opponent's unused general influence. */
-    readonly opponentGI: number;
-    /** The target's mind value (comparison threshold). */
-    readonly targetMind: number;
-    /** Unused DI of the character controlling the target (0 if under GI). */
-    readonly controllerDI: number;
-    /**
-     * The card instance revealed from hand for a comparison value of 0.
-     * Null if no card was revealed. Stored so it can be discarded on failure
-     * or played on success (Phase 2).
-     */
-    readonly revealedCard: { readonly instanceId: CardInstanceId; readonly definitionId: CardDefinitionId } | null;
-  } | null;
+  readonly pendingOpponentInfluence: null;
 }
 
 /**

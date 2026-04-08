@@ -338,15 +338,22 @@ export function validateActionPlayer(state: GameState, action: GameAction): stri
 
   // During site phase on-guard steps, the hazard player acts
   if (phase === 'site' && 'step' in state.phaseState
-    && (state.phaseState.step === 'reveal-on-guard-attacks'
-      || state.phaseState.awaitingOnGuardReveal)) {
+    && state.phaseState.step === 'reveal-on-guard-attacks') {
+    return undefined;
+  }
+  // During an on-guard window resolution, the actor of the resolution
+  // (typically the hazard player) is allowed to act regardless of
+  // active-player gating.
+  if (state.pendingResolutions.some(r => r.actor === action.player && r.kind.type === 'on-guard-window')) {
     return undefined;
   }
 
-  // During opponent influence defense, the hazard player rolls
-  if (phase === 'site' && action.type === 'opponent-influence-defend'
-    && 'pendingOpponentInfluence' in state.phaseState
-    && state.phaseState.pendingOpponentInfluence != null) {
+  // During opponent influence defense, the hazard player rolls. The
+  // attempt now lives in `state.pendingResolutions` as a kind
+  // `opponent-influence-defend` resolution; allow the action through
+  // when one is queued for the acting player.
+  if (action.type === 'opponent-influence-defend'
+    && state.pendingResolutions.some(r => r.actor === action.player && r.kind.type === 'opponent-influence-defend')) {
     return undefined;
   }
 

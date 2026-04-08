@@ -60,7 +60,7 @@ describe('River (tw-84)', () => {
 
     const onEvent = def.effects?.find(e => e.type === 'on-event');
     expect(onEvent).toBeDefined();
-    expect(onEvent?.event).toBe('self-enters-play');
+    expect(onEvent?.event).toBe('company-arrives-at-site');
     expect(onEvent?.apply.type).toBe('add-constraint');
     expect(onEvent?.apply.constraint).toBe('site-phase-do-nothing-unless-ranger-taps');
     expect(onEvent?.apply.scope).toBe('company-site-phase');

@@ -54,10 +54,100 @@ export function resolutionLegalActions(
     case 'order-effects':
       return [];
     case 'on-guard-window':
-      return [];
+      return onGuardWindowActions(state, actor, top);
     case 'opponent-influence-defend':
-      return [];
+      return opponentInfluenceDefendActions(actor);
   }
+}
+
+/**
+ * Compute the legal actions for the actor of a queued `on-guard-window`
+ * resolution.
+ *
+ * - During the `reveal-window` stage (hazard player), produce one
+ *   `reveal-on-guard` action per eligible on-guard hazard event in the
+ *   active company plus a `pass` action that closes the window.
+ * - During the `awaiting-pass` stage (resource player after the chain
+ *   has resolved), the only legal action is `pass`, which runs the
+ *   deferred action.
+ */
+function onGuardWindowActions(
+  state: GameState,
+  actor: PlayerId,
+  top: PendingResolution,
+): EvaluatedAction[] {
+  if (top.kind.type !== 'on-guard-window') return [];
+  if (top.kind.stage === 'awaiting-pass') {
+    return [{ action: { type: 'pass', player: actor }, viable: true }];
+  }
+
+  // reveal-window stage: produce reveal-on-guard actions for the
+  // active company's on-guard hazard events that target a character or
+  // are revealable in this window. Mirrors the legacy
+  // `onGuardRevealAtResourceActions`.
+  if (state.activePlayer === null) {
+    return [{ action: { type: 'pass', player: actor }, viable: true }];
+  }
+  const activePlayerObj = state.players.find(p => p.id === state.activePlayer);
+  if (!activePlayerObj) {
+    return [{ action: { type: 'pass', player: actor }, viable: true }];
+  }
+  const phaseState = state.phaseState as { activeCompanyIndex?: number };
+  const activeCompanyIndex = phaseState.activeCompanyIndex ?? 0;
+  const company = activePlayerObj.companies[activeCompanyIndex];
+
+  const actions: EvaluatedAction[] = [];
+
+  if (company) {
+    for (const ogCard of company.onGuardCards) {
+      if (ogCard.revealed) continue;
+      const def = state.cardPool[ogCard.definitionId as string];
+      if (!def) continue;
+      if (def.cardType !== 'hazard-event') continue;
+
+      // play-target DSL: character-targeting events get one action per character
+      const isCharTargeting = 'effects' in def && def.effects?.some(
+        e => e.type === 'play-target' && e.target === 'character',
+      );
+      if (isCharTargeting) {
+        for (const charId of company.characters) {
+          actions.push({
+            action: {
+              type: 'reveal-on-guard',
+              player: actor,
+              cardInstanceId: ogCard.instanceId,
+              targetCharacterId: charId,
+            },
+            viable: true,
+          });
+        }
+      } else {
+        actions.push({
+          action: {
+            type: 'reveal-on-guard',
+            player: actor,
+            cardInstanceId: ogCard.instanceId,
+          },
+          viable: true,
+        });
+      }
+    }
+  }
+
+  actions.push({ action: { type: 'pass', player: actor }, viable: true });
+  return actions;
+}
+
+/**
+ * Compute the (single) legal action for the hazard player while an
+ * opponent-influence-defend resolution is queued — they roll the
+ * defensive 2d6 by submitting an `opponent-influence-defend` action.
+ */
+function opponentInfluenceDefendActions(actor: PlayerId): EvaluatedAction[] {
+  return [{
+    action: { type: 'opponent-influence-defend', player: actor },
+    viable: true,
+  }];
 }
 
 /**
