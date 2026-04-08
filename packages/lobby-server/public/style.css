@@ -1961,6 +1961,7 @@ h2 {
 #visual-board {
   position: relative;
   display: flex;
+  flex-wrap: wrap;
   justify-content: center;
   align-items: flex-start;
   gap: 2rem;
@@ -3939,7 +3940,7 @@ h2 {
   border: 1px solid rgba(200, 150, 80, 0.5);
   border-radius: 6px;
   padding: 6px 16px;
-  flex: 0 0 auto;
+  flex: 0 0 100%;
   margin-top: -2rem;
   position: relative;
   z-index: var(--z-panel);

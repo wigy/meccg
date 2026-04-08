@@ -327,10 +327,14 @@ REVIEW_BODY=""
 REVIEW_RECIPIENTS=""
 REVIEW_KEYWORDS="{}"
 
-# Default reply recipient: prefer userName keyword, fall back to sender.
+# Default reply recipient: prefer the userName keyword (set by card- and
+# certification-requests, where `from` is a display name), and otherwise
+# fall back to `from` (which is the username for player-sent mail like
+# bug-report and feature requests). Never fall back to `sender` — that
+# field is a role label ("player"/"ai"/"system"), not a username.
 DEFAULT_RECIPIENT=$(echo "$KEYWORDS" | jq -r '.userName // empty')
 if [ -z "$DEFAULT_RECIPIENT" ]; then
-  DEFAULT_RECIPIENT="$SENDER"
+  DEFAULT_RECIPIENT="$FROM"
 fi
 
 # ---------------------------------------------------------------------------

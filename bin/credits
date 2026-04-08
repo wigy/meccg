@@ -152,7 +152,7 @@ if (cmd === 'add' || cmd === 'set') {
   if (args.length < 3 || args.length > 4) usage();
   const playerName = args[1];
   const amount = parseAmount(args[2]);
-  const explanation = args[3] && args[3].trim() ? args[3].trim() : 'manual adjustment';
+  const explanation = args[3] && args[3].trim() ? args[3].trim() : 'Manual adjustment';
 
   const found = findPlayer(playerName);
   if (!found) {
