@@ -16,7 +16,8 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PROJECT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 LOG_DIR="$HOME/.meccg/logs"
 SECRETS="$HOME/.meccg/secrets.json"
-AI_INFO="$HOME/.meccg/players/ai/info.json"
+PLAYERS_DIR="$HOME/.meccg/players"
+AI_INFO="$PLAYERS_DIR/ai/info.json"
 BASE_URL="http://localhost:8080"
 COMMANDS_DIR="$PROJECT_DIR/.claude/commands"
 
@@ -131,6 +132,26 @@ extract_handler_result() {
   printf '%s\n' "$1" \
     | sed -n '/^===HANDLE_MAIL_RESULT_BEGIN===$/,/^===HANDLE_MAIL_RESULT_END===$/p' \
     | sed '1d;$d'
+}
+
+# Normalize a player name to its on-disk directory name. Mirrors the
+# toDirName logic in packages/lobby-server/src/players/store.ts.
+to_dir_name() {
+  echo "$1" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9]/-/g'
+}
+
+# Read a player's current credit balance from
+# ~/.meccg/players/<dir>/info.json. Missing file or missing field is
+# treated as 0 (matching DEFAULT_CREDITS in bin/credits and store.ts).
+# Prints the integer balance to stdout.
+get_player_credits() {
+  local user="$1"
+  if [ -z "$user" ]; then echo 0; return 0; fi
+  local dir info
+  dir=$(to_dir_name "$user")
+  info="$PLAYERS_DIR/$dir/info.json"
+  if [ ! -f "$info" ]; then echo 0; return 0; fi
+  jq -r '.credits // 0' "$info" 2>/dev/null || echo 0
 }
 
 # Deduct credits from a player via bin/credits, recording an audit-log
@@ -300,6 +321,40 @@ KEYWORDS=$(echo "$MSG" | jq -c '.keywords // {}')
 log "Message $MSG_ID: \"$SUBJECT\" from $FROM (topic: $TOPIC)"
 
 # ---------------------------------------------------------------------------
+# Step 2b: Resolve the requestor and verify they have credits left.
+# ---------------------------------------------------------------------------
+# We never start (potentially expensive) handling for a player whose credit
+# balance is already zero or below. Mirror the post-handling billing logic
+# so we check the same account that would be charged: prefer an explicit
+# `originalRequestor` keyword (set by the planning skill and forwarded by
+# the lobby through to implementation requests), then `userName` from the
+# inbound keywords, then the message's `from` field. System accounts
+# (ai/admin/server) are never billed and are not gated.
+
+DEFAULT_RECIPIENT=$(echo "$KEYWORDS" | jq -r '.userName // empty')
+if [ -z "$DEFAULT_RECIPIENT" ]; then
+  DEFAULT_RECIPIENT="$FROM"
+fi
+
+REQUESTOR=$(echo "$KEYWORDS" | jq -r '.originalRequestor // empty')
+if [ -z "$REQUESTOR" ]; then
+  REQUESTOR="$DEFAULT_RECIPIENT"
+fi
+
+case "$REQUESTOR" in
+  ai|admin|server|"") ;;  # never billed, skip the gate
+  *)
+    REQUESTOR_CREDITS=$(get_player_credits "$REQUESTOR")
+    log "Requestor '$REQUESTOR' has $REQUESTOR_CREDITS credits."
+    if [ "$REQUESTOR_CREDITS" -le 0 ]; then
+      log "Skipping handling: '$REQUESTOR' has no credits left ($REQUESTOR_CREDITS)."
+      set_status "ai" "$MSG_ID" '{"status":"processed","success":false}'
+      exit 0
+    fi
+    ;;
+esac
+
+# ---------------------------------------------------------------------------
 # Step 3: Mark as processing
 # ---------------------------------------------------------------------------
 
@@ -327,15 +382,9 @@ REVIEW_BODY=""
 REVIEW_RECIPIENTS=""
 REVIEW_KEYWORDS="{}"
 
-# Default reply recipient: prefer the userName keyword (set by card- and
-# certification-requests, where `from` is a display name), and otherwise
-# fall back to `from` (which is the username for player-sent mail like
-# bug-report and feature requests). Never fall back to `sender` — that
-# field is a role label ("player"/"ai"/"system"), not a username.
-DEFAULT_RECIPIENT=$(echo "$KEYWORDS" | jq -r '.userName // empty')
-if [ -z "$DEFAULT_RECIPIENT" ]; then
-  DEFAULT_RECIPIENT="$FROM"
-fi
+# Default reply recipient was resolved above (Step 2b) so we could run the
+# credit gate against the same account that will eventually be billed.
+# Reusing it here keeps the dispatch and billing in sync.
 
 # ---------------------------------------------------------------------------
 # Step 4: Dispatch based on topic
