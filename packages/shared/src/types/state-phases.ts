@@ -198,17 +198,6 @@ export interface OrganizationPhaseState {
    * Null if no sideboard access has occurred this turn.
    */
   readonly sideboardFetchDestination: 'discard' | 'deck' | null;
-  /**
-   * When non-null, a corruption check is required for the character who
-   * just gave away an item via transfer. No other organization actions
-   * are legal until this check is resolved (CoE 2.II.5).
-   */
-  readonly pendingCorruptionCheck: {
-    /** The character who must make the corruption check. */
-    readonly characterId: CardInstanceId;
-    /** The item that was transferred — included in possessions and CP for the check. */
-    readonly transferredItemId: CardInstanceId;
-  } | null;
 }
 
 /**
@@ -331,13 +320,6 @@ export interface MovementHazardPhaseState {
    * the declare-path step.
    */
   readonly maxRegionDistance: number;
-  /**
-   * Card instance IDs of ongoing effects that the hazard player must order
-   * during the 'order-effects' step (CoE step 4). Empty outside that step.
-   * The hazard player submits a permutation of these IDs to set the resolution order.
-   * Hazard-limit modifications are excluded — they are ordered by the resource player.
-   */
-  readonly pendingEffectsToOrder: readonly CardInstanceId[];
   /** Number of hazard cards the opponent has played against the current company this movement. */
   readonly hazardsPlayedThisCompany: number;
   /**
@@ -417,17 +399,6 @@ export interface MovementHazardPhaseState {
    * take actions during its site phase.
    */
   readonly returnedToOrigin: boolean;
-  /**
-   * Queue of character IDs that must make corruption checks after being
-   * wounded by a creature with an `on-event: character-wounded-by-self`
-   * effect (e.g. Barrow-wight). Empty when no wound corruption checks are pending.
-   */
-  readonly pendingWoundCorruptionChecks: readonly {
-    /** The wounded character's instance ID. */
-    readonly characterId: CardInstanceId;
-    /** Modifier to the corruption check roll (from the on-event effect). */
-    readonly modifier: number;
-  }[];
 }
 
 /**
@@ -552,17 +523,6 @@ export interface SitePhaseState {
    * Null means no interaction has occurred yet.
    */
   readonly opponentInteractionThisTurn: 'influence' | 'attack' | null;
-  /**
-   * Queue of character IDs that must make corruption checks after being
-   * wounded by an automatic attack with an `on-event: character-wounded-by-self`
-   * effect (e.g. Barrow-downs). Empty when no wound corruption checks are pending.
-   */
-  readonly pendingWoundCorruptionChecks: readonly {
-    /** The wounded character's instance ID. */
-    readonly characterId: CardInstanceId;
-    /** Modifier to the corruption check roll (from the on-event effect). */
-    readonly modifier: number;
-  }[];
   /**
    * Intermediate state while awaiting the hazard player's defensive roll
    * during an opponent influence attempt. Null when no influence attempt

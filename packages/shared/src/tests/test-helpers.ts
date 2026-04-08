@@ -17,13 +17,14 @@ import {
   computeLegalActions,
 } from '../index.js';
 import type { PlayerId, GameState, CardDefinitionId, CardInstanceId, CardInstance, GameAction, PlayCharacterAction, SitePhaseState, MovementHazardPhaseState, OpponentInfluenceAttemptAction, LongEventPhaseState, CreatureKeyingMatch } from '../index.js';
+import { enqueueResolution } from '../engine/pending.js';
 import {
   ADRAZAR, ARAGORN, BILBO, FRODO, LEGOLAS, GIMLI, FARAMIR,
   EOWYN, BEREGOND, BERGIL, BARD_BOWMAN, ANBORN, SAM_GAMGEE,
   THEODEN, ELROND, CELEBORN, GALADRIEL, GLORFINDEL_II, HALDIR, GANDALF, BALIN, KILI,
   GLAMDRING, STING, THE_MITHRIL_COAT, THE_ONE_RING, DAGGER_OF_WESTERNESSE, HORN_OF_ANOR, PRECIOUS_GOLD_RING,
   GWAIHIR,
-  CAVE_DRAKE, ORC_LIEUTENANT, ORC_PATROL, BARROW_WIGHT, FOOLISH_WORDS,
+  CAVE_DRAKE, ORC_LIEUTENANT, ORC_PATROL, BARROW_WIGHT, FOOLISH_WORDS, LURE_OF_THE_SENSES, LOST_IN_FREE_DOMAINS, STEALTH, RIVER,
   SUN, EYE_OF_SAURON, GATES_OF_MORNING, TWILIGHT, DOORS_OF_NIGHT, SMOKE_RINGS,
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH, MOUNT_DOOM, THRANDUILS_HALLS, BLUE_MOUNTAIN_DWARF_HOLD, DOL_AMROTH, BREE, PELARGIR, EDORAS, EAGLES_EYRIE, BANDIT_LAIR,
   WOOD_ELVES, BLUE_MOUNTAIN_DWARVES, KNIGHTS_OF_DOL_AMROTH, MEN_OF_LEBENNIN, RANGERS_OF_THE_NORTH, RIDERS_OF_ROHAN,
@@ -428,7 +429,7 @@ export function buildTestState(opts: BuildTestStateOpts): GameState {
   const phase = opts.phase;
   let phaseState: GameState['phaseState'];
   if (phase === Phase.Organization) {
-    phaseState = { phase: Phase.Organization, characterPlayedThisTurn: false, sideboardFetchedThisTurn: 0, sideboardFetchDestination: null, pendingCorruptionCheck: null } as GameState['phaseState'];
+    phaseState = { phase: Phase.Organization, characterPlayedThisTurn: false, sideboardFetchedThisTurn: 0, sideboardFetchDestination: null } as GameState['phaseState'];
   } else if (phase === Phase.Untap) {
     phaseState = { phase: Phase.Untap, untapped: false, hazardSideboardDestination: null, hazardSideboardFetched: 0, hazardSideboardAccessed: false, resourcePlayerPassed: false, hazardPlayerPassed: false } as GameState['phaseState'];
   } else if (phase === Phase.LongEvent) {
@@ -479,6 +480,8 @@ export function buildTestState(opts: BuildTestStateOpts): GameState {
     turnNumber: 1,
     startingPlayer: null,
     pendingEffects: [],
+    pendingResolutions: [],
+    activeConstraints: [],
     rng: { seed: opts.seed ?? 42, counter: 0 },
     stateSeq: 0,
     reverseActions: [],
@@ -544,7 +547,6 @@ export function buildSitePhaseState(opts: {
     awaitingOnGuardReveal: false,
     pendingResourceAction: null,
     opponentInteractionThisTurn: null,
-    pendingWoundCorruptionChecks: [],
     pendingOpponentInfluence: null,
   };
   return { ...state, phaseState: sitePhaseState };
@@ -563,7 +565,6 @@ export function makeMHState(overrides?: Partial<MovementHazardPhaseState>): Move
     movementType: null,
     declaredRegionPath: [],
     maxRegionDistance: 4,
-    pendingEffectsToOrder: [],
     hazardsPlayedThisCompany: 0,
     hazardLimit: 4,
     resolvedSitePath: [],
@@ -579,7 +580,6 @@ export function makeMHState(overrides?: Partial<MovementHazardPhaseState>): Move
     onGuardPlacedThisCompany: false,
     siteRevealed: false,
     returnedToOrigin: false,
-    pendingWoundCorruptionChecks: [],
     ...overrides,
   };
 }
@@ -599,7 +599,6 @@ export function makeSitePhase(overrides?: Partial<SitePhaseState>): SitePhaseSta
     awaitingOnGuardReveal: false,
     pendingResourceAction: null,
     opponentInteractionThisTurn: null,
-    pendingWoundCorruptionChecks: [],
     pendingOpponentInfluence: null,
     ...overrides,
   };
@@ -639,6 +638,35 @@ export function attachAllyToChar(
   const p0 = playerIdx === 0 ? updatedPlayer : state.players[0];
   const p1 = playerIdx === 1 ? updatedPlayer : state.players[1];
   return { ...state, players: [p0, p1] as unknown as typeof state.players };
+}
+
+/**
+ * Enqueue a transfer-style corruption-check pending resolution onto the
+ * given state. Used by tests that simulate a just-completed item transfer
+ * without going through the full transfer reducer flow.
+ *
+ * Replaces the legacy pattern of poking
+ * `OrganizationPhaseState.pendingCorruptionCheck` directly.
+ */
+export function enqueueTransferCorruptionCheck(
+  state: GameState,
+  playerId: PlayerId,
+  characterId: CardInstanceId,
+  transferredItemId: CardInstanceId,
+): GameState {
+  return enqueueResolution(state, {
+    source: transferredItemId,
+    actor: playerId,
+    scope: { kind: 'phase', phase: Phase.Organization },
+    kind: {
+      type: 'corruption-check',
+      characterId,
+      modifier: 0,
+      reason: 'Transfer',
+      possessions: [],
+      transferredItemId,
+    },
+  });
 }
 
 /** Place an on-guard card on a player's company and return the updated GameState + card. */
@@ -1008,7 +1036,6 @@ export function setupAutoAttackStep<T extends GameState>(state: T): T {
     awaitingOnGuardReveal: base.awaitingOnGuardReveal,
     pendingResourceAction: base.pendingResourceAction,
     opponentInteractionThisTurn: base.opponentInteractionThisTurn,
-    pendingWoundCorruptionChecks: [],
     pendingOpponentInfluence: base.pendingOpponentInfluence,
   };
   return { ...state, phaseState: autoAttackState };
@@ -1077,7 +1104,7 @@ export {
   THEODEN, ELROND, CELEBORN, GALADRIEL, GLORFINDEL_II, HALDIR, GANDALF, BALIN, KILI,
   GLAMDRING, STING, THE_MITHRIL_COAT, THE_ONE_RING, DAGGER_OF_WESTERNESSE, HORN_OF_ANOR, PRECIOUS_GOLD_RING,
   GWAIHIR,
-  CAVE_DRAKE, ORC_LIEUTENANT, ORC_PATROL, BARROW_WIGHT, FOOLISH_WORDS,
+  CAVE_DRAKE, ORC_LIEUTENANT, ORC_PATROL, BARROW_WIGHT, FOOLISH_WORDS, LURE_OF_THE_SENSES, LOST_IN_FREE_DOMAINS, STEALTH, RIVER,
   SUN, EYE_OF_SAURON, GATES_OF_MORNING, TWILIGHT, DOORS_OF_NIGHT, SMOKE_RINGS,
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH, MOUNT_DOOM, THRANDUILS_HALLS, BLUE_MOUNTAIN_DWARF_HOLD, DOL_AMROTH, BREE, PELARGIR, EDORAS, EAGLES_EYRIE, BANDIT_LAIR,
   WOOD_ELVES, BLUE_MOUNTAIN_DWARVES, KNIGHTS_OF_DOL_AMROTH, MEN_OF_LEBENNIN, RANGERS_OF_THE_NORTH, RIDERS_OF_ROHAN,

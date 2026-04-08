@@ -21,6 +21,7 @@ import type { ReducerResult } from './reducer.js';
 import { resolveAttackProwess, resolveAttackStrikes } from './effects/index.js';
 import { buildInPlayNames } from './recompute-derived.js';
 import { resolveInfluenceAttemptRoll } from './reducer-site.js';
+import { addConstraint } from './pending.js';
 
 /**
  * Returns the opponent of the given player in a two-player game.
@@ -461,17 +462,112 @@ function resolvePermanentEvent(state: GameState, entry: ChainEntry): GameState {
 
   let newState: GameState = { ...state, players: newPlayers };
 
-  // Execute self-enters-play effects (e.g. discard-cards-in-play)
+  // Execute self-enters-play effects (e.g. discard-cards-in-play, add-constraint)
   if (def && 'effects' in def && def.effects) {
     for (const effect of def.effects) {
-      if (effect.type === 'on-event' && effect.event === 'self-enters-play' && effect.apply.type === 'discard-cards-in-play' && effect.apply.filter) {
+      if (effect.type !== 'on-event' || effect.event !== 'self-enters-play') continue;
+      if (effect.apply.type === 'discard-cards-in-play' && effect.apply.filter) {
         logDetail(`"${def.name}" entered play — discarding cards matching filter`);
         newState = discardCardsInPlay(newState, effect.apply.filter);
+      } else if (effect.apply.type === 'add-constraint') {
+        newState = applyAddConstraintFromOnEvent(newState, entry, effect, def?.name ?? '?');
       }
     }
   }
 
   return newState;
+}
+
+/**
+ * Resolve an `on-event: self-enters-play` effect with `apply.type === 'add-constraint'`.
+ *
+ * Reads `effect.apply.constraint` (the constraint kind name) and
+ * `effect.apply.scope` (the scope name) and adds the resulting
+ * {@link ActiveConstraint} to the state. The target is derived from
+ * `effect.target`:
+ *  - `"target-company"` — the active company at the time the chain entry resolved.
+ *  - `"scout-company"` — same (alias used by Stealth).
+ *  - `"arriving-company"` — same (alias used by River's company-arrives-at-site path; for self-enters-play it falls back to the active company).
+ *  - otherwise — bearer's company (only meaningful for character-targeted permanent events).
+ */
+function applyAddConstraintFromOnEvent(
+  state: GameState,
+  entry: ChainEntry,
+  effect: import('../types/effects.js').OnEventEffect,
+  cardName: string,
+): GameState {
+  const constraintKind = effect.apply.constraint;
+  const scopeName = effect.apply.scope;
+  if (!constraintKind || !scopeName) return state;
+
+  // Pick a target company. For now we use the active company in the
+  // current MH/Site sub-phase, which matches all four cards in the
+  // pending-effects plan.
+  let companyId: import('../types/common.js').CompanyId | null = null;
+  const activePlayer = state.activePlayer;
+  if (activePlayer !== null) {
+    const activePlayerObj = state.players.find(p => p.id === activePlayer);
+    if (activePlayerObj) {
+      const ps = state.phaseState;
+      let activeCompanyIndex = -1;
+      if (ps.phase === 'movement-hazard') activeCompanyIndex = ps.activeCompanyIndex;
+      else if (ps.phase === 'site') activeCompanyIndex = ps.activeCompanyIndex;
+      if (activeCompanyIndex >= 0) {
+        companyId = activePlayerObj.companies[activeCompanyIndex]?.id ?? null;
+      }
+    }
+  }
+
+  if (!companyId) {
+    logDetail(`add-constraint(${constraintKind}): no active company to attach — fizzle`);
+    return state;
+  }
+
+  // Map the scope name to a ConstraintScope discriminant.
+  let scope: import('../types/pending.js').ConstraintScope;
+  switch (scopeName) {
+    case 'company-site-phase':
+      scope = { kind: 'company-site-phase', companyId };
+      break;
+    case 'company-mh-phase':
+      scope = { kind: 'company-mh-phase', companyId };
+      break;
+    case 'turn':
+      scope = { kind: 'turn' };
+      break;
+    case 'until-cleared':
+      scope = { kind: 'until-cleared' };
+      break;
+    default:
+      logDetail(`add-constraint(${constraintKind}): unknown scope "${scopeName}" — fizzle`);
+      return state;
+  }
+
+  // Map the constraint name to a kind discriminant.
+  type Kind = import('../types/pending.js').ActiveConstraint['kind'];
+  let kind: Kind;
+  switch (constraintKind) {
+    case 'site-phase-do-nothing':
+      kind = { type: 'site-phase-do-nothing' };
+      break;
+    case 'site-phase-do-nothing-unless-ranger-taps':
+      kind = { type: 'site-phase-do-nothing-unless-ranger-taps' };
+      break;
+    case 'no-creature-hazards-on-company':
+      kind = { type: 'no-creature-hazards-on-company' };
+      break;
+    default:
+      logDetail(`add-constraint: unknown constraint kind "${constraintKind}" — fizzle`);
+      return state;
+  }
+
+  logDetail(`"${cardName}" entered play — adding constraint ${constraintKind} on company ${companyId as string}, scope ${scopeName}`);
+  return addConstraint(state, {
+    source: entry.card!.instanceId,
+    scope,
+    target: { kind: 'company', companyId },
+    kind,
+  });
 }
 
 /**

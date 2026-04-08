@@ -101,8 +101,36 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/LureoftheSenses.jpg",
     "unique": false,
     "eventType": "permanent",
-    "effects": [],
-    "text": "Corruption. Playable on a non-Ringwraith character. Target character receives 2 corruption points and makes a corruption check at the end of his untap phase if at a Haven/Darkhaven [{H}].During his organization phase, the character may tap to attempt to remove this card. Make a roll—if the result is greater than 6, discard this card. Cannot be duplicated on a given character."
+    "effects": [
+      {
+        "type": "play-target",
+        "target": "character"
+      },
+      {
+        "type": "duplication-limit",
+        "scope": "character",
+        "max": 1
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "corruption-points",
+        "value": 2
+      },
+      {
+        "type": "on-event",
+        "event": "untap-phase-at-haven",
+        "apply": { "type": "force-check", "check": "corruption" },
+        "target": "bearer"
+      },
+      {
+        "type": "grant-action",
+        "action": "remove-self-on-roll",
+        "cost": { "tap": "bearer" },
+        "rollThreshold": 7
+      }
+    ],
+    "text": "Corruption. Playable on a non-Ringwraith character. Target character receives 2 corruption points and makes a corruption check at the end of his untap phase if at a Haven/Darkhaven [{H}].During his organization phase, the character may tap to attempt to remove this card. Make a roll—if the result is greater than 6, discard this card. Cannot be duplicated on a given character.",
+    "certified": "2026-04-08"
   },
   {
     "cardType": "hazard-event",

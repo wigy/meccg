@@ -46,7 +46,7 @@ import {
   BARROW_DOWNS,
   isSiteCard, buildMovementMap, getReachableSites,
 } from '../../index.js';
-import type { SiteCard, SitePhaseState } from '../../index.js';
+import type { SiteCard } from '../../index.js';
 
 // ─── Tests ───────────────────────────────────────────────────────────────────
 
@@ -133,12 +133,14 @@ describe('Barrow-downs (tw-375)', () => {
     const result = runAutoAttackCombat(readyState, ARAGORN, 2, 5, false);
     expect(result.state.combat).toBeNull();
 
-    // Wound corruption check should be pending
-    const siteState = result.state.phaseState as SitePhaseState;
-    expect(siteState.pendingWoundCorruptionChecks).toHaveLength(1);
+    // Wound corruption check should be pending in the unified queue
+    const pending = result.state.pendingResolutions.filter(r => r.actor === PLAYER_1);
+    expect(pending).toHaveLength(1);
+    expect(pending[0].kind.type).toBe('corruption-check');
+    if (pending[0].kind.type !== 'corruption-check') return;
 
     const aragornId = findCharInstanceId(result.state, 0, ARAGORN);
-    expect(siteState.pendingWoundCorruptionChecks[0].characterId).toBe(aragornId);
+    expect(pending[0].kind.characterId).toBe(aragornId);
 
     // Legal actions should offer corruption-check
     const actions = computeLegalActions(result.state, PLAYER_1);
@@ -163,8 +165,7 @@ describe('Barrow-downs (tw-375)', () => {
     expect(ccResult.error).toBeUndefined();
 
     // Corruption check passed — character still in play, queue cleared
-    const siteState = ccResult.state.phaseState as SitePhaseState;
-    expect(siteState.pendingWoundCorruptionChecks).toHaveLength(0);
+    expect(ccResult.state.pendingResolutions).toHaveLength(0);
 
     const aragornId = findCharInstanceId(ccResult.state, 0, ARAGORN);
     expect(ccResult.state.players[0].characters[aragornId as string]).toBeDefined();
@@ -194,8 +195,7 @@ describe('Barrow-downs (tw-375)', () => {
     expect(ccResult.error).toBeUndefined();
 
     // Character should be discarded or eliminated
-    const siteState = ccResult.state.phaseState as SitePhaseState;
-    expect(siteState.pendingWoundCorruptionChecks).toHaveLength(0);
+    expect(ccResult.state.pendingResolutions).toHaveLength(0);
     const aragornId = findCharInstanceId(result.state, 0, ARAGORN);
     expect(ccResult.state.players[0].characters[aragornId as string]).toBeUndefined();
   });
@@ -209,8 +209,7 @@ describe('Barrow-downs (tw-375)', () => {
     expect(result.state.combat).toBeNull();
 
     // No corruption check should be pending
-    const siteState = result.state.phaseState as SitePhaseState;
-    expect(siteState.pendingWoundCorruptionChecks).toHaveLength(0);
+    expect(result.state.pendingResolutions).toHaveLength(0);
 
     // Normal automatic-attacks step resumes
     const actions = computeLegalActions(result.state, PLAYER_1);

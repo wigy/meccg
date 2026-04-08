@@ -485,5 +485,34 @@
     "marshallingCategory": "misc",
     "effects": [],
     "text": "Spell. Wizard only during opponent\u2019s site phase. Automatically cancels an influence check against one of the Wizard\u2019s player\u2019s characters, followers, factions, allies, or items. Wizard makes a corruption check modified by -2."
+  },
+  {
+    "cardType": "hero-resource-event",
+    "alignment": "wizard",
+    "id": "tw-332",
+    "name": "Stealth",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Stealth.jpg",
+    "unique": false,
+    "eventType": "short",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [
+      {
+        "type": "play-target",
+        "target": "own-scout"
+      },
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "apply": {
+          "type": "add-constraint",
+          "constraint": "no-creature-hazards-on-company",
+          "scope": "turn"
+        },
+        "target": "scout-company"
+      }
+    ],
+    "text": "Scout only. Tap a scout to play at the end of the organization phase only if the scout's company size is less than three. No creature hazards may be played on his company this turn.",
+    "certified": "2026-04-08"
   }
 ]

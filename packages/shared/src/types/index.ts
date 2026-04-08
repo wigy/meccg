@@ -2,6 +2,7 @@ export * from './common.js';
 export * from './effects.js';
 export * from './cards.js';
 export * from './state.js';
+export * from './pending.js';
 export * from './actions.js';
 export * from './phases.js';
 export * from './player-view.js';

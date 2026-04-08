@@ -201,9 +201,10 @@ export function moveToInfluenceActions(state: GameState, playerId: PlayerId): Ev
  *
  * Per CoE rules (2.II.5), items can be transferred between two characters
  * at the same site (not necessarily in the same company). After the transfer,
- * the initial bearer must make a corruption check — the reducer sets
- * {@link OrganizationPhaseState.pendingCorruptionCheck} which gates all
- * other actions until the check is resolved.
+ * the initial bearer must make a corruption check — the reducer enqueues a
+ * {@link PendingResolution} of kind `corruption-check` via the unified
+ * pending-resolution system; that resolution gates all other organization
+ * actions until it is resolved.
  *
  * Emits one viable action per valid (item, fromCharacter, toCharacter) triple.
  */

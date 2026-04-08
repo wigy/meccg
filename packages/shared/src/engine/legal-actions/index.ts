@@ -24,6 +24,8 @@ import { freeCouncilActions } from './free-council.js';
 import { chainActions } from './chain.js';
 import { combatActions } from './combat.js';
 import { logHeading, logResult } from './log.js';
+import { topResolutionFor } from '../pending.js';
+import { resolutionLegalActions, applyConstraints } from './pending.js';
 
 /**
  * Computes legal actions when a pending card effect is being resolved.
@@ -109,6 +111,24 @@ export function computeLegalActions(state: GameState, playerId: PlayerId): Evalu
     return evaluated;
   }
 
+  // Pending resolutions short-circuit (Shape A — see types/pending.ts).
+  // While any resolution is queued for this player, only its resolution
+  // actions are legal. While a resolution is queued for the *other*
+  // player, this player must wait — they have no legal actions.
+  const top = topResolutionFor(state, playerId);
+  if (top !== null) {
+    logHeading(`Pending resolution active (${top.kind.type}) — delegating to resolution actions`);
+    const evaluated = resolutionLegalActions(state, playerId, top);
+    const viableCount = evaluated.filter(e => e.viable).length;
+    logResult(viableCount, evaluated.filter(e => e.viable).map(e => e.action) as unknown as Record<string, unknown>[]);
+    return evaluated;
+  }
+  if (state.pendingResolutions.length > 0) {
+    logHeading(`Pending resolution active for another player — waiting`);
+    logResult(0, []);
+    return [];
+  }
+
   let evaluated: EvaluatedAction[];
   switch (phase) {
     case 'setup':             evaluated = setupActions(state, playerId); break;
@@ -128,6 +148,10 @@ export function computeLegalActions(state: GameState, playerId: PlayerId): Evalu
     }
     default:                  evaluated = []; break;
   }
+
+  // Active constraints filter (Shape B — see types/pending.ts). Pass-through
+  // when no constraints are in scope.
+  evaluated = applyConstraints(state, playerId, evaluated);
 
   const viableCount = evaluated.filter(e => e.viable).length;
   logResult(viableCount, evaluated.filter(e => e.viable).map(e => e.action) as unknown as Record<string, unknown>[]);

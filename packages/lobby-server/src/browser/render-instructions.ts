@@ -241,17 +241,10 @@ function getInstructionText(
     }
   }
 
-  // Organization phase
-  if (view.phaseState.phase === Phase.Organization && view.phaseState.pendingCorruptionCheck === null) {
-    const isSelf = view.activePlayer === view.self.id;
-    if (isSelf) {
-      return 'Organization — Plan movement, reorganize companies, and play characters.';
-    }
-    return 'Organization — Waiting for opponent to organize.';
-  }
-
-  // Pending corruption check after item transfer
-  if (view.phaseState.phase === Phase.Organization && view.phaseState.pendingCorruptionCheck !== null) {
+  // Organization phase: pending corruption checks (transfer / wound / Lure)
+  // are now produced via the unified pending-resolution system. Detect them
+  // by inspecting `view.legalActions` for a corruption-check entry.
+  if (view.phaseState.phase === Phase.Organization) {
     const checkAction = view.legalActions.find(ea => ea.viable && ea.action.type === 'corruption-check');
     if (checkAction && checkAction.action.type === 'corruption-check') {
       const charId = checkAction.action.characterId;
@@ -263,6 +256,11 @@ function getInstructionText(
       const modStr = mod !== 0 ? ` (${mod >= 0 ? '+' : ''}${mod} modifier)` : '';
       return `Corruption Check — ${charName} must roll against ${cp} corruption point${cp !== 1 ? 's' : ''}${modStr}.`;
     }
+    const isSelf = view.activePlayer === view.self.id;
+    if (isSelf) {
+      return 'Organization — Plan movement, reorganize companies, and play characters.';
+    }
+    return 'Organization — Waiting for opponent to organize.';
   }
 
   // Free Council phase

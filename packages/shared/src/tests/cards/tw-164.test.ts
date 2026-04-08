@@ -21,9 +21,10 @@ import {
   Phase,
   buildTestState, resetMint,
   findCharInstanceId, buildSitePhaseState,
+  enqueueTransferCorruptionCheck,
 } from '../test-helpers.js';
 import { computeLegalActions } from '../../index.js';
-import type { CharacterCard, InfluenceAttemptAction, CorruptionCheckAction, OrganizationPhaseState } from '../../index.js';
+import type { CharacterCard, InfluenceAttemptAction, CorruptionCheckAction } from '../../index.js';
 
 // ─── Tests ────────────────────────────────────────────────────────────────────
 
@@ -56,18 +57,7 @@ describe('Haldir (tw-164)', () => {
     const haldirId = findCharInstanceId(state, 0, HALDIR);
     const glamdringInstId = state.players[0].characters[haldirId as string].items[0].instanceId;
 
-    // Set up pending corruption check as if Haldir just gave away an item
-    const orgPhase: OrganizationPhaseState = {
-      phase: Phase.Organization,
-      characterPlayedThisTurn: false,
-      sideboardFetchedThisTurn: 0,
-      sideboardFetchDestination: null,
-      pendingCorruptionCheck: {
-        characterId: haldirId,
-        transferredItemId: glamdringInstId,
-      },
-    };
-    const stateWithCheck = { ...state, phaseState: orgPhase };
+    const stateWithCheck = enqueueTransferCorruptionCheck(state, PLAYER_1, haldirId, glamdringInstId);
 
     const actions = computeLegalActions(stateWithCheck, PLAYER_1);
     const ccActions = actions

@@ -255,6 +255,21 @@ export interface TriggeredAction {
   readonly modifier?: number;
   /** Filter condition for 'discard-cards-in-play' — matches against card definitions. */
   readonly filter?: Condition;
+  /**
+   * For `add-constraint` type: which active-constraint kind to add to
+   * the target. Maps directly to {@link ActiveConstraint.kind.type}.
+   */
+  readonly constraint?: string;
+  /**
+   * For `add-constraint` type: the scope of the constraint, encoded as
+   * a string. The on-event handler maps it to {@link ConstraintScope}:
+   *  - `"company-site-phase"` → company-site-phase scoped to the target company
+   *  - `"company-mh-phase"` → company-mh-phase scoped to the target company
+   *  - `"phase: <name>"` → phase scoped
+   *  - `"turn"` → turn scoped
+   *  - `"until-cleared"` → never auto-swept
+   */
+  readonly scope?: string;
 }
 
 /**
@@ -311,8 +326,15 @@ export interface DuplicationLimitEffect extends EffectBase {
  */
 export interface PlayTargetEffect extends EffectBase {
   readonly type: 'play-target';
-  /** What kind of target this card requires. */
-  readonly target: 'character';
+  /**
+   * What kind of target this card requires.
+   *
+   * - `"character"` — one play action per eligible character (e.g. Foolish Words, Lure of the Senses).
+   * - `"company"` — the active company (e.g. Lost in Free-domains).
+   * - `"site"` — the company's destination/current site (e.g. River).
+   * - `"own-scout"` — a scout in one of the resource player's companies (e.g. Stealth).
+   */
+  readonly target: 'character' | 'company' | 'site' | 'own-scout';
 }
 
 /**

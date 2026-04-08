@@ -159,5 +159,95 @@
     "eventType": "short",
     "effects": [],
     "text": "Playable on a faction. The faction's player makes a roll. The faction is discarded if the result plus his unused general influence is less than 11."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "tw-84",
+    "name": "River",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/River.jpg",
+    "unique": false,
+    "eventType": "permanent",
+    "effects": [
+      {
+        "type": "play-target",
+        "target": "site"
+      },
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "apply": {
+          "type": "add-constraint",
+          "constraint": "site-phase-do-nothing-unless-ranger-taps",
+          "scope": "company-site-phase"
+        },
+        "target": "arriving-company"
+      }
+    ],
+    "text": "Playable on a site. A company moving to this site this turn must do nothing during its site phase. A ranger in such a company may tap to cancel this effect, even at the start of his company's site phase.",
+    "certified": "2026-04-08"
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "tw-53",
+    "name": "Lost in Free-domains",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/LostinFreedomains.jpg",
+    "unique": false,
+    "eventType": "permanent",
+    "effects": [
+      {
+        "type": "play-target",
+        "target": "company"
+      },
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "apply": {
+          "type": "add-constraint",
+          "constraint": "site-phase-do-nothing",
+          "scope": "company-site-phase"
+        },
+        "target": "target-company"
+      }
+    ],
+    "text": "Playable on a company moving with a Free-domain in its site path. The company may do nothing during its site phase.",
+    "certified": "2026-04-08"
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "tw-60",
+    "name": "Lure of the Senses",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/LureoftheSenses.jpg",
+    "unique": false,
+    "eventType": "permanent",
+    "effects": [
+      {
+        "type": "play-target",
+        "target": "character"
+      },
+      {
+        "type": "duplication-limit",
+        "scope": "character",
+        "max": 1
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "corruption-points",
+        "value": 2
+      },
+      {
+        "type": "on-event",
+        "event": "untap-phase-at-haven",
+        "apply": { "type": "force-check", "check": "corruption" },
+        "target": "bearer"
+      },
+      {
+        "type": "grant-action",
+        "action": "remove-self-on-roll",
+        "cost": { "tap": "bearer" },
+        "rollThreshold": 7
+      }
+    ],
+    "text": "Corruption. Playable on a non-Ringwraith character. Target character receives 2 corruption points and makes a corruption check at the end of his untap phase if at a Haven/Darkhaven. During his organization phase, the character may tap to attempt to remove this card. Make a roll—if the result is greater than 6, discard this card. Cannot be duplicated on a given character.",
+    "certified": "2026-04-08"
   }
 ]

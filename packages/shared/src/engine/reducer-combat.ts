@@ -14,6 +14,7 @@ import type { ReducerResult } from './reducer-utils.js';
 import { roll2d6, clonePlayers } from './reducer-utils.js';
 import { resolveEnemyBody } from './effects/index.js';
 import { computeCombatProwess, buildInPlayNames } from './recompute-derived.js';
+import { enqueueResolution } from './pending.js';
 
 
 /**
@@ -519,30 +520,56 @@ function finalizeCombat(state: GameState, effects: GameEffect[] = []): ReducerRe
 
   // Check for on-event: character-wounded-by-self effects on the attack source.
   // If any characters were wounded (not eliminated) and the attack source card
-  // has this effect, queue corruption checks in the site phase state.
-  let newPhaseState = state.phaseState;
+  // has this effect, enqueue a pending corruption-check resolution per
+  // wounded character via the unified pending-resolution system.
+  let stateAfterCombat: GameState = { ...state, players: newPlayers, combat: null };
   const woundedCharIds = combat.strikeAssignments
     .filter(a => a.result === 'wounded')
     .map(a => a.characterId);
 
-  if (woundedCharIds.length > 0 && (state.phaseState.phase === Phase.Site || state.phaseState.phase === Phase.MovementHazard)) {
-    const phaseWithChecks = state.phaseState;
+  if (
+    woundedCharIds.length > 0 &&
+    (state.phaseState.phase === Phase.Site || state.phaseState.phase === Phase.MovementHazard)
+  ) {
     const sourceCard = getAttackSourceCard(state, combat);
-    if (sourceCard?.effects) {
-      const woundEvent = sourceCard.effects.find(
-        (e): e is OnEventEffect => e.type === 'on-event' && e.event === 'character-wounded-by-self',
-      );
-      if (woundEvent) {
-        const modifier = woundEvent.apply.modifier ?? 0;
-        const checks = woundedCharIds.map(characterId => ({ characterId, modifier }));
-        logDetail(`Wound corruption checks queued for ${checks.length} character(s) (modifier ${modifier})`);
-        newPhaseState = { ...phaseWithChecks, pendingWoundCorruptionChecks: [...phaseWithChecks.pendingWoundCorruptionChecks, ...checks] };
+    const sourceName = (sourceCard as { name?: string } | undefined)?.name ?? 'Wound';
+    const woundEvent = sourceCard?.effects?.find(
+      (e): e is OnEventEffect => e.type === 'on-event' && e.event === 'character-wounded-by-self',
+    );
+    if (woundEvent) {
+      const modifier = woundEvent.apply.modifier ?? 0;
+      const actor = combat.defendingPlayerId;
+      const actorIndex = stateAfterCombat.players.findIndex(p => p.id === actor);
+      const phaseStateActive = state.phaseState as { activeCompanyIndex: number };
+      const company = stateAfterCombat.players[actorIndex].companies[phaseStateActive.activeCompanyIndex];
+      const companyId = company?.id;
+      logDetail(`Wound corruption checks queued for ${woundedCharIds.length} character(s) (${sourceName}, modifier ${modifier})`);
+      if (companyId) {
+        const scope = state.phaseState.phase === Phase.MovementHazard
+          ? ({ kind: 'company-mh-subphase' as const, companyId })
+          : ({ kind: 'company-site-subphase' as const, companyId });
+        const source = combat.attackSource.type === 'creature' ? combat.attackSource.instanceId : null;
+        for (const characterId of woundedCharIds) {
+          stateAfterCombat = enqueueResolution(stateAfterCombat, {
+            source,
+            actor,
+            scope,
+            kind: {
+              type: 'corruption-check',
+              characterId,
+              modifier,
+              reason: sourceName,
+              possessions: [],
+              transferredItemId: null,
+            },
+          });
+        }
       }
     }
   }
 
   return {
-    state: { ...state, players: newPlayers, combat: null, phaseState: newPhaseState },
+    state: stateAfterCombat,
     effects,
   };
 }

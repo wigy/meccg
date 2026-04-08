@@ -298,7 +298,6 @@ describe('Twilight (tw-106)', () => {
       movementType: null,
       declaredRegionPath: [],
       maxRegionDistance: 4,
-      pendingEffectsToOrder: [],
       hazardsPlayedThisCompany: 0,
       hazardLimit: 4,
       resolvedSitePath: [],
@@ -314,7 +313,6 @@ describe('Twilight (tw-106)', () => {
       onGuardPlacedThisCompany: false,
       siteRevealed: false,
       returnedToOrigin: false,
-      pendingWoundCorruptionChecks: [],
     };
     const mhGameState: GameState = { ...state, phaseState: mhState };
 
@@ -358,7 +356,6 @@ describe('Twilight (tw-106)', () => {
       movementType: null,
       declaredRegionPath: [],
       maxRegionDistance: 4,
-      pendingEffectsToOrder: [],
       hazardsPlayedThisCompany: 1,
       hazardLimit: 2,
       resolvedSitePath: [],
@@ -374,7 +371,6 @@ describe('Twilight (tw-106)', () => {
       onGuardPlacedThisCompany: false,
       siteRevealed: false,
       returnedToOrigin: false,
-      pendingWoundCorruptionChecks: [],
     };
     const mhGameState: GameState = { ...state, phaseState: mhState };
 

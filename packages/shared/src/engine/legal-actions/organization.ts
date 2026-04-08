@@ -124,50 +124,11 @@ export function organizationActions(state: GameState, playerId: PlayerId): Evalu
 
   const orgState = state.phaseState as OrganizationPhaseState;
 
-  // When a corruption check is pending (after item transfer), only that check is legal
-  if (orgState.pendingCorruptionCheck !== null) {
-    const charId = orgState.pendingCorruptionCheck.characterId;
-    const transferredItemId = orgState.pendingCorruptionCheck.transferredItemId;
-    const char = player.characters[charId as string];
-    if (char) {
-      const charDef = resolveDef(state, char.instanceId);
-      const charName = isCharacterCard(charDef) ? charDef.name : '?';
-
-      // Include CP from the transferred item (already moved to target character)
-      const transferredDefId = resolveInstanceId(state, transferredItemId);
-      const transferredDef = transferredDefId ? state.cardPool[transferredDefId as string] : undefined;
-      const transferredCp = transferredDef && 'corruptionPoints' in transferredDef
-        ? (transferredDef as { corruptionPoints: number }).corruptionPoints : 0;
-      const cp = char.effectiveStats.corruptionPoints + transferredCp;
-
-      const modifier = isCharacterCard(charDef) ? charDef.corruptionModifier : 0;
-
-      // Include the transferred item in possessions (it's on the target but belongs to this check)
-      const possessions: CardInstanceId[] = [
-        transferredItemId,
-        ...char.items.map(i => i.instanceId),
-        ...char.allies.map(a => a.instanceId),
-        ...char.hazards.map(h => h.instanceId),
-      ];
-      const ccNeed = cp + 1 - modifier;
-      const ccParts = [`CP ${cp}`];
-      if (modifier !== 0) ccParts.push(`modifier ${modifier >= 0 ? '+' : ''}${modifier}`);
-      logDetail(`Pending corruption check for ${charName} (CP ${cp} incl. transferred item, modifier ${modifier >= 0 ? '+' : ''}${modifier}, ${possessions.length} possession(s)) after item transfer`);
-      return [{
-        action: {
-          type: 'corruption-check',
-          player: playerId,
-          characterId: charId,
-          corruptionPoints: cp,
-          corruptionModifier: modifier,
-          possessions,
-          need: ccNeed,
-          explanation: `Need roll > ${cp - modifier} (${ccParts.join(', ')})`,
-        },
-        viable: true,
-      }];
-    }
-  }
+  // Pending corruption checks (transfer / wound / Lure) are now produced
+  // and consumed via the unified pending-resolution system. The
+  // resolution short-circuit in `legal-actions/index.ts` collapses the
+  // menu to the corruption-check action before this function is reached,
+  // so no per-phase short-circuit is needed here.
 
   // When sideboard sub-flow is active, only fetch actions (+ pass for discard) are legal
   if (orgState.sideboardFetchDestination !== null) {

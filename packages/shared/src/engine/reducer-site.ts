@@ -9,7 +9,6 @@
 import type { GameState, PlayerState, CardInstanceId, CompanyId, CharacterInPlay, CardInstance, SitePhaseState, HeroItemCard, CombatState, OnGuardCard, GameAction, GameEffect } from '../index.js';
 import { Phase, CardStatus, isCharacterCard, isItemCard, isAllyCard, isFactionCard, isSiteCard, getPlayerIndex, GENERAL_INFLUENCE } from '../index.js';
 import { logDetail } from './legal-actions/log.js';
-import { resolveInstanceId } from '../types/state.js';
 import { collectCharacterEffects, resolveCheckModifier, resolveStatModifiers, resolveAttackProwess, resolveAttackStrikes, normalizeCreatureRace } from './effects/index.js';
 import type { ResolverContext } from './effects/index.js';
 import { matchesCondition } from '../effects/index.js';
@@ -19,6 +18,7 @@ import type { ReducerResult } from './reducer-utils.js';
 import { roll2d6, clonePlayers, cleanupEmptyCompanies } from './reducer-utils.js';
 import { handlePlayPermanentEvent } from './reducer-events.js';
 import { buildInPlayNames } from './recompute-derived.js';
+import { sweepExpired } from './pending.js';
 
 
 /**
@@ -31,10 +31,9 @@ import { buildInPlayNames } from './recompute-derived.js';
 export function handleSite(state: GameState, action: GameAction): ReducerResult {
   const siteState = state.phaseState as SitePhaseState;
 
-  // Handle pending wound corruption checks (e.g. from Barrow-downs auto-attack)
-  if (siteState.pendingWoundCorruptionChecks.length > 0) {
-    return handleWoundCorruptionCheck(state, action, siteState);
-  }
+  // Pending wound corruption checks (Barrow-downs et al.) are now routed
+  // through the unified pending-resolution dispatcher in `reducer.ts` /
+  // `pending-reducers.ts` before this handler is reached.
 
   if (siteState.step === 'select-company') {
     return handleSiteSelectCompany(state, action, siteState);
@@ -157,7 +156,6 @@ function handleSiteSelectCompany(
         declaredAgentAttack: null,
         awaitingOnGuardReveal: false,
         pendingResourceAction: null,
-        pendingWoundCorruptionChecks: [],
       },
     },
   };
@@ -1490,138 +1488,9 @@ function returnOnGuardCardsToHand(state: GameState): GameState {
 
 
 
-/**
- * Handle a corruption check triggered by an automatic attack's
- * `on-event: character-wounded-by-self` effect (e.g. Barrow-downs).
- *
- * Processes the first pending check. On pass, removes it from the queue.
- * On failure, applies the standard corruption check consequences
- * (discard or elimination). After all checks are processed, resumes
- * the normal site phase step.
- */
-function handleWoundCorruptionCheck(
-  state: GameState,
-  action: GameAction,
-  siteState: SitePhaseState,
-): ReducerResult {
-  if (action.type !== 'corruption-check') {
-    return { state, error: `Expected 'corruption-check' during wound corruption checks` };
-  }
-
-  const pending = siteState.pendingWoundCorruptionChecks[0];
-  if (!pending) return { state, error: 'No pending wound corruption check' };
-
-  if (action.characterId !== pending.characterId) {
-    return { state, error: 'Wrong character for pending wound corruption check' };
-  }
-
-  const playerIndex = state.players.findIndex(p => p.id === action.player);
-  const player = state.players[playerIndex];
-  const char = player.characters[action.characterId as string];
-  if (!char) return { state, error: 'Character not found for wound corruption check' };
-
-  const charDefId = resolveInstanceId(state, action.characterId);
-  const charDef = charDefId ? state.cardPool[charDefId as string] : undefined;
-  const charName = charDef?.name ?? '?';
-  const cp = action.corruptionPoints;
-  const modifier = action.corruptionModifier;
-
-  const { roll, rng, cheatRollTotal } = roll2d6(state);
-  const total = roll.die1 + roll.die2 + modifier;
-  const modStr = modifier !== 0 ? ` ${modifier >= 0 ? '+' : ''}${modifier}` : '';
-  logDetail(`Wound corruption check for ${charName}: rolled ${roll.die1} + ${roll.die2}${modStr} = ${total} vs CP ${cp}`);
-
-  const rollEffect: GameEffect = {
-    effect: 'dice-roll',
-    playerName: player.name,
-    die1: roll.die1,
-    die2: roll.die2,
-    label: `Wound corruption: ${charName}`,
-  };
-
-  const newPlayers = clonePlayers(state);
-  newPlayers[playerIndex] = { ...newPlayers[playerIndex], lastDiceRoll: roll };
-  const remainingChecks = siteState.pendingWoundCorruptionChecks.slice(1);
-
-  if (total > cp) {
-    logDetail(`Wound corruption check passed (${total} > ${cp})`);
-    return {
-      state: cleanupEmptyCompanies({
-        ...state,
-        players: newPlayers,
-        rng, cheatRollTotal,
-        phaseState: { ...siteState, pendingWoundCorruptionChecks: remainingChecks },
-      }),
-      effects: [rollEffect],
-    };
-  }
-
-  const newCharacters = { ...player.characters };
-
-  if (total >= cp - 1) {
-    // Roll == CP or CP-1: character and possessions are discarded
-    logDetail(`Wound corruption check FAILED (${total} within 1 of ${cp}) — discarding ${charName}`);
-
-    delete newCharacters[action.characterId as string];
-    const newCompanies = player.companies.map(c => ({
-      ...c,
-      characters: c.characters.filter(id => id !== action.characterId),
-    }));
-
-    for (const followerId of char.followers) {
-      const follower = newCharacters[followerId as string];
-      if (follower) {
-        newCharacters[followerId as string] = { ...follower, controlledBy: 'general' };
-      }
-    }
-
-    const toDiscard: CardInstance[] = [
-      { instanceId: action.characterId, definitionId: char.definitionId },
-      ...action.possessions.map(id => ({ instanceId: id, definitionId: resolveInstanceId(state, id)! })),
-    ];
-
-    newPlayers[playerIndex] = {
-      ...newPlayers[playerIndex],
-      characters: newCharacters,
-      companies: newCompanies,
-      discardPile: [...player.discardPile, ...toDiscard],
-    };
-  } else {
-    // Roll < CP-1: character is eliminated, possessions discarded
-    logDetail(`Wound corruption check FAILED (${total} < ${cp - 1}) — eliminating ${charName}`);
-
-    delete newCharacters[action.characterId as string];
-    const newCompanies = player.companies.map(c => ({
-      ...c,
-      characters: c.characters.filter(id => id !== action.characterId),
-    }));
-
-    for (const followerId of char.followers) {
-      const follower = newCharacters[followerId as string];
-      if (follower) {
-        newCharacters[followerId as string] = { ...follower, controlledBy: 'general' };
-      }
-    }
-
-    newPlayers[playerIndex] = {
-      ...newPlayers[playerIndex],
-      characters: newCharacters,
-      companies: newCompanies,
-      eliminatedPile: [...player.eliminatedPile, { instanceId: action.characterId, definitionId: char.definitionId }],
-      discardPile: [...player.discardPile, ...action.possessions.map(id => ({ instanceId: id, definitionId: resolveInstanceId(state, id)! }))],
-    };
-  }
-
-  return {
-    state: cleanupEmptyCompanies({
-      ...state,
-      players: newPlayers,
-      rng, cheatRollTotal,
-      phaseState: { ...siteState, pendingWoundCorruptionChecks: remainingChecks },
-    }),
-    effects: [rollEffect],
-  };
-}
+// handleWoundCorruptionCheck removed: wound corruption checks are
+// now handled by `applyCorruptionCheckResolution` in
+// `engine/pending-reducers.ts`.
 
 function advanceSiteToNextCompany(
   state: GameState,
@@ -1630,13 +1499,17 @@ function advanceSiteToNextCompany(
 ): ReducerResult {
   const updatedHandled = [...siteState.handledCompanyIds, handledCompanyId];
 
-  const playerIndex = getPlayerIndex(state, state.activePlayer!);
-  const remainingCount = state.players[playerIndex].companies.length - updatedHandled.length;
+  // Sweep any active constraints / pending resolutions scoped to the
+  // company that just finished its site sub-phase.
+  const sweptState = sweepExpired(state, { kind: 'company-site-end', companyId: handledCompanyId });
+
+  const playerIndex = getPlayerIndex(sweptState, sweptState.activePlayer!);
+  const remainingCount = sweptState.players[playerIndex].companies.length - updatedHandled.length;
 
   if (remainingCount <= 0) {
     logDetail(`Site: all companies handled → advancing to End-of-Turn phase`);
     // Return remaining on-guard cards to hazard player's hand
-    const cleanedState = returnOnGuardCardsToHand(state);
+    const cleanedState = returnOnGuardCardsToHand(sweptState);
     return {
       state: cleanupEmptyCompanies({
         ...cleanedState,
@@ -1648,7 +1521,7 @@ function advanceSiteToNextCompany(
   logDetail(`Site: company ${handledCompanyId} done → returning to select-company (${remainingCount} remaining)`);
   return {
     state: {
-      ...state,
+      ...sweptState,
       phaseState: {
         ...siteState,
         step: 'select-company' as const,
@@ -1661,7 +1534,6 @@ function advanceSiteToNextCompany(
         awaitingOnGuardReveal: false,
         pendingResourceAction: null,
         opponentInteractionThisTurn: null,
-        pendingWoundCorruptionChecks: [],
         pendingOpponentInfluence: null,
       },
     },

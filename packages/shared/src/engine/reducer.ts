@@ -32,6 +32,8 @@ import { handleChainAction } from './chain-reducer.js';
 export type { ReducerResult } from './reducer-utils.js';
 import type { ReducerResult } from './reducer-utils.js';
 import { validateActionPlayer, handleFetchFromPile, resolvePendingEffect } from './reducer-utils.js';
+import { topResolutionFor } from './pending.js';
+import { applyResolution } from './pending-reducers.js';
 import { handleSetup } from './reducer-setup.js';
 import { handleUntap } from './reducer-untap.js';
 import { handleOrganization } from './reducer-organization.js';
@@ -104,6 +106,26 @@ export function reduce(state: GameState, action: GameAction): ReducerResult {
       };
     }
     return combatResult;
+  }
+
+  // 2c'. Pending resolutions: dispatch through the unified resolver before
+  // delegating to the per-phase reducer. The handler is responsible for
+  // dequeuing the resolution it consumes.
+  const topResolution = topResolutionFor(state, action.player);
+  if (topResolution !== null) {
+    logDetail(`Pending resolution active (${topResolution.kind.type}) — dispatching to applyResolution`);
+    const resolutionResult = applyResolution(state, action, topResolution);
+    if (resolutionResult !== null) {
+      if (!resolutionResult.error) {
+        const recomputed = recomputeDerived(resolutionResult.state);
+        return {
+          state: { ...recomputed, stateSeq: recomputed.stateSeq + 1 },
+          effects: resolutionResult.effects,
+        };
+      }
+      return resolutionResult;
+    }
+    // Stub returned null — fall through to legacy phase reducer.
   }
 
   // 2d. Pending effects: resolve card effects awaiting player interaction
