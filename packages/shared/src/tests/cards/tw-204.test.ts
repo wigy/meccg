@@ -35,6 +35,7 @@ import {
 import type { CancelAttackAction, HeroResourceEventCard } from '../../index.js';
 import { RegionType, SiteType } from '../../index.js';
 import type { CancelAttackEffect } from '../../types/effects.js';
+import { computeLegalActions } from '../../index.js';
 
 describe('Concealment (tw-204)', () => {
   beforeEach(() => resetMint());
@@ -213,6 +214,26 @@ describe('Concealment (tw-204)', () => {
     expect(combatState.combat).toBeDefined();
     const cancelActions = viableActions(combatState, PLAYER_1, 'cancel-attack');
     expect(cancelActions).toHaveLength(0);
+  });
+
+  test('Concealment is NOT playable during the long-event phase (no attack)', () => {
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.LongEvent,
+      recompute: true,
+      players: [
+        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [ARAGORN] }], hand: [CONCEALMENT], siteDeck: [MINAS_TIRITH] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [RIVENDELL] },
+      ],
+    });
+
+    const actions = computeLegalActions(state, PLAYER_1);
+    const shortEventActions = actions.filter(a => a.action.type === 'play-short-event');
+    expect(shortEventActions).toHaveLength(0);
+
+    // Concealment should be marked not-playable
+    const notPlayable = actions.filter(a => a.action.type === 'not-playable');
+    expect(notPlayable.length).toBeGreaterThan(0);
   });
 
   test('cancel-attack is NOT available to the attacking player', () => {

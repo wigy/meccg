@@ -222,6 +222,16 @@ export function organizationActions(state: GameState, playerId: PlayerId): Evalu
     if (playWindow && (playWindow.phase !== 'organization' || playWindow.step !== 'play-actions')) {
       continue;
     }
+    // Skip short events whose effects are only usable during combat
+    // (e.g. Concealment's cancel-attack). These require an active attack.
+    const combatOnlyTypes = new Set(['cancel-attack', 'cancel-strike']);
+    const hasEffects = def.effects && def.effects.length > 0;
+    const allCombatOnly = hasEffects && def.effects.every(e => combatOnlyTypes.has(e.type));
+    if (allCombatOnly) {
+      logDetail(`${def.name}: combat-only short-event, not playable outside combat`);
+      continue;
+    }
+
     resourceShortEventInstances.add(handCard.instanceId as string);
     logDetail(`Resource short-event playable: ${def.name} (${handCard.instanceId as string})`);
     actions.push({
