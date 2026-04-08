@@ -671,12 +671,21 @@ function updateDeckFile(filePath, cardName, cardId) {
     const deck = JSON.parse(content);
     let changed = false;
 
-    for (const section of ['pool', 'characters', 'hazards', 'resources', 'sites']) {
-      if (!Array.isArray(deck[section])) continue;
-      for (const entry of deck[section]) {
-        if (entry.name === cardName && (!entry.card || entry.card === '')) {
-          entry.card = cardId;
-          changed = true;
+    // Top-level sections: pool, sites, sideboard.
+    // Play deck sections (characters, hazards, resources) live under deck.deck.
+    const sectionContainers = [
+      deck,
+      ...(deck.deck && typeof deck.deck === 'object' ? [deck.deck] : []),
+    ];
+
+    for (const container of sectionContainers) {
+      for (const section of ['pool', 'characters', 'hazards', 'resources', 'sites', 'sideboard']) {
+        if (!Array.isArray(container[section])) continue;
+        for (const entry of container[section]) {
+          if (entry.name === cardName && (!entry.card || entry.card === '')) {
+            entry.card = cardId;
+            changed = true;
+          }
         }
       }
     }
