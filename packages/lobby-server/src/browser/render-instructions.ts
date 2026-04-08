@@ -8,7 +8,7 @@
 
 import type { PlayerView, CardDefinition, GameAction } from '@meccg/shared';
 import { getAlignmentRules, isCharacterCard, Phase } from '@meccg/shared';
-import { getCachedInstanceLookup, REGION_ICON_CODES } from './render-text-format.js';
+import { REGION_ICON_CODES } from './render-text-format.js';
 import { getTargetingInstruction } from './render-selection-state.js';
 
 /**
@@ -72,8 +72,6 @@ function getInstructionText(
   view: PlayerView,
   cardPool: Readonly<Record<string, CardDefinition>>,
 ): string | null {
-  const cachedInstanceLookup = getCachedInstanceLookup();
-
   if (view.phaseState.phase === 'setup') {
     switch (view.phaseState.setupStep.step) {
       case 'character-draft':
@@ -248,20 +246,9 @@ function getInstructionText(
   }
 
   // Organization phase: pending corruption checks (transfer / wound / Lure)
-  // are now produced via the unified pending-resolution system. Detect them
-  // by inspecting `view.legalActions` for a corruption-check entry.
+  // are rendered as a situation banner in the visual board (company-view.ts),
+  // not in the instruction line.
   if (view.phaseState.phase === Phase.Organization) {
-    const checkAction = view.legalActions.find(ea => ea.viable && ea.action.type === 'corruption-check');
-    if (checkAction && checkAction.action.type === 'corruption-check') {
-      const charId = checkAction.action.characterId;
-      const defId = cachedInstanceLookup(charId);
-      const def = defId ? cardPool[defId as string] : undefined;
-      const charName = def && isCharacterCard(def) ? def.name : '?';
-      const cp = checkAction.action.corruptionPoints;
-      const mod = checkAction.action.corruptionModifier;
-      const modStr = mod !== 0 ? ` (${mod >= 0 ? '+' : ''}${mod} modifier)` : '';
-      return `Corruption Check — ${charName} must roll against ${cp} corruption point${cp !== 1 ? 's' : ''}${modStr}.`;
-    }
     const isSelf = view.activePlayer === view.self.id;
     if (isSelf) {
       return 'Organization — Plan movement, reorganize companies, and play characters.';

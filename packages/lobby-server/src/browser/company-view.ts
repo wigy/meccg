@@ -20,7 +20,7 @@ import type {
   GameAction,
   CardDefinition,
 } from '@meccg/shared';
-import { Phase, viableActions, buildInstanceLookup } from '@meccg/shared';
+import { Phase, viableActions, buildInstanceLookup, isCharacterCard } from '@meccg/shared';
 import { $ } from './render-utils.js';
 import { setTargetingInstruction } from './render.js';
 import { renderCombatView, clearCombatButtons } from './combat-view.js';
@@ -38,12 +38,44 @@ import {
   getLastMhSiteStep, setLastMhSiteStep,
   setLastOnAction, setLastView, setLastCardPool,
   setCachedInstanceLookup,
+  getCachedInstanceLookup,
   setRerenderFn,
   resetState,
 } from './company-view-state.js';
 import { renderCardsInPlayRow } from './company-block.js';
 import { renderSingleView, renderAllCompaniesView, renderViewToggle } from './company-views.js';
 import { dismissTooltip, openSideboardForFetch, dismissSideboardModal, openExchangeModal, dismissExchangeModal } from './company-modals.js';
+
+/**
+ * Render a situation banner when a pending corruption check is active
+ * (e.g. after transferring an item during Organization). Shows the
+ * character name, check details, and the explanation breakdown.
+ */
+function renderCorruptionCheckBanner(
+  board: HTMLElement,
+  view: PlayerView,
+  cardPool: Readonly<Record<string, CardDefinition>>,
+): void {
+  const ccEval = view.legalActions.find(ea => ea.viable && ea.action.type === 'corruption-check');
+  if (!ccEval || ccEval.action.type !== 'corruption-check') return;
+
+  const action = ccEval.action;
+  const cachedInstanceLookup = getCachedInstanceLookup();
+  const defId = cachedInstanceLookup(action.characterId);
+  const def = defId ? cardPool[defId as string] : undefined;
+  const charName = def && isCharacterCard(def) ? def.name : '?';
+
+  const banner = document.createElement('div');
+  banner.className = 'situation-banner';
+  banner.textContent = `Corruption Check \u2014 ${charName}`;
+
+  const detail = document.createElement('div');
+  detail.className = 'situation-banner-detail';
+  detail.textContent = action.explanation;
+  banner.appendChild(detail);
+
+  board.appendChild(banner);
+}
 
 /** Phases where company views are displayed (normal play and Free Council). */
 const COMPANY_VIEW_PHASES = new Set([
@@ -256,6 +288,9 @@ export function renderCompanyViews(
 
   // Cards in play row (permanent resources, factions, etc.) — always at top
   renderCardsInPlayRow(board, view, cardPool);
+
+  // Pending corruption check banner (transfer / wound / Lure during Organization)
+  renderCorruptionCheckBanner(board, view, cardPool);
 
   const showingSingle = focusedCompanyId !== null && !getAllCompaniesOverride() && !inSelectCompany && !inFreeCouncil;
 
