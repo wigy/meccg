@@ -3628,11 +3628,11 @@ h2 {
 
 .exchange-columns {
   display: flex;
-  gap: 1.5rem;
+  flex-direction: column;
+  gap: 0.8rem;
 }
 
 .exchange-column {
-  flex: 1;
   min-width: 0;
 }
 
@@ -3642,6 +3642,35 @@ h2 {
   font-size: 0.95rem;
   text-align: center;
   margin-bottom: 0.5rem;
+}
+
+/* Fan grid: cards laid out in a single horizontal row that overlap to fit. */
+.exchange-fan-grid {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  align-items: flex-start;
+  justify-content: flex-start;
+  /* Reserve space above so the hover/selected lift is not clipped. */
+  padding-top: 24px;
+  padding-bottom: 4px;
+  overflow: visible;
+}
+
+.exchange-fan-grid .sideboard-fetch-card {
+  position: relative;
+  flex: 0 0 auto;
+  z-index: 1;
+}
+
+.exchange-fan-grid .sideboard-fetch-card:hover {
+  transform: translateY(-18px) scale(1.05);
+  z-index: 10;
+}
+
+.exchange-fan-grid .sideboard-fetch-card--selected {
+  transform: translateY(-18px);
+  z-index: 5;
 }
 
 .path-choice-detail {

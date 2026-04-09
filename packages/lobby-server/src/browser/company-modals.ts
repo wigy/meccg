@@ -85,7 +85,9 @@ export function openSideboardForFetch(
     img.src = imgPath ?? '/images/card-back.jpg';
     img.alt = def?.name ?? 'Unknown card';
     img.className = 'sideboard-fetch-card';
-    if (defId) img.dataset.cardId = defId as string;
+    // Note: deliberately NOT setting data-card-id / data-instance-id here so the
+    // FLIP animation system (flip-animate.ts) ignores modal card images and does
+    // not try to animate real pile cards from these transient modal positions.
     img.style.cursor = 'pointer';
 
     img.addEventListener('click', (e) => {
@@ -137,7 +139,6 @@ export function openExchangeModal(
   onAction: (action: GameAction) => void,
 ): void {
   const cachedInstanceLookup = getCachedInstanceLookup();
-  dismissExchangeModal();
 
   // Build lookup: discard cards and sideboard cards from the exchange actions
   const discardIds = new Set<string>();
@@ -148,11 +149,20 @@ export function openExchangeModal(
     sideboardIds.add(a.sideboardCardInstanceId as string);
   }
 
-  const backdrop = document.createElement('div');
-  backdrop.className = 'char-action-backdrop exchange-modal-backdrop';
-
-  const modal = document.createElement('div');
-  modal.className = 'exchange-modal';
+  // If the modal is already open (e.g. re-rendered after a previous swap),
+  // reuse the existing element and just replace its contents — this avoids
+  // a close/reopen flicker between successive exchanges.
+  let modal = document.querySelector<HTMLElement>('.exchange-modal');
+  if (modal) {
+    modal.replaceChildren();
+  } else {
+    const backdrop = document.createElement('div');
+    backdrop.className = 'char-action-backdrop exchange-modal-backdrop';
+    modal = document.createElement('div');
+    modal.className = 'exchange-modal';
+    document.body.appendChild(backdrop);
+    document.body.appendChild(modal);
+  }
 
   const title = document.createElement('div');
   title.className = 'sideboard-fetch-title';
@@ -162,25 +172,80 @@ export function openExchangeModal(
   const columns = document.createElement('div');
   columns.className = 'exchange-columns';
 
-  // State for selection
+  // State for selection — track both the id and the DOM element so we can
+  // animate the swap in place before dismissing.
   let selectedDiscardId: string | null = null;
   let selectedSideboardId: string | null = null;
+  let selectedDiscardEl: HTMLElement | null = null;
+  let selectedSideboardEl: HTMLElement | null = null;
+
+  /** Animate two cards swapping positions, then run `onComplete`. */
+  function animateSwap(a: HTMLElement, b: HTMLElement, onComplete: () => void): void {
+    const ra = a.getBoundingClientRect();
+    const rb = b.getBoundingClientRect();
+    const dx = rb.left - ra.left;
+    const dy = rb.top - ra.top;
+    // Keep the existing -18px lift so the cards stay raised through the swap.
+    const lift = -18;
+    const opts: KeyframeAnimationOptions = { duration: 450, easing: 'ease-in-out', fill: 'forwards' };
+    const animA = a.animate(
+      [
+        { transform: `translate(0px, ${lift}px)` },
+        { transform: `translate(${dx}px, ${dy + lift}px)` },
+      ],
+      opts,
+    );
+    const animB = b.animate(
+      [
+        { transform: `translate(0px, ${lift}px)` },
+        { transform: `translate(${-dx}px, ${-dy + lift}px)` },
+      ],
+      opts,
+    );
+    Promise.all([animA.finished, animB.finished]).then(onComplete, onComplete);
+  }
 
   /** Try to execute exchange if both sides selected. */
   function tryExchange(): void {
     if (!selectedDiscardId || !selectedSideboardId) return;
+    if (!selectedDiscardEl || !selectedSideboardEl) return;
     const action = exchangeActions.find(
       a => a.type === 'exchange-sideboard'
         && a.discardCardInstanceId === selectedDiscardId
         && a.sideboardCardInstanceId === selectedSideboardId,
     );
-    if (action) {
-      dismissExchangeModal();
+    if (!action) return;
+    // Capture refs locally — selection state is reset after the animation so
+    // the user can pick another pair while the server processes the action.
+    const discardEl = selectedDiscardEl;
+    const sideboardEl = selectedSideboardEl;
+    selectedDiscardId = null;
+    selectedSideboardId = null;
+    selectedDiscardEl = null;
+    selectedSideboardEl = null;
+    animateSwap(discardEl, sideboardEl, () => {
+      // Don't dismiss the modal — the rerender after the action will either
+      // refresh its contents in place (more exchanges available) or dismiss it
+      // (no exchange actions left). This avoids a visible close/reopen flicker.
       onAction(action);
-    }
+    });
   }
 
-  /** Render one column of cards. */
+  const fanGrids: HTMLElement[] = [];
+
+  /** Sort instance IDs by card type, then by name, for a stable grouped layout. */
+  function sortByType(ids: Iterable<string>): string[] {
+    return Array.from(ids).sort((a, b) => {
+      const defA = cardPool[cachedInstanceLookup(a as CardInstanceId) as string];
+      const defB = cardPool[cachedInstanceLookup(b as CardInstanceId) as string];
+      const typeA = defA?.cardType ?? '';
+      const typeB = defB?.cardType ?? '';
+      if (typeA !== typeB) return typeA.localeCompare(typeB);
+      return (defA?.name ?? '').localeCompare(defB?.name ?? '');
+    });
+  }
+
+  /** Render one column of cards as a single horizontal row (cards overlap to fit). */
   function renderColumn(label: string, ids: Set<string>, side: 'discard' | 'sideboard'): HTMLElement {
     const col = document.createElement('div');
     col.className = 'exchange-column';
@@ -191,9 +256,10 @@ export function openExchangeModal(
     col.appendChild(heading);
 
     const grid = document.createElement('div');
-    grid.className = 'sideboard-fetch-grid';
+    grid.className = 'exchange-fan-grid';
+    fanGrids.push(grid);
 
-    for (const instId of ids) {
+    for (const instId of sortByType(ids)) {
       const defId = cachedInstanceLookup(instId as CardInstanceId);
       const def = defId ? cardPool[defId as string] : undefined;
       const imgPath = def ? cardImageProxyPath(def) : undefined;
@@ -202,7 +268,9 @@ export function openExchangeModal(
       img.src = imgPath ?? '/images/card-back.jpg';
       img.alt = def?.name ?? 'Unknown card';
       img.className = 'sideboard-fetch-card';
-      if (defId) img.dataset.cardId = defId as string;
+      // Note: deliberately NOT setting data-card-id / data-instance-id here so the
+      // FLIP animation system (flip-animate.ts) ignores modal card images and does
+      // not try to animate real pile cards from these transient modal positions.
       img.style.cursor = 'pointer';
 
       img.addEventListener('click', (e) => {
@@ -212,8 +280,13 @@ export function openExchangeModal(
           prev.classList.remove('sideboard-fetch-card--selected');
         }
         img.classList.add('sideboard-fetch-card--selected');
-        if (side === 'discard') selectedDiscardId = instId;
-        else selectedSideboardId = instId;
+        if (side === 'discard') {
+          selectedDiscardId = instId;
+          selectedDiscardEl = img;
+        } else {
+          selectedSideboardId = instId;
+          selectedSideboardEl = img;
+        }
         tryExchange();
       });
 
@@ -224,8 +297,28 @@ export function openExchangeModal(
     return col;
   }
 
-  columns.appendChild(renderColumn('Discard Pile', discardIds, 'discard'));
+  /**
+   * Compute overlap so all cards in a fan grid fit on a single row.
+   * If cards already fit at full width, no overlap is applied.
+   */
+  function applyFanOverlap(grid: HTMLElement): void {
+    const cards = Array.from(grid.querySelectorAll<HTMLElement>('.sideboard-fetch-card'));
+    if (cards.length <= 1) return;
+    const containerWidth = grid.clientWidth;
+    const cardWidth = cards[0].offsetWidth;
+    if (cardWidth <= 0 || containerWidth <= 0) return;
+    const totalWidth = cards.length * cardWidth;
+    if (totalWidth <= containerWidth) return;
+    // Overlap is the per-card horizontal shift; first card stays at 0.
+    const overlap = (totalWidth - containerWidth) / (cards.length - 1);
+    for (let i = 1; i < cards.length; i++) {
+      cards[i].style.marginLeft = `-${overlap}px`;
+    }
+  }
+
+  // Sideboard on top, Discard on bottom.
   columns.appendChild(renderColumn('Sideboard', sideboardIds, 'sideboard'));
+  columns.appendChild(renderColumn('Discard Pile', discardIds, 'discard'));
   modal.appendChild(columns);
 
   // "Done" button
@@ -242,8 +335,10 @@ export function openExchangeModal(
     modal.appendChild(doneBtn);
   }
 
-  document.body.appendChild(backdrop);
-  document.body.appendChild(modal);
+  // Apply overlap after layout so we know each fan grid's actual width.
+  requestAnimationFrame(() => {
+    for (const grid of fanGrids) applyFanOverlap(grid);
+  });
 }
 
 /** Remove exchange modal and its backdrop. */
