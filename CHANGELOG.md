@@ -1,5 +1,55 @@
 # Changelog
 
+## 0.20.0 — 2026-04-09
+
+First demo deck fully certified
+
+### Game Engine
+
+- **Unified pending-resolution and active-constraint system:** New top-level shapes for tracking deferred game effects, replacing several ad-hoc pending arrays. End-of-organization step added.
+- **Chain of effects for influence attempts:** Faction influence and opponent character/ally influence (rules 10.10–10.12) now flow through the chain of effects, with separate roll actions and a pause-before-roll situation banner.
+- **Opponent influence attempts (Phase 1):** Implemented influence against opponent characters and allies, with browser UI for targeting and defend roll, identical-card reveal (rule 10.11), avatar guard, controller-DI, and FW alignment rules.
+- **Combat refinements:** Combat-conditional prowess resolution for weapon effects (e.g. max 9 vs Orcs); strike-need calculation now includes tapped/wounded/excess penalties; body-check +1 wounded bonus no longer applies to freshly wounded characters; on-guard creature combat with new AttackSource type and tapped status on strike actions.
+- **Phase/state fixes:** Reset company moved flags at start of M/H and Site phases; restrict character play to avatar's site when wizard is in play; allow resource permanent/short events during M/H phase; allow on-guard hazard events affecting auto-attacks to be revealed; merge `eventsInPlay` into per-player `cardsInPlay`; long-event discard cleanup.
+- **End-of-organization implicit close:** Cards marked as end-of-org now implicitly close the organization phase.
+- **Stat-modifier stacking:** Duplicate cards in play correctly stack their stat modifiers.
+- **Engine refactor:** Split monolithic engine modules — `reducer.ts` (6465 lines → 11 phase modules), `state.ts`, `legal-actions/organization.ts`, `format.ts`, `types/cards.ts`, `types/actions.ts`, browser `render.ts`, `app.ts`, `company-view.ts` — into smaller focused modules.
+- **Engine rules tests:** New rules tests for active-constraints, pending-resolutions, opponent influence (10.10–10.12), and on-guard reveal flows.
+
+### Cards & Data
+
+- **First hero demo deck fully certified:** All cards in the Stewards of Gondor proto deck are now certified (117 cards, 100% data, 13 certified card effects).
+- **New card certifications (this release):** Aragorn II, Anborn, Bag End, Bard Bowman (verify), Barrow-downs, Barrow-wight, Beorn, Beregond, Bilbo, Bree, Cave-drake, Celeborn, Concealment, Cram, Dagger of Westernesse, Doors of Night, Eagles' Eyrie, Edhellond, Elrond, Éowyn, Eye of Sauron, Faramir, Foolish Words, Frodo, Gandalf, Gates of Morning, Glamdring, Glorfindel II, Grey Havens, Gwaihir, Haldir, Horn of Anor, Lost in Free-domains, Lórien, Legolas, Minas Tirith, Moria, Old Forest, Orc-patrol, Peath, Rangers of the North, Rivendell, River, Sam Gamgee, Smoke Rings, Stealth, Sting, Sun, Théoden, Twilight, Wake of War, plus the Assassin and other previously-added effects.
+- **New cards added:** From the Pits of Angband, Marsh-drake, Nameless Thing, Rain-drake, Sand-drake, Searching Eye, Summons from Long Sleep, Itangast Ahunt, Crept Along Cleverly, Piercing All Shadows, Lure of Nature, Lure of Expedience, Lure of the Senses, Poisonous Despair, Regiment of Black Crows, True Cold-drake, True Fire-drake, Slayer, Ambusher, Bandit Lair, Dimrill Dale, Goblin-gate, Stinker, Ruse, Red Book of Westmarch, The Least of Gold Rings, Voices of Malice, Orcs of Moria, The Worthy Hills, Tokens to Show, To Satisfy the Questioner, Secrets of Their Forging, Not Slay Needlessly, Join With That Power, Woses of the Eryn Vorn, Bade to Rule, Deeper Shadow, Ostisen, Ciryaher, Mionid, Perchen, Gorbag, The Mouth, Shagrat, Lieutenant of Dol Guldur, The Warg-king, Black Mace, High Helm.
+- **DSL extensions:** New effect types — `cancel-attack` (Concealment), `home-site-only` play restriction (Frodo, Bilbo, Sam), `hand-size-modifier` (Elrond), `enemy-modifier` (Éowyn), `test-gold-ring` grant-action (Gandalf), `untap-bearer`, `extra-region-movement`, `all-attacks` prowess modifier (Sun), `attacker-chooses-defenders`, `character-scoped duplication limit` (Horn of Anor), site-rule `healing-affects-all` (Old Forest), `fetch-to-deck` resource short events (Smoke Rings), automatic-attack prowess modifier (Eye of Sauron), `strikes` modifier with creature race context (Wake of War), `grant-action` removal (Foolish Words).
+- **Card data fixes:** Marked Lidless Eye Twilight (le-145) as certified; backfilled card IDs in challenge decks; removed fake unknown-card and unknown-site definitions; River bound to a specific site via `attachedToSite`.
+
+### Web Client
+
+- **Pseudo-AI panel:** Collapsible icon-only toggle, JSON action toggle, sticky header layout fix, descriptive parenthesized labels.
+- **Company view improvements:** Show "moving to [site]" for in-transit companies; nudge company view toggle and nav arrows down; wounded character positioning fix; hazard cards with granted actions highlighted and clickable during org phase.
+- **Confirmation dialog:** Replaced native `confirm()` with in-app dialog; modal dialog for AI saved-game continue/new prompt.
+- **Highlights & rendering:** Sort highlighted cards to the end of the pile browser during site selection; unify pile rendering with shared grouping helper; improved MP tooltips; corruption check moved from instruction line to situation banner; situation banner centering fix.
+- **Influence UI:** Show roll button and situation banner for faction influence roll; include character name in influence chain-of-effects display; auto-take duplicate haven copy on company split.
+- **Send protection:** Guard `sendAction` against double-sends until next server response; remove waiting highlight after review-request approve/decline.
+- **Auto URL linking:** Mail message view auto-links URL keyword values.
+- **Deck editor:** Show total card count in section headers; notice that deck editor is not yet implemented.
+- **Misc:** Stale-button cleanup before early return; clarify resolve-attacks instruction text.
+
+### Lobby / Mail / AI
+
+- **Credit system:** New credit history log, Credit Usage page, set starting credits to 0 for new accounts, bill original requestor for forwarded planning requests and feature-implementation-requests, strip nested subject prefixes from credit-history reasons, show card name in credit usage entries, gate bug-report visibility on credits, block feature-request dialog when player has no credits.
+- **Mail handling:** Centralised mail sending in handle-mail; skip handle-mail dispatch when requestor has no credits; mark feature-requests as `[REVIEW]` in list-requests; scan admin inbox so feature-requests appear; toast notification and error handling on feature-request send; skip feature-request mails in run-ai loop.
+- **AI tooling:** `bin/handle-mail` (replaces `/handle-mail` skill); log Claude CLI verbose output and print cost/time summary after skill runs; `ai-raw.log` capture fix and removed post-handle sleep; auto-pick when pseudo AI has only one viable action.
+- **Plans & docs:** Added AI opponent plan; CvCC plan updated; CRF 22 card errata link added to CLAUDE.md; tighter save-correspondence requirement in bug-report skill.
+
+### Tests & Infrastructure
+
+- **Helpers refactor:** Moved reusable test helpers (combat runners, opponent-influence helpers, multiple per-card helpers) out of individual test files into `test-helpers.ts`.
+- **Hooks:** Added hooks to prevent direct test commits; reverted accidental test changes that should go through PR.
+- **Lint cleanups:** Multiple unused-import / unused-cast / unnecessary-assertion fixes in engine and tests.
+- **Markdown lint:** Fixed formatting in plans and changelog.
+
 ## 0.19.0 — 2026-04-05
 
 On-guard handling

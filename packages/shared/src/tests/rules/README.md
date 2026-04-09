@@ -6,7 +6,7 @@
 
 | Total Rules | Implemented | Remaining | Progress |
 |:-----------:|:-----------:|:---------:|:--------:|
-| 295 | 8 | 287 | 2.7% |
+| 295 | 12 | 283 | 4.1% |
 
 ## Section Breakdown
 
@@ -16,12 +16,12 @@
 | 02 | [Untap Phase](02-untap-phase/) | 13 | 7 | 53.8% |
 | 03 | [Organization Phase](03-organization-phase/) | 48 | 0 | 0.0% |
 | 04 | [Long-Event Phase](04-long-event-phase/) | 3 | 0 | 0.0% |
-| 05 | [Movement/Hazard Phase](05-movement-hazard-phase/) | 33 | 0 | 0.0% |
-| 06 | [Site Phase](06-site-phase/) | 21 | 0 | 0.0% |
+| 05 | [Movement/Hazard Phase](05-movement-hazard-phase/) | 33 | 1 | 3.0% |
+| 06 | [Site Phase](06-site-phase/) | 21 | 2 | 9.5% |
 | 07 | [End-of-Turn Phase](07-end-of-turn-phase/) | 2 | 0 | 0.0% |
 | 08 | [Combat](08-combat/) | 42 | 0 | 0.0% |
 | 09 | [Agents, Events, Items & Rings](09-agents-events-items/) | 23 | 0 | 0.0% |
-| 10 | [Corruption, Influence, Actions/Timing & Ending the Game](10-corruption-influence-endgame/) | 52 | 0 | 0.0% |
+| 10 | [Corruption, Influence, Actions/Timing & Ending the Game](10-corruption-influence-endgame/) | 52 | 1 | 1.9% |
 
 ## Detailed Test Matrix
 
@@ -171,7 +171,7 @@
 | 5.20 | Movement/Hazard Phase | [Creature Keying Equivalence](05-movement-hazard-phase/rule-5.20-creature-keying-equivalence.test.ts) | ☐ |
 | 5.21 | Movement/Hazard Phase | [Multi-Attack Creature Key Validity](05-movement-hazard-phase/rule-5.21-multi-attack-creature-key.test.ts) | ☐ |
 | 5.22 | Movement/Hazard Phase | [Playing an Event Hazard](05-movement-hazard-phase/rule-5.22-playing-event-hazard.test.ts) | ☐ |
-| 5.23 | Movement/Hazard Phase | [Placing an On-Guard Card](05-movement-hazard-phase/rule-5.23-on-guard-card.test.ts) | ☐ |
+| 5.23 | Movement/Hazard Phase | [Placing an On-Guard Card](05-movement-hazard-phase/rule-5.23-on-guard-card.test.ts) | ☑ |
 | 5.24 | Movement/Hazard Phase | [Sideboarding with a Nazgûl](05-movement-hazard-phase/rule-5.24-sideboarding-nazgul.test.ts) | ☐ |
 | 5.25 | Movement/Hazard Phase | [Fallen-Wizard Covert/Overt for Hazards](05-movement-hazard-phase/rule-5.25-fw-covert-overt-hazards.test.ts) | ☐ |
 | 5.26 | Movement/Hazard Phase | [Step 8: End the Company M/H Phase](05-movement-hazard-phase/rule-5.26-mh-step8-end-phase.test.ts) | ☐ |
@@ -183,7 +183,7 @@
 | 5.32 | Movement/Hazard Phase | [Company "At" Its Site](05-movement-hazard-phase/rule-5.32-company-at-site.test.ts) | ☐ |
 | 5.33 | Movement/Hazard Phase | [Joining Companies After M/H Phases](05-movement-hazard-phase/rule-5.33-joining-after-mh.test.ts) | ☐ |
 | 6.01 | Site Phase | [Site Phase Order](06-site-phase/rule-6.01-site-phase-order.test.ts) | ☐ |
-| 6.02 | Site Phase | [Step 1: Revealing On-Guard Attacks](06-site-phase/rule-6.02-revealing-on-guard-attacks.test.ts) | ☐ |
+| 6.02 | Site Phase | [Step 1: Revealing On-Guard Attacks](06-site-phase/rule-6.02-revealing-on-guard-attacks.test.ts) | ◐ |
 | 6.03 | Site Phase | [Step 2: Automatic-Attacks](06-site-phase/rule-6.03-automatic-attacks.test.ts) | ☐ |
 | 6.04 | Site Phase | [Automatic-Attack from Hazard Creature](06-site-phase/rule-6.04-auto-attack-hazard-creature.test.ts) | ☐ |
 | 6.05 | Site Phase | [Canceling Automatic-Attacks](06-site-phase/rule-6.05-cancel-auto-attack.test.ts) | ☐ |
@@ -195,9 +195,9 @@
 | 6.11 | Site Phase | [Playing a Faction](06-site-phase/rule-6.11-playing-faction.test.ts) | ☐ |
 | 6.12 | Site Phase | [Playing an Item](06-site-phase/rule-6.12-playing-item.test.ts) | ☐ |
 | 6.13 | Site Phase | [Additional Minor Item](06-site-phase/rule-6.13-additional-minor-item.test.ts) | ☐ |
-| 6.14 | Site Phase | [On-Guard Reveal When Playing Resource](06-site-phase/rule-6.14-on-guard-reveal-at-resource.test.ts) | ☐ |
+| 6.14 | Site Phase | [On-Guard Reveal When Playing Resource](06-site-phase/rule-6.14-on-guard-reveal-at-resource.test.ts) | ☑ |
 | 6.15 | Site Phase | [On-Guard Reveal Restrictions](06-site-phase/rule-6.15-on-guard-restrictions.test.ts) | ☐ |
-| 6.16 | Site Phase | [On-Guard Chain of Effects](06-site-phase/rule-6.16-on-guard-chain-of-effects.test.ts) | ☐ |
+| 6.16 | Site Phase | [On-Guard Chain of Effects](06-site-phase/rule-6.16-on-guard-chain-of-effects.test.ts) | ☑ |
 | 6.17 | Site Phase | [No Companies Skip Site Phase](06-site-phase/rule-6.17-no-companies-skip-site.test.ts) | ☐ |
 | 6.18 | Site Phase | [Untap Site Restriction](06-site-phase/rule-6.18-untap-site-restriction.test.ts) | ☐ |
 | 6.19 | Site Phase | [Other Company Actions During Site Phase](06-site-phase/rule-6.19-other-company-site-actions.test.ts) | ☐ |
@@ -279,9 +279,9 @@
 | 10.07 | Corruption, Influence, Actions/Timing & Ending the Game | [Corruption Cards](10-corruption-influence-endgame/rule-10.07-corruption-cards.test.ts) | ☐ |
 | 10.08 | Corruption, Influence, Actions/Timing & Ending the Game | [Removing Corruption Cards](10-corruption-influence-endgame/rule-10.08-removing-corruption-cards.test.ts) | ☐ |
 | 10.09 | Corruption, Influence, Actions/Timing & Ending the Game | [Corruption Immunity](10-corruption-influence-endgame/rule-10.09-corruption-immunity.test.ts) | ☐ |
-| 10.10 | Corruption, Influence, Actions/Timing & Ending the Game | [Declaring an Influence Attempt](10-corruption-influence-endgame/rule-10.10-influence-attempt-declaration.test.ts) | ☐ |
-| 10.11 | Corruption, Influence, Actions/Timing & Ending the Game | [Influence Attempt Target Conditions](10-corruption-influence-endgame/rule-10.11-influence-attempt-targets.test.ts) | ☐ |
-| 10.12 | Corruption, Influence, Actions/Timing & Ending the Game | [Resolving an Influence Attempt](10-corruption-influence-endgame/rule-10.12-influence-attempt-resolution.test.ts) | ☐ |
+| 10.10 | Corruption, Influence, Actions/Timing & Ending the Game | [Declaring an Influence Attempt](10-corruption-influence-endgame/rule-10.10-influence-attempt-declaration.test.ts) | ☑ |
+| 10.11 | Corruption, Influence, Actions/Timing & Ending the Game | [Influence Attempt Target Conditions](10-corruption-influence-endgame/rule-10.11-influence-attempt-targets.test.ts) | ◐ |
+| 10.12 | Corruption, Influence, Actions/Timing & Ending the Game | [Resolving an Influence Attempt](10-corruption-influence-endgame/rule-10.12-influence-attempt-resolution.test.ts) | ◐ |
 | 10.13 | Corruption, Influence, Actions/Timing & Ending the Game | [Playing Card After Successful Influence](10-corruption-influence-endgame/rule-10.13-influence-success-play.test.ts) | ☐ |
 | 10.14 | Corruption, Influence, Actions/Timing & Ending the Game | [Influencing with an Agent](10-corruption-influence-endgame/rule-10.14-agent-influence.test.ts) | ☐ |
 | 10.15 | Corruption, Influence, Actions/Timing & Ending the Game | [Cross-Alignment Influence Penalty](10-corruption-influence-endgame/rule-10.15-cross-alignment-influence.test.ts) | ☐ |
@@ -298,7 +298,7 @@
 | 10.26 | Corruption, Influence, Actions/Timing & Ending the Game | [Cross-Player Targeting](10-corruption-influence-endgame/rule-10.26-cross-player-targeting.test.ts) | ☐ |
 | 10.27 | Corruption, Influence, Actions/Timing & Ending the Game | [Fallen-Wizard Targeting Rules](10-corruption-influence-endgame/rule-10.27-fw-targeting-rules.test.ts) | ☐ |
 | 10.28 | Corruption, Influence, Actions/Timing & Ending the Game | [Effects Definition](10-corruption-influence-endgame/rule-10.28-effects-definition.test.ts) | ☐ |
-| 10.29 | Corruption, Influence, Actions/Timing & Ending the Game | [Chain of Effects](10-corruption-influence-endgame/rule-10.29-chain-of-effects.test.ts) | ☐ |
+| 10.29 | Corruption, Influence, Actions/Timing & Ending the Game | [Chain of Effects](10-corruption-influence-endgame/rule-10.29-chain-of-effects.test.ts) | ◐ |
 | 10.30 | Corruption, Influence, Actions/Timing & Ending the Game | [Multiple Actions on a Card](10-corruption-influence-endgame/rule-10.30-multiple-actions-on-card.test.ts) | ☐ |
 | 10.31 | Corruption, Influence, Actions/Timing & Ending the Game | [Passive Conditions](10-corruption-influence-endgame/rule-10.31-passive-conditions.test.ts) | ☐ |
 | 10.32 | Corruption, Influence, Actions/Timing & Ending the Game | [Passive Condition Discard](10-corruption-influence-endgame/rule-10.32-passive-condition-discard.test.ts) | ☐ |
