@@ -1357,6 +1357,16 @@ h2 {
   background: transparent;
 }
 
+.deck-editor-notice {
+  margin: 0 0 0.75rem 0;
+  padding: 0.5rem 0.75rem;
+  border-left: 3px solid #c9a227;
+  background: rgba(201, 162, 39, 0.1);
+  color: #c9a227;
+  font-style: italic;
+  font-size: 0.9rem;
+}
+
 .deck-editor-preview {
   position: fixed;
   top: 4rem;
