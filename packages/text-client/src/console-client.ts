@@ -38,8 +38,8 @@ import {
   Alignment,
 } from '@meccg/shared';
 import type { JoinMessage } from '@meccg/shared';
-import { loadAiStrategy, sampleWeighted } from './ai/index.js';
-import type { AiStrategy } from './ai/index.js';
+import { loadAiStrategy, sampleWeighted } from '@meccg/shared';
+import type { AiStrategy } from '@meccg/shared';
 import { ClientLog } from './client-log.js';
 
 const SERVER_URL = process.env.SERVER_URL ?? 'ws://localhost:3000';
@@ -73,7 +73,7 @@ if (AI_MODE) {
   aiStrategy = loadAiStrategy(AI_MODE);
   if (!aiStrategy) {
     console.error(`Unknown AI strategy: ${AI_MODE}`);
-    console.error('Available: random');
+    console.error('Available: random, heuristic');
     process.exit(1);
   }
 }

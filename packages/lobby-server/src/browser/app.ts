@@ -261,6 +261,40 @@ document.addEventListener('DOMContentLoaded', () => {
       launchAiGame();
     })(); });
 
+    // ---- Smart AI ----
+    const playSmartAiBtn = document.getElementById('play-smart-ai-btn') as HTMLButtonElement;
+
+    /** Send the play-smart-ai message and disable the UI. */
+    function launchSmartAiGame(): void {
+      if (appState.lobbyWs && appState.lobbyWs.readyState === WebSocket.OPEN) {
+        const aiDeckSelect = document.getElementById('ai-deck-select') as HTMLSelectElement;
+        appState.lobbyWs.send(JSON.stringify({ type: 'play-smart-ai', deckId: aiDeckSelect.value }));
+        playSmartAiBtn.textContent = 'Starting...';
+        setLobbyPlayButtonsDisabled(true);
+      }
+    }
+
+    playSmartAiBtn.addEventListener('click', () => { void (async () => {
+      const resp = await fetch('/api/saves/check?opponent=AI-Smart');
+      if (resp.ok) {
+        const data = await resp.json() as { hasSave: boolean };
+        if (data.hasSave) {
+          const cont = await showConfirm(
+            'A saved game exists against Smart AI. Continue the saved game or start a new one?',
+            { okLabel: 'Continue', cancelLabel: 'Start New' },
+          );
+          if (!cont) {
+            await fetch('/api/saves/delete', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ opponent: 'AI-Smart' }),
+            });
+          }
+        }
+      }
+      launchSmartAiGame();
+    })(); });
+
     // ---- Pseudo-AI ----
     const playPseudoAiBtn = document.getElementById('play-pseudo-ai-btn') as HTMLButtonElement;
 

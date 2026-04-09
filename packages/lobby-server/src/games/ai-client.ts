@@ -2,17 +2,21 @@
  * @module games/ai-client
  *
  * Headless AI player that connects to a game server via WebSocket
- * and makes random legal moves. Spawned as a child process by the
- * game launcher when a player starts a game against AI.
+ * and submits legal moves chosen by an {@link AiStrategy}.
  *
- * Usage: npx tsx ai-client.ts <port> <playerName> <token> --deck <deckId>
+ * The strategy is selected at spawn time via `--strategy <name>`. The
+ * default is `random` (uniform-over-legal); the lobby launches Smart-AI
+ * games with `--strategy heuristic`. Card definitions are loaded once
+ * at start so the strategy can score actions against the static card pool.
+ *
+ * Usage: npx tsx ai-client.ts <port> <playerName> <token> --deck <deckId> [--strategy <name>]
  */
 
 import { WebSocket } from 'ws';
 import * as fs from 'fs';
 import * as path from 'path';
-import type { ServerMessage, ClientMessage, GameAction, EvaluatedAction, CardDefinitionId } from '@meccg/shared';
-import { Alignment } from '@meccg/shared';
+import type { ServerMessage, ClientMessage, GameAction, EvaluatedAction, CardDefinitionId, AiStrategy, AiContext, WeightedAction, PlayerView } from '@meccg/shared';
+import { Alignment, loadAiStrategy, loadCardPool, sampleWeighted, describeAction, buildInstanceLookup, buildCompanyNames, stripCardMarkers } from '@meccg/shared';
 import type { JoinMessage } from '@meccg/shared';
 
 const args = process.argv.filter(a => !a.startsWith('--'));
@@ -21,10 +25,40 @@ const PLAYER_NAME = args[3];
 const TOKEN = args[4];
 const DECK_FLAG_IDX = process.argv.indexOf('--deck');
 const DECK_ID = DECK_FLAG_IDX >= 0 ? process.argv[DECK_FLAG_IDX + 1] : undefined;
+const STRATEGY_FLAG_IDX = process.argv.indexOf('--strategy');
+const STRATEGY_NAME = STRATEGY_FLAG_IDX >= 0 ? process.argv[STRATEGY_FLAG_IDX + 1] : 'random';
 
 if (!PORT || !PLAYER_NAME || !TOKEN) {
-  console.error('Usage: ai-client <port> <playerName> <token> [--deck <deckId>]');
+  console.error('Usage: ai-client <port> <playerName> <token> [--deck <deckId>] [--strategy <name>]');
   process.exit(1);
+}
+
+const strategy: AiStrategy | null = loadAiStrategy(STRATEGY_NAME);
+if (!strategy) {
+  console.error(`Unknown AI strategy: ${STRATEGY_NAME}`);
+  process.exit(1);
+}
+console.log(`AI using strategy: ${strategy.name}`);
+
+/** Static card pool — loaded once and reused for every decision. */
+const cardPool = loadCardPool();
+
+/** Random integer in [min, max] inclusive. */
+function randInt(min: number, max: number): number {
+  return Math.floor(Math.random() * (max - min + 1)) + min;
+}
+
+/** Pick the per-decision delay (ms). Body checks against the human take longer. */
+function decisionDelayMs(action: GameAction, view: import('@meccg/shared').PlayerView): number {
+  // Body check against an opponent character: 2-3 seconds.
+  if (action.type === 'body-check-roll') {
+    const combat = view.combat;
+    if (combat && combat.bodyCheckTarget === 'character' && combat.defendingPlayerId !== view.self.id) {
+      return randInt(2000, 3000);
+    }
+  }
+  // Default: 0.5-1.5 seconds for natural pacing.
+  return randInt(500, 1500);
 }
 
 /** Deck file entry with optional card ID. */
@@ -74,28 +108,45 @@ function loadDeckFile(deckId: string): JoinMessage {
   };
 }
 
-/** Action types that represent "doing nothing". */
-const PASS_ACTIONS = new Set(['pass', 'draft-stop']);
-/** Action types that are optional. */
-const OPTIONAL_ACTIONS = new Set(['place-character', 'add-character-to-deck', 'select-starting-site']);
-/** Phases where pass is equally weighted. */
-const PASS_OK_PHASES = new Set(['organization']);
+/** Maximum number of weighted candidates to print per decision. */
+const LOG_TOP_N = 6;
 
-/** Pick a random action from the list, preferring non-pass actions. */
-function pickAction(actions: readonly GameAction[], phase: string): GameAction {
-  const nonRegress = actions.filter(a => !('regress' in a && a.regress));
-  const pool = nonRegress.length > 0 ? nonRegress : [...actions];
-  const passOk = PASS_OK_PHASES.has(phase);
-  const allOptional = pool.every(a => PASS_ACTIONS.has(a.type) || OPTIONAL_ACTIONS.has(a.type));
-  const hasSubstantive = pool.some(a => !PASS_ACTIONS.has(a.type));
+/** Render a single weighted action as a one-line summary for the log. */
+function describeWeighted(weighted: WeightedAction, view: PlayerView): string {
+  const lookup = buildInstanceLookup(view);
+  const companies = buildCompanyNames(view.self.companies, view.self.characters, cardPool);
+  const desc = stripCardMarkers(describeAction(weighted.action, cardPool, lookup, companies));
+  return `${desc}  [w=${weighted.weight}]`;
+}
 
-  const candidates = pool.filter(a => {
-    if (PASS_ACTIONS.has(a.type) && hasSubstantive && !allOptional && !passOk) return false;
-    return true;
-  });
+/**
+ * Pick the next action by delegating to the active strategy and emit a
+ * decision summary to stdout. The summary lists the top weighted candidates
+ * with their score so a tail of the lobby log shows what the AI is thinking.
+ */
+function pickAction(view: PlayerView, actions: readonly GameAction[]): GameAction {
+  const context: AiContext = { view, cardPool, legalActions: actions };
+  const weighted = strategy!.weighActions(context);
+  if (weighted.length === 0) {
+    console.log(`AI [${view.phaseState.phase}] no weighted actions, defaulting to first legal action`);
+    return actions[0];
+  }
 
-  const list = candidates.length > 0 ? candidates : pool;
-  return list[Math.floor(Math.random() * list.length)];
+  const picked = sampleWeighted(weighted);
+  const totalWeight = weighted.reduce((s, w) => s + w.weight, 0);
+  const top = [...weighted]
+    .sort((a, b) => b.weight - a.weight)
+    .slice(0, LOG_TOP_N);
+
+  console.log(`AI [${view.phaseState.phase}] weighing ${weighted.length} actions (total weight ${totalWeight}):`);
+  for (const cand of top) {
+    const marker = cand.action === picked ? '→' : ' ';
+    console.log(`  ${marker} ${describeWeighted(cand, view)}`);
+  }
+  if (weighted.length > LOG_TOP_N) {
+    console.log(`    … and ${weighted.length - LOG_TOP_N} more`);
+  }
+  return picked;
 }
 
 function connect(): void {
@@ -131,17 +182,21 @@ function connect(): void {
         // Extract only viable actions
         const actions = evaluated.filter(e => e.viable).map(e => e.action);
         if (actions.length === 0) break;
-        const phase = msg.view.phaseState.phase;
 
-        // Small delay to look more natural and avoid flooding
+        // Pick now so we can compute the right delay (body-check rolls
+        // against the human player get a longer pause for tension).
+        const action = pickAction(msg.view, actions);
+        const delayMs = decisionDelayMs(action, msg.view);
+        const lookup = buildInstanceLookup(msg.view);
+        const companies = buildCompanyNames(msg.view.self.companies, msg.view.self.characters, cardPool);
+        const summary = stripCardMarkers(describeAction(action, cardPool, lookup, companies));
         setTimeout(() => {
-          const action = pickAction(actions, phase);
-          console.log(`AI action: ${action.type}`);
+          console.log(`AI action: ${summary} (delay ${delayMs}ms)`);
           const actionMsg: ClientMessage = { type: 'action', action };
           if (ws.readyState === WebSocket.OPEN) {
             ws.send(JSON.stringify(actionMsg));
           }
-        }, 200);
+        }, delayMs);
         break;
       }
 

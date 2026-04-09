@@ -20,3 +20,5 @@ export { computeLegalActions } from './engine/legal-actions/index.js';
 export { startCapture, flushCapture } from './engine/legal-actions/log.js';
 export { createGame, createGameQuickStart, applyDraftResults } from './engine/init.js';
 export type { GameConfig, PlayerConfig, QuickStartGameConfig, QuickStartPlayerConfig } from './engine/init.js';
+export { loadAiStrategy, sampleWeighted } from './ai/index.js';
+export type { AiStrategy, AiContext, WeightedAction } from './ai/index.js';

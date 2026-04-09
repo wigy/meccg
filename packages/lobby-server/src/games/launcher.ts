@@ -52,6 +52,8 @@ export interface LaunchOptions {
   aiDeckId?: string;
   /** Whether the AI is a pseudo-AI (human controls both sides via IPC relay). */
   pseudoAi?: boolean;
+  /** Strategy name passed to the AI client (e.g. "random", "heuristic"). */
+  aiStrategy?: string;
 }
 
 /**
@@ -140,6 +142,7 @@ export async function launchGame(player1: string, player2: string, options?: Lau
     const aiScript = path.join(__dirname, isPseudo ? './pseudo-ai-client.ts' : './ai-client.ts');
     const aiArgs = ['tsx', aiScript, String(port), player2, tokens[1]];
     if (options?.aiDeckId) aiArgs.push('--deck', options.aiDeckId);
+    if (options?.aiStrategy && !isPseudo) aiArgs.push('--strategy', options.aiStrategy);
     const aiChild = spawn('npx', aiArgs, {
       env: process.env,
       stdio: isPseudo ? ['ignore', 'pipe', 'pipe', 'ipc'] : ['ignore', 'pipe', 'pipe'],

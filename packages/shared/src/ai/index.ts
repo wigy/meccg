@@ -9,14 +9,16 @@
 
 import type { AiStrategy } from './strategy.js';
 import { randomStrategy } from './random.js';
+import { heuristicStrategy } from './heuristic.js';
 
 const STRATEGIES: Record<string, AiStrategy> = {
   random: randomStrategy,
+  heuristic: heuristicStrategy,
 };
 
 /**
  * Loads an AI strategy by name. Returns null if the name is not recognized.
- * Available strategies: random
+ * Available strategies: random, heuristic
  */
 export function loadAiStrategy(name: string): AiStrategy | null {
   return STRATEGIES[name] ?? null;
