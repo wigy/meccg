@@ -145,28 +145,17 @@ export interface CombatState {
  * resolver knows how to apply the entry when it resolves.
  */
 export type ChainEntryPayload =
-  | {
-      readonly type: 'short-event';
-      readonly targetInstanceId?: CardInstanceId;
-      /**
-       * For site-targeting short-events (e.g. *River*), the site
-       * definition ID this card is bound to. On resolution the chain
-       * resolver registers a {@link PendingSiteEffect} so that the
-       * card's `on-event` effects fire even though the card itself
-       * has already been discarded.
-       */
-      readonly targetSiteDefinitionId?: import('./common.js').CardDefinitionId;
-    }
+  | { readonly type: 'short-event'; readonly targetInstanceId?: CardInstanceId }
   | { readonly type: 'creature' }
   | {
       readonly type: 'permanent-event';
       readonly targetCharacterId?: CardInstanceId;
       /**
-       * For site-targeting permanent events, the site definition ID
-       * this card is bound to. The chain resolver places the card into
-       * `cardsInPlay` with `attachedToSite` set to this value, so the
-       * engine can match arrival events against the specific site
-       * location.
+       * For site-targeting permanent events (e.g. *River*), the site
+       * definition ID this card is bound to. The chain resolver places
+       * the card into `cardsInPlay` with `attachedToSite` set to this
+       * value, so the engine can match arrival events against the
+       * specific site location.
        */
       readonly targetSiteDefinitionId?: import('./common.js').CardDefinitionId;
     }

@@ -110,24 +110,6 @@ export interface CardInPlay {
 }
 
 /**
- * A deferred site-targeting effect left behind by a short-event that has
- * already been discarded (e.g. *River*). Short-events go to the discard
- * pile on resolution, but their site-bound `on-event` effects must still
- * fire when a company arrives at the target site later in the same turn.
- *
- * These entries are scanned alongside `cardsInPlay` by
- * `fireCompanyArrivesAtSite` and swept at turn end.
- */
-export interface PendingSiteEffect {
-  /** Instance ID of the short-event card (already in discard). */
-  readonly sourceInstanceId: CardInstanceId;
-  /** Definition ID of the short-event card (for card-pool lookups). */
-  readonly sourceDefinitionId: CardDefinitionId;
-  /** The site location this effect is bound to. */
-  readonly targetSiteDefinitionId: CardDefinitionId;
-}
-
-/**
  * An on-guard card placed face-down at a company's site by the hazard player.
  * Tracks whether the card has been revealed (flipped face-up) during the site phase.
  * Revealed cards remain in the onGuardCards array with `revealed: true` until

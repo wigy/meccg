@@ -315,9 +315,8 @@ function handleEndOfTurnSignalEnd(state: GameState, action: GameAction): Reducer
     }
 
     logDetail(`End-of-Turn signal-end: active player ${action.player as string} ended turn → switching to player ${nextPlayer as string}, turn ${state.turnNumber + 1}`);
-    // Sweep turn-scoped pending resolutions, constraints (Stealth, etc.),
-    // and pending site effects from short-events (River, etc.)
-    const swept: GameState = { ...sweepExpired(state, { kind: 'turn-end' }), pendingSiteEffects: [] };
+    // Sweep turn-scoped pending resolutions and constraints (Stealth, etc.)
+    const swept = sweepExpired(state, { kind: 'turn-end' });
     return {
       state: enterUntapPhase({
         ...swept,

@@ -269,19 +269,11 @@ function handlePlayHazardCard(
       },
     };
 
-    // Initiate chain or push onto existing chain. Site-targeting short
-    // events (e.g. River) carry the target site definition ID through the
-    // chain payload so the resolver can register a PendingSiteEffect.
-    const shortPayload: import('../index.js').ChainEntryPayload = {
-      type: 'short-event',
-      ...(action.type === 'play-hazard' && action.targetSiteDefinitionId
-        ? { targetSiteDefinitionId: action.targetSiteDefinitionId }
-        : {}),
-    };
+    // Initiate chain or push onto existing chain
     if (newState.chain === null) {
-      newState = initiateChain(newState, action.player, handCard, shortPayload);
+      newState = initiateChain(newState, action.player, handCard, { type: 'short-event' });
     } else {
-      newState = pushChainEntry(newState, action.player, handCard, shortPayload);
+      newState = pushChainEntry(newState, action.player, handCard, { type: 'short-event' });
     }
 
     return { state: newState };
@@ -592,86 +584,59 @@ function fireCompanyArrivesAtSite(
   const arrivalSiteDefId = resolveInstanceId(state, siteInstanceId);
 
   let newState = state;
-
-  // Collect all site-effect sources: permanent events in cardsInPlay with
-  // attachedToSite, plus short-event PendingSiteEffects from this turn.
-  const siteEffectSources: Array<{
-    instanceId: import('../index.js').CardInstanceId;
-    definitionId: import('../index.js').CardDefinitionId;
-    attachedToSite: import('../index.js').CardDefinitionId;
-  }> = [];
-
   for (const player of state.players) {
     for (const card of player.cardsInPlay) {
-      if (card.attachedToSite) {
-        siteEffectSources.push({
-          instanceId: card.instanceId,
-          definitionId: card.definitionId,
-          attachedToSite: card.attachedToSite,
+      // Site-attached hazards only fire for the bound site location.
+      if (card.attachedToSite && card.attachedToSite !== arrivalSiteDefId) {
+        continue;
+      }
+      const def = state.cardPool[card.definitionId as string];
+      if (!def || !('effects' in def) || !def.effects) continue;
+      for (const effect of def.effects) {
+        if (effect.type !== 'on-event') continue;
+        if (effect.event !== 'company-arrives-at-site') continue;
+        if (effect.apply.type !== 'add-constraint') continue;
+        const constraintKind = effect.apply.constraint;
+        const scopeName = effect.apply.scope;
+        if (!constraintKind || !scopeName) continue;
+
+        // Map scope name to ConstraintScope
+        let scope: import('../types/pending.js').ConstraintScope;
+        switch (scopeName) {
+          case 'company-site-phase':
+            scope = { kind: 'company-site-phase', companyId: arrivingCompanyId };
+            break;
+          case 'turn':
+            scope = { kind: 'turn' };
+            break;
+          case 'until-cleared':
+            scope = { kind: 'until-cleared' };
+            break;
+          default:
+            continue;
+        }
+        let kind: import('../types/pending.js').ActiveConstraint['kind'];
+        switch (constraintKind) {
+          case 'site-phase-do-nothing':
+            kind = { type: 'site-phase-do-nothing' };
+            break;
+          case 'site-phase-do-nothing-unless-ranger-taps':
+            kind = { type: 'site-phase-do-nothing-unless-ranger-taps' };
+            break;
+          case 'no-creature-hazards-on-company':
+            kind = { type: 'no-creature-hazards-on-company' };
+            break;
+          default:
+            continue;
+        }
+        logDetail(`company-arrives-at-site: "${def.name}" fires → adding constraint ${constraintKind} on company ${arrivingCompanyId as string}`);
+        newState = addConstraint(newState, {
+          source: card.instanceId,
+          scope,
+          target: { kind: 'company', companyId: arrivingCompanyId },
+          kind,
         });
       }
-    }
-  }
-
-  for (const pending of state.pendingSiteEffects) {
-    siteEffectSources.push({
-      instanceId: pending.sourceInstanceId,
-      definitionId: pending.sourceDefinitionId,
-      attachedToSite: pending.targetSiteDefinitionId,
-    });
-  }
-
-  for (const source of siteEffectSources) {
-    // Site-attached hazards only fire for the bound site location.
-    if (source.attachedToSite !== arrivalSiteDefId) {
-      continue;
-    }
-    const def = state.cardPool[source.definitionId as string];
-    if (!def || !('effects' in def) || !def.effects) continue;
-    for (const effect of def.effects) {
-      if (effect.type !== 'on-event') continue;
-      if (effect.event !== 'company-arrives-at-site') continue;
-      if (effect.apply.type !== 'add-constraint') continue;
-      const constraintKind = effect.apply.constraint;
-      const scopeName = effect.apply.scope;
-      if (!constraintKind || !scopeName) continue;
-
-      // Map scope name to ConstraintScope
-      let scope: import('../types/pending.js').ConstraintScope;
-      switch (scopeName) {
-        case 'company-site-phase':
-          scope = { kind: 'company-site-phase', companyId: arrivingCompanyId };
-          break;
-        case 'turn':
-          scope = { kind: 'turn' };
-          break;
-        case 'until-cleared':
-          scope = { kind: 'until-cleared' };
-          break;
-        default:
-          continue;
-      }
-      let kind: import('../types/pending.js').ActiveConstraint['kind'];
-      switch (constraintKind) {
-        case 'site-phase-do-nothing':
-          kind = { type: 'site-phase-do-nothing' };
-          break;
-        case 'site-phase-do-nothing-unless-ranger-taps':
-          kind = { type: 'site-phase-do-nothing-unless-ranger-taps' };
-          break;
-        case 'no-creature-hazards-on-company':
-          kind = { type: 'no-creature-hazards-on-company' };
-          break;
-        default:
-          continue;
-      }
-      logDetail(`company-arrives-at-site: "${def.name}" fires → adding constraint ${constraintKind} on company ${arrivingCompanyId as string}`);
-      newState = addConstraint(newState, {
-        source: source.instanceId,
-        scope,
-        target: { kind: 'company', companyId: arrivingCompanyId },
-        kind,
-      });
     }
   }
   return newState;

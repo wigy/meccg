@@ -483,7 +483,6 @@ export function buildTestState(opts: BuildTestStateOpts): GameState {
     pendingEffects: [],
     pendingResolutions: [],
     activeConstraints: [],
-    pendingSiteEffects: [],
     rng: { seed: opts.seed ?? 42, counter: 0 },
     stateSeq: 0,
     reverseActions: [],
