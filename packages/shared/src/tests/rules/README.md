@@ -100,7 +100,7 @@
 | 2.13 | Untap Phase | [Hazard Sideboard Access at Untap](02-untap-phase/rule-2.13-hazard-sideboard-access.test.ts) | ◐ |
 | 3.01 | Organization Phase | [Organizing Declaration](03-organization-phase/rule-3.01-organizing-declaration.test.ts) | ☐ |
 | 3.02 | Organization Phase | [Play or Discard a Character](03-organization-phase/rule-3.02-play-discard-character.test.ts) | ☐ |
-| 3.03 | Organization Phase | [Avatar Play Location](03-organization-phase/rule-3.03-avatar-play-location.test.ts) | ☐ |
+| 3.03 | Organization Phase | [Avatar Play Location](03-organization-phase/rule-3.03-avatar-play-location.test.ts) | ☑ |
 | 3.04 | Organization Phase | [Hero Avatar Play Location](03-organization-phase/rule-3.04-hero-avatar-location.test.ts) | ☐ |
 | 3.05 | Organization Phase | [Minion Avatar Play Location](03-organization-phase/rule-3.05-minion-avatar-location.test.ts) | ☐ |
 | 3.06 | Organization Phase | [Minion Ringwraith Play Effects](03-organization-phase/rule-3.06-minion-ringwraith-play.test.ts) | ☐ |
