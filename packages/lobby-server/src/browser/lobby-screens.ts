@@ -23,7 +23,36 @@ import { openCreditsPage, updateCreditsBadge } from './credits-page.js';
 import { renderLog } from './render.js';
 
 /** All screen IDs in the lobby UI. */
-const ALL_SCREENS: ScreenId[] = ['login-screen', 'register-screen', 'lobby-screen', 'decks-screen', 'deck-editor-screen', 'inbox-screen', 'credits-screen', 'connect-form'];
+const ALL_SCREENS: ScreenId[] = ['auth-screen', 'lobby-screen', 'decks-screen', 'deck-editor-screen', 'inbox-screen', 'credits-screen', 'connect-form'];
+
+/**
+ * Pick a random hero background image for the auth screen and apply it.
+ * Reuses the same pool as the in-game `--visual-bg` so login and lobby
+ * share visual language.
+ */
+export function selectRandomAuthHero(): void {
+  const bg = BACKGROUNDS[Math.floor(Math.random() * BACKGROUNDS.length)];
+  document.documentElement.style.setProperty('--auth-hero-bg', `url('${bg}')`);
+}
+
+/**
+ * Switch the auth screen between Login and Register tabs.
+ * Toggles the `auth-screen--login` / `auth-screen--register` class on the
+ * container; CSS handles which form is visible.
+ */
+export function showAuthTab(tab: 'login' | 'register'): void {
+  const screen = document.getElementById('auth-screen');
+  if (!screen) return;
+  screen.classList.toggle('auth-screen--login', tab === 'login');
+  screen.classList.toggle('auth-screen--register', tab === 'register');
+  document.getElementById('auth-tab-login')?.classList.toggle('auth-tab--active', tab === 'login');
+  document.getElementById('auth-tab-register')?.classList.toggle('auth-tab--active', tab === 'register');
+  document.getElementById('auth-tab-login')?.setAttribute('aria-selected', String(tab === 'login'));
+  document.getElementById('auth-tab-register')?.setAttribute('aria-selected', String(tab === 'register'));
+  // Focus the first input of the visible form for fast typing
+  const firstInputId = tab === 'login' ? 'login-name' : 'register-name';
+  setTimeout(() => document.getElementById(firstInputId)?.focus(), 0);
+}
 
 /** Screens that should show the persistent nav bar. */
 const NAV_SCREENS: ScreenId[] = ['lobby-screen', 'decks-screen', 'deck-editor-screen', 'inbox-screen', 'credits-screen'];
@@ -153,8 +182,8 @@ export function connectLobbyWs(): void {
         // Close lobby WS during game
         if (appState.lobbyWs) { appState.lobbyWs.close(); appState.lobbyWs = null; }
         // Hide lobby, show game
-        showScreen('login-screen'); // hide all screens
-        document.getElementById('login-screen')!.classList.add('hidden');
+        showScreen('auth-screen'); // hide all screens
+        document.getElementById('auth-screen')!.classList.add('hidden');
         document.getElementById('game')!.classList.remove('hidden');
         selectRandomBackground();
         appState.autoReconnect = true;
@@ -214,8 +243,8 @@ export async function initLobby(): Promise<void> {
 
       // Rejoin active game if session was saved (e.g. page refresh)
       if (restoreGameSession()) {
-        showScreen('login-screen');
-        document.getElementById('login-screen')!.classList.add('hidden');
+        showScreen('auth-screen');
+        document.getElementById('auth-screen')!.classList.add('hidden');
         document.getElementById('game')!.classList.remove('hidden');
         selectRandomBackground();
         appState.autoReconnect = true;
@@ -266,9 +295,13 @@ export async function initLobby(): Promise<void> {
       showScreen('lobby-screen');
       connectLobbyWs();
     } else {
-      showScreen('login-screen');
+      selectRandomAuthHero();
+      showAuthTab('login');
+      showScreen('auth-screen');
     }
   } catch {
-    showScreen('login-screen');
+    selectRandomAuthHero();
+    showAuthTab('login');
+    showScreen('auth-screen');
   }
 }

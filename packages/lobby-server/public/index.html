@@ -8,34 +8,67 @@
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <!-- Login screen (lobby mode) -->
-  <div id="login-screen" class="hidden">
-    <h2 class="auth-title">MECCG</h2>
-    <div class="auth-form">
-      <input type="text" id="login-name" placeholder="Player name" autofocus>
-      <input type="password" id="login-password" placeholder="Password">
-      <button id="login-btn">Login</button>
-      <p class="auth-error hidden" id="login-error"></p>
-      <p class="auth-link">No account? <a href="#" id="show-register">Register</a></p>
+  <!-- Auth screen (lobby mode) — login + register, tabbed -->
+  <div id="auth-screen" class="auth-screen auth-screen--login hidden">
+    <div class="auth-hero">
+      <div class="auth-hero-overlay"></div>
+      <div class="auth-hero-content">
+        <h1 class="auth-logo">
+          <span class="auth-logo-line auth-logo-line--small">The</span>
+          <span class="auth-logo-line auth-logo-line--big">Middle-Earth</span>
+          <span class="auth-logo-line auth-logo-line--small">Collectible Card Game</span>
+        </h1>
+        <p class="auth-tagline">&ldquo;All we have to decide is what to do with the time that is given us.&rdquo;</p>
+      </div>
     </div>
-  </div>
+    <div class="auth-panel-wrap">
+      <div class="auth-panel">
+        <div class="auth-tabs" role="tablist">
+          <button id="auth-tab-login" class="auth-tab auth-tab--active" role="tab" aria-selected="true">Login</button>
+          <button id="auth-tab-register" class="auth-tab" role="tab" aria-selected="false">Register</button>
+        </div>
 
-  <!-- Register screen (lobby mode) -->
-  <div id="register-screen" class="hidden">
-    <h2 class="auth-title">MECCG</h2>
-    <div class="auth-form">
-      <input type="text" id="register-name" placeholder="Player name">
-      <input type="text" id="register-display-name" placeholder="Display name (optional)">
-      <input type="email" id="register-email" placeholder="Email">
-      <input type="password" id="register-password" placeholder="Password">
-      <button id="register-btn">Register</button>
-      <p class="auth-error hidden" id="register-error"></p>
-      <p class="auth-link">Already have an account? <a href="#" id="show-login">Login</a></p>
+        <form class="auth-form auth-form--login" id="login-form">
+          <label class="auth-label">
+            <span class="auth-label-text">Player name</span>
+            <input type="text" id="login-name" placeholder="e.g. wigy" autocomplete="username">
+          </label>
+          <label class="auth-label">
+            <span class="auth-label-text">Password</span>
+            <input type="password" id="login-password" placeholder="&bull;&bull;&bull;&bull;&bull;&bull;" autocomplete="current-password">
+          </label>
+          <button type="button" id="login-btn" class="auth-submit">Enter Middle-Earth</button>
+          <p class="auth-error hidden" id="login-error"></p>
+        </form>
+
+        <form class="auth-form auth-form--register" id="register-form">
+          <label class="auth-label">
+            <span class="auth-label-text">Player name</span>
+            <input type="text" id="register-name" placeholder="Used for login" autocomplete="username">
+          </label>
+          <label class="auth-label">
+            <span class="auth-label-text">Display name <span class="auth-label-hint">(optional)</span></span>
+            <input type="text" id="register-display-name" placeholder="Shown to other players">
+          </label>
+          <label class="auth-label">
+            <span class="auth-label-text">Email</span>
+            <input type="email" id="register-email" placeholder="you@example.com" autocomplete="email">
+          </label>
+          <label class="auth-label">
+            <span class="auth-label-text">Password</span>
+            <input type="password" id="register-password" placeholder="&bull;&bull;&bull;&bull;&bull;&bull;" autocomplete="new-password">
+          </label>
+          <button type="button" id="register-btn" class="auth-submit">Forge your Fellowship</button>
+          <p class="auth-error hidden" id="register-error"></p>
+        </form>
+      </div>
     </div>
   </div>
 
   <!-- Persistent nav bar (lobby mode) -->
   <nav id="lobby-nav" class="lobby-nav hidden">
+    <span class="lobby-nav-brand">MECCG</span>
+    <span class="lobby-nav-divider"></span>
     <button id="nav-lobby" class="lobby-nav-item lobby-nav-item--active">Lobby</button>
     <button id="nav-decks" class="lobby-nav-item">Decks</button>
     <button id="nav-mail" class="lobby-nav-item">Mail <span id="nav-mail-badge" class="lobby-nav-badge"></span></button>
@@ -47,30 +80,40 @@
 
   <!-- Lobby screen (lobby mode) — play area -->
   <div id="lobby-screen" class="hidden">
-    <div class="lobby-content">
-      <div class="lobby-column">
-        <h3 class="lobby-section-title">Online Players</h3>
-        <div id="online-players" class="lobby-player-list">
-          <p class="lobby-empty">No other players online</p>
-        </div>
-        <div id="challenge-incoming" class="hidden">
-          <p id="challenge-text"></p>
-          <button id="accept-challenge-btn">Accept</button>
-          <button id="decline-challenge-btn">Decline</button>
-        </div>
-
-        <p id="no-deck-notice" class="lobby-empty hidden">No deck selected. <a href="#" id="no-deck-link">Choose a deck</a> to play.</p>
-        <div class="lobby-actions">
-          <label class="lobby-select-label">My Deck</label>
-          <select id="my-deck-select" class="lobby-deck-select"></select>
-        </div>
-        <div class="lobby-actions">
-          <label class="lobby-select-label">AI Deck</label>
-          <select id="ai-deck-select" class="lobby-deck-select"></select>
-        </div>
-        <p class="lobby-ai-description"><strong>Smart-AI</strong> uses heuristics to make competent decisions. <strong>Pseudo-AI</strong> lets you play both sides, making all decisions yourself.</p>
-        <button id="play-smart-ai-btn" class="lobby-play-btn">Play vs Smart-AI</button>
-        <button id="play-pseudo-ai-btn" class="lobby-play-btn">Play vs Pseudo-AI</button>
+    <div class="lobby-stage">
+      <header class="lobby-stage-header">
+        <h1 class="lobby-stage-title">The Council Chamber</h1>
+        <p class="lobby-stage-subtitle">Choose your fellowship and seek a worthy opponent.</p>
+      </header>
+      <div class="lobby-grid">
+        <section class="panel lobby-panel--players">
+          <h3 class="panel-title">Online Players</h3>
+          <div id="online-players" class="lobby-player-list">
+            <p class="lobby-empty">The halls are quiet. No other players online.</p>
+          </div>
+          <div id="challenge-incoming" class="hidden">
+            <p id="challenge-text"></p>
+            <div class="challenge-actions">
+              <button id="accept-challenge-btn">Accept</button>
+              <button id="decline-challenge-btn">Decline</button>
+            </div>
+          </div>
+        </section>
+        <section class="panel lobby-panel--play">
+          <h3 class="panel-title">Begin a Quest</h3>
+          <p id="no-deck-notice" class="lobby-empty hidden">No deck selected. <a href="#" id="no-deck-link">Choose a deck</a> to play.</p>
+          <div class="lobby-actions">
+            <label class="lobby-select-label">Your Deck</label>
+            <select id="my-deck-select" class="lobby-deck-select"></select>
+          </div>
+          <div class="lobby-actions">
+            <label class="lobby-select-label">AI Deck</label>
+            <select id="ai-deck-select" class="lobby-deck-select"></select>
+          </div>
+          <p class="lobby-ai-description"><strong>Smart-AI</strong> uses heuristics to make competent decisions. <strong>Pseudo-AI</strong> lets you play both sides, making all decisions yourself.</p>
+          <button id="play-smart-ai-btn" class="lobby-play-btn">Play vs Smart-AI</button>
+          <button id="play-pseudo-ai-btn" class="lobby-play-btn lobby-play-btn--secondary">Play vs Pseudo-AI</button>
+        </section>
       </div>
     </div>
   </div>
@@ -78,24 +121,30 @@
   <!-- Decks screen (lobby mode) — 3-column deck browser -->
   <div id="decks-screen" class="hidden">
     <div id="decks-preview" class="deck-editor-preview"></div>
-    <div class="lobby-content lobby-content--decks">
-      <div class="lobby-column">
-        <h3 class="lobby-section-title">Deck Catalog</h3>
-        <div id="deck-catalog" class="lobby-deck-list">
-          <p class="lobby-empty">Loading...</p>
-        </div>
-      </div>
-      <div class="lobby-column">
-        <h3 class="lobby-section-title">My Decks</h3>
-        <div id="my-decks" class="lobby-deck-list">
-          <p class="lobby-empty">No decks yet</p>
-        </div>
-      </div>
-      <div class="lobby-column">
-        <h3 class="lobby-section-title">Current Deck</h3>
-        <div id="current-deck-preview" class="lobby-deck-list">
-          <p class="lobby-empty">No deck selected</p>
-        </div>
+    <div class="lobby-stage">
+      <header class="lobby-stage-header">
+        <h1 class="lobby-stage-title">The Library of Decks</h1>
+        <p class="lobby-stage-subtitle">Browse the catalog, manage your fellowships, inspect your current choice.</p>
+      </header>
+      <div class="lobby-content lobby-content--decks">
+        <section class="panel lobby-column">
+          <h3 class="panel-title">Deck Catalog</h3>
+          <div id="deck-catalog" class="lobby-deck-list">
+            <p class="lobby-empty">Loading&hellip;</p>
+          </div>
+        </section>
+        <section class="panel lobby-column">
+          <h3 class="panel-title">My Decks</h3>
+          <div id="my-decks" class="lobby-deck-list">
+            <p class="lobby-empty">No decks yet &mdash; copy one from the catalog.</p>
+          </div>
+        </section>
+        <section class="panel lobby-column">
+          <h3 class="panel-title">Current Deck</h3>
+          <div id="current-deck-preview" class="lobby-deck-list">
+            <p class="lobby-empty">No deck selected.</p>
+          </div>
+        </section>
       </div>
     </div>
   </div>
@@ -138,12 +187,18 @@
 
   <!-- Inbox screen (lobby mode) -->
   <div id="inbox-screen" class="hidden">
-    <div class="inbox-content">
-      <div id="inbox-list" class="inbox-list">
-        <p class="lobby-empty">Loading...</p>
-      </div>
-      <div id="inbox-message" class="inbox-message">
-        <p class="lobby-empty">Select a message to read</p>
+    <div class="lobby-stage">
+      <header class="lobby-stage-header">
+        <h1 class="lobby-stage-title">Messenger Hall</h1>
+        <p class="lobby-stage-subtitle">Tidings from across Middle-Earth.</p>
+      </header>
+      <div class="inbox-content">
+        <div id="inbox-list" class="panel inbox-list">
+          <p class="lobby-empty">Loading&hellip;</p>
+        </div>
+        <div id="inbox-message" class="panel inbox-message">
+          <p class="lobby-empty">Select a message to read.</p>
+        </div>
       </div>
     </div>
   </div>

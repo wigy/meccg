@@ -34,7 +34,7 @@ import { openCreditsPage, setCreditsPageCallbacks } from './credits-page.js';
 import { showAlert, showConfirm } from './dialog.js';
 import {
   showScreen, showAuthError, applyBackground, selectRandomBackground,
-  connectLobbyWs, initLobby,
+  connectLobbyWs, initLobby, showAuthTab, selectRandomAuthHero,
 } from './lobby-screens.js';
 import { renderLog, setupCardPreview, showNotification } from './render.js';
 import { resetCompanyViews } from './company-view.js';
@@ -146,13 +146,13 @@ document.addEventListener('DOMContentLoaded', () => {
   if (LOBBY_MODE) {
     const loginBtn = document.getElementById('login-btn') as HTMLButtonElement;
     const registerBtn = document.getElementById('register-btn') as HTMLButtonElement;
-    const showRegisterLink = document.getElementById('show-register') as HTMLAnchorElement;
-    const showLoginLink = document.getElementById('show-login') as HTMLAnchorElement;
+    const authTabLogin = document.getElementById('auth-tab-login') as HTMLButtonElement;
+    const authTabRegister = document.getElementById('auth-tab-register') as HTMLButtonElement;
     const acceptChallengeBtn = document.getElementById('accept-challenge-btn') as HTMLButtonElement;
     const declineChallengeBtn = document.getElementById('decline-challenge-btn') as HTMLButtonElement;
 
-    showRegisterLink.addEventListener('click', (e) => { e.preventDefault(); showScreen('register-screen'); });
-    showLoginLink.addEventListener('click', (e) => { e.preventDefault(); showScreen('login-screen'); });
+    authTabLogin.addEventListener('click', () => showAuthTab('login'));
+    authTabRegister.addEventListener('click', () => showAuthTab('register'));
 
     loginBtn.addEventListener('click', () => { void (async () => {
       const name = (document.getElementById('login-name') as HTMLInputElement).value.trim();
@@ -212,7 +212,9 @@ document.addEventListener('DOMContentLoaded', () => {
       sessionStorage.removeItem(VIEWING_DECKS_KEY);
       sessionStorage.removeItem(VIEWING_CREDITS_KEY);
       if (appState.lobbyWs) { appState.lobbyWs.close(); appState.lobbyWs = null; }
-      showScreen('login-screen');
+      selectRandomAuthHero();
+      showAuthTab('login');
+      showScreen('auth-screen');
     })(); };
     document.getElementById('logout-btn')!.addEventListener('click', doLogout);
 
