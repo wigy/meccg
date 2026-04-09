@@ -462,9 +462,17 @@ function handleBodyCheckRoll(state: GameState, action: GameAction, combat: Comba
     if (effectiveRoll > body) {
       // Character eliminated
       logDetail('Character eliminated');
-      const newAssignments = combat.strikeAssignments.map((a, i) =>
-        i === combat.currentStrikeIndex ? { ...a, result: 'eliminated' as const } : a,
-      );
+      // Per CoE rule 3.i.5: if a character facing multiple strikes is
+      // eliminated by one, remaining unresolved strikes assigned to that
+      // character are considered successful (defeated by the defender).
+      const newAssignments = combat.strikeAssignments.map((a, i) => {
+        if (i === combat.currentStrikeIndex) return { ...a, result: 'eliminated' as const };
+        if (!a.resolved && a.characterId === strike.characterId) {
+          logDetail(`Strike ${i} auto-resolved as successful (eliminated character, CoE 3.i.5)`);
+          return { ...a, resolved: true, result: 'success' as const };
+        }
+        return a;
+      });
 
       // Remove character from company and add to eliminated pile
       const newPlayers2 = clonePlayers(stateWithRoll);
