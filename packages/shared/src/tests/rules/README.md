@@ -146,7 +146,7 @@
 | 3.46 | Organization Phase | [Special Movement](03-organization-phase/rule-3.46-special-movement.test.ts) | ☐ |
 | 3.47 | Organization Phase | [Influence Overflow at End of Org Phase](03-organization-phase/rule-3.47-influence-overflow.test.ts) | ☐ |
 | 3.48 | Organization Phase | [Fallen-Wizard Discard Stage Resource](03-organization-phase/rule-3.48-fw-discard-stage.test.ts) | ☐ |
-| 4.01 | Long-Event Phase | [Discard Own Resource Long-Events](04-long-event-phase/rule-4.01-discard-own-long-events.test.ts) | ☐ |
+| 4.01 | Long-Event Phase | [Discard Own Resource Long-Events](04-long-event-phase/rule-4.01-discard-own-long-events.test.ts) | ☑ |
 | 4.02 | Long-Event Phase | [Play Resource Long-Events](04-long-event-phase/rule-4.02-play-resource-long-events.test.ts) | ☐ |
 | 4.03 | Long-Event Phase | [Discard Hazard Long-Events](04-long-event-phase/rule-4.03-discard-hazard-long-events.test.ts) | ☐ |
 | 5.01 | Movement/Hazard Phase | [Movement/Hazard Phase Order](05-movement-hazard-phase/rule-5.01-mh-phase-order.test.ts) | ☐ |
