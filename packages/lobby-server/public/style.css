@@ -2670,17 +2670,30 @@ h2 {
   transition: bottom 0.3s ease;
 }
 
-#hand-arc:has(.hand-card:hover) {
+/*
+ * Hover catch zone: a transparent rectangle that spans the full horizontal
+ * extent of the arc and stretches from the top of the visible cards down
+ * to the bottom edge of the screen. Without this, the cursor passing
+ * through a gap between fanned cards (the "valley" of the arc) loses
+ * :hover on every card and the arc flickers shut. The catch zone is
+ * suppressed while the hand is empty so we don't block clicks on
+ * underlying UI during setup or other handless phases.
+ */
+#hand-arc:not(:empty)::before {
+  content: '';
+  position: fixed;
+  left: 10vw;
+  right: 10vw;
+  bottom: 0;
+  height: var(--card-height);
+  pointer-events: auto;
+  z-index: -1;
+}
+
+#hand-arc:hover {
   bottom: 0;
   z-index: var(--z-hover);
 }
-
-/*
- * No catch zone needed: :has(.hand-card:hover) triggers on the card itself.
- * Cards are 28vh tall and the arc offset is only 10vh, so when the arc rises
- * the mouse stays over the card (landing on the lower portion that was
- * previously below viewport).
- */
 
 #opponent-arc {
   top: -19vh;
