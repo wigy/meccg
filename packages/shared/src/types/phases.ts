@@ -135,6 +135,7 @@ export const LEGAL_ACTIONS_BY_PHASE: Readonly<Record<Phase, readonly GameAction[
   [Phase.Site]: [
     'select-company',
     'enter-site',
+    'activate-granted-action',
     'reveal-on-guard',
     'declare-agent-attack',
     'play-permanent-event',

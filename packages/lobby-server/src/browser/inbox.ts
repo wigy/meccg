@@ -129,9 +129,11 @@ function renderMessage(messageEl: HTMLElement, full: InboxMessage): void {
             statusEl.className = `inbox-status inbox-status--${newStatus}`;
             statusEl.textContent = newStatus;
           }
-          // Also update the status badge in the mail list row
+          // Also update the status badge in the mail list row and
+          // remove the waiting highlight now that the review is resolved.
           const listRow = document.querySelector(`.inbox-item[data-msg-id="${full.id}"]`);
           if (listRow) {
+            listRow.classList.remove('inbox-item--waiting');
             const listStatus = listRow.querySelector('.inbox-status');
             if (listStatus) {
               listStatus.className = `inbox-status inbox-status--${newStatus}`;

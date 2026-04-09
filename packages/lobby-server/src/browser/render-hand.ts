@@ -128,7 +128,63 @@ function isPlayCharacterCard(
   );
 }
 
+/**
+ * Find all cancel-attack actions for a given card instance.
+ * Each action names a different scout character that can tap to pay the cost.
+ */
+function findCancelAttackActions(
+  instanceId: CardInstanceId | null,
+  legalActions: readonly GameAction[],
+): GameAction[] {
+  if (!instanceId) return [];
+  return legalActions.filter(
+    a => a.type === 'cancel-attack' && a.cardInstanceId === instanceId,
+  );
+}
+
 // ---- Disambiguation tooltips ----
+
+/**
+ * Show a disambiguation tooltip to choose which scout taps to cancel
+ * the attack. Each button names a character; clicking it sends the action.
+ */
+function showCancelAttackScoutMenu(
+  event: MouseEvent,
+  actions: readonly GameAction[],
+  cardPool: Readonly<Record<string, CardDefinition>>,
+  onAction: (action: GameAction) => void,
+): void {
+  const cachedInstanceLookup = getCachedInstanceLookup();
+  document.querySelector('.chain-target-backdrop')?.remove();
+
+  const backdrop = document.createElement('div');
+  backdrop.className = 'chain-target-backdrop';
+  backdrop.addEventListener('click', () => backdrop.remove());
+
+  const tooltip = document.createElement('div');
+  tooltip.className = 'chain-target-tooltip';
+  tooltip.style.left = `${event.clientX}px`;
+  tooltip.style.top = `${event.clientY}px`;
+
+  for (const action of actions) {
+    if (action.type !== 'cancel-attack') continue;
+    const scoutDefId = cachedInstanceLookup(action.scoutInstanceId);
+    const scoutDef = scoutDefId ? cardPool[scoutDefId as string] : undefined;
+    const scoutName = scoutDef ? scoutDef.name : '?';
+
+    const btn = document.createElement('button');
+    btn.className = 'char-action-tooltip__btn';
+    btn.textContent = `Tap ${scoutName}`;
+    btn.addEventListener('click', () => {
+      backdrop.remove();
+      onAction(action);
+    });
+    tooltip.appendChild(btn);
+  }
+
+  backdrop.appendChild(tooltip);
+  document.body.appendChild(backdrop);
+}
 
 /**
  * Show a disambiguation tooltip near the clicked short-event card
@@ -508,10 +564,12 @@ export function renderHand(
     const isResource = resourceActions.length > 0;
     const influenceActions = findInfluenceActions(cardInstanceId, viable);
     const isInfluence = influenceActions.length > 0;
+    const cancelAttackActions = findCancelAttackActions(cardInstanceId, viable);
+    const isCancelAttack = cancelAttackActions.length > 0;
     const discardAction = cardInstanceId
       ? viable.find(a => a.type === 'discard-card' && a.cardInstanceId === cardInstanceId)
       : undefined;
-    const nonViableReason = !action && !isItemDraft && !isPlayChar && !isShortEvent && !isHazard && !isResource && !isInfluence && !discardAction && !onGuardAction
+    const nonViableReason = !action && !isItemDraft && !isPlayChar && !isShortEvent && !isHazard && !isResource && !isInfluence && !isCancelAttack && !discardAction && !onGuardAction
       ? findNonViableReason(cardDefId, view.legalActions, cachedInstanceLookup)
       : undefined;
     const selectedItemDefId = getSelectedItemDefId();
@@ -617,6 +675,18 @@ export function renderHand(
           );
           reRenderFactionInfluence();
         });
+      }
+    } else if (isCancelAttack) {
+      // Cancel-attack: single scout plays directly, multiple scouts show menu
+      img.className = 'hand-card hand-card-playable';
+      if (onAction) {
+        if (cancelAttackActions.length === 1) {
+          img.addEventListener('click', () => onAction(cancelAttackActions[0]));
+        } else {
+          img.addEventListener('click', (e) => {
+            showCancelAttackScoutMenu(e, cancelAttackActions, cardPool, onAction);
+          });
+        }
       }
     } else if (action) {
       img.className = 'hand-card hand-card-playable';

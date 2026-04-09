@@ -1155,11 +1155,36 @@ function handleSplitCompany(state: GameState, action: GameAction): ReducerResult
 
   logDetail(`Split company: moving ${movingIds.size} character(s) from ${sourceCompany.id as string}`);
 
+  // Rule 3.31: When a company splits at a haven, the player may place an
+  // additional untapped copy of the haven with the new company. Do this
+  // automatically whenever a duplicate copy is available in the site deck.
+  let newSiteDeck = player.siteDeck;
+  let newCompanySite: SiteInPlay | null = sourceCompany.currentSite;
+  let newCompanySiteCardOwned = false;
+  if (sourceCompany.currentSite) {
+    const siteDef = state.cardPool[sourceCompany.currentSite.definitionId as string];
+    if (siteDef && isSiteCard(siteDef) && siteDef.siteType === SiteType.Haven) {
+      const duplicate = player.siteDeck.find(
+        c => c.definitionId === sourceCompany.currentSite!.definitionId,
+      );
+      if (duplicate) {
+        logDetail(`  Split at haven ${siteDef.name}: taking additional untapped copy from site deck for new company`);
+        newSiteDeck = player.siteDeck.filter(c => c.instanceId !== duplicate.instanceId);
+        newCompanySite = {
+          instanceId: duplicate.instanceId,
+          definitionId: duplicate.definitionId,
+          status: CardStatus.Untapped,
+        };
+        newCompanySiteCardOwned = true;
+      }
+    }
+  }
+
   const newCompany: Company = {
     id: nextCompanyId(player),
     characters: allMovingIds,
-    currentSite: sourceCompany.currentSite,
-    siteCardOwned: false,
+    currentSite: newCompanySite,
+    siteCardOwned: newCompanySiteCardOwned,
     destinationSite: null,
     movementPath: [],
     moved: false,
@@ -1174,7 +1199,7 @@ function handleSplitCompany(state: GameState, action: GameAction): ReducerResult
   companies.push(newCompany);
 
   const newPlayers = clonePlayers(state);
-  newPlayers[playerIndex] = { ...player, companies };
+  newPlayers[playerIndex] = { ...player, companies, siteDeck: newSiteDeck };
 
   // Reverse: merge the new company back into the source
   const reverseAction: GameAction = {

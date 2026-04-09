@@ -31,7 +31,7 @@ import { describe, test, expect, beforeEach } from 'vitest';
 import {
   buildTestState, resetMint, Phase, reduce,
   PLAYER_1, PLAYER_2,
-  ARAGORN, LEGOLAS, CAVE_DRAKE,
+  ARAGORN, LEGOLAS, CAVE_DRAKE, GANDALF, BILBO, FRODO,
   STEALTH,
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
   pool, mint,
@@ -119,6 +119,59 @@ describe('Stealth (tw-332)', () => {
     const afterSecondPass = reduce(afterFirstPass.state, { type: 'pass', player: PLAYER_1 });
     expect(afterSecondPass.error).toBeUndefined();
     expect(afterSecondPass.state.phaseState.phase).toBe(Phase.LongEvent);
+  });
+
+  test('Stealth is not playable when company size is 3 or more', () => {
+    // Aragorn (dunadan=full) + Gandalf (wizard=full) + Bilbo (hobbit=half)
+    // + Frodo (hobbit=half) → company size = ceil(2 + 2/2) = 3.
+    // Stealth requires company size < 3, so it must NOT appear.
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Organization,
+      players: [
+        {
+          id: PLAYER_1,
+          companies: [{ site: RIVENDELL, characters: [ARAGORN, GANDALF, BILBO, FRODO] }],
+          hand: [STEALTH],
+          siteDeck: [MORIA],
+        },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [MINAS_TIRITH] },
+      ],
+    });
+    const stealthInstance = base.players[0].hand[0].instanceId;
+
+    // Enter end-of-org
+    const afterFirstPass = reduce(base, { type: 'pass', player: PLAYER_1 });
+    expect(afterFirstPass.error).toBeUndefined();
+    expect((afterFirstPass.state.phaseState as { step?: string }).step).toBe('end-of-org');
+
+    const endOfOrgActions = computeLegalActions(afterFirstPass.state, PLAYER_1)
+      .filter(ea => ea.viable && ea.action.type === 'play-short-event')
+      .map(ea => ea.action as { cardInstanceId: string });
+    expect(endOfOrgActions.find(a => a.cardInstanceId === stealthInstance)).toBeUndefined();
+  });
+
+  test('Stealth is not playable when company has no scout', () => {
+    // Legolas has no scout skill, so Stealth cannot be played even in a
+    // small company.
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Organization,
+      players: [
+        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [LEGOLAS] }], hand: [STEALTH], siteDeck: [MORIA] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [ARAGORN] }], hand: [], siteDeck: [MINAS_TIRITH] },
+      ],
+    });
+    const stealthInstance = base.players[0].hand[0].instanceId;
+
+    const afterFirstPass = reduce(base, { type: 'pass', player: PLAYER_1 });
+    expect(afterFirstPass.error).toBeUndefined();
+    expect((afterFirstPass.state.phaseState as { step?: string }).step).toBe('end-of-org');
+
+    const endOfOrgActions = computeLegalActions(afterFirstPass.state, PLAYER_1)
+      .filter(ea => ea.viable && ea.action.type === 'play-short-event')
+      .map(ea => ea.action as { cardInstanceId: string });
+    expect(endOfOrgActions.find(a => a.cardInstanceId === stealthInstance)).toBeUndefined();
   });
 
   test('no-creature-hazards-on-company constraint blocks opponent creature plays against the protected company', () => {

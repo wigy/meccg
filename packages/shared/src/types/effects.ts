@@ -363,6 +363,12 @@ export interface PlayTargetEffect extends EffectBase {
    * - `"own-scout"` — a scout in one of the resource player's companies (e.g. Stealth).
    */
   readonly target: 'character' | 'company' | 'site' | 'own-scout';
+  /**
+   * Maximum effective company size for the target's company.
+   * When set, the card is only playable if the scout's company has
+   * effective size ≤ this value (hobbits count as half).
+   */
+  readonly maxCompanySize?: number;
 }
 
 /**
