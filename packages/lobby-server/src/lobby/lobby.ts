@@ -155,21 +155,12 @@ function handleMessage(fromName: string, msg: LobbyClientMessage): void {
       break;
     }
 
-    case 'play-ai': {
-      if (from.inGame) {
-        send(from.ws, { type: 'error', message: 'You are already in a game' });
-        return;
-      }
-      void startAiGame(from, msg.deckId, 'random');
-      break;
-    }
-
     case 'play-smart-ai': {
       if (from.inGame) {
         send(from.ws, { type: 'error', message: 'You are already in a game' });
         return;
       }
-      void startAiGame(from, msg.deckId, 'heuristic');
+      void startAiGame(from, msg.deckId);
       break;
     }
 
@@ -201,8 +192,7 @@ function handleMessage(fromName: string, msg: LobbyClientMessage): void {
       if (opponentName === 'AI-Pseudo') {
         void startPseudoAiGame(from);
       } else if (isAi) {
-        const strategy = opponentName === 'AI-Smart' ? 'heuristic' : 'random';
-        void startAiGame(from, undefined, strategy);
+        void startAiGame(from);
       } else {
         const opponent = onlinePlayers.get(opponentName);
         if (!opponent) {
@@ -267,14 +257,14 @@ async function startGame(player1: OnlinePlayer, player2: OnlinePlayer): Promise<
   }
 }
 
-/** Launch a game against the AI. */
-async function startAiGame(player: OnlinePlayer, deckId?: string, strategy: 'random' | 'heuristic' = 'random'): Promise<void> {
+/** Launch a game against the Smart-AI (heuristic strategy). */
+async function startAiGame(player: OnlinePlayer, deckId?: string): Promise<void> {
   player.inGame = true;
-  const aiName = strategy === 'heuristic' ? 'AI-Smart' : 'AI-Random';
+  const aiName = 'AI-Smart';
 
   try {
-    const result = await launchGame(player.name, aiName, { ai: true, aiDeckId: deckId, aiStrategy: strategy });
-    lobbyLog.log('game-start', { player1: player.name, player2: aiName, ai: true, strategy, port: result.port });
+    const result = await launchGame(player.name, aiName, { ai: true, aiDeckId: deckId });
+    lobbyLog.log('game-start', { player1: player.name, player2: aiName, ai: true, port: result.port });
 
     player.activeGame = {
       port: result.port,

@@ -51,8 +51,8 @@ export function showScreen(id: ScreenId): void {
   updateCreditsBadge();
   // Reset lobby button state when showing the lobby
   if (id === 'lobby-screen') {
-    const btn = document.getElementById('play-ai-btn') as HTMLButtonElement | null;
-    if (btn) { btn.textContent = 'Play vs Random-AI'; btn.disabled = false; }
+    const smartBtn = document.getElementById('play-smart-ai-btn') as HTMLButtonElement | null;
+    if (smartBtn) { smartBtn.textContent = 'Play vs Smart-AI'; smartBtn.disabled = false; }
     const pseudoBtn = document.getElementById('play-pseudo-ai-btn') as HTMLButtonElement | null;
     if (pseudoBtn) { pseudoBtn.textContent = 'Play vs Pseudo-AI'; pseudoBtn.disabled = false; }
     void loadDecks();

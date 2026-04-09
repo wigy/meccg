@@ -1,7 +1,7 @@
 /**
  * @module ai/heuristic
  *
- * Heuristic AI strategy — the "Smart AI". Dispatches each legal action to
+ * Heuristic AI strategy — the "Smart-AI". Dispatches each legal action to
  * a phase-specific evaluator that returns a numeric weight. Combat actions
  * are routed through the combat evaluator regardless of which surrounding
  * phase they appear in (combat is a phase-independent sub-state).

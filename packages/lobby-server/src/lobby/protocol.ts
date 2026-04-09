@@ -26,13 +26,6 @@ export interface DeclineChallengeMessage {
   readonly from: string;
 }
 
-/** Start a game against the AI. */
-export interface PlayAiMessage {
-  readonly type: 'play-ai';
-  /** Catalog deck ID for the AI opponent to use. */
-  readonly deckId: string;
-}
-
 /** Start a game against the heuristic ("Smart") AI. */
 export interface PlaySmartAiMessage {
   readonly type: 'play-smart-ai';
@@ -66,7 +59,6 @@ export type LobbyClientMessage =
   | ChallengeMessage
   | AcceptChallengeMessage
   | DeclineChallengeMessage
-  | PlayAiMessage
   | PlaySmartAiMessage
   | PlayPseudoAiMessage
   | PseudoAiPickMessage

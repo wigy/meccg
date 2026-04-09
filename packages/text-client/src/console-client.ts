@@ -43,9 +43,9 @@ import type { AiStrategy } from '@meccg/shared';
 import { ClientLog } from './client-log.js';
 
 const SERVER_URL = process.env.SERVER_URL ?? 'ws://localhost:3000';
-const AI_MODE = process.argv.includes('--ai') ? (process.argv[process.argv.indexOf('--ai') + 1] ?? 'random') : null;
+const AI_MODE = process.argv.includes('--ai') ? (process.argv[process.argv.indexOf('--ai') + 1] ?? 'heuristic') : null;
 const DECK_ARG = process.argv.includes('--deck') ? (process.argv[process.argv.indexOf('--deck') + 1] ?? null) : null;
-/** Extract the player name: skip flags, flag values (--ai X, --deck X), and 'random'. */
+/** Extract the player name: skip flags and flag values (--ai X, --deck X). */
 const PLAYER_NAME = (() => {
   const args = process.argv.slice(2);
   const positional: string[] = [];
@@ -73,7 +73,7 @@ if (AI_MODE) {
   aiStrategy = loadAiStrategy(AI_MODE);
   if (!aiStrategy) {
     console.error(`Unknown AI strategy: ${AI_MODE}`);
-    console.error('Available: random, heuristic');
+    console.error('Available: heuristic');
     process.exit(1);
   }
 }

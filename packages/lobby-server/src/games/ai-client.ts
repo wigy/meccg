@@ -2,20 +2,17 @@
  * @module games/ai-client
  *
  * Headless AI player that connects to a game server via WebSocket
- * and submits legal moves chosen by an {@link AiStrategy}.
+ * and submits legal moves chosen by the heuristic ("Smart") strategy.
+ * Card definitions are loaded once at start so the strategy can score
+ * actions against the static card pool.
  *
- * The strategy is selected at spawn time via `--strategy <name>`. The
- * default is `random` (uniform-over-legal); the lobby launches Smart-AI
- * games with `--strategy heuristic`. Card definitions are loaded once
- * at start so the strategy can score actions against the static card pool.
- *
- * Usage: npx tsx ai-client.ts <port> <playerName> <token> --deck <deckId> [--strategy <name>]
+ * Usage: npx tsx ai-client.ts <port> <playerName> <token> --deck <deckId>
  */
 
 import { WebSocket } from 'ws';
 import * as fs from 'fs';
 import * as path from 'path';
-import type { ServerMessage, ClientMessage, GameAction, EvaluatedAction, CardDefinitionId, AiStrategy, AiContext, WeightedAction, PlayerView } from '@meccg/shared';
+import type { ServerMessage, ClientMessage, GameAction, EvaluatedAction, CardDefinitionId, AiContext, WeightedAction, PlayerView } from '@meccg/shared';
 import { Alignment, loadAiStrategy, loadCardPool, sampleWeighted, describeAction, buildInstanceLookup, buildCompanyNames, stripCardMarkers } from '@meccg/shared';
 import type { JoinMessage } from '@meccg/shared';
 
@@ -25,17 +22,15 @@ const PLAYER_NAME = args[3];
 const TOKEN = args[4];
 const DECK_FLAG_IDX = process.argv.indexOf('--deck');
 const DECK_ID = DECK_FLAG_IDX >= 0 ? process.argv[DECK_FLAG_IDX + 1] : undefined;
-const STRATEGY_FLAG_IDX = process.argv.indexOf('--strategy');
-const STRATEGY_NAME = STRATEGY_FLAG_IDX >= 0 ? process.argv[STRATEGY_FLAG_IDX + 1] : 'random';
 
 if (!PORT || !PLAYER_NAME || !TOKEN) {
-  console.error('Usage: ai-client <port> <playerName> <token> [--deck <deckId>] [--strategy <name>]');
+  console.error('Usage: ai-client <port> <playerName> <token> [--deck <deckId>]');
   process.exit(1);
 }
 
-const strategy: AiStrategy | null = loadAiStrategy(STRATEGY_NAME);
+const strategy = loadAiStrategy('heuristic');
 if (!strategy) {
-  console.error(`Unknown AI strategy: ${STRATEGY_NAME}`);
+  console.error('Heuristic AI strategy is not available — this should never happen.');
   process.exit(1);
 }
 console.log(`AI using strategy: ${strategy.name}`);

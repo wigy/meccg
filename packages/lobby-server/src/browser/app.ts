@@ -148,7 +148,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const registerBtn = document.getElementById('register-btn') as HTMLButtonElement;
     const showRegisterLink = document.getElementById('show-register') as HTMLAnchorElement;
     const showLoginLink = document.getElementById('show-login') as HTMLAnchorElement;
-    const playAiBtn = document.getElementById('play-ai-btn') as HTMLButtonElement;
     const acceptChallengeBtn = document.getElementById('accept-challenge-btn') as HTMLButtonElement;
     const declineChallengeBtn = document.getElementById('decline-challenge-btn') as HTMLButtonElement;
 
@@ -230,38 +229,7 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     }
 
-    /** Send the play-ai message and disable the UI. */
-    function launchAiGame(): void {
-      if (appState.lobbyWs && appState.lobbyWs.readyState === WebSocket.OPEN) {
-        const aiDeckSelect = document.getElementById('ai-deck-select') as HTMLSelectElement;
-        appState.lobbyWs.send(JSON.stringify({ type: 'play-ai', deckId: aiDeckSelect.value }));
-        playAiBtn.textContent = 'Starting...';
-        setLobbyPlayButtonsDisabled(true);
-      }
-    }
-
-    playAiBtn.addEventListener('click', () => { void (async () => {
-      const resp = await fetch('/api/saves/check?opponent=AI-Random');
-      if (resp.ok) {
-        const data = await resp.json() as { hasSave: boolean };
-        if (data.hasSave) {
-          const cont = await showConfirm(
-            'A saved game exists against Random-AI. Continue the saved game or start a new one?',
-            { okLabel: 'Continue', cancelLabel: 'Start New' },
-          );
-          if (!cont) {
-            await fetch('/api/saves/delete', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ opponent: 'AI-Random' }),
-            });
-          }
-        }
-      }
-      launchAiGame();
-    })(); });
-
-    // ---- Smart AI ----
+    // ---- Smart-AI ----
     const playSmartAiBtn = document.getElementById('play-smart-ai-btn') as HTMLButtonElement;
 
     /** Send the play-smart-ai message and disable the UI. */
@@ -280,7 +248,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const data = await resp.json() as { hasSave: boolean };
         if (data.hasSave) {
           const cont = await showConfirm(
-            'A saved game exists against Smart AI. Continue the saved game or start a new one?',
+            'A saved game exists against Smart-AI. Continue the saved game or start a new one?',
             { okLabel: 'Continue', cancelLabel: 'Start New' },
           );
           if (!cont) {

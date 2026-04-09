@@ -28,8 +28,8 @@ export function updatePlayControls(): void {
   const hasDeck = appState.currentDeckId !== null;
   const notice = document.getElementById('no-deck-notice');
   if (notice) notice.classList.toggle('hidden', hasDeck);
-  const playAiBtn = document.getElementById('play-ai-btn') as HTMLButtonElement | null;
-  if (playAiBtn) playAiBtn.disabled = !hasDeck;
+  const playSmartAiBtn = document.getElementById('play-smart-ai-btn') as HTMLButtonElement | null;
+  if (playSmartAiBtn) playSmartAiBtn.disabled = !hasDeck;
   const aiDeckSelect = document.getElementById('ai-deck-select') as HTMLSelectElement | null;
   if (aiDeckSelect) aiDeckSelect.disabled = !hasDeck;
   // Disable challenge buttons on online player list
