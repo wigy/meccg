@@ -13,16 +13,19 @@
  * Engine Support:
  * | # | Feature                                  | Status      | Notes                                  |
  * |---|------------------------------------------|-------------|----------------------------------------|
- * | 1 | Play target = own scout                  | DATA        | play-target target:"own-scout"         |
- * | 2 | Play window = end of organization        | DATA        | end-of-org step (follow-up)            |
- * | 3 | Adds no-creature-hazards constraint      | IMPLEMENTED | on-event self-enters-play apply        |
- * | 4 | Constraint blocks opponent creature plays | IMPLEMENTED | constraint filter (cross-player)       |
- * | 5 | Constraint clears at turn-end             | IMPLEMENTED | sweepExpired turn-end                  |
- * | 6 | Other companies' creature hazards remain  | IMPLEMENTED | constraint filter checks targetCompany |
+ * | 1 | Play target = own scout                  | IMPLEMENTED | play-target target:"own-scout"         |
+ * | 2 | Play window = end of organization        | IMPLEMENTED | implicit end-of-org transition on play |
+ * | 3 | Company size < 3 enforced                 | IMPLEMENTED | play-target maxCompanySize:2           |
+ * | 4 | Adds no-creature-hazards constraint      | IMPLEMENTED | on-event self-enters-play apply        |
+ * | 5 | Constraint blocks opponent creature plays | IMPLEMENTED | constraint filter (cross-player)       |
+ * | 6 | Constraint clears at turn-end             | IMPLEMENTED | sweepExpired turn-end                  |
+ * | 7 | Other companies' creature hazards remain  | IMPLEMENTED | constraint filter checks targetCompany |
  *
- * Playable: PARTIAL — full play-from-hand wiring (end-of-org step,
- * scout/company-size validation) is left as a follow-up. The constraint
- * filtering and turn-end sweep are fully tested.
+ * Stealth is playable during the normal organization play-actions step
+ * whenever its constraints are met. Playing it implicitly transitions
+ * the engine into the end-of-org sub-step, after which only further
+ * end-of-org plays and pass remain legal — the active player cannot
+ * take any further normal organization actions this turn.
  *
  * Certified: 2026-04-08
  */
@@ -71,10 +74,10 @@ describe('Stealth (tw-332)', () => {
     expect(onEvent?.apply.scope).toBe('turn');
   });
 
-  test('Stealth is not playable during the normal organization play-actions step', () => {
-    // The play-window restriction must hide Stealth from the normal
-    // organization legal-action menu — it should only appear once the
-    // engine has entered the end-of-org sub-step.
+  test('Stealth is playable during normal organization play-actions when constraints are met', () => {
+    // Aragorn is a scout in a company of size 1 — Stealth should appear
+    // as a viable play-short-event in the normal play-actions menu, with
+    // no need to first enter an end-of-org sub-step.
     const base = buildTestState({
       activePlayer: PLAYER_1,
       phase: Phase.Organization,
@@ -85,16 +88,18 @@ describe('Stealth (tw-332)', () => {
     });
     const stealthInstance = base.players[0].hand[0].instanceId;
 
-    const beforePass = computeLegalActions(base, PLAYER_1)
+    const playActions = computeLegalActions(base, PLAYER_1)
       .filter(ea => ea.viable && ea.action.type === 'play-short-event')
       .map(ea => ea.action as { cardInstanceId: string });
-    expect(beforePass.find(a => a.cardInstanceId === stealthInstance)).toBeUndefined();
+    expect(playActions.find(a => a.cardInstanceId === stealthInstance)).toBeDefined();
   });
 
-  test('Stealth becomes playable after the first pass enters the end-of-org window', () => {
-    // After the first pass, the engine is at the `end-of-org` sub-step
-    // and Stealth (with its play-window) appears as a viable
-    // play-short-event action.
+  test('playing Stealth implicitly transitions into the end-of-org sub-step', () => {
+    // Playing Stealth during normal play-actions should advance the
+    // organization phase into its end-of-org sub-step, locking out any
+    // further normal organization actions. The active player can still
+    // play more end-of-org cards, then a single pass advances to the
+    // Long-event phase.
     const base = buildTestState({
       activePlayer: PLAYER_1,
       phase: Phase.Organization,
@@ -105,26 +110,49 @@ describe('Stealth (tw-332)', () => {
     });
     const stealthInstance = base.players[0].hand[0].instanceId;
 
-    const afterFirstPass = reduce(base, { type: 'pass', player: PLAYER_1 });
-    expect(afterFirstPass.error).toBeUndefined();
-    expect(afterFirstPass.state.phaseState.phase).toBe(Phase.Organization);
-    expect((afterFirstPass.state.phaseState as { step?: string }).step).toBe('end-of-org');
+    const afterPlay = reduce(base, {
+      type: 'play-short-event',
+      player: PLAYER_1,
+      cardInstanceId: stealthInstance,
+    });
+    expect(afterPlay.error).toBeUndefined();
+    expect(afterPlay.state.phaseState.phase).toBe(Phase.Organization);
+    expect((afterPlay.state.phaseState as { step?: string }).step).toBe('end-of-org');
 
-    const endOfOrgActions = computeLegalActions(afterFirstPass.state, PLAYER_1)
-      .filter(ea => ea.viable && ea.action.type === 'play-short-event')
-      .map(ea => ea.action as { cardInstanceId: string });
-    expect(endOfOrgActions.find(a => a.cardInstanceId === stealthInstance)).toBeDefined();
+    // Only end-of-org plays + pass should be legal now. With no more
+    // Stealth in hand, only pass is viable.
+    const afterPlayActions = computeLegalActions(afterPlay.state, PLAYER_1)
+      .filter(ea => ea.viable);
+    expect(afterPlayActions.every(ea => ea.action.type === 'pass')).toBe(true);
 
-    // A second pass closes the window and advances to Long-event.
-    const afterSecondPass = reduce(afterFirstPass.state, { type: 'pass', player: PLAYER_1 });
-    expect(afterSecondPass.error).toBeUndefined();
-    expect(afterSecondPass.state.phaseState.phase).toBe(Phase.LongEvent);
+    // Pass advances directly to Long-event.
+    const afterPass = reduce(afterPlay.state, { type: 'pass', player: PLAYER_1 });
+    expect(afterPass.error).toBeUndefined();
+    expect(afterPass.state.phaseState.phase).toBe(Phase.LongEvent);
+  });
+
+  test('pass during play-actions advances directly to Long-event with no end-of-org detour', () => {
+    // When the active player has nothing to play at end-of-org, a single
+    // pass should advance to the Long-event phase — no extra pass needed
+    // to traverse a separate end-of-org sub-step.
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Organization,
+      players: [
+        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [ARAGORN] }], hand: [], siteDeck: [MORIA] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [MINAS_TIRITH] },
+      ],
+    });
+
+    const afterPass = reduce(base, { type: 'pass', player: PLAYER_1 });
+    expect(afterPass.error).toBeUndefined();
+    expect(afterPass.state.phaseState.phase).toBe(Phase.LongEvent);
   });
 
   test('Stealth is not playable when company size is 3 or more', () => {
     // Aragorn (dunadan=full) + Gandalf (wizard=full) + Bilbo (hobbit=half)
     // + Frodo (hobbit=half) → company size = ceil(2 + 2/2) = 3.
-    // Stealth requires company size < 3, so it must NOT appear.
+    // Stealth requires company size < 3, so it must NOT appear as viable.
     const base = buildTestState({
       activePlayer: PLAYER_1,
       phase: Phase.Organization,
@@ -140,15 +168,10 @@ describe('Stealth (tw-332)', () => {
     });
     const stealthInstance = base.players[0].hand[0].instanceId;
 
-    // Enter end-of-org
-    const afterFirstPass = reduce(base, { type: 'pass', player: PLAYER_1 });
-    expect(afterFirstPass.error).toBeUndefined();
-    expect((afterFirstPass.state.phaseState as { step?: string }).step).toBe('end-of-org');
-
-    const endOfOrgActions = computeLegalActions(afterFirstPass.state, PLAYER_1)
+    const playActions = computeLegalActions(base, PLAYER_1)
       .filter(ea => ea.viable && ea.action.type === 'play-short-event')
       .map(ea => ea.action as { cardInstanceId: string });
-    expect(endOfOrgActions.find(a => a.cardInstanceId === stealthInstance)).toBeUndefined();
+    expect(playActions.find(a => a.cardInstanceId === stealthInstance)).toBeUndefined();
   });
 
   test('Stealth is not playable when company has no scout', () => {
@@ -164,14 +187,10 @@ describe('Stealth (tw-332)', () => {
     });
     const stealthInstance = base.players[0].hand[0].instanceId;
 
-    const afterFirstPass = reduce(base, { type: 'pass', player: PLAYER_1 });
-    expect(afterFirstPass.error).toBeUndefined();
-    expect((afterFirstPass.state.phaseState as { step?: string }).step).toBe('end-of-org');
-
-    const endOfOrgActions = computeLegalActions(afterFirstPass.state, PLAYER_1)
+    const playActions = computeLegalActions(base, PLAYER_1)
       .filter(ea => ea.viable && ea.action.type === 'play-short-event')
       .map(ea => ea.action as { cardInstanceId: string });
-    expect(endOfOrgActions.find(a => a.cardInstanceId === stealthInstance)).toBeUndefined();
+    expect(playActions.find(a => a.cardInstanceId === stealthInstance)).toBeUndefined();
   });
 
   test('no-creature-hazards-on-company constraint blocks opponent creature plays against the protected company', () => {

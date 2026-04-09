@@ -52,12 +52,13 @@ describe('Rule 2.11 — Phase Transitions', () => {
     expect(viable.length).toBeGreaterThan(0);
   });
 
-  test('Organization to Long-Event: first pass enters end-of-org window, second pass advances', () => {
+  test('Organization to Long-Event: a single pass advances directly', () => {
     // CoE rule wording: end-of-organization-phase plays exist (e.g. Stealth,
-    // Concealment) — the engine carries an `end-of-org` sub-step so those
-    // cards have a window. A pass during the normal organization actions
-    // step opens that window; a second pass closes it and advances to the
-    // Long-event phase.
+    // Concealment). They are now playable during normal organization
+    // play-actions, and playing one implicitly transitions the engine
+    // into the `end-of-org` sub-step where only further end-of-org plays
+    // remain legal. When the active player has no end-of-org cards to
+    // play, a single pass advances directly to the Long-event phase.
     const state = buildTestState({
       activePlayer: PLAYER_1,
       phase: Phase.Organization,
@@ -67,14 +68,10 @@ describe('Rule 2.11 — Phase Transitions', () => {
       ],
     });
 
-    // First pass: still in Organization, but at the end-of-org sub-step.
+    // Single pass advances straight to Long-event — no intermediate
+    // end-of-org sub-step traversal required.
     const state2 = runActions(state, [{ type: 'pass', player: PLAYER_1 }]);
-    expect(state2.phaseState.phase).toBe(Phase.Organization);
-    expect((state2.phaseState as { step?: string }).step).toBe('end-of-org');
-
-    // Second pass: advances to Long-event.
-    const state3 = runActions(state2, [{ type: 'pass', player: PLAYER_1 }]);
-    expect(state3.phaseState.phase).toBe(Phase.LongEvent);
+    expect(state2.phaseState.phase).toBe(Phase.LongEvent);
   });
 
   test('Long-Event to Movement/Hazard: pass advances immediately', () => {

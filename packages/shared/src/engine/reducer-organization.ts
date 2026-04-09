@@ -9,6 +9,7 @@
 import type { GameState, CardInstanceId, CharacterInPlay, CardInstance, OrganizationPhaseState, Company, SiteInPlay, GameAction, GameEffect } from '../index.js';
 import { Phase, shuffle, CardStatus, isCharacterCard, isSiteCard, SiteType, getPlayerIndex, ZERO_EFFECTIVE_STATS } from '../index.js';
 import { logDetail } from './legal-actions/log.js';
+import { isEndOfOrgPlay } from './legal-actions/organization.js';
 import { resolveInstanceId } from '../types/state.js';
 import type { ReducerResult } from './reducer-utils.js';
 import { roll2d6, clonePlayers, nextCompanyId, handleFetchFromPile } from './reducer-utils.js';
@@ -34,21 +35,11 @@ export function handleOrganization(state: GameState, action: GameAction): Reduce
       };
     }
 
-    // First pass: transition into the end-of-org window so cards
-    // explicitly tagged as end-of-organization plays (e.g. Stealth)
-    // can fire one more time before the Long-event phase opens.
-    if (orgState.step !== 'end-of-org') {
-      logDetail(`Organization: player ${action.player as string} passed → entering end-of-org window`);
-      return {
-        state: {
-          ...state,
-          phaseState: { ...orgState, step: 'end-of-org' as const },
-        },
-      };
-    }
-
-    // Second pass (already in end-of-org): advance to Long-event phase.
-    logDetail(`Organization: player ${action.player as string} passed end-of-org → advancing to Long-event phase`);
+    // Pass advances directly to the Long-event phase. End-of-org cards
+    // (e.g. Stealth) are now playable during normal play-actions and
+    // implicitly transition the engine into the end-of-org sub-step
+    // when played, so there is no need to enter that sub-step on pass.
+    logDetail(`Organization: player ${action.player as string} passed → advancing to Long-event phase`);
 
     // [2.III.1] At beginning of long-event phase: resource player discards own resource long-events
     const activePlayer = state.activePlayer!;
@@ -91,16 +82,40 @@ export function handleOrganization(state: GameState, action: GameAction): Reduce
   }
   if (action.type === 'play-short-event') {
     // Dispatch based on card type: hazard short events target environments,
-    // resource short events resolve their DSL effects
+    // resource short events resolve their DSL effects.
+    let result: ReducerResult;
+    let endOfOrgPlay = false;
     if (action.cardInstanceId) {
       const player = state.players.find(p => p.id === action.player);
       const card = player?.hand.find(c => c.instanceId === action.cardInstanceId);
       const def = card ? state.cardPool[card.definitionId as string] : undefined;
       if (def && def.cardType === 'hero-resource-event') {
-        return handlePlayResourceShortEvent(state, action);
+        endOfOrgPlay = isEndOfOrgPlay(def);
+        result = handlePlayResourceShortEvent(state, action);
+      } else {
+        result = handlePlayShortEvent(state, action);
+      }
+    } else {
+      result = handlePlayShortEvent(state, action);
+    }
+    // After playing an end-of-org card (e.g. Stealth) during normal
+    // organization play-actions, implicitly transition into the
+    // end-of-org sub-step. The active player can chain more end-of-org
+    // plays but no further normal organization actions this turn.
+    if (!result.error && endOfOrgPlay) {
+      const newOrgState = result.state.phaseState as OrganizationPhaseState;
+      if (newOrgState.phase === Phase.Organization && newOrgState.step !== 'end-of-org') {
+        logDetail(`Organization: end-of-org card played → entering end-of-org sub-step`);
+        return {
+          ...result,
+          state: {
+            ...result.state,
+            phaseState: { ...newOrgState, step: 'end-of-org' as const },
+          },
+        };
       }
     }
-    return handlePlayShortEvent(state, action);
+    return result;
   }
   if (action.type === 'fetch-from-pile') {
     return handleFetchFromPile(state, action);
