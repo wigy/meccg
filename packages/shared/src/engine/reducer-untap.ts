@@ -299,7 +299,11 @@ function advanceToOrganization(state: GameState): ReducerResult {
     phaseState: { phase: Phase.Organization, characterPlayedThisTurn: false, sideboardFetchedThisTurn: 0, sideboardFetchDestination: null },
   };
 
-  for (let pi = 0; pi < state.players.length; pi++) {
+  // Only scan the active (resource) player's characters — the card text
+  // says "at the end of *his* untap phase", so it fires only when the
+  // character's controller's untap phase transitions to organization.
+  const activeIndex = state.players.findIndex(p => p.id === state.activePlayer);
+  for (const pi of [activeIndex]) {
     const player = state.players[pi];
     const havensCharIds = new Set<string>();
     for (const company of player.companies) {
