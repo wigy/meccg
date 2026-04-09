@@ -3304,6 +3304,12 @@ h2 {
   transform: rotate(90deg);
 }
 
+/* Tapped site in site area — add horizontal margin to compensate for
+   rotation overflow so the adjacent arrow or region path stays visible. */
+.company-site-area > .company-card--tapped {
+  margin: 0 calc(var(--card-table-height) * var(--company-scale, 1) * 0.15);
+}
+
 /* Wounded (upside down) — used by items without badges */
 .company-card--wounded {
   transform: rotate(180deg);

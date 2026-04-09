@@ -768,7 +768,7 @@ function initiateCreatureCombat(state: GameState, entry: ChainEntry): GameState 
     strikeAssignments: [],
     currentStrikeIndex: 0,
     phase: 'assign-strikes',
-    assignmentPhase: attackerChooses ? 'attacker' : 'defender',
+    assignmentPhase: attackerChooses ? 'cancel-window' : 'defender',
     bodyCheckTarget: null,
     detainment: false,
     forceSingleTarget: multiAttackCount > 1 ? true : undefined,

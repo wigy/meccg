@@ -105,11 +105,13 @@ export interface CombatState {
   readonly phase: 'assign-strikes' | 'choose-strike-order' | 'resolve-strike' | 'body-check';
   /**
    * During assign-strikes, tracks who is currently assigning:
+   * - `'cancel-window'`: defender's pre-assignment window to cancel the attack
+   *   (used when the attacker would otherwise assign first, e.g. attacker-chooses-defenders)
    * - `'defender'`: defending player assigns strikes to untapped characters
    * - `'attacker'`: attacking player assigns remaining strikes
    * - `'done'`: all strikes assigned, ready to resolve
    */
-  readonly assignmentPhase: 'defender' | 'attacker' | 'cancel-by-tap' | 'done';
+  readonly assignmentPhase: 'cancel-window' | 'defender' | 'attacker' | 'cancel-by-tap' | 'done';
   /**
    * During body-check phase, indicates what the body check is against:
    * - `'character'`: check if a wounded character is eliminated

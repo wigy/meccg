@@ -91,8 +91,8 @@ describe('Cave-drake (tw-020)', () => {
     const afterChain = resolveChain(result.state);
     expect(afterChain.combat).not.toBeNull();
     expect(afterChain.combat!.phase).toBe('assign-strikes');
-    // Key assertion: attacker assigns (not defender)
-    expect(afterChain.combat!.assignmentPhase).toBe('attacker');
+    // Key assertion: cancel-window before attacker assigns (attacker-chooses-defenders)
+    expect(afterChain.combat!.assignmentPhase).toBe('cancel-window');
     expect(afterChain.combat!.strikesTotal).toBe(2);
     expect(afterChain.combat!.strikeProwess).toBe(10);
   });
@@ -138,19 +138,21 @@ describe('Cave-drake (tw-020)', () => {
     expect(result.error).toBeUndefined();
     const afterChain = resolveChain(result.state);
 
-    // Defender (P1) should NOT have assign-strike actions
+    // During cancel-window, defender gets pass only (no cancel cards in hand)
     const defenderActions = computeLegalActions(afterChain, PLAYER_1);
-    const defenderAssignStrikes = defenderActions.filter(
-      a => a.viable && a.action.type === 'assign-strike',
-    );
-    expect(defenderAssignStrikes).toHaveLength(0);
+    expect(defenderActions.filter(a => a.viable && a.action.type === 'assign-strike')).toHaveLength(0);
+    expect(defenderActions.filter(a => a.viable && a.action.type === 'pass')).toHaveLength(1);
 
-    // Attacker (P2) SHOULD have assign-strike actions for the 2 defending characters
+    // Attacker has no actions during cancel-window
     const attackerActions = computeLegalActions(afterChain, PLAYER_2);
-    const attackerAssignStrikes = attackerActions.filter(
-      a => a.viable && a.action.type === 'assign-strike',
-    );
-    expect(attackerAssignStrikes).toHaveLength(2);
+    expect(attackerActions.filter(a => a.viable)).toHaveLength(0);
+
+    // After defender passes cancel-window, attacker gets assign-strike actions
+    const passResult = reduce(afterChain, { type: 'pass', player: PLAYER_1 });
+    expect(passResult.error).toBeUndefined();
+    expect(passResult.state.combat!.assignmentPhase).toBe('attacker');
+    const attackerActions2 = computeLegalActions(passResult.state, PLAYER_2);
+    expect(attackerActions2.filter(a => a.viable && a.action.type === 'assign-strike')).toHaveLength(2);
   });
 
   test('normal creature (Orc-patrol) uses defender assignment phase', () => {

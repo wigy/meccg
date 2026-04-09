@@ -37,6 +37,16 @@ export function combatActions(state: GameState, playerId: PlayerId): EvaluatedAc
       if (combat.assignmentPhase === 'cancel-by-tap') {
         return cancelByTapActions(state, playerId, combat);
       }
+      // Cancel-window: defender's pre-assignment window to cancel the attack
+      // before the attacker assigns strikes (attacker-chooses-defenders).
+      // Only the defending player may act: cancel-attack or pass.
+      if (combat.assignmentPhase === 'cancel-window') {
+        if (playerId !== combat.defendingPlayerId) return [];
+        return [
+          ...cancelActions,
+          { action: { type: 'pass' as const, player: playerId }, viable: true },
+        ];
+      }
       return [...cancelActions, ...assignStrikeActions(state, playerId, combat)];
     case 'choose-strike-order':
       return chooseStrikeOrderActions(state, playerId, combat);
