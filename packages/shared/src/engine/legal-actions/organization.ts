@@ -21,6 +21,7 @@ import type {
   HeroResourceEventCard,
   OrganizationPhaseState,
   GameAction,
+  PlayerState,
 } from '../../index.js';
 import { isCharacterCard, CardStatus, Skill } from '../../index.js';
 import type { PlayTargetEffect } from '../../types/effects.js';
@@ -139,53 +140,23 @@ export function organizationActions(state: GameState, playerId: PlayerId): Evalu
 
   // End-of-organization play window: only short-events explicitly tagged as
   // end-of-org plays (e.g. Stealth) are legal here, plus `pass` to advance
-  // to the Long-event phase. The active player has already taken their
-  // normal organization actions.
+  // to the Long-event phase. This step is entered implicitly when the
+  // active player plays an end-of-org card during normal play-actions
+  // (see reducer-organization.ts) — once entered, the player can chain
+  // additional end-of-org plays but no further normal organization
+  // actions.
   if (orgState.step === 'end-of-org') {
     logHeading(`Organization: end-of-org window — only end-of-org plays + pass are legal`);
     const endActions: EvaluatedAction[] = [];
     for (const handCard of player.hand) {
       const def = state.cardPool[handCard.definitionId as string];
       if (!def || def.cardType !== 'hero-resource-event') continue;
-      const playWindow = def.effects?.find(
-        e => e.type === 'play-window' && (e as { phase?: string; step?: string }).phase === 'organization' && (e as { phase?: string; step?: string }).step === 'end-of-org',
-      );
-      if (!playWindow) continue;
-
-      // Check play-target constraints (e.g. Stealth requires own-scout + company size limit)
-      const playTarget: PlayTargetEffect | undefined = def.effects?.find(
-        (e): e is PlayTargetEffect => e.type === 'play-target',
-      );
-      if (playTarget?.target === 'own-scout') {
-        const hasEligibleScout = player.companies.some(company => {
-          // Company must contain an untapped scout
-          const hasScout = company.characters.some(charInstId => {
-            const charDefId = resolveInstanceId(state, charInstId);
-            if (!charDefId) return false;
-            const charDef = state.cardPool[charDefId as string];
-            if (!charDef || !isCharacterCard(charDef)) return false;
-            // Check for scout skill and untapped status
-            if (!charDef.skills.includes(Skill.Scout)) return false;
-            const charInPlay = player.characters[charInstId as string];
-            return charInPlay?.status === CardStatus.Untapped;
-          });
-          if (!hasScout) return false;
-          // Check company size limit if specified
-          if (playTarget.maxCompanySize !== undefined) {
-            const size = computeCompanySize(state, company);
-            if (size > playTarget.maxCompanySize) {
-              logDetail(`End-of-org: ${def.name} rejected for company ${company.id as string}: size ${size} > ${playTarget.maxCompanySize}`);
-              return false;
-            }
-          }
-          return true;
-        });
-        if (!hasEligibleScout) {
-          logDetail(`End-of-org: ${def.name} (${handCard.instanceId as string}) — no eligible scout/company found`);
-          continue;
-        }
+      if (!isEndOfOrgPlay(def)) continue;
+      const eligibility = endOfOrgEligibility(state, player, def);
+      if (!eligibility.eligible) {
+        logDetail(`End-of-org: ${def.name} (${handCard.instanceId as string}) — ${eligibility.reason}`);
+        continue;
       }
-
       logDetail(`End-of-org: ${def.name} (${handCard.instanceId as string}) is a registered end-of-org play`);
       endActions.push({
         action: { type: 'play-short-event', player: playerId, cardInstanceId: handCard.instanceId },
@@ -246,16 +217,40 @@ export function organizationActions(state: GameState, playerId: PlayerId): Evalu
     ),
   );
 
-  // Play resource short-events from hand (e.g. Smoke Rings)
+  // Play resource short-events from hand (e.g. Smoke Rings, Stealth)
   const resourceShortEventInstances = new Set<string>();
   for (const handCard of player.hand) {
     const def = state.cardPool[handCard.definitionId as string] as HeroResourceEventCard | undefined;
     if (!def || def.cardType !== 'hero-resource-event' || def.eventType !== 'short') continue;
     if (evaluatedInstances.has(handCard.instanceId as string)) continue;
-    // Skip cards that declare a play-window restricting them to a
-    // different sub-step (e.g. Stealth plays only at end-of-org).
     const playWindow = def.effects?.find(e => e.type === 'play-window') as { phase?: string; step?: string } | undefined;
-    if (playWindow && (playWindow.phase !== 'organization' || playWindow.step !== 'play-actions')) {
+    // Cards with a play-window restricting them to a different phase
+    // entirely (not organization) are skipped here — they'll be marked
+    // not-playable by the trailing loop below.
+    if (playWindow && playWindow.phase !== 'organization') continue;
+    // End-of-org cards (e.g. Stealth) are playable here as well: playing
+    // one implicitly transitions the engine into the end-of-org sub-step
+    // (see reducer-organization.ts), preventing any further normal org
+    // plays this turn. Mark them not-playable with a reason if their
+    // play-target constraints aren't met so the UI can explain why.
+    if (playWindow?.step === 'end-of-org') {
+      const eligibility = endOfOrgEligibility(state, player, def);
+      if (!eligibility.eligible) {
+        logDetail(`${def.name}: end-of-org card not eligible — ${eligibility.reason}`);
+        resourceShortEventInstances.add(handCard.instanceId as string);
+        actions.push({
+          action: { type: 'not-playable', player: playerId, cardInstanceId: handCard.instanceId },
+          viable: false,
+          reason: eligibility.reason,
+        });
+        continue;
+      }
+      resourceShortEventInstances.add(handCard.instanceId as string);
+      logDetail(`Resource short-event playable (end-of-org): ${def.name} (${handCard.instanceId as string})`);
+      actions.push({
+        action: { type: 'play-short-event', player: playerId, cardInstanceId: handCard.instanceId },
+        viable: true,
+      });
       continue;
     }
     // Skip short events whose effects are only usable during combat
@@ -572,6 +567,81 @@ function extractGrantActions(state: GameState, definitionId: import('../../index
   return effects.filter(
     (e): e is import('../../types/effects.js').GrantActionEffect => e.type === 'grant-action',
   );
+}
+
+/**
+ * Returns true if the given resource event card declares itself as an
+ * end-of-organization play (e.g. Stealth, with `play-window` phase
+ * `organization`, step `end-of-org`).
+ */
+export function isEndOfOrgPlay(def: HeroResourceEventCard): boolean {
+  const playWindow = def.effects?.find(
+    e => e.type === 'play-window',
+  ) as { phase?: string; step?: string } | undefined;
+  return playWindow?.phase === 'organization' && playWindow.step === 'end-of-org';
+}
+
+/**
+ * Result of an end-of-org play eligibility check. When `eligible` is
+ * false, `reason` carries a UI-friendly explanation of why the card
+ * cannot currently be played.
+ */
+interface EndOfOrgEligibility {
+  readonly eligible: boolean;
+  readonly reason: string;
+}
+
+/**
+ * Checks whether an end-of-org card's `play-target` constraints are
+ * satisfied by the active player's current companies. Currently
+ * supports `own-scout` targets with optional `maxCompanySize` limits
+ * (e.g. Stealth: untapped scout in a company of size ≤ 2).
+ */
+export function endOfOrgEligibility(
+  state: GameState,
+  player: PlayerState,
+  def: HeroResourceEventCard,
+): EndOfOrgEligibility {
+  const playTarget: PlayTargetEffect | undefined = def.effects?.find(
+    (e): e is PlayTargetEffect => e.type === 'play-target',
+  );
+  if (!playTarget) return { eligible: true, reason: '' };
+
+  if (playTarget.target === 'own-scout') {
+    let foundScout = false;
+    let foundEligibleCompany = false;
+    for (const company of player.companies) {
+      const hasScout = company.characters.some(charInstId => {
+        const charDefId = resolveInstanceId(state, charInstId);
+        if (!charDefId) return false;
+        const charDef = state.cardPool[charDefId as string];
+        if (!charDef || !isCharacterCard(charDef)) return false;
+        if (!charDef.skills.includes(Skill.Scout)) return false;
+        const charInPlay = player.characters[charInstId as string];
+        return charInPlay?.status === CardStatus.Untapped;
+      });
+      if (!hasScout) continue;
+      foundScout = true;
+      if (playTarget.maxCompanySize !== undefined) {
+        const size = computeCompanySize(state, company);
+        if (size > playTarget.maxCompanySize) continue;
+      }
+      foundEligibleCompany = true;
+      break;
+    }
+    if (!foundEligibleCompany) {
+      if (!foundScout) {
+        return { eligible: false, reason: `${def.name} requires an untapped scout` };
+      }
+      return {
+        eligible: false,
+        reason: `${def.name} requires a company of size ≤ ${playTarget.maxCompanySize as number}`,
+      };
+    }
+    return { eligible: true, reason: '' };
+  }
+
+  return { eligible: true, reason: '' };
 }
 
 /**

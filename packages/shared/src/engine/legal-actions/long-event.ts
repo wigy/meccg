@@ -104,6 +104,20 @@ export function longEventActions(state: GameState, playerId: PlayerId): Evaluate
     } else if (def.eventType === 'short') {
       evaluatedInstances.add(cardInstanceId as string);
 
+      // Skip cards that declare a play-window restricting them to a
+      // different phase/step (e.g. Stealth plays only at end-of-org).
+      const playWindow = def.effects?.find(e => e.type === 'play-window') as { phase?: string; step?: string } | undefined;
+      if (playWindow && playWindow.phase !== 'long-event') {
+        const where = `${playWindow.phase ?? '?'}${playWindow.step ? '/' + playWindow.step : ''}`;
+        logDetail(`${def.name}: play-window restricts it to ${where}, not playable in long-event phase`);
+        actions.push({
+          action: { type: 'not-playable', player: playerId, cardInstanceId },
+          viable: false,
+          reason: `${def.name} can only be played during ${playWindow.phase ?? 'a different phase'}${playWindow.step ? ' (' + playWindow.step + ')' : ''}`,
+        });
+        continue;
+      }
+
       // Skip short events whose effects are only usable during combat
       // (e.g. Concealment's cancel-attack). These require an active attack.
       const combatOnlyTypes = new Set(['cancel-attack', 'cancel-strike']);
