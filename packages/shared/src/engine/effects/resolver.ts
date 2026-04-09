@@ -72,12 +72,15 @@ export interface ResolverContext {
 }
 
 /**
- * A collected effect paired with its source card definition,
- * so we know where it came from.
+ * A collected effect paired with its source card definition and instance,
+ * so we know where it came from. The instance ID is needed to disambiguate
+ * multiple copies of the same card in play (e.g. two Eye of Sauron each
+ * stack their +1 prowess to automatic-attacks).
  */
 interface CollectedEffect {
   readonly effect: CardEffect;
   readonly sourceDef: CardDefinition;
+  readonly sourceInstance: CardInstanceId;
 }
 
 /**
@@ -95,6 +98,7 @@ export function resolveDef(state: GameState, instanceId: CardInstanceId): CardDe
  */
 function collectFromDef(
   def: CardDefinition,
+  instanceId: CardInstanceId,
   context: ResolverContext,
   results: CollectedEffect[],
 ): void {
@@ -103,7 +107,7 @@ function collectFromDef(
     if (effect.when && !matchesCondition(effect.when, context as unknown as Record<string, unknown>)) {
       continue;
     }
-    results.push({ effect, sourceDef: def });
+    results.push({ effect, sourceDef: def, sourceInstance: instanceId });
   }
 }
 
@@ -124,31 +128,31 @@ export function collectEffects(
   for (const char of Object.values(player.characters)) {
     // Character's own effects
     const charDef = resolveDef(state, char.instanceId);
-    if (charDef) collectFromDef(charDef, context, results);
+    if (charDef) collectFromDef(charDef, char.instanceId, context, results);
 
     // Item effects
     for (const item of char.items) {
       const itemDef = resolveDef(state, item.instanceId);
-      if (itemDef) collectFromDef(itemDef, context, results);
+      if (itemDef) collectFromDef(itemDef, item.instanceId, context, results);
     }
 
     // Ally effects
     for (const ally of char.allies) {
       const allyDef = resolveDef(state, ally.instanceId);
-      if (allyDef) collectFromDef(allyDef, context, results);
+      if (allyDef) collectFromDef(allyDef, ally.instanceId, context, results);
     }
 
     // Hazard card effects (corruption cards, Foolish Words, etc.)
     for (const hazard of char.hazards) {
       const hDef = resolveDef(state, hazard.instanceId);
-      if (hDef) collectFromDef(hDef, context, results);
+      if (hDef) collectFromDef(hDef, hazard.instanceId, context, results);
     }
   }
 
   // Cards in play (permanent events, long-events, factions, etc.)
   for (const card of player.cardsInPlay) {
     const cardDef = resolveDef(state, card.instanceId);
-    if (cardDef) collectFromDef(cardDef, context, results);
+    if (cardDef) collectFromDef(cardDef, card.instanceId, context, results);
   }
 
   return results;
@@ -183,7 +187,7 @@ export function collectGlobalEffects(
         if (effect.when && !matchesCondition(effect.when, context as unknown as Record<string, unknown>)) {
           continue;
         }
-        results.push({ effect, sourceDef: def });
+        results.push({ effect, sourceDef: def, sourceInstance: card.instanceId });
       }
     }
   }
@@ -207,18 +211,18 @@ export function collectCharacterEffects(
 
   // Character's own effects
   const charDef = resolveDef(state, char.instanceId);
-  if (charDef) collectFromDef(charDef, context, results);
+  if (charDef) collectFromDef(charDef, char.instanceId, context, results);
 
   // Item effects
   for (const item of char.items) {
     const itemDef = resolveDef(state, item.instanceId);
-    if (itemDef) collectFromDef(itemDef, context, results);
+    if (itemDef) collectFromDef(itemDef, item.instanceId, context, results);
   }
 
   // Hazard card effects
   for (const hazard of char.hazards) {
     const hDef = resolveDef(state, hazard.instanceId);
-    if (hDef) collectFromDef(hDef, context, results);
+    if (hDef) collectFromDef(hDef, hazard.instanceId, context, results);
   }
 
   return results;
@@ -231,7 +235,11 @@ export function collectCharacterEffects(
  * The override mechanism works as follows:
  * - Effects with an `id` field are "base" effects that can be overridden.
  * - Effects with an `overrides` field replace the named base effect.
- * - If multiple overrides target the same base, only the last one wins.
+ * - The id/overrides namespace is **scoped per source card instance**, so
+ *   two copies of the same card in play each contribute their own modifier
+ *   (e.g. two Eye of Sauron each give +1 prowess), and a card's `overrides`
+ *   only replaces the matching base effect on that same card instance.
+ * - If multiple overrides target the same base on one instance, the last wins.
  * - Non-override effects are always applied.
  *
  * @param effects - All collected effects (pre-filtered by condition).
@@ -247,20 +255,24 @@ export function resolveStatModifiers(
   context: ResolverContext,
 ): number {
   const statEffects = effects
-    .map(e => e.effect)
-    .filter((e): e is StatModifierEffect => e.type === 'stat-modifier' && e.stat === stat);
+    .filter((e): e is CollectedEffect & { effect: StatModifierEffect } =>
+      e.effect.type === 'stat-modifier' && e.effect.stat === stat,
+    );
 
-  // Separate base effects (with id) and overrides
+  // Separate base effects (with id) and overrides. Both are keyed per
+  // source card instance so duplicates of the same card each stack their
+  // own modifier and overrides only affect the matching base on the same
+  // instance.
   const baseEffects = new Map<string, StatModifierEffect>();
   const overrides = new Map<string, StatModifierEffect>();
   const unconditional: StatModifierEffect[] = [];
 
-  for (const effect of statEffects) {
+  for (const { effect, sourceInstance } of statEffects) {
     if (effect.id) {
-      baseEffects.set(effect.id, effect);
+      baseEffects.set(`${sourceInstance}::${effect.id}`, effect);
     }
     if (effect.overrides) {
-      overrides.set(effect.overrides, effect);
+      overrides.set(`${sourceInstance}::${effect.overrides}`, effect);
     }
     if (!effect.id && !effect.overrides) {
       unconditional.push(effect);
@@ -268,9 +280,10 @@ export function resolveStatModifiers(
   }
 
   // Resolve which effects actually apply: overrides replace base effects
+  // (within the same source card instance).
   const activeEffects: StatModifierEffect[] = [...unconditional];
-  for (const [id, base] of baseEffects) {
-    const override = overrides.get(id);
+  for (const [key, base] of baseEffects) {
+    const override = overrides.get(key);
     activeEffects.push(override ?? base);
   }
 

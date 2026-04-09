@@ -69,6 +69,26 @@ describe('Eye of Sauron (tw-32)', () => {
     expect(result.state.combat!.strikeProwess).toBe(8); // 7 + 1
   });
 
+  test('two Eye of Sauron in play stack: prowess increased by +2', () => {
+    // Eye of Sauron is non-unique, so a hazard player can have multiple
+    // copies in play. Each copy independently grants +1 prowess to every
+    // automatic-attack, so two copies should yield +2.
+    // Isengard Wolves: 7 prowess → 7 + 2 = 9
+    const eos2InPlay: CardInPlay = {
+      instanceId: 'eos-2' as CardInstanceId,
+      definitionId: EYE_OF_SAURON,
+      status: CardStatus.Untapped,
+    };
+
+    const readyState = setupAutoAttackStep(addP2CardsInPlay(buildSitePhaseState({ site: ISENGARD }), [eosInPlay, eos2InPlay]));
+
+    const result = reduce(readyState, { type: 'pass', player: PLAYER_1 });
+    expect(result.error).toBeUndefined();
+    expect(result.state.combat).toBeDefined();
+    expect(result.state.combat!.strikesTotal).toBe(3); // Strikes unchanged
+    expect(result.state.combat!.strikeProwess).toBe(9); // 7 + 1 + 1
+  });
+
   test('automatic attack prowess increased by +3 when Doors of Night is also in play', () => {
     // "Alternatively, if Doors of Night is in play, the prowess of each
     //  automatic-attack is increased by three."

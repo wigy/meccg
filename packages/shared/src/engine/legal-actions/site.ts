@@ -672,7 +672,7 @@ function playResourcesActions(
           if (factionDef.effects) {
             for (const effect of factionDef.effects) {
               if (effect.when && !matchesCondition(effect.when, resolverCtx as unknown as Record<string, unknown>)) continue;
-              charEffects.push({ effect, sourceDef: factionDef });
+              charEffects.push({ effect, sourceDef: factionDef, sourceInstance: cardInstanceId });
             }
           }
           const dslMod = resolveCheckModifier(charEffects, 'influence');

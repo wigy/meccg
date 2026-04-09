@@ -210,7 +210,7 @@ function factionInfluenceRollActions(
     if (def.effects) {
       for (const effect of def.effects) {
         if (effect.when && !matchesCondition(effect.when, resolverCtx as unknown as Record<string, unknown>)) continue;
-        charEffects.push({ effect, sourceDef: def });
+        charEffects.push({ effect, sourceDef: def, sourceInstance: factionInstanceId });
       }
     }
 
