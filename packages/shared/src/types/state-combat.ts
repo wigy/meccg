@@ -109,7 +109,7 @@ export interface CombatState {
    * - `'attacker'`: attacking player assigns remaining strikes
    * - `'done'`: all strikes assigned, ready to resolve
    */
-  readonly assignmentPhase: 'defender' | 'attacker' | 'done';
+  readonly assignmentPhase: 'defender' | 'attacker' | 'cancel-by-tap' | 'done';
   /**
    * During body-check phase, indicates what the body check is against:
    * - `'character'`: check if a wounded character is eliminated
@@ -122,6 +122,17 @@ export interface CombatState {
    * it is an attribute of the attack, not a separate attack type.
    */
   readonly detainment: boolean;
+  /**
+   * When true, all strikes must be assigned to the same character.
+   * Set by the `multi-attack` combat rule (e.g. Assassin).
+   */
+  readonly forceSingleTarget?: boolean;
+  /**
+   * Number of remaining cancel-by-tap opportunities the defender has.
+   * Each tap of a non-target character cancels one strike assignment.
+   * Set by the `cancel-attack-by-tap` combat rule.
+   */
+  readonly cancelByTapRemaining?: number;
 }
 
 // ---- Chain of Effects sub-state ----

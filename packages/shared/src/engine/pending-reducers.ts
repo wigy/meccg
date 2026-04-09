@@ -30,6 +30,7 @@ import {
   applyOnGuardRevealAtResource,
   executeDeferredSiteAction,
 } from './reducer-site.js';
+import { autoResolve } from './chain-reducer.js';
 
 /**
  * Resolve the top pending resolution for the action's actor by dispatching
@@ -378,10 +379,34 @@ function applyFactionInfluenceRollResolution(
     },
   };
 
+  // Run the roll. The chain still holds the unresolved influence-attempt
+  // entry — find it, mark it resolved, and re-enter chain auto-resolution
+  // so the chain can complete normally (handles deferred passives, parent
+  // chain restoration, etc.).
   const rollResult = resolveInfluenceAttemptRoll(state, entry);
+  let postRoll = dequeueResolution(rollResult.state, top.id);
+
+  if (postRoll.chain) {
+    const chain = postRoll.chain;
+    const targetId = top.kind.factionInstanceId;
+    const newEntries = chain.entries.map(e =>
+      e.payload.type === 'influence-attempt'
+        && !e.resolved
+        && e.card?.instanceId === targetId
+        ? { ...e, resolved: true }
+        : e,
+    );
+    postRoll = { ...postRoll, chain: { ...chain, entries: newEntries } };
+
+    const continued = autoResolve(postRoll);
+    return {
+      state: continued.state,
+      effects: [...rollResult.effects, ...(continued.effects ?? [])],
+    };
+  }
 
   return {
-    state: dequeueResolution(rollResult.state, top.id),
+    state: postRoll,
     effects: rollResult.effects,
   };
 }

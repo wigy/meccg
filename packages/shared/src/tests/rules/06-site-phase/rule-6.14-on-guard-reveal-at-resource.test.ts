@@ -82,9 +82,11 @@ describe('Rule 6.14 — On-Guard Reveal When Playing Resource', () => {
 
     const afterAttempt = reduce(testState, viableActions(testState, PLAYER_1, 'influence-attempt')[0].action);
 
-    // Resolve chain (both players pass → influence roll resolves)
+    // Resolve chain (both players pass). Auto-resolution stops at the
+    // influence-attempt entry, which pauses the chain so the player can
+    // commit to the roll via a pending faction-influence-roll resolution.
     const afterChain = resolveChain(afterAttempt.state);
-    expect(afterChain.chain).toBeNull();
+    expect(viableActions(afterChain, PLAYER_1, 'faction-influence-roll')).toHaveLength(1);
   });
 
   test('revealing on-guard pushes entry onto chain; after chain resolves, influence roll executes', () => {
@@ -99,8 +101,9 @@ describe('Rule 6.14 — On-Guard Reveal When Playing Resource', () => {
     // Chain now has 2 entries: influence-attempt + on-guard event
     expect(afterReveal.state.chain!.entries).toHaveLength(2);
 
-    // Resolve the chain
+    // Resolve the chain. The on-guard event resolves first, then auto-resolve
+    // pauses at the influence-attempt entry awaiting the player's roll.
     const afterChain = resolveChain(afterReveal.state);
-    expect(afterChain.chain).toBeNull();
+    expect(viableActions(afterChain, PLAYER_1, 'faction-influence-roll')).toHaveLength(1);
   });
 });

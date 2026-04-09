@@ -185,6 +185,37 @@ export interface ChooseStrikeOrderAction {
 }
 
 /**
+ * Cancel an entire attack against the defending company by tapping a
+ * character with the required skill and discarding a short event card
+ * from hand. Only legal during the assign-strikes phase before any
+ * strikes have been assigned (MECCG pre-assignment window).
+ */
+export interface CancelAttackAction {
+  /** Action discriminant. */
+  readonly type: 'cancel-attack';
+  /** The defending player canceling the attack. */
+  readonly player: PlayerId;
+  /** The short event card being played from hand (e.g. Concealment). */
+  readonly cardInstanceId: CardInstanceId;
+  /** The character being tapped to pay the cost. */
+  readonly scoutInstanceId: CardInstanceId;
+}
+
+/**
+ * The defending player taps a non-target character in the company to
+ * cancel one of a multi-attack creature's strikes (e.g. Assassin).
+ * Available during the 'cancel-by-tap' assignment sub-phase.
+ */
+export interface CancelByTapAction {
+  /** Action discriminant. */
+  readonly type: 'cancel-by-tap';
+  /** The defending player canceling a strike. */
+  readonly player: PlayerId;
+  /** The character being tapped to cancel one attack. */
+  readonly characterId: CardInstanceId;
+}
+
+/**
  * The attacking player rolls for a body check after a strike is resolved.
  * The opponent rolls 2d6 against the target's body value to determine
  * if the entity (character or creature) is eliminated/defeated.

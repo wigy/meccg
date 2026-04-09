@@ -129,6 +129,21 @@ function getInstructionText(
     // Check if the chain is for an influence attempt and show context
     const infEntry = view.chain.entries.find(e => e.payload.type === 'influence-attempt' && e.card);
     if (infEntry) {
+      // While a faction-influence-roll is pending, the situation banner
+      // (rendered in company-view) carries the full breakdown. Show only a
+      // short prompt in the instruction line so the two don't duplicate.
+      // Note: chain `priority` is stale during resolving — the actual roller
+      // is the influence-attempt's declaring player.
+      const rollPending = view.legalActions.some(
+        ea => ea.viable && ea.action.type === 'faction-influence-roll',
+      );
+      if (rollPending) {
+        const isRoller = infEntry.declaredBy === view.self.id;
+        return isRoller
+          ? 'Faction Influence — Roll the dice.'
+          : 'Faction Influence — Opponent is rolling.';
+      }
+
       const infDetail = buildInfluenceChainDetail(infEntry, view, cardPool);
       if (view.chain.mode === 'declaring') {
         return isSelf
@@ -307,6 +322,7 @@ export function renderPassButton(view: PlayerView, onAction: (action: GameAction
     ea.viable && (ea.action.type === 'pass' || ea.action.type === 'draft-stop'
     || ea.action.type === 'shuffle-play-deck' || ea.action.type === 'draw-cards'
     || ea.action.type === 'roll-initiative' || ea.action.type === 'corruption-check'
+    || ea.action.type === 'faction-influence-roll'
     || ea.action.type === 'pass-chain-priority' || ea.action.type === 'deck-exhaust'
     || ea.action.type === 'finished' || ea.action.type === 'untap'
     || ea.action.type === 'opponent-influence-defend'));
@@ -329,6 +345,8 @@ export function renderPassButton(view: PlayerView, onAction: (action: GameAction
   } else if (passAction.type === 'roll-initiative') {
     label = 'Roll';
   } else if (passAction.type === 'corruption-check') {
+    label = 'Roll';
+  } else if (passAction.type === 'faction-influence-roll') {
     label = 'Roll';
   } else if (passAction.type === 'deck-exhaust') {
     label = 'Exhaust';

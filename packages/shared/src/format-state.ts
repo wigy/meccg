@@ -81,6 +81,20 @@ export function buildInstanceLookup(view: PlayerView): InstanceLookup {
     addCards(company.onGuardCards);
   }
 
+  // Chain of effects: cards declared on the chain are physically held by
+  // the chain entries (not in any pile) until the chain fully resolves and
+  // is cleared. Walk the active chain — and any nested parent chains — so
+  // those cards are still findable while a resolution is pending.
+  let chainCursor: ChainState | null = view.chain;
+  while (chainCursor) {
+    for (const entry of chainCursor.entries) {
+      if (entry.card) {
+        map[entry.card.instanceId as string] = entry.card.definitionId;
+      }
+    }
+    chainCursor = chainCursor.parentChain;
+  }
+
   // Setup phase cards (draft pools, drafted characters, items, deck draft)
   if (view.phaseState.phase === Phase.Setup) {
     const step = view.phaseState.setupStep;

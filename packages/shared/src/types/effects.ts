@@ -293,6 +293,17 @@ export interface CombatRuleEffect extends EffectBase {
   readonly type: 'combat-rule';
   /** The combat rule override identifier. */
   readonly rule: string;
+  /**
+   * For `multi-attack`: how many separate attacks the creature makes,
+   * all against the same target character. Each attack uses the creature's
+   * base strike count.
+   */
+  readonly count?: number;
+  /**
+   * For `cancel-attack-by-tap`: maximum number of attacks that can be
+   * canceled by tapping non-target characters in the defending company.
+   */
+  readonly maxCancels?: number;
 }
 
 /**
@@ -352,6 +363,12 @@ export interface PlayTargetEffect extends EffectBase {
    * - `"own-scout"` — a scout in one of the resource player's companies (e.g. Stealth).
    */
   readonly target: 'character' | 'company' | 'site' | 'own-scout';
+  /**
+   * Maximum effective company size for the target's company.
+   * When set, the card is only playable if the scout's company has
+   * effective size ≤ this value (hobbits count as half).
+   */
+  readonly maxCompanySize?: number;
 }
 
 /**
@@ -396,6 +413,21 @@ export interface FetchToDeckEffect extends EffectBase {
 }
 
 /**
+ * Cancels an entire attack against the company by tapping a character
+ * with the required skill. Playable only during combat before strikes
+ * are assigned.
+ *
+ * Example: Concealment — tap a scout to cancel one attack against his company.
+ */
+export interface CancelAttackEffect extends EffectBase {
+  readonly type: 'cancel-attack';
+  /** The cost to cancel the attack. */
+  readonly cost: ActionCost;
+  /** The skill required on the character who pays the cost. */
+  readonly requiredSkill: string;
+}
+
+/**
  * Discriminated union of all card effect types.
  * The `type` field serves as the discriminant for type narrowing.
  */
@@ -409,6 +441,7 @@ export type CardEffect =
   | GrantActionEffect
   | OnEventEffect
   | CancelStrikeEffect
+  | CancelAttackEffect
   | CombatRuleEffect
   | PlayRestrictionEffect
   | DuplicationLimitEffect

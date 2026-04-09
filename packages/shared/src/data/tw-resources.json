@@ -279,8 +279,11 @@
     "eventType": "short",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
-    "text": "Scout only. Tap scout to cancel one attack against his company."
+    "effects": [
+      { "type": "cancel-attack", "cost": { "tap": "character" }, "requiredSkill": "scout" }
+    ],
+    "text": "Scout only. Tap scout to cancel one attack against his company.",
+    "certified": "2026-04-08"
   },
   {
     "cardType": "hero-resource-event",
@@ -412,19 +415,6 @@
     "text": "Unique. Playable at Henneth Annûn if the influence check is greater than 7. Standard Modifications: Dúnedain (+1)."
   },
   {
-    "cardType": "hero-resource-event",
-    "alignment": "wizard",
-    "id": "tw-332",
-    "name": "Stealth",
-    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Stealth.jpg",
-    "unique": false,
-    "eventType": "short",
-    "marshallingPoints": 0,
-    "marshallingCategory": "misc",
-    "effects": [],
-    "text": "Scout only. Tap a scout to play at the end of the organization phase only if the scout's company size is less than three. No creature hazards may be played on his company this turn."
-  },
-  {
     "cardType": "hero-resource-ally",
     "alignment": "wizard",
     "id": "tw-353",
@@ -527,7 +517,8 @@
       },
       {
         "type": "play-target",
-        "target": "own-scout"
+        "target": "own-scout",
+        "maxCompanySize": 2
       },
       {
         "type": "on-event",

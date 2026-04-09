@@ -65,6 +65,9 @@ function renderCorruptionCheckBanner(
   const def = defId ? cardPool[defId as string] : undefined;
   const charName = def && isCharacterCard(def) ? def.name : '?';
 
+  const row = document.createElement('div');
+  row.className = 'situation-banner-row';
+
   const banner = document.createElement('div');
   banner.className = 'situation-banner';
   banner.textContent = `Corruption Check \u2014 ${charName}`;
@@ -74,7 +77,49 @@ function renderCorruptionCheckBanner(
   detail.textContent = action.explanation;
   banner.appendChild(detail);
 
-  board.appendChild(banner);
+  row.appendChild(banner);
+  board.appendChild(row);
+}
+
+/**
+ * Render a situation banner when a faction influence roll is pending.
+ * Mirrors {@link renderCorruptionCheckBanner}: title line names the
+ * influencing character and target faction; detail line shows the full
+ * roll breakdown (target number, DI, and any modifiers).
+ */
+function renderFactionInfluenceRollBanner(
+  board: HTMLElement,
+  view: PlayerView,
+  cardPool: Readonly<Record<string, CardDefinition>>,
+): void {
+  const fiEval = view.legalActions.find(ea => ea.viable && ea.action.type === 'faction-influence-roll');
+  if (!fiEval || fiEval.action.type !== 'faction-influence-roll') return;
+
+  const action = fiEval.action;
+  const cachedInstanceLookup = getCachedInstanceLookup();
+
+  const charDefId = cachedInstanceLookup(action.influencingCharacterId);
+  const charDef = charDefId ? cardPool[charDefId as string] : undefined;
+  const charName = charDef && isCharacterCard(charDef) ? charDef.name : '?';
+
+  const factionDefId = cachedInstanceLookup(action.factionInstanceId);
+  const factionDef = factionDefId ? cardPool[factionDefId as string] : undefined;
+  const factionName = factionDef?.name ?? '?';
+
+  const row = document.createElement('div');
+  row.className = 'situation-banner-row';
+
+  const banner = document.createElement('div');
+  banner.className = 'situation-banner';
+  banner.textContent = `Faction Influence \u2014 ${charName} influencing ${factionName}`;
+
+  const detail = document.createElement('div');
+  detail.className = 'situation-banner-detail';
+  detail.textContent = action.explanation;
+  banner.appendChild(detail);
+
+  row.appendChild(banner);
+  board.appendChild(row);
 }
 
 /** Phases where company views are displayed (normal play and Free Council). */
@@ -291,6 +336,9 @@ export function renderCompanyViews(
 
   // Pending corruption check banner (transfer / wound / Lure during Organization)
   renderCorruptionCheckBanner(board, view, cardPool);
+
+  // Pending faction influence roll banner (chain paused awaiting the roll)
+  renderFactionInfluenceRollBanner(board, view, cardPool);
 
   const showingSingle = focusedCompanyId !== null && !getAllCompaniesOverride() && !inSelectCompany && !inFreeCouncil;
 

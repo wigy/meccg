@@ -127,6 +127,8 @@ export const SUN = did('tw-335');
 
 /** Smoke Rings — short event, fetch a resource or character from sideboard or discard pile to play deck. */
 export const SMOKE_RINGS = did('dm-159');
+/** Concealment — short event, tap a scout to cancel one attack against his company. */
+export const CONCEALMENT = did('tw-204');
 
 // ---- Hazard Events ----
 
@@ -141,6 +143,8 @@ export const TWILIGHT = did('tw-106');
 
 // ---- Creatures ----
 
+/** Assassin — men hazard creature, three attacks against one character, keyed to free-holds/border-holds. */
+export const ASSASSIN = did('tw-8');
 /** Cave-drake — wilderness hazard creature with moderate prowess. */
 export const CAVE_DRAKE = did('tw-020');
 /** Orc-lieutenant — orc hazard, one strike, prowess 7. */

@@ -301,7 +301,7 @@ function handleChainRevealOnGuard(state: GameState, chain: ChainState, action: G
  *
  * When all entries are resolved, the chain completes via {@link completeChain}.
  */
-function autoResolve(state: GameState): ReducerResult {
+export function autoResolve(state: GameState): ReducerResult {
   let current = state;
   const allEffects: import('../index.js').GameEffect[] = [];
 
@@ -648,6 +648,22 @@ function initiateCreatureCombat(state: GameState, entry: ChainEntry): GameState 
     logDetail('Creature has attacker-chooses-defenders — skipping defender assignment');
   }
 
+  // Check for multi-attack combat rule (e.g. Assassin — three attacks of one strike each)
+  const multiAttackEffect = creatureDef.effects?.find(
+    e => e.type === 'combat-rule' && e.rule === 'multi-attack',
+  );
+  const multiAttackCount = multiAttackEffect && 'count' in multiAttackEffect
+    ? (multiAttackEffect as { count?: number }).count ?? 1
+    : 1;
+
+  // Check for cancel-attack-by-tap combat rule (e.g. Assassin — tap to cancel attacks)
+  const cancelByTapEffect = creatureDef.effects?.find(
+    e => e.type === 'combat-rule' && e.rule === 'cancel-attack-by-tap',
+  );
+  const cancelByTapMax = cancelByTapEffect && 'maxCancels' in cancelByTapEffect
+    ? (cancelByTapEffect as { maxCancels?: number }).maxCancels ?? 0
+    : 0;
+
   const attackSource = state.phaseState.phase === 'site'
     ? { type: 'on-guard-creature' as const, cardInstanceId: entry.card!.instanceId }
     : { type: 'creature' as const, instanceId: entry.card!.instanceId };
@@ -657,12 +673,18 @@ function initiateCreatureCombat(state: GameState, entry: ChainEntry): GameState 
   const effectiveProwess = resolveAttackProwess(state, creatureDef.prowess, inPlayNames, creatureRace);
   const effectiveStrikes = resolveAttackStrikes(state, creatureDef.strikes, inPlayNames, creatureRace);
 
+  // Multi-attack: total strikes = count × effective strikes per attack
+  const totalStrikes = effectiveStrikes * multiAttackCount;
+  if (multiAttackCount > 1) {
+    logDetail(`Multi-attack: ${multiAttackCount} attacks × ${effectiveStrikes} strike(s) = ${totalStrikes} total strikes`);
+  }
+
   const combat: CombatState = {
     attackSource,
     companyId: company.id,
     defendingPlayerId: state.activePlayer!,
     attackingPlayerId: hazardPlayerId,
-    strikesTotal: effectiveStrikes,
+    strikesTotal: totalStrikes,
     strikeProwess: effectiveProwess,
     creatureBody: creatureDef.body,
     creatureRace,
@@ -672,6 +694,8 @@ function initiateCreatureCombat(state: GameState, entry: ChainEntry): GameState 
     assignmentPhase: attackerChooses ? 'attacker' : 'defender',
     bodyCheckTarget: null,
     detainment: false,
+    forceSingleTarget: multiAttackCount > 1 ? true : undefined,
+    cancelByTapRemaining: cancelByTapMax > 0 ? cancelByTapMax : undefined,
   };
 
   logDetail(`Creature combat initiated: ${creatureDef.name} (${creatureDef.strikes} strikes${effectiveStrikes !== creatureDef.strikes ? ` → ${effectiveStrikes}` : ''}, ${creatureDef.prowess} prowess${effectiveProwess !== creatureDef.prowess ? ` → ${effectiveProwess}` : ''}${effectiveStrikes !== creatureDef.strikes || effectiveProwess !== creatureDef.prowess ? ' after global effects' : ''}) vs company ${company.id as string}`);
@@ -728,6 +752,10 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
 
   // Influence attempt: enqueue a pending resolution so the UI can display
   // the situation banner (target number, DI, modifiers) before the roll.
+  // Do NOT mark the entry resolved — leave it on the chain (card and all)
+  // so `buildInstanceLookup` can still find the faction while the player
+  // confirms the roll. The pending faction-influence-roll resolver will
+  // mark the entry resolved and re-enter auto-resolution after the roll.
   if (entry.payload.type === 'influence-attempt' && !entry.negated && entry.card) {
     logDetail(`Enqueuing faction-influence-roll pending resolution for ${entry.card.definitionId as string}`);
     current = enqueueResolution(current, {
@@ -741,6 +769,7 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
         influencingCharacterId: entry.payload.influencingCharacterId,
       },
     });
+    return { state: current, needsInput: true };
   }
 
   // Mark entry as resolved

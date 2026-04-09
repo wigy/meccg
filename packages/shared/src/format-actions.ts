@@ -282,6 +282,10 @@ export function describeAction(
       return `Activate ${action.actionId} on ${instName(action.sourceCardId)} (${instName(action.characterId)} taps)`;
     case 'faction-influence-roll':
       return `Roll influence: ${action.explanation}`;
+    case 'cancel-attack':
+      return `Cancel attack: play ${instName(action.cardInstanceId)}, tap ${instName(action.scoutInstanceId)}`;
+    case 'cancel-by-tap':
+      return `Cancel attack by tapping ${instName(action.characterId)}`;
     default: {
       const _exhaustive: never = action;
       return `Unknown action`;

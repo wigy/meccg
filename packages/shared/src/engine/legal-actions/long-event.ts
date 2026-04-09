@@ -104,6 +104,21 @@ export function longEventActions(state: GameState, playerId: PlayerId): Evaluate
     } else if (def.eventType === 'short') {
       evaluatedInstances.add(cardInstanceId as string);
 
+      // Skip short events whose effects are only usable during combat
+      // (e.g. Concealment's cancel-attack). These require an active attack.
+      const combatOnlyTypes = new Set(['cancel-attack', 'cancel-strike']);
+      const hasEffects = def.effects && def.effects.length > 0;
+      const allCombatOnly = hasEffects && def.effects.every(e => combatOnlyTypes.has(e.type));
+      if (allCombatOnly) {
+        logDetail(`${def.name}: combat-only short-event, not playable outside combat`);
+        actions.push({
+          action: { type: 'not-playable', player: playerId, cardInstanceId },
+          viable: false,
+          reason: `${def.name} can only be played during combat`,
+        });
+        continue;
+      }
+
       logDetail(`Resource short-event playable: ${def.name} (${cardInstanceId as string})`);
       actions.push({
         action: { type: 'play-short-event', player: playerId, cardInstanceId },

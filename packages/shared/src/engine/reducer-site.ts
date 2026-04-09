@@ -18,7 +18,7 @@ import type { ReducerResult } from './reducer-utils.js';
 import { roll2d6, clonePlayers, cleanupEmptyCompanies } from './reducer-utils.js';
 import { handlePlayPermanentEvent } from './reducer-events.js';
 import { buildInPlayNames } from './recompute-derived.js';
-import { sweepExpired, enqueueResolution } from './pending.js';
+import { sweepExpired, enqueueResolution, removeConstraint } from './pending.js';
 
 
 /**
@@ -169,6 +169,13 @@ function handleSiteEnterOrSkip(
   action: GameAction,
   siteState: SitePhaseState,
 ): ReducerResult {
+  // River cancellation: a ranger in the company may tap to remove the
+  // site-phase-do-nothing-unless-ranger-taps constraint, allowing normal
+  // site phase actions (enter-site / pass) on the next action.
+  if (action.type === 'activate-granted-action' && action.actionId === 'tap-ranger-to-cancel-river') {
+    return handleTapRangerToCancelRiver(state, action, siteState);
+  }
+
   if (action.type !== 'enter-site' && action.type !== 'pass') {
     return { state, error: `Expected 'enter-site' or 'pass' during enter-or-skip step, got '${action.type}'` };
   }
@@ -217,6 +224,57 @@ function handleSiteEnterOrSkip(
       },
     },
   };
+}
+
+/**
+ * Handle tap-ranger-to-cancel-river: the ranger taps and the matching
+ * River constraint is removed, allowing the company to proceed with
+ * normal site phase actions (enter-site / pass).
+ *
+ * Per card text: "A ranger in such a company may tap to cancel this
+ * effect, even at the start of his company's site phase."
+ */
+function handleTapRangerToCancelRiver(
+  state: GameState,
+  action: GameAction,
+  _siteState: SitePhaseState,
+): ReducerResult {
+  if (action.type !== 'activate-granted-action') return { state, error: 'Expected activate-granted-action' };
+
+  const playerIndex = getPlayerIndex(state, action.player);
+  const player = state.players[playerIndex];
+  const char = player.characters[action.characterId as string];
+  if (!char) return { state, error: 'Character not found' };
+
+  const charDef = state.cardPool[char.definitionId as string];
+  const charName = charDef && isCharacterCard(charDef) ? charDef.name : (action.characterId as string);
+  logDetail(`Site: ${charName} taps to cancel River (source ${action.sourceCardId as string})`);
+
+  // Tap the ranger.
+  const players = clonePlayers(state);
+  players[playerIndex] = {
+    ...players[playerIndex],
+    characters: {
+      ...players[playerIndex].characters,
+      [action.characterId as string]: {
+        ...players[playerIndex].characters[action.characterId as string],
+        status: CardStatus.Tapped,
+      },
+    },
+  };
+
+  let nextState: GameState = { ...state, players };
+
+  // Remove the constraint whose source matches the River card instance.
+  const constraint = nextState.activeConstraints.find(
+    c => c.kind.type === 'site-phase-do-nothing-unless-ranger-taps' && c.source === action.sourceCardId,
+  );
+  if (constraint) {
+    logDetail(`Site: removing River constraint ${constraint.id as string}`);
+    nextState = removeConstraint(nextState, constraint.id);
+  }
+
+  return { state: nextState };
 }
 
 /**

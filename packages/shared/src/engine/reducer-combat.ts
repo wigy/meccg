@@ -38,6 +38,10 @@ export function handleCombatAction(state: GameState, action: GameAction): Reduce
       return handleSupportStrike(state, action, combat);
     case 'body-check-roll':
       return handleBodyCheckRoll(state, action, combat);
+    case 'cancel-attack':
+      return handleCancelAttack(state, action, combat);
+    case 'cancel-by-tap':
+      return handleCancelByTap(state, action, combat);
     default:
       return { state, error: `Unexpected action '${action.type}' during combat` };
   }
@@ -113,6 +117,34 @@ function handleAssignStrike(state: GameState, action: GameAction, combat: Combat
   const existingIdx = combat.strikeAssignments.findIndex(a => a.characterId === action.characterId);
 
   let newAssignments: StrikeAssignment[];
+
+  // Force-single-target (multi-attack): auto-assign all strikes to the chosen character
+  if (combat.forceSingleTarget && combat.strikeAssignments.length === 0 && existingIdx < 0) {
+    newAssignments = [];
+    for (let i = 0; i < combat.strikesTotal; i++) {
+      newAssignments.push({
+        characterId: action.characterId,
+        excessStrikes: 0,
+        resolved: false,
+      });
+    }
+    logDetail(`Multi-attack: all ${combat.strikesTotal} strikes auto-assigned to ${action.characterId as string}`);
+
+    let newCombatState: CombatState = { ...combat, strikeAssignments: newAssignments };
+
+    // If cancel-by-tap is available, transition to cancel-by-tap sub-phase
+    if (combat.cancelByTapRemaining && combat.cancelByTapRemaining > 0) {
+      logDetail(`Cancel-by-tap window: defender may cancel up to ${combat.cancelByTapRemaining} attack(s)`);
+      newCombatState = { ...newCombatState, assignmentPhase: 'cancel-by-tap' };
+      return { state: { ...state, combat: newCombatState } };
+    }
+
+    // Otherwise proceed to strike resolution
+    const next = nextStrikePhase(newCombatState);
+    newCombatState = { ...newCombatState, assignmentPhase: 'done', ...next };
+    return { state: { ...state, combat: newCombatState } };
+  }
+
   if (existingIdx >= 0) {
     // Excess strike: character already has a strike, add -1 prowess penalty
     if (combat.assignmentPhase !== 'attacker') {
@@ -150,8 +182,18 @@ function handleAssignStrike(state: GameState, action: GameAction, combat: Combat
 
 function handleCombatPass(state: GameState, action: GameAction, combat: CombatState): ReducerResult {
   if (action.type !== 'pass') return { state, error: 'Expected pass' };
+
+  // Pass during cancel-by-tap sub-phase: proceed to strike resolution
+  if (combat.phase === 'assign-strikes' && combat.assignmentPhase === 'cancel-by-tap') {
+    logDetail('Defender passed cancel-by-tap — proceeding to strike resolution');
+    const next = nextStrikePhase(combat);
+    return {
+      state: { ...state, combat: { ...combat, assignmentPhase: 'done', ...next } },
+    };
+  }
+
   if (combat.phase !== 'assign-strikes' || combat.assignmentPhase !== 'defender') {
-    return { state, error: 'Can only pass during defender strike assignment' };
+    return { state, error: 'Can only pass during defender strike assignment or cancel-by-tap' };
   }
 
   const totalAllocated = combat.strikeAssignments.length
@@ -451,6 +493,165 @@ function handleBodyCheckRoll(state: GameState, action: GameAction, combat: Comba
   }
 
   return { state, error: 'Invalid body check target' };
+}
+
+/**
+ * Cancel an entire attack by tapping a scout and discarding a cancel-attack
+ * card from hand. Only allowed during the assign-strikes phase before any
+ * strikes have been assigned.
+ */
+function handleCancelAttack(state: GameState, action: GameAction, combat: CombatState): ReducerResult {
+  if (action.type !== 'cancel-attack') return { state, error: 'Expected cancel-attack' };
+  if (combat.phase !== 'assign-strikes') return { state, error: 'Can only cancel attack before strikes are assigned' };
+  if (combat.strikeAssignments.length > 0) return { state, error: 'Strikes already assigned — too late to cancel' };
+  if (action.player !== combat.defendingPlayerId) return { state, error: 'Only defending player can cancel an attack' };
+
+  const defPlayerIndex = state.players.findIndex(p => p.id === action.player);
+  const defPlayer = state.players[defPlayerIndex];
+
+  // Validate the card is in hand
+  const cardIndex = defPlayer.hand.findIndex(c => c.instanceId === action.cardInstanceId);
+  if (cardIndex < 0) return { state, error: 'Card not in hand' };
+
+  // Validate the scout is in the defending company and untapped
+  const company = defPlayer.companies.find(c => c.id === combat.companyId);
+  if (!company || !company.characters.includes(action.scoutInstanceId)) {
+    return { state, error: 'Scout not in defending company' };
+  }
+  const scoutData = defPlayer.characters[action.scoutInstanceId as string];
+  if (!scoutData || scoutData.status !== CardStatus.Untapped) {
+    return { state, error: 'Scout must be untapped' };
+  }
+
+  logDetail(`Attack canceled: ${defPlayer.hand[cardIndex].definitionId as string} played, tapping ${scoutData.definitionId as string}`);
+
+  // Tap the scout
+  const newPlayers = clonePlayers(state);
+  const newCharacters = { ...defPlayer.characters };
+  newCharacters[action.scoutInstanceId as string] = { ...scoutData, status: CardStatus.Tapped };
+
+  // Move card from hand to discard
+  const newHand = [...defPlayer.hand];
+  const [discardedCard] = newHand.splice(cardIndex, 1);
+  const newDiscard = [...defPlayer.discardPile, { instanceId: discardedCard.instanceId, definitionId: discardedCard.definitionId }];
+
+  newPlayers[defPlayerIndex] = {
+    ...defPlayer,
+    characters: newCharacters,
+    hand: newHand,
+    discardPile: newDiscard,
+  };
+
+  // If this was a creature attack, move creature card from attacker's cardsInPlay to discard
+  const atkIdx = state.players.findIndex(p => p.id === combat.attackingPlayerId);
+  const creatureInstanceId =
+    combat.attackSource.type === 'creature' ? combat.attackSource.instanceId
+      : combat.attackSource.type === 'on-guard-creature' ? combat.attackSource.cardInstanceId
+        : null;
+  if (creatureInstanceId) {
+    const creatureInPlay = newPlayers[atkIdx].cardsInPlay.find(c => c.instanceId === creatureInstanceId);
+    if (creatureInPlay) {
+      newPlayers[atkIdx] = {
+        ...newPlayers[atkIdx],
+        cardsInPlay: newPlayers[atkIdx].cardsInPlay.filter(c => c.instanceId !== creatureInstanceId),
+        discardPile: [...newPlayers[atkIdx].discardPile, { instanceId: creatureInPlay.instanceId, definitionId: creatureInPlay.definitionId }],
+      };
+    }
+  }
+
+  logDetail('Combat canceled — returning to enclosing phase');
+  return { state: { ...state, players: newPlayers, combat: null } };
+}
+
+/**
+ * Cancel one strike by tapping a non-target character in the defending
+ * company. Used by the `cancel-attack-by-tap` combat rule (e.g. Assassin).
+ * Removes one strike assignment and decrements cancelByTapRemaining.
+ */
+function handleCancelByTap(state: GameState, action: GameAction, combat: CombatState): ReducerResult {
+  if (action.type !== 'cancel-by-tap') return { state, error: 'Expected cancel-by-tap' };
+  if (combat.phase !== 'assign-strikes' || combat.assignmentPhase !== 'cancel-by-tap') {
+    return { state, error: 'Can only cancel-by-tap during cancel-by-tap sub-phase' };
+  }
+  if (action.player !== combat.defendingPlayerId) {
+    return { state, error: 'Only defending player can cancel-by-tap' };
+  }
+  if (!combat.cancelByTapRemaining || combat.cancelByTapRemaining <= 0) {
+    return { state, error: 'No cancel-by-tap opportunities remaining' };
+  }
+
+  const defPlayerIndex = state.players.findIndex(p => p.id === action.player);
+  const defPlayer = state.players[defPlayerIndex];
+  const company = defPlayer.companies.find(c => c.id === combat.companyId);
+  if (!company || !company.characters.includes(action.characterId)) {
+    return { state, error: 'Character not in defending company' };
+  }
+
+  // Cannot tap the target character
+  const targetCharId = combat.strikeAssignments[0]?.characterId;
+  if (action.characterId === targetCharId) {
+    return { state, error: 'Cannot tap the defending character to cancel' };
+  }
+
+  const charData = defPlayer.characters[action.characterId as string];
+  if (!charData || charData.status !== CardStatus.Untapped) {
+    return { state, error: 'Character must be untapped' };
+  }
+
+  logDetail(`Cancel-by-tap: ${action.characterId as string} tapped to cancel one attack against ${targetCharId as string}`);
+
+  // Tap the character
+  const newPlayers = clonePlayers(state);
+  const newCharacters = { ...defPlayer.characters };
+  newCharacters[action.characterId as string] = { ...charData, status: CardStatus.Tapped };
+  newPlayers[defPlayerIndex] = { ...defPlayer, characters: newCharacters };
+
+  // Remove one strike assignment (the last one assigned to the target)
+  const newAssignments = [...combat.strikeAssignments];
+  newAssignments.pop();
+
+  const newCancelRemaining = combat.cancelByTapRemaining - 1;
+  const newStrikesTotal = combat.strikesTotal - 1;
+
+  logDetail(`Strikes reduced: ${combat.strikesTotal} → ${newStrikesTotal}, cancels remaining: ${newCancelRemaining}`);
+
+  // If no strikes remain, cancel combat entirely
+  if (newAssignments.length === 0) {
+    logDetail('All strikes canceled — combat ends');
+    // Move creature to discard
+    const atkIdx = state.players.findIndex(p => p.id === combat.attackingPlayerId);
+    const creatureInstanceId =
+      combat.attackSource.type === 'creature' ? combat.attackSource.instanceId
+        : combat.attackSource.type === 'on-guard-creature' ? combat.attackSource.cardInstanceId
+          : null;
+    if (creatureInstanceId) {
+      const creatureInPlay = newPlayers[atkIdx].cardsInPlay.find(c => c.instanceId === creatureInstanceId);
+      if (creatureInPlay) {
+        newPlayers[atkIdx] = {
+          ...newPlayers[atkIdx],
+          cardsInPlay: newPlayers[atkIdx].cardsInPlay.filter(c => c.instanceId !== creatureInstanceId),
+          discardPile: [...newPlayers[atkIdx].discardPile, { instanceId: creatureInPlay.instanceId, definitionId: creatureInPlay.definitionId }],
+        };
+      }
+    }
+    return { state: { ...state, players: newPlayers, combat: null } };
+  }
+
+  let newCombat: CombatState = {
+    ...combat,
+    strikeAssignments: newAssignments,
+    strikesTotal: newStrikesTotal,
+    cancelByTapRemaining: newCancelRemaining > 0 ? newCancelRemaining : undefined,
+  };
+
+  // If no more cancels available, proceed to strike resolution
+  if (newCancelRemaining <= 0) {
+    logDetail('No more cancel-by-tap opportunities — proceeding to resolution');
+    const next = nextStrikePhase(newCombat);
+    newCombat = { ...newCombat, assignmentPhase: 'done', ...next };
+  }
+
+  return { state: { ...state, players: newPlayers, combat: newCombat } };
 }
 
 /**
