@@ -26,12 +26,31 @@ The Lidless eye Rules
 Against the shadow Rules
 The White Hand Rules
 The Balrog Rules
-Deck Validation
-Tournaments
 
 UNSORTED
 --------
 
+(B) Release the Prisoners
+(C) Dwarven Quest
+(D) Bargain between Friends
+(E) Return of the King
+(G) Marauding Brood of Uglies
+(H) Stealthy Tribe
+(I) Morgul Rallying Cry
+(J) Seducing Nations of Men
+Finalise tests section 00
+Finalise tests section 01
+Finalise tests section 02
+Finalise tests section 03
+Finalise tests section 04
+Finalise tests section 05
+Finalise tests section 06
+Finalise tests section 07
+Finalise tests section 08
+Finalise tests section 09
+Finalise tests section 10
+Deck Validation
+Tournaments
 Uploading Gccg deck format.
 
 Managing AI requests in a different copy of the server repository, but on the same server. After fix is pushed, tell server using master key and 'server' user to log in and to restart everything. Server must notify everyone, pull the code and then restart all processes and reload web client code.
