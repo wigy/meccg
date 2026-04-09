@@ -192,8 +192,19 @@ function handleCombatPass(state: GameState, action: GameAction, combat: CombatSt
     };
   }
 
+  // Pass during cancel-window: defender declined to cancel — proceed to attacker assignment
+  if (combat.phase === 'assign-strikes' && combat.assignmentPhase === 'cancel-window') {
+    if (action.player !== combat.defendingPlayerId) {
+      return { state, error: 'Only the defending player can pass during cancel window' };
+    }
+    logDetail('Defender passed cancel window — attacker assigns strikes');
+    return {
+      state: { ...state, combat: { ...combat, assignmentPhase: 'attacker' } },
+    };
+  }
+
   if (combat.phase !== 'assign-strikes' || combat.assignmentPhase !== 'defender') {
-    return { state, error: 'Can only pass during defender strike assignment or cancel-by-tap' };
+    return { state, error: 'Can only pass during defender strike assignment, cancel-window, or cancel-by-tap' };
   }
 
   const totalAllocated = combat.strikeAssignments.length

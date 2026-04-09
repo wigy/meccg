@@ -115,7 +115,7 @@ describe('Assassin (tw-8)', () => {
     const afterChain = resolveChain(result.state);
     expect(afterChain.combat).not.toBeNull();
     expect(afterChain.combat!.phase).toBe('assign-strikes');
-    expect(afterChain.combat!.assignmentPhase).toBe('attacker');
+    expect(afterChain.combat!.assignmentPhase).toBe('cancel-window');
     // Multi-attack: 3 attacks × 1 strike = 3 total strikes
     expect(afterChain.combat!.strikesTotal).toBe(3);
     expect(afterChain.combat!.strikeProwess).toBe(11);
@@ -163,16 +163,20 @@ describe('Assassin (tw-8)', () => {
     });
     const afterChain = resolveChain(result.state);
 
+    // Defender passes cancel-window
+    const afterPass = reduce(afterChain, { type: 'pass', player: PLAYER_1 });
+    expect(afterPass.error).toBeUndefined();
+
     // Attacker gets assign-strike actions for both characters
-    const attackerActions = computeLegalActions(afterChain, PLAYER_2);
+    const attackerActions = computeLegalActions(afterPass.state, PLAYER_2);
     const assignStrikes = attackerActions.filter(
       a => a.viable && a.action.type === 'assign-strike',
     );
     expect(assignStrikes).toHaveLength(2); // Can target either character
 
     // Attacker assigns to Aragorn
-    const aragornCharId = afterChain.players[0].companies[0].characters[0];
-    const assignResult = reduce(afterChain, {
+    const aragornCharId = afterPass.state.players[0].companies[0].characters[0];
+    const assignResult = reduce(afterPass.state, {
       type: 'assign-strike',
       player: PLAYER_2,
       characterId: aragornCharId,
@@ -229,10 +233,14 @@ describe('Assassin (tw-8)', () => {
     });
     const afterChain = resolveChain(r1.state);
 
+    // Defender passes cancel-window
+    const afterPass = reduce(afterChain, { type: 'pass', player: PLAYER_1 });
+    expect(afterPass.error).toBeUndefined();
+
     // Attacker assigns to first character (Aragorn)
-    const aragornCharId = afterChain.players[0].companies[0].characters[0];
-    const legolasCharId = afterChain.players[0].companies[0].characters[1];
-    const r2 = reduce(afterChain, {
+    const aragornCharId = afterPass.state.players[0].companies[0].characters[0];
+    const legolasCharId = afterPass.state.players[0].companies[0].characters[1];
+    const r2 = reduce(afterPass.state, {
       type: 'assign-strike',
       player: PLAYER_2,
       characterId: aragornCharId,
@@ -305,10 +313,14 @@ describe('Assassin (tw-8)', () => {
     });
     const afterChain = resolveChain(r1.state);
 
-    const aragornCharId = afterChain.players[0].companies[0].characters[0];
-    const legolasCharId = afterChain.players[0].companies[0].characters[1];
-    const gimliCharId = afterChain.players[0].companies[0].characters[2];
-    const r2 = reduce(afterChain, {
+    // Defender passes cancel-window
+    const afterPass = reduce(afterChain, { type: 'pass', player: PLAYER_1 });
+    expect(afterPass.error).toBeUndefined();
+
+    const aragornCharId = afterPass.state.players[0].companies[0].characters[0];
+    const legolasCharId = afterPass.state.players[0].companies[0].characters[1];
+    const gimliCharId = afterPass.state.players[0].companies[0].characters[2];
+    const r2 = reduce(afterPass.state, {
       type: 'assign-strike',
       player: PLAYER_2,
       characterId: aragornCharId,
@@ -377,8 +389,12 @@ describe('Assassin (tw-8)', () => {
     });
     const afterChain = resolveChain(r1.state);
 
-    const aragornCharId = afterChain.players[0].companies[0].characters[0];
-    const r2 = reduce(afterChain, {
+    // Defender passes cancel-window
+    const afterPass = reduce(afterChain, { type: 'pass', player: PLAYER_1 });
+    expect(afterPass.error).toBeUndefined();
+
+    const aragornCharId = afterPass.state.players[0].companies[0].characters[0];
+    const r2 = reduce(afterPass.state, {
       type: 'assign-strike',
       player: PLAYER_2,
       characterId: aragornCharId,
@@ -438,10 +454,14 @@ describe('Assassin (tw-8)', () => {
     });
     const afterChain = resolveChain(r1.state);
 
-    const aragornCharId = afterChain.players[0].companies[0].characters[0];
-    const legolasCharId = afterChain.players[0].companies[0].characters[1];
-    const gimliCharId = afterChain.players[0].companies[0].characters[2];
-    const r2 = reduce(afterChain, {
+    // Defender passes cancel-window
+    const afterPass = reduce(afterChain, { type: 'pass', player: PLAYER_1 });
+    expect(afterPass.error).toBeUndefined();
+
+    const aragornCharId = afterPass.state.players[0].companies[0].characters[0];
+    const legolasCharId = afterPass.state.players[0].companies[0].characters[1];
+    const gimliCharId = afterPass.state.players[0].companies[0].characters[2];
+    const r2 = reduce(afterPass.state, {
       type: 'assign-strike',
       player: PLAYER_2,
       characterId: aragornCharId,
@@ -555,8 +575,12 @@ describe('Assassin (tw-8)', () => {
     });
     const afterChain = resolveChain(r1.state);
 
-    const aragornCharId = afterChain.players[0].companies[0].characters[0];
-    const r2 = reduce(afterChain, {
+    // Defender passes cancel-window
+    const afterPass = reduce(afterChain, { type: 'pass', player: PLAYER_1 });
+    expect(afterPass.error).toBeUndefined();
+
+    const aragornCharId = afterPass.state.players[0].companies[0].characters[0];
+    const r2 = reduce(afterPass.state, {
       type: 'assign-strike',
       player: PLAYER_2,
       characterId: aragornCharId,
@@ -611,8 +635,12 @@ describe('Assassin (tw-8)', () => {
     });
     const afterChain = resolveChain(r1.state);
 
-    const aragornCharId = afterChain.players[0].companies[0].characters[0];
-    const r2 = reduce(afterChain, {
+    // Defender passes cancel-window
+    const afterPass = reduce(afterChain, { type: 'pass', player: PLAYER_1 });
+    expect(afterPass.error).toBeUndefined();
+
+    const aragornCharId = afterPass.state.players[0].companies[0].characters[0];
+    const r2 = reduce(afterPass.state, {
       type: 'assign-strike',
       player: PLAYER_2,
       characterId: aragornCharId,
