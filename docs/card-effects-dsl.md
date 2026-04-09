@@ -251,6 +251,8 @@ generate per-target actions (one per eligible character, company, etc.).
 ```json
 { "type": "play-target", "target": "character" }
 { "type": "play-target", "target": "own-scout", "maxCompanySize": 2 }
+{ "type": "play-target", "target": "own-scout", "maxCompanySize": 2,
+  "cost": { "tap": "character" } }
 ```
 
 Supported targets:
@@ -262,6 +264,12 @@ Optional fields:
 
 - `maxCompanySize` — maximum effective company size for eligibility
   (hobbits count as half). Used with `own-scout` to enforce size limits.
+- `cost` — cost paid by the targeted character. Currently only
+  `{ "tap": "character" }` is supported, which taps the chosen character
+  when the card is played (e.g. Stealth taps the targeted scout). When a
+  cost is present the engine emits one `play-short-event` action per
+  eligible target, each carrying a `targetScoutInstanceId` so the reducer
+  knows whom to tap.
 
 ### 15. `on-guard-reveal`
 

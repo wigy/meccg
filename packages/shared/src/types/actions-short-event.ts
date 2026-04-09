@@ -29,6 +29,13 @@ export interface PlayShortEventAction {
   readonly cardInstanceId: CardInstanceId;
   /** The environment card instance to cancel and discard (when targeting an environment). */
   readonly targetInstanceId?: CardInstanceId;
+  /**
+   * For cards with a `play-target` effect that taps the targeted character
+   * (e.g. Stealth taps a scout in the chosen company), the character to tap.
+   * One legal action is generated per eligible target so the engine can
+   * apply the tap cost when the action is reduced.
+   */
+  readonly targetScoutInstanceId?: CardInstanceId;
 }
 
 /**

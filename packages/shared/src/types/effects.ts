@@ -369,6 +369,12 @@ export interface PlayTargetEffect extends EffectBase {
    * effective size ≤ this value (hobbits count as half).
    */
   readonly maxCompanySize?: number;
+  /**
+   * Cost paid by the targeted character when this card is played.
+   * Currently only `tap: "character"` is supported — taps the targeted
+   * character (e.g. Stealth: "Tap a scout to play …").
+   */
+  readonly cost?: ActionCost;
 }
 
 /**

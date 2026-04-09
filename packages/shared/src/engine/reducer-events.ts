@@ -267,13 +267,35 @@ export function handlePlayResourceShortEvent(state: GameState, action: GameActio
   const newHand = [...player.hand];
   newHand.splice(cardIdx, 1);
 
+  // Apply play-target tap cost (e.g. Stealth taps the chosen scout). The
+  // legal-actions emitter generates one play-short-event action per eligible
+  // target, so the targetScoutInstanceId here is guaranteed to be one of
+  // them. We tap the character before any other effect resolution so the
+  // visible state matches the player's expectation immediately.
+  let newCharacters = player.characters;
+  if (action.targetScoutInstanceId) {
+    const targetCharId = action.targetScoutInstanceId as string;
+    const targetChar = player.characters[targetCharId];
+    if (!targetChar) {
+      return { state, error: `Target scout ${targetCharId} not in play` };
+    }
+    if (targetChar.status !== CardStatus.Untapped) {
+      return { state, error: `Target scout ${targetCharId} is already tapped` };
+    }
+    logDetail(`${def.name} taps target scout ${targetCharId}`);
+    newCharacters = {
+      ...player.characters,
+      [targetCharId]: { ...targetChar, status: CardStatus.Tapped },
+    };
+  }
+
   // Collect all effects that require player interaction to resolve
   const interactiveEffects: PendingEffect[] = (def.effects ?? [])
     .filter(e => e.type === 'fetch-to-deck')
     .map(effect => ({ type: 'card-effect' as const, cardInstanceId: handCard.instanceId, effect }));
 
   const newPlayers = clonePlayers(state);
-  newPlayers[playerIndex] = { ...player, hand: newHand };
+  newPlayers[playerIndex] = { ...player, hand: newHand, characters: newCharacters };
 
   if (interactiveEffects.length > 0) {
     // Card goes to player's cardsInPlay (visible on table) while effects resolve

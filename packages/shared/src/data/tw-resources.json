@@ -518,7 +518,8 @@
       {
         "type": "play-target",
         "target": "own-scout",
-        "maxCompanySize": 2
+        "maxCompanySize": 2,
+        "cost": { "tap": "character" }
       },
       {
         "type": "on-event",

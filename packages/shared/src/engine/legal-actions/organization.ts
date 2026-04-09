@@ -246,11 +246,32 @@ export function organizationActions(state: GameState, playerId: PlayerId): Evalu
         continue;
       }
       resourceShortEventInstances.add(handCard.instanceId as string);
-      logDetail(`Resource short-event playable (end-of-org): ${def.name} (${handCard.instanceId as string})`);
-      actions.push({
-        action: { type: 'play-short-event', player: playerId, cardInstanceId: handCard.instanceId },
-        viable: true,
-      });
+
+      // If the card has a play-target with a tap cost (e.g. Stealth taps a
+      // scout), emit one play action per eligible target so the chosen
+      // target can be tapped when the action is reduced. Otherwise emit
+      // a single action with no target.
+      const playTarget = getPlayTargetEffect(def);
+      if (playTarget && playTarget.cost?.tap === 'character' && eligibility.eligibleTargets.length > 0) {
+        for (const targetId of eligibility.eligibleTargets) {
+          logDetail(`Resource short-event playable (end-of-org, target ${targetId as string}): ${def.name} (${handCard.instanceId as string})`);
+          actions.push({
+            action: {
+              type: 'play-short-event',
+              player: playerId,
+              cardInstanceId: handCard.instanceId,
+              targetScoutInstanceId: targetId,
+            },
+            viable: true,
+          });
+        }
+      } else {
+        logDetail(`Resource short-event playable (end-of-org): ${def.name} (${handCard.instanceId as string})`);
+        actions.push({
+          action: { type: 'play-short-event', player: playerId, cardInstanceId: handCard.instanceId },
+          viable: true,
+        });
+      }
       continue;
     }
     // Skip short events whose effects are only usable during combat
@@ -584,11 +605,16 @@ export function isEndOfOrgPlay(def: HeroResourceEventCard): boolean {
 /**
  * Result of an end-of-org play eligibility check. When `eligible` is
  * false, `reason` carries a UI-friendly explanation of why the card
- * cannot currently be played.
+ * cannot currently be played. When `eligible` is true and the card has
+ * a `play-target` effect, `eligibleTargets` lists every valid target
+ * (e.g. each untapped scout in a company under the size cap) so the
+ * action emitter can produce one play action per target.
  */
 interface EndOfOrgEligibility {
   readonly eligible: boolean;
   readonly reason: string;
+  /** One entry per valid target character. Empty when the card has no play-target. */
+  readonly eligibleTargets: readonly CardInstanceId[];
 }
 
 /**
@@ -605,43 +631,53 @@ export function endOfOrgEligibility(
   const playTarget: PlayTargetEffect | undefined = def.effects?.find(
     (e): e is PlayTargetEffect => e.type === 'play-target',
   );
-  if (!playTarget) return { eligible: true, reason: '' };
+  if (!playTarget) return { eligible: true, reason: '', eligibleTargets: [] };
 
   if (playTarget.target === 'own-scout') {
+    const eligibleTargets: CardInstanceId[] = [];
     let foundScout = false;
-    let foundEligibleCompany = false;
     for (const company of player.companies) {
-      const hasScout = company.characters.some(charInstId => {
+      const scoutsInCompany: CardInstanceId[] = [];
+      for (const charInstId of company.characters) {
         const charDefId = resolveInstanceId(state, charInstId);
-        if (!charDefId) return false;
+        if (!charDefId) continue;
         const charDef = state.cardPool[charDefId as string];
-        if (!charDef || !isCharacterCard(charDef)) return false;
-        if (!charDef.skills.includes(Skill.Scout)) return false;
+        if (!charDef || !isCharacterCard(charDef)) continue;
+        if (!charDef.skills.includes(Skill.Scout)) continue;
         const charInPlay = player.characters[charInstId as string];
-        return charInPlay?.status === CardStatus.Untapped;
-      });
-      if (!hasScout) continue;
+        if (charInPlay?.status !== CardStatus.Untapped) continue;
+        scoutsInCompany.push(charInstId);
+      }
+      if (scoutsInCompany.length === 0) continue;
       foundScout = true;
       if (playTarget.maxCompanySize !== undefined) {
         const size = computeCompanySize(state, company);
         if (size > playTarget.maxCompanySize) continue;
       }
-      foundEligibleCompany = true;
-      break;
+      eligibleTargets.push(...scoutsInCompany);
     }
-    if (!foundEligibleCompany) {
+    if (eligibleTargets.length === 0) {
       if (!foundScout) {
-        return { eligible: false, reason: `${def.name} requires an untapped scout` };
+        return { eligible: false, reason: `${def.name} requires an untapped scout`, eligibleTargets: [] };
       }
       return {
         eligible: false,
         reason: `${def.name} requires a company of size ≤ ${playTarget.maxCompanySize as number}`,
+        eligibleTargets: [],
       };
     }
-    return { eligible: true, reason: '' };
+    return { eligible: true, reason: '', eligibleTargets };
   }
 
-  return { eligible: true, reason: '' };
+  return { eligible: true, reason: '', eligibleTargets: [] };
+}
+
+/**
+ * Returns the {@link PlayTargetEffect} for the given resource event card,
+ * or undefined when the card does not declare one.
+ */
+export function getPlayTargetEffect(def: HeroResourceEventCard): PlayTargetEffect | undefined {
+  return def.effects?.find((e): e is PlayTargetEffect => e.type === 'play-target');
 }
 
 /**
