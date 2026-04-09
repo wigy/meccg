@@ -17,20 +17,11 @@
 import { describe, test, expect, beforeEach } from 'vitest';
 import {
   buildTestState, resetMint, Phase,
+  viablePlayCharacterActions, nonViablePlayCharacterActions,
   PLAYER_1, PLAYER_2,
   GANDALF, ARAGORN, BILBO, LEGOLAS,
   RIVENDELL, LORIEN, MORIA, BREE,
 } from '../../test-helpers.js';
-import { computeLegalActions } from '../../../engine/legal-actions/index.js';
-import type { EvaluatedAction, PlayCharacterAction } from '../../../index.js';
-
-function viablePlayActions(actions: EvaluatedAction[]): EvaluatedAction[] {
-  return actions.filter(a => a.viable && a.action.type === 'play-character');
-}
-
-function nonViablePlayActions(actions: EvaluatedAction[]): EvaluatedAction[] {
-  return actions.filter(a => !a.viable && a.action.type === 'play-character');
-}
 
 describe('Rule 3.03 — Avatar Play Location', () => {
   beforeEach(() => resetMint());
@@ -58,12 +49,11 @@ describe('Rule 3.03 — Avatar Play Location', () => {
       recompute: true,
     });
 
-    const actions = computeLegalActions(state, PLAYER_1);
-    const viable = viablePlayActions(actions);
+    const viable = viablePlayCharacterActions(state, PLAYER_1);
 
     // Gandalf must be playable at Rivendell (haven)
     expect(viable.length).toBe(1);
-    const sitesPlayedAt = viable.map(a => (a.action as PlayCharacterAction).atSite);
+    const sitesPlayedAt = viable.map(a => a.atSite);
     const rivendellSite = state.players[0].siteDeck.find(s => s.definitionId === RIVENDELL);
     expect(sitesPlayedAt).toContain(rivendellSite!.instanceId);
   });
@@ -91,12 +81,11 @@ describe('Rule 3.03 — Avatar Play Location', () => {
       recompute: true,
     });
 
-    const actions = computeLegalActions(state, PLAYER_1);
-    const viable = viablePlayActions(actions);
+    const viable = viablePlayCharacterActions(state, PLAYER_1);
     expect(viable.length).toBe(1);
 
     const rivendellSite = state.players[0].companies[0].currentSite!.instanceId;
-    expect((viable[0].action as PlayCharacterAction).atSite).toBe(rivendellSite);
+    expect(viable[0].atSite).toBe(rivendellSite);
   });
 
   test('Avatar (Gandalf) is not playable when no haven is available', () => {
@@ -123,9 +112,8 @@ describe('Rule 3.03 — Avatar Play Location', () => {
       recompute: true,
     });
 
-    const actions = computeLegalActions(state, PLAYER_1);
-    expect(viablePlayActions(actions)).toHaveLength(0);
+    expect(viablePlayCharacterActions(state, PLAYER_1)).toHaveLength(0);
     // The engine should still report the attempted play, marked non-viable
-    expect(nonViablePlayActions(actions).length).toBeGreaterThan(0);
+    expect(nonViablePlayCharacterActions(state, PLAYER_1).length).toBeGreaterThan(0);
   });
 });

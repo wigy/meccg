@@ -514,6 +514,13 @@ export function viablePlayCharacterActions(state: GameState, playerId: PlayerId)
     .map(ea => ea.action as PlayCharacterAction);
 }
 
+/** Get all non-viable play-character actions for a player. */
+export function nonViablePlayCharacterActions(state: GameState, playerId: PlayerId) {
+  return computeLegalActions(state, playerId)
+    .filter(ea => !ea.viable && ea.action.type === 'play-character')
+    .map(ea => ea.action as PlayCharacterAction);
+}
+
 /** Build a state in site phase at play-resources step with a company at a site. */
 export function buildSitePhaseState(opts: {
   characters?: CharacterEntry[];
