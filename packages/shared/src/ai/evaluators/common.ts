@@ -20,9 +20,8 @@ import type {
   MinionSiteCard,
   FallenWizardSiteCard,
   BalrogSiteCard,
-  PlayableAtEntry,
 } from '../../types/cards.js';
-import type { CardInstanceId, SiteType, RegionType } from '../../types/common.js';
+import type { CardInstanceId, RegionType } from '../../types/common.js';
 import type { CharacterInPlay, Company } from '../../types/state.js';
 import {
   isCharacterCard,
@@ -203,7 +202,7 @@ const SITE_DANGER: Record<string, number> = {
 function resourcePlayableAt(def: CardDefinition, site: AnySiteCard): boolean {
   // Items: matched by site type.
   if (def.cardType === 'hero-resource-item' || def.cardType === 'minion-resource-item') {
-    return def.playableAt.includes(site.siteType as SiteType);
+    return def.playableAt.includes(site.siteType);
   }
   // Factions / allies: matched by named site or site type.
   if (
@@ -212,7 +211,7 @@ function resourcePlayableAt(def: CardDefinition, site: AnySiteCard): boolean {
     def.cardType === 'hero-resource-ally' ||
     def.cardType === 'minion-resource-ally'
   ) {
-    for (const entry of def.playableAt as readonly PlayableAtEntry[]) {
+    for (const entry of def.playableAt) {
       if ('site' in entry && entry.site === site.name) return true;
       if ('siteType' in entry && entry.siteType === site.siteType) return true;
     }
