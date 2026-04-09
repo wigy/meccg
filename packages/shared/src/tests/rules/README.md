@@ -108,7 +108,7 @@
 | 3.08 | Organization Phase | [Ringwraith Follower Rules](03-organization-phase/rule-3.08-ringwraith-follower.test.ts) | ☐ |
 | 3.09 | Organization Phase | [Fallen-Wizard Avatar Play](03-organization-phase/rule-3.09-fw-avatar-play.test.ts) | ☐ |
 | 3.10 | Organization Phase | [Balrog Avatar Play](03-organization-phase/rule-3.10-balrog-avatar-play.test.ts) | ☐ |
-| 3.11 | Organization Phase | [Non-Avatar Character Play Location](03-organization-phase/rule-3.11-non-avatar-character-play.test.ts) | ☐ |
+| 3.11 | Organization Phase | [Non-Avatar Character Play Location](03-organization-phase/rule-3.11-non-avatar-character-play.test.ts) | ☑ |
 | 3.12 | Organization Phase | [Character Influence Control](03-organization-phase/rule-3.12-character-influence-control.test.ts) | ☐ |
 | 3.13 | Organization Phase | [Follower Removed from Direct Influence](03-organization-phase/rule-3.13-follower-removed-from-di.test.ts) | ☐ |
 | 3.14 | Organization Phase | [Restricted Direct Influence](03-organization-phase/rule-3.14-restricted-direct-influence.test.ts) | ☐ |
