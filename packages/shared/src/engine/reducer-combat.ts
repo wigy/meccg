@@ -553,6 +553,25 @@ function handleCancelAttack(state: GameState, action: GameAction, combat: Combat
     discardPile: newDiscard,
   };
 
+  // For multi-attack creatures (e.g. Assassin), cancelling one attack removes
+  // one strike rather than ending the entire combat. Concealment says "cancel
+  // one attack" — each multi-attack sub-attack counts as a separate attack.
+  if (combat.forceSingleTarget && combat.strikesTotal > 1) {
+    const newStrikesTotal = combat.strikesTotal - 1;
+    logDetail(`Multi-attack: one attack canceled, strikes reduced ${combat.strikesTotal} → ${newStrikesTotal}`);
+    // Also reduce cancelByTapRemaining if present, since there's one fewer attack to cancel
+    const newCancelByTap = combat.cancelByTapRemaining !== undefined
+      ? Math.min(combat.cancelByTapRemaining, newStrikesTotal)
+      : undefined;
+    return {
+      state: {
+        ...state,
+        players: newPlayers,
+        combat: { ...combat, strikesTotal: newStrikesTotal, cancelByTapRemaining: newCancelByTap },
+      },
+    };
+  }
+
   // If this was a creature attack, move creature card from attacker's cardsInPlay to discard
   const atkIdx = state.players.findIndex(p => p.id === combat.attackingPlayerId);
   const creatureInstanceId =
