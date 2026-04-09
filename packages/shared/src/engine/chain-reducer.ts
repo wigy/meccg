@@ -410,6 +410,83 @@ function resolveEnvironmentCancel(state: GameState, targetInstanceId: CardInstan
 }
 
 /**
+ * Fire any `on-event company-arrives-at-site → add-constraint` effect
+ * carried by a resolving short-event. The target company is the active
+ * M/H company (the only company the hazard can be played against), so
+ * the constraint can be added immediately on resolution — no deferred
+ * tracking state is needed. The card itself has already been moved to
+ * the discard pile at play time.
+ */
+function applyShortEventArrivalTrigger(state: GameState, entry: ChainEntry): GameState {
+  const card = entry.card;
+  if (!card) return state;
+  const def = state.cardPool[card.definitionId as string];
+  if (!def || !('effects' in def) || !def.effects) return state;
+
+  // Find the on-event effect this short-event carries, if any.
+  const onEvent = def.effects.find(
+    e => e.type === 'on-event'
+      && e.event === 'company-arrives-at-site'
+      && e.apply.type === 'add-constraint',
+  );
+  if (!onEvent || onEvent.type !== 'on-event') return state;
+
+  // Only fire during M/H — outside of M/H there is no active company
+  // for a "company arrives at site" trigger to attach to.
+  if (state.phaseState.phase !== Phase.MovementHazard) {
+    logDetail(`Short-event "${def.name}" on-event company-arrives-at-site skipped — not in M/H phase`);
+    return state;
+  }
+  const activePlayerId = state.activePlayer;
+  if (!activePlayerId) return state;
+  const activeIndex = state.players[0].id === activePlayerId ? 0 : 1;
+  const companyIndex = state.phaseState.activeCompanyIndex;
+  const targetCompany = state.players[activeIndex].companies[companyIndex];
+  if (!targetCompany) return state;
+
+  const constraintKind = onEvent.apply.constraint;
+  const scopeName = onEvent.apply.scope;
+  if (!constraintKind || !scopeName) return state;
+
+  let scope: import('../types/pending.js').ConstraintScope;
+  switch (scopeName) {
+    case 'company-site-phase':
+      scope = { kind: 'company-site-phase', companyId: targetCompany.id };
+      break;
+    case 'turn':
+      scope = { kind: 'turn' };
+      break;
+    case 'until-cleared':
+      scope = { kind: 'until-cleared' };
+      break;
+    default:
+      return state;
+  }
+  let kind: import('../types/pending.js').ActiveConstraint['kind'];
+  switch (constraintKind) {
+    case 'site-phase-do-nothing':
+      kind = { type: 'site-phase-do-nothing' };
+      break;
+    case 'site-phase-do-nothing-unless-ranger-taps':
+      kind = { type: 'site-phase-do-nothing-unless-ranger-taps' };
+      break;
+    case 'no-creature-hazards-on-company':
+      kind = { type: 'no-creature-hazards-on-company' };
+      break;
+    default:
+      return state;
+  }
+
+  logDetail(`Short-event "${def.name}" resolves → adding ${constraintKind} constraint on company ${targetCompany.id as string}`);
+  return addConstraint(state, {
+    source: card.instanceId,
+    scope,
+    target: { kind: 'company', companyId: targetCompany.id },
+    kind,
+  });
+}
+
+/**
  * Resolves a permanent-event chain entry: moves the card from the chain
  * into the declaring player's `cardsInPlay` and executes `self-enters-play`
  * effects (e.g. Gates of Morning discarding hazard environments).
@@ -450,7 +527,7 @@ function resolvePermanentEvent(state: GameState, entry: ChainEntry): GameState {
     }
   } else {
     // General permanent event — just add to cardsInPlay. Site-targeting
-    // hazards (e.g. River) carry their site binding through the chain
+    // permanent hazards carry their site binding through the chain
     // payload; record it on the CardInPlay entry so the
     // company-arrives-at-site event hook can match arrivals against
     // the bound site location.
@@ -736,6 +813,15 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
   // Apply card effects based on payload type
   if (entry.payload.type === 'short-event' && entry.payload.targetInstanceId) {
     current = resolveEnvironmentCancel(current, entry.payload.targetInstanceId, chain);
+  }
+
+  // Short events that carry an on-event company-arrives-at-site → add-
+  // constraint effect (e.g. *River*) have the target company fully
+  // determined at play time (the active M/H company). Fire the trigger
+  // directly on resolution so the card can go to discard as a normal
+  // short event — no deferred tracking needed.
+  if (entry.payload.type === 'short-event' && !entry.negated && entry.card) {
+    current = applyShortEventArrivalTrigger(current, entry);
   }
 
   if (entry.payload.type === 'creature' && entry.card) {

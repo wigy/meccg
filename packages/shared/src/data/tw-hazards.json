@@ -166,7 +166,7 @@
     "name": "River",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/River.jpg",
     "unique": false,
-    "eventType": "permanent",
+    "eventType": "short",
     "effects": [
       {
         "type": "play-target",
