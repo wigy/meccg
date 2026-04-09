@@ -16,20 +16,11 @@
 import { describe, test, expect, beforeEach } from 'vitest';
 import {
   buildTestState, resetMint, Phase,
+  viablePlayCharacterActions, nonViablePlayCharacterActions,
   PLAYER_1, PLAYER_2,
   ARAGORN, GANDALF, LEGOLAS, BILBO,
   RIVENDELL, LORIEN, MORIA, BREE,
 } from '../../test-helpers.js';
-import { computeLegalActions } from '../../../engine/legal-actions/index.js';
-import type { EvaluatedAction, PlayCharacterAction } from '../../../index.js';
-
-function viablePlayActions(actions: EvaluatedAction[]): EvaluatedAction[] {
-  return actions.filter(a => a.viable && a.action.type === 'play-character');
-}
-
-function nonViablePlayActions(actions: EvaluatedAction[]): EvaluatedAction[] {
-  return actions.filter(a => !a.viable && a.action.type === 'play-character');
-}
 
 describe('Rule 3.11 — Non-Avatar Character Play Location', () => {
   beforeEach(() => resetMint());
@@ -57,12 +48,11 @@ describe('Rule 3.11 — Non-Avatar Character Play Location', () => {
       recompute: true,
     });
 
-    const actions = computeLegalActions(state, PLAYER_1);
-    const viable = viablePlayActions(actions);
+    const viable = viablePlayCharacterActions(state, PLAYER_1);
     expect(viable.length).toBe(1);
 
     const breeInst = state.players[0].siteDeck.find(s => s.definitionId === BREE)!.instanceId;
-    expect((viable[0].action as PlayCharacterAction).atSite).toBe(breeInst);
+    expect(viable[0].atSite).toBe(breeInst);
   });
 
   test('Non-avatar character is playable at a haven from the site deck (even when not its homesite)', () => {
@@ -88,12 +78,11 @@ describe('Rule 3.11 — Non-Avatar Character Play Location', () => {
       recompute: true,
     });
 
-    const actions = computeLegalActions(state, PLAYER_1);
-    const viable = viablePlayActions(actions);
+    const viable = viablePlayCharacterActions(state, PLAYER_1);
     expect(viable.length).toBe(1);
 
     const rivendellInst = state.players[0].siteDeck.find(s => s.definitionId === RIVENDELL)!.instanceId;
-    expect((viable[0].action as PlayCharacterAction).atSite).toBe(rivendellInst);
+    expect(viable[0].atSite).toBe(rivendellInst);
   });
 
   test('Non-avatar character is not playable at a non-haven, non-homesite location', () => {
@@ -119,9 +108,8 @@ describe('Rule 3.11 — Non-Avatar Character Play Location', () => {
       recompute: true,
     });
 
-    const actions = computeLegalActions(state, PLAYER_1);
-    expect(viablePlayActions(actions)).toHaveLength(0);
-    expect(nonViablePlayActions(actions).length).toBeGreaterThan(0);
+    expect(viablePlayCharacterActions(state, PLAYER_1)).toHaveLength(0);
+    expect(nonViablePlayCharacterActions(state, PLAYER_1).length).toBeGreaterThan(0);
   });
 
   test('When avatar is in play, the site deck is excluded from non-avatar plays', () => {
@@ -153,18 +141,17 @@ describe('Rule 3.11 — Non-Avatar Character Play Location', () => {
       recompute: true,
     });
 
-    const actions = computeLegalActions(state, PLAYER_1);
-    const viable = viablePlayActions(actions);
+    const viable = viablePlayCharacterActions(state, PLAYER_1);
 
     const breeInst = state.players[0].siteDeck.find(s => s.definitionId === BREE)!.instanceId;
     const rivendellInst = state.players[0].companies[0].currentSite!.instanceId;
 
     // Aragorn must not be playable at Bree from the site deck
-    const playsAtBree = viable.filter(a => (a.action as PlayCharacterAction).atSite === breeInst);
+    const playsAtBree = viable.filter(a => a.atSite === breeInst);
     expect(playsAtBree).toHaveLength(0);
 
     // Aragorn is still playable at Rivendell (avatar's site, also a haven)
-    const playsAtRivendell = viable.filter(a => (a.action as PlayCharacterAction).atSite === rivendellInst);
+    const playsAtRivendell = viable.filter(a => a.atSite === rivendellInst);
     expect(playsAtRivendell.length).toBeGreaterThan(0);
   });
 });
