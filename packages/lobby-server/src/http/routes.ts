@@ -274,7 +274,7 @@ export async function handleRequest(req: http.IncomingMessage, res: http.ServerR
 
       const token = signLobbyToken(player.name);
       setSessionCookie(res, token);
-      sendJson(res, 200, { name: player.name });
+      sendJson(res, 200, { name: player.name, isReviewer: REVIEWER_PLAYERS.includes(player.name), credits: getCredits(player.name) });
       lobbyLog.log('login', { name: player.name });
     } catch (err) {
       lobbyLog.log('error', { context: 'login', error: String(err) });

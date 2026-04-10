@@ -753,10 +753,6 @@ h2 {
   width: 340px;
   min-width: 280px;
   flex-shrink: 0;
-  max-height: calc(100vh - 220px);
-  overflow-y: auto;
-  scrollbar-width: thin;
-  scrollbar-color: rgba(196,163,90,0.35) transparent;
   position: sticky;
   top: 1rem;
   padding: 1rem 1rem 1rem;

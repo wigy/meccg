@@ -164,9 +164,11 @@ document.addEventListener('DOMContentLoaded', () => {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ name, password }),
         });
-        const data = await resp.json() as { name?: string; error?: string };
+        const data = await resp.json() as { name?: string; isReviewer?: boolean; credits?: number; error?: string };
         if (!resp.ok) { showAuthError('login-error', data.error ?? 'Login failed'); return; }
         appState.lobbyPlayerName = data.name!;
+        appState.lobbyPlayerIsReviewer = data.isReviewer ?? false;
+        appState.lobbyPlayerCredits = data.credits ?? 0;
         showScreen('lobby-screen');
         connectLobbyWs();
       } catch { showAuthError('login-error', 'Connection error'); }
@@ -189,9 +191,11 @@ document.addEventListener('DOMContentLoaded', () => {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ name, email, password, ...(displayName ? { displayName } : {}) }),
         });
-        const data = await resp.json() as { name?: string; error?: string };
+        const data = await resp.json() as { name?: string; isReviewer?: boolean; credits?: number; error?: string };
         if (!resp.ok) { showAuthError('register-error', data.error ?? 'Registration failed'); return; }
         appState.lobbyPlayerName = data.name!;
+        appState.lobbyPlayerIsReviewer = data.isReviewer ?? false;
+        appState.lobbyPlayerCredits = data.credits ?? 0;
         showScreen('lobby-screen');
         connectLobbyWs();
       } catch { showAuthError('register-error', 'Connection error'); }
