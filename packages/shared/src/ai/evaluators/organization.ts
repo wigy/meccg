@@ -5,8 +5,8 @@
  * company management, movement planning, permanent events.
  *
  * Strategy: prefer playing characters with high MP / prowess / DI; only plan
- * movement once we have a destination idea; merge tiny companies but avoid
- * splitting unless there are concrete two-way travel plans.
+ * movement when there are hand cards playable at the destination; merge tiny
+ * companies; never split (the AI lacks planning depth to justify it).
  */
 
 import type { GameAction } from '../../types/actions.js';
@@ -47,12 +47,12 @@ export const organizationEvaluator: ActionEvaluator = {
       case 'plan-movement': {
         // Score the destination by how many of our hand cards become playable
         // there, the resource-draw box on the site card, minus a danger
-        // penalty for the site type and traversed regions. Sites with no
-        // payoff get the bare minimum weight (1) so the AI still occasionally
-        // explores instead of always staying put.
+        // penalty for the site type and traversed regions. Only move when
+        // there is a concrete payoff — aimless travel wastes turns and
+        // exposes the company to hazards for no gain.
         const destDef = findSiteDef(view, pool, action.destinationSite);
-        if (!destDef) return 5;
-        return Math.max(1, scoreDestinationSite(view, pool, destDef));
+        if (!destDef) return 1;
+        return scoreDestinationSite(view, pool, destDef);
       }
 
       case 'cancel-movement':
@@ -71,7 +71,10 @@ export const organizationEvaluator: ActionEvaluator = {
       }
 
       case 'split-company':
-        return 2;
+        // Never split — the AI lacks the planning depth to evaluate whether
+        // two separate travel plans justify the split. Aimless splits just
+        // create weak companies that attract hazards without earning MP.
+        return 0;
 
       case 'move-to-company':
         return 2;
