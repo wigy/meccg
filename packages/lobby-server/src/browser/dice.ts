@@ -206,6 +206,13 @@ export function rollDice(die1: number, die2: number, variant: 'red' | 'black' = 
     delete overlays[variant];
   }
 
+  // Clear the dice tray for this variant so stale mini-dice don't persist
+  // after the animation. Without this, restoreDice() sees the old tray
+  // children and skips repopulating with the new values.
+  const trayId = variant === 'black' ? 'self-dice-tray' : 'opponent-dice-tray';
+  const tray = document.getElementById(trayId);
+  if (tray) tray.innerHTML = '';
+
   const overlay = document.createElement('div');
   overlay.className = 'dice-overlay';
   overlay.addEventListener('click', (e) => {
