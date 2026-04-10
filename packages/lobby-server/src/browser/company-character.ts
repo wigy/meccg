@@ -73,11 +73,13 @@ export function renderCharacterColumn(
     inner.appendChild(mindBadge);
   }
 
-  // Direct influence badge (left edge, middle)
-  const diBadge = document.createElement('div');
-  diBadge.className = 'char-di-badge';
-  diBadge.textContent = String(char.effectiveStats.directInfluence);
-  inner.appendChild(diBadge);
+  // Direct influence badge (left edge, middle) — only shown when DI > 0
+  if (char.effectiveStats.directInfluence > 0) {
+    const diBadge = document.createElement('div');
+    diBadge.className = 'char-di-badge';
+    diBadge.textContent = String(char.effectiveStats.directInfluence);
+    inner.appendChild(diBadge);
+  }
 
   wrap.appendChild(inner);
 
@@ -190,11 +192,13 @@ export function renderCharacterColumn(
           fInner.appendChild(fMindBadge);
         }
 
-        // Follower direct influence badge
-        const fDiBadge = document.createElement('div');
-        fDiBadge.className = 'char-di-badge';
-        fDiBadge.textContent = String(follower.effectiveStats.directInfluence);
-        fInner.appendChild(fDiBadge);
+        // Follower direct influence badge — only shown when DI > 0
+        if (follower.effectiveStats.directInfluence > 0) {
+          const fDiBadge = document.createElement('div');
+          fDiBadge.className = 'char-di-badge';
+          fDiBadge.textContent = String(follower.effectiveStats.directInfluence);
+          fInner.appendChild(fDiBadge);
+        }
 
         fWrap.appendChild(fInner);
 
