@@ -37,15 +37,20 @@ Follow these steps:
 
    If a check fails, read the error output, fix the issue, and re-run. Keep iterating until all four pass cleanly.
 
-6. **Commit and push:** Create a single commit with all changes and push to the remote:
+6. **Create a branch, commit, push, and open a PR:** Work on a dedicated branch and open a pull request — never push features directly to master.
    ```
+   git checkout -b feature/<short-slug>
    git add <changed-files>
    git commit -m "<descriptive message>
 
    Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>"
-   git push
+   git push -u origin feature/<short-slug>
    ```
-   Capture the commit hash from the output. The commit message should summarize what feature was implemented.
+   Then create a pull request:
+   ```
+   gh pr create --title "<short feature description>" --body "<markdown body — summary of changes, list of files changed, original plan>"
+   ```
+   Capture the commit hash and PR URL from the output. The commit message should summarize what feature was implemented.
 
 7. **Emit the structured result block:** As the **last** thing you output, print exactly one block in the form below. `bin/handle-mail` will parse the JSON between the markers and use it to send the reply mail (with credits/time footer) and the review request to admins. Do not call `/api/system/mail` or `/api/system/mail/.../<msg-id>` anywhere in this skill.
 
@@ -57,11 +62,12 @@ Follow these steps:
      "reply": {
        "topic": "feature-reply",
        "subject": "Implemented: <short feature description>",
-       "body": "<markdown body — summary of changes, list of files changed, link to https://github.com/wigy/meccg/commit/<gitHash>>",
+       "body": "<markdown body — summary of changes, list of files changed, link to PR: <prUrl>>",
        "keywords": {
          "originalMessageId": "<originalMessageId from the implementation request keywords>",
          "implementationRequestId": "<msg-id of this implementation request>",
          "gitHash": "<commit hash>",
+         "prUrl": "<PR URL from gh pr create>",
          "originalRequestor": "<originalRequestor from the implementation request keywords — bin/handle-mail bills this user for the implementation work>"
        }
      },
@@ -69,12 +75,13 @@ Follow these steps:
        "topic": "review-request",
        "recipients": ["wigy", "karmi", "admin"],
        "subject": "Review: <short feature description>",
-       "body": "<markdown body — summary, files changed, commit link, original plan in a quote/details block>",
+       "body": "<markdown body — summary, files changed, PR link, original plan in a quote/details block>",
        "keywords": {
          "originalMessageId": "<originalMessageId from keywords>",
          "implementationRequestId": "<msg-id>",
          "planningReplyId": "<planningReplyId from keywords>",
          "gitHash": "<commit hash>",
+         "prUrl": "<PR URL>",
          "requestedBy": "<from field of the request>"
        }
      }

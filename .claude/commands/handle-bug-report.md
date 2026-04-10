@@ -61,26 +61,31 @@ Follow these steps:
 
    This double validation prevents speculative code changes based on misread saves or misunderstood rules.
 
-6. **Find relevant test file:** Before fixing, check if there is an existing test that covers the rule or card involved:
+6. **Check out master:** Always start from the master branch to avoid building on stale or unrelated branches:
+   ```
+   git checkout master && git pull
+   ```
+
+7. **Find relevant test file:** Before fixing, check if there is an existing test that covers the rule or card involved:
    - If the bug is about a **game rule**, look in `packages/shared/src/tests/rules/` for a test file covering the relevant CoE rule section. Check for `test.todo()` entries that match the broken rule.
    - If the bug is about a **card's special ability**, look in `packages/shared/src/tests/cards/` for a test file for that card (named by card ID, e.g. `tw-156.test.ts`).
-   - Note the file path (or absence) for step 8.
+   - Note the file path (or absence) for step 9.
 
-7. **Fix the bug:** Implement the fix in the source code:
+8. **Fix the bug:** Implement the fix in the source code:
    - Read the relevant source files
    - Make the minimal code changes needed to fix the bug
    - Follow the project's coding conventions (see CLAUDE.md)
    - Ensure new code has proper JSDoc documentation where needed
    - Follow the server-side logging policy if modifying engine code
 
-8. **Add a regression test:** Write a test that reproduces the exact scenario from the bug report and would fail without the fix:
-   - If an existing test file was found in step 6, add the test there (convert a `test.todo()` if one matches, otherwise add a new `test()` block).
+9. **Add a regression test:** Write a test that reproduces the exact scenario from the bug report and would fail without the fix:
+   - If an existing test file was found in step 7, add the test there (convert a `test.todo()` if one matches, otherwise add a new `test()` block).
    - If no existing file covers this case, create a new test file in the appropriate directory (`rules/` or `cards/`).
    - The test should set up the game state that triggered the bug (using helpers from `test-helpers.ts`), then assert that the engine now produces the correct legal actions or state.
    - Keep the test focused on the specific bug — one scenario, clear assertion.
    - All helpers go in `test-helpers.ts`, not in the test file itself.
 
-9. **Iterate until green:** Run all four checks **in parallel** and fix any failures. Repeat until all pass:
+10. **Iterate until green:** Run all four checks **in parallel** and fix any failures. Repeat until all pass:
    - `npm run build` — type-check (must pass)
    - `npm test` — rules tests (must all pass)
    - `npm run test:nightly` — card tests (must not introduce new failures)
@@ -88,17 +93,22 @@ Follow these steps:
 
    If a check fails, read the error output, fix the issue, and re-run. Keep iterating until all four pass cleanly.
 
-10. **Commit and push:** Create a single commit with all changes and push to the remote:
+11. **Create a branch, commit, push, and open a PR:** Work on a dedicated branch and open a pull request — never push bug fixes directly to master.
    ```
+   git checkout -b fix/<short-slug>
    git add <changed-files>
    git commit -m "<descriptive message>
 
    Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>"
-   git push
+   git push -u origin fix/<short-slug>
    ```
-   Capture the commit hash from the output. The commit message should summarize the bug fix.
+   Then create a pull request:
+   ```
+   gh pr create --title "<short bug fix description>" --body "<markdown body — bug summary, root cause, fix, test added>"
+   ```
+   Capture the commit hash and PR URL from the output. The commit message should summarize the bug fix.
 
-11. **Emit the structured result block:** As the **last** thing you output, print exactly one block in the form below. `bin/handle-mail` will parse the JSON between the markers and use it to send the bug-reply mail (with credits/time footer) and the review request to admins. Do not call `/api/system/mail` or `/api/system/mail/.../<msg-id>` anywhere in this skill.
+12. **Emit the structured result block:** As the **last** thing you output, print exactly one block in the form below. `bin/handle-mail` will parse the JSON between the markers and use it to send the bug-reply mail (with credits/time footer) and the review request to admins. Do not call `/api/system/mail` or `/api/system/mail/.../<msg-id>` anywhere in this skill.
 
    ```
    ===HANDLE_MAIL_RESULT_BEGIN===
@@ -108,10 +118,11 @@ Follow these steps:
      "reply": {
        "topic": "bug-reply",
        "subject": "Fixed: <original subject>",
-       "body": "<markdown body — thanks for the report, summary of the fix, link to https://github.com/wigy/meccg/commit/<gitHash>>",
+       "body": "<markdown body — thanks for the report, summary of the fix, link to PR: <prUrl>>",
        "keywords": {
          "originalMessageId": "<msg-id>",
          "gitHash": "<commit hash>",
+         "prUrl": "<PR URL from gh pr create>",
          "gameId": "<game ID>"
        }
      },
@@ -119,11 +130,12 @@ Follow these steps:
        "topic": "review-request",
        "recipients": ["wigy", "karmi", "admin"],
        "subject": "Review: <short bug fix description>",
-       "body": "<markdown body — bug summary, root cause, fix summary, files changed, commit link>",
+       "body": "<markdown body — bug summary, root cause, fix summary, files changed, PR link>",
        "keywords": {
          "originalMessageId": "<msg-id of the bug report>",
          "bugReportId": "<msg-id>",
          "gitHash": "<commit hash>",
+         "prUrl": "<PR URL>",
          "reportedBy": "<from field of the bug report>",
          "gameId": "<game ID>"
        }
@@ -136,4 +148,4 @@ Follow these steps:
    - The `body` fields are JSON strings — escape newlines as `\n` and quotes as `\"`.
    - Do **not** print anything after `===HANDLE_MAIL_RESULT_END===`.
 
-12. **Report:** Briefly summarize what happened (one or two lines) **before** the result block, so the run log is readable. The result block must still be the final output.
+13. **Report:** Briefly summarize what happened (one or two lines) **before** the result block, so the run log is readable. The result block must still be the final output.
