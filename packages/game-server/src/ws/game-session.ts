@@ -441,6 +441,7 @@ export class GameSession {
     // When a player sends 'finished', record the game result to their history file
     if (actionWithPlayer.type === 'finished') {
       this.recordGameResult(playerId);
+      this.deleteSavesIfAllFinished();
     }
 
     // Detect draft round reveal
@@ -757,6 +758,29 @@ export class GameSession {
       this.serverLog.log('game-recorded', { player: playerName, gameId });
     } catch (err) {
       this.serverLog.log('game-record-error', { player: playerName, error: String(err) });
+    }
+  }
+
+  /**
+   * Delete save and autosave files once all players have acknowledged the
+   * game result. At that point the outcome is persisted in each player's
+   * history, so the save is no longer needed.
+   */
+  private deleteSavesIfAllFinished(): void {
+    if (!this.state || this.state.phaseState.phase !== Phase.GameOver) return;
+
+    const goState = this.state.phaseState;
+    if (goState.finishedPlayers.length < this.state.players.length) return;
+
+    for (const filePath of [this.saveFilePath(), this.autosaveFilePath()]) {
+      try {
+        if (fs.existsSync(filePath)) {
+          fs.unlinkSync(filePath);
+          this.serverLog.log('save-deleted', { path: filePath });
+        }
+      } catch (err) {
+        this.serverLog.log('save-delete-error', { path: filePath, error: String(err) });
+      }
     }
   }
 
