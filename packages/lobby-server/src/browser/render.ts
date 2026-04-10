@@ -17,6 +17,8 @@ export {
   getSelectedInfluencerForOpponent,
   setSelectedInfluencerForOpponent,
   clearOpponentInfluenceSelection,
+  getSelectedShortEvent,
+  clearShortEventSelection,
 } from './render-selection-state.js';
 
 // Debug/text view panels

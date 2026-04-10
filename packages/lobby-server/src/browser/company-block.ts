@@ -33,7 +33,7 @@ import type {
 import { cardImageProxyPath, Phase, CardStatus, viableActions, getTitleCharacter } from '@meccg/shared';
 import type { CardDefinitionId } from '@meccg/shared';
 import { createCardImage } from './render-utils.js';
-import { getSelectedFactionForInfluence, clearFactionInfluenceSelection, getSelectedInfluencerForOpponent, setSelectedInfluencerForOpponent, clearOpponentInfluenceSelection, setTargetingInstruction } from './render.js';
+import { getSelectedFactionForInfluence, clearFactionInfluenceSelection, getSelectedInfluencerForOpponent, setSelectedInfluencerForOpponent, clearOpponentInfluenceSelection, getSelectedShortEvent, clearShortEventSelection, setTargetingInstruction } from './render.js';
 import {
   getCachedInstanceLookup,
   getInfluenceMoveSourceId, setInfluenceMoveSourceId,
@@ -416,6 +416,27 @@ export function renderCompanyBlock(
 
   /** Combine all character click handlers into one: if one action type, take it; if multiple, show tooltip. */
   const buildCombinedClick = (charInstId: CardInstanceId): { cls: string; handler: (e: Event) => void } | undefined => {
+    // Short-event character targeting (e.g. Stealth → scout) takes priority when active
+    const selectedSE = getSelectedShortEvent();
+    if (selectedSE) {
+      const seAction = viableActions(view.legalActions).find(
+        a => a.type === 'play-short-event'
+          && a.cardInstanceId === selectedSE
+          && a.targetScoutInstanceId === charInstId,
+      );
+      if (seAction) {
+        return {
+          cls: 'company-card--influence-target',
+          handler: (e) => {
+            e.stopPropagation();
+            clearShortEventSelection();
+            options?.onAction?.(seAction);
+          },
+        };
+      }
+      return undefined;
+    }
+
     // Faction influence targeting takes priority when active
     const selectedFaction = getSelectedFactionForInfluence();
     if (selectedFaction) {

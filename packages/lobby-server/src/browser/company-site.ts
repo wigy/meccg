@@ -293,20 +293,20 @@ export function renderSiteArea(
     }
   }
 
-  // Active constraints (Stealth, River, etc.) — small cards above the site
+  // Active constraints (Stealth, River, etc.) — small cards beside the site
   const companyConstraints = (view.activeConstraints ?? []).filter(
     c => c.target.kind === 'company' && c.target.companyId === company.id,
   );
   if (companyConstraints.length > 0) {
-    // Attach to the last site (destination if moving, current otherwise)
+    // Wrap the on-guard wrapper (if present) or the last site card
+    const ogWrapper = area.querySelector('.on-guard-wrapper') as HTMLElement | null;
     const siteImages = area.querySelectorAll('.company-card--site');
-    const targetSite = siteImages[siteImages.length - 1] as HTMLElement | null;
-    if (targetSite) {
-      // Wrap the target site so constraint cards can be positioned relative to it
+    const anchorTarget = ogWrapper ?? siteImages[siteImages.length - 1] as HTMLElement | null;
+    if (anchorTarget) {
       const anchor = document.createElement('div');
       anchor.className = 'constraint-anchor';
-      targetSite.replaceWith(anchor);
-      anchor.appendChild(targetSite);
+      anchorTarget.replaceWith(anchor);
+      anchor.appendChild(anchorTarget);
 
       const strip = document.createElement('div');
       strip.className = 'constraint-strip';

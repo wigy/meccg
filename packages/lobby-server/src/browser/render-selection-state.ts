@@ -180,3 +180,46 @@ export function clearOpponentInfluenceSelection(): void {
   selectedInfluencerForOpponent = null;
   setTargetingInstruction(null);
 }
+
+// ---- Short-event character targeting ----
+
+/**
+ * Selected short-event instance ID for the two-step character targeting flow.
+ * When a player clicks a short-event with multiple eligible character targets
+ * (e.g. Stealth choosing a scout), the card instance ID is stored here and
+ * the company view highlights valid target characters.
+ */
+let selectedShortEventInstanceId: CardInstanceId | null = null;
+
+/** Returns the currently selected short-event instance ID for character targeting. */
+export function getSelectedShortEvent(): CardInstanceId | null {
+  return selectedShortEventInstanceId;
+}
+
+/** Set the selected short-event instance ID for character targeting. */
+export function setSelectedShortEvent(id: CardInstanceId | null): void {
+  selectedShortEventInstanceId = id;
+}
+
+/** Clear the short-event character targeting selection. */
+export function clearShortEventSelection(): void {
+  selectedShortEventInstanceId = null;
+  setTargetingInstruction(null);
+}
+
+/** Cached arguments for re-rendering during short-event target selection. */
+let shortEventRenderCache: {
+  view: PlayerView;
+  cardPool: Readonly<Record<string, CardDefinition>>;
+  onAction: (action: GameAction) => void;
+} | null = null;
+
+/** Get the cached short-event render arguments. */
+export function getShortEventRenderCache(): typeof shortEventRenderCache {
+  return shortEventRenderCache;
+}
+
+/** Set the cached short-event render arguments. */
+export function setShortEventRenderCache(cache: typeof shortEventRenderCache): void {
+  shortEventRenderCache = cache;
+}

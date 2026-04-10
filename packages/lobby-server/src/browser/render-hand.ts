@@ -19,6 +19,8 @@ import {
   getSelectedFactionForInfluence, setSelectedFactionForInfluence,
   getFactionInfluenceRenderCache, setFactionInfluenceRenderCache,
   getSelectedInfluencerForOpponent, setSelectedInfluencerForOpponent,
+  getSelectedShortEvent, setSelectedShortEvent,
+  getShortEventRenderCache, setShortEventRenderCache,
 } from './render-selection-state.js';
 import { findSelfIndex } from './render-debug-panels.js';
 
@@ -212,17 +214,27 @@ function showShortEventTargetMenu(
   tooltip.style.top = `${event.clientY}px`;
 
   for (const action of actions) {
-    if (action.type !== 'play-short-event' || !action.targetInstanceId) continue;
-    const targetDefId = cachedInstanceLookup(action.targetInstanceId);
-    const targetDef = targetDefId ? cardPool[targetDefId as string] : undefined;
-    const targetName = targetDef ? targetDef.name : '?';
+    if (action.type !== 'play-short-event') continue;
 
-    // Find the chain entry owner for this target
-    const chainEntry = view.chain?.entries.find(e => e.card?.instanceId === action.targetInstanceId);
-    const ownerName = chainEntry
-      ? (chainEntry.declaredBy === view.self.id ? 'You' : view.opponent.name)
-      : null;
-    const label = ownerName ? `Cancel ${targetName} (${ownerName})` : `Cancel ${targetName}`;
+    let label: string;
+    if (action.targetInstanceId) {
+      // Canceling an environment
+      const targetDefId = cachedInstanceLookup(action.targetInstanceId);
+      const targetDef = targetDefId ? cardPool[targetDefId as string] : undefined;
+      const targetName = targetDef ? targetDef.name : '?';
+      const chainEntry = view.chain?.entries.find(e => e.card?.instanceId === action.targetInstanceId);
+      const ownerName = chainEntry
+        ? (chainEntry.declaredBy === view.self.id ? 'You' : view.opponent.name)
+        : null;
+      label = ownerName ? `Cancel ${targetName} (${ownerName})` : `Cancel ${targetName}`;
+    } else if (action.targetScoutInstanceId) {
+      // Targeting a scout (e.g. Stealth)
+      const scoutDefId = cachedInstanceLookup(action.targetScoutInstanceId);
+      const scoutDef = scoutDefId ? cardPool[scoutDefId as string] : undefined;
+      label = scoutDef ? scoutDef.name : '?';
+    } else {
+      continue;
+    }
 
     const btn = document.createElement('button');
     btn.className = 'char-action-tooltip__btn';
@@ -445,6 +457,15 @@ function reRenderFactionInfluence(): void {
   void import('./company-view.js').then(m => m.renderCompanyViews(view, cardPool, onAction));
 }
 
+/** Re-render hand and company views using cached state (for short-event character targeting flow). */
+function reRenderShortEventTarget(): void {
+  const cache = getShortEventRenderCache();
+  if (!cache) return;
+  const { view, cardPool, onAction } = cache;
+  renderHand(view, cardPool, onAction);
+  void import('./company-view.js').then(m => m.renderCompanyViews(view, cardPool, onAction));
+}
+
 // ---- Main hand rendering ----
 
 /** Render the player's hand (or draft pool) as an arc of card images in the visual view. */
@@ -543,6 +564,28 @@ export function renderHand(
     setSelectedInfluencerForOpponent(null);
   }
 
+  // Cache render state for short-event character targeting (e.g. Stealth → scout)
+  const hasScoutShortEvents = viable.some(
+    a => a.type === 'play-short-event' && a.targetScoutInstanceId,
+  );
+  if (onAction && hasScoutShortEvents) {
+    setShortEventRenderCache({ view, cardPool, onAction });
+    const selectedSE = getSelectedShortEvent();
+    if (selectedSE) {
+      const stillViable = viable.some(
+        a => a.type === 'play-short-event' && a.cardInstanceId === selectedSE,
+      );
+      if (!stillViable) {
+        setSelectedShortEvent(null);
+        setTargetingInstruction(null);
+      }
+    }
+  } else if (!hasScoutShortEvents) {
+    if (getSelectedShortEvent()) setTargetingInstruction(null);
+    setSelectedShortEvent(null);
+    setShortEventRenderCache(null);
+  }
+
   for (let i = 0; i < total; i++) {
     const { defId: cardDefId, instanceId: cardInstanceId } = cards[i];
     const def = cardPool[cardDefId as string];
@@ -626,15 +669,36 @@ export function renderHand(
         });
       }
     } else if (isShortEvent) {
-      // Short-event: single target plays directly, multiple targets show tooltip
-      img.className = 'hand-card hand-card-playable';
-      if (onAction) {
-        if (shortEventActions.length === 1) {
-          img.addEventListener('click', () => onAction(shortEventActions[0]));
-        } else {
-          img.addEventListener('click', (e) => {
-            showShortEventTargetMenu(e, shortEventActions, view, cardPool, onAction);
+      // Check if this short-event targets characters (e.g. Stealth → scout)
+      const hasScoutTargets = shortEventActions.some(
+        a => a.type === 'play-short-event' && a.targetScoutInstanceId,
+      );
+      if (hasScoutTargets && shortEventActions.length > 1) {
+        // Two-step character targeting flow
+        const selectedSE = getSelectedShortEvent();
+        const isSESelected = selectedSE === cardInstanceId;
+        img.className = isSESelected ? 'hand-card hand-card-selected' : 'hand-card hand-card-playable';
+        if (onAction && cardInstanceId) {
+          const instId = cardInstanceId;
+          img.addEventListener('click', () => {
+            setSelectedShortEvent(isSESelected ? null : instId);
+            setTargetingInstruction(
+              getSelectedShortEvent() ? `Click a highlighted character to play ${def.name}` : null,
+            );
+            reRenderShortEventTarget();
           });
+        }
+      } else {
+        // Single target plays directly, multiple environment targets show tooltip
+        img.className = 'hand-card hand-card-playable';
+        if (onAction) {
+          if (shortEventActions.length === 1) {
+            img.addEventListener('click', () => onAction(shortEventActions[0]));
+          } else {
+            img.addEventListener('click', (e) => {
+              showShortEventTargetMenu(e, shortEventActions, view, cardPool, onAction);
+            });
+          }
         }
       }
     } else if (isHazard) {
