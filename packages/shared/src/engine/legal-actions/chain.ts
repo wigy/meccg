@@ -151,6 +151,18 @@ function onGuardRevealChainActions(state: GameState, playerId: PlayerId): Evalua
     const def = state.cardPool[ogCard.definitionId as string];
     if (!def || def.cardType !== 'hazard-event') continue;
 
+    // Per CoE rule 2.V.6, only hazard events that directly affect the
+    // company (or an influence check) may be revealed from on-guard.
+    // Cards must declare an on-guard-reveal effect with the matching trigger.
+    const hasInfluenceTrigger = 'effects' in def && def.effects?.some(
+      (e: { type: string; trigger?: string }) =>
+        e.type === 'on-guard-reveal' && e.trigger === 'influence-attempt',
+    );
+    if (!hasInfluenceTrigger) {
+      logDetail(`Chain on-guard reveal: "${def.name}" skipped — no influence-attempt trigger`);
+      continue;
+    }
+
     // Character-targeting events get one action per character
     const isCharTargeting = 'effects' in def && def.effects?.some(
       (e: { type: string; target?: string }) => e.type === 'play-target' && e.target === 'character',

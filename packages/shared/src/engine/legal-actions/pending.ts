@@ -108,6 +108,15 @@ function onGuardWindowActions(
       if (!def) continue;
       if (def.cardType !== 'hazard-event') continue;
 
+      // Per CoE rule 2.V.6, only hazard events that directly affect the
+      // company may be revealed from on-guard when a resource is played.
+      // Cards must declare an on-guard-reveal effect with a matching trigger.
+      const hasResourceTrigger = 'effects' in def && def.effects?.some(
+        (e: { type: string; trigger?: string }) =>
+          e.type === 'on-guard-reveal' && (e.trigger === 'resource-play' || e.trigger === 'influence-attempt'),
+      );
+      if (!hasResourceTrigger) continue;
+
       // play-target DSL: character-targeting events get one action per character
       const isCharTargeting = 'effects' in def && def.effects?.some(
         e => e.type === 'play-target' && e.target === 'character',

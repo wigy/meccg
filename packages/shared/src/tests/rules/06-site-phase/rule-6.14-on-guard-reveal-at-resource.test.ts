@@ -19,7 +19,7 @@ import {
   makeSitePhase, placeOnGuard, viableActions,
   PLAYER_1, PLAYER_2,
   GANDALF, LEGOLAS, ARAGORN,
-  FOOLISH_WORDS, KNIGHTS_OF_DOL_AMROTH,
+  FOOLISH_WORDS, DOORS_OF_NIGHT, KNIGHTS_OF_DOL_AMROTH,
   LORIEN, MINAS_TIRITH, DOL_AMROTH,
 } from '../../test-helpers.js';
 
@@ -105,5 +105,26 @@ describe('Rule 6.14 — On-Guard Reveal When Playing Resource', () => {
     // pauses at the influence-attempt entry awaiting the player's roll.
     const afterChain = resolveChain(afterReveal.state);
     expect(viableActions(afterChain, PLAYER_1, 'faction-influence-roll')).toHaveLength(1);
+  });
+
+  test('hazard events without on-guard-reveal trigger cannot be revealed (e.g. Doors of Night)', () => {
+    // Doors of Night is an environment event with no on-guard-reveal effect.
+    // Per rule 2.V.6, it does not directly affect the company, so it must
+    // not be revealable from on-guard during an influence attempt.
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Site,
+      players: [
+        { id: PLAYER_1, companies: [{ site: DOL_AMROTH, characters: [ARAGORN] }], hand: [KNIGHTS_OF_DOL_AMROTH], siteDeck: [] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [MINAS_TIRITH] },
+      ],
+    });
+    const { state } = placeOnGuard(base, 0, 0, DOORS_OF_NIGHT);
+    const testState = { ...state, phaseState: makeSitePhase() };
+
+    const afterAttempt = reduce(testState, viableActions(testState, PLAYER_1, 'influence-attempt')[0].action);
+    const revealActions = viableActions(afterAttempt.state, PLAYER_2, 'reveal-on-guard');
+
+    expect(revealActions).toHaveLength(0);
   });
 });
