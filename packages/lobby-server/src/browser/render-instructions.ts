@@ -200,10 +200,21 @@ function getInstructionText(
     switch (view.phaseState.step) {
       case 'select-company':
         return 'Site — Select a company to resolve its site phase.';
-      case 'enter-or-skip':
+      case 'enter-or-skip': {
+        const riverRangerTap = view.legalActions.some(
+          ea => ea.viable
+            && ea.action.type === 'activate-granted-action'
+            && ea.action.actionId === 'tap-ranger-to-cancel-river',
+        );
+        if (riverRangerTap) {
+          return isSelf
+            ? 'Site — River blocks the company. Tap a ranger to cancel, or pass to do nothing.'
+            : 'Site — River blocks opponent\'s company. Opponent may tap a ranger to cancel.';
+        }
         return isSelf
           ? 'Site — Enter the site or skip.'
           : 'Site — Opponent deciding whether to enter site.';
+      }
       case 'reveal-on-guard-attacks':
         return isSelf
           ? 'Site — Opponent may reveal on-guard cards.'
