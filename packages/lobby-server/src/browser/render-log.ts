@@ -23,12 +23,18 @@ export function renderLog(message: string, cardPool?: Readonly<Record<string, Ca
  * The toast auto-dismisses after the CSS animation completes (~3.4s).
  * Visible in both debug and visual view modes.
  */
-export function showNotification(message: string, isError = false): void {
+export function showNotification(
+  message: string,
+  cardPoolOrError?: boolean | Readonly<Record<string, CardDefinition>>,
+): void {
   const container = document.getElementById('toast-container');
   if (!container) return;
+  const isError = cardPoolOrError === true;
+  const pool = typeof cardPoolOrError === 'object' ? cardPoolOrError : undefined;
   const toast = document.createElement('div');
   toast.className = isError ? 'toast toast--error' : 'toast';
-  toast.textContent = message;
+  toast.innerHTML = textToHtml(message);
+  if (pool) tagCardImages(toast, pool);
   container.appendChild(toast);
   toast.addEventListener('animationend', (e) => {
     if (e.animationName === 'toast-out') toast.remove();

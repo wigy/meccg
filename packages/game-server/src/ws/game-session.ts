@@ -24,6 +24,7 @@ import type {
   ServerMessage,
   JoinMessage,
   GameAction,
+  StateMessage,
 } from '@meccg/shared';
 import { loadCardPool, createRng, buildMovementMap, createGame, reduce, startCapture, flushCapture, Phase, computeTournamentBreakdown, computeLegalActions } from '@meccg/shared';
 import type { MovementMap, PlayerConfig, GameConfig } from '@meccg/shared';
@@ -479,7 +480,7 @@ export class GameSession {
     }
 
     // broadcastState triggers computeLegalActions logging — capture continues
-    this.broadcastState();
+    this.broadcastState(actionWithPlayer);
 
     // Flush all captured log lines (from reduce + broadcastState) to clients
     if (this.dev) {
@@ -913,18 +914,20 @@ export class GameSession {
     return null;
   }
 
-  private broadcastState(): void {
+  private broadcastState(lastAction?: GameAction): void {
     if (!this.state) return;
 
     for (const [, { ws, playerId }] of this.players.entries()) {
       const view = projectPlayerView(this.state, playerId);
-      this.send(ws, { type: 'state', view });
+      const msg: StateMessage = lastAction ? { type: 'state', view, lastAction } : { type: 'state', view };
+      this.send(ws, msg);
     }
 
     if (this.spectators.size > 0) {
       const spectatorView = projectSpectatorView(this.state);
       for (const ws of this.spectators) {
-        this.send(ws, { type: 'state', view: spectatorView });
+        const msg: StateMessage = lastAction ? { type: 'state', view: spectatorView, lastAction } : { type: 'state', view: spectatorView };
+        this.send(ws, msg);
       }
     }
   }
@@ -933,9 +936,9 @@ export class GameSession {
    * Broadcast state to all clients, capturing engine log output and
    * forwarding it to clients as a LogMessage when in dev mode.
    */
-  private broadcastStateWithLogs(): void {
+  private broadcastStateWithLogs(lastAction?: GameAction): void {
     if (this.dev) startCapture();
-    this.broadcastState();
+    this.broadcastState(lastAction);
     if (this.dev) {
       const lines = flushCapture();
       if (lines.length > 0) {
