@@ -408,6 +408,9 @@ export function findNonViableReason(
       && instanceLookup(a.characterInstanceId!) === defId) return ea.reason;
     if (a.type === 'not-playable' && instanceLookup
       && instanceLookup(a.cardInstanceId!) === defId) return ea.reason;
+    // Generic fallback: match any non-viable action whose cardInstanceId resolves to this card
+    if (a.cardInstanceId && instanceLookup
+      && instanceLookup(a.cardInstanceId) === defId) return ea.reason;
   }
   return undefined;
 }
