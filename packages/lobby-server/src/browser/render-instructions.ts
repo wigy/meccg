@@ -289,6 +289,10 @@ function getInstructionText(
 
   // Free Council phase
   if (view.phaseState.phase === Phase.FreeCouncil) {
+    const hasSupport = view.legalActions.some(ea => ea.viable && ea.action.type === 'support-corruption-check');
+    if (hasSupport) {
+      return 'Free Council — Tap characters for corruption check support (+1 each), or roll.';
+    }
     const hasChecks = view.legalActions.some(ea => ea.viable && ea.action.type === 'corruption-check');
     if (hasChecks) {
       return 'Free Council — Choose a character for corruption check.';
@@ -400,7 +404,9 @@ export function renderPassButton(view: PlayerView, onAction: (action: GameAction
       default: label = 'Continue';
     }
   } else if (view.phaseState.phase === Phase.FreeCouncil) {
-    label = 'Done';
+    // "Roll" during support window (pendingCheck is set), "Done" otherwise
+    const hasSupportActions = view.legalActions.some(ea => ea.viable && ea.action.type === 'support-corruption-check');
+    label = hasSupportActions ? 'Roll' : 'Done';
   } else if (view.phaseState.phase === 'setup') {
     const step = view.phaseState.setupStep.step;
     if (step === 'item-draft') label = 'Continue';

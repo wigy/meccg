@@ -371,6 +371,7 @@ function transitionToFreeCouncil(state: GameState, lastTurnPlayer: PlayerId): Ga
       currentPlayer: lastTurnPlayer,
       checkedCharacters: [],
       firstPlayerDone: false,
+      pendingCheck: null,
     },
   };
 }

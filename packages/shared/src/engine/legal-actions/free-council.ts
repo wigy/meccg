@@ -6,10 +6,14 @@
  * Each player performs corruption checks in turn, starting with the player
  * who took the last turn. Characters already checked are tracked in
  * the phase state's `checkedCharacters` array.
+ *
+ * Per CoE rule 7.1.1, after a corruption check is declared but before it
+ * resolves, other untapped characters in the same company may tap for
+ * +1 support each. This is handled via the `pendingCheck` sub-state.
  */
 
 import type { GameState, PlayerId, GameAction, CardInstanceId, FreeCouncilPhaseState } from '../../index.js';
-import { isCharacterCard } from '../../index.js';
+import { isCharacterCard, CardStatus } from '../../index.js';
 import { logDetail } from './log.js';
 
 export function freeCouncilActions(state: GameState, playerId: PlayerId): GameAction[] {
@@ -26,6 +30,11 @@ export function freeCouncilActions(state: GameState, playerId: PlayerId): GameAc
 
   const player = state.players.find(p => p.id === playerId);
   if (!player) return [];
+
+  // If a corruption check is pending (awaiting support), offer support actions
+  if (fcState.pendingCheck) {
+    return supportActions(state, playerId, fcState);
+  }
 
   const checked = new Set(fcState.checkedCharacters);
   const actions: GameAction[] = [];
@@ -65,5 +74,48 @@ export function freeCouncilActions(state: GameState, playerId: PlayerId): GameAc
   } else {
     logDetail(`Free Council: ${actions.length} character(s) available for corruption checks`);
   }
+  return actions;
+}
+
+/**
+ * Computes support actions for a pending corruption check.
+ *
+ * Eligible supporters are untapped characters in the same company as the
+ * character making the check (excluding the check target itself).
+ * Each tapped supporter adds +1 to the roll (CoE rule 7.1.1).
+ * Pass is always available to resolve the check without further support.
+ */
+function supportActions(
+  state: GameState,
+  playerId: PlayerId,
+  fcState: FreeCouncilPhaseState,
+): GameAction[] {
+  const pending = fcState.pendingCheck!;
+  const player = state.players.find(p => p.id === playerId)!;
+  const actions: GameAction[] = [];
+
+  // Find the company containing the character making the check
+  const company = player.companies.find(c => c.characters.includes(pending.characterId));
+  if (company) {
+    for (const charId of company.characters) {
+      if (charId === pending.characterId) continue;
+      const charInPlay = player.characters[charId as string];
+      if (!charInPlay) continue;
+      if (charInPlay.status !== CardStatus.Untapped) continue;
+
+      const charDef = state.cardPool[charInPlay.definitionId as string];
+      const charName = charDef?.name ?? (charId as string);
+      logDetail(`Support available: ${charName} can tap for +1 to corruption check`);
+      actions.push({
+        type: 'support-corruption-check',
+        player: playerId,
+        supportingCharacterId: charId,
+      });
+    }
+  }
+
+  logDetail(`Corruption check support: ${actions.length} supporter(s) available, pass to resolve`);
+  // Pass resolves the pending check with accumulated support
+  actions.push({ type: 'pass', player: playerId });
   return actions;
 }

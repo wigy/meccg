@@ -607,6 +607,22 @@ export interface FreeCouncilPhaseState {
   readonly checkedCharacters: readonly string[];
   /** Whether the first player has finished their corruption checks. */
   readonly firstPlayerDone: boolean;
+  /**
+   * A corruption check that has been declared but not yet resolved.
+   * While pending, other untapped characters in the same company may
+   * tap for +1 support each (CoE rule 7.1.1). Null when no check is
+   * awaiting resolution.
+   */
+  readonly pendingCheck: {
+    readonly characterId: CardInstanceId;
+    readonly corruptionPoints: number;
+    readonly corruptionModifier: number;
+    readonly possessions: readonly CardInstanceId[];
+    readonly need: number;
+    readonly explanation: string;
+    /** Number of characters that have tapped for support so far. */
+    readonly supportCount: number;
+  } | null;
 }
 
 /**

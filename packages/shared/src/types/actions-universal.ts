@@ -12,6 +12,22 @@
 import type { PlayerId, CardInstanceId } from './common.js';
 
 /**
+ * Tap a character to support another character's corruption check.
+ *
+ * Per CoE rule 7.1.1, a resource player may tap one or more other
+ * characters in the same company as a character whose corruption check
+ * has been declared but not yet resolved. Each tapped character adds
+ * +1 to the corruption check roll.
+ */
+export interface SupportCorruptionCheckAction {
+  readonly type: 'support-corruption-check';
+  /** The player whose character is providing support. */
+  readonly player: PlayerId;
+  /** The untapped character being tapped for +1 support. */
+  readonly supportingCharacterId: CardInstanceId;
+}
+
+/**
  * Trigger a corruption check on one of your own characters.
  *
  * The character rolls 2d6. If the roll is greater than their total

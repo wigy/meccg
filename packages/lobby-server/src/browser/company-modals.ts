@@ -21,6 +21,7 @@ import type {
   StartSideboardToDeckAction,
   StartSideboardToDiscardAction,
   CorruptionCheckAction,
+  SupportCorruptionCheckAction,
   OpponentInfluenceAttemptAction,
 } from '@meccg/shared';
 import { cardImageProxyPath, viableActions } from '@meccg/shared';
@@ -385,6 +386,7 @@ export function showCharacterActionTooltip(
     mergeActions?: Map<string, MergeCompaniesAction[]>;
     sideboardIntentActions?: Map<string, (StartSideboardToDeckAction | StartSideboardToDiscardAction)[]>;
     corruptionCheckActions?: Map<string, CorruptionCheckAction>;
+    supportCorruptionCheckActions?: Map<string, SupportCorruptionCheckAction>;
     companyId?: CompanyId;
   },
 ): void {
@@ -500,6 +502,19 @@ export function showCharacterActionTooltip(
       e.stopPropagation();
       dismissTooltip();
       onAction(ccAction);
+    };
+    tooltip.appendChild(btn);
+  }
+
+  const ccSupportAction = options.supportCorruptionCheckActions?.get(charInstId as string);
+  if (ccSupportAction) {
+    const btn = document.createElement('button');
+    btn.className = 'char-action-tooltip__btn';
+    btn.textContent = 'Tap for CC Support (+1)';
+    btn.onclick = (e) => {
+      e.stopPropagation();
+      dismissTooltip();
+      onAction(ccSupportAction);
     };
     tooltip.appendChild(btn);
   }

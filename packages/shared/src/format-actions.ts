@@ -286,6 +286,8 @@ export function describeAction(
       return `Cancel attack: play ${instName(action.cardInstanceId)}, tap ${instName(action.scoutInstanceId)}`;
     case 'cancel-by-tap':
       return `Cancel attack by tapping ${instName(action.characterId)}`;
+    case 'support-corruption-check':
+      return `Tap ${instName(action.supportingCharacterId)} for CC support (+1)`;
     default: {
       const _exhaustive: never = action;
       return `Unknown action`;

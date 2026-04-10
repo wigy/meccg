@@ -21,6 +21,7 @@ import type {
   StartSideboardToDeckAction,
   StartSideboardToDiscardAction,
   CorruptionCheckAction,
+  SupportCorruptionCheckAction,
   ActivateGrantedAction,
 } from '@meccg/shared';
 import { viableActions } from '@meccg/shared';
@@ -146,6 +147,19 @@ export function getCorruptionCheckActions(view: PlayerView): Map<string, Corrupt
   for (const action of viableActions(view.legalActions)) {
     if (action.type !== 'corruption-check') continue;
     result.set(action.characterId as string, action);
+  }
+  return result;
+}
+
+/**
+ * Collect all viable support-corruption-check actions, keyed by the supporting character instance ID.
+ * Each untapped character in the same company as the check target can provide +1 support.
+ */
+export function getSupportCorruptionCheckActions(view: PlayerView): Map<string, SupportCorruptionCheckAction> {
+  const result = new Map<string, SupportCorruptionCheckAction>();
+  for (const action of viableActions(view.legalActions)) {
+    if (action.type !== 'support-corruption-check') continue;
+    result.set(action.supportingCharacterId as string, action);
   }
   return result;
 }

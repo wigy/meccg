@@ -26,6 +26,7 @@ import type {
   StartSideboardToDeckAction,
   StartSideboardToDiscardAction,
   CorruptionCheckAction,
+  SupportCorruptionCheckAction,
   ActivateGrantedAction,
   OpponentInfluenceAttemptAction,
 } from '@meccg/shared';
@@ -122,6 +123,8 @@ export function renderCompanyBlock(
     sideboardIntentActions?: Map<string, (StartSideboardToDeckAction | StartSideboardToDiscardAction)[]>;
     /** Map from character instance ID to corruption-check action. */
     corruptionCheckActions?: Map<string, CorruptionCheckAction>;
+    /** Map from character instance ID to support-corruption-check action. */
+    supportCorruptionCheckActions?: Map<string, SupportCorruptionCheckAction>;
     /** Map from source card instance ID to activate-granted-action action. */
     grantedActions?: Map<string, ActivateGrantedAction>;
   },
@@ -474,6 +477,7 @@ export function renderCompanyBlock(
     const sideboardIntents = options?.sideboardIntentActions?.get(charInstId as string);
     const hasSideboard = sideboardIntents && sideboardIntents.length > 0;
     const ccAction = options?.corruptionCheckActions?.get(charInstId as string);
+    const ccSupportAction = options?.supportCorruptionCheckActions?.get(charInstId as string);
 
     // Check for opponent influence actions
     const oppInfluenceActions = viableActions(view.legalActions).filter(
@@ -483,7 +487,7 @@ export function renderCompanyBlock(
     const hasOppInfluence = oppInfluenceActions.length > 0;
 
     // Count how many action types are available
-    const actionTypes = [influenceResult, companyResult, mergeActionsForChar, hasSideboard, ccAction, hasOppInfluence].filter(Boolean).length;
+    const actionTypes = [influenceResult, companyResult, mergeActionsForChar, hasSideboard, ccAction, ccSupportAction, hasOppInfluence].filter(Boolean).length;
 
     if (actionTypes === 0) return undefined;
 
@@ -576,6 +580,17 @@ export function renderCompanyBlock(
         handler: (e) => {
           e.stopPropagation();
           options!.onAction!(ccAction);
+        },
+      };
+    }
+
+    // Single type: corruption check support — tap to support
+    if (ccSupportAction) {
+      return {
+        cls: 'company-card--influence-source',
+        handler: (e) => {
+          e.stopPropagation();
+          options!.onAction!(ccSupportAction);
         },
       };
     }

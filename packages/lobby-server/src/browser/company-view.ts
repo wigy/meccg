@@ -364,25 +364,36 @@ export function renderCompanyViews(
     renderAllCompaniesView(board, view, cardPool);
   }
 
-  // During Free Council, highlight characters with available corruption check actions
-  // (clickable) and mark already-checked characters with a green checkmark
+  // During Free Council, highlight characters with available corruption check
+  // or support actions (clickable) and mark already-checked characters
   if (inFreeCouncil) {
     const ccActions = new Map<string, GameAction>();
+    const ccSupportActions = new Map<string, GameAction>();
     for (const a of viableActions(view.legalActions)) {
       if (a.type === 'corruption-check') {
         ccActions.set(a.characterId as string, a);
+      } else if (a.type === 'support-corruption-check') {
+        ccSupportActions.set(a.supportingCharacterId as string, a);
       }
     }
     const checkedSet = new Set(view.phaseState.checkedCharacters);
     for (const col of board.querySelectorAll<HTMLElement>('.character-column[data-instance-id]')) {
       const instId = col.dataset.instanceId!;
       const ccAction = ccActions.get(instId);
+      const supportAction = ccSupportActions.get(instId);
       if (ccAction) {
         col.classList.add('cc-pending');
         col.style.cursor = 'pointer';
         col.onclick = (e) => {
           e.stopPropagation();
           onAction(ccAction);
+        };
+      } else if (supportAction) {
+        col.classList.add('cc-pending');
+        col.style.cursor = 'pointer';
+        col.onclick = (e) => {
+          e.stopPropagation();
+          onAction(supportAction);
         };
       } else if (checkedSet.has(instId)) {
         const mark = document.createElement('div');
