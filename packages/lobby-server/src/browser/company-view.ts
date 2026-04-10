@@ -301,6 +301,24 @@ export function renderCompanyViews(
     }
   }
 
+  // Auto-focus on the company containing a character with a pending corruption check
+  if (!focusedCompanyId) {
+    const ccAction = view.legalActions.find(
+      ea => ea.viable && ea.action.type === 'corruption-check',
+    );
+    if (ccAction && ccAction.action.type === 'corruption-check') {
+      const { characterId } = ccAction.action;
+      const ccCompany = view.self.companies.find(
+        c => c.characters.includes(characterId),
+      );
+      if (ccCompany) {
+        setFocusedCompanyId(ccCompany.id);
+        focusedCompanyId = ccCompany.id;
+        setAllCompaniesOverride(false);
+      }
+    }
+  }
+
   // Auto-focus the active player's first company when entering play phases
   if (!focusedCompanyId && view.activePlayer !== null) {
     const isSelfTurn = view.activePlayer === view.self.id;
