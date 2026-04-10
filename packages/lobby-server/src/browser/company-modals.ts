@@ -335,10 +335,32 @@ export function openExchangeModal(
     modal.appendChild(doneBtn);
   }
 
-  // Apply overlap after layout so we know each fan grid's actual width.
-  requestAnimationFrame(() => {
-    for (const grid of fanGrids) applyFanOverlap(grid);
-  });
+  // Apply overlap once card images have loaded so offsetWidth is accurate.
+  // On the first open, images are not yet cached and have no intrinsic width
+  // until loaded; a plain requestAnimationFrame would see offsetWidth === 0
+  // and skip the overlap calculation.
+  const allImages = fanGrids.flatMap(g =>
+    Array.from(g.querySelectorAll<HTMLImageElement>('.sideboard-fetch-card')),
+  );
+  const applyAll = (): void => {
+    requestAnimationFrame(() => {
+      for (const grid of fanGrids) applyFanOverlap(grid);
+    });
+  };
+  const pending = allImages.filter(img => !img.complete);
+  if (pending.length === 0) {
+    applyAll();
+  } else {
+    let remaining = pending.length;
+    const onLoad = (): void => {
+      remaining--;
+      if (remaining === 0) applyAll();
+    };
+    for (const img of pending) {
+      img.addEventListener('load', onLoad, { once: true });
+      img.addEventListener('error', onLoad, { once: true });
+    }
+  }
 }
 
 /** Remove exchange modal and its backdrop. */
