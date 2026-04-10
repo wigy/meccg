@@ -28,7 +28,7 @@
 import { describe, test, expect } from 'vitest';
 import {
   buildResolutionState, attemptInfluence, defendInfluence,
-  findCharInstanceId, viableActions, PLAYER_1,
+  findCharInstanceId, viableActions, PLAYER_1, PLAYER_2,
   CardStatus, reduce,
   ARAGORN, LEGOLAS, GIMLI, BILBO, EOWYN,
   GLAMDRING,
@@ -193,6 +193,23 @@ describe('Rule 10.12 — Resolving an Influence Attempt', () => {
     expect(afterDefend.players[0].discardPile.some(
       c => c.instanceId === revealAction.action.revealedCardInstanceId,
     )).toBe(true);
+  });
+
+  test('defend action includes explanation with attacker roll and modifier breakdown', () => {
+    const state = buildResolutionState({ attackerCheatRoll: 7 });
+    const { state: afterAttempt } = attemptInfluence(state, LEGOLAS);
+    const actions = viableActions(afterAttempt, PLAYER_2, 'opponent-influence-defend');
+    expect(actions.length).toBe(1);
+    const action = actions[0].action;
+    expect(action.type).toBe('opponent-influence-defend');
+    if (action.type !== 'opponent-influence-defend') return;
+    expect(action.explanation).toBeDefined();
+    expect(action.explanation).toContain('Attacker roll: 7');
+    expect(action.explanation).toContain('Influencer DI:');
+    expect(action.explanation).toContain('Target mind:');
+    expect(action.explanation).toContain('Controller DI:');
+    expect(action.explanation).toContain('Aragorn');
+    expect(action.explanation).toContain('Legolas');
   });
 
   test.todo('followers of discarded character fall to GI if room, else discarded');

@@ -122,6 +122,37 @@ function renderFactionInfluenceRollBanner(
   board.appendChild(row);
 }
 
+/**
+ * Render a situation banner when the defender must roll for an opponent
+ * influence attempt. Shows the influencing character, target, attacker
+ * roll, and all modifier breakdowns so the defender knows the situation
+ * before committing to their roll.
+ */
+function renderOpponentInfluenceDefendBanner(
+  board: HTMLElement,
+  view: PlayerView,
+): void {
+  const oiEval = view.legalActions.find(ea => ea.viable && ea.action.type === 'opponent-influence-defend');
+  if (!oiEval || oiEval.action.type !== 'opponent-influence-defend') return;
+
+  const action = oiEval.action;
+
+  const row = document.createElement('div');
+  row.className = 'situation-banner-row';
+
+  const banner = document.createElement('div');
+  banner.className = 'situation-banner';
+  banner.textContent = 'Opponent Influence \u2014 Defend';
+
+  const detail = document.createElement('div');
+  detail.className = 'situation-banner-detail';
+  detail.textContent = action.explanation;
+  banner.appendChild(detail);
+
+  row.appendChild(banner);
+  board.appendChild(row);
+}
+
 /** Phases where company views are displayed (normal play and Free Council). */
 const COMPANY_VIEW_PHASES = new Set([
   Phase.Untap,
@@ -355,6 +386,9 @@ export function renderCompanyViews(
 
   // Pending faction influence roll banner (chain paused awaiting the roll)
   renderFactionInfluenceRollBanner(board, view, cardPool);
+
+  // Pending opponent influence defend banner (defender must roll)
+  renderOpponentInfluenceDefendBanner(board, view);
 
   const showingSingle = focusedCompanyId !== null && !getAllCompaniesOverride() && !inSelectCompany && !inFreeCouncil;
 

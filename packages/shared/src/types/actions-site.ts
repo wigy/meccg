@@ -176,6 +176,8 @@ export interface OpponentInfluenceDefendAction {
   readonly type: 'opponent-influence-defend';
   /** The hazard player rolling the defensive dice. */
   readonly player: PlayerId;
+  /** Human-readable breakdown of the influence check so the defender knows the situation before rolling. */
+  readonly explanation: string;
 }
 
 /**

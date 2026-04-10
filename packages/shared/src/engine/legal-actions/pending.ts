@@ -27,7 +27,7 @@ import type {
   CardInstanceId,
   CompanyId,
 } from '../../index.js';
-import { isCharacterCard, isFactionCard, Phase, Skill, CardStatus, matchesCondition } from '../../index.js';
+import { isCharacterCard, isAllyCard, isFactionCard, Phase, Skill, CardStatus, matchesCondition } from '../../index.js';
 import { resolveInstanceId } from '../../types/state.js';
 import { resolveDef, collectCharacterEffects, resolveCheckModifier, resolveStatModifiers } from '../effects/index.js';
 import type { ResolverContext } from '../effects/index.js';
@@ -57,7 +57,7 @@ export function resolutionLegalActions(
     case 'on-guard-window':
       return onGuardWindowActions(state, actor, top);
     case 'opponent-influence-defend':
-      return opponentInfluenceDefendActions(actor);
+      return opponentInfluenceDefendActions(state, actor, top);
     case 'faction-influence-roll':
       return factionInfluenceRollActions(state, actor, top);
   }
@@ -154,10 +154,36 @@ function onGuardWindowActions(
  * Compute the (single) legal action for the hazard player while an
  * opponent-influence-defend resolution is queued — they roll the
  * defensive 2d6 by submitting an `opponent-influence-defend` action.
+ * Builds a human-readable explanation from the pending attempt data
+ * so the UI can display a situation banner before the roll.
  */
-function opponentInfluenceDefendActions(actor: PlayerId): EvaluatedAction[] {
+function opponentInfluenceDefendActions(
+  state: GameState,
+  actor: PlayerId,
+  top: PendingResolution,
+): EvaluatedAction[] {
+  if (top.kind.type !== 'opponent-influence-defend') return [];
+  const { attempt } = top.kind;
+
+  const influencerDef = resolveDef(state, attempt.influencerId);
+  const influencerName = influencerDef && isCharacterCard(influencerDef) ? influencerDef.name : '?';
+
+  const targetDef = resolveDef(state, attempt.targetInstanceId);
+  const targetName = targetDef && (isCharacterCard(targetDef) || isAllyCard(targetDef))
+    ? targetDef.name : '?';
+
+  const parts: string[] = [
+    `Attacker roll: ${attempt.attackerRoll}`,
+    `Influencer DI: ${attempt.influencerDI}`,
+    `Your GI: ${attempt.opponentGI}`,
+    `Controller DI: ${attempt.controllerDI}`,
+    `Target mind: ${attempt.targetMind}`,
+  ];
+
+  const explanation = `${influencerName} influences ${targetName}: ${parts.join(', ')}`;
+
   return [{
-    action: { type: 'opponent-influence-defend', player: actor },
+    action: { type: 'opponent-influence-defend', player: actor, explanation },
     viable: true,
   }];
 }

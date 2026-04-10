@@ -845,9 +845,11 @@ export function attemptInfluence(state: GameState, targetDefId?: string) {
   return { state: result.state, action: attempt!.action, effects: result.effects };
 }
 
-/** Execute the defender's roll. */
+/** Execute the defender's roll using the legal action (which includes the explanation). */
 export function defendInfluence(state: GameState) {
-  const result = reduce(state, { type: 'opponent-influence-defend', player: PLAYER_2 });
+  const actions = viableActions(state, PLAYER_2, 'opponent-influence-defend');
+  expect(actions.length).toBe(1);
+  const result = reduce(state, actions[0].action);
   expect(result.error).toBeUndefined();
   return result;
 }
