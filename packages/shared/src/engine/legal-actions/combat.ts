@@ -54,6 +54,8 @@ export function combatActions(state: GameState, playerId: PlayerId): EvaluatedAc
       return resolveStrikeActions(state, playerId, combat);
     case 'body-check':
       return bodyCheckActions(state, playerId, combat);
+    case 'item-salvage':
+      return itemSalvageActions(state, playerId, combat);
     default:
       return [];
   }
@@ -443,6 +445,56 @@ function cancelByTapActions(
 
   // Defender can always pass (decline to cancel more attacks)
   logDetail(`Defender can pass cancel-by-tap (${combat.cancelByTapRemaining} cancel(s) remaining)`);
+  actions.push({
+    action: { type: 'pass', player: playerId },
+    viable: true,
+  });
+
+  return actions;
+}
+
+/**
+ * Actions during the item-salvage sub-phase (CoE rule 3.I.2).
+ *
+ * After a character is eliminated by a body check, the defending player
+ * may transfer one item per unwounded character in the same company.
+ * The player can also pass to discard all remaining items.
+ */
+function itemSalvageActions(
+  state: GameState,
+  playerId: PlayerId,
+  combat: CombatState,
+): EvaluatedAction[] {
+  if (playerId !== combat.defendingPlayerId) return [];
+
+  const { salvageItems, salvageRecipients } = combat;
+  if (!salvageItems || !salvageRecipients || salvageItems.length === 0 || salvageRecipients.length === 0) return [];
+
+  const actions: EvaluatedAction[] = [];
+
+  // For each available item × each eligible recipient = one action
+  for (const item of salvageItems) {
+    for (const recipientId of salvageRecipients) {
+      const charData = state.players.find(p => p.id === playerId)?.characters[recipientId as string];
+      const charDef = charData ? state.cardPool[charData.definitionId as string] : undefined;
+      const charName = charDef && 'name' in charDef ? (charDef as { name: string }).name : (recipientId as string);
+      const itemDef = state.cardPool[item.definitionId as string];
+      const itemName = itemDef && 'name' in itemDef ? (itemDef as { name: string }).name : (item.instanceId as string);
+      logDetail(`Salvage available: ${itemName} → ${charName}`);
+      actions.push({
+        action: {
+          type: 'salvage-item',
+          player: playerId,
+          itemInstanceId: item.instanceId,
+          recipientCharacterId: recipientId,
+        },
+        viable: true,
+      });
+    }
+  }
+
+  // Player can always pass to skip remaining transfers
+  logDetail('Defender can pass to discard remaining items');
   actions.push({
     action: { type: 'pass', player: playerId },
     viable: true,

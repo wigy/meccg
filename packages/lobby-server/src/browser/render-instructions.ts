@@ -125,6 +125,11 @@ function getInstructionText(
         ? 'Combat — Roll the body check.'
         : 'Combat — Opponent rolls the body check.';
     }
+    if (view.combat.phase === 'item-salvage') {
+      return iAmDefender
+        ? 'Combat — Transfer items from the eliminated character, or pass to discard them.'
+        : 'Combat — Opponent may salvage items from an eliminated character.';
+    }
   }
 
   // Chain of effects: show priority/mode context

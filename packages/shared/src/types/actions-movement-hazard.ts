@@ -230,3 +230,19 @@ export interface BodyCheckRollAction {
   /** Human-readable breakdown of the body check target. */
   readonly explanation: string;
 }
+
+/**
+ * Transfer one item from an eliminated character to an unwounded companion
+ * in the same company. Available during the 'item-salvage' combat phase
+ * after a character is eliminated by a body check (CoE rule 3.I.2).
+ */
+export interface SalvageItemAction {
+  /** Action discriminant. */
+  readonly type: 'salvage-item';
+  /** The defending player performing the salvage. */
+  readonly player: PlayerId;
+  /** The item being transferred from the eliminated character. */
+  readonly itemInstanceId: CardInstanceId;
+  /** The unwounded character in the company receiving the item. */
+  readonly recipientCharacterId: CardInstanceId;
+}

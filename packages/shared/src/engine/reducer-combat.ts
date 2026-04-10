@@ -5,7 +5,7 @@
  * strike resolution, support strikes, body checks, and combat finalization.
  */
 
-import type { GameState, CombatState, StrikeAssignment, GameAction, GameEffect } from '../index.js';
+import type { GameState, CombatState, StrikeAssignment, GameAction, GameEffect, CardInstanceId } from '../index.js';
 import { CardStatus, Phase, isSiteCard, isCharacterCard } from '../index.js';
 import type { OnEventEffect } from '../types/effects.js';
 import { logDetail } from './legal-actions/log.js';
@@ -42,6 +42,8 @@ export function handleCombatAction(state: GameState, action: GameAction): Reduce
       return handleCancelAttack(state, action, combat);
     case 'cancel-by-tap':
       return handleCancelByTap(state, action, combat);
+    case 'salvage-item':
+      return handleSalvageItem(state, action, combat);
     default:
       return { state, error: `Unexpected action '${action.type}' during combat` };
   }
@@ -183,6 +185,24 @@ function handleAssignStrike(state: GameState, action: GameAction, combat: Combat
 function handleCombatPass(state: GameState, action: GameAction, combat: CombatState): ReducerResult {
   if (action.type !== 'pass') return { state, error: 'Expected pass' };
 
+  // Pass during item-salvage: player declines further transfers, discard remaining items
+  if (combat.phase === 'item-salvage') {
+    if (action.player !== combat.defendingPlayerId) {
+      return { state, error: 'Only the defending player can pass during item salvage' };
+    }
+    logDetail('Defender passed item-salvage — discarding remaining items');
+    const newPlayers = clonePlayers(state);
+    const defIdx = state.players.findIndex(p => p.id === combat.defendingPlayerId);
+    for (const item of combat.salvageItems ?? []) {
+      logDetail(`Discarding unsalvaged item ${item.instanceId as string}`);
+      newPlayers[defIdx] = {
+        ...newPlayers[defIdx],
+        discardPile: [...newPlayers[defIdx].discardPile, { instanceId: item.instanceId, definitionId: item.definitionId }],
+      };
+    }
+    return finishSalvage({ ...state, players: newPlayers }, combat);
+  }
+
   // Pass during cancel-by-tap sub-phase: proceed to strike resolution
   if (combat.phase === 'assign-strikes' && combat.assignmentPhase === 'cancel-by-tap') {
     logDetail('Defender passed cancel-by-tap — proceeding to strike resolution');
@@ -204,7 +224,7 @@ function handleCombatPass(state: GameState, action: GameAction, combat: CombatSt
   }
 
   if (combat.phase !== 'assign-strikes' || combat.assignmentPhase !== 'defender') {
-    return { state, error: 'Can only pass during defender strike assignment, cancel-window, or cancel-by-tap' };
+    return { state, error: 'Can only pass during defender strike assignment, cancel-window, cancel-by-tap, or item-salvage' };
   }
 
   const totalAllocated = combat.strikeAssignments.length
@@ -486,15 +506,55 @@ function handleBodyCheckRoll(state: GameState, action: GameAction, combat: Comba
         );
         newPlayerData.companies = newCompanies;
       }
-      // Move to eliminated pile (full item transfer deferred to Phase 4)
+      // Move character to eliminated pile
       const elimCharDefId = resolveInstanceId(state, strike.characterId);
       newPlayerData.eliminatedPile = [...newPlayerData.eliminatedPile, { instanceId: strike.characterId, definitionId: elimCharDefId! }];
+
+      // Discard allies and hazards on the eliminated character immediately
+      for (const ally of charData.allies) {
+        logDetail(`Discarding ally ${ally.instanceId as string} from eliminated character`);
+        newPlayerData.discardPile = [...newPlayerData.discardPile, { instanceId: ally.instanceId, definitionId: ally.definitionId }];
+      }
+
       const { [strike.characterId as string]: _, ...remainingChars } = newPlayerData.characters;
       newPlayerData.characters = remainingChars;
       newPlayers2[defPlayerIndex] = newPlayerData;
 
-      // Advance to next strike or finalize
       const combatWithElim = { ...combat, strikeAssignments: newAssignments };
+
+      // Per CoE rule 3.I.2: for each unwounded character in the same company,
+      // an item the eliminated character controlled may be transferred (one per recipient).
+      const salvageItems = charData.items;
+      const unwoundedRecipients: CardInstanceId[] = company
+        ? company.characters
+          .filter(ch => ch !== strike.characterId)
+          .filter(ch => {
+            const cd = newPlayerData.characters[ch as string];
+            return cd && cd.status !== CardStatus.Inverted;
+          })
+        : [];
+
+      if (salvageItems.length > 0 && unwoundedRecipients.length > 0) {
+        logDetail(`Entering item-salvage phase: ${salvageItems.length} item(s) available, ${unwoundedRecipients.length} unwounded recipient(s)`);
+        const combatWithSalvage: CombatState = {
+          ...combatWithElim,
+          phase: 'item-salvage',
+          salvageItems,
+          salvageRecipients: unwoundedRecipients,
+        };
+        return { state: { ...stateWithRoll, players: newPlayers2, combat: combatWithSalvage }, effects };
+      }
+
+      // No items or no recipients — discard all items immediately
+      for (const item of salvageItems) {
+        logDetail(`Discarding item ${item.instanceId as string} (no salvage possible)`);
+        newPlayers2[defPlayerIndex] = {
+          ...newPlayers2[defPlayerIndex],
+          discardPile: [...newPlayers2[defPlayerIndex].discardPile, { instanceId: item.instanceId, definitionId: item.definitionId }],
+        };
+      }
+
+      // Advance to next strike or finalize
       const next2 = nextStrikePhase(combatWithElim);
       if (next2) {
         return { state: { ...stateWithRoll, players: newPlayers2, combat: { ...combatWithElim, ...next2 } }, effects };
@@ -690,6 +750,84 @@ function handleCancelByTap(state: GameState, action: GameAction, combat: CombatS
   }
 
   return { state: { ...state, players: newPlayers, combat: newCombat } };
+}
+
+/**
+ * Transfer one item from an eliminated character to an unwounded companion.
+ * Available during the 'item-salvage' combat phase (CoE rule 3.I.2).
+ */
+function handleSalvageItem(state: GameState, action: GameAction, combat: CombatState): ReducerResult {
+  if (action.type !== 'salvage-item') return { state, error: 'Expected salvage-item' };
+  if (combat.phase !== 'item-salvage') return { state, error: 'Not in item-salvage phase' };
+  if (action.player !== combat.defendingPlayerId) return { state, error: 'Only defending player can salvage items' };
+
+  const { salvageItems, salvageRecipients } = combat;
+  if (!salvageItems || !salvageRecipients) return { state, error: 'No salvage state' };
+
+  // Validate the item exists in salvage pool
+  const itemIndex = salvageItems.findIndex(it => it.instanceId === action.itemInstanceId);
+  if (itemIndex < 0) return { state, error: 'Item not available for salvage' };
+
+  // Validate the recipient is eligible
+  if (!salvageRecipients.includes(action.recipientCharacterId)) {
+    return { state, error: 'Character not eligible to receive salvaged item' };
+  }
+
+  const item = salvageItems[itemIndex];
+  const newPlayers = clonePlayers(state);
+  const defIdx = state.players.findIndex(p => p.id === combat.defendingPlayerId);
+  const recipientChar = newPlayers[defIdx].characters[action.recipientCharacterId as string];
+  if (!recipientChar) return { state, error: 'Recipient character not found' };
+
+  logDetail(`Salvaging item ${item.instanceId as string} to character ${action.recipientCharacterId as string}`);
+
+  // Transfer the item to the recipient character
+  const newCharacters = { ...newPlayers[defIdx].characters };
+  newCharacters[action.recipientCharacterId as string] = {
+    ...recipientChar,
+    items: [...recipientChar.items, item],
+  };
+  newPlayers[defIdx] = { ...newPlayers[defIdx], characters: newCharacters };
+
+  // Remove item from salvage pool and recipient from eligible list
+  const remainingItems = salvageItems.filter((_, i) => i !== itemIndex);
+  const remainingRecipients = salvageRecipients.filter(r => r !== action.recipientCharacterId);
+
+  // If no more items or no more recipients, finish salvage
+  if (remainingItems.length === 0 || remainingRecipients.length === 0) {
+    // Discard any remaining unsalvaged items
+    for (const leftover of remainingItems) {
+      logDetail(`Discarding unsalvaged item ${leftover.instanceId as string}`);
+      newPlayers[defIdx] = {
+        ...newPlayers[defIdx],
+        discardPile: [...newPlayers[defIdx].discardPile, { instanceId: leftover.instanceId, definitionId: leftover.definitionId }],
+      };
+    }
+    return finishSalvage({ ...state, players: newPlayers }, combat);
+  }
+
+  // More items and recipients available — stay in salvage phase
+  logDetail(`Item salvage continues: ${remainingItems.length} item(s) remaining, ${remainingRecipients.length} recipient(s) remaining`);
+  return {
+    state: {
+      ...state,
+      players: newPlayers,
+      combat: { ...combat, salvageItems: remainingItems, salvageRecipients: remainingRecipients },
+    },
+  };
+}
+
+/**
+ * Transition out of item-salvage phase back to the normal combat flow.
+ * Clears salvage fields and advances to the next strike or finalizes combat.
+ */
+function finishSalvage(state: GameState, combat: CombatState): ReducerResult {
+  const cleanCombat: CombatState = { ...combat, phase: 'body-check', salvageItems: undefined, salvageRecipients: undefined };
+  const next = nextStrikePhase(cleanCombat);
+  if (next) {
+    return { state: { ...state, combat: { ...cleanCombat, ...next } } };
+  }
+  return finalizeCombat({ ...state, combat: cleanCombat });
 }
 
 /**

@@ -11,7 +11,7 @@ import {
   CardInstanceId,
   CompanyId,
 } from './common.js';
-import type { CardInstance } from './state-cards.js';
+import type { CardInstance, ItemInPlay } from './state-cards.js';
 import type { CardEffect } from './effects.js';
 
 // ---- Combat sub-state ----
@@ -102,7 +102,7 @@ export interface CombatState {
    * - `'resolve-strike'`: the chosen strike is resolved (tap/untap, support, dice roll)
    * - `'body-check'`: body check after a strike result
    */
-  readonly phase: 'assign-strikes' | 'choose-strike-order' | 'resolve-strike' | 'body-check';
+  readonly phase: 'assign-strikes' | 'choose-strike-order' | 'resolve-strike' | 'body-check' | 'item-salvage';
   /**
    * During assign-strikes, tracks who is currently assigning:
    * - `'cancel-window'`: defender's pre-assignment window to cancel the attack
@@ -141,6 +141,16 @@ export interface CombatState {
    * Set by the `cancel-attack-by-tap` combat rule.
    */
   readonly cancelByTapRemaining?: number;
+  /**
+   * Items available for salvage transfer from an eliminated character.
+   * Only set during the 'item-salvage' phase (CoE rule 3.I.2).
+   */
+  readonly salvageItems?: readonly ItemInPlay[];
+  /**
+   * Unwounded characters in the same company eligible to receive a salvaged item.
+   * Shrinks as items are transferred (one item per recipient).
+   */
+  readonly salvageRecipients?: readonly CardInstanceId[];
 }
 
 // ---- Chain of Effects sub-state ----
