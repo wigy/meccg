@@ -3686,6 +3686,13 @@ h2 {
   margin-bottom: calc(var(--card-table-height) * var(--company-scale, 1) * -0.35);
 }
 
+/* When a tapped character has attachments, use less collapse so the
+   prowess/body badge (which rotates to the bottom-left) stays visible
+   above the attachment row. */
+.character-card-wrap--tapped.character-card-wrap--has-attachments {
+  margin-bottom: calc(var(--card-table-height) * var(--company-scale, 1) * -0.2);
+}
+
 /* Card sizing */
 .company-card {
   height: calc(var(--card-table-height) * var(--company-scale, 1));

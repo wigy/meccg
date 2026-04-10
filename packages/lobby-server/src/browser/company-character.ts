@@ -51,6 +51,7 @@ export function renderCharacterColumn(
   if (char.status === CardStatus.Tapped) {
     inner.classList.add('character-card-inner--tapped');
     wrap.classList.add('character-card-wrap--tapped');
+    if (hasAttachments) wrap.classList.add('character-card-wrap--has-attachments');
   } else if (char.status === CardStatus.Inverted) {
     inner.classList.add('character-card-inner--wounded');
     if (hasAttachments) img.classList.add('company-card--faded-top');
