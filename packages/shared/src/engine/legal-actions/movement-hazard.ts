@@ -492,7 +492,31 @@ function playHazardsActions(
         e => e.type === 'play-target' && e.target === 'site',
       ) ?? false;
       if (isCharTargeting) {
+        // Character-scoped duplication-limit: find the max copies allowed on one character
+        const charDupLimit = def.effects?.find(
+          (e): e is import('../../index.js').DuplicationLimitEffect => e.type === 'duplication-limit' && e.scope === 'character',
+        );
         for (const charId of targetCompany.characters) {
+          // Check character-scoped duplication limit
+          if (charDupLimit) {
+            const charData = resourcePlayer.characters[charId as string];
+            if (charData) {
+              const copiesOnChar = charData.hazards.filter(h => {
+                const hDef = state.cardPool[h.definitionId as string];
+                return hDef && hDef.name === def.name;
+              }).length;
+              if (copiesOnChar >= charDupLimit.max) {
+                const charName = state.cardPool[charData.definitionId as string]?.name ?? (charId as string);
+                logDetail(`Hazard event "${def.name}" already on ${charName} (${copiesOnChar}/${charDupLimit.max})`);
+                actions.push({
+                  action: { ...action, targetCharacterId: charId },
+                  viable: false,
+                  reason: `${def.name} cannot be duplicated on ${charName}`,
+                });
+                continue;
+              }
+            }
+          }
           logDetail(`Hazard event "${def.name}" playable on character ${charId as string}`);
           actions.push({
             action: { ...action, targetCharacterId: charId },
