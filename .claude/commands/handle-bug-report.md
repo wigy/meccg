@@ -61,14 +61,26 @@ Follow these steps:
 
    This double validation prevents speculative code changes based on misread saves or misunderstood rules.
 
-6. **Fix the bug:** Implement the fix in the source code:
+6. **Find relevant test file:** Before fixing, check if there is an existing test that covers the rule or card involved:
+   - If the bug is about a **game rule**, look in `packages/shared/src/tests/rules/` for a test file covering the relevant CoE rule section. Check for `test.todo()` entries that match the broken rule.
+   - If the bug is about a **card's special ability**, look in `packages/shared/src/tests/cards/` for a test file for that card (named by card ID, e.g. `tw-156.test.ts`).
+   - Note the file path (or absence) for step 8.
+
+7. **Fix the bug:** Implement the fix in the source code:
    - Read the relevant source files
    - Make the minimal code changes needed to fix the bug
    - Follow the project's coding conventions (see CLAUDE.md)
    - Ensure new code has proper JSDoc documentation where needed
    - Follow the server-side logging policy if modifying engine code
 
-7. **Iterate until green:** Run all four checks **in parallel** and fix any failures. Repeat until all pass:
+8. **Add a regression test:** Write a test that reproduces the exact scenario from the bug report and would fail without the fix:
+   - If an existing test file was found in step 6, add the test there (convert a `test.todo()` if one matches, otherwise add a new `test()` block).
+   - If no existing file covers this case, create a new test file in the appropriate directory (`rules/` or `cards/`).
+   - The test should set up the game state that triggered the bug (using helpers from `test-helpers.ts`), then assert that the engine now produces the correct legal actions or state.
+   - Keep the test focused on the specific bug — one scenario, clear assertion.
+   - All helpers go in `test-helpers.ts`, not in the test file itself.
+
+9. **Iterate until green:** Run all four checks **in parallel** and fix any failures. Repeat until all pass:
    - `npm run build` — type-check (must pass)
    - `npm test` — rules tests (must all pass)
    - `npm run test:nightly` — card tests (must not introduce new failures)
@@ -76,7 +88,7 @@ Follow these steps:
 
    If a check fails, read the error output, fix the issue, and re-run. Keep iterating until all four pass cleanly.
 
-8. **Commit and push:** Create a single commit with all changes and push to the remote:
+10. **Commit and push:** Create a single commit with all changes and push to the remote:
    ```
    git add <changed-files>
    git commit -m "<descriptive message>
@@ -86,7 +98,7 @@ Follow these steps:
    ```
    Capture the commit hash from the output. The commit message should summarize the bug fix.
 
-9. **Emit the structured result block:** As the **last** thing you output, print exactly one block in the form below. `bin/handle-mail` will parse the JSON between the markers and use it to send the bug-reply mail (with credits/time footer) and the review request to admins. Do not call `/api/system/mail` or `/api/system/mail/.../<msg-id>` anywhere in this skill.
+11. **Emit the structured result block:** As the **last** thing you output, print exactly one block in the form below. `bin/handle-mail` will parse the JSON between the markers and use it to send the bug-reply mail (with credits/time footer) and the review request to admins. Do not call `/api/system/mail` or `/api/system/mail/.../<msg-id>` anywhere in this skill.
 
    ```
    ===HANDLE_MAIL_RESULT_BEGIN===
@@ -124,4 +136,4 @@ Follow these steps:
    - The `body` fields are JSON strings — escape newlines as `\n` and quotes as `\"`.
    - Do **not** print anything after `===HANDLE_MAIL_RESULT_END===`.
 
-10. **Report:** Briefly summarize what happened (one or two lines) **before** the result block, so the run log is readable. The result block must still be the final output.
+12. **Report:** Briefly summarize what happened (one or two lines) **before** the result block, so the run log is readable. The result block must still be the final output.
