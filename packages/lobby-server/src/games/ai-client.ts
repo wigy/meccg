@@ -45,11 +45,11 @@ function randInt(min: number, max: number): number {
 
 /** Pick the per-decision delay (ms). Body checks against the human take longer. */
 function decisionDelayMs(action: GameAction, view: import('@meccg/shared').PlayerView): number {
-  // Body check against an opponent character: 2-3 seconds.
+  // Body check against an opponent character: 3-4 seconds.
   if (action.type === 'body-check-roll') {
     const combat = view.combat;
     if (combat && combat.bodyCheckTarget === 'character' && combat.defendingPlayerId !== view.self.id) {
-      return randInt(2000, 3000);
+      return randInt(3000, 4000);
     }
   }
   // Default: 0.5-1.5 seconds for natural pacing.
