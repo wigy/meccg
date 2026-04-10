@@ -193,6 +193,38 @@ describe('Stealth (tw-332)', () => {
     expect(playActions.find(a => a.cardInstanceId === stealthInstance)).toBeUndefined();
   });
 
+  test('playing Stealth through the reducer adds no-creature-hazards-on-company constraint', () => {
+    // Regression: playing Stealth used to leave activeConstraints empty
+    // because handlePlayResourceShortEvent did not process on-event
+    // self-enters-play effects.
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Organization,
+      players: [
+        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [ARAGORN] }], hand: [STEALTH], siteDeck: [MORIA] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [MINAS_TIRITH] },
+      ],
+    });
+    const stealthInstance = base.players[0].hand[0].instanceId;
+    const aragornInstance = base.players[0].companies[0].characters[0];
+    const companyId = base.players[0].companies[0].id;
+
+    const result = reduce(base, {
+      type: 'play-short-event',
+      player: PLAYER_1,
+      cardInstanceId: stealthInstance,
+      targetScoutInstanceId: aragornInstance,
+    });
+    expect(result.error).toBeUndefined();
+
+    // The constraint should be added to activeConstraints
+    expect(result.state.activeConstraints).toHaveLength(1);
+    const constraint = result.state.activeConstraints[0];
+    expect(constraint.kind.type).toBe('no-creature-hazards-on-company');
+    expect(constraint.scope.kind).toBe('turn');
+    expect(constraint.target).toEqual({ kind: 'company', companyId });
+  });
+
   test('no-creature-hazards-on-company constraint blocks opponent creature plays against the protected company', () => {
     // Build a state in M/H phase: P1's company at Moria, P2 (hazard player)
     // has Cave-drake in hand. Without the constraint, P2 has a viable
