@@ -244,6 +244,12 @@ export function rollDice(die1: number, die2: number, variant: 'red' | 'black' = 
     const trayId = variant === 'black' ? 'self-dice-tray' : 'opponent-dice-tray';
     const tray = document.getElementById(trayId);
     if (tray && container) {
+      // The tray may be hidden via .dice-tray:empty { display: none } since
+      // we cleared it at the start of the roll. Temporarily force it visible
+      // so getBoundingClientRect() returns real coordinates instead of zeros
+      // (which would send the dice to the top-left corner).
+      const trayWasEmpty = !tray.children.length;
+      if (trayWasEmpty) tray.style.display = 'flex';
       const trayRect = tray.getBoundingClientRect();
       const contRect = container.getBoundingClientRect();
       const startX = contRect.left + contRect.width / 2;
@@ -264,6 +270,9 @@ export function rollDice(die1: number, die2: number, variant: 'red' | 'black' = 
       setTimeout(() => {
         dismiss(variant);
         restoreDice();
+        // Remove the temporary inline display override; restoreDice() has
+        // populated the tray so :empty no longer applies.
+        if (trayWasEmpty) tray.style.display = '';
         finishAnimation();
       }, 650);
     } else {
