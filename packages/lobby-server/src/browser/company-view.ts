@@ -208,20 +208,18 @@ export function renderCompanyViews(
     setLastActivePlayer(activeId);
   }
 
-  // Auto-focus on the opponent's active company after they select one for M/H or Site phase
+  // Auto-focus on the active company after one is selected for M/H or Site phase
   const curPhase = view.phaseState.phase;
   const curStep = (curPhase === Phase.MovementHazard || curPhase === Phase.Site)
     ? view.phaseState.step : null;
   const lastMhSiteStep = getLastMhSiteStep();
   if (lastMhSiteStep === 'select-company' && curStep !== null && curStep !== 'select-company') {
     const isSelfTurn = activeId !== null && activeId === (view.self.id as string);
-    if (!isSelfTurn) {
-      const oppCompanies = view.opponent.companies;
-      const activeIdx = (view.phaseState as { activeCompanyIndex: number }).activeCompanyIndex;
-      if (oppCompanies[activeIdx]) {
-        setFocusedCompanyId(oppCompanies[activeIdx].id);
-        setAllCompaniesOverride(false);
-      }
+    const companies = isSelfTurn ? view.self.companies : view.opponent.companies;
+    const activeIdx = (view.phaseState as { activeCompanyIndex: number }).activeCompanyIndex;
+    if (companies[activeIdx]) {
+      setFocusedCompanyId(companies[activeIdx].id);
+      setAllCompaniesOverride(false);
     }
   }
   setLastMhSiteStep(curStep);
