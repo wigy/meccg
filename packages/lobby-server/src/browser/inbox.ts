@@ -246,6 +246,27 @@ function renderMailList(
   });
   listEl.appendChild(featureBtn);
 
+  // Delete Read button — bulk-delete messages that are no longer highlighted (inbox only)
+  const readMsgIds = messages
+    .filter(m => m.status !== 'new' && m.status !== 'waiting')
+    .map(m => m.id);
+  if (readMsgIds.length > 0 && appState.activeMailTab === 'inbox') {
+    const deleteReadBtn = document.createElement('button');
+    deleteReadBtn.className = 'inbox-action-btn inbox-action-btn--danger';
+    deleteReadBtn.textContent = 'Delete Read';
+    deleteReadBtn.addEventListener('click', () => {
+      void (async () => {
+        deleteReadBtn.disabled = true;
+        deleteReadBtn.textContent = 'Deleting...';
+        await Promise.all(readMsgIds.map(id =>
+          fetch(`/api/mail/inbox/${id}`, { method: 'DELETE' }),
+        ));
+        void openInbox();
+      })();
+    });
+    listEl.appendChild(deleteReadBtn);
+  }
+
   if (messages.length === 0) {
     const empty = document.createElement('p');
     empty.className = 'lobby-empty';

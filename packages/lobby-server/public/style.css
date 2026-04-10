@@ -740,6 +740,17 @@ h2 {
   background: rgba(255,255,255,0.05);
 }
 
+.inbox-action-btn--danger {
+  color: #e57373;
+  border-color: rgba(244,67,54,0.4);
+}
+
+.inbox-action-btn--danger:hover {
+  color: #f44336;
+  border-color: #f44336;
+  background: rgba(244,67,54,0.1);
+}
+
 .inbox-content {
   display: flex;
   gap: 1.5rem;
