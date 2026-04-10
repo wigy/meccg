@@ -116,9 +116,33 @@ function renderMessage(messageEl: HTMLElement, full: InboxMessage): void {
     declineBtn.className = 'inbox-decline-btn';
     declineBtn.textContent = 'Decline';
 
+    // Comment textarea for decline (only shown for review-request)
+    let declineComments: HTMLTextAreaElement | undefined;
+    if (full.topic === 'review-request') {
+      declineComments = document.createElement('textarea');
+      declineComments.className = 'inbox-decline-comments';
+      declineComments.placeholder = 'Review comments (what needs to be fixed)...';
+      declineComments.rows = 3;
+      declineComments.style.display = 'none';
+    }
+
     const handleReview = (action: 'approve' | 'decline', btn: HTMLButtonElement) => {
+      // Show comment box on first decline click for review-requests
+      if (action === 'decline' && declineComments && declineComments.style.display === 'none') {
+        declineComments.style.display = 'block';
+        declineComments.focus();
+        declineBtn.textContent = 'Confirm Decline';
+        return;
+      }
       void (async () => {
-        const resp = await fetch(`/api/mail/inbox/${full.id}/${action}`, { method: 'POST' });
+        const body = action === 'decline' && declineComments
+          ? JSON.stringify({ comments: declineComments.value })
+          : '{}';
+        const resp = await fetch(`/api/mail/inbox/${full.id}/${action}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body,
+        });
         if (resp.ok) {
           const newStatus = action === 'approve' ? 'approved' : 'declined';
           btn.textContent = newStatus.charAt(0).toUpperCase() + newStatus.slice(1);
@@ -149,6 +173,9 @@ function renderMessage(messageEl: HTMLElement, full: InboxMessage): void {
 
     btnContainer.appendChild(approveBtn);
     btnContainer.appendChild(declineBtn);
+    if (declineComments) {
+      btnContainer.appendChild(declineComments);
+    }
     messageEl.appendChild(btnContainer);
   }
 

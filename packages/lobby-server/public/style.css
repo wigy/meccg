@@ -1033,6 +1033,23 @@ h2 {
   cursor: default;
 }
 
+.inbox-decline-comments {
+  width: 100%;
+  margin-top: 0.5rem;
+  padding: 0.5rem;
+  font-family: inherit;
+  font-size: 0.85rem;
+  background: #1a1a2e;
+  color: #e0e0e0;
+  border: 1px solid #f44336;
+  border-radius: 4px;
+  resize: vertical;
+}
+
+.inbox-decline-comments::placeholder {
+  color: #888;
+}
+
 .inbox-delete-btn {
   padding: 0.5rem 1.5rem;
   font-size: 0.9rem;

@@ -552,6 +552,16 @@ export async function handleRequest(req: http.IncomingMessage, res: http.ServerR
     if (!playerName) { sendJson(res, 401, { error: 'Not logged in' }); return; }
     if (!REVIEWER_PLAYERS.includes(playerName)) { sendJson(res, 403, { error: 'Only reviewers can approve or decline' }); return; }
     const [, msgId, action] = reviewMatch;
+
+    // Parse optional body for decline comments
+    let comments = '';
+    try {
+      const raw = JSON.parse(await readBody(req)) as { comments?: string };
+      comments = raw.comments ?? '';
+    } catch {
+      // No body or invalid JSON — comments stay empty
+    }
+
     const newStatus = action === 'approve' ? 'approved' : 'declined';
     const updated = updateMessageStatus(playerName, msgId, newStatus);
     if (!updated) { sendJson(res, 404, { error: 'Message not found' }); return; }
@@ -581,6 +591,25 @@ export async function handleRequest(req: http.IncomingMessage, res: http.ServerR
           sentBy: playerName,
         });
       }
+    }
+
+    // Review-request decline: send a review-fix-request to AI with reviewer comments
+    if (updated.topic === 'review-request' && action === 'decline') {
+      const prUrl = updated.keywords.prUrl ?? '';
+      const reviewBody = comments
+        ? `## Review Comments\n\n${comments}\n\n---\n\n## Original Review\n\n${updated.body}`
+        : `## Review Declined\n\nThe reviewer declined without specific comments.\n\n---\n\n## Original Review\n\n${updated.body}`;
+
+      sendMail(['ai'], {
+        from: playerName,
+        sender: 'player',
+        topic: 'review-fix-request',
+        subject: `Fix Review: ${updated.subject.replace(/^Review:\s*/, '')}`,
+        body: reviewBody,
+        keywords: { ...updated.keywords, reviewedBy: playerName, reviewRequestId: msgId },
+        replyTo: msgId,
+        sentBy: playerName,
+      });
     }
 
     sendJson(res, 200, { ok: true });

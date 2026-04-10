@@ -536,11 +536,12 @@ $(echo "$SKILL_OUTPUT" | tail -20)"
     ;;
 
   # =========================================================================
-  feature-planning-request|feature-implementation-request|bug-report)
+  feature-planning-request|feature-implementation-request|bug-report|review-fix-request)
     case "$TOPIC" in
       feature-planning-request)       SKILL_FILE="handle-planning-request.md" ;;
       feature-implementation-request) SKILL_FILE="handle-implementation-request.md" ;;
       bug-report)                     SKILL_FILE="handle-bug-report.md" ;;
+      review-fix-request)             SKILL_FILE="handle-review-fix-request.md" ;;
     esac
 
     log "Dispatching topic \"$TOPIC\" to $SKILL_FILE..."
@@ -651,6 +652,11 @@ case "$TOPIC" in
     # Subject arrives as "Bug Report: <brief>".
     CLEAN_SUBJECT="${SUBJECT#Bug Report: }"
     CREDITS_REASON="Bug report: $CLEAN_SUBJECT"
+    ;;
+  review-fix-request)
+    # Subject arrives as "Fix Review: <brief>".
+    CLEAN_SUBJECT="${SUBJECT#Fix Review: }"
+    CREDITS_REASON="Review fix: $CLEAN_SUBJECT"
     ;;
   *)                              CREDITS_REASON="$TOPIC: $SUBJECT" ;;
 esac
