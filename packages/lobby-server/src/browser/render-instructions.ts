@@ -99,6 +99,11 @@ function getInstructionText(
   if (view.combat) {
     const iAmDefender = view.self.id === view.combat.defendingPlayerId;
     if (view.combat.phase === 'assign-strikes') {
+      if (view.combat.assignmentPhase === 'cancel-by-tap') {
+        return iAmDefender
+          ? 'Combat — Tap a character to cancel an attack, or pass to continue.'
+          : 'Combat — Opponent may tap characters to cancel attacks.';
+      }
       const isMyTurn = (view.combat.assignmentPhase === 'defender' && iAmDefender)
         || (view.combat.assignmentPhase === 'attacker' && !iAmDefender);
       return isMyTurn

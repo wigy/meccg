@@ -22,6 +22,7 @@ import type {
   AssignStrikeAction,
   SupportStrikeAction,
   ChooseStrikeOrderAction,
+  CancelByTapAction,
   EvaluatedAction,
 } from '@meccg/shared';
 import { cardImageProxyPath, viableActions, CardStatus, buildInstanceLookup } from '@meccg/shared';
@@ -65,10 +66,11 @@ export function renderCombatView(
   const assignActions = viable.filter((a): a is AssignStrikeAction => a.type === 'assign-strike');
   const supportActions = viable.filter((a): a is SupportStrikeAction => a.type === 'support-strike');
   const chooseOrderActions = viable.filter((a): a is ChooseStrikeOrderAction => a.type === 'choose-strike-order');
+  const cancelByTapActions = viable.filter((a): a is CancelByTapAction => a.type === 'cancel-by-tap');
 
   // Build attacker row and defender row
   const attackerRow = renderAttackerRow(combat, view, cardPool);
-  const defenderRow = renderDefenderRow(combat, view, cardPool, assignActions, supportActions, chooseOrderActions, onAction);
+  const defenderRow = renderDefenderRow(combat, view, cardPool, assignActions, supportActions, chooseOrderActions, cancelByTapActions, onAction);
 
   // Top row is the "opponent" side, bottom row is "my" side
   const topRow = document.createElement('div');
@@ -154,7 +156,10 @@ function renderPhaseBanner(
   const racePrefix = raceLabel ? `${raceLabel} \u2014 ` : '';
 
   let phaseText: string;
-  if (combat.phase === 'assign-strikes') {
+  if (combat.phase === 'assign-strikes' && combat.assignmentPhase === 'cancel-by-tap') {
+    const remaining = combat.cancelByTapRemaining ?? 0;
+    phaseText = `${racePrefix}Tap a character to cancel an attack \u2014 ${remaining} cancel${remaining !== 1 ? 's' : ''} remaining`;
+  } else if (combat.phase === 'assign-strikes') {
     const whose = combat.assignmentPhase === 'defender'
       ? (iAmDefender ? 'Your turn' : "Defender's turn")
       : (iAmDefender ? "Attacker's turn" : 'Your turn');
@@ -253,6 +258,7 @@ function renderDefenderRow(
   assignActions: AssignStrikeAction[],
   supportActions: SupportStrikeAction[],
   chooseOrderActions: ChooseStrikeOrderAction[],
+  cancelByTapActions: CancelByTapAction[],
   onAction: (action: GameAction) => void,
 ): HTMLElement {
   const container = document.createElement('div');
@@ -270,6 +276,9 @@ function renderDefenderRow(
 
   // Build a set of characters that can support the current strike
   const supportableIds = new Set(supportActions.map(a => a.supportingCharacterId as string));
+
+  // Build a set of characters that can tap to cancel an attack
+  const cancelByTapIds = new Set(cancelByTapActions.map(a => a.characterId as string));
 
   // Build a map of character ID → choose-strike-order action (for choose-strike-order phase)
   const chooseOrderMap = new Map<string, ChooseStrikeOrderAction>();
@@ -292,7 +301,7 @@ function renderDefenderRow(
     const char = charMap[charId as string];
     if (!char) continue;
 
-    const col = renderCombatCharacterColumn(char, cardPool, combat, strikeMap, assignableIds, supportableIds, chooseOrderMap, assignActions, supportActions, onAction);
+    const col = renderCombatCharacterColumn(char, cardPool, combat, strikeMap, assignableIds, supportableIds, cancelByTapIds, chooseOrderMap, assignActions, supportActions, cancelByTapActions, onAction);
     container.appendChild(col);
   }
 
@@ -317,9 +326,11 @@ function renderCombatCharacterColumn(
   strikeMap: Map<string, { index: number; assignment: CombatState['strikeAssignments'][number] }>,
   assignableIds: Set<string>,
   supportableIds: Set<string>,
+  cancelByTapIds: Set<string>,
   chooseOrderMap: Map<string, ChooseStrikeOrderAction>,
   assignActions: AssignStrikeAction[],
   supportActions: SupportStrikeAction[],
+  cancelByTapActions: CancelByTapAction[],
   onAction: (action: GameAction) => void,
 ): HTMLElement {
   const col = document.createElement('div');
@@ -356,10 +367,22 @@ function renderCombatCharacterColumn(
   const isCurrentStrike = strike !== undefined && strike.index === combat.currentStrikeIndex && !strike.assignment.resolved && combat.phase === 'resolve-strike';
   const isAssignable = assignableIds.has(charIdStr);
   const isSupportable = supportableIds.has(charIdStr);
+  const isCancelByTap = cancelByTapIds.has(charIdStr);
 
   const chooseOrderAction = chooseOrderMap.get(charIdStr);
 
-  if (chooseOrderAction) {
+  if (isCancelByTap) {
+    // Cancel-by-tap phase: click to tap this character and cancel an attack
+    img.classList.add('combat-card--assignable');
+    img.style.cursor = 'pointer';
+    const action = cancelByTapActions.find(a => a.characterId === char.instanceId);
+    if (action) {
+      img.addEventListener('click', (e) => {
+        e.stopPropagation();
+        onAction(action);
+      });
+    }
+  } else if (chooseOrderAction) {
     // Choose-strike-order phase: click to pick this strike next
     img.classList.add('combat-card--assignable');
     img.style.cursor = 'pointer';
