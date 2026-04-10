@@ -12,11 +12,53 @@
  * 4. body-check: attacking player rolls body check
  */
 
-import type { GameState, PlayerId, EvaluatedAction, CombatState } from '../../index.js';
+import type { GameState, PlayerId, EvaluatedAction, CombatState, CardInstanceId } from '../../index.js';
 import type { CancelAttackEffect } from '../../types/effects.js';
-import { CardStatus, isCharacterCard } from '../../index.js';
+import type { AllyInPlay } from '../../types/state-cards.js';
+import type { PlayerState } from '../../types/state-player.js';
+import { CardStatus, isCharacterCard, isAllyCard } from '../../index.js';
 import { logHeading, logDetail } from './log.js';
 import { computeCombatProwess } from '../recompute-derived.js';
+
+/**
+ * Find all allies in a company by iterating over each character's allies array.
+ * Returns tuples of [allyInPlay, hostCharacterId] for combat targeting.
+ */
+function findCompanyAllies(
+  player: PlayerState,
+  companyCharacters: readonly CardInstanceId[],
+): Array<{ ally: AllyInPlay; hostCharId: CardInstanceId }> {
+  const result: Array<{ ally: AllyInPlay; hostCharId: CardInstanceId }> = [];
+  for (const charId of companyCharacters) {
+    const charData = player.characters[charId as string];
+    if (!charData) continue;
+    for (const ally of charData.allies) {
+      result.push({ ally, hostCharId: charId });
+    }
+  }
+  return result;
+}
+
+/**
+ * Check whether a given instance ID belongs to an ally in the defending company.
+ * Returns the ally data if found, or undefined.
+ */
+export function findAllyInCompany(
+  player: PlayerState,
+  companyCharacters: readonly CardInstanceId[],
+  allyInstanceId: CardInstanceId,
+): { ally: AllyInPlay; hostCharId: CardInstanceId } | undefined {
+  for (const charId of companyCharacters) {
+    const charData = player.characters[charId as string];
+    if (!charData) continue;
+    for (const ally of charData.allies) {
+      if (ally.instanceId === allyInstanceId) {
+        return { ally, hostCharId: charId };
+      }
+    }
+  }
+  return undefined;
+}
 
 /**
  * Compute legal actions for the current combat sub-phase.
@@ -54,6 +96,8 @@ export function combatActions(state: GameState, playerId: PlayerId): EvaluatedAc
       return resolveStrikeActions(state, playerId, combat);
     case 'body-check':
       return bodyCheckActions(state, playerId, combat);
+    case 'item-salvage':
+      return itemSalvageActions(state, playerId, combat);
     default:
       return [];
   }
@@ -101,6 +145,21 @@ function assignStrikeActions(
       });
     }
 
+    // Per CoE rule 2.V.2.2: Allies are treated as characters for combat purposes
+    // (facing strikes, tapping in support, etc.). Offer untapped allies as strike targets.
+    for (const { ally } of findCompanyAllies(player, company.characters)) {
+      if (assignedCharIds.has(ally.instanceId as string)) continue;
+      if (ally.status !== CardStatus.Untapped) {
+        logDetail(`Ally ${ally.instanceId as string} is ${ally.status} — not available for defender assignment`);
+        continue;
+      }
+      logDetail(`Defender can assign strike to ally ${ally.instanceId as string} (untapped)`);
+      actions.push({
+        action: { type: 'assign-strike', player: playerId, characterId: ally.instanceId, tapped: false },
+        viable: true,
+      });
+    }
+
     // Defender can always pass to let attacker assign remaining
     logDetail(`Defender can pass (${strikesRemaining} strike(s) remaining)`);
     actions.push({
@@ -125,27 +184,33 @@ function assignStrikeActions(
 
     if (strikesRemaining <= 0) return [];
 
-    const unassignedChars = company.characters.filter(c => !assignedCharIds.has(c as string));
+    // Collect all combatants: characters + allies (CoE rule 2.V.2.2)
+    const allCombatantIds: Array<{ id: CardInstanceId; tapped: boolean }> = [];
+    for (const charId of company.characters) {
+      const charData = defPlayer.characters[charId as string];
+      allCombatantIds.push({ id: charId, tapped: charData?.status !== CardStatus.Untapped });
+    }
+    for (const { ally } of findCompanyAllies(defPlayer, company.characters)) {
+      allCombatantIds.push({ id: ally.instanceId, tapped: ally.status !== CardStatus.Untapped });
+    }
 
-    if (unassignedChars.length > 0) {
-      // Still unassigned characters — must assign to them first
-      for (const charId of unassignedChars) {
-        const charData = defPlayer.characters[charId as string];
-        const isTapped = charData?.status !== CardStatus.Untapped;
-        logDetail(`Attacker can assign strike to unassigned ${charId as string} (${isTapped ? 'tapped' : 'untapped'})`);
+    const unassigned = allCombatantIds.filter(c => !assignedCharIds.has(c.id as string));
+
+    if (unassigned.length > 0) {
+      // Still unassigned combatants — must assign to them first
+      for (const { id, tapped } of unassigned) {
+        logDetail(`Attacker can assign strike to unassigned ${id as string} (${tapped ? 'tapped' : 'untapped'})`);
         actions.push({
-          action: { type: 'assign-strike', player: playerId, characterId: charId, tapped: isTapped },
+          action: { type: 'assign-strike', player: playerId, characterId: id, tapped },
           viable: true,
         });
       }
     } else {
-      // All characters have a strike — distribute excess as -1 prowess
-      for (const charId of company.characters) {
-        const charData = defPlayer.characters[charId as string];
-        const isTapped = charData?.status !== CardStatus.Untapped;
-        logDetail(`Attacker can assign excess strike to ${charId as string} (${isTapped ? 'tapped' : 'untapped'})`);
+      // All combatants have a strike — distribute excess as -1 prowess
+      for (const { id, tapped } of allCombatantIds) {
+        logDetail(`Attacker can assign excess strike to ${id as string} (${tapped ? 'tapped' : 'untapped'})`);
         actions.push({
-          action: { type: 'assign-strike', player: playerId, characterId: charId, excess: true, tapped: isTapped },
+          action: { type: 'assign-strike', player: playerId, characterId: id, excess: true, tapped },
           viable: true,
         });
       }
@@ -169,14 +234,20 @@ function chooseStrikeOrderActions(state: GameState, playerId: PlayerId, combat: 
 
   const defPlayerIndex = state.players.findIndex(p => p.id === combat.defendingPlayerId);
   const defPlayer = state.players[defPlayerIndex];
+  const company = defPlayer.companies.find(c => c.id === combat.companyId);
 
   const actions: EvaluatedAction[] = [];
   for (let i = 0; i < combat.strikeAssignments.length; i++) {
     const sa = combat.strikeAssignments[i];
     if (sa.resolved) continue;
+    // Target may be a character or ally (CoE rule 2.V.2.2)
     const charData = defPlayer.characters[sa.characterId as string];
-    const isTapped = charData?.status !== CardStatus.Untapped;
-    logDetail(`Defender can choose to resolve strike ${i} (character ${sa.characterId as string}, ${isTapped ? 'tapped' : 'untapped'})`);
+    const allyMatch = !charData && company
+      ? findAllyInCompany(defPlayer, company.characters, sa.characterId)
+      : undefined;
+    const targetStatus = charData?.status ?? allyMatch?.ally.status ?? CardStatus.Untapped;
+    const isTapped = targetStatus !== CardStatus.Untapped;
+    logDetail(`Defender can choose to resolve strike ${i} (combatant ${sa.characterId as string}, ${isTapped ? 'tapped' : 'untapped'})`);
     actions.push({
       action: { type: 'choose-strike-order', player: playerId, strikeIndex: i, characterId: sa.characterId, tapped: isTapped },
       viable: true,
@@ -204,27 +275,40 @@ function resolveStrikeActions(
   if (!currentStrike || currentStrike.resolved) return [];
 
   // Resolve-strike: tap to fight (normal) or stay untapped (-3 prowess)
-  // The -3 option is only available if the character is currently untapped
+  // The -3 option is only available if the combatant is currently untapped
   const playerIndex0 = state.players.findIndex(p => p.id === playerId);
-  const charData = state.players[playerIndex0].characters[currentStrike.characterId as string];
-  const isUntapped = charData?.status === CardStatus.Untapped;
+  const player0 = state.players[playerIndex0];
+  const charData = player0.characters[currentStrike.characterId as string];
+  const company0 = player0.companies.find(c => c.id === combat.companyId);
+
+  // The strike target may be a character or an ally (CoE rule 2.V.2.2)
+  const allyMatch = !charData && company0
+    ? findAllyInCompany(player0, company0.characters, currentStrike.characterId)
+    : undefined;
+  const targetStatus = charData?.status ?? allyMatch?.ally.status ?? CardStatus.Untapped;
+  const targetDefId = charData?.definitionId ?? allyMatch?.ally.definitionId;
+  const isUntapped = targetStatus === CardStatus.Untapped;
+
   // Compute prowess and need for both tap/untap options
   // Must match the reducer's prowess calculation: base effective prowess,
   // then -1 if tapped, -2 if wounded, -N for excess strikes (CoE 3.iv.7.3)
-  const charDef = state.cardPool[charData?.definitionId as string];
+  const charDef = state.cardPool[targetDefId as string];
   const charName = charDef && 'name' in charDef ? (charDef as { name: string }).name : (currentStrike.characterId as string);
   // Recompute prowess with combat context when creature race is known,
   // so combat-conditional weapon effects (e.g. Glamdring vs Orcs) apply.
   let baseProwess: number;
-  if (combat.creatureRace && charDef && isCharacterCard(charDef) && charData) {
+  if (allyMatch) {
+    // Allies use prowess from card definition directly
+    baseProwess = isAllyCard(charDef) ? (charDef).prowess : 0;
+  } else if (combat.creatureRace && charDef && isCharacterCard(charDef) && charData) {
     baseProwess = computeCombatProwess(state, charData, charDef, combat.creatureRace);
   } else {
     baseProwess = charData?.effectiveStats?.prowess ?? 0;
   }
   const strikeProwess = combat.strikeProwess;
   let statusPenalty = 0;
-  if (charData?.status === CardStatus.Tapped) statusPenalty = 1;
-  if (charData?.status === CardStatus.Inverted) statusPenalty = 2; // Wounded
+  if (targetStatus === CardStatus.Tapped) statusPenalty = 1;
+  if (targetStatus === CardStatus.Inverted) statusPenalty = 2; // Wounded
   const excessPenalty = currentStrike.excessStrikes > 0 ? currentStrike.excessStrikes : 0;
 
   // Tap: full prowess; Untap: -3 prowess penalty
@@ -443,6 +527,56 @@ function cancelByTapActions(
 
   // Defender can always pass (decline to cancel more attacks)
   logDetail(`Defender can pass cancel-by-tap (${combat.cancelByTapRemaining} cancel(s) remaining)`);
+  actions.push({
+    action: { type: 'pass', player: playerId },
+    viable: true,
+  });
+
+  return actions;
+}
+
+/**
+ * Actions during the item-salvage sub-phase (CoE rule 3.I.2).
+ *
+ * After a character is eliminated by a body check, the defending player
+ * may transfer one item per unwounded character in the same company.
+ * The player can also pass to discard all remaining items.
+ */
+function itemSalvageActions(
+  state: GameState,
+  playerId: PlayerId,
+  combat: CombatState,
+): EvaluatedAction[] {
+  if (playerId !== combat.defendingPlayerId) return [];
+
+  const { salvageItems, salvageRecipients } = combat;
+  if (!salvageItems || !salvageRecipients || salvageItems.length === 0 || salvageRecipients.length === 0) return [];
+
+  const actions: EvaluatedAction[] = [];
+
+  // For each available item × each eligible recipient = one action
+  for (const item of salvageItems) {
+    for (const recipientId of salvageRecipients) {
+      const charData = state.players.find(p => p.id === playerId)?.characters[recipientId as string];
+      const charDef = charData ? state.cardPool[charData.definitionId as string] : undefined;
+      const charName = charDef && 'name' in charDef ? (charDef as { name: string }).name : (recipientId as string);
+      const itemDef = state.cardPool[item.definitionId as string];
+      const itemName = itemDef && 'name' in itemDef ? (itemDef as { name: string }).name : (item.instanceId as string);
+      logDetail(`Salvage available: ${itemName} → ${charName}`);
+      actions.push({
+        action: {
+          type: 'salvage-item',
+          player: playerId,
+          itemInstanceId: item.instanceId,
+          recipientCharacterId: recipientId,
+        },
+        viable: true,
+      });
+    }
+  }
+
+  // Player can always pass to skip remaining transfers
+  logDetail('Defender can pass to discard remaining items');
   actions.push({
     action: { type: 'pass', player: playerId },
     viable: true,

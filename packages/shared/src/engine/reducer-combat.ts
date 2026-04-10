@@ -5,10 +5,11 @@
  * strike resolution, support strikes, body checks, and combat finalization.
  */
 
-import type { GameState, CombatState, StrikeAssignment, GameAction, GameEffect } from '../index.js';
-import { CardStatus, Phase, isSiteCard, isCharacterCard } from '../index.js';
+import type { GameState, CombatState, StrikeAssignment, GameAction, GameEffect, CardInstanceId } from '../index.js';
+import { CardStatus, Phase, isSiteCard, isCharacterCard, isAllyCard } from '../index.js';
 import type { OnEventEffect } from '../types/effects.js';
 import { logDetail } from './legal-actions/log.js';
+import { findAllyInCompany } from './legal-actions/combat.js';
 import { resolveInstanceId } from '../types/state.js';
 import type { ReducerResult } from './reducer-utils.js';
 import { roll2d6, clonePlayers } from './reducer-utils.js';
@@ -42,6 +43,8 @@ export function handleCombatAction(state: GameState, action: GameAction): Reduce
       return handleCancelAttack(state, action, combat);
     case 'cancel-by-tap':
       return handleCancelByTap(state, action, combat);
+    case 'salvage-item':
+      return handleSalvageItem(state, action, combat);
     default:
       return { state, error: `Unexpected action '${action.type}' during combat` };
   }
@@ -105,12 +108,14 @@ function handleAssignStrike(state: GameState, action: GameAction, combat: Combat
   const strikesRemaining = combat.strikesTotal - totalAllocated;
   if (strikesRemaining <= 0) return { state, error: 'All strikes already assigned' };
 
-  // Validate character is in the defending company
+  // Validate character or ally is in the defending company (CoE rule 2.V.2.2)
   const defPlayerIndex = state.players.findIndex(p => p.id === combat.defendingPlayerId);
   const defPlayer = state.players[defPlayerIndex];
   const company = defPlayer.companies.find(c => c.id === combat.companyId);
   if (!company) return { state, error: 'Defending company not found' };
-  if (!company.characters.includes(action.characterId)) {
+  const isCharInCompany = company.characters.includes(action.characterId);
+  const isAllyInCompany = !isCharInCompany && !!findAllyInCompany(defPlayer, company.characters, action.characterId);
+  if (!isCharInCompany && !isAllyInCompany) {
     return { state, error: 'Character not in defending company' };
   }
 
@@ -183,6 +188,24 @@ function handleAssignStrike(state: GameState, action: GameAction, combat: Combat
 function handleCombatPass(state: GameState, action: GameAction, combat: CombatState): ReducerResult {
   if (action.type !== 'pass') return { state, error: 'Expected pass' };
 
+  // Pass during item-salvage: player declines further transfers, discard remaining items
+  if (combat.phase === 'item-salvage') {
+    if (action.player !== combat.defendingPlayerId) {
+      return { state, error: 'Only the defending player can pass during item salvage' };
+    }
+    logDetail('Defender passed item-salvage — discarding remaining items');
+    const newPlayers = clonePlayers(state);
+    const defIdx = state.players.findIndex(p => p.id === combat.defendingPlayerId);
+    for (const item of combat.salvageItems ?? []) {
+      logDetail(`Discarding unsalvaged item ${item.instanceId as string}`);
+      newPlayers[defIdx] = {
+        ...newPlayers[defIdx],
+        discardPile: [...newPlayers[defIdx].discardPile, { instanceId: item.instanceId, definitionId: item.definitionId }],
+      };
+    }
+    return finishSalvage({ ...state, players: newPlayers }, combat);
+  }
+
   // Pass during cancel-by-tap sub-phase: proceed to strike resolution
   if (combat.phase === 'assign-strikes' && combat.assignmentPhase === 'cancel-by-tap') {
     logDetail('Defender passed cancel-by-tap — proceeding to strike resolution');
@@ -204,7 +227,7 @@ function handleCombatPass(state: GameState, action: GameAction, combat: CombatSt
   }
 
   if (combat.phase !== 'assign-strikes' || combat.assignmentPhase !== 'defender') {
-    return { state, error: 'Can only pass during defender strike assignment, cancel-window, or cancel-by-tap' };
+    return { state, error: 'Can only pass during defender strike assignment, cancel-window, cancel-by-tap, or item-salvage' };
   }
 
   const totalAllocated = combat.strikeAssignments.length
@@ -236,24 +259,33 @@ function handleResolveStrike(state: GameState, action: GameAction, combat: Comba
   const strike = combat.strikeAssignments[combat.currentStrikeIndex];
   if (!strike || strike.resolved) return { state, error: 'Current strike already resolved' };
 
-  // Look up character stats
+  // Look up combatant stats — may be a character or an ally (CoE rule 2.V.2.2)
   const defPlayerIndex = state.players.findIndex(p => p.id === combat.defendingPlayerId);
   const defPlayer = state.players[defPlayerIndex];
   const charData = defPlayer.characters[strike.characterId as string];
-  if (!charData) return { state, error: 'Character not found' };
+  const company = defPlayer.companies.find(c => c.id === combat.companyId);
+  const allyMatch = !charData && company
+    ? findAllyInCompany(defPlayer, company.characters, strike.characterId)
+    : undefined;
+  if (!charData && !allyMatch) return { state, error: 'Character not found' };
 
-  // Compute effective prowess — recompute with combat context when creature race
-  // is known so that combat-conditional weapon effects (e.g. Glamdring vs Orcs, Éowyn vs Nazgûl) apply.
-  const charDef = state.cardPool[charData.definitionId as string];
+  const targetDefId = charData?.definitionId ?? allyMatch!.ally.definitionId;
+  const targetStatus = charData?.status ?? allyMatch!.ally.status;
+  const charDef = state.cardPool[targetDefId as string];
+
+  // Compute effective prowess
   let prowess: number;
-  if (combat.creatureRace && charDef && isCharacterCard(charDef)) {
+  if (allyMatch) {
+    // Allies use prowess from card definition directly
+    prowess = isAllyCard(charDef) ? (charDef).prowess : 0;
+  } else if (combat.creatureRace && charDef && isCharacterCard(charDef)) {
     prowess = computeCombatProwess(state, charData, charDef, combat.creatureRace);
   } else {
     prowess = charData.effectiveStats.prowess;
   }
   if (!action.tapToFight) prowess -= 3;  // Stay untapped penalty
-  if (charData.status === CardStatus.Tapped) prowess -= 1;
-  if (charData.status === CardStatus.Inverted) prowess -= 2; // Wounded
+  if (targetStatus === CardStatus.Tapped) prowess -= 1;
+  if (targetStatus === CardStatus.Inverted) prowess -= 2; // Wounded
   if (strike.excessStrikes > 0) prowess -= strike.excessStrikes; // Excess strikes penalty
 
   // Roll dice
@@ -262,9 +294,9 @@ function handleResolveStrike(state: GameState, action: GameAction, combat: Comba
   const characterTotal = rollTotal + prowess;
 
   const defPlayer2 = state.players[defPlayerIndex];
-  logDetail(`Strike resolution: ${charData.definitionId as string} rolls ${roll.die1}+${roll.die2}=${rollTotal} + prowess ${prowess} = ${characterTotal} vs creature prowess ${combat.strikeProwess}`);
+  logDetail(`Strike resolution: ${targetDefId as string} rolls ${roll.die1}+${roll.die2}=${rollTotal} + prowess ${prowess} = ${characterTotal} vs creature prowess ${combat.strikeProwess}`);
 
-  const charLabel = charDef && 'name' in charDef ? (charDef as { name: string }).name : (charData.definitionId as string);
+  const charLabel = charDef && 'name' in charDef ? (charDef as { name: string }).name : (targetDefId as string);
   const effects: GameEffect[] = [{
     effect: 'dice-roll', playerName: defPlayer2.name,
     die1: roll.die1, die2: roll.die2, label: `Strike: ${charLabel}`,
@@ -292,34 +324,55 @@ function handleResolveStrike(state: GameState, action: GameAction, combat: Comba
     logDetail('Tie — ineffectual, character taps');
   }
 
-  // Update strike assignment — record whether the character was already wounded
+  // Update strike assignment — record whether the combatant was already wounded
   // before this strike so the body check can apply +1 correctly (CoE rule 3.I).
-  const wasAlreadyWounded = charData.status === CardStatus.Inverted;
+  const wasAlreadyWounded = targetStatus === CardStatus.Inverted;
   const newAssignments = combat.strikeAssignments.map((a, i) =>
     i === combat.currentStrikeIndex ? { ...a, resolved: true, result, wasAlreadyWounded } : a,
   );
 
-  // Tap or wound character
+  // Tap or wound combatant (character or ally)
   const newPlayers = clonePlayers(state);
   const newCharacters = { ...defPlayer.characters };
-  if (action.tapToFight || characterTotal === combat.strikeProwess) {
-    // Tap character (unless staying untapped)
-    if (charData.status === CardStatus.Untapped) {
-      newCharacters[strike.characterId as string] = { ...charData, status: CardStatus.Tapped };
+
+  if (allyMatch) {
+    // Target is an ally — update ally status on its host character
+    const hostChar = newCharacters[allyMatch.hostCharId as string];
+    if (hostChar) {
+      let newAllyStatus = allyMatch.ally.status;
+      if (action.tapToFight || characterTotal === combat.strikeProwess) {
+        if (newAllyStatus === CardStatus.Untapped) newAllyStatus = CardStatus.Tapped;
+      }
+      if (result === 'wounded' && !combat.detainment) {
+        newAllyStatus = CardStatus.Inverted;
+      } else if (result === 'wounded' && combat.detainment) {
+        newAllyStatus = CardStatus.Tapped;
+      }
+      const newAllies = hostChar.allies.map(a =>
+        a.instanceId === strike.characterId ? { ...a, status: newAllyStatus } : a,
+      );
+      newCharacters[allyMatch.hostCharId as string] = { ...hostChar, allies: newAllies };
     }
-  }
-  if (result === 'wounded' && !combat.detainment) {
-    // Wound (invert) character
-    newCharacters[strike.characterId as string] = {
-      ...(newCharacters[strike.characterId as string] ?? charData),
-      status: CardStatus.Inverted,
-    };
-  } else if (result === 'wounded' && combat.detainment) {
-    // Detainment: tap instead of wound
-    newCharacters[strike.characterId as string] = {
-      ...(newCharacters[strike.characterId as string] ?? charData),
-      status: CardStatus.Tapped,
-    };
+  } else {
+    if (action.tapToFight || characterTotal === combat.strikeProwess) {
+      // Tap character (unless staying untapped)
+      if (charData.status === CardStatus.Untapped) {
+        newCharacters[strike.characterId as string] = { ...charData, status: CardStatus.Tapped };
+      }
+    }
+    if (result === 'wounded' && !combat.detainment) {
+      // Wound (invert) character
+      newCharacters[strike.characterId as string] = {
+        ...(newCharacters[strike.characterId as string] ?? charData),
+        status: CardStatus.Inverted,
+      };
+    } else if (result === 'wounded' && combat.detainment) {
+      // Detainment: tap instead of wound
+      newCharacters[strike.characterId as string] = {
+        ...(newCharacters[strike.characterId as string] ?? charData),
+        status: CardStatus.Tapped,
+      };
+    }
   }
   newPlayers[defPlayerIndex] = { ...defPlayer, characters: newCharacters, lastDiceRoll: roll };
 
@@ -445,39 +498,68 @@ function handleBodyCheckRoll(state: GameState, action: GameAction, combat: Comba
   }
 
   if (combat.bodyCheckTarget === 'character') {
-    // Body check against character
+    // Body check against character or ally (CoE rule 2.V.2.2)
     const strike = combat.strikeAssignments[combat.currentStrikeIndex];
     const defPlayerIndex = stateWithRoll.players.findIndex(p => p.id === combat.defendingPlayerId);
     const defPlayer = stateWithRoll.players[defPlayerIndex];
     const charData = defPlayer.characters[strike.characterId as string];
-    if (!charData) return { state, error: 'Character not found for body check' };
+    const company = defPlayer.companies.find(c => c.id === combat.companyId);
+    const allyMatch = !charData && company
+      ? findAllyInCompany(defPlayer, company.characters, strike.characterId)
+      : undefined;
+    if (!charData && !allyMatch) return { state, error: 'Character not found for body check' };
 
-    const charDef2 = stateWithRoll.cardPool[charData.definitionId as string] as { body?: number } | undefined;
+    const targetDefId = charData?.definitionId ?? allyMatch!.ally.definitionId;
+    const charDef2 = stateWithRoll.cardPool[targetDefId as string] as { body?: number } | undefined;
     const body = charDef2?.body ?? 9; // Default body if not specified
     const woundedBonus = strike.wasAlreadyWounded ? 1 : 0;
     const effectiveRoll = rollTotal + woundedBonus;
 
-    logDetail(`Body check vs character: roll ${rollTotal}${woundedBonus ? '+1(wounded)' : ''} = ${effectiveRoll} vs body ${body}`);
+    logDetail(`Body check vs ${allyMatch ? 'ally' : 'character'}: roll ${rollTotal}${woundedBonus ? '+1(wounded)' : ''} = ${effectiveRoll} vs body ${body}`);
 
     if (effectiveRoll > body) {
-      // Character eliminated
-      logDetail('Character eliminated');
-      // Per CoE rule 3.i.5: if a character facing multiple strikes is
-      // eliminated by one, remaining unresolved strikes assigned to that
-      // character are considered successful (defeated by the defender).
+      // Combatant eliminated
+      logDetail(`${allyMatch ? 'Ally' : 'Character'} eliminated`);
+      // Per CoE rule 3.i.5: remaining unresolved strikes assigned to the
+      // same combatant are considered successful (defeated by the defender).
       const newAssignments = combat.strikeAssignments.map((a, i) => {
         if (i === combat.currentStrikeIndex) return { ...a, result: 'eliminated' as const };
         if (!a.resolved && a.characterId === strike.characterId) {
-          logDetail(`Strike ${i} auto-resolved as successful (eliminated character, CoE 3.i.5)`);
+          logDetail(`Strike ${i} auto-resolved as successful (eliminated combatant, CoE 3.i.5)`);
           return { ...a, resolved: true, result: 'success' as const };
         }
         return a;
       });
 
-      // Remove character from company and add to eliminated pile
       const newPlayers2 = clonePlayers(stateWithRoll);
       const newPlayerData = { ...defPlayer };
-      const company = newPlayerData.companies.find(c => c.id === combat.companyId);
+      const combatWithElim = { ...combat, strikeAssignments: newAssignments };
+
+      if (allyMatch) {
+        // Ally eliminated — remove from host character and discard
+        const hostChar = newPlayerData.characters[allyMatch.hostCharId as string];
+        if (hostChar) {
+          const newAllies = hostChar.allies.filter(a => a.instanceId !== strike.characterId);
+          newPlayerData.characters = {
+            ...newPlayerData.characters,
+            [allyMatch.hostCharId as string]: { ...hostChar, allies: newAllies },
+          };
+        }
+        newPlayerData.discardPile = [...newPlayerData.discardPile, {
+          instanceId: strike.characterId,
+          definitionId: allyMatch.ally.definitionId,
+        }];
+        newPlayers2[defPlayerIndex] = newPlayerData;
+
+        // Allies don't have items to salvage — advance to next strike or finalize
+        const next2a = nextStrikePhase(combatWithElim);
+        if (next2a) {
+          return { state: { ...stateWithRoll, players: newPlayers2, combat: { ...combatWithElim, ...next2a } }, effects };
+        }
+        return finalizeCombat({ ...stateWithRoll, players: newPlayers2, combat: combatWithElim }, effects);
+      }
+
+      // Character eliminated — remove from company and add to eliminated pile
       if (company) {
         const newCompanies = newPlayerData.companies.map(c =>
           c.id === combat.companyId
@@ -486,15 +568,53 @@ function handleBodyCheckRoll(state: GameState, action: GameAction, combat: Comba
         );
         newPlayerData.companies = newCompanies;
       }
-      // Move to eliminated pile (full item transfer deferred to Phase 4)
+      // Move character to eliminated pile
       const elimCharDefId = resolveInstanceId(state, strike.characterId);
       newPlayerData.eliminatedPile = [...newPlayerData.eliminatedPile, { instanceId: strike.characterId, definitionId: elimCharDefId! }];
+
+      // Discard allies and hazards on the eliminated character immediately
+      for (const ally of charData.allies) {
+        logDetail(`Discarding ally ${ally.instanceId as string} from eliminated character`);
+        newPlayerData.discardPile = [...newPlayerData.discardPile, { instanceId: ally.instanceId, definitionId: ally.definitionId }];
+      }
+
       const { [strike.characterId as string]: _, ...remainingChars } = newPlayerData.characters;
       newPlayerData.characters = remainingChars;
       newPlayers2[defPlayerIndex] = newPlayerData;
 
+      // Per CoE rule 3.I.2: for each unwounded character in the same company,
+      // an item the eliminated character controlled may be transferred (one per recipient).
+      const salvageItems = charData.items;
+      const unwoundedRecipients: CardInstanceId[] = company
+        ? company.characters
+          .filter(ch => ch !== strike.characterId)
+          .filter(ch => {
+            const cd = newPlayerData.characters[ch as string];
+            return cd && cd.status !== CardStatus.Inverted;
+          })
+        : [];
+
+      if (salvageItems.length > 0 && unwoundedRecipients.length > 0) {
+        logDetail(`Entering item-salvage phase: ${salvageItems.length} item(s) available, ${unwoundedRecipients.length} unwounded recipient(s)`);
+        const combatWithSalvage: CombatState = {
+          ...combatWithElim,
+          phase: 'item-salvage',
+          salvageItems,
+          salvageRecipients: unwoundedRecipients,
+        };
+        return { state: { ...stateWithRoll, players: newPlayers2, combat: combatWithSalvage }, effects };
+      }
+
+      // No items or no recipients — discard all items immediately
+      for (const item of salvageItems) {
+        logDetail(`Discarding item ${item.instanceId as string} (no salvage possible)`);
+        newPlayers2[defPlayerIndex] = {
+          ...newPlayers2[defPlayerIndex],
+          discardPile: [...newPlayers2[defPlayerIndex].discardPile, { instanceId: item.instanceId, definitionId: item.definitionId }],
+        };
+      }
+
       // Advance to next strike or finalize
-      const combatWithElim = { ...combat, strikeAssignments: newAssignments };
       const next2 = nextStrikePhase(combatWithElim);
       if (next2) {
         return { state: { ...stateWithRoll, players: newPlayers2, combat: { ...combatWithElim, ...next2 } }, effects };
@@ -502,7 +622,7 @@ function handleBodyCheckRoll(state: GameState, action: GameAction, combat: Comba
       return finalizeCombat({ ...stateWithRoll, players: newPlayers2, combat: combatWithElim }, effects);
     }
 
-    logDetail('Character survives body check');
+    logDetail(`${allyMatch ? 'Ally' : 'Character'} survives body check`);
     // Advance to next strike or finalize
     const next3 = nextStrikePhase(combat);
     if (next3) {
@@ -690,6 +810,84 @@ function handleCancelByTap(state: GameState, action: GameAction, combat: CombatS
   }
 
   return { state: { ...state, players: newPlayers, combat: newCombat } };
+}
+
+/**
+ * Transfer one item from an eliminated character to an unwounded companion.
+ * Available during the 'item-salvage' combat phase (CoE rule 3.I.2).
+ */
+function handleSalvageItem(state: GameState, action: GameAction, combat: CombatState): ReducerResult {
+  if (action.type !== 'salvage-item') return { state, error: 'Expected salvage-item' };
+  if (combat.phase !== 'item-salvage') return { state, error: 'Not in item-salvage phase' };
+  if (action.player !== combat.defendingPlayerId) return { state, error: 'Only defending player can salvage items' };
+
+  const { salvageItems, salvageRecipients } = combat;
+  if (!salvageItems || !salvageRecipients) return { state, error: 'No salvage state' };
+
+  // Validate the item exists in salvage pool
+  const itemIndex = salvageItems.findIndex(it => it.instanceId === action.itemInstanceId);
+  if (itemIndex < 0) return { state, error: 'Item not available for salvage' };
+
+  // Validate the recipient is eligible
+  if (!salvageRecipients.includes(action.recipientCharacterId)) {
+    return { state, error: 'Character not eligible to receive salvaged item' };
+  }
+
+  const item = salvageItems[itemIndex];
+  const newPlayers = clonePlayers(state);
+  const defIdx = state.players.findIndex(p => p.id === combat.defendingPlayerId);
+  const recipientChar = newPlayers[defIdx].characters[action.recipientCharacterId as string];
+  if (!recipientChar) return { state, error: 'Recipient character not found' };
+
+  logDetail(`Salvaging item ${item.instanceId as string} to character ${action.recipientCharacterId as string}`);
+
+  // Transfer the item to the recipient character
+  const newCharacters = { ...newPlayers[defIdx].characters };
+  newCharacters[action.recipientCharacterId as string] = {
+    ...recipientChar,
+    items: [...recipientChar.items, item],
+  };
+  newPlayers[defIdx] = { ...newPlayers[defIdx], characters: newCharacters };
+
+  // Remove item from salvage pool and recipient from eligible list
+  const remainingItems = salvageItems.filter((_, i) => i !== itemIndex);
+  const remainingRecipients = salvageRecipients.filter(r => r !== action.recipientCharacterId);
+
+  // If no more items or no more recipients, finish salvage
+  if (remainingItems.length === 0 || remainingRecipients.length === 0) {
+    // Discard any remaining unsalvaged items
+    for (const leftover of remainingItems) {
+      logDetail(`Discarding unsalvaged item ${leftover.instanceId as string}`);
+      newPlayers[defIdx] = {
+        ...newPlayers[defIdx],
+        discardPile: [...newPlayers[defIdx].discardPile, { instanceId: leftover.instanceId, definitionId: leftover.definitionId }],
+      };
+    }
+    return finishSalvage({ ...state, players: newPlayers }, combat);
+  }
+
+  // More items and recipients available — stay in salvage phase
+  logDetail(`Item salvage continues: ${remainingItems.length} item(s) remaining, ${remainingRecipients.length} recipient(s) remaining`);
+  return {
+    state: {
+      ...state,
+      players: newPlayers,
+      combat: { ...combat, salvageItems: remainingItems, salvageRecipients: remainingRecipients },
+    },
+  };
+}
+
+/**
+ * Transition out of item-salvage phase back to the normal combat flow.
+ * Clears salvage fields and advances to the next strike or finalizes combat.
+ */
+function finishSalvage(state: GameState, combat: CombatState): ReducerResult {
+  const cleanCombat: CombatState = { ...combat, phase: 'body-check', salvageItems: undefined, salvageRecipients: undefined };
+  const next = nextStrikePhase(cleanCombat);
+  if (next) {
+    return { state: { ...state, combat: { ...cleanCombat, ...next } } };
+  }
+  return finalizeCombat({ ...state, combat: cleanCombat });
 }
 
 /**

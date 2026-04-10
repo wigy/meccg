@@ -306,7 +306,10 @@ export function validateActionPlayer(state: GameState, action: GameAction): stri
     if (action.type === 'body-check-roll') {
       return action.player === combat.attackingPlayerId ? undefined : 'Not the attacking player';
     }
-    if (action.type === 'pass' && combat.phase === 'assign-strikes') {
+    if (action.type === 'salvage-item') {
+      return action.player === combat.defendingPlayerId ? undefined : 'Not the defending player';
+    }
+    if (action.type === 'pass' && (combat.phase === 'assign-strikes' || combat.phase === 'item-salvage')) {
       return action.player === combat.defendingPlayerId ? undefined : 'Not the defending player';
     }
   }

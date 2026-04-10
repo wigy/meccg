@@ -14,8 +14,421 @@
  * A failed body check on an unwounded character will result in the character being eliminated, but a successful body check doesn't otherwise affect the character.
  */
 
-import { describe, test } from 'vitest';
+import { describe, test, expect, beforeEach } from 'vitest';
+import {
+  PLAYER_1, PLAYER_2,
+  ARAGORN, BILBO, LEGOLAS,
+  RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
+  DAGGER_OF_WESTERNESSE,
+  buildTestState, resetMint, makeMHState, findCharInstanceId,
+  reduce, viableActions,
+  Phase,
+} from '../../test-helpers.js';
+import { RegionType, SiteType, CardStatus } from '../../../index.js';
+import type { CombatState, CardInstanceId } from '../../../index.js';
 
 describe('Rule 8.30 — Character Eliminated from Body Check', () => {
-  test.todo('Failed body check eliminates character; items may transfer to unwounded company members; non-follower cards discarded');
+  beforeEach(() => resetMint());
+
+  test('item-salvage phase entered when character with items is eliminated and unwounded companions exist', () => {
+    // Bilbo has a Dagger, Aragorn is unwounded in the same company.
+    // Bilbo fails a body check → item-salvage phase should be entered.
+    const state = buildTestState({
+      phase: Phase.MovementHazard,
+      activePlayer: PLAYER_1,
+      recompute: true,
+      players: [
+        {
+          id: PLAYER_1,
+          companies: [{
+            site: MORIA,
+            characters: [
+              { defId: BILBO, items: [DAGGER_OF_WESTERNESSE] },
+              ARAGORN,
+            ],
+          }],
+          hand: [],
+          siteDeck: [MINAS_TIRITH],
+        },
+        {
+          id: PLAYER_2,
+          companies: [{ site: LORIEN, characters: [LEGOLAS] }],
+          hand: [],
+          siteDeck: [RIVENDELL],
+        },
+      ],
+    });
+
+    const bilboId = findCharInstanceId(state, 0, BILBO);
+    const aragornId = findCharInstanceId(state, 0, ARAGORN);
+    const companyId = state.players[0].companies[0].id;
+
+    // Wound Bilbo so body check is triggered after strike failure
+    const p0 = { ...state.players[0] };
+    p0.characters = {
+      ...p0.characters,
+      [bilboId as string]: { ...p0.characters[bilboId as string], status: CardStatus.Inverted },
+    };
+    const players = [p0, state.players[1]] as const;
+
+    const mhState = makeMHState({
+      resolvedSitePath: [RegionType.Shadow],
+      resolvedSitePathNames: ['Imlad Morgul'],
+      destinationSiteType: SiteType.ShadowHold,
+      destinationSiteName: 'Moria',
+    });
+
+    // Set up combat in body-check phase for Bilbo
+    const combat: CombatState = {
+      attackSource: { type: 'automatic-attack', siteInstanceId: 'fake-site' as CardInstanceId, attackIndex: 0 },
+      companyId,
+      defendingPlayerId: PLAYER_1,
+      attackingPlayerId: PLAYER_2,
+      strikesTotal: 1,
+      strikeProwess: 10,
+      creatureBody: null,
+      creatureRace: 'orc',
+      strikeAssignments: [
+        { characterId: bilboId, excessStrikes: 0, resolved: true, result: 'wounded', wasAlreadyWounded: false },
+      ],
+      currentStrikeIndex: 0,
+      phase: 'body-check',
+      assignmentPhase: 'done',
+      bodyCheckTarget: 'character',
+      detainment: false,
+    };
+
+    // Body check roll of 12 > Bilbo's body (9) → eliminated
+    const readyState = { ...state, players, phaseState: mhState, combat, cheatRollTotal: 12 };
+    const result = reduce(readyState, { type: 'body-check-roll', player: PLAYER_2, need: 10, explanation: 'test' });
+    expect(result.error).toBeUndefined();
+
+    // Should enter item-salvage phase
+    expect(result.state.combat).toBeDefined();
+    expect(result.state.combat!.phase).toBe('item-salvage');
+    expect(result.state.combat!.salvageItems).toHaveLength(1);
+    expect(result.state.combat!.salvageRecipients).toContain(aragornId);
+
+    // Bilbo should be in eliminated pile, not in characters
+    expect(result.state.players[0].characters[bilboId as string]).toBeUndefined();
+    expect(result.state.players[0].eliminatedPile.some(c => c.instanceId === bilboId)).toBe(true);
+  });
+
+  test('salvage-item action transfers item to unwounded companion', () => {
+    const state = buildTestState({
+      phase: Phase.MovementHazard,
+      activePlayer: PLAYER_1,
+      recompute: true,
+      players: [
+        {
+          id: PLAYER_1,
+          companies: [{
+            site: MORIA,
+            characters: [
+              { defId: BILBO, items: [DAGGER_OF_WESTERNESSE] },
+              ARAGORN,
+            ],
+          }],
+          hand: [],
+          siteDeck: [MINAS_TIRITH],
+        },
+        {
+          id: PLAYER_2,
+          companies: [{ site: LORIEN, characters: [LEGOLAS] }],
+          hand: [],
+          siteDeck: [RIVENDELL],
+        },
+      ],
+    });
+
+    const bilboId = findCharInstanceId(state, 0, BILBO);
+    const aragornId = findCharInstanceId(state, 0, ARAGORN);
+    const companyId = state.players[0].companies[0].id;
+    const daggerId = state.players[0].characters[bilboId as string].items[0].instanceId;
+
+    // Wound Bilbo
+    const p0 = { ...state.players[0] };
+    p0.characters = {
+      ...p0.characters,
+      [bilboId as string]: { ...p0.characters[bilboId as string], status: CardStatus.Inverted },
+    };
+    const players = [p0, state.players[1]] as const;
+
+    const mhState = makeMHState({
+      resolvedSitePath: [RegionType.Shadow],
+      resolvedSitePathNames: ['Imlad Morgul'],
+      destinationSiteType: SiteType.ShadowHold,
+      destinationSiteName: 'Moria',
+    });
+
+    const combat: CombatState = {
+      attackSource: { type: 'automatic-attack', siteInstanceId: 'fake-site' as CardInstanceId, attackIndex: 0 },
+      companyId,
+      defendingPlayerId: PLAYER_1,
+      attackingPlayerId: PLAYER_2,
+      strikesTotal: 1,
+      strikeProwess: 10,
+      creatureBody: null,
+      creatureRace: 'orc',
+      strikeAssignments: [
+        { characterId: bilboId, excessStrikes: 0, resolved: true, result: 'wounded', wasAlreadyWounded: false },
+      ],
+      currentStrikeIndex: 0,
+      phase: 'body-check',
+      assignmentPhase: 'done',
+      bodyCheckTarget: 'character',
+      detainment: false,
+    };
+
+    // Eliminate Bilbo
+    const readyState = { ...state, players, phaseState: mhState, combat, cheatRollTotal: 12 };
+    const afterBodyCheck = reduce(readyState, { type: 'body-check-roll', player: PLAYER_2, need: 10, explanation: 'test' });
+    expect(afterBodyCheck.error).toBeUndefined();
+    expect(afterBodyCheck.state.combat!.phase).toBe('item-salvage');
+
+    // Salvage the Dagger to Aragorn
+    const salvageActions = viableActions(afterBodyCheck.state, PLAYER_1, 'salvage-item');
+    expect(salvageActions.length).toBe(1);
+    const salvageAction = salvageActions[0].action;
+    expect(salvageAction.type).toBe('salvage-item');
+
+    const afterSalvage = reduce(afterBodyCheck.state, salvageAction);
+    expect(afterSalvage.error).toBeUndefined();
+
+    // Combat should have finalized (all strikes resolved)
+    expect(afterSalvage.state.combat).toBeNull();
+
+    // Aragorn should now have the Dagger
+    const aragornData = afterSalvage.state.players[0].characters[aragornId as string];
+    expect(aragornData.items.some(i => i.instanceId === daggerId)).toBe(true);
+  });
+
+  test('pass during item-salvage discards remaining items', () => {
+    const state = buildTestState({
+      phase: Phase.MovementHazard,
+      activePlayer: PLAYER_1,
+      recompute: true,
+      players: [
+        {
+          id: PLAYER_1,
+          companies: [{
+            site: MORIA,
+            characters: [
+              { defId: BILBO, items: [DAGGER_OF_WESTERNESSE] },
+              ARAGORN,
+            ],
+          }],
+          hand: [],
+          siteDeck: [MINAS_TIRITH],
+        },
+        {
+          id: PLAYER_2,
+          companies: [{ site: LORIEN, characters: [LEGOLAS] }],
+          hand: [],
+          siteDeck: [RIVENDELL],
+        },
+      ],
+    });
+
+    const bilboId = findCharInstanceId(state, 0, BILBO);
+    const companyId = state.players[0].companies[0].id;
+    const daggerId = state.players[0].characters[bilboId as string].items[0].instanceId;
+
+    // Wound Bilbo
+    const p0 = { ...state.players[0] };
+    p0.characters = {
+      ...p0.characters,
+      [bilboId as string]: { ...p0.characters[bilboId as string], status: CardStatus.Inverted },
+    };
+    const players = [p0, state.players[1]] as const;
+
+    const mhState = makeMHState({
+      resolvedSitePath: [RegionType.Shadow],
+      resolvedSitePathNames: ['Imlad Morgul'],
+      destinationSiteType: SiteType.ShadowHold,
+      destinationSiteName: 'Moria',
+    });
+
+    const combat: CombatState = {
+      attackSource: { type: 'automatic-attack', siteInstanceId: 'fake-site' as CardInstanceId, attackIndex: 0 },
+      companyId,
+      defendingPlayerId: PLAYER_1,
+      attackingPlayerId: PLAYER_2,
+      strikesTotal: 1,
+      strikeProwess: 10,
+      creatureBody: null,
+      creatureRace: 'orc',
+      strikeAssignments: [
+        { characterId: bilboId, excessStrikes: 0, resolved: true, result: 'wounded', wasAlreadyWounded: false },
+      ],
+      currentStrikeIndex: 0,
+      phase: 'body-check',
+      assignmentPhase: 'done',
+      bodyCheckTarget: 'character',
+      detainment: false,
+    };
+
+    // Eliminate Bilbo
+    const readyState = { ...state, players, phaseState: mhState, combat, cheatRollTotal: 12 };
+    const afterBodyCheck = reduce(readyState, { type: 'body-check-roll', player: PLAYER_2, need: 10, explanation: 'test' });
+    expect(afterBodyCheck.state.combat!.phase).toBe('item-salvage');
+
+    // Pass — decline salvage
+    const afterPass = reduce(afterBodyCheck.state, { type: 'pass', player: PLAYER_1 });
+    expect(afterPass.error).toBeUndefined();
+
+    // Combat should have finalized
+    expect(afterPass.state.combat).toBeNull();
+
+    // Dagger should be in discard pile, not on any character
+    expect(afterPass.state.players[0].discardPile.some(c => c.instanceId === daggerId)).toBe(true);
+  });
+
+  test('no item-salvage when eliminated character has no items', () => {
+    const state = buildTestState({
+      phase: Phase.MovementHazard,
+      activePlayer: PLAYER_1,
+      recompute: true,
+      players: [
+        {
+          id: PLAYER_1,
+          companies: [{
+            site: MORIA,
+            characters: [BILBO, ARAGORN],
+          }],
+          hand: [],
+          siteDeck: [MINAS_TIRITH],
+        },
+        {
+          id: PLAYER_2,
+          companies: [{ site: LORIEN, characters: [LEGOLAS] }],
+          hand: [],
+          siteDeck: [RIVENDELL],
+        },
+      ],
+    });
+
+    const bilboId = findCharInstanceId(state, 0, BILBO);
+    const companyId = state.players[0].companies[0].id;
+
+    // Wound Bilbo
+    const p0 = { ...state.players[0] };
+    p0.characters = {
+      ...p0.characters,
+      [bilboId as string]: { ...p0.characters[bilboId as string], status: CardStatus.Inverted },
+    };
+    const players = [p0, state.players[1]] as const;
+
+    const mhState = makeMHState({
+      resolvedSitePath: [RegionType.Shadow],
+      resolvedSitePathNames: ['Imlad Morgul'],
+      destinationSiteType: SiteType.ShadowHold,
+      destinationSiteName: 'Moria',
+    });
+
+    const combat: CombatState = {
+      attackSource: { type: 'automatic-attack', siteInstanceId: 'fake-site' as CardInstanceId, attackIndex: 0 },
+      companyId,
+      defendingPlayerId: PLAYER_1,
+      attackingPlayerId: PLAYER_2,
+      strikesTotal: 1,
+      strikeProwess: 10,
+      creatureBody: null,
+      creatureRace: 'orc',
+      strikeAssignments: [
+        { characterId: bilboId, excessStrikes: 0, resolved: true, result: 'wounded', wasAlreadyWounded: false },
+      ],
+      currentStrikeIndex: 0,
+      phase: 'body-check',
+      assignmentPhase: 'done',
+      bodyCheckTarget: 'character',
+      detainment: false,
+    };
+
+    // Eliminate Bilbo (no items) — body check roll 12 > body 9
+    const readyState = { ...state, players, phaseState: mhState, combat, cheatRollTotal: 12 };
+    const result = reduce(readyState, { type: 'body-check-roll', player: PLAYER_2, need: 10, explanation: 'test' });
+    expect(result.error).toBeUndefined();
+
+    // Should skip item-salvage and finalize combat directly
+    expect(result.state.combat).toBeNull();
+  });
+
+  test('no item-salvage when no unwounded companions in company', () => {
+    // Bilbo has a Dagger, but Aragorn (only companion) is wounded
+    const state = buildTestState({
+      phase: Phase.MovementHazard,
+      activePlayer: PLAYER_1,
+      recompute: true,
+      players: [
+        {
+          id: PLAYER_1,
+          companies: [{
+            site: MORIA,
+            characters: [
+              { defId: BILBO, items: [DAGGER_OF_WESTERNESSE] },
+              { defId: ARAGORN, status: CardStatus.Inverted },
+            ],
+          }],
+          hand: [],
+          siteDeck: [MINAS_TIRITH],
+        },
+        {
+          id: PLAYER_2,
+          companies: [{ site: LORIEN, characters: [LEGOLAS] }],
+          hand: [],
+          siteDeck: [RIVENDELL],
+        },
+      ],
+    });
+
+    const bilboId = findCharInstanceId(state, 0, BILBO);
+    const companyId = state.players[0].companies[0].id;
+    const daggerId = state.players[0].characters[bilboId as string].items[0].instanceId;
+
+    // Wound Bilbo
+    const p0 = { ...state.players[0] };
+    p0.characters = {
+      ...p0.characters,
+      [bilboId as string]: { ...p0.characters[bilboId as string], status: CardStatus.Inverted },
+    };
+    const players = [p0, state.players[1]] as const;
+
+    const mhState = makeMHState({
+      resolvedSitePath: [RegionType.Shadow],
+      resolvedSitePathNames: ['Imlad Morgul'],
+      destinationSiteType: SiteType.ShadowHold,
+      destinationSiteName: 'Moria',
+    });
+
+    const combat: CombatState = {
+      attackSource: { type: 'automatic-attack', siteInstanceId: 'fake-site' as CardInstanceId, attackIndex: 0 },
+      companyId,
+      defendingPlayerId: PLAYER_1,
+      attackingPlayerId: PLAYER_2,
+      strikesTotal: 1,
+      strikeProwess: 10,
+      creatureBody: null,
+      creatureRace: 'orc',
+      strikeAssignments: [
+        { characterId: bilboId, excessStrikes: 0, resolved: true, result: 'wounded', wasAlreadyWounded: false },
+      ],
+      currentStrikeIndex: 0,
+      phase: 'body-check',
+      assignmentPhase: 'done',
+      bodyCheckTarget: 'character',
+      detainment: false,
+    };
+
+    // Eliminate Bilbo — no unwounded companions → skip salvage
+    const readyState = { ...state, players, phaseState: mhState, combat, cheatRollTotal: 12 };
+    const result = reduce(readyState, { type: 'body-check-roll', player: PLAYER_2, need: 10, explanation: 'test' });
+    expect(result.error).toBeUndefined();
+
+    // Should skip item-salvage and finalize combat directly
+    expect(result.state.combat).toBeNull();
+
+    // Dagger should be in discard pile
+    expect(result.state.players[0].discardPile.some(c => c.instanceId === daggerId)).toBe(true);
+  });
 });

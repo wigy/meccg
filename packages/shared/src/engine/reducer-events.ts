@@ -13,6 +13,7 @@ import { initiateChain, pushChainEntry } from './chain-reducer.js';
 import { resolveInstanceId } from '../types/state.js';
 import type { ReducerResult } from './reducer-utils.js';
 import { clonePlayers } from './reducer-utils.js';
+import { addConstraint } from './pending.js';
 
 
 /**
@@ -297,28 +298,123 @@ export function handlePlayResourceShortEvent(state: GameState, action: GameActio
   const newPlayers = clonePlayers(state);
   newPlayers[playerIndex] = { ...player, hand: newHand, characters: newCharacters };
 
+  // Apply self-enters-play on-event effects (e.g. Stealth's add-constraint).
+  // These are non-interactive and resolved immediately when the card is played.
+  let newState: GameState = { ...state, players: newPlayers };
+  newState = applyShortEventOnEntersPlay(newState, def, handCard, action, playerIndex);
+
   if (interactiveEffects.length > 0) {
     // Card goes to player's cardsInPlay (visible on table) while effects resolve
     logDetail(`${def.name} → cardsInPlay, resolving ${interactiveEffects.length} effect(s)`);
-    newPlayers[playerIndex] = {
-      ...newPlayers[playerIndex],
-      cardsInPlay: [...newPlayers[playerIndex].cardsInPlay, { instanceId: handCard.instanceId, definitionId: handCard.definitionId, status: CardStatus.Untapped }],
+    const updatedPlayers = clonePlayers(newState);
+    updatedPlayers[playerIndex] = {
+      ...newState.players[playerIndex],
+      cardsInPlay: [...newState.players[playerIndex].cardsInPlay, { instanceId: handCard.instanceId, definitionId: handCard.definitionId, status: CardStatus.Untapped }],
     };
     return {
       state: {
-        ...state,
-        players: newPlayers,
-        pendingEffects: [...state.pendingEffects, ...interactiveEffects],
+        ...newState,
+        players: updatedPlayers,
+        pendingEffects: [...newState.pendingEffects, ...interactiveEffects],
       },
     };
   }
 
   // No interactive effects: discard immediately
-  newPlayers[playerIndex] = {
-    ...newPlayers[playerIndex],
-    discardPile: [...newPlayers[playerIndex].discardPile, handCard],
+  const updatedPlayers = clonePlayers(newState);
+  updatedPlayers[playerIndex] = {
+    ...newState.players[playerIndex],
+    discardPile: [...newState.players[playerIndex].discardPile, handCard],
   };
-  return { state: { ...state, players: newPlayers } };
+  return { state: { ...newState, players: updatedPlayers } };
+}
+
+/**
+ * Process `on-event: self-enters-play` effects for a resource short-event.
+ * Currently handles `add-constraint` effects, where the target company is
+ * derived from the action's target scout.
+ */
+function applyShortEventOnEntersPlay(
+  state: GameState,
+  def: { name: string; effects?: readonly import('../types/effects.js').CardEffect[] },
+  handCard: CardInstance,
+  action: GameAction,
+  playerIndex: number,
+): GameState {
+  if (!def.effects) return state;
+
+  for (const effect of def.effects) {
+    if (effect.type !== 'on-event' || effect.event !== 'self-enters-play') continue;
+    const onEvent = effect;
+
+    if (onEvent.apply.type === 'add-constraint') {
+      const constraintKind = onEvent.apply.constraint;
+      const scopeName = onEvent.apply.scope;
+      if (!constraintKind || !scopeName) continue;
+
+      // Resolve the target company from the scout targeted by the action
+      const targetCharId = action.type === 'play-short-event' ? action.targetScoutInstanceId : undefined;
+      if (!targetCharId) {
+        logDetail(`add-constraint(${constraintKind}): no target scout — fizzle`);
+        continue;
+      }
+
+      const player = state.players[playerIndex];
+      const company = player.companies.find(c => c.characters.includes(targetCharId));
+      if (!company) {
+        logDetail(`add-constraint(${constraintKind}): scout ${targetCharId as string} not in any company — fizzle`);
+        continue;
+      }
+
+      // Map scope name to ConstraintScope
+      let scope: import('../types/pending.js').ConstraintScope;
+      switch (scopeName) {
+        case 'turn':
+          scope = { kind: 'turn' };
+          break;
+        case 'company-mh-phase':
+          scope = { kind: 'company-mh-phase', companyId: company.id };
+          break;
+        case 'company-site-phase':
+          scope = { kind: 'company-site-phase', companyId: company.id };
+          break;
+        case 'until-cleared':
+          scope = { kind: 'until-cleared' };
+          break;
+        default:
+          logDetail(`add-constraint(${constraintKind}): unknown scope "${scopeName}" — fizzle`);
+          continue;
+      }
+
+      // Map constraint name to kind
+      type Kind = import('../types/pending.js').ActiveConstraint['kind'];
+      let kind: Kind;
+      switch (constraintKind) {
+        case 'no-creature-hazards-on-company':
+          kind = { type: 'no-creature-hazards-on-company' };
+          break;
+        case 'site-phase-do-nothing':
+          kind = { type: 'site-phase-do-nothing' };
+          break;
+        case 'site-phase-do-nothing-unless-ranger-taps':
+          kind = { type: 'site-phase-do-nothing-unless-ranger-taps' };
+          break;
+        default:
+          logDetail(`add-constraint: unknown constraint kind "${constraintKind}" — fizzle`);
+          continue;
+      }
+
+      logDetail(`"${def.name}" played — adding constraint ${constraintKind} on company ${company.id as string}, scope ${scopeName}`);
+      state = addConstraint(state, {
+        source: handCard.instanceId,
+        scope,
+        target: { kind: 'company', companyId: company.id },
+        kind,
+      });
+    }
+  }
+
+  return state;
 }
 
 /**

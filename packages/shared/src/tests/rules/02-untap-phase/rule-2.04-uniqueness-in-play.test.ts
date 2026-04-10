@@ -15,10 +15,11 @@
 
 import { describe, test, expect, beforeEach } from 'vitest';
 import {
-  buildTestState, resetMint, Phase,
+  buildTestState, resetMint, Phase, makeSitePhase,
   PLAYER_1, PLAYER_2,
   ARAGORN, LEGOLAS, EOWYN,
-  RIVENDELL, LORIEN,
+  GLAMDRING,
+  RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
 } from '../../test-helpers.js';
 import { computeLegalActions } from '../../../engine/legal-actions/index.js';
 import type { EvaluatedAction } from '../../../index.js';
@@ -117,5 +118,39 @@ describe('Rule 2.04 — Uniqueness In Play', () => {
     const actions = computeLegalActions(state, PLAYER_1);
     const playActions = viableOfType(actions, 'play-character');
     expect(playActions.length).toBeGreaterThan(0);
+  });
+
+  test('Unique item in play for opponent cannot be played by resource player', () => {
+    // Glamdring already on P2's Legolas. P1 has Glamdring in hand at Moria (ruins-and-lairs).
+    // Uniqueness should block P1 from playing it.
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Site,
+      players: [
+        {
+          id: PLAYER_1,
+          hand: [GLAMDRING],
+          siteDeck: [MINAS_TIRITH],
+          companies: [{ site: MORIA, characters: [ARAGORN] }],
+        },
+        {
+          id: PLAYER_2,
+          hand: [],
+          siteDeck: [MINAS_TIRITH],
+          companies: [{ site: LORIEN, characters: [{ defId: LEGOLAS, items: [GLAMDRING] }] }],
+        },
+      ],
+      recompute: true,
+    });
+
+    const siteState = { ...state, phaseState: makeSitePhase() };
+    const actions = computeLegalActions(siteState, PLAYER_1);
+
+    const playItem = viableOfType(actions, 'play-hero-resource');
+    expect(playItem).toHaveLength(0);
+
+    const blocked = nonViableOfType(actions, 'not-playable');
+    const glamdringBlocked = blocked.filter(a => a.reason?.includes('unique'));
+    expect(glamdringBlocked.length).toBeGreaterThan(0);
   });
 });

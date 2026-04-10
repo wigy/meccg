@@ -178,6 +178,9 @@ function renderPhaseBanner(
   } else if (combat.phase === 'resolve-strike') {
     const resolved = combat.strikeAssignments.filter(sa => sa.resolved).length;
     phaseText = `${racePrefix}Resolve Strike ${resolved + 1} of ${combat.strikesTotal}`;
+  } else if (combat.phase === 'item-salvage') {
+    const itemCount = combat.salvageItems?.length ?? 0;
+    phaseText = `Salvage Items \u2014 ${itemCount} item${itemCount !== 1 ? 's' : ''} available`;
   } else {
     const target = combat.bodyCheckTarget === 'creature' ? 'Creature' : 'Character';
     phaseText = `Body Check \u2014 ${target}`;

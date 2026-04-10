@@ -33,9 +33,10 @@ import {
   CardStatus,
 } from '../test-helpers.js';
 import type { CancelAttackAction, HeroResourceEventCard } from '../../index.js';
-import { RegionType, SiteType } from '../../index.js';
+import { RegionType, SiteType, describeAction } from '../../index.js';
 import type { CancelAttackEffect } from '../../types/effects.js';
 import { computeLegalActions } from '../../index.js';
+import { resolveInstanceId } from '../../types/state.js';
 
 describe('Concealment (tw-204)', () => {
   beforeEach(() => resetMint());
@@ -234,6 +235,45 @@ describe('Concealment (tw-204)', () => {
     // Concealment should be marked not-playable
     const notPlayable = actions.filter(a => a.action.type === 'not-playable');
     expect(notPlayable.length).toBeGreaterThan(0);
+  });
+
+  test('cancel-attack action description names card and scout for opponent notification', () => {
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.MovementHazard,
+      recompute: true,
+      players: [
+        { id: PLAYER_1, companies: [{ site: MORIA, characters: [ARAGORN] }], hand: [CONCEALMENT], siteDeck: [MINAS_TIRITH] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [ORC_PATROL], siteDeck: [RIVENDELL] },
+      ],
+    });
+
+    const mhState = makeMHState({
+      activeCompanyIndex: 0,
+      resolvedSitePath: [RegionType.Wilderness],
+      resolvedSitePathNames: ['Hithaeglir'],
+      destinationSiteType: SiteType.RuinsAndLairs,
+      destinationSiteName: 'Moria',
+    });
+    const stateAtMH = { ...base, phaseState: mhState };
+
+    const orcPatrolId = stateAtMH.players[1].hand[0].instanceId;
+    const targetCompanyId = stateAtMH.players[0].companies[0].id;
+    const combatState = playCreatureHazardAndResolve(
+      stateAtMH, PLAYER_2, orcPatrolId, targetCompanyId,
+      { method: 'region-type', value: 'wilderness' },
+    );
+
+    const cancelActions = viableActions(combatState, PLAYER_1, 'cancel-attack');
+    expect(cancelActions.length).toBe(1);
+
+    // describeAction should mention both the card name and the scout name
+    // so the opponent notification is informative (bug: cards just disappeared)
+    const instLookup = (id: string) => resolveInstanceId(combatState, id as never);
+    const desc = describeAction(cancelActions[0].action, pool, instLookup);
+    expect(desc).toContain('Cancel attack');
+    expect(desc).toContain('Concealment');
+    expect(desc).toContain('Aragorn');
   });
 
   test('cancel-attack is NOT available to the attacking player', () => {

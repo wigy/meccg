@@ -187,6 +187,13 @@ export interface StateMessage {
   readonly type: 'state';
   /** The projected game state for this player, with opponent's hidden info redacted. */
   readonly view: PlayerView;
+  /**
+   * The action that triggered this state update, if any.
+   * Present when the state change was caused by a player action (not
+   * reconnection or initial state). Clients can use this to display a
+   * notification describing what the opponent just did.
+   */
+  readonly lastAction?: GameAction;
 }
 
 /**
