@@ -130,6 +130,12 @@ export interface CombatState {
    */
   readonly forceSingleTarget?: boolean;
   /**
+   * Number of separate attacks in a multi-attack creature (e.g. Assassin = 3).
+   * When present, `strikesTotal` equals `multiAttackCount × strikesPerAttack`.
+   * Used by the UI to display "3 attacks of 1 strike" instead of "3 strikes".
+   */
+  readonly multiAttackCount?: number;
+  /**
    * Number of remaining cancel-by-tap opportunities the defender has.
    * Each tap of a non-target character cancels one strike assignment.
    * Set by the `cancel-attack-by-tap` combat rule.

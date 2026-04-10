@@ -160,7 +160,13 @@ function renderPhaseBanner(
       : (iAmDefender ? "Attacker's turn" : 'Your turn');
     const assigned = combat.strikeAssignments.length;
     const remaining = combat.strikesTotal - assigned;
-    phaseText = `${racePrefix}Assign ${combat.strikesTotal} strike${combat.strikesTotal !== 1 ? 's' : ''} at ${combat.strikeProwess} prowess \u2014 ${whose} \u2022 ${assigned} assigned, ${remaining} remaining`;
+    const strikeLabel = combat.multiAttackCount && combat.multiAttackCount > 1
+      ? (() => {
+        const strikesPerAttack = combat.strikesTotal / combat.multiAttackCount;
+        return `${combat.multiAttackCount} attacks of ${strikesPerAttack} strike${strikesPerAttack !== 1 ? 's' : ''} each`;
+      })()
+      : `${combat.strikesTotal} strike${combat.strikesTotal !== 1 ? 's' : ''}`;
+    phaseText = `${racePrefix}Assign ${strikeLabel} at ${combat.strikeProwess} prowess \u2014 ${whose} \u2022 ${assigned} assigned, ${remaining} remaining`;
   } else if (combat.phase === 'choose-strike-order') {
     const resolved = combat.strikeAssignments.filter(sa => sa.resolved).length;
     phaseText = `${racePrefix}Choose next strike to resolve (${resolved} of ${combat.strikesTotal} resolved)`;

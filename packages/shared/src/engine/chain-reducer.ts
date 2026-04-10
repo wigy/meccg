@@ -772,6 +772,7 @@ function initiateCreatureCombat(state: GameState, entry: ChainEntry): GameState 
     bodyCheckTarget: null,
     detainment: false,
     forceSingleTarget: multiAttackCount > 1 ? true : undefined,
+    multiAttackCount: multiAttackCount > 1 ? multiAttackCount : undefined,
     cancelByTapRemaining: cancelByTapMax > 0 ? cancelByTapMax : undefined,
   };
 
