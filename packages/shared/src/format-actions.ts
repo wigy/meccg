@@ -171,8 +171,11 @@ export function describeAction(
     case 'play-permanent-event':
       return `Play permanent event ${instName(action.cardInstanceId)}`;
     case 'play-short-event':
-      return action.targetInstanceId
-        ? `Play ${instName(action.cardInstanceId)} to cancel ${instName(action.targetInstanceId)}`
+      if (action.targetInstanceId) {
+        return `Play ${instName(action.cardInstanceId)} to cancel ${instName(action.targetInstanceId)}`;
+      }
+      return action.targetScoutInstanceId
+        ? `Play short-event ${instName(action.cardInstanceId)} on ${instName(action.targetScoutInstanceId)}`
         : `Play short-event ${instName(action.cardInstanceId)}`;
     case 'play-hazard': {
       const target = action.targetCharacterId

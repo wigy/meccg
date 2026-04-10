@@ -3754,6 +3754,16 @@ h2 {
 .on-guard-card:nth-child(5) { --og-index: 4; z-index: 4; }
 .on-guard-card:nth-child(6) { --og-index: 5; z-index: 5; }
 
+/* Active constraint cards (Stealth, River, etc.) — ghosted with glowing border */
+.constraint-card {
+  opacity: 0.55;
+  border: 2px solid rgba(120, 200, 255, 0.6);
+  border-radius: 8px;
+  box-shadow:
+    0 0 6px rgba(120, 200, 255, 0.4),
+    0 0 14px rgba(120, 200, 255, 0.2);
+}
+
 /* Site card not physically owned (split-off company) — ghosted with dashed border */
 .company-card--site-ghost {
   opacity: 0.2;

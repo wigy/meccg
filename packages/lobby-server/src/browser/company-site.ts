@@ -293,5 +293,42 @@ export function renderSiteArea(
     }
   }
 
+  // Active constraints (Stealth, River, etc.) — rendered as semi-transparent cards
+  const companyConstraints = (view.activeConstraints ?? []).filter(
+    c => c.target.kind === 'company' && c.target.companyId === company.id,
+  );
+  if (companyConstraints.length > 0) {
+    // Find or create the on-guard wrapper to stack constraint cards alongside on-guard cards
+    let wrapper = area.querySelector('.on-guard-wrapper') as HTMLElement | null;
+    if (!wrapper) {
+      const siteImages = area.querySelectorAll<HTMLImageElement>('.company-card--site');
+      const targetSite = siteImages[siteImages.length - 1];
+      if (targetSite) {
+        wrapper = document.createElement('div');
+        wrapper.className = 'on-guard-wrapper';
+        targetSite.replaceWith(wrapper);
+        wrapper.appendChild(targetSite);
+      }
+    }
+    if (wrapper) {
+      for (const constraint of companyConstraints) {
+        const cDefId = cachedInstanceLookup(constraint.source);
+        const cDef = cDefId ? cardPool[cDefId as string] : undefined;
+        const cImgPath = cDef ? cardImageProxyPath(cDef) : undefined;
+
+        let cImg: HTMLImageElement;
+        if (cDef && cImgPath) {
+          cImg = createCardImage(cDefId as string, cDef, cImgPath, 'company-card company-card--site on-guard-card constraint-card', constraint.source as string);
+        } else {
+          cImg = document.createElement('img');
+          cImg.src = '/images/card-back.jpg';
+          cImg.alt = 'Active constraint';
+          cImg.className = 'company-card company-card--site on-guard-card constraint-card';
+        }
+        wrapper.appendChild(cImg);
+      }
+    }
+  }
+
   return area;
 }

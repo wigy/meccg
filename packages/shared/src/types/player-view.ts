@@ -40,6 +40,7 @@ import type {
   SiteInPlay,
   PendingEffect,
 } from './state.js';
+import type { ActiveConstraint } from './pending.js';
 import type { EvaluatedAction } from '../rules/types.js';
 
 // ---- Opponent's company (destination hidden until movement phase) ----
@@ -233,4 +234,9 @@ export interface PlayerView {
    * explaining why they cannot be taken (e.g. "Gimli: mind 6 would exceed limit").
    */
   readonly legalActions: readonly EvaluatedAction[];
+  /**
+   * Active constraints (Stealth, River, etc.) currently in effect.
+   * Public information — both players can see which restrictions apply.
+   */
+  readonly activeConstraints: readonly ActiveConstraint[];
 }
