@@ -470,6 +470,27 @@ function playResourcesActions(
         continue;
       }
 
+      // Check uniqueness — only one copy of a unique item can be in play
+      if (itemDef.unique) {
+        const alreadyInPlay = state.players.some(p =>
+          Object.values(p.characters).some(ch =>
+            ch.items.some(item => {
+              const iDef = state.cardPool[item.definitionId as string];
+              return iDef && iDef.name === itemDef.name;
+            }),
+          ),
+        );
+        if (alreadyInPlay) {
+          logDetail(`Item ${itemDef.name}: unique and already in play`);
+          actions.push({
+            action: { type: 'not-playable', player: playerId, cardInstanceId },
+            viable: false,
+            reason: `${itemDef.name} is unique and already in play`,
+          });
+          continue;
+        }
+      }
+
       // Check character-scoped duplication limit
       const charDupLimit = itemDef.effects?.find(
         (e): e is import('../../index.js').DuplicationLimitEffect =>
