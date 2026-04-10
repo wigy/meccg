@@ -293,24 +293,23 @@ export function renderSiteArea(
     }
   }
 
-  // Active constraints (Stealth, River, etc.) — rendered as semi-transparent cards
+  // Active constraints (Stealth, River, etc.) — small cards above the site
   const companyConstraints = (view.activeConstraints ?? []).filter(
     c => c.target.kind === 'company' && c.target.companyId === company.id,
   );
   if (companyConstraints.length > 0) {
-    // Find or create the on-guard wrapper to stack constraint cards alongside on-guard cards
-    let wrapper = area.querySelector('.on-guard-wrapper') as HTMLElement | null;
-    if (!wrapper) {
-      const siteImages = area.querySelectorAll<HTMLImageElement>('.company-card--site');
-      const targetSite = siteImages[siteImages.length - 1];
-      if (targetSite) {
-        wrapper = document.createElement('div');
-        wrapper.className = 'on-guard-wrapper';
-        targetSite.replaceWith(wrapper);
-        wrapper.appendChild(targetSite);
-      }
-    }
-    if (wrapper) {
+    // Attach to the last site (destination if moving, current otherwise)
+    const siteImages = area.querySelectorAll('.company-card--site');
+    const targetSite = siteImages[siteImages.length - 1] as HTMLElement | null;
+    if (targetSite) {
+      // Wrap the target site so constraint cards can be positioned relative to it
+      const anchor = document.createElement('div');
+      anchor.className = 'constraint-anchor';
+      targetSite.replaceWith(anchor);
+      anchor.appendChild(targetSite);
+
+      const strip = document.createElement('div');
+      strip.className = 'constraint-strip';
       for (const constraint of companyConstraints) {
         const cDefId = cachedInstanceLookup(constraint.source);
         const cDef = cDefId ? cardPool[cDefId as string] : undefined;
@@ -318,15 +317,16 @@ export function renderSiteArea(
 
         let cImg: HTMLImageElement;
         if (cDef && cImgPath) {
-          cImg = createCardImage(cDefId as string, cDef, cImgPath, 'company-card company-card--site on-guard-card constraint-card', constraint.source as string);
+          cImg = createCardImage(cDefId as string, cDef, cImgPath, 'constraint-card', constraint.source as string);
         } else {
           cImg = document.createElement('img');
           cImg.src = '/images/card-back.jpg';
           cImg.alt = 'Active constraint';
-          cImg.className = 'company-card company-card--site on-guard-card constraint-card';
+          cImg.className = 'constraint-card';
         }
-        wrapper.appendChild(cImg);
+        strip.appendChild(cImg);
       }
+      anchor.appendChild(strip);
     }
   }
 
