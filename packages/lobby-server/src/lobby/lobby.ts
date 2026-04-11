@@ -72,6 +72,14 @@ export function broadcastNotification(message: string): void {
   }
 }
 
+/** Tell all connected clients to reload the page. Used during controlled reboot. */
+export function broadcastForceReload(): void {
+  const msg: LobbyServerMessage = { type: 'force-reload' };
+  for (const p of onlinePlayers.values()) {
+    send(p.ws, msg);
+  }
+}
+
 /** Register a new player connection in the lobby. */
 export function playerConnected(name: string, ws: WebSocket): void {
   // If already connected (e.g. page refresh), update the WS but preserve game state

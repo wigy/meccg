@@ -16,6 +16,9 @@
  * - POST /api/mail/bug-report — file a bug report (delivers to AI, copies to both players' sent)
  * - GET /api/saves/check?opponent=NAME — check if a saved game exists
  * - POST /api/saves/delete — delete saved game files for an opponent
+ * - POST /api/system/notify — broadcast notification (master key)
+ * - POST /api/system/reboot — announce, kill games, shut down (master key)
+ * - POST /api/system/reload-clients — force all clients to reload (master key)
  * - GET /cards/images/* — card image proxy with disk cache
  * - GET /* — static files from public/
  *
@@ -30,7 +33,8 @@ import * as path from 'path';
 import * as os from 'os';
 import { cardImageRawUrl, loadCardPool } from '@meccg/shared';
 import { DEV, MASTER_KEY, REVIEWER_PLAYERS } from '../config.js';
-import { broadcastNotification } from '../lobby/lobby.js';
+import { broadcastNotification, broadcastForceReload } from '../lobby/lobby.js';
+import { shutdownAllGames } from '../games/launcher.js';
 import { sendMail, writeSentCopy, listInbox, listSent, readMessage, deleteMessage, updateMessageStatus, countUnread } from '../mail/store.js';
 import type { MailSender, MailStatus, MailTopic } from '../mail/types.js';
 import { lobbyLog } from '../lobby-log.js';
@@ -791,6 +795,35 @@ export async function handleRequest(req: http.IncomingMessage, res: http.ServerR
       } catch (err) {
         lobbyLog.log('error', { context: 'system-notify', error: String(err) });
         sendJson(res, 500, { error: 'Failed to send notification' });
+      }
+      return;
+    }
+
+    if (urlPath === '/api/system/reboot' && method === 'POST') {
+      try {
+        const body = JSON.parse(await readBody(req)) as { message?: string };
+        const announcement = body.message ?? 'Server is rebooting. Please wait...';
+        broadcastNotification(announcement);
+        lobbyLog.log('reboot-initiated', { message: announcement });
+        shutdownAllGames();
+        sendJson(res, 200, { ok: true });
+        // Give WebSocket messages time to flush, then exit
+        setTimeout(() => process.exit(0), 500);
+      } catch (err) {
+        lobbyLog.log('error', { context: 'system-reboot', error: String(err) });
+        sendJson(res, 500, { error: 'Failed to initiate reboot' });
+      }
+      return;
+    }
+
+    if (urlPath === '/api/system/reload-clients' && method === 'POST') {
+      try {
+        broadcastForceReload();
+        lobbyLog.log('force-reload');
+        sendJson(res, 200, { ok: true });
+      } catch (err) {
+        lobbyLog.log('error', { context: 'force-reload', error: String(err) });
+        sendJson(res, 500, { error: 'Failed to broadcast reload' });
       }
       return;
     }

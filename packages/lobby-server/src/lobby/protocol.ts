@@ -118,6 +118,11 @@ export interface SystemNotificationMessage {
   readonly message: string;
 }
 
+/** Force all connected clients to reload the page (sent during controlled reboot). */
+export interface ForceReloadMessage {
+  readonly type: 'force-reload';
+}
+
 /** Notification that the player has new mail. Sent when mail arrives. */
 export interface MailNotificationMessage {
   readonly type: 'mail-notification';
@@ -142,5 +147,6 @@ export type LobbyServerMessage =
   | GameStartingMessage
   | LobbyErrorMessage
   | SystemNotificationMessage
+  | ForceReloadMessage
   | MailNotificationMessage
   | PseudoAiActionsMessage;

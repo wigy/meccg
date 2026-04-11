@@ -220,11 +220,17 @@ export function connectLobbyWs(): void {
         }
         break;
       }
+      case 'force-reload': {
+        location.reload();
+        break;
+      }
     }
   };
 
   appState.lobbyWs.onclose = () => {
     appState.lobbyWs = null;
+    // Auto-reconnect after 3s so we receive force-reload after a server reboot
+    setTimeout(() => connectLobbyWs(), 3000);
   };
 }
 

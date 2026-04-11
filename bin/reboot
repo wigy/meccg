@@ -1,0 +1,96 @@
+#!/usr/bin/env bash
+# Controlled reboot of the MECCG lobby server.
+#
+# Sequence:
+#   1. Announce reboot to all connected players
+#   2. Kill all game servers (games are auto-saved)
+#   3. Shut down the lobby server
+#   4. Pull latest code and rebuild
+#   5. Restart the lobby server
+#   6. Tell all reconnected clients to reload
+#
+# Usage: bin/reboot
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+PROJECT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+SECRETS="$HOME/.meccg/secrets.json"
+BASE_URL="http://localhost:8080"
+
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+log() { echo "[reboot] $*"; }
+
+master_key() { jq -r .masterKey "$SECRETS"; }
+
+# POST to system API with master key.  $1=path $2=json-body
+api_post() {
+  curl -s -X POST "$BASE_URL$1" \
+    -H "Authorization: Bearer $(master_key)" \
+    -H 'Content-Type: application/json' \
+    -d "$2"
+}
+
+# Wait for the lobby server to come back up (max 30s).
+wait_for_server() {
+  local attempts=0
+  while ! curl -s -o /dev/null "$BASE_URL" 2>/dev/null; do
+    attempts=$((attempts + 1))
+    if [ $attempts -ge 30 ]; then
+      log "ERROR: Server did not come back up after 30s"
+      exit 1
+    fi
+    sleep 1
+  done
+}
+
+# ---------------------------------------------------------------------------
+# Main
+# ---------------------------------------------------------------------------
+
+cd "$PROJECT_DIR"
+
+log "Step 1: Announcing reboot to all players..."
+api_post "/api/system/notify" \
+  '{"message":"Server is rebooting for an update. Games are saved. Please wait..."}'
+echo
+
+# Give players a moment to see the announcement
+sleep 2
+
+log "Step 2: Shutting down lobby server (kills game servers first)..."
+api_post "/api/system/reboot" '{}' || true
+echo
+
+# Wait for process to actually exit
+sleep 2
+
+log "Step 3: Pulling latest code..."
+git pull
+
+log "Step 4: Installing dependencies..."
+npm install
+
+log "Step 5: Building..."
+npm run build
+npm run build:browser -w @meccg/lobby-server
+
+log "Step 6: Starting lobby server..."
+nohup npx tsx packages/lobby-server/src/server.ts > /dev/null 2>&1 &
+SERVER_PID=$!
+log "Server starting (PID $SERVER_PID)..."
+
+log "Step 7: Waiting for server to come back up..."
+wait_for_server
+log "Server is up!"
+
+# Give WebSocket connections time to re-establish
+sleep 3
+
+log "Step 8: Reloading all clients..."
+api_post "/api/system/reload-clients" '{}'
+echo
+
+log "Reboot complete!"
