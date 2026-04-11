@@ -420,7 +420,8 @@
     "resourceDraws": 1,
     "hazardDraws": 1,
     "text": "",
-    "effects": []
+    "effects": [],
+    "certified": "2026-04-11"
   },
   {
     "cardType": "hero-site",
