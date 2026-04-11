@@ -451,7 +451,8 @@
     "resourceDraws": 2,
     "hazardDraws": 2,
     "text": "Nearest Haven: Lórien. Playable: Items (minor, major). Automatic-attacks: Pûkel-creature — 1 strike with 9 prowess.",
-    "effects": []
+    "effects": [],
+    "certified": "2026-04-11"
   },
   {
     "cardType": "hero-site",
