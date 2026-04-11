@@ -595,7 +595,6 @@ export async function handleRequest(req: http.IncomingMessage, res: http.ServerR
 
     // Review-request decline: send a review-fix-request to AI with reviewer comments
     if (updated.topic === 'review-request' && action === 'decline') {
-      const prUrl = updated.keywords.prUrl ?? '';
       const reviewBody = comments
         ? `## Review Comments\n\n${comments}\n\n---\n\n## Original Review\n\n${updated.body}`
         : `## Review Declined\n\nThe reviewer declined without specific comments.\n\n---\n\n## Original Review\n\n${updated.body}`;

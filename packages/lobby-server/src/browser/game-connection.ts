@@ -289,17 +289,16 @@ export function connect(name: string): void {
         showNotification('Waiting for opponent to connect...');
         break;
 
-      case 'state':
+      case 'state': {
         // Wait for any dice animation to finish before rendering the new
         // state, so the outcome isn't spoiled while dice are still rolling.
         await waitForDice();
         clearAwaitingResponse();
         appState.currentStateSeq = msg.view.stateSeq;
         // Update heading to show game ID + seq
-        { const h = document.getElementById('state-heading');
-          if (h && appState.currentGameId) {
-            h.childNodes[0].textContent = `Game State \u2014 ${appState.currentGameId} seq ${appState.currentStateSeq}`;
-          }
+        const h = document.getElementById('state-heading');
+        if (h && appState.currentGameId) {
+          h.childNodes[0].textContent = `Game State \u2014 ${appState.currentGameId} seq ${appState.currentStateSeq}`;
         }
         // Capture previous lookup so opponent toast uses pre-action visibility
         const prevInstanceLookup = appState.lastInstanceLookup;
@@ -370,6 +369,7 @@ export function connect(name: string): void {
           }
         }
         break;
+      }
 
       case 'draft-reveal': {
         const p1 = msg.player1Pick ? (cardPool[msg.player1Pick as string]?.name ?? msg.player1Pick) : 'stopped';

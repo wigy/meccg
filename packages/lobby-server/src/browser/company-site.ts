@@ -328,7 +328,7 @@ export function renderSiteArea(
   );
   if (companyConstraints.length > 0) {
     // Wrap the on-guard wrapper (if present) or the last site card
-    const ogWrapper = area.querySelector('.on-guard-wrapper') as HTMLElement | null;
+    const ogWrapper = area.querySelector<HTMLElement>('.on-guard-wrapper');
     const siteImages = area.querySelectorAll('.company-card--site');
     const anchorTarget = ogWrapper ?? siteImages[siteImages.length - 1] as HTMLElement | null;
     if (anchorTarget) {
