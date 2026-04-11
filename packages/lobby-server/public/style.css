@@ -1982,6 +1982,11 @@ h2 {
   align-items: stretch;
 }
 
+#toolbar-view {
+  display: flex;
+  align-items: flex-end;
+}
+
 #toolbar button {
   padding: 0.3rem 0.75rem;
   font-size: 0.8rem;
