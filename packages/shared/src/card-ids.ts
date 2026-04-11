@@ -246,6 +246,8 @@ export const DIMRILL_DALE = did('tw-385');
 export const BANDIT_LAIR = did('tw-373');
 /** Dunnish Clan-hold — hero border-hold in Dunland, nearest haven Rivendell. */
 export const DUNNISH_CLAN_HOLD = did('tw-390');
+/** Wellinghall — hero free-hold in Fangorn, nearest haven Lórien. */
+export const WELLINGHALL = did('tw-437');
 
 // ---- Against the Shadow — Hero Sites ----
 
