@@ -83,7 +83,10 @@ export const organizationEvaluator: ActionEvaluator = {
         return 2;
 
       case 'transfer-item':
-        return 2;
+        // Never shuffle items around — the AI lacks the tactical depth to
+        // know when a transfer is beneficial, and random transfers just
+        // waste actions.
+        return 0;
 
       case 'activate-granted-action':
         // Removing attached hazards is high value when likely to succeed.

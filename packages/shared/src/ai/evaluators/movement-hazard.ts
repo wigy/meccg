@@ -37,6 +37,11 @@ export const movementHazardEvaluator: ActionEvaluator = {
     const pool = context.cardPool;
 
     switch (action.type) {
+      case 'draw-cards':
+        // Always draw the maximum number of cards — card advantage is
+        // always worth taking.
+        return 100;
+
       case 'select-company':
         return 10;
 

@@ -252,6 +252,11 @@ export function scoreDestinationSite(
     }
   }
 
+  // Never move to a site where we have nothing to play — aimless travel
+  // wastes turns and exposes the company to hazards for no gain. Resource
+  // draws alone are not worth the risk.
+  if (playableCount === 0) return 0;
+
   return Math.max(0, playableCount * 10 + resourceDraws * 2 - siteDanger - regionDanger);
 }
 
