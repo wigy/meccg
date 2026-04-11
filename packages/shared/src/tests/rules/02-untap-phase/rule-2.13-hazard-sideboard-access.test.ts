@@ -239,5 +239,37 @@ describe('Rule 2.13 — Hazard Sideboard Access at Untap', () => {
     expect(passResult.state.players.find(p => p.id === PLAYER_2)!.sideboardAccessedDuringUntap).toBe(true);
   });
 
-  test.todo('Sideboard access can only be taken once per turn');
+  test('Sideboard access can only be taken once per turn', () => {
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Untap,
+      players: [
+        {
+          id: PLAYER_1,
+          hand: [],
+          siteDeck: [MORIA],
+          companies: [{ site: RIVENDELL, characters: [GANDALF] }],
+        },
+        {
+          id: PLAYER_2,
+          hand: [],
+          siteDeck: [MINAS_TIRITH],
+          sideboard: [CAVE_DRAKE, ORC_PATROL],
+          companies: [{ site: LORIEN, characters: [LEGOLAS] }],
+        },
+      ],
+    });
+
+    // Complete the sideboard access flow: start → fetch 1 → pass
+    const startResult = reduce(state, viableOfType(computeLegalActions(state, PLAYER_2), 'start-hazard-sideboard-to-discard')[0].action);
+    const fetchResult = reduce(startResult.state, viableOfType(computeLegalActions(startResult.state, PLAYER_2), 'fetch-hazard-from-sideboard')[0].action);
+    const passResult = reduce(fetchResult.state, viableOfType(computeLegalActions(fetchResult.state, PLAYER_2), 'pass')[0].action);
+
+    // After completing sideboard access, no more sideboard intent actions should be offered
+    const actionsAfter = computeLegalActions(passResult.state, PLAYER_2);
+    expect(viableOfType(actionsAfter, 'start-hazard-sideboard-to-discard')).toHaveLength(0);
+    expect(viableOfType(actionsAfter, 'start-hazard-sideboard-to-deck')).toHaveLength(0);
+    // Hazard player should still be able to pass
+    expect(viableOfType(actionsAfter, 'pass')).toHaveLength(1);
+  });
 });

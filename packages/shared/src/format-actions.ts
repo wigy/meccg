@@ -11,6 +11,7 @@ import { isCharacterCard } from './types/cards.js';
 import type { Company, CharacterInPlay } from './types/state.js';
 import type { GameAction } from './types/actions.js';
 import type { CardInstanceId, CardDefinitionId, CompanyId } from './types/common.js';
+import { UNKNOWN_CARD, UNKNOWN_SITE } from './card-ids.js';
 import { formatCardName } from './format-cards.js';
 import type { InstanceLookup } from './format-helpers.js';
 
@@ -123,9 +124,11 @@ export function describeAction(
       const defId = typeof instanceLookup === 'function'
         ? instanceLookup(id)
         : instanceLookup[id as string];
+      if (defId === UNKNOWN_CARD) return 'a card';
+      if (defId === UNKNOWN_SITE) return 'a site';
       if (defId) return defName(defId);
     }
-    return `{${id}}`;
+    return 'a card';
   };
   const compName = (id: CompanyId) => companyNames?.[id as string] ?? `${id}`;
 

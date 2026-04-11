@@ -212,5 +212,32 @@ describe('Rule 10.12 — Resolving an Influence Attempt', () => {
     expect(action.explanation).toContain('Legolas');
   });
 
-  test.todo('followers of discarded character fall to GI if room, else discarded');
+  test('followers of discarded character fall to GI if room, else discarded', () => {
+    // P2: Aragorn(DI=3) with Eowyn(mind=2) as follower, plus Gimli and Bilbo under GI.
+    // GI used: Gimli(6) + Bilbo(5) = 11, remaining = 9 — plenty of room for Eowyn(2).
+    // When Aragorn is successfully influenced, Eowyn should fall to GI.
+    const state = buildResolutionState({
+      p2Chars: [{ defId: ARAGORN, items: [] }, { defId: EOWYN, followerOf: 0 }, GIMLI, BILBO],
+      attackerCheatRoll: 12,
+    });
+
+    const aragornId = findCharInstanceId(state, 1, ARAGORN);
+    const eowynId = findCharInstanceId(state, 1, EOWYN);
+
+    // Verify Eowyn is a follower of Aragorn
+    expect(state.players[1].characters[eowynId as string].controlledBy).toBe(aragornId);
+
+    // Attempt influence on Aragorn and force success
+    const { state: afterAttempt } = attemptInfluence(state, ARAGORN);
+    const defState = { ...afterAttempt, cheatRollTotal: 2 };
+    const { state: afterDefend } = defendInfluence(defState);
+
+    // Aragorn should be discarded
+    expect(afterDefend.players[1].characters[aragornId as string]).toBeUndefined();
+    expect(afterDefend.players[1].discardPile.some(c => c.instanceId === aragornId)).toBe(true);
+
+    // Eowyn should still be in play, now under GI
+    expect(afterDefend.players[1].characters[eowynId as string]).toBeDefined();
+    expect(afterDefend.players[1].characters[eowynId as string].controlledBy).toBe('general');
+  });
 });
