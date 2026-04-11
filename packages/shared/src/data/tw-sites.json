@@ -333,7 +333,8 @@
     "automaticAttacks": [],
     "resourceDraws": 2,
     "hazardDraws": 2,
-    "text": ""
+    "text": "",
+    "certified": "2026-04-11"
   },
   {
     "cardType": "hero-site",
