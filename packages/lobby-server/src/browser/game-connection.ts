@@ -301,6 +301,9 @@ export function connect(name: string): void {
             h.childNodes[0].textContent = `Game State \u2014 ${appState.currentGameId} seq ${appState.currentStateSeq}`;
           }
         }
+        // Capture previous lookup so opponent toast uses pre-action visibility
+        const prevInstanceLookup = appState.lastInstanceLookup;
+        const prevCompanyNames = appState.lastCompanyNames;
         appState.lastInstanceLookup = buildInstanceLookup(msg.view);
         appState.lastCompanyNames = {
           ...buildCompanyNames(msg.view.self.companies, msg.view.self.characters, cardPool),
@@ -309,7 +312,7 @@ export function connect(name: string): void {
         renderLog(`State update: turn ${msg.view.turnNumber}, phase ${msg.view.phaseState.phase}`);
         // Log opponent actions so the text log captures what the other player did
         if (msg.lastAction && msg.lastAction.player !== msg.view.self.id) {
-          const desc = describeAction(msg.lastAction, cardPool, appState.lastInstanceLookup, appState.lastCompanyNames);
+          const desc = describeAction(msg.lastAction, cardPool, prevInstanceLookup, prevCompanyNames);
           renderLog(`<< ${desc}`, cardPool);
         }
         // Snapshot card positions before clearing DOM for FLIP animation
@@ -340,7 +343,7 @@ export function connect(name: string): void {
         // Show notification describing what the opponent just did
         if (msg.lastAction && msg.lastAction.player !== msg.view.self.id
           && msg.lastAction.type !== 'pass' && msg.lastAction.type !== 'pass-chain-priority') {
-          const desc = describeAction(msg.lastAction, cardPool, appState.lastInstanceLookup, appState.lastCompanyNames);
+          const desc = describeAction(msg.lastAction, cardPool, prevInstanceLookup, prevCompanyNames);
           showNotification(desc, cardPool);
         }
         appState.lastPhase = msg.view.phaseState.phase;

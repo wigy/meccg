@@ -119,7 +119,7 @@ function buildOpponentView(_state: GameState, player: PlayerState): OpponentView
     hand: hiddenCardPile(player.hand),
     playDeck: hiddenCardPile(player.playDeck),
     siteDeck: hiddenSitePile(player.siteDeck),
-    discardPile: toViewCards(player.discardPile),
+    discardPile: hiddenCardPile(player.discardPile),
     siteDiscardPile: toViewCards(player.siteDiscardPile),
     killPile: toViewCards(player.killPile),
     eliminatedPile: toViewCards(player.eliminatedPile),
