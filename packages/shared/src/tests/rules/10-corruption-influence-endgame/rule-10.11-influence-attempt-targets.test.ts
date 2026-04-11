@@ -20,9 +20,10 @@
 
 import { describe, test, expect } from 'vitest';
 import {
-  buildTargetState, findCharInstanceId,
+  buildTargetState, findCharInstanceId, attachAllyToChar,
   viableActions, PLAYER_1,
   ARAGORN, LEGOLAS, GIMLI, BILBO,
+  GWAIHIR,
   MORIA, LORIEN,
 } from '../../test-helpers.js';
 import type { OpponentInfluenceAttemptAction } from '../../test-helpers.js';
@@ -89,7 +90,16 @@ describe('Rule 10.11 — Influence Attempt Target Conditions', () => {
     expect(withReveal[0].action.explanation).toContain('mind treated as 0');
   });
 
-  test.todo('ally at same site is a valid target');
+  test('ally at same site is a valid target', () => {
+    // P2 has Legolas with ally Gwaihir at Moria, P1 has Aragorn at Moria
+    const state = buildTargetState({ p1Site: MORIA, p2Site: MORIA });
+    const withAlly = attachAllyToChar(state, 1, LEGOLAS, GWAIHIR);
+    const actions = viableActions(withAlly, PLAYER_1, 'opponent-influence-attempt') as { action: OpponentInfluenceAttemptAction }[];
+    // Should have actions targeting the ally (Gwaihir)
+    const allyActions = actions.filter(a => a.action.targetKind === 'ally');
+    expect(allyActions.length).toBeGreaterThan(0);
+  });
+
   test.todo('faction: playable site target');
   test.todo('item: same site + no permanent-event + reveal identical item');
 });
