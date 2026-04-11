@@ -19,7 +19,7 @@ import type {
 } from '@meccg/shared';
 import { cardImageProxyPath, isSiteCard, Phase, CardStatus, viableActions, describeAction } from '@meccg/shared';
 import { createCardImage, createRegionTypeIcon } from './render-utils.js';
-import { openMovementViewer } from './render.js';
+import { openMovementViewer, getSelectedHazardForPlay, getSelectedHazardOnGuardAction, clearHazardPlaySelection } from './render.js';
 import { getCachedInstanceLookup } from './company-view-state.js';
 
 /** Resolve a card instance ID to its definition via the cached instance lookup. */
@@ -76,6 +76,28 @@ export function getPathRegionTypes(
 }
 
 /**
+ * If a hazard is selected for character targeting, make a site card clickable
+ * to place the hazard on-guard instead. Returns true if the handler was applied.
+ */
+function applyHazardOnGuardClick(
+  img: HTMLImageElement,
+  onAction?: (action: GameAction) => void,
+): boolean {
+  const selectedHazard = getSelectedHazardForPlay();
+  if (!selectedHazard || !onAction) return false;
+  const ogAction = getSelectedHazardOnGuardAction();
+  if (!ogAction) return false;
+  img.classList.add('company-card--influence-target');
+  img.style.cursor = 'pointer';
+  img.addEventListener('click', (e) => {
+    e.stopPropagation();
+    clearHazardPlaySelection();
+    onAction(ogAction);
+  });
+  return true;
+}
+
+/**
  * Render the site area for a company: current site, movement path, destination.
  */
 export function renderSiteArea(
@@ -109,6 +131,8 @@ export function renderSiteArea(
               e.stopPropagation();
               openMovementViewer(view, cardPool, companyId, onAction);
             });
+          } else {
+            applyHazardOnGuardClick(img, options?.onAction);
           }
           area.appendChild(img);
         }
@@ -213,6 +237,8 @@ export function renderSiteArea(
               e.stopPropagation();
               onAction(cancelAction);
             });
+          } else {
+            applyHazardOnGuardClick(img, options?.onAction);
           }
           area.appendChild(img);
         }
@@ -231,12 +257,15 @@ export function renderSiteArea(
     const revealedDef = revealedDefId ? cardPool[revealedDefId as string] : undefined;
     const revealedImg = revealedDef ? cardImageProxyPath(revealedDef) : undefined;
     if (revealedDefId && revealedDef && revealedImg) {
-      area.appendChild(createCardImage(revealedDefId as string, revealedDef, revealedImg, 'company-card company-card--site', revealedSite.instanceId as string));
+      const siteImg = createCardImage(revealedDefId as string, revealedDef, revealedImg, 'company-card company-card--site', revealedSite.instanceId as string);
+      applyHazardOnGuardClick(siteImg, options?.onAction);
+      area.appendChild(siteImg);
     } else {
       const back = document.createElement('img');
       back.src = '/images/site-back.jpg';
       back.alt = 'Hidden destination';
       back.className = 'company-card company-card--site';
+      applyHazardOnGuardClick(back, options?.onAction);
       area.appendChild(back);
     }
   }

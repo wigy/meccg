@@ -33,7 +33,7 @@ import type {
 import { cardImageProxyPath, Phase, CardStatus, viableActions, getTitleCharacter } from '@meccg/shared';
 import type { CardDefinitionId } from '@meccg/shared';
 import { createCardImage } from './render-utils.js';
-import { getSelectedFactionForInfluence, clearFactionInfluenceSelection, getSelectedInfluencerForOpponent, setSelectedInfluencerForOpponent, clearOpponentInfluenceSelection, getSelectedShortEvent, clearShortEventSelection, setTargetingInstruction } from './render.js';
+import { getSelectedFactionForInfluence, clearFactionInfluenceSelection, getSelectedAllyForPlay, clearAllyPlaySelection, getSelectedHazardForPlay, clearHazardPlaySelection, getSelectedInfluencerForOpponent, setSelectedInfluencerForOpponent, clearOpponentInfluenceSelection, getSelectedShortEvent, clearShortEventSelection, setTargetingInstruction } from './render.js';
 import {
   getCachedInstanceLookup,
   getInfluenceMoveSourceId, setInfluenceMoveSourceId,
@@ -452,6 +452,49 @@ export function renderCompanyBlock(
             e.stopPropagation();
             clearFactionInfluenceSelection();
             options?.onAction?.(influenceAction);
+          },
+        };
+      }
+      return undefined;
+    }
+
+    // Ally play targeting: click an untapped character to control the selected ally
+    const selectedAlly = getSelectedAllyForPlay();
+    if (selectedAlly) {
+      const allyAction = viableActions(view.legalActions).find(
+        a => a.type === 'play-hero-resource'
+          && a.cardInstanceId === selectedAlly
+          && a.attachToCharacterId === charInstId,
+      );
+      if (allyAction) {
+        return {
+          cls: 'company-card--influence-target',
+          handler: (e) => {
+            e.stopPropagation();
+            clearAllyPlaySelection();
+            options?.onAction?.(allyAction);
+          },
+        };
+      }
+      return undefined;
+    }
+
+    // Hazard character targeting: click a character to play hazard on them
+    const selectedHazard = getSelectedHazardForPlay();
+    if (selectedHazard) {
+      const hazardAction = viableActions(view.legalActions).find(
+        a => a.type === 'play-hazard'
+          && a.cardInstanceId === selectedHazard
+          && 'targetCharacterId' in a
+          && a.targetCharacterId === charInstId,
+      );
+      if (hazardAction) {
+        return {
+          cls: 'company-card--influence-target',
+          handler: (e) => {
+            e.stopPropagation();
+            clearHazardPlaySelection();
+            options?.onAction?.(hazardAction);
           },
         };
       }

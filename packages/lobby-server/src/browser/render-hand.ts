@@ -3,8 +3,8 @@
  *
  * Renders the player's hand and opponent's hand as card arcs in the visual view.
  * Handles all card-click interactions: direct plays, two-step selection flows
- * (item draft, play-character, faction influence), disambiguation tooltips
- * for short-events and hazard keying, and resource/item target menus.
+ * (item draft, play-character, faction influence, ally play), disambiguation
+ * tooltips for short-events and hazard keying, and resource/item target menus.
  */
 
 import type { PlayerView, CardDefinition, CardDefinitionId, CardInstanceId, GameAction } from '@meccg/shared';
@@ -18,6 +18,10 @@ import {
   getPlayCharacterRenderCache, setPlayCharacterRenderCache,
   getSelectedFactionForInfluence, setSelectedFactionForInfluence,
   getFactionInfluenceRenderCache, setFactionInfluenceRenderCache,
+  getSelectedAllyForPlay, setSelectedAllyForPlay,
+  getAllyPlayRenderCache, setAllyPlayRenderCache,
+  getSelectedHazardForPlay, setSelectedHazardForPlay,
+  getHazardPlayRenderCache, setHazardPlayRenderCache,
   getSelectedInfluencerForOpponent, setSelectedInfluencerForOpponent,
   getSelectedShortEvent, setSelectedShortEvent,
   getShortEventRenderCache, setShortEventRenderCache,
@@ -65,18 +69,53 @@ function findShortEventActions(
   );
 }
 
+/** Card types that represent allies. */
+const ALLY_CARD_TYPES: ReadonlySet<string> = new Set(['hero-resource-ally', 'minion-resource-ally']);
+
+/** Check whether a play-hero-resource action targets an ally card. */
+function isAllyAction(
+  action: GameAction,
+  cardPool: Readonly<Record<string, CardDefinition>>,
+): boolean {
+  if (action.type !== 'play-hero-resource') return false;
+  const instLookup = getCachedInstanceLookup();
+  const defId = instLookup(action.cardInstanceId);
+  if (!defId) return false;
+  const def = cardPool[defId as string];
+  return def !== undefined && ALLY_CARD_TYPES.has(def.cardType);
+}
+
 /**
- * Find all play-hero-resource or play-minor-item actions for a given card instance.
+ * Find all play-hero-resource ally actions for a given card instance.
+ * One action per eligible untapped character target.
+ */
+function findAllyPlayActions(
+  instanceId: CardInstanceId | null,
+  legalActions: readonly GameAction[],
+  cardPool: Readonly<Record<string, CardDefinition>>,
+): GameAction[] {
+  if (!instanceId) return [];
+  return legalActions.filter(
+    a => a.type === 'play-hero-resource'
+      && a.cardInstanceId === instanceId
+      && isAllyAction(a, cardPool),
+  );
+}
+
+/**
+ * Find all non-ally play-hero-resource or play-minor-item actions for a given card instance.
  * Items have one action per eligible character target.
  */
 function findResourcePlayActions(
   instanceId: CardInstanceId | null,
   legalActions: readonly GameAction[],
+  cardPool: Readonly<Record<string, CardDefinition>>,
 ): GameAction[] {
   if (!instanceId) return [];
   return legalActions.filter(
     a => (a.type === 'play-hero-resource' || a.type === 'play-minor-item')
-      && a.cardInstanceId === instanceId,
+      && a.cardInstanceId === instanceId
+      && !isAllyAction(a, cardPool),
   );
 }
 
@@ -457,6 +496,24 @@ function reRenderFactionInfluence(): void {
   void import('./company-view.js').then(m => m.renderCompanyViews(view, cardPool, onAction));
 }
 
+/** Re-render hand and company views using cached state (for hazard targeting selection flow). */
+function reRenderHazardTarget(): void {
+  const cache = getHazardPlayRenderCache();
+  if (!cache) return;
+  const { view, cardPool, onAction } = cache;
+  renderHand(view, cardPool, onAction);
+  void import('./company-view.js').then(m => m.renderCompanyViews(view, cardPool, onAction));
+}
+
+/** Re-render hand and company views using cached state (for ally play selection flow). */
+function reRenderAllyPlay(): void {
+  const cache = getAllyPlayRenderCache();
+  if (!cache) return;
+  const { view, cardPool, onAction } = cache;
+  renderHand(view, cardPool, onAction);
+  void import('./company-view.js').then(m => m.renderCompanyViews(view, cardPool, onAction));
+}
+
 /** Re-render hand and company views using cached state (for short-event character targeting flow). */
 function reRenderShortEventTarget(): void {
   const cache = getShortEventRenderCache();
@@ -546,6 +603,54 @@ export function renderHand(
     setFactionInfluenceRenderCache(null);
   }
 
+  // Cache render state for ally play re-rendering
+  const hasAllyPlayActions = viable.some(
+    a => a.type === 'play-hero-resource' && isAllyAction(a, cardPool),
+  );
+  if (onAction && hasAllyPlayActions) {
+    setAllyPlayRenderCache({ view, cardPool, onAction });
+    const selectedAllyInstanceId = getSelectedAllyForPlay();
+    if (selectedAllyInstanceId) {
+      const stillViable = viable.some(
+        a => a.type === 'play-hero-resource'
+          && a.cardInstanceId === selectedAllyInstanceId
+          && isAllyAction(a, cardPool),
+      );
+      if (!stillViable) {
+        setSelectedAllyForPlay(null);
+        setTargetingInstruction(null);
+      }
+    }
+  } else if (!hasAllyPlayActions) {
+    if (getSelectedAllyForPlay()) setTargetingInstruction(null);
+    setSelectedAllyForPlay(null);
+    setAllyPlayRenderCache(null);
+  }
+
+  // Cache render state for hazard character-targeting re-rendering
+  const hasCharTargetHazardActions = viable.some(
+    a => a.type === 'play-hazard' && 'targetCharacterId' in a && a.targetCharacterId,
+  );
+  if (onAction && hasCharTargetHazardActions) {
+    setHazardPlayRenderCache({ view, cardPool, onAction });
+    const selectedHazardInstanceId = getSelectedHazardForPlay();
+    if (selectedHazardInstanceId) {
+      const stillViable = viable.some(
+        a => a.type === 'play-hazard'
+          && a.cardInstanceId === selectedHazardInstanceId
+          && 'targetCharacterId' in a && a.targetCharacterId,
+      );
+      if (!stillViable) {
+        setSelectedHazardForPlay(null);
+        setTargetingInstruction(null);
+      }
+    }
+  } else if (!hasCharTargetHazardActions) {
+    if (getSelectedHazardForPlay()) setTargetingInstruction(null);
+    setSelectedHazardForPlay(null);
+    setHazardPlayRenderCache(null);
+  }
+
   // Cache render state for opponent influence re-rendering
   const hasOppInfluenceActions = viable.some(a => a.type === 'opponent-influence-attempt');
   if (onAction && hasOppInfluenceActions) {
@@ -603,7 +708,9 @@ export function renderHand(
       ? viable.find(a => a.type === 'place-on-guard' && a.cardInstanceId === cardInstanceId)
       : undefined;
     const isHazard = hazardActions.length > 0;
-    const resourceActions = findResourcePlayActions(cardInstanceId, viable);
+    const allyActions = findAllyPlayActions(cardInstanceId, viable, cardPool);
+    const isAlly = allyActions.length > 0;
+    const resourceActions = findResourcePlayActions(cardInstanceId, viable, cardPool);
     const isResource = resourceActions.length > 0;
     const influenceActions = findInfluenceActions(cardInstanceId, viable);
     const isInfluence = influenceActions.length > 0;
@@ -612,7 +719,7 @@ export function renderHand(
     const discardAction = cardInstanceId
       ? viable.find(a => a.type === 'discard-card' && a.cardInstanceId === cardInstanceId)
       : undefined;
-    const nonViableReason = !action && !isItemDraft && !isPlayChar && !isShortEvent && !isHazard && !isResource && !isInfluence && !isCancelAttack && !discardAction && !onGuardAction
+    const nonViableReason = !action && !isItemDraft && !isPlayChar && !isShortEvent && !isHazard && !isAlly && !isResource && !isInfluence && !isCancelAttack && !discardAction && !onGuardAction
       ? findNonViableReason(cardDefId, view.legalActions, cachedInstanceLookup)
       : undefined;
     const selectedItemDefId = getSelectedItemDefId();
@@ -627,6 +734,16 @@ export function renderHand(
     const isFactionSelected = selectedFactionInstanceId !== null
       && cardInstanceId !== null
       && selectedFactionInstanceId === cardInstanceId;
+
+    const selectedAllyInstanceId = getSelectedAllyForPlay();
+    const isAllySelected = selectedAllyInstanceId !== null
+      && cardInstanceId !== null
+      && selectedAllyInstanceId === cardInstanceId;
+
+    const selectedHazardInstanceId = getSelectedHazardForPlay();
+    const isHazardSelected = selectedHazardInstanceId !== null
+      && cardInstanceId !== null
+      && selectedHazardInstanceId === cardInstanceId;
 
     const img = document.createElement('img');
     img.src = imgPath;
@@ -702,14 +819,58 @@ export function renderHand(
         }
       }
     } else if (isHazard) {
-      // Hazard creature/event: if on-guard is also available, always show menu
-      img.className = 'hand-card hand-card-playable';
-      if (onAction) {
-        if (hazardActions.length === 1 && !onGuardAction) {
-          img.addEventListener('click', () => onAction(hazardActions[0]));
-        } else {
-          img.addEventListener('click', (e) => {
-            showHazardKeyingMenu(e, hazardActions, onAction, onGuardAction, cardPool);
+      // Check if this hazard has character-targeting actions (e.g. corruption hazards)
+      const charTargetActions = hazardActions.filter(
+        a => a.type === 'play-hazard' && 'targetCharacterId' in a && a.targetCharacterId,
+      );
+      const hasCharTargets = charTargetActions.length > 0;
+      // Two-step targeting: hazard targets characters AND can be placed on-guard
+      if (hasCharTargets && onGuardAction) {
+        img.className = isHazardSelected
+          ? 'hand-card hand-card-selected'
+          : 'hand-card hand-card-playable';
+        if (onAction && cardInstanceId) {
+          const instId = cardInstanceId;
+          img.addEventListener('click', () => {
+            setSelectedHazardForPlay(isHazardSelected ? null : instId, onGuardAction);
+            setTargetingInstruction(
+              getSelectedHazardForPlay() ? `Click a character or site to play ${def.name}` : null,
+            );
+            reRenderHazardTarget();
+          });
+        }
+      } else {
+        // No character targets, or no on-guard: use original menu/direct play
+        img.className = 'hand-card hand-card-playable';
+        if (onAction) {
+          if (hazardActions.length === 1 && !onGuardAction) {
+            img.addEventListener('click', () => onAction(hazardActions[0]));
+          } else {
+            img.addEventListener('click', (e) => {
+              showHazardKeyingMenu(e, hazardActions, onAction, onGuardAction, cardPool);
+            });
+          }
+        }
+      }
+    } else if (isAlly) {
+      // Ally play: single target plays directly, multiple targets use two-step character targeting
+      if (allyActions.length === 1) {
+        img.className = 'hand-card hand-card-playable';
+        if (onAction) {
+          img.addEventListener('click', () => onAction(allyActions[0]));
+        }
+      } else {
+        img.className = isAllySelected
+          ? 'hand-card hand-card-selected'
+          : 'hand-card hand-card-playable';
+        if (onAction && cardInstanceId) {
+          const instId = cardInstanceId;
+          img.addEventListener('click', () => {
+            setSelectedAllyForPlay(isAllySelected ? null : instId);
+            setTargetingInstruction(
+              getSelectedAllyForPlay() ? `Click an untapped character to control ${def.name}` : null,
+            );
+            reRenderAllyPlay();
           });
         }
       }

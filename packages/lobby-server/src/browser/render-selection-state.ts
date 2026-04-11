@@ -156,6 +156,101 @@ export function setFactionInfluenceRenderCache(cache: typeof factionInfluenceRen
   factionInfluenceRenderCache = cache;
 }
 
+// ---- Ally play selection ----
+
+/**
+ * Selected ally instance ID for the two-step play-ally flow.
+ * When a player clicks a playable ally in the hand arc, the ally
+ * instance ID is stored here and the company view highlights untapped characters.
+ */
+let selectedAllyInstanceId: CardInstanceId | null = null;
+
+/** Returns the currently selected ally instance ID for the play-ally flow. */
+export function getSelectedAllyForPlay(): CardInstanceId | null {
+  return selectedAllyInstanceId;
+}
+
+/** Set the selected ally instance ID for the play-ally flow. */
+export function setSelectedAllyForPlay(id: CardInstanceId | null): void {
+  selectedAllyInstanceId = id;
+}
+
+/** Clear the ally play selection (called by company-block after action is sent). */
+export function clearAllyPlaySelection(): void {
+  selectedAllyInstanceId = null;
+  setTargetingInstruction(null);
+}
+
+/** Cached arguments for re-rendering during ally play target selection. */
+let allyPlayRenderCache: {
+  view: PlayerView;
+  cardPool: Readonly<Record<string, CardDefinition>>;
+  onAction: (action: GameAction) => void;
+} | null = null;
+
+/** Get the cached ally play render arguments. */
+export function getAllyPlayRenderCache(): typeof allyPlayRenderCache {
+  return allyPlayRenderCache;
+}
+
+/** Set the cached ally play render arguments. */
+export function setAllyPlayRenderCache(cache: typeof allyPlayRenderCache): void {
+  allyPlayRenderCache = cache;
+}
+
+// ---- Hazard character-targeting selection ----
+
+/**
+ * Selected hazard instance ID for the two-step hazard targeting flow.
+ * When a player clicks a hazard that can target characters AND be placed
+ * on-guard, the hazard instance ID is stored here. Clicking an opponent
+ * character plays the hazard on that character; clicking the site places on-guard.
+ */
+let selectedHazardInstanceId: CardInstanceId | null = null;
+
+/** The on-guard action associated with the currently selected hazard. */
+let selectedHazardOnGuardAction: GameAction | null = null;
+
+/** Returns the currently selected hazard instance ID for the targeting flow. */
+export function getSelectedHazardForPlay(): CardInstanceId | null {
+  return selectedHazardInstanceId;
+}
+
+/** Returns the on-guard action for the currently selected hazard. */
+export function getSelectedHazardOnGuardAction(): GameAction | null {
+  return selectedHazardOnGuardAction;
+}
+
+/** Set the selected hazard and its on-guard action for the targeting flow. */
+export function setSelectedHazardForPlay(id: CardInstanceId | null, onGuardAction?: GameAction | null): void {
+  selectedHazardInstanceId = id;
+  selectedHazardOnGuardAction = onGuardAction ?? null;
+}
+
+/** Clear the hazard targeting selection. */
+export function clearHazardPlaySelection(): void {
+  selectedHazardInstanceId = null;
+  selectedHazardOnGuardAction = null;
+  setTargetingInstruction(null);
+}
+
+/** Cached arguments for re-rendering during hazard targeting selection. */
+let hazardPlayRenderCache: {
+  view: PlayerView;
+  cardPool: Readonly<Record<string, CardDefinition>>;
+  onAction: (action: GameAction) => void;
+} | null = null;
+
+/** Get the cached hazard play render arguments. */
+export function getHazardPlayRenderCache(): typeof hazardPlayRenderCache {
+  return hazardPlayRenderCache;
+}
+
+/** Set the cached hazard play render arguments. */
+export function setHazardPlayRenderCache(cache: typeof hazardPlayRenderCache): void {
+  hazardPlayRenderCache = cache;
+}
+
 // ---- Opponent influence selection ----
 
 /**
