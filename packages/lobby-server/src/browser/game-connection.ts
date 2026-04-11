@@ -338,13 +338,16 @@ export function connect(name: string): void {
         // Show turn notification when entering Untap phase
         if (msg.view.phaseState.phase === 'untap' && appState.lastPhase !== 'untap') {
           const isMine = msg.view.activePlayer === msg.view.self.id;
-          showNotification(isMine ? 'Your turn' : "Opponent's turn");
+          showNotification(
+            isMine ? 'Your turn' : `${msg.view.opponent.name}'s turn`,
+            isMine ? undefined : { opponent: '' },
+          );
         }
         // Show notification describing what the opponent just did
         if (msg.lastAction && msg.lastAction.player !== msg.view.self.id
           && msg.lastAction.type !== 'pass' && msg.lastAction.type !== 'pass-chain-priority') {
           const desc = describeAction(msg.lastAction, cardPool, prevInstanceLookup, prevCompanyNames);
-          showNotification(desc, cardPool);
+          showNotification(desc, { cardPool, opponent: msg.view.opponent.name });
         }
         appState.lastPhase = msg.view.phaseState.phase;
         // Prepare/clear site selection or fetch-from-pile based on legal actions

@@ -18,23 +18,53 @@ export function renderLog(message: string, cardPool?: Readonly<Record<string, Ca
   el.scrollTop = el.scrollHeight;
 }
 
+/** Options for {@link showNotification}. */
+export interface NotificationOptions {
+  /** When true, display as an error toast. */
+  error?: boolean;
+  /** Card pool used to render card-image hovers in the toast text. */
+  cardPool?: Readonly<Record<string, CardDefinition>>;
+  /**
+   * When set, display as an opponent-action toast (blue color).
+   * If non-empty, the message is prefixed with `"<name>: "`.
+   */
+  opponent?: string;
+}
+
 /**
  * Show a brief toast notification overlay.
- * The toast auto-dismisses after the CSS animation completes (~3.4s).
+ * The toast auto-dismisses after the CSS animation completes (~9.4s).
  * Visible in both debug and visual view modes.
+ *
+ * Legacy overload: pass `true` for error, or a card pool object directly.
  */
 export function showNotification(
   message: string,
-  cardPoolOrError?: boolean | Readonly<Record<string, CardDefinition>>,
+  opts?: boolean | Readonly<Record<string, CardDefinition>> | NotificationOptions,
 ): void {
   const container = document.getElementById('toast-container');
   if (!container) return;
-  const isError = cardPoolOrError === true;
-  const pool = typeof cardPoolOrError === 'object' ? cardPoolOrError : undefined;
+
+  // Normalise legacy overloads into NotificationOptions
+  let options: NotificationOptions;
+  if (opts === true) {
+    options = { error: true };
+  } else if (opts && typeof opts === 'object' && !('error' in opts || 'cardPool' in opts || 'opponent' in opts)) {
+    options = { cardPool: opts as Readonly<Record<string, CardDefinition>> };
+  } else {
+    options = (opts as NotificationOptions) ?? {};
+  }
+
+  const displayMessage = options.opponent ? `${options.opponent}: ${message}` : message;
+
   const toast = document.createElement('div');
-  toast.className = isError ? 'toast toast--error' : 'toast';
-  toast.innerHTML = textToHtml(message);
-  if (pool) tagCardImages(toast, pool);
+  toast.className = options.error
+    ? 'toast toast--error'
+    : 'opponent' in options
+      ? 'toast toast--opponent'
+      : 'toast';
+  toast.innerHTML = textToHtml(displayMessage);
+  if (options.cardPool) tagCardImages(toast, options.cardPool);
   container.appendChild(toast);
   toast.addEventListener('animationend', (e) => {
     if (e.animationName === 'toast-out') toast.remove();

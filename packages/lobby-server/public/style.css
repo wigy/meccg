@@ -2998,7 +2998,12 @@ h2 {
   white-space: nowrap;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.6);
   opacity: 0;
-  animation: toast-in 0.3s ease forwards, toast-out 0.4s ease 3s forwards;
+  animation: toast-in 0.3s ease forwards, toast-out 0.4s ease 9s forwards;
+}
+
+.toast--opponent {
+  color: rgba(140, 180, 220, 0.95);
+  border-color: rgba(140, 180, 220, 0.4);
 }
 
 .toast--error {
