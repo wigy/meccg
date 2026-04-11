@@ -1,14 +1,8 @@
 [
   {
     "file": "001.json",
-    "description": "Turn 1 untap phase. Two companies at Rivendell: wigy (Aragorn II, Bilbo, Frodo) vs karmi (Elrond, Éowyn, Celeborn, Beregond). Both players have 8 cards in hand.",
-    "character": "tw-120",
+    "description": "Turn 1 untap phase. wigy (Sam Gamgee, Frodo, Elrond) vs AI-Smart (Bilbo, Theoden, Anborn, Celeborn). Both companies at Rivendell, 8 cards in hand each.",
+    "character": "tw-180",
     "site": "tw-421"
-  },
-  {
-    "file": "002.json",
-    "description": "Free Council corruption checks. wigy called council with 16 MP after 1 deck exhaustion. Aragorn II (3 items) and Elrond at Barrow-downs vs AI-Random's 4 solo companies (Celeborn, Bilbo, Gandalf, Sam Gamgee).",
-    "character": "tw-145",
-    "site": "tw-375"
   }
 ]
