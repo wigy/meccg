@@ -162,6 +162,7 @@ export function updateMessageStatus(playerName: string, msgId: string, status: M
     const updated: MailMessage = { ...message, status, ...(success !== undefined ? { success } : {}) };
     fs.writeFileSync(filePath, JSON.stringify(updated, null, 2));
     updateSentCopies(msgId, status, success);
+    notifyPlayer(playerName, { type: 'mail-notification', unreadCount: countUnread(playerName) });
     return updated;
   } catch {
     return null;
@@ -205,7 +206,10 @@ export function deleteMessage(playerName: string, msgId: string): boolean {
   }
 }
 
-/** Count messages in a player's inbox with status 'new'. */
+/**
+ * Count messages in a player's inbox that need attention: status 'new', plus
+ * review-requests in 'waiting' state (the reviewer still has to approve/decline).
+ */
 export function countUnread(playerName: string): number {
   const dir = inboxDir(playerName);
   try {
@@ -215,6 +219,7 @@ export function countUnread(playerName: string): number {
       try {
         const msg = JSON.parse(fs.readFileSync(path.join(dir, f), 'utf-8')) as MailMessage;
         if (msg.status === 'new') count++;
+        else if (msg.topic === 'review-request' && msg.status === 'waiting') count++;
       } catch {
         // Skip malformed files
       }
