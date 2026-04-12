@@ -107,6 +107,8 @@ export const RANGERS_OF_THE_NORTH = did('tw-311');
 export const RIDERS_OF_ROHAN = did('tw-317');
 /** Knights of Dol Amroth — Dúnadan faction, 3 MP, playable at Dol Amroth. */
 export const KNIGHTS_OF_DOL_AMROTH = did('tw-263');
+/** Rangers of Ithilien — Dúnadan faction, 3 MP, playable at Henneth Annûn. */
+export const RANGERS_OF_ITHILIEN = did('tw-310');
 /** Wood-elves — Elf faction, 3 MP, playable at Thranduil's Halls. */
 export const WOOD_ELVES = did('tw-367');
 /** Men of Lebennin — Man faction, 2 MP, playable at Pelargir. */
