@@ -413,6 +413,12 @@ export interface MovementHazardPhaseState {
    * take actions during its site phase.
    */
   readonly returnedToOrigin: boolean;
+  /**
+   * Names of hazard cards whose combat has finalized against the current
+   * company during this M/H sub-phase. Used by effects that check whether
+   * the company already faced a specific hazard (e.g. troll-trio).
+   */
+  readonly hazardsEncountered: readonly string[];
 }
 
 /**
