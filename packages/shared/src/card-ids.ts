@@ -117,6 +117,8 @@ export const MEN_OF_LEBENNIN = did('tw-280');
 export const MEN_OF_ANORIEN = did('tw-277');
 /** Blue Mountain Dwarves — Dwarf faction, 3 MP, playable at Blue Mountain Dwarf-hold. */
 export const BLUE_MOUNTAIN_DWARVES = did('tw-200');
+/** Men of Anfalas — Man faction, 2 MP, playable at Lond Galen. */
+export const MEN_OF_ANFALAS = did('tw-276');
 /** Dunlendings — Man faction, 2 MP, playable at Dunnish Clan-hold. */
 export const DUNLENDINGS = did('tw-211');
 
@@ -256,6 +258,8 @@ export const BANDIT_LAIR = did('tw-373');
 export const DUNNISH_CLAN_HOLD = did('tw-390');
 /** Wellinghall — hero free-hold in Fangorn, nearest haven Lórien. */
 export const WELLINGHALL = did('tw-437');
+/** Lond Galen — hero site, free-hold in Anfalas. */
+export const LOND_GALEN = did('tw-407');
 
 // ---- Against the Shadow — Hero Sites ----
 
