@@ -124,8 +124,8 @@
         "target": "wounded-character",
         "when": {
           "$or": [
-            { "company.creaturesEncountered": { "$includes": "William (Wuluag)" } },
-            { "company.creaturesEncountered": { "$includes": "Tom (Tuma)" } }
+            { "company.hazardsEncountered": { "$includes": "William (Wuluag)" } },
+            { "company.hazardsEncountered": { "$includes": "Tom (Tuma)" } }
           ]
         }
       }
@@ -268,8 +268,8 @@
         "target": "wounded-character",
         "when": {
           "$or": [
-            { "company.creaturesEncountered": { "$includes": "Bert (Burat)" } },
-            { "company.creaturesEncountered": { "$includes": "William (Wuluag)" } }
+            { "company.hazardsEncountered": { "$includes": "Bert (Burat)" } },
+            { "company.hazardsEncountered": { "$includes": "William (Wuluag)" } }
           ]
         }
       }
@@ -308,8 +308,8 @@
         "target": "wounded-character",
         "when": {
           "$or": [
-            { "company.creaturesEncountered": { "$includes": "Bert (Burat)" } },
-            { "company.creaturesEncountered": { "$includes": "Tom (Tuma)" } }
+            { "company.hazardsEncountered": { "$includes": "Bert (Burat)" } },
+            { "company.hazardsEncountered": { "$includes": "Tom (Tuma)" } }
           ]
         }
       }

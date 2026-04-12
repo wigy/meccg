@@ -227,7 +227,7 @@ export function handleLongEvent(state: GameState, action: GameAction): ReducerRe
           siteRevealed: false,
           onGuardPlacedThisCompany: false,
           returnedToOrigin: false,
-          creaturesEncountered: [],
+          hazardsEncountered: [],
         },
       },
     };

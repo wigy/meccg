@@ -1018,7 +1018,7 @@ function finalizeCombat(state: GameState, effects: GameEffect[] = []): ReducerRe
     }
   }
 
-  stateAfterCombat = recordCreatureEncountered(stateAfterCombat, state, combat);
+  stateAfterCombat = recordHazardEncountered(stateAfterCombat, state, combat);
 
   return {
     state: stateAfterCombat,
@@ -1028,12 +1028,12 @@ function finalizeCombat(state: GameState, effects: GameEffect[] = []): ReducerRe
 
 /**
  * Build an on-event condition context from the current game state.
- * Includes `company.creaturesEncountered` for troll-trio condition checks.
+ * Includes `company.hazardsEncountered` for troll-trio condition checks.
  */
 function buildOnEventContext(state: GameState): Record<string, unknown> {
   const ctx: Record<string, unknown> = {};
   if (state.phaseState.phase === Phase.MovementHazard) {
-    ctx.company = { creaturesEncountered: state.phaseState.creaturesEncountered };
+    ctx.company = { hazardsEncountered: state.phaseState.hazardsEncountered };
   }
   return ctx;
 }
@@ -1087,9 +1087,9 @@ function discardNonSpecialItems(
 
 /**
  * After combat finalization, record the creature name in the M/H phase
- * state's `creaturesEncountered` list for troll-trio condition checks.
+ * state's `hazardsEncountered` list for troll-trio condition checks.
  */
-function recordCreatureEncountered(
+function recordHazardEncountered(
   stateAfterCombat: GameState,
   originalState: GameState,
   combat: CombatState,
@@ -1105,12 +1105,12 @@ function recordCreatureEncountered(
   if (!creatureName) return stateAfterCombat;
 
   const mhState = stateAfterCombat.phaseState as MovementHazardPhaseState;
-  logDetail(`Recording creature "${creatureName}" in creaturesEncountered`);
+  logDetail(`Recording hazard "${creatureName}" in hazardsEncountered`);
   return {
     ...stateAfterCombat,
     phaseState: {
       ...mhState,
-      creaturesEncountered: [...mhState.creaturesEncountered, creatureName],
+      hazardsEncountered: [...mhState.hazardsEncountered, creatureName],
     },
   };
 }

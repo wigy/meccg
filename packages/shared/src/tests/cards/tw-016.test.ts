@@ -147,9 +147,9 @@ describe('Bert (Burat) (tw-016)', () => {
     const afterWilliamCombat = runCreatureCombat(afterWilliam, ARAGORN, 12, null);
     expect(afterWilliamCombat.combat).toBeNull();
 
-    // Verify William is recorded in creaturesEncountered
+    // Verify William is recorded in hazardsEncountered
     const mhAfterWilliam = afterWilliamCombat.phaseState as MovementHazardPhaseState;
-    expect(mhAfterWilliam.creaturesEncountered).toContain('William (Wuluag)');
+    expect(mhAfterWilliam.hazardsEncountered).toContain('William (Wuluag)');
 
     // Play Bert next
     const afterBert = playCreatureHazardAndResolve(afterWilliamCombat, PLAYER_2, bertId, companyId, SHADOW_KEYING);
@@ -196,7 +196,7 @@ describe('Bert (Burat) (tw-016)', () => {
     const afterTomCombat = runCreatureCombat(afterTom, ARAGORN, 12, null);
 
     const mhAfterTom = afterTomCombat.phaseState as MovementHazardPhaseState;
-    expect(mhAfterTom.creaturesEncountered).toContain('Tom (Tuma)');
+    expect(mhAfterTom.hazardsEncountered).toContain('Tom (Tuma)');
 
     // Play Bert next — Aragorn is wounded
     const afterBert = playCreatureHazardAndResolve(afterTomCombat, PLAYER_2, bertId, companyId, SHADOW_KEYING);
@@ -244,7 +244,7 @@ describe('Bert (Burat) (tw-016)', () => {
     expect(aragornData.items).toHaveLength(1);
   });
 
-  test('creaturesEncountered tracks creature name after combat', () => {
+  test('hazardsEncountered tracks creature name after combat', () => {
     const state = buildTestState({
       activePlayer: PLAYER_1,
       phase: Phase.MovementHazard,
@@ -268,7 +268,7 @@ describe('Bert (Burat) (tw-016)', () => {
     const afterCombat = runCreatureCombat(afterChain, ARAGORN, 12, null);
 
     const mhAfter = afterCombat.phaseState as MovementHazardPhaseState;
-    expect(mhAfter.creaturesEncountered).toContain('Bert (Burat)');
+    expect(mhAfter.hazardsEncountered).toContain('Bert (Burat)');
   });
 
   test('Bert alone (no other troll faced) — wound does not discard items', () => {
