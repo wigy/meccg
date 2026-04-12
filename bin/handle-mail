@@ -209,10 +209,14 @@ format_duration() {
 lookup_card_name() {
   local id="$1"
   if [ -z "$id" ]; then return 0; fi
-  local id_upper set_upper
+  local id_upper set_upper num lookup_id
   id_upper=$(echo "$id" | tr 'a-z' 'A-Z')
   set_upper="${id_upper%%-*}"
-  jq -r --arg set "$set_upper" --arg id "$id_upper" \
+  # cards.json keys are unpadded (TW-16), our internal IDs are padded (tw-016).
+  num="${id_upper#*-}"
+  num=$((10#$num))
+  lookup_id="${set_upper}-${num}"
+  jq -r --arg set "$set_upper" --arg id "$lookup_id" \
     '.[$set].cards[$id].name.en // empty' \
     "$PROJECT_DIR/data/cards.json" 2>/dev/null || true
 }
@@ -522,12 +526,26 @@ IMPORTANT: You MUST create a branch named certify-${CARD_ID}-<card-slug>, commit
       GIT_HASH=$(echo "$SKILL_OUTPUT" | grep -oP '[0-9a-f]{40}' | tail -1 || true)
       CARD_NAME=$(lookup_card_name "$CARD_ID")
 
+      # Fallback: if the skill didn't echo a PR URL on stdout, look it up by branch.
+      if [ -z "$PR_URL" ]; then
+        PR_URL=$(cd "$PROJECT_DIR" && gh pr list \
+          --head "certify-${CARD_ID}" --state all --json url -q '.[0].url' 2>/dev/null || true)
+        if [ -z "$PR_URL" ]; then
+          PR_URL=$(cd "$PROJECT_DIR" && gh pr list --state all --search "certify-${CARD_ID} in:head" \
+            --json url,headRefName -q '.[0].url' 2>/dev/null || true)
+        fi
+      fi
+
       if echo "$SKILL_OUTPUT" | grep -qiP '(Playable:\s*YES|certification.*passed|certified|PR.*created|pull request)'; then
         SUCCESS=true
         REPLY_SUBJECT="Certified: $CARD_ID"
-        REPLY_BODY="Card **$CARD_ID** has been certified.
+        if [ -n "$PR_URL" ]; then
+          REPLY_BODY="Card **$CARD_ID** ($CARD_NAME) has been certified.
 
 PR: $PR_URL"
+        else
+          REPLY_BODY="Card **$CARD_ID** ($CARD_NAME) has been certified."
+        fi
         REPLY_KEYWORDS=$(jq -n \
           --arg origId "$MSG_ID" \
           --arg cardId "$CARD_ID" \
@@ -537,9 +555,13 @@ PR: $PR_URL"
 
         REVIEW_TOPIC="review-request"
         REVIEW_SUBJECT="Review: $CARD_ID certified"
-        REVIEW_BODY="Card **$CARD_ID** ($CARD_NAME) has been certified.
+        if [ -n "$PR_URL" ]; then
+          REVIEW_BODY="Card **$CARD_ID** ($CARD_NAME) has been certified.
 
 PR: $PR_URL"
+        else
+          REVIEW_BODY="Card **$CARD_ID** ($CARD_NAME) has been certified."
+        fi
         REVIEW_RECIPIENTS='["wigy","karmi","admin"]'
         REVIEW_KEYWORDS=$(jq -n \
           --arg cardName "$CARD_NAME" \
