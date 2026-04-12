@@ -48,6 +48,15 @@ const SAVE_DIR = process.env.SAVE_DIR ?? path.join(os.homedir(), '.meccg', 'save
 const WEB_CLIENT_PUBLIC = path.join(__dirname, '../../public');
 const GAME_SERVER_SNAPSHOTS = path.join(__dirname, '../../../game-server/data/dev/snapshots/index.json');
 
+const LOBBY_VERSION: string = (() => {
+  try {
+    const pkg = JSON.parse(fs.readFileSync(path.join(__dirname, '../../package.json'), 'utf-8')) as { version?: string };
+    return pkg.version ?? '0.0.0';
+  } catch {
+    return '0.0.0';
+  }
+})();
+
 /** Names that cannot be registered by players. Checked case-insensitively. */
 const RESTRICTED_NAMES = new Set(['ai', 'wigy', 'server', 'karmi', 'admin']);
 
@@ -151,7 +160,7 @@ async function handleImageRequest(urlPath: string, res: http.ServerResponse): Pr
 const reloadClients = new Set<http.ServerResponse>();
 
 /** Script injected before </head> to expose server config to the browser. */
-const CONFIG_SCRIPT = `<script>window.__MECCG_DEV=${DEV};window.__LOBBY=true;</script>`;
+const CONFIG_SCRIPT = `<script>window.__MECCG_DEV=${DEV};window.__LOBBY=true;window.__MECCG_VERSION=${JSON.stringify(LOBBY_VERSION)};</script>`;
 
 /** SSE script for auto-reload in dev mode. */
 const RELOAD_SCRIPT = `<script>
