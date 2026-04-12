@@ -234,6 +234,8 @@ export const DOL_AMROTH = did('tw-386');
 export const THRANDUILS_HALLS = did('tw-432');
 /** Isengard — hero ruins-and-lairs in Gap of Isen, nearest haven Lórien. */
 export const ISENGARD = did('tw-404');
+/** Glittering Caves — hero ruins-and-lairs in Gap of Isen, nearest haven Lórien. */
+export const GLITTERING_CAVES = did('tw-397');
 /** Blue Mountain Dwarf-hold — hero free-hold in Númeriador, nearest haven Grey Havens. */
 export const BLUE_MOUNTAIN_DWARF_HOLD = did('tw-377');
 /** Goblin-gate — hero ruins-and-lairs in High Pass, nearest haven Rivendell. */
@@ -244,6 +246,8 @@ export const DIMRILL_DALE = did('tw-385');
 export const BANDIT_LAIR = did('tw-373');
 /** Dunnish Clan-hold — hero border-hold in Dunland, nearest haven Rivendell. */
 export const DUNNISH_CLAN_HOLD = did('tw-390');
+/** Wellinghall — hero free-hold in Fangorn, nearest haven Lórien. */
+export const WELLINGHALL = did('tw-437');
 
 // ---- Against the Shadow — Hero Sites ----
 
