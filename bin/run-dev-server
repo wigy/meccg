@@ -2,6 +2,20 @@
 
 set -e
 
+if [ $# -ge 1 ] && { [ "$1" = "-h" ] || [ "$1" = "--help" ]; }; then
+  cat <<'EOF'
+Usage: bin/run-dev-server
+
+Start the lobby server in development mode. Builds the browser bundle,
+starts an esbuild watcher for browser code, and runs the lobby with
+nodemon so server and browser reload on change.
+
+Options:
+  -h, --help      Show this help message.
+EOF
+  exit 0
+fi
+
 FILE=`readlink -f "${BASH_SOURCE[0]}"`
 ROOT=`dirname "$FILE"`/..
 

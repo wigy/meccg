@@ -1,6 +1,20 @@
 #!/bin/bash
 set -e
 
+if [ $# -ge 1 ] && { [ "$1" = "-h" ] || [ "$1" = "--help" ]; }; then
+  cat <<'EOF'
+Usage: bin/run-ai
+
+Long-running worker loop that polls for unhandled ai requests and
+dispatches them to bin/handle-mail one at a time. Pulls master between
+iterations and skips feature-requests (which require human review).
+
+Options:
+  -h, --help      Show this help message.
+EOF
+  exit 0
+fi
+
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 LOG_DIR="$HOME/.meccg/logs"
 LOG_FILE="$LOG_DIR/ai.log"

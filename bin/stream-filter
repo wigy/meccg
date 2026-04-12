@@ -2,6 +2,23 @@
 # Filter Claude's stream-json output into human-readable progress lines.
 # Usage: claude --verbose --output-format stream-json -p ... | stream-filter
 
+if [ $# -ge 1 ] && { [ "$1" = "-h" ] || [ "$1" = "--help" ]; }; then
+  cat <<'EOF'
+Usage: ... | bin/stream-filter
+
+Reads Claude stream-json output on stdin and writes human-readable
+progress lines to stdout: assistant text, tool-use summaries, and a final
+duration/cost line.
+
+Example:
+  claude --verbose --output-format stream-json -p "..." | bin/stream-filter
+
+Options:
+  -h, --help      Show this help message.
+EOF
+  exit 0
+fi
+
 while IFS= read -r line; do
   type=$(echo "$line" | jq -r '.type // empty' 2>/dev/null)
 

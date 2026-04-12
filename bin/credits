@@ -124,10 +124,26 @@ function usage() {
   console.error('  bin/credits                                    List all players and their credits');
   console.error('  bin/credits add <player> <amount> [<reason>]   Add <amount> credits to <player>');
   console.error('  bin/credits set <player> <amount> [<reason>]   Set <player>\'s credits to <amount>');
+  console.error('  bin/credits -h | --help                        Show this help message');
   process.exit(1);
 }
 
+function printHelp() {
+  console.log('Usage:');
+  console.log('  bin/credits                                    List all players and their credits');
+  console.log('  bin/credits add <player> <amount> [<reason>]   Add <amount> credits to <player>');
+  console.log('  bin/credits set <player> <amount> [<reason>]   Set <player>\'s credits to <amount>');
+  console.log('  bin/credits -h | --help                        Show this help message');
+  console.log('');
+  console.log('Reads and writes each player\'s ~/.meccg/players/<dir>/info.json and');
+  console.log('appends every change to credits.json as an audit entry.');
+}
+
 const args = process.argv.slice(2);
+if (args[0] === '-h' || args[0] === '--help') {
+  printHelp();
+  process.exit(0);
+}
 const cmd = args[0];
 
 if (!cmd) {

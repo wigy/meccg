@@ -46,7 +46,14 @@ declare global {
     __MECCG_DEV?: boolean;
     /** Set by the lobby server -- true when running in lobby mode. */
     __LOBBY?: boolean;
+    /** Set by the lobby server -- version from package.json. */
+    __MECCG_VERSION?: string;
   }
+}
+
+const versionEl = document.getElementById('lobby-nav-version');
+if (versionEl && window.__MECCG_VERSION) {
+  versionEl.textContent = `v${window.__MECCG_VERSION}`;
 }
 
 // ---- Wire up cross-module callbacks ----

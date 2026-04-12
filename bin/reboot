@@ -12,6 +12,20 @@
 # Usage: bin/reboot
 set -euo pipefail
 
+if [ $# -ge 1 ] && { [ "$1" = "-h" ] || [ "$1" = "--help" ]; }; then
+  cat <<'EOF'
+Usage: bin/reboot
+
+Controlled reboot of the MECCG lobby server. Announces the reboot, shuts
+down the lobby (which kills game servers and auto-saves games), pulls the
+latest code, rebuilds, restarts the lobby, and reloads connected clients.
+
+Options:
+  -h, --help      Show this help message.
+EOF
+  exit 0
+fi
+
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PROJECT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 SECRETS="$HOME/.meccg/secrets.json"

@@ -12,6 +12,28 @@
 #   If no message ID is given, lists all unhandled requests.
 set -euo pipefail
 
+# ---------------------------------------------------------------------------
+# Help
+# ---------------------------------------------------------------------------
+if [ $# -ge 1 ] && { [ "$1" = "-h" ] || [ "$1" = "--help" ]; }; then
+  cat <<'EOF'
+Usage: handle-mail [<message-id>]
+
+Handle a mail message from the ai inbox. Dispatches the message to the
+appropriate skill or sub-script based on its topic, sends the reply (with a
+credits/time footer), optionally sends a review request, marks the message
+processed, and deducts credits from the requestor.
+
+Arguments:
+  <message-id>    ID of the mail message to handle. If omitted, lists all
+                  unhandled requests.
+
+Options:
+  -h, --help      Show this help message.
+EOF
+  exit 0
+fi
+
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PROJECT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 LOG_DIR="$HOME/.meccg/logs"
@@ -187,10 +209,14 @@ format_duration() {
 lookup_card_name() {
   local id="$1"
   if [ -z "$id" ]; then return 0; fi
-  local id_upper set_upper
+  local id_upper set_upper num lookup_id
   id_upper=$(echo "$id" | tr 'a-z' 'A-Z')
   set_upper="${id_upper%%-*}"
-  jq -r --arg set "$set_upper" --arg id "$id_upper" \
+  # cards.json keys are unpadded (TW-16), our internal IDs are padded (tw-016).
+  num="${id_upper#*-}"
+  num=$((10#$num))
+  lookup_id="${set_upper}-${num}"
+  jq -r --arg set "$set_upper" --arg id "$lookup_id" \
     '.[$set].cards[$id].name.en // empty' \
     "$PROJECT_DIR/data/cards.json" 2>/dev/null || true
 }
@@ -500,12 +526,26 @@ IMPORTANT: You MUST create a branch named certify-${CARD_ID}-<card-slug>, commit
       GIT_HASH=$(echo "$SKILL_OUTPUT" | grep -oP '[0-9a-f]{40}' | tail -1 || true)
       CARD_NAME=$(lookup_card_name "$CARD_ID")
 
+      # Fallback: if the skill didn't echo a PR URL on stdout, look it up by branch.
+      if [ -z "$PR_URL" ]; then
+        PR_URL=$(cd "$PROJECT_DIR" && gh pr list \
+          --head "certify-${CARD_ID}" --state all --json url -q '.[0].url' 2>/dev/null || true)
+        if [ -z "$PR_URL" ]; then
+          PR_URL=$(cd "$PROJECT_DIR" && gh pr list --state all --search "certify-${CARD_ID} in:head" \
+            --json url,headRefName -q '.[0].url' 2>/dev/null || true)
+        fi
+      fi
+
       if echo "$SKILL_OUTPUT" | grep -qiP '(Playable:\s*YES|certification.*passed|certified|PR.*created|pull request)'; then
         SUCCESS=true
         REPLY_SUBJECT="Certified: $CARD_ID"
-        REPLY_BODY="Card **$CARD_ID** has been certified.
+        if [ -n "$PR_URL" ]; then
+          REPLY_BODY="Card **$CARD_ID** ($CARD_NAME) has been certified.
 
 PR: $PR_URL"
+        else
+          REPLY_BODY="Card **$CARD_ID** ($CARD_NAME) has been certified."
+        fi
         REPLY_KEYWORDS=$(jq -n \
           --arg origId "$MSG_ID" \
           --arg cardId "$CARD_ID" \
@@ -515,9 +555,13 @@ PR: $PR_URL"
 
         REVIEW_TOPIC="review-request"
         REVIEW_SUBJECT="Review: $CARD_ID certified"
-        REVIEW_BODY="Card **$CARD_ID** ($CARD_NAME) has been certified.
+        if [ -n "$PR_URL" ]; then
+          REVIEW_BODY="Card **$CARD_ID** ($CARD_NAME) has been certified.
 
 PR: $PR_URL"
+        else
+          REVIEW_BODY="Card **$CARD_ID** ($CARD_NAME) has been certified."
+        fi
         REVIEW_RECIPIENTS='["wigy","karmi","admin"]'
         REVIEW_KEYWORDS=$(jq -n \
           --arg cardName "$CARD_NAME" \
@@ -664,10 +708,39 @@ esac
 DURATION_HUMAN=$(format_duration "$DISPATCH_DURATION_S")
 
 # ---------------------------------------------------------------------------
-# Step 6: Send the reply (with credits/time footer baked in)
+# Step 6: Send the reply — or stash it for approve-pr
 # ---------------------------------------------------------------------------
+# When the review-request carries a PR URL, the reply to the requestor is
+# withheld until bin/approve-pr merges the PR. We serialize the full reply
+# (already including the credits/time footer) into the review-request's
+# keywords as `pendingReplyJson`, and approve-pr recovers it post-merge.
+# Topics that don't open a PR (card-request, feature-planning-request) send
+# the reply immediately as before.
 
-if [ -n "$REPLY_TOPIC" ]; then
+HAS_PR_REVIEW=false
+if [ -n "$REVIEW_TOPIC" ] && [ "$REVIEW_KEYWORDS" != "{}" ]; then
+  if echo "$REVIEW_KEYWORDS" | jq -e '(.prUrl // "") | select(length > 0)' >/dev/null 2>&1; then
+    HAS_PR_REVIEW=true
+  fi
+fi
+
+if [ -n "$REPLY_TOPIC" ] && $HAS_PR_REVIEW; then
+  log "Stashing reply into review-request keywords (will be sent by approve-pr after PR merge)"
+  FOOTER="
+
+---
+*Processed in ${DURATION_HUMAN}. Charged ${CREDITS_CHARGED} credits.*"
+  STASHED_BODY="${REPLY_BODY}${FOOTER}"
+  PENDING_REPLY_JSON=$(jq -nc \
+    --arg recipient "$REPLY_RECIPIENT" \
+    --arg topic "$REPLY_TOPIC" \
+    --arg subject "$REPLY_SUBJECT" \
+    --arg body "$STASHED_BODY" \
+    --argjson keywords "$REPLY_KEYWORDS" \
+    --arg replyTo "$MSG_ID" \
+    '{recipient: $recipient, topic: $topic, subject: $subject, body: $body, keywords: $keywords, replyTo: $replyTo}')
+  REVIEW_KEYWORDS=$(echo "$REVIEW_KEYWORDS" | jq -c --arg pr "$PENDING_REPLY_JSON" '. + {pendingReplyJson: $pr}')
+elif [ -n "$REPLY_TOPIC" ]; then
   send_reply_mail "$REPLY_RECIPIENT" "$REPLY_TOPIC" "$REPLY_SUBJECT" "$REPLY_BODY" "$REPLY_KEYWORDS"
 fi
 

@@ -385,6 +385,14 @@ h2 {
   padding: 0.1rem 0.25rem 0.1rem 0.25rem;
 }
 
+.lobby-nav-version {
+  font-size: 0.65rem;
+  font-weight: 500;
+  color: rgba(196, 163, 90, 0.7);
+  letter-spacing: 0.05em;
+  margin-left: 0.35rem;
+}
+
 .lobby-nav-divider {
   width: 1px;
   height: 1.5rem;
@@ -1031,23 +1039,6 @@ h2 {
   background: rgba(244, 67, 54, 0.3);
   color: #e57373;
   cursor: default;
-}
-
-.inbox-decline-comments {
-  width: 100%;
-  margin-top: 0.5rem;
-  padding: 0.5rem;
-  font-family: inherit;
-  font-size: 0.85rem;
-  background: #1a1a2e;
-  color: #e0e0e0;
-  border: 1px solid #f44336;
-  border-radius: 4px;
-  resize: vertical;
-}
-
-.inbox-decline-comments::placeholder {
-  color: #888;
 }
 
 .inbox-delete-btn {

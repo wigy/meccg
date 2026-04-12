@@ -11,6 +11,22 @@
 # are scanned so all requests appear in one place.
 set -euo pipefail
 
+if [ $# -ge 1 ] && { [ "$1" = "-h" ] || [ "$1" = "--help" ]; }; then
+  cat <<'EOF'
+Usage:
+  bin/requests              List unhandled requests (status=new)
+  bin/requests --all        List all requests, including handled and old ones
+  bin/requests del <id>     Delete every copy of the given mail id across
+                            all player mailboxes
+  bin/requests -h | --help  Show this help message
+
+Feature-requests go to the admin inbox; everything else (certification,
+card, planning, implementation, bug-report) goes to the ai inbox. Both are
+scanned so all requests appear in one place.
+EOF
+  exit 0
+fi
+
 INBOX_DIRS=(
   "$HOME/.meccg/players/ai/mail/inbox"
   "$HOME/.meccg/players/admin/mail/inbox"
