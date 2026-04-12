@@ -1,6 +1,6 @@
 {
   "name": "@meccg/lobby-server",
-  "version": "0.20.1",
+  "version": "0.20.2",
   "private": true,
   "scripts": {
     "build": "tsc && npm run build:browser",
