@@ -704,8 +704,28 @@ function updateDeckFile(filePath, cardName, cardId) {
 // Main
 // ---------------------------------------------------------------------------
 
+function printHelp() {
+  console.log(`Usage: node bin/add-card.mjs <cardName> <deckId>
+
+Mechanically adds a card from the Council of Elrond database to the local
+card data files. Looks up the card by name, derives its type, writes it to
+the appropriate data file, updates matching deck files, type-checks, and
+commits & pushes the result.
+
+Arguments:
+  <cardName>   English card name (may contain spaces)
+  <deckId>     Deck ID used to infer alignment when disambiguating matches
+
+Options:
+  -h, --help   Show this help message`);
+}
+
 function main() {
   const args = process.argv.slice(2);
+  if (args.includes('-h') || args.includes('--help')) {
+    printHelp();
+    process.exit(0);
+  }
   if (args.length < 2) {
     console.error('Usage: node bin/add-card.mjs <cardName> <deckId>');
     process.exit(1);

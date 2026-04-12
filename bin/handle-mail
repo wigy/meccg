@@ -12,6 +12,28 @@
 #   If no message ID is given, lists all unhandled requests.
 set -euo pipefail
 
+# ---------------------------------------------------------------------------
+# Help
+# ---------------------------------------------------------------------------
+if [ $# -ge 1 ] && { [ "$1" = "-h" ] || [ "$1" = "--help" ]; }; then
+  cat <<'EOF'
+Usage: handle-mail [<message-id>]
+
+Handle a mail message from the ai inbox. Dispatches the message to the
+appropriate skill or sub-script based on its topic, sends the reply (with a
+credits/time footer), optionally sends a review request, marks the message
+processed, and deducts credits from the requestor.
+
+Arguments:
+  <message-id>    ID of the mail message to handle. If omitted, lists all
+                  unhandled requests.
+
+Options:
+  -h, --help      Show this help message.
+EOF
+  exit 0
+fi
+
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PROJECT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 LOG_DIR="$HOME/.meccg/logs"
