@@ -116,9 +116,23 @@
         ]
       }
     ],
-    "effects": [],
+    "effects": [
+      {
+        "type": "on-event",
+        "event": "character-wounded-by-self",
+        "apply": { "type": "discard-non-special-items" },
+        "target": "wounded-character",
+        "when": {
+          "$or": [
+            { "company.hazardsEncountered": { "$includes": "William (Wuluag)" } },
+            { "company.hazardsEncountered": { "$includes": "Tom (Tuma)" } }
+          ]
+        }
+      }
+    ],
     "text": "Unique. Troll. One strike. If played against a company that faced \"William\" or \"Tom\" this turn, each character wounded by \"Bert\" discards all non-special items he bears.",
-    "race": "troll"
+    "race": "troll",
+    "certified": "2026-04-12"
   },
   {
     "cardType": "hazard-creature",
@@ -246,7 +260,20 @@
         ]
       }
     ],
-    "effects": [],
+    "effects": [
+      {
+        "type": "on-event",
+        "event": "character-wounded-by-self",
+        "apply": { "type": "discard-non-special-items" },
+        "target": "wounded-character",
+        "when": {
+          "$or": [
+            { "company.hazardsEncountered": { "$includes": "Bert (Burat)" } },
+            { "company.hazardsEncountered": { "$includes": "William (Wuluag)" } }
+          ]
+        }
+      }
+    ],
     "text": "Unique. Troll. One strike. If played against a company that faced \"Bert\" or \"William\" this turn, each character wounded by \"Tom\" discards all non-special items he bears.",
     "race": "troll"
   },
@@ -273,7 +300,20 @@
         ]
       }
     ],
-    "effects": [],
+    "effects": [
+      {
+        "type": "on-event",
+        "event": "character-wounded-by-self",
+        "apply": { "type": "discard-non-special-items" },
+        "target": "wounded-character",
+        "when": {
+          "$or": [
+            { "company.hazardsEncountered": { "$includes": "Bert (Burat)" } },
+            { "company.hazardsEncountered": { "$includes": "Tom (Tuma)" } }
+          ]
+        }
+      }
+    ],
     "text": "Unique. Troll. One strike. If played against a company that faced \"Bert\" or \"Tom\" this turn, each character wounded by \"William\" discards all non-special items he bears.",
     "race": "troll"
   },

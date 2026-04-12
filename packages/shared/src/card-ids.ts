@@ -153,6 +153,12 @@ export const ORC_LIEUTENANT = did('tw-073');
 export const ORC_PATROL = did('tw-074');
 /** Barrow-wight — undead hazard found near ruins and shadow-lands. */
 export const BARROW_WIGHT = did('tw-015');
+/** Bert (Burat) — unique troll hazard, 1 strike, 12 prowess. Wounded characters discard non-special items if company faced William or Tom. */
+export const BERT_BURAT = did('tw-016');
+/** Tom (Tuma) — unique troll hazard, 1 strike, 13 prowess. Wounded characters discard non-special items if company faced Bert or William. */
+export const TOM_TUMA = did('tw-103');
+/** William (Wuluag) — unique troll hazard, 1 strike, 11 prowess. Wounded characters discard non-special items if company faced Bert or Tom. */
+export const WILLIAM_WULUAG = did('tw-112');
 /** Foolish Words — hazard permanent-event, -4 to influence attempts, revealable on-guard. */
 export const FOOLISH_WORDS = did('td-25');
 /**
