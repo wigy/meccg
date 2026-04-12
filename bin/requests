@@ -1,0 +1,83 @@
+#!/usr/bin/env bash
+# List or delete requests in the ai and admin inboxes.
+#
+# Usage:
+#   bin/requests              List unhandled requests (status=new)
+#   bin/requests --all        List all requests, including handled and old ones
+#   bin/requests del <id>     Delete every copy of the given mail id across all player mailboxes
+#
+# Feature-requests go to the admin inbox; everything else (certification,
+# card, planning, implementation, bug-report) goes to the ai inbox. Both
+# are scanned so all requests appear in one place.
+set -euo pipefail
+
+INBOX_DIRS=(
+  "$HOME/.meccg/players/ai/mail/inbox"
+  "$HOME/.meccg/players/admin/mail/inbox"
+)
+
+# ---------------------------------------------------------------------------
+# del <id>: delete every copy of the given mail id across all player mail dirs
+# ---------------------------------------------------------------------------
+if [ $# -ge 1 ] && [ "$1" = "del" ]; then
+  if [ $# -lt 2 ] || [ -z "${2:-}" ]; then
+    echo "Usage: $(basename "$0") del <id>" >&2
+    exit 1
+  fi
+  ID="$2"
+
+  shopt -s nullglob
+  copies=("$HOME"/.meccg/players/*/mail/*/"$ID".json)
+  shopt -u nullglob
+
+  if [ ${#copies[@]} -eq 0 ]; then
+    echo "No copies of $ID found."
+    exit 0
+  fi
+
+  for f in "${copies[@]}"; do
+    rm -f "$f"
+    echo "Removed $f"
+  done
+  exit 0
+fi
+
+# ---------------------------------------------------------------------------
+# List mode (default, or --all)
+# ---------------------------------------------------------------------------
+SHOW_ALL=0
+if [ $# -ge 1 ]; then
+  case "$1" in
+    --all) SHOW_ALL=1 ;;
+    *) echo "Unknown argument: $1" >&2; exit 1 ;;
+  esac
+fi
+
+shopt -s nullglob
+files=()
+for dir in "${INBOX_DIRS[@]}"; do
+  [ -d "$dir" ] || continue
+  files+=("$dir"/*.json)
+done
+shopt -u nullglob
+
+if [ ${#files[@]} -eq 0 ]; then
+  echo "No messages in inbox."
+  exit 0
+fi
+
+# Filter to requests (topic ends with -request, or bug-report).
+# By default only status=new; with --all include every status.
+# Output: timestamp | id | topic | [status] subject
+jq -r --argjson all "$SHOW_ALL" '
+  select(((.topic | endswith("-request")) or .topic == "bug-report")
+         and ($all == 1 or .status == "new")) |
+  [.timestamp,
+   .id,
+   (if .topic == "feature-request" then "feature-request [REVIEW]" else .topic end),
+   (if $all == 1 then "[" + .status + "] " + .subject else .subject end)
+  ] | @tsv' "${files[@]}" |
+  sort |
+  while IFS=$'\t' read -r ts id topic subject; do
+    printf "%-20s  %-18s  %-25s  %s\n" "$ts" "$id" "$topic" "$subject"
+  done

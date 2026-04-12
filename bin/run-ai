@@ -13,7 +13,7 @@ while true; do
 
   # Check for unhandled requests. Skip feature-requests — those need
   # human review (approve/decline) and cannot be handled by the AI.
-  MSG_ID=$("$SCRIPT_DIR/list-requests" | awk '$3 != "feature-request" {print $2; exit}')
+  MSG_ID=$("$SCRIPT_DIR/requests" | awk '$3 != "feature-request" {print $2; exit}')
 
   if [ -z "$MSG_ID" ]; then
     echo "=== No pending requests at $(date -Iseconds), sleeping ===" | tee -a "$LOG_FILE"

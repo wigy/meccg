@@ -282,7 +282,7 @@ send_review_request() {
 
 if [ $# -eq 0 ] || [ -z "${1:-}" ]; then
   log "No message ID provided. Listing unhandled requests..."
-  "$SCRIPT_DIR/list-requests"
+  "$SCRIPT_DIR/requests"
   exit 0
 fi
 
