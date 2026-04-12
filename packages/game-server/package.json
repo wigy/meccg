@@ -1,6 +1,6 @@
 {
   "name": "@meccg/game-server",
-  "version": "0.20.2",
+  "version": "0.20.3",
   "private": true,
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
