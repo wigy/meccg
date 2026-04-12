@@ -313,6 +313,7 @@ describe('Twilight (tw-106)', () => {
       onGuardPlacedThisCompany: false,
       siteRevealed: false,
       returnedToOrigin: false,
+      creaturesEncountered: [],
     };
     const mhGameState: GameState = { ...state, phaseState: mhState };
 
@@ -371,6 +372,7 @@ describe('Twilight (tw-106)', () => {
       onGuardPlacedThisCompany: false,
       siteRevealed: false,
       returnedToOrigin: false,
+      creaturesEncountered: [],
     };
     const mhGameState: GameState = { ...state, phaseState: mhState };
 

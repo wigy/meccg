@@ -413,6 +413,12 @@ export interface MovementHazardPhaseState {
    * take actions during its site phase.
    */
   readonly returnedToOrigin: boolean;
+  /**
+   * Names of creature cards whose combat has finalized against the current
+   * company during this M/H sub-phase. Used by troll-trio effects (Bert,
+   * William, Tom) that check whether the company already faced another troll.
+   */
+  readonly creaturesEncountered: readonly string[];
 }
 
 /**

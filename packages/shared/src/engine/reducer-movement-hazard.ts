@@ -779,6 +779,7 @@ function advanceAfterCompanyMH(state: GameState, mhState: MovementHazardPhaseSta
         siteRevealed: false,
         onGuardPlacedThisCompany: false,
         returnedToOrigin: false,
+        creaturesEncountered: [],
       },
     },
   };

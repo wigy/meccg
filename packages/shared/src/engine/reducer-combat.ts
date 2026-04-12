@@ -5,9 +5,12 @@
  * strike resolution, support strikes, body checks, and combat finalization.
  */
 
-import type { GameState, CombatState, StrikeAssignment, GameAction, GameEffect, CardInstanceId } from '../index.js';
+import type { GameState, CombatState, StrikeAssignment, GameAction, GameEffect, CardInstanceId, CardDefinitionId } from '../index.js';
 import { CardStatus, Phase, isSiteCard, isCharacterCard, isAllyCard } from '../index.js';
 import type { OnEventEffect } from '../types/effects.js';
+import { matchesCondition } from '../effects/condition-matcher.js';
+import type { MovementHazardPhaseState } from '../types/state-phases.js';
+import type { HeroItemCard, MinionItemCard } from '../types/cards-resources.js';
 import { logDetail } from './legal-actions/log.js';
 import { findAllyInCompany } from './legal-actions/combat.js';
 import { resolveInstanceId } from '../types/state.js';
@@ -970,44 +973,145 @@ function finalizeCombat(state: GameState, effects: GameEffect[] = []): ReducerRe
   ) {
     const sourceCard = getAttackSourceCard(state, combat);
     const sourceName = (sourceCard as { name?: string } | undefined)?.name ?? 'Wound';
-    const woundEvent = sourceCard?.effects?.find(
+    const woundEvents = (sourceCard?.effects ?? []).filter(
       (e): e is OnEventEffect => e.type === 'on-event' && e.event === 'character-wounded-by-self',
     );
-    if (woundEvent) {
-      const modifier = woundEvent.apply.modifier ?? 0;
-      const actor = combat.defendingPlayerId;
-      const actorIndex = stateAfterCombat.players.findIndex(p => p.id === actor);
-      const phaseStateActive = state.phaseState as { activeCompanyIndex: number };
-      const company = stateAfterCombat.players[actorIndex].companies[phaseStateActive.activeCompanyIndex];
-      const companyId = company?.id;
-      logDetail(`Wound corruption checks queued for ${woundedCharIds.length} character(s) (${sourceName}, modifier ${modifier})`);
-      if (companyId) {
-        const scope = state.phaseState.phase === Phase.MovementHazard
-          ? ({ kind: 'company-mh-subphase' as const, companyId })
-          : ({ kind: 'company-site-subphase' as const, companyId });
-        const source = combat.attackSource.type === 'creature' ? combat.attackSource.instanceId : null;
-        for (const characterId of woundedCharIds) {
-          stateAfterCombat = enqueueResolution(stateAfterCombat, {
-            source,
-            actor,
-            scope,
-            kind: {
-              type: 'corruption-check',
-              characterId,
-              modifier,
-              reason: sourceName,
-              possessions: [],
-              transferredItemId: null,
-            },
-          });
+    for (const woundEvent of woundEvents) {
+      const conditionContext = buildOnEventContext(state);
+      if (woundEvent.when && !matchesCondition(woundEvent.when, conditionContext)) {
+        logDetail(`On-event condition not met for ${sourceName} — skipping`);
+        continue;
+      }
+
+      if (woundEvent.apply.type === 'force-check') {
+        const modifier = woundEvent.apply.modifier ?? 0;
+        const actor = combat.defendingPlayerId;
+        const actorIndex = stateAfterCombat.players.findIndex(p => p.id === actor);
+        const phaseStateActive = state.phaseState as { activeCompanyIndex: number };
+        const company = stateAfterCombat.players[actorIndex].companies[phaseStateActive.activeCompanyIndex];
+        const companyId = company?.id;
+        logDetail(`Wound corruption checks queued for ${woundedCharIds.length} character(s) (${sourceName}, modifier ${modifier})`);
+        if (companyId) {
+          const scope = state.phaseState.phase === Phase.MovementHazard
+            ? ({ kind: 'company-mh-subphase' as const, companyId })
+            : ({ kind: 'company-site-subphase' as const, companyId });
+          const source = combat.attackSource.type === 'creature' ? combat.attackSource.instanceId : null;
+          for (const characterId of woundedCharIds) {
+            stateAfterCombat = enqueueResolution(stateAfterCombat, {
+              source,
+              actor,
+              scope,
+              kind: {
+                type: 'corruption-check',
+                characterId,
+                modifier,
+                reason: sourceName,
+                possessions: [],
+                transferredItemId: null,
+              },
+            });
+          }
         }
+      } else if (woundEvent.apply.type === 'discard-non-special-items') {
+        stateAfterCombat = discardNonSpecialItems(stateAfterCombat, combat, woundedCharIds, sourceName);
       }
     }
   }
 
+  stateAfterCombat = recordCreatureEncountered(stateAfterCombat, state, combat);
+
   return {
     state: stateAfterCombat,
     effects,
+  };
+}
+
+/**
+ * Build an on-event condition context from the current game state.
+ * Includes `company.creaturesEncountered` for troll-trio condition checks.
+ */
+function buildOnEventContext(state: GameState): Record<string, unknown> {
+  const ctx: Record<string, unknown> = {};
+  if (state.phaseState.phase === Phase.MovementHazard) {
+    ctx.company = { creaturesEncountered: state.phaseState.creaturesEncountered };
+  }
+  return ctx;
+}
+
+/**
+ * Discard all non-special items from each wounded character.
+ * Items are moved to the defending player's discard pile.
+ */
+function discardNonSpecialItems(
+  state: GameState,
+  combat: CombatState,
+  woundedCharIds: readonly CardInstanceId[],
+  sourceName: string,
+): GameState {
+  const defIdx = state.players.findIndex(p => p.id === combat.defendingPlayerId);
+  const cloned = clonePlayers(state);
+  const newCharacters = { ...cloned[defIdx].characters };
+  const discarded: { instanceId: CardInstanceId; definitionId: string }[] = [];
+
+  for (const charId of woundedCharIds) {
+    const charData = newCharacters[charId as string];
+    if (!charData) continue;
+
+    const nonSpecial = charData.items.filter(item => {
+      const def = state.cardPool[item.definitionId as string] as HeroItemCard | MinionItemCard | undefined;
+      return def && 'subtype' in def && def.subtype !== 'special';
+    });
+
+    if (nonSpecial.length === 0) continue;
+
+    const specialOnly = charData.items.filter(item => !nonSpecial.some(ns => ns.instanceId === item.instanceId));
+    newCharacters[charId as string] = { ...charData, items: specialOnly };
+
+    for (const item of nonSpecial) {
+      discarded.push({ instanceId: item.instanceId, definitionId: item.definitionId as string });
+      logDetail(`${sourceName}: discarding non-special item ${item.definitionId as string} from wounded character ${charId as string}`);
+    }
+  }
+
+  cloned[defIdx] = {
+    ...cloned[defIdx],
+    characters: newCharacters,
+    discardPile: [
+      ...cloned[defIdx].discardPile,
+      ...discarded.map(d => ({ instanceId: d.instanceId, definitionId: d.definitionId as unknown as CardDefinitionId })),
+    ],
+  };
+
+  return { ...state, players: cloned };
+}
+
+/**
+ * After combat finalization, record the creature name in the M/H phase
+ * state's `creaturesEncountered` list for troll-trio condition checks.
+ */
+function recordCreatureEncountered(
+  stateAfterCombat: GameState,
+  originalState: GameState,
+  combat: CombatState,
+): GameState {
+  if (originalState.phaseState.phase !== Phase.MovementHazard) return stateAfterCombat;
+  if (combat.attackSource.type !== 'creature') return stateAfterCombat;
+
+  const creatureDefId = resolveInstanceId(originalState, combat.attackSource.instanceId);
+  if (!creatureDefId) return stateAfterCombat;
+
+  const creatureDef = originalState.cardPool[creatureDefId as string] as { name?: string } | undefined;
+  const creatureName = creatureDef?.name;
+  if (!creatureName) return stateAfterCombat;
+
+  const mhState = stateAfterCombat.phaseState as MovementHazardPhaseState;
+  logDetail(`Recording creature "${creatureName}" in creaturesEncountered`);
+  return {
+    ...stateAfterCombat,
+    phaseState: {
+      ...mhState,
+      creaturesEncountered: [...mhState.creaturesEncountered, creatureName],
+    },
   };
 }
 
