@@ -200,8 +200,8 @@
     "homesite": "Bag End",
     "effects": [
       {
-        "type": "play-restriction",
-        "rule": "home-site-only",
+        "type": "play-flag",
+        "flag": "home-site-only",
         "when": {
           "$not": {
             "reason": "starting-character"
@@ -280,8 +280,8 @@
         "value": 4
       },
       {
-        "type": "play-restriction",
-        "rule": "home-site-only",
+        "type": "play-flag",
+        "flag": "home-site-only",
         "when": {
           "$not": {
             "reason": "starting-character"
@@ -325,8 +325,8 @@
         "value": 3
       },
       {
-        "type": "play-restriction",
-        "rule": "home-site-only",
+        "type": "play-flag",
+        "flag": "home-site-only",
         "when": {
           "$not": {
             "reason": "starting-character"

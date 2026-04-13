@@ -7,7 +7,7 @@
  */
 
 import type { GameState, CardInstanceId, CharacterInPlay, CardInstance, OrganizationPhaseState, Company, SiteInPlay, GameAction, GameEffect } from '../index.js';
-import { Phase, shuffle, CardStatus, isCharacterCard, isSiteCard, SiteType, getPlayerIndex, ZERO_EFFECTIVE_STATS } from '../index.js';
+import { Phase, shuffle, CardStatus, isCharacterCard, isSiteCard, SiteType, getPlayerIndex, ZERO_EFFECTIVE_STATS, hasPlayFlag } from '../index.js';
 import { logDetail } from './legal-actions/log.js';
 import { isEndOfOrgPlay } from './legal-actions/organization.js';
 import { resolveInstanceId } from '../types/state.js';
@@ -218,9 +218,7 @@ function handlePlayCharacter(state: GameState, action: GameAction): ReducerResul
   if (existingCompanyIdx >= 0) {
     // Validate home-site-only restriction against existing company's site
     const company = companies[existingCompanyIdx];
-    const homeSiteOnlyExisting = charDef.effects?.some(
-      e => e.type === 'play-restriction' && e.rule === 'home-site-only',
-    );
+    const homeSiteOnlyExisting = hasPlayFlag(charDef, 'home-site-only');
     if (homeSiteOnlyExisting && company.currentSite) {
       const companySiteDef = state.cardPool[company.currentSite.definitionId as string];
       if (companySiteDef && isSiteCard(companySiteDef) && companySiteDef.name !== charDef.homesite) {
@@ -251,9 +249,7 @@ function handlePlayCharacter(state: GameState, action: GameAction): ReducerResul
     const isHaven = siteDef.siteType === SiteType.Haven;
     const isHomesite = siteDef.name === charDef.homesite;
     // Characters with home-site-only restriction cannot be played at havens
-    const homeSiteOnly = charDef.effects?.some(
-      e => e.type === 'play-restriction' && e.rule === 'home-site-only',
-    );
+    const homeSiteOnly = hasPlayFlag(charDef, 'home-site-only');
     if (homeSiteOnly && !isHomesite) {
       return { state, error: `${charDef.name} can only be played at home site (${charDef.homesite})` };
     }

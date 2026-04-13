@@ -21,11 +21,6 @@
     ],
     "effects": [
       {
-        "type": "play-restriction",
-        "rule": "skill-required",
-        "skill": "warrior"
-      },
-      {
         "type": "stat-modifier",
         "stat": "prowess",
         "value": 4,

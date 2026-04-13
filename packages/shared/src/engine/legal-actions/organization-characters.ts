@@ -15,21 +15,19 @@ import type {
   OrganizationPhaseState,
   SiteCard,
 } from '../../index.js';
-import { GENERAL_INFLUENCE, SiteType, isCharacterCard, isSiteCard } from '../../index.js';
+import { GENERAL_INFLUENCE, SiteType, isCharacterCard, isSiteCard, hasPlayFlag } from '../../index.js';
 import { logDetail } from './log.js';
 import { resolveDef } from '../effects/index.js';
 import { availableDI } from './organization.js';
 
 /**
- * Returns true if the character has a `home-site-only` play-restriction
- * that is active (i.e. the character is not a starting character — during
- * normal play from hand, the context reason is always "play-character").
+ * Returns true if the character declares the `home-site-only` play-flag.
+ * During normal play from hand the context reason is always "play-character",
+ * so the flag's optional `when` gate is ignored here — the flag is treated
+ * as always active on this code path.
  */
 function hasHomeSiteOnlyRestriction(charDef: CharacterCard): boolean {
-  if (!charDef.effects) return false;
-  return charDef.effects.some(
-    e => e.type === 'play-restriction' && e.rule === 'home-site-only',
-  );
+  return hasPlayFlag(charDef, 'home-site-only');
 }
 
 /**

@@ -7,7 +7,7 @@
  */
 
 import type { GameState, PlayerId, GameAction, EvaluatedAction, MovementHazardPhaseState, SiteCard, CardDefinitionId, CardInstanceId, CreatureCard, CreatureKeyingMatch, PlayHazardAction, PlaceOnGuardAction } from '../../index.js';
-import { getPlayerIndex, isSiteCard, buildMovementMap, findRegionPaths, RegionType } from '../../index.js';
+import { getPlayerIndex, isSiteCard, buildMovementMap, findRegionPaths, RegionType, hasPlayFlag } from '../../index.js';
 import { resolveInstanceId } from '../../types/state.js';
 import { resolveHandSize } from '../effects/index.js';
 import { MovementType } from '../../types/common.js';
@@ -380,9 +380,7 @@ function playHazardsActions(
       };
 
       // Hazard limit reached (cards with no-hazard-limit bypass this)
-      const bypassesLimit = 'effects' in def && def.effects?.some(
-        e => e.type === 'play-restriction' && e.rule === 'no-hazard-limit',
-      );
+      const bypassesLimit = 'effects' in def && hasPlayFlag(def, 'no-hazard-limit');
       if (limitReached && !bypassesLimit) {
         actions.push({ action, viable: false, reason: `Hazard limit reached (${mhState.hazardLimit})` });
         continue;
@@ -415,7 +413,7 @@ function playHazardsActions(
       // --- Short event ---
       if (isShortEvent) {
         // Environment-cancelers (e.g. Twilight) need an environment target in play
-        if (def.effects?.some(e => e.type === 'play-restriction' && e.rule === 'playable-as-resource')) {
+        if (hasPlayFlag(def, 'playable-as-resource')) {
           const envTargets = findEnvironmentTargets(state);
           if (envTargets.length === 0) {
             logDetail(`Hazard short-event "${def.name}": no environment in play to cancel`);
