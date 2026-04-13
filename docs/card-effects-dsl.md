@@ -181,14 +181,37 @@ Both lists are owned by `engine/pending.ts`; reducers and on-event handlers must
 
 ### 9. `cancel-attack`
 
-Cancels an entire attack against a company by tapping a character with the
-required skill. Only playable during combat before strikes are assigned.
-The card is played from hand as part of the cancel action and discarded.
+Cancels an entire attack against a company. Only playable during combat
+before strikes are assigned. The card is played from hand and discarded.
+
+When `cost` and `requiredSkill` are present, requires tapping a character
+with the named skill (e.g. Concealment — tap a scout). When both are
+absent, the card is simply played with no additional cost (e.g. Dark
+Quarrels — cancel one attack by Orcs, Trolls, or Men).
+
+A `when` condition filters which attacks qualify (evaluated against
+the combat context including `enemy.race`).
 
 ```json
 { "type": "cancel-attack",
   "cost": { "tap": "character" },
   "requiredSkill": "scout" }
+{ "type": "cancel-attack",
+  "when": { "enemy.race": { "$in": ["orc", "troll", "men", "man"] } } }
+```
+
+### 9b. `halve-strikes`
+
+Halves the number of strikes in the current attack (rounded up). Played
+from hand as a short event during combat before strikes are assigned;
+the card is discarded after use.
+
+A `when` condition gates availability (e.g. requires a specific card
+in play).
+
+```json
+{ "type": "halve-strikes",
+  "when": { "inPlay": "Gates of Morning" } }
 ```
 
 ### 10. `cancel-strike`
@@ -654,5 +677,16 @@ Supported `apply` kinds today:
       ]
     },
     "corruptionCheck": { "modifier": -2 } }
+]
+```
+
+### Dark Quarrels
+
+```json
+"effects": [
+  { "type": "cancel-attack",
+    "when": { "enemy.race": { "$in": ["orc", "troll", "man"] } } },
+  { "type": "halve-strikes",
+    "when": { "inPlay": "Gates of Morning" } }
 ]
 ```

@@ -294,7 +294,11 @@ export function describeAction(
     case 'faction-influence-roll':
       return `Roll influence: ${action.explanation}`;
     case 'cancel-attack':
-      return `Cancel attack: play ${instName(action.cardInstanceId)}, tap ${instName(action.scoutInstanceId)}`;
+      return action.scoutInstanceId
+        ? `Cancel attack: play ${instName(action.cardInstanceId)}, tap ${instName(action.scoutInstanceId)}`
+        : `Cancel attack: play ${instName(action.cardInstanceId)}`;
+    case 'halve-strikes':
+      return `Halve strikes: play ${instName(action.cardInstanceId)}`;
     case 'cancel-by-tap':
       return `Cancel attack by tapping ${instName(action.characterId)}`;
     case 'salvage-item':

@@ -185,10 +185,11 @@ export interface ChooseStrikeOrderAction {
 }
 
 /**
- * Cancel an entire attack against the defending company by tapping a
- * character with the required skill and discarding a short event card
- * from hand. Only legal during the assign-strikes phase before any
- * strikes have been assigned (MECCG pre-assignment window).
+ * Cancel an entire attack against the defending company by discarding a
+ * short event card from hand. When the card requires a skill cost, a
+ * character is tapped; otherwise (e.g. Dark Quarrels) just playing the
+ * card suffices. Only legal during assign-strikes before any strikes
+ * have been assigned (MECCG pre-assignment window).
  */
 export interface CancelAttackAction {
   /** Action discriminant. */
@@ -197,8 +198,22 @@ export interface CancelAttackAction {
   readonly player: PlayerId;
   /** The short event card being played from hand (e.g. Concealment). */
   readonly cardInstanceId: CardInstanceId;
-  /** The character being tapped to pay the cost. */
-  readonly scoutInstanceId: CardInstanceId;
+  /** The character being tapped to pay the cost. Absent for costless cancel-attacks. */
+  readonly scoutInstanceId?: CardInstanceId;
+}
+
+/**
+ * Halve the number of strikes in the current attack (rounded up) by
+ * discarding a short event card from hand. Only legal during the
+ * assign-strikes phase before any strikes have been assigned.
+ */
+export interface HalveStrikesAction {
+  /** Action discriminant. */
+  readonly type: 'halve-strikes';
+  /** The defending player playing the card. */
+  readonly player: PlayerId;
+  /** The short event card being played from hand. */
+  readonly cardInstanceId: CardInstanceId;
 }
 
 /**

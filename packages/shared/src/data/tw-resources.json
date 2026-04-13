@@ -297,8 +297,14 @@
     "eventType": "short",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
-    "text": "Cancel one attack by Orcs, Trolls, or Men. Alternatively, if Gates of Morning is in play, the number of strikes from any attack is reduced to half of its original number, rounded up."
+    "effects": [
+      { "type": "cancel-attack",
+        "when": { "enemy.race": { "$in": ["orc", "troll", "men", "man"] } } },
+      { "type": "halve-strikes",
+        "when": { "inPlay": "Gates of Morning" } }
+    ],
+    "text": "Cancel one attack by Orcs, Trolls, or Men. Alternatively, if Gates of Morning is in play, the number of strikes from any attack is reduced to half of its original number, rounded up.",
+    "certified": "2026-04-13"
   },
   {
     "cardType": "hero-resource-event",

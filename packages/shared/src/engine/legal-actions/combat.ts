@@ -13,10 +13,10 @@
  */
 
 import type { GameState, PlayerId, EvaluatedAction, CombatState, CardInstanceId } from '../../index.js';
-import type { CancelAttackEffect } from '../../types/effects.js';
+import type { CancelAttackEffect, HalveStrikesEffect } from '../../types/effects.js';
 import type { AllyInPlay } from '../../types/state-cards.js';
 import type { PlayerState } from '../../types/state-player.js';
-import { CardStatus, isCharacterCard, isAllyCard } from '../../index.js';
+import { CardStatus, isCharacterCard, isAllyCard, matchesCondition } from '../../index.js';
 import { logHeading, logDetail } from './log.js';
 import { computeCombatProwess } from '../recompute-derived.js';
 
@@ -70,9 +70,10 @@ export function combatActions(state: GameState, playerId: PlayerId): EvaluatedAc
 
   logHeading(`Combat actions (phase: ${combat.phase}, assignment: ${combat.assignmentPhase})`);
 
-  // Cancel-attack actions are available to the defending player before
-  // any strikes have been assigned (pre-assignment window per CoE rules).
+  // Cancel-attack and halve-strikes actions are available to the defending
+  // player before any strikes have been assigned (pre-assignment window).
   const cancelActions = cancelAttackActions(state, playerId, combat);
+  const halveActions = halveStrikesActions(state, playerId, combat);
 
   switch (combat.phase) {
     case 'assign-strikes':
@@ -81,15 +82,16 @@ export function combatActions(state: GameState, playerId: PlayerId): EvaluatedAc
       }
       // Cancel-window: defender's pre-assignment window to cancel the attack
       // before the attacker assigns strikes (attacker-chooses-defenders).
-      // Only the defending player may act: cancel-attack or pass.
+      // Only the defending player may act: cancel-attack, halve-strikes, or pass.
       if (combat.assignmentPhase === 'cancel-window') {
         if (playerId !== combat.defendingPlayerId) return [];
         return [
           ...cancelActions,
+          ...halveActions,
           { action: { type: 'pass' as const, player: playerId }, viable: true },
         ];
       }
-      return [...cancelActions, ...assignStrikeActions(state, playerId, combat)];
+      return [...cancelActions, ...halveActions, ...assignStrikeActions(state, playerId, combat)];
     case 'choose-strike-order':
       return chooseStrikeOrderActions(state, playerId, combat);
     case 'resolve-strike':
@@ -461,7 +463,33 @@ function cancelAttackActions(
     );
     if (!cancelEffect) continue;
 
-    // Find untapped characters in the company with the required skill
+    // Check `when` condition against combat context (e.g. enemy.race filter)
+    if (cancelEffect.when) {
+      const ctx: Record<string, unknown> = {};
+      if (combat.creatureRace) {
+        ctx['enemy'] = { race: combat.creatureRace };
+      }
+      if (!matchesCondition(cancelEffect.when, ctx)) {
+        logDetail(`Cancel-attack ${handCard.definitionId as string}: when condition not met (creature race: ${combat.creatureRace ?? 'none'})`);
+        continue;
+      }
+    }
+
+    // Costless cancel-attack: no skill or tap required (e.g. Dark Quarrels)
+    if (!cancelEffect.requiredSkill) {
+      logDetail(`Cancel-attack available (no cost): ${handCard.definitionId as string}`);
+      actions.push({
+        action: {
+          type: 'cancel-attack',
+          player: playerId,
+          cardInstanceId: handCard.instanceId,
+        },
+        viable: true,
+      });
+      continue;
+    }
+
+    // Skill-based cancel-attack: find untapped characters with the required skill
     for (const charId of company.characters) {
       const charData = player.characters[charId as string];
       if (!charData || charData.status !== CardStatus.Untapped) continue;
@@ -482,6 +510,73 @@ function cancelAttackActions(
         viable: true,
       });
     }
+  }
+
+  return actions;
+}
+
+/**
+ * Generate halve-strikes actions for the defending player during the
+ * pre-assignment window. For each card in hand with a `halve-strikes`
+ * effect whose `when` condition matches the combat context, generate
+ * an action to play it (e.g. Dark Quarrels alternative mode).
+ */
+function halveStrikesActions(
+  state: GameState,
+  playerId: PlayerId,
+  combat: CombatState,
+): EvaluatedAction[] {
+  if (playerId !== combat.defendingPlayerId) return [];
+  if (combat.phase !== 'assign-strikes') return [];
+  if (combat.strikeAssignments.length > 0) return [];
+
+  const playerIndex = state.players.findIndex(p => p.id === playerId);
+  const player = state.players[playerIndex];
+
+  const actions: EvaluatedAction[] = [];
+
+  for (const handCard of player.hand) {
+    const cardDef = state.cardPool[handCard.definitionId as string];
+    if (!cardDef || !('effects' in cardDef)) continue;
+    const cardWithEffects = cardDef as { effects?: readonly import('../../types/effects.js').CardEffect[] };
+    if (!cardWithEffects.effects) continue;
+
+    const halveEffect = cardWithEffects.effects.find(
+      (e): e is HalveStrikesEffect => e.type === 'halve-strikes',
+    );
+    if (!halveEffect) continue;
+
+    // Check `when` condition (e.g. "inPlay": "Gates of Morning")
+    if (halveEffect.when) {
+      const inPlayNames = [
+        ...state.players[0].cardsInPlay.map(c => {
+          const d = state.cardPool[c.definitionId as string];
+          return d && 'name' in d ? (d as { name: string }).name : '';
+        }),
+        ...state.players[1].cardsInPlay.map(c => {
+          const d = state.cardPool[c.definitionId as string];
+          return d && 'name' in d ? (d as { name: string }).name : '';
+        }),
+      ];
+      const ctx: Record<string, unknown> = { inPlay: inPlayNames };
+      if (combat.creatureRace) {
+        ctx['enemy'] = { race: combat.creatureRace };
+      }
+      if (!matchesCondition(halveEffect.when, ctx)) {
+        logDetail(`Halve-strikes ${handCard.definitionId as string}: when condition not met`);
+        continue;
+      }
+    }
+
+    logDetail(`Halve-strikes available: ${handCard.definitionId as string}`);
+    actions.push({
+      action: {
+        type: 'halve-strikes',
+        player: playerId,
+        cardInstanceId: handCard.instanceId,
+      },
+      viable: true,
+    });
   }
 
   return actions;

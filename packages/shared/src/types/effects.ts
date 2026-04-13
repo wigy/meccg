@@ -510,18 +510,36 @@ export interface FetchToDeckEffect extends EffectBase {
 }
 
 /**
- * Cancels an entire attack against the company by tapping a character
- * with the required skill. Playable only during combat before strikes
- * are assigned.
+ * Cancels an entire attack against the company. Playable only during
+ * combat before strikes are assigned.
  *
- * Example: Concealment — tap a scout to cancel one attack against his company.
+ * When `cost` and `requiredSkill` are present, requires tapping a
+ * character with the named skill (e.g. Concealment — tap a scout).
+ * When both are absent the card is simply played from hand with no
+ * additional cost (e.g. Dark Quarrels — cancel one attack by Orcs,
+ * Trolls, or Men).
+ *
+ * A `when` condition on this effect filters which attacks qualify
+ * (evaluated against `{ enemy.race }` from the combat context).
  */
 export interface CancelAttackEffect extends EffectBase {
   readonly type: 'cancel-attack';
-  /** The cost to cancel the attack. */
-  readonly cost: ActionCost;
-  /** The skill required on the character who pays the cost. */
-  readonly requiredSkill: string;
+  /** The cost to cancel the attack. Absent when no tap is required. */
+  readonly cost?: ActionCost;
+  /** The skill required on the character who pays the cost. Absent when no skill is required. */
+  readonly requiredSkill?: string;
+}
+
+/**
+ * Halves the number of strikes in the current attack (rounded up).
+ * Played from hand as a short event during combat before strikes are
+ * assigned; the card is discarded after use.
+ *
+ * Example: Dark Quarrels (alternative mode) — if Gates of Morning is
+ * in play, halve the strikes of any attack.
+ */
+export interface HalveStrikesEffect extends EffectBase {
+  readonly type: 'halve-strikes';
 }
 
 /**
@@ -539,6 +557,7 @@ export type CardEffect =
   | OnEventEffect
   | CancelStrikeEffect
   | CancelAttackEffect
+  | HalveStrikesEffect
   | CombatRuleEffect
   | PlayRestrictionEffect
   | DuplicationLimitEffect
