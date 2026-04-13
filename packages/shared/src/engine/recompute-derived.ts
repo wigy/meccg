@@ -208,6 +208,25 @@ function recomputePlayer(state: GameState, player: PlayerState, inPlayNames: rea
     }
   }
 
+  // Stored items: items moved to storedItems pile via store-item
+  for (const card of player.storedItems) {
+    const def = resolveDef(state, card.instanceId);
+    if (def) {
+      const effects = (def as { effects?: readonly CardEffect[] }).effects;
+      const storableEffect = effects?.find(e => e.type === 'storable-at') as
+        | { type: 'storable-at'; marshallingPoints?: number }
+        | undefined;
+      if (storableEffect?.marshallingPoints !== undefined) {
+        const cat = ('marshallingCategory' in def)
+          ? (def as { marshallingCategory: MarshallingCategory }).marshallingCategory
+          : 'item' as MarshallingCategory;
+        mp = { ...mp, [cat]: mp[cat] + storableEffect.marshallingPoints };
+      } else {
+        mp = addMP(mp, def);
+      }
+    }
+  }
+
   // Cards in play: factions, permanent events, etc.
   for (const card of player.cardsInPlay) {
     const def = resolveDef(state, card.instanceId);

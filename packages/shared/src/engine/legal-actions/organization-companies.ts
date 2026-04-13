@@ -320,6 +320,60 @@ export function transferItemActions(state: GameState, playerId: PlayerId): Evalu
 }
 
 /**
+ * Computes store-item actions during the organization phase.
+ *
+ * Items with a `storable-at` effect can be moved from a character to the
+ * player's stored-items pile when the character's company is at a matching
+ * site. After storage, the initial bearer must make a corruption check.
+ *
+ * Emits one action per valid (item, character) pair where the item's
+ * storable-at sites include the company's current site name.
+ */
+export function storeItemActions(state: GameState, playerId: PlayerId): EvaluatedAction[] {
+  const player = state.players.find(p => p.id === playerId)!;
+  const actions: EvaluatedAction[] = [];
+
+  for (const company of player.companies) {
+    if (!company.currentSite) continue;
+
+    const siteDef = resolveDef(state, company.currentSite.instanceId);
+    if (!siteDef || !isSiteCard(siteDef)) continue;
+    const siteName = siteDef.name;
+
+    for (const charInstId of company.characters) {
+      const char = player.characters[charInstId as string];
+      if (!char || char.items.length === 0) continue;
+
+      const charDef = resolveDef(state, char.instanceId);
+      const charName = isCharacterCard(charDef) ? charDef.name : '?';
+
+      for (const item of char.items) {
+        const itemDef = state.cardPool[item.definitionId as string];
+        if (!itemDef || !('effects' in itemDef)) continue;
+
+        const effects = (itemDef as { effects?: readonly { type: string; sites?: readonly string[] }[] }).effects;
+        const storableEffect = effects?.find(e => e.type === 'storable-at');
+        if (!storableEffect?.sites?.includes(siteName)) continue;
+
+        const itemName = itemDef.name ?? '?';
+        logDetail(`  → viable: store ${itemName} from ${charName} at ${siteName}`);
+        actions.push({
+          action: {
+            type: 'store-item',
+            player: playerId,
+            itemInstanceId: item.instanceId,
+            characterId: charInstId,
+          },
+          viable: true,
+        });
+      }
+    }
+  }
+
+  return actions;
+}
+
+/**
  * Computes split-company actions during the organization phase.
  *
  * A character under general influence (with no restriction on having followers)

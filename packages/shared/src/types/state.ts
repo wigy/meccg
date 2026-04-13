@@ -141,7 +141,7 @@ export interface GameState {
 /** All pile names on PlayerState that store CardInstance arrays. */
 const PILE_NAMES = [
   'hand', 'playDeck', 'discardPile', 'siteDeck', 'siteDiscardPile',
-  'sideboard', 'killPile', 'eliminatedPile',
+  'sideboard', 'killPile', 'eliminatedPile', 'storedItems',
 ] as const;
 
 /**

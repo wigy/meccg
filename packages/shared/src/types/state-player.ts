@@ -56,6 +56,8 @@ export interface PlayerState {
   readonly killPile: readonly CardInstance[];
   /** Cards removed from the game (e.g. characters eliminated by failed corruption checks). */
   readonly eliminatedPile: readonly CardInstance[];
+  /** Items stored at sites for safekeeping, earning marshalling points without a bearer. */
+  readonly storedItems: readonly CardInstance[];
   /** All companies this player controls on the map. */
   readonly companies: readonly Company[];
   /** All characters this player has in play, keyed by their CardInstanceId for fast lookup. */
