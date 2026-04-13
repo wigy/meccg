@@ -382,23 +382,35 @@ export interface PlayWindowEffect extends EffectBase {
 /**
  * Declares what this card targets when played. The engine uses this to
  * generate per-target actions (e.g. one per eligible character).
+ *
+ * Character targeting is expressed entirely via the DSL: the coarse
+ * `target: "character"` selects the scope (each character in scope is a
+ * candidate) and an optional `filter` {@link Condition} refines it
+ * further. The filter is evaluated against the per-candidate context
+ * `{ target: { race, status, skills, name } }`, so conditions look like
+ * `{ "target.race": "hobbit" }` or
+ * `{ "target.skills": { "$includes": "scout" } }` — no card-specific
+ * target keywords are needed in the engine.
  */
 export interface PlayTargetEffect extends EffectBase {
   readonly type: 'play-target';
   /**
-   * What kind of target this card requires.
-   *
-   * - `"character"` — one play action per eligible character (e.g. Foolish Words, Lure of the Senses).
-   * - `"company"` — the active company (e.g. Lost in Free-domains).
-   * - `"site"` — the company's destination/current site (e.g. River).
-   * - `"own-scout"` — a scout in one of the resource player's companies (e.g. Stealth).
-   * - `"own-hobbit"` — a hobbit in one of the resource player's companies (e.g. Halfling Strength).
+   * The coarse target category. Resource-side `character` implicitly
+   * scopes to the active player's own characters; hazard-side
+   * `character` scopes to the active company's characters.
    */
-  readonly target: 'character' | 'company' | 'site' | 'own-scout' | 'own-hobbit';
+  readonly target: 'character' | 'company' | 'site';
   /**
-   * Maximum effective company size for the target's company.
-   * When set, the card is only playable if the scout's company has
-   * effective size ≤ this value (hobbits count as half).
+   * Optional DSL condition refining which candidates qualify. Evaluated
+   * against the per-candidate context (e.g. `target.race`,
+   * `target.status`, `target.skills`). When absent every candidate in
+   * scope qualifies.
+   */
+  readonly filter?: Condition;
+  /**
+   * Maximum effective company size for the target's company. When set,
+   * the card is only playable if the candidate's company has effective
+   * size ≤ this value (hobbits count as half).
    */
   readonly maxCompanySize?: number;
   /**

@@ -37,8 +37,10 @@ export interface PlayShortEventAction {
    */
   readonly targetScoutInstanceId?: CardInstanceId;
   /**
-   * For cards with a character-scoped `play-target` (e.g. Halfling
-   * Strength's `own-hobbit`), the character targeted by the short event.
+   * For cards whose `play-target` declares `target: "character"` with a
+   * DSL `filter` (e.g. Halfling Strength filtering on
+   * `target.race: hobbit`), the chosen character instance the short
+   * event resolves against.
    */
   readonly targetCharacterId?: CardInstanceId;
   /**

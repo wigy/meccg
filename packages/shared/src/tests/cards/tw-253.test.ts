@@ -3,7 +3,7 @@
  *
  * Card test: Halfling Strength (tw-253)
  * Type: hero-resource-event (short)
- * Effects: play-target own-hobbit + three play-option DSL effects
+ * Effects: play-target character (filter: hobbit) + three play-option DSL effects
  *
  * "Hobbit only. The Hobbit may untap or he may move from wounded status
  *  to well and untapped during his organization phase or he may receive
@@ -12,13 +12,13 @@
  * Engine Support:
  * | # | Feature                                  | Status      | Notes                                   |
  * |---|------------------------------------------|-------------|-----------------------------------------|
- * | 1 | Play target = own hobbit                 | IMPLEMENTED | play-target target:"own-hobbit"         |
+ * | 1 | Target = hobbit (DSL filter)             | IMPLEMENTED | play-target filter target.race hobbit   |
  * | 2 | Option: untap tapped hobbit              | IMPLEMENTED | play-option apply:set-character-status  |
  * | 3 | Option: heal wounded hobbit              | IMPLEMENTED | play-option apply:set-character-status  |
  * | 4 | Option: +4 corruption check boost        | IMPLEMENTED | play-option apply:add-constraint        |
  * | 5 | Corruption boost consumed after check    | IMPLEMENTED | constraint cleared in pending-reducers  |
  * | 6 | Not playable without hobbits             | IMPLEMENTED | no eligible targets → not-playable      |
- * | 7 | Not playable on non-hobbits              | IMPLEMENTED | play-target own-hobbit filter           |
+ * | 7 | Not playable on non-hobbits              | IMPLEMENTED | DSL filter excludes non-hobbits         |
  */
 
 import { describe, test, expect, beforeEach } from 'vitest';
@@ -40,7 +40,7 @@ import { addConstraint, enqueueResolution } from '../../engine/pending.js';
 describe('Halfling Strength (tw-253)', () => {
   beforeEach(() => resetMint());
 
-  test('card definition has play-target own-hobbit and three play-option effects', () => {
+  test('card definition declares hobbit filter and three play-option effects', () => {
     const def = pool[HALFLING_STRENGTH as string] as HeroResourceEventCard;
     expect(def).toBeDefined();
     expect(def.cardType).toBe('hero-resource-event');
@@ -48,7 +48,9 @@ describe('Halfling Strength (tw-253)', () => {
 
     const playTarget = def.effects?.find(e => e.type === 'play-target');
     expect(playTarget).toBeDefined();
-    expect(playTarget?.target).toBe('own-hobbit');
+    expect(playTarget?.target).toBe('character');
+    expect((playTarget as { filter?: unknown }).filter)
+      .toEqual({ 'target.race': 'hobbit' });
 
     const options = (def.effects ?? []).filter(e => e.type === 'play-option');
     expect(options.map(o => (o as { id: string }).id).sort())

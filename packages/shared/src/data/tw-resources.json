@@ -337,7 +337,7 @@
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
     "effects": [
-      { "type": "play-target", "target": "own-hobbit" },
+      { "type": "play-target", "target": "character", "filter": { "target.race": "hobbit" } },
       {
         "type": "play-option",
         "id": "untap",
@@ -548,7 +548,13 @@
       },
       {
         "type": "play-target",
-        "target": "own-scout",
+        "target": "character",
+        "filter": {
+          "$and": [
+            { "target.skills": { "$includes": "scout" } },
+            { "target.status": "untapped" }
+          ]
+        },
         "maxCompanySize": 2,
         "cost": { "tap": "character" }
       },
