@@ -173,6 +173,8 @@ export const BERT_BURAT = did('tw-016');
 export const TOM_TUMA = did('tw-103');
 /** William (Wuluag) — unique troll hazard, 1 strike, 11 prowess. Wounded characters discard non-special items if company faced Bert or Tom. */
 export const WILLIAM_WULUAG = did('tw-112');
+/** Hobgoblins — orc hazard, 2 strikes, prowess 10, keyed to double wilderness. */
+export const HOBGOBLINS = did('le-77');
 /** Foolish Words — hazard permanent-event, -4 to influence attempts, revealable on-guard. */
 export const FOOLISH_WORDS = did('td-25');
 /**

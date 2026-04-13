@@ -7,7 +7,7 @@
  */
 
 import type { CardDefinition } from './types/cards.js';
-import { isCharacterCard } from './types/cards.js';
+import { isAvatarCharacter, isCharacterCard } from './types/cards.js';
 import type { Company, CharacterInPlay } from './types/state.js';
 import type { GameAction } from './types/actions.js';
 import type { CardInstanceId, CardDefinitionId, CompanyId } from './types/common.js';
@@ -34,7 +34,7 @@ export function getTitleCharacter(
     const char = charMap[charInstId as string];
     if (!char) continue;
     const def = cardPool[char.definitionId as string];
-    if (def && isCharacterCard(def) && def.mind === null) {
+    if (isAvatarCharacter(def)) {
       return char;
     }
   }

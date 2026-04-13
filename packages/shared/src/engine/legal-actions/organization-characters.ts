@@ -18,6 +18,7 @@ import type {
 import { GENERAL_INFLUENCE, SiteType, isCharacterCard, isSiteCard, hasPlayFlag } from '../../index.js';
 import { logDetail } from './log.js';
 import { resolveDef } from '../effects/index.js';
+import { findPlayerAvatar } from '../reducer-utils.js';
 import { availableDI } from './organization.js';
 
 /**
@@ -146,18 +147,11 @@ export function playCharacterActions(
   const results: EvaluatedAction[] = [];
 
   // Rule 2.II.2.2: detect if the player's avatar is in play
-  let avatarSiteId: CardInstanceId | null = null;
-  for (const char of Object.values(player.characters)) {
-    const def = resolveDef(state, char.instanceId);
-    if (isCharacterCard(def) && def.mind === null) {
-      // Find the company containing the avatar to get its current site
-      const avatarCompany = player.companies.find(c => c.characters.includes(char.instanceId));
-      if (avatarCompany?.currentSite) {
-        avatarSiteId = avatarCompany.currentSite.instanceId;
-      }
-      break;
-    }
-  }
+  const avatar = findPlayerAvatar(state, player);
+  const avatarCompany = avatar
+    ? player.companies.find(c => c.characters.includes(avatar.instanceId))
+    : undefined;
+  const avatarSiteId: CardInstanceId | null = avatarCompany?.currentSite?.instanceId ?? null;
   const avatarInPlay = avatarSiteId !== null;
   if (avatarInPlay) {
     logDetail(`Avatar in play at site ${avatarSiteId as string} — character play restricted (rule 2.II.2.2)`);

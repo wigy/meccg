@@ -10,7 +10,7 @@
  */
 
 import type { GameState, PlayerId, GameAction, EvaluatedAction, SitePhaseState, HeroItemCard, HeroResourceEventCard, SiteCard, PlayableAtEntry, FactionCard, DenyItemSiteRule } from '../../index.js';
-import { getPlayerIndex, isSiteCard, isItemCard, isAllyCard, isFactionCard, isCharacterCard, CardStatus, matchesCondition, GENERAL_INFLUENCE } from '../../index.js';
+import { getPlayerIndex, isSiteCard, isItemCard, isAllyCard, isFactionCard, isCharacterCard, isAvatarCharacter, CardStatus, matchesCondition, GENERAL_INFLUENCE } from '../../index.js';
 import { resolveInstanceId } from '../../types/state.js';
 import { collectCharacterEffects, resolveCheckModifier, resolveStatModifiers } from '../effects/index.js';
 import type { ResolverContext } from '../effects/index.js';
@@ -846,8 +846,8 @@ function opponentInfluenceActions(
       const oppCharDef = state.cardPool[oppChar.definitionId as string];
       if (!oppCharDef || !isCharacterCard(oppCharDef)) continue;
 
-      // Skip avatars (mind === null)
-      if (oppCharDef.mind === null) {
+      // Skip avatars
+      if (isAvatarCharacter(oppCharDef)) {
         logDetail(`Opponent influence: ${oppCharDef.name} is avatar — skip`);
         continue;
       }
@@ -858,7 +858,7 @@ function opponentInfluenceActions(
         const ctrlChar = opponent.characters[oppChar.controlledBy as string];
         if (ctrlChar) {
           const ctrlDef = state.cardPool[ctrlChar.definitionId as string];
-          if (ctrlDef && isCharacterCard(ctrlDef) && ctrlDef.mind === null) {
+          if (isAvatarCharacter(ctrlDef)) {
             logDetail(`Opponent influence: ${oppCharDef.name} controlled by avatar ${ctrlDef.name} — skip`);
             continue;
           }
