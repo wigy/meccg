@@ -53,9 +53,9 @@ function topCardImage(cards: readonly ViewCard[], cardPool: Readonly<Record<stri
 
 /** Combine eliminated pile and kill pile into a single victory display. */
 function buildVictoryCards(
-  player: { eliminatedPile: readonly ViewCard[]; killPile: readonly ViewCard[] },
+  player: { outOfPlayPile: readonly ViewCard[]; killPile: readonly ViewCard[] },
 ): readonly ViewCard[] {
-  return [...player.eliminatedPile, ...player.killPile];
+  return [...player.outOfPlayPile, ...player.killPile];
 }
 
 /** Reset all deck piles to empty (dimmed placeholder with 0). */

@@ -222,7 +222,7 @@ describe('Frodo (tw-152)', () => {
       players: [
         {
           ...state.players[0],
-          eliminatedPile: [frodoInst],
+          outOfPlayPile: [frodoInst],
         },
         state.players[1],
       ] as typeof state.players,

@@ -290,7 +290,7 @@ function resolveCorruptionCheck(
       ...newPlayers[playerIndex],
       characters: newCharacters,
       companies: newCompanies,
-      eliminatedPile: [...player.eliminatedPile, { instanceId: pending.characterId, definitionId: char.definitionId }],
+      outOfPlayPile: [...player.outOfPlayPile, { instanceId: pending.characterId, definitionId: char.definitionId }],
       discardPile: [...player.discardPile, ...pending.possessions.map(id => ({ instanceId: id, definitionId: resolveInstanceId(state, id)! }))],
     };
   }
@@ -320,7 +320,7 @@ function computeFinalScoresAndEnd(state: GameState): GameState {
 
   // Step 6: -5 misc MP penalty if avatar is eliminated
   // Avatar is the first character in the eliminated pile that matches the player's avatar type
-  // For simplicity, check if any character in eliminatedPile was an avatar (wizard/ringwraith)
+  // For simplicity, check if any character in outOfPlayPile was an avatar (wizard/ringwraith)
   if (hasEliminatedAvatar(state, 0)) {
     logDetail(`Player ${p0.name} has eliminated avatar — applying -5 penalty`);
     score0 -= 5;
@@ -363,7 +363,7 @@ function computeFinalScoresAndEnd(state: GameState): GameState {
  */
 function hasEliminatedAvatar(state: GameState, playerIndex: 0 | 1): boolean {
   const player = state.players[playerIndex];
-  for (const card of player.eliminatedPile) {
+  for (const card of player.outOfPlayPile) {
     const def = state.cardPool[card.definitionId as string];
     if (def && isCharacterCard(def) && (def.race === Race.Wizard || def.race === Race.Ringwraith)) {
       return true;

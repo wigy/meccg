@@ -416,8 +416,7 @@ export function buildTestState(opts: BuildTestStateOpts): GameState {
       siteDiscardPile: [] as CardInstance[],
       sideboard,
       killPile: [] as CardInstance[],
-      eliminatedPile: [] as CardInstance[],
-      storedItems: [] as CardInstance[],
+      outOfPlayPile: [] as CardInstance[],
       companies,
       characters,
       cardsInPlay: setup.cardsInPlay ?? ([] as CardInPlay[]),
@@ -1126,7 +1125,7 @@ export type PileKey =
   | 'siteDiscardPile'
   | 'sideboard'
   | 'killPile'
-  | 'eliminatedPile';
+  | 'outOfPlayPile';
 
 /** Get the instance ID of a card in a player's hand by position (default: first card). */
 export function handCardId(

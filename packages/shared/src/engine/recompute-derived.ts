@@ -208,25 +208,6 @@ function recomputePlayer(state: GameState, player: PlayerState, inPlayNames: rea
     }
   }
 
-  // Stored items: items moved to storedItems pile via store-item
-  for (const card of player.storedItems) {
-    const def = resolveDef(state, card.instanceId);
-    if (def) {
-      const effects = (def as { effects?: readonly CardEffect[] }).effects;
-      const storableEffect = effects?.find(e => e.type === 'storable-at') as
-        | { type: 'storable-at'; marshallingPoints?: number }
-        | undefined;
-      if (storableEffect?.marshallingPoints !== undefined) {
-        const cat = ('marshallingCategory' in def)
-          ? (def as { marshallingCategory: MarshallingCategory }).marshallingCategory
-          : 'item' as MarshallingCategory;
-        mp = { ...mp, [cat]: mp[cat] + storableEffect.marshallingPoints };
-      } else {
-        mp = addMP(mp, def);
-      }
-    }
-  }
-
   // Cards in play: factions, permanent events, etc.
   for (const card of player.cardsInPlay) {
     const def = resolveDef(state, card.instanceId);
@@ -244,20 +225,39 @@ function recomputePlayer(state: GameState, player: PlayerState, inPlayNames: rea
     }
   }
 
-  // Eliminated pile: apply mp-modifier effects with reason "elimination"
-  for (const card of player.eliminatedPile) {
+  // Out-of-play pile: holds eliminated characters AND items stored at sites.
+  // - Items with a `storable-at` effect earn their override MP (or base MP).
+  // - Eliminated cards may carry `mp-modifier` effects with reason "elimination".
+  for (const card of player.outOfPlayPile) {
     const def = resolveDef(state, card.instanceId);
-    if (def && 'effects' in def) {
-      const effects = (def as { effects?: readonly CardEffect[] }).effects;
-      if (effects) {
-        for (const effect of effects) {
-          if (effect.type === 'mp-modifier' && typeof effect.value === 'number'
-            && effect.when && 'reason' in effect.when && effect.when.reason === 'elimination') {
-            const cat = 'marshallingCategory' in def
-              ? (def as { marshallingCategory: MarshallingCategory }).marshallingCategory
-              : 'character' as MarshallingCategory;
-            mp = { ...mp, [cat]: mp[cat] + effect.value };
-          }
+    if (!def) continue;
+    const effects = (def as { effects?: readonly CardEffect[] }).effects;
+
+    // Stored items: storable-at effect grants MP (overriding base MP when set).
+    const storableEffect = effects?.find(e => e.type === 'storable-at') as
+      | { type: 'storable-at'; marshallingPoints?: number }
+      | undefined;
+    if (storableEffect) {
+      if (storableEffect.marshallingPoints !== undefined) {
+        const cat = ('marshallingCategory' in def)
+          ? (def as { marshallingCategory: MarshallingCategory }).marshallingCategory
+          : 'item' as MarshallingCategory;
+        mp = { ...mp, [cat]: mp[cat] + storableEffect.marshallingPoints };
+      } else {
+        mp = addMP(mp, def);
+      }
+      continue;
+    }
+
+    // Eliminated cards: mp-modifier effects with reason "elimination".
+    if (effects) {
+      for (const effect of effects) {
+        if (effect.type === 'mp-modifier' && typeof effect.value === 'number'
+          && effect.when && 'reason' in effect.when && effect.when.reason === 'elimination') {
+          const cat = 'marshallingCategory' in def
+            ? (def as { marshallingCategory: MarshallingCategory }).marshallingCategory
+            : 'character' as MarshallingCategory;
+          mp = { ...mp, [cat]: mp[cat] + effect.value };
         }
       }
     }

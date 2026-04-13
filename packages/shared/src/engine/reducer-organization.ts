@@ -533,9 +533,10 @@ function handleTransferItem(state: GameState, action: GameAction): ReducerResult
 /**
  * Handle store-item during organization.
  *
- * Moves an item from a character to the player's stored-items pile.
- * The character must be at a site matching the item's storable-at effect.
- * After storage, the initial bearer makes a corruption check.
+ * Moves an item from a character to the player's out-of-play pile. The
+ * character must be at a site matching the item's storable-at effect.
+ * Stored items continue to earn marshalling points (via the item's
+ * `storable-at` effect); the initial bearer makes a corruption check.
  */
 function handleStoreItem(state: GameState, action: GameAction): ReducerResult {
   if (action.type !== 'store-item') return { state, error: 'Expected store-item action' };
@@ -573,7 +574,7 @@ function handleStoreItem(state: GameState, action: GameAction): ReducerResult {
   newPlayers[playerIndex] = {
     ...player,
     characters: newCharacters,
-    storedItems: [...player.storedItems, storedCard],
+    outOfPlayPile: [...player.outOfPlayPile, storedCard],
   };
 
   logDetail(`Enqueuing corruption check for ${charDef?.name ?? '?'} after item storage`);

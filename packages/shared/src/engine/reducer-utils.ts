@@ -30,7 +30,7 @@ export interface ReducerResult {
 
 const PILE_NAMES = [
   'hand', 'playDeck', 'discardPile', 'siteDeck', 'siteDiscardPile',
-  'sideboard', 'killPile', 'eliminatedPile',
+  'sideboard', 'killPile', 'outOfPlayPile',
 ] as const;
 
 

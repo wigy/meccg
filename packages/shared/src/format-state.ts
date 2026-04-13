@@ -47,7 +47,7 @@ export function buildInstanceLookup(view: PlayerView): InstanceLookup {
   const s = view.self;
   addCards(s.hand); addCards(s.playDeck); addCards(s.siteDeck);
   addCards(s.discardPile); addCards(s.siteDiscardPile); addCards(s.sideboard);
-  addCards(s.killPile); addCards(s.eliminatedPile); addCards(s.cardsInPlay);
+  addCards(s.killPile); addCards(s.outOfPlayPile); addCards(s.cardsInPlay);
 
   // Self characters, items, allies, company sites
   for (const ch of Object.values(s.characters)) {
@@ -66,7 +66,7 @@ export function buildInstanceLookup(view: PlayerView): InstanceLookup {
   const o = view.opponent;
   addCards(o.hand); addCards(o.playDeck); addCards(o.siteDeck);
   addCards(o.discardPile); addCards(o.siteDiscardPile);
-  addCards(o.killPile); addCards(o.eliminatedPile); addCards(o.cardsInPlay);
+  addCards(o.killPile); addCards(o.outOfPlayPile); addCards(o.cardsInPlay);
 
   // Opponent characters, items, allies, company sites
   for (const ch of Object.values(o.characters)) {
@@ -307,8 +307,8 @@ interface RenderPlayerInput {
   readonly discardCards: readonly CardInstanceId[];
   /** Card instance IDs in the kill pile (always public). */
   readonly killCards: readonly CardInstanceId[];
-  /** Card instance IDs in the eliminated pile (always public). */
-  readonly eliminatedCards: readonly CardInstanceId[];
+  /** Card instance IDs in the out-of-play pile (eliminated cards + stored items; always public). */
+  readonly outOfPlayCards: readonly CardInstanceId[];
   /** Card instance IDs in the sideboard. Hidden piles are empty arrays. */
   readonly sideboardCards: readonly CardInstanceId[];
   /** Number of cards remaining in the draft pool during setup. */
@@ -472,7 +472,7 @@ function renderState(input: RenderInput): string {
     renderPile('Sites', player.siteDeckCards, true);
     renderPile('Discard', player.discardCards, true);
     renderPile('Kill pile', player.killCards);
-    renderPile('Eliminated', player.eliminatedCards);
+    renderPile('Out of Play', player.outOfPlayCards);
     renderPile('Sideboard', player.sideboardCards);
     if (player.poolSize !== undefined) {
       lines.push(`  Pool: ${player.poolSize}`);
@@ -530,7 +530,7 @@ export function formatGameState(state: GameState): string {
       siteDeckCards: p.siteDeck.map(c => c.instanceId),
       discardCards: p.discardPile.map(c => c.instanceId),
       killCards: p.killPile.map(c => c.instanceId),
-      eliminatedCards: p.eliminatedPile.map(c => c.instanceId),
+      outOfPlayCards: p.outOfPlayPile.map(c => c.instanceId),
       sideboardCards: p.sideboard.map(c => c.instanceId),
       marshallingPoints: p.marshallingPoints,
       generalInfluenceUsed: p.generalInfluenceUsed,
@@ -595,7 +595,7 @@ export function formatPlayerView(
         siteDeckCards: view.self.siteDeck.map(c => c.instanceId),
         discardCards: view.self.discardPile.map(c => c.instanceId),
         killCards: view.self.killPile.map(c => c.instanceId),
-        eliminatedCards: view.self.eliminatedPile.map(c => c.instanceId),
+        outOfPlayCards: view.self.outOfPlayPile.map(c => c.instanceId),
         sideboardCards: view.self.sideboard.map(c => c.instanceId),
         poolSize: selfPoolSize,
         marshallingPoints: view.self.marshallingPoints,
@@ -615,7 +615,7 @@ export function formatPlayerView(
         siteDeckCards: view.opponent.siteDeck.map(c => c.instanceId),
         discardCards: view.opponent.discardPile.map(c => c.instanceId),
         killCards: view.opponent.killPile.map(c => c.instanceId),
-        eliminatedCards: view.opponent.eliminatedPile.map(c => c.instanceId),
+        outOfPlayCards: view.opponent.outOfPlayPile.map(c => c.instanceId),
         sideboardCards: [],
         poolSize: opponentPoolSize,
         marshallingPoints: view.opponent.marshallingPoints,
