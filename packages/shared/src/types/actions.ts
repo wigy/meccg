@@ -45,7 +45,6 @@ export type {
 export type {
   PlayShortEventAction,
   FetchFromPileAction,
-  DiscardFromPlayAction,
 } from './actions-short-event.js';
 
 // ---- Long-event actions ----
@@ -109,7 +108,7 @@ export type {
 // ---- Import concrete types for the union ----
 import type { DraftPickAction, DraftStopAction, AssignStartingItemAction, AddCharacterToDeckAction, ShufflePlayDeckAction, SelectStartingSiteAction, PlaceCharacterAction, RollInitiativeAction } from './actions-setup.js';
 import type { UntapAction, PlayCharacterAction, SplitCompanyAction, MoveToCompanyAction, MergeCompaniesAction, TransferItemAction, PlanMovementAction, CancelMovementAction, MoveToInfluenceAction, PlayPermanentEventAction, ActivateGrantedAction } from './actions-organization.js';
-import type { PlayShortEventAction, FetchFromPileAction, DiscardFromPlayAction } from './actions-short-event.js';
+import type { PlayShortEventAction, FetchFromPileAction } from './actions-short-event.js';
 import type { PlayLongEventAction } from './actions-long-event.js';
 import type { SelectCompanyAction, DeclarePathAction, OrderEffectsAction, PlayHazardAction, AssignStrikeAction, ResolveStrikeAction, SupportStrikeAction, ChooseStrikeOrderAction, BodyCheckRollAction, CancelAttackAction, CancelByTapAction, SalvageItemAction } from './actions-movement-hazard.js';
 import type { EnterSiteAction, PlaceOnGuardAction, RevealOnGuardAction, DeclareAgentAttackAction, PlayHeroResourceAction, InfluenceAttemptAction, OpponentInfluenceAttemptAction, OpponentInfluenceDefendAction, FactionInfluenceRollAction, PlayMinorItemAction } from './actions-site.js';
@@ -146,7 +145,6 @@ export type GameAction =
   | ActivateGrantedAction
   | PlayShortEventAction
   | FetchFromPileAction
-  | DiscardFromPlayAction
   | PlayLongEventAction
   | SelectCompanyAction
   | DeclarePathAction

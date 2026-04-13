@@ -7,13 +7,13 @@
  */
 
 import type { GameState, CardInstance, ChainEntryPayload, PendingEffect, GameAction } from '../index.js';
-import { Phase, CardStatus, getPlayerIndex, BASE_MAX_REGION_DISTANCE } from '../index.js';
+import { Phase, CardStatus, getPlayerIndex, BASE_MAX_REGION_DISTANCE, matchesCondition } from '../index.js';
 import { logDetail } from './legal-actions/log.js';
 import { initiateChain, pushChainEntry } from './chain-reducer.js';
 import { resolveInstanceId } from '../types/state.js';
 import type { ReducerResult } from './reducer-utils.js';
 import { clonePlayers } from './reducer-utils.js';
-import { addConstraint } from './pending.js';
+import { addConstraint, enqueueResolution } from './pending.js';
 
 
 /**
@@ -321,9 +321,12 @@ export function handlePlayResourceShortEvent(state: GameState, action: GameActio
     newCharacters = { ...newCharacters, [targetId]: { ...targetChar, status: statusEnum } };
   }
 
-  // Collect all effects that require player interaction to resolve
+  // Collect fetch-to-deck effects — these need a sub-flow because the player
+  // picks from face-down piles (sideboard / discard) and the choice must be
+  // serialised as a separate action. Discard-in-play is resolved inline
+  // below: the target is already chosen on the play action.
   const interactiveEffects: PendingEffect[] = (def.effects ?? [])
-    .filter(e => e.type === 'fetch-to-deck' || e.type === 'discard-in-play')
+    .filter(e => e.type === 'fetch-to-deck')
     .map(effect => ({
       type: 'card-effect' as const,
       cardInstanceId: handCard.instanceId,
@@ -349,6 +352,60 @@ export function handlePlayResourceShortEvent(state: GameState, action: GameActio
     );
     if ('error' in constraintResult) return { state, error: constraintResult.error };
     newState = constraintResult.state;
+  }
+
+  // Resolve discard-in-play inline (e.g. Marvels Told). The target was
+  // chosen by the legal-action emitter as part of the play action, so no
+  // sub-flow is needed: we move the target to its owner's discard pile
+  // and enqueue the post-discard corruption check, then the event card
+  // itself is discarded below.
+  const discardInPlay = def.effects?.find(e => e.type === 'discard-in-play');
+  if (discardInPlay) {
+    if (!action.discardTargetInstanceId) {
+      return { state, error: `${def.name} requires a discardTargetInstanceId` };
+    }
+    const targetId = action.discardTargetInstanceId;
+    let foundOwnerIndex = -1;
+    let foundCardIdx = -1;
+    for (let oi = 0; oi < newState.players.length; oi++) {
+      const idx = newState.players[oi].cardsInPlay.findIndex(c => c.instanceId === targetId);
+      if (idx !== -1) { foundOwnerIndex = oi; foundCardIdx = idx; break; }
+    }
+    if (foundOwnerIndex === -1) {
+      return { state, error: `Discard target ${targetId as string} not in play` };
+    }
+    const owner = newState.players[foundOwnerIndex];
+    const targetCard = owner.cardsInPlay[foundCardIdx];
+    const targetDef = newState.cardPool[targetCard.definitionId as string];
+    if (!targetDef || !matchesCondition(discardInPlay.filter, targetDef as unknown as Record<string, unknown>)) {
+      return { state, error: `${def.name}: target does not match discard filter` };
+    }
+    logDetail(`${def.name} discards ${targetDef.name} from ${owner.id as string}'s in-play`);
+    const newOwnerCardsInPlay = [...owner.cardsInPlay];
+    newOwnerCardsInPlay.splice(foundCardIdx, 1);
+    const updatedPlayers = clonePlayers(newState);
+    updatedPlayers[foundOwnerIndex] = {
+      ...owner,
+      cardsInPlay: newOwnerCardsInPlay,
+      discardPile: [...owner.discardPile, { instanceId: targetCard.instanceId, definitionId: targetCard.definitionId }],
+    };
+    newState = { ...newState, players: updatedPlayers };
+
+    if (discardInPlay.corruptionCheck && action.targetScoutInstanceId) {
+      newState = enqueueResolution(newState, {
+        source: handCard.instanceId,
+        actor: action.player,
+        scope: { kind: 'phase' as const, phase: newState.phaseState.phase },
+        kind: {
+          type: 'corruption-check',
+          characterId: action.targetScoutInstanceId,
+          modifier: discardInPlay.corruptionCheck.modifier,
+          reason: def.name,
+          possessions: [],
+          transferredItemId: null,
+        },
+      });
+    }
   }
 
   if (interactiveEffects.length > 0) {

@@ -8,6 +8,10 @@
  * "Sage only. Ritual. Tap a sage to force the discard of a hazard
  *  non-environment permanent-event or long-event. Sage makes a
  *  corruption check modified by -2."
+ *
+ * The discard is compulsory and its target is already visible in play,
+ * so the target is chosen at play time as part of the play-short-event
+ * action — there is no separate discard sub-flow.
  */
 
 import { describe, test, expect, beforeEach } from 'vitest';
@@ -28,7 +32,9 @@ import { computeLegalActions, Phase, CardStatus } from '../../index.js';
 describe('Marvels Told (td-134)', () => {
   beforeEach(() => resetMint());
 
-  test('appears as playable with one action per eligible untapped sage', () => {
+  test('playable once per (sage × eligible hazard) pair', () => {
+    // One sage, one hazard event → exactly one play action carrying both
+    // the sage to tap and the hazard to discard.
     const foolishWordsInPlay: CardInPlay = { instanceId: mint(), definitionId: FOOLISH_WORDS, status: CardStatus.Untapped };
     const state = buildTestState({
       phase: Phase.LongEvent,
@@ -41,8 +47,34 @@ describe('Marvels Told (td-134)', () => {
 
     const playActions = viableActions(state, PLAYER_1, 'play-short-event');
     expect(playActions).toHaveLength(1);
-    const action = playActions[0].action as { type: string; targetScoutInstanceId?: CardInstanceId };
+    const action = playActions[0].action as {
+      type: string;
+      targetScoutInstanceId?: CardInstanceId;
+      discardTargetInstanceId?: CardInstanceId;
+    };
     expect(action.targetScoutInstanceId).toBeDefined();
+    expect(action.discardTargetInstanceId).toBe(state.players[1].cardsInPlay[0].instanceId);
+  });
+
+  test('one action per hazard when multiple valid targets exist', () => {
+    // Foolish Words (permanent) + Eye of Sauron (long) → 2 play actions,
+    // one per discard target.
+    const foolishWordsInPlay: CardInPlay = { instanceId: mint(), definitionId: FOOLISH_WORDS, status: CardStatus.Untapped };
+    const eyeOfSauronInPlay: CardInPlay = { instanceId: mint(), definitionId: EYE_OF_SAURON, status: CardStatus.Untapped };
+
+    const state = buildTestState({
+      phase: Phase.LongEvent,
+      activePlayer: PLAYER_1,
+      players: [
+        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [ELROND] }], hand: [MARVELS_TOLD], siteDeck: [MORIA] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [MINAS_TIRITH], cardsInPlay: [foolishWordsInPlay, eyeOfSauronInPlay] },
+      ],
+    });
+
+    const playActions = viableActions(state, PLAYER_1, 'play-short-event');
+    expect(playActions).toHaveLength(2);
+    const targets = playActions.map(a => (a.action as { discardTargetInstanceId?: CardInstanceId }).discardTargetInstanceId);
+    expect(new Set(targets).size).toBe(2);
   });
 
   test('not playable when sage is tapped', () => {
@@ -56,7 +88,6 @@ describe('Marvels Told (td-134)', () => {
       ],
     });
 
-    // Tap Elrond
     const elrondId = Object.keys(state.players[0].characters)[0];
     const tappedCharacters = {
       ...state.players[0].characters,
@@ -89,72 +120,6 @@ describe('Marvels Told (td-134)', () => {
     expect(playActions).toHaveLength(0);
   });
 
-  test('playing Marvels Told taps the sage and enters discard sub-flow', () => {
-    const foolishWordsInPlay: CardInPlay = { instanceId: mint(), definitionId: FOOLISH_WORDS, status: CardStatus.Untapped };
-
-    const state = buildTestState({
-      phase: Phase.LongEvent,
-      activePlayer: PLAYER_1,
-      players: [
-        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [ELROND] }], hand: [MARVELS_TOLD], siteDeck: [MORIA] },
-        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [MINAS_TIRITH], cardsInPlay: [foolishWordsInPlay] },
-      ],
-    });
-
-    const marvelsId = state.players[0].hand[0].instanceId;
-    const elrondId = Object.keys(state.players[0].characters)[0] as unknown as CardInstanceId;
-
-    const result = reduce(state, {
-      type: 'play-short-event',
-      player: PLAYER_1,
-      cardInstanceId: marvelsId,
-      targetScoutInstanceId: elrondId,
-    });
-    expect(result.error).toBeUndefined();
-
-    // Sage is tapped
-    expect(result.state.players[0].characters[elrondId as string].status).toBe(CardStatus.Tapped);
-
-    // Card removed from hand, in cardsInPlay while discard sub-flow resolves
-    expect(result.state.players[0].hand).toHaveLength(0);
-    expect(result.state.players[0].cardsInPlay.map(c => c.instanceId)).toContain(marvelsId);
-
-    // Discard-in-play pending effect is active
-    expect(result.state.pendingEffects).toHaveLength(1);
-    expect(result.state.pendingEffects[0].type).toBe('card-effect');
-    expect(result.state.pendingEffects[0].effect.type).toBe('discard-in-play');
-    expect(result.state.pendingEffects[0].targetCharacterId).toBe(elrondId);
-  });
-
-  test('discard sub-flow shows eligible hazard permanent-events and long-events', () => {
-    const foolishWordsInPlay: CardInPlay = { instanceId: mint(), definitionId: FOOLISH_WORDS, status: CardStatus.Untapped };
-    const eyeOfSauronInPlay: CardInPlay = { instanceId: mint(), definitionId: EYE_OF_SAURON, status: CardStatus.Untapped };
-
-    const state = buildTestState({
-      phase: Phase.LongEvent,
-      activePlayer: PLAYER_1,
-      players: [
-        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [ELROND] }], hand: [MARVELS_TOLD], siteDeck: [MORIA] },
-        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [MINAS_TIRITH], cardsInPlay: [foolishWordsInPlay, eyeOfSauronInPlay] },
-      ],
-    });
-
-    const marvelsId = state.players[0].hand[0].instanceId;
-    const elrondId = Object.keys(state.players[0].characters)[0] as unknown as CardInstanceId;
-
-    const result = reduce(state, {
-      type: 'play-short-event',
-      player: PLAYER_1,
-      cardInstanceId: marvelsId,
-      targetScoutInstanceId: elrondId,
-    });
-    expect(result.error).toBeUndefined();
-
-    // Both Foolish Words (permanent) and Eye of Sauron (long) should be eligible
-    const discardActions = viableActions(result.state, PLAYER_1, 'discard-from-play');
-    expect(discardActions).toHaveLength(2);
-  });
-
   test('not playable when only environment hazard events are in play', () => {
     // Doors of Night has the environment keyword and so is not a valid
     // target. With no other hazard permanent/long events in play, Marvels
@@ -176,8 +141,6 @@ describe('Marvels Told (td-134)', () => {
   });
 
   test('not playable when no hazard permanent/long events are in play', () => {
-    // The discard is compulsory — with nothing eligible to discard, Marvels
-    // Told cannot be played even though an untapped sage is available.
     const state = buildTestState({
       phase: Phase.LongEvent,
       activePlayer: PLAYER_1,
@@ -191,7 +154,7 @@ describe('Marvels Told (td-134)', () => {
     expect(playActions).toHaveLength(0);
   });
 
-  test('discarding a hazard event moves it to owner discard pile and discards Marvels Told', () => {
+  test('playing resolves in one step: tap sage, move hazard to owner discard, discard Marvels Told', () => {
     const foolishWordsInPlay: CardInPlay = { instanceId: mint(), definitionId: FOOLISH_WORDS, status: CardStatus.Untapped };
 
     const state = buildTestState({
@@ -207,37 +170,32 @@ describe('Marvels Told (td-134)', () => {
     const foolishWordsId = state.players[1].cardsInPlay[0].instanceId;
     const elrondId = Object.keys(state.players[0].characters)[0] as unknown as CardInstanceId;
 
-    // Play Marvels Told
-    let result = reduce(state, {
+    const result = reduce(state, {
       type: 'play-short-event',
       player: PLAYER_1,
       cardInstanceId: marvelsId,
       targetScoutInstanceId: elrondId,
+      discardTargetInstanceId: foolishWordsId,
     });
     expect(result.error).toBeUndefined();
 
-    // Discard Foolish Words
-    result = reduce(result.state, {
-      type: 'discard-from-play',
-      player: PLAYER_1,
-      cardInstanceId: foolishWordsId,
-      ownerIndex: 1,
-    });
-    expect(result.error).toBeUndefined();
+    // Sage is tapped
+    expect(result.state.players[0].characters[elrondId as string].status).toBe(CardStatus.Tapped);
 
     // Foolish Words moved from P2 cardsInPlay to P2 discard
     expect(result.state.players[1].cardsInPlay.map(c => c.instanceId)).not.toContain(foolishWordsId);
     expect(result.state.players[1].discardPile.map(c => c.instanceId)).toContain(foolishWordsId);
 
-    // Marvels Told moved from P1 cardsInPlay to P1 discard
+    // Marvels Told moved from P1 hand straight to P1 discard (no cardsInPlay stop)
+    expect(result.state.players[0].hand).toHaveLength(0);
     expect(result.state.players[0].cardsInPlay.map(c => c.instanceId)).not.toContain(marvelsId);
     expect(result.state.players[0].discardPile.map(c => c.instanceId)).toContain(marvelsId);
 
-    // Pending effects cleared
+    // No lingering pendingEffects sub-flow
     expect(result.state.pendingEffects).toHaveLength(0);
   });
 
-  test('sage makes a corruption check modified by -2 after discard', () => {
+  test('sage makes a corruption check modified by -2 after resolution', () => {
     const foolishWordsInPlay: CardInPlay = { instanceId: mint(), definitionId: FOOLISH_WORDS, status: CardStatus.Untapped };
 
     const state = buildTestState({
@@ -253,25 +211,15 @@ describe('Marvels Told (td-134)', () => {
     const foolishWordsId = state.players[1].cardsInPlay[0].instanceId;
     const elrondId = Object.keys(state.players[0].characters)[0] as unknown as CardInstanceId;
 
-    // Play Marvels Told
-    let result = reduce(state, {
+    const result = reduce(state, {
       type: 'play-short-event',
       player: PLAYER_1,
       cardInstanceId: marvelsId,
       targetScoutInstanceId: elrondId,
+      discardTargetInstanceId: foolishWordsId,
     });
     expect(result.error).toBeUndefined();
 
-    // Discard Foolish Words
-    result = reduce(result.state, {
-      type: 'discard-from-play',
-      player: PLAYER_1,
-      cardInstanceId: foolishWordsId,
-      ownerIndex: 1,
-    });
-    expect(result.error).toBeUndefined();
-
-    // Corruption check pending for the sage (Aragorn)
     expect(result.state.pendingResolutions).toHaveLength(1);
     const resolution = result.state.pendingResolutions[0];
     expect(resolution.kind.type).toBe('corruption-check');
@@ -283,7 +231,7 @@ describe('Marvels Told (td-134)', () => {
     expect(resolution.actor).toBe(PLAYER_1);
   });
 
-  test('pass is not available during the discard sub-flow (discard is compulsory)', () => {
+  test('opponent has no actions while the sage resolves the corruption check', () => {
     const foolishWordsInPlay: CardInPlay = { instanceId: mint(), definitionId: FOOLISH_WORDS, status: CardStatus.Untapped };
 
     const state = buildTestState({
@@ -296,37 +244,7 @@ describe('Marvels Told (td-134)', () => {
     });
 
     const marvelsId = state.players[0].hand[0].instanceId;
-    const elrondId = Object.keys(state.players[0].characters)[0] as unknown as CardInstanceId;
-
-    // Play Marvels Told
-    const result = reduce(state, {
-      type: 'play-short-event',
-      player: PLAYER_1,
-      cardInstanceId: marvelsId,
-      targetScoutInstanceId: elrondId,
-    });
-    expect(result.error).toBeUndefined();
-
-    // Only the compulsory discard-from-play action is legal; no pass.
-    const legal = computeLegalActions(result.state, PLAYER_1);
-    const types = legal.filter(e => e.viable).map(e => e.action.type);
-    expect(types).toContain('discard-from-play');
-    expect(types).not.toContain('pass');
-  });
-
-  test('opponent has no actions during discard sub-flow', () => {
-    const foolishWordsInPlay: CardInPlay = { instanceId: mint(), definitionId: FOOLISH_WORDS, status: CardStatus.Untapped };
-
-    const state = buildTestState({
-      phase: Phase.LongEvent,
-      activePlayer: PLAYER_1,
-      players: [
-        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [ELROND] }], hand: [MARVELS_TOLD], siteDeck: [MORIA] },
-        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [MINAS_TIRITH], cardsInPlay: [foolishWordsInPlay] },
-      ],
-    });
-
-    const marvelsId = state.players[0].hand[0].instanceId;
+    const foolishWordsId = state.players[1].cardsInPlay[0].instanceId;
     const elrondId = Object.keys(state.players[0].characters)[0] as unknown as CardInstanceId;
 
     const result = reduce(state, {
@@ -334,6 +252,7 @@ describe('Marvels Told (td-134)', () => {
       player: PLAYER_1,
       cardInstanceId: marvelsId,
       targetScoutInstanceId: elrondId,
+      discardTargetInstanceId: foolishWordsId,
     });
     expect(result.error).toBeUndefined();
 
@@ -341,7 +260,7 @@ describe('Marvels Told (td-134)', () => {
     expect(opponentActions).toHaveLength(0);
   });
 
-  test('after discard and corruption check, normal long-event actions resume', () => {
+  test('after the corruption check resolves, normal long-event actions resume', () => {
     const eyeOfSauronInPlay: CardInPlay = { instanceId: mint(), definitionId: EYE_OF_SAURON, status: CardStatus.Untapped };
 
     const state = buildTestState({
@@ -357,24 +276,15 @@ describe('Marvels Told (td-134)', () => {
     const eyeId = state.players[1].cardsInPlay[0].instanceId;
     const elrondId = Object.keys(state.players[0].characters)[0] as unknown as CardInstanceId;
 
-    // Play Marvels Told, discard Eye of Sauron
     let result = reduce(state, {
       type: 'play-short-event',
       player: PLAYER_1,
       cardInstanceId: marvelsId,
       targetScoutInstanceId: elrondId,
+      discardTargetInstanceId: eyeId,
     });
     expect(result.error).toBeUndefined();
 
-    result = reduce(result.state, {
-      type: 'discard-from-play',
-      player: PLAYER_1,
-      cardInstanceId: eyeId,
-      ownerIndex: 1,
-    });
-    expect(result.error).toBeUndefined();
-
-    // Corruption check is pending — resolve it
     expect(result.state.pendingResolutions).toHaveLength(1);
     const ccAction = viableActions(result.state, PLAYER_1, 'corruption-check');
     expect(ccAction).toHaveLength(1);
@@ -382,7 +292,6 @@ describe('Marvels Told (td-134)', () => {
     result = reduce(result.state, ccAction[0].action);
     expect(result.error).toBeUndefined();
 
-    // Still in long-event phase, pass is available
     expect(result.state.phaseState.phase).toBe(Phase.LongEvent);
     const passActions = viableActions(result.state, PLAYER_1, 'pass');
     expect(passActions).toHaveLength(1);

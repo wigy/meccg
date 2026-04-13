@@ -31,7 +31,7 @@ import { handleChainAction } from './chain-reducer.js';
 
 export type { ReducerResult } from './reducer-utils.js';
 import type { ReducerResult } from './reducer-utils.js';
-import { validateActionPlayer, handleFetchFromPile, handleDiscardFromPlay, resolvePendingEffect } from './reducer-utils.js';
+import { validateActionPlayer, handleFetchFromPile, resolvePendingEffect } from './reducer-utils.js';
 import { topResolutionFor } from './pending.js';
 import { applyResolution } from './pending-reducers.js';
 import { handleSetup } from './reducer-setup.js';
@@ -129,20 +129,12 @@ export function reduce(state: GameState, action: GameAction): ReducerResult {
   }
 
   // 2d. Pending effects: resolve card effects awaiting player interaction
-  if (state.pendingEffects.length > 0 && (action.type === 'fetch-from-pile' || action.type === 'discard-from-play' || action.type === 'pass')) {
+  if (state.pendingEffects.length > 0 && (action.type === 'fetch-from-pile' || action.type === 'pass')) {
     logDetail(`Pending effect active — dispatching '${action.type}' to effect handler`);
     let effectResult: ReducerResult;
     if (action.type === 'fetch-from-pile') {
       effectResult = handleFetchFromPile(state, action);
-    } else if (action.type === 'discard-from-play') {
-      effectResult = handleDiscardFromPlay(state, action);
     } else {
-      // Pass is only valid for optional sub-flows (e.g. fetch-to-deck).
-      // Compulsory effects like discard-in-play must be resolved, not skipped.
-      const current = state.pendingEffects[0];
-      if (current.type === 'card-effect' && current.effect.type === 'discard-in-play') {
-        return { state, error: 'Cannot pass: discard is compulsory' };
-      }
       effectResult = resolvePendingEffect(state);
     }
     if (!effectResult.error) {

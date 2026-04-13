@@ -12,7 +12,6 @@ import type { Condition } from '../types/effects.js';
 import { shuffle, nextInt, CardStatus, getPlayerIndex, isSiteCard } from '../index.js';
 import { logHeading, logDetail } from './legal-actions/log.js';
 import { matchesCondition } from '../effects/index.js';
-import { enqueueResolution } from './pending.js';
 
 /**
  * Result of applying a {@link GameAction} to a {@link GameState}.
@@ -695,82 +694,3 @@ export function handleFetchFromPile(state: GameState, action: GameAction): Reduc
  * Resolve (skip) the current pending effect and advance to the next one.
  * If no more effects remain, move the event card from cardsInPlay to discard.
  */
-
-
-/**
- * Handle discarding an in-play card as part of the discard-in-play effect.
- *
- * Validates the target card matches the effect's filter, moves it from
- * the owner's cardsInPlay to their discard pile, consumes the effect,
- * discards the event card, and enqueues a corruption check on the tapped
- * character if the effect declares one.
- */
-export function handleDiscardFromPlay(state: GameState, action: GameAction): ReducerResult {
-  if (action.type !== 'discard-from-play') return { state, error: 'Expected discard-from-play action' };
-
-  if (state.pendingEffects.length === 0) {
-    return { state, error: 'No effect sub-flow active' };
-  }
-  const current = state.pendingEffects[0];
-  if (current.type !== 'card-effect' || current.effect.type !== 'discard-in-play') {
-    return { state, error: `Expected discard-in-play effect, got ${current.type}` };
-  }
-
-  const ownerIndex = action.ownerIndex;
-  const owner = state.players[ownerIndex];
-  if (!owner) return { state, error: `Invalid owner index ${ownerIndex}` };
-
-  const cardIdx = owner.cardsInPlay.findIndex(c => c.instanceId === action.cardInstanceId);
-  if (cardIdx === -1) {
-    return { state, error: 'Target card not in play' };
-  }
-
-  const targetCard = owner.cardsInPlay[cardIdx];
-  const def = state.cardPool[targetCard.definitionId as string];
-
-  if (!def || !matchesCondition(current.effect.filter, def as unknown as Record<string, unknown>)) {
-    return { state, error: 'Target card does not match discard filter' };
-  }
-
-  logDetail(`Discarding from play: ${def?.name ?? '?'} (${action.cardInstanceId as string})`);
-
-  const newOwnerCardsInPlay = [...owner.cardsInPlay];
-  newOwnerCardsInPlay.splice(cardIdx, 1);
-
-  const newPlayers = clonePlayers(state);
-  newPlayers[ownerIndex] = {
-    ...owner,
-    cardsInPlay: newOwnerCardsInPlay,
-    discardPile: [...owner.discardPile, { instanceId: targetCard.instanceId, definitionId: targetCard.definitionId }],
-  };
-
-  const remaining = state.pendingEffects.slice(1);
-  const activePlayerIndex = getPlayerIndex(state, state.activePlayer!);
-  let newState: GameState = { ...state, players: newPlayers, pendingEffects: remaining };
-
-  if (remaining.length === 0) {
-    newState = discardEventCard(newState, current.cardInstanceId, activePlayerIndex);
-  }
-
-  // Enqueue corruption check if the effect declares one and a target character was recorded.
-  // Look up the event card name from the original state (before discard).
-  if (current.effect.corruptionCheck && current.targetCharacterId) {
-    const eventCard = state.players[activePlayerIndex].cardsInPlay.find(c => c.instanceId === current.cardInstanceId);
-    const eventDefName = eventCard ? (state.cardPool[eventCard.definitionId as string]?.name ?? 'Ritual') : 'Ritual';
-    newState = enqueueResolution(newState, {
-      source: current.cardInstanceId,
-      actor: state.activePlayer!,
-      scope: { kind: 'phase' as const, phase: newState.phaseState.phase },
-      kind: {
-        type: 'corruption-check',
-        characterId: current.targetCharacterId,
-        modifier: current.effect.corruptionCheck.modifier,
-        reason: eventDefName,
-        possessions: [],
-        transferredItemId: null,
-      },
-    });
-  }
-
-  return { state: newState };
-}

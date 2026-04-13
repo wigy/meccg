@@ -330,9 +330,12 @@ The `filter` is a standard DSL condition evaluated against each card definition.
 
 ### 17. `discard-in-play`
 
-Forces the discard of an in-play card matching a filter. The player
-chooses which eligible card to discard during an interactive sub-flow
-(same mechanism as `fetch-to-deck`). Optionally enqueues a corruption
+Forces the compulsory discard of an in-play card matching a filter.
+The target is chosen at play time: the legal-action emitter produces
+one `play-short-event` action per eligible discard target (cross-product
+with any `play-target` tap target), and the reducer resolves the
+discard inline — there is no separate sub-flow. If no valid target
+exists, the card is not playable. Optionally enqueues a corruption
 check on the tapped character after resolution.
 
 ```json
@@ -348,10 +351,10 @@ check on the tapped character after resolution.
 ```
 
 The `filter` is a standard DSL condition evaluated against each card
-definition in play (both players' `cardsInPlay`). The optional
+definition in play (both players' `cardsInPlay`). The chosen target is
+carried on the action's `discardTargetInstanceId` field. The optional
 `corruptionCheck.modifier` is applied to the tapped character's
-corruption check after the discard resolves. Passing (skipping the
-discard) does not trigger the corruption check.
+corruption check after the discard resolves.
 
 ### 18. `site-rule`
 
