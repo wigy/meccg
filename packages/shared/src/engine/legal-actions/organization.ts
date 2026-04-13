@@ -724,9 +724,15 @@ function statusToken(status: CardStatus): 'tapped' | 'untapped' | 'inverted' {
 }
 
 /**
- * Builds the matcher context used to evaluate a {@link PlayOptionEffect}'s
- * `when` against a candidate target character. Exposes `target.race`,
- * `target.status`, and `target.skills` so DSL conditions can key off them.
+ * Builds the matcher context used to evaluate a {@link PlayTargetEffect}'s
+ * `filter` or a {@link PlayOptionEffect}'s `when` against a candidate
+ * target character. Exposes `target.race`, `target.status`,
+ * `target.skills`, `target.name`, and `target.corruptionPoints` so DSL
+ * conditions can gate on any of them. `corruptionPoints` reads from
+ * `effectiveStats`, i.e. the sum of item / corruption-card CP the
+ * character currently carries — enabling cards like Halfling Strength
+ * to refuse the `corruption-check-boost` option when the hobbit has
+ * nothing to be corrupted by (per CoE "no effect" rule).
  */
 function buildTargetContext(
   state: GameState,
@@ -740,6 +746,7 @@ function buildTargetContext(
       status: statusToken(char.status),
       skills: def.skills,
       name: def.name,
+      corruptionPoints: char.effectiveStats.corruptionPoints,
     },
   };
 }

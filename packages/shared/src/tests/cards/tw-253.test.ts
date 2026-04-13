@@ -16,16 +16,17 @@
  * | 2 | Option: untap tapped hobbit              | IMPLEMENTED | play-option apply:set-character-status  |
  * | 3 | Option: heal wounded hobbit              | IMPLEMENTED | play-option apply:set-character-status  |
  * | 4 | Option: +4 corruption check boost        | IMPLEMENTED | play-option apply:add-constraint        |
- * | 5 | Corruption boost consumed after check    | IMPLEMENTED | constraint cleared in pending-reducers  |
- * | 6 | Not playable without hobbits             | IMPLEMENTED | no eligible targets → not-playable      |
- * | 7 | Not playable on non-hobbits              | IMPLEMENTED | DSL filter excludes non-hobbits         |
+ * | 5 | Boost gated by target.corruptionPoints>0 | IMPLEMENTED | DSL when on target.corruptionPoints     |
+ * | 6 | Corruption boost consumed after check    | IMPLEMENTED | constraint cleared in pending-reducers  |
+ * | 7 | Not playable without hobbits             | IMPLEMENTED | no eligible targets → not-playable      |
+ * | 8 | Not playable on non-hobbits              | IMPLEMENTED | DSL filter excludes non-hobbits         |
  */
 
 import { describe, test, expect, beforeEach } from 'vitest';
 import {
   buildTestState, resetMint, Phase, reduce,
   PLAYER_1, PLAYER_2,
-  ARAGORN, LEGOLAS, BILBO, FRODO, HALFLING_STRENGTH,
+  ARAGORN, LEGOLAS, BILBO, FRODO, HALFLING_STRENGTH, PRECIOUS_GOLD_RING,
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
   pool, CardStatus,
 } from '../test-helpers.js';
@@ -57,14 +58,15 @@ describe('Halfling Strength (tw-253)', () => {
       .toEqual(['corruption-check-boost', 'heal', 'untap']);
   });
 
-  test('generates untap and corruption-check-boost actions for a tapped hobbit', () => {
+  test('generates untap and corruption-check-boost actions for a tapped hobbit carrying CP', () => {
     const base = buildTestState({
       activePlayer: PLAYER_1,
       phase: Phase.Organization,
+      recompute: true,
       players: [
         {
           id: PLAYER_1,
-          companies: [{ site: RIVENDELL, characters: [{ defId: BILBO, status: CardStatus.Tapped }] }],
+          companies: [{ site: RIVENDELL, characters: [{ defId: BILBO, status: CardStatus.Tapped, items: [PRECIOUS_GOLD_RING] }] }],
           hand: [HALFLING_STRENGTH],
           siteDeck: [MORIA],
         },
@@ -82,14 +84,15 @@ describe('Halfling Strength (tw-253)', () => {
     expect(modes).not.toContain('heal');
   });
 
-  test('generates heal and corruption-check-boost actions for a wounded hobbit', () => {
+  test('generates heal and corruption-check-boost actions for a wounded hobbit carrying CP', () => {
     const base = buildTestState({
       activePlayer: PLAYER_1,
       phase: Phase.Organization,
+      recompute: true,
       players: [
         {
           id: PLAYER_1,
-          companies: [{ site: RIVENDELL, characters: [{ defId: BILBO, status: CardStatus.Inverted }] }],
+          companies: [{ site: RIVENDELL, characters: [{ defId: BILBO, status: CardStatus.Inverted, items: [PRECIOUS_GOLD_RING] }] }],
           hand: [HALFLING_STRENGTH],
           siteDeck: [MORIA],
         },
@@ -107,14 +110,15 @@ describe('Halfling Strength (tw-253)', () => {
     expect(modes).not.toContain('untap');
   });
 
-  test('generates only corruption-check-boost for an untapped hobbit', () => {
+  test('generates only corruption-check-boost for an untapped hobbit carrying CP', () => {
     const base = buildTestState({
       activePlayer: PLAYER_1,
       phase: Phase.Organization,
+      recompute: true,
       players: [
         {
           id: PLAYER_1,
-          companies: [{ site: RIVENDELL, characters: [BILBO] }],
+          companies: [{ site: RIVENDELL, characters: [{ defId: BILBO, items: [PRECIOUS_GOLD_RING] }] }],
           hand: [HALFLING_STRENGTH],
           siteDeck: [MORIA],
         },
@@ -128,6 +132,38 @@ describe('Halfling Strength (tw-253)', () => {
 
     expect(actions).toHaveLength(1);
     expect(actions[0].optionId).toBe('corruption-check-boost');
+  });
+
+  test('corruption-check-boost is not playable on a hobbit with zero corruption points (cards-without-effect rule)', () => {
+    // Bilbo is untapped, well, and carrying nothing. No upcoming corruption
+    // check would be affected by the +4, so per CoE "cannot play cards
+    // without effect" the boost option must not appear — and since the
+    // other two options require tapped/wounded status, the card itself
+    // cannot be played at all.
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Organization,
+      recompute: true,
+      players: [
+        {
+          id: PLAYER_1,
+          companies: [{ site: RIVENDELL, characters: [BILBO] }],
+          hand: [HALFLING_STRENGTH],
+          siteDeck: [MORIA],
+        },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [MINAS_TIRITH] },
+      ],
+    });
+
+    const playActions = computeLegalActions(base, PLAYER_1)
+      .filter(ea => ea.viable && ea.action.type === 'play-short-event');
+    expect(playActions).toHaveLength(0);
+
+    const hsInstanceId = base.players[0].hand[0].instanceId;
+    const notPlayable = computeLegalActions(base, PLAYER_1)
+      .filter(ea => !ea.viable && ea.action.type === 'not-playable'
+        && (ea.action as { cardInstanceId: CardInstanceId }).cardInstanceId === hsInstanceId);
+    expect(notPlayable.length).toBeGreaterThan(0);
   });
 
   test('not playable when player has no hobbits', () => {
@@ -155,14 +191,23 @@ describe('Halfling Strength (tw-253)', () => {
     expect(notPlayable.length).toBeGreaterThan(0);
   });
 
-  test('generates actions for multiple hobbits', () => {
+  test('generates actions for multiple hobbits honoring per-hobbit CP state', () => {
     const base = buildTestState({
       activePlayer: PLAYER_1,
       phase: Phase.Organization,
+      recompute: true,
       players: [
         {
           id: PLAYER_1,
-          companies: [{ site: RIVENDELL, characters: [BILBO, { defId: FRODO, status: CardStatus.Tapped }] }],
+          companies: [{
+            site: RIVENDELL,
+            characters: [
+              // Bilbo untapped + no items (CP 0): zero options
+              BILBO,
+              // Frodo tapped + gold ring (CP 1): untap + corruption-check-boost
+              { defId: FRODO, status: CardStatus.Tapped, items: [PRECIOUS_GOLD_RING] },
+            ],
+          }],
           hand: [HALFLING_STRENGTH],
           siteDeck: [MORIA],
         },
@@ -170,13 +215,17 @@ describe('Halfling Strength (tw-253)', () => {
       ],
     });
 
+    const frodoId = base.players[0].companies[0].characters[1];
     const actions = computeLegalActions(base, PLAYER_1)
       .filter(ea => ea.viable && ea.action.type === 'play-short-event')
       .map(ea => ea.action as PlayShortEventAction);
 
-    // Bilbo (untapped): corruption-check-boost only
-    // Frodo (tapped): untap + corruption-check-boost
-    expect(actions).toHaveLength(3);
+    expect(actions).toHaveLength(2);
+    for (const a of actions) {
+      expect(a.targetCharacterId).toBe(frodoId);
+    }
+    const modes = actions.map(a => a.optionId).sort();
+    expect(modes).toEqual(['corruption-check-boost', 'untap']);
   });
 
   test('playing untap mode untaps the hobbit and discards the card', () => {
@@ -247,10 +296,11 @@ describe('Halfling Strength (tw-253)', () => {
     const base = buildTestState({
       activePlayer: PLAYER_1,
       phase: Phase.Organization,
+      recompute: true,
       players: [
         {
           id: PLAYER_1,
-          companies: [{ site: RIVENDELL, characters: [BILBO] }],
+          companies: [{ site: RIVENDELL, characters: [{ defId: BILBO, items: [PRECIOUS_GOLD_RING] }] }],
           hand: [HALFLING_STRENGTH],
           siteDeck: [MORIA],
         },
