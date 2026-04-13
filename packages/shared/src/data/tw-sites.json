@@ -546,6 +546,9 @@
       "major",
       "greater"
     ],
+    "playableItemRestrictions": {
+      "greater": ["Scroll of Isildur"]
+    },
     "automaticAttacks": [
       {
         "creatureType": "Undead",
@@ -556,7 +559,15 @@
     "resourceDraws": 2,
     "hazardDraws": 2,
     "text": "Nearest Haven: Edhellond. Playable: Items (minor, major, greater*) *-Scroll of Isildur only. Automatic-attacks: Undead — 3 strikes with 7 prowess; each character wounded must make a corruption check.",
-    "effects": []
+    "effects": [
+      {
+        "type": "on-event",
+        "event": "character-wounded-by-self",
+        "apply": { "type": "force-check", "check": "corruption" },
+        "target": "wounded-character"
+      }
+    ],
+    "certified": "2026-04-13"
   },
   {
     "cardType": "hero-site",

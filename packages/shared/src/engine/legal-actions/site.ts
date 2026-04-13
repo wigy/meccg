@@ -460,6 +460,19 @@ function playResourcesActions(
         continue;
       }
 
+      if (siteDef && isSiteCard(siteDef) && siteDef.playableItemRestrictions) {
+        const allowed = siteDef.playableItemRestrictions[itemDef.subtype];
+        if (allowed && !allowed.includes(itemDef.name)) {
+          logDetail(`Item ${itemDef.name} (${itemDef.subtype}): restricted at ${siteName} — only ${allowed.join(', ')} allowed`);
+          actions.push({
+            action: { type: 'not-playable', player: playerId, cardInstanceId },
+            viable: false,
+            reason: `${itemDef.name}: only ${allowed.join(', ')} can be played as ${itemDef.subtype} at ${siteName}`,
+          });
+          continue;
+        }
+      }
+
       if (untappedCharacters.length === 0) {
         logDetail(`Item ${itemDef.name}: no untapped character to carry it`);
         actions.push({
