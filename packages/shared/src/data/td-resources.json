@@ -9,8 +9,25 @@
     "eventType": "short",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
-    "text": "Untap a character in your Wizard's company."
+    "effects": [
+      {
+        "type": "play-target",
+        "target": "character",
+        "filter": {
+          "$and": [
+            { "target.status": "tapped" },
+            { "target.inAvatarCompany": true }
+          ]
+        }
+      },
+      {
+        "type": "play-option",
+        "id": "untap",
+        "apply": { "type": "set-character-status", "status": "untapped" }
+      }
+    ],
+    "text": "Untap a character in your Wizard's company.",
+    "certified": "2026-04-14"
   },
   {
     "cardType": "hero-resource-event",

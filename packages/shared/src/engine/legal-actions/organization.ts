@@ -28,6 +28,7 @@ import type { PlayTargetEffect, PlayOptionEffect } from '../../types/effects.js'
 import { matchesCondition } from '../../effects/condition-matcher.js';
 import { logDetail, logHeading } from './log.js';
 import { resolveDef, collectCharacterEffects, resolveStatModifiers } from '../effects/index.js';
+import { findPlayerAvatar } from '../reducer-utils.js';
 import type { ResolverContext } from '../effects/index.js';
 import { resolveInstanceId } from '../../types/state.js';
 import { isRegressive } from '../reverse-actions.js';
@@ -787,7 +788,7 @@ export function endOfOrgEligibility(
       const charDef = state.cardPool[char.definitionId as string];
       if (!charDef || !isCharacterCard(charDef)) continue;
       if (playTarget.filter
-          && !matchesCondition(playTarget.filter, buildTargetContext(state, char))) {
+          && !matchesCondition(playTarget.filter, buildTargetContext(state, char, player))) {
         continue;
       }
       matchesInCompany.push(charInstId);
@@ -847,6 +848,9 @@ function statusToken(status: CardStatus): 'tapped' | 'untapped' | 'inverted' {
  *
  *  - `target.race`, `target.status`, `target.skills`, `target.name` —
  *    per-character attributes for filtering.
+ *  - `target.inAvatarCompany` — `true` iff the character belongs to the
+ *    same company as the player's avatar (wizard/ringwraith/etc.).
+ *    Requires the `player` parameter to be passed.
  *  - `pending.corruptionCheckTargetsMe` — `true` iff a pending
  *    corruption-check resolution exists whose `characterId` matches
  *    the candidate. Enables reactive plays like Halfling Strength's
@@ -861,6 +865,7 @@ function statusToken(status: CardStatus): 'tapped' | 'untapped' | 'inverted' {
 export function buildPlayOptionContext(
   state: GameState,
   char: import('../../index.js').CharacterInPlay,
+  player?: PlayerState,
 ): Record<string, unknown> {
   const def = state.cardPool[char.definitionId as string];
   if (!def || !isCharacterCard(def)) {
@@ -869,12 +874,23 @@ export function buildPlayOptionContext(
   const corruptionCheckTargetsMe = state.pendingResolutions.some(
     r => r.kind.type === 'corruption-check' && r.kind.characterId === char.instanceId,
   );
+  let inAvatarCompany = false;
+  if (player) {
+    const avatar = findPlayerAvatar(state, player);
+    if (avatar) {
+      const co = player.companies.find(c => c.characters.includes(avatar.instanceId));
+      if (co && co.characters.includes(char.instanceId)) {
+        inAvatarCompany = true;
+      }
+    }
+  }
   return {
     target: {
       race: def.race,
       status: statusToken(char.status),
       skills: def.skills,
       name: def.name,
+      inAvatarCompany,
     },
     pending: {
       corruptionCheckTargetsMe,
@@ -886,8 +902,9 @@ export function buildPlayOptionContext(
 function buildTargetContext(
   state: GameState,
   char: import('../../index.js').CharacterInPlay,
+  player?: PlayerState,
 ): Record<string, unknown> {
-  return buildPlayOptionContext(state, char);
+  return buildPlayOptionContext(state, char, player);
 }
 
 /**
@@ -908,7 +925,7 @@ function eligiblePlayOptionTargets(
     const charDef = state.cardPool[char.definitionId as string];
     if (!charDef || !isCharacterCard(charDef)) continue;
     if (playTarget.filter
-        && !matchesCondition(playTarget.filter, buildTargetContext(state, char))) {
+        && !matchesCondition(playTarget.filter, buildTargetContext(state, char, player))) {
       continue;
     }
     out.push(charIdStr as unknown as CardInstanceId);
@@ -939,7 +956,7 @@ function playOptionActionsForCard(
     if (!char) continue;
     const charDef = state.cardPool[char.definitionId as string];
     const targetName = isCharacterCard(charDef) ? charDef.name : String(targetId);
-    const ctx = buildTargetContext(state, char);
+    const ctx = buildTargetContext(state, char, player);
     for (const opt of options) {
       if (opt.when && !matchesCondition(opt.when, ctx)) {
         logDetail(`${def.name} on ${targetName}: option "${opt.id}" when-condition rejected`);

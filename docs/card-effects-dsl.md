@@ -307,7 +307,7 @@ Character targeting is driven entirely by the DSL: the coarse `target`
 category picks the scope (each character in scope is a candidate) and
 an optional `filter` {@link Condition} refines it further. The filter
 is evaluated against the per-candidate context
-`{ target: { race, status, skills, name } }`, so there are no
+`{ target: { race, status, skills, name, inAvatarCompany } }`, so there are no
 card-specific target keywords in the engine — a card declares its
 audience directly via a condition expression.
 

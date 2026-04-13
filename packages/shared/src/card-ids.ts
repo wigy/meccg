@@ -153,6 +153,8 @@ export const CONCEALMENT = did('tw-204');
 export const DODGE = did('tw-209');
 /** Dark Quarrels — short event, cancel one attack by Orcs/Trolls/Men or halve strikes if Gates of Morning in play. */
 export const DARK_QUARRELS = did('tw-207');
+/** And Forth He Hastened — short event, untap a character in your Wizard's company. */
+export const AND_FORTH_HE_HASTENED = did('td-98');
 /** Marvels Told — ritual short event, tap a sage to discard a hazard non-environment permanent/long-event. */
 export const MARVELS_TOLD = did('td-134');
 /** Wizard's Laughter — spell short event, wizard only, cancels an influence check. */
