@@ -127,6 +127,9 @@ export function handleOrganization(state: GameState, action: GameAction): Reduce
   if (action.type === 'transfer-item') {
     return handleTransferItem(state, action);
   }
+  if (action.type === 'store-item') {
+    return handleStoreItem(state, action);
+  }
   if (action.type === 'split-company') {
     return handleSplitCompany(state, action);
   }
@@ -529,12 +532,75 @@ function handleTransferItem(state: GameState, action: GameAction): ReducerResult
 }
 
 /**
- * Handle start-sideboard-to-deck / start-sideboard-to-discard during organization.
+ * Handle store-item during organization.
  *
- * Taps the avatar and enters the sideboard sub-flow by setting the destination
- * in the organization phase state. No card is moved yet.
+ * Moves an item from a character to the player's out-of-play pile. The
+ * character must be at a site matching the item's storable-at effect.
+ * Stored items continue to earn marshalling points (via the item's
+ * `storable-at` effect); the initial bearer makes a corruption check.
  */
+function handleStoreItem(state: GameState, action: GameAction): ReducerResult {
+  if (action.type !== 'store-item') return { state, error: 'Expected store-item action' };
 
+  const playerIndex = getPlayerIndex(state, action.player);
+  const player = state.players[playerIndex];
+
+  const charId = action.characterId;
+  const itemInstId = action.itemInstanceId;
+
+  const char = player.characters[charId as string];
+  if (!char) return { state, error: 'Character not found' };
+
+  const itemIndex = char.items.findIndex(i => i.instanceId === itemInstId);
+  if (itemIndex < 0) return { state, error: 'Item not found on character' };
+
+  const item = char.items[itemIndex];
+  const itemDef = state.cardPool[item.definitionId as string];
+  const charDefId = resolveInstanceId(state, charId);
+  const charDef = charDefId ? state.cardPool[charDefId as string] : undefined;
+  logDetail(`Store item: ${itemDef?.name ?? '?'} from ${charDef?.name ?? '?'}`);
+
+  const newCharacters = { ...player.characters };
+  newCharacters[charId as string] = {
+    ...char,
+    items: char.items.filter(i => i.instanceId !== itemInstId),
+  };
+
+  const storedCard: CardInstance = {
+    instanceId: item.instanceId,
+    definitionId: item.definitionId,
+  };
+
+  const newPlayers = clonePlayers(state);
+  newPlayers[playerIndex] = {
+    ...player,
+    characters: newCharacters,
+    outOfPlayPile: [...player.outOfPlayPile, storedCard],
+  };
+
+  logDetail(`Enqueuing corruption check for ${charDef?.name ?? '?'} after item storage`);
+
+  const stateAfterStore: GameState = {
+    ...state,
+    players: newPlayers,
+  };
+
+  return {
+    state: enqueueResolution(stateAfterStore, {
+      source: itemInstId,
+      actor: action.player,
+      scope: { kind: 'phase', phase: Phase.Organization },
+      kind: {
+        type: 'corruption-check',
+        characterId: charId,
+        modifier: 0,
+        reason: 'Store',
+        possessions: [],
+        transferredItemId: null,
+      },
+    }),
+  };
+}
 
 /**
  * Handle start-sideboard-to-deck / start-sideboard-to-discard during organization.

@@ -641,7 +641,7 @@ export class GameSession {
       countInstances(player.siteDiscardPile);
       countInstances(player.sideboard);
       countInstances(player.killPile);
-      countInstances(player.eliminatedPile);
+      countInstances(player.outOfPlayPile);
     }
     const newInstanceId = `i-${maxCounter + 1}` as CardInstanceId;
     const definitionId = matchDefId as CardDefinitionId;

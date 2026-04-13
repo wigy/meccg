@@ -310,8 +310,11 @@
     "playableAt": [
       "ruins-and-lairs"
     ],
-    "effects": [],
-    "text": "Not playable in a Shadow-hold or Dark-hold. May be stored at Minas Tirith. 2 marshalling points if stored at Minas Tirith."
+    "effects": [
+      { "type": "storable-at", "sites": ["Minas Tirith"], "marshallingPoints": 2 }
+    ],
+    "text": "Not playable in a Shadow-hold or Dark-hold. May be stored at Minas Tirith. 2 marshalling points if stored at Minas Tirith.",
+    "certified": "2026-04-13"
   },
   {
     "cardType": "hero-resource-item",

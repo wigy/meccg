@@ -637,7 +637,7 @@ function handleBodyCheckRoll(state: GameState, action: GameAction, combat: Comba
       }
       // Move character to eliminated pile
       const elimCharDefId = resolveInstanceId(state, strike.characterId);
-      newPlayerData.eliminatedPile = [...newPlayerData.eliminatedPile, { instanceId: strike.characterId, definitionId: elimCharDefId! }];
+      newPlayerData.outOfPlayPile = [...newPlayerData.outOfPlayPile, { instanceId: strike.characterId, definitionId: elimCharDefId! }];
 
       // Discard allies and hazards on the eliminated character immediately
       for (const ally of charData.allies) {

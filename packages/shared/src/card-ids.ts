@@ -97,6 +97,8 @@ export const CRAM = did('td-105');
 export const SCROLL_OF_ISILDUR = did('tw-323');
 /** Palantír of Orthanc — special item, palantír, playable only at Isengard. */
 export const PALANTIR_OF_ORTHANC = did('tw-300');
+/** Sapling of the White Tree — major item, storable at Minas Tirith for 2 MP. */
+export const SAPLING_OF_THE_WHITE_TREE = did('tw-322');
 
 // ---- Allies ----
 

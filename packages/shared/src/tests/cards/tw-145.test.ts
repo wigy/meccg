@@ -118,7 +118,7 @@ describe('Elrond (tw-145)', () => {
     const stateWithEliminated = recomputeDerived({
       ...state,
       players: [
-        { ...state.players[0], eliminatedPile: [elrondInstance] },
+        { ...state.players[0], outOfPlayPile: [elrondInstance] },
         state.players[1],
       ],
     });

@@ -122,7 +122,7 @@ describe('Aragorn II (tw-120)', () => {
       ...state,
       players: state.players.map((p, i) =>
         i === 0
-          ? { ...p, eliminatedPile: [aragornInst] }
+          ? { ...p, outOfPlayPile: [aragornInst] }
           : p,
       ) as unknown as typeof state.players,
     };

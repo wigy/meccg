@@ -54,8 +54,13 @@ export interface PlayerState {
   readonly sideboard: readonly CardInstance[];
   /** Defeated creature cards earning kill marshalling points. */
   readonly killPile: readonly CardInstance[];
-  /** Cards removed from the game (e.g. characters eliminated by failed corruption checks). */
-  readonly eliminatedPile: readonly CardInstance[];
+  /**
+   * Cards that are no longer in play but still tracked for marshalling points.
+   * Holds eliminated characters (MP-modifier effects) and items stored at
+   * sites for safekeeping (stored items continue to earn MP via their
+   * `storable-at` effect).
+   */
+  readonly outOfPlayPile: readonly CardInstance[];
   /** All companies this player controls on the map. */
   readonly companies: readonly Company[];
   /** All characters this player has in play, keyed by their CardInstanceId for fast lookup. */

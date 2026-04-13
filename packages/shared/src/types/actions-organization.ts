@@ -132,6 +132,24 @@ export interface TransferItemAction {
 }
 
 /**
+ * Store an item at the current site during the Organization phase.
+ *
+ * Per MECCG rules, items with a storable-at effect can be moved from
+ * a character to the player's stored-items pile when the character is
+ * at a matching site. The item earns marshalling points safely, and
+ * the initial bearer must make a corruption check.
+ */
+export interface StoreItemAction {
+  readonly type: 'store-item';
+  /** The player storing the item. */
+  readonly player: PlayerId;
+  /** The item card instance being stored. */
+  readonly itemInstanceId: CardInstanceId;
+  /** The character currently holding the item. */
+  readonly characterId: CardInstanceId;
+}
+
+/**
  * Set a company's destination site for this turn.
  *
  * Movement is planned during Organization but resolved during the

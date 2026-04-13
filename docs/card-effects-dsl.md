@@ -427,6 +427,22 @@ in the `sites` list. Implemented in `legal-actions/site.ts`.
 { "type": "item-play-site", "sites": ["Isengard"] }
 ```
 
+### 21. `storable-at`
+
+Declares that an item can be stored at specific named sites during the
+Organization phase. Storing moves the item from the character to the
+player's stored-items pile, where it earns marshalling points safely.
+After storage the initial bearer makes a corruption check.
+
+When `marshallingPoints` is present, the stored item uses that value
+instead of the card's base MP. Implemented in
+`legal-actions/organization-companies.ts` (legal action),
+`reducer-organization.ts` (handler), and `recompute-derived.ts` (MP).
+
+```json
+{ "type": "storable-at", "sites": ["Minas Tirith"], "marshallingPoints": 2 }
+```
+
 ### Grant-Action: `palantir-fetch-discard`
 
 Tap the Palantír item to choose one card from the player's discard pile
@@ -761,5 +777,13 @@ Supported `apply` kinds today:
       { "bearer.canUsePalantir": true },
       { "player.playDeckSize": { "$gte": 5 } }
     ] } }
+]
+```
+
+### Sapling of the White Tree
+
+```json
+"effects": [
+  { "type": "storable-at", "sites": ["Minas Tirith"], "marshallingPoints": 2 }
 ]
 ```

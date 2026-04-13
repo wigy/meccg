@@ -90,7 +90,7 @@ export class GameLog {
    * Instance mappings are collected by scanning all player piles, characters,
    * items, allies, companies, and events in the game state.
    */
-  writeStaticData(cardPool: Record<string, unknown>, state: { players: readonly { hand: readonly { instanceId: string; definitionId: string }[]; playDeck: readonly { instanceId: string; definitionId: string }[]; discardPile: readonly { instanceId: string; definitionId: string }[]; siteDeck: readonly { instanceId: string; definitionId: string }[]; siteDiscardPile: readonly { instanceId: string; definitionId: string }[]; sideboard: readonly { instanceId: string; definitionId: string }[]; killPile: readonly { instanceId: string; definitionId: string }[]; eliminatedPile: readonly { instanceId: string; definitionId: string }[]; characters: Record<string, { instanceId: string; definitionId: string; items: readonly { instanceId: string; definitionId: string }[]; allies: readonly { instanceId: string; definitionId: string }[] }>; companies: readonly { currentSite: { instanceId: string; definitionId: string } | null }[]; cardsInPlay: readonly { instanceId: string; definitionId: string }[] }[] }): void {
+  writeStaticData(cardPool: Record<string, unknown>, state: { players: readonly { hand: readonly { instanceId: string; definitionId: string }[]; playDeck: readonly { instanceId: string; definitionId: string }[]; discardPile: readonly { instanceId: string; definitionId: string }[]; siteDeck: readonly { instanceId: string; definitionId: string }[]; siteDiscardPile: readonly { instanceId: string; definitionId: string }[]; sideboard: readonly { instanceId: string; definitionId: string }[]; killPile: readonly { instanceId: string; definitionId: string }[]; outOfPlayPile: readonly { instanceId: string; definitionId: string }[]; characters: Record<string, { instanceId: string; definitionId: string; items: readonly { instanceId: string; definitionId: string }[]; allies: readonly { instanceId: string; definitionId: string }[] }>; companies: readonly { currentSite: { instanceId: string; definitionId: string } | null }[]; cardsInPlay: readonly { instanceId: string; definitionId: string }[] }[] }): void {
     if (!this.currentGameId) return;
     // Compact instance map: { "i-0": "tw-156", ... }
     const instances: Record<string, string> = {};
@@ -108,7 +108,7 @@ export class GameLog {
       addPile(player.siteDiscardPile);
       addPile(player.sideboard);
       addPile(player.killPile);
-      addPile(player.eliminatedPile);
+      addPile(player.outOfPlayPile);
       for (const char of Object.values(player.characters)) {
         addCard(char);
         addPile(char.items);
