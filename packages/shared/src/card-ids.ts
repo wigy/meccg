@@ -157,6 +157,10 @@ export const DARK_QUARRELS = did('tw-207');
 export const AND_FORTH_HE_HASTENED = did('td-98');
 /** Marvels Told — ritual short event, tap a sage to discard a hazard non-environment permanent/long-event. */
 export const MARVELS_TOLD = did('td-134');
+/** Wizard's Laughter — spell short event, wizard only, cancels an influence check. */
+export const WIZARDS_LAUGHTER = did('tw-362');
+/** Vanishment — spell short event, wizard only, cancels an attack. */
+export const VANISHMENT = did('tw-356');
 
 // ---- Hazard Events ----
 
