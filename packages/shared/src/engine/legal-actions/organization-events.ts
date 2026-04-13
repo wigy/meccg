@@ -14,6 +14,7 @@ import type {
   HeroResourceEventCard,
   HazardEventCard,
 } from '../../index.js';
+import { hasPlayFlag } from '../../index.js';
 import { logDetail } from './log.js';
 
 /**
@@ -96,8 +97,8 @@ export function playShortEventActions(state: GameState, playerId: PlayerId): Eva
     const def = state.cardPool[handCard.definitionId as string] as HazardEventCard | undefined;
     if (!def || def.cardType !== 'hazard-event' || def.eventType !== 'short') continue;
 
-    // Only cards with the playable-as-resource effect
-    if (!def.effects?.some(e => e.type === 'play-restriction' && e.rule === 'playable-as-resource')) continue;
+    // Only cards with the playable-as-resource flag
+    if (!hasPlayFlag(def, 'playable-as-resource')) continue;
 
     // Find environment cards — in a player's cardsInPlay (permanent events
     // like Doors of Night / Gates of Morning), or declared earlier in the

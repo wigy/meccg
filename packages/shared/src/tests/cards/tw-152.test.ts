@@ -46,8 +46,8 @@ describe('Frodo (tw-152)', () => {
     expect(def.homesite).toBe('Bag End');
     expect(def.effects).toHaveLength(2);
     expect(def.effects![0]).toEqual({
-      type: 'play-restriction',
-      rule: 'home-site-only',
+      type: 'play-flag',
+      flag: 'home-site-only',
       when: { $not: { reason: 'starting-character' } },
     });
     expect(def.effects![1]).toEqual({
@@ -183,13 +183,13 @@ describe('Frodo (tw-152)', () => {
     expect(viable).toHaveLength(0);
   });
 
-  test('home-site-only restriction has condition excluding starting characters', () => {
-    // The restriction's when clause excludes the "starting-character" reason,
+  test('home-site-only flag has condition excluding starting characters', () => {
+    // The flag's when clause excludes the "starting-character" reason,
     // so starting characters bypass it (placed at haven during setup).
     const def = pool[FRODO as string] as CharacterCard;
-    const restriction = def.effects!.find(e => e.type === 'play-restriction');
-    expect(restriction).toBeDefined();
-    expect(restriction!.when).toEqual({ $not: { reason: 'starting-character' } });
+    const flag = def.effects!.find(e => e.type === 'play-flag');
+    expect(flag).toBeDefined();
+    expect(flag!.when).toEqual({ $not: { reason: 'starting-character' } });
   });
 
   test('-2 marshalling points when eliminated', () => {

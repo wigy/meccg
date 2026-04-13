@@ -6,3 +6,4 @@
  */
 
 export { matchesCondition } from './condition-matcher.js';
+export { hasPlayFlag } from './play-flags.js';

@@ -14,7 +14,7 @@
  */
 
 import type { GameState, PlayerId, EvaluatedAction, PassChainPriorityAction, CardInstanceId, HazardEventCard } from '../../index.js';
-import { Phase, getPlayerIndex } from '../../index.js';
+import { Phase, getPlayerIndex, hasPlayFlag } from '../../index.js';
 import { logDetail } from './log.js';
 
 /**
@@ -76,7 +76,7 @@ function playShortEventChainActions(state: GameState, playerId: PlayerId): Evalu
     const cardInstanceId = handCard.instanceId;
     const def = state.cardPool[handCard.definitionId as string] as HazardEventCard | undefined;
     if (!def || def.cardType !== 'hazard-event' || def.eventType !== 'short') continue;
-    if (!def.effects?.some(e => e.type === 'play-restriction' && e.rule === 'playable-as-resource')) continue;
+    if (!hasPlayFlag(def, 'playable-as-resource')) continue;
 
     // Collect environment targets
     const isEnv = (defId: string): boolean => {

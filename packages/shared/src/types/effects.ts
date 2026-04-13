@@ -359,15 +359,33 @@ export interface CombatRuleEffect extends EffectBase {
 }
 
 /**
- * Constrains when or where a card can enter play.
+ * Closed set of presence-only flags that toggle uniform play-time
+ * behaviors in the engine. Each flag is a single keyword, matched
+ * exactly — no card-specific dispatch, just "does the card declare
+ * this flag?". Adding a new flag means extending this union in one
+ * place plus the engine code that consumes it.
  *
- * Example: Frodo can only be played at his home site
- * (unless he is a starting character).
+ * - `home-site-only` — character can only be played at its own homesite
+ *   (not at havens or other companies). Frodo and Sam carry this.
+ *   The effect's optional `when` clause gates whether the flag is
+ *   active in a given context (e.g. Frodo's flag is inactive when
+ *   placed as a starting character).
+ * - `playable-as-resource` — a hazard card may also be played through
+ *   resource menus to cancel an environment (e.g. Twilight).
+ * - `no-hazard-limit` — playing this hazard does not consume a slot
+ *   against the per-company hazard limit (e.g. Twilight, Lure).
  */
-export interface PlayRestrictionEffect extends EffectBase {
-  readonly type: 'play-restriction';
-  /** The restriction rule identifier. */
-  readonly rule: string;
+export type PlayFlag = 'home-site-only' | 'playable-as-resource' | 'no-hazard-limit';
+
+/**
+ * Declares a closed play-flag keyword on a card. See {@link PlayFlag}
+ * for the set of recognized flags and their semantics. Presence of the
+ * effect (optionally gated by `when`) is the entire payload — there is
+ * no per-card dispatch in the engine.
+ */
+export interface PlayFlagEffect extends EffectBase {
+  readonly type: 'play-flag';
+  readonly flag: PlayFlag;
 }
 
 /**
@@ -580,7 +598,7 @@ export type CardEffect =
   | CancelAttackEffect
   | HalveStrikesEffect
   | CombatRuleEffect
-  | PlayRestrictionEffect
+  | PlayFlagEffect
   | DuplicationLimitEffect
   | PlayTargetEffect
   | PlayOptionEffect
