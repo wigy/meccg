@@ -469,7 +469,7 @@ function endCompanyMH(state: GameState, mhState: MovementHazardPhaseState): Redu
       destinationSite: null,
       moved: true,
       siteOfOrigin: null,
-      siteCardOwned: sharedDestinationOwner ? false : company.siteCardOwned,
+      siteCardOwned: sharedDestinationOwner ? false : true,
     };
 
     if (sharedDestinationOwner) {
