@@ -70,6 +70,62 @@ describe('Rule 3.39 — Movement to Existing Site', () => {
     expect(moriaCompany.currentSite?.instanceId).toBe(moriaInstanceId);
   });
 
+  test('plan-movement may target a site already declared as a sibling destinationSite (rule 3.37)', () => {
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Organization,
+      players: [
+        {
+          id: PLAYER_1,
+          companies: [
+            { site: MORIA, characters: [ARAGORN] },
+            { site: LORIEN, characters: [LEGOLAS] },
+          ],
+          hand: [],
+          // Minas Tirith is in the deck; Moria and Lorien are not.
+          siteDeck: [MINAS_TIRITH],
+        },
+        { id: PLAYER_2, companies: [{ site: RIVENDELL, characters: [GIMLI] }], hand: [], siteDeck: [] },
+      ],
+    });
+
+    const minasTirithInst = state.players[0].siteDeck[0].instanceId;
+    const moriaCompanyId = state.players[0].companies[0].id;
+    const lorienCompanyId = state.players[0].companies[1].id;
+
+    // Step 1: the Moria company draws Minas Tirith from the deck.
+    const firstPlan = viableActions(state, PLAYER_1, 'plan-movement').find(ea => {
+      const a = ea.action as PlanMovementAction;
+      return a.companyId === moriaCompanyId && a.destinationSite === minasTirithInst;
+    })!;
+    expect(firstPlan).toBeDefined();
+    const afterFirst = reduce(state, firstPlan.action);
+    expect(afterFirst.error).toBeUndefined();
+    // Deck no longer contains Minas Tirith; it is now the Moria company's destinationSite.
+    expect(afterFirst.state.players[0].siteDeck).toHaveLength(0);
+    expect(afterFirst.state.players[0].companies[0].destinationSite?.instanceId).toBe(minasTirithInst);
+
+    // Step 2: the Lorien company should now be able to target Minas Tirith via
+    // the Moria company's pending destinationSite (rule 3.37 "already in play
+    // as the destination site for a different company").
+    const secondPlans = viableActions(afterFirst.state, PLAYER_1, 'plan-movement');
+    const lorienToMT = secondPlans.find(ea => {
+      const a = ea.action as PlanMovementAction;
+      return a.companyId === lorienCompanyId && a.destinationSite === minasTirithInst;
+    });
+    expect(lorienToMT).toBeDefined();
+
+    const afterSecond = reduce(afterFirst.state, lorienToMT!.action);
+    expect(afterSecond.error).toBeUndefined();
+
+    // Site deck is still empty — the second plan shared the instance, no draw.
+    expect(afterSecond.state.players[0].siteDeck).toHaveLength(0);
+
+    // Both companies now have the same destinationSite instance.
+    expect(afterSecond.state.players[0].companies[0].destinationSite?.instanceId).toBe(minasTirithInst);
+    expect(afterSecond.state.players[0].companies[1].destinationSite?.instanceId).toBe(minasTirithInst);
+  });
+
   test('cancel-movement does not re-add a shared in-play destination to the site deck', () => {
     const state = buildTestState({
       activePlayer: PLAYER_1,

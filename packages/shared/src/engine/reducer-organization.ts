@@ -1426,16 +1426,23 @@ function handlePlanMovement(state: GameState, action: GameAction): ReducerResult
   if (company.destinationSite) return { state, error: 'Company already has planned movement' };
 
   const deckCard = player.siteDeck.find(c => c.instanceId === action.destinationSite);
-  // Rule 2.II.7.2: the destination may be another of this player's companies'
-  // currentSite. In that case the site is not drawn from the site deck.
+  // Rules 3.37 / 3.39: the destination may be another of this player's
+  // companies' currentSite or pending destinationSite. In that case the
+  // site is not drawn from the site deck.
   const sharedWith = deckCard
     ? null
     : player.companies.find(
         c => c.id !== action.companyId
-          && c.currentSite?.instanceId === action.destinationSite,
+          && (c.currentSite?.instanceId === action.destinationSite
+            || c.destinationSite?.instanceId === action.destinationSite),
       );
+  const sharedSite = sharedWith
+    ? (sharedWith.currentSite?.instanceId === action.destinationSite
+      ? sharedWith.currentSite
+      : sharedWith.destinationSite)
+    : null;
 
-  if (!deckCard && !sharedWith) {
+  if (!deckCard && !sharedSite) {
     return { state, error: 'Destination site not in site deck and not in play' };
   }
 
@@ -1469,8 +1476,8 @@ function handlePlanMovement(state: GameState, action: GameAction): ReducerResult
     companies[companyIdx] = {
       ...company,
       destinationSite: {
-        instanceId: sharedWith!.currentSite!.instanceId,
-        definitionId: sharedWith!.currentSite!.definitionId,
+        instanceId: sharedSite!.instanceId,
+        definitionId: sharedSite!.definitionId,
         status: CardStatus.Untapped,
       },
       movementPath: [],
@@ -1515,13 +1522,16 @@ function handleCancelMovement(state: GameState, action: GameAction): ReducerResu
   const company = player.companies[companyIdx];
   if (!company.destinationSite) return { state, error: 'Company has no planned movement' };
 
-  // Rule 2.II.7.2: if the destination is still in play at another sibling
-  // company (either because it was shared-planned, or because a sibling is
-  // actually there right now), the site was never pulled from the site deck —
-  // don't push it back.
+  // Rules 3.37 / 3.39: if the destination is still in play at another
+  // sibling company (as its currentSite or as its pending destinationSite),
+  // the card instance must stay in play — don't push it back to the site
+  // deck. Note this cancels only the sibling relationship for *this*
+  // company; the physical card was drawn exactly once, by whichever
+  // company actually took it from the deck.
   const siblingStillHasIt = player.companies.some(
     c => c.id !== company.id
-      && c.currentSite?.instanceId === company.destinationSite!.instanceId,
+      && (c.currentSite?.instanceId === company.destinationSite!.instanceId
+        || c.destinationSite?.instanceId === company.destinationSite!.instanceId),
   );
 
   const companies = [...player.companies];
