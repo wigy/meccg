@@ -156,6 +156,48 @@ export function setFactionInfluenceRenderCache(cache: typeof factionInfluenceRen
   factionInfluenceRenderCache = cache;
 }
 
+// ---- Resource/item play selection ----
+
+/**
+ * Selected resource/item instance ID for the two-step play-resource flow.
+ * When a player clicks a playable resource or item in the hand arc, the
+ * instance ID is stored here and the company view highlights untapped characters.
+ */
+let selectedResourceInstanceId: CardInstanceId | null = null;
+
+/** Returns the currently selected resource instance ID for the play-resource flow. */
+export function getSelectedResourceForPlay(): CardInstanceId | null {
+  return selectedResourceInstanceId;
+}
+
+/** Set the selected resource instance ID for the play-resource flow. */
+export function setSelectedResourceForPlay(id: CardInstanceId | null): void {
+  selectedResourceInstanceId = id;
+}
+
+/** Clear the resource play selection (called by company-block after action is sent). */
+export function clearResourcePlaySelection(): void {
+  selectedResourceInstanceId = null;
+  setTargetingInstruction(null);
+}
+
+/** Cached arguments for re-rendering during resource play target selection. */
+let resourcePlayRenderCache: {
+  view: PlayerView;
+  cardPool: Readonly<Record<string, CardDefinition>>;
+  onAction: (action: GameAction) => void;
+} | null = null;
+
+/** Get the cached resource play render arguments. */
+export function getResourcePlayRenderCache(): typeof resourcePlayRenderCache {
+  return resourcePlayRenderCache;
+}
+
+/** Set the cached resource play render arguments. */
+export function setResourcePlayRenderCache(cache: typeof resourcePlayRenderCache): void {
+  resourcePlayRenderCache = cache;
+}
+
 // ---- Ally play selection ----
 
 /**
