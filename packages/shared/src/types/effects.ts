@@ -325,14 +325,26 @@ export interface CancelStrikeEffect extends EffectBase {
 }
 
 /**
+ * Closed set of combat-mechanics overrides a creature card can declare.
+ * Every known override is listed here; the chain reducer dispatches on
+ * `rule` against this union with full type safety. Adding a new override
+ * is a one-line union extension plus the matching reducer branch — no
+ * opaque strings to chase through the engine.
+ */
+export type CombatRule =
+  | 'attacker-chooses-defenders'
+  | 'multi-attack'
+  | 'cancel-attack-by-tap';
+
+/**
  * Overrides a combat mechanic.
  *
  * Example: Cave-drake — attacker chooses defending characters.
  */
 export interface CombatRuleEffect extends EffectBase {
   readonly type: 'combat-rule';
-  /** The combat rule override identifier. */
-  readonly rule: string;
+  /** The combat rule override. */
+  readonly rule: CombatRule;
   /**
    * For `multi-attack`: how many separate attacks the creature makes,
    * all against the same target character. Each attack uses the creature's
