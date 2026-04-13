@@ -227,7 +227,7 @@ function applyCorruptionCheckResolution(
       }
     }
 
-    const newEliminatedPile = [...player.eliminatedPile, { instanceId: characterId, definitionId: char.definitionId }];
+    const newOutOfPlayPile = [...player.outOfPlayPile, { instanceId: characterId, definitionId: char.definitionId }];
     const newDiscardPile = [
       ...player.discardPile,
       ...action.possessions.map(id => ({ instanceId: id, definitionId: resolveInstanceId(state, id)! })),
@@ -237,7 +237,7 @@ function applyCorruptionCheckResolution(
       ...playersAfterRoll[playerIndex],
       characters: newCharacters,
       companies: newCompanies,
-      eliminatedPile: newEliminatedPile,
+      outOfPlayPile: newOutOfPlayPile,
       discardPile: newDiscardPile,
     };
   }

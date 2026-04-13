@@ -611,6 +611,21 @@ export interface DodgeStrikeEffect extends EffectBase {
 }
 
 /**
+ * Declares that an item can be stored at specific named sites during the
+ * Organization phase. Storing moves the item from the character to the
+ * player's stored-items pile, where it earns marshalling points safely.
+ *
+ * Example: Sapling of the White Tree — storable at Minas Tirith for 2 MP.
+ */
+export interface StorableAtEffect extends EffectBase {
+  readonly type: 'storable-at';
+  /** Site names where the item can be stored. */
+  readonly sites: readonly string[];
+  /** Override marshalling points when stored (replaces the card's base MP). */
+  readonly marshallingPoints?: number;
+}
+
+/**
  * Discriminated union of all card effect types.
  * The `type` field serves as the discriminant for type narrowing.
  */
@@ -637,4 +652,5 @@ export type CardEffect =
   | FetchToDeckEffect
   | DiscardInPlayEffect
   | SiteRuleEffect
-  | ItemPlaySiteEffect;
+  | ItemPlaySiteEffect
+  | StorableAtEffect;

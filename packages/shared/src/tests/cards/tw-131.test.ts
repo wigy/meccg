@@ -228,7 +228,7 @@ describe('Bilbo (tw-131)', () => {
 
     // Manually add Bilbo to eliminated pile
     const bilboInst = { instanceId: 'inst-bilbo-elim' as CardInstanceId, definitionId: BILBO };
-    const modifiedPlayer = { ...state.players[0], eliminatedPile: [bilboInst] };
+    const modifiedPlayer = { ...state.players[0], outOfPlayPile: [bilboInst] };
     const modifiedState = {
       ...state,
       players: [modifiedPlayer, state.players[1]] as unknown as typeof state.players,

@@ -163,6 +163,8 @@ export function describeAction(
       return `Merge ${compName(action.sourceCompanyId)} into ${compName(action.targetCompanyId)}`;
     case 'transfer-item':
       return `Transfer item ${instName(action.itemInstanceId)} from ${instName(action.fromCharacterId)} to ${instName(action.toCharacterId)}`;
+    case 'store-item':
+      return `Store item ${instName(action.itemInstanceId)} from ${instName(action.characterId)}`;
     case 'move-to-influence':
       return action.controlledBy === 'general'
         ? `Move ${instName(action.characterInstanceId)} to general influence`
