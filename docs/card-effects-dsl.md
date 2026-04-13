@@ -551,6 +551,24 @@ The resolver:
 
 ```json
 "effects": [
-  { "type": "play-target", "target": "own-hobbit" }
+  { "type": "play-target", "target": "own-hobbit" },
+  { "type": "play-option", "id": "untap",
+    "when": { "target.status": "tapped" },
+    "apply": { "type": "set-character-status", "status": "untapped" } },
+  { "type": "play-option", "id": "heal",
+    "when": { "target.status": "inverted" },
+    "apply": { "type": "set-character-status", "status": "untapped" } },
+  { "type": "play-option", "id": "corruption-check-boost",
+    "apply": { "type": "add-constraint",
+               "constraint": "corruption-check-boost",
+               "scope": "until-cleared", "value": 4 } }
 ]
 ```
+
+`play-option` declares one of several mutually-exclusive choices the player
+may take when playing a card. Each option has an `id`, an optional `when`
+evaluated against the target context (`target.race`, `target.status`,
+`target.skills`), and an `apply` clause resolved by the generic reducer.
+Supported `apply` kinds today: `set-character-status` (untap / heal) and
+`add-constraint` (with optional numeric `value`, e.g. the +4 on Halfling
+Strength's corruption-check boost).

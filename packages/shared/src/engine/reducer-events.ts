@@ -291,28 +291,34 @@ export function handlePlayResourceShortEvent(state: GameState, action: GameActio
     };
   }
 
-  // Handle own-hobbit mode (e.g. Halfling Strength: untap, heal, or corruption-check-boost)
-  if (action.targetCharacterId && action.mode) {
+  // Handle DSL-declared play-option `set-character-status` applies (e.g.
+  // Halfling Strength's untap / heal options). Constraint-producing applies
+  // are resolved below against the fully-updated state via addConstraint.
+  const selectedOption = action.optionId
+    ? (def.effects?.find(
+        e => e.type === 'play-option' && e.id === action.optionId,
+      ) as import('../types/effects.js').PlayOptionEffect | undefined)
+    : undefined;
+
+  if (action.optionId && !selectedOption) {
+    return { state, error: `${def.name} has no play-option with id '${action.optionId}'` };
+  }
+
+  if (selectedOption && action.targetCharacterId && selectedOption.apply.type === 'set-character-status') {
     const targetId = action.targetCharacterId as string;
-    const targetChar = (newCharacters === player.characters ? player.characters : newCharacters)[targetId];
+    const targetChar = newCharacters[targetId];
     if (!targetChar) {
       return { state, error: `Target character ${targetId} not in play` };
     }
-
-    if (action.mode === 'untap') {
-      if (targetChar.status !== CardStatus.Tapped) {
-        return { state, error: `Target character ${targetId} is not tapped` };
-      }
-      logDetail(`${def.name} untaps ${targetId}`);
-      newCharacters = { ...(newCharacters === player.characters ? player.characters : newCharacters), [targetId]: { ...targetChar, status: CardStatus.Untapped } };
-    } else if (action.mode === 'heal') {
-      if (targetChar.status !== CardStatus.Inverted) {
-        return { state, error: `Target character ${targetId} is not wounded` };
-      }
-      logDetail(`${def.name} heals ${targetId} from wounded to untapped`);
-      newCharacters = { ...(newCharacters === player.characters ? player.characters : newCharacters), [targetId]: { ...targetChar, status: CardStatus.Untapped } };
+    const nextStatus = selectedOption.apply.status;
+    if (nextStatus === undefined) {
+      return { state, error: `${def.name} option '${selectedOption.id}': set-character-status missing status` };
     }
-    // corruption-check-boost is handled below via addConstraint after state construction
+    const statusEnum = nextStatus === 'untapped' ? CardStatus.Untapped
+      : nextStatus === 'tapped' ? CardStatus.Tapped
+        : CardStatus.Inverted;
+    logDetail(`${def.name} option "${selectedOption.id}": set ${targetId} status → ${nextStatus}`);
+    newCharacters = { ...newCharacters, [targetId]: { ...targetChar, status: statusEnum } };
   }
 
   // Collect all effects that require player interaction to resolve
@@ -328,15 +334,16 @@ export function handlePlayResourceShortEvent(state: GameState, action: GameActio
   let newState: GameState = { ...state, players: newPlayers };
   newState = applyShortEventOnEntersPlay(newState, def, handCard, action, playerIndex);
 
-  // For corruption-check-boost mode, add an active constraint on the target character
-  if (action.targetCharacterId && action.mode === 'corruption-check-boost') {
-    logDetail(`${def.name} adds +4 corruption-check boost on ${action.targetCharacterId as string}`);
-    newState = addConstraint(newState, {
-      source: handCard.instanceId,
-      scope: { kind: 'until-cleared' },
-      target: { kind: 'character', characterId: action.targetCharacterId },
-      kind: { type: 'corruption-check-boost', value: 4 },
-    });
+  // If the selected play-option is an `add-constraint` apply targeting the
+  // chosen character, add it via the generic DSL handler. The constraint
+  // kind, scope, and optional numeric payload come straight from the card
+  // JSON — no per-card branches here.
+  if (selectedOption && action.targetCharacterId && selectedOption.apply.type === 'add-constraint') {
+    const constraintResult = applyPlayOptionAddConstraint(
+      newState, def, handCard, selectedOption, action.targetCharacterId,
+    );
+    if ('error' in constraintResult) return { state, error: constraintResult.error };
+    newState = constraintResult.state;
   }
 
   if (interactiveEffects.length > 0) {
@@ -363,6 +370,62 @@ export function handlePlayResourceShortEvent(state: GameState, action: GameActio
     discardPile: [...newState.players[playerIndex].discardPile, handCard],
   };
   return { state: { ...newState, players: updatedPlayers } };
+}
+
+/**
+ * Resolves a {@link PlayOptionEffect} whose `apply.type` is `add-constraint`
+ * into a concrete {@link ActiveConstraint} placed on the targeted character.
+ * Reads constraint kind, scope, and optional numeric payload straight from
+ * the DSL so no per-card code is needed.
+ */
+function applyPlayOptionAddConstraint(
+  state: GameState,
+  def: { name: string },
+  handCard: CardInstance,
+  option: import('../types/effects.js').PlayOptionEffect,
+  targetCharacterId: import('../types/common.js').CardInstanceId,
+): { state: GameState } | { error: string } {
+  const apply = option.apply;
+  const constraintName = apply.constraint;
+  const scopeName = apply.scope;
+  if (!constraintName || !scopeName) {
+    return { error: `${def.name} option '${option.id}': add-constraint missing constraint or scope` };
+  }
+
+  let scope: import('../types/pending.js').ConstraintScope;
+  switch (scopeName) {
+    case 'turn':
+      scope = { kind: 'turn' };
+      break;
+    case 'until-cleared':
+      scope = { kind: 'until-cleared' };
+      break;
+    default:
+      return { error: `${def.name} option '${option.id}': unsupported scope '${scopeName}' for character-targeted add-constraint` };
+  }
+
+  type Kind = import('../types/pending.js').ActiveConstraint['kind'];
+  let kind: Kind;
+  switch (constraintName) {
+    case 'corruption-check-boost':
+      if (typeof apply.value !== 'number') {
+        return { error: `${def.name} option '${option.id}': corruption-check-boost requires numeric 'value'` };
+      }
+      kind = { type: 'corruption-check-boost', value: apply.value };
+      break;
+    default:
+      return { error: `${def.name} option '${option.id}': unsupported constraint kind '${constraintName}' for character target` };
+  }
+
+  logDetail(`${def.name} option "${option.id}": add ${constraintName} on character ${targetCharacterId as string}, scope ${scopeName}`);
+  return {
+    state: addConstraint(state, {
+      source: handCard.instanceId,
+      scope,
+      target: { kind: 'character', characterId: targetCharacterId },
+      kind,
+    }),
+  };
 }
 
 /**

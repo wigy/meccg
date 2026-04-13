@@ -24,7 +24,8 @@ import type {
   PlayerState,
 } from '../../index.js';
 import { isCharacterCard, CardStatus, Skill } from '../../index.js';
-import type { PlayTargetEffect } from '../../types/effects.js';
+import type { PlayTargetEffect, PlayOptionEffect } from '../../types/effects.js';
+import { matchesCondition } from '../../effects/condition-matcher.js';
 import { logDetail, logHeading } from './log.js';
 import { resolveDef, collectCharacterEffects, resolveStatModifiers } from '../effects/index.js';
 import type { ResolverContext } from '../effects/index.js';
@@ -284,21 +285,25 @@ export function organizationActions(state: GameState, playerId: PlayerId): Evalu
       continue;
     }
 
-    // Cards with play-target "own-hobbit" (e.g. Halfling Strength): emit
-    // one action per (hobbit, mode) pair depending on each hobbit's status.
+    // Cards declaring `play-option` DSL effects (e.g. Halfling Strength):
+    // enumerate (target, option) pairs, emitting one legal action per
+    // combination whose option `when` matches the target's context.
     const playTarget = getPlayTargetEffect(def);
-    if (playTarget?.target === 'own-hobbit') {
+    const playOptions = getPlayOptionEffects(def);
+    if (playOptions.length > 0 && playTarget) {
       resourceShortEventInstances.add(handCard.instanceId as string);
-      const hobbitActions = ownHobbitActions(state, player, playerId, handCard.instanceId, def);
-      if (hobbitActions.length === 0) {
-        logDetail(`${def.name}: no eligible hobbits — not playable`);
+      const optionActions = playOptionActionsForCard(
+        state, player, playerId, handCard.instanceId, def, playTarget, playOptions,
+      );
+      if (optionActions.length === 0) {
+        logDetail(`${def.name}: no eligible ${playTarget.target} targets — not playable`);
         actions.push({
           action: { type: 'not-playable', player: playerId, cardInstanceId: handCard.instanceId },
           viable: false,
-          reason: 'No hobbit in play to target',
+          reason: `No eligible ${playTarget.target} to target`,
         });
       } else {
-        actions.push(...hobbitActions);
+        actions.push(...optionActions);
       }
       continue;
     }
@@ -700,51 +705,112 @@ export function getPlayTargetEffect(def: HeroResourceEventCard): PlayTargetEffec
 }
 
 /**
- * Generates play-short-event actions for an `own-hobbit` play-target card.
- * One action per (hobbit, mode) pair. Modes:
- *  - `untap` — hobbit must be tapped
- *  - `heal` — hobbit must be wounded (inverted)
- *  - `corruption-check-boost` — always available
+ * Returns all {@link PlayOptionEffect}s declared on the given card.
  */
-function ownHobbitActions(
+export function getPlayOptionEffects(def: HeroResourceEventCard): readonly PlayOptionEffect[] {
+  return def.effects?.filter((e): e is PlayOptionEffect => e.type === 'play-option') ?? [];
+}
+
+/**
+ * Maps a character's {@link CardStatus} to the string tokens used by
+ * {@link PlayOptionEffect} `when` conditions.
+ */
+function statusToken(status: CardStatus): 'tapped' | 'untapped' | 'inverted' {
+  switch (status) {
+    case CardStatus.Tapped: return 'tapped';
+    case CardStatus.Untapped: return 'untapped';
+    case CardStatus.Inverted: return 'inverted';
+  }
+}
+
+/**
+ * Builds the matcher context used to evaluate a {@link PlayOptionEffect}'s
+ * `when` against a candidate target character. Exposes `target.race`,
+ * `target.status`, and `target.skills` so DSL conditions can key off them.
+ */
+function buildTargetContext(
+  state: GameState,
+  char: import('../../index.js').CharacterInPlay,
+): Record<string, unknown> {
+  const def = state.cardPool[char.definitionId as string];
+  if (!def || !isCharacterCard(def)) return { target: {} };
+  return {
+    target: {
+      race: def.race,
+      status: statusToken(char.status),
+      skills: def.skills,
+      name: def.name,
+    },
+  };
+}
+
+/**
+ * Enumerates candidate target character instance IDs for a
+ * {@link PlayTargetEffect}. Supports the character-scoped `own-*`
+ * targets used by resource short events. Non-character targets yield an
+ * empty list here — those are handled by dedicated play paths.
+ */
+function eligiblePlayOptionTargets(
+  state: GameState,
+  player: PlayerState,
+  playTarget: PlayTargetEffect,
+): CardInstanceId[] {
+  const out: CardInstanceId[] = [];
+  for (const [charIdStr, char] of Object.entries(player.characters)) {
+    const charDef = state.cardPool[char.definitionId as string];
+    if (!charDef || !isCharacterCard(charDef)) continue;
+    if (playTarget.target === 'own-hobbit' && charDef.race !== 'hobbit') continue;
+    if (playTarget.target === 'own-scout' && !charDef.skills.includes(Skill.Scout)) continue;
+    if (playTarget.target !== 'own-hobbit'
+        && playTarget.target !== 'own-scout'
+        && playTarget.target !== 'character') continue;
+    out.push(charIdStr as unknown as CardInstanceId);
+  }
+  return out;
+}
+
+/**
+ * Generates `play-short-event` actions for a card with {@link PlayOptionEffect}s.
+ * One action per (target, option) pair whose `when` (if any) matches the
+ * target context. The chosen option is carried on the action via
+ * `optionId` so the reducer can dispatch generically via the option's
+ * `apply` clause.
+ */
+function playOptionActionsForCard(
   state: GameState,
   player: PlayerState,
   playerId: PlayerId,
   cardInstanceId: CardInstanceId,
   def: { name: string },
+  playTarget: PlayTargetEffect,
+  options: readonly PlayOptionEffect[],
 ): EvaluatedAction[] {
   const actions: EvaluatedAction[] = [];
-
-  for (const [charIdStr, char] of Object.entries(player.characters)) {
-    const charId = charIdStr as unknown as CardInstanceId;
-    const charDefId = char.definitionId;
-    const charDef = state.cardPool[charDefId as string];
-    if (!charDef || !isCharacterCard(charDef)) continue;
-    if (charDef.race !== 'hobbit') continue;
-
-    if (char.status === CardStatus.Tapped) {
-      logDetail(`${def.name} playable on ${charDef.name}: mode untap`);
+  const targets = eligiblePlayOptionTargets(state, player, playTarget);
+  for (const targetId of targets) {
+    const char = player.characters[targetId as string];
+    if (!char) continue;
+    const charDef = state.cardPool[char.definitionId as string];
+    const targetName = isCharacterCard(charDef) ? charDef.name : String(targetId);
+    const ctx = buildTargetContext(state, char);
+    for (const opt of options) {
+      if (opt.when && !matchesCondition(opt.when, ctx)) {
+        logDetail(`${def.name} on ${targetName}: option "${opt.id}" when-condition rejected`);
+        continue;
+      }
+      logDetail(`${def.name} playable on ${targetName}: option "${opt.id}"`);
       actions.push({
-        action: { type: 'play-short-event', player: playerId, cardInstanceId, targetCharacterId: charId, mode: 'untap' },
+        action: {
+          type: 'play-short-event',
+          player: playerId,
+          cardInstanceId,
+          targetCharacterId: targetId,
+          optionId: opt.id,
+        },
         viable: true,
       });
     }
-
-    if (char.status === CardStatus.Inverted) {
-      logDetail(`${def.name} playable on ${charDef.name}: mode heal`);
-      actions.push({
-        action: { type: 'play-short-event', player: playerId, cardInstanceId, targetCharacterId: charId, mode: 'heal' },
-        viable: true,
-      });
-    }
-
-    logDetail(`${def.name} playable on ${charDef.name}: mode corruption-check-boost`);
-    actions.push({
-      action: { type: 'play-short-event', player: playerId, cardInstanceId, targetCharacterId: charId, mode: 'corruption-check-boost' },
-      viable: true,
-    });
   }
-
   return actions;
 }
 

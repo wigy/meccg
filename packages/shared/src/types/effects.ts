@@ -270,6 +270,36 @@ export interface TriggeredAction {
    *  - `"until-cleared"` → never auto-swept
    */
   readonly scope?: string;
+  /**
+   * For `add-constraint` type: numeric payload for constraint kinds that
+   * carry a value (e.g. `corruption-check-boost` + `value: 4`).
+   */
+  readonly value?: number;
+  /**
+   * For `set-character-status` type: the new status for the target
+   * character (e.g. `"untapped"` to untap or heal).
+   */
+  readonly status?: 'untapped' | 'tapped' | 'inverted';
+}
+
+/**
+ * Declares one of several mutually-exclusive choices the player may make
+ * when playing a card. Each option has an optional `when` condition that
+ * is evaluated against the target context ({@link PlayTargetEffect}); when
+ * it matches, the option is offered as a separate legal action. The
+ * chosen option's `apply` is resolved generically by the reducer.
+ *
+ * Example: Halfling Strength declares three options — untap the tapped
+ * hobbit, heal the wounded hobbit, or grant a one-shot +4 corruption
+ * check boost. The first two carry a `when` on the target's status; the
+ * third is always available.
+ */
+export interface PlayOptionEffect extends EffectBase {
+  readonly type: 'play-option';
+  /** Stable identifier the engine uses to dispatch the chosen option. */
+  readonly id: string;
+  /** The effect that resolves when this option is selected. */
+  readonly apply: TriggeredAction;
 }
 
 /**
@@ -453,6 +483,7 @@ export type CardEffect =
   | PlayRestrictionEffect
   | DuplicationLimitEffect
   | PlayTargetEffect
+  | PlayOptionEffect
   | PlayWindowEffect
   | OnGuardRevealEffect
   | FetchToDeckEffect

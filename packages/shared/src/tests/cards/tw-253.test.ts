@@ -3,22 +3,22 @@
  *
  * Card test: Halfling Strength (tw-253)
  * Type: hero-resource-event (short)
- * Effects: 1 (play-target own-hobbit)
+ * Effects: play-target own-hobbit + three play-option DSL effects
  *
  * "Hobbit only. The Hobbit may untap or he may move from wounded status
  *  to well and untapped during his organization phase or he may receive
  *  a +4 modification to one corruption check."
  *
  * Engine Support:
- * | # | Feature                                  | Status      | Notes                                  |
- * |---|------------------------------------------|-------------|----------------------------------------|
- * | 1 | Play target = own hobbit                 | IMPLEMENTED | play-target target:"own-hobbit"        |
- * | 2 | Mode: untap tapped hobbit                | IMPLEMENTED | mode:"untap" in play-short-event       |
- * | 3 | Mode: heal wounded hobbit                | IMPLEMENTED | mode:"heal" in play-short-event        |
- * | 4 | Mode: +4 corruption check boost          | IMPLEMENTED | mode:"corruption-check-boost"          |
+ * | # | Feature                                  | Status      | Notes                                   |
+ * |---|------------------------------------------|-------------|-----------------------------------------|
+ * | 1 | Play target = own hobbit                 | IMPLEMENTED | play-target target:"own-hobbit"         |
+ * | 2 | Option: untap tapped hobbit              | IMPLEMENTED | play-option apply:set-character-status  |
+ * | 3 | Option: heal wounded hobbit              | IMPLEMENTED | play-option apply:set-character-status  |
+ * | 4 | Option: +4 corruption check boost        | IMPLEMENTED | play-option apply:add-constraint        |
  * | 5 | Corruption boost consumed after check    | IMPLEMENTED | constraint cleared in pending-reducers  |
- * | 6 | Not playable without hobbits             | IMPLEMENTED | no actions generated                   |
- * | 7 | Not playable on non-hobbits              | IMPLEMENTED | race filter in ownHobbitActions         |
+ * | 6 | Not playable without hobbits             | IMPLEMENTED | no eligible targets → not-playable      |
+ * | 7 | Not playable on non-hobbits              | IMPLEMENTED | play-target own-hobbit filter           |
  */
 
 import { describe, test, expect, beforeEach } from 'vitest';
@@ -40,7 +40,7 @@ import { addConstraint, enqueueResolution } from '../../engine/pending.js';
 describe('Halfling Strength (tw-253)', () => {
   beforeEach(() => resetMint());
 
-  test('card definition has play-target own-hobbit effect', () => {
+  test('card definition has play-target own-hobbit and three play-option effects', () => {
     const def = pool[HALFLING_STRENGTH as string] as HeroResourceEventCard;
     expect(def).toBeDefined();
     expect(def.cardType).toBe('hero-resource-event');
@@ -49,6 +49,10 @@ describe('Halfling Strength (tw-253)', () => {
     const playTarget = def.effects?.find(e => e.type === 'play-target');
     expect(playTarget).toBeDefined();
     expect(playTarget?.target).toBe('own-hobbit');
+
+    const options = (def.effects ?? []).filter(e => e.type === 'play-option');
+    expect(options.map(o => (o as { id: string }).id).sort())
+      .toEqual(['corruption-check-boost', 'heal', 'untap']);
   });
 
   test('generates untap and corruption-check-boost actions for a tapped hobbit', () => {
@@ -70,7 +74,7 @@ describe('Halfling Strength (tw-253)', () => {
       .filter(ea => ea.viable && ea.action.type === 'play-short-event')
       .map(ea => ea.action as PlayShortEventAction);
 
-    const modes = actions.map(a => a.mode);
+    const modes = actions.map(a => a.optionId);
     expect(modes).toContain('untap');
     expect(modes).toContain('corruption-check-boost');
     expect(modes).not.toContain('heal');
@@ -95,7 +99,7 @@ describe('Halfling Strength (tw-253)', () => {
       .filter(ea => ea.viable && ea.action.type === 'play-short-event')
       .map(ea => ea.action as PlayShortEventAction);
 
-    const modes = actions.map(a => a.mode);
+    const modes = actions.map(a => a.optionId);
     expect(modes).toContain('heal');
     expect(modes).toContain('corruption-check-boost');
     expect(modes).not.toContain('untap');
@@ -121,7 +125,7 @@ describe('Halfling Strength (tw-253)', () => {
       .map(ea => ea.action as PlayShortEventAction);
 
     expect(actions).toHaveLength(1);
-    expect(actions[0].mode).toBe('corruption-check-boost');
+    expect(actions[0].optionId).toBe('corruption-check-boost');
   });
 
   test('not playable when player has no hobbits', () => {
@@ -196,7 +200,7 @@ describe('Halfling Strength (tw-253)', () => {
       player: PLAYER_1,
       cardInstanceId: hsInstance,
       targetCharacterId: bilboId,
-      mode: 'untap',
+      optionId: 'untap',
     });
 
     expect(result.error).toBeUndefined();
@@ -228,7 +232,7 @@ describe('Halfling Strength (tw-253)', () => {
       player: PLAYER_1,
       cardInstanceId: hsInstance,
       targetCharacterId: bilboId,
-      mode: 'heal',
+      optionId: 'heal',
     });
 
     expect(result.error).toBeUndefined();
@@ -260,7 +264,7 @@ describe('Halfling Strength (tw-253)', () => {
       player: PLAYER_1,
       cardInstanceId: hsInstance,
       targetCharacterId: bilboId,
-      mode: 'corruption-check-boost',
+      optionId: 'corruption-check-boost',
     });
 
     expect(result.error).toBeUndefined();

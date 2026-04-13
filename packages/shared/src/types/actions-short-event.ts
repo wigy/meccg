@@ -37,15 +37,16 @@ export interface PlayShortEventAction {
    */
   readonly targetScoutInstanceId?: CardInstanceId;
   /**
-   * For cards with a `play-target` of `own-hobbit` (e.g. Halfling Strength),
-   * the hobbit character targeted by the short event.
+   * For cards with a character-scoped `play-target` (e.g. Halfling
+   * Strength's `own-hobbit`), the character targeted by the short event.
    */
   readonly targetCharacterId?: CardInstanceId;
   /**
-   * For cards offering a choice of effects (e.g. Halfling Strength: untap,
-   * heal, or corruption-check-boost), which mode the player selected.
+   * For cards declaring {@link PlayOptionEffect}s (e.g. Halfling Strength),
+   * the id of the option the player selected. The reducer dispatches the
+   * matching option's `apply` clause via the generic DSL handlers.
    */
-  readonly mode?: string;
+  readonly optionId?: string;
 }
 
 /**
