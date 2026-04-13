@@ -275,7 +275,8 @@
       }
     ],
     "text": "Unique. Troll. One strike. If played against a company that faced \"Bert\" or \"William\" this turn, each character wounded by \"Tom\" discards all non-special items he bears.",
-    "race": "troll"
+    "race": "troll",
+    "certified": "2026-04-13"
   },
   {
     "cardType": "hazard-creature",
