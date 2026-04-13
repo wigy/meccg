@@ -113,6 +113,7 @@ All server-side logic must include detailed logging so that the game's decision-
 
 - Card certification is the process of implementing a card's effects in the DSL and verifying with a test that the card works as its text defines.
 - When certifying a card that requires a new DSL effect type, add the new type to `docs/card-effects-dsl.md` alongside the implementation.
+- **Prefer DSL expressions over magic keywords.** When a card targets a subset of entities, use the generic `filter` condition on `play-target` (evaluated via the shared condition-matcher) rather than introducing hardcoded target keywords like `own-hobbit` / `own-scout`. Example: `{ "type": "play-target", "target": "character", "filter": { "target.race": "hobbit" } }` instead of `{ "type": "play-target", "target": "own-hobbit" }`. Each hardcoded keyword adds a per-card branch in the legal-action computer; a filter expression is self-contained in the card JSON and reuses existing machinery. The same principle applies to other DSL effects: reach for generic condition/filter expressions and reuse existing constraint kinds (e.g. `check-modifier`) before adding card-specific types or keywords.
 
 ### Card Uniqueness Rules
 
