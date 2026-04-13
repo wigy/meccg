@@ -416,6 +416,43 @@ Rules:
   in `legal-actions/site.ts` play-resources step — e.g. Tolfalas uses this
   to deny every greater item except Scroll of Isildur.
 
+### 20. `item-play-site`
+
+Restricts an item to be playable only at specific named sites. When
+present, the normal site-type check (`playableResources`) is bypassed
+and the item is playable only if the company's current site name appears
+in the `sites` list. Implemented in `legal-actions/site.ts`.
+
+```json
+{ "type": "item-play-site", "sites": ["Isengard"] }
+```
+
+### Grant-Action: `palantir-fetch-discard`
+
+Tap the Palantír item to choose one card from the player's discard pile
+and shuffle it into the play deck. Bearer makes a corruption check after
+the fetch resolves. Requires the bearer to be able to use a Palantír
+(Saruman's innate ability or Align Palantír attached) and at least 5
+cards in the play deck.
+
+```json
+{ "type": "grant-action", "action": "palantir-fetch-discard",
+  "cost": { "tap": "self" },
+  "when": { "$and": [
+    { "bearer.canUsePalantir": true },
+    { "player.playDeckSize": { "$gte": 5 } }
+  ] } }
+```
+
+Context variables for grant-action `when` conditions:
+
+- `bearer.canUsePalantir` — true if the bearer's card text includes
+  palantír-use ability or has Align Palantír attached
+- `player.playDeckSize` — number of cards in the player's play deck
+
+Implemented in `reducer-organization.ts` (handler), `legal-actions/organization.ts`
+(scanner + context), `reducer-utils.ts` (fetch completion with corruption check).
+
 ## Resolver Architecture
 
 The engine calls a resolver at each decision point:
@@ -710,5 +747,19 @@ Supported `apply` kinds today:
     "when": { "enemy.race": { "$in": ["orc", "troll", "man"] } } },
   { "type": "halve-strikes",
     "when": { "inPlay": "Gates of Morning" } }
+]
+```
+
+### Palantír of Orthanc
+
+```json
+"effects": [
+  { "type": "item-play-site", "sites": ["Isengard"] },
+  { "type": "grant-action", "action": "palantir-fetch-discard",
+    "cost": { "tap": "self" },
+    "when": { "$and": [
+      { "bearer.canUsePalantir": true },
+      { "player.playDeckSize": { "$gte": 5 } }
+    ] } }
 ]
 ```

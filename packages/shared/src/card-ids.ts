@@ -72,6 +72,8 @@ export const PEATH = did('tw-176');
 export const BALIN = did('tw-123');
 /** Kíli — dwarf warrior/scout, mind 3, +1 prowess vs Orcs, corruption/faction penalties. */
 export const KILI = did('tw-167');
+/** Saruman — wizard, scout/ranger/sage/diplomat, DI 10, can use Palantíri. */
+export const SARUMAN = did('tw-181');
 
 // ---- Items ----
 
@@ -93,6 +95,8 @@ export const PRECIOUS_GOLD_RING = did('tw-306');
 export const CRAM = did('td-105');
 /** Scroll of Isildur — greater item, gold ring test modifier, playable at ruins/shadow/dark. */
 export const SCROLL_OF_ISILDUR = did('tw-323');
+/** Palantír of Orthanc — special item, palantír, playable only at Isengard. */
+export const PALANTIR_OF_ORTHANC = did('tw-300');
 
 // ---- Allies ----
 
