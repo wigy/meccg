@@ -23,9 +23,21 @@
         ]
       }
     ],
-    "effects": [],
+    "effects": [
+      { "type": "combat-rule", "rule": "attacker-chooses-defenders" },
+      {
+        "type": "on-event",
+        "event": "attack-not-defeated",
+        "apply": {
+          "type": "add-constraint",
+          "constraint": "deny-scout-resources",
+          "scope": "turn"
+        }
+      }
+    ],
     "text": "Orc. One strike. Attacker chooses defending characters. Each ranger in attacked company lowers Little Snuffler's body by 2. If attack is not defeated, any resource that requires a scout in target company cannot be played for the rest of the turn.",
-    "race": "orc"
+    "race": "orc",
+    "certified": "2026-04-13"
   },
   {
     "cardType": "hazard-creature",

@@ -19,7 +19,7 @@ import type { ReducerResult } from './reducer-utils.js';
 import { roll2d6, clonePlayers } from './reducer-utils.js';
 import { resolveEnemyBody } from './effects/index.js';
 import { computeCombatProwess, buildInPlayNames } from './recompute-derived.js';
-import { enqueueResolution } from './pending.js';
+import { enqueueResolution, addConstraint } from './pending.js';
 
 
 /**
@@ -1121,6 +1121,38 @@ function finalizeCombat(state: GameState, effects: GameEffect[] = []): ReducerRe
         }
       } else if (woundEvent.apply.type === 'discard-non-special-items') {
         stateAfterCombat = discardNonSpecialItems(stateAfterCombat, combat, woundedCharIds, sourceName);
+      }
+    }
+  }
+
+  // Check for on-event: attack-not-defeated effects on the attack source.
+  // If the attack was NOT fully defeated and the creature card carries this
+  // event, apply its constraint to the defending company.
+  if (!allDefeated) {
+    const sourceCardForNotDefeated = getAttackSourceCard(state, combat);
+    const notDefeatedEvents = (sourceCardForNotDefeated?.effects ?? []).filter(
+      (e): e is OnEventEffect => e.type === 'on-event' && e.event === 'attack-not-defeated',
+    );
+    for (const nde of notDefeatedEvents) {
+      if (nde.apply.type === 'add-constraint' && nde.apply.constraint === 'deny-scout-resources') {
+        const creatureSource =
+          combat.attackSource.type === 'creature' ? combat.attackSource.instanceId
+            : combat.attackSource.type === 'on-guard-creature' ? combat.attackSource.cardInstanceId
+              : null;
+        if (creatureSource) {
+          const creatureDefId = resolveInstanceId(state, creatureSource);
+          const creatureName = creatureDefId
+            ? (state.cardPool[creatureDefId as string]?.name ?? 'creature')
+            : 'creature';
+          logDetail(`Attack not defeated — ${creatureName} fires deny-scout-resources on company ${combat.companyId as string}`);
+          stateAfterCombat = addConstraint(stateAfterCombat, {
+            source: creatureSource,
+            sourceDefinitionId: (creatureDefId ?? creatureSource) as import('../types/common.js').CardDefinitionId,
+            scope: { kind: 'turn' },
+            target: { kind: 'company', companyId: combat.companyId },
+            kind: { type: 'deny-scout-resources' },
+          });
+        }
       }
     }
   }

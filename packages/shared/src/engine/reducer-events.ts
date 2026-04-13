@@ -560,6 +560,9 @@ function applyShortEventOnEntersPlay(
             ? { type: 'site-phase-do-nothing', cancelWhen: onEvent.apply.cancelWhen }
             : { type: 'site-phase-do-nothing' };
           break;
+        case 'deny-scout-resources':
+          kind = { type: 'deny-scout-resources' };
+          break;
         default:
           logDetail(`add-constraint: unknown constraint kind "${constraintKind}" — fizzle`);
           continue;
