@@ -708,39 +708,10 @@ esac
 DURATION_HUMAN=$(format_duration "$DISPATCH_DURATION_S")
 
 # ---------------------------------------------------------------------------
-# Step 6: Send the reply — or stash it for approve-pr
+# Step 6: Send the reply
 # ---------------------------------------------------------------------------
-# When the review-request carries a PR URL, the reply to the requestor is
-# withheld until bin/approve-pr merges the PR. We serialize the full reply
-# (already including the credits/time footer) into the review-request's
-# keywords as `pendingReplyJson`, and approve-pr recovers it post-merge.
-# Topics that don't open a PR (card-request, feature-planning-request) send
-# the reply immediately as before.
 
-HAS_PR_REVIEW=false
-if [ -n "$REVIEW_TOPIC" ] && [ "$REVIEW_KEYWORDS" != "{}" ]; then
-  if echo "$REVIEW_KEYWORDS" | jq -e '(.prUrl // "") | select(length > 0)' >/dev/null 2>&1; then
-    HAS_PR_REVIEW=true
-  fi
-fi
-
-if [ -n "$REPLY_TOPIC" ] && $HAS_PR_REVIEW; then
-  log "Stashing reply into review-request keywords (will be sent by approve-pr after PR merge)"
-  FOOTER="
-
----
-*Processed in ${DURATION_HUMAN}. Charged ${CREDITS_CHARGED} credits.*"
-  STASHED_BODY="${REPLY_BODY}${FOOTER}"
-  PENDING_REPLY_JSON=$(jq -nc \
-    --arg recipient "$REPLY_RECIPIENT" \
-    --arg topic "$REPLY_TOPIC" \
-    --arg subject "$REPLY_SUBJECT" \
-    --arg body "$STASHED_BODY" \
-    --argjson keywords "$REPLY_KEYWORDS" \
-    --arg replyTo "$MSG_ID" \
-    '{recipient: $recipient, topic: $topic, subject: $subject, body: $body, keywords: $keywords, replyTo: $replyTo}')
-  REVIEW_KEYWORDS=$(echo "$REVIEW_KEYWORDS" | jq -c --arg pr "$PENDING_REPLY_JSON" '. + {pendingReplyJson: $pr}')
-elif [ -n "$REPLY_TOPIC" ]; then
+if [ -n "$REPLY_TOPIC" ]; then
   send_reply_mail "$REPLY_RECIPIENT" "$REPLY_TOPIC" "$REPLY_SUBJECT" "$REPLY_BODY" "$REPLY_KEYWORDS"
 fi
 

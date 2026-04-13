@@ -31,7 +31,6 @@ import * as https from 'https';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
-import { spawn } from 'child_process';
 import { cardImageRawUrl, loadCardPool } from '@meccg/shared';
 import { DEV, MASTER_KEY, REVIEWER_PLAYERS } from '../config.js';
 import { broadcastNotification, broadcastForceReload } from '../lobby/lobby.js';
@@ -48,7 +47,6 @@ const IMAGE_CACHE_DIR = process.env.IMAGE_CACHE_DIR ?? path.join(os.homedir(), '
 const SAVE_DIR = process.env.SAVE_DIR ?? path.join(os.homedir(), '.meccg', 'saves');
 const WEB_CLIENT_PUBLIC = path.join(__dirname, '../../public');
 const GAME_SERVER_SNAPSHOTS = path.join(__dirname, '../../../game-server/data/dev/snapshots/index.json');
-const APPROVE_PR_SCRIPT = path.join(__dirname, '../../../../bin/approve-pr');
 
 const LOBBY_VERSION: string = (() => {
   try {
@@ -605,23 +603,6 @@ export async function handleRequest(req: http.IncomingMessage, res: http.ServerR
           replyTo: msgId,
           sentBy: playerName,
         });
-      }
-    }
-
-    // Review-request approval: spawn bin/approve-pr to bump version, merge the
-    // PR, and send the withheld reply to the original requestor. Detached and
-    // unref'd so the HTTP response returns immediately.
-    if (updated.topic === 'review-request' && action === 'approve' && updated.keywords.prUrl) {
-      try {
-        const child = spawn(APPROVE_PR_SCRIPT, [updated.keywords.prUrl], {
-          detached: true,
-          stdio: 'ignore',
-          cwd: path.join(__dirname, '../../../..'),
-        });
-        child.unref();
-        lobbyLog.log('approve-pr-spawn', { msgId, prUrl: updated.keywords.prUrl });
-      } catch (err) {
-        lobbyLog.log('approve-pr-spawn-failed', { msgId, error: String(err) });
       }
     }
 
