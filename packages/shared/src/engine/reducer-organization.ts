@@ -16,6 +16,7 @@ import { roll2d6, clonePlayers, nextCompanyId, handleFetchFromPile } from './red
 import { handlePlayPermanentEvent, handlePlayShortEvent, handlePlayResourceShortEvent } from './reducer-events.js';
 import { enqueueResolution } from './pending.js';
 import { recomputeDerived } from './recompute-derived.js';
+import { collectCharacterEffects, resolveCheckModifier } from './effects/index.js';
 
 
 export function handleOrganization(state: GameState, action: GameAction): ReducerResult {
@@ -694,6 +695,10 @@ function handleActivateGrantedAction(state: GameState, action: GameAction): Redu
     return handleExtraRegionMovement(state, action);
   }
 
+  if (action.actionId === 'palantir-fetch-discard') {
+    return handlePalantirFetchDiscard(state, action);
+  }
+
   return handleRemoveSelfOnRoll(state, action);
 }
 
@@ -862,8 +867,23 @@ function handleTestGoldRing(state: GameState, action: GameAction): ReducerResult
   const { roll, rng, cheatRollTotal } = roll2d6(state);
   const d1 = roll.die1;
   const d2 = roll.die2;
-  const total = d1 + d2;
-  logDetail(`Gold ring test roll for ${charName}: ${d1} + ${d2} = ${total}`);
+  const baseTotal = d1 + d2;
+
+  // Collect gold-ring-test check-modifiers from all characters in the company
+  let goldRingMod = 0;
+  const grContext = { reason: 'gold-ring-test' as const };
+  for (const compCharId of company.characters) {
+    const compChar = player.characters[compCharId as string];
+    if (!compChar) continue;
+    const charEffects = collectCharacterEffects(state, compChar, grContext);
+    goldRingMod += resolveCheckModifier(charEffects, 'gold-ring-test');
+  }
+  const total = baseTotal + goldRingMod;
+  if (goldRingMod !== 0) {
+    logDetail(`Gold ring test roll for ${charName}: ${d1} + ${d2} = ${baseTotal}, modifier ${goldRingMod >= 0 ? '+' : ''}${goldRingMod} → ${total}`);
+  } else {
+    logDetail(`Gold ring test roll for ${charName}: ${d1} + ${d2} = ${total}`);
+  }
 
   const rollEffect: GameEffect = {
     effect: 'dice-roll',
@@ -1117,6 +1137,84 @@ function handleExtraRegionMovement(state: GameState, action: GameAction): Reduce
       players: newPlayers,
     }),
   };
+}
+
+/**
+ * Handle palantir-fetch-discard grant-action.
+ *
+ * Taps the Palantír item, enqueues a fetch-to-deck pending effect
+ * (player picks a card from discard pile to shuffle into play deck),
+ * and enqueues a corruption check on the bearer after the fetch.
+ */
+function handlePalantirFetchDiscard(state: GameState, action: GameAction): ReducerResult {
+  if (action.type !== 'activate-granted-action') return { state, error: 'Expected activate-granted-action' };
+
+  const playerIndex = getPlayerIndex(state, action.player);
+  const player = state.players[playerIndex];
+  const char = player.characters[action.characterId as string];
+  if (!char) return { state, error: 'Character not found' };
+
+  const charDefId = resolveInstanceId(state, action.characterId);
+  const charDef = charDefId ? state.cardPool[charDefId as string] : undefined;
+  const charName = charDef?.name ?? '?';
+  const sourceDef = state.cardPool[action.sourceCardDefinitionId as string];
+  const sourceName = sourceDef?.name ?? '?';
+
+  const itemIdx = char.items.findIndex(i => i.instanceId === action.sourceCardId);
+  if (itemIdx < 0) {
+    return { state, error: `${sourceName} is not an item on ${charName}` };
+  }
+
+  const item = char.items[itemIdx];
+  if (item.status !== CardStatus.Untapped) {
+    return { state, error: `${sourceName} is already tapped` };
+  }
+
+  if (player.discardPile.length === 0) {
+    return { state, error: 'No cards in discard pile to fetch' };
+  }
+
+  logDetail(`Palantír fetch: ${charName} taps ${sourceName} to fetch a card from discard pile`);
+
+  const newPlayers = clonePlayers(state);
+  const tappedItem = { ...item, status: CardStatus.Tapped };
+  const updatedItems = [...char.items];
+  updatedItems[itemIdx] = tappedItem;
+
+  newPlayers[playerIndex] = {
+    ...newPlayers[playerIndex],
+    characters: {
+      ...newPlayers[playerIndex].characters,
+      [action.characterId as string]: { ...char, items: updatedItems },
+    },
+  };
+
+  let newState: GameState = {
+    ...state,
+    players: newPlayers,
+    pendingEffects: [
+      ...state.pendingEffects,
+      {
+        type: 'card-effect' as const,
+        cardInstanceId: action.sourceCardId,
+        effect: {
+          type: 'fetch-to-deck' as const,
+          source: ['discard-pile'],
+          filter: {},
+          count: 1,
+          shuffle: true,
+        },
+        skipDiscard: true,
+        postCorruptionCheck: {
+          characterId: action.characterId,
+          modifier: 0,
+        },
+      },
+    ],
+  };
+
+  newState = recomputeDerived(newState);
+  return { state: newState };
 }
 
 /**

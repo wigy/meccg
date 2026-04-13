@@ -449,6 +449,7 @@ export function showCharacterActionTooltip(
       setTargetingInstruction(
         `Click a company to move ${sourceName ?? 'character'} there`,
       );
+      switchToAllCompanies();
       rerender();
     };
     tooltip.appendChild(btn);

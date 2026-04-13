@@ -309,11 +309,81 @@ export function organizationActions(state: GameState, playerId: PlayerId): Evalu
     }
 
     resourceShortEventInstances.add(handCard.instanceId as string);
-    logDetail(`Resource short-event playable: ${def.name} (${handCard.instanceId as string})`);
-    actions.push({
-      action: { type: 'play-short-event', player: playerId, cardInstanceId: handCard.instanceId },
-      viable: true,
-    });
+
+    // Collect eligible discard-in-play targets (e.g. Marvels Told forces
+    // discard of a hazard non-environment permanent/long event). If the
+    // card has a discard-in-play effect but no valid targets exist, it
+    // cannot be played.
+    const discardInPlay = def.effects?.find(e => e.type === 'discard-in-play');
+    let discardTargetIds: CardInstanceId[] | null = null;
+    if (discardInPlay) {
+      discardTargetIds = [];
+      for (const p of state.players) {
+        for (const c of p.cardsInPlay) {
+          const cDef = state.cardPool[c.definitionId as string];
+          if (cDef && matchesCondition(discardInPlay.filter, cDef as unknown as Record<string, unknown>)) {
+            discardTargetIds.push(c.instanceId);
+          }
+        }
+      }
+      if (discardTargetIds.length === 0) {
+        logDetail(`${def.name}: no eligible discard-in-play target — not playable`);
+        actions.push({
+          action: { type: 'not-playable', player: playerId, cardInstanceId: handCard.instanceId },
+          viable: false,
+          reason: `${def.name} has no valid target to discard`,
+        });
+        continue;
+      }
+    }
+
+    // Emit one play action per eligible target combination. When the card
+    // has a play-target with tap cost AND discard-in-play, emit the cross-
+    // product of (tap target × discard target).
+    const emitOrgPlay = (tapTargetId: CardInstanceId | undefined) => {
+      if (discardTargetIds) {
+        for (const discardId of discardTargetIds) {
+          logDetail(`Resource short-event playable (target ${String(tapTargetId)}, discard ${String(discardId)}): ${def.name}`);
+          actions.push({
+            action: {
+              type: 'play-short-event',
+              player: playerId,
+              cardInstanceId: handCard.instanceId,
+              ...(tapTargetId ? { targetScoutInstanceId: tapTargetId } : {}),
+              discardTargetInstanceId: discardId,
+            },
+            viable: true,
+          });
+        }
+      } else {
+        logDetail(`Resource short-event playable${tapTargetId ? ` (target ${String(tapTargetId)})` : ''}: ${def.name}`);
+        actions.push({
+          action: {
+            type: 'play-short-event',
+            player: playerId,
+            cardInstanceId: handCard.instanceId,
+            ...(tapTargetId ? { targetScoutInstanceId: tapTargetId } : {}),
+          },
+          viable: true,
+        });
+      }
+    };
+
+    if (playTarget && playTarget.cost?.tap === 'character') {
+      const tapTargets = eligiblePlayOptionTargets(state, player, playTarget);
+      if (tapTargets.length === 0) {
+        logDetail(`${def.name}: no eligible targets — not playable`);
+        actions.push({
+          action: { type: 'not-playable', player: playerId, cardInstanceId: handCard.instanceId },
+          viable: false,
+          reason: `No eligible ${playTarget.target} to target`,
+        });
+      } else {
+        for (const targetId of tapTargets) emitOrgPlay(targetId);
+      }
+    } else {
+      emitOrgPlay(undefined);
+    }
   }
 
   // Mark remaining hand cards as not playable during organization
@@ -401,7 +471,7 @@ function grantedActionActivations(state: GameState, playerId: PlayerId): Evaluat
           const charDefForCtx = state.cardPool[char.definitionId as string];
           const charDefCard = charDefForCtx && isCharacterCard(charDefForCtx) ? charDefForCtx : undefined;
           const company = player.companies.find(c => c.characters.includes(charId));
-          const ctx = buildGrantActionContext(state, char, charDefCard, company);
+          const ctx = buildGrantActionContext(state, char, charDefCard, company, player);
           if (!matchesCondition(effect.when, ctx)) {
             logDetail(`Grant-action ${effect.action}: when condition failed on ${charDefCard?.name ?? '?'}`);
             continue;
@@ -494,7 +564,7 @@ function grantedActionActivations(state: GameState, playerId: PlayerId): Evaluat
         const charDefCard = charDefForCtx && isCharacterCard(charDefForCtx) ? charDefForCtx : undefined;
         const company = player.companies.find(c => c.characters.includes(charId));
         if (effect.when) {
-          const ctx = buildGrantActionContext(state, char, charDefCard, company);
+          const ctx = buildGrantActionContext(state, char, charDefCard, company, player);
           if (!matchesCondition(effect.when, ctx)) {
             const def = state.cardPool[ally.definitionId as string];
             logDetail(`Grant-action ${effect.action}: when condition failed on ${charDefCard?.name ?? '?'} (source ${def?.name ?? '?'})`);
@@ -525,11 +595,17 @@ function grantedActionActivations(state: GameState, playerId: PlayerId): Evaluat
     for (const item of char.items) {
       const grantActions = extractGrantActions(state, item.definitionId);
       for (const effect of grantActions) {
+        if (effect.cost.tap === 'self' && item.status !== CardStatus.Untapped) {
+          const def = state.cardPool[item.definitionId as string];
+          logDetail(`Grant-action ${effect.action} on ${def?.name ?? '?'}: item is tapped, cannot activate`);
+          continue;
+        }
+
         const charDefForCtx = state.cardPool[char.definitionId as string];
         const charDefCard = charDefForCtx && isCharacterCard(charDefForCtx) ? charDefForCtx : undefined;
         const company = player.companies.find(c => c.characters.includes(charId));
         if (effect.when) {
-          const ctx = buildGrantActionContext(state, char, charDefCard, company);
+          const ctx = buildGrantActionContext(state, char, charDefCard, company, player);
           if (!matchesCondition(effect.when, ctx)) {
             const def = state.cardPool[item.definitionId as string];
             logDetail(`Grant-action ${effect.action}: when condition failed on ${charDefCard?.name ?? '?'} (source ${def?.name ?? '?'})`);
@@ -538,7 +614,8 @@ function grantedActionActivations(state: GameState, playerId: PlayerId): Evaluat
         }
 
         const def = state.cardPool[item.definitionId as string];
-        logDetail(`Grant-action ${effect.action} available: ${charDef?.name ?? '?'} can discard ${def?.name ?? '?'} to activate`);
+        const costLabel = effect.cost.tap === 'self' ? 'tap' : 'discard';
+        logDetail(`Grant-action ${effect.action} available: ${charDef?.name ?? '?'} can ${costLabel} ${def?.name ?? '?'} to activate`);
 
         actions.push({
           action: {
@@ -575,22 +652,34 @@ function buildGrantActionContext(
   char: import('../../index.js').CharacterInPlay,
   charDef: import('../../index.js').CharacterCard | undefined,
   company: import('../../index.js').Company | undefined,
+  player?: import('../../index.js').PlayerState,
 ): Record<string, unknown> {
   const statusStr = char.status === CardStatus.Untapped ? 'untapped'
     : char.status === CardStatus.Tapped ? 'tapped'
     : 'inverted';
+
+  const canUsePalantir = charDef?.text?.includes('May tap to use a Palantír') ||
+    char.items.some(item => {
+      const itemDef = state.cardPool[item.definitionId as string];
+      return itemDef && 'name' in itemDef && (itemDef as { name: string }).name === 'Align Palantír';
+    });
+
   const bearer = {
     status: statusStr,
     name: charDef?.name ?? '',
     race: charDef?.race ?? '',
     skills: charDef?.skills ?? [],
+    canUsePalantir: !!canUsePalantir,
   };
   const companyCtx = company ? {
     size: computeCompanySize(state, company),
     hasPlannedMovement: company.destinationSite !== null || !!company.specialMovement,
     hasExtraRegionDistance: !!company.extraRegionDistance,
   } : null;
-  return { bearer, company: companyCtx };
+  const playerCtx = player ? {
+    playDeckSize: player.playDeck.length,
+  } : null;
+  return { bearer, company: companyCtx, player: playerCtx };
 }
 
 /**

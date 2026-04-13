@@ -280,4 +280,40 @@ describe('Marvels Told (td-134)', () => {
     const passActions = viableActions(afterCC, PLAYER_1, 'pass');
     expect(passActions).toHaveLength(1);
   });
+
+  test('playable during organization phase with proper targeting', () => {
+    const eyeOfSauronInPlay: CardInPlay = { instanceId: mint(), definitionId: EYE_OF_SAURON, status: CardStatus.Untapped };
+    const state = buildTestState({
+      phase: Phase.Organization,
+      activePlayer: PLAYER_1,
+      players: [
+        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [ELROND] }], hand: [MARVELS_TOLD], siteDeck: [MORIA] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [MINAS_TIRITH], cardsInPlay: [eyeOfSauronInPlay] },
+      ],
+    });
+
+    const playActions = viableActions(state, PLAYER_1, 'play-short-event');
+    expect(playActions).toHaveLength(1);
+    const action = playActions[0].action as {
+      type: string;
+      targetScoutInstanceId?: CardInstanceId;
+      discardTargetInstanceId?: CardInstanceId;
+    };
+    expect(action.targetScoutInstanceId).toBeDefined();
+    expect(action.discardTargetInstanceId).toBe(state.players[1].cardsInPlay[0].instanceId);
+  });
+
+  test('not playable during organization when no hazard events in play', () => {
+    const state = buildTestState({
+      phase: Phase.Organization,
+      activePlayer: PLAYER_1,
+      players: [
+        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [ELROND] }], hand: [MARVELS_TOLD], siteDeck: [MORIA] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [MINAS_TIRITH] },
+      ],
+    });
+
+    const playActions = viableActions(state, PLAYER_1, 'play-short-event');
+    expect(playActions).toHaveLength(0);
+  });
 });

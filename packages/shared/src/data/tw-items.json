@@ -286,8 +286,22 @@
     "prowessModifier": 0,
     "bodyModifier": 0,
     "playableAt": [],
-    "effects": [],
-    "text": "Unique. Palantír. Playable only at Isengard. With its bearer able to use a Palantír and with at least 5 cards in your play deck, tap Palantír of Orthanc to choose one card from your discard pile to place in your play deck (reshuffle the play deck). Bearer makes a corruption check. This item does not give MPs to a Fallen-wizard regardless of other cards in play."
+    "effects": [
+      { "type": "item-play-site", "sites": ["Isengard"] },
+      {
+        "type": "grant-action",
+        "action": "palantir-fetch-discard",
+        "cost": { "tap": "self" },
+        "when": {
+          "$and": [
+            { "bearer.canUsePalantir": true },
+            { "player.playDeckSize": { "$gte": 5 } }
+          ]
+        }
+      }
+    ],
+    "text": "Unique. Palantír. Playable only at Isengard. With its bearer able to use a Palantír and with at least 5 cards in your play deck, tap Palantír of Orthanc to choose one card from your discard pile to place in your play deck (reshuffle the play deck). Bearer makes a corruption check. This item does not give MPs to a Fallen-wizard regardless of other cards in play.",
+    "certified": "2026-04-13"
   },
   {
     "cardType": "hero-resource-item",
@@ -326,7 +340,10 @@
       "shadow-hold",
       "dark-hold"
     ],
-    "effects": [],
+    "effects": [
+      { "type": "check-modifier", "check": "gold-ring-test", "value": 2 }
+    ],
+    "certified": "2026-04-13",
     "text": "Unique. When a gold ring is tested in a company with the Scroll of Isildur, the result of the roll is modified by +2."
   },
   {

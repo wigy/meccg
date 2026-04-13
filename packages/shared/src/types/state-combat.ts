@@ -306,4 +306,18 @@ export interface CardEffectPendingEffect {
    * post-effect corruption checks on the correct character.
    */
   readonly targetCharacterId?: CardInstanceId;
+  /**
+   * When true, the source card is NOT discarded after the effect resolves.
+   * Used by grant-action fetch effects where the source is an item that
+   * stays in play (tapped) rather than an event that gets discarded.
+   */
+  readonly skipDiscard?: boolean;
+  /**
+   * When set, a corruption check is enqueued on this character after
+   * the effect completes. Used by Palantír grant-actions.
+   */
+  readonly postCorruptionCheck?: {
+    readonly characterId: CardInstanceId;
+    readonly modifier: number;
+  };
 }

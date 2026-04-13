@@ -13,6 +13,7 @@ import { shuffle, nextInt, CardStatus, getPlayerIndex, isSiteCard, isAvatarChara
 import { logHeading, logDetail } from './legal-actions/log.js';
 import { matchesCondition } from '../effects/index.js';
 import { resolveDef } from './effects/index.js';
+import { enqueueResolution } from './pending.js';
 
 /**
  * Result of applying a {@link GameAction} to a {@link GameState}.
@@ -658,7 +659,9 @@ export function resolvePendingEffect(state: GameState): ReducerResult {
 
   let newState: GameState = { ...state, pendingEffects: remaining };
   if (remaining.length === 0 && current.type === 'card-effect') {
-    newState = discardEventCard(newState, current.cardInstanceId, activePlayerIndex);
+    if (!current.skipDiscard) {
+      newState = discardEventCard(newState, current.cardInstanceId, activePlayerIndex);
+    }
   }
   return { state: newState };
 }
@@ -722,7 +725,25 @@ export function handleFetchFromPile(state: GameState, action: GameAction): Reduc
   const remaining = state.pendingEffects.slice(1);
   let newState: GameState = { ...state, players: newPlayers, rng: nextRng, pendingEffects: remaining };
   if (remaining.length === 0) {
-    newState = discardEventCard(newState, current.cardInstanceId, playerIndex);
+    if (current.skipDiscard) {
+      if (current.postCorruptionCheck) {
+        newState = enqueueResolution(newState, {
+          source: current.cardInstanceId,
+          actor: action.player,
+          scope: { kind: 'phase', phase: newState.phaseState.phase },
+          kind: {
+            type: 'corruption-check',
+            characterId: current.postCorruptionCheck.characterId,
+            modifier: current.postCorruptionCheck.modifier,
+            reason: 'Palantír',
+            possessions: [],
+            transferredItemId: null,
+          },
+        });
+      }
+    } else {
+      newState = discardEventCard(newState, current.cardInstanceId, playerIndex);
+    }
   }
   return { state: newState };
 }
