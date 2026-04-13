@@ -319,6 +319,35 @@ export function handlePlayResourceShortEvent(state: GameState, action: GameActio
         : CardStatus.Inverted;
     logDetail(`${def.name} option "${selectedOption.id}": set ${targetId} status → ${nextStatus}`);
     newCharacters = { ...newCharacters, [targetId]: { ...targetChar, status: statusEnum } };
+
+    // company-rule: healing-affects-all — if this was a heal (wounded → well),
+    // extend the healing to all other wounded characters in the same company
+    const isHeal = targetChar.status === CardStatus.Inverted && statusEnum !== CardStatus.Inverted;
+    if (isHeal) {
+      const company = player.companies.find(c => c.characters.includes(action.targetCharacterId!));
+      if (company) {
+        const hasHealingRule = company.characters.some(charId => {
+          const ch = newCharacters[charId as string];
+          if (!ch) return false;
+          const charDef = state.cardPool[ch.definitionId as string];
+          return charDef && 'effects' in charDef &&
+            (charDef as { effects?: readonly import('../types/effects.js').CardEffect[] }).effects?.some(
+              e => e.type === 'company-rule' && e.rule === 'healing-affects-all',
+            );
+        });
+        if (hasHealingRule) {
+          for (const charId of company.characters) {
+            const cid = charId as string;
+            if (cid === targetId) continue;
+            const ch = newCharacters[cid];
+            if (ch && ch.status === CardStatus.Inverted) {
+              logDetail(`company-rule healing-affects-all: extending heal to ${cid}`);
+              newCharacters = { ...newCharacters, [cid]: { ...ch, status: statusEnum } };
+            }
+          }
+        }
+      }
+    }
   }
 
   // Collect fetch-to-deck effects — these need a sub-flow because the player

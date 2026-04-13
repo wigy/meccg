@@ -443,6 +443,22 @@ instead of the card's base MP. Implemented in
 { "type": "storable-at", "sites": ["Minas Tirith"], "marshallingPoints": 2 }
 ```
 
+### 22. `company-rule`
+
+Declares a company-level rule carried by a character. While this character
+is in play, the rule applies to their entire company.
+
+```json
+{ "type": "company-rule", "rule": "healing-affects-all" }
+```
+
+Rules:
+
+- `healing-affects-all` — when a healing effect (e.g. `set-character-status`
+  from inverted to untapped) targets a character in this character's company,
+  the healing extends to all wounded characters in the company. Implemented in
+  `reducer-events.ts` (play-option healing spread). Example: Ioreth.
+
 ### Grant-Action: `palantir-fetch-discard`
 
 Tap the Palantír item to choose one card from the player's discard pile

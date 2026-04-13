@@ -1,0 +1,211 @@
+/**
+ * @module td-93.test
+ *
+ * Card test: Ioreth (td-93)
+ * Type: hero-character (wizard alignment)
+ * Effects: 1 (company-rule: healing-affects-all)
+ *
+ * "Unique. Healing effects affect all characters in her company."
+ *
+ * Ioreth is a 0-prowess, body-7, mind-1 Dúnadan sage. Her special ability
+ * extends any healing effect targeting a character in her company to ALL
+ * wounded characters in that company.
+ *
+ * Engine Support:
+ * | # | Feature                                    | Status      | Notes                              |
+ * |---|-------------------------------------------|-------------|------------------------------------|
+ * | 1 | Basic character stats (prowess/body/mind)  | IMPLEMENTED | always handled by engine            |
+ * | 2 | Unique flag                                | IMPLEMENTED | unique: true in card data           |
+ * | 3 | company-rule: healing-affects-all           | IMPLEMENTED | reducer-events.ts healing spread    |
+ *
+ * Playable: YES
+ * Certified: 2026-04-14
+ */
+
+import { describe, test, expect, beforeEach } from 'vitest';
+import {
+  buildTestState, resetMint, Phase,
+  PLAYER_1, PLAYER_2,
+  ARAGORN, LEGOLAS, BILBO, IORETH, HALFLING_STRENGTH,
+  RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
+  pool, CardStatus,
+  handCardId, charIdAt, dispatch,
+  expectCharStatus,
+} from '../test-helpers.js';
+import type { HeroCharacterCard, PlayShortEventAction } from '../../index.js';
+import { computeLegalActions } from '../../engine/legal-actions/index.js';
+
+describe('Ioreth (td-93)', () => {
+  beforeEach(() => resetMint());
+
+  test('card definition has correct stats and effects', () => {
+    const def = pool[IORETH as string] as HeroCharacterCard;
+    expect(def).toBeDefined();
+    expect(def.cardType).toBe('hero-character');
+    expect(def.name).toBe('Ioreth');
+    expect(def.unique).toBe(true);
+    expect(def.race).toBe('dunadan');
+    expect(def.skills).toEqual(['sage']);
+    expect(def.prowess).toBe(0);
+    expect(def.body).toBe(7);
+    expect(def.mind).toBe(1);
+    expect(def.directInfluence).toBe(1);
+    expect(def.marshallingPoints).toBe(0);
+    expect(def.homesite).toBe('Minas Tirith');
+  });
+
+  test('declares company-rule healing-affects-all effect', () => {
+    const def = pool[IORETH as string] as HeroCharacterCard;
+    expect(def.effects).toHaveLength(1);
+    expect(def.effects![0]).toEqual({ type: 'company-rule', rule: 'healing-affects-all' });
+  });
+
+  test('Halfling Strength heal on Bilbo extends to wounded Aragorn when Ioreth is in the company', () => {
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Organization,
+      players: [
+        {
+          id: PLAYER_1,
+          companies: [{
+            site: RIVENDELL,
+            characters: [
+              { defId: BILBO, status: CardStatus.Inverted },
+              { defId: ARAGORN, status: CardStatus.Inverted },
+              IORETH,
+            ],
+          }],
+          hand: [HALFLING_STRENGTH],
+          siteDeck: [MORIA],
+        },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [MINAS_TIRITH] },
+      ],
+    });
+
+    const bilboId = charIdAt(base, 0, 0, 0);
+    const hsInstance = handCardId(base, 0);
+
+    const state = dispatch(base, {
+      type: 'play-short-event',
+      player: PLAYER_1,
+      cardInstanceId: hsInstance,
+      targetCharacterId: bilboId,
+      optionId: 'heal',
+    });
+
+    expectCharStatus(state, 0, BILBO, CardStatus.Untapped);
+    expectCharStatus(state, 0, ARAGORN, CardStatus.Untapped);
+    expectCharStatus(state, 0, IORETH, CardStatus.Untapped);
+  });
+
+  test('healing does NOT extend when Ioreth is not in the company', () => {
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Organization,
+      players: [
+        {
+          id: PLAYER_1,
+          companies: [
+            {
+              site: RIVENDELL,
+              characters: [
+                { defId: BILBO, status: CardStatus.Inverted },
+                { defId: ARAGORN, status: CardStatus.Inverted },
+              ],
+            },
+          ],
+          hand: [HALFLING_STRENGTH],
+          siteDeck: [MORIA],
+        },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [MINAS_TIRITH] },
+      ],
+    });
+
+    const bilboId = charIdAt(base, 0, 0, 0);
+    const hsInstance = handCardId(base, 0);
+
+    const state = dispatch(base, {
+      type: 'play-short-event',
+      player: PLAYER_1,
+      cardInstanceId: hsInstance,
+      targetCharacterId: bilboId,
+      optionId: 'heal',
+    });
+
+    expectCharStatus(state, 0, BILBO, CardStatus.Untapped);
+    expectCharStatus(state, 0, ARAGORN, CardStatus.Inverted);
+  });
+
+  test('Ioreth herself is healed when another character receives healing in her company', () => {
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Organization,
+      players: [
+        {
+          id: PLAYER_1,
+          companies: [{
+            site: RIVENDELL,
+            characters: [
+              { defId: BILBO, status: CardStatus.Inverted },
+              { defId: IORETH, status: CardStatus.Inverted },
+            ],
+          }],
+          hand: [HALFLING_STRENGTH],
+          siteDeck: [MORIA],
+        },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [MINAS_TIRITH] },
+      ],
+    });
+
+    const bilboId = charIdAt(base, 0, 0, 0);
+    const hsInstance = handCardId(base, 0);
+
+    const state = dispatch(base, {
+      type: 'play-short-event',
+      player: PLAYER_1,
+      cardInstanceId: hsInstance,
+      targetCharacterId: bilboId,
+      optionId: 'heal',
+    });
+
+    expectCharStatus(state, 0, BILBO, CardStatus.Untapped);
+    expectCharStatus(state, 0, IORETH, CardStatus.Untapped);
+  });
+
+  test('untap option does NOT trigger healing spread (untapping is not healing)', () => {
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Organization,
+      players: [
+        {
+          id: PLAYER_1,
+          companies: [{
+            site: RIVENDELL,
+            characters: [
+              { defId: BILBO, status: CardStatus.Tapped },
+              { defId: ARAGORN, status: CardStatus.Inverted },
+              IORETH,
+            ],
+          }],
+          hand: [HALFLING_STRENGTH],
+          siteDeck: [MORIA],
+        },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [MINAS_TIRITH] },
+      ],
+    });
+
+    const bilboId = charIdAt(base, 0, 0, 0);
+
+    const actions = computeLegalActions(base, PLAYER_1)
+      .filter(ea => ea.viable && ea.action.type === 'play-short-event')
+      .map(ea => ea.action as PlayShortEventAction);
+
+    const untapAction = actions.find(a => a.optionId === 'untap' && a.targetCharacterId === bilboId);
+    expect(untapAction).toBeDefined();
+
+    const state = dispatch(base, untapAction!);
+
+    expectCharStatus(state, 0, BILBO, CardStatus.Untapped);
+    expectCharStatus(state, 0, ARAGORN, CardStatus.Inverted);
+  });
+});
