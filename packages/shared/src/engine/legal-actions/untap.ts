@@ -11,10 +11,10 @@
  * movement/hazard phase.
  */
 
-import type { GameState, PlayerId, EvaluatedAction, UntapPhaseState, CardInstanceId } from '../../index.js';
-import { Phase, CardStatus, isCharacterCard } from '../../index.js';
+import type { GameState, PlayerId, EvaluatedAction, UntapPhaseState, PlayerState } from '../../index.js';
+import { Phase, CardStatus } from '../../index.js';
 import { logDetail } from './log.js';
-import { resolveDef } from '../effects/index.js';
+import { findPlayerAvatar, filterSideboardByDef } from '../reducer-utils.js';
 
 /** Maximum hazard cards that can be fetched to discard per untap. */
 const MAX_HAZARD_SIDEBOARD_TO_DISCARD = 5;
@@ -23,44 +23,21 @@ const MAX_HAZARD_SIDEBOARD_TO_DISCARD = 5;
 const MIN_DECK_SIZE_FOR_HAZARD_TO_DECK = 5;
 
 /**
- * Checks whether a card definition is a hazard — the card types eligible
- * for hazard sideboard access per CoE rule 2.I.
- */
-function isHazardEligible(cardType: string): boolean {
-  return cardType.includes('hazard');
-}
-
-/**
- * Checks whether the active player has an avatar (wizard/ringwraith) in play.
+ * Checks whether the active player has a non-inverted avatar in play.
  * The hazard player can only access their sideboard if this is true.
  */
 function activePlayerHasAvatar(state: GameState): boolean {
   const activePlayer = state.players.find(p => p.id === state.activePlayer);
   if (!activePlayer) return false;
-  for (const char of Object.values(activePlayer.characters)) {
-    const def = resolveDef(state, char.instanceId);
-    if (isCharacterCard(def) && def.mind === null && char.status !== CardStatus.Inverted) {
-      return true;
-    }
-  }
-  return false;
+  const avatar = findPlayerAvatar(state, activePlayer);
+  return avatar !== undefined && avatar.status !== CardStatus.Inverted;
 }
 
 /**
- * Returns eligible hazard cards from the sideboard.
+ * Returns eligible hazard cards from the sideboard per CoE rule 2.I.
  */
-function getEligibleHazardCards(
-  state: GameState,
-  player: { readonly sideboard: readonly import('../../index.js').CardInstance[] },
-): { instanceId: CardInstanceId; name: string }[] {
-  const result: { instanceId: CardInstanceId; name: string }[] = [];
-  for (const card of player.sideboard) {
-    const def = state.cardPool[card.definitionId as string];
-    if (def && isHazardEligible(def.cardType)) {
-      result.push({ instanceId: card.instanceId, name: def.name });
-    }
-  }
-  return result;
+function getEligibleHazardCards(state: GameState, player: PlayerState) {
+  return filterSideboardByDef(state, player.sideboard, def => def.cardType.includes('hazard'));
 }
 
 export function untapActions(state: GameState, playerId: PlayerId): EvaluatedAction[] {

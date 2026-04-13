@@ -10,12 +10,12 @@ import type {
   GameState,
   PlayerId,
   EvaluatedAction,
-  CardInstanceId,
+  PlayerState,
   OrganizationPhaseState,
 } from '../../index.js';
-import { CardStatus, isCharacterCard } from '../../index.js';
+import { CardStatus } from '../../index.js';
 import { logDetail } from './log.js';
-import { resolveDef } from '../effects/index.js';
+import { findPlayerAvatar, filterSideboardByDef } from '../reducer-utils.js';
 
 /** Maximum number of sideboard cards fetchable to the discard pile per avatar tap. */
 const MAX_SIDEBOARD_TO_DISCARD = 5;
@@ -24,45 +24,15 @@ const MAX_SIDEBOARD_TO_DISCARD = 5;
 const MIN_DECK_SIZE_FOR_SIDEBOARD_TO_DECK = 5;
 
 /**
- * Checks whether a card definition is a resource or character — the card types
- * eligible for sideboard access per CoE rule 2.II.6.
+ * Returns eligible sideboard cards (resources and characters) for fetch
+ * actions per CoE rule 2.II.6.
  */
-function isSideboardEligible(cardType: string): boolean {
-  return cardType.includes('character') || cardType.includes('resource');
-}
-
-/**
- * Returns eligible sideboard cards (resources and characters) for fetch actions.
- */
-function getEligibleSideboardCards(
-  state: GameState,
-  player: { readonly sideboard: readonly import('../../index.js').CardInstance[] },
-): { instanceId: CardInstanceId; name: string }[] {
-  const result: { instanceId: CardInstanceId; name: string }[] = [];
-  for (const card of player.sideboard) {
-    const def = state.cardPool[card.definitionId as string];
-    if (def && isSideboardEligible(def.cardType)) {
-      result.push({ instanceId: card.instanceId, name: def.name });
-    }
-  }
-  return result;
-}
-
-/**
- * Finds the avatar character instance ID for a player, if the avatar is untapped.
- * Returns null if the player has no avatar in play or the avatar is not untapped.
- */
-function findUntappedAvatar(
-  state: GameState,
-  player: { readonly characters: Readonly<Record<string, import('../../index.js').CharacterInPlay>> },
-): CardInstanceId | null {
-  for (const [key, char] of Object.entries(player.characters)) {
-    const def = resolveDef(state, char.instanceId);
-    if (isCharacterCard(def) && def.mind === null && char.status === CardStatus.Untapped) {
-      return key as CardInstanceId;
-    }
-  }
-  return null;
+function getEligibleSideboardCards(state: GameState, player: PlayerState) {
+  return filterSideboardByDef(
+    state,
+    player.sideboard,
+    def => def.cardType.includes('character') || def.cardType.includes('resource'),
+  );
 }
 
 /**
@@ -121,11 +91,12 @@ export function fetchFromSideboardActions(state: GameState, playerId: PlayerId):
 
   // ── No intent declared: generate start actions ──
 
-  const avatarId = findUntappedAvatar(state, player);
-  if (!avatarId) {
+  const avatar = findPlayerAvatar(state, player);
+  if (!avatar || avatar.status !== CardStatus.Untapped) {
     logDetail('Sideboard access: no untapped avatar');
     return actions;
   }
+  const avatarId = avatar.instanceId;
 
   const eligible = getEligibleSideboardCards(state, player);
   if (eligible.length === 0) {

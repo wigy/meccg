@@ -6,12 +6,13 @@
  * and card effect resolution helpers.
  */
 
-import type { GameState, PlayerState, CardInstanceId, CardInstance, CompanyId, GameAction, Company } from '../index.js';
+import type { GameState, PlayerState, CardInstanceId, CardInstance, CompanyId, GameAction, Company, CharacterInPlay, CardDefinition } from '../index.js';
 import type { TwoDiceSix, DieRoll, GameEffect } from '../index.js';
 import type { Condition } from '../types/effects.js';
-import { shuffle, nextInt, CardStatus, getPlayerIndex, isSiteCard } from '../index.js';
+import { shuffle, nextInt, CardStatus, getPlayerIndex, isSiteCard, isAvatarCharacter } from '../index.js';
 import { logHeading, logDetail } from './legal-actions/log.js';
 import { matchesCondition } from '../effects/index.js';
+import { resolveDef } from './effects/index.js';
 
 /**
  * Result of applying a {@link GameAction} to a {@link GameState}.
@@ -105,6 +106,42 @@ export function roll2d6(state: GameState): { roll: TwoDiceSix; rng: typeof state
 
 export function clonePlayers(state: GameState): [PlayerState, PlayerState] {
   return [{ ...state.players[0] }, { ...state.players[1] }];
+}
+
+/**
+ * Returns the player's avatar character (wizard/ringwraith/fallen-wizard/balrog),
+ * or `undefined` if the player has no avatar in play. Matches the first character
+ * whose definition has `mind === null`.
+ */
+export function findPlayerAvatar(
+  state: GameState,
+  player: { readonly characters: Readonly<Record<string, CharacterInPlay>> },
+): CharacterInPlay | undefined {
+  for (const char of Object.values(player.characters)) {
+    const def = resolveDef(state, char.instanceId);
+    if (isAvatarCharacter(def)) return char;
+  }
+  return undefined;
+}
+
+/**
+ * Filters a sideboard to the cards whose definitions match `predicate`,
+ * returning `{ instanceId, name }` pairs for legal-action generation. Cards
+ * whose definitions cannot be resolved from the card pool are skipped.
+ */
+export function filterSideboardByDef(
+  state: GameState,
+  sideboard: readonly CardInstance[],
+  predicate: (def: CardDefinition) => boolean,
+): { instanceId: CardInstanceId; name: string }[] {
+  const result: { instanceId: CardInstanceId; name: string }[] = [];
+  for (const card of sideboard) {
+    const def = state.cardPool[card.definitionId as string];
+    if (def && predicate(def)) {
+      result.push({ instanceId: card.instanceId, name: def.name });
+    }
+  }
+  return result;
 }
 
 /**
