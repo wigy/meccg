@@ -266,6 +266,11 @@ export const LOND_GALEN = did('tw-407');
 /** The Worthy Hills — hero ruins-and-lairs in Cardolan, nearest haven Rivendell. */
 export const THE_WORTHY_HILLS = did('as-142');
 
+// ---- The Dragons — Hero Sites ----
+
+/** Isle of the Ulond — hero ruins-and-lairs in Andrast Coast, nearest haven Edhellond. */
+export const ISLE_OF_THE_ULOND = did('td-178');
+
 // ---- Regions ----
 
 /** Rhudaur — wilderness region north of Rivendell. */
