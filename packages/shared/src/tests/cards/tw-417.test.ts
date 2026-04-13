@@ -35,8 +35,9 @@ import {
   PLAYER_1, PLAYER_2,
   RIVENDELL, LORIEN, MORIA,
   ARAGORN, LEGOLAS,
-  resetMint, pool, buildTestState, reduce, Phase, CardStatus,
+  resetMint, pool, buildTestState, Phase, CardStatus,
   buildSitePhaseState,
+  dispatch, expectCharStatus,
 } from '../test-helpers.js';
 import {
   computeLegalActions,
@@ -136,12 +137,10 @@ describe('Old Forest (tw-417)', () => {
       ],
     });
 
-    const result = reduce(state, { type: 'untap', player: PLAYER_1 });
-    expect(result.error).toBeUndefined();
+    const nextState = dispatch(state, { type: 'untap', player: PLAYER_1 });
 
-    const charId = result.state.players[0].companies[0].characters[0] as string;
     // Wounded characters stay wounded at non-haven sites
-    expect(result.state.players[0].characters[charId].status).toBe(CardStatus.Inverted);
+    expectCharStatus(nextState, 0, ARAGORN, CardStatus.Inverted);
   });
 
   test('tapped character at Old Forest untaps normally', () => {
@@ -154,11 +153,9 @@ describe('Old Forest (tw-417)', () => {
       ],
     });
 
-    const result = reduce(state, { type: 'untap', player: PLAYER_1 });
-    expect(result.error).toBeUndefined();
+    const nextState = dispatch(state, { type: 'untap', player: PLAYER_1 });
 
-    const charId = result.state.players[0].companies[0].characters[0] as string;
-    expect(result.state.players[0].characters[charId].status).toBe(CardStatus.Untapped);
+    expectCharStatus(nextState, 0, ARAGORN, CardStatus.Untapped);
   });
 
   // ─── Movement ─────────────────────────────────────────────────────────────

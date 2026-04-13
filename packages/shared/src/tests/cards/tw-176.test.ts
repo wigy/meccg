@@ -25,8 +25,9 @@ import {
   DUNLENDINGS,
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH, DUNNISH_CLAN_HOLD,
   buildTestState, resetMint, makeMHState, findCharInstanceId,
-  reduce, executeAction, playCreatureHazardAndResolve, runCreatureCombat,
+  executeAction, playCreatureHazardAndResolve, runCreatureCombat,
   buildSitePhaseState,
+  getCharacter, companyIdAt, handCardId, dispatch,
 } from '../test-helpers.js';
 import { Phase, RegionType, SiteType, computeLegalActions } from '../../index.js';
 import type { CharacterCard, CombatState, InfluenceAttemptAction } from '../../index.js';
@@ -83,8 +84,7 @@ describe('Peath (tw-176)', () => {
       ],
     });
 
-    const peathId = findCharInstanceId(state, 0, PEATH);
-    expect(state.players[0].characters[peathId as string].effectiveStats.prowess).toBe(4);
+    expect(getCharacter(state, 0, PEATH).effectiveStats.prowess).toBe(4);
   });
 
   test('+4 direct influence against Dunlendings faction', () => {
@@ -161,7 +161,7 @@ describe('Peath (tw-176)', () => {
     });
 
     const peathId = findCharInstanceId(state, 0, PEATH);
-    const companyId = state.players[0].companies[0].id;
+    const companyId = companyIdAt(state, 0);
 
     const combat: CombatState = {
       attackSource: { type: 'creature', instanceId: 'fake-nazgul' as never },
@@ -190,11 +190,10 @@ describe('Peath (tw-176)', () => {
     const ready = { ...state, phaseState: mhState, combat };
 
     // Assign strike
-    const result1 = reduce(ready, { type: 'assign-strike', player: PLAYER_1, characterId: peathId });
-    expect(result1.error).toBeUndefined();
+    const assigned = dispatch(ready, { type: 'assign-strike', player: PLAYER_1, characterId: peathId });
 
     // Resolve without tapping: prowess = 4 + 5 - 3 = 6. Roll 10: 6 + 10 = 16 > 15.
-    const afterStrike = executeAction(result1.state, PLAYER_1, 'resolve-strike', 10, false);
+    const afterStrike = executeAction(assigned, PLAYER_1, 'resolve-strike', 10, false);
     expect(afterStrike.combat?.phase).toBe('body-check');
     expect(afterStrike.combat?.bodyCheckTarget).toBe('creature');
   });
@@ -218,8 +217,8 @@ describe('Peath (tw-176)', () => {
     });
     const ready = { ...state, phaseState: mhState };
 
-    const bwId = ready.players[1].hand[0].instanceId;
-    const companyId = ready.players[0].companies[0].id;
+    const bwId = handCardId(ready, 1);
+    const companyId = companyIdAt(ready, 0);
     const afterChain = playCreatureHazardAndResolve(ready, PLAYER_2, bwId, companyId, SHADOW_KEYING);
 
     expect(afterChain.combat).not.toBeNull();
@@ -244,7 +243,7 @@ describe('Peath (tw-176)', () => {
     });
 
     const peathId = findCharInstanceId(state, 0, PEATH);
-    const companyId = state.players[0].companies[0].id;
+    const companyId = companyIdAt(state, 0);
 
     const combat: CombatState = {
       attackSource: { type: 'creature', instanceId: 'fake-nazgul' as never },
@@ -291,7 +290,7 @@ describe('Peath (tw-176)', () => {
     });
 
     const peathId = findCharInstanceId(state, 0, PEATH);
-    const companyId = state.players[0].companies[0].id;
+    const companyId = companyIdAt(state, 0);
 
     const combat: CombatState = {
       attackSource: { type: 'creature', instanceId: 'fake-nazgul' as never },
@@ -346,7 +345,7 @@ describe('Peath (tw-176)', () => {
     });
 
     const peathId = findCharInstanceId(state, 0, PEATH);
-    const companyId = state.players[0].companies[0].id;
+    const companyId = companyIdAt(state, 0);
 
     const combat: CombatState = {
       attackSource: { type: 'creature', instanceId: 'fake-nazgul' as never },
@@ -399,7 +398,7 @@ describe('Peath (tw-176)', () => {
     });
 
     const peathId = findCharInstanceId(state, 0, PEATH);
-    const companyId = state.players[0].companies[0].id;
+    const companyId = companyIdAt(state, 0);
 
     const combat: CombatState = {
       attackSource: { type: 'creature', instanceId: 'fake-orc' as never },

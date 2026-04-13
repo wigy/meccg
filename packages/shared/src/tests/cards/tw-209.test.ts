@@ -25,8 +25,9 @@ import {
   CAVE_DRAKE, DODGE,
   RIVENDELL, LORIEN, MINAS_TIRITH, MORIA,
   buildTestState, resetMint, makeMHState,
-  reduce, pool, findCharInstanceId,
+  pool, findCharInstanceId,
   playCreatureHazardAndResolve,
+  handCardId, companyIdAt, dispatch, expectCharStatus, expectInDiscardPile,
 } from '../test-helpers.js';
 import { computeLegalActions, Phase, RegionType, SiteType, CardStatus } from '../../index.js';
 import type { PlayDodgeAction } from '../../index.js';
@@ -76,8 +77,8 @@ describe('Dodge (tw-209)', () => {
     });
     const gameState = { ...state, phaseState: mhState };
 
-    const creatureId = gameState.players[1].hand[0].instanceId;
-    const companyId = gameState.players[0].companies[0].id;
+    const creatureId = handCardId(gameState, 1);
+    const companyId = companyIdAt(gameState, 0);
     const s0 = playCreatureHazardAndResolve(gameState, PLAYER_2, creatureId, companyId, WILDERNESS_KEYING);
     expect(s0.combat).not.toBeNull();
     return s0;
@@ -88,10 +89,10 @@ describe('Dodge (tw-209)', () => {
     const aragornId = findCharInstanceId(state0, 0, ARAGORN);
 
     // P1 (defender) passes cancel window
-    let s = reduce(state0, { type: 'pass', player: PLAYER_1 }).state;
+    let s = dispatch(state0, { type: 'pass', player: PLAYER_1 });
     // P2 (attacker) assigns both strikes to Aragorn
-    s = reduce(s, { type: 'assign-strike', player: PLAYER_2, characterId: aragornId }).state;
-    s = reduce(s, { type: 'assign-strike', player: PLAYER_2, characterId: aragornId, excess: true }).state;
+    s = dispatch(s, { type: 'assign-strike', player: PLAYER_2, characterId: aragornId });
+    s = dispatch(s, { type: 'assign-strike', player: PLAYER_2, characterId: aragornId, excess: true });
 
     // Auto-selects resolve-strike since only one character has strikes
     expect(s.combat!.phase).toBe('resolve-strike');
@@ -106,7 +107,7 @@ describe('Dodge (tw-209)', () => {
     const dodgeActions = actions.filter(a => a.viable && a.action.type === 'play-dodge');
     expect(dodgeActions.length).toBe(1);
     expect((dodgeActions[0].action as PlayDodgeAction).cardInstanceId).toBe(
-      s1.players[0].hand[0].instanceId,
+      handCardId(s1, 0),
     );
   });
 
@@ -114,20 +115,18 @@ describe('Dodge (tw-209)', () => {
     const s0 = setupCombatWithCaveDrake();
     const s1 = assignCaveDrakeStrikes(s0);
 
-    const aragornId = findCharInstanceId(s1, 0, ARAGORN);
     const dodgeAction = computeLegalActions(s1, PLAYER_1)
       .find(a => a.viable && a.action.type === 'play-dodge')!;
 
     // Cheat roll high: Aragorn prowess 6 + 12 = 18 > 10 → success
-    const s2 = reduce({ ...s1, cheatRollTotal: 12 }, dodgeAction.action).state;
+    const s2 = dispatch({ ...s1, cheatRollTotal: 12 }, dodgeAction.action);
 
     // Aragorn should still be untapped (dodged, not wounded)
-    const aragornData = s2.players[0].characters[aragornId as string];
-    expect(aragornData.status).toBe(CardStatus.Untapped);
+    expectCharStatus(s2, 0, ARAGORN, CardStatus.Untapped);
 
     // Dodge card should be discarded from hand
     expect(s2.players[0].hand.length).toBe(0);
-    expect(s2.players[0].discardPile.some(c => c.definitionId === DODGE)).toBe(true);
+    expectInDiscardPile(s2, 0, DODGE);
   });
 
   test('wounded by dodged strike → body check with -1 penalty', () => {
@@ -138,7 +137,7 @@ describe('Dodge (tw-209)', () => {
       .find(a => a.viable && a.action.type === 'play-dodge')!;
 
     // Cheat roll low: Aragorn prowess 6 + 2 = 8 < 10 → wounded
-    const s2 = reduce({ ...s1, cheatRollTotal: 2 }, dodgeAction.action).state;
+    const s2 = dispatch({ ...s1, cheatRollTotal: 2 }, dodgeAction.action);
 
     // Should be in body-check phase
     expect(s2.combat!.phase).toBe('body-check');
@@ -221,16 +220,14 @@ describe('Dodge (tw-209)', () => {
     const s0 = setupCombatWithCaveDrake([]);
     const s1 = assignCaveDrakeStrikes(s0);
 
-    const aragornId = findCharInstanceId(s1, 0, ARAGORN);
     const tapAction = computeLegalActions(s1, PLAYER_1)
       .find(a => a.viable && a.action.type === 'resolve-strike' &&
         (a.action as { tapToFight: boolean }).tapToFight === true)!;
 
     // Cheat roll high: success
-    const s2 = reduce({ ...s1, cheatRollTotal: 12 }, tapAction.action).state;
+    const s2 = dispatch({ ...s1, cheatRollTotal: 12 }, tapAction.action);
 
     // Without dodge, character should be tapped
-    const aragornData = s2.players[0].characters[aragornId as string];
-    expect(aragornData.status).toBe(CardStatus.Tapped);
+    expectCharStatus(s2, 0, ARAGORN, CardStatus.Tapped);
   });
 });

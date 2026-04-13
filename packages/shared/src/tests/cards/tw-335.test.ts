@@ -21,8 +21,8 @@ import {
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
   CardStatus,
   buildTestState, resetMint, buildSitePhaseState,
-  findCharInstanceId,
   playLongEventAndResolve,
+  handCardId, dispatch, getCharacter,
 } from '../test-helpers.js';
 import type { CardInPlay, CardInstanceId, CardDefinitionId, CharacterCard, SitePhaseState } from '../../index.js';
 import { ISENGARD } from '../../index.js';
@@ -51,11 +51,11 @@ describe('Sun (tw-335)', () => {
       ],
     });
 
-    const sunInstanceId = state.players[0].hand[0].instanceId;
+    const sunInstanceId = handCardId(state, 0);
     const s = playLongEventAndResolve(state, PLAYER_1, sunInstanceId);
 
-    expect(s.players[0].characters[findCharInstanceId(s, 0, ARAGORN)].effectiveStats.prowess).toBe(baseProwess(ARAGORN) + 1);
-    expect(s.players[1].characters[findCharInstanceId(s, 1, LEGOLAS)].effectiveStats.prowess).toBe(baseProwess(LEGOLAS));
+    expect(getCharacter(s, 0, ARAGORN).effectiveStats.prowess).toBe(baseProwess(ARAGORN) + 1);
+    expect(getCharacter(s, 1, LEGOLAS).effectiveStats.prowess).toBe(baseProwess(LEGOLAS));
   });
 
   test('with Gates of Morning: Man and Dúnadan prowess +1 additional', () => {
@@ -76,15 +76,15 @@ describe('Sun (tw-335)', () => {
       ],
     });
 
-    const sunInstanceId = state.players[0].hand[0].instanceId;
+    const sunInstanceId = handCardId(state, 0);
     const s = playLongEventAndResolve(state, PLAYER_1, sunInstanceId);
 
     // Aragorn (dunadan): +1 unconditional + +1 with GoM = +2
-    expect(s.players[0].characters[findCharInstanceId(s, 0, ARAGORN)].effectiveStats.prowess).toBe(baseProwess(ARAGORN) + 2);
+    expect(getCharacter(s, 0, ARAGORN).effectiveStats.prowess).toBe(baseProwess(ARAGORN) + 2);
     // Bard Bowman (man): +1 with GoM
-    expect(s.players[0].characters[findCharInstanceId(s, 0, BARD_BOWMAN)].effectiveStats.prowess).toBe(baseProwess(BARD_BOWMAN) + 1);
+    expect(getCharacter(s, 0, BARD_BOWMAN).effectiveStats.prowess).toBe(baseProwess(BARD_BOWMAN) + 1);
     // Legolas (elf): unaffected
-    expect(s.players[1].characters[findCharInstanceId(s, 1, LEGOLAS)].effectiveStats.prowess).toBe(baseProwess(LEGOLAS));
+    expect(getCharacter(s, 1, LEGOLAS).effectiveStats.prowess).toBe(baseProwess(LEGOLAS));
   });
 
   test('affects opponent characters too', () => {
@@ -104,12 +104,10 @@ describe('Sun (tw-335)', () => {
     });
 
     // Pass to trigger recomputeDerived
-    const result = reduce(state, { type: 'pass', player: PLAYER_1 });
-    expect(result.error).toBeUndefined();
+    const s = dispatch(state, { type: 'pass', player: PLAYER_1 });
 
     // P2's Aragorn (dunadan) should get +1 from P1's Sun
-    const s = result.state;
-    expect(s.players[1].characters[findCharInstanceId(s, 1, ARAGORN)].effectiveStats.prowess).toBe(baseProwess(ARAGORN) + 1);
+    expect(getCharacter(s, 1, ARAGORN).effectiveStats.prowess).toBe(baseProwess(ARAGORN) + 1);
   });
 
   test('body and direct influence are not modified', () => {
@@ -122,11 +120,11 @@ describe('Sun (tw-335)', () => {
       ],
     });
 
-    const sunInstanceId = state.players[0].hand[0].instanceId;
+    const sunInstanceId = handCardId(state, 0);
     const s = playLongEventAndResolve(state, PLAYER_1, sunInstanceId);
 
     const aragornDef = pool[ARAGORN as string] as CharacterCard;
-    const stats = s.players[0].characters[findCharInstanceId(s, 0, ARAGORN)].effectiveStats;
+    const stats = getCharacter(s, 0, ARAGORN).effectiveStats;
     expect(stats.body).toBe(aragornDef.body);
     expect(stats.directInfluence).toBe(aragornDef.directInfluence);
   });
@@ -147,7 +145,7 @@ describe('Sun (tw-335)', () => {
       ],
     });
 
-    const sunInstanceId = state.players[0].hand[0].instanceId;
+    const sunInstanceId = handCardId(state, 0);
     const result = reduce(state, { type: 'play-long-event', player: PLAYER_1, cardInstanceId: sunInstanceId });
     expect(result.error).toBe('Sun cannot be duplicated');
   });
@@ -168,7 +166,7 @@ describe('Sun (tw-335)', () => {
       ],
     });
 
-    const sunInstanceId = state.players[0].hand[0].instanceId;
+    const sunInstanceId = handCardId(state, 0);
     const result = reduce(state, { type: 'play-long-event', player: PLAYER_1, cardInstanceId: sunInstanceId });
     expect(result.error).toBe('Sun cannot be duplicated');
   });
@@ -202,12 +200,11 @@ describe('Sun (tw-335)', () => {
     const readyState = { ...state, players, phaseState: autoAttackState };
 
     // Pass to trigger the automatic attack combat
-    const result = reduce(readyState, { type: 'pass', player: PLAYER_1 });
-    expect(result.error).toBeUndefined();
-    expect(result.state.combat).toBeDefined();
-    expect(result.state.combat!.strikesTotal).toBe(3);
+    const nextState = dispatch(readyState, { type: 'pass', player: PLAYER_1 });
+    expect(nextState.combat).toBeDefined();
+    expect(nextState.combat!.strikesTotal).toBe(3);
     // Prowess reduced from 7 to 6 by Sun's all-attacks effect
-    expect(result.state.combat!.strikeProwess).toBe(6);
+    expect(nextState.combat!.strikeProwess).toBe(6);
   });
 
   test('without Gates of Morning: automatic attack prowess is unchanged', () => {
@@ -231,10 +228,9 @@ describe('Sun (tw-335)', () => {
     };
     const readyState = { ...state, players, phaseState: autoAttackState };
 
-    const result = reduce(readyState, { type: 'pass', player: PLAYER_1 });
-    expect(result.error).toBeUndefined();
-    expect(result.state.combat).toBeDefined();
+    const nextState = dispatch(readyState, { type: 'pass', player: PLAYER_1 });
+    expect(nextState.combat).toBeDefined();
     // Prowess unchanged at 7 — Sun's all-attacks effect requires GoM
-    expect(result.state.combat!.strikeProwess).toBe(7);
+    expect(nextState.combat!.strikeProwess).toBe(7);
   });
 });

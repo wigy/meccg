@@ -26,7 +26,8 @@ import {
   ASSASSIN,
   RIVENDELL, LORIEN, MINAS_TIRITH, BREE,
   buildTestState, resetMint, makeMHState,
-  reduce, pool, resolveChain,
+  pool, resolveChain,
+  handCardId, companyIdAt, charIdAt, dispatch,
 } from '../test-helpers.js';
 import { computeLegalActions, Phase, SiteType } from '../../index.js';
 import type { CreatureCard } from '../../index.js';
@@ -100,19 +101,18 @@ describe('Assassin (tw-8)', () => {
     const gameState = { ...state, phaseState: mhState };
 
     // P2 plays Assassin targeting P1's company
-    const assassinId = gameState.players[1].hand[0].instanceId;
-    const companyId = gameState.players[0].companies[0].id;
-    const result = reduce(gameState, {
+    const assassinId = handCardId(gameState, 1);
+    const companyId = companyIdAt(gameState, 0);
+    const afterPlay = dispatch(gameState, {
       type: 'play-hazard',
       player: PLAYER_2,
       cardInstanceId: assassinId,
       targetCompanyId: companyId,
       keyedBy: { method: 'site-type' as const, value: 'border-hold' },
     });
-    expect(result.error).toBeUndefined();
 
     // Resolve chain → combat initiates
-    const afterChain = resolveChain(result.state);
+    const afterChain = resolveChain(afterPlay);
     expect(afterChain.combat).not.toBeNull();
     expect(afterChain.combat!.phase).toBe('assign-strikes');
     expect(afterChain.combat!.assignmentPhase).toBe('cancel-window');
@@ -152,40 +152,38 @@ describe('Assassin (tw-8)', () => {
     });
     const gameState = { ...state, phaseState: mhState };
 
-    const assassinId = gameState.players[1].hand[0].instanceId;
-    const companyId = gameState.players[0].companies[0].id;
-    const result = reduce(gameState, {
+    const assassinId = handCardId(gameState, 1);
+    const companyId = companyIdAt(gameState, 0);
+    const afterPlay = dispatch(gameState, {
       type: 'play-hazard',
       player: PLAYER_2,
       cardInstanceId: assassinId,
       targetCompanyId: companyId,
       keyedBy: { method: 'site-type' as const, value: 'border-hold' },
     });
-    const afterChain = resolveChain(result.state);
+    const afterChain = resolveChain(afterPlay);
 
     // Defender passes cancel-window
-    const afterPass = reduce(afterChain, { type: 'pass', player: PLAYER_1 });
-    expect(afterPass.error).toBeUndefined();
+    const afterPass = dispatch(afterChain, { type: 'pass', player: PLAYER_1 });
 
     // Attacker gets assign-strike actions for both characters
-    const attackerActions = computeLegalActions(afterPass.state, PLAYER_2);
+    const attackerActions = computeLegalActions(afterPass, PLAYER_2);
     const assignStrikes = attackerActions.filter(
       a => a.viable && a.action.type === 'assign-strike',
     );
     expect(assignStrikes).toHaveLength(2); // Can target either character
 
     // Attacker assigns to Aragorn
-    const aragornCharId = afterPass.state.players[0].companies[0].characters[0];
-    const assignResult = reduce(afterPass.state, {
+    const aragornCharId = charIdAt(afterPass, 0);
+    const assignResult = dispatch(afterPass, {
       type: 'assign-strike',
       player: PLAYER_2,
       characterId: aragornCharId,
       tapped: false,
     });
-    expect(assignResult.error).toBeUndefined();
 
     // All 3 strikes are now assigned to Aragorn
-    const combat = assignResult.state.combat!;
+    const combat = assignResult.combat!;
     expect(combat.strikeAssignments).toHaveLength(3);
     expect(combat.strikeAssignments.every(sa => sa.characterId === aragornCharId)).toBe(true);
 
@@ -222,34 +220,33 @@ describe('Assassin (tw-8)', () => {
     });
     const gameState = { ...state, phaseState: mhState };
 
-    const assassinId = gameState.players[1].hand[0].instanceId;
-    const companyId = gameState.players[0].companies[0].id;
-    const r1 = reduce(gameState, {
+    const assassinId = handCardId(gameState, 1);
+    const companyId = companyIdAt(gameState, 0);
+    const afterPlay = dispatch(gameState, {
       type: 'play-hazard',
       player: PLAYER_2,
       cardInstanceId: assassinId,
       targetCompanyId: companyId,
       keyedBy: { method: 'site-type' as const, value: 'border-hold' },
     });
-    const afterChain = resolveChain(r1.state);
+    const afterChain = resolveChain(afterPlay);
 
     // Defender passes cancel-window
-    const afterPass = reduce(afterChain, { type: 'pass', player: PLAYER_1 });
-    expect(afterPass.error).toBeUndefined();
+    const afterPass = dispatch(afterChain, { type: 'pass', player: PLAYER_1 });
 
     // Attacker assigns to first character (Aragorn)
-    const aragornCharId = afterPass.state.players[0].companies[0].characters[0];
-    const legolasCharId = afterPass.state.players[0].companies[0].characters[1];
-    const r2 = reduce(afterPass.state, {
+    const aragornCharId = charIdAt(afterPass, 0, 0, 0);
+    const legolasCharId = charIdAt(afterPass, 0, 0, 1);
+    const r2 = dispatch(afterPass, {
       type: 'assign-strike',
       player: PLAYER_2,
       characterId: aragornCharId,
       tapped: false,
     });
-    expect(r2.state.combat!.assignmentPhase).toBe('cancel-by-tap');
+    expect(r2.combat!.assignmentPhase).toBe('cancel-by-tap');
 
     // Defender (P1) gets cancel-by-tap actions for non-target characters
-    const defActions = computeLegalActions(r2.state, PLAYER_1);
+    const defActions = computeLegalActions(r2, PLAYER_1);
     const cancelActions = defActions.filter(
       a => a.viable && a.action.type === 'cancel-by-tap',
     );
@@ -261,16 +258,15 @@ describe('Assassin (tw-8)', () => {
     expect(passActions).toHaveLength(1);
 
     // Defender taps Legolas to cancel one attack
-    const r3 = reduce(r2.state, {
+    const r3 = dispatch(r2, {
       type: 'cancel-by-tap',
       player: PLAYER_1,
       characterId: legolasCharId,
     });
-    expect(r3.error).toBeUndefined();
-    expect(r3.state.combat!.strikeAssignments).toHaveLength(2);
-    expect(r3.state.combat!.strikesTotal).toBe(2);
+    expect(r3.combat!.strikeAssignments).toHaveLength(2);
+    expect(r3.combat!.strikesTotal).toBe(2);
     // Legolas is now tapped
-    expect(r3.state.players[0].characters[legolasCharId as string].status).toBe('tapped');
+    expect(r3.players[0].characters[legolasCharId as string].status).toBe('tapped');
   });
 
   test('cancel-by-tap respects maxCancels limit (max 2)', () => {
@@ -302,25 +298,24 @@ describe('Assassin (tw-8)', () => {
     });
     const gameState = { ...state, phaseState: mhState };
 
-    const assassinId = gameState.players[1].hand[0].instanceId;
-    const companyId = gameState.players[0].companies[0].id;
-    const r1 = reduce(gameState, {
+    const assassinId = handCardId(gameState, 1);
+    const companyId = companyIdAt(gameState, 0);
+    const afterPlay = dispatch(gameState, {
       type: 'play-hazard',
       player: PLAYER_2,
       cardInstanceId: assassinId,
       targetCompanyId: companyId,
       keyedBy: { method: 'site-type' as const, value: 'border-hold' },
     });
-    const afterChain = resolveChain(r1.state);
+    const afterChain = resolveChain(afterPlay);
 
     // Defender passes cancel-window
-    const afterPass = reduce(afterChain, { type: 'pass', player: PLAYER_1 });
-    expect(afterPass.error).toBeUndefined();
+    const afterPass = dispatch(afterChain, { type: 'pass', player: PLAYER_1 });
 
-    const aragornCharId = afterPass.state.players[0].companies[0].characters[0];
-    const legolasCharId = afterPass.state.players[0].companies[0].characters[1];
-    const gimliCharId = afterPass.state.players[0].companies[0].characters[2];
-    const r2 = reduce(afterPass.state, {
+    const aragornCharId = charIdAt(afterPass, 0, 0, 0);
+    const legolasCharId = charIdAt(afterPass, 0, 0, 1);
+    const gimliCharId = charIdAt(afterPass, 0, 0, 2);
+    const r2 = dispatch(afterPass, {
       type: 'assign-strike',
       player: PLAYER_2,
       characterId: aragornCharId,
@@ -328,25 +323,24 @@ describe('Assassin (tw-8)', () => {
     });
 
     // Cancel first attack
-    const r3 = reduce(r2.state, {
+    const r3 = dispatch(r2, {
       type: 'cancel-by-tap',
       player: PLAYER_1,
       characterId: legolasCharId,
     });
-    expect(r3.state.combat!.cancelByTapRemaining).toBe(1);
+    expect(r3.combat!.cancelByTapRemaining).toBe(1);
 
     // Cancel second attack
-    const r4 = reduce(r3.state, {
+    const r4 = dispatch(r3, {
       type: 'cancel-by-tap',
       player: PLAYER_1,
       characterId: gimliCharId,
     });
-    expect(r4.error).toBeUndefined();
     // After 2 cancels (maxCancels), should proceed to resolution
-    expect(r4.state.combat!.strikeAssignments).toHaveLength(1);
-    expect(r4.state.combat!.assignmentPhase).toBe('done');
+    expect(r4.combat!.strikeAssignments).toHaveLength(1);
+    expect(r4.combat!.assignmentPhase).toBe('done');
     // Should be in resolve-strike phase (auto-selected since only 1 strike)
-    expect(r4.state.combat!.phase).toBe('resolve-strike');
+    expect(r4.combat!.phase).toBe('resolve-strike');
   });
 
   test('defender can pass cancel-by-tap to proceed with remaining strikes', () => {
@@ -378,37 +372,35 @@ describe('Assassin (tw-8)', () => {
     });
     const gameState = { ...state, phaseState: mhState };
 
-    const assassinId = gameState.players[1].hand[0].instanceId;
-    const companyId = gameState.players[0].companies[0].id;
-    const r1 = reduce(gameState, {
+    const assassinId = handCardId(gameState, 1);
+    const companyId = companyIdAt(gameState, 0);
+    const afterPlay = dispatch(gameState, {
       type: 'play-hazard',
       player: PLAYER_2,
       cardInstanceId: assassinId,
       targetCompanyId: companyId,
       keyedBy: { method: 'site-type' as const, value: 'border-hold' },
     });
-    const afterChain = resolveChain(r1.state);
+    const afterChain = resolveChain(afterPlay);
 
     // Defender passes cancel-window
-    const afterPass = reduce(afterChain, { type: 'pass', player: PLAYER_1 });
-    expect(afterPass.error).toBeUndefined();
+    const afterPass = dispatch(afterChain, { type: 'pass', player: PLAYER_1 });
 
-    const aragornCharId = afterPass.state.players[0].companies[0].characters[0];
-    const r2 = reduce(afterPass.state, {
+    const aragornCharId = charIdAt(afterPass, 0);
+    const r2 = dispatch(afterPass, {
       type: 'assign-strike',
       player: PLAYER_2,
       characterId: aragornCharId,
       tapped: false,
     });
-    expect(r2.state.combat!.assignmentPhase).toBe('cancel-by-tap');
+    expect(r2.combat!.assignmentPhase).toBe('cancel-by-tap');
 
     // Defender passes without canceling
-    const r3 = reduce(r2.state, { type: 'pass', player: PLAYER_1 });
-    expect(r3.error).toBeUndefined();
-    expect(r3.state.combat!.assignmentPhase).toBe('done');
+    const r3 = dispatch(r2, { type: 'pass', player: PLAYER_1 });
+    expect(r3.combat!.assignmentPhase).toBe('done');
     // 3 strikes remain, defender chooses resolution order
-    expect(r3.state.combat!.strikeAssignments).toHaveLength(3);
-    expect(r3.state.combat!.phase).toBe('choose-strike-order');
+    expect(r3.combat!.strikeAssignments).toHaveLength(3);
+    expect(r3.combat!.phase).toBe('choose-strike-order');
   });
 
   test('canceling all 3 attacks ends combat (creature goes to discard)', () => {
@@ -443,25 +435,24 @@ describe('Assassin (tw-8)', () => {
     });
     const gameState = { ...state, phaseState: mhState };
 
-    const assassinId = gameState.players[1].hand[0].instanceId;
-    const companyId = gameState.players[0].companies[0].id;
-    const r1 = reduce(gameState, {
+    const assassinId = handCardId(gameState, 1);
+    const companyId = companyIdAt(gameState, 0);
+    const afterPlay = dispatch(gameState, {
       type: 'play-hazard',
       player: PLAYER_2,
       cardInstanceId: assassinId,
       targetCompanyId: companyId,
       keyedBy: { method: 'site-type' as const, value: 'border-hold' },
     });
-    const afterChain = resolveChain(r1.state);
+    const afterChain = resolveChain(afterPlay);
 
     // Defender passes cancel-window
-    const afterPass = reduce(afterChain, { type: 'pass', player: PLAYER_1 });
-    expect(afterPass.error).toBeUndefined();
+    const afterPass = dispatch(afterChain, { type: 'pass', player: PLAYER_1 });
 
-    const aragornCharId = afterPass.state.players[0].companies[0].characters[0];
-    const legolasCharId = afterPass.state.players[0].companies[0].characters[1];
-    const gimliCharId = afterPass.state.players[0].companies[0].characters[2];
-    const r2 = reduce(afterPass.state, {
+    const aragornCharId = charIdAt(afterPass, 0, 0, 0);
+    const legolasCharId = charIdAt(afterPass, 0, 0, 1);
+    const gimliCharId = charIdAt(afterPass, 0, 0, 2);
+    const r2 = dispatch(afterPass, {
       type: 'assign-strike',
       player: PLAYER_2,
       characterId: aragornCharId,
@@ -469,21 +460,21 @@ describe('Assassin (tw-8)', () => {
     });
 
     // Cancel 2 of 3 attacks
-    const r3 = reduce(r2.state, {
+    const r3 = dispatch(r2, {
       type: 'cancel-by-tap',
       player: PLAYER_1,
       characterId: legolasCharId,
     });
-    const r4 = reduce(r3.state, {
+    const r4 = dispatch(r3, {
       type: 'cancel-by-tap',
       player: PLAYER_1,
       characterId: gimliCharId,
     });
 
     // 1 strike remains — combat continues with resolve-strike
-    expect(r4.state.combat).not.toBeNull();
-    expect(r4.state.combat!.strikeAssignments).toHaveLength(1);
-    expect(r4.state.combat!.phase).toBe('resolve-strike');
+    expect(r4.combat).not.toBeNull();
+    expect(r4.combat!.strikeAssignments).toHaveLength(1);
+    expect(r4.combat!.phase).toBe('resolve-strike');
   });
 
   test('defender gets NO assign-strike actions (attacker chooses)', () => {
@@ -515,16 +506,16 @@ describe('Assassin (tw-8)', () => {
     });
     const gameState = { ...state, phaseState: mhState };
 
-    const assassinId = gameState.players[1].hand[0].instanceId;
-    const companyId = gameState.players[0].companies[0].id;
-    const r1 = reduce(gameState, {
+    const assassinId = handCardId(gameState, 1);
+    const companyId = companyIdAt(gameState, 0);
+    const afterPlay = dispatch(gameState, {
       type: 'play-hazard',
       player: PLAYER_2,
       cardInstanceId: assassinId,
       targetCompanyId: companyId,
       keyedBy: { method: 'site-type' as const, value: 'border-hold' },
     });
-    const afterChain = resolveChain(r1.state);
+    const afterChain = resolveChain(afterPlay);
 
     // Defender (P1) should NOT have assign-strike actions
     const defenderActions = computeLegalActions(afterChain, PLAYER_1);
@@ -564,23 +555,22 @@ describe('Assassin (tw-8)', () => {
     });
     const gameState = { ...state, phaseState: mhState };
 
-    const assassinId = gameState.players[1].hand[0].instanceId;
-    const companyId = gameState.players[0].companies[0].id;
-    const r1 = reduce(gameState, {
+    const assassinId = handCardId(gameState, 1);
+    const companyId = companyIdAt(gameState, 0);
+    const afterPlay = dispatch(gameState, {
       type: 'play-hazard',
       player: PLAYER_2,
       cardInstanceId: assassinId,
       targetCompanyId: companyId,
       keyedBy: { method: 'site-type' as const, value: 'border-hold' },
     });
-    const afterChain = resolveChain(r1.state);
+    const afterChain = resolveChain(afterPlay);
 
     // Defender passes cancel-window
-    const afterPass = reduce(afterChain, { type: 'pass', player: PLAYER_1 });
-    expect(afterPass.error).toBeUndefined();
+    const afterPass = dispatch(afterChain, { type: 'pass', player: PLAYER_1 });
 
-    const aragornCharId = afterPass.state.players[0].companies[0].characters[0];
-    const r2 = reduce(afterPass.state, {
+    const aragornCharId = charIdAt(afterPass, 0);
+    const r2 = dispatch(afterPass, {
       type: 'assign-strike',
       player: PLAYER_2,
       characterId: aragornCharId,
@@ -588,7 +578,7 @@ describe('Assassin (tw-8)', () => {
     });
 
     // Only Legolas (non-target, untapped) should be available
-    const defActions = computeLegalActions(r2.state, PLAYER_1);
+    const defActions = computeLegalActions(r2, PLAYER_1);
     const cancelActions = defActions.filter(
       a => a.viable && a.action.type === 'cancel-by-tap',
     );
@@ -624,23 +614,22 @@ describe('Assassin (tw-8)', () => {
     });
     const gameState = { ...state, phaseState: mhState };
 
-    const assassinId = gameState.players[1].hand[0].instanceId;
-    const companyId = gameState.players[0].companies[0].id;
-    const r1 = reduce(gameState, {
+    const assassinId = handCardId(gameState, 1);
+    const companyId = companyIdAt(gameState, 0);
+    const afterPlay = dispatch(gameState, {
       type: 'play-hazard',
       player: PLAYER_2,
       cardInstanceId: assassinId,
       targetCompanyId: companyId,
       keyedBy: { method: 'site-type' as const, value: 'border-hold' },
     });
-    const afterChain = resolveChain(r1.state);
+    const afterChain = resolveChain(afterPlay);
 
     // Defender passes cancel-window
-    const afterPass = reduce(afterChain, { type: 'pass', player: PLAYER_1 });
-    expect(afterPass.error).toBeUndefined();
+    const afterPass = dispatch(afterChain, { type: 'pass', player: PLAYER_1 });
 
-    const aragornCharId = afterPass.state.players[0].companies[0].characters[0];
-    const r2 = reduce(afterPass.state, {
+    const aragornCharId = charIdAt(afterPass, 0);
+    const r2 = dispatch(afterPass, {
       type: 'assign-strike',
       player: PLAYER_2,
       characterId: aragornCharId,
@@ -648,7 +637,7 @@ describe('Assassin (tw-8)', () => {
     });
 
     // Only pass is available (no other characters to tap)
-    const defActions = computeLegalActions(r2.state, PLAYER_1);
+    const defActions = computeLegalActions(r2, PLAYER_1);
     const cancelActions = defActions.filter(
       a => a.viable && a.action.type === 'cancel-by-tap',
     );

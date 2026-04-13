@@ -21,6 +21,7 @@ import {
   buildTestState, resetMint,
   viableActions,
   playPermanentEventAndResolve,
+  handCardId, dispatch,
 } from '../test-helpers.js';
 import { Phase } from '../../index.js';
 import type { CardInPlay, CardInstanceId } from '../../index.js';
@@ -43,15 +44,14 @@ describe('Gates of Morning (tw-243)', () => {
     const actions = viableActions(state, PLAYER_1, 'play-permanent-event');
     expect(actions).toHaveLength(1);
 
-    const gomId = state.players[0].hand[0].instanceId;
+    const gomId = handCardId(state, 0);
 
     // After declaring, card is on the chain (not in hand, not in cardsInPlay)
-    const declareResult = reduce(state, { type: 'play-permanent-event', player: PLAYER_1, cardInstanceId: gomId });
-    expect(declareResult.error).toBeUndefined();
-    expect(declareResult.state.players[0].hand).toHaveLength(0);
-    expect(declareResult.state.players[0].cardsInPlay).toHaveLength(0);
-    expect(declareResult.state.chain).not.toBeNull();
-    expect(declareResult.state.chain!.entries[0].card?.instanceId).toBe(gomId);
+    const declareState = dispatch(state, { type: 'play-permanent-event', player: PLAYER_1, cardInstanceId: gomId });
+    expect(declareState.players[0].hand).toHaveLength(0);
+    expect(declareState.players[0].cardsInPlay).toHaveLength(0);
+    expect(declareState.chain).not.toBeNull();
+    expect(declareState.chain!.entries[0].card?.instanceId).toBe(gomId);
 
     // After chain resolves, card moves to cardsInPlay
     const s = playPermanentEventAndResolve(state, PLAYER_1, gomId);
@@ -77,7 +77,7 @@ describe('Gates of Morning (tw-243)', () => {
       ],
     });
 
-    const gomId = state.players[0].hand[0].instanceId;
+    const gomId = handCardId(state, 0);
     const s = playPermanentEventAndResolve(state, PLAYER_1, gomId);
 
     // Gates of Morning in P1 cardsInPlay
@@ -106,7 +106,7 @@ describe('Gates of Morning (tw-243)', () => {
       ],
     });
 
-    const gomId = state.players[0].hand[0].instanceId;
+    const gomId = handCardId(state, 0);
     const s = playPermanentEventAndResolve(state, PLAYER_1, gomId);
 
     // Gates of Morning in cardsInPlay, Doors of Night discarded
@@ -156,7 +156,7 @@ describe('Gates of Morning (tw-243)', () => {
       ],
     });
 
-    const gomId = state.players[0].hand[0].instanceId;
+    const gomId = handCardId(state, 0);
     const result = reduce(state, { type: 'play-permanent-event', player: PLAYER_1, cardInstanceId: gomId });
     expect(result.error).toBe('Gates of Morning cannot be duplicated');
   });
@@ -177,7 +177,7 @@ describe('Gates of Morning (tw-243)', () => {
       ],
     });
 
-    const gomId = state.players[0].hand[0].instanceId;
+    const gomId = handCardId(state, 0);
     const result = reduce(state, { type: 'play-permanent-event', player: PLAYER_1, cardInstanceId: gomId });
     expect(result.error).toBe('Gates of Morning cannot be duplicated');
   });
@@ -192,7 +192,7 @@ describe('Gates of Morning (tw-243)', () => {
       ],
     });
 
-    const gomId = state.players[0].hand[0].instanceId;
+    const gomId = handCardId(state, 0);
     const s = playPermanentEventAndResolve(state, PLAYER_1, gomId);
 
     // Gates of Morning played, no discards needed
@@ -217,25 +217,19 @@ describe('Gates of Morning (tw-243)', () => {
       ],
     });
 
-    const gomId = state.players[0].hand[0].instanceId;
-    const p2Twilight = state.players[1].hand[0].instanceId;
+    const gomId = handCardId(state, 0);
+    const p2Twilight = handCardId(state, 1);
 
     // P1 plays Gates of Morning → chain starts, P2 gets priority
-    let result = reduce(state, { type: 'play-permanent-event', player: PLAYER_1, cardInstanceId: gomId });
-    expect(result.error).toBeUndefined();
-    expect(result.state.chain!.priority).toBe(PLAYER_2);
+    let s = dispatch(state, { type: 'play-permanent-event', player: PLAYER_1, cardInstanceId: gomId });
+    expect(s.chain!.priority).toBe(PLAYER_2);
 
     // P2 responds with Twilight targeting GoM on the chain
-    result = reduce(result.state, { type: 'play-short-event', player: PLAYER_2, cardInstanceId: p2Twilight, targetInstanceId: gomId });
-    expect(result.error).toBeUndefined();
+    s = dispatch(s, { type: 'play-short-event', player: PLAYER_2, cardInstanceId: p2Twilight, targetInstanceId: gomId });
 
     // Both pass → chain resolves LIFO: Twilight negates GoM
-    result = reduce(result.state, { type: 'pass-chain-priority', player: PLAYER_1 });
-    expect(result.error).toBeUndefined();
-    result = reduce(result.state, { type: 'pass-chain-priority', player: PLAYER_2 });
-    expect(result.error).toBeUndefined();
-
-    const s = result.state;
+    s = dispatch(s, { type: 'pass-chain-priority', player: PLAYER_1 });
+    s = dispatch(s, { type: 'pass-chain-priority', player: PLAYER_2 });
     expect(s.chain).toBeNull();
     // GoM negated → goes to discard, never enters play
     expect(s.players[0].cardsInPlay).toHaveLength(0);
@@ -255,14 +249,13 @@ describe('Gates of Morning (tw-243)', () => {
       ],
     });
 
-    const gomId = state.players[0].hand[0].instanceId;
+    const gomId = handCardId(state, 0);
 
     // P1 plays GoM → chain starts
-    const result = reduce(state, { type: 'play-permanent-event', player: PLAYER_1, cardInstanceId: gomId });
-    expect(result.error).toBeUndefined();
+    const nextState = dispatch(state, { type: 'play-permanent-event', player: PLAYER_1, cardInstanceId: gomId });
 
     // P2 should have Twilight targeting GoM on the chain
-    const p2Actions = viableActions(result.state, PLAYER_2, 'play-short-event');
+    const p2Actions = viableActions(nextState, PLAYER_2, 'play-short-event');
     const gomTargets = p2Actions.filter(
       ea => (ea.action as { targetInstanceId: CardInstanceId }).targetInstanceId === gomId,
     );

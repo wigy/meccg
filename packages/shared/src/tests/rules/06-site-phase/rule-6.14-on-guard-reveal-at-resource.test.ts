@@ -15,7 +15,7 @@
 
 import { describe, test, expect, beforeEach } from 'vitest';
 import {
-  buildTestState, resetMint, Phase, reduce, resolveChain,
+  buildTestState, resetMint, Phase, dispatch, resolveChain,
   makeSitePhase, placeOnGuard, viableActions,
   PLAYER_1, PLAYER_2,
   GANDALF, LEGOLAS, ARAGORN,
@@ -46,20 +46,19 @@ describe('Rule 6.14 — On-Guard Reveal When Playing Resource', () => {
     const influenceAction = viableActions(testState, PLAYER_1, 'influence-attempt')[0];
     expect(influenceAction).toBeDefined();
 
-    const result = reduce(testState, influenceAction.action);
-    expect(result.error).toBeUndefined();
+    const nextState = dispatch(testState, influenceAction.action);
     // Chain is active (faction card on chain, opponent has priority)
-    expect(result.state.chain).not.toBeNull();
-    expect(result.state.chain!.priority).toBe(PLAYER_2);
-    expect(result.state.chain!.entries).toHaveLength(1);
-    expect(result.state.chain!.entries[0].payload.type).toBe('influence-attempt');
+    expect(nextState.chain).not.toBeNull();
+    expect(nextState.chain!.priority).toBe(PLAYER_2);
+    expect(nextState.chain!.entries).toHaveLength(1);
+    expect(nextState.chain!.entries[0].payload.type).toBe('influence-attempt');
   });
 
   test('hazard player gets RevealOnGuardAction during influence-attempt chain', () => {
     const { testState, ogCard } = buildScenario();
 
-    const afterAttempt = reduce(testState, viableActions(testState, PLAYER_1, 'influence-attempt')[0].action);
-    const revealActions = viableActions(afterAttempt.state, PLAYER_2, 'reveal-on-guard');
+    const afterAttempt = dispatch(testState, viableActions(testState, PLAYER_1, 'influence-attempt')[0].action);
+    const revealActions = viableActions(afterAttempt, PLAYER_2, 'reveal-on-guard');
 
     expect(revealActions.length).toBeGreaterThanOrEqual(1);
     expect((revealActions[0].action as { cardInstanceId: string }).cardInstanceId).toBe(ogCard.instanceId);
@@ -68,8 +67,8 @@ describe('Rule 6.14 — On-Guard Reveal When Playing Resource', () => {
   test('character-targeting events generate one reveal action per character', () => {
     const { testState } = buildScenario([ARAGORN, GANDALF]);
 
-    const afterAttempt = reduce(testState, viableActions(testState, PLAYER_1, 'influence-attempt')[0].action);
-    const revealActions = viableActions(afterAttempt.state, PLAYER_2, 'reveal-on-guard');
+    const afterAttempt = dispatch(testState, viableActions(testState, PLAYER_1, 'influence-attempt')[0].action);
+    const revealActions = viableActions(afterAttempt, PLAYER_2, 'reveal-on-guard');
 
     // Foolish Words has play-target: character → one action per character
     expect(revealActions).toHaveLength(2);
@@ -80,30 +79,29 @@ describe('Rule 6.14 — On-Guard Reveal When Playing Resource', () => {
   test('both players passing chain priority resolves influence attempt', () => {
     const { testState } = buildScenario();
 
-    const afterAttempt = reduce(testState, viableActions(testState, PLAYER_1, 'influence-attempt')[0].action);
+    const afterAttempt = dispatch(testState, viableActions(testState, PLAYER_1, 'influence-attempt')[0].action);
 
     // Resolve chain (both players pass). Auto-resolution stops at the
     // influence-attempt entry, which pauses the chain so the player can
     // commit to the roll via a pending faction-influence-roll resolution.
-    const afterChain = resolveChain(afterAttempt.state);
+    const afterChain = resolveChain(afterAttempt);
     expect(viableActions(afterChain, PLAYER_1, 'faction-influence-roll')).toHaveLength(1);
   });
 
   test('revealing on-guard pushes entry onto chain; after chain resolves, influence roll executes', () => {
     const { testState } = buildScenario();
 
-    const afterAttempt = reduce(testState, viableActions(testState, PLAYER_1, 'influence-attempt')[0].action);
-    const revealAction = viableActions(afterAttempt.state, PLAYER_2, 'reveal-on-guard')[0];
-    const afterReveal = reduce(afterAttempt.state, revealAction.action);
+    const afterAttempt = dispatch(testState, viableActions(testState, PLAYER_1, 'influence-attempt')[0].action);
+    const revealAction = viableActions(afterAttempt, PLAYER_2, 'reveal-on-guard')[0];
+    const afterReveal = dispatch(afterAttempt, revealAction.action);
 
-    expect(afterReveal.error).toBeUndefined();
-    expect(afterReveal.state.chain).not.toBeNull();
+    expect(afterReveal.chain).not.toBeNull();
     // Chain now has 2 entries: influence-attempt + on-guard event
-    expect(afterReveal.state.chain!.entries).toHaveLength(2);
+    expect(afterReveal.chain!.entries).toHaveLength(2);
 
     // Resolve the chain. The on-guard event resolves first, then auto-resolve
     // pauses at the influence-attempt entry awaiting the player's roll.
-    const afterChain = resolveChain(afterReveal.state);
+    const afterChain = resolveChain(afterReveal);
     expect(viableActions(afterChain, PLAYER_1, 'faction-influence-roll')).toHaveLength(1);
   });
 
@@ -122,8 +120,8 @@ describe('Rule 6.14 — On-Guard Reveal When Playing Resource', () => {
     const { state } = placeOnGuard(base, 0, 0, DOORS_OF_NIGHT);
     const testState = { ...state, phaseState: makeSitePhase() };
 
-    const afterAttempt = reduce(testState, viableActions(testState, PLAYER_1, 'influence-attempt')[0].action);
-    const revealActions = viableActions(afterAttempt.state, PLAYER_2, 'reveal-on-guard');
+    const afterAttempt = dispatch(testState, viableActions(testState, PLAYER_1, 'influence-attempt')[0].action);
+    const revealActions = viableActions(afterAttempt, PLAYER_2, 'reveal-on-guard');
 
     expect(revealActions).toHaveLength(0);
   });

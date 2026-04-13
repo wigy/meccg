@@ -15,7 +15,7 @@
 
 import { describe, test, expect, beforeEach } from 'vitest';
 import {
-  buildTestState, resetMint, reduce, Phase,
+  buildTestState, resetMint, dispatch, Phase,
   PLAYER_1, PLAYER_2,
   ARAGORN, LEGOLAS,
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
@@ -59,15 +59,14 @@ describe('Rule 4.03 — Discard Hazard Long-Events', () => {
 
     expect(state.players[1].cardsInPlay).toHaveLength(1);
 
-    const result = reduce(state, { type: 'pass', player: PLAYER_1 });
-    expect(result.error).toBeUndefined();
+    const nextState = dispatch(state, { type: 'pass', player: PLAYER_1 });
 
     // Phase advanced to Movement/Hazard
-    expect(result.state.phaseState.phase).toBe(Phase.MovementHazard);
+    expect(nextState.phaseState.phase).toBe(Phase.MovementHazard);
 
     // Eye of Sauron was removed from P2's cardsInPlay and put in P2's discard pile
-    expect(result.state.players[1].cardsInPlay).toHaveLength(0);
-    expect(result.state.players[1].discardPile.map(c => c.instanceId))
+    expect(nextState.players[1].cardsInPlay).toHaveLength(0);
+    expect(nextState.players[1].discardPile.map(c => c.instanceId))
       .toContain('eye-1' as CardInstanceId);
   });
 
@@ -103,12 +102,11 @@ describe('Rule 4.03 — Discard Hazard Long-Events', () => {
       ],
     });
 
-    const result = reduce(state, { type: 'pass', player: PLAYER_1 });
-    expect(result.error).toBeUndefined();
-    expect(result.state.phaseState.phase).toBe(Phase.MovementHazard);
+    const nextState = dispatch(state, { type: 'pass', player: PLAYER_1 });
+    expect(nextState.phaseState.phase).toBe(Phase.MovementHazard);
 
     // Sun is still in play
-    expect(result.state.players[0].cardsInPlay.map(c => c.instanceId))
+    expect(nextState.players[0].cardsInPlay.map(c => c.instanceId))
       .toContain('sun-1' as CardInstanceId);
   });
 
@@ -142,12 +140,11 @@ describe('Rule 4.03 — Discard Hazard Long-Events', () => {
       ],
     });
 
-    const result = reduce(state, { type: 'pass', player: PLAYER_1 });
-    expect(result.error).toBeUndefined();
-    expect(result.state.phaseState.phase).toBe(Phase.MovementHazard);
+    const nextState = dispatch(state, { type: 'pass', player: PLAYER_1 });
+    expect(nextState.phaseState.phase).toBe(Phase.MovementHazard);
 
     // The hazard long-event in P1's cardsInPlay is untouched
-    expect(result.state.players[0].cardsInPlay.map(c => c.instanceId))
+    expect(nextState.players[0].cardsInPlay.map(c => c.instanceId))
       .toContain('eye-1' as CardInstanceId);
   });
 });

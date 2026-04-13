@@ -21,8 +21,8 @@ import {
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
   DAGGER_OF_WESTERNESSE,
   buildTestState, resetMint, makeMHState, findCharInstanceId,
-  reduce, viableActions,
-  Phase,
+  dispatch, viableActions,
+  Phase, companyIdAt,
 } from '../../test-helpers.js';
 import { RegionType, SiteType, CardStatus } from '../../../index.js';
 import type { CombatState, CardInstanceId } from '../../../index.js';
@@ -61,7 +61,7 @@ describe('Rule 8.30 — Character Eliminated from Body Check', () => {
 
     const bilboId = findCharInstanceId(state, 0, BILBO);
     const aragornId = findCharInstanceId(state, 0, ARAGORN);
-    const companyId = state.players[0].companies[0].id;
+    const companyId = companyIdAt(state, 0);
 
     // Wound Bilbo so body check is triggered after strike failure
     const p0 = { ...state.players[0] };
@@ -100,18 +100,17 @@ describe('Rule 8.30 — Character Eliminated from Body Check', () => {
 
     // Body check roll of 12 > Bilbo's body (9) → eliminated
     const readyState = { ...state, players, phaseState: mhState, combat, cheatRollTotal: 12 };
-    const result = reduce(readyState, { type: 'body-check-roll', player: PLAYER_2, need: 10, explanation: 'test' });
-    expect(result.error).toBeUndefined();
+    const nextState = dispatch(readyState, { type: 'body-check-roll', player: PLAYER_2, need: 10, explanation: 'test' });
 
     // Should enter item-salvage phase
-    expect(result.state.combat).toBeDefined();
-    expect(result.state.combat!.phase).toBe('item-salvage');
-    expect(result.state.combat!.salvageItems).toHaveLength(1);
-    expect(result.state.combat!.salvageRecipients).toContain(aragornId);
+    expect(nextState.combat).toBeDefined();
+    expect(nextState.combat!.phase).toBe('item-salvage');
+    expect(nextState.combat!.salvageItems).toHaveLength(1);
+    expect(nextState.combat!.salvageRecipients).toContain(aragornId);
 
     // Bilbo should be in eliminated pile, not in characters
-    expect(result.state.players[0].characters[bilboId as string]).toBeUndefined();
-    expect(result.state.players[0].eliminatedPile.some(c => c.instanceId === bilboId)).toBe(true);
+    expect(nextState.players[0].characters[bilboId as string]).toBeUndefined();
+    expect(nextState.players[0].eliminatedPile.some(c => c.instanceId === bilboId)).toBe(true);
   });
 
   test('salvage-item action transfers item to unwounded companion', () => {
@@ -143,7 +142,7 @@ describe('Rule 8.30 — Character Eliminated from Body Check', () => {
 
     const bilboId = findCharInstanceId(state, 0, BILBO);
     const aragornId = findCharInstanceId(state, 0, ARAGORN);
-    const companyId = state.players[0].companies[0].id;
+    const companyId = companyIdAt(state, 0);
     const daggerId = state.players[0].characters[bilboId as string].items[0].instanceId;
 
     // Wound Bilbo
@@ -182,24 +181,22 @@ describe('Rule 8.30 — Character Eliminated from Body Check', () => {
 
     // Eliminate Bilbo
     const readyState = { ...state, players, phaseState: mhState, combat, cheatRollTotal: 12 };
-    const afterBodyCheck = reduce(readyState, { type: 'body-check-roll', player: PLAYER_2, need: 10, explanation: 'test' });
-    expect(afterBodyCheck.error).toBeUndefined();
-    expect(afterBodyCheck.state.combat!.phase).toBe('item-salvage');
+    const afterBodyCheck = dispatch(readyState, { type: 'body-check-roll', player: PLAYER_2, need: 10, explanation: 'test' });
+    expect(afterBodyCheck.combat!.phase).toBe('item-salvage');
 
     // Salvage the Dagger to Aragorn
-    const salvageActions = viableActions(afterBodyCheck.state, PLAYER_1, 'salvage-item');
+    const salvageActions = viableActions(afterBodyCheck, PLAYER_1, 'salvage-item');
     expect(salvageActions.length).toBe(1);
     const salvageAction = salvageActions[0].action;
     expect(salvageAction.type).toBe('salvage-item');
 
-    const afterSalvage = reduce(afterBodyCheck.state, salvageAction);
-    expect(afterSalvage.error).toBeUndefined();
+    const afterSalvage = dispatch(afterBodyCheck, salvageAction);
 
     // Combat should have finalized (all strikes resolved)
-    expect(afterSalvage.state.combat).toBeNull();
+    expect(afterSalvage.combat).toBeNull();
 
     // Aragorn should now have the Dagger
-    const aragornData = afterSalvage.state.players[0].characters[aragornId as string];
+    const aragornData = afterSalvage.players[0].characters[aragornId as string];
     expect(aragornData.items.some(i => i.instanceId === daggerId)).toBe(true);
   });
 
@@ -231,7 +228,7 @@ describe('Rule 8.30 — Character Eliminated from Body Check', () => {
     });
 
     const bilboId = findCharInstanceId(state, 0, BILBO);
-    const companyId = state.players[0].companies[0].id;
+    const companyId = companyIdAt(state, 0);
     const daggerId = state.players[0].characters[bilboId as string].items[0].instanceId;
 
     // Wound Bilbo
@@ -270,18 +267,17 @@ describe('Rule 8.30 — Character Eliminated from Body Check', () => {
 
     // Eliminate Bilbo
     const readyState = { ...state, players, phaseState: mhState, combat, cheatRollTotal: 12 };
-    const afterBodyCheck = reduce(readyState, { type: 'body-check-roll', player: PLAYER_2, need: 10, explanation: 'test' });
-    expect(afterBodyCheck.state.combat!.phase).toBe('item-salvage');
+    const afterBodyCheck = dispatch(readyState, { type: 'body-check-roll', player: PLAYER_2, need: 10, explanation: 'test' });
+    expect(afterBodyCheck.combat!.phase).toBe('item-salvage');
 
     // Pass — decline salvage
-    const afterPass = reduce(afterBodyCheck.state, { type: 'pass', player: PLAYER_1 });
-    expect(afterPass.error).toBeUndefined();
+    const afterPass = dispatch(afterBodyCheck, { type: 'pass', player: PLAYER_1 });
 
     // Combat should have finalized
-    expect(afterPass.state.combat).toBeNull();
+    expect(afterPass.combat).toBeNull();
 
     // Dagger should be in discard pile, not on any character
-    expect(afterPass.state.players[0].discardPile.some(c => c.instanceId === daggerId)).toBe(true);
+    expect(afterPass.players[0].discardPile.some(c => c.instanceId === daggerId)).toBe(true);
   });
 
   test('no item-salvage when eliminated character has no items', () => {
@@ -309,7 +305,7 @@ describe('Rule 8.30 — Character Eliminated from Body Check', () => {
     });
 
     const bilboId = findCharInstanceId(state, 0, BILBO);
-    const companyId = state.players[0].companies[0].id;
+    const companyId = companyIdAt(state, 0);
 
     // Wound Bilbo
     const p0 = { ...state.players[0] };
@@ -347,11 +343,10 @@ describe('Rule 8.30 — Character Eliminated from Body Check', () => {
 
     // Eliminate Bilbo (no items) — body check roll 12 > body 9
     const readyState = { ...state, players, phaseState: mhState, combat, cheatRollTotal: 12 };
-    const result = reduce(readyState, { type: 'body-check-roll', player: PLAYER_2, need: 10, explanation: 'test' });
-    expect(result.error).toBeUndefined();
+    const nextState = dispatch(readyState, { type: 'body-check-roll', player: PLAYER_2, need: 10, explanation: 'test' });
 
     // Should skip item-salvage and finalize combat directly
-    expect(result.state.combat).toBeNull();
+    expect(nextState.combat).toBeNull();
   });
 
   test('no item-salvage when no unwounded companions in company', () => {
@@ -383,7 +378,7 @@ describe('Rule 8.30 — Character Eliminated from Body Check', () => {
     });
 
     const bilboId = findCharInstanceId(state, 0, BILBO);
-    const companyId = state.players[0].companies[0].id;
+    const companyId = companyIdAt(state, 0);
     const daggerId = state.players[0].characters[bilboId as string].items[0].instanceId;
 
     // Wound Bilbo
@@ -422,13 +417,12 @@ describe('Rule 8.30 — Character Eliminated from Body Check', () => {
 
     // Eliminate Bilbo — no unwounded companions → skip salvage
     const readyState = { ...state, players, phaseState: mhState, combat, cheatRollTotal: 12 };
-    const result = reduce(readyState, { type: 'body-check-roll', player: PLAYER_2, need: 10, explanation: 'test' });
-    expect(result.error).toBeUndefined();
+    const nextState = dispatch(readyState, { type: 'body-check-roll', player: PLAYER_2, need: 10, explanation: 'test' });
 
     // Should skip item-salvage and finalize combat directly
-    expect(result.state.combat).toBeNull();
+    expect(nextState.combat).toBeNull();
 
     // Dagger should be in discard pile
-    expect(result.state.players[0].discardPile.some(c => c.instanceId === daggerId)).toBe(true);
+    expect(nextState.players[0].discardPile.some(c => c.instanceId === daggerId)).toBe(true);
   });
 });

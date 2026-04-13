@@ -19,8 +19,9 @@ import {
   HOBGOBLINS,
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
   buildTestState, resetMint, makeMHState,
-  reduce, pool, findCharInstanceId, viableActions,
+  pool, findCharInstanceId, viableActions,
   playCreatureHazardAndResolve,
+  handCardId, companyIdAt, dispatch, expectCharStatus,
 } from '../test-helpers.js';
 import { computeLegalActions, Phase, RegionType, SiteType, CardStatus } from '../../index.js';
 import type { CreatureCard } from '../../index.js';
@@ -86,8 +87,8 @@ describe('Hobgoblins (le-77)', () => {
     });
     const gameState = { ...state, phaseState: makeMHState(MH_STATE) };
 
-    const creatureId = gameState.players[1].hand[0].instanceId;
-    const companyId = gameState.players[0].companies[0].id;
+    const creatureId = handCardId(gameState, 1);
+    const companyId = companyIdAt(gameState, 0);
     const afterChain = playCreatureHazardAndResolve(
       gameState, PLAYER_2, creatureId, companyId, WILDERNESS_KEYING,
     );
@@ -120,8 +121,8 @@ describe('Hobgoblins (le-77)', () => {
     });
     const gameState = { ...state, phaseState: makeMHState(MH_STATE) };
 
-    const creatureId = gameState.players[1].hand[0].instanceId;
-    const companyId = gameState.players[0].companies[0].id;
+    const creatureId = handCardId(gameState, 1);
+    const companyId = companyIdAt(gameState, 0);
     const afterChain = playCreatureHazardAndResolve(
       gameState, PLAYER_2, creatureId, companyId, WILDERNESS_KEYING,
     );
@@ -156,8 +157,8 @@ describe('Hobgoblins (le-77)', () => {
     });
     const gameState = { ...state, phaseState: makeMHState(MH_STATE) };
 
-    const creatureId = gameState.players[1].hand[0].instanceId;
-    const companyId = gameState.players[0].companies[0].id;
+    const creatureId = handCardId(gameState, 1);
+    const companyId = companyIdAt(gameState, 0);
     const afterChain = playCreatureHazardAndResolve(
       gameState, PLAYER_2, creatureId, companyId, WILDERNESS_KEYING,
     );
@@ -166,35 +167,28 @@ describe('Hobgoblins (le-77)', () => {
     const legolasId = findCharInstanceId(afterChain, 0, LEGOLAS);
 
     // Assign both strikes
-    let result = reduce(afterChain, { type: 'assign-strike', player: PLAYER_1, characterId: aragornId });
-    expect(result.error).toBeUndefined();
-    result = reduce(result.state, { type: 'assign-strike', player: PLAYER_1, characterId: legolasId });
-    expect(result.error).toBeUndefined();
+    let current = dispatch(afterChain, { type: 'assign-strike', player: PLAYER_1, characterId: aragornId });
+    current = dispatch(current, { type: 'assign-strike', player: PLAYER_1, characterId: legolasId });
 
     // Choose strike order and resolve first strike (high roll → wins)
-    const orderActions = viableActions(result.state, PLAYER_1, 'choose-strike-order');
+    const orderActions = viableActions(current, PLAYER_1, 'choose-strike-order');
     if (orderActions.length > 0) {
-      result = reduce(result.state, orderActions[0].action);
-      expect(result.error).toBeUndefined();
+      current = dispatch(current, orderActions[0].action);
     }
-    let resolveActions = viableActions({ ...result.state, cheatRollTotal: 12 }, PLAYER_1, 'resolve-strike');
+    let resolveActions = viableActions({ ...current, cheatRollTotal: 12 }, PLAYER_1, 'resolve-strike');
     expect(resolveActions.length).toBeGreaterThan(0);
-    result = reduce({ ...result.state, cheatRollTotal: 12 }, resolveActions[0].action);
-    expect(result.error).toBeUndefined();
+    current = dispatch({ ...current, cheatRollTotal: 12 }, resolveActions[0].action);
 
     // Resolve second strike (high roll → wins)
-    resolveActions = viableActions({ ...result.state, cheatRollTotal: 12 }, PLAYER_1, 'resolve-strike');
+    resolveActions = viableActions({ ...current, cheatRollTotal: 12 }, PLAYER_1, 'resolve-strike');
     if (resolveActions.length > 0) {
-      result = reduce({ ...result.state, cheatRollTotal: 12 }, resolveActions[0].action);
-      expect(result.error).toBeUndefined();
+      current = dispatch({ ...current, cheatRollTotal: 12 }, resolveActions[0].action);
     }
 
-    expect(result.state.combat).toBeNull();
+    expect(current.combat).toBeNull();
 
-    expect(result.state.players[0].characters[aragornId as string]).toBeDefined();
-    expect(result.state.players[0].characters[aragornId as string].status).toBe(CardStatus.Tapped);
-    expect(result.state.players[0].characters[legolasId as string]).toBeDefined();
-    expect(result.state.players[0].characters[legolasId as string].status).toBe(CardStatus.Tapped);
+    expectCharStatus(current, 0, ARAGORN, CardStatus.Tapped);
+    expectCharStatus(current, 0, LEGOLAS, CardStatus.Tapped);
   });
 
   test('character wounded by Hobgoblins survives body check', () => {
@@ -219,8 +213,8 @@ describe('Hobgoblins (le-77)', () => {
     });
     const gameState = { ...state, phaseState: makeMHState(MH_STATE) };
 
-    const creatureId = gameState.players[1].hand[0].instanceId;
-    const companyId = gameState.players[0].companies[0].id;
+    const creatureId = handCardId(gameState, 1);
+    const companyId = companyIdAt(gameState, 0);
     const afterChain = playCreatureHazardAndResolve(
       gameState, PLAYER_2, creatureId, companyId, WILDERNESS_KEYING,
     );
@@ -229,45 +223,40 @@ describe('Hobgoblins (le-77)', () => {
     const legolasId = findCharInstanceId(afterChain, 0, LEGOLAS);
 
     // Assign both strikes
-    let result = reduce(afterChain, { type: 'assign-strike', player: PLAYER_1, characterId: aragornId });
-    expect(result.error).toBeUndefined();
-    result = reduce(result.state, { type: 'assign-strike', player: PLAYER_1, characterId: legolasId });
-    expect(result.error).toBeUndefined();
+    let current = dispatch(afterChain, { type: 'assign-strike', player: PLAYER_1, characterId: aragornId });
+    current = dispatch(current, { type: 'assign-strike', player: PLAYER_1, characterId: legolasId });
 
     // Choose strike order, resolve Aragorn first with low roll → wounded
-    const orderActions = viableActions(result.state, PLAYER_1, 'choose-strike-order');
+    const orderActions = viableActions(current, PLAYER_1, 'choose-strike-order');
     if (orderActions.length > 0) {
       const aragornOrder = orderActions.find(a => 'characterId' in a.action && a.action.characterId === aragornId);
-      result = reduce(result.state, (aragornOrder ?? orderActions[0]).action);
-      expect(result.error).toBeUndefined();
+      current = dispatch(current, (aragornOrder ?? orderActions[0]).action);
     }
 
     // Resolve Aragorn's strike: low roll → wounded
-    let resolveActions = viableActions({ ...result.state, cheatRollTotal: 2 }, PLAYER_1, 'resolve-strike');
+    let resolveActions = viableActions({ ...current, cheatRollTotal: 2 }, PLAYER_1, 'resolve-strike');
     expect(resolveActions.length).toBeGreaterThan(0);
-    result = reduce({ ...result.state, cheatRollTotal: 2 }, resolveActions[0].action);
-    expect(result.error).toBeUndefined();
+    current = dispatch({ ...current, cheatRollTotal: 2 }, resolveActions[0].action);
 
     // Body check: roll 5 ≤ body 9 → survives wounded
-    if (result.state.combat?.phase === 'body-check') {
-      const bodyActions = viableActions(result.state, PLAYER_2, 'body-check-roll');
+    if (current.combat?.phase === 'body-check') {
+      const bodyActions = viableActions(current, PLAYER_2, 'body-check-roll');
       expect(bodyActions.length).toBeGreaterThan(0);
-      result = reduce({ ...result.state, cheatRollTotal: 5 }, bodyActions[0].action);
-      expect(result.error).toBeUndefined();
+      current = dispatch({ ...current, cheatRollTotal: 5 }, bodyActions[0].action);
     }
 
     // Resolve Legolas's strike: high roll → wins
-    resolveActions = viableActions({ ...result.state, cheatRollTotal: 12 }, PLAYER_1, 'resolve-strike');
+    resolveActions = viableActions({ ...current, cheatRollTotal: 12 }, PLAYER_1, 'resolve-strike');
     if (resolveActions.length > 0) {
-      result = reduce({ ...result.state, cheatRollTotal: 12 }, resolveActions[0].action);
-      expect(result.error).toBeUndefined();
+      current = dispatch({ ...current, cheatRollTotal: 12 }, resolveActions[0].action);
     }
 
-    expect(result.state.combat).toBeNull();
+    expect(current.combat).toBeNull();
 
-    expect(result.state.players[0].characters[aragornId as string]).toBeDefined();
-    expect(result.state.players[0].characters[aragornId as string].status).toBe(CardStatus.Inverted);
-    expect(result.state.players[0].characters[legolasId as string]).toBeDefined();
-    expect(result.state.players[0].characters[legolasId as string].status).toBe(CardStatus.Tapped);
+    expectCharStatus(current, 0, ARAGORN, CardStatus.Inverted);
+    expectCharStatus(current, 0, LEGOLAS, CardStatus.Tapped);
+    // Still verify char instance IDs preserved
+    expect(current.players[0].characters[aragornId as string]).toBeDefined();
+    expect(current.players[0].characters[legolasId as string]).toBeDefined();
   });
 });

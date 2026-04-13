@@ -18,7 +18,7 @@
 
 import { describe, test, expect, beforeEach } from 'vitest';
 import {
-  buildTestState, resetMint, reduce, Phase,
+  buildTestState, resetMint, dispatch, Phase,
   PLAYER_1, PLAYER_2,
   GANDALF, LEGOLAS, ARAGORN,
   CAVE_DRAKE, ORC_PATROL, BARROW_WIGHT,
@@ -113,26 +113,23 @@ describe('Rule 2.13 — Hazard Sideboard Access at Untap', () => {
     });
 
     // Start to discard
-    const startResult = reduce(state, viableOfType(computeLegalActions(state, PLAYER_2), 'start-hazard-sideboard-to-discard')[0].action);
-    expect(startResult.error).toBeUndefined();
+    const afterStart = dispatch(state, viableOfType(computeLegalActions(state, PLAYER_2), 'start-hazard-sideboard-to-discard')[0].action);
 
     // Must fetch at least 1 before passing
-    let fetchActions = computeLegalActions(startResult.state, PLAYER_2);
+    let fetchActions = computeLegalActions(afterStart, PLAYER_2);
     expect(viableOfType(fetchActions, 'pass')).toHaveLength(0);
     expect(viableOfType(fetchActions, 'fetch-hazard-from-sideboard').length).toBeGreaterThan(0);
 
     // Fetch 1 card
-    const fetchResult = reduce(startResult.state, viableOfType(fetchActions, 'fetch-hazard-from-sideboard')[0].action);
-    expect(fetchResult.error).toBeUndefined();
+    const afterFetch = dispatch(afterStart, viableOfType(fetchActions, 'fetch-hazard-from-sideboard')[0].action);
 
     // Now pass is available
-    fetchActions = computeLegalActions(fetchResult.state, PLAYER_2);
+    fetchActions = computeLegalActions(afterFetch, PLAYER_2);
     expect(viableOfType(fetchActions, 'pass')).toHaveLength(1);
 
     // Pass exits sub-flow and marks sideboard accessed
-    const passResult = reduce(fetchResult.state, viableOfType(fetchActions, 'pass')[0].action);
-    expect(passResult.error).toBeUndefined();
-    expect(passResult.state.players.find(p => p.id === PLAYER_2)!.sideboardAccessedDuringUntap).toBe(true);
+    const afterPass = dispatch(afterFetch, viableOfType(fetchActions, 'pass')[0].action);
+    expect(afterPass.players.find(p => p.id === PLAYER_2)!.sideboardAccessedDuringUntap).toBe(true);
   });
 
   test('Sideboard to deck: fetch exactly 1 hazard, then sub-flow exits', () => {
@@ -158,20 +155,18 @@ describe('Rule 2.13 — Hazard Sideboard Access at Untap', () => {
     });
 
     // Start to deck
-    const startResult = reduce(state, viableOfType(computeLegalActions(state, PLAYER_2), 'start-hazard-sideboard-to-deck')[0].action);
-    expect(startResult.error).toBeUndefined();
+    const afterStart = dispatch(state, viableOfType(computeLegalActions(state, PLAYER_2), 'start-hazard-sideboard-to-deck')[0].action);
 
     // Fetch 1 card (no pass allowed — must pick)
-    const fetchActions = computeLegalActions(startResult.state, PLAYER_2);
+    const fetchActions = computeLegalActions(afterStart, PLAYER_2);
     const fetches = viableOfType(fetchActions, 'fetch-hazard-from-sideboard');
     expect(fetches).toHaveLength(1);
     expect(viableOfType(fetchActions, 'pass')).toHaveLength(0);
 
-    const deckBefore = startResult.state.players.find(p => p.id === PLAYER_2)!.playDeck.length;
-    const fetchResult = reduce(startResult.state, fetches[0].action);
-    expect(fetchResult.error).toBeUndefined();
+    const deckBefore = afterStart.players.find(p => p.id === PLAYER_2)!.playDeck.length;
+    const afterFetch = dispatch(afterStart, fetches[0].action);
 
-    const p2 = fetchResult.state.players.find(p => p.id === PLAYER_2)!;
+    const p2 = afterFetch.players.find(p => p.id === PLAYER_2)!;
     expect(p2.sideboard).toHaveLength(0);
     expect(p2.playDeck.length).toBe(deckBefore + 1);
     expect(p2.sideboardAccessedDuringUntap).toBe(true);
@@ -231,12 +226,12 @@ describe('Rule 2.13 — Hazard Sideboard Access at Untap', () => {
     expect(state.players.find(p => p.id === PLAYER_2)!.sideboardAccessedDuringUntap).toBe(false);
 
     // Start to discard, fetch 1, pass
-    const startResult = reduce(state, viableOfType(computeLegalActions(state, PLAYER_2), 'start-hazard-sideboard-to-discard')[0].action);
-    const fetchResult = reduce(startResult.state, viableOfType(computeLegalActions(startResult.state, PLAYER_2), 'fetch-hazard-from-sideboard')[0].action);
-    const passResult = reduce(fetchResult.state, viableOfType(computeLegalActions(fetchResult.state, PLAYER_2), 'pass')[0].action);
+    const afterStart = dispatch(state, viableOfType(computeLegalActions(state, PLAYER_2), 'start-hazard-sideboard-to-discard')[0].action);
+    const afterFetch = dispatch(afterStart, viableOfType(computeLegalActions(afterStart, PLAYER_2), 'fetch-hazard-from-sideboard')[0].action);
+    const afterPass = dispatch(afterFetch, viableOfType(computeLegalActions(afterFetch, PLAYER_2), 'pass')[0].action);
 
     // After access, sideboardAccessedDuringUntap should be true
-    expect(passResult.state.players.find(p => p.id === PLAYER_2)!.sideboardAccessedDuringUntap).toBe(true);
+    expect(afterPass.players.find(p => p.id === PLAYER_2)!.sideboardAccessedDuringUntap).toBe(true);
   });
 
   test('Sideboard access can only be taken once per turn', () => {
@@ -261,12 +256,12 @@ describe('Rule 2.13 — Hazard Sideboard Access at Untap', () => {
     });
 
     // Complete the sideboard access flow: start → fetch 1 → pass
-    const startResult = reduce(state, viableOfType(computeLegalActions(state, PLAYER_2), 'start-hazard-sideboard-to-discard')[0].action);
-    const fetchResult = reduce(startResult.state, viableOfType(computeLegalActions(startResult.state, PLAYER_2), 'fetch-hazard-from-sideboard')[0].action);
-    const passResult = reduce(fetchResult.state, viableOfType(computeLegalActions(fetchResult.state, PLAYER_2), 'pass')[0].action);
+    const afterStart = dispatch(state, viableOfType(computeLegalActions(state, PLAYER_2), 'start-hazard-sideboard-to-discard')[0].action);
+    const afterFetch = dispatch(afterStart, viableOfType(computeLegalActions(afterStart, PLAYER_2), 'fetch-hazard-from-sideboard')[0].action);
+    const afterPass = dispatch(afterFetch, viableOfType(computeLegalActions(afterFetch, PLAYER_2), 'pass')[0].action);
 
     // After completing sideboard access, no more sideboard intent actions should be offered
-    const actionsAfter = computeLegalActions(passResult.state, PLAYER_2);
+    const actionsAfter = computeLegalActions(afterPass, PLAYER_2);
     expect(viableOfType(actionsAfter, 'start-hazard-sideboard-to-discard')).toHaveLength(0);
     expect(viableOfType(actionsAfter, 'start-hazard-sideboard-to-deck')).toHaveLength(0);
     // Hazard player should still be able to pass

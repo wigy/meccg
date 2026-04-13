@@ -31,13 +31,14 @@
 
 import { describe, test, expect, beforeEach } from 'vitest';
 import {
-  buildTestState, resetMint, Phase, reduce,
+  buildTestState, resetMint, Phase,
   attachHazardToChar,
   PLAYER_1, PLAYER_2,
   ARAGORN, LEGOLAS,
   LURE_OF_THE_SENSES,
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
   viableActions, CardStatus, pool,
+  charIdAt, dispatch, expectCharStatus, expectInDiscardPile,
 } from '../test-helpers.js';
 import type { ActivateGrantedAction, CorruptionCheckAction, HazardEventCard } from '../../index.js';
 import { computeLegalActions } from '../../engine/legal-actions/index.js';
@@ -84,7 +85,7 @@ describe('Lure of the Senses (tw-60)', () => {
       ],
     });
 
-    const aragornId = base.players[0].companies[0].characters[0];
+    const aragornId = charIdAt(base, 0);
     expect(base.players[0].characters[aragornId as string].effectiveStats.corruptionPoints).toBe(0);
 
     // attachHazardToChar bypasses recomputeDerived, so re-derive stats
@@ -111,26 +112,24 @@ describe('Lure of the Senses (tw-60)', () => {
     const withLure = attachHazardToChar(base, 0, ARAGORN, LURE_OF_THE_SENSES);
 
     // Resource player untaps
-    const afterUntap = reduce(withLure, { type: 'untap', player: PLAYER_1 });
-    expect(afterUntap.error).toBeUndefined();
+    const afterUntap = dispatch(withLure, { type: 'untap', player: PLAYER_1 });
 
     // Hazard player passes — transitions to Organization and triggers
     // the untap-phase-at-haven event for Lure.
-    const afterPass = reduce(afterUntap.state, { type: 'pass', player: PLAYER_2 });
-    expect(afterPass.error).toBeUndefined();
-    expect(afterPass.state.phaseState.phase).toBe(Phase.Organization);
+    const afterPass = dispatch(afterUntap, { type: 'pass', player: PLAYER_2 });
+    expect(afterPass.phaseState.phase).toBe(Phase.Organization);
 
-    const pending = afterPass.state.pendingResolutions.filter(r => r.actor === PLAYER_1);
+    const pending = afterPass.pendingResolutions.filter(r => r.actor === PLAYER_1);
     expect(pending).toHaveLength(1);
     expect(pending[0].kind.type).toBe('corruption-check');
     if (pending[0].kind.type !== 'corruption-check') return;
     expect(pending[0].kind.reason).toBe('Lure of the Senses');
 
-    const aragornId = afterPass.state.players[0].companies[0].characters[0];
+    const aragornId = charIdAt(afterPass, 0);
     expect(pending[0].kind.characterId).toBe(aragornId);
 
     // Legal actions for P1 should collapse to the corruption-check resolution
-    const actions = computeLegalActions(afterPass.state, PLAYER_1);
+    const actions = computeLegalActions(afterPass, PLAYER_1);
     const viable = actions.filter(a => a.viable);
     expect(viable).toHaveLength(1);
     expect(viable[0].action.type).toBe('corruption-check');
@@ -156,13 +155,11 @@ describe('Lure of the Senses (tw-60)', () => {
     });
 
     const withLure = attachHazardToChar(base, 0, ARAGORN, LURE_OF_THE_SENSES);
-    const afterUntap = reduce(withLure, { type: 'untap', player: PLAYER_1 });
-    expect(afterUntap.error).toBeUndefined();
-    const afterPass = reduce(afterUntap.state, { type: 'pass', player: PLAYER_2 });
-    expect(afterPass.error).toBeUndefined();
-    expect(afterPass.state.phaseState.phase).toBe(Phase.Organization);
+    const afterUntap = dispatch(withLure, { type: 'untap', player: PLAYER_1 });
+    const afterPass = dispatch(afterUntap, { type: 'pass', player: PLAYER_2 });
+    expect(afterPass.phaseState.phase).toBe(Phase.Organization);
 
-    expect(afterPass.state.pendingResolutions).toHaveLength(0);
+    expect(afterPass.pendingResolutions).toHaveLength(0);
   });
 
   test('untapped bearer in Organization can activate remove-self-on-roll (rollThreshold 7)', () => {
@@ -201,14 +198,13 @@ describe('Lure of the Senses (tw-60)', () => {
     const actions = viableActions(cheated, PLAYER_1, 'activate-granted-action');
     expect(actions).toHaveLength(1);
 
-    const result = reduce(cheated, actions[0].action);
-    expect(result.error).toBeUndefined();
+    const next = dispatch(cheated, actions[0].action);
 
-    const aragornId = result.state.players[0].companies[0].characters[0];
-    expect(result.state.players[0].characters[aragornId as string].status).toBe(CardStatus.Tapped);
-    expect(result.state.players[0].characters[aragornId as string].hazards).toHaveLength(0);
+    expectCharStatus(next, 0, ARAGORN, CardStatus.Tapped);
+    const aragornId = charIdAt(next, 0);
+    expect(next.players[0].characters[aragornId as string].hazards).toHaveLength(0);
     // Lure is owned by P2 and goes back to P2's discard pile
-    expect(result.state.players[1].discardPile.some(c => c.definitionId === LURE_OF_THE_SENSES)).toBe(true);
+    expectInDiscardPile(next, 1, LURE_OF_THE_SENSES);
   });
 
   test('failed removal roll (<=6) keeps Lure attached but still taps the bearer', () => {
@@ -227,12 +223,11 @@ describe('Lure of the Senses (tw-60)', () => {
     const actions = viableActions(cheated, PLAYER_1, 'activate-granted-action');
     expect(actions).toHaveLength(1);
 
-    const result = reduce(cheated, actions[0].action);
-    expect(result.error).toBeUndefined();
+    const next = dispatch(cheated, actions[0].action);
 
-    const aragornId = result.state.players[0].companies[0].characters[0];
-    expect(result.state.players[0].characters[aragornId as string].status).toBe(CardStatus.Tapped);
-    expect(result.state.players[0].characters[aragornId as string].hazards).toHaveLength(1);
-    expect(result.state.players[0].characters[aragornId as string].hazards[0].definitionId).toBe(LURE_OF_THE_SENSES);
+    expectCharStatus(next, 0, ARAGORN, CardStatus.Tapped);
+    const aragornId = charIdAt(next, 0);
+    expect(next.players[0].characters[aragornId as string].hazards).toHaveLength(1);
+    expect(next.players[0].characters[aragornId as string].hazards[0].definitionId).toBe(LURE_OF_THE_SENSES);
   });
 });

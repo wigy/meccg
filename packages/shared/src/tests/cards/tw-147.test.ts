@@ -21,7 +21,8 @@ import {
   BARROW_WIGHT,
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
   buildTestState, resetMint, makeMHState, findCharInstanceId,
-  reduce, executeAction, playCreatureHazardAndResolve, runCreatureCombat,
+  executeAction, playCreatureHazardAndResolve, runCreatureCombat,
+  dispatch, getCharacter, expectCharStatus,
 } from '../test-helpers.js';
 import { Phase, RegionType, SiteType, CardStatus } from '../../index.js';
 import type { CharacterCard, CombatState } from '../../index.js';
@@ -124,8 +125,7 @@ describe('Éowyn (tw-147)', () => {
       ],
     });
 
-    const eowynId = findCharInstanceId(state, 0, EOWYN);
-    expect(state.players[0].characters[eowynId as string].effectiveStats.prowess).toBe(2);
+    expect(getCharacter(state, 0, EOWYN).effectiveStats.prowess).toBe(2);
   });
 
   test('+6 prowess bonus applies in combat vs nazgul (no tap)', () => {
@@ -135,11 +135,10 @@ describe('Éowyn (tw-147)', () => {
     const eowynId = findCharInstanceId(ready, 0, EOWYN);
 
     // Assign strike
-    const result1 = reduce(ready, { type: 'assign-strike', player: PLAYER_1, characterId: eowynId });
-    expect(result1.error).toBeUndefined();
+    const afterAssign = dispatch(ready, { type: 'assign-strike', player: PLAYER_1, characterId: eowynId });
 
     // Resolve without tapping — use executeAction to get properly formed action
-    const afterStrike = executeAction(result1.state, PLAYER_1, 'resolve-strike', 11, false);
+    const afterStrike = executeAction(afterAssign, PLAYER_1, 'resolve-strike', 11, false);
     expect(afterStrike.combat?.phase).toBe('body-check');
     expect(afterStrike.combat?.bodyCheckTarget).toBe('creature');
   });
@@ -175,8 +174,7 @@ describe('Éowyn (tw-147)', () => {
     const afterCombat = runCreatureCombat(afterChain, EOWYN, 12, 2);
     expect(afterCombat.combat).toBeNull();
 
-    const eowynId = findCharInstanceId(afterCombat, 0, EOWYN);
-    expect(afterCombat.players[0].characters[eowynId as string].status).toBe(CardStatus.Inverted);
+    expectCharStatus(afterCombat, 0, EOWYN, CardStatus.Inverted);
   });
 
   test('tapping to fight with +6 bonus gives correct prowess vs nazgul', () => {
@@ -185,10 +183,9 @@ describe('Éowyn (tw-147)', () => {
     const ready = buildCombatState({ creatureRace: 'nazgul', creatureProwess: 15, creatureBody: 10 });
     const eowynId = findCharInstanceId(ready, 0, EOWYN);
 
-    const result1 = reduce(ready, { type: 'assign-strike', player: PLAYER_1, characterId: eowynId });
-    expect(result1.error).toBeUndefined();
+    const afterAssign = dispatch(ready, { type: 'assign-strike', player: PLAYER_1, characterId: eowynId });
 
-    const afterStrike = executeAction(result1.state, PLAYER_1, 'resolve-strike', 8, true);
+    const afterStrike = executeAction(afterAssign, PLAYER_1, 'resolve-strike', 8, true);
     expect(afterStrike.combat?.phase).toBe('body-check');
     expect(afterStrike.combat?.bodyCheckTarget).toBe('creature');
   });

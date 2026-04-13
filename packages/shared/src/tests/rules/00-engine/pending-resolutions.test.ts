@@ -20,6 +20,7 @@ import {
   PLAYER_1, PLAYER_2,
   ARAGORN, LEGOLAS,
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
+  charIdAt, companyIdAt,
 } from '../../test-helpers.js';
 import { computeLegalActions } from '../../../engine/legal-actions/index.js';
 import {
@@ -46,7 +47,7 @@ describe('Pending resolutions — queue mechanics', () => {
 
     expect(topResolutionFor(base, PLAYER_1)).toBeNull();
 
-    const aragornId = base.players[0].companies[0].characters[0];
+    const aragornId = charIdAt(base, 0);
     const queued = enqueueResolution(base, {
       source: null,
       actor: PLAYER_1,
@@ -77,7 +78,7 @@ describe('Pending resolutions — queue mechanics', () => {
       ],
     });
 
-    const aragornId = base.players[0].companies[0].characters[0];
+    const aragornId = charIdAt(base, 0);
 
     const r1 = enqueueResolution(base, {
       source: null,
@@ -112,7 +113,7 @@ describe('Pending resolutions — queue mechanics', () => {
       ],
     });
 
-    const aragornId = base.players[0].companies[0].characters[0];
+    const aragornId = charIdAt(base, 0);
     const queued = enqueueResolution(base, {
       source: null,
       actor: PLAYER_1,
@@ -140,7 +141,7 @@ describe('Pending resolutions — queue mechanics', () => {
       ],
     });
 
-    const aragornId = base.players[0].companies[0].characters[0];
+    const aragornId = charIdAt(base, 0);
     const orgScoped = enqueueResolution(base, {
       source: null,
       actor: PLAYER_1,
@@ -163,8 +164,8 @@ describe('Pending resolutions — queue mechanics', () => {
       ],
     });
 
-    const aragornId = base.players[0].companies[0].characters[0];
-    const targetCompanyId = base.players[0].companies[0].id;
+    const aragornId = charIdAt(base, 0);
+    const targetCompanyId = companyIdAt(base, 0);
     const queued = enqueueResolution(base, {
       source: 'creature-1' as CardInstanceId,
       actor: PLAYER_1,
@@ -186,7 +187,7 @@ describe('Pending resolutions — queue mechanics', () => {
       ],
     });
 
-    const aragornId = base.players[0].companies[0].characters[0];
+    const aragornId = charIdAt(base, 0);
     // Phase-scoped to Organization — should NOT be cleared by a Site
     // company-site-end sweep.
     const orgScoped = enqueueResolution(base, {
@@ -196,7 +197,7 @@ describe('Pending resolutions — queue mechanics', () => {
       kind: { type: 'corruption-check', characterId: aragornId, modifier: 0, reason: 'Transfer', possessions: [], transferredItemId: null },
     });
 
-    const swept = sweepExpired(orgScoped, { kind: 'company-site-end', companyId: base.players[0].companies[0].id });
+    const swept = sweepExpired(orgScoped, { kind: 'company-site-end', companyId: companyIdAt(base, 0) });
     expect(swept.pendingResolutions).toHaveLength(1);
   });
 });

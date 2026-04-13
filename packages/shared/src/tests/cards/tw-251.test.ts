@@ -24,13 +24,14 @@
 
 import { describe, test, expect, beforeEach } from 'vitest';
 import {
-  buildTestState, resetMint, Phase, reduce,
+  buildTestState, resetMint, Phase,
   attachAllyToChar,
   PLAYER_1, PLAYER_2,
   ARAGORN, LEGOLAS, GIMLI,
   GWAIHIR,
   LORIEN, MORIA, MINAS_TIRITH, MOUNT_DOOM, EAGLES_EYRIE, BANDIT_LAIR,
   viableActions,
+  charIdAt, dispatch, expectInDiscardPile,
 } from '../test-helpers.js';
 import type { ActivateGrantedAction, PlanMovementAction } from '../../index.js';
 
@@ -104,18 +105,17 @@ describe('Gwaihir (tw-251)', () => {
     const actions = viableActions(withGwaihir, PLAYER_1, 'activate-granted-action');
     expect(actions.length).toBe(1);
 
-    const result = reduce(withGwaihir, actions[0].action);
-    expect(result.error).toBeUndefined();
+    const nextState = dispatch(withGwaihir, actions[0].action);
 
     // Gwaihir should be removed from character's allies
-    const aragornId = result.state.players[0].companies[0].characters[0];
-    expect(result.state.players[0].characters[aragornId as string].allies).toHaveLength(0);
+    const aragornId = charIdAt(nextState, 0);
+    expect(nextState.players[0].characters[aragornId as string].allies).toHaveLength(0);
 
     // Gwaihir should be in player's own discard pile (ally is owned by resource player)
-    expect(result.state.players[0].discardPile.some(c => c.definitionId === GWAIHIR)).toBe(true);
+    expectInDiscardPile(nextState, 0, GWAIHIR);
 
     // Company should have special movement marker
-    expect(result.state.players[0].companies[0].specialMovement).toBe('gwaihir');
+    expect(nextState.players[0].companies[0].specialMovement).toBe('gwaihir');
   });
 
   test('special movement allows plan-movement to non-shadow/dark sites', () => {
@@ -132,15 +132,14 @@ describe('Gwaihir (tw-251)', () => {
 
     // Activate Gwaihir's ability
     const grantActions = viableActions(withGwaihir, PLAYER_1, 'activate-granted-action');
-    const afterActivation = reduce(withGwaihir, grantActions[0].action);
-    expect(afterActivation.error).toBeUndefined();
+    const afterActivation = dispatch(withGwaihir, grantActions[0].action);
 
     // Plan-movement should be available for Moria and Minas Tirith
     // (both are in non-shadow/dark regions)
-    const moveActions = viableActions(afterActivation.state, PLAYER_1, 'plan-movement');
+    const moveActions = viableActions(afterActivation, PLAYER_1, 'plan-movement');
     const moveDefIds = moveActions.map(ea => {
       const destInstId = (ea.action as PlanMovementAction).destinationSite;
-      const destCard = afterActivation.state.players[0].siteDeck.find(
+      const destCard = afterActivation.players[0].siteDeck.find(
         c => c.instanceId === destInstId,
       );
       return destCard?.definitionId;
@@ -165,14 +164,13 @@ describe('Gwaihir (tw-251)', () => {
 
     // Activate Gwaihir's ability
     const grantActions = viableActions(withGwaihir, PLAYER_1, 'activate-granted-action');
-    const afterActivation = reduce(withGwaihir, grantActions[0].action);
-    expect(afterActivation.error).toBeUndefined();
+    const afterActivation = dispatch(withGwaihir, grantActions[0].action);
 
     // Plan-movement should include Moria but NOT Bandit Lair (shadow region)
-    const moveActions = viableActions(afterActivation.state, PLAYER_1, 'plan-movement');
+    const moveActions = viableActions(afterActivation, PLAYER_1, 'plan-movement');
     const moveDefIds = moveActions.map(ea => {
       const destInstId = (ea.action as PlanMovementAction).destinationSite;
-      const destCard = afterActivation.state.players[0].siteDeck.find(
+      const destCard = afterActivation.players[0].siteDeck.find(
         c => c.instanceId === destInstId,
       );
       return destCard?.definitionId;
@@ -197,14 +195,13 @@ describe('Gwaihir (tw-251)', () => {
 
     // Activate Gwaihir's ability
     const grantActions = viableActions(withGwaihir, PLAYER_1, 'activate-granted-action');
-    const afterActivation = reduce(withGwaihir, grantActions[0].action);
-    expect(afterActivation.error).toBeUndefined();
+    const afterActivation = dispatch(withGwaihir, grantActions[0].action);
 
     // Plan-movement should include Moria but NOT Mount Doom (dark region)
-    const moveActions = viableActions(afterActivation.state, PLAYER_1, 'plan-movement');
+    const moveActions = viableActions(afterActivation, PLAYER_1, 'plan-movement');
     const moveDefIds = moveActions.map(ea => {
       const destInstId = (ea.action as PlanMovementAction).destinationSite;
-      const destCard = afterActivation.state.players[0].siteDeck.find(
+      const destCard = afterActivation.players[0].siteDeck.find(
         c => c.instanceId === destInstId,
       );
       return destCard?.definitionId;
@@ -229,11 +226,10 @@ describe('Gwaihir (tw-251)', () => {
     // Plan regular movement first
     const moveActions = viableActions(withGwaihir, PLAYER_1, 'plan-movement');
     expect(moveActions.length).toBeGreaterThan(0);
-    const afterMove = reduce(withGwaihir, moveActions[0].action);
-    expect(afterMove.error).toBeUndefined();
+    const afterMove = dispatch(withGwaihir, moveActions[0].action);
 
     // Gwaihir action should not be available (company already has destination)
-    const grantActions = viableActions(afterMove.state, PLAYER_1, 'activate-granted-action');
+    const grantActions = viableActions(afterMove, PLAYER_1, 'activate-granted-action');
     expect(grantActions.length).toBe(0);
   });
 });

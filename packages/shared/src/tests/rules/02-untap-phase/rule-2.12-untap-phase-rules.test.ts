@@ -13,12 +13,13 @@
  * During the untap phase, for each of the resource player's non-site cards, that player may either untap the card if it is tapped or, if the card is a character at one of the player's havens, heal the character to the tapped position.
  */
 
-import { describe, test, expect, beforeEach } from 'vitest';
+import { describe, test, beforeEach } from 'vitest';
 import {
-  buildTestState, resetMint, reduce, Phase, CardStatus,
+  buildTestState, resetMint, dispatch, Phase, CardStatus,
   PLAYER_1, PLAYER_2,
   ARAGORN, LEGOLAS,
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
+  expectCharStatus,
 } from '../../test-helpers.js';
 
 
@@ -35,11 +36,8 @@ describe('Rule 2.12 — Untap Phase - Untap or Heal', () => {
       ],
     });
 
-    const result = reduce(state, { type: 'untap', player: PLAYER_1 });
-    expect(result.error).toBeUndefined();
-
-    const charId = result.state.players[0].companies[0].characters[0] as string;
-    expect(result.state.players[0].characters[charId].status).toBe(CardStatus.Untapped);
+    const nextState = dispatch(state, { type: 'untap', player: PLAYER_1 });
+    expectCharStatus(nextState, 0, ARAGORN, CardStatus.Untapped);
   });
 
   test('Wounded character at haven is healed to tapped position', () => {
@@ -53,12 +51,9 @@ describe('Rule 2.12 — Untap Phase - Untap or Heal', () => {
       ],
     });
 
-    const result = reduce(state, { type: 'untap', player: PLAYER_1 });
-    expect(result.error).toBeUndefined();
-
-    const charId = result.state.players[0].companies[0].characters[0] as string;
+    const nextState = dispatch(state, { type: 'untap', player: PLAYER_1 });
     // Healed to tapped, not untapped
-    expect(result.state.players[0].characters[charId].status).toBe(CardStatus.Tapped);
+    expectCharStatus(nextState, 0, ARAGORN, CardStatus.Tapped);
   });
 
   test('Wounded character NOT at haven remains wounded', () => {
@@ -72,11 +67,8 @@ describe('Rule 2.12 — Untap Phase - Untap or Heal', () => {
       ],
     });
 
-    const result = reduce(state, { type: 'untap', player: PLAYER_1 });
-    expect(result.error).toBeUndefined();
-
-    const charId = result.state.players[0].companies[0].characters[0] as string;
-    expect(result.state.players[0].characters[charId].status).toBe(CardStatus.Inverted);
+    const nextState = dispatch(state, { type: 'untap', player: PLAYER_1 });
+    expectCharStatus(nextState, 0, ARAGORN, CardStatus.Inverted);
   });
 
   test('Untapped characters remain untapped', () => {
@@ -89,11 +81,8 @@ describe('Rule 2.12 — Untap Phase - Untap or Heal', () => {
       ],
     });
 
-    const result = reduce(state, { type: 'untap', player: PLAYER_1 });
-    expect(result.error).toBeUndefined();
-
-    const charId = result.state.players[0].companies[0].characters[0] as string;
-    expect(result.state.players[0].characters[charId].status).toBe(CardStatus.Untapped);
+    const nextState = dispatch(state, { type: 'untap', player: PLAYER_1 });
+    expectCharStatus(nextState, 0, ARAGORN, CardStatus.Untapped);
   });
 
   test('Only resource player non-site cards are affected by untap', () => {
@@ -107,11 +96,8 @@ describe('Rule 2.12 — Untap Phase - Untap or Heal', () => {
       ],
     });
 
-    const result = reduce(state, { type: 'untap', player: PLAYER_1 });
-    expect(result.error).toBeUndefined();
-
+    const nextState = dispatch(state, { type: 'untap', player: PLAYER_1 });
     // Opponent's character should still be tapped
-    const charId = result.state.players[1].companies[0].characters[0] as string;
-    expect(result.state.players[1].characters[charId].status).toBe(CardStatus.Tapped);
+    expectCharStatus(nextState, 1, LEGOLAS, CardStatus.Tapped);
   });
 });

@@ -18,8 +18,9 @@ import {
   RIVENDELL, LORIEN,
   buildTestState, resetMint, pool, mint,
   viablePlayCharacterActions,
-  reduce, findCharInstanceId,
+  findCharInstanceId,
   enqueueTransferCorruptionCheck,
+  dispatch,
 } from '../test-helpers.js';
 import { computeLegalActions, Phase } from '../../index.js';
 import type { CharacterCard, CardInstanceId } from '../../index.js';
@@ -228,10 +229,9 @@ describe('Frodo (tw-152)', () => {
     };
 
     // Trigger a recompute by running a pass action in organization
-    const result = reduce(withElim, { type: 'pass', player: PLAYER_1 });
-    expect(result.error).toBeUndefined();
+    const nextState = dispatch(withElim, { type: 'pass', player: PLAYER_1 });
 
     // Frodo in eliminated pile contributes -2 character MP
-    expect(result.state.players[0].marshallingPoints.character).toBe(-2);
+    expect(nextState.players[0].marshallingPoints.character).toBe(-2);
   });
 });

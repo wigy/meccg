@@ -20,8 +20,9 @@ import {
   PLAYER_1,
   ARAGORN, THEODEN,
   MORIA,
-  resetMint, pool, findCharInstanceId,
+  resetMint, pool,
   buildSitePhaseState,
+  getCharacter,
 } from '../test-helpers.js';
 import {
   computeLegalActions,
@@ -81,8 +82,7 @@ describe('The Mithril-coat (tw-345)', () => {
       site: MORIA,
     }));
 
-    const theodenId = findCharInstanceId(state, 0, THEODEN);
-    const stats = state.players[0].characters[theodenId as string].effectiveStats;
+    const stats = getCharacter(state, 0, THEODEN).effectiveStats;
     expect(stats.body).toBe(9); // 6 + 3 = 9, below max 10
   });
 
@@ -98,8 +98,7 @@ describe('The Mithril-coat (tw-345)', () => {
       site: MORIA,
     }));
 
-    const aragornId = findCharInstanceId(state, 0, ARAGORN);
-    const stats = state.players[0].characters[aragornId as string].effectiveStats;
+    const stats = getCharacter(state, 0, ARAGORN).effectiveStats;
     expect(stats.body).toBe(10); // 9 + 3 = 12, capped to 10
   });
 
@@ -113,8 +112,7 @@ describe('The Mithril-coat (tw-345)', () => {
       site: MORIA,
     }));
 
-    const aragornId = findCharInstanceId(state, 0, ARAGORN);
-    const stats = state.players[0].characters[aragornId as string].effectiveStats;
+    const stats = getCharacter(state, 0, ARAGORN).effectiveStats;
     expect(stats.prowess).toBe(baseDef.prowess); // unchanged
   });
 
@@ -126,8 +124,7 @@ describe('The Mithril-coat (tw-345)', () => {
       site: MORIA,
     }));
 
-    const aragornId = findCharInstanceId(state, 0, ARAGORN);
-    const stats = state.players[0].characters[aragornId as string].effectiveStats;
+    const stats = getCharacter(state, 0, ARAGORN).effectiveStats;
     expect(stats.corruptionPoints).toBe(2);
   });
 

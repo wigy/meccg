@@ -20,6 +20,7 @@ import {
   buildTestState, resetMint, buildSitePhaseState, makeMHState,
   addP2CardsInPlay, setupAutoAttackStep,
   Phase,
+  handCardId,
 } from '../test-helpers.js';
 import type { CardInPlay, CardInstanceId, MovementHazardPhaseState } from '../../index.js';
 import { ISENGARD, WAKE_OF_WAR, DOORS_OF_NIGHT } from '../../index.js';
@@ -104,7 +105,7 @@ describe('Wake of War (tw-108)', () => {
     });
     const readyState = { ...state, phaseState: mhState };
 
-    const wowHandId = readyState.players[1].hand[0].instanceId;
+    const wowHandId = handCardId(readyState, 1);
     const result = reduce(readyState, { type: 'play-hazard', player: PLAYER_2, cardInstanceId: wowHandId, targetCompanyId: P1_COMPANY });
     expect(result.error).toBe('Wake of War cannot be duplicated');
   });

@@ -33,13 +33,14 @@
 
 import { describe, test, expect, beforeEach } from 'vitest';
 import {
-  buildTestState, resetMint, Phase, reduce,
+  buildTestState, resetMint, Phase,
   PLAYER_1, PLAYER_2,
   ARAGORN, LEGOLAS, CAVE_DRAKE, GANDALF, BILBO, FRODO,
   STEALTH,
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
   pool, mint,
   makeMHState,
+  handCardId, charIdAt, companyIdAt, dispatch,
 } from '../test-helpers.js';
 import type {
   HeroResourceEventCard,
@@ -93,7 +94,7 @@ describe('Stealth (tw-332)', () => {
         { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [MINAS_TIRITH] },
       ],
     });
-    const stealthInstance = base.players[0].hand[0].instanceId;
+    const stealthInstance = handCardId(base, 0);
 
     const playActions = computeLegalActions(base, PLAYER_1)
       .filter(ea => ea.viable && ea.action.type === 'play-short-event')
@@ -115,27 +116,25 @@ describe('Stealth (tw-332)', () => {
         { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [MINAS_TIRITH] },
       ],
     });
-    const stealthInstance = base.players[0].hand[0].instanceId;
+    const stealthInstance = handCardId(base, 0);
 
-    const afterPlay = reduce(base, {
+    const afterPlay = dispatch(base, {
       type: 'play-short-event',
       player: PLAYER_1,
       cardInstanceId: stealthInstance,
     });
-    expect(afterPlay.error).toBeUndefined();
-    expect(afterPlay.state.phaseState.phase).toBe(Phase.Organization);
-    expect((afterPlay.state.phaseState as { step?: string }).step).toBe('end-of-org');
+    expect(afterPlay.phaseState.phase).toBe(Phase.Organization);
+    expect((afterPlay.phaseState as { step?: string }).step).toBe('end-of-org');
 
     // Only end-of-org plays + pass should be legal now. With no more
     // Stealth in hand, only pass is viable.
-    const afterPlayActions = computeLegalActions(afterPlay.state, PLAYER_1)
+    const afterPlayActions = computeLegalActions(afterPlay, PLAYER_1)
       .filter(ea => ea.viable);
     expect(afterPlayActions.every(ea => ea.action.type === 'pass')).toBe(true);
 
     // Pass advances directly to Long-event.
-    const afterPass = reduce(afterPlay.state, { type: 'pass', player: PLAYER_1 });
-    expect(afterPass.error).toBeUndefined();
-    expect(afterPass.state.phaseState.phase).toBe(Phase.LongEvent);
+    const afterPass = dispatch(afterPlay, { type: 'pass', player: PLAYER_1 });
+    expect(afterPass.phaseState.phase).toBe(Phase.LongEvent);
   });
 
   test('pass during play-actions advances directly to Long-event with no end-of-org detour', () => {
@@ -151,9 +150,8 @@ describe('Stealth (tw-332)', () => {
       ],
     });
 
-    const afterPass = reduce(base, { type: 'pass', player: PLAYER_1 });
-    expect(afterPass.error).toBeUndefined();
-    expect(afterPass.state.phaseState.phase).toBe(Phase.LongEvent);
+    const afterPass = dispatch(base, { type: 'pass', player: PLAYER_1 });
+    expect(afterPass.phaseState.phase).toBe(Phase.LongEvent);
   });
 
   test('Stealth is not playable when company size is 3 or more', () => {
@@ -173,7 +171,7 @@ describe('Stealth (tw-332)', () => {
         { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [MINAS_TIRITH] },
       ],
     });
-    const stealthInstance = base.players[0].hand[0].instanceId;
+    const stealthInstance = handCardId(base, 0);
 
     const playActions = computeLegalActions(base, PLAYER_1)
       .filter(ea => ea.viable && ea.action.type === 'play-short-event')
@@ -192,7 +190,7 @@ describe('Stealth (tw-332)', () => {
         { id: PLAYER_2, companies: [{ site: LORIEN, characters: [ARAGORN] }], hand: [], siteDeck: [MINAS_TIRITH] },
       ],
     });
-    const stealthInstance = base.players[0].hand[0].instanceId;
+    const stealthInstance = handCardId(base, 0);
 
     const playActions = computeLegalActions(base, PLAYER_1)
       .filter(ea => ea.viable && ea.action.type === 'play-short-event')
@@ -212,21 +210,20 @@ describe('Stealth (tw-332)', () => {
         { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [MINAS_TIRITH] },
       ],
     });
-    const stealthInstance = base.players[0].hand[0].instanceId;
-    const aragornInstance = base.players[0].companies[0].characters[0];
-    const companyId = base.players[0].companies[0].id;
+    const stealthInstance = handCardId(base, 0);
+    const aragornInstance = charIdAt(base, 0);
+    const companyId = companyIdAt(base, 0);
 
-    const result = reduce(base, {
+    const nextState = dispatch(base, {
       type: 'play-short-event',
       player: PLAYER_1,
       cardInstanceId: stealthInstance,
       targetScoutInstanceId: aragornInstance,
     });
-    expect(result.error).toBeUndefined();
 
     // The constraint should be added to activeConstraints
-    expect(result.state.activeConstraints).toHaveLength(1);
-    const constraint = result.state.activeConstraints[0];
+    expect(nextState.activeConstraints).toHaveLength(1);
+    const constraint = nextState.activeConstraints[0];
     expect(constraint.kind.type).toBe('no-creature-hazards-on-company');
     expect(constraint.scope.kind).toBe('turn');
     expect(constraint.target).toEqual({ kind: 'company', companyId });
@@ -246,7 +243,7 @@ describe('Stealth (tw-332)', () => {
       ],
     });
 
-    const targetCompanyId = base.players[0].companies[0].id;
+    const targetCompanyId = companyIdAt(base, 0);
     const stealthInstance = mint();
 
     // Set up the M/H phase in the play-hazards step with a wilderness
@@ -301,7 +298,7 @@ describe('Stealth (tw-332)', () => {
       ],
     });
 
-    const targetCompanyId = base.players[0].companies[0].id;
+    const targetCompanyId = companyIdAt(base, 0);
     const constrained = addConstraint(base, {
       source: 'stealth-1' as CardInstanceId,
       sourceDefinitionId: STEALTH,
@@ -324,7 +321,7 @@ describe('Stealth (tw-332)', () => {
       ],
     });
 
-    const targetCompanyId = base.players[0].companies[0].id;
+    const targetCompanyId = companyIdAt(base, 0);
     const constrained = addConstraint(base, {
       source: 'stealth-1' as CardInstanceId,
       sourceDefinitionId: STEALTH,
@@ -359,8 +356,8 @@ describe('Stealth (tw-332)', () => {
       ],
     });
 
-    const protectedCompanyId = base.players[0].companies[0].id;
-    const otherCompanyId = base.players[0].companies[1].id;
+    const protectedCompanyId = companyIdAt(base, 0);
+    const otherCompanyId = companyIdAt(base, 0, 1);
 
     const mhState = makeMHState({
       activeCompanyIndex: 1,

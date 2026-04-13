@@ -17,11 +17,12 @@
 
 import { describe, test, expect, beforeEach } from 'vitest';
 import {
-  buildTestState, resetMint, Phase, reduce,
+  buildTestState, resetMint, Phase, reduce, dispatch,
   PLAYER_1, PLAYER_2, makeMHState, viableActions,
   LEGOLAS, ARAGORN,
   CAVE_DRAKE, ORC_PATROL, BARROW_WIGHT, GLAMDRING,
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
+  handCardId,
 } from '../../test-helpers.js';
 import type { PlaceOnGuardAction } from '../../../index.js';
 
@@ -45,8 +46,8 @@ describe('Rule 5.23 — Placing an On-Guard Card', () => {
     // Both cards should be eligible — any hand card can be placed on-guard
     expect(ogActions).toHaveLength(2);
     const cardIds = ogActions.map(ea => (ea.action as PlaceOnGuardAction).cardInstanceId);
-    expect(cardIds).toContain(mhGameState.players[1].hand[0].instanceId);
-    expect(cardIds).toContain(mhGameState.players[1].hand[1].instanceId);
+    expect(cardIds).toContain(handCardId(mhGameState, 1, 0));
+    expect(cardIds).toContain(handCardId(mhGameState, 1, 1));
   });
 
   test('placing on-guard removes card from hand, adds to company onGuardCards, and counts against hazard limit', () => {
@@ -60,25 +61,23 @@ describe('Rule 5.23 — Placing an On-Guard Card', () => {
     });
     const mhGameState = { ...state, phaseState: makeMHState() };
 
-    const cardToPlace = mhGameState.players[1].hand[0].instanceId;
-    const result = reduce(mhGameState, {
+    const cardToPlace = handCardId(mhGameState, 1);
+    const nextState = dispatch(mhGameState, {
       type: 'place-on-guard',
       player: PLAYER_2,
       cardInstanceId: cardToPlace,
     });
 
-    expect(result.error).toBeUndefined();
-
     // Card removed from hazard player's hand
-    expect(result.state.players[1].hand).toHaveLength(1);
-    expect(result.state.players[1].hand.find(c => c.instanceId === cardToPlace)).toBeUndefined();
+    expect(nextState.players[1].hand).toHaveLength(1);
+    expect(nextState.players[1].hand.find(c => c.instanceId === cardToPlace)).toBeUndefined();
 
     // Card added to resource player's company onGuardCards
-    expect(result.state.players[0].companies[0].onGuardCards).toHaveLength(1);
-    expect(result.state.players[0].companies[0].onGuardCards[0].instanceId).toBe(cardToPlace);
+    expect(nextState.players[0].companies[0].onGuardCards).toHaveLength(1);
+    expect(nextState.players[0].companies[0].onGuardCards[0].instanceId).toBe(cardToPlace);
 
     // Hazard count incremented
-    const ps = result.state.phaseState as ReturnType<typeof makeMHState>;
+    const ps = nextState.phaseState as ReturnType<typeof makeMHState>;
     expect(ps.hazardsPlayedThisCompany).toBe(1);
   });
 
@@ -94,21 +93,20 @@ describe('Rule 5.23 — Placing an On-Guard Card', () => {
     const mhGameState = { ...state, phaseState: makeMHState() };
 
     // Place first on-guard card
-    const firstCard = mhGameState.players[1].hand[0].instanceId;
-    const result = reduce(mhGameState, {
+    const firstCard = handCardId(mhGameState, 1);
+    const afterFirst = dispatch(mhGameState, {
       type: 'place-on-guard',
       player: PLAYER_2,
       cardInstanceId: firstCard,
     });
-    expect(result.error).toBeUndefined();
 
     // No more on-guard actions should be available
-    const ogActions = viableActions(result.state, PLAYER_2, 'place-on-guard');
+    const ogActions = viableActions(afterFirst, PLAYER_2, 'place-on-guard');
     expect(ogActions).toHaveLength(0);
 
     // Direct reduce of a second on-guard should fail
-    const secondCard = result.state.players[1].hand[0].instanceId;
-    const result2 = reduce(result.state, {
+    const secondCard = handCardId(afterFirst, 1);
+    const result2 = reduce(afterFirst, {
       type: 'place-on-guard',
       player: PLAYER_2,
       cardInstanceId: secondCard,
@@ -135,7 +133,7 @@ describe('Rule 5.23 — Placing an On-Guard Card', () => {
     expect(ogActions).toHaveLength(0);
 
     // Direct reduce should also fail
-    const cardId = mhGameState.players[1].hand[0].instanceId;
+    const cardId = handCardId(mhGameState, 1);
     const result = reduce(mhGameState, {
       type: 'place-on-guard',
       player: PLAYER_2,
@@ -158,17 +156,15 @@ describe('Rule 5.23 — Placing an On-Guard Card', () => {
       phaseState: makeMHState({ resourcePlayerPassed: true }),
     };
 
-    const cardId = mhGameState.players[1].hand[0].instanceId;
-    const result = reduce(mhGameState, {
+    const cardId = handCardId(mhGameState, 1);
+    const nextState = dispatch(mhGameState, {
       type: 'place-on-guard',
       player: PLAYER_2,
       cardInstanceId: cardId,
     });
 
-    expect(result.error).toBeUndefined();
-
     // Resource player's pass should be reset so they can respond
-    const ps = result.state.phaseState as ReturnType<typeof makeMHState>;
+    const ps = nextState.phaseState as ReturnType<typeof makeMHState>;
     expect(ps.resourcePlayerPassed).toBe(false);
   });
 });

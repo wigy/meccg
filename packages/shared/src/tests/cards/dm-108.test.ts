@@ -25,7 +25,8 @@ import {
   LITTLE_SNUFFLER, CONCEALMENT, STEALTH,
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
   buildTestState, resetMint, makeMHState, buildSitePhaseState,
-  reduce, pool, resolveChain,
+  pool, resolveChain,
+  handCardId, companyIdAt, charIdAt, dispatch, expectInPile,
 } from '../test-helpers.js';
 import { computeLegalActions, Phase, SiteType } from '../../index.js';
 import type { CreatureCard, CardInstanceId } from '../../index.js';
@@ -100,18 +101,17 @@ describe('Little Snuffler (dm-108)', () => {
     });
     const gameState = { ...state, phaseState: mhState };
 
-    const snufflerId = gameState.players[1].hand[0].instanceId;
-    const companyId = gameState.players[0].companies[0].id;
-    const result = reduce(gameState, {
+    const snufflerId = handCardId(gameState, 1);
+    const companyId = companyIdAt(gameState, 0);
+    const afterPlay = dispatch(gameState, {
       type: 'play-hazard',
       player: PLAYER_2,
       cardInstanceId: snufflerId,
       targetCompanyId: companyId,
       keyedBy: { method: 'site-type' as const, value: 'shadow-hold' },
     });
-    expect(result.error).toBeUndefined();
 
-    const afterChain = resolveChain(result.state);
+    const afterChain = resolveChain(afterPlay);
     expect(afterChain.combat).not.toBeNull();
     expect(afterChain.combat!.phase).toBe('assign-strikes');
     expect(afterChain.combat!.assignmentPhase).toBe('cancel-window');
@@ -119,18 +119,17 @@ describe('Little Snuffler (dm-108)', () => {
     expect(afterChain.combat!.strikeProwess).toBe(5);
 
     // Defender passes cancel-window
-    const afterPass = reduce(afterChain, { type: 'pass', player: PLAYER_1 });
-    expect(afterPass.error).toBeUndefined();
+    const afterPass = dispatch(afterChain, { type: 'pass', player: PLAYER_1 });
 
     // Attacker (P2) gets assign-strike actions — attacker-chooses-defenders
-    const attackerActions = computeLegalActions(afterPass.state, PLAYER_2);
+    const attackerActions = computeLegalActions(afterPass, PLAYER_2);
     const assignStrikes = attackerActions.filter(
       a => a.viable && a.action.type === 'assign-strike',
     );
     expect(assignStrikes).toHaveLength(2);
 
     // Defender (P1) should NOT have assign-strike actions
-    const defenderActions = computeLegalActions(afterPass.state, PLAYER_1);
+    const defenderActions = computeLegalActions(afterPass, PLAYER_1);
     const defAssigns = defenderActions.filter(
       a => a.viable && a.action.type === 'assign-strike',
     );
@@ -166,43 +165,40 @@ describe('Little Snuffler (dm-108)', () => {
     });
     const gameState = { ...state, phaseState: mhState };
 
-    const snufflerId = gameState.players[1].hand[0].instanceId;
-    const companyId = gameState.players[0].companies[0].id;
-    const result = reduce(gameState, {
+    const snufflerId = handCardId(gameState, 1);
+    const companyId = companyIdAt(gameState, 0);
+    const afterPlay = dispatch(gameState, {
       type: 'play-hazard',
       player: PLAYER_2,
       cardInstanceId: snufflerId,
       targetCompanyId: companyId,
       keyedBy: { method: 'site-type' as const, value: 'shadow-hold' },
     });
-    const afterChain = resolveChain(result.state);
+    const afterChain = resolveChain(afterPlay);
 
     // Defender passes cancel-window, then attacker assigns to Aragorn
-    const afterPass = reduce(afterChain, { type: 'pass', player: PLAYER_1 });
-    const aragornId = afterPass.state.players[0].companies[0].characters[0];
-    const afterAssign = reduce(afterPass.state, {
+    const afterPass = dispatch(afterChain, { type: 'pass', player: PLAYER_1 });
+    const aragornId = charIdAt(afterPass, 0);
+    const afterAssign = dispatch(afterPass, {
       type: 'assign-strike',
       player: PLAYER_2,
       characterId: aragornId,
       tapped: false,
     });
-    expect(afterAssign.error).toBeUndefined();
 
     // Aragorn prowess 6 + high roll (12) easily beats creature prowess 5
-    const stateWithRoll = { ...afterAssign.state, cheatRollTotal: 12 };
+    const stateWithRoll = { ...afterAssign, cheatRollTotal: 12 };
     const actions = computeLegalActions(stateWithRoll, PLAYER_1);
     const resolveAction = actions.find(a => a.viable && a.action.type === 'resolve-strike');
     expect(resolveAction).toBeDefined();
-    const afterStrike = reduce(stateWithRoll, resolveAction!.action);
-    expect(afterStrike.error).toBeUndefined();
+    const afterStrike = dispatch(stateWithRoll, resolveAction!.action);
 
     // Combat finalized — creature should be in defender's kill pile
-    expect(afterStrike.state.combat).toBeNull();
-    const defenderKillPile = afterStrike.state.players[0].killPile;
-    expect(defenderKillPile.some(c => c.definitionId === LITTLE_SNUFFLER)).toBe(true);
+    expect(afterStrike.combat).toBeNull();
+    expectInPile(afterStrike, 0, 'killPile', LITTLE_SNUFFLER);
 
     // No constraint should have been added
-    expect(afterStrike.state.activeConstraints).toHaveLength(0);
+    expect(afterStrike.activeConstraints).toHaveLength(0);
   });
 
   test('attack not defeated — deny-scout-resources constraint added', () => {
@@ -235,53 +231,49 @@ describe('Little Snuffler (dm-108)', () => {
     });
     const gameState = { ...state, phaseState: mhState };
 
-    const snufflerId = gameState.players[1].hand[0].instanceId;
-    const companyId = gameState.players[0].companies[0].id;
-    const result = reduce(gameState, {
+    const snufflerId = handCardId(gameState, 1);
+    const companyId = companyIdAt(gameState, 0);
+    const afterPlay = dispatch(gameState, {
       type: 'play-hazard',
       player: PLAYER_2,
       cardInstanceId: snufflerId,
       targetCompanyId: companyId,
       keyedBy: { method: 'site-type' as const, value: 'shadow-hold' },
     });
-    const afterChain = resolveChain(result.state);
+    const afterChain = resolveChain(afterPlay);
 
     // Defender passes cancel-window, attacker assigns to Bilbo
-    const afterPass = reduce(afterChain, { type: 'pass', player: PLAYER_1 });
-    const bilboId = afterPass.state.players[0].companies[0].characters[0];
-    const afterAssign = reduce(afterPass.state, {
+    const afterPass = dispatch(afterChain, { type: 'pass', player: PLAYER_1 });
+    const bilboId = charIdAt(afterPass, 0);
+    const afterAssign = dispatch(afterPass, {
       type: 'assign-strike',
       player: PLAYER_2,
       characterId: bilboId,
       tapped: false,
     });
-    expect(afterAssign.error).toBeUndefined();
 
     // Low roll (2): Bilbo prowess 1 + 2 = 3 ≤ creature prowess 5 → strike fails
-    const stateWithRoll = { ...afterAssign.state, cheatRollTotal: 2 };
+    const stateWithRoll = { ...afterAssign, cheatRollTotal: 2 };
     const actions = computeLegalActions(stateWithRoll, PLAYER_1);
     const resolveAction = actions.find(a => a.viable && a.action.type === 'resolve-strike');
     expect(resolveAction).toBeDefined();
-    const afterStrike = reduce(stateWithRoll, resolveAction!.action);
-    expect(afterStrike.error).toBeUndefined();
+    const afterStrike = dispatch(stateWithRoll, resolveAction!.action);
 
     // Bilbo is wounded → body check
-    if (afterStrike.state.combat?.phase === 'body-check') {
+    if (afterStrike.combat?.phase === 'body-check') {
       // Bilbo body 9, roll high to survive the body check
-      const bodyState = { ...afterStrike.state, cheatRollTotal: 2 };
+      const bodyState = { ...afterStrike, cheatRollTotal: 2 };
       const bodyActions = computeLegalActions(bodyState, PLAYER_2);
       const bodyAction = bodyActions.find(a => a.viable && a.action.type === 'body-check-roll');
       expect(bodyAction).toBeDefined();
-      const afterBody = reduce(bodyState, bodyAction!.action);
-      expect(afterBody.error).toBeUndefined();
+      const afterBody = dispatch(bodyState, bodyAction!.action);
 
       // Combat finalized — creature to attacker's discard (not defeated)
-      expect(afterBody.state.combat).toBeNull();
-      const attackerDiscard = afterBody.state.players[1].discardPile;
-      expect(attackerDiscard.some(c => c.definitionId === LITTLE_SNUFFLER)).toBe(true);
+      expect(afterBody.combat).toBeNull();
+      expectInPile(afterBody, 1, 'discardPile', LITTLE_SNUFFLER);
 
       // deny-scout-resources constraint should be added
-      const constraints = afterBody.state.activeConstraints;
+      const constraints = afterBody.activeConstraints;
       expect(constraints.length).toBeGreaterThanOrEqual(1);
       const denyScout = constraints.find(c => c.kind.type === 'deny-scout-resources');
       expect(denyScout).toBeDefined();
@@ -289,11 +281,10 @@ describe('Little Snuffler (dm-108)', () => {
       expect(denyScout!.target).toEqual({ kind: 'company', companyId });
     } else {
       // Combat finalized directly (no body check since creature has no body)
-      expect(afterStrike.state.combat).toBeNull();
-      const attackerDiscard = afterStrike.state.players[1].discardPile;
-      expect(attackerDiscard.some(c => c.definitionId === LITTLE_SNUFFLER)).toBe(true);
+      expect(afterStrike.combat).toBeNull();
+      expectInPile(afterStrike, 1, 'discardPile', LITTLE_SNUFFLER);
 
-      const constraints = afterStrike.state.activeConstraints;
+      const constraints = afterStrike.activeConstraints;
       expect(constraints.length).toBeGreaterThanOrEqual(1);
       const denyScout = constraints.find(c => c.kind.type === 'deny-scout-resources');
       expect(denyScout).toBeDefined();
@@ -310,7 +301,7 @@ describe('Little Snuffler (dm-108)', () => {
       hand: [STEALTH, CONCEALMENT],
     });
 
-    const companyId = state.players[0].companies[0].id;
+    const companyId = companyIdAt(state, 0);
 
     // Add the deny-scout-resources constraint targeting P1's company
     const constrained = addConstraint(state, {

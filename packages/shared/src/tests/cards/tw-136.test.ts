@@ -18,6 +18,7 @@ import {
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
   buildTestState, resetMint,
   findCharInstanceId, viablePlayCharacterActions,
+  getCharacter,
 } from '../test-helpers.js';
 import { Phase } from '../../index.js';
 import type { CharacterCard } from '../../index.js';
@@ -39,10 +40,9 @@ describe('Celeborn (tw-136)', () => {
       ],
     });
 
-    const celebornId = findCharInstanceId(state, 0, CELEBORN);
     const baseDef = pool[CELEBORN as string] as CharacterCard;
     expect(baseDef.directInfluence).toBe(1);
-    expect(state.players[0].characters[celebornId as string].effectiveStats.directInfluence).toBe(baseDef.directInfluence);
+    expect(getCharacter(state, 0, CELEBORN).effectiveStats.directInfluence).toBe(baseDef.directInfluence);
   });
 
   test('+5 DI bonus applies when checking influence against Galadriel', () => {

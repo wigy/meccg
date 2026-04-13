@@ -24,7 +24,8 @@ import {
   CAVE_DRAKE, ORC_PATROL, GWAIHIR,
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
   buildTestState, resetMint, makeMHState, attachAllyToChar,
-  reduce, resolveChain,
+  dispatch, resolveChain,
+  handCardId, companyIdAt,
 } from '../../test-helpers.js';
 import { computeLegalActions, Phase, RegionType, SiteType } from '../../../index.js';
 
@@ -68,32 +69,30 @@ describe('Rule 8.06 — Step 2: Defending Player Assigns Strikes', () => {
     const gameState = { ...withAlly, phaseState: mhState };
 
     // P2 plays Cave-drake targeting P1's company
-    const cavedrakeId = gameState.players[1].hand[0].instanceId;
-    const companyId = gameState.players[0].companies[0].id;
-    const result = reduce(gameState, {
+    const cavedrakeId = handCardId(gameState, 1);
+    const companyId = companyIdAt(gameState, 0);
+    const afterHazard = dispatch(gameState, {
       type: 'play-hazard',
       player: PLAYER_2,
       cardInstanceId: cavedrakeId,
       targetCompanyId: companyId,
       keyedBy: { method: 'region-type' as const, value: 'wilderness' },
     });
-    expect(result.error).toBeUndefined();
-    const afterChain = resolveChain(result.state);
+    const afterChain = resolveChain(afterHazard);
 
     // Pass cancel-window to get to attacker assignment
-    const passResult = reduce(afterChain, { type: 'pass', player: PLAYER_1 });
-    expect(passResult.error).toBeUndefined();
-    expect(passResult.state.combat!.assignmentPhase).toBe('attacker');
+    const afterPass = dispatch(afterChain, { type: 'pass', player: PLAYER_1 });
+    expect(afterPass.combat!.assignmentPhase).toBe('attacker');
 
     // Attacker should see 3 targets: Frodo, Aragorn, and Gwaihir (ally)
-    const attackerActions = computeLegalActions(passResult.state, PLAYER_2);
+    const attackerActions = computeLegalActions(afterPass, PLAYER_2);
     const assignActions = attackerActions.filter(
       a => a.viable && a.action.type === 'assign-strike',
     );
     expect(assignActions).toHaveLength(3);
 
     // Find the Gwaihir assign action
-    const frodoChar = passResult.state.players[0].characters;
+    const frodoChar = afterPass.players[0].characters;
     const frodoId = Object.keys(frodoChar).find(
       k => frodoChar[k].definitionId === FRODO,
     )!;
@@ -101,13 +100,12 @@ describe('Rule 8.06 — Step 2: Defending Player Assigns Strikes', () => {
     expect(gwaihirAlly).toBeDefined();
 
     // Assign a strike to Gwaihir — should succeed
-    const assignResult = reduce(passResult.state, {
+    dispatch(afterPass, {
       type: 'assign-strike',
       player: PLAYER_2,
       characterId: gwaihirAlly!.instanceId,
       tapped: false,
     });
-    expect(assignResult.error).toBeUndefined();
   });
 
   test('ally is available as a defender-assigned strike target (CoE 2.V.2.2)', () => {
@@ -144,17 +142,16 @@ describe('Rule 8.06 — Step 2: Defending Player Assigns Strikes', () => {
     const gameState = { ...withAlly, phaseState: mhState };
 
     // P2 plays Orc-patrol targeting P1's company
-    const orcId = gameState.players[1].hand[0].instanceId;
-    const companyId = gameState.players[0].companies[0].id;
-    const result = reduce(gameState, {
+    const orcId = handCardId(gameState, 1);
+    const companyId = companyIdAt(gameState, 0);
+    const afterHazard = dispatch(gameState, {
       type: 'play-hazard',
       player: PLAYER_2,
       cardInstanceId: orcId,
       targetCompanyId: companyId,
       keyedBy: { method: 'region-type' as const, value: 'wilderness' },
     });
-    expect(result.error).toBeUndefined();
-    const afterChain = resolveChain(result.state);
+    const afterChain = resolveChain(afterHazard);
 
     expect(afterChain.combat).not.toBeNull();
     expect(afterChain.combat!.assignmentPhase).toBe('defender');

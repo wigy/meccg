@@ -17,12 +17,12 @@
 import { describe, test, expect, beforeEach } from 'vitest';
 import {
   PLAYER_1, PLAYER_2,
-  reduce,
   ELROND, ARAGORN, LEGOLAS,
   MARVELS_TOLD, FOOLISH_WORDS, EYE_OF_SAURON, DOORS_OF_NIGHT,
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
   buildTestState, resetMint, mint,
   viableActions,
+  handCardId, dispatch, setCharStatus, expectCharStatus,
 } from '../test-helpers.js';
 import type { CardInstanceId, CardInPlay } from '../../index.js';
 import { computeLegalActions, Phase, CardStatus } from '../../index.js';
@@ -88,18 +88,7 @@ describe('Marvels Told (td-134)', () => {
       ],
     });
 
-    const elrondId = Object.keys(state.players[0].characters)[0];
-    const tappedCharacters = {
-      ...state.players[0].characters,
-      [elrondId]: { ...state.players[0].characters[elrondId], status: CardStatus.Tapped },
-    };
-    const tappedState = {
-      ...state,
-      players: [
-        { ...state.players[0], characters: tappedCharacters },
-        state.players[1],
-      ] as unknown as typeof state.players,
-    };
+    const tappedState = setCharStatus(state, 0, ELROND, CardStatus.Tapped);
 
     const playActions = viableActions(tappedState, PLAYER_1, 'play-short-event');
     expect(playActions).toHaveLength(0);
@@ -166,33 +155,32 @@ describe('Marvels Told (td-134)', () => {
       ],
     });
 
-    const marvelsId = state.players[0].hand[0].instanceId;
+    const marvelsId = handCardId(state, 0);
     const foolishWordsId = state.players[1].cardsInPlay[0].instanceId;
     const elrondId = Object.keys(state.players[0].characters)[0] as unknown as CardInstanceId;
 
-    const result = reduce(state, {
+    const next = dispatch(state, {
       type: 'play-short-event',
       player: PLAYER_1,
       cardInstanceId: marvelsId,
       targetScoutInstanceId: elrondId,
       discardTargetInstanceId: foolishWordsId,
     });
-    expect(result.error).toBeUndefined();
 
     // Sage is tapped
-    expect(result.state.players[0].characters[elrondId as string].status).toBe(CardStatus.Tapped);
+    expectCharStatus(next, 0, ELROND, CardStatus.Tapped);
 
     // Foolish Words moved from P2 cardsInPlay to P2 discard
-    expect(result.state.players[1].cardsInPlay.map(c => c.instanceId)).not.toContain(foolishWordsId);
-    expect(result.state.players[1].discardPile.map(c => c.instanceId)).toContain(foolishWordsId);
+    expect(next.players[1].cardsInPlay.map(c => c.instanceId)).not.toContain(foolishWordsId);
+    expect(next.players[1].discardPile.map(c => c.instanceId)).toContain(foolishWordsId);
 
     // Marvels Told moved from P1 hand straight to P1 discard (no cardsInPlay stop)
-    expect(result.state.players[0].hand).toHaveLength(0);
-    expect(result.state.players[0].cardsInPlay.map(c => c.instanceId)).not.toContain(marvelsId);
-    expect(result.state.players[0].discardPile.map(c => c.instanceId)).toContain(marvelsId);
+    expect(next.players[0].hand).toHaveLength(0);
+    expect(next.players[0].cardsInPlay.map(c => c.instanceId)).not.toContain(marvelsId);
+    expect(next.players[0].discardPile.map(c => c.instanceId)).toContain(marvelsId);
 
     // No lingering pendingEffects sub-flow
-    expect(result.state.pendingEffects).toHaveLength(0);
+    expect(next.pendingEffects).toHaveLength(0);
   });
 
   test('sage makes a corruption check modified by -2 after resolution', () => {
@@ -207,21 +195,20 @@ describe('Marvels Told (td-134)', () => {
       ],
     });
 
-    const marvelsId = state.players[0].hand[0].instanceId;
+    const marvelsId = handCardId(state, 0);
     const foolishWordsId = state.players[1].cardsInPlay[0].instanceId;
     const elrondId = Object.keys(state.players[0].characters)[0] as unknown as CardInstanceId;
 
-    const result = reduce(state, {
+    const next = dispatch(state, {
       type: 'play-short-event',
       player: PLAYER_1,
       cardInstanceId: marvelsId,
       targetScoutInstanceId: elrondId,
       discardTargetInstanceId: foolishWordsId,
     });
-    expect(result.error).toBeUndefined();
 
-    expect(result.state.pendingResolutions).toHaveLength(1);
-    const resolution = result.state.pendingResolutions[0];
+    expect(next.pendingResolutions).toHaveLength(1);
+    const resolution = next.pendingResolutions[0];
     expect(resolution.kind.type).toBe('corruption-check');
     if (resolution.kind.type === 'corruption-check') {
       expect(resolution.kind.characterId).toBe(elrondId);
@@ -243,20 +230,19 @@ describe('Marvels Told (td-134)', () => {
       ],
     });
 
-    const marvelsId = state.players[0].hand[0].instanceId;
+    const marvelsId = handCardId(state, 0);
     const foolishWordsId = state.players[1].cardsInPlay[0].instanceId;
     const elrondId = Object.keys(state.players[0].characters)[0] as unknown as CardInstanceId;
 
-    const result = reduce(state, {
+    const next = dispatch(state, {
       type: 'play-short-event',
       player: PLAYER_1,
       cardInstanceId: marvelsId,
       targetScoutInstanceId: elrondId,
       discardTargetInstanceId: foolishWordsId,
     });
-    expect(result.error).toBeUndefined();
 
-    const opponentActions = computeLegalActions(result.state, PLAYER_2);
+    const opponentActions = computeLegalActions(next, PLAYER_2);
     expect(opponentActions).toHaveLength(0);
   });
 
@@ -272,28 +258,26 @@ describe('Marvels Told (td-134)', () => {
       ],
     });
 
-    const marvelsId = state.players[0].hand[0].instanceId;
+    const marvelsId = handCardId(state, 0);
     const eyeId = state.players[1].cardsInPlay[0].instanceId;
     const elrondId = Object.keys(state.players[0].characters)[0] as unknown as CardInstanceId;
 
-    let result = reduce(state, {
+    const afterPlay = dispatch(state, {
       type: 'play-short-event',
       player: PLAYER_1,
       cardInstanceId: marvelsId,
       targetScoutInstanceId: elrondId,
       discardTargetInstanceId: eyeId,
     });
-    expect(result.error).toBeUndefined();
 
-    expect(result.state.pendingResolutions).toHaveLength(1);
-    const ccAction = viableActions(result.state, PLAYER_1, 'corruption-check');
+    expect(afterPlay.pendingResolutions).toHaveLength(1);
+    const ccAction = viableActions(afterPlay, PLAYER_1, 'corruption-check');
     expect(ccAction).toHaveLength(1);
 
-    result = reduce(result.state, ccAction[0].action);
-    expect(result.error).toBeUndefined();
+    const afterCC = dispatch(afterPlay, ccAction[0].action);
 
-    expect(result.state.phaseState.phase).toBe(Phase.LongEvent);
-    const passActions = viableActions(result.state, PLAYER_1, 'pass');
+    expect(afterCC.phaseState.phase).toBe(Phase.LongEvent);
+    const passActions = viableActions(afterCC, PLAYER_1, 'pass');
     expect(passActions).toHaveLength(1);
   });
 });

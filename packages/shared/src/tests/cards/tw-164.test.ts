@@ -22,6 +22,7 @@ import {
   buildTestState, resetMint,
   findCharInstanceId, buildSitePhaseState,
   enqueueTransferCorruptionCheck,
+  getCharacter,
 } from '../test-helpers.js';
 import { computeLegalActions } from '../../index.js';
 import type { CharacterCard, InfluenceAttemptAction, CorruptionCheckAction } from '../../index.js';
@@ -55,7 +56,7 @@ describe('Haldir (tw-164)', () => {
     });
 
     const haldirId = findCharInstanceId(state, 0, HALDIR);
-    const glamdringInstId = state.players[0].characters[haldirId as string].items[0].instanceId;
+    const glamdringInstId = getCharacter(state, 0, HALDIR).items[0].instanceId;
 
     const stateWithCheck = enqueueTransferCorruptionCheck(state, PLAYER_1, haldirId, glamdringInstId);
 

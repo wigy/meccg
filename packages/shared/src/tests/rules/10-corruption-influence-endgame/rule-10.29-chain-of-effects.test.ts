@@ -24,7 +24,7 @@
 import { describe, test, expect, beforeEach } from 'vitest';
 import {
   PLAYER_1, PLAYER_2,
-  reduce,
+  reduce, dispatch,
   ARAGORN, LEGOLAS,
   TWILIGHT, GATES_OF_MORNING, DOORS_OF_NIGHT,
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
@@ -32,6 +32,7 @@ import {
   buildTestState, resetMint,
   viableActions,
   P1_COMPANY, makeMHState,
+  handCardId,
 } from '../../test-helpers.js';
 import { Phase } from '../../../index.js';
 import type { CardInPlay, CardInstanceId, GameState } from '../../../index.js';
@@ -67,21 +68,20 @@ describe('Rule 10.29 — Chain of Effects', () => {
       ],
     });
 
-    const gomId = state.players[0].hand[0].instanceId;
-    const result = reduce(state, { type: 'play-permanent-event', player: PLAYER_1, cardInstanceId: gomId });
-    expect(result.error).toBeUndefined();
+    const gomId = handCardId(state, 0);
+    const nextState = dispatch(state, { type: 'play-permanent-event', player: PLAYER_1, cardInstanceId: gomId });
 
     // Chain is created with the card on it
-    expect(result.state.chain).not.toBeNull();
-    expect(result.state.chain!.mode).toBe('declaring');
-    expect(result.state.chain!.entries).toHaveLength(1);
-    expect(result.state.chain!.entries[0].card?.instanceId).toBe(gomId);
-    expect(result.state.chain!.entries[0].payload.type).toBe('permanent-event');
-    expect(result.state.chain!.entries[0].resolved).toBe(false);
+    expect(nextState.chain).not.toBeNull();
+    expect(nextState.chain!.mode).toBe('declaring');
+    expect(nextState.chain!.entries).toHaveLength(1);
+    expect(nextState.chain!.entries[0].card?.instanceId).toBe(gomId);
+    expect(nextState.chain!.entries[0].payload.type).toBe('permanent-event');
+    expect(nextState.chain!.entries[0].resolved).toBe(false);
 
     // Card removed from hand, not yet in cardsInPlay (on the chain)
-    expect(result.state.players[0].hand).toHaveLength(0);
-    expect(result.state.players[0].cardsInPlay).toHaveLength(0);
+    expect(nextState.players[0].hand).toHaveLength(0);
+    expect(nextState.players[0].cardsInPlay).toHaveLength(0);
   });
 
   // ── 10.29: Opponent gets priority to respond ──────────────────────────────
@@ -96,12 +96,11 @@ describe('Rule 10.29 — Chain of Effects', () => {
       ],
     });
 
-    const gomId = state.players[0].hand[0].instanceId;
-    const result = reduce(state, { type: 'play-permanent-event', player: PLAYER_1, cardInstanceId: gomId });
-    expect(result.error).toBeUndefined();
+    const gomId = handCardId(state, 0);
+    const nextState = dispatch(state, { type: 'play-permanent-event', player: PLAYER_1, cardInstanceId: gomId });
 
     // Non-initiator (P2) gets priority to respond
-    expect(result.state.chain!.priority).toBe(PLAYER_2);
+    expect(nextState.chain!.priority).toBe(PLAYER_2);
   });
 
   // ── 10.29: Alternating response opportunities ─────────────────────────────
@@ -116,20 +115,19 @@ describe('Rule 10.29 — Chain of Effects', () => {
       ],
     });
 
-    const gomId = state.players[0].hand[0].instanceId;
-    const p2Twilight = state.players[1].hand[0].instanceId;
+    const gomId = handCardId(state, 0);
+    const p2Twilight = handCardId(state, 1);
 
     // P1 plays GoM → P2 gets priority
-    let result = reduce(state, { type: 'play-permanent-event', player: PLAYER_1, cardInstanceId: gomId });
-    expect(result.state.chain!.priority).toBe(PLAYER_2);
+    const afterGom = dispatch(state, { type: 'play-permanent-event', player: PLAYER_1, cardInstanceId: gomId });
+    expect(afterGom.chain!.priority).toBe(PLAYER_2);
 
     // P2 responds with Twilight targeting GoM → P1 gets priority
-    result = reduce(result.state, { type: 'play-short-event', player: PLAYER_2, cardInstanceId: p2Twilight, targetInstanceId: gomId });
-    expect(result.error).toBeUndefined();
-    expect(result.state.chain!.priority).toBe(PLAYER_1);
+    const afterTwilight = dispatch(afterGom, { type: 'play-short-event', player: PLAYER_2, cardInstanceId: p2Twilight, targetInstanceId: gomId });
+    expect(afterTwilight.chain!.priority).toBe(PLAYER_1);
 
     // P1 can now respond (has Twilight in hand to target P2's Twilight on chain)
-    const p1Actions = viableActions(result.state, PLAYER_1, 'play-short-event');
+    const p1Actions = viableActions(afterTwilight, PLAYER_1, 'play-short-event');
     expect(p1Actions.length).toBeGreaterThan(0);
   });
 
@@ -151,27 +149,24 @@ describe('Rule 10.29 — Chain of Effects', () => {
       ],
     });
 
-    const gomId = state.players[0].hand[0].instanceId;
-    const p1Twilight = state.players[0].hand[1].instanceId;
-    const p2Twilight = state.players[1].hand[0].instanceId;
+    const gomId = handCardId(state, 0);
+    const p1Twilight = handCardId(state, 0, 1);
+    const p2Twilight = handCardId(state, 1);
 
     // P1 plays GoM → P2 gets priority
-    let result = reduce(state, { type: 'play-permanent-event', player: PLAYER_1, cardInstanceId: gomId });
-    expect(result.error).toBeUndefined();
+    const afterGom = dispatch(state, { type: 'play-permanent-event', player: PLAYER_1, cardInstanceId: gomId });
 
     // P2 responds with Twilight targeting GoM on chain
-    result = reduce(result.state, { type: 'play-short-event', player: PLAYER_2, cardInstanceId: p2Twilight, targetInstanceId: gomId });
-    expect(result.error).toBeUndefined();
+    const afterP2Twilight = dispatch(afterGom, { type: 'play-short-event', player: PLAYER_2, cardInstanceId: p2Twilight, targetInstanceId: gomId });
 
     // P1 responds with Twilight targeting P2's Twilight on chain
-    result = reduce(result.state, { type: 'play-short-event', player: PLAYER_1, cardInstanceId: p1Twilight, targetInstanceId: p2Twilight });
-    expect(result.error).toBeUndefined();
+    const afterP1Twilight = dispatch(afterP2Twilight, { type: 'play-short-event', player: PLAYER_1, cardInstanceId: p1Twilight, targetInstanceId: p2Twilight });
 
     // Both pass → chain resolves LIFO:
     //   3. P1's Twilight resolves → negates P2's Twilight
     //   2. P2's Twilight resolves → negated, fizzles
     //   1. GoM resolves → enters play, discards DoN
-    const s = passBothAndResolve(result.state);
+    const s = passBothAndResolve(afterP1Twilight);
 
     expect(s.chain).toBeNull();
     // GoM survived and entered play
@@ -193,24 +188,21 @@ describe('Rule 10.29 — Chain of Effects', () => {
       ],
     });
 
-    const gomId = state.players[0].hand[0].instanceId;
+    const gomId = handCardId(state, 0);
 
     // P1 plays GoM → P2 gets priority
-    let result = reduce(state, { type: 'play-permanent-event', player: PLAYER_1, cardInstanceId: gomId });
-    expect(result.error).toBeUndefined();
+    const afterGom = dispatch(state, { type: 'play-permanent-event', player: PLAYER_1, cardInstanceId: gomId });
 
     // P2 passes → P1 gets priority
-    result = reduce(result.state, { type: 'pass-chain-priority', player: PLAYER_2 });
-    expect(result.error).toBeUndefined();
+    const afterP2Pass = dispatch(afterGom, { type: 'pass-chain-priority', player: PLAYER_2 });
     // Chain still active — only one player has passed
-    expect(result.state.chain).not.toBeNull();
-    expect(result.state.chain!.mode).toBe('declaring');
-    expect(result.state.chain!.priority).toBe(PLAYER_1);
+    expect(afterP2Pass.chain).not.toBeNull();
+    expect(afterP2Pass.chain!.mode).toBe('declaring');
+    expect(afterP2Pass.chain!.priority).toBe(PLAYER_1);
 
     // P1 passes → both passed consecutively → chain resolves
-    result = reduce(result.state, { type: 'pass-chain-priority', player: PLAYER_1 });
-    expect(result.error).toBeUndefined();
-    expect(result.state.chain).toBeNull();
+    const afterP1Pass = dispatch(afterP2Pass, { type: 'pass-chain-priority', player: PLAYER_1 });
+    expect(afterP1Pass.chain).toBeNull();
   });
 
   test('a new declaration resets the pass counter', () => {
@@ -223,28 +215,24 @@ describe('Rule 10.29 — Chain of Effects', () => {
       ],
     });
 
-    const gomId = state.players[0].hand[0].instanceId;
-    const p2Twilight = state.players[1].hand[0].instanceId;
+    const gomId = handCardId(state, 0);
+    const p2Twilight = handCardId(state, 1);
 
     // P1 plays GoM → P2 gets priority
-    let result = reduce(state, { type: 'play-permanent-event', player: PLAYER_1, cardInstanceId: gomId });
-    expect(result.error).toBeUndefined();
+    const afterGom = dispatch(state, { type: 'play-permanent-event', player: PLAYER_1, cardInstanceId: gomId });
 
     // P2 plays Twilight (instead of passing) → P1 gets priority
-    result = reduce(result.state, { type: 'play-short-event', player: PLAYER_2, cardInstanceId: p2Twilight, targetInstanceId: gomId });
-    expect(result.error).toBeUndefined();
-    expect(result.state.chain!.entries).toHaveLength(2);
+    const afterTwilight = dispatch(afterGom, { type: 'play-short-event', player: PLAYER_2, cardInstanceId: p2Twilight, targetInstanceId: gomId });
+    expect(afterTwilight.chain!.entries).toHaveLength(2);
 
     // P1 passes → chain still active (only P1 passed since last declaration)
-    result = reduce(result.state, { type: 'pass-chain-priority', player: PLAYER_1 });
-    expect(result.error).toBeUndefined();
-    expect(result.state.chain).not.toBeNull();
-    expect(result.state.chain!.mode).toBe('declaring');
+    const afterP1Pass = dispatch(afterTwilight, { type: 'pass-chain-priority', player: PLAYER_1 });
+    expect(afterP1Pass.chain).not.toBeNull();
+    expect(afterP1Pass.chain!.mode).toBe('declaring');
 
     // P2 passes → now both passed → chain resolves
-    result = reduce(result.state, { type: 'pass-chain-priority', player: PLAYER_2 });
-    expect(result.error).toBeUndefined();
-    expect(result.state.chain).toBeNull();
+    const afterP2Pass = dispatch(afterP1Pass, { type: 'pass-chain-priority', player: PLAYER_2 });
+    expect(afterP2Pass.chain).toBeNull();
   });
 
   // ── 10.29: Can respond to events declared earlier in the same chain ───────
@@ -259,14 +247,13 @@ describe('Rule 10.29 — Chain of Effects', () => {
       ],
     });
 
-    const gomId = state.players[0].hand[0].instanceId;
+    const gomId = handCardId(state, 0);
 
     // P1 plays GoM → it goes on the chain
-    const result = reduce(state, { type: 'play-permanent-event', player: PLAYER_1, cardInstanceId: gomId });
-    expect(result.error).toBeUndefined();
+    const nextState = dispatch(state, { type: 'play-permanent-event', player: PLAYER_1, cardInstanceId: gomId });
 
     // P2 can target GoM on the chain with Twilight
-    const p2Actions = viableActions(result.state, PLAYER_2, 'play-short-event');
+    const p2Actions = viableActions(nextState, PLAYER_2, 'play-short-event');
     const gomTargets = p2Actions.filter(
       ea => (ea.action as { targetInstanceId: CardInstanceId }).targetInstanceId === gomId,
     );
@@ -291,19 +278,17 @@ describe('Rule 10.29 — Chain of Effects', () => {
       ],
     });
 
-    const gomId = state.players[0].hand[0].instanceId;
-    const p2Twilight = state.players[1].hand[0].instanceId;
+    const gomId = handCardId(state, 0);
+    const p2Twilight = handCardId(state, 1);
 
     // P1 plays GoM (would discard DoN on resolution)
-    let result = reduce(state, { type: 'play-permanent-event', player: PLAYER_1, cardInstanceId: gomId });
-    expect(result.error).toBeUndefined();
+    const afterGom = dispatch(state, { type: 'play-permanent-event', player: PLAYER_1, cardInstanceId: gomId });
 
     // P2 cancels GoM with Twilight
-    result = reduce(result.state, { type: 'play-short-event', player: PLAYER_2, cardInstanceId: p2Twilight, targetInstanceId: gomId });
-    expect(result.error).toBeUndefined();
+    const afterTwilight = dispatch(afterGom, { type: 'play-short-event', player: PLAYER_2, cardInstanceId: p2Twilight, targetInstanceId: gomId });
 
     // Both pass → resolve
-    const s = passBothAndResolve(result.state);
+    const s = passBothAndResolve(afterTwilight);
 
     expect(s.chain).toBeNull();
     // GoM was negated → discarded, never enters play
@@ -327,20 +312,19 @@ describe('Rule 10.29 — Chain of Effects', () => {
     });
 
     const mhGameState: GameState = { ...state, phaseState: makeMHState() };
-    const donId = mhGameState.players[1].hand[0].instanceId;
+    const donId = handCardId(mhGameState, 1);
 
     // P2 plays DoN as a hazard → chain starts
-    const result = reduce(mhGameState, { type: 'play-hazard', player: PLAYER_2, cardInstanceId: donId, targetCompanyId: P1_COMPANY });
-    expect(result.error).toBeUndefined();
+    const nextState = dispatch(mhGameState, { type: 'play-hazard', player: PLAYER_2, cardInstanceId: donId, targetCompanyId: P1_COMPANY });
 
-    expect(result.state.chain).not.toBeNull();
-    expect(result.state.chain!.entries).toHaveLength(1);
-    expect(result.state.chain!.entries[0].card?.instanceId).toBe(donId);
+    expect(nextState.chain).not.toBeNull();
+    expect(nextState.chain!.entries).toHaveLength(1);
+    expect(nextState.chain!.entries[0].card?.instanceId).toBe(donId);
     // Card on chain, not in hand or cardsInPlay
-    expect(result.state.players[1].hand).toHaveLength(0);
-    expect(result.state.players[1].cardsInPlay).toHaveLength(0);
+    expect(nextState.players[1].hand).toHaveLength(0);
+    expect(nextState.players[1].cardsInPlay).toHaveLength(0);
     // Resource player gets priority to respond
-    expect(result.state.chain!.priority).toBe(PLAYER_1);
+    expect(nextState.chain!.priority).toBe(PLAYER_1);
   });
 
   // ── 10.29: Multi-card chain with three declarations ───────────────────────
@@ -355,29 +339,26 @@ describe('Rule 10.29 — Chain of Effects', () => {
       ],
     });
 
-    const gomId = state.players[0].hand[0].instanceId;
-    const p1Twilight = state.players[0].hand[1].instanceId;
-    const p2Twilight = state.players[1].hand[0].instanceId;
+    const gomId = handCardId(state, 0);
+    const p1Twilight = handCardId(state, 0, 1);
+    const p2Twilight = handCardId(state, 1);
 
     // 1. P1 plays GoM
-    let result = reduce(state, { type: 'play-permanent-event', player: PLAYER_1, cardInstanceId: gomId });
-    expect(result.error).toBeUndefined();
+    const afterGom = dispatch(state, { type: 'play-permanent-event', player: PLAYER_1, cardInstanceId: gomId });
 
     // 2. P2 plays Twilight targeting GoM
-    result = reduce(result.state, { type: 'play-short-event', player: PLAYER_2, cardInstanceId: p2Twilight, targetInstanceId: gomId });
-    expect(result.error).toBeUndefined();
-    expect(result.state.chain!.entries).toHaveLength(2);
+    const afterP2Twilight = dispatch(afterGom, { type: 'play-short-event', player: PLAYER_2, cardInstanceId: p2Twilight, targetInstanceId: gomId });
+    expect(afterP2Twilight.chain!.entries).toHaveLength(2);
 
     // 3. P1 plays Twilight targeting P2's Twilight
-    result = reduce(result.state, { type: 'play-short-event', player: PLAYER_1, cardInstanceId: p1Twilight, targetInstanceId: p2Twilight });
-    expect(result.error).toBeUndefined();
-    expect(result.state.chain!.entries).toHaveLength(3);
+    const afterP1Twilight = dispatch(afterP2Twilight, { type: 'play-short-event', player: PLAYER_1, cardInstanceId: p1Twilight, targetInstanceId: p2Twilight });
+    expect(afterP1Twilight.chain!.entries).toHaveLength(3);
 
     // Both pass → LIFO resolution:
     //   #3 P1 Twilight → negates P2 Twilight
     //   #2 P2 Twilight → negated, fizzles
     //   #1 GoM → resolves, enters play
-    const s = passBothAndResolve(result.state);
+    const s = passBothAndResolve(afterP1Twilight);
 
     expect(s.chain).toBeNull();
     expect(s.players[0].cardsInPlay.some(c => c.instanceId === gomId)).toBe(true);
@@ -398,24 +379,21 @@ describe('Rule 10.29 — Chain of Effects', () => {
       ],
     });
 
-    const gomId = state.players[0].hand[0].instanceId;
+    const gomId = handCardId(state, 0);
 
     // Play GoM → both pass → chain resolves automatically
-    let result = reduce(state, { type: 'play-permanent-event', player: PLAYER_1, cardInstanceId: gomId });
-    expect(result.error).toBeUndefined();
+    const afterGom = dispatch(state, { type: 'play-permanent-event', player: PLAYER_1, cardInstanceId: gomId });
 
     // P2 passes
-    result = reduce(result.state, { type: 'pass-chain-priority', player: PLAYER_2 });
-    expect(result.error).toBeUndefined();
+    const afterP2Pass = dispatch(afterGom, { type: 'pass-chain-priority', player: PLAYER_2 });
 
     // P1 passes → both passed → chain resolves (auto-resolution means
     // we go straight to null chain, no intermediate 'resolving' state visible)
-    result = reduce(result.state, { type: 'pass-chain-priority', player: PLAYER_1 });
-    expect(result.error).toBeUndefined();
-    expect(result.state.chain).toBeNull();
+    const afterP1Pass = dispatch(afterP2Pass, { type: 'pass-chain-priority', player: PLAYER_1 });
+    expect(afterP1Pass.chain).toBeNull();
 
     // GoM is now in play
-    expect(result.state.players[0].cardsInPlay.some(c => c.instanceId === gomId)).toBe(true);
+    expect(afterP1Pass.players[0].cardsInPlay.some(c => c.instanceId === gomId)).toBe(true);
   });
 
   // ── 10.29: Resource player has priority to initiate ───────────────────────
@@ -437,12 +415,11 @@ describe('Rule 10.29 — Chain of Effects', () => {
     });
 
     const mhGameState: GameState = { ...state, phaseState: makeMHState() };
-    const donId = mhGameState.players[1].hand[0].instanceId;
+    const donId = handCardId(mhGameState, 1);
 
     // P2 (hazard player) plays DoN → P1 (resource player) gets priority
-    const result = reduce(mhGameState, { type: 'play-hazard', player: PLAYER_2, cardInstanceId: donId, targetCompanyId: P1_COMPANY });
-    expect(result.error).toBeUndefined();
-    expect(result.state.chain!.priority).toBe(PLAYER_1);
+    const nextState = dispatch(mhGameState, { type: 'play-hazard', player: PLAYER_2, cardInstanceId: donId, targetCompanyId: P1_COMPANY });
+    expect(nextState.chain!.priority).toBe(PLAYER_1);
   });
 
   // ── 10.29: DoN cancels GoM, response with Twilight saves GoM ──────────────
@@ -464,19 +441,17 @@ describe('Rule 10.29 — Chain of Effects', () => {
     });
 
     const mhGameState: GameState = { ...state, phaseState: makeMHState() };
-    const donId = mhGameState.players[1].hand[0].instanceId;
-    const p1Twilight = mhGameState.players[0].hand[0].instanceId;
+    const donId = handCardId(mhGameState, 1);
+    const p1Twilight = handCardId(mhGameState, 0);
 
     // P2 plays DoN → P1 gets priority
-    let result = reduce(mhGameState, { type: 'play-hazard', player: PLAYER_2, cardInstanceId: donId, targetCompanyId: P1_COMPANY });
-    expect(result.error).toBeUndefined();
+    const afterDon = dispatch(mhGameState, { type: 'play-hazard', player: PLAYER_2, cardInstanceId: donId, targetCompanyId: P1_COMPANY });
 
     // P1 responds with Twilight targeting DoN on chain
-    result = reduce(result.state, { type: 'play-short-event', player: PLAYER_1, cardInstanceId: p1Twilight, targetInstanceId: donId });
-    expect(result.error).toBeUndefined();
+    const afterTwilight = dispatch(afterDon, { type: 'play-short-event', player: PLAYER_1, cardInstanceId: p1Twilight, targetInstanceId: donId });
 
     // Both pass → resolve LIFO: Twilight negates DoN
-    const s = passBothAndResolve(result.state);
+    const s = passBothAndResolve(afterTwilight);
 
     expect(s.chain).toBeNull();
     // DoN was negated → discarded
@@ -499,15 +474,14 @@ describe('Rule 10.29 — Chain of Effects', () => {
       ],
     });
 
-    const gomId = state.players[0].hand[0].instanceId;
+    const gomId = handCardId(state, 0);
 
     // P1 plays GoM → P2 gets priority
-    const result = reduce(state, { type: 'play-permanent-event', player: PLAYER_1, cardInstanceId: gomId });
-    expect(result.error).toBeUndefined();
-    expect(result.state.chain!.priority).toBe(PLAYER_2);
+    const nextState = dispatch(state, { type: 'play-permanent-event', player: PLAYER_1, cardInstanceId: gomId });
+    expect(nextState.chain!.priority).toBe(PLAYER_2);
 
     // P1 tries to pass but doesn't have priority
-    const wrongPass = reduce(result.state, { type: 'pass-chain-priority', player: PLAYER_1 });
+    const wrongPass = reduce(nextState, { type: 'pass-chain-priority', player: PLAYER_1 });
     expect(wrongPass.error).toBeDefined();
   });
 
@@ -523,18 +497,16 @@ describe('Rule 10.29 — Chain of Effects', () => {
       ],
     });
 
-    const gomId = state.players[0].hand[0].instanceId;
-    const p2Twilight = state.players[1].hand[0].instanceId;
+    const gomId = handCardId(state, 0);
+    const p2Twilight = handCardId(state, 1);
 
     // P1 plays GoM
-    let result = reduce(state, { type: 'play-permanent-event', player: PLAYER_1, cardInstanceId: gomId });
-    expect(result.error).toBeUndefined();
+    const afterGom = dispatch(state, { type: 'play-permanent-event', player: PLAYER_1, cardInstanceId: gomId });
 
     // P2 cancels with Twilight
-    result = reduce(result.state, { type: 'play-short-event', player: PLAYER_2, cardInstanceId: p2Twilight, targetInstanceId: gomId });
-    expect(result.error).toBeUndefined();
+    const afterTwilight = dispatch(afterGom, { type: 'play-short-event', player: PLAYER_2, cardInstanceId: p2Twilight, targetInstanceId: gomId });
 
-    const s = passBothAndResolve(result.state);
+    const s = passBothAndResolve(afterTwilight);
 
     // GoM goes to P1's (declaring player's) discard
     expect(s.players[0].discardPile.map(c => c.instanceId)).toContain(gomId);

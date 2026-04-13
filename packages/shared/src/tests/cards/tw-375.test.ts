@@ -37,9 +37,10 @@ import {
   PLAYER_1,
   RIVENDELL,
   ARAGORN, GLAMDRING, DAGGER_OF_WESTERNESSE,
-  resetMint, pool, reduce, CardStatus,
+  resetMint, pool, CardStatus,
   buildSitePhaseState, setupAutoAttackStep, findCharInstanceId,
   runAutoAttackCombat,
+  dispatch, expectCharStatus,
 } from '../test-helpers.js';
 import {
   computeLegalActions,
@@ -115,12 +116,11 @@ describe('Barrow-downs (tw-375)', () => {
     const state = buildSitePhaseState({ site: BARROW_DOWNS });
     const readyState = setupAutoAttackStep(state);
 
-    const result = reduce(readyState, { type: 'pass', player: PLAYER_1 });
-    expect(result.error).toBeUndefined();
-    expect(result.state.combat).toBeDefined();
-    expect(result.state.combat!.strikesTotal).toBe(1);
-    expect(result.state.combat!.strikeProwess).toBe(8);
-    expect(result.state.combat!.attackSource.type).toBe('automatic-attack');
+    const nextState = dispatch(readyState, { type: 'pass', player: PLAYER_1 });
+    expect(nextState.combat).toBeDefined();
+    expect(nextState.combat!.strikesTotal).toBe(1);
+    expect(nextState.combat!.strikeProwess).toBe(8);
+    expect(nextState.combat!.attackSource.type).toBe('automatic-attack');
   });
 
   // ─── Wound corruption check ────────────────────────────────────────────────
@@ -161,15 +161,12 @@ describe('Barrow-downs (tw-375)', () => {
     const ccAction = actions.find(a => a.viable && a.action.type === 'corruption-check')!.action;
 
     // Force high roll to pass corruption check (Aragorn has 0 CP with no items)
-    const ccResult = reduce({ ...result.state, cheatRollTotal: 12 }, ccAction);
-    expect(ccResult.error).toBeUndefined();
+    const ccState = dispatch({ ...result.state, cheatRollTotal: 12 }, ccAction);
 
     // Corruption check passed — character still in play, queue cleared
-    expect(ccResult.state.pendingResolutions).toHaveLength(0);
+    expect(ccState.pendingResolutions).toHaveLength(0);
 
-    const aragornId = findCharInstanceId(ccResult.state, 0, ARAGORN);
-    expect(ccResult.state.players[0].characters[aragornId as string]).toBeDefined();
-    expect(ccResult.state.players[0].characters[aragornId as string].status).toBe(CardStatus.Inverted);
+    expectCharStatus(ccState, 0, ARAGORN, CardStatus.Inverted);
   });
 
   test('corruption check after wound fails — character discarded', () => {
@@ -191,13 +188,12 @@ describe('Barrow-downs (tw-375)', () => {
     // Force low roll to fail corruption check
     // Aragorn + Glamdring (2 CP) + Dagger (1 CP) = 3 CP total
     // Roll of 2 + modifier → total <= CP means fail
-    const ccResult = reduce({ ...result.state, cheatRollTotal: 2 }, ccAction);
-    expect(ccResult.error).toBeUndefined();
+    const ccState = dispatch({ ...result.state, cheatRollTotal: 2 }, ccAction);
 
     // Character should be discarded or eliminated
-    expect(ccResult.state.pendingResolutions).toHaveLength(0);
+    expect(ccState.pendingResolutions).toHaveLength(0);
     const aragornId = findCharInstanceId(result.state, 0, ARAGORN);
-    expect(ccResult.state.players[0].characters[aragornId as string]).toBeUndefined();
+    expect(ccState.players[0].characters[aragornId as string]).toBeUndefined();
   });
 
   test('character that wins auto-attack strike does not get corruption check', () => {

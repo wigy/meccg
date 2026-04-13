@@ -19,7 +19,7 @@
 
 import { describe, test, expect, beforeEach } from 'vitest';
 import {
-  buildTestState, resetMint, Phase, reduce,
+  buildTestState, resetMint, Phase, dispatch,
   makeSitePhase, placeOnGuard, viableActions,
   PLAYER_1, PLAYER_2,
   LEGOLAS, ARAGORN,
@@ -70,9 +70,8 @@ describe('Rule 6.02 — Step 1: Revealing On-Guard Attacks', () => {
     const base = buildSiteState(MORIA);
     const testState = { ...base, phaseState: makeSitePhase({ step: 'reveal-on-guard-attacks', siteEntered: false }) };
 
-    const result = reduce(testState, { type: 'pass', player: PLAYER_2 });
-    expect(result.error).toBeUndefined();
-    expect((result.state.phaseState as SitePhaseState).step).toBe('automatic-attacks');
+    const nextState = dispatch(testState, { type: 'pass', player: PLAYER_2 });
+    expect((nextState.phaseState as SitePhaseState).step).toBe('automatic-attacks');
   });
 
   test('revealing a creature marks it as revealed in onGuardCards', () => {
@@ -80,9 +79,8 @@ describe('Rule 6.02 — Step 1: Revealing On-Guard Attacks', () => {
     const { state: withOG, ogCard } = placeOnGuard(base, 0, 0, BARROW_WIGHT);
     const testState = { ...withOG, phaseState: makeSitePhase({ step: 'reveal-on-guard-attacks', siteEntered: false }) };
 
-    const result = reduce(testState, { type: 'reveal-on-guard', player: PLAYER_2, cardInstanceId: ogCard.instanceId });
-    expect(result.error).toBeUndefined();
-    const og = result.state.players[0].companies[0].onGuardCards;
+    const nextState = dispatch(testState, { type: 'reveal-on-guard', player: PLAYER_2, cardInstanceId: ogCard.instanceId });
+    const og = nextState.players[0].companies[0].onGuardCards;
     expect(og).toHaveLength(1);
     expect(og[0].instanceId).toBe(ogCard.instanceId);
     expect(og[0].revealed).toBe(true);

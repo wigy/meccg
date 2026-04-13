@@ -19,8 +19,9 @@ import {
   GLAMDRING, DAGGER_OF_WESTERNESSE,
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
   buildTestState, resetMint, makeMHState,
-  pool, findCharInstanceId,
+  pool,
   playCreatureHazardAndResolve, runCreatureCombat,
+  companyIdAt, expectCharItemCount,
 } from '../test-helpers.js';
 import { Phase, RegionType, SiteType } from '../../index.js';
 import type { CreatureCard, MovementHazardPhaseState } from '../../index.js';
@@ -76,7 +77,7 @@ describe('William (Wuluag) (tw-112)', () => {
     const ready = { ...state, phaseState: mhState };
 
     const williamId = ready.players[1].hand[0].instanceId;
-    const companyId = ready.players[0].companies[0].id;
+    const companyId = companyIdAt(ready, 0);
     const afterChain = playCreatureHazardAndResolve(ready, PLAYER_2, williamId, companyId, WILDERNESS_KEYING);
 
     expect(afterChain.combat).not.toBeNull();
@@ -104,15 +105,13 @@ describe('William (Wuluag) (tw-112)', () => {
     const ready = { ...state, phaseState: mhState };
 
     const williamId = ready.players[1].hand[0].instanceId;
-    const companyId = ready.players[0].companies[0].id;
+    const companyId = companyIdAt(ready, 0);
     const afterChain = playCreatureHazardAndResolve(ready, PLAYER_2, williamId, companyId, WILDERNESS_KEYING);
 
     const afterWound = runCreatureCombat(afterChain, ARAGORN, 2, 5);
     expect(afterWound.combat).toBeNull();
 
-    const aragornId = findCharInstanceId(afterWound, 0, ARAGORN);
-    const aragornData = afterWound.players[0].characters[aragornId as string];
-    expect(aragornData.items).toHaveLength(2);
+    expectCharItemCount(afterWound, 0, ARAGORN, 2);
     expect(afterWound.pendingResolutions).toHaveLength(0);
   });
 
@@ -136,7 +135,7 @@ describe('William (Wuluag) (tw-112)', () => {
 
     const bertId = ready.players[1].hand[0].instanceId;
     const williamId = ready.players[1].hand[1].instanceId;
-    const companyId = ready.players[0].companies[0].id;
+    const companyId = companyIdAt(ready, 0);
 
     const afterBert = playCreatureHazardAndResolve(ready, PLAYER_2, bertId, companyId, SHADOW_KEYING);
     const afterBertCombat = runCreatureCombat(afterBert, ARAGORN, 12, null);
@@ -149,9 +148,7 @@ describe('William (Wuluag) (tw-112)', () => {
     const afterWound = runCreatureCombat(afterWilliam, ARAGORN, 2, 5);
     expect(afterWound.combat).toBeNull();
 
-    const aragornId = findCharInstanceId(afterWound, 0, ARAGORN);
-    const aragornData = afterWound.players[0].characters[aragornId as string];
-    expect(aragornData.items).toHaveLength(0);
+    expectCharItemCount(afterWound, 0, ARAGORN, 0);
 
     const discardDefIds = afterWound.players[0].discardPile.map(c => c.definitionId);
     expect(discardDefIds).toContain(GLAMDRING);
@@ -178,7 +175,7 @@ describe('William (Wuluag) (tw-112)', () => {
 
     const tomId = ready.players[1].hand[0].instanceId;
     const williamId = ready.players[1].hand[1].instanceId;
-    const companyId = ready.players[0].companies[0].id;
+    const companyId = companyIdAt(ready, 0);
 
     const afterTom = playCreatureHazardAndResolve(ready, PLAYER_2, tomId, companyId, WILDERNESS_KEYING);
     const afterTomCombat = runCreatureCombat(afterTom, ARAGORN, 12, null);
@@ -189,9 +186,7 @@ describe('William (Wuluag) (tw-112)', () => {
     const afterWilliam = playCreatureHazardAndResolve(afterTomCombat, PLAYER_2, williamId, companyId, WILDERNESS_KEYING);
     const afterWound = runCreatureCombat(afterWilliam, ARAGORN, 2, 5);
 
-    const aragornId = findCharInstanceId(afterWound, 0, ARAGORN);
-    const aragornData = afterWound.players[0].characters[aragornId as string];
-    expect(aragornData.items).toHaveLength(0);
+    expectCharItemCount(afterWound, 0, ARAGORN, 0);
   });
 
   test('character that defeats William does not lose items even when Bert was faced', () => {
@@ -214,7 +209,7 @@ describe('William (Wuluag) (tw-112)', () => {
 
     const bertId = ready.players[1].hand[0].instanceId;
     const williamId = ready.players[1].hand[1].instanceId;
-    const companyId = ready.players[0].companies[0].id;
+    const companyId = companyIdAt(ready, 0);
 
     const afterBert = playCreatureHazardAndResolve(ready, PLAYER_2, bertId, companyId, SHADOW_KEYING);
     const afterBertCombat = runCreatureCombat(afterBert, ARAGORN, 12, null);
@@ -222,9 +217,7 @@ describe('William (Wuluag) (tw-112)', () => {
     const afterWilliam = playCreatureHazardAndResolve(afterBertCombat, PLAYER_2, williamId, companyId, WILDERNESS_KEYING);
     const afterStrike = runCreatureCombat(afterWilliam, ARAGORN, 12, null);
 
-    const aragornId = findCharInstanceId(afterStrike, 0, ARAGORN);
-    const aragornData = afterStrike.players[0].characters[aragornId as string];
-    expect(aragornData.items).toHaveLength(1);
+    expectCharItemCount(afterStrike, 0, ARAGORN, 1);
   });
 
   test('hazardsEncountered tracks William after combat', () => {
@@ -246,7 +239,7 @@ describe('William (Wuluag) (tw-112)', () => {
     const ready = { ...state, phaseState: mhState };
 
     const williamId = ready.players[1].hand[0].instanceId;
-    const companyId = ready.players[0].companies[0].id;
+    const companyId = companyIdAt(ready, 0);
     const afterChain = playCreatureHazardAndResolve(ready, PLAYER_2, williamId, companyId, WILDERNESS_KEYING);
     const afterCombat = runCreatureCombat(afterChain, ARAGORN, 12, null);
 
@@ -273,12 +266,10 @@ describe('William (Wuluag) (tw-112)', () => {
     const ready = { ...state, phaseState: mhState };
 
     const williamId = ready.players[1].hand[0].instanceId;
-    const companyId = ready.players[0].companies[0].id;
+    const companyId = companyIdAt(ready, 0);
     const afterChain = playCreatureHazardAndResolve(ready, PLAYER_2, williamId, companyId, WILDERNESS_KEYING);
     const afterWound = runCreatureCombat(afterChain, ARAGORN, 2, 5);
 
-    const aragornId = findCharInstanceId(afterWound, 0, ARAGORN);
-    const aragornData = afterWound.players[0].characters[aragornId as string];
-    expect(aragornData.items).toHaveLength(1);
+    expectCharItemCount(afterWound, 0, ARAGORN, 1);
   });
 });

@@ -35,6 +35,7 @@ import {
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
   pool, mint, CardStatus,
   makeMHState,
+  charIdAt, companyIdAt, dispatch, expectCharStatus, setCharStatus,
 } from '../test-helpers.js';
 import type {
   HazardEventCard,
@@ -79,7 +80,7 @@ describe('River (tw-84)', () => {
       ],
     });
 
-    const targetCompanyId = base.players[0].companies[0].id;
+    const targetCompanyId = companyIdAt(base, 0);
     const riverInstance = mint();
     const sitePhaseState: SitePhaseState = {
       phase: Phase.Site,
@@ -145,7 +146,7 @@ describe('River (tw-84)', () => {
     );
     expect(rangerTaps).toHaveLength(1);
 
-    const aragornId = withRiverInPlay.players[0].companies[0].characters[0];
+    const aragornId = charIdAt(withRiverInPlay, 0);
     expect((rangerTaps[0].action as ActivateGrantedAction).characterId).toBe(aragornId);
   });
 
@@ -159,7 +160,7 @@ describe('River (tw-84)', () => {
       ],
     });
 
-    const targetCompanyId = base.players[0].companies[0].id;
+    const targetCompanyId = companyIdAt(base, 0);
     const riverInstance = mint();
     const sitePhaseState: SitePhaseState = {
       phase: Phase.Site,
@@ -223,22 +224,9 @@ describe('River (tw-84)', () => {
     });
 
     // Tap Aragorn
-    const aragornId = base.players[0].companies[0].characters[0];
-    const tappedBase = {
-      ...base,
-      players: [
-        {
-          ...base.players[0],
-          characters: {
-            ...base.players[0].characters,
-            [aragornId as string]: { ...base.players[0].characters[aragornId as string], status: CardStatus.Tapped },
-          },
-        },
-        base.players[1],
-      ] as typeof base.players,
-    };
+    const tappedBase = setCharStatus(base, 0, ARAGORN, CardStatus.Tapped);
 
-    const targetCompanyId = tappedBase.players[0].companies[0].id;
+    const targetCompanyId = companyIdAt(tappedBase, 0);
     const riverInstance = mint();
     const sitePhaseState: SitePhaseState = {
       phase: Phase.Site,
@@ -301,7 +289,7 @@ describe('River (tw-84)', () => {
       ],
     });
 
-    const targetCompanyId = base.players[0].companies[0].id;
+    const targetCompanyId = companyIdAt(base, 0);
     const constrained = addConstraint(base, {
       source: 'river-1' as CardInstanceId,
       sourceDefinitionId: RIVER,
@@ -354,7 +342,7 @@ describe('River (tw-84)', () => {
 
     const mhState = makeMHState({ activeCompanyIndex: 0 });
     const stateAtPlayHazards = { ...baseWithDest, phaseState: mhState };
-    const targetCompanyId = stateAtPlayHazards.players[0].companies[0].id;
+    const targetCompanyId = companyIdAt(stateAtPlayHazards, 0);
     const riverInstance = stateAtPlayHazards.players[1].hand[0].instanceId;
 
     const playActions = computeLegalActions(stateAtPlayHazards, PLAYER_2)
@@ -401,7 +389,7 @@ describe('River (tw-84)', () => {
     const stateAtPlayHazards = { ...baseWithDest, phaseState: mhState };
 
     const riverInstance = stateAtPlayHazards.players[1].hand[0].instanceId;
-    const targetCompanyId = stateAtPlayHazards.players[0].companies[0].id;
+    const targetCompanyId = companyIdAt(stateAtPlayHazards, 0);
 
     const playResult = reduce(stateAtPlayHazards, {
       type: 'play-hazard',
@@ -449,7 +437,7 @@ describe('River (tw-84)', () => {
       ],
     });
 
-    const targetCompanyId = base.players[0].companies[0].id;
+    const targetCompanyId = companyIdAt(base, 0);
     const riverInstance = mint();
     const sitePhaseState: SitePhaseState = {
       phase: Phase.Site,
@@ -497,10 +485,10 @@ describe('River (tw-84)', () => {
       ] as typeof constrained.players,
     };
 
-    const aragornId = withRiverInPlay.players[0].companies[0].characters[0];
+    const aragornId = charIdAt(withRiverInPlay, 0);
 
     // Tap Aragorn to cancel River via the reducer.
-    const result = reduce(withRiverInPlay, {
+    const nextState = dispatch(withRiverInPlay, {
       type: 'activate-granted-action',
       player: PLAYER_1,
       characterId: aragornId,
@@ -510,20 +498,17 @@ describe('River (tw-84)', () => {
       rollThreshold: 0,
     } as ActivateGrantedAction);
 
-    expect(result.error).toBeUndefined();
-
     // Aragorn should now be tapped.
-    const aragornAfter = result.state.players[0].characters[aragornId as string];
-    expect(aragornAfter.status).toBe(CardStatus.Tapped);
+    expectCharStatus(nextState, 0, ARAGORN, CardStatus.Tapped);
 
     // The River constraint should be gone.
-    expect(result.state.activeConstraints).toHaveLength(0);
+    expect(nextState.activeConstraints).toHaveLength(0);
 
     // Still in enter-or-skip — the company can now enter the site.
-    expect((result.state.phaseState as SitePhaseState).step).toBe('enter-or-skip');
+    expect((nextState.phaseState as SitePhaseState).step).toBe('enter-or-skip');
 
     // With the constraint removed, legal actions should include enter-site.
-    const actions = computeLegalActions(result.state, PLAYER_1).filter(ea => ea.viable);
+    const actions = computeLegalActions(nextState, PLAYER_1).filter(ea => ea.viable);
     const types = actions.map(ea => ea.action.type);
     expect(types).toContain('enter-site');
   });

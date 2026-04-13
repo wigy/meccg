@@ -15,7 +15,7 @@
 
 import { describe, test, expect, beforeEach } from 'vitest';
 import {
-  buildTestState, resetMint, Phase, reduce,
+  buildTestState, resetMint, Phase, dispatch,
   PLAYER_1, PLAYER_2,
   ARAGORN, LEGOLAS, GIMLI,
   LORIEN, MORIA, MINAS_TIRITH, RIVENDELL,
@@ -54,19 +54,18 @@ describe('Rule 3.39 — Movement to Existing Site', () => {
     });
     expect(toMoria).toBeDefined();
 
-    const result = reduce(state, toMoria!.action);
-    expect(result.error).toBeUndefined();
+    const nextState = dispatch(state, toMoria!.action);
 
     // Site deck is unchanged — Moria was not drawn
-    expect(result.state.players[0].siteDeck.length).toBe(1);
-    expect(result.state.players[0].siteDeck[0].definitionId).toBe(MINAS_TIRITH);
+    expect(nextState.players[0].siteDeck.length).toBe(1);
+    expect(nextState.players[0].siteDeck[0].definitionId).toBe(MINAS_TIRITH);
 
     // Lorien company now has Moria as its destination
-    const lorienCompany = result.state.players[0].companies[1];
+    const lorienCompany = nextState.players[0].companies[1];
     expect(lorienCompany.destinationSite?.instanceId).toBe(moriaInstanceId);
 
     // Moria company is untouched
-    const moriaCompany = result.state.players[0].companies[0];
+    const moriaCompany = nextState.players[0].companies[0];
     expect(moriaCompany.currentSite?.instanceId).toBe(moriaInstanceId);
   });
 
@@ -99,31 +98,29 @@ describe('Rule 3.39 — Movement to Existing Site', () => {
       return a.companyId === moriaCompanyId && a.destinationSite === minasTirithInst;
     })!;
     expect(firstPlan).toBeDefined();
-    const afterFirst = reduce(state, firstPlan.action);
-    expect(afterFirst.error).toBeUndefined();
+    const afterFirst = dispatch(state, firstPlan.action);
     // Deck no longer contains Minas Tirith; it is now the Moria company's destinationSite.
-    expect(afterFirst.state.players[0].siteDeck).toHaveLength(0);
-    expect(afterFirst.state.players[0].companies[0].destinationSite?.instanceId).toBe(minasTirithInst);
+    expect(afterFirst.players[0].siteDeck).toHaveLength(0);
+    expect(afterFirst.players[0].companies[0].destinationSite?.instanceId).toBe(minasTirithInst);
 
     // Step 2: the Lorien company should now be able to target Minas Tirith via
     // the Moria company's pending destinationSite (rule 3.37 "already in play
     // as the destination site for a different company").
-    const secondPlans = viableActions(afterFirst.state, PLAYER_1, 'plan-movement');
+    const secondPlans = viableActions(afterFirst, PLAYER_1, 'plan-movement');
     const lorienToMT = secondPlans.find(ea => {
       const a = ea.action as PlanMovementAction;
       return a.companyId === lorienCompanyId && a.destinationSite === minasTirithInst;
     });
     expect(lorienToMT).toBeDefined();
 
-    const afterSecond = reduce(afterFirst.state, lorienToMT!.action);
-    expect(afterSecond.error).toBeUndefined();
+    const afterSecond = dispatch(afterFirst, lorienToMT!.action);
 
     // Site deck is still empty — the second plan shared the instance, no draw.
-    expect(afterSecond.state.players[0].siteDeck).toHaveLength(0);
+    expect(afterSecond.players[0].siteDeck).toHaveLength(0);
 
     // Both companies now have the same destinationSite instance.
-    expect(afterSecond.state.players[0].companies[0].destinationSite?.instanceId).toBe(minasTirithInst);
-    expect(afterSecond.state.players[0].companies[1].destinationSite?.instanceId).toBe(minasTirithInst);
+    expect(afterSecond.players[0].companies[0].destinationSite?.instanceId).toBe(minasTirithInst);
+    expect(afterSecond.players[0].companies[1].destinationSite?.instanceId).toBe(minasTirithInst);
   });
 
   test('cancel-movement does not re-add a shared in-play destination to the site deck', () => {
@@ -152,23 +149,21 @@ describe('Rule 3.39 — Movement to Existing Site', () => {
       const a = ea.action as PlanMovementAction;
       return a.companyId === lorienCompanyId && a.destinationSite === moriaInstanceId;
     })!;
-    const afterPlan = reduce(state, toMoria.action);
-    expect(afterPlan.error).toBeUndefined();
+    const afterPlan = dispatch(state, toMoria.action);
 
     const cancel: CancelMovementAction = {
       type: 'cancel-movement',
       player: PLAYER_1,
       companyId: lorienCompanyId,
     };
-    const afterCancel = reduce(afterPlan.state, cancel);
-    expect(afterCancel.error).toBeUndefined();
+    const afterCancel = dispatch(afterPlan, cancel);
 
     // Site deck must still be just Minas Tirith — Moria was never drawn, so it must not be pushed back.
-    expect(afterCancel.state.players[0].siteDeck.length).toBe(1);
-    expect(afterCancel.state.players[0].siteDeck[0].definitionId).toBe(MINAS_TIRITH);
+    expect(afterCancel.players[0].siteDeck.length).toBe(1);
+    expect(afterCancel.players[0].siteDeck[0].definitionId).toBe(MINAS_TIRITH);
 
     // Lorien company's movement is cleared; Moria company still at Moria.
-    expect(afterCancel.state.players[0].companies[1].destinationSite).toBeNull();
-    expect(afterCancel.state.players[0].companies[0].currentSite?.instanceId).toBe(moriaInstanceId);
+    expect(afterCancel.players[0].companies[1].destinationSite).toBeNull();
+    expect(afterCancel.players[0].companies[0].currentSite?.instanceId).toBe(moriaInstanceId);
   });
 });

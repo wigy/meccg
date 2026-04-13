@@ -19,8 +19,9 @@ import {
   GLAMDRING, DAGGER_OF_WESTERNESSE,
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
   buildTestState, resetMint, makeMHState,
-  pool, findCharInstanceId,
+  pool,
   playCreatureHazardAndResolve, runCreatureCombat,
+  handCardId, companyIdAt, expectCharItemCount,
 } from '../test-helpers.js';
 import { Phase, RegionType, SiteType } from '../../index.js';
 import type { CreatureCard, MovementHazardPhaseState } from '../../index.js';
@@ -75,8 +76,8 @@ describe('Bert (Burat) (tw-016)', () => {
     });
     const ready = { ...state, phaseState: mhState };
 
-    const bertId = ready.players[1].hand[0].instanceId;
-    const companyId = ready.players[0].companies[0].id;
+    const bertId = handCardId(ready, 1);
+    const companyId = companyIdAt(ready, 0);
     const afterChain = playCreatureHazardAndResolve(ready, PLAYER_2, bertId, companyId, SHADOW_KEYING);
 
     expect(afterChain.combat).not.toBeNull();
@@ -103,8 +104,8 @@ describe('Bert (Burat) (tw-016)', () => {
     });
     const ready = { ...state, phaseState: mhState };
 
-    const bertId = ready.players[1].hand[0].instanceId;
-    const companyId = ready.players[0].companies[0].id;
+    const bertId = handCardId(ready, 1);
+    const companyId = companyIdAt(ready, 0);
     const afterChain = playCreatureHazardAndResolve(ready, PLAYER_2, bertId, companyId, SHADOW_KEYING);
 
     // Strike roll 2: low → wounded. Body check 5 → survives.
@@ -112,9 +113,7 @@ describe('Bert (Burat) (tw-016)', () => {
     expect(afterWound.combat).toBeNull();
 
     // Items should still be on Aragorn since no prior troll was faced
-    const aragornId = findCharInstanceId(afterWound, 0, ARAGORN);
-    const aragornData = afterWound.players[0].characters[aragornId as string];
-    expect(aragornData.items).toHaveLength(2);
+    expectCharItemCount(afterWound, 0, ARAGORN, 2);
 
     // No pending resolutions — effect did not trigger
     expect(afterWound.pendingResolutions).toHaveLength(0);
@@ -138,9 +137,9 @@ describe('Bert (Burat) (tw-016)', () => {
     });
     const ready = { ...state, phaseState: mhState };
 
-    const williamId = ready.players[1].hand[0].instanceId;
-    const bertId = ready.players[1].hand[1].instanceId;
-    const companyId = ready.players[0].companies[0].id;
+    const williamId = handCardId(ready, 1, 0);
+    const bertId = handCardId(ready, 1, 1);
+    const companyId = companyIdAt(ready, 0);
 
     // Play William first — high roll so Aragorn wins
     const afterWilliam = playCreatureHazardAndResolve(ready, PLAYER_2, williamId, companyId, WILDERNESS_KEYING);
@@ -159,9 +158,7 @@ describe('Bert (Burat) (tw-016)', () => {
     expect(afterWound.combat).toBeNull();
 
     // Aragorn's non-special items should be discarded
-    const aragornId = findCharInstanceId(afterWound, 0, ARAGORN);
-    const aragornData = afterWound.players[0].characters[aragornId as string];
-    expect(aragornData.items).toHaveLength(0);
+    expectCharItemCount(afterWound, 0, ARAGORN, 0);
 
     // Items should be in the discard pile
     const discardDefIds = afterWound.players[0].discardPile.map(c => c.definitionId);
@@ -187,9 +184,9 @@ describe('Bert (Burat) (tw-016)', () => {
     });
     const ready = { ...state, phaseState: mhState };
 
-    const tomId = ready.players[1].hand[0].instanceId;
-    const bertId = ready.players[1].hand[1].instanceId;
-    const companyId = ready.players[0].companies[0].id;
+    const tomId = handCardId(ready, 1, 0);
+    const bertId = handCardId(ready, 1, 1);
+    const companyId = companyIdAt(ready, 0);
 
     // Play Tom first — Aragorn wins the strike
     const afterTom = playCreatureHazardAndResolve(ready, PLAYER_2, tomId, companyId, WILDERNESS_KEYING);
@@ -203,9 +200,7 @@ describe('Bert (Burat) (tw-016)', () => {
     const afterWound = runCreatureCombat(afterBert, ARAGORN, 2, 5);
 
     // Glamdring should be discarded
-    const aragornId = findCharInstanceId(afterWound, 0, ARAGORN);
-    const aragornData = afterWound.players[0].characters[aragornId as string];
-    expect(aragornData.items).toHaveLength(0);
+    expectCharItemCount(afterWound, 0, ARAGORN, 0);
   });
 
   test('character that defeats Bert does not lose items even when William was faced', () => {
@@ -226,9 +221,9 @@ describe('Bert (Burat) (tw-016)', () => {
     });
     const ready = { ...state, phaseState: mhState };
 
-    const williamId = ready.players[1].hand[0].instanceId;
-    const bertId = ready.players[1].hand[1].instanceId;
-    const companyId = ready.players[0].companies[0].id;
+    const williamId = handCardId(ready, 1, 0);
+    const bertId = handCardId(ready, 1, 1);
+    const companyId = companyIdAt(ready, 0);
 
     // Play William — Aragorn wins
     const afterWilliam = playCreatureHazardAndResolve(ready, PLAYER_2, williamId, companyId, WILDERNESS_KEYING);
@@ -239,9 +234,7 @@ describe('Bert (Burat) (tw-016)', () => {
     const afterStrike = runCreatureCombat(afterBert, ARAGORN, 12, null);
 
     // Aragorn wins → no item discard
-    const aragornId = findCharInstanceId(afterStrike, 0, ARAGORN);
-    const aragornData = afterStrike.players[0].characters[aragornId as string];
-    expect(aragornData.items).toHaveLength(1);
+    expectCharItemCount(afterStrike, 0, ARAGORN, 1);
   });
 
   test('hazardsEncountered tracks creature name after combat', () => {
@@ -262,8 +255,8 @@ describe('Bert (Burat) (tw-016)', () => {
     });
     const ready = { ...state, phaseState: mhState };
 
-    const bertId = ready.players[1].hand[0].instanceId;
-    const companyId = ready.players[0].companies[0].id;
+    const bertId = handCardId(ready, 1);
+    const companyId = companyIdAt(ready, 0);
     const afterChain = playCreatureHazardAndResolve(ready, PLAYER_2, bertId, companyId, SHADOW_KEYING);
     const afterCombat = runCreatureCombat(afterChain, ARAGORN, 12, null);
 
@@ -289,13 +282,11 @@ describe('Bert (Burat) (tw-016)', () => {
     });
     const ready = { ...state, phaseState: mhState };
 
-    const bertId = ready.players[1].hand[0].instanceId;
-    const companyId = ready.players[0].companies[0].id;
+    const bertId = handCardId(ready, 1);
+    const companyId = companyIdAt(ready, 0);
     const afterChain = playCreatureHazardAndResolve(ready, PLAYER_2, bertId, companyId, SHADOW_KEYING);
     const afterWound = runCreatureCombat(afterChain, ARAGORN, 2, 5);
 
-    const aragornId = findCharInstanceId(afterWound, 0, ARAGORN);
-    const aragornData = afterWound.players[0].characters[aragornId as string];
-    expect(aragornData.items).toHaveLength(1);
+    expectCharItemCount(afterWound, 0, ARAGORN, 1);
   });
 });

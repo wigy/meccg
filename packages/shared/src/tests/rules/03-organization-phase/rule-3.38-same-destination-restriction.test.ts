@@ -13,7 +13,7 @@
 
 import { describe, test, expect, beforeEach } from 'vitest';
 import {
-  buildTestState, resetMint, Phase, reduce,
+  buildTestState, resetMint, Phase, reduce, dispatch,
   PLAYER_1, PLAYER_2,
   ARAGORN, LEGOLAS, GIMLI, FRODO,
   LORIEN, MORIA, MINAS_TIRITH, RIVENDELL,
@@ -74,11 +74,10 @@ describe('Rule 3.38 — Same Destination Restriction', () => {
     });
     expect(firstToMoria).toBeDefined();
 
-    const afterFirst = reduce(state, firstToMoria!.action);
-    expect(afterFirst.error).toBeUndefined();
+    const afterFirst = dispatch(state, firstToMoria!.action);
 
     // Legal actions filter: the second Lorien company must not see Moria offered.
-    const plansAfter = viableActions(afterFirst.state, PLAYER_1, 'plan-movement');
+    const plansAfter = viableActions(afterFirst, PLAYER_1, 'plan-movement');
     const secondToMoria = plansAfter.find(ea => {
       const a = ea.action as PlanMovementAction;
       return a.companyId === secondLorienId && a.destinationSite === moriaInstanceId;
@@ -92,7 +91,7 @@ describe('Rule 3.38 — Same Destination Restriction', () => {
       companyId: secondLorienId,
       destinationSite: moriaInstanceId,
     };
-    const rejected = reduce(afterFirst.state, directAction);
+    const rejected = reduce(afterFirst, directAction);
     expect(rejected.error).toBeDefined();
     expect(rejected.error).toMatch(/2\.II\.7\.1|same origin/i);
   });
