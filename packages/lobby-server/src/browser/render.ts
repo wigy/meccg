@@ -14,6 +14,8 @@ export {
   clearCharacterPlaySelection,
   getSelectedFactionForInfluence,
   clearFactionInfluenceSelection,
+  getSelectedResourceForPlay,
+  clearResourcePlaySelection,
   getSelectedAllyForPlay,
   clearAllyPlaySelection,
   getSelectedHazardForPlay,
