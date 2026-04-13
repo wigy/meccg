@@ -532,20 +532,25 @@ export function openMovementViewer(
   );
 
   // Build instance -> definitionId map from the site deck and from any
-  // sibling companies' current sites. Rule 2.II.7.2 allows a company to
-  // declare movement to a site another of its companies already occupies;
-  // such destinations are not in the site deck but the legal action refers
-  // to them by their in-play instance id.
+  // sibling companies' current sites or pending destination sites.
+  // Rule 2.II.7.2 allows a company to declare movement to a site another
+  // of its companies already occupies; such destinations are not in the
+  // site deck but the legal action refers to them by their in-play
+  // instance id. A sibling's destinationSite (already drawn from the deck)
+  // must also be included so a second company can target the same site.
   const siteInstToDef = new Map<string, string>();
   for (const c of view.self.siteDeck) siteInstToDef.set(c.instanceId as string, c.definitionId as string);
   const inPlayDestInstanceIds = new Set<string>();
   for (const comp of view.self.companies) {
     if (comp.id === companyId) continue;
-    if (!comp.currentSite) continue;
-    const instIdStr = comp.currentSite.instanceId as string;
-    if (siteInstToDef.has(instIdStr)) continue;
-    siteInstToDef.set(instIdStr, comp.currentSite.definitionId as string);
-    inPlayDestInstanceIds.add(instIdStr);
+    const sites = [comp.currentSite, comp.destinationSite];
+    for (const site of sites) {
+      if (!site) continue;
+      const instIdStr = site.instanceId as string;
+      if (siteInstToDef.has(instIdStr)) continue;
+      siteInstToDef.set(instIdStr, site.definitionId as string);
+      inPlayDestInstanceIds.add(instIdStr);
+    }
   }
 
   // Match by definition ID so all copies of the same site are highlighted.
