@@ -67,3 +67,19 @@ export interface FetchFromPileAction {
   /** Which pile the card is being fetched from. */
   readonly source: 'sideboard' | 'discard-pile';
 }
+
+/**
+ * Select an in-play card to discard as part of the discard-in-play sub-flow.
+ *
+ * Initiated by resource short events like Marvels Told that force the
+ * discard of a hazard event matching certain criteria.
+ */
+export interface DiscardFromPlayAction {
+  readonly type: 'discard-from-play';
+  /** The player making the discard choice. */
+  readonly player: PlayerId;
+  /** The card instance in play to discard. */
+  readonly cardInstanceId: CardInstanceId;
+  /** Index of the player who owns the card being discarded. */
+  readonly ownerIndex: number;
+}

@@ -323,8 +323,13 @@ export function handlePlayResourceShortEvent(state: GameState, action: GameActio
 
   // Collect all effects that require player interaction to resolve
   const interactiveEffects: PendingEffect[] = (def.effects ?? [])
-    .filter(e => e.type === 'fetch-to-deck')
-    .map(effect => ({ type: 'card-effect' as const, cardInstanceId: handCard.instanceId, effect }));
+    .filter(e => e.type === 'fetch-to-deck' || e.type === 'discard-in-play')
+    .map(effect => ({
+      type: 'card-effect' as const,
+      cardInstanceId: handCard.instanceId,
+      effect,
+      ...(action.targetScoutInstanceId ? { targetCharacterId: action.targetScoutInstanceId } : {}),
+    }));
 
   const newPlayers = clonePlayers(state);
   newPlayers[playerIndex] = { ...player, hand: newHand, characters: newCharacters };

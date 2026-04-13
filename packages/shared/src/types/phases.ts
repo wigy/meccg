@@ -99,13 +99,14 @@ export const LEGAL_ACTIONS_BY_PHASE: Readonly<Record<Phase, readonly GameAction[
     'start-sideboard-to-discard',
     'fetch-from-sideboard',
     'fetch-from-pile',
+    'discard-from-play',
     'corruption-check',
     'pass-chain-priority',
     'order-passives',
     'pass',
   ],
 
-  [Phase.LongEvent]: ['play-long-event', 'play-short-event', 'fetch-from-pile', 'pass-chain-priority', 'order-passives', 'pass'],
+  [Phase.LongEvent]: ['play-long-event', 'play-short-event', 'fetch-from-pile', 'discard-from-play', 'corruption-check', 'support-corruption-check', 'pass-chain-priority', 'order-passives', 'pass'],
 
   [Phase.MovementHazard]: [
     'select-company',

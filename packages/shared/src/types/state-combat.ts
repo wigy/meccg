@@ -289,4 +289,10 @@ export interface CardEffectPendingEffect {
   readonly cardInstanceId: CardInstanceId;
   /** The DSL effect being resolved (carries all parameters). */
   readonly effect: CardEffect;
+  /**
+   * For effects triggered by a play-target with tap cost (e.g. Marvels Told),
+   * the character instance that was tapped to play the card. Used to enqueue
+   * post-effect corruption checks on the correct character.
+   */
+  readonly targetCharacterId?: CardInstanceId;
 }

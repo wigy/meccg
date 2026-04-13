@@ -11,7 +11,7 @@
  * The function is pure: `(GameState, PlayerId) → EvaluatedAction[]`.
  */
 
-import type { GameState, PlayerId, GameAction, EvaluatedAction, CardInstanceId, FetchToDeckEffect } from '../../index.js';
+import type { GameState, PlayerId, GameAction, EvaluatedAction, CardInstanceId, FetchToDeckEffect, DiscardInPlayEffect } from '../../index.js';
 import { matchesCondition } from '../../index.js';
 import { setupActions } from './setup.js';
 import { untapActions } from './untap.js';
@@ -36,6 +36,9 @@ function pendingEffectLegalActions(state: GameState, playerId: PlayerId): Evalua
   if (current.type === 'card-effect' && current.effect.type === 'fetch-to-deck') {
     return fetchFromPileLegalActions(state, playerId, current.effect);
   }
+  if (current.type === 'card-effect' && current.effect.type === 'discard-in-play') {
+    return discardInPlayLegalActions(state, playerId, current.effect);
+  }
   // Unknown effect type: allow pass to skip
   return [{ action: { type: 'pass', player: playerId }, viable: true }];
 }
@@ -56,6 +59,31 @@ function fetchFromPileLegalActions(state: GameState, playerId: PlayerId, effect:
       actions.push({
         action: { type: 'fetch-from-pile', player: playerId, cardInstanceId: card.instanceId, source: pileSource } as
           { type: 'fetch-from-pile'; player: PlayerId; cardInstanceId: CardInstanceId; source: 'sideboard' | 'discard-pile' },
+        viable: true,
+      });
+    }
+  }
+
+  actions.push({ action: { type: 'pass', player: playerId }, viable: true });
+  return actions;
+}
+
+/** Computes legal discard-from-play actions for a discard-in-play effect. */
+function discardInPlayLegalActions(state: GameState, playerId: PlayerId, effect: DiscardInPlayEffect): EvaluatedAction[] {
+  const actions: EvaluatedAction[] = [];
+
+  for (let ownerIndex = 0; ownerIndex < state.players.length; ownerIndex++) {
+    const owner = state.players[ownerIndex];
+    for (const card of owner.cardsInPlay) {
+      const def = state.cardPool[card.definitionId as string];
+      if (!def || !matchesCondition(effect.filter, def as unknown as Record<string, unknown>)) continue;
+      actions.push({
+        action: {
+          type: 'discard-from-play' as const,
+          player: playerId,
+          cardInstanceId: card.instanceId,
+          ownerIndex,
+        },
         viable: true,
       });
     }

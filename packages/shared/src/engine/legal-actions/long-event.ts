@@ -16,8 +16,10 @@
  * cards and show reasons for non-playable ones.
  */
 
-import type { GameState, PlayerId, EvaluatedAction, HeroResourceEventCard } from '../../index.js';
+import type { GameState, PlayerId, EvaluatedAction, HeroResourceEventCard, PlayTargetEffect, CardInstanceId } from '../../index.js';
+import { matchesCondition, CardStatus } from '../../index.js';
 import { logHeading, logDetail } from './log.js';
+import { getPlayTargetEffect, buildPlayOptionContext } from './organization.js';
 
 /**
  * Computes the legal actions for the active player during the long-event phase.
@@ -133,11 +135,35 @@ export function longEventActions(state: GameState, playerId: PlayerId): Evaluate
         continue;
       }
 
-      logDetail(`Resource short-event playable: ${def.name} (${cardInstanceId as string})`);
-      actions.push({
-        action: { type: 'play-short-event', player: playerId, cardInstanceId },
-        viable: true,
-      });
+      // If the card has a play-target with a tap cost (e.g. Marvels Told taps
+      // a sage), emit one action per eligible target. Otherwise emit a single
+      // action with no target.
+      const playTarget = getPlayTargetEffect(def);
+      if (playTarget && playTarget.cost?.tap === 'character') {
+        const targets = eligibleTapTargets(state, player, playTarget);
+        if (targets.length === 0) {
+          logDetail(`${def.name}: no eligible targets — not playable`);
+          actions.push({
+            action: { type: 'not-playable', player: playerId, cardInstanceId },
+            viable: false,
+            reason: `No eligible ${playTarget.target} to target`,
+          });
+        } else {
+          for (const targetId of targets) {
+            logDetail(`Resource short-event playable (target ${targetId as string}): ${def.name} (${cardInstanceId as string})`);
+            actions.push({
+              action: { type: 'play-short-event', player: playerId, cardInstanceId, targetScoutInstanceId: targetId },
+              viable: true,
+            });
+          }
+        }
+      } else {
+        logDetail(`Resource short-event playable: ${def.name} (${cardInstanceId as string})`);
+        actions.push({
+          action: { type: 'play-short-event', player: playerId, cardInstanceId },
+          viable: true,
+        });
+      }
     }
   }
 
@@ -155,4 +181,26 @@ export function longEventActions(state: GameState, playerId: PlayerId): Evaluate
   const playableCount = actions.filter(a => a.viable).length - 1; // exclude pass
   logDetail(`Long-event phase: ${playableCount} playable events + pass, ${actions.length - playableCount - 1} not playable`);
   return actions;
+}
+
+/**
+ * Returns eligible target character IDs for a play-target with tap cost.
+ * Only untapped characters matching the filter are eligible.
+ */
+function eligibleTapTargets(
+  state: GameState,
+  player: { characters: Record<string, import('../../index.js').CharacterInPlay> },
+  playTarget: PlayTargetEffect,
+): CardInstanceId[] {
+  if (playTarget.target !== 'character') return [];
+  const out: CardInstanceId[] = [];
+  for (const [charIdStr, char] of Object.entries(player.characters)) {
+    if (char.status !== CardStatus.Untapped) continue;
+    if (playTarget.filter
+        && !matchesCondition(playTarget.filter, buildPlayOptionContext(state, char))) {
+      continue;
+    }
+    out.push(charIdStr as unknown as CardInstanceId);
+  }
+  return out;
 }

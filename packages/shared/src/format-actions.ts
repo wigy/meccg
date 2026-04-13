@@ -296,6 +296,8 @@ export function describeAction(
       return `Salvage ${instName(action.itemInstanceId)} to ${instName(action.recipientCharacterId)}`;
     case 'support-corruption-check':
       return `Tap ${instName(action.supportingCharacterId)} for CC support (+1)`;
+    case 'discard-from-play':
+      return `Discard from play: ${instName(action.cardInstanceId)}`;
     default: {
       const _exhaustive: never = action;
       return `Unknown action`;

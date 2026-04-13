@@ -328,7 +328,32 @@ Sources: `sideboard`, `discard-pile`.
 
 The `filter` is a standard DSL condition evaluated against each card definition.
 
-### 17. `site-rule`
+### 17. `discard-in-play`
+
+Forces the discard of an in-play card matching a filter. The player
+chooses which eligible card to discard during an interactive sub-flow
+(same mechanism as `fetch-to-deck`). Optionally enqueues a corruption
+check on the tapped character after resolution.
+
+```json
+{ "type": "discard-in-play",
+  "filter": {
+    "$and": [
+      { "cardType": "hazard-event" },
+      { "eventType": { "$in": ["permanent", "long"] } },
+      { "$not": { "keywords": { "$includes": "environment" } } }
+    ]
+  },
+  "corruptionCheck": { "modifier": -2 } }
+```
+
+The `filter` is a standard DSL condition evaluated against each card
+definition in play (both players' `cardsInPlay`). The optional
+`corruptionCheck.modifier` is applied to the tapped character's
+corruption check after the discard resolves. Passing (skipping the
+discard) does not trigger the corruption check.
+
+### 18. `site-rule`
 
 Declares a site-specific rule that modifies standard game mechanics
 when a company is at this site.
@@ -609,3 +634,22 @@ Supported `apply` kinds today:
   named type, consumed automatically on resolution. Future cards granting
   one-shot bonuses to influence or other checks reuse the same kind
   unchanged.
+
+### Marvels Told
+
+```json
+"effects": [
+  { "type": "play-target", "target": "character",
+    "filter": { "target.skills": { "$includes": "sage" } },
+    "cost": { "tap": "character" } },
+  { "type": "discard-in-play",
+    "filter": {
+      "$and": [
+        { "cardType": "hazard-event" },
+        { "eventType": { "$in": ["permanent", "long"] } },
+        { "$not": { "keywords": { "$includes": "environment" } } }
+      ]
+    },
+    "corruptionCheck": { "modifier": -2 } }
+]
+```
