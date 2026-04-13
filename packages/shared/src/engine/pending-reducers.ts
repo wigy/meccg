@@ -134,13 +134,16 @@ function applyCorruptionCheckResolution(
   const playersAfterRoll = clonePlayers(state);
   playersAfterRoll[playerIndex] = { ...playersAfterRoll[playerIndex], lastDiceRoll: roll };
 
-  // Consume corruption-check-boost constraints for this character (one-time use)
+  // Consume one-shot check-modifier constraints for this character. Any
+  // constraint kind `check-modifier` with `check === 'corruption'` targeting
+  // this character contributed to the modifier above and is now cleared.
   let postRollState: GameState = { ...state, players: playersAfterRoll, rng, cheatRollTotal };
   for (const constraint of state.activeConstraints) {
-    if (constraint.kind.type === 'corruption-check-boost'
+    if (constraint.kind.type === 'check-modifier'
+        && constraint.kind.check === 'corruption'
         && constraint.target.kind === 'character'
         && constraint.target.characterId === characterId) {
-      logDetail(`Consuming corruption-check-boost constraint ${constraint.id}`);
+      logDetail(`Consuming one-shot check-modifier constraint ${constraint.id} (corruption ${constraint.kind.value >= 0 ? '+' : ''}${constraint.kind.value})`);
       postRollState = removeConstraint(postRollState, constraint.id);
     }
   }

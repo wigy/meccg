@@ -324,13 +324,17 @@ function corruptionCheckActions(
   // The producing effect's own modifier (e.g. Barrow-wight's -2)
   let totalModifier = baseModifier + modifier;
 
-  // Add corruption-check-boost from active constraints (e.g. Halfling Strength +4)
+  // Add one-shot `check-modifier` constraints targeting this character and
+  // keyed to corruption checks (e.g. Halfling Strength +4). Generic enough
+  // that any future card granting a one-shot corruption / influence / other
+  // check bonus reuses the same constraint machinery.
   for (const constraint of state.activeConstraints) {
-    if (constraint.kind.type !== 'corruption-check-boost') continue;
+    if (constraint.kind.type !== 'check-modifier') continue;
+    if (constraint.kind.check !== 'corruption') continue;
     if (constraint.target.kind !== 'character') continue;
     if (constraint.target.characterId !== characterId) continue;
     totalModifier += constraint.kind.value;
-    logDetail(`Corruption check boost +${constraint.kind.value} from constraint ${constraint.id}`);
+    logDetail(`One-shot check-modifier ${constraint.kind.value >= 0 ? '+' : ''}${constraint.kind.value} from constraint ${constraint.id}`);
   }
 
   // Build possessions list. For transfer checks, the item physically lives
@@ -407,7 +411,7 @@ function applyOneConstraint(
       return applySitePhaseDoNothingUnlessRanger(state, playerId, base, constraint);
     case 'no-creature-hazards-on-company':
       return applyNoCreatureHazardsOnCompany(state, playerId, base, constraint);
-    case 'corruption-check-boost':
+    case 'check-modifier':
       return base;
   }
 }

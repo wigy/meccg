@@ -270,8 +270,9 @@ describe('Halfling Strength (tw-253)', () => {
     expect(result.error).toBeUndefined();
     expect(result.state.activeConstraints).toHaveLength(1);
     const constraint = result.state.activeConstraints[0];
-    expect(constraint.kind.type).toBe('corruption-check-boost');
-    if (constraint.kind.type === 'corruption-check-boost') {
+    expect(constraint.kind.type).toBe('check-modifier');
+    if (constraint.kind.type === 'check-modifier') {
+      expect(constraint.kind.check).toBe('corruption');
       expect(constraint.kind.value).toBe(4);
     }
     expect(constraint.target).toEqual({ kind: 'character', characterId: bilboId });
@@ -302,7 +303,7 @@ describe('Halfling Strength (tw-253)', () => {
       source: 'hs-1' as CardInstanceId,
       scope: { kind: 'until-cleared' },
       target: { kind: 'character', characterId: bilboId },
-      kind: { type: 'corruption-check-boost', value: 4 },
+      kind: { type: 'check-modifier', check: 'corruption', value: 4 },
     });
 
     const withCheck = enqueueResolution(boosted, {
@@ -349,7 +350,7 @@ describe('Halfling Strength (tw-253)', () => {
       source: 'hs-1' as CardInstanceId,
       scope: { kind: 'until-cleared' },
       target: { kind: 'character', characterId: bilboId },
-      kind: { type: 'corruption-check-boost', value: 4 },
+      kind: { type: 'check-modifier', check: 'corruption', value: 4 },
     });
 
     const withCheck = enqueueResolution(boosted, {
@@ -375,6 +376,6 @@ describe('Halfling Strength (tw-253)', () => {
 
     const result = reduce(stateWithCheat, checkActions[0].action);
     expect(result.error).toBeUndefined();
-    expect(result.state.activeConstraints.filter(c => c.kind.type === 'corruption-check-boost')).toHaveLength(0);
+    expect(result.state.activeConstraints.filter(c => c.kind.type === 'check-modifier')).toHaveLength(0);
   });
 });

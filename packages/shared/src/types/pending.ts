@@ -224,11 +224,19 @@ export interface ActiveConstraint {
       }
     | {
         /**
-         * Halfling Strength: the target hobbit receives a bonus to their
-         * next corruption check. Consumed (cleared) when the character
-         * makes a corruption check.
+         * Generic one-shot check modifier attached to a character. Parallels
+         * the DSL `check-modifier` effect but lives on the constraint side
+         * because it is targeted, temporary, and consumed the first time
+         * the character makes a check of the matching kind.
+         *
+         * Used by cards like Halfling Strength (+4 corruption check on a
+         * chosen hobbit); any future card that grants a one-shot bonus to
+         * a named check type can reuse this kind unchanged.
          */
-        readonly type: 'corruption-check-boost';
+        readonly type: 'check-modifier';
+        /** Which check type this modifier applies to (e.g. `corruption`). */
+        readonly check: string;
+        /** The bonus (or penalty if negative) applied to the roll. */
         readonly value: number;
       };
 }

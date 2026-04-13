@@ -260,11 +260,10 @@ Supported targets:
 
 - `character` — targets a single character in the company
 - `own-scout` — an untapped scout in one of the resource player's companies (e.g. Stealth)
-- `own-hobbit` — a hobbit in one of the resource player's companies. The
-  engine emits one `play-short-event` action per (hobbit, mode) pair,
-  where mode is `untap` (hobbit must be tapped), `heal` (hobbit must be
-  wounded), or `corruption-check-boost` (always available). The action
-  carries `targetCharacterId` and `mode` fields. (e.g. Halfling Strength)
+- `own-hobbit` — a hobbit in one of the resource player's companies
+  (e.g. Halfling Strength). Paired with `play-option` effects, the engine
+  emits one `play-short-event` action per (hobbit, option) pair whose
+  `when` condition matches the target.
 
 Optional fields:
 
@@ -560,15 +559,25 @@ The resolver:
     "apply": { "type": "set-character-status", "status": "untapped" } },
   { "type": "play-option", "id": "corruption-check-boost",
     "apply": { "type": "add-constraint",
-               "constraint": "corruption-check-boost",
+               "constraint": "check-modifier",
+               "check": "corruption",
                "scope": "until-cleared", "value": 4 } }
 ]
 ```
 
-`play-option` declares one of several mutually-exclusive choices the player
-may take when playing a card. Each option has an `id`, an optional `when`
-evaluated against the target context (`target.race`, `target.status`,
-`target.skills`), and an `apply` clause resolved by the generic reducer.
-Supported `apply` kinds today: `set-character-status` (untap / heal) and
-`add-constraint` (with optional numeric `value`, e.g. the +4 on Halfling
-Strength's corruption-check boost).
+`play-option` declares one of several mutually-exclusive choices the
+player may take when playing a card. Each option has an `id`, an optional
+`when` evaluated against the target context (`target.race`,
+`target.status`, `target.skills`), and an `apply` clause resolved by the
+generic reducer.
+
+Supported `apply` kinds today:
+
+- `set-character-status` — mutates the target character's status
+  (`tapped` / `untapped` / `inverted`). Untap and heal both map here.
+- `add-constraint` — attaches an {@link ActiveConstraint} to the target.
+  When `constraint: "check-modifier"` is used, the constraint behaves as
+  a one-shot bonus (`check`, `value`) to the target's next check of the
+  named type, consumed automatically on resolution. Future cards granting
+  one-shot bonuses to influence or other checks reuse the same kind
+  unchanged.

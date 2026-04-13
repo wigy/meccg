@@ -271,8 +271,9 @@ export interface TriggeredAction {
    */
   readonly scope?: string;
   /**
-   * For `add-constraint` type: numeric payload for constraint kinds that
-   * carry a value (e.g. `corruption-check-boost` + `value: 4`).
+   * For `add-constraint` type with `constraint: "check-modifier"`: numeric
+   * bonus (or penalty if negative) applied to the target's next check of
+   * the matching type.
    */
   readonly value?: number;
   /**

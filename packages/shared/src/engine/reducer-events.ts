@@ -407,11 +407,11 @@ function applyPlayOptionAddConstraint(
   type Kind = import('../types/pending.js').ActiveConstraint['kind'];
   let kind: Kind;
   switch (constraintName) {
-    case 'corruption-check-boost':
-      if (typeof apply.value !== 'number') {
-        return { error: `${def.name} option '${option.id}': corruption-check-boost requires numeric 'value'` };
+    case 'check-modifier':
+      if (typeof apply.value !== 'number' || typeof apply.check !== 'string') {
+        return { error: `${def.name} option '${option.id}': check-modifier requires 'check' and numeric 'value'` };
       }
-      kind = { type: 'corruption-check-boost', value: apply.value };
+      kind = { type: 'check-modifier', check: apply.check, value: apply.value };
       break;
     default:
       return { error: `${def.name} option '${option.id}': unsupported constraint kind '${constraintName}' for character target` };

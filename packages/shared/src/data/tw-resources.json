@@ -355,7 +355,8 @@
         "id": "corruption-check-boost",
         "apply": {
           "type": "add-constraint",
-          "constraint": "corruption-check-boost",
+          "constraint": "check-modifier",
+          "check": "corruption",
           "scope": "until-cleared",
           "value": 4
         }
