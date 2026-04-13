@@ -606,6 +606,39 @@ export async function handleRequest(req: http.IncomingMessage, res: http.ServerR
       }
     }
 
+    // Review-request approval: deliver the reply that handle-mail stashed as
+    // pendingReplyJson in the review-request's keywords. This is the first
+    // (and only) requestor-visible mail for the entire processing cycle.
+    if (updated.topic === 'review-request' && action === 'approve' && updated.keywords.pendingReplyJson) {
+      try {
+        const pending = JSON.parse(updated.keywords.pendingReplyJson) as {
+          recipient: string;
+          topic: MailTopic;
+          subject: string;
+          body: string;
+          keywords: Record<string, string>;
+          replyTo?: string;
+        };
+        if (pending.recipient && pending.topic) {
+          sendMail([pending.recipient], {
+            from: getDisplayName('ai'),
+            sender: 'ai',
+            topic: pending.topic,
+            subject: pending.subject,
+            body: pending.body,
+            keywords: pending.keywords ?? {},
+            ...(pending.replyTo ? { replyTo: pending.replyTo } : {}),
+            sentBy: 'ai',
+          });
+          lobbyLog.log('review-reply-sent', { msgId, recipient: pending.recipient, topic: pending.topic });
+        } else {
+          lobbyLog.log('review-reply-invalid', { msgId, reason: 'missing recipient or topic' });
+        }
+      } catch (err) {
+        lobbyLog.log('review-reply-failed', { msgId, error: String(err) });
+      }
+    }
+
     // Review-request decline: send a review-fix-request to AI with reviewer comments
     if (updated.topic === 'review-request' && action === 'decline') {
       const reviewBody = comments
