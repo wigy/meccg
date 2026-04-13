@@ -1424,22 +1424,58 @@ function handlePlanMovement(state: GameState, action: GameAction): ReducerResult
 
   const company = player.companies[companyIdx];
   if (company.destinationSite) return { state, error: 'Company already has planned movement' };
-  if (!player.siteDeck.some(c => c.instanceId === action.destinationSite)) {
-    return { state, error: 'Destination site not in site deck' };
+
+  const deckCard = player.siteDeck.find(c => c.instanceId === action.destinationSite);
+  // Rule 2.II.7.2: the destination may be another of this player's companies'
+  // currentSite. In that case the site is not drawn from the site deck.
+  const sharedWith = deckCard
+    ? null
+    : player.companies.find(
+        c => c.id !== action.companyId
+          && c.currentSite?.instanceId === action.destinationSite,
+      );
+
+  if (!deckCard && !sharedWith) {
+    return { state, error: 'Destination site not in site deck and not in play' };
   }
 
-  logDetail(`Plan movement: company ${company.id as string} → ${action.destinationSite as string}`);
+  // Rule 2.II.7.1: no two companies sharing an origin may target the same
+  // new site in the same organization phase.
+  if (company.currentSite) {
+    const rule_7_1_violation = player.companies.find(
+      c => c.id !== action.companyId
+        && c.currentSite?.instanceId === company.currentSite!.instanceId
+        && c.destinationSite?.instanceId === action.destinationSite,
+    );
+    if (rule_7_1_violation) {
+      logDetail(`Plan movement rejected: rule 2.II.7.1 — company ${rule_7_1_violation.id as string} at the same origin already targets ${action.destinationSite as string}`);
+      return { state, error: 'Rule 2.II.7.1: another company from the same origin already targets this site' };
+    }
+  }
 
   const companies = [...player.companies];
-  const destCard = player.siteDeck.find(c => c.instanceId === action.destinationSite);
-  companies[companyIdx] = {
-    ...company,
-    destinationSite: { instanceId: destCard!.instanceId, definitionId: destCard!.definitionId, status: CardStatus.Untapped },
-    movementPath: [],
-  };
-
-  // Remove destination site from site deck
-  const siteDeck = player.siteDeck.filter(c => c.instanceId !== action.destinationSite);
+  let siteDeck = player.siteDeck;
+  if (deckCard) {
+    logDetail(`Plan movement: company ${company.id as string} → ${action.destinationSite as string} (from site deck)`);
+    companies[companyIdx] = {
+      ...company,
+      destinationSite: { instanceId: deckCard.instanceId, definitionId: deckCard.definitionId, status: CardStatus.Untapped },
+      movementPath: [],
+    };
+    // Remove destination site from site deck
+    siteDeck = player.siteDeck.filter(c => c.instanceId !== action.destinationSite);
+  } else {
+    logDetail(`Plan movement: company ${company.id as string} → ${action.destinationSite as string} (already in play at sibling ${sharedWith!.id as string} — not drawing from site deck)`);
+    companies[companyIdx] = {
+      ...company,
+      destinationSite: {
+        instanceId: sharedWith!.currentSite!.instanceId,
+        definitionId: sharedWith!.currentSite!.definitionId,
+        status: CardStatus.Untapped,
+      },
+      movementPath: [],
+    };
+  }
 
   const newPlayers = clonePlayers(state);
   newPlayers[playerIndex] = { ...player, companies, siteDeck };
@@ -1479,7 +1515,14 @@ function handleCancelMovement(state: GameState, action: GameAction): ReducerResu
   const company = player.companies[companyIdx];
   if (!company.destinationSite) return { state, error: 'Company has no planned movement' };
 
-  logDetail(`Cancel movement: company ${company.id as string}, returning site ${company.destinationSite.instanceId as string} to site deck`);
+  // Rule 2.II.7.2: if the destination is still in play at another sibling
+  // company (either because it was shared-planned, or because a sibling is
+  // actually there right now), the site was never pulled from the site deck —
+  // don't push it back.
+  const siblingStillHasIt = player.companies.some(
+    c => c.id !== company.id
+      && c.currentSite?.instanceId === company.destinationSite!.instanceId,
+  );
 
   const companies = [...player.companies];
   companies[companyIdx] = {
@@ -1488,8 +1531,13 @@ function handleCancelMovement(state: GameState, action: GameAction): ReducerResu
     movementPath: [],
   };
 
-  // Return the destination site to the site deck
-  const siteDeck = [...player.siteDeck, { instanceId: company.destinationSite.instanceId, definitionId: company.destinationSite.definitionId }];
+  let siteDeck = player.siteDeck;
+  if (siblingStillHasIt) {
+    logDetail(`Cancel movement: company ${company.id as string}, destination ${company.destinationSite.instanceId as string} still in play at a sibling — not returning to site deck`);
+  } else {
+    logDetail(`Cancel movement: company ${company.id as string}, returning site ${company.destinationSite.instanceId as string} to site deck`);
+    siteDeck = [...player.siteDeck, { instanceId: company.destinationSite.instanceId, definitionId: company.destinationSite.definitionId }];
+  }
 
   const newPlayers = clonePlayers(state);
   newPlayers[playerIndex] = { ...player, companies, siteDeck };

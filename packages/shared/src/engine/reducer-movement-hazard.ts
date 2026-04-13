@@ -13,7 +13,7 @@ import { logDetail } from './legal-actions/log.js';
 import { initiateChain, pushChainEntry } from './chain-reducer.js';
 import { resolveInstanceId } from '../types/state.js';
 import type { ReducerResult } from './reducer-utils.js';
-import { clonePlayers, startDeckExhaust, completeDeckExhaust, handleExchangeSideboard, cleanupEmptyCompanies } from './reducer-utils.js';
+import { clonePlayers, startDeckExhaust, completeDeckExhaust, handleExchangeSideboard, cleanupEmptyCompanies, autoMergeNonHavenCompanies } from './reducer-utils.js';
 import { handlePlayShortEvent } from './reducer-events.js';
 import { handlePlayPermanentEvent } from './reducer-events.js';
 import { sweepExpired, addConstraint } from './pending.js';
@@ -453,6 +453,15 @@ function endCompanyMH(state: GameState, mhState: MovementHazardPhaseState): Redu
 
   if (company.destinationSite && !mhState.returnedToOrigin) {
     const originSite = company.currentSite;
+
+    // Rule 2.II.7.2: detect whether another of this player's companies is
+    // already at the destination — the moving company then shares the site
+    // without taking a physical copy (same invariant as split-at-haven).
+    const sharedDestinationOwner = resourcePlayer.companies.find(
+      (c, idx) => idx !== mhState.activeCompanyIndex
+        && c.currentSite?.instanceId === company.destinationSite!.instanceId,
+    );
+
     const updatedCompanies = [...resourcePlayer.companies];
     updatedCompanies[mhState.activeCompanyIndex] = {
       ...company,
@@ -460,21 +469,37 @@ function endCompanyMH(state: GameState, mhState: MovementHazardPhaseState): Redu
       destinationSite: null,
       moved: true,
       siteOfOrigin: null,
+      siteCardOwned: sharedDestinationOwner ? false : company.siteCardOwned,
     };
 
-    // Handle site of origin: return to siteDeck (untapped/haven) or discard (tapped non-haven)
+    if (sharedDestinationOwner) {
+      logDetail(`Step 8: arrived at site already in play at sibling company ${sharedDestinationOwner.id as string} — siteCardOwned=false`);
+    }
+
+    // Handle site of origin: return to siteDeck (untapped/haven) or discard
+    // (tapped non-haven). Rule 2.II.7.2: if another of this player's companies
+    // is still at the origin, the site stays in play and must not be
+    // returned or discarded.
     // TODO: discard tapped non-haven sites once site tapping is implemented
     let newSiteDeck = [...resourcePlayer.siteDeck];
     if (originSite) {
-      const originDef = state.cardPool[originSite.definitionId as string];
-      const isHaven = originDef && isSiteCard(originDef) && originDef.siteType === 'haven';
-      newSiteDeck = newSiteDeck.filter(c => c.instanceId !== originSite.instanceId);
-      if (isHaven) {
-        logDetail(`Step 8: site of origin is a haven — returning to location deck`);
+      const siblingStillAtOrigin = resourcePlayer.companies.some(
+        (c, idx) => idx !== mhState.activeCompanyIndex
+          && c.currentSite?.instanceId === originSite.instanceId,
+      );
+      if (siblingStillAtOrigin) {
+        logDetail(`Step 8: site of origin remains in play — still occupied by a sibling company`);
       } else {
-        logDetail(`Step 8: site of origin is non-haven — returning to location deck (TODO: discard if tapped)`);
+        const originDef = state.cardPool[originSite.definitionId as string];
+        const isHaven = originDef && isSiteCard(originDef) && originDef.siteType === 'haven';
+        newSiteDeck = newSiteDeck.filter(c => c.instanceId !== originSite.instanceId);
+        if (isHaven) {
+          logDetail(`Step 8: site of origin is a haven — returning to location deck`);
+        } else {
+          logDetail(`Step 8: site of origin is non-haven — returning to location deck (TODO: discard if tapped)`);
+        }
+        newSiteDeck.push({ instanceId: originSite.instanceId, definitionId: originSite.definitionId });
       }
-      newSiteDeck.push({ instanceId: originSite.instanceId, definitionId: originSite.definitionId });
     }
 
     logDetail(`Step 8: company moved to ${mhState.destinationSiteName ?? '?'}, origin site handled`);
@@ -723,15 +748,19 @@ function advanceAfterCompanyMH(state: GameState, mhState: MovementHazardPhaseSta
 
   if (remainingCount <= 0) {
     logDetail(`Movement/Hazard: all companies handled → advancing to Site phase`);
+    // Rule 2.IV.6: auto-merge any of the resource player's companies that
+    // ended up at the same non-haven site. Run before resetting moved flags
+    // so the merge sees the post-movement company layout.
+    const mergedState = autoMergeNonHavenCompanies(state, activeIndex);
     // Reset moved flags so the site phase shows a clean slate
-    const newPlayers = clonePlayers(state);
+    const newPlayers = clonePlayers(mergedState);
     newPlayers[activeIndex] = {
       ...newPlayers[activeIndex],
       companies: newPlayers[activeIndex].companies.map(c => ({ ...c, moved: false, specialMovement: undefined, extraRegionDistance: undefined })),
     };
     return {
       state: cleanupEmptyCompanies({
-        ...state,
+        ...mergedState,
         players: newPlayers,
         phaseState: {
           phase: Phase.Site,

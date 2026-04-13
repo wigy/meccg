@@ -177,6 +177,13 @@ let siteSelectionActions: EvaluatedAction[] = [];
 let siteSelectionCallback: ((action: GameAction) => void) | null = null;
 /** Matches a site deck entry to its evaluated action for the current selection mode. */
 let siteSelectionMatcher: ((card: { instanceId: CardInstanceId }) => EvaluatedAction | undefined) | null = null;
+/**
+ * Instance ids (stringified) for in-play destination candidates in the
+ * movement viewer. These are rendered alongside the site deck but marked
+ * with a distinct CSS class so the player can tell they are sibling-shared
+ * destinations rather than deck cards.
+ */
+let siteSelectionInPlayInstanceIds: ReadonlySet<string> = new Set();
 
 /**
  * Open the pile browser modal showing a list of cards (known or unknown).
@@ -268,8 +275,12 @@ function populateBrowserGrid(): void {
 
     if (isSelecting) {
       const ea = siteSelectionMatcher?.(card);
+      const isInPlayDest = siteSelectionInPlayInstanceIds.has(card.instanceId as string);
       if (ea && ea.viable) {
-        img.classList.add('site-selectable');
+        img.classList.add(isInPlayDest ? 'site-in-play-selectable' : 'site-selectable');
+        if (isInPlayDest) {
+          img.title = 'Already in play at another of your companies';
+        }
         if (siteSelectionCallback) {
           const action = ea.action;
           img.addEventListener('click', () => {
@@ -519,13 +530,27 @@ export function openMovementViewer(
   siteSelectionActions = view.legalActions.filter(
     ea => ea.action.type === 'plan-movement' && (ea.action.companyId as string) === companyId,
   );
+
+  // Build instance -> definitionId map from the site deck and from any
+  // sibling companies' current sites. Rule 2.II.7.2 allows a company to
+  // declare movement to a site another of its companies already occupies;
+  // such destinations are not in the site deck but the legal action refers
+  // to them by their in-play instance id.
+  const siteInstToDef = new Map<string, string>();
+  for (const c of view.self.siteDeck) siteInstToDef.set(c.instanceId as string, c.definitionId as string);
+  const inPlayDestInstanceIds = new Set<string>();
+  for (const comp of view.self.companies) {
+    if (comp.id === companyId) continue;
+    if (!comp.currentSite) continue;
+    const instIdStr = comp.currentSite.instanceId as string;
+    if (siteInstToDef.has(instIdStr)) continue;
+    siteInstToDef.set(instIdStr, comp.currentSite.definitionId as string);
+    inPlayDestInstanceIds.add(instIdStr);
+  }
+
   // Match by definition ID so all copies of the same site are highlighted.
   // Multiple plan-movement actions may target the same site (different paths);
   // pick the first viable one per destination definition.
-  // Build instance -> definitionId map from site deck
-  const siteInstToDef = new Map<string, string>();
-  for (const c of view.self.siteDeck) siteInstToDef.set(c.instanceId as string, c.definitionId as string);
-
   const destDefIds = new Map<string, EvaluatedAction>();
   for (const ea of siteSelectionActions) {
     if (ea.action.type !== 'plan-movement') continue;
@@ -536,9 +561,22 @@ export function openMovementViewer(
     }
   }
   siteSelectionMatcher = (card) => destDefIds.get(siteInstToDef.get(card.instanceId as string) ?? '');
+  siteSelectionInPlayInstanceIds = inPlayDestInstanceIds;
   siteSelectionCallback = onAction;
   installSiteDeckViewer();
-  cachedBrowserCards = cachedSiteDeck;
+
+  // Append virtual cards for in-play destinations so they render alongside
+  // the actual site deck. Each carries the same shape the browser expects.
+  const inPlayCards: ViewCard[] = [];
+  for (const instIdStr of inPlayDestInstanceIds) {
+    const defId = siteInstToDef.get(instIdStr);
+    if (!defId) continue;
+    inPlayCards.push({
+      instanceId: instIdStr as unknown as CardInstanceId,
+      definitionId: defId as unknown as ViewCard['definitionId'],
+    });
+  }
+  cachedBrowserCards = [...cachedSiteDeck, ...inPlayCards];
   cachedBrowserTitle = 'Site Deck';
   populateBrowserGrid();
 }
@@ -606,6 +644,7 @@ export function clearSelectionState(): void {
   siteSelectionActions = [];
   siteSelectionCallback = null;
   siteSelectionMatcher = null;
+  siteSelectionInPlayInstanceIds = new Set();
   fetchSubFlowActive = false;
   const pile = document.getElementById('self-site-pile');
   if (pile) pile.classList.remove('site-pile--active');
