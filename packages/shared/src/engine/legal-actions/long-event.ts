@@ -135,6 +135,30 @@ export function longEventActions(state: GameState, playerId: PlayerId): Evaluate
         continue;
       }
 
+      // A discard-in-play effect (e.g. Marvels Told) forces the discard
+      // of an in-play card matching its filter. The discard is compulsory,
+      // so the card is only playable when at least one valid target exists
+      // across either player's cardsInPlay.
+      const discardInPlay = def.effects?.find(e => e.type === 'discard-in-play');
+      if (discardInPlay) {
+        const hasDiscardTarget = state.players.some(p =>
+          p.cardsInPlay.some(c => {
+            const cDef = state.cardPool[c.definitionId as string];
+            return cDef != null
+              && matchesCondition(discardInPlay.filter, cDef as unknown as Record<string, unknown>);
+          }),
+        );
+        if (!hasDiscardTarget) {
+          logDetail(`${def.name}: no eligible discard-in-play target — not playable`);
+          actions.push({
+            action: { type: 'not-playable', player: playerId, cardInstanceId },
+            viable: false,
+            reason: `${def.name} has no valid target to discard`,
+          });
+          continue;
+        }
+      }
+
       // If the card has a play-target with a tap cost (e.g. Marvels Told taps
       // a sage), emit one action per eligible target. Otherwise emit a single
       // action with no target.

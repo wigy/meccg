@@ -68,7 +68,13 @@ function fetchFromPileLegalActions(state: GameState, playerId: PlayerId, effect:
   return actions;
 }
 
-/** Computes legal discard-from-play actions for a discard-in-play effect. */
+/**
+ * Computes legal discard-from-play actions for a discard-in-play effect.
+ *
+ * The discard is compulsory — no pass option. The card is only playable
+ * when at least one valid target exists (checked at play time), so this
+ * always returns one or more discard-from-play actions.
+ */
 function discardInPlayLegalActions(state: GameState, playerId: PlayerId, effect: DiscardInPlayEffect): EvaluatedAction[] {
   const actions: EvaluatedAction[] = [];
 
@@ -89,7 +95,6 @@ function discardInPlayLegalActions(state: GameState, playerId: PlayerId, effect:
     }
   }
 
-  actions.push({ action: { type: 'pass', player: playerId }, viable: true });
   return actions;
 }
 

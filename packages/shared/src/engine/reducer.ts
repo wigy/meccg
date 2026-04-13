@@ -137,6 +137,12 @@ export function reduce(state: GameState, action: GameAction): ReducerResult {
     } else if (action.type === 'discard-from-play') {
       effectResult = handleDiscardFromPlay(state, action);
     } else {
+      // Pass is only valid for optional sub-flows (e.g. fetch-to-deck).
+      // Compulsory effects like discard-in-play must be resolved, not skipped.
+      const current = state.pendingEffects[0];
+      if (current.type === 'card-effect' && current.effect.type === 'discard-in-play') {
+        return { state, error: 'Cannot pass: discard is compulsory' };
+      }
       effectResult = resolvePendingEffect(state);
     }
     if (!effectResult.error) {

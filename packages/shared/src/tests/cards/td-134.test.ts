@@ -29,12 +29,13 @@ describe('Marvels Told (td-134)', () => {
   beforeEach(() => resetMint());
 
   test('appears as playable with one action per eligible untapped sage', () => {
+    const foolishWordsInPlay: CardInPlay = { instanceId: mint(), definitionId: FOOLISH_WORDS, status: CardStatus.Untapped };
     const state = buildTestState({
       phase: Phase.LongEvent,
       activePlayer: PLAYER_1,
       players: [
         { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [ELROND] }], hand: [MARVELS_TOLD], siteDeck: [MORIA] },
-        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [MINAS_TIRITH] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [MINAS_TIRITH], cardsInPlay: [foolishWordsInPlay] },
       ],
     });
 
@@ -45,12 +46,13 @@ describe('Marvels Told (td-134)', () => {
   });
 
   test('not playable when sage is tapped', () => {
+    const foolishWordsInPlay: CardInPlay = { instanceId: mint(), definitionId: FOOLISH_WORDS, status: CardStatus.Untapped };
     const state = buildTestState({
       phase: Phase.LongEvent,
       activePlayer: PLAYER_1,
       players: [
         { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [ELROND] }], hand: [MARVELS_TOLD], siteDeck: [MORIA] },
-        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [MINAS_TIRITH] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [MINAS_TIRITH], cardsInPlay: [foolishWordsInPlay] },
       ],
     });
 
@@ -73,12 +75,13 @@ describe('Marvels Told (td-134)', () => {
   });
 
   test('not playable if no sages in play (Legolas has no sage skill)', () => {
+    const foolishWordsInPlay: CardInPlay = { instanceId: mint(), definitionId: FOOLISH_WORDS, status: CardStatus.Untapped };
     const state = buildTestState({
       phase: Phase.LongEvent,
       activePlayer: PLAYER_1,
       players: [
         { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [LEGOLAS] }], hand: [MARVELS_TOLD], siteDeck: [MORIA] },
-        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [ARAGORN] }], hand: [], siteDeck: [MINAS_TIRITH] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [ARAGORN] }], hand: [], siteDeck: [MINAS_TIRITH], cardsInPlay: [foolishWordsInPlay] },
       ],
     });
 
@@ -152,7 +155,11 @@ describe('Marvels Told (td-134)', () => {
     expect(discardActions).toHaveLength(2);
   });
 
-  test('environment hazard events are NOT eligible for discard', () => {
+  test('not playable when only environment hazard events are in play', () => {
+    // Doors of Night has the environment keyword and so is not a valid
+    // target. With no other hazard permanent/long events in play, Marvels
+    // Told has nothing to discard and the compulsory discard cannot be
+    // resolved — the card must not be playable.
     const doorsOfNightInPlay: CardInPlay = { instanceId: mint(), definitionId: DOORS_OF_NIGHT, status: CardStatus.Untapped };
 
     const state = buildTestState({
@@ -164,24 +171,24 @@ describe('Marvels Told (td-134)', () => {
       ],
     });
 
-    const marvelsId = state.players[0].hand[0].instanceId;
-    const elrondId = Object.keys(state.players[0].characters)[0] as unknown as CardInstanceId;
+    const playActions = viableActions(state, PLAYER_1, 'play-short-event');
+    expect(playActions).toHaveLength(0);
+  });
 
-    const result = reduce(state, {
-      type: 'play-short-event',
-      player: PLAYER_1,
-      cardInstanceId: marvelsId,
-      targetScoutInstanceId: elrondId,
+  test('not playable when no hazard permanent/long events are in play', () => {
+    // The discard is compulsory — with nothing eligible to discard, Marvels
+    // Told cannot be played even though an untapped sage is available.
+    const state = buildTestState({
+      phase: Phase.LongEvent,
+      activePlayer: PLAYER_1,
+      players: [
+        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [ELROND] }], hand: [MARVELS_TOLD], siteDeck: [MORIA] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [MINAS_TIRITH] },
+      ],
     });
-    expect(result.error).toBeUndefined();
 
-    // Doors of Night has environment keyword — not eligible
-    const discardActions = viableActions(result.state, PLAYER_1, 'discard-from-play');
-    expect(discardActions).toHaveLength(0);
-
-    // Pass is still available
-    const passActions = viableActions(result.state, PLAYER_1, 'pass');
-    expect(passActions).toHaveLength(1);
+    const playActions = viableActions(state, PLAYER_1, 'play-short-event');
+    expect(playActions).toHaveLength(0);
   });
 
   test('discarding a hazard event moves it to owner discard pile and discards Marvels Told', () => {
@@ -276,7 +283,7 @@ describe('Marvels Told (td-134)', () => {
     expect(resolution.actor).toBe(PLAYER_1);
   });
 
-  test('pass during discard sub-flow skips the discard (no corruption check)', () => {
+  test('pass is not available during the discard sub-flow (discard is compulsory)', () => {
     const foolishWordsInPlay: CardInPlay = { instanceId: mint(), definitionId: FOOLISH_WORDS, status: CardStatus.Untapped };
 
     const state = buildTestState({
@@ -292,7 +299,7 @@ describe('Marvels Told (td-134)', () => {
     const elrondId = Object.keys(state.players[0].characters)[0] as unknown as CardInstanceId;
 
     // Play Marvels Told
-    let result = reduce(state, {
+    const result = reduce(state, {
       type: 'play-short-event',
       player: PLAYER_1,
       cardInstanceId: marvelsId,
@@ -300,20 +307,11 @@ describe('Marvels Told (td-134)', () => {
     });
     expect(result.error).toBeUndefined();
 
-    // Pass to skip discard
-    result = reduce(result.state, { type: 'pass', player: PLAYER_1 });
-    expect(result.error).toBeUndefined();
-
-    // Marvels Told discarded, sub-flow cleared
-    expect(result.state.pendingEffects).toHaveLength(0);
-    expect(result.state.players[0].cardsInPlay.map(c => c.instanceId)).not.toContain(marvelsId);
-    expect(result.state.players[0].discardPile.map(c => c.instanceId)).toContain(marvelsId);
-
-    // Foolish Words still in play
-    expect(result.state.players[1].cardsInPlay.map(c => c.definitionId)).toContain(FOOLISH_WORDS);
-
-    // No corruption check when skipped
-    expect(result.state.pendingResolutions).toHaveLength(0);
+    // Only the compulsory discard-from-play action is legal; no pass.
+    const legal = computeLegalActions(result.state, PLAYER_1);
+    const types = legal.filter(e => e.viable).map(e => e.action.type);
+    expect(types).toContain('discard-from-play');
+    expect(types).not.toContain('pass');
   });
 
   test('opponent has no actions during discard sub-flow', () => {
