@@ -48,6 +48,38 @@ export function planMovementActions(state: GameState, playerId: PlayerId): Evalu
       siteInstMap.set(siteDef.name, siteCard.instanceId);
     }
 
+    // Rule 2.II.7.2: a company may also declare movement to a site already in
+    // play — i.e. the current site of another of this player's companies.
+    // Such a destination is not drawn from the site deck; both companies end
+    // up occupying the same site instance.
+    for (const sibling of player.companies) {
+      if (sibling.id === company.id) continue;
+      if (!sibling.currentSite) continue;
+      if (sibling.currentSite.instanceId === company.currentSite.instanceId) continue;
+      const siblingDef = state.cardPool[sibling.currentSite.definitionId as string];
+      if (!siblingDef || !isSiteCard(siblingDef)) continue;
+      // Deck entries win — if the same site name is already a deck candidate,
+      // keep the deck instance as the canonical choice.
+      if (siteInstMap.has(siblingDef.name)) continue;
+      candidateSites.push(siblingDef);
+      siteInstMap.set(siblingDef.name, sibling.currentSite.instanceId);
+      logDetail(`  sibling-in-play destination ${siblingDef.name} via company ${sibling.id as string}`);
+    }
+
+    // Rule 2.II.7.1: no two companies sharing an origin may declare movement
+    // to the same new site during one organization phase. Drop any candidate
+    // whose instanceId is already another sibling-at-same-origin's
+    // destinationSite.
+    const blockedByRule_2_II_7_1 = new Set<string>();
+    for (const sibling of player.companies) {
+      if (sibling.id === company.id) continue;
+      if (!sibling.currentSite) continue;
+      if (sibling.currentSite.instanceId !== company.currentSite.instanceId) continue;
+      if (sibling.destinationSite) {
+        blockedByRule_2_II_7_1.add(sibling.destinationSite.instanceId as string);
+      }
+    }
+
     // Gwaihir special movement: can reach any non-shadow/dark site
     if (company.specialMovement === 'gwaihir') {
       const regionTypeMap = buildRegionTypeMap(state);
@@ -55,6 +87,10 @@ export function planMovementActions(state: GameState, playerId: PlayerId): Evalu
       for (const siteDef of candidateSites) {
         const destInstId = siteInstMap.get(siteDef.name);
         if (!destInstId) continue;
+        if (blockedByRule_2_II_7_1.has(destInstId as string)) {
+          logDetail(`  ${siteDef.name} blocked by rule 2.II.7.1 (sibling at same origin already targets it)`);
+          continue;
+        }
         // Exclude sites in Shadow-land (shadow) or Dark-domain (dark) regions
         const regionType = siteDef.region ? regionTypeMap.get(siteDef.region) : undefined;
         if (regionType === 'shadow' || regionType === 'dark') {
@@ -88,6 +124,10 @@ export function planMovementActions(state: GameState, playerId: PlayerId): Evalu
       if (!destInstId) continue;
       if (seen.has(destInstId as string)) continue;
       seen.add(destInstId as string);
+      if (blockedByRule_2_II_7_1.has(destInstId as string)) {
+        logDetail(`  ${r.site.name} blocked by rule 2.II.7.1 (sibling at same origin already targets it)`);
+        continue;
+      }
       const candidate: GameAction = {
         type: 'plan-movement',
         player: playerId,
