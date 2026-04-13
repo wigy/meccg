@@ -525,7 +525,8 @@
     "resourceDraws": 2,
     "hazardDraws": 2,
     "text": "Nearest Haven: Edhellond.",
-    "effects": []
+    "effects": [],
+    "certified": "2026-04-13"
   },
   {
     "cardType": "hero-site",
