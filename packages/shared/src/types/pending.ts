@@ -243,6 +243,14 @@ export interface ActiveConstraint {
         readonly check: string;
         /** The bonus (or penalty if negative) applied to the roll. */
         readonly value: number;
+      }
+    | {
+        /**
+         * Little Snuffler: when the creature's attack is not defeated,
+         * resources requiring a scout in the target company cannot be
+         * played for the rest of the turn.
+         */
+        readonly type: 'deny-scout-resources';
       };
 }
 

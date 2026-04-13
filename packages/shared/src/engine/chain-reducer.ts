@@ -472,6 +472,9 @@ function applyShortEventArrivalTrigger(state: GameState, entry: ChainEntry): Gam
     case 'no-creature-hazards-on-company':
       kind = { type: 'no-creature-hazards-on-company' };
       break;
+    case 'deny-scout-resources':
+      kind = { type: 'deny-scout-resources' };
+      break;
     default:
       return state;
   }
@@ -642,6 +645,9 @@ function applyAddConstraintFromOnEvent(
       break;
     case 'no-creature-hazards-on-company':
       kind = { type: 'no-creature-hazards-on-company' };
+      break;
+    case 'deny-scout-resources':
+      kind = { type: 'deny-scout-resources' };
       break;
     default:
       logDetail(`add-constraint: unknown constraint kind "${constraintKind}" — fizzle`);

@@ -28,7 +28,7 @@ import type {
   CompanyId,
 } from '../../index.js';
 import { isCharacterCard, isAllyCard, isFactionCard, Phase, CardStatus, matchesCondition } from '../../index.js';
-import type { PlayOptionEffect, PlayTargetEffect } from '../../types/effects.js';
+import type { PlayOptionEffect, PlayTargetEffect, CardEffect } from '../../types/effects.js';
 import { resolveInstanceId } from '../../types/state.js';
 import { resolveDef, collectCharacterEffects, resolveCheckModifier, resolveStatModifiers } from '../effects/index.js';
 import type { ResolverContext } from '../effects/index.js';
@@ -491,6 +491,8 @@ function applyOneConstraint(
       return applyNoCreatureHazardsOnCompany(state, playerId, base, constraint);
     case 'check-modifier':
       return base;
+    case 'deny-scout-resources':
+      return applyDenyScoutResources(state, playerId, base, constraint);
   }
 }
 
@@ -617,6 +619,53 @@ function applyNoCreatureHazardsOnCompany(
     const def = defId ? state.cardPool[defId as string] : undefined;
     if (!def || def.cardType !== 'hazard-creature') return true;
     logDetail(`Constraint ${constraint.id as string} (no-creature-hazards-on-company): dropping creature play "${def.name}" against protected company ${protectedCompany as string}`);
+    return false;
+  });
+}
+
+/**
+ * Check whether a card's effects reference the scout skill as a requirement.
+ * Covers `cancel-attack` with `requiredSkill: "scout"` and `play-target`
+ * with a filter that includes `target.skills: { "$includes": "scout" }`.
+ */
+function requiresScout(effects: readonly CardEffect[]): boolean {
+  return effects.some(e => {
+    if (e.type === 'cancel-attack' && 'requiredSkill' in e && e.requiredSkill === 'scout') return true;
+    if (e.type === 'play-target' && e.filter) {
+      const json = JSON.stringify(e.filter);
+      if (json.includes('"scout"') && json.includes('skills')) return true;
+    }
+    return false;
+  });
+}
+
+/**
+ * Little Snuffler constraint: when the creature's attack is not defeated,
+ * resources that require a scout in the target company cannot be played
+ * for the rest of the turn. Drops play-short-event and play-permanent-event
+ * actions whose card definition has scout-requiring effects.
+ */
+function applyDenyScoutResources(
+  state: GameState,
+  _playerId: PlayerId,
+  base: EvaluatedAction[],
+  constraint: ActiveConstraint,
+): EvaluatedAction[] {
+  if (constraint.target.kind !== 'company') return base;
+  if (state.phaseState.phase !== Phase.Site) return base;
+  const targetCompanyId = constraint.target.companyId;
+  if (activeCompanyId(state) !== targetCompanyId) return base;
+
+  return base.filter(ea => {
+    const actionType = ea.action.type;
+    if (actionType !== 'play-short-event' && actionType !== 'play-permanent-event') return true;
+    const cardInstId = (ea.action as { cardInstanceId?: CardInstanceId }).cardInstanceId;
+    if (!cardInstId) return true;
+    const defId = resolveInstanceId(state, cardInstId);
+    const def = defId ? state.cardPool[defId as string] : undefined;
+    if (!def || !('effects' in def) || !def.effects) return true;
+    if (!requiresScout(def.effects)) return true;
+    logDetail(`Constraint ${constraint.id as string} (deny-scout-resources): dropping "${def.name}" — requires scout`);
     return false;
   });
 }

@@ -133,6 +133,8 @@ export const SUN = did('tw-335');
 
 /** Smoke Rings — short event, fetch a resource or character from sideboard or discard pile to play deck. */
 export const SMOKE_RINGS = did('dm-159');
+/** Little Snuffler — orc creature, attacker chooses defenders, denies scout resources if not defeated. */
+export const LITTLE_SNUFFLER = did('dm-108');
 /** Concealment — short event, tap a scout to cancel one attack against his company. */
 export const CONCEALMENT = did('tw-204');
 /** Dodge — short event, target character does not tap against one strike (body -1 if wounded). */

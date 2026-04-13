@@ -650,6 +650,9 @@ function fireCompanyArrivesAtSite(
           case 'no-creature-hazards-on-company':
             kind = { type: 'no-creature-hazards-on-company' };
             break;
+          case 'deny-scout-resources':
+            kind = { type: 'deny-scout-resources' };
+            break;
           default:
             continue;
         }
