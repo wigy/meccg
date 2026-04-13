@@ -48,22 +48,32 @@ export function planMovementActions(state: GameState, playerId: PlayerId): Evalu
       siteInstMap.set(siteDef.name, siteCard.instanceId);
     }
 
-    // Rule 2.II.7.2: a company may also declare movement to a site already in
-    // play — i.e. the current site of another of this player's companies.
-    // Such a destination is not drawn from the site deck; both companies end
-    // up occupying the same site instance.
+    // Rule 3.37 / 3.39: a company may declare movement to a site card that
+    // this player already has in play, either:
+    //   (a) as another company's currentSite, or
+    //   (b) as another company's pending destinationSite (face-down movement
+    //       already declared this organization phase).
+    // Such a destination is not drawn from the site deck; the card instance
+    // is shared.
     for (const sibling of player.companies) {
       if (sibling.id === company.id) continue;
-      if (!sibling.currentSite) continue;
-      if (sibling.currentSite.instanceId === company.currentSite.instanceId) continue;
-      const siblingDef = state.cardPool[sibling.currentSite.definitionId as string];
-      if (!siblingDef || !isSiteCard(siblingDef)) continue;
-      // Deck entries win — if the same site name is already a deck candidate,
-      // keep the deck instance as the canonical choice.
-      if (siteInstMap.has(siblingDef.name)) continue;
-      candidateSites.push(siblingDef);
-      siteInstMap.set(siblingDef.name, sibling.currentSite.instanceId);
-      logDetail(`  sibling-in-play destination ${siblingDef.name} via company ${sibling.id as string}`);
+      const siblingSites = [sibling.currentSite, sibling.destinationSite];
+      for (const siblingSite of siblingSites) {
+        if (!siblingSite) continue;
+        if (siblingSite.instanceId === company.currentSite.instanceId) continue;
+        const siblingDef = state.cardPool[siblingSite.definitionId as string];
+        if (!siblingDef || !isSiteCard(siblingDef)) continue;
+        // Deck entries win — if the same site name is already a deck candidate,
+        // keep the deck instance as the canonical choice. Likewise, once we've
+        // added a sibling-in-play entry for this name we don't add a second
+        // (e.g. currentSite wins over destinationSite if both siblings reference
+        // the same site name via different instances, though in practice they
+        // share the instance once movement resolves).
+        if (siteInstMap.has(siblingDef.name)) continue;
+        candidateSites.push(siblingDef);
+        siteInstMap.set(siblingDef.name, siblingSite.instanceId);
+        logDetail(`  sibling-in-play destination ${siblingDef.name} via company ${sibling.id as string}`);
+      }
     }
 
     // Rule 2.II.7.1: no two companies sharing an origin may declare movement
