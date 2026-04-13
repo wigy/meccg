@@ -309,11 +309,81 @@ export function organizationActions(state: GameState, playerId: PlayerId): Evalu
     }
 
     resourceShortEventInstances.add(handCard.instanceId as string);
-    logDetail(`Resource short-event playable: ${def.name} (${handCard.instanceId as string})`);
-    actions.push({
-      action: { type: 'play-short-event', player: playerId, cardInstanceId: handCard.instanceId },
-      viable: true,
-    });
+
+    // Collect eligible discard-in-play targets (e.g. Marvels Told forces
+    // discard of a hazard non-environment permanent/long event). If the
+    // card has a discard-in-play effect but no valid targets exist, it
+    // cannot be played.
+    const discardInPlay = def.effects?.find(e => e.type === 'discard-in-play');
+    let discardTargetIds: CardInstanceId[] | null = null;
+    if (discardInPlay) {
+      discardTargetIds = [];
+      for (const p of state.players) {
+        for (const c of p.cardsInPlay) {
+          const cDef = state.cardPool[c.definitionId as string];
+          if (cDef && matchesCondition(discardInPlay.filter, cDef as unknown as Record<string, unknown>)) {
+            discardTargetIds.push(c.instanceId);
+          }
+        }
+      }
+      if (discardTargetIds.length === 0) {
+        logDetail(`${def.name}: no eligible discard-in-play target — not playable`);
+        actions.push({
+          action: { type: 'not-playable', player: playerId, cardInstanceId: handCard.instanceId },
+          viable: false,
+          reason: `${def.name} has no valid target to discard`,
+        });
+        continue;
+      }
+    }
+
+    // Emit one play action per eligible target combination. When the card
+    // has a play-target with tap cost AND discard-in-play, emit the cross-
+    // product of (tap target × discard target).
+    const emitOrgPlay = (tapTargetId: CardInstanceId | undefined) => {
+      if (discardTargetIds) {
+        for (const discardId of discardTargetIds) {
+          logDetail(`Resource short-event playable (target ${String(tapTargetId)}, discard ${String(discardId)}): ${def.name}`);
+          actions.push({
+            action: {
+              type: 'play-short-event',
+              player: playerId,
+              cardInstanceId: handCard.instanceId,
+              ...(tapTargetId ? { targetScoutInstanceId: tapTargetId } : {}),
+              discardTargetInstanceId: discardId,
+            },
+            viable: true,
+          });
+        }
+      } else {
+        logDetail(`Resource short-event playable${tapTargetId ? ` (target ${String(tapTargetId)})` : ''}: ${def.name}`);
+        actions.push({
+          action: {
+            type: 'play-short-event',
+            player: playerId,
+            cardInstanceId: handCard.instanceId,
+            ...(tapTargetId ? { targetScoutInstanceId: tapTargetId } : {}),
+          },
+          viable: true,
+        });
+      }
+    };
+
+    if (playTarget && playTarget.cost?.tap === 'character') {
+      const tapTargets = eligiblePlayOptionTargets(state, player, playTarget);
+      if (tapTargets.length === 0) {
+        logDetail(`${def.name}: no eligible targets — not playable`);
+        actions.push({
+          action: { type: 'not-playable', player: playerId, cardInstanceId: handCard.instanceId },
+          viable: false,
+          reason: `No eligible ${playTarget.target} to target`,
+        });
+      } else {
+        for (const targetId of tapTargets) emitOrgPlay(targetId);
+      }
+    } else {
+      emitOrgPlay(undefined);
+    }
   }
 
   // Mark remaining hand cards as not playable during organization
