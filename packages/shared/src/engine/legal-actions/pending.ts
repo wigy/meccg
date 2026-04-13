@@ -417,7 +417,7 @@ function reactiveCorruptionCheckPlays(
   if (actorIndex === -1) return actions;
   const player = state.players[actorIndex];
 
-  const ctx = buildPlayOptionContext(state, targetChar);
+  const ctx = buildPlayOptionContext(state, targetChar, player);
 
   for (const handCard of player.hand) {
     const def = state.cardPool[handCard.definitionId as string];

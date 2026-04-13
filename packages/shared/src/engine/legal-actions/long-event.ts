@@ -16,7 +16,7 @@
  * cards and show reasons for non-playable ones.
  */
 
-import type { GameState, PlayerId, EvaluatedAction, HeroResourceEventCard, PlayTargetEffect, CardInstanceId } from '../../index.js';
+import type { GameState, PlayerId, EvaluatedAction, HeroResourceEventCard, PlayTargetEffect, CardInstanceId, PlayerState } from '../../index.js';
 import { matchesCondition, CardStatus } from '../../index.js';
 import { logHeading, logDetail } from './log.js';
 import { getPlayTargetEffect, buildPlayOptionContext } from './organization.js';
@@ -245,7 +245,7 @@ function eligibleTapTargets(
   for (const [charIdStr, char] of Object.entries(player.characters)) {
     if (char.status !== CardStatus.Untapped) continue;
     if (playTarget.filter
-        && !matchesCondition(playTarget.filter, buildPlayOptionContext(state, char))) {
+        && !matchesCondition(playTarget.filter, buildPlayOptionContext(state, char, player as PlayerState))) {
       continue;
     }
     out.push(charIdStr as unknown as CardInstanceId);
