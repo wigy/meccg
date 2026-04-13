@@ -19,7 +19,8 @@
     ],
     "effects": [],
     "text": "Orcs. Two strikes.",
-    "race": "orc"
+    "race": "orc",
+    "certified": "2026-04-13"
   },
   {
     "cardType": "hazard-creature",
