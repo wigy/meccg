@@ -27,7 +27,7 @@ import {
   CRAM, SCROLL_OF_ISILDUR,
   GWAIHIR,
   ASSASSIN, CAVE_DRAKE, ORC_LIEUTENANT, ORC_PATROL, BARROW_WIGHT, BERT_BURAT, TOM_TUMA, WILLIAM_WULUAG, FOOLISH_WORDS, LURE_OF_THE_SENSES, LOST_IN_FREE_DOMAINS, STEALTH, RIVER,
-  SUN, EYE_OF_SAURON, GATES_OF_MORNING, TWILIGHT, DOORS_OF_NIGHT, SMOKE_RINGS, CONCEALMENT,
+  SUN, EYE_OF_SAURON, GATES_OF_MORNING, TWILIGHT, DOORS_OF_NIGHT, SMOKE_RINGS, CONCEALMENT, HALFLING_STRENGTH,
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH, MOUNT_DOOM, THRANDUILS_HALLS, BLUE_MOUNTAIN_DWARF_HOLD, DOL_AMROTH, BREE, PELARGIR, EDORAS, EAGLES_EYRIE, BANDIT_LAIR, DUNNISH_CLAN_HOLD, HENNETH_ANNUN, LOND_GALEN, TOLFALAS, EDHELLOND,
   WOOD_ELVES, BLUE_MOUNTAIN_DWARVES, KNIGHTS_OF_DOL_AMROTH, MEN_OF_ANORIEN, MEN_OF_ANFALAS, MEN_OF_LEBENNIN, RANGERS_OF_THE_NORTH, RANGERS_OF_ITHILIEN, RIDERS_OF_ROHAN, DUNLENDINGS,
 } from '../index.js';
@@ -253,9 +253,10 @@ export function runFullSetup(config?: GameConfig): GameState {
 
 import type {
   CompanyId, CardInPlay, CharacterInPlay, Company,
-  PlayerState, EffectiveStats, OnGuardCard,
+  PlayerState, OnGuardCard,
 } from '../index.js';
 import { CardStatus, ZERO_EFFECTIVE_STATS, ZERO_MARSHALLING_POINTS } from '../index.js';
+import { recomputeDerived } from '../engine/recompute-derived.js';
 
 let nextInstanceCounter = 1;
 
@@ -443,7 +444,11 @@ export function buildTestState(opts: BuildTestStateOpts): GameState {
     phaseState = { phase } as GameState['phaseState'];
   }
 
-  // Optionally recompute GI and effective stats from card definitions
+  // Optionally recompute GI and effective stats from card definitions.
+  // Uses the production `recomputeDerived` so item corruption points,
+  // DSL stat modifiers, and global effects all flow through exactly the
+  // same code the real reducer runs — avoids drift between tests and
+  // production.
   if (opts.recompute) {
     for (const ps of playerStates) {
       let giUsed = 0;
@@ -456,23 +461,10 @@ export function buildTestState(opts: BuildTestStateOpts): GameState {
         }
       }
       (ps as { generalInfluenceUsed: number }).generalInfluenceUsed = giUsed;
-
-      for (const [key, char] of Object.entries(ps.characters)) {
-        const def = pool[char.definitionId as string];
-        if (def && 'prowess' in def) {
-          const cd = def as { prowess: number; body: number; directInfluence: number };
-          (ps.characters[key] as { effectiveStats: EffectiveStats }).effectiveStats = {
-            prowess: cd.prowess,
-            body: cd.body,
-            directInfluence: cd.directInfluence,
-            corruptionPoints: 0,
-          };
-        }
-      }
     }
   }
 
-  return {
+  const baseState = {
     gameId: 'test-game',
     players: playerStates as unknown as readonly [PlayerState, PlayerState],
     activePlayer: opts.activePlayer,
@@ -491,6 +483,11 @@ export function buildTestState(opts: BuildTestStateOpts): GameState {
     lastTurnFor: null,
     cheatRollTotal: null,
   } as unknown as GameState;
+
+  if (opts.recompute) {
+    return recomputeDerived(baseState);
+  }
+  return baseState;
 }
 
 // ─── Shared test helpers ─────────────────────────────────────────────────────
@@ -1127,7 +1124,7 @@ export {
   CRAM, SCROLL_OF_ISILDUR,
   GWAIHIR,
   ASSASSIN, CAVE_DRAKE, ORC_LIEUTENANT, ORC_PATROL, BARROW_WIGHT, BERT_BURAT, TOM_TUMA, WILLIAM_WULUAG, FOOLISH_WORDS, LURE_OF_THE_SENSES, LOST_IN_FREE_DOMAINS, STEALTH, RIVER,
-  SUN, EYE_OF_SAURON, GATES_OF_MORNING, TWILIGHT, DOORS_OF_NIGHT, SMOKE_RINGS, CONCEALMENT,
+  SUN, EYE_OF_SAURON, GATES_OF_MORNING, TWILIGHT, DOORS_OF_NIGHT, SMOKE_RINGS, CONCEALMENT, HALFLING_STRENGTH,
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH, MOUNT_DOOM, THRANDUILS_HALLS, BLUE_MOUNTAIN_DWARF_HOLD, DOL_AMROTH, BREE, PELARGIR, EDORAS, EAGLES_EYRIE, BANDIT_LAIR, DUNNISH_CLAN_HOLD, HENNETH_ANNUN, LOND_GALEN, TOLFALAS, EDHELLOND,
   WOOD_ELVES, BLUE_MOUNTAIN_DWARVES, KNIGHTS_OF_DOL_AMROTH, MEN_OF_ANORIEN, MEN_OF_ANFALAS, MEN_OF_LEBENNIN, RANGERS_OF_THE_NORTH, RANGERS_OF_ITHILIEN, RIDERS_OF_ROHAN, DUNLENDINGS,
   CardStatus, ZERO_EFFECTIVE_STATS, ZERO_MARSHALLING_POINTS,

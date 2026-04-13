@@ -336,7 +336,34 @@
     "eventType": "short",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
+    "effects": [
+      { "type": "play-target", "target": "character", "filter": { "target.race": "hobbit" } },
+      {
+        "type": "play-option",
+        "id": "untap",
+        "when": { "target.status": "tapped" },
+        "apply": { "type": "set-character-status", "status": "untapped" }
+      },
+      {
+        "type": "play-option",
+        "id": "heal",
+        "when": { "target.status": "inverted" },
+        "apply": { "type": "set-character-status", "status": "untapped" }
+      },
+      {
+        "type": "play-option",
+        "id": "corruption-check-boost",
+        "when": { "pending.corruptionCheckTargetsMe": true },
+        "apply": {
+          "type": "add-constraint",
+          "constraint": "check-modifier",
+          "check": "corruption",
+          "scope": "until-cleared",
+          "value": 4
+        }
+      }
+    ],
+    "certified": "2026-04-13",
     "text": "Hobbit only. The Hobbit may untap or he may move from wounded status to well and untapped during his organization phase or he may receive a +4 modification to one corruption check."
   },
   {
@@ -522,7 +549,13 @@
       },
       {
         "type": "play-target",
-        "target": "own-scout",
+        "target": "character",
+        "filter": {
+          "$and": [
+            { "target.skills": { "$includes": "scout" } },
+            { "target.status": "untapped" }
+          ]
+        },
         "maxCompanySize": 2,
         "cost": { "tap": "character" }
       },

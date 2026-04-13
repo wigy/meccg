@@ -291,6 +291,36 @@ export function handlePlayResourceShortEvent(state: GameState, action: GameActio
     };
   }
 
+  // Handle DSL-declared play-option `set-character-status` applies (e.g.
+  // Halfling Strength's untap / heal options). Constraint-producing applies
+  // are resolved below against the fully-updated state via addConstraint.
+  const selectedOption = action.optionId
+    ? (def.effects?.find(
+        e => e.type === 'play-option' && e.id === action.optionId,
+      ) as import('../types/effects.js').PlayOptionEffect | undefined)
+    : undefined;
+
+  if (action.optionId && !selectedOption) {
+    return { state, error: `${def.name} has no play-option with id '${action.optionId}'` };
+  }
+
+  if (selectedOption && action.targetCharacterId && selectedOption.apply.type === 'set-character-status') {
+    const targetId = action.targetCharacterId as string;
+    const targetChar = newCharacters[targetId];
+    if (!targetChar) {
+      return { state, error: `Target character ${targetId} not in play` };
+    }
+    const nextStatus = selectedOption.apply.status;
+    if (nextStatus === undefined) {
+      return { state, error: `${def.name} option '${selectedOption.id}': set-character-status missing status` };
+    }
+    const statusEnum = nextStatus === 'untapped' ? CardStatus.Untapped
+      : nextStatus === 'tapped' ? CardStatus.Tapped
+        : CardStatus.Inverted;
+    logDetail(`${def.name} option "${selectedOption.id}": set ${targetId} status → ${nextStatus}`);
+    newCharacters = { ...newCharacters, [targetId]: { ...targetChar, status: statusEnum } };
+  }
+
   // Collect all effects that require player interaction to resolve
   const interactiveEffects: PendingEffect[] = (def.effects ?? [])
     .filter(e => e.type === 'fetch-to-deck')
@@ -303,6 +333,18 @@ export function handlePlayResourceShortEvent(state: GameState, action: GameActio
   // These are non-interactive and resolved immediately when the card is played.
   let newState: GameState = { ...state, players: newPlayers };
   newState = applyShortEventOnEntersPlay(newState, def, handCard, action, playerIndex);
+
+  // If the selected play-option is an `add-constraint` apply targeting the
+  // chosen character, add it via the generic DSL handler. The constraint
+  // kind, scope, and optional numeric payload come straight from the card
+  // JSON — no per-card branches here.
+  if (selectedOption && action.targetCharacterId && selectedOption.apply.type === 'add-constraint') {
+    const constraintResult = applyPlayOptionAddConstraint(
+      newState, def, handCard, selectedOption, action.targetCharacterId,
+    );
+    if ('error' in constraintResult) return { state, error: constraintResult.error };
+    newState = constraintResult.state;
+  }
 
   if (interactiveEffects.length > 0) {
     // Card goes to player's cardsInPlay (visible on table) while effects resolve
@@ -328,6 +370,63 @@ export function handlePlayResourceShortEvent(state: GameState, action: GameActio
     discardPile: [...newState.players[playerIndex].discardPile, handCard],
   };
   return { state: { ...newState, players: updatedPlayers } };
+}
+
+/**
+ * Resolves a {@link PlayOptionEffect} whose `apply.type` is `add-constraint`
+ * into a concrete {@link ActiveConstraint} placed on the targeted character.
+ * Reads constraint kind, scope, and optional numeric payload straight from
+ * the DSL so no per-card code is needed.
+ */
+function applyPlayOptionAddConstraint(
+  state: GameState,
+  def: { name: string },
+  handCard: CardInstance,
+  option: import('../types/effects.js').PlayOptionEffect,
+  targetCharacterId: import('../types/common.js').CardInstanceId,
+): { state: GameState } | { error: string } {
+  const apply = option.apply;
+  const constraintName = apply.constraint;
+  const scopeName = apply.scope;
+  if (!constraintName || !scopeName) {
+    return { error: `${def.name} option '${option.id}': add-constraint missing constraint or scope` };
+  }
+
+  let scope: import('../types/pending.js').ConstraintScope;
+  switch (scopeName) {
+    case 'turn':
+      scope = { kind: 'turn' };
+      break;
+    case 'until-cleared':
+      scope = { kind: 'until-cleared' };
+      break;
+    default:
+      return { error: `${def.name} option '${option.id}': unsupported scope '${scopeName}' for character-targeted add-constraint` };
+  }
+
+  type Kind = import('../types/pending.js').ActiveConstraint['kind'];
+  let kind: Kind;
+  switch (constraintName) {
+    case 'check-modifier':
+      if (typeof apply.value !== 'number' || typeof apply.check !== 'string') {
+        return { error: `${def.name} option '${option.id}': check-modifier requires 'check' and numeric 'value'` };
+      }
+      kind = { type: 'check-modifier', check: apply.check, value: apply.value };
+      break;
+    default:
+      return { error: `${def.name} option '${option.id}': unsupported constraint kind '${constraintName}' for character target` };
+  }
+
+  logDetail(`${def.name} option "${option.id}": add ${constraintName} on character ${targetCharacterId as string}, scope ${scopeName}`);
+  return {
+    state: addConstraint(state, {
+      source: handCard.instanceId,
+      sourceDefinitionId: handCard.definitionId,
+      scope,
+      target: { kind: 'character', characterId: targetCharacterId },
+      kind,
+    }),
+  };
 }
 
 /**

@@ -3,7 +3,8 @@
  *
  * Card test: Stealth (tw-332)
  * Type: hero-resource-event (short, scout-only)
- * Effects: 2 (play-target own-scout, on-event self-enters-play → add-constraint
+ * Effects: 2 (play-target character with DSL filter:scout+untapped,
+ *             on-event self-enters-play → add-constraint
  *             no-creature-hazards-on-company scope:turn)
  *
  * "Scout only. Tap a scout to play at the end of the organization phase
@@ -13,7 +14,7 @@
  * Engine Support:
  * | # | Feature                                  | Status      | Notes                                  |
  * |---|------------------------------------------|-------------|----------------------------------------|
- * | 1 | Play target = own scout                  | IMPLEMENTED | play-target target:"own-scout"         |
+ * | 1 | Target = untapped scout (DSL filter)     | IMPLEMENTED | play-target filter via condition-matcher |
  * | 2 | Play window = end of organization        | IMPLEMENTED | implicit end-of-org transition on play |
  * | 3 | Company size < 3 enforced                 | IMPLEMENTED | play-target maxCompanySize:2           |
  * | 4 | Adds no-creature-hazards constraint      | IMPLEMENTED | on-event self-enters-play apply        |
@@ -64,7 +65,13 @@ describe('Stealth (tw-332)', () => {
 
     const playTarget = def.effects?.find(e => e.type === 'play-target');
     expect(playTarget).toBeDefined();
-    expect(playTarget?.target).toBe('own-scout');
+    expect(playTarget?.target).toBe('character');
+    expect((playTarget as { filter?: unknown }).filter).toEqual({
+      $and: [
+        { 'target.skills': { $includes: 'scout' } },
+        { 'target.status': 'untapped' },
+      ],
+    });
 
     const onEvent = def.effects?.find(e => e.type === 'on-event');
     expect(onEvent).toBeDefined();

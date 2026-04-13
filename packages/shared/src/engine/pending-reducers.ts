@@ -19,7 +19,7 @@ import type {
   GameEffect,
 } from '../index.js';
 import type { ReducerResult } from './reducer-utils.js';
-import { dequeueResolution, enqueueResolution } from './pending.js';
+import { dequeueResolution, enqueueResolution, removeConstraint } from './pending.js';
 import { getPlayerIndex } from '../index.js';
 import { resolveInstanceId } from '../types/state.js';
 import { roll2d6, clonePlayers, cleanupEmptyCompanies } from './reducer-utils.js';
@@ -91,6 +91,13 @@ function applyCorruptionCheckResolution(
   action: GameAction,
   top: PendingResolution,
 ): ReducerResult | null {
+  // Reactive short-event plays (e.g. Halfling Strength's corruption-check
+  // boost) are legal during the corruption-check resolution window —
+  // return null so the dispatcher falls through to the per-phase reducer,
+  // which runs the normal `play-short-event` handler. The pending
+  // resolution stays in queue; the next legal-action cycle re-emits the
+  // roll action with any freshly-added constraints factored in.
+  if (action.type === 'play-short-event') return null;
   if (action.type !== 'corruption-check') {
     return { state, error: `Pending corruption check requires a corruption-check action, got '${action.type}'` };
   }
@@ -134,14 +141,23 @@ function applyCorruptionCheckResolution(
   const playersAfterRoll = clonePlayers(state);
   playersAfterRoll[playerIndex] = { ...playersAfterRoll[playerIndex], lastDiceRoll: roll };
 
+  // Consume one-shot check-modifier constraints for this character. Any
+  // constraint kind `check-modifier` with `check === 'corruption'` targeting
+  // this character contributed to the modifier above and is now cleared.
+  let postRollState: GameState = { ...state, players: playersAfterRoll, rng, cheatRollTotal };
+  for (const constraint of state.activeConstraints) {
+    if (constraint.kind.type === 'check-modifier'
+        && constraint.kind.check === 'corruption'
+        && constraint.target.kind === 'character'
+        && constraint.target.characterId === characterId) {
+      logDetail(`Consuming one-shot check-modifier constraint ${constraint.id} (corruption ${constraint.kind.value >= 0 ? '+' : ''}${constraint.kind.value})`);
+      postRollState = removeConstraint(postRollState, constraint.id);
+    }
+  }
+
   if (total > cp) {
     logDetail(`Corruption check passed (${total} > ${cp})`);
-    const stateAfterDequeue = dequeueResolution({
-      ...state,
-      players: playersAfterRoll,
-      rng,
-      cheatRollTotal,
-    }, top.id);
+    const stateAfterDequeue = dequeueResolution(postRollState, top.id);
     return { state: stateAfterDequeue, effects: [rollEffect] };
   }
 
@@ -227,10 +243,8 @@ function applyCorruptionCheckResolution(
   }
 
   const cleanedState = cleanupEmptyCompanies({
-    ...state,
+    ...postRollState,
     players: playersAfterRoll,
-    rng,
-    cheatRollTotal,
   });
 
   return {

@@ -270,6 +270,37 @@ export interface TriggeredAction {
    *  - `"until-cleared"` → never auto-swept
    */
   readonly scope?: string;
+  /**
+   * For `add-constraint` type with `constraint: "check-modifier"`: numeric
+   * bonus (or penalty if negative) applied to the target's next check of
+   * the matching type.
+   */
+  readonly value?: number;
+  /**
+   * For `set-character-status` type: the new status for the target
+   * character (e.g. `"untapped"` to untap or heal).
+   */
+  readonly status?: 'untapped' | 'tapped' | 'inverted';
+}
+
+/**
+ * Declares one of several mutually-exclusive choices the player may make
+ * when playing a card. Each option has an optional `when` condition that
+ * is evaluated against the target context ({@link PlayTargetEffect}); when
+ * it matches, the option is offered as a separate legal action. The
+ * chosen option's `apply` is resolved generically by the reducer.
+ *
+ * Example: Halfling Strength declares three options — untap the tapped
+ * hobbit, heal the wounded hobbit, or grant a one-shot +4 corruption
+ * check boost. The first two carry a `when` on the target's status; the
+ * third is always available.
+ */
+export interface PlayOptionEffect extends EffectBase {
+  readonly type: 'play-option';
+  /** Stable identifier the engine uses to dispatch the chosen option. */
+  readonly id: string;
+  /** The effect that resolves when this option is selected. */
+  readonly apply: TriggeredAction;
 }
 
 /**
@@ -351,22 +382,35 @@ export interface PlayWindowEffect extends EffectBase {
 /**
  * Declares what this card targets when played. The engine uses this to
  * generate per-target actions (e.g. one per eligible character).
+ *
+ * Character targeting is expressed entirely via the DSL: the coarse
+ * `target: "character"` selects the scope (each character in scope is a
+ * candidate) and an optional `filter` {@link Condition} refines it
+ * further. The filter is evaluated against the per-candidate context
+ * `{ target: { race, status, skills, name } }`, so conditions look like
+ * `{ "target.race": "hobbit" }` or
+ * `{ "target.skills": { "$includes": "scout" } }` — no card-specific
+ * target keywords are needed in the engine.
  */
 export interface PlayTargetEffect extends EffectBase {
   readonly type: 'play-target';
   /**
-   * What kind of target this card requires.
-   *
-   * - `"character"` — one play action per eligible character (e.g. Foolish Words, Lure of the Senses).
-   * - `"company"` — the active company (e.g. Lost in Free-domains).
-   * - `"site"` — the company's destination/current site (e.g. River).
-   * - `"own-scout"` — a scout in one of the resource player's companies (e.g. Stealth).
+   * The coarse target category. Resource-side `character` implicitly
+   * scopes to the active player's own characters; hazard-side
+   * `character` scopes to the active company's characters.
    */
-  readonly target: 'character' | 'company' | 'site' | 'own-scout';
+  readonly target: 'character' | 'company' | 'site';
   /**
-   * Maximum effective company size for the target's company.
-   * When set, the card is only playable if the scout's company has
-   * effective size ≤ this value (hobbits count as half).
+   * Optional DSL condition refining which candidates qualify. Evaluated
+   * against the per-candidate context (e.g. `target.race`,
+   * `target.status`, `target.skills`). When absent every candidate in
+   * scope qualifies.
+   */
+  readonly filter?: Condition;
+  /**
+   * Maximum effective company size for the target's company. When set,
+   * the card is only playable if the candidate's company has effective
+   * size ≤ this value (hobbits count as half).
    */
   readonly maxCompanySize?: number;
   /**
@@ -477,6 +521,7 @@ export type CardEffect =
   | PlayRestrictionEffect
   | DuplicationLimitEffect
   | PlayTargetEffect
+  | PlayOptionEffect
   | PlayWindowEffect
   | OnGuardRevealEffect
   | FetchToDeckEffect

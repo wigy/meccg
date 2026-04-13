@@ -249,22 +249,44 @@ Caps how many copies of this card can be in a given scope.
 Declares what this card targets when played. The engine uses this to
 generate per-target actions (one per eligible character, company, etc.).
 
+Character targeting is driven entirely by the DSL: the coarse `target`
+category picks the scope (each character in scope is a candidate) and
+an optional `filter` {@link Condition} refines it further. The filter
+is evaluated against the per-candidate context
+`{ target: { race, status, skills, name } }`, so there are no
+card-specific target keywords in the engine — a card declares its
+audience directly via a condition expression.
+
 ```json
 { "type": "play-target", "target": "character" }
-{ "type": "play-target", "target": "own-scout", "maxCompanySize": 2 }
-{ "type": "play-target", "target": "own-scout", "maxCompanySize": 2,
+{ "type": "play-target", "target": "character",
+  "filter": { "target.race": "hobbit" } }
+{ "type": "play-target", "target": "character",
+  "filter": {
+    "$and": [
+      { "target.skills": { "$includes": "scout" } },
+      { "target.status": "untapped" }
+    ]
+  },
+  "maxCompanySize": 2,
   "cost": { "tap": "character" } }
 ```
 
 Supported targets:
 
-- `character` — targets a single character in the company
-- `own-scout` — an untapped scout in one of the resource player's companies (e.g. Stealth)
+- `character` — each character in scope is a candidate. Resource-side
+  plays implicitly scope to the active player's own characters; hazard
+  plays scope to the active company's characters.
+- `company` — the active company (e.g. Lost in Free-domains).
+- `site` — the company's destination/current site (e.g. River).
 
 Optional fields:
 
+- `filter` — DSL condition restricting which candidates qualify. When
+  absent every candidate in scope qualifies.
 - `maxCompanySize` — maximum effective company size for eligibility
-  (hobbits count as half). Used with `own-scout` to enforce size limits.
+  (hobbits count as half). Used alongside the filter to enforce size
+  limits (e.g. Stealth).
 - `cost` — cost paid by the targeted character. Currently only
   `{ "tap": "character" }` is supported, which taps the chosen character
   when the card is played (e.g. Stealth taps the targeted scout). When a
@@ -550,3 +572,40 @@ The resolver:
     "cost": { "tap": "bearer" }, "rollThreshold": 8 }
 ]
 ```
+
+### Halfling Strength
+
+```json
+"effects": [
+  { "type": "play-target", "target": "character",
+    "filter": { "target.race": "hobbit" } },
+  { "type": "play-option", "id": "untap",
+    "when": { "target.status": "tapped" },
+    "apply": { "type": "set-character-status", "status": "untapped" } },
+  { "type": "play-option", "id": "heal",
+    "when": { "target.status": "inverted" },
+    "apply": { "type": "set-character-status", "status": "untapped" } },
+  { "type": "play-option", "id": "corruption-check-boost",
+    "apply": { "type": "add-constraint",
+               "constraint": "check-modifier",
+               "check": "corruption",
+               "scope": "until-cleared", "value": 4 } }
+]
+```
+
+`play-option` declares one of several mutually-exclusive choices the
+player may take when playing a card. Each option has an `id`, an optional
+`when` evaluated against the target context (`target.race`,
+`target.status`, `target.skills`), and an `apply` clause resolved by the
+generic reducer.
+
+Supported `apply` kinds today:
+
+- `set-character-status` — mutates the target character's status
+  (`tapped` / `untapped` / `inverted`). Untap and heal both map here.
+- `add-constraint` — attaches an {@link ActiveConstraint} to the target.
+  When `constraint: "check-modifier"` is used, the constraint behaves as
+  a one-shot bonus (`check`, `value`) to the target's next check of the
+  named type, consumed automatically on resolution. Future cards granting
+  one-shot bonuses to influence or other checks reuse the same kind
+  unchanged.

@@ -36,6 +36,19 @@ export interface PlayShortEventAction {
    * apply the tap cost when the action is reduced.
    */
   readonly targetScoutInstanceId?: CardInstanceId;
+  /**
+   * For cards whose `play-target` declares `target: "character"` with a
+   * DSL `filter` (e.g. Halfling Strength filtering on
+   * `target.race: hobbit`), the chosen character instance the short
+   * event resolves against.
+   */
+  readonly targetCharacterId?: CardInstanceId;
+  /**
+   * For cards declaring {@link PlayOptionEffect}s (e.g. Halfling Strength),
+   * the id of the option the player selected. The reducer dispatches the
+   * matching option's `apply` clause via the generic DSL handlers.
+   */
+  readonly optionId?: string;
 }
 
 /**

@@ -23,8 +23,9 @@ import type {
   GameAction,
   PlayerState,
 } from '../../index.js';
-import { isCharacterCard, CardStatus, Skill } from '../../index.js';
-import type { PlayTargetEffect } from '../../types/effects.js';
+import { isCharacterCard, CardStatus } from '../../index.js';
+import type { PlayTargetEffect, PlayOptionEffect } from '../../types/effects.js';
+import { matchesCondition } from '../../effects/condition-matcher.js';
 import { logDetail, logHeading } from './log.js';
 import { resolveDef, collectCharacterEffects, resolveStatModifiers } from '../effects/index.js';
 import type { ResolverContext } from '../effects/index.js';
@@ -281,6 +282,29 @@ export function organizationActions(state: GameState, playerId: PlayerId): Evalu
     const allCombatOnly = hasEffects && def.effects.every(e => combatOnlyTypes.has(e.type));
     if (allCombatOnly) {
       logDetail(`${def.name}: combat-only short-event, not playable outside combat`);
+      continue;
+    }
+
+    // Cards declaring `play-option` DSL effects (e.g. Halfling Strength):
+    // enumerate (target, option) pairs, emitting one legal action per
+    // combination whose option `when` matches the target's context.
+    const playTarget = getPlayTargetEffect(def);
+    const playOptions = getPlayOptionEffects(def);
+    if (playOptions.length > 0 && playTarget) {
+      resourceShortEventInstances.add(handCard.instanceId as string);
+      const optionActions = playOptionActionsForCard(
+        state, player, playerId, handCard.instanceId, def, playTarget, playOptions,
+      );
+      if (optionActions.length === 0) {
+        logDetail(`${def.name}: no eligible ${playTarget.target} targets — not playable`);
+        actions.push({
+          action: { type: 'not-playable', player: playerId, cardInstanceId: handCard.instanceId },
+          viable: false,
+          reason: `No eligible ${playTarget.target} to target`,
+        });
+      } else {
+        actions.push(...optionActions);
+      }
       continue;
     }
 
@@ -619,9 +643,9 @@ interface EndOfOrgEligibility {
 
 /**
  * Checks whether an end-of-org card's `play-target` constraints are
- * satisfied by the active player's current companies. Currently
- * supports `own-scout` targets with optional `maxCompanySize` limits
- * (e.g. Stealth: untapped scout in a company of size ≤ 2).
+ * satisfied by the active player's current companies. Character targeting
+ * is driven entirely by the card's DSL `filter` condition plus an
+ * optional `maxCompanySize` — there are no per-card branches here.
  */
 export function endOfOrgEligibility(
   state: GameState,
@@ -632,44 +656,44 @@ export function endOfOrgEligibility(
     (e): e is PlayTargetEffect => e.type === 'play-target',
   );
   if (!playTarget) return { eligible: true, reason: '', eligibleTargets: [] };
-
-  if (playTarget.target === 'own-scout') {
-    const eligibleTargets: CardInstanceId[] = [];
-    let foundScout = false;
-    for (const company of player.companies) {
-      const scoutsInCompany: CardInstanceId[] = [];
-      for (const charInstId of company.characters) {
-        const charDefId = resolveInstanceId(state, charInstId);
-        if (!charDefId) continue;
-        const charDef = state.cardPool[charDefId as string];
-        if (!charDef || !isCharacterCard(charDef)) continue;
-        if (!charDef.skills.includes(Skill.Scout)) continue;
-        const charInPlay = player.characters[charInstId as string];
-        if (charInPlay?.status !== CardStatus.Untapped) continue;
-        scoutsInCompany.push(charInstId);
-      }
-      if (scoutsInCompany.length === 0) continue;
-      foundScout = true;
-      if (playTarget.maxCompanySize !== undefined) {
-        const size = computeCompanySize(state, company);
-        if (size > playTarget.maxCompanySize) continue;
-      }
-      eligibleTargets.push(...scoutsInCompany);
-    }
-    if (eligibleTargets.length === 0) {
-      if (!foundScout) {
-        return { eligible: false, reason: `${def.name} requires an untapped scout`, eligibleTargets: [] };
-      }
-      return {
-        eligible: false,
-        reason: `${def.name} requires a company of size ≤ ${playTarget.maxCompanySize as number}`,
-        eligibleTargets: [],
-      };
-    }
-    return { eligible: true, reason: '', eligibleTargets };
+  if (playTarget.target !== 'character') {
+    return { eligible: true, reason: '', eligibleTargets: [] };
   }
 
-  return { eligible: true, reason: '', eligibleTargets: [] };
+  const eligibleTargets: CardInstanceId[] = [];
+  let foundMatchingCharacter = false;
+  for (const company of player.companies) {
+    const matchesInCompany: CardInstanceId[] = [];
+    for (const charInstId of company.characters) {
+      const char = player.characters[charInstId as string];
+      if (!char) continue;
+      const charDef = state.cardPool[char.definitionId as string];
+      if (!charDef || !isCharacterCard(charDef)) continue;
+      if (playTarget.filter
+          && !matchesCondition(playTarget.filter, buildTargetContext(state, char))) {
+        continue;
+      }
+      matchesInCompany.push(charInstId);
+    }
+    if (matchesInCompany.length === 0) continue;
+    foundMatchingCharacter = true;
+    if (playTarget.maxCompanySize !== undefined) {
+      const size = computeCompanySize(state, company);
+      if (size > playTarget.maxCompanySize) continue;
+    }
+    eligibleTargets.push(...matchesInCompany);
+  }
+  if (eligibleTargets.length === 0) {
+    if (!foundMatchingCharacter) {
+      return { eligible: false, reason: `${def.name} requires a matching character`, eligibleTargets: [] };
+    }
+    return {
+      eligible: false,
+      reason: `${def.name} requires a company of size ≤ ${playTarget.maxCompanySize as number}`,
+      eligibleTargets: [],
+    };
+  }
+  return { eligible: true, reason: '', eligibleTargets };
 }
 
 /**
@@ -678,6 +702,146 @@ export function endOfOrgEligibility(
  */
 export function getPlayTargetEffect(def: HeroResourceEventCard): PlayTargetEffect | undefined {
   return def.effects?.find((e): e is PlayTargetEffect => e.type === 'play-target');
+}
+
+/**
+ * Returns all {@link PlayOptionEffect}s declared on the given card.
+ */
+export function getPlayOptionEffects(def: HeroResourceEventCard): readonly PlayOptionEffect[] {
+  return def.effects?.filter((e): e is PlayOptionEffect => e.type === 'play-option') ?? [];
+}
+
+/**
+ * Maps a character's {@link CardStatus} to the string tokens used by
+ * {@link PlayOptionEffect} `when` conditions.
+ */
+function statusToken(status: CardStatus): 'tapped' | 'untapped' | 'inverted' {
+  switch (status) {
+    case CardStatus.Tapped: return 'tapped';
+    case CardStatus.Untapped: return 'untapped';
+    case CardStatus.Inverted: return 'inverted';
+  }
+}
+
+/**
+ * Builds the matcher context used to evaluate a {@link PlayTargetEffect}'s
+ * `filter` or a {@link PlayOptionEffect}'s `when` against a candidate
+ * target character. The context exposes:
+ *
+ *  - `target.race`, `target.status`, `target.skills`, `target.name` —
+ *    per-character attributes for filtering.
+ *  - `pending.corruptionCheckTargetsMe` — `true` iff a pending
+ *    corruption-check resolution exists whose `characterId` matches
+ *    the candidate. Enables reactive plays like Halfling Strength's
+ *    `+4 corruption check boost` option to declare
+ *    `when: { "pending.corruptionCheckTargetsMe": true }` and thereby
+ *    satisfy the CoE "cannot play cards without effect" rule.
+ *
+ * Exported so legal-action computers in other windows (e.g. the
+ * corruption-check pending-resolution window) can build the same
+ * context shape when scanning a player's hand for reactive plays.
+ */
+export function buildPlayOptionContext(
+  state: GameState,
+  char: import('../../index.js').CharacterInPlay,
+): Record<string, unknown> {
+  const def = state.cardPool[char.definitionId as string];
+  if (!def || !isCharacterCard(def)) {
+    return { target: {}, pending: { corruptionCheckTargetsMe: false } };
+  }
+  const corruptionCheckTargetsMe = state.pendingResolutions.some(
+    r => r.kind.type === 'corruption-check' && r.kind.characterId === char.instanceId,
+  );
+  return {
+    target: {
+      race: def.race,
+      status: statusToken(char.status),
+      skills: def.skills,
+      name: def.name,
+    },
+    pending: {
+      corruptionCheckTargetsMe,
+    },
+  };
+}
+
+/** Legacy alias retained for call sites inside this module. */
+function buildTargetContext(
+  state: GameState,
+  char: import('../../index.js').CharacterInPlay,
+): Record<string, unknown> {
+  return buildPlayOptionContext(state, char);
+}
+
+/**
+ * Enumerates candidate target character instance IDs for a
+ * {@link PlayTargetEffect} with `target: "character"`. Applies the
+ * optional DSL `filter` condition against each candidate's target
+ * context — no per-card / per-keyword branches. Non-character targets
+ * yield an empty list here; those are handled by dedicated play paths.
+ */
+function eligiblePlayOptionTargets(
+  state: GameState,
+  player: PlayerState,
+  playTarget: PlayTargetEffect,
+): CardInstanceId[] {
+  if (playTarget.target !== 'character') return [];
+  const out: CardInstanceId[] = [];
+  for (const [charIdStr, char] of Object.entries(player.characters)) {
+    const charDef = state.cardPool[char.definitionId as string];
+    if (!charDef || !isCharacterCard(charDef)) continue;
+    if (playTarget.filter
+        && !matchesCondition(playTarget.filter, buildTargetContext(state, char))) {
+      continue;
+    }
+    out.push(charIdStr as unknown as CardInstanceId);
+  }
+  return out;
+}
+
+/**
+ * Generates `play-short-event` actions for a card with {@link PlayOptionEffect}s.
+ * One action per (target, option) pair whose `when` (if any) matches the
+ * target context. The chosen option is carried on the action via
+ * `optionId` so the reducer can dispatch generically via the option's
+ * `apply` clause.
+ */
+function playOptionActionsForCard(
+  state: GameState,
+  player: PlayerState,
+  playerId: PlayerId,
+  cardInstanceId: CardInstanceId,
+  def: { name: string },
+  playTarget: PlayTargetEffect,
+  options: readonly PlayOptionEffect[],
+): EvaluatedAction[] {
+  const actions: EvaluatedAction[] = [];
+  const targets = eligiblePlayOptionTargets(state, player, playTarget);
+  for (const targetId of targets) {
+    const char = player.characters[targetId as string];
+    if (!char) continue;
+    const charDef = state.cardPool[char.definitionId as string];
+    const targetName = isCharacterCard(charDef) ? charDef.name : String(targetId);
+    const ctx = buildTargetContext(state, char);
+    for (const opt of options) {
+      if (opt.when && !matchesCondition(opt.when, ctx)) {
+        logDetail(`${def.name} on ${targetName}: option "${opt.id}" when-condition rejected`);
+        continue;
+      }
+      logDetail(`${def.name} playable on ${targetName}: option "${opt.id}"`);
+      actions.push({
+        action: {
+          type: 'play-short-event',
+          player: playerId,
+          cardInstanceId,
+          targetCharacterId: targetId,
+          optionId: opt.id,
+        },
+        viable: true,
+      });
+    }
+  }
+  return actions;
 }
 
 /**
