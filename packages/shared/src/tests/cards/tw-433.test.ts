@@ -42,9 +42,10 @@ import {
   EDHELLOND, TOLFALAS,
   ARAGORN, GIMLI, FARAMIR,
   GLAMDRING, DAGGER_OF_WESTERNESSE, SCROLL_OF_ISILDUR, THE_MITHRIL_COAT,
-  resetMint, pool, reduce,
+  resetMint, pool,
   buildSitePhaseState, setupAutoAttackStep, findCharInstanceId,
   viableActions,
+  dispatch,
 } from '../test-helpers.js';
 import {
   computeLegalActions,
@@ -137,145 +138,127 @@ describe('Tolfalas (tw-433)', () => {
     });
     const readyState = setupAutoAttackStep(state);
 
-    const result = reduce(readyState, { type: 'pass', player: PLAYER_1 });
-    expect(result.error).toBeUndefined();
-    expect(result.state.combat).toBeDefined();
-    expect(result.state.combat!.strikesTotal).toBe(3);
-    expect(result.state.combat!.strikeProwess).toBe(7);
-    expect(result.state.combat!.attackSource.type).toBe('automatic-attack');
+    const nextState = dispatch(readyState, { type: 'pass', player: PLAYER_1 });
+    expect(nextState.combat).toBeDefined();
+    expect(nextState.combat!.strikesTotal).toBe(3);
+    expect(nextState.combat!.strikeProwess).toBe(7);
+    expect(nextState.combat!.attackSource.type).toBe('automatic-attack');
   });
 
   // ─── Wound corruption check ────────────────────────────────────────────────
 
   test('wounded character gets corruption check after auto-attack', () => {
-    const state = buildSitePhaseState({
+    const initialState = buildSitePhaseState({
       site: TOLFALAS,
       characters: [ARAGORN, GIMLI, FARAMIR],
     });
-    const readyState = setupAutoAttackStep(state);
+    const readyState = setupAutoAttackStep(initialState);
 
     // Trigger auto-attack
-    let result = reduce(readyState, { type: 'pass', player: PLAYER_1 });
-    expect(result.error).toBeUndefined();
+    let state = dispatch(readyState, { type: 'pass', player: PLAYER_1 });
 
-    const aragornId = findCharInstanceId(result.state, 0, ARAGORN);
-    const gimliId = findCharInstanceId(result.state, 0, GIMLI);
-    const faramirId = findCharInstanceId(result.state, 0, FARAMIR);
+    const aragornId = findCharInstanceId(state, 0, ARAGORN);
+    const gimliId = findCharInstanceId(state, 0, GIMLI);
+    const faramirId = findCharInstanceId(state, 0, FARAMIR);
 
     // Defender assigns 3 strikes to 3 characters
-    result = reduce(result.state, { type: 'assign-strike', player: PLAYER_1, characterId: aragornId });
-    expect(result.error).toBeUndefined();
-    result = reduce(result.state, { type: 'assign-strike', player: PLAYER_1, characterId: gimliId });
-    expect(result.error).toBeUndefined();
-    result = reduce(result.state, { type: 'assign-strike', player: PLAYER_1, characterId: faramirId });
-    expect(result.error).toBeUndefined();
+    state = dispatch(state, { type: 'assign-strike', player: PLAYER_1, characterId: aragornId });
+    state = dispatch(state, { type: 'assign-strike', player: PLAYER_1, characterId: gimliId });
+    state = dispatch(state, { type: 'assign-strike', player: PLAYER_1, characterId: faramirId });
 
     // Choose strike order: resolve Aragorn first
-    let orderActions = viableActions(result.state, PLAYER_1, 'choose-strike-order');
+    let orderActions = viableActions(state, PLAYER_1, 'choose-strike-order');
     expect(orderActions.length).toBeGreaterThan(0);
     const aragornOrder = orderActions.find(a => 'characterId' in a.action && a.action.characterId === aragornId);
     expect(aragornOrder).toBeDefined();
-    result = reduce(result.state, aragornOrder!.action);
-    expect(result.error).toBeUndefined();
+    state = dispatch(state, aragornOrder!.action);
 
     // Resolve Aragorn's strike: untapped prowess 6, roll 1 → 7 = tie → no wound.
     // Use untap variant: prowess 6-3=3, roll 2 → 5 < 7 → wound.
-    let resolveActions = viableActions({ ...result.state, cheatRollTotal: 2 }, PLAYER_1, 'resolve-strike');
+    let resolveActions = viableActions({ ...state, cheatRollTotal: 2 }, PLAYER_1, 'resolve-strike');
     expect(resolveActions.length).toBeGreaterThan(0);
     const aragornResolve = resolveActions.find(a =>
       'tapToFight' in a.action && !a.action.tapToFight,
     );
     expect(aragornResolve).toBeDefined();
-    result = reduce({ ...result.state, cheatRollTotal: 2 }, aragornResolve!.action);
-    expect(result.error).toBeUndefined();
+    state = dispatch({ ...state, cheatRollTotal: 2 }, aragornResolve!.action);
 
     // Body check for Aragorn: roll 5, body 9 → survives (wounded)
-    if (result.state.combat?.phase === 'body-check') {
-      const bodyActions = viableActions(result.state, PLAYER_2, 'body-check-roll');
+    if (state.combat?.phase === 'body-check') {
+      const bodyActions = viableActions(state, PLAYER_2, 'body-check-roll');
       expect(bodyActions.length).toBeGreaterThan(0);
-      result = reduce({ ...result.state, cheatRollTotal: 5 }, bodyActions[0].action);
-      expect(result.error).toBeUndefined();
+      state = dispatch({ ...state, cheatRollTotal: 5 }, bodyActions[0].action);
     }
 
     // Choose and resolve Gimli's strike: high roll → wins
-    orderActions = viableActions(result.state, PLAYER_1, 'choose-strike-order');
+    orderActions = viableActions(state, PLAYER_1, 'choose-strike-order');
     if (orderActions.length > 0) {
-      result = reduce(result.state, orderActions[0].action);
-      expect(result.error).toBeUndefined();
+      state = dispatch(state, orderActions[0].action);
     }
-    resolveActions = viableActions({ ...result.state, cheatRollTotal: 12 }, PLAYER_1, 'resolve-strike');
+    resolveActions = viableActions({ ...state, cheatRollTotal: 12 }, PLAYER_1, 'resolve-strike');
     expect(resolveActions.length).toBeGreaterThan(0);
-    result = reduce({ ...result.state, cheatRollTotal: 12 }, resolveActions[0].action);
-    expect(result.error).toBeUndefined();
+    state = dispatch({ ...state, cheatRollTotal: 12 }, resolveActions[0].action);
 
     // Choose and resolve Faramir's strike: high roll → wins
-    orderActions = viableActions(result.state, PLAYER_1, 'choose-strike-order');
+    orderActions = viableActions(state, PLAYER_1, 'choose-strike-order');
     if (orderActions.length > 0) {
-      result = reduce(result.state, orderActions[0].action);
-      expect(result.error).toBeUndefined();
+      state = dispatch(state, orderActions[0].action);
     }
-    resolveActions = viableActions({ ...result.state, cheatRollTotal: 12 }, PLAYER_1, 'resolve-strike');
+    resolveActions = viableActions({ ...state, cheatRollTotal: 12 }, PLAYER_1, 'resolve-strike');
     expect(resolveActions.length).toBeGreaterThan(0);
-    result = reduce({ ...result.state, cheatRollTotal: 12 }, resolveActions[0].action);
-    expect(result.error).toBeUndefined();
+    state = dispatch({ ...state, cheatRollTotal: 12 }, resolveActions[0].action);
 
     // Combat should be done
-    expect(result.state.combat).toBeNull();
+    expect(state.combat).toBeNull();
 
     // Wound corruption check should be pending
-    const pending = result.state.pendingResolutions.filter(r => r.actor === PLAYER_1);
+    const pending = state.pendingResolutions.filter(r => r.actor === PLAYER_1);
     expect(pending).toHaveLength(1);
     expect(pending[0].kind.type).toBe('corruption-check');
     if (pending[0].kind.type !== 'corruption-check') return;
     expect(pending[0].kind.characterId).toBe(aragornId);
 
-    const actions = computeLegalActions(result.state, PLAYER_1);
+    const actions = computeLegalActions(state, PLAYER_1);
     const viable = actions.filter(a => a.viable);
     expect(viable).toHaveLength(1);
     expect(viable[0].action.type).toBe('corruption-check');
   });
 
   test('characters that win auto-attack strikes do not get corruption check', () => {
-    const state = buildSitePhaseState({
+    const initialState = buildSitePhaseState({
       site: TOLFALAS,
       characters: [ARAGORN, GIMLI, FARAMIR],
     });
-    const readyState = setupAutoAttackStep(state);
+    const readyState = setupAutoAttackStep(initialState);
 
     // Trigger auto-attack
-    let result = reduce(readyState, { type: 'pass', player: PLAYER_1 });
-    expect(result.error).toBeUndefined();
+    let state = dispatch(readyState, { type: 'pass', player: PLAYER_1 });
 
-    const aragornId = findCharInstanceId(result.state, 0, ARAGORN);
-    const gimliId = findCharInstanceId(result.state, 0, GIMLI);
-    const faramirId = findCharInstanceId(result.state, 0, FARAMIR);
+    const aragornId = findCharInstanceId(state, 0, ARAGORN);
+    const gimliId = findCharInstanceId(state, 0, GIMLI);
+    const faramirId = findCharInstanceId(state, 0, FARAMIR);
 
     // Assign all 3 strikes
-    result = reduce(result.state, { type: 'assign-strike', player: PLAYER_1, characterId: aragornId });
-    expect(result.error).toBeUndefined();
-    result = reduce(result.state, { type: 'assign-strike', player: PLAYER_1, characterId: gimliId });
-    expect(result.error).toBeUndefined();
-    result = reduce(result.state, { type: 'assign-strike', player: PLAYER_1, characterId: faramirId });
-    expect(result.error).toBeUndefined();
+    state = dispatch(state, { type: 'assign-strike', player: PLAYER_1, characterId: aragornId });
+    state = dispatch(state, { type: 'assign-strike', player: PLAYER_1, characterId: gimliId });
+    state = dispatch(state, { type: 'assign-strike', player: PLAYER_1, characterId: faramirId });
 
     // Choose strike order and resolve all 3 strikes with high rolls — everyone wins
     for (let i = 0; i < 3; i++) {
-      const orderActions = viableActions(result.state, PLAYER_1, 'choose-strike-order');
+      const orderActions = viableActions(state, PLAYER_1, 'choose-strike-order');
       if (orderActions.length > 0) {
-        result = reduce(result.state, orderActions[0].action);
-        expect(result.error).toBeUndefined();
+        state = dispatch(state, orderActions[0].action);
       }
-      const resolveActions = viableActions({ ...result.state, cheatRollTotal: 12 }, PLAYER_1, 'resolve-strike');
+      const resolveActions = viableActions({ ...state, cheatRollTotal: 12 }, PLAYER_1, 'resolve-strike');
       expect(resolveActions.length).toBeGreaterThan(0);
-      result = reduce({ ...result.state, cheatRollTotal: 12 }, resolveActions[0].action);
-      expect(result.error).toBeUndefined();
+      state = dispatch({ ...state, cheatRollTotal: 12 }, resolveActions[0].action);
     }
 
     // Combat done, no corruption checks
-    expect(result.state.combat).toBeNull();
-    expect(result.state.pendingResolutions).toHaveLength(0);
+    expect(state.combat).toBeNull();
+    expect(state.pendingResolutions).toHaveLength(0);
 
-    const actions = computeLegalActions(result.state, PLAYER_1);
+    const actions = computeLegalActions(state, PLAYER_1);
     const viable = actions.filter(a => a.viable);
     expect(viable).toHaveLength(1);
     expect(viable[0].action.type).toBe('pass');

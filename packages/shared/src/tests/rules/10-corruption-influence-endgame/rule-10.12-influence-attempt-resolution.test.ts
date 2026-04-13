@@ -29,7 +29,7 @@ import { describe, test, expect } from 'vitest';
 import {
   buildResolutionState, attemptInfluence, defendInfluence,
   findCharInstanceId, viableActions, PLAYER_1, PLAYER_2,
-  CardStatus, reduce,
+  CardStatus, dispatch,
   ARAGORN, LEGOLAS, GIMLI, BILBO, EOWYN,
   GLAMDRING,
 } from '../../test-helpers.js';
@@ -159,9 +159,8 @@ describe('Rule 10.12 — Resolving an Influence Attempt', () => {
     const revealAction = actions.find(a => a.action.revealedCardInstanceId !== undefined);
     expect(revealAction).toBeDefined();
 
-    const result = reduce(state, revealAction!.action);
-    expect(result.error).toBeUndefined();
-    const pending = result.state.pendingResolutions.find(r => r.kind.type === 'opponent-influence-defend');
+    const nextState = dispatch(state, revealAction!.action);
+    const pending = nextState.pendingResolutions.find(r => r.kind.type === 'opponent-influence-defend');
     expect(pending).toBeDefined();
     if (pending?.kind.type !== 'opponent-influence-defend') return;
     expect(pending.kind.attempt.targetMind).toBe(0);
@@ -174,8 +173,8 @@ describe('Rule 10.12 — Resolving an Influence Attempt', () => {
     const revealAction = actions.find(a => a.action.revealedCardInstanceId !== undefined)!;
 
     const handBefore = state.players[0].hand.length;
-    const result = reduce(state, revealAction.action);
-    expect(result.state.players[0].hand.length).toBe(handBefore - 1);
+    const nextState = dispatch(state, revealAction.action);
+    expect(nextState.players[0].hand.length).toBe(handBefore - 1);
   });
 
   test('revealed card goes to discard on failed influence', () => {
@@ -184,9 +183,8 @@ describe('Rule 10.12 — Resolving an Influence Attempt', () => {
     const actions = viableActions(state, PLAYER_1, 'opponent-influence-attempt') as { action: OpponentInfluenceAttemptAction }[];
     const revealAction = actions.find(a => a.action.revealedCardInstanceId !== undefined)!;
 
-    const afterAttempt = reduce(state, revealAction.action);
-    expect(afterAttempt.error).toBeUndefined();
-    const defState = { ...afterAttempt.state, cheatRollTotal: 12 };
+    const afterAttempt = dispatch(state, revealAction.action);
+    const defState = { ...afterAttempt, cheatRollTotal: 12 };
     const { state: afterDefend } = defendInfluence(defState);
 
     // Revealed card should be in attacker's discard

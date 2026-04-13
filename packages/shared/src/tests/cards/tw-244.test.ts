@@ -16,7 +16,6 @@
 import { describe, test, expect, beforeEach } from 'vitest';
 import {
   pool, PLAYER_1, PLAYER_2,
-  reduce,
   ARAGORN, FRODO, GLORFINDEL_II,
   GLAMDRING, ORC_LIEUTENANT,
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
@@ -24,6 +23,7 @@ import {
   buildTestState, resetMint, makeMHState,
   findCharInstanceId,
   playCreatureHazardAndResolve,
+  handCardId, companyIdAt, dispatch, getCharacter,
 } from '../test-helpers.js';
 import type { CharacterCard } from '../../index.js';
 import { computeLegalActions, RegionType, SiteType } from '../../index.js';
@@ -46,14 +46,11 @@ describe('Glamdring (tw-244)', () => {
     });
 
     // Dispatch pass to trigger recomputeDerived with DSL effects
-    const result = reduce(state, { type: 'pass', player: PLAYER_1 });
-    expect(result.error).toBeUndefined();
-    const s = result.state;
+    const s = dispatch(state, { type: 'pass', player: PLAYER_1 });
 
-    const aragornId = findCharInstanceId(s, 0, ARAGORN);
     const baseDef = pool[ARAGORN as string] as CharacterCard;
     expect(baseDef.prowess).toBe(6);
-    expect(s.players[0].characters[aragornId as string].effectiveStats.prowess).toBe(8);
+    expect(getCharacter(s, 0, ARAGORN).effectiveStats.prowess).toBe(8);
   });
 
   test('prowess +3 uncapped for Frodo (base 1)', () => {
@@ -68,14 +65,11 @@ describe('Glamdring (tw-244)', () => {
       ],
     });
 
-    const result = reduce(state, { type: 'pass', player: PLAYER_1 });
-    expect(result.error).toBeUndefined();
-    const s = result.state;
+    const s = dispatch(state, { type: 'pass', player: PLAYER_1 });
 
-    const frodoId = findCharInstanceId(s, 0, FRODO);
     const baseDef = pool[FRODO as string] as CharacterCard;
     expect(baseDef.prowess).toBe(1);
-    expect(s.players[0].characters[frodoId as string].effectiveStats.prowess).toBe(4);
+    expect(getCharacter(s, 0, FRODO).effectiveStats.prowess).toBe(4);
   });
 
   test('prowess capped at 8 for Glorfindel II (base 8)', () => {
@@ -90,14 +84,11 @@ describe('Glamdring (tw-244)', () => {
       ],
     });
 
-    const result = reduce(state, { type: 'pass', player: PLAYER_1 });
-    expect(result.error).toBeUndefined();
-    const s = result.state;
+    const s = dispatch(state, { type: 'pass', player: PLAYER_1 });
 
-    const glorfinId = findCharInstanceId(s, 0, GLORFINDEL_II);
     const baseDef = pool[GLORFINDEL_II as string] as CharacterCard;
     expect(baseDef.prowess).toBe(8);
-    expect(s.players[0].characters[glorfinId as string].effectiveStats.prowess).toBe(8);
+    expect(getCharacter(s, 0, GLORFINDEL_II).effectiveStats.prowess).toBe(8);
   });
 
   test('prowess capped at 9 (not 8) against Orcs', () => {
@@ -133,8 +124,8 @@ describe('Glamdring (tw-244)', () => {
     });
     const gameState = { ...state, phaseState: mhState };
 
-    const orcId = gameState.players[1].hand[0].instanceId;
-    const companyId = gameState.players[0].companies[0].id;
+    const orcId = handCardId(gameState, 1);
+    const companyId = companyIdAt(gameState, 0);
     const afterCombat = playCreatureHazardAndResolve(
       gameState, PLAYER_2, orcId, companyId,
       { method: 'region-type' as const, value: 'wilderness' },
@@ -142,14 +133,12 @@ describe('Glamdring (tw-244)', () => {
 
     // Assign the single strike to Aragorn
     const aragornId = findCharInstanceId(afterCombat, 0, ARAGORN);
-    const assigned = reduce(afterCombat, { type: 'assign-strike', player: PLAYER_1, characterId: aragornId });
-    expect(assigned.error).toBeUndefined();
+    const assigned = dispatch(afterCombat, { type: 'assign-strike', player: PLAYER_1, characterId: aragornId });
     // Defender passes → all strikes assigned, transitions to resolve
-    const passed = reduce(assigned.state, { type: 'pass', player: PLAYER_1 });
-    expect(passed.error).toBeUndefined();
+    const passed = dispatch(assigned, { type: 'pass', player: PLAYER_1 });
 
     // Now in resolve-strike phase
-    const actions = computeLegalActions(passed.state, PLAYER_1);
+    const actions = computeLegalActions(passed, PLAYER_1);
     const resolveStrikes = actions.filter(a => a.viable && a.action.type === 'resolve-strike');
     expect(resolveStrikes.length).toBeGreaterThan(0);
 
@@ -173,12 +162,9 @@ describe('Glamdring (tw-244)', () => {
       ],
     });
 
-    const result = reduce(state, { type: 'pass', player: PLAYER_1 });
-    expect(result.error).toBeUndefined();
-    const s = result.state;
+    const s = dispatch(state, { type: 'pass', player: PLAYER_1 });
 
-    const aragornId = findCharInstanceId(s, 0, ARAGORN);
     const baseDef = pool[ARAGORN as string] as CharacterCard;
-    expect(s.players[0].characters[aragornId as string].effectiveStats.body).toBe(baseDef.body);
+    expect(getCharacter(s, 0, ARAGORN).effectiveStats.body).toBe(baseDef.body);
   });
 });

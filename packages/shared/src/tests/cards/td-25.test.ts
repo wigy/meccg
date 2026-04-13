@@ -36,6 +36,8 @@ import {
   FOOLISH_WORDS, KNIGHTS_OF_DOL_AMROTH,
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH, DOL_AMROTH,
   viableActions, CardStatus,
+  handCardId, charIdAt, dispatch, setCharStatus,
+  expectCharStatus, expectInDiscardPile,
 } from '../test-helpers.js';
 import type { PlayHazardAction, InfluenceAttemptAction, FactionInfluenceRollAction, ActivateGrantedAction } from '../../index.js';
 import { computeLegalActions } from '../../engine/legal-actions/index.js';
@@ -84,8 +86,8 @@ describe('Foolish Words (td-25)', () => {
     expect(uniqueTargets.size).toBe(2);
 
     // Both characters from PLAYER_1's company should be targets
-    const aragornId = mhGameState.players[0].companies[0].characters[0];
-    const gandalfId = mhGameState.players[0].companies[0].characters[1];
+    const aragornId = charIdAt(mhGameState, 0, 0, 0);
+    const gandalfId = charIdAt(mhGameState, 0, 0, 1);
     expect(uniqueTargets.has(aragornId)).toBe(true);
     expect(uniqueTargets.has(gandalfId)).toBe(true);
   });
@@ -144,7 +146,7 @@ describe('Foolish Words (td-25)', () => {
     expect(ogActions).toHaveLength(1);
 
     // The card being placed is Foolish Words
-    const fwInstanceId = mhGameState.players[1].hand[0].instanceId;
+    const fwInstanceId = handCardId(mhGameState, 1);
     const action = ogActions[0].action as { cardInstanceId: string };
     expect(action.cardInstanceId).toBe(fwInstanceId);
   });
@@ -180,20 +182,7 @@ describe('Foolish Words (td-25)', () => {
 
     const withFW = attachHazardToChar(base, 0, ARAGORN, FOOLISH_WORDS);
     // Tap the character
-    const aragornId = withFW.players[0].companies[0].characters[0];
-    const tappedState = {
-      ...withFW,
-      players: [
-        {
-          ...withFW.players[0],
-          characters: {
-            ...withFW.players[0].characters,
-            [aragornId as string]: { ...withFW.players[0].characters[aragornId as string], status: CardStatus.Tapped },
-          },
-        },
-        withFW.players[1],
-      ] as typeof withFW.players,
-    };
+    const tappedState = setCharStatus(withFW, 0, ARAGORN, CardStatus.Tapped);
 
     const actions = viableActions(tappedState, PLAYER_1, 'activate-granted-action');
     expect(actions.length).toBe(0);
@@ -216,18 +205,17 @@ describe('Foolish Words (td-25)', () => {
     const actions = viableActions(cheated, PLAYER_1, 'activate-granted-action');
     expect(actions.length).toBe(1);
 
-    const result = reduce(cheated, actions[0].action);
-    expect(result.error).toBeUndefined();
+    const next = dispatch(cheated, actions[0].action);
 
     // Character should be tapped
-    const aragornId = result.state.players[0].companies[0].characters[0];
-    expect(result.state.players[0].characters[aragornId as string].status).toBe(CardStatus.Tapped);
+    expectCharStatus(next, 0, ARAGORN, CardStatus.Tapped);
 
     // Foolish Words should be removed from character's hazards
-    expect(result.state.players[0].characters[aragornId as string].hazards).toHaveLength(0);
+    const aragornId = charIdAt(next, 0);
+    expect(next.players[0].characters[aragornId as string].hazards).toHaveLength(0);
 
     // Foolish Words should be in opponent's discard pile (hazard belongs to opponent)
-    expect(result.state.players[1].discardPile.some(c => c.definitionId === FOOLISH_WORDS)).toBe(true);
+    expectInDiscardPile(next, 1, FOOLISH_WORDS);
   });
 
   test('failed removal roll (<=7) keeps Foolish Words attached and taps character', () => {
@@ -247,19 +235,18 @@ describe('Foolish Words (td-25)', () => {
     const actions = viableActions(cheated, PLAYER_1, 'activate-granted-action');
     expect(actions.length).toBe(1);
 
-    const result = reduce(cheated, actions[0].action);
-    expect(result.error).toBeUndefined();
+    const next = dispatch(cheated, actions[0].action);
 
     // Character should be tapped
-    const aragornId = result.state.players[0].companies[0].characters[0];
-    expect(result.state.players[0].characters[aragornId as string].status).toBe(CardStatus.Tapped);
+    expectCharStatus(next, 0, ARAGORN, CardStatus.Tapped);
 
     // Foolish Words should still be attached
-    expect(result.state.players[0].characters[aragornId as string].hazards).toHaveLength(1);
-    expect(result.state.players[0].characters[aragornId as string].hazards[0].definitionId).toBe(FOOLISH_WORDS);
+    const aragornId = charIdAt(next, 0);
+    expect(next.players[0].characters[aragornId as string].hazards).toHaveLength(1);
+    expect(next.players[0].characters[aragornId as string].hazards[0].definitionId).toBe(FOOLISH_WORDS);
 
     // Opponent's discard pile should not have Foolish Words
-    expect(result.state.players[1].discardPile.some(c => c.definitionId === FOOLISH_WORDS)).toBe(false);
+    expect(next.players[1].discardPile.some(c => c.definitionId === FOOLISH_WORDS)).toBe(false);
   });
 
   test('on-guard Foolish Words revealed at influence-attempt applies -4 to the roll', () => {
@@ -281,23 +268,21 @@ describe('Foolish Words (td-25)', () => {
     expect(influenceAction).toBeDefined();
     const needBefore = (influenceAction.action as InfluenceAttemptAction).need;
 
-    const afterAttempt = reduce(testState, influenceAction.action);
-    expect(afterAttempt.error).toBeUndefined();
+    const afterAttempt = dispatch(testState, influenceAction.action);
 
     // PLAYER_2 reveals Foolish Words targeting Aragorn
-    const revealActions = viableActions(afterAttempt.state, PLAYER_2, 'reveal-on-guard');
+    const revealActions = viableActions(afterAttempt, PLAYER_2, 'reveal-on-guard');
     expect(revealActions.length).toBeGreaterThanOrEqual(1);
     expect((revealActions[0].action as { cardInstanceId: string }).cardInstanceId).toBe(ogCard.instanceId);
 
-    const afterReveal = reduce(afterAttempt.state, revealActions[0].action);
-    expect(afterReveal.error).toBeUndefined();
-    expect(afterReveal.state.chain).not.toBeNull();
+    const afterReveal = dispatch(afterAttempt, revealActions[0].action);
+    expect(afterReveal.chain).not.toBeNull();
 
     // Resolve the chain (both players pass priority). Auto-resolution stops
     // at the influence-attempt entry, which pauses the chain (still alive,
     // entry unresolved, faction card still on it) so the UI can display the
     // situation banner before the player commits to rolling.
-    let current = afterReveal.state;
+    let current = afterReveal;
     for (let i = 0; i < 10 && current.chain !== null; i++) {
       const pass = viableActions(current, current.chain.priority, 'pass-chain-priority');
       if (pass.length === 0) break;

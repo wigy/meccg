@@ -37,8 +37,9 @@ import { describe, test, expect, beforeEach } from 'vitest';
 import {
   PLAYER_1,
   LORIEN,
-  resetMint, pool, reduce,
+  resetMint, pool,
   buildSitePhaseState,
+  dispatch,
 } from '../test-helpers.js';
 import {
   computeLegalActions,
@@ -204,12 +205,11 @@ describe('Isengard (tw-404)', () => {
     const readyState = { ...state, phaseState: autoAttackState };
 
     // Active player passes to trigger the automatic attack combat.
-    const result = reduce(readyState, { type: 'pass', player: PLAYER_1 });
-    expect(result.error).toBeUndefined();
-    expect(result.state.combat).toBeDefined();
-    expect(result.state.combat!.strikesTotal).toBe(3);
-    expect(result.state.combat!.strikeProwess).toBe(7);
-    expect(result.state.combat!.attackSource.type).toBe('automatic-attack');
+    const nextState = dispatch(readyState, { type: 'pass', player: PLAYER_1 });
+    expect(nextState.combat).toBeDefined();
+    expect(nextState.combat!.strikesTotal).toBe(3);
+    expect(nextState.combat!.strikeProwess).toBe(7);
+    expect(nextState.combat!.attackSource.type).toBe('automatic-attack');
   });
 
   // ─── No special effects ───────────────────────────────────────────────────

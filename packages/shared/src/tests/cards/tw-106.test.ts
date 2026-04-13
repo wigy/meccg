@@ -22,6 +22,7 @@ import {
   buildTestState, resetMint,
   viableActions,
   playShortEventAndResolve,
+  handCardId,
 } from '../test-helpers.js';
 import { computeLegalActions, Phase } from '../../index.js';
 import type { CardInPlay, CardInstanceId, GameState, MovementHazardPhaseState } from '../../index.js';
@@ -47,7 +48,7 @@ describe('Twilight (tw-106)', () => {
       ],
     });
 
-    const twilightId = state.players[0].hand[0].instanceId;
+    const twilightId = handCardId(state, 0);
     const s = playShortEventAndResolve(state, PLAYER_1, twilightId, 'gom-1' as CardInstanceId);
 
     // Gates of Morning removed from cardsInPlay → discard
@@ -75,7 +76,7 @@ describe('Twilight (tw-106)', () => {
       ],
     });
 
-    const twilightId = state.players[0].hand[0].instanceId;
+    const twilightId = handCardId(state, 0);
     const s = playShortEventAndResolve(state, PLAYER_1, twilightId, 'gom-1' as CardInstanceId);
 
     // GoM removed from opponent's cardsInPlay → opponent's discard
@@ -152,8 +153,8 @@ describe('Twilight (tw-106)', () => {
       ],
     });
 
-    const twilight1 = state.players[0].hand[0].instanceId;
-    const twilight2 = state.players[0].hand[1].instanceId;
+    const twilight1 = handCardId(state, 0, 0);
+    const twilight2 = handCardId(state, 0, 1);
 
     // P1 plays Twilight #1 targeting Gates of Morning → chain starts
     let result = reduce(state, { type: 'play-short-event', player: PLAYER_1, cardInstanceId: twilight1, targetInstanceId: 'gom-1' as CardInstanceId });
@@ -207,8 +208,8 @@ describe('Twilight (tw-106)', () => {
       ],
     });
 
-    const p1Twilight = state.players[0].hand[0].instanceId;
-    const p2Twilight = state.players[1].hand[0].instanceId;
+    const p1Twilight = handCardId(state, 0);
+    const p2Twilight = handCardId(state, 1);
 
     // P1 plays Twilight targeting Gates of Morning → chain starts, P2 gets priority
     let result = reduce(state, { type: 'play-short-event', player: PLAYER_1, cardInstanceId: p1Twilight, targetInstanceId: 'gom-1' as CardInstanceId });
@@ -255,7 +256,7 @@ describe('Twilight (tw-106)', () => {
       ],
     });
 
-    const twilightId = state.players[0].hand[0].instanceId;
+    const twilightId = handCardId(state, 0);
 
     // P1 plays Twilight → chain starts, P2 has priority
     let result = reduce(state, { type: 'play-short-event', player: PLAYER_1, cardInstanceId: twilightId, targetInstanceId: 'gom-1' as CardInstanceId });
@@ -377,7 +378,7 @@ describe('Twilight (tw-106)', () => {
     const mhGameState: GameState = { ...state, phaseState: mhState };
 
     // P1 plays Twilight targeting GoM via play-short-event (as resource player response)
-    const twilightId = mhGameState.players[0].hand[0].instanceId;
+    const twilightId = handCardId(mhGameState, 0);
     const result = reduce(mhGameState, { type: 'play-short-event', player: PLAYER_1, cardInstanceId: twilightId, targetInstanceId: 'gom-1' as CardInstanceId });
     expect(result.error).toBeUndefined();
 
@@ -402,8 +403,8 @@ describe('Twilight (tw-106)', () => {
       ],
     });
 
-    const twilight1 = state.players[0].hand[0].instanceId;
-    const twilight2 = state.players[0].hand[1].instanceId;
+    const twilight1 = handCardId(state, 0, 0);
+    const twilight2 = handCardId(state, 0, 1);
 
     // P1 plays Twilight #1 targeting GoM
     let result = reduce(state, { type: 'play-short-event', player: PLAYER_1, cardInstanceId: twilight1, targetInstanceId: 'gom-1' as CardInstanceId });

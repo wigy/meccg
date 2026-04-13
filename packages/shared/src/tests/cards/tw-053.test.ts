@@ -31,6 +31,7 @@ import {
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
   pool,
   makeMHState,
+  handCardId, companyIdAt, dispatch,
 } from '../test-helpers.js';
 import type {
   CompanyId, HazardEventCard,
@@ -71,7 +72,7 @@ describe('Lost in Free-domains (tw-53)', () => {
       ],
     });
 
-    const targetCompanyId = base.players[0].companies[0].id;
+    const targetCompanyId = companyIdAt(base, 0);
 
     // Move into the enter-or-skip step for the target company.
     const sitePhaseState: SitePhaseState = {
@@ -166,7 +167,7 @@ describe('Lost in Free-domains (tw-53)', () => {
       ],
     });
 
-    const targetCompanyId = base.players[0].companies[0].id;
+    const targetCompanyId = companyIdAt(base, 0);
     const constrained = addConstraint(base, {
       source: 'lifd-1' as never,
       sourceDefinitionId: LOST_IN_FREE_DOMAINS,
@@ -194,8 +195,8 @@ describe('Lost in Free-domains (tw-53)', () => {
       ],
     });
 
-    const targetCompanyId = base.players[0].companies[0].id;
-    const lifdInstance = base.players[1].hand[0].instanceId;
+    const targetCompanyId = companyIdAt(base, 0);
+    const lifdInstance = handCardId(base, 1);
 
     const mhState = makeMHState({ activeCompanyIndex: 0 });
     const stateAtPlayHazards = { ...base, phaseState: mhState };
@@ -228,23 +229,22 @@ describe('Lost in Free-domains (tw-53)', () => {
       ],
     });
 
-    const targetCompanyId = base.players[0].companies[0].id;
-    const lifdInstance = base.players[1].hand[0].instanceId;
+    const targetCompanyId = companyIdAt(base, 0);
+    const lifdInstance = handCardId(base, 1);
 
     const mhState = makeMHState({ activeCompanyIndex: 0 });
     const stateAtPlayHazards = { ...base, phaseState: mhState };
 
-    const playResult = reduce(stateAtPlayHazards, {
+    const afterPlay = dispatch(stateAtPlayHazards, {
       type: 'play-hazard',
       player: PLAYER_2,
       cardInstanceId: lifdInstance,
       targetCompanyId,
     });
-    expect(playResult.error).toBeUndefined();
-    expect(playResult.state.chain).not.toBeNull();
+    expect(afterPlay.chain).not.toBeNull();
 
     // Resolve the chain (both players pass priority).
-    let current = playResult.state;
+    let current = afterPlay;
     for (let i = 0; i < 10 && current.chain !== null; i++) {
       const r = reduce(current, { type: 'pass-chain-priority', player: current.chain.priority });
       if (r.error) break;
@@ -285,21 +285,20 @@ describe('Lost in Free-domains (tw-53)', () => {
       ],
     });
 
-    const targetCompanyId = base.players[0].companies[0].id;
-    const lifdInstance = base.players[1].hand[0].instanceId;
+    const targetCompanyId = companyIdAt(base, 0);
+    const lifdInstance = handCardId(base, 1);
 
     const mhState = makeMHState({ activeCompanyIndex: 0 });
     const stateAtPlayHazards = { ...base, phaseState: mhState };
 
-    const playResult = reduce(stateAtPlayHazards, {
+    const afterPlay = dispatch(stateAtPlayHazards, {
       type: 'play-hazard',
       player: PLAYER_2,
       cardInstanceId: lifdInstance,
       targetCompanyId,
     });
-    expect(playResult.error).toBeUndefined();
 
-    let current = playResult.state;
+    let current = afterPlay;
     for (let i = 0; i < 10 && current.chain !== null; i++) {
       const r = reduce(current, { type: 'pass-chain-priority', player: current.chain.priority });
       if (r.error) break;

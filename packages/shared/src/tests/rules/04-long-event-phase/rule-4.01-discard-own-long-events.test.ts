@@ -15,7 +15,7 @@
 
 import { describe, test, expect, beforeEach } from 'vitest';
 import {
-  buildTestState, resetMint, reduce, Phase,
+  buildTestState, resetMint, dispatch, Phase,
   PLAYER_1, PLAYER_2,
   ARAGORN, LEGOLAS,
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
@@ -59,15 +59,14 @@ describe('Rule 4.01 — Discard Own Resource Long-Events', () => {
 
     expect(state.players[0].cardsInPlay).toHaveLength(1);
 
-    const result = reduce(state, { type: 'pass', player: PLAYER_1 });
-    expect(result.error).toBeUndefined();
+    const nextState = dispatch(state, { type: 'pass', player: PLAYER_1 });
 
     // Phase advanced to long-event
-    expect(result.state.phaseState.phase).toBe(Phase.LongEvent);
+    expect(nextState.phaseState.phase).toBe(Phase.LongEvent);
 
     // Sun was removed from cardsInPlay and put in P1's discard pile
-    expect(result.state.players[0].cardsInPlay).toHaveLength(0);
-    expect(result.state.players[0].discardPile.map(c => c.instanceId))
+    expect(nextState.players[0].cardsInPlay).toHaveLength(0);
+    expect(nextState.players[0].discardPile.map(c => c.instanceId))
       .toContain('sun-1' as CardInstanceId);
   });
 
@@ -105,15 +104,14 @@ describe('Rule 4.01 — Discard Own Resource Long-Events', () => {
       ],
     });
 
-    const result = reduce(state, { type: 'pass', player: PLAYER_1 });
-    expect(result.error).toBeUndefined();
-    expect(result.state.phaseState.phase).toBe(Phase.LongEvent);
+    const nextState = dispatch(state, { type: 'pass', player: PLAYER_1 });
+    expect(nextState.phaseState.phase).toBe(Phase.LongEvent);
 
     // Sun was discarded; Gates of Morning is still in play
-    const stillInPlay = result.state.players[0].cardsInPlay.map(c => c.instanceId);
+    const stillInPlay = nextState.players[0].cardsInPlay.map(c => c.instanceId);
     expect(stillInPlay).not.toContain('sun-1' as CardInstanceId);
     expect(stillInPlay).toContain('gom-1' as CardInstanceId);
-    expect(result.state.players[0].discardPile.map(c => c.instanceId))
+    expect(nextState.players[0].discardPile.map(c => c.instanceId))
       .toContain('sun-1' as CardInstanceId);
   });
 
@@ -148,12 +146,11 @@ describe('Rule 4.01 — Discard Own Resource Long-Events', () => {
       ],
     });
 
-    const result = reduce(state, { type: 'pass', player: PLAYER_1 });
-    expect(result.error).toBeUndefined();
-    expect(result.state.phaseState.phase).toBe(Phase.LongEvent);
+    const nextState = dispatch(state, { type: 'pass', player: PLAYER_1 });
+    expect(nextState.phaseState.phase).toBe(Phase.LongEvent);
 
     // Eye of Sauron is still in P2's cardsInPlay (will be removed by rule 4.03 later)
-    expect(result.state.players[1].cardsInPlay.map(c => c.instanceId))
+    expect(nextState.players[1].cardsInPlay.map(c => c.instanceId))
       .toContain('eye-1' as CardInstanceId);
   });
 });

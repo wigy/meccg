@@ -15,7 +15,7 @@
 
 import { describe, test, expect, beforeEach } from 'vitest';
 import {
-  buildTestState, resetMint, runActions, reduce, Phase,
+  buildTestState, resetMint, runActions, dispatch, Phase,
   PLAYER_1, PLAYER_2,
   GANDALF, LEGOLAS, ARAGORN,
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
@@ -84,10 +84,9 @@ describe('Rule 2.11 — Phase Transitions', () => {
       ],
     });
 
-    const result = reduce(state, { type: 'pass', player: PLAYER_1 });
-    expect(result.error).toBeUndefined();
+    const nextState = dispatch(state, { type: 'pass', player: PLAYER_1 });
     // Should advance to movement/hazard or site phase (depending on companies with movement)
-    expect(result.state.phaseState.phase).not.toBe(Phase.LongEvent);
+    expect(nextState.phaseState.phase).not.toBe(Phase.LongEvent);
   });
 
   test('End-of-Turn to Untap: no opportunity to play between turns', () => {
@@ -118,13 +117,12 @@ describe('Rule 2.11 — Phase Transitions', () => {
     ]);
 
     // P1 passes signal-end → immediately in Untap, active player switches
-    const result = reduce(s, { type: 'pass', player: PLAYER_1 });
-    expect(result.error).toBeUndefined();
-    expect(result.state.phaseState.phase).toBe(Phase.Untap);
-    expect(result.state.activePlayer).toBe(PLAYER_2);
+    const nextState = dispatch(s, { type: 'pass', player: PLAYER_1 });
+    expect(nextState.phaseState.phase).toBe(Phase.Untap);
+    expect(nextState.activePlayer).toBe(PLAYER_2);
 
     // No intermediate phase — Untap actions are immediately available for the new resource player
-    const p2Actions = computeLegalActions(result.state, PLAYER_2);
+    const p2Actions = computeLegalActions(nextState, PLAYER_2);
     const p2Viable = p2Actions.filter(a => a.viable);
     expect(p2Viable.length).toBeGreaterThan(0);
   });

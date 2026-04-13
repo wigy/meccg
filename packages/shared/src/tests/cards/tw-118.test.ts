@@ -19,6 +19,7 @@ import {
   MEN_OF_LEBENNIN, KNIGHTS_OF_DOL_AMROTH,
   buildTestState, resetMint,
   findCharInstanceId, buildSitePhaseState,
+  getCharacter,
 } from '../test-helpers.js';
 import { computeLegalActions, Phase } from '../../index.js';
 import type { CharacterCard, InfluenceAttemptAction } from '../../index.js';
@@ -39,10 +40,9 @@ describe('Anborn (tw-118)', () => {
       ],
     });
 
-    const anbornId = findCharInstanceId(state, 0, ANBORN);
     const baseDef = pool[ANBORN as string] as CharacterCard;
     expect(baseDef.directInfluence).toBe(0);
-    expect(state.players[0].characters[anbornId as string].effectiveStats.directInfluence).toBe(baseDef.directInfluence);
+    expect(getCharacter(state, 0, ANBORN).effectiveStats.directInfluence).toBe(baseDef.directInfluence);
   });
 
   test('+2 DI bonus applies when influencing Men of Lebennin', () => {

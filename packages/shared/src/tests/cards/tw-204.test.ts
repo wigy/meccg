@@ -22,7 +22,7 @@
 
 import { describe, test, expect, beforeEach } from 'vitest';
 import {
-  buildTestState, resetMint, Phase, reduce,
+  buildTestState, resetMint, Phase,
   PLAYER_1, PLAYER_2,
   ARAGORN, LEGOLAS, GIMLI,
   ORC_PATROL, CONCEALMENT,
@@ -31,6 +31,7 @@ import {
   makeMHState,
   playCreatureHazardAndResolve,
   CardStatus,
+  handCardId, companyIdAt, dispatch, expectCharStatus, expectInDiscardPile,
 } from '../test-helpers.js';
 import type { CancelAttackAction, HeroResourceEventCard } from '../../index.js';
 import { RegionType, SiteType, describeAction } from '../../index.js';
@@ -78,8 +79,8 @@ describe('Concealment (tw-204)', () => {
     const stateAtMH = { ...base, phaseState: mhState };
 
     // P2 plays Orc-patrol creature against P1's company
-    const orcPatrolId = stateAtMH.players[1].hand[0].instanceId;
-    const targetCompanyId = stateAtMH.players[0].companies[0].id;
+    const orcPatrolId = handCardId(stateAtMH, 1);
+    const targetCompanyId = companyIdAt(stateAtMH, 0);
     const combatState = playCreatureHazardAndResolve(
       stateAtMH, PLAYER_2, orcPatrolId, targetCompanyId,
       { method: 'region-type', value: 'wilderness' },
@@ -93,7 +94,7 @@ describe('Concealment (tw-204)', () => {
     const cancelActions = viableActions(combatState, PLAYER_1, 'cancel-attack');
     expect(cancelActions.length).toBe(1);
     const cancelAction = cancelActions[0].action as CancelAttackAction;
-    expect(cancelAction.cardInstanceId).toBe(combatState.players[0].hand[0].instanceId);
+    expect(cancelAction.cardInstanceId).toBe(handCardId(combatState, 0));
   });
 
   test('executing cancel-attack taps scout, discards card, and cancels combat', () => {
@@ -116,8 +117,8 @@ describe('Concealment (tw-204)', () => {
     });
     const stateAtMH = { ...base, phaseState: mhState };
 
-    const orcPatrolId = stateAtMH.players[1].hand[0].instanceId;
-    const targetCompanyId = stateAtMH.players[0].companies[0].id;
+    const orcPatrolId = handCardId(stateAtMH, 1);
+    const targetCompanyId = companyIdAt(stateAtMH, 0);
     const combatState = playCreatureHazardAndResolve(
       stateAtMH, PLAYER_2, orcPatrolId, targetCompanyId,
       { method: 'region-type', value: 'wilderness' },
@@ -126,24 +127,20 @@ describe('Concealment (tw-204)', () => {
     // Execute cancel-attack
     const cancelActions = viableActions(combatState, PLAYER_1, 'cancel-attack');
     expect(cancelActions.length).toBe(1);
-    const result = reduce(combatState, cancelActions[0].action);
-    expect(result.error).toBeUndefined();
-
-    const after = result.state;
+    const after = dispatch(combatState, cancelActions[0].action);
 
     // Combat should be canceled
     expect(after.combat).toBeNull();
 
     // Concealment should be in the discard pile
     expect(after.players[0].hand).toHaveLength(0);
-    expect(after.players[0].discardPile.find(c => c.definitionId === CONCEALMENT)).toBeDefined();
+    expectInDiscardPile(after, 0, CONCEALMENT);
 
     // Aragorn should be tapped (paid the cost)
-    const aragornId = after.players[0].companies[0].characters[0];
-    expect(after.players[0].characters[aragornId as string].status).toBe(CardStatus.Tapped);
+    expectCharStatus(after, 0, ARAGORN, CardStatus.Tapped);
 
     // Creature should be in attacker's (P2) discard pile
-    expect(after.players[1].discardPile.find(c => c.definitionId === ORC_PATROL)).toBeDefined();
+    expectInDiscardPile(after, 1, ORC_PATROL);
     expect(after.players[1].cardsInPlay.find(c => c.definitionId === ORC_PATROL)).toBeUndefined();
   });
 
@@ -168,8 +165,8 @@ describe('Concealment (tw-204)', () => {
     });
     const stateAtMH = { ...base, phaseState: mhState };
 
-    const orcPatrolId = stateAtMH.players[1].hand[0].instanceId;
-    const targetCompanyId = stateAtMH.players[0].companies[0].id;
+    const orcPatrolId = handCardId(stateAtMH, 1);
+    const targetCompanyId = companyIdAt(stateAtMH, 0);
     const combatState = playCreatureHazardAndResolve(
       stateAtMH, PLAYER_2, orcPatrolId, targetCompanyId,
       { method: 'region-type', value: 'wilderness' },
@@ -205,8 +202,8 @@ describe('Concealment (tw-204)', () => {
     });
     const stateAtMH = { ...base, phaseState: mhState };
 
-    const orcPatrolId = stateAtMH.players[1].hand[0].instanceId;
-    const targetCompanyId = stateAtMH.players[0].companies[0].id;
+    const orcPatrolId = handCardId(stateAtMH, 1);
+    const targetCompanyId = companyIdAt(stateAtMH, 0);
     const combatState = playCreatureHazardAndResolve(
       stateAtMH, PLAYER_2, orcPatrolId, targetCompanyId,
       { method: 'region-type', value: 'wilderness' },
@@ -257,8 +254,8 @@ describe('Concealment (tw-204)', () => {
     });
     const stateAtMH = { ...base, phaseState: mhState };
 
-    const orcPatrolId = stateAtMH.players[1].hand[0].instanceId;
-    const targetCompanyId = stateAtMH.players[0].companies[0].id;
+    const orcPatrolId = handCardId(stateAtMH, 1);
+    const targetCompanyId = companyIdAt(stateAtMH, 0);
     const combatState = playCreatureHazardAndResolve(
       stateAtMH, PLAYER_2, orcPatrolId, targetCompanyId,
       { method: 'region-type', value: 'wilderness' },
@@ -296,8 +293,8 @@ describe('Concealment (tw-204)', () => {
     });
     const stateAtMH = { ...base, phaseState: mhState };
 
-    const orcPatrolId = stateAtMH.players[1].hand[0].instanceId;
-    const targetCompanyId = stateAtMH.players[0].companies[0].id;
+    const orcPatrolId = handCardId(stateAtMH, 1);
+    const targetCompanyId = companyIdAt(stateAtMH, 0);
     const combatState = playCreatureHazardAndResolve(
       stateAtMH, PLAYER_2, orcPatrolId, targetCompanyId,
       { method: 'region-type', value: 'wilderness' },

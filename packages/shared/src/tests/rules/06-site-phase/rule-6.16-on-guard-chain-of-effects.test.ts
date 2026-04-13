@@ -18,7 +18,7 @@
 
 import { describe, test, expect, beforeEach } from 'vitest';
 import {
-  buildTestState, resetMint, Phase, reduce, mint,
+  buildTestState, resetMint, Phase, dispatch, mint,
   makeSitePhase, placeOnGuard, viableActions, resolveChain,
   PLAYER_1, PLAYER_2,
   LEGOLAS, ARAGORN,
@@ -59,11 +59,10 @@ describe('Rule 6.16 — On-Guard Chain of Effects', () => {
     const { state, ogCard } = placeOnGuard(base, 0, 0, BARROW_WIGHT);
     const testState = { ...state, phaseState: makeSitePhase({ step: 'reveal-on-guard-attacks', siteEntered: false }) };
 
-    const result = reduce(testState, { type: 'reveal-on-guard', player: PLAYER_2, cardInstanceId: ogCard.instanceId });
-    expect(result.error).toBeUndefined();
-    expect(result.state.chain).toBeNull();
-    expect(result.state.combat).toBeNull();
-    const og = result.state.players[0].companies[0].onGuardCards;
+    const nextState = dispatch(testState, { type: 'reveal-on-guard', player: PLAYER_2, cardInstanceId: ogCard.instanceId });
+    expect(nextState.chain).toBeNull();
+    expect(nextState.combat).toBeNull();
+    const og = nextState.players[0].companies[0].onGuardCards;
     expect(og).toHaveLength(1);
     expect(og[0].revealed).toBe(true);
   });
@@ -82,10 +81,9 @@ describe('Rule 6.16 — On-Guard Chain of Effects', () => {
       phaseState: makeSitePhase({ step: 'resolve-attacks', siteEntered: true }),
     };
 
-    const afterResolve = reduce(testState, { type: 'pass', player: PLAYER_1 });
-    expect(afterResolve.error).toBeUndefined();
-    expect(afterResolve.state.chain).not.toBeNull();
-    expect(afterResolve.state.chain!.priority).toBe(PLAYER_1);
+    const afterResolve = dispatch(testState, { type: 'pass', player: PLAYER_1 });
+    expect(afterResolve.chain).not.toBeNull();
+    expect(afterResolve.chain!.priority).toBe(PLAYER_1);
   });
 
   test('after creature chain resolves at Step 4, combat is initiated', () => {
@@ -102,8 +100,8 @@ describe('Rule 6.16 — On-Guard Chain of Effects', () => {
       phaseState: makeSitePhase({ step: 'resolve-attacks', siteEntered: true }),
     };
 
-    const afterPass = reduce(testState, { type: 'pass', player: PLAYER_1 });
-    const afterChain = resolveChain(afterPass.state);
+    const afterPass = dispatch(testState, { type: 'pass', player: PLAYER_1 });
+    const afterChain = resolveChain(afterPass);
     expect(afterChain.combat).not.toBeNull();
   });
 
@@ -118,10 +116,10 @@ describe('Rule 6.16 — On-Guard Chain of Effects', () => {
     const { state } = placeOnGuard(base, 0, 0, FOOLISH_WORDS);
     const testState = { ...state, phaseState: makeSitePhase() };
 
-    const afterAttempt = reduce(testState, viableActions(testState, PLAYER_1, 'influence-attempt')[0].action);
-    const afterReveal = reduce(afterAttempt.state, viableActions(afterAttempt.state, PLAYER_2, 'reveal-on-guard')[0].action);
+    const afterAttempt = dispatch(testState, viableActions(testState, PLAYER_1, 'influence-attempt')[0].action);
+    const afterReveal = dispatch(afterAttempt, viableActions(afterAttempt, PLAYER_2, 'reveal-on-guard')[0].action);
 
-    expect(afterReveal.state.chain).not.toBeNull();
-    expect(afterReveal.state.chain!.priority).toBe(PLAYER_1);
+    expect(afterReveal.chain).not.toBeNull();
+    expect(afterReveal.chain!.priority).toBe(PLAYER_1);
   });
 });

@@ -22,6 +22,7 @@ import {
   BLUE_MOUNTAIN_DWARVES,
   buildTestState, resetMint,
   findCharInstanceId, viablePlayCharacterActions, buildSitePhaseState,
+  getCharacter,
 } from '../test-helpers.js';
 import { computeLegalActions, Phase } from '../../index.js';
 import type { CharacterCard, InfluenceAttemptAction } from '../../index.js';
@@ -42,9 +43,8 @@ describe('Balin (tw-123)', () => {
       ],
     });
 
-    const balinId = findCharInstanceId(state, 0, BALIN);
     const baseDef = pool[BALIN] as CharacterCard;
-    expect(state.players[0].characters[balinId as string].effectiveStats.directInfluence).toBe(baseDef.directInfluence);
+    expect(getCharacter(state, 0, BALIN).effectiveStats.directInfluence).toBe(baseDef.directInfluence);
     expect(baseDef.directInfluence).toBe(2);
   });
 
@@ -59,9 +59,8 @@ describe('Balin (tw-123)', () => {
       ],
     });
 
-    const balinId = findCharInstanceId(state, 0, BALIN);
     const baseDef = pool[BALIN] as CharacterCard;
-    expect(state.players[0].characters[balinId as string].effectiveStats.prowess).toBe(baseDef.prowess);
+    expect(getCharacter(state, 0, BALIN).effectiveStats.prowess).toBe(baseDef.prowess);
     expect(baseDef.prowess).toBe(4);
   });
 

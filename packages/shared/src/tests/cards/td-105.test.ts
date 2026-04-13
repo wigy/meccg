@@ -20,14 +20,14 @@
 
 import { describe, test, expect, beforeEach } from 'vitest';
 import {
-  buildTestState, resetMint, Phase, reduce,
+  buildTestState, resetMint, Phase,
   PLAYER_1, PLAYER_2,
   ARAGORN, LEGOLAS,
   CRAM,
   LORIEN, MORIA, MINAS_TIRITH,
   viableActions,
-  findCharInstanceId,
   CardStatus,
+  dispatch, expectCharStatus, expectCharItemCount, expectInDiscardPile,
 } from '../test-helpers.js';
 import type { ActivateGrantedAction } from '../../index.js';
 
@@ -82,18 +82,16 @@ describe('Cram (td-105)', () => {
     const untapAction = actions.find(ea => (ea.action as ActivateGrantedAction).actionId === 'untap-bearer')!;
     expect(untapAction).toBeDefined();
 
-    const result = reduce(state, untapAction.action);
-    expect(result.error).toBeUndefined();
+    const next = dispatch(state, untapAction.action);
 
     // Character should now be untapped
-    const aragornId = findCharInstanceId(result.state, 0, ARAGORN);
-    expect(result.state.players[0].characters[aragornId as string].status).toBe(CardStatus.Untapped);
+    expectCharStatus(next, 0, ARAGORN, CardStatus.Untapped);
 
     // Cram should be removed from items
-    expect(result.state.players[0].characters[aragornId as string].items).toHaveLength(0);
+    expectCharItemCount(next, 0, ARAGORN, 0);
 
     // Cram should be in discard pile
-    expect(result.state.players[0].discardPile.some(c => c.definitionId === CRAM)).toBe(true);
+    expectInDiscardPile(next, 0, CRAM);
   });
 
   // ── Ability 2: extra-region-movement ──
@@ -127,18 +125,16 @@ describe('Cram (td-105)', () => {
     const extraAction = actions.find(ea => (ea.action as ActivateGrantedAction).actionId === 'extra-region-movement')!;
     expect(extraAction).toBeDefined();
 
-    const result = reduce(state, extraAction.action);
-    expect(result.error).toBeUndefined();
+    const next = dispatch(state, extraAction.action);
 
     // Cram should be removed from items
-    const aragornId = findCharInstanceId(result.state, 0, ARAGORN);
-    expect(result.state.players[0].characters[aragornId as string].items).toHaveLength(0);
+    expectCharItemCount(next, 0, ARAGORN, 0);
 
     // Cram should be in discard pile
-    expect(result.state.players[0].discardPile.some(c => c.definitionId === CRAM)).toBe(true);
+    expectInDiscardPile(next, 0, CRAM);
 
     // Company should have extraRegionDistance set
-    expect(result.state.players[0].companies[0].extraRegionDistance).toBe(1);
+    expect(next.players[0].companies[0].extraRegionDistance).toBe(1);
   });
 
   test('extra-region-movement NOT available when company already has planned movement', () => {
@@ -154,11 +150,10 @@ describe('Cram (td-105)', () => {
     // Plan movement first
     const moveActions = viableActions(state, PLAYER_1, 'plan-movement');
     expect(moveActions.length).toBeGreaterThan(0);
-    const afterMove = reduce(state, moveActions[0].action);
-    expect(afterMove.error).toBeUndefined();
+    const afterMove = dispatch(state, moveActions[0].action);
 
     // Extra-region-movement should not be available
-    const actions = viableActions(afterMove.state, PLAYER_1, 'activate-granted-action');
+    const actions = viableActions(afterMove, PLAYER_1, 'activate-granted-action');
     const extraActions = actions.filter(ea => (ea.action as ActivateGrantedAction).actionId === 'extra-region-movement');
     expect(extraActions.length).toBe(0);
   });
@@ -176,11 +171,10 @@ describe('Cram (td-105)', () => {
     // Activate first Cram for extra-region-movement
     const actions1 = viableActions(state, PLAYER_1, 'activate-granted-action');
     const extraAction1 = actions1.find(ea => (ea.action as ActivateGrantedAction).actionId === 'extra-region-movement')!;
-    const afterFirst = reduce(state, extraAction1.action);
-    expect(afterFirst.error).toBeUndefined();
+    const afterFirst = dispatch(state, extraAction1.action);
 
     // Second Cram should NOT offer extra-region-movement (already has bonus)
-    const actions2 = viableActions(afterFirst.state, PLAYER_1, 'activate-granted-action');
+    const actions2 = viableActions(afterFirst, PLAYER_1, 'activate-granted-action');
     const extraActions2 = actions2.filter(ea => (ea.action as ActivateGrantedAction).actionId === 'extra-region-movement');
     expect(extraActions2.length).toBe(0);
   });

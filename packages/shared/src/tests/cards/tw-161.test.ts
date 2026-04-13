@@ -20,6 +20,7 @@ import {
   WOOD_ELVES,
   buildTestState, resetMint,
   findCharInstanceId, viablePlayCharacterActions, buildSitePhaseState,
+  getCharacter,
 } from '../test-helpers.js';
 import { computeLegalActions, Phase } from '../../index.js';
 import type { CharacterCard, InfluenceAttemptAction } from '../../index.js';
@@ -40,9 +41,8 @@ describe('Glorfindel II (tw-161)', () => {
       ],
     });
 
-    const glorfindelId = findCharInstanceId(state, 0, GLORFINDEL_II);
     const baseDef = pool[GLORFINDEL_II as string] as CharacterCard;
-    expect(state.players[0].characters[glorfindelId as string].effectiveStats.directInfluence).toBe(baseDef.directInfluence);
+    expect(getCharacter(state, 0, GLORFINDEL_II).effectiveStats.directInfluence).toBe(baseDef.directInfluence);
     expect(baseDef.directInfluence).toBe(2);
   });
 
@@ -101,7 +101,7 @@ describe('Glorfindel II (tw-161)', () => {
     expect(beregondUnderGlorfindel.length).toBeGreaterThanOrEqual(1);
 
     // Effective DI is still 2 (bonus doesn't apply to non-elves)
-    expect(state.players[0].characters[glorfindelId as string].effectiveStats.directInfluence).toBe(2);
+    expect(getCharacter(state, 0, GLORFINDEL_II).effectiveStats.directInfluence).toBe(2);
   });
 
   test('+1 DI bonus applies when influencing an elf faction (Wood-elves)', () => {

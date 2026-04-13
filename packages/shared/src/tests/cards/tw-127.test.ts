@@ -22,6 +22,7 @@ import {
   buildTestState, resetMint,
   findCharInstanceId, buildSitePhaseState,
   enqueueTransferCorruptionCheck,
+  getCharacter,
 } from '../test-helpers.js';
 import { computeLegalActions } from '../../index.js';
 import type { CharacterCard, InfluenceAttemptAction, CorruptionCheckAction } from '../../index.js';
@@ -55,7 +56,7 @@ describe('Beregond (tw-127)', () => {
     });
 
     const beregondId = findCharInstanceId(state, 0, BEREGOND);
-    const glamdringInstId = state.players[0].characters[beregondId as string].items[0].instanceId;
+    const glamdringInstId = getCharacter(state, 0, BEREGOND).items[0].instanceId;
 
     // Enqueue a pending corruption-check resolution as if Beregond just
     // gave away an item via transfer.

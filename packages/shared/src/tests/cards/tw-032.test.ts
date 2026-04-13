@@ -13,7 +13,7 @@
 import { describe, test, expect, beforeEach } from 'vitest';
 import {
   PLAYER_1, PLAYER_2,
-  reduce, Phase,
+  Phase,
   ARAGORN, LEGOLAS,
   EYE_OF_SAURON, DOORS_OF_NIGHT,
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
@@ -22,6 +22,7 @@ import {
   makeMHState, P1_COMPANY,
   playHazardAndResolve,
   addP2CardsInPlay, setupAutoAttackStep,
+  handCardId, dispatch,
 } from '../test-helpers.js';
 import type { CardInPlay, CardInstanceId, GameState } from '../../index.js';
 import { ISENGARD } from '../../index.js';
@@ -48,7 +49,7 @@ describe('Eye of Sauron (tw-32)', () => {
     });
 
     const mhGameState: GameState = { ...state, phaseState: makeMHState() };
-    const eosId = mhGameState.players[1].hand[0].instanceId;
+    const eosId = handCardId(mhGameState, 1);
     const s = playHazardAndResolve(mhGameState, PLAYER_2, eosId, P1_COMPANY);
 
     // Eye of Sauron should now be in hazard player's cardsInPlay
@@ -62,11 +63,10 @@ describe('Eye of Sauron (tw-32)', () => {
     // With Eye of Sauron, attack prowess should be 7 + 1 = 8
     const readyState = setupAutoAttackStep(addP2CardsInPlay(buildSitePhaseState({ site: ISENGARD }), [eosInPlay]));
 
-    const result = reduce(readyState, { type: 'pass', player: PLAYER_1 });
-    expect(result.error).toBeUndefined();
-    expect(result.state.combat).toBeDefined();
-    expect(result.state.combat!.strikesTotal).toBe(3); // Strikes unchanged
-    expect(result.state.combat!.strikeProwess).toBe(8); // 7 + 1
+    const next = dispatch(readyState, { type: 'pass', player: PLAYER_1 });
+    expect(next.combat).toBeDefined();
+    expect(next.combat!.strikesTotal).toBe(3); // Strikes unchanged
+    expect(next.combat!.strikeProwess).toBe(8); // 7 + 1
   });
 
   test('two Eye of Sauron in play stack: prowess increased by +2', () => {
@@ -82,11 +82,10 @@ describe('Eye of Sauron (tw-32)', () => {
 
     const readyState = setupAutoAttackStep(addP2CardsInPlay(buildSitePhaseState({ site: ISENGARD }), [eosInPlay, eos2InPlay]));
 
-    const result = reduce(readyState, { type: 'pass', player: PLAYER_1 });
-    expect(result.error).toBeUndefined();
-    expect(result.state.combat).toBeDefined();
-    expect(result.state.combat!.strikesTotal).toBe(3); // Strikes unchanged
-    expect(result.state.combat!.strikeProwess).toBe(9); // 7 + 1 + 1
+    const next = dispatch(readyState, { type: 'pass', player: PLAYER_1 });
+    expect(next.combat).toBeDefined();
+    expect(next.combat!.strikesTotal).toBe(3); // Strikes unchanged
+    expect(next.combat!.strikeProwess).toBe(9); // 7 + 1 + 1
   });
 
   test('automatic attack prowess increased by +3 when Doors of Night is also in play', () => {
@@ -101,12 +100,11 @@ describe('Eye of Sauron (tw-32)', () => {
 
     const readyState = setupAutoAttackStep(addP2CardsInPlay(buildSitePhaseState({ site: ISENGARD }), [eosInPlay, donInPlay]));
 
-    const result = reduce(readyState, { type: 'pass', player: PLAYER_1 });
-    expect(result.error).toBeUndefined();
-    expect(result.state.combat).toBeDefined();
-    expect(result.state.combat!.strikesTotal).toBe(3); // Strikes unchanged
+    const next = dispatch(readyState, { type: 'pass', player: PLAYER_1 });
+    expect(next.combat).toBeDefined();
+    expect(next.combat!.strikesTotal).toBe(3); // Strikes unchanged
     // +3 overrides +1 when Doors of Night is in play
-    expect(result.state.combat!.strikeProwess).toBe(10); // 7 + 3
+    expect(next.combat!.strikeProwess).toBe(10); // 7 + 3
   });
 
   test('does not affect hazard creature prowess (only automatic-attacks)', () => {
@@ -145,10 +143,9 @@ describe('Eye of Sauron (tw-32)', () => {
     });
 
     // P1 passes the long-event phase → hazard player's long-events are discarded
-    const result = reduce(state, { type: 'pass', player: PLAYER_1 });
-    expect(result.error).toBeUndefined();
+    const next = dispatch(state, { type: 'pass', player: PLAYER_1 });
     // P2's cardsInPlay should be empty, EoS moved to discard
-    expect(result.state.players[1].cardsInPlay).toHaveLength(0);
-    expect(result.state.players[1].discardPile.some(c => c.definitionId === EYE_OF_SAURON)).toBe(true);
+    expect(next.players[1].cardsInPlay).toHaveLength(0);
+    expect(next.players[1].discardPile.some(c => c.definitionId === EYE_OF_SAURON)).toBe(true);
   });
 });

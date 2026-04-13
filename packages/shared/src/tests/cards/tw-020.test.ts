@@ -19,7 +19,8 @@ import {
   CAVE_DRAKE, ORC_PATROL,
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
   buildTestState, resetMint, makeMHState,
-  reduce, pool, resolveChain,
+  pool, resolveChain,
+  handCardId, companyIdAt, dispatch,
 } from '../test-helpers.js';
 import { computeLegalActions, Phase, RegionType, SiteType } from '../../index.js';
 import type { CreatureCard } from '../../index.js';
@@ -76,19 +77,18 @@ describe('Cave-drake (tw-020)', () => {
     const gameState = { ...state, phaseState: mhState };
 
     // P2 plays Cave-drake targeting P1's company
-    const cavedrakeId = gameState.players[1].hand[0].instanceId;
-    const companyId = gameState.players[0].companies[0].id;
-    const result = reduce(gameState, {
+    const cavedrakeId = handCardId(gameState, 1);
+    const companyId = companyIdAt(gameState, 0);
+    const afterPlay = dispatch(gameState, {
       type: 'play-hazard',
       player: PLAYER_2,
       cardInstanceId: cavedrakeId,
       targetCompanyId: companyId,
       keyedBy: { method: 'region-type' as const, value: 'wilderness' },
     });
-    expect(result.error).toBeUndefined();
 
     // Resolve the chain → combat initiates
-    const afterChain = resolveChain(result.state);
+    const afterChain = resolveChain(afterPlay);
     expect(afterChain.combat).not.toBeNull();
     expect(afterChain.combat!.phase).toBe('assign-strikes');
     // Key assertion: cancel-window before attacker assigns (attacker-chooses-defenders)
@@ -126,17 +126,16 @@ describe('Cave-drake (tw-020)', () => {
     });
     const gameState = { ...state, phaseState: mhState };
 
-    const cavedrakeId = gameState.players[1].hand[0].instanceId;
-    const companyId = gameState.players[0].companies[0].id;
-    const result = reduce(gameState, {
+    const cavedrakeId = handCardId(gameState, 1);
+    const companyId = companyIdAt(gameState, 0);
+    const afterPlay = dispatch(gameState, {
       type: 'play-hazard',
       player: PLAYER_2,
       cardInstanceId: cavedrakeId,
       targetCompanyId: companyId,
       keyedBy: { method: 'region-type' as const, value: 'wilderness' },
     });
-    expect(result.error).toBeUndefined();
-    const afterChain = resolveChain(result.state);
+    const afterChain = resolveChain(afterPlay);
 
     // During cancel-window, defender gets pass only (no cancel cards in hand)
     const defenderActions = computeLegalActions(afterChain, PLAYER_1);
@@ -148,10 +147,9 @@ describe('Cave-drake (tw-020)', () => {
     expect(attackerActions.filter(a => a.viable)).toHaveLength(0);
 
     // After defender passes cancel-window, attacker gets assign-strike actions
-    const passResult = reduce(afterChain, { type: 'pass', player: PLAYER_1 });
-    expect(passResult.error).toBeUndefined();
-    expect(passResult.state.combat!.assignmentPhase).toBe('attacker');
-    const attackerActions2 = computeLegalActions(passResult.state, PLAYER_2);
+    const afterPass = dispatch(afterChain, { type: 'pass', player: PLAYER_1 });
+    expect(afterPass.combat!.assignmentPhase).toBe('attacker');
+    const attackerActions2 = computeLegalActions(afterPass, PLAYER_2);
     expect(attackerActions2.filter(a => a.viable && a.action.type === 'assign-strike')).toHaveLength(2);
   });
 
@@ -184,17 +182,16 @@ describe('Cave-drake (tw-020)', () => {
     });
     const gameState = { ...state, phaseState: mhState };
 
-    const orcId = gameState.players[1].hand[0].instanceId;
-    const companyId = gameState.players[0].companies[0].id;
-    const result = reduce(gameState, {
+    const orcId = handCardId(gameState, 1);
+    const companyId = companyIdAt(gameState, 0);
+    const afterPlay = dispatch(gameState, {
       type: 'play-hazard',
       player: PLAYER_2,
       cardInstanceId: orcId,
       targetCompanyId: companyId,
       keyedBy: { method: 'region-type' as const, value: 'wilderness' },
     });
-    expect(result.error).toBeUndefined();
-    const afterChain = resolveChain(result.state);
+    const afterChain = resolveChain(afterPlay);
 
     expect(afterChain.combat).not.toBeNull();
     // Normal creature: defender assigns strikes

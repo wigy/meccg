@@ -16,8 +16,9 @@ import {
   BARROW_WIGHT, GLAMDRING, DAGGER_OF_WESTERNESSE,
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
   buildTestState, resetMint, makeMHState,
-  reduce, pool, findCharInstanceId,
+  pool, findCharInstanceId,
   playCreatureHazardAndResolve, runCreatureCombat,
+  handCardId, companyIdAt, dispatch, expectCharStatus,
 } from '../test-helpers.js';
 import { computeLegalActions, Phase, RegionType, SiteType, CardStatus } from '../../index.js';
 import type { CreatureCard } from '../../index.js';
@@ -69,8 +70,8 @@ describe('Barrow-wight (tw-015)', () => {
     });
     const ready = { ...state, phaseState: mhState };
 
-    const bwId = ready.players[1].hand[0].instanceId;
-    const companyId = ready.players[0].companies[0].id;
+    const bwId = handCardId(ready, 1);
+    const companyId = companyIdAt(ready, 0);
     const afterChain = playCreatureHazardAndResolve(ready, PLAYER_2, bwId, companyId, SHADOW_KEYING);
 
     expect(afterChain.combat).not.toBeNull();
@@ -97,8 +98,8 @@ describe('Barrow-wight (tw-015)', () => {
     });
     const ready = { ...state, phaseState: mhState };
 
-    const bwId = ready.players[1].hand[0].instanceId;
-    const companyId = ready.players[0].companies[0].id;
+    const bwId = handCardId(ready, 1);
+    const companyId = companyIdAt(ready, 0);
     const afterChain = playCreatureHazardAndResolve(ready, PLAYER_2, bwId, companyId, SHADOW_KEYING);
 
     // Strike roll 2: Aragorn prowess 6-3=3 + 2 = 5 < 12 → wounded
@@ -140,8 +141,8 @@ describe('Barrow-wight (tw-015)', () => {
       destinationSiteName: 'Moria',
     }) };
 
-    const bwId = ready.players[1].hand[0].instanceId;
-    const companyId = ready.players[0].companies[0].id;
+    const bwId = handCardId(ready, 1);
+    const companyId = companyIdAt(ready, 0);
     const afterChain = playCreatureHazardAndResolve(ready, PLAYER_2, bwId, companyId, SHADOW_KEYING);
     const afterWound = runCreatureCombat(afterChain, ARAGORN, 2, 5);
 
@@ -149,14 +150,11 @@ describe('Barrow-wight (tw-015)', () => {
     const ccAction = actions.find(a => a.viable && a.action.type === 'corruption-check')!.action;
 
     // Aragorn has 0 CP, modifier -2. Roll 12 passes easily.
-    const ccResult = reduce({ ...afterWound, cheatRollTotal: 12 }, ccAction);
-    expect(ccResult.error).toBeUndefined();
+    const ccState = dispatch({ ...afterWound, cheatRollTotal: 12 }, ccAction);
 
-    expect(ccResult.state.pendingResolutions).toHaveLength(0);
+    expect(ccState.pendingResolutions).toHaveLength(0);
 
-    const aragornId = findCharInstanceId(ccResult.state, 0, ARAGORN);
-    expect(ccResult.state.players[0].characters[aragornId as string]).toBeDefined();
-    expect(ccResult.state.players[0].characters[aragornId as string].status).toBe(CardStatus.Inverted);
+    expectCharStatus(ccState, 0, ARAGORN, CardStatus.Inverted);
   });
 
   test('corruption check fails — character discarded', () => {
@@ -177,8 +175,8 @@ describe('Barrow-wight (tw-015)', () => {
       destinationSiteName: 'Moria',
     }) };
 
-    const bwId = ready.players[1].hand[0].instanceId;
-    const companyId = ready.players[0].companies[0].id;
+    const bwId = handCardId(ready, 1);
+    const companyId = companyIdAt(ready, 0);
     const afterChain = playCreatureHazardAndResolve(ready, PLAYER_2, bwId, companyId, SHADOW_KEYING);
     const afterWound = runCreatureCombat(afterChain, ARAGORN, 2, 5);
 
@@ -187,12 +185,11 @@ describe('Barrow-wight (tw-015)', () => {
 
     // Aragorn has Glamdring (2 CP) + Dagger (1 CP) = 3 CP, modifier -2
     // Roll 2 + (-2) = 0, not > 3 → fail
-    const ccResult = reduce({ ...afterWound, cheatRollTotal: 2 }, ccAction);
-    expect(ccResult.error).toBeUndefined();
+    const ccState = dispatch({ ...afterWound, cheatRollTotal: 2 }, ccAction);
 
-    expect(ccResult.state.pendingResolutions).toHaveLength(0);
+    expect(ccState.pendingResolutions).toHaveLength(0);
     const aragornId = findCharInstanceId(afterWound, 0, ARAGORN);
-    expect(ccResult.state.players[0].characters[aragornId as string]).toBeUndefined();
+    expect(ccState.players[0].characters[aragornId as string]).toBeUndefined();
   });
 
   test('character that wins strike does not get corruption check', () => {
@@ -212,8 +209,8 @@ describe('Barrow-wight (tw-015)', () => {
       destinationSiteName: 'Moria',
     }) };
 
-    const bwId = ready.players[1].hand[0].instanceId;
-    const companyId = ready.players[0].companies[0].id;
+    const bwId = handCardId(ready, 1);
+    const companyId = companyIdAt(ready, 0);
     const afterChain = playCreatureHazardAndResolve(ready, PLAYER_2, bwId, companyId, SHADOW_KEYING);
 
     // High roll: prowess 6-3=3 + roll 10 = 13 > 12 → character wins
@@ -242,8 +239,8 @@ describe('Barrow-wight (tw-015)', () => {
       destinationSiteName: 'Moria',
     }) };
 
-    const bwId = ready.players[1].hand[0].instanceId;
-    const companyId = ready.players[0].companies[0].id;
+    const bwId = handCardId(ready, 1);
+    const companyId = companyIdAt(ready, 0);
     const afterChain = playCreatureHazardAndResolve(ready, PLAYER_2, bwId, companyId, SHADOW_KEYING);
     const afterWound = runCreatureCombat(afterChain, ARAGORN, 2, 5);
 

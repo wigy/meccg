@@ -24,6 +24,7 @@ import {
   buildTestState, resetMint,
   findCharInstanceId, viablePlayCharacterActions,
   enqueueTransferCorruptionCheck,
+  getCharacter,
 } from '../test-helpers.js';
 import { computeLegalActions, BAG_END } from '../../index.js';
 import type { CharacterCard, CorruptionCheckAction } from '../../index.js';
@@ -59,7 +60,7 @@ describe('Sam Gamgee (tw-180)', () => {
     });
 
     const samId = findCharInstanceId(state, 0, SAM_GAMGEE);
-    const glamdringInstId = state.players[0].characters[samId as string].items[0].instanceId;
+    const glamdringInstId = getCharacter(state, 0, SAM_GAMGEE).items[0].instanceId;
 
     const stateWithCheck = enqueueTransferCorruptionCheck(state, PLAYER_1, samId, glamdringInstId);
 

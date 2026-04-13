@@ -19,6 +19,7 @@ import {
   KNIGHTS_OF_DOL_AMROTH, WOOD_ELVES,
   buildTestState, resetMint,
   findCharInstanceId, buildSitePhaseState,
+  getCharacter,
 } from '../test-helpers.js';
 import { computeLegalActions, Phase } from '../../index.js';
 import type { CharacterCard, InfluenceAttemptAction } from '../../index.js';
@@ -39,10 +40,9 @@ describe('Adrazar (tw-116)', () => {
       ],
     });
 
-    const adrazarId = findCharInstanceId(state, 0, ADRAZAR);
     const baseDef = pool[ADRAZAR as string] as CharacterCard;
     expect(baseDef.directInfluence).toBe(1);
-    expect(state.players[0].characters[adrazarId as string].effectiveStats.directInfluence).toBe(baseDef.directInfluence);
+    expect(getCharacter(state, 0, ADRAZAR).effectiveStats.directInfluence).toBe(baseDef.directInfluence);
   });
 
   test('+1 DI bonus applies when influencing Knights of Dol Amroth (dunadan faction)', () => {

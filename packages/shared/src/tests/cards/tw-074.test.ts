@@ -20,7 +20,8 @@ import {
   ORC_PATROL,
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
   buildTestState, resetMint, makeMHState,
-  reduce, pool, resolveChain,
+  pool, resolveChain,
+  handCardId, companyIdAt, dispatch,
 } from '../test-helpers.js';
 import { computeLegalActions, Phase, RegionType, SiteType } from '../../index.js';
 import type { CreatureCard } from '../../index.js';
@@ -87,16 +88,15 @@ describe('Orc-patrol (tw-074)', () => {
     });
     const gameState = { ...state, phaseState: mhState };
 
-    const orcId = gameState.players[1].hand[0].instanceId;
-    const companyId = gameState.players[0].companies[0].id;
-    const result = reduce(gameState, {
+    const orcId = handCardId(gameState, 1);
+    const companyId = companyIdAt(gameState, 0);
+    dispatch(gameState, {
       type: 'play-hazard',
       player: PLAYER_2,
       cardInstanceId: orcId,
       targetCompanyId: companyId,
       keyedBy: { method: 'region-type' as const, value: 'wilderness' },
     });
-    expect(result.error).toBeUndefined();
   });
 
   test('initiates combat with defender assignment (no attacker-chooses-defenders)', () => {
@@ -128,17 +128,16 @@ describe('Orc-patrol (tw-074)', () => {
     });
     const gameState = { ...state, phaseState: mhState };
 
-    const orcId = gameState.players[1].hand[0].instanceId;
-    const companyId = gameState.players[0].companies[0].id;
-    const result = reduce(gameState, {
+    const orcId = handCardId(gameState, 1);
+    const companyId = companyIdAt(gameState, 0);
+    const afterPlay = dispatch(gameState, {
       type: 'play-hazard',
       player: PLAYER_2,
       cardInstanceId: orcId,
       targetCompanyId: companyId,
       keyedBy: { method: 'region-type' as const, value: 'wilderness' },
     });
-    expect(result.error).toBeUndefined();
-    const afterChain = resolveChain(result.state);
+    const afterChain = resolveChain(afterPlay);
 
     expect(afterChain.combat).not.toBeNull();
     expect(afterChain.combat!.assignmentPhase).toBe('defender');
@@ -175,17 +174,16 @@ describe('Orc-patrol (tw-074)', () => {
     });
     const gameState = { ...state, phaseState: mhState };
 
-    const orcId = gameState.players[1].hand[0].instanceId;
-    const companyId = gameState.players[0].companies[0].id;
-    const result = reduce(gameState, {
+    const orcId = handCardId(gameState, 1);
+    const companyId = companyIdAt(gameState, 0);
+    const afterPlay = dispatch(gameState, {
       type: 'play-hazard',
       player: PLAYER_2,
       cardInstanceId: orcId,
       targetCompanyId: companyId,
       keyedBy: { method: 'region-type' as const, value: 'wilderness' },
     });
-    expect(result.error).toBeUndefined();
-    const afterChain = resolveChain(result.state);
+    const afterChain = resolveChain(afterPlay);
 
     // Defender (P1) should have assign-strike actions
     const defenderActions = computeLegalActions(afterChain, PLAYER_1);

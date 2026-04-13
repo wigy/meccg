@@ -19,8 +19,8 @@ import {
   ARAGORN, LEGOLAS,
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
   buildTestState, resetMint, makeMHState, findCharInstanceId,
-  reduce, viableActions,
-  Phase,
+  dispatchResult, viableActions,
+  Phase, companyIdAt,
 } from '../../test-helpers.js';
 import { RegionType, SiteType, CardStatus } from '../../../index.js';
 import type { CombatState, CardInstanceId, DieRoll, TwoDiceSix } from '../../../index.js';
@@ -43,7 +43,7 @@ describe('Rule 8.28 — Body Check', () => {
     });
 
     const aragornId = findCharInstanceId(state, 0, ARAGORN);
-    const companyId = state.players[0].companies[0].id;
+    const companyId = companyIdAt(state, 0);
 
     // Place Aragorn in wounded state so the body check applies +1
     const players = [...state.players];
@@ -102,8 +102,7 @@ describe('Rule 8.28 — Body Check', () => {
     const actions = viableActions(cheated, PLAYER_2, 'body-check-roll');
     expect(actions.length).toBe(1);
 
-    const result = reduce(cheated, actions[0].action);
-    expect(result.error).toBeUndefined();
+    const result = dispatchResult(cheated, actions[0].action);
 
     // The attacking player's (PLAYER_2, index 1) lastDiceRoll must be
     // updated to the body check roll, NOT the stale {2,2} value.
