@@ -258,8 +258,13 @@
       "dark-hold"
     ],
     "effects": [
-      { "type": "play-target", "target": "character", "filter": { "target.skills": { "$includes": "warrior" } } },
-      { "type": "stat-modifier", "stat": "body", "value": 2, "max": 9 }
+      {
+        "type": "stat-modifier",
+        "stat": "body",
+        "value": 2,
+        "max": 9,
+        "when": { "bearer.skills": { "$includes": "warrior" } }
+      }
     ],
     "text": "Unique. Armor. Warrior only: +2 to body to a maximum of 9.",
     "certified": "2026-04-13"

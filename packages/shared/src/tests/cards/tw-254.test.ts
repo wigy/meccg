@@ -3,13 +3,11 @@
  *
  * Card test: Hauberk of Bright Mail (tw-254)
  * Type: hero-resource-item (major, armor)
- * Effects: 2
  *
  * "Unique. Armor. Warrior only: +2 to body to a maximum of 9."
  *
- * This tests:
- * 1. play-target: only playable on characters with warrior skill
- * 2. stat-modifier: body +2 (max 9)
+ * Per CRF: non-warriors may still carry the Hauberk — they simply don't
+ * benefit from its stat bonus. Only the warrior body bonus is restricted.
  */
 
 import { describe, test, expect, beforeEach } from 'vitest';
@@ -49,7 +47,7 @@ describe('Hauberk of Bright Mail (tw-254)', () => {
     expect(onAragorn).toBeDefined();
   });
 
-  test('not playable on Frodo (not a warrior)', () => {
+  test('also playable on Frodo (non-warriors may carry, just no bonus)', () => {
     const state = buildSitePhaseState({
       characters: [FRODO],
       site: MORIA,
@@ -64,10 +62,10 @@ describe('Hauberk of Bright Mail (tw-254)', () => {
         && a.action.type === 'play-hero-resource'
         && a.action.attachToCharacterId === frodoId,
     );
-    expect(onFrodo).toBeUndefined();
+    expect(onFrodo).toBeDefined();
   });
 
-  test('playable on warrior but not non-warrior in same company', () => {
+  test('playable on both warrior and non-warrior in same company', () => {
     const state = buildSitePhaseState({
       characters: [ARAGORN, FRODO],
       site: MORIA,
@@ -89,7 +87,25 @@ describe('Hauberk of Bright Mail (tw-254)', () => {
         && a.action.attachToCharacterId === frodoId,
     );
     expect(onAragorn).toBeDefined();
-    expect(onFrodo).toBeUndefined();
+    expect(onFrodo).toBeDefined();
+  });
+
+  test('body bonus NOT applied to Frodo (non-warrior carrying Hauberk)', () => {
+    const state = buildTestState({
+      phase: Phase.Organization,
+      activePlayer: PLAYER_1,
+      recompute: true,
+      players: [
+        { id: PLAYER_1, companies: [{ site: MORIA, characters: [{ defId: FRODO, items: [HAUBERK_OF_BRIGHT_MAIL] }] }], hand: [], siteDeck: [MINAS_TIRITH] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [MORIA] },
+      ],
+    });
+
+    const s = dispatch(state, { type: 'pass', player: PLAYER_1 });
+
+    const baseDef = pool[FRODO as string] as CharacterCard;
+    // Frodo has no warrior skill, so Hauberk's body bonus does not apply.
+    expect(getCharacter(s, 0, FRODO).effectiveStats.body).toBe(baseDef.body);
   });
 
   test('body +2 capped at 9 for Aragorn (base body 9)', () => {
