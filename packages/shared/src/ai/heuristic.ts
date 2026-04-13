@@ -40,6 +40,7 @@ const COMBAT_ACTION_TYPES = new Set([
   'support-strike',
   'cancel-attack',
   'cancel-by-tap',
+  'halve-strikes',
   'body-check-roll',
 ]);
 

@@ -48,6 +48,8 @@ export function handleCombatAction(state: GameState, action: GameAction): Reduce
       return handleCancelByTap(state, action, combat);
     case 'play-dodge':
       return handlePlayDodge(state, action, combat);
+    case 'halve-strikes':
+      return handleHalveStrikes(state, action, combat);
     case 'salvage-item':
       return handleSalvageItem(state, action, combat);
     default:
@@ -827,22 +829,24 @@ function handleCancelAttack(state: GameState, action: GameAction, combat: Combat
   const cardIndex = defPlayer.hand.findIndex(c => c.instanceId === action.cardInstanceId);
   if (cardIndex < 0) return { state, error: 'Card not in hand' };
 
-  // Validate the scout is in the defending company and untapped
-  const company = defPlayer.companies.find(c => c.id === combat.companyId);
-  if (!company || !company.characters.includes(action.scoutInstanceId)) {
-    return { state, error: 'Scout not in defending company' };
-  }
-  const scoutData = defPlayer.characters[action.scoutInstanceId as string];
-  if (!scoutData || scoutData.status !== CardStatus.Untapped) {
-    return { state, error: 'Scout must be untapped' };
-  }
-
-  logDetail(`Attack canceled: ${defPlayer.hand[cardIndex].definitionId as string} played, tapping ${scoutData.definitionId as string}`);
-
-  // Tap the scout
   const newPlayers = clonePlayers(state);
   const newCharacters = { ...defPlayer.characters };
-  newCharacters[action.scoutInstanceId as string] = { ...scoutData, status: CardStatus.Tapped };
+
+  // Tap the scout if a skill cost is required
+  if (action.scoutInstanceId) {
+    const company = defPlayer.companies.find(c => c.id === combat.companyId);
+    if (!company || !company.characters.includes(action.scoutInstanceId)) {
+      return { state, error: 'Scout not in defending company' };
+    }
+    const scoutData = defPlayer.characters[action.scoutInstanceId as string];
+    if (!scoutData || scoutData.status !== CardStatus.Untapped) {
+      return { state, error: 'Scout must be untapped' };
+    }
+    logDetail(`Attack canceled: ${defPlayer.hand[cardIndex].definitionId as string} played, tapping ${scoutData.definitionId as string}`);
+    newCharacters[action.scoutInstanceId as string] = { ...scoutData, status: CardStatus.Tapped };
+  } else {
+    logDetail(`Attack canceled: ${defPlayer.hand[cardIndex].definitionId as string} played (no cost)`);
+  }
 
   // Move card from hand to discard
   const newHand = [...defPlayer.hand];
@@ -985,6 +989,47 @@ function handleCancelByTap(state: GameState, action: GameAction, combat: CombatS
   }
 
   return { state: { ...state, players: newPlayers, combat: newCombat } };
+}
+
+/**
+ * Halve the number of strikes in the current attack (rounded up) by
+ * discarding a short event card from hand. Only allowed during the
+ * assign-strikes phase before any strikes have been assigned.
+ */
+function handleHalveStrikes(state: GameState, action: GameAction, combat: CombatState): ReducerResult {
+  if (action.type !== 'halve-strikes') return { state, error: 'Expected halve-strikes' };
+  if (combat.phase !== 'assign-strikes') return { state, error: 'Can only halve strikes before strikes are assigned' };
+  if (combat.strikeAssignments.length > 0) return { state, error: 'Strikes already assigned — too late to halve' };
+  if (action.player !== combat.defendingPlayerId) return { state, error: 'Only defending player can halve strikes' };
+
+  const defPlayerIndex = state.players.findIndex(p => p.id === action.player);
+  const defPlayer = state.players[defPlayerIndex];
+
+  const cardIndex = defPlayer.hand.findIndex(c => c.instanceId === action.cardInstanceId);
+  if (cardIndex < 0) return { state, error: 'Card not in hand' };
+
+  const originalStrikes = combat.strikesTotal;
+  const newStrikes = Math.ceil(originalStrikes / 2);
+  logDetail(`Strikes halved: ${originalStrikes} → ${newStrikes} (${defPlayer.hand[cardIndex].definitionId as string} played)`);
+
+  const newPlayers = clonePlayers(state);
+  const newHand = [...defPlayer.hand];
+  const [discardedCard] = newHand.splice(cardIndex, 1);
+  const newDiscard = [...defPlayer.discardPile, { instanceId: discardedCard.instanceId, definitionId: discardedCard.definitionId }];
+
+  newPlayers[defPlayerIndex] = {
+    ...defPlayer,
+    hand: newHand,
+    discardPile: newDiscard,
+  };
+
+  return {
+    state: {
+      ...state,
+      players: newPlayers,
+      combat: { ...combat, strikesTotal: newStrikes },
+    },
+  };
 }
 
 /**

@@ -64,6 +64,9 @@ export const combatEvaluator: ActionEvaluator = {
       case 'cancel-attack':
         return 12;
 
+      case 'halve-strikes':
+        return 8;
+
       case 'cancel-by-tap':
         return 6;
 
