@@ -315,13 +315,20 @@ export interface PlayOptionEffect extends EffectBase {
 /**
  * Allows the bearer to cancel an incoming strike by paying a cost.
  *
- * Example: The One Ring lets the bearer make a corruption check (-2)
- * to cancel a strike, except against Undead and Nazgûl.
+ * When `target` is absent or `"self"`, cancels a strike against the bearer
+ * (e.g. The One Ring). When `target` is `"other-in-company"`, the character
+ * taps to cancel a strike against another character in the same company
+ * (e.g. Fatty Bolger protecting hobbits). A `filter` condition selects
+ * which characters qualify as valid protection targets.
  */
 export interface CancelStrikeEffect extends EffectBase {
   readonly type: 'cancel-strike';
   /** The cost to cancel the strike. */
   readonly cost: ActionCost;
+  /** Who the cancel targets: the bearer's own strike or another character's. */
+  readonly target?: 'self' | 'other-in-company';
+  /** DSL condition filtering which characters can be protected (for `other-in-company`). */
+  readonly filter?: Condition;
 }
 
 /**

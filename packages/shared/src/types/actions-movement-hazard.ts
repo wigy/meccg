@@ -263,6 +263,22 @@ export interface SalvageItemAction {
 }
 
 /**
+ * Cancel a strike against a character by having another character in
+ * the same company pay a cost (e.g. Fatty Bolger taps to cancel a
+ * strike against another hobbit).
+ */
+export interface CancelStrikeAction {
+  /** Action discriminant. */
+  readonly type: 'cancel-strike';
+  /** The defending player canceling the strike. */
+  readonly player: PlayerId;
+  /** The character paying the cost (tapping) to cancel the strike. */
+  readonly cancellerInstanceId: CardInstanceId;
+  /** The character whose strike is being canceled. */
+  readonly targetCharacterId: CardInstanceId;
+}
+
+/**
  * Play a dodge-strike card from hand during resolve-strike to let the
  * target character resolve the strike at full prowess without tapping
  * (unless wounded by the strike).

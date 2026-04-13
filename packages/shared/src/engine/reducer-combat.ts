@@ -49,6 +49,8 @@ export function handleCombatAction(state: GameState, action: GameAction): Reduce
       return handleCancelByTap(state, action, combat);
     case 'play-dodge':
       return handlePlayDodge(state, action, combat);
+    case 'cancel-strike':
+      return handleCancelStrike(state, action, combat);
     case 'halve-strikes':
       return handleHalveStrikes(state, action, combat);
     case 'salvage-item':
@@ -470,6 +472,49 @@ function handleSupportStrike(state: GameState, action: GameAction, combat: Comba
   }
 
   return { state, error: 'Supporting character or ally not found' };
+}
+
+/**
+ * Cancel the current strike by having another character in the company
+ * tap. The strike is marked resolved with result 'canceled' and combat
+ * advances to the next strike or finalizes.
+ */
+function handleCancelStrike(state: GameState, action: GameAction, combat: CombatState): ReducerResult {
+  if (action.type !== 'cancel-strike') return { state, error: 'Expected cancel-strike' };
+  if (combat.phase !== 'resolve-strike') return { state, error: 'Not in resolve-strike phase' };
+
+  const defPlayerIndex = state.players.findIndex(p => p.id === combat.defendingPlayerId);
+  const defPlayer = state.players[defPlayerIndex];
+
+  const cancellerChar = defPlayer.characters[action.cancellerInstanceId as string];
+  if (!cancellerChar) return { state, error: 'Canceller character not found' };
+  if (cancellerChar.status !== CardStatus.Untapped) return { state, error: 'Canceller must be untapped' };
+
+  const currentStrike = combat.strikeAssignments[combat.currentStrikeIndex];
+  if (!currentStrike || currentStrike.resolved) return { state, error: 'No active strike to cancel' };
+  if (currentStrike.characterId === action.cancellerInstanceId) return { state, error: 'Cannot cancel own strike with this effect' };
+  if (action.targetCharacterId !== currentStrike.characterId) return { state, error: 'Target does not match current strike' };
+
+  const cancellerDef = state.cardPool[cancellerChar.definitionId as string];
+  const cancellerName = cancellerDef && 'name' in cancellerDef ? (cancellerDef as { name: string }).name : (action.cancellerInstanceId as string);
+  logDetail(`${cancellerName} taps to cancel strike against ${currentStrike.characterId as string}`);
+
+  const newPlayers = clonePlayers(state);
+  const newCharacters = { ...defPlayer.characters };
+  newCharacters[action.cancellerInstanceId as string] = { ...cancellerChar, status: CardStatus.Tapped };
+  newPlayers[defPlayerIndex] = { ...defPlayer, characters: newCharacters };
+
+  const newAssignments = [...combat.strikeAssignments];
+  newAssignments[combat.currentStrikeIndex] = { ...currentStrike, resolved: true, result: 'canceled' };
+
+  const combatWithAssignments = { ...combat, strikeAssignments: newAssignments };
+  const next = nextStrikePhase(combatWithAssignments);
+  if (!next) {
+    return finalizeCombat({ ...state, players: newPlayers, combat: combatWithAssignments });
+  }
+  return {
+    state: { ...state, players: newPlayers, combat: { ...combatWithAssignments, ...next } },
+  };
 }
 
 /**

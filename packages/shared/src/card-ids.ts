@@ -38,6 +38,8 @@ export const FARAMIR = did('tw-149');
 export const BILBO = did('tw-131');
 /** Sam Gamgee — hobbit, mind 4, scout/ranger, corruption checks +3. */
 export const SAM_GAMGEE = did('tw-180');
+/** Fatty Bolger — hobbit, scout, can tap to cancel strike against another hobbit. */
+export const FATTY_BOLGER = did('tw-495');
 /** Beorn — man, strong warrior (prowess 7), mind 7. */
 export const BEORN = did('tw-126');
 /** Théoden — man, warrior/diplomat, mind 6, Rohan leader. */

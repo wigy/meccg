@@ -13,7 +13,7 @@
  */
 
 import type { GameState, PlayerId, EvaluatedAction, CombatState, CardInstanceId } from '../../index.js';
-import type { CancelAttackEffect, DodgeStrikeEffect, HalveStrikesEffect } from '../../types/effects.js';
+import type { CancelAttackEffect, CancelStrikeEffect, DodgeStrikeEffect, HalveStrikesEffect } from '../../types/effects.js';
 import type { AllyInPlay } from '../../types/state-cards.js';
 import type { PlayerState } from '../../types/state-player.js';
 import { CardStatus, isCharacterCard, isAllyCard, matchesCondition } from '../../index.js';
@@ -403,6 +403,56 @@ function resolveStrikeActions(
             viable: true,
           });
         }
+      }
+    }
+  }
+
+  // Cancel-strike: scan characters in the company for cancel-strike effects
+  // targeting other characters (e.g. Fatty Bolger taps to cancel a hobbit's strike).
+  if (company0) {
+    const strikeTargetDef = charDef;
+    for (const compCharId of company0.characters) {
+      if (compCharId === currentStrike.characterId) continue;
+      const compCharData = player0.characters[compCharId as string];
+      if (!compCharData || compCharData.status !== CardStatus.Untapped) continue;
+      const compCharDef = state.cardPool[compCharData.definitionId as string];
+      if (!compCharDef || !isCharacterCard(compCharDef)) continue;
+      if (!compCharDef.effects) continue;
+
+      for (const eff of compCharDef.effects) {
+        if (eff.type !== 'cancel-strike') continue;
+        const csEff = eff as CancelStrikeEffect;
+        if (csEff.target !== 'other-in-company') continue;
+        if (csEff.cost?.tap !== 'self') continue;
+
+        // Check when condition (enemy filtering)
+        if (csEff.when) {
+          const ctx: Record<string, unknown> = {};
+          if (combat.creatureRace) ctx['enemy.race'] = combat.creatureRace;
+          if (!matchesCondition(csEff.when, ctx)) continue;
+        }
+
+        // Check filter condition (target character filtering)
+        if (csEff.filter) {
+          if (!strikeTargetDef) continue;
+          const targetObj: Record<string, unknown> = {};
+          if ('race' in strikeTargetDef) targetObj.race = (strikeTargetDef as { race: string }).race;
+          if ('skills' in strikeTargetDef) targetObj.skills = (strikeTargetDef as { skills: readonly string[] }).skills;
+          if ('name' in strikeTargetDef) targetObj.name = (strikeTargetDef as { name: string }).name;
+          if (!matchesCondition(csEff.filter, { target: targetObj })) continue;
+        }
+
+        const cancellerName = compCharDef.name;
+        logDetail(`Cancel-strike available: ${cancellerName} can tap to cancel strike against ${charName}`);
+        actions.push({
+          action: {
+            type: 'cancel-strike',
+            player: playerId,
+            cancellerInstanceId: compCharId,
+            targetCharacterId: currentStrike.characterId,
+          },
+          viable: true,
+        });
       }
     }
   }

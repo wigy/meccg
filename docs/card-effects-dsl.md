@@ -232,12 +232,22 @@ The `bodyPenalty` modifies the character's body for the body check only
 
 Pay a cost to cancel an incoming strike, with optional exclusions.
 
+When `target` is absent or `"self"`, the bearer cancels their own strike
+(e.g. The One Ring). When `target` is `"other-in-company"`, the character
+taps to cancel a strike against another character in the same company
+(e.g. Fatty Bolger). A `filter` condition selects which characters
+qualify as valid protection targets.
+
 ```json
 { "type": "cancel-strike",
   "cost": { "check": "corruption", "modifier": -2 },
   "when": { "$not": { "$or": [
     { "enemy.race": "undead" }, { "enemy.race": "nazgul" }
   ] } } }
+{ "type": "cancel-strike",
+  "cost": { "tap": "self" },
+  "target": "other-in-company",
+  "filter": { "target.race": "hobbit" } }
 ```
 
 ### 12. `combat-rule`
