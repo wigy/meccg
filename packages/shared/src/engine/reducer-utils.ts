@@ -6,10 +6,10 @@
  * and card effect resolution helpers.
  */
 
-import type { GameState, PlayerState, CardInstanceId, CardInstance, CompanyId, GameAction } from '../index.js';
+import type { GameState, PlayerState, CardInstanceId, CardInstance, CompanyId, GameAction, Company } from '../index.js';
 import type { TwoDiceSix, DieRoll, GameEffect } from '../index.js';
 import type { Condition } from '../types/effects.js';
-import { shuffle, nextInt, CardStatus, getPlayerIndex } from '../index.js';
+import { shuffle, nextInt, CardStatus, getPlayerIndex, isSiteCard } from '../index.js';
 import { logHeading, logDetail } from './legal-actions/log.js';
 import { matchesCondition } from '../effects/index.js';
 
@@ -390,6 +390,83 @@ export function validateActionPlayer(state: GameState, action: GameAction): stri
 
 /** Dispatches setup phase actions to the appropriate step handler. */
 
+
+/**
+ * Auto-joins the active player's companies that end up at the same
+ * non-haven site at the end of all movement/hazard phases (CoE rule
+ * 2.IV.6: "The resource player must immediately join any companies at
+ * the same non-haven site at the end of a turn's movement/hazard
+ * phases"). Companies sharing a haven are left alone — joining havens
+ * is always a player choice.
+ *
+ * Companies are joined in declaration order: the first company at each
+ * non-haven site becomes the target, and every subsequent company there
+ * has its characters folded into the target and is removed. The merged
+ * company keeps `siteCardOwned=true` if any of the merging companies
+ * held the physical site card.
+ */
+export function autoMergeNonHavenCompanies(state: GameState, playerIndex: number): GameState {
+  const player = state.players[playerIndex];
+  if (player.companies.length < 2) return state;
+
+  // Group companies by site instance id, preserving encounter order.
+  const groups = new Map<string, number[]>();
+  for (let i = 0; i < player.companies.length; i++) {
+    const c = player.companies[i];
+    if (!c.currentSite) continue;
+    const key = c.currentSite.instanceId as string;
+    const existing = groups.get(key);
+    if (existing) {
+      existing.push(i);
+    } else {
+      groups.set(key, [i]);
+    }
+  }
+
+  // Collect indices to remove and the target index per group.
+  const mergeMap = new Map<number, number[]>(); // target idx → source idxs to fold in
+  for (const [siteInstanceId, indices] of groups) {
+    if (indices.length < 2) continue;
+    const firstIdx = indices[0];
+    const siteDef = state.cardPool[player.companies[firstIdx].currentSite!.definitionId as string];
+    const isHaven = siteDef && isSiteCard(siteDef) && siteDef.siteType === 'haven';
+    if (isHaven) continue;
+    mergeMap.set(firstIdx, indices.slice(1));
+    logDetail(`Auto-merge rule 2.IV.6: ${indices.length} companies at non-haven site ${siteDef?.name ?? siteInstanceId} → joining into company ${player.companies[firstIdx].id as string}`);
+  }
+
+  if (mergeMap.size === 0) return state;
+
+  const toRemove = new Set<number>();
+  for (const sources of mergeMap.values()) for (const s of sources) toRemove.add(s);
+
+  const companies: Company[] = [];
+  for (let i = 0; i < player.companies.length; i++) {
+    if (toRemove.has(i)) continue;
+    const c = player.companies[i];
+    const folds = mergeMap.get(i);
+    if (!folds || folds.length === 0) {
+      companies.push(c);
+      continue;
+    }
+    let characters = [...c.characters];
+    let siteCardOwned = c.siteCardOwned;
+    let onGuardCards = [...c.onGuardCards];
+    let hazards = [...c.hazards];
+    for (const srcIdx of folds) {
+      const src = player.companies[srcIdx];
+      characters = [...characters, ...src.characters];
+      siteCardOwned = siteCardOwned || src.siteCardOwned;
+      onGuardCards = [...onGuardCards, ...src.onGuardCards];
+      hazards = [...hazards, ...src.hazards];
+    }
+    companies.push({ ...c, characters, siteCardOwned, onGuardCards, hazards });
+  }
+
+  const newPlayers: [PlayerState, PlayerState] = [state.players[0], state.players[1]];
+  newPlayers[playerIndex] = { ...player, companies };
+  return { ...state, players: newPlayers };
+}
 
 /**
  * Removes companies with no characters and returns their site cards

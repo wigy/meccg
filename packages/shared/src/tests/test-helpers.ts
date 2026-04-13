@@ -10,6 +10,7 @@ import { createGame } from '../engine/init.js';
 import type { GameConfig, QuickStartGameConfig } from '../engine/init.js';
 import { reduce } from '../engine/reducer.js';
 import type { ReducerResult } from '../engine/reducer.js';
+import { autoMergeNonHavenCompanies as _autoMergeNonHavenCompanies } from '../engine/reducer-utils.js';
 import {
   loadCardPool,
   Phase,
@@ -1106,6 +1107,14 @@ export function runAutoAttackCombat(
 
   return result;
 }
+
+/**
+ * Rule 2.IV.6 primitive: auto-join companies at the same non-haven site
+ * at the end of all movement/hazard phases. Re-exported here so rules
+ * tests for that transition can invoke it without reaching into
+ * internal engine modules.
+ */
+export const autoMergeNonHavenCompanies = _autoMergeNonHavenCompanies;
 
 // Re-export commonly used things
 export {

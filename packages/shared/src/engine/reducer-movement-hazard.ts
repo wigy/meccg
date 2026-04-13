@@ -13,7 +13,7 @@ import { logDetail } from './legal-actions/log.js';
 import { initiateChain, pushChainEntry } from './chain-reducer.js';
 import { resolveInstanceId } from '../types/state.js';
 import type { ReducerResult } from './reducer-utils.js';
-import { clonePlayers, startDeckExhaust, completeDeckExhaust, handleExchangeSideboard, cleanupEmptyCompanies } from './reducer-utils.js';
+import { clonePlayers, startDeckExhaust, completeDeckExhaust, handleExchangeSideboard, cleanupEmptyCompanies, autoMergeNonHavenCompanies } from './reducer-utils.js';
 import { handlePlayShortEvent } from './reducer-events.js';
 import { handlePlayPermanentEvent } from './reducer-events.js';
 import { sweepExpired, addConstraint } from './pending.js';
@@ -748,15 +748,19 @@ function advanceAfterCompanyMH(state: GameState, mhState: MovementHazardPhaseSta
 
   if (remainingCount <= 0) {
     logDetail(`Movement/Hazard: all companies handled → advancing to Site phase`);
+    // Rule 2.IV.6: auto-merge any of the resource player's companies that
+    // ended up at the same non-haven site. Run before resetting moved flags
+    // so the merge sees the post-movement company layout.
+    const mergedState = autoMergeNonHavenCompanies(state, activeIndex);
     // Reset moved flags so the site phase shows a clean slate
-    const newPlayers = clonePlayers(state);
+    const newPlayers = clonePlayers(mergedState);
     newPlayers[activeIndex] = {
       ...newPlayers[activeIndex],
       companies: newPlayers[activeIndex].companies.map(c => ({ ...c, moved: false, specialMovement: undefined, extraRegionDistance: undefined })),
     };
     return {
       state: cleanupEmptyCompanies({
-        ...state,
+        ...mergedState,
         players: newPlayers,
         phaseState: {
           phase: Phase.Site,
