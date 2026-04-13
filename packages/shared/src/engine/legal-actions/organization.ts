@@ -397,6 +397,17 @@ function grantedActionActivations(state: GameState, playerId: PlayerId): Evaluat
           continue;
         }
 
+        if (effect.when) {
+          const charDefForCtx = state.cardPool[char.definitionId as string];
+          const charDefCard = charDefForCtx && isCharacterCard(charDefForCtx) ? charDefForCtx : undefined;
+          const company = player.companies.find(c => c.characters.includes(charId));
+          const ctx = buildGrantActionContext(state, char, charDefCard, company);
+          if (!matchesCondition(effect.when, ctx)) {
+            logDetail(`Grant-action ${effect.action}: when condition failed on ${charDefCard?.name ?? '?'}`);
+            continue;
+          }
+        }
+
         const charDef = state.cardPool[char.definitionId as string];
         const def = state.cardPool[hazard.definitionId as string];
         logDetail(`Grant-action ${effect.action} available: ${charDef?.name ?? '?'} can tap to activate (source: ${def?.name ?? '?'})`);
@@ -479,21 +490,14 @@ function grantedActionActivations(state: GameState, playerId: PlayerId): Evaluat
     for (const ally of char.allies) {
       const grantActions = extractGrantActions(state, ally.definitionId);
       for (const effect of grantActions) {
-        // Action-specific checks
-        if (effect.action === 'gwaihir-special-movement') {
-          // Gwaihir: company size must be ≤ 2
-          const company = player.companies.find(c => c.characters.includes(charId));
-          if (!company) continue;
-          const companySize = computeCompanySize(state, company);
-          if (companySize > 2) {
+        const charDefForCtx = state.cardPool[char.definitionId as string];
+        const charDefCard = charDefForCtx && isCharacterCard(charDefForCtx) ? charDefForCtx : undefined;
+        const company = player.companies.find(c => c.characters.includes(charId));
+        if (effect.when) {
+          const ctx = buildGrantActionContext(state, char, charDefCard, company);
+          if (!matchesCondition(effect.when, ctx)) {
             const def = state.cardPool[ally.definitionId as string];
-            logDetail(`Grant-action ${effect.action}: company size ${companySize} > 2, cannot activate ${def?.name ?? '?'}`);
-            continue;
-          }
-          // Company must not already have planned movement or special movement
-          if (company.destinationSite !== null || company.specialMovement) {
-            const def = state.cardPool[ally.definitionId as string];
-            logDetail(`Grant-action ${effect.action}: company already has movement planned, cannot activate ${def?.name ?? '?'}`);
+            logDetail(`Grant-action ${effect.action}: when condition failed on ${charDefCard?.name ?? '?'} (source ${def?.name ?? '?'})`);
             continue;
           }
         }
@@ -521,28 +525,14 @@ function grantedActionActivations(state: GameState, playerId: PlayerId): Evaluat
     for (const item of char.items) {
       const grantActions = extractGrantActions(state, item.definitionId);
       for (const effect of grantActions) {
-        // Action-specific checks
-        if (effect.action === 'untap-bearer') {
-          // Bearer must be tapped for untap to make sense
-          if (char.status !== CardStatus.Tapped) {
+        const charDefForCtx = state.cardPool[char.definitionId as string];
+        const charDefCard = charDefForCtx && isCharacterCard(charDefForCtx) ? charDefForCtx : undefined;
+        const company = player.companies.find(c => c.characters.includes(charId));
+        if (effect.when) {
+          const ctx = buildGrantActionContext(state, char, charDefCard, company);
+          if (!matchesCondition(effect.when, ctx)) {
             const def = state.cardPool[item.definitionId as string];
-            logDetail(`Grant-action ${effect.action}: ${charDef?.name ?? '?'} is not tapped, cannot activate ${def?.name ?? '?'}`);
-            continue;
-          }
-        }
-
-        if (effect.action === 'extra-region-movement') {
-          // Company must not already have planned movement or extra region distance
-          const company = player.companies.find(c => c.characters.includes(charId));
-          if (!company) continue;
-          if (company.destinationSite !== null) {
-            const def = state.cardPool[item.definitionId as string];
-            logDetail(`Grant-action ${effect.action}: company already has movement planned, cannot activate ${def?.name ?? '?'}`);
-            continue;
-          }
-          if (company.extraRegionDistance) {
-            const def = state.cardPool[item.definitionId as string];
-            logDetail(`Grant-action ${effect.action}: company already has extra region distance, cannot activate ${def?.name ?? '?'}`);
+            logDetail(`Grant-action ${effect.action}: when condition failed on ${charDefCard?.name ?? '?'} (source ${def?.name ?? '?'})`);
             continue;
           }
         }
@@ -567,6 +557,40 @@ function grantedActionActivations(state: GameState, playerId: PlayerId): Evaluat
   }
 
   return actions;
+}
+
+/**
+ * Builds the DSL context used to evaluate a grant-action effect's
+ * {@link EffectBase.when} condition. Exposes `bearer` (the character
+ * holding the source card) and `company` (the company that character
+ * belongs to, with derived booleans for planned movement and extra
+ * region distance).
+ *
+ * New grant-action preconditions should be expressed as DSL `when`
+ * clauses against this context instead of hardcoded action-ID branches
+ * in {@link grantedActionActivations}.
+ */
+function buildGrantActionContext(
+  state: GameState,
+  char: import('../../index.js').CharacterInPlay,
+  charDef: import('../../index.js').CharacterCard | undefined,
+  company: import('../../index.js').Company | undefined,
+): Record<string, unknown> {
+  const statusStr = char.status === CardStatus.Untapped ? 'untapped'
+    : char.status === CardStatus.Tapped ? 'tapped'
+    : 'inverted';
+  const bearer = {
+    status: statusStr,
+    name: charDef?.name ?? '',
+    race: charDef?.race ?? '',
+    skills: charDef?.skills ?? [],
+  };
+  const companyCtx = company ? {
+    size: computeCompanySize(state, company),
+    hasPlannedMovement: company.destinationSite !== null || !!company.specialMovement,
+    hasExtraRegionDistance: !!company.extraRegionDistance,
+  } : null;
+  return { bearer, company: companyCtx };
 }
 
 /**

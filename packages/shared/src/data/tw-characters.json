@@ -32,11 +32,6 @@
         "action": "test-gold-ring",
         "cost": {
           "tap": "self"
-        },
-        "when": {
-          "company.hasItem": {
-            "subtype": "gold-ring"
-          }
         }
       }
     ],

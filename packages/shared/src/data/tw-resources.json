@@ -21,7 +21,11 @@
       {
         "type": "grant-action",
         "action": "gwaihir-special-movement",
-        "cost": { "discard": "self" }
+        "cost": { "discard": "self" },
+        "when": {
+          "company.size": { "$lte": 2 },
+          "company.hasPlannedMovement": false
+        }
       }
     ],
     "certified": "2026-04-07"
