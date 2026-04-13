@@ -209,18 +209,30 @@ function showCancelAttackScoutMenu(
 
   for (const action of actions) {
     if (action.type !== 'cancel-attack') continue;
-    const scoutDefId = cachedInstanceLookup(action.scoutInstanceId);
-    const scoutDef = scoutDefId ? cardPool[scoutDefId as string] : undefined;
-    const scoutName = scoutDef ? scoutDef.name : '?';
 
-    const btn = document.createElement('button');
-    btn.className = 'char-action-tooltip__btn';
-    btn.textContent = `Tap ${scoutName}`;
-    btn.addEventListener('click', () => {
-      backdrop.remove();
-      onAction(action);
-    });
-    tooltip.appendChild(btn);
+    if (action.scoutInstanceId) {
+      const scoutDefId = cachedInstanceLookup(action.scoutInstanceId);
+      const scoutDef = scoutDefId ? cardPool[scoutDefId as string] : undefined;
+      const scoutName = scoutDef ? scoutDef.name : '?';
+
+      const btn = document.createElement('button');
+      btn.className = 'char-action-tooltip__btn';
+      btn.textContent = `Tap ${scoutName}`;
+      btn.addEventListener('click', () => {
+        backdrop.remove();
+        onAction(action);
+      });
+      tooltip.appendChild(btn);
+    } else {
+      const btn = document.createElement('button');
+      btn.className = 'char-action-tooltip__btn';
+      btn.textContent = 'Cancel attack';
+      btn.addEventListener('click', () => {
+        backdrop.remove();
+        onAction(action);
+      });
+      tooltip.appendChild(btn);
+    }
   }
 
   backdrop.appendChild(tooltip);

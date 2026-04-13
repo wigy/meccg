@@ -52,7 +52,7 @@ describe('Concealment (tw-204)', () => {
     );
     expect(cancelAttack).toBeDefined();
     expect(cancelAttack!.requiredSkill).toBe('scout');
-    expect(cancelAttack!.cost.tap).toBe('character');
+    expect(cancelAttack!.cost?.tap).toBe('character');
   });
 
   test('cancel-attack action is available when defending company has untapped scout and Concealment in hand', () => {
