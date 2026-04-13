@@ -13,7 +13,7 @@
  */
 
 import type { GameState, PlayerId, EvaluatedAction, CombatState, CardInstanceId } from '../../index.js';
-import type { CancelAttackEffect, CancelStrikeEffect, DodgeStrikeEffect, HalveStrikesEffect } from '../../types/effects.js';
+import type { CancelAttackEffect, DodgeStrikeEffect, HalveStrikesEffect } from '../../types/effects.js';
 import type { AllyInPlay } from '../../types/state-cards.js';
 import type { PlayerState } from '../../types/state-player.js';
 import { CardStatus, isCharacterCard, isAllyCard, matchesCondition } from '../../index.js';
@@ -421,7 +421,7 @@ function resolveStrikeActions(
 
       for (const eff of compCharDef.effects) {
         if (eff.type !== 'cancel-strike') continue;
-        const csEff = eff as CancelStrikeEffect;
+        const csEff = eff;
         if (csEff.target !== 'other-in-company') continue;
         if (csEff.cost?.tap !== 'self') continue;
 
