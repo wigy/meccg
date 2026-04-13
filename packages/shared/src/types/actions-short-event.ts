@@ -3,9 +3,10 @@
  *
  * Action types for playing short-event resource cards.
  *
- * Short events can cancel environments or trigger sub-flows such as
- * fetching cards from the sideboard or discard pile. They initiate a
- * chain of effects so both players can respond before resolution.
+ * Short events can cancel environments, fetch cards from the sideboard or
+ * discard pile, or force the discard of an in-play hazard event. All
+ * targets are specified up-front on the action; the reducer then applies
+ * costs and effects in one step.
  */
 
 import type { PlayerId, CardInstanceId } from './common.js';
@@ -49,6 +50,13 @@ export interface PlayShortEventAction {
    * matching option's `apply` clause via the generic DSL handlers.
    */
   readonly optionId?: string;
+  /**
+   * For cards with a `discard-in-play` effect (e.g. Marvels Told), the
+   * in-play card instance to discard. One legal action is emitted per
+   * eligible (sage × hazard) combination so the player picks the target
+   * as part of playing the card — there is no separate sub-flow.
+   */
+  readonly discardTargetInstanceId?: CardInstanceId;
 }
 
 /**

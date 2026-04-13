@@ -470,6 +470,28 @@ export interface DenyItemSiteRule extends EffectBase {
 }
 
 /**
+ * Forces the discard of an in-play card matching a filter. The player
+ * chooses which eligible card to discard. Uses the pending-effects
+ * sub-flow: the event stays in cardsInPlay while the player selects
+ * a target, then both the target and the event are discarded.
+ *
+ * Example: Marvels Told — tap a sage to discard a hazard non-environment
+ * permanent-event or long-event.
+ */
+export interface DiscardInPlayEffect extends EffectBase {
+  readonly type: 'discard-in-play';
+  /** DSL condition evaluated against each card definition to decide eligibility. */
+  readonly filter: Condition;
+  /**
+   * Corruption check enqueued on the tapped character after resolution.
+   * The modifier is added to the standard corruption check roll.
+   */
+  readonly corruptionCheck?: {
+    readonly modifier: number;
+  };
+}
+
+/**
  * Fetches a card from one or more source piles into the play deck and shuffles.
  *
  * Used by short events like Smoke Rings that let the player retrieve a
@@ -525,4 +547,5 @@ export type CardEffect =
   | PlayWindowEffect
   | OnGuardRevealEffect
   | FetchToDeckEffect
+  | DiscardInPlayEffect
   | SiteRuleEffect;

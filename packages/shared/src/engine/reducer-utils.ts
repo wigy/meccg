@@ -694,4 +694,3 @@ export function handleFetchFromPile(state: GameState, action: GameAction): Reduc
  * Resolve (skip) the current pending effect and advance to the next one.
  * If no more effects remain, move the event card from cardsInPlay to discard.
  */
-

@@ -173,13 +173,18 @@ export function describeAction(
       return `Cancel movement for ${compName(action.companyId)}`;
     case 'play-permanent-event':
       return `Play permanent event ${instName(action.cardInstanceId)}`;
-    case 'play-short-event':
+    case 'play-short-event': {
       if (action.targetInstanceId) {
         return `Play ${instName(action.cardInstanceId)} to cancel ${instName(action.targetInstanceId)}`;
       }
-      return action.targetScoutInstanceId
-        ? `Play short-event ${instName(action.cardInstanceId)} on ${instName(action.targetScoutInstanceId)}`
-        : `Play short-event ${instName(action.cardInstanceId)}`;
+      const onChar = action.targetScoutInstanceId
+        ? ` on ${instName(action.targetScoutInstanceId)}`
+        : '';
+      const discardTag = action.discardTargetInstanceId
+        ? `, discard ${instName(action.discardTargetInstanceId)}`
+        : '';
+      return `Play short-event ${instName(action.cardInstanceId)}${onChar}${discardTag}`;
+    }
     case 'play-hazard': {
       const target = action.targetCharacterId
         ? `on ${instName(action.targetCharacterId)}`
