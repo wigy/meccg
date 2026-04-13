@@ -340,7 +340,7 @@ export function renderSiteArea(
       const strip = document.createElement('div');
       strip.className = 'constraint-strip';
       for (const constraint of companyConstraints) {
-        const cDefId = cachedInstanceLookup(constraint.source);
+        const cDefId = constraint.sourceDefinitionId ?? cachedInstanceLookup(constraint.source);
         const cDef = cDefId ? cardPool[cDefId as string] : undefined;
         const cImgPath = cDef ? cardImageProxyPath(cDef) : undefined;
 

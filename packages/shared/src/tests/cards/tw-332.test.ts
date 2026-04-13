@@ -264,6 +264,7 @@ describe('Stealth (tw-332)', () => {
     // Add the Stealth constraint targeting P1's company.
     const constrained = addConstraint(stateAtPlayHazards, {
       source: stealthInstance,
+      sourceDefinitionId: STEALTH,
       scope: { kind: 'turn' },
       target: { kind: 'company', companyId: targetCompanyId },
       kind: { type: 'no-creature-hazards-on-company' },
@@ -296,6 +297,7 @@ describe('Stealth (tw-332)', () => {
     const targetCompanyId = base.players[0].companies[0].id;
     const constrained = addConstraint(base, {
       source: 'stealth-1' as CardInstanceId,
+      sourceDefinitionId: STEALTH,
       scope: { kind: 'turn' },
       target: { kind: 'company', companyId: targetCompanyId },
       kind: { type: 'no-creature-hazards-on-company' },
@@ -318,6 +320,7 @@ describe('Stealth (tw-332)', () => {
     const targetCompanyId = base.players[0].companies[0].id;
     const constrained = addConstraint(base, {
       source: 'stealth-1' as CardInstanceId,
+      sourceDefinitionId: STEALTH,
       scope: { kind: 'turn' },
       target: { kind: 'company', companyId: targetCompanyId },
       kind: { type: 'no-creature-hazards-on-company' },
@@ -363,6 +366,7 @@ describe('Stealth (tw-332)', () => {
 
     const constrained = addConstraint(stateAtPlayHazards, {
       source: 'stealth-1' as CardInstanceId,
+      sourceDefinitionId: STEALTH,
       scope: { kind: 'turn' },
       target: { kind: 'company', companyId: protectedCompanyId },
       kind: { type: 'no-creature-hazards-on-company' },

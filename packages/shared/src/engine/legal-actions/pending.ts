@@ -486,9 +486,7 @@ function applySitePhaseDoNothingUnlessRanger(
   const constraintCompany = player.companies.find(c => c.id === targetCompanyId);
   if (!constraintCompany) return filtered;
 
-  // Resolve the source card's definition ID for logging / action shape.
-  const sourceDefId = resolveInstanceId(state, constraint.source);
-  if (!sourceDefId) return filtered;
+  const sourceDefId = constraint.sourceDefinitionId;
 
   for (const charId of constraintCompany.characters) {
     const char = player.characters[charId as string];

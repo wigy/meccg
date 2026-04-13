@@ -194,6 +194,8 @@ export interface ActiveConstraint {
   readonly id: ConstraintId;
   /** Card instance that placed this constraint (for logs / UI / cancellation). */
   readonly source: CardInstanceId;
+  /** Definition ID of the source card, so the UI can display it even when the card is in a hidden pile. */
+  readonly sourceDefinitionId: CardDefinitionId;
   /** Auto-clear boundary. */
   readonly scope: ConstraintScope;
   /** What the constraint applies to. */
