@@ -251,14 +251,23 @@
     "marshallingCategory": "item",
     "corruptionPoints": 1,
     "prowessModifier": 0,
-    "bodyModifier": 2,
+    "bodyModifier": 0,
     "playableAt": [
       "ruins-and-lairs",
       "shadow-hold",
       "dark-hold"
     ],
-    "effects": [],
-    "text": "Unique. Armor. Warrior only: +2 to body to a maximum of 9."
+    "effects": [
+      {
+        "type": "stat-modifier",
+        "stat": "body",
+        "value": 2,
+        "max": 9,
+        "when": { "bearer.skills": { "$includes": "warrior" } }
+      }
+    ],
+    "text": "Unique. Armor. Warrior only: +2 to body to a maximum of 9.",
+    "certified": "2026-04-13"
   },
   {
     "cardType": "hero-resource-item",
