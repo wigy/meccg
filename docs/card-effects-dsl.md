@@ -59,7 +59,7 @@ Optional `target` scopes:
 
 Modifies a roll for a specific check type.
 
-Check types: `corruption`, `influence`.
+Check types: `corruption`, `influence`, `gold-ring-test`.
 
 ```json
 { "type": "check-modifier", "check": "corruption", "value": 1 }

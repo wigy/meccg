@@ -16,6 +16,7 @@ import { roll2d6, clonePlayers, nextCompanyId, handleFetchFromPile } from './red
 import { handlePlayPermanentEvent, handlePlayShortEvent, handlePlayResourceShortEvent } from './reducer-events.js';
 import { enqueueResolution } from './pending.js';
 import { recomputeDerived } from './recompute-derived.js';
+import { collectCharacterEffects, resolveCheckModifier } from './effects/index.js';
 
 
 export function handleOrganization(state: GameState, action: GameAction): ReducerResult {
@@ -866,8 +867,23 @@ function handleTestGoldRing(state: GameState, action: GameAction): ReducerResult
   const { roll, rng, cheatRollTotal } = roll2d6(state);
   const d1 = roll.die1;
   const d2 = roll.die2;
-  const total = d1 + d2;
-  logDetail(`Gold ring test roll for ${charName}: ${d1} + ${d2} = ${total}`);
+  const baseTotal = d1 + d2;
+
+  // Collect gold-ring-test check-modifiers from all characters in the company
+  let goldRingMod = 0;
+  const grContext = { reason: 'gold-ring-test' as const };
+  for (const compCharId of company.characters) {
+    const compChar = player.characters[compCharId as string];
+    if (!compChar) continue;
+    const charEffects = collectCharacterEffects(state, compChar, grContext);
+    goldRingMod += resolveCheckModifier(charEffects, 'gold-ring-test');
+  }
+  const total = baseTotal + goldRingMod;
+  if (goldRingMod !== 0) {
+    logDetail(`Gold ring test roll for ${charName}: ${d1} + ${d2} = ${baseTotal}, modifier ${goldRingMod >= 0 ? '+' : ''}${goldRingMod} → ${total}`);
+  } else {
+    logDetail(`Gold ring test roll for ${charName}: ${d1} + ${d2} = ${total}`);
+  }
 
   const rollEffect: GameEffect = {
     effect: 'dice-roll',
