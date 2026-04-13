@@ -391,13 +391,32 @@ export interface OnGuardRevealEffect extends EffectBase {
  * Declares a site-specific rule that modifies standard game mechanics
  * when a company is at this site.
  *
- * Example: Old Forest — healing effects affect all characters at the site
- * (wounded characters heal during untap as if the site were a haven).
+ * Examples:
+ * - Old Forest — healing effects affect all characters at the site.
+ * - Tolfalas — greater items playable at this site are restricted to a named list.
  */
-export interface SiteRuleEffect extends EffectBase {
+export type SiteRuleEffect =
+  | HealingAffectsAllSiteRule
+  | RestrictItemSubtypeSiteRule;
+
+/** Wounded characters at this site heal during untap as if the site were a haven. */
+export interface HealingAffectsAllSiteRule extends EffectBase {
   readonly type: 'site-rule';
-  /** The site rule identifier. */
-  readonly rule: string;
+  readonly rule: 'healing-affects-all';
+}
+
+/**
+ * Restricts which specific cards of a given item subtype may be played at this
+ * site. Only items whose name appears in `allowedNames` are playable for the
+ * named subtype; items of other subtypes are unaffected.
+ */
+export interface RestrictItemSubtypeSiteRule extends EffectBase {
+  readonly type: 'site-rule';
+  readonly rule: 'restrict-item-subtype';
+  /** The item subtype this restriction applies to (e.g. "greater"). */
+  readonly subtype: string;
+  /** Card names of items that are allowed as the given subtype at this site. */
+  readonly allowedNames: readonly string[];
 }
 
 /**

@@ -546,9 +546,6 @@
       "major",
       "greater"
     ],
-    "playableItemRestrictions": {
-      "greater": ["Scroll of Isildur"]
-    },
     "automaticAttacks": [
       {
         "creatureType": "Undead",
@@ -565,6 +562,12 @@
         "event": "character-wounded-by-self",
         "apply": { "type": "force-check", "check": "corruption" },
         "target": "wounded-character"
+      },
+      {
+        "type": "site-rule",
+        "rule": "restrict-item-subtype",
+        "subtype": "greater",
+        "allowedNames": ["Scroll of Isildur"]
       }
     ],
     "certified": "2026-04-13"

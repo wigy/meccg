@@ -78,8 +78,6 @@ export interface HeroSiteCard {
   readonly havenPaths?: Readonly<Record<string, readonly RegionType[]>>;
   /** Which resource types (items, factions, allies, etc.) can be played at this site. */
   readonly playableResources: readonly PlayableResourceType[];
-  /** Per-subtype restrictions limiting which specific cards of that subtype may be played. */
-  readonly playableItemRestrictions?: Readonly<Record<string, readonly string[]>>;
   /** Built-in attacks that companies face upon entering the site, before any resources can be played. */
   readonly automaticAttacks: readonly AutomaticAttack[];
   /**
@@ -163,8 +161,6 @@ export interface MinionSiteCard {
   readonly havenPaths?: Readonly<Record<string, readonly RegionType[]>>;
   /** Which resource types can be played at this site. */
   readonly playableResources: readonly PlayableResourceType[];
-  /** Per-subtype restrictions limiting which specific cards of that subtype may be played. */
-  readonly playableItemRestrictions?: Readonly<Record<string, readonly string[]>>;
   /** Built-in attacks that companies face upon entering the site. */
   readonly automaticAttacks: readonly AutomaticAttack[];
   /**
@@ -220,8 +216,6 @@ export interface FallenWizardSiteCard {
   readonly havenPaths?: Readonly<Record<string, readonly RegionType[]>>;
   /** Which resource types can be played at this site. */
   readonly playableResources: readonly PlayableResourceType[];
-  /** Per-subtype restrictions limiting which specific cards of that subtype may be played. */
-  readonly playableItemRestrictions?: Readonly<Record<string, readonly string[]>>;
   /** Built-in attacks that companies face upon entering the site. */
   readonly automaticAttacks: readonly AutomaticAttack[];
   /**
@@ -277,8 +271,6 @@ export interface BalrogSiteCard {
   readonly havenPaths?: Readonly<Record<string, readonly RegionType[]>>;
   /** Which resource types can be played at this site. */
   readonly playableResources: readonly PlayableResourceType[];
-  /** Per-subtype restrictions limiting which specific cards of that subtype may be played. */
-  readonly playableItemRestrictions?: Readonly<Record<string, readonly string[]>>;
   /** Built-in attacks that companies face upon entering the site. */
   readonly automaticAttacks: readonly AutomaticAttack[];
   /**

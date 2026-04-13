@@ -9,7 +9,7 @@
  * CoE rules section 2.V (lines 340–393).
  */
 
-import type { GameState, PlayerId, GameAction, EvaluatedAction, SitePhaseState, HeroItemCard, HeroResourceEventCard, SiteCard, PlayableAtEntry, FactionCard } from '../../index.js';
+import type { GameState, PlayerId, GameAction, EvaluatedAction, SitePhaseState, HeroItemCard, HeroResourceEventCard, SiteCard, PlayableAtEntry, FactionCard, RestrictItemSubtypeSiteRule } from '../../index.js';
 import { getPlayerIndex, isSiteCard, isItemCard, isAllyCard, isFactionCard, isCharacterCard, CardStatus, matchesCondition, GENERAL_INFLUENCE } from '../../index.js';
 import { resolveInstanceId } from '../../types/state.js';
 import { collectCharacterEffects, resolveCheckModifier, resolveStatModifiers } from '../effects/index.js';
@@ -460,17 +460,22 @@ function playResourcesActions(
         continue;
       }
 
-      if (siteDef && isSiteCard(siteDef) && siteDef.playableItemRestrictions) {
-        const allowed = siteDef.playableItemRestrictions[itemDef.subtype];
-        if (allowed && !allowed.includes(itemDef.name)) {
-          logDetail(`Item ${itemDef.name} (${itemDef.subtype}): restricted at ${siteName} — only ${allowed.join(', ')} allowed`);
-          actions.push({
-            action: { type: 'not-playable', player: playerId, cardInstanceId },
-            viable: false,
-            reason: `${itemDef.name}: only ${allowed.join(', ')} can be played as ${itemDef.subtype} at ${siteName}`,
-          });
-          continue;
-        }
+      const siteEffects = siteDef && isSiteCard(siteDef) ? siteDef.effects : undefined;
+      const subtypeRestriction = siteEffects?.find(
+        (e): e is RestrictItemSubtypeSiteRule =>
+          e.type === 'site-rule' &&
+          e.rule === 'restrict-item-subtype' &&
+          e.subtype === itemDef.subtype,
+      );
+      if (subtypeRestriction && !subtypeRestriction.allowedNames.includes(itemDef.name)) {
+        const allowedList = subtypeRestriction.allowedNames.join(', ');
+        logDetail(`Item ${itemDef.name} (${itemDef.subtype}): restricted at ${siteName} — only ${allowedList} allowed`);
+        actions.push({
+          action: { type: 'not-playable', player: playerId, cardInstanceId },
+          viable: false,
+          reason: `${itemDef.name}: only ${allowedList} can be played as ${itemDef.subtype} at ${siteName}`,
+        });
+        continue;
       }
 
       if (untappedCharacters.length === 0) {
