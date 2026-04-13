@@ -221,6 +221,15 @@ export interface ActiveConstraint {
          * for the rest of this turn.
          */
         readonly type: 'no-creature-hazards-on-company';
+      }
+    | {
+        /**
+         * Halfling Strength: the target hobbit receives a bonus to their
+         * next corruption check. Consumed (cleared) when the character
+         * makes a corruption check.
+         */
+        readonly type: 'corruption-check-boost';
+        readonly value: number;
       };
 }
 

@@ -36,6 +36,16 @@ export interface PlayShortEventAction {
    * apply the tap cost when the action is reduced.
    */
   readonly targetScoutInstanceId?: CardInstanceId;
+  /**
+   * For cards with a `play-target` of `own-hobbit` (e.g. Halfling Strength),
+   * the hobbit character targeted by the short event.
+   */
+  readonly targetCharacterId?: CardInstanceId;
+  /**
+   * For cards offering a choice of effects (e.g. Halfling Strength: untap,
+   * heal, or corruption-check-boost), which mode the player selected.
+   */
+  readonly mode?: string;
 }
 
 /**

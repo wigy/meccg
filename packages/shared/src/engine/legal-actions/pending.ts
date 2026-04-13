@@ -322,7 +322,16 @@ function corruptionCheckActions(
   const baseModifier = isCharacterCard(charDef) ? charDef.corruptionModifier : 0;
 
   // The producing effect's own modifier (e.g. Barrow-wight's -2)
-  const totalModifier = baseModifier + modifier;
+  let totalModifier = baseModifier + modifier;
+
+  // Add corruption-check-boost from active constraints (e.g. Halfling Strength +4)
+  for (const constraint of state.activeConstraints) {
+    if (constraint.kind.type !== 'corruption-check-boost') continue;
+    if (constraint.target.kind !== 'character') continue;
+    if (constraint.target.characterId !== characterId) continue;
+    totalModifier += constraint.kind.value;
+    logDetail(`Corruption check boost +${constraint.kind.value} from constraint ${constraint.id}`);
+  }
 
   // Build possessions list. For transfer checks, the item physically lives
   // on the new bearer but is counted on the original character for this check.
@@ -398,6 +407,8 @@ function applyOneConstraint(
       return applySitePhaseDoNothingUnlessRanger(state, playerId, base, constraint);
     case 'no-creature-hazards-on-company':
       return applyNoCreatureHazardsOnCompany(state, playerId, base, constraint);
+    case 'corruption-check-boost':
+      return base;
   }
 }
 

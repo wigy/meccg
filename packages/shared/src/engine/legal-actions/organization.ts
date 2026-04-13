@@ -284,6 +284,25 @@ export function organizationActions(state: GameState, playerId: PlayerId): Evalu
       continue;
     }
 
+    // Cards with play-target "own-hobbit" (e.g. Halfling Strength): emit
+    // one action per (hobbit, mode) pair depending on each hobbit's status.
+    const playTarget = getPlayTargetEffect(def);
+    if (playTarget?.target === 'own-hobbit') {
+      resourceShortEventInstances.add(handCard.instanceId as string);
+      const hobbitActions = ownHobbitActions(state, player, playerId, handCard.instanceId, def);
+      if (hobbitActions.length === 0) {
+        logDetail(`${def.name}: no eligible hobbits — not playable`);
+        actions.push({
+          action: { type: 'not-playable', player: playerId, cardInstanceId: handCard.instanceId },
+          viable: false,
+          reason: 'No hobbit in play to target',
+        });
+      } else {
+        actions.push(...hobbitActions);
+      }
+      continue;
+    }
+
     resourceShortEventInstances.add(handCard.instanceId as string);
     logDetail(`Resource short-event playable: ${def.name} (${handCard.instanceId as string})`);
     actions.push({
@@ -678,6 +697,55 @@ export function endOfOrgEligibility(
  */
 export function getPlayTargetEffect(def: HeroResourceEventCard): PlayTargetEffect | undefined {
   return def.effects?.find((e): e is PlayTargetEffect => e.type === 'play-target');
+}
+
+/**
+ * Generates play-short-event actions for an `own-hobbit` play-target card.
+ * One action per (hobbit, mode) pair. Modes:
+ *  - `untap` — hobbit must be tapped
+ *  - `heal` — hobbit must be wounded (inverted)
+ *  - `corruption-check-boost` — always available
+ */
+function ownHobbitActions(
+  state: GameState,
+  player: PlayerState,
+  playerId: PlayerId,
+  cardInstanceId: CardInstanceId,
+  def: { name: string },
+): EvaluatedAction[] {
+  const actions: EvaluatedAction[] = [];
+
+  for (const [charIdStr, char] of Object.entries(player.characters)) {
+    const charId = charIdStr as unknown as CardInstanceId;
+    const charDefId = char.definitionId;
+    const charDef = state.cardPool[charDefId as string];
+    if (!charDef || !isCharacterCard(charDef)) continue;
+    if (charDef.race !== 'hobbit') continue;
+
+    if (char.status === CardStatus.Tapped) {
+      logDetail(`${def.name} playable on ${charDef.name}: mode untap`);
+      actions.push({
+        action: { type: 'play-short-event', player: playerId, cardInstanceId, targetCharacterId: charId, mode: 'untap' },
+        viable: true,
+      });
+    }
+
+    if (char.status === CardStatus.Inverted) {
+      logDetail(`${def.name} playable on ${charDef.name}: mode heal`);
+      actions.push({
+        action: { type: 'play-short-event', player: playerId, cardInstanceId, targetCharacterId: charId, mode: 'heal' },
+        viable: true,
+      });
+    }
+
+    logDetail(`${def.name} playable on ${charDef.name}: mode corruption-check-boost`);
+    actions.push({
+      action: { type: 'play-short-event', player: playerId, cardInstanceId, targetCharacterId: charId, mode: 'corruption-check-boost' },
+      viable: true,
+    });
+  }
+
+  return actions;
 }
 
 /**

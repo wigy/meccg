@@ -19,7 +19,7 @@ import type {
   GameEffect,
 } from '../index.js';
 import type { ReducerResult } from './reducer-utils.js';
-import { dequeueResolution, enqueueResolution } from './pending.js';
+import { dequeueResolution, enqueueResolution, removeConstraint } from './pending.js';
 import { getPlayerIndex } from '../index.js';
 import { resolveInstanceId } from '../types/state.js';
 import { roll2d6, clonePlayers, cleanupEmptyCompanies } from './reducer-utils.js';
@@ -134,14 +134,20 @@ function applyCorruptionCheckResolution(
   const playersAfterRoll = clonePlayers(state);
   playersAfterRoll[playerIndex] = { ...playersAfterRoll[playerIndex], lastDiceRoll: roll };
 
+  // Consume corruption-check-boost constraints for this character (one-time use)
+  let postRollState: GameState = { ...state, players: playersAfterRoll, rng, cheatRollTotal };
+  for (const constraint of state.activeConstraints) {
+    if (constraint.kind.type === 'corruption-check-boost'
+        && constraint.target.kind === 'character'
+        && constraint.target.characterId === characterId) {
+      logDetail(`Consuming corruption-check-boost constraint ${constraint.id}`);
+      postRollState = removeConstraint(postRollState, constraint.id);
+    }
+  }
+
   if (total > cp) {
     logDetail(`Corruption check passed (${total} > ${cp})`);
-    const stateAfterDequeue = dequeueResolution({
-      ...state,
-      players: playersAfterRoll,
-      rng,
-      cheatRollTotal,
-    }, top.id);
+    const stateAfterDequeue = dequeueResolution(postRollState, top.id);
     return { state: stateAfterDequeue, effects: [rollEffect] };
   }
 
@@ -227,10 +233,8 @@ function applyCorruptionCheckResolution(
   }
 
   const cleanedState = cleanupEmptyCompanies({
-    ...state,
+    ...postRollState,
     players: playersAfterRoll,
-    rng,
-    cheatRollTotal,
   });
 
   return {

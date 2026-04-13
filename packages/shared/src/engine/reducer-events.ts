@@ -291,6 +291,30 @@ export function handlePlayResourceShortEvent(state: GameState, action: GameActio
     };
   }
 
+  // Handle own-hobbit mode (e.g. Halfling Strength: untap, heal, or corruption-check-boost)
+  if (action.targetCharacterId && action.mode) {
+    const targetId = action.targetCharacterId as string;
+    const targetChar = (newCharacters === player.characters ? player.characters : newCharacters)[targetId];
+    if (!targetChar) {
+      return { state, error: `Target character ${targetId} not in play` };
+    }
+
+    if (action.mode === 'untap') {
+      if (targetChar.status !== CardStatus.Tapped) {
+        return { state, error: `Target character ${targetId} is not tapped` };
+      }
+      logDetail(`${def.name} untaps ${targetId}`);
+      newCharacters = { ...(newCharacters === player.characters ? player.characters : newCharacters), [targetId]: { ...targetChar, status: CardStatus.Untapped } };
+    } else if (action.mode === 'heal') {
+      if (targetChar.status !== CardStatus.Inverted) {
+        return { state, error: `Target character ${targetId} is not wounded` };
+      }
+      logDetail(`${def.name} heals ${targetId} from wounded to untapped`);
+      newCharacters = { ...(newCharacters === player.characters ? player.characters : newCharacters), [targetId]: { ...targetChar, status: CardStatus.Untapped } };
+    }
+    // corruption-check-boost is handled below via addConstraint after state construction
+  }
+
   // Collect all effects that require player interaction to resolve
   const interactiveEffects: PendingEffect[] = (def.effects ?? [])
     .filter(e => e.type === 'fetch-to-deck')
@@ -303,6 +327,17 @@ export function handlePlayResourceShortEvent(state: GameState, action: GameActio
   // These are non-interactive and resolved immediately when the card is played.
   let newState: GameState = { ...state, players: newPlayers };
   newState = applyShortEventOnEntersPlay(newState, def, handCard, action, playerIndex);
+
+  // For corruption-check-boost mode, add an active constraint on the target character
+  if (action.targetCharacterId && action.mode === 'corruption-check-boost') {
+    logDetail(`${def.name} adds +4 corruption-check boost on ${action.targetCharacterId as string}`);
+    newState = addConstraint(newState, {
+      source: handCard.instanceId,
+      scope: { kind: 'until-cleared' },
+      target: { kind: 'character', characterId: action.targetCharacterId },
+      kind: { type: 'corruption-check-boost', value: 4 },
+    });
+  }
 
   if (interactiveEffects.length > 0) {
     // Card goes to player's cardsInPlay (visible on table) while effects resolve

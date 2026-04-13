@@ -260,6 +260,11 @@ Supported targets:
 
 - `character` — targets a single character in the company
 - `own-scout` — an untapped scout in one of the resource player's companies (e.g. Stealth)
+- `own-hobbit` — a hobbit in one of the resource player's companies. The
+  engine emits one `play-short-event` action per (hobbit, mode) pair,
+  where mode is `untap` (hobbit must be tapped), `heal` (hobbit must be
+  wounded), or `corruption-check-boost` (always available). The action
+  carries `targetCharacterId` and `mode` fields. (e.g. Halfling Strength)
 
 Optional fields:
 
@@ -539,5 +544,13 @@ The resolver:
   { "type": "check-modifier", "check": "influence", "value": -4 },
   { "type": "grant-action", "action": "remove-self-on-roll",
     "cost": { "tap": "bearer" }, "rollThreshold": 8 }
+]
+```
+
+### Halfling Strength
+
+```json
+"effects": [
+  { "type": "play-target", "target": "own-hobbit" }
 ]
 ```

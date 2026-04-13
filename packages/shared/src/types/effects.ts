@@ -361,8 +361,9 @@ export interface PlayTargetEffect extends EffectBase {
    * - `"company"` — the active company (e.g. Lost in Free-domains).
    * - `"site"` — the company's destination/current site (e.g. River).
    * - `"own-scout"` — a scout in one of the resource player's companies (e.g. Stealth).
+   * - `"own-hobbit"` — a hobbit in one of the resource player's companies (e.g. Halfling Strength).
    */
-  readonly target: 'character' | 'company' | 'site' | 'own-scout';
+  readonly target: 'character' | 'company' | 'site' | 'own-scout' | 'own-hobbit';
   /**
    * Maximum effective company size for the target's company.
    * When set, the card is only playable if the scout's company has

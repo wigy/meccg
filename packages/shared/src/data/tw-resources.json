@@ -336,7 +336,10 @@
     "eventType": "short",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
+    "effects": [
+      { "type": "play-target", "target": "own-hobbit" }
+    ],
+    "certified": "2026-04-13",
     "text": "Hobbit only. The Hobbit may untap or he may move from wounded status to well and untapped during his organization phase or he may receive a +4 modification to one corruption check."
   },
   {

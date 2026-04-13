@@ -195,6 +195,12 @@ export const STEALTH = did('tw-332');
  * the very start of the company's site phase, per CRF 22).
  */
 export const RIVER = did('tw-84');
+/**
+ * Halfling Strength — hero short-event resource. Hobbit only. During
+ * organization the target hobbit may untap, heal from wounded to well,
+ * or receive a +4 corruption-check modifier (as an active constraint).
+ */
+export const HALFLING_STRENGTH = did('tw-253');
 /** LE printing of Lure of the Senses (mirror of TW-60). */
 export const LURE_OF_THE_SENSES_LE = did('le-124');
 /** LE printing of Lost in Free-domains (mirror of TW-53). */
