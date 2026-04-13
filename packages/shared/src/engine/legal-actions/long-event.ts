@@ -122,7 +122,7 @@ export function longEventActions(state: GameState, playerId: PlayerId): Evaluate
 
       // Skip short events whose effects are only usable during combat
       // (e.g. Concealment's cancel-attack). These require an active attack.
-      const combatOnlyTypes = new Set(['cancel-attack', 'cancel-strike', 'halve-strikes']);
+      const combatOnlyTypes = new Set(['cancel-attack', 'cancel-strike', 'halve-strikes', 'dodge-strike']);
       const hasEffects = def.effects && def.effects.length > 0;
       const allCombatOnly = hasEffects && def.effects.every(e => combatOnlyTypes.has(e.type));
       if (allCombatOnly) {

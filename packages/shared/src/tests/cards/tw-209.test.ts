@@ -182,6 +182,41 @@ describe('Dodge (tw-209)', () => {
     expect(dodgeActions.length).toBe(0);
   });
 
+  test('Dodge is not playable as a short event during organization', () => {
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Organization,
+      recompute: true,
+      players: [
+        {
+          id: PLAYER_1,
+          companies: [{ site: RIVENDELL, characters: [ARAGORN, LEGOLAS] }],
+          hand: [DODGE],
+          siteDeck: [MINAS_TIRITH],
+        },
+        {
+          id: PLAYER_2,
+          companies: [{ site: LORIEN, characters: [GIMLI] }],
+          hand: [],
+          siteDeck: [RIVENDELL],
+        },
+      ],
+    });
+
+    const actions = computeLegalActions(state, PLAYER_1);
+    const dodgeShortEvent = actions.find(
+      a => a.viable && a.action.type === 'play-short-event' &&
+        (a.action as { cardInstanceId: string }).cardInstanceId === state.players[0].hand[0].instanceId,
+    );
+    expect(dodgeShortEvent).toBeUndefined();
+
+    const notPlayable = actions.find(
+      a => !a.viable && a.action.type === 'not-playable' &&
+        (a.action as { cardInstanceId: string }).cardInstanceId === state.players[0].hand[0].instanceId,
+    );
+    expect(notPlayable).toBeDefined();
+  });
+
   test('normal tap-to-fight still taps the character (control case)', () => {
     const s0 = setupCombatWithCaveDrake([]);
     const s1 = assignCaveDrakeStrikes(s0);
