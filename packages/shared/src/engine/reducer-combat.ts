@@ -7,7 +7,7 @@
 
 import type { GameState, CombatState, StrikeAssignment, GameAction, GameEffect, CardInstanceId, CardDefinitionId } from '../index.js';
 import { CardStatus, Phase, isSiteCard, isCharacterCard, isAllyCard } from '../index.js';
-import type { OnEventEffect } from '../types/effects.js';
+import type { OnEventEffect, DodgeStrikeEffect } from '../types/effects.js';
 import { matchesCondition } from '../effects/condition-matcher.js';
 import type { MovementHazardPhaseState } from '../types/state-phases.js';
 import type { HeroItemCard, MinionItemCard } from '../types/cards-resources.js';
@@ -46,6 +46,8 @@ export function handleCombatAction(state: GameState, action: GameAction): Reduce
       return handleCancelAttack(state, action, combat);
     case 'cancel-by-tap':
       return handleCancelByTap(state, action, combat);
+    case 'play-dodge':
+      return handlePlayDodge(state, action, combat);
     case 'salvage-item':
       return handleSalvageItem(state, action, combat);
     default:
@@ -447,6 +449,171 @@ function handleSupportStrike(state: GameState, action: GameAction, combat: Comba
   return { state, error: 'Supporting character or ally not found' };
 }
 
+/**
+ * Play a dodge-strike card from hand during resolve-strike.
+ * Discards the card, then resolves the strike at full prowess without
+ * tapping the character (unless wounded). If wounded, records the body
+ * penalty for the subsequent body check.
+ */
+
+
+function handlePlayDodge(state: GameState, action: GameAction, combat: CombatState): ReducerResult {
+  if (action.type !== 'play-dodge') return { state, error: 'Expected play-dodge' };
+  if (combat.phase !== 'resolve-strike') return { state, error: 'Not in resolve-strike phase' };
+
+  const strike = combat.strikeAssignments[combat.currentStrikeIndex];
+  if (!strike || strike.resolved) return { state, error: 'Current strike already resolved' };
+
+  // Validate card in hand and has dodge-strike effect
+  const defPlayerIndex = state.players.findIndex(p => p.id === combat.defendingPlayerId);
+  const defPlayer = state.players[defPlayerIndex];
+  const handIndex = defPlayer.hand.findIndex(c => c.instanceId === action.cardInstanceId);
+  if (handIndex < 0) return { state, error: 'Card not found in hand' };
+
+  const handCard = defPlayer.hand[handIndex];
+  const cardDef = state.cardPool[handCard.definitionId as string];
+  if (!cardDef || !('effects' in cardDef)) return { state, error: 'Card has no effects' };
+  const cardWithEffects = cardDef as { effects?: readonly import('../types/effects.js').CardEffect[] };
+  const dodgeEffect = cardWithEffects.effects?.find(
+    (e): e is DodgeStrikeEffect => e.type === 'dodge-strike',
+  );
+  if (!dodgeEffect) return { state, error: 'Card has no dodge-strike effect' };
+
+  logDetail(`Playing dodge card ${handCard.definitionId as string} for strike on ${strike.characterId as string}`);
+
+  // Discard the dodge card from hand
+  const newHand = [...defPlayer.hand];
+  newHand.splice(handIndex, 1);
+
+  // Look up combatant stats (character or ally)
+  const charData = defPlayer.characters[strike.characterId as string];
+  const company = defPlayer.companies.find(c => c.id === combat.companyId);
+  const allyMatch = !charData && company
+    ? findAllyInCompany(defPlayer, company.characters, strike.characterId)
+    : undefined;
+  if (!charData && !allyMatch) return { state, error: 'Character not found' };
+
+  const targetDefId = charData?.definitionId ?? allyMatch!.ally.definitionId;
+  const targetStatus = charData?.status ?? allyMatch!.ally.status;
+  const charDef2 = state.cardPool[targetDefId as string];
+
+  // Compute effective prowess (full prowess, like tap-to-fight)
+  let prowess: number;
+  if (allyMatch) {
+    prowess = isAllyCard(charDef2) ? charDef2.prowess : 0;
+  } else if (combat.creatureRace && charDef2 && isCharacterCard(charDef2)) {
+    prowess = computeCombatProwess(state, charData, charDef2, combat.creatureRace);
+  } else {
+    prowess = charData.effectiveStats.prowess;
+  }
+  if (targetStatus === CardStatus.Tapped) prowess -= 1;
+  if (targetStatus === CardStatus.Inverted) prowess -= 2;
+  if (strike.excessStrikes > 0) prowess -= strike.excessStrikes;
+
+  // Roll dice
+  const { roll, rng, cheatRollTotal } = roll2d6(state);
+  const rollTotal = roll.die1 + roll.die2;
+  const characterTotal = rollTotal + prowess;
+
+  logDetail(`Dodge strike resolution: ${targetDefId as string} rolls ${roll.die1}+${roll.die2}=${rollTotal} + prowess ${prowess} = ${characterTotal} vs creature prowess ${combat.strikeProwess}`);
+
+  const charLabel = charDef2 && 'name' in charDef2 ? (charDef2 as { name: string }).name : (targetDefId as string);
+  const effects: GameEffect[] = [{
+    effect: 'dice-roll', playerName: defPlayer.name,
+    die1: roll.die1, die2: roll.die2, label: `Strike (dodge): ${charLabel}`,
+  }];
+
+  // Determine outcome
+  let result: 'success' | 'wounded' | 'eliminated';
+  let bodyCheckTarget: 'character' | 'creature' | null = null;
+
+  if (characterTotal > combat.strikeProwess) {
+    result = 'success';
+    if (combat.creatureBody !== null) bodyCheckTarget = 'creature';
+    logDetail(`Dodge: character defeats strike — no tap${bodyCheckTarget ? ', body check vs creature' : ''}`);
+  } else if (characterTotal < combat.strikeProwess) {
+    result = 'wounded';
+    bodyCheckTarget = 'character';
+    logDetail(`Dodge: strike succeeds — character wounded, body check with ${dodgeEffect.bodyPenalty} penalty`);
+  } else {
+    result = 'success';
+    logDetail('Dodge: tie — ineffectual, character does NOT tap (dodge)');
+  }
+
+  const wasAlreadyWounded = targetStatus === CardStatus.Inverted;
+  const newAssignments = combat.strikeAssignments.map((a, i) =>
+    i === combat.currentStrikeIndex
+      ? { ...a, resolved: true, result, wasAlreadyWounded, dodged: true, dodgeBodyPenalty: dodgeEffect.bodyPenalty }
+      : a,
+  );
+
+  // Update character status: dodge means NO tap on success/tie
+  const newPlayers = clonePlayers(state);
+  const newCharacters = { ...defPlayer.characters };
+
+  if (allyMatch) {
+    const hostChar = newCharacters[allyMatch.hostCharId as string];
+    if (hostChar) {
+      let newAllyStatus = allyMatch.ally.status;
+      // Dodge: do NOT tap on success/tie (unlike normal resolve)
+      if (result === 'wounded' && !combat.detainment) {
+        newAllyStatus = CardStatus.Inverted;
+      } else if (result === 'wounded' && combat.detainment) {
+        newAllyStatus = CardStatus.Tapped;
+      }
+      const newAllies = hostChar.allies.map(a =>
+        a.instanceId === strike.characterId ? { ...a, status: newAllyStatus } : a,
+      );
+      newCharacters[allyMatch.hostCharId as string] = { ...hostChar, allies: newAllies };
+    }
+  } else {
+    // Dodge: only change status if wounded (no tap on success/tie)
+    if (result === 'wounded' && !combat.detainment) {
+      newCharacters[strike.characterId as string] = {
+        ...(newCharacters[strike.characterId as string] ?? charData),
+        status: CardStatus.Inverted,
+      };
+    } else if (result === 'wounded' && combat.detainment) {
+      newCharacters[strike.characterId as string] = {
+        ...(newCharacters[strike.characterId as string] ?? charData),
+        status: CardStatus.Tapped,
+      };
+    }
+  }
+
+  // Update player: new hand (card discarded) + new character statuses
+  newPlayers[defPlayerIndex] = {
+    ...defPlayer,
+    characters: newCharacters,
+    hand: newHand,
+    discardPile: [...defPlayer.discardPile, { instanceId: handCard.instanceId, definitionId: handCard.definitionId }],
+    lastDiceRoll: roll,
+  };
+
+  // Determine next phase
+  let newCombat: CombatState;
+  if (bodyCheckTarget) {
+    newCombat = {
+      ...combat,
+      strikeAssignments: newAssignments,
+      phase: 'body-check',
+      bodyCheckTarget,
+    };
+  } else {
+    const combatWithAssignments = { ...combat, strikeAssignments: newAssignments };
+    const next = nextStrikePhase(combatWithAssignments);
+    if (!next) {
+      return finalizeCombat({ ...state, players: newPlayers, rng, cheatRollTotal, combat: combatWithAssignments }, effects);
+    }
+    newCombat = { ...combatWithAssignments, ...next };
+  }
+
+  return {
+    state: { ...state, players: newPlayers, rng, cheatRollTotal, combat: newCombat },
+    effects,
+  };
+}
+
 /** Roll body check — attacker rolls 2d6 vs body value. */
 
 
@@ -514,7 +681,12 @@ function handleBodyCheckRoll(state: GameState, action: GameAction, combat: Comba
 
     const targetDefId = charData?.definitionId ?? allyMatch!.ally.definitionId;
     const charDef2 = stateWithRoll.cardPool[targetDefId as string] as { body?: number } | undefined;
-    const body = charDef2?.body ?? 9; // Default body if not specified
+    let body = charDef2?.body ?? 9; // Default body if not specified
+    // Dodge body penalty: if the character was dodging and got wounded, apply body modifier
+    if (strike.dodged && strike.dodgeBodyPenalty) {
+      logDetail(`Dodge body penalty: body ${body} + (${strike.dodgeBodyPenalty}) = ${body + strike.dodgeBodyPenalty}`);
+      body = body + strike.dodgeBodyPenalty;
+    }
     const woundedBonus = strike.wasAlreadyWounded ? 1 : 0;
     const effectiveRoll = rollTotal + woundedBonus;
 

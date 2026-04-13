@@ -246,3 +246,21 @@ export interface SalvageItemAction {
   /** The unwounded character in the company receiving the item. */
   readonly recipientCharacterId: CardInstanceId;
 }
+
+/**
+ * Play a dodge-strike card from hand during resolve-strike to let the
+ * target character resolve the strike at full prowess without tapping
+ * (unless wounded by the strike).
+ */
+export interface PlayDodgeAction {
+  /** Action discriminant. */
+  readonly type: 'play-dodge';
+  /** The defending player playing the dodge card. */
+  readonly player: PlayerId;
+  /** The dodge card instance being played from hand. */
+  readonly cardInstanceId: CardInstanceId;
+  /** The unmodified 2d6 value needed with dodge prowess. */
+  readonly need: number;
+  /** Human-readable breakdown of dodging character's prowess vs creature prowess. */
+  readonly explanation: string;
+}

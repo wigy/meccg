@@ -191,7 +191,20 @@ The card is played from hand as part of the cancel action and discarded.
   "requiredSkill": "scout" }
 ```
 
-### 10. `cancel-strike`
+### 10. `dodge-strike`
+
+Played from hand during strike resolution. The target character resolves
+the strike at full prowess without tapping (unless wounded by the strike).
+If wounded, a body penalty applies to the resulting body check.
+
+```json
+{ "type": "dodge-strike", "bodyPenalty": -1 }
+```
+
+The `bodyPenalty` modifies the character's body for the body check only
+(negative values reduce body, making elimination more likely).
+
+### 11. `cancel-strike`
 
 Pay a cost to cancel an incoming strike, with optional exclusions.
 
@@ -203,7 +216,7 @@ Pay a cost to cancel an incoming strike, with optional exclusions.
   ] } } }
 ```
 
-### 11. `combat-rule`
+### 12. `combat-rule`
 
 Overrides a combat mechanic.
 
@@ -227,7 +240,7 @@ Rules:
 { "type": "combat-rule", "rule": "cancel-attack-by-tap", "maxCancels": 2 }
 ```
 
-### 12. `play-restriction`
+### 13. `play-restriction`
 
 Constrains when or where a card can enter play.
 
@@ -236,7 +249,7 @@ Constrains when or where a card can enter play.
   "when": { "$not": { "reason": "starting-character" } } }
 ```
 
-### 13. `duplication-limit`
+### 14. `duplication-limit`
 
 Caps how many copies of this card can be in a given scope.
 
@@ -244,7 +257,7 @@ Caps how many copies of this card can be in a given scope.
 { "type": "duplication-limit", "scope": "character", "max": 1 }
 ```
 
-### 14. `play-target`
+### 15. `play-target`
 
 Declares what this card targets when played. The engine uses this to
 generate per-target actions (one per eligible character, company, etc.).
@@ -294,7 +307,7 @@ Optional fields:
   eligible target, each carrying a `targetScoutInstanceId` so the reducer
   knows whom to tap.
 
-### 15. `on-guard-reveal`
+### 16. `on-guard-reveal`
 
 Declares when an on-guard card may be revealed during the site phase.
 The `trigger` field specifies the game event that allows the reveal.
@@ -310,7 +323,7 @@ Supported triggers:
 - `resource-play` — when the resource player plays any resource that
   taps the site (generic catch-all)
 
-### 16. `fetch-to-deck`
+### 17. `fetch-to-deck`
 
 Fetches a card from one or more source piles into the play deck and shuffles.
 Used by resource short events like Smoke Rings.
@@ -328,7 +341,7 @@ Sources: `sideboard`, `discard-pile`.
 
 The `filter` is a standard DSL condition evaluated against each card definition.
 
-### 17. `discard-in-play`
+### 18. `discard-in-play`
 
 Forces the compulsory discard of an in-play card matching a filter.
 The target is chosen at play time: the legal-action emitter produces
@@ -356,7 +369,7 @@ carried on the action's `discardTargetInstanceId` field. The optional
 `corruptionCheck.modifier` is applied to the tapped character's
 corruption check after the discard resolves.
 
-### 18. `site-rule`
+### 19. `site-rule`
 
 Declares a site-specific rule that modifies standard game mechanics
 when a company is at this site.
@@ -556,6 +569,14 @@ The resolver:
 ```json
 "effects": [
   { "type": "combat-rule", "rule": "attacker-chooses-defenders" }
+]
+```
+
+### Dodge
+
+```json
+"effects": [
+  { "type": "dodge-strike", "bodyPenalty": -1 }
 ]
 ```
 

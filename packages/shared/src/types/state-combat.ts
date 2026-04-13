@@ -57,6 +57,17 @@ export interface StrikeAssignment {
    * Used for body check calculation: +1 if already wounded (CoE rule 3.I).
    */
   readonly wasAlreadyWounded?: boolean;
+  /**
+   * Whether a dodge-strike card was played for this strike. When true,
+   * the character fights at full prowess but does not tap on success/tie.
+   * If wounded, the character still gets wounded.
+   */
+  readonly dodged?: boolean;
+  /**
+   * Body penalty applied during the body check if the character was
+   * wounded while dodging (e.g. -1 for Dodge).
+   */
+  readonly dodgeBodyPenalty?: number;
 }
 
 /**
