@@ -4,7 +4,7 @@
  * Card test: Tolfalas (tw-433)
  * Type: hero-site (ruins-and-lairs)
  * Effects: 2 (on-event: character-wounded-by-self → force corruption check;
- *             site-rule: restrict-item-subtype → greater limited to Scroll of Isildur)
+ *             site-rule: deny-item → any greater item except Scroll of Isildur)
  *
  * "Nearest Haven: Edhellond. Playable: Items (minor, major, greater*)
  *  *-Scroll of Isildur only. Automatic-attacks: Undead — 3 strikes with 7
@@ -17,7 +17,7 @@
  * | 2 | sitePath                | OK     | wilderness, free, coastal — matches card  |
  * | 3 | nearestHaven            | OK     | "Edhellond" — valid haven in card pool    |
  * | 4 | playableResources       | OK     | minor, major, greater — matches card text |
- * | 5 | site-rule restriction    | OK    | greater restricted to Scroll of Isildur   |
+ * | 5 | site-rule deny-item      | OK    | greater denied unless Scroll of Isildur    |
  * | 6 | automaticAttacks        | OK     | Undead, 3 strikes, 7 prowess              |
  * | 7 | resourceDraws           | OK     | 2                                          |
  * | 8 | hazardDraws             | OK     | 2                                          |
@@ -30,7 +30,7 @@
  * | 3 | Haven path movement           | IMPLEMENTED | movement-map.ts                     |
  * | 4 | Automatic attacks             | IMPLEMENTED | combat initiated with correct stats  |
  * | 5 | Wound → corruption check      | IMPLEMENTED | on-event: character-wounded-by-self  |
- * | 6 | Greater item restriction      | IMPLEMENTED | site-rule: restrict-item-subtype     |
+ * | 6 | Greater item restriction      | IMPLEMENTED | site-rule: deny-item + DSL condition |
  *
  * Playable: YES
  * Certified: 2026-04-13
@@ -92,16 +92,18 @@ describe('Tolfalas (tw-433)', () => {
     });
   });
 
-  test('has site-rule restrict-item-subtype effect limiting greater to Scroll of Isildur', () => {
+  test('has site-rule deny-item effect denying non-Scroll greater items', () => {
     const def = pool[TOLFALAS as string];
     if (!isSiteCard(def)) return;
 
     expect(def.effects).toBeDefined();
     expect(def.effects![1]).toEqual({
       type: 'site-rule',
-      rule: 'restrict-item-subtype',
-      subtype: 'greater',
-      allowedNames: ['Scroll of Isildur'],
+      rule: 'deny-item',
+      when: {
+        subtype: 'greater',
+        name: { $ne: 'Scroll of Isildur' },
+      },
     });
   });
 
@@ -312,7 +314,7 @@ describe('Tolfalas (tw-433)', () => {
     const actions = computeLegalActions(state, PLAYER_1);
     const notPlayable = actions.filter(a => !a.viable && a.action.type === 'not-playable');
     expect(notPlayable.length).toBeGreaterThanOrEqual(1);
-    expect(notPlayable[0].reason).toContain('Scroll of Isildur');
+    expect(notPlayable[0].reason).toContain('Tolfalas');
   });
 
   // ─── Movement ─────────────────────────────────────────────────────────────

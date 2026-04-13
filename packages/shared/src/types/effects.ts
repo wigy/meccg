@@ -393,11 +393,11 @@ export interface OnGuardRevealEffect extends EffectBase {
  *
  * Examples:
  * - Old Forest — healing effects affect all characters at the site.
- * - Tolfalas — greater items playable at this site are restricted to a named list.
+ * - Tolfalas — any greater item other than Scroll of Isildur is denied.
  */
 export type SiteRuleEffect =
   | HealingAffectsAllSiteRule
-  | RestrictItemSubtypeSiteRule;
+  | DenyItemSiteRule;
 
 /** Wounded characters at this site heal during untap as if the site were a haven. */
 export interface HealingAffectsAllSiteRule extends EffectBase {
@@ -406,17 +406,23 @@ export interface HealingAffectsAllSiteRule extends EffectBase {
 }
 
 /**
- * Restricts which specific cards of a given item subtype may be played at this
- * site. Only items whose name appears in `allowedNames` are playable for the
- * named subtype; items of other subtypes are unaffected.
+ * Denies playing any item whose card definition matches the `when` condition
+ * at this site. The condition is evaluated against the item card definition
+ * using the standard DSL matcher (dot-path keys, `$and` / `$or` / `$not`).
+ *
+ * Example — Tolfalas denies any greater item other than Scroll of Isildur:
+ *
+ * ```json
+ * { "type": "site-rule", "rule": "deny-item",
+ *   "when": { "subtype": "greater",
+ *             "name": { "$ne": "Scroll of Isildur" } } }
+ * ```
  */
-export interface RestrictItemSubtypeSiteRule extends EffectBase {
+export interface DenyItemSiteRule extends EffectBase {
   readonly type: 'site-rule';
-  readonly rule: 'restrict-item-subtype';
-  /** The item subtype this restriction applies to (e.g. "greater"). */
-  readonly subtype: string;
-  /** Card names of items that are allowed as the given subtype at this site. */
-  readonly allowedNames: readonly string[];
+  readonly rule: 'deny-item';
+  /** DSL condition evaluated against each item's card definition. */
+  readonly when: Condition;
 }
 
 /**

@@ -565,9 +565,11 @@
       },
       {
         "type": "site-rule",
-        "rule": "restrict-item-subtype",
-        "subtype": "greater",
-        "allowedNames": ["Scroll of Isildur"]
+        "rule": "deny-item",
+        "when": {
+          "subtype": "greater",
+          "name": { "$ne": "Scroll of Isildur" }
+        }
       }
     ],
     "certified": "2026-04-13"

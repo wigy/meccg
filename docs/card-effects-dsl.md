@@ -313,18 +313,21 @@ when a company is at this site.
 
 ```json
 { "type": "site-rule", "rule": "healing-affects-all" }
-{ "type": "site-rule", "rule": "restrict-item-subtype",
-  "subtype": "greater", "allowedNames": ["Scroll of Isildur"] }
+{ "type": "site-rule", "rule": "deny-item",
+  "when": { "subtype": "greater",
+            "name": { "$ne": "Scroll of Isildur" } } }
 ```
 
 Rules:
 
 - `healing-affects-all` — wounded characters at this site heal during untap
   as if the site were a haven
-- `restrict-item-subtype` — only items whose `name` appears in `allowedNames`
-  may be played at this site for the named `subtype`. Items of other subtypes
-  are unaffected (implemented in `legal-actions/site.ts` play-resources step,
-  e.g. Tolfalas: greater items limited to Scroll of Isildur).
+- `deny-item` — any item whose card definition matches the `when` condition
+  cannot be played at this site. The condition is a standard DSL condition
+  (MongoDB-style, evaluated against the item card definition), so arbitrary
+  combinations of subtype, name, keywords, etc. are supported. Implemented
+  in `legal-actions/site.ts` play-resources step — e.g. Tolfalas uses this
+  to deny every greater item except Scroll of Isildur.
 
 ## Resolver Architecture
 
