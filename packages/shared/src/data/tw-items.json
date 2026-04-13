@@ -331,7 +331,10 @@
       "shadow-hold",
       "dark-hold"
     ],
-    "effects": [],
+    "effects": [
+      { "type": "check-modifier", "check": "gold-ring-test", "value": 2 }
+    ],
+    "certified": "2026-04-13",
     "text": "Unique. When a gold ring is tested in a company with the Scroll of Isildur, the result of the roll is modified by +2."
   },
   {
