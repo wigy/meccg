@@ -25,7 +25,7 @@ import {
   constraintsOnCompany,
   sweepExpired,
 } from '../../../engine/pending.js';
-import type { CardInstanceId, CompanyId } from '../../../index.js';
+import type { CardInstanceId, CardDefinitionId, CompanyId } from '../../../index.js';
 
 describe('Active constraints — list mechanics', () => {
   beforeEach(() => resetMint());
@@ -43,12 +43,14 @@ describe('Active constraints — list mechanics', () => {
     const targetCompanyId = base.players[0].companies[0].id;
     const a = addConstraint(base, {
       source: 'a' as CardInstanceId,
+      sourceDefinitionId: 'test-def' as CardDefinitionId,
       scope: { kind: 'company-site-phase', companyId: targetCompanyId },
       target: { kind: 'company', companyId: targetCompanyId },
       kind: { type: 'site-phase-do-nothing' },
     });
     const b = addConstraint(a, {
       source: 'b' as CardInstanceId,
+      sourceDefinitionId: 'test-def' as CardDefinitionId,
       scope: { kind: 'turn' },
       target: { kind: 'company', companyId: targetCompanyId },
       kind: { type: 'no-creature-hazards-on-company' },
@@ -73,6 +75,7 @@ describe('Active constraints — list mechanics', () => {
     const targetCompanyId = base.players[0].companies[0].id;
     const constrained = addConstraint(base, {
       source: 'a' as CardInstanceId,
+      sourceDefinitionId: 'test-def' as CardDefinitionId,
       scope: { kind: 'turn' },
       target: { kind: 'company', companyId: targetCompanyId },
       kind: { type: 'no-creature-hazards-on-company' },
@@ -97,12 +100,14 @@ describe('Active constraints — list mechanics', () => {
     let s = base;
     s = addConstraint(s, {
       source: 'turn-scoped' as CardInstanceId,
+      sourceDefinitionId: 'test-def' as CardDefinitionId,
       scope: { kind: 'turn' },
       target: { kind: 'company', companyId: targetCompanyId },
       kind: { type: 'no-creature-hazards-on-company' },
     });
     s = addConstraint(s, {
       source: 'site-scoped' as CardInstanceId,
+      sourceDefinitionId: 'test-def' as CardDefinitionId,
       scope: { kind: 'company-site-phase', companyId: targetCompanyId },
       target: { kind: 'company', companyId: targetCompanyId },
       kind: { type: 'site-phase-do-nothing' },
@@ -129,12 +134,14 @@ describe('Active constraints — list mechanics', () => {
     let s = base;
     s = addConstraint(s, {
       source: 'a' as CardInstanceId,
+      sourceDefinitionId: 'test-def' as CardDefinitionId,
       scope: { kind: 'company-site-phase', companyId: companyA },
       target: { kind: 'company', companyId: companyA },
       kind: { type: 'site-phase-do-nothing' },
     });
     s = addConstraint(s, {
       source: 'b' as CardInstanceId,
+      sourceDefinitionId: 'test-def' as CardDefinitionId,
       scope: { kind: 'company-site-phase', companyId: companyB },
       target: { kind: 'company', companyId: companyB },
       kind: { type: 'site-phase-do-nothing' },
@@ -159,6 +166,7 @@ describe('Active constraints — list mechanics', () => {
     const targetCompanyId = base.players[0].companies[0].id;
     const persistent = addConstraint(base, {
       source: 'persistent' as CardInstanceId,
+      sourceDefinitionId: 'test-def' as CardDefinitionId,
       scope: { kind: 'until-cleared' },
       target: { kind: 'company', companyId: targetCompanyId },
       kind: { type: 'site-phase-do-nothing' },

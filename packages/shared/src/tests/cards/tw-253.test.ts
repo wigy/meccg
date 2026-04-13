@@ -395,6 +395,7 @@ describe('Halfling Strength (tw-253)', () => {
 
     const boosted = addConstraint(base, {
       source: 'hs-1' as CardInstanceId,
+      sourceDefinitionId: HALFLING_STRENGTH,
       scope: { kind: 'until-cleared' },
       target: { kind: 'character', characterId: bilboId },
       kind: { type: 'check-modifier', check: 'corruption', value: 4 },
@@ -442,6 +443,7 @@ describe('Halfling Strength (tw-253)', () => {
 
     const boosted = addConstraint(base, {
       source: 'hs-1' as CardInstanceId,
+      sourceDefinitionId: HALFLING_STRENGTH,
       scope: { kind: 'until-cleared' },
       target: { kind: 'character', characterId: bilboId },
       kind: { type: 'check-modifier', check: 'corruption', value: 4 },

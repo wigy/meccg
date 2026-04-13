@@ -480,6 +480,7 @@ function applyShortEventArrivalTrigger(state: GameState, entry: ChainEntry): Gam
   logDetail(`Short-event "${def.name}" resolves → adding ${constraintKind} constraint on company ${targetCompany.id as string}`);
   return addConstraint(state, {
     source: card.instanceId,
+    sourceDefinitionId: card.definitionId,
     scope,
     target: { kind: 'company', companyId: targetCompany.id },
     kind,
@@ -652,6 +653,7 @@ function applyAddConstraintFromOnEvent(
   logDetail(`"${cardName}" entered play — adding constraint ${constraintKind} on company ${companyId as string}, scope ${scopeName}`);
   return addConstraint(state, {
     source: entry.card!.instanceId,
+    sourceDefinitionId: entry.card!.definitionId,
     scope,
     target: { kind: 'company', companyId },
     kind,

@@ -98,6 +98,7 @@ describe('River (tw-84)', () => {
     const constrained = addConstraint(stateAtStep, {
       // Use a real River instance id so the filter can resolve a definition.
       source: riverInstance,
+      sourceDefinitionId: RIVER,
       scope: { kind: 'company-site-phase', companyId: targetCompanyId },
       target: { kind: 'company', companyId: targetCompanyId },
       kind: { type: 'site-phase-do-nothing-unless-ranger-taps' },
@@ -168,6 +169,7 @@ describe('River (tw-84)', () => {
     const stateAtStep = { ...base, phaseState: sitePhaseState };
     const constrained = addConstraint(stateAtStep, {
       source: riverInstance,
+      sourceDefinitionId: RIVER,
       scope: { kind: 'company-site-phase', companyId: targetCompanyId },
       target: { kind: 'company', companyId: targetCompanyId },
       kind: { type: 'site-phase-do-nothing-unless-ranger-taps' },
@@ -238,6 +240,7 @@ describe('River (tw-84)', () => {
     const stateAtStep = { ...tappedBase, phaseState: sitePhaseState };
     const constrained = addConstraint(stateAtStep, {
       source: riverInstance,
+      sourceDefinitionId: RIVER,
       scope: { kind: 'company-site-phase', companyId: targetCompanyId },
       target: { kind: 'company', companyId: targetCompanyId },
       kind: { type: 'site-phase-do-nothing-unless-ranger-taps' },
@@ -275,6 +278,7 @@ describe('River (tw-84)', () => {
     const targetCompanyId = base.players[0].companies[0].id;
     const constrained = addConstraint(base, {
       source: 'river-1' as CardInstanceId,
+      sourceDefinitionId: RIVER,
       scope: { kind: 'company-site-phase', companyId: targetCompanyId },
       target: { kind: 'company', companyId: targetCompanyId },
       kind: { type: 'site-phase-do-nothing-unless-ranger-taps' },
@@ -395,6 +399,7 @@ describe('River (tw-84)', () => {
     const riverConstraints = current.activeConstraints.filter(c => c.source === riverInstance);
     expect(riverConstraints).toHaveLength(1);
     expect(riverConstraints[0].kind.type).toBe('site-phase-do-nothing-unless-ranger-taps');
+    expect(riverConstraints[0].sourceDefinitionId).toBe(RIVER);
     expect(riverConstraints[0].target).toEqual({ kind: 'company', companyId: targetCompanyId });
     expect(riverConstraints[0].scope).toEqual({ kind: 'company-site-phase', companyId: targetCompanyId });
   });
@@ -429,6 +434,7 @@ describe('River (tw-84)', () => {
     const stateAtStep = { ...base, phaseState: sitePhaseState };
     const constrained = addConstraint(stateAtStep, {
       source: riverInstance,
+      sourceDefinitionId: RIVER,
       scope: { kind: 'company-site-phase', companyId: targetCompanyId },
       target: { kind: 'company', companyId: targetCompanyId },
       kind: { type: 'site-phase-do-nothing-unless-ranger-taps' },

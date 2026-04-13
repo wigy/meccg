@@ -2722,6 +2722,23 @@ h2 {
   filter: grayscale(0.6) brightness(0.3);
 }
 
+/*
+ * Rule 2.II.7.2 — a site already in play at another of the player's
+ * companies can be the destination of a plan-movement. Paint these cards
+ * distinctly from deck-drawn playable sites: dashed border + cool-toned
+ * glow so they read as "shared, not drawn."
+ */
+#pile-browser-grid img.site-in-play-selectable {
+  cursor: pointer;
+  box-shadow: 0 0 12px 4px rgba(110, 170, 220, 0.75);
+  border: 2px dashed #6eaadc;
+}
+
+#pile-browser-grid img.site-in-play-selectable:hover {
+  transform: scale(1.08);
+  box-shadow: 0 0 18px 6px rgba(110, 170, 220, 1);
+}
+
 .pile-browser-empty {
   color: #888;
   font-style: italic;

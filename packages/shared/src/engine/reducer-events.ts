@@ -421,6 +421,7 @@ function applyPlayOptionAddConstraint(
   return {
     state: addConstraint(state, {
       source: handCard.instanceId,
+      sourceDefinitionId: handCard.definitionId,
       scope,
       target: { kind: 'character', characterId: targetCharacterId },
       kind,
@@ -506,6 +507,7 @@ function applyShortEventOnEntersPlay(
       logDetail(`"${def.name}" played — adding constraint ${constraintKind} on company ${company.id as string}, scope ${scopeName}`);
       state = addConstraint(state, {
         source: handCard.instanceId,
+        sourceDefinitionId: handCard.definitionId,
         scope,
         target: { kind: 'company', companyId: company.id },
         kind,

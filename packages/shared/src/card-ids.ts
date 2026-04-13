@@ -91,6 +91,8 @@ export const HORN_OF_ANOR = did('tw-259');
 export const PRECIOUS_GOLD_RING = did('tw-306');
 /** Cram — minor item, discard to untap bearer or grant extra region movement. */
 export const CRAM = did('td-105');
+/** Scroll of Isildur — greater item, gold ring test modifier, playable at ruins/shadow/dark. */
+export const SCROLL_OF_ISILDUR = did('tw-323');
 
 // ---- Allies ----
 
@@ -230,6 +232,8 @@ export const ETTENMOORS_HERO = did('tw-395');
 export const THE_WHITE_TOWERS_HERO = did('tw-430');
 /** Barrow-downs — hero ruins-and-lairs in Cardolan, nearest haven Rivendell. */
 export const BARROW_DOWNS = did('tw-375');
+/** Tolfalas — hero ruins-and-lairs in Mouths of the Anduin, nearest haven Edhellond. */
+export const TOLFALAS = did('tw-433');
 /** Eagles' Eyrie — hero free-hold in Anduin Vales, nearest haven Lórien. */
 export const EAGLES_EYRIE = did('tw-391');
 /** Henneth Annûn — hero border-hold in Ithilien, nearest haven Lórien. */
@@ -271,6 +275,11 @@ export const LOND_GALEN = did('tw-407');
 
 /** The Worthy Hills — hero ruins-and-lairs in Cardolan, nearest haven Rivendell. */
 export const THE_WORTHY_HILLS = did('as-142');
+
+// ---- The Dragons — Hero Sites ----
+
+/** Isle of the Ulond — hero ruins-and-lairs in Andrast Coast, nearest haven Edhellond. */
+export const ISLE_OF_THE_ULOND = did('td-178');
 
 // ---- Regions ----
 
