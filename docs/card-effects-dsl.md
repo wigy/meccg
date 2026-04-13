@@ -132,6 +132,11 @@ Actions:
   grant the bearer's company +1 max region distance for movement this
   turn (implemented in `reducer-organization.ts`,
   `organization-companies.ts`, `reducer-movement-hazard.ts`)
+- `saruman-fetch-spell` — tap Saruman at the beginning of the
+  end-of-turn phase to take one spell card (keyword `"spell"`) from
+  the discard pile to hand. Only available to the resource player
+  during the discard step (implemented in `legal-actions/end-of-turn.ts`,
+  `reducer-end-of-turn.ts`)
 
 ```json
 { "type": "grant-action", "action": "test-gold-ring",
@@ -145,6 +150,8 @@ Actions:
   "cost": { "discard": "self" } }
 { "type": "grant-action", "action": "extra-region-movement",
   "cost": { "discard": "self" } }
+{ "type": "grant-action", "action": "saruman-fetch-spell",
+  "cost": { "tap": "self" } }
 ```
 
 ### 8. `on-event`

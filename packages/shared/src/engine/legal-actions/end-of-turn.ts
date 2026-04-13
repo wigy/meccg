@@ -10,8 +10,9 @@
  *    Free Council to trigger the endgame.
  */
 
-import type { GameState, PlayerId, GameAction, EndOfTurnPhaseState } from '../../index.js';
-import { FREE_COUNCIL_MP_THRESHOLD, getPlayerIndex } from '../../index.js';
+import type { GameState, PlayerId, GameAction, EndOfTurnPhaseState, EvaluatedAction } from '../../index.js';
+import { FREE_COUNCIL_MP_THRESHOLD, getPlayerIndex, CardStatus } from '../../index.js';
+import type { CardEffect } from '../../types/effects.js';
 import { resolveHandSize } from '../effects/index.js';
 import { logHeading, logDetail } from './log.js';
 import { deckExhaustExchangeActions } from './movement-hazard.js';
@@ -61,6 +62,14 @@ function discardStepActions(state: GameState, playerId: PlayerId): GameAction[] 
   // Each card in hand can be discarded
   for (const card of player.hand) {
     actions.push({ type: 'discard-card', player: playerId, cardInstanceId: card.instanceId });
+  }
+
+  // Grant-action activations (e.g. Saruman's spell fetch) for the resource player
+  if (state.activePlayer === playerId) {
+    const grantActions = endOfTurnGrantActions(state, playerId);
+    for (const ea of grantActions) {
+      actions.push(ea.action);
+    }
   }
 
   // Always offer pass
@@ -151,5 +160,68 @@ function signalEndStepActions(state: GameState, playerId: PlayerId): GameAction[
 
   actions.push({ type: 'pass', player: playerId });
   logDetail(`End-of-Turn signal-end: resource player ${playerId as string} may pass to end turn`);
+  return actions;
+}
+
+/**
+ * Scans the resource player's characters for grant-action effects
+ * that activate during the end-of-turn phase (e.g. Saruman's spell fetch).
+ *
+ * Generates one action per eligible spell card in the discard pile.
+ */
+function endOfTurnGrantActions(state: GameState, playerId: PlayerId): EvaluatedAction[] {
+  const playerIndex = getPlayerIndex(state, playerId);
+  const player = state.players[playerIndex];
+  const actions: EvaluatedAction[] = [];
+
+  for (const [charIdStr, char] of Object.entries(player.characters)) {
+    const charDef = state.cardPool[char.definitionId as string];
+    if (!charDef || !('effects' in charDef)) continue;
+    const effects = (charDef as { effects?: readonly CardEffect[] }).effects;
+    if (!effects) continue;
+
+    for (const effect of effects) {
+      if (effect.type !== 'grant-action') continue;
+
+      if (effect.action !== 'saruman-fetch-spell') continue;
+
+      if (effect.cost.tap === 'self' && char.status !== CardStatus.Untapped) {
+        logDetail(`Grant-action saruman-fetch-spell: ${charDef.name} is tapped, cannot activate`);
+        continue;
+      }
+
+      const spellCards = player.discardPile.filter(card => {
+        const def = state.cardPool[card.definitionId as string];
+        return def && 'keywords' in def &&
+          Array.isArray((def as { keywords?: readonly string[] }).keywords) &&
+          (def as { keywords: readonly string[] }).keywords.includes('spell');
+      });
+
+      if (spellCards.length === 0) {
+        logDetail(`Grant-action saruman-fetch-spell: no spell cards in discard pile`);
+        continue;
+      }
+
+      const charId = charIdStr as unknown as import('../../index.js').CardInstanceId;
+      for (const spell of spellCards) {
+        const spellDef = state.cardPool[spell.definitionId as string];
+        logDetail(`Grant-action saruman-fetch-spell available: ${charDef.name} can fetch ${spellDef?.name ?? '?'} from discard`);
+        actions.push({
+          action: {
+            type: 'activate-granted-action',
+            player: playerId,
+            characterId: charId,
+            sourceCardId: char.instanceId,
+            sourceCardDefinitionId: char.definitionId,
+            actionId: 'saruman-fetch-spell',
+            rollThreshold: 0,
+            targetCardId: spell.instanceId,
+          },
+          viable: true,
+        });
+      }
+    }
+  }
+
   return actions;
 }
