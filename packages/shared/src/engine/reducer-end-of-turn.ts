@@ -7,7 +7,7 @@
  */
 
 import type { GameState, EndOfTurnPhaseState, PlayerId, GameAction } from '../index.js';
-import { Phase, getPlayerIndex } from '../index.js';
+import { Phase, CardStatus, getPlayerIndex } from '../index.js';
 import { resolveHandSize } from './effects/index.js';
 import { logHeading, logDetail } from './legal-actions/log.js';
 import type { ReducerResult } from './reducer-utils.js';
@@ -116,6 +116,10 @@ function handleEndOfTurnDiscard(
 
     logDetail(`End-of-Turn discard: player ${player.name} discarded 1 card (hand now ${newHand.length})`);
     return markDone({ ...state, players: newPlayers }, eotState);
+  }
+
+  if (action.type === 'activate-granted-action' && action.actionId === 'saruman-fetch-spell') {
+    return handleSarumanFetchSpell(state, action);
   }
 
   return { state, error: `Unexpected action '${action.type}' in end-of-turn discard step` };
@@ -374,6 +378,61 @@ function transitionToFreeCouncil(state: GameState, lastTurnPlayer: PlayerId): Ga
       pendingCheck: null,
     },
   };
+}
+
+/**
+ * Handle Saruman's spell-fetch grant-action during end-of-turn discard step.
+ *
+ * Taps Saruman and moves the targeted spell card from the discard pile to hand.
+ */
+function handleSarumanFetchSpell(state: GameState, action: GameAction): ReducerResult {
+  if (action.type !== 'activate-granted-action') return { state, error: 'Expected activate-granted-action' };
+
+  const playerIndex = getPlayerIndex(state, action.player);
+  const player = state.players[playerIndex];
+  const char = player.characters[action.characterId as string];
+  if (!char) return { state, error: 'Character not found' };
+
+  if (char.status !== CardStatus.Untapped) {
+    return { state, error: 'Character is not untapped' };
+  }
+
+  if (!action.targetCardId) {
+    return { state, error: 'No target spell card specified' };
+  }
+
+  const spellIdx = player.discardPile.findIndex(c => c.instanceId === action.targetCardId);
+  if (spellIdx === -1) {
+    return { state, error: 'Target spell card not in discard pile' };
+  }
+
+  const spellCard = player.discardPile[spellIdx];
+  const spellDef = state.cardPool[spellCard.definitionId as string];
+  const isSpell = spellDef && 'keywords' in spellDef &&
+    Array.isArray((spellDef as { keywords?: readonly string[] }).keywords) &&
+    (spellDef as { keywords: readonly string[] }).keywords.includes('spell');
+  if (!isSpell) {
+    return { state, error: 'Target card is not a spell' };
+  }
+
+  const charDef = state.cardPool[char.definitionId as string];
+  logDetail(`Saruman spell-fetch: ${charDef?.name ?? '?'} taps to fetch ${spellDef?.name ?? '?'} from discard to hand`);
+
+  const newDiscardPile = [...player.discardPile];
+  newDiscardPile.splice(spellIdx, 1);
+
+  const newPlayers = clonePlayers(state);
+  newPlayers[playerIndex] = {
+    ...player,
+    hand: [...player.hand, spellCard],
+    discardPile: newDiscardPile,
+    characters: {
+      ...player.characters,
+      [action.characterId as string]: { ...char, status: CardStatus.Tapped },
+    },
+  };
+
+  return { state: { ...state, players: newPlayers } };
 }
 
 /**

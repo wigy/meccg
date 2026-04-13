@@ -170,6 +170,7 @@ export const LEGAL_ACTIONS_BY_PHASE: Readonly<Record<Phase, readonly GameAction[
     'deck-exhaust',
     'exchange-sideboard',
     'discard-card',
+    'activate-granted-action',
     'call-free-council',
     'pass',
   ],

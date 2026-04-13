@@ -798,7 +798,14 @@
     "marshallingCategory": "character",
     "corruptionModifier": 0,
     "homesite": "Isengard",
-    "effects": [],
+    "certified": "2026-04-14",
+    "effects": [
+      {
+        "type": "grant-action",
+        "action": "saruman-fetch-spell",
+        "cost": { "tap": "self" }
+      }
+    ],
     "text": "Unique. May tap to use a Palantír he bears. At the beginning of your end-of-turn phase, you may tap Saruman to take one spell card from your discard pile to your hand."
   },
   {
