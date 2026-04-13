@@ -331,20 +331,18 @@ export function renderCompanyViews(
   }
 
   // Auto-focus on the company containing a character with a pending corruption check
-  if (!focusedCompanyId) {
-    const ccAction = view.legalActions.find(
-      ea => ea.viable && ea.action.type === 'corruption-check',
+  const ccAction = view.legalActions.find(
+    ea => ea.viable && ea.action.type === 'corruption-check',
+  );
+  if (ccAction && ccAction.action.type === 'corruption-check') {
+    const { characterId } = ccAction.action;
+    const ccCompany = view.self.companies.find(
+      c => c.characters.includes(characterId),
     );
-    if (ccAction && ccAction.action.type === 'corruption-check') {
-      const { characterId } = ccAction.action;
-      const ccCompany = view.self.companies.find(
-        c => c.characters.includes(characterId),
-      );
-      if (ccCompany) {
-        setFocusedCompanyId(ccCompany.id);
-        focusedCompanyId = ccCompany.id;
-        setAllCompaniesOverride(false);
-      }
+    if (ccCompany && ccCompany.id !== focusedCompanyId) {
+      setFocusedCompanyId(ccCompany.id);
+      focusedCompanyId = ccCompany.id;
+      setAllCompaniesOverride(false);
     }
   }
 
