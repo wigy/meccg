@@ -21,15 +21,15 @@ import type {
 } from '../../types/cards.js';
 import type { ActionEvaluator } from './types.js';
 import type { AiContext } from '../strategy.js';
+import { isAvatarCharacter } from '../../types/cards.js';
 import { lookupDef, isCharacter, isItem } from './common.js';
 
 type AnySite = HeroSiteCard | MinionSiteCard | FallenWizardSiteCard | BalrogSiteCard;
 
 /** Compute a draft-priority score for a character. */
 function characterDraftScore(def: CharacterCard): number {
-  const isAvatar = def.mind === null;
   const base = def.marshallingPoints * 3 + def.prowess + def.body + def.directInfluence * 2;
-  return base + (isAvatar ? 50 : 0);
+  return base + (isAvatarCharacter(def) ? 50 : 0);
 }
 
 /** Whether a site is a haven (most useful starting site). */
@@ -68,7 +68,7 @@ export const setupEvaluator: ActionEvaluator = {
         const drafted = draftState.drafted;
         const hasAvatar = drafted.some(c => {
           const def = lookupDef(pool, c.definitionId);
-          return isCharacter(def) && def.mind === null;
+          return isAvatarCharacter(def);
         });
         if (drafted.length >= 6 && hasAvatar) return 5;
         if (drafted.length >= 4 && hasAvatar) return 1;

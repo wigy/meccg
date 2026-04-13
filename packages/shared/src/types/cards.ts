@@ -128,6 +128,19 @@ export function isCharacterCard(card: CardDefinition | undefined): card is Chara
 }
 
 /**
+ * Returns true if the definition is a character with no mind cost — i.e. an
+ * avatar (wizard, ringwraith, balrog, or fallen-wizard). Avatars are the only
+ * characters allowed to have `mind === null`, so this doubles as the canonical
+ * "is this an avatar?" check. Returns plain `boolean` rather than narrowing
+ * to `CharacterCard` so that callers which have already narrowed with
+ * `isCharacterCard` do not get their type collapsed to `never` in the else
+ * branch.
+ */
+export function isAvatarCharacter(card: CardDefinition | undefined): boolean {
+  return isCharacterCard(card) && card.mind === null;
+}
+
+/**
  * Union of all item card types (hero and minion). Use this when code
  * needs to handle items generically regardless of alignment.
  */

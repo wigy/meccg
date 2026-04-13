@@ -9,7 +9,7 @@
  */
 
 import type { GameState, PlayerId, EvaluatedAction } from '../../index.js';
-import { isCharacterCard, evaluateAction, CHARACTER_DECK_DRAFT_RULES, getPlayerIndex } from '../../index.js';
+import { isCharacterCard, isAvatarCharacter, evaluateAction, CHARACTER_DECK_DRAFT_RULES, getPlayerIndex } from '../../index.js';
 import { logDetail } from './log.js';
 
 /** Maximum number of non-avatar characters allowed in the play deck. */
@@ -52,7 +52,7 @@ export function characterDeckDraftActions(state: GameState, playerId: PlayerId):
       card: {
         name: def?.name ?? (charCard.instanceId as string),
         isCharacter: isChar,
-        isAvatar: isChar && def.mind === null,
+        isAvatar: isAvatarCharacter(def),
       },
       ctx: {
         nonAvatarCount,
