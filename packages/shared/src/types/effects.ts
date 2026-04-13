@@ -277,6 +277,15 @@ export interface TriggeredAction {
    */
   readonly value?: number;
   /**
+   * For `add-constraint` with `constraint: "site-phase-do-nothing"`:
+   * optional DSL condition evaluated per-character in the target company.
+   * When a character's attributes satisfy the condition, that character
+   * may tap to cancel the constraint. Example (River): rangers may tap
+   * to cancel a do-nothing constraint via `{ "actor.skills": { "$includes":
+   * "ranger" } }`.
+   */
+  readonly cancelWhen?: Condition;
+  /**
    * For `set-character-status` type: the new status for the target
    * character (e.g. `"untapped"` to untap or heal).
    */

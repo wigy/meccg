@@ -27,7 +27,7 @@ import type {
   CardInstanceId,
   CompanyId,
 } from '../../index.js';
-import { isCharacterCard, isAllyCard, isFactionCard, Phase, Skill, CardStatus, matchesCondition } from '../../index.js';
+import { isCharacterCard, isAllyCard, isFactionCard, Phase, CardStatus, matchesCondition } from '../../index.js';
 import type { PlayOptionEffect, PlayTargetEffect } from '../../types/effects.js';
 import { resolveInstanceId } from '../../types/state.js';
 import { resolveDef, collectCharacterEffects, resolveCheckModifier, resolveStatModifiers } from '../effects/index.js';
@@ -487,8 +487,6 @@ function applyOneConstraint(
   switch (constraint.kind.type) {
     case 'site-phase-do-nothing':
       return applySitePhaseDoNothing(state, playerId, base, constraint);
-    case 'site-phase-do-nothing-unless-ranger-taps':
-      return applySitePhaseDoNothingUnlessRanger(state, playerId, base, constraint);
     case 'no-creature-hazards-on-company':
       return applyNoCreatureHazardsOnCompany(state, playerId, base, constraint);
     case 'check-modifier':
@@ -521,9 +519,16 @@ function activeCompanyId(state: GameState): CompanyId | null {
 }
 
 /**
- * Lost in Free-domains constraint: during the affected company's
- * `enter-or-skip` step, drop every legal action except `pass`. The
- * resource player can then only choose to do nothing for the company.
+ * Lost in Free-domains / River constraint: during the affected company's
+ * `enter-or-skip` step, drop every legal action except `pass`. When the
+ * constraint declares a `cancelWhen` DSL condition, each character in
+ * the target company whose attributes satisfy the condition gets a
+ * `cancel-constraint` action added back — tapping that character
+ * cancels the constraint and frees the company to act normally.
+ *
+ * Implementation note (River): the card text says the ranger may cancel
+ * "even at the start of his company's site phase" — tightening the
+ * first-action timing is tracked in a follow-up PR.
  */
 function applySitePhaseDoNothing(
   state: GameState,
@@ -532,73 +537,52 @@ function applySitePhaseDoNothing(
   constraint: ActiveConstraint,
 ): EvaluatedAction[] {
   if (constraint.target.kind !== 'company') return base;
+  if (constraint.kind.type !== 'site-phase-do-nothing') return base;
   if (state.phaseState.phase !== Phase.Site) return base;
   const sps = state.phaseState;
   if (sps.step !== 'enter-or-skip') return base;
   if (state.activePlayer !== playerId) return base;
-  if (activeCompanyId(state) !== constraint.target.companyId) return base;
+  const targetCompanyId = constraint.target.companyId;
+  if (activeCompanyId(state) !== targetCompanyId) return base;
 
-  logDetail(`Constraint ${constraint.id as string} (site-phase-do-nothing): collapsing to pass for company ${constraint.target.companyId as string}`);
-  return base.filter(ea => ea.action.type === 'pass');
-}
-
-/**
- * River constraint: same restriction as Lost in Free-domains, but with
- * an extra escape hatch — a ranger in the affected company may tap to
- * cancel the constraint, *only at the very first action* of the
- * company's enter-or-skip step. The cancellation action is added to the
- * legal action menu via `tap-ranger-to-cancel-river` (handled by the
- * granted-action machinery; the constraint filter only injects the
- * candidate ranger taps when applicable).
- *
- * Implementation note: the "first action" timing is not yet enforced
- * here. The legal action filter offers cancellation at every visit to
- * `enter-or-skip` while the constraint lives. Tightening this is
- * tracked in the follow-up PR for River.
- */
-function applySitePhaseDoNothingUnlessRanger(
-  state: GameState,
-  playerId: PlayerId,
-  base: EvaluatedAction[],
-  constraint: ActiveConstraint,
-): EvaluatedAction[] {
-  if (constraint.target.kind !== 'company') return base;
-  if (state.phaseState.phase !== Phase.Site) return base;
-  const sps = state.phaseState;
-  if (sps.step !== 'enter-or-skip') return base;
-  if (state.activePlayer !== playerId) return base;
-  if (activeCompanyId(state) !== constraint.target.companyId) return base;
-
-  // Drop everything except pass.
+  logDetail(`Constraint ${constraint.id as string} (site-phase-do-nothing): collapsing to pass for company ${targetCompanyId as string}`);
   const filtered = base.filter(ea => ea.action.type === 'pass');
 
-  // Add a tap-ranger-to-cancel-river action for each untapped ranger in
-  // the constrained company.
+  const cancelWhen = constraint.kind.cancelWhen;
+  if (!cancelWhen) return filtered;
+
   const playerIndex = state.players.findIndex(p => p.id === playerId);
   if (playerIndex === -1) return filtered;
   const player = state.players[playerIndex];
-  const targetCompanyId = constraint.target.companyId;
   const constraintCompany = player.companies.find(c => c.id === targetCompanyId);
   if (!constraintCompany) return filtered;
-
-  const sourceDefId = constraint.sourceDefinitionId;
 
   for (const charId of constraintCompany.characters) {
     const char = player.characters[charId as string];
     if (!char) continue;
-    if (char.status !== CardStatus.Untapped) continue;
     const def = resolveDef(state, char.instanceId);
     if (!isCharacterCard(def)) continue;
-    if (!def.skills.includes(Skill.Ranger)) continue;
-    logDetail(`Constraint ${constraint.id as string} (river): offering tap-ranger-to-cancel-river on ${def.name}`);
+    const statusStr = char.status === CardStatus.Untapped ? 'untapped'
+      : char.status === CardStatus.Tapped ? 'tapped'
+      : 'inverted';
+    const ctx = {
+      actor: {
+        name: def.name,
+        race: def.race,
+        skills: def.skills,
+        status: statusStr,
+      },
+    };
+    if (!matchesCondition(cancelWhen, ctx)) continue;
+    logDetail(`Constraint ${constraint.id as string} (cancelWhen): offering cancel-constraint on ${def.name}`);
     filtered.push({
       action: {
         type: 'activate-granted-action',
         player: playerId,
         characterId: char.instanceId,
         sourceCardId: constraint.source,
-        sourceCardDefinitionId: sourceDefId,
-        actionId: 'tap-ranger-to-cancel-river',
+        sourceCardDefinitionId: constraint.sourceDefinitionId,
+        actionId: 'cancel-constraint',
         rollThreshold: 0,
       },
       viable: true,

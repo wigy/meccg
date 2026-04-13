@@ -556,10 +556,9 @@ function applyShortEventOnEntersPlay(
           kind = { type: 'no-creature-hazards-on-company' };
           break;
         case 'site-phase-do-nothing':
-          kind = { type: 'site-phase-do-nothing' };
-          break;
-        case 'site-phase-do-nothing-unless-ranger-taps':
-          kind = { type: 'site-phase-do-nothing-unless-ranger-taps' };
+          kind = onEvent.apply.cancelWhen
+            ? { type: 'site-phase-do-nothing', cancelWhen: onEvent.apply.cancelWhen }
+            : { type: 'site-phase-do-nothing' };
           break;
         default:
           logDetail(`add-constraint: unknown constraint kind "${constraintKind}" — fizzle`);

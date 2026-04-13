@@ -177,8 +177,14 @@
         "event": "company-arrives-at-site",
         "apply": {
           "type": "add-constraint",
-          "constraint": "site-phase-do-nothing-unless-ranger-taps",
-          "scope": "company-site-phase"
+          "constraint": "site-phase-do-nothing",
+          "scope": "company-site-phase",
+          "cancelWhen": {
+            "$and": [
+              { "actor.skills": { "$includes": "ranger" } },
+              { "actor.status": "untapped" }
+            ]
+          }
         },
         "target": "arriving-company"
       }
