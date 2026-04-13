@@ -101,6 +101,7 @@ describe('Lost in Free-domains (tw-53)', () => {
     // Add the Lost in Free-domains constraint targeting the company.
     const constrained = addConstraint(sitePhaseStateAtStep, {
       source: 'lifd-1' as never,
+      sourceDefinitionId: LOST_IN_FREE_DOMAINS,
       scope: { kind: 'company-site-phase', companyId: targetCompanyId },
       target: { kind: 'company', companyId: targetCompanyId },
       kind: { type: 'site-phase-do-nothing' },
@@ -125,6 +126,7 @@ describe('Lost in Free-domains (tw-53)', () => {
     // Constraint targets a fictitious other company id — should be ignored.
     const constrained = addConstraint(base, {
       source: 'lifd-1' as never,
+      sourceDefinitionId: LOST_IN_FREE_DOMAINS,
       scope: { kind: 'company-site-phase', companyId: 'other-co' as CompanyId },
       target: { kind: 'company', companyId: 'other-co' as CompanyId },
       kind: { type: 'site-phase-do-nothing' },
@@ -167,6 +169,7 @@ describe('Lost in Free-domains (tw-53)', () => {
     const targetCompanyId = base.players[0].companies[0].id;
     const constrained = addConstraint(base, {
       source: 'lifd-1' as never,
+      sourceDefinitionId: LOST_IN_FREE_DOMAINS,
       scope: { kind: 'company-site-phase', companyId: targetCompanyId },
       target: { kind: 'company', companyId: targetCompanyId },
       kind: { type: 'site-phase-do-nothing' },

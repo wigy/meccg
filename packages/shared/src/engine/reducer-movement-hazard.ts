@@ -657,6 +657,7 @@ function fireCompanyArrivesAtSite(
         logDetail(`company-arrives-at-site: "${def.name}" fires → adding constraint ${constraintKind} on company ${arrivingCompanyId as string}`);
         newState = addConstraint(newState, {
           source: card.instanceId,
+          sourceDefinitionId: card.definitionId,
           scope,
           target: { kind: 'company', companyId: arrivingCompanyId },
           kind,
