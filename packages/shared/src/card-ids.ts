@@ -87,6 +87,8 @@ export const THE_MITHRIL_COAT = did('tw-345');
 export const DAGGER_OF_WESTERNESSE = did('tw-206');
 /** Horn of Anor — minor item, +1 prowess to a warrior in combat. */
 export const HORN_OF_ANOR = did('tw-259');
+/** Hauberk of Bright Mail — major armour, warrior only, +2 body max 9. */
+export const HAUBERK_OF_BRIGHT_MAIL = did('tw-254');
 /** Precious Gold Ring — gold ring item that can be tested to become a special ring. */
 export const PRECIOUS_GOLD_RING = did('tw-306');
 /** Cram — minor item, discard to untap bearer or grant extra region movement. */

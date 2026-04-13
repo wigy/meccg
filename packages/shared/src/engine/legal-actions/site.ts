@@ -9,13 +9,33 @@
  * CoE rules section 2.V (lines 340–393).
  */
 
-import type { GameState, PlayerId, GameAction, EvaluatedAction, SitePhaseState, HeroItemCard, HeroResourceEventCard, SiteCard, PlayableAtEntry, FactionCard, DenyItemSiteRule } from '../../index.js';
+import type { GameState, PlayerId, GameAction, EvaluatedAction, SitePhaseState, HeroItemCard, HeroResourceEventCard, SiteCard, PlayableAtEntry, FactionCard, DenyItemSiteRule, PlayTargetEffect, CharacterInPlay } from '../../index.js';
 import { getPlayerIndex, isSiteCard, isItemCard, isAllyCard, isFactionCard, isCharacterCard, isAvatarCharacter, CardStatus, matchesCondition, GENERAL_INFLUENCE } from '../../index.js';
 import { resolveInstanceId } from '../../types/state.js';
 import { collectCharacterEffects, resolveCheckModifier, resolveStatModifiers } from '../effects/index.js';
 import type { ResolverContext } from '../effects/index.js';
 import { logDetail, logHeading } from './log.js';
 import { availableDI } from './organization.js';
+
+/**
+ * Builds the context object used to evaluate a {@link PlayTargetEffect}
+ * filter on an item card against a candidate character.
+ */
+function buildItemPlayTargetContext(
+  state: GameState,
+  char: CharacterInPlay,
+  charDef: import('../../index.js').CharacterCard,
+): Record<string, unknown> {
+  return {
+    target: {
+      race: charDef.race,
+      status: char.status === CardStatus.Untapped ? 'untapped'
+        : char.status === CardStatus.Tapped ? 'tapped' : 'inverted',
+      skills: charDef.skills,
+      name: charDef.name,
+    },
+  };
+}
 
 /**
  * Check whether a site satisfies a {@link PlayableAtEntry}.
@@ -515,10 +535,28 @@ function playResourcesActions(
           e.type === 'duplication-limit' && e.scope === 'character',
       );
 
+      // Check play-target filter (e.g. "Warrior only" items)
+      const playTarget = itemDef.effects?.find(
+        (e): e is PlayTargetEffect => e.type === 'play-target' && e.target === 'character',
+      );
+
       // One action per untapped character that could carry the item
       for (const ch of untappedCharacters) {
         const charDef = state.cardPool[ch.definitionId as string];
         const charName = charDef?.name ?? ch.instanceId;
+
+        if (playTarget?.filter && charDef && isCharacterCard(charDef)) {
+          const ctx = buildItemPlayTargetContext(state, ch, charDef);
+          if (!matchesCondition(playTarget.filter, ctx)) {
+            logDetail(`Item ${itemDef.name}: ${charName} does not match play-target filter`);
+            actions.push({
+              action: { type: 'not-playable', player: playerId, cardInstanceId },
+              viable: false,
+              reason: `${itemDef.name}: ${charName} does not meet the requirement`,
+            });
+            continue;
+          }
+        }
 
         // Check character-scoped duplication: count copies of this item already on the character
         if (charDupLimit) {
