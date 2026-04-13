@@ -211,15 +211,15 @@ function getInstructionText(
       case 'select-company':
         return 'Site — Select a company to resolve its site phase.';
       case 'enter-or-skip': {
-        const riverRangerTap = view.legalActions.some(
+        const constraintCancel = view.legalActions.some(
           ea => ea.viable
             && ea.action.type === 'activate-granted-action'
-            && ea.action.actionId === 'tap-ranger-to-cancel-river',
+            && ea.action.actionId === 'cancel-constraint',
         );
-        if (riverRangerTap) {
+        if (constraintCancel) {
           return isSelf
-            ? 'Site — River blocks the company. Tap a ranger to cancel, or pass to do nothing.'
-            : 'Site — River blocks opponent\'s company. Opponent may tap a ranger to cancel.';
+            ? 'Site — A hazard blocks the company. Tap a qualifying character to cancel, or pass to do nothing.'
+            : 'Site — A hazard blocks opponent\'s company. Opponent may tap to cancel.';
         }
         return isSelf
           ? 'Site — Enter the site or skip.'

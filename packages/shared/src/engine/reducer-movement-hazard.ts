@@ -643,10 +643,9 @@ function fireCompanyArrivesAtSite(
         let kind: import('../types/pending.js').ActiveConstraint['kind'];
         switch (constraintKind) {
           case 'site-phase-do-nothing':
-            kind = { type: 'site-phase-do-nothing' };
-            break;
-          case 'site-phase-do-nothing-unless-ranger-taps':
-            kind = { type: 'site-phase-do-nothing-unless-ranger-taps' };
+            kind = effect.apply.cancelWhen
+              ? { type: 'site-phase-do-nothing', cancelWhen: effect.apply.cancelWhen }
+              : { type: 'site-phase-do-nothing' };
             break;
           case 'no-creature-hazards-on-company':
             kind = { type: 'no-creature-hazards-on-company' };

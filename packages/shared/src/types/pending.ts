@@ -28,6 +28,7 @@
 import type { CardInstanceId, CompanyId, PlayerId, CardDefinitionId } from './common.js';
 import type { GameAction } from './actions.js';
 import type { Phase } from './state-phases.js';
+import type { Condition } from './effects.js';
 
 // ---- Branded IDs ----
 
@@ -206,16 +207,18 @@ export interface ActiveConstraint {
   /** Discriminated payload. */
   readonly kind:
     | {
-        /** Lost in Free-domains: company may do nothing during its site phase. */
-        readonly type: 'site-phase-do-nothing';
-      }
-    | {
         /**
-         * River: company may do nothing during its site phase, but a
-         * ranger in the company may tap to cancel the effect — only at
-         * the very first action of the company's enter-or-skip step.
+         * Lost in Free-domains / River: company may do nothing during its
+         * site phase. Optional {@link cancelWhen} provides an escape hatch —
+         * any character in the target company whose attributes satisfy the
+         * condition may tap to cancel the constraint. Evaluated against a
+         * per-character context `{ actor: { skills, status, race, name } }`.
+         *
+         * River's cancelWhen: `{ $and: [{ "actor.skills": { "$includes":
+         * "ranger" } }, { "actor.status": "untapped" }] }`.
          */
-        readonly type: 'site-phase-do-nothing-unless-ranger-taps';
+        readonly type: 'site-phase-do-nothing';
+        readonly cancelWhen?: Condition;
       }
     | {
         /**
