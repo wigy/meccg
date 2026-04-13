@@ -1113,6 +1113,213 @@ export function runAutoAttackCombat(
  */
 export const autoMergeNonHavenCompanies = _autoMergeNonHavenCompanies;
 
+// ─── Convenience lookups ────────────────────────────────────────────────────
+
+/** Which PlayerState pile to search in {@link findInPile}. */
+export type PileKey =
+  | 'hand'
+  | 'playDeck'
+  | 'discardPile'
+  | 'siteDeck'
+  | 'siteDiscardPile'
+  | 'sideboard'
+  | 'killPile'
+  | 'eliminatedPile';
+
+/** Get the instance ID of a card in a player's hand by position (default: first card). */
+export function handCardId(
+  state: GameState,
+  playerIdx: number,
+  index = 0,
+): CardInstanceId {
+  const card = state.players[playerIdx].hand[index];
+  if (!card) throw new Error(`No card at hand[${index}] for player ${playerIdx}`);
+  return card.instanceId;
+}
+
+/** Get the ID of a player's company (default: first company). */
+export function companyIdAt(
+  state: GameState,
+  playerIdx: number,
+  companyIdx = 0,
+): CompanyId {
+  const company = state.players[playerIdx].companies[companyIdx];
+  if (!company) throw new Error(`No company at companies[${companyIdx}] for player ${playerIdx}`);
+  return company.id;
+}
+
+/** Get the instance ID of a character by its position in a company. */
+export function charIdAt(
+  state: GameState,
+  playerIdx: number,
+  companyIdx = 0,
+  charIdx = 0,
+): CardInstanceId {
+  const company = state.players[playerIdx].companies[companyIdx];
+  if (!company) throw new Error(`No company at companies[${companyIdx}] for player ${playerIdx}`);
+  const id = company.characters[charIdx];
+  if (!id) throw new Error(`No character at companies[${companyIdx}].characters[${charIdx}] for player ${playerIdx}`);
+  return id;
+}
+
+/** Get the {@link CharacterInPlay} object for a character by definition ID. */
+export function getCharacter(
+  state: GameState,
+  playerIdx: number,
+  defId: CardDefinitionId,
+): CharacterInPlay {
+  const id = findCharInstanceId(state, playerIdx, defId);
+  return state.players[playerIdx].characters[id as string];
+}
+
+/**
+ * Find the first card instance in a player's pile matching the given
+ * definition or instance ID. Returns undefined if not found.
+ */
+export function findInPile(
+  state: GameState,
+  playerIdx: number,
+  pile: PileKey,
+  idOrDefId: CardDefinitionId | CardInstanceId,
+): CardInstance | undefined {
+  const list = state.players[playerIdx][pile];
+  return list.find(c => c.definitionId === idOrDefId || c.instanceId === idOrDefId);
+}
+
+// ─── Convenience action helpers ─────────────────────────────────────────────
+
+/**
+ * Apply an action and assert it produced no error. Returns the new state.
+ *
+ * Replaces the common two-line pattern:
+ * ```
+ * const result = reduce(state, action);
+ * expect(result.error).toBeUndefined();
+ * state = result.state;
+ * ```
+ */
+export function dispatch(state: GameState, action: GameAction): GameState {
+  const result = reduce(state, action);
+  expect(result.error).toBeUndefined();
+  return result.state;
+}
+
+/**
+ * Apply an action and assert it produced no error. Returns the full
+ * {@link ReducerResult} so tests can inspect emitted effects. Use
+ * {@link dispatch} when only the next state is needed.
+ */
+export function dispatchResult(state: GameState, action: GameAction): ReducerResult {
+  const result = reduce(state, action);
+  expect(result.error).toBeUndefined();
+  return result;
+}
+
+/**
+ * Find the first viable action of a given type, optionally narrowed by a
+ * predicate. Returns undefined if no match is found.
+ */
+export function findAction<T extends GameAction = GameAction>(
+  state: GameState,
+  playerId: PlayerId,
+  actionType: string,
+  predicate?: (action: T) => boolean,
+): T | undefined {
+  const actions = viableActions(state, playerId, actionType);
+  const match = predicate
+    ? actions.find(ea => predicate(ea.action as T))
+    : actions[0];
+  return match ? (match.action as T) : undefined;
+}
+
+/**
+ * Get the first viable action of a given type, optionally narrowed by a
+ * predicate. Asserts that a match exists and returns the typed action.
+ */
+export function firstAction<T extends GameAction = GameAction>(
+  state: GameState,
+  playerId: PlayerId,
+  actionType: string,
+  predicate?: (action: T) => boolean,
+): T {
+  const match = findAction<T>(state, playerId, actionType, predicate);
+  expect(match).toBeDefined();
+  return match!;
+}
+
+// ─── Convenience assertions ────────────────────────────────────────────────
+
+/** Assert a character (located by definition ID) currently has the expected status. */
+export function expectCharStatus(
+  state: GameState,
+  playerIdx: number,
+  defId: CardDefinitionId,
+  expected: CardStatus,
+): void {
+  expect(getCharacter(state, playerIdx, defId).status).toBe(expected);
+}
+
+/** Assert a character (located by definition ID) has the expected number of items. */
+export function expectCharItemCount(
+  state: GameState,
+  playerIdx: number,
+  defId: CardDefinitionId,
+  expected: number,
+): void {
+  expect(getCharacter(state, playerIdx, defId).items).toHaveLength(expected);
+}
+
+/**
+ * Assert a card is in the given pile for the player, matched by either
+ * definition or instance ID.
+ */
+export function expectInPile(
+  state: GameState,
+  playerIdx: number,
+  pile: PileKey,
+  idOrDefId: CardDefinitionId | CardInstanceId,
+): void {
+  const found = findInPile(state, playerIdx, pile, idOrDefId);
+  expect(found).toBeDefined();
+}
+
+/**
+ * Assert a card is in the player's discard pile, matched by either
+ * definition or instance ID. Short-hand for the most common
+ * {@link expectInPile} call.
+ */
+export function expectInDiscardPile(
+  state: GameState,
+  playerIdx: number,
+  idOrDefId: CardDefinitionId | CardInstanceId,
+): void {
+  expectInPile(state, playerIdx, 'discardPile', idOrDefId);
+}
+
+// ─── Convenience state mutations ───────────────────────────────────────────
+
+/**
+ * Return a new state with a character's status updated. Replaces the
+ * multi-line spread boilerplate required to update a deeply nested field.
+ */
+export function setCharStatus(
+  state: GameState,
+  playerIdx: number,
+  defId: CardDefinitionId,
+  status: CardStatus,
+): GameState {
+  const charId = findCharInstanceId(state, playerIdx, defId);
+  const char = state.players[playerIdx].characters[charId as string];
+  const updatedChars = {
+    ...state.players[playerIdx].characters,
+    [charId as string]: { ...char, status },
+  };
+  const updatedPlayer = { ...state.players[playerIdx], characters: updatedChars };
+  const p0 = playerIdx === 0 ? updatedPlayer : state.players[0];
+  const p1 = playerIdx === 1 ? updatedPlayer : state.players[1];
+  return { ...state, players: [p0, p1] as unknown as typeof state.players };
+}
+
 // Re-export commonly used things
 export {
   createGame, reduce,

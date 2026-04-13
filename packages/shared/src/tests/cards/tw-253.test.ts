@@ -32,11 +32,13 @@
 
 import { describe, test, expect, beforeEach } from 'vitest';
 import {
-  buildTestState, resetMint, Phase, reduce,
+  buildTestState, resetMint, Phase,
   PLAYER_1, PLAYER_2,
   ARAGORN, LEGOLAS, BILBO, FRODO, HALFLING_STRENGTH,
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
   pool, CardStatus,
+  handCardId, charIdAt, dispatch,
+  expectCharStatus, expectInDiscardPile,
 } from '../test-helpers.js';
 import type {
   HeroResourceEventCard,
@@ -133,7 +135,7 @@ describe('Halfling Strength (tw-253)', () => {
       .filter(ea => ea.viable && ea.action.type === 'play-short-event');
     expect(playActions).toHaveLength(0);
 
-    const hsInstanceId = base.players[0].hand[0].instanceId;
+    const hsInstanceId = handCardId(base, 0);
     const notPlayable = computeLegalActions(base, PLAYER_1)
       .filter(ea => !ea.viable && ea.action.type === 'not-playable'
         && (ea.action as { cardInstanceId: CardInstanceId }).cardInstanceId === hsInstanceId);
@@ -161,7 +163,7 @@ describe('Halfling Strength (tw-253)', () => {
 
     const notPlayable = computeLegalActions(base, PLAYER_1)
       .filter(ea => !ea.viable && ea.action.type === 'not-playable'
-        && (ea.action as { cardInstanceId: CardInstanceId }).cardInstanceId === base.players[0].hand[0].instanceId);
+        && (ea.action as { cardInstanceId: CardInstanceId }).cardInstanceId === handCardId(base, 0));
     expect(notPlayable.length).toBeGreaterThan(0);
   });
 
@@ -188,7 +190,7 @@ describe('Halfling Strength (tw-253)', () => {
       ],
     });
 
-    const frodoId = base.players[0].companies[0].characters[1];
+    const frodoId = charIdAt(base, 0, 0, 1);
     const actions = computeLegalActions(base, PLAYER_1)
       .filter(ea => ea.viable && ea.action.type === 'play-short-event')
       .map(ea => ea.action as PlayShortEventAction);
@@ -213,10 +215,10 @@ describe('Halfling Strength (tw-253)', () => {
       ],
     });
 
-    const bilboId = base.players[0].companies[0].characters[0];
-    const hsInstance = base.players[0].hand[0].instanceId;
+    const bilboId = charIdAt(base, 0);
+    const hsInstance = handCardId(base, 0);
 
-    const result = reduce(base, {
+    const state = dispatch(base, {
       type: 'play-short-event',
       player: PLAYER_1,
       cardInstanceId: hsInstance,
@@ -224,10 +226,9 @@ describe('Halfling Strength (tw-253)', () => {
       optionId: 'untap',
     });
 
-    expect(result.error).toBeUndefined();
-    expect(result.state.players[0].characters[bilboId as string].status).toBe(CardStatus.Untapped);
-    expect(result.state.players[0].hand).toHaveLength(0);
-    expect(result.state.players[0].discardPile.some(c => c.instanceId === hsInstance)).toBe(true);
+    expectCharStatus(state, 0, BILBO, CardStatus.Untapped);
+    expect(state.players[0].hand).toHaveLength(0);
+    expectInDiscardPile(state, 0, hsInstance);
   });
 
   test('playing heal mode heals wounded hobbit to untapped and discards the card', () => {
@@ -245,10 +246,10 @@ describe('Halfling Strength (tw-253)', () => {
       ],
     });
 
-    const bilboId = base.players[0].companies[0].characters[0];
-    const hsInstance = base.players[0].hand[0].instanceId;
+    const bilboId = charIdAt(base, 0);
+    const hsInstance = handCardId(base, 0);
 
-    const result = reduce(base, {
+    const state = dispatch(base, {
       type: 'play-short-event',
       player: PLAYER_1,
       cardInstanceId: hsInstance,
@@ -256,10 +257,9 @@ describe('Halfling Strength (tw-253)', () => {
       optionId: 'heal',
     });
 
-    expect(result.error).toBeUndefined();
-    expect(result.state.players[0].characters[bilboId as string].status).toBe(CardStatus.Untapped);
-    expect(result.state.players[0].hand).toHaveLength(0);
-    expect(result.state.players[0].discardPile.some(c => c.instanceId === hsInstance)).toBe(true);
+    expectCharStatus(state, 0, BILBO, CardStatus.Untapped);
+    expect(state.players[0].hand).toHaveLength(0);
+    expectInDiscardPile(state, 0, hsInstance);
   });
 
   test('corruption-check-boost is offered only while the targeted hobbit faces a pending corruption check', () => {
@@ -278,8 +278,8 @@ describe('Halfling Strength (tw-253)', () => {
         { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [MINAS_TIRITH] },
       ],
     });
-    const bilboId = base.players[0].companies[0].characters[0];
-    const hsInstance = base.players[0].hand[0].instanceId;
+    const bilboId = charIdAt(base, 0);
+    const hsInstance = handCardId(base, 0);
 
     // No pending check → no play-short-event action.
     const noneActions = computeLegalActions(base, PLAYER_1)
@@ -325,8 +325,8 @@ describe('Halfling Strength (tw-253)', () => {
         { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [MINAS_TIRITH] },
       ],
     });
-    const bilboId = base.players[0].companies[0].characters[0];
-    const hsInstance = base.players[0].hand[0].instanceId;
+    const bilboId = charIdAt(base, 0);
+    const hsInstance = handCardId(base, 0);
 
     const withCheck = enqueueResolution(base, {
       source: null,
@@ -342,7 +342,7 @@ describe('Halfling Strength (tw-253)', () => {
       },
     });
 
-    const result = reduce(withCheck, {
+    const state = dispatch(withCheck, {
       type: 'play-short-event',
       player: PLAYER_1,
       cardInstanceId: hsInstance,
@@ -350,25 +350,24 @@ describe('Halfling Strength (tw-253)', () => {
       optionId: 'corruption-check-boost',
     });
 
-    expect(result.error).toBeUndefined();
     // Constraint added.
-    expect(result.state.activeConstraints).toHaveLength(1);
-    const constraint = result.state.activeConstraints[0];
+    expect(state.activeConstraints).toHaveLength(1);
+    const constraint = state.activeConstraints[0];
     expect(constraint.kind.type).toBe('check-modifier');
     if (constraint.kind.type === 'check-modifier') {
       expect(constraint.kind.check).toBe('corruption');
       expect(constraint.kind.value).toBe(4);
     }
     // Pending corruption check is still queued.
-    expect(result.state.pendingResolutions).toHaveLength(1);
-    expect(result.state.pendingResolutions[0].kind.type).toBe('corruption-check');
+    expect(state.pendingResolutions).toHaveLength(1);
+    expect(state.pendingResolutions[0].kind.type).toBe('corruption-check');
     // Card consumed from hand.
-    expect(result.state.players[0].hand).toHaveLength(0);
-    expect(result.state.players[0].discardPile.some(c => c.instanceId === hsInstance)).toBe(true);
+    expect(state.players[0].hand).toHaveLength(0);
+    expectInDiscardPile(state, 0, hsInstance);
 
     // The next legal corruption-check action now carries the boosted
     // modifier (Bilbo's base +4 plus the freshly-added +4 constraint).
-    const nextCheckActions = computeLegalActions(result.state, PLAYER_1)
+    const nextCheckActions = computeLegalActions(state, PLAYER_1)
       .filter(ea => ea.viable && ea.action.type === 'corruption-check');
     expect(nextCheckActions).toHaveLength(1);
     const checkAction = nextCheckActions[0].action as { corruptionModifier: number };
@@ -391,7 +390,7 @@ describe('Halfling Strength (tw-253)', () => {
       ],
     });
 
-    const bilboId = base.players[0].companies[0].characters[0];
+    const bilboId = charIdAt(base, 0);
 
     const boosted = addConstraint(base, {
       source: 'hs-1' as CardInstanceId,
@@ -439,7 +438,7 @@ describe('Halfling Strength (tw-253)', () => {
       ],
     });
 
-    const bilboId = base.players[0].companies[0].characters[0];
+    const bilboId = charIdAt(base, 0);
 
     const boosted = addConstraint(base, {
       source: 'hs-1' as CardInstanceId,
@@ -470,8 +469,7 @@ describe('Halfling Strength (tw-253)', () => {
       .filter(ea => ea.viable && ea.action.type === 'corruption-check');
     expect(checkActions).toHaveLength(1);
 
-    const result = reduce(stateWithCheat, checkActions[0].action);
-    expect(result.error).toBeUndefined();
-    expect(result.state.activeConstraints.filter(c => c.kind.type === 'check-modifier')).toHaveLength(0);
+    const state = dispatch(stateWithCheat, checkActions[0].action);
+    expect(state.activeConstraints.filter(c => c.kind.type === 'check-modifier')).toHaveLength(0);
   });
 });
