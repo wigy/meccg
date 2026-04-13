@@ -18,6 +18,8 @@ import {
   getPlayCharacterRenderCache, setPlayCharacterRenderCache,
   getSelectedFactionForInfluence, setSelectedFactionForInfluence,
   getFactionInfluenceRenderCache, setFactionInfluenceRenderCache,
+  getSelectedResourceForPlay, setSelectedResourceForPlay,
+  getResourcePlayRenderCache, setResourcePlayRenderCache,
   getSelectedAllyForPlay, setSelectedAllyForPlay,
   getAllyPlayRenderCache, setAllyPlayRenderCache,
   getSelectedHazardForPlay, setSelectedHazardForPlay,
@@ -383,54 +385,6 @@ function showHazardKeyingMenu(
   document.body.appendChild(backdrop);
 }
 
-/**
- * Show a disambiguation tooltip for resource plays with multiple character targets.
- * Each button names the target character; clicking sends the action.
- */
-function showResourceTargetMenu(
-  event: MouseEvent,
-  actions: readonly GameAction[],
-  view: PlayerView,
-  cardPool: Readonly<Record<string, CardDefinition>>,
-  onAction: (action: GameAction) => void,
-): void {
-  const cachedInstanceLookup = getCachedInstanceLookup();
-  document.querySelector('.chain-target-backdrop')?.remove();
-
-  const backdrop = document.createElement('div');
-  backdrop.className = 'chain-target-backdrop';
-  backdrop.addEventListener('click', () => backdrop.remove());
-
-  const tooltip = document.createElement('div');
-  tooltip.className = 'chain-target-tooltip';
-  tooltip.style.left = `${event.clientX}px`;
-  tooltip.style.top = `${event.clientY}px`;
-
-  for (const action of actions) {
-    const charId = action.type === 'play-hero-resource' ? action.attachToCharacterId
-      : action.type === 'play-minor-item' ? action.attachToCharacterId
-        : action.type === 'influence-attempt' ? action.influencingCharacterId
-          : undefined;
-    if (!charId) continue;
-    const charDefId = cachedInstanceLookup(charId);
-    const charDef = charDefId ? cardPool[charDefId as string] : undefined;
-    const charName = charDef ? charDef.name : (charId as string);
-
-    const label = action.type === 'influence-attempt' ? `Influence with ${charName}` : `Play on ${charName}`;
-    const btn = document.createElement('button');
-    btn.className = 'char-action-tooltip__btn';
-    btn.textContent = label;
-    btn.addEventListener('click', () => {
-      backdrop.remove();
-      onAction(action);
-    });
-    tooltip.appendChild(btn);
-  }
-
-  backdrop.appendChild(tooltip);
-  document.body.appendChild(backdrop);
-}
-
 // ---- Hand card helpers ----
 
 /** A card in the hand arc with definition and optional instance ID. */
@@ -533,6 +487,15 @@ function reRenderHazardTarget(): void {
 /** Re-render hand and company views using cached state (for ally play selection flow). */
 function reRenderAllyPlay(): void {
   const cache = getAllyPlayRenderCache();
+  if (!cache) return;
+  const { view, cardPool, onAction } = cache;
+  renderHand(view, cardPool, onAction);
+  void import('./company-view.js').then(m => m.renderCompanyViews(view, cardPool, onAction));
+}
+
+/** Re-render hand and company views using cached state (for resource/item play selection flow). */
+function reRenderResourcePlay(): void {
+  const cache = getResourcePlayRenderCache();
   if (!cache) return;
   const { view, cardPool, onAction } = cache;
   renderHand(view, cardPool, onAction);
@@ -652,6 +615,30 @@ export function renderHand(
     setAllyPlayRenderCache(null);
   }
 
+  // Cache render state for resource/item play re-rendering
+  const hasResourcePlayActions = viable.some(
+    a => (a.type === 'play-hero-resource' || a.type === 'play-minor-item') && !isAllyAction(a, cardPool),
+  );
+  if (onAction && hasResourcePlayActions) {
+    setResourcePlayRenderCache({ view, cardPool, onAction });
+    const selectedResourceInstanceId = getSelectedResourceForPlay();
+    if (selectedResourceInstanceId) {
+      const stillViable = viable.some(
+        a => (a.type === 'play-hero-resource' || a.type === 'play-minor-item')
+          && a.cardInstanceId === selectedResourceInstanceId
+          && !isAllyAction(a, cardPool),
+      );
+      if (!stillViable) {
+        setSelectedResourceForPlay(null);
+        setTargetingInstruction(null);
+      }
+    }
+  } else if (!hasResourcePlayActions) {
+    if (getSelectedResourceForPlay()) setTargetingInstruction(null);
+    setSelectedResourceForPlay(null);
+    setResourcePlayRenderCache(null);
+  }
+
   // Cache render state for hazard character-targeting re-rendering
   const hasCharTargetHazardActions = viable.some(
     a => a.type === 'play-hazard' && 'targetCharacterId' in a && a.targetCharacterId,
@@ -766,6 +753,11 @@ export function renderHand(
     const isAllySelected = selectedAllyInstanceId !== null
       && cardInstanceId !== null
       && selectedAllyInstanceId === cardInstanceId;
+
+    const selectedResourceInstanceId = getSelectedResourceForPlay();
+    const isResourceSelected = selectedResourceInstanceId !== null
+      && cardInstanceId !== null
+      && selectedResourceInstanceId === cardInstanceId;
 
     const selectedHazardInstanceId = getSelectedHazardForPlay();
     const isHazardSelected = selectedHazardInstanceId !== null
@@ -902,14 +894,24 @@ export function renderHand(
         }
       }
     } else if (isResource) {
-      // Resource play: single target plays directly, multiple targets show menu
-      img.className = 'hand-card hand-card-playable';
-      if (onAction) {
-        if (resourceActions.length === 1) {
+      // Resource/item play: single target plays directly, multiple targets use two-step character targeting
+      if (resourceActions.length === 1) {
+        img.className = 'hand-card hand-card-playable';
+        if (onAction) {
           img.addEventListener('click', () => onAction(resourceActions[0]));
-        } else {
-          img.addEventListener('click', (e) => {
-            showResourceTargetMenu(e, resourceActions, view, cardPool, onAction);
+        }
+      } else {
+        img.className = isResourceSelected
+          ? 'hand-card hand-card-selected'
+          : 'hand-card hand-card-playable';
+        if (onAction && cardInstanceId) {
+          const instId = cardInstanceId;
+          img.addEventListener('click', () => {
+            setSelectedResourceForPlay(isResourceSelected ? null : instId);
+            setTargetingInstruction(
+              getSelectedResourceForPlay() ? `Click an untapped character to bear ${def.name}` : null,
+            );
+            reRenderResourcePlay();
           });
         }
       }

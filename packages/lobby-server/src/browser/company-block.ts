@@ -33,7 +33,7 @@ import type {
 import { cardImageProxyPath, Phase, CardStatus, viableActions, getTitleCharacter } from '@meccg/shared';
 import type { CardDefinitionId } from '@meccg/shared';
 import { createCardImage } from './render-utils.js';
-import { getSelectedFactionForInfluence, clearFactionInfluenceSelection, getSelectedAllyForPlay, clearAllyPlaySelection, getSelectedHazardForPlay, clearHazardPlaySelection, getSelectedInfluencerForOpponent, setSelectedInfluencerForOpponent, clearOpponentInfluenceSelection, getSelectedShortEvent, clearShortEventSelection, setTargetingInstruction } from './render.js';
+import { getSelectedFactionForInfluence, clearFactionInfluenceSelection, getSelectedResourceForPlay, clearResourcePlaySelection, getSelectedAllyForPlay, clearAllyPlaySelection, getSelectedHazardForPlay, clearHazardPlaySelection, getSelectedInfluencerForOpponent, setSelectedInfluencerForOpponent, clearOpponentInfluenceSelection, getSelectedShortEvent, clearShortEventSelection, setTargetingInstruction } from './render.js';
 import {
   getCachedInstanceLookup,
   getInfluenceMoveSourceId, setInfluenceMoveSourceId,
@@ -473,6 +473,27 @@ export function renderCompanyBlock(
             e.stopPropagation();
             clearAllyPlaySelection();
             options?.onAction?.(allyAction);
+          },
+        };
+      }
+      return undefined;
+    }
+
+    // Resource/item play targeting: click an untapped character to bear the selected resource
+    const selectedResource = getSelectedResourceForPlay();
+    if (selectedResource) {
+      const resourceAction = viableActions(view.legalActions).find(
+        a => (a.type === 'play-hero-resource' || a.type === 'play-minor-item')
+          && a.cardInstanceId === selectedResource
+          && a.attachToCharacterId === charInstId,
+      );
+      if (resourceAction) {
+        return {
+          cls: 'company-card--influence-target',
+          handler: (e) => {
+            e.stopPropagation();
+            clearResourcePlaySelection();
+            options?.onAction?.(resourceAction);
           },
         };
       }
