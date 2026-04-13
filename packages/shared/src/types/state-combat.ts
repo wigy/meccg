@@ -50,8 +50,9 @@ export interface StrikeAssignment {
    * - `'success'` -- The character defeated the strike (no damage).
    * - `'wounded'` -- The character survived but is wounded (reduced capability).
    * - `'eliminated'` -- The character was killed and removed from play.
+   * - `'canceled'` -- The strike was canceled before resolution (e.g. Fatty Bolger).
    */
-  readonly result?: 'success' | 'wounded' | 'eliminated';
+  readonly result?: 'success' | 'wounded' | 'eliminated' | 'canceled';
   /**
    * Whether the character was already wounded before this strike was resolved.
    * Used for body check calculation: +1 if already wounded (CoE rule 3.I).

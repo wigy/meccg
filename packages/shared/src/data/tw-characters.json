@@ -772,9 +772,21 @@
         "type": "check-modifier",
         "check": "corruption",
         "value": 1
+      },
+      {
+        "type": "play-flag",
+        "flag": "home-site-only",
+        "when": { "$not": { "reason": "starting-character" } }
+      },
+      {
+        "type": "cancel-strike",
+        "cost": { "tap": "self" },
+        "target": "other-in-company",
+        "filter": { "target.race": "hobbit" }
       }
     ],
-    "text": "Unique. Unless he is one of the starting characters, he may only be brought into play at his home site. All of his corruption checks are modified by +1. He can tap to cancel a strike against another Hobbit in his company."
+    "text": "Unique. Unless he is one of the starting characters, he may only be brought into play at his home site. All of his corruption checks are modified by +1. He can tap to cancel a strike against another Hobbit in his company.",
+    "certified": "2026-04-14"
   },
   {
     "cardType": "hero-character",
