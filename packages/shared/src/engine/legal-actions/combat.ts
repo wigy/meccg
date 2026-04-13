@@ -13,7 +13,7 @@
  */
 
 import type { GameState, PlayerId, EvaluatedAction, CombatState, CardInstanceId } from '../../index.js';
-import type { CancelAttackEffect, HalveStrikesEffect } from '../../types/effects.js';
+import type { CancelAttackEffect, DodgeStrikeEffect, HalveStrikesEffect } from '../../types/effects.js';
 import type { AllyInPlay } from '../../types/state-cards.js';
 import type { PlayerState } from '../../types/state-player.js';
 import { CardStatus, isCharacterCard, isAllyCard, matchesCondition } from '../../index.js';
@@ -334,6 +334,33 @@ function resolveStrikeActions(
     });
   }
 
+  // Dodge: scan hand for cards with dodge-strike effect. The character
+  // resolves the strike at full prowess without tapping (unless wounded).
+  for (const handCard of player0.hand) {
+    const cardDef = state.cardPool[handCard.definitionId as string];
+    if (!cardDef || !('effects' in cardDef)) continue;
+    const cardWithEffects = cardDef as { effects?: readonly import('../../types/effects.js').CardEffect[] };
+    if (!cardWithEffects.effects) continue;
+
+    const dodgeEffect = cardWithEffects.effects.find(
+      (e): e is DodgeStrikeEffect => e.type === 'dodge-strike',
+    );
+    if (!dodgeEffect) continue;
+
+    const dodgeExplanation = `Dodge: need ${tapNeed}+ (prowess ${tapProwess} vs ${strikeProwess}, no tap)`;
+    logDetail(`Dodge available: ${handCard.definitionId as string} for ${charName}`);
+    actions.push({
+      action: {
+        type: 'play-dodge',
+        player: playerId,
+        cardInstanceId: handCard.instanceId,
+        need: tapNeed,
+        explanation: dodgeExplanation,
+      },
+      viable: true,
+    });
+  }
+
   // Support: any untapped character in the same company who hasn't been assigned a strike,
   // or any untapped ally in the company.
   // (CRF: "tap one or more of their untapped characters ... who hasn't been assigned a strike")
@@ -405,6 +432,10 @@ function bodyCheckActions(
     const charData = defPlayer?.characters[strike?.characterId as string];
     const charDef = charData ? state.cardPool[charData.definitionId as string] : undefined;
     body = (charDef as { body?: number } | undefined)?.body ?? 9;
+    // Dodge body penalty
+    if (strike?.dodged && strike.dodgeBodyPenalty) {
+      body = body + strike.dodgeBodyPenalty;
+    }
     targetLabel = charDef && 'name' in charDef ? (charDef as { name: string }).name : 'character';
   }
   // +1 to body check roll if the character was already wounded before this strike (CoE rule 3.I)

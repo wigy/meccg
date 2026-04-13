@@ -135,6 +135,8 @@ export const SUN = did('tw-335');
 export const SMOKE_RINGS = did('dm-159');
 /** Concealment — short event, tap a scout to cancel one attack against his company. */
 export const CONCEALMENT = did('tw-204');
+/** Dodge — short event, target character does not tap against one strike (body -1 if wounded). */
+export const DODGE = did('tw-209');
 /** Dark Quarrels — short event, cancel one attack by Orcs/Trolls/Men or halve strikes if Gates of Morning in play. */
 export const DARK_QUARRELS = did('tw-207');
 /** Marvels Told — ritual short event, tap a sage to discard a hazard non-environment permanent/long-event. */

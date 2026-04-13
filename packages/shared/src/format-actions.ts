@@ -303,6 +303,8 @@ export function describeAction(
       return `Cancel attack by tapping ${instName(action.characterId)}`;
     case 'salvage-item':
       return `Salvage ${instName(action.itemInstanceId)} to ${instName(action.recipientCharacterId)}`;
+    case 'play-dodge':
+      return `Dodge: play ${instName(action.cardInstanceId)} — ${action.explanation}`;
     case 'support-corruption-check':
       return `Tap ${instName(action.supportingCharacterId)} for CC support (+1)`;
     default: {

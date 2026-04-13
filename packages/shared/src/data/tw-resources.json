@@ -320,8 +320,11 @@
     "eventType": "short",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
-    "text": "Target character does not tap against one strike (unless he is wounded by the strike). If wounded by the strike, his body is modified by -1 for the resulting body check."
+    "effects": [
+      { "type": "dodge-strike", "bodyPenalty": -1 }
+    ],
+    "text": "Target character does not tap against one strike (unless he is wounded by the strike). If wounded by the strike, his body is modified by -1 for the resulting body check.",
+    "certified": "2026-04-13"
   },
   {
     "cardType": "hero-resource-event",

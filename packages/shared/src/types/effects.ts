@@ -582,6 +582,21 @@ export interface HalveStrikesEffect extends EffectBase {
 }
 
 /**
+ * Played from hand during strike resolution to let the target character
+ * resolve the strike at full prowess without tapping (unless wounded).
+ * If the character is wounded by the strike, a body penalty applies to
+ * the resulting body check.
+ *
+ * Example: Dodge — target character does not tap against one strike
+ * (unless wounded); if wounded, body is modified by -1.
+ */
+export interface DodgeStrikeEffect extends EffectBase {
+  readonly type: 'dodge-strike';
+  /** Body modifier applied if the character is wounded by the strike. */
+  readonly bodyPenalty: number;
+}
+
+/**
  * Discriminated union of all card effect types.
  * The `type` field serves as the discriminant for type narrowing.
  */
@@ -596,6 +611,7 @@ export type CardEffect =
   | OnEventEffect
   | CancelStrikeEffect
   | CancelAttackEffect
+  | DodgeStrikeEffect
   | HalveStrikesEffect
   | CombatRuleEffect
   | PlayFlagEffect
