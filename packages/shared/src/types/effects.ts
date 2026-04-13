@@ -471,6 +471,20 @@ export interface OnGuardRevealEffect extends EffectBase {
 }
 
 /**
+ * Restricts an item to be playable only at the named sites.
+ * When present, the normal site-type check (`playableResources`) is
+ * bypassed and the item is playable only if the company's current site
+ * name appears in the `sites` list.
+ *
+ * Example: Palantír of Orthanc — playable only at Isengard.
+ */
+export interface ItemPlaySiteEffect extends EffectBase {
+  readonly type: 'item-play-site';
+  /** Site names where the item can be played. */
+  readonly sites: readonly string[];
+}
+
+/**
  * Declares a site-specific rule that modifies standard game mechanics
  * when a company is at this site.
  *
@@ -622,4 +636,5 @@ export type CardEffect =
   | OnGuardRevealEffect
   | FetchToDeckEffect
   | DiscardInPlayEffect
-  | SiteRuleEffect;
+  | SiteRuleEffect
+  | ItemPlaySiteEffect;

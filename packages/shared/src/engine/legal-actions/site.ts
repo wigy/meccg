@@ -9,7 +9,7 @@
  * CoE rules section 2.V (lines 340–393).
  */
 
-import type { GameState, PlayerId, GameAction, EvaluatedAction, SitePhaseState, HeroItemCard, HeroResourceEventCard, SiteCard, PlayableAtEntry, FactionCard, DenyItemSiteRule } from '../../index.js';
+import type { GameState, PlayerId, GameAction, EvaluatedAction, SitePhaseState, HeroItemCard, HeroResourceEventCard, SiteCard, PlayableAtEntry, FactionCard, DenyItemSiteRule, ItemPlaySiteEffect } from '../../index.js';
 import { getPlayerIndex, isSiteCard, isItemCard, isAllyCard, isFactionCard, isCharacterCard, isAvatarCharacter, CardStatus, matchesCondition, GENERAL_INFLUENCE } from '../../index.js';
 import { resolveInstanceId } from '../../types/state.js';
 import { collectCharacterEffects, resolveCheckModifier, resolveStatModifiers } from '../effects/index.js';
@@ -450,7 +450,20 @@ function playResourcesActions(
         continue;
       }
 
-      if (!playableTypes.has(itemDef.subtype)) {
+      const siteRestriction = itemDef.effects?.find(
+        (e): e is ItemPlaySiteEffect => e.type === 'item-play-site',
+      );
+      if (siteRestriction) {
+        if (!siteRestriction.sites.includes(siteName)) {
+          logDetail(`Item ${itemDef.name}: restricted to ${siteRestriction.sites.join(', ')}, not playable at ${siteName}`);
+          actions.push({
+            action: { type: 'not-playable', player: playerId, cardInstanceId },
+            viable: false,
+            reason: `${itemDef.name}: only playable at ${siteRestriction.sites.join(', ')}`,
+          });
+          continue;
+        }
+      } else if (!playableTypes.has(itemDef.subtype)) {
         logDetail(`Item ${itemDef.name} (${itemDef.subtype}): not playable at ${siteName}`);
         actions.push({
           action: { type: 'not-playable', player: playerId, cardInstanceId },
