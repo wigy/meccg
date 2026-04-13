@@ -478,9 +478,31 @@ function renderCombatCharacterColumn(
       const itemEl = createCardImage(item.definitionId as string, itemDef, itemImg, 'company-card company-card--item', item.instanceId as string);
       if (item.status === CardStatus.Tapped) itemEl.classList.add('company-card--tapped');
 
-      // Ally support: highlight and click handler
+      // Allies participate in combat: assign-strike, choose-strike-order, support, and status styling
       const allyIdStr = item.instanceId as string;
-      if (supportableIds.has(allyIdStr) && combat.phase === 'resolve-strike') {
+      itemEl.dataset.combatCharId = allyIdStr;
+
+      const allyStrike = strikeMap.get(allyIdStr);
+      const allyChooseOrder = chooseOrderMap.get(allyIdStr);
+
+      if (assignableIds.has(allyIdStr) && combat.phase === 'assign-strikes') {
+        itemEl.classList.add('combat-card--assignable');
+        itemEl.style.cursor = 'pointer';
+        const assignAction = assignActions.find(a => a.characterId === item.instanceId);
+        if (assignAction) {
+          itemEl.addEventListener('click', (e) => {
+            e.stopPropagation();
+            onAction(assignAction);
+          });
+        }
+      } else if (allyChooseOrder) {
+        itemEl.classList.add('combat-card--assignable');
+        itemEl.style.cursor = 'pointer';
+        itemEl.addEventListener('click', (e) => {
+          e.stopPropagation();
+          onAction(allyChooseOrder);
+        });
+      } else if (supportableIds.has(allyIdStr) && combat.phase === 'resolve-strike') {
         itemEl.classList.add('combat-card--supportable');
         itemEl.style.cursor = 'pointer';
         const supportAction = supportActions.find(a => a.supportingCharacterId === item.instanceId);
@@ -489,6 +511,19 @@ function renderCombatCharacterColumn(
             e.stopPropagation();
             onAction(supportAction);
           });
+        }
+      }
+
+      if (allyStrike) {
+        const isAllyCurrentStrike = allyStrike.index === combat.currentStrikeIndex && !allyStrike.assignment.resolved && combat.phase === 'resolve-strike';
+        if (allyStrike.assignment.resolved) {
+          if (allyStrike.assignment.result === 'success') itemEl.classList.add('combat-card--strike-success');
+          else if (allyStrike.assignment.result === 'wounded') itemEl.classList.add('combat-card--strike-wounded');
+          else if (allyStrike.assignment.result === 'eliminated') itemEl.classList.add('combat-card--strike-eliminated');
+        } else if (isAllyCurrentStrike) {
+          itemEl.classList.add('combat-card--current-strike');
+        } else {
+          itemEl.classList.add('combat-card--strike-assigned');
         }
       }
 
