@@ -626,6 +626,20 @@ export interface StorableAtEffect extends EffectBase {
 }
 
 /**
+ * Declares a company-level rule carried by a character. While this
+ * character is in play, the rule applies to their entire company.
+ *
+ * Rules:
+ * - `healing-affects-all` — when a healing effect targets a character in
+ *   this character's company, the healing extends to all wounded characters
+ *   in the company. Example: Ioreth.
+ */
+export interface CompanyRuleEffect extends EffectBase {
+  readonly type: 'company-rule';
+  readonly rule: 'healing-affects-all';
+}
+
+/**
  * Discriminated union of all card effect types.
  * The `type` field serves as the discriminant for type narrowing.
  */
@@ -653,4 +667,5 @@ export type CardEffect =
   | DiscardInPlayEffect
   | SiteRuleEffect
   | ItemPlaySiteEffect
-  | StorableAtEffect;
+  | StorableAtEffect
+  | CompanyRuleEffect;

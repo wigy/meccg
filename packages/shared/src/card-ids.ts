@@ -74,6 +74,8 @@ export const BALIN = did('tw-123');
 export const KILI = did('tw-167');
 /** Saruman — wizard, scout/ranger/sage/diplomat, DI 10, can use Palantíri. */
 export const SARUMAN = did('tw-181');
+/** Ioreth — Dúnadan sage, 0 prowess, healing effects affect all in her company. */
+export const IORETH = did('td-93');
 
 // ---- Items ----
 
