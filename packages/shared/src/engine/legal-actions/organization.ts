@@ -726,29 +726,51 @@ function statusToken(status: CardStatus): 'tapped' | 'untapped' | 'inverted' {
 /**
  * Builds the matcher context used to evaluate a {@link PlayTargetEffect}'s
  * `filter` or a {@link PlayOptionEffect}'s `when` against a candidate
- * target character. Exposes `target.race`, `target.status`,
- * `target.skills`, `target.name`, and `target.corruptionPoints` so DSL
- * conditions can gate on any of them. `corruptionPoints` reads from
- * `effectiveStats`, i.e. the sum of item / corruption-card CP the
- * character currently carries — enabling cards like Halfling Strength
- * to refuse the `corruption-check-boost` option when the hobbit has
- * nothing to be corrupted by (per CoE "no effect" rule).
+ * target character. The context exposes:
+ *
+ *  - `target.race`, `target.status`, `target.skills`, `target.name` —
+ *    per-character attributes for filtering.
+ *  - `pending.corruptionCheckTargetsMe` — `true` iff a pending
+ *    corruption-check resolution exists whose `characterId` matches
+ *    the candidate. Enables reactive plays like Halfling Strength's
+ *    `+4 corruption check boost` option to declare
+ *    `when: { "pending.corruptionCheckTargetsMe": true }` and thereby
+ *    satisfy the CoE "cannot play cards without effect" rule.
+ *
+ * Exported so legal-action computers in other windows (e.g. the
+ * corruption-check pending-resolution window) can build the same
+ * context shape when scanning a player's hand for reactive plays.
  */
-function buildTargetContext(
+export function buildPlayOptionContext(
   state: GameState,
   char: import('../../index.js').CharacterInPlay,
 ): Record<string, unknown> {
   const def = state.cardPool[char.definitionId as string];
-  if (!def || !isCharacterCard(def)) return { target: {} };
+  if (!def || !isCharacterCard(def)) {
+    return { target: {}, pending: { corruptionCheckTargetsMe: false } };
+  }
+  const corruptionCheckTargetsMe = state.pendingResolutions.some(
+    r => r.kind.type === 'corruption-check' && r.kind.characterId === char.instanceId,
+  );
   return {
     target: {
       race: def.race,
       status: statusToken(char.status),
       skills: def.skills,
       name: def.name,
-      corruptionPoints: char.effectiveStats.corruptionPoints,
+    },
+    pending: {
+      corruptionCheckTargetsMe,
     },
   };
+}
+
+/** Legacy alias retained for call sites inside this module. */
+function buildTargetContext(
+  state: GameState,
+  char: import('../../index.js').CharacterInPlay,
+): Record<string, unknown> {
+  return buildPlayOptionContext(state, char);
 }
 
 /**

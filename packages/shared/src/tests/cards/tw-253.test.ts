@@ -9,6 +9,12 @@
  *  to well and untapped during his organization phase or he may receive
  *  a +4 modification to one corruption check."
  *
+ * The untap / heal options are normal organization-phase plays gated on
+ * the hobbit's status. The `corruption-check-boost` option is a reactive
+ * play available only while a corruption-check resolution is pending for
+ * the targeted hobbit (per CoE "cannot play cards without effect" —
+ * without a check to modify, the boost would have no effect).
+ *
  * Engine Support:
  * | # | Feature                                  | Status      | Notes                                   |
  * |---|------------------------------------------|-------------|-----------------------------------------|
@@ -16,17 +22,19 @@
  * | 2 | Option: untap tapped hobbit              | IMPLEMENTED | play-option apply:set-character-status  |
  * | 3 | Option: heal wounded hobbit              | IMPLEMENTED | play-option apply:set-character-status  |
  * | 4 | Option: +4 corruption check boost        | IMPLEMENTED | play-option apply:add-constraint        |
- * | 5 | Boost gated by target.corruptionPoints>0 | IMPLEMENTED | DSL when on target.corruptionPoints     |
- * | 6 | Corruption boost consumed after check    | IMPLEMENTED | constraint cleared in pending-reducers  |
- * | 7 | Not playable without hobbits             | IMPLEMENTED | no eligible targets → not-playable      |
- * | 8 | Not playable on non-hobbits              | IMPLEMENTED | DSL filter excludes non-hobbits         |
+ * | 5 | Boost only while facing a corruption cc  | IMPLEMENTED | when pending.corruptionCheckTargetsMe   |
+ * | 6 | Boost scanned from hand during cc window | IMPLEMENTED | corruptionCheckActions hand scan        |
+ * | 7 | Boost applied constraint hits the roll   | IMPLEMENTED | constraint feeds totalModifier          |
+ * | 8 | Boost constraint consumed after roll     | IMPLEMENTED | constraint cleared in pending-reducers  |
+ * | 9 | Not playable without hobbits             | IMPLEMENTED | no eligible targets → not-playable      |
+ * |10 | Not playable on non-hobbits              | IMPLEMENTED | DSL filter excludes non-hobbits         |
  */
 
 import { describe, test, expect, beforeEach } from 'vitest';
 import {
   buildTestState, resetMint, Phase, reduce,
   PLAYER_1, PLAYER_2,
-  ARAGORN, LEGOLAS, BILBO, FRODO, HALFLING_STRENGTH, PRECIOUS_GOLD_RING,
+  ARAGORN, LEGOLAS, BILBO, FRODO, HALFLING_STRENGTH,
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
   pool, CardStatus,
 } from '../test-helpers.js';
@@ -58,15 +66,14 @@ describe('Halfling Strength (tw-253)', () => {
       .toEqual(['corruption-check-boost', 'heal', 'untap']);
   });
 
-  test('generates untap and corruption-check-boost actions for a tapped hobbit carrying CP', () => {
+  test('organization phase: tapped hobbit offers only the untap option', () => {
     const base = buildTestState({
       activePlayer: PLAYER_1,
       phase: Phase.Organization,
-      recompute: true,
       players: [
         {
           id: PLAYER_1,
-          companies: [{ site: RIVENDELL, characters: [{ defId: BILBO, status: CardStatus.Tapped, items: [PRECIOUS_GOLD_RING] }] }],
+          companies: [{ site: RIVENDELL, characters: [{ defId: BILBO, status: CardStatus.Tapped }] }],
           hand: [HALFLING_STRENGTH],
           siteDeck: [MORIA],
         },
@@ -78,21 +85,17 @@ describe('Halfling Strength (tw-253)', () => {
       .filter(ea => ea.viable && ea.action.type === 'play-short-event')
       .map(ea => ea.action as PlayShortEventAction);
 
-    const modes = actions.map(a => a.optionId);
-    expect(modes).toContain('untap');
-    expect(modes).toContain('corruption-check-boost');
-    expect(modes).not.toContain('heal');
+    expect(actions.map(a => a.optionId)).toEqual(['untap']);
   });
 
-  test('generates heal and corruption-check-boost actions for a wounded hobbit carrying CP', () => {
+  test('organization phase: wounded hobbit offers only the heal option', () => {
     const base = buildTestState({
       activePlayer: PLAYER_1,
       phase: Phase.Organization,
-      recompute: true,
       players: [
         {
           id: PLAYER_1,
-          companies: [{ site: RIVENDELL, characters: [{ defId: BILBO, status: CardStatus.Inverted, items: [PRECIOUS_GOLD_RING] }] }],
+          companies: [{ site: RIVENDELL, characters: [{ defId: BILBO, status: CardStatus.Inverted }] }],
           hand: [HALFLING_STRENGTH],
           siteDeck: [MORIA],
         },
@@ -104,46 +107,17 @@ describe('Halfling Strength (tw-253)', () => {
       .filter(ea => ea.viable && ea.action.type === 'play-short-event')
       .map(ea => ea.action as PlayShortEventAction);
 
-    const modes = actions.map(a => a.optionId);
-    expect(modes).toContain('heal');
-    expect(modes).toContain('corruption-check-boost');
-    expect(modes).not.toContain('untap');
+    expect(actions.map(a => a.optionId)).toEqual(['heal']);
   });
 
-  test('generates only corruption-check-boost for an untapped hobbit carrying CP', () => {
+  test('organization phase: healthy untapped hobbit offers no play options (card not playable)', () => {
+    // No pending corruption check → boost has no effect. Hobbit is
+    // untapped and well → neither untap nor heal has an effect.
+    // Per CoE "cannot play cards without effect", the entire card is
+    // not playable here.
     const base = buildTestState({
       activePlayer: PLAYER_1,
       phase: Phase.Organization,
-      recompute: true,
-      players: [
-        {
-          id: PLAYER_1,
-          companies: [{ site: RIVENDELL, characters: [{ defId: BILBO, items: [PRECIOUS_GOLD_RING] }] }],
-          hand: [HALFLING_STRENGTH],
-          siteDeck: [MORIA],
-        },
-        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [MINAS_TIRITH] },
-      ],
-    });
-
-    const actions = computeLegalActions(base, PLAYER_1)
-      .filter(ea => ea.viable && ea.action.type === 'play-short-event')
-      .map(ea => ea.action as PlayShortEventAction);
-
-    expect(actions).toHaveLength(1);
-    expect(actions[0].optionId).toBe('corruption-check-boost');
-  });
-
-  test('corruption-check-boost is not playable on a hobbit with zero corruption points (cards-without-effect rule)', () => {
-    // Bilbo is untapped, well, and carrying nothing. No upcoming corruption
-    // check would be affected by the +4, so per CoE "cannot play cards
-    // without effect" the boost option must not appear — and since the
-    // other two options require tapped/wounded status, the card itself
-    // cannot be played at all.
-    const base = buildTestState({
-      activePlayer: PLAYER_1,
-      phase: Phase.Organization,
-      recompute: true,
       players: [
         {
           id: PLAYER_1,
@@ -191,21 +165,20 @@ describe('Halfling Strength (tw-253)', () => {
     expect(notPlayable.length).toBeGreaterThan(0);
   });
 
-  test('generates actions for multiple hobbits honoring per-hobbit CP state', () => {
+  test('organization phase: only hobbits in a state that needs untap or heal are offered', () => {
     const base = buildTestState({
       activePlayer: PLAYER_1,
       phase: Phase.Organization,
-      recompute: true,
       players: [
         {
           id: PLAYER_1,
           companies: [{
             site: RIVENDELL,
             characters: [
-              // Bilbo untapped + no items (CP 0): zero options
+              // Bilbo untapped + well: no option applies → no action
               BILBO,
-              // Frodo tapped + gold ring (CP 1): untap + corruption-check-boost
-              { defId: FRODO, status: CardStatus.Tapped, items: [PRECIOUS_GOLD_RING] },
+              // Frodo tapped: only untap option applies
+              { defId: FRODO, status: CardStatus.Tapped },
             ],
           }],
           hand: [HALFLING_STRENGTH],
@@ -220,12 +193,9 @@ describe('Halfling Strength (tw-253)', () => {
       .filter(ea => ea.viable && ea.action.type === 'play-short-event')
       .map(ea => ea.action as PlayShortEventAction);
 
-    expect(actions).toHaveLength(2);
-    for (const a of actions) {
-      expect(a.targetCharacterId).toBe(frodoId);
-    }
-    const modes = actions.map(a => a.optionId).sort();
-    expect(modes).toEqual(['corruption-check-boost', 'untap']);
+    expect(actions).toHaveLength(1);
+    expect(actions[0].targetCharacterId).toBe(frodoId);
+    expect(actions[0].optionId).toBe('untap');
   });
 
   test('playing untap mode untaps the hobbit and discards the card', () => {
@@ -292,26 +262,87 @@ describe('Halfling Strength (tw-253)', () => {
     expect(result.state.players[0].discardPile.some(c => c.instanceId === hsInstance)).toBe(true);
   });
 
-  test('playing corruption-check-boost adds active constraint and discards the card', () => {
+  test('corruption-check-boost is offered only while the targeted hobbit faces a pending corruption check', () => {
+    // Halfling Strength in hand; Bilbo untapped and well. Without a
+    // pending corruption check the card offers nothing.
     const base = buildTestState({
       activePlayer: PLAYER_1,
       phase: Phase.Organization,
-      recompute: true,
       players: [
         {
           id: PLAYER_1,
-          companies: [{ site: RIVENDELL, characters: [{ defId: BILBO, items: [PRECIOUS_GOLD_RING] }] }],
+          companies: [{ site: RIVENDELL, characters: [BILBO] }],
           hand: [HALFLING_STRENGTH],
           siteDeck: [MORIA],
         },
         { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [MINAS_TIRITH] },
       ],
     });
-
     const bilboId = base.players[0].companies[0].characters[0];
     const hsInstance = base.players[0].hand[0].instanceId;
 
-    const result = reduce(base, {
+    // No pending check → no play-short-event action.
+    const noneActions = computeLegalActions(base, PLAYER_1)
+      .filter(ea => ea.viable && ea.action.type === 'play-short-event');
+    expect(noneActions).toHaveLength(0);
+
+    // Enqueue a pending corruption check on Bilbo. Now the reactive
+    // boost play should appear alongside the mandatory roll.
+    const withCheck = enqueueResolution(base, {
+      source: null,
+      actor: PLAYER_1,
+      scope: { kind: 'phase', phase: Phase.Organization },
+      kind: {
+        type: 'corruption-check',
+        characterId: bilboId,
+        modifier: 0,
+        reason: 'test',
+        possessions: [],
+        transferredItemId: null,
+      },
+    });
+
+    const reactiveActions = computeLegalActions(withCheck, PLAYER_1)
+      .filter(ea => ea.viable && ea.action.type === 'play-short-event')
+      .map(ea => ea.action as PlayShortEventAction);
+    expect(reactiveActions).toHaveLength(1);
+    expect(reactiveActions[0].cardInstanceId).toBe(hsInstance);
+    expect(reactiveActions[0].targetCharacterId).toBe(bilboId);
+    expect(reactiveActions[0].optionId).toBe('corruption-check-boost');
+  });
+
+  test('playing corruption-check-boost during a pending check applies the constraint and keeps the check queued', () => {
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Organization,
+      players: [
+        {
+          id: PLAYER_1,
+          companies: [{ site: RIVENDELL, characters: [BILBO] }],
+          hand: [HALFLING_STRENGTH],
+          siteDeck: [MORIA],
+        },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [MINAS_TIRITH] },
+      ],
+    });
+    const bilboId = base.players[0].companies[0].characters[0];
+    const hsInstance = base.players[0].hand[0].instanceId;
+
+    const withCheck = enqueueResolution(base, {
+      source: null,
+      actor: PLAYER_1,
+      scope: { kind: 'phase', phase: Phase.Organization },
+      kind: {
+        type: 'corruption-check',
+        characterId: bilboId,
+        modifier: 0,
+        reason: 'test',
+        possessions: [],
+        transferredItemId: null,
+      },
+    });
+
+    const result = reduce(withCheck, {
       type: 'play-short-event',
       player: PLAYER_1,
       cardInstanceId: hsInstance,
@@ -320,6 +351,7 @@ describe('Halfling Strength (tw-253)', () => {
     });
 
     expect(result.error).toBeUndefined();
+    // Constraint added.
     expect(result.state.activeConstraints).toHaveLength(1);
     const constraint = result.state.activeConstraints[0];
     expect(constraint.kind.type).toBe('check-modifier');
@@ -327,10 +359,20 @@ describe('Halfling Strength (tw-253)', () => {
       expect(constraint.kind.check).toBe('corruption');
       expect(constraint.kind.value).toBe(4);
     }
-    expect(constraint.target).toEqual({ kind: 'character', characterId: bilboId });
-    expect(constraint.scope.kind).toBe('until-cleared');
+    // Pending corruption check is still queued.
+    expect(result.state.pendingResolutions).toHaveLength(1);
+    expect(result.state.pendingResolutions[0].kind.type).toBe('corruption-check');
+    // Card consumed from hand.
     expect(result.state.players[0].hand).toHaveLength(0);
     expect(result.state.players[0].discardPile.some(c => c.instanceId === hsInstance)).toBe(true);
+
+    // The next legal corruption-check action now carries the boosted
+    // modifier (Bilbo's base +4 plus the freshly-added +4 constraint).
+    const nextCheckActions = computeLegalActions(result.state, PLAYER_1)
+      .filter(ea => ea.viable && ea.action.type === 'corruption-check');
+    expect(nextCheckActions).toHaveLength(1);
+    const checkAction = nextCheckActions[0].action as { corruptionModifier: number };
+    expect(checkAction.corruptionModifier).toBe(4 + 4);
   });
 
   test('corruption-check-boost adds +4 to corruption check modifier', () => {

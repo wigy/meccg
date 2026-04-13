@@ -28,9 +28,11 @@ import type {
   CompanyId,
 } from '../../index.js';
 import { isCharacterCard, isAllyCard, isFactionCard, Phase, Skill, CardStatus, matchesCondition } from '../../index.js';
+import type { PlayOptionEffect, PlayTargetEffect } from '../../types/effects.js';
 import { resolveInstanceId } from '../../types/state.js';
 import { resolveDef, collectCharacterEffects, resolveCheckModifier, resolveStatModifiers } from '../effects/index.js';
 import type { ResolverContext } from '../effects/index.js';
+import { buildPlayOptionContext } from './organization.js';
 import { logDetail } from './log.js';
 
 /** Wrap plain GameActions as viable EvaluatedActions. */
@@ -360,7 +362,7 @@ function corruptionCheckActions(
   if (totalModifier !== 0) parts.push(`modifier ${totalModifier >= 0 ? '+' : ''}${totalModifier}`);
   logDetail(`Pending corruption check for ${charName} (${reason}: CP ${cp}, modifier ${totalModifier >= 0 ? '+' : ''}${totalModifier}, ${possessions.length} possession(s))`);
 
-  return [{
+  const rollAction: EvaluatedAction = {
     action: {
       type: 'corruption-check',
       player: playerId,
@@ -372,7 +374,85 @@ function corruptionCheckActions(
       explanation: `${reason}: need roll > ${cp - totalModifier} (${parts.join(', ')})`,
     },
     viable: true,
-  }];
+  };
+
+  // Scan the actor's hand for reactive short-event plays whose DSL
+  // declares itself relevant to this corruption check. Halfling Strength's
+  // `corruption-check-boost` option matches here via
+  // `when: { "pending.corruptionCheckTargetsMe": true }` evaluated against
+  // the per-candidate context built from the resolving character. Playing
+  // one of these emits a constraint that the roll action re-reads on the
+  // next legal-action cycle, so the reactive play → roll sequence is a
+  // normal two-action flow.
+  const reactivePlays = reactiveCorruptionCheckPlays(state, playerId, char);
+  if (reactivePlays.length > 0) {
+    return [rollAction, ...reactivePlays];
+  }
+  return [rollAction];
+}
+
+/**
+ * Enumerates `play-short-event` actions the actor can take during a
+ * pending corruption-check resolution. Scans the actor's hand for short
+ * event cards whose DSL declares itself relevant to this check:
+ *
+ *   1. The card declares a `play-target` with `target: "character"` and
+ *      a `filter` that matches the resolving character.
+ *   2. The card has at least one `play-option` whose `when` condition is
+ *      satisfied by the per-candidate context built from the resolving
+ *      character (notably `pending.corruptionCheckTargetsMe === true`).
+ *
+ * One action is emitted per eligible (card, option) pair. The reducer
+ * handles the play via the normal `play-short-event` path; the chosen
+ * option's `apply` clause runs through the generic dispatcher. No
+ * per-card branches.
+ */
+function reactiveCorruptionCheckPlays(
+  state: GameState,
+  playerId: PlayerId,
+  targetChar: import('../../index.js').CharacterInPlay,
+): EvaluatedAction[] {
+  const actions: EvaluatedAction[] = [];
+  const actorIndex = state.players.findIndex(p => p.id === playerId);
+  if (actorIndex === -1) return actions;
+  const player = state.players[actorIndex];
+
+  const ctx = buildPlayOptionContext(state, targetChar);
+
+  for (const handCard of player.hand) {
+    const def = state.cardPool[handCard.definitionId as string];
+    if (!def || def.cardType !== 'hero-resource-event') continue;
+    const shortDef = def;
+    if (shortDef.eventType !== 'short') continue;
+    const effects = shortDef.effects;
+    if (!effects) continue;
+
+    const playTarget = effects.find(
+      (e): e is PlayTargetEffect => e.type === 'play-target',
+    );
+    if (!playTarget || playTarget.target !== 'character') continue;
+    if (playTarget.filter && !matchesCondition(playTarget.filter, ctx)) continue;
+
+    const options = effects.filter(
+      (e): e is PlayOptionEffect => e.type === 'play-option',
+    );
+    for (const opt of options) {
+      if (opt.when && !matchesCondition(opt.when, ctx)) continue;
+      logDetail(`Reactive corruption-check play available: ${shortDef.name} option "${opt.id}" on ${targetChar.instanceId as string}`);
+      actions.push({
+        action: {
+          type: 'play-short-event',
+          player: playerId,
+          cardInstanceId: handCard.instanceId,
+          targetCharacterId: targetChar.instanceId,
+          optionId: opt.id,
+        },
+        viable: true,
+      });
+    }
+  }
+
+  return actions;
 }
 
 /**

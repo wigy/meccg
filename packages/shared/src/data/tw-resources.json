@@ -353,7 +353,7 @@
       {
         "type": "play-option",
         "id": "corruption-check-boost",
-        "when": { "target.corruptionPoints": { "$gt": 0 } },
+        "when": { "pending.corruptionCheckTargetsMe": true },
         "apply": {
           "type": "add-constraint",
           "constraint": "check-modifier",

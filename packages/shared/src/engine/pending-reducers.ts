@@ -91,6 +91,13 @@ function applyCorruptionCheckResolution(
   action: GameAction,
   top: PendingResolution,
 ): ReducerResult | null {
+  // Reactive short-event plays (e.g. Halfling Strength's corruption-check
+  // boost) are legal during the corruption-check resolution window —
+  // return null so the dispatcher falls through to the per-phase reducer,
+  // which runs the normal `play-short-event` handler. The pending
+  // resolution stays in queue; the next legal-action cycle re-emits the
+  // roll action with any freshly-added constraints factored in.
+  if (action.type === 'play-short-event') return null;
   if (action.type !== 'corruption-check') {
     return { state, error: `Pending corruption check requires a corruption-check action, got '${action.type}'` };
   }
