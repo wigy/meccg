@@ -63,23 +63,23 @@ export function handlePlayPermanentEvent(state: GameState, action: GameAction): 
   newPlayers[playerIndex] = { ...player, hand: newHand };
   let newState: GameState = { ...state, players: newPlayers };
 
-  // Initiate or push onto chain — card enters play upon resolution
+  // Initiate or push onto chain — card enters play upon resolution.
+  // Forward targetCharacterId (if any) through the payload so that
+  // character-targeting permanent resource events (e.g. Align Palantír,
+  // Rebel-talk) attach to the character on resolution instead of going
+  // into general cardsInPlay.
+  const payload: import('../index.js').ChainEntryPayload = {
+    type: 'permanent-event',
+    ...(action.targetCharacterId ? { targetCharacterId: action.targetCharacterId } : {}),
+  };
   if (newState.chain === null) {
-    newState = initiateChain(newState, action.player, handCard, { type: 'permanent-event' });
+    newState = initiateChain(newState, action.player, handCard, payload);
   } else {
-    newState = pushChainEntry(newState, action.player, handCard, { type: 'permanent-event' });
+    newState = pushChainEntry(newState, action.player, handCard, payload);
   }
 
   return { state: newState };
 }
-
-/**
- * Handle playing a short-event as a resource (e.g. Twilight).
- * Moves the short event from hand to discard and initiates (or pushes onto)
- * a chain of effects. The target environment remains in play until the chain
- * entry resolves — giving both players a chance to respond.
- */
-
 
 /**
  * Handle playing a short-event as a resource (e.g. Twilight).
