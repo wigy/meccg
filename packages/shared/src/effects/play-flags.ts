@@ -11,6 +11,7 @@
  */
 
 import type { CardEffect, PlayFlag } from '../types/effects.js';
+import type { CardInPlay } from '../types/state-cards.js';
 
 /**
  * Returns true if the card definition declares the given play-flag.
@@ -29,4 +30,21 @@ export function hasPlayFlag(
 ): boolean {
   if (!def?.effects) return false;
   return def.effects.some(e => e.type === 'play-flag' && e.flag === flag);
+}
+
+/**
+ * Returns true if any attached hazard on a character carries a
+ * `control-restriction` effect with `rule: "no-direct-influence"`.
+ */
+export function hasNoDirectInfluenceRestriction(
+  hazards: readonly CardInPlay[],
+  cardPool: Readonly<Record<string, unknown>>,
+): boolean {
+  return hazards.some(h => {
+    const def = cardPool[h.definitionId as string] as { readonly effects?: readonly CardEffect[] } | undefined;
+    if (!def?.effects) return false;
+    return def.effects.some(
+      e => e.type === 'control-restriction' && e.rule === 'no-direct-influence',
+    );
+  });
 }

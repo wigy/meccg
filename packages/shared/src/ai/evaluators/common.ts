@@ -199,7 +199,7 @@ const SITE_DANGER: Record<string, number> = {
 };
 
 /** Whether a hand resource card can be played at the given site. */
-function resourcePlayableAt(def: CardDefinition, site: AnySiteCard): boolean {
+export function resourcePlayableAt(def: CardDefinition, site: AnySiteCard): boolean {
   // Items: matched by site type.
   if (def.cardType === 'hero-resource-item' || def.cardType === 'minion-resource-item') {
     return def.playableAt.includes(site.siteType);

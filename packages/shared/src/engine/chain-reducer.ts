@@ -670,21 +670,25 @@ function resolvePermanentEvent(state: GameState, entry: ChainEntry): GameState {
 
   const newPlayers: [PlayerState, PlayerState] = [state.players[0], state.players[1]];
 
-  // "Playable on a character" — attach to target character's corruptionCards
+  // "Playable on a character" — attach to target character
   const targetCharId = entry.payload.type === 'permanent-event' ? entry.payload.targetCharacterId : undefined;
   if (targetCharId) {
+    // Resource permanent events (e.g. Align Palantír) go into items;
+    // hazard permanent events go into hazards.
+    const isResource = def && def.cardType === 'hero-resource-event';
+    const slot = isResource ? 'items' : 'hazards';
     // Find which player owns the target character
     for (let pi = 0; pi < 2; pi++) {
       const charInPlay = state.players[pi].characters[targetCharId as string];
       if (charInPlay) {
-        logDetail(`Attaching "${def?.name ?? card.definitionId}" to character ${targetCharId as string}`);
+        logDetail(`Attaching "${def?.name ?? card.definitionId}" to character ${targetCharId as string} (${slot})`);
         newPlayers[pi] = {
           ...newPlayers[pi],
           characters: {
             ...newPlayers[pi].characters,
             [targetCharId as string]: {
               ...charInPlay,
-              hazards: [...charInPlay.hazards, {
+              [slot]: [...charInPlay[slot], {
                 instanceId: card.instanceId,
                 definitionId: card.definitionId,
                 status: CardStatus.Untapped,
@@ -715,6 +719,34 @@ function resolvePermanentEvent(state: GameState, entry: ChainEntry): GameState {
     };
     if (targetSiteDefId) {
       logDetail(`"${def?.name ?? card.definitionId}" attached to site ${targetSiteDefId as string}`);
+    }
+  }
+
+  // control-restriction: no-direct-influence — revert DI to GI on attach
+  if (targetCharId && def && 'effects' in def && def.effects?.some(
+    e => e.type === 'control-restriction' && e.rule === 'no-direct-influence',
+  )) {
+    for (let pi = 0; pi < 2; pi++) {
+      const char = newPlayers[pi].characters[targetCharId as string];
+      if (char && char.controlledBy !== 'general') {
+        logDetail(`"${def.name}" forces ${targetCharId as string} from DI to GI`);
+        const oldControllerId = char.controlledBy;
+        const oldCtrl = newPlayers[pi].characters[oldControllerId as string];
+        if (oldCtrl) {
+          newPlayers[pi] = {
+            ...newPlayers[pi],
+            characters: {
+              ...newPlayers[pi].characters,
+              [targetCharId as string]: { ...char, controlledBy: 'general' },
+              [oldControllerId as string]: {
+                ...oldCtrl,
+                followers: oldCtrl.followers.filter(id => id !== targetCharId),
+              },
+            },
+          };
+        }
+        break;
+      }
     }
   }
 
@@ -1016,6 +1048,40 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
   // and queue the pending effects so the player can pick cards to fetch.
   if (entry.payload.type === 'short-event' && !entry.negated && entry.card) {
     current = queueFetchToDecEffects(current, entry);
+  }
+
+  // Faction-targeting short events (e.g. Muster Disperses): enqueue a
+  // muster-roll pending resolution so the faction's owner rolls 2d6 +
+  // unused GI vs 11. The entry stays resolved on the chain; the pending
+  // resolution drives the actual roll + discard.
+  if (entry.payload.type === 'short-event' && !entry.negated && entry.payload.targetFactionInstanceId) {
+    const factionInstId = entry.payload.targetFactionInstanceId;
+    const factionDefId = resolveInstanceId(current, factionInstId);
+    if (factionDefId) {
+      // Find the faction's owner
+      let factionOwner: PlayerId | null = null;
+      for (const p of current.players) {
+        if (p.cardsInPlay.some(c => c.instanceId === factionInstId)) {
+          factionOwner = p.id;
+          break;
+        }
+      }
+      if (factionOwner) {
+        logDetail(`Enqueuing muster-roll pending resolution for faction ${factionDefId as string}`);
+        current = enqueueResolution(current, {
+          source: entry.card!.instanceId,
+          actor: factionOwner,
+          scope: { kind: 'phase', phase: Phase.MovementHazard },
+          kind: {
+            type: 'muster-roll',
+            factionInstanceId: factionInstId,
+            factionDefinitionId: factionDefId,
+            factionOwner,
+          },
+        });
+        return { state: current, needsInput: true };
+      }
+    }
   }
 
   // Call of Home: hazard short event targeting a character. Enqueue a

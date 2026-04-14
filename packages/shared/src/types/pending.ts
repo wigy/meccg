@@ -167,6 +167,19 @@ export interface PendingResolution {
       }
     | {
         /**
+         * Muster roll: a hazard short-event (Muster Disperses) targets an
+         * in-play faction. The faction's owner rolls 2d6 + unused general
+         * influence; if the total is less than 11, the faction is discarded.
+         */
+        readonly type: 'muster-roll';
+        /** The targeted faction card instance. */
+        readonly factionInstanceId: CardInstanceId;
+        readonly factionDefinitionId: CardDefinitionId;
+        /** The player who owns the faction. */
+        readonly factionOwner: PlayerId;
+      }
+    | {
+        /**
          * Call of Home roll: a hazard short event has resolved against a
          * character. The character's player rolls 2d6; if roll + unused
          * general influence < threshold, the character returns to hand.

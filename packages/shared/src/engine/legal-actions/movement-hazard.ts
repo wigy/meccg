@@ -7,7 +7,7 @@
  */
 
 import type { GameState, PlayerId, GameAction, EvaluatedAction, MovementHazardPhaseState, SiteCard, CardDefinitionId, CardInstanceId, CompanyId, CreatureCard, CreatureKeyingMatch, PlayHazardAction, PlaceOnGuardAction, PlayConditionEffect, CreatureRaceChoiceEffect } from '../../index.js';
-import { getPlayerIndex, isSiteCard, isCharacterCard, buildMovementMap, findRegionPaths, RegionType, Race, hasPlayFlag, matchesCondition, CardStatus } from '../../index.js';
+import { getPlayerIndex, isSiteCard, isCharacterCard, isFactionCard, buildMovementMap, findRegionPaths, RegionType, Race, hasPlayFlag, matchesCondition, CardStatus } from '../../index.js';
 import { resolveInstanceId } from '../../types/state.js';
 import { resolveHandSize } from '../effects/index.js';
 import { MovementType } from '../../types/common.js';
@@ -502,13 +502,37 @@ function playHazardsActions(
           }
         }
 
-        // Character-targeting short events (e.g. Call of Home): one action per eligible character
-        const shortEventPlayTarget = def.effects?.find(
+        const shortPlayTarget = def.effects?.find(
           (e): e is import('../../index.js').PlayTargetEffect => e.type === 'play-target',
         );
-        if (shortEventPlayTarget?.target === 'character') {
+
+        // Faction-targeting short events (e.g. Muster Disperses)
+        if (shortPlayTarget?.target === 'faction') {
+          let hasFactionTarget = false;
+          for (const p of state.players) {
+            for (const cip of p.cardsInPlay) {
+              const cipDef = state.cardPool[cip.definitionId as string];
+              if (cipDef && isFactionCard(cipDef)) {
+                logDetail(`Hazard short-event "${def.name}" playable on faction ${cipDef.name} (${cip.instanceId as string})`);
+                actions.push({
+                  action: { ...action, targetFactionInstanceId: cip.instanceId },
+                  viable: true,
+                });
+                hasFactionTarget = true;
+              }
+            }
+          }
+          if (!hasFactionTarget) {
+            logDetail(`Hazard short-event "${def.name}" not playable — no factions in play`);
+            actions.push({ action, viable: false, reason: 'No factions in play' });
+          }
+          continue;
+        }
+
+        // Character-targeting short events (e.g. Call of Home): one action per eligible character
+        if (shortPlayTarget?.target === 'character') {
           for (const charId of targetCompany.characters) {
-            if (shortEventPlayTarget.filter) {
+            if (shortPlayTarget.filter) {
               const charData = resourcePlayer.characters[charId as string];
               if (charData) {
                 const charDef = state.cardPool[charData.definitionId as string];
@@ -524,7 +548,7 @@ function playHazardsActions(
                       possessions: possessionNames,
                     },
                   };
-                  if (!matchesCondition(shortEventPlayTarget.filter, ctx)) {
+                  if (!matchesCondition(shortPlayTarget.filter, ctx)) {
                     logDetail(`Hazard short-event "${def.name}" filter excludes ${charDef.name}`);
                     actions.push({
                       action: { ...action, targetCharacterId: charId },
@@ -634,12 +658,18 @@ function playHazardsActions(
                 const possessionNames = charData.items
                   .map(item => state.cardPool[item.definitionId as string]?.name)
                   .filter((n): n is string => n != null);
+                const itemKeywords = charData.items.flatMap(item => {
+                  const iDef = state.cardPool[item.definitionId as string];
+                  return iDef && 'keywords' in iDef ? (iDef as { keywords?: readonly string[] }).keywords ?? [] : [];
+                });
                 const ctx = {
                   target: {
                     race: charDef.race,
                     skills: charDef.skills,
                     name: charDef.name,
+                    mind: charDef.mind,
                     possessions: possessionNames,
+                    itemKeywords,
                   },
                 };
                 if (!matchesCondition(playTarget.filter, ctx)) {

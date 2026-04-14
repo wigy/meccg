@@ -14,7 +14,7 @@ import type {
   GameAction,
   SiteCard,
 } from '../../index.js';
-import { GENERAL_INFLUENCE, isCharacterCard, isSiteCard, buildMovementMap, getReachableSites, BASE_MAX_REGION_DISTANCE } from '../../index.js';
+import { GENERAL_INFLUENCE, isCharacterCard, isSiteCard, buildMovementMap, getReachableSites, BASE_MAX_REGION_DISTANCE, hasNoDirectInfluenceRestriction } from '../../index.js';
 import { logDetail } from './log.js';
 import { resolveDef } from '../effects/index.js';
 import { isRegressive } from '../reverse-actions.js';
@@ -197,6 +197,10 @@ export function moveToInfluenceActions(state: GameState, playerId: PlayerId): Ev
       const isAvatar = charDef.mind === null;
 
       if (char.controlledBy === 'general' && !isAvatar && char.followers.length === 0) {
+        // Block DI assignment when an attached hazard forbids it (e.g. Rebel-talk)
+        if (hasNoDirectInfluenceRestriction(char.hazards, state.cardPool)) {
+          logDetail(`  → blocked: ${charDef.name} has no-direct-influence restriction`);
+        } else
         // Rule 227: Move non-avatar character without followers to DI of a
         // non-follower character in the same company
         for (const ctrlInstId of company.characters) {

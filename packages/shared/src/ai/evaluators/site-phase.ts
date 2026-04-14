@@ -19,7 +19,9 @@ import {
   isItem,
   isFaction,
   isAlly,
+  isSite,
   diceSuccessPct,
+  resourcePlayableAt,
 } from './common.js';
 
 export const sitePhaseEvaluator: ActionEvaluator = {
@@ -30,8 +32,19 @@ export const sitePhaseEvaluator: ActionEvaluator = {
     const pool = context.cardPool;
 
     switch (action.type) {
-      case 'enter-site':
-        return 50;
+      case 'enter-site': {
+        // Don't enter a site where nothing in hand is playable — entering
+        // only exposes the company to on-guard attacks without any payoff.
+        const company = view.self.companies.find(c => c.id === action.companyId);
+        if (!company?.currentSite) return 50;
+        const siteDef = lookupDef(pool, company.currentSite.definitionId);
+        if (!isSite(siteDef)) return 50;
+        for (const card of view.self.hand) {
+          const def = lookupDef(pool, card.definitionId);
+          if (def && resourcePlayableAt(def, siteDef)) return 50;
+        }
+        return 0;
+      }
 
       case 'play-hero-resource': {
         const card = view.self.hand.find(c => c.instanceId === action.cardInstanceId);

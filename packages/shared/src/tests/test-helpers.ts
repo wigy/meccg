@@ -987,8 +987,9 @@ export function playPermanentEventAndResolve(
   state: GameState,
   player: PlayerId,
   cardInstanceId: CardInstanceId,
+  targetCharacterId?: CardInstanceId,
 ): GameState {
-  let result = reduce(state, { type: 'play-permanent-event', player, cardInstanceId });
+  let result = reduce(state, { type: 'play-permanent-event', player, cardInstanceId, targetCharacterId });
   expect(result.error).toBeUndefined();
   const opponent = player === PLAYER_1 ? PLAYER_2 : PLAYER_1;
   result = reduce(result.state, { type: 'pass-chain-priority', player: opponent });

@@ -5,7 +5,7 @@ export { formatGameState, formatPlayerView, formatCardName, formatDefName, forma
 export { createRng, nextRng, nextInt, shuffle } from './rng.js';
 export * from './card-ids.js';
 export { cardImageProxyPath, cardImageRawUrl } from './card-images.js';
-export { matchesCondition, hasPlayFlag } from './effects/index.js';
+export { matchesCondition, hasPlayFlag, hasNoDirectInfluenceRestriction } from './effects/index.js';
 export { evaluateRules, evaluateAction, viableActions, renderTemplate } from './rules/index.js';
 export type { Rule, RuleSet, EvaluatedAction } from './rules/index.js';
 export { CHARACTER_DRAFT_RULES, CHARACTER_DECK_DRAFT_RULES, SITE_SELECTION_RULES, ITEM_DRAFT_RULES, MAX_STARTING_ITEMS, createMovementRules, BASE_MAX_REGION_DISTANCE } from './rules/index.js';

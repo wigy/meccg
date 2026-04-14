@@ -448,7 +448,7 @@ export interface PlayWindowEffect extends EffectBase {
  * `target: "character"` selects the scope (each character in scope is a
  * candidate) and an optional `filter` {@link Condition} refines it
  * further. The filter is evaluated against the per-candidate context
- * `{ target: { race, status, skills, name } }`, so conditions look like
+ * `{ target: { race, status, skills, name, itemKeywords }, company: { skills } }`, so conditions look like
  * `{ "target.race": "hobbit" }` or
  * `{ "target.skills": { "$includes": "scout" } }` — no card-specific
  * target keywords are needed in the engine.
@@ -460,7 +460,7 @@ export interface PlayTargetEffect extends EffectBase {
    * scopes to the active player's own characters; hazard-side
    * `character` scopes to the active company's characters.
    */
-  readonly target: 'character' | 'company' | 'site';
+  readonly target: 'character' | 'company' | 'site' | 'faction';
   /**
    * Optional DSL condition refining which candidates qualify. Evaluated
    * against the per-candidate context (e.g. `target.race`,
@@ -750,6 +750,20 @@ export interface AhuntAttackEffect extends EffectBase {
 }
 
 /**
+ * Restricts how a character bearing this card can be controlled.
+ *
+ * Rules:
+ * - `no-direct-influence` — the character cannot be controlled by direct
+ *   influence; they must be under general influence. When the hazard is
+ *   attached, any existing DI control is reverted to GI. Used by
+ *   Rebel-talk (le-132).
+ */
+export interface ControlRestrictionEffect extends EffectBase {
+  readonly type: 'control-restriction';
+  readonly rule: 'no-direct-influence';
+}
+
+/**
  * Discriminated union of all card effect types.
  * The `type` field serves as the discriminant for type narrowing.
  */
@@ -783,4 +797,5 @@ export type CardEffect =
   | StorableAtEffect
   | CompanyRuleEffect
   | CallOfHomeCheckEffect
-  | AhuntAttackEffect;
+  | AhuntAttackEffect
+  | ControlRestrictionEffect;
