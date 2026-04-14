@@ -647,6 +647,16 @@ export interface CompanyRuleEffect extends EffectBase {
 }
 
 /**
+ * Automatically discards the card when a runtime condition is met.
+ * Evaluated after any state change that modifies company composition
+ * (e.g. character joins a company during organization). The `when`
+ * condition is evaluated against the bearer's company context.
+ */
+export interface AutoDiscardEffect extends EffectBase {
+  readonly type: 'auto-discard';
+}
+
+/**
  * Discriminated union of all card effect types.
  * The `type` field serves as the discriminant for type narrowing.
  */
@@ -675,4 +685,5 @@ export type CardEffect =
   | SiteRuleEffect
   | ItemPlaySiteEffect
   | StorableAtEffect
-  | CompanyRuleEffect;
+  | CompanyRuleEffect
+  | AutoDiscardEffect;

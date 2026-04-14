@@ -170,6 +170,7 @@ Events:
 - `self-enters-play` -- fires when this card enters play. Used by environment permanent events to discard opposing cards (implemented in reducer play handlers).
 - `untap-phase-at-haven` -- fires once per applicable card during the Untap → Organization transition. The reducer (`reducer-untap.ts`) scans every character at a haven for attached cards (items / hazards / allies) carrying this on-event, and enqueues a `corruption-check` pending resolution per match. Used by *Lure of the Senses*.
 - `attack-not-defeated` -- fires after combat finalization when the creature's attack was not fully defeated (i.e. not all strikes were won by the defenders). The reducer (`reducer-combat.ts`) checks the creature card for this event and applies its constraint. Used by *Little Snuffler*.
+- `end-of-company-mh` -- fires when a company's movement/hazard sub-phase ends (both players pass). For each character with an attached hazard carrying this event, enqueues one `corruption-check` pending resolution per region traversed in the site path. The `perRegion: true` flag on the effect enables the per-region behavior. Used by *Alone and Unadvised*. Implemented in `reducer-movement-hazard.ts`.
 
 Apply types:
 
@@ -476,6 +477,28 @@ Rules:
   from inverted to untapped) targets a character in this character's company,
   the healing extends to all wounded characters in the company. Implemented in
   `reducer-events.ts` (play-option healing spread). Example: Ioreth.
+
+### 23. `auto-discard`
+
+Automatically discards the card when a runtime condition is met. The
+`when` condition is evaluated against the bearer's company context after
+any state change that modifies company composition (character placement,
+company merge/move, auto-merge at end of MH). When the condition is true,
+the card is discarded to its owner's discard pile.
+
+```json
+{ "type": "auto-discard",
+  "when": { "company.characterCount": { "$gte": 4 } } }
+```
+
+Context variables:
+
+- `company.characterCount` — number of characters in the bearer's company
+
+Implemented in `reducer-utils.ts` (`sweepAutoDiscardHazards`), called from
+`reducer-organization.ts` (play-character, move-to-company, merge-companies)
+and `reducer-utils.ts` (autoMergeNonHavenCompanies). Example: Alone and
+Unadvised.
 
 ### Grant-Action: `palantir-fetch-discard`
 
