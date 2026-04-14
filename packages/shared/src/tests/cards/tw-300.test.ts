@@ -63,6 +63,23 @@ describe('Palantír of Orthanc (tw-300)', () => {
     expect(playActions.length).toBe(1);
   });
 
+  test('reducer accepts special item play at matching item-play-site', () => {
+    const state = buildSitePhaseState({
+      site: ISENGARD,
+      characters: [SARUMAN],
+      hand: [PALANTIR_OF_ORTHANC],
+    });
+
+    const playActions = viableActions(state, PLAYER_1, 'play-hero-resource');
+    expect(playActions.length).toBe(1);
+
+    const next = dispatch(state, playActions[0].action);
+    const char = Object.values(next.players[0].characters)[0];
+    const palantir = char.items.find(i => i.definitionId === PALANTIR_OF_ORTHANC);
+    expect(palantir).toBeDefined();
+    expect(char.status).toBe(CardStatus.Tapped);
+  });
+
   test('NOT playable at Moria (wrong site)', () => {
     const state = buildSitePhaseState({
       site: MORIA,

@@ -6,7 +6,7 @@
  * influence attempts, and site phase advancement.
  */
 
-import type { GameState, PlayerState, CardInstanceId, CompanyId, CharacterInPlay, CardInstance, SitePhaseState, HeroItemCard, CombatState, OnGuardCard, GameAction, GameEffect } from '../index.js';
+import type { GameState, PlayerState, CardInstanceId, CompanyId, CharacterInPlay, CardInstance, SitePhaseState, HeroItemCard, CombatState, OnGuardCard, GameAction, GameEffect, ItemPlaySiteEffect } from '../index.js';
 import { Phase, CardStatus, isCharacterCard, isItemCard, isAllyCard, isFactionCard, isSiteCard, getPlayerIndex, GENERAL_INFLUENCE } from '../index.js';
 import { logDetail } from './legal-actions/log.js';
 import { collectCharacterEffects, resolveCheckModifier, resolveStatModifiers, resolveAttackProwess, resolveAttackStrikes, normalizeCreatureRace } from './effects/index.js';
@@ -756,8 +756,16 @@ function handleSitePlayHeroResource(
   if (!siteDef || !isSiteCard(siteDef)) return { state, error: 'Company is not at a valid site' };
 
   if (isItem) {
-    if (!siteDef.playableResources.includes((def as HeroItemCard).subtype)) {
-      return { state, error: `${(def as HeroItemCard).subtype} items cannot be played at ${siteDef.name}` };
+    const itemDef = def as HeroItemCard;
+    const siteRestriction = itemDef.effects?.find(
+      (e): e is ItemPlaySiteEffect => e.type === 'item-play-site',
+    );
+    if (siteRestriction) {
+      if (!siteRestriction.sites.includes(siteDef.name)) {
+        return { state, error: `${itemDef.name}: only playable at ${siteRestriction.sites.join(', ')}` };
+      }
+    } else if (!siteDef.playableResources.includes(itemDef.subtype)) {
+      return { state, error: `${itemDef.subtype} items cannot be played at ${siteDef.name}` };
     }
   }
 
