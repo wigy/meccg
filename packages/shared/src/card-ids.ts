@@ -185,6 +185,8 @@ export const CAVE_DRAKE = did('tw-020');
 export const ORC_GUARD = did('tw-072');
 /** Orc-lieutenant — orc hazard, one strike, prowess 7. */
 export const ORC_LIEUTENANT = did('tw-073');
+/** Orc-watch — orc hazard, three strikes, prowess 9, keyed to shadow/dark regions. */
+export const ORC_WATCH = did('tw-078');
 /** Orc-patrol — shadow-land hazard, common low-prowess roadblock. */
 export const ORC_PATROL = did('tw-074');
 /** Barrow-wight — undead hazard found near ruins and shadow-lands. */
