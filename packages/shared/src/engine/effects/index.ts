@@ -22,4 +22,4 @@ export {
   normalizeCreatureRace,
   resolveDef,
 } from './resolver.js';
-export type { ResolverContext, CollectedEffect } from './resolver.js';
+export type { ResolverContext, CollectedEffect, CreatureSelfContext } from './resolver.js';
