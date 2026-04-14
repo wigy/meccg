@@ -120,8 +120,8 @@ export function computeLegalActions(state: GameState, playerId: PlayerId): Evalu
 
   // Pending card effects take priority over phase actions
   if (state.pendingEffects.length > 0) {
-    // Only the active player can resolve pending effects
-    if (playerId !== state.activePlayer) {
+    const effectActor = state.pendingEffects[0].actor ?? state.activePlayer;
+    if (playerId !== effectActor) {
       logResult(0, []);
       return [];
     }
