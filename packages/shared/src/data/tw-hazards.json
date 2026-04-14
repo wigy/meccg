@@ -122,9 +122,55 @@
     "eventType": "short",
     "keywords": ["environment"],
     "effects": [
-      { "type": "duplication-limit", "scope": "game", "max": 1 }
+      { "type": "duplication-limit", "scope": "game", "max": 1 },
+      {
+        "type": "on-event",
+        "event": "company-arrives-at-site",
+        "when": {
+          "$and": [
+            { "environment.doorsOfNightInPlay": true },
+            { "company.destinationSiteType": "ruins-and-lairs" }
+          ]
+        },
+        "apply": {
+          "type": "add-constraint",
+          "constraint": "site-type-override",
+          "overrideType": "shadow-hold",
+          "scope": "turn"
+        }
+      },
+      {
+        "type": "on-event",
+        "event": "company-arrives-at-site",
+        "when": {
+          "$and": [
+            { "environment.doorsOfNightInPlay": true },
+            { "company.destinationRegionType": "wilderness" }
+          ]
+        },
+        "apply": {
+          "type": "add-constraint",
+          "constraint": "region-type-override",
+          "overrideType": "shadow",
+          "regionName": "destination",
+          "scope": "turn"
+        }
+      },
+      {
+        "type": "on-event",
+        "event": "company-arrives-at-site",
+        "when": { "company.destinationSiteType": "ruins-and-lairs" },
+        "apply": {
+          "type": "add-constraint",
+          "constraint": "auto-attack-prowess-boost",
+          "value": 2,
+          "siteType": "ruins-and-lairs",
+          "scope": "company-site-phase"
+        }
+      }
     ],
-    "text": "Environment. Modify the prowess of one automatic-attack at a Ruins & Lairs site by +2. Alternatively, if Doors of Night is in play, treat one Wilderness as a Shadow-land or one Ruins & Lairs as a Shadow-hold until the end of the turn. Cannot be duplicated."
+    "text": "Environment. Modify the prowess of one automatic-attack at a Ruins & Lairs site by +2. Alternatively, if Doors of Night is in play, treat one Wilderness as a Shadow-land or one Ruins & Lairs as a Shadow-hold until the end of the turn. Cannot be duplicated.",
+    "certified": "2026-04-14"
   },
   {
     "cardType": "hazard-event",

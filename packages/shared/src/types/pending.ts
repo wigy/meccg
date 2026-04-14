@@ -25,7 +25,7 @@
  * `pending*` field; everything cross-cutting routes through this module.
  */
 
-import type { CardInstanceId, CompanyId, PlayerId, CardDefinitionId } from './common.js';
+import type { CardInstanceId, CompanyId, PlayerId, CardDefinitionId, SiteType, RegionType } from './common.js';
 import type { GameAction } from './actions.js';
 import type { Phase } from './state-phases.js';
 import type { Condition } from './effects.js';
@@ -251,6 +251,45 @@ export interface ActiveConstraint {
          * played for the rest of the turn.
          */
         readonly type: 'deny-scout-resources';
+      }
+    | {
+        /**
+         * Choking Shadows (Mode A): the next automatic-attack faced by
+         * the target company at a site matching `siteType` receives a
+         * flat prowess bonus. Auto-cleared at the end of the company's
+         * site phase even if never consumed.
+         */
+        readonly type: 'auto-attack-prowess-boost';
+        /** Prowess bonus applied to the next matching automatic-attack. */
+        readonly value: number;
+        /** Only auto-attacks at sites of this type are eligible. */
+        readonly siteType: SiteType;
+      }
+    | {
+        /**
+         * Choking Shadows (Mode B, site variant): the target site is
+         * treated as `overrideType` for the remainder of the turn. Used
+         * for creature-keying checks (creatures keyed to the override
+         * type may be played against companies arriving at this site).
+         */
+        readonly type: 'site-type-override';
+        /** The definition ID of the site whose type is overridden. */
+        readonly siteDefinitionId: CardDefinitionId;
+        /** The effective site type for the rest of the turn. */
+        readonly overrideType: SiteType;
+      }
+    | {
+        /**
+         * Choking Shadows (Mode B, region variant): the named region is
+         * treated as `overrideType` for the rest of the turn. Creatures
+         * keyed to the override region type may be played against
+         * companies traversing this region.
+         */
+        readonly type: 'region-type-override';
+        /** Name of the region whose type is overridden. */
+        readonly regionName: string;
+        /** The effective region type for the rest of the turn. */
+        readonly overrideType: RegionType;
       };
 }
 

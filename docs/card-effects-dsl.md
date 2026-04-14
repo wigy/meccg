@@ -175,13 +175,14 @@ Events:
 - `self-enters-play` -- fires when this card enters play. Used by environment permanent events to discard opposing cards (implemented in reducer play handlers).
 - `untap-phase-at-haven` -- fires once per applicable card during the Untap → Organization transition. The reducer (`reducer-untap.ts`) scans every character at a haven for attached cards (items / hazards / allies) carrying this on-event, and enqueues a `corruption-check` pending resolution per match. Used by *Lure of the Senses*.
 - `attack-not-defeated` -- fires after combat finalization when the creature's attack was not fully defeated (i.e. not all strikes were won by the defenders). The reducer (`reducer-combat.ts`) checks the creature card for this event and applies its constraint. Used by *Little Snuffler*.
+- `company-arrives-at-site` -- fires when a hazard short-event resolves against a company in M/H. The handler (`applyShortEventArrivalTrigger` in `chain-reducer.ts`) iterates every `add-constraint` effect on the card with this event, evaluates the optional `when` against the arrival context, and applies the first matching one. This allows a single card to declare multiple mutually-exclusive modes (e.g. *Choking Shadows*). The arrival context exposes `company.destinationSiteType`, `company.destinationSiteName`, `company.destinationRegionType`, `environment.doorsOfNightInPlay`, and the standard `inPlay` card-name list.
 
 Apply types:
 
 - `force-check` -- force a check roll on the target. The dispatcher enqueues a {@link PendingResolution} of kind `corruption-check`; the resolver in `engine/pending-reducers.ts` runs the dice roll and applies the standard discard / eliminate consequences when the check fails.
 - `discard-cards-in-play` -- discard all cards in play that match the `filter` condition (evaluated against card definitions).
 - `discard-non-special-items` -- discard all non-special items (subtype ≠ `"special"`) from the wounded character. Items are moved to the defending player's discard pile. Implemented in `reducer-combat.ts` for the `character-wounded-by-self` event.
-- `add-constraint` -- add an {@link ActiveConstraint} of the named kind to the target. Reserves the entry's `constraint` field for the kind name (e.g. `"site-phase-do-nothing"`, `"site-phase-do-nothing-unless-ranger-taps"`, `"no-creature-hazards-on-company"`, `"deny-scout-resources"`) and the `scope` field for the auto-clear boundary (e.g. `"company-site-phase"`, `"turn"`). The constraint filter in `legal-actions/pending.ts` rewrites legal actions for the affected target while the constraint lives.
+- `add-constraint` -- add an {@link ActiveConstraint} of the named kind to the target. Reserves the entry's `constraint` field for the kind name (e.g. `"site-phase-do-nothing"`, `"site-phase-do-nothing-unless-ranger-taps"`, `"no-creature-hazards-on-company"`, `"deny-scout-resources"`, `"auto-attack-prowess-boost"`, `"site-type-override"`, `"region-type-override"`) and the `scope` field for the auto-clear boundary (e.g. `"company-site-phase"`, `"company-mh-phase"`, `"turn"`, `"until-cleared"`). Constraint-kind-specific fields include `value` + `siteType` for `auto-attack-prowess-boost`, `overrideType` for `site-type-override` (the site is the active company's destination at trigger time), and `overrideType` + `regionName` for `region-type-override` (use the token `"destination"` as the region name to target the destination region of the active company).
 - `discard-self` -- discard the card carrying this effect (typically an ally) from its bearer to the owning player's discard pile. Used with `company-arrives-at-site` and a `when` condition to enforce region-based movement restrictions (e.g. Treebeard). Implemented in `reducer-movement-hazard.ts` `fireAllyArrivalEffects()`.
 
 ### Pending resolutions
@@ -833,5 +834,37 @@ Supported `apply` kinds today:
 "effects": [
   { "type": "stat-modifier", "stat": "prowess", "value": 4,
     "when": { "company.facedRaces": { "$includes": "orc" } } }
+]
+```
+
+### Choking Shadows
+
+Three `on-event: company-arrives-at-site` modes tried in order; the first
+whose `when` matches is the mode that applies. Modes B1/B2 require
+*Doors of Night* in play and can rewrite the destination site or region
+type until end of turn; Mode A is the fallback +2 prowess boost applied
+to the next automatic-attack at a Ruins & Lairs site.
+
+```json
+"effects": [
+  { "type": "duplication-limit", "scope": "game", "max": 1 },
+  { "type": "on-event", "event": "company-arrives-at-site",
+    "when": { "$and": [
+      { "environment.doorsOfNightInPlay": true },
+      { "company.destinationSiteType": "ruins-and-lairs" }
+    ] },
+    "apply": { "type": "add-constraint", "constraint": "site-type-override",
+      "overrideType": "shadow-hold", "scope": "turn" } },
+  { "type": "on-event", "event": "company-arrives-at-site",
+    "when": { "$and": [
+      { "environment.doorsOfNightInPlay": true },
+      { "company.destinationRegionType": "wilderness" }
+    ] },
+    "apply": { "type": "add-constraint", "constraint": "region-type-override",
+      "overrideType": "shadow", "regionName": "destination", "scope": "turn" } },
+  { "type": "on-event", "event": "company-arrives-at-site",
+    "when": { "company.destinationSiteType": "ruins-and-lairs" },
+    "apply": { "type": "add-constraint", "constraint": "auto-attack-prowess-boost",
+      "value": 2, "siteType": "ruins-and-lairs", "scope": "company-site-phase" } }
 ]
 ```

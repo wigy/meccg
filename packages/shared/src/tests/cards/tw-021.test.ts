@@ -3,17 +3,20 @@
  *
  * Card test: Choking Shadows (tw-21)
  * Type: hazard-event (short, environment)
- * Effects: 1 (duplication-limit scope:game max:1)
  *
  * "Environment. Modify the prowess of one automatic-attack at a Ruins & Lairs
  *  site by +2. Alternatively, if Doors of Night is in play, treat one
  *  Wilderness as a Shadow-land or one Ruins & Lairs as a Shadow-hold until
  *  the end of the turn. Cannot be duplicated."
  *
- * Engine support: Only the duplication-limit is currently implemented.
- * The prowess modification and region-type transformation require engine
- * features not yet available (short-event persistent effects, resolver
- * site-type context, region-type override constraints).
+ * Engine support:
+ * - duplication-limit scope:game max:1
+ * - Mode A (no Doors of Night): auto-attack-prowess-boost (+2) constraint,
+ *   consumed by the next automatic-attack at a R&L site
+ * - Mode B1 (Doors of Night + R&L destination): site-type-override to
+ *   shadow-hold for the turn
+ * - Mode B2 (Doors of Night + Wilderness destination region):
+ *   region-type-override to shadow for the turn
  */
 
 import { describe, test, expect, beforeEach } from 'vitest';
@@ -21,15 +24,15 @@ import {
   PLAYER_1, PLAYER_2,
   reduce,
   ARAGORN, LEGOLAS,
-  CHOKING_SHADOWS,
+  CHOKING_SHADOWS, DOORS_OF_NIGHT,
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
   buildTestState, resetMint,
   viableActions, makeMHState,
   P1_COMPANY,
   handCardId, dispatch, playHazardAndResolve,
 } from '../test-helpers.js';
-import { Phase } from '../../index.js';
-import type { GameState, HazardEventCard } from '../../index.js';
+import { Phase, SiteType, RegionType, CardStatus } from '../../index.js';
+import type { GameState, HazardEventCard, MovementHazardPhaseState, CardInstanceId } from '../../index.js';
 
 // ─── Tests ────────────────────────────────────────────────────────────────────
 
@@ -51,8 +54,12 @@ describe('Choking Shadows (tw-21)', () => {
     expect(def.cardType).toBe('hazard-event');
     expect(def.eventType).toBe('short');
     expect(def.keywords).toContain('environment');
-    expect(def.effects).toHaveLength(1);
+    // 1 duplication-limit + 3 on-event modes
+    expect(def.effects).toHaveLength(4);
     expect(def.effects![0].type).toBe('duplication-limit');
+    expect(def.effects![1].type).toBe('on-event');
+    expect(def.effects![2].type).toBe('on-event');
+    expect(def.effects![3].type).toBe('on-event');
   });
 
   test('can be played as a hazard short event during M/H play-hazards step', () => {
@@ -151,5 +158,134 @@ describe('Choking Shadows (tw-21)', () => {
     };
     const actions = viableActions(mhGameState, PLAYER_2, 'play-hazard');
     expect(actions).toHaveLength(0);
+  });
+
+  // ─── Mode A: prowess boost at R&L sites ──────────────────────────────────
+
+  test('Mode A — at R&L destination with no Doors of Night, adds auto-attack-prowess-boost constraint', () => {
+    const state = buildTestState({
+      phase: Phase.Organization,
+      activePlayer: PLAYER_1,
+      players: [
+        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [ARAGORN] }], hand: [], siteDeck: [MORIA] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [CHOKING_SHADOWS], siteDeck: [MINAS_TIRITH] },
+      ],
+    });
+
+    const mh: MovementHazardPhaseState = makeMHState({
+      destinationSiteType: SiteType.RuinsAndLairs,
+      destinationSiteName: 'Moria',
+      resolvedSitePath: [RegionType.Wilderness],
+      resolvedSitePathNames: ['Hollin'],
+    });
+    const mhGameState: GameState = { ...state, phaseState: mh };
+
+    const csId = handCardId(mhGameState, 1);
+    const afterPlay = playHazardAndResolve(mhGameState, PLAYER_2, csId, P1_COMPANY);
+
+    const boost = afterPlay.activeConstraints.find(c => c.kind.type === 'auto-attack-prowess-boost');
+    expect(boost).toBeDefined();
+    expect(boost!.kind.type).toBe('auto-attack-prowess-boost');
+    if (boost!.kind.type === 'auto-attack-prowess-boost') {
+      expect(boost!.kind.value).toBe(2);
+      expect(boost!.kind.siteType).toBe(SiteType.RuinsAndLairs);
+    }
+  });
+
+  test('Mode A — non-R&L destination with no Doors of Night, no effect applied', () => {
+    const state = buildTestState({
+      phase: Phase.Organization,
+      activePlayer: PLAYER_1,
+      players: [
+        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [ARAGORN] }], hand: [], siteDeck: [MORIA] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [CHOKING_SHADOWS], siteDeck: [MINAS_TIRITH] },
+      ],
+    });
+
+    const mh: MovementHazardPhaseState = makeMHState({
+      destinationSiteType: SiteType.BorderHold,
+      destinationSiteName: 'Bree',
+      resolvedSitePath: [RegionType.Free],
+      resolvedSitePathNames: ['Eriador'],
+    });
+    const mhGameState: GameState = { ...state, phaseState: mh };
+
+    const csId = handCardId(mhGameState, 1);
+    const afterPlay = playHazardAndResolve(mhGameState, PLAYER_2, csId, P1_COMPANY);
+
+    expect(afterPlay.activeConstraints.filter(c => c.kind.type === 'auto-attack-prowess-boost')).toHaveLength(0);
+    expect(afterPlay.activeConstraints.filter(c => c.kind.type === 'site-type-override')).toHaveLength(0);
+    expect(afterPlay.activeConstraints.filter(c => c.kind.type === 'region-type-override')).toHaveLength(0);
+  });
+
+  // ─── Mode B: type overrides with Doors of Night in play ──────────────────
+
+  test('Mode B1 — DoN in play + R&L destination: site-type-override to shadow-hold', () => {
+    const donInPlay = {
+      instanceId: 'don-1' as CardInstanceId,
+      definitionId: DOORS_OF_NIGHT,
+      status: CardStatus.Untapped,
+    };
+    const state = buildTestState({
+      phase: Phase.Organization,
+      activePlayer: PLAYER_1,
+      players: [
+        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [ARAGORN] }], hand: [], siteDeck: [MORIA] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [CHOKING_SHADOWS], siteDeck: [MINAS_TIRITH], cardsInPlay: [donInPlay] },
+      ],
+    });
+
+    const mh: MovementHazardPhaseState = makeMHState({
+      destinationSiteType: SiteType.RuinsAndLairs,
+      destinationSiteName: 'Moria',
+      resolvedSitePath: [RegionType.Wilderness],
+      resolvedSitePathNames: ['Hollin'],
+    });
+    const mhGameState: GameState = { ...state, phaseState: mh };
+
+    const csId = handCardId(mhGameState, 1);
+    const afterPlay = playHazardAndResolve(mhGameState, PLAYER_2, csId, P1_COMPANY);
+
+    const siteOverride = afterPlay.activeConstraints.find(c => c.kind.type === 'site-type-override');
+    expect(siteOverride).toBeDefined();
+    if (siteOverride!.kind.type === 'site-type-override') {
+      expect(siteOverride!.kind.overrideType).toBe(SiteType.ShadowHold);
+    }
+    // Mode A must not also apply
+    expect(afterPlay.activeConstraints.filter(c => c.kind.type === 'auto-attack-prowess-boost')).toHaveLength(0);
+  });
+
+  test('Mode B2 — DoN in play + Wilderness destination region: region-type-override to shadow', () => {
+    const donInPlay = {
+      instanceId: 'don-1' as CardInstanceId,
+      definitionId: DOORS_OF_NIGHT,
+      status: CardStatus.Untapped,
+    };
+    const state = buildTestState({
+      phase: Phase.Organization,
+      activePlayer: PLAYER_1,
+      players: [
+        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [ARAGORN] }], hand: [], siteDeck: [MORIA] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [CHOKING_SHADOWS], siteDeck: [MINAS_TIRITH], cardsInPlay: [donInPlay] },
+      ],
+    });
+
+    const mh: MovementHazardPhaseState = makeMHState({
+      destinationSiteType: SiteType.BorderHold,
+      destinationSiteName: 'Thranduils Halls',
+      resolvedSitePath: [RegionType.Wilderness],
+      resolvedSitePathNames: ['Western Mirkwood'],
+    });
+    const mhGameState: GameState = { ...state, phaseState: mh };
+
+    const csId = handCardId(mhGameState, 1);
+    const afterPlay = playHazardAndResolve(mhGameState, PLAYER_2, csId, P1_COMPANY);
+
+    const regionOverride = afterPlay.activeConstraints.find(c => c.kind.type === 'region-type-override');
+    expect(regionOverride).toBeDefined();
+    if (regionOverride!.kind.type === 'region-type-override') {
+      expect(regionOverride!.kind.overrideType).toBe(RegionType.Shadow);
+      expect(regionOverride!.kind.regionName).toBe('Western Mirkwood');
+    }
   });
 });

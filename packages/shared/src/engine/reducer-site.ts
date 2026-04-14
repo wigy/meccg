@@ -428,8 +428,27 @@ function handleSiteAutomaticAttacks(
 
   const inPlayNames = buildInPlayNames(state);
   const creatureRace = normalizeCreatureRace(aa.creatureType);
-  const effectiveProwess = resolveAttackProwess(state, aa.prowess, inPlayNames, creatureRace, true);
+  const baseEffective = resolveAttackProwess(state, aa.prowess, inPlayNames, creatureRace, true);
   const effectiveStrikes = resolveAttackStrikes(state, aa.strikes, inPlayNames, creatureRace);
+
+  // One-shot prowess boost from short-event environments like Choking
+  // Shadows. The boost is stored as an `auto-attack-prowess-boost`
+  // active constraint targeting this company and gated to a specific
+  // site type; consume the first matching entry.
+  let boostedState: GameState = state;
+  let effectiveProwess = baseEffective;
+  const applicableBoost = state.activeConstraints.find(c =>
+    c.target.kind === 'company'
+    && c.target.companyId === company.id
+    && c.kind.type === 'auto-attack-prowess-boost'
+    && c.kind.siteType === siteDef.siteType,
+  );
+  if (applicableBoost && applicableBoost.kind.type === 'auto-attack-prowess-boost') {
+    effectiveProwess = baseEffective + applicableBoost.kind.value;
+    logDetail(`Site: consuming auto-attack-prowess-boost (+${applicableBoost.kind.value}) from "${state.cardPool[applicableBoost.sourceDefinitionId as string]?.name ?? '?'}"`);
+    boostedState = removeConstraint(state, applicableBoost.id);
+  }
+
   logDetail(`Site: initiating automatic attack ${attackIndex + 1}/${autoAttacks.length}: ${aa.creatureType} (${aa.strikes} strikes${effectiveStrikes !== aa.strikes ? ` → ${effectiveStrikes}` : ''}, ${aa.prowess} prowess${effectiveProwess !== aa.prowess ? ` → ${effectiveProwess}` : ''}${effectiveStrikes !== aa.strikes || effectiveProwess !== aa.prowess ? ' after global effects' : ''})`);
 
   const combat: CombatState = {
@@ -451,7 +470,7 @@ function handleSiteAutomaticAttacks(
 
   return {
     state: {
-      ...state,
+      ...boostedState,
       combat,
       phaseState: { ...siteState, automaticAttacksResolved: attackIndex + 1 },
     },
