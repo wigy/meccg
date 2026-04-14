@@ -7,7 +7,7 @@
  */
 
 import type { GameState, PlayerId, GameAction, EvaluatedAction, MovementHazardPhaseState, SiteCard, CardDefinitionId, CardInstanceId, CompanyId, CreatureCard, CreatureKeyingMatch, PlayHazardAction, PlaceOnGuardAction, PlayConditionEffect, CreatureRaceChoiceEffect } from '../../index.js';
-import { getPlayerIndex, isSiteCard, isCharacterCard, buildMovementMap, findRegionPaths, RegionType, Race, hasPlayFlag, matchesCondition, CardStatus } from '../../index.js';
+import { getPlayerIndex, isSiteCard, isCharacterCard, isFactionCard, buildMovementMap, findRegionPaths, RegionType, Race, hasPlayFlag, matchesCondition, CardStatus } from '../../index.js';
 import { resolveInstanceId } from '../../types/state.js';
 import { resolveHandSize } from '../effects/index.js';
 import { MovementType } from '../../types/common.js';
@@ -500,6 +500,32 @@ function playHazardsActions(
             }
             continue;
           }
+        }
+
+        // Faction-targeting short events (e.g. Muster Disperses)
+        const shortPlayTarget = def.effects?.find(
+          (e): e is import('../../index.js').PlayTargetEffect => e.type === 'play-target',
+        );
+        if (shortPlayTarget?.target === 'faction') {
+          let hasFactionTarget = false;
+          for (const p of state.players) {
+            for (const cip of p.cardsInPlay) {
+              const cipDef = state.cardPool[cip.definitionId as string];
+              if (cipDef && isFactionCard(cipDef)) {
+                logDetail(`Hazard short-event "${def.name}" playable on faction ${cipDef.name} (${cip.instanceId as string})`);
+                actions.push({
+                  action: { ...action, targetFactionInstanceId: cip.instanceId },
+                  viable: true,
+                });
+                hasFactionTarget = true;
+              }
+            }
+          }
+          if (!hasFactionTarget) {
+            logDetail(`Hazard short-event "${def.name}" not playable — no factions in play`);
+            actions.push({ action, viable: false, reason: 'No factions in play' });
+          }
+          continue;
         }
 
         logDetail(`Hazard short-event "${def.name}" is playable`);

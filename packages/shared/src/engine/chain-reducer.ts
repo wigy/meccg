@@ -1018,6 +1018,40 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
     current = queueFetchToDecEffects(current, entry);
   }
 
+  // Faction-targeting short events (e.g. Muster Disperses): enqueue a
+  // muster-roll pending resolution so the faction's owner rolls 2d6 +
+  // unused GI vs 11. The entry stays resolved on the chain; the pending
+  // resolution drives the actual roll + discard.
+  if (entry.payload.type === 'short-event' && !entry.negated && entry.payload.targetFactionInstanceId) {
+    const factionInstId = entry.payload.targetFactionInstanceId;
+    const factionDefId = resolveInstanceId(current, factionInstId);
+    if (factionDefId) {
+      // Find the faction's owner
+      let factionOwner: PlayerId | null = null;
+      for (const p of current.players) {
+        if (p.cardsInPlay.some(c => c.instanceId === factionInstId)) {
+          factionOwner = p.id;
+          break;
+        }
+      }
+      if (factionOwner) {
+        logDetail(`Enqueuing muster-roll pending resolution for faction ${factionDefId as string}`);
+        current = enqueueResolution(current, {
+          source: entry.card!.instanceId,
+          actor: factionOwner,
+          scope: { kind: 'phase', phase: Phase.MovementHazard },
+          kind: {
+            type: 'muster-roll',
+            factionInstanceId: factionInstId,
+            factionDefinitionId: factionDefId,
+            factionOwner,
+          },
+        });
+        return { state: current, needsInput: true };
+      }
+    }
+  }
+
   if (entry.payload.type === 'creature' && entry.card) {
     current = initiateCreatureCombat(current, entry);
   }

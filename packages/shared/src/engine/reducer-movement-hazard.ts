@@ -335,10 +335,14 @@ function handlePlayHazardCard(
     }
 
     // Initiate chain or push onto existing chain
+    const shortEventPayload: import('../index.js').ChainEntryPayload = {
+      type: 'short-event',
+      targetFactionInstanceId: action.type === 'play-hazard' ? action.targetFactionInstanceId : undefined,
+    };
     if (newState.chain === null) {
-      newState = initiateChain(newState, action.player, handCard, { type: 'short-event' });
+      newState = initiateChain(newState, action.player, handCard, shortEventPayload);
     } else {
-      newState = pushChainEntry(newState, action.player, handCard, { type: 'short-event' });
+      newState = pushChainEntry(newState, action.player, handCard, shortEventPayload);
     }
 
     return { state: newState };

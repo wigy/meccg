@@ -27,7 +27,7 @@ import type {
   CardInstanceId,
   CompanyId,
 } from '../../index.js';
-import { isCharacterCard, isAllyCard, isFactionCard, Phase, CardStatus, matchesCondition } from '../../index.js';
+import { isCharacterCard, isAllyCard, isFactionCard, Phase, CardStatus, matchesCondition, GENERAL_INFLUENCE } from '../../index.js';
 import type { PlayOptionEffect, PlayTargetEffect, CardEffect } from '../../types/effects.js';
 import { resolveInstanceId } from '../../types/state.js';
 import { resolveDef, collectCharacterEffects, resolveCheckModifier, resolveStatModifiers } from '../effects/index.js';
@@ -85,6 +85,8 @@ export function resolutionLegalActions(
       return opponentInfluenceDefendActions(state, actor, top);
     case 'faction-influence-roll':
       return factionInfluenceRollActions(state, actor, top);
+    case 'muster-roll':
+      return musterRollActions(state, actor, top);
   }
 }
 
@@ -300,6 +302,45 @@ function factionInfluenceRollActions(
       influencingCharacterId,
       need,
       explanation: `${charName} influences ${factionName}: need roll >= ${need} (influence # ${influenceNumber}, modifier ${modifier >= 0 ? '+' : ''}${modifier}${modStr})`,
+    },
+    viable: true,
+  }];
+}
+
+/**
+ * Compute the single muster-roll action that resolves a queued
+ * `muster-roll` resolution (Muster Disperses). The faction's owner
+ * rolls 2d6; if the roll + unused general influence < 11, the
+ * faction is discarded.
+ */
+function musterRollActions(
+  state: GameState,
+  playerId: PlayerId,
+  top: PendingResolution,
+): EvaluatedAction[] {
+  if (top.kind.type !== 'muster-roll') return [];
+  const { factionInstanceId, factionDefinitionId } = top.kind;
+
+  const actorIndex = state.players.findIndex(p => p.id === playerId);
+  if (actorIndex === -1) return [];
+  const player = state.players[actorIndex];
+
+  const def = state.cardPool[factionDefinitionId as string];
+  if (!def || !isFactionCard(def)) return [];
+
+  const unusedGI = GENERAL_INFLUENCE - player.generalInfluenceUsed;
+  const threshold = 11;
+  const need = threshold - unusedGI;
+
+  logDetail(`Pending muster-roll for ${def.name}: need 2d6 >= ${need} (threshold ${threshold}, unused GI ${unusedGI})`);
+
+  return [{
+    action: {
+      type: 'muster-roll' as const,
+      player: playerId,
+      factionInstanceId,
+      need,
+      explanation: `Muster check for ${def.name}: roll + unused GI (${unusedGI}) must be >= ${threshold} (need roll >= ${need})`,
     },
     viable: true,
   }];

@@ -175,7 +175,7 @@ export interface CombatState {
  * resolver knows how to apply the entry when it resolves.
  */
 export type ChainEntryPayload =
-  | { readonly type: 'short-event'; readonly targetInstanceId?: CardInstanceId }
+  | { readonly type: 'short-event'; readonly targetInstanceId?: CardInstanceId; readonly targetFactionInstanceId?: CardInstanceId }
   | { readonly type: 'creature' }
   | {
       readonly type: 'permanent-event';
