@@ -591,6 +591,8 @@ function buildConstraintKind(
       }
       return { type: 'region-type-override', regionName, overrideType };
     }
+    case 'auto-attack-duplicate':
+      return { type: 'auto-attack-duplicate' };
     default:
       return null;
   }

@@ -83,14 +83,6 @@ export function handlePlayPermanentEvent(state: GameState, action: GameAction): 
  * a chain of effects. The target environment remains in play until the chain
  * entry resolves — giving both players a chance to respond.
  */
-
-
-/**
- * Handle playing a short-event as a resource (e.g. Twilight).
- * Moves the short event from hand to discard and initiates (or pushes onto)
- * a chain of effects. The target environment remains in play until the chain
- * entry resolves — giving both players a chance to respond.
- */
 export function handlePlayShortEvent(state: GameState, action: GameAction): ReducerResult {
   if (action.type !== 'play-short-event') return { state, error: 'Expected play-short-event action' };
 

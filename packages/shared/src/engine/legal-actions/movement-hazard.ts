@@ -569,6 +569,38 @@ function playHazardsActions(
           continue;
         }
 
+        // Site-targeting short events (e.g. Incite Defenders): apply filter on destination site
+        if (shortPlayTarget?.target === 'site') {
+          const destSiteInstanceId = targetCompany.destinationSite?.instanceId
+            ?? targetCompany.currentSite?.instanceId
+            ?? null;
+          if (destSiteInstanceId) {
+            const destSiteDefId = resolveInstanceId(state, destSiteInstanceId);
+            if (destSiteDefId) {
+              const siteDef = state.cardPool[destSiteDefId as string];
+              const siteDefName = siteDef?.name ?? (destSiteDefId as string);
+              if (shortPlayTarget.filter && siteDef && isSiteCard(siteDef)) {
+                if (!matchesCondition(shortPlayTarget.filter, siteDef as unknown as Record<string, unknown>)) {
+                  logDetail(`Hazard short-event "${def.name}" site filter excludes ${siteDefName}`);
+                  actions.push({
+                    action: { ...action, targetSiteDefinitionId: destSiteDefId },
+                    viable: false,
+                    reason: `${siteDefName} does not match site filter`,
+                  });
+                  continue;
+                }
+              }
+              logDetail(`Hazard short-event "${def.name}" playable on site ${siteDefName}`);
+              actions.push({
+                action: { ...action, targetSiteDefinitionId: destSiteDefId },
+                viable: true,
+              });
+              continue;
+            }
+          }
+          continue;
+        }
+
         logDetail(`Hazard short-event "${def.name}" is playable`);
         actions.push({ action, viable: true });
         continue;
@@ -720,7 +752,20 @@ function playHazardsActions(
         if (destSiteInstanceId) {
           const destSiteDefId = resolveInstanceId(state, destSiteInstanceId);
           if (destSiteDefId) {
-            const siteDefName = state.cardPool[destSiteDefId as string]?.name ?? (destSiteDefId as string);
+            const siteDef = state.cardPool[destSiteDefId as string];
+            const siteDefName = siteDef?.name ?? (destSiteDefId as string);
+            // Apply play-target filter (e.g. Incite Defenders: border-hold or free-hold)
+            if (playTarget.filter && siteDef && isSiteCard(siteDef)) {
+              if (!matchesCondition(playTarget.filter, siteDef as unknown as Record<string, unknown>)) {
+                logDetail(`Hazard "${def.name}" site filter excludes ${siteDefName}`);
+                actions.push({
+                  action: { ...action, targetSiteDefinitionId: destSiteDefId },
+                  viable: false,
+                  reason: `${siteDefName} does not match site filter`,
+                });
+                continue;
+              }
+            }
             logDetail(`Hazard event "${def.name}" playable on site ${siteDefName}`);
             actions.push({
               action: { ...action, targetSiteDefinitionId: destSiteDefId },

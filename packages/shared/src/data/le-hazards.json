@@ -7,7 +7,36 @@
     "unique": false,
     "eventType": "short",
     "keywords": [],
-    "effects": [],
+    "certified": "2026-04-14",
+    "effects": [
+      {
+        "type": "play-target",
+        "target": "site",
+        "filter": {
+          "$and": [
+            { "siteType": { "$in": ["border-hold", "free-hold"] } },
+            { "automaticAttacks.length": { "$gt": 0 } }
+          ]
+        }
+      },
+      {
+        "type": "duplication-limit",
+        "scope": "turn",
+        "max": 1
+      },
+      {
+        "type": "on-event",
+        "event": "company-arrives-at-site",
+        "apply": {
+          "type": "add-constraint",
+          "constraint": "auto-attack-duplicate",
+          "scope": "company-site-phase"
+        },
+        "when": {
+          "company.destinationSiteType": { "$in": ["border-hold", "free-hold"] }
+        }
+      }
+    ],
     "text": "Playable on a Border-hold or Free-hold. An additional automatic-attack is created at the site until the end of the turn. This is an exact duplicate (including all existing and eventual modifications to prowess, etc.) of an existing automatic-attack of your choice at the site. This automatic-attack is faced immediately following its original. Cannot be duplicated on a given site."
   },
   {

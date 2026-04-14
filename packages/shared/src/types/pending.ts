@@ -336,6 +336,15 @@ export interface ActiveConstraint {
         readonly type: 'creature-type-no-hazard-limit';
         /** The creature race exempted from the hazard limit. */
         readonly exemptRace: string;
+      }
+    | {
+        /**
+         * Incite Defenders: the next time automatic-attacks are resolved
+         * for the target company, one automatic-attack is duplicated
+         * (faced a second time immediately after the original). Consumed
+         * when the duplicate attack initiates.
+         */
+        readonly type: 'auto-attack-duplicate';
       };
 }
 
