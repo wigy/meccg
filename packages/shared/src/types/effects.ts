@@ -460,7 +460,7 @@ export interface PlayTargetEffect extends EffectBase {
    * scopes to the active player's own characters; hazard-side
    * `character` scopes to the active company's characters.
    */
-  readonly target: 'character' | 'company' | 'site';
+  readonly target: 'character' | 'company' | 'site' | 'faction';
   /**
    * Optional DSL condition refining which candidates qualify. Evaluated
    * against the per-candidate context (e.g. `target.race`,
