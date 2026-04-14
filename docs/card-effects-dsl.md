@@ -894,7 +894,7 @@ to the next automatic-attack at a Ruins & Lairs site.
 
 ```json
 "effects": [
-  { "type": "duplication-limit", "scope": "game", "max": 1 },
+  { "type": "duplication-limit", "scope": "turn", "max": 1 },
   { "type": "on-event", "event": "company-arrives-at-site",
     "when": { "$and": [
       { "environment.doorsOfNightInPlay": true },

@@ -122,7 +122,7 @@
     "eventType": "short",
     "keywords": ["environment"],
     "effects": [
-      { "type": "duplication-limit", "scope": "game", "max": 1 },
+      { "type": "duplication-limit", "scope": "turn", "max": 1 },
       {
         "type": "on-event",
         "event": "company-arrives-at-site",

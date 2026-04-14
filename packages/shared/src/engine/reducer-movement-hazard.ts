@@ -258,10 +258,11 @@ function handlePlayHazardCard(
 
   // --- Short event handling (via chain of effects) ---
   if (def.cardType === 'hazard-event' && def.eventType === 'short') {
-    // Duplication-limit check (short events: check chain + cardsInPlay)
+    // Duplication-limit check (short events: chain + cardsInPlay + active constraints from this card)
     if (def.effects) {
       for (const effect of def.effects) {
-        if (effect.type !== 'duplication-limit' || effect.scope !== 'game') continue;
+        if (effect.type !== 'duplication-limit') continue;
+        if (effect.scope !== 'game' && effect.scope !== 'turn') continue;
         const copiesOnChain = state.chain?.entries.filter(e => {
           const cDef = e.card ? state.cardPool[e.card.definitionId as string] : undefined;
           return cDef && cDef.name === def.name;
@@ -272,7 +273,10 @@ function handlePlayHazardCard(
             return cDef && cDef.name === def.name;
           }).length, 0,
         );
-        if (copiesOnChain + copiesInPlay >= effect.max) {
+        const constraintCopies = effect.scope === 'turn'
+          ? state.activeConstraints.filter(c => c.sourceDefinitionId === def.id).length
+          : 0;
+        if (copiesOnChain + copiesInPlay + constraintCopies >= effect.max) {
           return { state, error: `${def.name} cannot be duplicated` };
         }
       }
