@@ -174,6 +174,8 @@ export const EYE_OF_SAURON = did('tw-32');
 export const WAKE_OF_WAR = did('tw-108');
 /** Twilight — short hazard event, environment that cancels another environment. May also be played as a resource. */
 export const TWILIGHT = did('tw-106');
+/** An Unexpected Outpost — short hazard event, fetch a hazard from sideboard/discard to play deck (twice with Doors of Night). */
+export const AN_UNEXPECTED_OUTPOST = did('dm-45');
 
 // ---- Creatures ----
 
