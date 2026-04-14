@@ -529,6 +529,8 @@ function applyOneConstraint(
       return base;
     case 'deny-scout-resources':
       return applyDenyScoutResources(state, playerId, base, constraint);
+    case 'creature-type-no-hazard-limit':
+      return base;
   }
 }
 

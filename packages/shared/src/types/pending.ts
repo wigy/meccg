@@ -251,6 +251,16 @@ export interface ActiveConstraint {
          * played for the rest of the turn.
          */
         readonly type: 'deny-scout-resources';
+      }
+    | {
+        /**
+         * Two or Three Tribes Present: hazard creatures of the named race
+         * played against the target company do not count against the
+         * hazard limit for the remainder of the company's M/H phase.
+         */
+        readonly type: 'creature-type-no-hazard-limit';
+        /** The creature race exempted from the hazard limit. */
+        readonly exemptRace: string;
       };
 }
 

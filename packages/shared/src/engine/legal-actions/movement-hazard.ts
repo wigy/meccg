@@ -6,9 +6,8 @@
  * sub-states further constrain available actions.
  */
 
-import type { GameState, PlayerId, GameAction, EvaluatedAction, MovementHazardPhaseState, SiteCard, CardDefinitionId, CardInstanceId, CreatureCard, CreatureKeyingMatch, PlayHazardAction, PlaceOnGuardAction } from '../../index.js';
-import { getPlayerIndex, isSiteCard, isCharacterCard, buildMovementMap, findRegionPaths, RegionType, hasPlayFlag } from '../../index.js';
-import { matchesCondition } from '../../effects/condition-matcher.js';
+import type { GameState, PlayerId, GameAction, EvaluatedAction, MovementHazardPhaseState, SiteCard, CardDefinitionId, CardInstanceId, CompanyId, CreatureCard, CreatureKeyingMatch, PlayHazardAction, PlaceOnGuardAction, PlayConditionEffect, CreatureRaceChoiceEffect } from '../../index.js';
+import { getPlayerIndex, isSiteCard, isCharacterCard, buildMovementMap, findRegionPaths, RegionType, Race, hasPlayFlag, matchesCondition } from '../../index.js';
 import { resolveInstanceId } from '../../types/state.js';
 import { resolveHandSize } from '../effects/index.js';
 import { MovementType } from '../../types/common.js';
@@ -383,7 +382,8 @@ function playHazardsActions(
 
       // Hazard limit reached (cards with no-hazard-limit bypass this)
       const bypassesLimit = 'effects' in def && hasPlayFlag(def, 'no-hazard-limit');
-      if (limitReached && !bypassesLimit) {
+      const raceExempt = isCreature && isCreatureRaceExemptFromLimit(state, targetCompany.id, def.race);
+      if (limitReached && !bypassesLimit && !raceExempt) {
         actions.push({ action, viable: false, reason: `Hazard limit reached (${mhState.hazardLimit})` });
         continue;
       }
@@ -437,6 +437,38 @@ function playHazardsActions(
           }
           continue;
         }
+
+        // Play-condition check (e.g. Two or Three Tribes Present site-path requirement)
+        if (def.effects) {
+          const playCondition = def.effects.find(
+            (e): e is PlayConditionEffect => e.type === 'play-condition',
+          );
+          if (playCondition && playCondition.requires === 'site-path') {
+            if (!checkSitePathCondition(mhState, playCondition)) {
+              logDetail(`Hazard short-event "${def.name}": site path condition not met`);
+              actions.push({ action, viable: false, reason: 'Site path condition not met' });
+              continue;
+            }
+          }
+
+          // Creature-race-choice: generate one action per eligible race
+          const raceChoice = def.effects.find(
+            (e): e is CreatureRaceChoiceEffect => e.type === 'creature-race-choice',
+          );
+          if (raceChoice) {
+            const excludedRaces = new Set(raceChoice.exclude);
+            const eligibleRaces = Object.values(Race).filter(r => !excludedRaces.has(r));
+            for (const race of eligibleRaces) {
+              logDetail(`Hazard short-event "${def.name}": playable with creature race "${race}"`);
+              actions.push({
+                action: { ...action, chosenCreatureRace: race },
+                viable: true,
+              });
+            }
+            continue;
+          }
+        }
+
         logDetail(`Hazard short-event "${def.name}" is playable`);
         actions.push({ action, viable: true });
         continue;
@@ -793,6 +825,51 @@ export function deckExhaustExchangeActions(
   // Pass is always available (0 exchanges is fine)
   actions.push({ type: 'pass', player: playerId });
   return actions;
+}
+
+/**
+ * Check whether a creature's race is exempted from the hazard limit by
+ * a `creature-type-no-hazard-limit` active constraint on the target company.
+ */
+function isCreatureRaceExemptFromLimit(
+  state: GameState,
+  companyId: CompanyId,
+  race: string,
+): boolean {
+  if (!state.activeConstraints) return false;
+  return state.activeConstraints.some(
+    c => c.target.kind === 'company'
+      && c.target.companyId === companyId
+      && c.kind.type === 'creature-type-no-hazard-limit'
+      && c.kind.exemptRace === race,
+  );
+}
+
+/**
+ * Evaluate a play-condition effect with `requires: 'site-path'` against
+ * the current M/H phase state. Builds a context with region-type counts
+ * from the resolved site path.
+ */
+function checkSitePathCondition(
+  mhState: MovementHazardPhaseState,
+  effect: PlayConditionEffect,
+): boolean {
+  const counts: Record<string, number> = {
+    wildernessCount: 0, shadowCount: 0, darkCount: 0,
+    coastalCount: 0, freeCount: 0, borderCount: 0,
+  };
+  for (const rt of mhState.resolvedSitePath) {
+    switch (rt) {
+      case RegionType.Wilderness: counts.wildernessCount++; break;
+      case RegionType.Shadow: counts.shadowCount++; break;
+      case RegionType.Dark: counts.darkCount++; break;
+      case RegionType.Coastal: counts.coastalCount++; break;
+      case RegionType.Free: counts.freeCount++; break;
+      case RegionType.Border: counts.borderCount++; break;
+    }
+  }
+  const ctx: Record<string, unknown> = { sitePath: counts };
+  return matchesCondition(effect.condition, ctx);
 }
 
 // mhWoundCorruptionCheckActions removed: wound corruption checks are
