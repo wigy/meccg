@@ -134,6 +134,7 @@ export const LEGAL_ACTIONS_BY_PHASE: Readonly<Record<Phase, readonly GameAction[
     'corruption-check',
     'pass-chain-priority',
     'order-passives',
+    'fetch-from-pile',
     'pass',
   ],
 

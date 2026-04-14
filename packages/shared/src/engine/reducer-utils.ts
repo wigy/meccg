@@ -655,12 +655,15 @@ export function discardEventCard(state: GameState, cardInstanceId: CardInstanceI
 export function resolvePendingEffect(state: GameState): ReducerResult {
   const current = state.pendingEffects[0];
   const remaining = state.pendingEffects.slice(1);
-  const activePlayerIndex = getPlayerIndex(state, state.activePlayer!);
+  const effectOwner = current.type === 'card-effect' && current.actor
+    ? current.actor
+    : state.activePlayer!;
+  const ownerIndex = getPlayerIndex(state, effectOwner);
 
   let newState: GameState = { ...state, pendingEffects: remaining };
   if (remaining.length === 0 && current.type === 'card-effect') {
     if (!current.skipDiscard) {
-      newState = discardEventCard(newState, current.cardInstanceId, activePlayerIndex);
+      newState = discardEventCard(newState, current.cardInstanceId, ownerIndex);
     }
   }
   return { state: newState };

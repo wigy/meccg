@@ -156,9 +156,9 @@
         ]
       }
     ],
-    "effects": [],
     "text": "Orcs. Five strikes.",
-    "race": "orc"
+    "race": "orc",
+    "certified": "2026-04-14"
   },
   {
     "cardType": "hazard-creature",
@@ -246,7 +246,7 @@
         ]
       }
     ],
-    "effects": [],
+    "certified": "2026-04-14",
     "text": "Orcs. Three strikes.",
     "race": "orc"
   },

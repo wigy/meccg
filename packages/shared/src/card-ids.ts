@@ -110,6 +110,8 @@ export const SAPLING_OF_THE_WHITE_TREE = did('tw-322');
 
 /** Gwaihir — eagle ally, prowess 4/body 8, playable at Eagles' Eyrie, can fly company. */
 export const GWAIHIR = did('tw-251');
+/** Treebeard — ent ally, prowess 8/body 9, playable at Wellinghall, discards if company leaves Ent regions. */
+export const TREEBEARD = did('tw-353');
 /** Shadowfax — horse ally, prowess 2/body 8, playable at Edoras, enables double movement. */
 export const SHADOWFAX = did('tw-326');
 
@@ -172,6 +174,8 @@ export const EYE_OF_SAURON = did('tw-32');
 export const WAKE_OF_WAR = did('tw-108');
 /** Twilight — short hazard event, environment that cancels another environment. May also be played as a resource. */
 export const TWILIGHT = did('tw-106');
+/** An Unexpected Outpost — short hazard event, fetch a hazard from sideboard/discard to play deck (twice with Doors of Night). */
+export const AN_UNEXPECTED_OUTPOST = did('dm-45');
 
 // ---- Creatures ----
 
@@ -179,8 +183,12 @@ export const TWILIGHT = did('tw-106');
 export const ASSASSIN = did('tw-8');
 /** Cave-drake — wilderness hazard creature with moderate prowess. */
 export const CAVE_DRAKE = did('tw-020');
+/** Orc-guard — orc hazard, five strikes, prowess 8, keyed to shadow/dark regions. */
+export const ORC_GUARD = did('tw-072');
 /** Orc-lieutenant — orc hazard, one strike, prowess 7. */
 export const ORC_LIEUTENANT = did('tw-073');
+/** Orc-watch — orc hazard, three strikes, prowess 9, keyed to shadow/dark regions. */
+export const ORC_WATCH = did('tw-078');
 /** Orc-patrol — shadow-land hazard, common low-prowess roadblock. */
 export const ORC_PATROL = did('tw-074');
 /** Barrow-wight — undead hazard found near ruins and shadow-lands. */

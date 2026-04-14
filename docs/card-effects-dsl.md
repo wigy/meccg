@@ -182,6 +182,7 @@ Apply types:
 - `discard-cards-in-play` -- discard all cards in play that match the `filter` condition (evaluated against card definitions).
 - `discard-non-special-items` -- discard all non-special items (subtype ≠ `"special"`) from the wounded character. Items are moved to the defending player's discard pile. Implemented in `reducer-combat.ts` for the `character-wounded-by-self` event.
 - `add-constraint` -- add an {@link ActiveConstraint} of the named kind to the target. Reserves the entry's `constraint` field for the kind name (e.g. `"site-phase-do-nothing"`, `"site-phase-do-nothing-unless-ranger-taps"`, `"no-creature-hazards-on-company"`, `"deny-scout-resources"`) and the `scope` field for the auto-clear boundary (e.g. `"company-site-phase"`, `"turn"`). The constraint filter in `legal-actions/pending.ts` rewrites legal actions for the affected target while the constraint lives.
+- `discard-self` -- discard the card carrying this effect (typically an ally) from its bearer to the owning player's discard pile. Used with `company-arrives-at-site` and a `when` condition to enforce region-based movement restrictions (e.g. Treebeard). Implemented in `reducer-movement-hazard.ts` `fireAllyArrivalEffects()`.
 
 ### Pending resolutions
 
