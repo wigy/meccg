@@ -583,6 +583,8 @@ function applyOneConstraint(
       return base;
     case 'creature-type-no-hazard-limit':
       return base;
+    case 'auto-attack-duplicate':
+      return base;
   }
 }
 

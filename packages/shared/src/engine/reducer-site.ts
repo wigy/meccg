@@ -413,6 +413,47 @@ function handleSiteAutomaticAttacks(
   const autoAttacks = siteDef.automaticAttacks;
 
   if (attackIndex >= autoAttacks.length) {
+    // Before advancing, check for auto-attack-duplicate constraints
+    // (Incite Defenders). The duplicate re-uses the first auto-attack's
+    // stats and is faced as an additional combat.
+    const dupConstraint = state.activeConstraints.find(c =>
+      c.target.kind === 'company'
+      && c.target.companyId === company.id
+      && c.kind.type === 'auto-attack-duplicate',
+    );
+    if (dupConstraint && autoAttacks.length > 0) {
+      const aa = autoAttacks[0];
+      const inPlayNames2 = buildInPlayNames(state);
+      const creatureRace2 = normalizeCreatureRace(aa.creatureType);
+      const dupProwess = resolveAttackProwess(state, aa.prowess, inPlayNames2, creatureRace2, true);
+      const dupStrikes = resolveAttackStrikes(state, aa.strikes, inPlayNames2, creatureRace2);
+      logDetail(`Site: initiating duplicate automatic attack (Incite Defenders): ${aa.creatureType} (${dupStrikes} strikes, ${dupProwess} prowess)`);
+      const dupState = removeConstraint(state, dupConstraint.id);
+      const dupCombat: CombatState = {
+        attackSource: { type: 'automatic-attack', siteInstanceId: company.currentSite.instanceId, attackIndex: attackIndex },
+        companyId: company.id,
+        defendingPlayerId: state.activePlayer!,
+        attackingPlayerId: state.players.find(p => p.id !== state.activePlayer)!.id,
+        strikesTotal: dupStrikes,
+        strikeProwess: dupProwess,
+        creatureBody: null,
+        creatureRace: creatureRace2,
+        strikeAssignments: [],
+        currentStrikeIndex: 0,
+        phase: 'assign-strikes',
+        assignmentPhase: 'defender',
+        bodyCheckTarget: null,
+        detainment: false,
+      };
+      return {
+        state: {
+          ...dupState,
+          combat: dupCombat,
+          phaseState: { ...siteState, automaticAttacksResolved: attackIndex + 1 },
+        },
+      };
+    }
+
     // All automatic attacks resolved — advance to declare-agent-attack
     logDetail('Site: all automatic attacks resolved → declare-agent-attack');
     return {
