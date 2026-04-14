@@ -716,6 +716,20 @@ export interface CallOfHomeCheckEffect extends EffectBase {
 }
 
 /**
+ * Restricts how a character bearing this card can be controlled.
+ *
+ * Rules:
+ * - `no-direct-influence` — the character cannot be controlled by direct
+ *   influence; they must be under general influence. When the hazard is
+ *   attached, any existing DI control is reverted to GI. Used by
+ *   Rebel-talk (le-132).
+ */
+export interface ControlRestrictionEffect extends EffectBase {
+  readonly type: 'control-restriction';
+  readonly rule: 'no-direct-influence';
+}
+
+/**
  * Discriminated union of all card effect types.
  * The `type` field serves as the discriminant for type narrowing.
  */
@@ -748,4 +762,5 @@ export type CardEffect =
   | ItemPlaySiteEffect
   | StorableAtEffect
   | CompanyRuleEffect
-  | CallOfHomeCheckEffect;
+  | CallOfHomeCheckEffect
+  | ControlRestrictionEffect;

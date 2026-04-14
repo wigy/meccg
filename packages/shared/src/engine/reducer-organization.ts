@@ -7,7 +7,7 @@
  */
 
 import type { GameState, CardInstanceId, CharacterInPlay, CardInstance, OrganizationPhaseState, Company, SiteInPlay, GameAction, GameEffect } from '../index.js';
-import { Phase, shuffle, CardStatus, isCharacterCard, isSiteCard, SiteType, getPlayerIndex, ZERO_EFFECTIVE_STATS, hasPlayFlag } from '../index.js';
+import { Phase, shuffle, CardStatus, isCharacterCard, isSiteCard, SiteType, getPlayerIndex, ZERO_EFFECTIVE_STATS, hasPlayFlag, hasNoDirectInfluenceRestriction } from '../index.js';
 import { logDetail } from './legal-actions/log.js';
 import { isEndOfOrgPlay } from './legal-actions/organization.js';
 import { resolveInstanceId } from '../types/state.js';
@@ -368,6 +368,9 @@ function handleMoveToInfluence(state: GameState, action: GameAction): ReducerRes
     };
   } else {
     // Moving from GI to DI (become follower)
+    if (hasNoDirectInfluenceRestriction(char.hazards, state.cardPool)) {
+      return { state, error: 'Character has no-direct-influence restriction' };
+    }
     const controllerId = action.controlledBy;
     const controller = newCharacters[controllerId as string];
     if (!controller) return { state, error: 'Controlling character not found' };

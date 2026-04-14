@@ -6,4 +6,4 @@
  */
 
 export { matchesCondition } from './condition-matcher.js';
-export { hasPlayFlag } from './play-flags.js';
+export { hasPlayFlag, hasNoDirectInfluenceRestriction } from './play-flags.js';
