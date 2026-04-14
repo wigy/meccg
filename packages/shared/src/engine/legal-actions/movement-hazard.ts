@@ -639,6 +639,7 @@ function playHazardsActions(
                     race: charDef.race,
                     skills: charDef.skills,
                     name: charDef.name,
+                    mind: charDef.mind,
                     possessions: possessionNames,
                   },
                 };

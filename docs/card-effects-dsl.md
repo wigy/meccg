@@ -966,3 +966,20 @@ to the next automatic-attack at a Ruins & Lairs site.
     } }
 ]
 ```
+
+### 28. `control-restriction`
+
+Restricts how the bearer character can be controlled.
+
+Rules:
+
+- `no-direct-influence` — the character cannot be controlled by direct
+  influence. On attachment, any existing DI control is reverted to general
+  influence. During organization, the character cannot be moved to DI.
+  Used by Rebel-talk (le-132). Implemented in `chain-reducer.ts`
+  (attachment revert) and `organization-companies.ts` (block
+  move-to-influence).
+
+```json
+{ "type": "control-restriction", "rule": "no-direct-influence" }
+```

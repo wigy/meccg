@@ -918,6 +918,7 @@ export function buildPlayOptionContext(
       status: statusToken(char.status),
       skills: def.skills,
       name: def.name,
+      mind: def.mind,
       inAvatarCompany,
     },
     pending: {

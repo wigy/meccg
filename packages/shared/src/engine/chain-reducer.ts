@@ -718,6 +718,34 @@ function resolvePermanentEvent(state: GameState, entry: ChainEntry): GameState {
     }
   }
 
+  // control-restriction: no-direct-influence — revert DI to GI on attach
+  if (targetCharId && def && 'effects' in def && def.effects?.some(
+    e => e.type === 'control-restriction' && e.rule === 'no-direct-influence',
+  )) {
+    for (let pi = 0; pi < 2; pi++) {
+      const char = newPlayers[pi].characters[targetCharId as string];
+      if (char && char.controlledBy !== 'general') {
+        logDetail(`"${def.name}" forces ${targetCharId as string} from DI to GI`);
+        const oldControllerId = char.controlledBy;
+        const oldCtrl = newPlayers[pi].characters[oldControllerId as string];
+        if (oldCtrl) {
+          newPlayers[pi] = {
+            ...newPlayers[pi],
+            characters: {
+              ...newPlayers[pi].characters,
+              [targetCharId as string]: { ...char, controlledBy: 'general' },
+              [oldControllerId as string]: {
+                ...oldCtrl,
+                followers: oldCtrl.followers.filter(id => id !== targetCharId),
+              },
+            },
+          };
+        }
+        break;
+      }
+    }
+  }
+
   let newState: GameState = { ...state, players: newPlayers };
 
   // Execute self-enters-play effects (e.g. discard-cards-in-play, add-constraint)
