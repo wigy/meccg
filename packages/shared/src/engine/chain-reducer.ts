@@ -753,7 +753,10 @@ function initiateCreatureCombat(state: GameState, entry: ChainEntry): GameState 
 
   const inPlayNames = buildInPlayNames(state);
   const creatureRace = creatureDef.race;
-  const effectiveProwess = resolveAttackProwess(state, creatureDef.prowess, inPlayNames, creatureRace);
+  const creatureSelf = creatureDef.effects?.length
+    ? { effects: creatureDef.effects, companyFacedRaces: company.facedCreatureRaces ?? [] }
+    : undefined;
+  const effectiveProwess = resolveAttackProwess(state, creatureDef.prowess, inPlayNames, creatureRace, false, creatureSelf);
   const effectiveStrikes = resolveAttackStrikes(state, creatureDef.strikes, inPlayNames, creatureRace);
 
   // Multi-attack: total strikes = count × effective strikes per attack

@@ -232,6 +232,13 @@ export interface Company {
    * movement distance for this company. Defaults to 0 when undefined.
    */
   readonly extraRegionDistance?: number | undefined;
+  /**
+   * Creature races this company has faced in combat during the current turn.
+   * Populated by {@link finalizeCombat} when a creature attack resolves.
+   * Used by creature self-effects (e.g. Orc-lieutenant: +4 prowess if
+   * company has already faced an Orc attack).
+   */
+  readonly facedCreatureRaces?: readonly string[] | undefined;
 }
 
 
