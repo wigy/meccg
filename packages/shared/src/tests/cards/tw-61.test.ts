@@ -22,8 +22,10 @@ import {
   Phase,
   handCardId,
 } from '../test-helpers.js';
-import type { CardInPlay, CardInstanceId, MovementHazardPhaseState } from '../../index.js';
-import { ETTENMOORS_HERO, ISENGARD, MINIONS_STIR, DOORS_OF_NIGHT } from '../../index.js';
+import type { CardInPlay, CardInstanceId, MovementHazardPhaseState, CardDefinitionId } from '../../index.js';
+import { ETTENMOORS_HERO, ISENGARD, DOORS_OF_NIGHT } from '../../index.js';
+
+const MINIONS_STIR = 'tw-61' as CardDefinitionId;
 
 // ─── Tests ─────────────────────────────────────────────────────────────────
 

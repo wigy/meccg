@@ -22,8 +22,10 @@ import {
   Phase,
   handCardId,
 } from '../test-helpers.js';
-import type { CardInPlay, CardInstanceId, MovementHazardPhaseState } from '../../index.js';
-import { ISENGARD, WAKE_OF_WAR, DOORS_OF_NIGHT } from '../../index.js';
+import type { CardInPlay, CardInstanceId, MovementHazardPhaseState, CardDefinitionId } from '../../index.js';
+import { ISENGARD, DOORS_OF_NIGHT } from '../../index.js';
+
+const WAKE_OF_WAR = 'tw-108' as CardDefinitionId;
 
 // ─── Tests ─────────────────────────────────────────────────────────────────
 

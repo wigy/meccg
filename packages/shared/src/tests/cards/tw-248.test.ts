@@ -30,7 +30,7 @@ import { describe, test, expect, beforeEach } from 'vitest';
 import {
   buildTestState, resetMint, Phase,
   PLAYER_1, PLAYER_2,
-  ARAGORN, LEGOLAS, GANDALF, CAVE_DRAKE, GREAT_SHIP,
+  ARAGORN, LEGOLAS, GANDALF, CAVE_DRAKE,
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH, EDHELLOND,
   pool, mint,
   makeMHState,
@@ -39,7 +39,10 @@ import {
 import type {
   HeroResourceEventCard,
   CancelHazardByTapAction,
+  CardDefinitionId,
 } from '../../index.js';
+
+const GREAT_SHIP = 'tw-248' as CardDefinitionId;
 import { RegionType, SiteType, CardStatus } from '../../index.js';
 import { computeLegalActions } from '../../engine/legal-actions/index.js';
 import { addConstraint, sweepExpired } from '../../engine/pending.js';

@@ -25,7 +25,7 @@ import {
   PLAYER_1, PLAYER_2,
   reduce,
   ARAGORN, LEGOLAS,
-  CHOKING_SHADOWS, DOORS_OF_NIGHT,
+  DOORS_OF_NIGHT,
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
   buildTestState, resetMint,
   viableActions, makeMHState,
@@ -33,7 +33,9 @@ import {
   handCardId, dispatch, playHazardAndResolve,
 } from '../test-helpers.js';
 import { Phase, SiteType, RegionType, CardStatus } from '../../index.js';
-import type { GameState, HazardEventCard, MovementHazardPhaseState, CardInstanceId } from '../../index.js';
+import type { GameState, HazardEventCard, MovementHazardPhaseState, CardInstanceId, CardDefinitionId } from '../../index.js';
+
+const CHOKING_SHADOWS = 'tw-21' as CardDefinitionId;
 
 // ─── Tests ────────────────────────────────────────────────────────────────────
 

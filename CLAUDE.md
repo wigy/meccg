@@ -109,6 +109,16 @@ All server-side logic must include detailed logging so that the game's decision-
 - The upstream source is <https://raw.githubusercontent.com/council-of-elrond-meccg/meccg-cards-database/master/cards.json> — refresh the local copy from there when needed.
 - For per-card rulings, errata, and clarifications on how a card's text actually plays, consult the CRF 22 card errata and rulings page: <https://meccg.com/rules/collected-rulings-and-errata-crf/crf-22/card-errata-and-rulings/>. Use this whenever a card's behavior is ambiguous or when implementing/certifying a card whose text needs interpretation.
 
+### `card-ids.ts` Constants Policy
+
+Only add a constant to `packages/shared/src/card-ids.ts` when the card ID is referenced in **more than one file** (typically a card-specific test plus another consumer). IDs used in a single test file must be declared locally in that test file:
+
+```ts
+const MY_CARD = 'tw-123' as CardDefinitionId;
+```
+
+Promoting every new card ID to `card-ids.ts` causes frequent merge conflicts as parallel branches touch the same shared file. Single-use constants belong with their only consumer.
+
 ### Card Certification
 
 - Card certification is the process of implementing a card's effects in the DSL and verifying with a test that the card works as its text defines.

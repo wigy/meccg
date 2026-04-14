@@ -44,10 +44,13 @@ import {
   computeLegalActions,
   GREY_HAVENS,
   ETTENMOORS_HERO, THE_WHITE_TOWERS_HERO, BARROW_DOWNS, OLD_FOREST, BAG_END, BREE,
-  GOBLIN_GATE, THE_WORTHY_HILLS, DUNNISH_CLAN_HOLD,
+  DUNNISH_CLAN_HOLD,
   isSiteCard, buildMovementMap, getReachableSites,
 } from '../../index.js';
-import type { SiteCard } from '../../index.js';
+import type { SiteCard, CardDefinitionId } from '../../index.js';
+
+const GOBLIN_GATE = 'tw-398' as CardDefinitionId;
+const THE_WORTHY_HILLS = 'as-142' as CardDefinitionId;
 
 // ─── Tests ───────────────────────────────────────────────────────────────────
 
