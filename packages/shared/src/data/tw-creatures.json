@@ -184,9 +184,17 @@
         ]
       }
     ],
-    "effects": [],
+    "effects": [
+      {
+        "type": "stat-modifier",
+        "stat": "prowess",
+        "value": 4,
+        "when": { "company.facedRaces": { "$includes": "orc" } }
+      }
+    ],
     "text": "Orcs. One strike. If played on a company that has already faced an Orc attack this turn, Orc-lieutenant receives +4 prowess.",
-    "race": "orc"
+    "race": "orc",
+    "certified": "2026-04-14"
   },
   {
     "cardType": "hazard-creature",
@@ -212,9 +220,17 @@
         ]
       }
     ],
-    "effects": [],
+    "effects": [
+      {
+        "type": "stat-modifier",
+        "stat": "prowess",
+        "value": 3,
+        "when": { "company.facedRaces": { "$includes": "orc" } }
+      }
+    ],
     "text": "Orcs. Five strikes. If played on a company that has already faced an Orc attack this turn, Orc-warband receives +3 prowess.",
-    "race": "orc"
+    "race": "orc",
+    "certified": "2026-04-14"
   },
   {
     "cardType": "hazard-creature",
