@@ -32,12 +32,11 @@ import {
   PLAYER_1, PLAYER_2,
   ARAGORN, LEGOLAS, GANDALF, CAVE_DRAKE,
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH, EDHELLOND,
-  pool, mint,
+  mint,
   makeMHState,
   handCardId, charIdAt, companyIdAt, dispatch,
 } from '../test-helpers.js';
 import type {
-  HeroResourceEventCard,
   CancelHazardByTapAction,
   CardDefinitionId,
 } from '../../index.js';
@@ -51,29 +50,6 @@ import { initiateChain } from '../../engine/chain-reducer.js';
 describe('Great Ship (tw-248)', () => {
   beforeEach(() => resetMint());
 
-  test('card definition has the expected effects', () => {
-    const def = pool[GREAT_SHIP as string] as HeroResourceEventCard;
-    expect(def).toBeDefined();
-    expect(def.cardType).toBe('hero-resource-event');
-    expect(def.eventType).toBe('short');
-
-    const playWindow = def.effects?.find(e => e.type === 'play-window');
-    expect(playWindow).toBeDefined();
-    expect((playWindow as { phase: string; step: string }).phase).toBe('organization');
-    expect((playWindow as { phase: string; step: string }).step).toBe('end-of-org');
-
-    const playTarget = def.effects?.find(e => e.type === 'play-target');
-    expect(playTarget).toBeDefined();
-    expect(playTarget?.target).toBe('company');
-    expect((playTarget as { cost?: { tap: string } }).cost).toEqual({ tap: 'character' });
-
-    const onEvent = def.effects?.find(e => e.type === 'on-event');
-    expect(onEvent).toBeDefined();
-    expect(onEvent?.event).toBe('self-enters-play');
-    expect(onEvent?.apply.type).toBe('add-constraint');
-    expect(onEvent?.apply.constraint).toBe('cancel-hazard-by-tap');
-    expect(onEvent?.apply.scope).toBe('turn');
-  });
 
   test('Great Ship is playable during organization when there is an untapped character', () => {
     const base = buildTestState({

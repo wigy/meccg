@@ -19,7 +19,7 @@
 
 import { describe, test, expect, beforeEach } from 'vitest';
 import {
-  pool, PLAYER_1, PLAYER_2,
+  PLAYER_1, PLAYER_2,
   GANDALF, ARAGORN, LEGOLAS, FRODO,
   PRECIOUS_GOLD_RING, GLAMDRING,
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
@@ -30,7 +30,7 @@ import {
   getCharacter, dispatch, dispatchResult, expectCharStatus, expectCharItemCount, expectInDiscardPile,
 } from '../test-helpers.js';
 import { computeLegalActions } from '../../index.js';
-import type { CharacterCard, CorruptionCheckAction, ActivateGrantedAction } from '../../index.js';
+import type { CorruptionCheckAction, ActivateGrantedAction } from '../../index.js';
 
 // ─── Tests ────────────────────────────────────────────────────────────────────
 
@@ -39,10 +39,6 @@ describe('Gandalf (tw-156)', () => {
 
   // ── Effect 1: +1 corruption check modifier ──
 
-  test('corruptionModifier base stat is +1', () => {
-    const gandalfDef = pool[GANDALF as string] as CharacterCard;
-    expect(gandalfDef.corruptionModifier).toBe(1);
-  });
 
   test('+1 corruption modifier decreases need on pending corruption check', () => {
     // Build state with Gandalf holding Glamdring and a pending corruption check

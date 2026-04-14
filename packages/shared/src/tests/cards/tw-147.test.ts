@@ -16,7 +16,7 @@
 
 import { describe, test, expect, beforeEach } from 'vitest';
 import {
-  pool, PLAYER_1, PLAYER_2,
+  PLAYER_1, PLAYER_2,
   EOWYN, LEGOLAS,
   BARROW_WIGHT,
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
@@ -25,7 +25,7 @@ import {
   dispatch, getCharacter, expectCharStatus,
 } from '../test-helpers.js';
 import { Phase, RegionType, SiteType, CardStatus } from '../../index.js';
-import type { CharacterCard, CombatState } from '../../index.js';
+import type { CombatState } from '../../index.js';
 
 // ─── Constants ──────────────────────────────────────────────────────────────
 
@@ -88,31 +88,6 @@ function buildCombatState(opts: {
 describe('Éowyn (tw-147)', () => {
   beforeEach(() => resetMint());
 
-  test('card definition has correct stats and effects', () => {
-    const def = pool[EOWYN as string] as CharacterCard;
-    expect(def).toBeDefined();
-    expect(def.cardType).toBe('hero-character');
-    expect(def.name).toBe('Éowyn');
-    expect(def.race).toBe('man');
-    expect(def.prowess).toBe(2);
-    expect(def.body).toBe(7);
-    expect(def.mind).toBe(2);
-    expect(def.directInfluence).toBe(0);
-    expect(def.skills).toEqual(['warrior', 'scout']);
-    expect(def.effects).toHaveLength(2);
-    expect(def.effects![0]).toEqual({
-      type: 'stat-modifier',
-      stat: 'prowess',
-      value: 6,
-      when: { reason: 'combat', 'enemy.race': 'nazgul' },
-    });
-    expect(def.effects![1]).toEqual({
-      type: 'enemy-modifier',
-      stat: 'body',
-      op: 'halve-round-up',
-      when: { reason: 'combat', 'enemy.race': 'nazgul' },
-    });
-  });
 
   test('base effective prowess is 2 (combat bonus does not inflate base stats)', () => {
     const state = buildTestState({

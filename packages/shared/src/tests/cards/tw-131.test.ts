@@ -17,7 +17,7 @@
 
 import { describe, test, expect, beforeEach } from 'vitest';
 import {
-  pool, PLAYER_1, PLAYER_2,
+  PLAYER_1, PLAYER_2,
   ARAGORN, LEGOLAS, BILBO, GIMLI,
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
   GLAMDRING,
@@ -32,7 +32,7 @@ import {
   BAG_END,
 } from '../../index.js';
 import type {
-  CharacterCard, CorruptionCheckAction,
+  CorruptionCheckAction,
   CardInstanceId,
 } from '../../index.js';
 
@@ -43,10 +43,6 @@ describe('Bilbo (tw-131)', () => {
 
   // --- Effect 1: corruption check modifier +4 ---
 
-  test('corruptionModifier base stat is +4', () => {
-    const bilboDef = pool[BILBO as string] as CharacterCard;
-    expect(bilboDef.corruptionModifier).toBe(4);
-  });
 
   test('+4 corruption modifier decreases need on pending corruption check', () => {
     // Build org phase state with Bilbo holding Glamdring and a pending

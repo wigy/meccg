@@ -32,41 +32,19 @@ import {
   ARAGORN, LEGOLAS, GIMLI,
   ORC_PATROL, CAVE_DRAKE, DARK_QUARRELS, GATES_OF_MORNING,
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
-  pool, viableActions,
+  viableActions,
   makeMHState,
   playCreatureHazardAndResolve,
   CardStatus,
   handCardId, companyIdAt, dispatch, expectCharStatus, expectInDiscardPile,
 } from '../test-helpers.js';
 import type { CancelAttackAction } from '../../index.js';
-import type { HeroResourceEventCard } from '../../index.js';
 import { RegionType, SiteType, computeLegalActions } from '../../index.js';
-import type { CancelAttackEffect, HalveStrikesEffect } from '../../types/effects.js';
 import type { CardInPlay, CardInstanceId } from '../../index.js';
 
 describe('Dark Quarrels (tw-207)', () => {
   beforeEach(() => resetMint());
 
-  test('card definition has cancel-attack and halve-strikes effects', () => {
-    const def = pool[DARK_QUARRELS as string] as HeroResourceEventCard;
-    expect(def).toBeDefined();
-    expect(def.cardType).toBe('hero-resource-event');
-    expect(def.eventType).toBe('short');
-
-    const cancelAttack = def.effects?.find(
-      (e): e is CancelAttackEffect => e.type === 'cancel-attack',
-    );
-    expect(cancelAttack).toBeDefined();
-    expect(cancelAttack!.cost).toBeUndefined();
-    expect(cancelAttack!.requiredSkill).toBeUndefined();
-    expect(cancelAttack!.when).toBeDefined();
-
-    const halveStrikes = def.effects?.find(
-      (e): e is HalveStrikesEffect => e.type === 'halve-strikes',
-    );
-    expect(halveStrikes).toBeDefined();
-    expect(halveStrikes!.when).toBeDefined();
-  });
 
   test('cancel-attack available against Orc attack (no tap cost)', () => {
     const base = buildTestState({

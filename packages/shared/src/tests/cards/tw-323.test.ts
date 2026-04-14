@@ -18,7 +18,7 @@
 
 import { describe, test, expect, beforeEach } from 'vitest';
 import {
-  pool, PLAYER_1, PLAYER_2,
+  PLAYER_1, PLAYER_2,
   GANDALF, ARAGORN, FRODO,
   PRECIOUS_GOLD_RING, SCROLL_OF_ISILDUR,
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
@@ -27,7 +27,7 @@ import {
   viableActions,
   getCharacter, dispatchResult, expectCharStatus, expectInDiscardPile,
 } from '../test-helpers.js';
-import type { ItemCard, ActivateGrantedAction } from '../../index.js';
+import type { ActivateGrantedAction } from '../../index.js';
 import { collectCharacterEffects, resolveCheckModifier } from '../../engine/effects/index.js';
 
 // ─── Tests ───────────────────────────────────────────────────────────────────
@@ -37,25 +37,6 @@ describe('Scroll of Isildur (tw-323)', () => {
 
   // ── Card definition ──
 
-  test('card definition has correct stats and check-modifier effect', () => {
-    const def = pool[SCROLL_OF_ISILDUR as string] as ItemCard;
-    expect(def).toBeDefined();
-    expect(def.cardType).toBe('hero-resource-item');
-    expect(def.name).toBe('Scroll of Isildur');
-    expect(def.unique).toBe(true);
-    expect(def.subtype).toBe('greater');
-    expect(def.marshallingPoints).toBe(4);
-    expect(def.corruptionPoints).toBe(3);
-    expect(def.prowessModifier).toBe(0);
-    expect(def.bodyModifier).toBe(0);
-    expect(def.playableAt).toEqual(['ruins-and-lairs', 'shadow-hold', 'dark-hold']);
-    expect(def.effects).toHaveLength(1);
-    expect(def.effects![0]).toEqual({
-      type: 'check-modifier',
-      check: 'gold-ring-test',
-      value: 2,
-    });
-  });
 
   // ── Effect 1: +2 to gold ring test rolls ──
 

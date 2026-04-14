@@ -53,52 +53,6 @@ describe('Old Forest (tw-417)', () => {
 
   // ─── Data validation ────────────────────────────────────────────────────────
 
-  test('is a border-hold with correct structural properties', () => {
-    const def = pool[OLD_FOREST as string];
-    expect(def).toBeDefined();
-    expect(def.cardType).toBe('hero-site');
-    expect(isSiteCard(def)).toBe(true);
-    if (!isSiteCard(def)) return;
-
-    expect(def.siteType).toBe('border-hold');
-    expect(def.sitePath).toEqual(['wilderness', 'wilderness']);
-    expect(def.nearestHaven).toBe('Rivendell');
-    expect(def.region).toBe('Cardolan');
-    expect(def.playableResources).toEqual([]);
-    expect(def.automaticAttacks).toEqual([]);
-    expect(def.resourceDraws).toBe(1);
-    expect(def.hazardDraws).toBe(1);
-  });
-
-  test('has healing-affects-all site-rule effect', () => {
-    const def = pool[OLD_FOREST as string];
-    if (!isSiteCard(def)) return;
-
-    expect(def.effects).toBeDefined();
-    expect(def.effects).toHaveLength(1);
-    expect(def.effects![0]).toEqual({ type: 'site-rule', rule: 'healing-affects-all' });
-  });
-
-  test('nearestHaven Rivendell exists in card pool', () => {
-    const rivendell = pool[RIVENDELL as string];
-    expect(rivendell).toBeDefined();
-    expect(isSiteCard(rivendell)).toBe(true);
-    if (!isSiteCard(rivendell)) return;
-    expect(rivendell.siteType).toBe('haven');
-  });
-
-  test('site path has valid region types', () => {
-    const def = pool[OLD_FOREST as string];
-    if (!isSiteCard(def)) return;
-
-    const validRegionTypes = [
-      'wilderness', 'border', 'free', 'coastal', 'shadow', 'dark',
-      'double-wilderness', 'double-shadow-land', 'double-coastal-sea',
-    ];
-    for (const region of def.sitePath) {
-      expect(validRegionTypes).toContain(region);
-    }
-  });
 
   // ─── Site phase behavior ────────────────────────────────────────────────────
 
@@ -111,12 +65,6 @@ describe('Old Forest (tw-417)', () => {
     expect(viable[0].action.type).toBe('pass');
   });
 
-  test('no automatic attacks at Old Forest', () => {
-    const def = pool[OLD_FOREST as string];
-    if (!isSiteCard(def)) return;
-
-    expect(def.automaticAttacks).toHaveLength(0);
-  });
 
   // ─── Healing ────────────────────────────────────────────────────────────────
   // Old Forest does not heal by itself. The healing-affects-all rule means

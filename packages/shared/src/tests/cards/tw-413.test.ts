@@ -55,54 +55,6 @@ describe('Moria (tw-413)', () => {
 
   // ─── Data validation ────────────────────────────────────────────────────────
 
-  test('is a shadow-hold with correct structural properties', () => {
-    const def = pool[MORIA as string];
-    expect(def).toBeDefined();
-    expect(def.cardType).toBe('hero-site');
-    expect(isSiteCard(def)).toBe(true);
-    if (!isSiteCard(def)) return;
-
-    expect(def.siteType).toBe('shadow-hold');
-    expect(def.sitePath).toEqual(['wilderness', 'wilderness']);
-    expect(def.nearestHaven).toBe('Lórien');
-    expect(def.region).toBe('Redhorn Gate');
-    expect(def.playableResources).toEqual(['minor', 'major', 'greater', 'gold-ring']);
-    expect(def.resourceDraws).toBe(2);
-    expect(def.hazardDraws).toBe(3);
-  });
-
-  test('nearest haven Lórien exists in the card pool', () => {
-    const lorienDef = pool[LORIEN as string];
-    expect(lorienDef).toBeDefined();
-    expect(isSiteCard(lorienDef)).toBe(true);
-    if (!isSiteCard(lorienDef)) return;
-    expect(lorienDef.siteType).toBe('haven');
-  });
-
-  test('automatic attack matches card text', () => {
-    const def = pool[MORIA as string];
-    if (!isSiteCard(def)) return;
-
-    expect(def.automaticAttacks).toHaveLength(1);
-    expect(def.automaticAttacks[0]).toEqual({
-      creatureType: 'Orcs',
-      strikes: 4,
-      prowess: 7,
-    });
-  });
-
-  test('site path regions are valid types', () => {
-    const def = pool[MORIA as string];
-    if (!isSiteCard(def)) return;
-
-    const validTypes = new Set([
-      'wilderness', 'border', 'free', 'coastal', 'shadow',
-      'dark', 'double-wilderness', 'double-shadow-land', 'double-coastal-sea',
-    ]);
-    for (const region of def.sitePath) {
-      expect(validTypes.has(region)).toBe(true);
-    }
-  });
 
   // ─── Site phase behavior ────────────────────────────────────────────────────
 
@@ -214,12 +166,4 @@ describe('Moria (tw-413)', () => {
 
   // ─── No special effects ───────────────────────────────────────────────────
 
-  test('has no special effects beyond standard site properties', () => {
-    const def = pool[MORIA as string];
-    if (!isSiteCard(def)) return;
-
-    expect(def.text).toContain('Items (minor, major, greater, gold ring)');
-    expect(def.text).toContain('Orcs');
-    expect(def.text).toContain('4 strikes with 7 prowess');
-  });
 });

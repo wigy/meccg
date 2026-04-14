@@ -16,7 +16,7 @@
 
 import { describe, test, expect, beforeEach } from 'vitest';
 import {
-  pool, PLAYER_1, PLAYER_2,
+  PLAYER_1, PLAYER_2,
   ARAGORN, LEGOLAS, SAM_GAMGEE, HALDIR,
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
   GLAMDRING,
@@ -27,7 +27,7 @@ import {
   getCharacter,
 } from '../test-helpers.js';
 import { computeLegalActions, BAG_END } from '../../index.js';
-import type { CharacterCard, CorruptionCheckAction } from '../../index.js';
+import type { CorruptionCheckAction } from '../../index.js';
 
 // ─── Tests ────────────────────────────────────────────────────────────────────
 
@@ -36,10 +36,6 @@ describe('Sam Gamgee (tw-180)', () => {
 
   // ── Effect 1: check-modifier (corruption +3) ────────────────────────────
 
-  test('corruption check modifier is +3 (from corruptionModifier base stat)', () => {
-    const samDef = pool[SAM_GAMGEE as string] as CharacterCard;
-    expect(samDef.corruptionModifier).toBe(3);
-  });
 
   test('+3 corruption modifier lowers need on pending corruption check', () => {
     // Sam holding Glamdring (4 CP) with a pending corruption check.

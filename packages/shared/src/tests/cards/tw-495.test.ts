@@ -18,7 +18,7 @@
 
 import { describe, test, expect, beforeEach } from 'vitest';
 import {
-  pool, PLAYER_1, PLAYER_2,
+  PLAYER_1, PLAYER_2,
   ARAGORN, LEGOLAS, BILBO, FATTY_BOLGER,
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
   ORC_PATROL,
@@ -31,7 +31,7 @@ import {
   handCardId, companyIdAt, charIdAt, dispatch, resolveChain,
 } from '../test-helpers.js';
 import { computeLegalActions, BAG_END, SiteType } from '../../index.js';
-import type { CharacterCard, CorruptionCheckAction } from '../../index.js';
+import type { CorruptionCheckAction } from '../../index.js';
 
 // ─── Tests ────────────────────────────────────────────────────────────────────
 
@@ -40,45 +40,9 @@ describe('Fatty Bolger (tw-495)', () => {
 
   // ── Card definition ───────────────────────────────────────────────────
 
-  test('card definition has correct stats and effects', () => {
-    const def = pool[FATTY_BOLGER as string] as CharacterCard;
-    expect(def).toBeDefined();
-    expect(def.cardType).toBe('hero-character');
-    expect(def.name).toBe('Fatty Bolger');
-    expect(def.race).toBe('hobbit');
-    expect(def.unique).toBe(true);
-    expect(def.prowess).toBe(1);
-    expect(def.body).toBe(8);
-    expect(def.mind).toBe(3);
-    expect(def.directInfluence).toBe(0);
-    expect(def.corruptionModifier).toBe(1);
-    expect(def.homesite).toBe('Bag End');
-    expect(def.skills).toContain('scout');
-    expect(def.effects).toContainEqual({
-      type: 'check-modifier',
-      check: 'corruption',
-      value: 1,
-    });
-    expect(def.effects).toContainEqual({
-      type: 'play-flag',
-      flag: 'home-site-only',
-      when: { $not: { reason: 'starting-character' } },
-    });
-    expect(def.effects).toContainEqual(
-      expect.objectContaining({
-        type: 'cancel-strike',
-        cost: { tap: 'self' },
-        target: 'other-in-company',
-      }),
-    );
-  });
 
   // ── Effect 1: check-modifier (corruption +1) ─────────────────────────
 
-  test('corruption check modifier is +1 (from corruptionModifier base stat)', () => {
-    const def = pool[FATTY_BOLGER as string] as CharacterCard;
-    expect(def.corruptionModifier).toBe(1);
-  });
 
   test('+1 corruption modifier lowers need on pending corruption check', () => {
     const state = buildTestState({

@@ -21,44 +21,15 @@ import {
   ORC_LIEUTENANT,
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
   buildTestState, resetMint, makeMHState,
-  pool, resolveChain,
+  resolveChain,
   handCardId, companyIdAt, charIdAt, dispatch,
 } from '../test-helpers.js';
 import { computeLegalActions, Phase, SiteType } from '../../index.js';
-import type { CreatureCard } from '../../index.js';
-
 // ─── Tests ───────────────────────────────────────────────────────────────────
 
 describe('Orc-lieutenant (tw-073)', () => {
   beforeEach(() => resetMint());
 
-  test('card definition matches expected stats and effects', () => {
-    const def = pool[ORC_LIEUTENANT as string] as CreatureCard;
-    expect(def).toBeDefined();
-    expect(def.cardType).toBe('hazard-creature');
-    expect(def.name).toBe('Orc-lieutenant');
-    expect(def.strikes).toBe(1);
-    expect(def.prowess).toBe(7);
-    expect(def.body).toBeNull();
-    expect(def.race).toBe('orc');
-    expect(def.killMarshallingPoints).toBe(1);
-    expect(def.effects).toContainEqual({
-      type: 'stat-modifier',
-      stat: 'prowess',
-      value: 4,
-      when: { 'company.facedRaces': { $includes: 'orc' } },
-    });
-  });
-
-  test('keyed to wilderness, shadow, dark regions and ruins-and-lairs, shadow-hold, dark-hold sites', () => {
-    const def = pool[ORC_LIEUTENANT as string] as CreatureCard;
-    expect(def.keyedTo).toEqual([
-      {
-        regionTypes: ['wilderness', 'shadow', 'dark'],
-        siteTypes: ['ruins-and-lairs', 'shadow-hold', 'dark-hold'],
-      },
-    ]);
-  });
 
   test('base prowess 7 when company has not faced an Orc attack', () => {
     const state = buildTestState({

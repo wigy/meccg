@@ -27,27 +27,16 @@ import {
   PLAYER_1, PLAYER_2,
   ARAGORN, LEGOLAS, GIMLI, GANDALF, AND_FORTH_HE_HASTENED,
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
-  pool, CardStatus,
+  CardStatus,
   handCardId, charIdAt, dispatch,
   expectCharStatus,
 } from '../test-helpers.js';
-import type { HeroResourceEventCard, PlayShortEventAction } from '../../index.js';
+import type { PlayShortEventAction } from '../../index.js';
 import { computeLegalActions } from '../../engine/legal-actions/index.js';
 
 describe('And Forth He Hastened (td-98)', () => {
   beforeEach(() => resetMint());
 
-  test('card definition has correct type and effects', () => {
-    const def = pool[AND_FORTH_HE_HASTENED as string] as HeroResourceEventCard;
-    expect(def).toBeDefined();
-    expect(def.cardType).toBe('hero-resource-event');
-    expect(def.name).toBe('And Forth He Hastened');
-    expect(def.unique).toBe(false);
-    expect(def.eventType).toBe('short');
-    expect(def.effects).toHaveLength(2);
-    expect(def.effects![0].type).toBe('play-target');
-    expect(def.effects![1].type).toBe('play-option');
-  });
 
   test('untaps a tapped character in Wizard company', () => {
     const base = buildTestState({

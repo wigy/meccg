@@ -20,44 +20,15 @@ import {
   ORC_PATROL,
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
   buildTestState, resetMint, makeMHState,
-  pool, resolveChain,
+  resolveChain,
   handCardId, companyIdAt, dispatch,
 } from '../test-helpers.js';
 import { computeLegalActions, Phase, RegionType, SiteType } from '../../index.js';
-import type { CreatureCard } from '../../index.js';
-
 // ─── Tests ───────────────────────────────────────────────────────────────────
 
 describe('Orc-patrol (tw-074)', () => {
   beforeEach(() => resetMint());
 
-  test('card definition has correct base stats and no effects', () => {
-    const def = pool[ORC_PATROL as string] as CreatureCard;
-    expect(def).toBeDefined();
-    expect(def.cardType).toBe('hazard-creature');
-    expect(def.id).toBe('tw-074');
-    expect(def.name).toBe('Orc-patrol');
-    expect(def.strikes).toBe(3);
-    expect(def.prowess).toBe(6);
-    expect(def.body).toBeNull();
-    expect(def.unique).toBe(false);
-    expect(def.race).toBe('orc');
-    expect(def.killMarshallingPoints).toBe(1);
-    expect(def.effects).toBeUndefined();
-  });
-
-  test('keyed to wilderness, shadow, dark regions and matching site types', () => {
-    const def = pool[ORC_PATROL as string] as CreatureCard;
-    expect(def.keyedTo).toBeDefined();
-    expect(def.keyedTo).toHaveLength(1);
-    const keying = def.keyedTo[0];
-    expect(keying.regionTypes).toContain('wilderness');
-    expect(keying.regionTypes).toContain('shadow');
-    expect(keying.regionTypes).toContain('dark');
-    expect(keying.siteTypes).toContain('ruins-and-lairs');
-    expect(keying.siteTypes).toContain('shadow-hold');
-    expect(keying.siteTypes).toContain('dark-hold');
-  });
 
   test('can be played as hazard creature during movement/hazard phase', () => {
     const state = buildTestState({

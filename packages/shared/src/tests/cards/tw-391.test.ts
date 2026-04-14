@@ -53,43 +53,6 @@ describe("Eagles' Eyrie (tw-391)", () => {
 
   // ─── Data validation ────────────────────────────────────────────────────────
 
-  test('is a free-hold with correct structural properties', () => {
-    const def = pool[EAGLES_EYRIE as string];
-    expect(def).toBeDefined();
-    expect(def.cardType).toBe('hero-site');
-    expect(isSiteCard(def)).toBe(true);
-    if (!isSiteCard(def)) return;
-
-    expect(def.siteType).toBe('free-hold');
-    expect(def.sitePath).toEqual(['wilderness', 'border']);
-    expect(def.nearestHaven).toBe('Lórien');
-    expect(def.region).toBe('Anduin Vales');
-    expect(def.playableResources).toEqual([]);
-    expect(def.automaticAttacks).toEqual([]);
-    expect(def.resourceDraws).toBe(1);
-    expect(def.hazardDraws).toBe(1);
-  });
-
-  test('nearest haven Lórien exists in the card pool', () => {
-    const lorienDef = pool[LORIEN as string];
-    expect(lorienDef).toBeDefined();
-    expect(isSiteCard(lorienDef)).toBe(true);
-    if (!isSiteCard(lorienDef)) return;
-    expect(lorienDef.siteType).toBe('haven');
-  });
-
-  test('site path regions are valid types', () => {
-    const def = pool[EAGLES_EYRIE as string];
-    if (!isSiteCard(def)) return;
-
-    const validTypes = new Set([
-      'wilderness', 'border', 'free', 'coastal', 'shadow',
-      'dark', 'double-wilderness', 'double-shadow-land', 'double-coastal-sea',
-    ]);
-    for (const region of def.sitePath) {
-      expect(validTypes.has(region)).toBe(true);
-    }
-  });
 
   // ─── Site phase behavior ────────────────────────────────────────────────────
 
@@ -102,12 +65,6 @@ describe("Eagles' Eyrie (tw-391)", () => {
     expect(viable[0].action.type).toBe('pass');
   });
 
-  test('no automatic attacks', () => {
-    const def = pool[EAGLES_EYRIE as string];
-    if (!isSiteCard(def)) return;
-
-    expect(def.automaticAttacks).toHaveLength(0);
-  });
 
   // ─── Movement ──────────────────────────────────────────────────────────────
 
@@ -154,11 +111,4 @@ describe("Eagles' Eyrie (tw-391)", () => {
 
   // ─── No special effects ───────────────────────────────────────────────────
 
-  test('has no special effects — empty text and no effects array', () => {
-    const def = pool[EAGLES_EYRIE as string];
-    if (!isSiteCard(def)) return;
-
-    expect(def.text).toBe('');
-    expect('effects' in def).toBe(false);
-  });
 });

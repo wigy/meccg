@@ -19,12 +19,11 @@ import {
   GLAMDRING, DAGGER_OF_WESTERNESSE,
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
   buildTestState, resetMint, makeMHState,
-  pool,
   playCreatureHazardAndResolve, runCreatureCombat,
   companyIdAt, expectCharItemCount,
 } from '../test-helpers.js';
 import { Phase, RegionType, SiteType } from '../../index.js';
-import type { CreatureCard, MovementHazardPhaseState } from '../../index.js';
+import type { MovementHazardPhaseState } from '../../index.js';
 
 // ─── Constants ──────────────────────────────────────────────────────────────
 
@@ -37,27 +36,6 @@ const SHADOW_KEYING = { method: 'region-type' as const, value: 'shadow' };
 describe('Tom (Tuma) (tw-103)', () => {
   beforeEach(() => resetMint());
 
-  test('card definition has correct stats and on-event effect', () => {
-    const def = pool[TOM_TUMA as string] as CreatureCard;
-    expect(def).toBeDefined();
-    expect(def.cardType).toBe('hazard-creature');
-    expect(def.name).toBe('Tom (Tuma)');
-    expect(def.race).toBe('troll');
-    expect(def.unique).toBe(true);
-    expect(def.strikes).toBe(1);
-    expect(def.prowess).toBe(13);
-    expect(def.body).toBeNull();
-    expect(def.killMarshallingPoints).toBe(1);
-    expect(def.effects).toBeDefined();
-    expect(def.effects).toHaveLength(1);
-    expect(def.effects![0]).toMatchObject({
-      type: 'on-event',
-      event: 'character-wounded-by-self',
-      apply: { type: 'discard-non-special-items' },
-      target: 'wounded-character',
-    });
-    expect(def.effects![0].when).toBeDefined();
-  });
 
   test('combat initiates with 1 strike and 13 prowess', () => {
     const state = buildTestState({

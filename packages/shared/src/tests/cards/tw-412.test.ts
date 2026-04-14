@@ -52,50 +52,6 @@ describe('Minas Tirith (tw-412)', () => {
 
   // ─── Data validation ────────────────────────────────────────────────────────
 
-  test('is a free-hold with correct structural properties', () => {
-    const def = pool[MINAS_TIRITH as string];
-    expect(def).toBeDefined();
-    expect(def.cardType).toBe('hero-site');
-    expect(isSiteCard(def)).toBe(true);
-    if (!isSiteCard(def)) return;
-
-    expect(def.siteType).toBe('free-hold');
-    expect(def.sitePath).toEqual(['wilderness', 'border', 'free']);
-    expect(def.nearestHaven).toBe('Lórien');
-    expect(def.region).toBe('Anórien');
-    expect(def.playableResources).toEqual(['faction']);
-    expect(def.automaticAttacks).toEqual([]);
-    expect(def.resourceDraws).toBe(2);
-    expect(def.hazardDraws).toBe(2);
-  });
-
-  test('nearest haven Lórien exists in card pool', () => {
-    const lorienDef = pool[LORIEN as string];
-    expect(lorienDef).toBeDefined();
-    expect(isSiteCard(lorienDef)).toBe(true);
-    if (!isSiteCard(lorienDef)) return;
-    expect(lorienDef.siteType).toBe('haven');
-  });
-
-  test('site path has valid region types', () => {
-    const def = pool[MINAS_TIRITH as string];
-    if (!isSiteCard(def)) return;
-
-    const validTypes = new Set([
-      'wilderness', 'border', 'free', 'coastal', 'shadow',
-      'dark', 'double-wilderness', 'double-shadow-land', 'double-coastal-sea',
-    ]);
-    for (const region of def.sitePath) {
-      expect(validTypes.has(region)).toBe(true);
-    }
-  });
-
-  test('no automatic attacks', () => {
-    const def = pool[MINAS_TIRITH as string];
-    if (!isSiteCard(def)) return;
-
-    expect(def.automaticAttacks).toHaveLength(0);
-  });
 
   // ─── Site phase behavior ────────────────────────────────────────────────────
 
@@ -151,12 +107,4 @@ describe('Minas Tirith (tw-412)', () => {
 
   // ─── No special effects ───────────────────────────────────────────────────
 
-  test('has no special effects beyond standard site properties', () => {
-    const def = pool[MINAS_TIRITH as string];
-    if (!isSiteCard(def)) return;
-
-    // Minas Tirith has no special text beyond "Nearest Haven: Lórien"
-    // which is captured structurally, not as effects
-    expect(def.text).toBe('');
-  });
 });

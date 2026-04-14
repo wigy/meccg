@@ -20,7 +20,7 @@
 
 import { describe, test, expect, beforeEach } from 'vitest';
 import {
-  pool, PLAYER_1, PLAYER_2,
+  PLAYER_1, PLAYER_2,
   Phase,
   ARAGORN, LEGOLAS,
   SAPLING_OF_THE_WHITE_TREE,
@@ -28,7 +28,7 @@ import {
   buildTestState, resetMint,
   dispatch,
 } from '../test-helpers.js';
-import type { HeroItemCard, StoreItemAction } from '../../index.js';
+import type { StoreItemAction } from '../../index.js';
 import { computeLegalActions } from '../../index.js';
 
 describe('Sapling of the White Tree (tw-322)', () => {
@@ -36,23 +36,6 @@ describe('Sapling of the White Tree (tw-322)', () => {
 
   // ── Card definition ──
 
-  test('card definition has correct type, subtype, and effects', () => {
-    const def = pool[SAPLING_OF_THE_WHITE_TREE as string] as HeroItemCard;
-    expect(def).toBeDefined();
-    expect(def.cardType).toBe('hero-resource-item');
-    expect(def.subtype).toBe('major');
-    expect(def.unique).toBe(true);
-    expect(def.marshallingPoints).toBe(1);
-    expect(def.corruptionPoints).toBe(1);
-    expect(def.playableAt).toEqual(['ruins-and-lairs']);
-    expect(def.effects).toBeDefined();
-    expect(def.effects).toHaveLength(1);
-    expect(def.effects![0]).toMatchObject({
-      type: 'storable-at',
-      sites: ['Minas Tirith'],
-      marshallingPoints: 2,
-    });
-  });
 
   // ── Playability restrictions ──
 

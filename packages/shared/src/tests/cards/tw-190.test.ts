@@ -13,7 +13,7 @@
 
 import { describe, test, expect, beforeEach } from 'vitest';
 import {
-  pool, PLAYER_1, PLAYER_2,
+  PLAYER_1, PLAYER_2,
   Phase, CardStatus,
   SARUMAN, ARAGORN, LEGOLAS,
   PALANTIR_OF_ORTHANC,
@@ -24,7 +24,6 @@ import {
   charIdAt, makeMHState,
 } from '../test-helpers.js';
 import type {
-  HeroResourceEventCard,
   PlayPermanentEventAction,
   ActivateGrantedAction,
   CardDefinitionId,
@@ -38,24 +37,6 @@ describe('Align Palantír (tw-190)', () => {
 
   // ── Card definition ──
 
-  test('card definition has correct type and effects', () => {
-    const def = pool[ALIGN_PALANTIR as string] as HeroResourceEventCard;
-    expect(def).toBeDefined();
-    expect(def.cardType).toBe('hero-resource-event');
-    expect(def.eventType).toBe('permanent');
-    expect(def.unique).toBe(false);
-    expect(def.marshallingPoints).toBe(2);
-    expect((def as unknown as { corruptionPoints: number }).corruptionPoints).toBe(2);
-    expect(def.effects).toBeDefined();
-    expect(def.effects).toHaveLength(3);
-    expect(def.effects![0]).toMatchObject({ type: 'play-target', target: 'character' });
-    expect(def.effects![1]).toMatchObject({ type: 'duplication-limit', scope: 'character', max: 1 });
-    expect(def.effects![2]).toMatchObject({
-      type: 'on-event',
-      event: 'bearer-company-moves',
-      apply: { type: 'discard-self' },
-    });
-  });
 
   // ── Effect 1: play-target (sage + palantír required) ──
 

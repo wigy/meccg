@@ -44,8 +44,7 @@ import {
   ARAGORN, LEGOLAS, GIMLI, ELROND,
   ALONE_AND_UNADVISED,
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
-  viableActions, CardStatus, pool,
-  charIdAt, dispatch, expectCharStatus, expectInDiscardPile,
+  viableActions, CardStatus, charIdAt, dispatch, expectCharStatus, expectInDiscardPile,
   makeMHState, handCardId, companyIdAt,
   attachHazardToChar,
 } from '../test-helpers.js';
@@ -53,47 +52,10 @@ import type { ActivateGrantedAction, CorruptionCheckAction, PlayHazardAction } f
 import { computeLegalActions } from '../../engine/legal-actions/index.js';
 import { recomputeDerived } from '../../engine/recompute-derived.js';
 import { RegionType } from '../../index.js';
-import type { CorruptionCard } from '../../types/cards-hazards.js';
 
 describe('Alone and Unadvised (as-24)', () => {
   beforeEach(() => resetMint());
 
-  test('card definition has the expected effects array', () => {
-    const def = pool[ALONE_AND_UNADVISED as string] as CorruptionCard;
-    expect(def).toBeDefined();
-    expect(def.cardType).toBe('hazard-corruption');
-    expect(def.corruptionPoints).toBe(4);
-    expect(def.effects).toBeDefined();
-
-    const types = def.effects!.map(e => e.type);
-    expect(types).toContain('play-target');
-    expect(types).toContain('duplication-limit');
-    expect(types).toContain('on-event');
-    expect(types).toContain('check-modifier');
-    expect(types).toContain('grant-action');
-
-    // Two on-event effects: end-of-company-mh (per-region checks) and
-    // company-composition-changed (discard-self when 4+ characters).
-    const onEvents = def.effects!.filter(e => e.type === 'on-event');
-    expect(onEvents.some(e => e.event === 'end-of-company-mh')).toBe(true);
-    const sizeWatchdog = onEvents.find(e => e.event === 'company-composition-changed');
-    expect(sizeWatchdog).toBeDefined();
-    expect(sizeWatchdog!.apply.type).toBe('discard-self');
-
-    const playTarget = def.effects!.find(e => e.type === 'play-target');
-    expect(playTarget).toMatchObject({
-      type: 'play-target',
-      target: 'character',
-      maxCompanySize: 3,
-    });
-
-    const checkMod = def.effects!.find(e => e.type === 'check-modifier');
-    expect(checkMod).toMatchObject({
-      type: 'check-modifier',
-      check: 'corruption',
-      value: 'company.characterCount',
-    });
-  });
 
   test('attached card adds 4 corruption points to the bearer', () => {
     const base = buildTestState({

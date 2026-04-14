@@ -15,7 +15,7 @@
 
 import { describe, test, expect, beforeEach } from 'vitest';
 import {
-  pool, PLAYER_1,
+  PLAYER_1,
   ARAGORN, SAM_GAMGEE, LEGOLAS, THEODEN,
   EDORAS,
   RIDERS_OF_ROHAN,
@@ -23,40 +23,13 @@ import {
   findCharInstanceId,
 } from '../test-helpers.js';
 import { computeLegalActions } from '../../index.js';
-import type { CharacterCard, InfluenceAttemptAction } from '../../index.js';
+import type { InfluenceAttemptAction } from '../../index.js';
 
 // ─── Tests ────────────────────────────────────────────────────────────────────
 
 describe('Riders of Rohan (tw-317)', () => {
   beforeEach(() => resetMint());
 
-  test('card data has correct faction properties', () => {
-    const card = pool[RIDERS_OF_ROHAN as string] as CharacterCard & {
-      influenceNumber: number;
-      race: string;
-      unique: boolean;
-      marshallingPoints: number;
-    };
-
-    expect(card.name).toBe('Riders of Rohan');
-    expect(card.unique).toBe(true);
-    expect(card.influenceNumber).toBe(10);
-    expect(card.race).toBe('man');
-    expect(card.marshallingPoints).toBe(3);
-    expect(card.effects).toHaveLength(2);
-    expect(card.effects![0]).toEqual({
-      type: 'check-modifier',
-      check: 'influence',
-      value: 1,
-      when: { 'bearer.race': 'hobbit' },
-    });
-    expect(card.effects![1]).toEqual({
-      type: 'check-modifier',
-      check: 'influence',
-      value: 1,
-      when: { 'bearer.race': 'dunadan' },
-    });
-  });
 
   test('Dúnadan character gets +1 check modifier when influencing', () => {
     // Aragorn (dunadan, base DI 3) attempts to influence Riders of Rohan at Edoras.

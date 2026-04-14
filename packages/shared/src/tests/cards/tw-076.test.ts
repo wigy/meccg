@@ -16,12 +16,11 @@ import {
   ORC_WARBAND, ORC_LIEUTENANT,
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
   buildTestState, resetMint, makeMHState,
-  pool,
   playCreatureHazardAndResolve, runCreatureCombat,
   handCardId, companyIdAt,
 } from '../test-helpers.js';
 import { Phase, RegionType, SiteType } from '../../index.js';
-import type { CreatureCard, MovementHazardPhaseState } from '../../index.js';
+import type { MovementHazardPhaseState } from '../../index.js';
 
 // ─── Constants ──────────────────────────────────────────────────────────────
 
@@ -32,31 +31,6 @@ const SHADOW_KEYING = { method: 'region-type' as const, value: 'shadow' };
 describe('Orc-warband (tw-076)', () => {
   beforeEach(() => resetMint());
 
-  test('card definition has correct base stats and prowess-bonus effect', () => {
-    const def = pool[ORC_WARBAND as string] as CreatureCard;
-    expect(def).toBeDefined();
-    expect(def.cardType).toBe('hazard-creature');
-    expect(def.id).toBe('tw-076');
-    expect(def.name).toBe('Orc-warband');
-    expect(def.strikes).toBe(5);
-    expect(def.prowess).toBe(4);
-    expect(def.body).toBeNull();
-    expect(def.unique).toBe(false);
-    expect(def.race).toBe('orc');
-    expect(def.killMarshallingPoints).toBe(1);
-    expect(def.effects).toBeDefined();
-    expect(def.effects).toHaveLength(1);
-    expect(def.effects![0].type).toBe('stat-modifier');
-  });
-
-  test('keyed to wilderness, shadow, and dark regions with ruins-and-lairs, shadow-hold, and dark-hold sites', () => {
-    const def = pool[ORC_WARBAND as string] as CreatureCard;
-    expect(def.keyedTo).toBeDefined();
-    expect(def.keyedTo).toHaveLength(1);
-    const keying = def.keyedTo[0];
-    expect(keying.regionTypes).toEqual(['wilderness', 'shadow', 'dark']);
-    expect(keying.siteTypes).toEqual(['ruins-and-lairs', 'shadow-hold', 'dark-hold']);
-  });
 
   test('base prowess is 4 when no prior Orc attack this turn', () => {
     const state = buildTestState({

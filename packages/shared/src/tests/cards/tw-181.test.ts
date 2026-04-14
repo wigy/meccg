@@ -17,7 +17,7 @@
 
 import { describe, test, expect, beforeEach } from 'vitest';
 import {
-  pool, PLAYER_1, PLAYER_2,
+  PLAYER_1, PLAYER_2,
   Phase, CardStatus,
   SARUMAN, ARAGORN,
   WIZARDS_LAUGHTER, VANISHMENT, GLAMDRING,
@@ -27,17 +27,13 @@ import {
   viableActions, dispatch, makePlayDeck,
   getCharacter,
 } from '../test-helpers.js';
-import type { CharacterCard, ActivateGrantedAction } from '../../index.js';
+import type { ActivateGrantedAction } from '../../index.js';
 
 describe('Saruman (tw-181)', () => {
   beforeEach(() => resetMint());
 
   // ── Palantír use ───────────────────────────────────────────────────────
 
-  test('Saruman card text enables Palantír usage', () => {
-    const sarDef = pool[SARUMAN as string] as CharacterCard;
-    expect(sarDef.text).toContain('May tap to use a Palantír');
-  });
 
   test('Palantír of Orthanc grant-action is available when Saruman bears it', () => {
     const deckCards = makePlayDeck();

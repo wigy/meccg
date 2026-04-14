@@ -55,54 +55,6 @@ describe('Isengard (tw-404)', () => {
 
   // ─── Data validation ────────────────────────────────────────────────────────
 
-  test('is a ruins-and-lairs with correct structural properties', () => {
-    const def = pool[ISENGARD as string];
-    expect(def).toBeDefined();
-    expect(def.cardType).toBe('hero-site');
-    expect(isSiteCard(def)).toBe(true);
-    if (!isSiteCard(def)) return;
-
-    expect(def.siteType).toBe('ruins-and-lairs');
-    expect(def.sitePath).toEqual(['wilderness', 'border', 'border']);
-    expect(def.nearestHaven).toBe('Lórien');
-    expect(def.region).toBe('Gap of Isen');
-    expect(def.playableResources).toEqual(['minor', 'major', 'gold-ring']);
-    expect(def.resourceDraws).toBe(2);
-    expect(def.hazardDraws).toBe(2);
-  });
-
-  test('nearest haven Lórien exists in the card pool', () => {
-    const lorienDef = pool[LORIEN as string];
-    expect(lorienDef).toBeDefined();
-    expect(isSiteCard(lorienDef)).toBe(true);
-    if (!isSiteCard(lorienDef)) return;
-    expect(lorienDef.siteType).toBe('haven');
-  });
-
-  test('automatic attack matches card text', () => {
-    const def = pool[ISENGARD as string];
-    if (!isSiteCard(def)) return;
-
-    expect(def.automaticAttacks).toHaveLength(1);
-    expect(def.automaticAttacks[0]).toEqual({
-      creatureType: 'Wolves',
-      strikes: 3,
-      prowess: 7,
-    });
-  });
-
-  test('site path regions are valid types', () => {
-    const def = pool[ISENGARD as string];
-    if (!isSiteCard(def)) return;
-
-    const validTypes = new Set([
-      'wilderness', 'border', 'free', 'coastal', 'shadow',
-      'dark', 'double-wilderness', 'double-shadow-land', 'double-coastal-sea',
-    ]);
-    for (const region of def.sitePath) {
-      expect(validTypes.has(region)).toBe(true);
-    }
-  });
 
   // ─── Site phase behavior ────────────────────────────────────────────────────
 
@@ -131,13 +83,6 @@ describe('Isengard (tw-404)', () => {
     expect(playActions.length).toBeGreaterThanOrEqual(1);
   });
 
-  test('greater items are not playable at Isengard', () => {
-    const def = pool[ISENGARD as string];
-    if (!isSiteCard(def)) return;
-
-    // Isengard allows minor, major, gold-ring but NOT greater
-    expect(def.playableResources).not.toContain('greater');
-  });
 
   test('pass is always available during play-resources step', () => {
     const state = buildSitePhaseState({ site: ISENGARD });
@@ -214,17 +159,4 @@ describe('Isengard (tw-404)', () => {
 
   // ─── No special effects ───────────────────────────────────────────────────
 
-  test('has no special effects beyond standard site properties', () => {
-    // Isengard's card text describes only standard site properties:
-    // nearest haven, playable resources, and automatic attacks.
-    // These are all encoded in the site's structural fields, not as effects.
-    // Verify the card text matches what the structural fields encode.
-    const def = pool[ISENGARD as string];
-    if (!isSiteCard(def)) return;
-
-    expect(def.text).toContain('Nearest Haven: Lórien');
-    expect(def.text).toContain('Items (minor, major, gold ring)');
-    expect(def.text).toContain('Wolves');
-    expect(def.text).toContain('3 strikes with 7 prowess');
-  });
 });

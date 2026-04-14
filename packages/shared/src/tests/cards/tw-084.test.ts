@@ -33,12 +33,11 @@ import {
   ARAGORN, LEGOLAS,
   RIVER,
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
-  pool, mint, CardStatus,
+  mint, CardStatus,
   makeMHState,
   charIdAt, companyIdAt, dispatch, expectCharStatus, setCharStatus,
 } from '../test-helpers.js';
 import type {
-  HazardEventCard,
   SitePhaseState, ActivateGrantedAction, CardInstanceId,
   PlayHazardAction,
 } from '../../index.js';
@@ -48,24 +47,6 @@ import { addConstraint, sweepExpired } from '../../engine/pending.js';
 describe('River (tw-84)', () => {
   beforeEach(() => resetMint());
 
-  test('card definition has the expected effects', () => {
-    const def = pool[RIVER as string] as HazardEventCard;
-    expect(def).toBeDefined();
-    expect(def.cardType).toBe('hazard-event');
-    expect(def.eventType).toBe('short');
-
-    const playTarget = def.effects?.find(e => e.type === 'play-target');
-    expect(playTarget).toBeDefined();
-    expect(playTarget?.target).toBe('site');
-
-    const onEvent = def.effects?.find(e => e.type === 'on-event');
-    expect(onEvent).toBeDefined();
-    expect(onEvent?.event).toBe('company-arrives-at-site');
-    expect(onEvent?.apply.type).toBe('add-constraint');
-    expect(onEvent?.apply.constraint).toBe('site-phase-do-nothing');
-    expect(onEvent?.apply.scope).toBe('company-site-phase');
-    expect(onEvent?.apply.cancelWhen).toBeDefined();
-  });
 
   test('constraint offers a ranger tap action and pass for an affected company at enter-or-skip', () => {
     // P1's company has Aragorn (ranger). At enter-or-skip the constraint

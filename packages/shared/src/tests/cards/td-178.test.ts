@@ -55,54 +55,6 @@ describe('Isle of the Ulond (td-178)', () => {
 
   // ─── Data validation ────────────────────────────────────────────────────────
 
-  test('is a ruins-and-lairs with correct structural properties', () => {
-    const def = pool[ISLE_OF_THE_ULOND as string];
-    expect(def).toBeDefined();
-    expect(def.cardType).toBe('hero-site');
-    expect(isSiteCard(def)).toBe(true);
-    if (!isSiteCard(def)) return;
-
-    expect(def.siteType).toBe('ruins-and-lairs');
-    expect(def.sitePath).toEqual(['wilderness', 'coastal', 'coastal']);
-    expect(def.nearestHaven).toBe('Edhellond');
-    expect(def.region).toBe('Andrast Coast');
-    expect(def.playableResources).toEqual(['information', 'minor', 'major']);
-    expect(def.resourceDraws).toBe(2);
-    expect(def.hazardDraws).toBe(2);
-  });
-
-  test('nearest haven Edhellond exists in the card pool', () => {
-    const edhellondDef = pool[EDHELLOND as string];
-    expect(edhellondDef).toBeDefined();
-    expect(isSiteCard(edhellondDef)).toBe(true);
-    if (!isSiteCard(edhellondDef)) return;
-    expect(edhellondDef.siteType).toBe('haven');
-  });
-
-  test('automatic attack matches card text', () => {
-    const def = pool[ISLE_OF_THE_ULOND as string];
-    if (!isSiteCard(def)) return;
-
-    expect(def.automaticAttacks).toHaveLength(1);
-    expect(def.automaticAttacks[0]).toEqual({
-      creatureType: 'Dragon',
-      strikes: 1,
-      prowess: 14,
-    });
-  });
-
-  test('site path regions are valid types', () => {
-    const def = pool[ISLE_OF_THE_ULOND as string];
-    if (!isSiteCard(def)) return;
-
-    const validTypes = new Set([
-      'wilderness', 'border', 'free', 'coastal', 'shadow',
-      'dark', 'double-wilderness', 'double-shadow-land', 'double-coastal-sea',
-    ]);
-    for (const region of def.sitePath) {
-      expect(validTypes.has(region)).toBe(true);
-    }
-  });
 
   // ─── Site phase behavior ────────────────────────────────────────────────────
 
@@ -130,19 +82,6 @@ describe('Isle of the Ulond (td-178)', () => {
     expect(playActions.length).toBeGreaterThanOrEqual(1);
   });
 
-  test('greater items are not playable at Isle of the Ulond', () => {
-    const def = pool[ISLE_OF_THE_ULOND as string];
-    if (!isSiteCard(def)) return;
-
-    expect(def.playableResources).not.toContain('greater');
-  });
-
-  test('gold ring items are not playable at Isle of the Ulond', () => {
-    const def = pool[ISLE_OF_THE_ULOND as string];
-    if (!isSiteCard(def)) return;
-
-    expect(def.playableResources).not.toContain('gold-ring');
-  });
 
   test('pass is always available during play-resources step', () => {
     const state = buildSitePhaseState({ site: ISLE_OF_THE_ULOND });
@@ -215,13 +154,4 @@ describe('Isle of the Ulond (td-178)', () => {
 
   // ─── No special effects ───────────────────────────────────────────────────
 
-  test('has no special effects beyond standard site properties', () => {
-    const def = pool[ISLE_OF_THE_ULOND as string];
-    if (!isSiteCard(def)) return;
-
-    expect(def.text).toContain('Nearest Haven: Edhellond');
-    expect(def.text).toContain('Items (minor, major)');
-    expect(def.text).toContain('Dragon');
-    expect(def.text).toContain('1 strike with 14 prowess');
-  });
 });

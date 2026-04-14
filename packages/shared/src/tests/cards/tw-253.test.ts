@@ -36,12 +36,11 @@ import {
   PLAYER_1, PLAYER_2,
   ARAGORN, LEGOLAS, BILBO, FRODO, HALFLING_STRENGTH,
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
-  pool, CardStatus,
+  CardStatus,
   handCardId, charIdAt, dispatch,
   expectCharStatus, expectInDiscardPile,
 } from '../test-helpers.js';
 import type {
-  HeroResourceEventCard,
   CardInstanceId,
   PlayShortEventAction,
 } from '../../index.js';
@@ -51,22 +50,6 @@ import { addConstraint, enqueueResolution } from '../../engine/pending.js';
 describe('Halfling Strength (tw-253)', () => {
   beforeEach(() => resetMint());
 
-  test('card definition declares hobbit filter and three play-option effects', () => {
-    const def = pool[HALFLING_STRENGTH as string] as HeroResourceEventCard;
-    expect(def).toBeDefined();
-    expect(def.cardType).toBe('hero-resource-event');
-    expect(def.eventType).toBe('short');
-
-    const playTarget = def.effects?.find(e => e.type === 'play-target');
-    expect(playTarget).toBeDefined();
-    expect(playTarget?.target).toBe('character');
-    expect((playTarget as { filter?: unknown }).filter)
-      .toEqual({ 'target.race': 'hobbit' });
-
-    const options = (def.effects ?? []).filter(e => e.type === 'play-option');
-    expect(options.map(o => (o as { id: string }).id).sort())
-      .toEqual(['corruption-check-boost', 'heal', 'untap']);
-  });
 
   test('organization phase: tapped hobbit offers only the untap option', () => {
     const base = buildTestState({

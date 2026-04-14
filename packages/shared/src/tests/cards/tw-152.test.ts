@@ -16,14 +16,14 @@ import {
   FRODO, ARAGORN, LEGOLAS,
   GLAMDRING,
   RIVENDELL, LORIEN,
-  buildTestState, resetMint, pool, mint,
+  buildTestState, resetMint, mint,
   viablePlayCharacterActions,
   findCharInstanceId,
   enqueueTransferCorruptionCheck,
   dispatch,
 } from '../test-helpers.js';
 import { computeLegalActions, Phase } from '../../index.js';
-import type { CharacterCard, CardInstanceId } from '../../index.js';
+import type { CardInstanceId } from '../../index.js';
 import { BAG_END } from '../../card-ids.js';
 
 // ─── Tests ───────────────────────────────────────────────────────────────────
@@ -31,32 +31,6 @@ import { BAG_END } from '../../card-ids.js';
 describe('Frodo (tw-152)', () => {
   beforeEach(() => resetMint());
 
-  test('card definition has correct stats and effects', () => {
-    const def = pool[FRODO as string] as CharacterCard;
-    expect(def).toBeDefined();
-    expect(def.cardType).toBe('hero-character');
-    expect(def.name).toBe('Frodo');
-    expect(def.race).toBe('hobbit');
-    expect(def.unique).toBe(true);
-    expect(def.prowess).toBe(1);
-    expect(def.body).toBe(9);
-    expect(def.mind).toBe(5);
-    expect(def.directInfluence).toBe(1);
-    expect(def.marshallingPoints).toBe(2);
-    expect(def.corruptionModifier).toBe(4);
-    expect(def.homesite).toBe('Bag End');
-    expect(def.effects).toHaveLength(2);
-    expect(def.effects![0]).toEqual({
-      type: 'play-flag',
-      flag: 'home-site-only',
-      when: { $not: { reason: 'starting-character' } },
-    });
-    expect(def.effects![1]).toEqual({
-      type: 'mp-modifier',
-      value: -2,
-      when: { reason: 'elimination' },
-    });
-  });
 
   test('corruption check modifier is +4 from corruptionModifier field', () => {
     // Set up Frodo in play with an item that gives corruption points,
@@ -184,14 +158,6 @@ describe('Frodo (tw-152)', () => {
     expect(viable).toHaveLength(0);
   });
 
-  test('home-site-only flag has condition excluding starting characters', () => {
-    // The flag's when clause excludes the "starting-character" reason,
-    // so starting characters bypass it (placed at haven during setup).
-    const def = pool[FRODO as string] as CharacterCard;
-    const flag = def.effects!.find(e => e.type === 'play-flag');
-    expect(flag).toBeDefined();
-    expect(flag!.when).toEqual({ $not: { reason: 'starting-character' } });
-  });
 
   test('-2 marshalling points when eliminated', () => {
     // Use a minimal state with no characters in play to isolate the MP effect

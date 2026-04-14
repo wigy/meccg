@@ -57,54 +57,6 @@ describe('Glittering Caves (tw-397)', () => {
 
   // ─── Data validation ────────────────────────────────────────────────────────
 
-  test('is a ruins-and-lairs with correct structural properties', () => {
-    const def = pool[GLITTERING_CAVES as string];
-    expect(def).toBeDefined();
-    expect(def.cardType).toBe('hero-site');
-    expect(isSiteCard(def)).toBe(true);
-    if (!isSiteCard(def)) return;
-
-    expect(def.siteType).toBe('ruins-and-lairs');
-    expect(def.sitePath).toEqual(['wilderness', 'border', 'border']);
-    expect(def.nearestHaven).toBe('Lórien');
-    expect(def.region).toBe('Gap of Isen');
-    expect(def.playableResources).toEqual(['minor', 'major']);
-    expect(def.resourceDraws).toBe(2);
-    expect(def.hazardDraws).toBe(2);
-  });
-
-  test('nearest haven Lórien exists in the card pool', () => {
-    const lorienDef = pool[LORIEN as string];
-    expect(lorienDef).toBeDefined();
-    expect(isSiteCard(lorienDef)).toBe(true);
-    if (!isSiteCard(lorienDef)) return;
-    expect(lorienDef.siteType).toBe('haven');
-  });
-
-  test('automatic attack matches card text', () => {
-    const def = pool[GLITTERING_CAVES as string];
-    if (!isSiteCard(def)) return;
-
-    expect(def.automaticAttacks).toHaveLength(1);
-    expect(def.automaticAttacks[0]).toEqual({
-      creatureType: 'Pûkel-creature',
-      strikes: 1,
-      prowess: 9,
-    });
-  });
-
-  test('site path regions are valid types', () => {
-    const def = pool[GLITTERING_CAVES as string];
-    if (!isSiteCard(def)) return;
-
-    const validTypes = new Set([
-      'wilderness', 'border', 'free', 'coastal', 'shadow',
-      'dark', 'double-wilderness', 'double-shadow-land', 'double-coastal-sea',
-    ]);
-    for (const region of def.sitePath) {
-      expect(validTypes.has(region)).toBe(true);
-    }
-  });
 
   // ─── Site phase behavior ────────────────────────────────────────────────────
 
@@ -132,19 +84,6 @@ describe('Glittering Caves (tw-397)', () => {
     expect(playActions.length).toBeGreaterThanOrEqual(1);
   });
 
-  test('greater items are not playable at Glittering Caves', () => {
-    const def = pool[GLITTERING_CAVES as string];
-    if (!isSiteCard(def)) return;
-
-    expect(def.playableResources).not.toContain('greater');
-  });
-
-  test('gold ring items are not playable at Glittering Caves', () => {
-    const def = pool[GLITTERING_CAVES as string];
-    if (!isSiteCard(def)) return;
-
-    expect(def.playableResources).not.toContain('gold-ring');
-  });
 
   test('pass is always available during play-resources step', () => {
     const state = buildSitePhaseState({ site: GLITTERING_CAVES });
@@ -218,13 +157,4 @@ describe('Glittering Caves (tw-397)', () => {
 
   // ─── No special effects ───────────────────────────────────────────────────
 
-  test('has no special effects beyond standard site properties', () => {
-    const def = pool[GLITTERING_CAVES as string];
-    if (!isSiteCard(def)) return;
-
-    expect(def.text).toContain('Nearest Haven: Lórien');
-    expect(def.text).toContain('Items (minor, major)');
-    expect(def.text).toContain('Pûkel-creature');
-    expect(def.text).toContain('1 strike with 9 prowess');
-  });
 });

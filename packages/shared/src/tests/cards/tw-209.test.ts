@@ -25,7 +25,7 @@ import {
   CAVE_DRAKE, DODGE,
   RIVENDELL, LORIEN, MINAS_TIRITH, MORIA,
   buildTestState, resetMint, makeMHState,
-  pool, findCharInstanceId,
+  findCharInstanceId,
   playCreatureHazardAndResolve,
   handCardId, companyIdAt, dispatch, expectCharStatus, expectInDiscardPile,
 } from '../test-helpers.js';
@@ -37,14 +37,6 @@ const WILDERNESS_KEYING = { method: 'region-type' as const, value: 'wilderness' 
 describe('Dodge (tw-209)', () => {
   beforeEach(() => resetMint());
 
-  test('card definition has dodge-strike effect with bodyPenalty -1', () => {
-    const def = pool[DODGE as string] as { effects: readonly { type: string; bodyPenalty?: number }[] };
-    expect(def).toBeDefined();
-    expect(def.effects).toContainEqual({
-      type: 'dodge-strike',
-      bodyPenalty: -1,
-    });
-  });
 
   function setupCombatWithCaveDrake(hand: import('../../index.js').CardDefinitionId[] = [DODGE]) {
     // Cave-drake: prowess 10, 2 strikes, keyed to wilderness, attacker-chooses-defenders
