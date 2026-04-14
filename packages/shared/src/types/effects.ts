@@ -716,6 +716,40 @@ export interface CallOfHomeCheckEffect extends EffectBase {
 }
 
 /**
+ * Declares that while this long-event is in play, any company whose
+ * movement path crosses the listed region names (or region types) faces
+ * a creature-like Dragon attack during the order-effects step (CoE step 4).
+ *
+ * The `extended` clause adds extra regions when a condition is met
+ * (typically Doors of Night in play).
+ *
+ * Used by "Ahunt" Dragon long-events (e.g. Eärcaraxë Ahunt, Itangast Ahunt).
+ */
+export interface AhuntAttackEffect extends EffectBase {
+  readonly type: 'ahunt-attack';
+  /** Region names that trigger the attack (matched against resolvedSitePathNames). */
+  readonly regionNames: readonly string[];
+  /** Region types that trigger the attack (matched against resolvedSitePath). */
+  readonly regionTypes?: readonly string[];
+  /** Number of strikes the attack delivers. */
+  readonly strikes: number;
+  /** Prowess of each strike. */
+  readonly prowess: number;
+  /** Body value for body checks after a strike. */
+  readonly body: number;
+  /** Race of the attacking creature (e.g. "dragon"). */
+  readonly race: string;
+  /** Combat rules that apply to the attack (e.g. "attacker-chooses-defenders"). */
+  readonly combatRules?: readonly string[];
+  /** Extended regions that apply when a condition is met. */
+  readonly extended?: {
+    readonly when: Condition;
+    readonly regionNames?: readonly string[];
+    readonly regionTypes?: readonly string[];
+  };
+}
+
+/**
  * Restricts how a character bearing this card can be controlled.
  *
  * Rules:
@@ -763,4 +797,5 @@ export type CardEffect =
   | StorableAtEffect
   | CompanyRuleEffect
   | CallOfHomeCheckEffect
+  | AhuntAttackEffect
   | ControlRestrictionEffect;

@@ -586,6 +586,35 @@ describes the constraint added for the chosen race.
 Implemented in `legal-actions/movement-hazard.ts` (action generation),
 `reducer-movement-hazard.ts` (constraint creation).
 
+### 25. `ahunt-attack`
+
+Declares that while this hazard long-event is in play, any company whose
+movement path crosses the listed region names (or region types) faces a
+creature-like attack during the order-effects step (CoE step 4). The
+attack uses the specified strikes, prowess, body, and race. Combat rules
+(e.g. `attacker-chooses-defenders`) are declared in `combatRules`.
+
+The optional `extended` clause adds extra region names and/or region
+types when a condition is met (typically Doors of Night in play).
+
+```json
+{ "type": "ahunt-attack",
+  "regionNames": ["Andrast Coast", "Bay of Belfalas", "Eriadoran Coast", "Andrast"],
+  "strikes": 3,
+  "prowess": 15,
+  "body": 6,
+  "race": "dragon",
+  "combatRules": ["attacker-chooses-defenders"],
+  "extended": {
+    "when": { "inPlay": "Doors of Night" },
+    "regionNames": ["Old Pûkel-land", "Enedhwaith", "Anfalas"],
+    "regionTypes": ["coastal-sea"]
+  } }
+```
+
+Implemented in `reducer-movement-hazard.ts` (`handleOrderEffects`,
+`collectMatchingAhuntAttacks`).
+
 ## Resolver Architecture
 
 The engine calls a resolver at each decision point:

@@ -419,6 +419,12 @@ export interface MovementHazardPhaseState {
    * the company already faced a specific hazard (e.g. troll-trio).
    */
   readonly hazardsEncountered: readonly string[];
+  /**
+   * Number of ahunt-attack effects resolved during the order-effects step.
+   * Tracks progress through the list of matching ahunt long-events so
+   * combat is initiated one at a time.
+   */
+  readonly ahuntAttacksResolved: number;
 }
 
 /**
