@@ -110,6 +110,8 @@ export const SAPLING_OF_THE_WHITE_TREE = did('tw-322');
 
 /** Gwaihir — eagle ally, prowess 4/body 8, playable at Eagles' Eyrie, can fly company. */
 export const GWAIHIR = did('tw-251');
+/** Treebeard — ent ally, prowess 8/body 9, playable at Wellinghall, discards if company leaves Ent regions. */
+export const TREEBEARD = did('tw-353');
 /** Shadowfax — horse ally, prowess 2/body 8, playable at Edoras, enables double movement. */
 export const SHADOWFAX = did('tw-326');
 
