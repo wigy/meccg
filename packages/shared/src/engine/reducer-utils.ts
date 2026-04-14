@@ -538,9 +538,12 @@ export function cleanupEmptyCompanies(state: GameState): GameState {
 }
 
 /**
- * Sweeps all characters for attached hazards with `auto-discard` effects
- * whose `when` condition is now met. Discards matching hazards to the
- * owning player's discard pile.
+ * Fires the `company-composition-changed` event against every attached
+ * hazard carrying an `on-event` + `discard-self` effect for that event.
+ * When the effect's `when` condition is met, the hazard is discarded to
+ * its owner's discard pile — the same pattern Treebeard uses for
+ * `company-arrives-at-site`, reused here for hazards that care about
+ * company size (e.g. Alone and Unadvised).
  */
 export function sweepAutoDiscardHazards(state: GameState): GameState {
   let changed = false;
@@ -558,11 +561,13 @@ export function sweepAutoDiscardHazards(state: GameState): GameState {
           const hDef = state.cardPool[hazard.definitionId as string];
           if (!hDef || !('effects' in hDef) || !hDef.effects) continue;
           for (const effect of hDef.effects) {
-            if (effect.type !== 'auto-discard') continue;
+            if (effect.type !== 'on-event') continue;
+            if (effect.event !== 'company-composition-changed') continue;
+            if (effect.apply?.type !== 'discard-self') continue;
             if (!effect.when) continue;
             const ctx = { company: { characterCount: companyCharCount } };
             if (matchesCondition(effect.when, ctx)) {
-              logDetail(`Auto-discard: "${hDef.name}" on ${charId as string} (company size ${companyCharCount})`);
+              logDetail(`discard-self: "${hDef.name}" on ${charId as string} (company size ${companyCharCount})`);
               toDiscard.push(hazard.instanceId);
               break;
             }

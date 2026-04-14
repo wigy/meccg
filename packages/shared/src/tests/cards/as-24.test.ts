@@ -8,7 +8,7 @@
  *             on-event end-of-company-mh force-check corruption perRegion:true,
  *             check-modifier corruption value:company.characterCount,
  *             grant-action remove-self-on-roll cost:tap-bearer threshold:7,
- *             auto-discard when company.characterCount >= 4)
+ *             on-event company-composition-changed discard-self when company.characterCount >= 4)
  *
  * "Corruption. Playable on a non-Wizard, non-Ringwraith character in a
  *  company with 3 or fewer characters. Target character makes a corruption
@@ -30,7 +30,7 @@
  * | 5 | Corruption check per region at end of MH  | IMPLEMENTED | on-event end-of-company-mh per region  |
  * | 6 | Check modifier = company character count  | IMPLEMENTED | check-modifier with expression value   |
  * | 7 | Tap to attempt removal (roll>6)           | IMPLEMENTED | grant-action remove-self-on-roll       |
- * | 8 | Auto-discard if company >= 4 characters   | IMPLEMENTED | auto-discard effect with when condition|
+ * | 8 | Auto-discard if company >= 4 characters   | IMPLEMENTED | on-event company-composition-changed   |
  * | 9 | Cannot be duplicated on a character       | IMPLEMENTED | duplication-limit scope:character max:1|
  *
  * Playable: YES
@@ -71,7 +71,14 @@ describe('Alone and Unadvised (as-24)', () => {
     expect(types).toContain('on-event');
     expect(types).toContain('check-modifier');
     expect(types).toContain('grant-action');
-    expect(types).toContain('auto-discard');
+
+    // Two on-event effects: end-of-company-mh (per-region checks) and
+    // company-composition-changed (discard-self when 4+ characters).
+    const onEvents = def.effects!.filter(e => e.type === 'on-event');
+    expect(onEvents.some(e => e.event === 'end-of-company-mh')).toBe(true);
+    const sizeWatchdog = onEvents.find(e => e.event === 'company-composition-changed');
+    expect(sizeWatchdog).toBeDefined();
+    expect(sizeWatchdog!.apply.type).toBe('discard-self');
 
     const playTarget = def.effects!.find(e => e.type === 'play-target');
     expect(playTarget).toMatchObject({

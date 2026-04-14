@@ -38,7 +38,9 @@
         "rollThreshold": 7
       },
       {
-        "type": "auto-discard",
+        "type": "on-event",
+        "event": "company-composition-changed",
+        "apply": { "type": "discard-self" },
         "when": { "company.characterCount": { "$gte": 4 } }
       }
     ],
