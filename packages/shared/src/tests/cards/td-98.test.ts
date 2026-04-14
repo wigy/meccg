@@ -166,6 +166,66 @@ describe('And Forth He Hastened (td-98)', () => {
     expect(actions).toHaveLength(0);
   });
 
+  test('not playable in long-event phase when no Wizard is in play', () => {
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.LongEvent,
+      players: [
+        {
+          id: PLAYER_1,
+          companies: [{
+            site: RIVENDELL,
+            characters: [{ defId: ARAGORN, status: CardStatus.Tapped }],
+          }],
+          hand: [AND_FORTH_HE_HASTENED],
+          siteDeck: [MORIA],
+        },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [MINAS_TIRITH] },
+      ],
+    });
+
+    const actions = computeLegalActions(base, PLAYER_1)
+      .filter(ea => ea.viable && ea.action.type === 'play-short-event')
+      .map(ea => ea.action as PlayShortEventAction);
+
+    expect(actions).toHaveLength(0);
+  });
+
+  test('playable in long-event phase with tapped character in Wizard company', () => {
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.LongEvent,
+      players: [
+        {
+          id: PLAYER_1,
+          companies: [{
+            site: RIVENDELL,
+            characters: [
+              GANDALF,
+              { defId: ARAGORN, status: CardStatus.Tapped },
+            ],
+          }],
+          hand: [AND_FORTH_HE_HASTENED],
+          siteDeck: [MORIA],
+        },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [MINAS_TIRITH] },
+      ],
+    });
+
+    const aragornId = charIdAt(base, 0, 0, 1);
+    const cardInstance = handCardId(base, 0);
+
+    const actions = computeLegalActions(base, PLAYER_1)
+      .filter(ea => ea.viable && ea.action.type === 'play-short-event')
+      .map(ea => ea.action as PlayShortEventAction);
+
+    const untapAction = actions.find(
+      a => a.cardInstanceId === cardInstance && a.targetCharacterId === aragornId,
+    );
+    expect(untapAction).toBeDefined();
+    expect(untapAction!.optionId).toBe('untap');
+  });
+
   test('multiple tapped characters in Wizard company each get a separate action', () => {
     const base = buildTestState({
       activePlayer: PLAYER_1,

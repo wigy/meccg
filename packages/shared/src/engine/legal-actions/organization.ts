@@ -166,6 +166,7 @@ export function organizationActions(state: GameState, playerId: PlayerId): Evalu
         viable: true,
       });
     }
+    endActions.push(...grantedActionActivations(state, playerId));
     endActions.push({ action: { type: 'pass', player: playerId }, viable: true });
     return endActions;
   }
@@ -774,8 +775,26 @@ export function endOfOrgEligibility(
     (e): e is PlayTargetEffect => e.type === 'play-target',
   );
   if (!playTarget) return { eligible: true, reason: '', eligibleTargets: [] };
-  if (playTarget.target !== 'character') {
+  if (playTarget.target !== 'character' && playTarget.target !== 'company') {
     return { eligible: true, reason: '', eligibleTargets: [] };
+  }
+
+  // Company targeting: each untapped character across all companies is an
+  // eligible "tapper". The constraint is placed on their company.
+  if (playTarget.target === 'company') {
+    const eligibleTargets: CardInstanceId[] = [];
+    for (const company of player.companies) {
+      for (const charInstId of company.characters) {
+        const char = player.characters[charInstId as string];
+        if (!char) continue;
+        if (playTarget.cost?.tap === 'character' && char.status !== CardStatus.Untapped) continue;
+        eligibleTargets.push(charInstId);
+      }
+    }
+    if (eligibleTargets.length === 0) {
+      return { eligible: false, reason: `${def.name} requires an untapped character in a company`, eligibleTargets: [] };
+    }
+    return { eligible: true, reason: '', eligibleTargets };
   }
 
   const eligibleTargets: CardInstanceId[] = [];

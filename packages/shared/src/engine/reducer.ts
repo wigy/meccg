@@ -80,7 +80,7 @@ export function reduce(state: GameState, action: GameAction): ReducerResult {
   logDetail(`Phase validation passed: '${action.type}' is legal in '${phase}'`);
 
   // 2b. Chain of effects: dispatch chain-specific actions when a chain is active
-  if (state.chain != null && (action.type === 'pass-chain-priority' || action.type === 'order-passives' || action.type === 'reveal-on-guard')) {
+  if (state.chain != null && (action.type === 'pass-chain-priority' || action.type === 'order-passives' || action.type === 'reveal-on-guard' || action.type === 'cancel-hazard-by-tap')) {
     logDetail(`Chain active — dispatching '${action.type}' to chain reducer`);
     const chainResult = handleChainAction(state, action);
     if (!chainResult.error) {

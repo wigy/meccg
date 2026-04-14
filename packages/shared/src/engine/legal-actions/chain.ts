@@ -13,8 +13,8 @@
  * `'declaring'` mode for the player who currently has priority.
  */
 
-import type { GameState, PlayerId, EvaluatedAction, PassChainPriorityAction, CardInstanceId, HazardEventCard } from '../../index.js';
-import { Phase, getPlayerIndex, hasPlayFlag } from '../../index.js';
+import type { GameState, PlayerId, EvaluatedAction, PassChainPriorityAction, CardInstanceId, HazardEventCard, MovementHazardPhaseState } from '../../index.js';
+import { Phase, getPlayerIndex, hasPlayFlag, RegionType, CardStatus } from '../../index.js';
 import { logDetail } from './log.js';
 
 /**
@@ -48,6 +48,12 @@ export function chainActions(state: GameState, playerId: PlayerId): EvaluatedAct
   // an influence-attempt chain (rule 2.V.6)
   if (chain.restriction === 'normal') {
     actions.push(...onGuardRevealChainActions(state, playerId));
+  }
+
+  // Great Ship: resource player may tap a character to cancel a hazard
+  // in the chain during M/H phase.
+  if (chain.restriction === 'normal' && state.phaseState.phase === Phase.MovementHazard) {
+    actions.push(...cancelHazardByTapChainActions(state, playerId));
   }
 
   // The priority player can always pass
@@ -194,4 +200,80 @@ function onGuardRevealChainActions(state: GameState, playerId: PlayerId): Evalua
   }
 
   return actions;
+}
+
+/**
+ * During chain declaring in M/H phase, the resource player may tap a
+ * character in a company with the `cancel-hazard-by-tap` constraint to
+ * negate an unresolved hazard chain entry, provided the company's site
+ * path satisfies the coastal condition.
+ */
+function cancelHazardByTapChainActions(state: GameState, playerId: PlayerId): EvaluatedAction[] {
+  const chain = state.chain!;
+  if (chain.entries.length === 0) return [];
+
+  const mhState = state.phaseState as MovementHazardPhaseState;
+  if (playerId !== state.activePlayer) return [];
+
+  const playerIndex = getPlayerIndex(state, playerId);
+  const player = state.players[playerIndex];
+  const company = player.companies[mhState.activeCompanyIndex];
+  if (!company) return [];
+
+  const hasConstraint = state.activeConstraints.some(
+    c => c.kind.type === 'cancel-hazard-by-tap'
+      && c.target.kind === 'company'
+      && c.target.companyId === company.id,
+  );
+  if (!hasConstraint) return [];
+
+  if (!chainCoastalPath(mhState.resolvedSitePath)) return [];
+
+  let hazardEntryIndex = -1;
+  for (let i = chain.entries.length - 1; i >= 0; i--) {
+    const entry = chain.entries[i];
+    if (entry.resolved || entry.negated || !entry.card) continue;
+    const def = state.cardPool[entry.card.definitionId as string];
+    if (def && (def.cardType === 'hazard-creature' || def.cardType === 'hazard-event')) {
+      hazardEntryIndex = i;
+      break;
+    }
+  }
+  if (hazardEntryIndex === -1) return [];
+
+  const actions: EvaluatedAction[] = [];
+  for (const charInstId of company.characters) {
+    const char = player.characters[charInstId as string];
+    if (!char || char.status !== CardStatus.Untapped) continue;
+    logDetail(`cancel-hazard-by-tap chain: ${charInstId as string} can cancel entry ${hazardEntryIndex}`);
+    actions.push({
+      action: {
+        type: 'cancel-hazard-by-tap' as const,
+        player: playerId,
+        characterInstanceId: charInstId,
+        chainEntryIndex: hazardEntryIndex,
+      },
+      viable: true,
+    });
+  }
+  return actions;
+}
+
+/**
+ * Checks whether a site path satisfies the Great Ship coastal condition.
+ */
+function chainCoastalPath(path: readonly RegionType[]): boolean {
+  if (path.length === 0) return false;
+  let hasCoastal = false;
+  let prevNonCoastal = false;
+  for (const region of path) {
+    if (region === RegionType.Coastal) {
+      hasCoastal = true;
+      prevNonCoastal = false;
+    } else {
+      if (prevNonCoastal) return false;
+      prevNonCoastal = true;
+    }
+  }
+  return hasCoastal;
 }
