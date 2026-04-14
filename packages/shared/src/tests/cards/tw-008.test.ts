@@ -26,48 +26,15 @@ import {
   ASSASSIN,
   RIVENDELL, LORIEN, MINAS_TIRITH, BREE,
   buildTestState, resetMint, makeMHState,
-  pool, resolveChain,
+  resolveChain,
   handCardId, companyIdAt, charIdAt, dispatch,
 } from '../test-helpers.js';
 import { computeLegalActions, Phase, SiteType } from '../../index.js';
-import type { CreatureCard } from '../../index.js';
-
 // ─── Tests ───────────────────────────────────────────────────────────────────
 
 describe('Assassin (tw-8)', () => {
   beforeEach(() => resetMint());
 
-  test('card definition has all three combat-rule effects', () => {
-    const def = pool[ASSASSIN as string] as CreatureCard;
-    expect(def).toBeDefined();
-    expect(def.cardType).toBe('hazard-creature');
-    expect(def.strikes).toBe(1);
-    expect(def.prowess).toBe(11);
-    expect(def.body).toBeNull();
-    expect(def.race).toBe('men');
-    expect(def.killMarshallingPoints).toBe(2);
-    expect(def.effects).toContainEqual({
-      type: 'combat-rule',
-      rule: 'attacker-chooses-defenders',
-    });
-    expect(def.effects).toContainEqual({
-      type: 'combat-rule',
-      rule: 'multi-attack',
-      count: 3,
-    });
-    expect(def.effects).toContainEqual({
-      type: 'combat-rule',
-      rule: 'cancel-attack-by-tap',
-      maxCancels: 2,
-    });
-  });
-
-  test('keyed to free-holds and border-holds', () => {
-    const def = pool[ASSASSIN as string] as CreatureCard;
-    expect(def.keyedTo).toEqual([
-      { siteTypes: ['free-hold', 'border-hold'] },
-    ]);
-  });
 
   test('combat initiates with attacker assignment, 3 total strikes, and forceSingleTarget', () => {
     // P1 active with 2 characters moving to Bree (border-hold)

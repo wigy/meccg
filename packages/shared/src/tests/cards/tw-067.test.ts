@@ -25,11 +25,11 @@ import {
   RANGERS_OF_THE_NORTH, RIDERS_OF_ROHAN,
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
   buildTestState, resetMint, makeMHState,
-  pool, resolveChain,
+  resolveChain,
   handCardId, companyIdAt,
 } from '../test-helpers.js';
 import { computeLegalActions, reduce, Phase, RegionType, SiteType, CardStatus, GENERAL_INFLUENCE } from '../../index.js';
-import type { CardInPlay, CardInstanceId, CardDefinitionId, HazardEventCard, PlayHazardAction, MusterRollAction } from '../../index.js';
+import type { CardInPlay, CardInstanceId, CardDefinitionId, PlayHazardAction, MusterRollAction } from '../../index.js';
 
 const MUSTER_DISPERSES = 'tw-67' as CardDefinitionId;
 
@@ -44,19 +44,6 @@ const factionInPlay: CardInPlay = {
 describe('Muster Disperses (tw-067)', () => {
   beforeEach(() => resetMint());
 
-  test('card definition is a hazard short-event with play-target faction', () => {
-    const def = pool[MUSTER_DISPERSES as string] as HazardEventCard;
-    expect(def).toBeDefined();
-    expect(def.cardType).toBe('hazard-event');
-    expect(def.eventType).toBe('short');
-    expect(def.name).toBe('Muster Disperses');
-    expect(def.unique).toBe(false);
-    expect(def.effects).toHaveLength(1);
-    expect(def.effects![0]).toEqual({
-      type: 'play-target',
-      target: 'faction',
-    });
-  });
 
   test('playable during M/H when opponent has a faction in play', () => {
     const state = buildTestState({

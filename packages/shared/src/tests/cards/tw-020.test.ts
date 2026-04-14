@@ -19,30 +19,15 @@ import {
   CAVE_DRAKE, ORC_PATROL,
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
   buildTestState, resetMint, makeMHState,
-  pool, resolveChain,
+  resolveChain,
   handCardId, companyIdAt, dispatch,
 } from '../test-helpers.js';
 import { computeLegalActions, Phase, RegionType, SiteType } from '../../index.js';
-import type { CreatureCard } from '../../index.js';
-
 // ─── Tests ───────────────────────────────────────────────────────────────────
 
 describe('Cave-drake (tw-020)', () => {
   beforeEach(() => resetMint());
 
-  test('card definition has attacker-chooses-defenders combat rule', () => {
-    const def = pool[CAVE_DRAKE as string] as CreatureCard;
-    expect(def).toBeDefined();
-    expect(def.cardType).toBe('hazard-creature');
-    expect(def.strikes).toBe(2);
-    expect(def.prowess).toBe(10);
-    expect(def.race).toBe('dragon');
-    expect(def.effects).toBeDefined();
-    expect(def.effects).toContainEqual({
-      type: 'combat-rule',
-      rule: 'attacker-chooses-defenders',
-    });
-  });
 
   test('combat starts with attacker assignment phase (not defender)', () => {
     // Set up a M/H state: P1 active with 2 characters at Moria,

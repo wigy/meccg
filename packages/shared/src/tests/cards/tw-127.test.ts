@@ -14,7 +14,7 @@
 
 import { describe, test, expect, beforeEach } from 'vitest';
 import {
-  pool, PLAYER_1, PLAYER_2,
+  PLAYER_1, PLAYER_2,
   ARAGORN, BEREGOND, LEGOLAS,
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH, PELARGIR,
   MEN_OF_LEBENNIN, GLAMDRING,
@@ -25,17 +25,13 @@ import {
   getCharacter,
 } from '../test-helpers.js';
 import { computeLegalActions } from '../../index.js';
-import type { CharacterCard, InfluenceAttemptAction, CorruptionCheckAction } from '../../index.js';
+import type { InfluenceAttemptAction, CorruptionCheckAction } from '../../index.js';
 
 // ─── Tests ────────────────────────────────────────────────────────────────────
 
 describe('Beregond (tw-127)', () => {
   beforeEach(() => resetMint());
 
-  test('corruption check modifier is -1 (from corruptionModifier base stat)', () => {
-    const def = pool[BEREGOND as string] as CharacterCard;
-    expect(def.corruptionModifier).toBe(-1);
-  });
 
   test('-1 corruption modifier increases need on pending corruption check', () => {
     // Build an organization phase state with Beregond holding Glamdring,

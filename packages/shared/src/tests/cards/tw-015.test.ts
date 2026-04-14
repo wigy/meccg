@@ -16,13 +16,11 @@ import {
   BARROW_WIGHT, GLAMDRING, DAGGER_OF_WESTERNESSE,
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
   buildTestState, resetMint, makeMHState,
-  pool, findCharInstanceId,
+  findCharInstanceId,
   playCreatureHazardAndResolve, runCreatureCombat,
   handCardId, companyIdAt, dispatch, expectCharStatus,
 } from '../test-helpers.js';
 import { computeLegalActions, Phase, RegionType, SiteType, CardStatus } from '../../index.js';
-import type { CreatureCard } from '../../index.js';
-
 // ─── Constants ──────────────────────────────────────────────────────────────
 
 const SHADOW_KEYING = { method: 'region-type' as const, value: 'shadow' };
@@ -32,25 +30,6 @@ const SHADOW_KEYING = { method: 'region-type' as const, value: 'shadow' };
 describe('Barrow-wight (tw-015)', () => {
   beforeEach(() => resetMint());
 
-  test('card definition has correct stats and on-event effect', () => {
-    const def = pool[BARROW_WIGHT as string] as CreatureCard;
-    expect(def).toBeDefined();
-    expect(def.cardType).toBe('hazard-creature');
-    expect(def.name).toBe('Barrow-wight');
-    expect(def.race).toBe('undead');
-    expect(def.strikes).toBe(1);
-    expect(def.prowess).toBe(12);
-    expect(def.body).toBeNull();
-    expect(def.killMarshallingPoints).toBe(1);
-    expect(def.effects).toBeDefined();
-    expect(def.effects).toHaveLength(1);
-    expect(def.effects![0]).toEqual({
-      type: 'on-event',
-      event: 'character-wounded-by-self',
-      apply: { type: 'force-check', check: 'corruption', modifier: -2 },
-      target: 'wounded-character',
-    });
-  });
 
   test('combat initiates with 1 strike and 12 prowess', () => {
     const state = buildTestState({

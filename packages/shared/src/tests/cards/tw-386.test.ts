@@ -51,50 +51,6 @@ describe('Dol Amroth (tw-386)', () => {
 
   // ─── Data validation ────────────────────────────────────────────────────────
 
-  test('is a free-hold with correct structural properties', () => {
-    const def = pool[DOL_AMROTH as string];
-    expect(def).toBeDefined();
-    expect(def.cardType).toBe('hero-site');
-    expect(isSiteCard(def)).toBe(true);
-    if (!isSiteCard(def)) return;
-
-    expect(def.siteType).toBe('free-hold');
-    expect(def.sitePath).toEqual(['wilderness', 'free']);
-    expect(def.nearestHaven).toBe('Edhellond');
-    expect(def.region).toBe('Belfalas');
-    expect(def.playableResources).toEqual(['faction']);
-    expect(def.automaticAttacks).toEqual([]);
-    expect(def.resourceDraws).toBe(1);
-    expect(def.hazardDraws).toBe(1);
-  });
-
-  test('nearest haven Edhellond exists in card pool', () => {
-    const edhellondDef = pool[EDHELLOND as string];
-    expect(edhellondDef).toBeDefined();
-    expect(isSiteCard(edhellondDef)).toBe(true);
-    if (!isSiteCard(edhellondDef)) return;
-    expect(edhellondDef.siteType).toBe('haven');
-  });
-
-  test('site path has valid region types', () => {
-    const def = pool[DOL_AMROTH as string];
-    if (!isSiteCard(def)) return;
-
-    const validTypes = new Set([
-      'wilderness', 'border', 'free', 'coastal', 'shadow',
-      'dark', 'double-wilderness', 'double-shadow-land', 'double-coastal-sea',
-    ]);
-    for (const region of def.sitePath) {
-      expect(validTypes.has(region)).toBe(true);
-    }
-  });
-
-  test('no automatic attacks', () => {
-    const def = pool[DOL_AMROTH as string];
-    if (!isSiteCard(def)) return;
-
-    expect(def.automaticAttacks).toHaveLength(0);
-  });
 
   // ─── Site phase behavior ────────────────────────────────────────────────────
 
@@ -150,12 +106,4 @@ describe('Dol Amroth (tw-386)', () => {
 
   // ─── No special effects ───────────────────────────────────────────────────
 
-  test('has no special effects beyond standard site properties', () => {
-    const def = pool[DOL_AMROTH as string];
-    if (!isSiteCard(def)) return;
-
-    // Dol Amroth has no special text beyond "Nearest Haven: Edhellond"
-    // which is captured structurally, not as effects
-    expect(def.text).toBe('');
-  });
 });

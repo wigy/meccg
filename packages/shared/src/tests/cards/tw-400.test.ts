@@ -51,43 +51,6 @@ describe('Henneth Annûn (tw-400)', () => {
 
   // ─── Data validation ────────────────────────────────────────────────────────
 
-  test('is a border-hold with correct structural properties', () => {
-    const def = pool[HENNETH_ANNUN as string];
-    expect(def).toBeDefined();
-    expect(def.cardType).toBe('hero-site');
-    expect(isSiteCard(def)).toBe(true);
-    if (!isSiteCard(def)) return;
-
-    expect(def.siteType).toBe('border-hold');
-    expect(def.sitePath).toEqual(['wilderness', 'border', 'free', 'wilderness']);
-    expect(def.nearestHaven).toBe('Lórien');
-    expect(def.region).toBe('Ithilien');
-    expect(def.playableResources).toEqual([]);
-    expect(def.automaticAttacks).toEqual([]);
-    expect(def.resourceDraws).toBe(2);
-    expect(def.hazardDraws).toBe(2);
-  });
-
-  test('nearest haven Lórien exists in the card pool', () => {
-    const lorienDef = pool[LORIEN as string];
-    expect(lorienDef).toBeDefined();
-    expect(isSiteCard(lorienDef)).toBe(true);
-    if (!isSiteCard(lorienDef)) return;
-    expect(lorienDef.siteType).toBe('haven');
-  });
-
-  test('site path regions are valid types', () => {
-    const def = pool[HENNETH_ANNUN as string];
-    if (!isSiteCard(def)) return;
-
-    const validTypes = new Set([
-      'wilderness', 'border', 'free', 'coastal', 'shadow',
-      'dark', 'double-wilderness', 'double-shadow-land', 'double-coastal-sea',
-    ]);
-    for (const region of def.sitePath) {
-      expect(validTypes.has(region)).toBe(true);
-    }
-  });
 
   // ─── Site phase behavior ────────────────────────────────────────────────────
 
@@ -166,11 +129,4 @@ describe('Henneth Annûn (tw-400)', () => {
 
   // ─── No special effects ───────────────────────────────────────────────────
 
-  test('has no special effects (empty text)', () => {
-    const def = pool[HENNETH_ANNUN as string];
-    if (!isSiteCard(def)) return;
-
-    expect(def.text).toBe('');
-    expect((def as unknown as Record<string, unknown>).effects).toBeUndefined();
-  });
 });

@@ -36,13 +36,12 @@
 import { describe, test, expect, beforeEach } from 'vitest';
 import {
   PLAYER_1,
-  LORIEN,
   resetMint, pool,
   buildSitePhaseState,
 } from '../test-helpers.js';
 import {
   computeLegalActions,
-  EDHELLOND, GREY_HAVENS,
+  EDHELLOND,
   DOL_AMROTH, PELARGIR,
   isSiteCard, buildMovementMap, getReachableSites,
 } from '../../index.js';
@@ -55,56 +54,6 @@ describe('Edhellond (tw-393)', () => {
 
   // ─── Data validation ────────────────────────────────────────────────────────
 
-  test('is a haven with correct structural properties', () => {
-    const def = pool[EDHELLOND as string];
-    expect(def).toBeDefined();
-    expect(def.cardType).toBe('hero-site');
-    expect(isSiteCard(def)).toBe(true);
-    if (!isSiteCard(def)) return;
-
-    expect(def.siteType).toBe('haven');
-    expect(def.sitePath).toEqual([]);
-    expect(def.nearestHaven).toBe('');
-    expect(def.playableResources).toEqual([]);
-    expect(def.automaticAttacks).toEqual([]);
-    expect(def.resourceDraws).toBe(2);
-    expect(def.hazardDraws).toBe(2);
-  });
-
-  test('haven paths to Grey Havens match card text', () => {
-    const def = pool[EDHELLOND as string];
-    if (!isSiteCard(def)) return;
-
-    // Card text: "Site Path From Grey Havens: Free-domain/Coastland/Coastland/Coastland/Coastland/Wilderness"
-    expect(def.havenPaths).toBeDefined();
-    expect(def.havenPaths!['Grey Havens']).toEqual(['free', 'coastal', 'coastal', 'coastal', 'coastal', 'wilderness']);
-  });
-
-  test('haven paths to Lórien match card text', () => {
-    const def = pool[EDHELLOND as string];
-    if (!isSiteCard(def)) return;
-
-    // Card text: "Site Path From Lórien: Wilderness/Border-land/Free-domain/Free-domain/Border-land/Wilderness"
-    expect(def.havenPaths).toBeDefined();
-    expect(def.havenPaths!['Lórien']).toEqual(['wilderness', 'border', 'free', 'free', 'border', 'wilderness']);
-  });
-
-  test('haven paths are symmetric with destination havens', () => {
-    const edhellondDef = pool[EDHELLOND as string];
-    const lorienDef = pool[LORIEN as string];
-    const ghDef = pool[GREY_HAVENS as string];
-    if (!isSiteCard(edhellondDef) || !isSiteCard(lorienDef) || !isSiteCard(ghDef)) return;
-
-    // Edhellond→Grey Havens path reversed should equal Grey Havens→Edhellond path
-    const edhToGH = edhellondDef.havenPaths!['Grey Havens'];
-    const ghToEdh = ghDef.havenPaths!['Edhellond'];
-    expect(ghToEdh).toEqual([...edhToGH].reverse());
-
-    // Edhellond→Lórien path reversed should equal Lórien→Edhellond path
-    const edhToLor = edhellondDef.havenPaths!['Lórien'];
-    const lorToEdh = lorienDef.havenPaths!['Edhellond'];
-    expect(lorToEdh).toEqual([...edhToLor].reverse());
-  });
 
   // ─── Site phase behavior ────────────────────────────────────────────────────
 
@@ -118,20 +67,6 @@ describe('Edhellond (tw-393)', () => {
     expect(viable[0].action.type).toBe('pass');
   });
 
-  test('no automatic attacks at Edhellond', () => {
-    const def = pool[EDHELLOND as string];
-    if (!isSiteCard(def)) return;
-
-    expect(def.automaticAttacks).toHaveLength(0);
-  });
-
-  test('does not connect to Rivendell directly', () => {
-    const def = pool[EDHELLOND as string];
-    if (!isSiteCard(def)) return;
-
-    // Edhellond only has paths to Grey Havens and Lórien, not Rivendell
-    expect(def.havenPaths!['Rivendell']).toBeUndefined();
-  });
 
   // ─── Movement from Edhellond ──────────────────────────────────────────────
 

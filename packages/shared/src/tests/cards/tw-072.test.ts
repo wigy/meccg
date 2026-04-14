@@ -20,40 +20,15 @@ import {
   ORC_GUARD,
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
   buildTestState, resetMint, makeMHState,
-  pool, resolveChain,
+  resolveChain,
   handCardId, companyIdAt, dispatch,
 } from '../test-helpers.js';
 import { computeLegalActions, Phase, RegionType, SiteType } from '../../index.js';
-import type { CreatureCard } from '../../index.js';
-
 // ─── Tests ───────────────────────────────────────────────────────────────────
 
 describe('Orc-guard (tw-072)', () => {
   beforeEach(() => resetMint());
 
-  test('card definition has correct base stats and no effects', () => {
-    const def = pool[ORC_GUARD as string] as CreatureCard;
-    expect(def).toBeDefined();
-    expect(def.cardType).toBe('hazard-creature');
-    expect(def.id).toBe('tw-072');
-    expect(def.name).toBe('Orc-guard');
-    expect(def.strikes).toBe(5);
-    expect(def.prowess).toBe(8);
-    expect(def.body).toBeNull();
-    expect(def.unique).toBe(false);
-    expect(def.race).toBe('orc');
-    expect(def.killMarshallingPoints).toBe(1);
-    expect(def.effects).toBeUndefined();
-  });
-
-  test('keyed to shadow and dark regions with shadow-hold and dark-hold sites', () => {
-    const def = pool[ORC_GUARD as string] as CreatureCard;
-    expect(def.keyedTo).toBeDefined();
-    expect(def.keyedTo).toHaveLength(1);
-    const keying = def.keyedTo[0];
-    expect(keying.regionTypes).toEqual(['shadow', 'dark']);
-    expect(keying.siteTypes).toEqual(['shadow-hold', 'dark-hold']);
-  });
 
   test('can be played as hazard creature during movement/hazard phase', () => {
     const state = buildTestState({

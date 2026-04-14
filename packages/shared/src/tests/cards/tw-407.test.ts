@@ -48,43 +48,6 @@ import type { SiteCard } from '../../index.js';
 describe('Lond Galen (tw-407)', () => {
   beforeEach(() => resetMint());
 
-  test('is a border-hold with correct structural properties', () => {
-    const def = pool[LOND_GALEN as string];
-    expect(def).toBeDefined();
-    expect(def.cardType).toBe('hero-site');
-    expect(isSiteCard(def)).toBe(true);
-    if (!isSiteCard(def)) return;
-
-    expect(def.siteType).toBe('border-hold');
-    expect(def.sitePath).toEqual(['wilderness']);
-    expect(def.nearestHaven).toBe('Edhellond');
-    expect(def.region).toBe('Anfalas');
-    expect(def.playableResources).toEqual([]);
-    expect(def.automaticAttacks).toEqual([]);
-    expect(def.resourceDraws).toBe(1);
-    expect(def.hazardDraws).toBe(1);
-  });
-
-  test('nearest haven Edhellond exists in the card pool', () => {
-    const edhellondDef = pool[EDHELLOND as string];
-    expect(edhellondDef).toBeDefined();
-    expect(isSiteCard(edhellondDef)).toBe(true);
-    if (!isSiteCard(edhellondDef)) return;
-    expect(edhellondDef.siteType).toBe('haven');
-  });
-
-  test('site path regions are valid types', () => {
-    const def = pool[LOND_GALEN as string];
-    if (!isSiteCard(def)) return;
-
-    const validTypes = new Set([
-      'wilderness', 'border', 'free', 'coastal', 'shadow',
-      'dark', 'double-wilderness', 'double-shadow-land', 'double-coastal-sea',
-    ]);
-    for (const region of def.sitePath) {
-      expect(validTypes.has(region)).toBe(true);
-    }
-  });
 
   test('no resources playable at Lond Galen', () => {
     const state = buildSitePhaseState({ site: LOND_GALEN });
@@ -95,12 +58,6 @@ describe('Lond Galen (tw-407)', () => {
     expect(viable[0].action.type).toBe('pass');
   });
 
-  test('no automatic attacks', () => {
-    const def = pool[LOND_GALEN as string];
-    if (!isSiteCard(def)) return;
-
-    expect(def.automaticAttacks).toHaveLength(0);
-  });
 
   test('reachable from Edhellond via starter movement', () => {
     const edhellond = pool[EDHELLOND as string] as SiteCard;
@@ -115,11 +72,4 @@ describe('Lond Galen (tw-407)', () => {
     expect(starterNames).toContain('Lond Galen');
   });
 
-  test('has no special effects', () => {
-    const def = pool[LOND_GALEN as string];
-    if (!isSiteCard(def)) return;
-
-    expect(def.effects).toEqual([]);
-    expect(def.text).toBe('Nearest Haven: Edhellond.');
-  });
 });

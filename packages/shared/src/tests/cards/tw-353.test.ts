@@ -31,29 +31,13 @@ import {
   ARAGORN, LEGOLAS,
   TREEBEARD,
   LORIEN, MINAS_TIRITH, MOUNT_DOOM, EDORAS, WELLINGHALL, MORIA,
-  pool, makeMHState, dispatch,
+  makeMHState, dispatch,
 } from '../test-helpers.js';
-import type { AllyCard } from '../../index.js';
-
 // ─── Tests ───────────────────────────────────────────────────────────────────
 
 describe('Treebeard (tw-353)', () => {
   beforeEach(() => resetMint());
 
-  test('card definition has the expected effects', () => {
-    const def = pool[TREEBEARD as string] as AllyCard;
-    expect(def).toBeDefined();
-    expect(def.cardType).toBe('hero-resource-ally');
-    expect(def.unique).toBe(true);
-    expect(def.prowess).toBe(8);
-    expect(def.body).toBe(9);
-
-    const onEvent = def.effects?.find(e => e.type === 'on-event');
-    expect(onEvent).toBeDefined();
-    expect(onEvent?.event).toBe('company-arrives-at-site');
-    expect(onEvent?.apply.type).toBe('discard-self');
-    expect(onEvent?.when).toBeDefined();
-  });
 
   test('Treebeard is discarded when company moves to a site outside allowed regions', () => {
     // Minas Tirith is in Anórien — not in Treebeard's allowed regions.

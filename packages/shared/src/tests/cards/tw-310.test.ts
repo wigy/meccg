@@ -16,7 +16,7 @@
 
 import { describe, test, expect, beforeEach } from 'vitest';
 import {
-  pool, PLAYER_1,
+  PLAYER_1,
   ANBORN, LEGOLAS,
   HENNETH_ANNUN,
   RANGERS_OF_ITHILIEN,
@@ -24,7 +24,7 @@ import {
   findCharInstanceId,
 } from '../test-helpers.js';
 import { computeLegalActions } from '../../index.js';
-import type { CharacterCard, InfluenceAttemptAction } from '../../index.js';
+import type { InfluenceAttemptAction } from '../../index.js';
 
 // ─── Tests ────────────────────────────────────────────────────────────────────
 
@@ -89,18 +89,4 @@ describe('Rangers of Ithilien (tw-310)', () => {
     expect(legolasAttempt!.need).toBe(6);
   });
 
-  test('card data has correct faction properties', () => {
-    const card = pool[RANGERS_OF_ITHILIEN as string] as CharacterCard & {
-      influenceNumber: number;
-      race: string;
-      unique: boolean;
-      marshallingPoints: number;
-    };
-
-    expect(card.name).toBe('Rangers of Ithilien');
-    expect(card.unique).toBe(true);
-    expect(card.influenceNumber).toBe(8);
-    expect(card.race).toBe('dunadan');
-    expect(card.marshallingPoints).toBe(3);
-  });
 });

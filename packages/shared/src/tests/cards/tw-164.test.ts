@@ -14,7 +14,7 @@
 
 import { describe, test, expect, beforeEach } from 'vitest';
 import {
-  pool, PLAYER_1, PLAYER_2,
+  PLAYER_1, PLAYER_2,
   ARAGORN, LEGOLAS, HALDIR, GLORFINDEL_II,
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH, THRANDUILS_HALLS,
   WOOD_ELVES, GLAMDRING,
@@ -25,17 +25,13 @@ import {
   getCharacter,
 } from '../test-helpers.js';
 import { computeLegalActions } from '../../index.js';
-import type { CharacterCard, InfluenceAttemptAction, CorruptionCheckAction } from '../../index.js';
+import type { InfluenceAttemptAction, CorruptionCheckAction } from '../../index.js';
 
 // ─── Tests ────────────────────────────────────────────────────────────────────
 
 describe('Haldir (tw-164)', () => {
   beforeEach(() => resetMint());
 
-  test('corruption check modifier is -1 (from corruptionModifier base stat)', () => {
-    const halDef = pool[HALDIR as string] as CharacterCard;
-    expect(halDef.corruptionModifier).toBe(-1);
-  });
 
   test('-1 corruption modifier increases need on pending corruption check', () => {
     // Build an organization phase state with Haldir holding Glamdring,

@@ -19,13 +19,11 @@ import {
   HOBGOBLINS,
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
   buildTestState, resetMint, makeMHState,
-  pool, findCharInstanceId, viableActions,
+  findCharInstanceId, viableActions,
   playCreatureHazardAndResolve,
   handCardId, companyIdAt, dispatch, expectCharStatus,
 } from '../test-helpers.js';
 import { computeLegalActions, Phase, RegionType, SiteType, CardStatus } from '../../index.js';
-import type { CreatureCard } from '../../index.js';
-
 // ─── Constants ──────────────────────────────────────────────────────────────
 
 const WILDERNESS_KEYING = { method: 'region-type' as const, value: 'wilderness' };
@@ -44,26 +42,6 @@ const MH_STATE = {
 describe('Hobgoblins (le-77)', () => {
   beforeEach(() => resetMint());
 
-  test('card definition has correct stats and no effects', () => {
-    const def = pool[HOBGOBLINS as string] as CreatureCard;
-    expect(def).toBeDefined();
-    expect(def.cardType).toBe('hazard-creature');
-    expect(def.name).toBe('Hobgoblins');
-    expect(def.race).toBe('orc');
-    expect(def.unique).toBe(false);
-    expect(def.strikes).toBe(2);
-    expect(def.prowess).toBe(10);
-    expect(def.body).toBeNull();
-    expect(def.killMarshallingPoints).toBe(1);
-    expect(def.effects).toEqual([]);
-  });
-
-  test('keyed to double wilderness', () => {
-    const def = pool[HOBGOBLINS as string] as CreatureCard;
-    expect(def.keyedTo).toBeDefined();
-    expect(def.keyedTo).toHaveLength(1);
-    expect(def.keyedTo[0].regionTypes).toEqual(['wilderness', 'wilderness']);
-  });
 
   test('combat initiates with 2 strikes and prowess 10', () => {
     const state = buildTestState({

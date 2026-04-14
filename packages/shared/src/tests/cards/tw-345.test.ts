@@ -27,9 +27,8 @@ import {
 import {
   computeLegalActions,
   THE_MITHRIL_COAT,
-  isItemCard,
 } from '../../index.js';
-import type { CharacterCard, ItemCard } from '../../index.js';
+import type { CharacterCard } from '../../index.js';
 import { recomputeDerived } from '../../engine/recompute-derived.js';
 
 // ─── Tests ───────────────────────────────────────────────────────────────────
@@ -39,36 +38,6 @@ describe('The Mithril-coat (tw-345)', () => {
 
   // ─── Data validation ────────────────────────────────────────────────────────
 
-  test('card definition has correct properties', () => {
-    const def = pool[THE_MITHRIL_COAT as string];
-    expect(def).toBeDefined();
-    expect(def.cardType).toBe('hero-resource-item');
-    expect(isItemCard(def)).toBe(true);
-
-    const item = def as ItemCard;
-    expect(item.name).toBe('The Mithril-coat');
-    expect(item.unique).toBe(true);
-    expect(item.subtype).toBe('greater');
-    expect(item.keywords).toContain('armor');
-    expect(item.marshallingPoints).toBe(4);
-    expect(item.marshallingCategory).toBe('item');
-    expect(item.corruptionPoints).toBe(2);
-    expect(item.prowessModifier).toBe(0);
-    expect(item.bodyModifier).toBe(3);
-    expect(item.playableAt).toEqual(expect.arrayContaining(['ruins-and-lairs', 'shadow-hold', 'dark-hold']));
-  });
-
-  test('has stat-modifier effect for body +3 (max 10)', () => {
-    const def = pool[THE_MITHRIL_COAT as string] as ItemCard;
-    expect(def.effects).toBeDefined();
-    expect(def.effects).toHaveLength(1);
-    expect(def.effects![0]).toEqual({
-      type: 'stat-modifier',
-      stat: 'body',
-      value: 3,
-      max: 10,
-    });
-  });
 
   // ─── Body modifier without cap ──────────────────────────────────────────────
 

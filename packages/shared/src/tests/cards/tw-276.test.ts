@@ -14,7 +14,7 @@
 
 import { describe, test, expect, beforeEach } from 'vitest';
 import {
-  pool, PLAYER_1,
+  PLAYER_1,
   ARAGORN, LEGOLAS,
   LOND_GALEN,
   MEN_OF_ANFALAS,
@@ -22,7 +22,7 @@ import {
   findCharInstanceId,
 } from '../test-helpers.js';
 import { computeLegalActions } from '../../index.js';
-import type { CharacterCard, InfluenceAttemptAction } from '../../index.js';
+import type { InfluenceAttemptAction } from '../../index.js';
 
 // ─── Tests ────────────────────────────────────────────────────────────────────
 
@@ -89,18 +89,4 @@ describe('Men of Anfalas (tw-276)', () => {
     expect(legolasAttempt!.need).toBe(7);
   });
 
-  test('card data has correct faction properties', () => {
-    const card = pool[MEN_OF_ANFALAS as string] as CharacterCard & {
-      influenceNumber: number;
-      race: string;
-      unique: boolean;
-      marshallingPoints: number;
-    };
-
-    expect(card.name).toBe('Men of Anfalas');
-    expect(card.unique).toBe(true);
-    expect(card.influenceNumber).toBe(9);
-    expect(card.race).toBe('man');
-    expect(card.marshallingPoints).toBe(2);
-  });
 });

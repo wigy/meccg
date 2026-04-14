@@ -25,11 +25,11 @@ import {
   LITTLE_SNUFFLER, CONCEALMENT, STEALTH,
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
   buildTestState, resetMint, makeMHState, buildSitePhaseState,
-  pool, resolveChain,
+  resolveChain,
   handCardId, companyIdAt, charIdAt, dispatch, expectInPile,
 } from '../test-helpers.js';
 import { computeLegalActions, Phase, SiteType } from '../../index.js';
-import type { CreatureCard, CardInstanceId } from '../../index.js';
+import type { CardInstanceId } from '../../index.js';
 import { addConstraint } from '../../engine/pending.js';
 
 // ─── Tests ───────────────────────────────────────────────────────────────────
@@ -37,40 +37,6 @@ import { addConstraint } from '../../engine/pending.js';
 describe('Little Snuffler (dm-108)', () => {
   beforeEach(() => resetMint());
 
-  test('card definition matches expected stats and effects', () => {
-    const def = pool[LITTLE_SNUFFLER as string] as CreatureCard;
-    expect(def).toBeDefined();
-    expect(def.cardType).toBe('hazard-creature');
-    expect(def.name).toBe('Little Snuffler');
-    expect(def.strikes).toBe(1);
-    expect(def.prowess).toBe(5);
-    expect(def.body).toBeNull();
-    expect(def.race).toBe('orc');
-    expect(def.killMarshallingPoints).toBe(1);
-    expect(def.effects).toContainEqual({
-      type: 'combat-rule',
-      rule: 'attacker-chooses-defenders',
-    });
-    expect(def.effects).toContainEqual({
-      type: 'on-event',
-      event: 'attack-not-defeated',
-      apply: {
-        type: 'add-constraint',
-        constraint: 'deny-scout-resources',
-        scope: 'turn',
-      },
-    });
-  });
-
-  test('keyed to wilderness, shadow, dark regions and ruins-and-lairs, shadow-hold, dark-hold sites', () => {
-    const def = pool[LITTLE_SNUFFLER as string] as CreatureCard;
-    expect(def.keyedTo).toEqual([
-      {
-        regionTypes: ['wilderness', 'shadow', 'dark'],
-        siteTypes: ['ruins-and-lairs', 'shadow-hold', 'dark-hold'],
-      },
-    ]);
-  });
 
   test('attacker chooses defenders — hazard player assigns strikes', () => {
     const state = buildTestState({

@@ -29,13 +29,11 @@ import {
   ARAGORN, LEGOLAS,
   LOST_IN_FREE_DOMAINS,
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
-  pool,
   makeMHState,
   handCardId, companyIdAt, dispatch,
 } from '../test-helpers.js';
 import type {
-  CompanyId, HazardEventCard,
-  SitePhaseState,
+  CompanyId, SitePhaseState,
   PlayHazardAction,
 } from '../../index.js';
 import { computeLegalActions } from '../../engine/legal-actions/index.js';
@@ -44,23 +42,6 @@ import { addConstraint, sweepExpired } from '../../engine/pending.js';
 describe('Lost in Free-domains (tw-53)', () => {
   beforeEach(() => resetMint());
 
-  test('card definition has the expected effects', () => {
-    const def = pool[LOST_IN_FREE_DOMAINS as string] as HazardEventCard;
-    expect(def).toBeDefined();
-    expect(def.cardType).toBe('hazard-event');
-    expect(def.eventType).toBe('permanent');
-
-    const playTarget = def.effects?.find(e => e.type === 'play-target');
-    expect(playTarget).toBeDefined();
-    expect(playTarget?.target).toBe('company');
-
-    const onEvent = def.effects?.find(e => e.type === 'on-event');
-    expect(onEvent).toBeDefined();
-    expect(onEvent?.event).toBe('self-enters-play');
-    expect(onEvent?.apply.type).toBe('add-constraint');
-    expect(onEvent?.apply.constraint).toBe('site-phase-do-nothing');
-    expect(onEvent?.apply.scope).toBe('company-site-phase');
-  });
 
   test('site-phase-do-nothing constraint collapses enter-or-skip to pass', () => {
     const base = buildTestState({

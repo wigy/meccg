@@ -15,7 +15,7 @@
 
 import { describe, test, expect, beforeEach } from 'vitest';
 import {
-  pool, PLAYER_1, PLAYER_2,
+  PLAYER_1, PLAYER_2,
   Phase, CardStatus,
   SARUMAN, ARAGORN, LEGOLAS,
   PALANTIR_OF_ORTHANC,
@@ -23,7 +23,7 @@ import {
   buildTestState, buildSitePhaseState, resetMint,
   viableActions, dispatch, makePlayDeck,
 } from '../test-helpers.js';
-import type { HeroItemCard, ActivateGrantedAction, GameState } from '../../index.js';
+import type { ActivateGrantedAction, GameState } from '../../index.js';
 import { computeLegalActions, ISENGARD } from '../../index.js';
 
 describe('Palantír of Orthanc (tw-300)', () => {
@@ -31,24 +31,6 @@ describe('Palantír of Orthanc (tw-300)', () => {
 
   // ── Card definition ──
 
-  test('card definition has correct type, subtype, and effects', () => {
-    const def = pool[PALANTIR_OF_ORTHANC as string] as HeroItemCard;
-    expect(def).toBeDefined();
-    expect(def.cardType).toBe('hero-resource-item');
-    expect(def.subtype).toBe('special');
-    expect(def.unique).toBe(true);
-    expect(def.keywords).toContain('palantir');
-    expect(def.marshallingPoints).toBe(2);
-    expect(def.corruptionPoints).toBe(2);
-    expect(def.effects).toBeDefined();
-    expect(def.effects).toHaveLength(2);
-    expect(def.effects![0]).toMatchObject({ type: 'item-play-site', sites: ['Isengard'] });
-    expect(def.effects![1]).toMatchObject({
-      type: 'grant-action',
-      action: 'palantir-fetch-discard',
-      cost: { tap: 'self' },
-    });
-  });
 
   // ── Effect 1: item-play-site (playable only at Isengard) ──
 

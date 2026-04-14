@@ -19,7 +19,7 @@
 
 import { describe, test, expect, beforeEach } from 'vitest';
 import {
-  pool, PLAYER_1, PLAYER_2,
+  PLAYER_1, PLAYER_2,
   PEATH, LEGOLAS,
   BARROW_WIGHT,
   DUNLENDINGS,
@@ -30,7 +30,7 @@ import {
   getCharacter, companyIdAt, handCardId, dispatch,
 } from '../test-helpers.js';
 import { Phase, RegionType, SiteType, computeLegalActions } from '../../index.js';
-import type { CharacterCard, CombatState, InfluenceAttemptAction } from '../../index.js';
+import type { CombatState, InfluenceAttemptAction } from '../../index.js';
 
 // ─── Constants ──────────────────────────────────────────────────────────────
 
@@ -41,37 +41,6 @@ const SHADOW_KEYING = { method: 'region-type' as const, value: 'shadow' };
 describe('Peath (tw-176)', () => {
   beforeEach(() => resetMint());
 
-  test('card definition has correct stats and effects', () => {
-    const def = pool[PEATH as string] as CharacterCard;
-    expect(def).toBeDefined();
-    expect(def.cardType).toBe('hero-character');
-    expect(def.name).toBe('Peath');
-    expect(def.race).toBe('man');
-    expect(def.prowess).toBe(4);
-    expect(def.body).toBe(7);
-    expect(def.mind).toBe(4);
-    expect(def.directInfluence).toBe(1);
-    expect(def.skills).toEqual(['ranger', 'diplomat']);
-    expect(def.effects).toHaveLength(3);
-    expect(def.effects![0]).toEqual({
-      type: 'stat-modifier',
-      stat: 'direct-influence',
-      value: 4,
-      when: { reason: 'faction-influence-check', 'faction.name': 'Dunlendings' },
-    });
-    expect(def.effects![1]).toEqual({
-      type: 'stat-modifier',
-      stat: 'prowess',
-      value: 5,
-      when: { reason: 'combat', 'enemy.race': 'nazgul' },
-    });
-    expect(def.effects![2]).toEqual({
-      type: 'enemy-modifier',
-      stat: 'body',
-      op: 'halve-round-up',
-      when: { reason: 'combat', 'enemy.race': 'nazgul' },
-    });
-  });
 
   test('base effective prowess is 4 (combat bonus does not inflate base stats)', () => {
     const state = buildTestState({

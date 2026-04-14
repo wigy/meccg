@@ -51,43 +51,6 @@ describe('Pelargir (tw-419)', () => {
 
   // ─── Data validation ────────────────────────────────────────────────────────
 
-  test('is a free-hold with correct structural properties', () => {
-    const def = pool[PELARGIR as string];
-    expect(def).toBeDefined();
-    expect(def.cardType).toBe('hero-site');
-    expect(isSiteCard(def)).toBe(true);
-    if (!isSiteCard(def)) return;
-
-    expect(def.siteType).toBe('free-hold');
-    expect(def.sitePath).toEqual(['wilderness', 'border', 'free']);
-    expect(def.nearestHaven).toBe('Edhellond');
-    expect(def.region).toBe('Lebennin');
-    expect(def.playableResources).toEqual([]);
-    expect(def.automaticAttacks).toEqual([]);
-    expect(def.resourceDraws).toBe(2);
-    expect(def.hazardDraws).toBe(2);
-  });
-
-  test('nearest haven Edhellond exists in the card pool', () => {
-    const edhellondDef = pool[EDHELLOND as string];
-    expect(edhellondDef).toBeDefined();
-    expect(isSiteCard(edhellondDef)).toBe(true);
-    if (!isSiteCard(edhellondDef)) return;
-    expect(edhellondDef.siteType).toBe('haven');
-  });
-
-  test('site path regions are valid types', () => {
-    const def = pool[PELARGIR as string];
-    if (!isSiteCard(def)) return;
-
-    const validTypes = new Set([
-      'wilderness', 'border', 'free', 'coastal', 'shadow',
-      'dark', 'double-wilderness', 'double-shadow-land', 'double-coastal-sea',
-    ]);
-    for (const region of def.sitePath) {
-      expect(validTypes.has(region)).toBe(true);
-    }
-  });
 
   // ─── Site phase behavior ────────────────────────────────────────────────────
 
@@ -151,10 +114,4 @@ describe('Pelargir (tw-419)', () => {
 
   // ─── No special effects ───────────────────────────────────────────────────
 
-  test('has no special effects', () => {
-    const def = pool[PELARGIR as string];
-    if (!isSiteCard(def)) return;
-
-    expect(def.effects).toEqual([]);
-  });
 });

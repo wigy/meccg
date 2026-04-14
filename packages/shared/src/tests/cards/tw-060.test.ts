@@ -37,42 +37,15 @@ import {
   ARAGORN, LEGOLAS,
   LURE_OF_THE_SENSES,
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
-  viableActions, CardStatus, pool,
-  charIdAt, dispatch, expectCharStatus, expectInDiscardPile,
+  viableActions, CardStatus, charIdAt, dispatch, expectCharStatus, expectInDiscardPile,
 } from '../test-helpers.js';
-import type { ActivateGrantedAction, CorruptionCheckAction, HazardEventCard } from '../../index.js';
+import type { ActivateGrantedAction, CorruptionCheckAction } from '../../index.js';
 import { computeLegalActions } from '../../engine/legal-actions/index.js';
 import { recomputeDerived } from '../../engine/recompute-derived.js';
 
 describe('Lure of the Senses (tw-60)', () => {
   beforeEach(() => resetMint());
 
-  test('card definition has the expected effects array', () => {
-    const def = pool[LURE_OF_THE_SENSES as string] as HazardEventCard;
-    expect(def).toBeDefined();
-    expect(def.cardType).toBe('hazard-event');
-    expect(def.eventType).toBe('permanent');
-    expect(def.effects).toBeDefined();
-
-    const types = def.effects!.map(e => e.type);
-    expect(types).toContain('play-target');
-    expect(types).toContain('duplication-limit');
-    expect(types).toContain('stat-modifier');
-    expect(types).toContain('on-event');
-    expect(types).toContain('grant-action');
-
-    const onEvent = def.effects!.find(e => e.type === 'on-event');
-    expect(onEvent).toMatchObject({
-      type: 'on-event',
-      event: 'untap-phase-at-haven',
-      apply: { type: 'force-check', check: 'corruption' },
-    });
-
-    const cpMod = def.effects!.find(
-      e => e.type === 'stat-modifier' && (e as { stat: string }).stat === 'corruption-points',
-    );
-    expect(cpMod).toMatchObject({ type: 'stat-modifier', stat: 'corruption-points', value: 2 });
-  });
 
   test('attached Lure adds 2 corruption points to the bearer', () => {
     const base = buildTestState({

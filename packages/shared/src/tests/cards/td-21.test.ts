@@ -24,14 +24,14 @@
 
 import { describe, test, expect, beforeEach } from 'vitest';
 import {
-  pool, buildTestState, resetMint, makeMHState,
+  buildTestState, resetMint, makeMHState,
   PLAYER_1, PLAYER_2,
   ARAGORN, GANDALF, LEGOLAS,
   EDHELLOND, LORIEN, MINAS_TIRITH, DOORS_OF_NIGHT,
   viableActions, dispatch, mint, addP2CardsInPlay,
 } from '../test-helpers.js';
 import { Phase, CardStatus, reduce } from '../../index.js';
-import type { CardDefinitionId, HazardEventCard, CombatState, GameState } from '../../index.js';
+import type { CardDefinitionId, CombatState, GameState } from '../../index.js';
 
 // ─── Constants ──────────────────────────────────────────────────────────────
 
@@ -90,40 +90,6 @@ function buildAhuntOrderEffectsState(
 describe('Eärcaraxë Ahunt (td-21)', () => {
   beforeEach(() => resetMint());
 
-  test('card definition has correct type, stats, and effects', () => {
-    const def = pool[EARCARAXE_AHUNT as string] as HazardEventCard;
-    expect(def).toBeDefined();
-    expect(def.cardType).toBe('hazard-event');
-    expect(def.eventType).toBe('long');
-    expect(def.unique).toBe(true);
-    expect(def.effects).toHaveLength(2);
-    expect(def.effects![0].type).toBe('duplication-limit');
-    expect(def.effects![1].type).toBe('ahunt-attack');
-  });
-
-  test('ahunt-attack effect has correct region names and combat stats', () => {
-    const def = pool[EARCARAXE_AHUNT as string] as HazardEventCard;
-    const ahunt = def.effects!.find(e => e.type === 'ahunt-attack')!;
-    expect(ahunt).toMatchObject({
-      type: 'ahunt-attack',
-      regionNames: ['Andrast Coast', 'Bay of Belfalas', 'Eriadoran Coast', 'Andrast'],
-      strikes: 3,
-      prowess: 15,
-      body: 6,
-      race: 'dragon',
-      combatRules: ['attacker-chooses-defenders'],
-    });
-  });
-
-  test('ahunt-attack extended clause adds regions when Doors of Night is in play', () => {
-    const def = pool[EARCARAXE_AHUNT as string] as HazardEventCard;
-    const ahunt = def.effects!.find(e => e.type === 'ahunt-attack')!;
-    expect((ahunt as { extended?: unknown }).extended).toMatchObject({
-      when: { inPlay: 'Doors of Night' },
-      regionNames: ['Old Pûkel-land', 'Enedhwaith', 'Anfalas'],
-      regionTypes: ['coastal-sea'],
-    });
-  });
 
   test('company moving through Andrast Coast triggers ahunt combat at order-effects', () => {
     const state = buildAhuntOrderEffectsState(

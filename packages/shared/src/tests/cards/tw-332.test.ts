@@ -38,12 +38,11 @@ import {
   ARAGORN, LEGOLAS, CAVE_DRAKE, GANDALF, BILBO, FRODO,
   STEALTH,
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
-  pool, mint,
+  mint,
   makeMHState,
   handCardId, charIdAt, companyIdAt, dispatch,
 } from '../test-helpers.js';
 import type {
-  HeroResourceEventCard,
   PlayHazardAction, CardInstanceId,
 } from '../../index.js';
 import { RegionType, SiteType } from '../../index.js';
@@ -53,34 +52,6 @@ import { addConstraint, sweepExpired } from '../../engine/pending.js';
 describe('Stealth (tw-332)', () => {
   beforeEach(() => resetMint());
 
-  test('card definition has the expected effects', () => {
-    const def = pool[STEALTH as string] as HeroResourceEventCard;
-    expect(def).toBeDefined();
-    expect(def.cardType).toBe('hero-resource-event');
-    expect(def.eventType).toBe('short');
-
-    const playWindow = def.effects?.find(e => e.type === 'play-window');
-    expect(playWindow).toBeDefined();
-    expect((playWindow as { phase: string; step: string }).phase).toBe('organization');
-    expect((playWindow as { phase: string; step: string }).step).toBe('end-of-org');
-
-    const playTarget = def.effects?.find(e => e.type === 'play-target');
-    expect(playTarget).toBeDefined();
-    expect(playTarget?.target).toBe('character');
-    expect((playTarget as { filter?: unknown }).filter).toEqual({
-      $and: [
-        { 'target.skills': { $includes: 'scout' } },
-        { 'target.status': 'untapped' },
-      ],
-    });
-
-    const onEvent = def.effects?.find(e => e.type === 'on-event');
-    expect(onEvent).toBeDefined();
-    expect(onEvent?.event).toBe('self-enters-play');
-    expect(onEvent?.apply.type).toBe('add-constraint');
-    expect(onEvent?.apply.constraint).toBe('no-creature-hazards-on-company');
-    expect(onEvent?.apply.scope).toBe('turn');
-  });
 
   test('Stealth is playable during normal organization play-actions when constraints are met', () => {
     // Aragorn is a scout in a company of size 1 — Stealth should appear

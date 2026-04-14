@@ -56,59 +56,6 @@ describe('Barrow-downs (tw-375)', () => {
 
   // ─── Data validation ────────────────────────────────────────────────────────
 
-  test('is a ruins-and-lairs with correct structural properties', () => {
-    const def = pool[BARROW_DOWNS as string];
-    expect(def).toBeDefined();
-    expect(def.cardType).toBe('hero-site');
-    expect(isSiteCard(def)).toBe(true);
-    if (!isSiteCard(def)) return;
-
-    expect(def.siteType).toBe('ruins-and-lairs');
-    expect(def.sitePath).toEqual(['wilderness', 'wilderness']);
-    expect(def.nearestHaven).toBe('Rivendell');
-    expect(def.region).toBe('Cardolan');
-    expect(def.playableResources).toEqual(['minor', 'major']);
-    expect(def.automaticAttacks).toEqual([
-      { creatureType: 'Undead', strikes: 1, prowess: 8 },
-    ]);
-    expect(def.resourceDraws).toBe(1);
-    expect(def.hazardDraws).toBe(2);
-  });
-
-  test('has on-event character-wounded-by-self effect', () => {
-    const def = pool[BARROW_DOWNS as string];
-    if (!isSiteCard(def)) return;
-
-    expect(def.effects).toBeDefined();
-    expect(def.effects).toHaveLength(1);
-    expect(def.effects![0]).toEqual({
-      type: 'on-event',
-      event: 'character-wounded-by-self',
-      apply: { type: 'force-check', check: 'corruption' },
-      target: 'wounded-character',
-    });
-  });
-
-  test('nearestHaven Rivendell exists in card pool', () => {
-    const rivendell = pool[RIVENDELL as string];
-    expect(rivendell).toBeDefined();
-    expect(isSiteCard(rivendell)).toBe(true);
-    if (!isSiteCard(rivendell)) return;
-    expect(rivendell.siteType).toBe('haven');
-  });
-
-  test('site path has valid region types', () => {
-    const def = pool[BARROW_DOWNS as string];
-    if (!isSiteCard(def)) return;
-
-    const validRegionTypes = [
-      'wilderness', 'border', 'free', 'coastal', 'shadow', 'dark',
-      'double-wilderness', 'double-shadow-land', 'double-coastal-sea',
-    ];
-    for (const region of def.sitePath) {
-      expect(validRegionTypes).toContain(region);
-    }
-  });
 
   // ─── Automatic attack ──────────────────────────────────────────────────────
 

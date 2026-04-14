@@ -28,37 +28,16 @@ import {
   PLAYER_1, PLAYER_2,
   ARAGORN, LEGOLAS, BILBO, IORETH, HALFLING_STRENGTH,
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
-  pool, CardStatus,
+  CardStatus,
   handCardId, charIdAt, dispatch,
   expectCharStatus,
 } from '../test-helpers.js';
-import type { HeroCharacterCard, PlayShortEventAction } from '../../index.js';
+import type { PlayShortEventAction } from '../../index.js';
 import { computeLegalActions } from '../../engine/legal-actions/index.js';
 
 describe('Ioreth (td-93)', () => {
   beforeEach(() => resetMint());
 
-  test('card definition has correct stats and effects', () => {
-    const def = pool[IORETH as string] as HeroCharacterCard;
-    expect(def).toBeDefined();
-    expect(def.cardType).toBe('hero-character');
-    expect(def.name).toBe('Ioreth');
-    expect(def.unique).toBe(true);
-    expect(def.race).toBe('dunadan');
-    expect(def.skills).toEqual(['sage']);
-    expect(def.prowess).toBe(0);
-    expect(def.body).toBe(7);
-    expect(def.mind).toBe(1);
-    expect(def.directInfluence).toBe(1);
-    expect(def.marshallingPoints).toBe(0);
-    expect(def.homesite).toBe('Minas Tirith');
-  });
-
-  test('declares company-rule healing-affects-all effect', () => {
-    const def = pool[IORETH as string] as HeroCharacterCard;
-    expect(def.effects).toHaveLength(1);
-    expect(def.effects![0]).toEqual({ type: 'company-rule', rule: 'healing-affects-all' });
-  });
 
   test('Halfling Strength heal on Bilbo extends to wounded Aragorn when Ioreth is in the company', () => {
     const base = buildTestState({

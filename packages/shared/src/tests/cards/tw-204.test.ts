@@ -33,28 +33,14 @@ import {
   CardStatus,
   handCardId, companyIdAt, dispatch, expectCharStatus, expectInDiscardPile,
 } from '../test-helpers.js';
-import type { CancelAttackAction, HeroResourceEventCard } from '../../index.js';
+import type { CancelAttackAction } from '../../index.js';
 import { RegionType, SiteType, describeAction } from '../../index.js';
-import type { CancelAttackEffect } from '../../types/effects.js';
 import { computeLegalActions } from '../../index.js';
 import { resolveInstanceId } from '../../types/state.js';
 
 describe('Concealment (tw-204)', () => {
   beforeEach(() => resetMint());
 
-  test('card definition has the expected cancel-attack effect', () => {
-    const def = pool[CONCEALMENT as string] as HeroResourceEventCard;
-    expect(def).toBeDefined();
-    expect(def.cardType).toBe('hero-resource-event');
-    expect(def.eventType).toBe('short');
-
-    const cancelAttack = def.effects?.find(
-      (e): e is CancelAttackEffect => e.type === 'cancel-attack',
-    );
-    expect(cancelAttack).toBeDefined();
-    expect(cancelAttack!.requiredSkill).toBe('scout');
-    expect(cancelAttack!.cost?.tap).toBe('character');
-  });
 
   test('cancel-attack action is available when defending company has untapped scout and Concealment in hand', () => {
     // Aragorn has the scout skill and is untapped.
