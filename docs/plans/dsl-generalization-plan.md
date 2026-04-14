@@ -303,17 +303,321 @@ These were audited and confirmed generic:
 
 ---
 
+## 5. Attribute-modifier primitive (HIGH priority)
+
+### Smell
+
+Certifying Choking Shadows (tw-21, commit `0f634af`) introduced **three
+new active-constraint kinds** that are all the same concept — a
+conditional override of an attribute on an entity, gated by a filter,
+living for some scope:
+
+| Kind | Where produced | Where consumed | Attribute affected |
+|------|----------------|----------------|--------------------|
+| `auto-attack-prowess-boost` (`types/pending.ts:262–268`) | `chain-reducer.ts` short-event arrival trigger | `reducer-site.ts:431–453` `handleSiteAutomaticAttacks` | auto-attack prowess |
+| `site-type-override` (`types/pending.ts:275–281`) | `chain-reducer.ts:548–572` | `legal-actions/movement-hazard.ts:738–751` `findCreatureKeyingMatches` | `site.type` |
+| `region-type-override` (`types/pending.ts:288–295`) | `chain-reducer.ts:574–583` | `movement-hazard.ts:752–764` | `region.type` |
+
+Each of these adds: a new kind in the discriminated union, a new
+production branch in `buildConstraintKind()`, a new consumer that greps
+`state.activeConstraints` for the kind, and a new JSON dialect on the
+card. The next hazard card that wants to change any other attribute
+(body, corruption, mind, site name, region name, any numeric or
+enumerated property) will bring three more files of the same spaghetti.
+
+The engine already reads these attributes directly from card
+definitions in many places — `reducer-untap.ts:217,312`,
+`reducer-movement-hazard.ts:608,1234,1251,1272`,
+`legal-actions/organization-companies.ts:166`,
+`legal-actions/site.ts:29`. None of those reads consult any override
+layer today.
+
+Meanwhile `check-modifier` (`types/pending.ts:241–246`, consumed in
+`legal-actions/pending.ts:356–363`) **already** works the way we want:
+card declares `{ add-constraint: check-modifier, check, value, scope }`,
+the resolver iterates matching constraints and sums their values.
+Halfling Strength uses it as data. That is the template.
+
+### Target shape
+
+Collapse all three Choking Shadows kinds (and any future attribute
+override) into one constraint kind:
+
+```ts
+readonly type: 'attribute-modifier';
+readonly attribute: AttributePath;   // 'auto-attack.prowess' | 'site.type' | 'region.type' | …
+readonly op: 'add' | 'override' | 'multiply';
+readonly value: number | string;
+readonly target: AttributeTarget;    // closed union — company/site/region/character + selector
+readonly filter?: Condition;         // extra gate evaluated at read time (e.g. only at R&L sites)
+```
+
+Cards declare it through existing `add-constraint`:
+
+```json
+{ "type": "on-event", "event": "company-arrives-at-site",
+  "when": { "company.destinationSiteType": "ruins-and-lairs" },
+  "apply": {
+    "type": "add-constraint",
+    "constraint": "attribute-modifier",
+    "attribute": "auto-attack.prowess",
+    "op": "add",
+    "value": 2,
+    "target": { "kind": "active-company" },
+    "filter": { "site.type": "ruins-and-lairs" },
+    "scope": "company-site-phase"
+  }
+}
+```
+
+```json
+{ "type": "add-constraint",
+  "constraint": "attribute-modifier",
+  "attribute": "site.type",
+  "op": "override",
+  "value": "shadow-hold",
+  "target": { "kind": "site", "resolve": "arrival-destination" },
+  "scope": "turn" }
+```
+
+```json
+{ "type": "add-constraint",
+  "constraint": "attribute-modifier",
+  "attribute": "region.type",
+  "op": "override",
+  "value": "shadow",
+  "target": { "kind": "region", "resolve": "arrival-destination-region" },
+  "scope": "turn" }
+```
+
+The engine side grows **one** new helper:
+
+```ts
+resolveEffective<T>(
+  entity: { kind, id },
+  attribute: AttributePath,
+  baseValue: T,
+  context: ReadContext,
+  state: GameState,
+): T;
+```
+
+It walks `state.activeConstraints`, keeps those whose `attribute`
+matches, whose `target` selector resolves to this entity, and whose
+`filter` evaluates true under `context`, then folds them (override
+wins, adds sum). Every site/region/character/auto-attack read that
+currently does `def.siteType` / `comp.destinationSiteType` /
+`resolveAttackProwess()` is routed through this helper.
+
+### Steps
+
+1. Define `AttributePath`, `AttributeTarget`, `AttributeModifier` in
+   `types/pending.ts`. Collapse `auto-attack-prowess-boost`,
+   `site-type-override`, `region-type-override` into the union as
+   deprecation aliases (kept readable by the new resolver until
+   migration completes).
+2. Add `resolveEffective()` in a new `engine/effective.ts` module. It
+   must be pure (`(state, entity, attr, base, ctx) → value`). Start with
+   three attribute paths: `auto-attack.prowess`, `site.type`,
+   `region.type`.
+3. Route every direct read of those three attributes through the helper
+   (five call sites enumerated above plus `reducer-site.ts:431`). Do
+   **not** touch unrelated attribute reads yet — each migration is its
+   own commit with its own card test.
+4. Teach `buildConstraintKind()` to produce the new `attribute-modifier`
+   kind from the generic `add-constraint` shape.
+5. Rewrite `tw-21` JSON to use the new shape. Delete the three
+   deprecated kinds once the card test passes against the generic
+   machinery.
+6. Document `attribute-modifier` in `docs/card-effects-dsl.md`
+   alongside `check-modifier`, with the three Choking Shadows modes as
+   worked examples.
+
+### Risk
+
+Medium. The helper itself is small, but every attribute migration is a
+potential regression site. Mitigation: do the three Choking Shadows
+attributes first (they have the only consumers that currently respect
+overrides, so regressions surface in `tw-21.test.ts`), then extend the
+helper to other attributes only when a card demands it. No speculative
+attribute coverage.
+
+### Scale
+
+Choking Shadows was 488 LoC across 8 files. Post-generalization the
+card becomes ~30 lines of JSON and the engine-side diff collapses to
+the one-time resolver + five call-site redirects. The second and third
+cards needing attribute overrides will be pure JSON.
+
+---
+
+## 6. Constraint-gated granted actions + path DSL (HIGH priority)
+
+### Smell
+
+Great Ship (tw-248, commit `57d1ae3`) added **842 lines** for one card:
+a bespoke constraint kind, a bespoke M/H chain action type, two
+duplicated legal-action generators, two duplicated reducers, and an
+inline coastal-path predicate implemented twice.
+
+- `cancel-hazard-by-tap` constraint kind (`types/pending.ts:254–264`) —
+  carries **no fields**, it's a pure discriminator. All logic lives in
+  the consumers.
+- `CancelHazardByTapAction` action type
+  (`types/actions-movement-hazard.ts:304–322`) — a brand-new M/H chain
+  action that taps a character and negates a chain entry.
+- Legal-action generator
+  `cancelHazardByTapChainActions()`
+  (`legal-actions/chain.ts:201–279`) — hardcoded to this constraint,
+  gates on `chainCoastalPath()` (lines 262–278).
+- Duplicate coastal-path predicate `isCoastalPath()` at
+  `legal-actions/movement-hazard.ts:588–612` — same logic,
+  cut-and-pasted.
+- Duplicate reducers: `handleChainCancelHazardByTap` in
+  `chain-reducer.ts:1263–1318` and `handleCancelHazardByTap` in
+  `reducer-movement-hazard.ts:1506–1568`. Same "tap character + negate
+  entry + discard hazard" body, living in two modules.
+
+Conceptually this is the same shape as the River cancel (#1, #4): *a
+character in a specific company may pay a cost to cancel some pending
+effect, when a condition is met*. The River side is already scheduled
+to become generic `grant-action` + `remove-constraint` apply. Great
+Ship just needs to be slotted into the same machinery.
+
+### Target shape
+
+**Reuse `grant-action` from section #1 inside the M/H chain window.**
+The constraint becomes a *scoped granted action*, declared like any
+other `grant-action` effect but produced by `on-event: self-enters-play`
+with a `scope` instead of living statically on the card:
+
+```json
+{ "type": "on-event", "event": "self-enters-play",
+  "apply": {
+    "type": "add-constraint",
+    "constraint": "granted-action",
+    "scope": "turn",
+    "target": { "kind": "company", "resolve": "play-target" },
+    "action": {
+      "id": "cancel-chain-entry",
+      "phase": "movement-hazard",
+      "window": "chain-declaring",
+      "cost": { "tap": "character-in-target-company" },
+      "when": { "path.matches": {
+        "$and": [
+          { "contains": { "regionType": "coastal" } },
+          { "not": { "hasConsecutive": { "regionType": { "$ne": "coastal" } } } }
+        ] } },
+      "apply": {
+        "type": "cancel-chain-entry",
+        "select": "most-recent-unresolved-hazard"
+      }
+    }
+  }
+}
+```
+
+This requires three new generic primitives, none card-specific:
+
+1. **`granted-action` constraint kind** — a `grant-action` effect
+   attached dynamically (with a lifetime scope). Section #1 already
+   plans the static `grant-action` pipeline; this extends it to allow
+   constraints to carry the same shape.
+2. **`cancel-chain-entry` apply kind** — a `TriggeredAction` that
+   negates a chain entry and discards the source hazard. Parameterized
+   by a selector (`most-recent-unresolved-hazard`, `entry-index`,
+   filter). Reusable by any future "cancel a hazard by paying cost X"
+   card, and by any chain-negation effect generally.
+3. **Path-condition DSL** — a new condition family evaluated against
+   the company's resolved site path:
+   - `path.contains` / `path.containsAll` — region-type membership.
+   - `path.hasConsecutive` — sliding-window predicate (with
+     negation, this expresses "no two consecutive non-coastal").
+   - `path.length` — numeric comparison.
+   These go through the existing `matchesCondition` resolver so any
+   future path-gated card (and Great Ship) reuses them as data.
+
+Great Ship's JSON becomes ~25 lines. The engine gains the three
+primitives and **loses** `cancel-hazard-by-tap`, `CancelHazardByTapAction`,
+both `isCoastalPath` copies, both reducer handlers, and both legal-
+action generators.
+
+### Steps
+
+1. Land section #1 first (static `grant-action` with `when`/`apply`
+   pipeline) — required template.
+2. Add `cancel-chain-entry` as a new `TriggeredAction` apply kind in
+   `chain-reducer.ts`. Single handler: tap cost holder, mark entry
+   negated, discard source. Replaces both existing Great Ship reducers.
+3. Add `granted-action` constraint kind in `types/pending.ts` that
+   carries a `GrantActionEffect` payload plus a target selector and
+   scope. Teach the legal-action computer for the M/H chain window to
+   iterate active `granted-action` constraints and emit their actions
+   uniformly (same dispatch path that static `grant-action` effects
+   use).
+4. Add the path-condition DSL: extend `matchesCondition` with
+   `path.contains`, `path.hasConsecutive`, `path.length`, evaluated
+   against a context exposing `path: RegionType[]`. Delete both
+   `isCoastalPath` copies.
+5. Add `target.kind: "company"` / `target.resolve: "play-target"`
+   resolution helpers so cards can aim a granted action at the company
+   that played the source event. This is the only new piece of
+   plumbing for Great Ship's "whichever company tapped a character to
+   play me" targeting.
+6. Rewrite `tw-248` JSON to use the generic shape. Delete
+   `cancel-hazard-by-tap` constraint, `CancelHazardByTapAction`,
+   both bespoke reducers, both bespoke generators. `tw-248.test.ts`
+   proves the generic pipeline covers the old behavior exactly.
+7. Migrate River (#1, #4) to the same pipeline — its "ranger taps to
+   cancel a site-phase constraint" is exactly a `granted-action` with a
+   different `when` and `apply`.
+
+### Risk
+
+High during migration, low after. The M/H chain is the most complex
+window in the engine, and Great Ship's current implementation duplicates
+reducers across `chain-reducer.ts` and `reducer-movement-hazard.ts` —
+care is needed to confirm both old call sites converge on the new
+unified handler. Mitigation: keep the old kind alive behind a feature
+flag until `tw-248.test.ts` passes end-to-end against the generic path,
+then delete. Path-condition DSL is independent and can land first as a
+standalone primitive.
+
+### Scale
+
+Great Ship: 842 LoC → ~25 lines of JSON + reuse of primitives.
+Every future card with a path precondition (sea voyages, mountain
+crossings, forest ambushes) becomes pure data. Every future
+"pay a cost to cancel a hazard" card becomes pure data.
+
+---
+
 ## Sequencing
 
 Recommended order:
 
-1. **#1 grant-action** — biggest win (6 card-specific handlers
-   collapse to one). Unblocks #4.
-2. **#4 constraint collapse** — depends on #1's `remove-constraint`
-   apply kind.
-3. **#2 play-restriction** — independent; can run in parallel with #1
-   if desired. Higher file count but lower per-file risk.
-4. **#3 combat-rule** — lowest priority, mechanical cleanup.
+1. **#1 grant-action** — biggest immediate win; unblocks #4, #6. Six
+   card-specific handlers collapse to one.
+2. **#5 attribute-modifier** — independent of #1, can land in parallel.
+   Delivers the "cards-are-data" invariant for attribute overrides
+   (Choking Shadows and any future hazard that changes a stat or type).
+3. **#6 granted-action + path DSL** — depends on #1 (needs the static
+   grant-action pipeline as a template) and ideally on #4 (River uses
+   the same machinery, so migrating both together proves the
+   generalization isn't Great-Ship-shaped).
+4. **#4 constraint collapse** — depends on #1's `remove-constraint`
+   apply kind and folds neatly into #6.
+5. **#2 play-restriction** — independent; can run any time.
+6. **#3 combat-rule** — lowest priority, mechanical cleanup.
 
 Each step is its own PR with card-test coverage on the cards it
 touches, so regressions surface immediately in the nightly suite.
+
+## Budget discipline
+
+New rule of thumb for card certification: **if one card's PR adds more
+than ~100 lines of engine code (tests and JSON excluded), stop and
+reach for one of the generalizations in this plan first.** Choking
+Shadows (488 LoC) and Great Ship (842 LoC) both blew past that budget
+because the generalizations weren't in place — this plan exists so the
+next card that wants the same primitive gets it as data, not code.
