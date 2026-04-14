@@ -16,6 +16,9 @@ COPY bin ./bin
 
 RUN npm run build
 
+ENV HOME=/data
+RUN mkdir -p /data && chmod 777 /data
+
 ENV LOBBY_PORT=8080
 ENV GAME_PORT_BASE=4000
 

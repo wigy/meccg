@@ -7,13 +7,14 @@ services:
     container_name: meccg-dev
     restart: unless-stopped
     network_mode: host
+    user: "1000:1000"
     environment:
       LOBBY_PORT: "8080"
       GAME_PORT_BASE: "4000"
       DEV: "1"
       NODE_ENV: "development"
     volumes:
-      - ${HOME}/.meccg:/root/.meccg
+      - ${HOME}/.meccg:/data/.meccg
       - ./packages:/app/packages
       - ./data:/app/data
       - ./bin:/app/bin
