@@ -141,6 +141,8 @@ export function handleChainAction(state: GameState, action: GameAction): Reducer
       return handleOrderPassives(state, chain, action);
     case 'reveal-on-guard':
       return handleChainRevealOnGuard(state, chain, action);
+    case 'cancel-hazard-by-tap':
+      return handleChainCancelHazardByTap(state, chain, action);
     default:
       return { state, error: `Unexpected chain action: ${action.type}` };
   }
@@ -1257,4 +1259,60 @@ export function scanPhaseBoundary(
   };
 
   return { ...state, chain };
+}
+
+/**
+ * Handles cancel-hazard-by-tap during a chain: negates the targeted entry,
+ * taps the character, and moves the negated card to its owner's discard pile.
+ */
+function handleChainCancelHazardByTap(state: GameState, chain: ChainState, action: GameAction): ReducerResult {
+  if (action.type !== 'cancel-hazard-by-tap') return { state, error: 'Expected cancel-hazard-by-tap' };
+
+  const entry = chain.entries[action.chainEntryIndex];
+  if (!entry || entry.resolved || entry.negated) {
+    return { state, error: `Chain entry ${action.chainEntryIndex} is not cancelable` };
+  }
+
+  const playerIndex = getPlayerIndex(state, action.player);
+  const player = state.players[playerIndex];
+  const charId = action.characterInstanceId as string;
+  const char = player.characters[charId];
+  if (!char) return { state, error: `Character ${charId} not in play` };
+  if (char.status !== CardStatus.Untapped) {
+    return { state, error: `Character ${charId} is not untapped` };
+  }
+
+  const entryDef = entry.card ? state.cardPool[entry.card.definitionId as string] : null;
+  logDetail(`cancel-hazard-by-tap: ${charId} taps to cancel chain entry ${action.chainEntryIndex} (${entryDef?.name ?? 'unknown'})`);
+
+  const newEntries = chain.entries.map((e, i) =>
+    i === action.chainEntryIndex ? { ...e, negated: true } : e,
+  );
+  const newChain: ChainState = { ...chain, entries: newEntries };
+
+  const newPlayers = clonePlayers(state);
+  newPlayers[playerIndex] = {
+    ...player,
+    characters: {
+      ...player.characters,
+      [charId]: { ...char, status: CardStatus.Tapped },
+    },
+  };
+
+  if (entry.card) {
+    const hazardPlayerIndex = getPlayerIndex(state, entry.declaredBy);
+    const hazardPlayer = newPlayers[hazardPlayerIndex];
+    newPlayers[hazardPlayerIndex] = {
+      ...hazardPlayer,
+      discardPile: [...hazardPlayer.discardPile, { instanceId: entry.card.instanceId, definitionId: entry.card.definitionId }],
+    };
+  }
+
+  return {
+    state: {
+      ...state,
+      chain: newChain,
+      players: newPlayers,
+    },
+  };
 }
