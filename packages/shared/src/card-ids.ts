@@ -176,6 +176,8 @@ export const WAKE_OF_WAR = did('tw-108');
 export const TWILIGHT = did('tw-106');
 /** An Unexpected Outpost — short hazard event, fetch a hazard from sideboard/discard to play deck (twice with Doors of Night). */
 export const AN_UNEXPECTED_OUTPOST = did('dm-45');
+/** Two or Three Tribes Present — short hazard event, choose a creature type to bypass hazard limit. */
+export const TWO_OR_THREE_TRIBES_PRESENT = did('dm-97');
 
 // ---- Creatures ----
 

@@ -139,9 +139,9 @@ function handlePlayHazards(
     if (isResourcePlayer) {
       return { state, error: 'Only the hazard player may play hazards' };
     }
-    if (mhState.hazardsPlayedThisCompany >= mhState.hazardLimit) {
-      return { state, error: `Hazard limit reached (${mhState.hazardLimit})` };
-    }
+    // Hazard limit is checked inside handlePlayHazardCard per card type,
+    // since some cards bypass the limit (no-hazard-limit flag, creature
+    // race exemption from Two or Three Tribes Present).
     return handlePlayHazardCard(state, action, mhState);
   }
 
@@ -220,7 +220,13 @@ function handlePlayHazardCard(
       return { state, error: 'Creatures must initiate a new chain — cannot be played in response' };
     }
 
-    logDetail(`Play-hazards: hazard player plays creature "${def.name}" (${mhState.hazardsPlayedThisCompany + 1}/${mhState.hazardLimit}) — initiating chain`);
+    // Check if the creature's race is exempt from the hazard limit
+    const raceExempt = isCreatureRaceExempt(state, action, def);
+    if (!raceExempt && mhState.hazardsPlayedThisCompany >= mhState.hazardLimit) {
+      return { state, error: `Hazard limit reached (${mhState.hazardLimit})` };
+    }
+    const newHazardCount = raceExempt ? mhState.hazardsPlayedThisCompany : mhState.hazardsPlayedThisCompany + 1;
+    logDetail(`Play-hazards: hazard player plays creature "${def.name}" (${newHazardCount}/${mhState.hazardLimit})${raceExempt ? ` [race "${def.race}" exempt from hazard limit]` : ''} — initiating chain`);
 
     // Remove card from hand — it resides on the chain entry until combat resolves
     const newHand = [...hazardPlayer.hand];
@@ -233,7 +239,7 @@ function handlePlayHazardCard(
       players: newPlayers,
       phaseState: {
         ...mhState,
-        hazardsPlayedThisCompany: mhState.hazardsPlayedThisCompany + 1,
+        hazardsPlayedThisCompany: newHazardCount,
         resourcePlayerPassed: false,
       },
     };
@@ -247,6 +253,9 @@ function handlePlayHazardCard(
   // --- Short event handling (via chain of effects) ---
   if (def.cardType === 'hazard-event' && def.eventType === 'short') {
     const bypassesLimit = hasPlayFlag(def, 'no-hazard-limit');
+    if (!bypassesLimit && mhState.hazardsPlayedThisCompany >= mhState.hazardLimit) {
+      return { state, error: `Hazard limit reached (${mhState.hazardLimit})` };
+    }
     const newHazardCount = bypassesLimit ? mhState.hazardsPlayedThisCompany : mhState.hazardsPlayedThisCompany + 1;
     logDetail(`Play-hazards: hazard player plays short-event "${def.name}" (${newHazardCount}/${mhState.hazardLimit})${bypassesLimit ? ' [no-hazard-limit]' : ''}`);
 
@@ -270,6 +279,25 @@ function handlePlayHazardCard(
       },
     };
 
+    // creature-race-choice: add constraint for the chosen race
+    if (action.type === 'play-hazard' && action.chosenCreatureRace && def.effects) {
+      const activePlayerId = newState.activePlayer;
+      if (activePlayerId) {
+        const activeIndex = newState.players[0].id === activePlayerId ? 0 : 1;
+        const targetCompany = newState.players[activeIndex].companies[mhState.activeCompanyIndex];
+        if (targetCompany) {
+          logDetail(`Short-event "${def.name}": adding creature-type-no-hazard-limit constraint for race "${action.chosenCreatureRace}" on company ${targetCompany.id as string}`);
+          newState = addConstraint(newState, {
+            source: handCard.instanceId,
+            sourceDefinitionId: handCard.definitionId,
+            scope: { kind: 'company-mh-phase', companyId: targetCompany.id },
+            target: { kind: 'company', companyId: targetCompany.id },
+            kind: { type: 'creature-type-no-hazard-limit', exemptRace: action.chosenCreatureRace },
+          });
+        }
+      }
+    }
+
     // Initiate chain or push onto existing chain
     if (newState.chain === null) {
       newState = initiateChain(newState, action.player, handCard, { type: 'short-event' });
@@ -283,6 +311,10 @@ function handlePlayHazardCard(
   // --- Event handling (long / permanent) ---
   if (def.cardType !== 'hazard-event' || (def.eventType !== 'long' && def.eventType !== 'permanent')) {
     return { state, error: `Cannot play ${def.cardType} during play-hazards — only creatures, short-events and hazard long/permanent-events are currently supported` };
+  }
+
+  if (mhState.hazardsPlayedThisCompany >= mhState.hazardLimit) {
+    return { state, error: `Hazard limit reached (${mhState.hazardLimit})` };
   }
 
   // Uniqueness check: unique events can't be played if already in play
@@ -1501,6 +1533,21 @@ function advanceDrawCards(
 // handleMHWoundCorruptionCheck removed: wound corruption checks are
 // now handled by `applyCorruptionCheckResolution` in
 // `engine/pending-reducers.ts`.
+
+/**
+ * Check whether a creature's race is exempted from the hazard limit by
+ * a `creature-type-no-hazard-limit` constraint on the target company.
+ */
+function isCreatureRaceExempt(state: GameState, action: GameAction, def: CreatureCard): boolean {
+  if (action.type !== 'play-hazard') return false;
+  if (!state.activeConstraints) return false;
+  return state.activeConstraints.some(
+    c => c.target.kind === 'company'
+      && c.target.companyId === action.targetCompanyId
+      && c.kind.type === 'creature-type-no-hazard-limit'
+      && c.kind.exemptRace === def.race,
+  );
+}
 
 /**
  * Handle all actions during the site phase.

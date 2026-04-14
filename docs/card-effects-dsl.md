@@ -503,6 +503,51 @@ Context variables for grant-action `when` conditions:
 Implemented in `reducer-organization.ts` (handler), `legal-actions/organization.ts`
 (scanner + context), `reducer-utils.ts` (fetch completion with corruption check).
 
+### 23. `play-condition`
+
+Gates playability on a game-state condition. The `requires` field names
+the context source.
+
+Requires:
+
+- `site-path` — the company's resolved site path during M/H. The
+  condition is evaluated against
+  `{ sitePath: { wildernessCount, shadowCount, darkCount, coastalCount, freeCount, borderCount } }`.
+
+```json
+{ "type": "play-condition", "requires": "site-path",
+  "condition": {
+    "$or": [
+      { "sitePath.wildernessCount": { "$gte": 2 } },
+      { "sitePath.shadowCount": { "$gte": 1 } },
+      { "sitePath.darkCount": { "$gte": 1 } }
+    ]
+  } }
+```
+
+Implemented in `legal-actions/movement-hazard.ts` (`checkSitePathCondition`).
+
+### 24. `creature-race-choice`
+
+Requires the player to choose a creature race when playing the card.
+The `exclude` array lists races that may not be chosen. The legal-action
+emitter produces one `play-hazard` action per eligible race, each
+carrying the chosen race on `chosenCreatureRace`. The `apply` clause
+describes the constraint added for the chosen race.
+
+```json
+{ "type": "creature-race-choice",
+  "exclude": ["nazgul", "undead", "dragon"],
+  "apply": {
+    "type": "add-constraint",
+    "constraint": "creature-type-no-hazard-limit",
+    "scope": "company-mh-phase"
+  } }
+```
+
+Implemented in `legal-actions/movement-hazard.ts` (action generation),
+`reducer-movement-hazard.ts` (constraint creation).
+
 ## Resolver Architecture
 
 The engine calls a resolver at each decision point:
@@ -819,5 +864,27 @@ Supported `apply` kinds today:
 ```json
 "effects": [
   { "type": "storable-at", "sites": ["Minas Tirith"], "marshallingPoints": 2 }
+]
+```
+
+### Two or Three Tribes Present
+
+```json
+"effects": [
+  { "type": "play-condition", "requires": "site-path",
+    "condition": {
+      "$or": [
+        { "sitePath.wildernessCount": { "$gte": 2 } },
+        { "sitePath.shadowCount": { "$gte": 1 } },
+        { "sitePath.darkCount": { "$gte": 1 } }
+      ]
+    } },
+  { "type": "creature-race-choice",
+    "exclude": ["nazgul", "undead", "dragon"],
+    "apply": {
+      "type": "add-constraint",
+      "constraint": "creature-type-no-hazard-limit",
+      "scope": "company-mh-phase"
+    } }
 ]
 ```
