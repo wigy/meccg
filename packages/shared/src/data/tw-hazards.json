@@ -121,7 +121,9 @@
     "unique": false,
     "eventType": "short",
     "keywords": ["environment"],
-    "effects": [],
+    "effects": [
+      { "type": "duplication-limit", "scope": "game", "max": 1 }
+    ],
     "text": "Environment. Modify the prowess of one automatic-attack at a Ruins & Lairs site by +2. Alternatively, if Doors of Night is in play, treat one Wilderness as a Shadow-land or one Ruins & Lairs as a Shadow-hold until the end of the turn. Cannot be duplicated."
   },
   {

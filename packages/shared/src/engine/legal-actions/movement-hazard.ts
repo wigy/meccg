@@ -412,6 +412,31 @@ function playHazardsActions(
 
       // --- Short event ---
       if (isShortEvent) {
+        // Duplication-limit: non-viable if max copies already on chain or in play
+        if (def.effects) {
+          let blocked = false;
+          for (const effect of def.effects) {
+            if (effect.type !== 'duplication-limit' || effect.scope !== 'game') continue;
+            const copiesOnChain = state.chain?.entries.filter(e => {
+              const cDef = e.card ? state.cardPool[e.card.definitionId as string] : undefined;
+              return cDef && cDef.name === def.name;
+            }).length ?? 0;
+            const copiesInPlay = state.players.reduce((count, p) =>
+              count + p.cardsInPlay.filter(c => {
+                const cDef = state.cardPool[c.definitionId as string];
+                return cDef && cDef.name === def.name;
+              }).length, 0,
+            );
+            if (copiesOnChain + copiesInPlay >= effect.max) {
+              logDetail(`Hazard short-event "${def.name}" cannot be duplicated (${copiesOnChain} on chain, ${copiesInPlay} in play)`);
+              actions.push({ action, viable: false, reason: `${def.name} cannot be duplicated` });
+              blocked = true;
+              break;
+            }
+          }
+          if (blocked) continue;
+        }
+
         // Environment-cancelers (e.g. Twilight) need an environment target in play
         if (hasPlayFlag(def, 'playable-as-resource')) {
           const envTargets = findEnvironmentTargets(state);
