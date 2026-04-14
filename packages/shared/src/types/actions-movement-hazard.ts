@@ -317,3 +317,24 @@ export interface CancelHazardByTapAction {
   /** The chain entry index to negate. */
   readonly chainEntryIndex: number;
 }
+
+/**
+ * Execute the dice roll for a Call of Home check on a character.
+ *
+ * Created by the pending-resolution system after a hazard short event
+ * with a `call-of-home-check` effect resolves. The character's player
+ * rolls 2d6; if roll + unused general influence < threshold, the
+ * character returns to hand.
+ */
+export interface CallOfHomeRollAction {
+  /** Action discriminant. */
+  readonly type: 'call-of-home-roll';
+  /** The character's player (who rolls). */
+  readonly player: PlayerId;
+  /** The targeted character instance. */
+  readonly targetCharacterId: CardInstanceId;
+  /** The 2d6 value needed for the character to stay (roll + GI >= this). */
+  readonly need: number;
+  /** Human-readable breakdown of the check. */
+  readonly explanation: string;
+}

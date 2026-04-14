@@ -1018,6 +1018,37 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
     current = queueFetchToDecEffects(current, entry);
   }
 
+  // Call of Home: hazard short event targeting a character. Enqueue a
+  // pending resolution so the character's player rolls 2d6. Like the
+  // influence-attempt pattern, do NOT mark the entry resolved yet.
+  if (entry.payload.type === 'short-event'
+    && entry.payload.targetCharacterId
+    && !entry.negated
+    && entry.card) {
+    const cardDef = current.cardPool[entry.card.definitionId as string];
+    const cohEffect = cardDef && 'effects' in cardDef
+      ? (cardDef.effects as import('../index.js').CardEffect[])?.find(
+        (e): e is import('../index.js').CallOfHomeCheckEffect => e.type === 'call-of-home-check',
+      )
+      : undefined;
+    if (cohEffect) {
+      const resourcePlayerId = current.activePlayer!;
+      logDetail(`Enqueuing call-of-home-roll pending resolution for character ${entry.payload.targetCharacterId as string}`);
+      current = enqueueResolution(current, {
+        source: entry.card.instanceId,
+        actor: resourcePlayerId,
+        scope: { kind: 'phase-step', phase: Phase.MovementHazard, step: 'play-hazards' },
+        kind: {
+          type: 'call-of-home-roll',
+          targetCharacterId: entry.payload.targetCharacterId,
+          hazardDefinitionId: entry.card.definitionId,
+          threshold: cohEffect.threshold,
+        },
+      });
+      return { state: current, needsInput: true };
+    }
+  }
+
   if (entry.payload.type === 'creature' && entry.card) {
     current = initiateCreatureCombat(current, entry);
   }
