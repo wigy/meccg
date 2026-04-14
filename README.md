@@ -22,27 +22,27 @@ A web-based implementation of the **Middle-Earth Collectible Card Game** (MECCG)
 | Rule tests | 12 | 295 | 4.1% |
 | Card tests | 51 | 70 | 72.9% |
 | Cards created | 276 | 1683 | 16.4% |
-| Cards certified | 56 | 276 | 20.3% |
-| **Total** | **395** | **2324** | **17.0%** |
+| Cards certified | 104 | 276 | 37.7% |
+| **Total** | **443** | **2324** | **19.1%** |
 
 ### Deck Catalog
 
 | Deck | Alignment | Cards | Data Available | Certified |
 |:-----|:----------|------:|---------------:|----------:|
-| (A) Stewards of Gondor | hero | 117 | 117 (100.0%) | 13 (11.1%) |
-| (B) Release the Prisoners | hero | 119 | 48 (40.3%) | 12 (10.1%) |
-| (C) Dwarven Quest | hero | 120 | 37 (30.8%) | 10 (8.3%) |
-| (D) Bargain between Friends | hero | 119 | 38 (31.9%) | 11 (9.2%) |
-| (E) Return of the King | hero | 119 | 56 (47.1%) | 10 (8.4%) |
-| (F) Spies and Traitors | minion | 117 | 18 (15.4%) | 3 (2.6%) |
-| (G) Marauding Brood of Uglies | minion | 118 | 29 (24.6%) | 3 (2.5%) |
-| (H) Stealthy Tribe | minion | 122 | 24 (19.7%) | 3 (2.5%) |
-| (I) Morgul Rallying Cry | minion | 122 | 19 (15.6%) | 3 (2.5%) |
-| (J) Seducing Nations of Men | minion | 120 | 19 (15.8%) | 0 (0.0%) |
-| The Balrog (Development only) | balrog | 28 | 28 (100.0%) | 0 (0.0%) |
-| Fallen Wizard (Development only) | fallen-wizard | 33 | 33 (100.0%) | 1 (3.0%) |
-| Hero (Development only) | hero | 76 | 76 (100.0%) | 15 (19.7%) |
-| Minion (Development only) | minion | 28 | 28 (100.0%) | 0 (0.0%) |
+| (A) Stewards of Gondor | hero | 117 | 117 (100.0%) | 107 (91.5%) |
+| (B) Release the Prisoners | hero | 119 | 64 (53.8%) | 41 (34.5%) |
+| (C) Dwarven Quest | hero | 120 | 42 (35.0%) | 36 (30.0%) |
+| (D) Bargain between Friends | hero | 119 | 46 (38.7%) | 32 (26.9%) |
+| (E) Return of the King | hero | 119 | 69 (58.0%) | 52 (43.7%) |
+| (F) Spies and Traitors | minion | 117 | 107 (91.5%) | 11 (9.4%) |
+| (G) Marauding Brood of Uglies | minion | 118 | 51 (43.2%) | 13 (11.0%) |
+| (H) Stealthy Tribe | minion | 122 | 50 (41.0%) | 12 (9.8%) |
+| (I) Morgul Rallying Cry | minion | 122 | 47 (38.5%) | 10 (8.2%) |
+| (J) Seducing Nations of Men | minion | 120 | 53 (44.2%) | 11 (9.2%) |
+| The Balrog (Development only) | balrog | 30 | 30 (100.0%) | 11 (36.7%) |
+| Fallen Wizard (Development only) | fallen-wizard | 35 | 35 (100.0%) | 17 (48.6%) |
+| Hero (Development only) | hero | 69 | 69 (100.0%) | 69 (100.0%) |
+| Minion (Development only) | minion | 52 | 52 (100.0%) | 11 (21.2%) |
 
 ## Getting Started
 
