@@ -181,6 +181,8 @@ export const TWILIGHT = did('tw-106');
 export const ASSASSIN = did('tw-8');
 /** Cave-drake — wilderness hazard creature with moderate prowess. */
 export const CAVE_DRAKE = did('tw-020');
+/** Orc-guard — orc hazard, five strikes, prowess 8, keyed to shadow/dark regions. */
+export const ORC_GUARD = did('tw-072');
 /** Orc-lieutenant — orc hazard, one strike, prowess 7. */
 export const ORC_LIEUTENANT = did('tw-073');
 /** Orc-patrol — shadow-land hazard, common low-prowess roadblock. */
