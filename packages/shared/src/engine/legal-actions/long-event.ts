@@ -20,7 +20,7 @@ import type { GameState, PlayerId, EvaluatedAction, HeroResourceEventCard, PlayT
 import type { PlayOptionEffect } from '../../types/effects.js';
 import { matchesCondition, CardStatus } from '../../index.js';
 import { logHeading, logDetail } from './log.js';
-import { getPlayTargetEffect, getPlayOptionEffects, buildPlayOptionContext } from './organization.js';
+import { getPlayTargetEffect, getPlayOptionEffects, buildPlayOptionContext, grantedActionActivations, ANY_PHASE_GRANT_ACTIONS } from './organization.js';
 
 /**
  * Computes the legal actions for the active player during the long-event phase.
@@ -240,6 +240,9 @@ export function longEventActions(state: GameState, playerId: PlayerId): Evaluate
       reason: 'Only resource events can be played during the long-event phase',
     });
   }
+
+  // Rule 2.1.1: resource player may activate any-phase grant-actions (e.g. Cram untap-bearer)
+  actions.push(...grantedActionActivations(state, playerId, ANY_PHASE_GRANT_ACTIONS));
 
   actions.push({ action: { type: 'pass', player: playerId }, viable: true });
   const playableCount = actions.filter(a => a.viable).length - 1; // exclude pass

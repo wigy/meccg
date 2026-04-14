@@ -28,6 +28,7 @@ import {
   viableActions,
   CardStatus,
   dispatch, expectCharStatus, expectCharItemCount, expectInDiscardPile,
+  makeMHState, makeSitePhase,
 } from '../test-helpers.js';
 import type { ActivateGrantedAction } from '../../index.js';
 
@@ -218,5 +219,91 @@ describe('Cram (td-105)', () => {
     // Both abilities should be available (untap because tapped, extra-region because no movement planned)
     expect(actionIds).toContain('untap-bearer');
     expect(actionIds).toContain('extra-region-movement');
+  });
+
+  // ── Rule 2.1.1: untap-bearer available in any phase ──
+
+  test('untap-bearer available during long-event phase', () => {
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.LongEvent,
+      players: [
+        { id: PLAYER_1, companies: [{ site: MORIA, characters: [{ defId: ARAGORN, items: [CRAM], status: CardStatus.Tapped }] }], hand: [], siteDeck: [LORIEN] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [MINAS_TIRITH] },
+      ],
+    });
+
+    const actions = viableActions(state, PLAYER_1, 'activate-granted-action');
+    const untapActions = actions.filter(ea => (ea.action as ActivateGrantedAction).actionId === 'untap-bearer');
+    expect(untapActions.length).toBe(1);
+  });
+
+  test('untap-bearer available during movement/hazard phase', () => {
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.MovementHazard,
+      players: [
+        { id: PLAYER_1, companies: [{ site: MORIA, characters: [{ defId: ARAGORN, items: [CRAM], status: CardStatus.Tapped }] }], hand: [], siteDeck: [LORIEN] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [MINAS_TIRITH] },
+      ],
+    });
+    const ready = { ...state, phaseState: makeMHState() };
+
+    const actions = viableActions(ready, PLAYER_1, 'activate-granted-action');
+    const untapActions = actions.filter(ea => (ea.action as ActivateGrantedAction).actionId === 'untap-bearer');
+    expect(untapActions.length).toBe(1);
+  });
+
+  test('untap-bearer available during site phase', () => {
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Site,
+      players: [
+        { id: PLAYER_1, companies: [{ site: MORIA, characters: [{ defId: ARAGORN, items: [CRAM], status: CardStatus.Tapped }] }], hand: [], siteDeck: [LORIEN] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [MINAS_TIRITH] },
+      ],
+    });
+    const ready = { ...state, phaseState: makeSitePhase() };
+
+    const actions = viableActions(ready, PLAYER_1, 'activate-granted-action');
+    const untapActions = actions.filter(ea => (ea.action as ActivateGrantedAction).actionId === 'untap-bearer');
+    expect(untapActions.length).toBe(1);
+  });
+
+  test('activating untap-bearer during movement/hazard phase discards Cram and untaps character', () => {
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.MovementHazard,
+      players: [
+        { id: PLAYER_1, companies: [{ site: MORIA, characters: [{ defId: ARAGORN, items: [CRAM], status: CardStatus.Tapped }] }], hand: [], siteDeck: [LORIEN] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [MINAS_TIRITH] },
+      ],
+    });
+    const ready = { ...state, phaseState: makeMHState() };
+
+    const actions = viableActions(ready, PLAYER_1, 'activate-granted-action');
+    const untapAction = actions.find(ea => (ea.action as ActivateGrantedAction).actionId === 'untap-bearer')!;
+    expect(untapAction).toBeDefined();
+
+    const next = dispatch(ready, untapAction.action);
+    expectCharStatus(next, 0, ARAGORN, CardStatus.Untapped);
+    expectCharItemCount(next, 0, ARAGORN, 0);
+    expectInDiscardPile(next, 0, CRAM);
+  });
+
+  test('extra-region-movement NOT available during movement/hazard phase', () => {
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.MovementHazard,
+      players: [
+        { id: PLAYER_1, companies: [{ site: MORIA, characters: [{ defId: ARAGORN, items: [CRAM] }] }], hand: [], siteDeck: [LORIEN] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [MINAS_TIRITH] },
+      ],
+    });
+    const ready = { ...state, phaseState: makeMHState() };
+
+    const actions = viableActions(ready, PLAYER_1, 'activate-granted-action');
+    const extraActions = actions.filter(ea => (ea.action as ActivateGrantedAction).actionId === 'extra-region-movement');
+    expect(extraActions.length).toBe(0);
   });
 });
