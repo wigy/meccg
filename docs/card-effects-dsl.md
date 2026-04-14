@@ -495,6 +495,25 @@ Rules:
   the healing extends to all wounded characters in the company. Implemented in
   `reducer-events.ts` (play-option healing spread). Example: Ioreth.
 
+### 23. `call-of-home-check`
+
+Forces a "Call of Home" style roll check on the targeted character. When
+the hazard short event resolves against a character (selected via
+`play-target`), the character's player rolls 2d6. If roll + unused
+general influence < `threshold`, the character returns to the player's
+hand. All items, allies, and hazards attached to the character are
+discarded; followers fall to GI if room, otherwise are discarded.
+
+Used with a `play-target` effect that selects the target character.
+
+```json
+{ "type": "call-of-home-check", "threshold": 10 }
+```
+
+Implemented in `chain-reducer.ts` (enqueue pending resolution on
+short-event resolution), `legal-actions/pending.ts` (generate roll
+action), and `pending-reducers.ts` (execute roll and apply consequences).
+
 ### Grant-Action: `palantir-fetch-discard`
 
 Tap the Palantír item to choose one card from the player's discard pile

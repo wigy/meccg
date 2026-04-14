@@ -502,6 +502,49 @@ function playHazardsActions(
           }
         }
 
+        // Character-targeting short events (e.g. Call of Home): one action per eligible character
+        const shortEventPlayTarget = def.effects?.find(
+          (e): e is import('../../index.js').PlayTargetEffect => e.type === 'play-target',
+        );
+        if (shortEventPlayTarget?.target === 'character') {
+          for (const charId of targetCompany.characters) {
+            if (shortEventPlayTarget.filter) {
+              const charData = resourcePlayer.characters[charId as string];
+              if (charData) {
+                const charDef = state.cardPool[charData.definitionId as string];
+                if (charDef && isCharacterCard(charDef)) {
+                  const possessionNames = charData.items
+                    .map(item => state.cardPool[item.definitionId as string]?.name)
+                    .filter((n): n is string => n != null);
+                  const ctx = {
+                    target: {
+                      race: charDef.race,
+                      skills: charDef.skills,
+                      name: charDef.name,
+                      possessions: possessionNames,
+                    },
+                  };
+                  if (!matchesCondition(shortEventPlayTarget.filter, ctx)) {
+                    logDetail(`Hazard short-event "${def.name}" filter excludes ${charDef.name}`);
+                    actions.push({
+                      action: { ...action, targetCharacterId: charId },
+                      viable: false,
+                      reason: `${charDef.name} does not match play target filter`,
+                    });
+                    continue;
+                  }
+                }
+              }
+            }
+            logDetail(`Hazard short-event "${def.name}" playable on character ${charId as string}`);
+            actions.push({
+              action: { ...action, targetCharacterId: charId },
+              viable: true,
+            });
+          }
+          continue;
+        }
+
         logDetail(`Hazard short-event "${def.name}" is playable`);
         actions.push({ action, viable: true });
         continue;
@@ -588,11 +631,15 @@ function playHazardsActions(
             if (charData) {
               const charDef = state.cardPool[charData.definitionId as string];
               if (charDef && isCharacterCard(charDef)) {
+                const possessionNames = charData.items
+                  .map(item => state.cardPool[item.definitionId as string]?.name)
+                  .filter((n): n is string => n != null);
                 const ctx = {
                   target: {
                     race: charDef.race,
                     skills: charDef.skills,
                     name: charDef.name,
+                    possessions: possessionNames,
                   },
                 };
                 if (!matchesCondition(playTarget.filter, ctx)) {

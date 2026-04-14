@@ -28,6 +28,7 @@ import type {
   CompanyId,
 } from '../../index.js';
 import { isCharacterCard, isAllyCard, isFactionCard, Phase, CardStatus, matchesCondition } from '../../index.js';
+import { GENERAL_INFLUENCE } from '../../constants.js';
 import type { PlayOptionEffect, PlayTargetEffect, CardEffect } from '../../types/effects.js';
 import { resolveInstanceId } from '../../types/state.js';
 import { resolveDef, collectCharacterEffects, resolveCheckModifier, resolveStatModifiers } from '../effects/index.js';
@@ -85,6 +86,8 @@ export function resolutionLegalActions(
       return opponentInfluenceDefendActions(state, actor, top);
     case 'faction-influence-roll':
       return factionInfluenceRollActions(state, actor, top);
+    case 'call-of-home-roll':
+      return callOfHomeRollActions(state, actor, top);
   }
 }
 
@@ -300,6 +303,47 @@ function factionInfluenceRollActions(
       influencingCharacterId,
       need,
       explanation: `${charName} influences ${factionName}: need roll >= ${need} (influence # ${influenceNumber}, modifier ${modifier >= 0 ? '+' : ''}${modifier}${modStr})`,
+    },
+    viable: true,
+  }];
+}
+
+/**
+ * Compute the single call-of-home-roll action that resolves a queued
+ * `call-of-home-roll` resolution. The character's player rolls 2d6;
+ * if roll + unused general influence < threshold, character returns to hand.
+ */
+function callOfHomeRollActions(
+  state: GameState,
+  playerId: PlayerId,
+  top: PendingResolution,
+): EvaluatedAction[] {
+  if (top.kind.type !== 'call-of-home-roll') return [];
+  const { targetCharacterId, hazardDefinitionId, threshold } = top.kind;
+
+  const actorIndex = state.players.findIndex(p => p.id === playerId);
+  if (actorIndex === -1) return [];
+  const player = state.players[actorIndex];
+
+  const charInPlay = player.characters[targetCharacterId as string];
+  if (!charInPlay) return [];
+
+  const charDef = state.cardPool[charInPlay.definitionId as string];
+  const charName = isCharacterCard(charDef) ? charDef.name : '?';
+  const hazardDef = state.cardPool[hazardDefinitionId as string];
+  const hazardName = hazardDef?.name ?? '?';
+
+  const unusedGI = GENERAL_INFLUENCE - player.generalInfluenceUsed;
+  const need = threshold - unusedGI;
+  logDetail(`Pending call-of-home-roll for ${charName} (${hazardName}): need 2d6 >= ${need} (threshold ${threshold}, unused GI ${unusedGI})`);
+
+  return [{
+    action: {
+      type: 'call-of-home-roll' as const,
+      player: playerId,
+      targetCharacterId,
+      need,
+      explanation: `${charName} resists ${hazardName}: need roll >= ${need} (threshold ${threshold}, unused GI ${unusedGI})`,
     },
     viable: true,
   }];

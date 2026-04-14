@@ -94,7 +94,8 @@
       { "type": "check-modifier", "check": "influence", "value": 1, "when": { "bearer.race": "hobbit" } },
       { "type": "check-modifier", "check": "influence", "value": 1, "when": { "bearer.race": "dunadan" } }
     ],
-    "text": "Unique. Playable at Edoras if the influence check is greater than 9. Standard Modifications: Hobbits (+1), Dúnedain (+1)."
+    "text": "Unique. Playable at Edoras if the influence check is greater than 9. Standard Modifications: Hobbits (+1), Dúnedain (+1).",
+    "certified": "2026-04-14"
   },
   {
     "cardType": "hero-resource-faction",
