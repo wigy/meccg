@@ -351,6 +351,33 @@ export function resolveCompanyModifier(
 }
 
 /**
+ * Resolves draw-modifier effects for a given draw pool (hazard or resource).
+ *
+ * Collects all `draw-modifier` effects matching the pool and sums their
+ * values. Returns the total adjustment and the strictest minimum floor.
+ *
+ * @param effects - All collected effects (pre-filtered by condition).
+ * @param draw - Which draw pool to resolve (`"hazard"` or `"resource"`).
+ * @returns An object with the total adjustment and the effective minimum.
+ */
+export function resolveDrawModifier(
+  effects: readonly CollectedEffect[],
+  draw: 'hazard' | 'resource',
+): { adjustment: number; min: number } {
+  let adjustment = 0;
+  let min = 0;
+  for (const { effect } of effects) {
+    if (effect.type === 'draw-modifier' && effect.draw === draw) {
+      adjustment += effect.value;
+      if (effect.min !== undefined && effect.min > min) {
+        min = effect.min;
+      }
+    }
+  }
+  return { adjustment, min };
+}
+
+/**
  * Maps site automatic attack `creatureType` values (e.g. "Wolves", "Orcs")
  * to the lowercase singular race identifiers used in creature card data
  * and DSL conditions (e.g. "wolf", "orc").

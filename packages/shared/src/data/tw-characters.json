@@ -1020,7 +1020,14 @@
     "marshallingCategory": "character",
     "corruptionModifier": 0,
     "homesite": "Edhellond",
-    "effects": [],
+    "effects": [
+      {
+        "type": "draw-modifier",
+        "draw": "hazard",
+        "value": -1,
+        "min": 0
+      }
+    ],
     "text": "Unique. The number of cards your opponent draws based on Alatar's company's movement is reduced by one (to minimum of 0). If at a Haven when a hazard creature attacks one of your companies, he may immediately join that company (discard allies he controls). Alatar must face a strike from that creature (in all cases). Following the attack, Alatar must tap (if untapped) and make a corruption check."
   },
   {

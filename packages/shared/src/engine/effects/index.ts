@@ -14,6 +14,7 @@ export {
   resolveStatModifiers,
   resolveCheckModifier,
   resolveCompanyModifier,
+  resolveDrawModifier,
   resolveAttackProwess,
   resolveAttackStrikes,
   resolveCombatProwessBonus,

@@ -115,6 +115,16 @@ Modifies the player's hand size.
   "when": { "self.location": "Rivendell" } }
 ```
 
+### 6b. `draw-modifier`
+
+Modifies the number of cards drawn during the movement/hazard draw step
+for the bearer's company. The `draw` field selects which pool to modify
+(`hazard` or `resource`), and `min` sets a floor (default 0).
+
+```json
+{ "type": "draw-modifier", "draw": "hazard", "value": -1, "min": 0 }
+```
+
 ### 7. `grant-action`
 
 Gives the card bearer a new activated ability. For roll-based actions,

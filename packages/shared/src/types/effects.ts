@@ -200,6 +200,21 @@ export interface HandSizeModifierEffect extends EffectBase {
 }
 
 /**
+ * Modifies the number of cards drawn during the movement/hazard draw step.
+ *
+ * Example: Alatar reduces the opponent's hazard draws by 1 for his company.
+ */
+export interface DrawModifierEffect extends EffectBase {
+  readonly type: 'draw-modifier';
+  /** Which draw pool to modify. */
+  readonly draw: 'hazard' | 'resource';
+  /** The adjustment (negative = fewer draws). */
+  readonly value: number;
+  /** Floor for the modified draw count. */
+  readonly min?: number;
+}
+
+/**
  * Grants a new activated ability to the card's bearer.
  *
  * Example: Gandalf can tap to test a gold ring in his company.
@@ -711,6 +726,7 @@ export type CardEffect =
   | CompanyModifierEffect
   | EnemyModifierEffect
   | HandSizeModifierEffect
+  | DrawModifierEffect
   | GrantActionEffect
   | OnEventEffect
   | CancelStrikeEffect
