@@ -10,7 +10,8 @@
  *  the end of the turn. Cannot be duplicated."
  *
  * Engine support:
- * - duplication-limit scope:game max:1
+ * - duplication-limit scope:turn max:1 — another copy cannot be played
+ *   while this card's turn-scoped constraint is still active
  * - Mode A (no Doors of Night): auto-attack-prowess-boost (+2) constraint,
  *   consumed by the next automatic-attack at a R&L site
  * - Mode B1 (Doors of Night + R&L destination): site-type-override to
@@ -119,7 +120,7 @@ describe('Choking Shadows (tw-21)', () => {
     expect(result.error).toBe('Choking Shadows cannot be duplicated');
   });
 
-  test('second copy can be played after first resolves (no longer on chain)', () => {
+  test('second copy is still rejected after first resolves (active constraint persists for the turn)', () => {
     const state = buildTestState({
       phase: Phase.Organization,
       activePlayer: PLAYER_1,
@@ -129,17 +130,26 @@ describe('Choking Shadows (tw-21)', () => {
       ],
     });
 
-    const mhGameState: GameState = { ...state, phaseState: makeMHState() };
+    const mh: MovementHazardPhaseState = makeMHState({
+      destinationSiteType: SiteType.RuinsAndLairs,
+      destinationSiteName: 'Moria',
+      resolvedSitePath: [RegionType.Wilderness],
+      resolvedSitePathNames: ['Hollin'],
+    });
+    const mhGameState: GameState = { ...state, phaseState: mh };
     const cs1Id = handCardId(mhGameState, 1, 0);
 
-    // Play and resolve first copy
+    // Play and resolve first copy — leaves an auto-attack-prowess-boost
+    // constraint active until end of turn.
     const afterResolve = playHazardAndResolve(mhGameState, PLAYER_2, cs1Id, P1_COMPANY);
     expect(afterResolve.chain).toBeNull();
     expect(afterResolve.players[1].discardPile.map(c => c.instanceId)).toContain(cs1Id);
+    expect(afterResolve.activeConstraints.some(c => c.sourceDefinitionId === CHOKING_SHADOWS)).toBe(true);
 
-    // Second copy is playable (first is in discard, not on chain or in play)
+    // Second copy is not playable: the turn-scoped constraint from the
+    // first copy is still in effect.
     const actions = viableActions(afterResolve, PLAYER_2, 'play-hazard');
-    expect(actions).toHaveLength(1);
+    expect(actions).toHaveLength(0);
   });
 
   test('counts against hazard limit', () => {
