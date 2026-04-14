@@ -77,7 +77,7 @@ export interface ResolverContext {
  * multiple copies of the same card in play (e.g. two Eye of Sauron each
  * stack their +1 prowess to automatic-attacks).
  */
-interface CollectedEffect {
+export interface CollectedEffect {
   readonly effect: CardEffect;
   readonly sourceDef: CardDefinition;
   readonly sourceInstance: CardInstanceId;
@@ -313,11 +313,16 @@ export function resolveStatModifiers(
 export function resolveCheckModifier(
   effects: readonly CollectedEffect[],
   check: string,
+  context?: Record<string, unknown>,
 ): number {
   let total = 0;
   for (const { effect } of effects) {
     if (effect.type === 'check-modifier' && effect.check === check) {
-      total += typeof effect.value === 'number' ? effect.value : 0;
+      if (typeof effect.value === 'number') {
+        total += effect.value;
+      } else if (typeof effect.value === 'string' && context) {
+        total += evaluateExpr(effect.value, context);
+      }
     }
   }
   return total;

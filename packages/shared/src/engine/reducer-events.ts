@@ -592,6 +592,9 @@ function applyShortEventOnEntersPlay(
         case 'deny-scout-resources':
           kind = { type: 'deny-scout-resources' };
           break;
+        case 'cancel-hazard-by-tap':
+          kind = { type: 'cancel-hazard-by-tap' };
+          break;
         default:
           logDetail(`add-constraint: unknown constraint kind "${constraintKind}" — fizzle`);
           continue;

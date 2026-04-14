@@ -106,6 +106,11 @@ export interface PlayHazardAction {
   readonly targetSiteDefinitionId?: import('./common.js').CardDefinitionId;
   /** For creatures, describes which keying rule matched the travel path. */
   readonly keyedBy?: CreatureKeyingMatch;
+  /**
+   * For hazard short-events with a creature-race-choice effect (e.g. Two
+   * or Three Tribes Present), the race the player announced when playing.
+   */
+  readonly chosenCreatureRace?: string;
 }
 
 /**
@@ -294,4 +299,21 @@ export interface PlayDodgeAction {
   readonly need: number;
   /** Human-readable breakdown of dodging character's prowess vs creature prowess. */
   readonly explanation: string;
+}
+
+/**
+ * The resource player taps a character in a company protected by the
+ * Great Ship constraint to cancel a hazard that targets the company.
+ * Available during M/H play-hazards when a chain entry targets the
+ * company and the company's site path satisfies the coastal condition.
+ */
+export interface CancelHazardByTapAction {
+  /** Action discriminant. */
+  readonly type: 'cancel-hazard-by-tap';
+  /** The resource player canceling the hazard. */
+  readonly player: PlayerId;
+  /** The character being tapped to cancel the hazard. */
+  readonly characterInstanceId: CardInstanceId;
+  /** The chain entry index to negate. */
+  readonly chainEntryIndex: number;
 }

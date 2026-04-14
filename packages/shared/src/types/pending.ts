@@ -290,6 +290,25 @@ export interface ActiveConstraint {
         readonly regionName: string;
         /** The effective region type for the rest of the turn. */
         readonly overrideType: RegionType;
+      }
+    | {
+        /**
+         * Great Ship: during M/H play-hazards, any untapped character in
+         * the target company may tap to cancel a hazard targeting the
+         * company, provided the company's site path contains a Coastal Sea
+         * region and no consecutive non-Coastal Sea regions.
+         */
+        readonly type: 'cancel-hazard-by-tap';
+      }
+    | {
+        /**
+         * Two or Three Tribes Present: hazard creatures of the named race
+         * played against the target company do not count against the
+         * hazard limit for the remainder of the company's M/H phase.
+         */
+        readonly type: 'creature-type-no-hazard-limit';
+        /** The creature race exempted from the hazard limit. */
+        readonly exemptRace: string;
       };
 }
 

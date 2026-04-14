@@ -184,9 +184,56 @@
         "type": "duplication-limit",
         "scope": "game",
         "max": 1
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "prowess",
+        "value": 1,
+        "target": "all-attacks",
+        "id": "minions-stir-orc-prowess",
+        "when": { "enemy.race": "orc" }
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "prowess",
+        "value": 2,
+        "target": "all-attacks",
+        "overrides": "minions-stir-orc-prowess",
+        "when": { "$and": [{ "enemy.race": "orc" }, { "inPlay": "Doors of Night" }] }
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "strikes",
+        "value": 1,
+        "target": "all-attacks",
+        "id": "minions-stir-orc-strikes",
+        "when": { "enemy.race": "orc" }
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "strikes",
+        "value": 2,
+        "target": "all-attacks",
+        "overrides": "minions-stir-orc-strikes",
+        "when": { "$and": [{ "enemy.race": "orc" }, { "inPlay": "Doors of Night" }] }
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "prowess",
+        "value": 1,
+        "target": "all-attacks",
+        "when": { "enemy.race": "troll" }
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "strikes",
+        "value": 1,
+        "target": "all-attacks",
+        "when": { "enemy.race": "troll" }
       }
     ],
-    "text": "The number of strikes and prowess of each Orc and Troll attack are each increased by one (by two for Orc attacks if Doors of Night is in play). Cannot be duplicated."
+    "text": "The number of strikes and prowess of each Orc and Troll attack are each increased by one (by two for Orc attacks if Doors of Night is in play). Cannot be duplicated.",
+    "certified": "2026-04-14"
   },
   {
     "cardType": "hazard-event",

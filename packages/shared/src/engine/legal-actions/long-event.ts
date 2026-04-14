@@ -17,9 +17,10 @@
  */
 
 import type { GameState, PlayerId, EvaluatedAction, HeroResourceEventCard, PlayTargetEffect, CardInstanceId, PlayerState } from '../../index.js';
+import type { PlayOptionEffect } from '../../types/effects.js';
 import { matchesCondition, CardStatus } from '../../index.js';
 import { logHeading, logDetail } from './log.js';
-import { getPlayTargetEffect, buildPlayOptionContext } from './organization.js';
+import { getPlayTargetEffect, getPlayOptionEffects, buildPlayOptionContext } from './organization.js';
 
 /**
  * Computes the legal actions for the active player during the long-event phase.
@@ -209,6 +210,21 @@ export function longEventActions(state: GameState, playerId: PlayerId): Evaluate
         } else {
           for (const targetId of targets) emitPlay(targetId);
         }
+      } else if (playTarget && playTarget.target === 'character') {
+        const options = getPlayOptionEffects(def);
+        const optionActions = playOptionActionsForLongEvent(
+          state, player, playerId, cardInstanceId, def, playTarget, options,
+        );
+        if (optionActions.length === 0) {
+          logDetail(`${def.name}: no eligible character targets — not playable`);
+          actions.push({
+            action: { type: 'not-playable', player: playerId, cardInstanceId },
+            viable: false,
+            reason: `${def.name} requires a matching character`,
+          });
+        } else {
+          actions.push(...optionActions);
+        }
       } else {
         emitPlay(undefined);
       }
@@ -229,6 +245,79 @@ export function longEventActions(state: GameState, playerId: PlayerId): Evaluate
   const playableCount = actions.filter(a => a.viable).length - 1; // exclude pass
   logDetail(`Long-event phase: ${playableCount} playable events + pass, ${actions.length - playableCount - 1} not playable`);
   return actions;
+}
+
+/**
+ * Generates `play-short-event` actions for a card with {@link PlayTargetEffect}
+ * targeting characters and {@link PlayOptionEffect}s during the long-event phase.
+ * One action per (target, option) pair whose `when` (if any) matches the
+ * target context.
+ */
+function playOptionActionsForLongEvent(
+  state: GameState,
+  player: PlayerState,
+  playerId: PlayerId,
+  cardInstanceId: CardInstanceId,
+  def: { name: string },
+  playTarget: PlayTargetEffect,
+  options: readonly PlayOptionEffect[],
+): EvaluatedAction[] {
+  const actions: EvaluatedAction[] = [];
+  const targets = eligibleCharacterTargets(state, player, playTarget);
+  for (const targetId of targets) {
+    const char = player.characters[targetId as string];
+    if (!char) continue;
+    const ctx = buildPlayOptionContext(state, char, player);
+    if (options.length === 0) {
+      logDetail(`${def.name} playable on ${targetId as string} (no options)`);
+      actions.push({
+        action: {
+          type: 'play-short-event',
+          player: playerId,
+          cardInstanceId,
+          targetCharacterId: targetId,
+        },
+        viable: true,
+      });
+    } else {
+      for (const opt of options) {
+        if (opt.when && !matchesCondition(opt.when, ctx)) continue;
+        logDetail(`${def.name} playable on ${targetId as string}: option "${opt.id}"`);
+        actions.push({
+          action: {
+            type: 'play-short-event',
+            player: playerId,
+            cardInstanceId,
+            targetCharacterId: targetId,
+            optionId: opt.id,
+          },
+          viable: true,
+        });
+      }
+    }
+  }
+  return actions;
+}
+
+/**
+ * Returns eligible character IDs for a play-target with character filter.
+ * Characters matching the DSL filter condition are eligible.
+ */
+function eligibleCharacterTargets(
+  state: GameState,
+  player: PlayerState,
+  playTarget: PlayTargetEffect,
+): CardInstanceId[] {
+  if (playTarget.target !== 'character') return [];
+  const out: CardInstanceId[] = [];
+  for (const [charIdStr, char] of Object.entries(player.characters)) {
+    if (playTarget.filter
+        && !matchesCondition(playTarget.filter, buildPlayOptionContext(state, char, player))) {
+      continue;
+    }
+    out.push(charIdStr as unknown as CardInstanceId);
+  }
+  return out;
 }
 
 /**

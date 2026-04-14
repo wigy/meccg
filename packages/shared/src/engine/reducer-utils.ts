@@ -503,7 +503,7 @@ export function autoMergeNonHavenCompanies(state: GameState, playerIndex: number
 
   const newPlayers: [PlayerState, PlayerState] = [state.players[0], state.players[1]];
   newPlayers[playerIndex] = { ...player, companies };
-  return { ...state, players: newPlayers };
+  return sweepAutoDiscardHazards({ ...state, players: newPlayers });
 }
 
 /**
@@ -535,6 +535,63 @@ export function cleanupEmptyCompanies(state: GameState): GameState {
   });
 
   return { ...state, players: [newPlayers[0], newPlayers[1]] };
+}
+
+/**
+ * Fires the `company-composition-changed` event against every attached
+ * hazard carrying an `on-event` + `discard-self` effect for that event.
+ * When the effect's `when` condition is met, the hazard is discarded to
+ * its owner's discard pile — the same pattern Treebeard uses for
+ * `company-arrives-at-site`, reused here for hazards that care about
+ * company size (e.g. Alone and Unadvised).
+ */
+export function sweepAutoDiscardHazards(state: GameState): GameState {
+  let changed = false;
+  const newPlayers = clonePlayers(state);
+
+  for (let pi = 0; pi < 2; pi++) {
+    const player = newPlayers[pi];
+    for (const company of player.companies) {
+      const companyCharCount = company.characters.length;
+      for (const charId of company.characters) {
+        const char = player.characters[charId as string];
+        if (!char) continue;
+        const toDiscard: CardInstanceId[] = [];
+        for (const hazard of char.hazards) {
+          const hDef = state.cardPool[hazard.definitionId as string];
+          if (!hDef || !('effects' in hDef) || !hDef.effects) continue;
+          for (const effect of hDef.effects) {
+            if (effect.type !== 'on-event') continue;
+            if (effect.event !== 'company-composition-changed') continue;
+            if (effect.apply?.type !== 'discard-self') continue;
+            if (!effect.when) continue;
+            const ctx = { company: { characterCount: companyCharCount } };
+            if (matchesCondition(effect.when, ctx)) {
+              logDetail(`discard-self: "${hDef.name}" on ${charId as string} (company size ${companyCharCount})`);
+              toDiscard.push(hazard.instanceId);
+              break;
+            }
+          }
+        }
+        if (toDiscard.length > 0) {
+          changed = true;
+          const discardSet = new Set(toDiscard as string[]);
+          const discarded = char.hazards.filter(h => discardSet.has(h.instanceId as string));
+          const remaining = char.hazards.filter(h => !discardSet.has(h.instanceId as string));
+          newPlayers[pi] = {
+            ...newPlayers[pi],
+            characters: {
+              ...newPlayers[pi].characters,
+              [charId as string]: { ...newPlayers[pi].characters[charId as string], hazards: remaining },
+            },
+            discardPile: [...newPlayers[pi].discardPile, ...discarded.map(h => ({ instanceId: h.instanceId, definitionId: h.definitionId }))],
+          };
+        }
+      }
+    }
+  }
+
+  return changed ? { ...state, players: [newPlayers[0], newPlayers[1]] as unknown as typeof state.players } : state;
 }
 
 // ---- Character placement handler ----

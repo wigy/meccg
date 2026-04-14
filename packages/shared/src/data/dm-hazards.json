@@ -33,7 +33,29 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/dm/TwoorThreeTribesPresent.jpg",
     "unique": false,
     "eventType": "short",
-    "effects": [],
-    "text": "Playable on a company moving with at least two Wildernesses, one Shadow-land, or one Dark-domain in their site path. When played, announce a creature type except Nazgul, Undead, or Dragons (like Orcs, Men, Slayers, Drakes, etc.). For this turn, any hazard creatures of this type played against target company do not count against the hazard limit."
+    "effects": [
+      {
+        "type": "play-condition",
+        "requires": "site-path",
+        "condition": {
+          "$or": [
+            { "sitePath.wildernessCount": { "$gte": 2 } },
+            { "sitePath.shadowCount": { "$gte": 1 } },
+            { "sitePath.darkCount": { "$gte": 1 } }
+          ]
+        }
+      },
+      {
+        "type": "creature-race-choice",
+        "exclude": ["ringwraith", "undead", "dragon"],
+        "apply": {
+          "type": "add-constraint",
+          "constraint": "creature-type-no-hazard-limit",
+          "scope": "company-mh-phase"
+        }
+      }
+    ],
+    "text": "Playable on a company moving with at least two Wildernesses, one Shadow-land, or one Dark-domain in their site path. When played, announce a creature type except Nazgul, Undead, or Dragons (like Orcs, Men, Slayers, Drakes, etc.). For this turn, any hazard creatures of this type played against target company do not count against the hazard limit.",
+    "certified": "2026-04-14"
   }
 ]

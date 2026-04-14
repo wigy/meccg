@@ -179,6 +179,27 @@ describe('Cram (td-105)', () => {
     expect(extraActions2.length).toBe(0);
   });
 
+  test('untap-bearer grant-action available during end-of-org step', () => {
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Organization,
+      players: [
+        { id: PLAYER_1, companies: [{ site: MORIA, characters: [{ defId: ARAGORN, items: [CRAM], status: CardStatus.Tapped }] }], hand: [], siteDeck: [LORIEN] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [MINAS_TIRITH] },
+      ],
+    });
+
+    const orgPhase = state.phaseState as import('../../index.js').OrganizationPhaseState;
+    const endOfOrgState: typeof state = {
+      ...state,
+      phaseState: { ...orgPhase, step: 'end-of-org' as const },
+    };
+
+    const actions = viableActions(endOfOrgState, PLAYER_1, 'activate-granted-action');
+    const untapActions = actions.filter(ea => (ea.action as ActivateGrantedAction).actionId === 'untap-bearer');
+    expect(untapActions.length).toBe(1);
+  });
+
   // ── Both abilities on same card ──
 
   test('tapped character with Cram sees untap-bearer but also extra-region-movement', () => {

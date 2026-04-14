@@ -174,10 +174,14 @@ export const DOORS_OF_NIGHT = did('tw-28');
 export const EYE_OF_SAURON = did('tw-32');
 /** Wake of War — long hazard event, boosts Wolf/Spider/Animal attacks (+1 strikes and prowess, +2 for Wolves with Doors of Night). */
 export const WAKE_OF_WAR = did('tw-108');
+/** Minions Stir — long hazard event, boosts Orc/Troll attacks (+1 strikes and prowess, +2 for Orcs with Doors of Night). */
+export const MINIONS_STIR = did('tw-61');
 /** Twilight — short hazard event, environment that cancels another environment. May also be played as a resource. */
 export const TWILIGHT = did('tw-106');
 /** An Unexpected Outpost — short hazard event, fetch a hazard from sideboard/discard to play deck (twice with Doors of Night). */
 export const AN_UNEXPECTED_OUTPOST = did('dm-45');
+/** Two or Three Tribes Present — short hazard event, choose a creature type to bypass hazard limit. */
+export const TWO_OR_THREE_TRIBES_PRESENT = did('dm-97');
 
 // ---- Creatures ----
 
@@ -216,6 +220,14 @@ export const FOOLISH_WORDS = did('td-25');
  */
 export const LURE_OF_THE_SENSES = did('tw-60');
 /**
+ * Alone and Unadvised — hazard corruption card playable on a non-Wizard,
+ * non-Ringwraith character in a company with 3 or fewer characters. Adds
+ * 4 corruption points. Bearer makes corruption checks per region at end
+ * of MH, all corruption checks modified by company size. Bearer may tap
+ * to remove on roll > 6. Auto-discards if company reaches 4+ characters.
+ */
+export const ALONE_AND_UNADVISED = did('as-24');
+/**
  * Lost in Free-domains — hazard permanent-event playable on a company
  * moving with a Free-domain in its site path. Adds an active constraint
  * (`site-phase-do-nothing`) that prevents the affected company from
@@ -243,6 +255,13 @@ export const RIVER = did('tw-84');
  * or receive a +4 corruption-check modifier (as an active constraint).
  */
 export const HALFLING_STRENGTH = did('tw-253');
+/**
+ * Great Ship — hero short-event resource. Played during organization by
+ * tapping a character in a target company. Until end of turn, if the
+ * company's site path is predominantly coastal, any character in the
+ * company may tap to cancel a hazard targeting the company.
+ */
+export const GREAT_SHIP = did('tw-248');
 /** LE printing of Lure of the Senses (mirror of TW-60). */
 export const LURE_OF_THE_SENSES_LE = did('le-124');
 /** LE printing of Lost in Free-domains (mirror of TW-53). */
