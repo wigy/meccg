@@ -395,7 +395,7 @@ function playHazardsActions(
           actions.push({ action, viable: false, reason: 'Creatures must initiate a new chain' });
           continue;
         }
-        const matches = findCreatureKeyingMatches(def, mhState);
+        const matches = findCreatureKeyingMatches(def, mhState, state, targetCompany);
         if (matches.length === 0) {
           const keyError = describeKeyingRequirement(def);
           logDetail(`Creature "${def.name}" not keyable: ${keyError}`);
@@ -414,6 +414,31 @@ function playHazardsActions(
 
       // --- Short event ---
       if (isShortEvent) {
+        // Duplication-limit: non-viable if max copies already on chain or in play
+        if (def.effects) {
+          let blocked = false;
+          for (const effect of def.effects) {
+            if (effect.type !== 'duplication-limit' || effect.scope !== 'game') continue;
+            const copiesOnChain = state.chain?.entries.filter(e => {
+              const cDef = e.card ? state.cardPool[e.card.definitionId as string] : undefined;
+              return cDef && cDef.name === def.name;
+            }).length ?? 0;
+            const copiesInPlay = state.players.reduce((count, p) =>
+              count + p.cardsInPlay.filter(c => {
+                const cDef = state.cardPool[c.definitionId as string];
+                return cDef && cDef.name === def.name;
+              }).length, 0,
+            );
+            if (copiesOnChain + copiesInPlay >= effect.max) {
+              logDetail(`Hazard short-event "${def.name}" cannot be duplicated (${copiesOnChain} on chain, ${copiesInPlay} in play)`);
+              actions.push({ action, viable: false, reason: `${def.name} cannot be duplicated` });
+              blocked = true;
+              break;
+            }
+          }
+          if (blocked) continue;
+        }
+
         // Environment-cancelers (e.g. Twilight) need an environment target in play
         if (hasPlayFlag(def, 'playable-as-resource')) {
           const envTargets = findEnvironmentTargets(state);
@@ -835,18 +860,57 @@ function regionTypesMatch(required: readonly RegionType[], path: readonly Region
 /**
  * Find all keying matches for a creature against the current company's
  * travel path and destination site. Returns one entry per distinct match.
+ *
+ * Active `site-type-override` / `region-type-override` constraints (e.g.
+ * from Choking Shadows with Doors of Night) extend the set of eligible
+ * site-type and region-type keys — the override type is tried in
+ * addition to the natural type.
  */
-function findCreatureKeyingMatches(def: CreatureCard, mhState: MovementHazardPhaseState): CreatureKeyingMatch[] {
+function findCreatureKeyingMatches(
+  def: CreatureCard,
+  mhState: MovementHazardPhaseState,
+  state: GameState,
+  targetCompany: { readonly destinationSite?: { readonly instanceId: CardInstanceId } | null },
+): CreatureKeyingMatch[] {
   const matches: CreatureKeyingMatch[] = [];
   const seen = new Set<string>();
+
+  // Gather overrides in scope for this company's arrival.
+  const destSiteDefId = targetCompany.destinationSite?.instanceId
+    ? resolveInstanceId(state, targetCompany.destinationSite.instanceId)
+    : null;
+  const siteOverrides = state.activeConstraints.filter(c =>
+    c.kind.type === 'site-type-override'
+    && destSiteDefId !== null
+    && c.kind.siteDefinitionId === destSiteDefId,
+  );
+  const regionOverrides = state.activeConstraints.filter(c => c.kind.type === 'region-type-override');
+  const overriddenRegionTypes = new Map<string, import('../../types/common.js').RegionType>();
+  for (const c of regionOverrides) {
+    if (c.kind.type !== 'region-type-override') continue;
+    if (mhState.resolvedSitePathNames.includes(c.kind.regionName)) {
+      overriddenRegionTypes.set(c.kind.regionName, c.kind.overrideType);
+    }
+  }
+  const effectiveRegionTypes: import('../../types/common.js').RegionType[] = [...mhState.resolvedSitePath];
+  for (const rt of overriddenRegionTypes.values()) {
+    if (!effectiveRegionTypes.includes(rt)) effectiveRegionTypes.push(rt);
+  }
+  const effectiveSiteTypes: import('../../types/common.js').SiteType[] = [];
+  if (mhState.destinationSiteType) effectiveSiteTypes.push(mhState.destinationSiteType);
+  for (const c of siteOverrides) {
+    if (c.kind.type === 'site-type-override' && !effectiveSiteTypes.includes(c.kind.overrideType)) {
+      effectiveSiteTypes.push(c.kind.overrideType);
+    }
+  }
 
   for (const key of def.keyedTo) {
     // Region type matches
     if (key.regionTypes && key.regionTypes.length > 0) {
-      if (regionTypesMatch(key.regionTypes, mhState.resolvedSitePath)) {
+      if (regionTypesMatch(key.regionTypes, effectiveRegionTypes)) {
         // Report each matching region type individually
         for (const rt of key.regionTypes) {
-          if (mhState.resolvedSitePath.includes(rt)) {
+          if (effectiveRegionTypes.includes(rt)) {
             const k = `region-type:${rt}`;
             if (!seen.has(k)) { seen.add(k); matches.push({ method: 'region-type', value: rt }); }
           }
@@ -863,10 +927,12 @@ function findCreatureKeyingMatches(def: CreatureCard, mhState: MovementHazardPha
       }
     }
     // Site type matches
-    if (key.siteTypes && key.siteTypes.length > 0 && mhState.destinationSiteType) {
-      if (key.siteTypes.includes(mhState.destinationSiteType)) {
-        const k = `site-type:${mhState.destinationSiteType}`;
-        if (!seen.has(k)) { seen.add(k); matches.push({ method: 'site-type', value: mhState.destinationSiteType }); }
+    if (key.siteTypes && key.siteTypes.length > 0) {
+      for (const st of effectiveSiteTypes) {
+        if (key.siteTypes.includes(st)) {
+          const k = `site-type:${st}`;
+          if (!seen.has(k)) { seen.add(k); matches.push({ method: 'site-type', value: st }); }
+        }
       }
     }
   }

@@ -529,6 +529,12 @@ function applyOneConstraint(
       return base;
     case 'deny-scout-resources':
       return applyDenyScoutResources(state, playerId, base, constraint);
+    case 'auto-attack-prowess-boost':
+    case 'site-type-override':
+    case 'region-type-override':
+      // Consulted directly by the combat / keying code paths — no
+      // legal-action filtering needed here.
+      return base;
     case 'cancel-hazard-by-tap':
       return base;
     case 'creature-type-no-hazard-limit':

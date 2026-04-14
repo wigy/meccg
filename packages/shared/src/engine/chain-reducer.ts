@@ -426,13 +426,17 @@ function applyShortEventArrivalTrigger(state: GameState, entry: ChainEntry): Gam
   const def = state.cardPool[card.definitionId as string];
   if (!def || !('effects' in def) || !def.effects) return state;
 
-  // Find the on-event effect this short-event carries, if any.
-  const onEvent = def.effects.find(
-    e => e.type === 'on-event'
+  // Collect all on-event + add-constraint effects for company-arrives-at-site.
+  // Multiple effects allow a card to declare several mutually-exclusive
+  // modes (e.g. Choking Shadows' +2 prowess vs. type-override); the first
+  // effect whose `when` condition matches is applied and the rest skipped.
+  const onEvents = def.effects.filter(
+    (e): e is import('../types/effects.js').OnEventEffect =>
+      e.type === 'on-event'
       && e.event === 'company-arrives-at-site'
       && e.apply.type === 'add-constraint',
   );
-  if (!onEvent || onEvent.type !== 'on-event') return state;
+  if (onEvents.length === 0) return state;
 
   // Only fire during M/H — outside of M/H there is no active company
   // for a "company arrives at site" trigger to attach to.
@@ -447,49 +451,149 @@ function applyShortEventArrivalTrigger(state: GameState, entry: ChainEntry): Gam
   const targetCompany = state.players[activeIndex].companies[companyIndex];
   if (!targetCompany) return state;
 
-  const constraintKind = onEvent.apply.constraint;
-  const scopeName = onEvent.apply.scope;
-  if (!constraintKind || !scopeName) return state;
+  // Build the context for `when` condition evaluation so each mode can
+  // gate on destination site-type / region / environment (Doors of Night).
+  const ctx = buildArrivalContext(state);
 
-  let scope: import('../types/pending.js').ConstraintScope;
-  switch (scopeName) {
-    case 'company-site-phase':
-      scope = { kind: 'company-site-phase', companyId: targetCompany.id };
-      break;
-    case 'turn':
-      scope = { kind: 'turn' };
-      break;
-    case 'until-cleared':
-      scope = { kind: 'until-cleared' };
-      break;
-    default:
-      return state;
+  for (const onEvent of onEvents) {
+    if (onEvent.when && !matchesCondition(onEvent.when, ctx)) {
+      logDetail(`Short-event "${def.name}": skipping ${onEvent.apply.constraint} mode — condition not met`);
+      continue;
+    }
+    const constraintKind = onEvent.apply.constraint;
+    const scopeName = onEvent.apply.scope;
+    if (!constraintKind || !scopeName) continue;
+
+    let scope: import('../types/pending.js').ConstraintScope;
+    switch (scopeName) {
+      case 'company-site-phase':
+        scope = { kind: 'company-site-phase', companyId: targetCompany.id };
+        break;
+      case 'turn':
+        scope = { kind: 'turn' };
+        break;
+      case 'until-cleared':
+        scope = { kind: 'until-cleared' };
+        break;
+      default:
+        continue;
+    }
+    const builtKind = buildConstraintKind(state, onEvent, constraintKind);
+    if (!builtKind) continue;
+
+    logDetail(`Short-event "${def.name}" resolves → adding ${constraintKind} constraint on company ${targetCompany.id as string}`);
+    return addConstraint(state, {
+      source: card.instanceId,
+      sourceDefinitionId: card.definitionId,
+      scope,
+      target: { kind: 'company', companyId: targetCompany.id },
+      kind: builtKind,
+    });
   }
-  let kind: import('../types/pending.js').ActiveConstraint['kind'];
+
+  logDetail(`Short-event "${def.name}": no on-event mode applied (no condition matched)`);
+  return state;
+}
+
+/**
+ * Build the evaluation context for a `company-arrives-at-site` `when`
+ * clause. Exposes the active company's destination site type, destination
+ * region type, and whether Doors of Night is in play — enough for a
+ * card like Choking Shadows to pick between its modes.
+ */
+function buildArrivalContext(state: GameState): Record<string, unknown> {
+  const ctx: Record<string, unknown> = {};
+  if (state.phaseState.phase !== Phase.MovementHazard) return ctx;
+  const mh = state.phaseState;
+  const company: Record<string, unknown> = {};
+  if (mh.destinationSiteType) company.destinationSiteType = mh.destinationSiteType;
+  if (mh.destinationSiteName) company.destinationSiteName = mh.destinationSiteName;
+  // The destination region type is the last entry in the resolved path
+  // (the region the destination site sits in).
+  if (mh.resolvedSitePath.length > 0) {
+    company.destinationRegionType = mh.resolvedSitePath[mh.resolvedSitePath.length - 1];
+  }
+  ctx.company = company;
+  const inPlayNames = buildInPlayNames(state);
+  ctx.inPlay = inPlayNames;
+  ctx.environment = { doorsOfNightInPlay: inPlayNames.includes('Doors of Night') };
+  return ctx;
+}
+
+/**
+ * Build the {@link ActiveConstraint} `kind` payload for a supported
+ * constraint name. Returns null when the constraint name is unknown or
+ * when required fields are missing from the effect. Shared between the
+ * short-event and permanent-event add-constraint code paths.
+ */
+function buildConstraintKind(
+  state: GameState,
+  onEvent: import('../types/effects.js').OnEventEffect,
+  constraintKind: string,
+): import('../types/pending.js').ActiveConstraint['kind'] | null {
   switch (constraintKind) {
     case 'site-phase-do-nothing':
-      kind = onEvent.apply.cancelWhen
+      return onEvent.apply.cancelWhen
         ? { type: 'site-phase-do-nothing', cancelWhen: onEvent.apply.cancelWhen }
         : { type: 'site-phase-do-nothing' };
-      break;
     case 'no-creature-hazards-on-company':
-      kind = { type: 'no-creature-hazards-on-company' };
-      break;
+      return { type: 'no-creature-hazards-on-company' };
     case 'deny-scout-resources':
-      kind = { type: 'deny-scout-resources' };
-      break;
+      return { type: 'deny-scout-resources' };
+    case 'auto-attack-prowess-boost': {
+      const value = (onEvent.apply as { value?: number }).value;
+      const siteType = (onEvent.apply as { siteType?: import('../types/common.js').SiteType }).siteType;
+      if (value === undefined || !siteType) return null;
+      return { type: 'auto-attack-prowess-boost', value, siteType };
+    }
+    case 'site-type-override': {
+      const overrideType = (onEvent.apply as { overrideType?: import('../types/common.js').SiteType }).overrideType;
+      if (!overrideType) return null;
+      // Prefer resolving the site from the active company's
+      // destinationSite instance; fall back to looking up
+      // mh.destinationSiteName in the card pool so constraints can still
+      // be created from phase-state alone (useful when legal actions
+      // were computed before the destination was assigned to a concrete
+      // instance).
+      const ps = state.phaseState;
+      if (ps.phase !== Phase.MovementHazard) return null;
+      const activePlayer = state.players.find(p => p.id === state.activePlayer);
+      const company = activePlayer?.companies[ps.activeCompanyIndex];
+      let siteDefinitionId: import('../types/common.js').CardDefinitionId | null = null;
+      if (company?.destinationSite?.instanceId) {
+        siteDefinitionId = resolveInstanceId(state, company.destinationSite.instanceId) ?? null;
+      }
+      if (!siteDefinitionId && ps.destinationSiteName) {
+        for (const [defId, d] of Object.entries(state.cardPool)) {
+          const ct = (d as { cardType?: string }).cardType;
+          const name = (d as { name?: string }).name;
+          if (ct?.includes('site') && name === ps.destinationSiteName) {
+            siteDefinitionId = defId as import('../types/common.js').CardDefinitionId;
+            break;
+          }
+        }
+      }
+      if (!siteDefinitionId) return null;
+      return { type: 'site-type-override', siteDefinitionId, overrideType };
+    }
+    case 'region-type-override': {
+      const overrideType = (onEvent.apply as { overrideType?: import('../types/common.js').RegionType }).overrideType;
+      let regionName = (onEvent.apply as { regionName?: string }).regionName;
+      if (!overrideType || !regionName) return null;
+      // Special token: pick the destination region (last entry in the
+      // resolved site-path names) for the active company. This lets a
+      // short event declare "transform wherever the company is going"
+      // without knowing specific region names at card-definition time.
+      if (regionName === 'destination' && state.phaseState.phase === Phase.MovementHazard) {
+        const mh = state.phaseState;
+        if (mh.resolvedSitePathNames.length === 0) return null;
+        regionName = mh.resolvedSitePathNames[mh.resolvedSitePathNames.length - 1];
+      }
+      return { type: 'region-type-override', regionName, overrideType };
+    }
     default:
-      return state;
+      return null;
   }
-
-  logDetail(`Short-event "${def.name}" resolves → adding ${constraintKind} constraint on company ${targetCompany.id as string}`);
-  return addConstraint(state, {
-    source: card.instanceId,
-    sourceDefinitionId: card.definitionId,
-    scope,
-    target: { kind: 'company', companyId: targetCompany.id },
-    kind,
-  });
 }
 
 /**
@@ -697,24 +801,10 @@ function applyAddConstraintFromOnEvent(
       return state;
   }
 
-  // Map the constraint name to a kind discriminant.
-  type Kind = import('../types/pending.js').ActiveConstraint['kind'];
-  let kind: Kind;
-  switch (constraintKind) {
-    case 'site-phase-do-nothing':
-      kind = effect.apply.cancelWhen
-        ? { type: 'site-phase-do-nothing', cancelWhen: effect.apply.cancelWhen }
-        : { type: 'site-phase-do-nothing' };
-      break;
-    case 'no-creature-hazards-on-company':
-      kind = { type: 'no-creature-hazards-on-company' };
-      break;
-    case 'deny-scout-resources':
-      kind = { type: 'deny-scout-resources' };
-      break;
-    default:
-      logDetail(`add-constraint: unknown constraint kind "${constraintKind}" — fizzle`);
-      return state;
+  const kind = buildConstraintKind(state, effect, constraintKind);
+  if (!kind) {
+    logDetail(`add-constraint: unsupported constraint kind "${constraintKind}" — fizzle`);
+    return state;
   }
 
   logDetail(`"${cardName}" entered play — adding constraint ${constraintKind} on company ${companyId as string}, scope ${scopeName}`);

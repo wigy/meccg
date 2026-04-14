@@ -166,6 +166,8 @@ export const VANISHMENT = did('tw-356');
 
 // ---- Hazard Events ----
 
+/** Choking Shadows — short hazard event, environment that boosts auto-attack prowess at R&L or transforms region types with Doors of Night. Cannot be duplicated. */
+export const CHOKING_SHADOWS = did('tw-21');
 /** Doors of Night — permanent hazard event, environment that cancels resource environments. Cannot be duplicated. */
 export const DOORS_OF_NIGHT = did('tw-28');
 /** Eye of Sauron — long hazard event, increases automatic-attack prowess (+1, or +3 with Doors of Night). */
