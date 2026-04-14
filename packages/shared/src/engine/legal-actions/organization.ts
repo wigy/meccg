@@ -166,6 +166,7 @@ export function organizationActions(state: GameState, playerId: PlayerId): Evalu
         viable: true,
       });
     }
+    endActions.push(...grantedActionActivations(state, playerId));
     endActions.push({ action: { type: 'pass', player: playerId }, viable: true });
     return endActions;
   }
