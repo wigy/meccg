@@ -172,6 +172,8 @@ export const DOORS_OF_NIGHT = did('tw-28');
 export const EYE_OF_SAURON = did('tw-32');
 /** Wake of War — long hazard event, boosts Wolf/Spider/Animal attacks (+1 strikes and prowess, +2 for Wolves with Doors of Night). */
 export const WAKE_OF_WAR = did('tw-108');
+/** Minions Stir — long hazard event, boosts Orc/Troll attacks (+1 strikes and prowess, +2 for Orcs with Doors of Night). */
+export const MINIONS_STIR = did('tw-61');
 /** Twilight — short hazard event, environment that cancels another environment. May also be played as a resource. */
 export const TWILIGHT = did('tw-106');
 /** An Unexpected Outpost — short hazard event, fetch a hazard from sideboard/discard to play deck (twice with Doors of Night). */
