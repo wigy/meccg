@@ -13,8 +13,10 @@ import type {
   CardInstanceId,
   HeroResourceEventCard,
   HazardEventCard,
+  PlayTargetEffect,
+  DuplicationLimitEffect,
 } from '../../index.js';
-import { hasPlayFlag } from '../../index.js';
+import { hasPlayFlag, matchesCondition, isCharacterCard } from '../../index.js';
 import { logDetail } from './log.js';
 
 /**
@@ -71,6 +73,67 @@ export function playPermanentEventActions(state: GameState, playerId: PlayerId):
         });
         continue;
       }
+    }
+
+    // play-target DSL: character-targeting permanent events get one action per qualifying character
+    const playTarget = def.effects?.find(
+      (e): e is PlayTargetEffect => e.type === 'play-target',
+    );
+    if (playTarget?.target === 'character') {
+      const charDupLimit = def.effects?.find(
+        (e): e is DuplicationLimitEffect => e.type === 'duplication-limit' && e.scope === 'character',
+      );
+      let anyTarget = false;
+      for (const company of player.companies) {
+        const companySkills = company.characters.flatMap(cId => {
+          const ch = player.characters[cId as string];
+          if (!ch) return [];
+          const cDef = state.cardPool[ch.definitionId as string];
+          return cDef && isCharacterCard(cDef) ? cDef.skills : [];
+        });
+        for (const charId of company.characters) {
+          const charData = player.characters[charId as string];
+          if (!charData) continue;
+          const charDef = state.cardPool[charData.definitionId as string];
+          if (!charDef || !isCharacterCard(charDef)) continue;
+          if (playTarget.filter) {
+            const itemKeywords = charData.items.flatMap(item => {
+              const iDef = state.cardPool[item.definitionId as string];
+              return iDef && 'keywords' in iDef ? (iDef as { keywords?: readonly string[] }).keywords ?? [] : [];
+            });
+            const ctx = {
+              target: { race: charDef.race, skills: charDef.skills, name: charDef.name, itemKeywords },
+              company: { skills: companySkills },
+            };
+            if (!matchesCondition(playTarget.filter, ctx)) continue;
+          }
+          if (charDupLimit) {
+            const copiesOnChar = charData.items.filter(item => {
+              const iDef = state.cardPool[item.definitionId as string];
+              return iDef && iDef.name === def.name;
+            }).length;
+            if (copiesOnChar >= charDupLimit.max) {
+              logDetail(`Permanent event ${def.name}: duplication limit on ${charDef.name}`);
+              continue;
+            }
+          }
+          anyTarget = true;
+          logDetail(`Permanent event ${def.name}: playable on ${charDef.name}`);
+          actions.push({
+            action: { type: 'play-permanent-event', player: playerId, cardInstanceId, targetCharacterId: charId },
+            viable: true,
+          });
+        }
+      }
+      if (!anyTarget) {
+        logDetail(`Permanent event ${def.name}: no valid target`);
+        actions.push({
+          action: { type: 'not-playable', player: playerId, cardInstanceId },
+          viable: false,
+          reason: `${def.name} has no valid target`,
+        });
+      }
+      continue;
     }
 
     logDetail(`Permanent event ${def.name}: playable`);

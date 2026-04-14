@@ -448,7 +448,7 @@ export interface PlayWindowEffect extends EffectBase {
  * `target: "character"` selects the scope (each character in scope is a
  * candidate) and an optional `filter` {@link Condition} refines it
  * further. The filter is evaluated against the per-candidate context
- * `{ target: { race, status, skills, name } }`, so conditions look like
+ * `{ target: { race, status, skills, name, itemKeywords }, company: { skills } }`, so conditions look like
  * `{ "target.race": "hobbit" }` or
  * `{ "target.skills": { "$includes": "scout" } }` — no card-specific
  * target keywords are needed in the engine.

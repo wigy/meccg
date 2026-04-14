@@ -670,21 +670,25 @@ function resolvePermanentEvent(state: GameState, entry: ChainEntry): GameState {
 
   const newPlayers: [PlayerState, PlayerState] = [state.players[0], state.players[1]];
 
-  // "Playable on a character" — attach to target character's corruptionCards
+  // "Playable on a character" — attach to target character
   const targetCharId = entry.payload.type === 'permanent-event' ? entry.payload.targetCharacterId : undefined;
   if (targetCharId) {
+    // Resource permanent events (e.g. Align Palantír) go into items;
+    // hazard permanent events go into hazards.
+    const isResource = def && def.cardType === 'hero-resource-event';
+    const slot = isResource ? 'items' : 'hazards';
     // Find which player owns the target character
     for (let pi = 0; pi < 2; pi++) {
       const charInPlay = state.players[pi].characters[targetCharId as string];
       if (charInPlay) {
-        logDetail(`Attaching "${def?.name ?? card.definitionId}" to character ${targetCharId as string}`);
+        logDetail(`Attaching "${def?.name ?? card.definitionId}" to character ${targetCharId as string} (${slot})`);
         newPlayers[pi] = {
           ...newPlayers[pi],
           characters: {
             ...newPlayers[pi].characters,
             [targetCharId as string]: {
               ...charInPlay,
-              hazards: [...charInPlay.hazards, {
+              [slot]: [...charInPlay[slot], {
                 instanceId: card.instanceId,
                 definitionId: card.definitionId,
                 status: CardStatus.Untapped,
