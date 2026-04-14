@@ -12,7 +12,12 @@
       {
         "type": "play-target",
         "target": "site",
-        "filter": { "siteType": { "$in": ["border-hold", "free-hold"] } }
+        "filter": {
+          "$and": [
+            { "siteType": { "$in": ["border-hold", "free-hold"] } },
+            { "automaticAttacks.length": { "$gt": 0 } }
+          ]
+        }
       },
       {
         "type": "duplication-limit",

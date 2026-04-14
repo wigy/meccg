@@ -99,7 +99,10 @@ describe('Incite Defenders (le-115)', () => {
     expect(actions).toHaveLength(1);
   });
 
-  test('playable at a border-hold destination', () => {
+  test('not playable at a border-hold destination without automatic-attacks (Bree)', () => {
+    // Bree (tw-378) is a border-hold with no automatic-attacks. Incite Defenders
+    // duplicates an existing automatic-attack, so it must only be playable at
+    // sites that actually have one.
     const state = buildTestState({
       phase: Phase.Organization,
       activePlayer: PLAYER_1,
@@ -132,7 +135,44 @@ describe('Incite Defenders (le-115)', () => {
     });
     const mhGameState: GameState = { ...stateWithDest, phaseState: mh };
     const actions = viableActions(mhGameState, PLAYER_2, 'play-hazard');
-    expect(actions).toHaveLength(1);
+    expect(actions).toHaveLength(0);
+  });
+
+  test('not playable at a free-hold destination without automatic-attacks (Minas Tirith)', () => {
+    // Minas Tirith (tw-412) is a free-hold with no automatic-attacks.
+    const state = buildTestState({
+      phase: Phase.Organization,
+      activePlayer: PLAYER_1,
+      players: [
+        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [ARAGORN] }], hand: [], siteDeck: [MINAS_TIRITH] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [INCITE_DEFENDERS], siteDeck: [BREE] },
+      ],
+    });
+
+    const destCard = state.players[0].siteDeck[0];
+    const stateWithDest: GameState = {
+      ...state,
+      players: [
+        {
+          ...state.players[0],
+          companies: [{
+            ...state.players[0].companies[0],
+            destinationSite: { instanceId: destCard.instanceId, definitionId: destCard.definitionId, status: CardStatus.Untapped },
+          }],
+        },
+        state.players[1],
+      ] as typeof state.players,
+    };
+
+    const mh: MovementHazardPhaseState = makeMHState({
+      destinationSiteType: SiteType.FreeHold,
+      destinationSiteName: 'Minas Tirith',
+      resolvedSitePath: [RegionType.Free],
+      resolvedSitePathNames: ['Gondor'],
+    });
+    const mhGameState: GameState = { ...stateWithDest, phaseState: mh };
+    const actions = viableActions(mhGameState, PLAYER_2, 'play-hazard');
+    expect(actions).toHaveLength(0);
   });
 
   test('not playable at a ruins-and-lairs destination', () => {

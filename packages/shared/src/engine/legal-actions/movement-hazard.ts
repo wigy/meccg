@@ -570,7 +570,7 @@ function playHazardsActions(
         }
 
         // Site-targeting short events (e.g. Incite Defenders): apply filter on destination site
-        if (shortEventPlayTarget?.target === 'site') {
+        if (shortPlayTarget?.target === 'site') {
           const destSiteInstanceId = targetCompany.destinationSite?.instanceId
             ?? targetCompany.currentSite?.instanceId
             ?? null;
@@ -579,8 +579,8 @@ function playHazardsActions(
             if (destSiteDefId) {
               const siteDef = state.cardPool[destSiteDefId as string];
               const siteDefName = siteDef?.name ?? (destSiteDefId as string);
-              if (shortEventPlayTarget.filter && siteDef && isSiteCard(siteDef)) {
-                if (!matchesCondition(shortEventPlayTarget.filter, siteDef as unknown as Record<string, unknown>)) {
+              if (shortPlayTarget.filter && siteDef && isSiteCard(siteDef)) {
+                if (!matchesCondition(shortPlayTarget.filter, siteDef as unknown as Record<string, unknown>)) {
                   logDetail(`Hazard short-event "${def.name}" site filter excludes ${siteDefName}`);
                   actions.push({
                     action: { ...action, targetSiteDefinitionId: destSiteDefId },
