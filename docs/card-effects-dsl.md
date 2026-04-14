@@ -55,6 +55,17 @@ Optional `target` scopes:
 - `"all-attacks"` — applies to every automatic-attack and hazard creature
 - `"all-automatic-attacks"` — applies only to site automatic-attacks (not hazard creatures)
 
+When a `stat-modifier` appears on a hazard-creature card **without** a `target`
+scope, it is a creature self-modifier — the creature's own prowess is adjusted
+based on the `when` condition. The attack context includes
+`company.hazardRacesEncountered` (races of creatures already defeated this
+M/H sub-phase), so creatures can condition on prior attacks:
+
+```json
+{ "type": "stat-modifier", "stat": "prowess", "value": 3,
+  "when": { "company.hazardRacesEncountered": { "$includes": "orc" } } }
+```
+
 ### 2. `check-modifier`
 
 Modifies a roll for a specific check type.

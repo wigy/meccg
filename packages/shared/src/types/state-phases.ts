@@ -419,6 +419,13 @@ export interface MovementHazardPhaseState {
    * the company already faced a specific hazard (e.g. troll-trio).
    */
   readonly hazardsEncountered: readonly string[];
+  /**
+   * Races of hazard creatures whose combat has finalized against the current
+   * company during this M/H sub-phase. Used by effects that check whether
+   * the company already faced an attack by a creature of a given race
+   * (e.g. Orc-warband's prowess bonus after a prior Orc attack).
+   */
+  readonly hazardRacesEncountered: readonly string[];
 }
 
 /**

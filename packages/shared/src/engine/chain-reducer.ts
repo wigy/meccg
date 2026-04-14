@@ -19,6 +19,7 @@ import { logHeading, logDetail } from './legal-actions/log.js';
 import { discardCardsInPlay } from './reducer.js';
 import type { ReducerResult } from './reducer.js';
 import { resolveAttackProwess, resolveAttackStrikes } from './effects/index.js';
+import type { AttackCompanyContext } from './effects/resolver.js';
 import { buildInPlayNames } from './recompute-derived.js';
 import { addConstraint, enqueueResolution } from './pending.js';
 import { Phase } from '../index.js';
@@ -753,7 +754,14 @@ function initiateCreatureCombat(state: GameState, entry: ChainEntry): GameState 
 
   const inPlayNames = buildInPlayNames(state);
   const creatureRace = creatureDef.race;
-  const effectiveProwess = resolveAttackProwess(state, creatureDef.prowess, inPlayNames, creatureRace);
+  const companyCtx: AttackCompanyContext | undefined =
+    state.phaseState.phase === Phase.MovementHazard
+      ? { hazardRacesEncountered: state.phaseState.hazardRacesEncountered }
+      : undefined;
+  const effectiveProwess = resolveAttackProwess(
+    state, creatureDef.prowess, inPlayNames, creatureRace,
+    false, creatureDef, entry.card!.instanceId, companyCtx,
+  );
   const effectiveStrikes = resolveAttackStrikes(state, creatureDef.strikes, inPlayNames, creatureRace);
 
   // Multi-attack: total strikes = count × effective strikes per attack

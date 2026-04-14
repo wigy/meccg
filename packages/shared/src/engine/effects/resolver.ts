@@ -379,41 +379,65 @@ export function normalizeCreatureRace(creatureType: string): string {
 }
 
 /**
+ * Optional company context for attack stat resolution.
+ *
+ * When provided, the resolver context includes `company.hazardRacesEncountered`
+ * so creature self-effects can condition on prior attacks (e.g. Orc-warband).
+ */
+export interface AttackCompanyContext {
+  readonly hazardRacesEncountered: readonly string[];
+}
+
+/**
  * Builds the resolver context used for attack stat resolution.
  *
  * Includes `reason: 'combat'`, `inPlay` (names of events/cards in play),
- * and optionally `enemy.race` when the creature's race is known.
+ * optionally `enemy.race` when the creature's race is known, and
+ * optionally `company` context for prior-attack condition checks.
  *
  * @param inPlayNames - Names of all cards currently in play.
  * @param creatureRace - The lowercase singular race of the attacking creature (e.g. "wolf", "orc").
+ * @param companyCtx - Company context with hazard races encountered this turn.
  */
 function buildAttackContext(
   inPlayNames: readonly string[],
   creatureRace?: string,
+  companyCtx?: AttackCompanyContext,
 ): ResolverContext {
   const context: ResolverContext = {
     reason: 'combat',
     inPlay: inPlayNames,
   };
+  let result = context;
   if (creatureRace) {
-    return { ...context, enemy: { race: creatureRace, name: '', prowess: 0, body: null } };
+    result = { ...result, enemy: { race: creatureRace, name: '', prowess: 0, body: null } };
   }
-  return context;
+  if (companyCtx) {
+    result = { ...result, company: { hazardRacesEncountered: companyCtx.hazardRacesEncountered } };
+  }
+  return result;
 }
 
 /**
- * Resolves attack prowess by applying global attack effects.
+ * Resolves attack prowess by applying global attack effects and the
+ * creature's own self-modifying effects.
  *
  * Collects effects with `target: "all-attacks"` (which apply to both automatic
  * attacks and hazard creatures) from events and cards in play. When
  * `isAutomaticAttack` is true, also collects `target: "all-automatic-attacks"`
- * effects that only apply to site automatic-attacks.
+ * effects that only apply to site automatic-attacks. When a creature definition
+ * is provided, its own stat-modifier effects (without a target scope) are also
+ * included — this allows creature cards to carry conditional self-modifiers
+ * (e.g. Orc-warband's +3 prowess after a prior Orc attack).
  *
  * @param state - The full game state.
  * @param baseProwess - The creature's or automatic attack's base prowess.
  * @param inPlayNames - Names of all cards currently in play (for `inPlay` conditions).
  * @param creatureRace - The lowercase singular race of the attacking creature (e.g. "wolf", "orc").
  * @param isAutomaticAttack - Whether this is a site automatic-attack (not a hazard creature).
+ * @param creatureDef - The creature's card definition (for self-effects).
+ * @param creatureInstanceId - The creature's instance ID (for self-effects).
+ * @param companyCtx - Company context with hazard races encountered this turn.
  * @returns The modified prowess value after applying attack effects.
  */
 export function resolveAttackProwess(
@@ -422,11 +446,17 @@ export function resolveAttackProwess(
   inPlayNames: readonly string[],
   creatureRace?: string,
   isAutomaticAttack = false,
+  creatureDef?: CardDefinition,
+  creatureInstanceId?: CardInstanceId,
+  companyCtx?: AttackCompanyContext,
 ): number {
-  const context = buildAttackContext(inPlayNames, creatureRace);
+  const context = buildAttackContext(inPlayNames, creatureRace, companyCtx);
   const globalEffects = collectGlobalEffects(state, 'all-attacks', context);
   if (isAutomaticAttack) {
     globalEffects.push(...collectGlobalEffects(state, 'all-automatic-attacks', context));
+  }
+  if (creatureDef && creatureInstanceId) {
+    collectFromDef(creatureDef, creatureInstanceId, context, globalEffects);
   }
   return resolveStatModifiers(globalEffects, 'prowess', baseProwess, context);
 }
