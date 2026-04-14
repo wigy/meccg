@@ -508,7 +508,8 @@
         }
       }
     ],
-    "text": "Unique. Playable at Wellinghall. May not be attacked by automatic-attacks or hazards keyed to his site. Discard Treebeard if his company moves to a site that is not in: Fangorn, Rohan, Gap of Isen, Wold & Foothills, Enedhwaith, Old Pûkel-land, Brown Lands, Anduin Vales, or Redhorn Gate."
+    "text": "Unique. Playable at Wellinghall. May not be attacked by automatic-attacks or hazards keyed to his site. Discard Treebeard if his company moves to a site that is not in: Fangorn, Rohan, Gap of Isen, Wold & Foothills, Enedhwaith, Old Pûkel-land, Brown Lands, Anduin Vales, or Redhorn Gate.",
+    "certified": "2026-04-14"
   },
   {
     "cardType": "hero-resource-event",
