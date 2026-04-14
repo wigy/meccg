@@ -242,8 +242,25 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/CallofHome.jpg",
     "unique": false,
     "eventType": "short",
-    "effects": [],
-    "text": "Playable on a non-Ringwraith, non-Wizard character not bearing The One Ring. The character's player makes a roll. The character returns to his player's hand if the result plus his player's unused general influence is less than 10. Any one item held by the removed character may automatically be transferred to another character in his company (all other non-follower cards he controls are discarded)."
+    "effects": [
+      {
+        "type": "play-target",
+        "target": "character",
+        "filter": {
+          "$and": [
+            { "target.race": { "$ne": "wizard" } },
+            { "target.race": { "$ne": "ringwraith" } },
+            { "$not": { "target.possessions": { "$includes": "The One Ring" } } }
+          ]
+        }
+      },
+      {
+        "type": "call-of-home-check",
+        "threshold": 10
+      }
+    ],
+    "text": "Playable on a non-Ringwraith, non-Wizard character not bearing The One Ring. The character's player makes a roll. The character returns to his player's hand if the result plus his player's unused general influence is less than 10. Any one item held by the removed character may automatically be transferred to another character in his company (all other non-follower cards he controls are discarded).",
+    "certified": "2026-04-14"
   },
   {
     "cardType": "hazard-event",

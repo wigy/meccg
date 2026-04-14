@@ -8,7 +8,8 @@
 
 import type { GameState, MovementHazardPhaseState, Company, CreatureCard, GameAction } from '../index.js';
 import { Phase, CardStatus, isCharacterCard, isSiteCard, RegionType, Race, Skill, getPlayerIndex, BASE_MAX_REGION_DISTANCE, hasPlayFlag } from '../index.js';
-import { resolveHandSize } from './effects/index.js';
+import { resolveHandSize, collectCharacterEffects, resolveDrawModifier } from './effects/index.js';
+import type { ResolverContext } from './effects/index.js';
 import { matchesCondition } from '../effects/condition-matcher.js';
 import { logDetail } from './legal-actions/log.js';
 import { initiateChain, pushChainEntry } from './chain-reducer.js';
@@ -337,7 +338,12 @@ function handlePlayHazardCard(
     // Initiate chain or push onto existing chain
     const shortEventPayload: import('../index.js').ChainEntryPayload = {
       type: 'short-event',
-      targetFactionInstanceId: action.type === 'play-hazard' ? action.targetFactionInstanceId : undefined,
+      ...(action.type === 'play-hazard' && action.targetFactionInstanceId
+        ? { targetFactionInstanceId: action.targetFactionInstanceId }
+        : {}),
+      ...(action.type === 'play-hazard' && action.targetCharacterId
+        ? { targetCharacterId: action.targetCharacterId }
+        : {}),
     };
     if (newState.chain === null) {
       newState = initiateChain(newState, action.player, handCard, shortEventPayload);
@@ -1462,6 +1468,26 @@ function transitionToDrawCards(state: GameState, mhState: MovementHazardPhaseSta
     } else {
       logDetail(`No avatar or character with mind ≥ 3 — resource player cannot draw`);
     }
+  }
+
+  // Apply draw-modifier effects from company characters (e.g. Alatar reduces hazard draws)
+  const drawContext: ResolverContext = { reason: 'draw-modifier' };
+  const allDrawEffects = company.characters.flatMap(charInstId => {
+    const char = player.characters[charInstId as string];
+    if (!char) return [];
+    return collectCharacterEffects(state, char, drawContext);
+  });
+  const hazardMod = resolveDrawModifier(allDrawEffects, 'hazard');
+  if (hazardMod.adjustment !== 0) {
+    const before = hazardDrawMax;
+    hazardDrawMax = Math.max(hazardMod.min, hazardDrawMax + hazardMod.adjustment);
+    logDetail(`draw-modifier: hazard draws ${before} → ${hazardDrawMax} (adjustment ${hazardMod.adjustment}, min ${hazardMod.min})`);
+  }
+  const resourceMod = resolveDrawModifier(allDrawEffects, 'resource');
+  if (resourceMod.adjustment !== 0) {
+    const before = resourceDrawMax;
+    resourceDrawMax = Math.max(resourceMod.min, resourceDrawMax + resourceMod.adjustment);
+    logDetail(`draw-modifier: resource draws ${before} → ${resourceDrawMax} (adjustment ${resourceMod.adjustment}, min ${resourceMod.min})`);
   }
 
   logDetail(`Movement/Hazard: order-effects done → draw-cards (resource max: ${resourceDrawMax}, hazard max: ${hazardDrawMax}, site: ${drawSite && isSiteCard(drawSite) ? drawSite.name : '?'})`);

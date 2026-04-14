@@ -502,10 +502,11 @@ function playHazardsActions(
           }
         }
 
-        // Faction-targeting short events (e.g. Muster Disperses)
         const shortPlayTarget = def.effects?.find(
           (e): e is import('../../index.js').PlayTargetEffect => e.type === 'play-target',
         );
+
+        // Faction-targeting short events (e.g. Muster Disperses)
         if (shortPlayTarget?.target === 'faction') {
           let hasFactionTarget = false;
           for (const p of state.players) {
@@ -524,6 +525,46 @@ function playHazardsActions(
           if (!hasFactionTarget) {
             logDetail(`Hazard short-event "${def.name}" not playable — no factions in play`);
             actions.push({ action, viable: false, reason: 'No factions in play' });
+          }
+          continue;
+        }
+
+        // Character-targeting short events (e.g. Call of Home): one action per eligible character
+        if (shortPlayTarget?.target === 'character') {
+          for (const charId of targetCompany.characters) {
+            if (shortPlayTarget.filter) {
+              const charData = resourcePlayer.characters[charId as string];
+              if (charData) {
+                const charDef = state.cardPool[charData.definitionId as string];
+                if (charDef && isCharacterCard(charDef)) {
+                  const possessionNames = charData.items
+                    .map(item => state.cardPool[item.definitionId as string]?.name)
+                    .filter((n): n is string => n != null);
+                  const ctx = {
+                    target: {
+                      race: charDef.race,
+                      skills: charDef.skills,
+                      name: charDef.name,
+                      possessions: possessionNames,
+                    },
+                  };
+                  if (!matchesCondition(shortPlayTarget.filter, ctx)) {
+                    logDetail(`Hazard short-event "${def.name}" filter excludes ${charDef.name}`);
+                    actions.push({
+                      action: { ...action, targetCharacterId: charId },
+                      viable: false,
+                      reason: `${charDef.name} does not match play target filter`,
+                    });
+                    continue;
+                  }
+                }
+              }
+            }
+            logDetail(`Hazard short-event "${def.name}" playable on character ${charId as string}`);
+            actions.push({
+              action: { ...action, targetCharacterId: charId },
+              viable: true,
+            });
           }
           continue;
         }
@@ -614,11 +655,15 @@ function playHazardsActions(
             if (charData) {
               const charDef = state.cardPool[charData.definitionId as string];
               if (charDef && isCharacterCard(charDef)) {
+                const possessionNames = charData.items
+                  .map(item => state.cardPool[item.definitionId as string]?.name)
+                  .filter((n): n is string => n != null);
                 const ctx = {
                   target: {
                     race: charDef.race,
                     skills: charDef.skills,
                     name: charDef.name,
+                    possessions: possessionNames,
                   },
                 };
                 if (!matchesCondition(playTarget.filter, ctx)) {

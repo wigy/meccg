@@ -200,6 +200,21 @@ export interface HandSizeModifierEffect extends EffectBase {
 }
 
 /**
+ * Modifies the number of cards drawn during the movement/hazard draw step.
+ *
+ * Example: Alatar reduces the opponent's hazard draws by 1 for his company.
+ */
+export interface DrawModifierEffect extends EffectBase {
+  readonly type: 'draw-modifier';
+  /** Which draw pool to modify. */
+  readonly draw: 'hazard' | 'resource';
+  /** The adjustment (negative = fewer draws). */
+  readonly value: number;
+  /** Floor for the modified draw count. */
+  readonly min?: number;
+}
+
+/**
  * Grants a new activated ability to the card's bearer.
  *
  * Example: Gandalf can tap to test a gold ring in his company.
@@ -684,6 +699,23 @@ export interface CreatureRaceChoiceEffect extends EffectBase {
 }
 
 /**
+ * Forces a "Call of Home" style roll check on the targeted character.
+ *
+ * When the hazard short event resolves, the character's player rolls 2d6.
+ * If the roll plus the player's unused general influence is less than
+ * `threshold`, the character returns to the player's hand. One item may
+ * be transferred to another character in the company; all other
+ * non-follower cards the character controls are discarded.
+ *
+ * Used by Call of Home (tw-18).
+ */
+export interface CallOfHomeCheckEffect extends EffectBase {
+  readonly type: 'call-of-home-check';
+  /** Roll + unused GI must meet or exceed this to keep the character. */
+  readonly threshold: number;
+}
+
+/**
  * Discriminated union of all card effect types.
  * The `type` field serves as the discriminant for type narrowing.
  */
@@ -694,6 +726,7 @@ export type CardEffect =
   | CompanyModifierEffect
   | EnemyModifierEffect
   | HandSizeModifierEffect
+  | DrawModifierEffect
   | GrantActionEffect
   | OnEventEffect
   | CancelStrikeEffect
@@ -714,4 +747,5 @@ export type CardEffect =
   | SiteRuleEffect
   | ItemPlaySiteEffect
   | StorableAtEffect
-  | CompanyRuleEffect;
+  | CompanyRuleEffect
+  | CallOfHomeCheckEffect;

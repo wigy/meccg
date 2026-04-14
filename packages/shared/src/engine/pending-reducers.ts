@@ -20,7 +20,7 @@ import type {
 } from '../index.js';
 import type { ReducerResult } from './reducer-utils.js';
 import { dequeueResolution, enqueueResolution, removeConstraint } from './pending.js';
-import { getPlayerIndex, isFactionCard, GENERAL_INFLUENCE } from '../index.js';
+import { getPlayerIndex, isCharacterCard, isFactionCard, GENERAL_INFLUENCE } from '../index.js';
 import { resolveInstanceId } from '../types/state.js';
 import { roll2d6, clonePlayers, cleanupEmptyCompanies } from './reducer-utils.js';
 import { logDetail } from './legal-actions/log.js';
@@ -61,6 +61,8 @@ export function applyResolution(
       return applyFactionInfluenceRollResolution(state, action, top);
     case 'muster-roll':
       return applyMusterRollResolution(state, action, top);
+    case 'call-of-home-roll':
+      return applyCallOfHomeRollResolution(state, action, top);
   }
 }
 
@@ -515,4 +517,173 @@ function applyMusterRollResolution(
     state: postRoll,
     effects: [rollEffect],
   };
+}
+
+/**
+ * Resolve a queued `call-of-home-roll` resolution. The character's player
+ * rolls 2d6. If roll + unused general influence < threshold, the character
+ * returns to hand. Items/allies/hazards are discarded; followers fall to GI.
+ */
+function applyCallOfHomeRollResolution(
+  state: GameState,
+  action: GameAction,
+  top: PendingResolution,
+): ReducerResult | null {
+  if (action.type !== 'call-of-home-roll') {
+    return { state, error: `Pending call-of-home-roll requires that action, got '${action.type}'` };
+  }
+  if (top.kind.type !== 'call-of-home-roll') return null;
+  if (action.player !== top.actor) {
+    return { state, error: 'Wrong player for pending call-of-home-roll' };
+  }
+
+  const { targetCharacterId, threshold } = top.kind;
+  const actorIndex = getPlayerIndex(state, action.player);
+  const player = state.players[actorIndex];
+  const charInPlay = player.characters[targetCharacterId as string];
+  if (!charInPlay) {
+    return { state: dequeueResolution(state, top.id), error: 'Target character not found' };
+  }
+
+  const charDef = state.cardPool[charInPlay.definitionId as string];
+  const charName = isCharacterCard(charDef) ? charDef.name : (targetCharacterId as string);
+  const unusedGI = GENERAL_INFLUENCE - player.generalInfluenceUsed;
+
+  const { roll, rng, cheatRollTotal } = roll2d6(state);
+  const total = roll.die1 + roll.die2;
+  const checkValue = total + unusedGI;
+  const passed = checkValue >= threshold;
+
+  const rollEffect: GameEffect = {
+    effect: 'dice-roll',
+    playerName: player.name,
+    die1: roll.die1,
+    die2: roll.die2,
+    label: `Call of Home: ${charName}`,
+  };
+  const effects: GameEffect[] = [rollEffect];
+  logDetail(`Call of Home on ${charName}: rolled ${total} + unused GI ${unusedGI} = ${checkValue} vs threshold ${threshold} → ${passed ? 'STAYS' : 'RETURNS TO HAND'}`);
+
+  // Update RNG state and store the roll on the player
+  const playersAfterRoll = clonePlayers(state);
+  playersAfterRoll[actorIndex] = { ...playersAfterRoll[actorIndex], lastDiceRoll: roll };
+  let postRoll = dequeueResolution({ ...state, players: playersAfterRoll, rng, cheatRollTotal }, top.id);
+
+  if (!passed) {
+    postRoll = returnCharacterToHand(postRoll, actorIndex, targetCharacterId, charInPlay);
+  }
+
+  // Mark the chain entry as resolved and continue auto-resolution
+  if (postRoll.chain) {
+    const chain = postRoll.chain;
+    const newEntries = chain.entries.map(e =>
+      e.payload.type === 'short-event'
+        && !e.resolved
+        && e.payload.targetCharacterId === targetCharacterId
+        ? { ...e, resolved: true }
+        : e,
+    );
+    postRoll = { ...postRoll, chain: { ...chain, entries: newEntries } };
+
+    const continued = autoResolve(postRoll);
+    return {
+      state: continued.state,
+      effects: [...effects, ...(continued.effects ?? [])],
+    };
+  }
+
+  return { state: postRoll, effects };
+}
+
+/**
+ * Return a character to the player's hand, discarding all attached cards.
+ * Items, allies, and hazards are discarded to their respective owners'
+ * discard piles. Followers fall to GI if room, otherwise are discarded.
+ */
+function returnCharacterToHand(
+  state: GameState,
+  playerIndex: number,
+  characterId: import('../index.js').CardInstanceId,
+  charInPlay: import('../index.js').CharacterInPlay,
+): GameState {
+  const newPlayers = clonePlayers(state);
+  const player = newPlayers[playerIndex];
+  const opponentIndex = playerIndex === 0 ? 1 : 0;
+  const opponent = newPlayers[opponentIndex];
+  const newDiscard = [...player.discardPile];
+  const newOpponentDiscard = [...opponent.discardPile];
+
+  // Discard items to owning player's discard pile
+  for (const item of charInPlay.items) {
+    newDiscard.push({ instanceId: item.instanceId, definitionId: item.definitionId });
+    logDetail(`Call of Home: discarding item ${item.definitionId as string} from returned character`);
+  }
+
+  // Discard allies
+  for (const ally of charInPlay.allies) {
+    newDiscard.push({ instanceId: ally.instanceId, definitionId: ally.definitionId });
+    logDetail(`Call of Home: discarding ally ${ally.definitionId as string} from returned character`);
+  }
+
+  // Discard hazards (back to hazard player = opponent)
+  for (const hazard of charInPlay.hazards) {
+    newOpponentDiscard.push({ instanceId: hazard.instanceId, definitionId: hazard.definitionId });
+    logDetail(`Call of Home: discarding hazard ${hazard.definitionId as string} from returned character`);
+  }
+
+  // Handle followers — fall to GI if room, otherwise discard
+  const newCharacters = { ...player.characters };
+  for (const followerId of charInPlay.followers) {
+    const follower = newCharacters[followerId as string];
+    if (!follower) continue;
+    const followerDef = state.cardPool[follower.definitionId as string];
+    const followerMind = followerDef && isCharacterCard(followerDef) && followerDef.mind !== null ? followerDef.mind : 0;
+
+    const currentGIUsed = Object.values(newCharacters)
+      .filter(ch => ch.controlledBy === 'general' && ch.instanceId !== characterId)
+      .reduce((sum, ch) => {
+        const def = state.cardPool[ch.definitionId as string];
+        return sum + (def && isCharacterCard(def) && def.mind !== null ? def.mind : 0);
+      }, 0);
+
+    if (currentGIUsed + followerMind <= GENERAL_INFLUENCE) {
+      newCharacters[followerId as string] = { ...follower, controlledBy: 'general' };
+      logDetail(`Call of Home: follower ${followerId as string} falls to GI`);
+    } else {
+      for (const item of follower.items) {
+        newDiscard.push({ instanceId: item.instanceId, definitionId: item.definitionId });
+      }
+      for (const ally of follower.allies) {
+        newDiscard.push({ instanceId: ally.instanceId, definitionId: ally.definitionId });
+      }
+      newDiscard.push({ instanceId: follower.instanceId, definitionId: follower.definitionId });
+      delete newCharacters[followerId as string];
+      logDetail(`Call of Home: follower ${followerId as string} discarded (no GI room)`);
+    }
+  }
+
+  // Remove the target character from characters map
+  delete newCharacters[characterId as string];
+
+  // Remove from companies
+  const newCompanies = player.companies.map(company => {
+    if (!company.characters.includes(characterId)) return company;
+    return { ...company, characters: company.characters.filter(id => id !== characterId) };
+  });
+
+  // Add character card to hand
+  const newHand = [...player.hand, { instanceId: charInPlay.instanceId, definitionId: charInPlay.definitionId }];
+
+  newPlayers[playerIndex] = {
+    ...player,
+    characters: newCharacters,
+    companies: newCompanies,
+    hand: newHand,
+    discardPile: newDiscard,
+  };
+  newPlayers[opponentIndex] = { ...opponent, discardPile: newOpponentDiscard };
+
+  let result: GameState = { ...state, players: newPlayers };
+  result = cleanupEmptyCompanies(result);
+  return result;
 }

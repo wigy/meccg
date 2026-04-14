@@ -177,6 +177,20 @@ export interface PendingResolution {
         readonly factionDefinitionId: CardDefinitionId;
         /** The player who owns the faction. */
         readonly factionOwner: PlayerId;
+      }
+    | {
+        /**
+         * Call of Home roll: a hazard short event has resolved against a
+         * character. The character's player rolls 2d6; if roll + unused
+         * general influence < threshold, the character returns to hand.
+         */
+        readonly type: 'call-of-home-roll';
+        /** The targeted character instance. */
+        readonly targetCharacterId: CardInstanceId;
+        /** The hazard card that caused this check. */
+        readonly hazardDefinitionId: CardDefinitionId;
+        /** Roll + unused GI must meet or exceed this to keep the character. */
+        readonly threshold: number;
       };
 }
 

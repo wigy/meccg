@@ -87,6 +87,8 @@ export function resolutionLegalActions(
       return factionInfluenceRollActions(state, actor, top);
     case 'muster-roll':
       return musterRollActions(state, actor, top);
+    case 'call-of-home-roll':
+      return callOfHomeRollActions(state, actor, top);
   }
 }
 
@@ -341,6 +343,47 @@ function musterRollActions(
       factionInstanceId,
       need,
       explanation: `Muster check for ${def.name}: roll + unused GI (${unusedGI}) must be >= ${threshold} (need roll >= ${need})`,
+    },
+    viable: true,
+  }];
+}
+
+/**
+ * Compute the single call-of-home-roll action that resolves a queued
+ * `call-of-home-roll` resolution. The character's player rolls 2d6;
+ * if roll + unused general influence < threshold, character returns to hand.
+ */
+function callOfHomeRollActions(
+  state: GameState,
+  playerId: PlayerId,
+  top: PendingResolution,
+): EvaluatedAction[] {
+  if (top.kind.type !== 'call-of-home-roll') return [];
+  const { targetCharacterId, hazardDefinitionId, threshold } = top.kind;
+
+  const actorIndex = state.players.findIndex(p => p.id === playerId);
+  if (actorIndex === -1) return [];
+  const player = state.players[actorIndex];
+
+  const charInPlay = player.characters[targetCharacterId as string];
+  if (!charInPlay) return [];
+
+  const charDef = state.cardPool[charInPlay.definitionId as string];
+  const charName = isCharacterCard(charDef) ? charDef.name : '?';
+  const hazardDef = state.cardPool[hazardDefinitionId as string];
+  const hazardName = hazardDef?.name ?? '?';
+
+  const unusedGI = GENERAL_INFLUENCE - player.generalInfluenceUsed;
+  const need = threshold - unusedGI;
+  logDetail(`Pending call-of-home-roll for ${charName} (${hazardName}): need 2d6 >= ${need} (threshold ${threshold}, unused GI ${unusedGI})`);
+
+  return [{
+    action: {
+      type: 'call-of-home-roll' as const,
+      player: playerId,
+      targetCharacterId,
+      need,
+      explanation: `${charName} resists ${hazardName}: need roll >= ${need} (threshold ${threshold}, unused GI ${unusedGI})`,
     },
     viable: true,
   }];

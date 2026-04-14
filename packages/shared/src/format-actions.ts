@@ -315,6 +315,8 @@ export function describeAction(
       return `Tap ${instName(action.characterInstanceId)} to cancel hazard (chain entry ${action.chainEntryIndex})`;
     case 'muster-roll':
       return `Muster check for ${instName(action.factionInstanceId)}: need ${action.need}`;
+    case 'call-of-home-roll':
+      return `Roll for Call of Home on ${instName(action.targetCharacterId)} (need ${action.need})`;
     default: {
       const _exhaustive: never = action;
       return `Unknown action`;
