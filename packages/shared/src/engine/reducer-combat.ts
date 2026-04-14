@@ -1203,7 +1203,6 @@ function finalizeCombat(state: GameState, effects: GameEffect[] = []): ReducerRe
   }
 
   stateAfterCombat = recordHazardEncountered(stateAfterCombat, state, combat);
-  stateAfterCombat = recordFacedCreatureRace(stateAfterCombat, state, combat);
 
   return {
     state: stateAfterCombat,
@@ -1298,40 +1297,6 @@ function recordHazardEncountered(
       hazardsEncountered: [...mhState.hazardsEncountered, creatureName],
     },
   };
-}
-
-/**
- * Records the creature's race on the defending company so that later
- * creature self-effects (e.g. Orc-lieutenant +4 prowess when company
- * has already faced an Orc attack) can inspect it.
- */
-function recordFacedCreatureRace(
-  stateAfterCombat: GameState,
-  originalState: GameState,
-  combat: CombatState,
-): GameState {
-  if (combat.attackSource.type !== 'creature' && combat.attackSource.type !== 'on-guard-creature') {
-    return stateAfterCombat;
-  }
-  const race = combat.creatureRace;
-  if (!race) return stateAfterCombat;
-
-  const defIdx = stateAfterCombat.players.findIndex(p => p.id === combat.defendingPlayerId);
-  const player = stateAfterCombat.players[defIdx];
-  const companyIdx = player.companies.findIndex(c => c.id === combat.companyId);
-  if (companyIdx < 0) return stateAfterCombat;
-
-  const company = player.companies[companyIdx];
-  const existing = company.facedCreatureRaces ?? [];
-  if (existing.includes(race)) return stateAfterCombat;
-
-  logDetail(`Recording faced creature race "${race}" on company ${combat.companyId as string}`);
-  const newCompanies = player.companies.map((c, i) =>
-    i === companyIdx ? { ...c, facedCreatureRaces: [...existing, race] } : c,
-  );
-  const newPlayers: [PlayerState, PlayerState] = [stateAfterCombat.players[0], stateAfterCombat.players[1]];
-  newPlayers[defIdx] = { ...player, companies: newCompanies };
-  return { ...stateAfterCombat, players: newPlayers };
 }
 
 /**

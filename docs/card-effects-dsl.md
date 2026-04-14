@@ -56,8 +56,9 @@ Optional `target` scopes:
 - `"all-automatic-attacks"` — applies only to site automatic-attacks (not hazard creatures)
 - *(no target)* on a hazard-creature card — self-modifier applied to the
   creature's own prowess at combat initiation. The context includes
-  `company.facedRaces` (creature races the defending company has already
-  faced this turn), enabling conditions like Orc-lieutenant's +4 prowess.
+  `company.facedRaces`, derived from `phaseState.hazardsEncountered` by
+  looking up each faced hazard's race in the card pool, enabling
+  conditions like Orc-lieutenant's +4 prowess.
 
 ### 2. `check-modifier`
 

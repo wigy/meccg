@@ -690,6 +690,27 @@ function resolveLongEvent(state: GameState, entry: ChainEntry): GameState {
 }
 
 /**
+ * Derives the list of creature races the defending company has already
+ * faced this M/H sub-phase by looking up each hazard name in
+ * `phaseState.hazardsEncountered` and extracting its race. Used by
+ * creature self-effects (e.g. Orc-lieutenant +4 prowess if an Orc attack
+ * was already faced).
+ */
+function deriveFacedRaces(state: GameState, hazardNames: readonly string[]): string[] {
+  const races = new Set<string>();
+  for (const name of hazardNames) {
+    for (const def of Object.values(state.cardPool)) {
+      if ((def as { cardType?: string }).cardType !== 'hazard-creature') continue;
+      if ((def as { name?: string }).name !== name) continue;
+      const race = (def as { race?: string }).race;
+      if (race) races.add(race);
+      break;
+    }
+  }
+  return Array.from(races);
+}
+
+/**
  * Creates a CombatState when a creature chain entry resolves.
  *
  * The creature card was already moved to the hazard player's discard pile
@@ -753,8 +774,11 @@ function initiateCreatureCombat(state: GameState, entry: ChainEntry): GameState 
 
   const inPlayNames = buildInPlayNames(state);
   const creatureRace = creatureDef.race;
+  const companyFacedRaces = state.phaseState.phase === 'movement-hazard'
+    ? deriveFacedRaces(state, state.phaseState.hazardsEncountered)
+    : [];
   const creatureSelf = creatureDef.effects?.length
-    ? { effects: creatureDef.effects, companyFacedRaces: company.facedCreatureRaces ?? [] }
+    ? { effects: creatureDef.effects, companyFacedRaces }
     : undefined;
   const effectiveProwess = resolveAttackProwess(state, creatureDef.prowess, inPlayNames, creatureRace, false, creatureSelf);
   const effectiveStrikes = resolveAttackStrikes(state, creatureDef.strikes, inPlayNames, creatureRace);

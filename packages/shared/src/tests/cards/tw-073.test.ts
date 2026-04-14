@@ -169,10 +169,10 @@ describe('Orc-lieutenant (tw-073)', () => {
     // Combat finalized — back in M/H play-hazards
     expect(s.combat).toBeNull();
 
-    // Verify the company has recorded "orc" as a faced creature race
-    const p1 = s.players.find(p => p.id === PLAYER_1)!;
-    const company = p1.companies[0];
-    expect(company.facedCreatureRaces).toContain('orc');
+    // Verify the hazard was recorded in phaseState.hazardsEncountered
+    expect(s.phaseState.phase).toBe(Phase.MovementHazard);
+    const mh = s.phaseState as typeof mhState;
+    expect(mh.hazardsEncountered).toContain('Orc-lieutenant');
 
     // --- Second attack: play second Orc-lieutenant ---
     const secondLtId = handCardId(s, 1, 0);
