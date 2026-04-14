@@ -9,6 +9,7 @@
 import type { GameState, MovementHazardPhaseState, Company, CreatureCard, GameAction } from '../index.js';
 import { Phase, CardStatus, isCharacterCard, isSiteCard, RegionType, Race, Skill, getPlayerIndex, BASE_MAX_REGION_DISTANCE, hasPlayFlag } from '../index.js';
 import { resolveHandSize } from './effects/index.js';
+import { matchesCondition } from '../effects/condition-matcher.js';
 import { logDetail } from './legal-actions/log.js';
 import { initiateChain, pushChainEntry } from './chain-reducer.js';
 import { resolveInstanceId } from '../types/state.js';
@@ -664,6 +665,66 @@ function fireCompanyArrivesAtSite(
           target: { kind: 'company', companyId: arrivingCompanyId },
           kind,
         });
+      }
+    }
+  }
+
+  // Scan allies in the arriving company for discard-self on-event effects.
+  newState = fireAllyArrivalEffects(newState, arrivingCompanyId, siteInstanceId);
+
+  return newState;
+}
+
+/**
+ * Scan allies attached to characters in the arriving company for
+ * `on-event: company-arrives-at-site` effects with `discard-self`.
+ * When the effect's `when` condition matches the arrival site context,
+ * the ally is discarded from its bearer to the owning player's discard pile.
+ */
+function fireAllyArrivalEffects(
+  state: GameState,
+  arrivingCompanyId: import('../index.js').CompanyId,
+  siteInstanceId: import('../index.js').CardInstanceId,
+): GameState {
+  const siteDef = state.cardPool[resolveInstanceId(state, siteInstanceId) as string];
+  const siteRegion = siteDef && isSiteCard(siteDef) ? siteDef.region : '';
+
+  let newState = state;
+  for (let pIdx = 0; pIdx < 2; pIdx++) {
+    const player = newState.players[pIdx];
+    const company = player.companies.find(c => c.id === arrivingCompanyId);
+    if (!company) continue;
+
+    for (const charInstId of company.characters) {
+      const char = player.characters[charInstId as string];
+      if (!char) continue;
+
+      for (const ally of char.allies) {
+        const def = newState.cardPool[ally.definitionId as string];
+        if (!def || !('effects' in def) || !def.effects) continue;
+        const effects = (def as { effects: readonly import('../types/effects.js').CardEffect[] }).effects;
+        for (const effect of effects) {
+          if (effect.type !== 'on-event') continue;
+          if (effect.event !== 'company-arrives-at-site') continue;
+          if (effect.apply.type !== 'discard-self') continue;
+
+          const context: Record<string, unknown> = { site: { region: siteRegion } };
+          if (effect.when && !matchesCondition(effect.when, context)) continue;
+
+          logDetail(`company-arrives-at-site: ally "${def.name}" discard-self triggered (site region: ${siteRegion})`);
+          const newPlayers = clonePlayers(newState);
+          const updatedAllies = char.allies.filter(a => a.instanceId !== ally.instanceId);
+          newPlayers[pIdx] = {
+            ...newPlayers[pIdx],
+            characters: {
+              ...newPlayers[pIdx].characters,
+              [charInstId as string]: { ...newPlayers[pIdx].characters[charInstId as string], allies: updatedAllies },
+            },
+            discardPile: [...newPlayers[pIdx].discardPile, { instanceId: ally.instanceId, definitionId: ally.definitionId }],
+          };
+          newState = { ...newState, players: [newPlayers[0], newPlayers[1]] as unknown as typeof newState.players };
+          break;
+        }
       }
     }
   }
