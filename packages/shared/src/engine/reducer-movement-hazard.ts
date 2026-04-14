@@ -8,7 +8,8 @@
 
 import type { GameState, MovementHazardPhaseState, Company, CreatureCard, GameAction } from '../index.js';
 import { Phase, CardStatus, isCharacterCard, isSiteCard, RegionType, Race, Skill, getPlayerIndex, BASE_MAX_REGION_DISTANCE, hasPlayFlag } from '../index.js';
-import { resolveHandSize } from './effects/index.js';
+import { resolveHandSize, collectCharacterEffects, resolveDrawModifier } from './effects/index.js';
+import type { ResolverContext } from './effects/index.js';
 import { matchesCondition } from '../effects/condition-matcher.js';
 import { logDetail } from './legal-actions/log.js';
 import { initiateChain, pushChainEntry } from './chain-reducer.js';
@@ -335,9 +336,14 @@ function handlePlayHazardCard(
     }
 
     // Initiate chain or push onto existing chain
-    const shortEventPayload: import('../types/state-combat.js').ChainEntryPayload = {
+    const shortEventPayload: import('../index.js').ChainEntryPayload = {
       type: 'short-event',
-      ...(action.targetCharacterId ? { targetCharacterId: action.targetCharacterId } : {}),
+      ...(action.type === 'play-hazard' && action.targetFactionInstanceId
+        ? { targetFactionInstanceId: action.targetFactionInstanceId }
+        : {}),
+      ...(action.type === 'play-hazard' && action.targetCharacterId
+        ? { targetCharacterId: action.targetCharacterId }
+        : {}),
     };
     if (newState.chain === null) {
       newState = initiateChain(newState, action.player, handCard, shortEventPayload);
@@ -684,6 +690,48 @@ function endCompanyMH(state: GameState, mhState: MovementHazardPhaseState): Redu
       siteOfOrigin: null,
     };
     newPlayers[activeIndex] = { ...resourcePlayer, companies: updatedCompanies };
+  }
+
+  // --- Step 8a-2: Fire bearer-company-moves discard ---
+  // When a company has moved, discard any character items with an
+  // on-event: bearer-company-moves + discard-self effect (e.g. Align Palantír).
+  if (company.destinationSite && !mhState.returnedToOrigin) {
+    const movedCompany = newPlayers[activeIndex].companies[mhState.activeCompanyIndex];
+    let discardedAny = false;
+    for (const charId of movedCompany.characters) {
+      const charData = newPlayers[activeIndex].characters[charId as string];
+      if (!charData) continue;
+      const itemsToKeep: import('../index.js').ItemInPlay[] = [];
+      const itemsToDiscard: import('../index.js').CardInstance[] = [];
+      for (const item of charData.items) {
+        const itemDef = state.cardPool[item.definitionId as string];
+        const hasTrigger = itemDef && 'effects' in itemDef &&
+          (itemDef as { effects?: readonly import('../index.js').CardEffect[] }).effects?.some(
+            e => e.type === 'on-event' && e.event === 'bearer-company-moves' &&
+                 e.apply.type === 'discard-self',
+          );
+        if (hasTrigger) {
+          logDetail(`bearer-company-moves: discarding "${itemDef?.name ?? item.definitionId}" from ${charId as string}`);
+          itemsToDiscard.push({ instanceId: item.instanceId, definitionId: item.definitionId });
+        } else {
+          itemsToKeep.push(item);
+        }
+      }
+      if (itemsToDiscard.length > 0) {
+        discardedAny = true;
+        newPlayers[activeIndex] = {
+          ...newPlayers[activeIndex],
+          characters: {
+            ...newPlayers[activeIndex].characters,
+            [charId as string]: { ...charData, items: itemsToKeep },
+          },
+          discardPile: [...newPlayers[activeIndex].discardPile, ...itemsToDiscard],
+        };
+      }
+    }
+    if (discardedAny) {
+      logDetail('bearer-company-moves: finished discarding items from moving company');
+    }
   }
 
   // --- Step 8b: Draw up to hand size (automatic) ---
@@ -1462,6 +1510,26 @@ function transitionToDrawCards(state: GameState, mhState: MovementHazardPhaseSta
     } else {
       logDetail(`No avatar or character with mind ≥ 3 — resource player cannot draw`);
     }
+  }
+
+  // Apply draw-modifier effects from company characters (e.g. Alatar reduces hazard draws)
+  const drawContext: ResolverContext = { reason: 'draw-modifier' };
+  const allDrawEffects = company.characters.flatMap(charInstId => {
+    const char = player.characters[charInstId as string];
+    if (!char) return [];
+    return collectCharacterEffects(state, char, drawContext);
+  });
+  const hazardMod = resolveDrawModifier(allDrawEffects, 'hazard');
+  if (hazardMod.adjustment !== 0) {
+    const before = hazardDrawMax;
+    hazardDrawMax = Math.max(hazardMod.min, hazardDrawMax + hazardMod.adjustment);
+    logDetail(`draw-modifier: hazard draws ${before} → ${hazardDrawMax} (adjustment ${hazardMod.adjustment}, min ${hazardMod.min})`);
+  }
+  const resourceMod = resolveDrawModifier(allDrawEffects, 'resource');
+  if (resourceMod.adjustment !== 0) {
+    const before = resourceDrawMax;
+    resourceDrawMax = Math.max(resourceMod.min, resourceDrawMax + resourceMod.adjustment);
+    logDetail(`draw-modifier: resource draws ${before} → ${resourceDrawMax} (adjustment ${resourceMod.adjustment}, min ${resourceMod.min})`);
   }
 
   logDetail(`Movement/Hazard: order-effects done → draw-cards (resource max: ${resourceDrawMax}, hazard max: ${hazardDrawMax}, site: ${drawSite && isSiteCard(drawSite) ? drawSite.name : '?'})`);

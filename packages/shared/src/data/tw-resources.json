@@ -399,8 +399,26 @@
     "corruptionPoints": 2,
     "marshallingPoints": 2,
     "marshallingCategory": "misc",
-    "effects": [],
-    "text": "Sage only. Playable on a Palantír with a sage in the company. Bearer now has the ability to use the Palantír. If the Palantír is stored, this card is stored too. Discard Align Palantír if the company carrying the Palantír moves. Cannot be duplicated on a given Palantír."
+    "effects": [
+      {
+        "type": "play-target",
+        "target": "character",
+        "filter": {
+          "$and": [
+            { "target.itemKeywords": { "$includes": "palantir" } },
+            { "company.skills": { "$includes": "sage" } }
+          ]
+        }
+      },
+      { "type": "duplication-limit", "scope": "character", "max": 1 },
+      {
+        "type": "on-event",
+        "event": "bearer-company-moves",
+        "apply": { "type": "discard-self" }
+      }
+    ],
+    "text": "Sage only. Playable on a Palantír with a sage in the company. Bearer now has the ability to use the Palantír. If the Palantír is stored, this card is stored too. Discard Align Palantír if the company carrying the Palantír moves. Cannot be duplicated on a given Palantír.",
+    "certified": "2026-04-14"
   },
   {
     "cardType": "hero-resource-faction",

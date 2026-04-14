@@ -107,6 +107,11 @@ export interface PlayHazardAction {
   /** For creatures, describes which keying rule matched the travel path. */
   readonly keyedBy?: CreatureKeyingMatch;
   /**
+   * For faction-targeting hazard short-events (e.g. Muster Disperses),
+   * the in-play faction instance being targeted.
+   */
+  readonly targetFactionInstanceId?: CardInstanceId;
+  /**
    * For hazard short-events with a creature-race-choice effect (e.g. Two
    * or Three Tribes Present), the race the player announced when playing.
    */
@@ -316,6 +321,26 @@ export interface CancelHazardByTapAction {
   readonly characterInstanceId: CardInstanceId;
   /** The chain entry index to negate. */
   readonly chainEntryIndex: number;
+}
+
+/**
+ * Execute the dice roll for a Muster Disperses muster check.
+ *
+ * Created by the pending-resolution system when a faction-targeting
+ * hazard short-event resolves. The faction's owner rolls 2d6 + unused
+ * general influence; if the total is less than 11, the faction is
+ * discarded.
+ */
+export interface MusterRollAction {
+  readonly type: 'muster-roll';
+  /** The faction owner rolling. */
+  readonly player: PlayerId;
+  /** The targeted faction card instance. */
+  readonly factionInstanceId: CardInstanceId;
+  /** The 2d6 value needed for the faction to survive (roll + unused GI >= 11). */
+  readonly need: number;
+  /** Human-readable breakdown of the muster check. */
+  readonly explanation: string;
 }
 
 /**

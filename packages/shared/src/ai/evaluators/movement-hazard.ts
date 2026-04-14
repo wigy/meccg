@@ -86,6 +86,9 @@ export const movementHazardEvaluator: ActionEvaluator = {
       }
 
       case 'pass':
+        // Never pass while cards can still be drawn — always take the
+        // maximum number of draws offered.
+        if (context.legalActions.some(a => a.type === 'draw-cards')) return 0;
         return 1;
 
       default:

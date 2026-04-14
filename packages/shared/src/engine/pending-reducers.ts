@@ -20,8 +20,7 @@ import type {
 } from '../index.js';
 import type { ReducerResult } from './reducer-utils.js';
 import { dequeueResolution, enqueueResolution, removeConstraint } from './pending.js';
-import { getPlayerIndex, isCharacterCard } from '../index.js';
-import { GENERAL_INFLUENCE } from '../constants.js';
+import { getPlayerIndex, isCharacterCard, isFactionCard, GENERAL_INFLUENCE } from '../index.js';
 import { resolveInstanceId } from '../types/state.js';
 import { roll2d6, clonePlayers, cleanupEmptyCompanies } from './reducer-utils.js';
 import { logDetail } from './legal-actions/log.js';
@@ -60,6 +59,8 @@ export function applyResolution(
       return applyOpponentInfluenceDefendResolution(state, action, top);
     case 'faction-influence-roll':
       return applyFactionInfluenceRollResolution(state, action, top);
+    case 'muster-roll':
+      return applyMusterRollResolution(state, action, top);
     case 'call-of-home-roll':
       return applyCallOfHomeRollResolution(state, action, top);
   }
@@ -425,6 +426,96 @@ function applyFactionInfluenceRollResolution(
   return {
     state: postRoll,
     effects: rollResult.effects,
+  };
+}
+
+/**
+ * Resolve a queued `muster-roll` resolution (Muster Disperses). The
+ * faction's owner rolls 2d6 + unused general influence. If the total
+ * is less than 11, the faction is discarded; otherwise it stays in play.
+ */
+function applyMusterRollResolution(
+  state: GameState,
+  action: GameAction,
+  top: PendingResolution,
+): ReducerResult | null {
+  if (action.type !== 'muster-roll') {
+    return { state, error: `Pending muster-roll requires that action, got '${action.type}'` };
+  }
+  if (top.kind.type !== 'muster-roll') return null;
+
+  if (action.player !== top.actor) {
+    return { state, error: 'Wrong player for pending muster-roll' };
+  }
+
+  const { factionInstanceId, factionDefinitionId, factionOwner } = top.kind;
+  const ownerIndex = getPlayerIndex(state, factionOwner);
+  const owner = state.players[ownerIndex];
+
+  const def = state.cardPool[factionDefinitionId as string];
+  if (!def || !isFactionCard(def)) {
+    return { state, error: 'Targeted card is not a faction' };
+  }
+
+  const unusedGI = GENERAL_INFLUENCE - owner.generalInfluenceUsed;
+  const { roll, rng, cheatRollTotal } = roll2d6(state);
+  const total = roll.die1 + roll.die2 + unusedGI;
+
+  logDetail(`Muster roll: ${def.name} — rolled ${roll.die1} + ${roll.die2} + unused GI ${unusedGI} = ${total} vs 11`);
+
+  const rollEffect: GameEffect = {
+    effect: 'dice-roll',
+    playerName: owner.name,
+    die1: roll.die1,
+    die2: roll.die2,
+    label: `Muster: ${def.name}`,
+  };
+
+  const newPlayers = clonePlayers(state);
+  newPlayers[ownerIndex] = { ...newPlayers[ownerIndex], lastDiceRoll: roll };
+
+  if (total < 11) {
+    logDetail(`Muster disperses: ${def.name} discarded (${total} < 11)`);
+    const factionIdx = owner.cardsInPlay.findIndex(c => c.instanceId === factionInstanceId);
+    if (factionIdx !== -1) {
+      const factionCard = owner.cardsInPlay[factionIdx];
+      const newCardsInPlay = [...owner.cardsInPlay];
+      newCardsInPlay.splice(factionIdx, 1);
+      newPlayers[ownerIndex] = {
+        ...newPlayers[ownerIndex],
+        cardsInPlay: newCardsInPlay,
+        discardPile: [...newPlayers[ownerIndex].discardPile, factionCard],
+      };
+    }
+  } else {
+    logDetail(`Muster holds: ${def.name} stays in play (${total} >= 11)`);
+  }
+
+  let postRoll = dequeueResolution({ ...state, players: newPlayers, rng, cheatRollTotal }, top.id);
+
+  // Re-enter chain auto-resolution if the chain is still active
+  if (postRoll.chain) {
+    const chain = postRoll.chain;
+    // Mark the muster short-event entry as resolved if it hasn't been already
+    const newEntries = chain.entries.map(e =>
+      e.payload.type === 'short-event'
+        && !e.resolved
+        && e.payload.targetFactionInstanceId === factionInstanceId
+        ? { ...e, resolved: true }
+        : e,
+    );
+    postRoll = { ...postRoll, chain: { ...chain, entries: newEntries } };
+
+    const continued = autoResolve(postRoll);
+    return {
+      state: continued.state,
+      effects: [rollEffect, ...(continued.effects ?? [])],
+    };
+  }
+
+  return {
+    state: postRoll,
+    effects: [rollEffect],
   };
 }
 
