@@ -216,6 +216,14 @@ export const FOOLISH_WORDS = did('td-25');
  */
 export const LURE_OF_THE_SENSES = did('tw-60');
 /**
+ * Alone and Unadvised — hazard corruption card playable on a non-Wizard,
+ * non-Ringwraith character in a company with 3 or fewer characters. Adds
+ * 4 corruption points. Bearer makes corruption checks per region at end
+ * of MH, all corruption checks modified by company size. Bearer may tap
+ * to remove on roll > 6. Auto-discards if company reaches 4+ characters.
+ */
+export const ALONE_AND_UNADVISED = did('as-24');
+/**
  * Lost in Free-domains — hazard permanent-event playable on a company
  * moving with a Free-domain in its site path. Adds an active constraint
  * (`site-phase-do-nothing`) that prevents the affected company from

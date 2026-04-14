@@ -17,7 +17,7 @@ import type { ReducerResult } from './reducer-utils.js';
 import { clonePlayers, startDeckExhaust, completeDeckExhaust, handleExchangeSideboard, cleanupEmptyCompanies, autoMergeNonHavenCompanies } from './reducer-utils.js';
 import { handlePlayShortEvent } from './reducer-events.js';
 import { handlePlayPermanentEvent } from './reducer-events.js';
-import { sweepExpired, addConstraint } from './pending.js';
+import { sweepExpired, addConstraint, enqueueResolution } from './pending.js';
 
 
 /**
@@ -125,9 +125,10 @@ function handlePlayHazards(
         : { hazardPlayerPassed: true }),
     };
 
-    // Both passed → end this company's M/H phase
+    // Both passed → fire end-of-MH corruption triggers, then end this company's M/H phase
     if (newMhState.resourcePlayerPassed && newMhState.hazardPlayerPassed) {
-      return endCompanyMH(state, newMhState);
+      const withChecks = fireEndOfCompanyMHCorruptionChecks(state, newMhState);
+      return endCompanyMH(withChecks, newMhState);
     }
 
     logDetail(`Play-hazards: ${isResourcePlayer ? 'resource' : 'hazard'} player passed`);
@@ -280,9 +281,37 @@ function handlePlayHazardCard(
     return { state: newState };
   }
 
+  // --- Hazard-corruption handling (attaches to character like permanent events) ---
+  if (def.cardType === 'hazard-corruption') {
+    logDetail(`Play-hazards: hazard player plays corruption "${def.name}" (${mhState.hazardsPlayedThisCompany + 1}/${mhState.hazardLimit}) → enters chain`);
+    const newHand = [...hazardPlayer.hand];
+    newHand.splice(cardIdx, 1);
+    const newPlayers = clonePlayers(state);
+    newPlayers[hazardIndex] = { ...hazardPlayer, hand: newHand };
+    let newState: GameState = {
+      ...state,
+      players: newPlayers,
+      phaseState: {
+        ...mhState,
+        hazardsPlayedThisCompany: mhState.hazardsPlayedThisCompany + 1,
+        resourcePlayerPassed: false,
+      },
+    };
+    const payload: import('../index.js').ChainEntryPayload = {
+      type: 'permanent-event',
+      targetCharacterId: action.type === 'play-hazard' ? action.targetCharacterId : undefined,
+    };
+    if (newState.chain === null) {
+      newState = initiateChain(newState, action.player, handCard, payload);
+    } else {
+      newState = pushChainEntry(newState, action.player, handCard, payload);
+    }
+    return { state: newState };
+  }
+
   // --- Event handling (long / permanent) ---
   if (def.cardType !== 'hazard-event' || (def.eventType !== 'long' && def.eventType !== 'permanent')) {
-    return { state, error: `Cannot play ${def.cardType} during play-hazards — only creatures, short-events and hazard long/permanent-events are currently supported` };
+    return { state, error: `Cannot play ${def.cardType} during play-hazards — only creatures, short-events, hazard long/permanent-events, and corruption cards are currently supported` };
   }
 
   // Uniqueness check: unique events can't be played if already in play
@@ -411,9 +440,61 @@ function handlePlaceOnGuard(
 }
 
 /**
- * End the current company's M/H phase and either select the next company
- * or advance to the Site phase.
+ * Fires end-of-company-MH corruption checks for characters with attached
+ * hazards carrying `on-event: end-of-company-mh`. Enqueues one corruption
+ * check per region traversed in the site path for each matching character.
  */
+function fireEndOfCompanyMHCorruptionChecks(
+  state: GameState,
+  mhState: MovementHazardPhaseState,
+): GameState {
+  const regionCount = mhState.resolvedSitePath.length;
+  if (regionCount === 0) return state;
+
+  const activeIndex = getPlayerIndex(state, state.activePlayer!);
+  const resourcePlayer = state.players[activeIndex];
+  const company = resourcePlayer.companies[mhState.activeCompanyIndex];
+
+  let newState = state;
+  for (const charId of company.characters) {
+    const char = resourcePlayer.characters[charId as string];
+    if (!char) continue;
+    for (const hazard of char.hazards) {
+      const hDef = newState.cardPool[hazard.definitionId as string];
+      if (!hDef || !('effects' in hDef) || !hDef.effects) continue;
+      for (const effect of hDef.effects) {
+        if (effect.type !== 'on-event') continue;
+        const onEvent = effect;
+        if (onEvent.event !== 'end-of-company-mh') continue;
+        if (onEvent.apply.type !== 'force-check' || onEvent.apply.check !== 'corruption') continue;
+
+        logDetail(`end-of-company-mh: "${hDef.name}" triggers ${regionCount} corruption check(s) for character ${charId as string}`);
+        const possessions = [
+          ...char.items.map(i => i.instanceId),
+          ...char.allies.map(a => a.instanceId),
+          ...char.hazards.map(h => h.instanceId),
+        ];
+        for (let i = 0; i < regionCount; i++) {
+          newState = enqueueResolution(newState, {
+            source: hazard.instanceId,
+            actor: state.activePlayer!,
+            scope: { kind: 'phase', phase: Phase.MovementHazard },
+            kind: {
+              type: 'corruption-check',
+              characterId: charId,
+              modifier: 0,
+              reason: `${hDef.name} (region ${i + 1}/${regionCount})`,
+              possessions,
+              transferredItemId: null,
+            },
+          });
+        }
+      }
+    }
+  }
+  return newState;
+}
+
 /**
  * End the current company's M/H phase (CoE step 8).
  *

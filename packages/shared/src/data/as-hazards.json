@@ -6,8 +6,46 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/as/AloneandUnadvised.jpg",
     "unique": false,
     "corruptionPoints": 4,
-    "effects": [],
-    "text": "Corruption. Playable on a non-Wizard, non-Ringwraith character in a company with 3 or fewer characters. Target character makes a corruption check at the end of his movement/hazard phase for each region he moved through. All of his corruption checks are modified by adding the number of characters in his company. During his organization phase, the character may tap to attempt to remove this card. Make a roll—if the result is greater than 6, discard this card. Discard this card if his company has 4 or more characters. Cannot be duplicated on a given character."
+    "effects": [
+      {
+        "type": "play-target",
+        "target": "character",
+        "filter": {
+          "$and": [
+            { "target.race": { "$ne": "wizard" } },
+            { "target.race": { "$ne": "ringwraith" } }
+          ]
+        },
+        "maxCompanySize": 3
+      },
+      { "type": "duplication-limit", "scope": "character", "max": 1 },
+      {
+        "type": "on-event",
+        "event": "end-of-company-mh",
+        "apply": { "type": "force-check", "check": "corruption" },
+        "target": "bearer",
+        "perRegion": true
+      },
+      {
+        "type": "check-modifier",
+        "check": "corruption",
+        "value": "company.characterCount"
+      },
+      {
+        "type": "grant-action",
+        "action": "remove-self-on-roll",
+        "cost": { "tap": "bearer" },
+        "rollThreshold": 7
+      },
+      {
+        "type": "on-event",
+        "event": "company-composition-changed",
+        "apply": { "type": "discard-self" },
+        "when": { "company.characterCount": { "$gte": 4 } }
+      }
+    ],
+    "text": "Corruption. Playable on a non-Wizard, non-Ringwraith character in a company with 3 or fewer characters. Target character makes a corruption check at the end of his movement/hazard phase for each region he moved through. All of his corruption checks are modified by adding the number of characters in his company. During his organization phase, the character may tap to attempt to remove this card. Make a roll—if the result is greater than 6, discard this card. Discard this card if his company has 4 or more characters. Cannot be duplicated on a given character.",
+    "certified": "2026-04-14"
   },
   {
     "cardType": "hazard-event",
