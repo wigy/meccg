@@ -684,6 +684,23 @@ export interface CreatureRaceChoiceEffect extends EffectBase {
 }
 
 /**
+ * Forces a "Call of Home" style roll check on the targeted character.
+ *
+ * When the hazard short event resolves, the character's player rolls 2d6.
+ * If the roll plus the player's unused general influence is less than
+ * `threshold`, the character returns to the player's hand. One item may
+ * be transferred to another character in the company; all other
+ * non-follower cards the character controls are discarded.
+ *
+ * Used by Call of Home (tw-18).
+ */
+export interface CallOfHomeCheckEffect extends EffectBase {
+  readonly type: 'call-of-home-check';
+  /** Roll + unused GI must meet or exceed this to keep the character. */
+  readonly threshold: number;
+}
+
+/**
  * Discriminated union of all card effect types.
  * The `type` field serves as the discriminant for type narrowing.
  */
@@ -714,4 +731,5 @@ export type CardEffect =
   | SiteRuleEffect
   | ItemPlaySiteEffect
   | StorableAtEffect
-  | CompanyRuleEffect;
+  | CompanyRuleEffect
+  | CallOfHomeCheckEffect;
