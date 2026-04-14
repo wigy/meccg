@@ -1,0 +1,25 @@
+FROM node:22-alpine
+
+WORKDIR /app
+
+COPY package.json package-lock.json tsconfig.base.json tsconfig.json ./
+COPY packages/shared/package.json packages/shared/
+COPY packages/game-server/package.json packages/game-server/
+COPY packages/text-client/package.json packages/text-client/
+COPY packages/lobby-server/package.json packages/lobby-server/
+
+RUN npm ci
+
+COPY packages ./packages
+COPY data ./data
+COPY bin ./bin
+
+RUN npm run build
+
+ENV LOBBY_PORT=8080
+ENV GAME_PORT_BASE=4000
+
+EXPOSE 8080
+EXPOSE 4000-4050
+
+CMD ["npm", "run", "start", "-w", "@meccg/lobby-server"]

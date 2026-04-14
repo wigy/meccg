@@ -1,0 +1,25 @@
+services:
+  meccg-dev:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    image: meccg:dev
+    container_name: meccg-dev
+    restart: unless-stopped
+    network_mode: host
+    environment:
+      LOBBY_PORT: "8080"
+      GAME_PORT_BASE: "4000"
+      DEV: "1"
+      NODE_ENV: "development"
+    volumes:
+      - ${HOME}/.meccg:/root/.meccg
+      - ./packages:/app/packages
+      - ./data:/app/data
+      - ./bin:/app/bin
+      - ./tsconfig.base.json:/app/tsconfig.base.json
+      - ./tsconfig.json:/app/tsconfig.json
+      - meccg-dev-node-modules:/app/node_modules
+
+volumes:
+  meccg-dev-node-modules:

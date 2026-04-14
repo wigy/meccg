@@ -1,0 +1,12 @@
+services:
+  meccg:
+    build: .
+    image: meccg:latest
+    container_name: meccg
+    restart: unless-stopped
+    network_mode: host
+    environment:
+      LOBBY_PORT: "8080"
+      GAME_PORT_BASE: "4000"
+    volumes:
+      - ${HOME}/.meccg:/root/.meccg

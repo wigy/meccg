@@ -1,0 +1,12 @@
+node_modules
+**/node_modules
+**/dist
+**/*.tsbuildinfo
+packages/lobby-server/public/bundle.js
+.git
+.github
+.claude
+docs/api
+*.log
+.env
+.env.*
