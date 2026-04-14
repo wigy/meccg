@@ -43,10 +43,12 @@ import {
 } from '../test-helpers.js';
 import {
   computeLegalActions,
-  GLITTERING_CAVES, DAGGER_OF_WESTERNESSE, GLAMDRING,
+  DAGGER_OF_WESTERNESSE, GLAMDRING,
   isSiteCard, buildMovementMap, getReachableSites,
 } from '../../index.js';
-import type { SiteCard, SitePhaseState } from '../../index.js';
+import type { SiteCard, SitePhaseState, CardDefinitionId } from '../../index.js';
+
+const GLITTERING_CAVES = 'tw-397' as CardDefinitionId;
 
 // ─── Tests ───────────────────────────────────────────────────────────────────
 

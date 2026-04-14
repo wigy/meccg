@@ -8,10 +8,15 @@
 
 import { Alignment } from './types/common.js';
 import type { CardDefinitionId } from './types/common.js';
-import {
-  RIVENDELL, MINAS_MORGUL, DOL_GULDUR, THE_WHITE_TOWERS, MORIA_BALROG, THE_UNDER_GATES,
-  ETTENMOORS, ETTENMOORS_HERO, THE_WHITE_TOWERS_MINION, THE_WHITE_TOWERS_HERO,
-} from './card-ids.js';
+import { RIVENDELL, ETTENMOORS_HERO, THE_WHITE_TOWERS_HERO } from './card-ids.js';
+
+const MINAS_MORGUL = 'le-390' as CardDefinitionId;
+const DOL_GULDUR = 'le-367' as CardDefinitionId;
+const THE_WHITE_TOWERS = 'wh-58' as CardDefinitionId;
+const MORIA_BALROG = 'ba-93' as CardDefinitionId;
+const THE_UNDER_GATES = 'ba-100' as CardDefinitionId;
+const ETTENMOORS = 'le-373' as CardDefinitionId;
+const THE_WHITE_TOWERS_MINION = 'le-412' as CardDefinitionId;
 
 /** Per-alignment rule constants. */
 export interface AlignmentRules {

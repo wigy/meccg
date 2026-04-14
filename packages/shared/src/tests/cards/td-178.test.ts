@@ -41,10 +41,12 @@ import {
 } from '../test-helpers.js';
 import {
   computeLegalActions,
-  ISLE_OF_THE_ULOND, EDHELLOND, DAGGER_OF_WESTERNESSE, GLAMDRING,
+  EDHELLOND, DAGGER_OF_WESTERNESSE, GLAMDRING,
   isSiteCard, buildMovementMap, getReachableSites,
 } from '../../index.js';
-import type { SiteCard, SitePhaseState } from '../../index.js';
+import type { SiteCard, SitePhaseState, CardDefinitionId } from '../../index.js';
+
+const ISLE_OF_THE_ULOND = 'td-178' as CardDefinitionId;
 
 // ─── Tests ───────────────────────────────────────────────────────────────────
 

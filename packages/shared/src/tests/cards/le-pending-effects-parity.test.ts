@@ -12,12 +12,12 @@
 
 import { describe, test, expect } from 'vitest';
 import { pool } from '../test-helpers.js';
-import {
-  LURE_OF_THE_SENSES, LURE_OF_THE_SENSES_LE,
-  LOST_IN_FREE_DOMAINS, LOST_IN_FREE_DOMAINS_LE,
-  RIVER, RIVER_LE,
-} from '../../card-ids.js';
-import type { CardEffect } from '../../index.js';
+import { LURE_OF_THE_SENSES, LOST_IN_FREE_DOMAINS, RIVER } from '../../card-ids.js';
+import type { CardEffect, CardDefinitionId } from '../../index.js';
+
+const LURE_OF_THE_SENSES_LE = 'le-124' as CardDefinitionId;
+const LOST_IN_FREE_DOMAINS_LE = 'le-119' as CardDefinitionId;
+const RIVER_LE = 'le-134' as CardDefinitionId;
 
 /** Project an effect to its semantically meaningful fields for parity comparison. */
 function effectShape(e: CardEffect): Record<string, unknown> {
