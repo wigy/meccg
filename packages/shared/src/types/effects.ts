@@ -647,6 +647,43 @@ export interface CompanyRuleEffect extends EffectBase {
 }
 
 /**
+ * Gates playability on a game-state condition evaluated at legal-action
+ * time. The `requires` field names the context source:
+ *
+ * - `site-path` — the company's resolved site path during M/H. The
+ *   condition is evaluated against
+ *   `{ sitePath: { wildernessCount, shadowCount, darkCount, coastalCount, freeCount, borderCount } }`.
+ *
+ * If the condition is not met, the card is not offered as a legal action.
+ */
+export interface PlayConditionEffect extends EffectBase {
+  readonly type: 'play-condition';
+  readonly requires: 'site-path';
+  readonly condition: Condition;
+}
+
+/**
+ * Requires the player to choose a creature race when playing the card.
+ * The `exclude` array lists races that may not be chosen. The `apply`
+ * clause describes the constraint added for the chosen race.
+ *
+ * Used by Two or Three Tribes Present: announce a creature type (except
+ * Nazgûl, Undead, or Dragons) — creatures of that type bypass the hazard
+ * limit for the target company.
+ */
+export interface CreatureRaceChoiceEffect extends EffectBase {
+  readonly type: 'creature-race-choice';
+  /** Races the player may NOT choose. */
+  readonly exclude: readonly string[];
+  /** Constraint applied with the chosen race. */
+  readonly apply: {
+    readonly type: 'add-constraint';
+    readonly constraint: string;
+    readonly scope: string;
+  };
+}
+
+/**
  * Discriminated union of all card effect types.
  * The `type` field serves as the discriminant for type narrowing.
  */
@@ -669,6 +706,8 @@ export type CardEffect =
   | PlayTargetEffect
   | PlayOptionEffect
   | PlayWindowEffect
+  | PlayConditionEffect
+  | CreatureRaceChoiceEffect
   | OnGuardRevealEffect
   | FetchToDeckEffect
   | DiscardInPlayEffect

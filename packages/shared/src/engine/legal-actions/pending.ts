@@ -31,9 +31,32 @@ import { isCharacterCard, isAllyCard, isFactionCard, Phase, CardStatus, matchesC
 import type { PlayOptionEffect, PlayTargetEffect, CardEffect } from '../../types/effects.js';
 import { resolveInstanceId } from '../../types/state.js';
 import { resolveDef, collectCharacterEffects, resolveCheckModifier, resolveStatModifiers } from '../effects/index.js';
-import type { ResolverContext } from '../effects/index.js';
+import type { ResolverContext, CollectedEffect } from '../effects/index.js';
 import { buildPlayOptionContext } from './organization.js';
 import { logDetail } from './log.js';
+
+/**
+ * Collect check-modifier effects from a character's attached hazards only
+ * (excluding the character's own definition to avoid double-counting with
+ * the built-in corruptionModifier field).
+ */
+function collectHazardCheckModifiers(
+  state: GameState,
+  char: import('../../index.js').CharacterInPlay,
+  context: ResolverContext,
+): CollectedEffect[] {
+  const results: CollectedEffect[] = [];
+  for (const hazard of char.hazards) {
+    const hDef = resolveDef(state, hazard.instanceId);
+    if (!hDef || !('effects' in hDef) || !hDef.effects) continue;
+    for (const effect of hDef.effects) {
+      if (effect.type !== 'check-modifier') continue;
+      if (effect.when && !matchesCondition(effect.when, context as unknown as Record<string, unknown>)) continue;
+      results.push({ effect, sourceDef: hDef, sourceInstance: hazard.instanceId });
+    }
+  }
+  return results;
+}
 
 /** Wrap plain GameActions as viable EvaluatedActions. */
 function viable(actions: import('../../index.js').GameAction[]): EvaluatedAction[] {
@@ -339,6 +362,19 @@ function corruptionCheckActions(
     logDetail(`One-shot check-modifier ${constraint.kind.value >= 0 ? '+' : ''}${constraint.kind.value} from constraint ${constraint.id}`);
   }
 
+  // DSL check-modifier effects from attached hazards only (not the
+  // character's own definition — that's already in baseModifier).
+  const hazardEffects = collectHazardCheckModifiers(state, char, { reason: 'corruption-check' });
+  if (hazardEffects.length > 0) {
+    const company = player.companies.find(c => c.characters.includes(characterId));
+    const companyCharCount = company ? company.characters.length : 1;
+    const dslModifier = resolveCheckModifier(hazardEffects, 'corruption', { company: { characterCount: companyCharCount } });
+    if (dslModifier !== 0) {
+      totalModifier += dslModifier;
+      logDetail(`DSL check-modifier ${dslModifier >= 0 ? '+' : ''}${dslModifier} from attached hazards (company size: ${companyCharCount})`);
+    }
+  }
+
   // Build possessions list. For transfer checks, the item physically lives
   // on the new bearer but is counted on the original character for this check.
   const possessions: CardInstanceId[] = [
@@ -494,6 +530,8 @@ function applyOneConstraint(
     case 'deny-scout-resources':
       return applyDenyScoutResources(state, playerId, base, constraint);
     case 'cancel-hazard-by-tap':
+      return base;
+    case 'creature-type-no-hazard-limit':
       return base;
   }
 }

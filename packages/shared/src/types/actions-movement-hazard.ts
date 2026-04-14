@@ -106,6 +106,11 @@ export interface PlayHazardAction {
   readonly targetSiteDefinitionId?: import('./common.js').CardDefinitionId;
   /** For creatures, describes which keying rule matched the travel path. */
   readonly keyedBy?: CreatureKeyingMatch;
+  /**
+   * For hazard short-events with a creature-race-choice effect (e.g. Two
+   * or Three Tribes Present), the race the player announced when playing.
+   */
+  readonly chosenCreatureRace?: string;
 }
 
 /**

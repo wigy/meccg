@@ -175,6 +175,8 @@ Events:
 - `self-enters-play` -- fires when this card enters play. Used by environment permanent events to discard opposing cards (implemented in reducer play handlers).
 - `untap-phase-at-haven` -- fires once per applicable card during the Untap → Organization transition. The reducer (`reducer-untap.ts`) scans every character at a haven for attached cards (items / hazards / allies) carrying this on-event, and enqueues a `corruption-check` pending resolution per match. Used by *Lure of the Senses*.
 - `attack-not-defeated` -- fires after combat finalization when the creature's attack was not fully defeated (i.e. not all strikes were won by the defenders). The reducer (`reducer-combat.ts`) checks the creature card for this event and applies its constraint. Used by *Little Snuffler*.
+- `end-of-company-mh` -- fires when a company's movement/hazard sub-phase ends (both players pass). For each character with an attached hazard carrying this event, enqueues one `corruption-check` pending resolution per region traversed in the site path. The `perRegion: true` flag on the effect enables the per-region behavior. Used by *Alone and Unadvised*. Implemented in `reducer-movement-hazard.ts`.
+- `company-composition-changed` -- fires against every attached hazard whenever a company's character roster changes (play-character, move-to-company, merge-companies, auto-merge at end of MH). The sweeper evaluates the effect's `when` against the bearer's company context and applies `discard-self` when the condition is met. Used by *Alone and Unadvised* (discards when company has 4+ characters). Implemented in `reducer-utils.ts` `sweepAutoDiscardHazards()`.
 
 Apply types:
 
@@ -182,7 +184,7 @@ Apply types:
 - `discard-cards-in-play` -- discard all cards in play that match the `filter` condition (evaluated against card definitions).
 - `discard-non-special-items` -- discard all non-special items (subtype ≠ `"special"`) from the wounded character. Items are moved to the defending player's discard pile. Implemented in `reducer-combat.ts` for the `character-wounded-by-self` event.
 - `add-constraint` -- add an {@link ActiveConstraint} of the named kind to the target. Reserves the entry's `constraint` field for the kind name (e.g. `"site-phase-do-nothing"`, `"site-phase-do-nothing-unless-ranger-taps"`, `"no-creature-hazards-on-company"`, `"deny-scout-resources"`) and the `scope` field for the auto-clear boundary (e.g. `"company-site-phase"`, `"turn"`). The constraint filter in `legal-actions/pending.ts` rewrites legal actions for the affected target while the constraint lives.
-- `discard-self` -- discard the card carrying this effect (typically an ally) from its bearer to the owning player's discard pile. Used with `company-arrives-at-site` and a `when` condition to enforce region-based movement restrictions (e.g. Treebeard). Implemented in `reducer-movement-hazard.ts` `fireAllyArrivalEffects()`.
+- `discard-self` -- discard the card carrying this effect (typically an ally or attached hazard) from its bearer to the owning player's discard pile. Used with `company-arrives-at-site` + a `when` condition on `site.region` to enforce region-based restrictions (e.g. Treebeard), and with `company-composition-changed` + a `when` condition on `company.characterCount` to discard on company size (e.g. Alone and Unadvised). Implemented in `reducer-movement-hazard.ts` `fireAllyArrivalEffects()` and `reducer-utils.ts` `sweepAutoDiscardHazards()`.
 
 ### Pending resolutions
 
@@ -507,6 +509,51 @@ Context variables for grant-action `when` conditions:
 
 Implemented in `reducer-organization.ts` (handler), `legal-actions/organization.ts`
 (scanner + context), `reducer-utils.ts` (fetch completion with corruption check).
+
+### 23. `play-condition`
+
+Gates playability on a game-state condition. The `requires` field names
+the context source.
+
+Requires:
+
+- `site-path` — the company's resolved site path during M/H. The
+  condition is evaluated against
+  `{ sitePath: { wildernessCount, shadowCount, darkCount, coastalCount, freeCount, borderCount } }`.
+
+```json
+{ "type": "play-condition", "requires": "site-path",
+  "condition": {
+    "$or": [
+      { "sitePath.wildernessCount": { "$gte": 2 } },
+      { "sitePath.shadowCount": { "$gte": 1 } },
+      { "sitePath.darkCount": { "$gte": 1 } }
+    ]
+  } }
+```
+
+Implemented in `legal-actions/movement-hazard.ts` (`checkSitePathCondition`).
+
+### 24. `creature-race-choice`
+
+Requires the player to choose a creature race when playing the card.
+The `exclude` array lists races that may not be chosen. The legal-action
+emitter produces one `play-hazard` action per eligible race, each
+carrying the chosen race on `chosenCreatureRace`. The `apply` clause
+describes the constraint added for the chosen race.
+
+```json
+{ "type": "creature-race-choice",
+  "exclude": ["nazgul", "undead", "dragon"],
+  "apply": {
+    "type": "add-constraint",
+    "constraint": "creature-type-no-hazard-limit",
+    "scope": "company-mh-phase"
+  } }
+```
+
+Implemented in `legal-actions/movement-hazard.ts` (action generation),
+`reducer-movement-hazard.ts` (constraint creation).
 
 ## Resolver Architecture
 
@@ -833,5 +880,27 @@ Supported `apply` kinds today:
 "effects": [
   { "type": "stat-modifier", "stat": "prowess", "value": 4,
     "when": { "company.facedRaces": { "$includes": "orc" } } }
+]
+```
+
+### Two or Three Tribes Present
+
+```json
+"effects": [
+  { "type": "play-condition", "requires": "site-path",
+    "condition": {
+      "$or": [
+        { "sitePath.wildernessCount": { "$gte": 2 } },
+        { "sitePath.shadowCount": { "$gte": 1 } },
+        { "sitePath.darkCount": { "$gte": 1 } }
+      ]
+    } },
+  { "type": "creature-race-choice",
+    "exclude": ["nazgul", "undead", "dragon"],
+    "apply": {
+      "type": "add-constraint",
+      "constraint": "creature-type-no-hazard-limit",
+      "scope": "company-mh-phase"
+    } }
 ]
 ```

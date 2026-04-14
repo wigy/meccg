@@ -6,8 +6,8 @@
  * sub-states further constrain available actions.
  */
 
-import type { GameState, PlayerId, GameAction, EvaluatedAction, MovementHazardPhaseState, SiteCard, CardDefinitionId, CardInstanceId, CreatureCard, CreatureKeyingMatch, PlayHazardAction, PlaceOnGuardAction } from '../../index.js';
-import { getPlayerIndex, isSiteCard, buildMovementMap, findRegionPaths, RegionType, hasPlayFlag, CardStatus } from '../../index.js';
+import type { GameState, PlayerId, GameAction, EvaluatedAction, MovementHazardPhaseState, SiteCard, CardDefinitionId, CardInstanceId, CompanyId, CreatureCard, CreatureKeyingMatch, PlayHazardAction, PlaceOnGuardAction, PlayConditionEffect, CreatureRaceChoiceEffect } from '../../index.js';
+import { getPlayerIndex, isSiteCard, isCharacterCard, buildMovementMap, findRegionPaths, RegionType, Race, hasPlayFlag, matchesCondition, CardStatus } from '../../index.js';
 import { resolveInstanceId } from '../../types/state.js';
 import { resolveHandSize } from '../effects/index.js';
 import { MovementType } from '../../types/common.js';
@@ -370,7 +370,8 @@ function playHazardsActions(
       const isShortEvent = def.cardType === 'hazard-event' && def.eventType === 'short';
       const isEvent = def.cardType === 'hazard-event'
         && (def.eventType === 'long' || def.eventType === 'permanent');
-      if (!isCreature && !isEvent && !isShortEvent) continue;
+      const isCorruption = def.cardType === 'hazard-corruption';
+      if (!isCreature && !isEvent && !isShortEvent && !isCorruption) continue;
 
       const action: PlayHazardAction = {
         type: 'play-hazard',
@@ -381,7 +382,8 @@ function playHazardsActions(
 
       // Hazard limit reached (cards with no-hazard-limit bypass this)
       const bypassesLimit = 'effects' in def && hasPlayFlag(def, 'no-hazard-limit');
-      if (limitReached && !bypassesLimit) {
+      const raceExempt = isCreature && isCreatureRaceExemptFromLimit(state, targetCompany.id, def.race);
+      if (limitReached && !bypassesLimit && !raceExempt) {
         actions.push({ action, viable: false, reason: `Hazard limit reached (${mhState.hazardLimit})` });
         continue;
       }
@@ -435,6 +437,38 @@ function playHazardsActions(
           }
           continue;
         }
+
+        // Play-condition check (e.g. Two or Three Tribes Present site-path requirement)
+        if (def.effects) {
+          const playCondition = def.effects.find(
+            (e): e is PlayConditionEffect => e.type === 'play-condition',
+          );
+          if (playCondition && playCondition.requires === 'site-path') {
+            if (!checkSitePathCondition(mhState, playCondition)) {
+              logDetail(`Hazard short-event "${def.name}": site path condition not met`);
+              actions.push({ action, viable: false, reason: 'Site path condition not met' });
+              continue;
+            }
+          }
+
+          // Creature-race-choice: generate one action per eligible race
+          const raceChoice = def.effects.find(
+            (e): e is CreatureRaceChoiceEffect => e.type === 'creature-race-choice',
+          );
+          if (raceChoice) {
+            const excludedRaces = new Set(raceChoice.exclude);
+            const eligibleRaces = Object.values(Race).filter(r => !excludedRaces.has(r));
+            for (const race of eligibleRaces) {
+              logDetail(`Hazard short-event "${def.name}": playable with creature race "${race}"`);
+              actions.push({
+                action: { ...action, chosenCreatureRace: race },
+                viable: true,
+              });
+            }
+            continue;
+          }
+        }
+
         logDetail(`Hazard short-event "${def.name}" is playable`);
         actions.push({ action, viable: true });
         continue;
@@ -474,10 +508,11 @@ function playHazardsActions(
         if (blocked) continue;
       }
 
-      // play-target DSL: permanent events targeting a character get one action per character
-      const isCharTargeting = def.effects?.some(
-        e => e.type === 'play-target' && e.target === 'character',
-      ) ?? false;
+      // play-target DSL: permanent events / corruption cards targeting a character get one action per character
+      const playTarget = def.effects?.find(
+        (e): e is import('../../index.js').PlayTargetEffect => e.type === 'play-target',
+      );
+      const isCharTargeting = playTarget?.target === 'character';
       // play-target DSL: site-targeting hazards (e.g. River) get one
       // action per candidate site. The candidate sites are the
       // destination of the active company (the obvious target) plus
@@ -486,15 +521,59 @@ function playHazardsActions(
       // says "Playable on a site" with the understanding that the card
       // affects companies arriving at that location — the destination
       // of the company being attacked is the most useful target.
-      const isSiteTargeting = def.effects?.some(
-        e => e.type === 'play-target' && e.target === 'site',
-      ) ?? false;
+      const isSiteTargeting = playTarget?.target === 'site';
       if (isCharTargeting) {
+        // maxCompanySize: card is only playable if the target company
+        // has effective size ≤ the declared maximum (hobbits count half).
+        if (playTarget.maxCompanySize !== undefined) {
+          let halfCount = 0;
+          let fullCount = 0;
+          for (const cId of targetCompany.characters) {
+            const cDefId = resolveInstanceId(state, cId);
+            const cDef = cDefId ? state.cardPool[cDefId as string] : undefined;
+            if (cDef && isCharacterCard(cDef) && cDef.race === 'hobbit') {
+              halfCount++;
+            } else {
+              fullCount++;
+            }
+          }
+          const effectiveSize = Math.ceil(fullCount + halfCount / 2);
+          if (effectiveSize > playTarget.maxCompanySize) {
+            logDetail(`Hazard "${def.name}" requires company size ≤ ${playTarget.maxCompanySize} (got ${effectiveSize})`);
+            actions.push({ action, viable: false, reason: `${def.name} requires a company of size ≤ ${playTarget.maxCompanySize}` });
+            continue;
+          }
+        }
         // Character-scoped duplication-limit: find the max copies allowed on one character
         const charDupLimit = def.effects?.find(
           (e): e is import('../../index.js').DuplicationLimitEffect => e.type === 'duplication-limit' && e.scope === 'character',
         );
         for (const charId of targetCompany.characters) {
+          // Apply play-target filter condition (e.g. non-wizard, non-ringwraith)
+          if (playTarget.filter) {
+            const charData = resourcePlayer.characters[charId as string];
+            if (charData) {
+              const charDef = state.cardPool[charData.definitionId as string];
+              if (charDef && isCharacterCard(charDef)) {
+                const ctx = {
+                  target: {
+                    race: charDef.race,
+                    skills: charDef.skills,
+                    name: charDef.name,
+                  },
+                };
+                if (!matchesCondition(playTarget.filter, ctx)) {
+                  logDetail(`Hazard "${def.name}" filter excludes ${charDef.name}`);
+                  actions.push({
+                    action: { ...action, targetCharacterId: charId },
+                    viable: false,
+                    reason: `${charDef.name} does not match play target filter`,
+                  });
+                  continue;
+                }
+              }
+            }
+          }
           // Check character-scoped duplication limit
           if (charDupLimit) {
             const charData = resourcePlayer.characters[charId as string];
@@ -505,7 +584,7 @@ function playHazardsActions(
               }).length;
               if (copiesOnChar >= charDupLimit.max) {
                 const charName = state.cardPool[charData.definitionId as string]?.name ?? (charId as string);
-                logDetail(`Hazard event "${def.name}" already on ${charName} (${copiesOnChar}/${charDupLimit.max})`);
+                logDetail(`Hazard "${def.name}" already on ${charName} (${copiesOnChar}/${charDupLimit.max})`);
                 actions.push({
                   action: { ...action, targetCharacterId: charId },
                   viable: false,
@@ -515,7 +594,7 @@ function playHazardsActions(
               }
             }
           }
-          logDetail(`Hazard event "${def.name}" playable on character ${charId as string}`);
+          logDetail(`Hazard "${def.name}" playable on character ${charId as string}`);
           actions.push({
             action: { ...action, targetCharacterId: charId },
             viable: true,
@@ -839,6 +918,51 @@ export function deckExhaustExchangeActions(
   // Pass is always available (0 exchanges is fine)
   actions.push({ type: 'pass', player: playerId });
   return actions;
+}
+
+/**
+ * Check whether a creature's race is exempted from the hazard limit by
+ * a `creature-type-no-hazard-limit` active constraint on the target company.
+ */
+function isCreatureRaceExemptFromLimit(
+  state: GameState,
+  companyId: CompanyId,
+  race: string,
+): boolean {
+  if (!state.activeConstraints) return false;
+  return state.activeConstraints.some(
+    c => c.target.kind === 'company'
+      && c.target.companyId === companyId
+      && c.kind.type === 'creature-type-no-hazard-limit'
+      && c.kind.exemptRace === race,
+  );
+}
+
+/**
+ * Evaluate a play-condition effect with `requires: 'site-path'` against
+ * the current M/H phase state. Builds a context with region-type counts
+ * from the resolved site path.
+ */
+function checkSitePathCondition(
+  mhState: MovementHazardPhaseState,
+  effect: PlayConditionEffect,
+): boolean {
+  const counts: Record<string, number> = {
+    wildernessCount: 0, shadowCount: 0, darkCount: 0,
+    coastalCount: 0, freeCount: 0, borderCount: 0,
+  };
+  for (const rt of mhState.resolvedSitePath) {
+    switch (rt) {
+      case RegionType.Wilderness: counts.wildernessCount++; break;
+      case RegionType.Shadow: counts.shadowCount++; break;
+      case RegionType.Dark: counts.darkCount++; break;
+      case RegionType.Coastal: counts.coastalCount++; break;
+      case RegionType.Free: counts.freeCount++; break;
+      case RegionType.Border: counts.borderCount++; break;
+    }
+  }
+  const ctx: Record<string, unknown> = { sitePath: counts };
+  return matchesCondition(effect.condition, ctx);
 }
 
 // mhWoundCorruptionCheckActions removed: wound corruption checks are
