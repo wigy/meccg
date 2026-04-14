@@ -71,6 +71,45 @@ function asViable(actions: GameAction[]): EvaluatedAction[] {
 }
 
 /**
+ * Collects all card instance IDs referenced by any evaluated action so
+ * that we can detect hand cards with no coverage at all.
+ */
+function referencedInstanceIds(evaluated: EvaluatedAction[]): Set<string> {
+  const ids = new Set<string>();
+  for (const ea of evaluated) {
+    const a = ea.action as unknown as Record<string, unknown>;
+    if (typeof a['cardInstanceId'] === 'string') ids.add(a['cardInstanceId']);
+    if (typeof a['characterInstanceId'] === 'string') ids.add(a['characterInstanceId']);
+  }
+  return ids;
+}
+
+/**
+ * Appends not-playable entries for hand cards that no phase handler
+ * evaluated — guarantees every hand card gets a tooltip in the UI.
+ */
+function fillNotPlayable(state: GameState, playerId: PlayerId, evaluated: EvaluatedAction[]): EvaluatedAction[] {
+  const player = state.players.find(p => p.id === playerId);
+  if (!player) return evaluated;
+  const covered = referencedInstanceIds(evaluated);
+  const extras: EvaluatedAction[] = [];
+  for (const card of player.hand) {
+    if (covered.has(card.instanceId as string)) continue;
+    const def = state.cardPool[card.definitionId as string];
+    const name = def ? (def as unknown as Record<string, unknown>)['name'] as string : card.definitionId as string;
+    extras.push({
+      action: { type: 'not-playable', player: playerId, cardInstanceId: card.instanceId },
+      viable: false,
+      reason: `${name} cannot be played during this step`,
+    });
+  }
+  if (extras.length > 0) {
+    return [...evaluated, ...extras];
+  }
+  return evaluated;
+}
+
+/**
  * Returns every candidate action the given player could take in the current
  * game state, annotated with viability. Non-viable actions include a
  * human-readable reason explaining why they cannot be taken.
@@ -173,6 +212,10 @@ export function computeLegalActions(state: GameState, playerId: PlayerId): Evalu
   // Active constraints filter (Shape B — see types/pending.ts). Pass-through
   // when no constraints are in scope.
   evaluated = applyConstraints(state, playerId, evaluated);
+
+  // Catch-all: mark remaining hand cards that have no evaluated action as
+  // not-playable so the UI can show a tooltip for every dimmed card.
+  evaluated = fillNotPlayable(state, playerId, evaluated);
 
   const viableCount = evaluated.filter(e => e.viable).length;
   logResult(viableCount, evaluated.filter(e => e.viable).map(e => e.action) as unknown as Record<string, unknown>[]);
