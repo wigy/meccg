@@ -12,7 +12,7 @@ import { logDetail } from './legal-actions/log.js';
 import { isEndOfOrgPlay } from './legal-actions/organization.js';
 import { resolveInstanceId } from '../types/state.js';
 import type { ReducerResult } from './reducer-utils.js';
-import { roll2d6, clonePlayers, nextCompanyId, handleFetchFromPile } from './reducer-utils.js';
+import { roll2d6, clonePlayers, nextCompanyId, handleFetchFromPile, sweepAutoDiscardHazards } from './reducer-utils.js';
 import { handlePlayPermanentEvent, handlePlayShortEvent, handlePlayResourceShortEvent } from './reducer-events.js';
 import { enqueueResolution } from './pending.js';
 import { recomputeDerived } from './recompute-derived.js';
@@ -306,11 +306,11 @@ function handlePlayCharacter(state: GameState, action: GameAction): ReducerResul
   };
 
   return {
-    state: {
+    state: sweepAutoDiscardHazards({
       ...state,
       players: newPlayers,
       phaseState: { ...phaseState, characterPlayedThisTurn: true },
-    },
+    }),
   };
 }
 
@@ -1473,11 +1473,11 @@ function handleMoveToCompany(state: GameState, action: GameAction): ReducerResul
   };
 
   return {
-    state: {
+    state: sweepAutoDiscardHazards({
       ...state,
       players: newPlayers,
       reverseActions: [...state.reverseActions, reverseAction],
-    },
+    }),
   };
 }
 
@@ -1550,11 +1550,11 @@ function handleMergeCompanies(state: GameState, action: GameAction): ReducerResu
     }));
 
   return {
-    state: {
+    state: sweepAutoDiscardHazards({
       ...state,
       players: newPlayers,
       reverseActions: [...state.reverseActions, ...reverses],
-    },
+    }),
   };
 }
 

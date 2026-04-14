@@ -7,7 +7,7 @@
  */
 
 import type { GameState, PlayerId, GameAction, EvaluatedAction, MovementHazardPhaseState, SiteCard, CardDefinitionId, CardInstanceId, CompanyId, CreatureCard, CreatureKeyingMatch, PlayHazardAction, PlaceOnGuardAction, PlayConditionEffect, CreatureRaceChoiceEffect } from '../../index.js';
-import { getPlayerIndex, isSiteCard, buildMovementMap, findRegionPaths, RegionType, Race, hasPlayFlag, matchesCondition } from '../../index.js';
+import { getPlayerIndex, isSiteCard, isCharacterCard, buildMovementMap, findRegionPaths, RegionType, Race, hasPlayFlag, matchesCondition } from '../../index.js';
 import { resolveInstanceId } from '../../types/state.js';
 import { resolveHandSize } from '../effects/index.js';
 import { MovementType } from '../../types/common.js';
@@ -370,7 +370,8 @@ function playHazardsActions(
       const isShortEvent = def.cardType === 'hazard-event' && def.eventType === 'short';
       const isEvent = def.cardType === 'hazard-event'
         && (def.eventType === 'long' || def.eventType === 'permanent');
-      if (!isCreature && !isEvent && !isShortEvent) continue;
+      const isCorruption = def.cardType === 'hazard-corruption';
+      if (!isCreature && !isEvent && !isShortEvent && !isCorruption) continue;
 
       const action: PlayHazardAction = {
         type: 'play-hazard',
@@ -507,10 +508,11 @@ function playHazardsActions(
         if (blocked) continue;
       }
 
-      // play-target DSL: permanent events targeting a character get one action per character
-      const isCharTargeting = def.effects?.some(
-        e => e.type === 'play-target' && e.target === 'character',
-      ) ?? false;
+      // play-target DSL: permanent events / corruption cards targeting a character get one action per character
+      const playTarget = def.effects?.find(
+        (e): e is import('../../index.js').PlayTargetEffect => e.type === 'play-target',
+      );
+      const isCharTargeting = playTarget?.target === 'character';
       // play-target DSL: site-targeting hazards (e.g. River) get one
       // action per candidate site. The candidate sites are the
       // destination of the active company (the obvious target) plus
@@ -519,15 +521,59 @@ function playHazardsActions(
       // says "Playable on a site" with the understanding that the card
       // affects companies arriving at that location — the destination
       // of the company being attacked is the most useful target.
-      const isSiteTargeting = def.effects?.some(
-        e => e.type === 'play-target' && e.target === 'site',
-      ) ?? false;
+      const isSiteTargeting = playTarget?.target === 'site';
       if (isCharTargeting) {
+        // maxCompanySize: card is only playable if the target company
+        // has effective size ≤ the declared maximum (hobbits count half).
+        if (playTarget.maxCompanySize !== undefined) {
+          let halfCount = 0;
+          let fullCount = 0;
+          for (const cId of targetCompany.characters) {
+            const cDefId = resolveInstanceId(state, cId);
+            const cDef = cDefId ? state.cardPool[cDefId as string] : undefined;
+            if (cDef && isCharacterCard(cDef) && cDef.race === 'hobbit') {
+              halfCount++;
+            } else {
+              fullCount++;
+            }
+          }
+          const effectiveSize = Math.ceil(fullCount + halfCount / 2);
+          if (effectiveSize > playTarget.maxCompanySize) {
+            logDetail(`Hazard "${def.name}" requires company size ≤ ${playTarget.maxCompanySize} (got ${effectiveSize})`);
+            actions.push({ action, viable: false, reason: `${def.name} requires a company of size ≤ ${playTarget.maxCompanySize}` });
+            continue;
+          }
+        }
         // Character-scoped duplication-limit: find the max copies allowed on one character
         const charDupLimit = def.effects?.find(
           (e): e is import('../../index.js').DuplicationLimitEffect => e.type === 'duplication-limit' && e.scope === 'character',
         );
         for (const charId of targetCompany.characters) {
+          // Apply play-target filter condition (e.g. non-wizard, non-ringwraith)
+          if (playTarget.filter) {
+            const charData = resourcePlayer.characters[charId as string];
+            if (charData) {
+              const charDef = state.cardPool[charData.definitionId as string];
+              if (charDef && isCharacterCard(charDef)) {
+                const ctx = {
+                  target: {
+                    race: charDef.race,
+                    skills: charDef.skills,
+                    name: charDef.name,
+                  },
+                };
+                if (!matchesCondition(playTarget.filter, ctx)) {
+                  logDetail(`Hazard "${def.name}" filter excludes ${charDef.name}`);
+                  actions.push({
+                    action: { ...action, targetCharacterId: charId },
+                    viable: false,
+                    reason: `${charDef.name} does not match play target filter`,
+                  });
+                  continue;
+                }
+              }
+            }
+          }
           // Check character-scoped duplication limit
           if (charDupLimit) {
             const charData = resourcePlayer.characters[charId as string];
@@ -538,7 +584,7 @@ function playHazardsActions(
               }).length;
               if (copiesOnChar >= charDupLimit.max) {
                 const charName = state.cardPool[charData.definitionId as string]?.name ?? (charId as string);
-                logDetail(`Hazard event "${def.name}" already on ${charName} (${copiesOnChar}/${charDupLimit.max})`);
+                logDetail(`Hazard "${def.name}" already on ${charName} (${copiesOnChar}/${charDupLimit.max})`);
                 actions.push({
                   action: { ...action, targetCharacterId: charId },
                   viable: false,
@@ -548,7 +594,7 @@ function playHazardsActions(
               }
             }
           }
-          logDetail(`Hazard event "${def.name}" playable on character ${charId as string}`);
+          logDetail(`Hazard "${def.name}" playable on character ${charId as string}`);
           actions.push({
             action: { ...action, targetCharacterId: charId },
             viable: true,
