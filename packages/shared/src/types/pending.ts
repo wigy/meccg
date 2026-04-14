@@ -251,6 +251,15 @@ export interface ActiveConstraint {
          * played for the rest of the turn.
          */
         readonly type: 'deny-scout-resources';
+      }
+    | {
+        /**
+         * Great Ship: during M/H play-hazards, any untapped character in
+         * the target company may tap to cancel a hazard targeting the
+         * company, provided the company's site path contains a Coastal Sea
+         * region and no consecutive non-Coastal Sea regions.
+         */
+        readonly type: 'cancel-hazard-by-tap';
       };
 }
 

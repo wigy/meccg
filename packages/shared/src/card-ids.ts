@@ -241,6 +241,13 @@ export const RIVER = did('tw-84');
  * or receive a +4 corruption-check modifier (as an active constraint).
  */
 export const HALFLING_STRENGTH = did('tw-253');
+/**
+ * Great Ship — hero short-event resource. Played during organization by
+ * tapping a character in a target company. Until end of turn, if the
+ * company's site path is predominantly coastal, any character in the
+ * company may tap to cancel a hazard targeting the company.
+ */
+export const GREAT_SHIP = did('tw-248');
 /** LE printing of Lure of the Senses (mirror of TW-60). */
 export const LURE_OF_THE_SENSES_LE = did('le-124');
 /** LE printing of Lost in Free-domains (mirror of TW-53). */

@@ -295,3 +295,20 @@ export interface PlayDodgeAction {
   /** Human-readable breakdown of dodging character's prowess vs creature prowess. */
   readonly explanation: string;
 }
+
+/**
+ * The resource player taps a character in a company protected by the
+ * Great Ship constraint to cancel a hazard that targets the company.
+ * Available during M/H play-hazards when a chain entry targets the
+ * company and the company's site path satisfies the coastal condition.
+ */
+export interface CancelHazardByTapAction {
+  /** Action discriminant. */
+  readonly type: 'cancel-hazard-by-tap';
+  /** The resource player canceling the hazard. */
+  readonly player: PlayerId;
+  /** The character being tapped to cancel the hazard. */
+  readonly characterInstanceId: CardInstanceId;
+  /** The chain entry index to negate. */
+  readonly chainEntryIndex: number;
+}

@@ -493,6 +493,8 @@ function applyOneConstraint(
       return base;
     case 'deny-scout-resources':
       return applyDenyScoutResources(state, playerId, base, constraint);
+    case 'cancel-hazard-by-tap':
+      return base;
   }
 }
 
