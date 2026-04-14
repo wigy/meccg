@@ -1084,7 +1084,7 @@ function handleGwaihirSpecialMovement(state: GameState, action: GameAction): Red
  * Cost: discard the item (source card) from the character.
  * Prerequisite: bearer must be tapped (checked in legal actions).
  */
-function handleUntapBearer(state: GameState, action: GameAction): ReducerResult {
+export function handleUntapBearer(state: GameState, action: GameAction): ReducerResult {
   if (action.type !== 'activate-granted-action') return { state, error: 'Expected activate-granted-action' };
 
   const playerIndex = getPlayerIndex(state, action.player);

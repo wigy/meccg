@@ -17,6 +17,7 @@ import { availableDI } from './legal-actions/organization.js';
 import type { ReducerResult } from './reducer-utils.js';
 import { roll2d6, clonePlayers, cleanupEmptyCompanies } from './reducer-utils.js';
 import { handlePlayPermanentEvent } from './reducer-events.js';
+import { handleUntapBearer } from './reducer-organization.js';
 import { buildInPlayNames } from './recompute-derived.js';
 import { sweepExpired, enqueueResolution, removeConstraint } from './pending.js';
 
@@ -708,6 +709,11 @@ function handleSitePlayResources(
   // Opponent influence attempt
   if (action.type === 'opponent-influence-attempt') {
     return handleOpponentInfluenceAttempt(state, action, siteState);
+  }
+
+  // Grant-action (e.g. Cram untap-bearer, rule 2.1.1)
+  if (action.type === 'activate-granted-action' && action.actionId === 'untap-bearer') {
+    return handleUntapBearer(state, action);
   }
 
   return { state, error: `Unexpected action '${action.type}' in play-resources step` };

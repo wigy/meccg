@@ -13,6 +13,7 @@ import { resolveHandSize } from '../effects/index.js';
 import { MovementType } from '../../types/common.js';
 import { logDetail, logHeading } from './log.js';
 import { playPermanentEventActions, playShortEventActions } from './organization-events.js';
+import { grantedActionActivations, ANY_PHASE_GRANT_ACTIONS } from './organization.js';
 
 /**
  * Compute legal actions for the movement/hazard phase.
@@ -682,6 +683,7 @@ function playHazardsActions(
     actions.push(...playPermanentEventActions(state, playerId));
     actions.push(...playShortEventActions(state, playerId));
     actions.push(...cancelHazardByTapActions(state, playerId, mhState));
+    actions.push(...grantedActionActivations(state, playerId, ANY_PHASE_GRANT_ACTIONS));
   }
 
   // Player who already passed gets no actions (waiting for opponent)

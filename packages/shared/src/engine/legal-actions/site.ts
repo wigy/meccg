@@ -15,7 +15,7 @@ import { resolveInstanceId } from '../../types/state.js';
 import { collectCharacterEffects, resolveCheckModifier, resolveStatModifiers } from '../effects/index.js';
 import type { ResolverContext } from '../effects/index.js';
 import { logDetail, logHeading } from './log.js';
-import { availableDI } from './organization.js';
+import { availableDI, grantedActionActivations, ANY_PHASE_GRANT_ACTIONS } from './organization.js';
 
 /**
  * Check whether a site satisfies a {@link PlayableAtEntry}.
@@ -772,6 +772,9 @@ function playResourcesActions(
       reason: `${name}: not playable during site phase`,
     });
   }
+
+  // Rule 2.1.1: resource player may activate any-phase grant-actions (e.g. Cram untap-bearer)
+  actions.push(...grantedActionActivations(state, playerId, ANY_PHASE_GRANT_ACTIONS));
 
   // Opponent influence attempts (rule 10.10)
   const oppInfluence = opponentInfluenceActions(state, playerId, siteState, company, player, untappedCharacters);

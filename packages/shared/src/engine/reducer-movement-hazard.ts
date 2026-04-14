@@ -17,6 +17,7 @@ import type { ReducerResult } from './reducer-utils.js';
 import { clonePlayers, startDeckExhaust, completeDeckExhaust, handleExchangeSideboard, cleanupEmptyCompanies, autoMergeNonHavenCompanies } from './reducer-utils.js';
 import { handlePlayShortEvent } from './reducer-events.js';
 import { handlePlayPermanentEvent } from './reducer-events.js';
+import { handleUntapBearer } from './reducer-organization.js';
 import { sweepExpired, addConstraint, enqueueResolution } from './pending.js';
 
 
@@ -159,6 +160,11 @@ function handlePlayHazards(
   // --- Cancel hazard by tapping (Great Ship constraint) ---
   if (action.type === 'cancel-hazard-by-tap') {
     return handleCancelHazardByTap(state, action);
+  }
+
+  // --- Grant-action (e.g. Cram untap-bearer, rule 2.1.1) ---
+  if (action.type === 'activate-granted-action' && action.actionId === 'untap-bearer') {
+    return handleUntapBearer(state, action);
   }
 
   // --- Place on-guard ---
