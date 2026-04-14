@@ -658,6 +658,10 @@ function playHazardsActions(
                 const possessionNames = charData.items
                   .map(item => state.cardPool[item.definitionId as string]?.name)
                   .filter((n): n is string => n != null);
+                const itemKeywords = charData.items.flatMap(item => {
+                  const iDef = state.cardPool[item.definitionId as string];
+                  return iDef && 'keywords' in iDef ? (iDef as { keywords?: readonly string[] }).keywords ?? [] : [];
+                });
                 const ctx = {
                   target: {
                     race: charDef.race,
@@ -665,6 +669,7 @@ function playHazardsActions(
                     name: charDef.name,
                     mind: charDef.mind,
                     possessions: possessionNames,
+                    itemKeywords,
                   },
                 };
                 if (!matchesCondition(playTarget.filter, ctx)) {

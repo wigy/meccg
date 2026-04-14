@@ -692,6 +692,48 @@ function endCompanyMH(state: GameState, mhState: MovementHazardPhaseState): Redu
     newPlayers[activeIndex] = { ...resourcePlayer, companies: updatedCompanies };
   }
 
+  // --- Step 8a-2: Fire bearer-company-moves discard ---
+  // When a company has moved, discard any character items with an
+  // on-event: bearer-company-moves + discard-self effect (e.g. Align Palantír).
+  if (company.destinationSite && !mhState.returnedToOrigin) {
+    const movedCompany = newPlayers[activeIndex].companies[mhState.activeCompanyIndex];
+    let discardedAny = false;
+    for (const charId of movedCompany.characters) {
+      const charData = newPlayers[activeIndex].characters[charId as string];
+      if (!charData) continue;
+      const itemsToKeep: import('../index.js').ItemInPlay[] = [];
+      const itemsToDiscard: import('../index.js').CardInstance[] = [];
+      for (const item of charData.items) {
+        const itemDef = state.cardPool[item.definitionId as string];
+        const hasTrigger = itemDef && 'effects' in itemDef &&
+          (itemDef as { effects?: readonly import('../index.js').CardEffect[] }).effects?.some(
+            e => e.type === 'on-event' && e.event === 'bearer-company-moves' &&
+                 e.apply.type === 'discard-self',
+          );
+        if (hasTrigger) {
+          logDetail(`bearer-company-moves: discarding "${itemDef?.name ?? item.definitionId}" from ${charId as string}`);
+          itemsToDiscard.push({ instanceId: item.instanceId, definitionId: item.definitionId });
+        } else {
+          itemsToKeep.push(item);
+        }
+      }
+      if (itemsToDiscard.length > 0) {
+        discardedAny = true;
+        newPlayers[activeIndex] = {
+          ...newPlayers[activeIndex],
+          characters: {
+            ...newPlayers[activeIndex].characters,
+            [charId as string]: { ...charData, items: itemsToKeep },
+          },
+          discardPile: [...newPlayers[activeIndex].discardPile, ...itemsToDiscard],
+        };
+      }
+    }
+    if (discardedAny) {
+      logDetail('bearer-company-moves: finished discarding items from moving company');
+    }
+  }
+
   // --- Step 8b: Draw up to hand size (automatic) ---
   // Use intermediate state for hand size resolution so updated companies are visible
   let intermediateState = { ...state, players: newPlayers };

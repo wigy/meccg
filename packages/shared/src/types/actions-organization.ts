@@ -224,6 +224,8 @@ export interface PlayPermanentEventAction {
   readonly player: PlayerId;
   /** The permanent-event card instance to play from hand. */
   readonly cardInstanceId: CardInstanceId;
+  /** For character-targeting permanent events (e.g. Align Palantír), the target character. */
+  readonly targetCharacterId?: CardInstanceId;
 }
 
 /**

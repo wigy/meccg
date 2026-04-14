@@ -188,6 +188,7 @@ Events:
 - `company-arrives-at-site` -- fires when a hazard short-event resolves against a company in M/H. The handler (`applyShortEventArrivalTrigger` in `chain-reducer.ts`) iterates every `add-constraint` effect on the card with this event, evaluates the optional `when` against the arrival context, and applies the first matching one. This allows a single card to declare multiple mutually-exclusive modes (e.g. *Choking Shadows*). The arrival context exposes `company.destinationSiteType`, `company.destinationSiteName`, `company.destinationRegionType`, `environment.doorsOfNightInPlay`, and the standard `inPlay` card-name list.
 - `end-of-company-mh` -- fires when a company's movement/hazard sub-phase ends (both players pass). For each character with an attached hazard carrying this event, enqueues one `corruption-check` pending resolution per region traversed in the site path. The `perRegion: true` flag on the effect enables the per-region behavior. Used by *Alone and Unadvised*. Implemented in `reducer-movement-hazard.ts`.
 - `company-composition-changed` -- fires against every attached hazard whenever a company's character roster changes (play-character, move-to-company, merge-companies, auto-merge at end of MH). The sweeper evaluates the effect's `when` against the bearer's company context and applies `discard-self` when the condition is met. Used by *Alone and Unadvised* (discards when company has 4+ characters). Implemented in `reducer-utils.ts` `sweepAutoDiscardHazards()`.
+- `bearer-company-moves` -- fires when the company containing the bearer completes movement (M/H step 8). For each character in the moving company, the reducer scans attached items for this event and applies the `discard-self` action, moving the card to the owner's discard pile. Used by *Align Palantír*. Implemented in `reducer-movement-hazard.ts`.
 
 Apply types:
 
@@ -326,7 +327,7 @@ Character targeting is driven entirely by the DSL: the coarse `target`
 category picks the scope (each character in scope is a candidate) and
 an optional `filter` {@link Condition} refines it further. The filter
 is evaluated against the per-candidate context
-`{ target: { race, status, skills, name, inAvatarCompany } }`, so there are no
+`{ target: { race, status, skills, name, inAvatarCompany, itemKeywords }, company: { skills } }`, so there are no
 card-specific target keywords in the engine — a card declares its
 audience directly via a condition expression.
 

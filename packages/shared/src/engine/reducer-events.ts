@@ -64,10 +64,14 @@ export function handlePlayPermanentEvent(state: GameState, action: GameAction): 
   let newState: GameState = { ...state, players: newPlayers };
 
   // Initiate or push onto chain — card enters play upon resolution
+  const payload: import('../index.js').ChainEntryPayload = {
+    type: 'permanent-event',
+    ...(action.targetCharacterId ? { targetCharacterId: action.targetCharacterId } : {}),
+  };
   if (newState.chain === null) {
-    newState = initiateChain(newState, action.player, handCard, { type: 'permanent-event' });
+    newState = initiateChain(newState, action.player, handCard, payload);
   } else {
-    newState = pushChainEntry(newState, action.player, handCard, { type: 'permanent-event' });
+    newState = pushChainEntry(newState, action.player, handCard, payload);
   }
 
   return { state: newState };
