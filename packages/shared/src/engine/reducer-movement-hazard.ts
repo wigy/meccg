@@ -6,9 +6,12 @@
  * and hand reset sub-steps.
  */
 
-import type { GameState, MovementHazardPhaseState, Company, CreatureCard, GameAction } from '../index.js';
+import type { GameState, MovementHazardPhaseState, Company, CreatureCard, GameAction, CombatState } from '../index.js';
+import type { AhuntAttackEffect } from '../types/effects.js';
+import type { CardInstanceId } from '../types/common.js';
 import { Phase, CardStatus, isCharacterCard, isSiteCard, RegionType, Race, Skill, getPlayerIndex, BASE_MAX_REGION_DISTANCE, hasPlayFlag } from '../index.js';
 import { resolveHandSize, collectCharacterEffects, resolveDrawModifier } from './effects/index.js';
+import { resolveAttackProwess, resolveAttackStrikes } from './effects/resolver.js';
 import type { ResolverContext } from './effects/index.js';
 import { matchesCondition } from '../effects/condition-matcher.js';
 import { logDetail } from './legal-actions/log.js';
@@ -20,6 +23,7 @@ import { handlePlayShortEvent } from './reducer-events.js';
 import { handlePlayPermanentEvent } from './reducer-events.js';
 import { handleUntapBearer } from './reducer-organization.js';
 import { sweepExpired, addConstraint, enqueueResolution } from './pending.js';
+import { buildInPlayNames } from './recompute-derived.js';
 
 
 /**
@@ -65,12 +69,12 @@ export function handleMovementHazard(state: GameState, action: GameAction): Redu
     };
   }
 
-  // order-effects step (CoE step 4): hazard player orders ongoing effects — dummy for now
+  // order-effects step (CoE step 4): evaluate ongoing effects (ahunt attacks, etc.)
   if (mhState.step === 'order-effects') {
     if (action.type !== 'pass') {
       return { state, error: `Expected 'pass' during order-effects step, got '${action.type}'` };
     }
-    return transitionToDrawCards(state, mhState);
+    return handleOrderEffects(state, mhState);
   }
 
   // draw-cards step (CoE step 5): both players draw cards simultaneously
@@ -1026,6 +1030,7 @@ function advanceAfterCompanyMH(state: GameState, mhState: MovementHazardPhaseSta
         onGuardPlacedThisCompany: false,
         returnedToOrigin: false,
         hazardsEncountered: [],
+        ahuntAttacksResolved: 0,
       },
     },
   };
@@ -1392,17 +1397,122 @@ function computeHazardLimit(state: GameState, company: Company): number {
 }
 
 /**
- * Transition from order-effects to draw-cards (CoE step 5).
- *
- * If the company is not moving, skip draws entirely and go to play-hazards.
- * Otherwise, compute the max draw counts from the appropriate site card:
- * - New site if moving to a non-haven
- * - Site of origin if moving to a haven
- *
- * The resource player may only draw if the company contains an avatar
- * (wizard/ringwraith with mind null) or a character with mind ≥ 3.
+ * Collect all ahunt-attack effects from both players' cardsInPlay that
+ * match the current company's movement path. Returns an array of
+ * { instanceId, effect } pairs, one per matching long-event.
  */
+function collectMatchingAhuntAttacks(
+  state: GameState,
+  mhState: MovementHazardPhaseState,
+): { instanceId: CardInstanceId; effect: AhuntAttackEffect }[] {
+  const pathNames = mhState.resolvedSitePathNames;
+  const pathTypes = mhState.resolvedSitePath as readonly string[];
+  if (pathNames.length === 0) return [];
 
+  const inPlayNames = buildInPlayNames(state);
+  const results: { instanceId: CardInstanceId; effect: AhuntAttackEffect }[] = [];
+
+  for (const player of state.players) {
+    for (const card of player.cardsInPlay) {
+      const def = state.cardPool[card.definitionId as string];
+      if (!def || !('effects' in def) || !def.effects) continue;
+
+      for (const effect of def.effects) {
+        if (effect.type !== 'ahunt-attack') continue;
+
+        const extendedApplies = effect.extended
+          && matchesCondition(effect.extended.when, { inPlay: inPlayNames } as Record<string, unknown>);
+
+        const regionNames = extendedApplies && effect.extended
+          ? [...effect.regionNames, ...(effect.extended.regionNames ?? [])]
+          : [...effect.regionNames];
+        const regionTypes = extendedApplies && effect.extended
+          ? [...(effect.regionTypes ?? []), ...(effect.extended.regionTypes ?? [])]
+          : [...(effect.regionTypes ?? [])];
+
+        const nameMatch = regionNames.some(rn => pathNames.includes(rn));
+        const typeMatch = regionTypes.some(rt => pathTypes.includes(rt));
+
+        if (nameMatch || typeMatch) {
+          results.push({ instanceId: card.instanceId, effect });
+        }
+      }
+    }
+  }
+
+  return results;
+}
+
+/**
+ * Handle the order-effects step (CoE step 4).
+ *
+ * Scans cardsInPlay for ahunt-attack long-events whose region lists
+ * overlap the current company's movement path. Each matching ahunt
+ * effect initiates a creature-like combat (one at a time, tracked by
+ * ahuntAttacksResolved). After all ahunt combats are resolved,
+ * transitions to draw-cards.
+ */
+function handleOrderEffects(state: GameState, mhState: MovementHazardPhaseState): ReducerResult {
+  const matchingAhunts = collectMatchingAhuntAttacks(state, mhState);
+
+  if (mhState.ahuntAttacksResolved >= matchingAhunts.length) {
+    return transitionToDrawCards(state, mhState);
+  }
+
+  const { instanceId, effect } = matchingAhunts[mhState.ahuntAttacksResolved];
+  const defId = resolveInstanceId(state, instanceId);
+  const defName = defId ? (state.cardPool[defId as string]?.name ?? 'unknown') : 'unknown';
+
+  logDetail(`Order-effects: ahunt attack ${mhState.ahuntAttacksResolved + 1}/${matchingAhunts.length} — ${defName}`);
+
+  const activePlayerIndex = state.players.findIndex(p => p.id === state.activePlayer);
+  const company = state.players[activePlayerIndex].companies[mhState.activeCompanyIndex];
+  if (!company) {
+    logDetail(`Order-effects: no active company — skipping ahunt`);
+    return transitionToDrawCards(state, mhState);
+  }
+
+  const hazardPlayerId = state.players.find(p => p.id !== state.activePlayer)!.id;
+
+  const inPlayNames = buildInPlayNames(state);
+  const effectiveProwess = resolveAttackProwess(state, effect.prowess, inPlayNames, effect.race, false);
+  const effectiveStrikes = resolveAttackStrikes(state, effect.strikes, inPlayNames, effect.race);
+
+  const attackerChooses = effect.combatRules?.includes('attacker-chooses-defenders') ?? false;
+  if (attackerChooses) {
+    logDetail(`Ahunt attack has attacker-chooses-defenders`);
+  }
+
+  const combat: CombatState = {
+    attackSource: { type: 'ahunt', longEventInstanceId: instanceId },
+    companyId: company.id,
+    defendingPlayerId: state.activePlayer!,
+    attackingPlayerId: hazardPlayerId,
+    strikesTotal: effectiveStrikes,
+    strikeProwess: effectiveProwess,
+    creatureBody: effect.body,
+    creatureRace: effect.race,
+    strikeAssignments: [],
+    currentStrikeIndex: 0,
+    phase: 'assign-strikes',
+    assignmentPhase: attackerChooses ? 'cancel-window' : 'defender',
+    bodyCheckTarget: null,
+    detainment: false,
+  };
+
+  logDetail(`Ahunt combat initiated: ${defName} (${effect.strikes} strikes${effectiveStrikes !== effect.strikes ? ` → ${effectiveStrikes}` : ''}, ${effect.prowess} prowess${effectiveProwess !== effect.prowess ? ` → ${effectiveProwess}` : ''}) vs company ${company.id as string}`);
+
+  return {
+    state: {
+      ...state,
+      combat,
+      phaseState: {
+        ...mhState,
+        ahuntAttacksResolved: mhState.ahuntAttacksResolved + 1,
+      },
+    },
+  };
+}
 
 /**
  * Transition from order-effects to draw-cards (CoE step 5).

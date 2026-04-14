@@ -24,13 +24,15 @@ import type { CardEffect } from './effects.js';
  * - An automatic attack built into a site card during the Site phase.
  * - An agent hazard attacking at its site during the Site phase.
  * - A company-vs-company attack (CvCC).
+ * - An ahunt long-event creating a dragon attack during order-effects.
  */
 export type AttackSource =
   | { readonly type: 'creature'; readonly instanceId: CardInstanceId }
   | { readonly type: 'automatic-attack'; readonly siteInstanceId: CardInstanceId; readonly attackIndex: number }
   | { readonly type: 'on-guard-creature'; readonly cardInstanceId: CardInstanceId }
   | { readonly type: 'agent'; readonly instanceId: CardInstanceId }
-  | { readonly type: 'company-attack'; readonly attackingCompanyId: CompanyId };
+  | { readonly type: 'company-attack'; readonly attackingCompanyId: CompanyId }
+  | { readonly type: 'ahunt'; readonly longEventInstanceId: CardInstanceId };
 
 /**
  * Tracks the assignment and resolution of a single strike against a character.

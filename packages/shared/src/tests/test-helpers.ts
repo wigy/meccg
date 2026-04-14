@@ -593,6 +593,7 @@ export function makeMHState(overrides?: Partial<MovementHazardPhaseState>): Move
     siteRevealed: false,
     returnedToOrigin: false,
     hazardsEncountered: [],
+    ahuntAttacksResolved: 0,
     ...overrides,
   };
 }
