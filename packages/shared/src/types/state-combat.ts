@@ -302,6 +302,12 @@ export interface CardEffectPendingEffect {
   /** The DSL effect being resolved (carries all parameters). */
   readonly effect: CardEffect;
   /**
+   * The player who must resolve this effect. When absent, defaults to
+   * {@link GameState.activePlayer} (backward-compatible with resource events).
+   * Required for hazard events where the resolving player is the non-active player.
+   */
+  readonly actor?: PlayerId;
+  /**
    * For effects triggered by a play-target with tap cost (e.g. Marvels Told),
    * the character instance that was tapped to play the card. Used to enqueue
    * post-effect corruption checks on the correct character.

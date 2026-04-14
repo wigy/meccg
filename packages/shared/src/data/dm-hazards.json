@@ -6,8 +6,25 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/dm/AnUnexpectedOutpost.jpg",
     "unique": false,
     "eventType": "short",
-    "effects": [],
-    "text": "Bring one hazard from your sideboard or discard pile into your play deck and shuffle. If Doors of Night is in play, you may do this twice."
+    "effects": [
+      {
+        "type": "fetch-to-deck",
+        "source": ["sideboard", "discard-pile"],
+        "filter": { "cardType": { "$in": ["hazard-event", "hazard-creature"] } },
+        "count": 1,
+        "shuffle": true
+      },
+      {
+        "type": "fetch-to-deck",
+        "source": ["sideboard", "discard-pile"],
+        "filter": { "cardType": { "$in": ["hazard-event", "hazard-creature"] } },
+        "count": 1,
+        "shuffle": true,
+        "when": { "inPlay": "Doors of Night" }
+      }
+    ],
+    "text": "Bring one hazard from your sideboard or discard pile into your play deck and shuffle. If Doors of Night is in play, you may do this twice.",
+    "certified": "2026-04-14"
   },
   {
     "cardType": "hazard-event",

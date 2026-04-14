@@ -112,9 +112,9 @@ describe('Orc-warband (tw-076)', () => {
     const afterCombat = runCreatureCombat(afterOrcLt, ARAGORN, 12, null);
     expect(afterCombat.combat).toBeNull();
 
-    // Verify orc race is recorded
+    // Verify the Orc hazard is recorded in hazardsEncountered
     const mhAfter = afterCombat.phaseState as MovementHazardPhaseState;
-    expect(mhAfter.hazardRacesEncountered).toContain('orc');
+    expect(mhAfter.hazardsEncountered).toContain('Orc-lieutenant');
 
     // Play Orc-warband — should get +3 prowess bonus (4 + 3 = 7)
     const afterWarband = playCreatureHazardAndResolve(afterCombat, PLAYER_2, warbandId, companyId, SHADOW_KEYING);
@@ -124,7 +124,7 @@ describe('Orc-warband (tw-076)', () => {
     expect(afterWarband.combat!.strikeProwess).toBe(7);
   });
 
-  test('hazardRacesEncountered tracks orc race after combat finalization', () => {
+  test('hazardsEncountered tracks Orc-lieutenant after combat finalization', () => {
     const state = buildTestState({
       activePlayer: PLAYER_1,
       phase: Phase.MovementHazard,
@@ -149,7 +149,6 @@ describe('Orc-warband (tw-076)', () => {
     expect(afterCombat.combat).toBeNull();
 
     const mhAfter = afterCombat.phaseState as MovementHazardPhaseState;
-    expect(mhAfter.hazardRacesEncountered).toContain('orc');
     expect(mhAfter.hazardsEncountered).toContain('Orc-lieutenant');
   });
 });

@@ -228,7 +228,6 @@ export function handleLongEvent(state: GameState, action: GameAction): ReducerRe
           onGuardPlacedThisCompany: false,
           returnedToOrigin: false,
           hazardsEncountered: [],
-          hazardRacesEncountered: [],
         },
       },
     };

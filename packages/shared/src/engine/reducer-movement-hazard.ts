@@ -873,7 +873,6 @@ function advanceAfterCompanyMH(state: GameState, mhState: MovementHazardPhaseSta
         onGuardPlacedThisCompany: false,
         returnedToOrigin: false,
         hazardsEncountered: [],
-        hazardRacesEncountered: [],
       },
     },
   };

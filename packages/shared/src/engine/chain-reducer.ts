@@ -12,17 +12,17 @@
  * helpers from this module to push entries onto the chain stack.
  */
 
-import type { GameState, GameAction, PlayerId, PlayerState, CardInstance, CardInstanceId, ChainState, ChainEntry, ChainEntryPayload, ChainRestriction, DeferredPassive, CombatState, CreatureCard } from '../index.js';
-import { getPlayerIndex, CardStatus } from '../index.js';
+import type { GameState, GameAction, PlayerId, PlayerState, CardInstance, CardInstanceId, ChainState, ChainEntry, ChainEntryPayload, ChainRestriction, DeferredPassive, CombatState, CreatureCard, PendingEffect } from '../index.js';
+import { getPlayerIndex, CardStatus, matchesCondition } from '../index.js';
 import { resolveInstanceId } from '../types/state.js';
 import { logHeading, logDetail } from './legal-actions/log.js';
 import { discardCardsInPlay } from './reducer.js';
 import type { ReducerResult } from './reducer.js';
 import { resolveAttackProwess, resolveAttackStrikes } from './effects/index.js';
-import type { AttackCompanyContext } from './effects/resolver.js';
 import { buildInPlayNames } from './recompute-derived.js';
 import { addConstraint, enqueueResolution } from './pending.js';
 import { Phase } from '../index.js';
+import { clonePlayers } from './reducer-utils.js';
 
 /**
  * Returns the opponent of the given player in a two-player game.
@@ -491,6 +491,66 @@ function applyShortEventArrivalTrigger(state: GameState, entry: ChainEntry): Gam
 }
 
 /**
+ * Queues pending {@link FetchToDeckEffect}s for a resolving hazard short-event.
+ *
+ * The card was discarded at play time (hazard short events go to discard
+ * immediately). If the card carries `fetch-to-deck` effects whose `when`
+ * conditions are satisfied, move it from the discard pile to cardsInPlay
+ * and enqueue the effects as {@link PendingEffect}s so the hazard player
+ * can interactively choose which cards to fetch.
+ */
+function queueFetchToDecEffects(state: GameState, entry: ChainEntry): GameState {
+  const card = entry.card;
+  if (!card) return state;
+  const def = state.cardPool[card.definitionId as string];
+  if (!def || !('effects' in def) || !def.effects) return state;
+
+  const inPlayNames = buildInPlayNames(state);
+  const ctx: Record<string, unknown> = { inPlay: inPlayNames };
+
+  const fetchEffects: PendingEffect[] = [];
+  for (const effect of def.effects) {
+    if (effect.type !== 'fetch-to-deck') continue;
+    if (effect.when && !matchesCondition(effect.when, ctx)) {
+      logDetail(`${def.name}: fetch-to-deck skipped — condition not met`);
+      continue;
+    }
+    fetchEffects.push({
+      type: 'card-effect',
+      cardInstanceId: card.instanceId,
+      effect,
+      actor: entry.declaredBy,
+    });
+  }
+
+  if (fetchEffects.length === 0) return state;
+
+  logDetail(`${def.name}: queuing ${fetchEffects.length} fetch-to-deck effect(s)`);
+
+  const playerIndex = getPlayerIndex(state, entry.declaredBy);
+  const player = state.players[playerIndex];
+
+  const discardIdx = player.discardPile.findIndex(c => c.instanceId === card.instanceId);
+  if (discardIdx === -1) return state;
+
+  const newDiscard = [...player.discardPile];
+  newDiscard.splice(discardIdx, 1);
+
+  const newPlayers = clonePlayers(state);
+  newPlayers[playerIndex] = {
+    ...player,
+    discardPile: newDiscard,
+    cardsInPlay: [...player.cardsInPlay, { instanceId: card.instanceId, definitionId: card.definitionId, status: CardStatus.Untapped }],
+  };
+
+  return {
+    ...state,
+    players: newPlayers,
+    pendingEffects: [...state.pendingEffects, ...fetchEffects],
+  };
+}
+
+/**
  * Resolves a permanent-event chain entry: moves the card from the chain
  * into the declaring player's `cardsInPlay` and executes `self-enters-play`
  * effects (e.g. Gates of Morning discarding hazard environments).
@@ -691,6 +751,27 @@ function resolveLongEvent(state: GameState, entry: ChainEntry): GameState {
 }
 
 /**
+ * Derives the list of creature races the defending company has already
+ * faced this M/H sub-phase by looking up each hazard name in
+ * `phaseState.hazardsEncountered` and extracting its race. Used by
+ * creature self-effects (e.g. Orc-lieutenant +4 prowess if an Orc attack
+ * was already faced).
+ */
+function deriveFacedRaces(state: GameState, hazardNames: readonly string[]): string[] {
+  const races = new Set<string>();
+  for (const name of hazardNames) {
+    for (const def of Object.values(state.cardPool)) {
+      if ((def as { cardType?: string }).cardType !== 'hazard-creature') continue;
+      if ((def as { name?: string }).name !== name) continue;
+      const race = (def as { race?: string }).race;
+      if (race) races.add(race);
+      break;
+    }
+  }
+  return Array.from(races);
+}
+
+/**
  * Creates a CombatState when a creature chain entry resolves.
  *
  * The creature card was already moved to the hazard player's discard pile
@@ -754,14 +835,13 @@ function initiateCreatureCombat(state: GameState, entry: ChainEntry): GameState 
 
   const inPlayNames = buildInPlayNames(state);
   const creatureRace = creatureDef.race;
-  const companyCtx: AttackCompanyContext | undefined =
-    state.phaseState.phase === Phase.MovementHazard
-      ? { hazardRacesEncountered: state.phaseState.hazardRacesEncountered }
-      : undefined;
-  const effectiveProwess = resolveAttackProwess(
-    state, creatureDef.prowess, inPlayNames, creatureRace,
-    false, creatureDef, entry.card!.instanceId, companyCtx,
-  );
+  const companyFacedRaces = state.phaseState.phase === 'movement-hazard'
+    ? deriveFacedRaces(state, state.phaseState.hazardsEncountered)
+    : [];
+  const creatureSelf = creatureDef.effects?.length
+    ? { effects: creatureDef.effects, companyFacedRaces }
+    : undefined;
+  const effectiveProwess = resolveAttackProwess(state, creatureDef.prowess, inPlayNames, creatureRace, false, creatureSelf);
   const effectiveStrikes = resolveAttackStrikes(state, creatureDef.strikes, inPlayNames, creatureRace);
 
   // Multi-attack: total strikes = count × effective strikes per attack
@@ -837,6 +917,13 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
   // short event — no deferred tracking needed.
   if (entry.payload.type === 'short-event' && !entry.negated && entry.card) {
     current = applyShortEventArrivalTrigger(current, entry);
+  }
+
+  // Short events with fetch-to-deck effects (e.g. An Unexpected Outpost):
+  // move the card from the declaring player's discard pile to cardsInPlay
+  // and queue the pending effects so the player can pick cards to fetch.
+  if (entry.payload.type === 'short-event' && !entry.negated && entry.card) {
+    current = queueFetchToDecEffects(current, entry);
   }
 
   if (entry.payload.type === 'creature' && entry.card) {

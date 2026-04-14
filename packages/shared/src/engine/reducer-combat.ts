@@ -1270,9 +1270,8 @@ function discardNonSpecialItems(
 }
 
 /**
- * After combat finalization, record the creature name and race in the M/H
- * phase state's encounter lists for condition checks (troll-trio names,
- * Orc-warband race-based prowess bonus, etc.).
+ * After combat finalization, record the creature name in the M/H phase
+ * state's `hazardsEncountered` list for troll-trio condition checks.
  */
 function recordHazardEncountered(
   stateAfterCombat: GameState,
@@ -1285,21 +1284,17 @@ function recordHazardEncountered(
   const creatureDefId = resolveInstanceId(originalState, combat.attackSource.instanceId);
   if (!creatureDefId) return stateAfterCombat;
 
-  const creatureDef = originalState.cardPool[creatureDefId as string] as { name?: string; race?: string } | undefined;
+  const creatureDef = originalState.cardPool[creatureDefId as string] as { name?: string } | undefined;
   const creatureName = creatureDef?.name;
   if (!creatureName) return stateAfterCombat;
 
-  const creatureRace = creatureDef?.race;
   const mhState = stateAfterCombat.phaseState as MovementHazardPhaseState;
-  logDetail(`Recording hazard "${creatureName}"${creatureRace ? ` (race: ${creatureRace})` : ''} in hazardsEncountered`);
+  logDetail(`Recording hazard "${creatureName}" in hazardsEncountered`);
   return {
     ...stateAfterCombat,
     phaseState: {
       ...mhState,
       hazardsEncountered: [...mhState.hazardsEncountered, creatureName],
-      hazardRacesEncountered: creatureRace
-        ? [...mhState.hazardRacesEncountered, creatureRace]
-        : mhState.hazardRacesEncountered,
     },
   };
 }

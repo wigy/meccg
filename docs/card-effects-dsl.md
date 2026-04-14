@@ -54,17 +54,11 @@ Optional `target` scopes:
 - `"all-characters"` — applies to every character in play
 - `"all-attacks"` — applies to every automatic-attack and hazard creature
 - `"all-automatic-attacks"` — applies only to site automatic-attacks (not hazard creatures)
-
-When a `stat-modifier` appears on a hazard-creature card **without** a `target`
-scope, it is a creature self-modifier — the creature's own prowess is adjusted
-based on the `when` condition. The attack context includes
-`company.hazardRacesEncountered` (races of creatures already defeated this
-M/H sub-phase), so creatures can condition on prior attacks:
-
-```json
-{ "type": "stat-modifier", "stat": "prowess", "value": 3,
-  "when": { "company.hazardRacesEncountered": { "$includes": "orc" } } }
-```
+- *(no target)* on a hazard-creature card — self-modifier applied to the
+  creature's own prowess at combat initiation. The context includes
+  `company.facedRaces`, derived from `phaseState.hazardsEncountered` by
+  looking up each faced hazard's race in the card pool, enabling
+  conditions like Orc-lieutenant's +4 prowess.
 
 ### 2. `check-modifier`
 
@@ -830,5 +824,14 @@ Supported `apply` kinds today:
 ```json
 "effects": [
   { "type": "storable-at", "sites": ["Minas Tirith"], "marshallingPoints": 2 }
+]
+```
+
+### Orc-lieutenant
+
+```json
+"effects": [
+  { "type": "stat-modifier", "stat": "prowess", "value": 4,
+    "when": { "company.facedRaces": { "$includes": "orc" } } }
 ]
 ```

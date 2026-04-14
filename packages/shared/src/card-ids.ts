@@ -174,6 +174,8 @@ export const EYE_OF_SAURON = did('tw-32');
 export const WAKE_OF_WAR = did('tw-108');
 /** Twilight — short hazard event, environment that cancels another environment. May also be played as a resource. */
 export const TWILIGHT = did('tw-106');
+/** An Unexpected Outpost — short hazard event, fetch a hazard from sideboard/discard to play deck (twice with Doors of Night). */
+export const AN_UNEXPECTED_OUTPOST = did('dm-45');
 
 // ---- Creatures ----
 
@@ -187,6 +189,8 @@ export const ORC_GUARD = did('tw-072');
 export const ORC_WARBAND = did('tw-076');
 /** Orc-lieutenant — orc hazard, one strike, prowess 7. */
 export const ORC_LIEUTENANT = did('tw-073');
+/** Orc-watch — orc hazard, three strikes, prowess 9, keyed to shadow/dark regions. */
+export const ORC_WATCH = did('tw-078');
 /** Orc-patrol — shadow-land hazard, common low-prowess roadblock. */
 export const ORC_PATROL = did('tw-074');
 /** Barrow-wight — undead hazard found near ruins and shadow-lands. */
