@@ -220,9 +220,14 @@ Cancels an entire attack against a company. Only playable during combat
 before strikes are assigned. The card is played from hand and discarded.
 
 When `cost` and `requiredSkill` are present, requires tapping a character
-with the named skill (e.g. Concealment — tap a scout). When both are
-absent, the card is simply played with no additional cost (e.g. Dark
-Quarrels — cancel one attack by Orcs, Trolls, or Men).
+with the named skill (e.g. Concealment — tap a scout). When `cost` and
+`requiredRace` are present, requires a character of that race in the
+company — one action is generated per qualifying character. If the cost
+is a corruption check (`"check": "corruption"`), the character need not
+be untapped (e.g. Vanishment — wizard makes corruption check -2). When
+both `requiredSkill` and `requiredRace` are absent, the card is simply
+played with no additional cost (e.g. Dark Quarrels — cancel one attack
+by Orcs, Trolls, or Men).
 
 A `when` condition filters which attacks qualify (evaluated against
 the combat context including `enemy.race`).
@@ -231,6 +236,9 @@ the combat context including `enemy.race`).
 { "type": "cancel-attack",
   "cost": { "tap": "character" },
   "requiredSkill": "scout" }
+{ "type": "cancel-attack",
+  "requiredRace": "wizard",
+  "cost": { "check": "corruption", "modifier": -2 } }
 { "type": "cancel-attack",
   "when": { "enemy.race": { "$in": ["orc", "troll", "men", "man"] } } }
 ```

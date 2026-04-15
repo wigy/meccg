@@ -556,8 +556,8 @@ function cancelAttackActions(
       }
     }
 
-    // Costless cancel-attack: no skill or tap required (e.g. Dark Quarrels)
-    if (!cancelEffect.requiredSkill) {
+    // Costless cancel-attack: no skill/race requirement (e.g. Dark Quarrels)
+    if (!cancelEffect.requiredSkill && !cancelEffect.requiredRace) {
       logDetail(`Cancel-attack available (no cost): ${handCard.definitionId as string}`);
       actions.push({
         action: {
@@ -570,20 +570,34 @@ function cancelAttackActions(
       continue;
     }
 
-    // Skill-based cancel-attack: a character with the required skill must be in the company.
-    // When the effect has a cost, the character must be untapped and is tapped (one action per target).
-    // When there is no cost, any character with the skill suffices (one costless action).
+    // Character-gated cancel-attack: a character matching requiredSkill or
+    // requiredRace must be in the company. When the effect has a tap cost,
+    // the character must be untapped (one action per qualifying character).
+    // When the cost is a check (e.g. corruption), tapped characters qualify
+    // too. When there is no cost, any matching character suffices.
+    const matchesRequirement = (charDef: import('../../types/cards.js').CharacterCard): boolean => {
+      if (cancelEffect.requiredSkill) {
+        return charDef.skills.includes(cancelEffect.requiredSkill as import('../../types/common.js').Skill);
+      }
+      if (cancelEffect.requiredRace) {
+        return charDef.race === cancelEffect.requiredRace;
+      }
+      return false;
+    };
+
+    const requiresTap = cancelEffect.cost?.tap !== undefined;
+
     if (cancelEffect.cost) {
       for (const charId of company.characters) {
         const charData = player.characters[charId as string];
-        if (!charData || charData.status !== CardStatus.Untapped) continue;
+        if (!charData) continue;
+        if (requiresTap && charData.status !== CardStatus.Untapped) continue;
 
         const charDef = state.cardPool[charData.definitionId as string];
         if (!charDef || !isCharacterCard(charDef)) continue;
+        if (!matchesRequirement(charDef)) continue;
 
-        if (!charDef.skills.includes(cancelEffect.requiredSkill as import('../../types/common.js').Skill)) continue;
-
-        logDetail(`Cancel-attack available: ${handCard.definitionId as string} via ${charData.definitionId as string} (tap cost)`);
+        logDetail(`Cancel-attack available: ${handCard.definitionId as string} via ${charData.definitionId as string} (${requiresTap ? 'tap' : 'check'} cost)`);
         actions.push({
           action: {
             type: 'cancel-attack',
@@ -595,14 +609,14 @@ function cancelAttackActions(
         });
       }
     } else {
-      const hasSkilled = company.characters.some(charId => {
+      const hasMatch = company.characters.some(charId => {
         const charData = player.characters[charId as string];
         if (!charData) return false;
         const charDef = state.cardPool[charData.definitionId as string];
         if (!charDef || !isCharacterCard(charDef)) return false;
-        return charDef.skills.includes(cancelEffect.requiredSkill as import('../../types/common.js').Skill);
+        return matchesRequirement(charDef);
       });
-      if (hasSkilled) {
+      if (hasMatch) {
         logDetail(`Cancel-attack available (no tap cost): ${handCard.definitionId as string}`);
         actions.push({
           action: {
