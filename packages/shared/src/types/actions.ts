@@ -129,7 +129,8 @@ import type { SupportCorruptionCheckAction, CorruptionCheckAction, DrawCardsActi
  *
  * Discriminated by the `type` field. The game engine's reducer accepts
  * a `GameAction` and produces a new `GameState`. Actions are validated
- * against `LEGAL_ACTIONS_BY_PHASE` before being applied.
+ * upstream by membership lookup against the legal-action set the server
+ * last sent to the player; the reducer trusts its input.
  */
 export type GameAction =
   | DraftPickAction

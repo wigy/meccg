@@ -1,23 +1,15 @@
 /**
  * @module phases
  *
- * Phase ordering and legal action lookup tables for the MECCG engine.
+ * Phase ordering for the MECCG engine.
  *
- * This module defines two key constants:
- *
- * - `PHASE_ORDER` -- The fixed sequence of phases within a single turn.
- *   After each phase completes, the engine advances to the next phase
- *   in this array. The CharacterDraft, FreeCouncil, and GameOver phases
- *   are intentionally excluded as they are not part of the normal turn cycle.
- *
- * - `LEGAL_ACTIONS_BY_PHASE` -- A lookup table mapping each phase to the
- *   action types that can legally be submitted during that phase. The engine
- *   uses this as a first-pass validation before checking action-specific
- *   preconditions (e.g. having the card in hand, legal target, etc.).
+ * `PHASE_ORDER` is the fixed sequence of phases within a single turn.
+ * After each phase completes, the engine advances to the next phase in
+ * this array. The CharacterDraft, FreeCouncil, and GameOver phases are
+ * intentionally excluded as they are not part of the normal turn cycle.
  */
 
 import { Phase } from './state.js';
-import type { GameAction } from './actions.js';
 
 /**
  * The fixed sequence of phases within a single player turn.
@@ -43,153 +35,3 @@ export const PHASE_ORDER: readonly Phase[] = [
   Phase.EndOfTurn,
 ];
 
-/**
- * Maps each game phase to the action types that are legally submittable during it.
- *
- * This serves as the first validation gate: if an action type is not listed
- * for the current phase, the engine rejects it immediately. Further
- * context-specific validation (sufficient influence, card in hand, legal
- * target, etc.) is performed by the individual action handlers.
- *
- * Notable design decisions:
- * - **Untap and Long-event** only allow `'pass'` because the engine handles
- *   their effects automatically; the player just confirms advancement.
- * - **Movement/Hazard** includes both combat actions (`assign-strike`,
- *   `resolve-strike`, `support-strike`) and `corruption-check` since
- *   corruption checks can be called after defeating certain creatures.
- * - **Free Council** only allows `corruption-check` and `pass` because
- *   the endgame consists solely of final corruption checks before scoring.
- * - **GameOver** has no legal actions -- the game is finished.
- */
-export const LEGAL_ACTIONS_BY_PHASE: Readonly<Record<Phase, readonly GameAction['type'][]>> = {
-  [Phase.Setup]: [
-    'draft-pick',
-    'draft-stop',
-    'assign-starting-item',
-    'add-character-to-deck',
-    'shuffle-play-deck',
-    'select-starting-site',
-    'place-character',
-    'draw-cards',
-    'roll-initiative',
-    'pass',
-  ],
-
-  [Phase.Untap]: [
-    'untap',
-    'start-hazard-sideboard-to-deck',
-    'start-hazard-sideboard-to-discard',
-    'fetch-hazard-from-sideboard',
-    'pass',
-  ],
-
-  [Phase.Organization]: [
-    'play-character',
-    'play-permanent-event',
-    'play-short-event',
-    'activate-granted-action',
-    'split-company',
-    'move-to-company',
-    'merge-companies',
-    'transfer-item',
-    'store-item',
-    'move-to-influence',
-    'plan-movement',
-    'cancel-movement',
-    'start-sideboard-to-deck',
-    'start-sideboard-to-discard',
-    'fetch-from-sideboard',
-    'fetch-from-pile',
-    'corruption-check',
-    'pass-chain-priority',
-    'order-passives',
-    'pass',
-  ],
-
-  [Phase.LongEvent]: ['play-long-event', 'play-short-event', 'activate-granted-action', 'fetch-from-pile', 'corruption-check', 'support-corruption-check', 'pass-chain-priority', 'order-passives', 'pass'],
-
-  [Phase.MovementHazard]: [
-    'select-company',
-    'declare-path',
-    'draw-cards',
-    'deck-exhaust',
-    'exchange-sideboard',
-    'discard-card',
-    'order-effects',
-    'play-hazard',
-    'place-on-guard',
-    'play-permanent-event',
-    'play-short-event',
-    'cancel-hazard-by-tap',
-    'muster-roll',
-    'activate-granted-action',
-    'assign-strike',
-    'choose-strike-order',
-    'resolve-strike',
-    'support-strike',
-    'body-check-roll',
-    'cancel-attack',
-    'cancel-by-tap',
-    'cancel-strike',
-    'play-dodge',
-    'halve-strikes',
-    'salvage-item',
-    'call-of-home-roll',
-    'corruption-check',
-    'pass-chain-priority',
-    'order-passives',
-    'fetch-from-pile',
-    'pass',
-  ],
-
-  [Phase.Site]: [
-    'select-company',
-    'enter-site',
-    'activate-granted-action',
-    'reveal-on-guard',
-    'declare-agent-attack',
-    'play-permanent-event',
-    'play-hero-resource',
-    'influence-attempt',
-    'opponent-influence-attempt',
-    'opponent-influence-defend',
-    'cancel-influence',
-    'faction-influence-roll',
-    'play-minor-item',
-    'assign-strike',
-    'choose-strike-order',
-    'resolve-strike',
-    'support-strike',
-    'body-check-roll',
-    'cancel-attack',
-    'cancel-by-tap',
-    'cancel-strike',
-    'play-dodge',
-    'halve-strikes',
-    'salvage-item',
-    'corruption-check',
-    'pass-chain-priority',
-    'order-passives',
-    'pass',
-  ],
-
-  [Phase.EndOfTurn]: [
-    'draw-cards',
-    'deck-exhaust',
-    'exchange-sideboard',
-    'discard-card',
-    'activate-granted-action',
-    'call-free-council',
-    'pass',
-  ],
-
-  [Phase.FreeCouncil]: [
-    'corruption-check',
-    'support-corruption-check',
-    'pass',
-  ],
-
-  [Phase.GameOver]: [
-    'finished',
-  ],
-};

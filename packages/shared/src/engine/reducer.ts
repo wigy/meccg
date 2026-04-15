@@ -24,14 +24,14 @@
 
 import type { GameState } from '../index.js';
 import type { GameAction } from '../index.js';
-import { Phase, LEGAL_ACTIONS_BY_PHASE } from '../index.js';
+import { Phase } from '../index.js';
 import { logHeading, logDetail } from './legal-actions/log.js';
 import { recomputeDerived } from './recompute-derived.js';
 import { handleChainAction } from './chain-reducer.js';
 
 export type { ReducerResult } from './reducer-utils.js';
 import type { ReducerResult } from './reducer-utils.js';
-import { validateActionPlayer, handleFetchFromPile, resolvePendingEffect } from './reducer-utils.js';
+import { handleFetchFromPile, resolvePendingEffect } from './reducer-utils.js';
 import { topResolutionFor } from './pending.js';
 import { applyResolution } from './pending-reducers.js';
 import { handleSetup } from './reducer-setup.js';
@@ -50,10 +50,11 @@ export { discardCardsInPlay } from './reducer-utils.js';
 /**
  * Applies a single game action to the current state.
  *
- * Validation pipeline:
- * 1. Verify the action comes from a player allowed to act in the current context.
- * 2. Verify the action type is legal for the current phase.
- * 3. Dispatch to the phase-specific handler for domain logic.
+ * The reducer trusts that the action has already been validated upstream
+ * by membership lookup against the legal-action set sent to the player.
+ * It dispatches to the appropriate sub-state handler (chain, combat,
+ * pending resolution, pending effect) before falling through to the
+ * phase reducer.
  *
  * @param state - The current authoritative game state.
  * @param action - The player action to apply.
@@ -62,24 +63,9 @@ export { discardCardsInPlay } from './reducer-utils.js';
 export function reduce(state: GameState, action: GameAction): ReducerResult {
   logHeading(`Reducer: action '${action.type}' from player ${action.player as string} in phase '${state.phaseState.phase}'`);
 
-  // 1. Validate action is from the correct player for the current context
-  const validationError = validateActionPlayer(state, action);
-  if (validationError) {
-    logDetail(`Player validation failed: ${validationError}`);
-    return { state, error: validationError };
-  }
-  logDetail(`Player validation passed`);
-
-  // 2. Validate action type is legal in current phase
   const phase = state.phaseState.phase;
-  const legalActions = LEGAL_ACTIONS_BY_PHASE[phase];
-  if (!legalActions.includes(action.type)) {
-    logDetail(`Phase validation failed: '${action.type}' not in [${legalActions.join(', ')}]`);
-    return { state, error: `Action '${action.type}' is not legal in phase '${phase}'` };
-  }
-  logDetail(`Phase validation passed: '${action.type}' is legal in '${phase}'`);
 
-  // 2b. Chain of effects: dispatch chain-specific actions when a chain is active
+  // Chain of effects: dispatch chain-specific actions when a chain is active
   if (state.chain != null && (action.type === 'pass-chain-priority' || action.type === 'order-passives' || action.type === 'reveal-on-guard' || action.type === 'cancel-hazard-by-tap')) {
     logDetail(`Chain active — dispatching '${action.type}' to chain reducer`);
     const chainResult = handleChainAction(state, action);
@@ -93,7 +79,7 @@ export function reduce(state: GameState, action: GameAction): ReducerResult {
     return chainResult;
   }
 
-  // 2c. Combat: dispatch combat-specific actions when combat is active
+  // Combat: dispatch combat-specific actions when combat is active
   const combatActionTypes = ['assign-strike', 'choose-strike-order', 'resolve-strike', 'support-strike', 'body-check-roll', 'cancel-attack', 'cancel-by-tap', 'cancel-strike', 'play-dodge', 'halve-strikes', 'salvage-item'];
   if (state.combat != null && (combatActionTypes.includes(action.type) || (action.type === 'pass' && (state.combat.phase === 'assign-strikes' || state.combat.phase === 'item-salvage')))) {
     logDetail(`Combat active — dispatching '${action.type}' to combat handler`);
@@ -108,7 +94,7 @@ export function reduce(state: GameState, action: GameAction): ReducerResult {
     return combatResult;
   }
 
-  // 2c'. Pending resolutions: dispatch through the unified resolver before
+  // Pending resolutions: dispatch through the unified resolver before
   // delegating to the per-phase reducer. The handler is responsible for
   // dequeuing the resolution it consumes.
   const topResolution = topResolutionFor(state, action.player);
@@ -128,7 +114,7 @@ export function reduce(state: GameState, action: GameAction): ReducerResult {
     // Stub returned null — fall through to legacy phase reducer.
   }
 
-  // 2d. Pending effects: resolve card effects awaiting player interaction
+  // Pending effects: resolve card effects awaiting player interaction
   if (state.pendingEffects.length > 0 && (action.type === 'fetch-from-pile' || action.type === 'pass')) {
     logDetail(`Pending effect active — dispatching '${action.type}' to effect handler`);
     let effectResult: ReducerResult;
@@ -144,7 +130,7 @@ export function reduce(state: GameState, action: GameAction): ReducerResult {
     return effectResult;
   }
 
-  // 3. Dispatch to phase handler
+  // Dispatch to phase handler
   let result: ReducerResult;
   switch (phase) {
     case Phase.Setup:
@@ -193,9 +179,9 @@ export function reduce(state: GameState, action: GameAction): ReducerResult {
       return { state, error: `Unknown phase: ${String(phase satisfies never)}` };
   }
 
-  // 4. Recompute derived values (MPs, general influence) from ground truth
-  //    and increment the state sequence number for log tracking.
-  //    Clear reverseActions whenever the phase changes.
+  // Recompute derived values (MPs, general influence) from ground truth
+  // and increment the state sequence number for log tracking.
+  // Clear reverseActions whenever the phase changes.
   if (!result.error) {
     const recomputed = recomputeDerived(result.state);
     const phaseChanged = recomputed.phaseState.phase !== state.phaseState.phase;
