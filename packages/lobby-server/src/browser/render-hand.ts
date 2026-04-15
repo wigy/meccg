@@ -27,6 +27,8 @@ import {
   getSelectedInfluencerForOpponent, setSelectedInfluencerForOpponent,
   getSelectedShortEvent, setSelectedShortEvent,
   getShortEventRenderCache, setShortEventRenderCache,
+  getSelectedCancelAttack, setSelectedCancelAttack,
+  getCancelAttackRenderCache, setCancelAttackRenderCache,
 } from './render-selection-state.js';
 import { findSelfIndex } from './render-debug-panels.js';
 
@@ -199,60 +201,6 @@ function findDodgeActions(
 }
 
 // ---- Disambiguation tooltips ----
-
-/**
- * Show a disambiguation tooltip to choose which scout taps to cancel
- * the attack. Each button names a character; clicking it sends the action.
- */
-function showCancelAttackScoutMenu(
-  event: MouseEvent,
-  actions: readonly GameAction[],
-  cardPool: Readonly<Record<string, CardDefinition>>,
-  onAction: (action: GameAction) => void,
-): void {
-  const cachedInstanceLookup = getCachedInstanceLookup();
-  document.querySelector('.chain-target-backdrop')?.remove();
-
-  const backdrop = document.createElement('div');
-  backdrop.className = 'chain-target-backdrop';
-  backdrop.addEventListener('click', () => backdrop.remove());
-
-  const tooltip = document.createElement('div');
-  tooltip.className = 'chain-target-tooltip';
-  tooltip.style.left = `${event.clientX}px`;
-  tooltip.style.top = `${event.clientY}px`;
-
-  for (const action of actions) {
-    if (action.type !== 'cancel-attack') continue;
-
-    if (action.scoutInstanceId) {
-      const scoutDefId = cachedInstanceLookup(action.scoutInstanceId);
-      const scoutDef = scoutDefId ? cardPool[scoutDefId as string] : undefined;
-      const scoutName = scoutDef ? scoutDef.name : '?';
-
-      const btn = document.createElement('button');
-      btn.className = 'char-action-tooltip__btn';
-      btn.textContent = `Tap ${scoutName}`;
-      btn.addEventListener('click', () => {
-        backdrop.remove();
-        onAction(action);
-      });
-      tooltip.appendChild(btn);
-    } else {
-      const btn = document.createElement('button');
-      btn.className = 'char-action-tooltip__btn';
-      btn.textContent = 'Cancel attack';
-      btn.addEventListener('click', () => {
-        backdrop.remove();
-        onAction(action);
-      });
-      tooltip.appendChild(btn);
-    }
-  }
-
-  backdrop.appendChild(tooltip);
-  document.body.appendChild(backdrop);
-}
 
 /**
  * Show a disambiguation tooltip near the clicked short-event card
@@ -511,6 +459,15 @@ function reRenderShortEventTarget(): void {
   void import('./company-view.js').then(m => m.renderCompanyViews(view, cardPool, onAction));
 }
 
+/** Re-render hand and combat views using cached state (for cancel-attack scout targeting flow). */
+function reRenderCancelAttackTarget(): void {
+  const cache = getCancelAttackRenderCache();
+  if (!cache) return;
+  const { view, cardPool, onAction } = cache;
+  renderHand(view, cardPool, onAction);
+  void import('./company-view.js').then(m => m.renderCompanyViews(view, cardPool, onAction));
+}
+
 // ---- Main hand rendering ----
 
 /** Render the player's hand (or draft pool) as an arc of card images in the visual view. */
@@ -701,6 +658,28 @@ export function renderHand(
     if (getSelectedShortEvent()) setTargetingInstruction(null);
     setSelectedShortEvent(null);
     setShortEventRenderCache(null);
+  }
+
+  // Cache render state for cancel-attack scout targeting (e.g. Concealment → scout)
+  const hasMultiScoutCancelAttacks = viable.some(
+    a => a.type === 'cancel-attack' && a.scoutInstanceId,
+  ) && viable.filter(a => a.type === 'cancel-attack').length > 1;
+  if (onAction && hasMultiScoutCancelAttacks) {
+    setCancelAttackRenderCache({ view, cardPool, onAction });
+    const selectedCA = getSelectedCancelAttack();
+    if (selectedCA) {
+      const stillViable = viable.some(
+        a => a.type === 'cancel-attack' && a.cardInstanceId === selectedCA,
+      );
+      if (!stillViable) {
+        setSelectedCancelAttack(null);
+        setTargetingInstruction(null);
+      }
+    }
+  } else if (!hasMultiScoutCancelAttacks) {
+    if (getSelectedCancelAttack()) setTargetingInstruction(null);
+    setSelectedCancelAttack(null);
+    setCancelAttackRenderCache(null);
   }
 
   for (let i = 0; i < total; i++) {
@@ -931,14 +910,24 @@ export function renderHand(
         });
       }
     } else if (isCancelAttack) {
-      // Cancel-attack: single scout plays directly, multiple scouts show menu
-      img.className = 'hand-card hand-card-playable';
-      if (onAction) {
-        if (cancelAttackActions.length === 1) {
+      if (cancelAttackActions.length === 1) {
+        img.className = 'hand-card hand-card-playable';
+        if (onAction) {
           img.addEventListener('click', () => onAction(cancelAttackActions[0]));
-        } else {
-          img.addEventListener('click', (e) => {
-            showCancelAttackScoutMenu(e, cancelAttackActions, cardPool, onAction);
+        }
+      } else {
+        // Two-step scout targeting flow: click to select, then click a scout in combat view
+        const selectedCA = getSelectedCancelAttack();
+        const isCASelected = selectedCA === cardInstanceId;
+        img.className = isCASelected ? 'hand-card hand-card-selected' : 'hand-card hand-card-playable';
+        if (onAction && cardInstanceId) {
+          const instId = cardInstanceId;
+          img.addEventListener('click', () => {
+            setSelectedCancelAttack(isCASelected ? null : instId);
+            setTargetingInstruction(
+              getSelectedCancelAttack() ? `Click a highlighted scout to play ${def.name}` : null,
+            );
+            reRenderCancelAttackTarget();
           });
         }
       }

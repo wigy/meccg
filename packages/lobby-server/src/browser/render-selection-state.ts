@@ -360,3 +360,46 @@ export function getShortEventRenderCache(): typeof shortEventRenderCache {
 export function setShortEventRenderCache(cache: typeof shortEventRenderCache): void {
   shortEventRenderCache = cache;
 }
+
+// ---- Cancel-attack scout targeting ----
+
+/**
+ * Selected cancel-attack card instance ID for the two-step scout targeting flow.
+ * When a player clicks a cancel-attack card (e.g. Concealment) with multiple
+ * eligible scouts, the card instance ID is stored here and the combat view
+ * highlights valid scout characters for point-and-click selection.
+ */
+let selectedCancelAttackInstanceId: CardInstanceId | null = null;
+
+/** Returns the currently selected cancel-attack card instance ID for scout targeting. */
+export function getSelectedCancelAttack(): CardInstanceId | null {
+  return selectedCancelAttackInstanceId;
+}
+
+/** Set the selected cancel-attack card instance ID for scout targeting. */
+export function setSelectedCancelAttack(id: CardInstanceId | null): void {
+  selectedCancelAttackInstanceId = id;
+}
+
+/** Clear the cancel-attack scout targeting selection. */
+export function clearCancelAttackSelection(): void {
+  selectedCancelAttackInstanceId = null;
+  setTargetingInstruction(null);
+}
+
+/** Cached arguments for re-rendering during cancel-attack scout selection. */
+let cancelAttackRenderCache: {
+  view: PlayerView;
+  cardPool: Readonly<Record<string, CardDefinition>>;
+  onAction: (action: GameAction) => void;
+} | null = null;
+
+/** Get the cached cancel-attack render arguments. */
+export function getCancelAttackRenderCache(): typeof cancelAttackRenderCache {
+  return cancelAttackRenderCache;
+}
+
+/** Set the cached cancel-attack render arguments. */
+export function setCancelAttackRenderCache(cache: typeof cancelAttackRenderCache): void {
+  cancelAttackRenderCache = cache;
+}

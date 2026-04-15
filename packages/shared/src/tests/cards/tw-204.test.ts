@@ -24,7 +24,7 @@ import { describe, test, expect, beforeEach } from 'vitest';
 import {
   buildTestState, resetMint, Phase,
   PLAYER_1, PLAYER_2,
-  ARAGORN, LEGOLAS, GIMLI,
+  ARAGORN, LEGOLAS, GIMLI, BILBO,
   ORC_PATROL, CONCEALMENT,
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
   pool, viableActions,
@@ -257,6 +257,42 @@ describe('Concealment (tw-204)', () => {
     expect(desc).toContain('Cancel attack');
     expect(desc).toContain('Concealment');
     expect(desc).toContain('Aragorn');
+  });
+
+  test('multiple scouts in company generate one cancel-attack action per scout', () => {
+    // Aragorn (scout) and Bilbo (scout) are both untapped — two distinct cancel-attack actions expected.
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.MovementHazard,
+      recompute: true,
+      players: [
+        { id: PLAYER_1, companies: [{ site: MORIA, characters: [ARAGORN, BILBO] }], hand: [CONCEALMENT], siteDeck: [MINAS_TIRITH] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [ORC_PATROL], siteDeck: [RIVENDELL] },
+      ],
+    });
+
+    const mhState = makeMHState({
+      activeCompanyIndex: 0,
+      resolvedSitePath: [RegionType.Wilderness],
+      resolvedSitePathNames: ['Hithaeglir'],
+      destinationSiteType: SiteType.RuinsAndLairs,
+      destinationSiteName: 'Moria',
+    });
+    const stateAtMH = { ...base, phaseState: mhState };
+
+    const orcPatrolId = handCardId(stateAtMH, 1);
+    const targetCompanyId = companyIdAt(stateAtMH, 0);
+    const combatState = playCreatureHazardAndResolve(
+      stateAtMH, PLAYER_2, orcPatrolId, targetCompanyId,
+      { method: 'region-type', value: 'wilderness' },
+    );
+
+    expect(combatState.combat).toBeDefined();
+    const cancelActions = viableActions(combatState, PLAYER_1, 'cancel-attack');
+    expect(cancelActions).toHaveLength(2);
+
+    const scoutIds = cancelActions.map(a => (a.action as CancelAttackAction).scoutInstanceId);
+    expect(new Set(scoutIds).size).toBe(2);
   });
 
   test('cancel-attack is NOT available to the attacking player', () => {

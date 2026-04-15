@@ -24,12 +24,14 @@ import type {
   ChooseStrikeOrderAction,
   CancelByTapAction,
   CancelStrikeAction,
+  CancelAttackAction,
   EvaluatedAction,
 } from '@meccg/shared';
 import { cardImageProxyPath, viableActions, CardStatus, buildInstanceLookup } from '@meccg/shared';
 import type { CardInstanceId, CardDefinitionId } from '@meccg/shared';
 import { createCardImage } from './render-utils.js';
 import { dismissTooltip } from './company-modals.js';
+import { getSelectedCancelAttack, clearCancelAttackSelection } from './render-selection-state.js';
 
 /** Cached instance-to-definition lookup, updated each time the view changes. */
 let cachedInstanceLookup: ((id: CardInstanceId) => CardDefinitionId | undefined) = () => undefined;
@@ -70,10 +72,11 @@ export function renderCombatView(
   const chooseOrderActions = viable.filter((a): a is ChooseStrikeOrderAction => a.type === 'choose-strike-order');
   const cancelByTapActions = viable.filter((a): a is CancelByTapAction => a.type === 'cancel-by-tap');
   const cancelStrikeActions = viable.filter((a): a is CancelStrikeAction => a.type === 'cancel-strike');
+  const cancelAttackActions = viable.filter((a): a is CancelAttackAction => a.type === 'cancel-attack');
 
   // Build attacker row and defender row
   const attackerRow = renderAttackerRow(combat, view, cardPool);
-  const defenderRow = renderDefenderRow(combat, view, cardPool, assignActions, supportActions, chooseOrderActions, cancelByTapActions, cancelStrikeActions, onAction);
+  const defenderRow = renderDefenderRow(combat, view, cardPool, assignActions, supportActions, chooseOrderActions, cancelByTapActions, cancelStrikeActions, cancelAttackActions, onAction);
 
   // Top row is the "opponent" side, bottom row is "my" side
   const topRow = document.createElement('div');
@@ -266,6 +269,7 @@ function renderDefenderRow(
   chooseOrderActions: ChooseStrikeOrderAction[],
   cancelByTapActions: CancelByTapAction[],
   cancelStrikeActions: CancelStrikeAction[],
+  cancelAttackActions: CancelAttackAction[],
   onAction: (action: GameAction) => void,
 ): HTMLElement {
   const container = document.createElement('div');
@@ -293,6 +297,17 @@ function renderDefenderRow(
     cancelStrikeMap.set(a.cancellerInstanceId as string, a);
   }
 
+  // Build a map of scout character ID → cancel-attack action for the selected card
+  const cancelAttackScoutMap = new Map<string, CancelAttackAction>();
+  const selectedCancelAttack = getSelectedCancelAttack();
+  if (selectedCancelAttack) {
+    for (const a of cancelAttackActions) {
+      if (a.cardInstanceId === selectedCancelAttack && a.scoutInstanceId) {
+        cancelAttackScoutMap.set(a.scoutInstanceId as string, a);
+      }
+    }
+  }
+
   // Build a map of character ID → choose-strike-order action (for choose-strike-order phase)
   const chooseOrderMap = new Map<string, ChooseStrikeOrderAction>();
   for (const a of chooseOrderActions) {
@@ -314,7 +329,7 @@ function renderDefenderRow(
     const char = charMap[charId as string];
     if (!char) continue;
 
-    const col = renderCombatCharacterColumn(char, cardPool, combat, strikeMap, assignableIds, supportableIds, cancelByTapIds, cancelStrikeMap, chooseOrderMap, assignActions, supportActions, cancelByTapActions, onAction);
+    const col = renderCombatCharacterColumn(char, cardPool, combat, strikeMap, assignableIds, supportableIds, cancelByTapIds, cancelStrikeMap, cancelAttackScoutMap, chooseOrderMap, assignActions, supportActions, cancelByTapActions, onAction);
     container.appendChild(col);
   }
 
@@ -341,6 +356,7 @@ function renderCombatCharacterColumn(
   supportableIds: Set<string>,
   cancelByTapIds: Set<string>,
   cancelStrikeMap: Map<string, CancelStrikeAction>,
+  cancelAttackScoutMap: Map<string, CancelAttackAction>,
   chooseOrderMap: Map<string, ChooseStrikeOrderAction>,
   assignActions: AssignStrikeAction[],
   supportActions: SupportStrikeAction[],
@@ -382,10 +398,20 @@ function renderCombatCharacterColumn(
   const isAssignable = assignableIds.has(charIdStr);
   const isSupportable = supportableIds.has(charIdStr);
   const isCancelByTap = cancelByTapIds.has(charIdStr);
+  const cancelAttackAction = cancelAttackScoutMap.get(charIdStr);
 
   const chooseOrderAction = chooseOrderMap.get(charIdStr);
 
-  if (isCancelByTap) {
+  if (cancelAttackAction) {
+    // Cancel-attack scout targeting: click this scout to play the selected cancel-attack card
+    img.classList.add('combat-card--assignable');
+    img.style.cursor = 'pointer';
+    img.addEventListener('click', (e) => {
+      e.stopPropagation();
+      clearCancelAttackSelection();
+      onAction(cancelAttackAction);
+    });
+  } else if (isCancelByTap) {
     // Cancel-by-tap phase: click to tap this character and cancel an attack
     img.classList.add('combat-card--assignable');
     img.style.cursor = 'pointer';
