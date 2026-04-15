@@ -629,6 +629,8 @@ function applyOneConstraint(
       return base;
     case 'cancel-return-and-site-tap':
       return base;
+    case 'skip-automatic-attacks':
+      return base;
   }
 }
 

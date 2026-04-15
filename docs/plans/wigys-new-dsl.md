@@ -114,9 +114,11 @@ may never be used.
 Examples
 --------
 
-1. Game begins and we do character draft
+1. Game begins and we do character draft. The following effect from
+   `globalEffects['character-draft']` is added to the handling FIFO.
 
-    globalEffects['character-draft'] = {
+    ```js
+    {
         name: 'setup/character-draft',
         ops: [
             {
@@ -200,9 +202,13 @@ Examples
             }
         ]
     }
+    ```
 
     - A list of legal actions are generated based on the 'optional' field and 'selection-method'.
       Because it is optional, a 'pass' action is generated. Then one option to transfer a card
-      for every card matching the filter.
+      for every card matching the filter, i.e. characters.
     - Note that effects are handled in parallel in that sense that all transfers takes place
-      simultaneously after every rule is evaluated.
+      simultaneously after every rule is evaluated. So both picked cards moves to drafted pile
+      and not just one.
+    - Transfer implementation works for arrays trivially and single variables by holding a single
+      copy at time and being `null` other times.

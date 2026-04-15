@@ -531,7 +531,7 @@ function playResourcesActions(
             });
           }
         } else {
-          logDetail(`Permanent event ${eventDef.name}: playable`);
+          logDetail(`Permanent event ${eventDef.name}: playable at ${siteName}`);
           actions.push({
             action: {
               type: 'play-permanent-event', player: playerId, cardInstanceId,

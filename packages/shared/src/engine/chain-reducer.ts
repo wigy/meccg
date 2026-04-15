@@ -596,6 +596,19 @@ function buildConstraintKind(
     }
     case 'auto-attack-duplicate':
       return { type: 'auto-attack-duplicate' };
+    case 'skip-automatic-attacks': {
+      const ps = state.phaseState;
+      let siteDefId: import('../types/common.js').CardDefinitionId | null = null;
+      if (ps.phase === Phase.Site) {
+        const activePlayer = state.players.find(p => p.id === state.activePlayer);
+        const company = activePlayer?.companies[ps.activeCompanyIndex];
+        if (company?.currentSite) {
+          siteDefId = company.currentSite.definitionId;
+        }
+      }
+      if (!siteDefId) return null;
+      return { type: 'skip-automatic-attacks', siteDefinitionId: siteDefId };
+    }
     default:
       return null;
   }
