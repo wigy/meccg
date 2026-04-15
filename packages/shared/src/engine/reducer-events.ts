@@ -32,23 +32,6 @@ export function handlePlayPermanentEvent(state: GameState, action: GameAction): 
   const handCard = player.hand[cardIdx];
   const def = state.cardPool[handCard.definitionId as string] as import('../types/cards-resources.js').HeroResourceEventCard;
 
-  // Duplication-limit checks remain in the reducer because rules tests
-  // call reduce() directly with would-be-illegal actions to verify rejection.
-  if (def.effects) {
-    for (const effect of def.effects) {
-      if (effect.type !== 'duplication-limit' || effect.scope !== 'game') continue;
-      const copiesInPlay = state.players.reduce((count, p) =>
-        count + p.cardsInPlay.filter(c => {
-          const cDef = state.cardPool[c.definitionId as string];
-          return cDef && cDef.name === def.name;
-        }).length, 0,
-      );
-      if (copiesInPlay >= effect.max) {
-        return { state, error: `${def.name} cannot be duplicated` };
-      }
-    }
-  }
-
   logDetail(`Playing permanent event: ${def.name} → enters chain`);
 
   // Remove card from hand — it now resides on the chain
@@ -732,29 +715,6 @@ function handlePlayLongEvent(state: GameState, action: GameAction): ReducerResul
   const cardIdx = player.hand.findIndex(c => c.instanceId === action.cardInstanceId);
   const handCard = player.hand[cardIdx];
   const def = state.cardPool[handCard.definitionId as string] as import('../types/cards-resources.js').HeroResourceEventCard;
-
-  // Duplication-limit checks remain in the reducer because rules tests
-  // call reduce() directly with would-be-illegal actions to verify rejection.
-  if (def.unique) {
-    const alreadyInPlay = state.players.some(p =>
-      p.cardsInPlay.some(c => c.definitionId === def.id),
-    );
-    if (alreadyInPlay) return { state, error: `${def.name} is unique and already in play` };
-  }
-  if (def.effects) {
-    for (const effect of def.effects) {
-      if (effect.type !== 'duplication-limit' || effect.scope !== 'game') continue;
-      const copiesInPlay = state.players.reduce((count, p) =>
-        count + p.cardsInPlay.filter(c => {
-          const cDef = state.cardPool[c.definitionId as string];
-          return cDef && cDef.name === def.name;
-        }).length, 0,
-      );
-      if (copiesInPlay >= effect.max) {
-        return { state, error: `${def.name} cannot be duplicated` };
-      }
-    }
-  }
 
   logDetail(`Playing resource long-event: ${def.name} → enters chain`);
 

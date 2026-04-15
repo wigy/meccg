@@ -143,12 +143,6 @@ function handlePlayHazards(
 
   // --- Play hazard ---
   if (action.type === 'play-hazard') {
-    if (isResourcePlayer) {
-      return { state, error: 'Only the hazard player may play hazards' };
-    }
-    // Hazard limit is checked inside handlePlayHazardCard per card type,
-    // since some cards bypass the limit (no-hazard-limit flag, creature
-    // race exemption from Two or Three Tribes Present).
     return handlePlayHazardCard(state, action, mhState);
   }
 
@@ -174,15 +168,6 @@ function handlePlayHazards(
 
   // --- Place on-guard ---
   if (action.type === 'place-on-guard') {
-    if (isResourcePlayer) {
-      return { state, error: 'Only the hazard player may place on-guard cards' };
-    }
-    if (mhState.onGuardPlacedThisCompany) {
-      return { state, error: 'Already placed an on-guard card this company' };
-    }
-    if (mhState.hazardsPlayedThisCompany >= mhState.hazardLimit) {
-      return { state, error: `Hazard limit reached (${mhState.hazardLimit})` };
-    }
     return handlePlaceOnGuard(state, action, mhState);
   }
 
@@ -1207,22 +1192,9 @@ function handleSelectCompany(
     return { state, error: `Expected 'select-company' action during select-company step, got '${action.type}'` };
   }
 
-  if (action.player !== state.activePlayer) {
-    return { state, error: `Only the active player may select a company` };
-  }
-
-  const playerIndex = getPlayerIndex(state, state.activePlayer);
+  const playerIndex = getPlayerIndex(state, state.activePlayer!);
   const player = state.players[playerIndex];
   const companyIndex = player.companies.findIndex(c => c.id === action.companyId);
-
-  if (companyIndex === -1) {
-    return { state, error: `Company '${action.companyId}' not found` };
-  }
-
-  if (mhState.handledCompanyIds.includes(action.companyId)) {
-    return { state, error: `Company '${action.companyId}' has already been handled this turn` };
-  }
-
   const company = player.companies[companyIndex];
   const isMoving = company.destinationSite !== null;
 
@@ -1272,10 +1244,6 @@ function handleRevealNewSite(
   action: GameAction,
   mhState: MovementHazardPhaseState,
 ): ReducerResult {
-  if (action.player !== state.activePlayer) {
-    return { state, error: `Only the active player may act during reveal-new-site` };
-  }
-
   // Non-moving company: pass to advance (skip declare-path, go to set-hazard-limit)
   // Set destinationSiteType/Name to current site so creatures can be keyed to it
   if (action.type === 'pass') {

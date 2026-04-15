@@ -21,7 +21,7 @@ import {
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
   CardStatus,
   buildTestState, resetMint, buildSitePhaseState,
-  playLongEventAndResolve,
+  playLongEventAndResolve, viableActions,
   handCardId, dispatch, getCharacter,
 } from '../test-helpers.js';
 import type { CardInPlay, CardInstanceId, CardDefinitionId, CharacterCard, SitePhaseState } from '../../index.js';
@@ -145,9 +145,8 @@ describe('Sun (tw-335)', () => {
       ],
     });
 
-    const sunInstanceId = handCardId(state, 0);
-    const result = reduce(state, { type: 'play-long-event', player: PLAYER_1, cardInstanceId: sunInstanceId });
-    expect(result.error).toBe('Sun cannot be duplicated');
+    const actions = viableActions(state, PLAYER_1, 'play-long-event');
+    expect(actions).toHaveLength(0);
   });
 
   test('cannot be duplicated when opponent has a copy in play', () => {
@@ -166,9 +165,8 @@ describe('Sun (tw-335)', () => {
       ],
     });
 
-    const sunInstanceId = handCardId(state, 0);
-    const result = reduce(state, { type: 'play-long-event', player: PLAYER_1, cardInstanceId: sunInstanceId });
-    expect(result.error).toBe('Sun cannot be duplicated');
+    const actions = viableActions(state, PLAYER_1, 'play-long-event');
+    expect(actions).toHaveLength(0);
   });
 
   test('with Gates of Morning: automatic attack prowess reduced by -1', () => {

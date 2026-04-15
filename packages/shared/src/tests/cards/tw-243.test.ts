@@ -156,9 +156,8 @@ describe('Gates of Morning (tw-243)', () => {
       ],
     });
 
-    const gomId = handCardId(state, 0);
-    const result = reduce(state, { type: 'play-permanent-event', player: PLAYER_1, cardInstanceId: gomId });
-    expect(result.error).toBe('Gates of Morning cannot be duplicated');
+    const actions = viableActions(state, PLAYER_1, 'play-permanent-event');
+    expect(actions).toHaveLength(0);
   });
 
   test('cannot be duplicated when opponent has a copy in play', () => {
@@ -177,9 +176,8 @@ describe('Gates of Morning (tw-243)', () => {
       ],
     });
 
-    const gomId = handCardId(state, 0);
-    const result = reduce(state, { type: 'play-permanent-event', player: PLAYER_1, cardInstanceId: gomId });
-    expect(result.error).toBe('Gates of Morning cannot be duplicated');
+    const actions = viableActions(state, PLAYER_1, 'play-permanent-event');
+    expect(actions).toHaveLength(0);
   });
 
   test('no opposing environments to discard is a no-op', () => {
