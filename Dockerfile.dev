@@ -10,6 +10,10 @@ COPY packages/lobby-server/package.json packages/lobby-server/
 
 RUN npm ci
 
+COPY packages ./packages
+COPY data ./data
+COPY bin ./bin
+
 ENV HOME=/data
 RUN mkdir -p /data && chmod 777 /data
 
