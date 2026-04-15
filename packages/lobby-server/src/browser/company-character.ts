@@ -107,24 +107,22 @@ export function renderCharacterColumn(
       if (att.status === CardStatus.Tapped) {
         attEl.classList.add('company-card--tapped');
       }
-      // Item transfer click handler (only for items, not allies)
       const isItem = char.items.some(i => i.instanceId === att.instanceId);
-      if (isItem && itemClickBuilder) {
+      const isHazard = char.hazards.some(h => h.instanceId === att.instanceId);
+      // Granted-action click handler (items like Cram or hazards like corruption checks)
+      const grantedClick = (isItem || isHazard) && hazardClickBuilder
+        ? hazardClickBuilder(att.instanceId) : undefined;
+      if (grantedClick) {
+        if (grantedClick.cls) attEl.classList.add(grantedClick.cls);
+        attEl.style.cursor = 'pointer';
+        attEl.addEventListener('click', grantedClick.handler);
+      } else if (isItem && itemClickBuilder) {
+        // Item transfer click handler (only when no granted action takes priority)
         const itemClick = itemClickBuilder(att.instanceId, char.instanceId);
         if (itemClick) {
           if (itemClick.cls) attEl.classList.add(itemClick.cls);
           attEl.style.cursor = 'pointer';
           attEl.addEventListener('click', itemClick.handler);
-        }
-      }
-      // Hazard granted-action click handler (e.g. remove-self-on-roll)
-      const isHazard = char.hazards.some(h => h.instanceId === att.instanceId);
-      if (isHazard && hazardClickBuilder) {
-        const hazardClick = hazardClickBuilder(att.instanceId);
-        if (hazardClick) {
-          if (hazardClick.cls) attEl.classList.add(hazardClick.cls);
-          attEl.style.cursor = 'pointer';
-          attEl.addEventListener('click', hazardClick.handler);
         }
       }
       // Wrap item in a container for CP badge positioning
@@ -219,9 +217,16 @@ export function renderCharacterColumn(
             if (fAtt.status === CardStatus.Tapped) {
               fAttEl.classList.add('company-card--tapped');
             }
-            // Item transfer click handler for follower items
             const fIsItem = follower.items.some(i => i.instanceId === fAtt.instanceId);
-            if (fIsItem && itemClickBuilder) {
+            // Granted-action click handler for follower items
+            const fGrantedClick = fIsItem && hazardClickBuilder
+              ? hazardClickBuilder(fAtt.instanceId) : undefined;
+            if (fGrantedClick) {
+              if (fGrantedClick.cls) fAttEl.classList.add(fGrantedClick.cls);
+              fAttEl.style.cursor = 'pointer';
+              fAttEl.addEventListener('click', fGrantedClick.handler);
+            } else if (fIsItem && itemClickBuilder) {
+              // Item transfer click handler (only when no granted action takes priority)
               const fItemClick = itemClickBuilder(fAtt.instanceId, follower.instanceId);
               if (fItemClick) {
                 if (fItemClick.cls) fAttEl.classList.add(fItemClick.cls);
