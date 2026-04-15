@@ -6,7 +6,7 @@
  * influence attempts, and site phase advancement.
  */
 
-import type { GameState, PlayerState, CardInstanceId, CompanyId, CharacterInPlay, CardInstance, SitePhaseState, HeroItemCard, CombatState, OnGuardCard, GameAction, GameEffect, ItemPlaySiteEffect } from '../index.js';
+import type { GameState, PlayerState, CardInstanceId, CompanyId, CharacterInPlay, CardInstance, SitePhaseState, CombatState, OnGuardCard, GameAction, GameEffect } from '../index.js';
 import { Phase, CardStatus, isCharacterCard, isItemCard, isAllyCard, isFactionCard, isSiteCard, getPlayerIndex, GENERAL_INFLUENCE } from '../index.js';
 import { logDetail } from './legal-actions/log.js';
 import { collectCharacterEffects, resolveCheckModifier, resolveStatModifiers, resolveAttackProwess, resolveAttackStrikes, normalizeCreatureRace } from './effects/index.js';
@@ -763,7 +763,6 @@ function handleSitePlayHeroResource(
   const isAlly = !isItem && isAllyCard(def);
 
   const siteInPlay = company.currentSite!;
-  const siteDef = state.cardPool[siteInPlay.definitionId as string] as import('../types/cards.js').SiteCard;
 
   const targetCharId = action.attachToCharacterId!;
   const charInPlay = player.characters[targetCharId as string];
@@ -794,7 +793,7 @@ function handleSitePlayHeroResource(
   const newCompanies = [...player.companies];
   newCompanies[siteState.activeCompanyIndex] = {
     ...company,
-    currentSite: { ...siteInPlay!, status: CardStatus.Tapped },
+    currentSite: { ...siteInPlay, status: CardStatus.Tapped },
   };
 
   newPlayers[playerIndex] = { ...player, hand: newHand, characters: newCharacters, companies: newCompanies };
@@ -843,13 +842,12 @@ function handleSitePlayHeroResource(
 function handleInfluenceAttemptDeclare(
   state: GameState,
   action: GameAction,
-  siteState: SitePhaseState,
+  _siteState: SitePhaseState,
 ): ReducerResult {
   if (action.type !== 'influence-attempt') return { state, error: 'Expected influence-attempt action' };
 
   const playerIndex = getPlayerIndex(state, action.player);
   const player = state.players[playerIndex];
-  const company = player.companies[siteState.activeCompanyIndex];
 
   const cardIdx = player.hand.findIndex(c => c.instanceId === action.factionInstanceId);
   const handCard = player.hand[cardIdx];
@@ -1050,7 +1048,6 @@ function handleOpponentInfluenceAttempt(
 
   const playerIndex = getPlayerIndex(state, action.player);
   const player = state.players[playerIndex];
-  const company = player.companies[siteState.activeCompanyIndex];
 
   const charId = action.influencingCharacterId;
   const charInPlay = player.characters[charId as string];

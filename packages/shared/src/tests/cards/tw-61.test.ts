@@ -12,7 +12,7 @@
 
 import { describe, test, expect, beforeEach } from 'vitest';
 import {
-  PLAYER_1, PLAYER_2, P1_COMPANY,
+  PLAYER_1, PLAYER_2,
   reduce,
   ARAGORN, LEGOLAS,
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
@@ -20,7 +20,7 @@ import {
   buildTestState, resetMint, buildSitePhaseState, makeMHState,
   addP2CardsInPlay, setupAutoAttackStep,
   Phase,
-  handCardId, viableActions,
+  viableActions,
 } from '../test-helpers.js';
 import type { CardInPlay, CardInstanceId, MovementHazardPhaseState, CardDefinitionId } from '../../index.js';
 import { ETTENMOORS_HERO, ISENGARD, DOORS_OF_NIGHT } from '../../index.js';

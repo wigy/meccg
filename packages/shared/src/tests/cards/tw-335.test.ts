@@ -14,7 +14,6 @@
 import { describe, test, expect, beforeEach } from 'vitest';
 import {
   pool, PLAYER_1, PLAYER_2,
-  reduce,
   Phase,
   ARAGORN, LEGOLAS, BARD_BOWMAN,
   SUN, GATES_OF_MORNING,

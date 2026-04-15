@@ -7,7 +7,7 @@
  */
 
 import type { GameState, CardInstanceId, CharacterInPlay, CardInstance, OrganizationPhaseState, Company, SiteInPlay, GameAction, GameEffect } from '../index.js';
-import { Phase, shuffle, CardStatus, isCharacterCard, isSiteCard, SiteType, getPlayerIndex, ZERO_EFFECTIVE_STATS, hasPlayFlag } from '../index.js';
+import { Phase, shuffle, CardStatus, isSiteCard, SiteType, getPlayerIndex, ZERO_EFFECTIVE_STATS } from '../index.js';
 import { logDetail } from './legal-actions/log.js';
 import { isEndOfOrgPlay } from './legal-actions/organization.js';
 import { resolveInstanceId } from '../types/state.js';
@@ -601,7 +601,7 @@ function handleFetchFromSideboard(state: GameState, action: GameAction): Reducer
   const cardIdx = player.sideboard.findIndex(c => c.instanceId === action.sideboardCardInstanceId);
   const sideboardCard = player.sideboard[cardIdx];
   const def = state.cardPool[sideboardCard.definitionId as string];
-  const destination = orgState.sideboardFetchDestination!;
+  const destination = orgState.sideboardFetchDestination;
 
   const newSideboard = [...player.sideboard];
   newSideboard.splice(cardIdx, 1);

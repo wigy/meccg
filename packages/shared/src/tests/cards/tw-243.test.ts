@@ -13,7 +13,6 @@
 import { describe, test, expect, beforeEach } from 'vitest';
 import {
   PLAYER_1, PLAYER_2,
-  reduce,
   ARAGORN, LEGOLAS,
   GATES_OF_MORNING, DOORS_OF_NIGHT, TWILIGHT,
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,

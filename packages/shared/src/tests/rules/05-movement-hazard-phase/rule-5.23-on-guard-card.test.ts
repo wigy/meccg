@@ -17,7 +17,7 @@
 
 import { describe, test, expect, beforeEach } from 'vitest';
 import {
-  buildTestState, resetMint, Phase, reduce, dispatch,
+  buildTestState, resetMint, Phase, dispatch,
   PLAYER_1, PLAYER_2, makeMHState, viableActions,
   LEGOLAS, ARAGORN,
   CAVE_DRAKE, ORC_PATROL, BARROW_WIGHT, GLAMDRING,

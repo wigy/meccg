@@ -484,8 +484,8 @@ function handlePlayDodge(state: GameState, action: GameAction, combat: CombatSta
   const handIndex = defPlayer.hand.findIndex(c => c.instanceId === action.cardInstanceId);
   const handCard = defPlayer.hand[handIndex];
   const cardDef = state.cardPool[handCard.definitionId as string];
-  const effects = (cardDef as { effects?: readonly import('../types/effects.js').CardEffect[] } | undefined)?.effects;
-  const dodgeEffect = effects?.find((e): e is DodgeStrikeEffect => e.type === 'dodge-strike')!;
+  const effects = (cardDef as { effects?: readonly import('../types/effects.js').CardEffect[] } | undefined)?.effects ?? [];
+  const dodgeEffect = effects.find((e): e is DodgeStrikeEffect => e.type === 'dodge-strike') as DodgeStrikeEffect;
 
   logDetail(`Playing dodge card ${handCard.definitionId as string}`);
 

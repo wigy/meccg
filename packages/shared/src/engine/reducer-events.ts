@@ -7,7 +7,7 @@
  */
 
 import type { GameState, CardInstance, ChainEntryPayload, PendingEffect, GameAction } from '../index.js';
-import { Phase, CardStatus, getPlayerIndex, BASE_MAX_REGION_DISTANCE, matchesCondition } from '../index.js';
+import { Phase, CardStatus, getPlayerIndex, BASE_MAX_REGION_DISTANCE } from '../index.js';
 import { logDetail } from './legal-actions/log.js';
 import { initiateChain, pushChainEntry } from './chain-reducer.js';
 import { resolveInstanceId } from '../types/state.js';
