@@ -292,9 +292,8 @@ describe('Incite Defenders (le-115)', () => {
     const afterFirst = dispatch(mhGameState, { type: 'play-hazard', player: PLAYER_2, cardInstanceId: id1, targetCompanyId: P1_COMPANY });
     expect(afterFirst.chain).not.toBeNull();
 
-    const id2 = handCardId(mhGameState, 1, 1);
-    const result = reduce(afterFirst, { type: 'play-hazard', player: PLAYER_2, cardInstanceId: id2, targetCompanyId: P1_COMPANY });
-    expect(result.error).toBe('Incite Defenders cannot be duplicated');
+    const actions = viableActions(afterFirst, PLAYER_2, 'play-hazard');
+    expect(actions).toHaveLength(0);
   });
 
   // ─── Constraint creation ───────────────────────────────────────────────

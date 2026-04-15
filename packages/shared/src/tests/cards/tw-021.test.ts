@@ -116,10 +116,9 @@ describe('Choking Shadows (tw-21)', () => {
     const afterFirst = dispatch(mhGameState, { type: 'play-hazard', player: PLAYER_2, cardInstanceId: cs1Id, targetCompanyId: P1_COMPANY });
     expect(afterFirst.chain).not.toBeNull();
 
-    // Second copy should be rejected
-    const cs2Id = handCardId(mhGameState, 1, 1);
-    const result = reduce(afterFirst, { type: 'play-hazard', player: PLAYER_2, cardInstanceId: cs2Id, targetCompanyId: P1_COMPANY });
-    expect(result.error).toBe('Choking Shadows cannot be duplicated');
+    // Second copy should not be in the viable legal actions
+    const actions = viableActions(afterFirst, PLAYER_2, 'play-hazard');
+    expect(actions).toHaveLength(0);
   });
 
   test('second copy is still rejected after first resolves (active constraint persists for the turn)', () => {

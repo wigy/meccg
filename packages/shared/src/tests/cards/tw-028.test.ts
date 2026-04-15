@@ -137,9 +137,8 @@ describe('Doors of Night (tw-28)', () => {
     });
 
     const mhGameState: GameState = { ...state, phaseState: makeMHState() };
-    const donId = handCardId(mhGameState, 1);
-    const result = reduce(mhGameState, { type: 'play-hazard', player: PLAYER_2, cardInstanceId: donId, targetCompanyId: P1_COMPANY });
-    expect(result.error).toBe('Doors of Night cannot be duplicated');
+    const actions = viableActions(mhGameState, PLAYER_2, 'play-hazard');
+    expect(actions).toHaveLength(0);
   });
 
   test('no opposing environments to discard is a no-op', () => {
