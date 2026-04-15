@@ -14,6 +14,8 @@ COPY packages ./packages
 COPY data ./data
 COPY bin ./bin
 
+RUN chmod -R 777 /app
+
 ENV HOME=/data
 RUN mkdir -p /data && chmod 777 /data
 
