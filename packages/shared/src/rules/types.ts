@@ -63,4 +63,10 @@ export interface EvaluatedAction {
   readonly viable: boolean;
   /** Human-readable explanation when not viable. Absent when viable. */
   readonly reason?: string;
+  /**
+   * Stable canonical identifier stamped at projection time. Clients echo
+   * this id when submitting an action so the server can validate by
+   * membership lookup instead of re-running structural checks.
+   */
+  readonly actionId?: string;
 }

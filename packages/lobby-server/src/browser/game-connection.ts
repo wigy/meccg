@@ -8,7 +8,7 @@
  */
 
 import type { ClientMessage, GameAction, ServerMessage } from '@meccg/shared';
-import { buildCompanyNames, buildInstanceLookup, describeAction } from '@meccg/shared';
+import { buildCompanyNames, buildInstanceLookup, canonicalActionKey, describeAction } from '@meccg/shared';
 import {
   appState, cardPool, LOBBY_MODE, buildJoinFromDeck,
   MAX_RECONNECT_ATTEMPTS, AUTO_PASS_KEY, type ScreenId,
@@ -53,7 +53,7 @@ export function sendAction(action: GameAction): void {
   if (logEl) appState.logCountStack.push(logEl.childElementCount);
   const desc = describeAction(action, cardPool, appState.lastInstanceLookup, appState.lastCompanyNames);
   renderLog(`>> ${desc}`, cardPool);
-  const msg: ClientMessage = { type: 'action', action };
+  const msg: ClientMessage = { type: 'action', action, actionId: canonicalActionKey(action) };
   appState.ws.send(JSON.stringify(msg));
 
   // After acknowledging game result, return to lobby
