@@ -83,13 +83,7 @@
       {
         "type": "play-target",
         "target": "character",
-        "filter": {
-          "$and": [
-            { "target.skills": { "$includes": "ranger" } },
-            { "target.status": "untapped" }
-          ]
-        },
-        "cost": { "tap": "character" }
+        "filter": { "target.skills": { "$includes": "ranger" } }
       },
       {
         "type": "play-option",

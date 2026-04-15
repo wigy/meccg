@@ -570,26 +570,49 @@ function cancelAttackActions(
       continue;
     }
 
-    // Skill-based cancel-attack: find untapped characters with the required skill
-    for (const charId of company.characters) {
-      const charData = player.characters[charId as string];
-      if (!charData || charData.status !== CardStatus.Untapped) continue;
+    // Skill-based cancel-attack: a character with the required skill must be in the company.
+    // When the effect has a cost, the character must be untapped and is tapped (one action per target).
+    // When there is no cost, any character with the skill suffices (one costless action).
+    if (cancelEffect.cost) {
+      for (const charId of company.characters) {
+        const charData = player.characters[charId as string];
+        if (!charData || charData.status !== CardStatus.Untapped) continue;
 
-      const charDef = state.cardPool[charData.definitionId as string];
-      if (!charDef || !isCharacterCard(charDef)) continue;
+        const charDef = state.cardPool[charData.definitionId as string];
+        if (!charDef || !isCharacterCard(charDef)) continue;
 
-      if (!charDef.skills.includes(cancelEffect.requiredSkill as import('../../types/common.js').Skill)) continue;
+        if (!charDef.skills.includes(cancelEffect.requiredSkill as import('../../types/common.js').Skill)) continue;
 
-      logDetail(`Cancel-attack available: ${handCard.definitionId as string} via ${charData.definitionId as string}`);
-      actions.push({
-        action: {
-          type: 'cancel-attack',
-          player: playerId,
-          cardInstanceId: handCard.instanceId,
-          scoutInstanceId: charId,
-        },
-        viable: true,
+        logDetail(`Cancel-attack available: ${handCard.definitionId as string} via ${charData.definitionId as string} (tap cost)`);
+        actions.push({
+          action: {
+            type: 'cancel-attack',
+            player: playerId,
+            cardInstanceId: handCard.instanceId,
+            scoutInstanceId: charId,
+          },
+          viable: true,
+        });
+      }
+    } else {
+      const hasSkilled = company.characters.some(charId => {
+        const charData = player.characters[charId as string];
+        if (!charData) return false;
+        const charDef = state.cardPool[charData.definitionId as string];
+        if (!charDef || !isCharacterCard(charDef)) return false;
+        return charDef.skills.includes(cancelEffect.requiredSkill as import('../../types/common.js').Skill);
       });
+      if (hasSkilled) {
+        logDetail(`Cancel-attack available (no tap cost): ${handCard.definitionId as string}`);
+        actions.push({
+          action: {
+            type: 'cancel-attack',
+            player: playerId,
+            cardInstanceId: handCard.instanceId,
+          },
+          viable: true,
+        });
+      }
     }
   }
 
