@@ -556,8 +556,15 @@
     ],
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
-    "text": "Spell. Wizard only. Cancels an attack against the Wizard's company. Wizard makes a corruption check modified by -2."
+    "effects": [
+      {
+        "type": "cancel-attack",
+        "requiredRace": "wizard",
+        "cost": { "check": "corruption", "modifier": -2 }
+      }
+    ],
+    "text": "Spell. Wizard only. Cancels an attack against the Wizard's company. Wizard makes a corruption check modified by -2.",
+    "certified": "2026-04-15"
   },
   {
     "cardType": "hero-resource-event",

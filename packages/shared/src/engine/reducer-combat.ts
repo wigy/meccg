@@ -767,18 +767,39 @@ function handleCancelAttack(state: GameState, action: GameAction, combat: Combat
   const newPlayers = clonePlayers(state);
   const newCharacters = { ...defPlayer.characters };
 
-  // Tap the scout if a skill cost is required
+  // Look up the cancel-attack effect to determine cost type
+  const cardDef = state.cardPool[defPlayer.hand[cardIndex].definitionId as string];
+  const effects = (cardDef as { effects?: readonly import('../types/effects.js').CardEffect[] } | undefined)?.effects;
+  const cancelEffect = effects?.find(
+    (e): e is import('../types/effects.js').CancelAttackEffect => e.type === 'cancel-attack',
+  );
+  const costIsCheck = cancelEffect?.cost?.check !== undefined;
+  const costIsTap = cancelEffect?.cost?.tap !== undefined;
+
+  // Pay character cost: tap or enqueue corruption check
+  let needsCorruptionCheck: { characterId: CardInstanceId; modifier: number } | null = null;
   if (action.scoutInstanceId) {
     const company = defPlayer.companies.find(c => c.id === combat.companyId);
     if (!company || !company.characters.includes(action.scoutInstanceId)) {
-      return { state, error: 'Scout not in defending company' };
+      return { state, error: 'Character not in defending company' };
     }
-    const scoutData = defPlayer.characters[action.scoutInstanceId as string];
-    if (!scoutData || scoutData.status !== CardStatus.Untapped) {
-      return { state, error: 'Scout must be untapped' };
+    const charData = defPlayer.characters[action.scoutInstanceId as string];
+    if (!charData) {
+      return { state, error: 'Character not found' };
     }
-    logDetail(`Attack canceled: ${defPlayer.hand[cardIndex].definitionId as string} played, tapping ${scoutData.definitionId as string}`);
-    newCharacters[action.scoutInstanceId as string] = { ...scoutData, status: CardStatus.Tapped };
+    if (costIsTap) {
+      if (charData.status !== CardStatus.Untapped) {
+        return { state, error: 'Character must be untapped' };
+      }
+      logDetail(`Attack canceled: ${defPlayer.hand[cardIndex].definitionId as string} played, tapping ${charData.definitionId as string}`);
+      newCharacters[action.scoutInstanceId as string] = { ...charData, status: CardStatus.Tapped };
+    } else if (costIsCheck) {
+      const checkModifier = cancelEffect?.cost?.modifier ?? 0;
+      logDetail(`Attack canceled: ${defPlayer.hand[cardIndex].definitionId as string} played, ${charData.definitionId as string} makes corruption check (modifier ${checkModifier})`);
+      needsCorruptionCheck = { characterId: action.scoutInstanceId, modifier: checkModifier };
+    } else {
+      logDetail(`Attack canceled: ${defPlayer.hand[cardIndex].definitionId as string} played via ${charData.definitionId as string}`);
+    }
   } else {
     logDetail(`Attack canceled: ${defPlayer.hand[cardIndex].definitionId as string} played (no cost)`);
   }
@@ -832,7 +853,34 @@ function handleCancelAttack(state: GameState, action: GameAction, combat: Combat
   }
 
   logDetail('Combat canceled — returning to enclosing phase');
-  return { state: { ...state, players: newPlayers, combat: null } };
+  let resultState: GameState = { ...state, players: newPlayers, combat: null };
+
+  // Enqueue corruption check if the cost requires one (e.g. Vanishment)
+  if (needsCorruptionCheck) {
+    const company = defPlayer.companies.find(c => c.id === combat.companyId);
+    const companyId = company?.id;
+    if (companyId) {
+      const scope = state.phaseState.phase === Phase.MovementHazard
+        ? ({ kind: 'company-mh-subphase' as const, companyId })
+        : ({ kind: 'company-site-subphase' as const, companyId });
+      const sourceName = cardDef?.name ?? '?';
+      resultState = enqueueResolution(resultState, {
+        source: action.cardInstanceId,
+        actor: action.player,
+        scope,
+        kind: {
+          type: 'corruption-check',
+          characterId: needsCorruptionCheck.characterId,
+          modifier: needsCorruptionCheck.modifier,
+          reason: sourceName,
+          possessions: [],
+          transferredItemId: null,
+        },
+      });
+    }
+  }
+
+  return { state: resultState };
 }
 
 /**

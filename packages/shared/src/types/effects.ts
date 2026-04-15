@@ -603,6 +603,8 @@ export interface CancelAttackEffect extends EffectBase {
   readonly cost?: ActionCost;
   /** The skill required on the character who pays the cost. Absent when no skill is required. */
   readonly requiredSkill?: string;
+  /** The race required on the character who pays the cost (e.g. "wizard" for Vanishment). */
+  readonly requiredRace?: string;
 }
 
 /**
