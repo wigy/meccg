@@ -874,17 +874,7 @@ function handleResetHand(
 
   const playerIndex = getPlayerIndex(state, action.player);
   const player = state.players[playerIndex];
-  const handSize = resolveHandSize(state, playerIndex);
-
-  if (player.hand.length <= handSize) {
-    return { state, error: `Player ${player.name} does not need to discard (hand: ${player.hand.length}/${handSize})` };
-  }
-
   const cardIdx = player.hand.findIndex(c => c.instanceId === action.cardInstanceId);
-  if (cardIdx === -1) {
-    return { state, error: 'Card not in hand' };
-  }
-
   const discardedCard = player.hand[cardIdx];
   const newHand = [...player.hand];
   newHand.splice(cardIdx, 1);
@@ -896,7 +886,7 @@ function handleResetHand(
     discardPile: [...player.discardPile, discardedCard],
   };
 
-  logDetail(`Reset-hand: player ${player.name} discards 1 card (${newHand.length}/${handSize})`);
+  logDetail(`Reset-hand: player ${player.name} discards 1 card (hand now ${newHand.length})`);
 
   const updatedState = { ...state, players: newPlayers };
 
@@ -1607,39 +1597,21 @@ function handleDrawCards(
     return { state: completeDeckExhaust(state, actingIndex) };
   }
 
-  // Pass: allowed after first mandatory draw, or if max is 0
   if (action.type === 'pass') {
-    if (drawnSoFar === 0 && drawMax > 0) {
-      return { state, error: `${playerLabel} player must draw at least 1 card before passing` };
-    }
-
     logDetail(`Movement/Hazard draw-cards: ${playerLabel} player passed (drew ${drawnSoFar}/${drawMax})`);
     return advanceDrawCards(state, mhState, isResourcePlayer, drawMax);
   }
 
-  // Deck exhaustion: enter exchange sub-flow
   if (action.type === 'deck-exhaust') {
-    const exPlayer = state.players[actingIndex];
-    if (exPlayer.playDeck.length > 0) {
-      return { state, error: 'Cannot exhaust — play deck is not empty' };
-    }
-    if (exPlayer.discardPile.length === 0) {
-      return { state, error: 'Cannot exhaust — discard pile is also empty' };
-    }
     return { state: startDeckExhaust(state, actingIndex) };
   }
 
-  // Exchange sideboard during deck exhaustion sub-flow
   if (action.type === 'exchange-sideboard') {
     return handleExchangeSideboard(state, action);
   }
 
   if (action.type !== 'draw-cards' || action.count !== 1) {
     return { state, error: `Expected 'draw-cards' (count: 1), 'deck-exhaust', 'exchange-sideboard', or 'pass' during draw-cards step, got '${action.type}'` };
-  }
-
-  if (drawnSoFar >= drawMax) {
-    return { state, error: `${playerLabel} player has already drawn maximum (${drawMax}) cards` };
   }
 
   // Draw 1 card from play deck into hand
@@ -1745,22 +1717,13 @@ function advanceDrawCards(
 function handleCancelHazardByTap(state: GameState, action: GameAction): ReducerResult {
   if (action.type !== 'cancel-hazard-by-tap') return { state, error: 'Expected cancel-hazard-by-tap' };
 
-  const chain = state.chain;
-  if (!chain) return { state, error: 'No chain active to cancel' };
-
+  const chain = state.chain!;
   const entry = chain.entries[action.chainEntryIndex];
-  if (!entry || entry.resolved || entry.negated) {
-    return { state, error: `Chain entry ${action.chainEntryIndex} is not cancelable` };
-  }
 
   const playerIndex = getPlayerIndex(state, action.player);
   const player = state.players[playerIndex];
   const charId = action.characterInstanceId as string;
   const char = player.characters[charId];
-  if (!char) return { state, error: `Character ${charId} not in play` };
-  if (char.status !== CardStatus.Untapped) {
-    return { state, error: `Character ${charId} is not untapped` };
-  }
 
   const entryDef = entry.card ? state.cardPool[entry.card.definitionId as string] : null;
   logDetail(`cancel-hazard-by-tap: ${charId} taps to cancel chain entry ${action.chainEntryIndex} (${entryDef?.name ?? 'unknown'})`);
