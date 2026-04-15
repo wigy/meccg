@@ -992,6 +992,17 @@ Supported `apply` kinds today:
 ]
 ```
 
+### Wizard Uncloaked
+
+```json
+"effects": [
+  { "type": "play-target", "target": "character",
+    "filter": { "target.race": "wizard" } },
+  { "type": "bounce-hazard-events",
+    "corruptionCheck": { "modifier": -2 } }
+]
+```
+
 ### Orc-lieutenant
 
 ```json
@@ -1071,3 +1082,17 @@ Rules:
 ```json
 { "type": "control-restriction", "rule": "no-direct-influence" }
 ```
+
+### 29. `bounce-hazard-events`
+
+Returns all hazard permanent-event cards attached to characters in the
+targeted wizard's company to the opponent's hand, then enqueues a
+corruption check on the wizard. The target wizard is determined by the
+`play-target` effect (filter `target.race: wizard`).
+
+```json
+{ "type": "bounce-hazard-events",
+  "corruptionCheck": { "modifier": -2 } }
+```
+
+Implemented in `reducer-events.ts` (`handlePlayResourceShortEvent`).

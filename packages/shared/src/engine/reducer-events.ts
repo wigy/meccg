@@ -508,6 +508,70 @@ export function handlePlayResourceShortEvent(state: GameState, action: GameActio
     }
   }
 
+  // Handle bounce-hazard-events: return all hazard permanent-events
+  // on characters in the target wizard's company to the opponent's hand,
+  // then enqueue a corruption check on the wizard.
+  const bounceEffect = def.effects?.find(e => e.type === 'bounce-hazard-events');
+  if (bounceEffect && bounceEffect.type === 'bounce-hazard-events' && action.targetCharacterId) {
+    const wizardId = action.targetCharacterId;
+    const company = newState.players[playerIndex].companies.find(
+      c => c.characters.includes(wizardId),
+    );
+    if (company) {
+      const opponentIndex = (playerIndex + 1) % newState.players.length;
+      const bouncedCards: CardInstance[] = [];
+      const updatedPlayers2 = clonePlayers(newState);
+
+      for (const charId of company.characters) {
+        const char = updatedPlayers2[playerIndex].characters[charId as string];
+        if (!char) continue;
+        const remaining: import('../index.js').CardInPlay[] = [];
+        for (const haz of char.hazards) {
+          const hazDef = newState.cardPool[haz.definitionId as string];
+          if (hazDef && hazDef.cardType === 'hazard-event' && 'eventType' in hazDef && (hazDef as { eventType: string }).eventType === 'permanent') {
+            logDetail(`${def.name}: returning ${hazDef.name} from ${charId as string} to opponent's hand`);
+            bouncedCards.push({ instanceId: haz.instanceId, definitionId: haz.definitionId });
+          } else {
+            remaining.push(haz);
+          }
+        }
+        if (remaining.length !== char.hazards.length) {
+          updatedPlayers2[playerIndex] = {
+            ...updatedPlayers2[playerIndex],
+            characters: {
+              ...updatedPlayers2[playerIndex].characters,
+              [charId as string]: { ...char, hazards: remaining },
+            },
+          };
+        }
+      }
+
+      if (bouncedCards.length > 0) {
+        updatedPlayers2[opponentIndex] = {
+          ...updatedPlayers2[opponentIndex],
+          hand: [...updatedPlayers2[opponentIndex].hand, ...bouncedCards],
+        };
+        logDetail(`${def.name}: returned ${bouncedCards.length} hazard permanent-event(s) to opponent's hand`);
+      }
+      newState = { ...newState, players: updatedPlayers2 };
+
+      // Enqueue corruption check on the wizard
+      newState = enqueueResolution(newState, {
+        source: handCard.instanceId,
+        actor: action.player,
+        scope: { kind: 'phase' as const, phase: newState.phaseState.phase },
+        kind: {
+          type: 'corruption-check',
+          characterId: wizardId,
+          modifier: bounceEffect.corruptionCheck.modifier,
+          reason: def.name,
+          possessions: [],
+          transferredItemId: null,
+        },
+      });
+    }
+  }
+
   if (interactiveEffects.length > 0) {
     // Card goes to player's cardsInPlay (visible on table) while effects resolve
     logDetail(`${def.name} → cardsInPlay, resolving ${interactiveEffects.length} effect(s)`);

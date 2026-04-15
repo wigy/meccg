@@ -778,6 +778,21 @@ export interface ControlRestrictionEffect extends EffectBase {
 }
 
 /**
+ * Returns all hazard permanent-event cards attached to characters in the
+ * targeted wizard's company to the opponent's hand, then enqueues a
+ * corruption check on the wizard.
+ *
+ * Used by Wizard Uncloaked (td-169).
+ */
+export interface BounceHazardEventsEffect extends EffectBase {
+  readonly type: 'bounce-hazard-events';
+  /** Corruption check enqueued on the target wizard after resolution. */
+  readonly corruptionCheck: {
+    readonly modifier: number;
+  };
+}
+
+/**
  * Discriminated union of all card effect types.
  * The `type` field serves as the discriminant for type narrowing.
  */
@@ -812,4 +827,5 @@ export type CardEffect =
   | CompanyRuleEffect
   | CallOfHomeCheckEffect
   | AhuntAttackEffect
-  | ControlRestrictionEffect;
+  | ControlRestrictionEffect
+  | BounceHazardEventsEffect;
