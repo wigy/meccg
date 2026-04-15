@@ -53,6 +53,27 @@ export function handlePlayPermanentEvent(state: GameState, action: GameAction): 
     }
   }
 
+  // Check duplication-limit with scope "company"
+  if (def.effects && action.targetCharacterId) {
+    for (const effect of def.effects) {
+      if (effect.type !== 'duplication-limit' || effect.scope !== 'company') continue;
+      const company = player.companies.find(c => c.characters.includes(action.targetCharacterId!));
+      if (company) {
+        const copiesInCompany = company.characters.reduce((count, cId) => {
+          const ch = player.characters[cId as string];
+          if (!ch) return count;
+          return count + ch.items.filter(item => {
+            const iDef = state.cardPool[item.definitionId as string];
+            return iDef && iDef.name === def.name;
+          }).length;
+        }, 0);
+        if (copiesInCompany >= effect.max) {
+          return { state, error: `${def.name} cannot be duplicated in company` };
+        }
+      }
+    }
+  }
+
   logDetail(`Playing permanent event: ${def.name} → enters chain`);
 
   // Remove card from hand — it now resides on the chain
@@ -71,6 +92,7 @@ export function handlePlayPermanentEvent(state: GameState, action: GameAction): 
   const payload: import('../index.js').ChainEntryPayload = {
     type: 'permanent-event',
     ...(action.targetCharacterId ? { targetCharacterId: action.targetCharacterId } : {}),
+    ...(action.targetSiteDefinitionId ? { targetSiteDefinitionId: action.targetSiteDefinitionId } : {}),
   };
   if (newState.chain === null) {
     newState = initiateChain(newState, action.player, handCard, payload);
@@ -488,6 +510,21 @@ function applyPlayOptionAddConstraint(
     return { error: `${def.name} option '${option.id}': add-constraint missing constraint or scope` };
   }
 
+  // Company-targeted constraints: resolve the company from the target character
+  const isCompanyTargeted = constraintName === 'hazard-limit-modifier';
+  let companyId: import('../types/common.js').CompanyId | undefined;
+  if (isCompanyTargeted) {
+    const playerIndex = state.players.findIndex(p => targetCharacterId as string in p.characters);
+    if (playerIndex < 0) {
+      return { error: `${def.name} option '${option.id}': target character not found` };
+    }
+    const company = state.players[playerIndex].companies.find(c => c.characters.includes(targetCharacterId));
+    if (!company) {
+      return { error: `${def.name} option '${option.id}': target character not in any company` };
+    }
+    companyId = company.id;
+  }
+
   let scope: import('../types/pending.js').ConstraintScope;
   switch (scopeName) {
     case 'turn':
@@ -496,8 +533,14 @@ function applyPlayOptionAddConstraint(
     case 'until-cleared':
       scope = { kind: 'until-cleared' };
       break;
+    case 'company-mh-phase':
+      if (!companyId) {
+        return { error: `${def.name} option '${option.id}': company-mh-phase scope requires a company target` };
+      }
+      scope = { kind: 'company-mh-phase', companyId };
+      break;
     default:
-      return { error: `${def.name} option '${option.id}': unsupported scope '${scopeName}' for character-targeted add-constraint` };
+      return { error: `${def.name} option '${option.id}': unsupported scope '${scopeName}' for add-constraint` };
   }
 
   type Kind = import('../types/pending.js').ActiveConstraint['kind'];
@@ -509,17 +552,27 @@ function applyPlayOptionAddConstraint(
       }
       kind = { type: 'check-modifier', check: apply.check, value: apply.value };
       break;
+    case 'hazard-limit-modifier':
+      if (typeof apply.value !== 'number') {
+        return { error: `${def.name} option '${option.id}': hazard-limit-modifier requires numeric 'value'` };
+      }
+      kind = { type: 'hazard-limit-modifier', value: apply.value };
+      break;
     default:
-      return { error: `${def.name} option '${option.id}': unsupported constraint kind '${constraintName}' for character target` };
+      return { error: `${def.name} option '${option.id}': unsupported constraint kind '${constraintName}'` };
   }
 
-  logDetail(`${def.name} option "${option.id}": add ${constraintName} on character ${targetCharacterId as string}, scope ${scopeName}`);
+  const target: import('../types/pending.js').ActiveConstraint['target'] = isCompanyTargeted
+    ? { kind: 'company', companyId: companyId! }
+    : { kind: 'character', characterId: targetCharacterId };
+
+  logDetail(`${def.name} option "${option.id}": add ${constraintName} on ${isCompanyTargeted ? `company ${companyId as string}` : `character ${targetCharacterId as string}`}, scope ${scopeName}`);
   return {
     state: addConstraint(state, {
       source: handCard.instanceId,
       sourceDefinitionId: handCard.definitionId,
       scope,
-      target: { kind: 'character', characterId: targetCharacterId },
+      target,
       kind,
     }),
   };

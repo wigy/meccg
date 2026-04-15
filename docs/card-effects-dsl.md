@@ -152,6 +152,11 @@ Actions:
   the discard pile to hand. Only available to the resource player
   during the discard step (implemented in `legal-actions/end-of-turn.ts`,
   `reducer-end-of-turn.ts`)
+- `cancel-return-and-site-tap` — tap bearer (ranger) during
+  organization to add a turn-scoped constraint cancelling hazard
+  effects that force return to site of origin or tap the company's
+  site. Bearer makes a corruption check (implemented in
+  `reducer-organization.ts`)
 
 ```json
 { "type": "grant-action", "action": "test-gold-ring",
@@ -167,6 +172,8 @@ Actions:
   "cost": { "discard": "self" } }
 { "type": "grant-action", "action": "saruman-fetch-spell",
   "cost": { "tap": "self" } }
+{ "type": "grant-action", "action": "cancel-return-and-site-tap",
+  "cost": { "tap": "bearer" } }
 ```
 
 ### 8. `on-event`
@@ -195,7 +202,7 @@ Apply types:
 - `force-check` -- force a check roll on the target. The dispatcher enqueues a {@link PendingResolution} of kind `corruption-check`; the resolver in `engine/pending-reducers.ts` runs the dice roll and applies the standard discard / eliminate consequences when the check fails.
 - `discard-cards-in-play` -- discard all cards in play that match the `filter` condition (evaluated against card definitions).
 - `discard-non-special-items` -- discard all non-special items (subtype ≠ `"special"`) from the wounded character. Items are moved to the defending player's discard pile. Implemented in `reducer-combat.ts` for the `character-wounded-by-self` event.
-- `add-constraint` -- add an {@link ActiveConstraint} of the named kind to the target. Reserves the entry's `constraint` field for the kind name (e.g. `"site-phase-do-nothing"`, `"site-phase-do-nothing-unless-ranger-taps"`, `"no-creature-hazards-on-company"`, `"deny-scout-resources"`, `"auto-attack-prowess-boost"`, `"auto-attack-duplicate"`, `"site-type-override"`, `"region-type-override"`) and the `scope` field for the auto-clear boundary (e.g. `"company-site-phase"`, `"company-mh-phase"`, `"turn"`, `"until-cleared"`). Constraint-kind-specific fields include `value` + `siteType` for `auto-attack-prowess-boost`, `overrideType` for `site-type-override` (the site is the active company's destination at trigger time), and `overrideType` + `regionName` for `region-type-override` (use the token `"destination"` as the region name to target the destination region of the active company). The constraint filter in `legal-actions/pending.ts` rewrites legal actions for the affected target while the constraint lives.
+- `add-constraint` -- add an {@link ActiveConstraint} of the named kind to the target. Reserves the entry's `constraint` field for the kind name (e.g. `"site-phase-do-nothing"`, `"site-phase-do-nothing-unless-ranger-taps"`, `"no-creature-hazards-on-company"`, `"deny-scout-resources"`, `"auto-attack-prowess-boost"`, `"auto-attack-duplicate"`, `"site-type-override"`, `"region-type-override"`, `"skip-automatic-attacks"`) and the `scope` field for the auto-clear boundary (e.g. `"company-site-phase"`, `"company-mh-phase"`, `"turn"`, `"until-cleared"`). Constraint-kind-specific fields include `value` + `siteType` for `auto-attack-prowess-boost`, `overrideType` for `site-type-override` (the site is the active company's current site during site phase, or the destination during M/H phase), and `overrideType` + `regionName` for `region-type-override` (use the token `"destination"` as the region name to target the destination region of the active company). The `skip-automatic-attacks` constraint removes all automatic attacks from the bound site (resolved from the active company's current site during site phase). The constraint filter in `legal-actions/pending.ts` rewrites legal actions for the affected target while the constraint lives.
 - `discard-self` -- discard the card carrying this effect (typically an ally or attached hazard) from its bearer to the owning player's discard pile. Used with `company-arrives-at-site` + a `when` condition on `site.region` to enforce region-based restrictions (e.g. Treebeard), and with `company-composition-changed` + a `when` condition on `company.characterCount` to discard on company size (e.g. Alone and Unadvised). Implemented in `reducer-movement-hazard.ts` `fireAllyArrivalEffects()` and `reducer-utils.ts` `sweepAutoDiscardHazards()`.
 
 ### Pending resolutions
@@ -868,8 +875,12 @@ The resolver:
 `play-option` declares one of several mutually-exclusive choices the
 player may take when playing a card. Each option has an `id`, an optional
 `when` evaluated against the target context (`target.race`,
-`target.status`, `target.skills`), and an `apply` clause resolved by the
-generic reducer.
+`target.status`, `target.skills`, `inPlay`), and an `apply` clause
+resolved by the generic reducer.
+
+The `when` context includes `inPlay` — an array of all card names
+currently in play — so conditions like `{ "inPlay": "Gates of Morning" }`
+work.
 
 Supported `apply` kinds today:
 
@@ -880,7 +891,10 @@ Supported `apply` kinds today:
   a one-shot bonus (`check`, `value`) to the target's next check of the
   named type, consumed automatically on resolution. Future cards granting
   one-shot bonuses to influence or other checks reuse the same kind
-  unchanged.
+  unchanged. When `constraint: "hazard-limit-modifier"` is used, the
+  target is resolved to the company containing the targeted character and
+  the constraint modifies the hazard limit during the company's M/H phase.
+  The `scope` should be `"company-mh-phase"`.
 
 ### Marvels Told
 
@@ -909,6 +923,26 @@ Supported `apply` kinds today:
     "when": { "enemy.race": { "$in": ["orc", "troll", "man"] } } },
   { "type": "halve-strikes",
     "when": { "inPlay": "Gates of Morning" } }
+]
+```
+
+### Many Turns and Doublings
+
+```json
+"effects": [
+  { "type": "cancel-attack", "requiredSkill": "ranger",
+    "when": { "enemy.race": { "$in": ["wolf", "spider", "animal", "undead"] } } },
+  { "type": "play-target", "target": "character",
+    "filter": { "$and": [
+      { "target.skills": { "$includes": "ranger" } },
+      { "target.status": "untapped" }
+    ] },
+    "cost": { "tap": "character" } },
+  { "type": "play-option", "id": "decrease-hazard-limit",
+    "when": { "inPlay": "Gates of Morning" },
+    "apply": { "type": "add-constraint",
+               "constraint": "hazard-limit-modifier",
+               "scope": "company-mh-phase", "value": -1 } }
 ]
 ```
 

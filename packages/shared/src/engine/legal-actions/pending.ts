@@ -625,6 +625,12 @@ function applyOneConstraint(
       return base;
     case 'auto-attack-duplicate':
       return base;
+    case 'hazard-limit-modifier':
+      return base;
+    case 'cancel-return-and-site-tap':
+      return base;
+    case 'skip-automatic-attacks':
+      return base;
   }
 }
 

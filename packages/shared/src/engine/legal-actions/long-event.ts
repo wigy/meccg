@@ -198,7 +198,25 @@ export function longEventActions(state: GameState, playerId: PlayerId): Evaluate
         }
       };
 
-      if (playTarget && playTarget.cost?.tap === 'character') {
+      // Cards with play-option effects (e.g. Many Turns and Doublings)
+      // must go through the option path even when the play-target has a
+      // tap cost, so the option's `when` gate is evaluated.
+      const playOptions = getPlayOptionEffects(def);
+      if (playOptions.length > 0 && playTarget) {
+        const optionActions = playOptionActionsForLongEvent(
+          state, player, playerId, cardInstanceId, def, playTarget, playOptions,
+        );
+        if (optionActions.length === 0) {
+          logDetail(`${def.name}: no eligible play-option targets — not playable`);
+          actions.push({
+            action: { type: 'not-playable', player: playerId, cardInstanceId },
+            viable: false,
+            reason: `${def.name} requires a matching character and condition`,
+          });
+        } else {
+          actions.push(...optionActions);
+        }
+      } else if (playTarget && playTarget.cost?.tap === 'character') {
         const targets = eligibleTapTargets(state, player, playTarget);
         if (targets.length === 0) {
           logDetail(`${def.name}: no eligible targets — not playable`);
@@ -211,9 +229,8 @@ export function longEventActions(state: GameState, playerId: PlayerId): Evaluate
           for (const targetId of targets) emitPlay(targetId);
         }
       } else if (playTarget && playTarget.target === 'character') {
-        const options = getPlayOptionEffects(def);
         const optionActions = playOptionActionsForLongEvent(
-          state, player, playerId, cardInstanceId, def, playTarget, options,
+          state, player, playerId, cardInstanceId, def, playTarget, getPlayOptionEffects(def),
         );
         if (optionActions.length === 0) {
           logDetail(`${def.name}: no eligible character targets — not playable`);
@@ -266,7 +283,10 @@ function playOptionActionsForLongEvent(
   options: readonly PlayOptionEffect[],
 ): EvaluatedAction[] {
   const actions: EvaluatedAction[] = [];
-  const targets = eligibleCharacterTargets(state, player, playTarget);
+  const targets = playTarget.cost?.tap === 'character'
+    ? eligibleTapTargets(state, player, playTarget)
+    : eligibleCharacterTargets(state, player, playTarget);
+  const hasTapCost = playTarget.cost?.tap === 'character';
   for (const targetId of targets) {
     const char = player.characters[targetId as string];
     if (!char) continue;
@@ -279,6 +299,7 @@ function playOptionActionsForLongEvent(
           player: playerId,
           cardInstanceId,
           targetCharacterId: targetId,
+          ...(hasTapCost ? { targetScoutInstanceId: targetId } : {}),
         },
         viable: true,
       });
@@ -293,6 +314,7 @@ function playOptionActionsForLongEvent(
             cardInstanceId,
             targetCharacterId: targetId,
             optionId: opt.id,
+            ...(hasTapCost ? { targetScoutInstanceId: targetId } : {}),
           },
           viable: true,
         });

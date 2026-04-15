@@ -74,8 +74,31 @@
     "eventType": "short",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
-    "text": "Ranger only. Cancel an attack by Wolves, Spiders, Animals, or Undead against a ranger's company. Alternatively, if Gates of Morning is in play, decrease the hazard limit against the ranger's company by one (no minimum)."
+    "effects": [
+      {
+        "type": "cancel-attack",
+        "requiredSkill": "ranger",
+        "when": { "enemy.race": { "$in": ["wolf", "spider", "animal", "undead"] } }
+      },
+      {
+        "type": "play-target",
+        "target": "character",
+        "filter": { "target.skills": { "$includes": "ranger" } }
+      },
+      {
+        "type": "play-option",
+        "id": "decrease-hazard-limit",
+        "when": { "inPlay": "Gates of Morning" },
+        "apply": {
+          "type": "add-constraint",
+          "constraint": "hazard-limit-modifier",
+          "scope": "company-mh-phase",
+          "value": -1
+        }
+      }
+    ],
+    "text": "Ranger only. Cancel an attack by Wolves, Spiders, Animals, or Undead against a ranger's company. Alternatively, if Gates of Morning is in play, decrease the hazard limit against the ranger's company by one (no minimum).",
+    "certified": "2026-04-15"
   },
   {
     "cardType": "hero-resource-event",

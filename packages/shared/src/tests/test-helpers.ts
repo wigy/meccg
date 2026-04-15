@@ -654,6 +654,24 @@ export function attachAllyToChar(
   return { ...state, players: [p0, p1] as unknown as typeof state.players };
 }
 
+/** Attach an item (or permanent resource event) to a character and return the updated GameState. */
+export function attachItemToChar(
+  state: GameState,
+  playerIdx: number,
+  charDefId: CardDefinitionId,
+  itemDefId: CardDefinitionId,
+): GameState {
+  const charId = findCharInstanceId(state, playerIdx, charDefId);
+  const itemInPlay = { instanceId: mint(), definitionId: itemDefId, status: CardStatus.Untapped };
+  const char = state.players[playerIdx].characters[charId as string];
+  const updatedChar = { ...char, items: [...char.items, itemInPlay] };
+  const updatedCharacters = { ...state.players[playerIdx].characters, [charId as string]: updatedChar };
+  const updatedPlayer = { ...state.players[playerIdx], characters: updatedCharacters };
+  const p0 = playerIdx === 0 ? updatedPlayer : state.players[0];
+  const p1 = playerIdx === 1 ? updatedPlayer : state.players[1];
+  return { ...state, players: [p0, p1] as unknown as typeof state.players };
+}
+
 /**
  * Enqueue a transfer-style corruption-check pending resolution onto the
  * given state. Used by tests that simulate a just-completed item transfer

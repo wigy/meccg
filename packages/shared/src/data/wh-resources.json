@@ -32,7 +32,12 @@
     "keywords": [
       "Light Enchantment"
     ],
-    "effects": [],
+    "effects": [
+      { "type": "play-target", "target": "character", "filter": { "target.skills": { "$includes": "ranger" } } },
+      { "type": "duplication-limit", "scope": "company", "max": 1 },
+      { "type": "grant-action", "action": "cancel-return-and-site-tap", "cost": { "tap": "bearer" } }
+    ],
+    "certified": "2026-04-15",
     "text": "Light Enchantment. Playable during the organization phase on a ranger. Target ranger may tap to cancel all hazard effects for the rest of the turn that: force his company to return to its site of origin or that tap his company's current or new site. If so tapped, target ranger makes a corruption check. Cannot be duplicated in a given company."
   },
   {

@@ -345,6 +345,37 @@ export interface ActiveConstraint {
          * when the duplicate attack initiates.
          */
         readonly type: 'auto-attack-duplicate';
+      }
+    | {
+        /**
+         * Many Turns and Doublings: the hazard limit for the target
+         * company is modified by {@link value}. Applied after the base
+         * limit calculation in `computeHazardLimit`. The "no minimum"
+         * clause means the limit may drop below the standard floor of 2.
+         */
+        readonly type: 'hazard-limit-modifier';
+        /** The adjustment to the hazard limit (negative to decrease). */
+        readonly value: number;
+      }
+    | {
+        /**
+         * Promptings of Wisdom / Piercing All Shadows: cancels hazard
+         * effects that force the company to return to its site of origin
+         * or that tap the company's current or new site. Placed when the
+         * bearer ranger taps; scoped to the rest of the turn.
+         */
+        readonly type: 'cancel-return-and-site-tap';
+      }
+    | {
+        /**
+         * Rebuild the Town: the company's current site has its automatic
+         * attacks removed. When a company enters this site, automatic
+         * attacks are skipped entirely. Scoped `until-cleared` — persists
+         * as long as the permanent event remains in play.
+         */
+        readonly type: 'skip-automatic-attacks';
+        /** The definition ID of the site whose automatic attacks are skipped. */
+        readonly siteDefinitionId: import('./common.js').CardDefinitionId;
       };
 }
 
