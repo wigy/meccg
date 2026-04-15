@@ -113,7 +113,18 @@
     ],
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
-    "text": "Spell. Wizard only. Return all hazard permanent-events on characters in your Wizard's company to opponent's hand. Wizard makes a corruption check modified by -2.\n\nCannot be included in a Fallen-wizard's deck."
+    "effects": [
+      {
+        "type": "play-target",
+        "target": "character",
+        "filter": { "target.race": "wizard" }
+      },
+      {
+        "type": "bounce-hazard-events",
+        "corruptionCheck": { "modifier": -2 }
+      }
+    ],
+    "text": "Spell. Wizard only. Return all hazard permanent-events on characters in your Wizard's company to opponent's hand. Wizard makes a corruption check modified by -2.\n\nCannot be included in a Fallen-wizard's deck.",
+    "certified": "2026-04-15"
   }
 ]
