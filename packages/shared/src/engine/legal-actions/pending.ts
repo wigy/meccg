@@ -625,6 +625,8 @@ function applyOneConstraint(
       return base;
     case 'auto-attack-duplicate':
       return base;
+    case 'hazard-limit-modifier':
+      return base;
   }
 }
 

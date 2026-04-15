@@ -1439,6 +1439,17 @@ function computeHazardLimit(state: GameState, company: Company): number {
     limit = halved;
   }
 
+  for (const constraint of state.activeConstraints) {
+    if (constraint.kind.type === 'hazard-limit-modifier'
+        && constraint.target.kind === 'company'
+        && constraint.target.companyId === company.id) {
+      const prev = limit;
+      limit += constraint.kind.value;
+      logDetail(`Hazard limit modified by ${constraint.kind.value} (${constraint.sourceDefinitionId as string}): ${prev} → ${limit}`);
+    }
+  }
+  limit = Math.max(limit, 0);
+
   logDetail(`Hazard limit set to ${limit}`);
   return limit;
 }

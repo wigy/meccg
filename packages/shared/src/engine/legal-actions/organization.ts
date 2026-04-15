@@ -28,6 +28,7 @@ import type { PlayTargetEffect, PlayOptionEffect } from '../../types/effects.js'
 import { matchesCondition } from '../../effects/condition-matcher.js';
 import { logDetail, logHeading } from './log.js';
 import { resolveDef, collectCharacterEffects, resolveStatModifiers } from '../effects/index.js';
+import { buildInPlayNames } from '../recompute-derived.js';
 import { findPlayerAvatar } from '../reducer-utils.js';
 import type { ResolverContext } from '../effects/index.js';
 import { resolveInstanceId } from '../../types/state.js';
@@ -924,6 +925,7 @@ export function buildPlayOptionContext(
     pending: {
       corruptionCheckTargetsMe,
     },
+    inPlay: buildInPlayNames(state),
   };
 }
 
@@ -979,6 +981,7 @@ function playOptionActionsForCard(
   options: readonly PlayOptionEffect[],
 ): EvaluatedAction[] {
   const actions: EvaluatedAction[] = [];
+  const hasTapCost = playTarget.cost?.tap === 'character';
   const targets = eligiblePlayOptionTargets(state, player, playTarget);
   for (const targetId of targets) {
     const char = player.characters[targetId as string];
@@ -999,6 +1002,7 @@ function playOptionActionsForCard(
           cardInstanceId,
           targetCharacterId: targetId,
           optionId: opt.id,
+          ...(hasTapCost ? { targetScoutInstanceId: targetId } : {}),
         },
         viable: true,
       });

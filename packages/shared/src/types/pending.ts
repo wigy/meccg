@@ -345,6 +345,17 @@ export interface ActiveConstraint {
          * when the duplicate attack initiates.
          */
         readonly type: 'auto-attack-duplicate';
+      }
+    | {
+        /**
+         * Many Turns and Doublings: the hazard limit for the target
+         * company is modified by {@link value}. Applied after the base
+         * limit calculation in `computeHazardLimit`. The "no minimum"
+         * clause means the limit may drop below the standard floor of 2.
+         */
+        readonly type: 'hazard-limit-modifier';
+        /** The adjustment to the hazard limit (negative to decrease). */
+        readonly value: number;
       };
 }
 
