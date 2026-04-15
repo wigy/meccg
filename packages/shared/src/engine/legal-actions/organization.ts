@@ -613,6 +613,11 @@ export function grantedActionActivations(state: GameState, playerId: PlayerId, a
           logDetail(`Grant-action ${effect.action} on ${def?.name ?? '?'}: item is tapped, cannot activate`);
           continue;
         }
+        if (effect.cost.tap === 'bearer' && char.status !== CardStatus.Untapped) {
+          const def = state.cardPool[item.definitionId as string];
+          logDetail(`Grant-action ${effect.action} on ${def?.name ?? '?'}: bearer ${charDef?.name ?? '?'} is tapped, cannot activate`);
+          continue;
+        }
 
         const charDefForCtx = state.cardPool[char.definitionId as string];
         const charDefCard = charDefForCtx && isCharacterCard(charDefForCtx) ? charDefForCtx : undefined;

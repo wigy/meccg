@@ -356,6 +356,15 @@ export interface ActiveConstraint {
         readonly type: 'hazard-limit-modifier';
         /** The adjustment to the hazard limit (negative to decrease). */
         readonly value: number;
+      }
+    | {
+        /**
+         * Promptings of Wisdom / Piercing All Shadows: cancels hazard
+         * effects that force the company to return to its site of origin
+         * or that tap the company's current or new site. Placed when the
+         * bearer ranger taps; scoped to the rest of the turn.
+         */
+        readonly type: 'cancel-return-and-site-tap';
       };
 }
 

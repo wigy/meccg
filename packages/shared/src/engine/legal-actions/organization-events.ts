@@ -83,8 +83,25 @@ export function playPermanentEventActions(state: GameState, playerId: PlayerId):
       const charDupLimit = def.effects?.find(
         (e): e is DuplicationLimitEffect => e.type === 'duplication-limit' && e.scope === 'character',
       );
+      const companyDupLimit = def.effects?.find(
+        (e): e is DuplicationLimitEffect => e.type === 'duplication-limit' && e.scope === 'company',
+      );
       let anyTarget = false;
       for (const company of player.companies) {
+        if (companyDupLimit) {
+          const copiesInCompany = company.characters.reduce((count, cId) => {
+            const ch = player.characters[cId as string];
+            if (!ch) return count;
+            return count + ch.items.filter(item => {
+              const iDef = state.cardPool[item.definitionId as string];
+              return iDef && iDef.name === def.name;
+            }).length;
+          }, 0);
+          if (copiesInCompany >= companyDupLimit.max) {
+            logDetail(`Permanent event ${def.name}: company duplication limit reached (${copiesInCompany}/${companyDupLimit.max})`);
+            continue;
+          }
+        }
         const companySkills = company.characters.flatMap(cId => {
           const ch = player.characters[cId as string];
           if (!ch) return [];

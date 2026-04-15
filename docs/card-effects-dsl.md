@@ -152,6 +152,11 @@ Actions:
   the discard pile to hand. Only available to the resource player
   during the discard step (implemented in `legal-actions/end-of-turn.ts`,
   `reducer-end-of-turn.ts`)
+- `cancel-return-and-site-tap` — tap bearer (ranger) during
+  organization to add a turn-scoped constraint cancelling hazard
+  effects that force return to site of origin or tap the company's
+  site. Bearer makes a corruption check (implemented in
+  `reducer-organization.ts`)
 
 ```json
 { "type": "grant-action", "action": "test-gold-ring",
@@ -167,6 +172,8 @@ Actions:
   "cost": { "discard": "self" } }
 { "type": "grant-action", "action": "saruman-fetch-spell",
   "cost": { "tap": "self" } }
+{ "type": "grant-action", "action": "cancel-return-and-site-tap",
+  "cost": { "tap": "bearer" } }
 ```
 
 ### 8. `on-event`
