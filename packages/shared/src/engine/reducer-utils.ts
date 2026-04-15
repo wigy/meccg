@@ -28,37 +28,6 @@ export interface ReducerResult {
 }
 
 
-const PILE_NAMES = [
-  'hand', 'playDeck', 'discardPile', 'siteDeck', 'siteDiscardPile',
-  'sideboard', 'killPile', 'outOfPlayPile',
-] as const;
-
-
-
-/**
- * Counts the total number of card instances across all players' piles,
- * characters, items, allies, cards in play, company sites, and events.
- * Used to mint globally unique instance IDs (e.g. `i-{count}`).
- */
-export function countAllInstances(state: GameState): number {
-  let count = 0;
-  for (const player of state.players) {
-    for (const pileName of PILE_NAMES) {
-      count += player[pileName].length;
-    }
-    for (const char of Object.values(player.characters)) {
-      count++; // the character itself
-      count += char.items.length;
-      count += char.allies.length;
-    }
-    count += player.cardsInPlay.length;
-    for (const company of player.companies) {
-      if (company.currentSite) count++;
-    }
-  }
-  return count;
-}
-
 /**
  * Roll 2d6, respecting an optional cheat roll target. If `cheatRollTotal` is
  * set on the state, produces dice that sum to that total (using RNG to pick

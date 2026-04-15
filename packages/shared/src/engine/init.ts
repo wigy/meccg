@@ -147,7 +147,7 @@ export function createGame(
         step: SetupStep.CharacterDraft,
         round: 1,
         draftState,
-        setAside: [],
+        setAside: [[], []],
       },
     },
     combat: null,
@@ -241,39 +241,32 @@ function initPlayerPreDraft(
 export function applyDraftResults(
   state: GameState,
   draftState: readonly [DraftPlayerState, DraftPlayerState],
-  setAside: readonly CardInstance[] = [],
+  setAside: readonly [readonly CardInstance[], readonly CardInstance[]] = [[], []],
 ): GameState {
-  // Continue minting from where we left off — count all existing instances across piles and draft state
-  const existingCount = state.players.reduce((sum, p) =>
-    sum + p.playDeck.length + p.siteDeck.length + p.sideboard.length, 0)
-    + draftState[0].pool.length + draftState[0].drafted.length
-    + draftState[1].pool.length + draftState[1].drafted.length
-    + setAside.length;
-  const minter: InstanceMinter = { counter: existingCount, prefix: 'i' };
-
   const results = state.players.map((player, index) => {
     const drafted = draftState[index].drafted;
     const pool = draftState[index].pool;
 
-    // Extract items from the pool (items are not drafted during character draft)
+    // Extract items from the pool (items are not drafted during character draft).
+    // Keep the original instance IDs — every card minted into the game must keep
+    // its instance ID for the lifetime of the game.
     const minorItems: CardInstance[] = [];
     for (const card of pool) {
       if (isItemCard(state.cardPool[card.definitionId as string])) {
-        minorItems.push(mint(minter, card.definitionId));
+        minorItems.push(card);
       }
     }
 
-    // Mint characters from the drafted list
+    // Promote drafted cards to characters-in-play using their existing instance IDs.
     const characters: Record<string, CharacterInPlay> = {};
     const characterInstanceIds: CardInstanceId[] = [];
 
     for (const card of drafted) {
       const def = state.cardPool[card.definitionId as string];
       if (!isCharacterCard(def)) continue;
-      const minted = mint(minter, card.definitionId);
-      characterInstanceIds.push(minted.instanceId);
-      characters[minted.instanceId as string] = {
-        instanceId: minted.instanceId,
+      characterInstanceIds.push(card.instanceId);
+      characters[card.instanceId as string] = {
+        instanceId: card.instanceId,
         definitionId: card.definitionId,
         status: CardStatus.Untapped,
         items: [],
@@ -311,11 +304,12 @@ export function applyDraftResults(
   });
 
   const newPlayers: readonly [PlayerState, PlayerState] = [results[0].player, results[1].player];
-  // Remaining pool for character deck draft: undrafted characters + set-aside characters
-  // (items are excluded — already extracted above)
+  // Remaining pool for character deck draft: undrafted characters + this player's set-aside characters
+  // (items are excluded — already extracted above). Each player keeps the collided instances that
+  // originated from their own pick, so every instance remains in exactly one location.
   const remainingPool: readonly [readonly CardInstance[], readonly CardInstance[]] = [
-    [...draftState[0].pool.filter(card => !isItemCard(state.cardPool[card.definitionId as string])), ...setAside],
-    [...draftState[1].pool.filter(card => !isItemCard(state.cardPool[card.definitionId as string])), ...setAside],
+    [...draftState[0].pool.filter(card => !isItemCard(state.cardPool[card.definitionId as string])), ...setAside[0]],
+    [...draftState[1].pool.filter(card => !isItemCard(state.cardPool[card.definitionId as string])), ...setAside[1]],
   ];
   const itemDraftState: readonly [ItemDraftPlayerState, ItemDraftPlayerState] = [
     { unassignedItems: results[0].unassignedItems, done: results[0].unassignedItems.length === 0 },

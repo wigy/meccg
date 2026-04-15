@@ -6,13 +6,13 @@
  * character placement, deck shuffle, initial draw, and initiative roll.
  */
 
-import type { GameState, DraftPlayerState, ItemDraftPlayerState, CharacterDeckDraftPlayerState, SetupStepState, CardInstanceId, CharacterInPlay, CardInstance, GameAction } from '../index.js';
+import type { GameState, DraftPlayerState, ItemDraftPlayerState, CharacterDeckDraftPlayerState, SetupStepState, CharacterInPlay, CardInstance, GameAction } from '../index.js';
 import type { TwoDiceSix, GameEffect } from '../index.js';
 import { Phase, SetupStep, getAlignmentRules, shuffle, CardStatus, isCharacterCard, getPlayerIndex, MAX_STARTING_ITEMS } from '../index.js';
 import { logDetail } from './legal-actions/log.js';
 import { applyDraftResults, transitionAfterItemDraft, enterSiteSelection, startFirstTurn } from './init.js';
 import type { ReducerResult } from './reducer-utils.js';
-import { countAllInstances, roll2d6, clonePlayers, cleanupEmptyCompanies, nextCompanyId } from './reducer-utils.js';
+import { roll2d6, clonePlayers, cleanupEmptyCompanies, nextCompanyId } from './reducer-utils.js';
 
 
 export function handleSetup(state: GameState, action: GameAction): ReducerResult {
@@ -175,11 +175,11 @@ function resolveDraftRound(
   state: GameState,
   draftState: [DraftPlayerState, DraftPlayerState],
   round: number,
-  setAside: readonly CardInstance[],
+  setAside: readonly [readonly CardInstance[], readonly CardInstance[]],
 ): ReducerResult {
   const pick0 = draftState[0].currentPick;
   const pick1 = draftState[1].currentPick;
-  const newSetAside = [...setAside];
+  const newSetAside: [CardInstance[], CardInstance[]] = [[...setAside[0]], [...setAside[1]]];
 
   // Resolve each player's pick
   const newDraft: [DraftPlayerState, DraftPlayerState] = [
@@ -191,8 +191,10 @@ function resolveDraftRound(
   const def0 = pick0 !== null ? pick0.definitionId : null;
   const def1 = pick1 !== null ? pick1.definitionId : null;
   if (pick0 !== null && pick1 !== null && def0 === def1) {
-    // Duplicate! Neither gets it — set aside both instances, remove same definition from both pools
-    newSetAside.push(pick0);
+    // Duplicate! Neither gets it — set aside both instances (one per player, so no instance ID is shared).
+    // Remove the collided definition from both pools.
+    newSetAside[0].push(pick0);
+    newSetAside[1].push(pick1);
     newDraft[0] = { ...newDraft[0], pool: newDraft[0].pool.filter(c => c.definitionId !== def0) };
     newDraft[1] = { ...newDraft[1], pool: newDraft[1].pool.filter(c => c.definitionId !== def0) };
   } else {
@@ -254,7 +256,7 @@ function resolveDraftRound(
 function finalizeDraft(
   state: GameState,
   draftState: readonly [DraftPlayerState, DraftPlayerState],
-  setAside: readonly CardInstance[],
+  setAside: readonly [readonly CardInstance[], readonly CardInstance[]],
 ): ReducerResult {
   return {
     state: applyDraftResults(state, draftState, setAside),
@@ -450,14 +452,12 @@ function handleCharacterDeckDraft(
     }
   }
 
-  // Mint a new play-deck instance from the draft card's definition and add to play deck
+  // Transfer the existing draft-pool instance directly into the play deck — never re-mint.
+  // Instance IDs must remain stable for the lifetime of the game.
   if (!draftDefId) return { state, error: 'Invalid character instance' };
-  const counter = countAllInstances(state);
-  const instanceId = `i-${counter}` as CardInstanceId;
-  const newInstance: CardInstance = { instanceId, definitionId: draftDefId };
 
   const player = state.players[playerIndex];
-  const newPlayDeck = [...player.playDeck, newInstance];
+  const newPlayDeck = [...player.playDeck, poolCard];
   const newPlayers = clonePlayers(state);
   newPlayers[playerIndex] = { ...player, playDeck: newPlayDeck };
 

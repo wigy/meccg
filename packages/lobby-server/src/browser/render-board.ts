@@ -270,13 +270,14 @@ export function renderDrafted(
       oppEl.appendChild(createFaceDownCard('Opponent pick (face down)'));
     }
 
-    // Show set-aside (collisioned) characters on the left
-    if (setAsideEl && draft.setAside.length > 0) {
+    // Show this player's set-aside (collisioned) characters on the left
+    const selfSetAside = draft.setAside[selfIdx];
+    if (setAsideEl && selfSetAside.length > 0) {
       const label = document.createElement('div');
       label.className = 'set-aside-label';
       label.textContent = 'Set Aside';
       setAsideEl.appendChild(label);
-      const resolvedSetAside = draftDefIds(draft.setAside);
+      const resolvedSetAside = draftDefIds(selfSetAside);
       for (let j = 0; j < resolvedSetAside.length; j++) {
         const defId = resolvedSetAside[j];
         const def = cardPool[defId as string];

@@ -58,8 +58,9 @@ export function renderDraft(view: PlayerView, cardPool: Readonly<Record<string, 
   lines.push(`Drafted [0]: ${list(instIds(draft.draftState[0].drafted))}`);
   lines.push(`Pool [1]: ${list(instIds(draft.draftState[1].pool))}`);
   lines.push(`Drafted [1]: ${list(instIds(draft.draftState[1].drafted))}`);
-  if (draft.setAside.length > 0) {
-    lines.push(`Set aside: ${list(instIds(draft.setAside))}`);
+  const flatSetAside = [...draft.setAside[0], ...draft.setAside[1]];
+  if (flatSetAside.length > 0) {
+    lines.push(`Set aside: ${list(instIds(flatSetAside))}`);
   }
 
   el.innerHTML = textToHtml(lines.join('\n'));

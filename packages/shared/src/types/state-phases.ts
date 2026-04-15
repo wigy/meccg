@@ -92,8 +92,13 @@ export type SetupStepState =
       readonly round: number;
       /** Draft state for each player (indexed by player order). */
       readonly draftState: readonly [DraftPlayerState, DraftPlayerState];
-      /** Cards set aside due to collisions. */
-      readonly setAside: readonly CardInstance[];
+      /**
+       * Cards set aside due to collisions, per player. On a collision both
+       * players' picks are preserved: `setAside[0]` holds player 0's set-aside
+       * instances, `setAside[1]` holds player 1's. Each instance must remain
+       * findable in game state for the lifetime of the game.
+       */
+      readonly setAside: readonly [readonly CardInstance[], readonly CardInstance[]];
     }
   | {
       readonly step: SetupStep.ItemDraft;

@@ -75,6 +75,7 @@ Before every push, always run all five of these **in parallel** and fix any fail
 - Game rules are enforced server-side; the client is a presentation layer
 - The game engine is a pure reducer — no side effects in state transitions
 - **Card instance IDs are the universal reference:** Everywhere in the game (state, actions, phase state, UI) cards are referred to by their `CardInstanceId`. A reference may optionally carry the card's identity (definition ID, name), but the instance ID is always the primary key. Never use bare definition IDs or indices where an instance ID should be used.
+- **No card instance may ever disappear from the game state.** Every `CardInstance` minted into the game must remain reachable somewhere in state (a pile, zone, set-aside list, discard, etc.) for the entire game — `resolveInstanceId` must always succeed. When writing or reviewing any reducer path, check that every instance on the input side lands somewhere on the output side. This is especially easy to violate in collision/duplicate handling, set-aside logic, and phase transitions: never filter an instance out of one collection without pushing it into another.
 
 ### Server-Side Logging Policy
 

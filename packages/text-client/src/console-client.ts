@@ -233,8 +233,9 @@ function connect(): void {
             console.log(`Opponent drafted: ${list(ids(draft.draftState[oppIdx].drafted))}`);
           }
 
-          if (draft.setAside.length > 0) {
-            console.log(`Set aside: ${list(ids(draft.setAside))}`);
+          const flatSetAside = [...draft.setAside[0], ...draft.setAside[1]];
+          if (flatSetAside.length > 0) {
+            console.log(`Set aside: ${list(ids(flatSetAside))}`);
           }
         }
 

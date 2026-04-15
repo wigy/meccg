@@ -104,7 +104,7 @@ export function buildInstanceLookup(view: PlayerView): InstanceLookup {
         addCards(ds.drafted);
         if (ds.currentPick) addCards([ds.currentPick]);
       }
-      addCards(step.setAside);
+      for (const arr of step.setAside) addCards(arr);
     } else if (step.step === SetupStep.ItemDraft) {
       for (const ids of step.itemDraftState) addCards(ids.unassignedItems);
       for (const pool of step.remainingPool) addCards(pool);
