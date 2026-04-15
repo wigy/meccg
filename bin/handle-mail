@@ -373,8 +373,7 @@ case "$REQUESTOR" in
     REQUESTOR_CREDITS=$(get_player_credits "$REQUESTOR")
     log "Requestor '$REQUESTOR' has $REQUESTOR_CREDITS credits."
     if [ "$REQUESTOR_CREDITS" -le 0 ]; then
-      log "Skipping handling: '$REQUESTOR' has no credits left ($REQUESTOR_CREDITS)."
-      set_status "ai" "$MSG_ID" '{"status":"processed","success":false}'
+      log "Skipping handling: '$REQUESTOR' has no credits left ($REQUESTOR_CREDITS). Leaving message unprocessed."
       exit 0
     fi
     ;;
