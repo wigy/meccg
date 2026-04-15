@@ -153,6 +153,7 @@ export const LEGAL_ACTIONS_BY_PHASE: Readonly<Record<Phase, readonly GameAction[
     'influence-attempt',
     'opponent-influence-attempt',
     'opponent-influence-defend',
+    'cancel-influence',
     'faction-influence-roll',
     'play-minor-item',
     'assign-strike',

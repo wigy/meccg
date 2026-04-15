@@ -299,6 +299,8 @@ export function describeAction(
       return action.scoutInstanceId
         ? `Cancel attack: play ${instName(action.cardInstanceId)}, tap ${instName(action.scoutInstanceId)}`
         : `Cancel attack: play ${instName(action.cardInstanceId)}`;
+    case 'cancel-influence':
+      return `Cancel influence: play ${instName(action.cardInstanceId)}, ${instName(action.characterId)} makes corruption check`;
     case 'halve-strikes':
       return `Halve strikes: play ${instName(action.cardInstanceId)}`;
     case 'cancel-by-tap':

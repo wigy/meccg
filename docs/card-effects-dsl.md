@@ -243,6 +243,23 @@ the combat context including `enemy.race`).
   "when": { "enemy.race": { "$in": ["orc", "troll", "men", "man"] } } }
 ```
 
+### 9a. `cancel-influence`
+
+Automatically cancels an opponent's influence check against one of the
+player's characters, followers, factions, allies, or items. Played from
+hand during the opponent's site phase while an `opponent-influence-defend`
+resolution is pending. The card is discarded after use.
+
+When `requiredRace` is present, requires a character of that race under
+the player's control. The `cost` is typically a corruption check with a
+modifier that the cost-paying character must make after the cancellation.
+
+```json
+{ "type": "cancel-influence",
+  "requiredRace": "wizard",
+  "cost": { "check": "corruption", "modifier": -2 } }
+```
+
 ### 9b. `halve-strikes`
 
 Halves the number of strikes in the current attack (rounded up). Played

@@ -608,6 +608,24 @@ export interface CancelAttackEffect extends EffectBase {
 }
 
 /**
+ * Automatically cancels an opponent's influence check against one of the
+ * player's characters, followers, factions, allies, or items. Played from
+ * hand during the opponent's site phase while an
+ * `opponent-influence-defend` resolution is pending.
+ *
+ * Modeled after {@link CancelAttackEffect}: the `requiredRace` field gates
+ * who can pay the cost (e.g. "wizard" for Wizard's Laughter), and the cost
+ * is typically a corruption check with a modifier.
+ */
+export interface CancelInfluenceEffect extends EffectBase {
+  readonly type: 'cancel-influence';
+  /** The cost to cancel the influence check (typically a corruption check). */
+  readonly cost?: ActionCost;
+  /** The race required on the character who pays the cost (e.g. "wizard"). */
+  readonly requiredRace?: string;
+}
+
+/**
  * Halves the number of strikes in the current attack (rounded up).
  * Played from hand as a short event during combat before strikes are
  * assigned; the card is discarded after use.
@@ -796,6 +814,7 @@ export type CardEffect =
   | OnEventEffect
   | CancelStrikeEffect
   | CancelAttackEffect
+  | CancelInfluenceEffect
   | DodgeStrikeEffect
   | HalveStrikesEffect
   | CombatRuleEffect

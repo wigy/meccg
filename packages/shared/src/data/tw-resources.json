@@ -579,7 +579,14 @@
     ],
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
+    "effects": [
+      {
+        "type": "cancel-influence",
+        "requiredRace": "wizard",
+        "cost": { "check": "corruption", "modifier": -2 }
+      }
+    ],
+    "certified": "2026-04-15",
     "text": "Spell. Wizard only during opponent\u2019s site phase. Automatically cancels an influence check against one of the Wizard\u2019s player\u2019s characters, followers, factions, allies, or items. Wizard makes a corruption check modified by -2."
   },
   {

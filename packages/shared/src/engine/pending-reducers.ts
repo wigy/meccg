@@ -335,22 +335,25 @@ function applyOnGuardWindowResolution(
 
 /**
  * Resolve a queued `opponent-influence-defend` resolution. The hazard
- * player rolls 2d6, the engine computes the final result, and the
- * consequences are applied (target discarded on success, revealed card
- * discarded on failure). The actual roll-and-resolve logic lives in
- * `reducer-site.ts:resolveOpponentInfluenceDefend` and is invoked here.
+ * player either rolls 2d6 (standard defense) or plays a cancel-influence
+ * card to automatically cancel the attempt. The standard roll-and-resolve
+ * logic lives in `reducer-site.ts:resolveOpponentInfluenceDefend`.
  */
 function applyOpponentInfluenceDefendResolution(
   state: GameState,
   action: GameAction,
   top: PendingResolution,
 ): ReducerResult | null {
+  if (top.kind.type !== 'opponent-influence-defend') return null;
+
+  if (action.type === 'cancel-influence') {
+    return applyCancelInfluence(state, action, top);
+  }
+
   if (action.type !== 'opponent-influence-defend') {
     return { state, error: `Pending opponent-influence-defend requires that action, got '${action.type}'` };
   }
-  if (top.kind.type !== 'opponent-influence-defend') return null;
 
-  // Validate the actor is the resolution's actor (the hazard player).
   if (action.player !== top.actor) {
     return { state, error: 'Wrong player for pending opponent-influence-defend' };
   }
@@ -362,6 +365,88 @@ function applyOpponentInfluenceDefendResolution(
     state: dequeueResolution(result.state, top.id),
     effects: result.effects,
   };
+}
+
+/**
+ * Handle a cancel-influence action: the defending player plays a
+ * cancel-influence card (e.g. Wizard's Laughter) to automatically
+ * cancel an opponent's influence attempt. The card is discarded from
+ * hand, the influence attempt is removed, and the cost-paying character
+ * makes a corruption check.
+ */
+function applyCancelInfluence(
+  state: GameState,
+  action: GameAction,
+  top: PendingResolution,
+): ReducerResult {
+  if (action.type !== 'cancel-influence') {
+    return { state, error: 'Expected cancel-influence action' };
+  }
+  if (top.kind.type !== 'opponent-influence-defend') {
+    return { state, error: 'cancel-influence requires a pending opponent-influence-defend' };
+  }
+  if (action.player !== top.actor) {
+    return { state, error: 'Wrong player for cancel-influence' };
+  }
+
+  const playerIndex = getPlayerIndex(state, action.player);
+  const players = clonePlayers(state);
+  const player = players[playerIndex];
+
+  const handCards = [...player.hand];
+  const cardIndex = handCards.findIndex(c => c.instanceId === action.cardInstanceId);
+  if (cardIndex < 0) {
+    return { state, error: 'cancel-influence card not found in hand' };
+  }
+  const [discardedCard] = handCards.splice(cardIndex, 1);
+  const cardDef = state.cardPool[discardedCard.definitionId as string];
+  if (!cardDef) {
+    return { state, error: 'cancel-influence card definition not found' };
+  }
+
+  const cancelEffect = ('effects' in cardDef && cardDef.effects)
+    ? (cardDef.effects as import('../index.js').CardEffect[]).find(e => e.type === 'cancel-influence')
+    : undefined;
+  if (!cancelEffect || cancelEffect.type !== 'cancel-influence') {
+    return { state, error: 'Card has no cancel-influence effect' };
+  }
+
+  const newDiscard = [...player.discardPile, { instanceId: discardedCard.instanceId, definitionId: discardedCard.definitionId }];
+  players[playerIndex] = { ...player, hand: handCards, discardPile: newDiscard };
+
+  logDetail(`Cancel-influence: ${cardDef.name} played, influence attempt auto-canceled`);
+
+  let resultState: GameState = { ...state, players: players as unknown as GameState['players'] };
+  resultState = dequeueResolution(resultState, top.id);
+
+  if (cancelEffect.cost && 'check' in cancelEffect.cost && cancelEffect.cost.check === 'corruption') {
+    const modifier = cancelEffect.cost.modifier ?? 0;
+    const charDefId = resolveInstanceId(state, action.characterId);
+    const charDef = charDefId ? state.cardPool[charDefId as string] : undefined;
+    const reason = charDef && 'name' in charDef ? charDef.name : 'cancel-influence';
+
+    const activeCompanyIndex = (state.phaseState as { activeCompanyIndex?: number }).activeCompanyIndex ?? 0;
+    const activePlayer = state.players.find(p => p.id === state.activePlayer);
+    const activeCompany = activePlayer?.companies[activeCompanyIndex];
+    const companyId = activeCompany?.id ?? '' as import('../index.js').CompanyId;
+
+    logDetail(`Cancel-influence: enqueuing corruption check for ${reason} (modifier ${modifier})`);
+    resultState = enqueueResolution(resultState, {
+      source: action.cardInstanceId,
+      actor: action.player,
+      scope: { kind: 'company-site-subphase', companyId },
+      kind: {
+        type: 'corruption-check',
+        characterId: action.characterId,
+        modifier,
+        reason,
+        possessions: [],
+        transferredItemId: null,
+      },
+    });
+  }
+
+  return { state: resultState };
 }
 
 /**

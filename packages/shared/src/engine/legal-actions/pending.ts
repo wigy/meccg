@@ -180,11 +180,11 @@ function onGuardWindowActions(
 }
 
 /**
- * Compute the (single) legal action for the hazard player while an
- * opponent-influence-defend resolution is queued — they roll the
- * defensive 2d6 by submitting an `opponent-influence-defend` action.
- * Builds a human-readable explanation from the pending attempt data
- * so the UI can display a situation banner before the roll.
+ * Compute legal actions for the hazard player while an
+ * opponent-influence-defend resolution is queued. The defending player
+ * can either roll the defensive 2d6 (standard) or play a
+ * cancel-influence card from hand (e.g. Wizard's Laughter) to
+ * automatically cancel the influence attempt.
  */
 function opponentInfluenceDefendActions(
   state: GameState,
@@ -211,10 +211,62 @@ function opponentInfluenceDefendActions(
 
   const explanation = `${influencerName} influences ${targetName}: ${parts.join(', ')}`;
 
-  return [{
+  const actions: EvaluatedAction[] = [{
     action: { type: 'opponent-influence-defend', player: actor, explanation },
     viable: true,
   }];
+
+  actions.push(...cancelInfluenceActions(state, actor));
+
+  return actions;
+}
+
+/**
+ * Scan the defending player's hand for cancel-influence cards (e.g.
+ * Wizard's Laughter) and generate one action per qualifying character
+ * who can pay the cost.
+ */
+function cancelInfluenceActions(
+  state: GameState,
+  actor: PlayerId,
+): EvaluatedAction[] {
+  const actions: EvaluatedAction[] = [];
+  const playerIndex = state.players.findIndex(p => p.id === actor);
+  if (playerIndex < 0) return actions;
+  const player = state.players[playerIndex];
+
+  for (const handCard of player.hand) {
+    const def = resolveDef(state, handCard.instanceId);
+    if (!def || !('effects' in def) || !def.effects) continue;
+
+    const cancelEffect = (def.effects as CardEffect[]).find(e => e.type === 'cancel-influence');
+    if (!cancelEffect || cancelEffect.type !== 'cancel-influence') continue;
+
+    if (cancelEffect.requiredRace) {
+      for (const company of player.companies) {
+        for (const charId of company.characters) {
+          const charData = player.characters[charId as string];
+          if (!charData) continue;
+          const charDef = resolveDef(state, charId);
+          if (!charDef || !isCharacterCard(charDef)) continue;
+          if (charDef.race !== cancelEffect.requiredRace) continue;
+
+          logDetail(`Cancel-influence: ${charDef.name} (${cancelEffect.requiredRace}) can play ${def.name}`);
+          actions.push({
+            action: {
+              type: 'cancel-influence',
+              player: actor,
+              cardInstanceId: handCard.instanceId,
+              characterId: charId,
+            },
+            viable: true,
+          });
+        }
+      }
+    }
+  }
+
+  return actions;
 }
 
 /**
