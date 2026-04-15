@@ -177,23 +177,9 @@ function handlePlayCharacter(state: GameState, action: GameAction): ReducerResul
   const player = state.players[playerIndex];
   const phaseState = state.phaseState as OrganizationPhaseState;
 
-  // Validate: only one character play per turn
-  if (phaseState.characterPlayedThisTurn) {
-    return { state, error: 'Already played a character this turn' };
-  }
-
-  // Validate: character must be in hand
   const charInstId = action.characterInstanceId;
-  const handCard = player.hand.find(c => c.instanceId === charInstId);
-  if (!handCard) {
-    return { state, error: 'Character not in hand' };
-  }
-
-  // Validate: must be a character card
-  const charDef = state.cardPool[handCard.definitionId as string];
-  if (!charDef || !isCharacterCard(charDef)) {
-    return { state, error: 'Card is not a character' };
-  }
+  const handCard = player.hand.find(c => c.instanceId === charInstId)!;
+  const charDef = state.cardPool[handCard.definitionId as string] as import('../types/cards.js').CharacterCard;
 
   logDetail(`Play character: ${charDef.name} (mind ${charDef.mind ?? 'null'}) at site ${action.atSite as string}, controlledBy ${action.controlledBy as string}`);
 
@@ -220,46 +206,16 @@ function handlePlayCharacter(state: GameState, action: GameAction): ReducerResul
   // Update or create company
   let newSiteDeck = player.siteDeck;
   if (existingCompanyIdx >= 0) {
-    // Validate home-site-only restriction against existing company's site
     const company = companies[existingCompanyIdx];
-    const homeSiteOnlyExisting = hasPlayFlag(charDef, 'home-site-only');
-    if (homeSiteOnlyExisting && company.currentSite) {
-      const companySiteDef = state.cardPool[company.currentSite.definitionId as string];
-      if (companySiteDef && isSiteCard(companySiteDef) && companySiteDef.name !== charDef.homesite) {
-        return { state, error: `${charDef.name} can only be played at homesite (${charDef.homesite})` };
-      }
-    }
-    // Add character to existing company
     logDetail(`  Adding to existing company ${company.id as string}`);
     companies[existingCompanyIdx] = {
       ...company,
       characters: [...company.characters, charInstId],
     };
   } else {
-    // Need to create a new company — the site comes from the site deck
     const siteInstId = action.atSite;
-
-    // Validate: site must be in the site deck
-    const siteCard = player.siteDeck.find(c => c.instanceId === siteInstId);
-    if (!siteCard) {
-      return { state, error: 'Site not available in site deck' };
-    }
-
-    // Validate: must be a valid site (haven or homesite)
-    const siteDef = state.cardPool[siteCard.definitionId as string];
-    if (!siteDef || !isSiteCard(siteDef)) {
-      return { state, error: 'Not a valid site card' };
-    }
-    const isHaven = siteDef.siteType === SiteType.Haven;
-    const isHomesite = siteDef.name === charDef.homesite;
-    // Characters with home-site-only restriction cannot be played at havens
-    const homeSiteOnly = hasPlayFlag(charDef, 'home-site-only');
-    if (homeSiteOnly && !isHomesite) {
-      return { state, error: `${charDef.name} can only be played at home site (${charDef.homesite})` };
-    }
-    if (!isHaven && !isHomesite) {
-      return { state, error: `${siteDef.name} is neither a haven nor ${charDef.name}'s homesite` };
-    }
+    const siteCard = player.siteDeck.find(c => c.instanceId === siteInstId)!;
+    const siteDef = state.cardPool[siteCard.definitionId as string] as import('../types/cards.js').SiteCard;
 
     logDetail(`  Creating new company at ${siteDef.name} (from site deck)`);
 
@@ -341,16 +297,13 @@ function handleMoveToInfluence(state: GameState, action: GameAction): ReducerRes
 
   const charDefId = resolveInstanceId(state, charInstId);
   const charDef = charDefId ? state.cardPool[charDefId as string] : undefined;
-  if (!charDef || !isCharacterCard(charDef)) return { state, error: 'Not a character card' };
+  const narrowedCharDef = charDef as import('../types/cards.js').CharacterCard;
 
-  logDetail(`Move to influence: ${charDef.name} → ${action.controlledBy as string}`);
+  logDetail(`Move to influence: ${narrowedCharDef.name} → ${action.controlledBy as string}`);
 
   const newCharacters = { ...player.characters };
 
   if (action.controlledBy === 'general') {
-    // Moving from DI to GI
-    if (char.controlledBy === 'general') return { state, error: 'Character is already under general influence' };
-
     // Remove from old controller's followers list
     const oldControllerId = char.controlledBy;
     const oldController = newCharacters[oldControllerId as string];
@@ -452,23 +405,7 @@ function handleTransferItem(state: GameState, action: GameAction): ReducerResult
   const toChar = player.characters[toCharId as string];
   if (!toChar) return { state, error: 'Target character not found' };
 
-  // Validate item exists on source character
   const itemIndex = fromChar.items.findIndex(i => i.instanceId === itemInstId);
-  if (itemIndex < 0) return { state, error: 'Item not found on source character' };
-
-  // Validate both characters are at the same site
-  const findSite = (charId: CardInstanceId): SiteInPlay | null => {
-    for (const company of player.companies) {
-      if (company.characters.includes(charId)) return company.currentSite;
-    }
-    return null;
-  };
-  const fromSite = findSite(fromCharId);
-  const toSite = findSite(toCharId);
-  if (!fromSite || !toSite || fromSite.instanceId !== toSite.instanceId) {
-    return { state, error: 'Characters must be at the same site' };
-  }
-
   const item = fromChar.items[itemIndex];
   const itemDefId = resolveInstanceId(state, itemInstId);
   const itemDef = itemDefId ? state.cardPool[itemDefId as string] : undefined;
@@ -549,11 +486,7 @@ function handleStoreItem(state: GameState, action: GameAction): ReducerResult {
   const itemInstId = action.itemInstanceId;
 
   const char = player.characters[charId as string];
-  if (!char) return { state, error: 'Character not found' };
-
   const itemIndex = char.items.findIndex(i => i.instanceId === itemInstId);
-  if (itemIndex < 0) return { state, error: 'Item not found on character' };
-
   const item = char.items[itemIndex];
   const itemDef = state.cardPool[item.definitionId as string];
   const charDefId = resolveInstanceId(state, charId);
@@ -665,28 +598,10 @@ function handleFetchFromSideboard(state: GameState, action: GameAction): Reducer
     return { state, error: 'No sideboard access sub-flow active' };
   }
 
-  // Validate card is in sideboard
   const cardIdx = player.sideboard.findIndex(c => c.instanceId === action.sideboardCardInstanceId);
-  if (cardIdx === -1) {
-    return { state, error: 'Card not found in sideboard' };
-  }
-
-  // Validate card type is resource or character
   const sideboardCard = player.sideboard[cardIdx];
   const def = state.cardPool[sideboardCard.definitionId as string];
-  if (!def || (!def.cardType.includes('character') && !def.cardType.includes('resource'))) {
-    return { state, error: 'Only resources and characters can be fetched from sideboard' };
-  }
-
-  const destination = orgState.sideboardFetchDestination;
-
-  // Validate limits
-  if (destination === 'deck' && orgState.sideboardFetchedThisTurn >= 1) {
-    return { state, error: 'Can only fetch 1 card to play deck per avatar tap' };
-  }
-  if (destination === 'discard' && orgState.sideboardFetchedThisTurn >= 5) {
-    return { state, error: 'Can only fetch up to 5 cards to discard pile per avatar tap' };
-  }
+  const destination = orgState.sideboardFetchDestination!;
 
   const newSideboard = [...player.sideboard];
   newSideboard.splice(cardIdx, 1);
@@ -793,20 +708,7 @@ function handleCancelReturnAndSiteTap(state: GameState, action: GameAction): Red
   const charName = charDef?.name ?? '?';
   const sourceDef = state.cardPool[action.sourceCardDefinitionId as string];
   const sourceName = sourceDef?.name ?? '?';
-
-  if (char.status !== CardStatus.Untapped) {
-    return { state, error: `${charName} is not untapped` };
-  }
-
-  const itemIdx = char.items.findIndex(i => i.instanceId === action.sourceCardId);
-  if (itemIdx < 0) {
-    return { state, error: `${sourceName} is not an item on ${charName}` };
-  }
-
-  const company = player.companies.find(c => c.characters.includes(action.characterId));
-  if (!company) {
-    return { state, error: `${charName} is not in a company` };
-  }
+  const company = player.companies.find(c => c.characters.includes(action.characterId))!;
 
   logDetail(`Cancel-return-and-site-tap: ${charName} taps (via ${sourceName}) to protect company from return/site-tap hazards`);
 
@@ -868,17 +770,6 @@ function handleRemoveSelfOnRoll(state: GameState, action: GameAction): ReducerRe
   const charName = charDef?.name ?? '?';
   const sourceDef = state.cardPool[action.sourceCardDefinitionId as string];
   const sourceName = sourceDef?.name ?? '?';
-
-  // Validate: character must be untapped (cost: tap bearer)
-  if (char.status !== CardStatus.Untapped) {
-    return { state, error: `${charName} is not untapped` };
-  }
-
-  // Validate: source card must be attached to the character
-  const hazardIdx = char.hazards.findIndex(h => h.instanceId === action.sourceCardId);
-  if (hazardIdx < 0) {
-    return { state, error: `${sourceName} is not attached to ${charName}` };
-  }
 
   logDetail(`Activate grant-action '${action.actionId}': ${charName} taps to attempt to remove ${sourceName}`);
 
@@ -964,25 +855,12 @@ function handleTestGoldRing(state: GameState, action: GameAction): ReducerResult
   const playerIndex = getPlayerIndex(state, action.player);
   const player = state.players[playerIndex];
   const char = player.characters[action.characterId as string];
-  if (!char) return { state, error: 'Character not found' };
 
   const charDefId = resolveInstanceId(state, action.characterId);
   const charDef = charDefId ? state.cardPool[charDefId as string] : undefined;
   const charName = charDef?.name ?? '?';
 
-  // Validate: character must be untapped (cost: tap self)
-  if (char.status !== CardStatus.Untapped) {
-    return { state, error: `${charName} is not untapped` };
-  }
-
-  // Validate: target gold ring must exist
-  if (!action.targetCardId) {
-    return { state, error: 'No target gold ring specified' };
-  }
-
-  // Find the gold ring item on any character in the company
-  const company = player.companies.find(c => c.characters.includes(action.characterId));
-  if (!company) return { state, error: `${charName} is not in any company` };
+  const company = player.companies.find(c => c.characters.includes(action.characterId))!;
 
   let ringBearerCharId: CardInstanceId | null = null;
   let ringDefId: import('../index.js').CardDefinitionId | null = null;
@@ -1053,7 +931,7 @@ function handleTestGoldRing(state: GameState, action: GameAction): ReducerResult
   // Remove the gold ring from its bearer and discard it
   const ringBearer = newPlayers[playerIndex].characters[ringBearerCharId as string];
   const updatedItems = ringBearer.items.filter(item => item.instanceId !== action.targetCardId);
-  const discardedRing: CardInstance = { instanceId: action.targetCardId, definitionId: ringDefId };
+  const discardedRing: CardInstance = { instanceId: action.targetCardId!, definitionId: ringDefId };
 
   logDetail(`Gold ring test: discarding ${ringName} from ${state.cardPool[ringBearer.definitionId as string]?.name ?? '?'}`);
 
