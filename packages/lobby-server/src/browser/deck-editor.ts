@@ -137,13 +137,13 @@ export function setupDeckEditorPreview(): void {
     if (!def) return;
 
     // Position preview one column to the right of the hovered card;
-    // Sideboard (4th) previews in Sites column, Sites (5th) previews in Sideboard column.
+    // Sideboard (4th) previews in Hazards column, Sites (5th) previews in Sideboard column.
     const section = row.closest('.deck-editor-section');
     const sections = [...screen.querySelectorAll('.deck-editor-section')];
     const sectionIdx = section ? sections.indexOf(section) : -1;
     // Section indices: 0=Pool/Characters, 1=Resources, 2=Hazards, 3=Sideboard, 4=Sites
-    // Target columns:  0->1, 1->2, 2->3, 3->4 (Sites), 4->3 (Sideboard)
-    const targetCol = [1, 2, 3, 4, 3][sectionIdx] ?? 0;
+    // Target columns:  0->1, 1->2, 2->3, 3->2 (Hazards), 4->3 (Sideboard)
+    const targetCol = [1, 2, 3, 2, 3][sectionIdx] ?? 0;
     const targetSection = sections[targetCol] as HTMLElement | undefined;
     preview.className = 'deck-editor-preview';
     if (targetSection) {
