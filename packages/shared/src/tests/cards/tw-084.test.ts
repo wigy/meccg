@@ -18,6 +18,7 @@
  * | 2 | Adds do-nothing-unless-ranger constraint | IMPLEMENTED | chain-reducer applyShortEventArrivalTrigger |
  * | 3 | Constraint collapses enter-or-skip menu  | IMPLEMENTED | constraint filter (legal-actions/pending) |
  * | 4 | Ranger may tap to cancel                 | IMPLEMENTED | constraint cancelWhen emits cancel-constraint action |
+ * | 9 | Ranger cancel available during M/H phase | IMPLEMENTED | applySitePhaseDoNothing + MH reducer handles cancel |
  * | 5 | Constraint clears at company-site-end    | IMPLEMENTED | sweepExpired in advanceSiteToNextCompany |
  * | 6 | Non-ranger characters cannot cancel      | IMPLEMENTED | constraint filter checks Skill.Ranger  |
  * | 7 | Tapped ranger cannot cancel              | IMPLEMENTED | constraint filter checks CardStatus    |
@@ -492,5 +493,124 @@ describe('River (tw-84)', () => {
     const actions = computeLegalActions(nextState, PLAYER_1).filter(ea => ea.viable);
     const types = actions.map(ea => ea.action.type);
     expect(types).toContain('enter-site');
+  });
+
+  test('cancel-constraint is offered during M/H phase so a ranger can pre-empt River', () => {
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.MovementHazard,
+      recompute: true,
+      players: [
+        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [ARAGORN] }], hand: [], siteDeck: [MORIA] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [MINAS_TIRITH] },
+      ],
+    });
+
+    const targetCompanyId = companyIdAt(base, 0);
+    const riverInstance = mint();
+    const mhState = makeMHState({ activeCompanyIndex: 0 });
+    const stateAtMH = { ...base, phaseState: mhState };
+    const constrained = addConstraint(stateAtMH, {
+      source: riverInstance,
+      sourceDefinitionId: RIVER,
+      scope: { kind: 'company-site-phase', companyId: targetCompanyId },
+      target: { kind: 'company', companyId: targetCompanyId },
+      kind: {
+        type: 'site-phase-do-nothing',
+        cancelWhen: {
+          $and: [
+            { 'actor.skills': { $includes: 'ranger' } },
+            { 'actor.status': 'untapped' },
+          ],
+        },
+      },
+    });
+
+    const withRiverInPlay = {
+      ...constrained,
+      players: [
+        {
+          ...constrained.players[0],
+          cardsInPlay: [
+            ...constrained.players[0].cardsInPlay,
+            { instanceId: riverInstance, definitionId: RIVER, status: CardStatus.Untapped },
+          ],
+        },
+        constrained.players[1],
+      ] as typeof constrained.players,
+    };
+
+    const actions = computeLegalActions(withRiverInPlay, PLAYER_1);
+    const cancelActions = actions.filter(
+      ea => ea.viable
+        && ea.action.type === 'activate-granted-action'
+        && (ea.action).actionId === 'cancel-constraint',
+    );
+    expect(cancelActions).toHaveLength(1);
+
+    const aragornId = charIdAt(withRiverInPlay, 0);
+    expect((cancelActions[0].action as ActivateGrantedAction).characterId).toBe(aragornId);
+  });
+
+  test('tapping a ranger during M/H via reduce() removes the River constraint', () => {
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.MovementHazard,
+      recompute: true,
+      players: [
+        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [ARAGORN] }], hand: [], siteDeck: [MORIA] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [MINAS_TIRITH] },
+      ],
+    });
+
+    const targetCompanyId = companyIdAt(base, 0);
+    const riverInstance = mint();
+    const mhState = makeMHState({ activeCompanyIndex: 0 });
+    const stateAtMH = { ...base, phaseState: mhState };
+    const constrained = addConstraint(stateAtMH, {
+      source: riverInstance,
+      sourceDefinitionId: RIVER,
+      scope: { kind: 'company-site-phase', companyId: targetCompanyId },
+      target: { kind: 'company', companyId: targetCompanyId },
+      kind: {
+        type: 'site-phase-do-nothing',
+        cancelWhen: {
+          $and: [
+            { 'actor.skills': { $includes: 'ranger' } },
+            { 'actor.status': 'untapped' },
+          ],
+        },
+      },
+    });
+
+    const withRiverInPlay = {
+      ...constrained,
+      players: [
+        {
+          ...constrained.players[0],
+          cardsInPlay: [
+            ...constrained.players[0].cardsInPlay,
+            { instanceId: riverInstance, definitionId: RIVER, status: CardStatus.Untapped },
+          ],
+        },
+        constrained.players[1],
+      ] as typeof constrained.players,
+    };
+
+    const aragornId = charIdAt(withRiverInPlay, 0);
+
+    const nextState = dispatch(withRiverInPlay, {
+      type: 'activate-granted-action',
+      player: PLAYER_1,
+      characterId: aragornId,
+      sourceCardId: riverInstance,
+      sourceCardDefinitionId: RIVER,
+      actionId: 'cancel-constraint',
+      rollThreshold: 0,
+    } as ActivateGrantedAction);
+
+    expectCharStatus(nextState, 0, ARAGORN, CardStatus.Tapped);
+    expect(nextState.activeConstraints).toHaveLength(0);
+    expect(nextState.phaseState.phase).toBe(Phase.MovementHazard);
   });
 });

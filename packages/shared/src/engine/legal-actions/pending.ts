@@ -730,25 +730,51 @@ function applySitePhaseDoNothing(
 ): EvaluatedAction[] {
   if (constraint.target.kind !== 'company') return base;
   if (constraint.kind.type !== 'site-phase-do-nothing') return base;
-  if (state.phaseState.phase !== Phase.Site) return base;
-  const sps = state.phaseState;
-  if (sps.step !== 'enter-or-skip') return base;
   if (state.activePlayer !== playerId) return base;
   const targetCompanyId = constraint.target.companyId;
   if (activeCompanyId(state) !== targetCompanyId) return base;
 
+  const phase = state.phaseState.phase;
+
+  // During M/H phase the "do nothing" restriction does not apply yet
+  // (it fires in the site phase), but the cancelWhen escape hatch is
+  // already available — e.g. River allows a ranger to tap during M/H
+  // to pre-empt the constraint before the site phase even starts.
+  if (phase === Phase.MovementHazard) {
+    return appendCancelActions(state, playerId, base, constraint);
+  }
+
+  if (phase !== Phase.Site) return base;
+  const sps = state.phaseState;
+  if (sps.step !== 'enter-or-skip') return base;
+
   logDetail(`Constraint ${constraint.id as string} (site-phase-do-nothing): collapsing to pass for company ${targetCompanyId as string}`);
   const filtered = base.filter(ea => ea.action.type === 'pass');
+  return appendCancelActions(state, playerId, filtered, constraint);
+}
 
-  const cancelWhen = constraint.kind.cancelWhen;
-  if (!cancelWhen) return filtered;
+/**
+ * Append cancel-constraint actions for characters that satisfy the
+ * constraint's `cancelWhen` condition.  Shared between the M/H and
+ * Site-phase branches of {@link applySitePhaseDoNothing}.
+ */
+function appendCancelActions(
+  state: GameState,
+  playerId: PlayerId,
+  base: EvaluatedAction[],
+  constraint: ActiveConstraint,
+): EvaluatedAction[] {
+  const cancelWhen = (constraint.kind as { cancelWhen?: import('../../types/effects.js').Condition }).cancelWhen;
+  if (!cancelWhen) return base;
 
+  const targetCompanyId = (constraint.target as { companyId: import('../../index.js').CompanyId }).companyId;
   const playerIndex = state.players.findIndex(p => p.id === playerId);
-  if (playerIndex === -1) return filtered;
+  if (playerIndex === -1) return base;
   const player = state.players[playerIndex];
   const constraintCompany = player.companies.find(c => c.id === targetCompanyId);
-  if (!constraintCompany) return filtered;
+  if (!constraintCompany) return base;
 
+  const result = [...base];
   for (const charId of constraintCompany.characters) {
     const char = player.characters[charId as string];
     if (!char) continue;
@@ -767,7 +793,7 @@ function applySitePhaseDoNothing(
     };
     if (!matchesCondition(cancelWhen, ctx)) continue;
     logDetail(`Constraint ${constraint.id as string} (cancelWhen): offering cancel-constraint on ${def.name}`);
-    filtered.push({
+    result.push({
       action: {
         type: 'activate-granted-action',
         player: playerId,
@@ -780,7 +806,7 @@ function applySitePhaseDoNothing(
       viable: true,
     });
   }
-  return filtered;
+  return result;
 }
 
 /**
