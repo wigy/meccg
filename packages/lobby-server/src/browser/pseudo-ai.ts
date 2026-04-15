@@ -8,7 +8,7 @@
  */
 
 import type { ClientMessage, GameAction, JoinMessage, ServerMessage } from '@meccg/shared';
-import { Alignment, buildCompanyNames, buildInstanceLookup, describeAction } from '@meccg/shared';
+import { Alignment, buildCompanyNames, buildInstanceLookup, canonicalActionKey, describeAction } from '@meccg/shared';
 import { appState, cardPool, buildJoinFromDeck, type FullDeck } from './app-state.js';
 
 /** A described action for the pseudo-AI panel: pre-rendered text + the raw action and viability. */
@@ -23,7 +23,7 @@ export interface DescribedAction {
 /** Send a pseudo-AI action pick via the AI's game WebSocket. */
 export function sendPseudoAiPick(action: GameAction): void {
   if (!appState.pseudoAiWs || appState.pseudoAiWs.readyState !== WebSocket.OPEN) return;
-  const msg: ClientMessage = { type: 'action', action };
+  const msg: ClientMessage = { type: 'action', action, actionId: canonicalActionKey(action) };
   appState.pseudoAiWs.send(JSON.stringify(msg));
 }
 
@@ -161,7 +161,7 @@ export function renderPseudoAiActions(actions: readonly DescribedAction[]): void
 export function connectPseudoAi(aiName: string, aiDeck?: FullDeck | null): void {
   if (!appState.gamePort || !appState.pseudoAiToken) return;
   const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-  const url = `${protocol}//${window.location.hostname}:${appState.gamePort}`;
+  const url = `${protocol}//${window.location.host}/game/${appState.gamePort}`;
   appState.pseudoAiWs = new WebSocket(url);
 
   appState.pseudoAiWs.onopen = () => {

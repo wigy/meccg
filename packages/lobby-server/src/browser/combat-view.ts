@@ -23,11 +23,13 @@ import type {
   SupportStrikeAction,
   ChooseStrikeOrderAction,
   CancelByTapAction,
+  CancelStrikeAction,
   EvaluatedAction,
 } from '@meccg/shared';
 import { cardImageProxyPath, viableActions, CardStatus, buildInstanceLookup } from '@meccg/shared';
 import type { CardInstanceId, CardDefinitionId } from '@meccg/shared';
 import { createCardImage } from './render-utils.js';
+import { dismissTooltip } from './company-modals.js';
 
 /** Cached instance-to-definition lookup, updated each time the view changes. */
 let cachedInstanceLookup: ((id: CardInstanceId) => CardDefinitionId | undefined) = () => undefined;
@@ -67,10 +69,11 @@ export function renderCombatView(
   const supportActions = viable.filter((a): a is SupportStrikeAction => a.type === 'support-strike');
   const chooseOrderActions = viable.filter((a): a is ChooseStrikeOrderAction => a.type === 'choose-strike-order');
   const cancelByTapActions = viable.filter((a): a is CancelByTapAction => a.type === 'cancel-by-tap');
+  const cancelStrikeActions = viable.filter((a): a is CancelStrikeAction => a.type === 'cancel-strike');
 
   // Build attacker row and defender row
   const attackerRow = renderAttackerRow(combat, view, cardPool);
-  const defenderRow = renderDefenderRow(combat, view, cardPool, assignActions, supportActions, chooseOrderActions, cancelByTapActions, onAction);
+  const defenderRow = renderDefenderRow(combat, view, cardPool, assignActions, supportActions, chooseOrderActions, cancelByTapActions, cancelStrikeActions, onAction);
 
   // Top row is the "opponent" side, bottom row is "my" side
   const topRow = document.createElement('div');
@@ -262,6 +265,7 @@ function renderDefenderRow(
   supportActions: SupportStrikeAction[],
   chooseOrderActions: ChooseStrikeOrderAction[],
   cancelByTapActions: CancelByTapAction[],
+  cancelStrikeActions: CancelStrikeAction[],
   onAction: (action: GameAction) => void,
 ): HTMLElement {
   const container = document.createElement('div');
@@ -282,6 +286,12 @@ function renderDefenderRow(
 
   // Build a set of characters that can tap to cancel an attack
   const cancelByTapIds = new Set(cancelByTapActions.map(a => a.characterId as string));
+
+  // Build a map of canceller ID → cancel-strike action (card abilities like Fatty Bolger)
+  const cancelStrikeMap = new Map<string, CancelStrikeAction>();
+  for (const a of cancelStrikeActions) {
+    cancelStrikeMap.set(a.cancellerInstanceId as string, a);
+  }
 
   // Build a map of character ID → choose-strike-order action (for choose-strike-order phase)
   const chooseOrderMap = new Map<string, ChooseStrikeOrderAction>();
@@ -304,7 +314,7 @@ function renderDefenderRow(
     const char = charMap[charId as string];
     if (!char) continue;
 
-    const col = renderCombatCharacterColumn(char, cardPool, combat, strikeMap, assignableIds, supportableIds, cancelByTapIds, chooseOrderMap, assignActions, supportActions, cancelByTapActions, onAction);
+    const col = renderCombatCharacterColumn(char, cardPool, combat, strikeMap, assignableIds, supportableIds, cancelByTapIds, cancelStrikeMap, chooseOrderMap, assignActions, supportActions, cancelByTapActions, onAction);
     container.appendChild(col);
   }
 
@@ -330,6 +340,7 @@ function renderCombatCharacterColumn(
   assignableIds: Set<string>,
   supportableIds: Set<string>,
   cancelByTapIds: Set<string>,
+  cancelStrikeMap: Map<string, CancelStrikeAction>,
   chooseOrderMap: Map<string, ChooseStrikeOrderAction>,
   assignActions: AssignStrikeAction[],
   supportActions: SupportStrikeAction[],
@@ -403,14 +414,25 @@ function renderCombatCharacterColumn(
         onAction(action);
       });
     }
-  } else if (isSupportable && combat.phase === 'resolve-strike') {
+  } else if ((isSupportable || cancelStrikeMap.has(charIdStr)) && combat.phase === 'resolve-strike') {
     img.classList.add('combat-card--supportable');
     img.style.cursor = 'pointer';
-    const action = supportActions.find(a => a.supportingCharacterId === char.instanceId);
-    if (action) {
+    const supportAction = supportActions.find(a => a.supportingCharacterId === char.instanceId);
+    const cancelAction = cancelStrikeMap.get(charIdStr);
+    if (supportAction && cancelAction) {
       img.addEventListener('click', (e) => {
         e.stopPropagation();
-        onAction(action);
+        showCombatChoiceTooltip(img, supportAction, cancelAction, onAction);
+      });
+    } else if (cancelAction) {
+      img.addEventListener('click', (e) => {
+        e.stopPropagation();
+        onAction(cancelAction);
+      });
+    } else if (supportAction) {
+      img.addEventListener('click', (e) => {
+        e.stopPropagation();
+        onAction(supportAction);
       });
     }
   }
@@ -502,11 +524,22 @@ function renderCombatCharacterColumn(
           e.stopPropagation();
           onAction(allyChooseOrder);
         });
-      } else if (supportableIds.has(allyIdStr) && combat.phase === 'resolve-strike') {
+      } else if ((supportableIds.has(allyIdStr) || cancelStrikeMap.has(allyIdStr)) && combat.phase === 'resolve-strike') {
         itemEl.classList.add('combat-card--supportable');
         itemEl.style.cursor = 'pointer';
         const supportAction = supportActions.find(a => a.supportingCharacterId === item.instanceId);
-        if (supportAction) {
+        const cancelAction = cancelStrikeMap.get(allyIdStr);
+        if (supportAction && cancelAction) {
+          itemEl.addEventListener('click', (e) => {
+            e.stopPropagation();
+            showCombatChoiceTooltip(itemEl, supportAction, cancelAction, onAction);
+          });
+        } else if (cancelAction) {
+          itemEl.addEventListener('click', (e) => {
+            e.stopPropagation();
+            onAction(cancelAction);
+          });
+        } else if (supportAction) {
           itemEl.addEventListener('click', (e) => {
             e.stopPropagation();
             onAction(supportAction);
@@ -646,6 +679,55 @@ function combatButtonLabel(action: GameAction): string {
   if (action.type === 'body-check-roll') return 'Body Check';
   if (action.type === 'pass') return 'Pass';
   return action.type;
+}
+
+// ---- Combat choice tooltip ----
+
+/**
+ * Show a tooltip letting the player choose between supporting a strike (+1 prowess)
+ * and canceling it outright (e.g. Fatty Bolger's ability).
+ */
+function showCombatChoiceTooltip(
+  anchor: HTMLElement,
+  supportAction: SupportStrikeAction,
+  cancelAction: CancelStrikeAction,
+  onAction: (action: GameAction) => void,
+): void {
+  dismissTooltip();
+
+  const tooltip = document.createElement('div');
+  tooltip.className = 'char-action-tooltip';
+
+  const supportBtn = document.createElement('button');
+  supportBtn.className = 'char-action-tooltip__btn';
+  supportBtn.textContent = 'Tap for +1 Support';
+  supportBtn.onclick = (e) => {
+    e.stopPropagation();
+    dismissTooltip();
+    onAction(supportAction);
+  };
+  tooltip.appendChild(supportBtn);
+
+  const cancelBtn = document.createElement('button');
+  cancelBtn.className = 'char-action-tooltip__btn';
+  cancelBtn.textContent = 'Tap to Cancel Strike';
+  cancelBtn.onclick = (e) => {
+    e.stopPropagation();
+    dismissTooltip();
+    onAction(cancelAction);
+  };
+  tooltip.appendChild(cancelBtn);
+
+  const backdrop = document.createElement('div');
+  backdrop.className = 'char-action-backdrop';
+  backdrop.onclick = () => dismissTooltip();
+  document.body.appendChild(backdrop);
+
+  const rect = anchor.getBoundingClientRect();
+  tooltip.style.position = 'fixed';
+  tooltip.style.left = `${rect.left + rect.width / 2}px`;
+  tooltip.style.top = `${rect.top}px`;
+  document.body.appendChild(tooltip);
 }
 
 // ---- Helpers ----

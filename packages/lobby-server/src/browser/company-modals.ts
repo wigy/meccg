@@ -3,6 +3,7 @@
  *
  * Modal dialogs and tooltip menus for company-view interactions:
  * - Character action tooltip (influence, split, move, merge, sideboard, corruption)
+ * - Granted action tooltip (choose between multiple granted actions on one card)
  * - Sideboard fetch modal (browse and pick cards from sideboard)
  * - Exchange modal (deck exhaustion sideboard exchange)
  * - Opponent influence menu (choose reveal variant)
@@ -23,6 +24,7 @@ import type {
   CorruptionCheckAction,
   SupportCorruptionCheckAction,
   OpponentInfluenceAttemptAction,
+  ActivateGrantedAction,
 } from '@meccg/shared';
 import { cardImageProxyPath, viableActions } from '@meccg/shared';
 import {
@@ -621,6 +623,58 @@ export function addOpponentInfluenceTargets(
     const charImg = col.querySelector<HTMLImageElement>('.company-card[data-instance-id="' + instId + '"]');
     if (charImg) attachHandler(charImg, acts);
   }
+}
+
+/** Human-friendly labels for granted action IDs. */
+const GRANTED_ACTION_LABELS: Readonly<Record<string, string>> = {
+  'untap-bearer': 'Untap Bearer',
+  'extra-region-movement': 'Extra Movement',
+  'remove-self-on-roll': 'Attempt Removal',
+  'cancel-attack': 'Cancel Attack',
+  'test-gold-ring': 'Test Gold Ring',
+  'palantir-fetch-discard': 'Fetch from Discard',
+  'gwaihir-special-movement': 'Special Movement',
+  'saruman-fetch-spell': 'Fetch Spell',
+  'cancel-constraint': 'Cancel Constraint',
+  'cancel-return-and-site-tap': 'Cancel Return',
+};
+
+/**
+ * Show a tooltip menu for choosing between multiple granted actions on a single card
+ * (e.g. Cram offers both untap-bearer and extra-region-movement).
+ */
+export function showGrantedActionTooltip(
+  anchor: HTMLElement,
+  actions: ActivateGrantedAction[],
+  onAction: (action: GameAction) => void,
+): void {
+  dismissTooltip();
+
+  const tooltip = document.createElement('div');
+  tooltip.className = 'char-action-tooltip';
+
+  for (const action of actions) {
+    const btn = document.createElement('button');
+    btn.className = 'char-action-tooltip__btn';
+    btn.textContent = GRANTED_ACTION_LABELS[action.actionId] ?? action.actionId;
+    btn.onclick = (e) => {
+      e.stopPropagation();
+      dismissTooltip();
+      onAction(action);
+    };
+    tooltip.appendChild(btn);
+  }
+
+  const backdrop = document.createElement('div');
+  backdrop.className = 'char-action-backdrop';
+  backdrop.onclick = () => dismissTooltip();
+  document.body.appendChild(backdrop);
+
+  const rect = anchor.getBoundingClientRect();
+  tooltip.style.position = 'fixed';
+  tooltip.style.left = `${rect.left + rect.width / 2}px`;
+  tooltip.style.top = `${rect.top}px`;
+  document.body.appendChild(tooltip);
 }
 
 /**

@@ -411,4 +411,88 @@ describe('Fatty Bolger (tw-495)', () => {
     );
     expect(cancelStrikeActions.length).toBe(0);
   });
+
+  test('offers both support-strike and cancel-strike when resolving another hobbit strike', () => {
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.MovementHazard,
+      recompute: true,
+      players: [
+        {
+          id: PLAYER_1,
+          companies: [{ site: MORIA, characters: [FATTY_BOLGER, BILBO, LEGOLAS] }],
+          hand: [],
+          siteDeck: [MINAS_TIRITH],
+        },
+        {
+          id: PLAYER_2,
+          companies: [{ site: LORIEN, characters: [ARAGORN] }],
+          hand: [ORC_PATROL],
+          siteDeck: [RIVENDELL],
+        },
+      ],
+    });
+
+    const mhState = makeMHState({
+      resolvedSitePath: [],
+      resolvedSitePathNames: [],
+      destinationSiteType: SiteType.RuinsAndLairs,
+      destinationSiteName: 'Moria',
+    });
+    const gameState = { ...state, phaseState: mhState };
+
+    const orcPatrolId = handCardId(gameState, 1);
+    const companyId = companyIdAt(gameState, 0);
+    const afterPlay = dispatch(gameState, {
+      type: 'play-hazard',
+      player: PLAYER_2,
+      cardInstanceId: orcPatrolId,
+      targetCompanyId: companyId,
+      keyedBy: { method: 'site-type' as const, value: 'ruins-and-lairs' },
+    });
+    const afterChain = resolveChain(afterPlay);
+
+    const bilboId = charIdAt(afterChain, 0, 0, 1);
+    const legolasId = charIdAt(afterChain, 0, 0, 2);
+
+    // Assign strikes to Bilbo and Legolas only — leave Fatty unassigned so he can support/cancel
+    const r2 = dispatch(afterChain, {
+      type: 'assign-strike',
+      player: PLAYER_1,
+      characterId: bilboId,
+      tapped: false,
+    });
+    const r3 = dispatch(r2, {
+      type: 'assign-strike',
+      player: PLAYER_1,
+      characterId: legolasId,
+      tapped: false,
+    });
+
+    // Choose Bilbo's strike to resolve first
+    const bilboStrikeIdx = r3.combat!.strikeAssignments.findIndex(
+      sa => sa.characterId === bilboId,
+    );
+    const r4 = dispatch(r3, {
+      type: 'choose-strike-order',
+      player: PLAYER_1,
+      strikeIndex: bilboStrikeIdx,
+    });
+    expect(r4.combat!.phase).toBe('resolve-strike');
+
+    const fattyId = charIdAt(afterChain, 0, 0, 0);
+    const defActions = computeLegalActions(r4, PLAYER_1);
+
+    const supportActions = defActions.filter(
+      a => a.viable && a.action.type === 'support-strike'
+        && (a.action as { supportingCharacterId: string }).supportingCharacterId === fattyId,
+    );
+    const cancelActions = defActions.filter(
+      a => a.viable && a.action.type === 'cancel-strike'
+        && (a.action as { cancellerInstanceId: string }).cancellerInstanceId === fattyId,
+    );
+
+    expect(supportActions.length).toBe(1);
+    expect(cancelActions.length).toBe(1);
+  });
 });

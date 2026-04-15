@@ -17,7 +17,7 @@
 
 import { describe, test, expect, beforeEach } from 'vitest';
 import {
-  buildTestState, resetMint, Phase, reduce, dispatch,
+  buildTestState, resetMint, Phase, dispatch,
   PLAYER_1, PLAYER_2, makeMHState, viableActions,
   LEGOLAS, ARAGORN,
   CAVE_DRAKE, ORC_PATROL, BARROW_WIGHT, GLAMDRING,
@@ -103,15 +103,6 @@ describe('Rule 5.23 — Placing an On-Guard Card', () => {
     // No more on-guard actions should be available
     const ogActions = viableActions(afterFirst, PLAYER_2, 'place-on-guard');
     expect(ogActions).toHaveLength(0);
-
-    // Direct reduce of a second on-guard should fail
-    const secondCard = handCardId(afterFirst, 1);
-    const result2 = reduce(afterFirst, {
-      type: 'place-on-guard',
-      player: PLAYER_2,
-      cardInstanceId: secondCard,
-    });
-    expect(result2.error).toBeDefined();
   });
 
   test('on-guard placement is blocked when hazard limit is reached', () => {
@@ -131,15 +122,6 @@ describe('Rule 5.23 — Placing an On-Guard Card', () => {
     // On-guard actions exist but are not viable (limit reached)
     const ogActions = viableActions(mhGameState, PLAYER_2, 'place-on-guard');
     expect(ogActions).toHaveLength(0);
-
-    // Direct reduce should also fail
-    const cardId = handCardId(mhGameState, 1);
-    const result = reduce(mhGameState, {
-      type: 'place-on-guard',
-      player: PLAYER_2,
-      cardInstanceId: cardId,
-    });
-    expect(result.error).toBeDefined();
   });
 
   test('resource player pass is reset after on-guard placement', () => {

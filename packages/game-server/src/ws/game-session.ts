@@ -25,8 +25,9 @@ import type {
   JoinMessage,
   GameAction,
   StateMessage,
+  ActionMessage,
 } from '@meccg/shared';
-import { loadCardPool, createRng, buildMovementMap, createGame, reduce, startCapture, flushCapture, Phase, computeTournamentBreakdown, computeLegalActions } from '@meccg/shared';
+import { loadCardPool, createRng, buildMovementMap, createGame, reduce, startCapture, flushCapture, Phase, computeTournamentBreakdown, computeLegalActions, canonicalActionKey } from '@meccg/shared';
 import type { MovementMap, PlayerConfig, GameConfig } from '@meccg/shared';
 import { projectPlayerView, projectSpectatorView } from './projection.js';
 import { ServerLog, GameLog } from './game-log.js';
@@ -73,6 +74,13 @@ export class GameSession {
   private stateHistory: GameState[] = [];
   /** Precomputed movement map for region/starter movement queries. */
   private movementMap: MovementMap;
+  /**
+   * Per-player snapshot of the viable legal actions most recently sent to
+   * each client, keyed by canonical actionId. Incoming actions are
+   * validated by membership lookup in this map — anything not in the set
+   * the player was offered is rejected as stale or illegal.
+   */
+  private lastLegalActionsPerPlayer: Map<PlayerId, Map<string, GameAction>> = new Map();
 
   constructor(options: GameSessionOptions) {
     this.dev = options.dev ?? false;
@@ -141,7 +149,7 @@ export class GameSession {
         this.handleJoin(ws, msg);
         break;
       case 'action':
-        this.handleAction(ws, msg.action);
+        this.handleAction(ws, msg);
         break;
       case 'reset':
       case 'save':
@@ -391,7 +399,7 @@ export class GameSession {
     };
   }
 
-  private handleAction(ws: WebSocket, action: GameAction): void {
+  private handleAction(ws: WebSocket, msg: ActionMessage): void {
     if (this.spectators.has(ws)) {
       this.send(ws, { type: 'error', message: 'Spectators cannot submit actions' });
       return;
@@ -415,7 +423,21 @@ export class GameSession {
       return;
     }
 
-    const actionWithPlayer = { ...action, player: playerId };
+    // Membership check against the legal-action set we last sent this
+    // player. Derive the lookup key from the echoed actionId when the
+    // client provides one, else re-canonicalize the submitted action.
+    // The stored action is the one we actually dispatch — client-supplied
+    // fields are never trusted past this lookup.
+    const candidate: GameAction = { ...msg.action, player: playerId };
+    const key = msg.actionId ?? canonicalActionKey(candidate);
+    const legalSet = this.lastLegalActionsPerPlayer.get(playerId);
+    const stored = legalSet?.get(key);
+    if (!stored) {
+      this.serverLog.log('action-rejected', { reason: 'not-in-legal-set', action: candidate, key });
+      this.send(ws, { type: 'error', message: 'Action is not in the current legal action set' });
+      return;
+    }
+    const actionWithPlayer = stored;
 
     // Capture draft state before the action for reveal detection
     const prevDraft = this.state.phaseState.phase === 'setup' && this.state.phaseState.setupStep.step === 'character-draft'
@@ -917,8 +939,15 @@ export class GameSession {
   private broadcastState(lastAction?: GameAction): void {
     if (!this.state) return;
 
+    this.lastLegalActionsPerPlayer.clear();
     for (const [, { ws, playerId }] of this.players.entries()) {
       const view = projectPlayerView(this.state, playerId);
+      const legalSet = new Map<string, GameAction>();
+      for (const ea of view.legalActions) {
+        if (!ea.viable || !ea.actionId) continue;
+        legalSet.set(ea.actionId, ea.action);
+      }
+      this.lastLegalActionsPerPlayer.set(playerId, legalSet);
       const msg: StateMessage = lastAction ? { type: 'state', view, lastAction } : { type: 'state', view };
       this.send(ws, msg);
     }

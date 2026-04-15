@@ -62,10 +62,6 @@ function handleEndOfTurnDiscard(
 ): ReducerResult {
   const playerIndex = getPlayerIndex(state, action.player);
 
-  if (eotState.discardDone[playerIndex]) {
-    return { state, error: `Player already acted in discard step` };
-  }
-
   /** Mark this player done and advance to reset-hand if both are done. */
   function markDone(updatedState: GameState, updatedEot: EndOfTurnPhaseState): ReducerResult {
     const newDone: [boolean, boolean] = [...updatedEot.discardDone] as [boolean, boolean];
@@ -98,11 +94,6 @@ function handleEndOfTurnDiscard(
   if (action.type === 'discard-card') {
     const player = state.players[playerIndex];
     const cardIdx = player.hand.findIndex(c => c.instanceId === action.cardInstanceId);
-
-    if (cardIdx === -1) {
-      return { state, error: 'Card not in hand' };
-    }
-
     const discardedCard = player.hand[cardIdx];
     const newHand = [...player.hand];
     newHand.splice(cardIdx, 1);
@@ -180,15 +171,8 @@ function handleEndOfTurnResetHand(
   }
 
   if (action.type === 'pass') {
-    // Pass is valid at hand size, or when deck and discard are both empty (can't draw)
     const playerIndex = getPlayerIndex(state, action.player);
     const player = state.players[playerIndex];
-    const handSize = resolveHandSize(state, playerIndex);
-    const cannotDraw = player.playDeck.length === 0 && player.discardPile.length === 0;
-    if (player.hand.length !== handSize && !cannotDraw) {
-      return { state, error: `Cannot pass during reset-hand: hand has ${player.hand.length} cards, need ${handSize}` };
-    }
-
     logDetail(`End-of-Turn reset-hand: player ${player.name} at hand size, passed`);
     return markResetHandDone(state, eotState, playerIndex);
   }
@@ -197,16 +181,7 @@ function handleEndOfTurnResetHand(
     const playerIndex = getPlayerIndex(state, action.player);
     const player = state.players[playerIndex];
     const handSize = resolveHandSize(state, playerIndex);
-
-    if (player.hand.length <= handSize) {
-      return { state, error: `Player ${player.name} does not need to discard (hand: ${player.hand.length}/${handSize})` };
-    }
-
     const cardIdx = player.hand.findIndex(c => c.instanceId === action.cardInstanceId);
-    if (cardIdx === -1) {
-      return { state, error: 'Card not in hand' };
-    }
-
     const discardedCard = player.hand[cardIdx];
     const newHand = [...player.hand];
     newHand.splice(cardIdx, 1);
@@ -231,13 +206,6 @@ function handleEndOfTurnResetHand(
 
   if (action.type === 'deck-exhaust') {
     const playerIndex = getPlayerIndex(state, action.player);
-    const player = state.players[playerIndex];
-    if (player.playDeck.length > 0) {
-      return { state, error: 'Cannot exhaust — play deck is not empty' };
-    }
-    if (player.discardPile.length === 0) {
-      return { state, error: 'Cannot exhaust — discard pile is also empty' };
-    }
     return { state: startDeckExhaust(state, playerIndex) };
   }
 
@@ -249,10 +217,6 @@ function handleEndOfTurnResetHand(
     const playerIndex = getPlayerIndex(state, action.player);
     const player = state.players[playerIndex];
     const handSize = resolveHandSize(state, playerIndex);
-
-    if (player.hand.length >= handSize) {
-      return { state, error: `Player ${player.name} does not need to draw (hand: ${player.hand.length}/${handSize})` };
-    }
 
     if (player.playDeck.length === 0) {
       logDetail(`End-of-Turn reset-hand: player ${player.name} has no cards to draw`);
@@ -391,30 +355,9 @@ function handleSarumanFetchSpell(state: GameState, action: GameAction): ReducerR
   const playerIndex = getPlayerIndex(state, action.player);
   const player = state.players[playerIndex];
   const char = player.characters[action.characterId as string];
-  if (!char) return { state, error: 'Character not found' };
-
-  if (char.status !== CardStatus.Untapped) {
-    return { state, error: 'Character is not untapped' };
-  }
-
-  if (!action.targetCardId) {
-    return { state, error: 'No target spell card specified' };
-  }
-
   const spellIdx = player.discardPile.findIndex(c => c.instanceId === action.targetCardId);
-  if (spellIdx === -1) {
-    return { state, error: 'Target spell card not in discard pile' };
-  }
-
   const spellCard = player.discardPile[spellIdx];
   const spellDef = state.cardPool[spellCard.definitionId as string];
-  const isSpell = spellDef && 'keywords' in spellDef &&
-    Array.isArray((spellDef as { keywords?: readonly string[] }).keywords) &&
-    (spellDef as { keywords: readonly string[] }).keywords.includes('spell');
-  if (!isSpell) {
-    return { state, error: 'Target card is not a spell' };
-  }
-
   const charDef = state.cardPool[char.definitionId as string];
   logDetail(`Saruman spell-fetch: ${charDef?.name ?? '?'} taps to fetch ${spellDef?.name ?? '?'} from discard to hand`);
 

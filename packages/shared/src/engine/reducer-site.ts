@@ -6,7 +6,7 @@
  * influence attempts, and site phase advancement.
  */
 
-import type { GameState, PlayerState, CardInstanceId, CompanyId, CharacterInPlay, CardInstance, SitePhaseState, HeroItemCard, CombatState, OnGuardCard, GameAction, GameEffect, ItemPlaySiteEffect } from '../index.js';
+import type { GameState, PlayerState, CardInstanceId, CompanyId, CharacterInPlay, CardInstance, SitePhaseState, CombatState, OnGuardCard, GameAction, GameEffect } from '../index.js';
 import { Phase, CardStatus, isCharacterCard, isItemCard, isAllyCard, isFactionCard, isSiteCard, getPlayerIndex, GENERAL_INFLUENCE } from '../index.js';
 import { logDetail } from './legal-actions/log.js';
 import { collectCharacterEffects, resolveCheckModifier, resolveStatModifiers, resolveAttackProwess, resolveAttackStrikes, normalizeCreatureRace } from './effects/index.js';
@@ -109,21 +109,9 @@ function handleSiteSelectCompany(
     return { state, error: `Expected 'select-company' action during select-company step, got '${action.type}'` };
   }
 
-  if (action.player !== state.activePlayer) {
-    return { state, error: `Only the active player may select a company` };
-  }
-
-  const playerIndex = getPlayerIndex(state, state.activePlayer);
+  const playerIndex = getPlayerIndex(state, state.activePlayer!);
   const player = state.players[playerIndex];
   const companyIndex = player.companies.findIndex(c => c.id === action.companyId);
-
-  if (companyIndex === -1) {
-    return { state, error: `Company '${action.companyId}' not found` };
-  }
-
-  if (siteState.handledCompanyIds.includes(action.companyId)) {
-    return { state, error: `Company '${action.companyId}' has already been handled this turn` };
-  }
 
   logDetail(`Site: selected company ${action.companyId} (index ${companyIndex}) → advancing to enter-or-skip`);
   return {
@@ -181,11 +169,7 @@ function handleSiteEnterOrSkip(
     return { state, error: `Expected 'enter-site' or 'pass' during enter-or-skip step, got '${action.type}'` };
   }
 
-  if (action.player !== state.activePlayer) {
-    return { state, error: `Only the active player may enter or skip a site` };
-  }
-
-  const playerIndex = getPlayerIndex(state, state.activePlayer);
+  const playerIndex = getPlayerIndex(state, state.activePlayer!);
   const player = state.players[playerIndex];
   const company = player.companies[siteState.activeCompanyIndex];
 
@@ -252,7 +236,6 @@ function handleCancelConstraint(
   const playerIndex = getPlayerIndex(state, action.player);
   const player = state.players[playerIndex];
   const char = player.characters[action.characterId as string];
-  if (!char) return { state, error: 'Character not found' };
 
   const charDef = state.cardPool[char.definitionId as string];
   const charName = charDef && isCharacterCard(charDef) ? charDef.name : (action.characterId as string);
@@ -321,18 +304,10 @@ function handleRevealOnGuardAttacks(
 
   // Reveal on-guard card (creature or event affecting automatic-attacks)
   if (action.type === 'reveal-on-guard') {
-    if (action.player === state.activePlayer) {
-      return { state, error: 'Only the hazard player may reveal on-guard cards' };
-    }
-
     const activeIndex = getPlayerIndex(state, state.activePlayer!);
     const resourcePlayer = state.players[activeIndex];
     const company = resourcePlayer.companies[siteState.activeCompanyIndex];
-    if (!company) return { state, error: 'No active company' };
-
     const ogIdx = company.onGuardCards.findIndex(c => c.instanceId === action.cardInstanceId);
-    if (ogIdx === -1) return { state, error: 'Card not in on-guard cards' };
-
     const revealedCard = company.onGuardCards[ogIdx];
     const def = state.cardPool[revealedCard.definitionId as string];
     logDetail(`Site: hazard player reveals on-guard "${def?.name ?? revealedCard.definitionId}"`);
@@ -412,10 +387,7 @@ function handleSiteAutomaticAttacks(
 
   const activePlayerIndex = state.players.findIndex(p => p.id === state.activePlayer);
   const company = state.players[activePlayerIndex].companies[siteState.activeCompanyIndex];
-  if (!company?.currentSite) return { state, error: 'No company or site for automatic attacks' };
-
-  const siteDef = state.cardPool[company.currentSite.definitionId as string];
-  if (!siteDef || !isSiteCard(siteDef)) return { state, error: 'Site definition not found' };
+  const siteDef = state.cardPool[company.currentSite!.definitionId as string] as import('../types/cards.js').SiteCard;
 
   const attackIndex = siteState.automaticAttacksResolved;
   const autoAttacks = siteDef.automaticAttacks;
@@ -438,7 +410,7 @@ function handleSiteAutomaticAttacks(
       logDetail(`Site: initiating duplicate automatic attack (Incite Defenders): ${aa.creatureType} (${dupStrikes} strikes, ${dupProwess} prowess)`);
       const dupState = removeConstraint(state, dupConstraint.id);
       const dupCombat: CombatState = {
-        attackSource: { type: 'automatic-attack', siteInstanceId: company.currentSite.instanceId, attackIndex: attackIndex },
+        attackSource: { type: 'automatic-attack', siteInstanceId: company.currentSite!.instanceId, attackIndex: attackIndex },
         companyId: company.id,
         defendingPlayerId: state.activePlayer!,
         attackingPlayerId: state.players.find(p => p.id !== state.activePlayer)!.id,
@@ -502,7 +474,7 @@ function handleSiteAutomaticAttacks(
   logDetail(`Site: initiating automatic attack ${attackIndex + 1}/${autoAttacks.length}: ${aa.creatureType} (${aa.strikes} strikes${effectiveStrikes !== aa.strikes ? ` → ${effectiveStrikes}` : ''}, ${aa.prowess} prowess${effectiveProwess !== aa.prowess ? ` → ${effectiveProwess}` : ''}${effectiveStrikes !== aa.strikes || effectiveProwess !== aa.prowess ? ' after global effects' : ''})`);
 
   const combat: CombatState = {
-    attackSource: { type: 'automatic-attack', siteInstanceId: company.currentSite.instanceId, attackIndex },
+    attackSource: { type: 'automatic-attack', siteInstanceId: company.currentSite!.instanceId, attackIndex },
     companyId: company.id,
     defendingPlayerId: state.activePlayer!,
     attackingPlayerId: hazardPlayerId,
@@ -622,19 +594,12 @@ export function applyOnGuardRevealAtResource(
   if (action.type !== 'reveal-on-guard') {
     return { state, error: `Expected reveal-on-guard action, got '${action.type}'` };
   }
-  if (action.player === state.activePlayer) {
-    return { state, error: 'Only the hazard player may reveal on-guard cards' };
-  }
 
   const siteState = state.phaseState as SitePhaseState;
   const activeIndex = getPlayerIndex(state, state.activePlayer!);
   const resourcePlayer = state.players[activeIndex];
   const company = resourcePlayer.companies[siteState.activeCompanyIndex];
-  if (!company) return { state, error: 'No active company' };
-
   const ogIdx = company.onGuardCards.findIndex(c => c.instanceId === action.cardInstanceId);
-  if (ogIdx === -1) return { state, error: 'Card not in on-guard cards' };
-
   const revealedCard = company.onGuardCards[ogIdx];
   const def = state.cardPool[revealedCard.definitionId as string];
   logDetail(`Site: hazard player reveals on-guard event "${def?.name ?? revealedCard.definitionId}" in response to resource play`);
@@ -703,10 +668,6 @@ function handleSitePlayResources(
   action: GameAction,
   siteState: SitePhaseState,
 ): ReducerResult {
-  if (action.player !== state.activePlayer) {
-    return { state, error: `Only the active player may play resources` };
-  }
-
   const playerIndex = getPlayerIndex(state, action.player);
   const player = state.players[playerIndex];
   const company = player.companies[siteState.activeCompanyIndex];
@@ -795,71 +756,16 @@ function handleSitePlayHeroResource(
   const player = state.players[playerIndex];
   const company = player.companies[siteState.activeCompanyIndex];
 
-  // Validate card is in hand
   const cardIdx = player.hand.findIndex(c => c.instanceId === action.cardInstanceId);
-  if (cardIdx === -1) return { state, error: 'Card not in hand' };
-
   const handCard = player.hand[cardIdx];
   const def = state.cardPool[handCard.definitionId as string];
   const isItem = isItemCard(def);
   const isAlly = !isItem && isAllyCard(def);
-  if (!def || (!isItem && !isAlly)) return { state, error: 'Card is not an item or ally' };
 
-  // Check site allows this resource
-  const siteInPlay = company.currentSite;
-  const siteDef = siteInPlay ? state.cardPool[siteInPlay.definitionId as string] : undefined;
-  if (!siteDef || !isSiteCard(siteDef)) return { state, error: 'Company is not at a valid site' };
+  const siteInPlay = company.currentSite!;
 
-  if (isItem) {
-    const itemDef = def as HeroItemCard;
-    const siteRestriction = itemDef.effects?.find(
-      (e): e is ItemPlaySiteEffect => e.type === 'item-play-site',
-    );
-    if (siteRestriction) {
-      if (!siteRestriction.sites.includes(siteDef.name)) {
-        return { state, error: `${itemDef.name}: only playable at ${siteRestriction.sites.join(', ')}` };
-      }
-    } else if (!siteDef.playableResources.includes(itemDef.subtype)) {
-      return { state, error: `${itemDef.subtype} items cannot be played at ${siteDef.name}` };
-    }
-  }
-
-  // Validate target character
-  const targetCharId = action.attachToCharacterId;
-  if (!targetCharId) return { state, error: 'Must specify a character to carry this resource' };
-
-  if (!company.characters.includes(targetCharId)) {
-    return { state, error: 'Target character is not in this company' };
-  }
-
+  const targetCharId = action.attachToCharacterId!;
   const charInPlay = player.characters[targetCharId as string];
-  if (!charInPlay) return { state, error: 'Target character not found' };
-  if (charInPlay.status !== CardStatus.Untapped) {
-    return { state, error: 'Target character is not untapped' };
-  }
-
-  // Check character-scoped duplication limit for items
-  if (isItem && (def as HeroItemCard).effects) {
-    const charDupLimit = (def as HeroItemCard).effects!.find(
-      (e): e is import('../index.js').DuplicationLimitEffect =>
-        e.type === 'duplication-limit' && e.scope === 'character',
-    );
-    if (charDupLimit) {
-      const copiesOnChar = charInPlay.items.filter(item => {
-        const iDef = state.cardPool[item.definitionId as string];
-        return iDef && iDef.name === def.name;
-      }).length;
-      if (copiesOnChar >= charDupLimit.max) {
-        return { state, error: `${def.name} cannot be duplicated on this character` };
-      }
-    }
-  }
-
-  // Check site is not already tapped
-  if (siteInPlay!.status === CardStatus.Tapped) {
-    return { state, error: 'Site is already tapped' };
-  }
-
   const charDef = state.cardPool[charInPlay.definitionId as string];
   const charName = charDef?.name ?? targetCharId;
   logDetail(`Site: playing ${def.name} on ${charName} — tapping character and site`);
@@ -887,7 +793,7 @@ function handleSitePlayHeroResource(
   const newCompanies = [...player.companies];
   newCompanies[siteState.activeCompanyIndex] = {
     ...company,
-    currentSite: { ...siteInPlay!, status: CardStatus.Tapped },
+    currentSite: { ...siteInPlay, status: CardStatus.Tapped },
   };
 
   newPlayers[playerIndex] = { ...player, hand: newHand, characters: newCharacters, companies: newCompanies };
@@ -936,39 +842,19 @@ function handleSitePlayHeroResource(
 function handleInfluenceAttemptDeclare(
   state: GameState,
   action: GameAction,
-  siteState: SitePhaseState,
+  _siteState: SitePhaseState,
 ): ReducerResult {
   if (action.type !== 'influence-attempt') return { state, error: 'Expected influence-attempt action' };
 
   const playerIndex = getPlayerIndex(state, action.player);
   const player = state.players[playerIndex];
-  const company = player.companies[siteState.activeCompanyIndex];
 
-  // Validate faction card is in hand
   const cardIdx = player.hand.findIndex(c => c.instanceId === action.factionInstanceId);
-  if (cardIdx === -1) return { state, error: 'Faction card not in hand' };
-
   const handCard = player.hand[cardIdx];
   const def = state.cardPool[handCard.definitionId as string];
-  if (!def || !isFactionCard(def)) return { state, error: 'Card is not a faction' };
 
-  // Validate influencing character
   const charId = action.influencingCharacterId;
-  if (!company.characters.includes(charId)) {
-    return { state, error: 'Influencing character is not in this company' };
-  }
-
   const charInPlay = player.characters[charId as string];
-  if (!charInPlay) return { state, error: 'Influencing character not found' };
-  if (charInPlay.status !== CardStatus.Untapped) {
-    return { state, error: 'Influencing character is not untapped' };
-  }
-
-  // Validate site is not tapped
-  const siteInPlay = company.currentSite;
-  if (!siteInPlay || siteInPlay.status === CardStatus.Tapped) {
-    return { state, error: 'Site is already tapped' };
-  }
 
   logDetail(`Site: ${def.name} influence attempt declared by ${player.name} — initiating chain`);
 
@@ -1162,27 +1048,13 @@ function handleOpponentInfluenceAttempt(
 
   const playerIndex = getPlayerIndex(state, action.player);
   const player = state.players[playerIndex];
-  const company = player.companies[siteState.activeCompanyIndex];
 
-  // Validate influencing character is untapped and in company
   const charId = action.influencingCharacterId;
-  if (!company.characters.includes(charId)) {
-    return { state, error: 'Influencing character is not in this company' };
-  }
   const charInPlay = player.characters[charId as string];
-  if (!charInPlay) return { state, error: 'Influencing character not found' };
-  if (charInPlay.status !== CardStatus.Untapped) {
-    return { state, error: 'Influencing character is not untapped' };
-  }
 
-  // Validate target exists on the opponent
   const opponentIndex = 1 - playerIndex;
   const opponent = state.players[opponentIndex];
-  if (action.targetPlayer !== opponent.id) {
-    return { state, error: 'Target player is not the opponent' };
-  }
 
-  // Find the target
   let targetMind = 0;
   let controllerDI = 0;
 

@@ -12,7 +12,7 @@
 
 import { describe, test, expect, beforeEach } from 'vitest';
 import {
-  PLAYER_1, PLAYER_2, P1_COMPANY,
+  PLAYER_1, PLAYER_2,
   reduce,
   ARAGORN, LEGOLAS,
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
@@ -20,7 +20,7 @@ import {
   buildTestState, resetMint, buildSitePhaseState, makeMHState,
   addP2CardsInPlay, setupAutoAttackStep,
   Phase,
-  handCardId,
+  viableActions,
 } from '../test-helpers.js';
 import type { CardInPlay, CardInstanceId, MovementHazardPhaseState, CardDefinitionId } from '../../index.js';
 import { ISENGARD, DOORS_OF_NIGHT } from '../../index.js';
@@ -107,9 +107,8 @@ describe('Wake of War (tw-108)', () => {
     });
     const readyState = { ...state, phaseState: mhState };
 
-    const wowHandId = handCardId(readyState, 1);
-    const result = reduce(readyState, { type: 'play-hazard', player: PLAYER_2, cardInstanceId: wowHandId, targetCompanyId: P1_COMPANY });
-    expect(result.error).toBe('Wake of War cannot be duplicated');
+    const actions = viableActions(readyState, PLAYER_2, 'play-hazard');
+    expect(actions).toHaveLength(0);
   });
 
   test('without Wake of War: Wolves auto-attack unchanged', () => {

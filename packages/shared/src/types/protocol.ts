@@ -64,6 +64,12 @@ export interface ActionMessage {
   readonly type: 'action';
   /** The game action to apply. See `GameAction` for all possible action types. */
   readonly action: GameAction;
+  /**
+   * Canonical id of the action, as stamped on the `EvaluatedAction` the
+   * server last sent to this player. Optional for backwards compatibility
+   * — when absent, the server derives the id from `action` directly.
+   */
+  readonly actionId?: string;
 }
 
 /**

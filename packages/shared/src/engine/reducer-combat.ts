@@ -93,13 +93,8 @@ function nextStrikePhase(combat: CombatState): Partial<CombatState> | null {
 
 function handleChooseStrikeOrder(state: GameState, action: GameAction, combat: CombatState): ReducerResult {
   if (action.type !== 'choose-strike-order') return { state, error: 'Expected choose-strike-order' };
-  if (combat.phase !== 'choose-strike-order') return { state, error: 'Not in choose-strike-order phase' };
-  if (action.player !== combat.defendingPlayerId) return { state, error: 'Only defending player can choose strike order' };
 
   const idx = action.strikeIndex;
-  if (idx < 0 || idx >= combat.strikeAssignments.length) return { state, error: 'Invalid strike index' };
-  if (combat.strikeAssignments[idx].resolved) return { state, error: 'Strike already resolved' };
-
   logDetail(`Defender chose to resolve strike ${idx} (character ${combat.strikeAssignments[idx].characterId as string})`);
   return {
     state: { ...state, combat: { ...combat, phase: 'resolve-strike', currentStrikeIndex: idx } },
@@ -111,23 +106,6 @@ function handleChooseStrikeOrder(state: GameState, action: GameAction, combat: C
 
 function handleAssignStrike(state: GameState, action: GameAction, combat: CombatState): ReducerResult {
   if (action.type !== 'assign-strike') return { state, error: 'Expected assign-strike' };
-  if (combat.phase !== 'assign-strikes') return { state, error: 'Not in assign-strikes phase' };
-
-  const totalAllocated = combat.strikeAssignments.length
-    + combat.strikeAssignments.reduce((sum, a) => sum + a.excessStrikes, 0);
-  const strikesRemaining = combat.strikesTotal - totalAllocated;
-  if (strikesRemaining <= 0) return { state, error: 'All strikes already assigned' };
-
-  // Validate character or ally is in the defending company (CoE rule 2.V.2.2)
-  const defPlayerIndex = state.players.findIndex(p => p.id === combat.defendingPlayerId);
-  const defPlayer = state.players[defPlayerIndex];
-  const company = defPlayer.companies.find(c => c.id === combat.companyId);
-  if (!company) return { state, error: 'Defending company not found' };
-  const isCharInCompany = company.characters.includes(action.characterId);
-  const isAllyInCompany = !isCharInCompany && !!findAllyInCompany(defPlayer, company.characters, action.characterId);
-  if (!isCharInCompany && !isAllyInCompany) {
-    return { state, error: 'Character not in defending company' };
-  }
 
   const existingIdx = combat.strikeAssignments.findIndex(a => a.characterId === action.characterId);
 
@@ -161,10 +139,6 @@ function handleAssignStrike(state: GameState, action: GameAction, combat: Combat
   }
 
   if (existingIdx >= 0) {
-    // Excess strike: character already has a strike, add -1 prowess penalty
-    if (combat.assignmentPhase !== 'attacker') {
-      return { state, error: 'Only attacker can assign excess strikes' };
-    }
     newAssignments = combat.strikeAssignments.map((a, i) =>
       i === existingIdx ? { ...a, excessStrikes: a.excessStrikes + 1 } : a,
     );
@@ -200,9 +174,6 @@ function handleCombatPass(state: GameState, action: GameAction, combat: CombatSt
 
   // Pass during item-salvage: player declines further transfers, discard remaining items
   if (combat.phase === 'item-salvage') {
-    if (action.player !== combat.defendingPlayerId) {
-      return { state, error: 'Only the defending player can pass during item salvage' };
-    }
     logDetail('Defender passed item-salvage — discarding remaining items');
     const newPlayers = clonePlayers(state);
     const defIdx = state.players.findIndex(p => p.id === combat.defendingPlayerId);
@@ -227,17 +198,10 @@ function handleCombatPass(state: GameState, action: GameAction, combat: CombatSt
 
   // Pass during cancel-window: defender declined to cancel — proceed to attacker assignment
   if (combat.phase === 'assign-strikes' && combat.assignmentPhase === 'cancel-window') {
-    if (action.player !== combat.defendingPlayerId) {
-      return { state, error: 'Only the defending player can pass during cancel window' };
-    }
     logDetail('Defender passed cancel window — attacker assigns strikes');
     return {
       state: { ...state, combat: { ...combat, assignmentPhase: 'attacker' } },
     };
-  }
-
-  if (combat.phase !== 'assign-strikes' || combat.assignmentPhase !== 'defender') {
-    return { state, error: 'Can only pass during defender strike assignment, cancel-window, cancel-by-tap, or item-salvage' };
   }
 
   const totalAllocated = combat.strikeAssignments.length
@@ -427,7 +391,6 @@ function resolveStrikeCore(
 /** Resolve the current strike — roll dice and determine outcome. */
 function handleResolveStrike(state: GameState, action: GameAction, combat: CombatState): ReducerResult {
   if (action.type !== 'resolve-strike') return { state, error: 'Expected resolve-strike' };
-  if (combat.phase !== 'resolve-strike') return { state, error: 'Not in resolve-strike phase' };
   return resolveStrikeCore(state, combat, action.tapToFight ? 'tap' : 'untap', 0, null);
 }
 
@@ -436,7 +399,6 @@ function handleResolveStrike(state: GameState, action: GameAction, combat: Comba
 
 function handleSupportStrike(state: GameState, action: GameAction, combat: CombatState): ReducerResult {
   if (action.type !== 'support-strike') return { state, error: 'Expected support-strike' };
-  if (combat.phase !== 'resolve-strike') return { state, error: 'Not in resolve-strike phase' };
 
   const defPlayerIndex = state.players.findIndex(p => p.id === combat.defendingPlayerId);
   const defPlayer = state.players[defPlayerIndex];
@@ -444,7 +406,6 @@ function handleSupportStrike(state: GameState, action: GameAction, combat: Comba
   // Check if supporter is a character
   const supporterChar = defPlayer.characters[action.supportingCharacterId as string];
   if (supporterChar) {
-    if (supporterChar.status !== CardStatus.Untapped) return { state, error: 'Supporting character must be untapped' };
     const newPlayers = clonePlayers(state);
     const newCharacters = { ...defPlayer.characters };
     newCharacters[action.supportingCharacterId as string] = { ...supporterChar, status: CardStatus.Tapped };
@@ -459,7 +420,6 @@ function handleSupportStrike(state: GameState, action: GameAction, combat: Comba
     const allyIndex = ch.allies.findIndex(a => a.instanceId === action.supportingCharacterId);
     if (allyIndex >= 0) {
       const ally = ch.allies[allyIndex];
-      if (ally.status !== CardStatus.Untapped) return { state, error: 'Supporting ally must be untapped' };
       const newPlayers = clonePlayers(state);
       const newAllies = [...ch.allies];
       newAllies[allyIndex] = { ...ally, status: CardStatus.Tapped };
@@ -481,19 +441,12 @@ function handleSupportStrike(state: GameState, action: GameAction, combat: Comba
  */
 function handleCancelStrike(state: GameState, action: GameAction, combat: CombatState): ReducerResult {
   if (action.type !== 'cancel-strike') return { state, error: 'Expected cancel-strike' };
-  if (combat.phase !== 'resolve-strike') return { state, error: 'Not in resolve-strike phase' };
 
   const defPlayerIndex = state.players.findIndex(p => p.id === combat.defendingPlayerId);
   const defPlayer = state.players[defPlayerIndex];
 
   const cancellerChar = defPlayer.characters[action.cancellerInstanceId as string];
-  if (!cancellerChar) return { state, error: 'Canceller character not found' };
-  if (cancellerChar.status !== CardStatus.Untapped) return { state, error: 'Canceller must be untapped' };
-
   const currentStrike = combat.strikeAssignments[combat.currentStrikeIndex];
-  if (!currentStrike || currentStrike.resolved) return { state, error: 'No active strike to cancel' };
-  if (currentStrike.characterId === action.cancellerInstanceId) return { state, error: 'Cannot cancel own strike with this effect' };
-  if (action.targetCharacterId !== currentStrike.characterId) return { state, error: 'Target does not match current strike' };
 
   const cancellerDef = state.cardPool[cancellerChar.definitionId as string];
   const cancellerName = cancellerDef && 'name' in cancellerDef ? (cancellerDef as { name: string }).name : (action.cancellerInstanceId as string);
@@ -525,18 +478,14 @@ function handleCancelStrike(state: GameState, action: GameAction, combat: Combat
  */
 function handlePlayDodge(state: GameState, action: GameAction, combat: CombatState): ReducerResult {
   if (action.type !== 'play-dodge') return { state, error: 'Expected play-dodge' };
-  if (combat.phase !== 'resolve-strike') return { state, error: 'Not in resolve-strike phase' };
 
   const defPlayerIndex = state.players.findIndex(p => p.id === combat.defendingPlayerId);
   const defPlayer = state.players[defPlayerIndex];
   const handIndex = defPlayer.hand.findIndex(c => c.instanceId === action.cardInstanceId);
-  if (handIndex < 0) return { state, error: 'Card not found in hand' };
-
   const handCard = defPlayer.hand[handIndex];
   const cardDef = state.cardPool[handCard.definitionId as string];
-  const effects = (cardDef as { effects?: readonly import('../types/effects.js').CardEffect[] } | undefined)?.effects;
-  const dodgeEffect = effects?.find((e): e is DodgeStrikeEffect => e.type === 'dodge-strike');
-  if (!dodgeEffect) return { state, error: 'Card has no dodge-strike effect' };
+  const effects = (cardDef as { effects?: readonly import('../types/effects.js').CardEffect[] } | undefined)?.effects ?? [];
+  const dodgeEffect = effects.find((e): e is DodgeStrikeEffect => e.type === 'dodge-strike') as DodgeStrikeEffect;
 
   logDetail(`Playing dodge card ${handCard.definitionId as string}`);
 
@@ -556,7 +505,6 @@ function handlePlayDodge(state: GameState, action: GameAction, combat: CombatSta
 
 function handleBodyCheckRoll(state: GameState, action: GameAction, combat: CombatState): ReducerResult {
   if (action.type !== 'body-check-roll') return { state, error: 'Expected body-check-roll' };
-  if (combat.phase !== 'body-check') return { state, error: 'Not in body-check phase' };
 
   const { roll, rng, cheatRollTotal } = roll2d6(state);
   const rollTotal = roll.die1 + roll.die2;
@@ -753,16 +701,11 @@ function handleBodyCheckRoll(state: GameState, action: GameAction, combat: Comba
  */
 function handleCancelAttack(state: GameState, action: GameAction, combat: CombatState): ReducerResult {
   if (action.type !== 'cancel-attack') return { state, error: 'Expected cancel-attack' };
-  if (combat.phase !== 'assign-strikes') return { state, error: 'Can only cancel attack before strikes are assigned' };
-  if (combat.strikeAssignments.length > 0) return { state, error: 'Strikes already assigned — too late to cancel' };
-  if (action.player !== combat.defendingPlayerId) return { state, error: 'Only defending player can cancel an attack' };
 
   const defPlayerIndex = state.players.findIndex(p => p.id === action.player);
   const defPlayer = state.players[defPlayerIndex];
 
-  // Validate the card is in hand
   const cardIndex = defPlayer.hand.findIndex(c => c.instanceId === action.cardInstanceId);
-  if (cardIndex < 0) return { state, error: 'Card not in hand' };
 
   const newPlayers = clonePlayers(state);
   const newCharacters = { ...defPlayer.characters };
@@ -779,18 +722,8 @@ function handleCancelAttack(state: GameState, action: GameAction, combat: Combat
   // Pay character cost: tap or enqueue corruption check
   let needsCorruptionCheck: { characterId: CardInstanceId; modifier: number } | null = null;
   if (action.scoutInstanceId) {
-    const company = defPlayer.companies.find(c => c.id === combat.companyId);
-    if (!company || !company.characters.includes(action.scoutInstanceId)) {
-      return { state, error: 'Character not in defending company' };
-    }
     const charData = defPlayer.characters[action.scoutInstanceId as string];
-    if (!charData) {
-      return { state, error: 'Character not found' };
-    }
     if (costIsTap) {
-      if (charData.status !== CardStatus.Untapped) {
-        return { state, error: 'Character must be untapped' };
-      }
       logDetail(`Attack canceled: ${defPlayer.hand[cardIndex].definitionId as string} played, tapping ${charData.definitionId as string}`);
       newCharacters[action.scoutInstanceId as string] = { ...charData, status: CardStatus.Tapped };
     } else if (costIsCheck) {

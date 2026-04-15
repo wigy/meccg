@@ -47,7 +47,7 @@ import {
 } from './company-view-state.js';
 import { renderSiteArea } from './company-site.js';
 import { renderCharacterColumn } from './company-character.js';
-import { showCharacterActionTooltip } from './company-modals.js';
+import { showCharacterActionTooltip, showGrantedActionTooltip } from './company-modals.js';
 import { switchToAllCompanies } from './company-view.js';
 
 /**
@@ -125,8 +125,8 @@ export function renderCompanyBlock(
     corruptionCheckActions?: Map<string, CorruptionCheckAction>;
     /** Map from character instance ID to support-corruption-check action. */
     supportCorruptionCheckActions?: Map<string, SupportCorruptionCheckAction>;
-    /** Map from source card instance ID to activate-granted-action action. */
-    grantedActions?: Map<string, ActivateGrantedAction>;
+    /** Map from source card instance ID to activate-granted-action actions. */
+    grantedActions?: Map<string, ActivateGrantedAction[]>;
   },
 ): HTMLElement {
   const cachedInstanceLookup = getCachedInstanceLookup();
@@ -319,17 +319,27 @@ export function renderCompanyBlock(
     };
   };
 
-  /** Build click handler for hazard cards with granted actions (e.g. remove-self-on-roll). */
-  const buildHazardClick = (hazardInstId: CardInstanceId): { cls: string; handler: (e: Event) => void } | undefined => {
+  /** Build click handler for cards with granted actions (hazards or items like Cram). */
+  const buildHazardClick = (instId: CardInstanceId): { cls: string; handler: (e: Event) => void } | undefined => {
     if (!options?.onAction || !options.grantedActions) return undefined;
-    const action = options.grantedActions.get(hazardInstId as string);
-    if (!action) return undefined;
+    const actions = options.grantedActions.get(instId as string);
+    if (!actions || actions.length === 0) return undefined;
     const onAction = options.onAction;
+    if (actions.length === 1) {
+      return {
+        cls: 'company-card--transfer-source',
+        handler: (e) => {
+          e.stopPropagation();
+          onAction(actions[0]);
+        },
+      };
+    }
     return {
       cls: 'company-card--transfer-source',
       handler: (e) => {
         e.stopPropagation();
-        onAction(action);
+        const anchor = e.currentTarget as HTMLElement;
+        showGrantedActionTooltip(anchor, actions, onAction);
       },
     };
   };

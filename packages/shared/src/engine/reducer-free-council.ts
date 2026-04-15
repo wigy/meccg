@@ -34,10 +34,6 @@ import { roll2d6, clonePlayers, cleanupEmptyCompanies } from './reducer-utils.js
 export function handleFreeCouncil(state: GameState, action: GameAction): ReducerResult {
   const fcState = state.phaseState as FreeCouncilPhaseState;
 
-  if (fcState.step === 'done') {
-    return { state, error: 'Free Council scoring is complete' };
-  }
-
   // Handle support tapping for a pending corruption check (CoE 7.1.1)
   if (action.type === 'support-corruption-check') {
     return handleSupportCorruptionCheck(state, action, fcState);
@@ -100,9 +96,6 @@ function handleDeclareCorruptionCheck(
 
   const playerIndex = getPlayerIndex(state, action.player);
   const player = state.players[playerIndex];
-  const char = player.characters[action.characterId as string];
-  if (!char) return { state, error: 'Character not found' };
-
   const charDefId = resolveInstanceId(state, action.characterId);
   const charDef = charDefId ? state.cardPool[charDefId as string] : undefined;
   const charName = charDef?.name ?? '?';
@@ -157,20 +150,10 @@ function handleSupportCorruptionCheck(
   fcState: FreeCouncilPhaseState,
 ): ReducerResult {
   if (action.type !== 'support-corruption-check') return { state, error: 'Expected support-corruption-check' };
-  if (!fcState.pendingCheck) return { state, error: 'No pending corruption check to support' };
 
   const playerIndex = getPlayerIndex(state, action.player);
   const player = state.players[playerIndex];
   const supporter = player.characters[action.supportingCharacterId as string];
-  if (!supporter) return { state, error: 'Supporting character not found' };
-  if (supporter.status !== CardStatus.Untapped) return { state, error: 'Supporting character must be untapped' };
-
-  // Verify supporter is in the same company as the check target
-  const company = player.companies.find(c => c.characters.includes(fcState.pendingCheck!.characterId));
-  if (!company || !company.characters.includes(action.supportingCharacterId)) {
-    return { state, error: 'Supporting character must be in the same company' };
-  }
-
   const supporterDefId = resolveInstanceId(state, action.supportingCharacterId);
   const supporterDef = supporterDefId ? state.cardPool[supporterDefId as string] : undefined;
   const supporterName = supporterDef?.name ?? (action.supportingCharacterId as string);
@@ -190,8 +173,8 @@ function handleSupportCorruptionCheck(
       phaseState: {
         ...fcState,
         pendingCheck: {
-          ...fcState.pendingCheck,
-          supportCount: fcState.pendingCheck.supportCount + 1,
+          ...fcState.pendingCheck!,
+          supportCount: fcState.pendingCheck!.supportCount + 1,
         },
       },
     },
@@ -211,8 +194,6 @@ function resolveCorruptionCheck(
   const playerIndex = getPlayerIndex(state, fcState.currentPlayer);
   const player = state.players[playerIndex];
   const char = player.characters[pending.characterId as string];
-  if (!char) return { state, error: 'Character not found' };
-
   const fcCharDefId = resolveInstanceId(state, pending.characterId);
   const charDef = fcCharDefId ? state.cardPool[fcCharDefId as string] : undefined;
   const charName = charDef?.name ?? '?';

@@ -32,7 +32,7 @@ import type {
   CharacterDeckDraftPlayerState,
 } from '@meccg/shared';
 import { UNKNOWN_CARD, UNKNOWN_SITE, getPlayerIndex, Phase } from '@meccg/shared';
-import { computeLegalActions } from '@meccg/shared';
+import { computeLegalActions, stampActionIds } from '@meccg/shared';
 
 /** Convert a pile of card instances to view cards (structurally identical). */
 function toViewCards(pile: readonly CardInstance[]): ViewCard[] {
@@ -305,7 +305,7 @@ export function projectPlayerView(state: GameState, playerId: PlayerId): PlayerV
     }
   }
 
-  const legalActions = computeLegalActions(state, playerId);
+  const legalActions = stampActionIds(computeLegalActions(state, playerId));
   const redactedPhase = redactPhaseForPlayer(state.phaseState, selfIndex);
 
   return {

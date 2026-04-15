@@ -143,12 +143,6 @@ function handlePlayHazards(
 
   // --- Play hazard ---
   if (action.type === 'play-hazard') {
-    if (isResourcePlayer) {
-      return { state, error: 'Only the hazard player may play hazards' };
-    }
-    // Hazard limit is checked inside handlePlayHazardCard per card type,
-    // since some cards bypass the limit (no-hazard-limit flag, creature
-    // race exemption from Two or Three Tribes Present).
     return handlePlayHazardCard(state, action, mhState);
   }
 
@@ -174,15 +168,6 @@ function handlePlayHazards(
 
   // --- Place on-guard ---
   if (action.type === 'place-on-guard') {
-    if (isResourcePlayer) {
-      return { state, error: 'Only the hazard player may place on-guard cards' };
-    }
-    if (mhState.onGuardPlacedThisCompany) {
-      return { state, error: 'Already placed an on-guard card this company' };
-    }
-    if (mhState.hazardsPlayedThisCompany >= mhState.hazardLimit) {
-      return { state, error: `Hazard limit reached (${mhState.hazardLimit})` };
-    }
     return handlePlaceOnGuard(state, action, mhState);
   }
 
@@ -219,10 +204,7 @@ function handlePlayHazardCard(
   const hazardIndex = getPlayerIndex(state, action.player);
   const hazardPlayer = state.players[hazardIndex];
 
-  // Validate card is in hand
   const cardIdx = hazardPlayer.hand.findIndex(c => c.instanceId === action.cardInstanceId);
-  if (cardIdx === -1) return { state, error: 'Card not in hand' };
-
   const handCard = hazardPlayer.hand[cardIdx];
   const def = state.cardPool[handCard.definitionId as string];
   if (!def) return { state, error: 'Card definition not found' };
@@ -232,16 +214,7 @@ function handlePlayHazardCard(
     const keyError = checkCreatureKeying(def, mhState);
     if (keyError) return { state, error: keyError };
 
-    // Creatures must initiate a new chain — they cannot be played in response (CoE rule 307)
-    if (state.chain != null) {
-      return { state, error: 'Creatures must initiate a new chain — cannot be played in response' };
-    }
-
-    // Check if the creature's race is exempt from the hazard limit
     const raceExempt = isCreatureRaceExempt(state, action, def);
-    if (!raceExempt && mhState.hazardsPlayedThisCompany >= mhState.hazardLimit) {
-      return { state, error: `Hazard limit reached (${mhState.hazardLimit})` };
-    }
     const newHazardCount = raceExempt ? mhState.hazardsPlayedThisCompany : mhState.hazardsPlayedThisCompany + 1;
     logDetail(`Play-hazards: hazard player plays creature "${def.name}" (${newHazardCount}/${mhState.hazardLimit})${raceExempt ? ` [race "${def.race}" exempt from hazard limit]` : ''} — initiating chain`);
 
@@ -269,34 +242,7 @@ function handlePlayHazardCard(
 
   // --- Short event handling (via chain of effects) ---
   if (def.cardType === 'hazard-event' && def.eventType === 'short') {
-    // Duplication-limit check (short events: chain + cardsInPlay + active constraints from this card)
-    if (def.effects) {
-      for (const effect of def.effects) {
-        if (effect.type !== 'duplication-limit') continue;
-        if (effect.scope !== 'game' && effect.scope !== 'turn') continue;
-        const copiesOnChain = state.chain?.entries.filter(e => {
-          const cDef = e.card ? state.cardPool[e.card.definitionId as string] : undefined;
-          return cDef && cDef.name === def.name;
-        }).length ?? 0;
-        const copiesInPlay = state.players.reduce((count, p) =>
-          count + p.cardsInPlay.filter(c => {
-            const cDef = state.cardPool[c.definitionId as string];
-            return cDef && cDef.name === def.name;
-          }).length, 0,
-        );
-        const constraintCopies = effect.scope === 'turn'
-          ? state.activeConstraints.filter(c => c.sourceDefinitionId === def.id).length
-          : 0;
-        if (copiesOnChain + copiesInPlay + constraintCopies >= effect.max) {
-          return { state, error: `${def.name} cannot be duplicated` };
-        }
-      }
-    }
-
     const bypassesLimit = hasPlayFlag(def, 'no-hazard-limit');
-    if (!bypassesLimit && mhState.hazardsPlayedThisCompany >= mhState.hazardLimit) {
-      return { state, error: `Hazard limit reached (${mhState.hazardLimit})` };
-    }
     const newHazardCount = bypassesLimit ? mhState.hazardsPlayedThisCompany : mhState.hazardsPlayedThisCompany + 1;
     logDetail(`Play-hazards: hazard player plays short-event "${def.name}" (${newHazardCount}/${mhState.hazardLimit})${bypassesLimit ? ' [no-hazard-limit]' : ''}`);
 
@@ -387,36 +333,9 @@ function handlePlayHazardCard(
   }
 
   // --- Event handling (long / permanent) ---
+  // The narrowing here is load-bearing for downstream `def.eventType` access.
   if (def.cardType !== 'hazard-event' || (def.eventType !== 'long' && def.eventType !== 'permanent')) {
-    return { state, error: `Cannot play ${def.cardType} during play-hazards — only creatures, short-events, hazard long/permanent-events, and corruption cards are currently supported` };
-  }
-
-  if (mhState.hazardsPlayedThisCompany >= mhState.hazardLimit) {
-    return { state, error: `Hazard limit reached (${mhState.hazardLimit})` };
-  }
-
-  // Uniqueness check: unique events can't be played if already in play
-  if (def.unique) {
-    const alreadyInPlay = state.players.some(p =>
-      p.cardsInPlay.some(c => c.definitionId === def.id),
-    );
-    if (alreadyInPlay) return { state, error: `${def.name} is unique and already in play` };
-  }
-
-  // Duplication-limit check
-  if (def.effects) {
-    for (const effect of def.effects) {
-      if (effect.type !== 'duplication-limit' || effect.scope !== 'game') continue;
-      const copiesInPlay = state.players.reduce((count, p) =>
-        count + p.cardsInPlay.filter(c => {
-          const cDef = state.cardPool[c.definitionId as string];
-          return cDef && cDef.name === def.name;
-        }).length, 0,
-      );
-      if (copiesInPlay >= effect.max) {
-        return { state, error: `${def.name} cannot be duplicated` };
-      }
-    }
+    return { state, error: `Unsupported hazard card type during play-hazards` };
   }
 
   logDetail(`Play-hazards: hazard player plays ${def.eventType}-event "${def.name}" (${mhState.hazardsPlayedThisCompany + 1}/${mhState.hazardLimit}) → enters chain`);
@@ -480,10 +399,7 @@ function handlePlaceOnGuard(
   const hazardIndex = getPlayerIndex(state, action.player);
   const hazardPlayer = state.players[hazardIndex];
 
-  // Validate card is in hand
   const cardIdx = hazardPlayer.hand.findIndex(c => c.instanceId === action.cardInstanceId);
-  if (cardIdx === -1) return { state, error: 'Card not in hand' };
-
   const handCard = hazardPlayer.hand[cardIdx];
 
   logDetail(`Play-hazards: hazard player places on-guard card "${action.cardInstanceId}" (${mhState.hazardsPlayedThisCompany + 1}/${mhState.hazardLimit})`);
@@ -958,17 +874,7 @@ function handleResetHand(
 
   const playerIndex = getPlayerIndex(state, action.player);
   const player = state.players[playerIndex];
-  const handSize = resolveHandSize(state, playerIndex);
-
-  if (player.hand.length <= handSize) {
-    return { state, error: `Player ${player.name} does not need to discard (hand: ${player.hand.length}/${handSize})` };
-  }
-
   const cardIdx = player.hand.findIndex(c => c.instanceId === action.cardInstanceId);
-  if (cardIdx === -1) {
-    return { state, error: 'Card not in hand' };
-  }
-
   const discardedCard = player.hand[cardIdx];
   const newHand = [...player.hand];
   newHand.splice(cardIdx, 1);
@@ -980,7 +886,7 @@ function handleResetHand(
     discardPile: [...player.discardPile, discardedCard],
   };
 
-  logDetail(`Reset-hand: player ${player.name} discards 1 card (${newHand.length}/${handSize})`);
+  logDetail(`Reset-hand: player ${player.name} discards 1 card (hand now ${newHand.length})`);
 
   const updatedState = { ...state, players: newPlayers };
 
@@ -1207,22 +1113,9 @@ function handleSelectCompany(
     return { state, error: `Expected 'select-company' action during select-company step, got '${action.type}'` };
   }
 
-  if (action.player !== state.activePlayer) {
-    return { state, error: `Only the active player may select a company` };
-  }
-
-  const playerIndex = getPlayerIndex(state, state.activePlayer);
+  const playerIndex = getPlayerIndex(state, state.activePlayer!);
   const player = state.players[playerIndex];
   const companyIndex = player.companies.findIndex(c => c.id === action.companyId);
-
-  if (companyIndex === -1) {
-    return { state, error: `Company '${action.companyId}' not found` };
-  }
-
-  if (mhState.handledCompanyIds.includes(action.companyId)) {
-    return { state, error: `Company '${action.companyId}' has already been handled this turn` };
-  }
-
   const company = player.companies[companyIndex];
   const isMoving = company.destinationSite !== null;
 
@@ -1272,10 +1165,6 @@ function handleRevealNewSite(
   action: GameAction,
   mhState: MovementHazardPhaseState,
 ): ReducerResult {
-  if (action.player !== state.activePlayer) {
-    return { state, error: `Only the active player may act during reveal-new-site` };
-  }
-
   // Non-moving company: pass to advance (skip declare-path, go to set-hazard-limit)
   // Set destinationSiteType/Name to current site so creatures can be keyed to it
   if (action.type === 'pass') {
@@ -1708,39 +1597,21 @@ function handleDrawCards(
     return { state: completeDeckExhaust(state, actingIndex) };
   }
 
-  // Pass: allowed after first mandatory draw, or if max is 0
   if (action.type === 'pass') {
-    if (drawnSoFar === 0 && drawMax > 0) {
-      return { state, error: `${playerLabel} player must draw at least 1 card before passing` };
-    }
-
     logDetail(`Movement/Hazard draw-cards: ${playerLabel} player passed (drew ${drawnSoFar}/${drawMax})`);
     return advanceDrawCards(state, mhState, isResourcePlayer, drawMax);
   }
 
-  // Deck exhaustion: enter exchange sub-flow
   if (action.type === 'deck-exhaust') {
-    const exPlayer = state.players[actingIndex];
-    if (exPlayer.playDeck.length > 0) {
-      return { state, error: 'Cannot exhaust — play deck is not empty' };
-    }
-    if (exPlayer.discardPile.length === 0) {
-      return { state, error: 'Cannot exhaust — discard pile is also empty' };
-    }
     return { state: startDeckExhaust(state, actingIndex) };
   }
 
-  // Exchange sideboard during deck exhaustion sub-flow
   if (action.type === 'exchange-sideboard') {
     return handleExchangeSideboard(state, action);
   }
 
   if (action.type !== 'draw-cards' || action.count !== 1) {
     return { state, error: `Expected 'draw-cards' (count: 1), 'deck-exhaust', 'exchange-sideboard', or 'pass' during draw-cards step, got '${action.type}'` };
-  }
-
-  if (drawnSoFar >= drawMax) {
-    return { state, error: `${playerLabel} player has already drawn maximum (${drawMax}) cards` };
   }
 
   // Draw 1 card from play deck into hand
@@ -1846,22 +1717,13 @@ function advanceDrawCards(
 function handleCancelHazardByTap(state: GameState, action: GameAction): ReducerResult {
   if (action.type !== 'cancel-hazard-by-tap') return { state, error: 'Expected cancel-hazard-by-tap' };
 
-  const chain = state.chain;
-  if (!chain) return { state, error: 'No chain active to cancel' };
-
+  const chain = state.chain!;
   const entry = chain.entries[action.chainEntryIndex];
-  if (!entry || entry.resolved || entry.negated) {
-    return { state, error: `Chain entry ${action.chainEntryIndex} is not cancelable` };
-  }
 
   const playerIndex = getPlayerIndex(state, action.player);
   const player = state.players[playerIndex];
   const charId = action.characterInstanceId as string;
   const char = player.characters[charId];
-  if (!char) return { state, error: `Character ${charId} not in play` };
-  if (char.status !== CardStatus.Untapped) {
-    return { state, error: `Character ${charId} is not untapped` };
-  }
 
   const entryDef = entry.card ? state.cardPool[entry.card.definitionId as string] : null;
   logDetail(`cancel-hazard-by-tap: ${charId} taps to cancel chain entry ${action.chainEntryIndex} (${entryDef?.name ?? 'unknown'})`);
