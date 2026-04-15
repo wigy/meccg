@@ -868,8 +868,12 @@ The resolver:
 `play-option` declares one of several mutually-exclusive choices the
 player may take when playing a card. Each option has an `id`, an optional
 `when` evaluated against the target context (`target.race`,
-`target.status`, `target.skills`), and an `apply` clause resolved by the
-generic reducer.
+`target.status`, `target.skills`, `inPlay`), and an `apply` clause
+resolved by the generic reducer.
+
+The `when` context includes `inPlay` — an array of all card names
+currently in play — so conditions like `{ "inPlay": "Gates of Morning" }`
+work.
 
 Supported `apply` kinds today:
 
@@ -880,7 +884,10 @@ Supported `apply` kinds today:
   a one-shot bonus (`check`, `value`) to the target's next check of the
   named type, consumed automatically on resolution. Future cards granting
   one-shot bonuses to influence or other checks reuse the same kind
-  unchanged.
+  unchanged. When `constraint: "hazard-limit-modifier"` is used, the
+  target is resolved to the company containing the targeted character and
+  the constraint modifies the hazard limit during the company's M/H phase.
+  The `scope` should be `"company-mh-phase"`.
 
 ### Marvels Told
 
@@ -909,6 +916,26 @@ Supported `apply` kinds today:
     "when": { "enemy.race": { "$in": ["orc", "troll", "man"] } } },
   { "type": "halve-strikes",
     "when": { "inPlay": "Gates of Morning" } }
+]
+```
+
+### Many Turns and Doublings
+
+```json
+"effects": [
+  { "type": "cancel-attack", "requiredSkill": "ranger",
+    "when": { "enemy.race": { "$in": ["wolf", "spider", "animal", "undead"] } } },
+  { "type": "play-target", "target": "character",
+    "filter": { "$and": [
+      { "target.skills": { "$includes": "ranger" } },
+      { "target.status": "untapped" }
+    ] },
+    "cost": { "tap": "character" } },
+  { "type": "play-option", "id": "decrease-hazard-limit",
+    "when": { "inPlay": "Gates of Morning" },
+    "apply": { "type": "add-constraint",
+               "constraint": "hazard-limit-modifier",
+               "scope": "company-mh-phase", "value": -1 } }
 ]
 ```
 
