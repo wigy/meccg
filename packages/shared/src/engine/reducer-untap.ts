@@ -208,13 +208,23 @@ function performUntap(state: GameState): GameState {
   const playerIndex = getPlayerIndex(state, state.activePlayer!);
   const player = state.players[playerIndex];
 
-  // Build a set of character IDs at havens for healing wounded characters
+  // Build a set of character IDs at havens for healing wounded characters.
+  // Also check site-type-override constraints (e.g. The White Tree makes
+  // Minas Tirith a haven for healing purposes).
   const charsAtHaven = new Set<string>();
   for (const company of player.companies) {
     if (!company.currentSite) continue;
     const siteDef = state.cardPool[company.currentSite.definitionId];
     if (!siteDef || !isSiteCard(siteDef)) continue;
-    if (siteDef.siteType === SiteType.Haven) {
+    let isHaven = siteDef.siteType === SiteType.Haven;
+    if (!isHaven) {
+      isHaven = state.activeConstraints.some(c =>
+        c.kind.type === 'site-type-override'
+        && c.kind.siteDefinitionId === company.currentSite!.definitionId
+        && c.kind.overrideType === SiteType.Haven,
+      );
+    }
+    if (isHaven) {
       for (const charId of company.characters) {
         charsAtHaven.add(charId as string);
       }

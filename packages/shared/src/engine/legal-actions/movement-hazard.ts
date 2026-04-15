@@ -1159,7 +1159,7 @@ function checkSitePathCondition(
     }
   }
   const ctx: Record<string, unknown> = { sitePath: counts };
-  return matchesCondition(effect.condition, ctx);
+  return effect.condition ? matchesCondition(effect.condition, ctx) : true;
 }
 
 // mhWoundCorruptionCheckActions removed: wound corruption checks are

@@ -540,8 +540,17 @@
     "eventType": "permanent",
     "marshallingPoints": 5,
     "marshallingCategory": "misc",
-    "effects": [],
-    "text": "Unique. Sage only at Minas Tirith. Playable only if you discard a Sapling of the White Tree borne by one of your characters at Minas Tirith, or one from your Marshalling Points pile stored at Minas Tirith. Minas Tirith becomes a Haven [{H}] for the purposes of healing and playing hazards."
+    "effects": [
+      { "type": "play-target", "target": "site", "filter": { "name": "Minas Tirith" } },
+      { "type": "play-target", "target": "character", "filter": { "target.skills": { "$includes": "sage" } } },
+      { "type": "play-condition", "requires": "discard-named-card", "cardName": "Sapling of the White Tree", "sources": ["character-items", "out-of-play-pile"] },
+      {
+        "type": "on-event", "event": "self-enters-play",
+        "apply": { "type": "add-constraint", "constraint": "site-type-override", "overrideType": "haven", "scope": "until-cleared" }
+      }
+    ],
+    "text": "Unique. Sage only at Minas Tirith. Playable only if you discard a Sapling of the White Tree borne by one of your characters at Minas Tirith, or one from your Marshalling Points pile stored at Minas Tirith. Minas Tirith becomes a Haven [{H}] for the purposes of healing and playing hazards.",
+    "certified": "2026-04-15"
   },
   {
     "cardType": "hero-resource-event",

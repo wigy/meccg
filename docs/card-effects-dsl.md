@@ -572,6 +572,22 @@ Requires:
 
 Implemented in `legal-actions/movement-hazard.ts` (`checkSitePathCondition`).
 
+- `discard-named-card` — requires discarding a specific named card as a
+  play prerequisite. The `cardName` field names the card, and `sources`
+  lists where to look: `character-items` (items on characters at the
+  current site) and/or `out-of-play-pile` (stored items in the player's
+  out-of-play pile). One legal action is generated per available discard
+  candidate, carrying the `discardCardInstanceId` on the action.
+
+```json
+{ "type": "play-condition", "requires": "discard-named-card",
+  "cardName": "Sapling of the White Tree",
+  "sources": ["character-items", "out-of-play-pile"] }
+```
+
+Implemented in `legal-actions/site.ts` (permanent event play-condition
+check) and `reducer-events.ts` (discard execution).
+
 ### 24. `creature-race-choice`
 
 Requires the player to choose a creature race when playing the card.

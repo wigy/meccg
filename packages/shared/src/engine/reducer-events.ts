@@ -82,6 +82,50 @@ export function handlePlayPermanentEvent(state: GameState, action: GameAction): 
 
   const newPlayers = clonePlayers(state);
   newPlayers[playerIndex] = { ...player, hand: newHand };
+
+  // Discard a card as a play cost (e.g. Sapling of the White Tree for The White Tree)
+  if (action.discardCardInstanceId) {
+    logDetail(`Discarding ${action.discardCardInstanceId as string} as play cost for ${def.name}`);
+    let found = false;
+    // Check character items
+    for (const [charId, ch] of Object.entries(newPlayers[playerIndex].characters)) {
+      const itemIdx = ch.items.findIndex(i => i.instanceId === action.discardCardInstanceId);
+      if (itemIdx !== -1) {
+        const item = ch.items[itemIdx];
+        const newItems = [...ch.items];
+        newItems.splice(itemIdx, 1);
+        newPlayers[playerIndex] = {
+          ...newPlayers[playerIndex],
+          characters: {
+            ...newPlayers[playerIndex].characters,
+            [charId]: { ...ch, items: newItems },
+          },
+          discardPile: [...newPlayers[playerIndex].discardPile, { instanceId: item.instanceId, definitionId: item.definitionId }],
+        };
+        logDetail(`Discarded item ${item.definitionId as string} from character ${charId}`);
+        found = true;
+        break;
+      }
+    }
+    // Check out-of-play pile (stored items)
+    if (!found) {
+      const oopIdx = newPlayers[playerIndex].outOfPlayPile.findIndex(
+        c => c.instanceId === action.discardCardInstanceId,
+      );
+      if (oopIdx !== -1) {
+        const card = newPlayers[playerIndex].outOfPlayPile[oopIdx];
+        const newOop = [...newPlayers[playerIndex].outOfPlayPile];
+        newOop.splice(oopIdx, 1);
+        newPlayers[playerIndex] = {
+          ...newPlayers[playerIndex],
+          outOfPlayPile: newOop,
+          discardPile: [...newPlayers[playerIndex].discardPile, { instanceId: card.instanceId, definitionId: card.definitionId }],
+        };
+        logDetail(`Discarded stored card ${card.definitionId as string} from out-of-play pile`);
+      }
+    }
+  }
+
   let newState: GameState = { ...state, players: newPlayers };
 
   // Initiate or push onto chain — card enters play upon resolution.

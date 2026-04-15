@@ -442,14 +442,104 @@ function playResourcesActions(
           }
         }
 
-        logDetail(`Permanent event ${eventDef.name}: playable at ${siteName}`);
-        actions.push({
-          action: {
-            type: 'play-permanent-event', player: playerId, cardInstanceId,
-            ...(sitePlayTarget && siteDefId ? { targetSiteDefinitionId: siteDefId } : {}),
-          },
-          viable: true,
-        });
+        // Check play-target character filter (e.g. "Sage only")
+        const charPlayTarget = eventDef.effects?.find(
+          (e): e is import('../../index.js').PlayTargetEffect => e.type === 'play-target' && e.target === 'character',
+        );
+        if (charPlayTarget) {
+          const eligibleCharIds: import('../../index.js').CardInstanceId[] = [];
+          for (const charId of company.characters) {
+            const ch = player.characters[charId as string];
+            if (!ch) continue;
+            const charDef = state.cardPool[ch.definitionId as string];
+            if (!charDef || !isCharacterCard(charDef)) continue;
+            const ctx: Record<string, unknown> = {
+              target: {
+                race: charDef.race,
+                skills: charDef.skills,
+                status: ch.status,
+                name: charDef.name,
+              },
+            };
+            if (!charPlayTarget.filter || matchesCondition(charPlayTarget.filter, ctx)) {
+              eligibleCharIds.push(charId);
+            }
+          }
+          if (eligibleCharIds.length === 0) {
+            logDetail(`Permanent event ${eventDef.name}: no eligible character in company`);
+            actions.push({
+              action: { type: 'not-playable', player: playerId, cardInstanceId },
+              viable: false,
+              reason: `${eventDef.name}: no eligible character in company`,
+            });
+            continue;
+          }
+        }
+
+        // Check play-condition: discard-named-card
+        const discardCondition = eventDef.effects?.find(
+          (e): e is import('../../index.js').PlayConditionEffect =>
+            e.type === 'play-condition' && e.requires === 'discard-named-card',
+        );
+        const discardCandidates: { instanceId: import('../../index.js').CardInstanceId; source: string }[] = [];
+        if (discardCondition && discardCondition.cardName) {
+          const targetCardName = discardCondition.cardName;
+          const sources = discardCondition.sources ?? ['character-items'];
+          for (const source of sources) {
+            if (source === 'character-items') {
+              for (const charId of company.characters) {
+                const ch = player.characters[charId as string];
+                if (!ch) continue;
+                for (const item of ch.items) {
+                  const itemDef = state.cardPool[item.definitionId as string];
+                  if (itemDef && itemDef.name === targetCardName) {
+                    discardCandidates.push({ instanceId: item.instanceId, source: 'character-items' });
+                  }
+                }
+              }
+            } else if (source === 'out-of-play-pile') {
+              for (const card of player.outOfPlayPile) {
+                const cardDef = state.cardPool[card.definitionId as string];
+                if (cardDef && cardDef.name === targetCardName) {
+                  discardCandidates.push({ instanceId: card.instanceId, source: 'out-of-play-pile' });
+                }
+              }
+            }
+          }
+          if (discardCandidates.length === 0) {
+            logDetail(`Permanent event ${eventDef.name}: no ${targetCardName} available to discard`);
+            actions.push({
+              action: { type: 'not-playable', player: playerId, cardInstanceId },
+              viable: false,
+              reason: `${eventDef.name}: no ${targetCardName} available to discard`,
+            });
+            continue;
+          }
+        }
+
+        // Generate actions — cross-product of discard candidates (or single if none)
+        if (discardCandidates.length > 0) {
+          for (const dc of discardCandidates) {
+            logDetail(`Permanent event ${eventDef.name}: playable (discard ${dc.instanceId as string} from ${dc.source})`);
+            actions.push({
+              action: {
+                type: 'play-permanent-event', player: playerId, cardInstanceId,
+                ...(sitePlayTarget && siteDefId ? { targetSiteDefinitionId: siteDefId } : {}),
+                discardCardInstanceId: dc.instanceId,
+              },
+              viable: true,
+            });
+          }
+        } else {
+          logDetail(`Permanent event ${eventDef.name}: playable at ${siteName}`);
+          actions.push({
+            action: {
+              type: 'play-permanent-event', player: playerId, cardInstanceId,
+              ...(sitePlayTarget && siteDefId ? { targetSiteDefinitionId: siteDefId } : {}),
+            },
+            viable: true,
+          });
+        }
         continue;
       }
     }
