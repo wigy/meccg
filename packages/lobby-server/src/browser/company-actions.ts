@@ -166,13 +166,21 @@ export function getSupportCorruptionCheckActions(view: PlayerView): Map<string, 
 
 /**
  * Collect all viable activate-granted-action actions, keyed by source card instance ID.
- * Used to highlight hazard cards that offer activatable abilities (e.g. remove-self-on-roll).
+ * Used to highlight cards that offer activatable abilities — both hazards (e.g.
+ * remove-self-on-roll) and items (e.g. Cram's discard-to-untap).
+ * A single card may grant multiple actions (e.g. Cram: untap-bearer + extra-region-movement).
  */
-export function getGrantedActions(view: PlayerView): Map<string, ActivateGrantedAction> {
-  const result = new Map<string, ActivateGrantedAction>();
+export function getGrantedActions(view: PlayerView): Map<string, ActivateGrantedAction[]> {
+  const result = new Map<string, ActivateGrantedAction[]>();
   for (const action of viableActions(view.legalActions)) {
     if (action.type !== 'activate-granted-action') continue;
-    result.set(action.sourceCardId as string, action);
+    const key = action.sourceCardId as string;
+    const existing = result.get(key);
+    if (existing) {
+      existing.push(action);
+    } else {
+      result.set(key, [action]);
+    }
   }
   return result;
 }

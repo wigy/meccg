@@ -171,6 +171,8 @@ function installKeyboardNav(): void {
   keyboardNavInstalled = true;
   document.addEventListener('keydown', (e) => {
     if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+    const tag = (document.activeElement?.tagName ?? '').toLowerCase();
+    if (tag === 'input' || tag === 'textarea' || tag === 'select') return;
     const cls = e.key === 'ArrowLeft' ? 'company-nav-arrow--left' : 'company-nav-arrow--right';
     const arrow: HTMLButtonElement | null = document.querySelector(`.${cls}`);
     if (!arrow) return;
