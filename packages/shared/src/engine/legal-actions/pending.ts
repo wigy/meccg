@@ -627,6 +627,8 @@ function applyOneConstraint(
       return base;
     case 'hazard-limit-modifier':
       return base;
+    case 'cancel-return-and-site-tap':
+      return base;
   }
 }
 

@@ -14,7 +14,7 @@ import { resolveInstanceId } from '../types/state.js';
 import type { ReducerResult } from './reducer-utils.js';
 import { roll2d6, clonePlayers, nextCompanyId, handleFetchFromPile, sweepAutoDiscardHazards } from './reducer-utils.js';
 import { handlePlayPermanentEvent, handlePlayShortEvent, handlePlayResourceShortEvent } from './reducer-events.js';
-import { enqueueResolution } from './pending.js';
+import { enqueueResolution, addConstraint } from './pending.js';
 import { recomputeDerived } from './recompute-derived.js';
 import { collectCharacterEffects, resolveCheckModifier } from './effects/index.js';
 
@@ -765,7 +765,87 @@ function handleActivateGrantedAction(state: GameState, action: GameAction): Redu
     return handlePalantirFetchDiscard(state, action);
   }
 
+  if (action.actionId === 'cancel-return-and-site-tap') {
+    return handleCancelReturnAndSiteTap(state, action);
+  }
+
   return handleRemoveSelfOnRoll(state, action);
+}
+
+/**
+ * Handle cancel-return-and-site-tap grant-action.
+ *
+ * Taps the bearer (ranger), adds a turn-scoped constraint that cancels
+ * hazard effects forcing return to site of origin or tapping the site,
+ * and enqueues a corruption check. Used by Promptings of Wisdom (wh-34)
+ * and Piercing All Shadows (wh-47).
+ */
+function handleCancelReturnAndSiteTap(state: GameState, action: GameAction): ReducerResult {
+  if (action.type !== 'activate-granted-action') return { state, error: 'Expected activate-granted-action' };
+
+  const playerIndex = getPlayerIndex(state, action.player);
+  const player = state.players[playerIndex];
+  const char = player.characters[action.characterId as string];
+  if (!char) return { state, error: 'Character not found' };
+
+  const charDefId = resolveInstanceId(state, action.characterId);
+  const charDef = charDefId ? state.cardPool[charDefId as string] : undefined;
+  const charName = charDef?.name ?? '?';
+  const sourceDef = state.cardPool[action.sourceCardDefinitionId as string];
+  const sourceName = sourceDef?.name ?? '?';
+
+  if (char.status !== CardStatus.Untapped) {
+    return { state, error: `${charName} is not untapped` };
+  }
+
+  const itemIdx = char.items.findIndex(i => i.instanceId === action.sourceCardId);
+  if (itemIdx < 0) {
+    return { state, error: `${sourceName} is not an item on ${charName}` };
+  }
+
+  const company = player.companies.find(c => c.characters.includes(action.characterId));
+  if (!company) {
+    return { state, error: `${charName} is not in a company` };
+  }
+
+  logDetail(`Cancel-return-and-site-tap: ${charName} taps (via ${sourceName}) to protect company from return/site-tap hazards`);
+
+  const newPlayers = clonePlayers(state);
+  const tappedChar: CharacterInPlay = { ...char, status: CardStatus.Tapped };
+  newPlayers[playerIndex] = {
+    ...newPlayers[playerIndex],
+    characters: {
+      ...newPlayers[playerIndex].characters,
+      [action.characterId as string]: tappedChar,
+    },
+  };
+
+  let newState: GameState = { ...state, players: newPlayers };
+
+  newState = addConstraint(newState, {
+    source: action.sourceCardId,
+    sourceDefinitionId: action.sourceCardDefinitionId,
+    scope: { kind: 'turn' },
+    target: { kind: 'company', companyId: company.id },
+    kind: { type: 'cancel-return-and-site-tap' },
+  });
+
+  newState = enqueueResolution(newState, {
+    source: action.sourceCardId,
+    actor: action.player,
+    scope: { kind: 'phase', phase: Phase.Organization },
+    kind: {
+      type: 'corruption-check',
+      characterId: action.characterId,
+      modifier: 0,
+      reason: sourceName,
+      possessions: [],
+      transferredItemId: null,
+    },
+  });
+
+  newState = recomputeDerived(newState);
+  return { state: newState };
 }
 
 /**

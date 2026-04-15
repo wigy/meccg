@@ -53,6 +53,27 @@ export function handlePlayPermanentEvent(state: GameState, action: GameAction): 
     }
   }
 
+  // Check duplication-limit with scope "company"
+  if (def.effects && action.targetCharacterId) {
+    for (const effect of def.effects) {
+      if (effect.type !== 'duplication-limit' || effect.scope !== 'company') continue;
+      const company = player.companies.find(c => c.characters.includes(action.targetCharacterId!));
+      if (company) {
+        const copiesInCompany = company.characters.reduce((count, cId) => {
+          const ch = player.characters[cId as string];
+          if (!ch) return count;
+          return count + ch.items.filter(item => {
+            const iDef = state.cardPool[item.definitionId as string];
+            return iDef && iDef.name === def.name;
+          }).length;
+        }, 0);
+        if (copiesInCompany >= effect.max) {
+          return { state, error: `${def.name} cannot be duplicated in company` };
+        }
+      }
+    }
+  }
+
   logDetail(`Playing permanent event: ${def.name} → enters chain`);
 
   // Remove card from hand — it now resides on the chain
