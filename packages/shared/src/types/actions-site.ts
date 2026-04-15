@@ -209,6 +209,24 @@ export interface FactionInfluenceRollAction {
  * They can sometimes be played as a "bonus" action that doesn't count as
  * the company's resource play for the phase.
  */
+/**
+ * Cancel an opponent's influence check by playing a cancel-influence card
+ * from hand. The influence attempt is automatically canceled (no defensive
+ * roll needed). The character who pays the cost makes a corruption check.
+ *
+ * Played during the opponent's site phase while an
+ * `opponent-influence-defend` pending resolution is queued.
+ */
+export interface CancelInfluenceAction {
+  readonly type: 'cancel-influence';
+  /** The defending player canceling the influence attempt. */
+  readonly player: PlayerId;
+  /** The cancel-influence card played from hand. */
+  readonly cardInstanceId: CardInstanceId;
+  /** The character paying the cost (e.g. the wizard). */
+  readonly characterId: CardInstanceId;
+}
+
 export interface PlayMinorItemAction {
   readonly type: 'play-minor-item';
   /** The active player playing the minor item. */

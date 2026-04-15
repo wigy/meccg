@@ -362,7 +362,7 @@ export function validateActionPlayer(state: GameState, action: GameAction): stri
   // attempt now lives in `state.pendingResolutions` as a kind
   // `opponent-influence-defend` resolution; allow the action through
   // when one is queued for the acting player.
-  if (action.type === 'opponent-influence-defend'
+  if ((action.type === 'opponent-influence-defend' || action.type === 'cancel-influence')
     && state.pendingResolutions.some(r => r.actor === action.player && r.kind.type === 'opponent-influence-defend')) {
     return undefined;
   }
