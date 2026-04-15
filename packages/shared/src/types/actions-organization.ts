@@ -226,6 +226,8 @@ export interface PlayPermanentEventAction {
   readonly cardInstanceId: CardInstanceId;
   /** For character-targeting permanent events (e.g. Align Palantír), the target character. */
   readonly targetCharacterId?: CardInstanceId;
+  /** For site-targeting permanent events (e.g. Rebuild the Town), the target site definition. */
+  readonly targetSiteDefinitionId?: import('./common.js').CardDefinitionId;
 }
 
 /**

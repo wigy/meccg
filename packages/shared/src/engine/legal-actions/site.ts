@@ -426,9 +426,28 @@ function playResourcesActions(
           }
         }
 
-        logDetail(`Permanent event ${eventDef.name}: playable`);
+        // Check play-target site filter
+        const sitePlayTarget = eventDef.effects?.find(
+          (e): e is import('../../index.js').PlayTargetEffect => e.type === 'play-target' && e.target === 'site',
+        );
+        if (sitePlayTarget?.filter && siteDef) {
+          if (!matchesCondition(sitePlayTarget.filter, siteDef as unknown as Record<string, unknown>)) {
+            logDetail(`Permanent event ${eventDef.name}: site filter excludes ${siteName}`);
+            actions.push({
+              action: { type: 'not-playable', player: playerId, cardInstanceId },
+              viable: false,
+              reason: `${eventDef.name}: site ${siteName} does not match play-target filter`,
+            });
+            continue;
+          }
+        }
+
+        logDetail(`Permanent event ${eventDef.name}: playable at ${siteName}`);
         actions.push({
-          action: { type: 'play-permanent-event', player: playerId, cardInstanceId },
+          action: {
+            type: 'play-permanent-event', player: playerId, cardInstanceId,
+            ...(sitePlayTarget && siteDefId ? { targetSiteDefinitionId: siteDefId } : {}),
+          },
           viable: true,
         });
         continue;
