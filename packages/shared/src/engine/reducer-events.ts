@@ -29,50 +29,8 @@ export function handlePlayPermanentEvent(state: GameState, action: GameAction): 
   const player = state.players[playerIndex];
 
   const cardIdx = player.hand.findIndex(c => c.instanceId === action.cardInstanceId);
-  if (cardIdx === -1) return { state, error: 'Card not in hand' };
-
   const handCard = player.hand[cardIdx];
-  const def = state.cardPool[handCard.definitionId as string];
-  if (!def || def.cardType !== 'hero-resource-event' || def.eventType !== 'permanent') {
-    return { state, error: 'Card is not a permanent resource event' };
-  }
-
-  // Check duplication-limit with scope "game"
-  if (def.effects) {
-    for (const effect of def.effects) {
-      if (effect.type !== 'duplication-limit' || effect.scope !== 'game') continue;
-      const copiesInPlay = state.players.reduce((count, p) =>
-        count + p.cardsInPlay.filter(c => {
-          const cDef = state.cardPool[c.definitionId as string];
-          return cDef && cDef.name === def.name;
-        }).length, 0,
-      );
-      if (copiesInPlay >= effect.max) {
-        return { state, error: `${def.name} cannot be duplicated` };
-      }
-    }
-  }
-
-  // Check duplication-limit with scope "company"
-  if (def.effects && action.targetCharacterId) {
-    for (const effect of def.effects) {
-      if (effect.type !== 'duplication-limit' || effect.scope !== 'company') continue;
-      const company = player.companies.find(c => c.characters.includes(action.targetCharacterId!));
-      if (company) {
-        const copiesInCompany = company.characters.reduce((count, cId) => {
-          const ch = player.characters[cId as string];
-          if (!ch) return count;
-          return count + ch.items.filter(item => {
-            const iDef = state.cardPool[item.definitionId as string];
-            return iDef && iDef.name === def.name;
-          }).length;
-        }, 0);
-        if (copiesInCompany >= effect.max) {
-          return { state, error: `${def.name} cannot be duplicated in company` };
-        }
-      }
-    }
-  }
+  const def = state.cardPool[handCard.definitionId as string] as import('../types/cards-resources.js').HeroResourceEventCard;
 
   logDetail(`Playing permanent event: ${def.name} → enters chain`);
 
@@ -160,30 +118,10 @@ export function handlePlayShortEvent(state: GameState, action: GameAction): Redu
   const player = state.players[playerIndex];
 
   const cardIdx = player.hand.findIndex(c => c.instanceId === action.cardInstanceId);
-  if (cardIdx === -1) return { state, error: 'Card not in hand' };
-
   const handCard = player.hand[cardIdx];
-  const def = state.cardPool[handCard.definitionId as string];
-  if (!def || def.cardType !== 'hazard-event' || def.eventType !== 'short') {
-    return { state, error: 'Card is not a hazard short-event' };
-  }
+  const def = state.cardPool[handCard.definitionId as string] as import('../types/cards-hazards.js').HazardEventCard;
 
-  if (!action.targetInstanceId) {
-    return { state, error: 'Target environment required for hazard short-event' };
-  }
-
-  // Validate target exists (in cardsInPlay or the current chain)
-  const targetInCards = state.players.some(p =>
-    p.cardsInPlay.some(c => c.instanceId === action.targetInstanceId),
-  );
-  const targetInChain = state.chain?.entries.some(
-    e => e.card?.instanceId === action.targetInstanceId && !e.resolved && !e.negated,
-  ) ?? false;
-  if (!targetInCards && !targetInChain) {
-    return { state, error: 'Target environment not in play or on chain' };
-  }
-
-  const targetDefId = resolveInstanceId(state, action.targetInstanceId);
+  const targetDefId = resolveInstanceId(state, action.targetInstanceId!);
   const targetDef = targetDefId ? state.cardPool[targetDefId as string] : undefined;
   logDetail(`Playing short event ${def.name}: targeting environment ${targetDef?.name ?? action.targetInstanceId} (chain will resolve the cancel)`);
 
@@ -327,13 +265,8 @@ export function handlePlayResourceShortEvent(state: GameState, action: GameActio
   const player = state.players[playerIndex];
 
   const cardIdx = player.hand.findIndex(c => c.instanceId === action.cardInstanceId);
-  if (cardIdx === -1) return { state, error: 'Card not in hand' };
-
   const handCard = player.hand[cardIdx];
-  const def = state.cardPool[handCard.definitionId as string];
-  if (!def || def.cardType !== 'hero-resource-event' || def.eventType !== 'short') {
-    return { state, error: 'Card is not a resource short-event' };
-  }
+  const def = state.cardPool[handCard.definitionId as string] as import('../types/cards-resources.js').HeroResourceEventCard;
 
   logDetail(`Playing resource short-event: ${def.name} (${action.cardInstanceId as string})`);
 
@@ -349,12 +282,6 @@ export function handlePlayResourceShortEvent(state: GameState, action: GameActio
   if (action.targetScoutInstanceId) {
     const targetCharId = action.targetScoutInstanceId as string;
     const targetChar = player.characters[targetCharId];
-    if (!targetChar) {
-      return { state, error: `Target scout ${targetCharId} not in play` };
-    }
-    if (targetChar.status !== CardStatus.Untapped) {
-      return { state, error: `Target scout ${targetCharId} is already tapped` };
-    }
     logDetail(`${def.name} taps target scout ${targetCharId}`);
     newCharacters = {
       ...player.characters,
@@ -371,16 +298,9 @@ export function handlePlayResourceShortEvent(state: GameState, action: GameActio
       ) as import('../types/effects.js').PlayOptionEffect | undefined)
     : undefined;
 
-  if (action.optionId && !selectedOption) {
-    return { state, error: `${def.name} has no play-option with id '${action.optionId}'` };
-  }
-
   if (selectedOption && action.targetCharacterId && selectedOption.apply.type === 'set-character-status') {
     const targetId = action.targetCharacterId as string;
     const targetChar = newCharacters[targetId];
-    if (!targetChar) {
-      return { state, error: `Target character ${targetId} not in play` };
-    }
     const nextStatus = selectedOption.apply.status;
     if (nextStatus === undefined) {
       return { state, error: `${def.name} option '${selectedOption.id}': set-character-status missing status` };
@@ -461,25 +381,16 @@ export function handlePlayResourceShortEvent(state: GameState, action: GameActio
   // itself is discarded below.
   const discardInPlay = def.effects?.find(e => e.type === 'discard-in-play');
   if (discardInPlay) {
-    if (!action.discardTargetInstanceId) {
-      return { state, error: `${def.name} requires a discardTargetInstanceId` };
-    }
-    const targetId = action.discardTargetInstanceId;
+    const targetId = action.discardTargetInstanceId!;
     let foundOwnerIndex = -1;
     let foundCardIdx = -1;
     for (let oi = 0; oi < newState.players.length; oi++) {
       const idx = newState.players[oi].cardsInPlay.findIndex(c => c.instanceId === targetId);
       if (idx !== -1) { foundOwnerIndex = oi; foundCardIdx = idx; break; }
     }
-    if (foundOwnerIndex === -1) {
-      return { state, error: `Discard target ${targetId as string} not in play` };
-    }
     const owner = newState.players[foundOwnerIndex];
     const targetCard = owner.cardsInPlay[foundCardIdx];
     const targetDef = newState.cardPool[targetCard.definitionId as string];
-    if (!targetDef || !matchesCondition(discardInPlay.filter, targetDef as unknown as Record<string, unknown>)) {
-      return { state, error: `${def.name}: target does not match discard filter` };
-    }
     logDetail(`${def.name} discards ${targetDef.name} from ${owner.id as string}'s in-play`);
     const newOwnerCardsInPlay = [...owner.cardsInPlay];
     newOwnerCardsInPlay.splice(foundCardIdx, 1);
@@ -802,37 +713,8 @@ function handlePlayLongEvent(state: GameState, action: GameAction): ReducerResul
   const player = state.players[playerIndex];
 
   const cardIdx = player.hand.findIndex(c => c.instanceId === action.cardInstanceId);
-  if (cardIdx === -1) return { state, error: 'Card not in hand' };
-
   const handCard = player.hand[cardIdx];
-  const def = state.cardPool[handCard.definitionId as string];
-  if (!def || def.cardType !== 'hero-resource-event' || def.eventType !== 'long') {
-    return { state, error: 'Card is not a resource long-event' };
-  }
-
-  // Check uniqueness: unique long-events can't be played if already in play
-  if (def.unique) {
-    const alreadyInPlay = state.players.some(p =>
-      p.cardsInPlay.some(c => c.definitionId === def.id),
-    );
-    if (alreadyInPlay) return { state, error: `${def.name} is unique and already in play` };
-  }
-
-  // Check duplication-limit with scope "game"
-  if (def.effects) {
-    for (const effect of def.effects) {
-      if (effect.type !== 'duplication-limit' || effect.scope !== 'game') continue;
-      const copiesInPlay = state.players.reduce((count, p) =>
-        count + p.cardsInPlay.filter(c => {
-          const cDef = state.cardPool[c.definitionId as string];
-          return cDef && cDef.name === def.name;
-        }).length, 0,
-      );
-      if (copiesInPlay >= effect.max) {
-        return { state, error: `${def.name} cannot be duplicated` };
-      }
-    }
-  }
+  const def = state.cardPool[handCard.definitionId as string] as import('../types/cards-resources.js').HeroResourceEventCard;
 
   logDetail(`Playing resource long-event: ${def.name} → enters chain`);
 
