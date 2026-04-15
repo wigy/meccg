@@ -183,6 +183,11 @@ export async function launchGame(player1: string, player2: string, options?: Lau
   };
 }
 
+/** Check whether a port is currently hosting an active game-server child process. */
+export function isActiveGamePort(port: number): boolean {
+  return activeGames.has(port);
+}
+
 /** Kill all active game server processes (called on lobby shutdown). */
 export function shutdownAllGames(): void {
   for (const [port, child] of activeGames) {

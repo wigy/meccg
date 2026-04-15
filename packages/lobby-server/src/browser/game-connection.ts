@@ -225,8 +225,9 @@ export function connect(name: string): void {
   const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
   let url: string;
   if (LOBBY_MODE && appState.gamePort) {
-    // Direct connection to spawned game server
-    url = `${protocol}//${window.location.hostname}:${appState.gamePort}`;
+    // Proxied through the lobby at /game/<port> so a single-port TLS
+    // terminator (e.g. nginx-proxy) can front the whole deployment.
+    url = `${protocol}//${window.location.host}/game/${appState.gamePort}`;
   } else {
     // Proxy through the web-client server (standalone mode)
     url = `${protocol}//${window.location.host}`;

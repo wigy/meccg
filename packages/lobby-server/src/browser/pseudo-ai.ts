@@ -161,7 +161,7 @@ export function renderPseudoAiActions(actions: readonly DescribedAction[]): void
 export function connectPseudoAi(aiName: string, aiDeck?: FullDeck | null): void {
   if (!appState.gamePort || !appState.pseudoAiToken) return;
   const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-  const url = `${protocol}//${window.location.hostname}:${appState.gamePort}`;
+  const url = `${protocol}//${window.location.host}/game/${appState.gamePort}`;
   appState.pseudoAiWs = new WebSocket(url);
 
   appState.pseudoAiWs.onopen = () => {
