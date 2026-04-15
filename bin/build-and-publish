@@ -1,0 +1,49 @@
+#!/usr/bin/env bash
+# Build the MECCG Docker image and push it to Docker Hub as :latest.
+#
+# Requires:
+#   DOCKER_USER     — Docker Hub username
+#   DOCKER_PASSWORD — Docker Hub password or access token
+#
+# Usage: bin/build-and-publish
+set -euo pipefail
+
+if [ $# -ge 1 ] && { [ "$1" = "-h" ] || [ "$1" = "--help" ]; }; then
+  cat <<'EOF'
+Usage: bin/build-and-publish
+
+Build the MECCG Docker image and push it to Docker Hub tagged :latest.
+
+Environment:
+  DOCKER_USER      Docker Hub username (required)
+  DOCKER_PASSWORD  Docker Hub password or access token (required)
+
+Options:
+  -h, --help       Show this help message.
+EOF
+  exit 0
+fi
+
+: "${DOCKER_USER:?DOCKER_USER is not set}"
+: "${DOCKER_PASSWORD:?DOCKER_PASSWORD is not set}"
+
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+PROJECT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+IMAGE="$DOCKER_USER/meccg-dev:latest"
+
+log() { echo "[build-and-publish] $*"; }
+
+cd "$PROJECT_DIR"
+
+log "Logging in to Docker Hub as $DOCKER_USER..."
+echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USER" --password-stdin
+
+trap 'docker logout >/dev/null 2>&1 || true' EXIT
+
+log "Building image $IMAGE..."
+docker build -f Dockerfile.dev -t "$IMAGE" .
+
+log "Pushing image $IMAGE..."
+docker push "$IMAGE"
+
+log "Done."
