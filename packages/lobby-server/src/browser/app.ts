@@ -474,9 +474,12 @@ document.addEventListener('DOMContentLoaded', () => {
   const summonBtn = document.getElementById('summon-btn') as HTMLButtonElement;
   const swapHandBtn = document.getElementById('swap-hand-btn') as HTMLButtonElement;
   const toolbarDev = document.getElementById('toolbar-dev') as HTMLElement;
+  const toolbarView = document.getElementById('toolbar-view') as HTMLElement;
 
   function applyDevMode(on: boolean): void {
     toolbarDev.style.display = on ? '' : 'none';
+    toolbarView.style.display = on ? '' : 'none';
+    if (!on) setViewMode(true);
   }
 
   // When the server is not in dev mode, hide the dev mode toggle entirely
