@@ -549,28 +549,31 @@ function buildConstraintKind(
     case 'site-type-override': {
       const overrideType = (onEvent.apply as { overrideType?: import('../types/common.js').SiteType }).overrideType;
       if (!overrideType) return null;
-      // Prefer resolving the site from the active company's
-      // destinationSite instance; fall back to looking up
-      // mh.destinationSiteName in the card pool so constraints can still
-      // be created from phase-state alone (useful when legal actions
-      // were computed before the destination was assigned to a concrete
-      // instance).
       const ps = state.phaseState;
-      if (ps.phase !== Phase.MovementHazard) return null;
-      const activePlayer = state.players.find(p => p.id === state.activePlayer);
-      const company = activePlayer?.companies[ps.activeCompanyIndex];
       let siteDefinitionId: import('../types/common.js').CardDefinitionId | null = null;
-      if (company?.destinationSite?.instanceId) {
-        siteDefinitionId = resolveInstanceId(state, company.destinationSite.instanceId) ?? null;
-      }
-      if (!siteDefinitionId && ps.destinationSiteName) {
-        for (const [defId, d] of Object.entries(state.cardPool)) {
-          const ct = (d as { cardType?: string }).cardType;
-          const name = (d as { name?: string }).name;
-          if (ct?.includes('site') && name === ps.destinationSiteName) {
-            siteDefinitionId = defId as import('../types/common.js').CardDefinitionId;
-            break;
+      if (ps.phase === Phase.MovementHazard) {
+        // M/H phase: resolve from active company's destination site
+        const activePlayer = state.players.find(p => p.id === state.activePlayer);
+        const company = activePlayer?.companies[ps.activeCompanyIndex];
+        if (company?.destinationSite?.instanceId) {
+          siteDefinitionId = resolveInstanceId(state, company.destinationSite.instanceId) ?? null;
+        }
+        if (!siteDefinitionId && ps.destinationSiteName) {
+          for (const [defId, d] of Object.entries(state.cardPool)) {
+            const ct = (d as { cardType?: string }).cardType;
+            const name = (d as { name?: string }).name;
+            if (ct?.includes('site') && name === ps.destinationSiteName) {
+              siteDefinitionId = defId as import('../types/common.js').CardDefinitionId;
+              break;
+            }
           }
+        }
+      } else if (ps.phase === Phase.Site) {
+        // Site phase: resolve from active company's current site
+        const activePlayer = state.players.find(p => p.id === state.activePlayer);
+        const company = activePlayer?.companies[ps.activeCompanyIndex];
+        if (company?.currentSite) {
+          siteDefinitionId = company.currentSite.definitionId;
         }
       }
       if (!siteDefinitionId) return null;
@@ -810,18 +813,15 @@ function applyAddConstraintFromOnEvent(
     }
   }
 
-  if (!companyId) {
-    logDetail(`add-constraint(${constraintKind}): no active company to attach — fizzle`);
-    return state;
-  }
-
   // Map the scope name to a ConstraintScope discriminant.
   let scope: import('../types/pending.js').ConstraintScope;
   switch (scopeName) {
     case 'company-site-phase':
+      if (!companyId) { logDetail(`add-constraint(${constraintKind}): no active company — fizzle`); return state; }
       scope = { kind: 'company-site-phase', companyId };
       break;
     case 'company-mh-phase':
+      if (!companyId) { logDetail(`add-constraint(${constraintKind}): no active company — fizzle`); return state; }
       scope = { kind: 'company-mh-phase', companyId };
       break;
     case 'turn':
@@ -841,12 +841,24 @@ function applyAddConstraintFromOnEvent(
     return state;
   }
 
-  logDetail(`"${cardName}" entered play — adding constraint ${constraintKind} on company ${companyId as string}, scope ${scopeName}`);
+  // For until-cleared scope, use player target (the effect applies
+  // globally, not to a specific company that may later disband).
+  let target: import('../types/pending.js').ActiveConstraint['target'];
+  if (scopeName === 'until-cleared' && activePlayer !== null) {
+    target = { kind: 'player', playerId: activePlayer };
+  } else if (companyId) {
+    target = { kind: 'company', companyId };
+  } else {
+    logDetail(`add-constraint(${constraintKind}): no target — fizzle`);
+    return state;
+  }
+
+  logDetail(`"${cardName}" entered play — adding constraint ${constraintKind}, scope ${scopeName}`);
   return addConstraint(state, {
     source: entry.card!.instanceId,
     sourceDefinitionId: entry.card!.definitionId,
     scope,
-    target: { kind: 'company', companyId },
+    target,
     kind,
   });
 }

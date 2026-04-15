@@ -673,8 +673,20 @@ export interface CompanyRuleEffect extends EffectBase {
  */
 export interface PlayConditionEffect extends EffectBase {
   readonly type: 'play-condition';
-  readonly requires: 'site-path';
-  readonly condition: Condition;
+  readonly requires: 'site-path' | 'discard-named-card';
+  readonly condition?: Condition;
+  /**
+   * For `requires: 'discard-named-card'`: the card name that must be
+   * discarded as a play prerequisite. Legal-action generation searches
+   * the specified {@link sources} for a card with this name.
+   */
+  readonly cardName?: string;
+  /**
+   * Where to look for the named card.
+   * - `character-items` — items on characters at the current site.
+   * - `out-of-play-pile` — the player's out-of-play pile (stored items).
+   */
+  readonly sources?: readonly ('character-items' | 'out-of-play-pile')[];
 }
 
 /**
