@@ -92,6 +92,7 @@ export function handlePlayPermanentEvent(state: GameState, action: GameAction): 
   const payload: import('../index.js').ChainEntryPayload = {
     type: 'permanent-event',
     ...(action.targetCharacterId ? { targetCharacterId: action.targetCharacterId } : {}),
+    ...(action.targetSiteDefinitionId ? { targetSiteDefinitionId: action.targetSiteDefinitionId } : {}),
   };
   if (newState.chain === null) {
     newState = initiateChain(newState, action.player, handCard, payload);

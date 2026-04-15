@@ -200,7 +200,15 @@ function handleSiteEnterOrSkip(
   const siteDef = siteInPlay ? state.cardPool[siteInPlay.definitionId as string] : undefined;
   const autoAttackCount = siteDef && isSiteCard(siteDef) ? siteDef.automaticAttacks.length : 0;
 
-  if (autoAttackCount > 0) {
+  const skipAutoAttacks = siteInPlay && state.activeConstraints.some(c =>
+    c.kind.type === 'skip-automatic-attacks'
+    && c.kind.siteDefinitionId === siteInPlay.definitionId,
+  );
+  if (skipAutoAttacks) {
+    logDetail(`Site: automatic-attacks skipped by skip-automatic-attacks constraint`);
+  }
+
+  if (autoAttackCount > 0 && !skipAutoAttacks) {
     logDetail(`Site: company ${company.id} enters site with ${autoAttackCount} automatic-attack(s) → advancing to reveal-on-guard-attacks`);
     return {
       state: {

@@ -25,7 +25,16 @@
     "eventType": "permanent",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
-    "text": "Playable during the site phase on a non-Dragon's lair, non-Under-deeps Ruins & Lairs [R]. The site becomes a Border-hold [B] and all automatic-attacks are removed. Discard Rebuild the Town when the site is discarded or returned to its location deck."
+    "effects": [
+      { "type": "play-target", "target": "site", "filter": { "siteType": "ruins-and-lairs" } },
+      { "type": "on-event", "event": "self-enters-play",
+        "apply": { "type": "add-constraint", "constraint": "site-type-override",
+                   "overrideType": "border-hold", "scope": "until-cleared" } },
+      { "type": "on-event", "event": "self-enters-play",
+        "apply": { "type": "add-constraint", "constraint": "skip-automatic-attacks",
+                   "scope": "until-cleared" } }
+    ],
+    "text": "Playable during the site phase on a non-Dragon's lair, non-Under-deeps Ruins & Lairs [R]. The site becomes a Border-hold [B] and all automatic-attacks are removed. Discard Rebuild the Town when the site is discarded or returned to its location deck.",
+    "certified": "2026-04-15"
   }
 ]

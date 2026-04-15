@@ -365,6 +365,17 @@ export interface ActiveConstraint {
          * bearer ranger taps; scoped to the rest of the turn.
          */
         readonly type: 'cancel-return-and-site-tap';
+      }
+    | {
+        /**
+         * Rebuild the Town: the company's current site has its automatic
+         * attacks removed. When a company enters this site, automatic
+         * attacks are skipped entirely. Scoped `until-cleared` — persists
+         * as long as the permanent event remains in play.
+         */
+        readonly type: 'skip-automatic-attacks';
+        /** The definition ID of the site whose automatic attacks are skipped. */
+        readonly siteDefinitionId: import('./common.js').CardDefinitionId;
       };
 }
 
