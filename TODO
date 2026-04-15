@@ -7,14 +7,7 @@ FIXES
 FEATS
 -----
 
-Company vs Company
-
-Detainment attack
-
 DSL Generalization plan (more work added).
-
-Develop DSL for general purpose card transfers from one place to another.
-Hard examples: Alatar, Choking Shadows, Great Ship.
 
 EPICS
 -----
@@ -22,11 +15,16 @@ EPICS
 (A) Stewards of Gondor
 (F) Spies and Traitors
 The Dragons Rules
+  Hoard
 Dark Minions Rules
+  Agents
 The Lidless eye Rules
+  Company vs Company
+  Detainment attack
 Against the shadow Rules
 The White Hand Rules
 The Balrog Rules
+  Under-deeps movement
 
 UNSORTED
 --------
