@@ -40,9 +40,9 @@ import {
   resetMint, pool,
   buildSitePhaseState,
   dispatch,
+  viableActions,
 } from '../test-helpers.js';
 import {
-  computeLegalActions,
   MORIA, GLAMDRING, DAGGER_OF_WESTERNESSE, THE_MITHRIL_COAT,
   isSiteCard, buildMovementMap, getReachableSites,
 } from '../../index.js';
@@ -63,10 +63,7 @@ describe('Moria (tw-413)', () => {
       site: MORIA,
       hand: [DAGGER_OF_WESTERNESSE],
     });
-    const actions = computeLegalActions(state, PLAYER_1);
-
-    const viable = actions.filter(a => a.viable);
-    const playActions = viable.filter(a => a.action.type === 'play-hero-resource');
+    const playActions = viableActions(state, PLAYER_1, 'play-hero-resource');
     expect(playActions.length).toBeGreaterThanOrEqual(1);
   });
 
@@ -75,10 +72,7 @@ describe('Moria (tw-413)', () => {
       site: MORIA,
       hand: [GLAMDRING],
     });
-    const actions = computeLegalActions(state, PLAYER_1);
-
-    const viable = actions.filter(a => a.viable);
-    const playActions = viable.filter(a => a.action.type === 'play-hero-resource');
+    const playActions = viableActions(state, PLAYER_1, 'play-hero-resource');
     expect(playActions.length).toBeGreaterThanOrEqual(1);
   });
 
@@ -87,18 +81,13 @@ describe('Moria (tw-413)', () => {
       site: MORIA,
       hand: [THE_MITHRIL_COAT],
     });
-    const actions = computeLegalActions(state, PLAYER_1);
-
-    const viable = actions.filter(a => a.viable);
-    const playActions = viable.filter(a => a.action.type === 'play-hero-resource');
+    const playActions = viableActions(state, PLAYER_1, 'play-hero-resource');
     expect(playActions.length).toBeGreaterThanOrEqual(1);
   });
 
   test('pass is always available during play-resources step', () => {
     const state = buildSitePhaseState({ site: MORIA });
-    const actions = computeLegalActions(state, PLAYER_1);
-
-    const passActions = actions.filter(a => a.viable && a.action.type === 'pass');
+    const passActions = viableActions(state, PLAYER_1, 'pass');
     expect(passActions).toHaveLength(1);
   });
 

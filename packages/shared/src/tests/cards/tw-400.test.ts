@@ -36,9 +36,9 @@ import {
   LORIEN,
   resetMint, pool,
   buildSitePhaseState,
+  viableActions,
 } from '../test-helpers.js';
 import {
-  computeLegalActions,
   HENNETH_ANNUN, DAGGER_OF_WESTERNESSE,
   isSiteCard, buildMovementMap, getReachableSites,
 } from '../../index.js';
@@ -56,11 +56,8 @@ describe('Henneth Annûn (tw-400)', () => {
 
   test('no resources playable at Henneth Annûn', () => {
     const state = buildSitePhaseState({ site: HENNETH_ANNUN });
-    const actions = computeLegalActions(state, PLAYER_1);
-
-    const viable = actions.filter(a => a.viable);
     // No playable resources — only pass should be available
-    const playActions = viable.filter(a => a.action.type === 'play-hero-resource');
+    const playActions = viableActions(state, PLAYER_1, 'play-hero-resource');
     expect(playActions).toHaveLength(0);
   });
 
@@ -69,19 +66,13 @@ describe('Henneth Annûn (tw-400)', () => {
       site: HENNETH_ANNUN,
       hand: [DAGGER_OF_WESTERNESSE],
     });
-    const actions = computeLegalActions(state, PLAYER_1);
-
-    const playActions = actions.filter(
-      a => a.viable && a.action.type === 'play-hero-resource',
-    );
+    const playActions = viableActions(state, PLAYER_1, 'play-hero-resource');
     expect(playActions).toHaveLength(0);
   });
 
   test('pass is always available during play-resources step', () => {
     const state = buildSitePhaseState({ site: HENNETH_ANNUN });
-    const actions = computeLegalActions(state, PLAYER_1);
-
-    const passActions = actions.filter(a => a.viable && a.action.type === 'pass');
+    const passActions = viableActions(state, PLAYER_1, 'pass');
     expect(passActions).toHaveLength(1);
   });
 

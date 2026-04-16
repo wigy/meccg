@@ -36,9 +36,9 @@ import {
   RIVENDELL,
   resetMint, pool,
   buildSitePhaseState,
+  viableFor,
 } from '../test-helpers.js';
 import {
-  computeLegalActions,
   BREE, BARROW_DOWNS, OLD_FOREST, THE_WHITE_TOWERS_HERO,
   isSiteCard, buildMovementMap, getReachableSites,
 } from '../../index.js';
@@ -56,10 +56,9 @@ describe('Bree (tw-378)', () => {
 
   test('no resources playable at Bree (empty playableResources)', () => {
     const state = buildSitePhaseState({ site: BREE });
-    const actions = computeLegalActions(state, PLAYER_1);
+    const viable = viableFor(state, PLAYER_1);
 
     // Only action should be pass (no items/allies/factions playable)
-    const viable = actions.filter(a => a.viable);
     expect(viable).toHaveLength(1);
     expect(viable[0].action.type).toBe('pass');
   });

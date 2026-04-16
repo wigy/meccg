@@ -28,9 +28,10 @@ import {
   findCharInstanceId,
   playCreatureHazardAndResolve,
   handCardId, companyIdAt, dispatch, expectCharStatus, expectInDiscardPile,
+  actionAs,
 } from '../test-helpers.js';
 import { computeLegalActions, Phase, RegionType, SiteType, CardStatus } from '../../index.js';
-import type { PlayDodgeAction } from '../../index.js';
+import type { PlayDodgeAction, BodyCheckRollAction, ResolveStrikeAction, PlayShortEventAction, NotPlayableAction } from '../../index.js';
 
 const WILDERNESS_KEYING = { method: 'region-type' as const, value: 'wilderness' };
 
@@ -139,7 +140,7 @@ describe('Dodge (tw-209)', () => {
     // Need roll > 8, so need 9+
     const bcActions = computeLegalActions(s2, PLAYER_2);
     const bcAction = bcActions.find(a => a.viable && a.action.type === 'body-check-roll')!;
-    expect((bcAction.action as { need: number }).need).toBe(9);
+    expect(actionAs<BodyCheckRollAction>(bcAction.action).need).toBe(9);
 
     // Verify the strike is marked as dodged
     const strike = s2.combat!.strikeAssignments[s2.combat!.currentStrikeIndex];
@@ -155,7 +156,7 @@ describe('Dodge (tw-209)', () => {
     const dodgeAction = actions.find(a => a.viable && a.action.type === 'play-dodge') as
       { action: PlayDodgeAction } | undefined;
     const tapAction = actions.find(a => a.viable && a.action.type === 'resolve-strike' &&
-      (a.action as { tapToFight: boolean }).tapToFight === true) as
+      actionAs<ResolveStrikeAction>(a.action).tapToFight === true) as
       { action: { need: number } } | undefined;
 
     expect(dodgeAction).toBeDefined();
@@ -197,13 +198,13 @@ describe('Dodge (tw-209)', () => {
     const actions = computeLegalActions(state, PLAYER_1);
     const dodgeShortEvent = actions.find(
       a => a.viable && a.action.type === 'play-short-event' &&
-        (a.action as { cardInstanceId: string }).cardInstanceId === state.players[0].hand[0].instanceId,
+        actionAs<PlayShortEventAction>(a.action).cardInstanceId === state.players[0].hand[0].instanceId,
     );
     expect(dodgeShortEvent).toBeUndefined();
 
     const notPlayable = actions.find(
       a => !a.viable && a.action.type === 'not-playable' &&
-        (a.action as { cardInstanceId: string }).cardInstanceId === state.players[0].hand[0].instanceId,
+        actionAs<NotPlayableAction>(a.action).cardInstanceId === state.players[0].hand[0].instanceId,
     );
     expect(notPlayable).toBeDefined();
   });
@@ -214,7 +215,7 @@ describe('Dodge (tw-209)', () => {
 
     const tapAction = computeLegalActions(s1, PLAYER_1)
       .find(a => a.viable && a.action.type === 'resolve-strike' &&
-        (a.action as { tapToFight: boolean }).tapToFight === true)!;
+        actionAs<ResolveStrikeAction>(a.action).tapToFight === true)!;
 
     // Cheat roll high: success
     const s2 = dispatch({ ...s1, cheatRollTotal: 12 }, tapAction.action);

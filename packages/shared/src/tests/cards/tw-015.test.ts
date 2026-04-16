@@ -15,12 +15,13 @@ import {
   ARAGORN, LEGOLAS,
   BARROW_WIGHT, GLAMDRING, DAGGER_OF_WESTERNESSE,
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
-  buildTestState, resetMint, makeMHState,
+  buildTestState, resetMint, makeShadowMHState,
   findCharInstanceId,
   playCreatureHazardAndResolve, runCreatureCombat,
   handCardId, companyIdAt, dispatch, expectCharStatus,
+  viableActions, viableFor,
 } from '../test-helpers.js';
-import { computeLegalActions, Phase, RegionType, SiteType, CardStatus } from '../../index.js';
+import { Phase, CardStatus } from '../../index.js';
 // ─── Constants ──────────────────────────────────────────────────────────────
 
 const SHADOW_KEYING = { method: 'region-type' as const, value: 'shadow' };
@@ -41,12 +42,7 @@ describe('Barrow-wight (tw-015)', () => {
         { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [BARROW_WIGHT], siteDeck: [RIVENDELL] },
       ],
     });
-    const mhState = makeMHState({
-      resolvedSitePath: [RegionType.Shadow],
-      resolvedSitePathNames: ['Imlad Morgul'],
-      destinationSiteType: SiteType.ShadowHold,
-      destinationSiteName: 'Moria',
-    });
+    const mhState = makeShadowMHState();
     const ready = { ...state, phaseState: mhState };
 
     const bwId = handCardId(ready, 1);
@@ -69,12 +65,7 @@ describe('Barrow-wight (tw-015)', () => {
         { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [BARROW_WIGHT], siteDeck: [RIVENDELL] },
       ],
     });
-    const mhState = makeMHState({
-      resolvedSitePath: [RegionType.Shadow],
-      resolvedSitePathNames: ['Imlad Morgul'],
-      destinationSiteType: SiteType.ShadowHold,
-      destinationSiteName: 'Moria',
-    });
+    const mhState = makeShadowMHState();
     const ready = { ...state, phaseState: mhState };
 
     const bwId = handCardId(ready, 1);
@@ -97,8 +88,7 @@ describe('Barrow-wight (tw-015)', () => {
     const aragornId = findCharInstanceId(afterWound, 0, ARAGORN);
     expect(pending[0].kind.characterId).toBe(aragornId);
 
-    const actions = computeLegalActions(afterWound, PLAYER_1);
-    const viable = actions.filter(a => a.viable);
+    const viable = viableFor(afterWound, PLAYER_1);
     expect(viable).toHaveLength(1);
     expect(viable[0].action.type).toBe('corruption-check');
   });
@@ -113,20 +103,14 @@ describe('Barrow-wight (tw-015)', () => {
         { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [BARROW_WIGHT], siteDeck: [RIVENDELL] },
       ],
     });
-    const ready = { ...state, phaseState: makeMHState({
-      resolvedSitePath: [RegionType.Shadow],
-      resolvedSitePathNames: ['Imlad Morgul'],
-      destinationSiteType: SiteType.ShadowHold,
-      destinationSiteName: 'Moria',
-    }) };
+    const ready = { ...state, phaseState: makeShadowMHState() };
 
     const bwId = handCardId(ready, 1);
     const companyId = companyIdAt(ready, 0);
     const afterChain = playCreatureHazardAndResolve(ready, PLAYER_2, bwId, companyId, SHADOW_KEYING);
     const afterWound = runCreatureCombat(afterChain, ARAGORN, 2, 5);
 
-    const actions = computeLegalActions(afterWound, PLAYER_1);
-    const ccAction = actions.find(a => a.viable && a.action.type === 'corruption-check')!.action;
+    const ccAction = viableActions(afterWound, PLAYER_1, 'corruption-check')[0].action;
 
     // Aragorn has 0 CP, modifier -2. Roll 12 passes easily.
     const ccState = dispatch({ ...afterWound, cheatRollTotal: 12 }, ccAction);
@@ -147,20 +131,14 @@ describe('Barrow-wight (tw-015)', () => {
         { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [BARROW_WIGHT], siteDeck: [RIVENDELL] },
       ],
     });
-    const ready = { ...state, phaseState: makeMHState({
-      resolvedSitePath: [RegionType.Shadow],
-      resolvedSitePathNames: ['Imlad Morgul'],
-      destinationSiteType: SiteType.ShadowHold,
-      destinationSiteName: 'Moria',
-    }) };
+    const ready = { ...state, phaseState: makeShadowMHState() };
 
     const bwId = handCardId(ready, 1);
     const companyId = companyIdAt(ready, 0);
     const afterChain = playCreatureHazardAndResolve(ready, PLAYER_2, bwId, companyId, SHADOW_KEYING);
     const afterWound = runCreatureCombat(afterChain, ARAGORN, 2, 5);
 
-    const actions = computeLegalActions(afterWound, PLAYER_1);
-    const ccAction = actions.find(a => a.viable && a.action.type === 'corruption-check')!.action;
+    const ccAction = viableActions(afterWound, PLAYER_1, 'corruption-check')[0].action;
 
     // Aragorn has Glamdring (2 CP) + Dagger (1 CP) = 3 CP, modifier -2
     // Roll 2 + (-2) = 0, not > 3 → fail
@@ -181,12 +159,7 @@ describe('Barrow-wight (tw-015)', () => {
         { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [BARROW_WIGHT], siteDeck: [RIVENDELL] },
       ],
     });
-    const ready = { ...state, phaseState: makeMHState({
-      resolvedSitePath: [RegionType.Shadow],
-      resolvedSitePathNames: ['Imlad Morgul'],
-      destinationSiteType: SiteType.ShadowHold,
-      destinationSiteName: 'Moria',
-    }) };
+    const ready = { ...state, phaseState: makeShadowMHState() };
 
     const bwId = handCardId(ready, 1);
     const companyId = companyIdAt(ready, 0);
@@ -211,19 +184,13 @@ describe('Barrow-wight (tw-015)', () => {
         { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [BARROW_WIGHT], siteDeck: [RIVENDELL] },
       ],
     });
-    const ready = { ...state, phaseState: makeMHState({
-      resolvedSitePath: [RegionType.Shadow],
-      resolvedSitePathNames: ['Imlad Morgul'],
-      destinationSiteType: SiteType.ShadowHold,
-      destinationSiteName: 'Moria',
-    }) };
+    const ready = { ...state, phaseState: makeShadowMHState() };
 
     const bwId = handCardId(ready, 1);
     const companyId = companyIdAt(ready, 0);
     const afterChain = playCreatureHazardAndResolve(ready, PLAYER_2, bwId, companyId, SHADOW_KEYING);
     const afterWound = runCreatureCombat(afterChain, ARAGORN, 2, 5);
 
-    const hazardActions = computeLegalActions(afterWound, PLAYER_2);
-    expect(hazardActions.filter(a => a.viable)).toHaveLength(0);
+    expect(viableFor(afterWound, PLAYER_2)).toHaveLength(0);
   });
 });

@@ -38,8 +38,9 @@ import {
   viableActions, CardStatus,
   handCardId, charIdAt, dispatch, setCharStatus,
   expectCharStatus, expectInDiscardPile,
+  actionAs,
 } from '../test-helpers.js';
-import type { PlayHazardAction, InfluenceAttemptAction, FactionInfluenceRollAction, ActivateGrantedAction } from '../../index.js';
+import type { PlayHazardAction, InfluenceAttemptAction, FactionInfluenceRollAction, ActivateGrantedAction, PlaceOnGuardAction, RevealOnGuardAction } from '../../index.js';
 import { computeLegalActions } from '../../engine/legal-actions/index.js';
 
 // ─── Tests ───────────────────────────────────────────────────────────────────
@@ -115,8 +116,8 @@ describe('Foolish Words (td-25)', () => {
 
     expect(withFW.length).toBeGreaterThanOrEqual(1);
     expect(withoutFW.length).toBeGreaterThanOrEqual(1);
-    expect((withFW[0].action as { need: number }).need).toBe(
-      (withoutFW[0].action as { need: number }).need + 4,
+    expect(actionAs<InfluenceAttemptAction>(withFW[0].action).need).toBe(
+      actionAs<InfluenceAttemptAction>(withoutFW[0].action).need + 4,
     );
   });
 
@@ -147,7 +148,7 @@ describe('Foolish Words (td-25)', () => {
 
     // The card being placed is Foolish Words
     const fwInstanceId = handCardId(mhGameState, 1);
-    const action = ogActions[0].action as { cardInstanceId: string };
+    const action = actionAs<PlaceOnGuardAction>(ogActions[0].action);
     expect(action.cardInstanceId).toBe(fwInstanceId);
   });
 
@@ -273,7 +274,7 @@ describe('Foolish Words (td-25)', () => {
     // PLAYER_2 reveals Foolish Words targeting Aragorn
     const revealActions = viableActions(afterAttempt, PLAYER_2, 'reveal-on-guard');
     expect(revealActions.length).toBeGreaterThanOrEqual(1);
-    expect((revealActions[0].action as { cardInstanceId: string }).cardInstanceId).toBe(ogCard.instanceId);
+    expect(actionAs<RevealOnGuardAction>(revealActions[0].action).cardInstanceId).toBe(ogCard.instanceId);
 
     const afterReveal = dispatch(afterAttempt, revealActions[0].action);
     expect(afterReveal.chain).not.toBeNull();

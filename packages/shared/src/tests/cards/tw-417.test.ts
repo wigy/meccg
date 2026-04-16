@@ -38,9 +38,9 @@ import {
   resetMint, pool, buildTestState, Phase, CardStatus,
   buildSitePhaseState,
   dispatch, expectCharStatus,
+  viableFor,
 } from '../test-helpers.js';
 import {
-  computeLegalActions,
   OLD_FOREST,
   isSiteCard, buildMovementMap, getReachableSites,
 } from '../../index.js';
@@ -58,9 +58,8 @@ describe('Old Forest (tw-417)', () => {
 
   test('no resources playable at Old Forest (empty playableResources)', () => {
     const state = buildSitePhaseState({ site: OLD_FOREST });
-    const actions = computeLegalActions(state, PLAYER_1);
+    const viable = viableFor(state, PLAYER_1);
 
-    const viable = actions.filter(a => a.viable);
     expect(viable).toHaveLength(1);
     expect(viable[0].action.type).toBe('pass');
   });

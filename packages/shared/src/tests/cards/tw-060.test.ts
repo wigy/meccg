@@ -37,10 +37,9 @@ import {
   ARAGORN, LEGOLAS,
   LURE_OF_THE_SENSES,
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
-  viableActions, CardStatus, charIdAt, dispatch, expectCharStatus, expectInDiscardPile,
+  viableActions, viableFor, CardStatus, charIdAt, dispatch, expectCharStatus, expectInDiscardPile,
 } from '../test-helpers.js';
 import type { ActivateGrantedAction, CorruptionCheckAction } from '../../index.js';
-import { computeLegalActions } from '../../engine/legal-actions/index.js';
 import { recomputeDerived } from '../../engine/recompute-derived.js';
 
 describe('Lure of the Senses (tw-60)', () => {
@@ -102,8 +101,7 @@ describe('Lure of the Senses (tw-60)', () => {
     expect(pending[0].kind.characterId).toBe(aragornId);
 
     // Legal actions for P1 should collapse to the corruption-check resolution
-    const actions = computeLegalActions(afterPass, PLAYER_1);
-    const viable = actions.filter(a => a.viable);
+    const viable = viableFor(afterPass, PLAYER_1);
     expect(viable).toHaveLength(1);
     expect(viable[0].action.type).toBe('corruption-check');
 

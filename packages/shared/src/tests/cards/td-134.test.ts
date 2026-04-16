@@ -25,8 +25,9 @@ import {
   viableActions, makeSitePhase,
   handCardId, dispatch, setCharStatus, expectCharStatus,
   makeMHState,
+  actionAs,
 } from '../test-helpers.js';
-import type { CardInstanceId, CardInPlay } from '../../index.js';
+import type { CardInstanceId, CardInPlay, PlayShortEventAction } from '../../index.js';
 import { computeLegalActions, Phase, CardStatus } from '../../index.js';
 
 // ─── Tests ────────────────────────────────────────────────────────────────────
@@ -49,11 +50,7 @@ describe('Marvels Told (td-134)', () => {
 
     const playActions = viableActions(state, PLAYER_1, 'play-short-event');
     expect(playActions).toHaveLength(1);
-    const action = playActions[0].action as {
-      type: string;
-      targetScoutInstanceId?: CardInstanceId;
-      discardTargetInstanceId?: CardInstanceId;
-    };
+    const action = actionAs<PlayShortEventAction>(playActions[0].action);
     expect(action.targetScoutInstanceId).toBeDefined();
     expect(action.discardTargetInstanceId).toBe(state.players[1].cardsInPlay[0].instanceId);
   });
@@ -75,7 +72,7 @@ describe('Marvels Told (td-134)', () => {
 
     const playActions = viableActions(state, PLAYER_1, 'play-short-event');
     expect(playActions).toHaveLength(2);
-    const targets = playActions.map(a => (a.action as { discardTargetInstanceId?: CardInstanceId }).discardTargetInstanceId);
+    const targets = playActions.map(a => actionAs<PlayShortEventAction>(a.action).discardTargetInstanceId);
     expect(new Set(targets).size).toBe(2);
   });
 
@@ -296,11 +293,7 @@ describe('Marvels Told (td-134)', () => {
 
     const playActions = viableActions(state, PLAYER_1, 'play-short-event');
     expect(playActions).toHaveLength(1);
-    const action = playActions[0].action as {
-      type: string;
-      targetScoutInstanceId?: CardInstanceId;
-      discardTargetInstanceId?: CardInstanceId;
-    };
+    const action = actionAs<PlayShortEventAction>(playActions[0].action);
     expect(action.targetScoutInstanceId).toBeDefined();
     expect(action.discardTargetInstanceId).toBe(state.players[1].cardsInPlay[0].instanceId);
   });
@@ -340,11 +333,7 @@ describe('Marvels Told (td-134)', () => {
 
     const playActions = viableActions(state, PLAYER_1, 'play-short-event');
     expect(playActions).toHaveLength(1);
-    const action = playActions[0].action as {
-      type: string;
-      targetScoutInstanceId?: CardInstanceId;
-      discardTargetInstanceId?: CardInstanceId;
-    };
+    const action = actionAs<PlayShortEventAction>(playActions[0].action);
     expect(action.targetScoutInstanceId).toBeDefined();
     expect(action.discardTargetInstanceId).toBe(foolishWordsInPlay.instanceId);
   });
@@ -387,11 +376,7 @@ describe('Marvels Told (td-134)', () => {
 
     const playActions = viableActions(state, PLAYER_1, 'play-short-event');
     expect(playActions).toHaveLength(1);
-    const action = playActions[0].action as {
-      type: string;
-      targetScoutInstanceId?: CardInstanceId;
-      discardTargetInstanceId?: CardInstanceId;
-    };
+    const action = actionAs<PlayShortEventAction>(playActions[0].action);
     expect(action.targetScoutInstanceId).toBeDefined();
     expect(action.discardTargetInstanceId).toBe(foolishWordsInPlay.instanceId);
   });
@@ -459,11 +444,11 @@ describe('Marvels Told (td-134)', () => {
 
     // Each action must carry the hazard as the discard target so the UI can
     // render it in a disambiguation menu.
-    const discardTargets = playActions.map(a => (a.action as { discardTargetInstanceId?: CardInstanceId }).discardTargetInstanceId);
+    const discardTargets = playActions.map(a => actionAs<PlayShortEventAction>(a.action).discardTargetInstanceId);
     expect(new Set(discardTargets)).toEqual(new Set([eyeOfSauronInPlay.instanceId]));
 
     // The two actions must differ on the sage axis (Balin vs. Saruman).
-    const sageTargets = playActions.map(a => (a.action as { targetScoutInstanceId?: CardInstanceId }).targetScoutInstanceId);
+    const sageTargets = playActions.map(a => actionAs<PlayShortEventAction>(a.action).targetScoutInstanceId);
     expect(new Set(sageTargets).size).toBe(2);
   });
 
@@ -489,7 +474,7 @@ describe('Marvels Told (td-134)', () => {
     // the sage axis collapses to one.
     expect(playActions).toHaveLength(2);
     const targetIds = new Set(playActions.map(a =>
-      (a.action as { discardTargetInstanceId?: CardInstanceId }).discardTargetInstanceId,
+      actionAs<PlayShortEventAction>(a.action).discardTargetInstanceId,
     ));
 
     const chars = state.players[0].characters;

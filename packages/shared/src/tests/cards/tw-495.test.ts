@@ -29,9 +29,10 @@ import {
   enqueueTransferCorruptionCheck,
   getCharacter,
   handCardId, companyIdAt, charIdAt, dispatch, resolveChain,
+  actionAs,
 } from '../test-helpers.js';
 import { computeLegalActions, BAG_END, SiteType } from '../../index.js';
-import type { CorruptionCheckAction } from '../../index.js';
+import type { CorruptionCheckAction, CancelStrikeAction, SupportStrikeAction } from '../../index.js';
 
 // ─── Tests ────────────────────────────────────────────────────────────────────
 
@@ -233,8 +234,8 @@ describe('Fatty Bolger (tw-495)', () => {
       a => a.viable && a.action.type === 'cancel-strike',
     );
     expect(cancelStrikeActions.length).toBe(1);
-    expect((cancelStrikeActions[0].action as { cancellerInstanceId: string }).cancellerInstanceId).toBe(fattyId);
-    expect((cancelStrikeActions[0].action as { targetCharacterId: string }).targetCharacterId).toBe(bilboId);
+    expect(actionAs<CancelStrikeAction>(cancelStrikeActions[0].action).cancellerInstanceId).toBe(fattyId);
+    expect(actionAs<CancelStrikeAction>(cancelStrikeActions[0].action).targetCharacterId).toBe(bilboId);
 
     // Execute cancel-strike
     const r6 = dispatch(r5, cancelStrikeActions[0].action);
@@ -485,11 +486,11 @@ describe('Fatty Bolger (tw-495)', () => {
 
     const supportActions = defActions.filter(
       a => a.viable && a.action.type === 'support-strike'
-        && (a.action as { supportingCharacterId: string }).supportingCharacterId === fattyId,
+        && actionAs<SupportStrikeAction>(a.action).supportingCharacterId === fattyId,
     );
     const cancelActions = defActions.filter(
       a => a.viable && a.action.type === 'cancel-strike'
-        && (a.action as { cancellerInstanceId: string }).cancellerInstanceId === fattyId,
+        && actionAs<CancelStrikeAction>(a.action).cancellerInstanceId === fattyId,
     );
 
     expect(supportActions.length).toBe(1);

@@ -25,7 +25,7 @@ import {
   ARAGORN, LEGOLAS,
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH, BANDIT_LAIR,
   buildTestState, buildSitePhaseState, resetMint,
-  viableActions, handCardId, dispatch, companyIdAt,
+  viableActions, handCardId, dispatch, companyIdAt, phaseStateAs,
 } from '../test-helpers.js';
 import { computeLegalActions, Phase } from '../../index.js';
 import type { CardDefinitionId, CardInstanceId, SitePhaseState } from '../../index.js';
@@ -141,7 +141,7 @@ describe('Rebuild the Town (dm-155)', () => {
 
     // First verify that WITHOUT the constraint, entering site goes to reveal-on-guard-attacks
     const entered = dispatch(stateAtEnter, { type: 'enter-site', player: PLAYER_1, companyId: cid });
-    expect((entered.phaseState as SitePhaseState).step).toBe('reveal-on-guard-attacks');
+    expect(phaseStateAs<SitePhaseState>(entered).step).toBe('reveal-on-guard-attacks');
 
     // Now add the skip-automatic-attacks constraint
     const withConstraint = addConstraint(
@@ -160,6 +160,6 @@ describe('Rebuild the Town (dm-155)', () => {
 
     // Entering site should skip automatic attacks and go to declare-agent-attack
     const enteredWithSkip = dispatch(withConstraint, { type: 'enter-site', player: PLAYER_1, companyId: cid });
-    expect((enteredWithSkip.phaseState as SitePhaseState).step).toBe('declare-agent-attack');
+    expect(phaseStateAs<SitePhaseState>(enteredWithSkip).step).toBe('declare-agent-attack');
   });
 });

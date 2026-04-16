@@ -37,9 +37,9 @@ import {
   resetMint,
   pool,
   buildSitePhaseState,
+  viableActions,
 } from '../test-helpers.js';
 import {
-  computeLegalActions,
   WELLINGHALL,
   GLAMDRING,
   isSiteCard,
@@ -63,18 +63,13 @@ describe('Wellinghall (tw-437)', () => {
       site: WELLINGHALL,
       hand: [GLAMDRING],
     });
-    const actions = computeLegalActions(state, PLAYER_1);
-
-    const viable = actions.filter(a => a.viable);
-    const playActions = viable.filter(a => a.action.type === 'play-hero-resource');
+    const playActions = viableActions(state, PLAYER_1, 'play-hero-resource');
     expect(playActions).toHaveLength(0);
   });
 
   test('pass is always available during play-resources step', () => {
     const state = buildSitePhaseState({ site: WELLINGHALL });
-    const actions = computeLegalActions(state, PLAYER_1);
-
-    const passActions = actions.filter(a => a.viable && a.action.type === 'pass');
+    const passActions = viableActions(state, PLAYER_1, 'pass');
     expect(passActions).toHaveLength(1);
   });
 

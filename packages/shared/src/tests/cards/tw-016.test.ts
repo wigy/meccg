@@ -18,7 +18,7 @@ import {
   BERT_BURAT, TOM_TUMA, WILLIAM_WULUAG,
   GLAMDRING, DAGGER_OF_WESTERNESSE,
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
-  buildTestState, resetMint, makeMHState,
+  buildTestState, resetMint, makeMHState, makeShadowMHState,
   playCreatureHazardAndResolve, runCreatureCombat,
   handCardId, companyIdAt, expectCharItemCount,
 } from '../test-helpers.js';
@@ -46,12 +46,7 @@ describe('Bert (Burat) (tw-016)', () => {
         { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [BERT_BURAT], siteDeck: [RIVENDELL] },
       ],
     });
-    const mhState = makeMHState({
-      resolvedSitePath: [RegionType.Shadow],
-      resolvedSitePathNames: ['Imlad Morgul'],
-      destinationSiteType: SiteType.ShadowHold,
-      destinationSiteName: 'Moria',
-    });
+    const mhState = makeShadowMHState();
     const ready = { ...state, phaseState: mhState };
 
     const bertId = handCardId(ready, 1);
@@ -74,12 +69,7 @@ describe('Bert (Burat) (tw-016)', () => {
         { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [BERT_BURAT], siteDeck: [RIVENDELL] },
       ],
     });
-    const mhState = makeMHState({
-      resolvedSitePath: [RegionType.Shadow],
-      resolvedSitePathNames: ['Imlad Morgul'],
-      destinationSiteType: SiteType.ShadowHold,
-      destinationSiteName: 'Moria',
-    });
+    const mhState = makeShadowMHState();
     const ready = { ...state, phaseState: mhState };
 
     const bertId = handCardId(ready, 1);
@@ -225,12 +215,7 @@ describe('Bert (Burat) (tw-016)', () => {
         { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [BERT_BURAT], siteDeck: [RIVENDELL] },
       ],
     });
-    const mhState = makeMHState({
-      resolvedSitePath: [RegionType.Shadow],
-      resolvedSitePathNames: ['Imlad Morgul'],
-      destinationSiteType: SiteType.ShadowHold,
-      destinationSiteName: 'Moria',
-    });
+    const mhState = makeShadowMHState();
     const ready = { ...state, phaseState: mhState };
 
     const bertId = handCardId(ready, 1);
@@ -252,12 +237,7 @@ describe('Bert (Burat) (tw-016)', () => {
         { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [BERT_BURAT], siteDeck: [RIVENDELL] },
       ],
     });
-    const mhState = makeMHState({
-      resolvedSitePath: [RegionType.Shadow],
-      resolvedSitePathNames: ['Imlad Morgul'],
-      destinationSiteType: SiteType.ShadowHold,
-      destinationSiteName: 'Moria',
-    });
+    const mhState = makeShadowMHState();
     const ready = { ...state, phaseState: mhState };
 
     const bertId = handCardId(ready, 1);

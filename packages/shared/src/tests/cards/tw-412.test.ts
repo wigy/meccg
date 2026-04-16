@@ -37,9 +37,9 @@ import {
   LORIEN,
   resetMint, pool,
   buildSitePhaseState,
+  viableActions,
 } from '../test-helpers.js';
 import {
-  computeLegalActions,
   MINAS_TIRITH, MEN_OF_ANORIEN,
   isSiteCard, buildMovementMap, getReachableSites,
 } from '../../index.js';
@@ -60,18 +60,13 @@ describe('Minas Tirith (tw-412)', () => {
       site: MINAS_TIRITH,
       hand: [MEN_OF_ANORIEN],
     });
-    const actions = computeLegalActions(state, PLAYER_1);
-
-    const viable = actions.filter(a => a.viable);
-    const influenceActions = viable.filter(a => a.action.type === 'influence-attempt');
+    const influenceActions = viableActions(state, PLAYER_1, 'influence-attempt');
     expect(influenceActions.length).toBeGreaterThanOrEqual(1);
   });
 
   test('pass is always available during play-resources step', () => {
     const state = buildSitePhaseState({ site: MINAS_TIRITH });
-    const actions = computeLegalActions(state, PLAYER_1);
-
-    const passActions = actions.filter(a => a.viable && a.action.type === 'pass');
+    const passActions = viableActions(state, PLAYER_1, 'pass');
     expect(passActions).toHaveLength(1);
   });
 

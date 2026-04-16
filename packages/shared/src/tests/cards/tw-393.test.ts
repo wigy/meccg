@@ -38,9 +38,9 @@ import {
   PLAYER_1,
   resetMint, pool,
   buildSitePhaseState,
+  viableFor,
 } from '../test-helpers.js';
 import {
-  computeLegalActions,
   EDHELLOND,
   DOL_AMROTH, PELARGIR,
   isSiteCard, buildMovementMap, getReachableSites,
@@ -59,10 +59,9 @@ describe('Edhellond (tw-393)', () => {
 
   test('no resources playable at Edhellond (haven)', () => {
     const state = buildSitePhaseState({ site: EDHELLOND });
-    const actions = computeLegalActions(state, PLAYER_1);
+    const viable = viableFor(state, PLAYER_1);
 
     // Only action should be pass (no items/allies/factions playable at a haven)
-    const viable = actions.filter(a => a.viable);
     expect(viable).toHaveLength(1);
     expect(viable[0].action.type).toBe('pass');
   });

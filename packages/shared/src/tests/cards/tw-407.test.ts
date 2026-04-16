@@ -37,9 +37,9 @@ import {
   PLAYER_1,
   resetMint, pool,
   buildSitePhaseState,
+  viableFor,
 } from '../test-helpers.js';
 import {
-  computeLegalActions,
   LOND_GALEN, EDHELLOND,
   isSiteCard, buildMovementMap, getReachableSites,
 } from '../../index.js';
@@ -51,9 +51,8 @@ describe('Lond Galen (tw-407)', () => {
 
   test('no resources playable at Lond Galen', () => {
     const state = buildSitePhaseState({ site: LOND_GALEN });
-    const actions = computeLegalActions(state, PLAYER_1);
+    const viable = viableFor(state, PLAYER_1);
 
-    const viable = actions.filter(a => a.viable);
     expect(viable).toHaveLength(1);
     expect(viable[0].action.type).toBe('pass');
   });

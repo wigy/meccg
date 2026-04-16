@@ -18,8 +18,9 @@ import {
   buildTestState, resetMint, makeMHState,
   handCardId, dispatch, resolveChain, viableActions,
   CardStatus, Phase,
+  actionAs,
 } from '../test-helpers.js';
-import type { CardInPlay, CardInstanceId, CardDefinitionId, MovementHazardPhaseState } from '../../index.js';
+import type { CardInPlay, CardInstanceId, CardDefinitionId, MovementHazardPhaseState, PlayHazardAction, FetchFromPileAction } from '../../index.js';
 import { computeLegalActions } from '../../index.js';
 
 describe('An Unexpected Outpost (dm-45)', () => {
@@ -55,8 +56,9 @@ describe('An Unexpected Outpost (dm-45)', () => {
     const state = buildMHState();
     const actions = viableActions(state, PLAYER_2, 'play-hazard');
     const shortEventActions = actions.filter(ea => {
-      const def = state.cardPool[(ea.action as { cardInstanceId: CardInstanceId }).cardInstanceId as unknown as string]
-        ?? state.cardPool[state.players[1].hand.find(c => c.instanceId === (ea.action as { cardInstanceId: CardInstanceId }).cardInstanceId)?.definitionId as string];
+      const instId = actionAs<PlayHazardAction>(ea.action).cardInstanceId;
+      const def = state.cardPool[instId as unknown as string]
+        ?? state.cardPool[state.players[1].hand.find(c => c.instanceId === instId)?.definitionId as string];
       return def && 'eventType' in def && def.eventType === 'short';
     });
     expect(shortEventActions.length).toBeGreaterThanOrEqual(1);
@@ -100,7 +102,7 @@ describe('An Unexpected Outpost (dm-45)', () => {
 
     const fetchActions = viableActions(afterChain, PLAYER_2, 'fetch-from-pile');
     expect(fetchActions).toHaveLength(2);
-    expect(fetchActions.every(ea => (ea.action as { source: string }).source === 'sideboard')).toBe(true);
+    expect(fetchActions.every(ea => actionAs<FetchFromPileAction>(ea.action).source === 'sideboard')).toBe(true);
   });
 
   test('fetch sub-flow shows eligible hazard cards from discard pile', () => {
@@ -117,7 +119,7 @@ describe('An Unexpected Outpost (dm-45)', () => {
 
     const fetchActions = viableActions(afterChain, PLAYER_2, 'fetch-from-pile');
     expect(fetchActions).toHaveLength(1);
-    expect((fetchActions[0].action as { source: string }).source).toBe('discard-pile');
+    expect(actionAs<FetchFromPileAction>(fetchActions[0].action).source).toBe('discard-pile');
   });
 
   test('fetching a card adds it to play deck and discards event card', () => {

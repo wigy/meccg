@@ -24,12 +24,12 @@ import {
   BARROW_WIGHT,
   DUNLENDINGS,
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH, DUNNISH_CLAN_HOLD,
-  buildTestState, resetMint, makeMHState, findCharInstanceId,
+  buildTestState, resetMint, makeShadowMHState, findCharInstanceId,
   executeAction, playCreatureHazardAndResolve, runCreatureCombat,
   buildSitePhaseState,
   getCharacter, companyIdAt, handCardId, dispatch,
 } from '../test-helpers.js';
-import { Phase, RegionType, SiteType, computeLegalActions } from '../../index.js';
+import { Phase, computeLegalActions } from '../../index.js';
 import type { CombatState, InfluenceAttemptAction } from '../../index.js';
 
 // ─── Constants ──────────────────────────────────────────────────────────────
@@ -149,12 +149,7 @@ describe('Peath (tw-176)', () => {
       detainment: false,
     };
 
-    const mhState = makeMHState({
-      resolvedSitePath: [RegionType.Shadow],
-      resolvedSitePathNames: ['Imlad Morgul'],
-      destinationSiteType: SiteType.ShadowHold,
-      destinationSiteName: 'Moria',
-    });
+    const mhState = makeShadowMHState();
 
     const ready = { ...state, phaseState: mhState, combat };
 
@@ -178,12 +173,7 @@ describe('Peath (tw-176)', () => {
       ],
     });
 
-    const mhState = makeMHState({
-      resolvedSitePath: [RegionType.Shadow],
-      resolvedSitePathNames: ['Imlad Morgul'],
-      destinationSiteType: SiteType.ShadowHold,
-      destinationSiteName: 'Moria',
-    });
+    const mhState = makeShadowMHState();
     const ready = { ...state, phaseState: mhState };
 
     const bwId = handCardId(ready, 1);
@@ -231,12 +221,7 @@ describe('Peath (tw-176)', () => {
       detainment: false,
     };
 
-    const mhState = makeMHState({
-      resolvedSitePath: [RegionType.Shadow],
-      resolvedSitePathNames: ['Imlad Morgul'],
-      destinationSiteType: SiteType.ShadowHold,
-      destinationSiteName: 'Moria',
-    });
+    const mhState = makeShadowMHState();
 
     const ready = { ...state, phaseState: mhState, combat };
 
@@ -278,12 +263,7 @@ describe('Peath (tw-176)', () => {
       detainment: false,
     };
 
-    const mhState = makeMHState({
-      resolvedSitePath: [RegionType.Shadow],
-      resolvedSitePathNames: ['Imlad Morgul'],
-      destinationSiteType: SiteType.ShadowHold,
-      destinationSiteName: 'Moria',
-    });
+    const mhState = makeShadowMHState();
 
     const ready = { ...state, phaseState: mhState, combat };
 
@@ -333,12 +313,7 @@ describe('Peath (tw-176)', () => {
       detainment: false,
     };
 
-    const mhState = makeMHState({
-      resolvedSitePath: [RegionType.Shadow],
-      resolvedSitePathNames: ['Imlad Morgul'],
-      destinationSiteType: SiteType.ShadowHold,
-      destinationSiteName: 'Moria',
-    });
+    const mhState = makeShadowMHState();
 
     const ready = { ...state, phaseState: mhState, combat };
 
@@ -386,12 +361,7 @@ describe('Peath (tw-176)', () => {
       detainment: false,
     };
 
-    const mhState = makeMHState({
-      resolvedSitePath: [RegionType.Shadow],
-      resolvedSitePathNames: ['Imlad Morgul'],
-      destinationSiteType: SiteType.ShadowHold,
-      destinationSiteName: 'Moria',
-    });
+    const mhState = makeShadowMHState();
 
     const ready = { ...state, phaseState: mhState, combat };
 

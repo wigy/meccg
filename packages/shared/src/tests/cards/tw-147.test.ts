@@ -20,11 +20,11 @@ import {
   EOWYN, LEGOLAS,
   BARROW_WIGHT,
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
-  buildTestState, resetMint, makeMHState, findCharInstanceId,
+  buildTestState, resetMint, makeShadowMHState, findCharInstanceId,
   executeAction, playCreatureHazardAndResolve, runCreatureCombat,
   dispatch, getCharacter, expectCharStatus,
 } from '../test-helpers.js';
-import { Phase, RegionType, SiteType, CardStatus } from '../../index.js';
+import { Phase, CardStatus } from '../../index.js';
 import type { CombatState } from '../../index.js';
 
 // ─── Constants ──────────────────────────────────────────────────────────────
@@ -73,12 +73,7 @@ function buildCombatState(opts: {
     detainment: false,
   };
 
-  const mhState = makeMHState({
-    resolvedSitePath: [RegionType.Shadow],
-    resolvedSitePathNames: ['Imlad Morgul'],
-    destinationSiteType: SiteType.ShadowHold,
-    destinationSiteName: 'Moria',
-  });
+  const mhState = makeShadowMHState();
 
   return { ...state, phaseState: mhState, combat };
 }
@@ -129,12 +124,7 @@ describe('Éowyn (tw-147)', () => {
       ],
     });
 
-    const mhState = makeMHState({
-      resolvedSitePath: [RegionType.Shadow],
-      resolvedSitePathNames: ['Imlad Morgul'],
-      destinationSiteType: SiteType.ShadowHold,
-      destinationSiteName: 'Moria',
-    });
+    const mhState = makeShadowMHState();
     const ready = { ...state, phaseState: mhState };
 
     const bwId = ready.players[1].hand[0].instanceId;

@@ -36,9 +36,9 @@ import {
   PLAYER_1,
   resetMint, pool,
   buildSitePhaseState,
+  viableActions,
 } from '../test-helpers.js';
 import {
-  computeLegalActions,
   DOL_AMROTH, EDHELLOND, KNIGHTS_OF_DOL_AMROTH,
   isSiteCard, buildMovementMap, getReachableSites,
 } from '../../index.js';
@@ -59,18 +59,13 @@ describe('Dol Amroth (tw-386)', () => {
       site: DOL_AMROTH,
       hand: [KNIGHTS_OF_DOL_AMROTH],
     });
-    const actions = computeLegalActions(state, PLAYER_1);
-
-    const viable = actions.filter(a => a.viable);
-    const influenceActions = viable.filter(a => a.action.type === 'influence-attempt');
+    const influenceActions = viableActions(state, PLAYER_1, 'influence-attempt');
     expect(influenceActions.length).toBeGreaterThanOrEqual(1);
   });
 
   test('pass is always available during play-resources step', () => {
     const state = buildSitePhaseState({ site: DOL_AMROTH });
-    const actions = computeLegalActions(state, PLAYER_1);
-
-    const passActions = actions.filter(a => a.viable && a.action.type === 'pass');
+    const passActions = viableActions(state, PLAYER_1, 'pass');
     expect(passActions).toHaveLength(1);
   });
 

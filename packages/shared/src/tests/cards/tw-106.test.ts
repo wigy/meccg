@@ -23,9 +23,10 @@ import {
   viableActions,
   playShortEventAndResolve,
   handCardId,
+  actionAs,
 } from '../test-helpers.js';
 import { computeLegalActions, Phase } from '../../index.js';
-import type { CardInPlay, CardInstanceId, GameState, MovementHazardPhaseState } from '../../index.js';
+import type { CardInPlay, CardInstanceId, GameState, MovementHazardPhaseState, PlayShortEventAction, NotPlayableAction } from '../../index.js';
 
 // ─── Tests ────────────────────────────────────────────────────────────────────
 
@@ -102,7 +103,7 @@ describe('Twilight (tw-106)', () => {
     // Should show as not-playable
     const notPlayable = computeLegalActions(state, PLAYER_1)
       .filter(ea => !ea.viable && ea.action.type === 'not-playable'
-        && (ea.action as { cardInstanceId: CardInstanceId }).cardInstanceId === state.players[0].hand[0].instanceId);
+        && actionAs<NotPlayableAction>(ea.action).cardInstanceId === state.players[0].hand[0].instanceId);
     expect(notPlayable).toHaveLength(1);
   });
 
@@ -131,7 +132,7 @@ describe('Twilight (tw-106)', () => {
     expect(shortEventActions).toHaveLength(2);
 
     const targets = shortEventActions.map(
-      ea => (ea.action as { targetInstanceId: CardInstanceId }).targetInstanceId,
+      ea => actionAs<PlayShortEventAction>(ea.action).targetInstanceId,
     );
     expect(targets).toContain('gom-1' as CardInstanceId);
     expect(targets).toContain('don-1' as CardInstanceId);
@@ -168,7 +169,7 @@ describe('Twilight (tw-106)', () => {
     // P1 should have play-short-event actions targeting Twilight #1 on the chain
     const chainActions = viableActions(result.state, PLAYER_1, 'play-short-event');
     const twilight1AsTarget = chainActions.filter(
-      ea => (ea.action as { targetInstanceId: CardInstanceId }).targetInstanceId === twilight1,
+      ea => actionAs<PlayShortEventAction>(ea.action).targetInstanceId === twilight1,
     );
     expect(twilight1AsTarget).toHaveLength(1);
 
@@ -219,7 +220,7 @@ describe('Twilight (tw-106)', () => {
     // P2 should see play-short-event targeting P1's Twilight on the chain
     const p2Actions = viableActions(result.state, PLAYER_2, 'play-short-event');
     const targetP1Twilight = p2Actions.filter(
-      ea => (ea.action as { targetInstanceId: CardInstanceId }).targetInstanceId === p1Twilight,
+      ea => actionAs<PlayShortEventAction>(ea.action).targetInstanceId === p1Twilight,
     );
     expect(targetP1Twilight).toHaveLength(1);
 

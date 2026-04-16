@@ -15,11 +15,11 @@ import {
   ARAGORN, GIMLI,
   ORC_WARBAND, ORC_LIEUTENANT,
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
-  buildTestState, resetMint, makeMHState,
+  buildTestState, resetMint, makeShadowMHState,
   playCreatureHazardAndResolve, runCreatureCombat,
   handCardId, companyIdAt,
 } from '../test-helpers.js';
-import { Phase, RegionType, SiteType } from '../../index.js';
+import { Phase } from '../../index.js';
 import type { MovementHazardPhaseState } from '../../index.js';
 
 // ─── Constants ──────────────────────────────────────────────────────────────
@@ -42,12 +42,7 @@ describe('Orc-warband (tw-076)', () => {
         { id: PLAYER_2, companies: [{ site: LORIEN, characters: [GIMLI] }], hand: [ORC_WARBAND], siteDeck: [RIVENDELL] },
       ],
     });
-    const mhState = makeMHState({
-      resolvedSitePath: [RegionType.Shadow],
-      resolvedSitePathNames: ['Imlad Morgul'],
-      destinationSiteType: SiteType.ShadowHold,
-      destinationSiteName: 'Moria',
-    });
+    const mhState = makeShadowMHState();
     const ready = { ...state, phaseState: mhState };
 
     const warbandId = handCardId(ready, 1);
@@ -69,12 +64,7 @@ describe('Orc-warband (tw-076)', () => {
         { id: PLAYER_2, companies: [{ site: LORIEN, characters: [GIMLI] }], hand: [ORC_LIEUTENANT, ORC_WARBAND], siteDeck: [RIVENDELL] },
       ],
     });
-    const mhState = makeMHState({
-      resolvedSitePath: [RegionType.Shadow],
-      resolvedSitePathNames: ['Imlad Morgul'],
-      destinationSiteType: SiteType.ShadowHold,
-      destinationSiteName: 'Moria',
-    });
+    const mhState = makeShadowMHState();
     const ready = { ...state, phaseState: mhState };
 
     const orcLtId = handCardId(ready, 1, 0);
@@ -108,12 +98,7 @@ describe('Orc-warband (tw-076)', () => {
         { id: PLAYER_2, companies: [{ site: LORIEN, characters: [GIMLI] }], hand: [ORC_LIEUTENANT], siteDeck: [RIVENDELL] },
       ],
     });
-    const mhState = makeMHState({
-      resolvedSitePath: [RegionType.Shadow],
-      resolvedSitePathNames: ['Imlad Morgul'],
-      destinationSiteType: SiteType.ShadowHold,
-      destinationSiteName: 'Moria',
-    });
+    const mhState = makeShadowMHState();
     const ready = { ...state, phaseState: mhState };
 
     const orcLtId = handCardId(ready, 1);

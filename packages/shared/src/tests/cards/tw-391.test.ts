@@ -38,9 +38,9 @@ import {
   LORIEN,
   resetMint, pool,
   buildSitePhaseState,
+  viableFor,
 } from '../test-helpers.js';
 import {
-  computeLegalActions,
   EAGLES_EYRIE,
   isSiteCard, buildMovementMap, getReachableSites,
 } from '../../index.js';
@@ -58,9 +58,8 @@ describe("Eagles' Eyrie (tw-391)", () => {
 
   test('no resources playable at Eagles\' Eyrie', () => {
     const state = buildSitePhaseState({ site: EAGLES_EYRIE });
-    const actions = computeLegalActions(state, PLAYER_1);
+    const viable = viableFor(state, PLAYER_1);
 
-    const viable = actions.filter(a => a.viable);
     expect(viable).toHaveLength(1);
     expect(viable[0].action.type).toBe('pass');
   });

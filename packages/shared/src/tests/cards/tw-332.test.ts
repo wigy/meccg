@@ -41,12 +41,12 @@ import {
   mint,
   makeMHState,
   handCardId, charIdAt, companyIdAt, dispatch,
+  viableActions, viableFor,
 } from '../test-helpers.js';
 import type {
   PlayHazardAction, CardInstanceId,
 } from '../../index.js';
 import { RegionType, SiteType } from '../../index.js';
-import { computeLegalActions } from '../../engine/legal-actions/index.js';
 import { addConstraint, sweepExpired } from '../../engine/pending.js';
 
 describe('Stealth (tw-332)', () => {
@@ -67,8 +67,7 @@ describe('Stealth (tw-332)', () => {
     });
     const stealthInstance = handCardId(base, 0);
 
-    const playActions = computeLegalActions(base, PLAYER_1)
-      .filter(ea => ea.viable && ea.action.type === 'play-short-event')
+    const playActions = viableActions(base, PLAYER_1, 'play-short-event')
       .map(ea => ea.action as { cardInstanceId: string });
     expect(playActions.find(a => a.cardInstanceId === stealthInstance)).toBeDefined();
   });
@@ -99,8 +98,7 @@ describe('Stealth (tw-332)', () => {
 
     // Only end-of-org plays + pass should be legal now. With no more
     // Stealth in hand, only pass is viable.
-    const afterPlayActions = computeLegalActions(afterPlay, PLAYER_1)
-      .filter(ea => ea.viable);
+    const afterPlayActions = viableFor(afterPlay, PLAYER_1);
     expect(afterPlayActions.every(ea => ea.action.type === 'pass')).toBe(true);
 
     // Pass advances directly to Long-event.
@@ -144,8 +142,7 @@ describe('Stealth (tw-332)', () => {
     });
     const stealthInstance = handCardId(base, 0);
 
-    const playActions = computeLegalActions(base, PLAYER_1)
-      .filter(ea => ea.viable && ea.action.type === 'play-short-event')
+    const playActions = viableActions(base, PLAYER_1, 'play-short-event')
       .map(ea => ea.action as { cardInstanceId: string });
     expect(playActions.find(a => a.cardInstanceId === stealthInstance)).toBeUndefined();
   });
@@ -163,8 +160,7 @@ describe('Stealth (tw-332)', () => {
     });
     const stealthInstance = handCardId(base, 0);
 
-    const playActions = computeLegalActions(base, PLAYER_1)
-      .filter(ea => ea.viable && ea.action.type === 'play-short-event')
+    const playActions = viableActions(base, PLAYER_1, 'play-short-event')
       .map(ea => ea.action as { cardInstanceId: string });
     expect(playActions.find(a => a.cardInstanceId === stealthInstance)).toBeUndefined();
   });
@@ -230,8 +226,7 @@ describe('Stealth (tw-332)', () => {
     const stateAtPlayHazards = { ...base, phaseState: mhState };
 
     // Without the constraint, the cave-drake is a viable target for the protected company.
-    const beforeActions = computeLegalActions(stateAtPlayHazards, PLAYER_2)
-      .filter(ea => ea.viable && ea.action.type === 'play-hazard')
+    const beforeActions = viableActions(stateAtPlayHazards, PLAYER_2, 'play-hazard')
       .map(ea => ea.action as PlayHazardAction)
       .filter(a => a.targetCompanyId === targetCompanyId);
     expect(beforeActions.length).toBeGreaterThan(0);
@@ -246,8 +241,7 @@ describe('Stealth (tw-332)', () => {
     });
 
     // After the constraint, P2 has no viable cave-drake plays against P1's company.
-    const afterActions = computeLegalActions(constrained, PLAYER_2)
-      .filter(ea => ea.viable && ea.action.type === 'play-hazard')
+    const afterActions = viableActions(constrained, PLAYER_2, 'play-hazard')
       .map(ea => ea.action as PlayHazardAction)
       .filter(a => a.targetCompanyId === targetCompanyId);
     expect(afterActions.length).toBe(0);
@@ -348,8 +342,7 @@ describe('Stealth (tw-332)', () => {
     });
 
     // P2 should still be able to play creatures against the OTHER company.
-    const actions = computeLegalActions(constrained, PLAYER_2)
-      .filter(ea => ea.viable && ea.action.type === 'play-hazard')
+    const actions = viableActions(constrained, PLAYER_2, 'play-hazard')
       .map(ea => ea.action as PlayHazardAction);
     const againstOther = actions.filter(a => a.targetCompanyId === otherCompanyId);
     expect(againstOther.length).toBeGreaterThan(0);

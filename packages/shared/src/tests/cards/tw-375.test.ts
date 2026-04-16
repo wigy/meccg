@@ -41,9 +41,9 @@ import {
   buildSitePhaseState, setupAutoAttackStep, findCharInstanceId,
   runAutoAttackCombat,
   dispatch, expectCharStatus,
+  viableFor, viableActions,
 } from '../test-helpers.js';
 import {
-  computeLegalActions,
   BARROW_DOWNS,
   isSiteCard, buildMovementMap, getReachableSites,
 } from '../../index.js';
@@ -90,8 +90,7 @@ describe('Barrow-downs (tw-375)', () => {
     expect(pending[0].kind.characterId).toBe(aragornId);
 
     // Legal actions should offer corruption-check
-    const actions = computeLegalActions(result.state, PLAYER_1);
-    const viable = actions.filter(a => a.viable);
+    const viable = viableFor(result.state, PLAYER_1);
     expect(viable).toHaveLength(1);
     expect(viable[0].action.type).toBe('corruption-check');
   });
@@ -104,8 +103,7 @@ describe('Barrow-downs (tw-375)', () => {
     const result = runAutoAttackCombat(readyState, ARAGORN, 2, 5, false);
 
     // Get the corruption check action
-    const actions = computeLegalActions(result.state, PLAYER_1);
-    const ccAction = actions.find(a => a.viable && a.action.type === 'corruption-check')!.action;
+    const ccAction = viableActions(result.state, PLAYER_1, 'corruption-check')[0].action;
 
     // Force high roll to pass corruption check (Aragorn has 0 CP with no items)
     const ccState = dispatch({ ...result.state, cheatRollTotal: 12 }, ccAction);
@@ -128,8 +126,7 @@ describe('Barrow-downs (tw-375)', () => {
     const result = runAutoAttackCombat(readyState, ARAGORN, 2, 5, false);
 
     // Get the corruption check action
-    const actions = computeLegalActions(result.state, PLAYER_1);
-    const ccAction = actions.find(a => a.viable && a.action.type === 'corruption-check')!.action;
+    const ccAction = viableActions(result.state, PLAYER_1, 'corruption-check')[0].action;
     expect(ccAction.type).toBe('corruption-check');
 
     // Force low roll to fail corruption check
@@ -155,8 +152,7 @@ describe('Barrow-downs (tw-375)', () => {
     expect(result.state.pendingResolutions).toHaveLength(0);
 
     // Normal automatic-attacks step resumes
-    const actions = computeLegalActions(result.state, PLAYER_1);
-    const viable = actions.filter(a => a.viable);
+    const viable = viableFor(result.state, PLAYER_1);
     expect(viable).toHaveLength(1);
     expect(viable[0].action.type).toBe('pass');
   });
@@ -169,8 +165,7 @@ describe('Barrow-downs (tw-375)', () => {
       hand: [GLAMDRING, DAGGER_OF_WESTERNESSE],
     });
 
-    const actions = computeLegalActions(state, PLAYER_1);
-    const resourceActions = actions.filter(a => a.viable && a.action.type === 'play-hero-resource');
+    const resourceActions = viableActions(state, PLAYER_1, 'play-hero-resource');
     expect(resourceActions.length).toBeGreaterThanOrEqual(1);
   });
 
