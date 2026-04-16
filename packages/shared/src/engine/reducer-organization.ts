@@ -1022,6 +1022,27 @@ function runGrantApply(
     return { updatedChar, effects: [], stateOps: [] };
   }
 
+  if (apply.type === 'move-target-from-discard-to-hand') {
+    const targetCardId = ctx.action.targetCardId;
+    if (!targetCardId) {
+      return { error: `move-target-from-discard-to-hand: action has no targetCardId on ${ctx.sourceName}` };
+    }
+    const bearerPlayer = newPlayers[ctx.playerIndex];
+    const idx = bearerPlayer.discardPile.findIndex(c => c.instanceId === targetCardId);
+    if (idx < 0) {
+      return { error: `move-target-from-discard-to-hand: ${targetCardId as string} not in discard pile` };
+    }
+    const card = bearerPlayer.discardPile[idx];
+    const cardDef = state.cardPool[card.definitionId as string];
+    logDetail(`Grant-action ${ctx.action.actionId}: moving ${cardDef?.name ?? '?'} from discard → hand`);
+    newPlayers[ctx.playerIndex] = {
+      ...bearerPlayer,
+      hand: [...bearerPlayer.hand, card],
+      discardPile: [...bearerPlayer.discardPile.slice(0, idx), ...bearerPlayer.discardPile.slice(idx + 1)],
+    };
+    return { updatedChar: char, effects: [], stateOps: [] };
+  }
+
   if (apply.type === 'roll-then-apply') {
     if (apply.threshold === undefined) {
       return { error: `roll-then-apply missing threshold on ${ctx.sourceName}` };
