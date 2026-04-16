@@ -36,9 +36,9 @@ import {
   EDHELLOND,
   resetMint, pool,
   buildSitePhaseState,
+  viableActions,
 } from '../test-helpers.js';
 import {
-  computeLegalActions,
   PELARGIR, DAGGER_OF_WESTERNESSE,
   isSiteCard, buildMovementMap, getReachableSites,
 } from '../../index.js';
@@ -56,10 +56,7 @@ describe('Pelargir (tw-419)', () => {
 
   test('no resources playable at Pelargir', () => {
     const state = buildSitePhaseState({ site: PELARGIR });
-    const actions = computeLegalActions(state, PLAYER_1);
-
-    const viable = actions.filter(a => a.viable);
-    const playActions = viable.filter(a => a.action.type === 'play-hero-resource');
+    const playActions = viableActions(state, PLAYER_1, 'play-hero-resource');
     expect(playActions).toHaveLength(0);
   });
 
@@ -68,19 +65,13 @@ describe('Pelargir (tw-419)', () => {
       site: PELARGIR,
       hand: [DAGGER_OF_WESTERNESSE],
     });
-    const actions = computeLegalActions(state, PLAYER_1);
-
-    const playActions = actions.filter(
-      a => a.viable && a.action.type === 'play-hero-resource',
-    );
+    const playActions = viableActions(state, PLAYER_1, 'play-hero-resource');
     expect(playActions).toHaveLength(0);
   });
 
   test('pass is always available during play-resources step', () => {
     const state = buildSitePhaseState({ site: PELARGIR });
-    const actions = computeLegalActions(state, PLAYER_1);
-
-    const passActions = actions.filter(a => a.viable && a.action.type === 'pass');
+    const passActions = viableActions(state, PLAYER_1, 'pass');
     expect(passActions).toHaveLength(1);
   });
 

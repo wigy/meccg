@@ -39,9 +39,9 @@ import {
   resetMint,
   pool,
   buildSitePhaseState,
+  viableFor,
 } from '../test-helpers.js';
 import {
-  computeLegalActions,
   EDORAS,
   isSiteCard, buildMovementMap, getReachableSites,
 } from '../../index.js';
@@ -59,9 +59,8 @@ describe('Edoras (tw-394)', () => {
 
   test('no resources playable at Edoras', () => {
     const state = buildSitePhaseState({ site: EDORAS });
-    const actions = computeLegalActions(state, PLAYER_1);
+    const viable = viableFor(state, PLAYER_1);
 
-    const viable = actions.filter(a => a.viable);
     expect(viable).toHaveLength(1);
     expect(viable[0].action.type).toBe('pass');
   });

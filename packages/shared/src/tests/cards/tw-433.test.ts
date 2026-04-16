@@ -44,7 +44,7 @@ import {
   GLAMDRING, DAGGER_OF_WESTERNESSE, SCROLL_OF_ISILDUR, THE_MITHRIL_COAT,
   resetMint, pool,
   buildSitePhaseState, setupAutoAttackStep, findCharInstanceId,
-  viableActions,
+  viableActions, viableFor,
   dispatch,
 } from '../test-helpers.js';
 import {
@@ -150,8 +150,7 @@ describe('Tolfalas (tw-433)', () => {
     if (pending[0].kind.type !== 'corruption-check') return;
     expect(pending[0].kind.characterId).toBe(aragornId);
 
-    const actions = computeLegalActions(state, PLAYER_1);
-    const viable = actions.filter(a => a.viable);
+    const viable = viableFor(state, PLAYER_1);
     expect(viable).toHaveLength(1);
     expect(viable[0].action.type).toBe('corruption-check');
   });
@@ -190,8 +189,7 @@ describe('Tolfalas (tw-433)', () => {
     expect(state.combat).toBeNull();
     expect(state.pendingResolutions).toHaveLength(0);
 
-    const actions = computeLegalActions(state, PLAYER_1);
-    const viable = actions.filter(a => a.viable);
+    const viable = viableFor(state, PLAYER_1);
     expect(viable).toHaveLength(1);
     expect(viable[0].action.type).toBe('pass');
   });
@@ -204,8 +202,7 @@ describe('Tolfalas (tw-433)', () => {
       hand: [GLAMDRING, DAGGER_OF_WESTERNESSE],
     });
 
-    const actions = computeLegalActions(state, PLAYER_1);
-    const resourceActions = actions.filter(a => a.viable && a.action.type === 'play-hero-resource');
+    const resourceActions = viableActions(state, PLAYER_1, 'play-hero-resource');
     expect(resourceActions.length).toBeGreaterThanOrEqual(1);
   });
 
@@ -215,8 +212,7 @@ describe('Tolfalas (tw-433)', () => {
       hand: [SCROLL_OF_ISILDUR],
     });
 
-    const actions = computeLegalActions(state, PLAYER_1);
-    const resourceActions = actions.filter(a => a.viable && a.action.type === 'play-hero-resource');
+    const resourceActions = viableActions(state, PLAYER_1, 'play-hero-resource');
     expect(resourceActions.length).toBeGreaterThanOrEqual(1);
   });
 

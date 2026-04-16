@@ -195,8 +195,7 @@ describe('Many Turns and Doublings (td-132)', () => {
       ],
     });
 
-    const playActions = computeLegalActions(state, PLAYER_1)
-      .filter(ea => ea.viable && ea.action.type === 'play-short-event')
+    const playActions = viableActions(state, PLAYER_1, 'play-short-event')
       .map(ea => ea.action as PlayShortEventAction);
     expect(playActions).toHaveLength(1);
     expect(playActions[0].optionId).toBe('decrease-hazard-limit');
@@ -213,8 +212,7 @@ describe('Many Turns and Doublings (td-132)', () => {
       ],
     });
 
-    const playActions = computeLegalActions(state, PLAYER_1)
-      .filter(ea => ea.viable && ea.action.type === 'play-short-event');
+    const playActions = viableActions(state, PLAYER_1, 'play-short-event');
     expect(playActions).toHaveLength(0);
   });
 
@@ -229,8 +227,7 @@ describe('Many Turns and Doublings (td-132)', () => {
       ],
     });
 
-    const playActions = computeLegalActions(state, PLAYER_1)
-      .filter(ea => ea.viable && ea.action.type === 'play-short-event');
+    const playActions = viableActions(state, PLAYER_1, 'play-short-event');
     expect(playActions).toHaveLength(0);
   });
 
@@ -245,8 +242,7 @@ describe('Many Turns and Doublings (td-132)', () => {
       ],
     });
 
-    const playActions = computeLegalActions(state, PLAYER_1)
-      .filter(ea => ea.viable && ea.action.type === 'play-short-event')
+    const playActions = viableActions(state, PLAYER_1, 'play-short-event')
       .map(ea => ea.action as PlayShortEventAction);
     expect(playActions).toHaveLength(1);
 
@@ -276,8 +272,7 @@ describe('Many Turns and Doublings (td-132)', () => {
       ],
     });
 
-    const playActions = computeLegalActions(state, PLAYER_1)
-      .filter(ea => ea.viable && ea.action.type === 'play-short-event');
+    const playActions = viableActions(state, PLAYER_1, 'play-short-event');
     expect(playActions).toHaveLength(0);
   });
 
@@ -292,8 +287,7 @@ describe('Many Turns and Doublings (td-132)', () => {
       ],
     });
 
-    const playActions = computeLegalActions(state, PLAYER_1)
-      .filter(ea => ea.viable && ea.action.type === 'play-short-event')
+    const playActions = viableActions(state, PLAYER_1, 'play-short-event')
       .map(ea => ea.action as PlayShortEventAction);
     expect(playActions).toHaveLength(1);
     expect(playActions[0].optionId).toBe('decrease-hazard-limit');
@@ -348,9 +342,7 @@ describe('Many Turns and Doublings (td-132)', () => {
       })()
       : afterFirst;
 
-    const secondHazardActions = computeLegalActions(afterCombat, PLAYER_2)
-      .filter(ea => ea.action.type === 'play-hazard');
-    const viableSecond = secondHazardActions.filter(ea => ea.viable);
+    const viableSecond = viableActions(afterCombat, PLAYER_2, 'play-hazard');
     expect(viableSecond).toHaveLength(0);
   });
 
@@ -376,9 +368,7 @@ describe('Many Turns and Doublings (td-132)', () => {
     });
     const stateAtMH = { ...base, phaseState: mhState };
 
-    const onGuardActions = computeLegalActions(stateAtMH, PLAYER_2)
-      .filter(ea => ea.action.type === 'place-on-guard');
-    const viableOnGuard = onGuardActions.filter(ea => ea.viable);
+    const viableOnGuard = viableActions(stateAtMH, PLAYER_2, 'place-on-guard');
     expect(viableOnGuard).toHaveLength(0);
   });
 });

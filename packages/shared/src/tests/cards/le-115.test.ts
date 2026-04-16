@@ -26,7 +26,7 @@ import {
   buildTestState, resetMint,
   viableActions, makeMHState, makeSitePhase,
   P1_COMPANY,
-  handCardId, dispatch, playHazardAndResolve,
+  handCardId, dispatch, playHazardAndResolve, phaseStateAs,
 } from '../test-helpers.js';
 import { Phase, SiteType, RegionType, CardStatus } from '../../index.js';
 import { addConstraint } from '../../engine/pending.js';
@@ -403,7 +403,7 @@ describe('Incite Defenders (le-115)', () => {
     // Fourth pass → no more attacks, advance to declare-agent-attack
     s = dispatch(s, { type: 'pass', player: PLAYER_1 });
     expect(s.combat).toBeNull();
-    expect((s.phaseState as SitePhaseState).step).toBe('declare-agent-attack');
+    expect(phaseStateAs<SitePhaseState>(s).step).toBe('declare-agent-attack');
   });
 
   test('no duplicate fires when constraint is absent', () => {
@@ -435,7 +435,7 @@ describe('Incite Defenders (le-115)', () => {
     // No constraint — should advance directly to declare-agent-attack
     s = dispatch(s, { type: 'pass', player: PLAYER_1 });
     expect(s.combat).toBeNull();
-    expect((s.phaseState as SitePhaseState).step).toBe('declare-agent-attack');
+    expect(phaseStateAs<SitePhaseState>(s).step).toBe('declare-agent-attack');
   });
 
   test('counts against hazard limit', () => {

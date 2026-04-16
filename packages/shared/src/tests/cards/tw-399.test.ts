@@ -38,9 +38,9 @@ import {
   PLAYER_1,
   resetMint, pool,
   buildSitePhaseState,
+  viableFor,
 } from '../test-helpers.js';
 import {
-  computeLegalActions,
   GREY_HAVENS, BLUE_MOUNTAIN_DWARF_HOLD,
   isSiteCard, buildMovementMap, getReachableSites,
 } from '../../index.js';
@@ -58,10 +58,9 @@ describe('Grey Havens (tw-399)', () => {
 
   test('no resources playable at Grey Havens (haven)', () => {
     const state = buildSitePhaseState({ site: GREY_HAVENS });
-    const actions = computeLegalActions(state, PLAYER_1);
+    const viable = viableFor(state, PLAYER_1);
 
     // Only action should be pass (no items/allies/factions playable at a haven)
-    const viable = actions.filter(a => a.viable);
     expect(viable).toHaveLength(1);
     expect(viable[0].action.type).toBe('pass');
   });

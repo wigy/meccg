@@ -19,11 +19,11 @@ import {
   ARAGORN, GIMLI,
   ORC_WATCH,
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
-  buildTestState, resetMint, makeMHState,
+  buildTestState, resetMint, makeShadowMHState,
   resolveChain,
   handCardId, companyIdAt, dispatch,
 } from '../test-helpers.js';
-import { computeLegalActions, Phase, RegionType, SiteType } from '../../index.js';
+import { computeLegalActions, Phase } from '../../index.js';
 // ─── Tests ───────────────────────────────────────────────────────────────────
 
 describe('Orc-watch (tw-078)', () => {
@@ -51,12 +51,7 @@ describe('Orc-watch (tw-078)', () => {
       ],
     });
 
-    const mhState = makeMHState({
-      resolvedSitePath: [RegionType.Shadow],
-      resolvedSitePathNames: ['Imlad Morgul'],
-      destinationSiteType: SiteType.ShadowHold,
-      destinationSiteName: 'Moria',
-    });
+    const mhState = makeShadowMHState();
     const gameState = { ...state, phaseState: mhState };
 
     const orcId = handCardId(gameState, 1);
@@ -91,12 +86,7 @@ describe('Orc-watch (tw-078)', () => {
       ],
     });
 
-    const mhState = makeMHState({
-      resolvedSitePath: [RegionType.Shadow],
-      resolvedSitePathNames: ['Imlad Morgul'],
-      destinationSiteType: SiteType.ShadowHold,
-      destinationSiteName: 'Moria',
-    });
+    const mhState = makeShadowMHState();
     const gameState = { ...state, phaseState: mhState };
 
     const orcId = handCardId(gameState, 1);
@@ -137,12 +127,7 @@ describe('Orc-watch (tw-078)', () => {
       ],
     });
 
-    const mhState = makeMHState({
-      resolvedSitePath: [RegionType.Shadow],
-      resolvedSitePathNames: ['Imlad Morgul'],
-      destinationSiteType: SiteType.ShadowHold,
-      destinationSiteName: 'Moria',
-    });
+    const mhState = makeShadowMHState();
     const gameState = { ...state, phaseState: mhState };
 
     const orcId = handCardId(gameState, 1);

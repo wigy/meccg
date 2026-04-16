@@ -37,12 +37,12 @@ import {
   mint, CardStatus,
   makeMHState,
   charIdAt, companyIdAt, dispatch, expectCharStatus, setCharStatus,
+  viableFor, viableActions, viableActionTypes, phaseStateAs,
 } from '../test-helpers.js';
 import type {
   SitePhaseState, ActivateGrantedAction, CardInstanceId, CompanyId, GameState,
   PlayHazardAction, ActiveConstraint,
 } from '../../index.js';
-import { computeLegalActions } from '../../engine/legal-actions/index.js';
 import { addConstraint, sweepExpired } from '../../engine/pending.js';
 
 /**
@@ -137,7 +137,7 @@ describe('River (tw-84)', () => {
       ] as typeof constrained.players,
     };
 
-    const actions = computeLegalActions(withRiverInPlay, PLAYER_1).filter(ea => ea.viable);
+    const actions = viableFor(withRiverInPlay, PLAYER_1);
     const types = actions.map(ea => ea.action.type);
     expect(types).toContain('pass');
     expect(types).not.toContain('enter-site');
@@ -196,9 +196,7 @@ describe('River (tw-84)', () => {
       ] as typeof constrained.players,
     };
 
-    const actions = computeLegalActions(withRiverInPlay, PLAYER_1).filter(ea => ea.viable);
-    const types = actions.map(ea => ea.action.type);
-    expect(types).toEqual(['pass']);
+    expect(viableActionTypes(withRiverInPlay, PLAYER_1)).toEqual(['pass']);
   });
 
   test('a tapped ranger cannot offer tap-to-cancel', () => {
@@ -248,9 +246,7 @@ describe('River (tw-84)', () => {
       ] as typeof constrained.players,
     };
 
-    const actions = computeLegalActions(withRiverInPlay, PLAYER_1).filter(ea => ea.viable);
-    const types = actions.map(ea => ea.action.type);
-    expect(types).toEqual(['pass']);
+    expect(viableActionTypes(withRiverInPlay, PLAYER_1)).toEqual(['pass']);
   });
 
   test('constraint clears at company-site-end via sweepExpired', () => {
@@ -305,8 +301,7 @@ describe('River (tw-84)', () => {
     const targetCompanyId = companyIdAt(stateAtPlayHazards, 0);
     const riverInstance = stateAtPlayHazards.players[1].hand[0].instanceId;
 
-    const playActions = computeLegalActions(stateAtPlayHazards, PLAYER_2)
-      .filter(ea => ea.viable && ea.action.type === 'play-hazard')
+    const playActions = viableActions(stateAtPlayHazards, PLAYER_2, 'play-hazard')
       .map(ea => ea.action as PlayHazardAction);
 
     const riverPlay = playActions.find(a => a.cardInstanceId === riverInstance);
@@ -460,12 +455,10 @@ describe('River (tw-84)', () => {
     expect(nextState.activeConstraints).toHaveLength(0);
 
     // Still in enter-or-skip — the company can now enter the site.
-    expect((nextState.phaseState as SitePhaseState).step).toBe('enter-or-skip');
+    expect(phaseStateAs<SitePhaseState>(nextState).step).toBe('enter-or-skip');
 
     // With the constraint removed, legal actions should include enter-site.
-    const actions = computeLegalActions(nextState, PLAYER_1).filter(ea => ea.viable);
-    const types = actions.map(ea => ea.action.type);
-    expect(types).toContain('enter-site');
+    expect(viableActionTypes(nextState, PLAYER_1)).toContain('enter-site');
   });
 
   test('cancel-constraint is offered during M/H phase so a ranger can pre-empt River', () => {
@@ -499,12 +492,8 @@ describe('River (tw-84)', () => {
       ] as typeof constrained.players,
     };
 
-    const actions = computeLegalActions(withRiverInPlay, PLAYER_1);
-    const cancelActions = actions.filter(
-      ea => ea.viable
-        && ea.action.type === 'activate-granted-action'
-        && (ea.action).actionId === 'cancel-river',
-    );
+    const cancelActions = viableActions(withRiverInPlay, PLAYER_1, 'activate-granted-action')
+      .filter(ea => (ea.action as ActivateGrantedAction).actionId === 'cancel-river');
     expect(cancelActions).toHaveLength(1);
 
     const aragornId = charIdAt(withRiverInPlay, 0);

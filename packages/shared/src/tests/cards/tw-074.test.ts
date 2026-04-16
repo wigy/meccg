@@ -19,11 +19,11 @@ import {
   ARAGORN, GIMLI,
   ORC_PATROL,
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
-  buildTestState, resetMint, makeMHState,
+  buildTestState, resetMint, makeWildernessMHState,
   resolveChain,
   handCardId, companyIdAt, dispatch,
 } from '../test-helpers.js';
-import { computeLegalActions, Phase, RegionType, SiteType } from '../../index.js';
+import { computeLegalActions, Phase } from '../../index.js';
 // ─── Tests ───────────────────────────────────────────────────────────────────
 
 describe('Orc-patrol (tw-074)', () => {
@@ -51,12 +51,7 @@ describe('Orc-patrol (tw-074)', () => {
       ],
     });
 
-    const mhState = makeMHState({
-      resolvedSitePath: [RegionType.Wilderness],
-      resolvedSitePathNames: ['Rhudaur'],
-      destinationSiteType: SiteType.RuinsAndLairs,
-      destinationSiteName: 'Moria',
-    });
+    const mhState = makeWildernessMHState();
     const gameState = { ...state, phaseState: mhState };
 
     const orcId = handCardId(gameState, 1);
@@ -91,12 +86,7 @@ describe('Orc-patrol (tw-074)', () => {
       ],
     });
 
-    const mhState = makeMHState({
-      resolvedSitePath: [RegionType.Wilderness],
-      resolvedSitePathNames: ['Rhudaur'],
-      destinationSiteType: SiteType.RuinsAndLairs,
-      destinationSiteName: 'Moria',
-    });
+    const mhState = makeWildernessMHState();
     const gameState = { ...state, phaseState: mhState };
 
     const orcId = handCardId(gameState, 1);
@@ -137,12 +127,7 @@ describe('Orc-patrol (tw-074)', () => {
       ],
     });
 
-    const mhState = makeMHState({
-      resolvedSitePath: [RegionType.Wilderness],
-      resolvedSitePathNames: ['Rhudaur'],
-      destinationSiteType: SiteType.RuinsAndLairs,
-      destinationSiteName: 'Moria',
-    });
+    const mhState = makeWildernessMHState();
     const gameState = { ...state, phaseState: mhState };
 
     const orcId = handCardId(gameState, 1);

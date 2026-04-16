@@ -39,9 +39,9 @@ import {
   LORIEN,
   resetMint, pool,
   buildSitePhaseState,
+  viableFor,
 } from '../test-helpers.js';
 import {
-  computeLegalActions,
   MORIA, MINAS_TIRITH, MOUNT_DOOM, EAGLES_EYRIE, HENNETH_ANNUN,
   THRANDUILS_HALLS,
   isSiteCard, buildMovementMap, getReachableSites,
@@ -60,10 +60,9 @@ describe('Lórien (tw-408)', () => {
 
   test('no resources playable at Lórien (haven)', () => {
     const state = buildSitePhaseState({ site: LORIEN });
-    const actions = computeLegalActions(state, PLAYER_1);
+    const viable = viableFor(state, PLAYER_1);
 
     // Only action should be pass (no items/allies/factions playable at a haven)
-    const viable = actions.filter(a => a.viable);
     expect(viable).toHaveLength(1);
     expect(viable[0].action.type).toBe('pass');
   });

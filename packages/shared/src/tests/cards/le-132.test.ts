@@ -37,8 +37,9 @@ import {
   viableActions, CardStatus,
   charIdAt, dispatch, setCharStatus,
   expectCharStatus, expectInDiscardPile,
+  actionAs,
 } from '../test-helpers.js';
-import type { PlayHazardAction, ActivateGrantedAction, CardDefinitionId } from '../../index.js';
+import type { PlayHazardAction, ActivateGrantedAction, CardDefinitionId, MoveToInfluenceAction } from '../../index.js';
 
 const REBEL_TALK = 'le-132' as CardDefinitionId;
 
@@ -217,8 +218,8 @@ describe('Rebel-talk (le-132)', () => {
 
     // No DI actions should target Legolas (restricted by Rebel-talk)
     const legolasToAnyDI = moveActions.filter(
-      ea => (ea.action as { characterInstanceId: string }).characterInstanceId === legolasId
-        && (ea.action as { controlledBy: string }).controlledBy !== 'general',
+      ea => actionAs<MoveToInfluenceAction>(ea.action).characterInstanceId === legolasId
+        && actionAs<MoveToInfluenceAction>(ea.action).controlledBy !== 'general',
     );
     expect(legolasToAnyDI).toHaveLength(0);
   });

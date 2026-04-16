@@ -24,11 +24,11 @@ import {
   ARAGORN, GIMLI, LEGOLAS,
   RANGERS_OF_THE_NORTH, RIDERS_OF_ROHAN,
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
-  buildTestState, resetMint, makeMHState,
+  buildTestState, resetMint, makeWildernessMHState,
   resolveChain,
   handCardId, companyIdAt,
 } from '../test-helpers.js';
-import { computeLegalActions, reduce, Phase, RegionType, SiteType, CardStatus, GENERAL_INFLUENCE } from '../../index.js';
+import { computeLegalActions, reduce, Phase, CardStatus, GENERAL_INFLUENCE } from '../../index.js';
 import type { CardInPlay, CardInstanceId, CardDefinitionId, PlayHazardAction, MusterRollAction } from '../../index.js';
 
 const MUSTER_DISPERSES = 'tw-67' as CardDefinitionId;
@@ -67,12 +67,7 @@ describe('Muster Disperses (tw-067)', () => {
       ],
     });
 
-    const mhState = makeMHState({
-      resolvedSitePath: [RegionType.Wilderness],
-      resolvedSitePathNames: ['Rhudaur'],
-      destinationSiteType: SiteType.RuinsAndLairs,
-      destinationSiteName: 'Moria',
-    });
+    const mhState = makeWildernessMHState();
     const gameState = { ...state, phaseState: mhState };
 
     const actions = computeLegalActions(gameState, PLAYER_2);
@@ -106,12 +101,7 @@ describe('Muster Disperses (tw-067)', () => {
       ],
     });
 
-    const mhState = makeMHState({
-      resolvedSitePath: [RegionType.Wilderness],
-      resolvedSitePathNames: ['Rhudaur'],
-      destinationSiteType: SiteType.RuinsAndLairs,
-      destinationSiteName: 'Moria',
-    });
+    const mhState = makeWildernessMHState();
     const gameState = { ...state, phaseState: mhState };
 
     const actions = computeLegalActions(gameState, PLAYER_2);
@@ -150,12 +140,7 @@ describe('Muster Disperses (tw-067)', () => {
       ],
     });
 
-    const mhState = makeMHState({
-      resolvedSitePath: [RegionType.Wilderness],
-      resolvedSitePathNames: ['Rhudaur'],
-      destinationSiteType: SiteType.RuinsAndLairs,
-      destinationSiteName: 'Moria',
-    });
+    const mhState = makeWildernessMHState();
     const gameState = { ...state, phaseState: mhState };
 
     const actions = computeLegalActions(gameState, PLAYER_2);
@@ -192,12 +177,7 @@ describe('Muster Disperses (tw-067)', () => {
       ],
     });
 
-    const mhState = makeMHState({
-      resolvedSitePath: [RegionType.Wilderness],
-      resolvedSitePathNames: ['Rhudaur'],
-      destinationSiteType: SiteType.RuinsAndLairs,
-      destinationSiteName: 'Moria',
-    });
+    const mhState = makeWildernessMHState();
     const gameState = { ...state, phaseState: mhState };
 
     // Aragorn mind 9 → GI used = 9, unused GI = 11.
@@ -268,12 +248,7 @@ describe('Muster Disperses (tw-067)', () => {
       ],
     });
 
-    const mhState = makeMHState({
-      resolvedSitePath: [RegionType.Wilderness],
-      resolvedSitePathNames: ['Rhudaur'],
-      destinationSiteType: SiteType.RuinsAndLairs,
-      destinationSiteName: 'Moria',
-    });
+    const mhState = makeWildernessMHState();
     const gameState = { ...state, phaseState: mhState };
 
     const p1 = gameState.players[0];
@@ -337,12 +312,7 @@ describe('Muster Disperses (tw-067)', () => {
       ],
     });
 
-    const mhState = makeMHState({
-      resolvedSitePath: [RegionType.Wilderness],
-      resolvedSitePathNames: ['Rhudaur'],
-      destinationSiteType: SiteType.RuinsAndLairs,
-      destinationSiteName: 'Moria',
-    });
+    const mhState = makeWildernessMHState();
     const gameState = { ...state, phaseState: mhState };
 
     const hazardId = handCardId(gameState, 1);

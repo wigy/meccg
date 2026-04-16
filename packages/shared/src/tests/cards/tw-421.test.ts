@@ -39,9 +39,9 @@ import {
   RIVENDELL,
   resetMint, pool,
   buildSitePhaseState,
+  viableFor,
 } from '../test-helpers.js';
 import {
-  computeLegalActions,
   ETTENMOORS_HERO, THE_WHITE_TOWERS_HERO, BARROW_DOWNS, OLD_FOREST, BAG_END, BREE,
   DUNNISH_CLAN_HOLD,
   isSiteCard, buildMovementMap, getReachableSites,
@@ -63,10 +63,9 @@ describe('Rivendell (tw-421)', () => {
 
   test('no resources playable at Rivendell (haven)', () => {
     const state = buildSitePhaseState({ site: RIVENDELL });
-    const actions = computeLegalActions(state, PLAYER_1);
+    const viable = viableFor(state, PLAYER_1);
 
     // Only action should be pass (no items/allies/factions playable at a haven)
-    const viable = actions.filter(a => a.viable);
     expect(viable).toHaveLength(1);
     expect(viable[0].action.type).toBe('pass');
   });

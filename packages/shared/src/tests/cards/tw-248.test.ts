@@ -38,6 +38,7 @@ import {
 } from '../test-helpers.js';
 import type {
   CardDefinitionId, CardInstanceId, CompanyId, ActiveConstraint,
+  PlayShortEventAction,
 } from '../../index.js';
 
 const GREAT_SHIP = 'tw-248' as CardDefinitionId;
@@ -97,7 +98,7 @@ describe('Great Ship (tw-248)', () => {
 
     const playActions = computeLegalActions(base, PLAYER_1)
       .filter(ea => ea.viable && ea.action.type === 'play-short-event')
-      .map(ea => ea.action as { cardInstanceId: string; targetScoutInstanceId?: string });
+      .map(ea => ea.action as PlayShortEventAction);
     const gsActions = playActions.filter(a => a.cardInstanceId === greatShipInstance);
     expect(gsActions.length).toBeGreaterThan(0);
     expect(gsActions[0].targetScoutInstanceId).toBeDefined();

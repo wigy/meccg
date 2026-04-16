@@ -18,11 +18,12 @@ import {
   ARAGORN, LEGOLAS, GIMLI,
   CAVE_DRAKE, ORC_PATROL,
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
-  buildTestState, resetMint, makeMHState,
+  buildTestState, resetMint, makeWildernessMHState,
   resolveChain,
   handCardId, companyIdAt, dispatch,
+  viableActions, viableFor,
 } from '../test-helpers.js';
-import { computeLegalActions, Phase, RegionType, SiteType } from '../../index.js';
+import { Phase } from '../../index.js';
 // ─── Tests ───────────────────────────────────────────────────────────────────
 
 describe('Cave-drake (tw-020)', () => {
@@ -53,12 +54,7 @@ describe('Cave-drake (tw-020)', () => {
     });
 
     // Set M/H phase to play-hazards with a wilderness site path (Cave-drake keys to wilderness)
-    const mhState = makeMHState({
-      resolvedSitePath: [RegionType.Wilderness],
-      resolvedSitePathNames: ['Rhudaur'],
-      destinationSiteType: SiteType.RuinsAndLairs,
-      destinationSiteName: 'Moria',
-    });
+    const mhState = makeWildernessMHState();
     const gameState = { ...state, phaseState: mhState };
 
     // P2 plays Cave-drake targeting P1's company
@@ -103,12 +99,7 @@ describe('Cave-drake (tw-020)', () => {
       ],
     });
 
-    const mhState = makeMHState({
-      resolvedSitePath: [RegionType.Wilderness],
-      resolvedSitePathNames: ['Rhudaur'],
-      destinationSiteType: SiteType.RuinsAndLairs,
-      destinationSiteName: 'Moria',
-    });
+    const mhState = makeWildernessMHState();
     const gameState = { ...state, phaseState: mhState };
 
     const cavedrakeId = handCardId(gameState, 1);
@@ -123,19 +114,16 @@ describe('Cave-drake (tw-020)', () => {
     const afterChain = resolveChain(afterPlay);
 
     // During cancel-window, defender gets pass only (no cancel cards in hand)
-    const defenderActions = computeLegalActions(afterChain, PLAYER_1);
-    expect(defenderActions.filter(a => a.viable && a.action.type === 'assign-strike')).toHaveLength(0);
-    expect(defenderActions.filter(a => a.viable && a.action.type === 'pass')).toHaveLength(1);
+    expect(viableActions(afterChain, PLAYER_1, 'assign-strike')).toHaveLength(0);
+    expect(viableActions(afterChain, PLAYER_1, 'pass')).toHaveLength(1);
 
     // Attacker has no actions during cancel-window
-    const attackerActions = computeLegalActions(afterChain, PLAYER_2);
-    expect(attackerActions.filter(a => a.viable)).toHaveLength(0);
+    expect(viableFor(afterChain, PLAYER_2)).toHaveLength(0);
 
     // After defender passes cancel-window, attacker gets assign-strike actions
     const afterPass = dispatch(afterChain, { type: 'pass', player: PLAYER_1 });
     expect(afterPass.combat!.assignmentPhase).toBe('attacker');
-    const attackerActions2 = computeLegalActions(afterPass, PLAYER_2);
-    expect(attackerActions2.filter(a => a.viable && a.action.type === 'assign-strike')).toHaveLength(2);
+    expect(viableActions(afterPass, PLAYER_2, 'assign-strike')).toHaveLength(2);
   });
 
   test('normal creature (Orc-patrol) uses defender assignment phase', () => {
@@ -159,12 +147,7 @@ describe('Cave-drake (tw-020)', () => {
       ],
     });
 
-    const mhState = makeMHState({
-      resolvedSitePath: [RegionType.Wilderness],
-      resolvedSitePathNames: ['Rhudaur'],
-      destinationSiteType: SiteType.RuinsAndLairs,
-      destinationSiteName: 'Moria',
-    });
+    const mhState = makeWildernessMHState();
     const gameState = { ...state, phaseState: mhState };
 
     const orcId = handCardId(gameState, 1);
@@ -183,10 +166,7 @@ describe('Cave-drake (tw-020)', () => {
     expect(afterChain.combat!.assignmentPhase).toBe('defender');
 
     // Defender (P1) should have assign-strike actions
-    const defenderActions = computeLegalActions(afterChain, PLAYER_1);
-    const defenderAssignStrikes = defenderActions.filter(
-      a => a.viable && a.action.type === 'assign-strike',
-    );
+    const defenderAssignStrikes = viableActions(afterChain, PLAYER_1, 'assign-strike');
     expect(defenderAssignStrikes.length).toBeGreaterThan(0);
   });
 });

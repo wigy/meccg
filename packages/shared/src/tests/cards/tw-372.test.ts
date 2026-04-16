@@ -37,9 +37,9 @@ import {
   PLAYER_1,
   resetMint, pool,
   buildSitePhaseState,
+  viableFor,
 } from '../test-helpers.js';
 import {
-  computeLegalActions,
   BAG_END, RIVENDELL,
   isSiteCard, buildMovementMap, getReachableSites,
 } from '../../index.js';
@@ -57,9 +57,8 @@ describe('Bag End (tw-372)', () => {
 
   test('no resources playable at Bag End', () => {
     const state = buildSitePhaseState({ site: BAG_END });
-    const actions = computeLegalActions(state, PLAYER_1);
+    const viable = viableFor(state, PLAYER_1);
 
-    const viable = actions.filter(a => a.viable);
     expect(viable).toHaveLength(1);
     expect(viable[0].action.type).toBe('pass');
   });

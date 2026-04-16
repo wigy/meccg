@@ -21,9 +21,10 @@ import {
   viableActions,
   playPermanentEventAndResolve,
   handCardId, dispatch,
+  actionAs,
 } from '../test-helpers.js';
 import { Phase } from '../../index.js';
-import type { CardInPlay, CardInstanceId } from '../../index.js';
+import type { CardInPlay, CardInstanceId, PlayShortEventAction } from '../../index.js';
 
 // ─── Tests ────────────────────────────────────────────────────────────────────
 
@@ -254,7 +255,7 @@ describe('Gates of Morning (tw-243)', () => {
     // P2 should have Twilight targeting GoM on the chain
     const p2Actions = viableActions(nextState, PLAYER_2, 'play-short-event');
     const gomTargets = p2Actions.filter(
-      ea => (ea.action as { targetInstanceId: CardInstanceId }).targetInstanceId === gomId,
+      ea => actionAs<PlayShortEventAction>(ea.action).targetInstanceId === gomId,
     );
     expect(gomTargets).toHaveLength(1);
   });

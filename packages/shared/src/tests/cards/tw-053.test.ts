@@ -31,12 +31,12 @@ import {
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
   makeMHState,
   handCardId, companyIdAt, dispatch,
+  viableActionTypes, viableActions,
 } from '../test-helpers.js';
 import type {
   CompanyId, SitePhaseState,
   PlayHazardAction,
 } from '../../index.js';
-import { computeLegalActions } from '../../engine/legal-actions/index.js';
 import { addConstraint, sweepExpired } from '../../engine/pending.js';
 
 describe('Lost in Free-domains (tw-53)', () => {
@@ -74,9 +74,7 @@ describe('Lost in Free-domains (tw-53)', () => {
     const sitePhaseStateAtStep = { ...base, phaseState: sitePhaseState };
 
     // Without the constraint, the player has both `enter-site` and `pass`.
-    const beforeActions = computeLegalActions(sitePhaseStateAtStep, PLAYER_1)
-      .filter(ea => ea.viable)
-      .map(ea => ea.action.type);
+    const beforeActions = viableActionTypes(sitePhaseStateAtStep, PLAYER_1);
     expect(beforeActions).toContain('enter-site');
     expect(beforeActions).toContain('pass');
 
@@ -89,10 +87,7 @@ describe('Lost in Free-domains (tw-53)', () => {
       kind: { type: 'site-phase-do-nothing' },
     });
 
-    const afterActions = computeLegalActions(constrained, PLAYER_1)
-      .filter(ea => ea.viable)
-      .map(ea => ea.action.type);
-    expect(afterActions).toEqual(['pass']);
+    expect(viableActionTypes(constrained, PLAYER_1)).toEqual(['pass']);
   });
 
   test('constraint does not affect other companies (or other phases)', () => {
@@ -131,9 +126,7 @@ describe('Lost in Free-domains (tw-53)', () => {
     };
     const stateAtStep = { ...constrained, phaseState: sitePhaseState };
 
-    const actions = computeLegalActions(stateAtStep, PLAYER_1)
-      .filter(ea => ea.viable)
-      .map(ea => ea.action.type);
+    const actions = viableActionTypes(stateAtStep, PLAYER_1);
     expect(actions).toContain('enter-site');
     expect(actions).toContain('pass');
   });
@@ -182,8 +175,7 @@ describe('Lost in Free-domains (tw-53)', () => {
     const mhState = makeMHState({ activeCompanyIndex: 0 });
     const stateAtPlayHazards = { ...base, phaseState: mhState };
 
-    const playActions = computeLegalActions(stateAtPlayHazards, PLAYER_2)
-      .filter(ea => ea.viable && ea.action.type === 'play-hazard')
+    const playActions = viableActions(stateAtPlayHazards, PLAYER_2, 'play-hazard')
       .map(ea => ea.action as PlayHazardAction);
 
     const lifdPlay = playActions.find(a => a.cardInstanceId === lifdInstance);
@@ -306,9 +298,6 @@ describe('Lost in Free-domains (tw-53)', () => {
     };
     const stateAtSite = { ...current, phaseState: sitePhaseState };
 
-    const actions = computeLegalActions(stateAtSite, PLAYER_1)
-      .filter(ea => ea.viable)
-      .map(ea => ea.action.type);
-    expect(actions).toEqual(['pass']);
+    expect(viableActionTypes(stateAtSite, PLAYER_1)).toEqual(['pass']);
   });
 });

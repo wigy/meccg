@@ -24,8 +24,9 @@ import {
   findCharInstanceId,
   playCreatureHazardAndResolve,
   handCardId, companyIdAt, dispatch, getCharacter,
+  actionAs,
 } from '../test-helpers.js';
-import type { CharacterCard } from '../../index.js';
+import type { CharacterCard, ResolveStrikeAction } from '../../index.js';
 import { computeLegalActions, RegionType, SiteType } from '../../index.js';
 
 // ─── Tests ────────────────────────────────────────────────────────────────────
@@ -145,10 +146,10 @@ describe('Glamdring (tw-244)', () => {
     // Untapped variant: prowess 9 (vs orc) - 3 = 6 vs creature 7 → need 2
     // If orc bonus were missing: prowess 8 - 3 = 5 vs 7 → need would be 3
     const untapAction = resolveStrikes.find(
-      a => 'tapToFight' in a.action && !(a.action as { tapToFight: boolean }).tapToFight,
+      a => 'tapToFight' in a.action && !actionAs<ResolveStrikeAction>(a.action).tapToFight,
     );
     expect(untapAction).toBeDefined();
-    expect((untapAction!.action as { need: number }).need).toBe(2);
+    expect(actionAs<ResolveStrikeAction>(untapAction!.action).need).toBe(2);
   });
 
   test('body is not modified by Glamdring', () => {

@@ -16,10 +16,11 @@ import {
   GLAMDRING, STING,
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
   buildTestState, resetMint,
-  viableActions,
+  viableActions, actionAs,
   handCardId, dispatch,
 } from '../test-helpers.js';
 import { computeLegalActions, Phase } from '../../index.js';
+import type { FetchFromPileAction } from '../../index.js';
 
 // ─── Tests ────────────────────────────────────────────────────────────────────
 
@@ -84,7 +85,7 @@ describe('Smoke Rings (dm-159)', () => {
     const fetchActions = viableActions(next, PLAYER_1, 'fetch-from-pile');
     expect(fetchActions).toHaveLength(2);
     const sideboardFetches = fetchActions.filter(
-      ea => (ea.action as { source: string }).source === 'sideboard',
+      ea => actionAs<FetchFromPileAction>(ea.action).source === 'sideboard',
     );
     expect(sideboardFetches).toHaveLength(2);
   });
@@ -106,7 +107,7 @@ describe('Smoke Rings (dm-159)', () => {
     // Fetch actions: Glamdring from discard pile (Smoke Rings is in cardsInPlay)
     const fetchActions = viableActions(next, PLAYER_1, 'fetch-from-pile');
     expect(fetchActions).toHaveLength(1);
-    expect((fetchActions[0].action as { source: string }).source).toBe('discard-pile');
+    expect(actionAs<FetchFromPileAction>(fetchActions[0].action).source).toBe('discard-pile');
   });
 
   test('fetching a card from sideboard adds it to play deck and shuffles', () => {
