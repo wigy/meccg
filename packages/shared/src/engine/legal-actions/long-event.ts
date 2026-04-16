@@ -20,7 +20,7 @@ import type { GameState, PlayerId, EvaluatedAction, HeroResourceEventCard, PlayT
 import type { PlayOptionEffect } from '../../types/effects.js';
 import { matchesCondition, CardStatus } from '../../index.js';
 import { logHeading, logDetail } from './log.js';
-import { getPlayTargetEffect, getPlayOptionEffects, buildPlayOptionContext, grantedActionActivations, ANY_PHASE_GRANT_ACTIONS } from './organization.js';
+import { getPlayTargetEffect, getPlayOptionEffects, buildPlayOptionContext, grantedActionActivations, ANY_PHASE_GRANT_ACTIONS, collectDiscardInPlayTargets } from './organization.js';
 
 /**
  * Computes the legal actions for the active player during the long-event phase.
@@ -200,15 +200,7 @@ export function heroResourceShortEventActions(
     const discardInPlay = def.effects?.find(e => e.type === 'discard-in-play');
     let discardTargetIds: CardInstanceId[] | null = null;
     if (discardInPlay) {
-      discardTargetIds = [];
-      for (const p of state.players) {
-        for (const c of p.cardsInPlay) {
-          const cDef = state.cardPool[c.definitionId as string];
-          if (cDef && matchesCondition(discardInPlay.filter, cDef as unknown as Record<string, unknown>)) {
-            discardTargetIds.push(c.instanceId);
-          }
-        }
-      }
+      discardTargetIds = collectDiscardInPlayTargets(state, discardInPlay.filter);
       if (discardTargetIds.length === 0) {
         logDetail(`${def.name}: no eligible discard-in-play target — not playable`);
         actions.push({

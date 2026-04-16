@@ -18,8 +18,9 @@ import { describe, test, expect, beforeEach } from 'vitest';
 import {
   PLAYER_1, PLAYER_2,
   ELROND, ARAGORN, LEGOLAS,
-  MARVELS_TOLD, FOOLISH_WORDS, EYE_OF_SAURON, DOORS_OF_NIGHT,
+  MARVELS_TOLD, FOOLISH_WORDS, LURE_OF_THE_SENSES, EYE_OF_SAURON, DOORS_OF_NIGHT,
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
+  attachHazardToChar,
   buildTestState, resetMint, mint,
   viableActions,
   handCardId, dispatch, setCharStatus, expectCharStatus,
@@ -365,5 +366,56 @@ describe('Marvels Told (td-134)', () => {
 
     const playActions = viableActions(state, PLAYER_1, 'play-short-event');
     expect(playActions).toHaveLength(0);
+  });
+
+  test('targets hazards attached to characters (Foolish Words, Lure of the Senses)', () => {
+    // Regression for a bug where hazard permanent-events attached to
+    // characters (stored in `character.hazards` rather than the general
+    // `cardsInPlay` list) were not enumerated as discard-in-play targets.
+    // Marvels Told should be able to discard them just like a free-standing
+    // hazard permanent- or long-event.
+    const base = buildTestState({
+      phase: Phase.LongEvent,
+      activePlayer: PLAYER_1,
+      players: [
+        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [ELROND, ARAGORN] }], hand: [MARVELS_TOLD], siteDeck: [MORIA] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [MINAS_TIRITH] },
+      ],
+    });
+    const withFoolishWords = attachHazardToChar(base, 0, ARAGORN, FOOLISH_WORDS);
+    const state = attachHazardToChar(withFoolishWords, 0, ARAGORN, LURE_OF_THE_SENSES);
+
+    const playActions = viableActions(state, PLAYER_1, 'play-short-event');
+    // One action per attached hazard target. Elrond is the only sage, so
+    // the sage axis collapses to one.
+    expect(playActions).toHaveLength(2);
+    const targetIds = new Set(playActions.map(a =>
+      (a.action as { discardTargetInstanceId?: CardInstanceId }).discardTargetInstanceId,
+    ));
+
+    const chars = state.players[0].characters;
+    const aragornKey = Object.keys(chars).find(k => chars[k].definitionId === ARAGORN)!;
+    const elrondKey = Object.keys(chars).find(k => chars[k].definitionId === ELROND)!;
+    const attachedHazardIds = chars[aragornKey].hazards.map(h => h.instanceId);
+    expect(attachedHazardIds).toHaveLength(2);
+    for (const hid of attachedHazardIds) {
+      expect(targetIds.has(hid)).toBe(true);
+    }
+
+    // Dispatching the action for the first attached hazard moves that
+    // hazard to the owner's discard pile and leaves the other attached.
+    const marvelsId = handCardId(state, 0);
+    const firstTargetId = attachedHazardIds[0];
+    const next = dispatch(state, {
+      type: 'play-short-event',
+      player: PLAYER_1,
+      cardInstanceId: marvelsId,
+      targetScoutInstanceId: elrondKey as unknown as CardInstanceId,
+      discardTargetInstanceId: firstTargetId,
+    });
+    const aragornAfter = next.players[0].characters[aragornKey];
+    expect(aragornAfter.hazards.map(h => h.instanceId)).not.toContain(firstTargetId);
+    expect(aragornAfter.hazards).toHaveLength(1);
+    expect(next.players[0].discardPile.map(c => c.instanceId)).toContain(firstTargetId);
   });
 });
