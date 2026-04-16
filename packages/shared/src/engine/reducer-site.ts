@@ -20,6 +20,7 @@ import { handlePlayPermanentEvent, handlePlayResourceShortEvent } from './reduce
 import { handleGrantActionApply } from './reducer-organization.js';
 import { buildInPlayNames } from './recompute-derived.js';
 import { sweepExpired, enqueueResolution, removeConstraint } from './pending.js';
+import { resolveEffective } from './effective.js';
 
 
 /**
@@ -454,21 +455,24 @@ function handleSiteAutomaticAttacks(
   const effectiveStrikes = resolveAttackStrikes(state, aa.strikes, inPlayNames, creatureRace);
 
   // One-shot prowess boost from short-event environments like Choking
-  // Shadows. The boost is stored as an `auto-attack-prowess-boost`
-  // active constraint targeting this company and gated to a specific
-  // site type; consume the first matching entry.
+  // Shadows. Stored as an `attribute-modifier` constraint targeting
+  // this company and gated by `site.type`. Consume the first matching
+  // entry (single-use semantics).
   let boostedState: GameState = state;
-  let effectiveProwess = baseEffective;
-  const applicableBoost = state.activeConstraints.find(c =>
-    c.target.kind === 'company'
-    && c.target.companyId === company.id
-    && c.kind.type === 'auto-attack-prowess-boost'
-    && c.kind.siteType === siteDef.siteType,
+  const boost = resolveEffective(
+    state,
+    { kind: 'company', companyId: company.id },
+    'auto-attack.prowess',
+    baseEffective,
+    { site: { type: siteDef.siteType } },
   );
-  if (applicableBoost && applicableBoost.kind.type === 'auto-attack-prowess-boost') {
-    effectiveProwess = baseEffective + applicableBoost.kind.value;
-    logDetail(`Site: consuming auto-attack-prowess-boost (+${applicableBoost.kind.value}) from "${state.cardPool[applicableBoost.sourceDefinitionId as string]?.name ?? '?'}"`);
-    boostedState = removeConstraint(state, applicableBoost.id);
+  const effectiveProwess = boost.value;
+  if (boost.consumedIds.length > 0) {
+    for (const id of boost.consumedIds) {
+      const src = state.activeConstraints.find(c => c.id === id);
+      if (src) logDetail(`Site: consuming attribute-modifier (auto-attack.prowess +${boost.value - baseEffective}) from "${state.cardPool[src.sourceDefinitionId as string]?.name ?? '?'}"`);
+      boostedState = removeConstraint(boostedState, id);
+    }
   }
 
   logDetail(`Site: initiating automatic attack ${attackIndex + 1}/${autoAttacks.length}: ${aa.creatureType} (${aa.strikes} strikes${effectiveStrikes !== aa.strikes ? ` → ${effectiveStrikes}` : ''}, ${aa.prowess} prowess${effectiveProwess !== aa.prowess ? ` → ${effectiveProwess}` : ''}${effectiveStrikes !== aa.strikes || effectiveProwess !== aa.prowess ? ' after global effects' : ''})`);

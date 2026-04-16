@@ -545,7 +545,13 @@ function buildConstraintKind(
       const value = (onEvent.apply as { value?: number }).value;
       const siteType = (onEvent.apply as { siteType?: import('../types/common.js').SiteType }).siteType;
       if (value === undefined || !siteType) return null;
-      return { type: 'auto-attack-prowess-boost', value, siteType };
+      return {
+        type: 'attribute-modifier',
+        attribute: 'auto-attack.prowess',
+        op: 'add',
+        value,
+        filter: { 'site.type': siteType },
+      };
     }
     case 'site-type-override': {
       const overrideType = (onEvent.apply as { overrideType?: import('../types/common.js').SiteType }).overrideType;
@@ -578,7 +584,13 @@ function buildConstraintKind(
         }
       }
       if (!siteDefinitionId) return null;
-      return { type: 'site-type-override', siteDefinitionId, overrideType };
+      return {
+        type: 'attribute-modifier',
+        attribute: 'site.type',
+        op: 'override',
+        value: overrideType,
+        filter: { 'site.definitionId': siteDefinitionId as unknown as string },
+      };
     }
     case 'region-type-override': {
       const overrideType = (onEvent.apply as { overrideType?: import('../types/common.js').RegionType }).overrideType;
@@ -593,7 +605,13 @@ function buildConstraintKind(
         if (mh.resolvedSitePathNames.length === 0) return null;
         regionName = mh.resolvedSitePathNames[mh.resolvedSitePathNames.length - 1];
       }
-      return { type: 'region-type-override', regionName, overrideType };
+      return {
+        type: 'attribute-modifier',
+        attribute: 'region.type',
+        op: 'override',
+        value: overrideType,
+        filter: { 'region.name': regionName },
+      };
     }
     case 'auto-attack-duplicate':
       return { type: 'auto-attack-duplicate' };

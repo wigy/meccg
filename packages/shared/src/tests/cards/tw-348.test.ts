@@ -215,9 +215,11 @@ describe('tw-348 The White Tree', () => {
 
     // Should have an active constraint overriding Minas Tirith to haven
     const override = state.activeConstraints.find(
-      c => c.kind.type === 'site-type-override'
-        && c.kind.overrideType === 'haven'
-        && c.kind.siteDefinitionId === MINAS_TIRITH,
+      c => c.kind.type === 'attribute-modifier'
+        && c.kind.attribute === 'site.type'
+        && c.kind.op === 'override'
+        && c.kind.value === 'haven'
+        && (c.kind.filter as { 'site.definitionId'?: string } | undefined)?.['site.definitionId'] === (MINAS_TIRITH as unknown as string),
     );
     expect(override).toBeDefined();
     expect(override!.scope.kind).toBe('until-cleared');
@@ -245,7 +247,7 @@ describe('tw-348 The White Tree', () => {
       ],
     });
 
-    // Add site-type-override constraint for Minas Tirith → haven
+    // Add attribute-modifier constraint for Minas Tirith → haven
     const whiteTreeInstance = mint();
     const constraintState: GameState = {
       ...state,
@@ -258,9 +260,11 @@ describe('tw-348 The White Tree', () => {
           scope: { kind: 'until-cleared' },
           target: { kind: 'player', playerId: PLAYER_1 },
           kind: {
-            type: 'site-type-override' as const,
-            siteDefinitionId: MINAS_TIRITH,
-            overrideType: 'haven' as import('../../index.js').SiteType,
+            type: 'attribute-modifier' as const,
+            attribute: 'site.type' as const,
+            op: 'override' as const,
+            value: 'haven' as import('../../index.js').SiteType,
+            filter: { 'site.definitionId': MINAS_TIRITH as unknown as string },
           },
         },
       ],

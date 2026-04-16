@@ -277,9 +277,22 @@ These were audited and confirmed generic:
 
 ---
 
-## 5. Attribute-modifier primitive (HIGH priority)
+## 5. Attribute-modifier primitive ✅ DONE
 
-### Smell
+Collapsed `auto-attack-prowess-boost`, `site-type-override`, and
+`region-type-override` into one `attribute-modifier` constraint kind.
+`buildConstraintKind` produces `attribute-modifier` from the existing
+JSON (card data keeps its legacy names — the translation lives in the
+engine). All five consumer sites now filter
+`kind.type === 'attribute-modifier'` plus attribute/op/filter; the
+generic `engine/effective.ts::resolveEffective` helper handles
+entity-scoped reads (auto-attack prowess on a specific company).
+
+Future attribute overrides (body, corruption, mind, etc.) are a
+one-line union extension in `AttributePath` plus one consumer-side
+read — no new constraint kinds needed.
+
+### Historical notes
 
 Certifying Choking Shadows (tw-21, commit `0f634af`) introduced **three
 new active-constraint kinds** that are all the same concept — a
@@ -570,18 +583,18 @@ crossings, forest ambushes) becomes pure data. Every future
 
 Recommended order:
 
-1. **#1 grant-action** — biggest immediate win; unblocks #4, #6. Six
-   card-specific handlers collapse to one.
-2. **#5 attribute-modifier** — independent of #1, can land in parallel.
-   Delivers the "cards-are-data" invariant for attribute overrides
-   (Choking Shadows and any future hazard that changes a stat or type).
-3. **#6 granted-action + path DSL** — depends on #1 (needs the static
-   grant-action pipeline as a template) and ideally on #4 (River uses
-   the same machinery, so migrating both together proves the
-   generalization isn't Great-Ship-shaped).
-4. **#4 constraint collapse** — depends on #1's `remove-constraint`
-   apply kind and folds neatly into #6.
-5. **#2 play-restriction** — independent; can run any time.
+1. ~~**#1 grant-action**~~ — done for all card-declared grant-actions.
+   `cancel-constraint` remains as it is emitted by an active constraint
+   (not a grant-action effect) and belongs to #6's machinery.
+2. ~~**#5 attribute-modifier**~~ — done. Three Choking Shadows
+   constraint kinds collapsed into one generic kind.
+3. **#6 granted-action + path DSL** — remaining. Migrate Great Ship
+   (tw-248) and River (tw-084) off their bespoke constraint kinds and
+   reducers. Introduces granted-action constraint kind, path-condition
+   DSL, `cancel-chain-entry` apply, `remove-constraint` apply.
+4. ~~**#4 constraint collapse**~~ — done.
+5. ~~**#2 play-restriction**~~ — done (`PlayFlagEffect` replaced the
+   rule-string matching).
 6. ~~**#3 combat-rule**~~ — done.
 
 Each step is its own PR with card-test coverage on the cards it

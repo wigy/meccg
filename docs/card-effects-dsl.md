@@ -76,6 +76,33 @@ The `influence` check type is used on faction cards for standard modifications.
 The resolver context includes `bearer` (influencing character) and `faction`
 (faction being influenced) fields.
 
+### 2b. `attribute-modifier` active constraint
+
+Generic conditional override of an entity attribute. Produced by an
+`add-constraint` apply and consumed by read sites that route through
+`engine/effective.ts::resolveEffective` (or that filter
+`activeConstraints` directly). One kind in the union covers what used
+to be three separate constraint kinds
+(`auto-attack-prowess-boost`, `site-type-override`,
+`region-type-override`); the next attribute is a one-line extension.
+
+Fields:
+
+- `attribute: AttributePath` — closed union: `auto-attack.prowess`,
+  `site.type`, `region.type` (extend as cards require).
+- `op: 'add' | 'override'` — `add` sums; `override` replaces.
+- `value: number | string` — number for `add`; the encoded value
+  (SiteType, RegionType, etc.) for `override`.
+- `filter?: Condition` — optional per-read gate evaluated against a
+  context exposing the entity under inspection
+  (`{ site: { type, definitionId }, region: { name, type } }`).
+
+The card-data JSON keeps the legacy constraint names
+(`auto-attack-prowess-boost`, `site-type-override`,
+`region-type-override`) — `buildConstraintKind` translates them into
+`attribute-modifier` so existing card definitions did not need to
+change during the migration.
+
 ### 3. `mp-modifier`
 
 Modifies marshalling points conditionally.

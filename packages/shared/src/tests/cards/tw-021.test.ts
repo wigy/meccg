@@ -193,12 +193,14 @@ describe('Choking Shadows (tw-21)', () => {
     const csId = handCardId(mhGameState, 1);
     const afterPlay = playHazardAndResolve(mhGameState, PLAYER_2, csId, P1_COMPANY);
 
-    const boost = afterPlay.activeConstraints.find(c => c.kind.type === 'auto-attack-prowess-boost');
+    const boost = afterPlay.activeConstraints.find(c =>
+      c.kind.type === 'attribute-modifier' && c.kind.attribute === 'auto-attack.prowess',
+    );
     expect(boost).toBeDefined();
-    expect(boost!.kind.type).toBe('auto-attack-prowess-boost');
-    if (boost!.kind.type === 'auto-attack-prowess-boost') {
+    if (boost!.kind.type === 'attribute-modifier') {
+      expect(boost!.kind.op).toBe('add');
       expect(boost!.kind.value).toBe(2);
-      expect(boost!.kind.siteType).toBe(SiteType.RuinsAndLairs);
+      expect(boost!.kind.filter).toEqual({ 'site.type': SiteType.RuinsAndLairs });
     }
   });
 
@@ -223,9 +225,7 @@ describe('Choking Shadows (tw-21)', () => {
     const csId = handCardId(mhGameState, 1);
     const afterPlay = playHazardAndResolve(mhGameState, PLAYER_2, csId, P1_COMPANY);
 
-    expect(afterPlay.activeConstraints.filter(c => c.kind.type === 'auto-attack-prowess-boost')).toHaveLength(0);
-    expect(afterPlay.activeConstraints.filter(c => c.kind.type === 'site-type-override')).toHaveLength(0);
-    expect(afterPlay.activeConstraints.filter(c => c.kind.type === 'region-type-override')).toHaveLength(0);
+    expect(afterPlay.activeConstraints.filter(c => c.kind.type === 'attribute-modifier')).toHaveLength(0);
   });
 
   // ─── Mode B: type overrides with Doors of Night in play ──────────────────
@@ -256,13 +256,19 @@ describe('Choking Shadows (tw-21)', () => {
     const csId = handCardId(mhGameState, 1);
     const afterPlay = playHazardAndResolve(mhGameState, PLAYER_2, csId, P1_COMPANY);
 
-    const siteOverride = afterPlay.activeConstraints.find(c => c.kind.type === 'site-type-override');
+    const siteOverride = afterPlay.activeConstraints.find(c =>
+      c.kind.type === 'attribute-modifier' && c.kind.attribute === 'site.type',
+    );
     expect(siteOverride).toBeDefined();
-    if (siteOverride!.kind.type === 'site-type-override') {
-      expect(siteOverride!.kind.overrideType).toBe(SiteType.ShadowHold);
+    if (siteOverride!.kind.type === 'attribute-modifier') {
+      expect(siteOverride!.kind.op).toBe('override');
+      expect(siteOverride!.kind.value).toBe(SiteType.ShadowHold);
     }
-    // Mode A must not also apply
-    expect(afterPlay.activeConstraints.filter(c => c.kind.type === 'auto-attack-prowess-boost')).toHaveLength(0);
+    // Mode A must not also apply (no prowess-add modifier)
+    const prowessMods = afterPlay.activeConstraints.filter(c =>
+      c.kind.type === 'attribute-modifier' && c.kind.attribute === 'auto-attack.prowess',
+    );
+    expect(prowessMods).toHaveLength(0);
   });
 
   test('Mode B2 — DoN in play + Wilderness destination region: region-type-override to shadow', () => {
@@ -291,11 +297,14 @@ describe('Choking Shadows (tw-21)', () => {
     const csId = handCardId(mhGameState, 1);
     const afterPlay = playHazardAndResolve(mhGameState, PLAYER_2, csId, P1_COMPANY);
 
-    const regionOverride = afterPlay.activeConstraints.find(c => c.kind.type === 'region-type-override');
+    const regionOverride = afterPlay.activeConstraints.find(c =>
+      c.kind.type === 'attribute-modifier' && c.kind.attribute === 'region.type',
+    );
     expect(regionOverride).toBeDefined();
-    if (regionOverride!.kind.type === 'region-type-override') {
-      expect(regionOverride!.kind.overrideType).toBe(RegionType.Shadow);
-      expect(regionOverride!.kind.regionName).toBe('Western Mirkwood');
+    if (regionOverride!.kind.type === 'attribute-modifier') {
+      expect(regionOverride!.kind.op).toBe('override');
+      expect(regionOverride!.kind.value).toBe(RegionType.Shadow);
+      expect(regionOverride!.kind.filter).toEqual({ 'region.name': 'Western Mirkwood' });
     }
   });
 });
