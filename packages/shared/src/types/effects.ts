@@ -348,6 +348,13 @@ export interface TriggeredAction {
    * for the turn (e.g. Cram adds 1).
    */
   readonly amount?: number;
+  /**
+   * For `sequence` type: the ordered list of sub-applies to run. Each
+   * runs on the character state produced by the previous, and all
+   * side-effects (constraints, pending resolutions, dice rolls) are
+   * concatenated in declaration order.
+   */
+  readonly apps?: readonly TriggeredAction[];
 }
 
 /**

@@ -676,77 +676,12 @@ function handleActivateGrantedAction(state: GameState, action: GameAction): Redu
     return handlePalantirFetchDiscard(state, action);
   }
 
-  if (action.actionId === 'cancel-return-and-site-tap') {
-    return handleCancelReturnAndSiteTap(state, action);
-  }
-
-  // `remove-self-on-roll` (Foolish Words and variants) is migrated — fall
-  // through to the generic apply dispatch.
+  // `remove-self-on-roll` (Foolish Words and variants) and
+  // `cancel-return-and-site-tap` (Promptings of Wisdom) are migrated —
+  // fall through to the generic apply dispatch.
   return handleGrantActionApply(state, action);
 }
 
-/**
- * Handle cancel-return-and-site-tap grant-action.
- *
- * Taps the bearer (ranger), adds a turn-scoped constraint that cancels
- * hazard effects forcing return to site of origin or tapping the site,
- * and enqueues a corruption check. Used by Promptings of Wisdom (wh-34)
- * and Piercing All Shadows (wh-47).
- */
-function handleCancelReturnAndSiteTap(state: GameState, action: GameAction): ReducerResult {
-  if (action.type !== 'activate-granted-action') return { state, error: 'Expected activate-granted-action' };
-
-  const playerIndex = getPlayerIndex(state, action.player);
-  const player = state.players[playerIndex];
-  const char = player.characters[action.characterId as string];
-  if (!char) return { state, error: 'Character not found' };
-
-  const charDefId = resolveInstanceId(state, action.characterId);
-  const charDef = charDefId ? state.cardPool[charDefId as string] : undefined;
-  const charName = charDef?.name ?? '?';
-  const sourceDef = state.cardPool[action.sourceCardDefinitionId as string];
-  const sourceName = sourceDef?.name ?? '?';
-  const company = player.companies.find(c => c.characters.includes(action.characterId))!;
-
-  logDetail(`Cancel-return-and-site-tap: ${charName} taps (via ${sourceName}) to protect company from return/site-tap hazards`);
-
-  const newPlayers = clonePlayers(state);
-  const tappedChar: CharacterInPlay = { ...char, status: CardStatus.Tapped };
-  newPlayers[playerIndex] = {
-    ...newPlayers[playerIndex],
-    characters: {
-      ...newPlayers[playerIndex].characters,
-      [action.characterId as string]: tappedChar,
-    },
-  };
-
-  let newState: GameState = { ...state, players: newPlayers };
-
-  newState = addConstraint(newState, {
-    source: action.sourceCardId,
-    sourceDefinitionId: action.sourceCardDefinitionId,
-    scope: { kind: 'turn' },
-    target: { kind: 'company', companyId: company.id },
-    kind: { type: 'cancel-return-and-site-tap' },
-  });
-
-  newState = enqueueResolution(newState, {
-    source: action.sourceCardId,
-    actor: action.player,
-    scope: { kind: 'phase', phase: Phase.Organization },
-    kind: {
-      type: 'corruption-check',
-      characterId: action.characterId,
-      modifier: 0,
-      reason: sourceName,
-      possessions: [],
-      transferredItemId: null,
-    },
-  });
-
-  newState = recomputeDerived(newState);
-  return { state: newState };
-}
 
 
 /**
@@ -937,10 +872,24 @@ interface GrantApplyContext {
   readonly sourceCardDefinitionId: import('../types/common.js').CardDefinitionId;
 }
 
+/** Result of running one apply: the updated character plus optional
+ *  engine effects (dice rolls) and post-write state transforms (adding
+ *  constraints, enqueuing corruption checks). The caller writes
+ *  `updatedChar` back to players first, then folds `stateOps` over the
+ *  resulting state so the transforms see the tapped/detached character.
+ */
+type ApplyOk = {
+  updatedChar: CharacterInPlay;
+  effects: GameEffect[];
+  stateOps: Array<(state: GameState) => GameState>;
+};
+
 /**
  * Apply a single TriggeredAction in a grant-action context. Mutates
  * `newPlayers` in place (via assignment to indices) and returns the
- * updated character + any engine effects produced (e.g. dice rolls).
+ * updated character + any engine effects produced (e.g. dice rolls) +
+ * any state-level transforms to apply after the character is written
+ * back (constraint additions, resolution enqueues).
  */
 function runGrantApply(
   state: GameState,
@@ -949,7 +898,24 @@ function runGrantApply(
   newPlayers: import('../types/state.js').PlayerState[],
   ctx: GrantApplyContext,
   rngRef: { rng: GameState['rng']; cheatRollTotal: GameState['cheatRollTotal'] },
-): { updatedChar: CharacterInPlay; effects: GameEffect[] } | { error: string } {
+): ApplyOk | { error: string } {
+  if (apply.type === 'sequence') {
+    if (!apply.apps || apply.apps.length === 0) {
+      return { updatedChar: char, effects: [], stateOps: [] };
+    }
+    let currentChar = char;
+    const allEffects: GameEffect[] = [];
+    const allOps: Array<(s: GameState) => GameState> = [];
+    for (const sub of apply.apps) {
+      const r = runGrantApply(state, sub, currentChar, newPlayers, ctx, rngRef);
+      if ('error' in r) return r;
+      currentChar = r.updatedChar;
+      allEffects.push(...r.effects);
+      allOps.push(...r.stateOps);
+    }
+    return { updatedChar: currentChar, effects: allEffects, stateOps: allOps };
+  }
+
   if (apply.type === 'set-character-status' && apply.target === 'bearer') {
     if (apply.status === undefined) {
       return { error: `set-character-status apply missing status on ${ctx.sourceName}` };
@@ -958,14 +924,14 @@ function runGrantApply(
       : apply.status === 'tapped' ? CardStatus.Tapped
         : CardStatus.Inverted;
     logDetail(`Grant-action ${ctx.action.actionId}: ${ctx.charName} → status ${apply.status}`);
-    return { updatedChar: { ...char, status: statusEnum }, effects: [] };
+    return { updatedChar: { ...char, status: statusEnum }, effects: [], stateOps: [] };
   }
 
   if (apply.type === 'discard-self') {
     const result = detachAndDiscardSource(char, ctx.action.sourceCardId, ctx.sourceCardDefinitionId, ctx.playerIndex, newPlayers);
     if ('error' in result) return { error: result.error };
     logDetail(`Grant-action ${ctx.action.actionId}: discarded ${ctx.sourceName}`);
-    return { updatedChar: result.updatedChar, effects: [] };
+    return { updatedChar: result.updatedChar, effects: [], stateOps: [] };
   }
 
   if (apply.type === 'increment-company-extra-region-distance') {
@@ -983,7 +949,7 @@ function runGrantApply(
         c.id === company.id ? { ...c, extraRegionDistance: currentExtra + amount } : c,
       ),
     };
-    return { updatedChar: char, effects: [] };
+    return { updatedChar: char, effects: [], stateOps: [] };
   }
 
   if (apply.type === 'set-company-special-movement') {
@@ -1002,7 +968,68 @@ function runGrantApply(
         c.id === company.id ? { ...c, specialMovement: apply.specialMovement } : c,
       ),
     };
-    return { updatedChar: char, effects: [] };
+    return { updatedChar: char, effects: [], stateOps: [] };
+  }
+
+  if (apply.type === 'add-constraint') {
+    const constraintKind = apply.constraint;
+    if (!constraintKind) {
+      return { error: `add-constraint missing constraint kind on ${ctx.sourceName}` };
+    }
+    // Only constraint kinds that carry no payload are supported from
+    // grant-action context today. Parameterised kinds (e.g.
+    // site-type-override) need the same plumbing as the on-event
+    // path — they will be added when a card requires them.
+    const kind = constraintKindWithoutPayload(constraintKind);
+    if (!kind) {
+      return { error: `add-constraint: unsupported constraint kind "${constraintKind}" from grant-action (${ctx.sourceName})` };
+    }
+    const scope = parseConstraintScope(apply.scope, newPlayers[ctx.playerIndex], ctx.action.characterId);
+    if (!scope) {
+      return { error: `add-constraint: unknown or unresolved scope "${apply.scope ?? ''}" on ${ctx.sourceName}` };
+    }
+    const target = resolveConstraintTarget(apply.target, newPlayers[ctx.playerIndex], ctx.action.characterId, ctx.action.player);
+    if (!target) {
+      return { error: `add-constraint: cannot resolve target "${apply.target ?? ''}" on ${ctx.sourceName}` };
+    }
+    const sourceId = ctx.action.sourceCardId;
+    const sourceDefId = ctx.sourceCardDefinitionId;
+    logDetail(`Grant-action ${ctx.action.actionId}: adding constraint ${constraintKind} (scope ${apply.scope ?? '?'})`);
+    return {
+      updatedChar: char,
+      effects: [],
+      stateOps: [
+        s => addConstraint(s, { source: sourceId, sourceDefinitionId: sourceDefId, scope, target, kind }),
+      ],
+    };
+  }
+
+  if (apply.type === 'enqueue-corruption-check') {
+    const modifier = apply.modifier ?? 0;
+    const characterId = ctx.action.characterId;
+    const actor = ctx.action.player;
+    const sourceId = ctx.action.sourceCardId;
+    const reason = ctx.sourceName;
+    logDetail(`Grant-action ${ctx.action.actionId}: enqueueing corruption check on ${ctx.charName} (reason: ${reason}, modifier ${modifier})`);
+    return {
+      updatedChar: char,
+      effects: [],
+      stateOps: [
+        s => enqueueResolution(s, {
+          source: sourceId,
+          actor,
+          scope: { kind: 'phase', phase: Phase.Organization },
+          kind: {
+            type: 'corruption-check',
+            characterId,
+            modifier,
+            reason,
+            possessions: [],
+            transferredItemId: null,
+          },
+        }),
+      ],
+    };
   }
 
   if (apply.type === 'roll-then-apply') {
@@ -1028,14 +1055,78 @@ function runGrantApply(
     const branch = total >= apply.threshold ? apply.onSuccess : apply.onFailure;
     if (!branch) {
       logDetail(`Grant-action ${ctx.action.actionId}: roll ${total >= apply.threshold ? 'succeeded' : 'failed'} — no branch, nothing to apply`);
-      return { updatedChar: char, effects: [rollEffect] };
+      return { updatedChar: char, effects: [rollEffect], stateOps: [] };
     }
     const inner = runGrantApply(state, branch, char, newPlayers, ctx, rngRef);
     if ('error' in inner) return inner;
-    return { updatedChar: inner.updatedChar, effects: [rollEffect, ...inner.effects] };
+    return { updatedChar: inner.updatedChar, effects: [rollEffect, ...inner.effects], stateOps: inner.stateOps };
   }
 
   return { error: `Unsupported grant-action apply ${JSON.stringify(apply)} on ${ctx.sourceName}` };
+}
+
+/**
+ * Build an ActiveConstraint.kind for constraint names that carry no
+ * payload. Returns null for kinds that need additional fields (those go
+ * through the on-event path which knows how to read them from state).
+ */
+function constraintKindWithoutPayload(
+  name: string,
+): import('../types/pending.js').ActiveConstraint['kind'] | null {
+  switch (name) {
+    case 'cancel-return-and-site-tap':
+      return { type: 'cancel-return-and-site-tap' };
+    case 'deny-scout-resources':
+      return { type: 'deny-scout-resources' };
+    case 'no-creature-hazards-on-company':
+      return { type: 'no-creature-hazards-on-company' };
+    case 'auto-attack-duplicate':
+      return { type: 'auto-attack-duplicate' };
+    default:
+      return null;
+  }
+}
+
+/** Map a DSL scope string to a ConstraintScope. */
+function parseConstraintScope(
+  scopeName: string | undefined,
+  player: import('../types/state.js').PlayerState,
+  characterId: CardInstanceId,
+): import('../types/pending.js').ConstraintScope | null {
+  switch (scopeName) {
+    case 'turn':
+      return { kind: 'turn' };
+    case 'until-cleared':
+      return { kind: 'until-cleared' };
+    case 'company-site-phase':
+    case 'company-mh-phase': {
+      const company = player.companies.find(c => c.characters.includes(characterId));
+      if (!company) return null;
+      return { kind: scopeName, companyId: company.id };
+    }
+    default:
+      return null;
+  }
+}
+
+/** Resolve a DSL target selector to a ConstraintTarget. */
+function resolveConstraintTarget(
+  targetName: string | undefined,
+  player: import('../types/state.js').PlayerState,
+  characterId: CardInstanceId,
+  playerId: import('../types/common.js').PlayerId,
+): import('../types/pending.js').ActiveConstraint['target'] | null {
+  switch (targetName ?? 'bearer-company') {
+    case 'bearer-company': {
+      const company = player.companies.find(c => c.characters.includes(characterId));
+      if (!company) return null;
+      return { kind: 'company', companyId: company.id };
+    }
+    case 'player':
+      return { kind: 'player', playerId };
+    default:
+      return null;
+  }
 }
 
 /**
@@ -1123,13 +1214,18 @@ export function handleGrantActionApply(state: GameState, action: GameAction): Re
     },
   };
 
+  let finalState: GameState = recomputeDerived({
+    ...state,
+    players: newPlayers,
+    rng: rngRef.rng,
+    cheatRollTotal: rngRef.cheatRollTotal,
+  });
+  for (const op of result.stateOps) {
+    finalState = op(finalState);
+  }
+
   return {
-    state: recomputeDerived({
-      ...state,
-      players: newPlayers,
-      rng: rngRef.rng,
-      cheatRollTotal: rngRef.cheatRollTotal,
-    }),
+    state: finalState,
     effects: result.effects.length > 0 ? result.effects : undefined,
   };
 }
