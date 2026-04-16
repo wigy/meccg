@@ -14,6 +14,7 @@ import { MovementType } from '../../types/common.js';
 import { logDetail, logHeading } from './log.js';
 import { playPermanentEventActions, playShortEventActions } from './organization-events.js';
 import { grantedActionActivations, ANY_PHASE_GRANT_ACTIONS } from './organization.js';
+import { heroResourceShortEventActions } from './long-event.js';
 
 /**
  * Compute legal actions for the movement/hazard phase.
@@ -800,10 +801,14 @@ function playHazardsActions(
   }
 
   // Rule 2.1.1: resource player may play resource permanent-events and
-  // resource short-events during any phase of their turn.
+  // resource short-events during any phase of their turn. This covers both
+  // hazard-event short-events flagged `playable-as-resource` (e.g. Twilight
+  // cancelling an environment) and hero-resource-event short-events
+  // (e.g. Marvels Told tapping a sage to discard a hazard long-event).
   if (isResourcePlayer) {
     actions.push(...playPermanentEventActions(state, playerId));
     actions.push(...playShortEventActions(state, playerId));
+    actions.push(...heroResourceShortEventActions(state, playerId, 'movement-hazard'));
     actions.push(...cancelHazardByTapActions(state, playerId, mhState));
     actions.push(...grantedActionActivations(state, playerId, ANY_PHASE_GRANT_ACTIONS));
   }

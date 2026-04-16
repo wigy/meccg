@@ -23,6 +23,7 @@ import {
   buildTestState, resetMint, mint,
   viableActions,
   handCardId, dispatch, setCharStatus, expectCharStatus,
+  makeMHState,
 } from '../test-helpers.js';
 import type { CardInstanceId, CardInPlay } from '../../index.js';
 import { computeLegalActions, Phase, CardStatus } from '../../index.js';
@@ -312,6 +313,55 @@ describe('Marvels Told (td-134)', () => {
         { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [MINAS_TIRITH] },
       ],
     });
+
+    const playActions = viableActions(state, PLAYER_1, 'play-short-event');
+    expect(playActions).toHaveLength(0);
+  });
+
+  test('playable during movement-hazard play-hazards step (rule 2.1.1)', () => {
+    // Reported in bug b7bdb6e11cafeb5e (game mo13g8zo-gyai85): during the
+    // resource player's own movement/hazard phase, the engine did not
+    // enumerate Marvels Told even though a sage was untapped and a
+    // qualifying hazard long-event was in the opponent's cards-in-play.
+    // Rule 2.1.1 allows resource short-events during any phase of the
+    // active player's turn.
+    const foolishWordsInPlay: CardInPlay = { instanceId: mint(), definitionId: FOOLISH_WORDS, status: CardStatus.Untapped };
+    const base = buildTestState({
+      phase: Phase.MovementHazard,
+      activePlayer: PLAYER_1,
+      recompute: true,
+      players: [
+        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [ELROND] }], hand: [MARVELS_TOLD], siteDeck: [MORIA] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [MINAS_TIRITH], cardsInPlay: [foolishWordsInPlay] },
+      ],
+    });
+    const state = { ...base, phaseState: makeMHState() };
+
+    const playActions = viableActions(state, PLAYER_1, 'play-short-event');
+    expect(playActions).toHaveLength(1);
+    const action = playActions[0].action as {
+      type: string;
+      targetScoutInstanceId?: CardInstanceId;
+      discardTargetInstanceId?: CardInstanceId;
+    };
+    expect(action.targetScoutInstanceId).toBeDefined();
+    expect(action.discardTargetInstanceId).toBe(foolishWordsInPlay.instanceId);
+  });
+
+  test('not playable during MH phase when no hazard permanent/long events in play', () => {
+    // Even though the resource player may play short-events during MH,
+    // Marvels Told still requires a qualifying discard target — with none
+    // in play, the card is not playable.
+    const base = buildTestState({
+      phase: Phase.MovementHazard,
+      activePlayer: PLAYER_1,
+      recompute: true,
+      players: [
+        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [ELROND] }], hand: [MARVELS_TOLD], siteDeck: [MORIA] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [MINAS_TIRITH] },
+      ],
+    });
+    const state = { ...base, phaseState: makeMHState() };
 
     const playActions = viableActions(state, PLAYER_1, 'play-short-event');
     expect(playActions).toHaveLength(0);
