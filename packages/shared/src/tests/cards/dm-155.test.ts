@@ -95,12 +95,12 @@ describe('Rebuild the Town (dm-155)', () => {
     // Card should be in play
     expect(resolved.players[0].cardsInPlay.some(c => c.instanceId === cardId)).toBe(true);
 
-    // site-type-override constraint should exist
+    // site-type attribute-modifier constraint should exist
     const siteOverride = resolved.activeConstraints.find(
-      c => c.kind.type === 'site-type-override',
+      c => c.kind.type === 'attribute-modifier' && c.kind.attribute === 'site.type',
     );
     expect(siteOverride).toBeDefined();
-    expect(siteOverride!.kind.type === 'site-type-override' && siteOverride!.kind.overrideType).toBe('border-hold');
+    expect(siteOverride!.kind.type === 'attribute-modifier' && siteOverride!.kind.value).toBe('border-hold');
 
     // skip-automatic-attacks constraint should exist
     const skipAA = resolved.activeConstraints.find(

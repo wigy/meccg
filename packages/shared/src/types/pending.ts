@@ -25,7 +25,7 @@
  * `pending*` field; everything cross-cutting routes through this module.
  */
 
-import type { CardInstanceId, CompanyId, PlayerId, CardDefinitionId, SiteType, RegionType } from './common.js';
+import type { CardInstanceId, CompanyId, PlayerId, CardDefinitionId } from './common.js';
 import type { GameAction } from './actions.js';
 import type { Phase } from './state-phases.js';
 import type { Condition } from './effects.js';
@@ -37,6 +37,25 @@ export type ResolutionId = string & { readonly __brand: 'ResolutionId' };
 
 /** Unique ID minted for every active constraint. */
 export type ConstraintId = string & { readonly __brand: 'ConstraintId' };
+
+/**
+ * Closed set of attribute paths supported by the
+ * `attribute-modifier` active constraint (see {@link ActiveConstraint}).
+ * Each path maps to a single read site in the engine that consults
+ * active modifiers to compute an effective value:
+ *
+ *  - `auto-attack.prowess` — one-shot prowess bonus on the next matching
+ *    automatic-attack (consumed on use).
+ *  - `site.type` — override the effective {@link SiteType} for a specific
+ *    site (filter: `site.definitionId`). Consulted by creature keying and
+ *    Haven-tests.
+ *  - `region.type` — override the effective {@link RegionType} for a named
+ *    region (filter: `region.name`). Consulted by creature keying.
+ */
+export type AttributePath =
+  | 'auto-attack.prowess'
+  | 'site.type'
+  | 'region.type';
 
 // ---- Shape A: Pending resolutions ----
 
@@ -281,42 +300,41 @@ export interface ActiveConstraint {
       }
     | {
         /**
-         * Choking Shadows (Mode A): the next automatic-attack faced by
-         * the target company at a site matching `siteType` receives a
-         * flat prowess bonus. Auto-cleared at the end of the company's
-         * site phase even if never consumed.
+         * Generic attribute override: a conditional `add`/`override`
+         * modifier on an entity attribute. Collapses what used to be
+         * three separate constraint kinds
+         * (`auto-attack-prowess-boost`, `site-type-override`,
+         * `region-type-override`) into one primitive the engine reads
+         * via the {@link AttributeModifierFilter} dispatch.
+         *
+         * Consumers look up matching modifiers for an entity + attribute
+         * at read time; the optional {@link filter} narrows further
+         * against a per-read context (e.g. only at ruins-and-lairs).
+         * Some attributes have single-use semantics (e.g.
+         * `auto-attack.prowess`): consumers remove the constraint after
+         * applying it.
          */
-        readonly type: 'auto-attack-prowess-boost';
-        /** Prowess bonus applied to the next matching automatic-attack. */
-        readonly value: number;
-        /** Only auto-attacks at sites of this type are eligible. */
-        readonly siteType: SiteType;
-      }
-    | {
+        readonly type: 'attribute-modifier';
         /**
-         * Choking Shadows (Mode B, site variant): the target site is
-         * treated as `overrideType` for the remainder of the turn. Used
-         * for creature-keying checks (creatures keyed to the override
-         * type may be played against companies arriving at this site).
+         * Which attribute this modifier acts on. New attributes require
+         * a one-line union extension plus the matching consumer.
          */
-        readonly type: 'site-type-override';
-        /** The definition ID of the site whose type is overridden. */
-        readonly siteDefinitionId: CardDefinitionId;
-        /** The effective site type for the rest of the turn. */
-        readonly overrideType: SiteType;
-      }
-    | {
+        readonly attribute: AttributePath;
+        /** How the modifier combines with the base value. */
+        readonly op: 'add' | 'override';
         /**
-         * Choking Shadows (Mode B, region variant): the named region is
-         * treated as `overrideType` for the rest of the turn. Creatures
-         * keyed to the override region type may be played against
-         * companies traversing this region.
+         * The adjustment. `add` expects a number; `override` expects
+         * the new value (SiteType, RegionType, etc., encoded as the
+         * appropriate string).
          */
-        readonly type: 'region-type-override';
-        /** Name of the region whose type is overridden. */
-        readonly regionName: string;
-        /** The effective region type for the rest of the turn. */
-        readonly overrideType: RegionType;
+        readonly value: number | string;
+        /**
+         * Optional DSL condition evaluated per-read against a context
+         * that exposes the entity under inspection (e.g.
+         * `{ site: { type, definitionId }, region: { name, type } }`).
+         * When present and non-matching, the modifier is skipped.
+         */
+        readonly filter?: Condition;
       }
     | {
         /**

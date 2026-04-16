@@ -160,11 +160,15 @@ function performUntap(state: GameState): GameState {
     if (!siteDef || !isSiteCard(siteDef)) continue;
     let isHaven = siteDef.siteType === SiteType.Haven;
     if (!isHaven) {
-      isHaven = state.activeConstraints.some(c =>
-        c.kind.type === 'site-type-override'
-        && c.kind.siteDefinitionId === company.currentSite!.definitionId
-        && c.kind.overrideType === SiteType.Haven,
-      );
+      const siteDefId = company.currentSite.definitionId as unknown as string;
+      isHaven = state.activeConstraints.some(c => {
+        if (c.kind.type !== 'attribute-modifier'
+          || c.kind.attribute !== 'site.type'
+          || c.kind.op !== 'override'
+          || c.kind.value !== SiteType.Haven) return false;
+        const filterSiteDefId = (c.kind.filter as { 'site.definitionId'?: string } | undefined)?.['site.definitionId'];
+        return filterSiteDefId === siteDefId;
+      });
     }
     if (isHaven) {
       for (const charId of company.characters) {

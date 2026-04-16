@@ -1011,21 +1011,18 @@ function findCreatureKeyingMatches(
   const matches: CreatureKeyingMatch[] = [];
   const seen = new Set<string>();
 
-  // Gather overrides in scope for this company's arrival.
+  // Gather attribute-modifier overrides in scope for this company's
+  // arrival. See `ActiveConstraint.kind.attribute-modifier`.
   const destSiteDefId = targetCompany.destinationSite?.instanceId
     ? resolveInstanceId(state, targetCompany.destinationSite.instanceId)
     : null;
-  const siteOverrides = state.activeConstraints.filter(c =>
-    c.kind.type === 'site-type-override'
-    && destSiteDefId !== null
-    && c.kind.siteDefinitionId === destSiteDefId,
-  );
-  const regionOverrides = state.activeConstraints.filter(c => c.kind.type === 'region-type-override');
   const overriddenRegionTypes = new Map<string, import('../../types/common.js').RegionType>();
-  for (const c of regionOverrides) {
-    if (c.kind.type !== 'region-type-override') continue;
-    if (mhState.resolvedSitePathNames.includes(c.kind.regionName)) {
-      overriddenRegionTypes.set(c.kind.regionName, c.kind.overrideType);
+  for (const c of state.activeConstraints) {
+    if (c.kind.type !== 'attribute-modifier' || c.kind.attribute !== 'region.type' || c.kind.op !== 'override') continue;
+    const regionName = (c.kind.filter as { 'region.name'?: string } | undefined)?.['region.name'];
+    if (!regionName || typeof regionName !== 'string') continue;
+    if (mhState.resolvedSitePathNames.includes(regionName)) {
+      overriddenRegionTypes.set(regionName, c.kind.value as import('../../types/common.js').RegionType);
     }
   }
   const effectiveRegionTypes: import('../../types/common.js').RegionType[] = [...mhState.resolvedSitePath];
@@ -1034,9 +1031,13 @@ function findCreatureKeyingMatches(
   }
   const effectiveSiteTypes: import('../../types/common.js').SiteType[] = [];
   if (mhState.destinationSiteType) effectiveSiteTypes.push(mhState.destinationSiteType);
-  for (const c of siteOverrides) {
-    if (c.kind.type === 'site-type-override' && !effectiveSiteTypes.includes(c.kind.overrideType)) {
-      effectiveSiteTypes.push(c.kind.overrideType);
+  for (const c of state.activeConstraints) {
+    if (c.kind.type !== 'attribute-modifier' || c.kind.attribute !== 'site.type' || c.kind.op !== 'override') continue;
+    const filterSiteDefId = (c.kind.filter as { 'site.definitionId'?: string } | undefined)?.['site.definitionId'];
+    if (destSiteDefId === null || filterSiteDefId !== (destSiteDefId as unknown as string)) continue;
+    const overrideType = c.kind.value as import('../../types/common.js').SiteType;
+    if (!effectiveSiteTypes.includes(overrideType)) {
+      effectiveSiteTypes.push(overrideType);
     }
   }
 
