@@ -28,6 +28,7 @@ import {
   getCompanyMoveSourceId, setCompanyMoveSourceId,
   getCompanyMoveSourceCompanyId, setCompanyMoveSourceCompanyId,
   getMergeSourceCompanyId, setMergeSourceCompanyId,
+  setPendingFocusCharacterId,
   getLastOnAction,
   rerender,
 } from './company-view-state.js';
@@ -269,6 +270,10 @@ export function renderAllCompaniesView(
       const block = renderDummyCompanyBlock(siteInstanceId, view, cardPool);
       block.classList.add('company-block--target');
       block.onclick = () => {
+        // After the action resolves, the played character will be in a new
+        // company at the chosen site — auto-focus on it so the player doesn't
+        // have to find it in the overview.
+        setPendingFocusCharacterId(actions[0].characterInstanceId);
         clearCharacterPlaySelection();
         setAllCompaniesOverride(false);
         lastOnAction(actions[0]);
