@@ -17,7 +17,7 @@ import { availableDI } from './legal-actions/organization.js';
 import type { ReducerResult } from './reducer-utils.js';
 import { roll2d6, clonePlayers, cleanupEmptyCompanies } from './reducer-utils.js';
 import { handlePlayPermanentEvent, handlePlayResourceShortEvent } from './reducer-events.js';
-import { handleGrantActionApply, handleCancelConstraint } from './reducer-organization.js';
+import { handleGrantActionApply } from './reducer-organization.js';
 import { buildInPlayNames } from './recompute-derived.js';
 import { sweepExpired, enqueueResolution, removeConstraint } from './pending.js';
 import { resolveEffective } from './effective.js';
@@ -159,11 +159,12 @@ function handleSiteEnterOrSkip(
   action: GameAction,
   siteState: SitePhaseState,
 ): ReducerResult {
-  // Cancel-constraint: a character in the company whose attributes
-  // satisfy a `cancelWhen` DSL condition on the active constraint taps
-  // to remove that constraint, freeing normal site phase actions.
-  if (action.type === 'activate-granted-action' && action.actionId === 'cancel-constraint') {
-    return handleCancelConstraint(state, action);
+  // Granted-action activation (e.g. River: ranger taps to cancel
+  // site-phase-do-nothing). Routed through the shared generic handler,
+  // which resolves the apply from the active granted-action
+  // constraint matching action.sourceCardId + action.actionId.
+  if (action.type === 'activate-granted-action') {
+    return handleGrantActionApply(state, action);
   }
 
   if (action.type !== 'enter-site' && action.type !== 'pass') {

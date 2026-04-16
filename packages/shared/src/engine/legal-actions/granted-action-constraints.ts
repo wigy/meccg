@@ -44,7 +44,9 @@ export function emitGrantedActionConstraintActions(
 
   const matchingConstraints: ActiveConstraint[] = state.activeConstraints.filter(c => {
     if (c.kind.type !== 'granted-action') return false;
-    if (c.kind.phase !== phaseKey) return false;
+    // A constraint's phase gates where it fires. When absent, it's
+    // eligible in any phase the emitter is invoked from (River).
+    if (c.kind.phase !== undefined && c.kind.phase !== phaseKey) return false;
     if (windowKey !== undefined && c.kind.window !== undefined && c.kind.window !== windowKey) return false;
     if (c.target.kind !== 'company' || c.target.companyId !== company.id) return false;
     return true;

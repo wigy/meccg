@@ -21,7 +21,7 @@ import type { ReducerResult } from './reducer-utils.js';
 import { clonePlayers, startDeckExhaust, completeDeckExhaust, handleExchangeSideboard, cleanupEmptyCompanies, autoMergeNonHavenCompanies } from './reducer-utils.js';
 import { handlePlayShortEvent } from './reducer-events.js';
 import { handlePlayPermanentEvent } from './reducer-events.js';
-import { handleGrantActionApply, handleCancelConstraint } from './reducer-organization.js';
+import { handleGrantActionApply } from './reducer-organization.js';
 import { sweepExpired, addConstraint, enqueueResolution } from './pending.js';
 import { buildInPlayNames } from './recompute-derived.js';
 
@@ -156,13 +156,10 @@ function handlePlayHazards(
     return handlePlayShortEvent(state, action);
   }
 
-  // --- Cancel constraint (e.g. River: ranger taps to cancel site-phase-do-nothing) ---
-  if (action.type === 'activate-granted-action' && action.actionId === 'cancel-constraint') {
-    return handleCancelConstraint(state, action);
-  }
-
-  // --- Grant-action (e.g. Cram untap-bearer; Great Ship cancel-chain-entry
-  //     via granted-action constraint) ---
+  // --- Granted-action (e.g. Cram untap-bearer; Great Ship
+  //     cancel-chain-entry; River ranger-cancel — all via the shared
+  //     handler that resolves the apply from either the source card's
+  //     grant-action effect or an active granted-action constraint). ---
   if (action.type === 'activate-granted-action') {
     return handleGrantActionApply(state, action);
   }
@@ -772,9 +769,7 @@ function fireCompanyArrivesAtSite(
         let kind: import('../types/pending.js').ActiveConstraint['kind'];
         switch (constraintKind) {
           case 'site-phase-do-nothing':
-            kind = effect.apply.cancelWhen
-              ? { type: 'site-phase-do-nothing', cancelWhen: effect.apply.cancelWhen }
-              : { type: 'site-phase-do-nothing' };
+            kind = { type: 'site-phase-do-nothing' };
             break;
           case 'no-creature-hazards-on-company':
             kind = { type: 'no-creature-hazards-on-company' };
@@ -782,6 +777,20 @@ function fireCompanyArrivesAtSite(
           case 'deny-scout-resources':
             kind = { type: 'deny-scout-resources' };
             break;
+          case 'granted-action': {
+            const payload = effect.apply.grantedAction;
+            if (!payload) continue;
+            kind = {
+              type: 'granted-action',
+              action: payload.action,
+              phase: payload.phase as import('../types/state-phases.js').Phase | undefined,
+              window: payload.window,
+              cost: payload.cost,
+              when: payload.when,
+              apply: payload.apply,
+            };
+            break;
+          }
           default:
             continue;
         }

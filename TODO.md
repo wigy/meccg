@@ -7,17 +7,14 @@ FIXES
 FEATS
 -----
 
-DSL Generalization plan (more work added).
-
 Full keyboard support. Shift or Ctrl will reveal shortcuts. Use numbers and a-z to equal hand cards.
 
 EPICS
 -----
 
-(A) Stewards of Gondor
-(F) Spies and Traitors
 The Dragons Rules
   Hoard
+(F) Spies and Traitors
 Dark Minions Rules
   Agents
 The Lidless eye Rules
@@ -53,5 +50,3 @@ Finalise tests section 10
 Deck Validation
 Tournaments
 Uploading Gccg deck format.
-
-One single full game played with 2 Cypress robots running in parallel. Need to have --seed <num> support for game server and ability to Cypress clients to set it. Maybe we need to check result of every roll so that we can see if random system diverges due to additional die roll for example. Or vs. pseudo ai.

@@ -671,10 +671,16 @@ function applyOneConstraint(
       // movement-hazard.ts`) — no legal-action filtering needed here.
       return base;
     case 'granted-action':
-      // Consumed by window-specific legal-action generators that
-      // iterate active `granted-action` constraints and emit
-      // `activate-granted-action` per eligible candidate.
-      return base;
+      // Cards whose `when` references window-specific context fields
+      // (e.g. Great Ship's `path` + `chain.hazardCount`) rely on the
+      // explicit emit from `movement-hazard.ts` / `chain.ts`, which
+      // supply that context. This pass-through emits the same
+      // activate-granted-action for any phase-matching constraint
+      // whose `when` is satisfied by the minimal context available
+      // here ({} — so only `when`-less or actor-only conditions hit).
+      // River's ranger-cancel (per-character filter on `actor`) runs
+      // through this path in both Site and M/H phases.
+      return applyGrantedActionConstraint(state, playerId, base, constraint);
     case 'creature-type-no-hazard-limit':
       return base;
     case 'auto-attack-duplicate':
@@ -713,16 +719,93 @@ function activeCompanyId(state: GameState): CompanyId | null {
 }
 
 /**
+ * Emit `activate-granted-action` actions for a `granted-action`
+ * constraint through the global `applyConstraints` dispatch. River
+ * uses this path in both M/H and Site phases (its `when` references
+ * only `actor.*`, so the minimal context here suffices). Great Ship
+ * uses the window-specific emission from `movement-hazard.ts` and
+ * `chain.ts` instead — those paths carry `path` + `chain.hazardCount`
+ * context, which Great Ship's `when` requires.
+ */
+function applyGrantedActionConstraint(
+  state: GameState,
+  playerId: PlayerId,
+  base: EvaluatedAction[],
+  constraint: ActiveConstraint,
+): EvaluatedAction[] {
+  if (constraint.kind.type !== 'granted-action') return base;
+  if (constraint.target.kind !== 'company') return base;
+  if (state.activePlayer !== playerId) return base;
+
+  const playerIndex = state.players.findIndex(p => p.id === playerId);
+  if (playerIndex === -1) return base;
+  const player = state.players[playerIndex];
+  const targetCompanyId = constraint.target.companyId;
+  const company = player.companies.find(c => c.id === targetCompanyId);
+  if (!company) return base;
+
+  const kind = constraint.kind;
+  const phaseStr = state.phaseState.phase;
+
+  // Skip if the constraint declares a specific phase and we're not in it.
+  if (kind.phase !== undefined && kind.phase !== phaseStr) return base;
+
+  const result = [...base];
+  for (const charId of company.characters) {
+    const char = player.characters[charId as string];
+    if (!char) continue;
+    if (kind.cost.tap && char.status !== CardStatus.Untapped) continue;
+
+    const def = resolveDef(state, char.instanceId);
+    if (!isCharacterCard(def)) continue;
+    const statusStr = char.status === CardStatus.Untapped ? 'untapped'
+      : char.status === CardStatus.Tapped ? 'tapped'
+      : 'inverted';
+
+    const ctx = {
+      actor: {
+        name: def.name,
+        race: def.race,
+        skills: def.skills,
+        status: statusStr,
+      },
+    };
+
+    if (kind.when && !matchesCondition(kind.when, ctx)) continue;
+
+    // Skip if a duplicate action for the same (character, actionId,
+    // source) was already emitted by the window-specific path.
+    const alreadyEmitted = result.some(ea =>
+      ea.action.type === 'activate-granted-action'
+      && (ea.action as { characterId?: unknown }).characterId === char.instanceId
+      && (ea.action as { actionId?: unknown }).actionId === kind.action
+      && (ea.action as { sourceCardId?: unknown }).sourceCardId === constraint.source,
+    );
+    if (alreadyEmitted) continue;
+
+    logDetail(`Constraint ${constraint.id as string} (granted-action ${kind.action}): offering on ${def.name}`);
+    result.push({
+      action: {
+        type: 'activate-granted-action',
+        player: playerId,
+        characterId: char.instanceId,
+        sourceCardId: constraint.source,
+        sourceCardDefinitionId: constraint.sourceDefinitionId,
+        actionId: kind.action,
+        rollThreshold: 0,
+      },
+      viable: true,
+    });
+  }
+  return result;
+}
+
+/**
  * Lost in Free-domains / River constraint: during the affected company's
- * `enter-or-skip` step, drop every legal action except `pass`. When the
- * constraint declares a `cancelWhen` DSL condition, each character in
- * the target company whose attributes satisfy the condition gets a
- * `cancel-constraint` action added back — tapping that character
- * cancels the constraint and frees the company to act normally.
- *
- * Implementation note (River): the card text says the ranger may cancel
- * "even at the start of his company's site phase" — tightening the
- * first-action timing is tracked in a follow-up PR.
+ * `enter-or-skip` step, drop every legal action except `pass`. The
+ * cancel path is no longer handled here — River declares a separate
+ * `granted-action` constraint for the ranger-tap, and the
+ * {@link applyGrantedActionConstraint} dispatch handles its emission.
  */
 function applySitePhaseDoNothing(
   state: GameState,
@@ -736,79 +819,15 @@ function applySitePhaseDoNothing(
   const targetCompanyId = constraint.target.companyId;
   if (activeCompanyId(state) !== targetCompanyId) return base;
 
-  const phase = state.phaseState.phase;
-
-  // During M/H phase the "do nothing" restriction does not apply yet
-  // (it fires in the site phase), but the cancelWhen escape hatch is
-  // already available — e.g. River allows a ranger to tap during M/H
-  // to pre-empt the constraint before the site phase even starts.
-  if (phase === Phase.MovementHazard) {
-    return appendCancelActions(state, playerId, base, constraint);
-  }
-
-  if (phase !== Phase.Site) return base;
+  // The restriction only fires during the company's enter-or-skip
+  // step — M/H and other phases leave `base` unchanged. Any cancel
+  // mechanism lives on a separate `granted-action` constraint.
+  if (state.phaseState.phase !== Phase.Site) return base;
   const sps = state.phaseState;
   if (sps.step !== 'enter-or-skip') return base;
 
   logDetail(`Constraint ${constraint.id as string} (site-phase-do-nothing): collapsing to pass for company ${targetCompanyId as string}`);
-  const filtered = base.filter(ea => ea.action.type === 'pass');
-  return appendCancelActions(state, playerId, filtered, constraint);
-}
-
-/**
- * Append cancel-constraint actions for characters that satisfy the
- * constraint's `cancelWhen` condition.  Shared between the M/H and
- * Site-phase branches of {@link applySitePhaseDoNothing}.
- */
-function appendCancelActions(
-  state: GameState,
-  playerId: PlayerId,
-  base: EvaluatedAction[],
-  constraint: ActiveConstraint,
-): EvaluatedAction[] {
-  const cancelWhen = (constraint.kind as { cancelWhen?: import('../../types/effects.js').Condition }).cancelWhen;
-  if (!cancelWhen) return base;
-
-  const targetCompanyId = (constraint.target as { companyId: import('../../index.js').CompanyId }).companyId;
-  const playerIndex = state.players.findIndex(p => p.id === playerId);
-  if (playerIndex === -1) return base;
-  const player = state.players[playerIndex];
-  const constraintCompany = player.companies.find(c => c.id === targetCompanyId);
-  if (!constraintCompany) return base;
-
-  const result = [...base];
-  for (const charId of constraintCompany.characters) {
-    const char = player.characters[charId as string];
-    if (!char) continue;
-    const def = resolveDef(state, char.instanceId);
-    if (!isCharacterCard(def)) continue;
-    const statusStr = char.status === CardStatus.Untapped ? 'untapped'
-      : char.status === CardStatus.Tapped ? 'tapped'
-      : 'inverted';
-    const ctx = {
-      actor: {
-        name: def.name,
-        race: def.race,
-        skills: def.skills,
-        status: statusStr,
-      },
-    };
-    if (!matchesCondition(cancelWhen, ctx)) continue;
-    logDetail(`Constraint ${constraint.id as string} (cancelWhen): offering cancel-constraint on ${def.name}`);
-    result.push({
-      action: {
-        type: 'activate-granted-action',
-        player: playerId,
-        characterId: char.instanceId,
-        sourceCardId: constraint.source,
-        sourceCardDefinitionId: constraint.sourceDefinitionId,
-        actionId: 'cancel-constraint',
-        rollThreshold: 0,
-      },
-      viable: true,
-    });
-  }
-  return result;
+  return base.filter(ea => ea.action.type === 'pass');
 }
 
 /**

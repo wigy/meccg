@@ -418,8 +418,11 @@ export interface TriggeredAction {
  */
 export interface GrantedActionConstraintPayload {
   readonly action: string;
-  /** Phase in which the granted action is legal. */
-  readonly phase: string;
+  /**
+   * Phase in which the granted action is legal. When absent, any
+   * phase that calls the granted-action emitter sees this action.
+   */
+  readonly phase?: string;
   /** Optional sub-step / window within the phase. */
   readonly window?: string;
   /** Cost to activate. */

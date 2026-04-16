@@ -290,18 +290,33 @@
       {
         "type": "on-event",
         "event": "company-arrives-at-site",
+        "target": "arriving-company",
         "apply": {
-          "type": "add-constraint",
-          "constraint": "site-phase-do-nothing",
-          "scope": "company-site-phase",
-          "cancelWhen": {
-            "$and": [
-              { "actor.skills": { "$includes": "ranger" } },
-              { "actor.status": "untapped" }
-            ]
-          }
-        },
-        "target": "arriving-company"
+          "type": "sequence",
+          "apps": [
+            {
+              "type": "add-constraint",
+              "constraint": "site-phase-do-nothing",
+              "scope": "company-site-phase"
+            },
+            {
+              "type": "add-constraint",
+              "constraint": "granted-action",
+              "scope": "company-site-phase",
+              "grantedAction": {
+                "action": "cancel-river",
+                "cost": { "tap": "character" },
+                "when": {
+                  "$and": [
+                    { "actor.skills": { "$includes": "ranger" } },
+                    { "actor.status": "untapped" }
+                  ]
+                },
+                "apply": { "type": "remove-constraint", "select": "constraint-source" }
+              }
+            }
+          ]
+        }
       }
     ],
     "text": "Playable on a site. A company moving to this site this turn must do nothing during its site phase. A ranger in such a company may tap to cancel this effect, even at the start of his company's site phase.",
