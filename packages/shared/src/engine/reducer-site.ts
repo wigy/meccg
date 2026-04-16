@@ -16,7 +16,7 @@ import { initiateChain } from './chain-reducer.js';
 import { availableDI } from './legal-actions/organization.js';
 import type { ReducerResult } from './reducer-utils.js';
 import { roll2d6, clonePlayers, cleanupEmptyCompanies } from './reducer-utils.js';
-import { handlePlayPermanentEvent } from './reducer-events.js';
+import { handlePlayPermanentEvent, handlePlayResourceShortEvent } from './reducer-events.js';
 import { handleUntapBearer } from './reducer-organization.js';
 import { buildInPlayNames } from './recompute-derived.js';
 import { sweepExpired, enqueueResolution, removeConstraint } from './pending.js';
@@ -681,6 +681,13 @@ function handleSitePlayResources(
   // Permanent events — reuse the existing handler (phase-independent)
   if (action.type === 'play-permanent-event') {
     return handlePlayPermanentEvent(state, action);
+  }
+
+  // Resource short-events (e.g. Marvels Told) — per CoE 2.1.1 they are
+  // playable during any phase of the active player's turn. Delegate to
+  // the shared resource short-event handler.
+  if (action.type === 'play-short-event') {
+    return handlePlayResourceShortEvent(state, action);
   }
 
   // On-guard intercept: when a site-tapping resource is about to be played
