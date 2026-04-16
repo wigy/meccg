@@ -71,7 +71,6 @@ export type {
   HalveStrikesAction,
   SalvageItemAction,
   PlayDodgeAction,
-  CancelHazardByTapAction,
   MusterRollAction,
   CallOfHomeRollAction,
 } from './actions-movement-hazard.js';
@@ -118,7 +117,7 @@ import type { DraftPickAction, DraftStopAction, AssignStartingItemAction, AddCha
 import type { UntapAction, PlayCharacterAction, SplitCompanyAction, MoveToCompanyAction, MergeCompaniesAction, TransferItemAction, StoreItemAction, PlanMovementAction, CancelMovementAction, MoveToInfluenceAction, PlayPermanentEventAction, ActivateGrantedAction } from './actions-organization.js';
 import type { PlayShortEventAction, FetchFromPileAction } from './actions-short-event.js';
 import type { PlayLongEventAction } from './actions-long-event.js';
-import type { SelectCompanyAction, DeclarePathAction, OrderEffectsAction, PlayHazardAction, AssignStrikeAction, ResolveStrikeAction, SupportStrikeAction, ChooseStrikeOrderAction, BodyCheckRollAction, CancelAttackAction, CancelByTapAction, CancelStrikeAction, HalveStrikesAction, SalvageItemAction, PlayDodgeAction, CancelHazardByTapAction, MusterRollAction, CallOfHomeRollAction } from './actions-movement-hazard.js';
+import type { SelectCompanyAction, DeclarePathAction, OrderEffectsAction, PlayHazardAction, AssignStrikeAction, ResolveStrikeAction, SupportStrikeAction, ChooseStrikeOrderAction, BodyCheckRollAction, CancelAttackAction, CancelByTapAction, CancelStrikeAction, HalveStrikesAction, SalvageItemAction, PlayDodgeAction, MusterRollAction, CallOfHomeRollAction } from './actions-movement-hazard.js';
 import type { EnterSiteAction, PlaceOnGuardAction, RevealOnGuardAction, DeclareAgentAttackAction, PlayHeroResourceAction, InfluenceAttemptAction, OpponentInfluenceAttemptAction, OpponentInfluenceDefendAction, CancelInfluenceAction, FactionInfluenceRollAction, PlayMinorItemAction } from './actions-site.js';
 import type { SupportCorruptionCheckAction, CorruptionCheckAction, DrawCardsAction, DiscardCardAction, PassAction, CallFreeCouncilAction, DeckExhaustAction, ExchangeSideboardAction, StartSideboardToDeckAction, StartSideboardToDiscardAction, FetchFromSideboardAction, StartHazardSideboardToDeckAction, StartHazardSideboardToDiscardAction, FetchHazardFromSideboardAction, NotPlayableAction, PassChainPriorityAction, OrderPassivesAction, FinishedAction } from './actions-universal.js';
 
@@ -171,7 +170,6 @@ export type GameAction =
   | HalveStrikesAction
   | SalvageItemAction
   | PlayDodgeAction
-  | CancelHazardByTapAction
   | MusterRollAction
   | CallOfHomeRollAction
   | EnterSiteAction

@@ -92,6 +92,13 @@ export interface ConditionOperator {
   readonly $ne?: string | number | boolean | null;
   /** Checks that the context value is a member of the given array. */
   readonly $in?: readonly (string | number)[];
+  /**
+   * Array predicate: no two consecutive elements both differ from the
+   * given value. Used by Great Ship's coastal path condition
+   * ("no two consecutive non-Coastal regions"). Context value must be
+   * an array. An empty array satisfies the predicate trivially.
+   */
+  readonly $noConsecutiveOtherThan?: string | number;
 }
 
 // ---- Effect Types ----
@@ -367,6 +374,25 @@ export interface TriggeredAction {
    */
   readonly label?: string;
   /**
+   * For `cancel-chain-entry` type: which chain entry to negate.
+   *  - `most-recent-unresolved-hazard`: the latest unresolved hazard
+   *    entry (hazard-creature or hazard-event) in the chain. Used by
+   *    Great Ship.
+   *
+   * For `remove-constraint` type: which constraint(s) to remove.
+   *  - `constraint-source`: remove every active constraint whose
+   *    `source` matches the action's `sourceCardId` (i.e. the source
+   *    card's constraints get swept). Used by River.
+   */
+  readonly select?: 'most-recent-unresolved-hazard' | 'constraint-source';
+  /**
+   * For `add-constraint` with `constraint: 'granted-action'`: payload
+   * describing the action to be granted by the constraint. Mirrors
+   * {@link GrantActionEffect} fields plus `phase`/`window` so the
+   * legal-action layer knows where to offer it.
+   */
+  readonly grantedAction?: GrantedActionConstraintPayload;
+  /**
    * For `enqueue-pending-fetch` type: which pile to fetch from.
    * Matches the `source` field on `FetchToDeckEffect`.
    */
@@ -381,6 +407,27 @@ export interface TriggeredAction {
    * grant-actions.
    */
   readonly postCorruptionCheck?: boolean;
+}
+
+/**
+ * Payload carried by a TriggeredAction that adds a `granted-action`
+ * active constraint. The legal-action generator for the matching
+ * phase/window evaluates `when` per candidate and emits
+ * `activate-granted-action` actions; the reducer reads `apply` and
+ * dispatches on its type.
+ */
+export interface GrantedActionConstraintPayload {
+  readonly action: string;
+  /** Phase in which the granted action is legal. */
+  readonly phase: string;
+  /** Optional sub-step / window within the phase. */
+  readonly window?: string;
+  /** Cost to activate. */
+  readonly cost: ActionCost;
+  /** Optional gating condition evaluated per candidate. */
+  readonly when?: Condition;
+  /** Effect executed on dispatch. */
+  readonly apply: TriggeredAction;
 }
 
 /**

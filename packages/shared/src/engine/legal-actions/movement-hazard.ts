@@ -7,7 +7,7 @@
  */
 
 import type { GameState, PlayerId, GameAction, EvaluatedAction, MovementHazardPhaseState, SiteCard, CardDefinitionId, CardInstanceId, CompanyId, CreatureCard, CreatureKeyingMatch, PlayHazardAction, PlaceOnGuardAction, PlayConditionEffect, CreatureRaceChoiceEffect } from '../../index.js';
-import { getPlayerIndex, isSiteCard, isCharacterCard, isFactionCard, buildMovementMap, findRegionPaths, RegionType, Race, hasPlayFlag, matchesCondition, CardStatus } from '../../index.js';
+import { getPlayerIndex, isSiteCard, isCharacterCard, isFactionCard, buildMovementMap, findRegionPaths, RegionType, Race, hasPlayFlag, matchesCondition } from '../../index.js';
 import { resolveInstanceId } from '../../types/state.js';
 import { resolveHandSize } from '../effects/index.js';
 import { MovementType } from '../../types/common.js';
@@ -15,7 +15,24 @@ import { logDetail, logHeading } from './log.js';
 import { playPermanentEventActions, playShortEventActions } from './organization-events.js';
 import { grantedActionActivations, ANY_PHASE_GRANT_ACTIONS } from './organization.js';
 import { heroResourceShortEventActions } from './long-event.js';
-import { isCoastalPath } from '../path-predicates.js';
+import { emitGrantedActionConstraintActions } from './granted-action-constraints.js';
+
+/**
+ * Count unresolved hazard-creature / hazard-event chain entries. Used
+ * as a context field for granted-action constraints whose `when`
+ * checks chain state (e.g. Great Ship needs at least one unresolved
+ * hazard to offer a cancel).
+ */
+function countUnresolvedChainHazards(state: GameState): number {
+  if (!state.chain) return 0;
+  let n = 0;
+  for (const e of state.chain.entries) {
+    if (e.resolved || e.negated || !e.card) continue;
+    const def = state.cardPool[e.card.definitionId as string];
+    if (def && (def.cardType === 'hazard-creature' || def.cardType === 'hazard-event')) n++;
+  }
+  return n;
+}
 
 /**
  * Compute legal actions for the movement/hazard phase.
@@ -810,7 +827,17 @@ function playHazardsActions(
     actions.push(...playPermanentEventActions(state, playerId));
     actions.push(...playShortEventActions(state, playerId));
     actions.push(...heroResourceShortEventActions(state, playerId, 'movement-hazard'));
-    actions.push(...cancelHazardByTapActions(state, playerId, mhState));
+    // Granted-action constraints (Great Ship's cancel-chain-entry, etc.)
+    const playerIndex = getPlayerIndex(state, playerId);
+    const company = state.players[playerIndex].companies[mhState.activeCompanyIndex];
+    if (company) {
+      actions.push(...emitGrantedActionConstraintActions(state, playerId, company, 'movement-hazard', 'play-hazards', {
+        path: mhState.resolvedSitePath,
+        chain: {
+          hazardCount: countUnresolvedChainHazards(state),
+        },
+      }));
+    }
     actions.push(...grantedActionActivations(state, playerId, ANY_PHASE_GRANT_ACTIONS));
   }
 
@@ -830,75 +857,6 @@ function playHazardsActions(
 }
 
 
-/**
- * Generate cancel-hazard-by-tap actions for the resource player.
- * Available when the active company has a `cancel-hazard-by-tap` constraint
- * and the company's site path satisfies the coastal condition and there is
- * at least one unresolved hazard chain entry targeting the company.
- */
-function cancelHazardByTapActions(
-  state: GameState,
-  playerId: PlayerId,
-  mhState: MovementHazardPhaseState,
-): EvaluatedAction[] {
-  if (!state.chain || state.chain.entries.length === 0) return [];
-
-  const playerIndex = getPlayerIndex(state, playerId);
-  const player = state.players[playerIndex];
-  const company = player.companies[mhState.activeCompanyIndex];
-  if (!company) return [];
-
-  const hasConstraint = state.activeConstraints.some(
-    c => c.kind.type === 'cancel-hazard-by-tap'
-      && c.target.kind === 'company'
-      && c.target.companyId === company.id,
-  );
-  if (!hasConstraint) return [];
-
-  if (!isCoastalPath(mhState.resolvedSitePath)) {
-    logDetail('cancel-hazard-by-tap: site path does not satisfy coastal condition');
-    return [];
-  }
-
-  const hazardEntryIndex = findCancelableHazardEntry(state);
-  if (hazardEntryIndex === -1) return [];
-
-  const actions: EvaluatedAction[] = [];
-  for (const charInstId of company.characters) {
-    const char = player.characters[charInstId as string];
-    if (!char || char.status !== CardStatus.Untapped) continue;
-    logDetail(`cancel-hazard-by-tap: ${charInstId as string} can tap to cancel chain entry ${hazardEntryIndex}`);
-    actions.push({
-      action: {
-        type: 'cancel-hazard-by-tap' as const,
-        player: playerId,
-        characterInstanceId: charInstId,
-        chainEntryIndex: hazardEntryIndex,
-      },
-      viable: true,
-    });
-  }
-  return actions;
-}
-
-/**
- * Find the most recent unresolved chain entry that is a hazard targeting
- * the given company. Returns the entry index or -1 if none found.
- */
-function findCancelableHazardEntry(state: GameState): number {
-  if (!state.chain) return -1;
-  for (let i = state.chain.entries.length - 1; i >= 0; i--) {
-    const entry = state.chain.entries[i];
-    if (entry.resolved || entry.negated) continue;
-    if (!entry.card) continue;
-    const def = state.cardPool[entry.card.definitionId as string];
-    if (!def) continue;
-    if (def.cardType === 'hazard-creature' || def.cardType === 'hazard-event') {
-      return i;
-    }
-  }
-  return -1;
-}
 
 /**
  * Find all environment cards currently in play or declared in the active chain.

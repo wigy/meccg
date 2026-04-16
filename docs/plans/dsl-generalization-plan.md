@@ -438,7 +438,56 @@ cards needing attribute overrides will be pure JSON.
 
 ---
 
-## 6. Constraint-gated granted actions + path DSL (HIGH priority)
+## 6. Constraint-gated granted actions + path DSL ✅ DONE (Great Ship)
+
+Great Ship (tw-248) is fully migrated off its bespoke machinery. New
+primitives landed:
+
+- **`granted-action` active constraint kind** — carries a
+  `{ action, phase, window?, cost, when?, apply }` payload. The
+  legal-action layer iterates these constraints in the matching
+  phase/window and emits `activate-granted-action` per eligible
+  character; the reducer resolves the constraint's `apply` through
+  the shared `handleGrantActionApply`.
+- **`cancel-chain-entry` TriggeredAction apply** — negates the
+  most-recent-unresolved-hazard entry and discards its source.
+- **`remove-constraint` TriggeredAction apply** — removes every
+  constraint whose `source` matches the action's `sourceCardId`.
+  Available for future River-style migrations.
+- **`$noConsecutiveOtherThan` condition operator** — expresses "no
+  two consecutive array elements differ from the given value",
+  removing Great Ship's hardcoded `isCoastalPath` in favour of a pure
+  JSON condition.
+
+Great Ship JSON now declares:
+
+```json
+{ "type": "on-event", "event": "self-enters-play",
+  "apply": { "type": "add-constraint",
+    "constraint": "granted-action", "scope": "turn",
+    "grantedAction": {
+      "action": "cancel-chain-entry",
+      "phase": "movement-hazard",
+      "cost": { "tap": "character" },
+      "when": { "$and": [
+        { "chain.hazardCount": { "$gt": 0 } },
+        { "path": { "$includes": "coastal" } },
+        { "path": { "$noConsecutiveOtherThan": "coastal" } } ] },
+      "apply": { "type": "cancel-chain-entry",
+                 "select": "most-recent-unresolved-hazard" } } } }
+```
+
+Deleted: `cancel-hazard-by-tap` constraint kind,
+`CancelHazardByTapAction` action type, both bespoke legal-action
+generators, both bespoke reducers, the `isCoastalPath` helper.
+
+River (tw-084) is **not yet** migrated onto the `granted-action`
+constraint pipeline. It continues to use `site-phase-do-nothing` with
+`cancelWhen` + the shared `handleCancelConstraint` helper. The
+`remove-constraint` apply is in place so a future PR can switch River
+over with a JSON-only change.
+
+### Historical notes
 
 ### Smell
 
@@ -588,10 +637,13 @@ Recommended order:
    (not a grant-action effect) and belongs to #6's machinery.
 2. ~~**#5 attribute-modifier**~~ — done. Three Choking Shadows
    constraint kinds collapsed into one generic kind.
-3. **#6 granted-action + path DSL** — remaining. Migrate Great Ship
-   (tw-248) and River (tw-084) off their bespoke constraint kinds and
-   reducers. Introduces granted-action constraint kind, path-condition
-   DSL, `cancel-chain-entry` apply, `remove-constraint` apply.
+3. ~~**#6 granted-action + path DSL**~~ — done for Great Ship
+   (tw-248). Introduced the `granted-action` constraint kind,
+   `cancel-chain-entry` + `remove-constraint` applies, and the
+   `$noConsecutiveOtherThan` path-condition operator. River (tw-084)
+   still uses `site-phase-do-nothing` + `cancelWhen` + the shared
+   `handleCancelConstraint` helper — a JSON-only migration onto the
+   granted-action pipeline is left as a follow-up.
 4. ~~**#4 constraint collapse**~~ — done.
 5. ~~**#2 play-restriction**~~ — done (`PlayFlagEffect` replaced the
    rule-string matching).
