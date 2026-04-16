@@ -297,6 +297,13 @@
             { "bearer.canUsePalantir": true },
             { "player.playDeckSize": { "$gte": 5 } }
           ]
+        },
+        "apply": {
+          "type": "enqueue-pending-fetch",
+          "fetchFrom": ["discard-pile"],
+          "fetchCount": 1,
+          "fetchShuffle": true,
+          "postCorruptionCheck": true
         }
       }
     ],

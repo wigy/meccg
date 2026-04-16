@@ -672,8 +672,9 @@ function handleActivateGrantedAction(state: GameState, action: GameAction): Redu
     return handleGrantActionApply(state, action);
   }
 
+  // `palantir-fetch-discard` migrated — fall through to generic.
   if (action.actionId === 'palantir-fetch-discard') {
-    return handlePalantirFetchDiscard(state, action);
+    return handleGrantActionApply(state, action);
   }
 
   // `remove-self-on-roll` (Foolish Words and variants) and
@@ -1043,6 +1044,42 @@ function runGrantApply(
     return { updatedChar: char, effects: [], stateOps: [] };
   }
 
+  if (apply.type === 'enqueue-pending-fetch') {
+    const fromSources = apply.fetchFrom ?? ['discard-pile'];
+    const count = apply.fetchCount ?? 1;
+    const shuffle = apply.fetchShuffle ?? true;
+    const characterId = ctx.action.characterId;
+    const sourceId = ctx.action.sourceCardId;
+    logDetail(`Grant-action ${ctx.action.actionId}: enqueueing fetch-to-deck from [${fromSources.join(', ')}] (count=${count}, shuffle=${shuffle}, postCorruptionCheck=${!!apply.postCorruptionCheck})`);
+    return {
+      updatedChar: char,
+      effects: [],
+      stateOps: [
+        s => ({
+          ...s,
+          pendingEffects: [
+            ...s.pendingEffects,
+            {
+              type: 'card-effect' as const,
+              cardInstanceId: sourceId,
+              effect: {
+                type: 'fetch-to-deck' as const,
+                source: fromSources,
+                filter: {},
+                count,
+                shuffle,
+              },
+              skipDiscard: true,
+              ...(apply.postCorruptionCheck
+                ? { postCorruptionCheck: { characterId, modifier: 0 } }
+                : {}),
+            },
+          ],
+        }),
+      ],
+    };
+  }
+
   if (apply.type === 'roll-then-apply') {
     if (apply.threshold === undefined) {
       return { error: `roll-then-apply missing threshold on ${ctx.sourceName}` };
@@ -1195,9 +1232,32 @@ export function handleGrantActionApply(state: GameState, action: GameAction): Re
     }
     updatedChar = detached.updatedChar;
     logDetail(`Grant-action ${action.actionId}: ${charName} discards ${sourceName}`);
-  } else if (effect.cost.tap === 'bearer' || effect.cost.tap === 'self') {
+  } else if (effect.cost.tap === 'bearer') {
     updatedChar = { ...updatedChar, status: CardStatus.Tapped };
     logDetail(`Grant-action ${action.actionId}: ${charName} taps (source: ${sourceName})`);
+  } else if (effect.cost.tap === 'self') {
+    // `self` is the source card. When the source IS the bearer
+    // character (grant-action declared directly on a character card,
+    // e.g. Gandalf / Saruman), tap the character. When the source is
+    // attached (item / ally / hazard), tap the attachment in place.
+    if (action.sourceCardId === action.characterId) {
+      updatedChar = { ...updatedChar, status: CardStatus.Tapped };
+      logDetail(`Grant-action ${action.actionId}: ${charName} taps`);
+    } else {
+      const loc = locateSourceOnCharacter(updatedChar, action.sourceCardId, playerIndex);
+      if (!loc) {
+        return { state, error: `${sourceName} not attached to ${charName}` };
+      }
+      const tapAttachment = <T extends { readonly instanceId: CardInstanceId; readonly status: CardStatus }>(
+        list: readonly T[],
+      ): readonly T[] => list.map(a => a.instanceId === action.sourceCardId ? { ...a, status: CardStatus.Tapped } : a);
+      updatedChar = loc.slot === 'items'
+        ? { ...updatedChar, items: tapAttachment(updatedChar.items) }
+        : loc.slot === 'allies'
+          ? { ...updatedChar, allies: tapAttachment(updatedChar.allies) }
+          : { ...updatedChar, hazards: tapAttachment(updatedChar.hazards) };
+      logDetail(`Grant-action ${action.actionId}: ${charName} taps ${sourceName}`);
+    }
   } else {
     return { state, error: `Unsupported grant-action cost ${JSON.stringify(effect.cost)} on ${sourceName}` };
   }
@@ -1242,83 +1302,6 @@ export function handleGrantActionApply(state: GameState, action: GameAction): Re
 }
 
 
-/**
- * Handle palantir-fetch-discard grant-action.
- *
- * Taps the Palantír item, enqueues a fetch-to-deck pending effect
- * (player picks a card from discard pile to shuffle into play deck),
- * and enqueues a corruption check on the bearer after the fetch.
- */
-function handlePalantirFetchDiscard(state: GameState, action: GameAction): ReducerResult {
-  if (action.type !== 'activate-granted-action') return { state, error: 'Expected activate-granted-action' };
-
-  const playerIndex = getPlayerIndex(state, action.player);
-  const player = state.players[playerIndex];
-  const char = player.characters[action.characterId as string];
-  if (!char) return { state, error: 'Character not found' };
-
-  const charDefId = resolveInstanceId(state, action.characterId);
-  const charDef = charDefId ? state.cardPool[charDefId as string] : undefined;
-  const charName = charDef?.name ?? '?';
-  const sourceDef = state.cardPool[action.sourceCardDefinitionId as string];
-  const sourceName = sourceDef?.name ?? '?';
-
-  const itemIdx = char.items.findIndex(i => i.instanceId === action.sourceCardId);
-  if (itemIdx < 0) {
-    return { state, error: `${sourceName} is not an item on ${charName}` };
-  }
-
-  const item = char.items[itemIdx];
-  if (item.status !== CardStatus.Untapped) {
-    return { state, error: `${sourceName} is already tapped` };
-  }
-
-  if (player.discardPile.length === 0) {
-    return { state, error: 'No cards in discard pile to fetch' };
-  }
-
-  logDetail(`Palantír fetch: ${charName} taps ${sourceName} to fetch a card from discard pile`);
-
-  const newPlayers = clonePlayers(state);
-  const tappedItem = { ...item, status: CardStatus.Tapped };
-  const updatedItems = [...char.items];
-  updatedItems[itemIdx] = tappedItem;
-
-  newPlayers[playerIndex] = {
-    ...newPlayers[playerIndex],
-    characters: {
-      ...newPlayers[playerIndex].characters,
-      [action.characterId as string]: { ...char, items: updatedItems },
-    },
-  };
-
-  let newState: GameState = {
-    ...state,
-    players: newPlayers,
-    pendingEffects: [
-      ...state.pendingEffects,
-      {
-        type: 'card-effect' as const,
-        cardInstanceId: action.sourceCardId,
-        effect: {
-          type: 'fetch-to-deck' as const,
-          source: ['discard-pile'],
-          filter: {},
-          count: 1,
-          shuffle: true,
-        },
-        skipDiscard: true,
-        postCorruptionCheck: {
-          characterId: action.characterId,
-          modifier: 0,
-        },
-      },
-    ],
-  };
-
-  newState = recomputeDerived(newState);
-  return { state: newState };
-}
 
 /**
  * Handle split-company during organization.

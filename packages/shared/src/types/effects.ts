@@ -366,6 +366,21 @@ export interface TriggeredAction {
    * for the check whose modifiers are summed into the roll.
    */
   readonly label?: string;
+  /**
+   * For `enqueue-pending-fetch` type: which pile to fetch from.
+   * Matches the `source` field on `FetchToDeckEffect`.
+   */
+  readonly fetchFrom?: readonly ('discard-pile' | 'deck' | 'hand')[];
+  /** For `enqueue-pending-fetch` type: how many cards to fetch. Defaults to 1. */
+  readonly fetchCount?: number;
+  /** For `enqueue-pending-fetch` type: reshuffle play deck after fetch. */
+  readonly fetchShuffle?: boolean;
+  /**
+   * For `enqueue-pending-fetch` type: when true, enqueue a corruption
+   * check on the bearer after the fetch completes. Used by Palantír
+   * grant-actions.
+   */
+  readonly postCorruptionCheck?: boolean;
 }
 
 /**
