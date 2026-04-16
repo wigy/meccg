@@ -29,27 +29,13 @@ import {
   SUN, TWILIGHT, GATES_OF_MORNING, DOORS_OF_NIGHT,
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
   CardStatus,
-  buildTestState, resetMint,
+  buildTestState, resetMint, resolveChain,
   viableActions,
   P1_COMPANY, makeMHState,
   handCardId,
 } from '../../test-helpers.js';
 import { Phase } from '../../../index.js';
 import type { CardInPlay, CardInstanceId, GameState } from '../../../index.js';
-
-// ─── Helpers ─────────────────────────────────────────────────────────────────
-
-/** Both players pass chain priority so the chain resolves. */
-function passBothAndResolve(state: GameState): GameState {
-  // Priority player passes first
-  const p = state.chain!.priority;
-  const opp = p === PLAYER_1 ? PLAYER_2 : PLAYER_1;
-  let result = reduce(state, { type: 'pass-chain-priority', player: p });
-  expect(result.error).toBeUndefined();
-  result = reduce(result.state, { type: 'pass-chain-priority', player: opp });
-  expect(result.error).toBeUndefined();
-  return result.state;
-}
 
 // ─── Tests ───────────────────────────────────────────────────────────────────
 
@@ -166,7 +152,7 @@ describe('Rule 10.29 — Chain of Effects', () => {
     //   3. P1's Twilight resolves → negates P2's Twilight
     //   2. P2's Twilight resolves → negated, fizzles
     //   1. GoM resolves → enters play, discards DoN
-    const s = passBothAndResolve(afterP1Twilight);
+    const s = resolveChain(afterP1Twilight);
 
     expect(s.chain).toBeNull();
     // GoM survived and entered play
@@ -288,7 +274,7 @@ describe('Rule 10.29 — Chain of Effects', () => {
     const afterTwilight = dispatch(afterGom, { type: 'play-short-event', player: PLAYER_2, cardInstanceId: p2Twilight, targetInstanceId: gomId });
 
     // Both pass → resolve
-    const s = passBothAndResolve(afterTwilight);
+    const s = resolveChain(afterTwilight);
 
     expect(s.chain).toBeNull();
     // GoM was negated → discarded, never enters play
@@ -358,7 +344,7 @@ describe('Rule 10.29 — Chain of Effects', () => {
     //   #3 P1 Twilight → negates P2 Twilight
     //   #2 P2 Twilight → negated, fizzles
     //   #1 GoM → resolves, enters play
-    const s = passBothAndResolve(afterP1Twilight);
+    const s = resolveChain(afterP1Twilight);
 
     expect(s.chain).toBeNull();
     expect(s.players[0].cardsInPlay.some(c => c.instanceId === gomId)).toBe(true);
@@ -451,7 +437,7 @@ describe('Rule 10.29 — Chain of Effects', () => {
     const afterTwilight = dispatch(afterDon, { type: 'play-short-event', player: PLAYER_1, cardInstanceId: p1Twilight, targetInstanceId: donId });
 
     // Both pass → resolve LIFO: Twilight negates DoN
-    const s = passBothAndResolve(afterTwilight);
+    const s = resolveChain(afterTwilight);
 
     expect(s.chain).toBeNull();
     // DoN was negated → discarded
@@ -506,7 +492,7 @@ describe('Rule 10.29 — Chain of Effects', () => {
     // P2 cancels with Twilight
     const afterTwilight = dispatch(afterGom, { type: 'play-short-event', player: PLAYER_2, cardInstanceId: p2Twilight, targetInstanceId: gomId });
 
-    const s = passBothAndResolve(afterTwilight);
+    const s = resolveChain(afterTwilight);
 
     // GoM goes to P1's (declaring player's) discard
     expect(s.players[0].discardPile.map(c => c.instanceId)).toContain(gomId);

@@ -20,12 +20,17 @@
 
 import { describe, test, expect, beforeEach } from 'vitest';
 import {
-  buildTestState, resetMint, Phase,
+  buildTestState, resetMint, viableFor, Phase,
   PLAYER_1, PLAYER_2,
   ARAGORN, BILBO, LEGOLAS, GIMLI,
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
 } from '../../test-helpers.js';
-import { computeLegalActions } from '../../../index.js';
+
+/** Action types that constitute "setting company composition" in rule 3.23. */
+const COMPOSITION_ACTION_TYPES = new Set([
+  'split-company', 'merge-companies',
+  'move-to-company', 'move-to-influence', 'move-to-follower',
+]);
 
 describe('Rule 3.23 — Setting Company Composition', () => {
   beforeEach(() => resetMint());
@@ -54,13 +59,8 @@ describe('Rule 3.23 — Setting Company Composition', () => {
       recompute: true,
     });
 
-    const compositionTypes = new Set([
-      'split-company', 'merge-companies',
-      'move-to-company', 'move-to-influence', 'move-to-follower',
-    ]);
-
-    const p1Actions = computeLegalActions(state, PLAYER_1).filter(a => a.viable);
-    const p1Composition = p1Actions.filter(a => compositionTypes.has(a.action.type));
+    const p1Composition = viableFor(state, PLAYER_1)
+      .filter(a => COMPOSITION_ACTION_TYPES.has(a.action.type));
     expect(p1Composition.length).toBeGreaterThan(0);
   });
 
@@ -88,13 +88,8 @@ describe('Rule 3.23 — Setting Company Composition', () => {
       recompute: true,
     });
 
-    const compositionTypes = new Set([
-      'split-company', 'merge-companies',
-      'move-to-company', 'move-to-influence', 'move-to-follower',
-    ]);
-
-    const p2Actions = computeLegalActions(state, PLAYER_2).filter(a => a.viable);
-    const p2Composition = p2Actions.filter(a => compositionTypes.has(a.action.type));
+    const p2Composition = viableFor(state, PLAYER_2)
+      .filter(a => COMPOSITION_ACTION_TYPES.has(a.action.type));
     expect(p2Composition).toHaveLength(0);
   });
 });

@@ -17,7 +17,7 @@
 
 import { describe, test, expect, beforeEach } from 'vitest';
 import {
-  buildSitePhaseState, buildTestState, resetMint, viableActions,
+  buildSitePhaseState, buildTestState, resetMint, viableActions, actionAs,
   PLAYER_1, PLAYER_2,
   ARAGORN, BILBO, LEGOLAS,
   DAGGER_OF_WESTERNESSE,
@@ -25,6 +25,7 @@ import {
   CardStatus, Phase,
 } from '../../test-helpers.js';
 import { computeLegalActions } from '../../../index.js';
+import type { NotPlayableAction, PlayHeroResourceAction } from '../../../index.js';
 
 describe('Rule 6.09 — Playing Resources at a Site', () => {
   beforeEach(() => resetMint());
@@ -41,7 +42,7 @@ describe('Rule 6.09 — Playing Resources at a Site', () => {
 
     const plays = viableActions(state, PLAYER_1, 'play-hero-resource');
     expect(plays.length).toBe(1);
-    const action = plays[0].action as { cardInstanceId: string; attachToCharacterId: string };
+    const action = actionAs<PlayHeroResourceAction>(plays[0].action);
     expect(action.cardInstanceId).toBe(state.players[0].hand[0].instanceId);
     expect(action.attachToCharacterId).toBe(state.players[0].companies[0].characters[0]);
   });
@@ -62,7 +63,7 @@ describe('Rule 6.09 — Playing Resources at a Site', () => {
     const handInst = state.players[0].hand[0].instanceId;
     const tooltip = computeLegalActions(state, PLAYER_1).find(
       ea => !ea.viable && ea.action.type === 'not-playable'
-        && (ea.action as { cardInstanceId: string }).cardInstanceId === handInst,
+        && actionAs<NotPlayableAction>(ea.action).cardInstanceId === handInst,
     );
     expect(tooltip).toBeDefined();
     expect(tooltip!.reason).toMatch(/tapped/i);

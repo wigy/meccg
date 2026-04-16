@@ -19,11 +19,12 @@ import {
   ARAGORN, LEGOLAS,
   CAVE_DRAKE, SUN,
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
-  buildTestState, resetMint, makeMHState, makeBodyCheckCombat, findCharInstanceId,
-  dispatchResult, viableActions,
+  buildTestState, resetMint, setCharStatus,
+  makeShadowMHState, makeBodyCheckCombat, findCharInstanceId,
+  dispatchResult, viableActions, viableActionTypes,
   Phase, companyIdAt,
 } from '../../test-helpers.js';
-import { RegionType, SiteType, CardStatus, computeLegalActions } from '../../../index.js';
+import { CardStatus } from '../../../index.js';
 import type { DieRoll, TwoDiceSix } from '../../../index.js';
 
 describe('Rule 8.28 — Body Check', () => {
@@ -46,42 +47,24 @@ describe('Rule 8.28 — Body Check', () => {
     const aragornId = findCharInstanceId(state, 0, ARAGORN);
     const companyId = companyIdAt(state, 0);
 
-    // Place Aragorn in wounded state so the body check applies +1
-    const players = [...state.players];
-    const p0 = { ...players[0] };
-    p0.characters = {
-      ...p0.characters,
-      [aragornId as string]: { ...p0.characters[aragornId as string], status: CardStatus.Inverted },
-    };
-    players[0] = p0;
-
-    const mhState = makeMHState({
-      resolvedSitePath: [RegionType.Shadow],
-      resolvedSitePathNames: ['Imlad Morgul'],
-      destinationSiteType: SiteType.ShadowHold,
-      destinationSiteName: 'Moria',
-    });
-
-    // Set up combat in body-check phase for the character. The +1 wound
-    // modifier applies since Aragorn was wounded before the fatal strike.
-    const combat = makeBodyCheckCombat({ companyId, characterId: aragornId, wasAlreadyWounded: true });
-
-    const readyState = { ...state, players, phaseState: mhState, combat };
-
-    // Set a stale lastDiceRoll on the defending player (from a prior strike
-    // roll) and a different stale roll on the attacking player — simulating
-    // the exact scenario from the bug report.
+    // Place Aragorn in wounded state so the body check applies +1.
+    // Then set stale `lastDiceRoll` values on both players (defender from a
+    // prior strike roll, attacker from an earlier roll) — simulating the
+    // exact scenario from the bug report. `cheatRollTotal: 10` forces the
+    // body-check roll deterministically.
+    const woundedState = setCharStatus(state, 0, ARAGORN, CardStatus.Inverted);
     const staleDefRoll: TwoDiceSix = { die1: 2 as DieRoll, die2: 4 as DieRoll };
     const staleAtkRoll: TwoDiceSix = { die1: 2 as DieRoll, die2: 2 as DieRoll };
-    const p0WithStaleRoll = { ...readyState.players[0], lastDiceRoll: staleDefRoll };
-    const p1WithStaleRoll = { ...readyState.players[1], lastDiceRoll: staleAtkRoll };
-    const stateWithStaleRolls = {
-      ...readyState,
-      players: [p0WithStaleRoll, p1WithStaleRoll] as const,
+    const cheated = {
+      ...woundedState,
+      phaseState: makeShadowMHState(),
+      combat: makeBodyCheckCombat({ companyId, characterId: aragornId, wasAlreadyWounded: true }),
+      players: [
+        { ...woundedState.players[0], lastDiceRoll: staleDefRoll },
+        { ...woundedState.players[1], lastDiceRoll: staleAtkRoll },
+      ] as unknown as typeof woundedState.players,
+      cheatRollTotal: 10,
     };
-
-    // Use cheatRollTotal to control the dice result
-    const cheated = { ...stateWithStaleRolls, cheatRollTotal: 10 };
 
     // Get the body-check-roll action — only available to the attacking player
     const actions = viableActions(cheated, PLAYER_2, 'body-check-roll');
@@ -128,16 +111,11 @@ describe('Rule 8.28 — Body Check', () => {
     const aragornId = findCharInstanceId(state, 0, ARAGORN);
     const companyId = companyIdAt(state, 0);
 
-    const mhState = makeMHState({
-      resolvedSitePath: [RegionType.Shadow],
-      resolvedSitePathNames: ['Imlad Morgul'],
-      destinationSiteType: SiteType.ShadowHold,
-      destinationSiteName: 'Moria',
-    });
-
-    const combat = makeBodyCheckCombat({ companyId, characterId: aragornId });
-
-    const ready = { ...state, phaseState: mhState, combat };
+    const ready = {
+      ...state,
+      phaseState: makeShadowMHState(),
+      combat: makeBodyCheckCombat({ companyId, characterId: aragornId }),
+    };
 
     // The body check declaration does not open a chain of effects in the
     // shared chain machinery — actions are restricted at the legal-actions
@@ -145,13 +123,12 @@ describe('Rule 8.28 — Body Check', () => {
     expect(ready.chain).toBeNull();
 
     // The attacker (rolling player) only sees the body-check-roll action.
-    const atkViable = computeLegalActions(ready, PLAYER_2).filter(a => a.viable);
-    expect(atkViable.map(a => a.action.type)).toEqual(['body-check-roll']);
+    expect(viableActionTypes(ready, PLAYER_2)).toEqual(['body-check-roll']);
 
     // The defender has no playable response — hand cards are not offered.
-    const defViable = computeLegalActions(ready, PLAYER_1).filter(a => a.viable);
-    expect(defViable.map(a => a.action.type)).not.toContain('play-hazard');
-    expect(defViable.map(a => a.action.type)).not.toContain('play-long-event');
-    expect(defViable.map(a => a.action.type)).not.toContain('play-short-event');
+    const defTypes = viableActionTypes(ready, PLAYER_1);
+    expect(defTypes).not.toContain('play-hazard');
+    expect(defTypes).not.toContain('play-long-event');
+    expect(defTypes).not.toContain('play-short-event');
   });
 });

@@ -18,38 +18,14 @@
 
 import { describe, test, expect, beforeEach } from 'vitest';
 import {
-  buildTestState, resetMint, dispatch, viableActions,
+  resetMint, dispatch, viableActions, viableFor,
   PLAYER_1, PLAYER_2,
-  ARAGORN, BILBO, LEGOLAS,
-  DAGGER_OF_WESTERNESSE, SUN, CAVE_DRAKE,
-  RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
-  Phase, handCardId,
+  SUN, CAVE_DRAKE,
+  DAGGER_OF_WESTERNESSE,
+  Phase, handCardId, eotState, phaseStateAs, actionAs,
 } from '../../test-helpers.js';
-import { computeLegalActions } from '../../../index.js';
-import type { CardDefinitionId, EndOfTurnPhaseState } from '../../../index.js';
+import type { DiscardCardAction, DrawCardsAction, EndOfTurnPhaseState } from '../../../index.js';
 
-function eotState(opts?: { p1Hand?: CardDefinitionId[]; p2Hand?: CardDefinitionId[]; p1Deck?: CardDefinitionId[]; p2Deck?: CardDefinitionId[] }) {
-  return buildTestState({
-    activePlayer: PLAYER_1,
-    phase: Phase.EndOfTurn,
-    players: [
-      {
-        id: PLAYER_1,
-        companies: [{ site: RIVENDELL, characters: [ARAGORN, BILBO] }],
-        hand: opts?.p1Hand ?? [],
-        siteDeck: [MORIA],
-        playDeck: opts?.p1Deck ?? [],
-      },
-      {
-        id: PLAYER_2,
-        companies: [{ site: LORIEN, characters: [LEGOLAS] }],
-        hand: opts?.p2Hand ?? [],
-        siteDeck: [MINAS_TIRITH],
-        playDeck: opts?.p2Deck ?? [],
-      },
-    ],
-  });
-}
 describe('Rule 7.01 — End-of-Turn Steps', () => {
   beforeEach(() => resetMint());
 
@@ -57,21 +33,20 @@ describe('Rule 7.01 — End-of-Turn Steps', () => {
     // Both players hold one card each. The discard step offers each
     // player one discard-card action per hand card plus a pass.
     const state = eotState({ p1Hand: [SUN], p2Hand: [CAVE_DRAKE] });
-    expect((state.phaseState as EndOfTurnPhaseState).step).toBe('discard');
+    expect(phaseStateAs<EndOfTurnPhaseState>(state).step).toBe('discard');
 
     const p1Discards = viableActions(state, PLAYER_1, 'discard-card');
-    expect(p1Discards.map(a => (a.action as { cardInstanceId: string }).cardInstanceId))
-      .toEqual([state.players[0].hand[0].instanceId]);
+    const p1Ids = p1Discards.map(a => actionAs<DiscardCardAction>(a.action).cardInstanceId);
+    expect(p1Ids).toEqual([state.players[0].hand[0].instanceId]);
     expect(viableActions(state, PLAYER_1, 'pass')).toHaveLength(1);
 
     // P2 may also discard their own card during step 1.
     const p2Discards = viableActions(state, PLAYER_2, 'discard-card');
-    expect(p2Discards.map(a => (a.action as { cardInstanceId: string }).cardInstanceId))
+    expect(p2Discards.map(a => actionAs<DiscardCardAction>(a.action).cardInstanceId))
       .toEqual([state.players[1].hand[0].instanceId]);
 
     // P1 cannot discard P2's hand card.
-    const p1AllDiscards = viableActions(state, PLAYER_1, 'discard-card').map(a => (a.action as { cardInstanceId: string }).cardInstanceId);
-    expect(p1AllDiscards).not.toContain(state.players[1].hand[0].instanceId);
+    expect(p1Ids).not.toContain(state.players[1].hand[0].instanceId);
   });
 
   test('Step 2 (reset-hand): a player above hand size must discard, below draws up', () => {
@@ -86,15 +61,15 @@ describe('Rule 7.01 — End-of-Turn Steps', () => {
 
     const afterP1Pass = dispatch(state, { type: 'pass', player: PLAYER_1 });
     const afterP2Pass = dispatch(afterP1Pass, { type: 'pass', player: PLAYER_2 });
-    expect((afterP2Pass.phaseState as EndOfTurnPhaseState).step).toBe('reset-hand');
+    expect(phaseStateAs<EndOfTurnPhaseState>(afterP2Pass).step).toBe('reset-hand');
 
     const p1Draws = viableActions(afterP2Pass, PLAYER_1, 'draw-cards');
     expect(p1Draws).toHaveLength(1);
-    expect((p1Draws[0].action as { count: number }).count).toBe(6); // 8 - 2
+    expect(actionAs<DrawCardsAction>(p1Draws[0].action).count).toBe(6); // 8 - 2
 
     const p2Draws = viableActions(afterP2Pass, PLAYER_2, 'draw-cards');
     expect(p2Draws).toHaveLength(1);
-    expect((p2Draws[0].action as { count: number }).count).toBe(8);
+    expect(actionAs<DrawCardsAction>(p2Draws[0].action).count).toBe(8);
   });
 
   test('Step 3 (signal-end): only the resource player may pass; hazard player has no actions', () => {
@@ -106,15 +81,13 @@ describe('Rule 7.01 — End-of-Turn Steps', () => {
     const s2 = dispatch(s1, { type: 'pass', player: PLAYER_2 });
     const s3 = dispatch(s2, { type: 'pass', player: PLAYER_1 });
     const s4 = dispatch(s3, { type: 'pass', player: PLAYER_2 });
-    expect((s4.phaseState as EndOfTurnPhaseState).step).toBe('signal-end');
+    expect(phaseStateAs<EndOfTurnPhaseState>(s4).step).toBe('signal-end');
 
     // Resource player (PLAYER_1) may pass to end the turn.
-    const p1Viable = computeLegalActions(s4, PLAYER_1).filter(a => a.viable);
-    expect(p1Viable.some(a => a.action.type === 'pass')).toBe(true);
+    expect(viableFor(s4, PLAYER_1).some(a => a.action.type === 'pass')).toBe(true);
 
     // Hazard player has no actions during signal-end.
-    const p2Viable = computeLegalActions(s4, PLAYER_2).filter(a => a.viable);
-    expect(p2Viable).toHaveLength(0);
+    expect(viableFor(s4, PLAYER_2)).toHaveLength(0);
 
     // Passing the signal-end ends the turn (advances to next turn's untap).
     const next = dispatch(s4, { type: 'pass', player: PLAYER_1 });
@@ -133,7 +106,6 @@ describe('Rule 7.01 — End-of-Turn Steps', () => {
 
     // P1 has now acted in step 1 (discardDone[0] = true) and is offered
     // no further actions until P2 passes too.
-    const p1AfterAct = computeLegalActions(afterDiscard, PLAYER_1).filter(a => a.viable);
-    expect(p1AfterAct).toHaveLength(0);
+    expect(viableFor(afterDiscard, PLAYER_1)).toHaveLength(0);
   });
 });

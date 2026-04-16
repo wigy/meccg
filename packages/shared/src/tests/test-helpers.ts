@@ -15,6 +15,8 @@ import {
   loadCardPool,
   Phase,
   Alignment,
+  RegionType,
+  SiteType,
   computeLegalActions,
 } from '../index.js';
 import type { PlayerId, GameState, CardDefinitionId, CardInstanceId, CardInstance, GameAction, PlayCharacterAction, SitePhaseState, MovementHazardPhaseState, OpponentInfluenceAttemptAction, LongEventPhaseState, CreatureKeyingMatch, CombatState } from '../index.js';
@@ -495,6 +497,40 @@ export function buildTestState(opts: BuildTestStateOpts): GameState {
   return baseState;
 }
 
+// ─── End-of-turn phase setup ───────────────────────────────────────────────
+
+/**
+ * Build a minimal End-of-Turn phase state with P1 active, Aragorn+Bilbo at
+ * Rivendell, and Legolas at Lorien. Hands and decks are configurable.
+ */
+export function eotState(opts?: {
+  p1Hand?: CardDefinitionId[];
+  p2Hand?: CardDefinitionId[];
+  p1Deck?: CardDefinitionId[];
+  p2Deck?: CardDefinitionId[];
+}): GameState {
+  return buildTestState({
+    activePlayer: PLAYER_1,
+    phase: Phase.EndOfTurn,
+    players: [
+      {
+        id: PLAYER_1,
+        companies: [{ site: RIVENDELL, characters: [ARAGORN, BILBO] }],
+        hand: opts?.p1Hand ?? [],
+        siteDeck: [MORIA],
+        playDeck: opts?.p1Deck ?? [],
+      },
+      {
+        id: PLAYER_2,
+        companies: [{ site: LORIEN, characters: [LEGOLAS] }],
+        hand: opts?.p2Hand ?? [],
+        siteDeck: [MINAS_TIRITH],
+        playDeck: opts?.p2Deck ?? [],
+      },
+    ],
+  });
+}
+
 // ─── Shared test helpers ─────────────────────────────────────────────────────
 
 /** Find the instance ID of a character in play by definition ID. */
@@ -509,6 +545,33 @@ export function findCharInstanceId(state: GameState, playerIdx: number, defId: C
 export function viableActions(state: GameState, playerId: PlayerId, actionType: string) {
   return computeLegalActions(state, playerId)
     .filter(ea => ea.viable && ea.action.type === actionType);
+}
+
+/** All viable actions (of any type) for a player. */
+export function viableFor(state: GameState, playerId: PlayerId) {
+  return computeLegalActions(state, playerId).filter(ea => ea.viable);
+}
+
+/** The action-type names of every viable action for a player. */
+export function viableActionTypes(state: GameState, playerId: PlayerId): string[] {
+  return viableFor(state, playerId).map(ea => ea.action.type);
+}
+
+/**
+ * Narrow `state.phaseState` to a specific phase-state shape without the
+ * noisy inline cast. Callers pick the right type via the generic argument.
+ */
+export function phaseStateAs<T extends GameState['phaseState']>(state: GameState): T {
+  return state.phaseState as T;
+}
+
+/**
+ * Narrow an {@link GameAction} to a specific shape. Used to reach into
+ * payload-specific fields (e.g. `cardInstanceId`) without repeating the
+ * cast at every call site.
+ */
+export function actionAs<T extends GameAction>(action: GameAction): T {
+  return action as T;
 }
 
 /** Get all viable play-character actions for a player. */
@@ -648,6 +711,38 @@ export function makeBodyCheckCombat(opts: {
     bodyCheckTarget: opts.bodyCheckTarget ?? 'character',
     detainment: opts.detainment ?? false,
   };
+}
+
+/**
+ * MH state describing arrival at a Shadow-Hold "Moria" via an Imlad Morgul
+ * shadow region. Mirrors the setup used by many combat rule tests.
+ */
+export function makeShadowMHState(
+  overrides?: Partial<MovementHazardPhaseState>,
+): MovementHazardPhaseState {
+  return makeMHState({
+    resolvedSitePath: [RegionType.Shadow],
+    resolvedSitePathNames: ['Imlad Morgul'],
+    destinationSiteType: SiteType.ShadowHold,
+    destinationSiteName: 'Moria',
+    ...overrides,
+  });
+}
+
+/**
+ * MH state describing arrival at Ruins-and-Lairs "Moria" via a Rhudaur
+ * wilderness region.
+ */
+export function makeWildernessMHState(
+  overrides?: Partial<MovementHazardPhaseState>,
+): MovementHazardPhaseState {
+  return makeMHState({
+    resolvedSitePath: [RegionType.Wilderness],
+    resolvedSitePathNames: ['Rhudaur'],
+    destinationSiteType: SiteType.RuinsAndLairs,
+    destinationSiteName: 'Moria',
+    ...overrides,
+  });
 }
 
 /** Build a SitePhaseState at the play-resources step. */

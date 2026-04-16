@@ -18,12 +18,13 @@ import {
   PLAYER_1, PLAYER_2,
   GANDALF, BILBO, LEGOLAS, SARUMAN,
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
-  buildTestState, resetMint, makeMHState, findCharInstanceId,
+  buildTestState, resetMint, findCharInstanceId,
+  makeShadowMHState, makeBodyCheckCombat,
   dispatch, companyIdAt, viablePlayCharacterActions,
+  phaseStateAs,
   Phase,
 } from '../../test-helpers.js';
-import { RegionType, SiteType } from '../../../index.js';
-import type { CombatState, CardInstanceId, FreeCouncilPhaseState, GameOverPhaseState } from '../../../index.js';
+import type { CardInstanceId, FreeCouncilPhaseState, GameOverPhaseState } from '../../../index.js';
 
 describe('Rule 2.05 — Avatar Eliminated', () => {
   beforeEach(() => resetMint());
@@ -55,34 +56,13 @@ describe('Rule 2.05 — Avatar Eliminated', () => {
     const gandalfId = findCharInstanceId(state, 0, GANDALF);
     const companyId = companyIdAt(state, 0);
 
-    const mhState = makeMHState({
-      resolvedSitePath: [RegionType.Shadow],
-      resolvedSitePathNames: ['Imlad Morgul'],
-      destinationSiteType: SiteType.ShadowHold,
-      destinationSiteName: 'Moria',
-    });
-
-    const combat: CombatState = {
-      attackSource: { type: 'automatic-attack', siteInstanceId: 'fake-site' as CardInstanceId, attackIndex: 0 },
-      companyId,
-      defendingPlayerId: PLAYER_1,
-      attackingPlayerId: PLAYER_2,
-      strikesTotal: 1,
-      strikeProwess: 10,
-      creatureBody: null,
-      creatureRace: 'orc',
-      strikeAssignments: [
-        { characterId: gandalfId, excessStrikes: 0, resolved: true, result: 'wounded', wasAlreadyWounded: false },
-      ],
-      currentStrikeIndex: 0,
-      phase: 'body-check',
-      assignmentPhase: 'done',
-      bodyCheckTarget: 'character',
-      detainment: false,
-    };
-
     // Gandalf body = 9. Roll 12 > 9 → eliminated.
-    const readyState = { ...state, phaseState: mhState, combat, cheatRollTotal: 12 };
+    const readyState = {
+      ...state,
+      phaseState: makeShadowMHState(),
+      combat: makeBodyCheckCombat({ companyId, characterId: gandalfId }),
+      cheatRollTotal: 12,
+    };
     const nextState = dispatch(readyState, {
       type: 'body-check-roll', player: PLAYER_2, need: 10, explanation: 'test',
     });
@@ -145,8 +125,8 @@ describe('Rule 2.05 — Avatar Eliminated', () => {
     expect(endedWith.phaseState.phase).toBe(Phase.GameOver);
     expect(endedWithout.phaseState.phase).toBe(Phase.GameOver);
 
-    const scoreWith = (endedWith.phaseState as GameOverPhaseState).finalScores[PLAYER_1 as string];
-    const scoreWithout = (endedWithout.phaseState as GameOverPhaseState).finalScores[PLAYER_1 as string];
+    const scoreWith = phaseStateAs<GameOverPhaseState>(endedWith).finalScores[PLAYER_1 as string];
+    const scoreWithout = phaseStateAs<GameOverPhaseState>(endedWithout).finalScores[PLAYER_1 as string];
     expect(scoreWithout - scoreWith).toBe(5);
   });
 

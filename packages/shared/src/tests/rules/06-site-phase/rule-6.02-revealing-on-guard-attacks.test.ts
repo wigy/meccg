@@ -20,14 +20,14 @@
 import { describe, test, expect, beforeEach } from 'vitest';
 import {
   buildTestState, resetMint, Phase, dispatch,
-  makeSitePhase, placeOnGuard, viableActions,
+  makeSitePhase, placeOnGuard, viableActions, viableFor,
+  phaseStateAs,
   PLAYER_1, PLAYER_2,
   LEGOLAS, ARAGORN,
   ASSASSIN, BARROW_WIGHT,
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
 } from '../../test-helpers.js';
 import type { SitePhaseState, RevealOnGuardAction } from '../../../index.js';
-import { computeLegalActions } from '../../../engine/legal-actions/index.js';
 
 /** Common two-player state with PLAYER_1 at a given site. */
 function buildSiteState(site: typeof MORIA) {
@@ -77,8 +77,7 @@ describe('Rule 6.02 — Step 1: Revealing On-Guard Attacks', () => {
     const { state: withOG } = placeOnGuard(base, 0, 0, BARROW_WIGHT);
     const testState = { ...withOG, phaseState: makeSitePhase({ step: 'reveal-on-guard-attacks', siteEntered: false }) };
 
-    const actions = computeLegalActions(testState, PLAYER_1);
-    expect(actions.filter(ea => ea.viable)).toHaveLength(0);
+    expect(viableFor(testState, PLAYER_1)).toHaveLength(0);
   });
 
   test('hazard player passing advances to automatic-attacks step', () => {
@@ -86,7 +85,7 @@ describe('Rule 6.02 — Step 1: Revealing On-Guard Attacks', () => {
     const testState = { ...base, phaseState: makeSitePhase({ step: 'reveal-on-guard-attacks', siteEntered: false }) };
 
     const nextState = dispatch(testState, { type: 'pass', player: PLAYER_2 });
-    expect((nextState.phaseState as SitePhaseState).step).toBe('automatic-attacks');
+    expect(phaseStateAs<SitePhaseState>(nextState).step).toBe('automatic-attacks');
   });
 
   test('revealing a creature marks it as revealed in onGuardCards', () => {
