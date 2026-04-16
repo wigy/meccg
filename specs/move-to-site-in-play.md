@@ -32,7 +32,7 @@ Scope: enable the in-play destination, commit the movement without double-touchi
 
 ## Implementation steps
 
-0. **Save this plan** to `docs/plans/move-to-site-in-play.md` in the repo (copy of this file, verbatim) so the plan is checked in alongside the code that implements it.
+0. **Save this plan** to `specs/move-to-site-in-play.md` in the repo (copy of this file, verbatim) so the plan is checked in alongside the code that implements it.
 
 1. **Legal actions** (`organization-companies.ts`, inside `planMovementActions`):
    - After building the deck-based candidate list, walk `player.companies` and collect each **sibling** company's `currentSite` (skipping the company for which we're computing actions, and skipping any site already represented in the deck list to avoid duplicates).

@@ -9,7 +9,7 @@
  * card-level tests (tw-053, tw-084, tw-332) cover end-to-end behaviour
  * for each constraint kind; this file pins down the list mechanics.
  *
- * See `docs/plans/pending-effects-plan.md` for the design.
+ * See `specs/pending-effects-plan.md` for the design.
  */
 
 import { describe, test, expect, beforeEach } from 'vitest';
