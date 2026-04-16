@@ -334,6 +334,13 @@ export interface TriggeredAction {
   readonly onSuccess?: TriggeredAction;
   /** For `roll-then-apply` type: apply run when the roll is below `threshold`. */
   readonly onFailure?: TriggeredAction;
+  /**
+   * For `set-company-special-movement` type: which special-movement
+   * mode to flag on the bearer's company. The engine's movement code
+   * consults `Company.specialMovement` to alter planning and M/H rules
+   * for Gwaihir-granted flights.
+   */
+  readonly specialMovement?: 'gwaihir';
 }
 
 /**
