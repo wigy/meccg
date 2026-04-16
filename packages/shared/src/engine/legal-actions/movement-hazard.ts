@@ -15,6 +15,7 @@ import { logDetail, logHeading } from './log.js';
 import { playPermanentEventActions, playShortEventActions } from './organization-events.js';
 import { grantedActionActivations, ANY_PHASE_GRANT_ACTIONS } from './organization.js';
 import { heroResourceShortEventActions } from './long-event.js';
+import { isCoastalPath } from '../path-predicates.js';
 
 /**
  * Compute legal actions for the movement/hazard phase.
@@ -828,27 +829,6 @@ function playHazardsActions(
   return actions;
 }
 
-/**
- * Checks whether a site path satisfies the Great Ship coastal condition:
- * contains at least one Coastal Sea region and no two consecutive
- * non-Coastal Sea regions.
- */
-function isCoastalPath(path: readonly RegionType[]): boolean {
-  if (path.length === 0) return false;
-  let hasCoastal = false;
-  let prevNonCoastal = false;
-  for (const region of path) {
-    const isCoastal = region === RegionType.Coastal;
-    if (isCoastal) {
-      hasCoastal = true;
-      prevNonCoastal = false;
-    } else {
-      if (prevNonCoastal) return false;
-      prevNonCoastal = true;
-    }
-  }
-  return hasCoastal;
-}
 
 /**
  * Generate cancel-hazard-by-tap actions for the resource player.

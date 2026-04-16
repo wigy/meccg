@@ -17,7 +17,7 @@ import { availableDI } from './legal-actions/organization.js';
 import type { ReducerResult } from './reducer-utils.js';
 import { roll2d6, clonePlayers, cleanupEmptyCompanies } from './reducer-utils.js';
 import { handlePlayPermanentEvent, handlePlayResourceShortEvent } from './reducer-events.js';
-import { handleGrantActionApply } from './reducer-organization.js';
+import { handleGrantActionApply, handleCancelConstraint } from './reducer-organization.js';
 import { buildInPlayNames } from './recompute-derived.js';
 import { sweepExpired, enqueueResolution, removeConstraint } from './pending.js';
 import { resolveEffective } from './effective.js';
@@ -163,7 +163,7 @@ function handleSiteEnterOrSkip(
   // satisfy a `cancelWhen` DSL condition on the active constraint taps
   // to remove that constraint, freeing normal site phase actions.
   if (action.type === 'activate-granted-action' && action.actionId === 'cancel-constraint') {
-    return handleCancelConstraint(state, action, siteState);
+    return handleCancelConstraint(state, action);
   }
 
   if (action.type !== 'enter-site' && action.type !== 'pass') {
@@ -218,57 +218,6 @@ function handleSiteEnterOrSkip(
       },
     },
   };
-}
-
-/**
- * Handle cancel-constraint: a character in the constrained company
- * whose attributes satisfied the constraint's `cancelWhen` condition
- * taps to cancel the constraint. Used by River (ranger taps to cancel
- * the site-phase-do-nothing restriction) and any future constraint
- * that carries a `cancelWhen` escape hatch.
- */
-function handleCancelConstraint(
-  state: GameState,
-  action: GameAction,
-  _siteState: SitePhaseState,
-): ReducerResult {
-  if (action.type !== 'activate-granted-action') return { state, error: 'Expected activate-granted-action' };
-
-  const playerIndex = getPlayerIndex(state, action.player);
-  const player = state.players[playerIndex];
-  const char = player.characters[action.characterId as string];
-
-  const charDef = state.cardPool[char.definitionId as string];
-  const charName = charDef && isCharacterCard(charDef) ? charDef.name : (action.characterId as string);
-  const sourceDef = state.cardPool[action.sourceCardDefinitionId as string];
-  const sourceName = sourceDef?.name ?? (action.sourceCardId as string);
-  logDetail(`Site: ${charName} taps to cancel ${sourceName} (constraint source ${action.sourceCardId as string})`);
-
-  // Tap the cancelling character.
-  const players = clonePlayers(state);
-  players[playerIndex] = {
-    ...players[playerIndex],
-    characters: {
-      ...players[playerIndex].characters,
-      [action.characterId as string]: {
-        ...players[playerIndex].characters[action.characterId as string],
-        status: CardStatus.Tapped,
-      },
-    },
-  };
-
-  let nextState: GameState = { ...state, players };
-
-  // Remove the constraint whose source matches the action's sourceCardId.
-  const constraint = nextState.activeConstraints.find(
-    c => c.source === action.sourceCardId,
-  );
-  if (constraint) {
-    logDetail(`Site: removing constraint ${constraint.id as string}`);
-    nextState = removeConstraint(nextState, constraint.id);
-  }
-
-  return { state: nextState };
 }
 
 /**

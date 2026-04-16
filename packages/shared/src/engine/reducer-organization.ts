@@ -14,7 +14,7 @@ import { resolveInstanceId } from '../types/state.js';
 import type { ReducerResult } from './reducer-utils.js';
 import { roll2d6, clonePlayers, nextCompanyId, handleFetchFromPile, sweepAutoDiscardHazards } from './reducer-utils.js';
 import { handlePlayPermanentEvent, handlePlayShortEvent, handlePlayResourceShortEvent } from './reducer-events.js';
-import { enqueueResolution, addConstraint } from './pending.js';
+import { enqueueResolution, addConstraint, removeConstraint } from './pending.js';
 import { recomputeDerived } from './recompute-derived.js';
 import { collectCharacterEffects, resolveCheckModifier } from './effects/index.js';
 
@@ -1175,6 +1175,47 @@ function resolveConstraintTarget(
     default:
       return null;
   }
+}
+
+/**
+ * Shared handler for the `cancel-constraint` action: a character in
+ * the target company taps, then the constraint whose `source` matches
+ * the action's `sourceCardId` is removed. Used by River during both
+ * Site and M/H phases — the mechanics are identical in both windows,
+ * so both phase dispatchers route here.
+ */
+export function handleCancelConstraint(state: GameState, action: GameAction): ReducerResult {
+  if (action.type !== 'activate-granted-action') return { state, error: 'Expected activate-granted-action' };
+
+  const playerIndex = getPlayerIndex(state, action.player);
+  const player = state.players[playerIndex];
+  const char = player.characters[action.characterId as string];
+  if (!char) return { state, error: `Character ${action.characterId as string} not found` };
+
+  const charDefId = resolveInstanceId(state, action.characterId);
+  const charDef = charDefId ? state.cardPool[charDefId as string] : undefined;
+  const charName = charDef?.name ?? (action.characterId as string);
+  const sourceDef = state.cardPool[action.sourceCardDefinitionId as string];
+  const sourceName = sourceDef?.name ?? (action.sourceCardId as string);
+
+  logDetail(`Cancel-constraint: ${charName} taps to cancel ${sourceName} (constraint source ${action.sourceCardId as string})`);
+
+  const newPlayers = clonePlayers(state);
+  newPlayers[playerIndex] = {
+    ...newPlayers[playerIndex],
+    characters: {
+      ...newPlayers[playerIndex].characters,
+      [action.characterId as string]: { ...char, status: CardStatus.Tapped },
+    },
+  };
+
+  let nextState: GameState = { ...state, players: newPlayers };
+  const constraint = nextState.activeConstraints.find(c => c.source === action.sourceCardId);
+  if (constraint) {
+    logDetail(`Cancel-constraint: removing constraint ${constraint.id as string}`);
+    nextState = removeConstraint(nextState, constraint.id);
+  }
+  return { state: nextState };
 }
 
 /**

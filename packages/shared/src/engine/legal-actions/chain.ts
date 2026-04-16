@@ -14,8 +14,9 @@
  */
 
 import type { GameState, PlayerId, EvaluatedAction, PassChainPriorityAction, CardInstanceId, HazardEventCard, MovementHazardPhaseState } from '../../index.js';
-import { Phase, getPlayerIndex, hasPlayFlag, RegionType, CardStatus } from '../../index.js';
+import { Phase, getPlayerIndex, hasPlayFlag, CardStatus } from '../../index.js';
 import { logDetail } from './log.js';
+import { isCoastalPath } from '../path-predicates.js';
 
 /**
  * Returns the legal actions available to the given player while a chain
@@ -227,7 +228,7 @@ function cancelHazardByTapChainActions(state: GameState, playerId: PlayerId): Ev
   );
   if (!hasConstraint) return [];
 
-  if (!chainCoastalPath(mhState.resolvedSitePath)) return [];
+  if (!isCoastalPath(mhState.resolvedSitePath)) return [];
 
   let hazardEntryIndex = -1;
   for (let i = chain.entries.length - 1; i >= 0; i--) {
@@ -259,21 +260,3 @@ function cancelHazardByTapChainActions(state: GameState, playerId: PlayerId): Ev
   return actions;
 }
 
-/**
- * Checks whether a site path satisfies the Great Ship coastal condition.
- */
-function chainCoastalPath(path: readonly RegionType[]): boolean {
-  if (path.length === 0) return false;
-  let hasCoastal = false;
-  let prevNonCoastal = false;
-  for (const region of path) {
-    if (region === RegionType.Coastal) {
-      hasCoastal = true;
-      prevNonCoastal = false;
-    } else {
-      if (prevNonCoastal) return false;
-      prevNonCoastal = true;
-    }
-  }
-  return hasCoastal;
-}
