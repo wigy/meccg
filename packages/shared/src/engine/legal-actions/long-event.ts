@@ -104,141 +104,19 @@ export function longEventActions(state: GameState, playerId: PlayerId): Evaluate
         action: { type: 'play-long-event', player: playerId, cardInstanceId },
         viable: true,
       });
-    } else if (def.eventType === 'short') {
-      evaluatedInstances.add(cardInstanceId as string);
-
-      // Skip cards that declare a play-window restricting them to a
-      // different phase/step (e.g. Stealth plays only at end-of-org).
-      const playWindow = def.effects?.find(e => e.type === 'play-window') as { phase?: string; step?: string } | undefined;
-      if (playWindow && playWindow.phase !== 'long-event') {
-        const where = `${playWindow.phase ?? '?'}${playWindow.step ? '/' + playWindow.step : ''}`;
-        logDetail(`${def.name}: play-window restricts it to ${where}, not playable in long-event phase`);
-        actions.push({
-          action: { type: 'not-playable', player: playerId, cardInstanceId },
-          viable: false,
-          reason: `${def.name} can only be played during ${playWindow.phase ?? 'a different phase'}${playWindow.step ? ' (' + playWindow.step + ')' : ''}`,
-        });
-        continue;
-      }
-
-      // Skip short events whose effects are only usable during combat
-      // (e.g. Concealment's cancel-attack). These require an active attack.
-      const combatOnlyTypes = new Set(['cancel-attack', 'cancel-strike', 'halve-strikes', 'dodge-strike']);
-      const hasEffects = def.effects && def.effects.length > 0;
-      const allCombatOnly = hasEffects && def.effects.every(e => combatOnlyTypes.has(e.type));
-      if (allCombatOnly) {
-        logDetail(`${def.name}: combat-only short-event, not playable outside combat`);
-        actions.push({
-          action: { type: 'not-playable', player: playerId, cardInstanceId },
-          viable: false,
-          reason: `${def.name} can only be played during combat`,
-        });
-        continue;
-      }
-
-      // Collect eligible discard-in-play targets up front. Cards with a
-      // discard-in-play effect (e.g. Marvels Told) force the discard of an
-      // in-play card matching the filter — the player picks which target
-      // at play time as part of the play-short-event action. If no valid
-      // target exists, the card is not playable.
-      const discardInPlay = def.effects?.find(e => e.type === 'discard-in-play');
-      let discardTargetIds: CardInstanceId[] | null = null;
-      if (discardInPlay) {
-        discardTargetIds = collectDiscardInPlayTargets(state, discardInPlay.filter);
-        if (discardTargetIds.length === 0) {
-          logDetail(`${def.name}: no eligible discard-in-play target — not playable`);
-          actions.push({
-            action: { type: 'not-playable', player: playerId, cardInstanceId },
-            viable: false,
-            reason: `${def.name} has no valid target to discard`,
-          });
-          continue;
-        }
-      }
-
-      // If the card has a play-target with a tap cost (e.g. Marvels Told taps
-      // a sage), emit one action per eligible target. Otherwise emit a single
-      // action with no target. When a discard-in-play target is also required,
-      // emit the cross-product of sage × discard-target.
-      const playTarget = getPlayTargetEffect(def);
-      const emitPlay = (sageId: CardInstanceId | undefined) => {
-        if (discardTargetIds) {
-          for (const discardId of discardTargetIds) {
-            logDetail(`Resource short-event playable (sage ${String(sageId)}, discard ${String(discardId)}): ${def.name}`);
-            actions.push({
-              action: {
-                type: 'play-short-event',
-                player: playerId,
-                cardInstanceId,
-                ...(sageId ? { targetScoutInstanceId: sageId } : {}),
-                discardTargetInstanceId: discardId,
-              },
-              viable: true,
-            });
-          }
-        } else {
-          logDetail(`Resource short-event playable${sageId ? ` (target ${String(sageId)})` : ''}: ${def.name}`);
-          actions.push({
-            action: {
-              type: 'play-short-event',
-              player: playerId,
-              cardInstanceId,
-              ...(sageId ? { targetScoutInstanceId: sageId } : {}),
-            },
-            viable: true,
-          });
-        }
-      };
-
-      // Cards with play-option effects (e.g. Many Turns and Doublings)
-      // must go through the option path even when the play-target has a
-      // tap cost, so the option's `when` gate is evaluated.
-      const playOptions = getPlayOptionEffects(def);
-      if (playOptions.length > 0 && playTarget) {
-        const optionActions = playOptionActionsForLongEvent(
-          state, player, playerId, cardInstanceId, def, playTarget, playOptions,
-        );
-        if (optionActions.length === 0) {
-          logDetail(`${def.name}: no eligible play-option targets — not playable`);
-          actions.push({
-            action: { type: 'not-playable', player: playerId, cardInstanceId },
-            viable: false,
-            reason: `${def.name} requires a matching character and condition`,
-          });
-        } else {
-          actions.push(...optionActions);
-        }
-      } else if (playTarget && playTarget.cost?.tap === 'character') {
-        const targets = eligibleTapTargets(state, player, playTarget);
-        if (targets.length === 0) {
-          logDetail(`${def.name}: no eligible targets — not playable`);
-          actions.push({
-            action: { type: 'not-playable', player: playerId, cardInstanceId },
-            viable: false,
-            reason: `No eligible ${playTarget.target} to target`,
-          });
-        } else {
-          for (const targetId of targets) emitPlay(targetId);
-        }
-      } else if (playTarget && playTarget.target === 'character') {
-        const optionActions = playOptionActionsForLongEvent(
-          state, player, playerId, cardInstanceId, def, playTarget, getPlayOptionEffects(def),
-        );
-        if (optionActions.length === 0) {
-          logDetail(`${def.name}: no eligible character targets — not playable`);
-          actions.push({
-            action: { type: 'not-playable', player: playerId, cardInstanceId },
-            viable: false,
-            reason: `${def.name} requires a matching character`,
-          });
-        } else {
-          actions.push(...optionActions);
-        }
-      } else {
-        emitPlay(undefined);
-      }
     }
   }
+
+  // Enumerate hero-resource-event short events playable during long-event phase.
+  // Rule 2.1.1: resource short-events may be played during any phase of the
+  // player's turn unless restricted (e.g. by a play-window DSL effect).
+  const shortEventActions = heroResourceShortEventActions(state, playerId, 'long-event');
+  for (const ea of shortEventActions) {
+    const a = ea.action as unknown as Record<string, unknown>;
+    const id = a['cardInstanceId'];
+    if (typeof id === 'string') evaluatedInstances.add(id);
+  }
+  actions.push(...shortEventActions);
 
   // Mark remaining hand cards as not playable during long-event phase
   for (const handCard of player.hand) {
@@ -260,12 +138,172 @@ export function longEventActions(state: GameState, playerId: PlayerId): Evaluate
 }
 
 /**
- * Generates `play-short-event` actions for a card with {@link PlayTargetEffect}
- * targeting characters and {@link PlayOptionEffect}s during the long-event phase.
- * One action per (target, option) pair whose `when` (if any) matches the
- * target context.
+ * Enumerates hero-resource-event short events in the active player's hand
+ * that are playable during the given phase. Encodes rule 2.1.1: resource
+ * short-events may be played during any phase of the player's turn unless
+ * a DSL `play-window` restricts them, they are combat-only, or they
+ * require targets that aren't present.
+ *
+ * Used by the long-event and movement-hazard phase handlers. Returns
+ * both viable `play-short-event` actions and `not-playable` annotations
+ * (with reasons) for cards that were considered but rejected, so the UI
+ * can explain why.
  */
-function playOptionActionsForLongEvent(
+export function heroResourceShortEventActions(
+  state: GameState,
+  playerId: PlayerId,
+  currentPhase: string,
+): EvaluatedAction[] {
+  const player = state.players.find(p => p.id === playerId);
+  if (!player) return [];
+  const actions: EvaluatedAction[] = [];
+
+  for (const handCard of player.hand) {
+    const cardInstanceId = handCard.instanceId;
+    const def = state.cardPool[handCard.definitionId as string] as HeroResourceEventCard | undefined;
+    if (!def || def.cardType !== 'hero-resource-event' || def.eventType !== 'short') continue;
+
+    // Skip cards that declare a play-window restricting them to a
+    // different phase/step (e.g. Stealth plays only at end-of-org).
+    const playWindow = def.effects?.find(e => e.type === 'play-window') as { phase?: string; step?: string } | undefined;
+    if (playWindow && playWindow.phase !== currentPhase) {
+      const where = `${playWindow.phase ?? '?'}${playWindow.step ? '/' + playWindow.step : ''}`;
+      logDetail(`${def.name}: play-window restricts it to ${where}, not playable in ${currentPhase} phase`);
+      actions.push({
+        action: { type: 'not-playable', player: playerId, cardInstanceId },
+        viable: false,
+        reason: `${def.name} can only be played during ${playWindow.phase ?? 'a different phase'}${playWindow.step ? ' (' + playWindow.step + ')' : ''}`,
+      });
+      continue;
+    }
+
+    // Skip short events whose effects are only usable during combat
+    // (e.g. Concealment's cancel-attack). These require an active attack.
+    const combatOnlyTypes = new Set(['cancel-attack', 'cancel-strike', 'halve-strikes', 'dodge-strike']);
+    const hasEffects = def.effects && def.effects.length > 0;
+    const allCombatOnly = hasEffects && def.effects.every(e => combatOnlyTypes.has(e.type));
+    if (allCombatOnly) {
+      logDetail(`${def.name}: combat-only short-event, not playable outside combat`);
+      actions.push({
+        action: { type: 'not-playable', player: playerId, cardInstanceId },
+        viable: false,
+        reason: `${def.name} can only be played during combat`,
+      });
+      continue;
+    }
+
+    // Collect eligible discard-in-play targets up front. Cards with a
+    // discard-in-play effect (e.g. Marvels Told) force the discard of an
+    // in-play card matching the filter — the player picks which target
+    // at play time as part of the play-short-event action. If no valid
+    // target exists, the card is not playable.
+    const discardInPlay = def.effects?.find(e => e.type === 'discard-in-play');
+    let discardTargetIds: CardInstanceId[] | null = null;
+    if (discardInPlay) {
+      discardTargetIds = collectDiscardInPlayTargets(state, discardInPlay.filter);
+      if (discardTargetIds.length === 0) {
+        logDetail(`${def.name}: no eligible discard-in-play target — not playable`);
+        actions.push({
+          action: { type: 'not-playable', player: playerId, cardInstanceId },
+          viable: false,
+          reason: `${def.name} has no valid target to discard`,
+        });
+        continue;
+      }
+    }
+
+    // If the card has a play-target with a tap cost (e.g. Marvels Told taps
+    // a sage), emit one action per eligible target. Otherwise emit a single
+    // action with no target. When a discard-in-play target is also required,
+    // emit the cross-product of sage × discard-target.
+    const playTarget = getPlayTargetEffect(def);
+    const emitPlay = (sageId: CardInstanceId | undefined) => {
+      if (discardTargetIds) {
+        for (const discardId of discardTargetIds) {
+          logDetail(`Resource short-event playable (sage ${String(sageId)}, discard ${String(discardId)}): ${def.name}`);
+          actions.push({
+            action: {
+              type: 'play-short-event',
+              player: playerId,
+              cardInstanceId,
+              ...(sageId ? { targetScoutInstanceId: sageId } : {}),
+              discardTargetInstanceId: discardId,
+            },
+            viable: true,
+          });
+        }
+      } else {
+        logDetail(`Resource short-event playable${sageId ? ` (target ${String(sageId)})` : ''}: ${def.name}`);
+        actions.push({
+          action: {
+            type: 'play-short-event',
+            player: playerId,
+            cardInstanceId,
+            ...(sageId ? { targetScoutInstanceId: sageId } : {}),
+          },
+          viable: true,
+        });
+      }
+    };
+
+    // Cards with play-option effects (e.g. Many Turns and Doublings)
+    // must go through the option path even when the play-target has a
+    // tap cost, so the option's `when` gate is evaluated.
+    const playOptions = getPlayOptionEffects(def);
+    if (playOptions.length > 0 && playTarget) {
+      const optionActions = playOptionActionsForShortEvent(
+        state, player, playerId, cardInstanceId, def, playTarget, playOptions,
+      );
+      if (optionActions.length === 0) {
+        logDetail(`${def.name}: no eligible play-option targets — not playable`);
+        actions.push({
+          action: { type: 'not-playable', player: playerId, cardInstanceId },
+          viable: false,
+          reason: `${def.name} requires a matching character and condition`,
+        });
+      } else {
+        actions.push(...optionActions);
+      }
+    } else if (playTarget && playTarget.cost?.tap === 'character') {
+      const targets = eligibleTapTargets(state, player, playTarget);
+      if (targets.length === 0) {
+        logDetail(`${def.name}: no eligible targets — not playable`);
+        actions.push({
+          action: { type: 'not-playable', player: playerId, cardInstanceId },
+          viable: false,
+          reason: `No eligible ${playTarget.target} to target`,
+        });
+      } else {
+        for (const targetId of targets) emitPlay(targetId);
+      }
+    } else if (playTarget && playTarget.target === 'character') {
+      const optionActions = playOptionActionsForShortEvent(
+        state, player, playerId, cardInstanceId, def, playTarget, getPlayOptionEffects(def),
+      );
+      if (optionActions.length === 0) {
+        logDetail(`${def.name}: no eligible character targets — not playable`);
+        actions.push({
+          action: { type: 'not-playable', player: playerId, cardInstanceId },
+          viable: false,
+          reason: `${def.name} requires a matching character`,
+        });
+      } else {
+        actions.push(...optionActions);
+      }
+    } else {
+      emitPlay(undefined);
+    }
+  }
+
+  return actions;
+}
+
+/**
+ * Generates `play-short-event` actions for a card with {@link PlayTargetEffect}
+ * targeting characters and {@link PlayOptionEffect}s. One action per
+ * (target, option) pair whose `when` (if any) matches the target context.
+ */
+function playOptionActionsForShortEvent(
   state: GameState,
   player: PlayerState,
   playerId: PlayerId,
