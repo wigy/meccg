@@ -19,12 +19,12 @@ import {
   ARAGORN, LEGOLAS,
   CAVE_DRAKE, SUN,
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
-  buildTestState, resetMint, makeMHState, findCharInstanceId,
+  buildTestState, resetMint, makeMHState, makeBodyCheckCombat, findCharInstanceId,
   dispatchResult, viableActions,
   Phase, companyIdAt,
 } from '../../test-helpers.js';
 import { RegionType, SiteType, CardStatus, computeLegalActions } from '../../../index.js';
-import type { CombatState, CardInstanceId, DieRoll, TwoDiceSix } from '../../../index.js';
+import type { DieRoll, TwoDiceSix } from '../../../index.js';
 
 describe('Rule 8.28 — Body Check', () => {
   beforeEach(() => resetMint());
@@ -62,25 +62,9 @@ describe('Rule 8.28 — Body Check', () => {
       destinationSiteName: 'Moria',
     });
 
-    // Set up combat in body-check phase for the character
-    const combat: CombatState = {
-      attackSource: { type: 'automatic-attack', siteInstanceId: 'fake-site' as CardInstanceId, attackIndex: 0 },
-      companyId,
-      defendingPlayerId: PLAYER_1,
-      attackingPlayerId: PLAYER_2,
-      strikesTotal: 1,
-      strikeProwess: 10,
-      creatureBody: null,
-      creatureRace: 'orc',
-      strikeAssignments: [
-        { characterId: aragornId, excessStrikes: 0, resolved: true, result: 'wounded', wasAlreadyWounded: true },
-      ],
-      currentStrikeIndex: 0,
-      phase: 'body-check',
-      assignmentPhase: 'done',
-      bodyCheckTarget: 'character',
-      detainment: false,
-    };
+    // Set up combat in body-check phase for the character. The +1 wound
+    // modifier applies since Aragorn was wounded before the fatal strike.
+    const combat = makeBodyCheckCombat({ companyId, characterId: aragornId, wasAlreadyWounded: true });
 
     const readyState = { ...state, players, phaseState: mhState, combat };
 
@@ -151,24 +135,7 @@ describe('Rule 8.28 — Body Check', () => {
       destinationSiteName: 'Moria',
     });
 
-    const combat: CombatState = {
-      attackSource: { type: 'automatic-attack', siteInstanceId: 'fake-site' as CardInstanceId, attackIndex: 0 },
-      companyId,
-      defendingPlayerId: PLAYER_1,
-      attackingPlayerId: PLAYER_2,
-      strikesTotal: 1,
-      strikeProwess: 10,
-      creatureBody: null,
-      creatureRace: 'orc',
-      strikeAssignments: [
-        { characterId: aragornId, excessStrikes: 0, resolved: true, result: 'wounded', wasAlreadyWounded: false },
-      ],
-      currentStrikeIndex: 0,
-      phase: 'body-check',
-      assignmentPhase: 'done',
-      bodyCheckTarget: 'character',
-      detainment: false,
-    };
+    const combat = makeBodyCheckCombat({ companyId, characterId: aragornId });
 
     const ready = { ...state, phaseState: mhState, combat };
 

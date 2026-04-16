@@ -15,7 +15,7 @@
 
 import { describe, test, expect, beforeEach } from 'vitest';
 import {
-  buildTestState, resetMint, dispatch, Phase,
+  buildTestState, resetMint, dispatch, makeMHState, Phase,
   PLAYER_1, PLAYER_2,
   GANDALF, LEGOLAS,
   DAGGER_OF_WESTERNESSE, CAVE_DRAKE, ORC_PATROL, BARROW_WIGHT,
@@ -224,33 +224,13 @@ describe('Rule 2.08 — Play Deck Exhaustion', () => {
     // Force the M/H phase into draw-cards step, with P1 needing 2 draws.
     const drawState = {
       ...state,
-      phaseState: {
-        phase: Phase.MovementHazard,
+      phaseState: makeMHState({
         step: 'draw-cards',
-        activeCompanyIndex: 0,
-        handledCompanyIds: [],
-        movementType: null,
-        declaredRegionPath: [],
-        maxRegionDistance: 4,
-        hazardsPlayedThisCompany: 0,
-        hazardLimit: 4,
-        resolvedSitePath: [],
-        resolvedSitePathNames: [],
-        destinationSiteType: null,
-        destinationSiteName: null,
         resourceDrawMax: 2,
         hazardDrawMax: 2,
-        resourceDrawCount: 0,
-        hazardDrawCount: 0,
-        resourcePlayerPassed: false,
-        hazardPlayerPassed: false,
-        onGuardPlacedThisCompany: false,
         siteRevealed: true,
-        returnedToOrigin: false,
-        hazardsEncountered: [],
-        ahuntAttacksResolved: 0,
-      },
-    } as typeof state;
+      }),
+    };
 
     // Draw the only card in P1's deck — leaves playDeck empty mid-draw.
     const afterDraw = dispatch(drawState, { type: 'draw-cards', player: PLAYER_1, count: 1 });

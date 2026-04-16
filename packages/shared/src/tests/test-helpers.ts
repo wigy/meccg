@@ -17,7 +17,7 @@ import {
   Alignment,
   computeLegalActions,
 } from '../index.js';
-import type { PlayerId, GameState, CardDefinitionId, CardInstanceId, CardInstance, GameAction, PlayCharacterAction, SitePhaseState, MovementHazardPhaseState, OpponentInfluenceAttemptAction, LongEventPhaseState, CreatureKeyingMatch } from '../index.js';
+import type { PlayerId, GameState, CardDefinitionId, CardInstanceId, CardInstance, GameAction, PlayCharacterAction, SitePhaseState, MovementHazardPhaseState, OpponentInfluenceAttemptAction, LongEventPhaseState, CreatureKeyingMatch, CombatState } from '../index.js';
 import { enqueueResolution } from '../engine/pending.js';
 import {
   ADRAZAR, ARAGORN, BILBO, FRODO, LEGOLAS, GIMLI, FARAMIR,
@@ -595,6 +595,58 @@ export function makeMHState(overrides?: Partial<MovementHazardPhaseState>): Move
     hazardsEncountered: [],
     ahuntAttacksResolved: 0,
     ...overrides,
+  };
+}
+
+/**
+ * Build a {@link CombatState} in the body-check phase for a single
+ * wounded character, set up against a generic automatic-attack source.
+ *
+ * Defaults: strikesTotal 1, strikeProwess 10, creatureRace 'orc',
+ * detainment false, bodyCheckTarget 'character', attackingPlayerId
+ * PLAYER_2, defendingPlayerId PLAYER_1. Override as needed.
+ */
+export function makeBodyCheckCombat(opts: {
+  companyId: CompanyId;
+  characterId: CardInstanceId;
+  wasAlreadyWounded?: boolean;
+  attackingPlayerId?: PlayerId;
+  defendingPlayerId?: PlayerId;
+  strikesTotal?: number;
+  strikeProwess?: number;
+  creatureBody?: number | null;
+  creatureRace?: CombatState['creatureRace'];
+  bodyCheckTarget?: CombatState['bodyCheckTarget'];
+  detainment?: boolean;
+  attackSource?: CombatState['attackSource'];
+}): CombatState {
+  return {
+    attackSource: opts.attackSource ?? {
+      type: 'automatic-attack',
+      siteInstanceId: 'fake-site' as CardInstanceId,
+      attackIndex: 0,
+    },
+    companyId: opts.companyId,
+    defendingPlayerId: opts.defendingPlayerId ?? PLAYER_1,
+    attackingPlayerId: opts.attackingPlayerId ?? PLAYER_2,
+    strikesTotal: opts.strikesTotal ?? 1,
+    strikeProwess: opts.strikeProwess ?? 10,
+    creatureBody: opts.creatureBody ?? null,
+    creatureRace: opts.creatureRace ?? 'orc',
+    strikeAssignments: [
+      {
+        characterId: opts.characterId,
+        excessStrikes: 0,
+        resolved: true,
+        result: 'wounded',
+        wasAlreadyWounded: opts.wasAlreadyWounded ?? false,
+      },
+    ],
+    currentStrikeIndex: 0,
+    phase: 'body-check',
+    assignmentPhase: 'done',
+    bodyCheckTarget: opts.bodyCheckTarget ?? 'character',
+    detainment: opts.detainment ?? false,
   };
 }
 
