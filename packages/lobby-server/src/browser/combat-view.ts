@@ -25,6 +25,7 @@ import type {
   CancelByTapAction,
   CancelStrikeAction,
   CancelAttackAction,
+  SalvageItemAction,
   EvaluatedAction,
 } from '@meccg/shared';
 import { cardImageProxyPath, viableActions, CardStatus, buildInstanceLookup } from '@meccg/shared';
@@ -73,6 +74,7 @@ export function renderCombatView(
   const cancelByTapActions = viable.filter((a): a is CancelByTapAction => a.type === 'cancel-by-tap');
   const cancelStrikeActions = viable.filter((a): a is CancelStrikeAction => a.type === 'cancel-strike');
   const cancelAttackActions = viable.filter((a): a is CancelAttackAction => a.type === 'cancel-attack');
+  const salvageActions = viable.filter((a): a is SalvageItemAction => a.type === 'salvage-item');
 
   // Build attacker row and defender row
   const attackerRow = renderAttackerRow(combat, view, cardPool);
@@ -94,6 +96,11 @@ export function renderCombatView(
   }
 
   arena.appendChild(topRow);
+
+  // Salvage items panel — rendered between the two rows during item-salvage phase
+  if (combat.phase === 'item-salvage' && iAmDefender && salvageActions.length > 0) {
+    arena.appendChild(renderSalvagePanel(combat, view, cardPool, salvageActions, onAction));
+  }
 
   // SVG arrows placeholder — drawn after layout
   const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
@@ -753,6 +760,104 @@ function showCombatChoiceTooltip(
   tooltip.style.position = 'fixed';
   tooltip.style.left = `${rect.left + rect.width / 2}px`;
   tooltip.style.top = `${rect.top}px`;
+  document.body.appendChild(tooltip);
+}
+
+// ---- Item salvage panel ----
+
+/**
+ * Render the item-salvage panel between the combat rows. Shows each
+ * salvageable item as a clickable card; clicking an item opens a tooltip
+ * with a button per eligible recipient character (CoE rule 3.I.2).
+ */
+function renderSalvagePanel(
+  combat: CombatState,
+  view: PlayerView,
+  cardPool: Readonly<Record<string, CardDefinition>>,
+  salvageActions: readonly SalvageItemAction[],
+  onAction: (action: GameAction) => void,
+): HTMLElement {
+  const panel = document.createElement('div');
+  panel.className = 'combat-salvage-panel';
+
+  const label = document.createElement('div');
+  label.className = 'combat-salvage-label';
+  label.textContent = 'Salvage — click an item, then choose a recipient:';
+  panel.appendChild(label);
+
+  const itemsRow = document.createElement('div');
+  itemsRow.className = 'combat-salvage-items';
+
+  const items = combat.salvageItems ?? [];
+  for (const item of items) {
+    const def = cardPool[item.definitionId as string];
+    if (!def) continue;
+    const imgPath = cardImageProxyPath(def);
+    if (!imgPath) continue;
+
+    const itemEl = createCardImage(
+      item.definitionId as string,
+      def,
+      imgPath,
+      'company-card company-card--item combat-card--assignable',
+      item.instanceId as string,
+    );
+    itemEl.style.cursor = 'pointer';
+
+    const recipientActions = salvageActions.filter(a => a.itemInstanceId === item.instanceId);
+    itemEl.addEventListener('click', (e) => {
+      e.stopPropagation();
+      showSalvageRecipientTooltip(itemEl, recipientActions, view, cardPool, onAction);
+    });
+
+    itemsRow.appendChild(itemEl);
+  }
+
+  panel.appendChild(itemsRow);
+  return panel;
+}
+
+/**
+ * Show a tooltip letting the defender pick which unwounded character
+ * receives the selected salvaged item.
+ */
+function showSalvageRecipientTooltip(
+  anchor: HTMLElement,
+  recipientActions: readonly SalvageItemAction[],
+  view: PlayerView,
+  cardPool: Readonly<Record<string, CardDefinition>>,
+  onAction: (action: GameAction) => void,
+): void {
+  dismissTooltip();
+
+  const tooltip = document.createElement('div');
+  tooltip.className = 'char-action-tooltip';
+
+  for (const action of recipientActions) {
+    const char = view.self.characters[action.recipientCharacterId as string];
+    const charDef = char ? cardPool[char.definitionId as string] : undefined;
+    const name = charDef && 'name' in charDef ? (charDef as { name: string }).name : (action.recipientCharacterId as string);
+
+    const btn = document.createElement('button');
+    btn.className = 'char-action-tooltip__btn';
+    btn.textContent = `Transfer to ${name}`;
+    btn.onclick = (e) => {
+      e.stopPropagation();
+      dismissTooltip();
+      onAction(action);
+    };
+    tooltip.appendChild(btn);
+  }
+
+  const backdrop = document.createElement('div');
+  backdrop.className = 'char-action-backdrop';
+  backdrop.onclick = () => dismissTooltip();
+  document.body.appendChild(backdrop);
+
+  const rect = anchor.getBoundingClientRect();
+  tooltip.style.position = 'fixed';
+  tooltip.style.left = `${rect.left + rect.width / 2}px`;
+  tooltip.style.top = `${rect.bottom}px`;
   document.body.appendChild(tooltip);
 }
 
