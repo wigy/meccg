@@ -17,7 +17,7 @@ import {
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
   buildTestState, resetMint, makeShadowMHState,
   playCreatureHazardAndResolve, runCreatureCombat,
-  handCardId, companyIdAt,
+  handCardId, companyIdAt, phaseStateAs,
 } from '../test-helpers.js';
 import { Phase } from '../../index.js';
 import type { MovementHazardPhaseState } from '../../index.js';
@@ -77,7 +77,7 @@ describe('Orc-warband (tw-076)', () => {
     expect(afterCombat.combat).toBeNull();
 
     // Verify the Orc hazard is recorded in hazardsEncountered
-    const mhAfter = afterCombat.phaseState as MovementHazardPhaseState;
+    const mhAfter = phaseStateAs<MovementHazardPhaseState>(afterCombat);
     expect(mhAfter.hazardsEncountered).toContain('Orc-lieutenant');
 
     // Play Orc-warband — should get +3 prowess bonus (4 + 3 = 7)
@@ -107,7 +107,7 @@ describe('Orc-warband (tw-076)', () => {
     const afterCombat = runCreatureCombat(afterChain, ARAGORN, 12, null);
     expect(afterCombat.combat).toBeNull();
 
-    const mhAfter = afterCombat.phaseState as MovementHazardPhaseState;
+    const mhAfter = phaseStateAs<MovementHazardPhaseState>(afterCombat);
     expect(mhAfter.hazardsEncountered).toContain('Orc-lieutenant');
   });
 });

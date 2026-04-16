@@ -20,7 +20,7 @@ import {
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
   buildTestState, resetMint, makeMHState,
   playCreatureHazardAndResolve, runCreatureCombat,
-  companyIdAt, expectCharItemCount,
+  companyIdAt, expectCharItemCount, phaseStateAs,
 } from '../test-helpers.js';
 import { Phase, RegionType, SiteType } from '../../index.js';
 import type { MovementHazardPhaseState } from '../../index.js';
@@ -122,7 +122,7 @@ describe('Tom (Tuma) (tw-103)', () => {
     const afterBertCombat = runCreatureCombat(afterBert, ARAGORN, 12, null);
     expect(afterBertCombat.combat).toBeNull();
 
-    const mhAfterBert = afterBertCombat.phaseState as MovementHazardPhaseState;
+    const mhAfterBert = phaseStateAs<MovementHazardPhaseState>(afterBertCombat);
     expect(mhAfterBert.hazardsEncountered).toContain('Bert (Burat)');
 
     // Play Tom next — Aragorn is wounded
@@ -163,7 +163,7 @@ describe('Tom (Tuma) (tw-103)', () => {
     const afterWilliam = playCreatureHazardAndResolve(ready, PLAYER_2, williamId, companyId, WILDERNESS_KEYING);
     const afterWilliamCombat = runCreatureCombat(afterWilliam, ARAGORN, 12, null);
 
-    const mhAfterWilliam = afterWilliamCombat.phaseState as MovementHazardPhaseState;
+    const mhAfterWilliam = phaseStateAs<MovementHazardPhaseState>(afterWilliamCombat);
     expect(mhAfterWilliam.hazardsEncountered).toContain('William (Wuluag)');
 
     // Play Tom next — Aragorn is wounded
@@ -229,7 +229,7 @@ describe('Tom (Tuma) (tw-103)', () => {
     const afterChain = playCreatureHazardAndResolve(ready, PLAYER_2, tomId, companyId, DOUBLE_WILDERNESS_KEYING);
     const afterCombat = runCreatureCombat(afterChain, ARAGORN, 12, null);
 
-    const mhAfter = afterCombat.phaseState as MovementHazardPhaseState;
+    const mhAfter = phaseStateAs<MovementHazardPhaseState>(afterCombat);
     expect(mhAfter.hazardsEncountered).toContain('Tom (Tuma)');
   });
 

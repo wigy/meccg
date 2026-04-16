@@ -20,6 +20,7 @@ import {
   computeLegalActions,
 } from '../index.js';
 import type { PlayerId, GameState, CardDefinitionId, CardInstanceId, CardInstance, GameAction, PlayCharacterAction, SitePhaseState, MovementHazardPhaseState, OpponentInfluenceAttemptAction, LongEventPhaseState, CreatureKeyingMatch, CombatState } from '../index.js';
+import type { EvaluatedAction } from '../rules/types.js';
 import { enqueueResolution } from '../engine/pending.js';
 import {
   ADRAZAR, ARAGORN, BILBO, FRODO, LEGOLAS, GIMLI, FARAMIR,
@@ -550,6 +551,29 @@ export function viableActions(state: GameState, playerId: PlayerId, actionType: 
 /** All viable actions (of any type) for a player. */
 export function viableFor(state: GameState, playerId: PlayerId) {
   return computeLegalActions(state, playerId).filter(ea => ea.viable);
+}
+
+/**
+ * Filter a pre-computed `EvaluatedAction[]` array to viable entries of
+ * the given action type. Use when a test inspects both viable and
+ * non-viable entries from the same `computeLegalActions` call.
+ */
+export function viableOfType(
+  actions: readonly EvaluatedAction[],
+  actionType: string,
+): EvaluatedAction[] {
+  return actions.filter(ea => ea.viable && ea.action.type === actionType);
+}
+
+/**
+ * Filter a pre-computed `EvaluatedAction[]` array to non-viable entries
+ * of the given action type.
+ */
+export function nonViableOfType(
+  actions: readonly EvaluatedAction[],
+  actionType: string,
+): EvaluatedAction[] {
+  return actions.filter(ea => !ea.viable && ea.action.type === actionType);
 }
 
 /** The action-type names of every viable action for a player. */
@@ -1517,5 +1541,5 @@ export {
   WOOD_ELVES, BLUE_MOUNTAIN_DWARVES, KNIGHTS_OF_DOL_AMROTH, MEN_OF_ANORIEN, MEN_OF_ANFALAS, MEN_OF_LEBENNIN, RANGERS_OF_THE_NORTH, RANGERS_OF_ITHILIEN, RIDERS_OF_ROHAN, DUNLENDINGS,
   CardStatus, ZERO_EFFECTIVE_STATS, ZERO_MARSHALLING_POINTS,
 };
-export type { GameConfig, QuickStartGameConfig, ReducerResult, CardInPlay, CardInstance, CardInstanceId, CardDefinitionId, CompanyId, OpponentInfluenceAttemptAction, SitePhaseState, LongEventPhaseState, CreatureKeyingMatch };
+export type { GameConfig, QuickStartGameConfig, ReducerResult, CardInPlay, CardInstance, CardInstanceId, CardDefinitionId, CompanyId, OpponentInfluenceAttemptAction, SitePhaseState, LongEventPhaseState, CreatureKeyingMatch, EvaluatedAction };
 

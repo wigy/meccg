@@ -19,7 +19,7 @@ import {
   ARAGORN, ELROND, LEGOLAS,
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
   buildTestState, resetMint, mint,
-  Phase,
+  Phase, phaseStateAs,
 } from '../test-helpers.js';
 import type { EndOfTurnPhaseState, CharacterCard, CardInstance, DrawCardsAction } from '../../index.js';
 import { HAND_SIZE } from '../../constants.js';
@@ -83,7 +83,7 @@ describe('Elrond (tw-145)', () => {
     });
 
     // Advance to reset-hand step by setting the phase state directly
-    const eotState = state.phaseState as EndOfTurnPhaseState;
+    const eotState = phaseStateAs<EndOfTurnPhaseState>(state);
     const resetState: typeof state = {
       ...state,
       phaseState: { ...eotState, step: 'reset-hand' as const, discardDone: [true, true] } as EndOfTurnPhaseState,

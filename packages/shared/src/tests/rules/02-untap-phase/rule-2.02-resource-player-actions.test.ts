@@ -15,18 +15,13 @@
 
 import { describe, test, expect, beforeEach } from 'vitest';
 import {
-  buildTestState, resetMint, Phase,
+  buildTestState, resetMint, Phase, viableOfType,
   PLAYER_1, PLAYER_2,
   GANDALF, LEGOLAS,
   GATES_OF_MORNING, SUN, DOORS_OF_NIGHT, CAVE_DRAKE,
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
 } from '../../test-helpers.js';
 import { computeLegalActions } from '../../../engine/legal-actions/index.js';
-import type { EvaluatedAction } from '../../../index.js';
-
-function viableOfType(actions: EvaluatedAction[], type: string): EvaluatedAction[] {
-  return actions.filter(a => a.viable && a.action.type === type);
-}
 
 describe('Rule 2.02 — Resource Player Actions', () => {
   beforeEach(() => resetMint());

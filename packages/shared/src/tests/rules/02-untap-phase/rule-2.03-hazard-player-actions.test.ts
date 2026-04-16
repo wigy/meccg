@@ -15,18 +15,13 @@
 
 import { describe, test, expect, beforeEach } from 'vitest';
 import {
-  buildTestState, resetMint, Phase,
+  buildTestState, resetMint, Phase, viableOfType,
   PLAYER_1, PLAYER_2,
   GANDALF, LEGOLAS,
   GATES_OF_MORNING, SUN, CAVE_DRAKE, ORC_PATROL,
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
 } from '../../test-helpers.js';
 import { computeLegalActions } from '../../../engine/legal-actions/index.js';
-import type { EvaluatedAction } from '../../../index.js';
-
-function viableOfType(actions: EvaluatedAction[], type: string): EvaluatedAction[] {
-  return actions.filter(a => a.viable && a.action.type === type);
-}
 
 describe('Rule 2.03 — Hazard Player Actions', () => {
   beforeEach(() => resetMint());
