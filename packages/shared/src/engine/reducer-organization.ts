@@ -1066,14 +1066,15 @@ export function handleGrantActionApply(state: GameState, action: GameAction): Re
     ? (sourceDef as { effects?: readonly import('../types/effects.js').CardEffect[] }).effects
     : undefined;
   const effect = effects?.find(
-    e => e.type === 'grant-action' && (e as import('../types/effects.js').GrantActionEffect).action === action.actionId,
-  ) as import('../types/effects.js').GrantActionEffect | undefined;
+    (e): e is import('../types/effects.js').GrantActionEffect =>
+      e.type === 'grant-action' && e.action === action.actionId,
+  );
   if (!effect?.apply) {
     return { state, error: `grant-action ${action.actionId} has no apply on ${sourceName}` };
   }
 
   // --- Pay cost ---
-  let newPlayers = clonePlayers(state);
+  const newPlayers = clonePlayers(state);
   let updatedChar: CharacterInPlay = char;
 
   if (effect.cost.discard === 'self') {
