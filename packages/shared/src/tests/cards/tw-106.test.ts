@@ -24,6 +24,7 @@ import {
   playShortEventAndResolve,
   handCardId,
   actionAs,
+  phaseStateAs,
 } from '../test-helpers.js';
 import { computeLegalActions, Phase } from '../../index.js';
 import type { CardInPlay, CardInstanceId, GameState, MovementHazardPhaseState, PlayShortEventAction, NotPlayableAction } from '../../index.js';
@@ -386,7 +387,7 @@ describe('Twilight (tw-106)', () => {
     expect(result.error).toBeUndefined();
 
     // Hazard count should NOT have incremented (Twilight has no-hazard-limit)
-    const ps = result.state.phaseState as MovementHazardPhaseState;
+    const ps = phaseStateAs<MovementHazardPhaseState>(result.state);
     expect(ps.hazardsPlayedThisCompany).toBe(1);
   });
 

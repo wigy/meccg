@@ -16,21 +16,13 @@
 import { describe, test, expect, beforeEach } from 'vitest';
 import {
   buildTestState, resetMint, Phase, makeSitePhase,
+  viableOfType, nonViableOfType,
   PLAYER_1, PLAYER_2,
   ARAGORN, LEGOLAS, EOWYN,
   GLAMDRING,
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
 } from '../../test-helpers.js';
 import { computeLegalActions } from '../../../engine/legal-actions/index.js';
-import type { EvaluatedAction } from '../../../index.js';
-
-function viableOfType(actions: EvaluatedAction[], type: string): EvaluatedAction[] {
-  return actions.filter(a => a.viable && a.action.type === type);
-}
-
-function nonViableOfType(actions: EvaluatedAction[], type: string): EvaluatedAction[] {
-  return actions.filter(a => !a.viable && a.action.type === type);
-}
 
 describe('Rule 2.04 — Uniqueness In Play', () => {
   beforeEach(() => resetMint());

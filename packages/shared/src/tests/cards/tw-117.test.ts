@@ -30,7 +30,7 @@ import {
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH, EDORAS,
   Phase, CardStatus,
   buildTestState, resetMint, makeMHState, mint,
-  dispatch, makePlayDeck,
+  dispatch, makePlayDeck, phaseStateAs,
 } from '../test-helpers.js';
 import type { CardDefinitionId, MovementHazardPhaseState, PlayerState } from '../../index.js';
 
@@ -87,7 +87,7 @@ describe('Alatar (tw-117)', () => {
     const testState = buildMHDrawState(ALATAR, MORIA);
 
     const result = dispatch(testState, { type: 'pass', player: PLAYER_1 });
-    const resultMH = result.phaseState as MovementHazardPhaseState;
+    const resultMH = phaseStateAs<MovementHazardPhaseState>(result);
 
     expect(resultMH.step).toBe('draw-cards');
     // Moria normally gives 3 hazard draws; Alatar reduces to 2
@@ -133,7 +133,7 @@ describe('Alatar (tw-117)', () => {
     const testState = { ...state, players, phaseState: mhState };
 
     const result = dispatch(testState, { type: 'pass', player: PLAYER_1 });
-    const resultMH = result.phaseState as MovementHazardPhaseState;
+    const resultMH = phaseStateAs<MovementHazardPhaseState>(result);
 
     expect(resultMH.step).toBe('draw-cards');
     expect(resultMH.hazardDrawMax).toBe(0);
@@ -143,7 +143,7 @@ describe('Alatar (tw-117)', () => {
     const testState = buildMHDrawState(GANDALF, MORIA);
 
     const result = dispatch(testState, { type: 'pass', player: PLAYER_1 });
-    const resultMH = result.phaseState as MovementHazardPhaseState;
+    const resultMH = phaseStateAs<MovementHazardPhaseState>(result);
 
     expect(resultMH.step).toBe('draw-cards');
     // Without Alatar, Moria gives full 3 hazard draws

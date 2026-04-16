@@ -20,12 +20,11 @@ import {
   ARAGORN, BILBO, LEGOLAS, GIMLI,
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
   DAGGER_OF_WESTERNESSE, HORN_OF_ANOR,
-  buildTestState, resetMint, makeMHState, findCharInstanceId,
+  buildTestState, resetMint, findCharInstanceId,
+  makeShadowMHState, makeBodyCheckCombat, setCharStatus,
   dispatch, viableActions,
-  Phase, companyIdAt,
+  Phase, companyIdAt, CardStatus,
 } from '../../test-helpers.js';
-import { RegionType, SiteType, CardStatus } from '../../../index.js';
-import type { CombatState, CardInstanceId } from '../../../index.js';
 
 describe('Rule 8.30 — Character Eliminated from Body Check', () => {
   beforeEach(() => resetMint());
@@ -63,43 +62,15 @@ describe('Rule 8.30 — Character Eliminated from Body Check', () => {
     const aragornId = findCharInstanceId(state, 0, ARAGORN);
     const companyId = companyIdAt(state, 0);
 
-    // Wound Bilbo so body check is triggered after strike failure
-    const p0 = { ...state.players[0] };
-    p0.characters = {
-      ...p0.characters,
-      [bilboId as string]: { ...p0.characters[bilboId as string], status: CardStatus.Inverted },
+    // Wound Bilbo so body check is triggered after strike failure.
+    // Body check roll of 12 > Bilbo's body (9) → eliminated.
+    const woundedState = setCharStatus(state, 0, BILBO, CardStatus.Inverted);
+    const readyState = {
+      ...woundedState,
+      phaseState: makeShadowMHState(),
+      combat: makeBodyCheckCombat({ companyId, characterId: bilboId }),
+      cheatRollTotal: 12,
     };
-    const players = [p0, state.players[1]] as const;
-
-    const mhState = makeMHState({
-      resolvedSitePath: [RegionType.Shadow],
-      resolvedSitePathNames: ['Imlad Morgul'],
-      destinationSiteType: SiteType.ShadowHold,
-      destinationSiteName: 'Moria',
-    });
-
-    // Set up combat in body-check phase for Bilbo
-    const combat: CombatState = {
-      attackSource: { type: 'automatic-attack', siteInstanceId: 'fake-site' as CardInstanceId, attackIndex: 0 },
-      companyId,
-      defendingPlayerId: PLAYER_1,
-      attackingPlayerId: PLAYER_2,
-      strikesTotal: 1,
-      strikeProwess: 10,
-      creatureBody: null,
-      creatureRace: 'orc',
-      strikeAssignments: [
-        { characterId: bilboId, excessStrikes: 0, resolved: true, result: 'wounded', wasAlreadyWounded: false },
-      ],
-      currentStrikeIndex: 0,
-      phase: 'body-check',
-      assignmentPhase: 'done',
-      bodyCheckTarget: 'character',
-      detainment: false,
-    };
-
-    // Body check roll of 12 > Bilbo's body (9) → eliminated
-    const readyState = { ...state, players, phaseState: mhState, combat, cheatRollTotal: 12 };
     const nextState = dispatch(readyState, { type: 'body-check-roll', player: PLAYER_2, need: 10, explanation: 'test' });
 
     // Should enter item-salvage phase
@@ -145,42 +116,13 @@ describe('Rule 8.30 — Character Eliminated from Body Check', () => {
     const companyId = companyIdAt(state, 0);
     const daggerId = state.players[0].characters[bilboId as string].items[0].instanceId;
 
-    // Wound Bilbo
-    const p0 = { ...state.players[0] };
-    p0.characters = {
-      ...p0.characters,
-      [bilboId as string]: { ...p0.characters[bilboId as string], status: CardStatus.Inverted },
+    const woundedState = setCharStatus(state, 0, BILBO, CardStatus.Inverted);
+    const readyState = {
+      ...woundedState,
+      phaseState: makeShadowMHState(),
+      combat: makeBodyCheckCombat({ companyId, characterId: bilboId }),
+      cheatRollTotal: 12,
     };
-    const players = [p0, state.players[1]] as const;
-
-    const mhState = makeMHState({
-      resolvedSitePath: [RegionType.Shadow],
-      resolvedSitePathNames: ['Imlad Morgul'],
-      destinationSiteType: SiteType.ShadowHold,
-      destinationSiteName: 'Moria',
-    });
-
-    const combat: CombatState = {
-      attackSource: { type: 'automatic-attack', siteInstanceId: 'fake-site' as CardInstanceId, attackIndex: 0 },
-      companyId,
-      defendingPlayerId: PLAYER_1,
-      attackingPlayerId: PLAYER_2,
-      strikesTotal: 1,
-      strikeProwess: 10,
-      creatureBody: null,
-      creatureRace: 'orc',
-      strikeAssignments: [
-        { characterId: bilboId, excessStrikes: 0, resolved: true, result: 'wounded', wasAlreadyWounded: false },
-      ],
-      currentStrikeIndex: 0,
-      phase: 'body-check',
-      assignmentPhase: 'done',
-      bodyCheckTarget: 'character',
-      detainment: false,
-    };
-
-    // Eliminate Bilbo
-    const readyState = { ...state, players, phaseState: mhState, combat, cheatRollTotal: 12 };
     const afterBodyCheck = dispatch(readyState, { type: 'body-check-roll', player: PLAYER_2, need: 10, explanation: 'test' });
     expect(afterBodyCheck.combat!.phase).toBe('item-salvage');
 
@@ -231,42 +173,13 @@ describe('Rule 8.30 — Character Eliminated from Body Check', () => {
     const companyId = companyIdAt(state, 0);
     const daggerId = state.players[0].characters[bilboId as string].items[0].instanceId;
 
-    // Wound Bilbo
-    const p0 = { ...state.players[0] };
-    p0.characters = {
-      ...p0.characters,
-      [bilboId as string]: { ...p0.characters[bilboId as string], status: CardStatus.Inverted },
+    const woundedState = setCharStatus(state, 0, BILBO, CardStatus.Inverted);
+    const readyState = {
+      ...woundedState,
+      phaseState: makeShadowMHState(),
+      combat: makeBodyCheckCombat({ companyId, characterId: bilboId }),
+      cheatRollTotal: 12,
     };
-    const players = [p0, state.players[1]] as const;
-
-    const mhState = makeMHState({
-      resolvedSitePath: [RegionType.Shadow],
-      resolvedSitePathNames: ['Imlad Morgul'],
-      destinationSiteType: SiteType.ShadowHold,
-      destinationSiteName: 'Moria',
-    });
-
-    const combat: CombatState = {
-      attackSource: { type: 'automatic-attack', siteInstanceId: 'fake-site' as CardInstanceId, attackIndex: 0 },
-      companyId,
-      defendingPlayerId: PLAYER_1,
-      attackingPlayerId: PLAYER_2,
-      strikesTotal: 1,
-      strikeProwess: 10,
-      creatureBody: null,
-      creatureRace: 'orc',
-      strikeAssignments: [
-        { characterId: bilboId, excessStrikes: 0, resolved: true, result: 'wounded', wasAlreadyWounded: false },
-      ],
-      currentStrikeIndex: 0,
-      phase: 'body-check',
-      assignmentPhase: 'done',
-      bodyCheckTarget: 'character',
-      detainment: false,
-    };
-
-    // Eliminate Bilbo
-    const readyState = { ...state, players, phaseState: mhState, combat, cheatRollTotal: 12 };
     const afterBodyCheck = dispatch(readyState, { type: 'body-check-roll', player: PLAYER_2, need: 10, explanation: 'test' });
     expect(afterBodyCheck.combat!.phase).toBe('item-salvage');
 
@@ -317,40 +230,13 @@ describe('Rule 8.30 — Character Eliminated from Body Check', () => {
     const gimliId = findCharInstanceId(state, 0, GIMLI);
     const companyId = companyIdAt(state, 0);
 
-    const p0 = { ...state.players[0] };
-    p0.characters = {
-      ...p0.characters,
-      [bilboId as string]: { ...p0.characters[bilboId as string], status: CardStatus.Inverted },
+    const woundedState = setCharStatus(state, 0, BILBO, CardStatus.Inverted);
+    const readyState = {
+      ...woundedState,
+      phaseState: makeShadowMHState(),
+      combat: makeBodyCheckCombat({ companyId, characterId: bilboId }),
+      cheatRollTotal: 12,
     };
-    const players = [p0, state.players[1]] as const;
-
-    const mhState = makeMHState({
-      resolvedSitePath: [RegionType.Shadow],
-      resolvedSitePathNames: ['Imlad Morgul'],
-      destinationSiteType: SiteType.ShadowHold,
-      destinationSiteName: 'Moria',
-    });
-
-    const combat: CombatState = {
-      attackSource: { type: 'automatic-attack', siteInstanceId: 'fake-site' as CardInstanceId, attackIndex: 0 },
-      companyId,
-      defendingPlayerId: PLAYER_1,
-      attackingPlayerId: PLAYER_2,
-      strikesTotal: 1,
-      strikeProwess: 10,
-      creatureBody: null,
-      creatureRace: 'orc',
-      strikeAssignments: [
-        { characterId: bilboId, excessStrikes: 0, resolved: true, result: 'wounded', wasAlreadyWounded: false },
-      ],
-      currentStrikeIndex: 0,
-      phase: 'body-check',
-      assignmentPhase: 'done',
-      bodyCheckTarget: 'character',
-      detainment: false,
-    };
-
-    const readyState = { ...state, players, phaseState: mhState, combat, cheatRollTotal: 12 };
     const afterBodyCheck = dispatch(readyState, { type: 'body-check-roll', player: PLAYER_2, need: 10, explanation: 'test' });
 
     expect(afterBodyCheck.combat!.phase).toBe('item-salvage');
@@ -396,42 +282,14 @@ describe('Rule 8.30 — Character Eliminated from Body Check', () => {
     const bilboId = findCharInstanceId(state, 0, BILBO);
     const companyId = companyIdAt(state, 0);
 
-    // Wound Bilbo
-    const p0 = { ...state.players[0] };
-    p0.characters = {
-      ...p0.characters,
-      [bilboId as string]: { ...p0.characters[bilboId as string], status: CardStatus.Inverted },
-    };
-    const players = [p0, state.players[1]] as const;
-
-    const mhState = makeMHState({
-      resolvedSitePath: [RegionType.Shadow],
-      resolvedSitePathNames: ['Imlad Morgul'],
-      destinationSiteType: SiteType.ShadowHold,
-      destinationSiteName: 'Moria',
-    });
-
-    const combat: CombatState = {
-      attackSource: { type: 'automatic-attack', siteInstanceId: 'fake-site' as CardInstanceId, attackIndex: 0 },
-      companyId,
-      defendingPlayerId: PLAYER_1,
-      attackingPlayerId: PLAYER_2,
-      strikesTotal: 1,
-      strikeProwess: 10,
-      creatureBody: null,
-      creatureRace: 'orc',
-      strikeAssignments: [
-        { characterId: bilboId, excessStrikes: 0, resolved: true, result: 'wounded', wasAlreadyWounded: false },
-      ],
-      currentStrikeIndex: 0,
-      phase: 'body-check',
-      assignmentPhase: 'done',
-      bodyCheckTarget: 'character',
-      detainment: false,
-    };
-
     // Eliminate Bilbo (no items) — body check roll 12 > body 9
-    const readyState = { ...state, players, phaseState: mhState, combat, cheatRollTotal: 12 };
+    const woundedState = setCharStatus(state, 0, BILBO, CardStatus.Inverted);
+    const readyState = {
+      ...woundedState,
+      phaseState: makeShadowMHState(),
+      combat: makeBodyCheckCombat({ companyId, characterId: bilboId }),
+      cheatRollTotal: 12,
+    };
     const nextState = dispatch(readyState, { type: 'body-check-roll', player: PLAYER_2, need: 10, explanation: 'test' });
 
     // Should skip item-salvage and finalize combat directly
@@ -470,42 +328,14 @@ describe('Rule 8.30 — Character Eliminated from Body Check', () => {
     const companyId = companyIdAt(state, 0);
     const daggerId = state.players[0].characters[bilboId as string].items[0].instanceId;
 
-    // Wound Bilbo
-    const p0 = { ...state.players[0] };
-    p0.characters = {
-      ...p0.characters,
-      [bilboId as string]: { ...p0.characters[bilboId as string], status: CardStatus.Inverted },
-    };
-    const players = [p0, state.players[1]] as const;
-
-    const mhState = makeMHState({
-      resolvedSitePath: [RegionType.Shadow],
-      resolvedSitePathNames: ['Imlad Morgul'],
-      destinationSiteType: SiteType.ShadowHold,
-      destinationSiteName: 'Moria',
-    });
-
-    const combat: CombatState = {
-      attackSource: { type: 'automatic-attack', siteInstanceId: 'fake-site' as CardInstanceId, attackIndex: 0 },
-      companyId,
-      defendingPlayerId: PLAYER_1,
-      attackingPlayerId: PLAYER_2,
-      strikesTotal: 1,
-      strikeProwess: 10,
-      creatureBody: null,
-      creatureRace: 'orc',
-      strikeAssignments: [
-        { characterId: bilboId, excessStrikes: 0, resolved: true, result: 'wounded', wasAlreadyWounded: false },
-      ],
-      currentStrikeIndex: 0,
-      phase: 'body-check',
-      assignmentPhase: 'done',
-      bodyCheckTarget: 'character',
-      detainment: false,
-    };
-
     // Eliminate Bilbo — no unwounded companions → skip salvage
-    const readyState = { ...state, players, phaseState: mhState, combat, cheatRollTotal: 12 };
+    const woundedState = setCharStatus(state, 0, BILBO, CardStatus.Inverted);
+    const readyState = {
+      ...woundedState,
+      phaseState: makeShadowMHState(),
+      combat: makeBodyCheckCombat({ companyId, characterId: bilboId }),
+      cheatRollTotal: 12,
+    };
     const nextState = dispatch(readyState, { type: 'body-check-roll', player: PLAYER_2, need: 10, explanation: 'test' });
 
     // Should skip item-salvage and finalize combat directly

@@ -29,7 +29,7 @@ import { describe, test, expect } from 'vitest';
 import {
   buildResolutionState, attemptInfluence, defendInfluence,
   findCharInstanceId, viableActions, PLAYER_1, PLAYER_2,
-  CardStatus, dispatch,
+  CardStatus, dispatch, phaseStateAs,
   ARAGORN, LEGOLAS, GIMLI, BILBO, EOWYN,
   GLAMDRING,
 } from '../../test-helpers.js';
@@ -70,7 +70,7 @@ describe('Rule 10.12 — Resolving an Influence Attempt', () => {
   test('sets opponentInteractionThisTurn to influence after attempt', () => {
     const state = buildResolutionState();
     const { state: afterAttempt } = attemptInfluence(state);
-    expect((afterAttempt.phaseState as SitePhaseState).opponentInteractionThisTurn).toBe('influence');
+    expect(phaseStateAs<SitePhaseState>(afterAttempt).opponentInteractionThisTurn).toBe('influence');
   });
 
   test('defender roll clears the pending resolution', () => {

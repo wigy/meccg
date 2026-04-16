@@ -18,7 +18,7 @@
 
 import { describe, test, expect, beforeEach } from 'vitest';
 import {
-  buildTestState, resetMint, dispatch, Phase,
+  buildTestState, resetMint, dispatch, Phase, viableOfType,
   PLAYER_1, PLAYER_2,
   GANDALF, LEGOLAS, ARAGORN,
   CAVE_DRAKE, ORC_PATROL, BARROW_WIGHT,
@@ -26,11 +26,6 @@ import {
   makePlayDeck,
 } from '../../test-helpers.js';
 import { computeLegalActions } from '../../../engine/legal-actions/index.js';
-import type { EvaluatedAction } from '../../../index.js';
-
-function viableOfType(actions: EvaluatedAction[], type: string): EvaluatedAction[] {
-  return actions.filter(a => a.viable && a.action.type === type);
-}
 
 describe('Rule 2.13 — Hazard Sideboard Access at Untap', () => {
   beforeEach(() => resetMint());

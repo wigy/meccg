@@ -24,7 +24,7 @@ import {
   TWO_OR_THREE_TRIBES_PRESENT,
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
   buildTestState, resetMint, makeMHState,
-  handCardId, viableActions, resolveChain,
+  handCardId, viableActions, resolveChain, phaseStateAs,
 } from '../test-helpers.js';
 import { computeLegalActions, Phase, RegionType, Race, SiteType } from '../../index.js';
 import type { GameState, MovementHazardPhaseState } from '../../index.js';
@@ -328,7 +328,7 @@ describe('Two or Three Tribes Present (dm-97)', () => {
     const afterTribes = resolveChain(r1.state);
 
     // Tribes card itself counted: hazardsPlayedThisCompany should be 1
-    const ps1 = afterTribes.phaseState as MovementHazardPhaseState;
+    const ps1 = phaseStateAs<MovementHazardPhaseState>(afterTribes);
     expect(ps1.hazardsPlayedThisCompany).toBe(1);
 
     // Now play Orc-guard (orc creature, race exempt)
@@ -345,7 +345,7 @@ describe('Two or Three Tribes Present (dm-97)', () => {
     expect(r2.error).toBeUndefined();
 
     // Orc-guard should NOT have incremented hazard count (still 1)
-    const ps2 = r2.state.phaseState as MovementHazardPhaseState;
+    const ps2 = phaseStateAs<MovementHazardPhaseState>(r2.state);
     expect(ps2.hazardsPlayedThisCompany).toBe(1);
   });
 });
