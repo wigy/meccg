@@ -959,7 +959,7 @@ function initiateCreatureCombat(state: GameState, entry: ChainEntry): GameState 
 
   // Check for attacker-chooses-defenders combat rule (e.g. Cave-drake)
   const attackerChooses = creatureDef.effects?.some(
-    e => e.type === 'combat-rule' && e.rule === 'attacker-chooses-defenders',
+    e => e.type === 'combat-attacker-chooses-defenders',
   ) ?? false;
   if (attackerChooses) {
     logDetail('Creature has attacker-chooses-defenders — skipping defender assignment');
@@ -967,19 +967,15 @@ function initiateCreatureCombat(state: GameState, entry: ChainEntry): GameState 
 
   // Check for multi-attack combat rule (e.g. Assassin — three attacks of one strike each)
   const multiAttackEffect = creatureDef.effects?.find(
-    e => e.type === 'combat-rule' && e.rule === 'multi-attack',
+    e => e.type === 'combat-multi-attack',
   );
-  const multiAttackCount = multiAttackEffect && 'count' in multiAttackEffect
-    ? (multiAttackEffect as { count?: number }).count ?? 1
-    : 1;
+  const multiAttackCount = multiAttackEffect?.count ?? 1;
 
   // Check for cancel-attack-by-tap combat rule (e.g. Assassin — tap to cancel attacks)
   const cancelByTapEffect = creatureDef.effects?.find(
-    e => e.type === 'combat-rule' && e.rule === 'cancel-attack-by-tap',
+    e => e.type === 'combat-cancel-attack-by-tap',
   );
-  const cancelByTapMax = cancelByTapEffect && 'maxCancels' in cancelByTapEffect
-    ? (cancelByTapEffect as { maxCancels?: number }).maxCancels ?? 0
-    : 0;
+  const cancelByTapMax = cancelByTapEffect?.maxCancels ?? 0;
 
   const attackSource = state.phaseState.phase === 'site'
     ? { type: 'on-guard-creature' as const, cardInstanceId: entry.card!.instanceId }

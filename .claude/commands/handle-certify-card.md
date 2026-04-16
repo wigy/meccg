@@ -24,7 +24,7 @@ Follow these steps:
    - `mp-modifier` — works for elimination pile with numeric values only; expression strings are ignored (`packages/shared/src/engine/recompute-derived.ts`)
    - `on-event` — infrastructure exists but `matchesTrigger()` is stubbed to always return false; no triggers fire (`packages/shared/src/engine/chain-reducer.ts`). Exception: `self-enters-play` with `discard-cards-in-play` is implemented directly in the reducer play handlers for permanent events (`packages/shared/src/engine/reducer.ts`)
    - `play-restriction` — only "no-hazard-limit" and "playable-as-resource" rules are implemented (`packages/shared/src/engine/reducer.ts`)
-   - `combat-rule` — only "attacker-chooses-defenders" is implemented
+   - Combat-rule effects — `combat-attacker-chooses-defenders`, `combat-multi-attack`, and `combat-cancel-attack-by-tap` are implemented
 
    **Not implemented (type-only):**
    - `enemy-modifier` — no engine code

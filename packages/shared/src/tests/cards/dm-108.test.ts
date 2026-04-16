@@ -11,7 +11,7 @@
  * played for the rest of the turn."
  *
  * This tests:
- * 1. combat-rule: attacker-chooses-defenders — hazard player assigns strikes
+ * 1. combat-attacker-chooses-defenders — hazard player assigns strikes
  * 2. on-event: attack-not-defeated → deny-scout-resources constraint
  *
  * Note: the ranger body-reduction rule has no effect because the creature

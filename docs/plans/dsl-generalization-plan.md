@@ -204,39 +204,13 @@ code paths than a pure legality gate.
 
 ---
 
-## 3. `combat-rule` rule IDs (MEDIUM priority)
+## 3. `combat-rule` rule IDs ✅ DONE
 
-### Smell
-
-`chain-reducer.ts` (~722, ~730, ~738) dispatches on literal
-`combat-rule` strings:
-
-- `attacker-chooses-defenders`
-- `multi-attack` (carries `count`)
-- `cancel-attack-by-tap` (carries `maxCancels`)
-
-These are already parameterized — the rule-ID dispatch is redundant.
-
-### Target shape
-
-Replace `combat-rule` with three distinct effect types
+Split into three distinct effect types
 (`combat-attacker-chooses-defenders`, `combat-multi-attack`,
-`combat-cancel-attack-by-tap`) or keep one effect with a closed enum and
-drop the string-compare. The reducer dispatches on effect type, not
-on an opaque string.
-
-### Steps
-
-1. Narrow the `rule: string` field to a closed union of the three known
-   values, or split into three effect types.
-2. Update the three reducer sites to dispatch on type, not on string
-   equality.
-3. Update card JSON (tw-008 Cave-drake, tw-020 / tw-074 creatures, etc.)
-   accordingly.
-
-### Risk
-
-Low. Mechanical refactor.
+`combat-cancel-attack-by-tap`). The chain reducer dispatches on effect
+type. Card JSON (tw-008 Assassin, tw-020 Cave-drake, dm-108 Little
+Snuffler) migrated. No rule-string matching remains in the engine.
 
 ---
 
@@ -608,7 +582,7 @@ Recommended order:
 4. **#4 constraint collapse** — depends on #1's `remove-constraint`
    apply kind and folds neatly into #6.
 5. **#2 play-restriction** — independent; can run any time.
-6. **#3 combat-rule** — lowest priority, mechanical cleanup.
+6. ~~**#3 combat-rule**~~ — done.
 
 Each step is its own PR with card-test coverage on the cards it
 touches, so regressions surface immediately in the nightly suite.

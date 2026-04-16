@@ -347,37 +347,32 @@ export interface CancelStrikeEffect extends EffectBase {
 }
 
 /**
- * Closed set of combat-mechanics overrides a creature card can declare.
- * Every known override is listed here; the chain reducer dispatches on
- * `rule` against this union with full type safety. Adding a new override
- * is a one-line union extension plus the matching reducer branch — no
- * opaque strings to chase through the engine.
+ * The attacking player assigns strikes to defending characters, instead
+ * of the defender assigning them. Example: Cave-drake.
  */
-export type CombatRule =
-  | 'attacker-chooses-defenders'
-  | 'multi-attack'
-  | 'cancel-attack-by-tap';
+export interface CombatAttackerChoosesDefendersEffect extends EffectBase {
+  readonly type: 'combat-attacker-chooses-defenders';
+}
 
 /**
- * Overrides a combat mechanic.
- *
- * Example: Cave-drake — attacker chooses defending characters.
+ * The creature makes several separate attacks, all against the same
+ * target character. Each sub-attack uses the creature's base strike
+ * count. Example: Assassin — three attacks of one strike each.
  */
-export interface CombatRuleEffect extends EffectBase {
-  readonly type: 'combat-rule';
-  /** The combat rule override. */
-  readonly rule: CombatRule;
-  /**
-   * For `multi-attack`: how many separate attacks the creature makes,
-   * all against the same target character. Each attack uses the creature's
-   * base strike count.
-   */
-  readonly count?: number;
-  /**
-   * For `cancel-attack-by-tap`: maximum number of attacks that can be
-   * canceled by tapping non-target characters in the defending company.
-   */
-  readonly maxCancels?: number;
+export interface CombatMultiAttackEffect extends EffectBase {
+  readonly type: 'combat-multi-attack';
+  /** How many separate attacks the creature makes. */
+  readonly count: number;
+}
+
+/**
+ * The defending player may tap non-target characters in the defending
+ * company to cancel attacks. Example: Assassin.
+ */
+export interface CombatCancelAttackByTapEffect extends EffectBase {
+  readonly type: 'combat-cancel-attack-by-tap';
+  /** Maximum number of attacks that can be canceled. */
+  readonly maxCancels: number;
 }
 
 /**
@@ -829,7 +824,9 @@ export type CardEffect =
   | CancelInfluenceEffect
   | DodgeStrikeEffect
   | HalveStrikesEffect
-  | CombatRuleEffect
+  | CombatAttackerChoosesDefendersEffect
+  | CombatMultiAttackEffect
+  | CombatCancelAttackByTapEffect
   | PlayFlagEffect
   | DuplicationLimitEffect
   | PlayTargetEffect
