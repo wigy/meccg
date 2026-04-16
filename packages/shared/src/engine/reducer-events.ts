@@ -692,9 +692,7 @@ function applyShortEventOnEntersPlay(
           kind = { type: 'no-creature-hazards-on-company' };
           break;
         case 'site-phase-do-nothing':
-          kind = onEvent.apply.cancelWhen
-            ? { type: 'site-phase-do-nothing', cancelWhen: onEvent.apply.cancelWhen }
-            : { type: 'site-phase-do-nothing' };
+          kind = { type: 'site-phase-do-nothing' };
           break;
         case 'deny-scout-resources':
           kind = { type: 'deny-scout-resources' };

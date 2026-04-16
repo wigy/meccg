@@ -425,15 +425,20 @@ function applyShortEventArrivalTrigger(state: GameState, entry: ChainEntry): Gam
   const def = state.cardPool[card.definitionId as string];
   if (!def || !('effects' in def) || !def.effects) return state;
 
-  // Collect all on-event + add-constraint effects for company-arrives-at-site.
+  // Collect all on-event effects for company-arrives-at-site. Each
+  // effect's apply is either an `add-constraint` (single) or a
+  // `sequence` of `add-constraint`s (River — adds
+  // site-phase-do-nothing + granted-action together).
+  //
   // Multiple effects allow a card to declare several mutually-exclusive
-  // modes (e.g. Choking Shadows' +2 prowess vs. type-override); the first
-  // effect whose `when` condition matches is applied and the rest skipped.
+  // modes (e.g. Choking Shadows' +2 prowess vs. type-override); the
+  // first effect whose `when` condition matches is applied and the
+  // rest skipped.
   const onEvents = def.effects.filter(
     (e): e is import('../types/effects.js').OnEventEffect =>
       e.type === 'on-event'
       && e.event === 'company-arrives-at-site'
-      && e.apply.type === 'add-constraint',
+      && (e.apply.type === 'add-constraint' || e.apply.type === 'sequence'),
   );
   if (onEvents.length === 0) return state;
 
@@ -456,38 +461,55 @@ function applyShortEventArrivalTrigger(state: GameState, entry: ChainEntry): Gam
 
   for (const onEvent of onEvents) {
     if (onEvent.when && !matchesCondition(onEvent.when, ctx)) {
-      logDetail(`Short-event "${def.name}": skipping ${onEvent.apply.constraint} mode — condition not met`);
+      logDetail(`Short-event "${def.name}": skipping on-event mode — condition not met`);
       continue;
     }
-    const constraintKind = onEvent.apply.constraint;
-    const scopeName = onEvent.apply.scope;
-    if (!constraintKind || !scopeName) continue;
 
-    let scope: import('../types/pending.js').ConstraintScope;
-    switch (scopeName) {
-      case 'company-site-phase':
-        scope = { kind: 'company-site-phase', companyId: targetCompany.id };
-        break;
-      case 'turn':
-        scope = { kind: 'turn' };
-        break;
-      case 'until-cleared':
-        scope = { kind: 'until-cleared' };
-        break;
-      default:
-        continue;
+    // Normalise: a `sequence` apply contains multiple sub-applies;
+    // a single `add-constraint` apply is treated as a one-item list.
+    const applies: readonly import('../types/effects.js').TriggeredAction[] =
+      onEvent.apply.type === 'sequence'
+        ? (onEvent.apply.apps ?? [])
+        : [onEvent.apply];
+
+    let addedAny = false;
+    for (const apply of applies) {
+      if (apply.type !== 'add-constraint') continue;
+      const constraintKind = apply.constraint;
+      const scopeName = apply.scope;
+      if (!constraintKind || !scopeName) continue;
+
+      let scope: import('../types/pending.js').ConstraintScope;
+      switch (scopeName) {
+        case 'company-site-phase':
+          scope = { kind: 'company-site-phase', companyId: targetCompany.id };
+          break;
+        case 'turn':
+          scope = { kind: 'turn' };
+          break;
+        case 'until-cleared':
+          scope = { kind: 'until-cleared' };
+          break;
+        default:
+          continue;
+      }
+      const builtKind = buildConstraintKind(state, { ...onEvent, apply }, constraintKind);
+      if (!builtKind) continue;
+
+      logDetail(`Short-event "${def.name}" resolves → adding ${constraintKind} constraint on company ${targetCompany.id as string}`);
+      state = addConstraint(state, {
+        source: card.instanceId,
+        sourceDefinitionId: card.definitionId,
+        scope,
+        target: { kind: 'company', companyId: targetCompany.id },
+        kind: builtKind,
+      });
+      addedAny = true;
     }
-    const builtKind = buildConstraintKind(state, onEvent, constraintKind);
-    if (!builtKind) continue;
 
-    logDetail(`Short-event "${def.name}" resolves → adding ${constraintKind} constraint on company ${targetCompany.id as string}`);
-    return addConstraint(state, {
-      source: card.instanceId,
-      sourceDefinitionId: card.definitionId,
-      scope,
-      target: { kind: 'company', companyId: targetCompany.id },
-      kind: builtKind,
-    });
+    // Preserve first-match semantics: once one on-event effect has
+    // contributed at least one constraint, stop considering the rest.
+    if (addedAny) return state;
   }
 
   logDetail(`Short-event "${def.name}": no on-event mode applied (no condition matched)`);
@@ -532,9 +554,7 @@ function buildConstraintKind(
 ): import('../types/pending.js').ActiveConstraint['kind'] | null {
   switch (constraintKind) {
     case 'site-phase-do-nothing':
-      return onEvent.apply.cancelWhen
-        ? { type: 'site-phase-do-nothing', cancelWhen: onEvent.apply.cancelWhen }
-        : { type: 'site-phase-do-nothing' };
+      return { type: 'site-phase-do-nothing' };
     case 'no-creature-hazards-on-company':
       return { type: 'no-creature-hazards-on-company' };
     case 'deny-scout-resources':
@@ -613,6 +633,19 @@ function buildConstraintKind(
     }
     case 'auto-attack-duplicate':
       return { type: 'auto-attack-duplicate' };
+    case 'granted-action': {
+      const payload = onEvent.apply.grantedAction;
+      if (!payload) return null;
+      return {
+        type: 'granted-action',
+        action: payload.action,
+        phase: payload.phase as import('../types/state-phases.js').Phase | undefined,
+        window: payload.window,
+        cost: payload.cost,
+        when: payload.when,
+        apply: payload.apply,
+      };
+    }
     case 'skip-automatic-attacks': {
       const ps = state.phaseState;
       let siteDefId: import('../types/common.js').CardDefinitionId | null = null;

@@ -254,17 +254,14 @@ export interface ActiveConstraint {
   readonly kind:
     | {
         /**
-         * Lost in Free-domains / River: company may do nothing during its
-         * site phase. Optional {@link cancelWhen} provides an escape hatch —
-         * any character in the target company whose attributes satisfy the
-         * condition may tap to cancel the constraint. Evaluated against a
-         * per-character context `{ actor: { skills, status, race, name } }`.
-         *
-         * River's cancelWhen: `{ $and: [{ "actor.skills": { "$includes":
-         * "ranger" } }, { "actor.status": "untapped" }] }`.
+         * Lost in Free-domains / River: company may do nothing during
+         * its site phase. Cards that want to grant a cancel escape
+         * hatch (e.g. River's ranger-tap) declare a separate
+         * `granted-action` constraint alongside this one — both are
+         * sourced from the same card so `remove-constraint` sweeps
+         * both at once.
          */
         readonly type: 'site-phase-do-nothing';
-        readonly cancelWhen?: Condition;
       }
     | {
         /**
@@ -356,8 +353,13 @@ export interface ActiveConstraint {
         readonly type: 'granted-action';
         /** Stable action identifier emitted by the legal-action layer. */
         readonly action: string;
-        /** Which phase the action is legal in. */
-        readonly phase: Phase;
+        /**
+         * Which phase the action is legal in. When absent, the
+         * granted-action is available in any phase the emitter is
+         * invoked in (used by River's ranger-cancel, which fires in
+         * both M/H and Site phases).
+         */
+        readonly phase?: Phase;
         /**
          * Optional sub-step or window within the phase. Interpretation
          * is phase-specific (e.g. `'chain-declaring'` for M/H).

@@ -39,11 +39,46 @@ import {
   charIdAt, companyIdAt, dispatch, expectCharStatus, setCharStatus,
 } from '../test-helpers.js';
 import type {
-  SitePhaseState, ActivateGrantedAction, CardInstanceId,
-  PlayHazardAction,
+  SitePhaseState, ActivateGrantedAction, CardInstanceId, CompanyId, GameState,
+  PlayHazardAction, ActiveConstraint,
 } from '../../index.js';
 import { computeLegalActions } from '../../engine/legal-actions/index.js';
 import { addConstraint, sweepExpired } from '../../engine/pending.js';
+
+/**
+ * Add both constraints that River produces when it resolves: the
+ * `site-phase-do-nothing` restriction and the parallel
+ * `granted-action` that lets a qualifying ranger tap to cancel. Both
+ * share the same `source` so `remove-constraint` sweeps them together.
+ */
+function addRiverConstraints(state: GameState, source: CardInstanceId, companyId: CompanyId): GameState {
+  const site: Omit<ActiveConstraint, 'id'> = {
+    source,
+    sourceDefinitionId: RIVER,
+    scope: { kind: 'company-site-phase', companyId },
+    target: { kind: 'company', companyId },
+    kind: { type: 'site-phase-do-nothing' },
+  };
+  const grant: Omit<ActiveConstraint, 'id'> = {
+    source,
+    sourceDefinitionId: RIVER,
+    scope: { kind: 'company-site-phase', companyId },
+    target: { kind: 'company', companyId },
+    kind: {
+      type: 'granted-action',
+      action: 'cancel-river',
+      cost: { tap: 'character' },
+      when: {
+        $and: [
+          { 'actor.skills': { $includes: 'ranger' } },
+          { 'actor.status': 'untapped' },
+        ],
+      },
+      apply: { type: 'remove-constraint', select: 'constraint-source' },
+    },
+  };
+  return addConstraint(addConstraint(state, site), grant);
+}
 
 describe('River (tw-84)', () => {
   beforeEach(() => resetMint());
@@ -80,22 +115,7 @@ describe('River (tw-84)', () => {
       pendingOpponentInfluence: null,
     };
     const stateAtStep = { ...base, phaseState: sitePhaseState };
-    const constrained = addConstraint(stateAtStep, {
-      // Use a real River instance id so the filter can resolve a definition.
-      source: riverInstance,
-      sourceDefinitionId: RIVER,
-      scope: { kind: 'company-site-phase', companyId: targetCompanyId },
-      target: { kind: 'company', companyId: targetCompanyId },
-      kind: {
-        type: 'site-phase-do-nothing',
-        cancelWhen: {
-          $and: [
-            { 'actor.skills': { $includes: 'ranger' } },
-            { 'actor.status': 'untapped' },
-          ],
-        },
-      },
-    });
+    const constrained = addRiverConstraints(stateAtStep, riverInstance, targetCompanyId);
 
     // Inject the river instance into the cardPool indirectly: the filter
     // calls resolveInstanceId to look up the source card. Since the source
@@ -124,7 +144,7 @@ describe('River (tw-84)', () => {
 
     const rangerTaps = actions.filter(
       ea => ea.action.type === 'activate-granted-action' &&
-        (ea.action).actionId === 'cancel-constraint',
+        (ea.action).actionId === 'cancel-river',
     );
     expect(rangerTaps).toHaveLength(1);
 
@@ -160,21 +180,7 @@ describe('River (tw-84)', () => {
       pendingOpponentInfluence: null,
     };
     const stateAtStep = { ...base, phaseState: sitePhaseState };
-    const constrained = addConstraint(stateAtStep, {
-      source: riverInstance,
-      sourceDefinitionId: RIVER,
-      scope: { kind: 'company-site-phase', companyId: targetCompanyId },
-      target: { kind: 'company', companyId: targetCompanyId },
-      kind: {
-        type: 'site-phase-do-nothing',
-        cancelWhen: {
-          $and: [
-            { 'actor.skills': { $includes: 'ranger' } },
-            { 'actor.status': 'untapped' },
-          ],
-        },
-      },
-    });
+    const constrained = addRiverConstraints(stateAtStep, riverInstance, targetCompanyId);
 
     const withRiverInPlay = {
       ...constrained,
@@ -226,21 +232,7 @@ describe('River (tw-84)', () => {
       pendingOpponentInfluence: null,
     };
     const stateAtStep = { ...tappedBase, phaseState: sitePhaseState };
-    const constrained = addConstraint(stateAtStep, {
-      source: riverInstance,
-      sourceDefinitionId: RIVER,
-      scope: { kind: 'company-site-phase', companyId: targetCompanyId },
-      target: { kind: 'company', companyId: targetCompanyId },
-      kind: {
-        type: 'site-phase-do-nothing',
-        cancelWhen: {
-          $and: [
-            { 'actor.skills': { $includes: 'ranger' } },
-            { 'actor.status': 'untapped' },
-          ],
-        },
-      },
-    });
+    const constrained = addRiverConstraints(stateAtStep, riverInstance, targetCompanyId);
 
     const withRiverInPlay = {
       ...constrained,
@@ -272,22 +264,8 @@ describe('River (tw-84)', () => {
     });
 
     const targetCompanyId = companyIdAt(base, 0);
-    const constrained = addConstraint(base, {
-      source: 'river-1' as CardInstanceId,
-      sourceDefinitionId: RIVER,
-      scope: { kind: 'company-site-phase', companyId: targetCompanyId },
-      target: { kind: 'company', companyId: targetCompanyId },
-      kind: {
-        type: 'site-phase-do-nothing',
-        cancelWhen: {
-          $and: [
-            { 'actor.skills': { $includes: 'ranger' } },
-            { 'actor.status': 'untapped' },
-          ],
-        },
-      },
-    });
-    expect(constrained.activeConstraints).toHaveLength(1);
+    const constrained = addRiverConstraints(base, 'river-1' as CardInstanceId, targetCompanyId);
+    expect(constrained.activeConstraints).toHaveLength(2);
 
     const swept = sweepExpired(constrained, { kind: 'company-site-end', companyId: targetCompanyId });
     expect(swept.activeConstraints).toHaveLength(0);
@@ -399,14 +377,23 @@ describe('River (tw-84)', () => {
     const riverInPlay = current.players[1].cardsInPlay.find(c => c.instanceId === riverInstance);
     expect(riverInPlay).toBeUndefined();
 
-    // An active constraint was added on the active company, sourced from River.
+    // Two active constraints were added on the active company, both
+    // sourced from River: site-phase-do-nothing (restriction) plus
+    // granted-action (ranger-cancel).
     const riverConstraints = current.activeConstraints.filter(c => c.source === riverInstance);
-    expect(riverConstraints).toHaveLength(1);
-    expect(riverConstraints[0].kind.type).toBe('site-phase-do-nothing');
-    expect((riverConstraints[0].kind as { cancelWhen?: unknown }).cancelWhen).toBeDefined();
-    expect(riverConstraints[0].sourceDefinitionId).toBe(RIVER);
-    expect(riverConstraints[0].target).toEqual({ kind: 'company', companyId: targetCompanyId });
-    expect(riverConstraints[0].scope).toEqual({ kind: 'company-site-phase', companyId: targetCompanyId });
+    expect(riverConstraints).toHaveLength(2);
+    const kinds = riverConstraints.map(c => c.kind.type).sort();
+    expect(kinds).toEqual(['granted-action', 'site-phase-do-nothing']);
+    const grant = riverConstraints.find(c => c.kind.type === 'granted-action')!;
+    if (grant.kind.type === 'granted-action') {
+      expect(grant.kind.action).toBe('cancel-river');
+      expect(grant.kind.apply.type).toBe('remove-constraint');
+    }
+    for (const c of riverConstraints) {
+      expect(c.sourceDefinitionId).toBe(RIVER);
+      expect(c.target).toEqual({ kind: 'company', companyId: targetCompanyId });
+      expect(c.scope).toEqual({ kind: 'company-site-phase', companyId: targetCompanyId });
+    }
   });
 
   test('tapping a ranger through reduce() removes the River constraint and taps the character', () => {
@@ -437,21 +424,7 @@ describe('River (tw-84)', () => {
       pendingOpponentInfluence: null,
     };
     const stateAtStep = { ...base, phaseState: sitePhaseState };
-    const constrained = addConstraint(stateAtStep, {
-      source: riverInstance,
-      sourceDefinitionId: RIVER,
-      scope: { kind: 'company-site-phase', companyId: targetCompanyId },
-      target: { kind: 'company', companyId: targetCompanyId },
-      kind: {
-        type: 'site-phase-do-nothing',
-        cancelWhen: {
-          $and: [
-            { 'actor.skills': { $includes: 'ranger' } },
-            { 'actor.status': 'untapped' },
-          ],
-        },
-      },
-    });
+    const constrained = addRiverConstraints(stateAtStep, riverInstance, targetCompanyId);
 
     const withRiverInPlay = {
       ...constrained,
@@ -476,7 +449,7 @@ describe('River (tw-84)', () => {
       characterId: aragornId,
       sourceCardId: riverInstance,
       sourceCardDefinitionId: RIVER,
-      actionId: 'cancel-constraint',
+      actionId: 'cancel-river',
       rollThreshold: 0,
     } as ActivateGrantedAction);
 
@@ -510,21 +483,7 @@ describe('River (tw-84)', () => {
     const riverInstance = mint();
     const mhState = makeMHState({ activeCompanyIndex: 0 });
     const stateAtMH = { ...base, phaseState: mhState };
-    const constrained = addConstraint(stateAtMH, {
-      source: riverInstance,
-      sourceDefinitionId: RIVER,
-      scope: { kind: 'company-site-phase', companyId: targetCompanyId },
-      target: { kind: 'company', companyId: targetCompanyId },
-      kind: {
-        type: 'site-phase-do-nothing',
-        cancelWhen: {
-          $and: [
-            { 'actor.skills': { $includes: 'ranger' } },
-            { 'actor.status': 'untapped' },
-          ],
-        },
-      },
-    });
+    const constrained = addRiverConstraints(stateAtMH, riverInstance, targetCompanyId);
 
     const withRiverInPlay = {
       ...constrained,
@@ -544,7 +503,7 @@ describe('River (tw-84)', () => {
     const cancelActions = actions.filter(
       ea => ea.viable
         && ea.action.type === 'activate-granted-action'
-        && (ea.action).actionId === 'cancel-constraint',
+        && (ea.action).actionId === 'cancel-river',
     );
     expect(cancelActions).toHaveLength(1);
 
@@ -567,21 +526,7 @@ describe('River (tw-84)', () => {
     const riverInstance = mint();
     const mhState = makeMHState({ activeCompanyIndex: 0 });
     const stateAtMH = { ...base, phaseState: mhState };
-    const constrained = addConstraint(stateAtMH, {
-      source: riverInstance,
-      sourceDefinitionId: RIVER,
-      scope: { kind: 'company-site-phase', companyId: targetCompanyId },
-      target: { kind: 'company', companyId: targetCompanyId },
-      kind: {
-        type: 'site-phase-do-nothing',
-        cancelWhen: {
-          $and: [
-            { 'actor.skills': { $includes: 'ranger' } },
-            { 'actor.status': 'untapped' },
-          ],
-        },
-      },
-    });
+    const constrained = addRiverConstraints(stateAtMH, riverInstance, targetCompanyId);
 
     const withRiverInPlay = {
       ...constrained,
@@ -605,7 +550,7 @@ describe('River (tw-84)', () => {
       characterId: aragornId,
       sourceCardId: riverInstance,
       sourceCardDefinitionId: RIVER,
-      actionId: 'cancel-constraint',
+      actionId: 'cancel-river',
       rollThreshold: 0,
     } as ActivateGrantedAction);
 
