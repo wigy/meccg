@@ -18,7 +18,8 @@
         "type": "grant-action",
         "action": "untap-bearer",
         "cost": { "discard": "self" },
-        "when": { "bearer.status": "tapped" }
+        "when": { "bearer.status": "tapped" },
+        "apply": { "type": "set-character-status", "target": "bearer", "status": "untapped" }
       },
       {
         "type": "grant-action",
