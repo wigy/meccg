@@ -17,7 +17,7 @@
 import { describe, test, expect, beforeEach } from 'vitest';
 import {
   PLAYER_1, PLAYER_2,
-  ELROND, ARAGORN, LEGOLAS,
+  ELROND, ARAGORN, LEGOLAS, BALIN, SARUMAN,
   MARVELS_TOLD, FOOLISH_WORDS, LURE_OF_THE_SENSES, EYE_OF_SAURON, DOORS_OF_NIGHT,
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
   attachHazardToChar,
@@ -425,6 +425,46 @@ describe('Marvels Told (td-134)', () => {
     expect(next.players[1].discardPile.map(c => c.instanceId)).toContain(foolishWordsId);
     expect(next.players[0].hand).toHaveLength(0);
     expect(next.players[0].discardPile.map(c => c.instanceId)).toContain(marvelsId);
+  });
+
+  test('multiple sages with a single eligible hazard each emit a distinct action carrying the discard target', () => {
+    // Reported in bug d0d7a36c40bc6e18 (game mo13g8zo-gyai85, seq ~322):
+    // the resource player had two untapped sages (Balin and Saruman) and
+    // exactly one eligible hazard in play (Eye of Sauron). The browser UI
+    // entered the sage-selection flow and silently used `.find()` to commit
+    // Eye of Sauron as the discard target — the player never saw or chose
+    // the hazard. The engine must continue to emit one action per
+    // (sage × hazard) combination — each carrying the same
+    // `discardTargetInstanceId` — so the UI disambiguation layer can show
+    // the target explicitly.
+    const eyeOfSauronInPlay: CardInPlay = { instanceId: mint(), definitionId: EYE_OF_SAURON, status: CardStatus.Untapped };
+    const state = buildTestState({
+      phase: Phase.Organization,
+      activePlayer: PLAYER_1,
+      players: [
+        {
+          id: PLAYER_1,
+          companies: [
+            { site: RIVENDELL, characters: [BALIN, SARUMAN] },
+          ],
+          hand: [MARVELS_TOLD],
+          siteDeck: [MORIA],
+        },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [MINAS_TIRITH], cardsInPlay: [eyeOfSauronInPlay] },
+      ],
+    });
+
+    const playActions = viableActions(state, PLAYER_1, 'play-short-event');
+    expect(playActions).toHaveLength(2);
+
+    // Each action must carry the hazard as the discard target so the UI can
+    // render it in a disambiguation menu.
+    const discardTargets = playActions.map(a => (a.action as { discardTargetInstanceId?: CardInstanceId }).discardTargetInstanceId);
+    expect(new Set(discardTargets)).toEqual(new Set([eyeOfSauronInPlay.instanceId]));
+
+    // The two actions must differ on the sage axis (Balin vs. Saruman).
+    const sageTargets = playActions.map(a => (a.action as { targetScoutInstanceId?: CardInstanceId }).targetScoutInstanceId);
+    expect(new Set(sageTargets).size).toBe(2);
   });
 
   test('targets hazards attached to characters (Foolish Words, Lure of the Senses)', () => {

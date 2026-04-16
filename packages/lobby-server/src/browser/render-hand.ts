@@ -241,6 +241,21 @@ function showShortEventTargetMenu(
         ? (chainEntry.declaredBy === view.self.id ? 'You' : view.opponent.name)
         : null;
       label = ownerName ? `Cancel ${targetName} (${ownerName})` : `Cancel ${targetName}`;
+    } else if (action.discardTargetInstanceId) {
+      // Cards like Marvels Told: may tap a character AND force the discard
+      // of an in-play card. The player must see and pick the discard target
+      // rather than having the UI silently commit to the first match.
+      const discardDefId = cachedInstanceLookup(action.discardTargetInstanceId);
+      const discardDef = discardDefId ? cardPool[discardDefId as string] : undefined;
+      const discardName = discardDef ? discardDef.name : '?';
+      if (action.targetScoutInstanceId) {
+        const scoutDefId = cachedInstanceLookup(action.targetScoutInstanceId);
+        const scoutDef = scoutDefId ? cardPool[scoutDefId as string] : undefined;
+        const scoutName = scoutDef ? scoutDef.name : '?';
+        label = `Tap ${scoutName}, discard ${discardName}`;
+      } else {
+        label = `Discard ${discardName}`;
+      }
     } else if (action.targetScoutInstanceId) {
       // Targeting a scout (e.g. Stealth)
       const scoutDefId = cachedInstanceLookup(action.targetScoutInstanceId);
@@ -788,7 +803,20 @@ export function renderHand(
       const hasScoutTargets = shortEventActions.some(
         a => a.type === 'play-short-event' && a.targetScoutInstanceId,
       );
-      if (hasScoutTargets && shortEventActions.length > 1) {
+      // Cards with a `discard-in-play` effect (e.g. Marvels Told) always go
+      // through the disambiguation menu so the player explicitly sees and
+      // chooses which in-play card will be discarded — never silently picked.
+      const hasDiscardTargets = shortEventActions.some(
+        a => a.type === 'play-short-event' && a.discardTargetInstanceId,
+      );
+      if (hasDiscardTargets) {
+        img.className = 'hand-card hand-card-playable';
+        if (onAction) {
+          img.addEventListener('click', (e) => {
+            showShortEventTargetMenu(e, shortEventActions, view, cardPool, onAction);
+          });
+        }
+      } else if (hasScoutTargets && shortEventActions.length > 1) {
         // Two-step character targeting flow
         const selectedSE = getSelectedShortEvent();
         const isSESelected = selectedSE === cardInstanceId;
