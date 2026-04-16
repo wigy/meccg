@@ -228,165 +228,20 @@ export function organizationActions(state: GameState, playerId: PlayerId): Evalu
     ),
   );
 
-  // Play resource short-events from hand (e.g. Smoke Rings, Stealth)
-  const resourceShortEventInstances = new Set<string>();
-  for (const handCard of player.hand) {
-    const def = state.cardPool[handCard.definitionId as string] as HeroResourceEventCard | undefined;
-    if (!def || def.cardType !== 'hero-resource-event' || def.eventType !== 'short') continue;
-    if (evaluatedInstances.has(handCard.instanceId as string)) continue;
-    const playWindow = def.effects?.find(e => e.type === 'play-window') as { phase?: string; step?: string } | undefined;
-    // Cards with a play-window restricting them to a different phase
-    // entirely (not organization) are skipped here — they'll be marked
-    // not-playable by the trailing loop below.
-    if (playWindow && playWindow.phase !== 'organization') continue;
-    // End-of-org cards (e.g. Stealth) are playable here as well: playing
-    // one implicitly transitions the engine into the end-of-org sub-step
-    // (see reducer-organization.ts), preventing any further normal org
-    // plays this turn. Mark them not-playable with a reason if their
-    // play-target constraints aren't met so the UI can explain why.
-    if (playWindow?.step === 'end-of-org') {
-      const eligibility = endOfOrgEligibility(state, player, def);
-      if (!eligibility.eligible) {
-        logDetail(`${def.name}: end-of-org card not eligible — ${eligibility.reason}`);
-        resourceShortEventInstances.add(handCard.instanceId as string);
-        actions.push({
-          action: { type: 'not-playable', player: playerId, cardInstanceId: handCard.instanceId },
-          viable: false,
-          reason: eligibility.reason,
-        });
-        continue;
-      }
-      resourceShortEventInstances.add(handCard.instanceId as string);
-
-      // If the card has a play-target with a tap cost (e.g. Stealth taps a
-      // scout), emit one play action per eligible target so the chosen
-      // target can be tapped when the action is reduced. Otherwise emit
-      // a single action with no target.
-      const playTarget = getPlayTargetEffect(def);
-      if (playTarget && playTarget.cost?.tap === 'character' && eligibility.eligibleTargets.length > 0) {
-        for (const targetId of eligibility.eligibleTargets) {
-          logDetail(`Resource short-event playable (end-of-org, target ${targetId as string}): ${def.name} (${handCard.instanceId as string})`);
-          actions.push({
-            action: {
-              type: 'play-short-event',
-              player: playerId,
-              cardInstanceId: handCard.instanceId,
-              targetScoutInstanceId: targetId,
-            },
-            viable: true,
-          });
-        }
-      } else {
-        logDetail(`Resource short-event playable (end-of-org): ${def.name} (${handCard.instanceId as string})`);
-        actions.push({
-          action: { type: 'play-short-event', player: playerId, cardInstanceId: handCard.instanceId },
-          viable: true,
-        });
-      }
-      continue;
-    }
-    // Skip short events whose effects are only usable during combat
-    // (e.g. Concealment's cancel-attack). These require an active attack.
-    const combatOnlyTypes = new Set(['cancel-attack', 'cancel-strike', 'halve-strikes', 'dodge-strike']);
-    const hasEffects = def.effects && def.effects.length > 0;
-    const allCombatOnly = hasEffects && def.effects.every(e => combatOnlyTypes.has(e.type));
-    if (allCombatOnly) {
-      logDetail(`${def.name}: combat-only short-event, not playable outside combat`);
-      continue;
-    }
-
-    // Cards declaring `play-option` DSL effects (e.g. Halfling Strength):
-    // enumerate (target, option) pairs, emitting one legal action per
-    // combination whose option `when` matches the target's context.
-    const playTarget = getPlayTargetEffect(def);
-    const playOptions = getPlayOptionEffects(def);
-    if (playOptions.length > 0 && playTarget) {
-      resourceShortEventInstances.add(handCard.instanceId as string);
-      const optionActions = playOptionActionsForCard(
-        state, player, playerId, handCard.instanceId, def, playTarget, playOptions,
-      );
-      if (optionActions.length === 0) {
-        logDetail(`${def.name}: no eligible ${playTarget.target} targets — not playable`);
-        actions.push({
-          action: { type: 'not-playable', player: playerId, cardInstanceId: handCard.instanceId },
-          viable: false,
-          reason: `No eligible ${playTarget.target} to target`,
-        });
-      } else {
-        actions.push(...optionActions);
-      }
-      continue;
-    }
-
-    resourceShortEventInstances.add(handCard.instanceId as string);
-
-    // Collect eligible discard-in-play targets (e.g. Marvels Told forces
-    // discard of a hazard non-environment permanent/long event). If the
-    // card has a discard-in-play effect but no valid targets exist, it
-    // cannot be played.
-    const discardInPlay = def.effects?.find(e => e.type === 'discard-in-play');
-    let discardTargetIds: CardInstanceId[] | null = null;
-    if (discardInPlay) {
-      discardTargetIds = collectDiscardInPlayTargets(state, discardInPlay.filter);
-      if (discardTargetIds.length === 0) {
-        logDetail(`${def.name}: no eligible discard-in-play target — not playable`);
-        actions.push({
-          action: { type: 'not-playable', player: playerId, cardInstanceId: handCard.instanceId },
-          viable: false,
-          reason: `${def.name} has no valid target to discard`,
-        });
-        continue;
-      }
-    }
-
-    // Emit one play action per eligible target combination. When the card
-    // has a play-target with tap cost AND discard-in-play, emit the cross-
-    // product of (tap target × discard target).
-    const emitOrgPlay = (tapTargetId: CardInstanceId | undefined) => {
-      if (discardTargetIds) {
-        for (const discardId of discardTargetIds) {
-          logDetail(`Resource short-event playable (target ${String(tapTargetId)}, discard ${String(discardId)}): ${def.name}`);
-          actions.push({
-            action: {
-              type: 'play-short-event',
-              player: playerId,
-              cardInstanceId: handCard.instanceId,
-              ...(tapTargetId ? { targetScoutInstanceId: tapTargetId } : {}),
-              discardTargetInstanceId: discardId,
-            },
-            viable: true,
-          });
-        }
-      } else {
-        logDetail(`Resource short-event playable${tapTargetId ? ` (target ${String(tapTargetId)})` : ''}: ${def.name}`);
-        actions.push({
-          action: {
-            type: 'play-short-event',
-            player: playerId,
-            cardInstanceId: handCard.instanceId,
-            ...(tapTargetId ? { targetScoutInstanceId: tapTargetId } : {}),
-          },
-          viable: true,
-        });
-      }
-    };
-
-    if (playTarget && playTarget.cost?.tap === 'character') {
-      const tapTargets = eligiblePlayOptionTargets(state, player, playTarget);
-      if (tapTargets.length === 0) {
-        logDetail(`${def.name}: no eligible targets — not playable`);
-        actions.push({
-          action: { type: 'not-playable', player: playerId, cardInstanceId: handCard.instanceId },
-          viable: false,
-          reason: `No eligible ${playTarget.target} to target`,
-        });
-      } else {
-        for (const targetId of tapTargets) emitOrgPlay(targetId);
-      }
-    } else {
-      emitOrgPlay(undefined);
-    }
-  }
+  // Play resource short-events from hand (e.g. Smoke Rings, Stealth,
+  // Marvels Told). Per CoE 2.1.1, resource short-events are playable during
+  // any phase of the active player's turn unless a rule or effect restricts
+  // them. The helper skips hand cards whose play-window restricts them to
+  // a different phase, and cards already evaluated as characters.
+  const resourceShortEventEvaluated = playResourceShortEventActions(
+    state, playerId, evaluatedInstances, 'organization',
+  );
+  actions.push(...resourceShortEventEvaluated);
+  const resourceShortEventInstances = new Set(
+    resourceShortEventEvaluated
+      .map(ea => (ea.action as { cardInstanceId?: CardInstanceId }).cardInstanceId as string | undefined)
+      .filter((id): id is string => typeof id === 'string'),
+  );
 
   // Mark remaining hand cards as not playable during organization
   for (const handCard of player.hand) {
@@ -1061,4 +916,189 @@ function computeCompanySize(state: GameState, company: import('../../index.js').
     }
   }
   return Math.ceil(fullCount + halfCount / 2);
+}
+
+/**
+ * Evaluates hero-resource short-event cards in the active player's hand for
+ * play in the given phase (CoE rule 2.1.1: resource short-events are legal
+ * during any phase of the resource player's turn unless restricted by a
+ * rule or effect).
+ *
+ * Skips cards already considered by an earlier pass (e.g. play-character
+ * evaluation in organization) and cards whose `play-window` effect binds
+ * them to a different phase. Emits `play-short-event` actions (one per
+ * eligible target combination) and `not-playable` entries with a reason
+ * for cards whose constraints cannot be satisfied.
+ *
+ * The returned actions all carry a `cardInstanceId` matching a hand card,
+ * so callers can derive the evaluated set to skip duplicates in a final
+ * catch-all loop.
+ */
+export function playResourceShortEventActions(
+  state: GameState,
+  playerId: PlayerId,
+  alreadyEvaluated: ReadonlySet<string>,
+  currentPhase: 'organization' | 'site',
+): EvaluatedAction[] {
+  const player = state.players.find(p => p.id === playerId);
+  if (!player) return [];
+
+  const actions: EvaluatedAction[] = [];
+  const combatOnlyTypes = new Set(['cancel-attack', 'cancel-strike', 'halve-strikes', 'dodge-strike']);
+
+  for (const handCard of player.hand) {
+    const def = state.cardPool[handCard.definitionId as string] as HeroResourceEventCard | undefined;
+    if (!def || def.cardType !== 'hero-resource-event' || def.eventType !== 'short') continue;
+    if (alreadyEvaluated.has(handCard.instanceId as string)) continue;
+    const playWindow = def.effects?.find(e => e.type === 'play-window') as { phase?: string; step?: string } | undefined;
+    // Cards with a play-window restricting them to a different phase
+    // are skipped — they'll be marked not-playable by the caller's
+    // catch-all loop (or by fillNotPlayable in legal-actions/index.ts).
+    if (playWindow && playWindow.phase !== currentPhase) continue;
+    // End-of-org cards (e.g. Stealth) are playable during the normal
+    // organization window: playing one implicitly transitions the engine
+    // into the end-of-org sub-step (see reducer-organization.ts),
+    // preventing any further normal org plays this turn. Mark them
+    // not-playable with a reason if their play-target constraints aren't
+    // met so the UI can explain why.
+    if (playWindow?.step === 'end-of-org') {
+      const eligibility = endOfOrgEligibility(state, player, def);
+      if (!eligibility.eligible) {
+        logDetail(`${def.name}: end-of-org card not eligible — ${eligibility.reason}`);
+        actions.push({
+          action: { type: 'not-playable', player: playerId, cardInstanceId: handCard.instanceId },
+          viable: false,
+          reason: eligibility.reason,
+        });
+        continue;
+      }
+
+      // If the card has a play-target with a tap cost (e.g. Stealth taps a
+      // scout), emit one play action per eligible target so the chosen
+      // target can be tapped when the action is reduced. Otherwise emit
+      // a single action with no target.
+      const eoTarget = getPlayTargetEffect(def);
+      if (eoTarget && eoTarget.cost?.tap === 'character' && eligibility.eligibleTargets.length > 0) {
+        for (const targetId of eligibility.eligibleTargets) {
+          logDetail(`Resource short-event playable (end-of-org, target ${targetId as string}): ${def.name} (${handCard.instanceId as string})`);
+          actions.push({
+            action: {
+              type: 'play-short-event',
+              player: playerId,
+              cardInstanceId: handCard.instanceId,
+              targetScoutInstanceId: targetId,
+            },
+            viable: true,
+          });
+        }
+      } else {
+        logDetail(`Resource short-event playable (end-of-org): ${def.name} (${handCard.instanceId as string})`);
+        actions.push({
+          action: { type: 'play-short-event', player: playerId, cardInstanceId: handCard.instanceId },
+          viable: true,
+        });
+      }
+      continue;
+    }
+
+    // Skip short events whose effects are only usable during combat
+    // (e.g. Concealment's cancel-attack). These require an active attack.
+    const hasEffects = def.effects && def.effects.length > 0;
+    const allCombatOnly = hasEffects && def.effects.every(e => combatOnlyTypes.has(e.type));
+    if (allCombatOnly) {
+      logDetail(`${def.name}: combat-only short-event, not playable outside combat`);
+      continue;
+    }
+
+    // Cards declaring `play-option` DSL effects (e.g. Halfling Strength):
+    // enumerate (target, option) pairs, emitting one legal action per
+    // combination whose option `when` matches the target's context.
+    const playTarget = getPlayTargetEffect(def);
+    const playOptions = getPlayOptionEffects(def);
+    if (playOptions.length > 0 && playTarget) {
+      const optionActions = playOptionActionsForCard(
+        state, player, playerId, handCard.instanceId, def, playTarget, playOptions,
+      );
+      if (optionActions.length === 0) {
+        logDetail(`${def.name}: no eligible ${playTarget.target} targets — not playable`);
+        actions.push({
+          action: { type: 'not-playable', player: playerId, cardInstanceId: handCard.instanceId },
+          viable: false,
+          reason: `No eligible ${playTarget.target} to target`,
+        });
+      } else {
+        actions.push(...optionActions);
+      }
+      continue;
+    }
+
+    // Collect eligible discard-in-play targets (e.g. Marvels Told forces
+    // discard of a hazard non-environment permanent/long event). If the
+    // card has a discard-in-play effect but no valid targets exist, it
+    // cannot be played.
+    const discardInPlay = def.effects?.find(e => e.type === 'discard-in-play');
+    let discardTargetIds: CardInstanceId[] | null = null;
+    if (discardInPlay) {
+      discardTargetIds = collectDiscardInPlayTargets(state, discardInPlay.filter);
+      if (discardTargetIds.length === 0) {
+        logDetail(`${def.name}: no eligible discard-in-play target — not playable`);
+        actions.push({
+          action: { type: 'not-playable', player: playerId, cardInstanceId: handCard.instanceId },
+          viable: false,
+          reason: `${def.name} has no valid target to discard`,
+        });
+        continue;
+      }
+    }
+
+    // Emit one play action per eligible target combination. When the card
+    // has a play-target with tap cost AND discard-in-play, emit the cross-
+    // product of (tap target × discard target).
+    const emitPlay = (tapTargetId: CardInstanceId | undefined) => {
+      if (discardTargetIds) {
+        for (const discardId of discardTargetIds) {
+          logDetail(`Resource short-event playable (target ${String(tapTargetId)}, discard ${String(discardId)}): ${def.name}`);
+          actions.push({
+            action: {
+              type: 'play-short-event',
+              player: playerId,
+              cardInstanceId: handCard.instanceId,
+              ...(tapTargetId ? { targetScoutInstanceId: tapTargetId } : {}),
+              discardTargetInstanceId: discardId,
+            },
+            viable: true,
+          });
+        }
+      } else {
+        logDetail(`Resource short-event playable${tapTargetId ? ` (target ${String(tapTargetId)})` : ''}: ${def.name}`);
+        actions.push({
+          action: {
+            type: 'play-short-event',
+            player: playerId,
+            cardInstanceId: handCard.instanceId,
+            ...(tapTargetId ? { targetScoutInstanceId: tapTargetId } : {}),
+          },
+          viable: true,
+        });
+      }
+    };
+
+    if (playTarget && playTarget.cost?.tap === 'character') {
+      const tapTargets = eligiblePlayOptionTargets(state, player, playTarget);
+      if (tapTargets.length === 0) {
+        logDetail(`${def.name}: no eligible targets — not playable`);
+        actions.push({
+          action: { type: 'not-playable', player: playerId, cardInstanceId: handCard.instanceId },
+          viable: false,
+          reason: `No eligible ${playTarget.target} to target`,
+        });
+      } else {
+        for (const targetId of tapTargets) emitPlay(targetId);
+      }
+    } else {
+      emitPlay(undefined);
+    }
+  }
+
+  return actions;
 }

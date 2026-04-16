@@ -22,7 +22,7 @@ import {
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
   attachHazardToChar,
   buildTestState, resetMint, mint,
-  viableActions,
+  viableActions, makeSitePhase,
   handCardId, dispatch, setCharStatus, expectCharStatus,
   makeMHState,
 } from '../test-helpers.js';
@@ -366,6 +366,65 @@ describe('Marvels Told (td-134)', () => {
 
     const playActions = viableActions(state, PLAYER_1, 'play-short-event');
     expect(playActions).toHaveLength(0);
+  });
+
+  test('playable during site phase play-resources step (CoE 2.1.1)', () => {
+    // Regression: resource short-events may be played during any phase of
+    // the active player's turn. Previously, the site phase legal-action
+    // handler only emitted permanent events and items and marked all other
+    // hand cards — including ritual short-events like Marvels Told — as
+    // "not playable during site phase".
+    const foolishWordsInPlay: CardInPlay = { instanceId: mint(), definitionId: FOOLISH_WORDS, status: CardStatus.Untapped };
+    const base = buildTestState({
+      phase: Phase.Site,
+      activePlayer: PLAYER_1,
+      players: [
+        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [ELROND] }], hand: [MARVELS_TOLD], siteDeck: [MORIA] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [MINAS_TIRITH], cardsInPlay: [foolishWordsInPlay] },
+      ],
+    });
+    const state = { ...base, phaseState: makeSitePhase() };
+
+    const playActions = viableActions(state, PLAYER_1, 'play-short-event');
+    expect(playActions).toHaveLength(1);
+    const action = playActions[0].action as {
+      type: string;
+      targetScoutInstanceId?: CardInstanceId;
+      discardTargetInstanceId?: CardInstanceId;
+    };
+    expect(action.targetScoutInstanceId).toBeDefined();
+    expect(action.discardTargetInstanceId).toBe(foolishWordsInPlay.instanceId);
+  });
+
+  test('playing during site phase resolves: tap sage, discard hazard, discard Marvels Told', () => {
+    const foolishWordsInPlay: CardInPlay = { instanceId: mint(), definitionId: FOOLISH_WORDS, status: CardStatus.Untapped };
+    const base = buildTestState({
+      phase: Phase.Site,
+      activePlayer: PLAYER_1,
+      players: [
+        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [ELROND] }], hand: [MARVELS_TOLD], siteDeck: [MORIA] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [MINAS_TIRITH], cardsInPlay: [foolishWordsInPlay] },
+      ],
+    });
+    const state = { ...base, phaseState: makeSitePhase() };
+
+    const marvelsId = handCardId(state, 0);
+    const foolishWordsId = state.players[1].cardsInPlay[0].instanceId;
+    const elrondId = Object.keys(state.players[0].characters)[0] as unknown as CardInstanceId;
+
+    const next = dispatch(state, {
+      type: 'play-short-event',
+      player: PLAYER_1,
+      cardInstanceId: marvelsId,
+      targetScoutInstanceId: elrondId,
+      discardTargetInstanceId: foolishWordsId,
+    });
+
+    expectCharStatus(next, 0, ELROND, CardStatus.Tapped);
+    expect(next.players[1].cardsInPlay.map(c => c.instanceId)).not.toContain(foolishWordsId);
+    expect(next.players[1].discardPile.map(c => c.instanceId)).toContain(foolishWordsId);
+    expect(next.players[0].hand).toHaveLength(0);
+    expect(next.players[0].discardPile.map(c => c.instanceId)).toContain(marvelsId);
   });
 
   test('targets hazards attached to characters (Foolish Words, Lure of the Senses)', () => {

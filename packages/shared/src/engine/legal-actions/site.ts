@@ -15,7 +15,7 @@ import { resolveInstanceId } from '../../types/state.js';
 import { collectCharacterEffects, resolveCheckModifier, resolveStatModifiers } from '../effects/index.js';
 import type { ResolverContext } from '../effects/index.js';
 import { logDetail, logHeading } from './log.js';
-import { availableDI, grantedActionActivations, ANY_PHASE_GRANT_ACTIONS } from './organization.js';
+import { availableDI, grantedActionActivations, ANY_PHASE_GRANT_ACTIONS, playResourceShortEventActions } from './organization.js';
 
 /**
  * Check whether a site satisfies a {@link PlayableAtEntry}.
@@ -868,6 +868,18 @@ function playResourcesActions(
     }
 
     // TODO: information
+  }
+
+  // Resource short-events (e.g. Marvels Told) — per CoE 2.1.1 the resource
+  // player may play these during any phase of their turn unless a rule or
+  // effect restricts them.
+  const shortEventActions = playResourceShortEventActions(
+    state, playerId, evaluatedInstances, 'site',
+  );
+  actions.push(...shortEventActions);
+  for (const ea of shortEventActions) {
+    const id = (ea.action as { cardInstanceId?: string }).cardInstanceId;
+    if (typeof id === 'string') evaluatedInstances.add(id);
   }
 
   // Mark remaining hand cards as not playable
