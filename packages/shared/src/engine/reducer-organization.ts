@@ -667,9 +667,9 @@ function handleActivateGrantedAction(state: GameState, action: GameAction): Redu
     return handleGrantActionApply(state, action);
   }
 
-  // Dispatch to extra-region-movement handler (e.g. Cram)
+  // `extra-region-movement` (Cram) migrated — fall through to generic.
   if (action.actionId === 'extra-region-movement') {
-    return handleExtraRegionMovement(state, action);
+    return handleGrantActionApply(state, action);
   }
 
   if (action.actionId === 'palantir-fetch-discard') {
@@ -968,6 +968,24 @@ function runGrantApply(
     return { updatedChar: result.updatedChar, effects: [] };
   }
 
+  if (apply.type === 'increment-company-extra-region-distance') {
+    const amount = apply.amount ?? 1;
+    const bearerPlayer = newPlayers[ctx.playerIndex];
+    const company = bearerPlayer.companies.find(c => c.characters.includes(ctx.action.characterId));
+    if (!company) {
+      return { error: `${ctx.charName} is not in any company` };
+    }
+    const currentExtra = company.extraRegionDistance ?? 0;
+    logDetail(`Grant-action ${ctx.action.actionId}: company ${company.id as string} extraRegionDistance ${currentExtra} → ${currentExtra + amount}`);
+    newPlayers[ctx.playerIndex] = {
+      ...bearerPlayer,
+      companies: bearerPlayer.companies.map(c =>
+        c.id === company.id ? { ...c, extraRegionDistance: currentExtra + amount } : c,
+      ),
+    };
+    return { updatedChar: char, effects: [] };
+  }
+
   if (apply.type === 'set-company-special-movement') {
     if (apply.specialMovement === undefined) {
       return { error: `set-company-special-movement missing specialMovement on ${ctx.sourceName}` };
@@ -1116,76 +1134,6 @@ export function handleGrantActionApply(state: GameState, action: GameAction): Re
   };
 }
 
-/**
- * Handle extra-region-movement grant-action: discard an item (e.g. Cram)
- * during organization to grant the bearer's company +1 max region distance
- * for movement this turn. The item is discarded and the company's
- * `extraRegionDistance` is incremented.
- *
- * Cost: discard the item (source card) from the character.
- * Prerequisite: company must not have planned movement yet.
- */
-function handleExtraRegionMovement(state: GameState, action: GameAction): ReducerResult {
-  if (action.type !== 'activate-granted-action') return { state, error: 'Expected activate-granted-action' };
-
-  const playerIndex = getPlayerIndex(state, action.player);
-  const player = state.players[playerIndex];
-  const char = player.characters[action.characterId as string];
-  if (!char) return { state, error: 'Character not found' };
-
-  const charDefId = resolveInstanceId(state, action.characterId);
-  const charDef = charDefId ? state.cardPool[charDefId as string] : undefined;
-  const charName = charDef?.name ?? '?';
-  const sourceDef = state.cardPool[action.sourceCardDefinitionId as string];
-  const sourceName = sourceDef?.name ?? '?';
-
-  // Validate: source card must be an item on the character
-  const itemIdx = char.items.findIndex(i => i.instanceId === action.sourceCardId);
-  if (itemIdx < 0) {
-    return { state, error: `${sourceName} is not an item on ${charName}` };
-  }
-
-  // Find the company this character belongs to
-  const company = player.companies.find(c => c.characters.includes(action.characterId));
-  if (!company) {
-    return { state, error: `${charName} is not in any company` };
-  }
-
-  logDetail(`Extra region movement: ${charName} discards ${sourceName} to grant company ${company.id as string} +1 region distance`);
-
-  // Pay cost: remove item from character's items
-  const updatedItems = char.items.filter(i => i.instanceId !== action.sourceCardId);
-  const discardedCard: CardInstance = { instanceId: action.sourceCardId, definitionId: action.sourceCardDefinitionId };
-
-  const newPlayers = clonePlayers(state);
-
-  // Update the character (remove item)
-  newPlayers[playerIndex] = {
-    ...newPlayers[playerIndex],
-    characters: {
-      ...newPlayers[playerIndex].characters,
-      [action.characterId as string]: { ...char, items: updatedItems },
-    },
-    discardPile: [...newPlayers[playerIndex].discardPile, discardedCard],
-  };
-
-  // Mark the company with extra region distance
-  const currentExtra = company.extraRegionDistance ?? 0;
-  const updatedCompanies = newPlayers[playerIndex].companies.map(c =>
-    c.id === company.id ? { ...c, extraRegionDistance: currentExtra + 1 } : c,
-  );
-  newPlayers[playerIndex] = {
-    ...newPlayers[playerIndex],
-    companies: updatedCompanies,
-  };
-
-  return {
-    state: recomputeDerived({
-      ...state,
-      players: newPlayers,
-    }),
-  };
-}
 
 /**
  * Handle palantir-fetch-discard grant-action.

@@ -28,7 +28,8 @@
         "when": {
           "company.hasPlannedMovement": false,
           "company.hasExtraRegionDistance": false
-        }
+        },
+        "apply": { "type": "increment-company-extra-region-distance", "amount": 1 }
       }
     ],
     "text": "Discard to untap bearer. Alternatively, discard during organization phase to allow its bearer's company to play an additional region card.",

@@ -341,6 +341,13 @@ export interface TriggeredAction {
    * for Gwaihir-granted flights.
    */
   readonly specialMovement?: 'gwaihir';
+  /**
+   * For `increment-company-extra-region-distance` type: how much to
+   * add to the bearer's company `extraRegionDistance`. Movement code
+   * reads this counter when computing the maximum region path length
+   * for the turn (e.g. Cram adds 1).
+   */
+  readonly amount?: number;
 }
 
 /**
