@@ -684,7 +684,9 @@ function handleActivateGrantedAction(state: GameState, action: GameAction): Redu
     return handleCancelReturnAndSiteTap(state, action);
   }
 
-  return handleRemoveSelfOnRoll(state, action);
+  // `remove-self-on-roll` (Foolish Words and variants) is migrated — fall
+  // through to the generic apply dispatch.
+  return handleGrantActionApply(state, action);
 }
 
 /**
@@ -750,93 +752,6 @@ function handleCancelReturnAndSiteTap(state: GameState, action: GameAction): Red
   return { state: newState };
 }
 
-/**
- * Handle remove-self-on-roll grant-action.
- *
- * Taps the bearer, rolls 2d6, and if the total meets the threshold,
- * discards the source hazard card. Used by Foolish Words.
- */
-function handleRemoveSelfOnRoll(state: GameState, action: GameAction): ReducerResult {
-  if (action.type !== 'activate-granted-action') return { state, error: 'Expected activate-granted-action' };
-
-
-  const playerIndex = getPlayerIndex(state, action.player);
-  const player = state.players[playerIndex];
-  const char = player.characters[action.characterId as string];
-  if (!char) return { state, error: 'Character not found' };
-
-  const charDefId = resolveInstanceId(state, action.characterId);
-  const charDef = charDefId ? state.cardPool[charDefId as string] : undefined;
-  const charName = charDef?.name ?? '?';
-  const sourceDef = state.cardPool[action.sourceCardDefinitionId as string];
-  const sourceName = sourceDef?.name ?? '?';
-
-  logDetail(`Activate grant-action '${action.actionId}': ${charName} taps to attempt to remove ${sourceName}`);
-
-  // Pay cost: tap the character
-  const tappedChar: CharacterInPlay = { ...char, status: CardStatus.Tapped };
-
-  // Roll 2d6
-  const { roll, rng, cheatRollTotal } = roll2d6(state);
-  const d1 = roll.die1;
-  const d2 = roll.die2;
-  const total = d1 + d2;
-  logDetail(`Grant-action roll for ${charName}: ${d1} + ${d2} = ${total} vs threshold ${action.rollThreshold}`);
-
-  const rollEffect: GameEffect = {
-    effect: 'dice-roll',
-    playerName: player.name,
-    die1: roll.die1,
-    die2: roll.die2,
-    label: `Remove ${sourceName}: ${charName}`,
-  };
-
-  const newPlayers = clonePlayers(state);
-
-  if (total >= action.rollThreshold) {
-    // Success: discard the source card
-    logDetail(`Roll succeeded (${total} >= ${action.rollThreshold}) — discarding ${sourceName}`);
-    const updatedHazards = char.hazards.filter(h => h.instanceId !== action.sourceCardId);
-    const discardedCard: CardInstance = { instanceId: action.sourceCardId, definitionId: action.sourceCardDefinitionId };
-
-    newPlayers[playerIndex] = {
-      ...newPlayers[playerIndex],
-      characters: {
-        ...newPlayers[playerIndex].characters,
-        [action.characterId as string]: { ...tappedChar, hazards: updatedHazards },
-      },
-    };
-
-    // Hazard cards are owned by the opponent (other player). Discard to opponent's pile.
-    const opponentIndex = 1 - playerIndex;
-    newPlayers[opponentIndex] = {
-      ...newPlayers[opponentIndex],
-      discardPile: [...newPlayers[opponentIndex].discardPile, discardedCard],
-    };
-  } else {
-    // Failure: character is tapped but card stays
-    logDetail(`Roll failed (${total} < ${action.rollThreshold}) — ${sourceName} stays attached to ${charName}`);
-    newPlayers[playerIndex] = {
-      ...newPlayers[playerIndex],
-      characters: {
-        ...newPlayers[playerIndex].characters,
-        [action.characterId as string]: tappedChar,
-      },
-    };
-  }
-
-  // Store the roll on the player
-  newPlayers[playerIndex] = { ...newPlayers[playerIndex], lastDiceRoll: roll };
-
-  return {
-    state: {
-      ...state,
-      players: newPlayers,
-      rng, cheatRollTotal,
-    },
-    effects: [rollEffect],
-  };
-}
 
 /**
  * Handle test-gold-ring grant-action (Rule 9.21).
@@ -1035,18 +950,152 @@ function handleGwaihirSpecialMovement(state: GameState, action: GameAction): Red
 // system. See `docs/plans/pending-effects-plan.md`.
 
 /**
+ * Which attachment slot a source card lives in, and which player owns
+ * the corresponding discard pile. Hazards are opponent-owned; items and
+ * allies belong to the character's own player.
+ */
+function locateSourceOnCharacter(
+  char: CharacterInPlay,
+  sourceCardId: CardInstanceId,
+  playerIndex: number,
+): { slot: 'items' | 'allies' | 'hazards'; discardPileOwnerIndex: number } | null {
+  if (char.items.some(i => i.instanceId === sourceCardId)) {
+    return { slot: 'items', discardPileOwnerIndex: playerIndex };
+  }
+  if (char.allies.some(a => a.instanceId === sourceCardId)) {
+    return { slot: 'allies', discardPileOwnerIndex: playerIndex };
+  }
+  if (char.hazards.some(h => h.instanceId === sourceCardId)) {
+    return { slot: 'hazards', discardPileOwnerIndex: 1 - playerIndex };
+  }
+  return null;
+}
+
+/**
+ * Remove the source card from the character's attachment list and push
+ * it into the appropriate discard pile. Returns the updated character
+ * (detached) and a function that mutates `newPlayers` to record the
+ * discard. Caller is responsible for writing back the updated character.
+ */
+function detachAndDiscardSource(
+  char: CharacterInPlay,
+  sourceCardId: CardInstanceId,
+  sourceCardDefinitionId: import('../types/common.js').CardDefinitionId,
+  playerIndex: number,
+  newPlayers: import('../types/state.js').PlayerState[],
+): { updatedChar: CharacterInPlay } | { error: string } {
+  const loc = locateSourceOnCharacter(char, sourceCardId, playerIndex);
+  if (!loc) return { error: `source card ${sourceCardId as string} not attached to character` };
+  const discardedCard: CardInstance = { instanceId: sourceCardId, definitionId: sourceCardDefinitionId };
+  const updatedChar: CharacterInPlay = loc.slot === 'items'
+    ? { ...char, items: char.items.filter(i => i.instanceId !== sourceCardId) }
+    : loc.slot === 'allies'
+      ? { ...char, allies: char.allies.filter(a => a.instanceId !== sourceCardId) }
+      : { ...char, hazards: char.hazards.filter(h => h.instanceId !== sourceCardId) };
+  const owner = newPlayers[loc.discardPileOwnerIndex];
+  newPlayers[loc.discardPileOwnerIndex] = {
+    ...owner,
+    discardPile: [...owner.discardPile, discardedCard],
+  };
+  return { updatedChar };
+}
+
+/**
+ * Context for executing a grant-action apply: everything the inner
+ * dispatch needs. Kept in one record so the recursive apply walker
+ * (e.g. `roll-then-apply` → onSuccess) can reuse it without repeating
+ * argument lists.
+ */
+interface GrantApplyContext {
+  readonly action: Extract<GameAction, { type: 'activate-granted-action' }>;
+  readonly playerIndex: number;
+  readonly charName: string;
+  readonly sourceName: string;
+  readonly sourceCardDefinitionId: import('../types/common.js').CardDefinitionId;
+}
+
+/**
+ * Apply a single TriggeredAction in a grant-action context. Mutates
+ * `newPlayers` in place (via assignment to indices) and returns the
+ * updated character + any engine effects produced (e.g. dice rolls).
+ */
+function runGrantApply(
+  state: GameState,
+  apply: import('../types/effects.js').TriggeredAction,
+  char: CharacterInPlay,
+  newPlayers: import('../types/state.js').PlayerState[],
+  ctx: GrantApplyContext,
+  rngRef: { rng: GameState['rng']; cheatRollTotal: GameState['cheatRollTotal'] },
+): { updatedChar: CharacterInPlay; effects: GameEffect[] } | { error: string } {
+  if (apply.type === 'set-character-status' && apply.target === 'bearer') {
+    if (apply.status === undefined) {
+      return { error: `set-character-status apply missing status on ${ctx.sourceName}` };
+    }
+    const statusEnum = apply.status === 'untapped' ? CardStatus.Untapped
+      : apply.status === 'tapped' ? CardStatus.Tapped
+        : CardStatus.Inverted;
+    logDetail(`Grant-action ${ctx.action.actionId}: ${ctx.charName} → status ${apply.status}`);
+    return { updatedChar: { ...char, status: statusEnum }, effects: [] };
+  }
+
+  if (apply.type === 'discard-self') {
+    const result = detachAndDiscardSource(char, ctx.action.sourceCardId, ctx.sourceCardDefinitionId, ctx.playerIndex, newPlayers);
+    if ('error' in result) return { error: result.error };
+    logDetail(`Grant-action ${ctx.action.actionId}: discarded ${ctx.sourceName}`);
+    return { updatedChar: result.updatedChar, effects: [] };
+  }
+
+  if (apply.type === 'roll-then-apply') {
+    if (apply.threshold === undefined) {
+      return { error: `roll-then-apply missing threshold on ${ctx.sourceName}` };
+    }
+    const { roll, rng, cheatRollTotal } = roll2d6({ ...state, rng: rngRef.rng, cheatRollTotal: rngRef.cheatRollTotal });
+    rngRef.rng = rng;
+    rngRef.cheatRollTotal = cheatRollTotal;
+    const total = roll.die1 + roll.die2;
+    logDetail(`Grant-action ${ctx.action.actionId}: ${ctx.charName} rolls ${roll.die1} + ${roll.die2} = ${total} vs threshold ${apply.threshold}`);
+
+    const playerName = newPlayers[ctx.playerIndex].name;
+    const rollEffect: GameEffect = {
+      effect: 'dice-roll',
+      playerName,
+      die1: roll.die1,
+      die2: roll.die2,
+      label: `${ctx.sourceName}: ${ctx.charName}`,
+    };
+    newPlayers[ctx.playerIndex] = { ...newPlayers[ctx.playerIndex], lastDiceRoll: roll };
+
+    const branch = total >= apply.threshold ? apply.onSuccess : apply.onFailure;
+    if (!branch) {
+      logDetail(`Grant-action ${ctx.action.actionId}: roll ${total >= apply.threshold ? 'succeeded' : 'failed'} — no branch, nothing to apply`);
+      return { updatedChar: char, effects: [rollEffect] };
+    }
+    const inner = runGrantApply(state, branch, char, newPlayers, ctx, rngRef);
+    if ('error' in inner) return inner;
+    return { updatedChar: inner.updatedChar, effects: [rollEffect, ...inner.effects] };
+  }
+
+  return { error: `Unsupported grant-action apply ${JSON.stringify(apply)} on ${ctx.sourceName}` };
+}
+
+/**
  * Generic handler for grant-action effects that declare an `apply`.
- * Pays the effect's cost (e.g. discard source item) then dispatches on
- * `apply.type` to mutate state. Shared across all phase reducers so
- * that a granted action behaves identically in organization, M/H, site,
- * and long-event windows without per-actionId branches.
+ * Pays the effect's cost (discard source attachment or tap the bearer)
+ * then dispatches on `apply.type` to mutate state. Shared across all
+ * phase reducers so a granted action behaves identically in
+ * organization, M/H, site, and long-event windows without per-actionId
+ * branches.
  *
- * Currently supports:
- *  - `cost.discard === 'self'` for sources attached as items.
- *  - `apply.type === 'set-character-status'` with `target: 'bearer'`.
+ * Supported costs:
+ *  - `cost.discard === 'self'` — detach the source card (item, ally,
+ *    or hazard) from the bearer and move it to the correct discard.
+ *  - `cost.tap === 'bearer'` — tap the bearer (no detach).
  *
- * Extended incrementally as more cards migrate off the legacy
- * per-actionId handlers.
+ * Supported applies (each extends the primitive as cards demand it):
+ *  - `set-character-status` with `target: 'bearer'` — set bearer status.
+ *  - `discard-self` — detach the source from the bearer and discard it.
+ *  - `roll-then-apply` with `threshold`, `onSuccess`, `onFailure` —
+ *    roll 2d6; run the matching branch (recursive apply).
  */
 export function handleGrantActionApply(state: GameState, action: GameAction): ReducerResult {
   if (action.type !== 'activate-granted-action') return { state, error: 'Expected activate-granted-action' };
@@ -1078,40 +1127,33 @@ export function handleGrantActionApply(state: GameState, action: GameAction): Re
   let updatedChar: CharacterInPlay = char;
 
   if (effect.cost.discard === 'self') {
-    const itemIdx = char.items.findIndex(i => i.instanceId === action.sourceCardId);
-    if (itemIdx < 0) {
-      return { state, error: `${sourceName} is not an item on ${charName}` };
+    const detached = detachAndDiscardSource(char, action.sourceCardId, action.sourceCardDefinitionId, playerIndex, newPlayers);
+    if ('error' in detached) {
+      return { state, error: `${sourceName}: ${detached.error}` };
     }
-    const discardedCard: CardInstance = {
-      instanceId: action.sourceCardId,
-      definitionId: action.sourceCardDefinitionId,
-    };
-    updatedChar = {
-      ...updatedChar,
-      items: char.items.filter(i => i.instanceId !== action.sourceCardId),
-    };
-    newPlayers[playerIndex] = {
-      ...newPlayers[playerIndex],
-      discardPile: [...newPlayers[playerIndex].discardPile, discardedCard],
-    };
+    updatedChar = detached.updatedChar;
+    logDetail(`Grant-action ${action.actionId}: ${charName} discards ${sourceName}`);
+  } else if (effect.cost.tap === 'bearer' || effect.cost.tap === 'self') {
+    updatedChar = { ...updatedChar, status: CardStatus.Tapped };
+    logDetail(`Grant-action ${action.actionId}: ${charName} taps (source: ${sourceName})`);
   } else {
     return { state, error: `Unsupported grant-action cost ${JSON.stringify(effect.cost)} on ${sourceName}` };
   }
 
   // --- Apply effect ---
-  const apply = effect.apply;
-  if (apply.type === 'set-character-status' && apply.target === 'bearer') {
-    if (apply.status === undefined) {
-      return { state, error: `set-character-status apply missing status on ${sourceName}` };
-    }
-    const statusEnum = apply.status === 'untapped' ? CardStatus.Untapped
-      : apply.status === 'tapped' ? CardStatus.Tapped
-        : CardStatus.Inverted;
-    logDetail(`Grant-action ${action.actionId}: ${charName} discards ${sourceName} → status ${apply.status}`);
-    updatedChar = { ...updatedChar, status: statusEnum };
-  } else {
-    return { state, error: `Unsupported grant-action apply ${JSON.stringify(apply)} on ${sourceName}` };
+  const ctx: GrantApplyContext = {
+    action,
+    playerIndex,
+    charName,
+    sourceName,
+    sourceCardDefinitionId: action.sourceCardDefinitionId,
+  };
+  const rngRef = { rng: state.rng, cheatRollTotal: state.cheatRollTotal };
+  const result = runGrantApply(state, effect.apply, updatedChar, newPlayers, ctx, rngRef);
+  if ('error' in result) {
+    return { state, error: result.error };
   }
+  updatedChar = result.updatedChar;
 
   newPlayers[playerIndex] = {
     ...newPlayers[playerIndex],
@@ -1125,7 +1167,10 @@ export function handleGrantActionApply(state: GameState, action: GameAction): Re
     state: recomputeDerived({
       ...state,
       players: newPlayers,
+      rng: rngRef.rng,
+      cheatRollTotal: rngRef.cheatRollTotal,
     }),
+    effects: result.effects.length > 0 ? result.effects : undefined,
   };
 }
 

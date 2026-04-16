@@ -325,6 +325,15 @@ export interface TriggeredAction {
    * the enclosing effect's implicit target.
    */
   readonly target?: string;
+  /**
+   * For `roll-then-apply` type: the 2d6 total at or above which
+   * `onSuccess` fires. Otherwise `onFailure` fires (if present).
+   */
+  readonly threshold?: number;
+  /** For `roll-then-apply` type: apply run when the roll meets `threshold`. */
+  readonly onSuccess?: TriggeredAction;
+  /** For `roll-then-apply` type: apply run when the roll is below `threshold`. */
+  readonly onFailure?: TriggeredAction;
 }
 
 /**

@@ -365,7 +365,11 @@
         "type": "grant-action",
         "action": "remove-self-on-roll",
         "cost": { "tap": "bearer" },
-        "rollThreshold": 7
+        "apply": {
+          "type": "roll-then-apply",
+          "threshold": 7,
+          "onSuccess": { "type": "discard-self" }
+        }
       }
     ],
     "text": "Corruption. Playable on a non-Ringwraith character. Target character receives 2 corruption points and makes a corruption check at the end of his untap phase if at a Haven/Darkhaven. During his organization phase, the character may tap to attempt to remove this card. Make a roll—if the result is greater than 6, discard this card. Cannot be duplicated on a given character.",

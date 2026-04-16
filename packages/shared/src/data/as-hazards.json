@@ -35,7 +35,11 @@
         "type": "grant-action",
         "action": "remove-self-on-roll",
         "cost": { "tap": "bearer" },
-        "rollThreshold": 7
+        "apply": {
+          "type": "roll-then-apply",
+          "threshold": 7,
+          "onSuccess": { "type": "discard-self" }
+        }
       },
       {
         "type": "on-event",
