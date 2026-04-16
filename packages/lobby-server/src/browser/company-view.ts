@@ -257,7 +257,8 @@ export function renderCompanyViews(
   }
   setLastMhSiteStep(curStep);
 
-  // After a split-company action, focus on the new company containing the split character
+  // After an action that creates a new company (split-company, play-character
+  // at a new site), focus on the new company containing the target character.
   const pendingFocusCharacterId = getPendingFocusCharacterId();
   if (pendingFocusCharacterId) {
     setPendingFocusCharacterId(null);

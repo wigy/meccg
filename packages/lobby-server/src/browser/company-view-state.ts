@@ -33,8 +33,10 @@ let savedFocusedCompanyId: CompanyId | null = null;
 let allCompaniesOverride = false;
 
 /**
- * After a split-company action, stores the character ID that was split off.
- * On the next render, the view auto-focuses on the new company containing this character.
+ * After an action that creates a new company (e.g. split-company, or
+ * play-character at a site that has no existing company), stores the
+ * character ID placed into the new company. On the next render, the view
+ * auto-focuses on the company containing this character.
  */
 let pendingFocusCharacterId: CardInstanceId | null = null;
 
