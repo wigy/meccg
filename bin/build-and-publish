@@ -1,18 +1,22 @@
 #!/usr/bin/env bash
-# Build the MECCG Docker image and push it to Docker Hub as :latest.
+# Build the MECCG Docker image and push it to Docker Hub with a given version tag.
 #
 # Requires:
 #   DOCKER_USER     — Docker Hub username
 #   DOCKER_PASSWORD — Docker Hub password or access token
 #
-# Usage: bin/build-and-publish
+# Usage: bin/build-and-publish [VERSION]
 set -euo pipefail
 
 if [ $# -ge 1 ] && { [ "$1" = "-h" ] || [ "$1" = "--help" ]; }; then
   cat <<'EOF'
-Usage: bin/build-and-publish
+Usage: bin/build-and-publish [VERSION]
 
-Build the MECCG Docker image and push it to Docker Hub tagged :latest.
+Build the MECCG Docker image and push it to Docker Hub tagged with VERSION.
+If VERSION is not provided as an argument, the script prompts for it.
+
+Arguments:
+  VERSION          Tag to publish (e.g. 0.21.0). Prompted if omitted.
 
 Environment:
   DOCKER_USER      Docker Hub username (required)
@@ -24,12 +28,23 @@ EOF
   exit 0
 fi
 
+if [ $# -ge 1 ]; then
+  VERSION="$1"
+else
+  read -r -p "Version to publish: " VERSION
+fi
+
+if [ -z "${VERSION:-}" ]; then
+  echo "Error: VERSION is required." >&2
+  exit 1
+fi
+
 : "${DOCKER_USER:?DOCKER_USER is not set}"
 : "${DOCKER_PASSWORD:?DOCKER_PASSWORD is not set}"
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PROJECT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
-IMAGE="$DOCKER_USER/meccg-dev:latest"
+IMAGE="$DOCKER_USER/meccg-dev:$VERSION"
 
 log() { echo "[build-and-publish] $*"; }
 
