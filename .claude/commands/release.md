@@ -28,4 +28,8 @@ Follow these steps exactly:
 
 8. **Push:** Push the commit and tag to the remote.
 
-9. **Report:** Show the new version number and confirm success.
+9. **Publish builds:** After the push succeeds, run these two commands sequentially:
+   - `bin/build-and-publish latest`
+   - `bin/build-and-publish vX.Y.Z` (using the new version number)
+
+10. **Report:** Show the new version number and confirm success.
