@@ -7,7 +7,7 @@
  */
 
 import type { GameState, EndOfTurnPhaseState, PlayerId, GameAction } from '../index.js';
-import { Phase, CardStatus, getPlayerIndex } from '../index.js';
+import { Phase, getPlayerIndex } from '../index.js';
 import { resolveHandSize } from './effects/index.js';
 import { logHeading, logDetail } from './legal-actions/log.js';
 import type { ReducerResult } from './reducer-utils.js';
