@@ -24,7 +24,7 @@
       }
     ],
     "effects": [
-      { "type": "combat-rule", "rule": "attacker-chooses-defenders" },
+      { "type": "combat-attacker-chooses-defenders" },
       {
         "type": "on-event",
         "event": "attack-not-defeated",

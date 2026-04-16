@@ -14,9 +14,9 @@
  * an excess strike (-1 prowess modification) against the attacked character."
  *
  * This tests the three effects:
- * 1. combat-rule: attacker-chooses-defenders — attacker assigns strikes
- * 2. combat-rule: multi-attack (count: 3) — three strikes auto-assigned to one target
- * 3. combat-rule: cancel-attack-by-tap (maxCancels: 2) — defender taps to cancel
+ * 1. combat-attacker-chooses-defenders — attacker assigns strikes
+ * 2. combat-multi-attack (count: 3) — three strikes auto-assigned to one target
+ * 3. combat-cancel-attack-by-tap (maxCancels: 2) — defender taps to cancel
  */
 
 import { describe, test, expect, beforeEach } from 'vitest';

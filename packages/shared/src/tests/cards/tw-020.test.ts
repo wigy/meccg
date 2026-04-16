@@ -8,7 +8,7 @@
  * "Dragon. Two strikes. Attacker chooses defending characters."
  *
  * This tests the single effect:
- * 1. combat-rule: attacker-chooses-defenders — during strike assignment,
+ * 1. combat-attacker-chooses-defenders — during strike assignment,
  *    the attacker (hazard player) assigns strikes instead of the defender.
  */
 
