@@ -313,9 +313,13 @@ function resolveStrikeActions(
   if (targetStatus === CardStatus.Inverted) statusPenalty = 2; // Wounded
   const excessPenalty = currentStrike.excessStrikes > 0 ? currentStrike.excessStrikes : 0;
 
-  // Tap: full prowess; Untap: -3 prowess penalty
-  const tapProwess = baseProwess - statusPenalty - excessPenalty;
-  const untapProwess = baseProwess - 3 - statusPenalty - excessPenalty;
+  // Tap: full prowess; Untap: -3 prowess penalty.
+  // Add +1 per character/ally that has tapped to support this strike
+  // (CoE rule 3.iv.4) so the displayed "need" updates as the defender
+  // taps supporters.
+  const supportBonus = currentStrike.supportCount ?? 0;
+  const tapProwess = baseProwess - statusPenalty - excessPenalty + supportBonus;
+  const untapProwess = baseProwess - 3 - statusPenalty - excessPenalty + supportBonus;
 
   const tapNeed = Math.max(2, strikeProwess - tapProwess + 1);
   const tapExplanation = `Tapped: need ${tapNeed}+ (prowess ${tapProwess} vs ${strikeProwess})`;

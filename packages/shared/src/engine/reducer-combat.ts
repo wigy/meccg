@@ -274,6 +274,8 @@ function resolveStrikeCore(
   if (targetStatus === CardStatus.Tapped) prowess -= 1;
   if (targetStatus === CardStatus.Inverted) prowess -= 2; // Wounded
   if (strike.excessStrikes > 0) prowess -= strike.excessStrikes;
+  const supportBonus = strike.supportCount ?? 0;
+  prowess += supportBonus; // CoE rule 3.iv.4: +1 per supporting character/ally
 
   // Roll dice
   const { roll, rng, cheatRollTotal } = roll2d6(state);
@@ -403,6 +405,18 @@ function handleSupportStrike(state: GameState, action: GameAction, combat: Comba
   const defPlayerIndex = state.players.findIndex(p => p.id === combat.defendingPlayerId);
   const defPlayer = state.players[defPlayerIndex];
 
+  // Bump the supportCount on the current strike so the +1 modifier is
+  // visible to the legal-action computer (updates the displayed "need")
+  // and applied by `resolveStrikeCore` when the dice are actually rolled.
+  const currentStrike = combat.strikeAssignments[combat.currentStrikeIndex];
+  const newAssignments = combat.strikeAssignments.map((a, i) =>
+    i === combat.currentStrikeIndex
+      ? { ...a, supportCount: (a.supportCount ?? 0) + 1 }
+      : a,
+  );
+  const newSupportCount = (currentStrike?.supportCount ?? 0) + 1;
+  const newCombat: CombatState = { ...combat, strikeAssignments: newAssignments };
+
   // Check if supporter is a character
   const supporterChar = defPlayer.characters[action.supportingCharacterId as string];
   if (supporterChar) {
@@ -410,8 +424,8 @@ function handleSupportStrike(state: GameState, action: GameAction, combat: Comba
     const newCharacters = { ...defPlayer.characters };
     newCharacters[action.supportingCharacterId as string] = { ...supporterChar, status: CardStatus.Tapped };
     newPlayers[defPlayerIndex] = { ...defPlayer, characters: newCharacters };
-    logDetail(`${action.supportingCharacterId as string} taps to support — +1 prowess`);
-    return { state: { ...state, players: newPlayers } };
+    logDetail(`${action.supportingCharacterId as string} taps to support — +1 prowess (total support: +${newSupportCount})`);
+    return { state: { ...state, players: newPlayers, combat: newCombat } };
   }
 
   // Check if supporter is an ally
@@ -426,8 +440,8 @@ function handleSupportStrike(state: GameState, action: GameAction, combat: Comba
       const newCharacters = { ...defPlayer.characters };
       newCharacters[charId] = { ...ch, allies: newAllies };
       newPlayers[defPlayerIndex] = { ...defPlayer, characters: newCharacters };
-      logDetail(`Ally ${action.supportingCharacterId as string} taps to support — +1 prowess`);
-      return { state: { ...state, players: newPlayers } };
+      logDetail(`Ally ${action.supportingCharacterId as string} taps to support — +1 prowess (total support: +${newSupportCount})`);
+      return { state: { ...state, players: newPlayers, combat: newCombat } };
     }
   }
 
