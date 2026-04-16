@@ -19,10 +19,9 @@ import { initiateChain, pushChainEntry } from './chain-reducer.js';
 import { resolveInstanceId } from '../types/state.js';
 import type { ReducerResult } from './reducer-utils.js';
 import { clonePlayers, startDeckExhaust, completeDeckExhaust, handleExchangeSideboard, cleanupEmptyCompanies, autoMergeNonHavenCompanies } from './reducer-utils.js';
-import { removeConstraint } from './pending.js';
 import { handlePlayShortEvent } from './reducer-events.js';
 import { handlePlayPermanentEvent } from './reducer-events.js';
-import { handleGrantActionApply } from './reducer-organization.js';
+import { handleGrantActionApply, handleCancelConstraint } from './reducer-organization.js';
 import { sweepExpired, addConstraint, enqueueResolution } from './pending.js';
 import { buildInPlayNames } from './recompute-derived.js';
 
@@ -169,7 +168,7 @@ function handlePlayHazards(
 
   // --- Cancel constraint (e.g. River: ranger taps to cancel site-phase-do-nothing) ---
   if (action.type === 'activate-granted-action' && action.actionId === 'cancel-constraint') {
-    return handleCancelConstraintMH(state, action);
+    return handleCancelConstraint(state, action);
   }
 
   // --- Place on-guard ---
@@ -180,49 +179,6 @@ function handlePlayHazards(
   return { state, error: `Unexpected action '${action.type}' during play-hazards step` };
 }
 
-/**
- * Cancel a constraint during M/H by tapping a qualifying character.
- * River allows a ranger to tap during M/H to pre-empt the
- * site-phase-do-nothing restriction before the site phase starts.
- */
-function handleCancelConstraintMH(state: GameState, action: GameAction): ReducerResult {
-  if (action.type !== 'activate-granted-action') return { state, error: 'Expected activate-granted-action' };
-
-  const playerIndex = getPlayerIndex(state, action.player);
-  const player = state.players[playerIndex];
-  const char = player.characters[action.characterId as string];
-  if (!char) return { state, error: `Character ${action.characterId as string} not found` };
-
-  const charDef = state.cardPool[char.definitionId as string];
-  const charName = charDef && isCharacterCard(charDef) ? charDef.name : (action.characterId as string);
-  const sourceDef = state.cardPool[action.sourceCardDefinitionId as string];
-  const sourceName = sourceDef?.name ?? (action.sourceCardId as string);
-  logDetail(`M/H: ${charName} taps to cancel ${sourceName} (constraint source ${action.sourceCardId as string})`);
-
-  const newPlayers = clonePlayers(state);
-  newPlayers[playerIndex] = {
-    ...newPlayers[playerIndex],
-    characters: {
-      ...newPlayers[playerIndex].characters,
-      [action.characterId as string]: {
-        ...newPlayers[playerIndex].characters[action.characterId as string],
-        status: CardStatus.Tapped,
-      },
-    },
-  };
-
-  let nextState: GameState = { ...state, players: newPlayers };
-
-  const constraint = nextState.activeConstraints.find(
-    c => c.source === action.sourceCardId,
-  );
-  if (constraint) {
-    logDetail(`M/H: removing constraint ${constraint.id as string}`);
-    nextState = removeConstraint(nextState, constraint.id);
-  }
-
-  return { state: nextState };
-}
 
 /**
  * Play a hazard card from hand during the play-hazards step.
