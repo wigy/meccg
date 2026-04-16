@@ -657,13 +657,13 @@ function handleFetchFromSideboard(state: GameState, action: GameAction): Reducer
 function handleActivateGrantedAction(state: GameState, action: GameAction): ReducerResult {
   if (action.type !== 'activate-granted-action') return { state, error: 'Expected activate-granted-action' };
 
-  if (action.actionId === 'test-gold-ring') {
-    return handleTestGoldRing(state, action);
-  }
-
-  // `gwaihir-special-movement` and `untap-bearer` both migrated to the
-  // generic apply dispatch — fall through.
-  if (action.actionId === 'untap-bearer' || action.actionId === 'gwaihir-special-movement') {
+  // `test-gold-ring`, `gwaihir-special-movement` and `untap-bearer`
+  // all migrated to the generic apply dispatch — fall through.
+  if (
+    action.actionId === 'untap-bearer'
+    || action.actionId === 'gwaihir-special-movement'
+    || action.actionId === 'test-gold-ring'
+  ) {
     return handleGrantActionApply(state, action);
   }
 
@@ -683,125 +683,6 @@ function handleActivateGrantedAction(state: GameState, action: GameAction): Redu
 }
 
 
-
-/**
- * Handle test-gold-ring grant-action (Rule 9.21).
- *
- * Taps the character (e.g. Gandalf), rolls 2d6, and discards the target
- * gold ring item from its bearer. The roll result is stored for future
- * special ring replacement support.
- *
- * Per CoE rules: "When a gold ring is tested, the item's player makes a ring
- * test roll... The special ring item replaces the gold ring item, which is
- * immediately discarded regardless of whether a special ring item was played."
- */
-function handleTestGoldRing(state: GameState, action: GameAction): ReducerResult {
-  if (action.type !== 'activate-granted-action') return { state, error: 'Expected activate-granted-action' };
-
-  const playerIndex = getPlayerIndex(state, action.player);
-  const player = state.players[playerIndex];
-  const char = player.characters[action.characterId as string];
-
-  const charDefId = resolveInstanceId(state, action.characterId);
-  const charDef = charDefId ? state.cardPool[charDefId as string] : undefined;
-  const charName = charDef?.name ?? '?';
-
-  const company = player.companies.find(c => c.characters.includes(action.characterId))!;
-
-  let ringBearerCharId: CardInstanceId | null = null;
-  let ringDefId: import('../index.js').CardDefinitionId | null = null;
-  for (const compCharId of company.characters) {
-    const compChar = player.characters[compCharId as string];
-    if (!compChar) continue;
-    const ringItem = compChar.items.find(item => item.instanceId === action.targetCardId);
-    if (ringItem) {
-      ringBearerCharId = compCharId;
-      ringDefId = ringItem.definitionId;
-      break;
-    }
-  }
-
-  if (!ringBearerCharId || !ringDefId) {
-    return { state, error: 'Target gold ring not found in company' };
-  }
-
-  const ringDef = state.cardPool[ringDefId as string];
-  const ringName = ringDef?.name ?? '?';
-
-  logDetail(`Activate grant-action 'test-gold-ring': ${charName} taps to test ${ringName}`);
-
-  // Pay cost: tap the character
-  const tappedChar: CharacterInPlay = { ...char, status: CardStatus.Tapped };
-
-  // Roll 2d6
-  const { roll, rng, cheatRollTotal } = roll2d6(state);
-  const d1 = roll.die1;
-  const d2 = roll.die2;
-  const baseTotal = d1 + d2;
-
-  // Collect gold-ring-test check-modifiers from all characters in the company
-  let goldRingMod = 0;
-  const grContext = { reason: 'gold-ring-test' as const };
-  for (const compCharId of company.characters) {
-    const compChar = player.characters[compCharId as string];
-    if (!compChar) continue;
-    const charEffects = collectCharacterEffects(state, compChar, grContext);
-    goldRingMod += resolveCheckModifier(charEffects, 'gold-ring-test');
-  }
-  const total = baseTotal + goldRingMod;
-  if (goldRingMod !== 0) {
-    logDetail(`Gold ring test roll for ${charName}: ${d1} + ${d2} = ${baseTotal}, modifier ${goldRingMod >= 0 ? '+' : ''}${goldRingMod} → ${total}`);
-  } else {
-    logDetail(`Gold ring test roll for ${charName}: ${d1} + ${d2} = ${total}`);
-  }
-
-  const rollEffect: GameEffect = {
-    effect: 'dice-roll',
-    playerName: player.name,
-    die1: roll.die1,
-    die2: roll.die2,
-    label: `Gold ring test: ${charName} tests ${ringName}`,
-  };
-
-  const newPlayers = clonePlayers(state);
-
-  // Tap the character performing the test
-  newPlayers[playerIndex] = {
-    ...newPlayers[playerIndex],
-    characters: {
-      ...newPlayers[playerIndex].characters,
-      [action.characterId as string]: tappedChar,
-    },
-  };
-
-  // Remove the gold ring from its bearer and discard it
-  const ringBearer = newPlayers[playerIndex].characters[ringBearerCharId as string];
-  const updatedItems = ringBearer.items.filter(item => item.instanceId !== action.targetCardId);
-  const discardedRing: CardInstance = { instanceId: action.targetCardId!, definitionId: ringDefId };
-
-  logDetail(`Gold ring test: discarding ${ringName} from ${state.cardPool[ringBearer.definitionId as string]?.name ?? '?'}`);
-
-  newPlayers[playerIndex] = {
-    ...newPlayers[playerIndex],
-    characters: {
-      ...newPlayers[playerIndex].characters,
-      [ringBearerCharId as string]: { ...ringBearer, items: updatedItems },
-    },
-    discardPile: [...newPlayers[playerIndex].discardPile, discardedRing],
-  };
-
-  // Store the roll on the player
-  newPlayers[playerIndex] = { ...newPlayers[playerIndex], lastDiceRoll: roll };
-
-  return {
-    state: {
-      ...state,
-      players: newPlayers,
-      rng, cheatRollTotal,
-    },
-    effects: [rollEffect],
-  };
-}
 
 // handleOrganizationCorruptionCheck moved to engine/pending-reducers.ts
 // (`applyCorruptionCheckResolution`) as part of the unified pending
@@ -1030,6 +911,115 @@ function runGrantApply(
         }),
       ],
     };
+  }
+
+  if (apply.type === 'roll-check') {
+    const checkName = apply.check;
+    if (!checkName) {
+      return { error: `roll-check missing check on ${ctx.sourceName}` };
+    }
+    const bearerPlayer = newPlayers[ctx.playerIndex];
+    const company = bearerPlayer.companies.find(c => c.characters.includes(ctx.action.characterId));
+    if (!company) {
+      return { error: `${ctx.charName} is not in any company` };
+    }
+    const { roll, rng, cheatRollTotal } = roll2d6({ ...state, rng: rngRef.rng, cheatRollTotal: rngRef.cheatRollTotal });
+    rngRef.rng = rng;
+    rngRef.cheatRollTotal = cheatRollTotal;
+    const base = roll.die1 + roll.die2;
+
+    let modifier = 0;
+    const checkContext = { reason: checkName };
+    for (const compCharId of company.characters) {
+      const compChar = bearerPlayer.characters[compCharId as string];
+      if (!compChar) continue;
+      const charEffects = collectCharacterEffects(state, compChar, checkContext);
+      modifier += resolveCheckModifier(charEffects, checkName);
+    }
+    const total = base + modifier;
+
+    let targetName = '';
+    if (ctx.action.targetCardId) {
+      for (const compCharId of company.characters) {
+        const compChar = bearerPlayer.characters[compCharId as string];
+        if (!compChar) continue;
+        const targetItem = compChar.items.find(i => i.instanceId === ctx.action.targetCardId);
+        if (targetItem) {
+          const targetDef = state.cardPool[targetItem.definitionId as string];
+          targetName = targetDef?.name ?? '';
+          break;
+        }
+      }
+    }
+
+    const baseLabel = apply.label ?? checkName;
+    const labelSuffix = targetName
+      ? `${ctx.charName} tests ${targetName}`
+      : ctx.charName;
+    const label = `${baseLabel}: ${labelSuffix}`;
+    if (modifier !== 0) {
+      logDetail(`Grant-action ${ctx.action.actionId}: ${ctx.charName} rolls ${roll.die1} + ${roll.die2} = ${base}, modifier ${modifier >= 0 ? '+' : ''}${modifier} → ${total} (${checkName})`);
+    } else {
+      logDetail(`Grant-action ${ctx.action.actionId}: ${ctx.charName} rolls ${roll.die1} + ${roll.die2} = ${total} (${checkName})`);
+    }
+
+    const rollEffect: GameEffect = {
+      effect: 'dice-roll',
+      playerName: bearerPlayer.name,
+      die1: roll.die1,
+      die2: roll.die2,
+      label,
+    };
+    newPlayers[ctx.playerIndex] = { ...newPlayers[ctx.playerIndex], lastDiceRoll: roll };
+    return { updatedChar: char, effects: [rollEffect], stateOps: [] };
+  }
+
+  if (apply.type === 'discard-target-item') {
+    const targetCardId = ctx.action.targetCardId;
+    if (!targetCardId) {
+      return { error: `discard-target-item: action has no targetCardId on ${ctx.sourceName}` };
+    }
+    const bearerPlayer = newPlayers[ctx.playerIndex];
+    const company = bearerPlayer.companies.find(c => c.characters.includes(ctx.action.characterId));
+    if (!company) {
+      return { error: `${ctx.charName} is not in any company` };
+    }
+    let bearerOfTargetId: CardInstanceId | null = null;
+    let targetDefId: import('../types/common.js').CardDefinitionId | null = null;
+    for (const compCharId of company.characters) {
+      const compChar = bearerPlayer.characters[compCharId as string];
+      if (!compChar) continue;
+      const targetItem = compChar.items.find(i => i.instanceId === targetCardId);
+      if (targetItem) {
+        bearerOfTargetId = compCharId;
+        targetDefId = targetItem.definitionId;
+        break;
+      }
+    }
+    if (!bearerOfTargetId || !targetDefId) {
+      return { error: `discard-target-item: target ${targetCardId as string} not found in ${ctx.charName}'s company` };
+    }
+    const targetBearer = bearerPlayer.characters[bearerOfTargetId as string];
+    const updatedItems = targetBearer.items.filter(i => i.instanceId !== targetCardId);
+    const discardedCard: CardInstance = { instanceId: targetCardId, definitionId: targetDefId };
+    const targetDef = state.cardPool[targetDefId as string];
+    logDetail(`Grant-action ${ctx.action.actionId}: discarding ${targetDef?.name ?? '?'} from ${state.cardPool[targetBearer.definitionId as string]?.name ?? '?'}`);
+
+    newPlayers[ctx.playerIndex] = {
+      ...bearerPlayer,
+      characters: {
+        ...bearerPlayer.characters,
+        [bearerOfTargetId as string]: { ...targetBearer, items: updatedItems },
+      },
+      discardPile: [...bearerPlayer.discardPile, discardedCard],
+    };
+    // If the target was on the bearer's own character (rare but possible),
+    // reflect the items change in the returned character as well so
+    // later applies see it.
+    const updatedChar = bearerOfTargetId === ctx.action.characterId
+      ? { ...char, items: updatedItems }
+      : char;
+    return { updatedChar, effects: [], stateOps: [] };
   }
 
   if (apply.type === 'roll-then-apply') {

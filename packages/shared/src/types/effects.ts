@@ -277,7 +277,10 @@ export interface OnEventEffect extends EffectBase {
 export interface TriggeredAction {
   /** The type of triggered action. */
   readonly type: string;
-  /** Which check to force (for 'force-check' type). */
+  /**
+   * Which check to force (for `force-check`) or which check's
+   * modifiers to sum into a 2d6 roll (for `roll-check`).
+   */
   readonly check?: string;
   /** Modifier to the forced check. */
   readonly modifier?: number;
@@ -355,6 +358,14 @@ export interface TriggeredAction {
    * concatenated in declaration order.
    */
   readonly apps?: readonly TriggeredAction[];
+  /**
+   * For `roll-check` type: human-readable label for the dice-roll
+   * GameEffect. The handler appends `": ${bearerName} tests
+   * ${targetCardName}"` when the action carries a target, or
+   * `": ${bearerName}"` otherwise. See also {@link TriggeredAction.check}
+   * for the check whose modifiers are summed into the roll.
+   */
+  readonly label?: string;
 }
 
 /**
