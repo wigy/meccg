@@ -34,6 +34,7 @@ import {
   playCreatureHazardAndResolve,
   CardStatus,
   handCardId, companyIdAt, dispatch, expectInDiscardPile,
+  resolveChain,
 } from '../test-helpers.js';
 import type { CancelAttackAction } from '../../index.js';
 import { RegionType, SiteType } from '../../index.js';
@@ -137,19 +138,22 @@ describe('Vanishment (tw-356)', () => {
     );
 
     const cancelActions = viableActions(combatState, PLAYER_1, 'cancel-attack');
-    const after = dispatch(combatState, cancelActions[0].action);
+    const declared = dispatch(combatState, cancelActions[0].action);
 
-    expect(after.combat).toBeNull();
-
-    expect(after.players[0].hand).toHaveLength(0);
-    expectInDiscardPile(after, 0, VANISHMENT);
-
-    expectInDiscardPile(after, 1, ORC_PATROL);
-
-    expect(after.pendingResolutions).toHaveLength(1);
-    expect(after.pendingResolutions[0].kind.type).toBe('corruption-check');
-    const ccKind = after.pendingResolutions[0].kind as { type: 'corruption-check'; modifier: number };
+    // Declaration initiates chain; card + corruption check already set up
+    expect(declared.chain).not.toBeNull();
+    expect(declared.combat).not.toBeNull();
+    expect(declared.players[0].hand).toHaveLength(0);
+    expectInDiscardPile(declared, 0, VANISHMENT);
+    expect(declared.pendingResolutions).toHaveLength(1);
+    expect(declared.pendingResolutions[0].kind.type).toBe('corruption-check');
+    const ccKind = declared.pendingResolutions[0].kind as { type: 'corruption-check'; modifier: number };
     expect(ccKind.modifier).toBe(-2);
+
+    // Resolve chain — combat cancelled, creature to attacker's discard
+    const after = resolveChain(declared);
+    expect(after.combat).toBeNull();
+    expectInDiscardPile(after, 1, ORC_PATROL);
   });
 
   test('tapped wizard can still use Vanishment (corruption check does not require untapped)', () => {
@@ -198,10 +202,11 @@ describe('Vanishment (tw-356)', () => {
     const cancelActions = viableActions(combatState, PLAYER_1, 'cancel-attack');
     expect(cancelActions).toHaveLength(1);
 
-    const after = dispatch(combatState, cancelActions[0].action);
+    const declared = dispatch(combatState, cancelActions[0].action);
+    expectInDiscardPile(declared, 0, VANISHMENT);
+    expect(declared.pendingResolutions).toHaveLength(1);
+    expect(declared.pendingResolutions[0].kind.type).toBe('corruption-check');
+    const after = resolveChain(declared);
     expect(after.combat).toBeNull();
-    expectInDiscardPile(after, 0, VANISHMENT);
-    expect(after.pendingResolutions).toHaveLength(1);
-    expect(after.pendingResolutions[0].kind.type).toBe('corruption-check');
   });
 });
