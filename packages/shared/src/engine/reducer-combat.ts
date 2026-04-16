@@ -20,6 +20,7 @@ import { roll2d6, clonePlayers } from './reducer-utils.js';
 import { resolveEnemyBody } from './effects/index.js';
 import { computeCombatProwess, buildInPlayNames } from './recompute-derived.js';
 import { enqueueResolution, addConstraint } from './pending.js';
+import { initiateChain, pushChainEntry } from './chain-reducer.js';
 
 
 /**
@@ -695,9 +696,20 @@ function handleBodyCheckRoll(state: GameState, action: GameAction, combat: Comba
 }
 
 /**
- * Cancel an entire attack by tapping a scout and discarding a cancel-attack
- * card from hand. Only allowed during the assign-strikes phase before any
- * strikes have been assigned.
+ * Declare a cancel-attack action by playing a short-event card from hand.
+ *
+ * Follows the MECCG chain-of-effects rule: playing a cancel-attack card
+ * declares a chain entry rather than immediately cancelling combat. The
+ * opponent has priority to respond (e.g. with a hazard that cancels the
+ * cancellation). When both players pass chain priority, the chain
+ * auto-resolves and the cancel-attack entry applies its effect to the
+ * active combat via {@link resolveCancelAttackEntry}.
+ *
+ * Costs (tapping a scout or enqueuing a corruption check) are paid
+ * immediately at declaration per CoE rule 9.5.2 — active conditions do
+ * not initiate their own chain and cannot be refunded by negation.
+ * The card itself moves from hand to discard pile at declaration, matching
+ * the behaviour of other short events.
  */
 function handleCancelAttack(state: GameState, action: GameAction, combat: CombatState): ReducerResult {
   if (action.type !== 'cancel-attack') return { state, error: 'Expected cancel-attack' };
@@ -706,12 +718,14 @@ function handleCancelAttack(state: GameState, action: GameAction, combat: Combat
   const defPlayer = state.players[defPlayerIndex];
 
   const cardIndex = defPlayer.hand.findIndex(c => c.instanceId === action.cardInstanceId);
+  if (cardIndex < 0) return { state, error: 'Card not in hand' };
+  const handCard = defPlayer.hand[cardIndex];
 
   const newPlayers = clonePlayers(state);
   const newCharacters = { ...defPlayer.characters };
 
   // Look up the cancel-attack effect to determine cost type
-  const cardDef = state.cardPool[defPlayer.hand[cardIndex].definitionId as string];
+  const cardDef = state.cardPool[handCard.definitionId as string];
   const effects = (cardDef as { effects?: readonly import('../types/effects.js').CardEffect[] } | undefined)?.effects;
   const cancelEffect = effects?.find(
     (e): e is import('../types/effects.js').CancelAttackEffect => e.type === 'cancel-attack',
@@ -724,23 +738,24 @@ function handleCancelAttack(state: GameState, action: GameAction, combat: Combat
   if (action.scoutInstanceId) {
     const charData = defPlayer.characters[action.scoutInstanceId as string];
     if (costIsTap) {
-      logDetail(`Attack canceled: ${defPlayer.hand[cardIndex].definitionId as string} played, tapping ${charData.definitionId as string}`);
+      logDetail(`Cancel-attack declared: ${handCard.definitionId as string} played via chain, tapping ${charData.definitionId as string}`);
       newCharacters[action.scoutInstanceId as string] = { ...charData, status: CardStatus.Tapped };
     } else if (costIsCheck) {
       const checkModifier = cancelEffect?.cost?.modifier ?? 0;
-      logDetail(`Attack canceled: ${defPlayer.hand[cardIndex].definitionId as string} played, ${charData.definitionId as string} makes corruption check (modifier ${checkModifier})`);
+      logDetail(`Cancel-attack declared: ${handCard.definitionId as string} played via chain, ${charData.definitionId as string} makes corruption check (modifier ${checkModifier})`);
       needsCorruptionCheck = { characterId: action.scoutInstanceId, modifier: checkModifier };
     } else {
-      logDetail(`Attack canceled: ${defPlayer.hand[cardIndex].definitionId as string} played via ${charData.definitionId as string}`);
+      logDetail(`Cancel-attack declared: ${handCard.definitionId as string} played via chain via ${charData.definitionId as string}`);
     }
   } else {
-    logDetail(`Attack canceled: ${defPlayer.hand[cardIndex].definitionId as string} played (no cost)`);
+    logDetail(`Cancel-attack declared: ${handCard.definitionId as string} played via chain (no cost)`);
   }
 
-  // Move card from hand to discard
+  // Move card from hand to discard pile — short events are physically
+  // discarded at play time; the chain holds only a reference.
   const newHand = [...defPlayer.hand];
-  const [discardedCard] = newHand.splice(cardIndex, 1);
-  const newDiscard = [...defPlayer.discardPile, { instanceId: discardedCard.instanceId, definitionId: discardedCard.definitionId }];
+  newHand.splice(cardIndex, 1);
+  const newDiscard = [...defPlayer.discardPile, { instanceId: handCard.instanceId, definitionId: handCard.definitionId }];
 
   newPlayers[defPlayerIndex] = {
     ...defPlayer,
@@ -749,46 +764,12 @@ function handleCancelAttack(state: GameState, action: GameAction, combat: Combat
     discardPile: newDiscard,
   };
 
-  // For multi-attack creatures (e.g. Assassin), cancelling one attack removes
-  // one strike rather than ending the entire combat. Concealment says "cancel
-  // one attack" — each multi-attack sub-attack counts as a separate attack.
-  if (combat.forceSingleTarget && combat.strikesTotal > 1) {
-    const newStrikesTotal = combat.strikesTotal - 1;
-    logDetail(`Multi-attack: one attack canceled, strikes reduced ${combat.strikesTotal} → ${newStrikesTotal}`);
-    // Also reduce cancelByTapRemaining if present, since there's one fewer attack to cancel
-    const newCancelByTap = combat.cancelByTapRemaining !== undefined
-      ? Math.min(combat.cancelByTapRemaining, newStrikesTotal)
-      : undefined;
-    return {
-      state: {
-        ...state,
-        players: newPlayers,
-        combat: { ...combat, strikesTotal: newStrikesTotal, cancelByTapRemaining: newCancelByTap },
-      },
-    };
-  }
+  let resultState: GameState = { ...state, players: newPlayers };
 
-  // If this was a creature attack, move creature card from attacker's cardsInPlay to discard
-  const atkIdx = state.players.findIndex(p => p.id === combat.attackingPlayerId);
-  const creatureInstanceId =
-    combat.attackSource.type === 'creature' ? combat.attackSource.instanceId
-      : combat.attackSource.type === 'on-guard-creature' ? combat.attackSource.cardInstanceId
-        : null;
-  if (creatureInstanceId) {
-    const creatureInPlay = newPlayers[atkIdx].cardsInPlay.find(c => c.instanceId === creatureInstanceId);
-    if (creatureInPlay) {
-      newPlayers[atkIdx] = {
-        ...newPlayers[atkIdx],
-        cardsInPlay: newPlayers[atkIdx].cardsInPlay.filter(c => c.instanceId !== creatureInstanceId),
-        discardPile: [...newPlayers[atkIdx].discardPile, { instanceId: creatureInPlay.instanceId, definitionId: creatureInPlay.definitionId }],
-      };
-    }
-  }
-
-  logDetail('Combat canceled — returning to enclosing phase');
-  let resultState: GameState = { ...state, players: newPlayers, combat: null };
-
-  // Enqueue corruption check if the cost requires one (e.g. Vanishment)
+  // Enqueue corruption check if the cost requires one (e.g. Vanishment).
+  // The check is a cost paid at declaration and is unaffected by chain
+  // negation — the scope and banner show during resolution after the
+  // chain completes.
   if (needsCorruptionCheck) {
     const company = defPlayer.companies.find(c => c.id === combat.companyId);
     const companyId = company?.id;
@@ -813,7 +794,79 @@ function handleCancelAttack(state: GameState, action: GameAction, combat: Combat
     }
   }
 
+  // Push/initiate chain entry — opponent gets priority to respond. On
+  // resolution, the chain resolver applies the combat cancellation via
+  // resolveCancelAttackEntry.
+  const payload: import('../index.js').ChainEntryPayload = { type: 'short-event' };
+  if (resultState.chain === null) {
+    resultState = initiateChain(resultState, action.player, handCard, payload);
+  } else {
+    resultState = pushChainEntry(resultState, action.player, handCard, payload);
+  }
+
   return { state: resultState };
+}
+
+/**
+ * Apply the cancel-attack effect when its chain entry resolves.
+ *
+ * Called from the chain resolver when a short-event entry with a
+ * `cancel-attack` effect is resolved (and not negated). Applies the
+ * combat-cancellation logic that previously ran immediately in
+ * {@link handleCancelAttack}:
+ *
+ * - For multi-attack creatures (e.g. Assassin), reduce `strikesTotal` by
+ *   one rather than ending combat — each multi-attack sub-attack is a
+ *   separate "attack".
+ * - Otherwise, clear `state.combat` and move the attacking creature from
+ *   the attacker's cardsInPlay to their discard pile.
+ *
+ * Returns the unchanged state if combat is no longer active (fizzle).
+ */
+export function resolveCancelAttackEntry(state: GameState): GameState {
+  const combat = state.combat;
+  if (!combat) {
+    logDetail('Cancel-attack resolves: no active combat — fizzle');
+    return state;
+  }
+
+  const newPlayers = clonePlayers(state);
+
+  // For multi-attack creatures (e.g. Assassin), cancelling one attack
+  // removes one strike rather than ending the entire combat.
+  if (combat.forceSingleTarget && combat.strikesTotal > 1) {
+    const newStrikesTotal = combat.strikesTotal - 1;
+    logDetail(`Multi-attack: one attack canceled, strikes reduced ${combat.strikesTotal} → ${newStrikesTotal}`);
+    const newCancelByTap = combat.cancelByTapRemaining !== undefined
+      ? Math.min(combat.cancelByTapRemaining, newStrikesTotal)
+      : undefined;
+    return {
+      ...state,
+      players: newPlayers,
+      combat: { ...combat, strikesTotal: newStrikesTotal, cancelByTapRemaining: newCancelByTap },
+    };
+  }
+
+  // If this was a creature attack, move creature card from attacker's
+  // cardsInPlay to discard.
+  const atkIdx = state.players.findIndex(p => p.id === combat.attackingPlayerId);
+  const creatureInstanceId =
+    combat.attackSource.type === 'creature' ? combat.attackSource.instanceId
+      : combat.attackSource.type === 'on-guard-creature' ? combat.attackSource.cardInstanceId
+        : null;
+  if (creatureInstanceId) {
+    const creatureInPlay = newPlayers[atkIdx].cardsInPlay.find(c => c.instanceId === creatureInstanceId);
+    if (creatureInPlay) {
+      newPlayers[atkIdx] = {
+        ...newPlayers[atkIdx],
+        cardsInPlay: newPlayers[atkIdx].cardsInPlay.filter(c => c.instanceId !== creatureInstanceId),
+        discardPile: [...newPlayers[atkIdx].discardPile, { instanceId: creatureInPlay.instanceId, definitionId: creatureInPlay.definitionId }],
+      };
+    }
+  }
+
+  logDetail('Combat canceled by chain resolution — returning to enclosing phase');
+  return { ...state, players: newPlayers, combat: null };
 }
 
 /**

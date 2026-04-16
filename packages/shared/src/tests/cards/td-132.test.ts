@@ -27,6 +27,7 @@ import {
   playCreatureHazardAndResolve,
   CardStatus,
   handCardId, companyIdAt, dispatch, expectCharStatus, expectInDiscardPile,
+  resolveChain,
 } from '../test-helpers.js';
 import type { CancelAttackAction, PlayShortEventAction } from '../../index.js';
 import { RegionType, SiteType, computeLegalActions } from '../../index.js';
@@ -103,12 +104,17 @@ describe('Many Turns and Doublings (td-132)', () => {
     );
 
     const cancelActions = viableActions(combatState, PLAYER_1, 'cancel-attack');
-    const after = dispatch(combatState, cancelActions[0].action);
+    const declared = dispatch(combatState, cancelActions[0].action);
 
+    // Declaration initiates a chain — combat still active until chain resolves
+    expect(declared.chain).not.toBeNull();
+    expect(declared.combat).not.toBeNull();
+    expect(declared.players[0].hand).toHaveLength(0);
+    expectInDiscardPile(declared, 0, MANY_TURNS_AND_DOUBLINGS);
+    expectCharStatus(declared, 0, ARAGORN, CardStatus.Untapped);
+
+    const after = resolveChain(declared);
     expect(after.combat).toBeNull();
-    expect(after.players[0].hand).toHaveLength(0);
-    expectInDiscardPile(after, 0, MANY_TURNS_AND_DOUBLINGS);
-    expectCharStatus(after, 0, ARAGORN, CardStatus.Untapped);
     expectInDiscardPile(after, 1, BARROW_WIGHT);
   });
 

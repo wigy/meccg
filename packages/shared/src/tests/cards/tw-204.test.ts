@@ -32,6 +32,7 @@ import {
   playCreatureHazardAndResolve,
   CardStatus,
   handCardId, companyIdAt, dispatch, expectCharStatus, expectInDiscardPile,
+  resolveChain,
 } from '../test-helpers.js';
 import type { CancelAttackAction } from '../../index.js';
 import { RegionType, SiteType, describeAction } from '../../index.js';
@@ -83,7 +84,7 @@ describe('Concealment (tw-204)', () => {
     expect(cancelAction.cardInstanceId).toBe(handCardId(combatState, 0));
   });
 
-  test('executing cancel-attack taps scout, discards card, and cancels combat', () => {
+  test('executing cancel-attack taps scout, discards card, and cancels combat via chain', () => {
     const base = buildTestState({
       activePlayer: PLAYER_1,
       phase: Phase.MovementHazard,
@@ -110,20 +111,29 @@ describe('Concealment (tw-204)', () => {
       { method: 'region-type', value: 'wilderness' },
     );
 
-    // Execute cancel-attack
+    // Execute cancel-attack — initiates a chain rather than immediately canceling
     const cancelActions = viableActions(combatState, PLAYER_1, 'cancel-attack');
     expect(cancelActions.length).toBe(1);
-    const after = dispatch(combatState, cancelActions[0].action);
+    const declared = dispatch(combatState, cancelActions[0].action);
 
-    // Combat should be canceled
+    // Chain should be active (opponent has priority to respond); combat still active
+    expect(declared.chain).not.toBeNull();
+    expect(declared.combat).not.toBeNull();
+
+    // Aragorn should already be tapped (cost paid at declaration)
+    expectCharStatus(declared, 0, ARAGORN, CardStatus.Tapped);
+
+    // Concealment should already be in the discard pile (short-events go to
+    // discard at play time; the chain holds only a reference).
+    expect(declared.players[0].hand).toHaveLength(0);
+    expectInDiscardPile(declared, 0, CONCEALMENT);
+
+    // Resolve the chain by passing priority twice
+    const after = resolveChain(declared);
+
+    // Combat should now be canceled
     expect(after.combat).toBeNull();
-
-    // Concealment should be in the discard pile
-    expect(after.players[0].hand).toHaveLength(0);
-    expectInDiscardPile(after, 0, CONCEALMENT);
-
-    // Aragorn should be tapped (paid the cost)
-    expectCharStatus(after, 0, ARAGORN, CardStatus.Tapped);
+    expect(after.chain).toBeNull();
 
     // Creature should be in attacker's (P2) discard pile
     expectInDiscardPile(after, 1, ORC_PATROL);
@@ -326,5 +336,53 @@ describe('Concealment (tw-204)', () => {
     // P2 is the attacker — should have no cancel-attack actions
     const cancelActions = viableActions(combatState, PLAYER_2, 'cancel-attack');
     expect(cancelActions).toHaveLength(0);
+  });
+
+  // Regression: bug report — cancel-attack must go via a chain of effects so
+  // that the opponent has a window to respond (e.g. with a hazard that
+  // cancels the cancellation). Previously Concealment immediately nulled
+  // out state.combat, bypassing the chain entirely.
+  test('cancel-attack declaration initiates a chain and gives opponent priority to respond', () => {
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.MovementHazard,
+      recompute: true,
+      players: [
+        { id: PLAYER_1, companies: [{ site: MORIA, characters: [ARAGORN] }], hand: [CONCEALMENT], siteDeck: [MINAS_TIRITH] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [ORC_PATROL], siteDeck: [RIVENDELL] },
+      ],
+    });
+
+    const mhState = makeMHState({
+      activeCompanyIndex: 0,
+      resolvedSitePath: [RegionType.Wilderness],
+      resolvedSitePathNames: ['Hithaeglir'],
+      destinationSiteType: SiteType.RuinsAndLairs,
+      destinationSiteName: 'Moria',
+    });
+    const stateAtMH = { ...base, phaseState: mhState };
+
+    const orcPatrolId = handCardId(stateAtMH, 1);
+    const targetCompanyId = companyIdAt(stateAtMH, 0);
+    const combatState = playCreatureHazardAndResolve(
+      stateAtMH, PLAYER_2, orcPatrolId, targetCompanyId,
+      { method: 'region-type', value: 'wilderness' },
+    );
+
+    const cancelActions = viableActions(combatState, PLAYER_1, 'cancel-attack');
+    const declared = dispatch(combatState, cancelActions[0].action);
+
+    // A chain is now active with the Concealment entry.
+    expect(declared.chain).not.toBeNull();
+    expect(declared.chain!.entries).toHaveLength(1);
+    expect(declared.chain!.entries[0].card?.definitionId).toBe(CONCEALMENT);
+    expect(declared.chain!.entries[0].declaredBy).toBe(PLAYER_1);
+
+    // Combat is still active while the chain is declaring — the opponent
+    // must be given a chance to respond before combat is cancelled.
+    expect(declared.combat).not.toBeNull();
+
+    // The opponent (attacker, P2) has chain priority, not the declarer.
+    expect(declared.chain!.priority).toBe(PLAYER_2);
   });
 });

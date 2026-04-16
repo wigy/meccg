@@ -23,6 +23,7 @@ import { buildInPlayNames } from './recompute-derived.js';
 import { addConstraint, enqueueResolution } from './pending.js';
 import { Phase } from '../index.js';
 import { clonePlayers } from './reducer-utils.js';
+import { resolveCancelAttackEntry } from './reducer-combat.js';
 
 /**
  * Returns the opponent of the given player in a two-player game.
@@ -1075,6 +1076,21 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
   // and queue the pending effects so the player can pick cards to fetch.
   if (entry.payload.type === 'short-event' && !entry.negated && entry.card) {
     current = queueFetchToDecEffects(current, entry);
+  }
+
+  // Short events that cancel the current attack (e.g. Concealment, Dark
+  // Quarrels, Many Turns and Doublings, Vanishment): when the chain entry
+  // resolves un-negated, apply the combat cancellation. The opponent had
+  // a chance to negate this entry during chain declaration (e.g. via a
+  // hazard that cancels attack cancels).
+  if (entry.payload.type === 'short-event' && !entry.negated && entry.card) {
+    const def = current.cardPool[entry.card.definitionId as string];
+    const hasCancelAttack = def && 'effects' in def
+      && def.effects?.some(e => e.type === 'cancel-attack');
+    if (hasCancelAttack) {
+      logDetail(`Chain resolves cancel-attack from "${def.name}"`);
+      current = resolveCancelAttackEntry(current);
+    }
   }
 
   // Faction-targeting short events (e.g. Muster Disperses): enqueue a

@@ -37,6 +37,7 @@ import {
   playCreatureHazardAndResolve,
   CardStatus,
   handCardId, companyIdAt, dispatch, expectCharStatus, expectInDiscardPile,
+  resolveChain,
 } from '../test-helpers.js';
 import type { CancelAttackAction } from '../../index.js';
 import { RegionType, SiteType, computeLegalActions } from '../../index.js';
@@ -111,17 +112,22 @@ describe('Dark Quarrels (tw-207)', () => {
     );
 
     const cancelActions = viableActions(combatState, PLAYER_1, 'cancel-attack');
-    const after = dispatch(combatState, cancelActions[0].action);
+    const declared = dispatch(combatState, cancelActions[0].action);
 
-    // Combat canceled
-    expect(after.combat).toBeNull();
+    // Declaration initiates a chain — combat still active until chain resolves
+    expect(declared.chain).not.toBeNull();
+    expect(declared.combat).not.toBeNull();
 
-    // Dark Quarrels in discard, hand empty
-    expect(after.players[0].hand).toHaveLength(0);
-    expectInDiscardPile(after, 0, DARK_QUARRELS);
+    // Dark Quarrels already in discard at declaration, hand empty
+    expect(declared.players[0].hand).toHaveLength(0);
+    expectInDiscardPile(declared, 0, DARK_QUARRELS);
 
     // Aragorn remains untapped (no tap cost)
-    expectCharStatus(after, 0, ARAGORN, CardStatus.Untapped);
+    expectCharStatus(declared, 0, ARAGORN, CardStatus.Untapped);
+
+    // Resolving the chain cancels combat
+    const after = resolveChain(declared);
+    expect(after.combat).toBeNull();
 
     // Creature in attacker's discard
     expectInDiscardPile(after, 1, ORC_PATROL);
