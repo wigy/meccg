@@ -4639,6 +4639,32 @@ h2 {
   filter: grayscale(0.7);
 }
 
+/* Item-salvage panel — floating row between attacker and defender rows */
+.combat-salvage-panel {
+  position: relative;
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.6rem 0;
+  pointer-events: auto;
+}
+
+.combat-salvage-label {
+  font-size: 0.85rem;
+  color: rgba(230, 220, 180, 0.9);
+  text-shadow: 0 0 4px rgba(0, 0, 0, 0.8);
+}
+
+.combat-salvage-items {
+  display: flex;
+  flex-direction: row;
+  gap: 0.6rem;
+  align-items: center;
+  justify-content: center;
+}
+
 /* Excess strike badge — red circle, bottom-left of character */
 .combat-excess-badge {
   position: absolute;

@@ -17,9 +17,9 @@
 import { describe, test, expect, beforeEach } from 'vitest';
 import {
   PLAYER_1, PLAYER_2,
-  ARAGORN, BILBO, LEGOLAS,
+  ARAGORN, BILBO, LEGOLAS, GIMLI,
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
-  DAGGER_OF_WESTERNESSE,
+  DAGGER_OF_WESTERNESSE, HORN_OF_ANOR,
   buildTestState, resetMint, makeMHState, findCharInstanceId,
   dispatch, viableActions,
   Phase, companyIdAt,
@@ -278,6 +278,95 @@ describe('Rule 8.30 — Character Eliminated from Body Check', () => {
 
     // Dagger should be in discard pile, not on any character
     expect(afterPass.players[0].discardPile.some(c => c.instanceId === daggerId)).toBe(true);
+  });
+
+  test('item-salvage generates one legal action per (item × recipient) pair', () => {
+    // Regression test for the bug report from game mo13g8zo-gyai85 (seq 358→359):
+    // the salvage-item UI needs one clickable action per item × recipient so the
+    // player can pick both which item and which recipient. With 2 items and 2
+    // unwounded recipients we expect 4 salvage-item actions plus a pass.
+    const state = buildTestState({
+      phase: Phase.MovementHazard,
+      activePlayer: PLAYER_1,
+      recompute: true,
+      players: [
+        {
+          id: PLAYER_1,
+          companies: [{
+            site: MORIA,
+            characters: [
+              { defId: BILBO, items: [DAGGER_OF_WESTERNESSE, HORN_OF_ANOR] },
+              ARAGORN,
+              GIMLI,
+            ],
+          }],
+          hand: [],
+          siteDeck: [MINAS_TIRITH],
+        },
+        {
+          id: PLAYER_2,
+          companies: [{ site: LORIEN, characters: [LEGOLAS] }],
+          hand: [],
+          siteDeck: [RIVENDELL],
+        },
+      ],
+    });
+
+    const bilboId = findCharInstanceId(state, 0, BILBO);
+    const aragornId = findCharInstanceId(state, 0, ARAGORN);
+    const gimliId = findCharInstanceId(state, 0, GIMLI);
+    const companyId = companyIdAt(state, 0);
+
+    const p0 = { ...state.players[0] };
+    p0.characters = {
+      ...p0.characters,
+      [bilboId as string]: { ...p0.characters[bilboId as string], status: CardStatus.Inverted },
+    };
+    const players = [p0, state.players[1]] as const;
+
+    const mhState = makeMHState({
+      resolvedSitePath: [RegionType.Shadow],
+      resolvedSitePathNames: ['Imlad Morgul'],
+      destinationSiteType: SiteType.ShadowHold,
+      destinationSiteName: 'Moria',
+    });
+
+    const combat: CombatState = {
+      attackSource: { type: 'automatic-attack', siteInstanceId: 'fake-site' as CardInstanceId, attackIndex: 0 },
+      companyId,
+      defendingPlayerId: PLAYER_1,
+      attackingPlayerId: PLAYER_2,
+      strikesTotal: 1,
+      strikeProwess: 10,
+      creatureBody: null,
+      creatureRace: 'orc',
+      strikeAssignments: [
+        { characterId: bilboId, excessStrikes: 0, resolved: true, result: 'wounded', wasAlreadyWounded: false },
+      ],
+      currentStrikeIndex: 0,
+      phase: 'body-check',
+      assignmentPhase: 'done',
+      bodyCheckTarget: 'character',
+      detainment: false,
+    };
+
+    const readyState = { ...state, players, phaseState: mhState, combat, cheatRollTotal: 12 };
+    const afterBodyCheck = dispatch(readyState, { type: 'body-check-roll', player: PLAYER_2, need: 10, explanation: 'test' });
+
+    expect(afterBodyCheck.combat!.phase).toBe('item-salvage');
+    expect(afterBodyCheck.combat!.salvageItems).toHaveLength(2);
+    expect(afterBodyCheck.combat!.salvageRecipients).toHaveLength(2);
+
+    const salvageActions = viableActions(afterBodyCheck, PLAYER_1, 'salvage-item');
+    expect(salvageActions.length).toBe(4);
+
+    const recipients = new Set(salvageActions.map(ea => {
+      const a = ea.action;
+      if (a.type !== 'salvage-item') throw new Error('expected salvage-item');
+      return a.recipientCharacterId as string;
+    }));
+    expect(recipients.has(aragornId as string)).toBe(true);
+    expect(recipients.has(gimliId as string)).toBe(true);
   });
 
   test('no item-salvage when eliminated character has no items', () => {
