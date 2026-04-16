@@ -23,13 +23,14 @@ import {
   ARAGORN, LEGOLAS, GIMLI, FRODO, BILBO,
   CAVE_DRAKE, ORC_PATROL, GWAIHIR,
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
-  buildTestState, resetMint, makeMHState, attachAllyToChar,
+  buildTestState, resetMint, attachAllyToChar,
+  makeWildernessMHState,
   dispatch, resolveChain, setCharStatus, findCharInstanceId,
-  handCardId, companyIdAt, viableActions,
+  handCardId, companyIdAt, viableActions, viableFor,
   CardStatus,
 } from '../../test-helpers.js';
 import type { AssignStrikeAction } from '../../../index.js';
-import { computeLegalActions, Phase, RegionType, SiteType } from '../../../index.js';
+import { Phase } from '../../../index.js';
 
 describe('Rule 8.06 — Step 2: Defending Player Assigns Strikes', () => {
   beforeEach(() => resetMint());
@@ -67,12 +68,7 @@ describe('Rule 8.06 — Step 2: Defending Player Assigns Strikes', () => {
     // Tap Aragorn so he is not eligible to face a strike.
     const tapped = setCharStatus(state, 0, ARAGORN, CardStatus.Tapped);
 
-    const mhState = makeMHState({
-      resolvedSitePath: [RegionType.Wilderness],
-      resolvedSitePathNames: ['Rhudaur'],
-      destinationSiteType: SiteType.RuinsAndLairs,
-      destinationSiteName: 'Moria',
-    });
+    const mhState = makeWildernessMHState();
     const gameState = { ...tapped, phaseState: mhState };
 
     const orcId = handCardId(gameState, 1);
@@ -90,7 +86,7 @@ describe('Rule 8.06 — Step 2: Defending Player Assigns Strikes', () => {
     expect(afterChain.combat!.assignmentPhase).toBe('defender');
 
     // Defender's options: assign-strike for each *untapped* character + pass.
-    const defActions = computeLegalActions(afterChain, PLAYER_1).filter(a => a.viable);
+    const defActions = viableFor(afterChain, PLAYER_1);
     const assigns = defActions.filter(a => a.action.type === 'assign-strike').map(a => a.action as AssignStrikeAction);
     expect(assigns).toHaveLength(2);
 
@@ -141,12 +137,7 @@ describe('Rule 8.06 — Step 2: Defending Player Assigns Strikes', () => {
     // Attach Gwaihir to Frodo
     const withAlly = attachAllyToChar(state, 0, FRODO, GWAIHIR);
 
-    const mhState = makeMHState({
-      resolvedSitePath: [RegionType.Wilderness],
-      resolvedSitePathNames: ['Rhudaur'],
-      destinationSiteType: SiteType.RuinsAndLairs,
-      destinationSiteName: 'Moria',
-    });
+    const mhState = makeWildernessMHState();
     const gameState = { ...withAlly, phaseState: mhState };
 
     // P2 plays Cave-drake targeting P1's company
@@ -166,11 +157,7 @@ describe('Rule 8.06 — Step 2: Defending Player Assigns Strikes', () => {
     expect(afterPass.combat!.assignmentPhase).toBe('attacker');
 
     // Attacker should see 3 targets: Frodo, Aragorn, and Gwaihir (ally)
-    const attackerActions = computeLegalActions(afterPass, PLAYER_2);
-    const assignActions = attackerActions.filter(
-      a => a.viable && a.action.type === 'assign-strike',
-    );
-    expect(assignActions).toHaveLength(3);
+    expect(viableActions(afterPass, PLAYER_2, 'assign-strike')).toHaveLength(3);
 
     // Find the Gwaihir assign action
     const frodoChar = afterPass.players[0].characters;
@@ -214,12 +201,7 @@ describe('Rule 8.06 — Step 2: Defending Player Assigns Strikes', () => {
     // Attach Gwaihir to Frodo
     const withAlly = attachAllyToChar(state, 0, FRODO, GWAIHIR);
 
-    const mhState = makeMHState({
-      resolvedSitePath: [RegionType.Wilderness],
-      resolvedSitePathNames: ['Rhudaur'],
-      destinationSiteType: SiteType.RuinsAndLairs,
-      destinationSiteName: 'Moria',
-    });
+    const mhState = makeWildernessMHState();
     const gameState = { ...withAlly, phaseState: mhState };
 
     // P2 plays Orc-patrol targeting P1's company
@@ -238,10 +220,6 @@ describe('Rule 8.06 — Step 2: Defending Player Assigns Strikes', () => {
     expect(afterChain.combat!.assignmentPhase).toBe('defender');
 
     // Defender should see 3 assign-strike targets: Frodo, Aragorn, and Gwaihir
-    const defenderActions = computeLegalActions(afterChain, PLAYER_1);
-    const assignActions = defenderActions.filter(
-      a => a.viable && a.action.type === 'assign-strike',
-    );
-    expect(assignActions).toHaveLength(3);
+    expect(viableActions(afterChain, PLAYER_1, 'assign-strike')).toHaveLength(3);
   });
 });

@@ -15,13 +15,15 @@
 
 import { describe, test, expect, beforeEach } from 'vitest';
 import {
-  buildTestState, resetMint, dispatch, viableActions, Phase,
+  buildTestState, resetMint, dispatch, viableActions, viableFor,
+  actionAs, Phase,
   PLAYER_1, PLAYER_2,
   ARAGORN, LEGOLAS,
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
   SUN,
 } from '../../test-helpers.js';
 import { computeLegalActions } from '../../../index.js';
+import type { NotPlayableAction, PlayLongEventAction } from '../../../index.js';
 
 describe('Rule 4.02 — Play Resource Long-Events', () => {
   beforeEach(() => resetMint());
@@ -51,7 +53,7 @@ describe('Rule 4.02 — Play Resource Long-Events', () => {
     const sunInstId = state.players[0].hand[0].instanceId;
     const plays = viableActions(state, PLAYER_1, 'play-long-event');
     expect(plays.length).toBe(1);
-    expect((plays[0].action as { cardInstanceId: string }).cardInstanceId).toBe(sunInstId);
+    expect(actionAs<PlayLongEventAction>(plays[0].action).cardInstanceId).toBe(sunInstId);
 
     const after = dispatch(state, plays[0].action);
     // Sun resolves and ends up in P1's cardsInPlay (after both players pass priority).
@@ -89,7 +91,7 @@ describe('Rule 4.02 — Play Resource Long-Events', () => {
     const sunInstId = state.players[0].hand[0].instanceId;
     const notPlayable = computeLegalActions(state, PLAYER_1)
       .filter(ea => !ea.viable && ea.action.type === 'not-playable'
-        && (ea.action as { cardInstanceId: string }).cardInstanceId === sunInstId);
+        && actionAs<NotPlayableAction>(ea.action).cardInstanceId === sunInstId);
     expect(notPlayable.length).toBeGreaterThan(0);
   });
 
@@ -118,9 +120,7 @@ describe('Rule 4.02 — Play Resource Long-Events', () => {
 
     // P2's hand card is annotated as not-playable but no viable
     // play-long-event action is offered — only the resource player may play.
-    const p2Plays = viableActions(state, PLAYER_2, 'play-long-event');
-    expect(p2Plays.length).toBe(0);
-    const p2Viable = computeLegalActions(state, PLAYER_2).filter(ea => ea.viable);
-    expect(p2Viable.length).toBe(0);
+    expect(viableActions(state, PLAYER_2, 'play-long-event').length).toBe(0);
+    expect(viableFor(state, PLAYER_2).length).toBe(0);
   });
 });

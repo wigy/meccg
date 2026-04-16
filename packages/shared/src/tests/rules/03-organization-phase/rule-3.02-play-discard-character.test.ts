@@ -15,7 +15,7 @@
 
 import { describe, test, expect, beforeEach } from 'vitest';
 import {
-  buildTestState, resetMint, dispatch, Phase,
+  buildTestState, resetMint, dispatch, phaseStateAs, Phase,
   viablePlayCharacterActions, nonViablePlayCharacterActions,
   PLAYER_1, PLAYER_2,
   ARAGORN, BILBO, LEGOLAS,
@@ -52,13 +52,13 @@ describe('Rule 3.02 — Play or Discard a Character', () => {
     });
 
     // Initial: at least one play is viable, characterPlayedThisTurn is false.
-    expect((state.phaseState as OrganizationPhaseState).characterPlayedThisTurn).toBe(false);
+    expect(phaseStateAs<OrganizationPhaseState>(state).characterPlayedThisTurn).toBe(false);
     const initialViable = viablePlayCharacterActions(state, PLAYER_1);
     expect(initialViable.length).toBeGreaterThan(0);
 
     // Play one character (the first viable option).
     const afterPlay = dispatch(state, initialViable[0]);
-    expect((afterPlay.phaseState as OrganizationPhaseState).characterPlayedThisTurn).toBe(true);
+    expect(phaseStateAs<OrganizationPhaseState>(afterPlay).characterPlayedThisTurn).toBe(true);
 
     // Now the remaining hand character is offered only as non-viable
     // with an "already played a character this turn" reason.
