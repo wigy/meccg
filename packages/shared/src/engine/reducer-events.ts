@@ -699,9 +699,23 @@ function applyShortEventOnEntersPlay(
         case 'deny-scout-resources':
           kind = { type: 'deny-scout-resources' };
           break;
-        case 'cancel-hazard-by-tap':
-          kind = { type: 'cancel-hazard-by-tap' };
+        case 'granted-action': {
+          const payload = onEvent.apply.grantedAction;
+          if (!payload) {
+            logDetail(`add-constraint(granted-action): missing grantedAction payload — fizzle`);
+            continue;
+          }
+          kind = {
+            type: 'granted-action',
+            action: payload.action,
+            phase: payload.phase as import('../types/state-phases.js').Phase,
+            window: payload.window,
+            cost: payload.cost,
+            when: payload.when,
+            apply: payload.apply,
+          };
           break;
+        }
         default:
           logDetail(`add-constraint: unknown constraint kind "${constraintKind}" — fizzle`);
           continue;

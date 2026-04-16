@@ -28,7 +28,7 @@
 import type { CardInstanceId, CompanyId, PlayerId, CardDefinitionId } from './common.js';
 import type { GameAction } from './actions.js';
 import type { Phase } from './state-phases.js';
-import type { Condition } from './effects.js';
+import type { ActionCost, Condition, TriggeredAction } from './effects.js';
 
 // ---- Branded IDs ----
 
@@ -338,12 +338,42 @@ export interface ActiveConstraint {
       }
     | {
         /**
-         * Great Ship: during M/H play-hazards, any untapped character in
-         * the target company may tap to cancel a hazard targeting the
-         * company, provided the company's site path contains a Coastal Sea
-         * region and no consecutive non-Coastal Sea regions.
+         * A card- or constraint-granted action attached to an entity
+         * (usually a company). The legal-action layer iterates active
+         * `granted-action` constraints in each window and emits a
+         * generic `activate-granted-action` per eligible candidate.
+         * The reducer reads the constraint's `apply` and dispatches on
+         * its `type`. Replaces the old `cancel-hazard-by-tap`
+         * (Great Ship) and River's cancel-constraint machinery.
+         *
+         * Fields mirror {@link GrantActionEffect} with the addition of
+         * `phase` (where the action is legal) and an optional
+         * `window` (sub-step identifier). The generic
+         * `activate-granted-action` action type carries `actionId`,
+         * `characterId`, and `sourceCardId` — the source is the
+         * constraint's `source` (the card that added it).
          */
-        readonly type: 'cancel-hazard-by-tap';
+        readonly type: 'granted-action';
+        /** Stable action identifier emitted by the legal-action layer. */
+        readonly action: string;
+        /** Which phase the action is legal in. */
+        readonly phase: Phase;
+        /**
+         * Optional sub-step or window within the phase. Interpretation
+         * is phase-specific (e.g. `'chain-declaring'` for M/H).
+         */
+        readonly window?: string;
+        /** The cost to activate this ability. */
+        readonly cost: ActionCost;
+        /**
+         * Optional DSL condition evaluated against a per-candidate
+         * context including `actor` (the tapping character) and any
+         * window-specific fields like `path` or `chain`. When absent,
+         * every candidate is eligible.
+         */
+        readonly when?: Condition;
+        /** The effect executed when the action is dispatched. */
+        readonly apply: TriggeredAction;
       }
     | {
         /**

@@ -37,8 +37,7 @@ import {
   handCardId, charIdAt, companyIdAt, dispatch,
 } from '../test-helpers.js';
 import type {
-  CancelHazardByTapAction,
-  CardDefinitionId,
+  CardDefinitionId, CardInstanceId, CompanyId, ActiveConstraint,
 } from '../../index.js';
 
 const GREAT_SHIP = 'tw-248' as CardDefinitionId;
@@ -46,6 +45,40 @@ import { RegionType, SiteType, CardStatus } from '../../index.js';
 import { computeLegalActions } from '../../engine/legal-actions/index.js';
 import { addConstraint, sweepExpired } from '../../engine/pending.js';
 import { initiateChain } from '../../engine/chain-reducer.js';
+
+/**
+ * Build a Great Ship granted-action constraint payload. Mirrors what the
+ * card's `self-enters-play` apply produces: a turn-scoped
+ * `granted-action` constraint that offers `cancel-chain-entry` to any
+ * untapped character in the target company when the path is coastal.
+ */
+function greatShipConstraint(sourceId: CardInstanceId, companyId: CompanyId): Omit<ActiveConstraint, 'id'> {
+  return {
+    source: sourceId,
+    sourceDefinitionId: GREAT_SHIP,
+    scope: { kind: 'turn' },
+    target: { kind: 'company', companyId },
+    kind: {
+      type: 'granted-action',
+      action: 'cancel-chain-entry',
+      phase: Phase.MovementHazard,
+      cost: { tap: 'character' },
+      when: {
+        $and: [
+          { 'chain.hazardCount': { $gt: 0 } },
+          { path: { $includes: 'coastal' } },
+          { path: { $noConsecutiveOtherThan: 'coastal' } },
+        ],
+      },
+      apply: { type: 'cancel-chain-entry', select: 'most-recent-unresolved-hazard' },
+    },
+  };
+}
+
+/** Activate-granted-action filter helper for Great Ship's cancel. */
+function isCancelChainEntry(action: { type: string; actionId?: string }): boolean {
+  return action.type === 'activate-granted-action' && action.actionId === 'cancel-chain-entry';
+}
 
 describe('Great Ship (tw-248)', () => {
   beforeEach(() => resetMint());
@@ -93,7 +126,12 @@ describe('Great Ship (tw-248)', () => {
     expect(nextState.players[0].characters[aragornInstance as string].status).toBe(CardStatus.Tapped);
     expect(nextState.activeConstraints).toHaveLength(1);
     const constraint = nextState.activeConstraints[0];
-    expect(constraint.kind.type).toBe('cancel-hazard-by-tap');
+    expect(constraint.kind.type).toBe('granted-action');
+    if (constraint.kind.type === 'granted-action') {
+      expect(constraint.kind.action).toBe('cancel-chain-entry');
+      expect(constraint.kind.phase).toBe(Phase.MovementHazard);
+      expect(constraint.kind.apply.type).toBe('cancel-chain-entry');
+    }
     expect(constraint.scope.kind).toBe('turn');
     expect(constraint.target).toEqual({ kind: 'company', companyId });
   });
@@ -183,23 +221,17 @@ describe('Great Ship (tw-248)', () => {
       { type: 'creature' },
     );
 
-    const constrained = addConstraint(withChain, {
-      source: mint(),
-      sourceDefinitionId: GREAT_SHIP,
-      scope: { kind: 'turn' },
-      target: { kind: 'company', companyId },
-      kind: { type: 'cancel-hazard-by-tap' },
-    });
+    const constrained = addConstraint(withChain, greatShipConstraint(mint(), companyId));
 
     const actions = computeLegalActions(constrained, PLAYER_1)
-      .filter(ea => ea.viable && ea.action.type === 'cancel-hazard-by-tap');
+      .filter(ea => ea.viable && isCancelChainEntry(ea.action));
     expect(actions.length).toBe(2);
 
-    const cancelActions = actions.map(ea => ea.action as CancelHazardByTapAction);
-    const charIds = cancelActions.map(a => a.characterInstanceId);
+    const cancelActions = actions.map(ea => ea.action as Extract<import('../../index.js').ActivateGrantedAction, { actionId: string }>);
+    const charIds = cancelActions.map(a => a.characterId);
     expect(charIds).toContain(aragornInstance);
     expect(charIds).toContain(gandalfInstance);
-    expect(cancelActions[0].chainEntryIndex).toBe(0);
+    expect(cancelActions.every(a => a.actionId === 'cancel-chain-entry')).toBe(true);
   });
 
   test('cancel-hazard-by-tap is NOT available when path has no coastal region', () => {
@@ -230,16 +262,10 @@ describe('Great Ship (tw-248)', () => {
       { type: 'creature' },
     );
 
-    const constrained = addConstraint(withChain, {
-      source: mint(),
-      sourceDefinitionId: GREAT_SHIP,
-      scope: { kind: 'turn' },
-      target: { kind: 'company', companyId },
-      kind: { type: 'cancel-hazard-by-tap' },
-    });
+    const constrained = addConstraint(withChain, greatShipConstraint(mint(), companyId));
 
     const actions = computeLegalActions(constrained, PLAYER_1)
-      .filter(ea => ea.viable && ea.action.type === 'cancel-hazard-by-tap');
+      .filter(ea => ea.viable && isCancelChainEntry(ea.action));
     expect(actions.length).toBe(0);
   });
 
@@ -271,16 +297,10 @@ describe('Great Ship (tw-248)', () => {
       { type: 'creature' },
     );
 
-    const constrained = addConstraint(withChain, {
-      source: mint(),
-      sourceDefinitionId: GREAT_SHIP,
-      scope: { kind: 'turn' },
-      target: { kind: 'company', companyId },
-      kind: { type: 'cancel-hazard-by-tap' },
-    });
+    const constrained = addConstraint(withChain, greatShipConstraint(mint(), companyId));
 
     const actions = computeLegalActions(constrained, PLAYER_1)
-      .filter(ea => ea.viable && ea.action.type === 'cancel-hazard-by-tap');
+      .filter(ea => ea.viable && isCancelChainEntry(ea.action));
     expect(actions.length).toBe(0);
   });
 
@@ -312,16 +332,10 @@ describe('Great Ship (tw-248)', () => {
       { type: 'creature' },
     );
 
-    const constrained = addConstraint(withChain, {
-      source: mint(),
-      sourceDefinitionId: GREAT_SHIP,
-      scope: { kind: 'turn' },
-      target: { kind: 'company', companyId },
-      kind: { type: 'cancel-hazard-by-tap' },
-    });
+    const constrained = addConstraint(withChain, greatShipConstraint(mint(), companyId));
 
     const actions = computeLegalActions(constrained, PLAYER_1)
-      .filter(ea => ea.viable && ea.action.type === 'cancel-hazard-by-tap');
+      .filter(ea => ea.viable && isCancelChainEntry(ea.action));
     expect(actions.length).toBe(1);
   });
 
@@ -343,20 +357,14 @@ describe('Great Ship (tw-248)', () => {
       resolvedSitePathNames: ['Anfalas', 'Lindon'],
     });
 
-    const constrained = addConstraint({ ...base, phaseState: mhState }, {
-      source: mint(),
-      sourceDefinitionId: GREAT_SHIP,
-      scope: { kind: 'turn' },
-      target: { kind: 'company', companyId },
-      kind: { type: 'cancel-hazard-by-tap' },
-    });
+    const constrained = addConstraint({ ...base, phaseState: mhState }, greatShipConstraint(mint(), companyId));
 
     const actions = computeLegalActions(constrained, PLAYER_1)
-      .filter(ea => ea.viable && ea.action.type === 'cancel-hazard-by-tap');
+      .filter(ea => ea.viable && isCancelChainEntry(ea.action));
     expect(actions.length).toBe(0);
   });
 
-  test('dispatching cancel-hazard-by-tap negates chain entry and taps character', () => {
+  test('dispatching cancel-chain-entry negates chain entry and taps character', () => {
     const base = buildTestState({
       activePlayer: PLAYER_1,
       phase: Phase.MovementHazard,
@@ -382,11 +390,18 @@ describe('Great Ship (tw-248)', () => {
       { type: 'creature' },
     );
 
-    const result = dispatch(withChain, {
-      type: 'cancel-hazard-by-tap',
+    const companyId = companyIdAt(base, 0);
+    const sourceId = mint();
+    const constrained = addConstraint(withChain, greatShipConstraint(sourceId, companyId));
+
+    const result = dispatch(constrained, {
+      type: 'activate-granted-action',
       player: PLAYER_1,
-      characterInstanceId: aragornInstance,
-      chainEntryIndex: 0,
+      characterId: aragornInstance,
+      sourceCardId: sourceId,
+      sourceCardDefinitionId: GREAT_SHIP,
+      actionId: 'cancel-chain-entry',
+      rollThreshold: 0,
     });
 
     expect(result.players[0].characters[aragornInstance as string].status).toBe(CardStatus.Tapped);
@@ -404,13 +419,7 @@ describe('Great Ship (tw-248)', () => {
     });
 
     const companyId = companyIdAt(base, 0);
-    const constrained = addConstraint(base, {
-      source: mint(),
-      sourceDefinitionId: GREAT_SHIP,
-      scope: { kind: 'turn' },
-      target: { kind: 'company', companyId },
-      kind: { type: 'cancel-hazard-by-tap' },
-    });
+    const constrained = addConstraint(base, greatShipConstraint(mint(), companyId));
     expect(constrained.activeConstraints).toHaveLength(1);
 
     const swept = sweepExpired(constrained, { kind: 'turn-end' });

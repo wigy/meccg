@@ -13,10 +13,10 @@
  * `'declaring'` mode for the player who currently has priority.
  */
 
-import type { GameState, PlayerId, EvaluatedAction, PassChainPriorityAction, CardInstanceId, HazardEventCard, MovementHazardPhaseState } from '../../index.js';
-import { Phase, getPlayerIndex, hasPlayFlag, CardStatus } from '../../index.js';
+import type { GameState, PlayerId, EvaluatedAction, PassChainPriorityAction, CardInstanceId, HazardEventCard } from '../../index.js';
+import { Phase, getPlayerIndex, hasPlayFlag } from '../../index.js';
 import { logDetail } from './log.js';
-import { isCoastalPath } from '../path-predicates.js';
+import { emitGrantedActionConstraintActions } from './granted-action-constraints.js';
 
 /**
  * Returns the legal actions available to the given player while a chain
@@ -51,10 +51,24 @@ export function chainActions(state: GameState, playerId: PlayerId): EvaluatedAct
     actions.push(...onGuardRevealChainActions(state, playerId));
   }
 
-  // Great Ship: resource player may tap a character to cancel a hazard
-  // in the chain during M/H phase.
+  // Granted-action constraints (Great Ship, and any future card whose
+  // effect is "company may tap to cancel a hazard during M/H chain").
   if (chain.restriction === 'normal' && state.phaseState.phase === Phase.MovementHazard) {
-    actions.push(...cancelHazardByTapChainActions(state, playerId));
+    const mhState = state.phaseState;
+    const playerIndex = getPlayerIndex(state, playerId);
+    const company = state.players[playerIndex].companies[mhState.activeCompanyIndex];
+    if (company) {
+      let hazardCount = 0;
+      for (const e of chain.entries) {
+        if (e.resolved || e.negated || !e.card) continue;
+        const def = state.cardPool[e.card.definitionId as string];
+        if (def && (def.cardType === 'hazard-creature' || def.cardType === 'hazard-event')) hazardCount++;
+      }
+      actions.push(...emitGrantedActionConstraintActions(state, playerId, company, 'movement-hazard', 'chain-declaring', {
+        path: mhState.resolvedSitePath,
+        chain: { hazardCount },
+      }));
+    }
   }
 
   // The priority player can always pass
@@ -203,60 +217,4 @@ function onGuardRevealChainActions(state: GameState, playerId: PlayerId): Evalua
   return actions;
 }
 
-/**
- * During chain declaring in M/H phase, the resource player may tap a
- * character in a company with the `cancel-hazard-by-tap` constraint to
- * negate an unresolved hazard chain entry, provided the company's site
- * path satisfies the coastal condition.
- */
-function cancelHazardByTapChainActions(state: GameState, playerId: PlayerId): EvaluatedAction[] {
-  const chain = state.chain!;
-  if (chain.entries.length === 0) return [];
-
-  const mhState = state.phaseState as MovementHazardPhaseState;
-  if (playerId !== state.activePlayer) return [];
-
-  const playerIndex = getPlayerIndex(state, playerId);
-  const player = state.players[playerIndex];
-  const company = player.companies[mhState.activeCompanyIndex];
-  if (!company) return [];
-
-  const hasConstraint = state.activeConstraints.some(
-    c => c.kind.type === 'cancel-hazard-by-tap'
-      && c.target.kind === 'company'
-      && c.target.companyId === company.id,
-  );
-  if (!hasConstraint) return [];
-
-  if (!isCoastalPath(mhState.resolvedSitePath)) return [];
-
-  let hazardEntryIndex = -1;
-  for (let i = chain.entries.length - 1; i >= 0; i--) {
-    const entry = chain.entries[i];
-    if (entry.resolved || entry.negated || !entry.card) continue;
-    const def = state.cardPool[entry.card.definitionId as string];
-    if (def && (def.cardType === 'hazard-creature' || def.cardType === 'hazard-event')) {
-      hazardEntryIndex = i;
-      break;
-    }
-  }
-  if (hazardEntryIndex === -1) return [];
-
-  const actions: EvaluatedAction[] = [];
-  for (const charInstId of company.characters) {
-    const char = player.characters[charInstId as string];
-    if (!char || char.status !== CardStatus.Untapped) continue;
-    logDetail(`cancel-hazard-by-tap chain: ${charInstId as string} can cancel entry ${hazardEntryIndex}`);
-    actions.push({
-      action: {
-        type: 'cancel-hazard-by-tap' as const,
-        player: playerId,
-        characterInstanceId: charInstId,
-        chainEntryIndex: hazardEntryIndex,
-      },
-      viable: true,
-    });
-  }
-  return actions;
-}
 

@@ -1023,6 +1023,75 @@ function runGrantApply(
     return { updatedChar, effects: [], stateOps: [] };
   }
 
+  if (apply.type === 'cancel-chain-entry') {
+    if (apply.select !== 'most-recent-unresolved-hazard') {
+      return { error: `cancel-chain-entry: unsupported select "${apply.select ?? ''}" on ${ctx.sourceName}` };
+    }
+    const chain = state.chain;
+    if (!chain) return { error: `cancel-chain-entry: no active chain on ${ctx.sourceName}` };
+    let entryIndex = -1;
+    for (let i = chain.entries.length - 1; i >= 0; i--) {
+      const e = chain.entries[i];
+      if (e.resolved || e.negated || !e.card) continue;
+      const def = state.cardPool[e.card.definitionId as string];
+      if (def && (def.cardType === 'hazard-creature' || def.cardType === 'hazard-event')) {
+        entryIndex = i;
+        break;
+      }
+    }
+    if (entryIndex === -1) {
+      return { error: `cancel-chain-entry: no unresolved hazard entry to cancel on ${ctx.sourceName}` };
+    }
+    const entry = chain.entries[entryIndex];
+    const entryDef = entry.card ? state.cardPool[entry.card.definitionId as string] : null;
+    logDetail(`Grant-action ${ctx.action.actionId}: canceling chain entry ${entryIndex} (${entryDef?.name ?? '?'})`);
+    return {
+      updatedChar: char,
+      effects: [],
+      stateOps: [
+        s => {
+          const liveChain = s.chain;
+          if (!liveChain) return s;
+          const newEntries = liveChain.entries.map((e, i) => i === entryIndex ? { ...e, negated: true } : e);
+          let nextState: GameState = { ...s, chain: { ...liveChain, entries: newEntries } };
+          if (entry.card) {
+            const hazardPlayerIndex = nextState.players.findIndex(p => p.id === entry.declaredBy);
+            if (hazardPlayerIndex >= 0) {
+              const hazardPlayer = nextState.players[hazardPlayerIndex];
+              const newPlayersLocal = clonePlayers(nextState);
+              newPlayersLocal[hazardPlayerIndex] = {
+                ...hazardPlayer,
+                discardPile: [...hazardPlayer.discardPile, { instanceId: entry.card.instanceId, definitionId: entry.card.definitionId }],
+              };
+              nextState = { ...nextState, players: newPlayersLocal };
+            }
+          }
+          return nextState;
+        },
+      ],
+    };
+  }
+
+  if (apply.type === 'remove-constraint') {
+    if (apply.select !== 'constraint-source' && apply.select !== undefined) {
+      return { error: `remove-constraint: unsupported select "${apply.select}" on ${ctx.sourceName}` };
+    }
+    const sourceId = ctx.action.sourceCardId;
+    logDetail(`Grant-action ${ctx.action.actionId}: removing constraints sourced from ${ctx.sourceName}`);
+    return {
+      updatedChar: char,
+      effects: [],
+      stateOps: [
+        s => {
+          const matchingIds = s.activeConstraints.filter(c => c.source === sourceId).map(c => c.id);
+          let next = s;
+          for (const id of matchingIds) next = removeConstraint(next, id);
+          return next;
+        },
+      ],
+    };
+  }
+
   if (apply.type === 'move-target-from-discard-to-hand') {
     const targetCardId = ctx.action.targetCardId;
     if (!targetCardId) {
@@ -1251,14 +1320,37 @@ export function handleGrantActionApply(state: GameState, action: GameAction): Re
   const sourceDef = state.cardPool[action.sourceCardDefinitionId as string];
   const sourceName = sourceDef?.name ?? '?';
 
+  // Grant-actions can originate from either:
+  //  - a `grant-action` effect declared on the source card (static),
+  //  - a `granted-action` active constraint whose source is the source
+  //    card (dynamic, added via on-event / sequence apply).
+  // Check the static path first; if that doesn't yield a matching
+  // action, fall through to an active constraint lookup.
   const effects = sourceDef && 'effects' in sourceDef
     ? (sourceDef as { effects?: readonly import('../types/effects.js').CardEffect[] }).effects
     : undefined;
-  const effect = effects?.find(
+  const staticEffect = effects?.find(
     (e): e is import('../types/effects.js').GrantActionEffect =>
       e.type === 'grant-action' && e.action === action.actionId,
   );
-  if (!effect?.apply) {
+  const constraintGrant = staticEffect ? null : state.activeConstraints.find(c =>
+    c.source === action.sourceCardId
+    && c.kind.type === 'granted-action'
+    && c.kind.action === action.actionId,
+  );
+  const constraintKind = constraintGrant?.kind.type === 'granted-action' ? constraintGrant.kind : null;
+
+  interface ResolvedGrant {
+    readonly cost: import('../types/effects.js').ActionCost;
+    readonly apply: import('../types/effects.js').TriggeredAction;
+  }
+  const resolved: ResolvedGrant | null = staticEffect?.apply
+    ? { cost: staticEffect.cost, apply: staticEffect.apply }
+    : constraintKind
+      ? { cost: constraintKind.cost, apply: constraintKind.apply }
+      : null;
+
+  if (!resolved) {
     return { state, error: `grant-action ${action.actionId} has no apply on ${sourceName}` };
   }
 
@@ -1266,17 +1358,17 @@ export function handleGrantActionApply(state: GameState, action: GameAction): Re
   const newPlayers = clonePlayers(state);
   let updatedChar: CharacterInPlay = char;
 
-  if (effect.cost.discard === 'self') {
+  if (resolved.cost.discard === 'self') {
     const detached = detachAndDiscardSource(char, action.sourceCardId, action.sourceCardDefinitionId, playerIndex, newPlayers);
     if ('error' in detached) {
       return { state, error: `${sourceName}: ${detached.error}` };
     }
     updatedChar = detached.updatedChar;
     logDetail(`Grant-action ${action.actionId}: ${charName} discards ${sourceName}`);
-  } else if (effect.cost.tap === 'bearer') {
+  } else if (resolved.cost.tap === 'bearer' || resolved.cost.tap === 'character') {
     updatedChar = { ...updatedChar, status: CardStatus.Tapped };
     logDetail(`Grant-action ${action.actionId}: ${charName} taps (source: ${sourceName})`);
-  } else if (effect.cost.tap === 'self') {
+  } else if (resolved.cost.tap === 'self') {
     // `self` is the source card. When the source IS the bearer
     // character (grant-action declared directly on a character card,
     // e.g. Gandalf / Saruman), tap the character. When the source is
@@ -1300,7 +1392,7 @@ export function handleGrantActionApply(state: GameState, action: GameAction): Re
       logDetail(`Grant-action ${action.actionId}: ${charName} taps ${sourceName}`);
     }
   } else {
-    return { state, error: `Unsupported grant-action cost ${JSON.stringify(effect.cost)} on ${sourceName}` };
+    return { state, error: `Unsupported grant-action cost ${JSON.stringify(resolved.cost)} on ${sourceName}` };
   }
 
   // --- Apply effect ---
@@ -1312,7 +1404,7 @@ export function handleGrantActionApply(state: GameState, action: GameAction): Re
     sourceCardDefinitionId: action.sourceCardDefinitionId,
   };
   const rngRef = { rng: state.rng, cheatRollTotal: state.cheatRollTotal };
-  const result = runGrantApply(state, effect.apply, updatedChar, newPlayers, ctx, rngRef);
+  const result = runGrantApply(state, resolved.apply, updatedChar, newPlayers, ctx, rngRef);
   if ('error' in result) {
     return { state, error: result.error };
   }

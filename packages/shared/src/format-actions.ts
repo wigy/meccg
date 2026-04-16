@@ -313,8 +313,6 @@ export function describeAction(
       return `${instName(action.cancellerInstanceId)} taps to cancel strike against ${instName(action.targetCharacterId)}`;
     case 'support-corruption-check':
       return `Tap ${instName(action.supportingCharacterId)} for CC support (+1)`;
-    case 'cancel-hazard-by-tap':
-      return `Tap ${instName(action.characterInstanceId)} to cancel hazard (chain entry ${action.chainEntryIndex})`;
     case 'muster-roll':
       return `Muster check for ${instName(action.factionInstanceId)}: need ${action.need}`;
     case 'call-of-home-roll':

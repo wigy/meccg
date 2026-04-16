@@ -670,7 +670,10 @@ function applyOneConstraint(
       // paths (see `engine/effective.ts` and `legal-actions/
       // movement-hazard.ts`) — no legal-action filtering needed here.
       return base;
-    case 'cancel-hazard-by-tap':
+    case 'granted-action':
+      // Consumed by window-specific legal-action generators that
+      // iterate active `granted-action` constraints and emit
+      // `activate-granted-action` per eligible candidate.
       return base;
     case 'creature-type-no-hazard-limit':
       return base;

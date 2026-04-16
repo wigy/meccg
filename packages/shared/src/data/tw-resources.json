@@ -346,7 +346,24 @@
       { "type": "play-target", "target": "company", "cost": { "tap": "character" } },
       {
         "type": "on-event", "event": "self-enters-play",
-        "apply": { "type": "add-constraint", "constraint": "cancel-hazard-by-tap", "scope": "turn" }
+        "apply": {
+          "type": "add-constraint",
+          "constraint": "granted-action",
+          "scope": "turn",
+          "grantedAction": {
+            "action": "cancel-chain-entry",
+            "phase": "movement-hazard",
+            "cost": { "tap": "character" },
+            "when": {
+              "$and": [
+                { "chain.hazardCount": { "$gt": 0 } },
+                { "path": { "$includes": "coastal" } },
+                { "path": { "$noConsecutiveOtherThan": "coastal" } }
+              ]
+            },
+            "apply": { "type": "cancel-chain-entry", "select": "most-recent-unresolved-hazard" }
+          }
+        }
       }
     ],
     "text": "Tap a character in target company during the organization phase to play Great Ship on that company. Until the end of the turn, if the company's current site path contains a Coastal Sea region and no consecutive non-Coastal Seas regions, any character in the company may tap to cancel a hazard that targets (as an active condition of playing the card itself) the company or an entity associated with the company.",

@@ -156,19 +156,15 @@ function handlePlayHazards(
     return handlePlayShortEvent(state, action);
   }
 
-  // --- Cancel hazard by tapping (Great Ship constraint) ---
-  if (action.type === 'cancel-hazard-by-tap') {
-    return handleCancelHazardByTap(state, action);
-  }
-
-  // --- Grant-action (e.g. Cram untap-bearer, rule 2.1.1) ---
-  if (action.type === 'activate-granted-action' && action.actionId === 'untap-bearer') {
-    return handleGrantActionApply(state, action);
-  }
-
   // --- Cancel constraint (e.g. River: ranger taps to cancel site-phase-do-nothing) ---
   if (action.type === 'activate-granted-action' && action.actionId === 'cancel-constraint') {
     return handleCancelConstraint(state, action);
+  }
+
+  // --- Grant-action (e.g. Cram untap-bearer; Great Ship cancel-chain-entry
+  //     via granted-action constraint) ---
+  if (action.type === 'activate-granted-action') {
+    return handleGrantActionApply(state, action);
   }
 
   // --- Place on-guard ---
@@ -1718,59 +1714,6 @@ function advanceDrawCards(
     state: {
       ...state,
       phaseState: newMhState,
-    },
-  };
-}
-
-/**
- * Handle the cancel-hazard-by-tap action: tap a character in a company
- * with the Great Ship constraint to negate a chain entry.
- */
-function handleCancelHazardByTap(state: GameState, action: GameAction): ReducerResult {
-  if (action.type !== 'cancel-hazard-by-tap') return { state, error: 'Expected cancel-hazard-by-tap' };
-
-  const chain = state.chain!;
-  const entry = chain.entries[action.chainEntryIndex];
-
-  const playerIndex = getPlayerIndex(state, action.player);
-  const player = state.players[playerIndex];
-  const charId = action.characterInstanceId as string;
-  const char = player.characters[charId];
-
-  const entryDef = entry.card ? state.cardPool[entry.card.definitionId as string] : null;
-  logDetail(`cancel-hazard-by-tap: ${charId} taps to cancel chain entry ${action.chainEntryIndex} (${entryDef?.name ?? 'unknown'})`);
-
-  const newEntries = chain.entries.map((e, i) =>
-    i === action.chainEntryIndex ? { ...e, negated: true } : e,
-  );
-  const newChain = { ...chain, entries: newEntries };
-
-  const newPlayers = clonePlayers(state);
-  newPlayers[playerIndex] = {
-    ...player,
-    characters: {
-      ...player.characters,
-      [charId]: { ...char, status: CardStatus.Tapped },
-    },
-  };
-
-  // The negated card goes to its owner's discard pile
-  let updatedPlayers = newPlayers;
-  if (entry.card) {
-    const hazardPlayerIndex = getPlayerIndex(state, entry.declaredBy);
-    const hazardPlayer = updatedPlayers[hazardPlayerIndex];
-    updatedPlayers = [...updatedPlayers] as typeof updatedPlayers;
-    updatedPlayers[hazardPlayerIndex] = {
-      ...hazardPlayer,
-      discardPile: [...hazardPlayer.discardPile, { instanceId: entry.card.instanceId, definitionId: entry.card.definitionId }],
-    };
-  }
-
-  return {
-    state: {
-      ...state,
-      chain: newChain,
-      players: updatedPlayers,
     },
   };
 }
