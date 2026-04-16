@@ -6,7 +6,7 @@
  * shared across multiple phases (organization, long-event, movement/hazard).
  */
 
-import type { GameState, CardInstance, ChainEntryPayload, PendingEffect, GameAction } from '../index.js';
+import type { GameState, CardInstance, CardInstanceId, ChainEntryPayload, PendingEffect, GameAction } from '../index.js';
 import { Phase, CardStatus, getPlayerIndex, BASE_MAX_REGION_DISTANCE } from '../index.js';
 import { logDetail } from './legal-actions/log.js';
 import { initiateChain, pushChainEntry } from './chain-reducer.js';
@@ -378,28 +378,58 @@ export function handlePlayResourceShortEvent(state: GameState, action: GameActio
   // chosen by the legal-action emitter as part of the play action, so no
   // sub-flow is needed: we move the target to its owner's discard pile
   // and enqueue the post-discard corruption check, then the event card
-  // itself is discarded below.
+  // itself is discarded below. The target may live either in the owner's
+  // general cards-in-play list (Eye of Sauron long-events, free-standing
+  // permanent-events) or attached to one of their characters as a hazard
+  // (Foolish Words, Lure of the Senses, etc.).
   const discardInPlay = def.effects?.find(e => e.type === 'discard-in-play');
   if (discardInPlay) {
     const targetId = action.discardTargetInstanceId!;
     let foundOwnerIndex = -1;
-    let foundCardIdx = -1;
+    let foundCardsInPlayIdx = -1;
+    let foundCharId: string | null = null;
+    let foundHazardIdx = -1;
     for (let oi = 0; oi < newState.players.length; oi++) {
       const idx = newState.players[oi].cardsInPlay.findIndex(c => c.instanceId === targetId);
-      if (idx !== -1) { foundOwnerIndex = oi; foundCardIdx = idx; break; }
+      if (idx !== -1) { foundOwnerIndex = oi; foundCardsInPlayIdx = idx; break; }
+      const chars = newState.players[oi].characters;
+      for (const charId of Object.keys(chars)) {
+        const hIdx = chars[charId].hazards.findIndex(h => h.instanceId === targetId);
+        if (hIdx !== -1) { foundOwnerIndex = oi; foundCharId = charId; foundHazardIdx = hIdx; break; }
+      }
+      if (foundOwnerIndex !== -1) break;
     }
     const owner = newState.players[foundOwnerIndex];
-    const targetCard = owner.cardsInPlay[foundCardIdx];
-    const targetDef = newState.cardPool[targetCard.definitionId as string];
-    logDetail(`${def.name} discards ${targetDef.name} from ${owner.id as string}'s in-play`);
-    const newOwnerCardsInPlay = [...owner.cardsInPlay];
-    newOwnerCardsInPlay.splice(foundCardIdx, 1);
+    let targetInstance: { instanceId: CardInstanceId; definitionId: import('../index.js').CardDefinitionId };
     const updatedPlayers = clonePlayers(newState);
-    updatedPlayers[foundOwnerIndex] = {
-      ...owner,
-      cardsInPlay: newOwnerCardsInPlay,
-      discardPile: [...owner.discardPile, { instanceId: targetCard.instanceId, definitionId: targetCard.definitionId }],
-    };
+    if (foundCardsInPlayIdx !== -1) {
+      const targetCard = owner.cardsInPlay[foundCardsInPlayIdx];
+      targetInstance = { instanceId: targetCard.instanceId, definitionId: targetCard.definitionId };
+      const newOwnerCardsInPlay = [...owner.cardsInPlay];
+      newOwnerCardsInPlay.splice(foundCardsInPlayIdx, 1);
+      updatedPlayers[foundOwnerIndex] = {
+        ...owner,
+        cardsInPlay: newOwnerCardsInPlay,
+        discardPile: [...owner.discardPile, targetInstance],
+      };
+    } else {
+      const charId = foundCharId!;
+      const char = owner.characters[charId];
+      const haz = char.hazards[foundHazardIdx];
+      targetInstance = { instanceId: haz.instanceId, definitionId: haz.definitionId };
+      const newHazards = [...char.hazards];
+      newHazards.splice(foundHazardIdx, 1);
+      updatedPlayers[foundOwnerIndex] = {
+        ...owner,
+        characters: {
+          ...owner.characters,
+          [charId]: { ...char, hazards: newHazards },
+        },
+        discardPile: [...owner.discardPile, targetInstance],
+      };
+    }
+    const targetDef = newState.cardPool[targetInstance.definitionId as string];
+    logDetail(`${def.name} discards ${targetDef.name} from ${owner.id as string}'s in-play`);
     newState = { ...newState, players: updatedPlayers };
 
     if (discardInPlay.corruptionCheck && action.targetScoutInstanceId) {
