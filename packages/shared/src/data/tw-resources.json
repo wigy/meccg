@@ -25,6 +25,10 @@
         "when": {
           "company.size": { "$lte": 2 },
           "company.hasPlannedMovement": false
+        },
+        "apply": {
+          "type": "set-company-special-movement",
+          "specialMovement": "gwaihir"
         }
       }
     ],
