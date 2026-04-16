@@ -14,7 +14,7 @@ import { resolveInstanceId } from '../types/state.js';
 import type { ReducerResult } from './reducer-utils.js';
 import { clonePlayers } from './reducer-utils.js';
 import { addConstraint, enqueueResolution } from './pending.js';
-import { handleUntapBearer } from './reducer-organization.js';
+import { handleGrantActionApply } from './reducer-organization.js';
 
 
 /**
@@ -175,7 +175,7 @@ export function handleLongEvent(state: GameState, action: GameAction): ReducerRe
     return handlePlayResourceShortEvent(state, action);
   }
   if (action.type === 'activate-granted-action' && action.actionId === 'untap-bearer') {
-    return handleUntapBearer(state, action);
+    return handleGrantActionApply(state, action);
   }
   if (action.type === 'pass') {
     // [2.III.3] At end of long-event phase: hazard player discards own hazard long-events

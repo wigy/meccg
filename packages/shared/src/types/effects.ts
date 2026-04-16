@@ -218,6 +218,11 @@ export interface DrawModifierEffect extends EffectBase {
  * Grants a new activated ability to the card's bearer.
  *
  * Example: Gandalf can tap to test a gold ring in his company.
+ *
+ * When `apply` is present, the reducer pays the cost and dispatches on
+ * the apply's `type` — no per-action-ID branch is needed in engine
+ * code. Cards without `apply` fall through to legacy per-action-ID
+ * handlers (kept alive until every card migrates).
  */
 export interface GrantActionEffect extends EffectBase {
   readonly type: 'grant-action';
@@ -230,6 +235,14 @@ export interface GrantActionEffect extends EffectBase {
    * E.g. "greater than 7" → rollThreshold: 8 (need roll >= 8).
    */
   readonly rollThreshold?: number;
+  /**
+   * Generic effect produced by the action. When present, the reducer
+   * pays `cost` then dispatches on `apply.type` (reusing the existing
+   * TriggeredAction apply dispatch shared with `on-event` and
+   * `play-option`). Supported targets for character-scoped applies
+   * include `"bearer"` — the character holding the source card.
+   */
+  readonly apply?: TriggeredAction;
 }
 
 /** The cost required to activate a granted action. */
@@ -305,6 +318,13 @@ export interface TriggeredAction {
    * character (e.g. `"untapped"` to untap or heal).
    */
   readonly status?: 'untapped' | 'tapped' | 'inverted';
+  /**
+   * Selector for which entity the apply acts on. Interpretation is
+   * context-specific — for `grant-action` applies, `"bearer"` means the
+   * character holding the source card. Absent selectors fall back to
+   * the enclosing effect's implicit target.
+   */
+  readonly target?: string;
 }
 
 /**

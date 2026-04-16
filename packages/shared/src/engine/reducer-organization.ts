@@ -666,9 +666,9 @@ function handleActivateGrantedAction(state: GameState, action: GameAction): Redu
     return handleGwaihirSpecialMovement(state, action);
   }
 
-  // Dispatch to untap-bearer handler (e.g. Cram)
+  // Dispatch to untap-bearer handler (e.g. Cram) — migrated to generic apply
   if (action.actionId === 'untap-bearer') {
-    return handleUntapBearer(state, action);
+    return handleGrantActionApply(state, action);
   }
 
   // Dispatch to extra-region-movement handler (e.g. Cram)
@@ -1035,14 +1035,20 @@ function handleGwaihirSpecialMovement(state: GameState, action: GameAction): Red
 // system. See `docs/plans/pending-effects-plan.md`.
 
 /**
- * Handle untap-bearer grant-action: discard an item (e.g. Cram) to untap
- * its bearer character. The item is removed from the character's items and
- * placed in the player's discard pile.
+ * Generic handler for grant-action effects that declare an `apply`.
+ * Pays the effect's cost (e.g. discard source item) then dispatches on
+ * `apply.type` to mutate state. Shared across all phase reducers so
+ * that a granted action behaves identically in organization, M/H, site,
+ * and long-event windows without per-actionId branches.
  *
- * Cost: discard the item (source card) from the character.
- * Prerequisite: bearer must be tapped (checked in legal actions).
+ * Currently supports:
+ *  - `cost.discard === 'self'` for sources attached as items.
+ *  - `apply.type === 'set-character-status'` with `target: 'bearer'`.
+ *
+ * Extended incrementally as more cards migrate off the legacy
+ * per-actionId handlers.
  */
-export function handleUntapBearer(state: GameState, action: GameAction): ReducerResult {
+export function handleGrantActionApply(state: GameState, action: GameAction): ReducerResult {
   if (action.type !== 'activate-granted-action') return { state, error: 'Expected activate-granted-action' };
 
   const playerIndex = getPlayerIndex(state, action.player);
@@ -1056,32 +1062,62 @@ export function handleUntapBearer(state: GameState, action: GameAction): Reducer
   const sourceDef = state.cardPool[action.sourceCardDefinitionId as string];
   const sourceName = sourceDef?.name ?? '?';
 
-  // Validate: bearer must be tapped
-  if (char.status !== CardStatus.Tapped) {
-    return { state, error: `${charName} is not tapped` };
+  const effects = sourceDef && 'effects' in sourceDef
+    ? (sourceDef as { effects?: readonly import('../types/effects.js').CardEffect[] }).effects
+    : undefined;
+  const effect = effects?.find(
+    e => e.type === 'grant-action' && (e as import('../types/effects.js').GrantActionEffect).action === action.actionId,
+  ) as import('../types/effects.js').GrantActionEffect | undefined;
+  if (!effect?.apply) {
+    return { state, error: `grant-action ${action.actionId} has no apply on ${sourceName}` };
   }
 
-  // Validate: source card must be an item on the character
-  const itemIdx = char.items.findIndex(i => i.instanceId === action.sourceCardId);
-  if (itemIdx < 0) {
-    return { state, error: `${sourceName} is not an item on ${charName}` };
+  // --- Pay cost ---
+  let newPlayers = clonePlayers(state);
+  let updatedChar: CharacterInPlay = char;
+
+  if (effect.cost.discard === 'self') {
+    const itemIdx = char.items.findIndex(i => i.instanceId === action.sourceCardId);
+    if (itemIdx < 0) {
+      return { state, error: `${sourceName} is not an item on ${charName}` };
+    }
+    const discardedCard: CardInstance = {
+      instanceId: action.sourceCardId,
+      definitionId: action.sourceCardDefinitionId,
+    };
+    updatedChar = {
+      ...updatedChar,
+      items: char.items.filter(i => i.instanceId !== action.sourceCardId),
+    };
+    newPlayers[playerIndex] = {
+      ...newPlayers[playerIndex],
+      discardPile: [...newPlayers[playerIndex].discardPile, discardedCard],
+    };
+  } else {
+    return { state, error: `Unsupported grant-action cost ${JSON.stringify(effect.cost)} on ${sourceName}` };
   }
 
-  logDetail(`Untap bearer: ${charName} discards ${sourceName} to untap`);
-
-  // Pay cost: remove item from character's items and untap character
-  const updatedItems = char.items.filter(i => i.instanceId !== action.sourceCardId);
-  const discardedCard: CardInstance = { instanceId: action.sourceCardId, definitionId: action.sourceCardDefinitionId };
-
-  const newPlayers = clonePlayers(state);
+  // --- Apply effect ---
+  const apply = effect.apply;
+  if (apply.type === 'set-character-status' && apply.target === 'bearer') {
+    if (apply.status === undefined) {
+      return { state, error: `set-character-status apply missing status on ${sourceName}` };
+    }
+    const statusEnum = apply.status === 'untapped' ? CardStatus.Untapped
+      : apply.status === 'tapped' ? CardStatus.Tapped
+        : CardStatus.Inverted;
+    logDetail(`Grant-action ${action.actionId}: ${charName} discards ${sourceName} → status ${apply.status}`);
+    updatedChar = { ...updatedChar, status: statusEnum };
+  } else {
+    return { state, error: `Unsupported grant-action apply ${JSON.stringify(apply)} on ${sourceName}` };
+  }
 
   newPlayers[playerIndex] = {
     ...newPlayers[playerIndex],
     characters: {
       ...newPlayers[playerIndex].characters,
-      [action.characterId as string]: { ...char, items: updatedItems, status: CardStatus.Untapped },
+      [action.characterId as string]: updatedChar,
     },
-    discardPile: [...newPlayers[playerIndex].discardPile, discardedCard],
   };
 
   return {

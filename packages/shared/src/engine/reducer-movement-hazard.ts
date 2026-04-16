@@ -22,7 +22,7 @@ import { clonePlayers, startDeckExhaust, completeDeckExhaust, handleExchangeSide
 import { removeConstraint } from './pending.js';
 import { handlePlayShortEvent } from './reducer-events.js';
 import { handlePlayPermanentEvent } from './reducer-events.js';
-import { handleUntapBearer } from './reducer-organization.js';
+import { handleGrantActionApply } from './reducer-organization.js';
 import { sweepExpired, addConstraint, enqueueResolution } from './pending.js';
 import { buildInPlayNames } from './recompute-derived.js';
 
@@ -164,7 +164,7 @@ function handlePlayHazards(
 
   // --- Grant-action (e.g. Cram untap-bearer, rule 2.1.1) ---
   if (action.type === 'activate-granted-action' && action.actionId === 'untap-bearer') {
-    return handleUntapBearer(state, action);
+    return handleGrantActionApply(state, action);
   }
 
   // --- Cancel constraint (e.g. River: ranger taps to cancel site-phase-do-nothing) ---
