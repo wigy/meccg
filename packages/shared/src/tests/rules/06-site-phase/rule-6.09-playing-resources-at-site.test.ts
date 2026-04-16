@@ -15,8 +15,95 @@
  * "Does not tap the site" is not equal to "playable at a tapped site."
  */
 
-import { describe, test } from 'vitest';
+import { describe, test, expect, beforeEach } from 'vitest';
+import {
+  buildSitePhaseState, buildTestState, resetMint, viableActions,
+  PLAYER_1, PLAYER_2,
+  ARAGORN, BILBO, LEGOLAS,
+  DAGGER_OF_WESTERNESSE,
+  RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
+  CardStatus, Phase,
+} from '../../test-helpers.js';
+import { computeLegalActions } from '../../../index.js';
 
 describe('Rule 6.09 — Playing Resources at a Site', () => {
-  test.todo('Allies/factions/items only during site phase; requires untapped character at untapped site; taps both');
+  beforeEach(() => resetMint());
+
+  test('item is playable in site phase by an untapped character at an untapped site', () => {
+    // Bilbo (untapped) at Moria (untapped, allows minor items) holds a
+    // Dagger of Westernesse in hand. The legal-actions computer offers a
+    // viable play-hero-resource attaching the dagger to Bilbo.
+    const state = buildSitePhaseState({
+      site: MORIA,
+      characters: [BILBO],
+      hand: [DAGGER_OF_WESTERNESSE],
+    });
+
+    const plays = viableActions(state, PLAYER_1, 'play-hero-resource');
+    expect(plays.length).toBe(1);
+    const action = plays[0].action as { cardInstanceId: string; attachToCharacterId: string };
+    expect(action.cardInstanceId).toBe(state.players[0].hand[0].instanceId);
+    expect(action.attachToCharacterId).toBe(state.players[0].companies[0].characters[0]);
+  });
+
+  test('item is NOT playable when the site is already tapped', () => {
+    // Same setup but the site arrives tapped — the engine refuses to
+    // offer a viable play action and surfaces a not-playable annotation.
+    const state = buildSitePhaseState({
+      site: MORIA,
+      characters: [BILBO],
+      hand: [DAGGER_OF_WESTERNESSE],
+      siteStatus: CardStatus.Tapped,
+    });
+
+    const plays = viableActions(state, PLAYER_1, 'play-hero-resource');
+    expect(plays).toHaveLength(0);
+
+    const handInst = state.players[0].hand[0].instanceId;
+    const tooltip = computeLegalActions(state, PLAYER_1).find(
+      ea => !ea.viable && ea.action.type === 'not-playable'
+        && (ea.action as { cardInstanceId: string }).cardInstanceId === handInst,
+    );
+    expect(tooltip).toBeDefined();
+    expect(tooltip!.reason).toMatch(/tapped/i);
+  });
+
+  test('item is NOT playable if no untapped character is available to carry it', () => {
+    // Bilbo is already tapped, so even at an untapped Moria the dagger
+    // has nobody to carry it. Engine returns no viable play action.
+    const state = buildSitePhaseState({
+      site: MORIA,
+      characters: [{ defId: BILBO, status: CardStatus.Tapped }],
+      hand: [DAGGER_OF_WESTERNESSE],
+    });
+
+    const plays = viableActions(state, PLAYER_1, 'play-hero-resource');
+    expect(plays).toHaveLength(0);
+  });
+
+  test('items can only be played during the site phase, not the organization phase', () => {
+    // The same Dagger in the organization phase yields no viable
+    // play-hero-resource — that action is gated by the site phase.
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Organization,
+      players: [
+        {
+          id: PLAYER_1,
+          companies: [{ site: MORIA, characters: [ARAGORN, BILBO] }],
+          hand: [DAGGER_OF_WESTERNESSE],
+          siteDeck: [MINAS_TIRITH],
+        },
+        {
+          id: PLAYER_2,
+          companies: [{ site: LORIEN, characters: [LEGOLAS] }],
+          hand: [],
+          siteDeck: [RIVENDELL],
+        },
+      ],
+    });
+
+    const plays = viableActions(state, PLAYER_1, 'play-hero-resource');
+    expect(plays).toHaveLength(0);
+  });
 });

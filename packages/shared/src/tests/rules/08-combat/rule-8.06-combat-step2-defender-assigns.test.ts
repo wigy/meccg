@@ -20,19 +20,100 @@
 import { describe, test, expect, beforeEach } from 'vitest';
 import {
   PLAYER_1, PLAYER_2,
-  ARAGORN, LEGOLAS, GIMLI, FRODO,
+  ARAGORN, LEGOLAS, GIMLI, FRODO, BILBO,
   CAVE_DRAKE, ORC_PATROL, GWAIHIR,
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
   buildTestState, resetMint, makeMHState, attachAllyToChar,
-  dispatch, resolveChain,
-  handCardId, companyIdAt,
+  dispatch, resolveChain, setCharStatus, findCharInstanceId,
+  handCardId, companyIdAt, viableActions,
+  CardStatus,
 } from '../../test-helpers.js';
+import type { AssignStrikeAction } from '../../../index.js';
 import { computeLegalActions, Phase, RegionType, SiteType } from '../../../index.js';
 
 describe('Rule 8.06 — Step 2: Defending Player Assigns Strikes', () => {
   beforeEach(() => resetMint());
 
-  test.todo('Defending player assigns strikes to untapped characters; may defer; one strike per character');
+  test('Defender may assign strikes only to untapped characters and may defer remaining', () => {
+    // Orc-patrol attacks a P1 company with 3 characters: Frodo (untapped),
+    // Aragorn (tapped, not eligible), Bilbo (untapped). Orc-patrol has 3
+    // strikes, all faced (not attacker-chooses), so assignment opens with
+    // the defender. Verify:
+    //   - tapped Aragorn is NOT offered as a target
+    //   - both untapped characters are offered
+    //   - the defender always has a `pass` option (defer)
+    //   - after assigning one strike to Frodo, Frodo is not offered again
+    //     (rule: each character gets at most one strike from this attack)
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.MovementHazard,
+      recompute: true,
+      players: [
+        {
+          id: PLAYER_1,
+          companies: [{ site: MORIA, characters: [FRODO, ARAGORN, BILBO] }],
+          hand: [],
+          siteDeck: [MINAS_TIRITH],
+        },
+        {
+          id: PLAYER_2,
+          companies: [{ site: LORIEN, characters: [LEGOLAS] }],
+          hand: [ORC_PATROL],
+          siteDeck: [RIVENDELL],
+        },
+      ],
+    });
+
+    // Tap Aragorn so he is not eligible to face a strike.
+    const tapped = setCharStatus(state, 0, ARAGORN, CardStatus.Tapped);
+
+    const mhState = makeMHState({
+      resolvedSitePath: [RegionType.Wilderness],
+      resolvedSitePathNames: ['Rhudaur'],
+      destinationSiteType: SiteType.RuinsAndLairs,
+      destinationSiteName: 'Moria',
+    });
+    const gameState = { ...tapped, phaseState: mhState };
+
+    const orcId = handCardId(gameState, 1);
+    const companyId = companyIdAt(gameState, 0);
+    const afterHazard = dispatch(gameState, {
+      type: 'play-hazard',
+      player: PLAYER_2,
+      cardInstanceId: orcId,
+      targetCompanyId: companyId,
+      keyedBy: { method: 'region-type' as const, value: 'wilderness' },
+    });
+    const afterChain = resolveChain(afterHazard);
+
+    expect(afterChain.combat).not.toBeNull();
+    expect(afterChain.combat!.assignmentPhase).toBe('defender');
+
+    // Defender's options: assign-strike for each *untapped* character + pass.
+    const defActions = computeLegalActions(afterChain, PLAYER_1).filter(a => a.viable);
+    const assigns = defActions.filter(a => a.action.type === 'assign-strike').map(a => a.action as AssignStrikeAction);
+    expect(assigns).toHaveLength(2);
+
+    const aragornId = findCharInstanceId(afterChain, 0, ARAGORN);
+    const frodoId = findCharInstanceId(afterChain, 0, FRODO);
+    const bilboId = findCharInstanceId(afterChain, 0, BILBO);
+
+    const targetIds = assigns.map(a => a.characterId);
+    expect(targetIds).toEqual(expect.arrayContaining([frodoId, bilboId]));
+    expect(targetIds).not.toContain(aragornId);
+
+    // Pass exists — defender may always defer.
+    expect(defActions.some(a => a.action.type === 'pass')).toBe(true);
+
+    // After assigning one strike to Frodo, Frodo is not offered again,
+    // and the defender still has Bilbo + pass available.
+    const afterAssign = dispatch(afterChain, {
+      type: 'assign-strike', player: PLAYER_1, characterId: frodoId, tapped: false,
+    });
+    const stillAssigns = viableActions(afterAssign, PLAYER_1, 'assign-strike').map(a => (a.action as AssignStrikeAction).characterId);
+    expect(stillAssigns).toEqual([bilboId]);
+    expect(viableActions(afterAssign, PLAYER_1, 'pass').length).toBe(1);
+  });
 
   test('ally with prowess is a valid strike target for attacker-chooses-defenders (CoE 2.V.2.2)', () => {
     // Frodo has ally Gwaihir (prowess 4). When Cave-drake (attacker-chooses-defenders)

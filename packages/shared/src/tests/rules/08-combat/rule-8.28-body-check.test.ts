@@ -17,12 +17,13 @@ import { describe, test, expect, beforeEach } from 'vitest';
 import {
   PLAYER_1, PLAYER_2,
   ARAGORN, LEGOLAS,
+  CAVE_DRAKE, SUN,
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
   buildTestState, resetMint, makeMHState, findCharInstanceId,
   dispatchResult, viableActions,
   Phase, companyIdAt,
 } from '../../test-helpers.js';
-import { RegionType, SiteType, CardStatus } from '../../../index.js';
+import { RegionType, SiteType, CardStatus, computeLegalActions } from '../../../index.js';
 import type { CombatState, CardInstanceId, DieRoll, TwoDiceSix } from '../../../index.js';
 
 describe('Rule 8.28 — Body Check', () => {
@@ -123,5 +124,67 @@ describe('Rule 8.28 — Body Check', () => {
     expect(diceEffect!.label).toContain('Body check');
   });
 
-  test.todo('Cannot respond to passive conditions from strike result, except dice-rolling actions');
+  test('Body-check chain admits only the body-check-roll — unrelated cards in hand are not playable', () => {
+    // While a body check is pending, the only declarable action is the
+    // dice roll itself (per rule 8.28). Even though both players hold
+    // arbitrary cards in hand (Cave-drake hazard creature, Sun resource
+    // long-event), neither produces a viable play action: no chain is
+    // open, and the engine offers only the body-check-roll to the
+    // non-controlling player.
+    const state = buildTestState({
+      phase: Phase.MovementHazard,
+      activePlayer: PLAYER_1,
+      recompute: true,
+      players: [
+        { id: PLAYER_1, companies: [{ site: MORIA, characters: [ARAGORN] }], hand: [SUN], siteDeck: [MINAS_TIRITH] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [CAVE_DRAKE], siteDeck: [RIVENDELL] },
+      ],
+    });
+
+    const aragornId = findCharInstanceId(state, 0, ARAGORN);
+    const companyId = companyIdAt(state, 0);
+
+    const mhState = makeMHState({
+      resolvedSitePath: [RegionType.Shadow],
+      resolvedSitePathNames: ['Imlad Morgul'],
+      destinationSiteType: SiteType.ShadowHold,
+      destinationSiteName: 'Moria',
+    });
+
+    const combat: CombatState = {
+      attackSource: { type: 'automatic-attack', siteInstanceId: 'fake-site' as CardInstanceId, attackIndex: 0 },
+      companyId,
+      defendingPlayerId: PLAYER_1,
+      attackingPlayerId: PLAYER_2,
+      strikesTotal: 1,
+      strikeProwess: 10,
+      creatureBody: null,
+      creatureRace: 'orc',
+      strikeAssignments: [
+        { characterId: aragornId, excessStrikes: 0, resolved: true, result: 'wounded', wasAlreadyWounded: false },
+      ],
+      currentStrikeIndex: 0,
+      phase: 'body-check',
+      assignmentPhase: 'done',
+      bodyCheckTarget: 'character',
+      detainment: false,
+    };
+
+    const ready = { ...state, phaseState: mhState, combat };
+
+    // The body check declaration does not open a chain of effects in the
+    // shared chain machinery — actions are restricted at the legal-actions
+    // layer instead.
+    expect(ready.chain).toBeNull();
+
+    // The attacker (rolling player) only sees the body-check-roll action.
+    const atkViable = computeLegalActions(ready, PLAYER_2).filter(a => a.viable);
+    expect(atkViable.map(a => a.action.type)).toEqual(['body-check-roll']);
+
+    // The defender has no playable response — hand cards are not offered.
+    const defViable = computeLegalActions(ready, PLAYER_1).filter(a => a.viable);
+    expect(defViable.map(a => a.action.type)).not.toContain('play-hazard');
+    expect(defViable.map(a => a.action.type)).not.toContain('play-long-event');
+    expect(defViable.map(a => a.action.type)).not.toContain('play-short-event');
+  });
 });

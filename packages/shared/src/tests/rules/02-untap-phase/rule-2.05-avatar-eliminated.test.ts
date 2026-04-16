@@ -150,5 +150,10 @@ describe('Rule 2.05 — Avatar Eliminated', () => {
     expect(scoreWithout - scoreWith).toBe(5);
   });
 
+  // The engine has no runtime "reveal-avatar" action: avatars are
+  // committed during setup (character draft / starting placement) and the
+  // game cannot replace them mid-game. The "cannot reveal another avatar"
+  // rule is therefore enforced by absence — there is simply no action to
+  // forbid. Will be testable if/when alternative-avatar mechanics are added.
   test.todo('Player whose avatar was eliminated cannot reveal another avatar');
 });

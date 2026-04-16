@@ -26,7 +26,7 @@ import {
   PLAYER_1, PLAYER_2,
   reduce, dispatch,
   ARAGORN, LEGOLAS,
-  TWILIGHT, GATES_OF_MORNING, DOORS_OF_NIGHT,
+  SUN, TWILIGHT, GATES_OF_MORNING, DOORS_OF_NIGHT,
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
   CardStatus,
   buildTestState, resetMint,
@@ -515,14 +515,63 @@ describe('Rule 10.29 — Chain of Effects', () => {
   });
 
   // ── 10.29.2: Active conditions don't start separate chain ─────────────────
-
+  //
+  // Active conditions are abilities used "in response" to a parent chain (e.g.
+  // tap a sage during a strike). The chain machinery currently has no
+  // distinct active-condition mode separate from regular declarations; this
+  // sub-rule will be exercised once the engine models that distinction.
   test.todo('performing an action as an active condition does not initiate a separate chain');
 
   // ── 10.29.3: Immediate effects bypass the chain ───────────────────────────
 
-  test.todo('"immediately" effects resolve without chain and without response window');
+  test('"immediately" rule transitions resolve without opening a chain', () => {
+    // Rule 4.01 says the resource player's resource long-events are
+    // discarded "immediately" at the start of the long-event phase. That
+    // discard is performed by the phase transition itself — no chain is
+    // ever opened, and neither player is given a window to respond.
+    const sun: CardInPlay = {
+      instanceId: 'sun-1' as CardInstanceId,
+      definitionId: SUN,
+      status: CardStatus.Untapped,
+    };
+
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Organization,
+      players: [
+        {
+          id: PLAYER_1,
+          companies: [{ site: RIVENDELL, characters: [ARAGORN] }],
+          hand: [],
+          siteDeck: [MORIA],
+          cardsInPlay: [sun],
+        },
+        {
+          id: PLAYER_2,
+          companies: [{ site: LORIEN, characters: [LEGOLAS] }],
+          hand: [],
+          siteDeck: [MINAS_TIRITH],
+        },
+      ],
+    });
+
+    expect(state.chain).toBeNull();
+
+    const next = dispatch(state, { type: 'pass', player: PLAYER_1 });
+
+    // Phase advanced and Sun was discarded — but no chain was opened
+    // for either player to respond to during the transition.
+    expect(next.phaseState.phase).toBe(Phase.LongEvent);
+    expect(next.chain).toBeNull();
+    expect(next.players[0].cardsInPlay.some(c => c.instanceId === 'sun-1')).toBe(false);
+    expect(next.players[0].discardPile.some(c => c.instanceId === 'sun-1')).toBe(true);
+  });
 
   // ── 10.29.4: Multiple actions on card resolve in printed order ────────────
-
+  //
+  // The DSL currently models a card's resolve effect as a single `apply`
+  // value rather than an ordered list of "separately printed" actions, so
+  // there is no in-pool card whose ordering can be observed from outside.
+  // This will be exercised once a multi-action resolve is supported.
   test.todo('multiple separate actions on a resolved card execute in printed order');
 });

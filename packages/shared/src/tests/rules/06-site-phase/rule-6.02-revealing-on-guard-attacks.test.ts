@@ -23,7 +23,7 @@ import {
   makeSitePhase, placeOnGuard, viableActions,
   PLAYER_1, PLAYER_2,
   LEGOLAS, ARAGORN,
-  BARROW_WIGHT,
+  ASSASSIN, BARROW_WIGHT,
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
 } from '../../test-helpers.js';
 import type { SitePhaseState, RevealOnGuardAction } from '../../../index.js';
@@ -55,7 +55,22 @@ describe('Rule 6.02 — Step 1: Revealing On-Guard Attacks', () => {
     expect((revealActions[0].action as RevealOnGuardAction).cardInstanceId).toBe(ogCard.instanceId);
   });
 
-  test.todo('non-keyable creatures are NOT offered for reveal (needs a creature not keyable to any site with auto-attacks)');
+  test('non-keyable creatures are NOT offered for reveal', () => {
+    // Assassin is keyed only to free-hold and border-hold sites (no
+    // wilderness/shadow/dark region match either). Moria is a shadow-hold
+    // with sitePath ["wilderness","wilderness"] — Assassin is NOT keyable
+    // here, so it must not appear among reveal-on-guard actions even
+    // though Barrow-wight on the same company would be keyable.
+    const base = buildSiteState(MORIA);
+    const { state: og1 } = placeOnGuard(base, 0, 0, ASSASSIN);
+    const { state: og2, ogCard: bwCard } = placeOnGuard(og1, 0, 0, BARROW_WIGHT);
+    const testState = { ...og2, phaseState: makeSitePhase({ step: 'reveal-on-guard-attacks', siteEntered: false }) };
+
+    const reveals = viableActions(testState, PLAYER_2, 'reveal-on-guard');
+    // Only the keyable Barrow-wight is offered; Assassin is filtered out.
+    expect(reveals).toHaveLength(1);
+    expect((reveals[0].action as RevealOnGuardAction).cardInstanceId).toBe(bwCard.instanceId);
+  });
 
   test('active player (resource) has no actions during reveal-on-guard-attacks step', () => {
     const base = buildSiteState(MORIA);
