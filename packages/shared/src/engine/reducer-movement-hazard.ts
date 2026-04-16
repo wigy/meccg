@@ -605,12 +605,11 @@ function endCompanyMH(state: GameState, mhState: MovementHazardPhaseState): Redu
       logDetail(`Step 8: arrived at site already in play at sibling company ${sharedDestinationOwner.id as string} — siteCardOwned=false`);
     }
 
-    // Handle site of origin: return to siteDeck (untapped/haven) or discard
-    // (tapped non-haven). Rule 2.II.7.2: if another of this player's companies
-    // is still at the origin, the site stays in play and must not be
-    // returned or discarded.
-    // TODO: discard tapped non-haven sites once site tapping is implemented
+    // Handle site of origin (CoE rule 2.IV.vii): if no sibling company is
+    // still at the origin, either discard it (tapped non-haven) or return it
+    // to the location deck (untapped or haven).
     let newSiteDeck = [...resourcePlayer.siteDeck];
+    const newSiteDiscardPile = [...resourcePlayer.siteDiscardPile];
     if (originSite) {
       const siblingStillAtOrigin = resourcePlayer.companies.some(
         (c, idx) => idx !== mhState.activeCompanyIndex
@@ -621,13 +620,19 @@ function endCompanyMH(state: GameState, mhState: MovementHazardPhaseState): Redu
       } else {
         const originDef = state.cardPool[originSite.definitionId as string];
         const isHaven = originDef && isSiteCard(originDef) && originDef.siteType === 'haven';
+        const isTapped = originSite.status === CardStatus.Tapped;
         newSiteDeck = newSiteDeck.filter(c => c.instanceId !== originSite.instanceId);
-        if (isHaven) {
+        const entry = { instanceId: originSite.instanceId, definitionId: originSite.definitionId };
+        if (!isHaven && isTapped) {
+          logDetail(`Step 8: site of origin is tapped non-haven — discarding to site discard pile`);
+          newSiteDiscardPile.push(entry);
+        } else if (isHaven) {
           logDetail(`Step 8: site of origin is a haven — returning to location deck`);
+          newSiteDeck.push(entry);
         } else {
-          logDetail(`Step 8: site of origin is non-haven — returning to location deck (TODO: discard if tapped)`);
+          logDetail(`Step 8: site of origin is untapped non-haven — returning to location deck`);
+          newSiteDeck.push(entry);
         }
-        newSiteDeck.push({ instanceId: originSite.instanceId, definitionId: originSite.definitionId });
       }
     }
 
@@ -636,6 +641,7 @@ function endCompanyMH(state: GameState, mhState: MovementHazardPhaseState): Redu
       ...resourcePlayer,
       companies: updatedCompanies,
       siteDeck: newSiteDeck,
+      siteDiscardPile: newSiteDiscardPile,
     };
 
     // Defer firing the company-arrives-at-site event until we've

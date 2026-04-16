@@ -28,6 +28,113 @@ describe('Rule 5.26 — Step 8: End the Company M/H Phase', () => {
 
   test.todo('Phase ends when both players done; site of origin handled; both players reset hands to base hand size');
 
+  test('tapped non-haven site of origin goes to site discard pile, not back to site deck', () => {
+    const built = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.MovementHazard,
+      players: [
+        {
+          id: PLAYER_1,
+          companies: [
+            { site: MINAS_TIRITH, characters: [ARAGORN] },
+          ],
+          hand: [],
+          siteDeck: [HENNETH_ANNUN],
+        },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [] },
+      ],
+    });
+
+    const company = built.players[0].companies[0];
+    const hennethSite = built.players[0].siteDeck.find(
+      c => c.definitionId === HENNETH_ANNUN,
+    )!;
+
+    const state: GameState = {
+      ...built,
+      phaseState: makeMHState({
+        activeCompanyIndex: 0,
+        resourcePlayerPassed: false,
+        hazardPlayerPassed: false,
+      }),
+      players: [
+        {
+          ...built.players[0],
+          companies: [{
+            ...company,
+            currentSite: { ...company.currentSite!, status: CardStatus.Tapped },
+            siteCardOwned: true,
+            destinationSite: { instanceId: hennethSite.instanceId, definitionId: hennethSite.definitionId, status: CardStatus.Untapped },
+            siteOfOrigin: company.currentSite!.instanceId,
+          }],
+          siteDeck: built.players[0].siteDeck,
+        },
+        built.players[1],
+      ],
+    };
+
+    const originInstanceId = company.currentSite!.instanceId;
+    const afterResourcePass = dispatch(state, { type: 'pass', player: PLAYER_1 });
+    const afterBothPass = dispatch(afterResourcePass, { type: 'pass', player: PLAYER_2 });
+
+    const p1 = afterBothPass.players[0];
+    expect(p1.siteDeck.some(c => c.instanceId === originInstanceId)).toBe(false);
+    expect(p1.siteDiscardPile.some(c => c.instanceId === originInstanceId)).toBe(true);
+  });
+
+  test('untapped non-haven site of origin returns to site deck', () => {
+    const built = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.MovementHazard,
+      players: [
+        {
+          id: PLAYER_1,
+          companies: [
+            { site: MINAS_TIRITH, characters: [ARAGORN] },
+          ],
+          hand: [],
+          siteDeck: [HENNETH_ANNUN],
+        },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [] },
+      ],
+    });
+
+    const company = built.players[0].companies[0];
+    const hennethSite = built.players[0].siteDeck.find(
+      c => c.definitionId === HENNETH_ANNUN,
+    )!;
+
+    const state: GameState = {
+      ...built,
+      phaseState: makeMHState({
+        activeCompanyIndex: 0,
+        resourcePlayerPassed: false,
+        hazardPlayerPassed: false,
+      }),
+      players: [
+        {
+          ...built.players[0],
+          companies: [{
+            ...company,
+            siteCardOwned: true,
+            destinationSite: { instanceId: hennethSite.instanceId, definitionId: hennethSite.definitionId, status: CardStatus.Untapped },
+            siteOfOrigin: company.currentSite!.instanceId,
+          }],
+          siteDeck: built.players[0].siteDeck,
+        },
+        built.players[1],
+      ],
+    };
+
+    const originInstanceId = company.currentSite!.instanceId;
+    const afterResourcePass = dispatch(state, { type: 'pass', player: PLAYER_1 });
+    const afterBothPass = dispatch(afterResourcePass, { type: 'pass', player: PLAYER_2 });
+
+    const p1 = afterBothPass.players[0];
+    expect(p1.siteDeck.some(c => c.instanceId === originInstanceId)).toBe(true);
+    expect(p1.siteDiscardPile.some(c => c.instanceId === originInstanceId)).toBe(false);
+  });
+
   test('company arriving at a new site owns the site card even if it previously did not', () => {
     const built = buildTestState({
       activePlayer: PLAYER_1,
