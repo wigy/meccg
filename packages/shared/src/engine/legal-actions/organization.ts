@@ -350,7 +350,7 @@ export function grantedActionActivations(state: GameState, playerId: PlayerId, a
             sourceCardId: hazard.instanceId,
             sourceCardDefinitionId: hazard.definitionId,
             actionId: effect.action,
-            rollThreshold: effect.rollThreshold ?? 0,
+            rollThreshold: rollThresholdFor(effect),
           },
           viable: true,
         });
@@ -389,7 +389,7 @@ export function grantedActionActivations(state: GameState, playerId: PlayerId, a
                   sourceCardId: char.instanceId,
                   sourceCardDefinitionId: char.definitionId,
                   actionId: effect.action,
-                  rollThreshold: effect.rollThreshold ?? 0,
+                  rollThreshold: rollThresholdFor(effect),
                   targetCardId: ring.instanceId,
                 },
                 viable: true,
@@ -408,7 +408,7 @@ export function grantedActionActivations(state: GameState, playerId: PlayerId, a
               sourceCardId: char.instanceId,
               sourceCardDefinitionId: char.definitionId,
               actionId: effect.action,
-              rollThreshold: effect.rollThreshold ?? 0,
+              rollThreshold: rollThresholdFor(effect),
             },
             viable: true,
           });
@@ -444,7 +444,7 @@ export function grantedActionActivations(state: GameState, playerId: PlayerId, a
             sourceCardId: ally.instanceId,
             sourceCardDefinitionId: ally.definitionId,
             actionId: effect.action,
-            rollThreshold: effect.rollThreshold ?? 0,
+            rollThreshold: rollThresholdFor(effect),
           },
           viable: true,
         });
@@ -490,7 +490,7 @@ export function grantedActionActivations(state: GameState, playerId: PlayerId, a
             sourceCardId: item.instanceId,
             sourceCardDefinitionId: item.definitionId,
             actionId: effect.action,
-            rollThreshold: effect.rollThreshold ?? 0,
+            rollThreshold: rollThresholdFor(effect),
           },
           viable: true,
         });
@@ -593,6 +593,20 @@ function extractGrantActions(state: GameState, definitionId: import('../../index
   return effects.filter(
     (e): e is import('../../types/effects.js').GrantActionEffect => e.type === 'grant-action',
   );
+}
+
+/**
+ * Resolve the effective 2d6 threshold for a roll-based granted action.
+ * Cards migrated to the generic `apply: roll-then-apply` shape carry
+ * the threshold on the apply; legacy cards still expose it as
+ * `effect.rollThreshold`. Returns 0 for non-roll actions.
+ */
+function rollThresholdFor(effect: import('../../types/effects.js').GrantActionEffect): number {
+  if (effect.rollThreshold !== undefined) return effect.rollThreshold;
+  if (effect.apply?.type === 'roll-then-apply' && typeof effect.apply.threshold === 'number') {
+    return effect.apply.threshold;
+  }
+  return 0;
 }
 
 /**

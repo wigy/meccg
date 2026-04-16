@@ -63,7 +63,11 @@
         "cost": {
           "tap": "bearer"
         },
-        "rollThreshold": 8
+        "apply": {
+          "type": "roll-then-apply",
+          "threshold": 8,
+          "onSuccess": { "type": "discard-self" }
+        }
       }
     ],
     "text": "Playable on a character. Any riddling roll, offering attempt, or influence attempt by target character is modified by -4. If placed on-guard, it may be revealed and played when a character in the company declares such an attempt. During his organization phase, the character may tap to attempt to remove this card. Make a roll—if the result is greater than 7, discard this card. Cannot be duplicated on a given character.",

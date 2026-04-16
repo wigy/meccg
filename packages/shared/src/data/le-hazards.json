@@ -154,7 +154,11 @@
         "type": "grant-action",
         "action": "remove-self-on-roll",
         "cost": { "tap": "bearer" },
-        "rollThreshold": 8
+        "apply": {
+          "type": "roll-then-apply",
+          "threshold": 8,
+          "onSuccess": { "type": "discard-self" }
+        }
       }
     ],
     "text": "Playable on a non-Ringwraith, non-Wizard character with mind of 7 or less. Character cannot be controlled by direct influence. Once during each of his organization phases, the character may attempt to remove this card. Make a roll—if the result is greater than 7, discard this card. Cannot be duplicated on a given character."
@@ -241,7 +245,11 @@
         "type": "grant-action",
         "action": "remove-self-on-roll",
         "cost": { "tap": "bearer" },
-        "rollThreshold": 7
+        "apply": {
+          "type": "roll-then-apply",
+          "threshold": 7,
+          "onSuccess": { "type": "discard-self" }
+        }
       }
     ],
     "text": "Corruption. Playable on a non-Ringwraith character. Target character receives 2 corruption points and makes a corruption check at the end of his untap phase if at a Haven/Darkhaven [{H}].During his organization phase, the character may tap to attempt to remove this card. Make a roll—if the result is greater than 6, discard this card. Cannot be duplicated on a given character.",
