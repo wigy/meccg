@@ -14,6 +14,7 @@ import type { ReducerResult } from './reducer-utils.js';
 import { clonePlayers, startDeckExhaust, completeDeckExhaust, handleExchangeSideboard } from './reducer-utils.js';
 import { enterUntapPhase } from './reducer-untap.js';
 import { sweepExpired } from './pending.js';
+import { handleGrantActionApply } from './reducer-organization.js';
 
 
 /**
@@ -110,7 +111,9 @@ function handleEndOfTurnDiscard(
   }
 
   if (action.type === 'activate-granted-action' && action.actionId === 'saruman-fetch-spell') {
-    return handleSarumanFetchSpell(state, action);
+    // Migrated to generic apply dispatch; re-use the organization-phase
+    // handler (shared across phases).
+    return handleGrantActionApply(state, action);
   }
 
   return { state, error: `Unexpected action '${action.type}' in end-of-turn discard step` };
@@ -344,39 +347,6 @@ function transitionToFreeCouncil(state: GameState, lastTurnPlayer: PlayerId): Ga
   };
 }
 
-/**
- * Handle Saruman's spell-fetch grant-action during end-of-turn discard step.
- *
- * Taps Saruman and moves the targeted spell card from the discard pile to hand.
- */
-function handleSarumanFetchSpell(state: GameState, action: GameAction): ReducerResult {
-  if (action.type !== 'activate-granted-action') return { state, error: 'Expected activate-granted-action' };
-
-  const playerIndex = getPlayerIndex(state, action.player);
-  const player = state.players[playerIndex];
-  const char = player.characters[action.characterId as string];
-  const spellIdx = player.discardPile.findIndex(c => c.instanceId === action.targetCardId);
-  const spellCard = player.discardPile[spellIdx];
-  const spellDef = state.cardPool[spellCard.definitionId as string];
-  const charDef = state.cardPool[char.definitionId as string];
-  logDetail(`Saruman spell-fetch: ${charDef?.name ?? '?'} taps to fetch ${spellDef?.name ?? '?'} from discard to hand`);
-
-  const newDiscardPile = [...player.discardPile];
-  newDiscardPile.splice(spellIdx, 1);
-
-  const newPlayers = clonePlayers(state);
-  newPlayers[playerIndex] = {
-    ...player,
-    hand: [...player.hand, spellCard],
-    discardPile: newDiscardPile,
-    characters: {
-      ...player.characters,
-      [action.characterId as string]: { ...char, status: CardStatus.Tapped },
-    },
-  };
-
-  return { state: { ...state, players: newPlayers } };
-}
 
 /**
  * Handles actions during the Free Council phase.
