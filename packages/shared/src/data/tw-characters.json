@@ -32,6 +32,13 @@
         "action": "test-gold-ring",
         "cost": {
           "tap": "self"
+        },
+        "apply": {
+          "type": "sequence",
+          "apps": [
+            { "type": "roll-check", "check": "gold-ring-test", "label": "Gold ring test" },
+            { "type": "discard-target-item" }
+          ]
         }
       }
     ],
