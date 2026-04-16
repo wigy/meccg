@@ -16,10 +16,10 @@
 import { describe, test, expect, beforeEach } from 'vitest';
 import {
   PLAYER_1, PLAYER_2,
-  GANDALF, BILBO, LEGOLAS,
+  GANDALF, BILBO, LEGOLAS, SARUMAN,
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
   buildTestState, resetMint, makeMHState, findCharInstanceId,
-  dispatch, companyIdAt,
+  dispatch, companyIdAt, viablePlayCharacterActions,
   Phase,
 } from '../../test-helpers.js';
 import { RegionType, SiteType } from '../../../index.js';
@@ -150,5 +150,52 @@ describe('Rule 2.05 — Avatar Eliminated', () => {
     expect(scoreWithout - scoreWith).toBe(5);
   });
 
-  test.todo('Player whose avatar was eliminated cannot reveal another avatar');
+  test('Player whose avatar was eliminated cannot play another avatar', () => {
+    // P1 has had their avatar Gandalf eliminated (in outOfPlayPile). A
+    // second wizard card (Saruman) is in hand during the next organization
+    // phase. Playing Saruman would amount to revealing a new avatar — the
+    // rule forbids this. The engine must not offer a viable play-character
+    // action for Saruman.
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Organization,
+      players: [
+        {
+          id: PLAYER_1,
+          // No avatar in play — Gandalf was eliminated (see below).
+          companies: [{ site: RIVENDELL, characters: [BILBO] }],
+          hand: [SARUMAN],
+          siteDeck: [MINAS_TIRITH],
+        },
+        {
+          id: PLAYER_2,
+          companies: [{ site: LORIEN, characters: [LEGOLAS] }],
+          hand: [],
+          siteDeck: [MORIA],
+        },
+      ],
+      recompute: true,
+    });
+
+    // Place eliminated Gandalf into P1's outOfPlayPile so the state
+    // reflects "this player's avatar was eliminated".
+    const eliminated = {
+      ...state,
+      players: [
+        {
+          ...state.players[0],
+          outOfPlayPile: [{ instanceId: 'elim-gandalf' as CardInstanceId, definitionId: GANDALF }],
+        },
+        state.players[1],
+      ] as unknown as typeof state.players,
+    };
+
+    // Saruman must not be offered as a viable play-character action.
+    const viable = viablePlayCharacterActions(eliminated, PLAYER_1);
+    const sarumanViable = viable.filter(a => {
+      const inst = eliminated.players[0].hand.find(c => c.instanceId === a.characterInstanceId);
+      return inst?.definitionId === SARUMAN;
+    });
+    expect(sarumanViable).toHaveLength(0);
+  });
 });

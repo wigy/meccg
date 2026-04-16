@@ -100,6 +100,10 @@ describe('Rule 10.11 — Influence Attempt Target Conditions', () => {
     expect(allyActions.length).toBeGreaterThan(0);
   });
 
+  // The remaining target kinds (faction, item) are blocked on engine work:
+  // OpponentInfluenceAttemptAction.targetKind currently supports only
+  // 'character' | 'ally'. Once the legal-action computer enumerates
+  // faction- and item-typed targets, these can be exercised here.
   test.todo('faction: playable site target');
   test.todo('item: same site + no permanent-event + reveal identical item');
 });

@@ -32,6 +32,21 @@ function hasHomeSiteOnlyRestriction(charDef: CharacterCard): boolean {
 }
 
 /**
+ * Returns true if the player has an eliminated avatar (a character with
+ * `mind === null` in their outOfPlayPile). CoE rule 2.05 forbids revealing
+ * a replacement avatar in this case.
+ */
+function hasEliminatedAvatar(
+  state: GameState,
+  player: { readonly outOfPlayPile: readonly import('../../index.js').CardInstance[] },
+): boolean {
+  return player.outOfPlayPile.some(c => {
+    const def = state.cardPool[c.definitionId as string];
+    return isCharacterCard(def) && def.mind === null;
+  });
+}
+
+/**
  * Finds all sites where a character could potentially be played.
  *
  * Returns site instance IDs matching the character's homesite name or
@@ -185,6 +200,18 @@ export function playCharacterActions(
         action: { type: 'play-character', player: playerId, characterInstanceId: cardInstanceId, atSite: '' as CardInstanceId, controlledBy: 'general' },
         viable: false,
         reason: `${charName}: unique character already in play`,
+      });
+      continue;
+    }
+
+    // Rule 2.I.5 (CoE rule 2.05): a player whose avatar has been eliminated
+    // cannot reveal another avatar.
+    if (isAvatar && hasEliminatedAvatar(state, player)) {
+      logDetail(`  → blocked: ${charName} is an avatar and this player already has an eliminated avatar`);
+      results.push({
+        action: { type: 'play-character', player: playerId, characterInstanceId: cardInstanceId, atSite: '' as CardInstanceId, controlledBy: 'general' },
+        viable: false,
+        reason: `${charName}: cannot reveal another avatar after one was eliminated`,
       });
       continue;
     }

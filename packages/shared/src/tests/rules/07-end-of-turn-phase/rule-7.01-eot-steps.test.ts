@@ -16,8 +16,124 @@
  * Ending the Turn, Step 3) The resource player signals the end of the turn. Actions with end-of-turn passive conditions are declared and resolved in an order chosen by the resource player. No other action can be taken during this step unless it is specifically allowed at the end of the turn (which does not include actions that may be taken during the end-of-turn phase generally).
  */
 
-import { describe, test } from 'vitest';
+import { describe, test, expect, beforeEach } from 'vitest';
+import {
+  buildTestState, resetMint, dispatch, viableActions,
+  PLAYER_1, PLAYER_2,
+  ARAGORN, BILBO, LEGOLAS,
+  DAGGER_OF_WESTERNESSE, SUN, CAVE_DRAKE,
+  RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
+  Phase, handCardId,
+} from '../../test-helpers.js';
+import { computeLegalActions } from '../../../index.js';
+import type { CardDefinitionId, EndOfTurnPhaseState } from '../../../index.js';
 
+function eotState(opts?: { p1Hand?: CardDefinitionId[]; p2Hand?: CardDefinitionId[]; p1Deck?: CardDefinitionId[]; p2Deck?: CardDefinitionId[] }) {
+  return buildTestState({
+    activePlayer: PLAYER_1,
+    phase: Phase.EndOfTurn,
+    players: [
+      {
+        id: PLAYER_1,
+        companies: [{ site: RIVENDELL, characters: [ARAGORN, BILBO] }],
+        hand: opts?.p1Hand ?? [],
+        siteDeck: [MORIA],
+        playDeck: opts?.p1Deck ?? [],
+      },
+      {
+        id: PLAYER_2,
+        companies: [{ site: LORIEN, characters: [LEGOLAS] }],
+        hand: opts?.p2Hand ?? [],
+        siteDeck: [MINAS_TIRITH],
+        playDeck: opts?.p2Deck ?? [],
+      },
+    ],
+  });
+}
 describe('Rule 7.01 — End-of-Turn Steps', () => {
-  test.todo('Step 1: either player may discard a card; Step 2: reset hands; Step 3: signal end, resolve passive conditions');
+  beforeEach(() => resetMint());
+
+  test('Step 1 (discard): either player may discard a card from their own hand or pass', () => {
+    // Both players hold one card each. The discard step offers each
+    // player one discard-card action per hand card plus a pass.
+    const state = eotState({ p1Hand: [SUN], p2Hand: [CAVE_DRAKE] });
+    expect((state.phaseState as EndOfTurnPhaseState).step).toBe('discard');
+
+    const p1Discards = viableActions(state, PLAYER_1, 'discard-card');
+    expect(p1Discards.map(a => (a.action as { cardInstanceId: string }).cardInstanceId))
+      .toEqual([state.players[0].hand[0].instanceId]);
+    expect(viableActions(state, PLAYER_1, 'pass')).toHaveLength(1);
+
+    // P2 may also discard their own card during step 1.
+    const p2Discards = viableActions(state, PLAYER_2, 'discard-card');
+    expect(p2Discards.map(a => (a.action as { cardInstanceId: string }).cardInstanceId))
+      .toEqual([state.players[1].hand[0].instanceId]);
+
+    // P1 cannot discard P2's hand card.
+    const p1AllDiscards = viableActions(state, PLAYER_1, 'discard-card').map(a => (a.action as { cardInstanceId: string }).cardInstanceId);
+    expect(p1AllDiscards).not.toContain(state.players[1].hand[0].instanceId);
+  });
+
+  test('Step 2 (reset-hand): a player above hand size must discard, below draws up', () => {
+    // P1 has 2 cards in hand and a single-card play deck. After both pass
+    // step 1 we land in reset-hand. P1 (hand 2 < base 8, deck 1) is offered
+    // a draw action. P2 (hand 0, deck 1) is also offered a draw action.
+    const state = eotState({
+      p1Hand: [SUN, DAGGER_OF_WESTERNESSE],
+      p1Deck: [DAGGER_OF_WESTERNESSE],
+      p2Deck: [DAGGER_OF_WESTERNESSE],
+    });
+
+    const afterP1Pass = dispatch(state, { type: 'pass', player: PLAYER_1 });
+    const afterP2Pass = dispatch(afterP1Pass, { type: 'pass', player: PLAYER_2 });
+    expect((afterP2Pass.phaseState as EndOfTurnPhaseState).step).toBe('reset-hand');
+
+    const p1Draws = viableActions(afterP2Pass, PLAYER_1, 'draw-cards');
+    expect(p1Draws).toHaveLength(1);
+    expect((p1Draws[0].action as { count: number }).count).toBe(6); // 8 - 2
+
+    const p2Draws = viableActions(afterP2Pass, PLAYER_2, 'draw-cards');
+    expect(p2Draws).toHaveLength(1);
+    expect((p2Draws[0].action as { count: number }).count).toBe(8);
+  });
+
+  test('Step 3 (signal-end): only the resource player may pass; hazard player has no actions', () => {
+    // Drive the engine through steps 1 and 2 by passing on each player's
+    // turn. With empty hands and empty decks, both players pass straight
+    // through reset-hand and arrive at signal-end.
+    const state = eotState();
+    const s1 = dispatch(state, { type: 'pass', player: PLAYER_1 });
+    const s2 = dispatch(s1, { type: 'pass', player: PLAYER_2 });
+    const s3 = dispatch(s2, { type: 'pass', player: PLAYER_1 });
+    const s4 = dispatch(s3, { type: 'pass', player: PLAYER_2 });
+    expect((s4.phaseState as EndOfTurnPhaseState).step).toBe('signal-end');
+
+    // Resource player (PLAYER_1) may pass to end the turn.
+    const p1Viable = computeLegalActions(s4, PLAYER_1).filter(a => a.viable);
+    expect(p1Viable.some(a => a.action.type === 'pass')).toBe(true);
+
+    // Hazard player has no actions during signal-end.
+    const p2Viable = computeLegalActions(s4, PLAYER_2).filter(a => a.viable);
+    expect(p2Viable).toHaveLength(0);
+
+    // Passing the signal-end ends the turn (advances to next turn's untap).
+    const next = dispatch(s4, { type: 'pass', player: PLAYER_1 });
+    expect(next.phaseState.phase).toBe(Phase.Untap);
+  });
+
+  test('Discarding the last card in hand still allows passing the discard step', () => {
+    // P1 has a single card. After discarding it, the only remaining
+    // legal action is pass — the engine doesn't get stuck when hand
+    // becomes empty mid-step.
+    const state = eotState({ p1Hand: [SUN] });
+    const sunId = handCardId(state, 0);
+
+    const afterDiscard = dispatch(state, { type: 'discard-card', player: PLAYER_1, cardInstanceId: sunId });
+    expect(afterDiscard.players[0].discardPile.some(c => c.instanceId === sunId)).toBe(true);
+
+    // P1 has now acted in step 1 (discardDone[0] = true) and is offered
+    // no further actions until P2 passes too.
+    const p1AfterAct = computeLegalActions(afterDiscard, PLAYER_1).filter(a => a.viable);
+    expect(p1AfterAct).toHaveLength(0);
+  });
 });

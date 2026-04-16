@@ -15,7 +15,7 @@
 
 import { describe, test, expect, beforeEach } from 'vitest';
 import {
-  buildTestState, resetMint, dispatch, Phase,
+  buildTestState, resetMint, dispatch, makeMHState, Phase,
   PLAYER_1, PLAYER_2,
   GANDALF, LEGOLAS,
   DAGGER_OF_WESTERNESSE, CAVE_DRAKE, ORC_PATROL, BARROW_WIGHT,
@@ -193,7 +193,56 @@ describe('Rule 2.08 — Play Deck Exhaustion', () => {
     expect(p1.playDeck).toHaveLength(3);
   });
 
-  test.todo('Exhaustion happens immediately mid-draw and cannot be responded to');
+  test('Exhaustion mid-draw forces deck-exhaust as the only action and offers no chain', () => {
+    // In the M/H draw-cards step, the resource player must draw 2 cards
+    // but their playDeck has only 1. After drawing the first card the deck
+    // is empty; the only legal action is `deck-exhaust`. No chain priority
+    // is offered (state.chain is null), and the opponent gets no actions
+    // — confirming the reshuffle "cannot be responded to."
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.MovementHazard,
+      players: [
+        {
+          id: PLAYER_1,
+          hand: [],
+          siteDeck: [MORIA],
+          playDeck: [DAGGER_OF_WESTERNESSE],
+          discardPile: [CAVE_DRAKE, ORC_PATROL, BARROW_WIGHT],
+          companies: [{ site: RIVENDELL, characters: [GANDALF] }],
+        },
+        {
+          id: PLAYER_2,
+          hand: [],
+          siteDeck: [MINAS_TIRITH],
+          playDeck: [DAGGER_OF_WESTERNESSE],
+          companies: [{ site: LORIEN, characters: [LEGOLAS] }],
+        },
+      ],
+    });
+
+    // Force the M/H phase into draw-cards step, with P1 needing 2 draws.
+    const drawState = {
+      ...state,
+      phaseState: makeMHState({
+        step: 'draw-cards',
+        resourceDrawMax: 2,
+        hazardDrawMax: 2,
+        siteRevealed: true,
+      }),
+    };
+
+    // Draw the only card in P1's deck — leaves playDeck empty mid-draw.
+    const afterDraw = dispatch(drawState, { type: 'draw-cards', player: PLAYER_1, count: 1 });
+
+    // The reshuffle must be the only thing P1 can do now: exactly one
+    // viable action of type `deck-exhaust`.
+    const p1Actions = computeLegalActions(afterDraw, PLAYER_1).filter(a => a.viable);
+    expect(p1Actions.map(a => a.action.type)).toEqual(['deck-exhaust']);
+
+    // No chain is open: nothing for either player to respond to.
+    expect(afterDraw.chain).toBeNull();
+  });
 
   test('Deck exhaustion count increments on each exhaustion', () => {
     const state = buildTestState({
