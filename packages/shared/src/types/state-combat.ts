@@ -71,6 +71,12 @@ export interface StrikeAssignment {
    * wounded while dodging (e.g. -1 for Dodge).
    */
   readonly dodgeBodyPenalty?: number;
+  /**
+   * Number of untapped characters/allies in the same company who have
+   * tapped to support this strike (CoE rule 3.iv.4). Each adds +1 to the
+   * facing character's prowess for this strike resolution only.
+   */
+  readonly supportCount?: number;
 }
 
 /**
