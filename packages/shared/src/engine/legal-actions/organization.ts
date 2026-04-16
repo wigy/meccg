@@ -24,7 +24,7 @@ import type {
   PlayerState,
 } from '../../index.js';
 import { isCharacterCard, CardStatus } from '../../index.js';
-import type { PlayTargetEffect, PlayOptionEffect } from '../../types/effects.js';
+import type { PlayTargetEffect, PlayOptionEffect, Condition } from '../../types/effects.js';
 import { matchesCondition } from '../../effects/condition-matcher.js';
 import { logDetail, logHeading } from './log.js';
 import { resolveDef, collectCharacterEffects, resolveStatModifiers } from '../effects/index.js';
@@ -327,15 +327,7 @@ export function organizationActions(state: GameState, playerId: PlayerId): Evalu
     const discardInPlay = def.effects?.find(e => e.type === 'discard-in-play');
     let discardTargetIds: CardInstanceId[] | null = null;
     if (discardInPlay) {
-      discardTargetIds = [];
-      for (const p of state.players) {
-        for (const c of p.cardsInPlay) {
-          const cDef = state.cardPool[c.definitionId as string];
-          if (cDef && matchesCondition(discardInPlay.filter, cDef as unknown as Record<string, unknown>)) {
-            discardTargetIds.push(c.instanceId);
-          }
-        }
-      }
+      discardTargetIds = collectDiscardInPlayTargets(state, discardInPlay.filter);
       if (discardTargetIds.length === 0) {
         logDetail(`${def.name}: no eligible discard-in-play target — not playable`);
         actions.push({
@@ -854,6 +846,40 @@ export function endOfOrgEligibility(
  */
 export function getPlayTargetEffect(def: HeroResourceEventCard): PlayTargetEffect | undefined {
   return def.effects?.find((e): e is PlayTargetEffect => e.type === 'play-target');
+}
+
+/**
+ * Collects all in-play card instance IDs across both players that match
+ * the supplied `discard-in-play` filter. Searches both general in-play
+ * cards ({@link PlayerState.cardsInPlay}, e.g. Eye of Sauron long-events,
+ * non-attached permanent-events) and hazard cards attached to characters
+ * (`character.hazards`, e.g. Foolish Words, Lure of the Senses). Without
+ * the character-hazard pass, cards like Marvels Told would fail to
+ * offer any attached hazard permanent-events as discard targets.
+ */
+export function collectDiscardInPlayTargets(
+  state: GameState,
+  filter: Condition,
+): CardInstanceId[] {
+  const targets: CardInstanceId[] = [];
+  for (const p of state.players) {
+    for (const c of p.cardsInPlay) {
+      const cDef = state.cardPool[c.definitionId as string];
+      if (cDef && matchesCondition(filter, cDef as unknown as Record<string, unknown>)) {
+        targets.push(c.instanceId);
+      }
+    }
+    for (const charId of Object.keys(p.characters)) {
+      const char = p.characters[charId];
+      for (const haz of char.hazards) {
+        const hDef = state.cardPool[haz.definitionId as string];
+        if (hDef && matchesCondition(filter, hDef as unknown as Record<string, unknown>)) {
+          targets.push(haz.instanceId);
+        }
+      }
+    }
+  }
+  return targets;
 }
 
 /**
