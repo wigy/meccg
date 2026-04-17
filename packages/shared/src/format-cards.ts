@@ -32,7 +32,7 @@ export function formatCardName(
 /**
  * Resolves an instance ID through the lookup chain and formats
  * the card name in color, followed by the instance ID in braces
- * so the user can reference it in actions. E.g. "Aragorn II {i-3}".
+ * so the user can reference it in actions. E.g. "Aragorn II {p1-3}".
  * Unknown instances render as dim grey.
  */
 export function formatInstanceName(instId: CardInstanceId, defOf: CardLookup, instOf: InstanceLookup): string {

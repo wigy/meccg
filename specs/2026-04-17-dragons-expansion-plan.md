@@ -99,6 +99,8 @@ Multiple manifestations of the same Dragon may be in play simultaneously.
 
 Only the **opponent** of the player who played a manifestation may earn MPs from defeating it. If the player who played it defeats their own manifestation, it is removed and no MPs are awarded.
 
+**Attribution mechanism.** "Who played it" is derivable directly from the manifestation's `CardInstanceId` via `ownerOf(instanceId)` (defined in `types/state.ts`). All instance IDs are minted as `<playerId>-<counter>` (see `engine/init.ts`), so deck-ownership — which in MECCG is the same as "who played it", since deck-ownership never transfers — is encoded in the prefix and resolves in O(1) without any state lookup or extra field on `CardInstance`. The defeat reducer awards MPs iff `ownerOf(manifestation.instanceId) !== defeater.playerId`.
+
 ### 4.2 Defeat cascade
 
 When any manifestation of a Dragon is defeated, or otherwise removed from play:
@@ -116,9 +118,10 @@ Add to `GameState`:
 ```ts
 dragonState: Record<DragonId, {
   status: "active" | "defeated";  // defeated blocks replays + removes lair auto-attack
-  playedBy?: PlayerIndex;         // who last played any manifestation (MP attribution)
 }>
 ```
+
+No `playedBy` field is needed — per-manifestation attribution is recovered from the instance ID via `ownerOf()` (see §4.1).
 
 All manifestation resolution paths must:
 

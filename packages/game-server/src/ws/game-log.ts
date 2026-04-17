@@ -92,7 +92,7 @@ export class GameLog {
    */
   writeStaticData(cardPool: Record<string, unknown>, state: { players: readonly { hand: readonly { instanceId: string; definitionId: string }[]; playDeck: readonly { instanceId: string; definitionId: string }[]; discardPile: readonly { instanceId: string; definitionId: string }[]; siteDeck: readonly { instanceId: string; definitionId: string }[]; siteDiscardPile: readonly { instanceId: string; definitionId: string }[]; sideboard: readonly { instanceId: string; definitionId: string }[]; killPile: readonly { instanceId: string; definitionId: string }[]; outOfPlayPile: readonly { instanceId: string; definitionId: string }[]; characters: Record<string, { instanceId: string; definitionId: string; items: readonly { instanceId: string; definitionId: string }[]; allies: readonly { instanceId: string; definitionId: string }[] }>; companies: readonly { currentSite: { instanceId: string; definitionId: string } | null }[]; cardsInPlay: readonly { instanceId: string; definitionId: string }[] }[] }): void {
     if (!this.currentGameId) return;
-    // Compact instance map: { "i-0": "tw-156", ... }
+    // Compact instance map: { "p1-0": "tw-156", "p2-3": "le-24", ... }
     const instances: Record<string, string> = {};
     const addCard = (card: { instanceId: string; definitionId: string }) => {
       instances[card.instanceId] = card.definitionId;
