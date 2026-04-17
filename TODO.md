@@ -9,6 +9,12 @@ FEATS
 
 Full keyboard support. Shift or Ctrl will reveal shortcuts. Use numbers and a-z to equal hand cards.
 
+Study our tests and improve the readability of our tests:
+- Do not write helpers to test files.
+- Avoid long chains of object access when checking values. Write a helper with descriptive name.
+- See if you can take out mystery numbers from helper calls, i.e. typically refering to index of some array. Plain numbers are difficult to read.
+- Prefer single combined test if there are two tests where one is essentially the same setup excatly than the other test.
+
 EPICS
 -----
 
