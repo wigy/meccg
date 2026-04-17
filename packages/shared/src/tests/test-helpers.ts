@@ -825,6 +825,67 @@ export function attachAllyToChar(
   return { ...state, players: [p0, p1] as unknown as typeof state.players };
 }
 
+/**
+ * Build a minimal two-player Organization-phase state with stock
+ * companies — Aragorn+Bilbo at Rivendell vs Legolas at Lorien — and
+ * empty hands/decks. Tests that don't care about the company shape but
+ * need *some* valid state to layer assertions on top of should use this.
+ */
+export function buildSimpleTwoPlayerState(activePlayer: PlayerId = PLAYER_1): GameState {
+  return buildTestState({
+    activePlayer,
+    phase: Phase.Organization,
+    players: [
+      {
+        id: PLAYER_1,
+        companies: [{ site: RIVENDELL, characters: [ARAGORN, BILBO] }],
+        hand: [],
+        siteDeck: [MINAS_TIRITH],
+      },
+      {
+        id: PLAYER_2,
+        companies: [{ site: LORIEN, characters: [LEGOLAS] }],
+        hand: [],
+        siteDeck: [RIVENDELL],
+      },
+    ],
+  });
+}
+
+/** Push a card instance onto a player's killPile. */
+export function addToKillPile(state: GameState, playerIdx: 0 | 1, card: CardInstance): GameState {
+  const updated = { ...state.players[playerIdx], killPile: [...state.players[playerIdx].killPile, card] };
+  const players = playerIdx === 0 ? [updated, state.players[1]] : [state.players[0], updated];
+  return { ...state, players: players as unknown as typeof state.players };
+}
+
+/** Push a card instance onto a player's outOfPlayPile (the eliminated pile). */
+export function addToOutOfPlayPile(state: GameState, playerIdx: 0 | 1, card: CardInstance): GameState {
+  const updated = { ...state.players[playerIdx], outOfPlayPile: [...state.players[playerIdx].outOfPlayPile, card] };
+  const players = playerIdx === 0 ? [updated, state.players[1]] : [state.players[0], updated];
+  return { ...state, players: players as unknown as typeof state.players };
+}
+
+/**
+ * Append a CardInPlay entry to a player's `cardsInPlay` (e.g. a
+ * permanent event). Mints a fresh `<playerId>-<n>` instance ID so
+ * {@link ownerOf} resolves to the owning player. The counter starts
+ * high (1000) to avoid colliding with IDs produced during initial state
+ * setup.
+ */
+export function addCardInPlay(state: GameState, ownerIdx: 0 | 1, defId: CardDefinitionId): GameState {
+  const ownerId = state.players[ownerIdx].id;
+  const counter = 1000 + state.players[ownerIdx].cardsInPlay.length;
+  const card: CardInPlay = {
+    instanceId: `${ownerId as string}-${counter}` as CardInstanceId,
+    definitionId: defId,
+    status: CardStatus.Untapped,
+  };
+  const updated = { ...state.players[ownerIdx], cardsInPlay: [...state.players[ownerIdx].cardsInPlay, card] };
+  const players = ownerIdx === 0 ? [updated, state.players[1]] : [state.players[0], updated];
+  return { ...state, players: players as unknown as typeof state.players };
+}
+
 /** Attach an item (or permanent resource event) to a character and return the updated GameState. */
 export function attachItemToChar(
   state: GameState,
