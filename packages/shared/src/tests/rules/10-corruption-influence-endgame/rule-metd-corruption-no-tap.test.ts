@@ -21,21 +21,10 @@ import {
   findCharInstanceId,
   PLAYER_1,
   resetMint,
+  setCharStatus,
 } from '../../test-helpers.js';
 import { computeLegalActions } from '../../../index.js';
 import type { ActivateGrantedAction } from '../../../index.js';
-
-function setCharStatus(state: ReturnType<typeof buildSimpleTwoPlayerState>, charId: string, status: CardStatus) {
-  const player = state.players[0];
-  const char = player.characters[charId];
-  return {
-    ...state,
-    players: [
-      { ...player, characters: { ...player.characters, [charId]: { ...char, status } } },
-      state.players[1],
-    ] as typeof state.players,
-  };
-}
 
 describe('METD §7 / Rule 10.08 — Corruption no-tap variant', () => {
   beforeEach(() => resetMint());
@@ -62,8 +51,8 @@ describe('METD §7 / Rule 10.08 — Corruption no-tap variant', () => {
 
   test('no-tap variant is offered even when the character is already tapped', () => {
     let state = attachHazardToChar(buildSimpleTwoPlayerState(), 0, ARAGORN, ALONE_AND_UNADVISED);
+    state = setCharStatus(state, 0, ARAGORN, CardStatus.Tapped);
     const aragornId = findCharInstanceId(state, 0, ARAGORN);
-    state = setCharStatus(state, aragornId as string, CardStatus.Tapped);
     const acts = computeLegalActions(state, PLAYER_1)
       .map(ea => ea.action)
       .filter((a): a is ActivateGrantedAction =>

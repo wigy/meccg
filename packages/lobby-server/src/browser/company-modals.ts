@@ -656,7 +656,16 @@ export function showGrantedActionTooltip(
   for (const action of actions) {
     const btn = document.createElement('button');
     btn.className = 'char-action-tooltip__btn';
-    btn.textContent = GRANTED_ACTION_LABELS[action.actionId] ?? action.actionId;
+    // METD §7 / rule 10.08: corruption removal has two variants for the
+    // same actionId — tap-and-roll (standard) vs no-tap-at-minus-3.
+    // Distinguish them by the action's `noTap` flag; otherwise fall back
+    // to the action-id label.
+    const baseLabel = GRANTED_ACTION_LABELS[action.actionId] ?? action.actionId;
+    btn.textContent = action.noTap === true
+      ? `${baseLabel} (no tap, -3)`
+      : action.actionId === 'remove-self-on-roll'
+        ? `${baseLabel} (tap)`
+        : baseLabel;
     btn.onclick = (e) => {
       e.stopPropagation();
       dismissTooltip();
