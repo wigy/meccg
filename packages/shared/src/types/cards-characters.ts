@@ -11,6 +11,7 @@
 import type {
   Alignment,
   CardDefinitionId,
+  Keyword,
   Race,
   Skill,
   MarshallingCategory,
@@ -66,7 +67,7 @@ export interface HeroCharacterCard {
   /** The site name where this character can be played from hand into a company. */
   readonly homesite: string;
   /** Game keywords (e.g. "environment", "weapon", "armor") that affect card interactions. */
-  readonly keywords?: readonly string[];
+  readonly keywords?: readonly Keyword[];
   /** Declarative effects describing this character's special abilities. */
   readonly effects?: readonly CardEffect[];
   /** Flavor/rules text describing special abilities. */
@@ -122,7 +123,7 @@ export interface MinionCharacterCard {
   /** The site name where this character can be played from hand into a company. */
   readonly homesite: string;
   /** Game keywords (e.g. "environment", "weapon", "armor") that affect card interactions. */
-  readonly keywords?: readonly string[];
+  readonly keywords?: readonly Keyword[];
   /** Declarative effects describing this character's special abilities. */
   readonly effects?: readonly CardEffect[];
   /** Flavor/rules text describing special abilities. */

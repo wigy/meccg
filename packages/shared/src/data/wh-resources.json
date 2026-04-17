@@ -30,7 +30,7 @@
     "eventType": "permanent",
     "corruptionPoints": 2,
     "keywords": [
-      "Light Enchantment"
+      "light-enchantment"
     ],
     "effects": [
       { "type": "play-target", "target": "character", "filter": { "target.skills": { "$includes": "ranger" } } },

@@ -159,6 +159,47 @@ export enum CardStatus {
 }
 
 /**
+ * Recognized card-data keywords. Each entry is a tag used by card text and
+ * (for some) by engine rules. Keep this union closed: an unrecognized
+ * keyword string in card data is a typo, not a valid extension.
+ *
+ * **Engine-consumed keywords** (rules logic checks these):
+ * - `weapon`, `armor`, `shield`, `helmet` — item slots; the bearer may use
+ *   the effects of only one item per slot at a time (rule 9.15).
+ * - `environment` — hazard events with this tag follow special play timing.
+ * - `spell` — spell-tagged events have separate cancellation/discard timing.
+ * - `hoard` — hoard items (METD §3) may only be played at hoard sites.
+ *
+ * **Tag-only keywords** (used by card text matchers; no engine rule beyond
+ * filterability):
+ * - `palantir` — palantíri item subgrouping.
+ * - `ritual` — METD ritual-tagged events.
+ * - `light-enchantment`, `dark-enchantment` — METD enchantment categories.
+ * - `Leader`, `Uruk-hai`, `Olog-hai` — minion character subgroupings.
+ *
+ * **Legacy / superseded:**
+ * - `dragon-manifestation` — superseded by the per-card `manifestId` tag
+ *   (see Dragons expansion plan §4.3); retained for compatibility while
+ *   manifestation cards still carry it.
+ */
+export type Keyword =
+  | 'weapon'
+  | 'armor'
+  | 'shield'
+  | 'helmet'
+  | 'environment'
+  | 'spell'
+  | 'hoard'
+  | 'palantir'
+  | 'ritual'
+  | 'light-enchantment'
+  | 'dark-enchantment'
+  | 'Leader'
+  | 'Uruk-hai'
+  | 'Olog-hai'
+  | 'dragon-manifestation';
+
+/**
  * A card reference carrying both its instance ID and definition ID.
  * Used everywhere a card is referenced in game state, phase state, and views.
  * For hidden cards the definition ID is `UNKNOWN_CARD` or `UNKNOWN_SITE`.
