@@ -52,16 +52,16 @@ describe('METD §4 — Manifestation tagging', () => {
 describe('METD §4 — isManifestationDefeated', () => {
   test('returns false initially (nothing in either eliminated pile)', () => {
     const state = buildSimpleTwoPlayerState();
-    expect(isManifestationDefeated(state, SMAUG as ManifestId)).toBe(false);
-    expect(isManifestationDefeated(state, EARCARAXE as ManifestId)).toBe(false);
+    expect(isManifestationDefeated(state, SMAUG)).toBe(false);
+    expect(isManifestationDefeated(state, EARCARAXE)).toBe(false);
   });
 
   test('returns true once any chain card lands in either eliminated pile', () => {
     const ahuntInst: CardInstance = { instanceId: mint(), definitionId: SMAUG_AHUNT };
     const state = addToOutOfPlayPile(buildSimpleTwoPlayerState(), 1, ahuntInst);
-    expect(isManifestationDefeated(state, SMAUG as ManifestId)).toBe(true);
+    expect(isManifestationDefeated(state, SMAUG)).toBe(true);
     // Other chains unaffected.
-    expect(isManifestationDefeated(state, EARCARAXE as ManifestId)).toBe(false);
+    expect(isManifestationDefeated(state, EARCARAXE)).toBe(false);
   });
 });
 
