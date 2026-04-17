@@ -10,6 +10,7 @@
 import type {
   CardDefinitionId,
   Keyword,
+  ManifestId,
   Race,
   RegionType,
   SiteType,
@@ -71,6 +72,12 @@ export interface CreatureCard {
   readonly keyedTo: readonly CreatureKeyRestriction[];
   /** Game keywords (e.g. "environment", "weapon", "armor") that affect card interactions. */
   readonly keywords?: readonly Keyword[];
+  /**
+   * If this creature is a manifestation in a chain (Dragons: basic / ahunt /
+   * at-home), the chain id — conventionally the basic form's definition id.
+   * Used to derive cascade state without a separate top-level field.
+   */
+  readonly manifestId?: ManifestId;
   /** Declarative effects describing this creature's special combat abilities. */
   readonly effects?: readonly CardEffect[];
   /** Flavor/rules text describing special abilities or attack modifiers. */
@@ -101,6 +108,12 @@ export interface HazardEventCard {
   readonly eventType: 'short' | 'long' | 'permanent';
   /** Game keywords (e.g. "environment") that affect card interactions. */
   readonly keywords?: readonly Keyword[];
+  /**
+   * If this event is a manifestation (Dragon Ahunt / Dragon At-Home), the
+   * chain id pointing to the basic creature's definition id. All cards in
+   * one Dragon's chain carry the same value.
+   */
+  readonly manifestId?: ManifestId;
   /** Declarative effects describing this event's abilities. */
   readonly effects?: readonly CardEffect[];
   /** Flavor/rules text describing the event's effect. */

@@ -43,7 +43,8 @@
       }
     ],
     "text": "Unique. Any company moving in Andrast Coast, Bay of Belfalas, Eriadoran Coast, and/or Andrast faces one Dragon attack (considered a hazard creature attack) — 3 strikes at 15/6 (attacker chooses defending characters). If Doors of Night is in play, this attack also affects: Old Pûkel-land, Enedhwaith, Anfalas, and any Coastal Sea region (or region type).",
-    "certified": "2026-04-14"
+    "certified": "2026-04-14",
+    "manifestId": "td-20"
   },
   {
     "cardType": "hazard-event",
@@ -108,7 +109,8 @@
     "unique": true,
     "eventType": "long",
     "effects": [],
-    "text": "Unique. Any company moving in Withered Heath, Northern Rhovanion, Iron Hills, and/or Grey Mountain Narrows faces one Dragon attack (considered a hazard creature attack) — 4 strikes at 16/7.If Doors of Night is in play, this attack also affects: Southern Rhovanion, Dorwinion, Heart of Mirkwood, and Woodland Realm."
+    "text": "Unique. Any company moving in Withered Heath, Northern Rhovanion, Iron Hills, and/or Grey Mountain Narrows faces one Dragon attack (considered a hazard creature attack) — 4 strikes at 16/7.If Doors of Night is in play, this attack also affects: Southern Rhovanion, Dorwinion, Heart of Mirkwood, and Woodland Realm.",
+    "manifestId": "td-36"
   },
   {
     "cardType": "hazard-event",
@@ -121,7 +123,8 @@
       "dragon-manifestation"
     ],
     "effects": [],
-    "text": "Unique. Any company moving in Withered Heath, Northern Rhovanion, Iron Hills, and/or Grey Mountain Narrows faces one Dragon attack (considered a hazard creature attack) — 3 strikes at 13/8. If Doors of Night is in play, this attack also affects: Southern Rhovanion, Dorwinion, Heart of Mirkwood, and Woodland Realm."
+    "text": "Unique. Any company moving in Withered Heath, Northern Rhovanion, Iron Hills, and/or Grey Mountain Narrows faces one Dragon attack (considered a hazard creature attack) — 3 strikes at 13/8. If Doors of Night is in play, this attack also affects: Southern Rhovanion, Dorwinion, Heart of Mirkwood, and Woodland Realm.",
+    "manifestId": "tw-3"
   },
   {
     "cardType": "hazard-event",
@@ -134,7 +137,8 @@
       "dragon-manifestation"
     ],
     "effects": [],
-    "text": "Unique. Any company moving in Withered Heath, Gundabad, Anduin Vales, and/or Grey Mountain Narrows faces one Dragon attack (considered a hazard creature attack) — 3 strikes at 12/6 (attacker chooses defending characters). If Doors of Night is in play, this attack also affects: Northern Rhovanion, Iron Hills, Southern Rhovanion, and Angmar."
+    "text": "Unique. Any company moving in Withered Heath, Gundabad, Anduin Vales, and/or Grey Mountain Narrows faces one Dragon attack (considered a hazard creature attack) — 3 strikes at 12/6 (attacker chooses defending characters). If Doors of Night is in play, this attack also affects: Northern Rhovanion, Iron Hills, Southern Rhovanion, and Angmar.",
+    "manifestId": "td-3"
   },
   {
     "cardType": "hazard-event",
@@ -147,7 +151,8 @@
       "dragon-manifestation"
     ],
     "effects": [],
-    "text": "Unique. Any company moving in Withered Heath, Northern Rhovanion, Iron Hills, and/or Grey Mountain Narrows faces one Dragon attack (considered a hazard creature attack) — 4 strikes at 11/7 (attacker chooses defending characters). If Doors of Night is in play, this attack also affects: Brown Lands, Southern Rhovanion, Dorwinion, Dagorlad, and Horse Plains."
+    "text": "Unique. Any company moving in Withered Heath, Northern Rhovanion, Iron Hills, and/or Grey Mountain Narrows faces one Dragon attack (considered a hazard creature attack) — 4 strikes at 11/7 (attacker chooses defending characters). If Doors of Night is in play, this attack also affects: Brown Lands, Southern Rhovanion, Dorwinion, Dagorlad, and Horse Plains.",
+    "manifestId": "tw-26"
   },
   {
     "cardType": "hazard-event",
@@ -160,7 +165,8 @@
       "dragon-manifestation"
     ],
     "effects": [],
-    "text": "Unique. Any company moving in Withered Heath, Northern Rhovanion, Iron Hills, and/or Grey Mountain Narrows faces one Dragon attack (considered a hazard creature attack) — 3 strikes at 14/7. If Doors of Night is in play, this attack also affects: Southern Rhovanion, Dorwinion, Heart of Mirkwood, and Woodland Realm."
+    "text": "Unique. Any company moving in Withered Heath, Northern Rhovanion, Iron Hills, and/or Grey Mountain Narrows faces one Dragon attack (considered a hazard creature attack) — 3 strikes at 14/7. If Doors of Night is in play, this attack also affects: Southern Rhovanion, Dorwinion, Heart of Mirkwood, and Woodland Realm.",
+    "manifestId": "tw-48"
   },
   {
     "cardType": "hazard-event",
@@ -173,7 +179,8 @@
       "dragon-manifestation"
     ],
     "effects": [],
-    "text": "Unique. Any company moving in Withered Heath, Woodland Realm, Northern Rhovanion, and/or Grey Mountain Narrows faces one Dragon attack (considered a hazard creature attack) — 4 strikes at 13/8. If Doors of Night is in play, this attack also affects: Anduin Vales, Western Mirkwood, Heart of Mirkwood, and Gundabad."
+    "text": "Unique. Any company moving in Withered Heath, Woodland Realm, Northern Rhovanion, and/or Grey Mountain Narrows faces one Dragon attack (considered a hazard creature attack) — 4 strikes at 13/8. If Doors of Night is in play, this attack also affects: Anduin Vales, Western Mirkwood, Heart of Mirkwood, and Gundabad.",
+    "manifestId": "td-60"
   },
   {
     "cardType": "hazard-event",
@@ -186,7 +193,8 @@
       "dragon-manifestation"
     ],
     "effects": [],
-    "text": "Unique. Any company moving in Forochel, Angmar, and/or Gundabad faces one Dragon attack (considered a hazard creature attack) — 4 strikes at 10/7 (attacker chooses defending characters). If Doors of Night is in play, this attack also affects: Númeriador, Arthedain, and Rhudaur."
+    "text": "Unique. Any company moving in Forochel, Angmar, and/or Gundabad faces one Dragon attack (considered a hazard creature attack) — 4 strikes at 10/7 (attacker chooses defending characters). If Doors of Night is in play, this attack also affects: Númeriador, Arthedain, and Rhudaur.",
+    "manifestId": "td-63"
   },
   {
     "cardType": "hazard-event",
@@ -199,7 +207,8 @@
       "dragon-manifestation"
     ],
     "effects": [],
-    "text": "Unique. Any company moving in Withered Heath, Northern Rhovanion, Iron Hills, and/or Grey Mountain Narrows faces one Dragon attack (considered a hazard creature attack) — 3 strikes at 15/7 (attacker chooses defending characters). If Doors of Night is in play, this attack also affects: Brown Lands, Southern Rhovanion, Dorwinion, Dagorlad, and Horse Plains."
+    "text": "Unique. Any company moving in Withered Heath, Northern Rhovanion, Iron Hills, and/or Grey Mountain Narrows faces one Dragon attack (considered a hazard creature attack) — 3 strikes at 15/7 (attacker chooses defending characters). If Doors of Night is in play, this attack also affects: Brown Lands, Southern Rhovanion, Dorwinion, Dagorlad, and Horse Plains.",
+    "manifestId": "tw-90"
   },
   {
     "cardType": "hazard-event",
@@ -212,7 +221,8 @@
       "dragon-manifestation"
     ],
     "effects": [],
-    "text": "Unique. Unless Agburanar Ahunt is in play, Caves of Ûlund has an additional automatic-attack: Dragon — 2 strikes at 16/9. In addition, one unique Dragon manifestation played against each company does not count against the hazard limit."
+    "text": "Unique. Unless Agburanar Ahunt is in play, Caves of Ûlund has an additional automatic-attack: Dragon — 2 strikes at 16/9. In addition, one unique Dragon manifestation played against each company does not count against the hazard limit.",
+    "manifestId": "tw-3"
   },
   {
     "cardType": "hazard-event",
@@ -225,7 +235,8 @@
       "dragon-manifestation"
     ],
     "effects": [],
-    "text": "Unique. Unless Bairanax Ahunt is in play, Ovir Hollow has an additional automatic-attack: Dragon — 2 strikes at 15/7. In addition, the hazard limit against any company facing one or more animal hazard creature attacks is increased by one."
+    "text": "Unique. Unless Bairanax Ahunt is in play, Ovir Hollow has an additional automatic-attack: Dragon — 2 strikes at 15/7. In addition, the hazard limit against any company facing one or more animal hazard creature attacks is increased by one.",
+    "manifestId": "td-3"
   },
   {
     "cardType": "hazard-event",
@@ -238,7 +249,8 @@
       "dragon-manifestation"
     ],
     "effects": [],
-    "text": "Unique. Unless Daelomin Ahunt is in play, Dancing Spire has an additional automatic-attack: Dragon — 3 strikes at 14/8. In addition, you may discard this card from play during opponent’s movement/hazard phase (not counting against the hazard limit) to increase the hazard limit against one company by two."
+    "text": "Unique. Unless Daelomin Ahunt is in play, Dancing Spire has an additional automatic-attack: Dragon — 3 strikes at 14/8. In addition, you may discard this card from play during opponent’s movement/hazard phase (not counting against the hazard limit) to increase the hazard limit against one company by two.",
+    "manifestId": "tw-26"
   },
   {
     "cardType": "hazard-event",
@@ -251,7 +263,8 @@
       "dragon-manifestation"
     ],
     "effects": [],
-    "text": "Unique. Unless Eärcaraxë Ahunt is in play, Isle of the Ulond has an additional automatic-attack: Dragon — 2 strikes at 18/7 (attacker chooses defending characters). In addition, the hazard limit against any moving company with a Coastal Sea [{c}] region in its site path is increased by one."
+    "text": "Unique. Unless Eärcaraxë Ahunt is in play, Isle of the Ulond has an additional automatic-attack: Dragon — 2 strikes at 18/7 (attacker chooses defending characters). In addition, the hazard limit against any moving company with a Coastal Sea [{c}] region in its site path is increased by one.",
+    "manifestId": "td-20"
   },
   {
     "cardType": "hazard-event",
@@ -264,7 +277,8 @@
       "dragon-manifestation"
     ],
     "effects": [],
-    "text": "Unique. Unless Itangast Ahunt is in play, Gold Hill has an additional automatic-attack: Dragon — 3 strikes at 19/8. In addition, each greater item gives an additional corruption point."
+    "text": "Unique. Unless Itangast Ahunt is in play, Gold Hill has an additional automatic-attack: Dragon — 3 strikes at 19/8. In addition, each greater item gives an additional corruption point.",
+    "manifestId": "td-36"
   },
   {
     "cardType": "hazard-event",
@@ -277,7 +291,8 @@
       "dragon-manifestation"
     ],
     "effects": [],
-    "text": "Unique. Unless Leucaruth Ahunt is in play, Irerock has an additional automatic-attack: Dragon — 2 strikes at 17/8. In addition, only one unique Dragon manifestation may be played per turn."
+    "text": "Unique. Unless Leucaruth Ahunt is in play, Irerock has an additional automatic-attack: Dragon — 2 strikes at 17/8. In addition, only one unique Dragon manifestation may be played per turn.",
+    "manifestId": "tw-48"
   },
   {
     "cardType": "hazard-event",
@@ -290,7 +305,8 @@
       "dragon-manifestation"
     ],
     "effects": [],
-    "text": "Unique. Unless Scatha Ahunt is in play, Gondmaeglom has an additional automatic-attack: Dragon — 3 strikes at 16/9. In addition, -1 to all influence attempts."
+    "text": "Unique. Unless Scatha Ahunt is in play, Gondmaeglom has an additional automatic-attack: Dragon — 3 strikes at 16/9. In addition, -1 to all influence attempts.",
+    "manifestId": "td-60"
   },
   {
     "cardType": "hazard-event",
@@ -303,7 +319,8 @@
       "dragon-manifestation"
     ],
     "effects": [],
-    "text": "Unique. Unless Scorba Ahunt is in play, Zarak Dûm has an additional automatic-attack: Dragon — 3 strikes at 13/8. In addition, each major item gives an additional corruption point."
+    "text": "Unique. Unless Scorba Ahunt is in play, Zarak Dûm has an additional automatic-attack: Dragon — 3 strikes at 13/8. In addition, each major item gives an additional corruption point.",
+    "manifestId": "td-63"
   },
   {
     "cardType": "hazard-event",
@@ -316,6 +333,7 @@
       "dragon-manifestation"
     ],
     "effects": [],
-    "text": "Unique. Unless Smaug Ahunt is in play, The Lonely Mountain has an additional automatic-attack: Dragon — 2 strikes at 18/8. In addition, each moving company draws one less card to a minimum of one at the start of its movement/hazard phase."
+    "text": "Unique. Unless Smaug Ahunt is in play, The Lonely Mountain has an additional automatic-attack: Dragon — 2 strikes at 18/8. In addition, each moving company draws one less card to a minimum of one at the start of its movement/hazard phase.",
+    "manifestId": "tw-90"
   }
 ]

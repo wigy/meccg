@@ -153,9 +153,14 @@ function isManifestationDefeated(state: GameState, m: ManifestId): boolean {
 
 ### 4.4 Current state
 
-- Ahunt: ✓ implemented (td-21 Eärcaraxë Ahunt, td-37 Itangast Ahunt) via `ahunt-attack` effect.
-- Basic: ✗ missing — none of the nine basic Dragon creatures ship in current data.
-- At Home: ✗ missing — no cards, no `at-home` effect, no lair-auto-attack augmentation path.
+All 27 manifestation cards (9 basic + 9 ahunt + 9 at-home) and all 9 lair sites already exist in the data. Step 5 wired the chain mechanics; certification of the per-card effects is the remaining work.
+
+- **Manifestation tagging:** ✓ all 27 cards carry `manifestId` (= the basic creature's id); all 9 lairs carry `lairOf`.
+- **Lair auto-attack suppression:** ✓ `engine/manifestations.ts` exposes `isManifestationDefeated()` and `getActiveAutoAttacks()`; the three site-phase / legal-action call sites consume the helper.
+- **Basic Dragon creatures:** △ data present (tw-3 Agburanar, td-3 Bairanax, tw-26 Daelomin, td-20 Eärcaraxë, td-36 Itangast, tw-48 Leucaruth, td-60 Scatha, td-63 Scorba, tw-90 Smaug); per-card stat verification + MP-attribution test live in step 6.
+- **Ahunt:** △ data present for all 9; only td-21 Eärcaraxë Ahunt has its `ahunt-attack` effect certified — the other 8 still have empty `effects: []`.
+- **At Home:** △ data present for all 9; the `dragon-at-home` effect type and per-card certification are step 7.
+- **Defeat cascade** (sweep sister manifestations on defeat, block replays): ✗ pending — step 8.
 
 ### 4.5 New DSL work
 

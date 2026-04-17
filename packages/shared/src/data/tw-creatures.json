@@ -420,7 +420,8 @@
     "race": "dragon",
     "keyedTo": [],
     "effects": [],
-    "text": "Unique. May be played at Caves of Ûlund. Dragon. Two strikes. If Doors of Night is in play, may also be played keyed to Grey Mountain Narrows, Iron Hills, Northern Rhovanion, and Withered Heath; and may also be played at sites in these regions."
+    "text": "Unique. May be played at Caves of Ûlund. Dragon. Two strikes. If Doors of Night is in play, may also be played keyed to Grey Mountain Narrows, Iron Hills, Northern Rhovanion, and Withered Heath; and may also be played at sites in these regions.",
+    "manifestId": "tw-3"
   },
   {
     "cardType": "hazard-creature",
@@ -435,7 +436,8 @@
     "race": "dragon",
     "keyedTo": [],
     "effects": [],
-    "text": "Unique. May be played at Dancing Spire. Dragon. Three strikes. Attacker chooses defending characters. If Doors of Night is in play, may also be played keyed to Grey Mountain Narrows, Iron Hills, Northern Rhovanion, and Withered Heath; and may also be played at sites in these regions."
+    "text": "Unique. May be played at Dancing Spire. Dragon. Three strikes. Attacker chooses defending characters. If Doors of Night is in play, may also be played keyed to Grey Mountain Narrows, Iron Hills, Northern Rhovanion, and Withered Heath; and may also be played at sites in these regions.",
+    "manifestId": "tw-26"
   },
   {
     "cardType": "hazard-creature",
@@ -450,7 +452,8 @@
     "race": "dragon",
     "keyedTo": [],
     "effects": [],
-    "text": "Unique. May be played at Irerock. Dragon. Two strikes. If Doors of Night is in play, may also be played keyed to Grey Mountain Narrows, Iron Hills, Northern Rhovanion, and Withered Heath; and may also be played at sites in these regions."
+    "text": "Unique. May be played at Irerock. Dragon. Two strikes. If Doors of Night is in play, may also be played keyed to Grey Mountain Narrows, Iron Hills, Northern Rhovanion, and Withered Heath; and may also be played at sites in these regions.",
+    "manifestId": "tw-48"
   },
   {
     "cardType": "hazard-creature",
@@ -465,6 +468,7 @@
     "race": "dragon",
     "keyedTo": [],
     "effects": [],
-    "text": "Unique. May be played at The Lonely Mountain. Dragon. Two strikes. Attacker chooses defending characters. If Doors of Night is in play, may also be played keyed to Grey Mountain Narrows, Iron Hills, Northern Rhovanion, and Withered Heath; and may also be played at sites in these regions."
+    "text": "Unique. May be played at The Lonely Mountain. Dragon. Two strikes. Attacker chooses defending characters. If Doors of Night is in play, may also be played keyed to Grey Mountain Narrows, Iron Hills, Northern Rhovanion, and Withered Heath; and may also be played at sites in these regions.",
+    "manifestId": "tw-90"
   }
 ]
