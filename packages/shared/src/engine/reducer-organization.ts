@@ -1162,8 +1162,13 @@ function runGrantApply(
     const { roll, rng, cheatRollTotal } = roll2d6({ ...state, rng: rngRef.rng, cheatRollTotal: rngRef.cheatRollTotal });
     rngRef.rng = rng;
     rngRef.cheatRollTotal = cheatRollTotal;
-    const total = roll.die1 + roll.die2;
-    logDetail(`Grant-action ${ctx.action.actionId}: ${ctx.charName} rolls ${roll.die1} + ${roll.die2} = ${total} vs threshold ${apply.threshold}`);
+    // METD §7 / rule 10.08: the no-tap variant of corruption removal
+    // applies a -3 modifier to the roll. Standard variant is unmodified.
+    const noTap = (ctx.action as { noTap?: true }).noTap === true;
+    const modifier = noTap ? -3 : 0;
+    const total = roll.die1 + roll.die2 + modifier;
+    const modText = modifier !== 0 ? ` ${modifier >= 0 ? '+' : ''}${modifier}` : '';
+    logDetail(`Grant-action ${ctx.action.actionId}: ${ctx.charName} rolls ${roll.die1} + ${roll.die2}${modText} = ${total} vs threshold ${apply.threshold}${noTap ? ' (no-tap variant)' : ''}`);
 
     const playerName = newPlayers[ctx.playerIndex].name;
     const rollEffect: GameEffect = {
@@ -1171,18 +1176,33 @@ function runGrantApply(
       playerName,
       die1: roll.die1,
       die2: roll.die2,
-      label: `${ctx.sourceName}: ${ctx.charName}`,
+      label: `${ctx.sourceName}: ${ctx.charName}${noTap ? ' (no-tap)' : ''}`,
     };
     newPlayers[ctx.playerIndex] = { ...newPlayers[ctx.playerIndex], lastDiceRoll: roll };
 
     const branch = total >= apply.threshold ? apply.onSuccess : apply.onFailure;
+    const stateOpsExtra: ((s: GameState) => GameState)[] = [];
+    if (noTap) {
+      // Lock further attempts on this character+corruption-card pair
+      // for the rest of the turn, regardless of roll outcome.
+      const charId = ctx.action.characterId;
+      const corruptionId = ctx.action.sourceCardId;
+      const sourceDefId = ctx.sourceCardDefinitionId;
+      stateOpsExtra.push((s: GameState) => addConstraint(s, {
+        source: corruptionId,
+        sourceDefinitionId: sourceDefId,
+        scope: { kind: 'turn' },
+        target: { kind: 'character', characterId: charId },
+        kind: { type: 'corruption-removal-locked', characterId: charId, corruptionInstanceId: corruptionId },
+      }));
+    }
     if (!branch) {
       logDetail(`Grant-action ${ctx.action.actionId}: roll ${total >= apply.threshold ? 'succeeded' : 'failed'} — no branch, nothing to apply`);
-      return { updatedChar: char, effects: [rollEffect], stateOps: [] };
+      return { updatedChar: char, effects: [rollEffect], stateOps: stateOpsExtra };
     }
     const inner = runGrantApply(state, branch, char, newPlayers, ctx, rngRef);
     if ('error' in inner) return inner;
-    return { updatedChar: inner.updatedChar, effects: [rollEffect, ...inner.effects], stateOps: inner.stateOps };
+    return { updatedChar: inner.updatedChar, effects: [rollEffect, ...inner.effects], stateOps: [...stateOpsExtra, ...inner.stateOps] };
   }
 
   return { error: `Unsupported grant-action apply ${JSON.stringify(apply)} on ${ctx.sourceName}` };
@@ -1323,6 +1343,11 @@ export function handleGrantActionApply(state: GameState, action: GameAction): Re
   const newPlayers = clonePlayers(state);
   let updatedChar: CharacterInPlay = char;
 
+  // METD §7 / rule 10.08: the no-tap variant of corruption removal
+  // skips paying the bearer-tap cost (and instead suffers -3 to the
+  // roll plus a per-turn lock — both handled in the apply branch).
+  const noTap = (action as { noTap?: true }).noTap === true;
+
   if (resolved.cost.discard === 'self') {
     const detached = detachAndDiscardSource(char, action.sourceCardId, action.sourceCardDefinitionId, playerIndex, newPlayers);
     if ('error' in detached) {
@@ -1330,6 +1355,8 @@ export function handleGrantActionApply(state: GameState, action: GameAction): Re
     }
     updatedChar = detached.updatedChar;
     logDetail(`Grant-action ${action.actionId}: ${charName} discards ${sourceName}`);
+  } else if (noTap && (resolved.cost.tap === 'bearer' || resolved.cost.tap === 'character')) {
+    logDetail(`Grant-action ${action.actionId}: ${charName} skips tap-cost (no-tap variant, source: ${sourceName})`);
   } else if (resolved.cost.tap === 'bearer' || resolved.cost.tap === 'character') {
     updatedChar = { ...updatedChar, status: CardStatus.Tapped };
     logDetail(`Grant-action ${action.actionId}: ${charName} taps (source: ${sourceName})`);

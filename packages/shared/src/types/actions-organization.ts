@@ -256,4 +256,11 @@ export interface ActivateGrantedAction {
   readonly rollThreshold: number;
   /** Optional target card for the action (e.g. which gold ring to test). */
   readonly targetCardId?: CardInstanceId;
+  /**
+   * METD §7 / rule 10.08 — for `remove-self-on-roll` from a corruption
+   * card: when true, the character does NOT tap, the roll suffers -3,
+   * and a per-character per-card lock blocks any further removal
+   * attempts on this card for the rest of the turn.
+   */
+  readonly noTap?: true;
 }

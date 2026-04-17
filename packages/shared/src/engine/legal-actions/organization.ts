@@ -319,41 +319,79 @@ export function grantedActionActivations(state: GameState, playerId: PlayerId, a
     for (const hazard of char.hazards) {
       const grantActions = extractGrantActions(state, hazard.definitionId);
       for (const effect of grantActions) {
-        // Check cost: if tap is "bearer", character must be untapped
-        if (effect.cost.tap === 'bearer' && char.status !== CardStatus.Untapped) {
+        const hazardDef = state.cardPool[hazard.definitionId as string];
+        const isCorruptionRemoval = effect.action === 'remove-self-on-roll'
+          && hazardDef?.cardType === 'hazard-corruption';
+        // METD §7 / rule 10.08: once a no-tap removal attempt has been
+        // made on this character+corruption-card pair, no further
+        // attempts (tap or no-tap) are allowed for the rest of the turn.
+        const removalLocked = isCorruptionRemoval && state.activeConstraints.some(c =>
+          c.kind.type === 'corruption-removal-locked'
+          && c.kind.characterId === charId
+          && c.kind.corruptionInstanceId === hazard.instanceId,
+        );
+        if (removalLocked) {
           const charDef = state.cardPool[char.definitionId as string];
-          const def = state.cardPool[hazard.definitionId as string];
-          logDetail(`Grant-action ${effect.action} on ${def?.name ?? '?'}: ${charDef?.name ?? '?'} is tapped, cannot activate`);
+          logDetail(`Grant-action ${effect.action} on ${hazardDef?.name ?? '?'}: ${charDef?.name ?? '?'} corruption-removal locked this turn`);
           continue;
         }
 
-        if (effect.when) {
+        // Check cost: if tap is "bearer", character must be untapped
+        if (effect.cost.tap === 'bearer' && char.status !== CardStatus.Untapped) {
+          const charDef = state.cardPool[char.definitionId as string];
+          logDetail(`Grant-action ${effect.action} on ${hazardDef?.name ?? '?'}: ${charDef?.name ?? '?'} is tapped, cannot activate`);
+          // Fall through to consider the no-tap variant below — the
+          // character being tapped doesn't block it.
+        } else if (effect.when) {
           const charDefForCtx = state.cardPool[char.definitionId as string];
           const charDefCard = charDefForCtx && isCharacterCard(charDefForCtx) ? charDefForCtx : undefined;
           const company = player.companies.find(c => c.characters.includes(charId));
           const ctx = buildGrantActionContext(state, char, charDefCard, company, player);
           if (!matchesCondition(effect.when, ctx)) {
             logDetail(`Grant-action ${effect.action}: when condition failed on ${charDefCard?.name ?? '?'}`);
-            continue;
+            // Skip the standard variant below; do still consider no-tap.
           }
         }
 
-        const charDef = state.cardPool[char.definitionId as string];
-        const def = state.cardPool[hazard.definitionId as string];
-        logDetail(`Grant-action ${effect.action} available: ${charDef?.name ?? '?'} can tap to activate (source: ${def?.name ?? '?'})`);
+        // Standard tap-and-roll variant — emitted only if the bearer
+        // is untapped (cost.tap=bearer satisfied).
+        if (!(effect.cost.tap === 'bearer' && char.status !== CardStatus.Untapped)) {
+          const charDef = state.cardPool[char.definitionId as string];
+          logDetail(`Grant-action ${effect.action} available: ${charDef?.name ?? '?'} can tap to activate (source: ${hazardDef?.name ?? '?'})`);
+          actions.push({
+            action: {
+              type: 'activate-granted-action',
+              player: playerId,
+              characterId: charId,
+              sourceCardId: hazard.instanceId,
+              sourceCardDefinitionId: hazard.definitionId,
+              actionId: effect.action,
+              rollThreshold: rollThresholdFor(effect),
+            },
+            viable: true,
+          });
+        }
 
-        actions.push({
-          action: {
-            type: 'activate-granted-action',
-            player: playerId,
-            characterId: charId,
-            sourceCardId: hazard.instanceId,
-            sourceCardDefinitionId: hazard.definitionId,
-            actionId: effect.action,
-            rollThreshold: rollThresholdFor(effect),
-          },
-          viable: true,
-        });
+        // METD §7 / rule 10.08: also offer the no-tap variant for
+        // corruption-removal grant actions. Available regardless of
+        // bearer's tap state; first use locks subsequent attempts.
+        if (isCorruptionRemoval) {
+          const charDef = state.cardPool[char.definitionId as string];
+          logDetail(`Grant-action ${effect.action}-no-tap available: ${charDef?.name ?? '?'} may roll without tapping at -3 (source: ${hazardDef?.name ?? '?'})`);
+          actions.push({
+            action: {
+              type: 'activate-granted-action',
+              player: playerId,
+              characterId: charId,
+              sourceCardId: hazard.instanceId,
+              sourceCardDefinitionId: hazard.definitionId,
+              actionId: effect.action,
+              rollThreshold: rollThresholdFor(effect),
+              noTap: true,
+            },
+            viable: true,
+          });
+        }
       }
     }
 
