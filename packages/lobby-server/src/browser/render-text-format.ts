@@ -105,8 +105,8 @@ export function renderCollapsibleJson(value: unknown, indent: string): string {
     if (/^[a-z]{2}-\d+$/.test(value)) {
       return `<span class="card-name" data-card-id="${escapeHtml(value)}" style="color:#e8a">"${escapeHtml(value)}"</span>`;
     }
-    // Card instance ID (e.g. "i-123") — resolve via instance lookup
-    if (/^i-\d+$/.test(value)) {
+    // Card instance ID (e.g. "p1-123", "p2-7") — resolve via instance lookup
+    if (/^p\d+-\d+$/.test(value)) {
       const defId = cachedInstanceLookup(value as CardInstanceId);
       if (defId) {
         return `<span class="card-name" data-card-id="${escapeHtml(defId as string)}" style="color:#e8a">"${escapeHtml(value)}"</span>`;

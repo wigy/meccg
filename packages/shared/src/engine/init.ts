@@ -16,7 +16,10 @@
  *    scenarios.
  *
  * Both paths share the same instance-minting system to ensure every card
- * in the game receives a globally unique {@link CardInstanceId}.
+ * in the game receives a globally unique {@link CardInstanceId}. Each player
+ * has their own minter whose prefix is the player's {@link PlayerId}, so the
+ * owning player can always be derived from an instance ID via
+ * {@link ownerOf} — see `state.ts`.
  */
 
 import type {
@@ -88,15 +91,20 @@ interface InstanceMinter {
   prefix: string;
 }
 
-/** Creates a fresh minter with the given ID prefix (typically "i"). */
-function createMinter(prefix: string): InstanceMinter {
-  return { counter: 0, prefix };
+/**
+ * Creates a fresh minter whose prefix is a player's {@link PlayerId}.
+ * Instance IDs minted by this minter are owned by that player for the
+ * lifetime of the game (deck-ownership never transfers in MECCG, even
+ * for hazards that physically reside in the opponent's zones).
+ */
+function createMinter(prefix: PlayerId): InstanceMinter {
+  return { counter: 0, prefix: prefix as string };
 }
 
 /**
  * Mints a new {@link CardInstance} for a given definition and increments the counter.
- *
- * @returns A new CardInstance (e.g. instanceId "i-0", "i-1", ...).
+ * The resulting `instanceId` is `<playerId>-<counter>` (e.g. "p1-0", "p2-3"),
+ * so the owning player is derivable from the ID without any state lookup.
  */
 function mint(minter: InstanceMinter, definitionId: CardDefinitionId): CardInstance {
   const instanceId = `${minter.prefix}-${minter.counter}` as CardInstanceId;
@@ -122,17 +130,18 @@ export function createGame(
   config: GameConfig,
   cardPool: Readonly<Record<string, CardDefinition>>,
 ): GameState {
-  const minter = createMinter('i');
+  const minter0 = createMinter(config.players[0].id);
+  const minter1 = createMinter(config.players[1].id);
   let rng: RngState = createRng(config.seed);
 
-  const [p0, rng0] = initPlayerPreDraft(config.players[0], cardPool, minter, rng);
-  const [p1, rng1] = initPlayerPreDraft(config.players[1], cardPool, minter, rng0);
+  const [p0, rng0] = initPlayerPreDraft(config.players[0], cardPool, minter0, rng);
+  const [p1, rng1] = initPlayerPreDraft(config.players[1], cardPool, minter1, rng0);
   rng = rng1;
   const players: readonly [PlayerState, PlayerState] = [p0, p1];
 
   const draftState: [DraftPlayerState, DraftPlayerState] = [
-    { pool: config.players[0].draftPool.map(defId => mint(minter, defId)), drafted: [], currentPick: null, stopped: false },
-    { pool: config.players[1].draftPool.map(defId => mint(minter, defId)), drafted: [], currentPick: null, stopped: false },
+    { pool: config.players[0].draftPool.map(defId => mint(minter0, defId)), drafted: [], currentPick: null, stopped: false },
+    { pool: config.players[1].draftPool.map(defId => mint(minter1, defId)), drafted: [], currentPick: null, stopped: false },
   ];
 
   const gameId = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
@@ -176,7 +185,7 @@ export function createGame(
  *
  * @param config - This player's configuration.
  * @param cardPool - The full card definition dictionary (for validation).
- * @param minter - Shared instance minter across both players.
+ * @param minter - This player's instance minter (prefix = player's PlayerId).
  * @param rng - Current RNG state (threaded for determinism).
  * @returns A tuple of `[playerState, nextRng]`.
  */
@@ -425,11 +434,12 @@ export function createGameQuickStart(
   config: QuickStartGameConfig,
   cardPool: Readonly<Record<string, CardDefinition>>,
 ): GameState {
-  const minter = createMinter('i');
+  const minter0 = createMinter(config.players[0].id);
+  const minter1 = createMinter(config.players[1].id);
   let rng: RngState = createRng(config.seed);
 
-  const [qp0, qrng0] = initPlayerWithCharacters(config.players[0], cardPool, minter, rng);
-  const [qp1, qrng1] = initPlayerWithCharacters(config.players[1], cardPool, minter, qrng0);
+  const [qp0, qrng0] = initPlayerWithCharacters(config.players[0], cardPool, minter0, rng);
+  const [qp1, qrng1] = initPlayerWithCharacters(config.players[1], cardPool, minter1, qrng0);
   rng = qrng1;
   const players: readonly [PlayerState, PlayerState] = [qp0, qp1];
 

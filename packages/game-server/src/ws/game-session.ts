@@ -647,30 +647,34 @@ export class GameSession {
       return;
     }
 
-    // Find the highest existing instance counter to avoid ID collisions
+    // Find the player whose hand will receive the summoned card. The minted
+    // instance ID is prefixed with this player's PlayerId so ownerOf() can
+    // attribute it correctly (the summoning player is the owner).
+    const playerIdx = this.state.players.findIndex(p => p.id === playerId);
+    if (playerIdx < 0) return;
+    const summoningPlayer = this.state.players[playerIdx];
+
+    // Scan only the summoning player's piles to find the next free counter
+    // for their prefix.
+    const prefix = summoningPlayer.id as string;
+    const counterRe = new RegExp(`^${prefix.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}-(\\d+)$`);
     let maxCounter = 0;
     const countInstances = (pile: readonly { instanceId: CardInstanceId }[]) => {
       for (const card of pile) {
-        const m = /^i-(\d+)$/.exec(card.instanceId as string);
+        const m = counterRe.exec(card.instanceId as string);
         if (m) maxCounter = Math.max(maxCounter, parseInt(m[1], 10));
       }
     };
-    for (const player of this.state.players) {
-      countInstances(player.hand);
-      countInstances(player.playDeck);
-      countInstances(player.discardPile);
-      countInstances(player.siteDeck);
-      countInstances(player.siteDiscardPile);
-      countInstances(player.sideboard);
-      countInstances(player.killPile);
-      countInstances(player.outOfPlayPile);
-    }
-    const newInstanceId = `i-${maxCounter + 1}` as CardInstanceId;
+    countInstances(summoningPlayer.hand);
+    countInstances(summoningPlayer.playDeck);
+    countInstances(summoningPlayer.discardPile);
+    countInstances(summoningPlayer.siteDeck);
+    countInstances(summoningPlayer.siteDiscardPile);
+    countInstances(summoningPlayer.sideboard);
+    countInstances(summoningPlayer.killPile);
+    countInstances(summoningPlayer.outOfPlayPile);
+    const newInstanceId = `${prefix}-${maxCounter + 1}` as CardInstanceId;
     const definitionId = matchDefId as CardDefinitionId;
-
-    // Add card instance to the player's hand
-    const playerIdx = this.state.players.findIndex(p => p.id === playerId);
-    if (playerIdx < 0) return;
 
     const newCard = { instanceId: newInstanceId, definitionId };
 

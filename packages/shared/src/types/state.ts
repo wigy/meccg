@@ -208,3 +208,21 @@ export function resolveInstanceId(state: GameState, instanceId: CardInstanceId):
 
   return undefined;
 }
+
+/**
+ * Returns the {@link PlayerId} that owns a card instance.
+ *
+ * Every instance ID is minted as `<playerId>-<counter>` (see `engine/init.ts`),
+ * so deck-ownership is encoded in the prefix and derivable in O(1) without
+ * any state lookup. Deck-ownership never transfers in MECCG — a hazard
+ * played by player A against player B's company is physically located in B's
+ * zones but its instance ID still belongs to A. This is exactly the
+ * "who played it" attribution needed by rules like the Dragon manifestation
+ * MP rule (defeating player earns MPs only if the manifestation was played
+ * by the opponent).
+ */
+export function ownerOf(instanceId: CardInstanceId): PlayerId {
+  const s = instanceId as string;
+  const i = s.lastIndexOf('-');
+  return s.slice(0, i) as PlayerId;
+}
