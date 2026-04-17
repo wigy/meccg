@@ -12,6 +12,7 @@
 import type {
   Alignment,
   CardDefinitionId,
+  ManifestId,
   RegionType,
   SiteType,
 } from './common.js';
@@ -80,6 +81,13 @@ export interface HeroSiteCard {
   readonly playableResources: readonly PlayableResourceType[];
   /** Built-in attacks that companies face upon entering the site, before any resources can be played. */
   readonly automaticAttacks: readonly AutomaticAttack[];
+  /**
+   * For Dragon lairs: the {@link ManifestId} of the resident Dragon
+   * (i.e. the basic creature card's definition id). When that
+   * manifestation is defeated, the site's Dragon-typed automatic-attacks
+   * are suppressed. See `engine/manifestations.ts`.
+   */
+  readonly lairOf?: ManifestId;
   /**
    * Number of cards the resource player may draw when a company moves to this site.
    * Corresponds to the lighter box in the bottom-left of the physical card.

@@ -22,6 +22,22 @@ export type CardInstanceId = string & { readonly __brand: 'CardInstanceId' };
  */
 export type CardDefinitionId = string & { readonly __brand: 'CardDefinitionId' };
 
+/**
+ * Identifier for a "manifestation chain" — a set of related cards that
+ * together represent multiple in-game forms of one entity (e.g. the basic
+ * Dragon creature, its Ahunt long-event, and its At-Home permanent-event
+ * all manifest the same Dragon).
+ *
+ * Conventionally the value is the {@link CardDefinitionId} of the chain's
+ * **base form** — the dragon creature card for Dragons. All cards in a
+ * chain (including the base form itself) carry the same `manifestId`.
+ *
+ * Used to derive whole-chain state (e.g. "is this Dragon defeated?") from
+ * the eliminated pile without a separate top-level state map. See
+ * `specs/2026-04-17-dragons-expansion-plan.md` §4.3.
+ */
+export type ManifestId = CardDefinitionId;
+
 /** Unique identifier for a company (a group of characters traveling together). */
 export type CompanyId = string & { readonly __brand: 'CompanyId' };
 

@@ -21,6 +21,7 @@ import { handleGrantActionApply } from './reducer-organization.js';
 import { buildInPlayNames } from './recompute-derived.js';
 import { sweepExpired, enqueueResolution, removeConstraint } from './pending.js';
 import { resolveEffective } from './effective.js';
+import { getActiveAutoAttacks } from './manifestations.js';
 
 
 /**
@@ -184,7 +185,9 @@ function handleSiteEnterOrSkip(
   // Enter site — check whether the site has automatic-attacks
   const siteInPlay = company.currentSite;
   const siteDef = siteInPlay ? state.cardPool[siteInPlay.definitionId as string] : undefined;
-  const autoAttackCount = siteDef && isSiteCard(siteDef) ? siteDef.automaticAttacks.length : 0;
+  const autoAttackCount = siteDef && isSiteCard(siteDef)
+    ? getActiveAutoAttacks(state, siteDef).length
+    : 0;
 
   const skipAutoAttacks = siteInPlay && state.activeConstraints.some(c =>
     c.kind.type === 'skip-automatic-attacks'
@@ -341,7 +344,7 @@ function handleSiteAutomaticAttacks(
   const siteDef = state.cardPool[company.currentSite!.definitionId as string] as import('../types/cards.js').SiteCard;
 
   const attackIndex = siteState.automaticAttacksResolved;
-  const autoAttacks = siteDef.automaticAttacks;
+  const autoAttacks = getActiveAutoAttacks(state, siteDef);
 
   if (attackIndex >= autoAttacks.length) {
     // Before advancing, check for auto-attack-duplicate constraints

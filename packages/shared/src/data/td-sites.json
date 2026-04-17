@@ -28,7 +28,8 @@
     "resourceDraws": 2,
     "hazardDraws": 2,
     "text": "Nearest Haven: Edhellond. Playable: Information, Items (minor, major). Automatic-attacks: Dragon — 1 strike with 14 prowess.",
-    "certified": "2026-04-13"
+    "certified": "2026-04-13",
+    "lairOf": "td-20"
   },
   {
     "cardType": "hero-site",
@@ -60,7 +61,8 @@
     ],
     "resourceDraws": 3,
     "hazardDraws": 3,
-    "text": "Nearest Haven: Lórien Playable: Items (minor, major, greater, gold ring) Automatic-attacks: Dragon — 1 strike with 15 prowess"
+    "text": "Nearest Haven: Lórien Playable: Items (minor, major, greater, gold ring) Automatic-attacks: Dragon — 1 strike with 15 prowess",
+    "lairOf": "td-36"
   },
   {
     "cardType": "hero-site",
@@ -90,7 +92,8 @@
     ],
     "resourceDraws": 2,
     "hazardDraws": 2,
-    "text": "Nearest Haven: Lórien Playable: Items (minor, major, gold ring) Automatic-attacks: Dragon — 1 strike with 14 prowess"
+    "text": "Nearest Haven: Lórien Playable: Items (minor, major, gold ring) Automatic-attacks: Dragon — 1 strike with 14 prowess",
+    "lairOf": "td-60"
   },
   {
     "cardType": "hero-site",
@@ -119,7 +122,8 @@
     ],
     "resourceDraws": 2,
     "hazardDraws": 2,
-    "text": "Nearest Haven: Lórien Playable: Items (minor, major) Automatic-attacks: Dragon — 1 strike with 12 prowess"
+    "text": "Nearest Haven: Lórien Playable: Items (minor, major) Automatic-attacks: Dragon — 1 strike with 12 prowess",
+    "lairOf": "td-3"
   },
   {
     "cardType": "hero-site",
@@ -147,7 +151,8 @@
     ],
     "resourceDraws": 2,
     "hazardDraws": 3,
-    "text": "Nearest Haven: Rivendell Playable: Items (minor, major) Automatic-attacks: Dragon — 1 strike with 11 prowess"
+    "text": "Nearest Haven: Rivendell Playable: Items (minor, major) Automatic-attacks: Dragon — 1 strike with 11 prowess",
+    "lairOf": "td-63"
   },
   {
     "cardType": "hero-site",

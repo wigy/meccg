@@ -16,6 +16,7 @@ import { collectCharacterEffects, resolveCheckModifier, resolveStatModifiers } f
 import type { ResolverContext } from '../effects/index.js';
 import { logDetail, logHeading } from './log.js';
 import { availableDI, grantedActionActivations, ANY_PHASE_GRANT_ACTIONS, playResourceShortEventActions } from './organization.js';
+import { getActiveAutoAttacks } from '../manifestations.js';
 
 /**
  * Check whether a site satisfies a {@link PlayableAtEntry}.
@@ -194,7 +195,8 @@ function revealOnGuardAttacksActions(
     : undefined;
 
   // Rule 2.V.i: creature reveals only allowed if the site has automatic-attacks
-  const hasAutoAttacks = siteDef && isSiteCard(siteDef) && siteDef.automaticAttacks.length > 0;
+  const hasAutoAttacks = siteDef && isSiteCard(siteDef)
+    && getActiveAutoAttacks(state, siteDef).length > 0;
 
   const actions: GameAction[] = [];
 
