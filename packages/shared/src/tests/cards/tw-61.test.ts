@@ -142,7 +142,7 @@ describe('Minions Stir (tw-61)', () => {
 
     const mhState: MovementHazardPhaseState = makeMHState({
       hazardsPlayedThisCompany: 0,
-      hazardLimit: 4,
+      hazardLimitAtReveal: 4,
     });
     const readyState = { ...state, phaseState: mhState };
 

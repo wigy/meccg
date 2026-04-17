@@ -221,7 +221,8 @@ export function handleLongEvent(state: GameState, action: GameAction): ReducerRe
           declaredRegionPath: [],
           maxRegionDistance: BASE_MAX_REGION_DISTANCE,
           hazardsPlayedThisCompany: 0,
-          hazardLimit: 0,
+          hazardLimitAtReveal: 0,
+          preRevealHazardLimitConstraintIds: [],
           resolvedSitePath: [],
           resolvedSitePathNames: [],
           destinationSiteType: null,
@@ -614,6 +615,14 @@ function applyPlayOptionAddConstraint(
   const target: import('../types/pending.js').ActiveConstraint['target'] = isCompanyTargeted
     ? { kind: 'company', companyId: companyId! }
     : { kind: 'character', characterId: targetCharacterId };
+
+  // METD §5: hazard-limit-modifier additions during the site phase have
+  // no effect — the hazard limit is locked at the moment a company
+  // reveals its new site.
+  if (kind.type === 'hazard-limit-modifier' && state.phaseState.phase === Phase.Site) {
+    logDetail(`${def.name} option "${option.id}": hazard-limit-modifier ignored — site-phase additions have no effect (METD §5)`);
+    return { state };
+  }
 
   logDetail(`${def.name} option "${option.id}": add ${constraintName} on ${isCompanyTargeted ? `company ${companyId as string}` : `character ${targetCharacterId as string}`}, scope ${scopeName}`);
   return {

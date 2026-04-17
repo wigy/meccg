@@ -173,11 +173,12 @@ All 27 manifestation cards (9 basic + 9 ahunt + 9 at-home) and all 9 lair sites 
 
 **Rule:** the base hazard limit is locked at the moment a company reveals its new site / announces its movement-hazard phase. Pre-reveal modifiers apply in the order chosen by the moving player. Post-reveal modifiers apply in resolution order. Hazard-limit modifiers played during the **site phase** are ignored. Reductions during movement-hazard don't affect cards already announced.
 
-### 5.1 Gaps
+### 5.1 Status
 
-- The engine currently does not distinguish "pre-reveal" vs "post-reveal" hazard-limit modifiers.
-- Add a per-company snapshot `hazardLimitAtReveal` set at reveal time and reference it (instead of recomputing) when validating played hazards.
-- Site-phase hazard-limit modifiers must be no-ops: enforce by phase-gating the effect resolver.
+- ✓ Implemented (step 2). `MovementHazardPhaseState.hazardLimitAtReveal` holds the snapshot taken at the `set-hazard-limit` step (pre-reveal modifiers already folded in), with `preRevealHazardLimitConstraintIds` listing the constraints that contributed.
+- `currentHazardLimit(state, mhState, companyId)` in `engine/reducer-movement-hazard.ts` returns the running limit as snapshot + sum of any post-reveal `hazard-limit-modifier` constraints not in the pre-reveal list. All reads in the movement/hazard reducer and legal-actions go through this helper.
+- Site-phase additions of `hazard-limit-modifier` are no-ops — phase-gated at the two apply handlers in `reducer-events.ts` (`applyAddConstraint`) and `reducer-organization.ts` (`handleGrantActionApply`).
+- Covered by `rule-metd-hazard-limit-lock.test.ts`.
 
 ---
 

@@ -222,7 +222,7 @@ describe('Two or Three Tribes Present (dm-97)', () => {
     // Hazard limit 1, 0 played so far — tribes card uses the last slot
     const mhState = makeMHState({
       hazardsPlayedThisCompany: 0,
-      hazardLimit: 1,
+      hazardLimitAtReveal: 1,
       resolvedSitePath: [RegionType.Shadow],
       destinationSiteType: SiteType.ShadowHold,
     });
@@ -266,7 +266,7 @@ describe('Two or Three Tribes Present (dm-97)', () => {
     // Hazard limit 1, 0 played — tribes card will use the slot
     const mhState = makeMHState({
       hazardsPlayedThisCompany: 0,
-      hazardLimit: 1,
+      hazardLimitAtReveal: 1,
       resolvedSitePath: [RegionType.Shadow, RegionType.Wilderness],
       destinationSiteType: SiteType.RuinsAndLairs,
     });
@@ -308,7 +308,7 @@ describe('Two or Three Tribes Present (dm-97)', () => {
     });
     const mhState = makeMHState({
       hazardsPlayedThisCompany: 0,
-      hazardLimit: 2,
+      hazardLimitAtReveal: 2,
       resolvedSitePath: [RegionType.Shadow],
       destinationSiteType: SiteType.ShadowHold,
     });

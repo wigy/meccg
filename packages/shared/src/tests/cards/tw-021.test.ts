@@ -164,7 +164,7 @@ describe('Choking Shadows (tw-21)', () => {
 
     const mhGameState: GameState = {
       ...state,
-      phaseState: makeMHState({ hazardsPlayedThisCompany: 4, hazardLimit: 4 }),
+      phaseState: makeMHState({ hazardsPlayedThisCompany: 4, hazardLimitAtReveal: 4 }),
     };
     const actions = viableActions(mhGameState, PLAYER_2, 'play-hazard');
     expect(actions).toHaveLength(0);

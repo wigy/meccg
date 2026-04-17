@@ -308,7 +308,7 @@ describe('Many Turns and Doublings (td-132)', () => {
 
     const mhState = makeMHState({
       activeCompanyIndex: 0,
-      hazardLimit: 1,
+      hazardLimitAtReveal: 1,
       resolvedSitePath: [RegionType.Shadow],
       resolvedSitePathNames: ['Gorgoroth'],
       destinationSiteType: SiteType.ShadowHold,
@@ -359,7 +359,7 @@ describe('Many Turns and Doublings (td-132)', () => {
 
     const mhState = makeMHState({
       activeCompanyIndex: 0,
-      hazardLimit: 1,
+      hazardLimitAtReveal: 1,
       hazardsPlayedThisCompany: 1,
       resolvedSitePath: [RegionType.Shadow],
       resolvedSitePathNames: ['Gorgoroth'],

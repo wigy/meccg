@@ -116,7 +116,7 @@ describe('Rule 5.23 — Placing an On-Guard Card', () => {
     });
     const mhGameState = {
       ...state,
-      phaseState: makeMHState({ hazardsPlayedThisCompany: 2, hazardLimit: 2 }),
+      phaseState: makeMHState({ hazardsPlayedThisCompany: 2, hazardLimitAtReveal: 2 }),
     };
 
     // On-guard actions exist but are not viable (limit reached)

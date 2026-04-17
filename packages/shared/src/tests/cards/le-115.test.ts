@@ -467,7 +467,7 @@ describe('Incite Defenders (le-115)', () => {
       ...stateWithDest,
       phaseState: makeMHState({
         hazardsPlayedThisCompany: 4,
-        hazardLimit: 4,
+        hazardLimitAtReveal: 4,
         destinationSiteType: SiteType.FreeHold,
         destinationSiteName: 'Bag End',
         resolvedSitePath: [RegionType.Free],

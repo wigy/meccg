@@ -48,22 +48,26 @@ export function handleMovementHazard(state: GameState, action: GameAction): Redu
     return handleRevealNewSite(state, action, mhState);
   }
 
-  // set-hazard-limit step (CoE step 3): compute and fix the hazard limit, then advance
+  // set-hazard-limit step (CoE step 3): snapshot the hazard limit at site
+  // reveal and advance. Per METD §5, this snapshot is the locked baseline
+  // for the rest of the company's M/H phase; post-reveal modifiers
+  // accumulate via currentHazardLimit() rather than mutating it.
   if (mhState.step === 'set-hazard-limit') {
     if (action.type !== 'pass') {
       return { state, error: `Expected 'pass' during set-hazard-limit step, got '${action.type}'` };
     }
     const playerIndex = getPlayerIndex(state, action.player);
     const company = state.players[playerIndex].companies[mhState.activeCompanyIndex];
-    const hazardLimit = computeHazardLimit(state, company);
-    logDetail(`Movement/Hazard: hazard limit set to ${hazardLimit} → advancing to order-effects`);
+    const { limit, preRevealConstraintIds } = snapshotHazardLimit(state, company);
+    logDetail(`Movement/Hazard: hazard limit snapshot ${limit} → advancing to order-effects`);
     return {
       state: {
         ...state,
         phaseState: {
           ...mhState,
           step: 'order-effects' as const,
-          hazardLimit,
+          hazardLimitAtReveal: limit,
+          preRevealHazardLimitConstraintIds: preRevealConstraintIds,
         },
       },
     };
@@ -215,7 +219,7 @@ function handlePlayHazardCard(
 
     const raceExempt = isCreatureRaceExempt(state, action, def);
     const newHazardCount = raceExempt ? mhState.hazardsPlayedThisCompany : mhState.hazardsPlayedThisCompany + 1;
-    logDetail(`Play-hazards: hazard player plays creature "${def.name}" (${newHazardCount}/${mhState.hazardLimit})${raceExempt ? ` [race "${def.race}" exempt from hazard limit]` : ''} — initiating chain`);
+    logDetail(`Play-hazards: hazard player plays creature "${def.name}" (${newHazardCount}/${currentHazardLimit(state, mhState, action.targetCompanyId)})${raceExempt ? ` [race "${def.race}" exempt from hazard limit]` : ''} — initiating chain`);
 
     // Remove card from hand — it resides on the chain entry until combat resolves
     const newHand = [...hazardPlayer.hand];
@@ -243,7 +247,7 @@ function handlePlayHazardCard(
   if (def.cardType === 'hazard-event' && def.eventType === 'short') {
     const bypassesLimit = hasPlayFlag(def, 'no-hazard-limit');
     const newHazardCount = bypassesLimit ? mhState.hazardsPlayedThisCompany : mhState.hazardsPlayedThisCompany + 1;
-    logDetail(`Play-hazards: hazard player plays short-event "${def.name}" (${newHazardCount}/${mhState.hazardLimit})${bypassesLimit ? ' [no-hazard-limit]' : ''}`);
+    logDetail(`Play-hazards: hazard player plays short-event "${def.name}" (${newHazardCount}/${currentHazardLimit(state, mhState, action.targetCompanyId)})${bypassesLimit ? ' [no-hazard-limit]' : ''}`);
 
     // Move card from hand to discard (short events are discarded after resolution)
     const newHand = [...hazardPlayer.hand];
@@ -305,7 +309,7 @@ function handlePlayHazardCard(
 
   // --- Hazard-corruption handling (attaches to character like permanent events) ---
   if (def.cardType === 'hazard-corruption') {
-    logDetail(`Play-hazards: hazard player plays corruption "${def.name}" (${mhState.hazardsPlayedThisCompany + 1}/${mhState.hazardLimit}) → enters chain`);
+    logDetail(`Play-hazards: hazard player plays corruption "${def.name}" (${mhState.hazardsPlayedThisCompany + 1}/${currentHazardLimit(state, mhState, action.targetCompanyId)}) → enters chain`);
     const newHand = [...hazardPlayer.hand];
     newHand.splice(cardIdx, 1);
     const newPlayers = clonePlayers(state);
@@ -337,7 +341,7 @@ function handlePlayHazardCard(
     return { state, error: `Unsupported hazard card type during play-hazards` };
   }
 
-  logDetail(`Play-hazards: hazard player plays ${def.eventType}-event "${def.name}" (${mhState.hazardsPlayedThisCompany + 1}/${mhState.hazardLimit}) → enters chain`);
+  logDetail(`Play-hazards: hazard player plays ${def.eventType}-event "${def.name}" (${mhState.hazardsPlayedThisCompany + 1}/${currentHazardLimit(state, mhState, action.targetCompanyId)}) → enters chain`);
 
   // Remove card from hand — it now resides on the chain
   const newHand = [...hazardPlayer.hand];
@@ -397,11 +401,13 @@ function handlePlaceOnGuard(
 
   const hazardIndex = getPlayerIndex(state, action.player);
   const hazardPlayer = state.players[hazardIndex];
+  const activeIdx = getPlayerIndex(state, state.activePlayer!);
+  const targetCompanyId = state.players[activeIdx].companies[mhState.activeCompanyIndex].id;
 
   const cardIdx = hazardPlayer.hand.findIndex(c => c.instanceId === action.cardInstanceId);
   const handCard = hazardPlayer.hand[cardIdx];
 
-  logDetail(`Play-hazards: hazard player places on-guard card "${action.cardInstanceId}" (${mhState.hazardsPlayedThisCompany + 1}/${mhState.hazardLimit})`);
+  logDetail(`Play-hazards: hazard player places on-guard card "${action.cardInstanceId}" (${mhState.hazardsPlayedThisCompany + 1}/${currentHazardLimit(state, mhState, targetCompanyId)})`);
 
   // Remove card from hand
   const newHand = [...hazardPlayer.hand];
@@ -985,7 +991,8 @@ function advanceAfterCompanyMH(state: GameState, mhState: MovementHazardPhaseSta
         declaredRegionPath: [],
         maxRegionDistance: BASE_MAX_REGION_DISTANCE,
         hazardsPlayedThisCompany: 0,
-        hazardLimit: 0,
+        hazardLimitAtReveal: 0,
+        preRevealHazardLimitConstraintIds: [],
         resolvedSitePath: [],
         resolvedSitePathNames: [],
         destinationSiteType: null,
@@ -1322,14 +1329,20 @@ function getCompanySize(state: GameState, company: Company): number {
 
 
 /**
- * Compute the base hazard limit for a company (CoE step 3, rule 2.IV.iii).
+ * Snapshot the company's hazard limit at the moment its new site is
+ * revealed (CoE step 3, rule 2.IV.iii; METD §5). The result is the
+ * "pre-reveal" baseline that subsequent post-reveal modifiers add to.
  *
- * The limit equals the greater of the company's current size or 2,
- * then halved (rounded up) if the hazard player accessed the sideboard
- * during this turn's untap phase. The result is fixed for the entire
- * company's M/H phase, even if characters are later eliminated.
+ * The base equals max(companySize, 2), halved (rounded up) if the hazard
+ * player accessed the sideboard during this turn's untap phase, plus any
+ * `hazard-limit-modifier` constraints that already exist at this moment.
+ * Returned alongside the IDs of the constraints that were folded in, so
+ * the running limit can avoid double-counting them.
  */
-function computeHazardLimit(state: GameState, company: Company): number {
+function snapshotHazardLimit(
+  state: GameState,
+  company: Company,
+): { limit: number; preRevealConstraintIds: readonly string[] } {
   const companySize = getCompanySize(state, company);
   let limit = Math.max(companySize, 2);
   logDetail(`Hazard limit (step 3): company size ${companySize} → base limit ${limit}`);
@@ -1345,19 +1358,49 @@ function computeHazardLimit(state: GameState, company: Company): number {
     limit = halved;
   }
 
+  const preRevealConstraintIds: string[] = [];
   for (const constraint of state.activeConstraints) {
     if (constraint.kind.type === 'hazard-limit-modifier'
         && constraint.target.kind === 'company'
         && constraint.target.companyId === company.id) {
       const prev = limit;
       limit += constraint.kind.value;
+      preRevealConstraintIds.push(constraint.id);
       logDetail(`Hazard limit modified by ${constraint.kind.value} (${constraint.sourceDefinitionId as string}): ${prev} → ${limit}`);
     }
   }
   limit = Math.max(limit, 0);
 
-  logDetail(`Hazard limit set to ${limit}`);
-  return limit;
+  logDetail(`Hazard limit at reveal: ${limit}`);
+  return { limit, preRevealConstraintIds };
+}
+
+/**
+ * The company's running hazard limit at any point during its M/H phase.
+ *
+ * Equals the at-reveal snapshot ({@link MovementHazardPhaseState.hazardLimitAtReveal})
+ * plus any `hazard-limit-modifier` constraints introduced *after* the
+ * snapshot. Pre-reveal constraints are skipped because their value is
+ * already folded into the snapshot.
+ *
+ * Per METD §5, post-reveal modifiers take effect for future hazard plays
+ * in resolution order; they do not retroactively cancel hazards already
+ * announced.
+ */
+export function currentHazardLimit(
+  state: GameState,
+  mhState: MovementHazardPhaseState,
+  companyId: import('../types/common.js').CompanyId,
+): number {
+  let limit = mhState.hazardLimitAtReveal;
+  for (const constraint of state.activeConstraints) {
+    if (constraint.kind.type !== 'hazard-limit-modifier') continue;
+    if (constraint.target.kind !== 'company') continue;
+    if (constraint.target.companyId !== companyId) continue;
+    if (mhState.preRevealHazardLimitConstraintIds.includes(constraint.id)) continue;
+    limit += constraint.kind.value;
+  }
+  return Math.max(limit, 0);
 }
 
 /**

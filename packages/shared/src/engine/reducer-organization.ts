@@ -876,6 +876,12 @@ function runGrantApply(
     }
     const sourceId = ctx.action.sourceCardId;
     const sourceDefId = ctx.sourceCardDefinitionId;
+    // METD §5: hazard-limit-modifier additions during the site phase
+    // have no effect — the limit is locked at site reveal.
+    if (kind.type === 'hazard-limit-modifier' && state.phaseState.phase === Phase.Site) {
+      logDetail(`Grant-action ${ctx.action.actionId}: hazard-limit-modifier ignored — site-phase additions have no effect (METD §5)`);
+      return { updatedChar: char, effects: [], stateOps: [] };
+    }
     logDetail(`Grant-action ${ctx.action.actionId}: adding constraint ${constraintKind} (scope ${apply.scope ?? '?'})`);
     return {
       updatedChar: char,
