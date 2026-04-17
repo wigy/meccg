@@ -22,7 +22,7 @@ import {
   buildTestState, resetMint,
   findCharInstanceId, buildSitePhaseState,
   enqueueTransferCorruptionCheck,
-  getCharacter,
+  getCharacter, RESOURCE_PLAYER,
 } from '../test-helpers.js';
 import { computeLegalActions } from '../../index.js';
 import type { InfluenceAttemptAction, CorruptionCheckAction } from '../../index.js';
@@ -51,8 +51,8 @@ describe('Beregond (tw-127)', () => {
       ],
     });
 
-    const beregondId = findCharInstanceId(state, 0, BEREGOND);
-    const glamdringInstId = getCharacter(state, 0, BEREGOND).items[0].instanceId;
+    const beregondId = findCharInstanceId(state, RESOURCE_PLAYER, BEREGOND);
+    const glamdringInstId = getCharacter(state, RESOURCE_PLAYER, BEREGOND).items[0].instanceId;
 
     // Enqueue a pending corruption-check resolution as if Beregond just
     // gave away an item via transfer.
@@ -83,7 +83,7 @@ describe('Beregond (tw-127)', () => {
       hand: [MEN_OF_LEBENNIN],
     });
 
-    const beregondId = findCharInstanceId(state, 0, BEREGOND);
+    const beregondId = findCharInstanceId(state, RESOURCE_PLAYER, BEREGOND);
     const actions = computeLegalActions(state, PLAYER_1);
 
     const influenceActions = actions
@@ -111,7 +111,7 @@ describe('Beregond (tw-127)', () => {
       hand: [MEN_OF_LEBENNIN],
     });
 
-    const aragornId = findCharInstanceId(aragornState, 0, ARAGORN);
+    const aragornId = findCharInstanceId(aragornState, RESOURCE_PLAYER, ARAGORN);
     const aragornActions = computeLegalActions(aragornState, PLAYER_1)
       .filter(a => a.viable && a.action.type === 'influence-attempt')
       .map(a => a.action as InfluenceAttemptAction);
@@ -129,7 +129,7 @@ describe('Beregond (tw-127)', () => {
       hand: [MEN_OF_LEBENNIN],
     });
 
-    const beregondId = findCharInstanceId(beregondState, 0, BEREGOND);
+    const beregondId = findCharInstanceId(beregondState, RESOURCE_PLAYER, BEREGOND);
     const beregondActions = computeLegalActions(beregondState, PLAYER_1)
       .filter(a => a.viable && a.action.type === 'influence-attempt')
       .map(a => a.action as InfluenceAttemptAction);

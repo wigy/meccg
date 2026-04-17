@@ -27,7 +27,7 @@ import {
   buildTestState, resetMint, makeShadowMHState, findCharInstanceId,
   executeAction, playCreatureHazardAndResolve, runCreatureCombat,
   buildSitePhaseState,
-  getCharacter, companyIdAt, handCardId, dispatch,
+  getCharacter, companyIdAt, handCardId, dispatch, RESOURCE_PLAYER, HAZARD_PLAYER,
 } from '../test-helpers.js';
 import { Phase, computeLegalActions } from '../../index.js';
 import type { CombatState, InfluenceAttemptAction } from '../../index.js';
@@ -53,7 +53,7 @@ describe('Peath (tw-176)', () => {
       ],
     });
 
-    expect(getCharacter(state, 0, PEATH).effectiveStats.prowess).toBe(4);
+    expect(getCharacter(state, RESOURCE_PLAYER, PEATH).effectiveStats.prowess).toBe(4);
   });
 
   test('+4 direct influence against Dunlendings faction', () => {
@@ -69,7 +69,7 @@ describe('Peath (tw-176)', () => {
       hand: [DUNLENDINGS],
     });
 
-    const peathId = findCharInstanceId(state, 0, PEATH);
+    const peathId = findCharInstanceId(state, RESOURCE_PLAYER, PEATH);
     const actions = computeLegalActions(state, PLAYER_1);
 
     const influenceActions = actions
@@ -98,7 +98,7 @@ describe('Peath (tw-176)', () => {
       hand: [DUNLENDINGS],
     });
 
-    const legolasId = findCharInstanceId(state, 0, LEGOLAS);
+    const legolasId = findCharInstanceId(state, RESOURCE_PLAYER, LEGOLAS);
     const actions = computeLegalActions(state, PLAYER_1);
 
     const influenceActions = actions
@@ -129,8 +129,8 @@ describe('Peath (tw-176)', () => {
       ],
     });
 
-    const peathId = findCharInstanceId(state, 0, PEATH);
-    const companyId = companyIdAt(state, 0);
+    const peathId = findCharInstanceId(state, RESOURCE_PLAYER, PEATH);
+    const companyId = companyIdAt(state, RESOURCE_PLAYER);
 
     const combat: CombatState = {
       attackSource: { type: 'creature', instanceId: 'fake-nazgul' as never },
@@ -176,8 +176,8 @@ describe('Peath (tw-176)', () => {
     const mhState = makeShadowMHState();
     const ready = { ...state, phaseState: mhState };
 
-    const bwId = handCardId(ready, 1);
-    const companyId = companyIdAt(ready, 0);
+    const bwId = handCardId(ready, HAZARD_PLAYER);
+    const companyId = companyIdAt(ready, RESOURCE_PLAYER);
     const afterChain = playCreatureHazardAndResolve(ready, PLAYER_2, bwId, companyId, SHADOW_KEYING);
 
     expect(afterChain.combat).not.toBeNull();
@@ -201,8 +201,8 @@ describe('Peath (tw-176)', () => {
       ],
     });
 
-    const peathId = findCharInstanceId(state, 0, PEATH);
-    const companyId = companyIdAt(state, 0);
+    const peathId = findCharInstanceId(state, RESOURCE_PLAYER, PEATH);
+    const companyId = companyIdAt(state, RESOURCE_PLAYER);
 
     const combat: CombatState = {
       attackSource: { type: 'creature', instanceId: 'fake-nazgul' as never },
@@ -243,8 +243,8 @@ describe('Peath (tw-176)', () => {
       ],
     });
 
-    const peathId = findCharInstanceId(state, 0, PEATH);
-    const companyId = companyIdAt(state, 0);
+    const peathId = findCharInstanceId(state, RESOURCE_PLAYER, PEATH);
+    const companyId = companyIdAt(state, RESOURCE_PLAYER);
 
     const combat: CombatState = {
       attackSource: { type: 'creature', instanceId: 'fake-nazgul' as never },
@@ -293,8 +293,8 @@ describe('Peath (tw-176)', () => {
       ],
     });
 
-    const peathId = findCharInstanceId(state, 0, PEATH);
-    const companyId = companyIdAt(state, 0);
+    const peathId = findCharInstanceId(state, RESOURCE_PLAYER, PEATH);
+    const companyId = companyIdAt(state, RESOURCE_PLAYER);
 
     const combat: CombatState = {
       attackSource: { type: 'creature', instanceId: 'fake-nazgul' as never },
@@ -341,8 +341,8 @@ describe('Peath (tw-176)', () => {
       ],
     });
 
-    const peathId = findCharInstanceId(state, 0, PEATH);
-    const companyId = companyIdAt(state, 0);
+    const peathId = findCharInstanceId(state, RESOURCE_PLAYER, PEATH);
+    const companyId = companyIdAt(state, RESOURCE_PLAYER);
 
     const combat: CombatState = {
       attackSource: { type: 'creature', instanceId: 'fake-orc' as never },

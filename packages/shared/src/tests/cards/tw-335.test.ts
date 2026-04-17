@@ -19,21 +19,13 @@ import {
   SUN, GATES_OF_MORNING,
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
   CardStatus,
+  baseProwess,
   buildTestState, resetMint, buildSitePhaseState,
   playLongEventAndResolve, viableActions,
-  handCardId, dispatch, getCharacter,
+  handCardId, dispatch, getCharacter, pushCardInPlay, RESOURCE_PLAYER, HAZARD_PLAYER,
 } from '../test-helpers.js';
-import type { CardInPlay, CardInstanceId, CardDefinitionId, CharacterCard, SitePhaseState } from '../../index.js';
+import type { CardInPlay, CardInstanceId, CharacterCard, GameState, SitePhaseState } from '../../index.js';
 import { ISENGARD } from '../../index.js';
-
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
-/** Get a character card definition's base prowess from the card pool. */
-function baseProwess(defId: CardDefinitionId): number {
-  return (pool[defId as string] as CharacterCard).prowess;
-}
-
-// ─── Tests ────────────────────────────────────────────────────────────────────
 
 describe('Sun (tw-335)', () => {
   beforeEach(() => resetMint());
@@ -50,11 +42,11 @@ describe('Sun (tw-335)', () => {
       ],
     });
 
-    const sunInstanceId = handCardId(state, 0);
+    const sunInstanceId = handCardId(state, RESOURCE_PLAYER);
     const s = playLongEventAndResolve(state, PLAYER_1, sunInstanceId);
 
-    expect(getCharacter(s, 0, ARAGORN).effectiveStats.prowess).toBe(baseProwess(ARAGORN) + 1);
-    expect(getCharacter(s, 1, LEGOLAS).effectiveStats.prowess).toBe(baseProwess(LEGOLAS));
+    expect(getCharacter(s, RESOURCE_PLAYER, ARAGORN).effectiveStats.prowess).toBe(baseProwess(ARAGORN) + 1);
+    expect(getCharacter(s, HAZARD_PLAYER, LEGOLAS).effectiveStats.prowess).toBe(baseProwess(LEGOLAS));
   });
 
   test('with Gates of Morning: Man and Dúnadan prowess +1 additional', () => {
@@ -75,15 +67,15 @@ describe('Sun (tw-335)', () => {
       ],
     });
 
-    const sunInstanceId = handCardId(state, 0);
+    const sunInstanceId = handCardId(state, RESOURCE_PLAYER);
     const s = playLongEventAndResolve(state, PLAYER_1, sunInstanceId);
 
     // Aragorn (dunadan): +1 unconditional + +1 with GoM = +2
-    expect(getCharacter(s, 0, ARAGORN).effectiveStats.prowess).toBe(baseProwess(ARAGORN) + 2);
+    expect(getCharacter(s, RESOURCE_PLAYER, ARAGORN).effectiveStats.prowess).toBe(baseProwess(ARAGORN) + 2);
     // Bard Bowman (man): +1 with GoM
-    expect(getCharacter(s, 0, BARD_BOWMAN).effectiveStats.prowess).toBe(baseProwess(BARD_BOWMAN) + 1);
+    expect(getCharacter(s, RESOURCE_PLAYER, BARD_BOWMAN).effectiveStats.prowess).toBe(baseProwess(BARD_BOWMAN) + 1);
     // Legolas (elf): unaffected
-    expect(getCharacter(s, 1, LEGOLAS).effectiveStats.prowess).toBe(baseProwess(LEGOLAS));
+    expect(getCharacter(s, HAZARD_PLAYER, LEGOLAS).effectiveStats.prowess).toBe(baseProwess(LEGOLAS));
   });
 
   test('affects opponent characters too', () => {
@@ -106,7 +98,7 @@ describe('Sun (tw-335)', () => {
     const s = dispatch(state, { type: 'pass', player: PLAYER_1 });
 
     // P2's Aragorn (dunadan) should get +1 from P1's Sun
-    expect(getCharacter(s, 1, ARAGORN).effectiveStats.prowess).toBe(baseProwess(ARAGORN) + 1);
+    expect(getCharacter(s, HAZARD_PLAYER, ARAGORN).effectiveStats.prowess).toBe(baseProwess(ARAGORN) + 1);
   });
 
   test('body and direct influence are not modified', () => {
@@ -119,11 +111,11 @@ describe('Sun (tw-335)', () => {
       ],
     });
 
-    const sunInstanceId = handCardId(state, 0);
+    const sunInstanceId = handCardId(state, RESOURCE_PLAYER);
     const s = playLongEventAndResolve(state, PLAYER_1, sunInstanceId);
 
     const aragornDef = pool[ARAGORN as string] as CharacterCard;
-    const stats = getCharacter(s, 0, ARAGORN).effectiveStats;
+    const stats = getCharacter(s, RESOURCE_PLAYER, ARAGORN).effectiveStats;
     expect(stats.body).toBe(aragornDef.body);
     expect(stats.directInfluence).toBe(aragornDef.directInfluence);
   });
@@ -168,66 +160,39 @@ describe('Sun (tw-335)', () => {
     expect(actions).toHaveLength(0);
   });
 
-  test('with Gates of Morning: automatic attack prowess reduced by -1', () => {
-    // Isengard has Wolves automatic attack: 3 strikes, 7 prowess
-    // With Sun + Gates of Morning, attack prowess should be 7 - 1 = 6
+  // Isengard has Wolves automatic attack: 3 strikes, 7 prowess. Sun's
+  // all-attacks -1 modifier only applies while Gates of Morning is out.
+  test.each([
+    { label: 'with Gates of Morning: -1 applied', withGoM: true, expectedProwess: 6 },
+    { label: 'without Gates of Morning: unchanged', withGoM: false, expectedProwess: 7 },
+  ])('$label', ({ withGoM, expectedProwess }) => {
+    const sunInPlay: CardInPlay = {
+      instanceId: 'sun-1' as CardInstanceId,
+      definitionId: SUN,
+      status: CardStatus.Untapped,
+    };
     const gomInPlay: CardInPlay = {
       instanceId: 'gom-1' as CardInstanceId,
       definitionId: GATES_OF_MORNING,
       status: CardStatus.Untapped,
     };
-    const sunInPlay: CardInPlay = {
-      instanceId: 'sun-1' as CardInstanceId,
-      definitionId: SUN,
-      status: CardStatus.Untapped,
-    };
 
-    const state = buildSitePhaseState({ site: ISENGARD });
-    // Add Sun and GoM to player 1's cardsInPlay
-    const players = state.players.map((p, i) =>
-      i === 0 ? { ...p, cardsInPlay: [...p.cardsInPlay, gomInPlay, sunInPlay] } : p,
-    ) as [typeof state.players[0], typeof state.players[1]];
+    const initial = buildSitePhaseState({ site: ISENGARD });
+    const sitePhase = initial.phaseState;
+    let state: GameState = pushCardInPlay(initial, RESOURCE_PLAYER, sunInPlay);
+    if (withGoM) state = pushCardInPlay(state, RESOURCE_PLAYER, gomInPlay);
 
     const autoAttackState: SitePhaseState = {
-      ...state.phaseState,
+      ...sitePhase,
       step: 'automatic-attacks',
       siteEntered: false,
       automaticAttacksResolved: 0,
     };
-    const readyState = { ...state, players, phaseState: autoAttackState };
+    const readyState = { ...state, phaseState: autoAttackState };
 
-    // Pass to trigger the automatic attack combat
     const nextState = dispatch(readyState, { type: 'pass', player: PLAYER_1 });
     expect(nextState.combat).toBeDefined();
     expect(nextState.combat!.strikesTotal).toBe(3);
-    // Prowess reduced from 7 to 6 by Sun's all-attacks effect
-    expect(nextState.combat!.strikeProwess).toBe(6);
-  });
-
-  test('without Gates of Morning: automatic attack prowess is unchanged', () => {
-    // Without GoM, Sun's all-attacks effect should not apply
-    const sunInPlay: CardInPlay = {
-      instanceId: 'sun-1' as CardInstanceId,
-      definitionId: SUN,
-      status: CardStatus.Untapped,
-    };
-
-    const state = buildSitePhaseState({ site: ISENGARD });
-    const players = state.players.map((p, i) =>
-      i === 0 ? { ...p, cardsInPlay: [...p.cardsInPlay, sunInPlay] } : p,
-    ) as [typeof state.players[0], typeof state.players[1]];
-
-    const autoAttackState: SitePhaseState = {
-      ...state.phaseState,
-      step: 'automatic-attacks',
-      siteEntered: false,
-      automaticAttacksResolved: 0,
-    };
-    const readyState = { ...state, players, phaseState: autoAttackState };
-
-    const nextState = dispatch(readyState, { type: 'pass', player: PLAYER_1 });
-    expect(nextState.combat).toBeDefined();
-    // Prowess unchanged at 7 — Sun's all-attacks effect requires GoM
-    expect(nextState.combat!.strikeProwess).toBe(7);
+    expect(nextState.combat!.strikeProwess).toBe(expectedProwess);
   });
 });

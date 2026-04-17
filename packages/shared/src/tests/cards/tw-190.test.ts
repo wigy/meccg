@@ -21,7 +21,7 @@ import {
   buildTestState, resetMint,
   viableActions, dispatch, makePlayDeck,
   playPermanentEventAndResolve,
-  charIdAt, makeMHState,
+  charIdAt, makeMHState, RESOURCE_PLAYER,
 } from '../test-helpers.js';
 import type {
   PlayPermanentEventAction,
@@ -266,7 +266,7 @@ describe('Align Palantír (tw-190)', () => {
     const stateAtMH = { ...withDest, phaseState: mhState };
 
     // Verify Align Palantír is currently on the character
-    const sarumanId = charIdAt(stateAtMH, 0, 0, 0);
+    const sarumanId = charIdAt(stateAtMH, RESOURCE_PLAYER, 0, 0);
     const charBefore = stateAtMH.players[0].characters[sarumanId as string];
     expect(charBefore.items.some(i => i.definitionId === ALIGN_PALANTIR)).toBe(true);
 
@@ -316,7 +316,7 @@ describe('Align Palantír (tw-190)', () => {
     const afterHazardPass = dispatch(afterResourcePass, { type: 'pass', player: PLAYER_2 });
 
     // Align Palantír should still be on the character
-    const sarumanId = charIdAt(stateAtMH, 0, 0, 0);
+    const sarumanId = charIdAt(stateAtMH, RESOURCE_PLAYER, 0, 0);
     const charAfter = afterHazardPass.players[0].characters[sarumanId as string];
     expect(charAfter.items.some(i => i.definitionId === ALIGN_PALANTIR)).toBe(true);
   });

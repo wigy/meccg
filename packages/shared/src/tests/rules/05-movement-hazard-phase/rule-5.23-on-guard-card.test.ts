@@ -22,7 +22,7 @@ import {
   LEGOLAS, ARAGORN,
   CAVE_DRAKE, ORC_PATROL, BARROW_WIGHT, GLAMDRING,
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
-  handCardId,
+  handCardId, HAZARD_PLAYER,
 } from '../../test-helpers.js';
 import type { PlaceOnGuardAction } from '../../../index.js';
 
@@ -46,8 +46,8 @@ describe('Rule 5.23 — Placing an On-Guard Card', () => {
     // Both cards should be eligible — any hand card can be placed on-guard
     expect(ogActions).toHaveLength(2);
     const cardIds = ogActions.map(ea => (ea.action as PlaceOnGuardAction).cardInstanceId);
-    expect(cardIds).toContain(handCardId(mhGameState, 1, 0));
-    expect(cardIds).toContain(handCardId(mhGameState, 1, 1));
+    expect(cardIds).toContain(handCardId(mhGameState, HAZARD_PLAYER, 0));
+    expect(cardIds).toContain(handCardId(mhGameState, HAZARD_PLAYER, 1));
   });
 
   test('placing on-guard removes card from hand, adds to company onGuardCards, and counts against hazard limit', () => {
@@ -61,7 +61,7 @@ describe('Rule 5.23 — Placing an On-Guard Card', () => {
     });
     const mhGameState = { ...state, phaseState: makeMHState() };
 
-    const cardToPlace = handCardId(mhGameState, 1);
+    const cardToPlace = handCardId(mhGameState, HAZARD_PLAYER);
     const nextState = dispatch(mhGameState, {
       type: 'place-on-guard',
       player: PLAYER_2,
@@ -93,7 +93,7 @@ describe('Rule 5.23 — Placing an On-Guard Card', () => {
     const mhGameState = { ...state, phaseState: makeMHState() };
 
     // Place first on-guard card
-    const firstCard = handCardId(mhGameState, 1);
+    const firstCard = handCardId(mhGameState, HAZARD_PLAYER);
     const afterFirst = dispatch(mhGameState, {
       type: 'place-on-guard',
       player: PLAYER_2,
@@ -138,7 +138,7 @@ describe('Rule 5.23 — Placing an On-Guard Card', () => {
       phaseState: makeMHState({ resourcePlayerPassed: true }),
     };
 
-    const cardId = handCardId(mhGameState, 1);
+    const cardId = handCardId(mhGameState, HAZARD_PLAYER);
     const nextState = dispatch(mhGameState, {
       type: 'place-on-guard',
       player: PLAYER_2,

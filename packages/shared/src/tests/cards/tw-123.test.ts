@@ -22,7 +22,7 @@ import {
   BLUE_MOUNTAIN_DWARVES,
   buildTestState, resetMint,
   findCharInstanceId, viablePlayCharacterActions, buildSitePhaseState,
-  getCharacter,
+  getCharacter, RESOURCE_PLAYER,
 } from '../test-helpers.js';
 import { computeLegalActions, Phase } from '../../index.js';
 import type { CharacterCard, InfluenceAttemptAction } from '../../index.js';
@@ -44,7 +44,7 @@ describe('Balin (tw-123)', () => {
     });
 
     const baseDef = pool[BALIN] as CharacterCard;
-    expect(getCharacter(state, 0, BALIN).effectiveStats.directInfluence).toBe(baseDef.directInfluence);
+    expect(getCharacter(state, RESOURCE_PLAYER, BALIN).effectiveStats.directInfluence).toBe(baseDef.directInfluence);
     expect(baseDef.directInfluence).toBe(2);
   });
 
@@ -60,7 +60,7 @@ describe('Balin (tw-123)', () => {
     });
 
     const baseDef = pool[BALIN] as CharacterCard;
-    expect(getCharacter(state, 0, BALIN).effectiveStats.prowess).toBe(baseDef.prowess);
+    expect(getCharacter(state, RESOURCE_PLAYER, BALIN).effectiveStats.prowess).toBe(baseDef.prowess);
     expect(baseDef.prowess).toBe(4);
   });
 
@@ -83,7 +83,7 @@ describe('Balin (tw-123)', () => {
       ],
     });
 
-    const balinId = findCharInstanceId(state, 0, BALIN);
+    const balinId = findCharInstanceId(state, RESOURCE_PLAYER, BALIN);
     const actions = viablePlayCharacterActions(state, PLAYER_1);
 
     const kiliUnderBalin = actions.filter(
@@ -111,7 +111,7 @@ describe('Balin (tw-123)', () => {
       ],
     });
 
-    const balinId = findCharInstanceId(state, 0, BALIN);
+    const balinId = findCharInstanceId(state, RESOURCE_PLAYER, BALIN);
     const actions = viablePlayCharacterActions(state, PLAYER_1);
 
     // No DI bonus for non-dwarves, so Balin cannot control Haldir as follower
@@ -132,7 +132,7 @@ describe('Balin (tw-123)', () => {
       hand: [BLUE_MOUNTAIN_DWARVES],
     });
 
-    const balinId = findCharInstanceId(state, 0, BALIN);
+    const balinId = findCharInstanceId(state, RESOURCE_PLAYER, BALIN);
     const actions = computeLegalActions(state, PLAYER_1);
 
     // There should be an influence-attempt action for Blue Mountain Dwarves with Balin

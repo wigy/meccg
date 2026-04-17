@@ -28,7 +28,7 @@ import {
   findCharInstanceId,
   playCreatureHazardAndResolve,
   handCardId, companyIdAt, dispatch, expectCharStatus, expectInDiscardPile,
-  actionAs,
+  actionAs, RESOURCE_PLAYER, HAZARD_PLAYER,
 } from '../test-helpers.js';
 import { computeLegalActions, Phase, RegionType, SiteType, CardStatus } from '../../index.js';
 import type { PlayDodgeAction, BodyCheckRollAction, ResolveStrikeAction, PlayShortEventAction, NotPlayableAction } from '../../index.js';
@@ -70,8 +70,8 @@ describe('Dodge (tw-209)', () => {
     });
     const gameState = { ...state, phaseState: mhState };
 
-    const creatureId = handCardId(gameState, 1);
-    const companyId = companyIdAt(gameState, 0);
+    const creatureId = handCardId(gameState, HAZARD_PLAYER);
+    const companyId = companyIdAt(gameState, RESOURCE_PLAYER);
     const s0 = playCreatureHazardAndResolve(gameState, PLAYER_2, creatureId, companyId, WILDERNESS_KEYING);
     expect(s0.combat).not.toBeNull();
     return s0;
@@ -79,7 +79,7 @@ describe('Dodge (tw-209)', () => {
 
   function assignCaveDrakeStrikes(state0: import('../../index.js').GameState) {
     // Cave-drake has attacker-chooses-defenders: cancel window → attacker assigns
-    const aragornId = findCharInstanceId(state0, 0, ARAGORN);
+    const aragornId = findCharInstanceId(state0, RESOURCE_PLAYER, ARAGORN);
 
     // P1 (defender) passes cancel window
     let s = dispatch(state0, { type: 'pass', player: PLAYER_1 });
@@ -100,7 +100,7 @@ describe('Dodge (tw-209)', () => {
     const dodgeActions = actions.filter(a => a.viable && a.action.type === 'play-dodge');
     expect(dodgeActions.length).toBe(1);
     expect((dodgeActions[0].action as PlayDodgeAction).cardInstanceId).toBe(
-      handCardId(s1, 0),
+      handCardId(s1, RESOURCE_PLAYER),
     );
   });
 
@@ -115,11 +115,11 @@ describe('Dodge (tw-209)', () => {
     const s2 = dispatch({ ...s1, cheatRollTotal: 12 }, dodgeAction.action);
 
     // Aragorn should still be untapped (dodged, not wounded)
-    expectCharStatus(s2, 0, ARAGORN, CardStatus.Untapped);
+    expectCharStatus(s2, RESOURCE_PLAYER, ARAGORN, CardStatus.Untapped);
 
     // Dodge card should be discarded from hand
     expect(s2.players[0].hand.length).toBe(0);
-    expectInDiscardPile(s2, 0, DODGE);
+    expectInDiscardPile(s2, RESOURCE_PLAYER, DODGE);
   });
 
   test('wounded by dodged strike → body check with -1 penalty', () => {
@@ -221,6 +221,6 @@ describe('Dodge (tw-209)', () => {
     const s2 = dispatch({ ...s1, cheatRollTotal: 12 }, tapAction.action);
 
     // Without dodge, character should be tapped
-    expectCharStatus(s2, 0, ARAGORN, CardStatus.Tapped);
+    expectCharStatus(s2, RESOURCE_PLAYER, ARAGORN, CardStatus.Tapped);
   });
 });

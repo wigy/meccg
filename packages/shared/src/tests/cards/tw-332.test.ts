@@ -41,7 +41,7 @@ import {
   mint,
   makeMHState,
   handCardId, charIdAt, companyIdAt, dispatch,
-  viableActions, viableFor,
+  viableActions, viableFor, RESOURCE_PLAYER,
 } from '../test-helpers.js';
 import type {
   PlayHazardAction, CardInstanceId,
@@ -65,7 +65,7 @@ describe('Stealth (tw-332)', () => {
         { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [MINAS_TIRITH] },
       ],
     });
-    const stealthInstance = handCardId(base, 0);
+    const stealthInstance = handCardId(base, RESOURCE_PLAYER);
 
     const playActions = viableActions(base, PLAYER_1, 'play-short-event')
       .map(ea => ea.action as { cardInstanceId: string });
@@ -86,7 +86,7 @@ describe('Stealth (tw-332)', () => {
         { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [MINAS_TIRITH] },
       ],
     });
-    const stealthInstance = handCardId(base, 0);
+    const stealthInstance = handCardId(base, RESOURCE_PLAYER);
 
     const afterPlay = dispatch(base, {
       type: 'play-short-event',
@@ -140,7 +140,7 @@ describe('Stealth (tw-332)', () => {
         { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [MINAS_TIRITH] },
       ],
     });
-    const stealthInstance = handCardId(base, 0);
+    const stealthInstance = handCardId(base, RESOURCE_PLAYER);
 
     const playActions = viableActions(base, PLAYER_1, 'play-short-event')
       .map(ea => ea.action as { cardInstanceId: string });
@@ -158,7 +158,7 @@ describe('Stealth (tw-332)', () => {
         { id: PLAYER_2, companies: [{ site: LORIEN, characters: [ARAGORN] }], hand: [], siteDeck: [MINAS_TIRITH] },
       ],
     });
-    const stealthInstance = handCardId(base, 0);
+    const stealthInstance = handCardId(base, RESOURCE_PLAYER);
 
     const playActions = viableActions(base, PLAYER_1, 'play-short-event')
       .map(ea => ea.action as { cardInstanceId: string });
@@ -177,9 +177,9 @@ describe('Stealth (tw-332)', () => {
         { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [MINAS_TIRITH] },
       ],
     });
-    const stealthInstance = handCardId(base, 0);
-    const aragornInstance = charIdAt(base, 0);
-    const companyId = companyIdAt(base, 0);
+    const stealthInstance = handCardId(base, RESOURCE_PLAYER);
+    const aragornInstance = charIdAt(base, RESOURCE_PLAYER);
+    const companyId = companyIdAt(base, RESOURCE_PLAYER);
 
     const nextState = dispatch(base, {
       type: 'play-short-event',
@@ -210,7 +210,7 @@ describe('Stealth (tw-332)', () => {
       ],
     });
 
-    const targetCompanyId = companyIdAt(base, 0);
+    const targetCompanyId = companyIdAt(base, RESOURCE_PLAYER);
     const stealthInstance = mint();
 
     // Set up the M/H phase in the play-hazards step with a wilderness
@@ -263,7 +263,7 @@ describe('Stealth (tw-332)', () => {
       ],
     });
 
-    const targetCompanyId = companyIdAt(base, 0);
+    const targetCompanyId = companyIdAt(base, RESOURCE_PLAYER);
     const constrained = addConstraint(base, {
       source: 'stealth-1' as CardInstanceId,
       sourceDefinitionId: STEALTH,
@@ -286,7 +286,7 @@ describe('Stealth (tw-332)', () => {
       ],
     });
 
-    const targetCompanyId = companyIdAt(base, 0);
+    const targetCompanyId = companyIdAt(base, RESOURCE_PLAYER);
     const constrained = addConstraint(base, {
       source: 'stealth-1' as CardInstanceId,
       sourceDefinitionId: STEALTH,
@@ -321,8 +321,8 @@ describe('Stealth (tw-332)', () => {
       ],
     });
 
-    const protectedCompanyId = companyIdAt(base, 0);
-    const otherCompanyId = companyIdAt(base, 0, 1);
+    const protectedCompanyId = companyIdAt(base, RESOURCE_PLAYER);
+    const otherCompanyId = companyIdAt(base, RESOURCE_PLAYER, 1);
 
     const mhState = makeMHState({
       activeCompanyIndex: 1,

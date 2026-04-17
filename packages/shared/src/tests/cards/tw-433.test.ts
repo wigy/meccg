@@ -45,7 +45,7 @@ import {
   resetMint, pool,
   buildSitePhaseState, setupAutoAttackStep, findCharInstanceId,
   viableActions, viableFor,
-  dispatch,
+  dispatch, RESOURCE_PLAYER,
 } from '../test-helpers.js';
 import {
   computeLegalActions,
@@ -89,9 +89,9 @@ describe('Tolfalas (tw-433)', () => {
     // Trigger auto-attack
     let state = dispatch(readyState, { type: 'pass', player: PLAYER_1 });
 
-    const aragornId = findCharInstanceId(state, 0, ARAGORN);
-    const gimliId = findCharInstanceId(state, 0, GIMLI);
-    const faramirId = findCharInstanceId(state, 0, FARAMIR);
+    const aragornId = findCharInstanceId(state, RESOURCE_PLAYER, ARAGORN);
+    const gimliId = findCharInstanceId(state, RESOURCE_PLAYER, GIMLI);
+    const faramirId = findCharInstanceId(state, RESOURCE_PLAYER, FARAMIR);
 
     // Defender assigns 3 strikes to 3 characters
     state = dispatch(state, { type: 'assign-strike', player: PLAYER_1, characterId: aragornId });
@@ -165,9 +165,9 @@ describe('Tolfalas (tw-433)', () => {
     // Trigger auto-attack
     let state = dispatch(readyState, { type: 'pass', player: PLAYER_1 });
 
-    const aragornId = findCharInstanceId(state, 0, ARAGORN);
-    const gimliId = findCharInstanceId(state, 0, GIMLI);
-    const faramirId = findCharInstanceId(state, 0, FARAMIR);
+    const aragornId = findCharInstanceId(state, RESOURCE_PLAYER, ARAGORN);
+    const gimliId = findCharInstanceId(state, RESOURCE_PLAYER, GIMLI);
+    const faramirId = findCharInstanceId(state, RESOURCE_PLAYER, FARAMIR);
 
     // Assign all 3 strikes
     state = dispatch(state, { type: 'assign-strike', player: PLAYER_1, characterId: aragornId });

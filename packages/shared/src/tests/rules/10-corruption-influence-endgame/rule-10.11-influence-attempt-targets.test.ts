@@ -24,7 +24,7 @@ import {
   viableActions, PLAYER_1,
   ARAGORN, LEGOLAS, GIMLI, BILBO,
   GWAIHIR,
-  MORIA, LORIEN,
+  MORIA, LORIEN, RESOURCE_PLAYER, HAZARD_PLAYER,
 } from '../../test-helpers.js';
 import type { OpponentInfluenceAttemptAction } from '../../test-helpers.js';
 
@@ -33,7 +33,7 @@ describe('Rule 10.11 — Influence Attempt Target Conditions', () => {
     const state = buildTargetState({ p1Site: MORIA, p2Site: MORIA });
     const actions = viableActions(state, PLAYER_1, 'opponent-influence-attempt') as { action: OpponentInfluenceAttemptAction }[];
     expect(actions.length).toBeGreaterThan(0);
-    const legolasId = findCharInstanceId(state, 1, LEGOLAS);
+    const legolasId = findCharInstanceId(state, HAZARD_PLAYER, LEGOLAS);
     expect(actions.some(a => a.action.targetInstanceId === legolasId)).toBe(true);
   });
 
@@ -51,8 +51,8 @@ describe('Rule 10.11 — Influence Attempt Target Conditions', () => {
       p2Chars: [LEGOLAS, GIMLI],
     });
     const actions = viableActions(state, PLAYER_1, 'opponent-influence-attempt') as { action: OpponentInfluenceAttemptAction }[];
-    const legolasId = findCharInstanceId(state, 1, LEGOLAS);
-    const gimliId = findCharInstanceId(state, 1, GIMLI);
+    const legolasId = findCharInstanceId(state, HAZARD_PLAYER, LEGOLAS);
+    const gimliId = findCharInstanceId(state, HAZARD_PLAYER, GIMLI);
     // Should have actions targeting both Legolas and Gimli (without reveal)
     expect(actions.some(a => a.action.targetInstanceId === legolasId && !a.action.revealedCardInstanceId)).toBe(true);
     expect(actions.some(a => a.action.targetInstanceId === gimliId && !a.action.revealedCardInstanceId)).toBe(true);
@@ -65,9 +65,9 @@ describe('Rule 10.11 — Influence Attempt Target Conditions', () => {
       p1Chars: [ARAGORN, BILBO],
     });
     const actions = viableActions(state, PLAYER_1, 'opponent-influence-attempt') as { action: OpponentInfluenceAttemptAction }[];
-    const aragornId = findCharInstanceId(state, 0, ARAGORN);
-    const bilboId = findCharInstanceId(state, 0, BILBO);
-    const legolasId = findCharInstanceId(state, 1, LEGOLAS);
+    const aragornId = findCharInstanceId(state, RESOURCE_PLAYER, ARAGORN);
+    const bilboId = findCharInstanceId(state, RESOURCE_PLAYER, BILBO);
+    const legolasId = findCharInstanceId(state, HAZARD_PLAYER, LEGOLAS);
     // Both Aragorn and Bilbo should be able to target Legolas
     expect(actions.some(a => a.action.influencingCharacterId === aragornId && a.action.targetInstanceId === legolasId)).toBe(true);
     expect(actions.some(a => a.action.influencingCharacterId === bilboId && a.action.targetInstanceId === legolasId)).toBe(true);
@@ -93,7 +93,7 @@ describe('Rule 10.11 — Influence Attempt Target Conditions', () => {
   test('ally at same site is a valid target', () => {
     // P2 has Legolas with ally Gwaihir at Moria, P1 has Aragorn at Moria
     const state = buildTargetState({ p1Site: MORIA, p2Site: MORIA });
-    const withAlly = attachAllyToChar(state, 1, LEGOLAS, GWAIHIR);
+    const withAlly = attachAllyToChar(state, HAZARD_PLAYER, LEGOLAS, GWAIHIR);
     const actions = viableActions(withAlly, PLAYER_1, 'opponent-influence-attempt') as { action: OpponentInfluenceAttemptAction }[];
     // Should have actions targeting the ally (Gwaihir)
     const allyActions = actions.filter(a => a.action.targetKind === 'ally');

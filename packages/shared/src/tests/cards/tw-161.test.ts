@@ -20,7 +20,7 @@ import {
   WOOD_ELVES,
   buildTestState, resetMint,
   findCharInstanceId, viablePlayCharacterActions, buildSitePhaseState,
-  getCharacter,
+  getCharacter, RESOURCE_PLAYER,
 } from '../test-helpers.js';
 import { computeLegalActions, Phase } from '../../index.js';
 import type { CharacterCard, InfluenceAttemptAction } from '../../index.js';
@@ -42,7 +42,7 @@ describe('Glorfindel II (tw-161)', () => {
     });
 
     const baseDef = pool[GLORFINDEL_II as string] as CharacterCard;
-    expect(getCharacter(state, 0, GLORFINDEL_II).effectiveStats.directInfluence).toBe(baseDef.directInfluence);
+    expect(getCharacter(state, RESOURCE_PLAYER, GLORFINDEL_II).effectiveStats.directInfluence).toBe(baseDef.directInfluence);
     expect(baseDef.directInfluence).toBe(2);
   });
 
@@ -65,7 +65,7 @@ describe('Glorfindel II (tw-161)', () => {
       ],
     });
 
-    const glorfindelId = findCharInstanceId(state, 0, GLORFINDEL_II);
+    const glorfindelId = findCharInstanceId(state, RESOURCE_PLAYER, GLORFINDEL_II);
     const actions = viablePlayCharacterActions(state, PLAYER_1);
 
     const haldirUnderGlorfindel = actions.filter(
@@ -92,7 +92,7 @@ describe('Glorfindel II (tw-161)', () => {
       ],
     });
 
-    const glorfindelId = findCharInstanceId(state, 0, GLORFINDEL_II);
+    const glorfindelId = findCharInstanceId(state, RESOURCE_PLAYER, GLORFINDEL_II);
     const actions = viablePlayCharacterActions(state, PLAYER_1);
 
     const beregondUnderGlorfindel = actions.filter(
@@ -101,7 +101,7 @@ describe('Glorfindel II (tw-161)', () => {
     expect(beregondUnderGlorfindel.length).toBeGreaterThanOrEqual(1);
 
     // Effective DI is still 2 (bonus doesn't apply to non-elves)
-    expect(getCharacter(state, 0, GLORFINDEL_II).effectiveStats.directInfluence).toBe(2);
+    expect(getCharacter(state, RESOURCE_PLAYER, GLORFINDEL_II).effectiveStats.directInfluence).toBe(2);
   });
 
   test('+1 DI bonus applies when influencing an elf faction (Wood-elves)', () => {
@@ -116,7 +116,7 @@ describe('Glorfindel II (tw-161)', () => {
       hand: [WOOD_ELVES],
     });
 
-    const glorfindelId = findCharInstanceId(state, 0, GLORFINDEL_II);
+    const glorfindelId = findCharInstanceId(state, RESOURCE_PLAYER, GLORFINDEL_II);
     const actions = computeLegalActions(state, PLAYER_1);
 
     // There should be an influence-attempt action for Wood-elves with Glorfindel

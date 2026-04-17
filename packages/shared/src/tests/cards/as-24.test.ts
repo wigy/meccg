@@ -44,9 +44,9 @@ import {
   ARAGORN, LEGOLAS, GIMLI, ELROND,
   ALONE_AND_UNADVISED,
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
-  viableActions, CardStatus, charIdAt, dispatch, expectCharStatus, expectInDiscardPile,
-  makeMHState, handCardId, companyIdAt,
-  attachHazardToChar,
+  viableActions, CardStatus, dispatch, expectCharStatus, expectInDiscardPile,
+  makeMHState, handCardId, companyIdAt, findCharInstanceId,
+  attachHazardToChar, getCharacter, getHazardsOn, RESOURCE_PLAYER, HAZARD_PLAYER,
 } from '../test-helpers.js';
 import type { ActivateGrantedAction, CorruptionCheckAction, PlayHazardAction } from '../../index.js';
 import { computeLegalActions } from '../../engine/legal-actions/index.js';
@@ -68,11 +68,10 @@ describe('Alone and Unadvised (as-24)', () => {
       ],
     });
 
-    const aragornId = charIdAt(base, 0);
-    expect(base.players[0].characters[aragornId as string].effectiveStats.corruptionPoints).toBe(0);
+    expect(getCharacter(base, RESOURCE_PLAYER, ARAGORN).effectiveStats.corruptionPoints).toBe(0);
 
-    const withCard = recomputeDerived(attachHazardToChar(base, 0, ARAGORN, ALONE_AND_UNADVISED));
-    expect(withCard.players[0].characters[aragornId as string].effectiveStats.corruptionPoints).toBe(4);
+    const withCard = recomputeDerived(attachHazardToChar(base, RESOURCE_PLAYER, ARAGORN, ALONE_AND_UNADVISED));
+    expect(getCharacter(withCard, RESOURCE_PLAYER, ARAGORN).effectiveStats.corruptionPoints).toBe(4);
   });
 
   test('offered as a viable hazard play targeting each character in company during MH', () => {
@@ -95,10 +94,8 @@ describe('Alone and Unadvised (as-24)', () => {
 
     expect(playActions).toHaveLength(2);
     const targetCharIds = playActions.map(a => a.targetCharacterId);
-    const aragornId = charIdAt(base, 0, 0, 0);
-    const legolasId = charIdAt(base, 0, 0, 1);
-    expect(targetCharIds).toContain(aragornId);
-    expect(targetCharIds).toContain(legolasId);
+    expect(targetCharIds).toContain(findCharInstanceId(base, RESOURCE_PLAYER, ARAGORN));
+    expect(targetCharIds).toContain(findCharInstanceId(base, RESOURCE_PLAYER, LEGOLAS));
   });
 
   test('not playable if company has more than 3 characters', () => {
@@ -132,7 +129,7 @@ describe('Alone and Unadvised (as-24)', () => {
       ],
     });
 
-    const withOne = attachHazardToChar(base, 0, ARAGORN, ALONE_AND_UNADVISED);
+    const withOne = attachHazardToChar(base, RESOURCE_PLAYER, ARAGORN, ALONE_AND_UNADVISED);
     const mhState = makeMHState({ activeCompanyIndex: 0 });
     const stateAtPlayHazards = { ...withOne, phaseState: mhState };
 
@@ -153,9 +150,9 @@ describe('Alone and Unadvised (as-24)', () => {
       ],
     });
 
-    const targetCompanyId = companyIdAt(base, 0);
-    const cardInstance = handCardId(base, 1);
-    const aragornId = charIdAt(base, 0);
+    const targetCompanyId = companyIdAt(base, RESOURCE_PLAYER);
+    const cardInstance = handCardId(base, HAZARD_PLAYER);
+    const aragornId = findCharInstanceId(base, RESOURCE_PLAYER, ARAGORN);
 
     const mhState = makeMHState({ activeCompanyIndex: 0 });
     const stateAtPlayHazards = { ...base, phaseState: mhState };
@@ -193,7 +190,7 @@ describe('Alone and Unadvised (as-24)', () => {
       ],
     });
 
-    const withCard = attachHazardToChar(base, 0, ARAGORN, ALONE_AND_UNADVISED);
+    const withCard = attachHazardToChar(base, RESOURCE_PLAYER, ARAGORN, ALONE_AND_UNADVISED);
     const mhState = makeMHState({
       activeCompanyIndex: 0,
       resolvedSitePath: [RegionType.Wilderness, RegionType.Shadow],
@@ -228,7 +225,7 @@ describe('Alone and Unadvised (as-24)', () => {
       ],
     });
 
-    const withCard = attachHazardToChar(base, 0, ARAGORN, ALONE_AND_UNADVISED);
+    const withCard = attachHazardToChar(base, RESOURCE_PLAYER, ARAGORN, ALONE_AND_UNADVISED);
     const mhState = makeMHState({
       activeCompanyIndex: 0,
       resolvedSitePath: [],
@@ -255,7 +252,7 @@ describe('Alone and Unadvised (as-24)', () => {
       ],
     });
 
-    const withCard = recomputeDerived(attachHazardToChar(base, 0, ARAGORN, ALONE_AND_UNADVISED));
+    const withCard = recomputeDerived(attachHazardToChar(base, RESOURCE_PLAYER, ARAGORN, ALONE_AND_UNADVISED));
     const mhState = makeMHState({
       activeCompanyIndex: 0,
       resolvedSitePath: [RegionType.Wilderness],
@@ -286,7 +283,7 @@ describe('Alone and Unadvised (as-24)', () => {
       ],
     });
 
-    const withCard = attachHazardToChar(base, 0, ARAGORN, ALONE_AND_UNADVISED);
+    const withCard = attachHazardToChar(base, RESOURCE_PLAYER, ARAGORN, ALONE_AND_UNADVISED);
     const actions = viableActions(withCard, PLAYER_1, 'activate-granted-action');
     // METD §7 step 10 added a no-tap variant alongside the standard
     // tap-and-roll for any corruption-card removal. Both are now offered.
@@ -298,7 +295,12 @@ describe('Alone and Unadvised (as-24)', () => {
     expect(action.rollThreshold).toBe(7);
   });
 
-  test('successful removal roll (>6) discards card and taps bearer', () => {
+  // Roll >6 discards the corruption card; roll ≤6 keeps it attached. Either way the
+  // bearer taps because the granted action's cost always pays the tap.
+  test.each([
+    { label: 'successful removal roll (>6) discards the card', roll: 7, expectedHazards: 0 },
+    { label: 'failed removal roll (<=6) keeps the card attached', roll: 6, expectedHazards: 1 },
+  ])('$label; bearer taps either way', ({ roll, expectedHazards }) => {
     const base = buildTestState({
       activePlayer: PLAYER_1,
       phase: Phase.Organization,
@@ -308,36 +310,18 @@ describe('Alone and Unadvised (as-24)', () => {
       ],
     });
 
-    const withCard = attachHazardToChar(base, 0, ARAGORN, ALONE_AND_UNADVISED);
-    const cheated = { ...withCard, cheatRollTotal: 7 };
+    const withCard = attachHazardToChar(base, RESOURCE_PLAYER, ARAGORN, ALONE_AND_UNADVISED);
+    const cheated = { ...withCard, cheatRollTotal: roll };
     const actions = viableActions(cheated, PLAYER_1, 'activate-granted-action');
     const next = dispatch(cheated, actions[0].action);
 
-    expectCharStatus(next, 0, ARAGORN, CardStatus.Tapped);
-    const aragornId = charIdAt(next, 0);
-    expect(next.players[0].characters[aragornId as string].hazards).toHaveLength(0);
-    expectInDiscardPile(next, 1, ALONE_AND_UNADVISED);
-  });
-
-  test('failed removal roll (<=6) keeps card attached but still taps bearer', () => {
-    const base = buildTestState({
-      activePlayer: PLAYER_1,
-      phase: Phase.Organization,
-      players: [
-        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [ARAGORN] }], hand: [], siteDeck: [MORIA] },
-        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [MINAS_TIRITH] },
-      ],
-    });
-
-    const withCard = attachHazardToChar(base, 0, ARAGORN, ALONE_AND_UNADVISED);
-    const cheated = { ...withCard, cheatRollTotal: 6 };
-    const actions = viableActions(cheated, PLAYER_1, 'activate-granted-action');
-    const next = dispatch(cheated, actions[0].action);
-
-    expectCharStatus(next, 0, ARAGORN, CardStatus.Tapped);
-    const aragornId = charIdAt(next, 0);
-    expect(next.players[0].characters[aragornId as string].hazards).toHaveLength(1);
-    expect(next.players[0].characters[aragornId as string].hazards[0].definitionId).toBe(ALONE_AND_UNADVISED);
+    expectCharStatus(next, RESOURCE_PLAYER, ARAGORN, CardStatus.Tapped);
+    expect(getHazardsOn(next, RESOURCE_PLAYER, ARAGORN)).toHaveLength(expectedHazards);
+    if (expectedHazards === 0) {
+      expectInDiscardPile(next, HAZARD_PLAYER, ALONE_AND_UNADVISED);
+    } else {
+      expect(getHazardsOn(next, RESOURCE_PLAYER, ARAGORN)[0].definitionId).toBe(ALONE_AND_UNADVISED);
+    }
   });
 
   test('auto-discards when company reaches 4+ characters', () => {
@@ -356,19 +340,18 @@ describe('Alone and Unadvised (as-24)', () => {
       ],
     });
 
-    const withCard = attachHazardToChar(base, 0, ARAGORN, ALONE_AND_UNADVISED);
-    const aragornId = charIdAt(withCard, 0, 0);
-    expect(withCard.players[0].characters[aragornId as string].hazards).toHaveLength(1);
+    const withCard = attachHazardToChar(base, RESOURCE_PLAYER, ARAGORN, ALONE_AND_UNADVISED);
+    expect(getHazardsOn(withCard, RESOURCE_PLAYER, ARAGORN)).toHaveLength(1);
 
     const afterRecruit = dispatch(withCard, {
       type: 'play-character',
       player: PLAYER_1,
-      characterInstanceId: handCardId(withCard, 0),
+      characterInstanceId: handCardId(withCard, RESOURCE_PLAYER),
       atSite: withCard.players[0].companies[0].currentSite!.instanceId,
       controlledBy: 'general',
     });
 
     expect(afterRecruit.players[0].companies[0].characters).toHaveLength(4);
-    expect(afterRecruit.players[0].characters[aragornId as string].hazards).toHaveLength(0);
+    expect(getHazardsOn(afterRecruit, RESOURCE_PLAYER, ARAGORN)).toHaveLength(0);
   });
 });

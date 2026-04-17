@@ -38,7 +38,7 @@ import {
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
   CardStatus,
   handCardId, charIdAt, dispatch,
-  expectCharStatus, expectInDiscardPile,
+  expectCharStatus, expectInDiscardPile, RESOURCE_PLAYER,
 } from '../test-helpers.js';
 import type {
   CardInstanceId,
@@ -118,7 +118,7 @@ describe('Halfling Strength (tw-253)', () => {
       .filter(ea => ea.viable && ea.action.type === 'play-short-event');
     expect(playActions).toHaveLength(0);
 
-    const hsInstanceId = handCardId(base, 0);
+    const hsInstanceId = handCardId(base, RESOURCE_PLAYER);
     const notPlayable = computeLegalActions(base, PLAYER_1)
       .filter(ea => !ea.viable && ea.action.type === 'not-playable'
         && (ea.action as { cardInstanceId: CardInstanceId }).cardInstanceId === hsInstanceId);
@@ -146,7 +146,7 @@ describe('Halfling Strength (tw-253)', () => {
 
     const notPlayable = computeLegalActions(base, PLAYER_1)
       .filter(ea => !ea.viable && ea.action.type === 'not-playable'
-        && (ea.action as { cardInstanceId: CardInstanceId }).cardInstanceId === handCardId(base, 0));
+        && (ea.action as { cardInstanceId: CardInstanceId }).cardInstanceId === handCardId(base, RESOURCE_PLAYER));
     expect(notPlayable.length).toBeGreaterThan(0);
   });
 
@@ -173,7 +173,7 @@ describe('Halfling Strength (tw-253)', () => {
       ],
     });
 
-    const frodoId = charIdAt(base, 0, 0, 1);
+    const frodoId = charIdAt(base, RESOURCE_PLAYER, 0, 1);
     const actions = computeLegalActions(base, PLAYER_1)
       .filter(ea => ea.viable && ea.action.type === 'play-short-event')
       .map(ea => ea.action as PlayShortEventAction);
@@ -198,8 +198,8 @@ describe('Halfling Strength (tw-253)', () => {
       ],
     });
 
-    const bilboId = charIdAt(base, 0);
-    const hsInstance = handCardId(base, 0);
+    const bilboId = charIdAt(base, RESOURCE_PLAYER);
+    const hsInstance = handCardId(base, RESOURCE_PLAYER);
 
     const state = dispatch(base, {
       type: 'play-short-event',
@@ -209,9 +209,9 @@ describe('Halfling Strength (tw-253)', () => {
       optionId: 'untap',
     });
 
-    expectCharStatus(state, 0, BILBO, CardStatus.Untapped);
+    expectCharStatus(state, RESOURCE_PLAYER, BILBO, CardStatus.Untapped);
     expect(state.players[0].hand).toHaveLength(0);
-    expectInDiscardPile(state, 0, hsInstance);
+    expectInDiscardPile(state, RESOURCE_PLAYER, hsInstance);
   });
 
   test('playing heal mode heals wounded hobbit to untapped and discards the card', () => {
@@ -229,8 +229,8 @@ describe('Halfling Strength (tw-253)', () => {
       ],
     });
 
-    const bilboId = charIdAt(base, 0);
-    const hsInstance = handCardId(base, 0);
+    const bilboId = charIdAt(base, RESOURCE_PLAYER);
+    const hsInstance = handCardId(base, RESOURCE_PLAYER);
 
     const state = dispatch(base, {
       type: 'play-short-event',
@@ -240,9 +240,9 @@ describe('Halfling Strength (tw-253)', () => {
       optionId: 'heal',
     });
 
-    expectCharStatus(state, 0, BILBO, CardStatus.Untapped);
+    expectCharStatus(state, RESOURCE_PLAYER, BILBO, CardStatus.Untapped);
     expect(state.players[0].hand).toHaveLength(0);
-    expectInDiscardPile(state, 0, hsInstance);
+    expectInDiscardPile(state, RESOURCE_PLAYER, hsInstance);
   });
 
   test('corruption-check-boost is offered only while the targeted hobbit faces a pending corruption check', () => {
@@ -261,8 +261,8 @@ describe('Halfling Strength (tw-253)', () => {
         { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [MINAS_TIRITH] },
       ],
     });
-    const bilboId = charIdAt(base, 0);
-    const hsInstance = handCardId(base, 0);
+    const bilboId = charIdAt(base, RESOURCE_PLAYER);
+    const hsInstance = handCardId(base, RESOURCE_PLAYER);
 
     // No pending check → no play-short-event action.
     const noneActions = computeLegalActions(base, PLAYER_1)
@@ -308,8 +308,8 @@ describe('Halfling Strength (tw-253)', () => {
         { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [MINAS_TIRITH] },
       ],
     });
-    const bilboId = charIdAt(base, 0);
-    const hsInstance = handCardId(base, 0);
+    const bilboId = charIdAt(base, RESOURCE_PLAYER);
+    const hsInstance = handCardId(base, RESOURCE_PLAYER);
 
     const withCheck = enqueueResolution(base, {
       source: null,
@@ -346,7 +346,7 @@ describe('Halfling Strength (tw-253)', () => {
     expect(state.pendingResolutions[0].kind.type).toBe('corruption-check');
     // Card consumed from hand.
     expect(state.players[0].hand).toHaveLength(0);
-    expectInDiscardPile(state, 0, hsInstance);
+    expectInDiscardPile(state, RESOURCE_PLAYER, hsInstance);
 
     // The next legal corruption-check action now carries the boosted
     // modifier (Bilbo's base +4 plus the freshly-added +4 constraint).
@@ -373,7 +373,7 @@ describe('Halfling Strength (tw-253)', () => {
       ],
     });
 
-    const bilboId = charIdAt(base, 0);
+    const bilboId = charIdAt(base, RESOURCE_PLAYER);
 
     const boosted = addConstraint(base, {
       source: 'hs-1' as CardInstanceId,
@@ -421,7 +421,7 @@ describe('Halfling Strength (tw-253)', () => {
       ],
     });
 
-    const bilboId = charIdAt(base, 0);
+    const bilboId = charIdAt(base, RESOURCE_PLAYER);
 
     const boosted = addConstraint(base, {
       source: 'hs-1' as CardInstanceId,

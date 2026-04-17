@@ -20,7 +20,7 @@ import {
   EDORAS,
   RIDERS_OF_ROHAN,
   buildSitePhaseState, resetMint,
-  findCharInstanceId,
+  findCharInstanceId, RESOURCE_PLAYER,
 } from '../test-helpers.js';
 import { computeLegalActions } from '../../index.js';
 import type { InfluenceAttemptAction } from '../../index.js';
@@ -43,7 +43,7 @@ describe('Riders of Rohan (tw-317)', () => {
       hand: [RIDERS_OF_ROHAN],
     });
 
-    const aragornId = findCharInstanceId(state, 0, ARAGORN);
+    const aragornId = findCharInstanceId(state, RESOURCE_PLAYER, ARAGORN);
     const actions = computeLegalActions(state, PLAYER_1);
 
     const influenceActions = actions
@@ -73,7 +73,7 @@ describe('Riders of Rohan (tw-317)', () => {
       hand: [RIDERS_OF_ROHAN],
     });
 
-    const samId = findCharInstanceId(state, 0, SAM_GAMGEE);
+    const samId = findCharInstanceId(state, RESOURCE_PLAYER, SAM_GAMGEE);
     const actions = computeLegalActions(state, PLAYER_1);
 
     const influenceActions = actions
@@ -103,7 +103,7 @@ describe('Riders of Rohan (tw-317)', () => {
       hand: [RIDERS_OF_ROHAN],
     });
 
-    const legolasId = findCharInstanceId(state, 0, LEGOLAS);
+    const legolasId = findCharInstanceId(state, RESOURCE_PLAYER, LEGOLAS);
     const actions = computeLegalActions(state, PLAYER_1);
 
     const influenceActions = actions
@@ -132,7 +132,7 @@ describe('Riders of Rohan (tw-317)', () => {
       hand: [RIDERS_OF_ROHAN],
     });
 
-    const theodenId = findCharInstanceId(state, 0, THEODEN);
+    const theodenId = findCharInstanceId(state, RESOURCE_PLAYER, THEODEN);
     const actions = computeLegalActions(state, PLAYER_1);
 
     const influenceActions = actions

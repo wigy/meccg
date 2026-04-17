@@ -21,7 +21,7 @@ import {
   buildTestState, resetMint, makeMHState,
   findCharInstanceId, viableActions,
   playCreatureHazardAndResolve,
-  handCardId, companyIdAt, dispatch, expectCharStatus,
+  handCardId, companyIdAt, dispatch, expectCharStatus, RESOURCE_PLAYER, HAZARD_PLAYER,
 } from '../test-helpers.js';
 import { computeLegalActions, Phase, RegionType, SiteType, CardStatus } from '../../index.js';
 // ─── Constants ──────────────────────────────────────────────────────────────
@@ -65,8 +65,8 @@ describe('Hobgoblins (le-77)', () => {
     });
     const gameState = { ...state, phaseState: makeMHState(MH_STATE) };
 
-    const creatureId = handCardId(gameState, 1);
-    const companyId = companyIdAt(gameState, 0);
+    const creatureId = handCardId(gameState, HAZARD_PLAYER);
+    const companyId = companyIdAt(gameState, RESOURCE_PLAYER);
     const afterChain = playCreatureHazardAndResolve(
       gameState, PLAYER_2, creatureId, companyId, WILDERNESS_KEYING,
     );
@@ -99,8 +99,8 @@ describe('Hobgoblins (le-77)', () => {
     });
     const gameState = { ...state, phaseState: makeMHState(MH_STATE) };
 
-    const creatureId = handCardId(gameState, 1);
-    const companyId = companyIdAt(gameState, 0);
+    const creatureId = handCardId(gameState, HAZARD_PLAYER);
+    const companyId = companyIdAt(gameState, RESOURCE_PLAYER);
     const afterChain = playCreatureHazardAndResolve(
       gameState, PLAYER_2, creatureId, companyId, WILDERNESS_KEYING,
     );
@@ -135,14 +135,14 @@ describe('Hobgoblins (le-77)', () => {
     });
     const gameState = { ...state, phaseState: makeMHState(MH_STATE) };
 
-    const creatureId = handCardId(gameState, 1);
-    const companyId = companyIdAt(gameState, 0);
+    const creatureId = handCardId(gameState, HAZARD_PLAYER);
+    const companyId = companyIdAt(gameState, RESOURCE_PLAYER);
     const afterChain = playCreatureHazardAndResolve(
       gameState, PLAYER_2, creatureId, companyId, WILDERNESS_KEYING,
     );
 
-    const aragornId = findCharInstanceId(afterChain, 0, ARAGORN);
-    const legolasId = findCharInstanceId(afterChain, 0, LEGOLAS);
+    const aragornId = findCharInstanceId(afterChain, RESOURCE_PLAYER, ARAGORN);
+    const legolasId = findCharInstanceId(afterChain, RESOURCE_PLAYER, LEGOLAS);
 
     // Assign both strikes
     let current = dispatch(afterChain, { type: 'assign-strike', player: PLAYER_1, characterId: aragornId });
@@ -165,8 +165,8 @@ describe('Hobgoblins (le-77)', () => {
 
     expect(current.combat).toBeNull();
 
-    expectCharStatus(current, 0, ARAGORN, CardStatus.Tapped);
-    expectCharStatus(current, 0, LEGOLAS, CardStatus.Tapped);
+    expectCharStatus(current, RESOURCE_PLAYER, ARAGORN, CardStatus.Tapped);
+    expectCharStatus(current, RESOURCE_PLAYER, LEGOLAS, CardStatus.Tapped);
   });
 
   test('character wounded by Hobgoblins survives body check', () => {
@@ -191,14 +191,14 @@ describe('Hobgoblins (le-77)', () => {
     });
     const gameState = { ...state, phaseState: makeMHState(MH_STATE) };
 
-    const creatureId = handCardId(gameState, 1);
-    const companyId = companyIdAt(gameState, 0);
+    const creatureId = handCardId(gameState, HAZARD_PLAYER);
+    const companyId = companyIdAt(gameState, RESOURCE_PLAYER);
     const afterChain = playCreatureHazardAndResolve(
       gameState, PLAYER_2, creatureId, companyId, WILDERNESS_KEYING,
     );
 
-    const aragornId = findCharInstanceId(afterChain, 0, ARAGORN);
-    const legolasId = findCharInstanceId(afterChain, 0, LEGOLAS);
+    const aragornId = findCharInstanceId(afterChain, RESOURCE_PLAYER, ARAGORN);
+    const legolasId = findCharInstanceId(afterChain, RESOURCE_PLAYER, LEGOLAS);
 
     // Assign both strikes
     let current = dispatch(afterChain, { type: 'assign-strike', player: PLAYER_1, characterId: aragornId });
@@ -231,8 +231,8 @@ describe('Hobgoblins (le-77)', () => {
 
     expect(current.combat).toBeNull();
 
-    expectCharStatus(current, 0, ARAGORN, CardStatus.Inverted);
-    expectCharStatus(current, 0, LEGOLAS, CardStatus.Tapped);
+    expectCharStatus(current, RESOURCE_PLAYER, ARAGORN, CardStatus.Inverted);
+    expectCharStatus(current, RESOURCE_PLAYER, LEGOLAS, CardStatus.Tapped);
     // Still verify char instance IDs preserved
     expect(current.players[0].characters[aragornId as string]).toBeDefined();
     expect(current.players[0].characters[legolasId as string]).toBeDefined();

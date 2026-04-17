@@ -20,7 +20,7 @@ import {
   PLAYER_1, PLAYER_2,
   GANDALF, LEGOLAS, ARAGORN,
   FOOLISH_WORDS, DOORS_OF_NIGHT, KNIGHTS_OF_DOL_AMROTH,
-  LORIEN, MINAS_TIRITH, DOL_AMROTH,
+  LORIEN, MINAS_TIRITH, DOL_AMROTH, RESOURCE_PLAYER,
 } from '../../test-helpers.js';
 
 /** Build state: PLAYER_1 at Dol Amroth with Aragorn, faction in hand, Foolish Words on-guard. */
@@ -33,7 +33,7 @@ function buildScenario(characters = [ARAGORN]) {
       { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [MINAS_TIRITH] },
     ],
   });
-  const { state, ogCard } = placeOnGuard(base, 0, 0, FOOLISH_WORDS);
+  const { state, ogCard } = placeOnGuard(base, RESOURCE_PLAYER, 0, FOOLISH_WORDS);
   return { testState: { ...state, phaseState: makeSitePhase() }, ogCard };
 }
 
@@ -117,7 +117,7 @@ describe('Rule 6.14 — On-Guard Reveal When Playing Resource', () => {
         { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [MINAS_TIRITH] },
       ],
     });
-    const { state } = placeOnGuard(base, 0, 0, DOORS_OF_NIGHT);
+    const { state } = placeOnGuard(base, RESOURCE_PLAYER, 0, DOORS_OF_NIGHT);
     const testState = { ...state, phaseState: makeSitePhase() };
 
     const afterAttempt = dispatch(testState, viableActions(testState, PLAYER_1, 'influence-attempt')[0].action);

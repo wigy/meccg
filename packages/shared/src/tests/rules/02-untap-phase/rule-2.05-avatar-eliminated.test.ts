@@ -22,7 +22,7 @@ import {
   makeShadowMHState, makeBodyCheckCombat,
   dispatch, companyIdAt, viablePlayCharacterActions,
   phaseStateAs,
-  Phase,
+  Phase, RESOURCE_PLAYER,
 } from '../../test-helpers.js';
 import type { CardInstanceId, FreeCouncilPhaseState, GameOverPhaseState } from '../../../index.js';
 
@@ -53,8 +53,8 @@ describe('Rule 2.05 — Avatar Eliminated', () => {
       ],
     });
 
-    const gandalfId = findCharInstanceId(state, 0, GANDALF);
-    const companyId = companyIdAt(state, 0);
+    const gandalfId = findCharInstanceId(state, RESOURCE_PLAYER, GANDALF);
+    const companyId = companyIdAt(state, RESOURCE_PLAYER);
 
     // Gandalf body = 9. Roll 12 > 9 → eliminated.
     const readyState = {

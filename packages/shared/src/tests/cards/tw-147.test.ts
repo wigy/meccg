@@ -22,7 +22,7 @@ import {
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
   buildTestState, resetMint, makeShadowMHState, findCharInstanceId,
   executeAction, playCreatureHazardAndResolve, runCreatureCombat,
-  dispatch, getCharacter, expectCharStatus,
+  dispatch, getCharacter, expectCharStatus, RESOURCE_PLAYER,
 } from '../test-helpers.js';
 import { Phase, CardStatus } from '../../index.js';
 import type { CombatState } from '../../index.js';
@@ -51,7 +51,7 @@ function buildCombatState(opts: {
     ],
   });
 
-  const eowynId = findCharInstanceId(state, 0, EOWYN);
+  const eowynId = findCharInstanceId(state, RESOURCE_PLAYER, EOWYN);
   const companyId = state.players[0].companies[0].id;
 
   const combat: CombatState = {
@@ -95,14 +95,14 @@ describe('Éowyn (tw-147)', () => {
       ],
     });
 
-    expect(getCharacter(state, 0, EOWYN).effectiveStats.prowess).toBe(2);
+    expect(getCharacter(state, RESOURCE_PLAYER, EOWYN).effectiveStats.prowess).toBe(2);
   });
 
   test('+6 prowess bonus applies in combat vs nazgul (no tap)', () => {
     // Éowyn base prowess 2 + 6 bonus - 3 no-tap = 5.
     // Roll 11: 5 + 11 = 16 > 15 → character defeats strike.
     const ready = buildCombatState({ creatureRace: 'nazgul', creatureProwess: 15, creatureBody: 10 });
-    const eowynId = findCharInstanceId(ready, 0, EOWYN);
+    const eowynId = findCharInstanceId(ready, RESOURCE_PLAYER, EOWYN);
 
     // Assign strike
     const afterAssign = dispatch(ready, { type: 'assign-strike', player: PLAYER_1, characterId: eowynId });
@@ -139,14 +139,14 @@ describe('Éowyn (tw-147)', () => {
     const afterCombat = runCreatureCombat(afterChain, EOWYN, 12, 2);
     expect(afterCombat.combat).toBeNull();
 
-    expectCharStatus(afterCombat, 0, EOWYN, CardStatus.Inverted);
+    expectCharStatus(afterCombat, RESOURCE_PLAYER, EOWYN, CardStatus.Inverted);
   });
 
   test('tapping to fight with +6 bonus gives correct prowess vs nazgul', () => {
     // Tapping: prowess = 2 + 6 = 8 (no -3 penalty).
     // Roll 8: 8 + 8 = 16 > 15 → character wins.
     const ready = buildCombatState({ creatureRace: 'nazgul', creatureProwess: 15, creatureBody: 10 });
-    const eowynId = findCharInstanceId(ready, 0, EOWYN);
+    const eowynId = findCharInstanceId(ready, RESOURCE_PLAYER, EOWYN);
 
     const afterAssign = dispatch(ready, { type: 'assign-strike', player: PLAYER_1, characterId: eowynId });
 

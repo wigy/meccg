@@ -27,7 +27,7 @@ import {
   RIVENDELL, LORIEN, MINAS_TIRITH, BREE,
   buildTestState, resetMint, makeMHState,
   resolveChain,
-  handCardId, companyIdAt, charIdAt, dispatch,
+  handCardId, companyIdAt, charIdAt, dispatch, RESOURCE_PLAYER, HAZARD_PLAYER,
 } from '../test-helpers.js';
 import { computeLegalActions, Phase, SiteType } from '../../index.js';
 // ─── Tests ───────────────────────────────────────────────────────────────────
@@ -68,8 +68,8 @@ describe('Assassin (tw-8)', () => {
     const gameState = { ...state, phaseState: mhState };
 
     // P2 plays Assassin targeting P1's company
-    const assassinId = handCardId(gameState, 1);
-    const companyId = companyIdAt(gameState, 0);
+    const assassinId = handCardId(gameState, HAZARD_PLAYER);
+    const companyId = companyIdAt(gameState, RESOURCE_PLAYER);
     const afterPlay = dispatch(gameState, {
       type: 'play-hazard',
       player: PLAYER_2,
@@ -119,8 +119,8 @@ describe('Assassin (tw-8)', () => {
     });
     const gameState = { ...state, phaseState: mhState };
 
-    const assassinId = handCardId(gameState, 1);
-    const companyId = companyIdAt(gameState, 0);
+    const assassinId = handCardId(gameState, HAZARD_PLAYER);
+    const companyId = companyIdAt(gameState, RESOURCE_PLAYER);
     const afterPlay = dispatch(gameState, {
       type: 'play-hazard',
       player: PLAYER_2,
@@ -141,7 +141,7 @@ describe('Assassin (tw-8)', () => {
     expect(assignStrikes).toHaveLength(2); // Can target either character
 
     // Attacker assigns to Aragorn
-    const aragornCharId = charIdAt(afterPass, 0);
+    const aragornCharId = charIdAt(afterPass, RESOURCE_PLAYER);
     const assignResult = dispatch(afterPass, {
       type: 'assign-strike',
       player: PLAYER_2,
@@ -187,8 +187,8 @@ describe('Assassin (tw-8)', () => {
     });
     const gameState = { ...state, phaseState: mhState };
 
-    const assassinId = handCardId(gameState, 1);
-    const companyId = companyIdAt(gameState, 0);
+    const assassinId = handCardId(gameState, HAZARD_PLAYER);
+    const companyId = companyIdAt(gameState, RESOURCE_PLAYER);
     const afterPlay = dispatch(gameState, {
       type: 'play-hazard',
       player: PLAYER_2,
@@ -202,8 +202,8 @@ describe('Assassin (tw-8)', () => {
     const afterPass = dispatch(afterChain, { type: 'pass', player: PLAYER_1 });
 
     // Attacker assigns to first character (Aragorn)
-    const aragornCharId = charIdAt(afterPass, 0, 0, 0);
-    const legolasCharId = charIdAt(afterPass, 0, 0, 1);
+    const aragornCharId = charIdAt(afterPass, RESOURCE_PLAYER, 0, 0);
+    const legolasCharId = charIdAt(afterPass, RESOURCE_PLAYER, 0, 1);
     const r2 = dispatch(afterPass, {
       type: 'assign-strike',
       player: PLAYER_2,
@@ -265,8 +265,8 @@ describe('Assassin (tw-8)', () => {
     });
     const gameState = { ...state, phaseState: mhState };
 
-    const assassinId = handCardId(gameState, 1);
-    const companyId = companyIdAt(gameState, 0);
+    const assassinId = handCardId(gameState, HAZARD_PLAYER);
+    const companyId = companyIdAt(gameState, RESOURCE_PLAYER);
     const afterPlay = dispatch(gameState, {
       type: 'play-hazard',
       player: PLAYER_2,
@@ -279,9 +279,9 @@ describe('Assassin (tw-8)', () => {
     // Defender passes cancel-window
     const afterPass = dispatch(afterChain, { type: 'pass', player: PLAYER_1 });
 
-    const aragornCharId = charIdAt(afterPass, 0, 0, 0);
-    const legolasCharId = charIdAt(afterPass, 0, 0, 1);
-    const gimliCharId = charIdAt(afterPass, 0, 0, 2);
+    const aragornCharId = charIdAt(afterPass, RESOURCE_PLAYER, 0, 0);
+    const legolasCharId = charIdAt(afterPass, RESOURCE_PLAYER, 0, 1);
+    const gimliCharId = charIdAt(afterPass, RESOURCE_PLAYER, 0, 2);
     const r2 = dispatch(afterPass, {
       type: 'assign-strike',
       player: PLAYER_2,
@@ -339,8 +339,8 @@ describe('Assassin (tw-8)', () => {
     });
     const gameState = { ...state, phaseState: mhState };
 
-    const assassinId = handCardId(gameState, 1);
-    const companyId = companyIdAt(gameState, 0);
+    const assassinId = handCardId(gameState, HAZARD_PLAYER);
+    const companyId = companyIdAt(gameState, RESOURCE_PLAYER);
     const afterPlay = dispatch(gameState, {
       type: 'play-hazard',
       player: PLAYER_2,
@@ -353,7 +353,7 @@ describe('Assassin (tw-8)', () => {
     // Defender passes cancel-window
     const afterPass = dispatch(afterChain, { type: 'pass', player: PLAYER_1 });
 
-    const aragornCharId = charIdAt(afterPass, 0);
+    const aragornCharId = charIdAt(afterPass, RESOURCE_PLAYER);
     const r2 = dispatch(afterPass, {
       type: 'assign-strike',
       player: PLAYER_2,
@@ -402,8 +402,8 @@ describe('Assassin (tw-8)', () => {
     });
     const gameState = { ...state, phaseState: mhState };
 
-    const assassinId = handCardId(gameState, 1);
-    const companyId = companyIdAt(gameState, 0);
+    const assassinId = handCardId(gameState, HAZARD_PLAYER);
+    const companyId = companyIdAt(gameState, RESOURCE_PLAYER);
     const afterPlay = dispatch(gameState, {
       type: 'play-hazard',
       player: PLAYER_2,
@@ -416,9 +416,9 @@ describe('Assassin (tw-8)', () => {
     // Defender passes cancel-window
     const afterPass = dispatch(afterChain, { type: 'pass', player: PLAYER_1 });
 
-    const aragornCharId = charIdAt(afterPass, 0, 0, 0);
-    const legolasCharId = charIdAt(afterPass, 0, 0, 1);
-    const gimliCharId = charIdAt(afterPass, 0, 0, 2);
+    const aragornCharId = charIdAt(afterPass, RESOURCE_PLAYER, 0, 0);
+    const legolasCharId = charIdAt(afterPass, RESOURCE_PLAYER, 0, 1);
+    const gimliCharId = charIdAt(afterPass, RESOURCE_PLAYER, 0, 2);
     const r2 = dispatch(afterPass, {
       type: 'assign-strike',
       player: PLAYER_2,
@@ -473,8 +473,8 @@ describe('Assassin (tw-8)', () => {
     });
     const gameState = { ...state, phaseState: mhState };
 
-    const assassinId = handCardId(gameState, 1);
-    const companyId = companyIdAt(gameState, 0);
+    const assassinId = handCardId(gameState, HAZARD_PLAYER);
+    const companyId = companyIdAt(gameState, RESOURCE_PLAYER);
     const afterPlay = dispatch(gameState, {
       type: 'play-hazard',
       player: PLAYER_2,
@@ -522,8 +522,8 @@ describe('Assassin (tw-8)', () => {
     });
     const gameState = { ...state, phaseState: mhState };
 
-    const assassinId = handCardId(gameState, 1);
-    const companyId = companyIdAt(gameState, 0);
+    const assassinId = handCardId(gameState, HAZARD_PLAYER);
+    const companyId = companyIdAt(gameState, RESOURCE_PLAYER);
     const afterPlay = dispatch(gameState, {
       type: 'play-hazard',
       player: PLAYER_2,
@@ -536,7 +536,7 @@ describe('Assassin (tw-8)', () => {
     // Defender passes cancel-window
     const afterPass = dispatch(afterChain, { type: 'pass', player: PLAYER_1 });
 
-    const aragornCharId = charIdAt(afterPass, 0);
+    const aragornCharId = charIdAt(afterPass, RESOURCE_PLAYER);
     const r2 = dispatch(afterPass, {
       type: 'assign-strike',
       player: PLAYER_2,
@@ -581,8 +581,8 @@ describe('Assassin (tw-8)', () => {
     });
     const gameState = { ...state, phaseState: mhState };
 
-    const assassinId = handCardId(gameState, 1);
-    const companyId = companyIdAt(gameState, 0);
+    const assassinId = handCardId(gameState, HAZARD_PLAYER);
+    const companyId = companyIdAt(gameState, RESOURCE_PLAYER);
     const afterPlay = dispatch(gameState, {
       type: 'play-hazard',
       player: PLAYER_2,
@@ -595,7 +595,7 @@ describe('Assassin (tw-8)', () => {
     // Defender passes cancel-window
     const afterPass = dispatch(afterChain, { type: 'pass', player: PLAYER_1 });
 
-    const aragornCharId = charIdAt(afterPass, 0);
+    const aragornCharId = charIdAt(afterPass, RESOURCE_PLAYER);
     const r2 = dispatch(afterPass, {
       type: 'assign-strike',
       player: PLAYER_2,

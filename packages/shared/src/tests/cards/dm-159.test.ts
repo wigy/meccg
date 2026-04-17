@@ -17,7 +17,7 @@ import {
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
   buildTestState, resetMint,
   viableActions, actionAs,
-  handCardId, dispatch,
+  handCardId, dispatch, RESOURCE_PLAYER,
 } from '../test-helpers.js';
 import { computeLegalActions, Phase } from '../../index.js';
 import type { FetchFromPileAction } from '../../index.js';
@@ -52,7 +52,7 @@ describe('Smoke Rings (dm-159)', () => {
       ],
     });
 
-    const smokeRingsId = handCardId(state, 0);
+    const smokeRingsId = handCardId(state, RESOURCE_PLAYER);
     const next = dispatch(state, { type: 'play-short-event', player: PLAYER_1, cardInstanceId: smokeRingsId });
 
     // Smoke Rings removed from hand, in cardsInPlay while effect resolves
@@ -78,7 +78,7 @@ describe('Smoke Rings (dm-159)', () => {
     });
 
     // Play Smoke Rings
-    const smokeRingsId = handCardId(state, 0);
+    const smokeRingsId = handCardId(state, RESOURCE_PLAYER);
     const next = dispatch(state, { type: 'play-short-event', player: PLAYER_1, cardInstanceId: smokeRingsId });
 
     // Fetch actions: 2 sideboard cards (Smoke Rings is in cardsInPlay, not in any player pile)
@@ -101,7 +101,7 @@ describe('Smoke Rings (dm-159)', () => {
     });
 
     // Play Smoke Rings
-    const smokeRingsId = handCardId(state, 0);
+    const smokeRingsId = handCardId(state, RESOURCE_PLAYER);
     const next = dispatch(state, { type: 'play-short-event', player: PLAYER_1, cardInstanceId: smokeRingsId });
 
     // Fetch actions: Glamdring from discard pile (Smoke Rings is in cardsInPlay)
@@ -120,7 +120,7 @@ describe('Smoke Rings (dm-159)', () => {
       ],
     });
 
-    const smokeRingsId = handCardId(state, 0);
+    const smokeRingsId = handCardId(state, RESOURCE_PLAYER);
     const glamdringId = state.players[0].sideboard[0].instanceId;
     const originalDeckSize = state.players[0].playDeck.length;
 
@@ -160,7 +160,7 @@ describe('Smoke Rings (dm-159)', () => {
       ],
     });
 
-    const smokeRingsId = handCardId(state, 0);
+    const smokeRingsId = handCardId(state, RESOURCE_PLAYER);
     const glamdringId = state.players[0].discardPile[0].instanceId;
     const originalDeckSize = state.players[0].playDeck.length;
 
@@ -199,7 +199,7 @@ describe('Smoke Rings (dm-159)', () => {
       ],
     });
 
-    const smokeRingsId = handCardId(state, 0);
+    const smokeRingsId = handCardId(state, RESOURCE_PLAYER);
 
     // Play Smoke Rings
     const afterPlay = dispatch(state, { type: 'play-short-event', player: PLAYER_1, cardInstanceId: smokeRingsId });
@@ -229,7 +229,7 @@ describe('Smoke Rings (dm-159)', () => {
       ],
     });
 
-    const smokeRingsId = handCardId(state, 0);
+    const smokeRingsId = handCardId(state, RESOURCE_PLAYER);
 
     // Play Smoke Rings
     const next = dispatch(state, { type: 'play-short-event', player: PLAYER_1, cardInstanceId: smokeRingsId });
@@ -253,7 +253,7 @@ describe('Smoke Rings (dm-159)', () => {
       ],
     });
 
-    const smokeRingsId = handCardId(state, 0);
+    const smokeRingsId = handCardId(state, RESOURCE_PLAYER);
     const next = dispatch(state, { type: 'play-short-event', player: PLAYER_1, cardInstanceId: smokeRingsId });
 
     const opponentActions = computeLegalActions(next, PLAYER_2);
@@ -270,7 +270,7 @@ describe('Smoke Rings (dm-159)', () => {
       ],
     });
 
-    const smokeRingsId = handCardId(state, 0);
+    const smokeRingsId = handCardId(state, RESOURCE_PLAYER);
     const glamdringId = state.players[0].sideboard[0].instanceId;
 
     // Play Smoke Rings and fetch

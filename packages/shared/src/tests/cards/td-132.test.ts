@@ -27,7 +27,7 @@ import {
   playCreatureHazardAndResolve,
   CardStatus,
   handCardId, companyIdAt, dispatch, expectCharStatus, expectInDiscardPile,
-  resolveChain,
+  resolveChain, RESOURCE_PLAYER, HAZARD_PLAYER,
 } from '../test-helpers.js';
 import type { CancelAttackAction, PlayShortEventAction } from '../../index.js';
 import { RegionType, SiteType, computeLegalActions } from '../../index.js';
@@ -60,8 +60,8 @@ describe('Many Turns and Doublings (td-132)', () => {
     });
     const stateAtMH = { ...base, phaseState: mhState };
 
-    const barrowWightId = handCardId(stateAtMH, 1);
-    const targetCompanyId = companyIdAt(stateAtMH, 0);
+    const barrowWightId = handCardId(stateAtMH, HAZARD_PLAYER);
+    const targetCompanyId = companyIdAt(stateAtMH, RESOURCE_PLAYER);
     const combatState = playCreatureHazardAndResolve(
       stateAtMH, PLAYER_2, barrowWightId, targetCompanyId,
       { method: 'region-type', value: 'shadow' },
@@ -96,8 +96,8 @@ describe('Many Turns and Doublings (td-132)', () => {
     });
     const stateAtMH = { ...base, phaseState: mhState };
 
-    const barrowWightId = handCardId(stateAtMH, 1);
-    const targetCompanyId = companyIdAt(stateAtMH, 0);
+    const barrowWightId = handCardId(stateAtMH, HAZARD_PLAYER);
+    const targetCompanyId = companyIdAt(stateAtMH, RESOURCE_PLAYER);
     const combatState = playCreatureHazardAndResolve(
       stateAtMH, PLAYER_2, barrowWightId, targetCompanyId,
       { method: 'region-type', value: 'shadow' },
@@ -110,12 +110,12 @@ describe('Many Turns and Doublings (td-132)', () => {
     expect(declared.chain).not.toBeNull();
     expect(declared.combat).not.toBeNull();
     expect(declared.players[0].hand).toHaveLength(0);
-    expectInDiscardPile(declared, 0, MANY_TURNS_AND_DOUBLINGS);
-    expectCharStatus(declared, 0, ARAGORN, CardStatus.Untapped);
+    expectInDiscardPile(declared, RESOURCE_PLAYER, MANY_TURNS_AND_DOUBLINGS);
+    expectCharStatus(declared, RESOURCE_PLAYER, ARAGORN, CardStatus.Untapped);
 
     const after = resolveChain(declared);
     expect(after.combat).toBeNull();
-    expectInDiscardPile(after, 1, BARROW_WIGHT);
+    expectInDiscardPile(after, HAZARD_PLAYER, BARROW_WIGHT);
   });
 
   test('cancel-attack NOT available against non-qualifying race (orc)', () => {
@@ -138,8 +138,8 @@ describe('Many Turns and Doublings (td-132)', () => {
     });
     const stateAtMH = { ...base, phaseState: mhState };
 
-    const orcPatrolId = handCardId(stateAtMH, 1);
-    const targetCompanyId = companyIdAt(stateAtMH, 0);
+    const orcPatrolId = handCardId(stateAtMH, HAZARD_PLAYER);
+    const targetCompanyId = companyIdAt(stateAtMH, RESOURCE_PLAYER);
     const combatState = playCreatureHazardAndResolve(
       stateAtMH, PLAYER_2, orcPatrolId, targetCompanyId,
       { method: 'region-type', value: 'shadow' },
@@ -170,8 +170,8 @@ describe('Many Turns and Doublings (td-132)', () => {
     });
     const stateAtMH = { ...base, phaseState: mhState };
 
-    const barrowWightId = handCardId(stateAtMH, 1);
-    const targetCompanyId = companyIdAt(stateAtMH, 0);
+    const barrowWightId = handCardId(stateAtMH, HAZARD_PLAYER);
+    const targetCompanyId = companyIdAt(stateAtMH, RESOURCE_PLAYER);
     const combatState = playCreatureHazardAndResolve(
       stateAtMH, PLAYER_2, barrowWightId, targetCompanyId,
       { method: 'region-type', value: 'shadow' },
@@ -248,9 +248,9 @@ describe('Many Turns and Doublings (td-132)', () => {
 
     const after = dispatch(state, playActions[0]);
 
-    expectCharStatus(after, 0, ARAGORN, CardStatus.Untapped);
+    expectCharStatus(after, RESOURCE_PLAYER, ARAGORN, CardStatus.Untapped);
     expect(after.players[0].hand).toHaveLength(0);
-    expectInDiscardPile(after, 0, MANY_TURNS_AND_DOUBLINGS);
+    expectInDiscardPile(after, RESOURCE_PLAYER, MANY_TURNS_AND_DOUBLINGS);
 
     expect(after.activeConstraints).toHaveLength(1);
     const constraint = after.activeConstraints[0];
@@ -324,8 +324,8 @@ describe('Many Turns and Doublings (td-132)', () => {
     expect(viableHazards.length).toBeGreaterThan(0);
     expect(blockedHazards).toHaveLength(0);
 
-    const barrowWightId = handCardId(stateAtMH, 1);
-    const targetCompanyId = companyIdAt(stateAtMH, 0);
+    const barrowWightId = handCardId(stateAtMH, HAZARD_PLAYER);
+    const targetCompanyId = companyIdAt(stateAtMH, RESOURCE_PLAYER);
     const afterFirst = playCreatureHazardAndResolve(
       stateAtMH, PLAYER_2, barrowWightId, targetCompanyId,
       { method: 'region-type', value: 'shadow' },

@@ -27,7 +27,7 @@ import {
   buildTestState, resetMint,
   findCharInstanceId, viableActions,
   enqueueTransferCorruptionCheck,
-  getCharacter, dispatch, dispatchResult, expectCharStatus, expectCharItemCount, expectInDiscardPile,
+  getCharacter, dispatch, dispatchResult, expectCharStatus, expectCharItemCount, expectInDiscardPile, RESOURCE_PLAYER,
 } from '../test-helpers.js';
 import { computeLegalActions } from '../../index.js';
 import type { CorruptionCheckAction, ActivateGrantedAction } from '../../index.js';
@@ -57,8 +57,8 @@ describe('Gandalf (tw-156)', () => {
       ],
     });
 
-    const gandalfId = findCharInstanceId(state, 0, GANDALF);
-    const glamdringInstId = getCharacter(state, 0, GANDALF).items[0].instanceId;
+    const gandalfId = findCharInstanceId(state, RESOURCE_PLAYER, GANDALF);
+    const glamdringInstId = getCharacter(state, RESOURCE_PLAYER, GANDALF).items[0].instanceId;
 
     const stateWithCheck = enqueueTransferCorruptionCheck(state, PLAYER_1, gandalfId, glamdringInstId);
 
@@ -97,11 +97,11 @@ describe('Gandalf (tw-156)', () => {
 
     const action = actions[0].action as ActivateGrantedAction;
     expect(action.actionId).toBe('test-gold-ring');
-    expect(action.characterId).toBe(findCharInstanceId(state, 0, GANDALF));
+    expect(action.characterId).toBe(findCharInstanceId(state, RESOURCE_PLAYER, GANDALF));
     expect(action.targetCardId).toBeDefined();
 
     // The target should be the gold ring instance
-    const ringInstanceId = getCharacter(state, 0, FRODO).items[0].instanceId;
+    const ringInstanceId = getCharacter(state, RESOURCE_PLAYER, FRODO).items[0].instanceId;
     expect(action.targetCardId).toBe(ringInstanceId);
   });
 
@@ -174,13 +174,13 @@ describe('Gandalf (tw-156)', () => {
     const nextState = result.state;
 
     // Gandalf should be tapped
-    expectCharStatus(nextState, 0, GANDALF, CardStatus.Tapped);
+    expectCharStatus(nextState, RESOURCE_PLAYER, GANDALF, CardStatus.Tapped);
 
     // Gold ring should be removed from Frodo's items
-    expectCharItemCount(nextState, 0, FRODO, 0);
+    expectCharItemCount(nextState, RESOURCE_PLAYER, FRODO, 0);
 
     // Gold ring should be in the player's discard pile
-    expectInDiscardPile(nextState, 0, PRECIOUS_GOLD_RING);
+    expectInDiscardPile(nextState, RESOURCE_PLAYER, PRECIOUS_GOLD_RING);
 
     // A dice roll should have been recorded
     expect(nextState.players[0].lastDiceRoll).toBeDefined();
@@ -213,8 +213,8 @@ describe('Gandalf (tw-156)', () => {
     const nextState = dispatch(cheated, actions[0].action);
 
     // Gandalf should be tapped and gold ring should be discarded
-    expectCharStatus(nextState, 0, GANDALF, CardStatus.Tapped);
-    expectCharItemCount(nextState, 0, GANDALF, 0);
-    expectInDiscardPile(nextState, 0, PRECIOUS_GOLD_RING);
+    expectCharStatus(nextState, RESOURCE_PLAYER, GANDALF, CardStatus.Tapped);
+    expectCharItemCount(nextState, RESOURCE_PLAYER, GANDALF, 0);
+    expectInDiscardPile(nextState, RESOURCE_PLAYER, PRECIOUS_GOLD_RING);
   });
 });

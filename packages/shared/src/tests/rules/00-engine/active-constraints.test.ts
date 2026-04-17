@@ -18,7 +18,7 @@ import {
   PLAYER_1, PLAYER_2,
   ARAGORN, LEGOLAS,
   RIVENDELL, LORIEN, MINAS_TIRITH,
-  companyIdAt,
+  companyIdAt, RESOURCE_PLAYER,
 } from '../../test-helpers.js';
 import {
   addConstraint,
@@ -41,7 +41,7 @@ describe('Active constraints — list mechanics', () => {
       ],
     });
 
-    const targetCompanyId = companyIdAt(base, 0);
+    const targetCompanyId = companyIdAt(base, RESOURCE_PLAYER);
     const a = addConstraint(base, {
       source: 'a' as CardInstanceId,
       sourceDefinitionId: 'test-def' as CardDefinitionId,
@@ -73,7 +73,7 @@ describe('Active constraints — list mechanics', () => {
       ],
     });
 
-    const targetCompanyId = companyIdAt(base, 0);
+    const targetCompanyId = companyIdAt(base, RESOURCE_PLAYER);
     const constrained = addConstraint(base, {
       source: 'a' as CardInstanceId,
       sourceDefinitionId: 'test-def' as CardDefinitionId,
@@ -97,7 +97,7 @@ describe('Active constraints — list mechanics', () => {
       ],
     });
 
-    const targetCompanyId = companyIdAt(base, 0);
+    const targetCompanyId = companyIdAt(base, RESOURCE_PLAYER);
     let s = base;
     s = addConstraint(s, {
       source: 'turn-scoped' as CardInstanceId,
@@ -130,7 +130,7 @@ describe('Active constraints — list mechanics', () => {
       ],
     });
 
-    const companyA = companyIdAt(base, 0);
+    const companyA = companyIdAt(base, RESOURCE_PLAYER);
     const companyB = 'company-other' as CompanyId;
     let s = base;
     s = addConstraint(s, {
@@ -164,7 +164,7 @@ describe('Active constraints — list mechanics', () => {
       ],
     });
 
-    const targetCompanyId = companyIdAt(base, 0);
+    const targetCompanyId = companyIdAt(base, RESOURCE_PLAYER);
     const persistent = addConstraint(base, {
       source: 'persistent' as CardInstanceId,
       sourceDefinitionId: 'test-def' as CardDefinitionId,

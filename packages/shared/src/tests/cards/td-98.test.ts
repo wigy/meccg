@@ -29,7 +29,7 @@ import {
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
   CardStatus,
   handCardId, charIdAt, dispatch,
-  expectCharStatus,
+  expectCharStatus, RESOURCE_PLAYER,
 } from '../test-helpers.js';
 import type { PlayShortEventAction } from '../../index.js';
 import { computeLegalActions } from '../../engine/legal-actions/index.js';
@@ -59,8 +59,8 @@ describe('And Forth He Hastened (td-98)', () => {
       ],
     });
 
-    const aragornId = charIdAt(base, 0, 0, 1);
-    const cardInstance = handCardId(base, 0);
+    const aragornId = charIdAt(base, RESOURCE_PLAYER, 0, 1);
+    const cardInstance = handCardId(base, RESOURCE_PLAYER);
 
     const actions = computeLegalActions(base, PLAYER_1)
       .filter(ea => ea.viable && ea.action.type === 'play-short-event')
@@ -72,7 +72,7 @@ describe('And Forth He Hastened (td-98)', () => {
     expect(untapAction).toBeDefined();
 
     const state = dispatch(base, untapAction!);
-    expectCharStatus(state, 0, ARAGORN, CardStatus.Untapped);
+    expectCharStatus(state, RESOURCE_PLAYER, ARAGORN, CardStatus.Untapped);
   });
 
   test('not playable on characters outside Wizard company', () => {
@@ -93,7 +93,7 @@ describe('And Forth He Hastened (td-98)', () => {
       ],
     });
 
-    const aragornId = charIdAt(base, 0, 1, 0);
+    const aragornId = charIdAt(base, RESOURCE_PLAYER, 1, 0);
 
     const actions = computeLegalActions(base, PLAYER_1)
       .filter(ea => ea.viable && ea.action.type === 'play-short-event')
@@ -201,8 +201,8 @@ describe('And Forth He Hastened (td-98)', () => {
       ],
     });
 
-    const aragornId = charIdAt(base, 0, 0, 1);
-    const cardInstance = handCardId(base, 0);
+    const aragornId = charIdAt(base, RESOURCE_PLAYER, 0, 1);
+    const cardInstance = handCardId(base, RESOURCE_PLAYER);
 
     const actions = computeLegalActions(base, PLAYER_1)
       .filter(ea => ea.viable && ea.action.type === 'play-short-event')
@@ -237,7 +237,7 @@ describe('And Forth He Hastened (td-98)', () => {
       ],
     });
 
-    const cardInstance = handCardId(base, 0);
+    const cardInstance = handCardId(base, RESOURCE_PLAYER);
 
     const actions = computeLegalActions(base, PLAYER_1)
       .filter(ea => ea.viable && ea.action.type === 'play-short-event')

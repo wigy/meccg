@@ -19,7 +19,7 @@ import {
   pool,
   buildSitePhaseState, resetMint,
   findCharInstanceId,
-  buildTestState, Phase, dispatch, getCharacter,
+  buildTestState, Phase, dispatch, getCharacter, RESOURCE_PLAYER,
 } from '../test-helpers.js';
 import { computeLegalActions } from '../../index.js';
 import type { CharacterCard } from '../../index.js';
@@ -36,7 +36,7 @@ describe('Hauberk of Bright Mail (tw-254)', () => {
       hand: [HAUBERK_OF_BRIGHT_MAIL],
     });
 
-    const aragornId = findCharInstanceId(state, 0, ARAGORN);
+    const aragornId = findCharInstanceId(state, RESOURCE_PLAYER, ARAGORN);
     const actions = computeLegalActions(state, PLAYER_1);
 
     const onAragorn = actions.find(
@@ -54,7 +54,7 @@ describe('Hauberk of Bright Mail (tw-254)', () => {
       hand: [HAUBERK_OF_BRIGHT_MAIL],
     });
 
-    const frodoId = findCharInstanceId(state, 0, FRODO);
+    const frodoId = findCharInstanceId(state, RESOURCE_PLAYER, FRODO);
     const actions = computeLegalActions(state, PLAYER_1);
 
     const onFrodo = actions.find(
@@ -72,8 +72,8 @@ describe('Hauberk of Bright Mail (tw-254)', () => {
       hand: [HAUBERK_OF_BRIGHT_MAIL],
     });
 
-    const aragornId = findCharInstanceId(state, 0, ARAGORN);
-    const frodoId = findCharInstanceId(state, 0, FRODO);
+    const aragornId = findCharInstanceId(state, RESOURCE_PLAYER, ARAGORN);
+    const frodoId = findCharInstanceId(state, RESOURCE_PLAYER, FRODO);
     const actions = computeLegalActions(state, PLAYER_1);
 
     const onAragorn = actions.find(
@@ -105,7 +105,7 @@ describe('Hauberk of Bright Mail (tw-254)', () => {
 
     const baseDef = pool[FRODO as string] as CharacterCard;
     // Frodo has no warrior skill, so Hauberk's body bonus does not apply.
-    expect(getCharacter(s, 0, FRODO).effectiveStats.body).toBe(baseDef.body);
+    expect(getCharacter(s, RESOURCE_PLAYER, FRODO).effectiveStats.body).toBe(baseDef.body);
   });
 
   test('body +2 capped at 9 for Aragorn (base body 9)', () => {
@@ -124,7 +124,7 @@ describe('Hauberk of Bright Mail (tw-254)', () => {
 
     const baseDef = pool[ARAGORN as string] as CharacterCard;
     expect(baseDef.body).toBe(9);
-    expect(getCharacter(s, 0, ARAGORN).effectiveStats.body).toBe(9);
+    expect(getCharacter(s, RESOURCE_PLAYER, ARAGORN).effectiveStats.body).toBe(9);
   });
 
   test('body +2 uncapped for Legolas (base body 8)', () => {
@@ -143,7 +143,7 @@ describe('Hauberk of Bright Mail (tw-254)', () => {
 
     const baseDef = pool[LEGOLAS as string] as CharacterCard;
     expect(baseDef.body).toBe(8);
-    expect(getCharacter(s, 0, LEGOLAS).effectiveStats.body).toBe(9);
+    expect(getCharacter(s, RESOURCE_PLAYER, LEGOLAS).effectiveStats.body).toBe(9);
   });
 
   test('prowess not modified by Hauberk', () => {
@@ -160,6 +160,6 @@ describe('Hauberk of Bright Mail (tw-254)', () => {
     const s = dispatch(state, { type: 'pass', player: PLAYER_1 });
 
     const baseDef = pool[ARAGORN as string] as CharacterCard;
-    expect(getCharacter(s, 0, ARAGORN).effectiveStats.prowess).toBe(baseDef.prowess);
+    expect(getCharacter(s, RESOURCE_PLAYER, ARAGORN).effectiveStats.prowess).toBe(baseDef.prowess);
   });
 });

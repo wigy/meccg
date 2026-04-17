@@ -20,7 +20,7 @@ import {
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
   buildTestState, resetMint, makeMHState,
   playCreatureHazardAndResolve, runCreatureCombat,
-  companyIdAt, expectCharItemCount, phaseStateAs,
+  companyIdAt, expectCharItemCount, phaseStateAs, RESOURCE_PLAYER,
 } from '../test-helpers.js';
 import { Phase, RegionType, SiteType } from '../../index.js';
 import type { MovementHazardPhaseState } from '../../index.js';
@@ -56,7 +56,7 @@ describe('Tom (Tuma) (tw-103)', () => {
     const ready = { ...state, phaseState: mhState };
 
     const tomId = ready.players[1].hand[0].instanceId;
-    const companyId = companyIdAt(ready, 0);
+    const companyId = companyIdAt(ready, RESOURCE_PLAYER);
     const afterChain = playCreatureHazardAndResolve(ready, PLAYER_2, tomId, companyId, DOUBLE_WILDERNESS_KEYING);
 
     expect(afterChain.combat).not.toBeNull();
@@ -84,13 +84,13 @@ describe('Tom (Tuma) (tw-103)', () => {
     const ready = { ...state, phaseState: mhState };
 
     const tomId = ready.players[1].hand[0].instanceId;
-    const companyId = companyIdAt(ready, 0);
+    const companyId = companyIdAt(ready, RESOURCE_PLAYER);
     const afterChain = playCreatureHazardAndResolve(ready, PLAYER_2, tomId, companyId, DOUBLE_WILDERNESS_KEYING);
 
     const afterWound = runCreatureCombat(afterChain, ARAGORN, 2, 5);
     expect(afterWound.combat).toBeNull();
 
-    expectCharItemCount(afterWound, 0, ARAGORN, 2);
+    expectCharItemCount(afterWound, RESOURCE_PLAYER, ARAGORN, 2);
 
     expect(afterWound.pendingResolutions).toHaveLength(0);
   });
@@ -115,7 +115,7 @@ describe('Tom (Tuma) (tw-103)', () => {
 
     const bertId = ready.players[1].hand[0].instanceId;
     const tomId = ready.players[1].hand[1].instanceId;
-    const companyId = companyIdAt(ready, 0);
+    const companyId = companyIdAt(ready, RESOURCE_PLAYER);
 
     // Play Bert first — Aragorn wins
     const afterBert = playCreatureHazardAndResolve(ready, PLAYER_2, bertId, companyId, SHADOW_KEYING);
@@ -130,7 +130,7 @@ describe('Tom (Tuma) (tw-103)', () => {
     const afterWound = runCreatureCombat(afterTom, ARAGORN, 2, 5);
     expect(afterWound.combat).toBeNull();
 
-    expectCharItemCount(afterWound, 0, ARAGORN, 0);
+    expectCharItemCount(afterWound, RESOURCE_PLAYER, ARAGORN, 0);
 
     const discardDefIds = afterWound.players[0].discardPile.map(c => c.definitionId);
     expect(discardDefIds).toContain(GLAMDRING);
@@ -157,7 +157,7 @@ describe('Tom (Tuma) (tw-103)', () => {
 
     const williamId = ready.players[1].hand[0].instanceId;
     const tomId = ready.players[1].hand[1].instanceId;
-    const companyId = companyIdAt(ready, 0);
+    const companyId = companyIdAt(ready, RESOURCE_PLAYER);
 
     // Play William first — Aragorn wins
     const afterWilliam = playCreatureHazardAndResolve(ready, PLAYER_2, williamId, companyId, WILDERNESS_KEYING);
@@ -170,7 +170,7 @@ describe('Tom (Tuma) (tw-103)', () => {
     const afterTom = playCreatureHazardAndResolve(afterWilliamCombat, PLAYER_2, tomId, companyId, DOUBLE_WILDERNESS_KEYING);
     const afterWound = runCreatureCombat(afterTom, ARAGORN, 2, 5);
 
-    expectCharItemCount(afterWound, 0, ARAGORN, 0);
+    expectCharItemCount(afterWound, RESOURCE_PLAYER, ARAGORN, 0);
   });
 
   test('character that defeats Tom does not lose items even when Bert was faced', () => {
@@ -193,7 +193,7 @@ describe('Tom (Tuma) (tw-103)', () => {
 
     const bertId = ready.players[1].hand[0].instanceId;
     const tomId = ready.players[1].hand[1].instanceId;
-    const companyId = companyIdAt(ready, 0);
+    const companyId = companyIdAt(ready, RESOURCE_PLAYER);
 
     // Play Bert — Aragorn wins
     const afterBert = playCreatureHazardAndResolve(ready, PLAYER_2, bertId, companyId, SHADOW_KEYING);
@@ -203,7 +203,7 @@ describe('Tom (Tuma) (tw-103)', () => {
     const afterTom = playCreatureHazardAndResolve(afterBertCombat, PLAYER_2, tomId, companyId, DOUBLE_WILDERNESS_KEYING);
     const afterStrike = runCreatureCombat(afterTom, ARAGORN, 12, null);
 
-    expectCharItemCount(afterStrike, 0, ARAGORN, 1);
+    expectCharItemCount(afterStrike, RESOURCE_PLAYER, ARAGORN, 1);
   });
 
   test('hazardsEncountered tracks creature name after combat', () => {
@@ -225,7 +225,7 @@ describe('Tom (Tuma) (tw-103)', () => {
     const ready = { ...state, phaseState: mhState };
 
     const tomId = ready.players[1].hand[0].instanceId;
-    const companyId = companyIdAt(ready, 0);
+    const companyId = companyIdAt(ready, RESOURCE_PLAYER);
     const afterChain = playCreatureHazardAndResolve(ready, PLAYER_2, tomId, companyId, DOUBLE_WILDERNESS_KEYING);
     const afterCombat = runCreatureCombat(afterChain, ARAGORN, 12, null);
 
@@ -252,10 +252,10 @@ describe('Tom (Tuma) (tw-103)', () => {
     const ready = { ...state, phaseState: mhState };
 
     const tomId = ready.players[1].hand[0].instanceId;
-    const companyId = companyIdAt(ready, 0);
+    const companyId = companyIdAt(ready, RESOURCE_PLAYER);
     const afterChain = playCreatureHazardAndResolve(ready, PLAYER_2, tomId, companyId, DOUBLE_WILDERNESS_KEYING);
     const afterWound = runCreatureCombat(afterChain, ARAGORN, 2, 5);
 
-    expectCharItemCount(afterWound, 0, ARAGORN, 1);
+    expectCharItemCount(afterWound, RESOURCE_PLAYER, ARAGORN, 1);
   });
 });

@@ -17,7 +17,7 @@ import {
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
   buildTestState, resetMint, makeShadowMHState,
   playCreatureHazardAndResolve, runCreatureCombat,
-  handCardId, companyIdAt, phaseStateAs,
+  handCardId, companyIdAt, phaseStateAs, RESOURCE_PLAYER, HAZARD_PLAYER,
 } from '../test-helpers.js';
 import { Phase } from '../../index.js';
 import type { MovementHazardPhaseState } from '../../index.js';
@@ -45,8 +45,8 @@ describe('Orc-warband (tw-076)', () => {
     const mhState = makeShadowMHState();
     const ready = { ...state, phaseState: mhState };
 
-    const warbandId = handCardId(ready, 1);
-    const companyId = companyIdAt(ready, 0);
+    const warbandId = handCardId(ready, HAZARD_PLAYER);
+    const companyId = companyIdAt(ready, RESOURCE_PLAYER);
     const afterChain = playCreatureHazardAndResolve(ready, PLAYER_2, warbandId, companyId, SHADOW_KEYING);
 
     expect(afterChain.combat).not.toBeNull();
@@ -67,9 +67,9 @@ describe('Orc-warband (tw-076)', () => {
     const mhState = makeShadowMHState();
     const ready = { ...state, phaseState: mhState };
 
-    const orcLtId = handCardId(ready, 1, 0);
-    const warbandId = handCardId(ready, 1, 1);
-    const companyId = companyIdAt(ready, 0);
+    const orcLtId = handCardId(ready, HAZARD_PLAYER, 0);
+    const warbandId = handCardId(ready, HAZARD_PLAYER, 1);
+    const companyId = companyIdAt(ready, RESOURCE_PLAYER);
 
     // Play Orc-lieutenant first (1 strike) — high roll so Aragorn wins
     const afterOrcLt = playCreatureHazardAndResolve(ready, PLAYER_2, orcLtId, companyId, SHADOW_KEYING);
@@ -101,8 +101,8 @@ describe('Orc-warband (tw-076)', () => {
     const mhState = makeShadowMHState();
     const ready = { ...state, phaseState: mhState };
 
-    const orcLtId = handCardId(ready, 1);
-    const companyId = companyIdAt(ready, 0);
+    const orcLtId = handCardId(ready, HAZARD_PLAYER);
+    const companyId = companyIdAt(ready, RESOURCE_PLAYER);
     const afterChain = playCreatureHazardAndResolve(ready, PLAYER_2, orcLtId, companyId, SHADOW_KEYING);
     const afterCombat = runCreatureCombat(afterChain, ARAGORN, 12, null);
     expect(afterCombat.combat).toBeNull();

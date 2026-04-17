@@ -37,7 +37,7 @@ import {
   playCreatureHazardAndResolve,
   CardStatus,
   handCardId, companyIdAt, dispatch, expectCharStatus, expectInDiscardPile,
-  resolveChain,
+  resolveChain, RESOURCE_PLAYER, HAZARD_PLAYER,
 } from '../test-helpers.js';
 import type { CancelAttackAction } from '../../index.js';
 import { RegionType, SiteType, computeLegalActions } from '../../index.js';
@@ -67,8 +67,8 @@ describe('Dark Quarrels (tw-207)', () => {
     });
     const stateAtMH = { ...base, phaseState: mhState };
 
-    const orcPatrolId = handCardId(stateAtMH, 1);
-    const targetCompanyId = companyIdAt(stateAtMH, 0);
+    const orcPatrolId = handCardId(stateAtMH, HAZARD_PLAYER);
+    const targetCompanyId = companyIdAt(stateAtMH, RESOURCE_PLAYER);
     const combatState = playCreatureHazardAndResolve(
       stateAtMH, PLAYER_2, orcPatrolId, targetCompanyId,
       { method: 'region-type', value: 'wilderness' },
@@ -81,7 +81,7 @@ describe('Dark Quarrels (tw-207)', () => {
     expect(cancelActions.length).toBe(1);
     const cancelAction = cancelActions[0].action as CancelAttackAction;
     expect(cancelAction.scoutInstanceId).toBeUndefined();
-    expect(cancelAction.cardInstanceId).toBe(handCardId(combatState, 0));
+    expect(cancelAction.cardInstanceId).toBe(handCardId(combatState, RESOURCE_PLAYER));
   });
 
   test('executing cancel-attack discards card and cancels combat (no tap)', () => {
@@ -104,8 +104,8 @@ describe('Dark Quarrels (tw-207)', () => {
     });
     const stateAtMH = { ...base, phaseState: mhState };
 
-    const orcPatrolId = handCardId(stateAtMH, 1);
-    const targetCompanyId = companyIdAt(stateAtMH, 0);
+    const orcPatrolId = handCardId(stateAtMH, HAZARD_PLAYER);
+    const targetCompanyId = companyIdAt(stateAtMH, RESOURCE_PLAYER);
     const combatState = playCreatureHazardAndResolve(
       stateAtMH, PLAYER_2, orcPatrolId, targetCompanyId,
       { method: 'region-type', value: 'wilderness' },
@@ -120,17 +120,17 @@ describe('Dark Quarrels (tw-207)', () => {
 
     // Dark Quarrels already in discard at declaration, hand empty
     expect(declared.players[0].hand).toHaveLength(0);
-    expectInDiscardPile(declared, 0, DARK_QUARRELS);
+    expectInDiscardPile(declared, RESOURCE_PLAYER, DARK_QUARRELS);
 
     // Aragorn remains untapped (no tap cost)
-    expectCharStatus(declared, 0, ARAGORN, CardStatus.Untapped);
+    expectCharStatus(declared, RESOURCE_PLAYER, ARAGORN, CardStatus.Untapped);
 
     // Resolving the chain cancels combat
     const after = resolveChain(declared);
     expect(after.combat).toBeNull();
 
     // Creature in attacker's discard
-    expectInDiscardPile(after, 1, ORC_PATROL);
+    expectInDiscardPile(after, HAZARD_PLAYER, ORC_PATROL);
   });
 
   test('cancel-attack NOT available against non-Orc/Troll/Men attack (e.g. dragon)', () => {
@@ -153,8 +153,8 @@ describe('Dark Quarrels (tw-207)', () => {
     });
     const stateAtMH = { ...base, phaseState: mhState };
 
-    const caveDrakeId = handCardId(stateAtMH, 1);
-    const targetCompanyId = companyIdAt(stateAtMH, 0);
+    const caveDrakeId = handCardId(stateAtMH, HAZARD_PLAYER);
+    const targetCompanyId = companyIdAt(stateAtMH, RESOURCE_PLAYER);
     const combatState = playCreatureHazardAndResolve(
       stateAtMH, PLAYER_2, caveDrakeId, targetCompanyId,
       { method: 'region-type', value: 'wilderness' },
@@ -191,8 +191,8 @@ describe('Dark Quarrels (tw-207)', () => {
     });
     const stateAtMH = { ...base, phaseState: mhState };
 
-    const caveDrakeId = handCardId(stateAtMH, 1);
-    const targetCompanyId = companyIdAt(stateAtMH, 0);
+    const caveDrakeId = handCardId(stateAtMH, HAZARD_PLAYER);
+    const targetCompanyId = companyIdAt(stateAtMH, RESOURCE_PLAYER);
     const combatState = playCreatureHazardAndResolve(
       stateAtMH, PLAYER_2, caveDrakeId, targetCompanyId,
       { method: 'region-type', value: 'wilderness' },
@@ -236,8 +236,8 @@ describe('Dark Quarrels (tw-207)', () => {
     const stateAtMH = { ...base, phaseState: mhState };
 
     // Orc-patrol has 3 strikes
-    const orcPatrolId = handCardId(stateAtMH, 1);
-    const targetCompanyId = companyIdAt(stateAtMH, 0);
+    const orcPatrolId = handCardId(stateAtMH, HAZARD_PLAYER);
+    const targetCompanyId = companyIdAt(stateAtMH, RESOURCE_PLAYER);
     const combatState = playCreatureHazardAndResolve(
       stateAtMH, PLAYER_2, orcPatrolId, targetCompanyId,
       { method: 'region-type', value: 'wilderness' },
@@ -261,7 +261,7 @@ describe('Dark Quarrels (tw-207)', () => {
 
     // Dark Quarrels in discard
     expect(after.players[0].hand).toHaveLength(0);
-    expectInDiscardPile(after, 0, DARK_QUARRELS);
+    expectInDiscardPile(after, RESOURCE_PLAYER, DARK_QUARRELS);
 
     // Combat still active (not canceled, just modified)
     expect(after.combat!.phase).toBe('assign-strikes');
@@ -287,8 +287,8 @@ describe('Dark Quarrels (tw-207)', () => {
     });
     const stateAtMH = { ...base, phaseState: mhState };
 
-    const orcPatrolId = handCardId(stateAtMH, 1);
-    const targetCompanyId = companyIdAt(stateAtMH, 0);
+    const orcPatrolId = handCardId(stateAtMH, HAZARD_PLAYER);
+    const targetCompanyId = companyIdAt(stateAtMH, RESOURCE_PLAYER);
     const combatState = playCreatureHazardAndResolve(
       stateAtMH, PLAYER_2, orcPatrolId, targetCompanyId,
       { method: 'region-type', value: 'wilderness' },
@@ -348,8 +348,8 @@ describe('Dark Quarrels (tw-207)', () => {
     const stateAtMH = { ...base, phaseState: mhState };
 
     // Cave-drake has 2 strikes (even number)
-    const caveDrakeId = handCardId(stateAtMH, 1);
-    const targetCompanyId = companyIdAt(stateAtMH, 0);
+    const caveDrakeId = handCardId(stateAtMH, HAZARD_PLAYER);
+    const targetCompanyId = companyIdAt(stateAtMH, RESOURCE_PLAYER);
     const combatState = playCreatureHazardAndResolve(
       stateAtMH, PLAYER_2, caveDrakeId, targetCompanyId,
       { method: 'region-type', value: 'wilderness' },

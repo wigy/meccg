@@ -25,7 +25,7 @@ import {
   viableActions, makeSitePhase,
   handCardId, dispatch, setCharStatus, expectCharStatus,
   makeMHState,
-  actionAs,
+  actionAs, RESOURCE_PLAYER,
 } from '../test-helpers.js';
 import type { CardInstanceId, CardInPlay, PlayShortEventAction } from '../../index.js';
 import { computeLegalActions, Phase, CardStatus } from '../../index.js';
@@ -87,7 +87,7 @@ describe('Marvels Told (td-134)', () => {
       ],
     });
 
-    const tappedState = setCharStatus(state, 0, ELROND, CardStatus.Tapped);
+    const tappedState = setCharStatus(state, RESOURCE_PLAYER, ELROND, CardStatus.Tapped);
 
     const playActions = viableActions(tappedState, PLAYER_1, 'play-short-event');
     expect(playActions).toHaveLength(0);
@@ -154,7 +154,7 @@ describe('Marvels Told (td-134)', () => {
       ],
     });
 
-    const marvelsId = handCardId(state, 0);
+    const marvelsId = handCardId(state, RESOURCE_PLAYER);
     const foolishWordsId = state.players[1].cardsInPlay[0].instanceId;
     const elrondId = Object.keys(state.players[0].characters)[0] as unknown as CardInstanceId;
 
@@ -167,7 +167,7 @@ describe('Marvels Told (td-134)', () => {
     });
 
     // Sage is tapped
-    expectCharStatus(next, 0, ELROND, CardStatus.Tapped);
+    expectCharStatus(next, RESOURCE_PLAYER, ELROND, CardStatus.Tapped);
 
     // Foolish Words moved from P2 cardsInPlay to P2 discard
     expect(next.players[1].cardsInPlay.map(c => c.instanceId)).not.toContain(foolishWordsId);
@@ -194,7 +194,7 @@ describe('Marvels Told (td-134)', () => {
       ],
     });
 
-    const marvelsId = handCardId(state, 0);
+    const marvelsId = handCardId(state, RESOURCE_PLAYER);
     const foolishWordsId = state.players[1].cardsInPlay[0].instanceId;
     const elrondId = Object.keys(state.players[0].characters)[0] as unknown as CardInstanceId;
 
@@ -229,7 +229,7 @@ describe('Marvels Told (td-134)', () => {
       ],
     });
 
-    const marvelsId = handCardId(state, 0);
+    const marvelsId = handCardId(state, RESOURCE_PLAYER);
     const foolishWordsId = state.players[1].cardsInPlay[0].instanceId;
     const elrondId = Object.keys(state.players[0].characters)[0] as unknown as CardInstanceId;
 
@@ -257,7 +257,7 @@ describe('Marvels Told (td-134)', () => {
       ],
     });
 
-    const marvelsId = handCardId(state, 0);
+    const marvelsId = handCardId(state, RESOURCE_PLAYER);
     const eyeId = state.players[1].cardsInPlay[0].instanceId;
     const elrondId = Object.keys(state.players[0].characters)[0] as unknown as CardInstanceId;
 
@@ -393,7 +393,7 @@ describe('Marvels Told (td-134)', () => {
     });
     const state = { ...base, phaseState: makeSitePhase() };
 
-    const marvelsId = handCardId(state, 0);
+    const marvelsId = handCardId(state, RESOURCE_PLAYER);
     const foolishWordsId = state.players[1].cardsInPlay[0].instanceId;
     const elrondId = Object.keys(state.players[0].characters)[0] as unknown as CardInstanceId;
 
@@ -405,7 +405,7 @@ describe('Marvels Told (td-134)', () => {
       discardTargetInstanceId: foolishWordsId,
     });
 
-    expectCharStatus(next, 0, ELROND, CardStatus.Tapped);
+    expectCharStatus(next, RESOURCE_PLAYER, ELROND, CardStatus.Tapped);
     expect(next.players[1].cardsInPlay.map(c => c.instanceId)).not.toContain(foolishWordsId);
     expect(next.players[1].discardPile.map(c => c.instanceId)).toContain(foolishWordsId);
     expect(next.players[0].hand).toHaveLength(0);
@@ -466,8 +466,8 @@ describe('Marvels Told (td-134)', () => {
         { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [MINAS_TIRITH] },
       ],
     });
-    const withFoolishWords = attachHazardToChar(base, 0, ARAGORN, FOOLISH_WORDS);
-    const state = attachHazardToChar(withFoolishWords, 0, ARAGORN, LURE_OF_THE_SENSES);
+    const withFoolishWords = attachHazardToChar(base, RESOURCE_PLAYER, ARAGORN, FOOLISH_WORDS);
+    const state = attachHazardToChar(withFoolishWords, RESOURCE_PLAYER, ARAGORN, LURE_OF_THE_SENSES);
 
     const playActions = viableActions(state, PLAYER_1, 'play-short-event');
     // One action per attached hazard target. Elrond is the only sage, so
@@ -488,7 +488,7 @@ describe('Marvels Told (td-134)', () => {
 
     // Dispatching the action for the first attached hazard moves that
     // hazard to the owner's discard pile and leaves the other attached.
-    const marvelsId = handCardId(state, 0);
+    const marvelsId = handCardId(state, RESOURCE_PLAYER);
     const firstTargetId = attachedHazardIds[0];
     const next = dispatch(state, {
       type: 'play-short-event',

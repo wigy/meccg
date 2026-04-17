@@ -34,7 +34,7 @@ import {
   playCreatureHazardAndResolve,
   CardStatus,
   handCardId, companyIdAt, dispatch, expectInDiscardPile,
-  resolveChain,
+  resolveChain, RESOURCE_PLAYER, HAZARD_PLAYER,
 } from '../test-helpers.js';
 import type { CancelAttackAction } from '../../index.js';
 import { RegionType, SiteType } from '../../index.js';
@@ -62,8 +62,8 @@ describe('Vanishment (tw-356)', () => {
     });
     const stateAtMH = { ...base, phaseState: mhState };
 
-    const orcPatrolId = handCardId(stateAtMH, 1);
-    const targetCompanyId = companyIdAt(stateAtMH, 0);
+    const orcPatrolId = handCardId(stateAtMH, HAZARD_PLAYER);
+    const targetCompanyId = companyIdAt(stateAtMH, RESOURCE_PLAYER);
     const combatState = playCreatureHazardAndResolve(
       stateAtMH, PLAYER_2, orcPatrolId, targetCompanyId,
       { method: 'region-type', value: 'wilderness' },
@@ -98,8 +98,8 @@ describe('Vanishment (tw-356)', () => {
     });
     const stateAtMH = { ...base, phaseState: mhState };
 
-    const orcPatrolId = handCardId(stateAtMH, 1);
-    const targetCompanyId = companyIdAt(stateAtMH, 0);
+    const orcPatrolId = handCardId(stateAtMH, HAZARD_PLAYER);
+    const targetCompanyId = companyIdAt(stateAtMH, RESOURCE_PLAYER);
     const combatState = playCreatureHazardAndResolve(
       stateAtMH, PLAYER_2, orcPatrolId, targetCompanyId,
       { method: 'region-type', value: 'wilderness' },
@@ -130,8 +130,8 @@ describe('Vanishment (tw-356)', () => {
     });
     const stateAtMH = { ...base, phaseState: mhState };
 
-    const orcPatrolId = handCardId(stateAtMH, 1);
-    const targetCompanyId = companyIdAt(stateAtMH, 0);
+    const orcPatrolId = handCardId(stateAtMH, HAZARD_PLAYER);
+    const targetCompanyId = companyIdAt(stateAtMH, RESOURCE_PLAYER);
     const combatState = playCreatureHazardAndResolve(
       stateAtMH, PLAYER_2, orcPatrolId, targetCompanyId,
       { method: 'region-type', value: 'wilderness' },
@@ -144,7 +144,7 @@ describe('Vanishment (tw-356)', () => {
     expect(declared.chain).not.toBeNull();
     expect(declared.combat).not.toBeNull();
     expect(declared.players[0].hand).toHaveLength(0);
-    expectInDiscardPile(declared, 0, VANISHMENT);
+    expectInDiscardPile(declared, RESOURCE_PLAYER, VANISHMENT);
     expect(declared.pendingResolutions).toHaveLength(1);
     expect(declared.pendingResolutions[0].kind.type).toBe('corruption-check');
     const ccKind = declared.pendingResolutions[0].kind as { type: 'corruption-check'; modifier: number };
@@ -153,7 +153,7 @@ describe('Vanishment (tw-356)', () => {
     // Resolve chain — combat cancelled, creature to attacker's discard
     const after = resolveChain(declared);
     expect(after.combat).toBeNull();
-    expectInDiscardPile(after, 1, ORC_PATROL);
+    expectInDiscardPile(after, HAZARD_PLAYER, ORC_PATROL);
   });
 
   test('tapped wizard can still use Vanishment (corruption check does not require untapped)', () => {
@@ -191,8 +191,8 @@ describe('Vanishment (tw-356)', () => {
     });
     const stateAtMH = { ...tappedState, phaseState: mhState };
 
-    const orcPatrolId = handCardId(stateAtMH, 1);
-    const targetCompanyId = companyIdAt(stateAtMH, 0);
+    const orcPatrolId = handCardId(stateAtMH, HAZARD_PLAYER);
+    const targetCompanyId = companyIdAt(stateAtMH, RESOURCE_PLAYER);
     const combatState = playCreatureHazardAndResolve(
       stateAtMH, PLAYER_2, orcPatrolId, targetCompanyId,
       { method: 'region-type', value: 'wilderness' },
@@ -203,7 +203,7 @@ describe('Vanishment (tw-356)', () => {
     expect(cancelActions).toHaveLength(1);
 
     const declared = dispatch(combatState, cancelActions[0].action);
-    expectInDiscardPile(declared, 0, VANISHMENT);
+    expectInDiscardPile(declared, RESOURCE_PLAYER, VANISHMENT);
     expect(declared.pendingResolutions).toHaveLength(1);
     expect(declared.pendingResolutions[0].kind.type).toBe('corruption-check');
     const after = resolveChain(declared);

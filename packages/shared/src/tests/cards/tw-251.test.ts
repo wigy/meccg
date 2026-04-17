@@ -31,7 +31,7 @@ import {
   GWAIHIR,
   LORIEN, MORIA, MINAS_TIRITH, MOUNT_DOOM, EAGLES_EYRIE, BANDIT_LAIR,
   viableActions,
-  charIdAt, dispatch, expectInDiscardPile,
+  charIdAt, dispatch, expectInDiscardPile, RESOURCE_PLAYER,
 } from '../test-helpers.js';
 import type { ActivateGrantedAction, PlanMovementAction } from '../../index.js';
 
@@ -51,7 +51,7 @@ describe('Gwaihir (tw-251)', () => {
       ],
     });
 
-    const withGwaihir = attachAllyToChar(base, 0, ARAGORN, GWAIHIR);
+    const withGwaihir = attachAllyToChar(base, RESOURCE_PLAYER, ARAGORN, GWAIHIR);
     const actions = viableActions(withGwaihir, PLAYER_1, 'activate-granted-action');
     expect(actions.length).toBe(1);
 
@@ -70,7 +70,7 @@ describe('Gwaihir (tw-251)', () => {
       ],
     });
 
-    const withGwaihir = attachAllyToChar(base, 0, ARAGORN, GWAIHIR);
+    const withGwaihir = attachAllyToChar(base, RESOURCE_PLAYER, ARAGORN, GWAIHIR);
     const actions = viableActions(withGwaihir, PLAYER_1, 'activate-granted-action');
     expect(actions.length).toBe(1);
   });
@@ -86,7 +86,7 @@ describe('Gwaihir (tw-251)', () => {
       ],
     });
 
-    const withGwaihir = attachAllyToChar(base, 0, ARAGORN, GWAIHIR);
+    const withGwaihir = attachAllyToChar(base, RESOURCE_PLAYER, ARAGORN, GWAIHIR);
     const actions = viableActions(withGwaihir, PLAYER_1, 'activate-granted-action');
     expect(actions.length).toBe(0);
   });
@@ -101,18 +101,18 @@ describe('Gwaihir (tw-251)', () => {
       ],
     });
 
-    const withGwaihir = attachAllyToChar(base, 0, ARAGORN, GWAIHIR);
+    const withGwaihir = attachAllyToChar(base, RESOURCE_PLAYER, ARAGORN, GWAIHIR);
     const actions = viableActions(withGwaihir, PLAYER_1, 'activate-granted-action');
     expect(actions.length).toBe(1);
 
     const nextState = dispatch(withGwaihir, actions[0].action);
 
     // Gwaihir should be removed from character's allies
-    const aragornId = charIdAt(nextState, 0);
+    const aragornId = charIdAt(nextState, RESOURCE_PLAYER);
     expect(nextState.players[0].characters[aragornId as string].allies).toHaveLength(0);
 
     // Gwaihir should be in player's own discard pile (ally is owned by resource player)
-    expectInDiscardPile(nextState, 0, GWAIHIR);
+    expectInDiscardPile(nextState, RESOURCE_PLAYER, GWAIHIR);
 
     // Company should have special movement marker
     expect(nextState.players[0].companies[0].specialMovement).toBe('gwaihir');
@@ -128,7 +128,7 @@ describe('Gwaihir (tw-251)', () => {
       ],
     });
 
-    const withGwaihir = attachAllyToChar(base, 0, ARAGORN, GWAIHIR);
+    const withGwaihir = attachAllyToChar(base, RESOURCE_PLAYER, ARAGORN, GWAIHIR);
 
     // Activate Gwaihir's ability
     const grantActions = viableActions(withGwaihir, PLAYER_1, 'activate-granted-action');
@@ -160,7 +160,7 @@ describe('Gwaihir (tw-251)', () => {
       ],
     });
 
-    const withGwaihir = attachAllyToChar(base, 0, ARAGORN, GWAIHIR);
+    const withGwaihir = attachAllyToChar(base, RESOURCE_PLAYER, ARAGORN, GWAIHIR);
 
     // Activate Gwaihir's ability
     const grantActions = viableActions(withGwaihir, PLAYER_1, 'activate-granted-action');
@@ -191,7 +191,7 @@ describe('Gwaihir (tw-251)', () => {
       ],
     });
 
-    const withGwaihir = attachAllyToChar(base, 0, ARAGORN, GWAIHIR);
+    const withGwaihir = attachAllyToChar(base, RESOURCE_PLAYER, ARAGORN, GWAIHIR);
 
     // Activate Gwaihir's ability
     const grantActions = viableActions(withGwaihir, PLAYER_1, 'activate-granted-action');
@@ -221,7 +221,7 @@ describe('Gwaihir (tw-251)', () => {
       ],
     });
 
-    const withGwaihir = attachAllyToChar(base, 0, ARAGORN, GWAIHIR);
+    const withGwaihir = attachAllyToChar(base, RESOURCE_PLAYER, ARAGORN, GWAIHIR);
 
     // Plan regular movement first
     const moveActions = viableActions(withGwaihir, PLAYER_1, 'plan-movement');

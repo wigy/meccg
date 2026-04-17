@@ -22,7 +22,7 @@ import {
   RANGERS_OF_THE_NORTH,
   BREE, RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
   buildSitePhaseState, buildTestState, resetMint,
-  findCharInstanceId, mint,
+  findCharInstanceId, mint, RESOURCE_PLAYER,
 } from '../test-helpers.js';
 import type { InfluenceAttemptAction, CardInstance } from '../../index.js';
 import { computeLegalActions } from '../../index.js';
@@ -45,7 +45,7 @@ describe('Aragorn II (tw-120)', () => {
       hand: [RANGERS_OF_THE_NORTH],
     });
 
-    const aragornId = findCharInstanceId(state, 0, ARAGORN);
+    const aragornId = findCharInstanceId(state, RESOURCE_PLAYER, ARAGORN);
     const actions = computeLegalActions(state, PLAYER_1);
 
     const influenceActions = actions
@@ -74,7 +74,7 @@ describe('Aragorn II (tw-120)', () => {
       hand: [RANGERS_OF_THE_NORTH],
     });
 
-    const legolasId = findCharInstanceId(state, 0, LEGOLAS);
+    const legolasId = findCharInstanceId(state, RESOURCE_PLAYER, LEGOLAS);
     const actions = computeLegalActions(state, PLAYER_1);
 
     const influenceActions = actions

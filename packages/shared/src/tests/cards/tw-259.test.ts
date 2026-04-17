@@ -20,7 +20,7 @@ import {
   PELARGIR, MORIA,
   MEN_OF_LEBENNIN,
   buildSitePhaseState, resetMint,
-  findCharInstanceId,
+  findCharInstanceId, RESOURCE_PLAYER,
 } from '../test-helpers.js';
 import { computeLegalActions } from '../../index.js';
 import type { InfluenceAttemptAction } from '../../index.js';
@@ -42,7 +42,7 @@ describe('Horn of Anor (tw-259)', () => {
       hand: [MEN_OF_LEBENNIN],
     });
 
-    const aragornId = findCharInstanceId(state, 0, ARAGORN);
+    const aragornId = findCharInstanceId(state, RESOURCE_PLAYER, ARAGORN);
     const actions = computeLegalActions(state, PLAYER_1);
 
     const influenceActions = actions
@@ -69,7 +69,7 @@ describe('Horn of Anor (tw-259)', () => {
       hand: [MEN_OF_LEBENNIN],
     });
 
-    const aragornIdWithout = findCharInstanceId(stateWithout, 0, ARAGORN);
+    const aragornIdWithout = findCharInstanceId(stateWithout, RESOURCE_PLAYER, ARAGORN);
     const actionsWithout = computeLegalActions(stateWithout, PLAYER_1);
 
     const withoutHorn = actionsWithout
@@ -94,8 +94,8 @@ describe('Horn of Anor (tw-259)', () => {
       hand: [HORN_OF_ANOR],
     });
 
-    const aragornId = findCharInstanceId(state, 0, ARAGORN);
-    const legolasId = findCharInstanceId(state, 0, LEGOLAS);
+    const aragornId = findCharInstanceId(state, RESOURCE_PLAYER, ARAGORN);
+    const legolasId = findCharInstanceId(state, RESOURCE_PLAYER, LEGOLAS);
     const actions = computeLegalActions(state, PLAYER_1);
 
     // Should NOT be playable on Aragorn (already has one)
@@ -123,7 +123,7 @@ describe('Horn of Anor (tw-259)', () => {
       hand: [HORN_OF_ANOR],
     });
 
-    const aragornId = findCharInstanceId(state, 0, ARAGORN);
+    const aragornId = findCharInstanceId(state, RESOURCE_PLAYER, ARAGORN);
     const actions = computeLegalActions(state, PLAYER_1);
 
     const onAragorn = actions.find(

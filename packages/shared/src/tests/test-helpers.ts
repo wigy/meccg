@@ -19,7 +19,7 @@ import {
   SiteType,
   computeLegalActions,
 } from '../index.js';
-import type { PlayerId, GameState, CardDefinitionId, CardInstanceId, CardInstance, GameAction, PlayCharacterAction, SitePhaseState, MovementHazardPhaseState, OpponentInfluenceAttemptAction, LongEventPhaseState, CreatureKeyingMatch, CombatState } from '../index.js';
+import type { PlayerId, GameState, CardDefinitionId, CardInstanceId, CardInstance, GameAction, PlayCharacterAction, SitePhaseState, MovementHazardPhaseState, OpponentInfluenceAttemptAction, LongEventPhaseState, CreatureKeyingMatch, CombatState, CharacterCard, ActivateGrantedAction } from '../index.js';
 import type { EvaluatedAction } from '../rules/types.js';
 import { enqueueResolution } from '../engine/pending.js';
 import {
@@ -39,6 +39,20 @@ import {
 
 export const PLAYER_1 = 'p1' as PlayerId;
 export const PLAYER_2 = 'p2' as PlayerId;
+
+/**
+ * Player index convention for tests: unless a test deliberately flips
+ * roles, player 0 is the resource (active) player and player 1 is the
+ * hazard (opponent) player. Prefer these constants over bare `0` / `1`
+ * when calling helpers like `charIdAt`, `getCharacter`, `handCardId`,
+ * `attachHazardToChar`, etc., so test intent reads at the call site.
+ *
+ * For tests whose `activePlayer` is `PLAYER_2`, the convention does not
+ * apply — use bare indices (with a short comment) or add a local
+ * `const HERO_IDX = 1;` to clarify.
+ */
+export const RESOURCE_PLAYER = 0;
+export const HAZARD_PLAYER = 1;
 
 export const pool = loadCardPool();
 
@@ -1574,6 +1588,73 @@ export function setCharStatus(
   const p0 = playerIdx === 0 ? updatedPlayer : state.players[0];
   const p1 = playerIdx === 1 ? updatedPlayer : state.players[1];
   return { ...state, players: [p0, p1] as unknown as typeof state.players };
+}
+
+// ─── Convenience accessors ─────────────────────────────────────────────────
+
+/** Base prowess of a character card definition (before any effects/items). */
+export function baseProwess(defId: CardDefinitionId): number {
+  return (pool[defId as string] as CharacterCard).prowess;
+}
+
+/**
+ * Viable `activate-granted-action` actions emitted for the given character
+ * and action ID. Used to check which granted-action variants (e.g. the
+ * standard tap and no-tap variants of `remove-self-on-roll`) are currently
+ * on offer.
+ */
+export function grantedActionsFor(
+  state: GameState,
+  characterId: CardInstanceId,
+  actionId: string,
+  playerId: PlayerId,
+): ActivateGrantedAction[] {
+  return computeLegalActions(state, playerId)
+    .filter(ea => ea.viable)
+    .map(ea => ea.action)
+    .filter((a): a is ActivateGrantedAction =>
+      a.type === 'activate-granted-action'
+      && a.characterId === characterId
+      && a.actionId === actionId);
+}
+
+/** Definition IDs of all permanent-type cards in play for a player. */
+export function definitionIdsInPlay(state: GameState, playerIdx: number): string[] {
+  return state.players[playerIdx].cardsInPlay.map(c => c.definitionId as string);
+}
+
+/** Instance IDs of all permanent-type cards in play for a player. */
+export function instanceIdsInPlay(state: GameState, playerIdx: number): CardInstanceId[] {
+  return state.players[playerIdx].cardsInPlay.map(c => c.instanceId);
+}
+
+/** Hazards attached to a character (located by definition ID). */
+export function getHazardsOn(
+  state: GameState,
+  playerIdx: number,
+  charDefId: CardDefinitionId,
+): readonly CardInPlay[] {
+  return getCharacter(state, playerIdx, charDefId).hazards;
+}
+
+/** Items attached to a character (located by definition ID). */
+export function getItemsOn(
+  state: GameState,
+  playerIdx: number,
+  charDefId: CardDefinitionId,
+): readonly CardInPlay[] {
+  return getCharacter(state, playerIdx, charDefId).items;
+}
+
+/** Append a pre-built CardInPlay to a player's cardsInPlay (e.g. a fixture permanent). */
+export function pushCardInPlay(
+  state: GameState,
+  playerIdx: 0 | 1,
+  card: CardInPlay,
+): GameState {
+  const updated = { ...state.players[playerIdx], cardsInPlay: [...state.players[playerIdx].cardsInPlay, card] };
+  const players = playerIdx === 0 ? [updated, state.players[1]] : [state.players[0], updated];
+  return { ...state, players: players as unknown as typeof state.players };
 }
 
 // Re-export commonly used things

@@ -32,7 +32,7 @@ import {
   buildTestState, resetMint, resolveChain,
   viableActions,
   P1_COMPANY, makeMHState,
-  handCardId,
+  handCardId, RESOURCE_PLAYER, HAZARD_PLAYER,
 } from '../../test-helpers.js';
 import { Phase } from '../../../index.js';
 import type { CardInPlay, CardInstanceId, GameState } from '../../../index.js';
@@ -54,7 +54,7 @@ describe('Rule 10.29 — Chain of Effects', () => {
       ],
     });
 
-    const gomId = handCardId(state, 0);
+    const gomId = handCardId(state, RESOURCE_PLAYER);
     const nextState = dispatch(state, { type: 'play-permanent-event', player: PLAYER_1, cardInstanceId: gomId });
 
     // Chain is created with the card on it
@@ -82,7 +82,7 @@ describe('Rule 10.29 — Chain of Effects', () => {
       ],
     });
 
-    const gomId = handCardId(state, 0);
+    const gomId = handCardId(state, RESOURCE_PLAYER);
     const nextState = dispatch(state, { type: 'play-permanent-event', player: PLAYER_1, cardInstanceId: gomId });
 
     // Non-initiator (P2) gets priority to respond
@@ -101,8 +101,8 @@ describe('Rule 10.29 — Chain of Effects', () => {
       ],
     });
 
-    const gomId = handCardId(state, 0);
-    const p2Twilight = handCardId(state, 1);
+    const gomId = handCardId(state, RESOURCE_PLAYER);
+    const p2Twilight = handCardId(state, HAZARD_PLAYER);
 
     // P1 plays GoM → P2 gets priority
     const afterGom = dispatch(state, { type: 'play-permanent-event', player: PLAYER_1, cardInstanceId: gomId });
@@ -135,9 +135,9 @@ describe('Rule 10.29 — Chain of Effects', () => {
       ],
     });
 
-    const gomId = handCardId(state, 0);
-    const p1Twilight = handCardId(state, 0, 1);
-    const p2Twilight = handCardId(state, 1);
+    const gomId = handCardId(state, RESOURCE_PLAYER);
+    const p1Twilight = handCardId(state, RESOURCE_PLAYER, 1);
+    const p2Twilight = handCardId(state, HAZARD_PLAYER);
 
     // P1 plays GoM → P2 gets priority
     const afterGom = dispatch(state, { type: 'play-permanent-event', player: PLAYER_1, cardInstanceId: gomId });
@@ -174,7 +174,7 @@ describe('Rule 10.29 — Chain of Effects', () => {
       ],
     });
 
-    const gomId = handCardId(state, 0);
+    const gomId = handCardId(state, RESOURCE_PLAYER);
 
     // P1 plays GoM → P2 gets priority
     const afterGom = dispatch(state, { type: 'play-permanent-event', player: PLAYER_1, cardInstanceId: gomId });
@@ -201,8 +201,8 @@ describe('Rule 10.29 — Chain of Effects', () => {
       ],
     });
 
-    const gomId = handCardId(state, 0);
-    const p2Twilight = handCardId(state, 1);
+    const gomId = handCardId(state, RESOURCE_PLAYER);
+    const p2Twilight = handCardId(state, HAZARD_PLAYER);
 
     // P1 plays GoM → P2 gets priority
     const afterGom = dispatch(state, { type: 'play-permanent-event', player: PLAYER_1, cardInstanceId: gomId });
@@ -233,7 +233,7 @@ describe('Rule 10.29 — Chain of Effects', () => {
       ],
     });
 
-    const gomId = handCardId(state, 0);
+    const gomId = handCardId(state, RESOURCE_PLAYER);
 
     // P1 plays GoM → it goes on the chain
     const nextState = dispatch(state, { type: 'play-permanent-event', player: PLAYER_1, cardInstanceId: gomId });
@@ -264,8 +264,8 @@ describe('Rule 10.29 — Chain of Effects', () => {
       ],
     });
 
-    const gomId = handCardId(state, 0);
-    const p2Twilight = handCardId(state, 1);
+    const gomId = handCardId(state, RESOURCE_PLAYER);
+    const p2Twilight = handCardId(state, HAZARD_PLAYER);
 
     // P1 plays GoM (would discard DoN on resolution)
     const afterGom = dispatch(state, { type: 'play-permanent-event', player: PLAYER_1, cardInstanceId: gomId });
@@ -298,7 +298,7 @@ describe('Rule 10.29 — Chain of Effects', () => {
     });
 
     const mhGameState: GameState = { ...state, phaseState: makeMHState() };
-    const donId = handCardId(mhGameState, 1);
+    const donId = handCardId(mhGameState, HAZARD_PLAYER);
 
     // P2 plays DoN as a hazard → chain starts
     const nextState = dispatch(mhGameState, { type: 'play-hazard', player: PLAYER_2, cardInstanceId: donId, targetCompanyId: P1_COMPANY });
@@ -325,9 +325,9 @@ describe('Rule 10.29 — Chain of Effects', () => {
       ],
     });
 
-    const gomId = handCardId(state, 0);
-    const p1Twilight = handCardId(state, 0, 1);
-    const p2Twilight = handCardId(state, 1);
+    const gomId = handCardId(state, RESOURCE_PLAYER);
+    const p1Twilight = handCardId(state, RESOURCE_PLAYER, 1);
+    const p2Twilight = handCardId(state, HAZARD_PLAYER);
 
     // 1. P1 plays GoM
     const afterGom = dispatch(state, { type: 'play-permanent-event', player: PLAYER_1, cardInstanceId: gomId });
@@ -365,7 +365,7 @@ describe('Rule 10.29 — Chain of Effects', () => {
       ],
     });
 
-    const gomId = handCardId(state, 0);
+    const gomId = handCardId(state, RESOURCE_PLAYER);
 
     // Play GoM → both pass → chain resolves automatically
     const afterGom = dispatch(state, { type: 'play-permanent-event', player: PLAYER_1, cardInstanceId: gomId });
@@ -401,7 +401,7 @@ describe('Rule 10.29 — Chain of Effects', () => {
     });
 
     const mhGameState: GameState = { ...state, phaseState: makeMHState() };
-    const donId = handCardId(mhGameState, 1);
+    const donId = handCardId(mhGameState, HAZARD_PLAYER);
 
     // P2 (hazard player) plays DoN → P1 (resource player) gets priority
     const nextState = dispatch(mhGameState, { type: 'play-hazard', player: PLAYER_2, cardInstanceId: donId, targetCompanyId: P1_COMPANY });
@@ -427,8 +427,8 @@ describe('Rule 10.29 — Chain of Effects', () => {
     });
 
     const mhGameState: GameState = { ...state, phaseState: makeMHState() };
-    const donId = handCardId(mhGameState, 1);
-    const p1Twilight = handCardId(mhGameState, 0);
+    const donId = handCardId(mhGameState, HAZARD_PLAYER);
+    const p1Twilight = handCardId(mhGameState, RESOURCE_PLAYER);
 
     // P2 plays DoN → P1 gets priority
     const afterDon = dispatch(mhGameState, { type: 'play-hazard', player: PLAYER_2, cardInstanceId: donId, targetCompanyId: P1_COMPANY });
@@ -460,7 +460,7 @@ describe('Rule 10.29 — Chain of Effects', () => {
       ],
     });
 
-    const gomId = handCardId(state, 0);
+    const gomId = handCardId(state, RESOURCE_PLAYER);
 
     // P1 plays GoM → P2 gets priority
     const nextState = dispatch(state, { type: 'play-permanent-event', player: PLAYER_1, cardInstanceId: gomId });
@@ -483,8 +483,8 @@ describe('Rule 10.29 — Chain of Effects', () => {
       ],
     });
 
-    const gomId = handCardId(state, 0);
-    const p2Twilight = handCardId(state, 1);
+    const gomId = handCardId(state, RESOURCE_PLAYER);
+    const p2Twilight = handCardId(state, HAZARD_PLAYER);
 
     // P1 plays GoM
     const afterGom = dispatch(state, { type: 'play-permanent-event', player: PLAYER_1, cardInstanceId: gomId });

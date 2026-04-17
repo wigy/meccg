@@ -30,7 +30,7 @@ import {
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
   CardStatus,
   handCardId, charIdAt, dispatch,
-  expectCharStatus,
+  expectCharStatus, RESOURCE_PLAYER,
 } from '../test-helpers.js';
 import type { PlayShortEventAction } from '../../index.js';
 import { computeLegalActions } from '../../engine/legal-actions/index.js';
@@ -61,8 +61,8 @@ describe('Ioreth (td-93)', () => {
       ],
     });
 
-    const bilboId = charIdAt(base, 0, 0, 0);
-    const hsInstance = handCardId(base, 0);
+    const bilboId = charIdAt(base, RESOURCE_PLAYER, 0, 0);
+    const hsInstance = handCardId(base, RESOURCE_PLAYER);
 
     const state = dispatch(base, {
       type: 'play-short-event',
@@ -72,9 +72,9 @@ describe('Ioreth (td-93)', () => {
       optionId: 'heal',
     });
 
-    expectCharStatus(state, 0, BILBO, CardStatus.Untapped);
-    expectCharStatus(state, 0, ARAGORN, CardStatus.Untapped);
-    expectCharStatus(state, 0, IORETH, CardStatus.Untapped);
+    expectCharStatus(state, RESOURCE_PLAYER, BILBO, CardStatus.Untapped);
+    expectCharStatus(state, RESOURCE_PLAYER, ARAGORN, CardStatus.Untapped);
+    expectCharStatus(state, RESOURCE_PLAYER, IORETH, CardStatus.Untapped);
   });
 
   test('healing does NOT extend when Ioreth is not in the company', () => {
@@ -100,8 +100,8 @@ describe('Ioreth (td-93)', () => {
       ],
     });
 
-    const bilboId = charIdAt(base, 0, 0, 0);
-    const hsInstance = handCardId(base, 0);
+    const bilboId = charIdAt(base, RESOURCE_PLAYER, 0, 0);
+    const hsInstance = handCardId(base, RESOURCE_PLAYER);
 
     const state = dispatch(base, {
       type: 'play-short-event',
@@ -111,8 +111,8 @@ describe('Ioreth (td-93)', () => {
       optionId: 'heal',
     });
 
-    expectCharStatus(state, 0, BILBO, CardStatus.Untapped);
-    expectCharStatus(state, 0, ARAGORN, CardStatus.Inverted);
+    expectCharStatus(state, RESOURCE_PLAYER, BILBO, CardStatus.Untapped);
+    expectCharStatus(state, RESOURCE_PLAYER, ARAGORN, CardStatus.Inverted);
   });
 
   test('Ioreth herself is healed when another character receives healing in her company', () => {
@@ -136,8 +136,8 @@ describe('Ioreth (td-93)', () => {
       ],
     });
 
-    const bilboId = charIdAt(base, 0, 0, 0);
-    const hsInstance = handCardId(base, 0);
+    const bilboId = charIdAt(base, RESOURCE_PLAYER, 0, 0);
+    const hsInstance = handCardId(base, RESOURCE_PLAYER);
 
     const state = dispatch(base, {
       type: 'play-short-event',
@@ -147,8 +147,8 @@ describe('Ioreth (td-93)', () => {
       optionId: 'heal',
     });
 
-    expectCharStatus(state, 0, BILBO, CardStatus.Untapped);
-    expectCharStatus(state, 0, IORETH, CardStatus.Untapped);
+    expectCharStatus(state, RESOURCE_PLAYER, BILBO, CardStatus.Untapped);
+    expectCharStatus(state, RESOURCE_PLAYER, IORETH, CardStatus.Untapped);
   });
 
   test('untap option does NOT trigger healing spread (untapping is not healing)', () => {
@@ -173,7 +173,7 @@ describe('Ioreth (td-93)', () => {
       ],
     });
 
-    const bilboId = charIdAt(base, 0, 0, 0);
+    const bilboId = charIdAt(base, RESOURCE_PLAYER, 0, 0);
 
     const actions = computeLegalActions(base, PLAYER_1)
       .filter(ea => ea.viable && ea.action.type === 'play-short-event')
@@ -184,7 +184,7 @@ describe('Ioreth (td-93)', () => {
 
     const state = dispatch(base, untapAction!);
 
-    expectCharStatus(state, 0, BILBO, CardStatus.Untapped);
-    expectCharStatus(state, 0, ARAGORN, CardStatus.Inverted);
+    expectCharStatus(state, RESOURCE_PLAYER, BILBO, CardStatus.Untapped);
+    expectCharStatus(state, RESOURCE_PLAYER, ARAGORN, CardStatus.Inverted);
   });
 });

@@ -20,7 +20,7 @@ import {
   viablePlayCharacterActions,
   findCharInstanceId,
   enqueueTransferCorruptionCheck,
-  dispatch,
+  dispatch, RESOURCE_PLAYER,
 } from '../test-helpers.js';
 import { computeLegalActions, Phase } from '../../index.js';
 import type { CardInstanceId } from '../../index.js';
@@ -55,7 +55,7 @@ describe('Frodo (tw-152)', () => {
       ],
     });
 
-    const frodoId = findCharInstanceId(state, 0, FRODO);
+    const frodoId = findCharInstanceId(state, RESOURCE_PLAYER, FRODO);
     // Mint a fake transferred item ID to trigger pending corruption check
     const fakeItemId = mint();
     const withPending = enqueueTransferCorruptionCheck(state, PLAYER_1, frodoId, fakeItemId);

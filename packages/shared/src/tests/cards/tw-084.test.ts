@@ -37,7 +37,7 @@ import {
   mint, CardStatus,
   makeMHState,
   charIdAt, companyIdAt, dispatch, expectCharStatus, setCharStatus,
-  viableFor, viableActions, viableActionTypes, phaseStateAs,
+  viableFor, viableActions, viableActionTypes, phaseStateAs, RESOURCE_PLAYER,
 } from '../test-helpers.js';
 import type {
   SitePhaseState, ActivateGrantedAction, CardInstanceId, CompanyId, GameState,
@@ -97,7 +97,7 @@ describe('River (tw-84)', () => {
       ],
     });
 
-    const targetCompanyId = companyIdAt(base, 0);
+    const targetCompanyId = companyIdAt(base, RESOURCE_PLAYER);
     const riverInstance = mint();
     const sitePhaseState: SitePhaseState = {
       phase: Phase.Site,
@@ -148,7 +148,7 @@ describe('River (tw-84)', () => {
     );
     expect(rangerTaps).toHaveLength(1);
 
-    const aragornId = charIdAt(withRiverInPlay, 0);
+    const aragornId = charIdAt(withRiverInPlay, RESOURCE_PLAYER);
     expect((rangerTaps[0].action as ActivateGrantedAction).characterId).toBe(aragornId);
   });
 
@@ -162,7 +162,7 @@ describe('River (tw-84)', () => {
       ],
     });
 
-    const targetCompanyId = companyIdAt(base, 0);
+    const targetCompanyId = companyIdAt(base, RESOURCE_PLAYER);
     const riverInstance = mint();
     const sitePhaseState: SitePhaseState = {
       phase: Phase.Site,
@@ -210,9 +210,9 @@ describe('River (tw-84)', () => {
     });
 
     // Tap Aragorn
-    const tappedBase = setCharStatus(base, 0, ARAGORN, CardStatus.Tapped);
+    const tappedBase = setCharStatus(base, RESOURCE_PLAYER, ARAGORN, CardStatus.Tapped);
 
-    const targetCompanyId = companyIdAt(tappedBase, 0);
+    const targetCompanyId = companyIdAt(tappedBase, RESOURCE_PLAYER);
     const riverInstance = mint();
     const sitePhaseState: SitePhaseState = {
       phase: Phase.Site,
@@ -259,7 +259,7 @@ describe('River (tw-84)', () => {
       ],
     });
 
-    const targetCompanyId = companyIdAt(base, 0);
+    const targetCompanyId = companyIdAt(base, RESOURCE_PLAYER);
     const constrained = addRiverConstraints(base, 'river-1' as CardInstanceId, targetCompanyId);
     expect(constrained.activeConstraints).toHaveLength(2);
 
@@ -298,7 +298,7 @@ describe('River (tw-84)', () => {
 
     const mhState = makeMHState({ activeCompanyIndex: 0 });
     const stateAtPlayHazards = { ...baseWithDest, phaseState: mhState };
-    const targetCompanyId = companyIdAt(stateAtPlayHazards, 0);
+    const targetCompanyId = companyIdAt(stateAtPlayHazards, RESOURCE_PLAYER);
     const riverInstance = stateAtPlayHazards.players[1].hand[0].instanceId;
 
     const playActions = viableActions(stateAtPlayHazards, PLAYER_2, 'play-hazard')
@@ -344,7 +344,7 @@ describe('River (tw-84)', () => {
     const stateAtPlayHazards = { ...baseWithDest, phaseState: mhState };
 
     const riverInstance = stateAtPlayHazards.players[1].hand[0].instanceId;
-    const targetCompanyId = companyIdAt(stateAtPlayHazards, 0);
+    const targetCompanyId = companyIdAt(stateAtPlayHazards, RESOURCE_PLAYER);
 
     const playResult = reduce(stateAtPlayHazards, {
       type: 'play-hazard',
@@ -401,7 +401,7 @@ describe('River (tw-84)', () => {
       ],
     });
 
-    const targetCompanyId = companyIdAt(base, 0);
+    const targetCompanyId = companyIdAt(base, RESOURCE_PLAYER);
     const riverInstance = mint();
     const sitePhaseState: SitePhaseState = {
       phase: Phase.Site,
@@ -435,7 +435,7 @@ describe('River (tw-84)', () => {
       ] as typeof constrained.players,
     };
 
-    const aragornId = charIdAt(withRiverInPlay, 0);
+    const aragornId = charIdAt(withRiverInPlay, RESOURCE_PLAYER);
 
     // Tap Aragorn to cancel River via the reducer.
     const nextState = dispatch(withRiverInPlay, {
@@ -449,7 +449,7 @@ describe('River (tw-84)', () => {
     } as ActivateGrantedAction);
 
     // Aragorn should now be tapped.
-    expectCharStatus(nextState, 0, ARAGORN, CardStatus.Tapped);
+    expectCharStatus(nextState, RESOURCE_PLAYER, ARAGORN, CardStatus.Tapped);
 
     // The River constraint should be gone.
     expect(nextState.activeConstraints).toHaveLength(0);
@@ -472,7 +472,7 @@ describe('River (tw-84)', () => {
       ],
     });
 
-    const targetCompanyId = companyIdAt(base, 0);
+    const targetCompanyId = companyIdAt(base, RESOURCE_PLAYER);
     const riverInstance = mint();
     const mhState = makeMHState({ activeCompanyIndex: 0 });
     const stateAtMH = { ...base, phaseState: mhState };
@@ -496,7 +496,7 @@ describe('River (tw-84)', () => {
       .filter(ea => (ea.action as ActivateGrantedAction).actionId === 'cancel-river');
     expect(cancelActions).toHaveLength(1);
 
-    const aragornId = charIdAt(withRiverInPlay, 0);
+    const aragornId = charIdAt(withRiverInPlay, RESOURCE_PLAYER);
     expect((cancelActions[0].action as ActivateGrantedAction).characterId).toBe(aragornId);
   });
 
@@ -511,7 +511,7 @@ describe('River (tw-84)', () => {
       ],
     });
 
-    const targetCompanyId = companyIdAt(base, 0);
+    const targetCompanyId = companyIdAt(base, RESOURCE_PLAYER);
     const riverInstance = mint();
     const mhState = makeMHState({ activeCompanyIndex: 0 });
     const stateAtMH = { ...base, phaseState: mhState };
@@ -531,7 +531,7 @@ describe('River (tw-84)', () => {
       ] as typeof constrained.players,
     };
 
-    const aragornId = charIdAt(withRiverInPlay, 0);
+    const aragornId = charIdAt(withRiverInPlay, RESOURCE_PLAYER);
 
     const nextState = dispatch(withRiverInPlay, {
       type: 'activate-granted-action',
@@ -543,7 +543,7 @@ describe('River (tw-84)', () => {
       rollThreshold: 0,
     } as ActivateGrantedAction);
 
-    expectCharStatus(nextState, 0, ARAGORN, CardStatus.Tapped);
+    expectCharStatus(nextState, RESOURCE_PLAYER, ARAGORN, CardStatus.Tapped);
     expect(nextState.activeConstraints).toHaveLength(0);
     expect(nextState.phaseState.phase).toBe(Phase.MovementHazard);
   });

@@ -26,7 +26,7 @@ import {
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
   buildTestState, resetMint, makeWildernessMHState,
   resolveChain,
-  handCardId, companyIdAt,
+  handCardId, companyIdAt, RESOURCE_PLAYER, HAZARD_PLAYER,
 } from '../test-helpers.js';
 import { computeLegalActions, reduce, Phase, CardStatus, GENERAL_INFLUENCE } from '../../index.js';
 import type { CardInPlay, CardInstanceId, CardDefinitionId, PlayHazardAction, MusterRollAction } from '../../index.js';
@@ -186,8 +186,8 @@ describe('Muster Disperses (tw-067)', () => {
     expect(GENERAL_INFLUENCE - p1.generalInfluenceUsed).toBe(11);
 
     // Play the hazard targeting the faction
-    const hazardId = handCardId(gameState, 1);
-    const companyId = companyIdAt(gameState, 0);
+    const hazardId = handCardId(gameState, HAZARD_PLAYER);
+    const companyId = companyIdAt(gameState, RESOURCE_PLAYER);
     const result = reduce(gameState, {
       type: 'play-hazard',
       player: PLAYER_2,
@@ -255,8 +255,8 @@ describe('Muster Disperses (tw-067)', () => {
     expect(GENERAL_INFLUENCE - p1.generalInfluenceUsed).toBe(5);
 
     // Play the hazard
-    const hazardId = handCardId(gameState, 1);
-    const companyId = companyIdAt(gameState, 0);
+    const hazardId = handCardId(gameState, HAZARD_PLAYER);
+    const companyId = companyIdAt(gameState, RESOURCE_PLAYER);
     const result = reduce(gameState, {
       type: 'play-hazard',
       player: PLAYER_2,
@@ -315,8 +315,8 @@ describe('Muster Disperses (tw-067)', () => {
     const mhState = makeWildernessMHState();
     const gameState = { ...state, phaseState: mhState };
 
-    const hazardId = handCardId(gameState, 1);
-    const companyId = companyIdAt(gameState, 0);
+    const hazardId = handCardId(gameState, HAZARD_PLAYER);
+    const companyId = companyIdAt(gameState, RESOURCE_PLAYER);
     const result = reduce(gameState, {
       type: 'play-hazard',
       player: PLAYER_2,

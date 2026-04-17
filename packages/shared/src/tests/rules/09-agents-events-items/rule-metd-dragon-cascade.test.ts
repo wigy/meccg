@@ -20,7 +20,7 @@ import {
   addCardInPlay,
   addToKillPile,
   addToOutOfPlayPile,
-  buildSimpleTwoPlayerState,
+  buildSimpleTwoPlayerState, RESOURCE_PLAYER, HAZARD_PLAYER,
 } from '../../test-helpers.js';
 
 const SMAUG = 'tw-90' as CardDefinitionId;
@@ -36,12 +36,12 @@ describe('METD §4.2 — Defeat cascade', () => {
     // the basic Smaug creature into P2's killPile (defeated by P1's
     // company in some prior combat) and run the cascade.
     let state = buildSimpleTwoPlayerState();
-    state = addCardInPlay(state, 1, SMAUG_AHUNT);
-    state = addCardInPlay(state, 1, SMAUG_AT_HOME);
+    state = addCardInPlay(state, HAZARD_PLAYER, SMAUG_AHUNT);
+    state = addCardInPlay(state, HAZARD_PLAYER, SMAUG_AT_HOME);
     // Earcaraxe At-Home should be untouched.
-    state = addCardInPlay(state, 1, EARC_AT_HOME);
+    state = addCardInPlay(state, HAZARD_PLAYER, EARC_AT_HOME);
     const smaugBasic: CardInstance = { instanceId: 'p2-50' as CardInstanceId, definitionId: SMAUG };
-    state = addToKillPile(state, 1, smaugBasic);
+    state = addToKillPile(state, HAZARD_PLAYER, smaugBasic);
 
     const after = applyManifestationCascade(state);
     // P2's cardsInPlay should now hold only the unrelated Earcaraxe.
@@ -54,8 +54,8 @@ describe('METD §4.2 — Defeat cascade', () => {
 
   test('cascade is idempotent — running twice changes nothing', () => {
     let state = buildSimpleTwoPlayerState();
-    state = addCardInPlay(state, 1, SMAUG_AHUNT);
-    state = addToKillPile(state, 1, { instanceId: 'p2-50' as CardInstanceId, definitionId: SMAUG });
+    state = addCardInPlay(state, HAZARD_PLAYER, SMAUG_AHUNT);
+    state = addToKillPile(state, HAZARD_PLAYER, { instanceId: 'p2-50' as CardInstanceId, definitionId: SMAUG });
 
     const once = applyManifestationCascade(state);
     const twice = applyManifestationCascade(once);
@@ -77,7 +77,7 @@ describe('METD §4.2 — Defeat cascade', () => {
         state.players[1],
       ] as typeof state.players,
     };
-    state = addToKillPile(state, 1, { instanceId: 'p2-50' as CardInstanceId, definitionId: SMAUG });
+    state = addToKillPile(state, HAZARD_PLAYER, { instanceId: 'p2-50' as CardInstanceId, definitionId: SMAUG });
 
     const after = applyManifestationCascade(state);
     // P1's cardsInPlay should be empty; the At-Home moved to P1's outOfPlayPile.
@@ -90,12 +90,12 @@ describe('METD §4.2 — Defeat cascade', () => {
   test('isManifestationDefeated returns true for killPile and outOfPlayPile, false for discardPile', () => {
     // killPile case (combat defeat) → defeated.
     let state = buildSimpleTwoPlayerState();
-    state = addToKillPile(state, 1, { instanceId: 'p2-1' as CardInstanceId, definitionId: SMAUG });
+    state = addToKillPile(state, HAZARD_PLAYER, { instanceId: 'p2-1' as CardInstanceId, definitionId: SMAUG });
     expect(isManifestationDefeated(state, SMAUG)).toBe(true);
 
     // outOfPlayPile case (eliminated / removed-from-play) → defeated.
     state = buildSimpleTwoPlayerState();
-    state = addToOutOfPlayPile(state, 0, { instanceId: 'p1-3' as CardInstanceId, definitionId: SMAUG });
+    state = addToOutOfPlayPile(state, RESOURCE_PLAYER, { instanceId: 'p1-3' as CardInstanceId, definitionId: SMAUG });
     expect(isManifestationDefeated(state, SMAUG)).toBe(true);
 
     // discardPile case (Ahunt naturally expired at end-of-LE-phase, or
@@ -117,8 +117,8 @@ describe('METD §4.2 — Defeat cascade', () => {
     // Smaug Ahunt naturally expires to discard. The in-play cards must
     // remain — discard is not a defeat.
     let state = buildSimpleTwoPlayerState();
-    state = addCardInPlay(state, 1, SMAUG_AHUNT);
-    state = addCardInPlay(state, 1, SMAUG_AT_HOME);
+    state = addCardInPlay(state, HAZARD_PLAYER, SMAUG_AHUNT);
+    state = addCardInPlay(state, HAZARD_PLAYER, SMAUG_AT_HOME);
     const discardedAhunt: CardInstance = { instanceId: 'p2-99' as CardInstanceId, definitionId: SMAUG_AHUNT };
     state = {
       ...state,
@@ -134,8 +134,8 @@ describe('METD §4.2 — Defeat cascade', () => {
 
   test('after cascade the lair loses its Dragon auto-attack', () => {
     let state = buildSimpleTwoPlayerState();
-    state = addCardInPlay(state, 1, SMAUG_AHUNT);
-    state = addToKillPile(state, 1, { instanceId: 'p2-50' as CardInstanceId, definitionId: SMAUG });
+    state = addCardInPlay(state, HAZARD_PLAYER, SMAUG_AHUNT);
+    state = addToKillPile(state, HAZARD_PLAYER, { instanceId: 'p2-50' as CardInstanceId, definitionId: SMAUG });
     const after = applyManifestationCascade(state);
     const lonely = after.cardPool[LONELY_MOUNTAIN] as SiteCard;
     expect(getActiveAutoAttacks(after, lonely)).toHaveLength(0);

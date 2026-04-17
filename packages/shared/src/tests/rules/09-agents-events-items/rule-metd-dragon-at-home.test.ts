@@ -11,7 +11,8 @@
 import { describe, expect, test } from 'vitest';
 import type { CardDefinitionId, SiteCard } from '../../../index.js';
 import { getActiveAutoAttacks } from '../../../engine/manifestations.js';
-import { addCardInPlay, buildSimpleTwoPlayerState } from '../../test-helpers.js';
+import { addCardInPlay, buildSimpleTwoPlayerState, HAZARD_PLAYER,
+} from '../../test-helpers.js';
 
 const SMAUG_AHUNT = 'td-70' as CardDefinitionId;
 const SMAUG_AT_HOME = 'td-71' as CardDefinitionId;
@@ -28,7 +29,7 @@ describe('METD §4 — Dragon At-Home augmentation', () => {
   });
 
   test('At-Home in play appends an extra Dragon attack to its lair', () => {
-    const state = addCardInPlay(buildSimpleTwoPlayerState(), 1, SMAUG_AT_HOME);
+    const state = addCardInPlay(buildSimpleTwoPlayerState(), HAZARD_PLAYER, SMAUG_AT_HOME);
     const lonely = state.cardPool[LONELY_MOUNTAIN] as SiteCard;
     const attacks = getActiveAutoAttacks(state, lonely);
     // Printed (1 strike, 14 prow) + Smaug-At-Home extra (2 strikes, 18 prow).
@@ -38,13 +39,13 @@ describe('METD §4 — Dragon At-Home augmentation', () => {
   });
 
   test('matching Ahunt suppresses the At-Home augmentation', () => {
-    const state = addCardInPlay(addCardInPlay(buildSimpleTwoPlayerState(), 1, SMAUG_AT_HOME), 1, SMAUG_AHUNT);
+    const state = addCardInPlay(addCardInPlay(buildSimpleTwoPlayerState(), HAZARD_PLAYER, SMAUG_AT_HOME), HAZARD_PLAYER, SMAUG_AHUNT);
     const lonely = state.cardPool[LONELY_MOUNTAIN] as SiteCard;
     expect(getActiveAutoAttacks(state, lonely)).toHaveLength(1);
   });
 
   test('At-Home for a different Dragon does not augment this lair', () => {
-    const state = addCardInPlay(buildSimpleTwoPlayerState(), 1, EARC_AT_HOME);
+    const state = addCardInPlay(buildSimpleTwoPlayerState(), HAZARD_PLAYER, EARC_AT_HOME);
     const lonely = state.cardPool[LONELY_MOUNTAIN] as SiteCard;
     expect(getActiveAutoAttacks(state, lonely)).toHaveLength(1);
   });

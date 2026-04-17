@@ -25,7 +25,7 @@ import {
   buildTestState, resetMint,
   findCharInstanceId, viablePlayCharacterActions,
   enqueueTransferCorruptionCheck,
-  getCharacter,
+  getCharacter, RESOURCE_PLAYER,
 } from '../test-helpers.js';
 import {
   computeLegalActions, reduce,
@@ -62,8 +62,8 @@ describe('Bilbo (tw-131)', () => {
       ],
     });
 
-    const bilboId = findCharInstanceId(state, 0, BILBO);
-    const glamdringInstId = getCharacter(state, 0, BILBO).items[0].instanceId;
+    const bilboId = findCharInstanceId(state, RESOURCE_PLAYER, BILBO);
+    const glamdringInstId = getCharacter(state, RESOURCE_PLAYER, BILBO).items[0].instanceId;
 
     const stateWithCheck = enqueueTransferCorruptionCheck(state, PLAYER_1, bilboId, glamdringInstId);
 

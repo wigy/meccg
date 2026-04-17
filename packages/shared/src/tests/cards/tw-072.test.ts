@@ -21,7 +21,7 @@ import {
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
   buildTestState, resetMint, makeShadowMHState,
   resolveChain,
-  handCardId, companyIdAt, dispatch,
+  handCardId, companyIdAt, dispatch, RESOURCE_PLAYER, HAZARD_PLAYER,
 } from '../test-helpers.js';
 import { computeLegalActions, Phase } from '../../index.js';
 // ─── Tests ───────────────────────────────────────────────────────────────────
@@ -54,8 +54,8 @@ describe('Orc-guard (tw-072)', () => {
     const mhState = makeShadowMHState();
     const gameState = { ...state, phaseState: mhState };
 
-    const orcId = handCardId(gameState, 1);
-    const companyId = companyIdAt(gameState, 0);
+    const orcId = handCardId(gameState, HAZARD_PLAYER);
+    const companyId = companyIdAt(gameState, RESOURCE_PLAYER);
     dispatch(gameState, {
       type: 'play-hazard',
       player: PLAYER_2,
@@ -89,8 +89,8 @@ describe('Orc-guard (tw-072)', () => {
     const mhState = makeShadowMHState();
     const gameState = { ...state, phaseState: mhState };
 
-    const orcId = handCardId(gameState, 1);
-    const companyId = companyIdAt(gameState, 0);
+    const orcId = handCardId(gameState, HAZARD_PLAYER);
+    const companyId = companyIdAt(gameState, RESOURCE_PLAYER);
     const afterPlay = dispatch(gameState, {
       type: 'play-hazard',
       player: PLAYER_2,
@@ -130,8 +130,8 @@ describe('Orc-guard (tw-072)', () => {
     const mhState = makeShadowMHState();
     const gameState = { ...state, phaseState: mhState };
 
-    const orcId = handCardId(gameState, 1);
-    const companyId = companyIdAt(gameState, 0);
+    const orcId = handCardId(gameState, HAZARD_PLAYER);
+    const companyId = companyIdAt(gameState, RESOURCE_PLAYER);
     const afterPlay = dispatch(gameState, {
       type: 'play-hazard',
       player: PLAYER_2,

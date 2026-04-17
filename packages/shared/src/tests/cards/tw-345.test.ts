@@ -22,7 +22,7 @@ import {
   MORIA,
   resetMint, pool,
   buildSitePhaseState,
-  getCharacter,
+  getCharacter, RESOURCE_PLAYER,
 } from '../test-helpers.js';
 import {
   computeLegalActions,
@@ -51,7 +51,7 @@ describe('The Mithril-coat (tw-345)', () => {
       site: MORIA,
     }));
 
-    const stats = getCharacter(state, 0, THEODEN).effectiveStats;
+    const stats = getCharacter(state, RESOURCE_PLAYER, THEODEN).effectiveStats;
     expect(stats.body).toBe(9); // 6 + 3 = 9, below max 10
   });
 
@@ -67,7 +67,7 @@ describe('The Mithril-coat (tw-345)', () => {
       site: MORIA,
     }));
 
-    const stats = getCharacter(state, 0, ARAGORN).effectiveStats;
+    const stats = getCharacter(state, RESOURCE_PLAYER, ARAGORN).effectiveStats;
     expect(stats.body).toBe(10); // 9 + 3 = 12, capped to 10
   });
 
@@ -81,7 +81,7 @@ describe('The Mithril-coat (tw-345)', () => {
       site: MORIA,
     }));
 
-    const stats = getCharacter(state, 0, ARAGORN).effectiveStats;
+    const stats = getCharacter(state, RESOURCE_PLAYER, ARAGORN).effectiveStats;
     expect(stats.prowess).toBe(baseDef.prowess); // unchanged
   });
 
@@ -93,7 +93,7 @@ describe('The Mithril-coat (tw-345)', () => {
       site: MORIA,
     }));
 
-    const stats = getCharacter(state, 0, ARAGORN).effectiveStats;
+    const stats = getCharacter(state, RESOURCE_PLAYER, ARAGORN).effectiveStats;
     expect(stats.corruptionPoints).toBe(2);
   });
 

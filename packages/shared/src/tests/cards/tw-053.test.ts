@@ -31,7 +31,7 @@ import {
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
   makeMHState,
   handCardId, companyIdAt, dispatch,
-  viableActionTypes, viableActions,
+  viableActionTypes, viableActions, RESOURCE_PLAYER, HAZARD_PLAYER,
 } from '../test-helpers.js';
 import type {
   CompanyId, SitePhaseState,
@@ -53,7 +53,7 @@ describe('Lost in Free-domains (tw-53)', () => {
       ],
     });
 
-    const targetCompanyId = companyIdAt(base, 0);
+    const targetCompanyId = companyIdAt(base, RESOURCE_PLAYER);
 
     // Move into the enter-or-skip step for the target company.
     const sitePhaseState: SitePhaseState = {
@@ -141,7 +141,7 @@ describe('Lost in Free-domains (tw-53)', () => {
       ],
     });
 
-    const targetCompanyId = companyIdAt(base, 0);
+    const targetCompanyId = companyIdAt(base, RESOURCE_PLAYER);
     const constrained = addConstraint(base, {
       source: 'lifd-1' as never,
       sourceDefinitionId: LOST_IN_FREE_DOMAINS,
@@ -169,8 +169,8 @@ describe('Lost in Free-domains (tw-53)', () => {
       ],
     });
 
-    const targetCompanyId = companyIdAt(base, 0);
-    const lifdInstance = handCardId(base, 1);
+    const targetCompanyId = companyIdAt(base, RESOURCE_PLAYER);
+    const lifdInstance = handCardId(base, HAZARD_PLAYER);
 
     const mhState = makeMHState({ activeCompanyIndex: 0 });
     const stateAtPlayHazards = { ...base, phaseState: mhState };
@@ -202,8 +202,8 @@ describe('Lost in Free-domains (tw-53)', () => {
       ],
     });
 
-    const targetCompanyId = companyIdAt(base, 0);
-    const lifdInstance = handCardId(base, 1);
+    const targetCompanyId = companyIdAt(base, RESOURCE_PLAYER);
+    const lifdInstance = handCardId(base, HAZARD_PLAYER);
 
     const mhState = makeMHState({ activeCompanyIndex: 0 });
     const stateAtPlayHazards = { ...base, phaseState: mhState };
@@ -258,8 +258,8 @@ describe('Lost in Free-domains (tw-53)', () => {
       ],
     });
 
-    const targetCompanyId = companyIdAt(base, 0);
-    const lifdInstance = handCardId(base, 1);
+    const targetCompanyId = companyIdAt(base, RESOURCE_PLAYER);
+    const lifdInstance = handCardId(base, HAZARD_PLAYER);
 
     const mhState = makeMHState({ activeCompanyIndex: 0 });
     const stateAtPlayHazards = { ...base, phaseState: mhState };

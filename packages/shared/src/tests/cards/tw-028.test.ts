@@ -21,7 +21,7 @@ import {
   viableActions,
   P1_COMPANY, makeMHState,
   playHazardAndResolve,
-  handCardId, dispatch,
+  handCardId, dispatch, RESOURCE_PLAYER, HAZARD_PLAYER,
 } from '../test-helpers.js';
 import { Phase } from '../../index.js';
 import type { CardInPlay, CardInstanceId, GameState } from '../../index.js';
@@ -46,7 +46,7 @@ describe('Doors of Night (tw-28)', () => {
     const actions = viableActions(mhGameState, PLAYER_2, 'play-hazard');
     expect(actions).toHaveLength(1);
 
-    const donId = handCardId(mhGameState, 1);
+    const donId = handCardId(mhGameState, HAZARD_PLAYER);
 
     // After declaring, card is on the chain (not in hand, not in cardsInPlay)
     const declareState = dispatch(mhGameState, { type: 'play-hazard', player: PLAYER_2, cardInstanceId: donId, targetCompanyId: P1_COMPANY });
@@ -80,7 +80,7 @@ describe('Doors of Night (tw-28)', () => {
     });
 
     const mhGameState: GameState = { ...state, phaseState: makeMHState() };
-    const donId = handCardId(mhGameState, 1);
+    const donId = handCardId(mhGameState, HAZARD_PLAYER);
     const s = playHazardAndResolve(mhGameState, PLAYER_2, donId, P1_COMPANY);
 
     // Doors of Night in P2 cardsInPlay
@@ -109,7 +109,7 @@ describe('Doors of Night (tw-28)', () => {
     });
 
     const mhGameState: GameState = { ...state, phaseState: makeMHState() };
-    const donId = handCardId(mhGameState, 1);
+    const donId = handCardId(mhGameState, HAZARD_PLAYER);
     const s = playHazardAndResolve(mhGameState, PLAYER_2, donId, P1_COMPANY);
 
     // Doors of Night in cardsInPlay, Gates of Morning discarded
@@ -151,7 +151,7 @@ describe('Doors of Night (tw-28)', () => {
     });
 
     const mhGameState: GameState = { ...state, phaseState: makeMHState() };
-    const donId = handCardId(mhGameState, 1);
+    const donId = handCardId(mhGameState, HAZARD_PLAYER);
     const s = playHazardAndResolve(mhGameState, PLAYER_2, donId, P1_COMPANY);
 
     // Doors of Night played, no discards needed
@@ -177,8 +177,8 @@ describe('Doors of Night (tw-28)', () => {
     });
 
     const mhGameState: GameState = { ...state, phaseState: makeMHState() };
-    const donId = handCardId(mhGameState, 1);
-    const p1Twilight = handCardId(mhGameState, 0);
+    const donId = handCardId(mhGameState, HAZARD_PLAYER);
+    const p1Twilight = handCardId(mhGameState, RESOURCE_PLAYER);
 
     // P2 plays DoN → chain starts, P1 gets priority
     let current = dispatch(mhGameState, { type: 'play-hazard', player: PLAYER_2, cardInstanceId: donId, targetCompanyId: P1_COMPANY });

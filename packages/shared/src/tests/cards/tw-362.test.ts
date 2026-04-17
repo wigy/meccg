@@ -31,7 +31,7 @@ import {
   MORIA, MINAS_TIRITH, LORIEN,
   viableActions, makeSitePhase,
   attemptInfluence, dispatch,
-  expectInDiscardPile,
+  expectInDiscardPile, HAZARD_PLAYER,
 } from '../test-helpers.js';
 import type { CancelInfluenceAction } from '../../index.js';
 
@@ -133,7 +133,7 @@ describe('Wizard\'s Laughter (tw-362)', () => {
     expect(pendingInfluence).toHaveLength(0);
 
     expect(after.players[1].hand).toHaveLength(0);
-    expectInDiscardPile(after, 1, WIZARDS_LAUGHTER);
+    expectInDiscardPile(after, HAZARD_PLAYER, WIZARDS_LAUGHTER);
 
     const ccPending = after.pendingResolutions.filter(r => r.kind.type === 'corruption-check');
     expect(ccPending).toHaveLength(1);

@@ -24,7 +24,7 @@ import {
   findCharInstanceId,
   playCreatureHazardAndResolve,
   handCardId, companyIdAt, dispatch, getCharacter,
-  actionAs,
+  actionAs, RESOURCE_PLAYER, HAZARD_PLAYER,
 } from '../test-helpers.js';
 import type { CharacterCard, ResolveStrikeAction } from '../../index.js';
 import { computeLegalActions, RegionType, SiteType } from '../../index.js';
@@ -51,7 +51,7 @@ describe('Glamdring (tw-244)', () => {
 
     const baseDef = pool[ARAGORN as string] as CharacterCard;
     expect(baseDef.prowess).toBe(6);
-    expect(getCharacter(s, 0, ARAGORN).effectiveStats.prowess).toBe(8);
+    expect(getCharacter(s, RESOURCE_PLAYER, ARAGORN).effectiveStats.prowess).toBe(8);
   });
 
   test('prowess +3 uncapped for Frodo (base 1)', () => {
@@ -70,7 +70,7 @@ describe('Glamdring (tw-244)', () => {
 
     const baseDef = pool[FRODO as string] as CharacterCard;
     expect(baseDef.prowess).toBe(1);
-    expect(getCharacter(s, 0, FRODO).effectiveStats.prowess).toBe(4);
+    expect(getCharacter(s, RESOURCE_PLAYER, FRODO).effectiveStats.prowess).toBe(4);
   });
 
   test('prowess capped at 8 for Glorfindel II (base 8)', () => {
@@ -89,7 +89,7 @@ describe('Glamdring (tw-244)', () => {
 
     const baseDef = pool[GLORFINDEL_II as string] as CharacterCard;
     expect(baseDef.prowess).toBe(8);
-    expect(getCharacter(s, 0, GLORFINDEL_II).effectiveStats.prowess).toBe(8);
+    expect(getCharacter(s, RESOURCE_PLAYER, GLORFINDEL_II).effectiveStats.prowess).toBe(8);
   });
 
   test('prowess capped at 9 (not 8) against Orcs', () => {
@@ -125,15 +125,15 @@ describe('Glamdring (tw-244)', () => {
     });
     const gameState = { ...state, phaseState: mhState };
 
-    const orcId = handCardId(gameState, 1);
-    const companyId = companyIdAt(gameState, 0);
+    const orcId = handCardId(gameState, HAZARD_PLAYER);
+    const companyId = companyIdAt(gameState, RESOURCE_PLAYER);
     const afterCombat = playCreatureHazardAndResolve(
       gameState, PLAYER_2, orcId, companyId,
       { method: 'region-type' as const, value: 'wilderness' },
     );
 
     // Assign the single strike to Aragorn
-    const aragornId = findCharInstanceId(afterCombat, 0, ARAGORN);
+    const aragornId = findCharInstanceId(afterCombat, RESOURCE_PLAYER, ARAGORN);
     const assigned = dispatch(afterCombat, { type: 'assign-strike', player: PLAYER_1, characterId: aragornId });
     // Defender passes → all strikes assigned, transitions to resolve
     const passed = dispatch(assigned, { type: 'pass', player: PLAYER_1 });
@@ -166,6 +166,6 @@ describe('Glamdring (tw-244)', () => {
     const s = dispatch(state, { type: 'pass', player: PLAYER_1 });
 
     const baseDef = pool[ARAGORN as string] as CharacterCard;
-    expect(getCharacter(s, 0, ARAGORN).effectiveStats.body).toBe(baseDef.body);
+    expect(getCharacter(s, RESOURCE_PLAYER, ARAGORN).effectiveStats.body).toBe(baseDef.body);
   });
 });

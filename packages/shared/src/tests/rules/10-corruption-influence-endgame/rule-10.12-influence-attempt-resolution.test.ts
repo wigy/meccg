@@ -31,14 +31,14 @@ import {
   findCharInstanceId, viableActions, PLAYER_1, PLAYER_2,
   CardStatus, dispatch, phaseStateAs,
   ARAGORN, LEGOLAS, GIMLI, BILBO, EOWYN,
-  GLAMDRING,
+  GLAMDRING, RESOURCE_PLAYER, HAZARD_PLAYER,
 } from '../../test-helpers.js';
 import type { SitePhaseState, OpponentInfluenceAttemptAction } from '../../test-helpers.js';
 
 describe('Rule 10.12 — Resolving an Influence Attempt', () => {
   test('attacker roll taps the influencing character', () => {
     const state = buildResolutionState();
-    const aragornId = findCharInstanceId(state, 0, ARAGORN);
+    const aragornId = findCharInstanceId(state, RESOURCE_PLAYER, ARAGORN);
     const { state: afterAttempt } = attemptInfluence(state);
     expect(afterAttempt.players[0].characters[aragornId as string].status).toBe(CardStatus.Tapped);
   });
@@ -97,7 +97,7 @@ describe('Rule 10.12 — Resolving an Influence Attempt', () => {
     const defState = { ...afterAttempt, cheatRollTotal: 2 };
     const { state: afterDefend } = defendInfluence(defState);
 
-    const legolasId = findCharInstanceId(state, 1, LEGOLAS);
+    const legolasId = findCharInstanceId(state, HAZARD_PLAYER, LEGOLAS);
     expect(afterDefend.players[1].characters[legolasId as string]).toBeUndefined();
     expect(afterDefend.players[1].discardPile.some(c => c.instanceId === legolasId)).toBe(true);
   });
@@ -110,7 +110,7 @@ describe('Rule 10.12 — Resolving an Influence Attempt', () => {
     const defState = { ...afterAttempt, cheatRollTotal: 12 };
     const { state: afterDefend } = defendInfluence(defState);
 
-    const legolasId = findCharInstanceId(state, 1, LEGOLAS);
+    const legolasId = findCharInstanceId(state, HAZARD_PLAYER, LEGOLAS);
     expect(afterDefend.players[1].characters[legolasId as string]).toBeDefined();
   });
 
@@ -124,7 +124,7 @@ describe('Rule 10.12 — Resolving an Influence Attempt', () => {
       p2Chars: [{ defId: ARAGORN, items: [] }, { defId: EOWYN, followerOf: 0 }, GIMLI, BILBO],
     });
     const actions = viableActions(state, PLAYER_1, 'opponent-influence-attempt') as { action: OpponentInfluenceAttemptAction }[];
-    const eowynId = findCharInstanceId(state, 1, EOWYN);
+    const eowynId = findCharInstanceId(state, HAZARD_PLAYER, EOWYN);
 
     // Action targeting Eowyn should have controllerDI > 0
     const eowynAction = actions.find(a => a.action.targetInstanceId === eowynId && !a.action.revealedCardInstanceId);
@@ -132,7 +132,7 @@ describe('Rule 10.12 — Resolving an Influence Attempt', () => {
     expect(eowynAction!.action.explanation).toContain('controller DI: 1');
 
     // Action targeting Gimli (under GI) should have controllerDI = 0
-    const gimliId = findCharInstanceId(state, 1, GIMLI);
+    const gimliId = findCharInstanceId(state, HAZARD_PLAYER, GIMLI);
     const gimliAction = actions.find(a => a.action.targetInstanceId === gimliId && !a.action.revealedCardInstanceId);
     expect(gimliAction).toBeDefined();
     expect(gimliAction!.action.explanation).toContain('controller DI: 0');
@@ -219,8 +219,8 @@ describe('Rule 10.12 — Resolving an Influence Attempt', () => {
       attackerCheatRoll: 12,
     });
 
-    const aragornId = findCharInstanceId(state, 1, ARAGORN);
-    const eowynId = findCharInstanceId(state, 1, EOWYN);
+    const aragornId = findCharInstanceId(state, HAZARD_PLAYER, ARAGORN);
+    const eowynId = findCharInstanceId(state, HAZARD_PLAYER, EOWYN);
 
     // Verify Eowyn is a follower of Aragorn
     expect(state.players[1].characters[eowynId as string].controlledBy).toBe(aragornId);

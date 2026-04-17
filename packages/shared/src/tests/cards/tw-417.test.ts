@@ -38,7 +38,7 @@ import {
   resetMint, pool, buildTestState, Phase, CardStatus,
   buildSitePhaseState,
   dispatch, expectCharStatus,
-  viableFor,
+  viableFor, RESOURCE_PLAYER,
 } from '../test-helpers.js';
 import {
   OLD_FOREST,
@@ -87,7 +87,7 @@ describe('Old Forest (tw-417)', () => {
     const nextState = dispatch(state, { type: 'untap', player: PLAYER_1 });
 
     // Wounded characters stay wounded at non-haven sites
-    expectCharStatus(nextState, 0, ARAGORN, CardStatus.Inverted);
+    expectCharStatus(nextState, RESOURCE_PLAYER, ARAGORN, CardStatus.Inverted);
   });
 
   test('tapped character at Old Forest untaps normally', () => {
@@ -102,7 +102,7 @@ describe('Old Forest (tw-417)', () => {
 
     const nextState = dispatch(state, { type: 'untap', player: PLAYER_1 });
 
-    expectCharStatus(nextState, 0, ARAGORN, CardStatus.Untapped);
+    expectCharStatus(nextState, RESOURCE_PLAYER, ARAGORN, CardStatus.Untapped);
   });
 
   // ─── Movement ─────────────────────────────────────────────────────────────
