@@ -63,8 +63,8 @@ Nine canonical Dragon/lair pairs:
 
 ### 2.2 Data model
 
-- Add a `dragonLair: DragonId` field on the affected sites so the engine can look up which Dragon's state governs the lair's auto-attack.
-- Track per-Dragon lair state in `GameState` (see §4.3).
+- Add a `lairOf: ManifestId` field on the affected sites pointing to the base-form card of the Dragon (e.g. Smaug's basic creature). The engine derives lair auto-attack state from whether that manifestation is defeated (see §4.3).
+- `ManifestId` is a `CardDefinitionId` of the base form (first-released card) of a manifestation chain — see §4.3.
 
 ---
 
@@ -113,20 +113,43 @@ This is a single atomic event — the cascade happens even if the triggering man
 
 ### 4.3 State model
 
-Add to `GameState`:
+**No new top-level state.** The mechanic generalizes: future expansions add manifestations of other entities (Aragorn, Gollum, …), so this section uses `manifestId` rather than a Dragon-specific tag. Both predicates the cascade depends on are derivable from the existing eliminated piles, given a `manifestId` tag on every manifestation card (for Dragons: basic creature, ahunt, at-home all share the basic creature's id):
+
+- **Defeated?** `bothPlayers.eliminated.some(c => defOf(c).manifestId === M)`
+- **MP attribution?** `ownerOf(defeated.instanceId) !== defeater.playerId` (see §4.1)
+- **Lair M auto-attack active?** `!isManifestationDefeated(M)`
+- **Replay blocked?** `isManifestationDefeated(M)`
+
+Rationale: a separate manifestation-status map would be a second source of truth that must stay in sync with pile contents. Deriving from the eliminated pile keeps the no-card-disappears invariant (`feedback_no_card_disappears`) load-bearing — if the cascade reducer fails to move a sister manifestation, the bug is visible in pile contents instead of silently masked by a status flag. Using a card definition id as the key (rather than a parallel `DragonId` enum) means new manifestation chains in future sets need no new types — just the tag on the new cards.
+
+Required data shape:
 
 ```ts
-dragonState: Record<DragonId, {
-  status: "active" | "defeated";  // defeated blocks replays + removes lair auto-attack
-}>
-```
+// CardDefinitionId of the base-form card of the chain.
+// For Dragons: the basic Dragon creature card (e.g. Smaug's basic creature).
+// All cards in one chain (basic + ahunt + at-home for Dragons) share the
+// same manifestId, and the base-form card's manifestId points to itself.
+type ManifestId = CardDefinitionId;
 
-No `playedBy` field is needed — per-manifestation attribution is recovered from the instance ID via `ownerOf()` (see §4.1).
+// On manifestation card definitions:
+manifestId: ManifestId;
+```
 
 All manifestation resolution paths must:
 
-- On play: gate on `status !== "defeated"`.
-- On defeat/removal: flip `status` to `defeated`, sweep in-play manifestations to the appropriate pile without losing the instance (see `feedback_no_card_disappears`), and remove the lair auto-attack.
+- On play: gate on `!isManifestationDefeated(manifestId)`.
+- On defeat/removal: sweep all in-play cards sharing the same `manifestId` (across both players' zones) into the owning player's eliminated pile — no instance is dropped (`feedback_no_card_disappears`). The defeated predicate then flips automatically.
+- Lair auto-attack lookup at the site reads `isManifestationDefeated(site.lairOf)` rather than a status field.
+
+Helper to define once and reuse:
+
+```ts
+function isManifestationDefeated(state: GameState, m: ManifestId): boolean {
+  return state.players.some(p =>
+    p.eliminated.some(c => defOf(c).manifestId === m)
+  );
+}
+```
 
 ### 4.4 Current state
 
@@ -205,7 +228,7 @@ Sequenced to minimize partial states where manifested cards exist but can't reso
 2. **Hazard limit lock at reveal** (§5) — foundational, many later cards depend on correct hazard-limit arithmetic.
 3. **Helmet one-at-a-time** (§1.1) — small, self-contained, unblocks basic helmet cards.
 4. **Hoards** (§3) — add sites with `hoard: true`, wire hoard-item play constraint + deck-construction rejection.
-5. **Dragon state + basic lairs** (§2, §4.3) — add `dragonState` to `GameState`; add the eight missing lair sites; wire lair auto-attack through `dragonState[d].status`.
+5. **Manifestation tagging + basic lairs** (§2, §4.3) — add `manifestId` to manifestation card data (for Dragons: the basic creature card's id, shared by basic/ahunt/at-home) and `lairOf: ManifestId` to lair sites; add the eight missing lair sites; implement the `isManifestationDefeated()` helper and wire lair auto-attack through it. No new `GameState` fields.
 6. **Basic Dragon creature cards** (§4) — fill the gap for the 9 basic manifestations; verify MP attribution and cascade on defeat.
 7. **Dragon "At Home"** (§4) — new `dragon-at-home` effect, lair auto-attack augmentation, per-Dragon global effects.
 8. **Cascade on defeat** (§4.2) — atomic removal sweep + replay block + lair-auto-attack suppression; test end-to-end with Ahunt, At Home, and Basic all in play.
