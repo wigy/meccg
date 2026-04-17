@@ -32,9 +32,9 @@ METD introduces keywords used by card text; most need no engine support beyond b
 
 ### 1.2 Riddling / offering / flattery attempts
 
-- Generalize the current `influence` check into a `check` DSL with a `kind: "influence" | "riddling" | "offering" | "flattery"` discriminator.
-- Keep scoring/modifier pipeline identical; different cards target different kinds.
-- Add data tags on cards that modify a specific attempt kind (e.g. td-25 "Foolish Words").
+- ✓ Implemented (step 9). New `CheckKind` string union in `types/common.ts` covers `'influence' | 'riddling' | 'offering' | 'flattery' | 'corruption' | 'gold-ring-test'`. `CheckModifierEffect.check` now accepts either a single kind or an array of kinds; `resolveCheckModifier` handles both forms.
+- td-25 Foolish Words updated from `check: "influence"` to `check: ["influence", "riddling", "offering"]` so its -4 modifier fires on each kind named in the card text. The faction-influence card test still passes; new `rule-metd-check-kinds.test.ts` covers the array form and isolation between kinds.
+- The riddling/offering/flattery **action flows** themselves (legal-action gen, roll resolution) are not yet wired — no current card initiates such a check. When the first card needs one, mirror the existing `InfluenceAttemptAction` / `applyFactionInfluenceRollResolution` pattern with the new kind passed through to `resolveCheckModifier`.
 
 ---
 

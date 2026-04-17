@@ -144,15 +144,23 @@ export interface StatModifierEffect extends EffectBase {
 }
 
 /**
- * Modifies a roll for a specific check type (corruption, faction-influence, etc.).
+ * Modifies a 2d6 check roll. The {@link CheckKind} discriminator lets
+ * one effect target a specific check type (or several at once via the
+ * array form, e.g. METD's Foolish Words: -4 to influence, riddling AND
+ * offering attempts).
  *
  * Example: Gandalf has +1 to all corruption checks.
  * Example: Beregond has -1 to faction influence checks.
+ * Example: Foolish Words (td-25) has -4 vs influence, riddling, offering.
  */
 export interface CheckModifierEffect extends EffectBase {
   readonly type: 'check-modifier';
-  /** Which check type this modifier applies to. */
-  readonly check: string;
+  /**
+   * Which check kind(s) this modifier applies to. A bare string targets
+   * one kind; an array targets each listed kind (logical OR — the
+   * modifier fires if the active check matches any element).
+   */
+  readonly check: import('./common.js').CheckKind | readonly import('./common.js').CheckKind[];
   /** The bonus (or penalty if negative) to the roll. */
   readonly value: ValueExpr;
 }

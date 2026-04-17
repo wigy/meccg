@@ -70,7 +70,11 @@
       },
       {
         "type": "check-modifier",
-        "check": "influence",
+        "check": [
+          "influence",
+          "riddling",
+          "offering"
+        ],
         "value": -4
       },
       {

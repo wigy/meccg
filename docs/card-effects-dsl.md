@@ -62,14 +62,20 @@ Optional `target` scopes:
 
 ### 2. `check-modifier`
 
-Modifies a roll for a specific check type.
-
-Check types: `corruption`, `influence`, `gold-ring-test`.
+Modifies a 2d6 check roll. The `check` discriminator is one of the
+{@link CheckKind} string literals — currently `corruption`, `influence`,
+`riddling`, `offering`, `flattery`, `gold-ring-test` — and may be either
+a single string or an array (logical OR; the modifier fires on any
+listed kind). The array form is used by METD cards that read "any
+riddling roll, offering attempt, or influence attempt by target
+character is modified by -4" (Foolish Words, td-25).
 
 ```json
 { "type": "check-modifier", "check": "corruption", "value": 1 }
 { "type": "check-modifier", "check": "influence", "value": 1,
   "when": { "bearer.race": "dunadan" } }
+{ "type": "check-modifier",
+  "check": ["influence", "riddling", "offering"], "value": -4 }
 ```
 
 The `influence` check type is used on faction cards for standard modifications.
