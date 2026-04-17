@@ -32,6 +32,7 @@ import {
   resolveDef,
 } from './effects/index.js';
 import type { ResolverContext } from './effects/index.js';
+import { pickActiveItemsForCharacter } from './item-slots.js';
 
 /**
  * Adds a card's marshalling points to the running totals by its category.
@@ -136,12 +137,14 @@ function computeEffectiveStats(
     directInfluence = charDef.directInfluence;
   }
 
-  // Always add corruption from items and corruption cards directly
-  // (these are structural fields, not DSL effects)
+  // Per rule 9.15: prowess/body modifiers from items only apply while the
+  // item is in use (one per slot). Corruption points come from bearing the
+  // card and apply to every borne item regardless.
+  const activeItems = pickActiveItemsForCharacter(state, char);
   for (const item of char.items) {
     const itemDef = resolveDef(state, item.instanceId);
     if (isItemCard(itemDef)) {
-      if (!hasAnyEffects) {
+      if (!hasAnyEffects && activeItems.has(item.instanceId as string)) {
         prowess += itemDef.prowessModifier;
         body += itemDef.bodyModifier;
       }
