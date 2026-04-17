@@ -1,0 +1,158 @@
+{
+  "id": "development-proto-dragons",
+  "name": "Dragons (Development only)",
+  "alignment": "hero",
+  "pool": [
+    {
+      "name": "Brand",
+      "card": "td-90",
+      "qty": 1
+    },
+    {
+      "name": "Fram Framson",
+      "card": "td-91",
+      "qty": 1
+    },
+    {
+      "name": "Galdor",
+      "card": "td-92",
+      "qty": 1
+    },
+    {
+      "name": "Ioreth",
+      "card": "td-93",
+      "qty": 1
+    },
+    {
+      "name": "Thráin II",
+      "card": "td-94",
+      "qty": 1
+    }
+  ],
+  "deck": {
+    "characters": [
+      {
+        "name": "Radagast",
+        "card": "tw-178",
+        "qty": 3
+      }
+    ],
+    "hazards": [
+      {
+        "name": "Bairanax",
+        "card": "td-3",
+        "qty": 1
+      },
+      {
+        "name": "Eärcaraxë",
+        "card": "td-20",
+        "qty": 1
+      },
+      {
+        "name": "Scatha",
+        "card": "td-60",
+        "qty": 1
+      },
+      {
+        "name": "True Cold-drake",
+        "card": "td-77",
+        "qty": 1
+      },
+      {
+        "name": "Rain-drake",
+        "card": "td-57",
+        "qty": 1
+      },
+      {
+        "name": "Sand-drake",
+        "card": "td-59",
+        "qty": 1
+      },
+      {
+        "name": "Doors of Night",
+        "card": "tw-28",
+        "qty": 1
+      }
+    ],
+    "resources": [
+      {
+        "name": "Adamant Helmet",
+        "card": "td-96",
+        "qty": 1
+      },
+      {
+        "name": "Enruned Shield",
+        "card": "td-114",
+        "qty": 1
+      },
+      {
+        "name": "Habergeon of Silver",
+        "card": "td-120",
+        "qty": 1
+      },
+      {
+        "name": "Valiant Sword",
+        "card": "td-161",
+        "qty": 1
+      },
+      {
+        "name": "Magical Harp",
+        "card": "td-130",
+        "qty": 1
+      },
+      {
+        "name": "Wizard's Staff",
+        "card": "td-170",
+        "qty": 1
+      }
+    ]
+  },
+  "sites": [
+    {
+      "name": "Rivendell",
+      "card": "tw-421",
+      "qty": 4
+    },
+    {
+      "name": "Lórien",
+      "card": "tw-408",
+      "qty": 4
+    },
+    {
+      "name": "Grey Havens",
+      "card": "tw-399",
+      "qty": 4
+    },
+    {
+      "name": "Edhellond",
+      "card": "tw-393",
+      "qty": 4
+    },
+    {
+      "name": "Gold Hill",
+      "card": "td-176",
+      "qty": 1
+    },
+    {
+      "name": "Gondmaeglom",
+      "card": "td-177",
+      "qty": 1
+    },
+    {
+      "name": "Isle of the Ulond",
+      "card": "td-178",
+      "qty": 1
+    },
+    {
+      "name": "Ovir Hollow",
+      "card": "td-179",
+      "qty": 1
+    },
+    {
+      "name": "Zarak Dûm",
+      "card": "td-181",
+      "qty": 1
+    }
+  ],
+  "sideboard": []
+}

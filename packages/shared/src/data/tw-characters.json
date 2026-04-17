@@ -831,6 +831,30 @@
   {
     "cardType": "hero-character",
     "alignment": "wizard",
+    "id": "tw-178",
+    "name": "Radagast",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Radagast.jpg",
+    "unique": true,
+    "race": "wizard",
+    "skills": [
+      "warrior",
+      "scout",
+      "ranger",
+      "diplomat"
+    ],
+    "prowess": 6,
+    "body": 9,
+    "mind": null,
+    "directInfluence": 10,
+    "marshallingPoints": 0,
+    "marshallingCategory": "character",
+    "corruptionModifier": 1,
+    "homesite": "Rhosgobel",
+    "text": "Unique. When Radagast's new site is revealed, he may draw one additional card for each Wilderness in his company's site path. +1 to all of his corruption checks."
+  },
+  {
+    "cardType": "hero-character",
+    "alignment": "wizard",
     "id": "tw-123",
     "name": "Balin",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Balin.jpg",
