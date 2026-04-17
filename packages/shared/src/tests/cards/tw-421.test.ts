@@ -50,6 +50,7 @@ import type { SiteCard, CardDefinitionId } from '../../index.js';
 
 const GOBLIN_GATE = 'tw-398' as CardDefinitionId;
 const THE_WORTHY_HILLS = 'as-142' as CardDefinitionId;
+const ZARAK_DUM_HERO = 'td-181' as CardDefinitionId;
 
 // ─── Tests ───────────────────────────────────────────────────────────────────
 
@@ -109,6 +110,7 @@ describe('Rivendell (tw-421)', () => {
       pool[GOBLIN_GATE as string],
       pool[THE_WORTHY_HILLS as string],
       pool[DUNNISH_CLAN_HOLD as string],
+      pool[ZARAK_DUM_HERO as string],
     ].map(d => d.name).sort();
 
     expect(starterSites).toEqual(expectedSites);
@@ -141,8 +143,8 @@ describe('Rivendell (tw-421)', () => {
 
     // Rivendell is in Rhudaur. Region movement (max 4 regions) reaches:
     // dist 1 (same region): Ettenmoors (Rhudaur)
-    // dist 2 (adjacent): Barrow-downs, Old Forest, The Worthy Hills (Cardolan), Bree, The White Towers, Weathertop (Arthedain), Goblin-gate (High Pass), Carn Dûm (Angmar)
-    // dist 3: Bag End (The Shire), Grey Havens (Lindon), Moria, The Under-gates, Dimrill Dale (Redhorn Gate), Eagles' Eyrie, Beorn's House (Anduin Vales)
+    // dist 2 (adjacent): Barrow-downs, Old Forest, The Worthy Hills (Cardolan), Bree, The White Towers, Weathertop (Arthedain), Goblin-gate (High Pass), Carn Dûm, Zarak Dûm (Angmar)
+    // dist 3: Bag End (The Shire), Grey Havens (Lindon), Moria, The Under-gates, Dimrill Dale (Redhorn Gate), Eagles' Eyrie, Beorn's House (Anduin Vales), Gondmaeglom, Ovir Hollow (Grey Mountain Narrows)
     // dist 4: Lórien (Wold & Foothills), Dol Guldur (Southern Mirkwood), Glittering Caves, Isengard, Isle of the Ulond (Gap of Isen/Andrast Coast), Thranduil's Halls (Woodland Realm), Bandit Lair (Brown Lands), Blue Mountain Dwarf-hold (Númeriador)
     expect(regionNames).toEqual([
       'Bag End',
@@ -159,17 +161,20 @@ describe('Rivendell (tw-421)', () => {
       'Ettenmoors',
       'Glittering Caves',
       'Goblin-gate',
+      'Gondmaeglom',
       'Grey Havens',
       'Isengard',
       'Isle of the Ulond',
       'Lórien',
       'Moria',
       'Old Forest',
+      'Ovir Hollow',
       'The Under-gates',
       'The White Towers',
       'The Worthy Hills',
       "Thranduil's Halls",
       'Weathertop',
+      'Zarak Dûm',
     ]);
   });
 

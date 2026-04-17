@@ -476,5 +476,126 @@
     "resourceDraws": 1,
     "hazardDraws": 2,
     "text": "Playable: Information. Automatic-attacks: Men — each character faces 1 strike with 9 prowess (detainment against covert company). Special: This site never taps."
+  },
+  {
+    "cardType": "minion-site",
+    "alignment": "ringwraith",
+    "id": "le-360",
+    "name": "Caves of Ûlund",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/CavesofUlund.jpg",
+    "siteType": "ruins-and-lairs",
+    "sitePath": [
+      "dark",
+      "wilderness",
+      "wilderness",
+      "wilderness"
+    ],
+    "nearestHaven": "Dol Guldur",
+    "region": "Withered Heath",
+    "playableResources": [
+      "minor",
+      "major",
+      "greater",
+      "gold-ring"
+    ],
+    "automaticAttacks": [
+      {
+        "creatureType": "Dragon",
+        "strikes": 1,
+        "prowess": 13
+      }
+    ],
+    "resourceDraws": 2,
+    "hazardDraws": 2,
+    "text": "Nearest Darkhaven: Dol Guldur Playable: Items (minor, major, greater, gold ring) Automatic-attacks: Dragon — 1 strike with 13 prowess"
+  },
+  {
+    "cardType": "minion-site",
+    "alignment": "ringwraith",
+    "id": "le-379",
+    "name": "Gondmaeglom",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/Gondmaeglom.jpg",
+    "siteType": "ruins-and-lairs",
+    "sitePath": [
+      "dark",
+      "wilderness",
+      "wilderness",
+      "shadow"
+    ],
+    "nearestHaven": "Dol Guldur",
+    "region": "Grey Mountain Narrows",
+    "playableResources": [
+      "minor",
+      "major",
+      "gold-ring"
+    ],
+    "automaticAttacks": [
+      {
+        "creatureType": "Dragon",
+        "strikes": 1,
+        "prowess": 14
+      }
+    ],
+    "resourceDraws": 2,
+    "hazardDraws": 2,
+    "text": "Nearest Darkhaven: Dol Guldur Playable: Items (minor, major, gold ring) Automatic-attacks: Dragon — 1 strike with 14 prowess"
+  },
+  {
+    "cardType": "minion-site",
+    "alignment": "ringwraith",
+    "id": "le-387",
+    "name": "The Lonely Mountain",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/TheLonelyMountain.jpg",
+    "siteType": "ruins-and-lairs",
+    "sitePath": [
+      "dark",
+      "wilderness",
+      "wilderness"
+    ],
+    "nearestHaven": "Dol Guldur",
+    "region": "Northern Rhovanion",
+    "playableResources": [
+      "minor",
+      "major",
+      "greater",
+      "gold-ring"
+    ],
+    "automaticAttacks": [
+      {
+        "creatureType": "Dragon",
+        "strikes": 1,
+        "prowess": 14
+      }
+    ],
+    "resourceDraws": 2,
+    "hazardDraws": 2,
+    "text": "Nearest Darkhaven: Dol Guldur Playable: Items (minor, major, greater, gold ring) Automatic-attacks: Dragon — 1 strike with 14 prowess"
+  },
+  {
+    "cardType": "minion-site",
+    "alignment": "ringwraith",
+    "id": "le-417",
+    "name": "Zarak Dûm",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/ZarakDum.jpg",
+    "siteType": "ruins-and-lairs",
+    "sitePath": [
+      "shadow"
+    ],
+    "nearestHaven": "Carn Dûm",
+    "region": "Angmar",
+    "playableResources": [
+      "minor",
+      "major"
+    ],
+    "automaticAttacks": [
+      {
+        "creatureType": "Dragon",
+        "strikes": 1,
+        "prowess": 11
+      }
+    ],
+    "resourceDraws": 1,
+    "hazardDraws": 1,
+    "text": "Nearest Darkhaven: Carn Dûm Playable: Items (minor, major) Automatic-attacks: Dragon — 1 strike with 11 prowess"
   }
 ]

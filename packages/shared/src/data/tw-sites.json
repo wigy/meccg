@@ -289,7 +289,10 @@
       {
         "type": "on-event",
         "event": "character-wounded-by-self",
-        "apply": { "type": "force-check", "check": "corruption" },
+        "apply": {
+          "type": "force-check",
+          "check": "corruption"
+        },
         "target": "wounded-character"
       }
     ]
@@ -355,7 +358,10 @@
     "hazardDraws": 1,
     "text": "Healing effects affect all characters at the site.",
     "effects": [
-      { "type": "site-rule", "rule": "healing-affects-all" }
+      {
+        "type": "site-rule",
+        "rule": "healing-affects-all"
+      }
     ],
     "certified": "2026-04-06"
   },
@@ -562,7 +568,10 @@
       {
         "type": "on-event",
         "event": "character-wounded-by-self",
-        "apply": { "type": "force-check", "check": "corruption" },
+        "apply": {
+          "type": "force-check",
+          "check": "corruption"
+        },
         "target": "wounded-character"
       },
       {
@@ -570,7 +579,9 @@
         "rule": "deny-item",
         "when": {
           "subtype": "greater",
-          "name": { "$ne": "Scroll of Isildur" }
+          "name": {
+            "$ne": "Scroll of Isildur"
+          }
         }
       }
     ],
@@ -755,5 +766,133 @@
     "hazardDraws": 2,
     "text": "Nearest Haven: Rivendell.",
     "effects": []
+  },
+  {
+    "cardType": "hero-site",
+    "alignment": "wizard",
+    "id": "tw-381",
+    "name": "Caves of Ûlund",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/CavesofUlund.jpg",
+    "siteType": "ruins-and-lairs",
+    "sitePath": [
+      "wilderness",
+      "border",
+      "shadow",
+      "wilderness"
+    ],
+    "nearestHaven": "Lórien",
+    "region": "Withered Heath",
+    "playableResources": [
+      "minor",
+      "major",
+      "greater",
+      "gold-ring"
+    ],
+    "automaticAttacks": [
+      {
+        "creatureType": "Dragon",
+        "strikes": 1,
+        "prowess": 13
+      }
+    ],
+    "resourceDraws": 3,
+    "hazardDraws": 3,
+    "text": "Nearest Haven: Lórien Playable: Items (minor, major, greater, gold ring) Automatic-attacks: Dragon — 1 strike with 13 prowess"
+  },
+  {
+    "cardType": "hero-site",
+    "alignment": "wizard",
+    "id": "tw-383",
+    "name": "Dancing Spire",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/DancingSpire.jpg",
+    "siteType": "ruins-and-lairs",
+    "sitePath": [
+      "wilderness",
+      "border",
+      "shadow",
+      "wilderness"
+    ],
+    "nearestHaven": "Lórien",
+    "region": "Withered Heath",
+    "playableResources": [
+      "minor",
+      "major",
+      "greater",
+      "gold-ring"
+    ],
+    "automaticAttacks": [
+      {
+        "creatureType": "Dragon",
+        "strikes": 2,
+        "prowess": 11
+      }
+    ],
+    "resourceDraws": 3,
+    "hazardDraws": 3,
+    "text": "Nearest Haven: Lórien Playable: Items (minor, major, greater, gold ring) Automatic-attacks: Dragon — 2 strikes with 11 prowess"
+  },
+  {
+    "cardType": "hero-site",
+    "alignment": "wizard",
+    "id": "tw-402",
+    "name": "Irerock",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Irerock.jpg",
+    "siteType": "ruins-and-lairs",
+    "sitePath": [
+      "wilderness",
+      "border",
+      "shadow",
+      "wilderness"
+    ],
+    "nearestHaven": "Lórien",
+    "region": "Withered Heath",
+    "playableResources": [
+      "minor",
+      "major",
+      "greater",
+      "gold-ring"
+    ],
+    "automaticAttacks": [
+      {
+        "creatureType": "Dragon",
+        "strikes": 1,
+        "prowess": 14
+      }
+    ],
+    "resourceDraws": 3,
+    "hazardDraws": 3,
+    "text": "Nearest Haven: Lórien Playable: Items (minor, major, greater, gold ring) Automatic-attacks: Dragon — 1 strike with 14 prowess"
+  },
+  {
+    "cardType": "hero-site",
+    "alignment": "wizard",
+    "id": "tw-428",
+    "name": "The Lonely Mountain",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/TheLonelyMountain.jpg",
+    "siteType": "ruins-and-lairs",
+    "sitePath": [
+      "wilderness",
+      "border",
+      "border",
+      "wilderness"
+    ],
+    "nearestHaven": "Lórien",
+    "region": "Northern Rhovanion",
+    "playableResources": [
+      "minor",
+      "major",
+      "greater",
+      "gold-ring"
+    ],
+    "automaticAttacks": [
+      {
+        "creatureType": "Dragon",
+        "strikes": 1,
+        "prowess": 14
+      }
+    ],
+    "resourceDraws": 2,
+    "hazardDraws": 2,
+    "text": "Nearest Haven: Lórien Playable: Items (minor, major, greater, gold ring) Automatic-attacks: Dragon — 1 strike with 14 prowess"
   }
 ]
