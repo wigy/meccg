@@ -72,16 +72,12 @@ Nine canonical Dragon/lair pairs:
 
 **Rule:** hoard items may only be played at a site that contains a hoard. Every Dragon's lair contains a hoard. Hoard **minor** items may not be included in a starting company.
 
-### 3.1 Data
+### 3.1 Status
 
-- Add a boolean `hoard: true` flag to item cards that are hoard items.
-- The same nine lair sites (§2) have `hoard: true`.
-
-### 3.2 Engine
-
-- **Play-time constraint** on hoard items: the target site must have `hoard: true` (or be derived as a lair currently containing a hoard).
-- **Deck-construction constraint:** hoard minor items are rejected from the starting-company pre-placement step — validated where other pre-placement item checks live.
-- **Generalize** as a DSL filter `{ "filter": { "site.hoard": true } }` rather than a hardcoded keyword — see `feedback_generalize_card_effects`.
+- ✓ Implemented (step 4).
+- **Data**: items keep their existing `keywords: ["hoard"]` tag (already on all 21 hoard items). Sites gain a typed `hoard?: boolean` field on `HeroSiteCard`; the 9 Dragon lairs (the same set tagged with `lairOf` in step 5) carry `hoard: true`.
+- **Play-time gate**: the existing `item-play-site` effect was generalized — alongside the legacy `sites` form it now accepts a `filter: Condition` evaluated against the current site definition. Every hoard item carries `{ "type": "item-play-site", "filter": { "site.hoard": true } }` so the gate is data-driven rather than a hardcoded keyword check (per `feedback_generalize_card_effects`). Wired in `legal-actions/site.ts` and covered by `rule-metd-hoard-item-play-site.test.ts`.
+- **Deck-construction gate**: `ITEM_DRAFT_RULES` gains a `not-hoard` rule keyed off the new `card.isHoard` context flag (set from `keywords.includes('hoard')` in `legal-actions/item-draft.ts`). Covered by `rule-metd-hoard-minor-starting-company.test.ts`.
 
 ---
 

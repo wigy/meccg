@@ -16,7 +16,14 @@
     "prowessModifier": 0,
     "bodyModifier": 0,
     "playableAt": [],
-    "effects": [],
+    "effects": [
+      {
+        "type": "item-play-site",
+        "filter": {
+          "site.hoard": true
+        }
+      }
+    ],
     "text": "Unique. Playable at The Lonely Mountain. Bearer receives +3 direct influence against Men and Man factions. If bearer is at a Border-hold [{B}] during the site phase, he can make a corruption check, and, if successful, discard this item to play up to 3 non-unique minor and/or major items with his company. Characters need not tap to receive these items."
   },
   {
@@ -36,7 +43,14 @@
     "prowessModifier": 0,
     "bodyModifier": 0,
     "playableAt": [],
-    "effects": [],
+    "effects": [
+      {
+        "type": "item-play-site",
+        "filter": {
+          "site.hoard": true
+        }
+      }
+    ],
     "text": "Hoard item. +1 direct influence. Discard this item to give +4 direct influence to bearer until the end of the turn."
   },
   {
@@ -56,7 +70,14 @@
     "prowessModifier": 0,
     "bodyModifier": 0,
     "playableAt": [],
-    "effects": [],
+    "effects": [
+      {
+        "type": "item-play-site",
+        "filter": {
+          "site.hoard": true
+        }
+      }
+    ],
     "text": "Unique. Hoard item. Weapon. May only be borne by a character with a prowess of 6 or more. Warrior only: +1 body; +1 prowess; if bearer chooses not to tap against a strike, he receives no prowess penalty."
   },
   {
@@ -76,7 +97,14 @@
     "prowessModifier": 0,
     "bodyModifier": 0,
     "playableAt": [],
-    "effects": [],
+    "effects": [
+      {
+        "type": "item-play-site",
+        "filter": {
+          "site.hoard": true
+        }
+      }
+    ],
     "text": "Hoard item. Weapon. May only be born by a character with a prowess of 5 or more. Warrior only: +1 prowess to a maximum of 8 (+2 against Elves to a maximum of 9); if you assign a strike to the bearer, you may choose to assign a second strike to the bearer. The bearer faces an additional strike sequence."
   },
   {
@@ -96,7 +124,14 @@
     "prowessModifier": 0,
     "bodyModifier": 0,
     "playableAt": [],
-    "effects": [],
+    "effects": [
+      {
+        "type": "item-play-site",
+        "filter": {
+          "site.hoard": true
+        }
+      }
+    ],
     "text": "Hoard item. Tap this item and make a roll —if the result is greater than 6, the bearer untaps if tapped. Cannot be duplicated on a given character."
   }
 ]

@@ -515,13 +515,25 @@ Rules:
 
 ### 20. `item-play-site`
 
-Restricts an item to be playable only at specific named sites. When
-present, the normal site-type check (`playableResources`) is bypassed
-and the item is playable only if the company's current site name appears
-in the `sites` list. Implemented in `legal-actions/site.ts`.
+Restricts an item to be playable only where the company's current site
+satisfies a constraint. Two mutually-exclusive forms:
+
+- `sites`: site name must appear in the list (e.g. Palantír of Orthanc —
+  Isengard only).
+- `filter`: a generic site-card condition evaluated against
+  `{ site: <site definition> }` (e.g. hoard items: any site whose
+  definition has `hoard: true`).
+
+When present, the normal site-type check (`playableResources`) is
+bypassed; the item is playable only if its restriction matches.
+Implemented in `legal-actions/site.ts`.
 
 ```json
 { "type": "item-play-site", "sites": ["Isengard"] }
+```
+
+```json
+{ "type": "item-play-site", "filter": { "site.hoard": true } }
 ```
 
 ### 21. `storable-at`

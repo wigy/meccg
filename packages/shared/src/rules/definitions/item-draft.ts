@@ -9,6 +9,7 @@
  * - `card.name` — card name for messages
  * - `card.isItem` — whether this card is an item type
  * - `card.unique` — whether this card is unique
+ * - `card.isHoard` — whether this card is a hoard item (METD §3)
  * - `ctx.assignedCount` — number of items already assigned by this player
  * - `ctx.maxStartingItems` — maximum starting items allowed (2)
  */
@@ -31,6 +32,11 @@ export const ITEM_DRAFT_RULES: RuleSet = {
       id: 'not-unique',
       condition: { 'card.unique': false },
       failMessage: '{{card.name}} is unique and cannot be a starting item',
+    },
+    {
+      id: 'not-hoard',
+      condition: { 'card.isHoard': false },
+      failMessage: '{{card.name}} is a hoard item and cannot be a starting item',
     },
     {
       id: 'item-limit',

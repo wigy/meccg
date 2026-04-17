@@ -263,7 +263,11 @@
         "stat": "body",
         "value": 2,
         "max": 9,
-        "when": { "bearer.skills": { "$includes": "warrior" } }
+        "when": {
+          "bearer.skills": {
+            "$includes": "warrior"
+          }
+        }
       }
     ],
     "text": "Unique. Armor. Warrior only: +2 to body to a maximum of 9.",
@@ -287,20 +291,35 @@
     "bodyModifier": 0,
     "playableAt": [],
     "effects": [
-      { "type": "item-play-site", "sites": ["Isengard"] },
+      {
+        "type": "item-play-site",
+        "sites": [
+          "Isengard"
+        ]
+      },
       {
         "type": "grant-action",
         "action": "palantir-fetch-discard",
-        "cost": { "tap": "self" },
+        "cost": {
+          "tap": "self"
+        },
         "when": {
           "$and": [
-            { "bearer.canUsePalantir": true },
-            { "player.playDeckSize": { "$gte": 5 } }
+            {
+              "bearer.canUsePalantir": true
+            },
+            {
+              "player.playDeckSize": {
+                "$gte": 5
+              }
+            }
           ]
         },
         "apply": {
           "type": "enqueue-pending-fetch",
-          "fetchFrom": ["discard-pile"],
+          "fetchFrom": [
+            "discard-pile"
+          ],
           "fetchCount": 1,
           "fetchShuffle": true,
           "postCorruptionCheck": true
@@ -327,7 +346,13 @@
       "ruins-and-lairs"
     ],
     "effects": [
-      { "type": "storable-at", "sites": ["Minas Tirith"], "marshallingPoints": 2 }
+      {
+        "type": "storable-at",
+        "sites": [
+          "Minas Tirith"
+        ],
+        "marshallingPoints": 2
+      }
     ],
     "text": "Not playable in a Shadow-hold or Dark-hold. May be stored at Minas Tirith. 2 marshalling points if stored at Minas Tirith.",
     "certified": "2026-04-13"
@@ -351,7 +376,11 @@
       "dark-hold"
     ],
     "effects": [
-      { "type": "check-modifier", "check": "gold-ring-test", "value": 2 }
+      {
+        "type": "check-modifier",
+        "check": "gold-ring-test",
+        "value": 2
+      }
     ],
     "certified": "2026-04-13",
     "text": "Unique. When a gold ring is tested in a company with the Scroll of Isildur, the result of the roll is modified by +2."

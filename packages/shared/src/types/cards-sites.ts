@@ -89,6 +89,12 @@ export interface HeroSiteCard {
    */
   readonly lairOf?: ManifestId;
   /**
+   * True iff this site contains a hoard. Per METD §3, hoard items may
+   * only be played at sites with this flag. Currently every Dragon's
+   * lair carries `hoard: true`.
+   */
+  readonly hoard?: boolean;
+  /**
    * Number of cards the resource player may draw when a company moves to this site.
    * Corresponds to the lighter box in the bottom-left of the physical card.
    */
