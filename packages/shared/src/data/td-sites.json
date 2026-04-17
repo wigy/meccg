@@ -148,5 +148,24 @@
     "resourceDraws": 2,
     "hazardDraws": 3,
     "text": "Nearest Haven: Rivendell Playable: Items (minor, major) Automatic-attacks: Dragon — 1 strike with 11 prowess"
+  },
+  {
+    "cardType": "hero-site",
+    "alignment": "wizard",
+    "id": "td-175",
+    "name": "Framsburg",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/td/Framsburg.jpg",
+    "siteType": "ruins-and-lairs",
+    "sitePath": [
+      "wilderness",
+      "border"
+    ],
+    "nearestHaven": "Lórien",
+    "region": "Anduin Vales",
+    "playableResources": [],
+    "automaticAttacks": [],
+    "resourceDraws": 1,
+    "hazardDraws": 2,
+    "text": "Nearest Haven: LórienPlayable: Items (minor)Automatic-attacks: When a company enters this site, opponent may play one creature from his hand that is treated in all ways as the site’s automatic-attack (if defeated, creature is discarded). It must normally be playable keyed to a Ruins & Lairs [{R}], Shadow-hold [{S}], single Wilderness [{w}], or Shadow-land [{s}].Special: Contains a hoard."
   }
 ]
