@@ -321,12 +321,18 @@ export function resolveCheckModifier(
 ): number {
   let total = 0;
   for (const { effect } of effects) {
-    if (effect.type === 'check-modifier' && effect.check === check) {
-      if (typeof effect.value === 'number') {
-        total += effect.value;
-      } else if (typeof effect.value === 'string' && context) {
-        total += evaluateExpr(effect.value, context);
-      }
+    if (effect.type !== 'check-modifier') continue;
+    // The `check` field is either a single kind string or an array of
+    // kind strings (METD §1.2 — one effect can target multiple check
+    // kinds, e.g. Foolish Words covers influence/riddling/offering).
+    const matches = Array.isArray(effect.check)
+      ? (effect.check as readonly string[]).includes(check)
+      : effect.check === check;
+    if (!matches) continue;
+    if (typeof effect.value === 'number') {
+      total += effect.value;
+    } else if (typeof effect.value === 'string' && context) {
+      total += evaluateExpr(effect.value, context);
     }
   }
   return total;

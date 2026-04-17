@@ -175,6 +175,29 @@ export enum CardStatus {
 }
 
 /**
+ * The kinds of 2d6 checks that can be modified by `check-modifier`
+ * effects. METD §1.2 generalized the original `influence` check into a
+ * family — the scoring/modifier pipeline is identical, but cards can
+ * target a specific kind (e.g. Foolish Words modifies influence,
+ * riddling AND offering by -4).
+ *
+ * - `influence` — faction influence attempts and direct/general
+ *   influence rolls.
+ * - `riddling` — METD riddling attempts.
+ * - `offering` — METD offering attempts.
+ * - `flattery` — METD flattery attempts.
+ * - `corruption` — corruption-removal rolls.
+ * - `gold-ring-test` — gold-ring item test rolls.
+ */
+export type CheckKind =
+  | 'influence'
+  | 'riddling'
+  | 'offering'
+  | 'flattery'
+  | 'corruption'
+  | 'gold-ring-test';
+
+/**
  * Recognized card-data keywords. Each entry is a tag used by card text and
  * (for some) by engine rules. Keep this union closed: an unrecognized
  * keyword string in card data is a typo, not a valid extension.
