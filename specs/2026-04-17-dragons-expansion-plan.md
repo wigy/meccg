@@ -22,7 +22,7 @@ METD introduces keywords used by card text; most need no engine support beyond b
 | Offering attempt | ✗ | No `check` type. |
 | Flattery attempt | ✗ | No `check` type. |
 | Capture | ✗ | No mechanic yet; reserved per rules text. |
-| Helmet | ✗ | **Has an engine rule:** a character may only use the effects of one helmet at a time (rule 9.15, currently `test.todo`). |
+| Helmet | ✓ | A character may only use the effects of one helmet at a time. Implemented via `engine/item-slots.ts` (rule 9.15 helmet case). Weapon/armor/shield enforcement still pending. |
 
 ### 1.1 Helmet one-at-a-time constraint
 

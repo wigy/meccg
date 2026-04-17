@@ -30,6 +30,7 @@ import type {
 import { matchesCondition, HAND_SIZE, isCharacterCard } from '../../index.js';
 import { resolveInstanceId } from '../../types/state.js';
 import { evaluateExpr } from './expression-eval.js';
+import { pickActiveItemsForCharacter } from '../item-slots.js';
 
 /**
  * Context object passed to conditions and expressions when resolving effects.
@@ -213,8 +214,11 @@ export function collectCharacterEffects(
   const charDef = resolveDef(state, char.instanceId);
   if (charDef) collectFromDef(charDef, char.instanceId, context, results);
 
-  // Item effects
+  // Item effects — rule 9.15: for slotted items (helmet, etc.), only the
+  // first item per slot is "in use" and contributes effects.
+  const active = pickActiveItemsForCharacter(state, char);
   for (const item of char.items) {
+    if (!active.has(item.instanceId as string)) continue;
     const itemDef = resolveDef(state, item.instanceId);
     if (itemDef) collectFromDef(itemDef, item.instanceId, context, results);
   }
