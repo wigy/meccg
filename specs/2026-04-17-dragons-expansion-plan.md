@@ -159,7 +159,7 @@ All 27 manifestation cards (9 basic + 9 ahunt + 9 at-home) and all 9 lair sites 
 - **Lair auto-attack suppression:** ✓ `engine/manifestations.ts` exposes `isManifestationDefeated()` and `getActiveAutoAttacks()`; the three site-phase / legal-action call sites consume the helper.
 - **Basic Dragon creatures:** ✓ all 9 present and stats verified against `data/cards.json` (tw-3 Agburanar, td-3 Bairanax, tw-26 Daelomin, td-20 Eärcaraxë, td-36 Itangast, tw-48 Leucaruth, td-60 Scatha, td-63 Scorba, tw-90 Smaug); MP attribution (no MPs for defeating your own manifestation) implemented in `recompute-derived.ts` and covered by `rule-metd-dragon-mp-attribution.test.ts`. Per-card combat certification (Doors-of-Night region extensions, etc.) remains as future work.
 - **Ahunt:** △ data present for all 9; only td-21 Eärcaraxë Ahunt has its `ahunt-attack` effect certified — the other 8 still have empty `effects: []`.
-- **At Home:** △ data present for all 9; the `dragon-at-home` effect type and per-card certification are step 7.
+- **At Home:** △ all 9 cards now carry the `dragon-at-home` DSL effect; lair augmentation (with Ahunt-suppression) is wired through `getActiveAutoAttacks` and covered by `rule-metd-dragon-at-home.test.ts`. The per-Dragon **global** effects (hazard-limit modifiers, draw modifiers, corruption modifiers, etc. — see card text) are still pending: they need their own DSL primitives or hand-rolled handling per card.
 - **Defeat cascade** (sweep sister manifestations on defeat, block replays): ✗ pending — step 8.
 
 ### 4.5 New DSL work

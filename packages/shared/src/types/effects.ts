@@ -903,6 +903,29 @@ export interface AhuntAttackEffect extends EffectBase {
 }
 
 /**
+ * Augments a Dragon's lair with an additional automatic-attack while this
+ * "At-Home" permanent-event is in play and the same Dragon's Ahunt
+ * long-event is *not* in play.
+ *
+ * The owning card's `manifestId` identifies which lair receives the
+ * augmentation (the same Dragon's lair, found via `lairOf`). The
+ * Ahunt-suppression check is implicit: any other in-play card sharing
+ * this card's `manifestId` whose `eventType === 'long'` (i.e. the Ahunt)
+ * disables the augmentation for as long as it remains in play.
+ *
+ * Used by the 9 Dragon "At Home" permanent-events (METD §4).
+ */
+export interface DragonAtHomeEffect extends EffectBase {
+  readonly type: 'dragon-at-home';
+  /** Extra automatic-attack registered on the matching lair. */
+  readonly attack: {
+    readonly creatureType: string;
+    readonly strikes: number;
+    readonly prowess: number;
+  };
+}
+
+/**
  * Restricts how a character bearing this card can be controlled.
  *
  * Rules:
@@ -969,5 +992,6 @@ export type CardEffect =
   | CompanyRuleEffect
   | CallOfHomeCheckEffect
   | AhuntAttackEffect
+  | DragonAtHomeEffect
   | ControlRestrictionEffect
   | BounceHazardEventsEffect;

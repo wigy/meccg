@@ -20,7 +20,9 @@
 import type {
   AutomaticAttack,
   CardDefinition,
+  DragonAtHomeEffect,
   GameState,
+  HazardEventCard,
   ManifestId,
   SiteCard,
 } from '../index.js';
@@ -61,22 +63,75 @@ export function isManifestationDefeated(state: GameState, m: ManifestId): boolea
 /**
  * Returns a site's automatic-attacks filtered for the current game state.
  *
- * Today this only suppresses Dragon auto-attacks at a lair whose resident
- * Dragon is defeated. Callers in reducer-site / legal-actions should use
- * this instead of reading `siteDef.automaticAttacks` directly so any
- * future runtime-gated auto-attacks (e.g. At-Home augmentations) can be
- * added in one place.
+ * - If the site is a Dragon lair (`lairOf` set) and that Dragon is
+ *   defeated, the site's Dragon-typed printed attacks are suppressed.
+ * - Any in-play "At-Home" permanent-event for the same Dragon appends an
+ *   additional Dragon attack, *unless* the matching Ahunt long-event is
+ *   also in play (the rule's "Unless [Dragon] Ahunt is in play" clause).
+ *
+ * Callers in reducer-site / legal-actions should always use this instead
+ * of reading `siteDef.automaticAttacks` directly, so all manifestation
+ * gating lives in one place.
  */
 export function getActiveAutoAttacks(
   state: GameState,
   siteDef: SiteCard,
 ): readonly AutomaticAttack[] {
   const lairOf = (siteDef as { lairOf?: ManifestId }).lairOf;
-  if (!lairOf || !isManifestationDefeated(state, lairOf)) {
-    return siteDef.automaticAttacks;
+  if (!lairOf) return siteDef.automaticAttacks;
+
+  let printed: readonly AutomaticAttack[] = siteDef.automaticAttacks;
+  if (isManifestationDefeated(state, lairOf)) {
+    // Dragon defeated → strip its Dragon-typed printed attacks. Other
+    // attacks on the same site (rare) are left intact.
+    printed = printed.filter(a => a.creatureType !== 'Dragon');
   }
-  // Dragon defeated → strip its (Dragon-typed) automatic-attacks. Other
-  // attacks on the same site (rare, but possible via future "additional
-  // attack" effects) are left intact.
-  return siteDef.automaticAttacks.filter(a => a.creatureType !== 'Dragon');
+
+  // Augment with any in-play At-Home effect for this manifestation,
+  // unless the matching Ahunt is also in play.
+  if (isAhuntInPlay(state, lairOf)) return printed;
+  const augments = collectAtHomeAttacks(state, lairOf);
+  return augments.length === 0 ? printed : [...printed, ...augments];
+}
+
+/**
+ * True iff a long-event sharing the given manifestation id is in play
+ * for either player. For Dragon chains this means "the Ahunt is up".
+ */
+function isAhuntInPlay(state: GameState, m: ManifestId): boolean {
+  for (const player of state.players) {
+    for (const card of player.cardsInPlay) {
+      const def = state.cardPool[card.definitionId as string];
+      if (manifestIdOf(def) !== m) continue;
+      if ((def as HazardEventCard | undefined)?.eventType === 'long') return true;
+    }
+  }
+  return false;
+}
+
+/**
+ * Collects every `dragon-at-home` augmentation attack contributed by
+ * in-play permanent-events whose `manifestId` matches.
+ */
+function collectAtHomeAttacks(state: GameState, m: ManifestId): AutomaticAttack[] {
+  const out: AutomaticAttack[] = [];
+  for (const player of state.players) {
+    for (const card of player.cardsInPlay) {
+      const def = state.cardPool[card.definitionId as string];
+      if (manifestIdOf(def) !== m) continue;
+      const effects = (def as { effects?: readonly { type: string }[] }).effects;
+      if (!effects) continue;
+      for (const e of effects) {
+        if (e.type === 'dragon-at-home') {
+          const attack = (e as DragonAtHomeEffect).attack;
+          out.push({
+            creatureType: attack.creatureType,
+            strikes: attack.strikes,
+            prowess: attack.prowess,
+          });
+        }
+      }
+    }
+  }
+  return out;
 }

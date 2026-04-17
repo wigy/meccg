@@ -1141,3 +1141,19 @@ corruption check on the wizard. The target wizard is determined by the
 ```
 
 Implemented in `reducer-events.ts` (`handlePlayResourceShortEvent`).
+
+### 30. `dragon-at-home`
+
+Augments a Dragon's lair with an additional automatic-attack while this
+"At-Home" permanent-event is in play. The carrying card's `manifestId`
+identifies which Dragon — the lair is found by matching `lairOf`. The
+augmentation is suppressed for as long as the same Dragon's Ahunt
+long-event is also in play (the rule's "Unless [Dragon] Ahunt is in
+play" clause).
+
+```json
+{ "type": "dragon-at-home",
+  "attack": { "creatureType": "Dragon", "strikes": 2, "prowess": 18 } }
+```
+
+Implemented in `engine/manifestations.ts` (`getActiveAutoAttacks`).

@@ -220,7 +220,16 @@
     "keywords": [
       "dragon-manifestation"
     ],
-    "effects": [],
+    "effects": [
+      {
+        "type": "dragon-at-home",
+        "attack": {
+          "creatureType": "Dragon",
+          "strikes": 2,
+          "prowess": 16
+        }
+      }
+    ],
     "text": "Unique. Unless Agburanar Ahunt is in play, Caves of Ûlund has an additional automatic-attack: Dragon — 2 strikes at 16/9. In addition, one unique Dragon manifestation played against each company does not count against the hazard limit.",
     "manifestId": "tw-3"
   },
@@ -234,7 +243,16 @@
     "keywords": [
       "dragon-manifestation"
     ],
-    "effects": [],
+    "effects": [
+      {
+        "type": "dragon-at-home",
+        "attack": {
+          "creatureType": "Dragon",
+          "strikes": 2,
+          "prowess": 15
+        }
+      }
+    ],
     "text": "Unique. Unless Bairanax Ahunt is in play, Ovir Hollow has an additional automatic-attack: Dragon — 2 strikes at 15/7. In addition, the hazard limit against any company facing one or more animal hazard creature attacks is increased by one.",
     "manifestId": "td-3"
   },
@@ -248,7 +266,16 @@
     "keywords": [
       "dragon-manifestation"
     ],
-    "effects": [],
+    "effects": [
+      {
+        "type": "dragon-at-home",
+        "attack": {
+          "creatureType": "Dragon",
+          "strikes": 3,
+          "prowess": 14
+        }
+      }
+    ],
     "text": "Unique. Unless Daelomin Ahunt is in play, Dancing Spire has an additional automatic-attack: Dragon — 3 strikes at 14/8. In addition, you may discard this card from play during opponent’s movement/hazard phase (not counting against the hazard limit) to increase the hazard limit against one company by two.",
     "manifestId": "tw-26"
   },
@@ -262,7 +289,16 @@
     "keywords": [
       "dragon-manifestation"
     ],
-    "effects": [],
+    "effects": [
+      {
+        "type": "dragon-at-home",
+        "attack": {
+          "creatureType": "Dragon",
+          "strikes": 2,
+          "prowess": 18
+        }
+      }
+    ],
     "text": "Unique. Unless Eärcaraxë Ahunt is in play, Isle of the Ulond has an additional automatic-attack: Dragon — 2 strikes at 18/7 (attacker chooses defending characters). In addition, the hazard limit against any moving company with a Coastal Sea [{c}] region in its site path is increased by one.",
     "manifestId": "td-20"
   },
@@ -276,7 +312,16 @@
     "keywords": [
       "dragon-manifestation"
     ],
-    "effects": [],
+    "effects": [
+      {
+        "type": "dragon-at-home",
+        "attack": {
+          "creatureType": "Dragon",
+          "strikes": 3,
+          "prowess": 19
+        }
+      }
+    ],
     "text": "Unique. Unless Itangast Ahunt is in play, Gold Hill has an additional automatic-attack: Dragon — 3 strikes at 19/8. In addition, each greater item gives an additional corruption point.",
     "manifestId": "td-36"
   },
@@ -290,7 +335,16 @@
     "keywords": [
       "dragon-manifestation"
     ],
-    "effects": [],
+    "effects": [
+      {
+        "type": "dragon-at-home",
+        "attack": {
+          "creatureType": "Dragon",
+          "strikes": 2,
+          "prowess": 17
+        }
+      }
+    ],
     "text": "Unique. Unless Leucaruth Ahunt is in play, Irerock has an additional automatic-attack: Dragon — 2 strikes at 17/8. In addition, only one unique Dragon manifestation may be played per turn.",
     "manifestId": "tw-48"
   },
@@ -304,7 +358,16 @@
     "keywords": [
       "dragon-manifestation"
     ],
-    "effects": [],
+    "effects": [
+      {
+        "type": "dragon-at-home",
+        "attack": {
+          "creatureType": "Dragon",
+          "strikes": 3,
+          "prowess": 16
+        }
+      }
+    ],
     "text": "Unique. Unless Scatha Ahunt is in play, Gondmaeglom has an additional automatic-attack: Dragon — 3 strikes at 16/9. In addition, -1 to all influence attempts.",
     "manifestId": "td-60"
   },
@@ -318,7 +381,16 @@
     "keywords": [
       "dragon-manifestation"
     ],
-    "effects": [],
+    "effects": [
+      {
+        "type": "dragon-at-home",
+        "attack": {
+          "creatureType": "Dragon",
+          "strikes": 3,
+          "prowess": 13
+        }
+      }
+    ],
     "text": "Unique. Unless Scorba Ahunt is in play, Zarak Dûm has an additional automatic-attack: Dragon — 3 strikes at 13/8. In addition, each major item gives an additional corruption point.",
     "manifestId": "td-63"
   },
@@ -332,7 +404,16 @@
     "keywords": [
       "dragon-manifestation"
     ],
-    "effects": [],
+    "effects": [
+      {
+        "type": "dragon-at-home",
+        "attack": {
+          "creatureType": "Dragon",
+          "strikes": 2,
+          "prowess": 18
+        }
+      }
+    ],
     "text": "Unique. Unless Smaug Ahunt is in play, The Lonely Mountain has an additional automatic-attack: Dragon — 2 strikes at 18/8. In addition, each moving company draws one less card to a minimum of one at the start of its movement/hazard phase.",
     "manifestId": "tw-90"
   }
