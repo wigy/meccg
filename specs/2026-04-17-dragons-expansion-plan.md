@@ -75,8 +75,8 @@ Nine canonical Dragon/lair pairs:
 ### 3.1 Status
 
 - ✓ Implemented (step 4).
-- **Data**: items keep their existing `keywords: ["hoard"]` tag (already on all 21 hoard items). Sites gain a typed `hoard?: boolean` field on `HeroSiteCard`; the 9 Dragon lairs (the same set tagged with `lairOf` in step 5) carry `hoard: true`.
-- **Play-time gate**: the existing `item-play-site` effect was generalized — alongside the legacy `sites` form it now accepts a `filter: Condition` evaluated against the current site definition. Every hoard item carries `{ "type": "item-play-site", "filter": { "site.hoard": true } }` so the gate is data-driven rather than a hardcoded keyword check (per `feedback_generalize_card_effects`). Wired in `legal-actions/site.ts` and covered by `rule-metd-hoard-item-play-site.test.ts`.
+- **Data**: hoard tagging uses the same `keywords` array on both items and sites (no per-tag boolean field). Items keep their existing `keywords: ["hoard"]`; site card types gain a `keywords?: readonly Keyword[]` field (mirrors the items field) and the 9 Dragon lairs (same set tagged with `lairOf` in step 5) carry `keywords: ["hoard"]`.
+- **Play-time gate**: the existing `item-play-site` effect was generalized — alongside the legacy `sites` form it now accepts a `filter: Condition` evaluated against the current site definition. Every hoard item carries `{ "type": "item-play-site", "filter": { "site.keywords": { "$includes": "hoard" } } }`, so the gate is data-driven via the existing condition matcher (per `feedback_generalize_card_effects`). Wired in `legal-actions/site.ts` and covered by `rule-metd-hoard-item-play-site.test.ts`.
 - **Deck-construction gate**: `ITEM_DRAFT_RULES` gains a `not-hoard` rule keyed off the new `card.isHoard` context flag (set from `keywords.includes('hoard')` in `legal-actions/item-draft.ts`). Covered by `rule-metd-hoard-minor-starting-company.test.ts`.
 
 ---

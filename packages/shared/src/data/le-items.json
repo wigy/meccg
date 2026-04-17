@@ -38,7 +38,9 @@
       {
         "type": "item-play-site",
         "filter": {
-          "site.hoard": true
+          "site.keywords": {
+            "$includes": "hoard"
+          }
         }
       }
     ],
