@@ -22,7 +22,7 @@ import {
   baseProwess,
   buildTestState, resetMint, buildSitePhaseState,
   playLongEventAndResolve, viableActions,
-  handCardId, dispatch, getCharacter, pushCardInPlay,
+  handCardId, dispatch, getCharacter, pushCardInPlay, RESOURCE_PLAYER, HAZARD_PLAYER,
 } from '../test-helpers.js';
 import type { CardInPlay, CardInstanceId, CharacterCard, GameState, SitePhaseState } from '../../index.js';
 import { ISENGARD } from '../../index.js';
@@ -42,11 +42,11 @@ describe('Sun (tw-335)', () => {
       ],
     });
 
-    const sunInstanceId = handCardId(state, 0);
+    const sunInstanceId = handCardId(state, RESOURCE_PLAYER);
     const s = playLongEventAndResolve(state, PLAYER_1, sunInstanceId);
 
-    expect(getCharacter(s, 0, ARAGORN).effectiveStats.prowess).toBe(baseProwess(ARAGORN) + 1);
-    expect(getCharacter(s, 1, LEGOLAS).effectiveStats.prowess).toBe(baseProwess(LEGOLAS));
+    expect(getCharacter(s, RESOURCE_PLAYER, ARAGORN).effectiveStats.prowess).toBe(baseProwess(ARAGORN) + 1);
+    expect(getCharacter(s, HAZARD_PLAYER, LEGOLAS).effectiveStats.prowess).toBe(baseProwess(LEGOLAS));
   });
 
   test('with Gates of Morning: Man and Dúnadan prowess +1 additional', () => {
@@ -67,15 +67,15 @@ describe('Sun (tw-335)', () => {
       ],
     });
 
-    const sunInstanceId = handCardId(state, 0);
+    const sunInstanceId = handCardId(state, RESOURCE_PLAYER);
     const s = playLongEventAndResolve(state, PLAYER_1, sunInstanceId);
 
     // Aragorn (dunadan): +1 unconditional + +1 with GoM = +2
-    expect(getCharacter(s, 0, ARAGORN).effectiveStats.prowess).toBe(baseProwess(ARAGORN) + 2);
+    expect(getCharacter(s, RESOURCE_PLAYER, ARAGORN).effectiveStats.prowess).toBe(baseProwess(ARAGORN) + 2);
     // Bard Bowman (man): +1 with GoM
-    expect(getCharacter(s, 0, BARD_BOWMAN).effectiveStats.prowess).toBe(baseProwess(BARD_BOWMAN) + 1);
+    expect(getCharacter(s, RESOURCE_PLAYER, BARD_BOWMAN).effectiveStats.prowess).toBe(baseProwess(BARD_BOWMAN) + 1);
     // Legolas (elf): unaffected
-    expect(getCharacter(s, 1, LEGOLAS).effectiveStats.prowess).toBe(baseProwess(LEGOLAS));
+    expect(getCharacter(s, HAZARD_PLAYER, LEGOLAS).effectiveStats.prowess).toBe(baseProwess(LEGOLAS));
   });
 
   test('affects opponent characters too', () => {
@@ -98,7 +98,7 @@ describe('Sun (tw-335)', () => {
     const s = dispatch(state, { type: 'pass', player: PLAYER_1 });
 
     // P2's Aragorn (dunadan) should get +1 from P1's Sun
-    expect(getCharacter(s, 1, ARAGORN).effectiveStats.prowess).toBe(baseProwess(ARAGORN) + 1);
+    expect(getCharacter(s, HAZARD_PLAYER, ARAGORN).effectiveStats.prowess).toBe(baseProwess(ARAGORN) + 1);
   });
 
   test('body and direct influence are not modified', () => {
@@ -111,11 +111,11 @@ describe('Sun (tw-335)', () => {
       ],
     });
 
-    const sunInstanceId = handCardId(state, 0);
+    const sunInstanceId = handCardId(state, RESOURCE_PLAYER);
     const s = playLongEventAndResolve(state, PLAYER_1, sunInstanceId);
 
     const aragornDef = pool[ARAGORN as string] as CharacterCard;
-    const stats = getCharacter(s, 0, ARAGORN).effectiveStats;
+    const stats = getCharacter(s, RESOURCE_PLAYER, ARAGORN).effectiveStats;
     expect(stats.body).toBe(aragornDef.body);
     expect(stats.directInfluence).toBe(aragornDef.directInfluence);
   });
@@ -179,8 +179,8 @@ describe('Sun (tw-335)', () => {
 
     const initial = buildSitePhaseState({ site: ISENGARD });
     const sitePhase = initial.phaseState;
-    let state: GameState = pushCardInPlay(initial, 0, sunInPlay);
-    if (withGoM) state = pushCardInPlay(state, 0, gomInPlay);
+    let state: GameState = pushCardInPlay(initial, RESOURCE_PLAYER, sunInPlay);
+    if (withGoM) state = pushCardInPlay(state, RESOURCE_PLAYER, gomInPlay);
 
     const autoAttackState: SitePhaseState = {
       ...sitePhase,

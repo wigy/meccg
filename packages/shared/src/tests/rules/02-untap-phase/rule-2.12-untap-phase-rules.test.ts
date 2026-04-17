@@ -19,7 +19,7 @@ import {
   PLAYER_1, PLAYER_2,
   ARAGORN, LEGOLAS,
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
-  expectCharStatus,
+  expectCharStatus, RESOURCE_PLAYER, HAZARD_PLAYER,
 } from '../../test-helpers.js';
 
 
@@ -37,7 +37,7 @@ describe('Rule 2.12 — Untap Phase - Untap or Heal', () => {
     });
 
     const nextState = dispatch(state, { type: 'untap', player: PLAYER_1 });
-    expectCharStatus(nextState, 0, ARAGORN, CardStatus.Untapped);
+    expectCharStatus(nextState, RESOURCE_PLAYER, ARAGORN, CardStatus.Untapped);
   });
 
   test('Wounded character at haven is healed to tapped position', () => {
@@ -53,7 +53,7 @@ describe('Rule 2.12 — Untap Phase - Untap or Heal', () => {
 
     const nextState = dispatch(state, { type: 'untap', player: PLAYER_1 });
     // Healed to tapped, not untapped
-    expectCharStatus(nextState, 0, ARAGORN, CardStatus.Tapped);
+    expectCharStatus(nextState, RESOURCE_PLAYER, ARAGORN, CardStatus.Tapped);
   });
 
   test('Wounded character NOT at haven remains wounded', () => {
@@ -68,7 +68,7 @@ describe('Rule 2.12 — Untap Phase - Untap or Heal', () => {
     });
 
     const nextState = dispatch(state, { type: 'untap', player: PLAYER_1 });
-    expectCharStatus(nextState, 0, ARAGORN, CardStatus.Inverted);
+    expectCharStatus(nextState, RESOURCE_PLAYER, ARAGORN, CardStatus.Inverted);
   });
 
   test('Untapped characters remain untapped', () => {
@@ -82,7 +82,7 @@ describe('Rule 2.12 — Untap Phase - Untap or Heal', () => {
     });
 
     const nextState = dispatch(state, { type: 'untap', player: PLAYER_1 });
-    expectCharStatus(nextState, 0, ARAGORN, CardStatus.Untapped);
+    expectCharStatus(nextState, RESOURCE_PLAYER, ARAGORN, CardStatus.Untapped);
   });
 
   test('Only resource player non-site cards are affected by untap', () => {
@@ -98,6 +98,6 @@ describe('Rule 2.12 — Untap Phase - Untap or Heal', () => {
 
     const nextState = dispatch(state, { type: 'untap', player: PLAYER_1 });
     // Opponent's character should still be tapped
-    expectCharStatus(nextState, 1, LEGOLAS, CardStatus.Tapped);
+    expectCharStatus(nextState, HAZARD_PLAYER, LEGOLAS, CardStatus.Tapped);
   });
 });

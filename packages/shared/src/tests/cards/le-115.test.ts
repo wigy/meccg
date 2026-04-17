@@ -26,7 +26,7 @@ import {
   buildTestState, resetMint,
   viableActions, makeMHState, makeSitePhase,
   P1_COMPANY,
-  handCardId, dispatch, playHazardAndResolve, phaseStateAs,
+  handCardId, dispatch, playHazardAndResolve, phaseStateAs, HAZARD_PLAYER,
 } from '../test-helpers.js';
 import { Phase, SiteType, RegionType, CardStatus } from '../../index.js';
 import { addConstraint } from '../../engine/pending.js';
@@ -244,7 +244,7 @@ describe('Incite Defenders (le-115)', () => {
       resolvedSitePathNames: ['The Shire'],
     });
     const mhGameState: GameState = { ...stateWithDest, phaseState: mh };
-    const idId = handCardId(mhGameState, 1);
+    const idId = handCardId(mhGameState, HAZARD_PLAYER);
     const s = playHazardAndResolve(mhGameState, PLAYER_2, idId, P1_COMPANY);
 
     expect(s.players[1].hand).toHaveLength(0);
@@ -286,7 +286,7 @@ describe('Incite Defenders (le-115)', () => {
       resolvedSitePathNames: ['The Shire'],
     });
     const mhGameState: GameState = { ...stateWithDest, phaseState: mh };
-    const id1 = handCardId(mhGameState, 1, 0);
+    const id1 = handCardId(mhGameState, HAZARD_PLAYER, 0);
 
     const afterFirst = dispatch(mhGameState, { type: 'play-hazard', player: PLAYER_2, cardInstanceId: id1, targetCompanyId: P1_COMPANY });
     expect(afterFirst.chain).not.toBeNull();
@@ -329,7 +329,7 @@ describe('Incite Defenders (le-115)', () => {
       resolvedSitePathNames: ['The Shire'],
     });
     const mhGameState: GameState = { ...stateWithDest, phaseState: mh };
-    const idId = handCardId(mhGameState, 1);
+    const idId = handCardId(mhGameState, HAZARD_PLAYER);
     const afterPlay = playHazardAndResolve(mhGameState, PLAYER_2, idId, P1_COMPANY);
 
     const dup = afterPlay.activeConstraints.find(c => c.kind.type === 'auto-attack-duplicate');

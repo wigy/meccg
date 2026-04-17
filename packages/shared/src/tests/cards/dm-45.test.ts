@@ -18,7 +18,7 @@ import {
   buildTestState, resetMint, makeMHState,
   handCardId, dispatch, resolveChain, viableActions,
   CardStatus, Phase,
-  actionAs,
+  actionAs, HAZARD_PLAYER,
 } from '../test-helpers.js';
 import type { CardInPlay, CardInstanceId, CardDefinitionId, MovementHazardPhaseState, PlayHazardAction, FetchFromPileAction } from '../../index.js';
 import { computeLegalActions } from '../../index.js';
@@ -66,7 +66,7 @@ describe('An Unexpected Outpost (dm-45)', () => {
 
   test('playing the card enters chain, then resolves into fetch sub-flow', () => {
     const state = buildMHState({ sideboard: [ORC_PATROL] });
-    const cardId = handCardId(state, 1);
+    const cardId = handCardId(state, HAZARD_PLAYER);
     const companyId = P1_COMPANY;
 
     const afterPlay = dispatch(state, {
@@ -90,7 +90,7 @@ describe('An Unexpected Outpost (dm-45)', () => {
 
   test('fetch sub-flow shows eligible hazard cards from sideboard', () => {
     const state = buildMHState({ sideboard: [ORC_PATROL, CAVE_DRAKE] });
-    const cardId = handCardId(state, 1);
+    const cardId = handCardId(state, HAZARD_PLAYER);
 
     const afterPlay = dispatch(state, {
       type: 'play-hazard',
@@ -107,7 +107,7 @@ describe('An Unexpected Outpost (dm-45)', () => {
 
   test('fetch sub-flow shows eligible hazard cards from discard pile', () => {
     const state = buildMHState({ discardPile: [ORC_PATROL] });
-    const cardId = handCardId(state, 1);
+    const cardId = handCardId(state, HAZARD_PLAYER);
 
     const afterPlay = dispatch(state, {
       type: 'play-hazard',
@@ -124,7 +124,7 @@ describe('An Unexpected Outpost (dm-45)', () => {
 
   test('fetching a card adds it to play deck and discards event card', () => {
     const state = buildMHState({ sideboard: [ORC_PATROL] });
-    const cardId = handCardId(state, 1);
+    const cardId = handCardId(state, HAZARD_PLAYER);
     const orcPatrolId = state.players[1].sideboard[0].instanceId;
     const originalDeckSize = state.players[1].playDeck.length;
 
@@ -154,7 +154,7 @@ describe('An Unexpected Outpost (dm-45)', () => {
 
   test('pass during fetch sub-flow skips the fetch', () => {
     const state = buildMHState({ sideboard: [ORC_PATROL] });
-    const cardId = handCardId(state, 1);
+    const cardId = handCardId(state, HAZARD_PLAYER);
 
     const afterPlay = dispatch(state, {
       type: 'play-hazard',
@@ -173,7 +173,7 @@ describe('An Unexpected Outpost (dm-45)', () => {
 
   test('non-hazard cards in sideboard are not eligible for fetch', () => {
     const state = buildMHState({ sideboard: [ARAGORN] });
-    const cardId = handCardId(state, 1);
+    const cardId = handCardId(state, HAZARD_PLAYER);
 
     const afterPlay = dispatch(state, {
       type: 'play-hazard',
@@ -192,7 +192,7 @@ describe('An Unexpected Outpost (dm-45)', () => {
 
   test('resource player has no actions during fetch sub-flow', () => {
     const state = buildMHState({ sideboard: [ORC_PATROL] });
-    const cardId = handCardId(state, 1);
+    const cardId = handCardId(state, HAZARD_PLAYER);
 
     const afterPlay = dispatch(state, {
       type: 'play-hazard',
@@ -216,7 +216,7 @@ describe('An Unexpected Outpost (dm-45)', () => {
       sideboard: [ORC_PATROL, CAVE_DRAKE],
       p2CardsInPlay: [donInPlay],
     });
-    const cardId = handCardId(state, 1);
+    const cardId = handCardId(state, HAZARD_PLAYER);
 
     const afterPlay = dispatch(state, {
       type: 'play-hazard',
@@ -241,7 +241,7 @@ describe('An Unexpected Outpost (dm-45)', () => {
       sideboard: [ORC_PATROL, CAVE_DRAKE],
       p2CardsInPlay: [donInPlay],
     });
-    const cardId = handCardId(state, 1);
+    const cardId = handCardId(state, HAZARD_PLAYER);
     const orcPatrolId = state.players[1].sideboard[0].instanceId;
     const caveDrakeId = state.players[1].sideboard[1].instanceId;
     const originalDeckSize = state.players[1].playDeck.length;
@@ -280,7 +280,7 @@ describe('An Unexpected Outpost (dm-45)', () => {
 
   test('without Doors of Night, only one fetch effect is queued', () => {
     const state = buildMHState({ sideboard: [ORC_PATROL, CAVE_DRAKE] });
-    const cardId = handCardId(state, 1);
+    const cardId = handCardId(state, HAZARD_PLAYER);
 
     const afterPlay = dispatch(state, {
       type: 'play-hazard',
@@ -295,7 +295,7 @@ describe('An Unexpected Outpost (dm-45)', () => {
 
   test('after fetch completes, normal M/H actions resume', () => {
     const state = buildMHState({ sideboard: [ORC_PATROL] });
-    const cardId = handCardId(state, 1);
+    const cardId = handCardId(state, HAZARD_PLAYER);
     const orcPatrolId = state.players[1].sideboard[0].instanceId;
 
     const afterPlay = dispatch(state, {
@@ -319,7 +319,7 @@ describe('An Unexpected Outpost (dm-45)', () => {
 
   test('can fetch from discard pile', () => {
     const state = buildMHState({ discardPile: [ORC_GUARD] });
-    const cardId = handCardId(state, 1);
+    const cardId = handCardId(state, HAZARD_PLAYER);
     const orcGuardId = state.players[1].discardPile[0].instanceId;
     const originalDeckSize = state.players[1].playDeck.length;
 

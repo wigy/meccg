@@ -22,7 +22,7 @@ import {
   makeMHState, P1_COMPANY,
   playHazardAndResolve,
   addP2CardsInPlay, setupAutoAttackStep,
-  handCardId, dispatch,
+  handCardId, dispatch, HAZARD_PLAYER,
 } from '../test-helpers.js';
 import type { CardInPlay, CardInstanceId, GameState } from '../../index.js';
 import { ISENGARD } from '../../index.js';
@@ -49,7 +49,7 @@ describe('Eye of Sauron (tw-32)', () => {
     });
 
     const mhGameState: GameState = { ...state, phaseState: makeMHState() };
-    const eosId = handCardId(mhGameState, 1);
+    const eosId = handCardId(mhGameState, HAZARD_PLAYER);
     const s = playHazardAndResolve(mhGameState, PLAYER_2, eosId, P1_COMPANY);
 
     // Eye of Sauron should now be in hazard player's cardsInPlay

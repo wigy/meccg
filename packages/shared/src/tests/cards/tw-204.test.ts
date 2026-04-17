@@ -32,7 +32,7 @@ import {
   playCreatureHazardAndResolve,
   CardStatus,
   handCardId, companyIdAt, dispatch, expectCharStatus, expectInDiscardPile,
-  resolveChain,
+  resolveChain, RESOURCE_PLAYER, HAZARD_PLAYER,
 } from '../test-helpers.js';
 import type { CancelAttackAction } from '../../index.js';
 import { RegionType, SiteType, describeAction } from '../../index.js';
@@ -66,8 +66,8 @@ describe('Concealment (tw-204)', () => {
     const stateAtMH = { ...base, phaseState: mhState };
 
     // P2 plays Orc-patrol creature against P1's company
-    const orcPatrolId = handCardId(stateAtMH, 1);
-    const targetCompanyId = companyIdAt(stateAtMH, 0);
+    const orcPatrolId = handCardId(stateAtMH, HAZARD_PLAYER);
+    const targetCompanyId = companyIdAt(stateAtMH, RESOURCE_PLAYER);
     const combatState = playCreatureHazardAndResolve(
       stateAtMH, PLAYER_2, orcPatrolId, targetCompanyId,
       { method: 'region-type', value: 'wilderness' },
@@ -81,7 +81,7 @@ describe('Concealment (tw-204)', () => {
     const cancelActions = viableActions(combatState, PLAYER_1, 'cancel-attack');
     expect(cancelActions.length).toBe(1);
     const cancelAction = cancelActions[0].action as CancelAttackAction;
-    expect(cancelAction.cardInstanceId).toBe(handCardId(combatState, 0));
+    expect(cancelAction.cardInstanceId).toBe(handCardId(combatState, RESOURCE_PLAYER));
   });
 
   test('executing cancel-attack taps scout, discards card, and cancels combat via chain', () => {
@@ -104,8 +104,8 @@ describe('Concealment (tw-204)', () => {
     });
     const stateAtMH = { ...base, phaseState: mhState };
 
-    const orcPatrolId = handCardId(stateAtMH, 1);
-    const targetCompanyId = companyIdAt(stateAtMH, 0);
+    const orcPatrolId = handCardId(stateAtMH, HAZARD_PLAYER);
+    const targetCompanyId = companyIdAt(stateAtMH, RESOURCE_PLAYER);
     const combatState = playCreatureHazardAndResolve(
       stateAtMH, PLAYER_2, orcPatrolId, targetCompanyId,
       { method: 'region-type', value: 'wilderness' },
@@ -121,12 +121,12 @@ describe('Concealment (tw-204)', () => {
     expect(declared.combat).not.toBeNull();
 
     // Aragorn should already be tapped (cost paid at declaration)
-    expectCharStatus(declared, 0, ARAGORN, CardStatus.Tapped);
+    expectCharStatus(declared, RESOURCE_PLAYER, ARAGORN, CardStatus.Tapped);
 
     // Concealment should already be in the discard pile (short-events go to
     // discard at play time; the chain holds only a reference).
     expect(declared.players[0].hand).toHaveLength(0);
-    expectInDiscardPile(declared, 0, CONCEALMENT);
+    expectInDiscardPile(declared, RESOURCE_PLAYER, CONCEALMENT);
 
     // Resolve the chain by passing priority twice
     const after = resolveChain(declared);
@@ -136,7 +136,7 @@ describe('Concealment (tw-204)', () => {
     expect(after.chain).toBeNull();
 
     // Creature should be in attacker's (P2) discard pile
-    expectInDiscardPile(after, 1, ORC_PATROL);
+    expectInDiscardPile(after, HAZARD_PLAYER, ORC_PATROL);
     expect(after.players[1].cardsInPlay.find(c => c.definitionId === ORC_PATROL)).toBeUndefined();
   });
 
@@ -161,8 +161,8 @@ describe('Concealment (tw-204)', () => {
     });
     const stateAtMH = { ...base, phaseState: mhState };
 
-    const orcPatrolId = handCardId(stateAtMH, 1);
-    const targetCompanyId = companyIdAt(stateAtMH, 0);
+    const orcPatrolId = handCardId(stateAtMH, HAZARD_PLAYER);
+    const targetCompanyId = companyIdAt(stateAtMH, RESOURCE_PLAYER);
     const combatState = playCreatureHazardAndResolve(
       stateAtMH, PLAYER_2, orcPatrolId, targetCompanyId,
       { method: 'region-type', value: 'wilderness' },
@@ -198,8 +198,8 @@ describe('Concealment (tw-204)', () => {
     });
     const stateAtMH = { ...base, phaseState: mhState };
 
-    const orcPatrolId = handCardId(stateAtMH, 1);
-    const targetCompanyId = companyIdAt(stateAtMH, 0);
+    const orcPatrolId = handCardId(stateAtMH, HAZARD_PLAYER);
+    const targetCompanyId = companyIdAt(stateAtMH, RESOURCE_PLAYER);
     const combatState = playCreatureHazardAndResolve(
       stateAtMH, PLAYER_2, orcPatrolId, targetCompanyId,
       { method: 'region-type', value: 'wilderness' },
@@ -250,8 +250,8 @@ describe('Concealment (tw-204)', () => {
     });
     const stateAtMH = { ...base, phaseState: mhState };
 
-    const orcPatrolId = handCardId(stateAtMH, 1);
-    const targetCompanyId = companyIdAt(stateAtMH, 0);
+    const orcPatrolId = handCardId(stateAtMH, HAZARD_PLAYER);
+    const targetCompanyId = companyIdAt(stateAtMH, RESOURCE_PLAYER);
     const combatState = playCreatureHazardAndResolve(
       stateAtMH, PLAYER_2, orcPatrolId, targetCompanyId,
       { method: 'region-type', value: 'wilderness' },
@@ -290,8 +290,8 @@ describe('Concealment (tw-204)', () => {
     });
     const stateAtMH = { ...base, phaseState: mhState };
 
-    const orcPatrolId = handCardId(stateAtMH, 1);
-    const targetCompanyId = companyIdAt(stateAtMH, 0);
+    const orcPatrolId = handCardId(stateAtMH, HAZARD_PLAYER);
+    const targetCompanyId = companyIdAt(stateAtMH, RESOURCE_PLAYER);
     const combatState = playCreatureHazardAndResolve(
       stateAtMH, PLAYER_2, orcPatrolId, targetCompanyId,
       { method: 'region-type', value: 'wilderness' },
@@ -325,8 +325,8 @@ describe('Concealment (tw-204)', () => {
     });
     const stateAtMH = { ...base, phaseState: mhState };
 
-    const orcPatrolId = handCardId(stateAtMH, 1);
-    const targetCompanyId = companyIdAt(stateAtMH, 0);
+    const orcPatrolId = handCardId(stateAtMH, HAZARD_PLAYER);
+    const targetCompanyId = companyIdAt(stateAtMH, RESOURCE_PLAYER);
     const combatState = playCreatureHazardAndResolve(
       stateAtMH, PLAYER_2, orcPatrolId, targetCompanyId,
       { method: 'region-type', value: 'wilderness' },
@@ -362,8 +362,8 @@ describe('Concealment (tw-204)', () => {
     });
     const stateAtMH = { ...base, phaseState: mhState };
 
-    const orcPatrolId = handCardId(stateAtMH, 1);
-    const targetCompanyId = companyIdAt(stateAtMH, 0);
+    const orcPatrolId = handCardId(stateAtMH, HAZARD_PLAYER);
+    const targetCompanyId = companyIdAt(stateAtMH, RESOURCE_PLAYER);
     const combatState = playCreatureHazardAndResolve(
       stateAtMH, PLAYER_2, orcPatrolId, targetCompanyId,
       { method: 'region-type', value: 'wilderness' },

@@ -20,7 +20,7 @@ import {
   PELARGIR,
   MEN_OF_LEBENNIN,
   buildSitePhaseState, resetMint,
-  findCharInstanceId,
+  findCharInstanceId, RESOURCE_PLAYER,
 } from '../test-helpers.js';
 import { computeLegalActions } from '../../index.js';
 import type { InfluenceAttemptAction } from '../../index.js';
@@ -41,7 +41,7 @@ describe('Men of Lebennin (tw-280)', () => {
       hand: [MEN_OF_LEBENNIN],
     });
 
-    const faramirId = findCharInstanceId(state, 0, FARAMIR);
+    const faramirId = findCharInstanceId(state, RESOURCE_PLAYER, FARAMIR);
     const actions = computeLegalActions(state, PLAYER_1);
 
     const influenceActions = actions
@@ -70,7 +70,7 @@ describe('Men of Lebennin (tw-280)', () => {
       hand: [MEN_OF_LEBENNIN],
     });
 
-    const legolasId = findCharInstanceId(state, 0, LEGOLAS);
+    const legolasId = findCharInstanceId(state, RESOURCE_PLAYER, LEGOLAS);
     const actions = computeLegalActions(state, PLAYER_1);
 
     const influenceActions = actions

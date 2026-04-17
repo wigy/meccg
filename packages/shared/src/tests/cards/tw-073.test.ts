@@ -22,7 +22,7 @@ import {
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
   buildTestState, resetMint, makeMHState,
   resolveChain,
-  handCardId, companyIdAt, charIdAt, dispatch,
+  handCardId, companyIdAt, charIdAt, dispatch, RESOURCE_PLAYER, HAZARD_PLAYER,
 } from '../test-helpers.js';
 import { computeLegalActions, Phase, SiteType } from '../../index.js';
 // ─── Tests ───────────────────────────────────────────────────────────────────
@@ -60,8 +60,8 @@ describe('Orc-lieutenant (tw-073)', () => {
     });
     const gameState = { ...state, phaseState: mhState };
 
-    const lieutenantId = handCardId(gameState, 1);
-    const companyId = companyIdAt(gameState, 0);
+    const lieutenantId = handCardId(gameState, HAZARD_PLAYER);
+    const companyId = companyIdAt(gameState, RESOURCE_PLAYER);
     const afterPlay = dispatch(gameState, {
       type: 'play-hazard',
       player: PLAYER_2,
@@ -106,8 +106,8 @@ describe('Orc-lieutenant (tw-073)', () => {
     const gameState = { ...state, phaseState: mhState };
 
     // --- First attack: play first Orc-lieutenant (1 strike Orc) ---
-    const firstLtId = handCardId(gameState, 1, 0);
-    const companyId = companyIdAt(gameState, 0);
+    const firstLtId = handCardId(gameState, HAZARD_PLAYER, 0);
+    const companyId = companyIdAt(gameState, RESOURCE_PLAYER);
     const afterPlayFirst = dispatch(gameState, {
       type: 'play-hazard',
       player: PLAYER_2,
@@ -122,7 +122,7 @@ describe('Orc-lieutenant (tw-073)', () => {
     expect(afterFirstChain.combat!.strikeProwess).toBe(7);
 
     // Defender assigns strike to Aragorn
-    const aragornId = charIdAt(afterFirstChain, 0);
+    const aragornId = charIdAt(afterFirstChain, RESOURCE_PLAYER);
     let s = dispatch(afterFirstChain, {
       type: 'assign-strike',
       player: PLAYER_1,
@@ -146,7 +146,7 @@ describe('Orc-lieutenant (tw-073)', () => {
     expect(mh.hazardsEncountered).toContain('Orc-lieutenant');
 
     // --- Second attack: play second Orc-lieutenant ---
-    const secondLtId = handCardId(s, 1, 0);
+    const secondLtId = handCardId(s, HAZARD_PLAYER, 0);
     const afterPlaySecond = dispatch(s, {
       type: 'play-hazard',
       player: PLAYER_2,

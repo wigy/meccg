@@ -22,7 +22,7 @@ import {
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
   buildTestState, resetMint,
   Phase,
-  getCharacter,
+  getCharacter, RESOURCE_PLAYER,
 } from '../test-helpers.js';
 import type { CharacterCard } from '../../index.js';
 import { recomputeDerived } from '../../engine/recompute-derived.js';
@@ -45,7 +45,7 @@ describe('Dagger of Westernesse (tw-206)', () => {
 
     const baseDef = pool[ARAGORN as string] as CharacterCard;
     expect(baseDef.prowess).toBe(6);
-    expect(getCharacter(state, 0, ARAGORN).effectiveStats.prowess).toBe(7);
+    expect(getCharacter(state, RESOURCE_PLAYER, ARAGORN).effectiveStats.prowess).toBe(7);
   });
 
   test('prowess capped at 8 when bearer already at 8 (Glorfindel II, base 8 → 8)', () => {
@@ -61,7 +61,7 @@ describe('Dagger of Westernesse (tw-206)', () => {
 
     const baseDef = pool[GLORFINDEL_II as string] as CharacterCard;
     expect(baseDef.prowess).toBe(8);
-    expect(getCharacter(state, 0, GLORFINDEL_II).effectiveStats.prowess).toBe(8);
+    expect(getCharacter(state, RESOURCE_PLAYER, GLORFINDEL_II).effectiveStats.prowess).toBe(8);
   });
 
   test('prowess reaches exactly 8 when bearer is one below cap (Elrond, base 7 → 8)', () => {
@@ -77,6 +77,6 @@ describe('Dagger of Westernesse (tw-206)', () => {
 
     const baseDef = pool[ELROND as string] as CharacterCard;
     expect(baseDef.prowess).toBe(7);
-    expect(getCharacter(state, 0, ELROND).effectiveStats.prowess).toBe(8);
+    expect(getCharacter(state, RESOURCE_PLAYER, ELROND).effectiveStats.prowess).toBe(8);
   });
 });

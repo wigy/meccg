@@ -19,7 +19,7 @@ import {
   LOND_GALEN,
   MEN_OF_ANFALAS,
   buildSitePhaseState, resetMint,
-  findCharInstanceId,
+  findCharInstanceId, RESOURCE_PLAYER,
 } from '../test-helpers.js';
 import { computeLegalActions } from '../../index.js';
 import type { InfluenceAttemptAction } from '../../index.js';
@@ -41,7 +41,7 @@ describe('Men of Anfalas (tw-276)', () => {
       hand: [MEN_OF_ANFALAS],
     });
 
-    const aragornId = findCharInstanceId(state, 0, ARAGORN);
+    const aragornId = findCharInstanceId(state, RESOURCE_PLAYER, ARAGORN);
     const actions = computeLegalActions(state, PLAYER_1);
 
     const influenceActions = actions
@@ -71,7 +71,7 @@ describe('Men of Anfalas (tw-276)', () => {
       hand: [MEN_OF_ANFALAS],
     });
 
-    const legolasId = findCharInstanceId(state, 0, LEGOLAS);
+    const legolasId = findCharInstanceId(state, RESOURCE_PLAYER, LEGOLAS);
     const actions = computeLegalActions(state, PLAYER_1);
 
     const influenceActions = actions

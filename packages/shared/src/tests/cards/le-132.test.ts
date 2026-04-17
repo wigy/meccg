@@ -37,7 +37,7 @@ import {
   viableActions, CardStatus,
   charIdAt, dispatch, setCharStatus,
   expectCharStatus, expectInDiscardPile,
-  actionAs,
+  actionAs, RESOURCE_PLAYER, HAZARD_PLAYER,
 } from '../test-helpers.js';
 import type { PlayHazardAction, ActivateGrantedAction, CardDefinitionId, MoveToInfluenceAction } from '../../index.js';
 
@@ -75,8 +75,8 @@ describe('Rebel-talk (le-132)', () => {
     const targets = playActions.map(
       ea => (ea.action as PlayHazardAction).targetCharacterId,
     );
-    const legolasId = charIdAt(mhState, 0, 0, 0);
-    const faramirId = charIdAt(mhState, 0, 0, 1);
+    const legolasId = charIdAt(mhState, RESOURCE_PLAYER, 0, 0);
+    const faramirId = charIdAt(mhState, RESOURCE_PLAYER, 0, 1);
     expect(new Set(targets)).toEqual(new Set([legolasId, faramirId]));
   });
 
@@ -107,7 +107,7 @@ describe('Rebel-talk (le-132)', () => {
     const targets = playActions.map(
       ea => (ea.action as PlayHazardAction).targetCharacterId,
     );
-    const gandalfId = charIdAt(mhState, 0, 0, 0);
+    const gandalfId = charIdAt(mhState, RESOURCE_PLAYER, 0, 0);
     expect(targets).not.toContain(gandalfId);
   });
 
@@ -137,8 +137,8 @@ describe('Rebel-talk (le-132)', () => {
     const targets = playActions.map(
       ea => (ea.action as PlayHazardAction).targetCharacterId,
     );
-    const aragornId = charIdAt(mhState, 0, 0, 0);
-    const legolasId = charIdAt(mhState, 0, 0, 1);
+    const aragornId = charIdAt(mhState, RESOURCE_PLAYER, 0, 0);
+    const legolasId = charIdAt(mhState, RESOURCE_PLAYER, 0, 1);
 
     // Aragorn (mind 9) excluded, Legolas (mind 6) included
     expect(targets).not.toContain(aragornId);
@@ -168,7 +168,7 @@ describe('Rebel-talk (le-132)', () => {
     });
 
     // Attach one copy of Rebel-talk to Legolas already
-    const withRT = attachHazardToChar(base, 0, LEGOLAS, REBEL_TALK);
+    const withRT = attachHazardToChar(base, RESOURCE_PLAYER, LEGOLAS, REBEL_TALK);
     const mhState = { ...withRT, phaseState: makeMHState() };
 
     const playActions = viableActions(mhState, PLAYER_2, 'play-hazard');
@@ -176,8 +176,8 @@ describe('Rebel-talk (le-132)', () => {
       ea => (ea.action as PlayHazardAction).targetCharacterId,
     );
 
-    const legolasId = charIdAt(mhState, 0, 0, 0);
-    const faramirId = charIdAt(mhState, 0, 0, 1);
+    const legolasId = charIdAt(mhState, RESOURCE_PLAYER, 0, 0);
+    const faramirId = charIdAt(mhState, RESOURCE_PLAYER, 0, 1);
 
     // Legolas already has Rebel-talk → not a valid target
     expect(targets).not.toContain(legolasId);
@@ -208,13 +208,13 @@ describe('Rebel-talk (le-132)', () => {
     });
 
     // Attach Rebel-talk to Legolas
-    const withRT = attachHazardToChar(base, 0, LEGOLAS, REBEL_TALK);
+    const withRT = attachHazardToChar(base, RESOURCE_PLAYER, LEGOLAS, REBEL_TALK);
 
     // Legolas (mind 6) could normally be placed under Aragorn's DI (DI 3 → too low)
     // Actually, Aragorn has DI 3, Legolas mind 6 → not enough DI anyway.
     // Let me just check that no move-to-influence actions target Legolas as the follower.
     const moveActions = viableActions(withRT, PLAYER_1, 'move-to-influence');
-    const legolasId = charIdAt(withRT, 0, 0, 1);
+    const legolasId = charIdAt(withRT, RESOURCE_PLAYER, 0, 1);
 
     // No DI actions should target Legolas (restricted by Rebel-talk)
     const legolasToAnyDI = moveActions.filter(
@@ -255,8 +255,8 @@ describe('Rebel-talk (le-132)', () => {
     const mhState = { ...base, phaseState: makeMHState() };
 
     // Verify Faramir is under DI of Aragorn
-    const faramirId = charIdAt(mhState, 0, 0, 1);
-    const aragornId = charIdAt(mhState, 0, 0, 0);
+    const faramirId = charIdAt(mhState, RESOURCE_PLAYER, 0, 1);
+    const aragornId = charIdAt(mhState, RESOURCE_PLAYER, 0, 0);
     expect(mhState.players[0].characters[faramirId as string].controlledBy).toBe(aragornId);
     expect(mhState.players[0].characters[aragornId as string].followers).toContain(faramirId);
 
@@ -295,7 +295,7 @@ describe('Rebel-talk (le-132)', () => {
       ],
     });
 
-    const withRT = attachHazardToChar(base, 0, LEGOLAS, REBEL_TALK);
+    const withRT = attachHazardToChar(base, RESOURCE_PLAYER, LEGOLAS, REBEL_TALK);
     const actions = viableActions(withRT, PLAYER_1, 'activate-granted-action');
     expect(actions.length).toBe(1);
 
@@ -314,8 +314,8 @@ describe('Rebel-talk (le-132)', () => {
       ],
     });
 
-    const withRT = attachHazardToChar(base, 0, LEGOLAS, REBEL_TALK);
-    const tapped = setCharStatus(withRT, 0, LEGOLAS, CardStatus.Tapped);
+    const withRT = attachHazardToChar(base, RESOURCE_PLAYER, LEGOLAS, REBEL_TALK);
+    const tapped = setCharStatus(withRT, RESOURCE_PLAYER, LEGOLAS, CardStatus.Tapped);
 
     const actions = viableActions(tapped, PLAYER_1, 'activate-granted-action');
     expect(actions.length).toBe(0);
@@ -331,7 +331,7 @@ describe('Rebel-talk (le-132)', () => {
       ],
     });
 
-    const withRT = attachHazardToChar(base, 0, LEGOLAS, REBEL_TALK);
+    const withRT = attachHazardToChar(base, RESOURCE_PLAYER, LEGOLAS, REBEL_TALK);
     const cheated = { ...withRT, cheatRollTotal: 8 };
 
     const actions = viableActions(cheated, PLAYER_1, 'activate-granted-action');
@@ -340,14 +340,14 @@ describe('Rebel-talk (le-132)', () => {
     const next = dispatch(cheated, actions[0].action);
 
     // Character should be tapped
-    expectCharStatus(next, 0, LEGOLAS, CardStatus.Tapped);
+    expectCharStatus(next, RESOURCE_PLAYER, LEGOLAS, CardStatus.Tapped);
 
     // Rebel-talk should be removed from character's hazards
-    const legolasId = charIdAt(next, 0);
+    const legolasId = charIdAt(next, RESOURCE_PLAYER);
     expect(next.players[0].characters[legolasId as string].hazards).toHaveLength(0);
 
     // Rebel-talk should be in opponent's discard pile
-    expectInDiscardPile(next, 1, REBEL_TALK);
+    expectInDiscardPile(next, HAZARD_PLAYER, REBEL_TALK);
   });
 
   test('failed removal roll (≤7) keeps Rebel-talk attached and taps character', () => {
@@ -360,7 +360,7 @@ describe('Rebel-talk (le-132)', () => {
       ],
     });
 
-    const withRT = attachHazardToChar(base, 0, LEGOLAS, REBEL_TALK);
+    const withRT = attachHazardToChar(base, RESOURCE_PLAYER, LEGOLAS, REBEL_TALK);
     const cheated = { ...withRT, cheatRollTotal: 7 };
 
     const actions = viableActions(cheated, PLAYER_1, 'activate-granted-action');
@@ -369,10 +369,10 @@ describe('Rebel-talk (le-132)', () => {
     const next = dispatch(cheated, actions[0].action);
 
     // Character should be tapped
-    expectCharStatus(next, 0, LEGOLAS, CardStatus.Tapped);
+    expectCharStatus(next, RESOURCE_PLAYER, LEGOLAS, CardStatus.Tapped);
 
     // Rebel-talk should still be attached
-    const legolasId = charIdAt(next, 0);
+    const legolasId = charIdAt(next, RESOURCE_PLAYER);
     expect(next.players[0].characters[legolasId as string].hazards).toHaveLength(1);
     expect(next.players[0].characters[legolasId as string].hazards[0].definitionId).toBe(REBEL_TALK);
 

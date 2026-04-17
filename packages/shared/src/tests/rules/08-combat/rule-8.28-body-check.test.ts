@@ -22,7 +22,7 @@ import {
   buildTestState, resetMint, setCharStatus,
   makeShadowMHState, makeBodyCheckCombat, findCharInstanceId,
   dispatchResult, viableActions, viableActionTypes,
-  Phase, companyIdAt,
+  Phase, companyIdAt, RESOURCE_PLAYER,
 } from '../../test-helpers.js';
 import { CardStatus } from '../../../index.js';
 import type { DieRoll, TwoDiceSix } from '../../../index.js';
@@ -44,15 +44,15 @@ describe('Rule 8.28 — Body Check', () => {
       ],
     });
 
-    const aragornId = findCharInstanceId(state, 0, ARAGORN);
-    const companyId = companyIdAt(state, 0);
+    const aragornId = findCharInstanceId(state, RESOURCE_PLAYER, ARAGORN);
+    const companyId = companyIdAt(state, RESOURCE_PLAYER);
 
     // Place Aragorn in wounded state so the body check applies +1.
     // Then set stale `lastDiceRoll` values on both players (defender from a
     // prior strike roll, attacker from an earlier roll) — simulating the
     // exact scenario from the bug report. `cheatRollTotal: 10` forces the
     // body-check roll deterministically.
-    const woundedState = setCharStatus(state, 0, ARAGORN, CardStatus.Inverted);
+    const woundedState = setCharStatus(state, RESOURCE_PLAYER, ARAGORN, CardStatus.Inverted);
     const staleDefRoll: TwoDiceSix = { die1: 2 as DieRoll, die2: 4 as DieRoll };
     const staleAtkRoll: TwoDiceSix = { die1: 2 as DieRoll, die2: 2 as DieRoll };
     const cheated = {
@@ -108,8 +108,8 @@ describe('Rule 8.28 — Body Check', () => {
       ],
     });
 
-    const aragornId = findCharInstanceId(state, 0, ARAGORN);
-    const companyId = companyIdAt(state, 0);
+    const aragornId = findCharInstanceId(state, RESOURCE_PLAYER, ARAGORN);
+    const companyId = companyIdAt(state, RESOURCE_PLAYER);
 
     const ready = {
       ...state,

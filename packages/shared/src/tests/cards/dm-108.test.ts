@@ -26,7 +26,7 @@ import {
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
   buildTestState, resetMint, makeMHState, buildSitePhaseState,
   resolveChain,
-  handCardId, companyIdAt, charIdAt, dispatch, expectInPile,
+  handCardId, companyIdAt, charIdAt, dispatch, expectInPile, RESOURCE_PLAYER, HAZARD_PLAYER,
 } from '../test-helpers.js';
 import { computeLegalActions, Phase, SiteType } from '../../index.js';
 import type { CardInstanceId } from '../../index.js';
@@ -67,8 +67,8 @@ describe('Little Snuffler (dm-108)', () => {
     });
     const gameState = { ...state, phaseState: mhState };
 
-    const snufflerId = handCardId(gameState, 1);
-    const companyId = companyIdAt(gameState, 0);
+    const snufflerId = handCardId(gameState, HAZARD_PLAYER);
+    const companyId = companyIdAt(gameState, RESOURCE_PLAYER);
     const afterPlay = dispatch(gameState, {
       type: 'play-hazard',
       player: PLAYER_2,
@@ -131,8 +131,8 @@ describe('Little Snuffler (dm-108)', () => {
     });
     const gameState = { ...state, phaseState: mhState };
 
-    const snufflerId = handCardId(gameState, 1);
-    const companyId = companyIdAt(gameState, 0);
+    const snufflerId = handCardId(gameState, HAZARD_PLAYER);
+    const companyId = companyIdAt(gameState, RESOURCE_PLAYER);
     const afterPlay = dispatch(gameState, {
       type: 'play-hazard',
       player: PLAYER_2,
@@ -144,7 +144,7 @@ describe('Little Snuffler (dm-108)', () => {
 
     // Defender passes cancel-window, then attacker assigns to Aragorn
     const afterPass = dispatch(afterChain, { type: 'pass', player: PLAYER_1 });
-    const aragornId = charIdAt(afterPass, 0);
+    const aragornId = charIdAt(afterPass, RESOURCE_PLAYER);
     const afterAssign = dispatch(afterPass, {
       type: 'assign-strike',
       player: PLAYER_2,
@@ -161,7 +161,7 @@ describe('Little Snuffler (dm-108)', () => {
 
     // Combat finalized — creature should be in defender's kill pile
     expect(afterStrike.combat).toBeNull();
-    expectInPile(afterStrike, 0, 'killPile', LITTLE_SNUFFLER);
+    expectInPile(afterStrike, RESOURCE_PLAYER, 'killPile', LITTLE_SNUFFLER);
 
     // No constraint should have been added
     expect(afterStrike.activeConstraints).toHaveLength(0);
@@ -197,8 +197,8 @@ describe('Little Snuffler (dm-108)', () => {
     });
     const gameState = { ...state, phaseState: mhState };
 
-    const snufflerId = handCardId(gameState, 1);
-    const companyId = companyIdAt(gameState, 0);
+    const snufflerId = handCardId(gameState, HAZARD_PLAYER);
+    const companyId = companyIdAt(gameState, RESOURCE_PLAYER);
     const afterPlay = dispatch(gameState, {
       type: 'play-hazard',
       player: PLAYER_2,
@@ -210,7 +210,7 @@ describe('Little Snuffler (dm-108)', () => {
 
     // Defender passes cancel-window, attacker assigns to Bilbo
     const afterPass = dispatch(afterChain, { type: 'pass', player: PLAYER_1 });
-    const bilboId = charIdAt(afterPass, 0);
+    const bilboId = charIdAt(afterPass, RESOURCE_PLAYER);
     const afterAssign = dispatch(afterPass, {
       type: 'assign-strike',
       player: PLAYER_2,
@@ -236,7 +236,7 @@ describe('Little Snuffler (dm-108)', () => {
 
       // Combat finalized — creature to attacker's discard (not defeated)
       expect(afterBody.combat).toBeNull();
-      expectInPile(afterBody, 1, 'discardPile', LITTLE_SNUFFLER);
+      expectInPile(afterBody, HAZARD_PLAYER, 'discardPile', LITTLE_SNUFFLER);
 
       // deny-scout-resources constraint should be added
       const constraints = afterBody.activeConstraints;
@@ -248,7 +248,7 @@ describe('Little Snuffler (dm-108)', () => {
     } else {
       // Combat finalized directly (no body check since creature has no body)
       expect(afterStrike.combat).toBeNull();
-      expectInPile(afterStrike, 1, 'discardPile', LITTLE_SNUFFLER);
+      expectInPile(afterStrike, HAZARD_PLAYER, 'discardPile', LITTLE_SNUFFLER);
 
       const constraints = afterStrike.activeConstraints;
       expect(constraints.length).toBeGreaterThanOrEqual(1);
@@ -267,7 +267,7 @@ describe('Little Snuffler (dm-108)', () => {
       hand: [STEALTH, CONCEALMENT],
     });
 
-    const companyId = companyIdAt(state, 0);
+    const companyId = companyIdAt(state, RESOURCE_PLAYER);
 
     // Add the deny-scout-resources constraint targeting P1's company
     const constrained = addConstraint(state, {

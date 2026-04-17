@@ -21,7 +21,7 @@ import {
   ORC_LIEUTENANT,
   Phase,
   buildTestState, resetMint, makeMHState,
-  handCardId, companyIdAt, charIdAt, dispatch, resolveChain,
+  handCardId, companyIdAt, charIdAt, dispatch, resolveChain, RESOURCE_PLAYER, HAZARD_PLAYER,
 } from '../../test-helpers.js';
 import { computeLegalActions, SiteType } from '../../../index.js';
 
@@ -57,8 +57,8 @@ describe('Rule 8.15 — Strike Step 4: Tapping for +1 Support', () => {
     });
     const gameState = { ...state, phaseState: mhState };
 
-    const creatureId = handCardId(gameState, 1);
-    const companyId = companyIdAt(gameState, 0);
+    const creatureId = handCardId(gameState, HAZARD_PLAYER);
+    const companyId = companyIdAt(gameState, RESOURCE_PLAYER);
     const afterPlay = dispatch(gameState, {
       type: 'play-hazard',
       player: PLAYER_2,
@@ -68,9 +68,9 @@ describe('Rule 8.15 — Strike Step 4: Tapping for +1 Support', () => {
     });
     const afterChain = resolveChain(afterPlay);
 
-    const aragornId = charIdAt(afterChain, 0, 0, 0);
-    const bilboId = charIdAt(afterChain, 0, 0, 1);
-    const legolasId = charIdAt(afterChain, 0, 0, 2);
+    const aragornId = charIdAt(afterChain, RESOURCE_PLAYER, 0, 0);
+    const bilboId = charIdAt(afterChain, RESOURCE_PLAYER, 0, 1);
+    const legolasId = charIdAt(afterChain, RESOURCE_PLAYER, 0, 2);
 
     // Assign the single strike to Bilbo (low prowess, well above the
     // need-2 floor) — Aragorn and Legolas remain available to support.

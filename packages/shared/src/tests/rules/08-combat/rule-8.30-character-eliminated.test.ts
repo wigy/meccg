@@ -23,7 +23,7 @@ import {
   buildTestState, resetMint, findCharInstanceId,
   makeShadowMHState, makeBodyCheckCombat, setCharStatus,
   dispatch, viableActions,
-  Phase, companyIdAt, CardStatus,
+  Phase, companyIdAt, CardStatus, RESOURCE_PLAYER,
 } from '../../test-helpers.js';
 
 describe('Rule 8.30 — Character Eliminated from Body Check', () => {
@@ -58,13 +58,13 @@ describe('Rule 8.30 — Character Eliminated from Body Check', () => {
       ],
     });
 
-    const bilboId = findCharInstanceId(state, 0, BILBO);
-    const aragornId = findCharInstanceId(state, 0, ARAGORN);
-    const companyId = companyIdAt(state, 0);
+    const bilboId = findCharInstanceId(state, RESOURCE_PLAYER, BILBO);
+    const aragornId = findCharInstanceId(state, RESOURCE_PLAYER, ARAGORN);
+    const companyId = companyIdAt(state, RESOURCE_PLAYER);
 
     // Wound Bilbo so body check is triggered after strike failure.
     // Body check roll of 12 > Bilbo's body (9) → eliminated.
-    const woundedState = setCharStatus(state, 0, BILBO, CardStatus.Inverted);
+    const woundedState = setCharStatus(state, RESOURCE_PLAYER, BILBO, CardStatus.Inverted);
     const readyState = {
       ...woundedState,
       phaseState: makeShadowMHState(),
@@ -111,12 +111,12 @@ describe('Rule 8.30 — Character Eliminated from Body Check', () => {
       ],
     });
 
-    const bilboId = findCharInstanceId(state, 0, BILBO);
-    const aragornId = findCharInstanceId(state, 0, ARAGORN);
-    const companyId = companyIdAt(state, 0);
+    const bilboId = findCharInstanceId(state, RESOURCE_PLAYER, BILBO);
+    const aragornId = findCharInstanceId(state, RESOURCE_PLAYER, ARAGORN);
+    const companyId = companyIdAt(state, RESOURCE_PLAYER);
     const daggerId = state.players[0].characters[bilboId as string].items[0].instanceId;
 
-    const woundedState = setCharStatus(state, 0, BILBO, CardStatus.Inverted);
+    const woundedState = setCharStatus(state, RESOURCE_PLAYER, BILBO, CardStatus.Inverted);
     const readyState = {
       ...woundedState,
       phaseState: makeShadowMHState(),
@@ -169,11 +169,11 @@ describe('Rule 8.30 — Character Eliminated from Body Check', () => {
       ],
     });
 
-    const bilboId = findCharInstanceId(state, 0, BILBO);
-    const companyId = companyIdAt(state, 0);
+    const bilboId = findCharInstanceId(state, RESOURCE_PLAYER, BILBO);
+    const companyId = companyIdAt(state, RESOURCE_PLAYER);
     const daggerId = state.players[0].characters[bilboId as string].items[0].instanceId;
 
-    const woundedState = setCharStatus(state, 0, BILBO, CardStatus.Inverted);
+    const woundedState = setCharStatus(state, RESOURCE_PLAYER, BILBO, CardStatus.Inverted);
     const readyState = {
       ...woundedState,
       phaseState: makeShadowMHState(),
@@ -225,12 +225,12 @@ describe('Rule 8.30 — Character Eliminated from Body Check', () => {
       ],
     });
 
-    const bilboId = findCharInstanceId(state, 0, BILBO);
-    const aragornId = findCharInstanceId(state, 0, ARAGORN);
-    const gimliId = findCharInstanceId(state, 0, GIMLI);
-    const companyId = companyIdAt(state, 0);
+    const bilboId = findCharInstanceId(state, RESOURCE_PLAYER, BILBO);
+    const aragornId = findCharInstanceId(state, RESOURCE_PLAYER, ARAGORN);
+    const gimliId = findCharInstanceId(state, RESOURCE_PLAYER, GIMLI);
+    const companyId = companyIdAt(state, RESOURCE_PLAYER);
 
-    const woundedState = setCharStatus(state, 0, BILBO, CardStatus.Inverted);
+    const woundedState = setCharStatus(state, RESOURCE_PLAYER, BILBO, CardStatus.Inverted);
     const readyState = {
       ...woundedState,
       phaseState: makeShadowMHState(),
@@ -279,11 +279,11 @@ describe('Rule 8.30 — Character Eliminated from Body Check', () => {
       ],
     });
 
-    const bilboId = findCharInstanceId(state, 0, BILBO);
-    const companyId = companyIdAt(state, 0);
+    const bilboId = findCharInstanceId(state, RESOURCE_PLAYER, BILBO);
+    const companyId = companyIdAt(state, RESOURCE_PLAYER);
 
     // Eliminate Bilbo (no items) — body check roll 12 > body 9
-    const woundedState = setCharStatus(state, 0, BILBO, CardStatus.Inverted);
+    const woundedState = setCharStatus(state, RESOURCE_PLAYER, BILBO, CardStatus.Inverted);
     const readyState = {
       ...woundedState,
       phaseState: makeShadowMHState(),
@@ -324,12 +324,12 @@ describe('Rule 8.30 — Character Eliminated from Body Check', () => {
       ],
     });
 
-    const bilboId = findCharInstanceId(state, 0, BILBO);
-    const companyId = companyIdAt(state, 0);
+    const bilboId = findCharInstanceId(state, RESOURCE_PLAYER, BILBO);
+    const companyId = companyIdAt(state, RESOURCE_PLAYER);
     const daggerId = state.players[0].characters[bilboId as string].items[0].instanceId;
 
     // Eliminate Bilbo — no unwounded companions → skip salvage
-    const woundedState = setCharStatus(state, 0, BILBO, CardStatus.Inverted);
+    const woundedState = setCharStatus(state, RESOURCE_PLAYER, BILBO, CardStatus.Inverted);
     const readyState = {
       ...woundedState,
       phaseState: makeShadowMHState(),

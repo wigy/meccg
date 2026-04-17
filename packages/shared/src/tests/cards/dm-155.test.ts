@@ -25,7 +25,7 @@ import {
   ARAGORN, LEGOLAS,
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH, BANDIT_LAIR,
   buildTestState, buildSitePhaseState, resetMint,
-  viableActions, handCardId, dispatch, companyIdAt, phaseStateAs,
+  viableActions, handCardId, dispatch, companyIdAt, phaseStateAs, RESOURCE_PLAYER,
 } from '../test-helpers.js';
 import { computeLegalActions, Phase } from '../../index.js';
 import type { CardDefinitionId, CardInstanceId, SitePhaseState } from '../../index.js';
@@ -80,7 +80,7 @@ describe('Rebuild the Town (dm-155)', () => {
       hand: [REBUILD_THE_TOWN],
     });
 
-    const cardId = handCardId(state, 0);
+    const cardId = handCardId(state, RESOURCE_PLAYER);
     const afterPlay = dispatch(state, {
       type: 'play-permanent-event',
       player: PLAYER_1,
@@ -137,7 +137,7 @@ describe('Rebuild the Town (dm-155)', () => {
     };
 
     const stateAtEnter = { ...base, phaseState: enterOrSkipState };
-    const cid = companyIdAt(stateAtEnter, 0);
+    const cid = companyIdAt(stateAtEnter, RESOURCE_PLAYER);
 
     // First verify that WITHOUT the constraint, entering site goes to reveal-on-guard-attacks
     const entered = dispatch(stateAtEnter, { type: 'enter-site', player: PLAYER_1, companyId: cid });

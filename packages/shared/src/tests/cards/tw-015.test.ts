@@ -19,7 +19,7 @@ import {
   findCharInstanceId,
   playCreatureHazardAndResolve, runCreatureCombat,
   handCardId, companyIdAt, dispatch, expectCharStatus,
-  viableActions, viableFor,
+  viableActions, viableFor, RESOURCE_PLAYER, HAZARD_PLAYER,
 } from '../test-helpers.js';
 import { Phase, CardStatus } from '../../index.js';
 // ─── Constants ──────────────────────────────────────────────────────────────
@@ -45,8 +45,8 @@ describe('Barrow-wight (tw-015)', () => {
     const mhState = makeShadowMHState();
     const ready = { ...state, phaseState: mhState };
 
-    const bwId = handCardId(ready, 1);
-    const companyId = companyIdAt(ready, 0);
+    const bwId = handCardId(ready, HAZARD_PLAYER);
+    const companyId = companyIdAt(ready, RESOURCE_PLAYER);
     const afterChain = playCreatureHazardAndResolve(ready, PLAYER_2, bwId, companyId, SHADOW_KEYING);
 
     expect(afterChain.combat).not.toBeNull();
@@ -68,8 +68,8 @@ describe('Barrow-wight (tw-015)', () => {
     const mhState = makeShadowMHState();
     const ready = { ...state, phaseState: mhState };
 
-    const bwId = handCardId(ready, 1);
-    const companyId = companyIdAt(ready, 0);
+    const bwId = handCardId(ready, HAZARD_PLAYER);
+    const companyId = companyIdAt(ready, RESOURCE_PLAYER);
     const afterChain = playCreatureHazardAndResolve(ready, PLAYER_2, bwId, companyId, SHADOW_KEYING);
 
     // Strike roll 2: Aragorn prowess 6-3=3 + 2 = 5 < 12 → wounded
@@ -85,7 +85,7 @@ describe('Barrow-wight (tw-015)', () => {
     if (pending[0].kind.type !== 'corruption-check') return;
     expect(pending[0].kind.modifier).toBe(-2);
 
-    const aragornId = findCharInstanceId(afterWound, 0, ARAGORN);
+    const aragornId = findCharInstanceId(afterWound, RESOURCE_PLAYER, ARAGORN);
     expect(pending[0].kind.characterId).toBe(aragornId);
 
     const viable = viableFor(afterWound, PLAYER_1);
@@ -105,8 +105,8 @@ describe('Barrow-wight (tw-015)', () => {
     });
     const ready = { ...state, phaseState: makeShadowMHState() };
 
-    const bwId = handCardId(ready, 1);
-    const companyId = companyIdAt(ready, 0);
+    const bwId = handCardId(ready, HAZARD_PLAYER);
+    const companyId = companyIdAt(ready, RESOURCE_PLAYER);
     const afterChain = playCreatureHazardAndResolve(ready, PLAYER_2, bwId, companyId, SHADOW_KEYING);
     const afterWound = runCreatureCombat(afterChain, ARAGORN, 2, 5);
 
@@ -117,7 +117,7 @@ describe('Barrow-wight (tw-015)', () => {
 
     expect(ccState.pendingResolutions).toHaveLength(0);
 
-    expectCharStatus(ccState, 0, ARAGORN, CardStatus.Inverted);
+    expectCharStatus(ccState, RESOURCE_PLAYER, ARAGORN, CardStatus.Inverted);
   });
 
   test('corruption check fails — character discarded', () => {
@@ -133,8 +133,8 @@ describe('Barrow-wight (tw-015)', () => {
     });
     const ready = { ...state, phaseState: makeShadowMHState() };
 
-    const bwId = handCardId(ready, 1);
-    const companyId = companyIdAt(ready, 0);
+    const bwId = handCardId(ready, HAZARD_PLAYER);
+    const companyId = companyIdAt(ready, RESOURCE_PLAYER);
     const afterChain = playCreatureHazardAndResolve(ready, PLAYER_2, bwId, companyId, SHADOW_KEYING);
     const afterWound = runCreatureCombat(afterChain, ARAGORN, 2, 5);
 
@@ -145,7 +145,7 @@ describe('Barrow-wight (tw-015)', () => {
     const ccState = dispatch({ ...afterWound, cheatRollTotal: 2 }, ccAction);
 
     expect(ccState.pendingResolutions).toHaveLength(0);
-    const aragornId = findCharInstanceId(afterWound, 0, ARAGORN);
+    const aragornId = findCharInstanceId(afterWound, RESOURCE_PLAYER, ARAGORN);
     expect(ccState.players[0].characters[aragornId as string]).toBeUndefined();
   });
 
@@ -161,8 +161,8 @@ describe('Barrow-wight (tw-015)', () => {
     });
     const ready = { ...state, phaseState: makeShadowMHState() };
 
-    const bwId = handCardId(ready, 1);
-    const companyId = companyIdAt(ready, 0);
+    const bwId = handCardId(ready, HAZARD_PLAYER);
+    const companyId = companyIdAt(ready, RESOURCE_PLAYER);
     const afterChain = playCreatureHazardAndResolve(ready, PLAYER_2, bwId, companyId, SHADOW_KEYING);
 
     // High roll: prowess 6-3=3 + roll 10 = 13 > 12 → character wins
@@ -186,8 +186,8 @@ describe('Barrow-wight (tw-015)', () => {
     });
     const ready = { ...state, phaseState: makeShadowMHState() };
 
-    const bwId = handCardId(ready, 1);
-    const companyId = companyIdAt(ready, 0);
+    const bwId = handCardId(ready, HAZARD_PLAYER);
+    const companyId = companyIdAt(ready, RESOURCE_PLAYER);
     const afterChain = playCreatureHazardAndResolve(ready, PLAYER_2, bwId, companyId, SHADOW_KEYING);
     const afterWound = runCreatureCombat(afterChain, ARAGORN, 2, 5);
 

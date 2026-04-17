@@ -20,7 +20,7 @@ import {
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
   buildTestState, resetMint, makeMHState, makeShadowMHState,
   playCreatureHazardAndResolve, runCreatureCombat,
-  handCardId, companyIdAt, expectCharItemCount, phaseStateAs,
+  handCardId, companyIdAt, expectCharItemCount, phaseStateAs, RESOURCE_PLAYER, HAZARD_PLAYER,
 } from '../test-helpers.js';
 import { Phase, RegionType, SiteType } from '../../index.js';
 import type { MovementHazardPhaseState } from '../../index.js';
@@ -49,8 +49,8 @@ describe('Bert (Burat) (tw-016)', () => {
     const mhState = makeShadowMHState();
     const ready = { ...state, phaseState: mhState };
 
-    const bertId = handCardId(ready, 1);
-    const companyId = companyIdAt(ready, 0);
+    const bertId = handCardId(ready, HAZARD_PLAYER);
+    const companyId = companyIdAt(ready, RESOURCE_PLAYER);
     const afterChain = playCreatureHazardAndResolve(ready, PLAYER_2, bertId, companyId, SHADOW_KEYING);
 
     expect(afterChain.combat).not.toBeNull();
@@ -72,8 +72,8 @@ describe('Bert (Burat) (tw-016)', () => {
     const mhState = makeShadowMHState();
     const ready = { ...state, phaseState: mhState };
 
-    const bertId = handCardId(ready, 1);
-    const companyId = companyIdAt(ready, 0);
+    const bertId = handCardId(ready, HAZARD_PLAYER);
+    const companyId = companyIdAt(ready, RESOURCE_PLAYER);
     const afterChain = playCreatureHazardAndResolve(ready, PLAYER_2, bertId, companyId, SHADOW_KEYING);
 
     // Strike roll 2: low → wounded. Body check 5 → survives.
@@ -81,7 +81,7 @@ describe('Bert (Burat) (tw-016)', () => {
     expect(afterWound.combat).toBeNull();
 
     // Items should still be on Aragorn since no prior troll was faced
-    expectCharItemCount(afterWound, 0, ARAGORN, 2);
+    expectCharItemCount(afterWound, RESOURCE_PLAYER, ARAGORN, 2);
 
     // No pending resolutions — effect did not trigger
     expect(afterWound.pendingResolutions).toHaveLength(0);
@@ -105,9 +105,9 @@ describe('Bert (Burat) (tw-016)', () => {
     });
     const ready = { ...state, phaseState: mhState };
 
-    const williamId = handCardId(ready, 1, 0);
-    const bertId = handCardId(ready, 1, 1);
-    const companyId = companyIdAt(ready, 0);
+    const williamId = handCardId(ready, HAZARD_PLAYER, 0);
+    const bertId = handCardId(ready, HAZARD_PLAYER, 1);
+    const companyId = companyIdAt(ready, RESOURCE_PLAYER);
 
     // Play William first — high roll so Aragorn wins
     const afterWilliam = playCreatureHazardAndResolve(ready, PLAYER_2, williamId, companyId, WILDERNESS_KEYING);
@@ -126,7 +126,7 @@ describe('Bert (Burat) (tw-016)', () => {
     expect(afterWound.combat).toBeNull();
 
     // Aragorn's non-special items should be discarded
-    expectCharItemCount(afterWound, 0, ARAGORN, 0);
+    expectCharItemCount(afterWound, RESOURCE_PLAYER, ARAGORN, 0);
 
     // Items should be in the discard pile
     const discardDefIds = afterWound.players[0].discardPile.map(c => c.definitionId);
@@ -152,9 +152,9 @@ describe('Bert (Burat) (tw-016)', () => {
     });
     const ready = { ...state, phaseState: mhState };
 
-    const tomId = handCardId(ready, 1, 0);
-    const bertId = handCardId(ready, 1, 1);
-    const companyId = companyIdAt(ready, 0);
+    const tomId = handCardId(ready, HAZARD_PLAYER, 0);
+    const bertId = handCardId(ready, HAZARD_PLAYER, 1);
+    const companyId = companyIdAt(ready, RESOURCE_PLAYER);
 
     // Play Tom first — Aragorn wins the strike
     const afterTom = playCreatureHazardAndResolve(ready, PLAYER_2, tomId, companyId, WILDERNESS_KEYING);
@@ -168,7 +168,7 @@ describe('Bert (Burat) (tw-016)', () => {
     const afterWound = runCreatureCombat(afterBert, ARAGORN, 2, 5);
 
     // Glamdring should be discarded
-    expectCharItemCount(afterWound, 0, ARAGORN, 0);
+    expectCharItemCount(afterWound, RESOURCE_PLAYER, ARAGORN, 0);
   });
 
   test('character that defeats Bert does not lose items even when William was faced', () => {
@@ -189,9 +189,9 @@ describe('Bert (Burat) (tw-016)', () => {
     });
     const ready = { ...state, phaseState: mhState };
 
-    const williamId = handCardId(ready, 1, 0);
-    const bertId = handCardId(ready, 1, 1);
-    const companyId = companyIdAt(ready, 0);
+    const williamId = handCardId(ready, HAZARD_PLAYER, 0);
+    const bertId = handCardId(ready, HAZARD_PLAYER, 1);
+    const companyId = companyIdAt(ready, RESOURCE_PLAYER);
 
     // Play William — Aragorn wins
     const afterWilliam = playCreatureHazardAndResolve(ready, PLAYER_2, williamId, companyId, WILDERNESS_KEYING);
@@ -202,7 +202,7 @@ describe('Bert (Burat) (tw-016)', () => {
     const afterStrike = runCreatureCombat(afterBert, ARAGORN, 12, null);
 
     // Aragorn wins → no item discard
-    expectCharItemCount(afterStrike, 0, ARAGORN, 1);
+    expectCharItemCount(afterStrike, RESOURCE_PLAYER, ARAGORN, 1);
   });
 
   test('hazardsEncountered tracks creature name after combat', () => {
@@ -218,8 +218,8 @@ describe('Bert (Burat) (tw-016)', () => {
     const mhState = makeShadowMHState();
     const ready = { ...state, phaseState: mhState };
 
-    const bertId = handCardId(ready, 1);
-    const companyId = companyIdAt(ready, 0);
+    const bertId = handCardId(ready, HAZARD_PLAYER);
+    const companyId = companyIdAt(ready, RESOURCE_PLAYER);
     const afterChain = playCreatureHazardAndResolve(ready, PLAYER_2, bertId, companyId, SHADOW_KEYING);
     const afterCombat = runCreatureCombat(afterChain, ARAGORN, 12, null);
 
@@ -240,11 +240,11 @@ describe('Bert (Burat) (tw-016)', () => {
     const mhState = makeShadowMHState();
     const ready = { ...state, phaseState: mhState };
 
-    const bertId = handCardId(ready, 1);
-    const companyId = companyIdAt(ready, 0);
+    const bertId = handCardId(ready, HAZARD_PLAYER);
+    const companyId = companyIdAt(ready, RESOURCE_PLAYER);
     const afterChain = playCreatureHazardAndResolve(ready, PLAYER_2, bertId, companyId, SHADOW_KEYING);
     const afterWound = runCreatureCombat(afterChain, ARAGORN, 2, 5);
 
-    expectCharItemCount(afterWound, 0, ARAGORN, 1);
+    expectCharItemCount(afterWound, RESOURCE_PLAYER, ARAGORN, 1);
   });
 });

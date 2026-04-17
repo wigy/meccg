@@ -20,7 +20,7 @@ import {
   DOL_AMROTH,
   KNIGHTS_OF_DOL_AMROTH,
   buildSitePhaseState, resetMint,
-  findCharInstanceId,
+  findCharInstanceId, RESOURCE_PLAYER,
 } from '../test-helpers.js';
 import { computeLegalActions } from '../../index.js';
 import type { InfluenceAttemptAction } from '../../index.js';
@@ -41,7 +41,7 @@ describe('Knights of Dol Amroth (tw-263)', () => {
       hand: [KNIGHTS_OF_DOL_AMROTH],
     });
 
-    const anbornId = findCharInstanceId(state, 0, ANBORN);
+    const anbornId = findCharInstanceId(state, RESOURCE_PLAYER, ANBORN);
     const actions = computeLegalActions(state, PLAYER_1);
 
     const influenceActions = actions
@@ -70,7 +70,7 @@ describe('Knights of Dol Amroth (tw-263)', () => {
       hand: [KNIGHTS_OF_DOL_AMROTH],
     });
 
-    const legolasId = findCharInstanceId(state, 0, LEGOLAS);
+    const legolasId = findCharInstanceId(state, RESOURCE_PLAYER, LEGOLAS);
     const actions = computeLegalActions(state, PLAYER_1);
 
     const influenceActions = actions

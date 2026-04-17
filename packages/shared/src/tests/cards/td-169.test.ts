@@ -34,7 +34,7 @@ import {
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
   viableActions,
   dispatch, expectInDiscardPile,
-  attachHazardToChar, findCharInstanceId,
+  attachHazardToChar, findCharInstanceId, RESOURCE_PLAYER,
 } from '../test-helpers.js';
 import type { PlayShortEventAction, CardDefinitionId } from '../../index.js';
 
@@ -83,8 +83,8 @@ describe('Wizard Uncloaked (td-169)', () => {
       ],
     });
 
-    state = attachHazardToChar(state, 0, GANDALF, FOOLISH_WORDS);
-    state = attachHazardToChar(state, 0, ARAGORN, LURE_OF_THE_SENSES);
+    state = attachHazardToChar(state, RESOURCE_PLAYER, GANDALF, FOOLISH_WORDS);
+    state = attachHazardToChar(state, RESOURCE_PLAYER, ARAGORN, LURE_OF_THE_SENSES);
 
     const playActions = viableActions(state, PLAYER_1, 'play-short-event');
     expect(playActions).toHaveLength(1);
@@ -98,8 +98,8 @@ describe('Wizard Uncloaked (td-169)', () => {
     expect(returnedDefIds).toContain(LURE_OF_THE_SENSES);
 
     // Characters should have no hazards attached
-    const gandalfId = findCharInstanceId(after, 0, GANDALF);
-    const aragornId = findCharInstanceId(after, 0, ARAGORN);
+    const gandalfId = findCharInstanceId(after, RESOURCE_PLAYER, GANDALF);
+    const aragornId = findCharInstanceId(after, RESOURCE_PLAYER, ARAGORN);
     expect(after.players[0].characters[gandalfId as string].hazards).toHaveLength(0);
     expect(after.players[0].characters[aragornId as string].hazards).toHaveLength(0);
   });
@@ -114,7 +114,7 @@ describe('Wizard Uncloaked (td-169)', () => {
       ],
     });
 
-    state = attachHazardToChar(state, 0, GANDALF, FOOLISH_WORDS);
+    state = attachHazardToChar(state, RESOURCE_PLAYER, GANDALF, FOOLISH_WORDS);
 
     const playActions = viableActions(state, PLAYER_1, 'play-short-event');
     const after = dispatch(state, playActions[0].action);
@@ -124,7 +124,7 @@ describe('Wizard Uncloaked (td-169)', () => {
     const ccKind = after.pendingResolutions[0].kind as { type: 'corruption-check'; modifier: number; characterId: unknown };
     expect(ccKind.modifier).toBe(-2);
 
-    const gandalfId = findCharInstanceId(after, 0, GANDALF);
+    const gandalfId = findCharInstanceId(after, RESOURCE_PLAYER, GANDALF);
     expect(ccKind.characterId).toBe(gandalfId);
   });
 
@@ -142,7 +142,7 @@ describe('Wizard Uncloaked (td-169)', () => {
     const after = dispatch(state, playActions[0].action);
 
     expect(after.players[0].hand).toHaveLength(0);
-    expectInDiscardPile(after, 0, WIZARD_UNCLOAKED);
+    expectInDiscardPile(after, RESOURCE_PLAYER, WIZARD_UNCLOAKED);
   });
 
   test('does not bounce non-permanent hazards (e.g. no hazards to bounce still enqueues corruption check)', () => {
@@ -185,14 +185,14 @@ describe('Wizard Uncloaked (td-169)', () => {
     });
 
     // Attach hazard to Aragorn who is in a DIFFERENT company from Gandalf
-    state = attachHazardToChar(state, 0, ARAGORN, FOOLISH_WORDS);
+    state = attachHazardToChar(state, RESOURCE_PLAYER, ARAGORN, FOOLISH_WORDS);
 
     const playActions = viableActions(state, PLAYER_1, 'play-short-event');
     const after = dispatch(state, playActions[0].action);
 
     // Aragorn's hazard should NOT be bounced (different company)
     expect(after.players[1].hand).toHaveLength(0);
-    const aragornId = findCharInstanceId(after, 0, ARAGORN);
+    const aragornId = findCharInstanceId(after, RESOURCE_PLAYER, ARAGORN);
     expect(after.players[0].characters[aragornId as string].hazards).toHaveLength(1);
   });
 });

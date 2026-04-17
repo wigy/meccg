@@ -40,6 +40,20 @@ import {
 export const PLAYER_1 = 'p1' as PlayerId;
 export const PLAYER_2 = 'p2' as PlayerId;
 
+/**
+ * Player index convention for tests: unless a test deliberately flips
+ * roles, player 0 is the resource (active) player and player 1 is the
+ * hazard (opponent) player. Prefer these constants over bare `0` / `1`
+ * when calling helpers like `charIdAt`, `getCharacter`, `handCardId`,
+ * `attachHazardToChar`, etc., so test intent reads at the call site.
+ *
+ * For tests whose `activePlayer` is `PLAYER_2`, the convention does not
+ * apply — use bare indices (with a short comment) or add a local
+ * `const HERO_IDX = 1;` to clarify.
+ */
+export const RESOURCE_PLAYER = 0;
+export const HAZARD_PLAYER = 1;
+
 export const pool = loadCardPool();
 
 const THE_ONE_RING = 'tw-347' as CardDefinitionId;

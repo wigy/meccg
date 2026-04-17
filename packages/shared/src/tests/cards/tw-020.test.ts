@@ -21,7 +21,7 @@ import {
   buildTestState, resetMint, makeWildernessMHState,
   resolveChain,
   handCardId, companyIdAt, dispatch,
-  viableActions, viableFor,
+  viableActions, viableFor, RESOURCE_PLAYER, HAZARD_PLAYER,
 } from '../test-helpers.js';
 import { Phase } from '../../index.js';
 // ─── Tests ───────────────────────────────────────────────────────────────────
@@ -58,8 +58,8 @@ describe('Cave-drake (tw-020)', () => {
     const gameState = { ...state, phaseState: mhState };
 
     // P2 plays Cave-drake targeting P1's company
-    const cavedrakeId = handCardId(gameState, 1);
-    const companyId = companyIdAt(gameState, 0);
+    const cavedrakeId = handCardId(gameState, HAZARD_PLAYER);
+    const companyId = companyIdAt(gameState, RESOURCE_PLAYER);
     const afterPlay = dispatch(gameState, {
       type: 'play-hazard',
       player: PLAYER_2,
@@ -102,8 +102,8 @@ describe('Cave-drake (tw-020)', () => {
     const mhState = makeWildernessMHState();
     const gameState = { ...state, phaseState: mhState };
 
-    const cavedrakeId = handCardId(gameState, 1);
-    const companyId = companyIdAt(gameState, 0);
+    const cavedrakeId = handCardId(gameState, HAZARD_PLAYER);
+    const companyId = companyIdAt(gameState, RESOURCE_PLAYER);
     const afterPlay = dispatch(gameState, {
       type: 'play-hazard',
       player: PLAYER_2,
@@ -150,8 +150,8 @@ describe('Cave-drake (tw-020)', () => {
     const mhState = makeWildernessMHState();
     const gameState = { ...state, phaseState: mhState };
 
-    const orcId = handCardId(gameState, 1);
-    const companyId = companyIdAt(gameState, 0);
+    const orcId = handCardId(gameState, HAZARD_PLAYER);
+    const companyId = companyIdAt(gameState, RESOURCE_PLAYER);
     const afterPlay = dispatch(gameState, {
       type: 'play-hazard',
       player: PLAYER_2,

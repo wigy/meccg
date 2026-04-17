@@ -28,7 +28,7 @@ import { describe, test, beforeEach, expect } from 'vitest';
 import {
   buildSitePhaseState, resetMint, PLAYER_1, PLAYER_2,
   playPermanentEventAndResolve, handCardId,
-  attachItemToChar, findCharInstanceId,
+  attachItemToChar, findCharInstanceId, RESOURCE_PLAYER,
 } from '../test-helpers.js';
 import {
   computeLegalActions, reduce, Phase, CardStatus,
@@ -51,7 +51,7 @@ describe('tw-348 The White Tree', () => {
       characters: [ELROND],
       hand: [THE_WHITE_TREE],
     });
-    state = attachItemToChar(state, 0, ELROND, SAPLING_OF_THE_WHITE_TREE);
+    state = attachItemToChar(state, RESOURCE_PLAYER, ELROND, SAPLING_OF_THE_WHITE_TREE);
 
     const actions = computeLegalActions(state, PLAYER_1);
     const playActions = actions
@@ -105,7 +105,7 @@ describe('tw-348 The White Tree', () => {
       characters: [ELROND],
       hand: [THE_WHITE_TREE],
     });
-    state = attachItemToChar(state, 0, ELROND, SAPLING_OF_THE_WHITE_TREE);
+    state = attachItemToChar(state, RESOURCE_PLAYER, ELROND, SAPLING_OF_THE_WHITE_TREE);
 
     const actions = computeLegalActions(state, PLAYER_1);
     const playActions = actions
@@ -119,7 +119,7 @@ describe('tw-348 The White Tree', () => {
       characters: [ARAGORN],
       hand: [THE_WHITE_TREE],
     });
-    state = attachItemToChar(state, 0, ARAGORN, SAPLING_OF_THE_WHITE_TREE);
+    state = attachItemToChar(state, RESOURCE_PLAYER, ARAGORN, SAPLING_OF_THE_WHITE_TREE);
 
     const actions = computeLegalActions(state, PLAYER_1);
     const playActions = actions
@@ -133,11 +133,11 @@ describe('tw-348 The White Tree', () => {
       characters: [ELROND],
       hand: [THE_WHITE_TREE],
     });
-    state = attachItemToChar(state, 0, ELROND, SAPLING_OF_THE_WHITE_TREE);
+    state = attachItemToChar(state, RESOURCE_PLAYER, ELROND, SAPLING_OF_THE_WHITE_TREE);
 
-    const elrondId = findCharInstanceId(state, 0, ELROND);
+    const elrondId = findCharInstanceId(state, RESOURCE_PLAYER, ELROND);
     const saplingId = state.players[0].characters[elrondId as string].items[0].instanceId;
-    const whiteTreeId = handCardId(state, 0);
+    const whiteTreeId = handCardId(state, RESOURCE_PLAYER);
 
     state = playPermanentEventAndResolve(state, PLAYER_1, whiteTreeId, undefined, {
       targetSiteDefinitionId: MINAS_TIRITH,
@@ -175,7 +175,7 @@ describe('tw-348 The White Tree', () => {
     const updatedP0 = { ...p0, outOfPlayPile: [...p0.outOfPlayPile, saplingInstance] };
     state = { ...state, players: [updatedP0, state.players[1]] } as typeof state;
 
-    const whiteTreeId = handCardId(state, 0);
+    const whiteTreeId = handCardId(state, RESOURCE_PLAYER);
 
     state = playPermanentEventAndResolve(state, PLAYER_1, whiteTreeId, undefined, {
       targetSiteDefinitionId: MINAS_TIRITH,
@@ -202,11 +202,11 @@ describe('tw-348 The White Tree', () => {
       characters: [ELROND],
       hand: [THE_WHITE_TREE],
     });
-    state = attachItemToChar(state, 0, ELROND, SAPLING_OF_THE_WHITE_TREE);
+    state = attachItemToChar(state, RESOURCE_PLAYER, ELROND, SAPLING_OF_THE_WHITE_TREE);
 
-    const elrondId = findCharInstanceId(state, 0, ELROND);
+    const elrondId = findCharInstanceId(state, RESOURCE_PLAYER, ELROND);
     const saplingId = state.players[0].characters[elrondId as string].items[0].instanceId;
-    const whiteTreeId = handCardId(state, 0);
+    const whiteTreeId = handCardId(state, RESOURCE_PLAYER);
 
     state = playPermanentEventAndResolve(state, PLAYER_1, whiteTreeId, undefined, {
       targetSiteDefinitionId: MINAS_TIRITH,
@@ -274,7 +274,7 @@ describe('tw-348 The White Tree', () => {
     expect(result.error).toBeUndefined();
 
     // Wounded character should heal to tapped (like at a haven)
-    const elrondId = findCharInstanceId(result.state, 0, ELROND);
+    const elrondId = findCharInstanceId(result.state, RESOURCE_PLAYER, ELROND);
     const elrond = result.state.players[0].characters[elrondId as string];
     expect(elrond.status).toBe(CardStatus.Tapped);
   });
@@ -303,7 +303,7 @@ describe('tw-348 The White Tree', () => {
     expect(result.error).toBeUndefined();
 
     // Without the constraint, Minas Tirith is a free-hold — no healing
-    const elrondId = findCharInstanceId(result.state, 0, ELROND);
+    const elrondId = findCharInstanceId(result.state, RESOURCE_PLAYER, ELROND);
     const elrond = result.state.players[0].characters[elrondId as string];
     expect(elrond.status).toBe(CardStatus.Inverted);
   });
@@ -314,7 +314,7 @@ describe('tw-348 The White Tree', () => {
       characters: [ELROND],
       hand: [THE_WHITE_TREE],
     });
-    state = attachItemToChar(state, 0, ELROND, SAPLING_OF_THE_WHITE_TREE);
+    state = attachItemToChar(state, RESOURCE_PLAYER, ELROND, SAPLING_OF_THE_WHITE_TREE);
 
     // Put The White Tree already in play
     const wtInPlay = { instanceId: mint(), definitionId: THE_WHITE_TREE, status: CardStatus.Untapped };

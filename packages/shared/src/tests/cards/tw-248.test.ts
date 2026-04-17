@@ -34,7 +34,7 @@ import {
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH, EDHELLOND,
   mint,
   makeMHState,
-  handCardId, charIdAt, companyIdAt, dispatch,
+  handCardId, charIdAt, companyIdAt, dispatch, RESOURCE_PLAYER,
 } from '../test-helpers.js';
 import type {
   CardDefinitionId, CardInstanceId, CompanyId, ActiveConstraint,
@@ -94,7 +94,7 @@ describe('Great Ship (tw-248)', () => {
         { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [MINAS_TIRITH] },
       ],
     });
-    const greatShipInstance = handCardId(base, 0);
+    const greatShipInstance = handCardId(base, RESOURCE_PLAYER);
 
     const playActions = computeLegalActions(base, PLAYER_1)
       .filter(ea => ea.viable && ea.action.type === 'play-short-event')
@@ -113,9 +113,9 @@ describe('Great Ship (tw-248)', () => {
         { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [MINAS_TIRITH] },
       ],
     });
-    const greatShipInstance = handCardId(base, 0);
-    const aragornInstance = charIdAt(base, 0);
-    const companyId = companyIdAt(base, 0);
+    const greatShipInstance = handCardId(base, RESOURCE_PLAYER);
+    const aragornInstance = charIdAt(base, RESOURCE_PLAYER);
+    const companyId = companyIdAt(base, RESOURCE_PLAYER);
 
     const nextState = dispatch(base, {
       type: 'play-short-event',
@@ -146,8 +146,8 @@ describe('Great Ship (tw-248)', () => {
         { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [MINAS_TIRITH] },
       ],
     });
-    const greatShipInstance = handCardId(base, 0);
-    const aragornInstance = charIdAt(base, 0);
+    const greatShipInstance = handCardId(base, RESOURCE_PLAYER);
+    const aragornInstance = charIdAt(base, RESOURCE_PLAYER);
 
     const afterPlay = dispatch(base, {
       type: 'play-short-event',
@@ -168,7 +168,7 @@ describe('Great Ship (tw-248)', () => {
         { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [MINAS_TIRITH] },
       ],
     });
-    const aragornInstance = charIdAt(base, 0);
+    const aragornInstance = charIdAt(base, RESOURCE_PLAYER);
     const tappedState = {
       ...base,
       players: [
@@ -202,9 +202,9 @@ describe('Great Ship (tw-248)', () => {
       ],
     });
 
-    const companyId = companyIdAt(base, 0);
-    const aragornInstance = charIdAt(base, 0, 0, 0);
-    const gandalfInstance = charIdAt(base, 0, 0, 1);
+    const companyId = companyIdAt(base, RESOURCE_PLAYER);
+    const aragornInstance = charIdAt(base, RESOURCE_PLAYER, 0, 0);
+    const gandalfInstance = charIdAt(base, RESOURCE_PLAYER, 0, 1);
 
     const mhState = makeMHState({
       activeCompanyIndex: 0,
@@ -246,7 +246,7 @@ describe('Great Ship (tw-248)', () => {
       ],
     });
 
-    const companyId = companyIdAt(base, 0);
+    const companyId = companyIdAt(base, RESOURCE_PLAYER);
     const mhState = makeMHState({
       activeCompanyIndex: 0,
       resolvedSitePath: [RegionType.Wilderness, RegionType.Wilderness],
@@ -281,7 +281,7 @@ describe('Great Ship (tw-248)', () => {
       ],
     });
 
-    const companyId = companyIdAt(base, 0);
+    const companyId = companyIdAt(base, RESOURCE_PLAYER);
     const mhState = makeMHState({
       activeCompanyIndex: 0,
       resolvedSitePath: [RegionType.Coastal, RegionType.Wilderness, RegionType.Free, RegionType.Coastal],
@@ -316,7 +316,7 @@ describe('Great Ship (tw-248)', () => {
       ],
     });
 
-    const companyId = companyIdAt(base, 0);
+    const companyId = companyIdAt(base, RESOURCE_PLAYER);
     const mhState = makeMHState({
       activeCompanyIndex: 0,
       resolvedSitePath: [RegionType.Coastal, RegionType.Free, RegionType.Coastal, RegionType.Coastal],
@@ -351,7 +351,7 @@ describe('Great Ship (tw-248)', () => {
       ],
     });
 
-    const companyId = companyIdAt(base, 0);
+    const companyId = companyIdAt(base, RESOURCE_PLAYER);
     const mhState = makeMHState({
       activeCompanyIndex: 0,
       resolvedSitePath: [RegionType.Coastal, RegionType.Coastal],
@@ -376,7 +376,7 @@ describe('Great Ship (tw-248)', () => {
       ],
     });
 
-    const aragornInstance = charIdAt(base, 0);
+    const aragornInstance = charIdAt(base, RESOURCE_PLAYER);
     const mhState = makeMHState({
       activeCompanyIndex: 0,
       resolvedSitePath: [RegionType.Coastal, RegionType.Coastal],
@@ -391,7 +391,7 @@ describe('Great Ship (tw-248)', () => {
       { type: 'creature' },
     );
 
-    const companyId = companyIdAt(base, 0);
+    const companyId = companyIdAt(base, RESOURCE_PLAYER);
     const sourceId = mint();
     const constrained = addConstraint(withChain, greatShipConstraint(sourceId, companyId));
 
@@ -419,7 +419,7 @@ describe('Great Ship (tw-248)', () => {
       ],
     });
 
-    const companyId = companyIdAt(base, 0);
+    const companyId = companyIdAt(base, RESOURCE_PLAYER);
     const constrained = addConstraint(base, greatShipConstraint(mint(), companyId));
     expect(constrained.activeConstraints).toHaveLength(1);
 
@@ -436,8 +436,8 @@ describe('Great Ship (tw-248)', () => {
         { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [MINAS_TIRITH] },
       ],
     });
-    const greatShipInstance = handCardId(base, 0);
-    const aragornInstance = charIdAt(base, 0);
+    const greatShipInstance = handCardId(base, RESOURCE_PLAYER);
+    const aragornInstance = charIdAt(base, RESOURCE_PLAYER);
 
     const nextState = dispatch(base, {
       type: 'play-short-event',

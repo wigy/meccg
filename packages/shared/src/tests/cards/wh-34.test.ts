@@ -24,7 +24,7 @@ import {
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
   viableActions, CardStatus,
   charIdAt, dispatch, setCharStatus,
-  expectCharStatus, attachItemToChar,
+  expectCharStatus, attachItemToChar, RESOURCE_PLAYER,
 } from '../test-helpers.js';
 import type { PlayPermanentEventAction, ActivateGrantedAction, CardDefinitionId } from '../../index.js';
 import { computeLegalActions } from '../../index.js';
@@ -52,8 +52,8 @@ describe('Promptings of Wisdom (wh-34)', () => {
     const targets = playActions.map(
       ea => (ea.action as PlayPermanentEventAction).targetCharacterId,
     );
-    const aragornId = charIdAt(state, 0, 0, 0);
-    const faramirId = charIdAt(state, 0, 0, 1);
+    const aragornId = charIdAt(state, RESOURCE_PLAYER, 0, 0);
+    const faramirId = charIdAt(state, RESOURCE_PLAYER, 0, 1);
     expect(new Set(targets)).toEqual(new Set([aragornId, faramirId]));
   });
 
@@ -89,7 +89,7 @@ describe('Promptings of Wisdom (wh-34)', () => {
       ],
     });
 
-    const withPoW = attachItemToChar(base, 0, ARAGORN, PROMPTINGS_OF_WISDOM);
+    const withPoW = attachItemToChar(base, RESOURCE_PLAYER, ARAGORN, PROMPTINGS_OF_WISDOM);
 
     const playActions = viableActions(withPoW, PLAYER_1, 'play-permanent-event');
     expect(playActions).toHaveLength(0);
@@ -113,13 +113,13 @@ describe('Promptings of Wisdom (wh-34)', () => {
       ],
     });
 
-    const withPoW = attachItemToChar(base, 0, ARAGORN, PROMPTINGS_OF_WISDOM);
+    const withPoW = attachItemToChar(base, RESOURCE_PLAYER, ARAGORN, PROMPTINGS_OF_WISDOM);
 
     const playActions = viableActions(withPoW, PLAYER_1, 'play-permanent-event');
     expect(playActions).toHaveLength(1);
 
     const target = (playActions[0].action as PlayPermanentEventAction).targetCharacterId;
-    const faramirId = charIdAt(withPoW, 0, 1, 0);
+    const faramirId = charIdAt(withPoW, RESOURCE_PLAYER, 1, 0);
     expect(target).toBe(faramirId);
   });
 
@@ -135,7 +135,7 @@ describe('Promptings of Wisdom (wh-34)', () => {
       ],
     });
 
-    const withPoW = attachItemToChar(base, 0, ARAGORN, PROMPTINGS_OF_WISDOM);
+    const withPoW = attachItemToChar(base, RESOURCE_PLAYER, ARAGORN, PROMPTINGS_OF_WISDOM);
     const actions = viableActions(withPoW, PLAYER_1, 'activate-granted-action');
     expect(actions).toHaveLength(1);
 
@@ -153,8 +153,8 @@ describe('Promptings of Wisdom (wh-34)', () => {
       ],
     });
 
-    const withPoW = attachItemToChar(base, 0, ARAGORN, PROMPTINGS_OF_WISDOM);
-    const tapped = setCharStatus(withPoW, 0, ARAGORN, CardStatus.Tapped);
+    const withPoW = attachItemToChar(base, RESOURCE_PLAYER, ARAGORN, PROMPTINGS_OF_WISDOM);
+    const tapped = setCharStatus(withPoW, RESOURCE_PLAYER, ARAGORN, CardStatus.Tapped);
 
     const actions = viableActions(tapped, PLAYER_1, 'activate-granted-action');
     expect(actions).toHaveLength(0);
@@ -170,13 +170,13 @@ describe('Promptings of Wisdom (wh-34)', () => {
       ],
     });
 
-    const withPoW = attachItemToChar(base, 0, ARAGORN, PROMPTINGS_OF_WISDOM);
+    const withPoW = attachItemToChar(base, RESOURCE_PLAYER, ARAGORN, PROMPTINGS_OF_WISDOM);
     const actions = viableActions(withPoW, PLAYER_1, 'activate-granted-action');
     expect(actions).toHaveLength(1);
 
     const after = dispatch(withPoW, actions[0].action);
 
-    expectCharStatus(after, 0, ARAGORN, CardStatus.Tapped);
+    expectCharStatus(after, RESOURCE_PLAYER, ARAGORN, CardStatus.Tapped);
 
     expect(after.activeConstraints).toHaveLength(1);
     const constraint = after.activeConstraints[0];
@@ -187,7 +187,7 @@ describe('Promptings of Wisdom (wh-34)', () => {
     expect(after.pendingResolutions).toHaveLength(1);
     expect(after.pendingResolutions[0].kind.type).toBe('corruption-check');
     if (after.pendingResolutions[0].kind.type === 'corruption-check') {
-      const aragornId = charIdAt(after, 0, 0, 0);
+      const aragornId = charIdAt(after, RESOURCE_PLAYER, 0, 0);
       expect(after.pendingResolutions[0].kind.characterId).toBe(aragornId);
       expect(after.pendingResolutions[0].kind.reason).toBe('Promptings of Wisdom');
     }

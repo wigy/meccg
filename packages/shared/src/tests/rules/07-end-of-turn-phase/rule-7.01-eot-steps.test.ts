@@ -22,7 +22,7 @@ import {
   PLAYER_1, PLAYER_2,
   SUN, CAVE_DRAKE,
   DAGGER_OF_WESTERNESSE,
-  Phase, handCardId, eotState, phaseStateAs, actionAs,
+  Phase, handCardId, eotState, phaseStateAs, actionAs, RESOURCE_PLAYER,
 } from '../../test-helpers.js';
 import type { DiscardCardAction, DrawCardsAction, EndOfTurnPhaseState } from '../../../index.js';
 
@@ -99,7 +99,7 @@ describe('Rule 7.01 — End-of-Turn Steps', () => {
     // legal action is pass — the engine doesn't get stuck when hand
     // becomes empty mid-step.
     const state = eotState({ p1Hand: [SUN] });
-    const sunId = handCardId(state, 0);
+    const sunId = handCardId(state, RESOURCE_PLAYER);
 
     const afterDiscard = dispatch(state, { type: 'discard-card', player: PLAYER_1, cardInstanceId: sunId });
     expect(afterDiscard.players[0].discardPile.some(c => c.instanceId === sunId)).toBe(true);

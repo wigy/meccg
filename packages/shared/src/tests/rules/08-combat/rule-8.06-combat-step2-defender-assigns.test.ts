@@ -27,7 +27,7 @@ import {
   makeWildernessMHState,
   dispatch, resolveChain, setCharStatus, findCharInstanceId,
   handCardId, companyIdAt, viableActions, viableFor,
-  CardStatus,
+  CardStatus, RESOURCE_PLAYER, HAZARD_PLAYER,
 } from '../../test-helpers.js';
 import type { AssignStrikeAction } from '../../../index.js';
 import { Phase } from '../../../index.js';
@@ -66,13 +66,13 @@ describe('Rule 8.06 — Step 2: Defending Player Assigns Strikes', () => {
     });
 
     // Tap Aragorn so he is not eligible to face a strike.
-    const tapped = setCharStatus(state, 0, ARAGORN, CardStatus.Tapped);
+    const tapped = setCharStatus(state, RESOURCE_PLAYER, ARAGORN, CardStatus.Tapped);
 
     const mhState = makeWildernessMHState();
     const gameState = { ...tapped, phaseState: mhState };
 
-    const orcId = handCardId(gameState, 1);
-    const companyId = companyIdAt(gameState, 0);
+    const orcId = handCardId(gameState, HAZARD_PLAYER);
+    const companyId = companyIdAt(gameState, RESOURCE_PLAYER);
     const afterHazard = dispatch(gameState, {
       type: 'play-hazard',
       player: PLAYER_2,
@@ -90,9 +90,9 @@ describe('Rule 8.06 — Step 2: Defending Player Assigns Strikes', () => {
     const assigns = defActions.filter(a => a.action.type === 'assign-strike').map(a => a.action as AssignStrikeAction);
     expect(assigns).toHaveLength(2);
 
-    const aragornId = findCharInstanceId(afterChain, 0, ARAGORN);
-    const frodoId = findCharInstanceId(afterChain, 0, FRODO);
-    const bilboId = findCharInstanceId(afterChain, 0, BILBO);
+    const aragornId = findCharInstanceId(afterChain, RESOURCE_PLAYER, ARAGORN);
+    const frodoId = findCharInstanceId(afterChain, RESOURCE_PLAYER, FRODO);
+    const bilboId = findCharInstanceId(afterChain, RESOURCE_PLAYER, BILBO);
 
     const targetIds = assigns.map(a => a.characterId);
     expect(targetIds).toEqual(expect.arrayContaining([frodoId, bilboId]));
@@ -135,14 +135,14 @@ describe('Rule 8.06 — Step 2: Defending Player Assigns Strikes', () => {
     });
 
     // Attach Gwaihir to Frodo
-    const withAlly = attachAllyToChar(state, 0, FRODO, GWAIHIR);
+    const withAlly = attachAllyToChar(state, RESOURCE_PLAYER, FRODO, GWAIHIR);
 
     const mhState = makeWildernessMHState();
     const gameState = { ...withAlly, phaseState: mhState };
 
     // P2 plays Cave-drake targeting P1's company
-    const cavedrakeId = handCardId(gameState, 1);
-    const companyId = companyIdAt(gameState, 0);
+    const cavedrakeId = handCardId(gameState, HAZARD_PLAYER);
+    const companyId = companyIdAt(gameState, RESOURCE_PLAYER);
     const afterHazard = dispatch(gameState, {
       type: 'play-hazard',
       player: PLAYER_2,
@@ -199,14 +199,14 @@ describe('Rule 8.06 — Step 2: Defending Player Assigns Strikes', () => {
     });
 
     // Attach Gwaihir to Frodo
-    const withAlly = attachAllyToChar(state, 0, FRODO, GWAIHIR);
+    const withAlly = attachAllyToChar(state, RESOURCE_PLAYER, FRODO, GWAIHIR);
 
     const mhState = makeWildernessMHState();
     const gameState = { ...withAlly, phaseState: mhState };
 
     // P2 plays Orc-patrol targeting P1's company
-    const orcId = handCardId(gameState, 1);
-    const companyId = companyIdAt(gameState, 0);
+    const orcId = handCardId(gameState, HAZARD_PLAYER);
+    const companyId = companyIdAt(gameState, RESOURCE_PLAYER);
     const afterHazard = dispatch(gameState, {
       type: 'play-hazard',
       player: PLAYER_2,

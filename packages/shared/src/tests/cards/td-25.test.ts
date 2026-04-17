@@ -38,7 +38,7 @@ import {
   viableActions, CardStatus,
   handCardId, charIdAt, dispatch, setCharStatus,
   expectCharStatus, expectInDiscardPile,
-  actionAs,
+  actionAs, RESOURCE_PLAYER, HAZARD_PLAYER,
 } from '../test-helpers.js';
 import type { PlayHazardAction, InfluenceAttemptAction, FactionInfluenceRollAction, ActivateGrantedAction, PlaceOnGuardAction, RevealOnGuardAction } from '../../index.js';
 import { computeLegalActions } from '../../engine/legal-actions/index.js';
@@ -87,8 +87,8 @@ describe('Foolish Words (td-25)', () => {
     expect(uniqueTargets.size).toBe(2);
 
     // Both characters from PLAYER_1's company should be targets
-    const aragornId = charIdAt(mhGameState, 0, 0, 0);
-    const gandalfId = charIdAt(mhGameState, 0, 0, 1);
+    const aragornId = charIdAt(mhGameState, RESOURCE_PLAYER, 0, 0);
+    const gandalfId = charIdAt(mhGameState, RESOURCE_PLAYER, 0, 1);
     expect(uniqueTargets.has(aragornId)).toBe(true);
     expect(uniqueTargets.has(gandalfId)).toBe(true);
   });
@@ -104,7 +104,7 @@ describe('Foolish Words (td-25)', () => {
       ],
     });
 
-    const withFWState = attachHazardToChar(base, 0, ARAGORN, FOOLISH_WORDS);
+    const withFWState = attachHazardToChar(base, RESOURCE_PLAYER, ARAGORN, FOOLISH_WORDS);
     const sitePhase = makeSitePhase();
     const testState = { ...withFWState, phaseState: sitePhase };
     const cleanState = { ...base, phaseState: sitePhase };
@@ -147,7 +147,7 @@ describe('Foolish Words (td-25)', () => {
     expect(ogActions).toHaveLength(1);
 
     // The card being placed is Foolish Words
-    const fwInstanceId = handCardId(mhGameState, 1);
+    const fwInstanceId = handCardId(mhGameState, HAZARD_PLAYER);
     const action = actionAs<PlaceOnGuardAction>(ogActions[0].action);
     expect(action.cardInstanceId).toBe(fwInstanceId);
   });
@@ -162,7 +162,7 @@ describe('Foolish Words (td-25)', () => {
       ],
     });
 
-    const withFW = attachHazardToChar(base, 0, ARAGORN, FOOLISH_WORDS);
+    const withFW = attachHazardToChar(base, RESOURCE_PLAYER, ARAGORN, FOOLISH_WORDS);
     const actions = viableActions(withFW, PLAYER_1, 'activate-granted-action');
     expect(actions.length).toBe(1);
 
@@ -181,9 +181,9 @@ describe('Foolish Words (td-25)', () => {
       ],
     });
 
-    const withFW = attachHazardToChar(base, 0, ARAGORN, FOOLISH_WORDS);
+    const withFW = attachHazardToChar(base, RESOURCE_PLAYER, ARAGORN, FOOLISH_WORDS);
     // Tap the character
-    const tappedState = setCharStatus(withFW, 0, ARAGORN, CardStatus.Tapped);
+    const tappedState = setCharStatus(withFW, RESOURCE_PLAYER, ARAGORN, CardStatus.Tapped);
 
     const actions = viableActions(tappedState, PLAYER_1, 'activate-granted-action');
     expect(actions.length).toBe(0);
@@ -199,7 +199,7 @@ describe('Foolish Words (td-25)', () => {
       ],
     });
 
-    const withFW = attachHazardToChar(base, 0, ARAGORN, FOOLISH_WORDS);
+    const withFW = attachHazardToChar(base, RESOURCE_PLAYER, ARAGORN, FOOLISH_WORDS);
     // Cheat the roll to 8 (just above 7 = success)
     const cheated = { ...withFW, cheatRollTotal: 8 };
 
@@ -209,14 +209,14 @@ describe('Foolish Words (td-25)', () => {
     const next = dispatch(cheated, actions[0].action);
 
     // Character should be tapped
-    expectCharStatus(next, 0, ARAGORN, CardStatus.Tapped);
+    expectCharStatus(next, RESOURCE_PLAYER, ARAGORN, CardStatus.Tapped);
 
     // Foolish Words should be removed from character's hazards
-    const aragornId = charIdAt(next, 0);
+    const aragornId = charIdAt(next, RESOURCE_PLAYER);
     expect(next.players[0].characters[aragornId as string].hazards).toHaveLength(0);
 
     // Foolish Words should be in opponent's discard pile (hazard belongs to opponent)
-    expectInDiscardPile(next, 1, FOOLISH_WORDS);
+    expectInDiscardPile(next, HAZARD_PLAYER, FOOLISH_WORDS);
   });
 
   test('failed removal roll (<=7) keeps Foolish Words attached and taps character', () => {
@@ -229,7 +229,7 @@ describe('Foolish Words (td-25)', () => {
       ],
     });
 
-    const withFW = attachHazardToChar(base, 0, ARAGORN, FOOLISH_WORDS);
+    const withFW = attachHazardToChar(base, RESOURCE_PLAYER, ARAGORN, FOOLISH_WORDS);
     // Cheat the roll to 7 (exactly 7 = failure, need > 7)
     const cheated = { ...withFW, cheatRollTotal: 7 };
 
@@ -239,10 +239,10 @@ describe('Foolish Words (td-25)', () => {
     const next = dispatch(cheated, actions[0].action);
 
     // Character should be tapped
-    expectCharStatus(next, 0, ARAGORN, CardStatus.Tapped);
+    expectCharStatus(next, RESOURCE_PLAYER, ARAGORN, CardStatus.Tapped);
 
     // Foolish Words should still be attached
-    const aragornId = charIdAt(next, 0);
+    const aragornId = charIdAt(next, RESOURCE_PLAYER);
     expect(next.players[0].characters[aragornId as string].hazards).toHaveLength(1);
     expect(next.players[0].characters[aragornId as string].hazards[0].definitionId).toBe(FOOLISH_WORDS);
 
@@ -261,7 +261,7 @@ describe('Foolish Words (td-25)', () => {
       ],
     });
 
-    const { state: withOG, ogCard } = placeOnGuard(base, 0, 0, FOOLISH_WORDS);
+    const { state: withOG, ogCard } = placeOnGuard(base, RESOURCE_PLAYER, 0, FOOLISH_WORDS);
     const testState = { ...withOG, phaseState: makeSitePhase() };
 
     // PLAYER_1 declares influence-attempt → on-guard window opens

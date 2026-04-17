@@ -22,7 +22,7 @@ import {
   buildTestState, resetMint,
   findCharInstanceId, buildSitePhaseState,
   enqueueTransferCorruptionCheck,
-  getCharacter,
+  getCharacter, RESOURCE_PLAYER,
 } from '../test-helpers.js';
 import { computeLegalActions } from '../../index.js';
 import type { InfluenceAttemptAction, CorruptionCheckAction } from '../../index.js';
@@ -51,8 +51,8 @@ describe('Haldir (tw-164)', () => {
       ],
     });
 
-    const haldirId = findCharInstanceId(state, 0, HALDIR);
-    const glamdringInstId = getCharacter(state, 0, HALDIR).items[0].instanceId;
+    const haldirId = findCharInstanceId(state, RESOURCE_PLAYER, HALDIR);
+    const glamdringInstId = getCharacter(state, RESOURCE_PLAYER, HALDIR).items[0].instanceId;
 
     const stateWithCheck = enqueueTransferCorruptionCheck(state, PLAYER_1, haldirId, glamdringInstId);
 
@@ -81,7 +81,7 @@ describe('Haldir (tw-164)', () => {
       hand: [WOOD_ELVES],
     });
 
-    const haldirId = findCharInstanceId(state, 0, HALDIR);
+    const haldirId = findCharInstanceId(state, RESOURCE_PLAYER, HALDIR);
     const actions = computeLegalActions(state, PLAYER_1);
 
     const influenceActions = actions
@@ -110,7 +110,7 @@ describe('Haldir (tw-164)', () => {
       hand: [WOOD_ELVES],
     });
 
-    const glorfindelId = findCharInstanceId(glorfindelState, 0, GLORFINDEL_II);
+    const glorfindelId = findCharInstanceId(glorfindelState, RESOURCE_PLAYER, GLORFINDEL_II);
     const glorfindelActions = computeLegalActions(glorfindelState, PLAYER_1)
       .filter(a => a.viable && a.action.type === 'influence-attempt')
       .map(a => a.action as InfluenceAttemptAction);
@@ -128,7 +128,7 @@ describe('Haldir (tw-164)', () => {
       hand: [WOOD_ELVES],
     });
 
-    const haldirId = findCharInstanceId(haldirState, 0, HALDIR);
+    const haldirId = findCharInstanceId(haldirState, RESOURCE_PLAYER, HALDIR);
     const haldirActions = computeLegalActions(haldirState, PLAYER_1)
       .filter(a => a.viable && a.action.type === 'influence-attempt')
       .map(a => a.action as InfluenceAttemptAction);

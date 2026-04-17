@@ -21,7 +21,7 @@ import {
   buildTestState, resetMint,
   findCharInstanceId, buildSitePhaseState,
   THRANDUILS_HALLS,
-  getCharacter,
+  getCharacter, RESOURCE_PLAYER,
 } from '../test-helpers.js';
 import { computeLegalActions, Phase } from '../../index.js';
 import type { CharacterCard, InfluenceAttemptAction } from '../../index.js';
@@ -42,7 +42,7 @@ describe('Théoden (tw-182)', () => {
 
     const baseDef = pool[THEODEN as string] as CharacterCard;
     expect(baseDef.directInfluence).toBe(3);
-    expect(getCharacter(state, 0, THEODEN).effectiveStats.directInfluence).toBe(baseDef.directInfluence);
+    expect(getCharacter(state, RESOURCE_PLAYER, THEODEN).effectiveStats.directInfluence).toBe(baseDef.directInfluence);
   });
 
   test('+2 DI bonus applies when influencing Riders of Rohan', () => {
@@ -57,7 +57,7 @@ describe('Théoden (tw-182)', () => {
       hand: [RIDERS_OF_ROHAN],
     });
 
-    const theodenId = findCharInstanceId(state, 0, THEODEN);
+    const theodenId = findCharInstanceId(state, RESOURCE_PLAYER, THEODEN);
     const actions = computeLegalActions(state, PLAYER_1);
 
     const influenceActions = actions
@@ -84,7 +84,7 @@ describe('Théoden (tw-182)', () => {
       hand: [WOOD_ELVES],
     });
 
-    const theodenId = findCharInstanceId(state, 0, THEODEN);
+    const theodenId = findCharInstanceId(state, RESOURCE_PLAYER, THEODEN);
     const actions = computeLegalActions(state, PLAYER_1);
 
     const influenceActions = actions

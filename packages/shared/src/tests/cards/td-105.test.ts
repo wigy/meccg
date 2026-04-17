@@ -28,7 +28,7 @@ import {
   viableActions,
   CardStatus,
   dispatch, expectCharStatus, expectCharItemCount, expectInDiscardPile,
-  makeMHState, makeSitePhase,
+  makeMHState, makeSitePhase, RESOURCE_PLAYER,
 } from '../test-helpers.js';
 import type { ActivateGrantedAction } from '../../index.js';
 
@@ -86,13 +86,13 @@ describe('Cram (td-105)', () => {
     const next = dispatch(state, untapAction.action);
 
     // Character should now be untapped
-    expectCharStatus(next, 0, ARAGORN, CardStatus.Untapped);
+    expectCharStatus(next, RESOURCE_PLAYER, ARAGORN, CardStatus.Untapped);
 
     // Cram should be removed from items
-    expectCharItemCount(next, 0, ARAGORN, 0);
+    expectCharItemCount(next, RESOURCE_PLAYER, ARAGORN, 0);
 
     // Cram should be in discard pile
-    expectInDiscardPile(next, 0, CRAM);
+    expectInDiscardPile(next, RESOURCE_PLAYER, CRAM);
   });
 
   // ── Ability 2: extra-region-movement ──
@@ -129,10 +129,10 @@ describe('Cram (td-105)', () => {
     const next = dispatch(state, extraAction.action);
 
     // Cram should be removed from items
-    expectCharItemCount(next, 0, ARAGORN, 0);
+    expectCharItemCount(next, RESOURCE_PLAYER, ARAGORN, 0);
 
     // Cram should be in discard pile
-    expectInDiscardPile(next, 0, CRAM);
+    expectInDiscardPile(next, RESOURCE_PLAYER, CRAM);
 
     // Company should have extraRegionDistance set
     expect(next.players[0].companies[0].extraRegionDistance).toBe(1);
@@ -286,9 +286,9 @@ describe('Cram (td-105)', () => {
     expect(untapAction).toBeDefined();
 
     const next = dispatch(ready, untapAction.action);
-    expectCharStatus(next, 0, ARAGORN, CardStatus.Untapped);
-    expectCharItemCount(next, 0, ARAGORN, 0);
-    expectInDiscardPile(next, 0, CRAM);
+    expectCharStatus(next, RESOURCE_PLAYER, ARAGORN, CardStatus.Untapped);
+    expectCharItemCount(next, RESOURCE_PLAYER, ARAGORN, 0);
+    expectInDiscardPile(next, RESOURCE_PLAYER, CRAM);
   });
 
   test('extra-region-movement NOT available during movement/hazard phase', () => {

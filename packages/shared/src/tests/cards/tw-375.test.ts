@@ -41,7 +41,7 @@ import {
   buildSitePhaseState, setupAutoAttackStep, findCharInstanceId,
   runAutoAttackCombat,
   dispatch, expectCharStatus,
-  viableFor, viableActions,
+  viableFor, viableActions, RESOURCE_PLAYER,
 } from '../test-helpers.js';
 import {
   BARROW_DOWNS,
@@ -86,7 +86,7 @@ describe('Barrow-downs (tw-375)', () => {
     expect(pending[0].kind.type).toBe('corruption-check');
     if (pending[0].kind.type !== 'corruption-check') return;
 
-    const aragornId = findCharInstanceId(result.state, 0, ARAGORN);
+    const aragornId = findCharInstanceId(result.state, RESOURCE_PLAYER, ARAGORN);
     expect(pending[0].kind.characterId).toBe(aragornId);
 
     // Legal actions should offer corruption-check
@@ -111,7 +111,7 @@ describe('Barrow-downs (tw-375)', () => {
     // Corruption check passed — character still in play, queue cleared
     expect(ccState.pendingResolutions).toHaveLength(0);
 
-    expectCharStatus(ccState, 0, ARAGORN, CardStatus.Inverted);
+    expectCharStatus(ccState, RESOURCE_PLAYER, ARAGORN, CardStatus.Inverted);
   });
 
   test('corruption check after wound fails — character discarded', () => {
@@ -136,7 +136,7 @@ describe('Barrow-downs (tw-375)', () => {
 
     // Character should be discarded or eliminated
     expect(ccState.pendingResolutions).toHaveLength(0);
-    const aragornId = findCharInstanceId(result.state, 0, ARAGORN);
+    const aragornId = findCharInstanceId(result.state, RESOURCE_PLAYER, ARAGORN);
     expect(ccState.players[0].characters[aragornId as string]).toBeUndefined();
   });
 

@@ -25,7 +25,7 @@ import {
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
   buildTestState, resetMint,
   viableActions, dispatch, makePlayDeck,
-  getCharacter,
+  getCharacter, RESOURCE_PLAYER,
 } from '../test-helpers.js';
 import type { ActivateGrantedAction } from '../../index.js';
 
@@ -120,7 +120,7 @@ describe('Saruman (tw-181)', () => {
     expect(newState.players[0].discardPile.length).toBe(0);
 
     // Saruman is now tapped
-    const saruman = getCharacter(newState, 0, SARUMAN);
+    const saruman = getCharacter(newState, RESOURCE_PLAYER, SARUMAN);
     expect(saruman.status).toBe(CardStatus.Tapped);
   });
 

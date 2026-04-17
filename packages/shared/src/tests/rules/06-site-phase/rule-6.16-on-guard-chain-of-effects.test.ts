@@ -23,7 +23,7 @@ import {
   PLAYER_1, PLAYER_2,
   LEGOLAS, ARAGORN,
   BARROW_WIGHT, FOOLISH_WORDS, KNIGHTS_OF_DOL_AMROTH,
-  LORIEN, MORIA, MINAS_TIRITH, DOL_AMROTH,
+  LORIEN, MORIA, MINAS_TIRITH, DOL_AMROTH, RESOURCE_PLAYER,
 } from '../../test-helpers.js';
 
 describe('Rule 6.16 — On-Guard Chain of Effects', () => {
@@ -37,7 +37,7 @@ describe('Rule 6.16 — On-Guard Chain of Effects', () => {
         { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [MINAS_TIRITH] },
       ],
     });
-    const { state, ogCard } = placeOnGuard(base, 0, 0, BARROW_WIGHT);
+    const { state, ogCard } = placeOnGuard(base, RESOURCE_PLAYER, 0, BARROW_WIGHT);
     const testState = { ...state, phaseState: makeSitePhase({ step: 'reveal-on-guard-attacks', siteEntered: false }) };
 
     const nextState = dispatch(testState, { type: 'reveal-on-guard', player: PLAYER_2, cardInstanceId: ogCard.instanceId });
@@ -56,7 +56,7 @@ describe('Rule 6.16 — On-Guard Chain of Effects', () => {
         { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [MINAS_TIRITH] },
       ],
     });
-    const { state: withOG } = placeOnGuard(base, 0, 0, BARROW_WIGHT, { revealed: true });
+    const { state: withOG } = placeOnGuard(base, RESOURCE_PLAYER, 0, BARROW_WIGHT, { revealed: true });
     const testState = {
       ...withOG,
       phaseState: makeSitePhase({ step: 'resolve-attacks', siteEntered: true }),
@@ -75,7 +75,7 @@ describe('Rule 6.16 — On-Guard Chain of Effects', () => {
         { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [MINAS_TIRITH] },
       ],
     });
-    const { state: withOG } = placeOnGuard(base, 0, 0, BARROW_WIGHT, { revealed: true });
+    const { state: withOG } = placeOnGuard(base, RESOURCE_PLAYER, 0, BARROW_WIGHT, { revealed: true });
     const testState = {
       ...withOG,
       phaseState: makeSitePhase({ step: 'resolve-attacks', siteEntered: true }),
@@ -94,7 +94,7 @@ describe('Rule 6.16 — On-Guard Chain of Effects', () => {
         { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [MINAS_TIRITH] },
       ],
     });
-    const { state } = placeOnGuard(base, 0, 0, FOOLISH_WORDS);
+    const { state } = placeOnGuard(base, RESOURCE_PLAYER, 0, FOOLISH_WORDS);
     const testState = { ...state, phaseState: makeSitePhase() };
 
     const afterAttempt = dispatch(testState, viableActions(testState, PLAYER_1, 'influence-attempt')[0].action);

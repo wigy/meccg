@@ -21,7 +21,7 @@ import {
   viableActions,
   playPermanentEventAndResolve,
   handCardId, dispatch,
-  actionAs,
+  actionAs, RESOURCE_PLAYER, HAZARD_PLAYER,
 } from '../test-helpers.js';
 import { Phase } from '../../index.js';
 import type { CardInPlay, CardInstanceId, PlayShortEventAction } from '../../index.js';
@@ -44,7 +44,7 @@ describe('Gates of Morning (tw-243)', () => {
     const actions = viableActions(state, PLAYER_1, 'play-permanent-event');
     expect(actions).toHaveLength(1);
 
-    const gomId = handCardId(state, 0);
+    const gomId = handCardId(state, RESOURCE_PLAYER);
 
     // After declaring, card is on the chain (not in hand, not in cardsInPlay)
     const declareState = dispatch(state, { type: 'play-permanent-event', player: PLAYER_1, cardInstanceId: gomId });
@@ -77,7 +77,7 @@ describe('Gates of Morning (tw-243)', () => {
       ],
     });
 
-    const gomId = handCardId(state, 0);
+    const gomId = handCardId(state, RESOURCE_PLAYER);
     const s = playPermanentEventAndResolve(state, PLAYER_1, gomId);
 
     // Gates of Morning in P1 cardsInPlay
@@ -106,7 +106,7 @@ describe('Gates of Morning (tw-243)', () => {
       ],
     });
 
-    const gomId = handCardId(state, 0);
+    const gomId = handCardId(state, RESOURCE_PLAYER);
     const s = playPermanentEventAndResolve(state, PLAYER_1, gomId);
 
     // Gates of Morning in cardsInPlay, Doors of Night discarded
@@ -190,7 +190,7 @@ describe('Gates of Morning (tw-243)', () => {
       ],
     });
 
-    const gomId = handCardId(state, 0);
+    const gomId = handCardId(state, RESOURCE_PLAYER);
     const s = playPermanentEventAndResolve(state, PLAYER_1, gomId);
 
     // Gates of Morning played, no discards needed
@@ -215,8 +215,8 @@ describe('Gates of Morning (tw-243)', () => {
       ],
     });
 
-    const gomId = handCardId(state, 0);
-    const p2Twilight = handCardId(state, 1);
+    const gomId = handCardId(state, RESOURCE_PLAYER);
+    const p2Twilight = handCardId(state, HAZARD_PLAYER);
 
     // P1 plays Gates of Morning → chain starts, P2 gets priority
     let s = dispatch(state, { type: 'play-permanent-event', player: PLAYER_1, cardInstanceId: gomId });
@@ -247,7 +247,7 @@ describe('Gates of Morning (tw-243)', () => {
       ],
     });
 
-    const gomId = handCardId(state, 0);
+    const gomId = handCardId(state, RESOURCE_PLAYER);
 
     // P1 plays GoM → chain starts
     const nextState = dispatch(state, { type: 'play-permanent-event', player: PLAYER_1, cardInstanceId: gomId });

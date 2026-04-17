@@ -25,7 +25,7 @@ import {
   Phase, CardStatus,
   buildTestState, resetMint,
   viableActions,
-  getCharacter, dispatchResult, expectCharStatus, expectInDiscardPile,
+  getCharacter, dispatchResult, expectCharStatus, expectInDiscardPile, RESOURCE_PLAYER,
 } from '../test-helpers.js';
 import type { ActivateGrantedAction } from '../../index.js';
 import { collectCharacterEffects, resolveCheckModifier } from '../../engine/effects/index.js';
@@ -62,7 +62,7 @@ describe('Scroll of Isildur (tw-323)', () => {
       ],
     });
 
-    const frodoChar = getCharacter(state, 0, FRODO);
+    const frodoChar = getCharacter(state, RESOURCE_PLAYER, FRODO);
     const effects = collectCharacterEffects(state, frodoChar, { reason: 'gold-ring-test' });
     const mod = resolveCheckModifier(effects, 'gold-ring-test');
     expect(mod).toBe(2);
@@ -90,7 +90,7 @@ describe('Scroll of Isildur (tw-323)', () => {
       ],
     });
 
-    const frodoChar = getCharacter(state, 0, FRODO);
+    const frodoChar = getCharacter(state, RESOURCE_PLAYER, FRODO);
     const effects = collectCharacterEffects(state, frodoChar, { reason: 'gold-ring-test' });
     const mod = resolveCheckModifier(effects, 'gold-ring-test');
     expect(mod).toBe(0);
@@ -128,15 +128,15 @@ describe('Scroll of Isildur (tw-323)', () => {
     const nextState = result.state;
 
     // Gandalf tapped, gold ring discarded
-    expectCharStatus(nextState, 0, GANDALF, CardStatus.Tapped);
-    expectInDiscardPile(nextState, 0, PRECIOUS_GOLD_RING);
+    expectCharStatus(nextState, RESOURCE_PLAYER, GANDALF, CardStatus.Tapped);
+    expectInDiscardPile(nextState, RESOURCE_PLAYER, PRECIOUS_GOLD_RING);
 
     // Raw dice roll is 7, but modifier makes effective total 9
     expect(nextState.players[0].lastDiceRoll).toBeDefined();
     expect(nextState.players[0].lastDiceRoll!.die1 + nextState.players[0].lastDiceRoll!.die2).toBe(7);
 
     // Scroll of Isildur should still be on Frodo
-    const frodoItems = getCharacter(nextState, 0, FRODO).items;
+    const frodoItems = getCharacter(nextState, RESOURCE_PLAYER, FRODO).items;
     const scrollStillPresent = frodoItems.some(
       item => state.cardPool[item.definitionId as string]?.name === 'Scroll of Isildur',
     );
@@ -199,7 +199,7 @@ describe('Scroll of Isildur (tw-323)', () => {
     });
 
     // Collect effects from Aragorn (who holds the Scroll)
-    const aragornChar = getCharacter(state, 0, ARAGORN);
+    const aragornChar = getCharacter(state, RESOURCE_PLAYER, ARAGORN);
     const effects = collectCharacterEffects(state, aragornChar, { reason: 'gold-ring-test' });
     const mod = resolveCheckModifier(effects, 'gold-ring-test');
     expect(mod).toBe(2);
@@ -212,7 +212,7 @@ describe('Scroll of Isildur (tw-323)', () => {
     // Execute the test — modifier comes from Aragorn's Scroll
     const cheated = { ...state, cheatRollTotal: 5 };
     const result = dispatchResult(cheated, actions[0].action);
-    expectCharStatus(result.state, 0, GANDALF, CardStatus.Tapped);
-    expectInDiscardPile(result.state, 0, PRECIOUS_GOLD_RING);
+    expectCharStatus(result.state, RESOURCE_PLAYER, GANDALF, CardStatus.Tapped);
+    expectInDiscardPile(result.state, RESOURCE_PLAYER, PRECIOUS_GOLD_RING);
   });
 });

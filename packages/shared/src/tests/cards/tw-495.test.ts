@@ -29,7 +29,7 @@ import {
   enqueueTransferCorruptionCheck,
   getCharacter,
   handCardId, companyIdAt, charIdAt, dispatch, resolveChain,
-  actionAs,
+  actionAs, RESOURCE_PLAYER, HAZARD_PLAYER,
 } from '../test-helpers.js';
 import { computeLegalActions, BAG_END, SiteType } from '../../index.js';
 import type { CorruptionCheckAction, CancelStrikeAction, SupportStrikeAction } from '../../index.js';
@@ -61,8 +61,8 @@ describe('Fatty Bolger (tw-495)', () => {
       ],
     });
 
-    const fattyId = findCharInstanceId(state, 0, FATTY_BOLGER);
-    const glamdringInstId = getCharacter(state, 0, FATTY_BOLGER).items[0].instanceId;
+    const fattyId = findCharInstanceId(state, RESOURCE_PLAYER, FATTY_BOLGER);
+    const glamdringInstId = getCharacter(state, RESOURCE_PLAYER, FATTY_BOLGER).items[0].instanceId;
 
     const stateWithCheck = enqueueTransferCorruptionCheck(state, PLAYER_1, fattyId, glamdringInstId);
 
@@ -176,8 +176,8 @@ describe('Fatty Bolger (tw-495)', () => {
     });
     const gameState = { ...state, phaseState: mhState };
 
-    const orcPatrolId = handCardId(gameState, 1);
-    const companyId = companyIdAt(gameState, 0);
+    const orcPatrolId = handCardId(gameState, HAZARD_PLAYER);
+    const companyId = companyIdAt(gameState, RESOURCE_PLAYER);
     const afterPlay = dispatch(gameState, {
       type: 'play-hazard',
       player: PLAYER_2,
@@ -190,7 +190,7 @@ describe('Fatty Bolger (tw-495)', () => {
     expect(afterChain.combat!.phase).toBe('assign-strikes');
 
     // Defender assigns a strike to Bilbo (hobbit)
-    const bilboId = charIdAt(afterChain, 0, 0, 1);
+    const bilboId = charIdAt(afterChain, RESOURCE_PLAYER, 0, 1);
     const r2 = dispatch(afterChain, {
       type: 'assign-strike',
       player: PLAYER_1,
@@ -199,8 +199,8 @@ describe('Fatty Bolger (tw-495)', () => {
     });
 
     // Assign remaining strikes to other characters
-    const fattyId = charIdAt(afterChain, 0, 0, 0);
-    const legolasId = charIdAt(afterChain, 0, 0, 2);
+    const fattyId = charIdAt(afterChain, RESOURCE_PLAYER, 0, 0);
+    const legolasId = charIdAt(afterChain, RESOURCE_PLAYER, 0, 2);
     const r3 = dispatch(r2, {
       type: 'assign-strike',
       player: PLAYER_1,
@@ -277,8 +277,8 @@ describe('Fatty Bolger (tw-495)', () => {
     });
     const gameState = { ...state, phaseState: mhState };
 
-    const orcPatrolId = handCardId(gameState, 1);
-    const companyId = companyIdAt(gameState, 0);
+    const orcPatrolId = handCardId(gameState, HAZARD_PLAYER);
+    const companyId = companyIdAt(gameState, RESOURCE_PLAYER);
     const afterPlay = dispatch(gameState, {
       type: 'play-hazard',
       player: PLAYER_2,
@@ -289,9 +289,9 @@ describe('Fatty Bolger (tw-495)', () => {
     const afterChain = resolveChain(afterPlay);
 
     // Assign all 3 strikes (3 characters, 3 strikes — one each)
-    const fattyId = charIdAt(afterChain, 0, 0, 0);
-    const legolasId = charIdAt(afterChain, 0, 0, 1);
-    const bilboId = charIdAt(afterChain, 0, 0, 2);
+    const fattyId = charIdAt(afterChain, RESOURCE_PLAYER, 0, 0);
+    const legolasId = charIdAt(afterChain, RESOURCE_PLAYER, 0, 1);
+    const bilboId = charIdAt(afterChain, RESOURCE_PLAYER, 0, 2);
     const r2 = dispatch(afterChain, {
       type: 'assign-strike',
       player: PLAYER_1,
@@ -359,8 +359,8 @@ describe('Fatty Bolger (tw-495)', () => {
     });
     const gameState = { ...state, phaseState: mhState };
 
-    const orcPatrolId = handCardId(gameState, 1);
-    const companyId = companyIdAt(gameState, 0);
+    const orcPatrolId = handCardId(gameState, HAZARD_PLAYER);
+    const companyId = companyIdAt(gameState, RESOURCE_PLAYER);
     const afterPlay = dispatch(gameState, {
       type: 'play-hazard',
       player: PLAYER_2,
@@ -371,9 +371,9 @@ describe('Fatty Bolger (tw-495)', () => {
     const afterChain = resolveChain(afterPlay);
 
     // Assign all 3 strikes
-    const fattyId = charIdAt(afterChain, 0, 0, 0);
-    const bilboId = charIdAt(afterChain, 0, 0, 1);
-    const legolasId = charIdAt(afterChain, 0, 0, 2);
+    const fattyId = charIdAt(afterChain, RESOURCE_PLAYER, 0, 0);
+    const bilboId = charIdAt(afterChain, RESOURCE_PLAYER, 0, 1);
+    const legolasId = charIdAt(afterChain, RESOURCE_PLAYER, 0, 2);
     const r2 = dispatch(afterChain, {
       type: 'assign-strike',
       player: PLAYER_1,
@@ -442,8 +442,8 @@ describe('Fatty Bolger (tw-495)', () => {
     });
     const gameState = { ...state, phaseState: mhState };
 
-    const orcPatrolId = handCardId(gameState, 1);
-    const companyId = companyIdAt(gameState, 0);
+    const orcPatrolId = handCardId(gameState, HAZARD_PLAYER);
+    const companyId = companyIdAt(gameState, RESOURCE_PLAYER);
     const afterPlay = dispatch(gameState, {
       type: 'play-hazard',
       player: PLAYER_2,
@@ -453,8 +453,8 @@ describe('Fatty Bolger (tw-495)', () => {
     });
     const afterChain = resolveChain(afterPlay);
 
-    const bilboId = charIdAt(afterChain, 0, 0, 1);
-    const legolasId = charIdAt(afterChain, 0, 0, 2);
+    const bilboId = charIdAt(afterChain, RESOURCE_PLAYER, 0, 1);
+    const legolasId = charIdAt(afterChain, RESOURCE_PLAYER, 0, 2);
 
     // Assign strikes to Bilbo and Legolas only — leave Fatty unassigned so he can support/cancel
     const r2 = dispatch(afterChain, {
@@ -481,7 +481,7 @@ describe('Fatty Bolger (tw-495)', () => {
     });
     expect(r4.combat!.phase).toBe('resolve-strike');
 
-    const fattyId = charIdAt(afterChain, 0, 0, 0);
+    const fattyId = charIdAt(afterChain, RESOURCE_PLAYER, 0, 0);
     const defActions = computeLegalActions(r4, PLAYER_1);
 
     const supportActions = defActions.filter(

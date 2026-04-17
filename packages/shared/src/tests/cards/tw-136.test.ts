@@ -18,7 +18,7 @@ import {
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
   buildTestState, resetMint,
   findCharInstanceId, viablePlayCharacterActions,
-  getCharacter,
+  getCharacter, RESOURCE_PLAYER,
 } from '../test-helpers.js';
 import { Phase } from '../../index.js';
 import type { CharacterCard } from '../../index.js';
@@ -42,7 +42,7 @@ describe('Celeborn (tw-136)', () => {
 
     const baseDef = pool[CELEBORN as string] as CharacterCard;
     expect(baseDef.directInfluence).toBe(1);
-    expect(getCharacter(state, 0, CELEBORN).effectiveStats.directInfluence).toBe(baseDef.directInfluence);
+    expect(getCharacter(state, RESOURCE_PLAYER, CELEBORN).effectiveStats.directInfluence).toBe(baseDef.directInfluence);
   });
 
   test('+5 DI bonus applies when checking influence against Galadriel', () => {
@@ -59,7 +59,7 @@ describe('Celeborn (tw-136)', () => {
       ],
     });
 
-    const celebornId = findCharInstanceId(state, 0, CELEBORN);
+    const celebornId = findCharInstanceId(state, RESOURCE_PLAYER, CELEBORN);
     const galadrielDef = pool[GALADRIEL as string] as CharacterCard;
 
     // availableDI with Galadriel as target should include the +5 bonus: 1 + 5 = 6
@@ -79,7 +79,7 @@ describe('Celeborn (tw-136)', () => {
       ],
     });
 
-    const celebornId = findCharInstanceId(state, 0, CELEBORN);
+    const celebornId = findCharInstanceId(state, RESOURCE_PLAYER, CELEBORN);
     const legolasDef = pool[LEGOLAS as string] as CharacterCard;
 
     // availableDI without the bonus should be just base DI: 1
@@ -106,7 +106,7 @@ describe('Celeborn (tw-136)', () => {
       ],
     });
 
-    const celebornId = findCharInstanceId(state, 0, CELEBORN);
+    const celebornId = findCharInstanceId(state, RESOURCE_PLAYER, CELEBORN);
     const actions = viablePlayCharacterActions(state, PLAYER_1);
 
     // No DI bonus for non-Galadriel, so Celeborn cannot control Beregond as follower

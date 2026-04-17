@@ -24,7 +24,7 @@ import {
   TWO_OR_THREE_TRIBES_PRESENT,
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
   buildTestState, resetMint, makeMHState,
-  handCardId, viableActions, resolveChain, phaseStateAs,
+  handCardId, viableActions, resolveChain, phaseStateAs, HAZARD_PLAYER,
 } from '../test-helpers.js';
 import { computeLegalActions, Phase, RegionType, Race, SiteType } from '../../index.js';
 import type { GameState, MovementHazardPhaseState } from '../../index.js';
@@ -189,7 +189,7 @@ describe('Two or Three Tribes Present (dm-97)', () => {
     });
     const gameState: GameState = { ...state, phaseState: mhState };
 
-    const cardId = handCardId(gameState, 1);
+    const cardId = handCardId(gameState, HAZARD_PLAYER);
     const companyId = gameState.players[0].companies[0].id;
     const result = reduce(gameState, {
       type: 'play-hazard',
@@ -229,7 +229,7 @@ describe('Two or Three Tribes Present (dm-97)', () => {
     const gameState: GameState = { ...state, phaseState: mhState };
 
     // Play the tribes card choosing Orc — this uses the 1 hazard slot
-    const tribesId = handCardId(gameState, 1, 0);
+    const tribesId = handCardId(gameState, HAZARD_PLAYER, 0);
     const companyId = gameState.players[0].companies[0].id;
     const result = reduce(gameState, {
       type: 'play-hazard',
@@ -273,7 +273,7 @@ describe('Two or Three Tribes Present (dm-97)', () => {
     const gameState: GameState = { ...state, phaseState: mhState };
 
     // Play tribes card choosing Orc (not drake)
-    const tribesId = handCardId(gameState, 1, 0);
+    const tribesId = handCardId(gameState, HAZARD_PLAYER, 0);
     const companyId = gameState.players[0].companies[0].id;
     const result = reduce(gameState, {
       type: 'play-hazard',
@@ -315,7 +315,7 @@ describe('Two or Three Tribes Present (dm-97)', () => {
     const gameState: GameState = { ...state, phaseState: mhState };
 
     // Play tribes card choosing Orc
-    const tribesId = handCardId(gameState, 1, 0);
+    const tribesId = handCardId(gameState, HAZARD_PLAYER, 0);
     const companyId = gameState.players[0].companies[0].id;
     const r1 = reduce(gameState, {
       type: 'play-hazard',

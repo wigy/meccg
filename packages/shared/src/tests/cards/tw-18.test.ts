@@ -27,7 +27,7 @@ import {
   buildTestState, resetMint,
   viableActions, makeMHState,
   P1_COMPANY,
-  handCardId, charIdAt, dispatch,
+  handCardId, charIdAt, dispatch, RESOURCE_PLAYER, HAZARD_PLAYER,
 } from '../test-helpers.js';
 import { computeLegalActions } from '../../engine/legal-actions/index.js';
 import { Phase } from '../../index.js';
@@ -132,9 +132,9 @@ describe('Call of Home (tw-18)', () => {
       ],
     });
 
-    const aragornId = charIdAt(state, 0);
+    const aragornId = charIdAt(state, RESOURCE_PLAYER);
     const mhState: GameState = { ...state, phaseState: makeMHState() };
-    const cohId = handCardId(mhState, 1);
+    const cohId = handCardId(mhState, HAZARD_PLAYER);
 
     // Play Call of Home targeting Aragorn
     let s = dispatch(mhState, {
@@ -194,9 +194,9 @@ describe('Call of Home (tw-18)', () => {
     // tw-143 = Beretar (mind 2, dunadan)
     // With Aragorn (mind 6) + Legolas (mind 6) + Beretar (mind 2) = 14 GI used.
     // Unused GI = 20 - 14 = 6. Need roll >= 10 - 6 = 4.
-    const beretarId = charIdAt(state, 0, 0, 2);
+    const beretarId = charIdAt(state, RESOURCE_PLAYER, 0, 2);
     const mhState: GameState = { ...state, phaseState: makeMHState() };
-    const cohId = handCardId(mhState, 1);
+    const cohId = handCardId(mhState, HAZARD_PLAYER);
 
     // Play Call of Home targeting Beretar
     let s = dispatch(mhState, {
@@ -263,10 +263,10 @@ describe('Call of Home (tw-18)', () => {
 
     // GI used: Aragorn 6 + Gimli 6 + Beorn 7 = 19. Beretar is follower (not under GI).
     // Unused GI = 1. Need roll >= 10 - 1 = 9.
-    const beornId = charIdAt(state, 0, 0, 2);
-    const beretarId = charIdAt(state, 0, 0, 3);
+    const beornId = charIdAt(state, RESOURCE_PLAYER, 0, 2);
+    const beretarId = charIdAt(state, RESOURCE_PLAYER, 0, 3);
     const mhState: GameState = { ...state, phaseState: makeMHState() };
-    const cohId = handCardId(mhState, 1);
+    const cohId = handCardId(mhState, HAZARD_PLAYER);
 
     let s = dispatch(mhState, {
       type: 'play-hazard',

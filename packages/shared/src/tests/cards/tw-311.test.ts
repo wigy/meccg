@@ -19,7 +19,7 @@ import {
   BREE,
   RANGERS_OF_THE_NORTH,
   buildSitePhaseState, resetMint,
-  findCharInstanceId,
+  findCharInstanceId, RESOURCE_PLAYER,
 } from '../test-helpers.js';
 import { computeLegalActions } from '../../index.js';
 import type { InfluenceAttemptAction } from '../../index.js';
@@ -42,7 +42,7 @@ describe('Rangers of the North (tw-311)', () => {
       hand: [RANGERS_OF_THE_NORTH],
     });
 
-    const aragornId = findCharInstanceId(state, 0, ARAGORN);
+    const aragornId = findCharInstanceId(state, RESOURCE_PLAYER, ARAGORN);
     const actions = computeLegalActions(state, PLAYER_1);
 
     const influenceActions = actions
@@ -72,7 +72,7 @@ describe('Rangers of the North (tw-311)', () => {
       hand: [RANGERS_OF_THE_NORTH],
     });
 
-    const legolasId = findCharInstanceId(state, 0, LEGOLAS);
+    const legolasId = findCharInstanceId(state, RESOURCE_PLAYER, LEGOLAS);
     const actions = computeLegalActions(state, PLAYER_1);
 
     const influenceActions = actions

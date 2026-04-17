@@ -22,7 +22,7 @@ import { describe, test, expect } from 'vitest';
 import {
   buildOpponentInfluenceState, findCharInstanceId,
   viableActions, PLAYER_1, PLAYER_2,
-  CardStatus, ARAGORN, LEGOLAS, BILBO, GANDALF,
+  CardStatus, ARAGORN, LEGOLAS, BILBO, GANDALF, RESOURCE_PLAYER,
 } from '../../test-helpers.js';
 import type { OpponentInfluenceAttemptAction } from '../../test-helpers.js';
 
@@ -108,7 +108,7 @@ describe('Rule 10.10 — Declaring an Influence Attempt', () => {
     // Only Bilbo should be able to influence
     expect(actions.length).toBeGreaterThan(0);
     for (const a of actions) {
-      const bilboId = findCharInstanceId(state, 0, BILBO);
+      const bilboId = findCharInstanceId(state, RESOURCE_PLAYER, BILBO);
       expect(a.action.influencingCharacterId).toBe(bilboId);
     }
   });

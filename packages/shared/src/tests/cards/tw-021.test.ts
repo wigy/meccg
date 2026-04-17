@@ -29,7 +29,7 @@ import {
   buildTestState, resetMint,
   viableActions, makeMHState,
   P1_COMPANY,
-  handCardId, dispatch, playHazardAndResolve,
+  handCardId, dispatch, playHazardAndResolve, HAZARD_PLAYER,
 } from '../test-helpers.js';
 import { Phase, SiteType, RegionType, CardStatus } from '../../index.js';
 import type { GameState, HazardEventCard, MovementHazardPhaseState, CardInstanceId, CardDefinitionId } from '../../index.js';
@@ -90,7 +90,7 @@ describe('Choking Shadows (tw-21)', () => {
     });
 
     const mhGameState: GameState = { ...state, phaseState: makeMHState() };
-    const csId = handCardId(mhGameState, 1);
+    const csId = handCardId(mhGameState, HAZARD_PLAYER);
     const s = playHazardAndResolve(mhGameState, PLAYER_2, csId, P1_COMPANY);
 
     expect(s.players[1].hand).toHaveLength(0);
@@ -109,7 +109,7 @@ describe('Choking Shadows (tw-21)', () => {
     });
 
     const mhGameState: GameState = { ...state, phaseState: makeMHState() };
-    const cs1Id = handCardId(mhGameState, 1, 0);
+    const cs1Id = handCardId(mhGameState, HAZARD_PLAYER, 0);
 
     // Play first copy → enters chain
     const afterFirst = dispatch(mhGameState, { type: 'play-hazard', player: PLAYER_2, cardInstanceId: cs1Id, targetCompanyId: P1_COMPANY });
@@ -137,7 +137,7 @@ describe('Choking Shadows (tw-21)', () => {
       resolvedSitePathNames: ['Hollin'],
     });
     const mhGameState: GameState = { ...state, phaseState: mh };
-    const cs1Id = handCardId(mhGameState, 1, 0);
+    const cs1Id = handCardId(mhGameState, HAZARD_PLAYER, 0);
 
     // Play and resolve first copy — leaves an auto-attack-prowess-boost
     // constraint active until end of turn.
@@ -190,7 +190,7 @@ describe('Choking Shadows (tw-21)', () => {
     });
     const mhGameState: GameState = { ...state, phaseState: mh };
 
-    const csId = handCardId(mhGameState, 1);
+    const csId = handCardId(mhGameState, HAZARD_PLAYER);
     const afterPlay = playHazardAndResolve(mhGameState, PLAYER_2, csId, P1_COMPANY);
 
     const boost = afterPlay.activeConstraints.find(c =>
@@ -222,7 +222,7 @@ describe('Choking Shadows (tw-21)', () => {
     });
     const mhGameState: GameState = { ...state, phaseState: mh };
 
-    const csId = handCardId(mhGameState, 1);
+    const csId = handCardId(mhGameState, HAZARD_PLAYER);
     const afterPlay = playHazardAndResolve(mhGameState, PLAYER_2, csId, P1_COMPANY);
 
     expect(afterPlay.activeConstraints.filter(c => c.kind.type === 'attribute-modifier')).toHaveLength(0);
@@ -253,7 +253,7 @@ describe('Choking Shadows (tw-21)', () => {
     });
     const mhGameState: GameState = { ...state, phaseState: mh };
 
-    const csId = handCardId(mhGameState, 1);
+    const csId = handCardId(mhGameState, HAZARD_PLAYER);
     const afterPlay = playHazardAndResolve(mhGameState, PLAYER_2, csId, P1_COMPANY);
 
     const siteOverride = afterPlay.activeConstraints.find(c =>
@@ -294,7 +294,7 @@ describe('Choking Shadows (tw-21)', () => {
     });
     const mhGameState: GameState = { ...state, phaseState: mh };
 
-    const csId = handCardId(mhGameState, 1);
+    const csId = handCardId(mhGameState, HAZARD_PLAYER);
     const afterPlay = playHazardAndResolve(mhGameState, PLAYER_2, csId, P1_COMPANY);
 
     const regionOverride = afterPlay.activeConstraints.find(c =>

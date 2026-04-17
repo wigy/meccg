@@ -31,7 +31,7 @@ import {
   ARAGORN, LEGOLAS,
   TREEBEARD,
   LORIEN, MINAS_TIRITH, MOUNT_DOOM, EDORAS, WELLINGHALL, MORIA,
-  makeMHState, dispatch,
+  makeMHState, dispatch, RESOURCE_PLAYER,
 } from '../test-helpers.js';
 // ─── Tests ───────────────────────────────────────────────────────────────────
 
@@ -51,7 +51,7 @@ describe('Treebeard (tw-353)', () => {
       ],
     });
 
-    const withTreebeard = attachAllyToChar(base, 0, ARAGORN, TREEBEARD);
+    const withTreebeard = attachAllyToChar(base, RESOURCE_PLAYER, ARAGORN, TREEBEARD);
 
     const treebeardInstId = withTreebeard.players[0].characters[
       Object.keys(withTreebeard.players[0].characters)[0]
@@ -105,7 +105,7 @@ describe('Treebeard (tw-353)', () => {
       ],
     });
 
-    const withTreebeard = attachAllyToChar(base, 0, ARAGORN, TREEBEARD);
+    const withTreebeard = attachAllyToChar(base, RESOURCE_PLAYER, ARAGORN, TREEBEARD);
 
     const treebeardInstId = withTreebeard.players[0].characters[
       Object.keys(withTreebeard.players[0].characters)[0]
@@ -159,7 +159,7 @@ describe('Treebeard (tw-353)', () => {
       ],
     });
 
-    const withTreebeard = attachAllyToChar(base, 0, ARAGORN, TREEBEARD);
+    const withTreebeard = attachAllyToChar(base, RESOURCE_PLAYER, ARAGORN, TREEBEARD);
 
     const treebeardInstId = withTreebeard.players[0].characters[
       Object.keys(withTreebeard.players[0].characters)[0]
@@ -209,7 +209,7 @@ describe('Treebeard (tw-353)', () => {
       ],
     });
 
-    const withTreebeard = attachAllyToChar(base, 0, ARAGORN, TREEBEARD);
+    const withTreebeard = attachAllyToChar(base, RESOURCE_PLAYER, ARAGORN, TREEBEARD);
 
     const treebeardInstId = withTreebeard.players[0].characters[
       Object.keys(withTreebeard.players[0].characters)[0]
