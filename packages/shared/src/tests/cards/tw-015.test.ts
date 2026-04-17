@@ -20,6 +20,7 @@ import {
   playCreatureHazardAndResolve, runCreatureCombat,
   handCardId, companyIdAt, dispatch, expectCharStatus,
   viableActions, viableFor, RESOURCE_PLAYER, HAZARD_PLAYER,
+  expectCharNotInPlay,
 } from '../test-helpers.js';
 import { Phase, CardStatus } from '../../index.js';
 // ─── Constants ──────────────────────────────────────────────────────────────
@@ -146,7 +147,7 @@ describe('Barrow-wight (tw-015)', () => {
 
     expect(ccState.pendingResolutions).toHaveLength(0);
     const aragornId = findCharInstanceId(afterWound, RESOURCE_PLAYER, ARAGORN);
-    expect(ccState.players[0].characters[aragornId as string]).toBeUndefined();
+    expectCharNotInPlay(ccState, RESOURCE_PLAYER, aragornId);
   });
 
   test('character that wins strike does not get corruption check', () => {

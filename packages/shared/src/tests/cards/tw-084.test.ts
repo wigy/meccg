@@ -34,236 +34,89 @@ import {
   ARAGORN, LEGOLAS,
   RIVER,
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
-  mint, CardStatus,
-  makeMHState,
+  CardStatus,
+  makeMHState, makeSitePhase,
   charIdAt, companyIdAt, dispatch, expectCharStatus, setCharStatus,
-  viableFor, viableActions, viableActionTypes, phaseStateAs, RESOURCE_PLAYER,
+  viableActions, viableActionTypes, phaseStateAs, RESOURCE_PLAYER, HAZARD_PLAYER,
+  installRiverOnActiveCompany, addRiverConstraints, handCardId, expectInDiscardPile,
 } from '../test-helpers.js';
 import type {
-  SitePhaseState, ActivateGrantedAction, CardInstanceId, CompanyId, GameState,
-  PlayHazardAction, ActiveConstraint,
+  SitePhaseState, ActivateGrantedAction, CardInstanceId, PlayHazardAction,
 } from '../../index.js';
-import { addConstraint, sweepExpired } from '../../engine/pending.js';
+import { sweepExpired } from '../../engine/pending.js';
 
-/**
- * Add both constraints that River produces when it resolves: the
- * `site-phase-do-nothing` restriction and the parallel
- * `granted-action` that lets a qualifying ranger tap to cancel. Both
- * share the same `source` so `remove-constraint` sweeps them together.
- */
-function addRiverConstraints(state: GameState, source: CardInstanceId, companyId: CompanyId): GameState {
-  const site: Omit<ActiveConstraint, 'id'> = {
-    source,
-    sourceDefinitionId: RIVER,
-    scope: { kind: 'company-site-phase', companyId },
-    target: { kind: 'company', companyId },
-    kind: { type: 'site-phase-do-nothing' },
-  };
-  const grant: Omit<ActiveConstraint, 'id'> = {
-    source,
-    sourceDefinitionId: RIVER,
-    scope: { kind: 'company-site-phase', companyId },
-    target: { kind: 'company', companyId },
-    kind: {
-      type: 'granted-action',
-      action: 'cancel-river',
-      cost: { tap: 'character' },
-      when: {
-        $and: [
-          { 'actor.skills': { $includes: 'ranger' } },
-          { 'actor.status': 'untapped' },
-        ],
-      },
-      apply: { type: 'remove-constraint', select: 'constraint-source' },
-    },
-  };
-  return addConstraint(addConstraint(state, site), grant);
-}
+const ENTER_OR_SKIP = makeSitePhase({ step: 'enter-or-skip', siteEntered: false });
+
+/** Base site-phase scenario: active company at Rivendell with the given character. */
+const SITE_SCENARIO: Parameters<typeof buildTestState>[0] = {
+  activePlayer: PLAYER_1,
+  phase: Phase.Site,
+  players: [
+    { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [ARAGORN] }], hand: [], siteDeck: [MORIA] },
+    { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [MINAS_TIRITH] },
+  ],
+};
+
+/** M/H scenario: same companies, in movement/hazard phase. */
+const MH_SCENARIO_WITH_HAND: Parameters<typeof buildTestState>[0] = {
+  activePlayer: PLAYER_1,
+  phase: Phase.MovementHazard,
+  recompute: true,
+  players: [
+    { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [ARAGORN] }], hand: [], siteDeck: [MORIA] },
+    { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [RIVER], siteDeck: [MINAS_TIRITH] },
+  ],
+};
 
 describe('River (tw-84)', () => {
   beforeEach(() => resetMint());
-
 
   test('constraint offers a ranger tap action and pass for an affected company at enter-or-skip', () => {
     // P1's company has Aragorn (ranger). At enter-or-skip the constraint
     // should drop `enter-site` and offer `pass` plus a
     // `cancel-constraint` action targeting Aragorn.
-    const base = buildTestState({
-      activePlayer: PLAYER_1,
-      phase: Phase.Site,
-      players: [
-        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [ARAGORN] }], hand: [], siteDeck: [MORIA] },
-        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [MINAS_TIRITH] },
-      ],
-    });
+    const base = buildTestState(SITE_SCENARIO);
+    const stateAtStep = { ...base, phaseState: ENTER_OR_SKIP };
+    const { state } = installRiverOnActiveCompany(stateAtStep, RIVER);
 
-    const targetCompanyId = companyIdAt(base, RESOURCE_PLAYER);
-    const riverInstance = mint();
-    const sitePhaseState: SitePhaseState = {
-      phase: Phase.Site,
-      step: 'enter-or-skip',
-      activeCompanyIndex: 0,
-      handledCompanyIds: [],
-      automaticAttacksResolved: 0,
-      siteEntered: false,
-      resourcePlayed: false,
-      minorItemAvailable: false,
-      declaredAgentAttack: null,
-      awaitingOnGuardReveal: false,
-      pendingResourceAction: null,
-      opponentInteractionThisTurn: null,
-      pendingOpponentInfluence: null,
-    };
-    const stateAtStep = { ...base, phaseState: sitePhaseState };
-    const constrained = addRiverConstraints(stateAtStep, riverInstance, targetCompanyId);
-
-    // Inject the river instance into the cardPool indirectly: the filter
-    // calls resolveInstanceId to look up the source card. Since the source
-    // is just an opaque ID, we instead pre-mint a real River card and put
-    // it on the active company's site as if it were placed there.
-    // For this test, we patch the player's cardsInPlay to include the
-    // River so resolveInstanceId can find it.
-    const withRiverInPlay = {
-      ...constrained,
-      players: [
-        {
-          ...constrained.players[0],
-          cardsInPlay: [
-            ...constrained.players[0].cardsInPlay,
-            { instanceId: riverInstance, definitionId: RIVER, status: CardStatus.Untapped },
-          ],
-        },
-        constrained.players[1],
-      ] as typeof constrained.players,
-    };
-
-    const actions = viableFor(withRiverInPlay, PLAYER_1);
-    const types = actions.map(ea => ea.action.type);
+    const types = viableActionTypes(state, PLAYER_1);
     expect(types).toContain('pass');
     expect(types).not.toContain('enter-site');
 
-    const rangerTaps = actions.filter(
-      ea => ea.action.type === 'activate-granted-action' &&
-        (ea.action).actionId === 'cancel-river',
-    );
+    const rangerTaps = viableActions(state, PLAYER_1, 'activate-granted-action')
+      .filter(ea => (ea.action as ActivateGrantedAction).actionId === 'cancel-river');
     expect(rangerTaps).toHaveLength(1);
-
-    const aragornId = charIdAt(withRiverInPlay, RESOURCE_PLAYER);
-    expect((rangerTaps[0].action as ActivateGrantedAction).characterId).toBe(aragornId);
+    expect((rangerTaps[0].action as ActivateGrantedAction).characterId).toBe(charIdAt(state, RESOURCE_PLAYER));
   });
 
   test('a non-ranger company is locked into pass with no cancel option', () => {
     const base = buildTestState({
-      activePlayer: PLAYER_1,
-      phase: Phase.Site,
+      ...SITE_SCENARIO,
       players: [
         { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [LEGOLAS] }], hand: [], siteDeck: [MORIA] },
         { id: PLAYER_2, companies: [{ site: LORIEN, characters: [ARAGORN] }], hand: [], siteDeck: [MINAS_TIRITH] },
       ],
     });
+    const { state } = installRiverOnActiveCompany({ ...base, phaseState: ENTER_OR_SKIP }, RIVER);
 
-    const targetCompanyId = companyIdAt(base, RESOURCE_PLAYER);
-    const riverInstance = mint();
-    const sitePhaseState: SitePhaseState = {
-      phase: Phase.Site,
-      step: 'enter-or-skip',
-      activeCompanyIndex: 0,
-      handledCompanyIds: [],
-      automaticAttacksResolved: 0,
-      siteEntered: false,
-      resourcePlayed: false,
-      minorItemAvailable: false,
-      declaredAgentAttack: null,
-      awaitingOnGuardReveal: false,
-      pendingResourceAction: null,
-      opponentInteractionThisTurn: null,
-      pendingOpponentInfluence: null,
-    };
-    const stateAtStep = { ...base, phaseState: sitePhaseState };
-    const constrained = addRiverConstraints(stateAtStep, riverInstance, targetCompanyId);
-
-    const withRiverInPlay = {
-      ...constrained,
-      players: [
-        {
-          ...constrained.players[0],
-          cardsInPlay: [
-            ...constrained.players[0].cardsInPlay,
-            { instanceId: riverInstance, definitionId: RIVER, status: CardStatus.Untapped },
-          ],
-        },
-        constrained.players[1],
-      ] as typeof constrained.players,
-    };
-
-    expect(viableActionTypes(withRiverInPlay, PLAYER_1)).toEqual(['pass']);
+    expect(viableActionTypes(state, PLAYER_1)).toEqual(['pass']);
   });
 
   test('a tapped ranger cannot offer tap-to-cancel', () => {
-    const base = buildTestState({
-      activePlayer: PLAYER_1,
-      phase: Phase.Site,
-      players: [
-        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [ARAGORN] }], hand: [], siteDeck: [MORIA] },
-        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [MINAS_TIRITH] },
-      ],
-    });
+    const base = buildTestState(SITE_SCENARIO);
+    const tapped = setCharStatus(base, RESOURCE_PLAYER, ARAGORN, CardStatus.Tapped);
+    const { state } = installRiverOnActiveCompany({ ...tapped, phaseState: ENTER_OR_SKIP }, RIVER);
 
-    // Tap Aragorn
-    const tappedBase = setCharStatus(base, RESOURCE_PLAYER, ARAGORN, CardStatus.Tapped);
-
-    const targetCompanyId = companyIdAt(tappedBase, RESOURCE_PLAYER);
-    const riverInstance = mint();
-    const sitePhaseState: SitePhaseState = {
-      phase: Phase.Site,
-      step: 'enter-or-skip',
-      activeCompanyIndex: 0,
-      handledCompanyIds: [],
-      automaticAttacksResolved: 0,
-      siteEntered: false,
-      resourcePlayed: false,
-      minorItemAvailable: false,
-      declaredAgentAttack: null,
-      awaitingOnGuardReveal: false,
-      pendingResourceAction: null,
-      opponentInteractionThisTurn: null,
-      pendingOpponentInfluence: null,
-    };
-    const stateAtStep = { ...tappedBase, phaseState: sitePhaseState };
-    const constrained = addRiverConstraints(stateAtStep, riverInstance, targetCompanyId);
-
-    const withRiverInPlay = {
-      ...constrained,
-      players: [
-        {
-          ...constrained.players[0],
-          cardsInPlay: [
-            ...constrained.players[0].cardsInPlay,
-            { instanceId: riverInstance, definitionId: RIVER, status: CardStatus.Untapped },
-          ],
-        },
-        constrained.players[1],
-      ] as typeof constrained.players,
-    };
-
-    expect(viableActionTypes(withRiverInPlay, PLAYER_1)).toEqual(['pass']);
+    expect(viableActionTypes(state, PLAYER_1)).toEqual(['pass']);
   });
 
   test('constraint clears at company-site-end via sweepExpired', () => {
-    const base = buildTestState({
-      activePlayer: PLAYER_1,
-      phase: Phase.Site,
-      players: [
-        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [ARAGORN] }], hand: [], siteDeck: [MORIA] },
-        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [MINAS_TIRITH] },
-      ],
-    });
-
-    const targetCompanyId = companyIdAt(base, RESOURCE_PLAYER);
-    const constrained = addRiverConstraints(base, 'river-1' as CardInstanceId, targetCompanyId);
+    const base = buildTestState(SITE_SCENARIO);
+    const companyId = companyIdAt(base, RESOURCE_PLAYER);
+    const constrained = addRiverConstraints(base, 'river-1' as CardInstanceId, companyId, RIVER);
     expect(constrained.activeConstraints).toHaveLength(2);
 
-    const swept = sweepExpired(constrained, { kind: 'company-site-end', companyId: targetCompanyId });
+    const swept = sweepExpired(constrained, { kind: 'company-site-end', companyId });
     expect(swept.activeConstraints).toHaveLength(0);
   });
 
@@ -271,42 +124,31 @@ describe('River (tw-84)', () => {
     // Build an M/H state where P1's company is moving from Rivendell to
     // Moria, and P2 has River in hand. The legal-action emitter should
     // offer a play-hazard action for River targeting the active company.
-    const base = buildTestState({
-      activePlayer: PLAYER_1,
-      phase: Phase.MovementHazard,
-      recompute: true,
-      players: [
-        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [ARAGORN] }], hand: [], siteDeck: [MORIA] },
-        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [RIVER], siteDeck: [MINAS_TIRITH] },
-      ],
-    });
+    const base = buildTestState(MH_SCENARIO_WITH_HAND);
 
-    const moriaCard = base.players[0].siteDeck[0];
+    const moriaCard = base.players[RESOURCE_PLAYER].siteDeck[0];
     const baseWithDest = {
       ...base,
       players: [
         {
-          ...base.players[0],
+          ...base.players[RESOURCE_PLAYER],
           companies: [{
-            ...base.players[0].companies[0],
+            ...base.players[RESOURCE_PLAYER].companies[0],
             destinationSite: { instanceId: moriaCard.instanceId, definitionId: moriaCard.definitionId, status: CardStatus.Untapped },
           }],
         },
-        base.players[1],
+        base.players[HAZARD_PLAYER],
       ] as typeof base.players,
     };
 
-    const mhState = makeMHState({ activeCompanyIndex: 0 });
-    const stateAtPlayHazards = { ...baseWithDest, phaseState: mhState };
-    const targetCompanyId = companyIdAt(stateAtPlayHazards, RESOURCE_PLAYER);
-    const riverInstance = stateAtPlayHazards.players[1].hand[0].instanceId;
+    const stateAtPlayHazards = { ...baseWithDest, phaseState: makeMHState() };
+    const riverInstance = handCardId(stateAtPlayHazards, HAZARD_PLAYER);
 
-    const playActions = viableActions(stateAtPlayHazards, PLAYER_2, 'play-hazard')
-      .map(ea => ea.action as PlayHazardAction);
-
-    const riverPlay = playActions.find(a => a.cardInstanceId === riverInstance);
+    const riverPlay = viableActions(stateAtPlayHazards, PLAYER_2, 'play-hazard')
+      .map(ea => ea.action as PlayHazardAction)
+      .find(a => a.cardInstanceId === riverInstance);
     expect(riverPlay).toBeDefined();
-    expect(riverPlay!.targetCompanyId).toBe(targetCompanyId);
+    expect(riverPlay!.targetCompanyId).toBe(companyIdAt(stateAtPlayHazards, RESOURCE_PLAYER));
   });
 
   test('playing River through reduce discards it and adds the ranger-tap constraint', () => {
@@ -315,35 +157,25 @@ describe('River (tw-84)', () => {
     // As a short-event, the card should go to P2's discard pile; when it
     // resolves, it should add an ActiveConstraint on the active company
     // directly — no deferred pending-site-effect state.
-    const base = buildTestState({
-      activePlayer: PLAYER_1,
-      phase: Phase.MovementHazard,
-      recompute: true,
-      players: [
-        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [ARAGORN] }], hand: [], siteDeck: [MORIA] },
-        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [RIVER], siteDeck: [MINAS_TIRITH] },
-      ],
-    });
+    const base = buildTestState(MH_SCENARIO_WITH_HAND);
 
-    const moriaCard = base.players[0].siteDeck[0];
+    const moriaCard = base.players[RESOURCE_PLAYER].siteDeck[0];
     const baseWithDest = {
       ...base,
       players: [
         {
-          ...base.players[0],
+          ...base.players[RESOURCE_PLAYER],
           companies: [{
-            ...base.players[0].companies[0],
+            ...base.players[RESOURCE_PLAYER].companies[0],
             destinationSite: { instanceId: moriaCard.instanceId, definitionId: moriaCard.definitionId, status: CardStatus.Untapped },
           }],
         },
-        base.players[1],
+        base.players[HAZARD_PLAYER],
       ] as typeof base.players,
     };
 
-    const mhState = makeMHState({ activeCompanyIndex: 0 });
-    const stateAtPlayHazards = { ...baseWithDest, phaseState: mhState };
-
-    const riverInstance = stateAtPlayHazards.players[1].hand[0].instanceId;
+    const stateAtPlayHazards = { ...baseWithDest, phaseState: makeMHState() };
+    const riverInstance = handCardId(stateAtPlayHazards, HAZARD_PLAYER);
     const targetCompanyId = companyIdAt(stateAtPlayHazards, RESOURCE_PLAYER);
 
     const playResult = reduce(stateAtPlayHazards, {
@@ -356,8 +188,7 @@ describe('River (tw-84)', () => {
     expect(playResult.state.chain).not.toBeNull();
 
     // River should already be in discard (short events go there on play)
-    const riverInDiscard = playResult.state.players[1].discardPile.find(c => c.instanceId === riverInstance);
-    expect(riverInDiscard).toBeDefined();
+    expectInDiscardPile(playResult.state, HAZARD_PLAYER, riverInstance);
 
     // Resolve the chain (both players pass priority).
     let current = playResult.state;
@@ -369,8 +200,7 @@ describe('River (tw-84)', () => {
     expect(current.chain).toBeNull();
 
     // River is NOT in cardsInPlay (it's a short event).
-    const riverInPlay = current.players[1].cardsInPlay.find(c => c.instanceId === riverInstance);
-    expect(riverInPlay).toBeUndefined();
+    expect(current.players[HAZARD_PLAYER].cardsInPlay.find(c => c.instanceId === riverInstance)).toBeUndefined();
 
     // Two active constraints were added on the active company, both
     // sourced from River: site-phase-do-nothing (restriction) plus
@@ -392,53 +222,11 @@ describe('River (tw-84)', () => {
   });
 
   test('tapping a ranger through reduce() removes the River constraint and taps the character', () => {
-    const base = buildTestState({
-      activePlayer: PLAYER_1,
-      phase: Phase.Site,
-      players: [
-        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [ARAGORN] }], hand: [], siteDeck: [MORIA] },
-        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [MINAS_TIRITH] },
-      ],
-    });
+    const base = buildTestState(SITE_SCENARIO);
+    const { state, riverInstance } = installRiverOnActiveCompany({ ...base, phaseState: ENTER_OR_SKIP }, RIVER);
 
-    const targetCompanyId = companyIdAt(base, RESOURCE_PLAYER);
-    const riverInstance = mint();
-    const sitePhaseState: SitePhaseState = {
-      phase: Phase.Site,
-      step: 'enter-or-skip',
-      activeCompanyIndex: 0,
-      handledCompanyIds: [],
-      automaticAttacksResolved: 0,
-      siteEntered: false,
-      resourcePlayed: false,
-      minorItemAvailable: false,
-      declaredAgentAttack: null,
-      awaitingOnGuardReveal: false,
-      pendingResourceAction: null,
-      opponentInteractionThisTurn: null,
-      pendingOpponentInfluence: null,
-    };
-    const stateAtStep = { ...base, phaseState: sitePhaseState };
-    const constrained = addRiverConstraints(stateAtStep, riverInstance, targetCompanyId);
-
-    const withRiverInPlay = {
-      ...constrained,
-      players: [
-        {
-          ...constrained.players[0],
-          cardsInPlay: [
-            ...constrained.players[0].cardsInPlay,
-            { instanceId: riverInstance, definitionId: RIVER, status: CardStatus.Untapped },
-          ],
-        },
-        constrained.players[1],
-      ] as typeof constrained.players,
-    };
-
-    const aragornId = charIdAt(withRiverInPlay, RESOURCE_PLAYER);
-
-    // Tap Aragorn to cancel River via the reducer.
-    const nextState = dispatch(withRiverInPlay, {
+    const aragornId = charIdAt(state, RESOURCE_PLAYER);
+    const nextState = dispatch(state, {
       type: 'activate-granted-action',
       player: PLAYER_1,
       characterId: aragornId,
@@ -446,7 +234,7 @@ describe('River (tw-84)', () => {
       sourceCardDefinitionId: RIVER,
       actionId: 'cancel-river',
       rollThreshold: 0,
-    } as ActivateGrantedAction);
+    });
 
     // Aragorn should now be tapped.
     expectCharStatus(nextState, RESOURCE_PLAYER, ARAGORN, CardStatus.Tapped);
@@ -462,78 +250,21 @@ describe('River (tw-84)', () => {
   });
 
   test('cancel-constraint is offered during M/H phase so a ranger can pre-empt River', () => {
-    const base = buildTestState({
-      activePlayer: PLAYER_1,
-      phase: Phase.MovementHazard,
-      recompute: true,
-      players: [
-        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [ARAGORN] }], hand: [], siteDeck: [MORIA] },
-        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [MINAS_TIRITH] },
-      ],
-    });
+    const base = buildTestState({ ...SITE_SCENARIO, phase: Phase.MovementHazard, recompute: true });
+    const { state } = installRiverOnActiveCompany({ ...base, phaseState: makeMHState() }, RIVER);
 
-    const targetCompanyId = companyIdAt(base, RESOURCE_PLAYER);
-    const riverInstance = mint();
-    const mhState = makeMHState({ activeCompanyIndex: 0 });
-    const stateAtMH = { ...base, phaseState: mhState };
-    const constrained = addRiverConstraints(stateAtMH, riverInstance, targetCompanyId);
-
-    const withRiverInPlay = {
-      ...constrained,
-      players: [
-        {
-          ...constrained.players[0],
-          cardsInPlay: [
-            ...constrained.players[0].cardsInPlay,
-            { instanceId: riverInstance, definitionId: RIVER, status: CardStatus.Untapped },
-          ],
-        },
-        constrained.players[1],
-      ] as typeof constrained.players,
-    };
-
-    const cancelActions = viableActions(withRiverInPlay, PLAYER_1, 'activate-granted-action')
+    const cancelActions = viableActions(state, PLAYER_1, 'activate-granted-action')
       .filter(ea => (ea.action as ActivateGrantedAction).actionId === 'cancel-river');
     expect(cancelActions).toHaveLength(1);
-
-    const aragornId = charIdAt(withRiverInPlay, RESOURCE_PLAYER);
-    expect((cancelActions[0].action as ActivateGrantedAction).characterId).toBe(aragornId);
+    expect((cancelActions[0].action as ActivateGrantedAction).characterId).toBe(charIdAt(state, RESOURCE_PLAYER));
   });
 
   test('tapping a ranger during M/H via reduce() removes the River constraint', () => {
-    const base = buildTestState({
-      activePlayer: PLAYER_1,
-      phase: Phase.MovementHazard,
-      recompute: true,
-      players: [
-        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [ARAGORN] }], hand: [], siteDeck: [MORIA] },
-        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [MINAS_TIRITH] },
-      ],
-    });
+    const base = buildTestState({ ...SITE_SCENARIO, phase: Phase.MovementHazard, recompute: true });
+    const { state, riverInstance } = installRiverOnActiveCompany({ ...base, phaseState: makeMHState() }, RIVER);
 
-    const targetCompanyId = companyIdAt(base, RESOURCE_PLAYER);
-    const riverInstance = mint();
-    const mhState = makeMHState({ activeCompanyIndex: 0 });
-    const stateAtMH = { ...base, phaseState: mhState };
-    const constrained = addRiverConstraints(stateAtMH, riverInstance, targetCompanyId);
-
-    const withRiverInPlay = {
-      ...constrained,
-      players: [
-        {
-          ...constrained.players[0],
-          cardsInPlay: [
-            ...constrained.players[0].cardsInPlay,
-            { instanceId: riverInstance, definitionId: RIVER, status: CardStatus.Untapped },
-          ],
-        },
-        constrained.players[1],
-      ] as typeof constrained.players,
-    };
-
-    const aragornId = charIdAt(withRiverInPlay, RESOURCE_PLAYER);
-
-    const nextState = dispatch(withRiverInPlay, {
+    const aragornId = charIdAt(state, RESOURCE_PLAYER);
+    const nextState = dispatch(state, {
       type: 'activate-granted-action',
       player: PLAYER_1,
       characterId: aragornId,
@@ -541,7 +272,7 @@ describe('River (tw-84)', () => {
       sourceCardDefinitionId: RIVER,
       actionId: 'cancel-river',
       rollThreshold: 0,
-    } as ActivateGrantedAction);
+    });
 
     expectCharStatus(nextState, RESOURCE_PLAYER, ARAGORN, CardStatus.Tapped);
     expect(nextState.activeConstraints).toHaveLength(0);

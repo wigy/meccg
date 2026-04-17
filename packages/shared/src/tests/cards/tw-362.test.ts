@@ -26,54 +26,21 @@ import { describe, test, expect, beforeEach } from 'vitest';
 import {
   buildTestState, resetMint, Phase,
   PLAYER_1, PLAYER_2,
-  ARAGORN, LEGOLAS, GANDALF,
+  ARAGORN, LEGOLAS,
   WIZARDS_LAUGHTER,
   MORIA, MINAS_TIRITH, LORIEN,
   viableActions, makeSitePhase,
   attemptInfluence, dispatch,
   expectInDiscardPile, HAZARD_PLAYER,
+  buildWizardCancelInfluenceState,
 } from '../test-helpers.js';
 import type { CancelInfluenceAction } from '../../index.js';
-
-/**
- * Build a state where PLAYER_1 (attacker) attempts opponent influence
- * against PLAYER_2's characters. PLAYER_2 has a wizard (Gandalf) and
- * Wizard's Laughter in hand to cancel the influence attempt.
- */
-function buildCancelInfluenceState() {
-  const state = buildTestState({
-    activePlayer: PLAYER_1,
-    players: [
-      {
-        id: PLAYER_1,
-        companies: [{ site: MORIA, characters: [ARAGORN] }],
-        hand: [],
-        siteDeck: [MINAS_TIRITH],
-      },
-      {
-        id: PLAYER_2,
-        companies: [{ site: MORIA, characters: [GANDALF, LEGOLAS] }],
-        hand: [WIZARDS_LAUGHTER],
-        siteDeck: [LORIEN],
-      },
-    ],
-    phase: Phase.Site,
-    recompute: true,
-  });
-
-  return {
-    ...state,
-    turnNumber: 3,
-    cheatRollTotal: 12,
-    phaseState: makeSitePhase(),
-  };
-}
 
 describe('Wizard\'s Laughter (tw-362)', () => {
   beforeEach(() => resetMint());
 
   test('cancel-influence available when wizard is under defending player\'s control', () => {
-    const state = buildCancelInfluenceState();
+    const state = buildWizardCancelInfluenceState(WIZARDS_LAUGHTER);
     const { state: afterAttempt } = attemptInfluence(state, LEGOLAS);
 
     expect(afterAttempt.pendingResolutions).toHaveLength(1);
@@ -87,31 +54,19 @@ describe('Wizard\'s Laughter (tw-362)', () => {
   });
 
   test('cancel-influence NOT available when no wizard is under defending player\'s control', () => {
+    // Deliberately does NOT use buildWizardCancelInfluenceState — the helper
+    // guarantees Gandalf (a wizard). Here we need a PLAYER_2 company with no
+    // wizard so the cancel-influence action must be rejected.
     const state = buildTestState({
       activePlayer: PLAYER_1,
       players: [
-        {
-          id: PLAYER_1,
-          companies: [{ site: MORIA, characters: [ARAGORN] }],
-          hand: [],
-          siteDeck: [MINAS_TIRITH],
-        },
-        {
-          id: PLAYER_2,
-          companies: [{ site: MORIA, characters: [LEGOLAS] }],
-          hand: [WIZARDS_LAUGHTER],
-          siteDeck: [LORIEN],
-        },
+        { id: PLAYER_1, companies: [{ site: MORIA, characters: [ARAGORN] }], hand: [], siteDeck: [MINAS_TIRITH] },
+        { id: PLAYER_2, companies: [{ site: MORIA, characters: [LEGOLAS] }], hand: [WIZARDS_LAUGHTER], siteDeck: [LORIEN] },
       ],
       phase: Phase.Site,
       recompute: true,
     });
-    const siteState = {
-      ...state,
-      turnNumber: 3,
-      cheatRollTotal: 12,
-      phaseState: makeSitePhase(),
-    };
+    const siteState = { ...state, turnNumber: 3, cheatRollTotal: 12, phaseState: makeSitePhase() };
 
     const { state: afterAttempt } = attemptInfluence(siteState, LEGOLAS);
     const cancelActions = viableActions(afterAttempt, PLAYER_2, 'cancel-influence');
@@ -119,7 +74,7 @@ describe('Wizard\'s Laughter (tw-362)', () => {
   });
 
   test('executing cancel-influence discards card, cancels attempt, and enqueues corruption check', () => {
-    const state = buildCancelInfluenceState();
+    const state = buildWizardCancelInfluenceState(WIZARDS_LAUGHTER);
     const { state: afterAttempt } = attemptInfluence(state, LEGOLAS);
 
     const cancelActions = viableActions(afterAttempt, PLAYER_2, 'cancel-influence');
@@ -132,7 +87,7 @@ describe('Wizard\'s Laughter (tw-362)', () => {
     );
     expect(pendingInfluence).toHaveLength(0);
 
-    expect(after.players[1].hand).toHaveLength(0);
+    expect(after.players[HAZARD_PLAYER].hand).toHaveLength(0);
     expectInDiscardPile(after, HAZARD_PLAYER, WIZARDS_LAUGHTER);
 
     const ccPending = after.pendingResolutions.filter(r => r.kind.type === 'corruption-check');
@@ -142,7 +97,7 @@ describe('Wizard\'s Laughter (tw-362)', () => {
   });
 
   test('defender can choose to roll instead of playing Wizard\'s Laughter', () => {
-    const state = buildCancelInfluenceState();
+    const state = buildWizardCancelInfluenceState(WIZARDS_LAUGHTER);
     const { state: afterAttempt } = attemptInfluence(state, LEGOLAS);
 
     const defendActions = viableActions(afterAttempt, PLAYER_2, 'opponent-influence-defend');

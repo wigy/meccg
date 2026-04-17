@@ -42,6 +42,7 @@ import {
   runAutoAttackCombat,
   dispatch, expectCharStatus,
   viableFor, viableActions, RESOURCE_PLAYER,
+  expectCharNotInPlay,
 } from '../test-helpers.js';
 import {
   BARROW_DOWNS,
@@ -137,7 +138,7 @@ describe('Barrow-downs (tw-375)', () => {
     // Character should be discarded or eliminated
     expect(ccState.pendingResolutions).toHaveLength(0);
     const aragornId = findCharInstanceId(result.state, RESOURCE_PLAYER, ARAGORN);
-    expect(ccState.players[0].characters[aragornId as string]).toBeUndefined();
+    expectCharNotInPlay(ccState, RESOURCE_PLAYER, aragornId);
   });
 
   test('character that wins auto-attack strike does not get corruption check', () => {

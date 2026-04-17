@@ -24,66 +24,50 @@
 
 import { describe, test, expect, beforeEach } from 'vitest';
 import {
-  buildTestState, resetMint, makeMHState,
+  resetMint, buildAhuntOrderEffectsState,
   PLAYER_1, PLAYER_2,
-  ARAGORN, GANDALF, LEGOLAS,
-  EDHELLOND, LORIEN, MINAS_TIRITH, DOORS_OF_NIGHT,
-  viableActions, dispatch, mint, addP2CardsInPlay,
+  DOORS_OF_NIGHT,
+  viableActions, dispatch,
 } from '../test-helpers.js';
-import { Phase, CardStatus, reduce } from '../../index.js';
-import type { CardDefinitionId, CombatState, GameState } from '../../index.js';
-
-// ─── Constants ──────────────────────────────────────────────────────────────
+import { RegionType, reduce } from '../../index.js';
+import type { CardDefinitionId, CombatState } from '../../index.js';
 
 const EARCARAXE_AHUNT = 'td-21' as CardDefinitionId;
 
-/**
- * Build a state where a company at Edhellond is in M/H order-effects step,
- * moving through the given region path names. The ahunt long-event is
- * already in PLAYER_2's cardsInPlay.
- */
-function buildAhuntOrderEffectsState(
-  pathNames: readonly string[],
-  pathTypes: readonly string[],
-  extraCardsInPlay: { definitionId: CardDefinitionId }[] = [],
-): GameState {
-  const base = buildTestState({
-    phase: Phase.MovementHazard,
-    activePlayer: PLAYER_1,
-    players: [
-      {
-        id: PLAYER_1,
-        companies: [{ site: EDHELLOND, characters: [ARAGORN, GANDALF] }],
-        hand: [],
-        siteDeck: [],
-      },
-      {
-        id: PLAYER_2,
-        companies: [{ site: LORIEN, characters: [LEGOLAS] }],
-        hand: [],
-        siteDeck: [MINAS_TIRITH],
-      },
-    ],
-  });
-
-  const ahuntInstance = { instanceId: mint(), definitionId: EARCARAXE_AHUNT, status: CardStatus.Untapped };
-  const extraInstances = extraCardsInPlay.map(c => ({
-    instanceId: mint(),
-    definitionId: c.definitionId,
-    status: CardStatus.Untapped,
-  }));
-
-  const withCards = addP2CardsInPlay(base, [ahuntInstance, ...extraInstances]);
-
-  return {
-    ...withCards,
-    phaseState: makeMHState({
-      step: 'order-effects' as const,
-      resolvedSitePathNames: pathNames as string[],
-      resolvedSitePath: pathTypes as import('../../index.js').RegionType[],
-    }),
-  };
-}
+// Region path fixtures for the ahunt's trigger conditions.
+const PATH_ANDRAST_COAST = {
+  pathNames: ['Anfalas', 'Andrast Coast'],
+  pathTypes: [RegionType.Wilderness, RegionType.Coastal],
+} as const;
+const PATH_BAY_OF_BELFALAS = {
+  pathNames: ['Bay of Belfalas'],
+  pathTypes: [RegionType.Coastal],
+} as const;
+const PATH_NON_MATCHING = {
+  pathNames: ['Belfalas', 'Lamedon'],
+  pathTypes: [RegionType.Wilderness, RegionType.Wilderness],
+} as const;
+const PATH_EMPTY = { pathNames: [], pathTypes: [] as RegionType[] } as const;
+const PATH_OLD_PUKEL_LAND = {
+  pathNames: ['Old Pûkel-land'],
+  pathTypes: [RegionType.Wilderness],
+} as const;
+const PATH_COASTAL_SEA = {
+  pathNames: ['Some Coastal Region'],
+  pathTypes: ['coastal-sea' as RegionType],
+} as const;
+const PATH_ENEDHWAITH = {
+  pathNames: ['Enedhwaith'],
+  pathTypes: [RegionType.Wilderness],
+} as const;
+const PATH_ANFALAS = {
+  pathNames: ['Anfalas'],
+  pathTypes: [RegionType.Wilderness],
+} as const;
+const PATH_ANDRAST = {
+  pathNames: ['Andrast'],
+  pathTypes: [RegionType.Wilderness],
+} as const;
 
 // ─── Tests ──────────────────────────────────────────────────────────────────
 
@@ -92,10 +76,7 @@ describe('Eärcaraxë Ahunt (td-21)', () => {
 
 
   test('company moving through Andrast Coast triggers ahunt combat at order-effects', () => {
-    const state = buildAhuntOrderEffectsState(
-      ['Anfalas', 'Andrast Coast'],
-      ['wilderness', 'coastal'],
-    );
+    const state = buildAhuntOrderEffectsState({ ahuntDefId: EARCARAXE_AHUNT, ...PATH_ANDRAST_COAST });
 
     const passActions = viableActions(state, PLAYER_1, 'pass');
     expect(passActions.length).toBeGreaterThanOrEqual(1);
@@ -113,10 +94,7 @@ describe('Eärcaraxë Ahunt (td-21)', () => {
   });
 
   test('company moving through Bay of Belfalas triggers ahunt combat', () => {
-    const state = buildAhuntOrderEffectsState(
-      ['Bay of Belfalas'],
-      ['coastal'],
-    );
+    const state = buildAhuntOrderEffectsState({ ahuntDefId: EARCARAXE_AHUNT, ...PATH_BAY_OF_BELFALAS });
 
     const next = dispatch(state, viableActions(state, PLAYER_1, 'pass')[0].action);
     expect(next.combat).not.toBeNull();
@@ -124,38 +102,32 @@ describe('Eärcaraxë Ahunt (td-21)', () => {
   });
 
   test('company moving through non-matching region does not trigger ahunt', () => {
-    const state = buildAhuntOrderEffectsState(
-      ['Belfalas', 'Lamedon'],
-      ['wilderness', 'wilderness'],
-    );
+    const state = buildAhuntOrderEffectsState({ ahuntDefId: EARCARAXE_AHUNT, ...PATH_NON_MATCHING });
 
     const next = dispatch(state, viableActions(state, PLAYER_1, 'pass')[0].action);
     expect(next.combat).toBeNull();
   });
 
   test('non-moving company (empty path) does not trigger ahunt', () => {
-    const state = buildAhuntOrderEffectsState([], []);
+    const state = buildAhuntOrderEffectsState({ ahuntDefId: EARCARAXE_AHUNT, ...PATH_EMPTY });
 
     const next = dispatch(state, viableActions(state, PLAYER_1, 'pass')[0].action);
     expect(next.combat).toBeNull();
   });
 
   test('Old Pûkel-land does NOT trigger without Doors of Night', () => {
-    const state = buildAhuntOrderEffectsState(
-      ['Old Pûkel-land'],
-      ['wilderness'],
-    );
+    const state = buildAhuntOrderEffectsState({ ahuntDefId: EARCARAXE_AHUNT, ...PATH_OLD_PUKEL_LAND });
 
     const next = dispatch(state, viableActions(state, PLAYER_1, 'pass')[0].action);
     expect(next.combat).toBeNull();
   });
 
   test('Old Pûkel-land triggers with Doors of Night in play', () => {
-    const state = buildAhuntOrderEffectsState(
-      ['Old Pûkel-land'],
-      ['wilderness'],
-      [{ definitionId: DOORS_OF_NIGHT }],
-    );
+    const state = buildAhuntOrderEffectsState({
+      ahuntDefId: EARCARAXE_AHUNT,
+      ...PATH_OLD_PUKEL_LAND,
+      extraCardsInPlay: [DOORS_OF_NIGHT],
+    });
 
     const next = dispatch(state, viableActions(state, PLAYER_1, 'pass')[0].action);
     expect(next.combat).not.toBeNull();
@@ -163,11 +135,11 @@ describe('Eärcaraxë Ahunt (td-21)', () => {
   });
 
   test('coastal-sea region type triggers with Doors of Night in play', () => {
-    const state = buildAhuntOrderEffectsState(
-      ['Some Coastal Region'],
-      ['coastal-sea'],
-      [{ definitionId: DOORS_OF_NIGHT }],
-    );
+    const state = buildAhuntOrderEffectsState({
+      ahuntDefId: EARCARAXE_AHUNT,
+      ...PATH_COASTAL_SEA,
+      extraCardsInPlay: [DOORS_OF_NIGHT],
+    });
 
     const next = dispatch(state, viableActions(state, PLAYER_1, 'pass')[0].action);
     expect(next.combat).not.toBeNull();
@@ -175,32 +147,29 @@ describe('Eärcaraxë Ahunt (td-21)', () => {
   });
 
   test('Enedhwaith triggers with Doors of Night in play', () => {
-    const state = buildAhuntOrderEffectsState(
-      ['Enedhwaith'],
-      ['wilderness'],
-      [{ definitionId: DOORS_OF_NIGHT }],
-    );
+    const state = buildAhuntOrderEffectsState({
+      ahuntDefId: EARCARAXE_AHUNT,
+      ...PATH_ENEDHWAITH,
+      extraCardsInPlay: [DOORS_OF_NIGHT],
+    });
 
     const next = dispatch(state, viableActions(state, PLAYER_1, 'pass')[0].action);
     expect(next.combat).not.toBeNull();
   });
 
   test('Anfalas triggers with Doors of Night in play', () => {
-    const state = buildAhuntOrderEffectsState(
-      ['Anfalas'],
-      ['wilderness'],
-      [{ definitionId: DOORS_OF_NIGHT }],
-    );
+    const state = buildAhuntOrderEffectsState({
+      ahuntDefId: EARCARAXE_AHUNT,
+      ...PATH_ANFALAS,
+      extraCardsInPlay: [DOORS_OF_NIGHT],
+    });
 
     const next = dispatch(state, viableActions(state, PLAYER_1, 'pass')[0].action);
     expect(next.combat).not.toBeNull();
   });
 
   test('attacker chooses defenders (cancel-window phase)', () => {
-    const state = buildAhuntOrderEffectsState(
-      ['Andrast'],
-      ['wilderness'],
-    );
+    const state = buildAhuntOrderEffectsState({ ahuntDefId: EARCARAXE_AHUNT, ...PATH_ANDRAST });
 
     const next = dispatch(state, viableActions(state, PLAYER_1, 'pass')[0].action);
     expect(next.combat).not.toBeNull();
@@ -208,10 +177,11 @@ describe('Eärcaraxë Ahunt (td-21)', () => {
   });
 
   test('ahunt long-event stays in cardsInPlay after combat (not moved to kill/discard)', () => {
-    const state = buildAhuntOrderEffectsState(
-      ['Andrast Coast'],
-      ['coastal'],
-    );
+    const state = buildAhuntOrderEffectsState({
+      ahuntDefId: EARCARAXE_AHUNT,
+      pathNames: ['Andrast Coast'],
+      pathTypes: [RegionType.Coastal],
+    });
 
     // Trigger combat
     let current = dispatch(state, viableActions(state, PLAYER_1, 'pass')[0].action);

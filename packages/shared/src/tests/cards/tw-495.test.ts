@@ -28,7 +28,7 @@ import {
   findCharInstanceId, viablePlayCharacterActions,
   enqueueTransferCorruptionCheck,
   getCharacter,
-  handCardId, companyIdAt, charIdAt, dispatch, resolveChain,
+  handCardId, companyIdAt, dispatch, resolveChain,
   actionAs, RESOURCE_PLAYER, HAZARD_PLAYER,
 } from '../test-helpers.js';
 import { computeLegalActions, BAG_END, SiteType } from '../../index.js';
@@ -190,7 +190,7 @@ describe('Fatty Bolger (tw-495)', () => {
     expect(afterChain.combat!.phase).toBe('assign-strikes');
 
     // Defender assigns a strike to Bilbo (hobbit)
-    const bilboId = charIdAt(afterChain, RESOURCE_PLAYER, 0, 1);
+    const bilboId = findCharInstanceId(afterChain, RESOURCE_PLAYER, BILBO);
     const r2 = dispatch(afterChain, {
       type: 'assign-strike',
       player: PLAYER_1,
@@ -199,8 +199,8 @@ describe('Fatty Bolger (tw-495)', () => {
     });
 
     // Assign remaining strikes to other characters
-    const fattyId = charIdAt(afterChain, RESOURCE_PLAYER, 0, 0);
-    const legolasId = charIdAt(afterChain, RESOURCE_PLAYER, 0, 2);
+    const fattyId = findCharInstanceId(afterChain, RESOURCE_PLAYER, FATTY_BOLGER);
+    const legolasId = findCharInstanceId(afterChain, RESOURCE_PLAYER, LEGOLAS);
     const r3 = dispatch(r2, {
       type: 'assign-strike',
       player: PLAYER_1,
@@ -289,9 +289,9 @@ describe('Fatty Bolger (tw-495)', () => {
     const afterChain = resolveChain(afterPlay);
 
     // Assign all 3 strikes (3 characters, 3 strikes — one each)
-    const fattyId = charIdAt(afterChain, RESOURCE_PLAYER, 0, 0);
-    const legolasId = charIdAt(afterChain, RESOURCE_PLAYER, 0, 1);
-    const bilboId = charIdAt(afterChain, RESOURCE_PLAYER, 0, 2);
+    const fattyId = findCharInstanceId(afterChain, RESOURCE_PLAYER, FATTY_BOLGER);
+    const legolasId = findCharInstanceId(afterChain, RESOURCE_PLAYER, LEGOLAS);
+    const bilboId = findCharInstanceId(afterChain, RESOURCE_PLAYER, BILBO);
     const r2 = dispatch(afterChain, {
       type: 'assign-strike',
       player: PLAYER_1,
@@ -371,9 +371,9 @@ describe('Fatty Bolger (tw-495)', () => {
     const afterChain = resolveChain(afterPlay);
 
     // Assign all 3 strikes
-    const fattyId = charIdAt(afterChain, RESOURCE_PLAYER, 0, 0);
-    const bilboId = charIdAt(afterChain, RESOURCE_PLAYER, 0, 1);
-    const legolasId = charIdAt(afterChain, RESOURCE_PLAYER, 0, 2);
+    const fattyId = findCharInstanceId(afterChain, RESOURCE_PLAYER, FATTY_BOLGER);
+    const bilboId = findCharInstanceId(afterChain, RESOURCE_PLAYER, BILBO);
+    const legolasId = findCharInstanceId(afterChain, RESOURCE_PLAYER, LEGOLAS);
     const r2 = dispatch(afterChain, {
       type: 'assign-strike',
       player: PLAYER_1,
@@ -453,8 +453,8 @@ describe('Fatty Bolger (tw-495)', () => {
     });
     const afterChain = resolveChain(afterPlay);
 
-    const bilboId = charIdAt(afterChain, RESOURCE_PLAYER, 0, 1);
-    const legolasId = charIdAt(afterChain, RESOURCE_PLAYER, 0, 2);
+    const bilboId = findCharInstanceId(afterChain, RESOURCE_PLAYER, BILBO);
+    const legolasId = findCharInstanceId(afterChain, RESOURCE_PLAYER, LEGOLAS);
 
     // Assign strikes to Bilbo and Legolas only — leave Fatty unassigned so he can support/cancel
     const r2 = dispatch(afterChain, {
@@ -481,7 +481,7 @@ describe('Fatty Bolger (tw-495)', () => {
     });
     expect(r4.combat!.phase).toBe('resolve-strike');
 
-    const fattyId = charIdAt(afterChain, RESOURCE_PLAYER, 0, 0);
+    const fattyId = findCharInstanceId(afterChain, RESOURCE_PLAYER, FATTY_BOLGER);
     const defActions = computeLegalActions(r4, PLAYER_1);
 
     const supportActions = defActions.filter(

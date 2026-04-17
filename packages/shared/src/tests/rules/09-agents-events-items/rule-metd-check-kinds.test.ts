@@ -10,17 +10,8 @@
  */
 
 import { describe, expect, test } from 'vitest';
-import type { CheckKind } from '../../../index.js';
 import { resolveCheckModifier } from '../../../engine/effects/index.js';
-import type { CollectedEffect } from '../../../engine/effects/index.js';
-
-function modifier(check: CheckKind | readonly CheckKind[], value: number): CollectedEffect {
-  return {
-    effect: { type: 'check-modifier', check, value },
-    sourceDef: undefined as never,
-    sourceInstance: 'src-1' as never,
-  };
-}
+import { makeCheckModifierEffect as modifier } from '../../test-helpers.js';
 
 describe('METD §1.2 — Check kinds', () => {
   test('single-kind modifier still applies (existing behavior)', () => {

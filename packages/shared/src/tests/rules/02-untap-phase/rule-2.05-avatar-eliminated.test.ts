@@ -23,6 +23,7 @@ import {
   dispatch, companyIdAt, viablePlayCharacterActions,
   phaseStateAs,
   Phase, RESOURCE_PLAYER,
+  expectCharNotInPlay,
 } from '../../test-helpers.js';
 import type { CardInstanceId, FreeCouncilPhaseState, GameOverPhaseState } from '../../../index.js';
 
@@ -69,7 +70,7 @@ describe('Rule 2.05 — Avatar Eliminated', () => {
 
     // Gandalf should no longer be in play and must be in the removed-from-play
     // pile (outOfPlayPile), not the discard pile.
-    expect(nextState.players[0].characters[gandalfId as string]).toBeUndefined();
+    expectCharNotInPlay(nextState, RESOURCE_PLAYER, gandalfId);
     expect(nextState.players[0].outOfPlayPile.some(c => c.instanceId === gandalfId)).toBe(true);
     expect(nextState.players[0].discardPile.some(c => c.instanceId === gandalfId)).toBe(false);
   });
@@ -78,49 +79,40 @@ describe('Rule 2.05 — Avatar Eliminated', () => {
     // Compare two otherwise-identical Free Council end states: one where P1's
     // avatar (Gandalf) has been eliminated, one where it hasn't. The final
     // scores should differ by exactly 5 for P1.
-    function buildFreeCouncilEnd(avatarEliminated: boolean) {
-      const st = buildTestState({
-        phase: Phase.FreeCouncil,
-        activePlayer: PLAYER_1,
-        players: [
-          {
-            id: PLAYER_1,
-            companies: [{ site: RIVENDELL, characters: [BILBO] }],
-            hand: [],
-            siteDeck: [MINAS_TIRITH],
-          },
-          {
-            id: PLAYER_2,
-            companies: [{ site: LORIEN, characters: [LEGOLAS] }],
-            hand: [],
-            siteDeck: [RIVENDELL],
-          },
-        ],
-      });
+    const baseState = buildTestState({
+      phase: Phase.FreeCouncil,
+      activePlayer: PLAYER_1,
+      players: [
+        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [BILBO] }], hand: [], siteDeck: [MINAS_TIRITH] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [RIVENDELL] },
+      ],
+    });
 
-      // firstPlayerDone=true so a single pass from the current player
-      // triggers final scoring (handleFreeCouncil → computeFinalScoresAndEnd).
-      const fcPhase: FreeCouncilPhaseState = {
-        phase: Phase.FreeCouncil,
-        tiebreaker: false,
-        step: 'corruption-checks',
-        currentPlayer: PLAYER_1,
-        checkedCharacters: [],
-        firstPlayerDone: true,
-        pendingCheck: null,
-      };
+    // firstPlayerDone=true so a single pass from the current player
+    // triggers final scoring (handleFreeCouncil → computeFinalScoresAndEnd).
+    const corruptionCheckPhase: FreeCouncilPhaseState = {
+      phase: Phase.FreeCouncil,
+      tiebreaker: false,
+      step: 'corruption-checks',
+      currentPlayer: PLAYER_1,
+      checkedCharacters: [],
+      firstPlayerDone: true,
+      pendingCheck: null,
+    };
 
-      const p0 = {
-        ...st.players[0],
-        outOfPlayPile: avatarEliminated
-          ? [{ instanceId: 'elim-gandalf' as CardInstanceId, definitionId: GANDALF }]
-          : [],
-      };
-      return { ...st, phaseState: fcPhase, players: [p0, st.players[1]] as unknown as typeof st.players };
-    }
+    const eliminatedGandalf = [{ instanceId: 'elim-gandalf' as CardInstanceId, definitionId: GANDALF }];
+    const stateWithEliminated = {
+      ...baseState,
+      phaseState: corruptionCheckPhase,
+      players: [
+        { ...baseState.players[RESOURCE_PLAYER], outOfPlayPile: eliminatedGandalf },
+        baseState.players[1],
+      ] as unknown as typeof baseState.players,
+    };
+    const stateWithout = { ...baseState, phaseState: corruptionCheckPhase };
 
-    const endedWith = dispatch(buildFreeCouncilEnd(true), { type: 'pass', player: PLAYER_1 });
-    const endedWithout = dispatch(buildFreeCouncilEnd(false), { type: 'pass', player: PLAYER_1 });
+    const endedWith = dispatch(stateWithEliminated, { type: 'pass', player: PLAYER_1 });
+    const endedWithout = dispatch(stateWithout, { type: 'pass', player: PLAYER_1 });
 
     expect(endedWith.phaseState.phase).toBe(Phase.GameOver);
     expect(endedWithout.phaseState.phase).toBe(Phase.GameOver);

@@ -14,17 +14,9 @@
  */
 
 import { describe, test, expect } from 'vitest';
-import { readdirSync, readFileSync } from 'fs';
-import { join } from 'path';
-import type { DeckList } from '../../../types/cards.js';
+import { loadAllDecks } from '../../test-helpers.js';
 
-const DECKS_DIR = join(__dirname, '../../../../../../data/decks');
 const VALID_ALIGNMENTS = ['hero', 'minion', 'fallen-wizard', 'balrog'] as const;
-
-function loadAllDecks(): DeckList[] {
-  const files = readdirSync(DECKS_DIR).filter(f => f.endsWith('.json'));
-  return files.map(f => JSON.parse(readFileSync(join(DECKS_DIR, f), 'utf-8')) as DeckList);
-}
 
 describe('Rule 1.02 — Player Type', () => {
   const decks = loadAllDecks();
