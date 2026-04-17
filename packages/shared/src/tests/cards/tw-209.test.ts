@@ -23,78 +23,23 @@ import {
   PLAYER_1, PLAYER_2,
   ARAGORN, LEGOLAS, GIMLI,
   CAVE_DRAKE, DODGE,
-  RIVENDELL, LORIEN, MINAS_TIRITH, MORIA,
-  buildTestState, resetMint, makeMHState,
-  findCharInstanceId,
-  playCreatureHazardAndResolve,
-  handCardId, companyIdAt, dispatch, expectCharStatus, expectInDiscardPile,
-  actionAs, RESOURCE_PLAYER, HAZARD_PLAYER,
+  RIVENDELL, LORIEN, MINAS_TIRITH,
+  buildTestState, resetMint,
+  setupCombatWithCaveDrake, assignBothStrikesTo,
+  handCardId, dispatch, expectCharStatus, expectInDiscardPile,
+  actionAs, RESOURCE_PLAYER,
 } from '../test-helpers.js';
-import { computeLegalActions, Phase, RegionType, SiteType, CardStatus } from '../../index.js';
+import { computeLegalActions, Phase, CardStatus } from '../../index.js';
 import type { PlayDodgeAction, BodyCheckRollAction, ResolveStrikeAction, PlayShortEventAction, NotPlayableAction } from '../../index.js';
 
-const WILDERNESS_KEYING = { method: 'region-type' as const, value: 'wilderness' };
+const CAVE_DRAKE_FIGHT = { heroChars: [ARAGORN, LEGOLAS], creatureDefId: CAVE_DRAKE } as const;
 
 describe('Dodge (tw-209)', () => {
   beforeEach(() => resetMint());
 
-
-  function setupCombatWithCaveDrake(hand: import('../../index.js').CardDefinitionId[] = [DODGE]) {
-    // Cave-drake: prowess 10, 2 strikes, keyed to wilderness, attacker-chooses-defenders
-    // Aragorn: prowess 6, body 9
-    const state = buildTestState({
-      activePlayer: PLAYER_1,
-      phase: Phase.MovementHazard,
-      recompute: true,
-      players: [
-        {
-          id: PLAYER_1,
-          companies: [{ site: MORIA, characters: [ARAGORN, LEGOLAS] }],
-          hand,
-          siteDeck: [MINAS_TIRITH],
-        },
-        {
-          id: PLAYER_2,
-          companies: [{ site: LORIEN, characters: [GIMLI] }],
-          hand: [CAVE_DRAKE],
-          siteDeck: [RIVENDELL],
-        },
-      ],
-    });
-
-    const mhState = makeMHState({
-      resolvedSitePath: [RegionType.Wilderness],
-      resolvedSitePathNames: ['Hollin'],
-      destinationSiteType: SiteType.ShadowHold,
-      destinationSiteName: 'Moria',
-    });
-    const gameState = { ...state, phaseState: mhState };
-
-    const creatureId = handCardId(gameState, HAZARD_PLAYER);
-    const companyId = companyIdAt(gameState, RESOURCE_PLAYER);
-    const s0 = playCreatureHazardAndResolve(gameState, PLAYER_2, creatureId, companyId, WILDERNESS_KEYING);
-    expect(s0.combat).not.toBeNull();
-    return s0;
-  }
-
-  function assignCaveDrakeStrikes(state0: import('../../index.js').GameState) {
-    // Cave-drake has attacker-chooses-defenders: cancel window → attacker assigns
-    const aragornId = findCharInstanceId(state0, RESOURCE_PLAYER, ARAGORN);
-
-    // P1 (defender) passes cancel window
-    let s = dispatch(state0, { type: 'pass', player: PLAYER_1 });
-    // P2 (attacker) assigns both strikes to Aragorn
-    s = dispatch(s, { type: 'assign-strike', player: PLAYER_2, characterId: aragornId });
-    s = dispatch(s, { type: 'assign-strike', player: PLAYER_2, characterId: aragornId, excess: true });
-
-    // Auto-selects resolve-strike since only one character has strikes
-    expect(s.combat!.phase).toBe('resolve-strike');
-    return s;
-  }
-
   test('play-dodge action appears during resolve-strike when Dodge is in hand', () => {
-    const s0 = setupCombatWithCaveDrake();
-    const s1 = assignCaveDrakeStrikes(s0);
+    const s0 = setupCombatWithCaveDrake({ ...CAVE_DRAKE_FIGHT, heroHand: [DODGE] });
+    const s1 = assignBothStrikesTo(s0, ARAGORN);
 
     const actions = computeLegalActions(s1, PLAYER_1);
     const dodgeActions = actions.filter(a => a.viable && a.action.type === 'play-dodge');
@@ -105,8 +50,8 @@ describe('Dodge (tw-209)', () => {
   });
 
   test('dodging character does not tap on success', () => {
-    const s0 = setupCombatWithCaveDrake();
-    const s1 = assignCaveDrakeStrikes(s0);
+    const s0 = setupCombatWithCaveDrake({ ...CAVE_DRAKE_FIGHT, heroHand: [DODGE] });
+    const s1 = assignBothStrikesTo(s0, ARAGORN);
 
     const dodgeAction = computeLegalActions(s1, PLAYER_1)
       .find(a => a.viable && a.action.type === 'play-dodge')!;
@@ -123,8 +68,8 @@ describe('Dodge (tw-209)', () => {
   });
 
   test('wounded by dodged strike → body check with -1 penalty', () => {
-    const s0 = setupCombatWithCaveDrake();
-    const s1 = assignCaveDrakeStrikes(s0);
+    const s0 = setupCombatWithCaveDrake({ ...CAVE_DRAKE_FIGHT, heroHand: [DODGE] });
+    const s1 = assignBothStrikesTo(s0, ARAGORN);
 
     const dodgeAction = computeLegalActions(s1, PLAYER_1)
       .find(a => a.viable && a.action.type === 'play-dodge')!;
@@ -149,8 +94,8 @@ describe('Dodge (tw-209)', () => {
   });
 
   test('dodge gives full prowess (same need as tap-to-fight)', () => {
-    const s0 = setupCombatWithCaveDrake();
-    const s1 = assignCaveDrakeStrikes(s0);
+    const s0 = setupCombatWithCaveDrake({ ...CAVE_DRAKE_FIGHT, heroHand: [DODGE] });
+    const s1 = assignBothStrikesTo(s0, ARAGORN);
 
     const actions = computeLegalActions(s1, PLAYER_1);
     const dodgeAction = actions.find(a => a.viable && a.action.type === 'play-dodge') as
@@ -166,8 +111,8 @@ describe('Dodge (tw-209)', () => {
   });
 
   test('play-dodge not available when no dodge card in hand', () => {
-    const s0 = setupCombatWithCaveDrake([]);
-    const s1 = assignCaveDrakeStrikes(s0);
+    const s0 = setupCombatWithCaveDrake(CAVE_DRAKE_FIGHT);
+    const s1 = assignBothStrikesTo(s0, ARAGORN);
 
     const actions = computeLegalActions(s1, PLAYER_1);
     const dodgeActions = actions.filter(a => a.viable && a.action.type === 'play-dodge');
@@ -210,8 +155,8 @@ describe('Dodge (tw-209)', () => {
   });
 
   test('normal tap-to-fight still taps the character (control case)', () => {
-    const s0 = setupCombatWithCaveDrake([]);
-    const s1 = assignCaveDrakeStrikes(s0);
+    const s0 = setupCombatWithCaveDrake(CAVE_DRAKE_FIGHT);
+    const s1 = assignBothStrikesTo(s0, ARAGORN);
 
     const tapAction = computeLegalActions(s1, PLAYER_1)
       .find(a => a.viable && a.action.type === 'resolve-strike' &&

@@ -28,7 +28,7 @@ import {
   ARAGORN, LEGOLAS, GIMLI, GANDALF, AND_FORTH_HE_HASTENED,
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
   CardStatus,
-  handCardId, charIdAt, dispatch,
+  handCardId, findCharInstanceId, dispatch,
   expectCharStatus, RESOURCE_PLAYER,
 } from '../test-helpers.js';
 import type { PlayShortEventAction } from '../../index.js';
@@ -59,7 +59,7 @@ describe('And Forth He Hastened (td-98)', () => {
       ],
     });
 
-    const aragornId = charIdAt(base, RESOURCE_PLAYER, 0, 1);
+    const aragornId = findCharInstanceId(base, RESOURCE_PLAYER, ARAGORN);
     const cardInstance = handCardId(base, RESOURCE_PLAYER);
 
     const actions = computeLegalActions(base, PLAYER_1)
@@ -93,7 +93,7 @@ describe('And Forth He Hastened (td-98)', () => {
       ],
     });
 
-    const aragornId = charIdAt(base, RESOURCE_PLAYER, 1, 0);
+    const aragornId = findCharInstanceId(base, RESOURCE_PLAYER, ARAGORN);
 
     const actions = computeLegalActions(base, PLAYER_1)
       .filter(ea => ea.viable && ea.action.type === 'play-short-event')
@@ -201,7 +201,7 @@ describe('And Forth He Hastened (td-98)', () => {
       ],
     });
 
-    const aragornId = charIdAt(base, RESOURCE_PLAYER, 0, 1);
+    const aragornId = findCharInstanceId(base, RESOURCE_PLAYER, ARAGORN);
     const cardInstance = handCardId(base, RESOURCE_PLAYER);
 
     const actions = computeLegalActions(base, PLAYER_1)

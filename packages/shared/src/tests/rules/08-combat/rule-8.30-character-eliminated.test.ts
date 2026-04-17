@@ -24,6 +24,7 @@ import {
   makeShadowMHState, makeBodyCheckCombat, setCharStatus,
   dispatch, viableActions,
   Phase, companyIdAt, CardStatus, RESOURCE_PLAYER,
+  expectCharNotInPlay,
 } from '../../test-helpers.js';
 
 describe('Rule 8.30 — Character Eliminated from Body Check', () => {
@@ -80,8 +81,8 @@ describe('Rule 8.30 — Character Eliminated from Body Check', () => {
     expect(nextState.combat!.salvageRecipients).toContain(aragornId);
 
     // Bilbo should be in eliminated pile, not in characters
-    expect(nextState.players[0].characters[bilboId as string]).toBeUndefined();
-    expect(nextState.players[0].outOfPlayPile.some(c => c.instanceId === bilboId)).toBe(true);
+    expectCharNotInPlay(nextState, RESOURCE_PLAYER, bilboId);
+    expect(nextState.players[RESOURCE_PLAYER].outOfPlayPile.some(c => c.instanceId === bilboId)).toBe(true);
   });
 
   test('salvage-item action transfers item to unwounded companion', () => {

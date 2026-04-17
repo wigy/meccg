@@ -6,6 +6,8 @@
  */
 
 import { expect } from 'vitest';
+import { readdirSync, readFileSync } from 'fs';
+import { join } from 'path';
 import { createGame } from '../engine/init.js';
 import type { GameConfig, QuickStartGameConfig } from '../engine/init.js';
 import { reduce } from '../engine/reducer.js';
@@ -19,9 +21,11 @@ import {
   SiteType,
   computeLegalActions,
 } from '../index.js';
-import type { PlayerId, GameState, CardDefinitionId, CardInstanceId, CardInstance, GameAction, PlayCharacterAction, SitePhaseState, MovementHazardPhaseState, OpponentInfluenceAttemptAction, LongEventPhaseState, CreatureKeyingMatch, CombatState, CharacterCard, ActivateGrantedAction } from '../index.js';
+import type { PlayerId, GameState, CardDefinitionId, CardInstanceId, CardInstance, GameAction, PlayCharacterAction, SitePhaseState, MovementHazardPhaseState, OpponentInfluenceAttemptAction, LongEventPhaseState, CreatureKeyingMatch, CombatState, CharacterCard, ActivateGrantedAction, ActiveConstraint, CheckKind } from '../index.js';
 import type { EvaluatedAction } from '../rules/types.js';
-import { enqueueResolution } from '../engine/pending.js';
+import type { DeckList } from '../types/cards.js';
+import { enqueueResolution, addConstraint } from '../engine/pending.js';
+import type { CollectedEffect } from '../engine/effects/index.js';
 import {
   ADRAZAR, ARAGORN, BILBO, FRODO, LEGOLAS, GIMLI, FARAMIR,
   EOWYN, BEREGOND, BARD_BOWMAN, ANBORN, SAM_GAMGEE, FATTY_BOLGER, PEATH,
@@ -1646,6 +1650,42 @@ export function getItemsOn(
   return getCharacter(state, playerIdx, charDefId).items;
 }
 
+/** Allies attached to a character (located by definition ID). */
+export function getAlliesOn(
+  state: GameState,
+  playerIdx: number,
+  charDefId: CardDefinitionId,
+): readonly CardInPlay[] {
+  return getCharacter(state, playerIdx, charDefId).allies;
+}
+
+/** Follower instance IDs attached to a character (located by definition ID). */
+export function getFollowersOn(
+  state: GameState,
+  playerIdx: number,
+  charDefId: CardDefinitionId,
+): readonly CardInstanceId[] {
+  return getCharacter(state, playerIdx, charDefId).followers;
+}
+
+/** Assert a character (by instance ID) is present in the player's characters map. */
+export function expectCharInPlay(
+  state: GameState,
+  playerIdx: number,
+  charId: CardInstanceId,
+): void {
+  expect(state.players[playerIdx].characters[charId as string]).toBeDefined();
+}
+
+/** Assert a character (by instance ID) has been removed from the player's characters map. */
+export function expectCharNotInPlay(
+  state: GameState,
+  playerIdx: number,
+  charId: CardInstanceId,
+): void {
+  expect(state.players[playerIdx].characters[charId as string]).toBeUndefined();
+}
+
 /** Append a pre-built CardInPlay to a player's cardsInPlay (e.g. a fixture permanent). */
 export function pushCardInPlay(
   state: GameState,
@@ -1655,6 +1695,487 @@ export function pushCardInPlay(
   const updated = { ...state.players[playerIdx], cardsInPlay: [...state.players[playerIdx].cardsInPlay, card] };
   const players = playerIdx === 0 ? [updated, state.players[1]] : [state.players[0], updated];
   return { ...state, players: players as unknown as typeof state.players };
+}
+
+// ─── Deck fixture loaders ───────────────────────────────────────────────────
+
+const DECKS_DIR = join(__dirname, '../../../../data/decks');
+
+/** Load every JSON deck under `data/decks`. Used by deck-construction rule tests. */
+export function loadAllDecks(): DeckList[] {
+  const files = readdirSync(DECKS_DIR).filter(f => f.endsWith('.json'));
+  return files.map(f => JSON.parse(readFileSync(join(DECKS_DIR, f), 'utf-8')) as DeckList);
+}
+
+// ─── Effect / constraint fixture builders ───────────────────────────────────
+
+/**
+ * Build a single {@link CollectedEffect} wrapping a check-modifier. Used by
+ * effect-resolver tests to assemble inputs without leaking resolver internals.
+ */
+export function makeCheckModifierEffect(
+  check: CheckKind | readonly CheckKind[],
+  value: number,
+): CollectedEffect {
+  return {
+    effect: { type: 'check-modifier', check, value },
+    sourceDef: undefined as never,
+    sourceInstance: 'src-1' as never,
+  };
+}
+
+/** Predicate that matches an `activate-granted-action` with the given actionId. */
+export function isGrantedAction(actionId: string) {
+  return (action: { type: string; actionId?: string }): boolean =>
+    action.type === 'activate-granted-action' && action.actionId === actionId;
+}
+
+/**
+ * Build the pair of constraints River (tw-84) adds when it resolves: a
+ * `site-phase-do-nothing` restriction plus a parallel `granted-action`
+ * that lets an untapped ranger tap to cancel. Both share the same source
+ * so `remove-constraint` sweeps them together.
+ */
+export function makeRiverConstraints(
+  source: CardInstanceId,
+  companyId: CompanyId,
+  riverDefId: CardDefinitionId,
+): readonly [Omit<ActiveConstraint, 'id'>, Omit<ActiveConstraint, 'id'>] {
+  const restriction: Omit<ActiveConstraint, 'id'> = {
+    source,
+    sourceDefinitionId: riverDefId,
+    scope: { kind: 'company-site-phase', companyId },
+    target: { kind: 'company', companyId },
+    kind: { type: 'site-phase-do-nothing' },
+  };
+  const grant: Omit<ActiveConstraint, 'id'> = {
+    source,
+    sourceDefinitionId: riverDefId,
+    scope: { kind: 'company-site-phase', companyId },
+    target: { kind: 'company', companyId },
+    kind: {
+      type: 'granted-action',
+      action: 'cancel-river',
+      cost: { tap: 'character' },
+      when: {
+        $and: [
+          { 'actor.skills': { $includes: 'ranger' } },
+          { 'actor.status': 'untapped' },
+        ],
+      },
+      apply: { type: 'remove-constraint', select: 'constraint-source' },
+    },
+  };
+  return [restriction, grant];
+}
+
+/** Apply both River constraints to the state via {@link addConstraint}. */
+export function addRiverConstraints(
+  state: GameState,
+  source: CardInstanceId,
+  companyId: CompanyId,
+  riverDefId: CardDefinitionId,
+): GameState {
+  const [restriction, grant] = makeRiverConstraints(source, companyId, riverDefId);
+  return addConstraint(addConstraint(state, restriction), grant);
+}
+
+/**
+ * Mint a River card, register both of its constraints on the active
+ * company, and stash the card record somewhere `resolveInstanceId` can
+ * find it so the constraint filter can read its `actor.skills`. Wraps
+ * the three-step setup (mint + addConstraint×2 + pushCardInPlay) used
+ * across every River test. Defaults to pushing the River into the
+ * resource player's cardsInPlay because the River tests patch it there
+ * as an artificial lookup target, not because the card is truly in that
+ * player's ownership.
+ */
+export function installRiverOnActiveCompany(
+  state: GameState,
+  riverDefId: CardDefinitionId,
+  lookupPlayerIdx: 0 | 1 = 0,
+): { state: GameState; riverInstance: CardInstanceId } {
+  const riverInstance = mint();
+  const companyId = companyIdAt(state, RESOURCE_PLAYER);
+  const constrained = addRiverConstraints(state, riverInstance, companyId, riverDefId);
+  const card: CardInPlay = {
+    instanceId: riverInstance,
+    definitionId: riverDefId,
+    status: CardStatus.Untapped,
+  };
+  return { state: pushCardInPlay(constrained, lookupPlayerIdx, card), riverInstance };
+}
+
+/**
+ * Build a Great Ship (tw-248) granted-action constraint payload. Mirrors
+ * what the card's `self-enters-play` apply produces: a turn-scoped
+ * `granted-action` that offers `cancel-chain-entry` to any untapped
+ * character in the target company when the site path is coastal.
+ */
+export function makeGreatShipConstraint(
+  sourceId: CardInstanceId,
+  companyId: CompanyId,
+  greatShipDefId: CardDefinitionId,
+): Omit<ActiveConstraint, 'id'> {
+  return {
+    source: sourceId,
+    sourceDefinitionId: greatShipDefId,
+    scope: { kind: 'turn' },
+    target: { kind: 'company', companyId },
+    kind: {
+      type: 'granted-action',
+      action: 'cancel-chain-entry',
+      phase: Phase.MovementHazard,
+      cost: { tap: 'character' },
+      when: {
+        $and: [
+          { 'chain.hazardCount': { $gt: 0 } },
+          { path: { $includes: 'coastal' } },
+          { path: { $noConsecutiveOtherThan: 'coastal' } },
+        ],
+      },
+      apply: { type: 'cancel-chain-entry', select: 'most-recent-unresolved-hazard' },
+    },
+  };
+}
+
+/**
+ * Return the first (and usually only) constraint on the active company.
+ * Spells out a common assertion chain so call sites stay short.
+ */
+export function singleActiveConstraint(state: GameState): ActiveConstraint {
+  expect(state.activeConstraints).toHaveLength(1);
+  return state.activeConstraints[0];
+}
+
+/** Return every active constraint sourced from the given card instance. */
+export function constraintsFromSource(
+  state: GameState,
+  source: CardInstanceId,
+): readonly ActiveConstraint[] {
+  return state.activeConstraints.filter(c => c.source === source);
+}
+
+// ─── Single-character combat scaffolding ────────────────────────────────────
+
+/**
+ * Options for {@link makeSingleCharCombatState}. Describes a combat where a
+ * lone hero character (player 0, company 0, character 0) faces a synthetic
+ * creature attack with the given prowess/body/race — used by card tests
+ * that exercise modifiers keyed to a specific enemy race.
+ */
+export interface SingleCharCombatOpts {
+  heroDefId: CardDefinitionId;
+  creatureRace: string;
+  creatureProwess: number;
+  creatureBody: number | null;
+  /** If true, the test skips strike assignment (phase starts at `resolve-strike`). */
+  preAssigned?: boolean;
+}
+
+/**
+ * Build a state with a single hero character in combat against a fabricated
+ * creature with the given race/prowess/body. Phase is M/H in Shadow; when
+ * `preAssigned` is true the state is ready to resolve a strike, otherwise it
+ * awaits assignment. Used by e.g. Éowyn's anti-nazgûl tests.
+ */
+export function makeSingleCharCombatState(opts: SingleCharCombatOpts): GameState {
+  const state = buildTestState({
+    phase: Phase.MovementHazard,
+    activePlayer: PLAYER_1,
+    recompute: true,
+    players: [
+      { id: PLAYER_1, companies: [{ site: MORIA, characters: [opts.heroDefId] }], hand: [], siteDeck: [MINAS_TIRITH] },
+      { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [RIVENDELL] },
+    ],
+  });
+
+  const heroId = findCharInstanceId(state, RESOURCE_PLAYER, opts.heroDefId);
+  const companyId = companyIdAt(state, RESOURCE_PLAYER);
+
+  const combat: CombatState = {
+    attackSource: { type: 'creature', instanceId: `fake-${opts.creatureRace}` as never },
+    companyId,
+    defendingPlayerId: PLAYER_1,
+    attackingPlayerId: PLAYER_2,
+    strikesTotal: 1,
+    strikeProwess: opts.creatureProwess,
+    creatureBody: opts.creatureBody,
+    creatureRace: opts.creatureRace,
+    strikeAssignments: opts.preAssigned
+      ? [{ characterId: heroId, excessStrikes: 0, resolved: false }]
+      : [],
+    currentStrikeIndex: 0,
+    phase: opts.preAssigned ? 'resolve-strike' : 'assign-strikes',
+    assignmentPhase: opts.preAssigned ? 'done' : 'defender',
+    bodyCheckTarget: null,
+    detainment: false,
+  };
+
+  return { ...state, phaseState: makeShadowMHState(), combat };
+}
+
+// ─── Opponent-influence scaffolding ─────────────────────────────────────────
+
+/**
+ * Build a site-phase state where PLAYER_1 is attempting opponent influence
+ * against PLAYER_2's characters. PLAYER_2 has a wizard (Gandalf) and one
+ * card in hand, ready to be used as a cancel-influence response. Used by
+ * Wizard's Laughter (tw-362) and other spell-cancel tests.
+ */
+export function buildWizardCancelInfluenceState(handCard: CardDefinitionId): GameState {
+  const state = buildTestState({
+    activePlayer: PLAYER_1,
+    players: [
+      { id: PLAYER_1, companies: [{ site: MORIA, characters: [ARAGORN] }], hand: [], siteDeck: [MINAS_TIRITH] },
+      { id: PLAYER_2, companies: [{ site: MORIA, characters: [GANDALF, LEGOLAS] }], hand: [handCard], siteDeck: [LORIEN] },
+    ],
+    phase: Phase.Site,
+    recompute: true,
+  });
+  return {
+    ...state,
+    turnNumber: 3,
+    cheatRollTotal: 12,
+    phaseState: makeSitePhase(),
+  };
+}
+
+// ─── Long-event / ahunt scaffolding ─────────────────────────────────────────
+
+/**
+ * Build an order-effects M/H state for a company moving through the given
+ * region path, with an ahunt long-event card (plus any extras) in the
+ * hazard player's cardsInPlay. Used by ahunt card tests to drive the
+ * order-effects trigger without running through movement manually.
+ */
+export function buildAhuntOrderEffectsState(opts: {
+  ahuntDefId: CardDefinitionId;
+  pathNames: readonly string[];
+  pathTypes: readonly RegionType[];
+  extraCardsInPlay?: readonly CardDefinitionId[];
+}): GameState {
+  const base = buildTestState({
+    phase: Phase.MovementHazard,
+    activePlayer: PLAYER_1,
+    players: [
+      { id: PLAYER_1, companies: [{ site: EDHELLOND, characters: [ARAGORN, GANDALF] }], hand: [], siteDeck: [] },
+      { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [MINAS_TIRITH] },
+    ],
+  });
+
+  const newCards: CardInPlay[] = [
+    { instanceId: mint(), definitionId: opts.ahuntDefId, status: CardStatus.Untapped },
+    ...(opts.extraCardsInPlay ?? []).map(defId => ({
+      instanceId: mint(),
+      definitionId: defId,
+      status: CardStatus.Untapped,
+    })),
+  ];
+
+  const withCards = addP2CardsInPlay(base, newCards);
+
+  return {
+    ...withCards,
+    phaseState: makeMHState({
+      step: 'order-effects' as const,
+      resolvedSitePathNames: opts.pathNames as string[],
+      resolvedSitePath: opts.pathTypes as RegionType[],
+    }),
+  };
+}
+
+// ─── On-guard scaffolding ───────────────────────────────────────────────────
+
+/**
+ * Build a site-phase state with PLAYER_1 at the given site and PLAYER_2 at
+ * Lorien. Shared scaffolding for rule 6.02 (reveal-on-guard-attacks) and
+ * similar on-guard tests where only the site and characters vary.
+ */
+export function buildSitePhaseTwoPlayer(opts: {
+  site: CardDefinitionId;
+  heroChars?: readonly CardDefinitionId[];
+  heroHand?: readonly CardDefinitionId[];
+  heroSiteDeck?: readonly CardDefinitionId[];
+}): GameState {
+  return buildTestState({
+    activePlayer: PLAYER_1,
+    phase: Phase.Site,
+    players: [
+      {
+        id: PLAYER_1,
+        companies: [{ site: opts.site, characters: [...(opts.heroChars ?? [ARAGORN])] }],
+        hand: [...(opts.heroHand ?? [])],
+        siteDeck: [...(opts.heroSiteDeck ?? [])],
+      },
+      { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [MINAS_TIRITH] },
+    ],
+  });
+}
+
+/**
+ * Build a site-phase scenario where PLAYER_1's company has an on-guard
+ * card attached. Returns the pre-configured state at the `play-resources`
+ * step plus the OG card record so tests can target it by instance ID.
+ */
+export function buildOnGuardSiteScenario(opts: {
+  site: CardDefinitionId;
+  heroChars?: readonly CardDefinitionId[];
+  heroHand?: readonly CardDefinitionId[];
+  onGuard: CardDefinitionId;
+}): { testState: GameState; ogCard: OnGuardCard } {
+  const base = buildSitePhaseTwoPlayer({
+    site: opts.site,
+    heroChars: opts.heroChars,
+    heroHand: opts.heroHand,
+  });
+  const { state, ogCard } = placeOnGuard(base, RESOURCE_PLAYER, 0, opts.onGuard);
+  return { testState: { ...state, phaseState: makeSitePhase() }, ogCard };
+}
+
+// ─── Card-specific scenario builders ────────────────────────────────────────
+
+/**
+ * Build a play-hazards M/H state for An Unexpected Outpost (dm-45): the
+ * hazard player's hand always contains AN_UNEXPECTED_OUTPOST, with optional
+ * sideboard, discard, extra in-play cards, and additional hand cards.
+ * PLAYER_1's company sits at Rivendell heading to Moria.
+ */
+export function buildAnUnexpectedOutpostMH(opts?: {
+  sideboard?: CardDefinitionId[];
+  discardPile?: CardDefinitionId[];
+  p2CardsInPlay?: CardInPlay[];
+  hand?: CardDefinitionId[];
+}): GameState {
+  const state = buildTestState({
+    activePlayer: PLAYER_1,
+    phase: Phase.MovementHazard,
+    players: [
+      { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [ARAGORN] }], hand: [], siteDeck: [MORIA] },
+      {
+        id: PLAYER_2,
+        companies: [{ site: LORIEN, characters: [LEGOLAS] }],
+        hand: [AN_UNEXPECTED_OUTPOST, ...(opts?.hand ?? [])],
+        siteDeck: [MINAS_TIRITH],
+        sideboard: opts?.sideboard ?? [],
+        discardPile: opts?.discardPile ?? [],
+        cardsInPlay: opts?.p2CardsInPlay ?? [],
+      },
+    ],
+  });
+  return { ...state, phaseState: makeMHState() };
+}
+
+/**
+ * Set up an M/H combat vs. Cave-drake at Moria via wilderness. PLAYER_1 has
+ * the given pair of heroes in their company and can hold an optional hand.
+ * Returns the state immediately after the creature is revealed on the chain,
+ * ready for strike assignment. Used by tw-209 (Dodge) etc.
+ */
+export function setupCombatWithCaveDrake(opts: {
+  heroChars: readonly CardDefinitionId[];
+  heroHand?: readonly CardDefinitionId[];
+  creatureDefId: CardDefinitionId;
+  hazardCharacter?: CardDefinitionId;
+}): GameState {
+  const state = buildTestState({
+    activePlayer: PLAYER_1,
+    phase: Phase.MovementHazard,
+    recompute: true,
+    players: [
+      {
+        id: PLAYER_1,
+        companies: [{ site: MORIA, characters: [...opts.heroChars] }],
+        hand: [...(opts.heroHand ?? [])],
+        siteDeck: [MINAS_TIRITH],
+      },
+      {
+        id: PLAYER_2,
+        companies: [{ site: LORIEN, characters: [opts.hazardCharacter ?? GIMLI] }],
+        hand: [opts.creatureDefId],
+        siteDeck: [RIVENDELL],
+      },
+    ],
+  });
+
+  const mhState = makeMHState({
+    resolvedSitePath: [RegionType.Wilderness],
+    resolvedSitePathNames: ['Hollin'],
+    destinationSiteType: SiteType.ShadowHold,
+    destinationSiteName: 'Moria',
+  });
+  const gameState = { ...state, phaseState: mhState };
+
+  const creatureId = handCardId(gameState, HAZARD_PLAYER);
+  const companyId = companyIdAt(gameState, RESOURCE_PLAYER);
+  const wildernessKeying = { method: 'region-type' as const, value: 'wilderness' };
+  const s0 = playCreatureHazardAndResolve(gameState, PLAYER_2, creatureId, companyId, wildernessKeying);
+  expect(s0.combat).not.toBeNull();
+  return s0;
+}
+
+/**
+ * Resolve a Cave-drake's two strikes against the named defender: the
+ * defender passes the cancel window, then the attacker assigns both
+ * strikes. Returns the state ready for strike resolution.
+ */
+export function assignBothStrikesTo(
+  state: GameState,
+  targetDefId: CardDefinitionId,
+): GameState {
+  const targetId = findCharInstanceId(state, RESOURCE_PLAYER, targetDefId);
+  let s = dispatch(state, { type: 'pass', player: PLAYER_1 });
+  s = dispatch(s, { type: 'assign-strike', player: PLAYER_2, characterId: targetId });
+  s = dispatch(s, { type: 'assign-strike', player: PLAYER_2, characterId: targetId, excess: true });
+  expect(s.combat!.phase).toBe('resolve-strike');
+  return s;
+}
+
+/**
+ * Build an M/H order-effects state where PLAYER_1's company (with the given
+ * hero characters) is moving from Rivendell to a fresh copy of the given
+ * destination site. Dispatching `pass` triggers the transition into
+ * draw-cards, surfacing draw-count modifiers. Used by wizard draw-modifier
+ * tests (Alatar, etc.).
+ */
+export function buildMHOrderEffectsDrawState(opts: {
+  heroChars: readonly CardDefinitionId[];
+  destinationSite: CardDefinitionId;
+  heroSiteDeck?: readonly CardDefinitionId[];
+}): GameState {
+  const state = buildTestState({
+    phase: Phase.MovementHazard,
+    activePlayer: PLAYER_1,
+    players: [
+      {
+        id: PLAYER_1,
+        companies: [{ site: RIVENDELL, characters: [...opts.heroChars] }],
+        hand: [],
+        siteDeck: [...(opts.heroSiteDeck ?? [MORIA])],
+        playDeck: makePlayDeck(),
+      },
+      {
+        id: PLAYER_2,
+        companies: [{ site: LORIEN, characters: [ARAGORN] }],
+        hand: [],
+        siteDeck: [MINAS_TIRITH],
+        playDeck: makePlayDeck(),
+      },
+    ],
+  });
+
+  const destInstId = mint();
+  const company = {
+    ...state.players[0].companies[0],
+    destinationSite: { instanceId: destInstId, definitionId: opts.destinationSite, status: CardStatus.Untapped },
+  };
+  const players: readonly [PlayerState, PlayerState] = [
+    { ...state.players[0], companies: [company] },
+    state.players[1],
+  ];
+
+  const mhState = makeMHState({ step: 'order-effects' as MovementHazardPhaseState['step'] });
+  return { ...state, players, phaseState: mhState } as GameState;
 }
 
 // Re-export commonly used things

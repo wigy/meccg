@@ -27,7 +27,8 @@ import {
   buildTestState, resetMint,
   viableActions, makeMHState,
   P1_COMPANY,
-  handCardId, charIdAt, dispatch, RESOURCE_PLAYER, HAZARD_PLAYER,
+  handCardId, charIdAt, findCharInstanceId, dispatch, RESOURCE_PLAYER, HAZARD_PLAYER,
+  expectCharInPlay, expectCharNotInPlay,
 } from '../test-helpers.js';
 import { computeLegalActions } from '../../engine/legal-actions/index.js';
 import { Phase } from '../../index.js';
@@ -167,7 +168,7 @@ describe('Call of Home (tw-18)', () => {
     s = dispatch(s, rollAction);
 
     // Character should still be in play
-    expect(s.players[0].characters[aragornId as string]).toBeDefined();
+    expectCharInPlay(s, RESOURCE_PLAYER, aragornId);
     expect(s.players[0].hand.length).toBe(0);
   });
 
@@ -194,7 +195,7 @@ describe('Call of Home (tw-18)', () => {
     // tw-143 = Beretar (mind 2, dunadan)
     // With Aragorn (mind 6) + Legolas (mind 6) + Beretar (mind 2) = 14 GI used.
     // Unused GI = 20 - 14 = 6. Need roll >= 10 - 6 = 4.
-    const beretarId = charIdAt(state, RESOURCE_PLAYER, 0, 2);
+    const beretarId = findCharInstanceId(state, RESOURCE_PLAYER, 'tw-143' as CardDefinitionId);
     const mhState: GameState = { ...state, phaseState: makeMHState() };
     const cohId = handCardId(mhState, HAZARD_PLAYER);
 
@@ -224,7 +225,7 @@ describe('Call of Home (tw-18)', () => {
     s = dispatch(s, rollActions[0].action);
 
     // Character should be back in hand
-    expect(s.players[0].characters[beretarId as string]).toBeUndefined();
+    expectCharNotInPlay(s, RESOURCE_PLAYER, beretarId);
     const handDefIds = s.players[0].hand.map(c => c.definitionId);
     expect(handDefIds).toContain('tw-143');
 
@@ -263,8 +264,8 @@ describe('Call of Home (tw-18)', () => {
 
     // GI used: Aragorn 6 + Gimli 6 + Beorn 7 = 19. Beretar is follower (not under GI).
     // Unused GI = 1. Need roll >= 10 - 1 = 9.
-    const beornId = charIdAt(state, RESOURCE_PLAYER, 0, 2);
-    const beretarId = charIdAt(state, RESOURCE_PLAYER, 0, 3);
+    const beornId = findCharInstanceId(state, RESOURCE_PLAYER, BEORN);
+    const beretarId = findCharInstanceId(state, RESOURCE_PLAYER, BERETAR);
     const mhState: GameState = { ...state, phaseState: makeMHState() };
     const cohId = handCardId(mhState, HAZARD_PLAYER);
 
@@ -290,7 +291,7 @@ describe('Call of Home (tw-18)', () => {
     s = dispatch(s, rollActions[0].action);
 
     // Beorn should be in hand
-    expect(s.players[0].characters[beornId as string]).toBeUndefined();
+    expectCharNotInPlay(s, RESOURCE_PLAYER, beornId);
     const handDefIds = s.players[0].hand.map(c => c.definitionId);
     expect(handDefIds).toContain(BEORN);
 

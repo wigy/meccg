@@ -35,9 +35,11 @@ import {
   mint,
   makeMHState,
   handCardId, charIdAt, companyIdAt, dispatch, RESOURCE_PLAYER,
+  makeGreatShipConstraint, isGrantedAction, findCharInstanceId,
+  expectCharStatus, setCharStatus, expectInDiscardPile,
 } from '../test-helpers.js';
 import type {
-  CardDefinitionId, CardInstanceId, CompanyId, ActiveConstraint,
+  CardDefinitionId,
   PlayShortEventAction,
 } from '../../index.js';
 
@@ -47,39 +49,7 @@ import { computeLegalActions } from '../../engine/legal-actions/index.js';
 import { addConstraint, sweepExpired } from '../../engine/pending.js';
 import { initiateChain } from '../../engine/chain-reducer.js';
 
-/**
- * Build a Great Ship granted-action constraint payload. Mirrors what the
- * card's `self-enters-play` apply produces: a turn-scoped
- * `granted-action` constraint that offers `cancel-chain-entry` to any
- * untapped character in the target company when the path is coastal.
- */
-function greatShipConstraint(sourceId: CardInstanceId, companyId: CompanyId): Omit<ActiveConstraint, 'id'> {
-  return {
-    source: sourceId,
-    sourceDefinitionId: GREAT_SHIP,
-    scope: { kind: 'turn' },
-    target: { kind: 'company', companyId },
-    kind: {
-      type: 'granted-action',
-      action: 'cancel-chain-entry',
-      phase: Phase.MovementHazard,
-      cost: { tap: 'character' },
-      when: {
-        $and: [
-          { 'chain.hazardCount': { $gt: 0 } },
-          { path: { $includes: 'coastal' } },
-          { path: { $noConsecutiveOtherThan: 'coastal' } },
-        ],
-      },
-      apply: { type: 'cancel-chain-entry', select: 'most-recent-unresolved-hazard' },
-    },
-  };
-}
-
-/** Activate-granted-action filter helper for Great Ship's cancel. */
-function isCancelChainEntry(action: { type: string; actionId?: string }): boolean {
-  return action.type === 'activate-granted-action' && action.actionId === 'cancel-chain-entry';
-}
+const isCancelChainEntry = isGrantedAction('cancel-chain-entry');
 
 describe('Great Ship (tw-248)', () => {
   beforeEach(() => resetMint());
@@ -124,7 +94,7 @@ describe('Great Ship (tw-248)', () => {
       targetScoutInstanceId: aragornInstance,
     });
 
-    expect(nextState.players[0].characters[aragornInstance as string].status).toBe(CardStatus.Tapped);
+    expectCharStatus(nextState, RESOURCE_PLAYER, ARAGORN, CardStatus.Tapped);
     expect(nextState.activeConstraints).toHaveLength(1);
     const constraint = nextState.activeConstraints[0];
     expect(constraint.kind.type).toBe('granted-action');
@@ -168,23 +138,7 @@ describe('Great Ship (tw-248)', () => {
         { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [MINAS_TIRITH] },
       ],
     });
-    const aragornInstance = charIdAt(base, RESOURCE_PLAYER);
-    const tappedState = {
-      ...base,
-      players: [
-        {
-          ...base.players[0],
-          characters: {
-            ...base.players[0].characters,
-            [aragornInstance as string]: {
-              ...base.players[0].characters[aragornInstance as string],
-              status: CardStatus.Tapped,
-            },
-          },
-        },
-        base.players[1],
-      ] as const,
-    };
+    const tappedState = setCharStatus(base, RESOURCE_PLAYER, ARAGORN, CardStatus.Tapped);
 
     const playActions = computeLegalActions(tappedState, PLAYER_1)
       .filter(ea => ea.viable && ea.action.type === 'play-short-event');
@@ -203,8 +157,8 @@ describe('Great Ship (tw-248)', () => {
     });
 
     const companyId = companyIdAt(base, RESOURCE_PLAYER);
-    const aragornInstance = charIdAt(base, RESOURCE_PLAYER, 0, 0);
-    const gandalfInstance = charIdAt(base, RESOURCE_PLAYER, 0, 1);
+    const aragornInstance = findCharInstanceId(base, RESOURCE_PLAYER, ARAGORN);
+    const gandalfInstance = findCharInstanceId(base, RESOURCE_PLAYER, GANDALF);
 
     const mhState = makeMHState({
       activeCompanyIndex: 0,
@@ -222,7 +176,7 @@ describe('Great Ship (tw-248)', () => {
       { type: 'creature' },
     );
 
-    const constrained = addConstraint(withChain, greatShipConstraint(mint(), companyId));
+    const constrained = addConstraint(withChain, makeGreatShipConstraint(mint(), companyId, GREAT_SHIP));
 
     const actions = computeLegalActions(constrained, PLAYER_1)
       .filter(ea => ea.viable && isCancelChainEntry(ea.action));
@@ -263,7 +217,7 @@ describe('Great Ship (tw-248)', () => {
       { type: 'creature' },
     );
 
-    const constrained = addConstraint(withChain, greatShipConstraint(mint(), companyId));
+    const constrained = addConstraint(withChain, makeGreatShipConstraint(mint(), companyId, GREAT_SHIP));
 
     const actions = computeLegalActions(constrained, PLAYER_1)
       .filter(ea => ea.viable && isCancelChainEntry(ea.action));
@@ -298,7 +252,7 @@ describe('Great Ship (tw-248)', () => {
       { type: 'creature' },
     );
 
-    const constrained = addConstraint(withChain, greatShipConstraint(mint(), companyId));
+    const constrained = addConstraint(withChain, makeGreatShipConstraint(mint(), companyId, GREAT_SHIP));
 
     const actions = computeLegalActions(constrained, PLAYER_1)
       .filter(ea => ea.viable && isCancelChainEntry(ea.action));
@@ -333,7 +287,7 @@ describe('Great Ship (tw-248)', () => {
       { type: 'creature' },
     );
 
-    const constrained = addConstraint(withChain, greatShipConstraint(mint(), companyId));
+    const constrained = addConstraint(withChain, makeGreatShipConstraint(mint(), companyId, GREAT_SHIP));
 
     const actions = computeLegalActions(constrained, PLAYER_1)
       .filter(ea => ea.viable && isCancelChainEntry(ea.action));
@@ -358,7 +312,7 @@ describe('Great Ship (tw-248)', () => {
       resolvedSitePathNames: ['Anfalas', 'Lindon'],
     });
 
-    const constrained = addConstraint({ ...base, phaseState: mhState }, greatShipConstraint(mint(), companyId));
+    const constrained = addConstraint({ ...base, phaseState: mhState }, makeGreatShipConstraint(mint(), companyId, GREAT_SHIP));
 
     const actions = computeLegalActions(constrained, PLAYER_1)
       .filter(ea => ea.viable && isCancelChainEntry(ea.action));
@@ -393,7 +347,7 @@ describe('Great Ship (tw-248)', () => {
 
     const companyId = companyIdAt(base, RESOURCE_PLAYER);
     const sourceId = mint();
-    const constrained = addConstraint(withChain, greatShipConstraint(sourceId, companyId));
+    const constrained = addConstraint(withChain, makeGreatShipConstraint(sourceId, companyId, GREAT_SHIP));
 
     const result = dispatch(constrained, {
       type: 'activate-granted-action',
@@ -405,7 +359,7 @@ describe('Great Ship (tw-248)', () => {
       rollThreshold: 0,
     });
 
-    expect(result.players[0].characters[aragornInstance as string].status).toBe(CardStatus.Tapped);
+    expectCharStatus(result, RESOURCE_PLAYER, ARAGORN, CardStatus.Tapped);
     expect(result.chain!.entries[0].negated).toBe(true);
   });
 
@@ -420,7 +374,7 @@ describe('Great Ship (tw-248)', () => {
     });
 
     const companyId = companyIdAt(base, RESOURCE_PLAYER);
-    const constrained = addConstraint(base, greatShipConstraint(mint(), companyId));
+    const constrained = addConstraint(base, makeGreatShipConstraint(mint(), companyId, GREAT_SHIP));
     expect(constrained.activeConstraints).toHaveLength(1);
 
     const swept = sweepExpired(constrained, { kind: 'turn-end' });
@@ -446,7 +400,7 @@ describe('Great Ship (tw-248)', () => {
       targetScoutInstanceId: aragornInstance,
     });
 
-    expect(nextState.players[0].hand.length).toBe(0);
-    expect(nextState.players[0].discardPile.find(c => c.instanceId === greatShipInstance)).toBeDefined();
+    expect(nextState.players[RESOURCE_PLAYER].hand.length).toBe(0);
+    expectInDiscardPile(nextState, RESOURCE_PLAYER, greatShipInstance);
   });
 });

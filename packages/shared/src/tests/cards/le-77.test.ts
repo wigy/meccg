@@ -22,6 +22,7 @@ import {
   findCharInstanceId, viableActions,
   playCreatureHazardAndResolve,
   handCardId, companyIdAt, dispatch, expectCharStatus, RESOURCE_PLAYER, HAZARD_PLAYER,
+  expectCharInPlay,
 } from '../test-helpers.js';
 import { computeLegalActions, Phase, RegionType, SiteType, CardStatus } from '../../index.js';
 // ─── Constants ──────────────────────────────────────────────────────────────
@@ -234,7 +235,7 @@ describe('Hobgoblins (le-77)', () => {
     expectCharStatus(current, RESOURCE_PLAYER, ARAGORN, CardStatus.Inverted);
     expectCharStatus(current, RESOURCE_PLAYER, LEGOLAS, CardStatus.Tapped);
     // Still verify char instance IDs preserved
-    expect(current.players[0].characters[aragornId as string]).toBeDefined();
-    expect(current.players[0].characters[legolasId as string]).toBeDefined();
+    expectCharInPlay(current, RESOURCE_PLAYER, aragornId);
+    expectCharInPlay(current, RESOURCE_PLAYER, legolasId);
   });
 });

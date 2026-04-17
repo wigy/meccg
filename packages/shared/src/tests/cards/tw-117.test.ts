@@ -25,66 +25,27 @@
 
 import { describe, test, expect, beforeEach } from 'vitest';
 import {
-  PLAYER_1, PLAYER_2,
-  GANDALF, ARAGORN, LEGOLAS,
-  RIVENDELL, LORIEN, MORIA, MINAS_TIRITH, EDORAS,
-  Phase, CardStatus,
-  buildTestState, resetMint, makeMHState, mint,
-  dispatch, makePlayDeck, phaseStateAs,
+  PLAYER_1,
+  GANDALF, LEGOLAS,
+  MORIA, EDORAS,
+  resetMint,
+  dispatch, phaseStateAs,
+  buildMHOrderEffectsDrawState,
 } from '../test-helpers.js';
-import type { CardDefinitionId, MovementHazardPhaseState, PlayerState } from '../../index.js';
+import type { CardDefinitionId, MovementHazardPhaseState } from '../../index.js';
 
 const ALATAR = 'tw-117' as CardDefinitionId;
-
-// ─── Tests ────────────────────────────────────────────────────────────────────
 
 describe('Alatar (tw-117)', () => {
   beforeEach(() => resetMint());
 
-  /**
-   * Helper: build a state in M/H order-effects step with a company moving
-   * to a destination site. Dispatching 'pass' triggers transitionToDrawCards.
-   */
-  function buildMHDrawState(wizard: CardDefinitionId, destinationSite: CardDefinitionId) {
-    const state = buildTestState({
-      phase: Phase.MovementHazard,
-      activePlayer: PLAYER_1,
-      players: [
-        {
-          id: PLAYER_1,
-          companies: [{ site: RIVENDELL, characters: [wizard, LEGOLAS] }],
-          hand: [],
-          siteDeck: [MORIA],
-          playDeck: makePlayDeck(),
-        },
-        {
-          id: PLAYER_2,
-          companies: [{ site: LORIEN, characters: [ARAGORN] }],
-          hand: [],
-          siteDeck: [MINAS_TIRITH],
-          playDeck: makePlayDeck(),
-        },
-      ],
-    });
-
-    const destInstId = mint();
-    const company = {
-      ...state.players[0].companies[0],
-      destinationSite: { instanceId: destInstId, definitionId: destinationSite, status: CardStatus.Untapped },
-    };
-    const players: readonly [PlayerState, PlayerState] = [
-      { ...state.players[0], companies: [company] },
-      state.players[1],
-    ];
-
-    const mhState = makeMHState({ step: 'order-effects' as MovementHazardPhaseState['step'] });
-    return { ...state, players, phaseState: mhState };
-  }
-
   // ── Effect 1: draw-modifier — reduce opponent hazard draws by 1 ──
 
   test('hazard draws reduced by 1 when Alatar is in the moving company', () => {
-    const testState = buildMHDrawState(ALATAR, MORIA);
+    const testState = buildMHOrderEffectsDrawState({
+      heroChars: [ALATAR, LEGOLAS],
+      destinationSite: MORIA,
+    });
 
     const result = dispatch(testState, { type: 'pass', player: PLAYER_1 });
     const resultMH = phaseStateAs<MovementHazardPhaseState>(result);
@@ -98,39 +59,11 @@ describe('Alatar (tw-117)', () => {
 
   test('hazard draws not reduced below the minimum of 0', () => {
     // Edoras has hazardDraws: 1 — after Alatar's -1, should be 0 (not negative)
-    const state = buildTestState({
-      phase: Phase.MovementHazard,
-      activePlayer: PLAYER_1,
-      players: [
-        {
-          id: PLAYER_1,
-          companies: [{ site: RIVENDELL, characters: [ALATAR] }],
-          hand: [],
-          siteDeck: [],
-          playDeck: makePlayDeck(),
-        },
-        {
-          id: PLAYER_2,
-          companies: [{ site: LORIEN, characters: [ARAGORN] }],
-          hand: [],
-          siteDeck: [MINAS_TIRITH],
-          playDeck: makePlayDeck(),
-        },
-      ],
+    const testState = buildMHOrderEffectsDrawState({
+      heroChars: [ALATAR],
+      destinationSite: EDORAS,
+      heroSiteDeck: [],
     });
-
-    const destInstId = mint();
-    const company = {
-      ...state.players[0].companies[0],
-      destinationSite: { instanceId: destInstId, definitionId: EDORAS, status: CardStatus.Untapped },
-    };
-    const players: readonly [PlayerState, PlayerState] = [
-      { ...state.players[0], companies: [company] },
-      state.players[1],
-    ];
-
-    const mhState = makeMHState({ step: 'order-effects' as MovementHazardPhaseState['step'] });
-    const testState = { ...state, players, phaseState: mhState };
 
     const result = dispatch(testState, { type: 'pass', player: PLAYER_1 });
     const resultMH = phaseStateAs<MovementHazardPhaseState>(result);
@@ -140,7 +73,10 @@ describe('Alatar (tw-117)', () => {
   });
 
   test('without Alatar, hazard draws equal the site value', () => {
-    const testState = buildMHDrawState(GANDALF, MORIA);
+    const testState = buildMHOrderEffectsDrawState({
+      heroChars: [GANDALF, LEGOLAS],
+      destinationSite: MORIA,
+    });
 
     const result = dispatch(testState, { type: 'pass', player: PLAYER_1 });
     const resultMH = phaseStateAs<MovementHazardPhaseState>(result);

@@ -23,62 +23,12 @@ import {
   buildTestState, resetMint, makeShadowMHState, findCharInstanceId,
   executeAction, playCreatureHazardAndResolve, runCreatureCombat,
   dispatch, getCharacter, expectCharStatus, RESOURCE_PLAYER,
+  makeSingleCharCombatState, companyIdAt, handCardId, HAZARD_PLAYER,
 } from '../test-helpers.js';
 import { Phase, CardStatus } from '../../index.js';
-import type { CombatState } from '../../index.js';
-
-// ─── Constants ──────────────────────────────────────────────────────────────
 
 const SHADOW_KEYING = { method: 'region-type' as const, value: 'shadow' };
-
-/**
- * Build a state with Éowyn in combat against a creature with the given race.
- * Returns the state ready for strike assignment or resolution.
- */
-function buildCombatState(opts: {
-  creatureRace: string;
-  creatureProwess: number;
-  creatureBody: number | null;
-  preAssigned?: boolean;
-}) {
-  const state = buildTestState({
-    phase: Phase.MovementHazard,
-    activePlayer: PLAYER_1,
-    recompute: true,
-    players: [
-      { id: PLAYER_1, companies: [{ site: MORIA, characters: [EOWYN] }], hand: [], siteDeck: [MINAS_TIRITH] },
-      { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [RIVENDELL] },
-    ],
-  });
-
-  const eowynId = findCharInstanceId(state, RESOURCE_PLAYER, EOWYN);
-  const companyId = state.players[0].companies[0].id;
-
-  const combat: CombatState = {
-    attackSource: { type: 'creature', instanceId: `fake-${opts.creatureRace}` as never },
-    companyId,
-    defendingPlayerId: PLAYER_1,
-    attackingPlayerId: PLAYER_2,
-    strikesTotal: 1,
-    strikeProwess: opts.creatureProwess,
-    creatureBody: opts.creatureBody,
-    creatureRace: opts.creatureRace,
-    strikeAssignments: opts.preAssigned
-      ? [{ characterId: eowynId, excessStrikes: 0, resolved: false }]
-      : [],
-    currentStrikeIndex: 0,
-    phase: opts.preAssigned ? 'resolve-strike' : 'assign-strikes',
-    assignmentPhase: opts.preAssigned ? 'done' : 'defender',
-    bodyCheckTarget: null,
-    detainment: false,
-  };
-
-  const mhState = makeShadowMHState();
-
-  return { ...state, phaseState: mhState, combat };
-}
-
-// ─── Tests ──────────────────────────────────────────────────────────────────
+const EOWYN_BASE_PROWESS = 2;
 
 describe('Éowyn (tw-147)', () => {
   beforeEach(() => resetMint());
@@ -95,13 +45,13 @@ describe('Éowyn (tw-147)', () => {
       ],
     });
 
-    expect(getCharacter(state, RESOURCE_PLAYER, EOWYN).effectiveStats.prowess).toBe(2);
+    expect(getCharacter(state, RESOURCE_PLAYER, EOWYN).effectiveStats.prowess).toBe(EOWYN_BASE_PROWESS);
   });
 
   test('+6 prowess bonus applies in combat vs nazgul (no tap)', () => {
     // Éowyn base prowess 2 + 6 bonus - 3 no-tap = 5.
     // Roll 11: 5 + 11 = 16 > 15 → character defeats strike.
-    const ready = buildCombatState({ creatureRace: 'nazgul', creatureProwess: 15, creatureBody: 10 });
+    const ready = makeSingleCharCombatState({ heroDefId: EOWYN, creatureRace: 'nazgul', creatureProwess: 15, creatureBody: 10 });
     const eowynId = findCharInstanceId(ready, RESOURCE_PLAYER, EOWYN);
 
     // Assign strike
@@ -124,11 +74,10 @@ describe('Éowyn (tw-147)', () => {
       ],
     });
 
-    const mhState = makeShadowMHState();
-    const ready = { ...state, phaseState: mhState };
+    const ready = { ...state, phaseState: makeShadowMHState() };
 
-    const bwId = ready.players[1].hand[0].instanceId;
-    const companyId = ready.players[0].companies[0].id;
+    const bwId = handCardId(ready, HAZARD_PLAYER);
+    const companyId = companyIdAt(ready, RESOURCE_PLAYER);
     const afterChain = playCreatureHazardAndResolve(ready, PLAYER_2, bwId, companyId, SHADOW_KEYING);
 
     expect(afterChain.combat).not.toBeNull();
@@ -145,7 +94,7 @@ describe('Éowyn (tw-147)', () => {
   test('tapping to fight with +6 bonus gives correct prowess vs nazgul', () => {
     // Tapping: prowess = 2 + 6 = 8 (no -3 penalty).
     // Roll 8: 8 + 8 = 16 > 15 → character wins.
-    const ready = buildCombatState({ creatureRace: 'nazgul', creatureProwess: 15, creatureBody: 10 });
+    const ready = makeSingleCharCombatState({ heroDefId: EOWYN, creatureRace: 'nazgul', creatureProwess: 15, creatureBody: 10 });
     const eowynId = findCharInstanceId(ready, RESOURCE_PLAYER, EOWYN);
 
     const afterAssign = dispatch(ready, { type: 'assign-strike', player: PLAYER_1, characterId: eowynId });
@@ -157,8 +106,8 @@ describe('Éowyn (tw-147)', () => {
 
   test('nazgul body 9 (odd) is halved to 5 (rounded up) during body check', () => {
     // Body 9 → ceil(9/2) = 5.
-    const ready = buildCombatState({
-      creatureRace: 'nazgul', creatureProwess: 5, creatureBody: 9, preAssigned: true,
+    const ready = makeSingleCharCombatState({
+      heroDefId: EOWYN, creatureRace: 'nazgul', creatureProwess: 5, creatureBody: 9, preAssigned: true,
     });
 
     // Win the strike with high roll
@@ -177,8 +126,8 @@ describe('Éowyn (tw-147)', () => {
 
   test('nazgul body 10 (even) is halved to 5 during body check', () => {
     // Body 10 → ceil(10/2) = 5.
-    const ready = buildCombatState({
-      creatureRace: 'nazgul', creatureProwess: 5, creatureBody: 10, preAssigned: true,
+    const ready = makeSingleCharCombatState({
+      heroDefId: EOWYN, creatureRace: 'nazgul', creatureProwess: 5, creatureBody: 10, preAssigned: true,
     });
 
     const afterStrike = executeAction(ready, PLAYER_1, 'resolve-strike', 12, false);
@@ -195,8 +144,8 @@ describe('Éowyn (tw-147)', () => {
 
   test('enemy body is not halved vs non-nazgul', () => {
     // Orc with body 9 — body should NOT be halved.
-    const ready = buildCombatState({
-      creatureRace: 'orc', creatureProwess: 3, creatureBody: 9, preAssigned: true,
+    const ready = makeSingleCharCombatState({
+      heroDefId: EOWYN, creatureRace: 'orc', creatureProwess: 3, creatureBody: 9, preAssigned: true,
     });
 
     const afterStrike = executeAction(ready, PLAYER_1, 'resolve-strike', 12, false);

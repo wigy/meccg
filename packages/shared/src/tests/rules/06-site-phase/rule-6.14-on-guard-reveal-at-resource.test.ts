@@ -15,33 +15,26 @@
 
 import { describe, test, expect, beforeEach } from 'vitest';
 import {
-  buildTestState, resetMint, Phase, dispatch, resolveChain,
-  makeSitePhase, placeOnGuard, viableActions,
+  resetMint, dispatch, resolveChain,
+  viableActions,
+  buildOnGuardSiteScenario,
   PLAYER_1, PLAYER_2,
-  GANDALF, LEGOLAS, ARAGORN,
+  GANDALF, ARAGORN,
   FOOLISH_WORDS, DOORS_OF_NIGHT, KNIGHTS_OF_DOL_AMROTH,
-  LORIEN, MINAS_TIRITH, DOL_AMROTH, RESOURCE_PLAYER,
+  DOL_AMROTH,
 } from '../../test-helpers.js';
 
-/** Build state: PLAYER_1 at Dol Amroth with Aragorn, faction in hand, Foolish Words on-guard. */
-function buildScenario(characters = [ARAGORN]) {
-  const base = buildTestState({
-    activePlayer: PLAYER_1,
-    phase: Phase.Site,
-    players: [
-      { id: PLAYER_1, companies: [{ site: DOL_AMROTH, characters }], hand: [KNIGHTS_OF_DOL_AMROTH], siteDeck: [] },
-      { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [MINAS_TIRITH] },
-    ],
-  });
-  const { state, ogCard } = placeOnGuard(base, RESOURCE_PLAYER, 0, FOOLISH_WORDS);
-  return { testState: { ...state, phaseState: makeSitePhase() }, ogCard };
-}
+const DEFAULT_SCENARIO = {
+  site: DOL_AMROTH,
+  heroHand: [KNIGHTS_OF_DOL_AMROTH],
+  onGuard: FOOLISH_WORDS,
+} as const;
 
 describe('Rule 6.14 — On-Guard Reveal When Playing Resource', () => {
   beforeEach(() => resetMint());
 
   test('influence-attempt with on-guard cards initiates a chain', () => {
-    const { testState } = buildScenario();
+    const { testState } = buildOnGuardSiteScenario(DEFAULT_SCENARIO);
 
     const influenceAction = viableActions(testState, PLAYER_1, 'influence-attempt')[0];
     expect(influenceAction).toBeDefined();
@@ -55,7 +48,7 @@ describe('Rule 6.14 — On-Guard Reveal When Playing Resource', () => {
   });
 
   test('hazard player gets RevealOnGuardAction during influence-attempt chain', () => {
-    const { testState, ogCard } = buildScenario();
+    const { testState, ogCard } = buildOnGuardSiteScenario(DEFAULT_SCENARIO);
 
     const afterAttempt = dispatch(testState, viableActions(testState, PLAYER_1, 'influence-attempt')[0].action);
     const revealActions = viableActions(afterAttempt, PLAYER_2, 'reveal-on-guard');
@@ -65,7 +58,7 @@ describe('Rule 6.14 — On-Guard Reveal When Playing Resource', () => {
   });
 
   test('character-targeting events generate one reveal action per character', () => {
-    const { testState } = buildScenario([ARAGORN, GANDALF]);
+    const { testState } = buildOnGuardSiteScenario({ ...DEFAULT_SCENARIO, heroChars: [ARAGORN, GANDALF] });
 
     const afterAttempt = dispatch(testState, viableActions(testState, PLAYER_1, 'influence-attempt')[0].action);
     const revealActions = viableActions(afterAttempt, PLAYER_2, 'reveal-on-guard');
@@ -77,7 +70,7 @@ describe('Rule 6.14 — On-Guard Reveal When Playing Resource', () => {
   });
 
   test('both players passing chain priority resolves influence attempt', () => {
-    const { testState } = buildScenario();
+    const { testState } = buildOnGuardSiteScenario(DEFAULT_SCENARIO);
 
     const afterAttempt = dispatch(testState, viableActions(testState, PLAYER_1, 'influence-attempt')[0].action);
 
@@ -89,7 +82,7 @@ describe('Rule 6.14 — On-Guard Reveal When Playing Resource', () => {
   });
 
   test('revealing on-guard pushes entry onto chain; after chain resolves, influence roll executes', () => {
-    const { testState } = buildScenario();
+    const { testState } = buildOnGuardSiteScenario(DEFAULT_SCENARIO);
 
     const afterAttempt = dispatch(testState, viableActions(testState, PLAYER_1, 'influence-attempt')[0].action);
     const revealAction = viableActions(afterAttempt, PLAYER_2, 'reveal-on-guard')[0];
@@ -109,16 +102,7 @@ describe('Rule 6.14 — On-Guard Reveal When Playing Resource', () => {
     // Doors of Night is an environment event with no on-guard-reveal effect.
     // Per rule 2.V.6, it does not directly affect the company, so it must
     // not be revealable from on-guard during an influence attempt.
-    const base = buildTestState({
-      activePlayer: PLAYER_1,
-      phase: Phase.Site,
-      players: [
-        { id: PLAYER_1, companies: [{ site: DOL_AMROTH, characters: [ARAGORN] }], hand: [KNIGHTS_OF_DOL_AMROTH], siteDeck: [] },
-        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [MINAS_TIRITH] },
-      ],
-    });
-    const { state } = placeOnGuard(base, RESOURCE_PLAYER, 0, DOORS_OF_NIGHT);
-    const testState = { ...state, phaseState: makeSitePhase() };
+    const { testState } = buildOnGuardSiteScenario({ ...DEFAULT_SCENARIO, onGuard: DOORS_OF_NIGHT });
 
     const afterAttempt = dispatch(testState, viableActions(testState, PLAYER_1, 'influence-attempt')[0].action);
     const revealActions = viableActions(afterAttempt, PLAYER_2, 'reveal-on-guard');

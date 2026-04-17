@@ -29,7 +29,7 @@ import {
   ARAGORN, LEGOLAS, BILBO, IORETH, HALFLING_STRENGTH,
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
   CardStatus,
-  handCardId, charIdAt, dispatch,
+  handCardId, findCharInstanceId, dispatch,
   expectCharStatus, RESOURCE_PLAYER,
 } from '../test-helpers.js';
 import type { PlayShortEventAction } from '../../index.js';
@@ -61,7 +61,7 @@ describe('Ioreth (td-93)', () => {
       ],
     });
 
-    const bilboId = charIdAt(base, RESOURCE_PLAYER, 0, 0);
+    const bilboId = findCharInstanceId(base, RESOURCE_PLAYER, BILBO);
     const hsInstance = handCardId(base, RESOURCE_PLAYER);
 
     const state = dispatch(base, {
@@ -100,7 +100,7 @@ describe('Ioreth (td-93)', () => {
       ],
     });
 
-    const bilboId = charIdAt(base, RESOURCE_PLAYER, 0, 0);
+    const bilboId = findCharInstanceId(base, RESOURCE_PLAYER, BILBO);
     const hsInstance = handCardId(base, RESOURCE_PLAYER);
 
     const state = dispatch(base, {
@@ -136,7 +136,7 @@ describe('Ioreth (td-93)', () => {
       ],
     });
 
-    const bilboId = charIdAt(base, RESOURCE_PLAYER, 0, 0);
+    const bilboId = findCharInstanceId(base, RESOURCE_PLAYER, BILBO);
     const hsInstance = handCardId(base, RESOURCE_PLAYER);
 
     const state = dispatch(base, {
@@ -173,7 +173,7 @@ describe('Ioreth (td-93)', () => {
       ],
     });
 
-    const bilboId = charIdAt(base, RESOURCE_PLAYER, 0, 0);
+    const bilboId = findCharInstanceId(base, RESOURCE_PLAYER, BILBO);
 
     const actions = computeLegalActions(base, PLAYER_1)
       .filter(ea => ea.viable && ea.action.type === 'play-short-event')
