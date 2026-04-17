@@ -87,13 +87,19 @@ describe('METD §4.2 — Defeat cascade', () => {
     expect(after.players[1].outOfPlayPile.map(c => c.definitionId as string)).not.toContain(SMAUG_AT_HOME);
   });
 
-  test('isManifestationDefeated returns true when a chain card sits in killPile, discardPile or outOfPlayPile', () => {
-    // killPile case
+  test('isManifestationDefeated returns true for killPile and outOfPlayPile, false for discardPile', () => {
+    // killPile case (combat defeat) → defeated.
     let state = buildSimpleTwoPlayerState();
     state = addToKillPile(state, 1, { instanceId: 'p2-1' as CardInstanceId, definitionId: SMAUG });
     expect(isManifestationDefeated(state, SMAUG)).toBe(true);
 
-    // discardPile case
+    // outOfPlayPile case (eliminated / removed-from-play) → defeated.
+    state = buildSimpleTwoPlayerState();
+    state = addToOutOfPlayPile(state, 0, { instanceId: 'p1-3' as CardInstanceId, definitionId: SMAUG });
+    expect(isManifestationDefeated(state, SMAUG)).toBe(true);
+
+    // discardPile case (Ahunt naturally expired at end-of-LE-phase, or
+    // any routine discard) → NOT defeated. The chain is still alive.
     state = buildSimpleTwoPlayerState();
     const discarded: CardInstance = { instanceId: 'p2-2' as CardInstanceId, definitionId: SMAUG_AHUNT };
     state = {
@@ -103,12 +109,27 @@ describe('METD §4.2 — Defeat cascade', () => {
         { ...state.players[1], discardPile: [...state.players[1].discardPile, discarded] },
       ] as typeof state.players,
     };
-    expect(isManifestationDefeated(state, SMAUG)).toBe(true);
+    expect(isManifestationDefeated(state, SMAUG)).toBe(false);
+  });
 
-    // outOfPlayPile case (already covered by step 5 tests)
-    state = buildSimpleTwoPlayerState();
-    state = addToOutOfPlayPile(state, 0, { instanceId: 'p1-3' as CardInstanceId, definitionId: SMAUG });
-    expect(isManifestationDefeated(state, SMAUG)).toBe(true);
+  test('discarding a manifestation does NOT trigger the cascade', () => {
+    // Smaug Ahunt and Smaug At-Home are in P2's cardsInPlay; another
+    // Smaug Ahunt naturally expires to discard. The in-play cards must
+    // remain — discard is not a defeat.
+    let state = buildSimpleTwoPlayerState();
+    state = addCardInPlay(state, 1, SMAUG_AHUNT);
+    state = addCardInPlay(state, 1, SMAUG_AT_HOME);
+    const discardedAhunt: CardInstance = { instanceId: 'p2-99' as CardInstanceId, definitionId: SMAUG_AHUNT };
+    state = {
+      ...state,
+      players: [
+        state.players[0],
+        { ...state.players[1], discardPile: [...state.players[1].discardPile, discardedAhunt] },
+      ] as typeof state.players,
+    };
+    const after = applyManifestationCascade(state);
+    expect(after).toBe(state);
+    expect(after.players[1].cardsInPlay).toHaveLength(2);
   });
 
   test('after cascade the lair loses its Dragon auto-attack', () => {

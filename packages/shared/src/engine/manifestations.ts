@@ -41,10 +41,12 @@ export function manifestIdOf(def: CardDefinition | undefined): ManifestId | unde
 }
 
 /**
- * The off-board piles consulted to detect "this manifestation is gone".
- * Eliminated pile and kill pile both indicate "the chain is broken";
- * discard pile too because cards discarded by an effect (rather than
- * defeated) still trigger the cascade per METD §4.2.
+ * The terminal off-board piles — cards here are gone for good. The
+ * discard pile is intentionally excluded: a routine end-of-LE-phase
+ * discard of an Ahunt is just that one instance expiring, not the
+ * Dragon being defeated, so it must not break the chain or sweep
+ * sisters. Cards actively *removed from play* by an effect end up in
+ * `outOfPlayPile`, which IS terminal.
  */
 function chainCardInPile(state: GameState, m: ManifestId, pile: readonly CardInstance[]): boolean {
   for (const card of pile) {
@@ -55,29 +57,33 @@ function chainCardInPile(state: GameState, m: ManifestId, pile: readonly CardIns
 }
 
 /**
- * Returns true iff any card from the chain identified by `m` has left
- * play in any way — defeated (`killPile`), eliminated (`outOfPlayPile`),
- * or discarded (`discardPile`). Per METD §4.2 any of these triggers the
- * cascade and blocks further plays of the chain.
+ * Returns true iff any card from the chain identified by `m` has been
+ * defeated (`killPile`) or eliminated (`outOfPlayPile`). Discard piles
+ * are NOT consulted: an Ahunt expiring at end-of-long-event is a
+ * normal lifecycle event, not a defeat — the Dragon's other
+ * manifestations remain valid and the lair keeps its auto-attack.
  *
- * The scan is O(total off-board pile size) with a tag check.
+ * The scan is O(total terminal-pile size) with a tag check.
  */
 export function isManifestationDefeated(state: GameState, m: ManifestId): boolean {
   for (const player of state.players) {
     if (chainCardInPile(state, m, player.outOfPlayPile)) return true;
     if (chainCardInPile(state, m, player.killPile)) return true;
-    if (chainCardInPile(state, m, player.discardPile)) return true;
   }
   return false;
 }
 
 /**
- * Defeat-cascade pass (METD §4.2). When any manifestation card lands in
- * an off-board pile (kill / out-of-play / discard), every sister card of
- * the same chain that is still in play is swept into the **owning
- * player's** `outOfPlayPile`. This blocks further plays of the chain
- * (via {@link isManifestationDefeated}) and removes lair augmentations
+ * Defeat-cascade pass (METD §4.2). When any manifestation card lands
+ * in a terminal off-board pile (`killPile` for defeats, `outOfPlayPile`
+ * for elimination/removal-from-play), every sister card of the same
+ * chain that is still in play is swept into the **owning** player's
+ * `outOfPlayPile`. This blocks further plays of the chain (via
+ * {@link isManifestationDefeated}) and removes lair augmentations
  * (because no `dragon-at-home` permanent-event remains in `cardsInPlay`).
+ *
+ * Routine discards (long-event expiry, hand-size discards) are
+ * intentionally not a trigger — they don't break the chain.
  *
  * The pass is idempotent — running it twice is a no-op once the cascade
  * is fully resolved. Owner is derived from the instance ID prefix via
@@ -86,10 +92,10 @@ export function isManifestationDefeated(state: GameState, m: ManifestId): boolea
  * §4.1 MP attribution rule).
  */
 export function applyManifestationCascade(state: GameState): GameState {
-  // Identify every chain that has any off-board card.
+  // Identify every chain that has a card in a terminal off-board pile.
   const removed = new Set<string>();
   for (const player of state.players) {
-    for (const pile of [player.outOfPlayPile, player.killPile, player.discardPile]) {
+    for (const pile of [player.outOfPlayPile, player.killPile]) {
       for (const card of pile) {
         const def = state.cardPool[card.definitionId as string];
         const m = manifestIdOf(def);
