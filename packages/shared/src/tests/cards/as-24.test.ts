@@ -288,9 +288,12 @@ describe('Alone and Unadvised (as-24)', () => {
 
     const withCard = attachHazardToChar(base, 0, ARAGORN, ALONE_AND_UNADVISED);
     const actions = viableActions(withCard, PLAYER_1, 'activate-granted-action');
-    expect(actions).toHaveLength(1);
+    // METD §7 step 10 added a no-tap variant alongside the standard
+    // tap-and-roll for any corruption-card removal. Both are now offered.
+    const standard = actions.filter(ea => (ea.action as ActivateGrantedAction).noTap !== true);
+    expect(standard).toHaveLength(1);
 
-    const action = actions[0].action as ActivateGrantedAction;
+    const action = standard[0].action as ActivateGrantedAction;
     expect(action.actionId).toBe('remove-self-on-roll');
     expect(action.rollThreshold).toBe(7);
   });

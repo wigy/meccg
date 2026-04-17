@@ -197,12 +197,13 @@ All 27 manifestation cards (9 basic + 9 ahunt + 9 at-home) and all 9 lair sites 
 
 A character may only attempt each corruption card **once per turn** when using this no-tap variant.
 
-### 7.1 Gaps
+### 7.1 Status
 
-- Today's engine has a generic "untapped −3" concept but not a corruption-removal specific variant with a per-turn lockout.
-- Need: per-character, per-corruption-card `removalAttemptsThisTurn` tracking for the no-tap variant.
-- Reset on untap phase.
-- UI must offer both options when the character is untapped (tap for normal roll vs. stay untapped for −3).
+- ✓ Implemented (step 10).
+- New `corruption-removal-locked` active-constraint kind keyed on `{characterId, corruptionInstanceId}`, scope `'turn'` (auto-clears on next untap).
+- `ActivateGrantedAction` gains an optional `noTap?: true` flag. The grant-action emitter in `legal-actions/organization.ts` offers BOTH variants for any `remove-self-on-roll` from a `hazard-corruption` source: standard (requires bearer untapped, taps as cost) and no-tap (regardless of bearer status, no tap, -3 to roll). Either variant is suppressed if the lock is active for this character+card pair.
+- The reducer in `reducer-organization.ts` honors `noTap` by skipping the bearer-tap cost, applying -3 to the `roll-then-apply` roll, and adding the lock constraint regardless of roll outcome.
+- Covered by `rule-metd-corruption-no-tap.test.ts` (3 tests). The original rule-10.08 stub is left as a `.todo` pointer to the new file.
 
 ---
 

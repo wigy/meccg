@@ -426,6 +426,20 @@ export interface ActiveConstraint {
         readonly type: 'skip-automatic-attacks';
         /** The definition ID of the site whose automatic attacks are skipped. */
         readonly siteDefinitionId: import('./common.js').CardDefinitionId;
+      }
+    | {
+        /**
+         * METD §7 / rule 10.08 — once a player attempts the no-tap
+         * variant of removing a corruption card from a character, no
+         * further attempts (tap or no-tap) on the same
+         * character+corruption-card pair may happen for the rest of
+         * the turn. Scope is `'turn'`, so this clears at next untap.
+         */
+        readonly type: 'corruption-removal-locked';
+        /** Character that attempted the removal. */
+        readonly characterId: CardInstanceId;
+        /** Corruption card instance the lock applies to. */
+        readonly corruptionInstanceId: CardInstanceId;
       };
 }
 

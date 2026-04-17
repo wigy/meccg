@@ -17,5 +17,9 @@
 import { describe, test } from 'vitest';
 
 describe('Rule 10.08 — Removing Corruption Cards', () => {
+  // Coverage lives in rule-metd-corruption-no-tap.test.ts (METD §7
+  // generalized this from a single METW Insert clause into a per-card
+  // lockable variant). That test exercises both removal pathways and
+  // the per-character per-card per-turn lock.
   test.todo('Tap character to roll to remove corruption card; may apply -3 to skip tapping; once per turn per card');
 });
