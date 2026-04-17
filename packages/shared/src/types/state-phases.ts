@@ -342,12 +342,28 @@ export interface MovementHazardPhaseState {
   /** Number of hazard cards the opponent has played against the current company this movement. */
   readonly hazardsPlayedThisCompany: number;
   /**
-   * Maximum hazards allowed against this company.
-   * Computed as max(company_size, 2), halved (rounded up) if the hazard player
-   * accessed the sideboard during the current turn's untap phase.
-   * Fixed for the entire company's M/H phase even if characters are eliminated.
+   * Snapshot of the hazard limit captured when the company revealed its
+   * new site / announced its movement-hazard phase (METD §5).
+   *
+   * Computed as `max(companySize, 2)`, halved (rounded up) if the hazard
+   * player accessed the sideboard during this turn's untap phase, plus
+   * any `hazard-limit-modifier` constraints that were already active at
+   * snapshot time (the "pre-reveal" modifiers).
+   *
+   * Fixed for the entire company's M/H phase even if characters are
+   * eliminated. Post-reveal hazard-limit modifiers — those whose
+   * constraints land *after* this snapshot — accumulate on top via
+   * {@link currentHazardLimit} for future hazard plays in the same
+   * M/H phase but never retroactively cancel hazards already announced.
    */
-  readonly hazardLimit: number;
+  readonly hazardLimitAtReveal: number;
+  /**
+   * IDs of `hazard-limit-modifier` constraints whose values were folded
+   * into {@link hazardLimitAtReveal} at snapshot time. Used by
+   * `currentHazardLimit` to avoid double-counting these constraints when
+   * summing the post-reveal additions.
+   */
+  readonly preRevealHazardLimitConstraintIds: readonly string[];
   /**
    * Resolved site path: the sequence of region types the company traverses.
    * Empty if the company is not moving.

@@ -16,6 +16,7 @@ import { playPermanentEventActions, playShortEventActions } from './organization
 import { grantedActionActivations, ANY_PHASE_GRANT_ACTIONS } from './organization.js';
 import { heroResourceShortEventActions } from './long-event.js';
 import { emitGrantedActionConstraintActions } from './granted-action-constraints.js';
+import { currentHazardLimit } from '../reducer-movement-hazard.js';
 
 /**
  * Count unresolved hazard-creature / hazard-event chain entries. Used
@@ -371,7 +372,10 @@ function playHazardsActions(
   isResourcePlayer: boolean,
 ): EvaluatedAction[] {
   const actions: EvaluatedAction[] = [];
-  const limitReached = mhState.hazardsPlayedThisCompany >= mhState.hazardLimit;
+  const activeIdx = getPlayerIndex(state, state.activePlayer!);
+  const targetCompanyId = state.players[activeIdx].companies[mhState.activeCompanyIndex].id;
+  const liveLimit = currentHazardLimit(state, mhState, targetCompanyId);
+  const limitReached = mhState.hazardsPlayedThisCompany >= liveLimit;
 
   // Hazard player: offer playable hazard long-events
   if (!isResourcePlayer) {
@@ -404,7 +408,7 @@ function playHazardsActions(
       const bypassesLimit = 'effects' in def && hasPlayFlag(def, 'no-hazard-limit');
       const raceExempt = isCreature && isCreatureRaceExemptFromLimit(state, targetCompany.id, def.race);
       if (limitReached && !bypassesLimit && !raceExempt) {
-        actions.push({ action, viable: false, reason: `Hazard limit reached (${mhState.hazardLimit})` });
+        actions.push({ action, viable: false, reason: `Hazard limit reached (${liveLimit})` });
         continue;
       }
 
@@ -809,7 +813,7 @@ function playHazardsActions(
           cardInstanceId: handCard.instanceId,
         };
         if (limitReached) {
-          actions.push({ action: ogAction, viable: false, reason: `Hazard limit reached (${mhState.hazardLimit})` });
+          actions.push({ action: ogAction, viable: false, reason: `Hazard limit reached (${liveLimit})` });
         } else {
           logDetail(`On-guard: card ${handCard.instanceId} eligible for placement`);
           actions.push({ action: ogAction, viable: true });

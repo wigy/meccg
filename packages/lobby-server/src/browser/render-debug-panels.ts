@@ -124,8 +124,8 @@ export function renderMHInfo(
   }
 
   // Hazard tracking
-  const remaining = mh.hazardLimit - mh.hazardsPlayedThisCompany;
-  lines.push(`Hazard limit: ${mh.hazardsPlayedThisCompany}/${mh.hazardLimit} played (${remaining} remaining)`);
+  const remaining = mh.hazardLimitAtReveal - mh.hazardsPlayedThisCompany;
+  lines.push(`Hazard limit: ${mh.hazardsPlayedThisCompany}/${mh.hazardLimitAtReveal} played (${remaining} remaining)`);
 
   // Draw tracking
   lines.push(`Draws: resource ${mh.resourceDrawCount}/${mh.resourceDrawMax}, hazard ${mh.hazardDrawCount}/${mh.hazardDrawMax}`);
