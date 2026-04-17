@@ -27,7 +27,17 @@ import type { GameAction } from '../index.js';
 import { Phase } from '../index.js';
 import { logHeading, logDetail } from './legal-actions/log.js';
 import { recomputeDerived } from './recompute-derived.js';
+import { applyManifestationCascade } from './manifestations.js';
 import { handleChainAction } from './chain-reducer.js';
+
+/**
+ * Post-action housekeeping: sweep manifestation cascades (METD §4.2)
+ * before re-deriving aggregates so MP/influence totals reflect any
+ * cards moved by the cascade.
+ */
+function postReduce(state: GameState): GameState {
+  return recomputeDerived(applyManifestationCascade(state));
+}
 
 export type { ReducerResult } from './reducer-utils.js';
 import type { ReducerResult } from './reducer-utils.js';
@@ -70,7 +80,7 @@ export function reduce(state: GameState, action: GameAction): ReducerResult {
     logDetail(`Chain active — dispatching '${action.type}' to chain reducer`);
     const chainResult = handleChainAction(state, action);
     if (!chainResult.error) {
-      const recomputed = recomputeDerived(chainResult.state);
+      const recomputed = postReduce(chainResult.state);
       return {
         state: { ...recomputed, stateSeq: recomputed.stateSeq + 1 },
         effects: chainResult.effects,
@@ -85,7 +95,7 @@ export function reduce(state: GameState, action: GameAction): ReducerResult {
     logDetail(`Combat active — dispatching '${action.type}' to combat handler`);
     const combatResult = handleCombatAction(state, action);
     if (!combatResult.error) {
-      const recomputed = recomputeDerived(combatResult.state);
+      const recomputed = postReduce(combatResult.state);
       return {
         state: { ...recomputed, stateSeq: recomputed.stateSeq + 1 },
         effects: combatResult.effects,
@@ -103,7 +113,7 @@ export function reduce(state: GameState, action: GameAction): ReducerResult {
     const resolutionResult = applyResolution(state, action, topResolution);
     if (resolutionResult !== null) {
       if (!resolutionResult.error) {
-        const recomputed = recomputeDerived(resolutionResult.state);
+        const recomputed = postReduce(resolutionResult.state);
         return {
           state: { ...recomputed, stateSeq: recomputed.stateSeq + 1 },
           effects: resolutionResult.effects,
@@ -124,7 +134,7 @@ export function reduce(state: GameState, action: GameAction): ReducerResult {
       effectResult = resolvePendingEffect(state);
     }
     if (!effectResult.error) {
-      const recomputed = recomputeDerived(effectResult.state);
+      const recomputed = postReduce(effectResult.state);
       return { state: { ...recomputed, stateSeq: recomputed.stateSeq + 1 } };
     }
     return effectResult;
@@ -183,7 +193,7 @@ export function reduce(state: GameState, action: GameAction): ReducerResult {
   // and increment the state sequence number for log tracking.
   // Clear reverseActions whenever the phase changes.
   if (!result.error) {
-    const recomputed = recomputeDerived(result.state);
+    const recomputed = postReduce(result.state);
     const phaseChanged = recomputed.phaseState.phase !== state.phaseState.phase;
     result = {
       state: {
