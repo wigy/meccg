@@ -74,5 +74,161 @@
     "resourceDraws": 1,
     "hazardDraws": 2,
     "text": "Playable: Information, Items (minor, major). Automatic-attacks: Animals — 2 strikes with 10 prowess (attacker chooses defending characters)."
+  },
+  {
+    "cardType": "minion-site",
+    "alignment": "ringwraith",
+    "id": "as-143",
+    "name": "Dancing Spire",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/as/DancingSpire.jpg",
+    "siteType": "ruins-and-lairs",
+    "sitePath": [
+      "dark",
+      "wilderness",
+      "wilderness",
+      "wilderness"
+    ],
+    "nearestHaven": "Dol Guldur",
+    "region": "Withered Heath",
+    "playableResources": [
+      "minor",
+      "major",
+      "greater",
+      "gold-ring"
+    ],
+    "automaticAttacks": [
+      {
+        "creatureType": "Dragon",
+        "strikes": 2,
+        "prowess": 11
+      }
+    ],
+    "resourceDraws": 2,
+    "hazardDraws": 2,
+    "text": "Nearest Darkhaven: Dol Guldur Playable: Items (minor, major, greater, gold ring) Automatic-attacks: Dragon — 2 strikes with 11 prowess"
+  },
+  {
+    "cardType": "minion-site",
+    "alignment": "ringwraith",
+    "id": "as-148",
+    "name": "Gold Hill",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/as/GoldHill.jpg",
+    "siteType": "ruins-and-lairs",
+    "sitePath": [
+      "dark",
+      "wilderness",
+      "wilderness",
+      "wilderness"
+    ],
+    "nearestHaven": "Dol Guldur",
+    "region": "Withered Heath",
+    "playableResources": [
+      "minor",
+      "major",
+      "greater",
+      "gold-ring"
+    ],
+    "automaticAttacks": [
+      {
+        "creatureType": "Dragon",
+        "strikes": 1,
+        "prowess": 15
+      }
+    ],
+    "resourceDraws": 2,
+    "hazardDraws": 2,
+    "text": "Nearest Darkhaven: Dol Guldur Playable: Items (minor, major, greater, gold ring) Automatic-attacks: Dragon — 1 strike with 15 prowess"
+  },
+  {
+    "cardType": "minion-site",
+    "alignment": "ringwraith",
+    "id": "as-151",
+    "name": "Irerock",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/as/Irerock.jpg",
+    "siteType": "ruins-and-lairs",
+    "sitePath": [
+      "dark",
+      "wilderness",
+      "wilderness",
+      "wilderness"
+    ],
+    "nearestHaven": "Dol Guldur",
+    "region": "Withered Heath",
+    "playableResources": [
+      "minor",
+      "major",
+      "greater",
+      "gold-ring"
+    ],
+    "automaticAttacks": [
+      {
+        "creatureType": "Dragon",
+        "strikes": 1,
+        "prowess": 14
+      }
+    ],
+    "resourceDraws": 2,
+    "hazardDraws": 2,
+    "text": "Nearest Darkhaven: Dol Guldur Playable: Items (minor, major, greater, gold ring) Automatic-attacks: Dragon — 1 strike with 14 prowess"
+  },
+  {
+    "cardType": "minion-site",
+    "alignment": "ringwraith",
+    "id": "as-153",
+    "name": "Isle of the Ulond",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/as/IsleoftheUlond.jpg",
+    "siteType": "ruins-and-lairs",
+    "sitePath": [
+      "wilderness",
+      "wilderness",
+      "coastal"
+    ],
+    "nearestHaven": "Geann a-Lisch",
+    "region": "Andrast Coast",
+    "playableResources": [
+      "information",
+      "minor",
+      "major"
+    ],
+    "automaticAttacks": [
+      {
+        "creatureType": "Dragon",
+        "strikes": 1,
+        "prowess": 14
+      }
+    ],
+    "resourceDraws": 2,
+    "hazardDraws": 2,
+    "text": "Nearest Darkhaven: Geann a-Lisch Playable: Information, Items (minor, major) Automatic-attacks: Dragon — 1 strike with 14 prowess Special: An overt company must tap an untapped character (if available) if this site is revealed as its new site."
+  },
+  {
+    "cardType": "minion-site",
+    "alignment": "ringwraith",
+    "id": "as-157",
+    "name": "Ovir Hollow",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/as/OvirHollow.jpg",
+    "siteType": "ruins-and-lairs",
+    "sitePath": [
+      "dark",
+      "wilderness",
+      "wilderness",
+      "shadow"
+    ],
+    "nearestHaven": "Dol Guldur",
+    "region": "Grey Mountain Narrows",
+    "playableResources": [
+      "minor",
+      "major"
+    ],
+    "automaticAttacks": [
+      {
+        "creatureType": "Dragon",
+        "strikes": 1,
+        "prowess": 12
+      }
+    ],
+    "resourceDraws": 2,
+    "hazardDraws": 2,
+    "text": "Nearest Darkhaven: Dol Guldur Playable: Items (minor, major) Automatic-attacks: Dragon — 1 strike with 12 prowess"
   }
 ]

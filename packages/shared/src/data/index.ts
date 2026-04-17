@@ -26,6 +26,7 @@ import asCharacters from './as-characters.json';
 import asHazards from './as-hazards.json';
 import asSites from './as-sites.json';
 import asResources from './as-resources.json';
+import asItems from './as-items.json';
 
 // ---- The Lidless Eye (LE) — minion expansion ----
 import leCharacters from './le-characters.json';
@@ -99,6 +100,7 @@ const allCards: readonly CardDefinition[] = [
   ...(baCharacters as unknown as CardDefinition[]),
   ...(baSites as unknown as CardDefinition[]),
   ...(asResources as unknown as CardDefinition[]),
+  ...(asItems as unknown as CardDefinition[]),
 ];
 
 /**

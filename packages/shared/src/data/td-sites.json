@@ -29,5 +29,124 @@
     "hazardDraws": 2,
     "text": "Nearest Haven: Edhellond. Playable: Information, Items (minor, major). Automatic-attacks: Dragon — 1 strike with 14 prowess.",
     "certified": "2026-04-13"
+  },
+  {
+    "cardType": "hero-site",
+    "alignment": "wizard",
+    "id": "td-176",
+    "name": "Gold Hill",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/td/GoldHill.jpg",
+    "siteType": "ruins-and-lairs",
+    "sitePath": [
+      "wilderness",
+      "border",
+      "shadow",
+      "wilderness"
+    ],
+    "nearestHaven": "Lórien",
+    "region": "Withered Heath",
+    "playableResources": [
+      "minor",
+      "major",
+      "greater",
+      "gold-ring"
+    ],
+    "automaticAttacks": [
+      {
+        "creatureType": "Dragon",
+        "strikes": 1,
+        "prowess": 15
+      }
+    ],
+    "resourceDraws": 3,
+    "hazardDraws": 3,
+    "text": "Nearest Haven: Lórien Playable: Items (minor, major, greater, gold ring) Automatic-attacks: Dragon — 1 strike with 15 prowess"
+  },
+  {
+    "cardType": "hero-site",
+    "alignment": "wizard",
+    "id": "td-177",
+    "name": "Gondmaeglom",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/td/Gondmaeglom.jpg",
+    "siteType": "ruins-and-lairs",
+    "sitePath": [
+      "wilderness",
+      "border",
+      "shadow"
+    ],
+    "nearestHaven": "Lórien",
+    "region": "Grey Mountain Narrows",
+    "playableResources": [
+      "minor",
+      "major",
+      "gold-ring"
+    ],
+    "automaticAttacks": [
+      {
+        "creatureType": "Dragon",
+        "strikes": 1,
+        "prowess": 14
+      }
+    ],
+    "resourceDraws": 2,
+    "hazardDraws": 2,
+    "text": "Nearest Haven: Lórien Playable: Items (minor, major, gold ring) Automatic-attacks: Dragon — 1 strike with 14 prowess"
+  },
+  {
+    "cardType": "hero-site",
+    "alignment": "wizard",
+    "id": "td-179",
+    "name": "Ovir Hollow",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/td/OvirHollow.jpg",
+    "siteType": "ruins-and-lairs",
+    "sitePath": [
+      "wilderness",
+      "border",
+      "shadow"
+    ],
+    "nearestHaven": "Lórien",
+    "region": "Grey Mountain Narrows",
+    "playableResources": [
+      "minor",
+      "major"
+    ],
+    "automaticAttacks": [
+      {
+        "creatureType": "Dragon",
+        "strikes": 1,
+        "prowess": 12
+      }
+    ],
+    "resourceDraws": 2,
+    "hazardDraws": 2,
+    "text": "Nearest Haven: Lórien Playable: Items (minor, major) Automatic-attacks: Dragon — 1 strike with 12 prowess"
+  },
+  {
+    "cardType": "hero-site",
+    "alignment": "wizard",
+    "id": "td-181",
+    "name": "Zarak Dûm",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/td/ZarakDum.jpg",
+    "siteType": "ruins-and-lairs",
+    "sitePath": [
+      "wilderness",
+      "shadow"
+    ],
+    "nearestHaven": "Rivendell",
+    "region": "Angmar",
+    "playableResources": [
+      "minor",
+      "major"
+    ],
+    "automaticAttacks": [
+      {
+        "creatureType": "Dragon",
+        "strikes": 1,
+        "prowess": 11
+      }
+    ],
+    "resourceDraws": 2,
+    "hazardDraws": 3,
+    "text": "Nearest Haven: Rivendell Playable: Items (minor, major) Automatic-attacks: Dragon — 1 strike with 11 prowess"
   }
 ]

@@ -14,16 +14,31 @@
       },
       {
         "type": "ahunt-attack",
-        "regionNames": ["Andrast Coast", "Bay of Belfalas", "Eriadoran Coast", "Andrast"],
+        "regionNames": [
+          "Andrast Coast",
+          "Bay of Belfalas",
+          "Eriadoran Coast",
+          "Andrast"
+        ],
         "strikes": 3,
         "prowess": 15,
         "body": 6,
         "race": "dragon",
-        "combatRules": ["attacker-chooses-defenders"],
+        "combatRules": [
+          "attacker-chooses-defenders"
+        ],
         "extended": {
-          "when": { "inPlay": "Doors of Night" },
-          "regionNames": ["Old Pûkel-land", "Enedhwaith", "Anfalas"],
-          "regionTypes": ["coastal-sea"]
+          "when": {
+            "inPlay": "Doors of Night"
+          },
+          "regionNames": [
+            "Old Pûkel-land",
+            "Enedhwaith",
+            "Anfalas"
+          ],
+          "regionTypes": [
+            "coastal-sea"
+          ]
         }
       }
     ],
@@ -66,7 +81,9 @@
         "apply": {
           "type": "roll-then-apply",
           "threshold": 8,
-          "onSuccess": { "type": "discard-self" }
+          "onSuccess": {
+            "type": "discard-self"
+          }
         }
       }
     ],
@@ -92,5 +109,213 @@
     "eventType": "long",
     "effects": [],
     "text": "Unique. Any company moving in Withered Heath, Northern Rhovanion, Iron Hills, and/or Grey Mountain Narrows faces one Dragon attack (considered a hazard creature attack) — 4 strikes at 16/7.If Doors of Night is in play, this attack also affects: Southern Rhovanion, Dorwinion, Heart of Mirkwood, and Woodland Realm."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "td-1",
+    "name": "Agburanar Ahunt",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/td/AgburanarAhunt.jpg",
+    "unique": true,
+    "eventType": "long",
+    "keywords": [
+      "dragon-manifestation"
+    ],
+    "effects": [],
+    "text": "Unique. Any company moving in Withered Heath, Northern Rhovanion, Iron Hills, and/or Grey Mountain Narrows faces one Dragon attack (considered a hazard creature attack) — 3 strikes at 13/8. If Doors of Night is in play, this attack also affects: Southern Rhovanion, Dorwinion, Heart of Mirkwood, and Woodland Realm."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "td-4",
+    "name": "Bairanax Ahunt",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/td/BairanaxAhunt.jpg",
+    "unique": true,
+    "eventType": "long",
+    "keywords": [
+      "dragon-manifestation"
+    ],
+    "effects": [],
+    "text": "Unique. Any company moving in Withered Heath, Gundabad, Anduin Vales, and/or Grey Mountain Narrows faces one Dragon attack (considered a hazard creature attack) — 3 strikes at 12/6 (attacker chooses defending characters). If Doors of Night is in play, this attack also affects: Northern Rhovanion, Iron Hills, Southern Rhovanion, and Angmar."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "td-10",
+    "name": "Daelomin Ahunt",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/td/DaelominAhunt.jpg",
+    "unique": true,
+    "eventType": "long",
+    "keywords": [
+      "dragon-manifestation"
+    ],
+    "effects": [],
+    "text": "Unique. Any company moving in Withered Heath, Northern Rhovanion, Iron Hills, and/or Grey Mountain Narrows faces one Dragon attack (considered a hazard creature attack) — 4 strikes at 11/7 (attacker chooses defending characters). If Doors of Night is in play, this attack also affects: Brown Lands, Southern Rhovanion, Dorwinion, Dagorlad, and Horse Plains."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "td-43",
+    "name": "Leucaruth Ahunt",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/td/LeucaruthAhunt.jpg",
+    "unique": true,
+    "eventType": "long",
+    "keywords": [
+      "dragon-manifestation"
+    ],
+    "effects": [],
+    "text": "Unique. Any company moving in Withered Heath, Northern Rhovanion, Iron Hills, and/or Grey Mountain Narrows faces one Dragon attack (considered a hazard creature attack) — 3 strikes at 14/7. If Doors of Night is in play, this attack also affects: Southern Rhovanion, Dorwinion, Heart of Mirkwood, and Woodland Realm."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "td-61",
+    "name": "Scatha Ahunt",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/td/ScathaAhunt.jpg",
+    "unique": true,
+    "eventType": "long",
+    "keywords": [
+      "dragon-manifestation"
+    ],
+    "effects": [],
+    "text": "Unique. Any company moving in Withered Heath, Woodland Realm, Northern Rhovanion, and/or Grey Mountain Narrows faces one Dragon attack (considered a hazard creature attack) — 4 strikes at 13/8. If Doors of Night is in play, this attack also affects: Anduin Vales, Western Mirkwood, Heart of Mirkwood, and Gundabad."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "td-64",
+    "name": "Scorba Ahunt",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/td/ScorbaAhunt.jpg",
+    "unique": true,
+    "eventType": "long",
+    "keywords": [
+      "dragon-manifestation"
+    ],
+    "effects": [],
+    "text": "Unique. Any company moving in Forochel, Angmar, and/or Gundabad faces one Dragon attack (considered a hazard creature attack) — 4 strikes at 10/7 (attacker chooses defending characters). If Doors of Night is in play, this attack also affects: Númeriador, Arthedain, and Rhudaur."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "td-70",
+    "name": "Smaug Ahunt",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/td/SmaugAhunt.jpg",
+    "unique": true,
+    "eventType": "long",
+    "keywords": [
+      "dragon-manifestation"
+    ],
+    "effects": [],
+    "text": "Unique. Any company moving in Withered Heath, Northern Rhovanion, Iron Hills, and/or Grey Mountain Narrows faces one Dragon attack (considered a hazard creature attack) — 3 strikes at 15/7 (attacker chooses defending characters). If Doors of Night is in play, this attack also affects: Brown Lands, Southern Rhovanion, Dorwinion, Dagorlad, and Horse Plains."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "td-2",
+    "name": "Agburanar at Home",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/td/AgburanaratHome.jpg",
+    "unique": true,
+    "eventType": "permanent",
+    "keywords": [
+      "dragon-manifestation"
+    ],
+    "effects": [],
+    "text": "Unique. Unless Agburanar Ahunt is in play, Caves of Ûlund has an additional automatic-attack: Dragon — 2 strikes at 16/9. In addition, one unique Dragon manifestation played against each company does not count against the hazard limit."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "td-5",
+    "name": "Bairanax at Home",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/td/BairanaxatHome.jpg",
+    "unique": true,
+    "eventType": "permanent",
+    "keywords": [
+      "dragon-manifestation"
+    ],
+    "effects": [],
+    "text": "Unique. Unless Bairanax Ahunt is in play, Ovir Hollow has an additional automatic-attack: Dragon — 2 strikes at 15/7. In addition, the hazard limit against any company facing one or more animal hazard creature attacks is increased by one."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "td-11",
+    "name": "Daelomin at Home",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/td/DaelominatHome.jpg",
+    "unique": true,
+    "eventType": "permanent",
+    "keywords": [
+      "dragon-manifestation"
+    ],
+    "effects": [],
+    "text": "Unique. Unless Daelomin Ahunt is in play, Dancing Spire has an additional automatic-attack: Dragon — 3 strikes at 14/8. In addition, you may discard this card from play during opponent’s movement/hazard phase (not counting against the hazard limit) to increase the hazard limit against one company by two."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "td-22",
+    "name": "Eärcaraxë at Home",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/td/EarcaraxeatHome.jpg",
+    "unique": true,
+    "eventType": "permanent",
+    "keywords": [
+      "dragon-manifestation"
+    ],
+    "effects": [],
+    "text": "Unique. Unless Eärcaraxë Ahunt is in play, Isle of the Ulond has an additional automatic-attack: Dragon — 2 strikes at 18/7 (attacker chooses defending characters). In addition, the hazard limit against any moving company with a Coastal Sea [{c}] region in its site path is increased by one."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "td-38",
+    "name": "Itangast at Home",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/td/ItangastatHome.jpg",
+    "unique": true,
+    "eventType": "permanent",
+    "keywords": [
+      "dragon-manifestation"
+    ],
+    "effects": [],
+    "text": "Unique. Unless Itangast Ahunt is in play, Gold Hill has an additional automatic-attack: Dragon — 3 strikes at 19/8. In addition, each greater item gives an additional corruption point."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "td-44",
+    "name": "Leucaruth at Home",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/td/LeucaruthatHome.jpg",
+    "unique": true,
+    "eventType": "permanent",
+    "keywords": [
+      "dragon-manifestation"
+    ],
+    "effects": [],
+    "text": "Unique. Unless Leucaruth Ahunt is in play, Irerock has an additional automatic-attack: Dragon — 2 strikes at 17/8. In addition, only one unique Dragon manifestation may be played per turn."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "td-62",
+    "name": "Scatha at Home",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/td/ScathaatHome.jpg",
+    "unique": true,
+    "eventType": "permanent",
+    "keywords": [
+      "dragon-manifestation"
+    ],
+    "effects": [],
+    "text": "Unique. Unless Scatha Ahunt is in play, Gondmaeglom has an additional automatic-attack: Dragon — 3 strikes at 16/9. In addition, -1 to all influence attempts."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "td-65",
+    "name": "Scorba at Home",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/td/ScorbaatHome.jpg",
+    "unique": true,
+    "eventType": "permanent",
+    "keywords": [
+      "dragon-manifestation"
+    ],
+    "effects": [],
+    "text": "Unique. Unless Scorba Ahunt is in play, Zarak Dûm has an additional automatic-attack: Dragon — 3 strikes at 13/8. In addition, each major item gives an additional corruption point."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "td-71",
+    "name": "Smaug at Home",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/td/SmaugatHome.jpg",
+    "unique": true,
+    "eventType": "permanent",
+    "keywords": [
+      "dragon-manifestation"
+    ],
+    "effects": [],
+    "text": "Unique. Unless Smaug Ahunt is in play, The Lonely Mountain has an additional automatic-attack: Dragon — 2 strikes at 18/8. In addition, each moving company draws one less card to a minimum of one at the start of its movement/hazard phase."
   }
 ]

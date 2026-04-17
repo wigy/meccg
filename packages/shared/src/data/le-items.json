@@ -16,5 +16,25 @@
     "playableAt": [],
     "effects": [],
     "text": "Bearer must make a corruption check at the end of each of his untap phases. Discard this ring when tested. If tested, obtain a random value to determine which ring card may be immediately played: The One Ring (12+); a Dwarven Ring (10,11,12+); a Magic Ring (1,2,3,4,5,6,7); a Lesser Ring (any result)."
+  },
+  {
+    "cardType": "minion-resource-item",
+    "alignment": "ringwraith",
+    "id": "le-418",
+    "name": "The Arkenstone",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/TheArkenstone.jpg",
+    "unique": true,
+    "subtype": "greater",
+    "keywords": [
+      "hoard"
+    ],
+    "marshallingPoints": 3,
+    "marshallingCategory": "item",
+    "corruptionPoints": 3,
+    "prowessModifier": 0,
+    "bodyModifier": 0,
+    "playableAt": [],
+    "effects": [],
+    "text": "Unique. +5 to bearer’s direct influence against Dwarves and Dwarf factions. Each Dwarf in play has +1 mind. If the bearer of this item is at the same site as a Dwarf character, you may discard this item to force the discard of the Dwarf (and all non-follower cards he controls)."
   }
 ]

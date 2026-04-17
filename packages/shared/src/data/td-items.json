@@ -17,22 +17,336 @@
       {
         "type": "grant-action",
         "action": "untap-bearer",
-        "cost": { "discard": "self" },
-        "when": { "bearer.status": "tapped" },
-        "apply": { "type": "set-character-status", "target": "bearer", "status": "untapped" }
+        "cost": {
+          "discard": "self"
+        },
+        "when": {
+          "bearer.status": "tapped"
+        },
+        "apply": {
+          "type": "set-character-status",
+          "target": "bearer",
+          "status": "untapped"
+        }
       },
       {
         "type": "grant-action",
         "action": "extra-region-movement",
-        "cost": { "discard": "self" },
+        "cost": {
+          "discard": "self"
+        },
         "when": {
           "company.hasPlannedMovement": false,
           "company.hasExtraRegionDistance": false
         },
-        "apply": { "type": "increment-company-extra-region-distance", "amount": 1 }
+        "apply": {
+          "type": "increment-company-extra-region-distance",
+          "amount": 1
+        }
       }
     ],
     "text": "Discard to untap bearer. Alternatively, discard during organization phase to allow its bearer's company to play an additional region card.",
     "certified": "2026-04-08"
+  },
+  {
+    "cardType": "hero-resource-item",
+    "alignment": "wizard",
+    "id": "td-96",
+    "name": "Adamant Helmet",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/td/AdamantHelmet.jpg",
+    "unique": false,
+    "subtype": "minor",
+    "keywords": [
+      "hoard",
+      "helmet"
+    ],
+    "marshallingPoints": 0,
+    "marshallingCategory": "item",
+    "corruptionPoints": 1,
+    "prowessModifier": 0,
+    "bodyModifier": 1,
+    "playableAt": [],
+    "effects": [],
+    "text": "Hoard item. Helmet. +1 to body to a maximum of 9. Cancels all dark enchantments targetting bearer."
+  },
+  {
+    "cardType": "hero-resource-item",
+    "alignment": "wizard",
+    "id": "td-99",
+    "name": "Arrows Shorn of Ebony",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/td/ArrowsShornofEbony.jpg",
+    "unique": false,
+    "subtype": "minor",
+    "keywords": [
+      "hoard"
+    ],
+    "marshallingPoints": 0,
+    "marshallingCategory": "item",
+    "corruptionPoints": 1,
+    "prowessModifier": 0,
+    "bodyModifier": 0,
+    "playableAt": [],
+    "effects": [],
+    "text": "Hoard item. Warrior only: discard Arrows Shorn of Ebony to modify a strike from a hazard creature attack not keyed to a site by -1 prowess, -2 body. If this strike is defeated, all other subsequent failed strikes from this attack are automatically defeated."
+  },
+  {
+    "cardType": "hero-resource-item",
+    "alignment": "wizard",
+    "id": "td-102",
+    "name": "Bow of Dragon-horn",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/td/BowofDragonhorn.jpg",
+    "unique": true,
+    "subtype": "major",
+    "keywords": [
+      "hoard"
+    ],
+    "marshallingPoints": 2,
+    "marshallingCategory": "item",
+    "corruptionPoints": 2,
+    "prowessModifier": 0,
+    "bodyModifier": 0,
+    "playableAt": [],
+    "effects": [],
+    "text": "Unique. Hoard item. Warrior only: tap bow to reduce the number of strikes from one hazard creature attack not keyed to a site by one (to a minimum of one)."
+  },
+  {
+    "cardType": "hero-resource-item",
+    "alignment": "wizard",
+    "id": "td-112",
+    "name": "Emerald of Doriath",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/td/EmeraldofDoriath.jpg",
+    "unique": true,
+    "subtype": "minor",
+    "keywords": [
+      "hoard"
+    ],
+    "marshallingPoints": 0,
+    "marshallingCategory": "item",
+    "corruptionPoints": 1,
+    "prowessModifier": 0,
+    "bodyModifier": 0,
+    "playableAt": [],
+    "effects": [],
+    "text": "Unique. Hoard item. +1 to direct influence against Elves and Elf factions. If bearer is a Wizard, your general influence is increased by two."
+  },
+  {
+    "cardType": "hero-resource-item",
+    "alignment": "wizard",
+    "id": "td-113",
+    "name": "Emerald of the Mariner",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/td/EmeraldoftheMariner.jpg",
+    "unique": true,
+    "subtype": "greater",
+    "keywords": [
+      "hoard"
+    ],
+    "marshallingPoints": 3,
+    "marshallingCategory": "item",
+    "corruptionPoints": 0,
+    "prowessModifier": 0,
+    "bodyModifier": 0,
+    "playableAt": [],
+    "effects": [],
+    "text": "Unique. Hoard item. Bearer receives +1 to all of his corruption checks. You may keep one more card than normal in your hand. This item is considered a source of 0 corruption points."
+  },
+  {
+    "cardType": "hero-resource-item",
+    "alignment": "wizard",
+    "id": "td-114",
+    "name": "Enruned Shield",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/td/EnrunedShield.jpg",
+    "unique": true,
+    "subtype": "greater",
+    "keywords": [
+      "hoard"
+    ],
+    "marshallingPoints": 3,
+    "marshallingCategory": "item",
+    "corruptionPoints": 2,
+    "prowessModifier": 0,
+    "bodyModifier": 3,
+    "playableAt": [],
+    "effects": [],
+    "text": "Unique. Hoard item. Shield. +3 to body to a maximum of 10. Warrior only: tap Enruned Shield to cause one strike against bearer to be ineffectual (i. e., it doesn’t fail and it is not successful)."
+  },
+  {
+    "cardType": "hero-resource-item",
+    "alignment": "wizard",
+    "id": "td-120",
+    "name": "Habergeon of Silver",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/td/HabergeonofSilver.jpg",
+    "unique": false,
+    "subtype": "major",
+    "keywords": [
+      "hoard"
+    ],
+    "marshallingPoints": 2,
+    "marshallingCategory": "item",
+    "corruptionPoints": 2,
+    "prowessModifier": 0,
+    "bodyModifier": 2,
+    "playableAt": [],
+    "effects": [],
+    "text": "Hoard item. Armor. Bearer receives +2 body to a maximum of 10."
+  },
+  {
+    "cardType": "hero-resource-item",
+    "alignment": "wizard",
+    "id": "td-130",
+    "name": "Magical Harp",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/td/MagicalHarp.jpg",
+    "unique": true,
+    "subtype": "major",
+    "keywords": [
+      "hoard"
+    ],
+    "marshallingPoints": 2,
+    "marshallingCategory": "item",
+    "corruptionPoints": 2,
+    "prowessModifier": 0,
+    "bodyModifier": 0,
+    "playableAt": [],
+    "effects": [],
+    "text": "Unique. Hoard item. Tap Magical Harp to cancel all effects for the rest of the turn that discard a target character in bearer’s company. Bearer makes a corruption check. This item may also be so tapped during opponent’s site phase or the Free Council."
+  },
+  {
+    "cardType": "hero-resource-item",
+    "alignment": "wizard",
+    "id": "td-141",
+    "name": "Necklace of Silver and Pearls",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/td/NecklaceofSilverandPearls.jpg",
+    "unique": false,
+    "subtype": "minor",
+    "keywords": [
+      "hoard"
+    ],
+    "marshallingPoints": 0,
+    "marshallingCategory": "item",
+    "corruptionPoints": 1,
+    "prowessModifier": 0,
+    "bodyModifier": 0,
+    "playableAt": [],
+    "effects": [],
+    "text": "Hoard item. Discard this card to give +3 direct influence and +5 mind to bearer until the end of the turn. The bearer’s additional mind does not use any controlling influence. This item may also be so discarded during opponent’s site phase."
+  },
+  {
+    "cardType": "hero-resource-item",
+    "alignment": "wizard",
+    "id": "td-150",
+    "name": "Scabbard of Chalcedony",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/td/ScabbardofChalcedony.jpg",
+    "unique": false,
+    "subtype": "minor",
+    "keywords": [
+      "hoard"
+    ],
+    "marshallingPoints": 0,
+    "marshallingCategory": "item",
+    "corruptionPoints": 1,
+    "prowessModifier": 0,
+    "bodyModifier": 0,
+    "playableAt": [],
+    "effects": [],
+    "text": "Hoard item. -1 body to all failed strikes against bearer. Cannot be duplicated on a given character."
+  },
+  {
+    "cardType": "hero-resource-item",
+    "alignment": "wizard",
+    "id": "td-161",
+    "name": "Valiant Sword",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/td/ValiantSword.jpg",
+    "unique": false,
+    "subtype": "major",
+    "keywords": [
+      "hoard"
+    ],
+    "marshallingPoints": 2,
+    "marshallingCategory": "item",
+    "corruptionPoints": 2,
+    "prowessModifier": 2,
+    "bodyModifier": 0,
+    "playableAt": [],
+    "effects": [],
+    "text": "Hoard item. Weapon. +2 to bearer’s prowess to a maximum of 9. Warrior only: +1 to body to a maximum of 9."
+  },
+  {
+    "cardType": "hero-resource-item",
+    "alignment": "wizard",
+    "id": "td-170",
+    "name": "Wizard’s Staff",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/td/WizardsStaff.jpg",
+    "unique": false,
+    "subtype": "greater",
+    "keywords": [
+      "hoard"
+    ],
+    "marshallingPoints": 3,
+    "marshallingCategory": "item",
+    "corruptionPoints": 2,
+    "prowessModifier": 2,
+    "bodyModifier": 0,
+    "playableAt": [],
+    "effects": [],
+    "text": "Hoard item. Weapon. Only a Wizard may bear this item. + 2 to direct influence and +2 to prowess. +2 to any corruption check required by a spell card. Tap bearer at the beginning of your end-of-turn phase to take one “spell,” “ritual,” or “light enchantment” from your discard pile into your hand. Bearer makes corruption check. Cannot be duplicated on a given Wizard."
+  },
+  {
+    "cardType": "hero-resource-item",
+    "alignment": "wizard",
+    "id": "td-183",
+    "name": "Horn of Defiance",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/td/HornofDefiance.jpg",
+    "unique": true,
+    "subtype": "greater",
+    "keywords": [
+      "hoard"
+    ],
+    "marshallingPoints": 1,
+    "marshallingCategory": "item",
+    "corruptionPoints": 1,
+    "prowessModifier": 2,
+    "bodyModifier": 0,
+    "playableAt": [],
+    "effects": [],
+    "text": "Unique. Hoard item . +2 direct influence. A stored Reforging may be placed with this item to “restore” it. Once restored, Horn of Defiance gives 3 marshalling points and 2 corruption points. If its bearer is the first to face a strike, that character may choose to face all strikes of an attack. The character faces a separate strike sequence for each strike."
+  },
+  {
+    "cardType": "hero-resource-item",
+    "alignment": "wizard",
+    "id": "td-184",
+    "name": "Ringil",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/td/Ringil.jpg",
+    "unique": true,
+    "subtype": "greater",
+    "keywords": [
+      "hoard"
+    ],
+    "marshallingPoints": 2,
+    "marshallingCategory": "item",
+    "corruptionPoints": 2,
+    "prowessModifier": 1,
+    "bodyModifier": 1,
+    "playableAt": [],
+    "effects": [],
+    "text": "Unique. Hoard item. Weapon. +1 body. Warrior only: +1 prowess (to a maximum of 8). A stored Reforging may be placed with this item to “restore” it. Once restored, Ringil gives 4 marshalling points, 3 corruption points and +5 prowess (to a maximum of 11)."
+  },
+  {
+    "cardType": "hero-resource-item",
+    "alignment": "wizard",
+    "id": "td-185",
+    "name": "Belegennon",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/td/Belegennon.jpg",
+    "unique": true,
+    "subtype": "greater",
+    "keywords": [
+      "hoard"
+    ],
+    "marshallingPoints": 2,
+    "marshallingCategory": "item",
+    "corruptionPoints": 2,
+    "prowessModifier": 0,
+    "bodyModifier": 1,
+    "playableAt": [],
+    "effects": [],
+    "text": "Unique. Hoard item. Armor. +1 body (to a maximum of 9). A stored Reforging may be placed with this item to “restore” it. Once restored, Belegennon gives 4 marshalling points and 3 corruption points. Warrior only (restored): If bearer chooses not to tap against a strike, he receives no prowess penalty."
   }
 ]
