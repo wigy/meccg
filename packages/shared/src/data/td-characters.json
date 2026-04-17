@@ -2,6 +2,72 @@
   {
     "cardType": "hero-character",
     "alignment": "wizard",
+    "id": "td-90",
+    "name": "Brand",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/td/Brand.jpg",
+    "unique": true,
+    "race": "man",
+    "skills": [
+      "warrior",
+      "diplomat"
+    ],
+    "prowess": 4,
+    "body": 9,
+    "mind": 6,
+    "directInfluence": 2,
+    "marshallingPoints": 2,
+    "marshallingCategory": "character",
+    "corruptionModifier": 0,
+    "homesite": "Dale",
+    "text": "Unique. +2 direct influence against Men of Dale faction."
+  },
+  {
+    "cardType": "hero-character",
+    "alignment": "wizard",
+    "id": "td-91",
+    "name": "Fram Framson",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/td/FramFramson.jpg",
+    "unique": true,
+    "race": "man",
+    "skills": [
+      "warrior",
+      "ranger"
+    ],
+    "prowess": 6,
+    "body": 8,
+    "mind": 5,
+    "directInfluence": 0,
+    "marshallingPoints": 2,
+    "marshallingCategory": "character",
+    "corruptionModifier": 0,
+    "homesite": "Framsburg",
+    "text": "Unique. He may not be one of the starting characters. He may only be brought into play at his home site. +3 prowess against Dragon and Drake attacks."
+  },
+  {
+    "cardType": "hero-character",
+    "alignment": "wizard",
+    "id": "td-92",
+    "name": "Galdor",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/td/Galdor.jpg",
+    "unique": true,
+    "race": "elf",
+    "skills": [
+      "ranger",
+      "diplomat"
+    ],
+    "prowess": 2,
+    "body": 9,
+    "mind": 5,
+    "directInfluence": 2,
+    "marshallingPoints": 2,
+    "marshallingCategory": "character",
+    "corruptionModifier": 0,
+    "homesite": "Grey Havens",
+    "text": "Unique. +1 direct influence against Elves and Elf factions."
+  },
+  {
+    "cardType": "hero-character",
+    "alignment": "wizard",
     "id": "td-93",
     "name": "Ioreth",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/td/Ioreth.jpg",
@@ -23,5 +89,28 @@
     ],
     "text": "Unique. Healing effects affect all characters in her company.",
     "certified": "2026-04-14"
+  },
+  {
+    "cardType": "hero-character",
+    "alignment": "wizard",
+    "id": "td-94",
+    "name": "Thráin II",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/td/ThrainII.jpg",
+    "unique": true,
+    "race": "dwarf",
+    "skills": [
+      "warrior",
+      "ranger",
+      "sage"
+    ],
+    "prowess": 7,
+    "body": 8,
+    "mind": 9,
+    "directInfluence": 2,
+    "marshallingPoints": 3,
+    "marshallingCategory": "character",
+    "corruptionModifier": 0,
+    "homesite": "None",
+    "text": "Unique. +3 direct influence against Dwarves and Dwarf factions."
   }
 ]
