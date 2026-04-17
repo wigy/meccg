@@ -9,6 +9,7 @@
 
 import type {
   CardDefinitionId,
+  Keyword,
   Race,
   RegionType,
   SiteType,
@@ -69,7 +70,7 @@ export interface CreatureCard {
   /** Terrain and site restrictions determining where this creature can legally attack. */
   readonly keyedTo: readonly CreatureKeyRestriction[];
   /** Game keywords (e.g. "environment", "weapon", "armor") that affect card interactions. */
-  readonly keywords?: readonly string[];
+  readonly keywords?: readonly Keyword[];
   /** Declarative effects describing this creature's special combat abilities. */
   readonly effects?: readonly CardEffect[];
   /** Flavor/rules text describing special abilities or attack modifiers. */
@@ -99,7 +100,7 @@ export interface HazardEventCard {
   /** Duration class determining when this event is removed from play. */
   readonly eventType: 'short' | 'long' | 'permanent';
   /** Game keywords (e.g. "environment") that affect card interactions. */
-  readonly keywords?: readonly string[];
+  readonly keywords?: readonly Keyword[];
   /** Declarative effects describing this event's abilities. */
   readonly effects?: readonly CardEffect[];
   /** Flavor/rules text describing the event's effect. */

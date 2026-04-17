@@ -12,6 +12,7 @@
 import type {
   Alignment,
   CardDefinitionId,
+  Keyword,
   Race,
   SiteType,
   MarshallingCategory,
@@ -95,7 +96,7 @@ export interface HeroItemCard {
   /** Site types where this item can be played (e.g. Ruins-and-Lairs, Shadow-holds). */
   readonly playableAt: readonly SiteType[];
   /** Game keywords (e.g. "weapon", "armor") that affect card interactions. */
-  readonly keywords?: readonly string[];
+  readonly keywords?: readonly Keyword[];
   /** Declarative effects describing this item's abilities and modifiers. */
   readonly effects?: readonly CardEffect[];
   /** Flavor/rules text describing special abilities or play conditions. */
@@ -213,7 +214,7 @@ export interface HeroResourceEventCard {
   /** Always 'misc' -- resource events fall into the miscellaneous scoring category. */
   readonly marshallingCategory: MarshallingCategory.Misc;
   /** Game keywords (e.g. "environment") that affect card interactions. */
-  readonly keywords?: readonly string[];
+  readonly keywords?: readonly Keyword[];
   /** Declarative effects describing this event's abilities. */
   readonly effects?: readonly CardEffect[];
   /** Flavor/rules text describing the event's effect. */
@@ -259,7 +260,7 @@ export interface MinionItemCard {
   /** Site types where this item can be played. */
   readonly playableAt: readonly SiteType[];
   /** Game keywords (e.g. "weapon", "armor") that affect card interactions. */
-  readonly keywords?: readonly string[];
+  readonly keywords?: readonly Keyword[];
   /** Declarative effects describing this item's abilities and modifiers. */
   readonly effects?: readonly CardEffect[];
   /** Flavor/rules text describing special abilities or play conditions. */
@@ -379,7 +380,7 @@ export interface MinionResourceEventCard {
   /** Always 'misc' -- resource events fall into the miscellaneous scoring category. */
   readonly marshallingCategory: MarshallingCategory.Misc;
   /** Game keywords that affect card interactions. */
-  readonly keywords?: readonly string[];
+  readonly keywords?: readonly Keyword[];
   /** Declarative effects describing this event's abilities. */
   readonly effects?: readonly CardEffect[];
   /** Flavor/rules text describing the event's effect. */
