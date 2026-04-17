@@ -19,58 +19,42 @@ import {
   buildSimpleTwoPlayerState,
   CardStatus,
   findCharInstanceId,
+  getHazardsOn,
+  grantedActionsFor,
   PLAYER_1,
   resetMint,
   setCharStatus,
 } from '../../test-helpers.js';
-import { computeLegalActions } from '../../../index.js';
-import type { ActivateGrantedAction } from '../../../index.js';
+
+const PLAYER_1_IDX = 0;
 
 describe('METD §7 / Rule 10.08 — Corruption no-tap variant', () => {
   beforeEach(() => resetMint());
 
-  test('emitter offers BOTH the standard tap and the no-tap variant', () => {
-    const state = attachHazardToChar(
-      buildSimpleTwoPlayerState(),
-      0,
-      ARAGORN,
-      ALONE_AND_UNADVISED,
-    );
-    const aragornId = findCharInstanceId(state, 0, ARAGORN);
-    const acts = computeLegalActions(state, PLAYER_1)
-      .map(ea => ea.action)
-      .filter((a): a is ActivateGrantedAction =>
-        a.type === 'activate-granted-action'
-        && a.characterId === aragornId
-        && a.actionId === 'remove-self-on-roll');
-    // Two variants: standard (tap) and no-tap.
-    expect(acts.length).toBe(2);
+  test('untapped bearer gets both standard and no-tap variants', () => {
+    const state = attachHazardToChar(buildSimpleTwoPlayerState(), PLAYER_1_IDX, ARAGORN, ALONE_AND_UNADVISED);
+    const aragornId = findCharInstanceId(state, PLAYER_1_IDX, ARAGORN);
+
+    const acts = grantedActionsFor(state, aragornId, 'remove-self-on-roll', PLAYER_1);
+    expect(acts).toHaveLength(2);
     expect(acts.filter(a => a.noTap === true)).toHaveLength(1);
     expect(acts.filter(a => a.noTap !== true)).toHaveLength(1);
   });
 
-  test('no-tap variant is offered even when the character is already tapped', () => {
-    let state = attachHazardToChar(buildSimpleTwoPlayerState(), 0, ARAGORN, ALONE_AND_UNADVISED);
-    state = setCharStatus(state, 0, ARAGORN, CardStatus.Tapped);
-    const aragornId = findCharInstanceId(state, 0, ARAGORN);
-    const acts = computeLegalActions(state, PLAYER_1)
-      .map(ea => ea.action)
-      .filter((a): a is ActivateGrantedAction =>
-        a.type === 'activate-granted-action'
-        && a.characterId === aragornId
-        && a.actionId === 'remove-self-on-roll');
-    // Only the no-tap variant — standard requires the bearer untapped.
+  test('tapped bearer gets only the no-tap variant (standard requires untapped)', () => {
+    let state = attachHazardToChar(buildSimpleTwoPlayerState(), PLAYER_1_IDX, ARAGORN, ALONE_AND_UNADVISED);
+    state = setCharStatus(state, PLAYER_1_IDX, ARAGORN, CardStatus.Tapped);
+    const aragornId = findCharInstanceId(state, PLAYER_1_IDX, ARAGORN);
+
+    const acts = grantedActionsFor(state, aragornId, 'remove-self-on-roll', PLAYER_1);
     expect(acts).toHaveLength(1);
     expect(acts[0].noTap).toBe(true);
   });
 
   test('once locked, NEITHER variant is offered for the same character+card', () => {
-    // Build an untapped Aragorn with the corruption card, manually
-    // inject the lock constraint, and expect no remove-self-on-roll
-    // actions to be emitted for that pair.
-    let state = attachHazardToChar(buildSimpleTwoPlayerState(), 0, ARAGORN, ALONE_AND_UNADVISED);
-    const aragornId = findCharInstanceId(state, 0, ARAGORN);
-    const corruptionId = state.players[0].characters[aragornId as string].hazards[0].instanceId;
+    let state = attachHazardToChar(buildSimpleTwoPlayerState(), PLAYER_1_IDX, ARAGORN, ALONE_AND_UNADVISED);
+    const aragornId = findCharInstanceId(state, PLAYER_1_IDX, ARAGORN);
+    const corruptionId = getHazardsOn(state, PLAYER_1_IDX, ARAGORN)[0].instanceId;
     state = {
       ...state,
       activeConstraints: [
@@ -85,12 +69,7 @@ describe('METD §7 / Rule 10.08 — Corruption no-tap variant', () => {
         },
       ],
     };
-    const acts = computeLegalActions(state, PLAYER_1)
-      .map(ea => ea.action)
-      .filter((a): a is ActivateGrantedAction =>
-        a.type === 'activate-granted-action'
-        && a.characterId === aragornId
-        && a.actionId === 'remove-self-on-roll');
-    expect(acts).toHaveLength(0);
+
+    expect(grantedActionsFor(state, aragornId, 'remove-self-on-roll', PLAYER_1)).toHaveLength(0);
   });
 });
