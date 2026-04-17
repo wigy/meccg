@@ -33,6 +33,8 @@ import {
 } from './effects/index.js';
 import type { ResolverContext } from './effects/index.js';
 import { pickActiveItemsForCharacter } from './item-slots.js';
+import { manifestIdOf } from './manifestations.js';
+import { ownerOf } from '../types/state.js';
 
 /**
  * Adds a card's marshalling points to the running totals by its category.
@@ -217,15 +219,17 @@ function recomputePlayer(state: GameState, player: PlayerState, inPlayNames: rea
     if (def) mp = addMP(mp, def);
   }
 
-  // Kill pile: defeated creatures earn kill MP
+  // Kill pile: defeated creatures earn kill MP — except, per METD §4.1,
+  // a player who defeats a manifestation they themselves played awards
+  // no MPs. Owner is derivable in O(1) from the instance ID prefix.
   for (const card of player.killPile) {
     const def = resolveDef(state, card.instanceId);
-    if (def && 'killMarshallingPoints' in def) {
-      const killMP = (def as { killMarshallingPoints: number }).killMarshallingPoints;
-      if (killMP !== 0) {
-        mp = { ...mp, kill: mp.kill + killMP };
-      }
-    }
+    if (!def || !('killMarshallingPoints' in def)) continue;
+    const killMP = (def as { killMarshallingPoints: number }).killMarshallingPoints;
+    if (killMP === 0) continue;
+    const mid = manifestIdOf(def);
+    if (mid && ownerOf(card.instanceId) === player.id) continue;
+    mp = { ...mp, kill: mp.kill + killMP };
   }
 
   // Out-of-play pile: holds eliminated characters AND items stored at sites.
