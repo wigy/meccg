@@ -12,6 +12,7 @@
 import type {
   Alignment,
   CardDefinitionId,
+  Keyword,
   ManifestId,
   RegionType,
   SiteType,
@@ -88,6 +89,14 @@ export interface HeroSiteCard {
    * are suppressed. See `engine/manifestations.ts`.
    */
   readonly lairOf?: ManifestId;
+  /**
+   * Game keywords (e.g. `hoard`) that affect card interactions. Mirrors
+   * the `keywords` field on items and events so the same tagging
+   * mechanism covers both — hoard items use a generic site-keyword
+   * filter (`{ "site.keywords": { "$includes": "hoard" } }`) rather
+   * than a per-tag boolean field.
+   */
+  readonly keywords?: readonly Keyword[];
   /**
    * Number of cards the resource player may draw when a company moves to this site.
    * Corresponds to the lighter box in the bottom-left of the physical card.
@@ -171,6 +180,8 @@ export interface MinionSiteCard {
   readonly playableResources: readonly PlayableResourceType[];
   /** Built-in attacks that companies face upon entering the site. */
   readonly automaticAttacks: readonly AutomaticAttack[];
+  /** Game keywords (e.g. `hoard`) that affect card interactions. */
+  readonly keywords?: readonly Keyword[];
   /**
    * Number of cards the resource player may draw when a company moves to this site.
    * Corresponds to the lighter box in the bottom-left of the physical card.
@@ -226,6 +237,8 @@ export interface FallenWizardSiteCard {
   readonly playableResources: readonly PlayableResourceType[];
   /** Built-in attacks that companies face upon entering the site. */
   readonly automaticAttacks: readonly AutomaticAttack[];
+  /** Game keywords (e.g. `hoard`) that affect card interactions. */
+  readonly keywords?: readonly Keyword[];
   /**
    * Number of cards the resource player may draw when a company moves to this site.
    * Corresponds to the lighter box in the bottom-left of the physical card.
@@ -281,6 +294,8 @@ export interface BalrogSiteCard {
   readonly playableResources: readonly PlayableResourceType[];
   /** Built-in attacks that companies face upon entering the site. */
   readonly automaticAttacks: readonly AutomaticAttack[];
+  /** Game keywords (e.g. `hoard`) that affect card interactions. */
+  readonly keywords?: readonly Keyword[];
   /**
    * Number of cards the resource player may draw when a company moves to this site.
    * Corresponds to the lighter box in the bottom-left of the physical card.

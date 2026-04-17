@@ -798,7 +798,10 @@
     "resourceDraws": 3,
     "hazardDraws": 3,
     "text": "Nearest Haven: Lórien Playable: Items (minor, major, greater, gold ring) Automatic-attacks: Dragon — 1 strike with 13 prowess",
-    "lairOf": "tw-3"
+    "lairOf": "tw-3",
+    "keywords": [
+      "hoard"
+    ]
   },
   {
     "cardType": "hero-site",
@@ -831,7 +834,10 @@
     "resourceDraws": 3,
     "hazardDraws": 3,
     "text": "Nearest Haven: Lórien Playable: Items (minor, major, greater, gold ring) Automatic-attacks: Dragon — 2 strikes with 11 prowess",
-    "lairOf": "tw-26"
+    "lairOf": "tw-26",
+    "keywords": [
+      "hoard"
+    ]
   },
   {
     "cardType": "hero-site",
@@ -864,7 +870,10 @@
     "resourceDraws": 3,
     "hazardDraws": 3,
     "text": "Nearest Haven: Lórien Playable: Items (minor, major, greater, gold ring) Automatic-attacks: Dragon — 1 strike with 14 prowess",
-    "lairOf": "tw-48"
+    "lairOf": "tw-48",
+    "keywords": [
+      "hoard"
+    ]
   },
   {
     "cardType": "hero-site",
@@ -897,6 +906,9 @@
     "resourceDraws": 2,
     "hazardDraws": 2,
     "text": "Nearest Haven: Lórien Playable: Items (minor, major, greater, gold ring) Automatic-attacks: Dragon — 1 strike with 14 prowess",
-    "lairOf": "tw-90"
+    "lairOf": "tw-90",
+    "keywords": [
+      "hoard"
+    ]
   }
 ]

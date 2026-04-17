@@ -66,7 +66,16 @@
     "prowessModifier": 0,
     "bodyModifier": 1,
     "playableAt": [],
-    "effects": [],
+    "effects": [
+      {
+        "type": "item-play-site",
+        "filter": {
+          "site.keywords": {
+            "$includes": "hoard"
+          }
+        }
+      }
+    ],
     "text": "Hoard item. Helmet. +1 to body to a maximum of 9. Cancels all dark enchantments targetting bearer."
   },
   {
@@ -86,7 +95,16 @@
     "prowessModifier": 0,
     "bodyModifier": 0,
     "playableAt": [],
-    "effects": [],
+    "effects": [
+      {
+        "type": "item-play-site",
+        "filter": {
+          "site.keywords": {
+            "$includes": "hoard"
+          }
+        }
+      }
+    ],
     "text": "Hoard item. Warrior only: discard Arrows Shorn of Ebony to modify a strike from a hazard creature attack not keyed to a site by -1 prowess, -2 body. If this strike is defeated, all other subsequent failed strikes from this attack are automatically defeated."
   },
   {
@@ -106,7 +124,16 @@
     "prowessModifier": 0,
     "bodyModifier": 0,
     "playableAt": [],
-    "effects": [],
+    "effects": [
+      {
+        "type": "item-play-site",
+        "filter": {
+          "site.keywords": {
+            "$includes": "hoard"
+          }
+        }
+      }
+    ],
     "text": "Unique. Hoard item. Warrior only: tap bow to reduce the number of strikes from one hazard creature attack not keyed to a site by one (to a minimum of one)."
   },
   {
@@ -126,7 +153,16 @@
     "prowessModifier": 0,
     "bodyModifier": 0,
     "playableAt": [],
-    "effects": [],
+    "effects": [
+      {
+        "type": "item-play-site",
+        "filter": {
+          "site.keywords": {
+            "$includes": "hoard"
+          }
+        }
+      }
+    ],
     "text": "Unique. Hoard item. +1 to direct influence against Elves and Elf factions. If bearer is a Wizard, your general influence is increased by two."
   },
   {
@@ -146,7 +182,16 @@
     "prowessModifier": 0,
     "bodyModifier": 0,
     "playableAt": [],
-    "effects": [],
+    "effects": [
+      {
+        "type": "item-play-site",
+        "filter": {
+          "site.keywords": {
+            "$includes": "hoard"
+          }
+        }
+      }
+    ],
     "text": "Unique. Hoard item. Bearer receives +1 to all of his corruption checks. You may keep one more card than normal in your hand. This item is considered a source of 0 corruption points."
   },
   {
@@ -166,7 +211,16 @@
     "prowessModifier": 0,
     "bodyModifier": 3,
     "playableAt": [],
-    "effects": [],
+    "effects": [
+      {
+        "type": "item-play-site",
+        "filter": {
+          "site.keywords": {
+            "$includes": "hoard"
+          }
+        }
+      }
+    ],
     "text": "Unique. Hoard item. Shield. +3 to body to a maximum of 10. Warrior only: tap Enruned Shield to cause one strike against bearer to be ineffectual (i. e., it doesn’t fail and it is not successful)."
   },
   {
@@ -186,7 +240,16 @@
     "prowessModifier": 0,
     "bodyModifier": 2,
     "playableAt": [],
-    "effects": [],
+    "effects": [
+      {
+        "type": "item-play-site",
+        "filter": {
+          "site.keywords": {
+            "$includes": "hoard"
+          }
+        }
+      }
+    ],
     "text": "Hoard item. Armor. Bearer receives +2 body to a maximum of 10."
   },
   {
@@ -206,7 +269,16 @@
     "prowessModifier": 0,
     "bodyModifier": 0,
     "playableAt": [],
-    "effects": [],
+    "effects": [
+      {
+        "type": "item-play-site",
+        "filter": {
+          "site.keywords": {
+            "$includes": "hoard"
+          }
+        }
+      }
+    ],
     "text": "Unique. Hoard item. Tap Magical Harp to cancel all effects for the rest of the turn that discard a target character in bearer’s company. Bearer makes a corruption check. This item may also be so tapped during opponent’s site phase or the Free Council."
   },
   {
@@ -226,7 +298,16 @@
     "prowessModifier": 0,
     "bodyModifier": 0,
     "playableAt": [],
-    "effects": [],
+    "effects": [
+      {
+        "type": "item-play-site",
+        "filter": {
+          "site.keywords": {
+            "$includes": "hoard"
+          }
+        }
+      }
+    ],
     "text": "Hoard item. Discard this card to give +3 direct influence and +5 mind to bearer until the end of the turn. The bearer’s additional mind does not use any controlling influence. This item may also be so discarded during opponent’s site phase."
   },
   {
@@ -246,7 +327,16 @@
     "prowessModifier": 0,
     "bodyModifier": 0,
     "playableAt": [],
-    "effects": [],
+    "effects": [
+      {
+        "type": "item-play-site",
+        "filter": {
+          "site.keywords": {
+            "$includes": "hoard"
+          }
+        }
+      }
+    ],
     "text": "Hoard item. -1 body to all failed strikes against bearer. Cannot be duplicated on a given character."
   },
   {
@@ -266,7 +356,16 @@
     "prowessModifier": 2,
     "bodyModifier": 0,
     "playableAt": [],
-    "effects": [],
+    "effects": [
+      {
+        "type": "item-play-site",
+        "filter": {
+          "site.keywords": {
+            "$includes": "hoard"
+          }
+        }
+      }
+    ],
     "text": "Hoard item. Weapon. +2 to bearer’s prowess to a maximum of 9. Warrior only: +1 to body to a maximum of 9."
   },
   {
@@ -286,7 +385,16 @@
     "prowessModifier": 2,
     "bodyModifier": 0,
     "playableAt": [],
-    "effects": [],
+    "effects": [
+      {
+        "type": "item-play-site",
+        "filter": {
+          "site.keywords": {
+            "$includes": "hoard"
+          }
+        }
+      }
+    ],
     "text": "Hoard item. Weapon. Only a Wizard may bear this item. + 2 to direct influence and +2 to prowess. +2 to any corruption check required by a spell card. Tap bearer at the beginning of your end-of-turn phase to take one “spell,” “ritual,” or “light enchantment” from your discard pile into your hand. Bearer makes corruption check. Cannot be duplicated on a given Wizard."
   },
   {
@@ -306,7 +414,16 @@
     "prowessModifier": 2,
     "bodyModifier": 0,
     "playableAt": [],
-    "effects": [],
+    "effects": [
+      {
+        "type": "item-play-site",
+        "filter": {
+          "site.keywords": {
+            "$includes": "hoard"
+          }
+        }
+      }
+    ],
     "text": "Unique. Hoard item . +2 direct influence. A stored Reforging may be placed with this item to “restore” it. Once restored, Horn of Defiance gives 3 marshalling points and 2 corruption points. If its bearer is the first to face a strike, that character may choose to face all strikes of an attack. The character faces a separate strike sequence for each strike."
   },
   {
@@ -326,7 +443,16 @@
     "prowessModifier": 1,
     "bodyModifier": 1,
     "playableAt": [],
-    "effects": [],
+    "effects": [
+      {
+        "type": "item-play-site",
+        "filter": {
+          "site.keywords": {
+            "$includes": "hoard"
+          }
+        }
+      }
+    ],
     "text": "Unique. Hoard item. Weapon. +1 body. Warrior only: +1 prowess (to a maximum of 8). A stored Reforging may be placed with this item to “restore” it. Once restored, Ringil gives 4 marshalling points, 3 corruption points and +5 prowess (to a maximum of 11)."
   },
   {
@@ -346,7 +472,16 @@
     "prowessModifier": 0,
     "bodyModifier": 1,
     "playableAt": [],
-    "effects": [],
+    "effects": [
+      {
+        "type": "item-play-site",
+        "filter": {
+          "site.keywords": {
+            "$includes": "hoard"
+          }
+        }
+      }
+    ],
     "text": "Unique. Hoard item. Armor. +1 body (to a maximum of 9). A stored Reforging may be placed with this item to “restore” it. Once restored, Belegennon gives 4 marshalling points and 3 corruption points. Warrior only (restored): If bearer chooses not to tap against a strike, he receives no prowess penalty."
   }
 ]

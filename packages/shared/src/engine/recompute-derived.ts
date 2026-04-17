@@ -139,14 +139,24 @@ function computeEffectiveStats(
     directInfluence = charDef.directInfluence;
   }
 
-  // Per rule 9.15: prowess/body modifiers from items only apply while the
-  // item is in use (one per slot). Corruption points come from bearing the
-  // card and apply to every borne item regardless.
+  // Per rule 9.15: prowess/body modifiers from items only apply while
+  // the item is in use (one per slot). Corruption points come from
+  // bearing the card and apply to every borne item regardless.
+  //
+  // The structural `prowessModifier` / `bodyModifier` fields are a
+  // legacy way to declare what would otherwise be `stat-modifier` DSL
+  // effects. Apply them only for items that haven't migrated to DSL
+  // for those stats — checked per item, not per character. (The
+  // character may have other DSL effects without preempting an item's
+  // structural fallback; ditto for unrelated DSL effects on the item
+  // itself, e.g. `item-play-site`.)
   const activeItems = pickActiveItemsForCharacter(state, char);
   for (const item of char.items) {
     const itemDef = resolveDef(state, item.instanceId);
     if (isItemCard(itemDef)) {
-      if (!hasAnyEffects && activeItems.has(item.instanceId as string)) {
+      const itemEffects = itemDef.effects ?? [];
+      const itemHasStatMod = itemEffects.some(e => e.type === 'stat-modifier');
+      if (!itemHasStatMod && activeItems.has(item.instanceId as string)) {
         prowess += itemDef.prowessModifier;
         body += itemDef.bodyModifier;
       }

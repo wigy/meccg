@@ -565,12 +565,27 @@ function playResourcesActions(
         (e): e is ItemPlaySiteEffect => e.type === 'item-play-site',
       );
       if (siteRestriction) {
-        if (!siteRestriction.sites.includes(siteName)) {
-          logDetail(`Item ${itemDef.name}: restricted to ${siteRestriction.sites.join(', ')}, not playable at ${siteName}`);
+        const matchesSiteList = siteRestriction.sites
+          ? siteRestriction.sites.includes(siteName)
+          : false;
+        const matchesFilter = siteRestriction.filter
+          ? matchesCondition(
+              siteRestriction.filter,
+              { site: siteDef as unknown as Record<string, unknown> },
+            )
+          : false;
+        // Either form satisfies; if both are absent the restriction is
+        // empty and trivially fails (a malformed effect).
+        const allowed = matchesSiteList || matchesFilter;
+        if (!allowed) {
+          const reason = siteRestriction.sites
+            ? `only playable at ${siteRestriction.sites.join(', ')}`
+            : `${itemDef.name}: site does not satisfy play restriction`;
+          logDetail(`Item ${itemDef.name}: site ${siteName} does not satisfy play restriction`);
           actions.push({
             action: { type: 'not-playable', player: playerId, cardInstanceId },
             viable: false,
-            reason: `${itemDef.name}: only playable at ${siteRestriction.sites.join(', ')}`,
+            reason: siteRestriction.sites ? `${itemDef.name}: ${reason}` : reason,
           });
           continue;
         }

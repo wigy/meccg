@@ -53,11 +53,13 @@ export function itemDraftActions(state: GameState, playerId: PlayerId): Evaluate
     const itemName = itemDef ? itemDef.name : defId as string;
     const isItem = isItemCard(itemDef);
 
+    const isHoard = isItem && (itemDef.keywords ?? []).includes('hoard');
     const context = {
       card: {
         name: itemName,
         isItem,
         unique: isItem ? itemDef.unique : false,
+        isHoard,
       },
       ctx: {
         assignedCount,
