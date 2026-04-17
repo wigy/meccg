@@ -159,6 +159,7 @@ describe('Rivendell (tw-421)', () => {
       'Dunnish Clan-hold',
       "Eagles' Eyrie",
       'Ettenmoors',
+      'Framsburg',
       'Glittering Caves',
       'Goblin-gate',
       'Gondmaeglom',
