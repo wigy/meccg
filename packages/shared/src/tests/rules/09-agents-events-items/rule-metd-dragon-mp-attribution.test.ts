@@ -48,7 +48,7 @@ function placeInKillPile(
   const players = killerIdx === 0
     ? [newPlayer, state.players[1]]
     : [state.players[0], newPlayer];
-  return { ...state, players: players as typeof state.players };
+  return { ...state, players: players as unknown as typeof state.players };
 }
 
 describe('METD §4.1 — Dragon manifestation MP attribution', () => {
