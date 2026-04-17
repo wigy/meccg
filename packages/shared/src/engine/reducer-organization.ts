@@ -687,7 +687,7 @@ function handleActivateGrantedAction(state: GameState, action: GameAction): Redu
 
 // handleOrganizationCorruptionCheck moved to engine/pending-reducers.ts
 // (`applyCorruptionCheckResolution`) as part of the unified pending
-// system. See `specs/pending-effects-plan.md`.
+// system. See `specs/2026-04-08-pending-effects-plan.md`.
 
 /**
  * Which attachment slot a source card lives in, and which player owns

@@ -11,7 +11,7 @@
  * mechanics on their own so a regression in the helper module is
  * caught immediately.
  *
- * See `specs/pending-effects-plan.md` for the design.
+ * See `specs/2026-04-08-pending-effects-plan.md` for the design.
  */
 
 import { describe, test, expect, beforeEach } from 'vitest';

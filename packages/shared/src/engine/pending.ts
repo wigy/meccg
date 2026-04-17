@@ -9,7 +9,7 @@
  * directly. The helpers here are pure: they take a state and return a new
  * one (or read-only data derived from it).
  *
- * See `specs/pending-effects-plan.md` for the rationale and design.
+ * See `specs/2026-04-08-pending-effects-plan.md` for the rationale and design.
  */
 
 import type {
