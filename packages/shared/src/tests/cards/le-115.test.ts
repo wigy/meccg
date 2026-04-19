@@ -28,12 +28,11 @@ import {
   P1_COMPANY,
   handCardId, dispatch, playHazardAndResolve, phaseStateAs, HAZARD_PLAYER,
 } from '../test-helpers.js';
-import { Phase, SiteType, RegionType, CardStatus } from '../../index.js';
+import { Phase, SiteType, RegionType, CardStatus, BAG_END_LE } from '../../index.js';
 import { addConstraint } from '../../engine/pending.js';
 import type { GameState, HazardEventCard, MovementHazardPhaseState, SitePhaseState, CardDefinitionId, CompanyId, CardInstanceId } from '../../index.js';
 
 const INCITE_DEFENDERS = 'le-115' as CardDefinitionId;
-const BAG_END_LE = 'le-350' as CardDefinitionId;
 
 // ─── Tests ────────────────────────────────────────────────────────────────────
 

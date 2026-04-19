@@ -194,7 +194,7 @@
       "information",
       "minor",
       "major",
-      "greater-hero-only",
+      "greater",
       "gold-ring"
     ],
     "automaticAttacks": [
@@ -211,7 +211,18 @@
     ],
     "resourceDraws": 1,
     "hazardDraws": 3,
-    "text": "Playable: Information, Items (minor, major, greater*, gold ring) *—hero item only. Automatic-attacks (2): (1st) Hobbits — 5 strikes with 5 prowess; (2nd) Dúnedain — 3 strikes with 11 prowess."
+    "text": "Playable: Information, Items (minor, major, greater*, gold ring) *—hero item only. Automatic-attacks (2): (1st) Hobbits — 5 strikes with 5 prowess; (2nd) Dúnedain — 3 strikes with 11 prowess.",
+    "effects": [
+      {
+        "type": "site-rule",
+        "rule": "deny-item",
+        "when": {
+          "subtype": "greater",
+          "alignment": { "$ne": "wizard" }
+        }
+      }
+    ],
+    "certified": "2026-04-19"
   },
   {
     "cardType": "minion-site",
