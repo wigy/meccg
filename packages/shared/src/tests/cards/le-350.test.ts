@@ -11,12 +11,11 @@
  *                         (2nd) Dúnedain — 3 strikes with 11 prowess."
  *
  * The "*—hero item only" footnote is encoded as a `site-rule: deny-item` effect
- * that blocks any greater item whose alignment is not `wizard`. All current
- * non-wizard greater items (The Arkenstone, Thong of Fire) are also hoard
- * items whose own `item-play-site` restriction blocks them at Bag End before
- * the deny-item rule fires — so the deny-item rule is correct in principle
- * but has no observable effect against today's card pool. Its engine path
- * is exercised by Tolfalas (tw-433).
+ * that blocks any greater item whose alignment is not `wizard`. Two of the
+ * current minion greater items (The Arkenstone, Thong of Fire) are hoard
+ * items whose own `item-play-site` restriction already blocks them at Bag End,
+ * but Black Mace (le-299) is a minion greater item with no site restriction —
+ * it is a concrete observable case of the deny-item rule firing at Bag End.
  *
  * Site Structural Checks:
  * | # | Property          | Status | Notes                                                   |
@@ -56,7 +55,16 @@ import {
   BAG_END_LE, CARN_DUM,
   isSiteCard, buildMovementMap, getReachableSites,
 } from '../../index.js';
-import type { SiteCard } from '../../index.js';
+import type { CardDefinitionId, SiteCard } from '../../index.js';
+
+// Minion items — only referenced in this test file, so declared locally
+// per the `card-ids.ts` constants policy in CLAUDE.md. Each item has no
+// `item-play-site` restriction of its own, so its playability at Bag End
+// depends purely on the site's subtype gate and deny-item rule.
+const SAW_TOOTHED_BLADE = 'le-342' as CardDefinitionId;        // minor, ringwraith
+const HIGH_HELM = 'le-313' as CardDefinitionId;                // major, ringwraith
+const BLACK_MACE = 'le-299' as CardDefinitionId;               // greater, ringwraith (denied)
+const LEAST_OF_GOLD_RINGS = 'le-315' as CardDefinitionId;      // gold-ring, ringwraith
 
 describe('Bag End (le-350)', () => {
   beforeEach(() => resetMint());
@@ -132,6 +140,54 @@ describe('Bag End (le-350)', () => {
     const state = buildSitePhaseState({
       site: BAG_END_LE,
       hand: [PRECIOUS_GOLD_RING],
+    });
+
+    const actions = viableActions(state, PLAYER_1, 'play-hero-resource');
+    expect(actions.length).toBeGreaterThanOrEqual(1);
+  });
+
+  // ─── Minion item playability ───────────────────────────────────────────────
+  // Bag End's playable list includes minor, major, greater*, gold-ring items,
+  // with the footnote restricting greater items to hero items only. The
+  // engine checks only site/subtype compatibility and the deny-item rule at
+  // this level, so the tests put the minion items into PLAYER_1's hand
+  // alongside Aragorn to verify the site's subtype gate and the deny rule
+  // fire correctly regardless of carrier alignment.
+
+  test('minor minion item (Saw-toothed Blade) is playable at Bag End', () => {
+    const state = buildSitePhaseState({
+      site: BAG_END_LE,
+      hand: [SAW_TOOTHED_BLADE],
+    });
+
+    const actions = viableActions(state, PLAYER_1, 'play-hero-resource');
+    expect(actions.length).toBeGreaterThanOrEqual(1);
+  });
+
+  test('major minion item (High Helm) is playable at Bag End', () => {
+    const state = buildSitePhaseState({
+      site: BAG_END_LE,
+      hand: [HIGH_HELM],
+    });
+
+    const actions = viableActions(state, PLAYER_1, 'play-hero-resource');
+    expect(actions.length).toBeGreaterThanOrEqual(1);
+  });
+
+  test('greater minion item (Black Mace) is NOT playable at Bag End (hero item only)', () => {
+    const state = buildSitePhaseState({
+      site: BAG_END_LE,
+      hand: [BLACK_MACE],
+    });
+
+    const actions = viableActions(state, PLAYER_1, 'play-hero-resource');
+    expect(actions.length).toBe(0);
+  });
+
+  test('gold-ring minion item (The Least of Gold Rings) is playable at Bag End', () => {
+    const state = buildSitePhaseState({
+      site: BAG_END_LE,
+      hand: [LEAST_OF_GOLD_RINGS],
     });
 
     const actions = viableActions(state, PLAYER_1, 'play-hero-resource');
