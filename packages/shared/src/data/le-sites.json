@@ -239,7 +239,8 @@
     ],
     "resourceDraws": 1,
     "hazardDraws": 1,
-    "text": "Playable: Items (minor, gold ring). Automatic-attacks: Men — 3 strikes with 6 prowess."
+    "text": "Playable: Items (minor, gold ring). Automatic-attacks: Men — 3 strikes with 6 prowess.",
+    "certified": "2026-04-19"
   },
   {
     "cardType": "minion-site",
