@@ -7,8 +7,6 @@ FIXES
 FEATS
 -----
 
-Full keyboard support. Shift or Ctrl will reveal shortcuts. Use numbers and a-z to equal hand cards.
-
 Study our tests and improve the readability of our tests:
 
 - Do not write helpers to test files.
@@ -19,8 +17,6 @@ Study our tests and improve the readability of our tests:
 EPICS
 -----
 
-The Dragons Rules
-  Hoard
 (F) Spies and Traitors
 Dark Minions Rules
   Agents
