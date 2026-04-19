@@ -445,7 +445,8 @@
     ],
     "resourceDraws": 1,
     "hazardDraws": 2,
-    "text": "Playable: Information, Items (minor, major, gold ring). Automatic-attacks (2): (1st) Elves — each character faces 1 strike with 9 prowess (detainment against covert company); (2nd) Elves — 3 strikes with 10 prowess (against overt company only)."
+    "text": "Playable: Information, Items (minor, major, gold ring). Automatic-attacks (2): (1st) Elves — each character faces 1 strike with 9 prowess (detainment against covert company); (2nd) Elves — 3 strikes with 10 prowess (against overt company only).",
+    "certified": "2026-04-19"
   },
   {
     "cardType": "minion-site",
