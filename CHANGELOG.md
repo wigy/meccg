@@ -1,5 +1,31 @@
 # Changelog
 
+## 0.22.0 — 2026-04-19
+
+The Dragons rules
+
+### Game Engine
+
+- **Middle-Earth: The Dragons (METD) rules:** New rule tests and engine support for the Dragons expansion — hoards (site flag, generic play-site filter, starting-item gate), lock hazard limit at site reveal (§5), defeat cascade for Dragon manifestations (§4.2), dragon-at-home effect with lair-attack augmentation, suppressed kill MP for self-defeated manifestations (§4.1), manifestation defeat state derived from eliminated piles, corruption no-tap removal variant (§7 / rule 10.08), METD check kinds (§1.2).
+- **Card instance identity:** Owning player is now encoded into the `CardInstanceId` prefix, making owner lookup O(1) and eliminating a whole class of paired-reference bugs.
+- **DSL generalization:** Check-modifier generalized to a closed `CheckKind` union; `grant-action` activations now route through a generic apply dispatch (migrations for gwaihir-special-movement, extra-region-movement, remove-self-on-roll, test-gold-ring, saruman-fetch-spell, palantir-fetch-discard, cancel-return-and-site-tap); combat-rule effect split into three typed effects; hoard sites tagged via `keywords[]` instead of per-tag booleans; new `Keyword` union type tightens card-data keyword fields.
+- **Card behaviour fixes:** Enforce helmet one-at-a-time (rule 9.15); cascade triggers only on terminal piles, not discard; dedup cancel-constraint reducers and isCoastalPath predicates; collapse three Choking Shadows constraint kinds into a single attribute-modifier; migrate Great Ship onto granted-action constraint + path DSL; migrate River onto granted-action constraint pipeline.
+
+### Cards & Data
+
+- **The Dragons expansion data:** New characters (Radagast, Brand, Fram Framson, Galdor, Thráin II) and sites (Framsburg / td-175); full Dragons expansion data and spec; Dragons sample deck.
+
+### Web Client
+
+- **Keyboard shortcuts** for faster visual-view play.
+- **UI labels** for the corruption no-tap variant.
+
+### Infrastructure & Tests
+
+- **Rule test coverage:** Filled in missing rule tests across 10 sections; rules README regenerated with METD entries.
+- **Test readability pass:** Consolidated `play-and-resolve` helpers and `placeOnGuard`; finished test-helper sweep across remaining rule tests; simplified rule and card tests with shared helpers; introduced `RESOURCE_PLAYER` / `HAZARD_PLAYER` convention across tests; moved remaining test-file helpers and METD fixtures into `test-helpers.ts`; no mystery numbers; fixed pre-existing lint/nightly failures.
+- **Specs:** Moved plans from `docs/plans/` to `specs/`; added specs directory with mission, tech-stack, and roadmap; prefixed spec files with creation date.
+
 ## 0.21.0 — 2026-04-16
 
 First Challenge Deck A
