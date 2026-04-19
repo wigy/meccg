@@ -3211,7 +3211,8 @@ h2 {
   z-index: -1;
 }
 
-#hand-arc:hover {
+#hand-arc:hover,
+#hand-arc.kbd-peek {
   bottom: 0;
   z-index: var(--z-hover);
 }
@@ -4961,4 +4962,25 @@ h2 {
   color: #aaa;
 }
 
+.kbd-shortcut-label {
+  position: fixed;
+  background: rgba(0, 0, 0, 0.85);
+  color: #ffd700;
+  font: bold 13px/1 'Consolas', 'Menlo', monospace;
+  padding: 2px 6px;
+  border: 1px solid rgba(255, 215, 0, 0.6);
+  border-radius: 4px;
+  pointer-events: none;
+  z-index: 10000;
+  white-space: nowrap;
+}
+
+#pile-browser-grid img.pile-browser--marked {
+  transform: scale(1.1);
+  outline: 3px solid #ffd700;
+  outline-offset: 4px;
+  box-shadow: 0 0 24px 8px rgba(255, 215, 0, 0.9);
+  position: relative;
+  z-index: 1;
+}
 

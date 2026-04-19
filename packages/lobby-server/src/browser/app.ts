@@ -39,6 +39,7 @@ import {
 import { renderLog, setupCardPreview, showNotification } from './render.js';
 import { resetCompanyViews } from './company-view.js';
 import { clearDice, restoreDice } from './dice.js';
+import { installKeyboardShortcuts } from './keyboard-shortcuts.js';
 
 declare global {
   interface Window {
@@ -446,22 +447,7 @@ document.addEventListener('DOMContentLoaded', () => {
     brSubject.focus();
   });
 
-  // ---- Enter key: activate single action button in the action list ----
-  document.addEventListener('keydown', (e) => {
-    if (e.key !== 'Enter') return;
-    // Don't trigger if an input/textarea/button is focused or a modal is open
-    const tag = (document.activeElement?.tagName ?? '').toLowerCase();
-    if (tag === 'input' || tag === 'textarea' || tag === 'button' || tag === 'select') return;
-    const actionsEl = document.getElementById('actions');
-    if (!actionsEl) return;
-    const buttons = actionsEl.querySelectorAll('button:not([disabled])');
-    if (buttons.length === 1) {
-      const btn = buttons[0] as HTMLButtonElement;
-      btn.classList.add('btn--flash');
-      setTimeout(() => btn.classList.remove('btn--flash'), 300);
-      btn.click();
-    }
-  });
+  installKeyboardShortcuts();
 
   // ---- Settings modal ----
   const settingsBtn = document.getElementById('settings-btn') as HTMLButtonElement;
