@@ -66,6 +66,11 @@
         "name": "Foolish Words",
         "card": "td-25",
         "qty": 2
+      },
+      {
+        "name": "Wandering Eldar",
+        "card": "le-97",
+        "qty": 3
       }
     ],
     "resources": [

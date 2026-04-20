@@ -281,6 +281,20 @@
   },
   {
     "cardType": "hazard-creature",
+    "id": "le-97",
+    "name": "Wandering Eldar",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/WanderingEldar.jpg",
+    "text": "Elves. Each character in the company faces one strike (detainment against covert and hero companies). If Doors of Night is not in play, may also be played keyed to Free-domains [{f}].",
+    "unique": false,
+    "strikes": 1,
+    "prowess": 9,
+    "body": null,
+    "killMarshallingPoints": 1,
+    "race": "elves",
+    "keyedTo": []
+  },
+  {
+    "cardType": "hazard-creature",
     "id": "le-98",
     "name": "Wargs",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/Wargs.jpg",
