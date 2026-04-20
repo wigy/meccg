@@ -120,8 +120,16 @@
       "dark-hold",
       "border-hold"
     ],
-    "effects": [],
-    "text": "Weapon. +1 to prowess to a maximum of 8."
+    "effects": [
+      {
+        "type": "stat-modifier",
+        "stat": "prowess",
+        "value": 1,
+        "max": 8
+      }
+    ],
+    "text": "Weapon. +1 to prowess to a maximum of 8.",
+    "certified": "2026-04-20"
   },
   {
     "cardType": "minion-resource-item",
