@@ -35,6 +35,7 @@ export type {
   MergeCompaniesAction,
   TransferItemAction,
   StoreItemAction,
+  GoldRingTestRollAction,
   PlanMovementAction,
   CancelMovementAction,
   MoveToInfluenceAction,
@@ -114,7 +115,7 @@ export type {
 
 // ---- Import concrete types for the union ----
 import type { DraftPickAction, DraftStopAction, AssignStartingItemAction, AddCharacterToDeckAction, ShufflePlayDeckAction, SelectStartingSiteAction, PlaceCharacterAction, RollInitiativeAction } from './actions-setup.js';
-import type { UntapAction, PlayCharacterAction, SplitCompanyAction, MoveToCompanyAction, MergeCompaniesAction, TransferItemAction, StoreItemAction, PlanMovementAction, CancelMovementAction, MoveToInfluenceAction, PlayPermanentEventAction, ActivateGrantedAction } from './actions-organization.js';
+import type { UntapAction, PlayCharacterAction, SplitCompanyAction, MoveToCompanyAction, MergeCompaniesAction, TransferItemAction, StoreItemAction, GoldRingTestRollAction, PlanMovementAction, CancelMovementAction, MoveToInfluenceAction, PlayPermanentEventAction, ActivateGrantedAction } from './actions-organization.js';
 import type { PlayShortEventAction, FetchFromPileAction } from './actions-short-event.js';
 import type { PlayLongEventAction } from './actions-long-event.js';
 import type { SelectCompanyAction, DeclarePathAction, OrderEffectsAction, PlayHazardAction, AssignStrikeAction, ResolveStrikeAction, SupportStrikeAction, ChooseStrikeOrderAction, BodyCheckRollAction, CancelAttackAction, CancelByTapAction, CancelStrikeAction, HalveStrikesAction, SalvageItemAction, PlayDodgeAction, MusterRollAction, CallOfHomeRollAction } from './actions-movement-hazard.js';
@@ -147,6 +148,7 @@ export type GameAction =
   | MergeCompaniesAction
   | TransferItemAction
   | StoreItemAction
+  | GoldRingTestRollAction
   | MoveToInfluenceAction
   | PlanMovementAction
   | CancelMovementAction

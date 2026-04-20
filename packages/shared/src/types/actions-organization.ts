@@ -150,6 +150,28 @@ export interface StoreItemAction {
 }
 
 /**
+ * Execute the dice roll for a gold-ring auto-test triggered by storing
+ * the ring at a site with the `auto-test-gold-ring` rule (e.g. a
+ * Darkhaven). The storing player rolls 2d6, applies the site's
+ * modifier, and the gold ring is discarded regardless of the result.
+ *
+ * Rule 9.21's replacement-with-special-ring step is not yet implemented;
+ * today the handler rolls, logs, and discards.
+ */
+export interface GoldRingTestRollAction {
+  /** Action discriminant. */
+  readonly type: 'gold-ring-test-roll';
+  /** The ring's owner (who rolls). */
+  readonly player: PlayerId;
+  /** The gold-ring item instance being tested. */
+  readonly goldRingInstanceId: CardInstanceId;
+  /** Roll modifier from the triggering site (e.g. -2 at a Darkhaven). */
+  readonly rollModifier: number;
+  /** Human-readable breakdown of the test (site name, modifier). */
+  readonly explanation: string;
+}
+
+/**
  * Set a company's destination site for this turn.
  *
  * Movement is planned during Organization but resolved during the

@@ -14,7 +14,11 @@
     "underDeeps": false,
     "resourceDraws": 1,
     "hazardDraws": 1,
-    "text": "Any gold ring stored at this site is automatically tested (modify the roll by -2). Creatures keyed to this site are detainment. If one of your companies is at this site, all attacks against it are canceled."
+    "text": "Any gold ring stored at this site is automatically tested (modify the roll by -2). Creatures keyed to this site are detainment. If one of your companies is at this site, all attacks against it are canceled.",
+    "effects": [
+      { "type": "site-rule", "rule": "auto-test-gold-ring", "rollModifier": -2 },
+      { "type": "site-rule", "rule": "cancel-attacks" }
+    ]
   },
   {
     "cardType": "balrog-site",
@@ -31,6 +35,10 @@
     "underDeeps": true,
     "resourceDraws": 1,
     "hazardDraws": 1,
-    "text": "Any gold ring stored at this site is automatically tested (modify the roll by -2). Creatures keyed to this site attack as detainment. If one of your companies is at this site, all attacks against it are canceled."
+    "text": "Any gold ring stored at this site is automatically tested (modify the roll by -2). Creatures keyed to this site attack as detainment. If one of your companies is at this site, all attacks against it are canceled.",
+    "effects": [
+      { "type": "site-rule", "rule": "auto-test-gold-ring", "rollModifier": -2 },
+      { "type": "site-rule", "rule": "cancel-attacks" }
+    ]
   }
 ]

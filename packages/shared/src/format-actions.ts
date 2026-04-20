@@ -317,6 +317,8 @@ export function describeAction(
       return `Muster check for ${instName(action.factionInstanceId)}: need ${action.need}`;
     case 'call-of-home-roll':
       return `Roll for Call of Home on ${instName(action.targetCharacterId)} (need ${action.need})`;
+    case 'gold-ring-test-roll':
+      return `Gold-ring auto-test: ${instName(action.goldRingInstanceId)} — ${action.explanation}`;
     default: {
       const _exhaustive: never = action;
       return `Unknown action`;

@@ -652,7 +652,9 @@ export interface ItemPlaySiteEffect extends EffectBase {
  */
 export type SiteRuleEffect =
   | HealingAffectsAllSiteRule
-  | DenyItemSiteRule;
+  | DenyItemSiteRule
+  | CancelAttacksSiteRule
+  | AutoTestGoldRingSiteRule;
 
 /** Wounded characters at this site heal during untap as if the site were a haven. */
 export interface HealingAffectsAllSiteRule extends EffectBase {
@@ -678,6 +680,39 @@ export interface DenyItemSiteRule extends EffectBase {
   readonly rule: 'deny-item';
   /** DSL condition evaluated against each item's card definition. */
   readonly when: Condition;
+}
+
+/**
+ * Cancels any attack against a company whose effective site (destination if
+ * moving, else current) carries this rule. Hazard creature plays against
+ * such a company become non-viable during the play-hazards step.
+ *
+ * Example — Dol Guldur (le-367): "Any attack against a minion company at
+ * this site is canceled." Also on Minas Morgul, Carn Dûm (minion darkhavens),
+ * The White Towers (fallen-wizard haven), Moria and The Under-gates (balrog
+ * darkhavens).
+ */
+export interface CancelAttacksSiteRule extends EffectBase {
+  readonly type: 'site-rule';
+  readonly rule: 'cancel-attacks';
+}
+
+/**
+ * Declares that storing a gold-ring item at this site triggers an automatic
+ * ring test, with the given roll modifier applied to the 2d6 result. The
+ * storage itself uses the standard `storable-at` flow; the auto-test fires
+ * immediately after storage, replacing the need for a separate tap-to-test
+ * action.
+ *
+ * Example — Dol Guldur (le-367): "Any gold ring stored at this site is
+ * automatically tested (modify the roll by -2)." The same rule lives on
+ * Minas Morgul, Carn Dûm, Moria, and The Under-gates.
+ */
+export interface AutoTestGoldRingSiteRule extends EffectBase {
+  readonly type: 'site-rule';
+  readonly rule: 'auto-test-gold-ring';
+  /** Roll modifier applied to the 2d6 auto-test (e.g. -2 for a Darkhaven). */
+  readonly rollModifier: number;
 }
 
 /**

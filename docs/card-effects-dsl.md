@@ -518,6 +518,23 @@ Rules:
   combinations of subtype, name, keywords, etc. are supported. Implemented
   in `legal-actions/site.ts` play-resources step — e.g. Tolfalas uses this
   to deny every greater item except Scroll of Isildur.
+- `cancel-attacks` — hazard-creature plays targeting a company whose
+  effective site (destination if moving, else current) is this site are
+  marked non-viable. Used by darkhavens and the fallen-wizard haven
+  (Dol Guldur, Minas Morgul, Carn Dûm, The White Towers, Moria, The
+  Under-gates). Implemented in `legal-actions/movement-hazard.ts`
+  play-hazards step.
+- `auto-test-gold-ring` — storing a gold-ring item at this site enqueues
+  a `gold-ring-test` pending resolution with the rule's `rollModifier`.
+  The gold-ring-test handler rolls 2d6 + modifier, logs the outcome,
+  and discards the ring regardless of result (Rule 9.21 / 9.22).
+  Requires that the gold-ring item also declares `storable-at` for the
+  site. Rule 9.21's replacement-with-special-ring step is not yet
+  implemented.
+
+  ```json
+  { "type": "site-rule", "rule": "auto-test-gold-ring", "rollModifier": -2 }
+  ```
 
 ### 20. `item-play-site`
 

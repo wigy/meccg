@@ -419,6 +419,15 @@ function playHazardsActions(
           actions.push({ action, viable: false, reason: 'Creatures must initiate a new chain' });
           continue;
         }
+        // Cancel-attacks site rule (e.g. Dol Guldur, Moria): when the target
+        // company's effective site carries this rule, the hazard player may
+        // not play creatures against it.
+        const cancelSiteName = cancelAttacksSiteName(state, targetCompany);
+        if (cancelSiteName) {
+          logDetail(`Creature "${def.name}" cancelled by site-rule on ${cancelSiteName}`);
+          actions.push({ action, viable: false, reason: `Attacks against this company are canceled at ${cancelSiteName}` });
+          continue;
+        }
         const matches = findCreatureKeyingMatches(def, mhState, state, targetCompany);
         if (matches.length === 0) {
           const keyError = describeKeyingRequirement(def);
@@ -1017,6 +1026,31 @@ function findCreatureKeyingMatches(
   }
 
   return matches;
+}
+
+/**
+ * If the target company's effective site (destination if moving, else
+ * current) carries a `cancel-attacks` site-rule, return the site's name
+ * so callers can mark creature plays non-viable and surface a reason.
+ * Returns null when no such rule applies.
+ */
+function cancelAttacksSiteName(
+  state: GameState,
+  targetCompany: {
+    readonly destinationSite?: { readonly instanceId: CardInstanceId } | null;
+    readonly currentSite?: { readonly instanceId: CardInstanceId } | null;
+  },
+): string | null {
+  const effectiveSiteInstanceId = targetCompany.destinationSite?.instanceId
+    ?? targetCompany.currentSite?.instanceId
+    ?? null;
+  if (!effectiveSiteInstanceId) return null;
+  const siteDefId = resolveInstanceId(state, effectiveSiteInstanceId);
+  if (!siteDefId) return null;
+  const siteDef = state.cardPool[siteDefId as unknown as string];
+  if (!siteDef || !isSiteCard(siteDef) || !siteDef.effects) return null;
+  const cancels = siteDef.effects.some(e => e.type === 'site-rule' && e.rule === 'cancel-attacks');
+  return cancels ? siteDef.name : null;
 }
 
 /** Build a human-readable keying requirement string for error messages. */
