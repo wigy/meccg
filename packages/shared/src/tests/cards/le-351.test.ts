@@ -50,6 +50,13 @@ import type { SiteCard, SitePhaseState, CardDefinitionId } from '../../index.js'
 const BANDIT_LAIR_LE = 'le-351' as CardDefinitionId;
 const DOL_GULDUR = 'le-367' as CardDefinitionId;
 
+// Minion items — only referenced in this test file, so declared locally
+// per the `card-ids.ts` constants policy in CLAUDE.md.
+const SAW_TOOTHED_BLADE = 'le-342' as CardDefinitionId;        // minor, ringwraith, playableAt includes ruins-and-lairs
+const HIGH_HELM = 'le-313' as CardDefinitionId;                // major, ringwraith, playableAt includes ruins-and-lairs
+const BLACK_MACE = 'le-299' as CardDefinitionId;               // greater, ringwraith
+const LEAST_OF_GOLD_RINGS = 'le-315' as CardDefinitionId;      // gold-ring, ringwraith, no site restriction
+
 describe('Bandit Lair (le-351)', () => {
   beforeEach(() => resetMint());
 
@@ -86,6 +93,55 @@ describe('Bandit Lair (le-351)', () => {
     const state = buildSitePhaseState({ site: BANDIT_LAIR_LE });
     const passActions = viableActions(state, PLAYER_1, 'pass');
     expect(passActions).toHaveLength(1);
+  });
+
+  // ─── Minion item playability ───────────────────────────────────────────────
+  // Bandit Lair's playable list is "Items (minor, gold ring)" — the engine
+  // checks only site/subtype compatibility (and the item's own playableAt)
+  // at this level, so the tests put minion items into PLAYER_1's hand
+  // alongside Aragorn to verify the site's subtype gate fires correctly
+  // regardless of carrier alignment.
+
+  test('minor minion item (Saw-toothed Blade) is playable at Bandit Lair', () => {
+    const state = buildSitePhaseState({
+      site: BANDIT_LAIR_LE,
+      hand: [SAW_TOOTHED_BLADE],
+    });
+    const actions = viableActions(state, PLAYER_1, 'play-hero-resource');
+    expect(actions.length).toBeGreaterThanOrEqual(1);
+  });
+
+  test('gold-ring minion item (The Least of Gold Rings) is playable at Bandit Lair', () => {
+    const state = buildSitePhaseState({
+      site: BANDIT_LAIR_LE,
+      hand: [LEAST_OF_GOLD_RINGS],
+    });
+    const actions = viableActions(state, PLAYER_1, 'play-hero-resource');
+    expect(actions.length).toBeGreaterThanOrEqual(1);
+  });
+
+  test('major minion item (High Helm) is NOT playable at Bandit Lair', () => {
+    // High Helm's own `playableAt` includes ruins-and-lairs, so the site is
+    // compatible from the item's side. Bandit Lair's `playableResources`
+    // omits "major", so the site-side gate is what blocks the play.
+    const state = buildSitePhaseState({
+      site: BANDIT_LAIR_LE,
+      hand: [HIGH_HELM],
+    });
+    const actions = viableActions(state, PLAYER_1, 'play-hero-resource');
+    expect(actions).toHaveLength(0);
+  });
+
+  test('greater minion item (Black Mace) is NOT playable at Bandit Lair', () => {
+    // Bandit Lair's `playableResources` omits "greater"; Black Mace's own
+    // `playableAt` (shadow-hold/dark-hold) also excludes ruins-and-lairs,
+    // so either gate alone is sufficient to block the play.
+    const state = buildSitePhaseState({
+      site: BANDIT_LAIR_LE,
+      hand: [BLACK_MACE],
+    });
+    const actions = viableActions(state, PLAYER_1, 'play-hero-resource');
+    expect(actions).toHaveLength(0);
   });
 
   // ─── Movement to Bandit Lair ──────────────────────────────────────────────
