@@ -430,6 +430,13 @@ export interface CreatureSelfContext {
   readonly effects: readonly CardEffect[];
   /** Creature races the defending company has already faced this turn. */
   readonly companyFacedRaces: readonly string[];
+  /**
+   * Alignment of the defending player (e.g. "hero", "ringwraith"). Exposed
+   * as `defender.alignment` in the self-effect context so conditions can
+   * key on the attacked company's alignment — used by cards like
+   * *Elf-lord Revealed in Wrath* ("+4 prowess versus Ringwraiths").
+   */
+  readonly defenderAlignment?: string;
 }
 
 /**
@@ -448,6 +455,7 @@ function buildAttackContext(
   inPlayNames: readonly string[],
   creatureRace?: string,
   companyFacedRaces?: readonly string[],
+  defenderAlignment?: string,
 ): ResolverContext {
   const context: ResolverContext = {
     reason: 'combat',
@@ -456,10 +464,13 @@ function buildAttackContext(
   const withCompany = companyFacedRaces
     ? { ...context, company: { facedRaces: companyFacedRaces } }
     : context;
+  const withDefender = defenderAlignment
+    ? { ...withCompany, defender: { alignment: defenderAlignment } }
+    : withCompany;
   if (creatureRace) {
-    return { ...withCompany, enemy: { race: creatureRace, name: '', prowess: 0, body: null } };
+    return { ...withDefender, enemy: { race: creatureRace, name: '', prowess: 0, body: null } };
   }
-  return withCompany;
+  return withDefender;
 }
 
 /**
@@ -490,7 +501,7 @@ export function resolveAttackProwess(
   isAutomaticAttack = false,
   creatureSelf?: CreatureSelfContext,
 ): number {
-  const context = buildAttackContext(inPlayNames, creatureRace, creatureSelf?.companyFacedRaces);
+  const context = buildAttackContext(inPlayNames, creatureRace, creatureSelf?.companyFacedRaces, creatureSelf?.defenderAlignment);
   const globalEffects = collectGlobalEffects(state, 'all-attacks', context);
   if (isAutomaticAttack) {
     globalEffects.push(...collectGlobalEffects(state, 'all-automatic-attacks', context));

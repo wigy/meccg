@@ -324,6 +324,8 @@ export interface PlayerSetup {
   discardPile?: CardDefinitionId[];
   sideboard?: CardDefinitionId[];
   cardsInPlay?: CardInPlay[];
+  /** Player alignment. Defaults to {@link Alignment.Wizard} (hero). */
+  alignment?: Alignment;
 }
 
 /** Options for {@link buildTestState}. */
@@ -432,7 +434,7 @@ export function buildTestState(opts: BuildTestStateOpts): GameState {
     return {
       id: setup.id,
       name: setup.id === PLAYER_1 ? 'Alice' : 'Bob',
-      alignment: Alignment.Wizard,
+      alignment: setup.alignment ?? Alignment.Wizard,
       wizard: null,
       hand,
       playDeck,

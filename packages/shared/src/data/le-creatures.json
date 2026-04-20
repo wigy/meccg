@@ -284,6 +284,7 @@
     "id": "le-69",
     "name": "Elf-lord Revealed in Wrath",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/ElflordRevealedinWrath.jpg",
+    "certified": "2026-04-20",
     "text": "Elf. One strike (detainment against hero companies). +4 prowess versus Ringwraiths. If Doors of Night is not in play, may also be played keyed to Shadow-lands [{s}].",
     "unique": false,
     "strikes": 1,
@@ -291,7 +292,15 @@
     "body": 9,
     "killMarshallingPoints": 3,
     "race": "elves",
-    "keyedTo": [],
+    "keyedTo": [
+      {
+        "regionTypes": ["wilderness"]
+      },
+      {
+        "regionTypes": ["shadow"],
+        "when": { "$not": { "inPlay": "Doors of Night" } }
+      }
+    ],
     "effects": [
       {
         "type": "combat-detainment",
@@ -306,6 +315,12 @@
             }
           ]
         }
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "prowess",
+        "value": 4,
+        "when": { "defender.alignment": "ringwraith" }
       }
     ]
   },

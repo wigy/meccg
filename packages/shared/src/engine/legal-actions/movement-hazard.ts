@@ -10,6 +10,7 @@ import type { GameState, PlayerId, GameAction, EvaluatedAction, MovementHazardPh
 import { getPlayerIndex, isSiteCard, isCharacterCard, isFactionCard, buildMovementMap, findRegionPaths, RegionType, Race, hasPlayFlag, matchesCondition } from '../../index.js';
 import { resolveInstanceId } from '../../types/state.js';
 import { resolveHandSize } from '../effects/index.js';
+import { buildInPlayNames } from '../recompute-derived.js';
 import { MovementType } from '../../types/common.js';
 import { logDetail, logHeading } from './log.js';
 import { playPermanentEventActions, playShortEventActions } from './organization-events.js';
@@ -992,7 +993,10 @@ function findCreatureKeyingMatches(
     }
   }
 
+  const inPlayNames = buildInPlayNames(state);
+  const whenContext = { inPlay: inPlayNames };
   for (const key of def.keyedTo) {
+    if (key.when && !matchesCondition(key.when, whenContext)) continue;
     // Region type matches
     if (key.regionTypes && key.regionTypes.length > 0) {
       if (regionTypesMatch(key.regionTypes, effectiveRegionTypes)) {
