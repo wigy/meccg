@@ -262,8 +262,29 @@
     "eventType": "short",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
-    "text": "Playable on an Orc, Troll, or Man attack. The attack is canceled. Alternatively, playable on any attack if Skies of Fire is in play. The number of strikes from the attack is reduced to half of its original number (rounded up)."
+    "effects": [
+      {
+        "type": "cancel-attack",
+        "when": {
+          "enemy.race": {
+            "$in": [
+              "orc",
+              "troll",
+              "men",
+              "man"
+            ]
+          }
+        }
+      },
+      {
+        "type": "halve-strikes",
+        "when": {
+          "inPlay": "Skies of Fire"
+        }
+      }
+    ],
+    "text": "Playable on an Orc, Troll, or Man attack. The attack is canceled. Alternatively, playable on any attack if Skies of Fire is in play. The number of strikes from the attack is reduced to half of its original number (rounded up).",
+    "certified": "2026-04-20"
   },
   {
     "cardType": "minion-resource-event",
