@@ -535,16 +535,26 @@ IMPORTANT: You MUST create a branch named certify-${CARD_ID}-<card-slug>, commit
         fi
       fi
 
-      if echo "$SKILL_OUTPUT" | grep -qiP '(Playable:\s*YES|certification.*passed|certified|PR.*created|pull request)'; then
+      # Layered success detection — the certify-card skill (step 7) prints
+      # "Playable: YES/PARTIALLY/NO" and (step 14) MUST open a PR on success.
+      # Trust the artifact (PR existence) over prose, and check explicit
+      # failure markers first so phrases like "uncertified" or
+      # "re-certified" inside a failure report can never flip success.
+      CERT_FAIL_REASON=""
+      if echo "$SKILL_OUTPUT" | grep -qiP '(Playable:\s*(NO|PARTIALLY)\b|\*\*FAILED\*\*|certification (cannot complete|request failed|failed)|stopped short of (writing|opening))'; then
+        CERT_FAIL_REASON="Skill reported failure (Playable: NO/PARTIALLY or explicit FAILED marker)."
+      elif [ -z "$PR_URL" ]; then
+        CERT_FAIL_REASON="No PR was opened — certification requires a pushed branch and PR (skill step 14)."
+      elif ! echo "$SKILL_OUTPUT" | grep -qiP 'Playable:\s*YES\b'; then
+        CERT_FAIL_REASON="Skill output did not include 'Playable: YES'."
+      fi
+
+      if [ -z "$CERT_FAIL_REASON" ]; then
         SUCCESS=true
         REPLY_SUBJECT="Certified: $CARD_ID"
-        if [ -n "$PR_URL" ]; then
-          REPLY_BODY="Card **$CARD_ID** ($CARD_NAME) has been certified.
+        REPLY_BODY="Card **$CARD_ID** ($CARD_NAME) has been certified.
 
 PR: $PR_URL"
-        else
-          REPLY_BODY="Card **$CARD_ID** ($CARD_NAME) has been certified."
-        fi
         REPLY_KEYWORDS=$(jq -n \
           --arg origId "$MSG_ID" \
           --arg cardId "$CARD_ID" \
@@ -554,13 +564,9 @@ PR: $PR_URL"
 
         REVIEW_TOPIC="review-request"
         REVIEW_SUBJECT="Review: $CARD_ID certified"
-        if [ -n "$PR_URL" ]; then
-          REVIEW_BODY="Card **$CARD_ID** ($CARD_NAME) has been certified.
+        REVIEW_BODY="Card **$CARD_ID** ($CARD_NAME) has been certified.
 
 PR: $PR_URL"
-        else
-          REVIEW_BODY="Card **$CARD_ID** ($CARD_NAME) has been certified."
-        fi
         REVIEW_RECIPIENTS='["wigy","karmi","admin"]'
         REVIEW_KEYWORDS=$(jq -n \
           --arg cardName "$CARD_NAME" \
@@ -571,9 +577,13 @@ PR: $PR_URL"
           '{cardName: $cardName, cardId: $cardId, gitHash: $gitHash, prUrl: $prUrl, userName: $userName}')
       else
         REPLY_SUBJECT="Certification failed: $CARD_ID"
-        REPLY_BODY="Certification handler did not indicate success. Output tail:
-$(echo "$SKILL_OUTPUT" | tail -20)"
-        log "Handler failed."
+        REPLY_BODY="Certification of **$CARD_ID** ($CARD_NAME) was not completed.
+
+Reason: $CERT_FAIL_REASON
+
+Output tail:
+$(echo "$SKILL_OUTPUT" | tail -40)"
+        log "Certification failed: $CERT_FAIL_REASON"
       fi
     fi
     ;;
@@ -656,6 +666,14 @@ if [ "$TOPIC" = "card-request" ]; then
   CREDITS_CHARGED=5
 elif [ -n "${SKILL_COST:-}" ]; then
   CREDITS_CHARGED=$(awk -v c="$SKILL_COST" 'BEGIN { printf "%d", (c*100)+0.5 }')
+fi
+
+# Certification failures don't bill: the user paid for a PR + test, not for
+# an analysis of why we can't ship one. The Claude cost is sunk for us, but
+# charging on failure is the wrong incentive — and surprised users twice
+# (Stinker le-154, Warg-king le-158, etc.).
+if [ "$TOPIC" = "certification-request" ] && ! $SUCCESS; then
+  CREDITS_CHARGED=0
 fi
 
 # Human-readable reason for the credit-history audit log. Card-related
