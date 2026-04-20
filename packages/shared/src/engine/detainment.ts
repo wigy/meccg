@@ -68,6 +68,13 @@ export interface DetainmentContext {
    * defaults to `false`.
    */
   readonly isAgentHazard?: boolean;
+  /**
+   * Effects declared on the defending company's current site. Consulted
+   * for `site-rule: attacks-not-detainment` entries that override the
+   * default detainment computation (e.g. Moria — non-Nazgûl creatures
+   * attack normally, not as detainment).
+   */
+  readonly defendingSiteEffects?: readonly CardEffect[];
 }
 
 /** Races covered by rule 3.II.2.R2/B2 when keyed to a Shadow-land. */
@@ -100,6 +107,25 @@ export function defenderAlignmentLabel(a: Alignment): string {
 }
 
 export function isDetainmentAttack(ctx: DetainmentContext): boolean {
+  const siteOverride = (ctx.defendingSiteEffects ?? []).find(
+    e => e.type === 'site-rule' && e.rule === 'attacks-not-detainment',
+  );
+  if (siteOverride && siteOverride.type === 'site-rule' && siteOverride.rule === 'attacks-not-detainment') {
+    const filter = siteOverride.filter;
+    const filterContext = { enemy: { race: ctx.attackRace ?? null } };
+    if (!filter || matchesCondition(filter, filterContext)) {
+      logDetail(
+        filter
+          ? `Detainment: overridden by site-rule attacks-not-detainment (enemy race=${ctx.attackRace ?? 'none'} matches filter)`
+          : `Detainment: overridden by site-rule attacks-not-detainment (no filter)`,
+      );
+      return false;
+    }
+    logDetail(
+      `Detainment: site-rule attacks-not-detainment skipped; filter rejected enemy race=${ctx.attackRace ?? 'none'}`,
+    );
+  }
+
   const conditionContext = {
     defender: {
       alignment: defenderAlignmentLabel(ctx.defendingAlignment),

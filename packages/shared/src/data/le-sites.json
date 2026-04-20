@@ -185,7 +185,15 @@
     ],
     "resourceDraws": 2,
     "hazardDraws": 3,
-    "text": "Non-Nazgûl creatures played at this site attack normally, not as detainment. Playable: Items (minor, major, greater, gold ring). Automatic-attacks: Orcs — 4 strikes with 7 prowess."
+    "text": "Non-Nazgûl creatures played at this site attack normally, not as detainment. Playable: Items (minor, major, greater, gold ring). Automatic-attacks: Orcs — 4 strikes with 7 prowess.",
+    "effects": [
+      {
+        "type": "site-rule",
+        "rule": "attacks-not-detainment",
+        "filter": { "enemy.race": { "$ne": "nazgul" } }
+      }
+    ],
+    "certified": "2026-04-21"
   },
   {
     "cardType": "minion-site",

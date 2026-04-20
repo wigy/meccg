@@ -974,6 +974,33 @@ function deriveFacedRaces(state: GameState, hazardNames: readonly string[]): str
 }
 
 /**
+ * Returns the `effects` array of the site that would be the venue for an
+ * attack against the given company. Prefers the company's explicit
+ * destination (M/H) or current site references, because the same site
+ * name (e.g. "Moria") exists in both hero and minion card pools and a
+ * name-based lookup is ambiguous. Used by the detainment helper to
+ * consult `site-rule: attacks-not-detainment` (Moria etc.).
+ */
+function resolveDefendingSiteEffects(
+  state: GameState,
+  company: {
+    currentSite?: { definitionId: import('../types/common.js').CardDefinitionId } | null,
+    destinationSite?: { instanceId: import('../types/common.js').CardInstanceId } | null,
+  },
+): readonly import('../types/effects.js').CardEffect[] {
+  let siteDefinitionId: import('../types/common.js').CardDefinitionId | null = null;
+  if (company.destinationSite?.instanceId) {
+    siteDefinitionId = resolveInstanceId(state, company.destinationSite.instanceId) ?? null;
+  }
+  if (!siteDefinitionId && company.currentSite) {
+    siteDefinitionId = company.currentSite.definitionId;
+  }
+  if (!siteDefinitionId) return [];
+  const siteDef = state.cardPool[siteDefinitionId as string] as { effects?: readonly import('../types/effects.js').CardEffect[] } | undefined;
+  return siteDef?.effects ?? [];
+}
+
+/**
  * Creates a CombatState when a creature chain entry resolves.
  *
  * The creature card was already moved to the hazard player's discard pile
@@ -1069,6 +1096,7 @@ function initiateCreatureCombat(state: GameState, entry: ChainEntry): GameState 
       attackKeyedTo: creatureDef.keyedTo,
       inPlayNames,
       defendingAlignment: state.players[activePlayerIndex].alignment,
+      defendingSiteEffects: resolveDefendingSiteEffects(state, company),
     }),
     forceSingleTarget: multiAttackCount > 1 ? true : undefined,
     multiAttackCount: multiAttackCount > 1 ? multiAttackCount : undefined,

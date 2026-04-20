@@ -684,7 +684,8 @@ export type SiteRuleEffect =
   | HealingAffectsAllSiteRule
   | DenyItemSiteRule
   | CancelAttacksSiteRule
-  | AutoTestGoldRingSiteRule;
+  | AutoTestGoldRingSiteRule
+  | AttacksNotDetainmentSiteRule;
 
 /** Wounded characters at this site heal during untap as if the site were a haven. */
 export interface HealingAffectsAllSiteRule extends EffectBase {
@@ -743,6 +744,28 @@ export interface AutoTestGoldRingSiteRule extends EffectBase {
   readonly rule: 'auto-test-gold-ring';
   /** Roll modifier applied to the 2d6 auto-test (e.g. -2 for a Darkhaven). */
   readonly rollModifier: number;
+}
+
+/**
+ * Overrides the default detainment rules (CoE §3.II.2.R1/R2/R3 and
+ * B1/B2/B3) for attacks against a company at this site. When the optional
+ * `filter` condition matches the attacking creature's context, the
+ * resulting attack is forced to be treated as a normal attack, not
+ * detainment — even if the Ringwraith/Balrog default rules, the site's
+ * type, or the creature's keying would otherwise make it detainment.
+ *
+ * The filter is evaluated against the combat context exposing
+ * `enemy.race` (the attacking creature's race). A missing filter makes
+ * every attack at this site attack normally.
+ *
+ * Example — Moria (le-392): "Non-Nazgûl creatures played at this site
+ * attack normally, not as detainment."
+ */
+export interface AttacksNotDetainmentSiteRule extends EffectBase {
+  readonly type: 'site-rule';
+  readonly rule: 'attacks-not-detainment';
+  /** Optional condition on the attacking creature (e.g. race ≠ nazgul). */
+  readonly filter?: Condition;
 }
 
 /**
