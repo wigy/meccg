@@ -1915,6 +1915,99 @@ export function makeSingleCharCombatState(opts: SingleCharCombatOpts): GameState
   return { ...state, phaseState: makeShadowMHState(), combat };
 }
 
+// ─── Detainment-strike scaffolding ──────────────────────────────────────────
+
+/**
+ * Options for {@link makeDetainmentStrikeState}.
+ */
+export interface DetainmentStrikeOpts {
+  /** Whether the attack is detainment. */
+  detainment: boolean;
+  /** Creature's strike prowess. */
+  strikeProwess: number;
+  /** Creature body — null disables creature body check. */
+  creatureBody?: number | null;
+  /** Pre-strike status of the defending character (default Untapped). */
+  charStatus?: CardStatus;
+  /**
+   * If set, a Barrow-wight creature card is minted into the hazard
+   * player's cardsInPlay and used as the `attackSource`. Needed for
+   * rule-8.34 MP/discard routing tests, which assert where the creature
+   * card lands after `finalizeCombat`.
+   */
+  creatureInPlay?: CardDefinitionId;
+}
+
+/**
+ * Build a single-character M/H-phase state poised to resolve one strike
+ * against Aragorn from a fabricated creature. Parameterised by the
+ * detainment flag and creature stats so the rule-8.32 suite can exercise
+ * every branch of the wound / body-check / tap path.
+ *
+ * Returns the state plus Aragorn's instance id for direct status
+ * assertions after the strike resolves.
+ */
+export function makeDetainmentStrikeState(opts: DetainmentStrikeOpts): {
+  state: GameState;
+  characterId: CardInstanceId;
+  creatureInstanceId: CardInstanceId;
+} {
+  const base = buildTestState({
+    phase: Phase.MovementHazard,
+    activePlayer: PLAYER_1,
+    recompute: true,
+    players: [
+      { id: PLAYER_1, companies: [{ site: MORIA, characters: [ARAGORN] }], hand: [], siteDeck: [MINAS_TIRITH] },
+      { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [RIVENDELL] },
+    ],
+  });
+  const characterId = findCharInstanceId(base, RESOURCE_PLAYER, ARAGORN);
+  const companyId = companyIdAt(base, RESOURCE_PLAYER);
+  const withStatus = opts.charStatus ? setCharStatus(base, RESOURCE_PLAYER, ARAGORN, opts.charStatus) : base;
+
+  let creatureInstanceId: CardInstanceId = 'fake-creature' as CardInstanceId;
+  let stateWithCreature: GameState = withStatus;
+  if (opts.creatureInPlay) {
+    creatureInstanceId = mint();
+    const hazardIdx = stateWithCreature.players.findIndex(p => p.id === PLAYER_2);
+    const players: [PlayerState, PlayerState] = [
+      stateWithCreature.players[0],
+      stateWithCreature.players[1],
+    ];
+    players[hazardIdx] = {
+      ...players[hazardIdx],
+      cardsInPlay: [
+        ...players[hazardIdx].cardsInPlay,
+        { instanceId: creatureInstanceId, definitionId: opts.creatureInPlay, status: CardStatus.Untapped },
+      ],
+    };
+    stateWithCreature = { ...stateWithCreature, players };
+  }
+
+  const combat: CombatState = {
+    attackSource: { type: 'creature', instanceId: creatureInstanceId },
+    companyId,
+    defendingPlayerId: PLAYER_1,
+    attackingPlayerId: PLAYER_2,
+    strikesTotal: 1,
+    strikeProwess: opts.strikeProwess,
+    creatureBody: opts.creatureBody ?? null,
+    creatureRace: 'orc',
+    strikeAssignments: [{ characterId, excessStrikes: 0, resolved: false }],
+    currentStrikeIndex: 0,
+    phase: 'resolve-strike',
+    assignmentPhase: 'done',
+    bodyCheckTarget: null,
+    detainment: opts.detainment,
+  };
+
+  return {
+    state: { ...stateWithCreature, phaseState: makeShadowMHState(), combat },
+    characterId,
+    creatureInstanceId,
+  };
+}
+
 // ─── Opponent-influence scaffolding ─────────────────────────────────────────
 
 /**
