@@ -329,6 +329,7 @@
     "id": "le-97",
     "name": "Wandering Eldar",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/WanderingEldar.jpg",
+    "certified": "2026-04-21",
     "text": "Elves. Each character in the company faces one strike (detainment against covert and hero companies). If Doors of Night is not in play, may also be played keyed to Free-domains [{f}].",
     "unique": false,
     "strikes": 1,
@@ -336,8 +337,15 @@
     "body": null,
     "killMarshallingPoints": 1,
     "race": "elves",
-    "keyedTo": [],
+    "keyedTo": [
+      { "regionTypes": ["wilderness", "border"] },
+      {
+        "regionTypes": ["free"],
+        "when": { "$not": { "inPlay": "Doors of Night" } }
+      }
+    ],
     "effects": [
+      { "type": "combat-one-strike-per-character" },
       {
         "type": "combat-detainment",
         "when": {
