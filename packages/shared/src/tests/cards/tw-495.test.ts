@@ -19,11 +19,11 @@
 import { describe, test, expect, beforeEach } from 'vitest';
 import {
   PLAYER_1, PLAYER_2,
-  ARAGORN, LEGOLAS, BILBO, FATTY_BOLGER,
+  ARAGORN, LEGOLAS, BILBO, FATTY_BOLGER, SAM_GAMGEE, GLORFINDEL_II, SARUMAN,
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
   ORC_PATROL,
   GLAMDRING,
-  Phase,
+  Phase, CardStatus,
   buildTestState, resetMint, makeMHState,
   findCharInstanceId, viablePlayCharacterActions,
   enqueueTransferCorruptionCheck,
@@ -495,5 +495,79 @@ describe('Fatty Bolger (tw-495)', () => {
 
     expect(supportActions.length).toBe(1);
     expect(cancelActions.length).toBe(1);
+  });
+
+  test('offers cancel-strike in mixed-race company with a tapped wizard (regression: bug 82bdd3ea)', () => {
+    // Reproduces the company composition from a player-reported bug:
+    // [Sam Gamgee (hobbit, target), Fatty Bolger (hobbit, canceller),
+    //  Glorfindel II (elf), Saruman (wizard, tapped)]. The 3 wolf strikes
+    // must be assigned to the 3 untapped characters (Saruman is ineligible),
+    // so Fatty necessarily has a strike of his own. The engine must still
+    // offer Fatty's cancel-strike when Sam's strike is being resolved.
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.MovementHazard,
+      recompute: true,
+      players: [
+        {
+          id: PLAYER_1,
+          companies: [{
+            site: MORIA,
+            characters: [
+              SAM_GAMGEE,
+              FATTY_BOLGER,
+              GLORFINDEL_II,
+              { defId: SARUMAN, status: CardStatus.Tapped },
+            ],
+          }],
+          hand: [],
+          siteDeck: [MINAS_TIRITH],
+        },
+        {
+          id: PLAYER_2,
+          companies: [{ site: LORIEN, characters: [ARAGORN] }],
+          hand: [ORC_PATROL],
+          siteDeck: [RIVENDELL],
+        },
+      ],
+    });
+
+    const mhState = makeMHState({
+      resolvedSitePath: [],
+      resolvedSitePathNames: [],
+      destinationSiteType: SiteType.RuinsAndLairs,
+      destinationSiteName: 'Moria',
+    });
+    const gameState = { ...state, phaseState: mhState };
+
+    const orcPatrolId = handCardId(gameState, HAZARD_PLAYER);
+    const companyId = companyIdAt(gameState, RESOURCE_PLAYER);
+    const afterPlay = dispatch(gameState, {
+      type: 'play-hazard',
+      player: PLAYER_2,
+      cardInstanceId: orcPatrolId,
+      targetCompanyId: companyId,
+      keyedBy: { method: 'site-type' as const, value: 'ruins-and-lairs' },
+    });
+    const afterChain = resolveChain(afterPlay);
+
+    const samId = findCharInstanceId(afterChain, RESOURCE_PLAYER, SAM_GAMGEE);
+    const fattyId = findCharInstanceId(afterChain, RESOURCE_PLAYER, FATTY_BOLGER);
+    const glorfindelId = findCharInstanceId(afterChain, RESOURCE_PLAYER, GLORFINDEL_II);
+
+    const r2 = dispatch(afterChain, { type: 'assign-strike', player: PLAYER_1, characterId: samId, tapped: false });
+    const r3 = dispatch(r2, { type: 'assign-strike', player: PLAYER_1, characterId: fattyId, tapped: false });
+    const r4 = dispatch(r3, { type: 'assign-strike', player: PLAYER_1, characterId: glorfindelId, tapped: false });
+    expect(r4.combat!.phase).toBe('choose-strike-order');
+
+    const samStrikeIdx = r4.combat!.strikeAssignments.findIndex(sa => sa.characterId === samId);
+    const r5 = dispatch(r4, { type: 'choose-strike-order', player: PLAYER_1, strikeIndex: samStrikeIdx });
+    expect(r5.combat!.phase).toBe('resolve-strike');
+
+    const defActions = computeLegalActions(r5, PLAYER_1);
+    const cancelStrikeActions = defActions.filter(a => a.viable && a.action.type === 'cancel-strike');
+    expect(cancelStrikeActions.length).toBe(1);
+    expect(actionAs<CancelStrikeAction>(cancelStrikeActions[0].action).cancellerInstanceId).toBe(fattyId);
+    expect(actionAs<CancelStrikeAction>(cancelStrikeActions[0].action).targetCharacterId).toBe(samId);
   });
 });
