@@ -132,6 +132,15 @@ export interface HeroFactionCard {
   readonly marshallingCategory: MarshallingCategory.Faction;
   /** The 2d6 roll target needed to successfully influence this faction (lower = easier). */
   readonly influenceNumber: number;
+  /**
+   * The value required when an opponent attempts to re-influence this faction
+   * while it is already in play (CoE rule 8.3 final list, "the value required
+   * for the influence check on the faction that is already in play"). If
+   * omitted, the first-play `influenceNumber` is reused. Cards that include
+   * the clause "Once in play, the number required to influence this faction
+   * is N" set this explicitly (e.g. LE minion factions set 0).
+   */
+  readonly inPlayInfluenceNumber?: number;
   /** The faction's race, relevant for racial influence bonuses. */
   readonly race: Race;
   /** Locations where this faction can be played (typically a single named site). */
@@ -295,6 +304,14 @@ export interface MinionFactionCard {
   readonly marshallingCategory: MarshallingCategory.Faction;
   /** The 2d6 roll target needed to successfully influence this faction. */
   readonly influenceNumber: number;
+  /**
+   * The value required when an opponent attempts to re-influence this faction
+   * while it is already in play (CoE rule 8.3, "the value required for the
+   * influence check on the faction that is already in play"). If omitted,
+   * the first-play `influenceNumber` is reused. The clause "Once in play,
+   * the number required to influence this faction is N" sets this field.
+   */
+  readonly inPlayInfluenceNumber?: number;
   /** The faction's race. */
   readonly race: Race;
   /** Locations where this faction can be played (typically a single named site). */

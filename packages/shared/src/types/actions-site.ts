@@ -126,16 +126,19 @@ export interface InfluenceAttemptAction {
 }
 
 /**
- * Declare an influence attempt against an opponent's in-play character or ally.
+ * Declare an influence attempt against an opponent's in-play character, ally,
+ * or faction.
  *
  * The resource player taps one of their untapped characters to attempt to
  * influence away an opponent's card at the same site. This triggers a
  * two-roll resolution: the attacker rolls first, then the defender rolls.
  * The attacker's roll is modified by their unused DI, minus the opponent's
- * unused GI, minus the defender's roll, minus the controller's unused DI.
- * The result must exceed the target's mind value to succeed.
+ * unused GI, minus the defender's roll, minus the controller's unused DI
+ * (characters/allies only). For factions the comparison value is the
+ * faction's in-play influence number (see CoE rule 8.3, line 1352).
  *
- * CoE rules section 10, rules 10.10–10.12.
+ * CoE rules section 8 (general influence rules) and section 10 (tournament
+ * rulings 10.10–10.12).
  */
 export interface OpponentInfluenceAttemptAction {
   readonly type: 'opponent-influence-attempt';
@@ -147,8 +150,8 @@ export interface OpponentInfluenceAttemptAction {
   readonly targetPlayer: PlayerId;
   /** The instance ID of the opponent's card being influenced. */
   readonly targetInstanceId: CardInstanceId;
-  /** Whether the target is a character or ally. */
-  readonly targetKind: 'character' | 'ally';
+  /** Whether the target is a character, ally, or faction. */
+  readonly targetKind: 'character' | 'ally' | 'faction';
   /**
    * Optional: instance ID of an identical card revealed from hand.
    * When set, the comparison value (target mind) is treated as 0.

@@ -17,6 +17,7 @@ import type { ResolverContext } from '../effects/index.js';
 import { logDetail, logHeading } from './log.js';
 import { availableDI, grantedActionActivations, ANY_PHASE_GRANT_ACTIONS, playResourceShortEventActions } from './organization.js';
 import { getActiveAutoAttacks } from '../manifestations.js';
+import { buildControllerInPlayNames } from '../recompute-derived.js';
 
 /**
  * Check whether a site satisfies a {@link PlayableAtEntry}.
@@ -845,6 +846,7 @@ function playResourcesActions(
               baseDirectInfluence: charDef.directInfluence, name: charDef.name,
             },
             faction: { name: factionDef.name, race: factionDef.race },
+            controller: { inPlay: buildControllerInPlayNames(state, playerId) },
           };
           const charEffects = collectCharacterEffects(state, ch, resolverCtx);
           if (factionDef.effects) {
@@ -1128,6 +1130,69 @@ function opponentInfluenceActions(
             });
           }
         }
+      }
+    }
+  }
+
+  // Faction re-influence: target in-play factions of the opponent.
+  // CoE rule 8.3 final list — "the value required for the influence check on
+  // the faction that is already in play" serves as the comparison value.
+  // The active company must be at a site where the faction is playable
+  // (re-influence happens at the faction's home site). No controller DI
+  // applies to factions (they're controlled by the player, not a character).
+  for (const factionInPlay of opponent.cardsInPlay) {
+    const factionDef = state.cardPool[factionInPlay.definitionId as string];
+    if (!factionDef || !isFactionCard(factionDef)) continue;
+
+    if (!factionDef.playableAt.some(entry => siteMatchesEntry(siteDef, entry))) {
+      logDetail(`Opponent influence: ${factionDef.name} not playable at ${siteDef.name} — skip`);
+      continue;
+    }
+
+    const targetValue = factionDef.inPlayInfluenceNumber ?? factionDef.influenceNumber;
+
+    for (const ch of untappedCharacters) {
+      const charDef = state.cardPool[ch.definitionId as string];
+      if (!charDef || !isCharacterCard(charDef)) continue;
+
+      const influencerDI = availableDI(state, ch.instanceId, player);
+      const explanation = `Influencer DI: ${influencerDI}, opponent GI: ${opponentGI}, faction in-play influence #: ${targetValue}`;
+
+      logDetail(`Opponent influence: ${charDef.name} can re-influence faction ${factionDef.name} (${explanation})`);
+      actions.push({
+        action: {
+          type: 'opponent-influence-attempt',
+          player: playerId,
+          influencingCharacterId: ch.instanceId,
+          targetPlayer: opponent.id,
+          targetInstanceId: factionInPlay.instanceId,
+          targetKind: 'faction',
+          explanation,
+        },
+        viable: true,
+      });
+
+      // CoE rule 8.2: identical card reveal is allowed for factions too.
+      const identicalFactionInHand = player.hand.find(h => {
+        const hDef = state.cardPool[h.definitionId as string];
+        return hDef && isFactionCard(hDef) && hDef.name === factionDef.name;
+      });
+      if (identicalFactionInHand) {
+        const revealExplanation = `${explanation} (reveal identical → target treated as 0)`;
+        logDetail(`Opponent influence: ${charDef.name} can reveal identical ${factionDef.name} from hand`);
+        actions.push({
+          action: {
+            type: 'opponent-influence-attempt',
+            player: playerId,
+            influencingCharacterId: ch.instanceId,
+            targetPlayer: opponent.id,
+            targetInstanceId: factionInPlay.instanceId,
+            targetKind: 'faction',
+            revealedCardInstanceId: identicalFactionInHand.instanceId,
+            explanation: revealExplanation,
+          },
+          viable: true,
+        });
       }
     }
   }

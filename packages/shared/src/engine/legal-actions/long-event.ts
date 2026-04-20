@@ -16,7 +16,7 @@
  * cards and show reasons for non-playable ones.
  */
 
-import type { GameState, PlayerId, EvaluatedAction, ResourceEventCard, PlayTargetEffect, CardInstanceId, PlayerState } from '../../index.js';
+import type { GameState, PlayerId, EvaluatedAction, PlayTargetEffect, CardInstanceId, PlayerState } from '../../index.js';
 import type { PlayOptionEffect } from '../../types/effects.js';
 import { matchesCondition, CardStatus, isResourceEventCard } from '../../index.js';
 import { logHeading, logDetail } from './log.js';

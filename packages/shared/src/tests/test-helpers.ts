@@ -21,7 +21,7 @@ import {
   SiteType,
   computeLegalActions,
 } from '../index.js';
-import type { PlayerId, GameState, CardDefinitionId, CardInstanceId, CardInstance, GameAction, PlayCharacterAction, SitePhaseState, MovementHazardPhaseState, OpponentInfluenceAttemptAction, LongEventPhaseState, CreatureKeyingMatch, CombatState, CharacterCard, ActivateGrantedAction, ActiveConstraint, CheckKind } from '../index.js';
+import type { PlayerId, GameState, CardDefinitionId, CardInstanceId, CardInstance, GameAction, PlayCharacterAction, SitePhaseState, MovementHazardPhaseState, InfluenceAttemptAction, OpponentInfluenceAttemptAction, LongEventPhaseState, CreatureKeyingMatch, CombatState, CharacterCard, ActivateGrantedAction, ActiveConstraint, CheckKind } from '../index.js';
 import type { EvaluatedAction } from '../rules/types.js';
 import type { DeckList } from '../types/cards.js';
 import { enqueueResolution, addConstraint } from '../engine/pending.js';
@@ -564,6 +564,38 @@ export function findCharInstanceId(state: GameState, playerIdx: number, defId: C
 export function viableActions(state: GameState, playerId: PlayerId, actionType: string) {
   return computeLegalActions(state, playerId)
     .filter(ea => ea.viable && ea.action.type === actionType);
+}
+
+/**
+ * Return the first viable `influence-attempt` action that targets the given
+ * faction instance from the player's hand (first-play influence, not
+ * re-influence). Useful in faction-card tests that assert on the computed
+ * `need` value for a specific character/faction pairing.
+ */
+export function firstFactionInfluenceAttempt(
+  state: GameState,
+  factionInstanceId: CardInstanceId,
+  playerId: PlayerId = PLAYER_1,
+): InfluenceAttemptAction | undefined {
+  return viableActions(state, playerId, 'influence-attempt')
+    .map(a => a.action as InfluenceAttemptAction)
+    .find(a => a.factionInstanceId === factionInstanceId);
+}
+
+/**
+ * Return the first viable `opponent-influence-attempt` action that targets
+ * the given opponent-controlled instance (character, ally, or faction). The
+ * `revealOnly` option filters to the reveal-identical variant.
+ */
+export function firstOpponentInfluenceAttempt(
+  state: GameState,
+  targetInstanceId: CardInstanceId,
+  playerId: PlayerId = PLAYER_1,
+  opts?: { revealOnly?: boolean },
+): OpponentInfluenceAttemptAction | undefined {
+  return viableActions(state, playerId, 'opponent-influence-attempt')
+    .map(a => a.action as OpponentInfluenceAttemptAction)
+    .find(a => a.targetInstanceId === targetInstanceId && (opts?.revealOnly ? !!a.revealedCardInstanceId : !a.revealedCardInstanceId));
 }
 
 /** All viable actions (of any type) for a player. */

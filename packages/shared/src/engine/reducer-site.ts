@@ -18,7 +18,7 @@ import type { ReducerResult } from './reducer-utils.js';
 import { roll2d6, clonePlayers, cleanupEmptyCompanies } from './reducer-utils.js';
 import { handlePlayPermanentEvent, handlePlayResourceShortEvent } from './reducer-events.js';
 import { handleGrantActionApply } from './reducer-organization.js';
-import { buildInPlayNames } from './recompute-derived.js';
+import { buildInPlayNames, buildControllerInPlayNames } from './recompute-derived.js';
 import { sweepExpired, enqueueResolution, removeConstraint } from './pending.js';
 import { resolveEffective } from './effective.js';
 import { getActiveAutoAttacks } from './manifestations.js';
@@ -905,6 +905,7 @@ export function resolveInfluenceAttemptRoll(
         name: def.name,
         race: def.race,
       },
+      controller: { inPlay: buildControllerInPlayNames(state, entry.declaredBy) },
     };
 
     const charEffects = collectCharacterEffects(state, charInPlay, resolverCtx);
@@ -1059,6 +1060,16 @@ function handleOpponentInfluenceAttempt(
       }
     }
     if (!allyFound) return { state, error: 'Target ally not found' };
+  } else if (action.targetKind === 'faction') {
+    const targetFaction = opponent.cardsInPlay.find(c => c.instanceId === action.targetInstanceId);
+    if (!targetFaction) return { state, error: 'Target faction not found' };
+    const factionDef = state.cardPool[targetFaction.definitionId as string];
+    if (!factionDef || !isFactionCard(factionDef)) return { state, error: 'Target is not a faction' };
+    // CoE rule 8.3: the comparison value is the in-play influence number.
+    // No controller DI for factions (factions are controlled by the player,
+    // not a character).
+    targetMind = factionDef.inPlayInfluenceNumber ?? factionDef.influenceNumber;
+    controllerDI = 0;
   }
 
   const charDef = state.cardPool[charInPlay.definitionId as string];
@@ -1079,6 +1090,10 @@ function handleOpponentInfluenceAttempt(
     let targetName: string | undefined;
     if (action.targetKind === 'character') {
       const tDef = state.cardPool[opponent.characters[action.targetInstanceId as string]?.definitionId as string];
+      targetName = tDef?.name;
+    } else if (action.targetKind === 'faction') {
+      const targetFaction = opponent.cardsInPlay.find(c => c.instanceId === action.targetInstanceId);
+      const tDef = targetFaction ? state.cardPool[targetFaction.definitionId as string] : undefined;
       targetName = tDef?.name;
     } else {
       for (const ch of Object.values(opponent.characters)) {
@@ -1297,6 +1312,23 @@ function discardInfluencedCard(
         return;
       }
     }
+    return;
+  }
+
+  if (pending.targetKind === 'faction') {
+    // Remove the faction from cardsInPlay and move it to the discard pile.
+    // CoE rule 8.3 last paragraph: on a successful influence check, "the
+    // card being influenced is immediately discarded along with any
+    // non-follower cards that it controlled". Factions do not control
+    // other cards so only the faction itself is discarded.
+    const factionIdx = opponent.cardsInPlay.findIndex(c => c.instanceId === pending.targetInstanceId);
+    if (factionIdx === -1) return;
+    const faction = opponent.cardsInPlay[factionIdx];
+    const newCardsInPlay = [...opponent.cardsInPlay];
+    newCardsInPlay.splice(factionIdx, 1);
+    const newDiscard = [...opponent.discardPile, { instanceId: faction.instanceId, definitionId: faction.definitionId }];
+    players[opponentIndex] = { ...opponent, cardsInPlay: newCardsInPlay, discardPile: newDiscard };
+    logDetail(`Discarded faction ${faction.instanceId as string}`);
     return;
   }
 

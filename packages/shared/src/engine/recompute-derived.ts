@@ -67,6 +67,28 @@ export function buildInPlayNames(state: GameState): readonly string[] {
 }
 
 /**
+ * Builds the list of card names in play that belong to a specific
+ * player. Used to populate the `controller.inPlay` resolver context so
+ * DSL conditions can reference factions controlled by the influencing
+ * player only (e.g. LE Standard Modifications like "Grey Mountain
+ * Goblins (+2)", which apply only when the same player controls both
+ * factions).
+ */
+export function buildControllerInPlayNames(
+  state: GameState,
+  playerId: import('../index.js').PlayerId,
+): readonly string[] {
+  const names: string[] = [];
+  const player = state.players.find(p => p.id === playerId);
+  if (!player) return names;
+  for (const card of player.cardsInPlay) {
+    const def = resolveDef(state, card.instanceId);
+    if (def && 'name' in def) names.push((def as { name: string }).name);
+  }
+  return names;
+}
+
+/**
  * Builds a {@link ResolverContext} for computing a character's effective stats.
  *
  * Includes `bearer` (the character), `target` (same character, for global
