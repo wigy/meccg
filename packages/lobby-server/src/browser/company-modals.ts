@@ -637,6 +637,7 @@ const GRANTED_ACTION_LABELS: Readonly<Record<string, string>> = {
   'saruman-fetch-spell': 'Fetch Spell',
   'cancel-constraint': 'Cancel Constraint',
   'cancel-return-and-site-tap': 'Cancel Return',
+  'cancel-river': 'Cancel River (ranger tap)',
 };
 
 /**
