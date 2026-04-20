@@ -29,20 +29,21 @@ A web-based implementation of the **Middle-Earth Collectible Card Game** (MECCG)
 
 | Deck | Alignment | Cards | Data Available | Certified |
 |:-----|:----------|------:|---------------:|----------:|
-| (A) Stewards of Gondor | hero | 117 | 117 (100.0%) | 107 (91.5%) |
-| (B) Release the Prisoners | hero | 119 | 64 (53.8%) | 41 (34.5%) |
-| (C) Dwarven Quest | hero | 120 | 42 (35.0%) | 36 (30.0%) |
-| (D) Bargain between Friends | hero | 119 | 46 (38.7%) | 32 (26.9%) |
-| (E) Return of the King | hero | 119 | 69 (58.0%) | 52 (43.7%) |
-| (F) Spies and Traitors | minion | 117 | 107 (91.5%) | 11 (9.4%) |
-| (G) Marauding Brood of Uglies | minion | 118 | 51 (43.2%) | 13 (11.0%) |
-| (H) Stealthy Tribe | minion | 122 | 50 (41.0%) | 12 (9.8%) |
-| (I) Morgul Rallying Cry | minion | 122 | 47 (38.5%) | 10 (8.2%) |
-| (J) Seducing Nations of Men | minion | 120 | 53 (44.2%) | 11 (9.2%) |
-| The Balrog (Development only) | balrog | 30 | 30 (100.0%) | 11 (36.7%) |
-| Fallen Wizard (Development only) | fallen-wizard | 35 | 35 (100.0%) | 17 (48.6%) |
+| (A) Stewards of Gondor | hero | 117 | 117 (100.0%) | 116 (99.1%) |
+| (B) Release the Prisoners | hero | 119 | 119 (100.0%) | 45 (37.8%) |
+| (C) Dwarven Quest | hero | 120 | 120 (100.0%) | 40 (33.3%) |
+| (D) Bargain between Friends | hero | 119 | 119 (100.0%) | 37 (31.1%) |
+| (E) Return of the King | hero | 119 | 119 (100.0%) | 54 (45.4%) |
+| (F) Spies and Traitors | minion | 117 | 117 (100.0%) | 35 (29.9%) |
+| (G) Marauding Brood of Uglies | minion | 118 | 118 (100.0%) | 26 (22.0%) |
+| (H) Stealthy Tribe | minion | 122 | 122 (100.0%) | 28 (23.0%) |
+| (I) Morgul Rallying Cry | minion | 122 | 122 (100.0%) | 19 (15.6%) |
+| (J) Seducing Nations of Men | minion | 120 | 120 (100.0%) | 27 (22.5%) |
+| The Balrog (Development only) | balrog | 30 | 30 (100.0%) | 13 (43.3%) |
+| Dragons (Development only) | hero | 43 | 43 (100.0%) | 20 (46.5%) |
+| Fallen Wizard (Development only) | fallen-wizard | 35 | 35 (100.0%) | 19 (54.3%) |
 | Hero (Development only) | hero | 69 | 69 (100.0%) | 69 (100.0%) |
-| Minion (Development only) | minion | 52 | 52 (100.0%) | 11 (21.2%) |
+| Minion (Development only) | minion | 51 | 51 (100.0%) | 32 (62.7%) |
 
 ## Getting Started
 

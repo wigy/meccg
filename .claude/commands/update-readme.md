@@ -25,7 +25,7 @@ Follow these steps exactly:
    - **Cards certified**: count cards with `"certified"` field in `packages/shared/src/data/*.json` vs total cards created (from previous bullet)
    - **Total progress**: sum all "done" items across the 4 categories / sum all "total" items across the 4 categories
 
-4. **Update README.md**: Find or create a `## Project Status` section (place it right after the `## Screenshots` section). Replace its content with a table like this:
+4. **Update README.md — Project Status table**: Find or create a `## Project Status` section (place it right after the `## Screenshots` section). Replace the metric table (but NOT the `### Deck Catalog` subsection below it) with a table like this:
 
 ```markdown
 ## Project Status
@@ -41,4 +41,26 @@ Follow these steps exactly:
 
 Use actual computed numbers, not these examples. Format percentages to one decimal place. The Total row sums Done and Total columns across all 4 rows above it.
 
-5. **Report**: Show the updated progress table to the user.
+5. **Update README.md — Deck Catalog table**: Regenerate the table under `### Deck Catalog` from `data/decks/*.json` and the card data in `packages/shared/src/data/*.json`.
+
+   For each deck file (sorted by filename):
+   - Load the card pool (aggregate all arrays in `packages/shared/src/data/*.json` keyed by `id`).
+   - Walk all card-entry arrays in the deck: `pool`, `sites`, `sideboard`, and `deck.characters` / `deck.hazards` / `deck.resources`. Each entry has a `card` (definition id) and optional `qty` (default 1).
+   - Sum `qty` into three counters:
+     - **Cards**: total entries (sum of all qty).
+     - **Data Available**: sum of qty where `pool[entry.card]` exists.
+     - **Certified**: sum of qty where `pool[entry.card].certified` is truthy.
+   - Format the row as: `| <deck.name> | <deck.alignment> | <cards> | <avail> (<pct>%) | <cert> (<pct>%) |` where both percentages are of the total Cards (one decimal place).
+
+   Header:
+
+   ```markdown
+   ### Deck Catalog
+
+   | Deck | Alignment | Cards | Data Available | Certified |
+   |:-----|:----------|------:|---------------:|----------:|
+   ```
+
+   Replace only the rows between the header and the next `##` section (do not rewrite the Project Status table above it).
+
+6. **Report**: Show the updated Project Status table to the user.
