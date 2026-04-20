@@ -86,7 +86,9 @@ character is modified by -4" (Foolish Words, td-25).
 
 The `influence` check type is used on faction cards for standard modifications.
 The resolver context includes `bearer` (influencing character) and `faction`
-(faction being influenced) fields.
+(faction being influenced, with `name`, `race`, and `playableAt` — the flattened
+array of site names from the faction's `playableAt` entries, enabling conditions
+like `{ "faction.playableAt": "Variag Camp" }`).
 
 ### 2b. `attribute-modifier` active constraint
 

@@ -321,6 +321,7 @@ function factionInfluenceRollActions(
       faction: {
         name: def.name,
         race: def.race,
+        playableAt: def.playableAt.flatMap(e => 'site' in e ? [e.site] : []),
       },
       controller: { inPlay: buildControllerInPlayNames(state, playerId) },
     };

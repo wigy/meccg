@@ -62,6 +62,13 @@ export interface ResolverContext {
   readonly faction?: {
     readonly name: string;
     readonly race: string;
+    /**
+     * Names of sites at which the faction is playable (flattened from the
+     * faction's `playableAt` entries, keeping only `{site}` entries). Used
+     * by DSL conditions like `{ "faction.playableAt": "Variag Camp" }` to
+     * target bonuses at factions tied to a specific site.
+     */
+    readonly playableAt: readonly string[];
   };
   /** The target of an influence check (character being controlled). */
   readonly target?: {
