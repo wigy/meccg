@@ -63,6 +63,8 @@ export function applyResolution(
       return applyMusterRollResolution(state, action, top);
     case 'call-of-home-roll':
       return applyCallOfHomeRollResolution(state, action, top);
+    case 'gold-ring-test':
+      return applyGoldRingTestResolution(state, action, top);
   }
 }
 
@@ -771,4 +773,71 @@ function returnCharacterToHand(
   let result: GameState = { ...state, players: newPlayers };
   result = cleanupEmptyCompanies(result);
   return result;
+}
+
+/**
+ * Resolve a queued `gold-ring-test` resolution (Rule 9.21 / 9.22). The
+ * ring's owner rolls 2d6, the site's roll modifier is applied, and the
+ * gold-ring item is discarded regardless of the result. Rule 9.21's
+ * replacement-with-special-ring step is not yet implemented; the roll is
+ * logged so the player can see the final test value.
+ */
+function applyGoldRingTestResolution(
+  state: GameState,
+  action: GameAction,
+  top: PendingResolution,
+): ReducerResult | null {
+  if (action.type !== 'gold-ring-test-roll') {
+    return { state, error: `Pending gold-ring-test requires a gold-ring-test-roll action, got '${action.type}'` };
+  }
+  if (top.kind.type !== 'gold-ring-test') return null;
+  if (action.player !== top.actor) {
+    return { state, error: 'Wrong player for pending gold-ring-test' };
+  }
+
+  const { goldRingInstanceId, rollModifier } = top.kind;
+  const actorIndex = getPlayerIndex(state, action.player);
+  const player = state.players[actorIndex];
+
+  // Locate the gold ring in the owner's out-of-play pile (where store-item
+  // just moved it). If absent, error so the caller can surface a bug.
+  const ringIdx = player.outOfPlayPile.findIndex(c => c.instanceId === goldRingInstanceId);
+  if (ringIdx === -1) {
+    return { state: dequeueResolution(state, top.id), error: 'Gold ring not found in out-of-play pile' };
+  }
+  const ringCard = player.outOfPlayPile[ringIdx];
+  const ringDef = state.cardPool[ringCard.definitionId as string];
+  const ringName = ringDef?.name ?? (ringCard.definitionId as string);
+
+  const { roll, rng, cheatRollTotal } = roll2d6(state);
+  const total = roll.die1 + roll.die2 + rollModifier;
+  const modSign = rollModifier >= 0 ? '+' : '';
+  logDetail(`Gold-ring auto-test: ${ringName} — rolled ${roll.die1} + ${roll.die2} ${modSign}${rollModifier} = ${total}; ring discarded`);
+
+  const rollEffect: GameEffect = {
+    effect: 'dice-roll',
+    playerName: player.name,
+    die1: roll.die1,
+    die2: roll.die2,
+    label: `Gold-ring test: ${ringName}`,
+  };
+
+  // Discard the gold ring from out-of-play regardless of the roll
+  // (Rule 9.21: gold ring is immediately discarded when tested).
+  const newPlayers = clonePlayers(state);
+  const newOutOfPlay = [...player.outOfPlayPile];
+  newOutOfPlay.splice(ringIdx, 1);
+  newPlayers[actorIndex] = {
+    ...newPlayers[actorIndex],
+    outOfPlayPile: newOutOfPlay,
+    discardPile: [...newPlayers[actorIndex].discardPile, ringCard],
+    lastDiceRoll: roll,
+  };
+
+  const postRoll = dequeueResolution(
+    { ...state, players: newPlayers, rng, cheatRollTotal },
+    top.id,
+  );
+
+  return { state: postRoll, effects: [rollEffect] };
 }

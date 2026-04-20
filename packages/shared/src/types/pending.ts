@@ -210,6 +210,24 @@ export interface PendingResolution {
         readonly hazardDefinitionId: CardDefinitionId;
         /** Roll + unused GI must meet or exceed this to keep the character. */
         readonly threshold: number;
+      }
+    | {
+        /**
+         * Gold-ring test (Rule 9.21): a gold-ring item must be tested. The
+         * ring's owner rolls 2d6 (plus any modifiers). The ring is discarded
+         * regardless. Spawned by the `auto-test-gold-ring` site-rule when a
+         * gold-ring item is stored at a site carrying the rule (e.g. a
+         * Darkhaven with a -2 modifier).
+         *
+         * Rule 9.21's replacement-with-special-ring step is not yet
+         * implemented; this kind currently only rolls, logs the result,
+         * and discards the gold ring.
+         */
+        readonly type: 'gold-ring-test';
+        /** The gold-ring item instance being tested. */
+        readonly goldRingInstanceId: CardInstanceId;
+        /** Roll modifier from the producing effect (e.g. Darkhaven -2). */
+        readonly rollModifier: number;
       };
 }
 

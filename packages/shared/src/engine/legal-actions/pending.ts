@@ -89,6 +89,8 @@ export function resolutionLegalActions(
       return musterRollActions(state, actor, top);
     case 'call-of-home-roll':
       return callOfHomeRollActions(state, actor, top);
+    case 'gold-ring-test':
+      return goldRingTestActions(state, actor, top);
   }
 }
 
@@ -436,6 +438,43 @@ function callOfHomeRollActions(
       targetCharacterId,
       need,
       explanation: `${charName} resists ${hazardName}: need roll >= ${need} (threshold ${threshold}, unused GI ${unusedGI})`,
+    },
+    viable: true,
+  }];
+}
+
+/**
+ * Compute the single gold-ring-test-roll action that resolves a queued
+ * `gold-ring-test` resolution (auto-test triggered by the
+ * `auto-test-gold-ring` site-rule when a gold ring is stored at a
+ * Darkhaven). The ring's owner rolls 2d6 with the site's modifier; the
+ * ring is discarded regardless of the result.
+ */
+function goldRingTestActions(
+  state: GameState,
+  playerId: PlayerId,
+  top: PendingResolution,
+): EvaluatedAction[] {
+  if (top.kind.type !== 'gold-ring-test') return [];
+  const { goldRingInstanceId, rollModifier } = top.kind;
+
+  const actorIndex = state.players.findIndex(p => p.id === playerId);
+  if (actorIndex === -1) return [];
+  const player = state.players[actorIndex];
+
+  const ringCard = player.outOfPlayPile.find(c => c.instanceId === goldRingInstanceId);
+  const ringDef = ringCard ? state.cardPool[ringCard.definitionId as string] : undefined;
+  const ringName = ringDef?.name ?? '?';
+  const modSign = rollModifier >= 0 ? '+' : '';
+  logDetail(`Pending gold-ring-test for ${ringName}: roll 2d6 ${modSign}${rollModifier}`);
+
+  return [{
+    action: {
+      type: 'gold-ring-test-roll' as const,
+      player: playerId,
+      goldRingInstanceId,
+      rollModifier,
+      explanation: `Gold-ring auto-test for ${ringName}: 2d6 ${modSign}${rollModifier}`,
     },
     viable: true,
   }];

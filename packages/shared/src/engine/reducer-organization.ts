@@ -518,21 +518,82 @@ function handleStoreItem(state: GameState, action: GameAction): ReducerResult {
     players: newPlayers,
   };
 
-  return {
-    state: enqueueResolution(stateAfterStore, {
-      source: itemInstId,
-      actor: action.player,
-      scope: { kind: 'phase', phase: Phase.Organization },
-      kind: {
-        type: 'corruption-check',
-        characterId: charId,
-        modifier: 0,
-        reason: 'Store',
-        possessions: [],
-        transferredItemId: null,
-      },
-    }),
-  };
+  const stateAfterCheck = enqueueResolution(stateAfterStore, {
+    source: itemInstId,
+    actor: action.player,
+    scope: { kind: 'phase', phase: Phase.Organization },
+    kind: {
+      type: 'corruption-check',
+      characterId: charId,
+      modifier: 0,
+      reason: 'Store',
+      possessions: [],
+      transferredItemId: null,
+    },
+  });
+
+  // Auto-test-gold-ring site-rule (Rule 9.22): storing a gold-ring item at a
+  // Darkhaven (or any site declaring this rule) triggers an automatic ring
+  // test with the site's roll modifier. Enqueued after the corruption check
+  // so both resolve in order.
+  const itemSubtype = itemDef && 'subtype' in itemDef ? itemDef.subtype : undefined;
+  const autoTestMod = goldRingAutoTestModifier(state, player.companies, charId, itemSubtype);
+  if (autoTestMod !== null) {
+    const siteName = goldRingAutoTestSiteName(state, player.companies, charId) ?? '?';
+    logDetail(`Auto-test gold ring ${itemDef?.name ?? '?'} at ${siteName} (modifier ${autoTestMod >= 0 ? '+' : ''}${autoTestMod})`);
+    return {
+      state: enqueueResolution(stateAfterCheck, {
+        source: itemInstId,
+        actor: action.player,
+        scope: { kind: 'phase', phase: Phase.Organization },
+        kind: {
+          type: 'gold-ring-test',
+          goldRingInstanceId: itemInstId,
+          rollModifier: autoTestMod,
+        },
+      }),
+    };
+  }
+
+  return { state: stateAfterCheck };
+}
+
+/**
+ * If the character carrying the item is in a company at a site whose
+ * `auto-test-gold-ring` site-rule applies and the item is a gold ring,
+ * return the rule's roll modifier. Returns null otherwise (no auto-test).
+ */
+function goldRingAutoTestModifier(
+  state: GameState,
+  companies: readonly Company[],
+  characterId: CardInstanceId,
+  itemSubtype: string | undefined,
+): number | null {
+  if (itemSubtype !== 'gold-ring') return null;
+  const company = companies.find(c => c.characters.includes(characterId));
+  if (!company?.currentSite) return null;
+  const siteDefId = resolveInstanceId(state, company.currentSite.instanceId);
+  if (!siteDefId) return null;
+  const siteDef = state.cardPool[siteDefId as unknown as string];
+  if (!siteDef || !isSiteCard(siteDef) || !siteDef.effects) return null;
+  const rule = siteDef.effects.find(e => e.type === 'site-rule' && e.rule === 'auto-test-gold-ring');
+  if (!rule || rule.type !== 'site-rule' || rule.rule !== 'auto-test-gold-ring') return null;
+  return rule.rollModifier;
+}
+
+/** Same lookup as {@link goldRingAutoTestModifier} but returns the site's name. */
+function goldRingAutoTestSiteName(
+  state: GameState,
+  companies: readonly Company[],
+  characterId: CardInstanceId,
+): string | null {
+  const company = companies.find(c => c.characters.includes(characterId));
+  if (!company?.currentSite) return null;
+  const siteDefId = resolveInstanceId(state, company.currentSite.instanceId);
+  if (!siteDefId) return null;
+  const siteDef = state.cardPool[siteDefId as unknown as string];
+  if (!siteDef || !isSiteCard(siteDef)) return null;
+  return siteDef.name;
 }
 
 /**
