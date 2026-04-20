@@ -538,10 +538,12 @@ export interface CombatDetainmentEffect extends EffectBase {
  *   placed as a starting character).
  * - `playable-as-resource` — a hazard card may also be played through
  *   resource menus to cancel an environment (e.g. Twilight).
+ * - `playable-as-hazard` — a resource card may also be played through
+ *   hazard menus (e.g. Sudden Call, le-235).
  * - `no-hazard-limit` — playing this hazard does not consume a slot
  *   against the per-company hazard limit (e.g. Twilight, Lure).
  */
-export type PlayFlag = 'home-site-only' | 'playable-as-resource' | 'no-hazard-limit';
+export type PlayFlag = 'home-site-only' | 'playable-as-resource' | 'playable-as-hazard' | 'no-hazard-limit';
 
 /**
  * Declares a closed play-flag keyword on a card. See {@link PlayFlag}

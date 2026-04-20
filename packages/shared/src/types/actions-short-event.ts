@@ -60,6 +60,22 @@ export interface PlayShortEventAction {
 }
 
 /**
+ * Reshuffle a card from the player's hand back into their play deck.
+ *
+ * Available at any strategy-time step for cards that carry the
+ * `reshuffle-self-from-hand` ability (e.g. Sudden Call, le-235). The
+ * card's identity is revealed to the opponent via the public game log —
+ * the "show opponent" clause on the card text.
+ */
+export interface ReshuffleCardFromHandAction {
+  readonly type: 'reshuffle-card-from-hand';
+  /** The player reshuffling the card. */
+  readonly player: PlayerId;
+  /** The card instance (in the player's hand) to return to the deck. */
+  readonly cardInstanceId: CardInstanceId;
+}
+
+/**
  * Select a card from the sideboard or discard pile to fetch into the play deck.
  *
  * This action is part of the fetch-to-deck sub-flow initiated by resource

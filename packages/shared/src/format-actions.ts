@@ -239,6 +239,8 @@ export function describeAction(
       return 'Pass (end your actions this phase)';
     case 'call-free-council':
       return 'Call the Free Council (trigger endgame)';
+    case 'reshuffle-card-from-hand':
+      return `Reshuffle ${instName(action.cardInstanceId)} from hand into play deck (show opponent)`;
     case 'play-long-event':
       return `Play long-event ${instName(action.cardInstanceId)}`;
     case 'exchange-sideboard':

@@ -13,6 +13,7 @@ import { initiateChain, pushChainEntry } from './chain-reducer.js';
 import { resolveInstanceId } from '../types/state.js';
 import type { ReducerResult } from './reducer-utils.js';
 import { clonePlayers } from './reducer-utils.js';
+import { triggerCouncilCall } from './reducer-end-of-turn.js';
 import { addConstraint, enqueueResolution } from './pending.js';
 import { handleGrantActionApply } from './reducer-organization.js';
 
@@ -273,6 +274,25 @@ export function handlePlayResourceShortEvent(state: GameState, action: GameActio
 
   const newHand = [...player.hand];
   newHand.splice(cardIdx, 1);
+
+  // Resource-side `call-council` (e.g. Sudden Call, le-235): the card
+  // triggers the endgame — discard the card, bypass normal short-event
+  // effects, and apply the council-call state transition (opponent gets
+  // the last turn).
+  const resourceCallCouncil = def.effects?.find(
+    (e): e is import('../types/effects.js').CallCouncilEffect =>
+      e.type === 'call-council' && e.lastTurnFor === 'opponent',
+  );
+  if (resourceCallCouncil) {
+    const newPlayers = clonePlayers(state);
+    newPlayers[playerIndex] = {
+      ...player,
+      hand: newHand,
+      discardPile: [...player.discardPile, handCard],
+    };
+    const afterDiscard: GameState = { ...state, players: newPlayers };
+    return { state: triggerCouncilCall(afterDiscard, action.player, 'opponent') };
+  }
 
   // Apply play-target tap cost (e.g. Stealth taps the chosen scout). The
   // legal-actions emitter generates one play-short-event action per eligible

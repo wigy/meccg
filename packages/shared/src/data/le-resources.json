@@ -27,7 +27,9 @@
         "max": 10,
         "id": "black-mace-prowess",
         "when": {
-          "bearer.skills": { "$includes": "warrior" }
+          "bearer.skills": {
+            "$includes": "warrior"
+          }
         }
       },
       {
@@ -39,7 +41,9 @@
         "when": {
           "reason": "combat",
           "enemy.race": "elf",
-          "bearer.skills": { "$includes": "warrior" }
+          "bearer.skills": {
+            "$includes": "warrior"
+          }
         }
       }
     ],
@@ -161,7 +165,7 @@
       "border-hold"
     ],
     "effects": [],
-    "text": "The bearer can discard this item to heal a wounded character in his company—change the character’s status from wounded to well and untapped."
+    "text": "The bearer can discard this item to heal a wounded character in his company\u2014change the character\u2019s status from wounded to well and untapped."
   },
   {
     "cardType": "minion-resource-item",
@@ -314,7 +318,9 @@
     "effects": [
       {
         "type": "cancel-attack",
-        "cost": { "tap": "character" },
+        "cost": {
+          "tap": "character"
+        },
         "requiredSkill": "scout"
       }
     ],
@@ -364,8 +370,25 @@
     "eventType": "short",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
-    "text": "You may play this card as a resource or a hazard according to The Audience of Sauron Rules. This card may not be played as a hazard against a Wizard player, and may be included as a hazard in a Wizard's deck. You may reshuffle this card into your play deck at any time that it is in your hand (show opponent)."
+    "effects": [
+      {
+        "type": "play-flag",
+        "flag": "playable-as-hazard"
+      },
+      {
+        "type": "call-council",
+        "lastTurnFor": "opponent"
+      },
+      {
+        "type": "call-council",
+        "lastTurnFor": "self"
+      },
+      {
+        "type": "reshuffle-self-from-hand"
+      }
+    ],
+    "text": "You may play this card as a resource or a hazard according to The Audience of Sauron Rules. This card may not be played as a hazard against a Wizard player, and may be included as a hazard in a Wizard's deck. You may reshuffle this card into your play deck at any time that it is in your hand (show opponent).",
+    "certified": true
   },
   {
     "cardType": "minion-resource-event",
@@ -465,7 +488,7 @@
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
     "effects": [],
-    "text": "Magic. Shadow-magic. Playable during the movement/hazard phase on a moving shadow-magic-using character. In character’s site path, change a Ruins & Lairs [{R}] to a Shadow-hold [{S}] or one Wilderness [{w}] to a Shadow-land [{s}].Alternatively, decrease the hazard limit against his company by one (to no minimum). Unless he is a Ringwraith, he makes a corruption check modified by -3."
+    "text": "Magic. Shadow-magic. Playable during the movement/hazard phase on a moving shadow-magic-using character. In character\u2019s site path, change a Ruins & Lairs [{R}] to a Shadow-hold [{S}] or one Wilderness [{w}] to a Shadow-land [{s}].Alternatively, decrease the hazard limit against his company by one (to no minimum). Unless he is a Ringwraith, he makes a corruption check modified by -3."
   },
   {
     "cardType": "minion-resource-event",
@@ -478,7 +501,7 @@
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
     "effects": [],
-    "text": "Playable on an attack by Elves, Dwarves, Dúnedain, or Men. Against a covert company, the attack is canceled. Otherwise, -2 to the attack's prowess. Cannot be duplicated on a given attack."
+    "text": "Playable on an attack by Elves, Dwarves, D\u00fanedain, or Men. Against a covert company, the attack is canceled. Otherwise, -2 to the attack's prowess. Cannot be duplicated on a given attack."
   },
   {
     "cardType": "minion-resource-event",
@@ -517,7 +540,7 @@
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
     "effects": [],
-    "text": "Magic. Spirit-magic. Playable on a spirit-magic-using character in response to an influence attempt against a character, ally, or item in his company. The attempt is canceled. If the character is a Ringwraith, he can also cancel an influence attempt against any of his factions. May be played during opponent’s site phase. Unless he is a Ringwraith, he makes a corruption check modified by -3."
+    "text": "Magic. Spirit-magic. Playable on a spirit-magic-using character in response to an influence attempt against a character, ally, or item in his company. The attempt is canceled. If the character is a Ringwraith, he can also cancel an influence attempt against any of his factions. May be played during opponent\u2019s site phase. Unless he is a Ringwraith, he makes a corruption check modified by -3."
   },
   {
     "cardType": "minion-resource-ally",
@@ -578,7 +601,7 @@
     "id": "le-173",
     "name": "Burning Rick, Cot, and Tree",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/BurningRickCotandTree.jpg",
-    "text": "Playable at an already tapped Border-hold [{B}] during the site phase. The company faces two attacks (Men — 4 strikes with 7 prowess, 1 strike with 9 prowess). If no characters are untapped after the attack, discard this card. Otherwise, you may tap one character in the company and put this card in your marshalling point pile. Discard any factions you have in play that are playable at that site. Cannot be duplicated at a given site.",
+    "text": "Playable at an already tapped Border-hold [{B}] during the site phase. The company faces two attacks (Men \u2014 4 strikes with 7 prowess, 1 strike with 9 prowess). If no characters are untapped after the attack, discard this card. Otherwise, you may tap one character in the company and put this card in your marshalling point pile. Discard any factions you have in play that are playable at that site. Cannot be duplicated at a given site.",
     "alignment": "ringwraith",
     "unique": false,
     "eventType": "permanent",
@@ -588,7 +611,7 @@
   {
     "cardType": "minion-resource-event",
     "id": "le-174",
-    "name": "By the Ringwraith’s Word",
+    "name": "By the Ringwraith\u2019s Word",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/BytheRingwraithsWord.jpg",
     "text": "Playable during the organization phase on one of your other characters at the same Darkhaven [{DH}] as your Ringwraith. The character: becomes a leader (if not already), receives +4 direct influence against characters in his company, and cannot be discarded by a body check. Discard at any time if there is a character in his company with a higher mind. Cannot be duplicated by a given player. Cannot be included in a Balrog's deck.",
     "alignment": "ringwraith",
@@ -602,7 +625,7 @@
     "id": "le-178",
     "name": "Crooked Promptings",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/CrookedPromptings.jpg",
-    "text": "Diplomat only. +3 to any one influence check by a character in a diplomat’s company or +2 to a corruption check by a character in his company.",
+    "text": "Diplomat only. +3 to any one influence check by a character in a diplomat\u2019s company or +2 to a corruption check by a character in his company.",
     "alignment": "ringwraith",
     "unique": false,
     "eventType": "short",
@@ -626,7 +649,7 @@
     "id": "le-183",
     "name": "Fell Rider",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/FellRider.jpg",
-    "text": "Fell Rider mode. Playable at a Darkhaven [{DH}] during the organization phase on your Ringwraith’s own company. +2 prowess, -3 direct influence to your Ringwraith. Discard all allies and Ringwraith followers in the company; none may join the company. Your Ringwraith may move to a non-Darkhaven site. Discard this card during any of your following organization phases your Ringwraith is at a Darkhaven [{DH}]. Cannot be duplicated on a given company. Cannot be included in a Balrog's deck.",
+    "text": "Fell Rider mode. Playable at a Darkhaven [{DH}] during the organization phase on your Ringwraith\u2019s own company. +2 prowess, -3 direct influence to your Ringwraith. Discard all allies and Ringwraith followers in the company; none may join the company. Your Ringwraith may move to a non-Darkhaven site. Discard this card during any of your following organization phases your Ringwraith is at a Darkhaven [{DH}]. Cannot be duplicated on a given company. Cannot be included in a Balrog's deck.",
     "alignment": "ringwraith",
     "unique": false,
     "eventType": "permanent",
@@ -636,9 +659,9 @@
   {
     "cardType": "minion-resource-event",
     "id": "le-184",
-    "name": "Focus Palantír",
+    "name": "Focus Palant\u00edr",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/FocusPalantir.jpg",
-    "text": "Sage only. Playable on a Palantír with a sage in the company. If the bearer of the Palantír is not a Ringwraith, he now has the ability to use the Palantír. Discard Focus Palantír if the Palantír’s company moves.",
+    "text": "Sage only. Playable on a Palant\u00edr with a sage in the company. If the bearer of the Palant\u00edr is not a Ringwraith, he now has the ability to use the Palant\u00edr. Discard Focus Palant\u00edr if the Palant\u00edr\u2019s company moves.",
     "alignment": "ringwraith",
     "unique": false,
     "eventType": "permanent",
@@ -660,9 +683,9 @@
   {
     "cardType": "minion-resource-event",
     "id": "le-196",
-    "name": "I’ll Report You",
+    "name": "I\u2019ll Report You",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/IllReportYou.jpg",
-    "text": "Command. Playable on a leader during the organization phase. Return all other command cards on target leader to your hand when this card is played. -2 to leader’s direct influence (to a minimum of 0) and +1 prowess to all characters in his company. You may return this card to your hand during any organization phase.",
+    "text": "Command. Playable on a leader during the organization phase. Return all other command cards on target leader to your hand when this card is played. -2 to leader\u2019s direct influence (to a minimum of 0) and +1 prowess to all characters in his company. You may return this card to your hand during any organization phase.",
     "alignment": "ringwraith",
     "unique": false,
     "eventType": "permanent",
@@ -696,7 +719,7 @@
   {
     "cardType": "minion-resource-event",
     "id": "le-231",
-    "name": "Sneakin’",
+    "name": "Sneakin\u2019",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/Sneakin.jpg",
     "text": "Scout only. Playable during the organization phase on an untapped scout in a company with a company size less than 3. Tap the scout. No creature hazards may be played on his company this turn.",
     "alignment": "ringwraith",
@@ -732,9 +755,9 @@
   {
     "cardType": "minion-resource-event",
     "id": "le-240",
-    "name": "That Ain’t No Secret",
+    "name": "That Ain\u2019t No Secret",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/ThatAintNoSecret.jpg",
-    "text": "Playable during the site phase on an untapped character at a site where Information is playable. Tap the character (but not the site). No marshalling points are received until this card is stored at a Darkhaven [{DH}] during the character’s organization phase.",
+    "text": "Playable during the site phase on an untapped character at a site where Information is playable. Tap the character (but not the site). No marshalling points are received until this card is stored at a Darkhaven [{DH}] during the character\u2019s organization phase.",
     "alignment": "ringwraith",
     "unique": false,
     "eventType": "permanent",
@@ -744,7 +767,7 @@
   {
     "cardType": "minion-resource-event",
     "id": "le-241",
-    "name": "That’s Been Heard Before Tonight",
+    "name": "That\u2019s Been Heard Before Tonight",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/ThatsBeenHeardBeforeTonight.jpg",
     "text": "Playable during the site phase on an untapped character in a covert company at a Border-hold [{B}] or Free-hold [{F}] where Information is playable. Tap the character (but not the site). No marshalling points are received and the character may not untap until this card is stored at a Darkhaven [{DH}] during his organization phase.",
     "alignment": "ringwraith",
@@ -784,7 +807,7 @@
     "id": "le-262",
     "name": "Black Trolls",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/BlackTrolls.jpg",
-    "text": "Unique. Playable at Cirith Gorgor or Barad-dûr if the influence check is greater than 10. Once in play, the number required to influence this faction is 0. If this influence attempt is made by an Orc or Troll leader, you may place this faction under the control of that leader and not tap the site. Discard the faction if the leader moves or leaves play. Three or more factions controlled by the same leader give 2 extra marshalling points. Standard Modifications: Morgul Orcs (+2), Orcs of Gundabad (-2).",
+    "text": "Unique. Playable at Cirith Gorgor or Barad-d\u00fbr if the influence check is greater than 10. Once in play, the number required to influence this faction is 0. If this influence attempt is made by an Orc or Troll leader, you may place this faction under the control of that leader and not tap the site. Discard the faction if the leader moves or leaves play. Three or more factions controlled by the same leader give 2 extra marshalling points. Standard Modifications: Morgul Orcs (+2), Orcs of Gundabad (-2).",
     "alignment": "ringwraith",
     "unique": true,
     "marshallingPoints": 1,
@@ -838,9 +861,9 @@
   {
     "cardType": "minion-resource-faction",
     "id": "le-273",
-    "name": "Nûrniags",
+    "name": "N\u00fbrniags",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/Nurniags.jpg",
-    "text": "Unique. Playable at Nûrniag Camp if the influence check is greater than 9. Standard Modifications: Nûriags (+2), Balchoth (-2), Variags of Khand (+2).",
+    "text": "Unique. Playable at N\u00fbrniag Camp if the influence check is greater than 9. Standard Modifications: N\u00fbriags (+2), Balchoth (-2), Variags of Khand (+2).",
     "alignment": "ringwraith",
     "unique": true,
     "marshallingPoints": 2,
@@ -882,7 +905,7 @@
     "id": "le-279",
     "name": "Orcs of the Ash Mountains",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/OrcsoftheAshMountains.jpg",
-    "text": "Unique. Playable at Cirith Gorgor if the influence check is greater than 8. Once in play, the number required to influence this faction is 0. If this influence attempt is made by an Orc or Troll leader, you may place this faction under the control of that leader and not tap the site. Discard the faction if the leader moves or leaves play. Three or more factions controlled by the same leader give 2 extra marshalling points. Standard Modifications: Orcs of the Ephel Dúath (-2), Snaga-hai (+2).",
+    "text": "Unique. Playable at Cirith Gorgor if the influence check is greater than 8. Once in play, the number required to influence this faction is 0. If this influence attempt is made by an Orc or Troll leader, you may place this faction under the control of that leader and not tap the site. Discard the faction if the leader moves or leaves play. Three or more factions controlled by the same leader give 2 extra marshalling points. Standard Modifications: Orcs of the Ephel D\u00faath (-2), Snaga-hai (+2).",
     "alignment": "ringwraith",
     "unique": true,
     "marshallingPoints": 1,
@@ -894,7 +917,7 @@
   {
     "cardType": "minion-resource-faction",
     "id": "le-282",
-    "name": "Orcs of Udûn",
+    "name": "Orcs of Ud\u00fbn",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/OrcsofUdun.jpg",
     "text": "Unique. Playable at Cirith Gorgor if the influence check is greater than 8. Once in play, the number required to influence this faction is 0. If this influence attempt is made by an Orc or Troll leader, you may place this faction under the control of that leader and not tap the site. Discard the faction if the leader moves or leaves play. Three or more factions controlled by the same leader give 2 extra marshalling points. Standard Modifications: Orcs of Gorgoroth (+2), Orcs of the Red Eye (-2).",
     "alignment": "ringwraith",
@@ -938,7 +961,7 @@
     "id": "le-291",
     "name": "Uruk-hai",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/Urukhai.jpg",
-    "text": "Unique. Playable at Barad-dûr, Cirith Gorgor, or Cirith Ungol if the influence check is greater than 11. Once in play, the number required to influence this faction is 0. If this influence attempt is made by an Orc or Troll leader, you may place this faction under the control of that leader and not tap the site. Discard the faction if the leader moves or leaves play. Three or more factions controlled by the same leader give 2 extra marshalling points. Standard Modifications: Any other Orc faction (-2; applied only once).",
+    "text": "Unique. Playable at Barad-d\u00fbr, Cirith Gorgor, or Cirith Ungol if the influence check is greater than 11. Once in play, the number required to influence this faction is 0. If this influence attempt is made by an Orc or Troll leader, you may place this faction under the control of that leader and not tap the site. Discard the faction if the leader moves or leaves play. Three or more factions controlled by the same leader give 2 extra marshalling points. Standard Modifications: Any other Orc faction (-2; applied only once).",
     "alignment": "ringwraith",
     "unique": true,
     "marshallingPoints": 2,
