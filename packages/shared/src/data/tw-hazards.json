@@ -372,7 +372,8 @@
       },
       {
         "type": "on-event",
-        "event": "untap-phase-at-haven",
+        "event": "untap-phase-end",
+        "when": { "bearer.atHaven": true },
         "apply": { "type": "force-check", "check": "corruption" },
         "target": "bearer"
       },

@@ -6,7 +6,7 @@
  */
 
 import type { GameState, CharacterInPlay, UntapPhaseState, GameAction } from '../index.js';
-import { Phase, shuffle, CardStatus, isSiteCard, SiteType, getPlayerIndex } from '../index.js';
+import { Phase, shuffle, CardStatus, isSiteCard, SiteType, getPlayerIndex, matchesCondition } from '../index.js';
 import { logDetail } from './legal-actions/log.js';
 import type { ReducerResult } from './reducer-utils.js';
 import { clonePlayers } from './reducer-utils.js';
@@ -246,10 +246,15 @@ export function enterUntapPhase(state: GameState): GameState {
 function advanceToOrganization(state: GameState): ReducerResult {
   logDetail('Untap: advancing to Organization phase');
 
-  // Trigger `untap-phase-at-haven` on-event effects (Lure of the Senses,
-  // etc.). Each character at a haven scans its attached hazards/items/
-  // allies for a matching effect; for every match, enqueue a
-  // corruption-check resolution scoped to the Organization phase.
+  // Trigger `untap-phase-end` on-event effects (Lure of the Senses,
+  // The Least of Gold Rings, etc.). Each character of the active
+  // player scans its attached hazards/items/allies for matching
+  // effects. An optional `when` condition on the effect is evaluated
+  // against the bearer context ({ bearer: { siteType, atHaven } });
+  // cards that should only fire at a haven (Lure) express that as
+  // `when: { "bearer.atHaven": true }` instead of using a dedicated
+  // event name. For every match, enqueue a corruption-check
+  // resolution scoped to the Organization phase.
   let advanced: GameState = {
     ...state,
     phaseState: { phase: Phase.Organization, characterPlayedThisTurn: false, sideboardFetchedThisTurn: 0, sideboardFetchDestination: null },
@@ -259,47 +264,48 @@ function advanceToOrganization(state: GameState): ReducerResult {
   // says "at the end of *his* untap phase", so it fires only when the
   // character's controller's untap phase transitions to organization.
   const activeIndex = state.players.findIndex(p => p.id === state.activePlayer);
-  for (const pi of [activeIndex]) {
-    const player = state.players[pi];
-    const havensCharIds = new Set<string>();
-    for (const company of player.companies) {
-      if (!company.currentSite) continue;
-      const siteDef = state.cardPool[company.currentSite.definitionId];
-      if (siteDef && isSiteCard(siteDef) && siteDef.siteType === SiteType.Haven) {
-        for (const charId of company.characters) havensCharIds.add(charId as string);
-      }
-    }
+  const player = state.players[activeIndex];
+  const charSiteType = new Map<string, SiteType | null>();
+  for (const company of player.companies) {
+    const siteDef = company.currentSite ? state.cardPool[company.currentSite.definitionId] : undefined;
+    const siteType = siteDef && isSiteCard(siteDef) ? siteDef.siteType : null;
+    for (const charId of company.characters) charSiteType.set(charId as string, siteType);
+  }
 
-    for (const [charId, char] of Object.entries(player.characters)) {
-      if (!havensCharIds.has(charId)) continue;
-      // Scan attached hazards, items, allies for `untap-phase-at-haven` effects
-      const attached = [...char.hazards, ...char.items, ...char.allies];
-      for (const card of attached) {
-        const def = state.cardPool[card.definitionId as string];
-        const effects = (def && 'effects' in def
-          ? (def as { effects?: readonly CardEffect[] }).effects
-          : undefined) ?? [];
-        for (const e of effects) {
-          if (e.type !== 'on-event') continue;
-          const oe: OnEventEffect = e;
-          if (oe.event !== 'untap-phase-at-haven') continue;
-          if (oe.apply.type !== 'force-check' || oe.apply.check !== 'corruption') continue;
-          const modifier = oe.apply.modifier ?? 0;
-          logDetail(`Untap-phase-at-haven: enqueuing corruption check for ${def?.name ?? '?'} on ${char.instanceId as string} (modifier ${modifier})`);
-          advanced = enqueueResolution(advanced, {
-            source: card.instanceId,
-            actor: player.id,
-            scope: { kind: 'phase', phase: Phase.Organization },
-            kind: {
-              type: 'corruption-check',
-              characterId: char.instanceId,
-              modifier,
-              reason: def?.name ?? 'Untap-phase haven check',
-              possessions: [],
-              transferredItemId: null,
-            },
-          });
+  for (const [charId, char] of Object.entries(player.characters)) {
+    const siteType = charSiteType.get(charId) ?? null;
+    const bearerCtx = { bearer: { siteType, atHaven: siteType === SiteType.Haven } };
+    // Scan attached hazards, items, allies for matching on-event effects
+    const attached = [...char.hazards, ...char.items, ...char.allies];
+    for (const card of attached) {
+      const def = state.cardPool[card.definitionId as string];
+      const effects = (def && 'effects' in def
+        ? (def as { effects?: readonly CardEffect[] }).effects
+        : undefined) ?? [];
+      for (const e of effects) {
+        if (e.type !== 'on-event') continue;
+        const oe: OnEventEffect = e;
+        if (oe.event !== 'untap-phase-end') continue;
+        if (oe.apply.type !== 'force-check' || oe.apply.check !== 'corruption') continue;
+        if (oe.when && !matchesCondition(oe.when, bearerCtx as unknown as Record<string, unknown>)) {
+          logDetail(`Untap-phase-end: skipping ${def?.name ?? '?'} on ${char.instanceId as string} — when condition not met (siteType=${siteType ?? 'none'})`);
+          continue;
         }
+        const modifier = oe.apply.modifier ?? 0;
+        logDetail(`Untap-phase-end: enqueuing corruption check for ${def?.name ?? '?'} on ${char.instanceId as string} (modifier ${modifier})`);
+        advanced = enqueueResolution(advanced, {
+          source: card.instanceId,
+          actor: player.id,
+          scope: { kind: 'phase', phase: Phase.Organization },
+          kind: {
+            type: 'corruption-check',
+            characterId: char.instanceId,
+            modifier,
+            reason: def?.name ?? 'Untap-phase-end',
+            possessions: [],
+            transferredItemId: null,
+          },
+        });
       }
     }
   }

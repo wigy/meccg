@@ -14,8 +14,16 @@
     "prowessModifier": 0,
     "bodyModifier": 0,
     "playableAt": [],
-    "effects": [],
-    "text": "Bearer must make a corruption check at the end of each of his untap phases. Discard this ring when tested. If tested, obtain a random value to determine which ring card may be immediately played: The One Ring (12+); a Dwarven Ring (10,11,12+); a Magic Ring (1,2,3,4,5,6,7); a Lesser Ring (any result)."
+    "effects": [
+      {
+        "type": "on-event",
+        "event": "untap-phase-end",
+        "apply": { "type": "force-check", "check": "corruption" },
+        "target": "bearer"
+      }
+    ],
+    "text": "Bearer must make a corruption check at the end of each of his untap phases. Discard this ring when tested. If tested, obtain a random value to determine which ring card may be immediately played: The One Ring (12+); a Dwarven Ring (10,11,12+); a Magic Ring (1,2,3,4,5,6,7); a Lesser Ring (any result).",
+    "certified": "2026-04-19"
   },
   {
     "cardType": "minion-resource-item",
