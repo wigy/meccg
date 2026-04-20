@@ -102,30 +102,97 @@ build_mail() {
 
 # Run a Claude skill and capture the text output.
 # $1=skill prompt (full text with $ARGUMENTS already substituted)
+#
+# The claude CLI has a known failure mode where it prints a terminal
+# {"type":"result",...} line (logical completion) but does not exit,
+# stalling the caller indefinitely. To stay reliable we run claude in
+# the background and actively terminate it when either (a) the terminal
+# result line appears, (b) claude exits on its own, or (c) a hard
+# 45-minute deadline passes.
+#
+# The sidecar stats file includes a third line: "success" if the stream
+# contained a successful terminal marker, else "error" or "timeout".
+# Callers use that — not prose parsing of the summary — to decide whether
+# the skill succeeded.
 run_skill() {
   cd "$PROJECT_DIR"
   local raw_tmp
   raw_tmp=$(mktemp)
-  claude --dangerously-skip-permissions --verbose --output-format stream-json -p "$1" > "$raw_tmp" 2>&1
-  local rc=$?
+
+  claude --dangerously-skip-permissions --verbose --output-format stream-json -p "$1" > "$raw_tmp" 2>&1 &
+  local claude_pid=$!
+
+  local hard_deadline=$(( $(date +%s) + 2700 ))
+  local result_seen_at=0
+  local term_reason=""
+  local now
+
+  while kill -0 "$claude_pid" 2>/dev/null; do
+    now=$(date +%s)
+    if [ "$now" -ge "$hard_deadline" ]; then
+      term_reason="hard-deadline"
+      break
+    fi
+    if [ "$result_seen_at" -eq 0 ]; then
+      if grep -q '"type":"result"' "$raw_tmp" 2>/dev/null; then
+        result_seen_at=$now
+        echo "[handle-mail] run_skill: terminal result emitted — allowing 10s for graceful exit" >&2
+      fi
+    elif [ $(( now - result_seen_at )) -ge 10 ]; then
+      term_reason="post-result-hang"
+      break
+    fi
+    sleep 2
+  done
+
+  if [ -n "$term_reason" ]; then
+    echo "[handle-mail] run_skill: terminating claude (reason=$term_reason, pid=$claude_pid)" >&2
+    kill -TERM "$claude_pid" 2>/dev/null || true
+    local i=0
+    while kill -0 "$claude_pid" 2>/dev/null && [ "$i" -lt 5 ]; do
+      sleep 1
+      i=$(( i + 1 ))
+    done
+    kill -KILL "$claude_pid" 2>/dev/null || true
+  fi
+
+  local rc
+  if wait "$claude_pid" 2>/dev/null; then rc=0; else rc=$?; fi
+
   cat "$raw_tmp" >> "$LOG_DIR/ai-raw.log"
-  # Write cost/time to a sidecar file (subshell-safe — caller reads it back)
+
+  local status="error"
+  if grep -qE '"type":"result","subtype":"success","is_error":false' "$raw_tmp"; then
+    status="success"
+  elif [ "$term_reason" = "hard-deadline" ] && [ "$result_seen_at" -eq 0 ]; then
+    status="timeout"
+  fi
   {
     grep -oP '"total_cost_usd":\s*\K[\d.]+' "$raw_tmp" | tail -1 || true
     grep -oP '"duration_ms":\s*\K\d+' "$raw_tmp" | tail -1 || true
+    echo "$status"
   } > "$LOG_DIR/.skill-stats"
-  # Extract the text result for the caller
+
   jq -r 'select(.type == "result") | .result // empty' "$raw_tmp" 2>/dev/null || true
   rm -f "$raw_tmp"
-  return $rc
+
+  # If the skill reached a successful terminal result, force a 0 return
+  # even if we had to kill a post-result hang.
+  if [ "$status" = "success" ]; then
+    return 0
+  fi
+  return "$rc"
 }
 
-# Read cost/duration from the sidecar file written by run_skill.
+# Read cost/duration/status from the sidecar file written by run_skill.
+# Sets SKILL_COST, SKILL_DURATION_MS, SKILL_STATUS (success|error|timeout).
 read_skill_stats() {
   local stats_file="$LOG_DIR/.skill-stats"
+  SKILL_STATUS=""
   if [ -f "$stats_file" ]; then
     SKILL_COST=$(sed -n '1p' "$stats_file")
     SKILL_DURATION_MS=$(sed -n '2p' "$stats_file")
+    SKILL_STATUS=$(sed -n '3p' "$stats_file")
     rm -f "$stats_file"
   fi
   if [ -n "$SKILL_COST" ]; then
@@ -136,6 +203,9 @@ read_skill_stats() {
     local mins=$(( secs / 60 ))
     local rem_secs=$(( secs % 60 ))
     log "Duration: ${mins}m ${rem_secs}s"
+  fi
+  if [ -n "$SKILL_STATUS" ]; then
+    log "Skill status: $SKILL_STATUS"
   fi
 }
 
@@ -393,6 +463,7 @@ set_status "ai" "$MSG_ID" '{"status":"processing"}'
 SUCCESS=false
 SKILL_COST=""
 SKILL_DURATION_MS=""
+SKILL_STATUS=""
 SKILL_OUTPUT=""
 
 REPLY_RECIPIENT=""
@@ -519,34 +590,30 @@ IMPORTANT: You MUST create a branch named certify-${CARD_ID}-<card-slug>, commit
 
       SKILL_OUTPUT=$(run_skill "$PROMPT") && RC=$? || RC=$?
       read_skill_stats
-      log "Handler completed (exit $RC)."
+      log "Handler completed (exit $RC, status=${SKILL_STATUS:-unknown})."
 
-      PR_URL=$(echo "$SKILL_OUTPUT" | grep -oP 'https://github\.com/wigy/meccg/pull/[0-9]+' | tail -1 || true)
-      GIT_HASH=$(echo "$SKILL_OUTPUT" | grep -oP '[0-9a-f]{40}' | tail -1 || true)
       CARD_NAME=$(lookup_card_name "$CARD_ID")
+      GIT_HASH=$(echo "$SKILL_OUTPUT" | grep -oP '[0-9a-f]{40}' | tail -1 || true)
 
-      # Fallback: if the skill didn't echo a PR URL on stdout, look it up by branch.
-      if [ -z "$PR_URL" ]; then
-        PR_URL=$(cd "$PROJECT_DIR" && gh pr list \
-          --head "certify-${CARD_ID}" --state all --json url -q '.[0].url' 2>/dev/null || true)
-        if [ -z "$PR_URL" ]; then
-          PR_URL=$(cd "$PROJECT_DIR" && gh pr list --state all --search "certify-${CARD_ID} in:head" \
-            --json url,headRefName -q '.[0].url' 2>/dev/null || true)
-        fi
-      fi
+      # Look up the PR by its head branch. The skill creates the branch
+      # certify-<cardId>-<slug>. We list PRs and match by headRefName
+      # prefix client-side — safer than --head (exact match) or --search
+      # (fuzzy GitHub search).
+      PR_URL=$(cd "$PROJECT_DIR" && gh pr list --state all --limit 500 \
+        --json url,headRefName \
+        -q "[.[] | select(.headRefName | startswith(\"certify-${CARD_ID}-\")) | .url][0] // empty" \
+        2>/dev/null || true)
 
-      # Layered success detection — the certify-card skill (step 7) prints
-      # "Playable: YES/PARTIALLY/NO" and (step 14) MUST open a PR on success.
-      # Trust the artifact (PR existence) over prose, and check explicit
-      # failure markers first so phrases like "uncertified" or
-      # "re-certified" inside a failure report can never flip success.
+      # Artifact-based success detection. No prose parsing: we trust
+      # (a) the stream-json terminal success marker captured by
+      # run_skill, and (b) the existence of a PR on the certify branch.
+      # Step 14 of the skill is mandatory on success, so a missing PR
+      # means the skill did not finish a clean certification.
       CERT_FAIL_REASON=""
-      if echo "$SKILL_OUTPUT" | grep -qiP '(Playable:\s*(NO|PARTIALLY)\b|\*\*FAILED\*\*|certification (cannot complete|request failed|failed)|stopped short of (writing|opening))'; then
-        CERT_FAIL_REASON="Skill reported failure (Playable: NO/PARTIALLY or explicit FAILED marker)."
+      if [ "${SKILL_STATUS:-}" != "success" ]; then
+        CERT_FAIL_REASON="Skill did not reach a successful terminal result (status=${SKILL_STATUS:-unknown})."
       elif [ -z "$PR_URL" ]; then
-        CERT_FAIL_REASON="No PR was opened — certification requires a pushed branch and PR (skill step 14)."
-      elif ! echo "$SKILL_OUTPUT" | grep -qiP 'Playable:\s*YES\b'; then
-        CERT_FAIL_REASON="Skill output did not include 'Playable: YES'."
+        CERT_FAIL_REASON="No PR was opened for certify-${CARD_ID}-* (skill step 14 not completed)."
       fi
 
       if [ -z "$CERT_FAIL_REASON" ]; then
