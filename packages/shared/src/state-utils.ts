@@ -6,7 +6,9 @@
  * index look-ups in one place so callers stay concise and consistent.
  */
 
-import type { GameState, MarshallingPointTotals, PlayerId } from './types/index.js';
+import type { GameState, MarshallingPointTotals, PlayerId, PlayerState } from './types/index.js';
+import { Alignment } from './types/index.js';
+import { FREE_COUNCIL_MP_THRESHOLD } from './constants.js';
 
 /**
  * Returns the tuple index (0 or 1) of the player with the given ID.
@@ -107,4 +109,42 @@ export function computeTournamentScore(
 ): number {
   const b = computeTournamentBreakdown(self, opponent);
   return b.character + b.item + b.faction + b.ally + b.kill + b.misc;
+}
+
+/**
+ * True if the player's alignment is Ringwraith (Minion) or Balrog.
+ *
+ * These alignments are forbidden from freely calling the Free Council per
+ * CoE rule 10.41 — they must play Sudden Call instead.
+ */
+export function isMinionOrBalrog(player: PlayerState): boolean {
+  return player.alignment === Alignment.Ringwraith || player.alignment === Alignment.Balrog;
+}
+
+/**
+ * True if the player's alignment is Wizard (Hero) or Fallen-wizard.
+ *
+ * Both are immune to having Sudden Call played as a hazard against them
+ * (CoE rule 10.41 / card text).
+ */
+export function isWizard(player: PlayerState): boolean {
+  return player.alignment === Alignment.Wizard || player.alignment === Alignment.FallenWizard;
+}
+
+/**
+ * True if the player currently meets the Short ("2-deck") game conditions
+ * to call the end of the game (CoE rule 10.40):
+ *
+ * - At least 25 raw MP AND deck has been exhausted at least once, OR
+ * - Deck has been exhausted at least twice.
+ *
+ * Excludes the per-call gating (`freeCouncilCalled`, `lastTurnFor`) so
+ * callers can reuse the threshold check independently — that gating is
+ * applied at the legal-action site.
+ */
+export function canCallEndgameNow(player: PlayerState): boolean {
+  const mp = player.marshallingPoints;
+  const rawScore = mp.character + mp.item + mp.faction + mp.ally + mp.kill + mp.misc;
+  const exhaustions = player.deckExhaustionCount;
+  return (rawScore >= FREE_COUNCIL_MP_THRESHOLD && exhaustions >= 1) || exhaustions >= 2;
 }

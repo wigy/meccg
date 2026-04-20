@@ -11,9 +11,10 @@
  */
 
 import type { GameState, PlayerId, GameAction, EndOfTurnPhaseState, EvaluatedAction } from '../../index.js';
-import { FREE_COUNCIL_MP_THRESHOLD, getPlayerIndex, CardStatus } from '../../index.js';
+import { getPlayerIndex, CardStatus } from '../../index.js';
 import type { CardEffect } from '../../types/effects.js';
 import { resolveHandSize } from '../effects/index.js';
+import { canCallEndgameNow, isMinionOrBalrog } from '../../state-utils.js';
 import { logHeading, logDetail } from './log.js';
 import { deckExhaustExchangeActions } from './movement-hazard.js';
 
@@ -143,17 +144,18 @@ function signalEndStepActions(state: GameState, playerId: PlayerId): GameAction[
 
   const actions: GameAction[] = [];
 
-  // Offer call-free-council if eligible (Short game rules)
+  // Offer call-free-council if eligible (Short game rules).
+  // Per CoE rule 10.41, Ringwraith and Balrog players cannot freely call —
+  // they must play Sudden Call instead.
   const playerIndex = getPlayerIndex(state, playerId);
   const player = state.players[playerIndex];
   if (!player.freeCouncilCalled && state.lastTurnFor === null) {
-    // Use raw (unadjusted) MP total for calling — tournament adjustments only apply at the council
-    const mp = player.marshallingPoints;
-    const rawScore = mp.character + mp.item + mp.faction + mp.ally + mp.kill + mp.misc;
-    const exhaustions = player.deckExhaustionCount;
-    const canCall = (rawScore >= FREE_COUNCIL_MP_THRESHOLD && exhaustions >= 1) || exhaustions >= 2;
-    if (canCall) {
-      logDetail(`End-of-Turn signal-end: ${player.name} eligible to call Free Council (raw MP ${rawScore}, exhaustions ${exhaustions})`);
+    if (isMinionOrBalrog(player)) {
+      logDetail(`End-of-Turn signal-end: ${player.name} (${player.alignment}) cannot freely call Free Council per rule 10.41 — must play Sudden Call`);
+    } else if (canCallEndgameNow(player)) {
+      const mp = player.marshallingPoints;
+      const rawScore = mp.character + mp.item + mp.faction + mp.ally + mp.kill + mp.misc;
+      logDetail(`End-of-Turn signal-end: ${player.name} eligible to call Free Council (raw MP ${rawScore}, exhaustions ${player.deckExhaustionCount})`);
       actions.push({ type: 'call-free-council', player: playerId });
     }
   }

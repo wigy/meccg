@@ -279,7 +279,7 @@ export function runFullSetup(config?: GameConfig): GameState {
 
 import type {
   CompanyId, CardInPlay, CharacterInPlay, Company,
-  PlayerState, OnGuardCard,
+  PlayerState, OnGuardCard, MarshallingPointTotals,
 } from '../index.js';
 import { CardStatus, ZERO_EFFECTIVE_STATS, ZERO_MARSHALLING_POINTS } from '../index.js';
 import { recomputeDerived } from '../engine/recompute-derived.js';
@@ -326,6 +326,10 @@ export interface PlayerSetup {
   cardsInPlay?: CardInPlay[];
   /** Player alignment. Defaults to {@link Alignment.Wizard} (hero). */
   alignment?: Alignment;
+  /** Override raw marshalling-point totals (defaults to all zero). */
+  marshallingPoints?: Partial<MarshallingPointTotals>;
+  /** Override how many times the play deck has been exhausted (defaults to 0). */
+  deckExhaustionCount?: number;
 }
 
 /** Options for {@link buildTestState}. */
@@ -447,9 +451,9 @@ export function buildTestState(opts: BuildTestStateOpts): GameState {
       companies,
       characters,
       cardsInPlay: setup.cardsInPlay ?? ([] as CardInPlay[]),
-      marshallingPoints: ZERO_MARSHALLING_POINTS,
+      marshallingPoints: { ...ZERO_MARSHALLING_POINTS, ...(setup.marshallingPoints ?? {}) },
       generalInfluenceUsed: 0,
-      deckExhaustionCount: 0,
+      deckExhaustionCount: setup.deckExhaustionCount ?? 0,
       freeCouncilCalled: false,
       lastDiceRoll: null,
       sideboardAccessedDuringUntap: false,
