@@ -187,6 +187,20 @@ export function isFactionCard(card: CardDefinition | undefined): card is Faction
   return card !== undefined && FACTION_CARD_TYPES.has(card.cardType);
 }
 
+/** Resource-event card type discriminants. */
+export const RESOURCE_EVENT_CARD_TYPES: ReadonlySet<string> = new Set(['hero-resource-event', 'minion-resource-event']);
+
+/** Union of hero and minion resource-event cards. */
+export type ResourceEventCard = HeroResourceEventCard | MinionResourceEventCard;
+
+/**
+ * Type guard that narrows a CardDefinition to {@link ResourceEventCard}.
+ * Works for both hero and minion resource events (short, long, permanent).
+ */
+export function isResourceEventCard(card: CardDefinition | undefined): card is ResourceEventCard {
+  return card !== undefined && RESOURCE_EVENT_CARD_TYPES.has(card.cardType);
+}
+
 /**
  * Union of all site card types (hero, minion, and fallen-wizard). Use this
  * when code needs to handle sites generically regardless of alignment.
