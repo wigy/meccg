@@ -198,6 +198,12 @@ Actions:
   effects that force return to site of origin or tap the company's
   site. Bearer makes a corruption check (implemented in
   `reducer-organization.ts`)
+- `company-prowess-boost` — discard the source item to add a
+  turn-scoped `company-stat-modifier` constraint giving `+value`
+  prowess to every character in the bearer's company for the rest of
+  the turn. Used by Orc-draughts (implemented in
+  `reducer-organization.ts`, resolved through `collectCharacterEffects`
+  in `engine/effects/resolver.ts`)
 
 ```json
 { "type": "grant-action", "action": "test-gold-ring",

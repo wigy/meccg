@@ -50,7 +50,10 @@ import { fetchFromSideboardActions } from './organization-sideboard.js';
  * Grant-action IDs that may be activated during any phase of the resource
  * player's turn per rule 2.1.1 (e.g. Cram's "Discard to untap bearer").
  */
-export const ANY_PHASE_GRANT_ACTIONS: ReadonlySet<string> = new Set(['untap-bearer']);
+export const ANY_PHASE_GRANT_ACTIONS: ReadonlySet<string> = new Set([
+  'untap-bearer',
+  'company-prowess-boost',
+]);
 
 /**
  * Computes the available (unused) direct influence for a character in play,

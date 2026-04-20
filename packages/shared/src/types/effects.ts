@@ -320,8 +320,17 @@ export interface TriggeredAction {
    * For `add-constraint` type with `constraint: "check-modifier"`: numeric
    * bonus (or penalty if negative) applied to the target's next check of
    * the matching type.
+   *
+   * Also used by `add-constraint` with `constraint: "company-stat-modifier"`
+   * to carry the flat bonus applied to every character in the target
+   * company (e.g. Orc-draughts: `+1`).
    */
   readonly value?: number;
+  /**
+   * For `add-constraint` with `constraint: "company-stat-modifier"`:
+   * which stat the bonus applies to (currently `prowess` or `body`).
+   */
+  readonly stat?: 'prowess' | 'body';
   /**
    * For `add-constraint` with `constraint: "site-phase-do-nothing"`:
    * optional DSL condition evaluated per-character in the target company.

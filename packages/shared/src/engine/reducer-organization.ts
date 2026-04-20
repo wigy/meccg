@@ -902,11 +902,13 @@ function runGrantApply(
     if (!constraintKind) {
       return { error: `add-constraint missing constraint kind on ${ctx.sourceName}` };
     }
-    // Only constraint kinds that carry no payload are supported from
-    // grant-action context today. Parameterised kinds (e.g.
-    // site-type-override) need the same plumbing as the on-event
-    // path — they will be added when a card requires them.
-    const kind = constraintKindWithoutPayload(constraintKind);
+    // Most constraint kinds added via grant-action carry no payload
+    // (see {@link constraintKindWithoutPayload}). A small set of
+    // payload-carrying kinds — currently only `company-stat-modifier`
+    // used by discard-to-boost items (Orc-draughts et al.) — read their
+    // fields off the apply clause.
+    const kind = buildPayloadConstraintKind(constraintKind, apply)
+      ?? constraintKindWithoutPayload(constraintKind);
     if (!kind) {
       return { error: `add-constraint: unsupported constraint kind "${constraintKind}" from grant-action (${ctx.sourceName})` };
     }
@@ -1267,6 +1269,23 @@ function constraintKindWithoutPayload(
     default:
       return null;
   }
+}
+
+/**
+ * Build an ActiveConstraint.kind for constraint names whose payload is
+ * read directly off the grant-action `apply` clause. Returns null for
+ * kinds not handled here (fall back to {@link constraintKindWithoutPayload}).
+ */
+function buildPayloadConstraintKind(
+  name: string,
+  apply: import('../types/effects.js').TriggeredAction,
+): import('../types/pending.js').ActiveConstraint['kind'] | null {
+  if (name === 'company-stat-modifier') {
+    if (apply.stat !== 'prowess' && apply.stat !== 'body') return null;
+    if (typeof apply.value !== 'number') return null;
+    return { type: 'company-stat-modifier', stat: apply.stat, value: apply.value };
+  }
+  return null;
 }
 
 /** Map a DSL scope string to a ConstraintScope. */

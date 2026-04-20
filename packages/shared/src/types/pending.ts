@@ -458,6 +458,21 @@ export interface ActiveConstraint {
         readonly characterId: CardInstanceId;
         /** Corruption card instance the lock applies to. */
         readonly corruptionInstanceId: CardInstanceId;
+      }
+    | {
+        /**
+         * Orc-draughts / Miruvor style: flat stat bonus to every
+         * character in the target company for the constraint's scope.
+         * The effect resolver synthesises an equivalent
+         * {@link StatModifierEffect} for each character belonging to
+         * the company when computing stats, so caps and override
+         * semantics match the DSL path exactly.
+         */
+        readonly type: 'company-stat-modifier';
+        /** Which stat receives the bonus. */
+        readonly stat: 'prowess' | 'body';
+        /** The bonus applied to every character in the company. */
+        readonly value: number;
       };
 }
 
