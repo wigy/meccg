@@ -7,7 +7,7 @@
  */
 
 import type { GameState, PlayerState, CardInstanceId, CompanyId, CharacterInPlay, CardInstance, SitePhaseState, CombatState, OnGuardCard, GameAction, GameEffect } from '../index.js';
-import { Phase, CardStatus, isCharacterCard, isItemCard, isAllyCard, isFactionCard, isSiteCard, getPlayerIndex, GENERAL_INFLUENCE } from '../index.js';
+import { Phase, CardStatus, isCharacterCard, isItemCard, isAllyCard, isFactionCard, isSiteCard, getPlayerIndex, GENERAL_INFLUENCE, Race } from '../index.js';
 import { logDetail } from './legal-actions/log.js';
 import { collectCharacterEffects, resolveCheckModifier, resolveStatModifiers, resolveAttackProwess, resolveAttackStrikes, normalizeCreatureRace } from './effects/index.js';
 import type { ResolverContext } from './effects/index.js';
@@ -22,6 +22,7 @@ import { buildInPlayNames } from './recompute-derived.js';
 import { sweepExpired, enqueueResolution, removeConstraint } from './pending.js';
 import { resolveEffective } from './effective.js';
 import { getActiveAutoAttacks } from './manifestations.js';
+import { isDetainmentAttack } from './detainment.js';
 
 
 /**
@@ -363,6 +364,11 @@ function handleSiteAutomaticAttacks(
       const dupStrikes = resolveAttackStrikes(state, aa.strikes, inPlayNames2, creatureRace2);
       logDetail(`Site: initiating duplicate automatic attack (Incite Defenders): ${aa.creatureType} (${dupStrikes} strikes, ${dupProwess} prowess)`);
       const dupState = removeConstraint(state, dupConstraint.id);
+      const dupDetainment = isDetainmentAttack({
+        attackEffects: siteDef.effects,
+        attackRace: creatureRace2 as Race | null,
+        defendingAlignment: state.players[activePlayerIndex].alignment,
+      });
       const dupCombat: CombatState = {
         attackSource: { type: 'automatic-attack', siteInstanceId: company.currentSite!.instanceId, attackIndex: attackIndex },
         companyId: company.id,
@@ -377,7 +383,7 @@ function handleSiteAutomaticAttacks(
         phase: 'assign-strikes',
         assignmentPhase: 'defender',
         bodyCheckTarget: null,
-        detainment: false,
+        detainment: dupDetainment,
       };
       return {
         state: {
@@ -444,7 +450,11 @@ function handleSiteAutomaticAttacks(
     phase: 'assign-strikes',
     assignmentPhase: 'defender',
     bodyCheckTarget: null,
-    detainment: false,
+    detainment: isDetainmentAttack({
+      attackEffects: siteDef.effects,
+      attackRace: creatureRace as Race | null,
+      defendingAlignment: state.players[activePlayerIndex].alignment,
+    }),
   };
 
   return {

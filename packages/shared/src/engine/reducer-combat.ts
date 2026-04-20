@@ -301,8 +301,12 @@ function resolveStrikeCore(
     logDetail(`Character defeats strike — ${bodyCheckTarget ? 'body check vs creature' : 'creature has no body'}`);
   } else if (characterTotal < combat.strikeProwess) {
     result = 'wounded';
-    bodyCheckTarget = 'character';
-    logDetail('Strike succeeds — character wounded, body check vs character');
+    if (combat.detainment) {
+      logDetail('Strike succeeds — detainment: character tapped, no body check');
+    } else {
+      bodyCheckTarget = 'character';
+      logDetail('Strike succeeds — character wounded, body check vs character');
+    }
   } else {
     result = 'success';
     logDetail(`Tie — ineffectual${mode === 'dodge' ? ' (dodge: no tap)' : ', character taps'}`);
@@ -1141,7 +1145,15 @@ function finalizeCombat(state: GameState, effects: GameEffect[] = []): ReducerRe
       cardsInPlay: newPlayers[atkIdx].cardsInPlay.filter(c => c.instanceId !== creatureInstanceId),
     };
 
-    if (allDefeated && creatureCard) {
+    if (allDefeated && creatureCard && combat.detainment) {
+      // CoE rule 3.II.3 — defeated detainment creature is discarded instead
+      // of going to the attacked player's MP pile (0 kill-MP awarded).
+      newPlayers[atkIdx] = {
+        ...newPlayers[atkIdx],
+        discardPile: [...newPlayers[atkIdx].discardPile, creatureCard],
+      };
+      logDetail(`All strikes defeated (detainment) — creature discarded instead of kill pile (§3.II.3)`);
+    } else if (allDefeated && creatureCard) {
       newPlayers[defIdx] = {
         ...newPlayers[defIdx],
         killPile: [...newPlayers[defIdx].killPile, creatureCard],
@@ -1162,10 +1174,17 @@ function finalizeCombat(state: GameState, effects: GameEffect[] = []): ReducerRe
   // If any characters were wounded (not eliminated) and the attack source card
   // has this effect, enqueue a pending corruption-check resolution per
   // wounded character via the unified pending-resolution system.
+  //
+  // Under detainment (CoE rule 3.II.1.1), successful strikes tap rather than
+  // wound — the character "is not considered to have been wounded and
+  // passive conditions that depend on a character being wounded are not
+  // initiated". Skip the on-wounded trigger entirely.
   let stateAfterCombat: GameState = { ...state, players: newPlayers, combat: null };
-  const woundedCharIds = combat.strikeAssignments
-    .filter(a => a.result === 'wounded')
-    .map(a => a.characterId);
+  const woundedCharIds = combat.detainment
+    ? []
+    : combat.strikeAssignments
+        .filter(a => a.result === 'wounded')
+        .map(a => a.characterId);
 
   if (
     woundedCharIds.length > 0 &&

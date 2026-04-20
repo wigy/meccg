@@ -24,6 +24,7 @@ import { addConstraint, enqueueResolution } from './pending.js';
 import { Phase } from '../index.js';
 import { clonePlayers } from './reducer-utils.js';
 import { resolveCancelAttackEntry } from './reducer-combat.js';
+import { isDetainmentAttack } from './detainment.js';
 
 /**
  * Returns the opponent of the given player in a two-player game.
@@ -1061,7 +1062,12 @@ function initiateCreatureCombat(state: GameState, entry: ChainEntry): GameState 
     phase: 'assign-strikes',
     assignmentPhase: attackerChooses ? 'cancel-window' : 'defender',
     bodyCheckTarget: null,
-    detainment: false,
+    detainment: isDetainmentAttack({
+      attackEffects: creatureDef.effects,
+      attackRace: creatureRace,
+      attackKeyedTo: creatureDef.keyedTo,
+      defendingAlignment: state.players[activePlayerIndex].alignment,
+    }),
     forceSingleTarget: multiAttackCount > 1 ? true : undefined,
     multiAttackCount: multiAttackCount > 1 ? multiAttackCount : undefined,
     cancelByTapRemaining: cancelByTapMax > 0 ? cancelByTapMax : undefined,
