@@ -23,14 +23,28 @@
       {
         "type": "stat-modifier",
         "stat": "prowess",
+        "value": 3,
+        "max": 10,
+        "id": "black-mace-prowess",
+        "when": {
+          "bearer.skills": { "$includes": "warrior" }
+        }
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "prowess",
         "value": 4,
+        "max": 10,
+        "overrides": "black-mace-prowess",
         "when": {
           "reason": "combat",
-          "enemy.race": "elf"
+          "enemy.race": "elf",
+          "bearer.skills": { "$includes": "warrior" }
         }
       }
     ],
-    "text": "Weapon. Warrior only: +3 prowess to a maximum of 10 (+4 to a maximum of 10 against Elves)."
+    "text": "Weapon. Warrior only: +3 prowess to a maximum of 10 (+4 to a maximum of 10 against Elves).",
+    "certified": "2026-04-20"
   },
   {
     "cardType": "minion-resource-item",
@@ -47,7 +61,7 @@
     "marshallingCategory": "item",
     "corruptionPoints": 2,
     "prowessModifier": 0,
-    "bodyModifier": 1,
+    "bodyModifier": 0,
     "playableAt": [
       "ruins-and-lairs",
       "shadow-hold",
@@ -61,14 +75,24 @@
       },
       {
         "type": "stat-modifier",
+        "stat": "body",
+        "value": 1,
+        "max": 9
+      },
+      {
+        "type": "stat-modifier",
         "stat": "prowess",
         "value": 1,
+        "max": 8,
         "when": {
-          "self.skill": "warrior"
+          "bearer.skills": {
+            "$includes": "warrior"
+          }
         }
       }
     ],
-    "text": "Unique. Helmet. +2 to direct influence. +1 to body to a maximum of 9. Warrior only: +1 to prowess to a maximum of 8."
+    "text": "Unique. Helmet. +2 to direct influence. +1 to body to a maximum of 9. Warrior only: +1 to prowess to a maximum of 8.",
+    "certified": "2026-04-20"
   },
   {
     "cardType": "minion-resource-item",
@@ -264,8 +288,15 @@
     "eventType": "short",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
-    "text": "Scout only. Tap scout to cancel an attack against his company."
+    "effects": [
+      {
+        "type": "cancel-attack",
+        "cost": { "tap": "character" },
+        "requiredSkill": "scout"
+      }
+    ],
+    "text": "Scout only. Tap scout to cancel an attack against his company.",
+    "certified": "2026-04-20"
   },
   {
     "cardType": "minion-resource-event",

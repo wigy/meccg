@@ -28,4 +28,5 @@ import { describe, test } from 'vitest';
 
 describe('Rule 8.37 — Trophies', () => {
   test.todo('Orc or Troll that defeats creature strike may take it as trophy (minor item, 0 CP); provides DI/prowess bonuses based on total MP');
+  test.todo('3.IV.2 — Detainment-creature trophy on Orc/Troll scores 0 kill-MP at Free Council; §3.IV.3 printed-MP attribute bonuses still apply');
 });
