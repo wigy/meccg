@@ -58,7 +58,13 @@ Optional `target` scopes:
   creature's own prowess at combat initiation. The context includes
   `company.facedRaces`, derived from `phaseState.hazardsEncountered` by
   looking up each faced hazard's race in the card pool, enabling
-  conditions like Orc-lieutenant's +4 prowess.
+  conditions like Orc-lieutenant's +4 prowess. It also includes
+  `defender.alignment` — the defending player's alignment in card-text
+  terminology (`"hero"` for wizard-avatar players, `"ringwraith"`,
+  `"fallen-wizard"`, or `"balrog"`) — so creatures like *Elf-lord
+  Revealed in Wrath* can boost prowess against specific alignments
+  (e.g. `{ "defender.alignment": "ringwraith" }` for "+4 vs
+  Ringwraiths").
 
 ### 2. `check-modifier`
 
