@@ -391,7 +391,8 @@
     ],
     "resourceDraws": 2,
     "hazardDraws": 3,
-    "text": "Playable: Items (gold ring). Automatic-attacks: Men — each character faces 1 strike with 10 prowess (detainment against covert company)."
+    "text": "Playable: Items (gold ring). Automatic-attacks: Men — each character faces 1 strike with 10 prowess (detainment against covert company).",
+    "certified": "2026-04-19"
   },
   {
     "cardType": "minion-site",
