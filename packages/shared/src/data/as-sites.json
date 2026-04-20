@@ -73,7 +73,8 @@
     ],
     "resourceDraws": 1,
     "hazardDraws": 2,
-    "text": "Playable: Information, Items (minor, major). Automatic-attacks: Animals — 2 strikes with 10 prowess (attacker chooses defending characters)."
+    "text": "Playable: Information, Items (minor, major). Automatic-attacks: Animals — 2 strikes with 10 prowess (attacker chooses defending characters).",
+    "certified": "2026-04-19"
   },
   {
     "cardType": "minion-site",
