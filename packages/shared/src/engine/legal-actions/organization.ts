@@ -882,6 +882,11 @@ function buildTargetContext(
  * optional DSL `filter` condition against each candidate's target
  * context — no per-card / per-keyword branches. Non-character targets
  * yield an empty list here; those are handled by dedicated play paths.
+ *
+ * When the play-target carries a tap cost (`cost.tap === 'character'`),
+ * already-tapped characters are excluded — a tapped character cannot pay
+ * the tap cost. Without this guard, cards like Marvels Told would be
+ * offered with a tapped sage as the target.
  */
 function eligiblePlayOptionTargets(
   state: GameState,
@@ -889,10 +894,15 @@ function eligiblePlayOptionTargets(
   playTarget: PlayTargetEffect,
 ): CardInstanceId[] {
   if (playTarget.target !== 'character') return [];
+  const requiresUntapped = playTarget.cost?.tap === 'character';
   const out: CardInstanceId[] = [];
   for (const [charIdStr, char] of Object.entries(player.characters)) {
     const charDef = state.cardPool[char.definitionId as string];
     if (!charDef || !isCharacterCard(charDef)) continue;
+    if (requiresUntapped && char.status !== CardStatus.Untapped) {
+      logDetail(`Play-target rejects ${charDef.name} (${charIdStr}): status ${char.status} (tap cost requires untapped)`);
+      continue;
+    }
     if (playTarget.filter
         && !matchesCondition(playTarget.filter, buildTargetContext(state, char, player))) {
       continue;
