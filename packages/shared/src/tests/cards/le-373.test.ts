@@ -13,36 +13,37 @@
  *     (2nd) Wolves — 2 strikes with 8 prowess.
  *
  * Site Structural Checks:
- * | # | Property          | Status | Notes                                                             |
- * |---|-------------------|--------|-------------------------------------------------------------------|
- * | 1 | siteType          | OK     | "ruins-and-lairs" — valid                                         |
- * | 2 | sitePath          | OK     | [shadow, wilderness] — matches card {s}{w}                        |
- * | 3 | nearestHaven      | OK     | "Carn Dûm" — valid minion haven in card pool (le-359)             |
- * | 4 | region            | OK     | "Rhudaur" — valid region in card pool                             |
- * | 5 | playableResources | OK     | [minor] — matches card text                                       |
- * | 6 | automaticAttacks  | OK     | Trolls 1×9 + Wolves 2×8 — data only (auto-attack combat stubbed)  |
- * | 7 | resourceDraws     | OK     | 1                                                                 |
- * | 8 | hazardDraws       | OK     | 1                                                                 |
+ * | # | Property          | Status | Notes                                                  |
+ * |---|-------------------|--------|--------------------------------------------------------|
+ * | 1 | siteType          | OK     | "ruins-and-lairs" — valid                              |
+ * | 2 | sitePath          | OK     | [shadow, wilderness] — matches card {s}{w}             |
+ * | 3 | nearestHaven      | OK     | "Carn Dûm" — valid minion haven in card pool (le-359)  |
+ * | 4 | region            | OK     | "Rhudaur" — valid region in card pool                  |
+ * | 5 | playableResources | OK     | [minor] — matches card text                            |
+ * | 6 | automaticAttacks  | OK     | Trolls 1×9 then Wolves 2×8 — matches card text         |
+ * | 7 | resourceDraws     | OK     | 1                                                      |
+ * | 8 | hazardDraws       | OK     | 1                                                      |
  *
  * Engine Support:
- * | # | Feature                    | Status          | Notes                                                   |
- * |---|----------------------------|-----------------|---------------------------------------------------------|
- * | 1 | Site phase flow            | IMPLEMENTED     | select-company, enter-or-skip, play-resources           |
- * | 2 | Haven path movement        | IMPLEMENTED     | movement-map.ts resolves nearestHaven ↔ Carn Dûm        |
- * | 3 | Region movement            | IMPLEMENTED     | Rhudaur is adjacent to Angmar (Carn Dûm)                |
- * | 4 | Card draws                 | IMPLEMENTED     | resourceDraws / hazardDraws thread through M/H phase    |
- * | 5 | Automatic attacks at site  | NOT IMPLEMENTED | auto-attack trigger is stubbed; data-only for now       |
+ * | # | Feature                    | Status      | Notes                                              |
+ * |---|----------------------------|-------------|----------------------------------------------------|
+ * | 1 | Site phase flow            | IMPLEMENTED | select-company, enter-or-skip, play-resources      |
+ * | 2 | Haven path movement        | IMPLEMENTED | movement-map.ts resolves nearestHaven ↔ Carn Dûm   |
+ * | 3 | Region movement            | IMPLEMENTED | Rhudaur is adjacent to Angmar (Carn Dûm)           |
+ * | 4 | Card draws                 | IMPLEMENTED | resourceDraws / hazardDraws thread through M/H phase|
+ * | 5 | Automatic attacks at site  | IMPLEMENTED | combat initiated with correct stats in listed order |
  *
- * Playable: YES (no special effects; all data fields are routed through
- *   engine machinery that is already implemented. The two auto-attacks
- *   are carried as data for the future auto-attack wiring — no card
- *   text asks for anything beyond the standard auto-attack flow.)
- *
+ * Playable: YES
  * Certified: 2026-04-20
  */
 
 import { describe, test, expect, beforeEach } from 'vitest';
-import { resetMint, pool, LORIEN } from '../test-helpers.js';
+import {
+  PLAYER_1, ARAGORN,
+  resetMint, pool, LORIEN,
+  buildSitePhaseState, setupAutoAttackStep,
+  dispatch,
+} from '../test-helpers.js';
 import type { CardDefinitionId } from '../../index.js';
 import {
   isSiteCard, buildMovementMap, getReachableSites,
@@ -56,6 +57,44 @@ const DOL_GULDUR = 'le-367' as CardDefinitionId;
 
 describe('Ettenmoors (le-373)', () => {
   beforeEach(() => resetMint());
+
+  // ─── Automatic attacks (2) ──────────────────────────────────────────────────
+
+  test('first automatic attack: Troll — 1 strike with 9 prowess', () => {
+    const state = buildSitePhaseState({
+      site: ETTENMOORS_LE,
+      characters: [ARAGORN],
+    });
+    const readyState = setupAutoAttackStep(state);
+
+    const next = dispatch(readyState, { type: 'pass', player: PLAYER_1 });
+    expect(next.combat).not.toBeNull();
+    expect(next.combat!.strikesTotal).toBe(1);
+    expect(next.combat!.strikeProwess).toBe(9);
+    expect(next.combat!.creatureRace).toBe('troll');
+    expect(next.combat!.attackSource.type).toBe('automatic-attack');
+  });
+
+  test('second automatic attack: Wolves — 2 strikes with 8 prowess', () => {
+    const state = buildSitePhaseState({
+      site: ETTENMOORS_LE,
+      characters: [ARAGORN],
+    });
+    const readyState = setupAutoAttackStep(state);
+
+    let s = dispatch(readyState, { type: 'pass', player: PLAYER_1 });
+    expect(s.combat!.creatureRace).toBe('troll');
+    // Clear combat to simulate the first auto-attack having resolved, then
+    // pass again to initiate the second auto-attack from the site.
+    s = { ...s, combat: null };
+
+    s = dispatch(s, { type: 'pass', player: PLAYER_1 });
+    expect(s.combat).not.toBeNull();
+    expect(s.combat!.strikesTotal).toBe(2);
+    expect(s.combat!.strikeProwess).toBe(8);
+    expect(s.combat!.creatureRace).toBe('wolf');
+    expect(s.combat!.attackSource.type).toBe('automatic-attack');
+  });
 
   // ─── Movement: Carn Dûm → Ettenmoors (LE) ───────────────────────────────────
 
