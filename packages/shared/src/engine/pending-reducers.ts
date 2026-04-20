@@ -19,7 +19,7 @@ import type {
   GameEffect,
 } from '../index.js';
 import type { ReducerResult } from './reducer-utils.js';
-import { dequeueResolution, enqueueResolution, removeConstraint } from './pending.js';
+import { dequeueResolution, enqueueResolution, enqueueCorruptionCheck, removeConstraint } from './pending.js';
 import { getPlayerIndex, isCharacterCard, isFactionCard, GENERAL_INFLUENCE } from '../index.js';
 import { resolveInstanceId } from '../types/state.js';
 import { roll2d6, clonePlayers, cleanupEmptyCompanies } from './reducer-utils.js';
@@ -433,18 +433,13 @@ function applyCancelInfluence(
     const companyId = activeCompany?.id ?? '' as import('../index.js').CompanyId;
 
     logDetail(`Cancel-influence: enqueuing corruption check for ${reason} (modifier ${modifier})`);
-    resultState = enqueueResolution(resultState, {
+    resultState = enqueueCorruptionCheck(resultState, {
       source: action.cardInstanceId,
       actor: action.player,
       scope: { kind: 'company-site-subphase', companyId },
-      kind: {
-        type: 'corruption-check',
-        characterId: action.characterId,
-        modifier,
-        reason,
-        possessions: [],
-        transferredItemId: null,
-      },
+      characterId: action.characterId,
+      modifier,
+      reason,
     });
   }
 

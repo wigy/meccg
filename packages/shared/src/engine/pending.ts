@@ -60,6 +60,42 @@ export function enqueueResolution(
   };
 }
 
+/**
+ * Convenience wrapper around {@link enqueueResolution} for the most common
+ * case: enqueuing a `corruption-check` kind. Fills in `possessions: []`,
+ * `modifier: 0`, and `transferredItemId: null` by default, which matches
+ * how most callers use it.
+ *
+ * Keep the callsite terse: pass only the fields that actually vary.
+ */
+export function enqueueCorruptionCheck(
+  state: GameState,
+  opts: {
+    readonly source: PendingResolution['source'];
+    readonly actor: PlayerId;
+    readonly scope: PendingResolution['scope'];
+    readonly characterId: CardInstanceId;
+    readonly reason: string;
+    readonly modifier?: number;
+    readonly possessions?: readonly CardInstanceId[];
+    readonly transferredItemId?: CardInstanceId | null;
+  },
+): GameState {
+  return enqueueResolution(state, {
+    source: opts.source,
+    actor: opts.actor,
+    scope: opts.scope,
+    kind: {
+      type: 'corruption-check',
+      characterId: opts.characterId,
+      modifier: opts.modifier ?? 0,
+      reason: opts.reason,
+      possessions: opts.possessions ?? [],
+      transferredItemId: opts.transferredItemId ?? null,
+    },
+  });
+}
+
 /** Remove the resolution with the given id from the queue (no-op if absent). */
 export function dequeueResolution(state: GameState, id: ResolutionId): GameState {
   const next = state.pendingResolutions.filter(r => r.id !== id);

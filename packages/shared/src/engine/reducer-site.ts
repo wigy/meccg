@@ -32,45 +32,31 @@ import { isDetainmentAttack } from './detainment.js';
  * picks which company to handle next. After all companies are handled, the
  * phase advances to the End-of-Turn phase.
  */
+type SiteHandler = (state: GameState, action: GameAction, siteState: SitePhaseState) => ReducerResult;
+
+/**
+ * Per-step dispatch for the Site phase. Pending wound corruption checks
+ * (Barrow-downs et al.) are intercepted by the unified pending-resolution
+ * dispatcher before this table is consulted. Opponent-influence-defend and
+ * on-guard-window are likewise produced and consumed through the unified
+ * dispatcher.
+ */
+const SITE_STEP_HANDLERS: Readonly<Partial<Record<SitePhaseState['step'], SiteHandler>>> = {
+  'select-company': handleSiteSelectCompany,
+  'enter-or-skip': handleSiteEnterOrSkip,
+  'reveal-on-guard-attacks': handleRevealOnGuardAttacks,
+  'automatic-attacks': handleSiteAutomaticAttacks,
+  'declare-agent-attack': (state, action, siteState) =>
+    handleSitePassStep(state, action, siteState, 'declare-agent-attack', 'resolve-attacks', true),
+  'resolve-attacks': handleSiteResolveAttacks,
+  'play-resources': handleSitePlayResources,
+  // TODO: play-minor-item
+};
+
 export function handleSite(state: GameState, action: GameAction): ReducerResult {
   const siteState = state.phaseState as SitePhaseState;
-
-  // Pending wound corruption checks (Barrow-downs et al.) are now routed
-  // through the unified pending-resolution dispatcher in `reducer.ts` /
-  // `pending-reducers.ts` before this handler is reached.
-
-  if (siteState.step === 'select-company') {
-    return handleSiteSelectCompany(state, action, siteState);
-  }
-
-  if (siteState.step === 'enter-or-skip') {
-    return handleSiteEnterOrSkip(state, action, siteState);
-  }
-
-  if (siteState.step === 'reveal-on-guard-attacks') {
-    return handleRevealOnGuardAttacks(state, action, siteState);
-  }
-
-  if (siteState.step === 'automatic-attacks') {
-    return handleSiteAutomaticAttacks(state, action, siteState);
-  }
-
-  if (siteState.step === 'declare-agent-attack') {
-    return handleSitePassStep(state, action, siteState, 'declare-agent-attack', 'resolve-attacks', true);
-  }
-
-  if (siteState.step === 'resolve-attacks') {
-    return handleSiteResolveAttacks(state, action, siteState);
-  }
-
-  if (siteState.step === 'play-resources') {
-    // Opponent-influence-defend and on-guard-window are now produced
-    // and consumed via the unified pending-resolution dispatcher in
-    // `reducer.ts` / `pending-reducers.ts`. The legacy fields are gone.
-    return handleSitePlayResources(state, action, siteState);
-  }
-
-  // TODO: play-minor-item
+  const handler = SITE_STEP_HANDLERS[siteState.step];
+  if (handler) return handler(state, action, siteState);
 
   if (action.type !== 'pass') {
     return { state, error: `Unexpected action '${action.type}' in site phase step '${siteState.step}'` };

@@ -13,7 +13,7 @@ import { shuffle, nextInt, CardStatus, getPlayerIndex, isSiteCard, isAvatarChara
 import { logHeading, logDetail } from './legal-actions/log.js';
 import { matchesCondition } from '../effects/index.js';
 import { resolveDef } from './effects/index.js';
-import { enqueueResolution } from './pending.js';
+import { enqueueCorruptionCheck } from './pending.js';
 
 /**
  * Result of applying a {@link GameAction} to a {@link GameState}.
@@ -76,6 +76,74 @@ export function roll2d6(state: GameState): { roll: TwoDiceSix; rng: typeof state
 
 export function clonePlayers(state: GameState): [PlayerState, PlayerState] {
   return [{ ...state.players[0] }, { ...state.players[1] }];
+}
+
+/**
+ * Extract the minimal `{ instanceId, definitionId }` tuple from any card-like
+ * object (CardInstance, CardInPlay, CharacterInPlay, etc.). Used when moving
+ * a card between piles — downstream piles only care about the tuple, not
+ * whatever status/attachment bookkeeping the source location carried.
+ */
+export function toCardInstance(c: { readonly instanceId: CardInstance['instanceId']; readonly definitionId: CardInstance['definitionId'] }): CardInstance {
+  return { instanceId: c.instanceId, definitionId: c.definitionId };
+}
+
+/**
+ * Piles on {@link PlayerState} that contain {@link CardInstance} tuples and
+ * can serve as `from`/`to` arguments for {@link movePlayerCard}.
+ */
+export type PlayerPileName =
+  | 'hand'
+  | 'playDeck'
+  | 'discardPile'
+  | 'siteDeck'
+  | 'siteDiscardPile'
+  | 'sideboard'
+  | 'killPile'
+  | 'outOfPlayPile';
+
+/**
+ * Move a single card instance between two piles on the same player.
+ *
+ * Returns the unchanged state if the instance is not present in the `from`
+ * pile; no error is raised. Appends to the `to` pile unless `opts.prepend`
+ * is set (e.g. returning a card to the top of the play deck).
+ */
+export function movePlayerCard(
+  state: GameState,
+  playerIndex: number,
+  instanceId: CardInstance['instanceId'],
+  from: PlayerPileName,
+  to: PlayerPileName,
+  opts?: { readonly prepend?: boolean },
+): GameState {
+  if (from === to) return state;
+  const player = state.players[playerIndex];
+  const fromPile = player[from];
+  const idx = fromPile.findIndex(c => c.instanceId === instanceId);
+  if (idx === -1) return state;
+  const card = fromPile[idx];
+  const newFrom = [...fromPile.slice(0, idx), ...fromPile.slice(idx + 1)];
+  const moved = toCardInstance(card);
+  const toPile = player[to];
+  const newTo = opts?.prepend ? [moved, ...toPile] : [...toPile, moved];
+  const newPlayers = clonePlayers(state);
+  newPlayers[playerIndex] = { ...player, [from]: newFrom, [to]: newTo };
+  return { ...state, players: newPlayers };
+}
+
+/**
+ * Remove the first element matching `id` from a read-only array of card-like
+ * objects. Returns the unchanged array reference if no match is found, so
+ * callers can short-circuit when nothing changed.
+ */
+export function removeById<T extends { readonly instanceId: CardInstance['instanceId'] }>(
+  arr: readonly T[],
+  id: CardInstance['instanceId'],
+): readonly T[] {
+  const idx = arr.findIndex(c => c.instanceId === id);
+  if (idx === -1) return arr;
+  return [...arr.slice(0, idx), ...arr.slice(idx + 1)];
 }
 
 /**
@@ -228,19 +296,11 @@ export function handleExchangeSideboard(state: GameState, action: GameAction): R
   const sideboardName = state.cardPool[sideboardCard.definitionId as string]?.name ?? '?';
   logDetail(`Exchange: ${discardName} (discard → sideboard) ↔ ${sideboardName} (sideboard → discard)`);
 
-  const newDiscard = [...player.discardPile];
-  newDiscard.splice(discardIdx, 1);
-  newDiscard.push(sideboardCard);
-
-  const newSideboard = [...player.sideboard];
-  newSideboard.splice(sideboardIdx, 1);
-  newSideboard.push(discardCard);
-
   const newPlayers = clonePlayers(state);
   newPlayers[playerIndex] = {
     ...player,
-    discardPile: newDiscard,
-    sideboard: newSideboard,
+    discardPile: [...removeById(player.discardPile, discardCard.instanceId), sideboardCard],
+    sideboard: [...removeById(player.sideboard, sideboardCard.instanceId), discardCard],
     deckExhaustExchangeCount: player.deckExhaustExchangeCount + 1,
   };
 
@@ -355,7 +415,7 @@ export function cleanupEmptyCompanies(state: GameState): GameState {
     const tappedSites: CardInstance[] = [];
     for (const c of emptyCompanies) {
       if (c.currentSite) {
-        const siteCardInst: CardInstance = { instanceId: c.currentSite.instanceId, definitionId: c.currentSite.definitionId };
+        const siteCardInst = toCardInstance(c.currentSite);
         if (c.currentSite.status === CardStatus.Tapped) {
           tappedSites.push(siteCardInst);
         } else {
@@ -419,7 +479,7 @@ export function sweepAutoDiscardHazards(state: GameState): GameState {
               ...newPlayers[pi].characters,
               [charId as string]: { ...newPlayers[pi].characters[charId as string], hazards: remaining },
             },
-            discardPile: [...newPlayers[pi].discardPile, ...discarded.map(h => ({ instanceId: h.instanceId, definitionId: h.definitionId }))],
+            discardPile: [...newPlayers[pi].discardPile, ...discarded.map(toCardInstance)],
           };
         }
       }
@@ -524,8 +584,8 @@ export function discardEventCard(state: GameState, cardInstanceId: CardInstanceI
   const newPlayers = clonePlayers(state);
   newPlayers[playerIndex] = {
     ...newPlayers[playerIndex],
-    cardsInPlay: player.cardsInPlay.filter(c => c.instanceId !== cardInstanceId),
-    discardPile: [...player.discardPile, { instanceId: eventCard.instanceId, definitionId: eventCard.definitionId }],
+    cardsInPlay: removeById(player.cardsInPlay, cardInstanceId),
+    discardPile: [...player.discardPile, toCardInstance(eventCard)],
   };
   return {
     ...state,
@@ -604,8 +664,7 @@ export function handleFetchFromPile(state: GameState, action: GameAction): Reduc
   logDetail(`Fetching ${def?.name ?? '?'} from ${action.source as string} → play deck, shuffling`);
 
   // Remove from source pile, add to play deck, shuffle
-  const newSourcePile = [...sourcePile];
-  newSourcePile.splice(cardIdx, 1);
+  const newSourcePile = removeById(sourcePile, fetchedCard.instanceId);
 
   const [shuffledDeck, nextRng] = shuffle([...player.playDeck, fetchedCard], state.rng);
 
@@ -622,18 +681,13 @@ export function handleFetchFromPile(state: GameState, action: GameAction): Reduc
   if (remaining.length === 0) {
     if (current.skipDiscard) {
       if (current.postCorruptionCheck) {
-        newState = enqueueResolution(newState, {
+        newState = enqueueCorruptionCheck(newState, {
           source: current.cardInstanceId,
           actor: action.player,
           scope: { kind: 'phase', phase: newState.phaseState.phase },
-          kind: {
-            type: 'corruption-check',
-            characterId: current.postCorruptionCheck.characterId,
-            modifier: current.postCorruptionCheck.modifier,
-            reason: 'Palantír',
-            possessions: [],
-            transferredItemId: null,
-          },
+          characterId: current.postCorruptionCheck.characterId,
+          modifier: current.postCorruptionCheck.modifier,
+          reason: 'Palantír',
         });
       }
     } else {

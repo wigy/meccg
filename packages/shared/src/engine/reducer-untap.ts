@@ -10,7 +10,7 @@ import { Phase, shuffle, CardStatus, isSiteCard, SiteType, getPlayerIndex, match
 import { logDetail } from './legal-actions/log.js';
 import type { ReducerResult } from './reducer-utils.js';
 import { clonePlayers } from './reducer-utils.js';
-import { enqueueResolution } from './pending.js';
+import { enqueueCorruptionCheck } from './pending.js';
 import type { OnEventEffect, CardEffect } from '../types/effects.js';
 
 
@@ -293,18 +293,13 @@ function advanceToOrganization(state: GameState): ReducerResult {
         }
         const modifier = oe.apply.modifier ?? 0;
         logDetail(`Untap-phase-end: enqueuing corruption check for ${def?.name ?? '?'} on ${char.instanceId as string} (modifier ${modifier})`);
-        advanced = enqueueResolution(advanced, {
+        advanced = enqueueCorruptionCheck(advanced, {
           source: card.instanceId,
           actor: player.id,
           scope: { kind: 'phase', phase: Phase.Organization },
-          kind: {
-            type: 'corruption-check',
-            characterId: char.instanceId,
-            modifier,
-            reason: def?.name ?? 'Untap-phase-end',
-            possessions: [],
-            transferredItemId: null,
-          },
+          characterId: char.instanceId,
+          modifier,
+          reason: def?.name ?? 'Untap-phase-end',
         });
       }
     }
