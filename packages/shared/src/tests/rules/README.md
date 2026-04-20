@@ -6,7 +6,7 @@
 
 | Total Rules | Implemented | Remaining | Progress |
 |:-----------:|:-----------:|:---------:|:--------:|
-| 306 | 44 | 262 | 14.4% |
+| 306 | 47 | 259 | 15.4% |
 
 ## Section Breakdown
 
@@ -20,9 +20,9 @@
 | 05 | [Movement/Hazard Phase](05-movement-hazard-phase/) | 34 | 3 | 8.8% |
 | 06 | [Site Phase](06-site-phase/) | 21 | 4 | 19.0% |
 | 07 | [End-of-Turn Phase](07-end-of-turn-phase/) | 2 | 1 | 50.0% |
-| 08 | [Combat](08-combat/) | 42 | 4 | 9.5% |
+| 08 | [Combat](08-combat/) | 42 | 6 | 14.3% |
 | 09 | [Agents, Events, Items & Rings](09-agents-events-items/) | 29 | 7 | 24.1% |
-| 10 | [Corruption, Influence, Actions/Timing & Ending the Game](10-corruption-influence-endgame/) | 53 | 3 | 5.7% |
+| 10 | [Corruption, Influence, Actions/Timing & Ending the Game](10-corruption-influence-endgame/) | 53 | 4 | 7.5% |
 
 ## Detailed Test Matrix
 
@@ -92,12 +92,12 @@
 | 2.01 | Untap Phase | [Resource Hazard Roles](02-untap-phase/rule-2.01-resource-hazard-roles.test.ts) | ☑ |
 | 2.02 | Untap Phase | [Resource Player Actions](02-untap-phase/rule-2.02-resource-player-actions.test.ts) | ☑ |
 | 2.03 | Untap Phase | [Hazard Player Actions](02-untap-phase/rule-2.03-hazard-player-actions.test.ts) | ☑ |
-| 2.04 | Untap Phase | [Uniqueness in Play](02-untap-phase/rule-2.04-uniqueness-in-play.test.ts) | ☑ |
+| 2.04 | Untap Phase | [Uniqueness In Play](02-untap-phase/rule-2.04-uniqueness-in-play.test.ts) | ☑ |
 | 2.05 | Untap Phase | [Avatar Eliminated](02-untap-phase/rule-2.05-avatar-eliminated.test.ts) | ☑ |
 | 2.06 | Untap Phase | [Fw Avatar Leaves Play](02-untap-phase/rule-2.06-fw-avatar-leaves-play.test.ts) | ☐ |
 | 2.07 | Untap Phase | [Company Loses All Characters](02-untap-phase/rule-2.07-company-loses-all-characters.test.ts) | ☐ |
 | 2.08 | Untap Phase | [Play Deck Exhaustion](02-untap-phase/rule-2.08-play-deck-exhaustion.test.ts) | ◐ |
-| 2.09 | Untap Phase | [Empty Play Deck and Discard](02-untap-phase/rule-2.09-empty-play-deck-and-discard.test.ts) | ☐ |
+| 2.09 | Untap Phase | [Empty Play Deck And Discard](02-untap-phase/rule-2.09-empty-play-deck-and-discard.test.ts) | ☐ |
 | 2.10 | Untap Phase | [No Mechanical Tracking](02-untap-phase/rule-2.10-no-mechanical-tracking.test.ts) | ☑ |
 | 2.11 | Untap Phase | [Phase Transitions](02-untap-phase/rule-2.11-phase-transitions.test.ts) | ☑ |
 | 2.12 | Untap Phase | [Untap Phase Rules](02-untap-phase/rule-2.12-untap-phase-rules.test.ts) | ☑ |
@@ -116,20 +116,20 @@
 | 3.12 | Organization Phase | [Character Influence Control](03-organization-phase/rule-3.12-character-influence-control.test.ts) | ☐ |
 | 3.13 | Organization Phase | [Follower Removed From Di](03-organization-phase/rule-3.13-follower-removed-from-di.test.ts) | ☐ |
 | 3.14 | Organization Phase | [Restricted Direct Influence](03-organization-phase/rule-3.14-restricted-direct-influence.test.ts) | ☐ |
-| 3.15 | Organization Phase | [Agent as Character](03-organization-phase/rule-3.15-agent-as-character.test.ts) | ☐ |
+| 3.15 | Organization Phase | [Agent As Character](03-organization-phase/rule-3.15-agent-as-character.test.ts) | ☐ |
 | 3.16 | Organization Phase | [Fw Character Mind Limit](03-organization-phase/rule-3.16-fw-character-mind-limit.test.ts) | ☐ |
 | 3.17 | Organization Phase | [Fw Orc Troll Restriction](03-organization-phase/rule-3.17-fw-orc-troll-restriction.test.ts) | ☐ |
 | 3.18 | Organization Phase | [Balrog Dark Hold Home](03-organization-phase/rule-3.18-balrog-dark-hold-home.test.ts) | ☐ |
 | 3.19 | Organization Phase | [Balrog Extra Character](03-organization-phase/rule-3.19-balrog-extra-character.test.ts) | ☐ |
 | 3.20 | Organization Phase | [Balrog Non Unique Source](03-organization-phase/rule-3.20-balrog-non-unique-source.test.ts) | ☐ |
-| 3.21 | Organization Phase | [Character at New Site](03-organization-phase/rule-3.21-character-at-new-site.test.ts) | ☐ |
+| 3.21 | Organization Phase | [Character At New Site](03-organization-phase/rule-3.21-character-at-new-site.test.ts) | ☐ |
 | 3.22 | Organization Phase | [Discarding Character](03-organization-phase/rule-3.22-discarding-character.test.ts) | ☐ |
 | 3.23 | Organization Phase | [Company Composition](03-organization-phase/rule-3.23-company-composition.test.ts) | ☑ |
 | 3.24 | Organization Phase | [Company Size Limits](03-organization-phase/rule-3.24-company-size-limits.test.ts) | ☐ |
 | 3.25 | Organization Phase | [Race Mixing Restriction](03-organization-phase/rule-3.25-race-mixing-restriction.test.ts) | ☐ |
 | 3.26 | Organization Phase | [Leader Restriction](03-organization-phase/rule-3.26-leader-restriction.test.ts) | ☐ |
-| 3.27 | Organization Phase | [Move to Follower](03-organization-phase/rule-3.27-move-to-follower.test.ts) | ☐ |
-| 3.28 | Organization Phase | [Move to Gi](03-organization-phase/rule-3.28-move-to-gi.test.ts) | ☐ |
+| 3.27 | Organization Phase | [Move To Follower](03-organization-phase/rule-3.27-move-to-follower.test.ts) | ☐ |
+| 3.28 | Organization Phase | [Move To Gi](03-organization-phase/rule-3.28-move-to-gi.test.ts) | ☐ |
 | 3.29 | Organization Phase | [Move Between Companies](03-organization-phase/rule-3.29-move-between-companies.test.ts) | ☐ |
 | 3.30 | Organization Phase | [Join Companies](03-organization-phase/rule-3.30-join-companies.test.ts) | ☐ |
 | 3.31 | Organization Phase | [Split Companies](03-organization-phase/rule-3.31-split-companies.test.ts) | ☐ |
@@ -140,7 +140,7 @@
 | 3.36 | Organization Phase | [Avatar Sideboard Access](03-organization-phase/rule-3.36-avatar-sideboard-access.test.ts) | ☐ |
 | 3.37 | Organization Phase | [Declaring Movement](03-organization-phase/rule-3.37-declaring-movement.test.ts) | ☐ |
 | 3.38 | Organization Phase | [Same Destination Restriction](03-organization-phase/rule-3.38-same-destination-restriction.test.ts) | ☑ |
-| 3.39 | Organization Phase | [Movement to Existing Site](03-organization-phase/rule-3.39-movement-to-existing-site.test.ts) | ☑ |
+| 3.39 | Organization Phase | [Movement To Existing Site](03-organization-phase/rule-3.39-movement-to-existing-site.test.ts) | ☑ |
 | 3.40 | Organization Phase | [Haven Movement](03-organization-phase/rule-3.40-haven-movement.test.ts) | ☐ |
 | 3.41 | Organization Phase | [Ringwraith Movement](03-organization-phase/rule-3.41-ringwraith-movement.test.ts) | ☐ |
 | 3.42 | Organization Phase | [Fw Site Usage](03-organization-phase/rule-3.42-fw-site-usage.test.ts) | ☐ |
@@ -183,8 +183,8 @@
 | 5.28 | Movement/Hazard Phase | [No Companies Skip Mh](05-movement-hazard-phase/rule-5.28-no-companies-skip-mh.test.ts) | ☐ |
 | 5.29 | Movement/Hazard Phase | [Other Company Actions](05-movement-hazard-phase/rule-5.29-other-company-actions.test.ts) | ☐ |
 | 5.30 | Movement/Hazard Phase | [Multiple Movements](05-movement-hazard-phase/rule-5.30-multiple-movements.test.ts) | ☐ |
-| 5.31 | Movement/Hazard Phase | [Returned to Origin](05-movement-hazard-phase/rule-5.31-returned-to-origin.test.ts) | ☐ |
-| 5.32 | Movement/Hazard Phase | [Company at Site](05-movement-hazard-phase/rule-5.32-company-at-site.test.ts) | ☐ |
+| 5.31 | Movement/Hazard Phase | [Returned To Origin](05-movement-hazard-phase/rule-5.31-returned-to-origin.test.ts) | ☐ |
+| 5.32 | Movement/Hazard Phase | [Company At Site](05-movement-hazard-phase/rule-5.32-company-at-site.test.ts) | ☐ |
 | 5.33 | Movement/Hazard Phase | [Joining After Mh](05-movement-hazard-phase/rule-5.33-joining-after-mh.test.ts) | ☑ |
 | METD | Movement/Hazard Phase | [Hazard Limit Lock](05-movement-hazard-phase/rule-metd-hazard-limit-lock.test.ts) | ☑ |
 | 6.01 | Site Phase | [Site Phase Order](06-site-phase/rule-6.01-site-phase-order.test.ts) | ☐ |
@@ -193,20 +193,20 @@
 | 6.04 | Site Phase | [Auto Attack Hazard Creature](06-site-phase/rule-6.04-auto-attack-hazard-creature.test.ts) | ☐ |
 | 6.05 | Site Phase | [Cancel Auto Attack](06-site-phase/rule-6.05-cancel-auto-attack.test.ts) | ☐ |
 | 6.06 | Site Phase | [Auto Attack Site Leaves](06-site-phase/rule-6.06-auto-attack-site-leaves.test.ts) | ☐ |
-| 6.07 | Site Phase | [Agent Attacks at Site](06-site-phase/rule-6.07-agent-attacks-at-site.test.ts) | ☐ |
+| 6.07 | Site Phase | [Agent Attacks At Site](06-site-phase/rule-6.07-agent-attacks-at-site.test.ts) | ☐ |
 | 6.08 | Site Phase | [Resolve On Guard Agent Attacks](06-site-phase/rule-6.08-resolve-on-guard-agent-attacks.test.ts) | ☐ |
-| 6.09 | Site Phase | [Playing Resources at Site](06-site-phase/rule-6.09-playing-resources-at-site.test.ts) | ☑ |
+| 6.09 | Site Phase | [Playing Resources At Site](06-site-phase/rule-6.09-playing-resources-at-site.test.ts) | ☑ |
 | 6.10 | Site Phase | [Playing Ally](06-site-phase/rule-6.10-playing-ally.test.ts) | ☐ |
 | 6.11 | Site Phase | [Playing Faction](06-site-phase/rule-6.11-playing-faction.test.ts) | ☐ |
 | 6.12 | Site Phase | [Playing Item](06-site-phase/rule-6.12-playing-item.test.ts) | ☐ |
 | 6.13 | Site Phase | [Additional Minor Item](06-site-phase/rule-6.13-additional-minor-item.test.ts) | ☐ |
-| 6.14 | Site Phase | [On Guard Reveal at Resource](06-site-phase/rule-6.14-on-guard-reveal-at-resource.test.ts) | ☑ |
+| 6.14 | Site Phase | [On Guard Reveal At Resource](06-site-phase/rule-6.14-on-guard-reveal-at-resource.test.ts) | ☑ |
 | 6.15 | Site Phase | [On Guard Restrictions](06-site-phase/rule-6.15-on-guard-restrictions.test.ts) | ☐ |
-| 6.16 | Site Phase | [On Guard Chain of Effects](06-site-phase/rule-6.16-on-guard-chain-of-effects.test.ts) | ☑ |
+| 6.16 | Site Phase | [On Guard Chain Of Effects](06-site-phase/rule-6.16-on-guard-chain-of-effects.test.ts) | ☑ |
 | 6.17 | Site Phase | [No Companies Skip Site](06-site-phase/rule-6.17-no-companies-skip-site.test.ts) | ☐ |
 | 6.18 | Site Phase | [Untap Site Restriction](06-site-phase/rule-6.18-untap-site-restriction.test.ts) | ☐ |
 | 6.19 | Site Phase | [Other Company Site Actions](06-site-phase/rule-6.19-other-company-site-actions.test.ts) | ☐ |
-| 6.20 | Site Phase | [End of Site Phase](06-site-phase/rule-6.20-end-of-site-phase.test.ts) | ☐ |
+| 6.20 | Site Phase | [End Of Site Phase](06-site-phase/rule-6.20-end-of-site-phase.test.ts) | ☐ |
 | 6.21 | Site Phase | [Fw Resource Alignment Match](06-site-phase/rule-6.21-fw-resource-alignment-match.test.ts) | ☐ |
 | 7.01 | End-of-Turn Phase | [Eot Steps](07-end-of-turn-phase/rule-7.01-eot-steps.test.ts) | ☑ |
 | 7.02 | End-of-Turn Phase | [Eot Site Replacement](07-end-of-turn-phase/rule-7.02-eot-site-replacement.test.ts) | ☐ |
@@ -232,18 +232,18 @@
 | 8.20 | Combat | [Strike Passive Conditions](08-combat/rule-8.20-strike-passive-conditions.test.ts) | ☐ |
 | 8.21 | Combat | [Combat Step5 Resolve Attack](08-combat/rule-8.21-combat-step5-resolve-attack.test.ts) | ☐ |
 | 8.22 | Combat | [Creature Mp By Alignment](08-combat/rule-8.22-creature-mp-by-alignment.test.ts) | ☐ |
-| 8.23 | Combat | [Attack as Action](08-combat/rule-8.23-attack-as-action.test.ts) | ☐ |
-| 8.24 | Combat | [Combat in Chain](08-combat/rule-8.24-combat-in-chain.test.ts) | ☐ |
+| 8.23 | Combat | [Attack As Action](08-combat/rule-8.23-attack-as-action.test.ts) | ☐ |
+| 8.24 | Combat | [Combat In Chain](08-combat/rule-8.24-combat-in-chain.test.ts) | ☐ |
 | 8.25 | Combat | [Defender No Actions](08-combat/rule-8.25-defender-no-actions.test.ts) | ☐ |
-| 8.26 | Combat | [Company Check at Attack](08-combat/rule-8.26-company-check-at-attack.test.ts) | ☐ |
+| 8.26 | Combat | [Company Check At Attack](08-combat/rule-8.26-company-check-at-attack.test.ts) | ☐ |
 | 8.27 | Combat | [No Return During Attack](08-combat/rule-8.27-no-return-during-attack.test.ts) | ☐ |
 | 8.28 | Combat | [Body Check](08-combat/rule-8.28-body-check.test.ts) | ☑ |
 | 8.29 | Combat | [Ringwraith Body Check](08-combat/rule-8.29-ringwraith-body-check.test.ts) | ☐ |
 | 8.30 | Combat | [Character Eliminated](08-combat/rule-8.30-character-eliminated.test.ts) | ☑ |
 | 8.31 | Combat | [Orc Troll Body Check](08-combat/rule-8.31-orc-troll-body-check.test.ts) | ☐ |
-| 8.32 | Combat | [Detainment Attacks](08-combat/rule-8.32-detainment-attacks.test.ts) | ☐ |
-| 8.33 | Combat | [Minion Detainment Rules](08-combat/rule-8.33-minion-detainment-rules.test.ts) | ☐ |
-| 8.34 | Combat | [Detainment Creature Mp](08-combat/rule-8.34-detainment-creature-mp.test.ts) | ☐ |
+| 8.32 | Combat | [Detainment Attacks](08-combat/rule-8.32-detainment-attacks.test.ts) | ☑ |
+| 8.33 | Combat | [Minion Detainment Rules](08-combat/rule-8.33-minion-detainment-rules.test.ts) | ☑ |
+| 8.34 | Combat | [Detainment Creature Mp](08-combat/rule-8.34-detainment-creature-mp.test.ts) | ◐ |
 | 8.35 | Combat | [Prisoners](08-combat/rule-8.35-prisoners.test.ts) | ☐ |
 | 8.36 | Combat | [Rescuing Prisoners](08-combat/rule-8.36-rescuing-prisoners.test.ts) | ☐ |
 | 8.37 | Combat | [Trophies](08-combat/rule-8.37-trophies.test.ts) | ☐ |
@@ -276,7 +276,7 @@
 | 9.22 | Agents, Events, Items & Rings | [Gold Ring Darkhaven Test](09-agents-events-items/rule-9.22-gold-ring-darkhaven-test.test.ts) | ☐ |
 | 9.23 | Agents, Events, Items & Rings | [Gold Ring Ringwraith Test](09-agents-events-items/rule-9.23-gold-ring-ringwraith-test.test.ts) | ☐ |
 | METD | Agents, Events, Items & Rings | [Check Kinds](09-agents-events-items/rule-metd-check-kinds.test.ts) | ☑ |
-| METD | Agents, Events, Items & Rings | [Dragon at Home](09-agents-events-items/rule-metd-dragon-at-home.test.ts) | ☑ |
+| METD | Agents, Events, Items & Rings | [Dragon At Home](09-agents-events-items/rule-metd-dragon-at-home.test.ts) | ☑ |
 | METD | Agents, Events, Items & Rings | [Dragon Cascade](09-agents-events-items/rule-metd-dragon-cascade.test.ts) | ☑ |
 | METD | Agents, Events, Items & Rings | [Dragon Manifestations](09-agents-events-items/rule-metd-dragon-manifestations.test.ts) | ☑ |
 | METD | Agents, Events, Items & Rings | [Dragon Mp Attribution](09-agents-events-items/rule-metd-dragon-mp-attribution.test.ts) | ☑ |
@@ -309,18 +309,18 @@
 | 10.26 | Corruption, Influence, Actions/Timing & Ending the Game | [Cross Player Targeting](10-corruption-influence-endgame/rule-10.26-cross-player-targeting.test.ts) | ☐ |
 | 10.27 | Corruption, Influence, Actions/Timing & Ending the Game | [Fw Targeting Rules](10-corruption-influence-endgame/rule-10.27-fw-targeting-rules.test.ts) | ☐ |
 | 10.28 | Corruption, Influence, Actions/Timing & Ending the Game | [Effects Definition](10-corruption-influence-endgame/rule-10.28-effects-definition.test.ts) | ☐ |
-| 10.29 | Corruption, Influence, Actions/Timing & Ending the Game | [Chain of Effects](10-corruption-influence-endgame/rule-10.29-chain-of-effects.test.ts) | ◐ |
+| 10.29 | Corruption, Influence, Actions/Timing & Ending the Game | [Chain Of Effects](10-corruption-influence-endgame/rule-10.29-chain-of-effects.test.ts) | ◐ |
 | 10.30 | Corruption, Influence, Actions/Timing & Ending the Game | [Multiple Actions On Card](10-corruption-influence-endgame/rule-10.30-multiple-actions-on-card.test.ts) | ☐ |
 | 10.31 | Corruption, Influence, Actions/Timing & Ending the Game | [Passive Conditions](10-corruption-influence-endgame/rule-10.31-passive-conditions.test.ts) | ☐ |
 | 10.32 | Corruption, Influence, Actions/Timing & Ending the Game | [Passive Condition Discard](10-corruption-influence-endgame/rule-10.32-passive-condition-discard.test.ts) | ☐ |
-| 10.33 | Corruption, Influence, Actions/Timing & Ending the Game | [Beginning of Phase Passives](10-corruption-influence-endgame/rule-10.33-beginning-of-phase-passives.test.ts) | ☐ |
-| 10.34 | Corruption, Influence, Actions/Timing & Ending the Game | [End of Phase Passives](10-corruption-influence-endgame/rule-10.34-end-of-phase-passives.test.ts) | ☐ |
+| 10.33 | Corruption, Influence, Actions/Timing & Ending the Game | [Beginning Of Phase Passives](10-corruption-influence-endgame/rule-10.33-beginning-of-phase-passives.test.ts) | ☐ |
+| 10.34 | Corruption, Influence, Actions/Timing & Ending the Game | [End Of Phase Passives](10-corruption-influence-endgame/rule-10.34-end-of-phase-passives.test.ts) | ☐ |
 | 10.35 | Corruption, Influence, Actions/Timing & Ending the Game | [Duplicate Passive Conditions](10-corruption-influence-endgame/rule-10.35-duplicate-passive-conditions.test.ts) | ☐ |
 | 10.36 | Corruption, Influence, Actions/Timing & Ending the Game | [Attribute Modification Passives](10-corruption-influence-endgame/rule-10.36-attribute-modification-passives.test.ts) | ☐ |
 | 10.37 | Corruption, Influence, Actions/Timing & Ending the Game | [Game Condition Inactive](10-corruption-influence-endgame/rule-10.37-game-condition-inactive.test.ts) | ☐ |
 | 10.38 | Corruption, Influence, Actions/Timing & Ending the Game | [Cards No Memory](10-corruption-influence-endgame/rule-10.38-cards-no-memory.test.ts) | ☐ |
 | 10.39 | Corruption, Influence, Actions/Timing & Ending the Game | [Winning With One Ring](10-corruption-influence-endgame/rule-10.39-winning-with-one-ring.test.ts) | ☐ |
-| 10.40 | Corruption, Influence, Actions/Timing & Ending the Game | [Calling the Game](10-corruption-influence-endgame/rule-10.40-calling-the-game.test.ts) | ☐ |
+| 10.40 | Corruption, Influence, Actions/Timing & Ending the Game | [Calling The Game](10-corruption-influence-endgame/rule-10.40-calling-the-game.test.ts) | ☐ |
 | 10.41 | Corruption, Influence, Actions/Timing & Ending the Game | [Minion Balrog Sudden Call](10-corruption-influence-endgame/rule-10.41-minion-balrog-sudden-call.test.ts) | ☑ |
 | 10.42 | Corruption, Influence, Actions/Timing & Ending the Game | [Balrog Under Deeps Mp](10-corruption-influence-endgame/rule-10.42-balrog-under-deeps-mp.test.ts) | ☐ |
 | 10.43 | Corruption, Influence, Actions/Timing & Ending the Game | [Free Council](10-corruption-influence-endgame/rule-10.43-free-council.test.ts) | ☐ |

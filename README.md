@@ -19,11 +19,11 @@ A web-based implementation of the **Middle-Earth Collectible Card Game** (MECCG)
 
 | Metric | Done | Total | Progress |
 |:-------|-----:|------:|---------:|
-| Rule tests | 44 | 306 | 14.4% |
-| Card tests | 108 | 128 | 84.4% |
-| Cards created | 345 | 1683 | 20.5% |
-| Cards certified | 112 | 345 | 32.5% |
-| **Total** | **609** | **2462** | **24.7%** |
+| Rule tests | 47 | 306 | 15.4% |
+| Card tests | 129 | 146 | 88.4% |
+| Cards created | 587 | 1683 | 34.9% |
+| Cards certified | 133 | 587 | 22.7% |
+| **Total** | **896** | **2722** | **32.9%** |
 
 ### Deck Catalog
 

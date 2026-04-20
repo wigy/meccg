@@ -1,5 +1,36 @@
 # Changelog
 
+## 0.23.0 — 2026-04-20
+
+Detainment Attack
+
+### Game Engine
+
+- **Detainment attacks (CoE §3.II):** Full implementation — minion/fw tap instead of body check; conditional on the defender (Elf-lord Revealed in Wrath makes Eldar detainment-only); detainment creature MP (§3.III).
+- **Opponent faction re-influence (CoE rule 8.3):** Influence attempts against opponent's in-play factions now supported.
+- **Darkhaven sites:** Dol Guldur (le-367) site rules implemented — enables the first certified darkhaven.
+- **Free Council endgame trigger:** Sudden Call (le-235) — Minion/Balrog endgame trigger that forces a Free Council call; alignment-gated `call-free-council` effect.
+- **DSL additions:** New `call-council` and `reshuffle-self-from-hand` effects; `combat-detainment` gated on defender.
+- **Engine cleanup:** Generalized engine helpers and dispatch tables; unified `untap-phase-at-haven` into `untap-phase-end` with a `when` condition.
+
+### Cards & Data
+
+- **Certified this release (19 cards):** Bag End (le-350), Bandit Lair (le-351), Beorn's House (le-354), Dimrill Dale (le-365), Dol Guldur (le-367), Edoras (le-372), Ettenmoors (le-373), Goblin-gate (le-378), Thranduil's Halls (le-408), Eagles' Eyrie (as-144), Black Mace (le-299), High Helm (le-313), The Least of Gold Rings (le-315), A Nice Place to Hide (le-160), Lieutenant of Dol Guldur (le-21), Goblins of Goblin-gate (le-265), Orc Quarrels (le-216), Voices of Malice (le-250), Elf-lord Revealed in Wrath (le-69), Sudden Call (le-235).
+- **Stub cards:** Added stub card definitions for cards referenced by challenge decks; filled in missing card IDs across challenge decks; added 3× Wandering Eldar to the minion proto deck.
+
+### Bug Fixes
+
+- **Marvels Told:** Fix effect being offered when all sages are already tapped.
+- **Fatty Bolger:** Always show the menu for the cancel-strike ability.
+- **River:** Wire cancel-river UI to the constraint strip.
+- **Fram Framson (td-91):** Prevent drafting as a starting character.
+- **tw-421 test:** Update expected site list after new Dragons-expansion and TW/LE sites became reachable from Rivendell.
+
+### Infrastructure & Tests
+
+- **AI / mail reliability:** `run-ai` and `handle-mail` can now target a remote lobby via API; real certification failures detected by handle-mail; handle-mail hardened against claude-CLI hangs and format drift.
+- **Fixture-alignment rule:** Documented that minion/fallen-wizard/balrog card tests must use matching-alignment fixtures.
+
 ## 0.22.0 — 2026-04-19
 
 The Dragons rules
