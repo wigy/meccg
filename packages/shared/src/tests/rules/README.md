@@ -321,7 +321,7 @@
 | 10.38 | Corruption, Influence, Actions/Timing & Ending the Game | [Cards No Memory](10-corruption-influence-endgame/rule-10.38-cards-no-memory.test.ts) | ☐ |
 | 10.39 | Corruption, Influence, Actions/Timing & Ending the Game | [Winning With One Ring](10-corruption-influence-endgame/rule-10.39-winning-with-one-ring.test.ts) | ☐ |
 | 10.40 | Corruption, Influence, Actions/Timing & Ending the Game | [Calling the Game](10-corruption-influence-endgame/rule-10.40-calling-the-game.test.ts) | ☐ |
-| 10.41 | Corruption, Influence, Actions/Timing & Ending the Game | [Minion Balrog Sudden Call](10-corruption-influence-endgame/rule-10.41-minion-balrog-sudden-call.test.ts) | ☐ |
+| 10.41 | Corruption, Influence, Actions/Timing & Ending the Game | [Minion Balrog Sudden Call](10-corruption-influence-endgame/rule-10.41-minion-balrog-sudden-call.test.ts) | ☑ |
 | 10.42 | Corruption, Influence, Actions/Timing & Ending the Game | [Balrog Under Deeps Mp](10-corruption-influence-endgame/rule-10.42-balrog-under-deeps-mp.test.ts) | ☐ |
 | 10.43 | Corruption, Influence, Actions/Timing & Ending the Game | [Free Council](10-corruption-influence-endgame/rule-10.43-free-council.test.ts) | ☐ |
 | 10.44 | Corruption, Influence, Actions/Timing & Ending the Game | [Winner Step1 Corruption](10-corruption-influence-endgame/rule-10.44-winner-step1-corruption.test.ts) | ☐ |

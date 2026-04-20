@@ -7,7 +7,8 @@
  */
 
 import type { GameState, MovementHazardPhaseState, Company, CreatureCard, GameAction, CombatState } from '../index.js';
-import type { AhuntAttackEffect } from '../types/effects.js';
+import type { AhuntAttackEffect, CallCouncilEffect } from '../types/effects.js';
+import { triggerCouncilCall } from './reducer-end-of-turn.js';
 import type { CardInstanceId } from '../types/common.js';
 import { Phase, CardStatus, isCharacterCard, isSiteCard, RegionType, Race, Skill, getPlayerIndex, BASE_MAX_REGION_DISTANCE, hasPlayFlag } from '../index.js';
 import { resolveHandSize, collectCharacterEffects, resolveDrawModifier } from './effects/index.js';
@@ -212,6 +213,30 @@ function handlePlayHazardCard(
   const handCard = hazardPlayer.hand[cardIdx];
   const def = state.cardPool[handCard.definitionId as string];
   if (!def) return { state, error: 'Card definition not found' };
+
+  // --- Resource-as-hazard (e.g. Sudden Call) with call-council effect ---
+  // Playing a resource-event as a hazard on the opponent's turn, solely
+  // to trigger the endgame. Bypasses the chain: the effect resolves
+  // immediately with the Sudden Call player getting one last turn.
+  const defEffects = 'effects' in def ? def.effects : undefined;
+  const hazardCallCouncil = defEffects?.find(
+    (e): e is CallCouncilEffect => e.type === 'call-council' && e.lastTurnFor === 'self',
+  );
+  if (hazardCallCouncil
+    && (def.cardType === 'hero-resource-event' || def.cardType === 'minion-resource-event')
+    && hasPlayFlag(def, 'playable-as-hazard')) {
+    logDetail(`Play-hazards: ${action.player as string} plays resource-as-hazard "${def.name}" → triggering endgame (caller gets last turn)`);
+    const newHand = [...hazardPlayer.hand];
+    newHand.splice(cardIdx, 1);
+    const newPlayers = clonePlayers(state);
+    newPlayers[hazardIndex] = {
+      ...hazardPlayer,
+      hand: newHand,
+      discardPile: [...hazardPlayer.discardPile, handCard],
+    };
+    const afterDiscard: GameState = { ...state, players: newPlayers };
+    return { state: triggerCouncilCall(afterDiscard, action.player, 'self') };
+  }
 
   // --- Creature handling (via chain of effects) ---
   if (def.cardType === 'hazard-creature') {

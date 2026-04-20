@@ -50,7 +50,7 @@ import { handleOrganization } from './reducer-organization.js';
 import { handleLongEvent } from './reducer-events.js';
 import { handleMovementHazard } from './reducer-movement-hazard.js';
 import { handleSite } from './reducer-site.js';
-import { handleEndOfTurn } from './reducer-end-of-turn.js';
+import { handleEndOfTurn, reshuffleCardFromHand } from './reducer-end-of-turn.js';
 import { handleFreeCouncil } from './reducer-free-council.js';
 import { handleCombatAction } from './reducer-combat.js';
 
@@ -122,6 +122,17 @@ export function reduce(state: GameState, action: GameAction): ReducerResult {
       return resolutionResult;
     }
     // Stub returned null — fall through to legacy phase reducer.
+  }
+
+  // Cross-phase `reshuffle-card-from-hand` (e.g. Sudden Call, le-235):
+  // dispatched before phase handlers so it works in every strategy step.
+  if (action.type === 'reshuffle-card-from-hand') {
+    const newState = reshuffleCardFromHand(state, action.player, action.cardInstanceId);
+    if (newState === null) {
+      return { state, error: `Card ${action.cardInstanceId as string} not found in ${action.player as string}'s hand` };
+    }
+    const recomputed = postReduce(newState);
+    return { state: { ...recomputed, stateSeq: recomputed.stateSeq + 1 } };
   }
 
   // Pending effects: resolve card effects awaiting player interaction

@@ -66,6 +66,30 @@ function fetchFromPileLegalActions(state: GameState, playerId: PlayerId, effect:
 }
 
 /** Wraps plain GameActions as viable EvaluatedActions (for non-setup phases). */
+/**
+ * Cross-phase `reshuffle-card-from-hand` actions — one per hand card
+ * whose definition carries a `reshuffle-self-from-hand` effect. Called
+ * only from strategy steps where at least one other viable action
+ * exists; atomic resolution windows are skipped by the caller.
+ */
+function reshuffleFromHandActions(state: GameState, playerId: PlayerId): EvaluatedAction[] {
+  const playerIndex = state.players[0].id === playerId ? 0 : 1;
+  const player = state.players[playerIndex];
+  const results: EvaluatedAction[] = [];
+  for (const handCard of player.hand) {
+    const def = state.cardPool[handCard.definitionId as string];
+    if (!def || !('effects' in def)) continue;
+    const effects = (def as { effects?: readonly import('../../index.js').CardEffect[] }).effects;
+    const hasReshuffle = effects?.some(e => e.type === 'reshuffle-self-from-hand');
+    if (!hasReshuffle) continue;
+    results.push({
+      action: { type: 'reshuffle-card-from-hand', player: playerId, cardInstanceId: handCard.instanceId },
+      viable: true,
+    });
+  }
+  return results;
+}
+
 function asViable(actions: GameAction[]): EvaluatedAction[] {
   return actions.map(action => ({ action, viable: true }));
 }
@@ -212,6 +236,16 @@ export function computeLegalActions(state: GameState, playerId: PlayerId): Evalu
   // Active constraints filter (Shape B — see types/pending.ts). Pass-through
   // when no constraints are in scope.
   evaluated = applyConstraints(state, playerId, evaluated);
+
+  // Cross-phase `reshuffle-card-from-hand` actions (e.g. Sudden Call).
+  // Offered once per eligible hand card when the player already has at
+  // least one other viable action — this naturally excludes atomic
+  // resolution windows where the only "action" is a system-driven
+  // resolve.
+  const hasOtherViable = evaluated.some(e => e.viable);
+  if (hasOtherViable) {
+    evaluated = [...evaluated, ...reshuffleFromHandActions(state, playerId)];
+  }
 
   // Catch-all: mark remaining hand cards that have no evaluated action as
   // not-playable so the UI can show a tooltip for every dimmed card.

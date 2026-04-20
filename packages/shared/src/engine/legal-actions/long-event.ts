@@ -19,6 +19,7 @@
 import type { GameState, PlayerId, EvaluatedAction, PlayTargetEffect, CardInstanceId, PlayerState } from '../../index.js';
 import type { PlayOptionEffect } from '../../types/effects.js';
 import { matchesCondition, CardStatus, isResourceEventCard } from '../../index.js';
+import { canCallEndgameNow } from '../../state-utils.js';
 import { logHeading, logDetail } from './log.js';
 import { getPlayTargetEffect, getPlayOptionEffects, buildPlayOptionContext, grantedActionActivations, ANY_PHASE_GRANT_ACTIONS, collectDiscardInPlayTargets } from './organization.js';
 
@@ -188,6 +189,39 @@ export function heroResourceShortEventActions(
         action: { type: 'not-playable', player: playerId, cardInstanceId },
         viable: false,
         reason: `${def.name} can only be played during combat`,
+      });
+      continue;
+    }
+
+    // Resource-side `call-council` (e.g. Sudden Call, le-235): the caller
+    // must meet endgame conditions and must not have already called.
+    // Only playable on the caller's own turn, hence in the resource path.
+    const resourceCallCouncil = def.effects?.find(
+      (e): e is import('../../index.js').CallCouncilEffect => e.type === 'call-council' && e.lastTurnFor === 'opponent',
+    );
+    if (resourceCallCouncil) {
+      if (!canCallEndgameNow(player)) {
+        logDetail(`${def.name}: caller has not met end-of-game conditions`);
+        actions.push({
+          action: { type: 'not-playable', player: playerId, cardInstanceId },
+          viable: false,
+          reason: `${def.name}: end-of-game conditions not met`,
+        });
+        continue;
+      }
+      if (player.freeCouncilCalled || state.lastTurnFor !== null) {
+        logDetail(`${def.name}: endgame already called`);
+        actions.push({
+          action: { type: 'not-playable', player: playerId, cardInstanceId },
+          viable: false,
+          reason: `${def.name}: endgame already called`,
+        });
+        continue;
+      }
+      logDetail(`Resource short-event "${def.name}" playable — caller meets end-of-game conditions`);
+      actions.push({
+        action: { type: 'play-short-event', player: playerId, cardInstanceId },
+        viable: true,
       });
       continue;
     }

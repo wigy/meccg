@@ -8,6 +8,7 @@
 
 import type { GameState, PlayerId, GameAction, EvaluatedAction, MovementHazardPhaseState, SiteCard, CardDefinitionId, CardInstanceId, CompanyId, CreatureCard, CreatureKeyingMatch, PlayHazardAction, PlaceOnGuardAction, PlayConditionEffect, CreatureRaceChoiceEffect } from '../../index.js';
 import { getPlayerIndex, isSiteCard, isCharacterCard, isFactionCard, buildMovementMap, findRegionPaths, RegionType, Race, hasPlayFlag, matchesCondition } from '../../index.js';
+import { canCallEndgameNow, isWizard } from '../../state-utils.js';
 import { resolveInstanceId } from '../../types/state.js';
 import { resolveHandSize } from '../effects/index.js';
 import { buildInPlayNames } from '../recompute-derived.js';
@@ -396,7 +397,12 @@ function playHazardsActions(
       const isEvent = def.cardType === 'hazard-event'
         && (def.eventType === 'long' || def.eventType === 'permanent');
       const isCorruption = def.cardType === 'hazard-corruption';
-      if (!isCreature && !isEvent && !isShortEvent && !isCorruption) continue;
+      // Resource-events tagged `playable-as-hazard` (e.g. Sudden Call, le-235)
+      // piggyback on the hazard short-event path.
+      const isResourceAsHazard = (def.cardType === 'hero-resource-event'
+        || def.cardType === 'minion-resource-event')
+        && hasPlayFlag(def, 'playable-as-hazard');
+      if (!isCreature && !isEvent && !isShortEvent && !isCorruption && !isResourceAsHazard) continue;
 
       const action: PlayHazardAction = {
         type: 'play-hazard',
@@ -443,6 +449,41 @@ function playHazardsActions(
             viable: true,
           });
         }
+        continue;
+      }
+
+      // --- Resource-as-hazard (e.g. Sudden Call, le-235) ---
+      // The card is a minion-resource-event with the `playable-as-hazard`
+      // flag, played by the hazard player on the opponent's turn. For
+      // `call-council` effects (Sudden Call), the defending (resource)
+      // player must be non-Wizard and must meet endgame conditions; per
+      // rule 10.41 the caller (the hazard player here) gets the last turn.
+      if (isResourceAsHazard && !isShortEvent) {
+        const hazardResourcePlayerIdx = getPlayerIndex(state, playerId);
+        const hazardPlayer = state.players[hazardResourcePlayerIdx];
+        const defendingPlayer = resourcePlayer; // the active (resource) player being attacked
+        const callEffect = def.effects?.find(
+          (e): e is import('../../index.js').CallCouncilEffect => e.type === 'call-council' && e.lastTurnFor === 'self',
+        );
+        if (!callEffect) {
+          // No hazard-side call-council effect → no viable hazard play of this card
+          actions.push({ action, viable: false, reason: `${def.name}: no hazard-side effect defined` });
+          continue;
+        }
+        if (isWizard(defendingPlayer)) {
+          actions.push({ action, viable: false, reason: `${def.name}: cannot be played as a hazard against a ${defendingPlayer.alignment} player` });
+          continue;
+        }
+        if (!canCallEndgameNow(defendingPlayer)) {
+          actions.push({ action, viable: false, reason: `${def.name}: opponent has not met end-of-game conditions` });
+          continue;
+        }
+        if (hazardPlayer.freeCouncilCalled || state.lastTurnFor !== null) {
+          actions.push({ action, viable: false, reason: `${def.name}: endgame already called` });
+          continue;
+        }
+        logDetail(`Resource-as-hazard "${def.name}" playable — opponent ${defendingPlayer.alignment} meets end-of-game conditions`);
+        actions.push({ action, viable: true });
         continue;
       }
 
