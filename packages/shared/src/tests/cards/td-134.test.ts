@@ -17,7 +17,7 @@
 import { describe, test, expect, beforeEach } from 'vitest';
 import {
   PLAYER_1, PLAYER_2,
-  ELROND, ARAGORN, LEGOLAS, BALIN, SARUMAN,
+  ELROND, ARAGORN, LEGOLAS, BALIN, SARUMAN, GLORFINDEL_II,
   MARVELS_TOLD, FOOLISH_WORDS, LURE_OF_THE_SENSES, EYE_OF_SAURON, DOORS_OF_NIGHT,
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
   attachHazardToChar,
@@ -74,6 +74,30 @@ describe('Marvels Told (td-134)', () => {
     expect(playActions).toHaveLength(2);
     const targets = playActions.map(a => actionAs<PlayShortEventAction>(a.action).discardTargetInstanceId);
     expect(new Set(targets).size).toBe(2);
+  });
+
+  test('not playable during site phase when all sages in company are tapped', () => {
+    // Regression for bug 968f3cdc266c6e1a (game mo7crwje-bwhvvs, seq 171):
+    // during the resource player's site phase, two sages (Saruman and
+    // Glorfindel II) were both tapped and a Foolish Words hazard was in
+    // play. The engine offered Marvels Told naming the tapped sages as
+    // tap targets — a tapped character cannot pay the tap cost. No play
+    // action must be emitted.
+    const foolishWordsInPlay: CardInPlay = { instanceId: mint(), definitionId: FOOLISH_WORDS, status: CardStatus.Untapped };
+    const base = buildTestState({
+      phase: Phase.Site,
+      activePlayer: PLAYER_1,
+      players: [
+        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [SARUMAN, GLORFINDEL_II] }], hand: [MARVELS_TOLD], siteDeck: [MORIA] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [MINAS_TIRITH], cardsInPlay: [foolishWordsInPlay] },
+      ],
+    });
+    const withSarumanTapped = setCharStatus(base, RESOURCE_PLAYER, SARUMAN, CardStatus.Tapped);
+    const bothTapped = setCharStatus(withSarumanTapped, RESOURCE_PLAYER, GLORFINDEL_II, CardStatus.Tapped);
+    const state = { ...bothTapped, phaseState: makeSitePhase() };
+
+    const playActions = viableActions(state, PLAYER_1, 'play-short-event');
+    expect(playActions).toHaveLength(0);
   });
 
   test('not playable when sage is tapped', () => {
