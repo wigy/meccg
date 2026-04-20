@@ -973,5 +973,34 @@
     ],
     "resourceDraws": 2,
     "hazardDraws": 2
+  },
+  {
+    "cardType": "minion-site",
+    "alignment": "ringwraith",
+    "id": "le-411",
+    "name": "Variag Camp",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/VariagCamp.jpg",
+    "siteType": "border-hold",
+    "sitePath": [
+      "shadow",
+      "wilderness",
+      "wilderness",
+      "shadow"
+    ],
+    "nearestHaven": "Minas Morgul",
+    "region": "Khand",
+    "playableResources": [],
+    "automaticAttacks": [
+      {
+        "creatureType": "Men",
+        "strikes": -1,
+        "prowess": 5,
+        "special": "each character faces 1 strike",
+        "detainmentAgainstCovert": true
+      }
+    ],
+    "resourceDraws": 2,
+    "hazardDraws": 2,
+    "text": "Nearest Darkhaven: Minas Morgul. Automatic-attacks: Men — each character faces 1 strike with 5 prowess (detainment against covert company)."
   }
 ]

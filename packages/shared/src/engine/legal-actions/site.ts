@@ -845,7 +845,11 @@ function playResourcesActions(
               baseProwess: charDef.prowess, baseBody: charDef.body,
               baseDirectInfluence: charDef.directInfluence, name: charDef.name,
             },
-            faction: { name: factionDef.name, race: factionDef.race },
+            faction: {
+              name: factionDef.name,
+              race: factionDef.race,
+              playableAt: factionDef.playableAt.flatMap(e => 'site' in e ? [e.site] : []),
+            },
             controller: { inPlay: buildControllerInPlayNames(state, playerId) },
           };
           const charEffects = collectCharacterEffects(state, ch, resolverCtx);
