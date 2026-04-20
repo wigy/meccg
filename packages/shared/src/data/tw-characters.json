@@ -36,8 +36,14 @@
         "apply": {
           "type": "sequence",
           "apps": [
-            { "type": "roll-check", "check": "gold-ring-test", "label": "Gold ring test" },
-            { "type": "discard-target-item" }
+            {
+              "type": "roll-check",
+              "check": "gold-ring-test",
+              "label": "Gold ring test"
+            },
+            {
+              "type": "discard-target-item"
+            }
           ]
         }
       }
@@ -783,13 +789,21 @@
       {
         "type": "play-flag",
         "flag": "home-site-only",
-        "when": { "$not": { "reason": "starting-character" } }
+        "when": {
+          "$not": {
+            "reason": "starting-character"
+          }
+        }
       },
       {
         "type": "cancel-strike",
-        "cost": { "tap": "self" },
+        "cost": {
+          "tap": "self"
+        },
         "target": "other-in-company",
-        "filter": { "target.race": "hobbit" }
+        "filter": {
+          "target.race": "hobbit"
+        }
       }
     ],
     "text": "Unique. Unless he is one of the starting characters, he may only be brought into play at his home site. All of his corruption checks are modified by +1. He can tap to cancel a strike against another Hobbit in his company.",
@@ -822,8 +836,12 @@
       {
         "type": "grant-action",
         "action": "saruman-fetch-spell",
-        "cost": { "tap": "self" },
-        "apply": { "type": "move-target-from-discard-to-hand" }
+        "cost": {
+          "tap": "self"
+        },
+        "apply": {
+          "type": "move-target-from-discard-to-hand"
+        }
       }
     ],
     "text": "Unique. May tap to use a Palantír he bears. At the beginning of your end-of-turn phase, you may tap Saruman to take one spell card from your discard pile to your hand."
@@ -1018,13 +1036,19 @@
         "type": "stat-modifier",
         "stat": "prowess",
         "value": 5,
-        "when": { "reason": "combat", "enemy.race": "nazgul" }
+        "when": {
+          "reason": "combat",
+          "enemy.race": "nazgul"
+        }
       },
       {
         "type": "enemy-modifier",
         "stat": "body",
         "op": "halve-round-up",
-        "when": { "reason": "combat", "enemy.race": "nazgul" }
+        "when": {
+          "reason": "combat",
+          "enemy.race": "nazgul"
+        }
       }
     ],
     "text": "Unique. +4 direct influence against the Dunlendings faction. Against Nazgûl and Ringwraiths, +5 to her prowess and the Nazgûl/Ringwraith's body is halved (rounded up).",
@@ -1100,5 +1124,443 @@
       }
     ],
     "text": "Unique. When Galadriel is at Lórien, you may keep one more card than normal in your hand. -3 marshalling points if eliminated."
+  },
+  {
+    "cardType": "hero-character",
+    "id": "tw-119",
+    "name": "Annalena",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Annalena.jpg",
+    "text": "Unique.",
+    "alignment": "wizard",
+    "unique": true,
+    "race": "elf",
+    "skills": [
+      "scout",
+      "sage"
+    ],
+    "prowess": 3,
+    "body": 8,
+    "mind": 3,
+    "directInfluence": 0,
+    "marshallingPoints": 1,
+    "marshallingCategory": "character",
+    "corruptionModifier": 0,
+    "homesite": "Edhellond"
+  },
+  {
+    "cardType": "hero-character",
+    "id": "tw-122",
+    "name": "Arwen",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Arwen.jpg",
+    "text": "Unique. +7 direct influence only usable against Aragorn II.",
+    "alignment": "wizard",
+    "unique": true,
+    "race": "elf",
+    "skills": [
+      "scout",
+      "sage"
+    ],
+    "prowess": 2,
+    "body": 8,
+    "mind": 3,
+    "directInfluence": 0,
+    "marshallingPoints": 1,
+    "marshallingCategory": "character",
+    "corruptionModifier": 0,
+    "homesite": "Rivendell"
+  },
+  {
+    "cardType": "hero-character",
+    "id": "tw-128",
+    "name": "Beretar",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Beretar.jpg",
+    "text": "Unique. +2 direct influence against the Rangers of the North faction.",
+    "alignment": "wizard",
+    "unique": true,
+    "race": "dúnadan",
+    "skills": [
+      "warrior",
+      "ranger"
+    ],
+    "prowess": 5,
+    "body": 8,
+    "mind": 5,
+    "directInfluence": 1,
+    "marshallingPoints": 2,
+    "marshallingCategory": "character",
+    "corruptionModifier": 0,
+    "homesite": "Bree"
+  },
+  {
+    "cardType": "hero-character",
+    "id": "tw-132",
+    "name": "Bofur",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Bofur.jpg",
+    "text": "Unique. +1 prowess against Orcs. -1 to all of his corruption checks. -1 to influence checks against factions.",
+    "alignment": "wizard",
+    "unique": true,
+    "race": "dwarf",
+    "skills": [
+      "warrior"
+    ],
+    "prowess": 4,
+    "body": 7,
+    "mind": 2,
+    "directInfluence": 0,
+    "marshallingPoints": 0,
+    "marshallingCategory": "character",
+    "corruptionModifier": 0,
+    "homesite": "Blue Mountain Dwarf-hold"
+  },
+  {
+    "cardType": "hero-character",
+    "id": "tw-134",
+    "name": "Boromir II",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/BoromirII.jpg",
+    "text": "Unique. +2 direct influence against the Men of Anórien faction. -1 to all of his corruption checks.",
+    "alignment": "wizard",
+    "unique": true,
+    "race": "dúnadan",
+    "skills": [
+      "warrior"
+    ],
+    "prowess": 6,
+    "body": 7,
+    "mind": 4,
+    "directInfluence": 1,
+    "marshallingPoints": 1,
+    "marshallingCategory": "character",
+    "corruptionModifier": 0,
+    "homesite": "Minas Tirith"
+  },
+  {
+    "cardType": "hero-character",
+    "id": "tw-141",
+    "name": "Dori",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Dori.jpg",
+    "text": "Unique. +1 prowess against Orcs. -1 to all of his corruption checks. -1 to influence checks against factions.",
+    "alignment": "wizard",
+    "unique": true,
+    "race": "dwarf",
+    "skills": [
+      "warrior"
+    ],
+    "prowess": 3,
+    "body": 6,
+    "mind": 1,
+    "directInfluence": 0,
+    "marshallingPoints": 0,
+    "marshallingCategory": "character",
+    "corruptionModifier": 0,
+    "homesite": "Blue Mountain Dwarf-hold"
+  },
+  {
+    "cardType": "hero-character",
+    "id": "tw-144",
+    "name": "Elrohir",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Elrohir.jpg",
+    "text": "Unique. +1 prowess against Orcs.",
+    "alignment": "wizard",
+    "unique": true,
+    "race": "elf",
+    "skills": [
+      "warrior",
+      "ranger"
+    ],
+    "prowess": 5,
+    "body": 8,
+    "mind": 4,
+    "directInfluence": 0,
+    "marshallingPoints": 1,
+    "marshallingCategory": "character",
+    "corruptionModifier": 0,
+    "homesite": "Rivendell"
+  },
+  {
+    "cardType": "hero-character",
+    "id": "tw-148",
+    "name": "Erkenbrand",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Erkenbrand.jpg",
+    "text": "Unique. +2 direct influence against the Riders of Rohan faction.",
+    "alignment": "wizard",
+    "unique": true,
+    "race": "man",
+    "skills": [
+      "warrior"
+    ],
+    "prowess": 5,
+    "body": 6,
+    "mind": 4,
+    "directInfluence": 2,
+    "marshallingPoints": 1,
+    "marshallingCategory": "character",
+    "corruptionModifier": 0,
+    "homesite": "Edoras"
+  },
+  {
+    "cardType": "hero-character",
+    "id": "tw-150",
+    "name": "Fíli",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Fili.jpg",
+    "text": "Unique. +1 prowess against Orcs. -1 to all of his corruption checks. -1 to influence checks against factions.",
+    "alignment": "wizard",
+    "unique": true,
+    "race": "dwarf",
+    "skills": [
+      "warrior",
+      "scout"
+    ],
+    "prowess": 2,
+    "body": 8,
+    "mind": 2,
+    "directInfluence": 0,
+    "marshallingPoints": 0,
+    "marshallingCategory": "character",
+    "corruptionModifier": 0,
+    "homesite": "Blue Mountain Dwarf-hold"
+  },
+  {
+    "cardType": "hero-character",
+    "id": "tw-151",
+    "name": "Forlong",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Forlong.jpg",
+    "text": "Unique. -1 to all of his corruption checks. -1 to influence checks against factions.",
+    "alignment": "wizard",
+    "unique": true,
+    "race": "dúnadan",
+    "skills": [
+      "warrior"
+    ],
+    "prowess": 3,
+    "body": 7,
+    "mind": 1,
+    "directInfluence": 0,
+    "marshallingPoints": 0,
+    "marshallingCategory": "character",
+    "corruptionModifier": 0,
+    "homesite": "Minas Tirith"
+  },
+  {
+    "cardType": "hero-character",
+    "id": "tw-158",
+    "name": "Gildor Inglorion",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/GildorInglorion.jpg",
+    "text": "Unique. +2 prowess against Orcs.",
+    "alignment": "wizard",
+    "unique": true,
+    "race": "elf",
+    "skills": [
+      "warrior",
+      "ranger"
+    ],
+    "prowess": 5,
+    "body": 7,
+    "mind": 4,
+    "directInfluence": 0,
+    "marshallingPoints": 1,
+    "marshallingCategory": "character",
+    "corruptionModifier": 0,
+    "homesite": "Rivendell"
+  },
+  {
+    "cardType": "hero-character",
+    "id": "tw-160",
+    "name": "Glóin",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Gloin.jpg",
+    "text": "Unique. +2 direct influence against the Blue Mountain Dwarves faction, +1 prowess against Orcs. +1 direct influence against Dwarves and Dwarf factions.",
+    "alignment": "wizard",
+    "unique": true,
+    "race": "dwarf",
+    "skills": [
+      "warrior",
+      "diplomat"
+    ],
+    "prowess": 5,
+    "body": 7,
+    "mind": 5,
+    "directInfluence": 2,
+    "marshallingPoints": 2,
+    "marshallingCategory": "character",
+    "corruptionModifier": 0,
+    "homesite": "Blue Mountain Dwarf-hold"
+  },
+  {
+    "cardType": "hero-character",
+    "id": "tw-162",
+    "name": "Halbarad",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Halbarad.jpg",
+    "text": "Unique. +2 direct influence against the Hillmen faction.",
+    "alignment": "wizard",
+    "unique": true,
+    "race": "dúnadan",
+    "skills": [
+      "sage",
+      "diplomat"
+    ],
+    "prowess": 0,
+    "body": 5,
+    "mind": 1,
+    "directInfluence": 1,
+    "marshallingPoints": 0,
+    "marshallingCategory": "character",
+    "corruptionModifier": 0,
+    "homesite": "Cameth Brin"
+  },
+  {
+    "cardType": "hero-character",
+    "id": "tw-165",
+    "name": "Háma",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Hama.jpg",
+    "text": "Unique. -1 to all of his corruption checks. -1 to influence checks against factions.",
+    "alignment": "wizard",
+    "unique": true,
+    "race": "man",
+    "skills": [
+      "warrior"
+    ],
+    "prowess": 4,
+    "body": 8,
+    "mind": 2,
+    "directInfluence": 0,
+    "marshallingPoints": 0,
+    "marshallingCategory": "character",
+    "corruptionModifier": 0,
+    "homesite": "Edoras"
+  },
+  {
+    "cardType": "hero-character",
+    "id": "tw-166",
+    "name": "Imrahil",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Imrahil.jpg",
+    "text": "Unique. +2 direct influence against the Knights of Dol Amroth faction.",
+    "alignment": "wizard",
+    "unique": true,
+    "race": "dúnadan",
+    "skills": [
+      "warrior",
+      "diplomat"
+    ],
+    "prowess": 5,
+    "body": 8,
+    "mind": 6,
+    "directInfluence": 2,
+    "marshallingPoints": 2,
+    "marshallingCategory": "character",
+    "corruptionModifier": 0,
+    "homesite": "Dol Amroth"
+  },
+  {
+    "cardType": "hero-character",
+    "id": "tw-172",
+    "name": "Óin",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Oin.jpg",
+    "text": "Unique. +1 prowess against Orcs. -1 to all of his corruption checks.",
+    "alignment": "wizard",
+    "unique": true,
+    "race": "dwarf",
+    "skills": [
+      "warrior",
+      "ranger"
+    ],
+    "prowess": 3,
+    "body": 8,
+    "mind": 3,
+    "directInfluence": 0,
+    "marshallingPoints": 1,
+    "marshallingCategory": "character",
+    "corruptionModifier": 0,
+    "homesite": "Blue Mountain Dwarf-hold"
+  },
+  {
+    "cardType": "hero-character",
+    "id": "tw-174",
+    "name": "Orophin",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Orophin.jpg",
+    "text": "Unique. -1 to all of his corruption checks. -1 to influence checks against factions.",
+    "alignment": "wizard",
+    "unique": true,
+    "race": "elf",
+    "skills": [
+      "warrior",
+      "ranger"
+    ],
+    "prowess": 2,
+    "body": 7,
+    "mind": 2,
+    "directInfluence": 0,
+    "marshallingPoints": 0,
+    "marshallingCategory": "character",
+    "corruptionModifier": 0,
+    "homesite": "Lórien"
+  },
+  {
+    "cardType": "hero-character",
+    "id": "tw-175",
+    "name": "Pallando",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Pallando.jpg",
+    "text": "Unique. You may keep one more card than normal in your hand. Opponent must discard his cards face-up.",
+    "alignment": "wizard",
+    "unique": true,
+    "race": "wizard",
+    "skills": [
+      "warrior",
+      "ranger",
+      "sage",
+      "diplomat"
+    ],
+    "prowess": 6,
+    "body": 9,
+    "mind": null,
+    "directInfluence": 10,
+    "marshallingPoints": 0,
+    "marshallingCategory": "character",
+    "corruptionModifier": 0,
+    "homesite": "Grey Havens"
+  },
+  {
+    "cardType": "hero-character",
+    "id": "tw-183",
+    "name": "Thorin II",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/ThorinII.jpg",
+    "text": "Unique. +2 direct influence against the Blue Mountain Dwarves faction. +3 prowess against Orcs. +2 direct influence against Dwarves and Dwarf factions.",
+    "alignment": "wizard",
+    "unique": true,
+    "race": "dwarf",
+    "skills": [
+      "warrior",
+      "scout",
+      "diplomat"
+    ],
+    "prowess": 5,
+    "body": 8,
+    "mind": 8,
+    "directInfluence": 2,
+    "marshallingPoints": 3,
+    "marshallingCategory": "character",
+    "corruptionModifier": 0,
+    "homesite": "Blue Mountain Dwarf-hold"
+  },
+  {
+    "cardType": "hero-character",
+    "id": "tw-184",
+    "name": "Thranduil",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Thranduil.jpg",
+    "text": "Unique. +2 direct influence against the Wood-elves faction.",
+    "alignment": "wizard",
+    "unique": true,
+    "race": "elf",
+    "skills": [
+      "warrior",
+      "ranger",
+      "sage"
+    ],
+    "prowess": 7,
+    "body": 8,
+    "mind": 9,
+    "directInfluence": 3,
+    "marshallingPoints": 3,
+    "marshallingCategory": "character",
+    "corruptionModifier": 0,
+    "homesite": "Thranduil’s Halls"
   }
 ]

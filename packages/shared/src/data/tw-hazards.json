@@ -6,7 +6,9 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/DoorsofNight.jpg",
     "unique": false,
     "eventType": "permanent",
-    "keywords": ["environment"],
+    "keywords": [
+      "environment"
+    ],
     "effects": [
       {
         "type": "duplication-limit",
@@ -16,7 +18,15 @@
       {
         "type": "on-event",
         "event": "self-enters-play",
-        "apply": { "type": "discard-cards-in-play", "filter": { "cardType": "hero-resource-event", "keywords": { "$includes": "environment" } } }
+        "apply": {
+          "type": "discard-cards-in-play",
+          "filter": {
+            "cardType": "hero-resource-event",
+            "keywords": {
+              "$includes": "environment"
+            }
+          }
+        }
       }
     ],
     "text": "Environment. When Doors of Night is played, all resource environment cards in play are immediately discarded, and all resource environment effects are canceled. Cannot be duplicated.",
@@ -43,7 +53,9 @@
         "value": 3,
         "target": "all-automatic-attacks",
         "overrides": "eye-of-sauron-prowess",
-        "when": { "inPlay": "Doors of Night" }
+        "when": {
+          "inPlay": "Doors of Night"
+        }
       }
     ],
     "text": "The prowess of each automatic-attack is increased by one. Alternatively, if Doors of Night is in play, the prowess of each automatic-attack is increased by three.",
@@ -68,7 +80,15 @@
         "value": 1,
         "target": "all-attacks",
         "id": "wake-of-war-prowess",
-        "when": { "enemy.race": { "$in": ["wolf", "spider", "animal"] } }
+        "when": {
+          "enemy.race": {
+            "$in": [
+              "wolf",
+              "spider",
+              "animal"
+            ]
+          }
+        }
       },
       {
         "type": "stat-modifier",
@@ -76,7 +96,16 @@
         "value": 2,
         "target": "all-attacks",
         "overrides": "wake-of-war-prowess",
-        "when": { "$and": [{ "enemy.race": "wolf" }, { "inPlay": "Doors of Night" }] }
+        "when": {
+          "$and": [
+            {
+              "enemy.race": "wolf"
+            },
+            {
+              "inPlay": "Doors of Night"
+            }
+          ]
+        }
       },
       {
         "type": "stat-modifier",
@@ -84,7 +113,15 @@
         "value": 1,
         "target": "all-attacks",
         "id": "wake-of-war-strikes",
-        "when": { "enemy.race": { "$in": ["wolf", "spider", "animal"] } }
+        "when": {
+          "enemy.race": {
+            "$in": [
+              "wolf",
+              "spider",
+              "animal"
+            ]
+          }
+        }
       },
       {
         "type": "stat-modifier",
@@ -92,7 +129,16 @@
         "value": 2,
         "target": "all-attacks",
         "overrides": "wake-of-war-strikes",
-        "when": { "$and": [{ "enemy.race": "wolf" }, { "inPlay": "Doors of Night" }] }
+        "when": {
+          "$and": [
+            {
+              "enemy.race": "wolf"
+            },
+            {
+              "inPlay": "Doors of Night"
+            }
+          ]
+        }
       }
     ],
     "text": "The number of strikes and prowess of each Wolf, Spider, and Animal attack are each increased by one (by two for Wolf attacks if Doors of Night is in play). Cannot be duplicated.",
@@ -105,10 +151,18 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Twilight.jpg",
     "unique": false,
     "eventType": "short",
-    "keywords": ["environment"],
+    "keywords": [
+      "environment"
+    ],
     "effects": [
-      { "type": "play-flag", "flag": "playable-as-resource" },
-      { "type": "play-flag", "flag": "no-hazard-limit" }
+      {
+        "type": "play-flag",
+        "flag": "playable-as-resource"
+      },
+      {
+        "type": "play-flag",
+        "flag": "no-hazard-limit"
+      }
     ],
     "certified": "2026-04-06",
     "text": "Environment. One environment card (in play or declared earlier in the same chain of effects) is canceled and discarded. Twilight may also be played as a resource, may be played at any point during any player's turn and does not count against the hazard limit."
@@ -120,16 +174,26 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/ChokingShadows.jpg",
     "unique": false,
     "eventType": "short",
-    "keywords": ["environment"],
+    "keywords": [
+      "environment"
+    ],
     "effects": [
-      { "type": "duplication-limit", "scope": "turn", "max": 1 },
+      {
+        "type": "duplication-limit",
+        "scope": "turn",
+        "max": 1
+      },
       {
         "type": "on-event",
         "event": "company-arrives-at-site",
         "when": {
           "$and": [
-            { "environment.doorsOfNightInPlay": true },
-            { "company.destinationSiteType": "ruins-and-lairs" }
+            {
+              "environment.doorsOfNightInPlay": true
+            },
+            {
+              "company.destinationSiteType": "ruins-and-lairs"
+            }
           ]
         },
         "apply": {
@@ -144,8 +208,12 @@
         "event": "company-arrives-at-site",
         "when": {
           "$and": [
-            { "environment.doorsOfNightInPlay": true },
-            { "company.destinationRegionType": "wilderness" }
+            {
+              "environment.doorsOfNightInPlay": true
+            },
+            {
+              "company.destinationRegionType": "wilderness"
+            }
           ]
         },
         "apply": {
@@ -159,7 +227,9 @@
       {
         "type": "on-event",
         "event": "company-arrives-at-site",
-        "when": { "company.destinationSiteType": "ruins-and-lairs" },
+        "when": {
+          "company.destinationSiteType": "ruins-and-lairs"
+        },
         "apply": {
           "type": "add-constraint",
           "constraint": "auto-attack-prowess-boost",
@@ -191,7 +261,9 @@
         "value": 1,
         "target": "all-attacks",
         "id": "minions-stir-orc-prowess",
-        "when": { "enemy.race": "orc" }
+        "when": {
+          "enemy.race": "orc"
+        }
       },
       {
         "type": "stat-modifier",
@@ -199,7 +271,16 @@
         "value": 2,
         "target": "all-attacks",
         "overrides": "minions-stir-orc-prowess",
-        "when": { "$and": [{ "enemy.race": "orc" }, { "inPlay": "Doors of Night" }] }
+        "when": {
+          "$and": [
+            {
+              "enemy.race": "orc"
+            },
+            {
+              "inPlay": "Doors of Night"
+            }
+          ]
+        }
       },
       {
         "type": "stat-modifier",
@@ -207,7 +288,9 @@
         "value": 1,
         "target": "all-attacks",
         "id": "minions-stir-orc-strikes",
-        "when": { "enemy.race": "orc" }
+        "when": {
+          "enemy.race": "orc"
+        }
       },
       {
         "type": "stat-modifier",
@@ -215,21 +298,34 @@
         "value": 2,
         "target": "all-attacks",
         "overrides": "minions-stir-orc-strikes",
-        "when": { "$and": [{ "enemy.race": "orc" }, { "inPlay": "Doors of Night" }] }
+        "when": {
+          "$and": [
+            {
+              "enemy.race": "orc"
+            },
+            {
+              "inPlay": "Doors of Night"
+            }
+          ]
+        }
       },
       {
         "type": "stat-modifier",
         "stat": "prowess",
         "value": 1,
         "target": "all-attacks",
-        "when": { "enemy.race": "troll" }
+        "when": {
+          "enemy.race": "troll"
+        }
       },
       {
         "type": "stat-modifier",
         "stat": "strikes",
         "value": 1,
         "target": "all-attacks",
-        "when": { "enemy.race": "troll" }
+        "when": {
+          "enemy.race": "troll"
+        }
       }
     ],
     "text": "The number of strikes and prowess of each Orc and Troll attack are each increased by one (by two for Orc attacks if Doors of Night is in play). Cannot be duplicated.",
@@ -248,9 +344,23 @@
         "target": "character",
         "filter": {
           "$and": [
-            { "target.race": { "$ne": "wizard" } },
-            { "target.race": { "$ne": "ringwraith" } },
-            { "$not": { "target.possessions": { "$includes": "The One Ring" } } }
+            {
+              "target.race": {
+                "$ne": "wizard"
+              }
+            },
+            {
+              "target.race": {
+                "$ne": "ringwraith"
+              }
+            },
+            {
+              "$not": {
+                "target.possessions": {
+                  "$includes": "The One Ring"
+                }
+              }
+            }
           ]
         }
       },
@@ -270,7 +380,10 @@
     "unique": false,
     "eventType": "short",
     "effects": [
-      { "type": "play-target", "target": "faction" }
+      {
+        "type": "play-target",
+        "target": "faction"
+      }
     ],
     "text": "Playable on a faction. The faction's player makes a roll. The faction is discarded if the result plus his unused general influence is less than 11.",
     "certified": "2026-04-14"
@@ -305,14 +418,25 @@
               "scope": "company-site-phase",
               "grantedAction": {
                 "action": "cancel-river",
-                "cost": { "tap": "character" },
+                "cost": {
+                  "tap": "character"
+                },
                 "when": {
                   "$and": [
-                    { "actor.skills": { "$includes": "ranger" } },
-                    { "actor.status": "untapped" }
+                    {
+                      "actor.skills": {
+                        "$includes": "ranger"
+                      }
+                    },
+                    {
+                      "actor.status": "untapped"
+                    }
                   ]
                 },
-                "apply": { "type": "remove-constraint", "select": "constraint-source" }
+                "apply": {
+                  "type": "remove-constraint",
+                  "select": "constraint-source"
+                }
               }
             }
           ]
@@ -373,22 +497,67 @@
       {
         "type": "on-event",
         "event": "untap-phase-end",
-        "when": { "bearer.atHaven": true },
-        "apply": { "type": "force-check", "check": "corruption" },
+        "when": {
+          "bearer.atHaven": true
+        },
+        "apply": {
+          "type": "force-check",
+          "check": "corruption"
+        },
         "target": "bearer"
       },
       {
         "type": "grant-action",
         "action": "remove-self-on-roll",
-        "cost": { "tap": "bearer" },
+        "cost": {
+          "tap": "bearer"
+        },
         "apply": {
           "type": "roll-then-apply",
           "threshold": 7,
-          "onSuccess": { "type": "discard-self" }
+          "onSuccess": {
+            "type": "discard-self"
+          }
         }
       }
     ],
     "text": "Corruption. Playable on a non-Ringwraith character. Target character receives 2 corruption points and makes a corruption check at the end of his untap phase if at a Haven/Darkhaven. During his organization phase, the character may tap to attempt to remove this card. Make a roll—if the result is greater than 6, discard this card. Cannot be duplicated on a given character.",
     "certified": "2026-04-08"
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "tw-27",
+    "name": "Despair of the Heart",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/DespairoftheHeart.jpg",
+    "text": "Corruption. Playable on a non-Hobbit, non-Wizard, non-Ringwraith character. Target character receives 2 corruption points and makes a corruption check each time a character in his company becomes wounded. During his organization phase, the character may tap to attempt to remove this card. Make a roll—if the result is greater than 4, discard this card. Cannot be duplicated on a given character.",
+    "unique": false,
+    "eventType": "permanent"
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "tw-36",
+    "name": "Foul Fumes",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/FoulFumes.jpg",
+    "text": "Environment. Each moving company that has a Shadow-land [{s}] or a Dark-domain [{d}] in its site path must return to its site of origin unless it contains a ranger. Additionally, if Doors of Night is in play, each non-Haven site in play with a Shadow-land [{s}] or a Dark-domain [{d}] in its site path is tapped. This card has no effect on a minion player. Cannot be duplicated.",
+    "unique": false,
+    "eventType": "long"
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "tw-91",
+    "name": "Snowstorm",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Snowstorm.jpg",
+    "text": "Environment. Playable if Doors of Night is in play. Each moving company with a Wilderness [{w}] in its site path must return to its site of origin. Cannot be duplicated.",
+    "unique": false,
+    "eventType": "long"
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "tw-99",
+    "name": "The Ring’s Betrayal",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/TheRingsBetrayal.jpg",
+    "text": "The bearer of a Ring must make a corruption check modified by -2. If the bearer fails this corruption check, his Ring is discarded, but he remains in play.",
+    "unique": false,
+    "eventType": "short"
   }
 ]

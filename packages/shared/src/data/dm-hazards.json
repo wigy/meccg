@@ -9,18 +9,40 @@
     "effects": [
       {
         "type": "fetch-to-deck",
-        "source": ["sideboard", "discard-pile"],
-        "filter": { "cardType": { "$in": ["hazard-event", "hazard-creature"] } },
+        "source": [
+          "sideboard",
+          "discard-pile"
+        ],
+        "filter": {
+          "cardType": {
+            "$in": [
+              "hazard-event",
+              "hazard-creature"
+            ]
+          }
+        },
         "count": 1,
         "shuffle": true
       },
       {
         "type": "fetch-to-deck",
-        "source": ["sideboard", "discard-pile"],
-        "filter": { "cardType": { "$in": ["hazard-event", "hazard-creature"] } },
+        "source": [
+          "sideboard",
+          "discard-pile"
+        ],
+        "filter": {
+          "cardType": {
+            "$in": [
+              "hazard-event",
+              "hazard-creature"
+            ]
+          }
+        },
         "count": 1,
         "shuffle": true,
-        "when": { "inPlay": "Doors of Night" }
+        "when": {
+          "inPlay": "Doors of Night"
+        }
       }
     ],
     "text": "Bring one hazard from your sideboard or discard pile into your play deck and shuffle. If Doors of Night is in play, you may do this twice.",
@@ -39,15 +61,31 @@
         "requires": "site-path",
         "condition": {
           "$or": [
-            { "sitePath.wildernessCount": { "$gte": 2 } },
-            { "sitePath.shadowCount": { "$gte": 1 } },
-            { "sitePath.darkCount": { "$gte": 1 } }
+            {
+              "sitePath.wildernessCount": {
+                "$gte": 2
+              }
+            },
+            {
+              "sitePath.shadowCount": {
+                "$gte": 1
+              }
+            },
+            {
+              "sitePath.darkCount": {
+                "$gte": 1
+              }
+            }
           ]
         }
       },
       {
         "type": "creature-race-choice",
-        "exclude": ["ringwraith", "undead", "dragon"],
+        "exclude": [
+          "ringwraith",
+          "undead",
+          "dragon"
+        ],
         "apply": {
           "type": "add-constraint",
           "constraint": "creature-type-no-hazard-limit",
@@ -57,5 +95,41 @@
     ],
     "text": "Playable on a company moving with at least two Wildernesses, one Shadow-land, or one Dark-domain in their site path. When played, announce a creature type except Nazgul, Undead, or Dragons (like Orcs, Men, Slayers, Drakes, etc.). For this turn, any hazard creatures of this type played against target company do not count against the hazard limit.",
     "certified": "2026-04-14"
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "dm-55",
+    "name": "Exhalation of Decay",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/dm/ExhalationofDecay.jpg",
+    "text": "Playable on an Undead hazard creature in your discard pile. If target Undead can attack, bring it into play as a creature that attacks immediately (not counting against the hazard limit). The attack’s prowess is modified by -1.",
+    "unique": false,
+    "eventType": "short"
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "dm-71",
+    "name": "The Moon Is Dead",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/dm/TheMoonIsDead.jpg",
+    "text": "All Undead attacks receive +1 strike and +1 prowess. All Undead automatic-attacks are duplicated (i. e., each must be faced twice, including all modifications). Discard this card when an Undead attack is defeated. Cannot be duplicated.",
+    "unique": false,
+    "eventType": "permanent"
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "dm-80",
+    "name": "Rank upon Rank",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/dm/RankuponRank.jpg",
+    "text": "All non-agent Man attacks receive +1 prowess and +1 strikes. If Doors of Night is in play, all Giant attacks also receive these bonuses. Discard this card when such an affected attack (automatic, hazard creature, or otherwise) is defeated. Cannot be duplicated.",
+    "unique": false,
+    "eventType": "permanent"
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "dm-88",
+    "name": "Seized by Terror",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/dm/SeizedbyTerror.jpg",
+    "text": "Playable on a non-Wizard character, non-Ringwraith character moving in a Shadow-land [{s}] or Dark-domain [{d}] . Target character's player makes a roll and adds character's mind. If the result is less than 12, that character splits off into a different company. This new company immediately returns to his original company’s site of origin.",
+    "unique": false,
+    "eventType": "short"
   }
 ]

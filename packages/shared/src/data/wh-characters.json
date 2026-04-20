@@ -1,0 +1,68 @@
+[
+  {
+    "cardType": "minion-character",
+    "id": "wh-10",
+    "name": "Sly Southerner",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/wh/SlySoutherner.jpg",
+    "text": "Half-orc. Discard on a body check result of 9.",
+    "alignment": "ringwraith",
+    "unique": true,
+    "race": "orc",
+    "skills": [
+      "warrior",
+      "scout"
+    ],
+    "prowess": 1,
+    "body": 9,
+    "mind": 2,
+    "directInfluence": 0,
+    "marshallingPoints": 0,
+    "marshallingCategory": "character",
+    "corruptionModifier": 0,
+    "homesite": "Any Dark-hold"
+  },
+  {
+    "cardType": "minion-character",
+    "id": "wh-5",
+    "name": "Ill-favoured Fellow",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/wh/IllfavouredFellow.jpg",
+    "text": "Half-orc. Discard on a body check result of 9.",
+    "alignment": "ringwraith",
+    "unique": true,
+    "race": "orc",
+    "skills": [
+      "warrior",
+      "ranger"
+    ],
+    "prowess": 2,
+    "body": 9,
+    "mind": 3,
+    "directInfluence": 0,
+    "marshallingPoints": 1,
+    "marshallingCategory": "character",
+    "corruptionModifier": 0,
+    "homesite": "Any Dark-hold"
+  },
+  {
+    "cardType": "minion-character",
+    "id": "wh-6",
+    "name": "Lugdush",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/wh/Lugdush.jpg",
+    "text": "Unique. Uruk-hai. Discard on a body check result of 8.",
+    "alignment": "ringwraith",
+    "unique": true,
+    "race": "orc",
+    "skills": [
+      "warrior",
+      "scout"
+    ],
+    "prowess": 5,
+    "body": 8,
+    "mind": 4,
+    "directInfluence": 0,
+    "marshallingPoints": 1,
+    "marshallingCategory": "character",
+    "corruptionModifier": 0,
+    "homesite": "Isengard"
+  }
+]

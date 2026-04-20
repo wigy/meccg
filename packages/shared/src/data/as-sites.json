@@ -231,5 +231,65 @@
     "resourceDraws": 2,
     "hazardDraws": 2,
     "text": "Nearest Darkhaven: Dol Guldur Playable: Items (minor, major) Automatic-attacks: Dragon — 1 strike with 12 prowess"
+  },
+  {
+    "cardType": "hero-site",
+    "id": "as-139",
+    "name": "Gobel Mírlond",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/as/GobelMirlond.jpg",
+    "text": "Nearest Haven: Edhellond Playable: Items (minor, major) Automatic-attacks: Men — 4 strikes with 9 prowess (detainment)",
+    "alignment": "wizard",
+    "siteType": "border-hold",
+    "sitePath": [
+      "wilderness",
+      "free",
+      "coastal",
+      "wilderness"
+    ],
+    "nearestHaven": "Edhellond",
+    "region": "Harondor",
+    "playableResources": [
+      "minor",
+      "major"
+    ],
+    "automaticAttacks": [
+      {
+        "creatureType": "Men",
+        "strikes": 4,
+        "prowess": 9
+      }
+    ],
+    "resourceDraws": 2,
+    "hazardDraws": 2
+  },
+  {
+    "cardType": "hero-site",
+    "id": "as-141",
+    "name": "Raider-hold",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/as/Raiderhold.jpg",
+    "text": "Nearest Haven: Lórien Playable: Items (minor, major) Automatic-attacks: Men — 4 strikes with 9 prowess (detainment)",
+    "alignment": "wizard",
+    "siteType": "border-hold",
+    "sitePath": [
+      "wilderness",
+      "shadow",
+      "shadow",
+      "shadow"
+    ],
+    "nearestHaven": "Lórien",
+    "region": "Horse Plains",
+    "playableResources": [
+      "minor",
+      "major"
+    ],
+    "automaticAttacks": [
+      {
+        "creatureType": "Men",
+        "strikes": 4,
+        "prowess": 9
+      }
+    ],
+    "resourceDraws": 3,
+    "hazardDraws": 4
   }
 ]

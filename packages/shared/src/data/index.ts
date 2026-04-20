@@ -23,6 +23,7 @@ import twHazards from './tw-hazards.json';
 
 // ---- Against the Shadow (AS) — minion expansion ----
 import asCharacters from './as-characters.json';
+import asCreatures from './as-creatures.json';
 import asHazards from './as-hazards.json';
 import asSites from './as-sites.json';
 import asResources from './as-resources.json';
@@ -37,6 +38,8 @@ import leSites from './le-sites.json';
 import leItems from './le-items.json';
 
 // ---- The White Hand (WH) — fallen-wizard expansion ----
+import whCharacters from './wh-characters.json';
+import whItems from './wh-items.json';
 import whResources from './wh-resources.json';
 import whSites from './wh-sites.json';
 
@@ -52,6 +55,7 @@ import tdCreatures from './td-creatures.json';
 import dmCreatures from './dm-creatures.json';
 import dmHazards from './dm-hazards.json';
 import dmResources from './dm-resources.json';
+import dmSites from './dm-sites.json';
 
 // ---- The Balrog (BA) — balrog expansion ----
 import baCharacters from './ba-characters.json';
@@ -73,6 +77,7 @@ const allCards: readonly CardDefinition[] = [
   ...(twRegions as unknown as CardDefinition[]),
   // Against the Shadow
   ...(asCharacters as unknown as CardDefinition[]),
+  ...(asCreatures as unknown as CardDefinition[]),
   ...(asHazards as unknown as CardDefinition[]),
   ...(asSites as unknown as CardDefinition[]),
   // The Lidless Eye
@@ -83,6 +88,8 @@ const allCards: readonly CardDefinition[] = [
   ...(leSites as unknown as CardDefinition[]),
   ...(leItems as unknown as CardDefinition[]),
   // The White Hand
+  ...(whCharacters as unknown as CardDefinition[]),
+  ...(whItems as unknown as CardDefinition[]),
   ...(whResources as unknown as CardDefinition[]),
   ...(whSites as unknown as CardDefinition[]),
   // The Dragons
@@ -96,6 +103,7 @@ const allCards: readonly CardDefinition[] = [
   ...(dmCreatures as unknown as CardDefinition[]),
   ...(dmHazards as unknown as CardDefinition[]),
   ...(dmResources as unknown as CardDefinition[]),
+  ...(dmSites as unknown as CardDefinition[]),
   // The Balrog
   ...(baCharacters as unknown as CardDefinition[]),
   ...(baSites as unknown as CardDefinition[]),
