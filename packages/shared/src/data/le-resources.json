@@ -195,6 +195,7 @@
     "marshallingPoints": 2,
     "marshallingCategory": "faction",
     "influenceNumber": 9,
+    "inPlayInfluenceNumber": 0,
     "race": "orc",
     "playableAt": [
       {

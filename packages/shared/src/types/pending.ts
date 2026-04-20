@@ -79,8 +79,8 @@ export interface OpponentInfluenceAttempt {
   readonly influencerId: CardInstanceId;
   /** The opponent's targeted card instance ID. */
   readonly targetInstanceId: CardInstanceId;
-  /** Whether the target is a character or ally. */
-  readonly targetKind: 'character' | 'ally';
+  /** Whether the target is a character, ally, or faction. */
+  readonly targetKind: 'character' | 'ally' | 'faction';
   /** The target's player ID. */
   readonly targetPlayer: PlayerId;
   /** The attacker's 2d6 roll result. */
