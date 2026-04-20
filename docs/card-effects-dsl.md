@@ -365,14 +365,32 @@ strings to chase through the engine.
   suppress the character body check (rule 3.II.1), do not trigger
   `on-wounded` passives (rule 3.II.1.1), and zero kill-MP for the
   defeated creature (rule 3.II.3 — discarded instead of routed to the
-  attacked player's kill pile). No fields. (implemented in
-  `engine/detainment.ts`, `reducer-combat.ts`)
+  attacked player's kill pile). Accepts the shared optional `when`
+  clause, evaluated against `{ defender: { alignment, covert } }` at
+  combat-initiation time; use it to express card text like "detainment
+  against hero companies" or "detainment against covert and hero
+  companies". (implemented in `engine/detainment.ts`,
+  `reducer-combat.ts`)
 
 ```json
 { "type": "combat-attacker-chooses-defenders" }
 { "type": "combat-multi-attack", "count": 3 }
 { "type": "combat-cancel-attack-by-tap", "maxCancels": 2 }
 { "type": "combat-detainment" }
+{
+  "type": "combat-detainment",
+  "when": {
+    "$or": [
+      { "defender.alignment": "hero" },
+      {
+        "$and": [
+          { "defender.alignment": "fallen-wizard" },
+          { "defender.covert": true }
+        ]
+      }
+    ]
+  }
+}
 ```
 
 ### 13. `play-restriction`

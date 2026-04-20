@@ -293,7 +293,20 @@
     "race": "elves",
     "keyedTo": [],
     "effects": [
-      { "type": "combat-detainment" }
+      {
+        "type": "combat-detainment",
+        "when": {
+          "$or": [
+            { "defender.alignment": "hero" },
+            {
+              "$and": [
+                { "defender.alignment": "fallen-wizard" },
+                { "defender.covert": true }
+              ]
+            }
+          ]
+        }
+      }
     ]
   },
   {
@@ -310,7 +323,20 @@
     "race": "elves",
     "keyedTo": [],
     "effects": [
-      { "type": "combat-detainment" }
+      {
+        "type": "combat-detainment",
+        "when": {
+          "$or": [
+            { "defender.alignment": "hero" },
+            {
+              "$and": [
+                { "defender.alignment": "fallen-wizard" },
+                { "defender.covert": true }
+              ]
+            }
+          ]
+        }
+      }
     ]
   },
   {

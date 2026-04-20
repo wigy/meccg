@@ -23,6 +23,7 @@
 import type { CardEffect } from '../types/effects.js';
 import type { CreatureKeyRestriction } from '../types/cards-hazards.js';
 import { Alignment, Race, RegionType, SiteType } from '../types/common.js';
+import { matchesCondition } from '../effects/condition-matcher.js';
 import { logDetail } from './legal-actions/log.js';
 
 /**
@@ -41,6 +42,16 @@ export interface DetainmentContext {
   readonly attackKeyedTo?: readonly CreatureKeyRestriction[];
   /** Alignment of the defending player. */
   readonly defendingAlignment: Alignment;
+  /**
+   * Whether the defending company is in covert mode (Fallen-wizard
+   * covert toggle). Referenced by card-level `combat-detainment` `when`
+   * clauses such as "detainment against covert and hero companies".
+   * Covert/overt mode is not yet implemented on companies — call sites
+   * currently pass `false`. When the toggle is wired, threading the
+   * real company value here makes the affected cards automatically
+   * correct.
+   */
+  readonly defendingCovert?: boolean;
   /**
    * Whether the attack is an agent-hazard attack (rule 3.II.2.R3/B3).
    * The engine does not yet tag agents explicitly — when that data
@@ -70,9 +81,25 @@ const DARK_SITE_TYPES: ReadonlySet<SiteType> = new Set<SiteType>([
  * trace reveals why the flag was set.
  */
 export function isDetainmentAttack(ctx: DetainmentContext): boolean {
-  if ((ctx.attackEffects ?? []).some(e => e.type === 'combat-detainment')) {
-    logDetail('Detainment: attack declares combat-detainment effect (§3.II.2)');
-    return true;
+  const conditionContext = {
+    defender: {
+      alignment: ctx.defendingAlignment,
+      covert: ctx.defendingCovert ?? false,
+    },
+  };
+  for (const effect of ctx.attackEffects ?? []) {
+    if (effect.type !== 'combat-detainment') continue;
+    if (!effect.when || matchesCondition(effect.when, conditionContext)) {
+      logDetail(
+        effect.when
+          ? `Detainment: combat-detainment effect matches defender alignment=${ctx.defendingAlignment} (§3.II.2)`
+          : 'Detainment: attack declares combat-detainment effect (§3.II.2)',
+      );
+      return true;
+    }
+    logDetail(
+      `Detainment: combat-detainment effect skipped; when-clause false for defender alignment=${ctx.defendingAlignment}`,
+    );
   }
 
   const isMinion = ctx.defendingAlignment === Alignment.Ringwraith;
