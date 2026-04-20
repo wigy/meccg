@@ -15,8 +15,8 @@
  * | # | Feature                                    | Status      | Notes                                  |
  * |---|--------------------------------------------|-------------|----------------------------------------|
  * | 1 | +4 corruption points to bearer             | IMPLEMENTED | itemDef.corruptionPoints summed        |
- * | 2 | Forced corruption check at end of untap    | IMPLEMENTED | on-event untap-phase-end fires for any |
- * |   |                                            |             | site (haven or non-haven)              |
+ * | 2 | Forced corruption check at end of untap    | IMPLEMENTED | on-event untap-phase-end (no when)     |
+ * |   |                                            |             | fires for any site (haven or non-haven)|
  * | 3 | Discard when tested (gold-ring test action)| IMPLEMENTED | grant-action test-gold-ring discards   |
  * |   |                                            |             | the targeted gold ring item            |
  *

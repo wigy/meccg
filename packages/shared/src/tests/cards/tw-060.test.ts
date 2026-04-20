@@ -5,7 +5,7 @@
  * Type: hazard-event (permanent, character-targeting corruption hazard)
  * Effects: 5 (play-target character, duplication-limit scope:character max:1,
  *             stat-modifier corruption-points +2,
- *             on-event untap-phase-at-haven force-check corruption,
+ *             on-event untap-phase-end when bearer.atHaven force-check corruption,
  *             grant-action remove-self-on-roll cost:tap-bearer threshold:7)
  *
  * "Corruption. Playable on a non-Ringwraith character. Target character
@@ -20,8 +20,9 @@
  * |---|----------------------------------------|-------------|----------------------------------------|
  * | 1 | Play from hand targeting char           | IMPLEMENTED | play-hazard with targetCharacterId     |
  * | 2 | +2 corruption points while attached     | IMPLEMENTED | stat-modifier corruption-points +2     |
- * | 3 | Untap-end haven corruption check        | IMPLEMENTED | on-event untap-phase-at-haven enqueues |
- * |   |                                         |             | a corruption-check pending resolution  |
+ * | 3 | Untap-end haven corruption check        | IMPLEMENTED | on-event untap-phase-end gated by      |
+ * |   |                                         |             | when bearer.atHaven enqueues a         |
+ * |   |                                         |             | corruption-check pending resolution    |
  * | 4 | Tap to attempt removal (roll>6)         | IMPLEMENTED | grant-action remove-self-on-roll       |
  * | 5 | Cannot be duplicated on a character     | IMPLEMENTED | duplication-limit scope:character max:1|
  *
@@ -87,7 +88,7 @@ describe('Lure of the Senses (tw-60)', () => {
     const afterUntap = dispatch(withLure, { type: 'untap', player: PLAYER_1 });
 
     // Hazard player passes — transitions to Organization and triggers
-    // the untap-phase-at-haven event for Lure.
+    // the untap-phase-end event for Lure (gated by when bearer.atHaven).
     const afterPass = dispatch(afterUntap, { type: 'pass', player: PLAYER_2 });
     expect(afterPass.phaseState.phase).toBe(Phase.Organization);
 
