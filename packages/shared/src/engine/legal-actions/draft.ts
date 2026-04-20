@@ -11,6 +11,7 @@
 
 import type { GameState, PlayerId, EvaluatedAction } from '../../index.js';
 import { GENERAL_INFLUENCE, getAlignmentRules, isCharacterCard, evaluateAction, CHARACTER_DRAFT_RULES, getPlayerIndex } from '../../index.js';
+import { hasPlayFlag } from '../../effects/play-flags.js';
 import { logDetail } from './log.js';
 
 export function draftActions(state: GameState, playerId: PlayerId): EvaluatedAction[] {
@@ -66,6 +67,7 @@ export function draftActions(state: GameState, playerId: PlayerId): EvaluatedAct
         isCharacter: isChar,
         mind,
         unique: isChar ? charDef.unique : false,
+        cannotBeStartingCharacter: isChar && hasPlayFlag(charDef, 'not-starting-character'),
       },
       ctx: {
         opponentHasCard: opponentDrafted.has(charCard.definitionId as string),

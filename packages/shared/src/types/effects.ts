@@ -542,8 +542,12 @@ export interface CombatDetainmentEffect extends EffectBase {
  *   hazard menus (e.g. Sudden Call, le-235).
  * - `no-hazard-limit` — playing this hazard does not consume a slot
  *   against the per-company hazard limit (e.g. Twilight, Lure).
+ * - `not-starting-character` — character may not be drafted as one of
+ *   the player's starting characters (e.g. Fram Framson). The character
+ *   can still be shuffled into the play deck and brought into play
+ *   normally.
  */
-export type PlayFlag = 'home-site-only' | 'playable-as-resource' | 'playable-as-hazard' | 'no-hazard-limit';
+export type PlayFlag = 'home-site-only' | 'playable-as-resource' | 'playable-as-hazard' | 'no-hazard-limit' | 'not-starting-character';
 
 /**
  * Declares a closed play-flag keyword on a card. See {@link PlayFlag}
