@@ -3824,6 +3824,14 @@ h2 {
     0 0 14px rgba(120, 200, 255, 0.2);
 }
 
+/* Constraint card whose source offers a granted action (e.g. River + ranger tap) */
+.constraint-card--activatable {
+  border-color: rgba(var(--color-selectable), 0.9);
+  box-shadow:
+    0 0 8px rgba(var(--color-selectable), 0.7),
+    0 0 20px rgba(var(--color-selectable), 0.4);
+}
+
 /* Site card not physically owned (split-off company) — ghosted with dashed border */
 .company-card--site-ghost {
   opacity: 0.2;

@@ -182,6 +182,7 @@ export function renderCompanyBlock(
   row.appendChild(renderSiteArea(company, view, cardPool, {
     hasLegalMovement: options?.hasLegalMovement,
     onAction: options?.onAction,
+    grantedActions: options?.grantedActions,
   }));
 
   // Characters — title character always rendered first (leftmost after site).

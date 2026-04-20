@@ -251,12 +251,21 @@ describe('River (tw-84)', () => {
 
   test('cancel-constraint is offered during M/H phase so a ranger can pre-empt River', () => {
     const base = buildTestState({ ...SITE_SCENARIO, phase: Phase.MovementHazard, recompute: true });
-    const { state } = installRiverOnActiveCompany({ ...base, phaseState: makeMHState() }, RIVER);
+    const { state, riverInstance } = installRiverOnActiveCompany({ ...base, phaseState: makeMHState() }, RIVER);
 
     const cancelActions = viableActions(state, PLAYER_1, 'activate-granted-action')
       .filter(ea => (ea.action as ActivateGrantedAction).actionId === 'cancel-river');
     expect(cancelActions).toHaveLength(1);
     expect((cancelActions[0].action as ActivateGrantedAction).characterId).toBe(charIdAt(state, RESOURCE_PLAYER));
+
+    // The UI ties this legal action to the River card rendered in the
+    // constraint strip via sourceCardId === constraint.source. If the engine
+    // stops populating sourceCardId, the strip's click handler goes dark.
+    expect((cancelActions[0].action as ActivateGrantedAction).sourceCardId).toBe(riverInstance);
+    const riverConstraintSources = state.activeConstraints
+      .filter(c => c.sourceDefinitionId === RIVER)
+      .map(c => c.source);
+    expect(riverConstraintSources).toContain((cancelActions[0].action as ActivateGrantedAction).sourceCardId);
   });
 
   test('tapping a ranger during M/H via reduce() removes the River constraint', () => {

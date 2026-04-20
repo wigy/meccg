@@ -16,11 +16,13 @@ import type {
   OpponentCompanyView,
   DeclarePathAction,
   RegionType,
+  ActivateGrantedAction,
 } from '@meccg/shared';
 import { cardImageProxyPath, isSiteCard, Phase, CardStatus, viableActions, describeAction } from '@meccg/shared';
 import { createCardImage, createRegionTypeIcon } from './render-utils.js';
 import { openMovementViewer, getSelectedHazardForPlay, getSelectedHazardOnGuardAction, clearHazardPlaySelection } from './render.js';
 import { getCachedInstanceLookup } from './company-view-state.js';
+import { showGrantedActionTooltip } from './company-modals.js';
 
 /** Resolve a card instance ID to its definition via the cached instance lookup. */
 export function resolveCardDef(
@@ -104,7 +106,16 @@ export function renderSiteArea(
   company: Company | OpponentCompanyView,
   view: PlayerView,
   cardPool: Readonly<Record<string, CardDefinition>>,
-  options?: { hasLegalMovement?: boolean; onAction?: (action: GameAction) => void },
+  options?: {
+    hasLegalMovement?: boolean;
+    onAction?: (action: GameAction) => void;
+    /**
+     * Activate-granted-action legal actions, keyed by source card instance ID.
+     * Used to make constraint cards clickable (e.g. tapping a ranger to cancel
+     * a River constraint).
+     */
+    grantedActions?: Map<string, ActivateGrantedAction[]>;
+  },
 ): HTMLElement {
   const cachedInstanceLookup = getCachedInstanceLookup();
   const area = document.createElement('div');
@@ -322,11 +333,19 @@ export function renderSiteArea(
     }
   }
 
-  // Active constraints (Stealth, River, etc.) — small cards beside the site
+  // Active constraints (Stealth, River, etc.) — small cards beside the site.
+  // Multiple constraints may share the same source card (e.g. River adds both
+  // site-phase-do-nothing and a granted-action cancel-river) — dedupe by source
+  // so each source card shows exactly once in the strip.
   const companyConstraints = (view.activeConstraints ?? []).filter(
     c => c.target.kind === 'company' && c.target.companyId === company.id,
   );
-  if (companyConstraints.length > 0) {
+  const uniqueConstraintsBySource = new Map<string, typeof companyConstraints[number]>();
+  for (const c of companyConstraints) {
+    const key = c.source as string;
+    if (!uniqueConstraintsBySource.has(key)) uniqueConstraintsBySource.set(key, c);
+  }
+  if (uniqueConstraintsBySource.size > 0) {
     // Wrap the on-guard wrapper (if present) or the last site card
     const ogWrapper = area.querySelector<HTMLElement>('.on-guard-wrapper');
     const siteImages = area.querySelectorAll('.company-card--site');
@@ -339,7 +358,8 @@ export function renderSiteArea(
 
       const strip = document.createElement('div');
       strip.className = 'constraint-strip';
-      for (const constraint of companyConstraints) {
+      const onAction = options?.onAction;
+      for (const constraint of uniqueConstraintsBySource.values()) {
         const cDefId = constraint.sourceDefinitionId ?? cachedInstanceLookup(constraint.source);
         const cDef = cDefId ? cardPool[cDefId as string] : undefined;
         const cImgPath = cDef ? cardImageProxyPath(cDef) : undefined;
@@ -353,6 +373,27 @@ export function renderSiteArea(
           cImg.alt = 'Active constraint';
           cImg.className = 'constraint-card';
         }
+
+        // If the constraint source has activatable granted actions (e.g.
+        // ranger tap to cancel River), make the card clickable.
+        const grantedForSource = options?.grantedActions?.get(constraint.source as string);
+        if (onAction && grantedForSource && grantedForSource.length > 0) {
+          cImg.classList.add('constraint-card--activatable');
+          cImg.style.cursor = 'pointer';
+          if (grantedForSource.length === 1) {
+            const action = grantedForSource[0];
+            cImg.addEventListener('click', (e) => {
+              e.stopPropagation();
+              onAction(action);
+            });
+          } else {
+            cImg.addEventListener('click', (e) => {
+              e.stopPropagation();
+              showGrantedActionTooltip(e.currentTarget as HTMLElement, grantedForSource, onAction);
+            });
+          }
+        }
+
         strip.appendChild(cImg);
       }
       anchor.appendChild(strip);
