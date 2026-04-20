@@ -50,6 +50,9 @@ next_request_id() {
     | jq -r '[.requests[] | select(.topic != "feature-request")][0].id // empty' 2>/dev/null
 }
 
+IDLE_BACKOFF=(60 120 240 480 960 1920 3600)
+idle_index=0
+
 while true; do
   git checkout master 2>&1 | tee -a "$LOG_FILE"
   git pull 2>&1 | tee -a "$LOG_FILE"
@@ -57,11 +60,16 @@ while true; do
   MSG_ID=$(next_request_id)
 
   if [ -z "$MSG_ID" ]; then
-    echo "=== No pending requests at $(date -Iseconds), sleeping ===" | tee -a "$LOG_FILE"
-    sleep 60
+    delay="${IDLE_BACKOFF[$idle_index]}"
+    echo "=== No pending requests at $(date -Iseconds), sleeping ${delay}s ===" | tee -a "$LOG_FILE"
+    sleep "$delay"
+    if [ "$idle_index" -lt $((${#IDLE_BACKOFF[@]} - 1)) ]; then
+      idle_index=$((idle_index + 1))
+    fi
     continue
   fi
 
+  idle_index=0
   echo "=== Handling $MSG_ID at $(date -Iseconds) ===" | tee -a "$LOG_FILE"
   "$SCRIPT_DIR/handle-mail" "$MSG_ID" 2>&1 | tee -a "$LOG_FILE"
   echo "=== Finished $MSG_ID at $(date -Iseconds) ===" | tee -a "$LOG_FILE"
