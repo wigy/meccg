@@ -62,7 +62,8 @@
     "effects": [
       { "type": "site-rule", "rule": "auto-test-gold-ring", "rollModifier": -2 },
       { "type": "site-rule", "rule": "cancel-attacks" }
-    ]
+    ],
+    "certified": "2026-04-20"
   },
   {
     "cardType": "minion-site",
