@@ -288,8 +288,15 @@
     "eventType": "short",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
-    "text": "Scout only. Tap scout to cancel an attack against his company."
+    "effects": [
+      {
+        "type": "cancel-attack",
+        "cost": { "tap": "character" },
+        "requiredSkill": "scout"
+      }
+    ],
+    "text": "Scout only. Tap scout to cancel an attack against his company.",
+    "certified": "2026-04-20"
   },
   {
     "cardType": "minion-resource-event",
