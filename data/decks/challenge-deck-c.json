@@ -5,31 +5,31 @@
   "pool": [
     {
       "name": "Dori",
-      "card": null,
+      "card": "tw-141",
       "qty": 1,
       "favourite": true
     },
     {
       "name": "Gloin",
-      "card": null,
+      "card": "tw-160",
       "qty": 1,
       "favourite": true
     },
     {
       "name": "Kili",
-      "card": null,
+      "card": "tw-167",
       "qty": 1,
       "favourite": true
     },
     {
       "name": "Thorin II",
-      "card": null,
+      "card": "tw-183",
       "qty": 1,
       "favourite": true
     },
     {
       "name": "Oin",
-      "card": null,
+      "card": "tw-172",
       "qty": 1,
       "favourite": true
     },
@@ -45,7 +45,7 @@
     },
     {
       "name": "Boromir II",
-      "card": null,
+      "card": "tw-134",
       "qty": 1
     },
     {
@@ -55,12 +55,12 @@
     },
     {
       "name": "Fili",
-      "card": null,
+      "card": "tw-150",
       "qty": 1
     },
     {
       "name": "Gildor Inglorion",
-      "card": null,
+      "card": "tw-158",
       "qty": 1
     }
   ],
@@ -68,49 +68,49 @@
     "characters": [
       {
         "name": "Pallando",
-        "card": null,
+        "card": "tw-175",
         "qty": 3
       }
     ],
     "hazards": [
       {
         "name": "Cave-worm",
-        "card": null,
+        "card": "td-8",
         "qty": 3
       },
       {
         "name": "Despair of the Heart",
-        "card": null,
+        "card": "tw-27",
         "qty": 3
       },
       {
         "name": "Full of Froth and Rage",
-        "card": null,
+        "card": "as-30",
         "qty": 3
       },
       {
         "name": "Giant Spiders",
-        "card": null,
+        "card": "tw-40",
         "qty": 3
       },
       {
         "name": "Lesser Spiders",
-        "card": null,
+        "card": "td-42",
         "qty": 3
       },
       {
         "name": "Neeker-breekers",
-        "card": null,
+        "card": "tw-493",
         "qty": 2
       },
       {
         "name": "River",
-        "card": null,
+        "card": "tw-84",
         "qty": 2
       },
       {
         "name": "Seized by Terror",
-        "card": null,
+        "card": "dm-88",
         "qty": 2
       },
       {
@@ -125,34 +125,34 @@
       },
       {
         "name": "Wargs",
-        "card": null,
+        "card": "tw-109",
         "qty": 2
       },
       {
         "name": "Watcher in the Water",
-        "card": null,
+        "card": "tw-110",
         "qty": 3
       }
     ],
     "resources": [
       {
         "name": "A Friend or Three",
-        "card": null,
+        "card": "tw-189",
         "qty": 2
       },
       {
         "name": "Book of Mazarbul",
-        "card": null,
+        "card": "tw-201",
         "qty": 1
       },
       {
         "name": "Bounty of the Hoard",
-        "card": null,
+        "card": "td-101",
         "qty": 1
       },
       {
         "name": "Bow of Dragon-horn",
-        "card": null,
+        "card": "td-102",
         "qty": 1
       },
       {
@@ -162,27 +162,27 @@
       },
       {
         "name": "Durin's Axe",
-        "card": null,
+        "card": "tw-212",
         "qty": 1
       },
       {
         "name": "Enruned Shield",
-        "card": null,
+        "card": "td-114",
         "qty": 1
       },
       {
         "name": "Fellowship",
-        "card": null,
+        "card": "tw-240",
         "qty": 2
       },
       {
         "name": "Gollum",
-        "card": null,
+        "card": "tw-246",
         "qty": 1
       },
       {
         "name": "Great Road",
-        "card": null,
+        "card": "tw-249",
         "qty": 1
       },
       {
@@ -192,22 +192,22 @@
       },
       {
         "name": "Hundreds of Butterflies",
-        "card": null,
+        "card": "dm-142",
         "qty": 1
       },
       {
         "name": "Iron Hill Dwarves",
-        "card": null,
+        "card": "tw-261",
         "qty": 1
       },
       {
         "name": "Lucky Search",
-        "card": null,
+        "card": "tw-269",
         "qty": 1
       },
       {
         "name": "Magical Harp",
-        "card": null,
+        "card": "td-130",
         "qty": 1
       },
       {
@@ -217,22 +217,22 @@
       },
       {
         "name": "Men of Dorwinion",
-        "card": null,
+        "card": "tw-278",
         "qty": 2
       },
       {
         "name": "Not at Home",
-        "card": null,
+        "card": "td-143",
         "qty": 2
       },
       {
         "name": "Quickbeam",
-        "card": null,
+        "card": "tw-307",
         "qty": 1
       },
       {
         "name": "Risky Blow",
-        "card": null,
+        "card": "tw-319",
         "qty": 1
       },
       {
@@ -242,17 +242,17 @@
       },
       {
         "name": "The Dwarves Are upon You!",
-        "card": null,
+        "card": "dm-124",
         "qty": 2
       },
       {
         "name": "Thror's Map",
-        "card": null,
+        "card": "td-158",
         "qty": 1
       },
       {
         "name": "Wormsbane",
-        "card": null,
+        "card": "td-172",
         "qty": 1
       }
     ]
@@ -265,17 +265,17 @@
     },
     {
       "name": "Buhr Widu",
-      "card": null,
+      "card": "td-173",
       "qty": 1
     },
     {
       "name": "Caves of Ulund",
-      "card": null,
+      "card": "tw-381",
       "qty": 1
     },
     {
       "name": "Dead Marshes",
-      "card": null,
+      "card": "tw-384",
       "qty": 1
     },
     {
@@ -290,7 +290,7 @@
     },
     {
       "name": "Iron Hill Dwarf-hold",
-      "card": null,
+      "card": "tw-403",
       "qty": 1
     },
     {
@@ -305,7 +305,7 @@
     },
     {
       "name": "Ovir Hollow",
-      "card": null,
+      "card": "td-179",
       "qty": 1
     },
     {
@@ -315,17 +315,17 @@
     },
     {
       "name": "Sarn Goriwing",
-      "card": null,
+      "card": "tw-423",
       "qty": 1
     },
     {
       "name": "Shrel-Kain",
-      "card": null,
+      "card": "tw-425",
       "qty": 1
     },
     {
       "name": "The Lonely Mountain",
-      "card": null,
+      "card": "tw-428",
       "qty": 1
     },
     {
@@ -352,7 +352,7 @@
     },
     {
       "name": "Not at Home",
-      "card": null,
+      "card": "td-143",
       "qty": 1
     },
     {
@@ -367,12 +367,12 @@
     },
     {
       "name": "The Old Thrush",
-      "card": null,
+      "card": "tw-346",
       "qty": 1
     },
     {
       "name": "Covetous Thoughts",
-      "card": null,
+      "card": "le-107",
       "qty": 2
     },
     {
@@ -382,12 +382,12 @@
     },
     {
       "name": "Ghosts",
-      "card": null,
+      "card": "tw-37",
       "qty": 3
     },
     {
       "name": "Lost in Free-domains",
-      "card": null,
+      "card": "tw-53",
       "qty": 1
     },
     {

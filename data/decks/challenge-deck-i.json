@@ -5,7 +5,7 @@
   "pool": [
     {
       "name": "Orc Brawler",
-      "card": null,
+      "card": "le-30",
       "qty": 1,
       "favourite": true
     },
@@ -17,19 +17,19 @@
     },
     {
       "name": "Horseman in the Night",
-      "card": null,
+      "card": "le-16",
       "qty": 1,
       "favourite": true
     },
     {
       "name": "Ill-favoured Fellow",
-      "card": null,
+      "card": "wh-5",
       "qty": 1,
       "favourite": true
     },
     {
       "name": "Orc Veteran",
-      "card": null,
+      "card": "le-35",
       "qty": 1,
       "favourite": true
     },
@@ -40,7 +40,7 @@
     },
     {
       "name": "Orc Brawler",
-      "card": null,
+      "card": "le-30",
       "qty": 2
     },
     {
@@ -50,7 +50,7 @@
     },
     {
       "name": "Orc Tracker",
-      "card": null,
+      "card": "le-34",
       "qty": 3
     }
   ],
@@ -58,7 +58,7 @@
     "characters": [
       {
         "name": "The Witch-king",
-        "card": null,
+        "card": "le-58",
         "qty": 3
       }
     ],
@@ -85,12 +85,12 @@
       },
       {
         "name": "Ghosts",
-        "card": null,
+        "card": "le-72",
         "qty": 2
       },
       {
         "name": "Long Winter",
-        "card": null,
+        "card": "le-117",
         "qty": 3
       },
       {
@@ -105,7 +105,7 @@
       },
       {
         "name": "Snowstorm",
-        "card": null,
+        "card": "tw-91",
         "qty": 1
       },
       {
@@ -120,89 +120,89 @@
       },
       {
         "name": "Withered Lands",
-        "card": null,
+        "card": "td-85",
         "qty": 3
       }
     ],
     "resources": [
       {
         "name": "Asdriags",
-        "card": null,
+        "card": "as-111",
         "qty": 1
       },
       {
         "name": "Awaiting the Call",
-        "card": null,
+        "card": "le-165",
         "qty": 2
       },
       {
         "name": "Blasting Fire",
-        "card": null,
+        "card": "wh-51",
         "qty": 3
       },
       {
         "name": "Fell Rider",
-        "card": null,
+        "card": "le-183",
         "qty": 2
       },
       {
         "name": "Gifts as Given of Old",
-        "card": null,
+        "card": "le-188",
         "qty": 2
       },
       {
         "name": "Great Bats",
-        "card": null,
+        "card": "as-74",
         "qty": 3
       },
       {
         "name": "Helm of Fear",
-        "card": null,
+        "card": "as-126",
         "qty": 1
       },
       {
         "name": "Nurniags",
-        "card": null,
+        "card": "le-273",
         "qty": 1
       },
       {
         "name": "Orcs of the Ash Mountains",
-        "card": null,
+        "card": "le-279",
         "qty": 1
       },
       {
         "name": "Orcs of Udun",
-        "card": null,
+        "card": "le-282",
         "qty": 1
       },
       {
         "name": "Palantir of Minas Tirith",
-        "card": null,
+        "card": "le-333",
         "qty": 1
       },
       {
         "name": "Records Unread",
-        "card": null,
+        "card": "as-130",
         "qty": 1
       },
       {
         "name": "That Ain't No Secret",
-        "card": null,
+        "card": "le-240",
         "qty": 3
       },
       {
         "name": "Under His Blow",
-        "card": null,
+        "card": "le-247",
         "qty": 1
       },
       {
         "name": "Uruk-hai",
-        "card": null,
+        "card": "le-291",
         "qty": 1
       },
       {
         "name": "Vile Fumes",
-        "card": null,
+        "card": "wh-54",
         "qty": 3
       },
       {
@@ -220,7 +220,7 @@
   "sites": [
     {
       "name": "Dead Marshes",
-      "card": null,
+      "card": "le-364",
       "qty": 1
     },
     {
@@ -235,32 +235,32 @@
     },
     {
       "name": "Sarn Goriwing",
-      "card": null,
+      "card": "le-401",
       "qty": 1
     },
     {
       "name": "Shelob's Lair",
-      "card": null,
+      "card": "le-402",
       "qty": 1
     },
     {
       "name": "Barad-dur",
-      "card": null,
+      "card": "le-352",
       "qty": 4
     },
     {
       "name": "Carn Dum",
-      "card": null,
+      "card": "le-359",
       "qty": 4
     },
     {
       "name": "Cirith Gorgor",
-      "card": null,
+      "card": "le-361",
       "qty": 1
     },
     {
       "name": "Cirith Ungol",
-      "card": null,
+      "card": "le-362",
       "qty": 1
     },
     {
@@ -280,19 +280,19 @@
     },
     {
       "name": "Nurniag Camp",
-      "card": null,
+      "card": "le-396",
       "qty": 1
     }
   ],
   "sideboard": [
     {
       "name": "Above the Abyss",
-      "card": null,
+      "card": "as-77",
       "qty": 2
     },
     {
       "name": "Black Trolls",
-      "card": null,
+      "card": "le-262",
       "qty": 1
     },
     {
@@ -302,7 +302,7 @@
     },
     {
       "name": "Last Child of Ungoliant",
-      "card": null,
+      "card": "le-153",
       "qty": 1
     },
     {
@@ -322,12 +322,12 @@
     },
     {
       "name": "Corsairs of Umbar",
-      "card": null,
+      "card": "tw-24",
       "qty": 2
     },
     {
       "name": "Cruel Caradhras",
-      "card": null,
+      "card": "td-9",
       "qty": 1
     },
     {
@@ -337,12 +337,12 @@
     },
     {
       "name": "Foul Fumes",
-      "card": null,
+      "card": "tw-36",
       "qty": 2
     },
     {
       "name": "Ghosts",
-      "card": null,
+      "card": "le-72",
       "qty": 2
     },
     {
@@ -352,12 +352,12 @@
     },
     {
       "name": "Scatha Ahunt",
-      "card": null,
+      "card": "td-61",
       "qty": 1
     },
     {
       "name": "Stench of Mordor",
-      "card": null,
+      "card": "le-141",
       "qty": 1
     },
     {

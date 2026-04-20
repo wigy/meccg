@@ -5,7 +5,7 @@
   "pool": [
     {
       "name": "Annalena",
-      "card": null,
+      "card": "tw-119",
       "qty": 1,
       "favourite": true
     },
@@ -17,7 +17,7 @@
     },
     {
       "name": "Arwen",
-      "card": null,
+      "card": "tw-122",
       "qty": 1,
       "favourite": true
     },
@@ -29,17 +29,17 @@
     },
     {
       "name": "Elf-stone",
-      "card": null,
+      "card": "tw-224",
       "qty": 1
     },
     {
       "name": "Star-glass",
-      "card": null,
+      "card": "tw-330",
       "qty": 1
     },
     {
       "name": "Beretar",
-      "card": null,
+      "card": "tw-128",
       "qty": 1
     },
     {
@@ -49,22 +49,22 @@
     },
     {
       "name": "Boromir II",
-      "card": null,
+      "card": "tw-134",
       "qty": 1
     },
     {
       "name": "Forlong",
-      "card": null,
+      "card": "tw-151",
       "qty": 1
     },
     {
       "name": "Imrahil",
-      "card": null,
+      "card": "tw-166",
       "qty": 1
     },
     {
       "name": "Thranduil",
-      "card": null,
+      "card": "tw-184",
       "qty": 1
     }
   ],
@@ -84,7 +84,7 @@
       },
       {
         "name": "Cave-worm",
-        "card": null,
+        "card": "td-8",
         "qty": 3
       },
       {
@@ -94,12 +94,12 @@
       },
       {
         "name": "Corsairs of Umbar",
-        "card": null,
+        "card": "tw-24",
         "qty": 1
       },
       {
         "name": "Ent in Search of the Entwives",
-        "card": null,
+        "card": "le-71",
         "qty": 3
       },
       {
@@ -109,7 +109,7 @@
       },
       {
         "name": "Ghosts",
-        "card": null,
+        "card": "tw-37",
         "qty": 2
       },
       {
@@ -124,17 +124,17 @@
       },
       {
         "name": "Nothing to Eat or Drink",
-        "card": null,
+        "card": "le-128",
         "qty": 1
       },
       {
         "name": "Power Built by Waiting",
-        "card": null,
+        "card": "as-34",
         "qty": 1
       },
       {
         "name": "Pukel-men",
-        "card": null,
+        "card": "tw-82",
         "qty": 1
       },
       {
@@ -149,12 +149,12 @@
       },
       {
         "name": "Sellswords Between Charters",
-        "card": null,
+        "card": "le-89",
         "qty": 2
       },
       {
         "name": "Tidings of Bold Spies",
-        "card": null,
+        "card": "le-143",
         "qty": 2
       },
       {
@@ -166,7 +166,7 @@
     "resources": [
       {
         "name": "Beautiful Gold Ring",
-        "card": null,
+        "card": "tw-196",
         "qty": 3
       },
       {
@@ -196,12 +196,12 @@
       },
       {
         "name": "Lesser Ring",
-        "card": null,
+        "card": "tw-266",
         "qty": 2
       },
       {
         "name": "Magic Ring of Stealth",
-        "card": null,
+        "card": "tw-274",
         "qty": 1
       },
       {
@@ -211,17 +211,17 @@
       },
       {
         "name": "Narsil",
-        "card": null,
+        "card": "tw-289",
         "qty": 1
       },
       {
         "name": "Noble Steed",
-        "card": null,
+        "card": "wh-33",
         "qty": 2
       },
       {
         "name": "Quickbeam",
-        "card": null,
+        "card": "tw-307",
         "qty": 1
       },
       {
@@ -231,7 +231,7 @@
       },
       {
         "name": "Return of the King",
-        "card": null,
+        "card": "tw-316",
         "qty": 1
       },
       {
@@ -246,17 +246,17 @@
       },
       {
         "name": "Sword of Gondolin",
-        "card": null,
+        "card": "tw-336",
         "qty": 1
       },
       {
         "name": "Thorough Search",
-        "card": null,
+        "card": "tw-349",
         "qty": 1
       },
       {
         "name": "Tower Guard of Minas Tirith",
-        "card": null,
+        "card": "tw-352",
         "qty": 1
       }
     ]
@@ -269,12 +269,12 @@
     },
     {
       "name": "Buhr Widu",
-      "card": null,
+      "card": "td-173",
       "qty": 1
     },
     {
       "name": "Dead Marshes",
-      "card": null,
+      "card": "tw-384",
       "qty": 1
     },
     {
@@ -294,12 +294,12 @@
     },
     {
       "name": "Gladden Fields",
-      "card": null,
+      "card": "tw-396",
       "qty": 1
     },
     {
       "name": "Haudh-in-Gwanur",
-      "card": null,
+      "card": "dm-31",
       "qty": 1
     },
     {
@@ -361,7 +361,7 @@
     },
     {
       "name": "Pallando",
-      "card": null,
+      "card": "tw-175",
       "qty": 1
     },
     {
@@ -381,12 +381,12 @@
     },
     {
       "name": "Bairanax Ahunt",
-      "card": null,
+      "card": "td-4",
       "qty": 1
     },
     {
       "name": "Corsairs of Umbar",
-      "card": null,
+      "card": "tw-24",
       "qty": 1
     },
     {
@@ -396,12 +396,12 @@
     },
     {
       "name": "Ghosts",
-      "card": null,
+      "card": "tw-37",
       "qty": 1
     },
     {
       "name": "Incite Denizens",
-      "card": null,
+      "card": "td-34",
       "qty": 1
     },
     {
@@ -411,7 +411,7 @@
     },
     {
       "name": "Nothing to Eat or Drink",
-      "card": null,
+      "card": "le-128",
       "qty": 1
     },
     {
@@ -421,7 +421,7 @@
     },
     {
       "name": "Sons of Kings",
-      "card": null,
+      "card": "le-91",
       "qty": 1
     },
     {
