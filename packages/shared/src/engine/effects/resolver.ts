@@ -63,13 +63,13 @@ export interface ResolverContext {
     readonly name: string;
     readonly race: string;
     /**
-     * Sites (by name) or site types at which the faction may be played,
-     * derived from the faction card's `playableAt` entries. Exposed so
-     * character effects can key on "playable at X" phrasing (e.g. AS-4
-     * Perchen grants +3 DI against any faction playable at Dunnish
-     * Clan-hold).
+     * Names of sites (and/or site types) at which the faction is playable,
+     * flattened from the faction card's `playableAt` entries. Used by DSL
+     * conditions like `{ "faction.playableAt": "Variag Camp" }` to target
+     * bonuses at factions tied to a specific site (e.g. AS-4 Perchen
+     * grants +3 DI against any faction playable at Dunnish Clan-hold).
      */
-    readonly playableAt?: readonly string[];
+    readonly playableAt: readonly string[];
   };
   /** The target of an influence check (character being controlled). */
   readonly target?: {

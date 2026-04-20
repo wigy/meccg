@@ -969,5 +969,23 @@
     "influenceNumber": 0,
     "race": "orc",
     "playableAt": []
+  },
+  {
+    "cardType": "minion-resource-faction",
+    "id": "le-292",
+    "name": "Variags of Khand",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/VariagsofKhand.jpg",
+    "text": "Unique. Manifestation of hero Variags of Khand. Playable at Variag Camp if the influence check is greater than 8. Standard Modifications: Nûrniags (+2), Haradrim (-2).",
+    "alignment": "ringwraith",
+    "unique": true,
+    "marshallingPoints": 2,
+    "marshallingCategory": "faction",
+    "influenceNumber": 8,
+    "race": "man",
+    "playableAt": [
+      {
+        "site": "Variag Camp"
+      }
+    ]
   }
 ]
