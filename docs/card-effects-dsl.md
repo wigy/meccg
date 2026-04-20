@@ -360,11 +360,19 @@ strings to chase through the engine.
   characters in the company to cancel attacks. The `maxCancels` field
   specifies the maximum number of attacks that can be canceled this way.
   (implemented in `reducer-combat.ts`, `legal-actions/combat.ts`)
+- `combat-detainment` — marks the attack as detainment (CoE §3.II).
+  Detainment strikes tap the character instead of wounding/eliminating,
+  suppress the character body check (rule 3.II.1), do not trigger
+  `on-wounded` passives (rule 3.II.1.1), and zero kill-MP for the
+  defeated creature (rule 3.II.3 — discarded instead of routed to the
+  attacked player's kill pile). No fields. (implemented in
+  `engine/detainment.ts`, `reducer-combat.ts`)
 
 ```json
 { "type": "combat-attacker-chooses-defenders" }
 { "type": "combat-multi-attack", "count": 3 }
 { "type": "combat-cancel-attack-by-tap", "maxCancels": 2 }
+{ "type": "combat-detainment" }
 ```
 
 ### 13. `play-restriction`

@@ -24,6 +24,7 @@ import { handlePlayPermanentEvent } from './reducer-events.js';
 import { handleGrantActionApply } from './reducer-organization.js';
 import { sweepExpired, addConstraint, enqueueResolution } from './pending.js';
 import { buildInPlayNames } from './recompute-derived.js';
+import { isDetainmentAttack } from './detainment.js';
 
 
 /**
@@ -1504,7 +1505,10 @@ function handleOrderEffects(state: GameState, mhState: MovementHazardPhaseState)
     phase: 'assign-strikes',
     assignmentPhase: attackerChooses ? 'cancel-window' : 'defender',
     bodyCheckTarget: null,
-    detainment: false,
+    detainment: isDetainmentAttack({
+      attackRace: effect.race as Race,
+      defendingAlignment: state.players[activePlayerIndex].alignment,
+    }),
   };
 
   logDetail(`Ahunt combat initiated: ${defName} (${effect.strikes} strikes${effectiveStrikes !== effect.strikes ? ` → ${effectiveStrikes}` : ''}, ${effect.prowess} prowess${effectiveProwess !== effect.prowess ? ` → ${effectiveProwess}` : ''}) vs company ${company.id as string}`);
