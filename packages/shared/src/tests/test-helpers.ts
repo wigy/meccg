@@ -324,7 +324,7 @@ export interface PlayerSetup {
   discardPile?: CardDefinitionId[];
   sideboard?: CardDefinitionId[];
   cardsInPlay?: CardInPlay[];
-  /** Override alignment (defaults to {@link Alignment.Wizard}). */
+  /** Player alignment. Defaults to {@link Alignment.Wizard} (hero). */
   alignment?: Alignment;
   /** Override raw marshalling-point totals (defaults to all zero). */
   marshallingPoints?: Partial<MarshallingPointTotals>;

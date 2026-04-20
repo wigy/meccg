@@ -24,7 +24,7 @@ import { addConstraint, enqueueResolution } from './pending.js';
 import { Phase } from '../index.js';
 import { clonePlayers } from './reducer-utils.js';
 import { resolveCancelAttackEntry } from './reducer-combat.js';
-import { isDetainmentAttack } from './detainment.js';
+import { isDetainmentAttack, defenderAlignmentLabel } from './detainment.js';
 
 /**
  * Returns the opponent of the given player in a two-player game.
@@ -1036,8 +1036,9 @@ function initiateCreatureCombat(state: GameState, entry: ChainEntry): GameState 
   const companyFacedRaces = state.phaseState.phase === 'movement-hazard'
     ? deriveFacedRaces(state, state.phaseState.hazardsEncountered)
     : [];
+  const defenderAlignment = defenderAlignmentLabel(state.players[activePlayerIndex].alignment);
   const creatureSelf = creatureDef.effects?.length
-    ? { effects: creatureDef.effects, companyFacedRaces }
+    ? { effects: creatureDef.effects, companyFacedRaces, defenderAlignment }
     : undefined;
   const effectiveProwess = resolveAttackProwess(state, creatureDef.prowess, inPlayNames, creatureRace, false, creatureSelf);
   const effectiveStrikes = resolveAttackStrikes(state, creatureDef.strikes, inPlayNames, creatureRace);
@@ -1066,6 +1067,7 @@ function initiateCreatureCombat(state: GameState, entry: ChainEntry): GameState 
       attackEffects: creatureDef.effects,
       attackRace: creatureRace,
       attackKeyedTo: creatureDef.keyedTo,
+      inPlayNames,
       defendingAlignment: state.players[activePlayerIndex].alignment,
     }),
     forceSingleTarget: multiAttackCount > 1 ? true : undefined,

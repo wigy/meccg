@@ -40,6 +40,15 @@ export interface DetainmentContext {
   readonly attackRace?: Race | null;
   /** Region/site keying restrictions on the attacking creature. */
   readonly attackKeyedTo?: readonly CreatureKeyRestriction[];
+  /**
+   * Names of cards currently in play. Used to evaluate optional `when`
+   * clauses on `attackKeyedTo` entries — a conditional keying entry
+   * (e.g. *Elf-lord Revealed in Wrath*'s shadow-lands keying, gated on
+   * "Doors of Night not in play") is ignored when its condition fails,
+   * so the rule 3.II.2.R1/B1 dark-hold/shadow-hold detainment branch
+   * does not fire solely from an inactive alternative.
+   */
+  readonly inPlayNames?: readonly string[];
   /** Alignment of the defending player. */
   readonly defendingAlignment: Alignment;
   /**
@@ -80,10 +89,20 @@ const DARK_SITE_TYPES: ReadonlySet<SiteType> = new Set<SiteType>([
  * Always logs the deciding branch via {@link logDetail} so the combat
  * trace reveals why the flag was set.
  */
+/**
+ * Translates a player's {@link Alignment} enum value to the
+ * rules-terminology string used by DSL `defender.alignment` conditions.
+ * Specifically, wizard-avatar players are the "hero" alignment in card
+ * text (rule 3.II.2, CRF "hero company"); the other alignments map 1:1.
+ */
+export function defenderAlignmentLabel(a: Alignment): string {
+  return a === Alignment.Wizard ? 'hero' : a;
+}
+
 export function isDetainmentAttack(ctx: DetainmentContext): boolean {
   const conditionContext = {
     defender: {
-      alignment: ctx.defendingAlignment,
+      alignment: defenderAlignmentLabel(ctx.defendingAlignment),
       covert: ctx.defendingCovert ?? false,
     },
   };
@@ -106,7 +125,11 @@ export function isDetainmentAttack(ctx: DetainmentContext): boolean {
   const isBalrog = ctx.defendingAlignment === Alignment.Balrog;
   if (!isMinion && !isBalrog) return false;
 
-  const keyedTo = ctx.attackKeyedTo ?? [];
+  const rawKeyedTo = ctx.attackKeyedTo ?? [];
+  const keyingContext = { inPlay: ctx.inPlayNames ?? [] };
+  const keyedTo = rawKeyedTo.filter(
+    k => !k.when || matchesCondition(k.when, keyingContext),
+  );
   const tag = isMinion ? 'R' : 'B';
 
   const darkDomain = keyedTo.some(k => (k.regionTypes ?? []).includes(RegionType.Dark));

@@ -15,7 +15,7 @@ import type {
   RegionType,
   SiteType,
 } from './common.js';
-import type { CardEffect } from './effects.js';
+import type { CardEffect, Condition } from './effects.js';
 
 // ---- Hazards ----
 
@@ -33,6 +33,16 @@ export interface CreatureKeyRestriction {
   readonly regionNames?: readonly string[];
   /** Site types where this creature can attack (e.g. Ruins-and-Lairs). */
   readonly siteTypes?: readonly SiteType[];
+  /**
+   * Optional DSL condition gating this keying entry. When present, the
+   * entry is skipped unless the condition matches a context exposing
+   * `inPlay` (names of all cards in play). Used by cards whose alternate
+   * keying depends on the game environment — e.g. *Elf-lord Revealed in
+   * Wrath* ("If Doors of Night is not in play, may also be played keyed
+   * to Shadow-lands"). Evaluated in `findCreatureKeyingMatches` in
+   * `legal-actions/movement-hazard.ts`.
+   */
+  readonly when?: Condition;
 }
 
 /**
