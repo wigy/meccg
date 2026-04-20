@@ -7,12 +7,9 @@ FIXES
 FEATS
 -----
 
-Study our tests and improve the readability of our tests:
+Improve our game engine if you can find ways to generalize parts or any other ways to make more code re-usable and shorten the existing code base.
 
-- Do not write helpers to test files.
-- Avoid long chains of object access when checking values. Write a helper with descriptive name.
-- See if you can take out mystery numbers from helper calls, i.e. typically refering to index of some array. Plain numbers are difficult to read.
-- Prefer single combined test if there are two tests where one is essentially the same setup excatly than the other test.
+Study our tests and improve the readability of our tests. Do not write helpers to test files. Avoid long chains of object access when checking values. Write a helper with descriptive name. See if you can take out mystery numbers from helper calls, i.e. typically refering to index of some array. Plain numbers are difficult to read. Prefer single combined test if there are two tests where one is essentially the same setup excatly than the other test.
 
 EPICS
 -----

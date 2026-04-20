@@ -23,7 +23,7 @@ import { clonePlayers, startDeckExhaust, completeDeckExhaust, handleExchangeSide
 import { handlePlayShortEvent } from './reducer-events.js';
 import { handlePlayPermanentEvent } from './reducer-events.js';
 import { handleGrantActionApply } from './reducer-organization.js';
-import { sweepExpired, addConstraint, enqueueResolution } from './pending.js';
+import { sweepExpired, addConstraint, enqueueCorruptionCheck } from './pending.js';
 import { buildInPlayNames } from './recompute-derived.js';
 import { isDetainmentAttack } from './detainment.js';
 
@@ -35,70 +35,63 @@ import { isDetainmentAttack } from './detainment.js';
  * picks which company to handle next. After all companies are handled, the
  * phase advances to the Site phase.
  */
+type MHHandler = (state: GameState, action: GameAction, mhState: MovementHazardPhaseState) => ReducerResult;
+
+/**
+ * Per-step dispatch for the Movement/Hazard phase. Pending wound corruption
+ * checks (Barrow-wight et al.) are intercepted by the unified
+ * pending-resolution dispatcher before this table is consulted.
+ */
+const MH_STEP_HANDLERS: Readonly<Record<MovementHazardPhaseState['step'], MHHandler>> = {
+  'select-company': handleSelectCompany,
+  'reveal-new-site': handleRevealNewSite,
+  'set-hazard-limit': handleSetHazardLimit,
+  'order-effects': handleOrderEffectsStep,
+  'draw-cards': handleDrawCards,
+  'play-hazards': handlePlayHazards,
+  'reset-hand': handleResetHand,
+};
+
 export function handleMovementHazard(state: GameState, action: GameAction): ReducerResult {
   const mhState = state.phaseState as MovementHazardPhaseState;
+  const handler = MH_STEP_HANDLERS[mhState.step];
+  if (!handler) return { state, error: `Unexpected step '${mhState.step as string}' in movement/hazard phase` };
+  return handler(state, action, mhState);
+}
 
-  // Pending wound corruption checks (Barrow-wight et al.) are now routed
-  // through the unified pending-resolution dispatcher in `reducer.ts` /
-  // `pending-reducers.ts` before this handler is reached.
-
-  if (mhState.step === 'select-company') {
-    return handleSelectCompany(state, action, mhState);
+/**
+ * Snapshot the hazard limit at site reveal and advance to order-effects.
+ * Per METD §5, this snapshot is the locked baseline for the rest of the
+ * company's M/H phase; post-reveal modifiers accumulate via
+ * currentHazardLimit() rather than mutating it.
+ */
+function handleSetHazardLimit(state: GameState, action: GameAction, mhState: MovementHazardPhaseState): ReducerResult {
+  if (action.type !== 'pass') {
+    return { state, error: `Expected 'pass' during set-hazard-limit step, got '${action.type}'` };
   }
-
-  if (mhState.step === 'reveal-new-site') {
-    return handleRevealNewSite(state, action, mhState);
-  }
-
-  // set-hazard-limit step (CoE step 3): snapshot the hazard limit at site
-  // reveal and advance. Per METD §5, this snapshot is the locked baseline
-  // for the rest of the company's M/H phase; post-reveal modifiers
-  // accumulate via currentHazardLimit() rather than mutating it.
-  if (mhState.step === 'set-hazard-limit') {
-    if (action.type !== 'pass') {
-      return { state, error: `Expected 'pass' during set-hazard-limit step, got '${action.type}'` };
-    }
-    const playerIndex = getPlayerIndex(state, action.player);
-    const company = state.players[playerIndex].companies[mhState.activeCompanyIndex];
-    const { limit, preRevealConstraintIds } = snapshotHazardLimit(state, company);
-    logDetail(`Movement/Hazard: hazard limit snapshot ${limit} → advancing to order-effects`);
-    return {
-      state: {
-        ...state,
-        phaseState: {
-          ...mhState,
-          step: 'order-effects' as const,
-          hazardLimitAtReveal: limit,
-          preRevealHazardLimitConstraintIds: preRevealConstraintIds,
-        },
+  const playerIndex = getPlayerIndex(state, action.player);
+  const company = state.players[playerIndex].companies[mhState.activeCompanyIndex];
+  const { limit, preRevealConstraintIds } = snapshotHazardLimit(state, company);
+  logDetail(`Movement/Hazard: hazard limit snapshot ${limit} → advancing to order-effects`);
+  return {
+    state: {
+      ...state,
+      phaseState: {
+        ...mhState,
+        step: 'order-effects' as const,
+        hazardLimitAtReveal: limit,
+        preRevealHazardLimitConstraintIds: preRevealConstraintIds,
       },
-    };
-  }
+    },
+  };
+}
 
-  // order-effects step (CoE step 4): evaluate ongoing effects (ahunt attacks, etc.)
-  if (mhState.step === 'order-effects') {
-    if (action.type !== 'pass') {
-      return { state, error: `Expected 'pass' during order-effects step, got '${action.type}'` };
-    }
-    return handleOrderEffects(state, mhState);
+/** Advance from the order-effects step once the hazard player passes. */
+function handleOrderEffectsStep(state: GameState, action: GameAction, mhState: MovementHazardPhaseState): ReducerResult {
+  if (action.type !== 'pass') {
+    return { state, error: `Expected 'pass' during order-effects step, got '${action.type}'` };
   }
-
-  // draw-cards step (CoE step 5): both players draw cards simultaneously
-  if (mhState.step === 'draw-cards') {
-    return handleDrawCards(state, action, mhState);
-  }
-
-  // play-hazards step (CoE step 7): hazard player plays hazards, resource player may respond
-  if (mhState.step === 'play-hazards') {
-    return handlePlayHazards(state, action, mhState);
-  }
-
-  // reset-hand step (CoE step 8): players discard down to hand size
-  if (mhState.step === 'reset-hand') {
-    return handleResetHand(state, action, mhState);
-  }
-
-  return { state, error: `Unexpected step '${mhState.step as string}' in movement/hazard phase` };
+  return handleOrderEffects(state, mhState);
 }
 
 /**
@@ -503,18 +496,13 @@ function fireEndOfCompanyMHCorruptionChecks(
           ...char.hazards.map(h => h.instanceId),
         ];
         for (let i = 0; i < regionCount; i++) {
-          newState = enqueueResolution(newState, {
+          newState = enqueueCorruptionCheck(newState, {
             source: hazard.instanceId,
             actor: state.activePlayer!,
             scope: { kind: 'phase', phase: Phase.MovementHazard },
-            kind: {
-              type: 'corruption-check',
-              characterId: charId,
-              modifier: 0,
-              reason: `${hDef.name} (region ${i + 1}/${regionCount})`,
-              possessions,
-              transferredItemId: null,
-            },
+            characterId: charId,
+            reason: `${hDef.name} (region ${i + 1}/${regionCount})`,
+            possessions,
           });
         }
       }

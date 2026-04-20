@@ -14,7 +14,7 @@ import { resolveInstanceId } from '../types/state.js';
 import type { ReducerResult } from './reducer-utils.js';
 import { clonePlayers } from './reducer-utils.js';
 import { triggerCouncilCall } from './reducer-end-of-turn.js';
-import { addConstraint, enqueueResolution } from './pending.js';
+import { addConstraint, enqueueCorruptionCheck } from './pending.js';
 import { handleGrantActionApply } from './reducer-organization.js';
 
 
@@ -454,18 +454,13 @@ export function handlePlayResourceShortEvent(state: GameState, action: GameActio
     newState = { ...newState, players: updatedPlayers };
 
     if (discardInPlay.corruptionCheck && action.targetScoutInstanceId) {
-      newState = enqueueResolution(newState, {
+      newState = enqueueCorruptionCheck(newState, {
         source: handCard.instanceId,
         actor: action.player,
         scope: { kind: 'phase' as const, phase: newState.phaseState.phase },
-        kind: {
-          type: 'corruption-check',
-          characterId: action.targetScoutInstanceId,
-          modifier: discardInPlay.corruptionCheck.modifier,
-          reason: def.name,
-          possessions: [],
-          transferredItemId: null,
-        },
+        characterId: action.targetScoutInstanceId,
+        modifier: discardInPlay.corruptionCheck.modifier,
+        reason: def.name,
       });
     }
   }
@@ -518,18 +513,13 @@ export function handlePlayResourceShortEvent(state: GameState, action: GameActio
       newState = { ...newState, players: updatedPlayers2 };
 
       // Enqueue corruption check on the wizard
-      newState = enqueueResolution(newState, {
+      newState = enqueueCorruptionCheck(newState, {
         source: handCard.instanceId,
         actor: action.player,
         scope: { kind: 'phase' as const, phase: newState.phaseState.phase },
-        kind: {
-          type: 'corruption-check',
-          characterId: wizardId,
-          modifier: bounceEffect.corruptionCheck.modifier,
-          reason: def.name,
-          possessions: [],
-          transferredItemId: null,
-        },
+        characterId: wizardId,
+        modifier: bounceEffect.corruptionCheck.modifier,
+        reason: def.name,
       });
     }
   }

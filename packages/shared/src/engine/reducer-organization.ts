@@ -12,146 +12,140 @@ import { logDetail } from './legal-actions/log.js';
 import { isEndOfOrgPlay } from './legal-actions/organization.js';
 import { resolveInstanceId } from '../types/state.js';
 import type { ReducerResult } from './reducer-utils.js';
-import { roll2d6, clonePlayers, nextCompanyId, handleFetchFromPile, sweepAutoDiscardHazards } from './reducer-utils.js';
+import { roll2d6, clonePlayers, nextCompanyId, handleFetchFromPile, sweepAutoDiscardHazards, removeById, toCardInstance } from './reducer-utils.js';
 import { handlePlayPermanentEvent, handlePlayShortEvent, handlePlayResourceShortEvent } from './reducer-events.js';
-import { enqueueResolution, addConstraint, removeConstraint } from './pending.js';
+import { enqueueResolution, enqueueCorruptionCheck, addConstraint, removeConstraint } from './pending.js';
 import { recomputeDerived } from './recompute-derived.js';
 import { collectCharacterEffects, resolveCheckModifier } from './effects/index.js';
 
 
+type OrgHandler = (state: GameState, action: GameAction) => ReducerResult;
+
+/**
+ * Per-action-type dispatch for the Organization phase. Each handler receives
+ * the current state and the matching {@link GameAction}; the handler itself
+ * validates the action's discriminant. Actions not listed here fall through
+ * to the "Unhandled organization action" error.
+ *
+ * Corruption checks are routed through the unified pending-resolution
+ * dispatcher in `pending-reducers.ts` before this table is consulted.
+ */
+const ORGANIZATION_HANDLERS: Readonly<Partial<Record<GameAction['type'], OrgHandler>>> = {
+  'play-character': handlePlayCharacter,
+  'pass': handleOrganizationPass,
+  'plan-movement': handlePlanMovement,
+  'cancel-movement': handleCancelMovement,
+  'play-permanent-event': handlePlayPermanentEvent,
+  'play-short-event': handleOrganizationPlayShortEvent,
+  'fetch-from-pile': handleFetchFromPile,
+  'move-to-influence': handleMoveToInfluence,
+  'transfer-item': handleTransferItem,
+  'store-item': handleStoreItem,
+  'split-company': handleSplitCompany,
+  'move-to-company': handleMoveToCompany,
+  'merge-companies': handleMergeCompanies,
+  'start-sideboard-to-deck': handleStartSideboard,
+  'start-sideboard-to-discard': handleStartSideboard,
+  'fetch-from-sideboard': handleFetchFromSideboard,
+  'activate-granted-action': handleActivateGrantedAction,
+};
+
 export function handleOrganization(state: GameState, action: GameAction): ReducerResult {
-  if (action.type === 'play-character') {
-    return handlePlayCharacter(state, action);
-  }
-  if (action.type === 'pass') {
-    // Pass during sideboard-to-discard sub-flow exits the sub-flow, not the phase
-    const orgState = state.phaseState as OrganizationPhaseState;
-    if (orgState.sideboardFetchDestination === 'discard') {
-      logDetail(`Sideboard access: player ${action.player as string} done fetching to discard (${orgState.sideboardFetchedThisTurn} cards)`);
-      return {
-        state: {
-          ...state,
-          phaseState: { ...orgState, sideboardFetchDestination: null },
-        },
-      };
-    }
+  const handler = ORGANIZATION_HANDLERS[action.type];
+  if (!handler) return { state, error: `Unhandled organization action: ${action.type}` };
+  return handler(state, action);
+}
 
-    // Pass advances directly to the Long-event phase. End-of-org cards
-    // (e.g. Stealth) are now playable during normal play-actions and
-    // implicitly transition the engine into the end-of-org sub-step
-    // when played, so there is no need to enter that sub-step on pass.
-    logDetail(`Organization: player ${action.player as string} passed → advancing to Long-event phase`);
-
-    // [2.III.1] At beginning of long-event phase: resource player discards own resource long-events
-    const activePlayer = state.activePlayer!;
-    const activeIndex = getPlayerIndex(state, activePlayer);
-    const player = state.players[activeIndex];
-    const discardedEvents: CardInstance[] = [];
-    const remainingCards = player.cardsInPlay.filter(card => {
-      const def = state.cardPool[card.definitionId as string];
-      if (def && def.cardType === 'hero-resource-event' && def.eventType === 'long') {
-        logDetail(`Long-event entry: discarding resource long-event "${def.name}" (${card.instanceId as string})`);
-        discardedEvents.push({ instanceId: card.instanceId, definitionId: card.definitionId });
-        return false;
-      }
-      return true;
-    });
-
-    const newPlayers = clonePlayers(state);
-    newPlayers[activeIndex] = {
-      ...newPlayers[activeIndex],
-      cardsInPlay: remainingCards,
-      discardPile: [...newPlayers[activeIndex].discardPile, ...discardedEvents],
-    };
-
+/**
+ * Pass during organization. If a sideboard-to-discard sub-flow is active,
+ * exits the sub-flow and returns to normal play. Otherwise advances to the
+ * Long-event phase (discarding the active player's resource long-events per
+ * CoE rule 2.III.1).
+ */
+function handleOrganizationPass(state: GameState, action: GameAction): ReducerResult {
+  if (action.type !== 'pass') return { state, error: 'Expected pass action' };
+  const orgState = state.phaseState as OrganizationPhaseState;
+  if (orgState.sideboardFetchDestination === 'discard') {
+    logDetail(`Sideboard access: player ${action.player as string} done fetching to discard (${orgState.sideboardFetchedThisTurn} cards)`);
     return {
       state: {
         ...state,
-        players: newPlayers,
-        phaseState: { phase: Phase.LongEvent },
+        phaseState: { ...orgState, sideboardFetchDestination: null },
       },
     };
   }
-  if (action.type === 'plan-movement') {
-    return handlePlanMovement(state, action);
-  }
-  if (action.type === 'cancel-movement') {
-    return handleCancelMovement(state, action);
-  }
-  if (action.type === 'play-permanent-event') {
-    return handlePlayPermanentEvent(state, action);
-  }
-  if (action.type === 'play-short-event') {
-    // Dispatch based on card type: hazard short events target environments,
-    // resource short events resolve their DSL effects.
-    let result: ReducerResult;
-    let endOfOrgPlay = false;
-    if (action.cardInstanceId) {
-      const player = state.players.find(p => p.id === action.player);
-      const card = player?.hand.find(c => c.instanceId === action.cardInstanceId);
-      const def = card ? state.cardPool[card.definitionId as string] : undefined;
-      if (isResourceEventCard(def)) {
-        endOfOrgPlay = isEndOfOrgPlay(def);
-        result = handlePlayResourceShortEvent(state, action);
-      } else {
-        result = handlePlayShortEvent(state, action);
-      }
+
+  logDetail(`Organization: player ${action.player as string} passed → advancing to Long-event phase`);
+
+  const activePlayer = state.activePlayer!;
+  const activeIndex = getPlayerIndex(state, activePlayer);
+  const player = state.players[activeIndex];
+  const discardedEvents: CardInstance[] = [];
+  const remainingCards = player.cardsInPlay.filter(card => {
+    const def = state.cardPool[card.definitionId as string];
+    if (def && def.cardType === 'hero-resource-event' && def.eventType === 'long') {
+      logDetail(`Long-event entry: discarding resource long-event "${def.name}" (${card.instanceId as string})`);
+      discardedEvents.push(toCardInstance(card));
+      return false;
+    }
+    return true;
+  });
+
+  const newPlayers = clonePlayers(state);
+  newPlayers[activeIndex] = {
+    ...newPlayers[activeIndex],
+    cardsInPlay: remainingCards,
+    discardPile: [...newPlayers[activeIndex].discardPile, ...discardedEvents],
+  };
+
+  return {
+    state: {
+      ...state,
+      players: newPlayers,
+      phaseState: { phase: Phase.LongEvent },
+    },
+  };
+}
+
+/**
+ * Dispatch a play-short-event action during organization. Hazard short
+ * events go through the hazard flow; resource short events resolve their
+ * DSL effects. After a resource end-of-org card plays successfully, the
+ * phase implicitly transitions into the end-of-org sub-step so the active
+ * player can chain more end-of-org plays but no further normal organization
+ * actions this turn.
+ */
+function handleOrganizationPlayShortEvent(state: GameState, action: GameAction): ReducerResult {
+  if (action.type !== 'play-short-event') return { state, error: 'Expected play-short-event action' };
+  let result: ReducerResult;
+  let endOfOrgPlay = false;
+  if (action.cardInstanceId) {
+    const player = state.players.find(p => p.id === action.player);
+    const card = player?.hand.find(c => c.instanceId === action.cardInstanceId);
+    const def = card ? state.cardPool[card.definitionId as string] : undefined;
+    if (isResourceEventCard(def)) {
+      endOfOrgPlay = isEndOfOrgPlay(def);
+      result = handlePlayResourceShortEvent(state, action);
     } else {
       result = handlePlayShortEvent(state, action);
     }
-    // After playing an end-of-org card (e.g. Stealth) during normal
-    // organization play-actions, implicitly transition into the
-    // end-of-org sub-step. The active player can chain more end-of-org
-    // plays but no further normal organization actions this turn.
-    if (!result.error && endOfOrgPlay) {
-      const newOrgState = result.state.phaseState as OrganizationPhaseState;
-      if (newOrgState.phase === Phase.Organization && newOrgState.step !== 'end-of-org') {
-        logDetail(`Organization: end-of-org card played → entering end-of-org sub-step`);
-        return {
-          ...result,
-          state: {
-            ...result.state,
-            phaseState: { ...newOrgState, step: 'end-of-org' as const },
-          },
-        };
-      }
+  } else {
+    result = handlePlayShortEvent(state, action);
+  }
+  if (!result.error && endOfOrgPlay) {
+    const newOrgState = result.state.phaseState as OrganizationPhaseState;
+    if (newOrgState.phase === Phase.Organization && newOrgState.step !== 'end-of-org') {
+      logDetail(`Organization: end-of-org card played → entering end-of-org sub-step`);
+      return {
+        ...result,
+        state: {
+          ...result.state,
+          phaseState: { ...newOrgState, step: 'end-of-org' as const },
+        },
+      };
     }
-    return result;
   }
-  if (action.type === 'fetch-from-pile') {
-    return handleFetchFromPile(state, action);
-  }
-  if (action.type === 'move-to-influence') {
-    return handleMoveToInfluence(state, action);
-  }
-  if (action.type === 'transfer-item') {
-    return handleTransferItem(state, action);
-  }
-  if (action.type === 'store-item') {
-    return handleStoreItem(state, action);
-  }
-  if (action.type === 'split-company') {
-    return handleSplitCompany(state, action);
-  }
-  if (action.type === 'move-to-company') {
-    return handleMoveToCompany(state, action);
-  }
-  if (action.type === 'merge-companies') {
-    return handleMergeCompanies(state, action);
-  }
-  if (action.type === 'start-sideboard-to-deck' || action.type === 'start-sideboard-to-discard') {
-    return handleStartSideboard(state, action);
-  }
-  if (action.type === 'fetch-from-sideboard') {
-    return handleFetchFromSideboard(state, action);
-  }
-  // corruption-check actions during organization are now routed through the
-  // unified pending-resolution dispatcher in `pending-reducers.ts` before
-  // reaching this handler. The legacy handler has been removed.
-  if (action.type === 'activate-granted-action') {
-    return handleActivateGrantedAction(state, action);
-  }
-  return { state, error: `Unhandled organization action: ${action.type}` };
+  return result;
 }
 
 /**
@@ -197,7 +191,7 @@ function handlePlayCharacter(state: GameState, action: GameAction): ReducerResul
   };
 
   // Remove character from hand
-  const newHand = player.hand.filter(c => c.instanceId !== charInstId);
+  const newHand = removeById(player.hand, charInstId);
 
   // Find existing company at the target site
   const companies = [...player.companies];
@@ -220,7 +214,7 @@ function handlePlayCharacter(state: GameState, action: GameAction): ReducerResul
     logDetail(`  Creating new company at ${siteDef.name} (from site deck)`);
 
     // Remove site from site deck
-    newSiteDeck = player.siteDeck.filter(c => c.instanceId !== siteInstId);
+    newSiteDeck = removeById(player.siteDeck, siteInstId);
 
     // Create new company
     const newCompany: Company = {
@@ -452,18 +446,13 @@ function handleTransferItem(state: GameState, action: GameAction): ReducerResult
   };
 
   return {
-    state: enqueueResolution(stateAfterTransfer, {
+    state: enqueueCorruptionCheck(stateAfterTransfer, {
       source: itemInstId,
       actor: action.player,
       scope: { kind: 'phase', phase: Phase.Organization },
-      kind: {
-        type: 'corruption-check',
-        characterId: fromCharId,
-        modifier: 0,
-        reason: 'Transfer',
-        possessions: [],
-        transferredItemId: itemInstId,
-      },
+      characterId: fromCharId,
+      reason: 'Transfer',
+      transferredItemId: itemInstId,
     }),
   };
 }
@@ -518,18 +507,12 @@ function handleStoreItem(state: GameState, action: GameAction): ReducerResult {
     players: newPlayers,
   };
 
-  const stateAfterCheck = enqueueResolution(stateAfterStore, {
+  const stateAfterCheck = enqueueCorruptionCheck(stateAfterStore, {
     source: itemInstId,
     actor: action.player,
     scope: { kind: 'phase', phase: Phase.Organization },
-    kind: {
-      type: 'corruption-check',
-      characterId: charId,
-      modifier: 0,
-      reason: 'Store',
-      possessions: [],
-      transferredItemId: null,
-    },
+    characterId: charId,
+    reason: 'Store',
   });
 
   // Auto-test-gold-ring site-rule (Rule 9.22): storing a gold-ring item at a
@@ -789,10 +772,10 @@ function detachAndDiscardSource(
   if (!loc) return { error: `source card ${sourceCardId as string} not attached to character` };
   const discardedCard: CardInstance = { instanceId: sourceCardId, definitionId: sourceCardDefinitionId };
   const updatedChar: CharacterInPlay = loc.slot === 'items'
-    ? { ...char, items: char.items.filter(i => i.instanceId !== sourceCardId) }
+    ? { ...char, items: removeById(char.items, sourceCardId) }
     : loc.slot === 'allies'
-      ? { ...char, allies: char.allies.filter(a => a.instanceId !== sourceCardId) }
-      : { ...char, hazards: char.hazards.filter(h => h.instanceId !== sourceCardId) };
+      ? { ...char, allies: removeById(char.allies, sourceCardId) }
+      : { ...char, hazards: removeById(char.hazards, sourceCardId) };
   const owner = newPlayers[loc.discardPileOwnerIndex];
   newPlayers[loc.discardPileOwnerIndex] = {
     ...owner,
@@ -964,18 +947,13 @@ function runGrantApply(
       updatedChar: char,
       effects: [],
       stateOps: [
-        s => enqueueResolution(s, {
+        s => enqueueCorruptionCheck(s, {
           source: sourceId,
           actor,
           scope: { kind: 'phase', phase: Phase.Organization },
-          kind: {
-            type: 'corruption-check',
-            characterId,
-            modifier,
-            reason,
-            possessions: [],
-            transferredItemId: null,
-          },
+          characterId,
+          modifier,
+          reason,
         }),
       ],
     };
@@ -1550,12 +1528,8 @@ function handleSplitCompany(state: GameState, action: GameAction): ReducerResult
       );
       if (duplicate) {
         logDetail(`  Split at haven ${siteDef.name}: taking additional untapped copy from site deck for new company`);
-        newSiteDeck = player.siteDeck.filter(c => c.instanceId !== duplicate.instanceId);
-        newCompanySite = {
-          instanceId: duplicate.instanceId,
-          definitionId: duplicate.definitionId,
-          status: CardStatus.Untapped,
-        };
+        newSiteDeck = removeById(player.siteDeck, duplicate.instanceId);
+        newCompanySite = { ...toCardInstance(duplicate), status: CardStatus.Untapped };
         newCompanySiteCardOwned = true;
       }
     }
@@ -1832,11 +1806,11 @@ function handlePlanMovement(state: GameState, action: GameAction): ReducerResult
     logDetail(`Plan movement: company ${company.id as string} → ${action.destinationSite as string} (from site deck)`);
     companies[companyIdx] = {
       ...company,
-      destinationSite: { instanceId: deckCard.instanceId, definitionId: deckCard.definitionId, status: CardStatus.Untapped },
+      destinationSite: { ...toCardInstance(deckCard), status: CardStatus.Untapped },
       movementPath: [],
     };
     // Remove destination site from site deck
-    siteDeck = player.siteDeck.filter(c => c.instanceId !== action.destinationSite);
+    siteDeck = removeById(player.siteDeck, action.destinationSite);
   } else {
     logDetail(`Plan movement: company ${company.id as string} → ${action.destinationSite as string} (already in play at sibling ${sharedWith!.id as string} — not drawing from site deck)`);
     companies[companyIdx] = {
@@ -1912,7 +1886,7 @@ function handleCancelMovement(state: GameState, action: GameAction): ReducerResu
     logDetail(`Cancel movement: company ${company.id as string}, destination ${company.destinationSite.instanceId as string} still in play at a sibling — not returning to site deck`);
   } else {
     logDetail(`Cancel movement: company ${company.id as string}, returning site ${company.destinationSite.instanceId as string} to site deck`);
-    siteDeck = [...player.siteDeck, { instanceId: company.destinationSite.instanceId, definitionId: company.destinationSite.definitionId }];
+    siteDeck = [...player.siteDeck, toCardInstance(company.destinationSite)];
   }
 
   const newPlayers = clonePlayers(state);

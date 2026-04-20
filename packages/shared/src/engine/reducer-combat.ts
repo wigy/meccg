@@ -19,7 +19,7 @@ import type { ReducerResult } from './reducer-utils.js';
 import { roll2d6, clonePlayers } from './reducer-utils.js';
 import { resolveEnemyBody } from './effects/index.js';
 import { computeCombatProwess, buildInPlayNames } from './recompute-derived.js';
-import { enqueueResolution, addConstraint } from './pending.js';
+import { enqueueCorruptionCheck, addConstraint } from './pending.js';
 import { initiateChain, pushChainEntry } from './chain-reducer.js';
 
 
@@ -796,18 +796,13 @@ function handleCancelAttack(state: GameState, action: GameAction, combat: Combat
         ? ({ kind: 'company-mh-subphase' as const, companyId })
         : ({ kind: 'company-site-subphase' as const, companyId });
       const sourceName = cardDef?.name ?? '?';
-      resultState = enqueueResolution(resultState, {
+      resultState = enqueueCorruptionCheck(resultState, {
         source: action.cardInstanceId,
         actor: action.player,
         scope,
-        kind: {
-          type: 'corruption-check',
-          characterId: needsCorruptionCheck.characterId,
-          modifier: needsCorruptionCheck.modifier,
-          reason: sourceName,
-          possessions: [],
-          transferredItemId: null,
-        },
+        characterId: needsCorruptionCheck.characterId,
+        modifier: needsCorruptionCheck.modifier,
+        reason: sourceName,
       });
     }
   }
@@ -1216,18 +1211,13 @@ function finalizeCombat(state: GameState, effects: GameEffect[] = []): ReducerRe
             : ({ kind: 'company-site-subphase' as const, companyId });
           const source = combat.attackSource.type === 'creature' ? combat.attackSource.instanceId : null;
           for (const characterId of woundedCharIds) {
-            stateAfterCombat = enqueueResolution(stateAfterCombat, {
+            stateAfterCombat = enqueueCorruptionCheck(stateAfterCombat, {
               source,
               actor,
               scope,
-              kind: {
-                type: 'corruption-check',
-                characterId,
-                modifier,
-                reason: sourceName,
-                possessions: [],
-                transferredItemId: null,
-              },
+              characterId,
+              modifier,
+              reason: sourceName,
             });
           }
         }
