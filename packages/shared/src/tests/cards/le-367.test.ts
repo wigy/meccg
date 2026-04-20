@@ -57,7 +57,7 @@ import {
 import {
   isSiteCard, buildMovementMap, getReachableSites, computeLegalActions, Phase,
 } from '../../index.js';
-import type { SiteCard, CardDefinitionId, PlayHazardAction, StoreItemAction, GameState } from '../../index.js';
+import type { SiteCard, CardDefinitionId, StoreItemAction, GameState } from '../../index.js';
 
 const DOL_GULDUR = 'le-367' as CardDefinitionId;
 const MINAS_MORGUL = 'le-390' as CardDefinitionId;
