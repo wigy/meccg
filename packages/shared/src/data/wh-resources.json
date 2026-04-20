@@ -33,12 +33,26 @@
       "light-enchantment"
     ],
     "effects": [
-      { "type": "play-target", "target": "character", "filter": { "target.skills": { "$includes": "ranger" } } },
-      { "type": "duplication-limit", "scope": "company", "max": 1 },
+      {
+        "type": "play-target",
+        "target": "character",
+        "filter": {
+          "target.skills": {
+            "$includes": "ranger"
+          }
+        }
+      },
+      {
+        "type": "duplication-limit",
+        "scope": "company",
+        "max": 1
+      },
       {
         "type": "grant-action",
         "action": "cancel-return-and-site-tap",
-        "cost": { "tap": "bearer" },
+        "cost": {
+          "tap": "bearer"
+        },
         "apply": {
           "type": "sequence",
           "apps": [
@@ -48,7 +62,9 @@
               "scope": "turn",
               "target": "bearer-company"
             },
-            { "type": "enqueue-corruption-check" }
+            {
+              "type": "enqueue-corruption-check"
+            }
           ]
         }
       }
@@ -81,5 +97,20 @@
     "marshallingCategory": "misc",
     "effects": [],
     "text": "Playable during the organization phase on a ranger. Target ranger may tap to cancel all hazard effects for the rest of the turn that: force his company to return to its site of origin or that tap his company’s current or new site. If so tapped, target ranger makes a corruption check. Cannot be duplicated in a given company."
+  },
+  {
+    "cardType": "hero-resource-ally",
+    "id": "wh-33",
+    "name": "Noble Steed",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/wh/NobleSteed.jpg",
+    "text": "Playable at any tapped or untapped non-Haven site in Rohan, Southern Rhovanion, Khand, Dorwinion, Horse Plains, or Harondor. If each character in a company controls a Noble Steed (or Bill the Pony or Shadowfax ), the company may move up to two additional regions. Tap to cancel a strike (not from an automatic-attack) against its bearer or itself.",
+    "alignment": "wizard",
+    "unique": false,
+    "prowess": 0,
+    "body": 8,
+    "mind": 1,
+    "marshallingPoints": 1,
+    "marshallingCategory": "ally",
+    "playableAt": []
   }
 ]

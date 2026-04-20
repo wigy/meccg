@@ -10,7 +10,26 @@
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
     "effects": [
-      { "type": "fetch-to-deck", "source": ["sideboard", "discard-pile"], "filter": { "cardType": { "$in": ["hero-character", "hero-resource-item", "hero-resource-ally", "hero-resource-faction", "hero-resource-event"] } }, "count": 1, "shuffle": true }
+      {
+        "type": "fetch-to-deck",
+        "source": [
+          "sideboard",
+          "discard-pile"
+        ],
+        "filter": {
+          "cardType": {
+            "$in": [
+              "hero-character",
+              "hero-resource-item",
+              "hero-resource-ally",
+              "hero-resource-faction",
+              "hero-resource-event"
+            ]
+          }
+        },
+        "count": 1,
+        "shuffle": true
+      }
     ],
     "text": "Bring one resource or character from your sideboard or discard pile into your play deck and shuffle.",
     "certified": "2026-04-06"
@@ -26,15 +45,109 @@
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
     "effects": [
-      { "type": "play-target", "target": "site", "filter": { "siteType": "ruins-and-lairs" } },
-      { "type": "on-event", "event": "self-enters-play",
-        "apply": { "type": "add-constraint", "constraint": "site-type-override",
-                   "overrideType": "border-hold", "scope": "until-cleared" } },
-      { "type": "on-event", "event": "self-enters-play",
-        "apply": { "type": "add-constraint", "constraint": "skip-automatic-attacks",
-                   "scope": "until-cleared" } }
+      {
+        "type": "play-target",
+        "target": "site",
+        "filter": {
+          "siteType": "ruins-and-lairs"
+        }
+      },
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "apply": {
+          "type": "add-constraint",
+          "constraint": "site-type-override",
+          "overrideType": "border-hold",
+          "scope": "until-cleared"
+        }
+      },
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "apply": {
+          "type": "add-constraint",
+          "constraint": "skip-automatic-attacks",
+          "scope": "until-cleared"
+        }
+      }
     ],
     "text": "Playable during the site phase on a non-Dragon's lair, non-Under-deeps Ruins & Lairs [R]. The site becomes a Border-hold [B] and all automatic-attacks are removed. Discard Rebuild the Town when the site is discarded or returned to its location deck.",
     "certified": "2026-04-15"
+  },
+  {
+    "cardType": "hero-resource-event",
+    "id": "dm-121",
+    "name": "Crown of Flowers",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/dm/CrownofFlowers.jpg",
+    "text": "Environment. Crown of Flowers has no effect until you play a resource with it. You can play one resource from your hand with this card. The resource is considered to be played and to be in play as though Gates of Morning were in play and Doors of Night were not. Crown of Flowers does not affect the interpretation of any card except the resource played with it. Discard Crown of Flowers when the resource is discarded. Discard the resource if Crown of Flowers is discarded.",
+    "alignment": "wizard",
+    "unique": false,
+    "eventType": "permanent",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc"
+  },
+  {
+    "cardType": "hero-resource-event",
+    "id": "dm-124",
+    "name": "The Dwarves Are upon You!",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/dm/TheDwarvesAreuponYou.jpg",
+    "text": "Playable on a company containing Dwarves facing an attack. All Dwarves in the company receive +2 prowess and -1 body against the attack. Cannot be duplicated against a given attack.",
+    "alignment": "wizard",
+    "unique": false,
+    "eventType": "short",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc"
+  },
+  {
+    "cardType": "hero-resource-event",
+    "id": "dm-132",
+    "name": "Forewarned Is Forearmed",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/dm/ForewarnedIsForearmed.jpg",
+    "text": "Any non-Dragon Lair site with more than one automatic-attack is reduced to having one automatic-attack of the hazard player’s choice (this attack cannot be canceled). Any creature or other hazard with more than one attack is reduced to one attack of the hazard player’s choice (this attack cannot be canceled). Discard when such an isolated attack is defeated. Cannot be duplicated.",
+    "alignment": "wizard",
+    "unique": false,
+    "eventType": "permanent",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc"
+  },
+  {
+    "cardType": "hero-resource-event",
+    "id": "dm-142",
+    "name": "Hundreds of Butterflies",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/dm/HundredsofButterflies.jpg",
+    "text": "Playable on a moving character during his movement/hazard phase. Untap the character and increase the hazard limit against his company by one.",
+    "alignment": "wizard",
+    "unique": false,
+    "eventType": "short",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc"
+  },
+  {
+    "cardType": "hero-resource-event",
+    "id": "dm-164",
+    "name": "The Windlord Found Me",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/dm/TheWindlordFoundMe.jpg",
+    "text": "Playable at an untapped Isengard, Shadow-hold [{S}] , or Dark-hold [{D}] during the site phase. Tap the site. The company faces an Orc attack (4 strikes with 9 prowess). Afterwards, a character may tap and place this card under him. If you do not place this card with a character after the attack, discard it. That character may not untap until after this card is stored in a Haven [{H}] during the organization phase. When this card is stored, and if your Wizard is not already in play, you may search your play deck or discard pile for a Wizard and play him at that Haven [{H}] (does not count towards the one character per turn limit). Cannot be duplicated by a given player. Cannot be included in a Fallen-wizard's deck.",
+    "alignment": "wizard",
+    "unique": false,
+    "eventType": "permanent",
+    "marshallingPoints": 3,
+    "marshallingCategory": "misc"
+  },
+  {
+    "cardType": "hero-resource-ally",
+    "id": "dm-179",
+    "name": "Noble Hound",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/dm/NobleHound.jpg",
+    "text": "Playable at any tapped or untapped Border-hold [{B}]. In all cases, Noble Hound must be assigned a strike before any strike can be assigned to its controlling character. If Noble Hound is tapped or wounded, treat it as though it were untapped for the purposes of assigning strikes. Discard Noble Hound to cancel any effect that would take its controlling character prisoner (does not protect other characters from being taken prisoner).",
+    "alignment": "wizard",
+    "unique": false,
+    "prowess": 3,
+    "body": 6,
+    "mind": 1,
+    "marshallingPoints": 1,
+    "marshallingCategory": "ally",
+    "playableAt": []
   }
 ]

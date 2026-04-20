@@ -420,5 +420,41 @@
     ],
     "text": "Unique. Unless Smaug Ahunt is in play, The Lonely Mountain has an additional automatic-attack: Dragon — 2 strikes at 18/8. In addition, each moving company draws one less card to a minimum of one at the start of its movement/hazard phase.",
     "manifestId": "tw-90"
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "td-18",
+    "name": "Dragon-sickness",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/td/Dragonsickness.jpg",
+    "text": "Playable on a character bearing a major or greater item. Character makes a corruption check modified by -1.",
+    "unique": false,
+    "eventType": "short"
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "td-34",
+    "name": "Incite Denizens",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/td/InciteDenizens.jpg",
+    "text": "Playable on a Ruins & Lairs [{R}]. An additional automatic-attack is created at the site until the end of the turn. This is an exact duplicate (including all existing and eventual modifications to prowess, etc.) of an existing automatic-attack at the site of your choice. This automatic-attack is faced immediately following its original. Cannot be duplicated on a given site.",
+    "unique": false,
+    "eventType": "short"
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "td-85",
+    "name": "Withered Lands",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/td/WitheredLands.jpg",
+    "text": "Environment. Playable if Doors of Night is in play. Treat one Wilderness [{w}] as two Wildernesses [{w}] or one Shadow-land [{s}] as two Wildernesses [{w}] or one Border-land [{b}] as two Wildernesses [{w}] until the end of the turn.",
+    "unique": false,
+    "eventType": "short"
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "td-9",
+    "name": "Cruel Caradhras",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/td/CruelCaradhras.jpg",
+    "text": "Playable on a company using region movement to move through (not stopping at a site therein) or leave one of the following regions: High Pass, Redhorn Gate, Angmar, Gundabad, Grey Mountain Narrows, or Imlad Morgul. Each character in target company must face one strike (not an attack) of 8 prowess which cannot be canceled. Any resulting body check is modified by +1.",
+    "unique": false,
+    "eventType": "short"
   }
 ]

@@ -910,5 +910,296 @@
     "keywords": [
       "hoard"
     ]
+  },
+  {
+    "cardType": "hero-site",
+    "id": "tw-380",
+    "name": "Carn Dûm",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/CarnDum.jpg",
+    "text": "Nearest Haven: Rivendell Playable: Items (minor, major, greater) Automatic-attacks: Orcs — 4 strikes with 7 prowess",
+    "alignment": "wizard",
+    "siteType": "dark-hold",
+    "sitePath": [
+      "wilderness",
+      "shadow"
+    ],
+    "nearestHaven": "Rivendell",
+    "region": "Angmar",
+    "playableResources": [
+      "minor",
+      "major",
+      "greater"
+    ],
+    "automaticAttacks": [
+      {
+        "creatureType": "Orcs",
+        "strikes": 4,
+        "prowess": 7
+      }
+    ],
+    "resourceDraws": 2,
+    "hazardDraws": 3
+  },
+  {
+    "cardType": "hero-site",
+    "id": "tw-384",
+    "name": "Dead Marshes",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/DeadMarshes.jpg",
+    "text": "Nearest Haven: Lórien Playable: Items (minor, major, greater) Automatic-attacks: Undead — 2 strikes with 8 prowess; each character wounded must make a corruption check",
+    "alignment": "wizard",
+    "siteType": "shadow-hold",
+    "sitePath": [
+      "wilderness",
+      "shadow",
+      "shadow"
+    ],
+    "nearestHaven": "Lórien",
+    "region": "Dagorlad",
+    "playableResources": [
+      "minor",
+      "major",
+      "greater"
+    ],
+    "automaticAttacks": [
+      {
+        "creatureType": "Undead",
+        "strikes": 2,
+        "prowess": 8
+      }
+    ],
+    "resourceDraws": 2,
+    "hazardDraws": 3
+  },
+  {
+    "cardType": "hero-site",
+    "id": "tw-392",
+    "name": "Easterling Camp",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/EasterlingCamp.jpg",
+    "text": "Nearest Haven: Lórien",
+    "alignment": "wizard",
+    "siteType": "border-hold",
+    "sitePath": [
+      "wilderness",
+      "shadow",
+      "shadow",
+      "shadow"
+    ],
+    "nearestHaven": "Lórien",
+    "region": "Horse Plains",
+    "playableResources": [],
+    "automaticAttacks": [],
+    "resourceDraws": 4,
+    "hazardDraws": 4
+  },
+  {
+    "cardType": "hero-site",
+    "id": "tw-396",
+    "name": "Gladden Fields",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/GladdenFields.jpg",
+    "text": "Nearest Haven: Lórien Playable: Items (gold ring) Automatic-attacks: Undead — 1 strike with 8 prowess; each character wounded must make a corruption check",
+    "alignment": "wizard",
+    "siteType": "ruins-and-lairs",
+    "sitePath": [
+      "wilderness",
+      "border"
+    ],
+    "nearestHaven": "Lórien",
+    "region": "Anduin Vales",
+    "playableResources": [
+      "gold-ring"
+    ],
+    "automaticAttacks": [
+      {
+        "creatureType": "Undead",
+        "strikes": 1,
+        "prowess": 8
+      }
+    ],
+    "resourceDraws": 1,
+    "hazardDraws": 1
+  },
+  {
+    "cardType": "hero-site",
+    "id": "tw-403",
+    "name": "Iron Hill Dwarf-hold",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/IronHillDwarfhold.jpg",
+    "text": "Nearest Haven: Lórien",
+    "alignment": "wizard",
+    "siteType": "free-hold",
+    "sitePath": [
+      "wilderness",
+      "border",
+      "border",
+      "wilderness",
+      "wilderness"
+    ],
+    "nearestHaven": "Lórien",
+    "region": "Iron Hills",
+    "playableResources": [],
+    "automaticAttacks": [],
+    "resourceDraws": 3,
+    "hazardDraws": 3
+  },
+  {
+    "cardType": "hero-site",
+    "id": "tw-409",
+    "name": "Lossadan Cairn",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/LossadanCairn.jpg",
+    "text": "Nearest Haven: Rivendell Playable: Items (minor, major, greater*), *—Palantíri Only Automatic-attacks: Undead — 2 strikes with 8 prowess; each character wounded must make a corruption check",
+    "alignment": "wizard",
+    "siteType": "ruins-and-lairs",
+    "sitePath": [
+      "wilderness",
+      "wilderness",
+      "wilderness"
+    ],
+    "nearestHaven": "Rivendell",
+    "region": "Forochel",
+    "playableResources": [
+      "minor",
+      "major",
+      "greater"
+    ],
+    "automaticAttacks": [
+      {
+        "creatureType": "Undead",
+        "strikes": 2,
+        "prowess": 8
+      }
+    ],
+    "resourceDraws": 2,
+    "hazardDraws": 2
+  },
+  {
+    "cardType": "hero-site",
+    "id": "tw-415",
+    "name": "Mount Gram",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/MountGram.jpg",
+    "text": "Nearest Haven: Rivendell Playable: Items (minor, major) Automatic-attacks: Orcs — 3 strikes with 6 prowess",
+    "alignment": "wizard",
+    "siteType": "shadow-hold",
+    "sitePath": [
+      "wilderness",
+      "shadow"
+    ],
+    "nearestHaven": "Rivendell",
+    "region": "Angmar",
+    "playableResources": [
+      "minor",
+      "major"
+    ],
+    "automaticAttacks": [
+      {
+        "creatureType": "Orcs",
+        "strikes": 3,
+        "prowess": 6
+      }
+    ],
+    "resourceDraws": 2,
+    "hazardDraws": 3
+  },
+  {
+    "cardType": "hero-site",
+    "id": "tw-416",
+    "name": "Mount Gundabad",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/MountGundabad.jpg",
+    "text": "Nearest Haven: Lórien Playable: Items (minor, major, greater) Automatic-attacks: Orcs — 2 strikes with 8 prowess",
+    "alignment": "wizard",
+    "siteType": "shadow-hold",
+    "sitePath": [
+      "wilderness",
+      "border",
+      "dark"
+    ],
+    "nearestHaven": "Lórien",
+    "region": "Gundabad",
+    "playableResources": [
+      "minor",
+      "major",
+      "greater"
+    ],
+    "automaticAttacks": [
+      {
+        "creatureType": "Orcs",
+        "strikes": 2,
+        "prowess": 8
+      }
+    ],
+    "resourceDraws": 2,
+    "hazardDraws": 3
+  },
+  {
+    "cardType": "hero-site",
+    "id": "tw-420",
+    "name": "Rhosgobel",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Rhosgobel.jpg",
+    "text": "Nearest Haven: Lórien Playable: Items (minor) Special: Healing effects affect all characters at the site",
+    "alignment": "wizard",
+    "siteType": "free-hold",
+    "sitePath": [
+      "wilderness",
+      "border",
+      "dark"
+    ],
+    "nearestHaven": "Lórien",
+    "region": "Southern Mirkwood",
+    "playableResources": [
+      "minor"
+    ],
+    "automaticAttacks": [],
+    "resourceDraws": 2,
+    "hazardDraws": 3
+  },
+  {
+    "cardType": "hero-site",
+    "id": "tw-423",
+    "name": "Sarn Goriwing",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/SarnGoriwing.jpg",
+    "text": "Nearest Haven: Lórien Playable: Items (minor, major) Automatic-attacks: Orcs — 3 strikes with 5 prowess",
+    "alignment": "wizard",
+    "siteType": "shadow-hold",
+    "sitePath": [
+      "wilderness",
+      "border",
+      "wilderness",
+      "wilderness"
+    ],
+    "nearestHaven": "Lórien",
+    "region": "Heart of Mirkwood",
+    "playableResources": [
+      "minor",
+      "major"
+    ],
+    "automaticAttacks": [
+      {
+        "creatureType": "Orcs",
+        "strikes": 3,
+        "prowess": 5
+      }
+    ],
+    "resourceDraws": 2,
+    "hazardDraws": 2
+  },
+  {
+    "cardType": "hero-site",
+    "id": "tw-425",
+    "name": "Shrel-Kain",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/ShrelKain.jpg",
+    "text": "Nearest Haven: Lórien",
+    "alignment": "wizard",
+    "siteType": "border-hold",
+    "sitePath": [
+      "wilderness",
+      "border",
+      "border",
+      "wilderness",
+      "border"
+    ],
+    "nearestHaven": "Lórien",
+    "region": "Dorwinion",
+    "playableResources": [],
+    "automaticAttacks": [],
+    "resourceDraws": 3,
+    "hazardDraws": 3
   }
 ]

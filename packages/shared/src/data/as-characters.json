@@ -7,7 +7,10 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/as/Perchen.jpg",
     "unique": true,
     "race": "man",
-    "skills": ["scout", "diplomat"],
+    "skills": [
+      "scout",
+      "diplomat"
+    ],
     "prowess": 3,
     "body": 9,
     "mind": 5,
@@ -21,7 +24,10 @@
         "type": "stat-modifier",
         "stat": "direct-influence",
         "value": 3,
-        "when": { "reason": "faction-influence-check", "faction.playableAt": "Dunnish Clan-hold" }
+        "when": {
+          "reason": "faction-influence-check",
+          "faction.playableAt": "Dunnish Clan-hold"
+        }
       }
     ],
     "text": "Unique. +3 direct influence against any faction playable at Dunnish Clan-hold."
@@ -34,7 +40,10 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/as/Mionid.jpg",
     "unique": true,
     "race": "man",
-    "skills": ["warrior", "ranger"],
+    "skills": [
+      "warrior",
+      "ranger"
+    ],
     "prowess": 5,
     "body": 8,
     "mind": 4,
@@ -48,7 +57,10 @@
         "type": "stat-modifier",
         "stat": "direct-influence",
         "value": 2,
-        "when": { "reason": "faction-influence-check", "faction.playableAt": "Variag Camp" }
+        "when": {
+          "reason": "faction-influence-check",
+          "faction.playableAt": "Variag Camp"
+        }
       }
     ],
     "text": "Unique. +2 direct influence against any faction playable at Variag Camp."
@@ -61,7 +73,10 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/as/Wuluag.jpg",
     "unique": true,
     "race": "troll",
-    "skills": ["warrior", "scout"],
+    "skills": [
+      "warrior",
+      "scout"
+    ],
     "prowess": 5,
     "body": 8,
     "mind": 4,
@@ -72,5 +87,48 @@
     "homesite": "Any non-Under-deeps Ruins & Lairs",
     "effects": [],
     "text": "Unique. Manifestation of \"William\". May not be included with a starting company. May be played on the same turn Bûrat and/or Tûma is played, without counting against the one character per turn limit. Discard on a body check result of 8. +1 prowess against Dwarves. Tap Wûluag to untap Bûrat or Tûma if at the same site. If Bûrat and/or Tûma is in his company, Wûluag's mind is reduced by one."
+  },
+  {
+    "cardType": "minion-character",
+    "id": "as-1",
+    "name": "Bûrat",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/as/Burat.jpg",
+    "text": "Unique. Manifestation of “Bert”. May not be included with a starting company. May be played on the same turn Tûma and/or Wûluag is played, without counting against the one character per turn limit. Discard on a body check result of 8. +1 prowess against Dwarves. Tap Bûrat to untap Tûma or Wûluag if at the same site. If Tûma and/or Wûluag is in his company, Bûrat’s mind is reduced by one.",
+    "alignment": "ringwraith",
+    "unique": true,
+    "race": "troll",
+    "skills": [
+      "warrior",
+      "ranger"
+    ],
+    "prowess": 5,
+    "body": 8,
+    "mind": 4,
+    "directInfluence": 0,
+    "marshallingPoints": 1,
+    "marshallingCategory": "character",
+    "corruptionModifier": 0,
+    "homesite": "Any non-Under-deeps Ruins & Lairs"
+  },
+  {
+    "cardType": "minion-character",
+    "id": "as-5",
+    "name": "Tûma",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/as/Tuma.jpg",
+    "text": "Unique. Manifestation of “Tom”. May not be included with a starting company. May be played on the same turn Bûrat and/or Wûluag is played, without counting against the one character per turn limit. Discard on a body check result of 8. +1 prowess against Dwarves. Tap Tûma to untap Bûrat or Wûluag if at the same site. If Bûrat and/or Wûluag is in his company, Tûma’s mind is reduced by one.",
+    "alignment": "ringwraith",
+    "unique": true,
+    "race": "troll",
+    "skills": [
+      "warrior"
+    ],
+    "prowess": 6,
+    "body": 8,
+    "mind": 4,
+    "directInfluence": 0,
+    "marshallingPoints": 1,
+    "marshallingCategory": "character",
+    "corruptionModifier": 0,
+    "homesite": "Any non-Under-deeps Ruins & Lairs"
   }
 ]

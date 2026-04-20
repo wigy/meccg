@@ -130,5 +130,33 @@
     "effects": [],
     "text": "Unique. May be played at Zarak Dûm. Dragon. Three strikes. Attacker chooses defending characters. If Doors of Night is in play, may also be played keyed to Forochel, Angmar, Gundabad; may also be played at sites in these regions.",
     "manifestId": "td-63"
+  },
+  {
+    "cardType": "hazard-creature",
+    "id": "td-42",
+    "name": "Lesser Spiders",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/td/LesserSpiders.jpg",
+    "text": "Spiders. Four strikes.",
+    "unique": false,
+    "strikes": 4,
+    "prowess": 7,
+    "body": null,
+    "killMarshallingPoints": 1,
+    "race": "spiders",
+    "keyedTo": []
+  },
+  {
+    "cardType": "hazard-creature",
+    "id": "td-8",
+    "name": "Cave Worm",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/td/CaveWorm.jpg",
+    "text": "Drake. One strike. May be played keyed to Redhorn Gate, High Pass, Gap of Isen, Angmar, Gundabad, Grey Mountain Narrows, Withered Heath, Númeriador, and Iron Hills.",
+    "unique": false,
+    "strikes": 1,
+    "prowess": 16,
+    "body": null,
+    "killMarshallingPoints": 1,
+    "race": "drake",
+    "keyedTo": []
   }
 ]

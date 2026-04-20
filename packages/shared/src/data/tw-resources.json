@@ -21,9 +21,13 @@
       {
         "type": "grant-action",
         "action": "gwaihir-special-movement",
-        "cost": { "discard": "self" },
+        "cost": {
+          "discard": "self"
+        },
         "when": {
-          "company.size": { "$lte": 2 },
+          "company.size": {
+            "$lte": 2
+          },
           "company.hasPlannedMovement": false
         },
         "apply": {
@@ -73,7 +77,14 @@
       }
     ],
     "effects": [
-      { "type": "check-modifier", "check": "influence", "value": 1, "when": { "bearer.race": "dunadan" } }
+      {
+        "type": "check-modifier",
+        "check": "influence",
+        "value": 1,
+        "when": {
+          "bearer.race": "dunadan"
+        }
+      }
     ],
     "text": "Unique. Playable at Bree if the influence check is greater than 9. Standard Modifications: Dúnedain (+1).",
     "certified": "2026-04-06"
@@ -95,8 +106,22 @@
       }
     ],
     "effects": [
-      { "type": "check-modifier", "check": "influence", "value": 1, "when": { "bearer.race": "hobbit" } },
-      { "type": "check-modifier", "check": "influence", "value": 1, "when": { "bearer.race": "dunadan" } }
+      {
+        "type": "check-modifier",
+        "check": "influence",
+        "value": 1,
+        "when": {
+          "bearer.race": "hobbit"
+        }
+      },
+      {
+        "type": "check-modifier",
+        "check": "influence",
+        "value": 1,
+        "when": {
+          "bearer.race": "dunadan"
+        }
+      }
     ],
     "text": "Unique. Playable at Edoras if the influence check is greater than 9. Standard Modifications: Hobbits (+1), Dúnedain (+1).",
     "certified": "2026-04-14"
@@ -118,7 +143,14 @@
       }
     ],
     "effects": [
-      { "type": "check-modifier", "check": "influence", "value": 1, "when": { "bearer.race": "dunadan" } }
+      {
+        "type": "check-modifier",
+        "check": "influence",
+        "value": 1,
+        "when": {
+          "bearer.race": "dunadan"
+        }
+      }
     ],
     "text": "Unique. Playable at Dol Amroth if the influence check is greater than 8. Standard Modifications: Dúnedain (+1).",
     "certified": "2026-04-12"
@@ -140,9 +172,30 @@
       }
     ],
     "effects": [
-      { "type": "check-modifier", "check": "influence", "value": -1, "when": { "bearer.race": "man" } },
-      { "type": "check-modifier", "check": "influence", "value": 1, "when": { "bearer.race": "elf" } },
-      { "type": "check-modifier", "check": "influence", "value": -2, "when": { "bearer.race": "dwarf" } }
+      {
+        "type": "check-modifier",
+        "check": "influence",
+        "value": -1,
+        "when": {
+          "bearer.race": "man"
+        }
+      },
+      {
+        "type": "check-modifier",
+        "check": "influence",
+        "value": 1,
+        "when": {
+          "bearer.race": "elf"
+        }
+      },
+      {
+        "type": "check-modifier",
+        "check": "influence",
+        "value": -2,
+        "when": {
+          "bearer.race": "dwarf"
+        }
+      }
     ],
     "text": "Unique. Playable at Thranduil's Halls if the influence check is greater than 8. Standard Modifications: Men (-1), Elves (+1), Dwarves (-2)."
   },
@@ -163,8 +216,22 @@
       }
     ],
     "effects": [
-      { "type": "check-modifier", "check": "influence", "value": -2, "when": { "bearer.race": "elf" } },
-      { "type": "check-modifier", "check": "influence", "value": 2, "when": { "bearer.race": "dwarf" } }
+      {
+        "type": "check-modifier",
+        "check": "influence",
+        "value": -2,
+        "when": {
+          "bearer.race": "elf"
+        }
+      },
+      {
+        "type": "check-modifier",
+        "check": "influence",
+        "value": 2,
+        "when": {
+          "bearer.race": "dwarf"
+        }
+      }
     ],
     "text": "Unique. Playable at Blue Mountain Dwarf-hold if the influence check is greater than 9. Standard Modifications: Elves (-2), Dwarves (+2)."
   },
@@ -185,7 +252,14 @@
       }
     ],
     "effects": [
-      { "type": "check-modifier", "check": "influence", "value": 1, "when": { "bearer.race": "dunadan" } }
+      {
+        "type": "check-modifier",
+        "check": "influence",
+        "value": 1,
+        "when": {
+          "bearer.race": "dunadan"
+        }
+      }
     ],
     "text": "Unique. Playable at Lond Galen if the influence check is greater than 8. Standard Modifications: Dúnedain (+1).",
     "certified": "2026-04-12"
@@ -212,7 +286,15 @@
       {
         "type": "on-event",
         "event": "self-enters-play",
-        "apply": { "type": "discard-cards-in-play", "filter": { "cardType": "hazard-event", "keywords": { "$includes": "environment" } } }
+        "apply": {
+          "type": "discard-cards-in-play",
+          "filter": {
+            "cardType": "hazard-event",
+            "keywords": {
+              "$includes": "environment"
+            }
+          }
+        }
       }
     ],
     "text": "Environment. When Gates of Morning is played, all environment hazard cards in play are immediately discarded, and all hazard environment effects are canceled. Cannot be duplicated.",
@@ -291,7 +373,13 @@
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
     "effects": [
-      { "type": "cancel-attack", "cost": { "tap": "character" }, "requiredSkill": "scout" }
+      {
+        "type": "cancel-attack",
+        "cost": {
+          "tap": "character"
+        },
+        "requiredSkill": "scout"
+      }
     ],
     "text": "Scout only. Tap scout to cancel one attack against his company.",
     "certified": "2026-04-08"
@@ -307,10 +395,25 @@
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
     "effects": [
-      { "type": "cancel-attack",
-        "when": { "enemy.race": { "$in": ["orc", "troll", "men", "man"] } } },
-      { "type": "halve-strikes",
-        "when": { "inPlay": "Gates of Morning" } }
+      {
+        "type": "cancel-attack",
+        "when": {
+          "enemy.race": {
+            "$in": [
+              "orc",
+              "troll",
+              "men",
+              "man"
+            ]
+          }
+        }
+      },
+      {
+        "type": "halve-strikes",
+        "when": {
+          "inPlay": "Gates of Morning"
+        }
+      }
     ],
     "text": "Cancel one attack by Orcs, Trolls, or Men. Alternatively, if Gates of Morning is in play, the number of strikes from any attack is reduced to half of its original number, rounded up.",
     "certified": "2026-04-13"
@@ -326,7 +429,10 @@
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
     "effects": [
-      { "type": "dodge-strike", "bodyPenalty": -1 }
+      {
+        "type": "dodge-strike",
+        "bodyPenalty": -1
+      }
     ],
     "text": "Target character does not tap against one strike (unless he is wounded by the strike). If wounded by the strike, his body is modified by -1 for the resulting body check.",
     "certified": "2026-04-13"
@@ -342,10 +448,21 @@
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
     "effects": [
-      { "type": "play-window", "phase": "organization", "step": "end-of-org" },
-      { "type": "play-target", "target": "company", "cost": { "tap": "character" } },
       {
-        "type": "on-event", "event": "self-enters-play",
+        "type": "play-window",
+        "phase": "organization",
+        "step": "end-of-org"
+      },
+      {
+        "type": "play-target",
+        "target": "company",
+        "cost": {
+          "tap": "character"
+        }
+      },
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
         "apply": {
           "type": "add-constraint",
           "constraint": "granted-action",
@@ -353,15 +470,32 @@
           "grantedAction": {
             "action": "cancel-chain-entry",
             "phase": "movement-hazard",
-            "cost": { "tap": "character" },
+            "cost": {
+              "tap": "character"
+            },
             "when": {
               "$and": [
-                { "chain.hazardCount": { "$gt": 0 } },
-                { "path": { "$includes": "coastal" } },
-                { "path": { "$noConsecutiveOtherThan": "coastal" } }
+                {
+                  "chain.hazardCount": {
+                    "$gt": 0
+                  }
+                },
+                {
+                  "path": {
+                    "$includes": "coastal"
+                  }
+                },
+                {
+                  "path": {
+                    "$noConsecutiveOtherThan": "coastal"
+                  }
+                }
               ]
             },
-            "apply": { "type": "cancel-chain-entry", "select": "most-recent-unresolved-hazard" }
+            "apply": {
+              "type": "cancel-chain-entry",
+              "select": "most-recent-unresolved-hazard"
+            }
           }
         }
       }
@@ -380,23 +514,41 @@
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
     "effects": [
-      { "type": "play-target", "target": "character", "filter": { "target.race": "hobbit" } },
+      {
+        "type": "play-target",
+        "target": "character",
+        "filter": {
+          "target.race": "hobbit"
+        }
+      },
       {
         "type": "play-option",
         "id": "untap",
-        "when": { "target.status": "tapped" },
-        "apply": { "type": "set-character-status", "status": "untapped" }
+        "when": {
+          "target.status": "tapped"
+        },
+        "apply": {
+          "type": "set-character-status",
+          "status": "untapped"
+        }
       },
       {
         "type": "play-option",
         "id": "heal",
-        "when": { "target.status": "inverted" },
-        "apply": { "type": "set-character-status", "status": "untapped" }
+        "when": {
+          "target.status": "inverted"
+        },
+        "apply": {
+          "type": "set-character-status",
+          "status": "untapped"
+        }
       },
       {
         "type": "play-option",
         "id": "corruption-check-boost",
-        "when": { "pending.corruptionCheckTargetsMe": true },
+        "when": {
+          "pending.corruptionCheckTargetsMe": true
+        },
         "apply": {
           "type": "add-constraint",
           "constraint": "check-modifier",
@@ -426,16 +578,30 @@
         "target": "character",
         "filter": {
           "$and": [
-            { "target.itemKeywords": { "$includes": "palantir" } },
-            { "company.skills": { "$includes": "sage" } }
+            {
+              "target.itemKeywords": {
+                "$includes": "palantir"
+              }
+            },
+            {
+              "company.skills": {
+                "$includes": "sage"
+              }
+            }
           ]
         }
       },
-      { "type": "duplication-limit", "scope": "character", "max": 1 },
+      {
+        "type": "duplication-limit",
+        "scope": "character",
+        "max": 1
+      },
       {
         "type": "on-event",
         "event": "bearer-company-moves",
-        "apply": { "type": "discard-self" }
+        "apply": {
+          "type": "discard-self"
+        }
       }
     ],
     "text": "Sage only. Playable on a Palantír with a sage in the company. Bearer now has the ability to use the Palantír. If the Palantír is stored, this card is stored too. Discard Align Palantír if the company carrying the Palantír moves. Cannot be duplicated on a given Palantír.",
@@ -458,7 +624,14 @@
       }
     ],
     "effects": [
-      { "type": "check-modifier", "check": "influence", "value": 1, "when": { "bearer.race": "dunadan" } }
+      {
+        "type": "check-modifier",
+        "check": "influence",
+        "value": 1,
+        "when": {
+          "bearer.race": "dunadan"
+        }
+      }
     ],
     "text": "Unique. Playable at Minas Tirith if the influence check is greater than 7. Standard Modifications: Dúnedain (+1).",
     "certified": "2026-04-12"
@@ -480,7 +653,14 @@
       }
     ],
     "effects": [
-      { "type": "check-modifier", "check": "influence", "value": 1, "when": { "bearer.race": "dunadan" } }
+      {
+        "type": "check-modifier",
+        "check": "influence",
+        "value": 1,
+        "when": {
+          "bearer.race": "dunadan"
+        }
+      }
     ],
     "text": "Unique. Playable at Pelargir if the influence check is greater than 7. Standard Modifications: Dúnedain (+1).",
     "certified": "2026-04-12"
@@ -502,7 +682,14 @@
       }
     ],
     "effects": [
-      { "type": "check-modifier", "check": "influence", "value": 1, "when": { "bearer.race": "dunadan" } }
+      {
+        "type": "check-modifier",
+        "check": "influence",
+        "value": 1,
+        "when": {
+          "bearer.race": "dunadan"
+        }
+      }
     ],
     "text": "Unique. Playable at Henneth Annûn if the influence check is greater than 7. Standard Modifications: Dúnedain (+1).",
     "certified": "2026-04-12"
@@ -528,7 +715,9 @@
       {
         "type": "on-event",
         "event": "company-arrives-at-site",
-        "apply": { "type": "discard-self" },
+        "apply": {
+          "type": "discard-self"
+        },
         "when": {
           "$not": {
             "site.region": {
@@ -562,12 +751,40 @@
     "marshallingPoints": 5,
     "marshallingCategory": "misc",
     "effects": [
-      { "type": "play-target", "target": "site", "filter": { "name": "Minas Tirith" } },
-      { "type": "play-target", "target": "character", "filter": { "target.skills": { "$includes": "sage" } } },
-      { "type": "play-condition", "requires": "discard-named-card", "cardName": "Sapling of the White Tree", "sources": ["character-items", "out-of-play-pile"] },
       {
-        "type": "on-event", "event": "self-enters-play",
-        "apply": { "type": "add-constraint", "constraint": "site-type-override", "overrideType": "haven", "scope": "until-cleared" }
+        "type": "play-target",
+        "target": "site",
+        "filter": {
+          "name": "Minas Tirith"
+        }
+      },
+      {
+        "type": "play-target",
+        "target": "character",
+        "filter": {
+          "target.skills": {
+            "$includes": "sage"
+          }
+        }
+      },
+      {
+        "type": "play-condition",
+        "requires": "discard-named-card",
+        "cardName": "Sapling of the White Tree",
+        "sources": [
+          "character-items",
+          "out-of-play-pile"
+        ]
+      },
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "apply": {
+          "type": "add-constraint",
+          "constraint": "site-type-override",
+          "overrideType": "haven",
+          "scope": "until-cleared"
+        }
       }
     ],
     "text": "Unique. Sage only at Minas Tirith. Playable only if you discard a Sapling of the White Tree borne by one of your characters at Minas Tirith, or one from your Marshalling Points pile stored at Minas Tirith. Minas Tirith becomes a Haven [{H}] for the purposes of healing and playing hazards.",
@@ -590,7 +807,10 @@
       {
         "type": "cancel-attack",
         "requiredRace": "wizard",
-        "cost": { "check": "corruption", "modifier": -2 }
+        "cost": {
+          "check": "corruption",
+          "modifier": -2
+        }
       }
     ],
     "text": "Spell. Wizard only. Cancels an attack against the Wizard's company. Wizard makes a corruption check modified by -2.",
@@ -600,7 +820,7 @@
     "cardType": "hero-resource-event",
     "alignment": "wizard",
     "id": "tw-362",
-    "name": "Wizard\u2019s Laughter",
+    "name": "Wizard’s Laughter",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/WizardsLaughter.jpg",
     "unique": false,
     "eventType": "short",
@@ -613,11 +833,14 @@
       {
         "type": "cancel-influence",
         "requiredRace": "wizard",
-        "cost": { "check": "corruption", "modifier": -2 }
+        "cost": {
+          "check": "corruption",
+          "modifier": -2
+        }
       }
     ],
     "certified": "2026-04-15",
-    "text": "Spell. Wizard only during opponent\u2019s site phase. Automatically cancels an influence check against one of the Wizard\u2019s player\u2019s characters, followers, factions, allies, or items. Wizard makes a corruption check modified by -2."
+    "text": "Spell. Wizard only during opponent’s site phase. Automatically cancels an influence check against one of the Wizard’s player’s characters, followers, factions, allies, or items. Wizard makes a corruption check modified by -2."
   },
   {
     "cardType": "hero-resource-faction",
@@ -636,11 +859,32 @@
       }
     ],
     "effects": [
-      { "type": "check-modifier", "check": "influence", "value": -1, "when": { "bearer.race": "man" } },
-      { "type": "check-modifier", "check": "influence", "value": -1, "when": { "bearer.race": "dunadan" } },
-      { "type": "check-modifier", "check": "influence", "value": -1, "when": { "bearer.race": "dwarf" } }
+      {
+        "type": "check-modifier",
+        "check": "influence",
+        "value": -1,
+        "when": {
+          "bearer.race": "man"
+        }
+      },
+      {
+        "type": "check-modifier",
+        "check": "influence",
+        "value": -1,
+        "when": {
+          "bearer.race": "dunadan"
+        }
+      },
+      {
+        "type": "check-modifier",
+        "check": "influence",
+        "value": -1,
+        "when": {
+          "bearer.race": "dwarf"
+        }
+      }
     ],
-    "text": "Unique. Playable at Dunnish Clan-hold if the influence check is greater than 9. Standard Modifications: Men (-1), D\u00fanedain (-1), Dwarves (-1)."
+    "text": "Unique. Playable at Dunnish Clan-hold if the influence check is greater than 9. Standard Modifications: Men (-1), Dúnedain (-1), Dwarves (-1)."
   },
   {
     "cardType": "hero-resource-event",
@@ -663,12 +907,20 @@
         "target": "character",
         "filter": {
           "$and": [
-            { "target.skills": { "$includes": "scout" } },
-            { "target.status": "untapped" }
+            {
+              "target.skills": {
+                "$includes": "scout"
+              }
+            },
+            {
+              "target.status": "untapped"
+            }
           ]
         },
         "maxCompanySize": 2,
-        "cost": { "tap": "character" }
+        "cost": {
+          "tap": "character"
+        }
       },
       {
         "type": "on-event",
@@ -683,5 +935,288 @@
     ],
     "text": "Scout only. Tap a scout to play at the end of the organization phase only if the scout's company size is less than three. No creature hazards may be played on his company this turn.",
     "certified": "2026-04-08"
+  },
+  {
+    "cardType": "hero-resource-event",
+    "id": "tw-189",
+    "name": "A Friend or Three",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/AFriendorThree.jpg",
+    "text": "One influence check or corruption check by a character in a company receives a +1 modification for each character in his company.",
+    "alignment": "wizard",
+    "unique": false,
+    "eventType": "short",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc"
+  },
+  {
+    "cardType": "hero-resource-faction",
+    "id": "tw-197",
+    "name": "Beornings",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Beornings.jpg",
+    "text": "Unique. Playable at Beorn’s House if the influence check is greater than 7. Standard Modifications: Men (+1).",
+    "alignment": "wizard",
+    "unique": true,
+    "marshallingPoints": 2,
+    "marshallingCategory": "faction",
+    "influenceNumber": 0,
+    "race": "man",
+    "playableAt": []
+  },
+  {
+    "cardType": "hero-resource-faction",
+    "id": "tw-222",
+    "name": "Easterlings",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Easterlings.jpg",
+    "text": "Unique. Playable at Easterling Camp if the influence check is greater than 9. Standard Modifications: Dúnedain (-2).",
+    "alignment": "wizard",
+    "unique": true,
+    "marshallingPoints": 4,
+    "marshallingCategory": "faction",
+    "influenceNumber": 0,
+    "race": "man",
+    "playableAt": []
+  },
+  {
+    "cardType": "hero-resource-event",
+    "id": "tw-229",
+    "name": "Escape",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Escape.jpg",
+    "text": "Playable on an unwounded character facing an attack. The attack is canceled and the character is wounded (no body check is required).",
+    "alignment": "wizard",
+    "unique": false,
+    "eventType": "short",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc"
+  },
+  {
+    "cardType": "hero-resource-event",
+    "id": "tw-240",
+    "name": "Fellowship",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Fellowship.jpg",
+    "text": "Only playable at a Haven [{H}] during the organization phase on a company that has four or more characters and allies. +1 to prowess and +1 to corruption checks for all characters and allies in the company. Discard this card if a character or ally joins or leaves the company for any reason.",
+    "alignment": "wizard",
+    "unique": false,
+    "eventType": "permanent",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc"
+  },
+  {
+    "cardType": "hero-resource-ally",
+    "id": "tw-245",
+    "name": "Goldberry",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Goldberry.jpg",
+    "text": "Unique. Playable at Old Forest. May not be attacked. Tap Goldberry to cancel an effect declared earlier in the same chain of effects that would return Goldberrys' company to its site of origin. Alternatively, tap Goldberry to cancel one attack against her company keyed to Wilderness [{w}].",
+    "alignment": "wizard",
+    "unique": true,
+    "prowess": 0,
+    "body": 0,
+    "mind": 2,
+    "marshallingPoints": 1,
+    "marshallingCategory": "ally",
+    "playableAt": []
+  },
+  {
+    "cardType": "hero-resource-ally",
+    "id": "tw-246",
+    "name": "Gollum",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Gollum.jpg",
+    "text": "Unique. Playable at Goblin-gate or Moria. If his company’s size is two or less, tap Gollum to cancel one attack against his company keyed to Wilderness [{w}] or Shadow-land [{s}]. You may tap Gollum if he is at the same non-Haven site as The One Ring ; then both Gollum and The One Ring are discarded.",
+    "alignment": "wizard",
+    "unique": true,
+    "prowess": 2,
+    "body": 9,
+    "mind": 4,
+    "marshallingPoints": 2,
+    "marshallingCategory": "ally",
+    "playableAt": []
+  },
+  {
+    "cardType": "hero-resource-event",
+    "id": "tw-249",
+    "name": "Great-road",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Greatroad.jpg",
+    "text": "Playable at the end of the organization phase on a company at a Haven [{H}]. Opponent may draw up to twice the normal number of cards for this company during the movement/hazard phase. At the end of the turn, the company may replace its site card with the Haven card at which it began the turn. This is considered movement with no movement/hazard phase.",
+    "alignment": "wizard",
+    "unique": false,
+    "eventType": "short",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc"
+  },
+  {
+    "cardType": "hero-resource-faction",
+    "id": "tw-261",
+    "name": "Iron Hill Dwarves",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/IronHillDwarves.jpg",
+    "text": "Unique. Playable at Iron Hill Dwarf-hold if the influence check is greater than 8. Standard Modifications: Elves (-2), Dwarves (+2).",
+    "alignment": "wizard",
+    "unique": true,
+    "marshallingPoints": 4,
+    "marshallingCategory": "faction",
+    "influenceNumber": 0,
+    "race": "dwarf",
+    "playableAt": []
+  },
+  {
+    "cardType": "hero-resource-event",
+    "id": "tw-269",
+    "name": "Lucky Search",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/LuckySearch.jpg",
+    "text": "Scout only. During the site phase, tap a scout at a tapped or untapped Shadow-hold [{S}] or Dark-hold [{D}]. Turn over cards from your play deck one at a time until: you reveal a non-special item (it cannot be a unique item already in play) or reach the end (does not exhaust the play deck). If you reveal such an item, the scout takes control of it. In any case, the scout faces a single strike attack with prowess equal to 3 plus the number of cards revealed. This attack/strike cannot be canceled. Discard the item if the scout is wounded. Reshuffle all revealed cards except the item back into the play deck.",
+    "alignment": "wizard",
+    "unique": false,
+    "eventType": "short",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc"
+  },
+  {
+    "cardType": "hero-resource-faction",
+    "id": "tw-278",
+    "name": "Men of Dorwinion",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/MenofDorwinion.jpg",
+    "text": "Unique. Playable at Shrel-Kain if the influence check is greater than 6. Standard Modifications: Men (+1).",
+    "alignment": "wizard",
+    "unique": true,
+    "marshallingPoints": 3,
+    "marshallingCategory": "faction",
+    "influenceNumber": 0,
+    "race": "man",
+    "playableAt": []
+  },
+  {
+    "cardType": "hero-resource-event",
+    "id": "tw-288",
+    "name": "Muster",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Muster.jpg",
+    "text": "Warrior only. An influence check against a faction by a warrior is modified by adding the warrior’s prowess to a maximum modifier of +5.",
+    "alignment": "wizard",
+    "unique": false,
+    "eventType": "short",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc"
+  },
+  {
+    "cardType": "hero-resource-event",
+    "id": "tw-292",
+    "name": "New Friendship",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/NewFriendship.jpg",
+    "text": "Diplomat only. +3 to any one influence check by a diplomat. Alternatively, +2 to a corruption check by a character in a diplomat's company.",
+    "alignment": "wizard",
+    "unique": false,
+    "eventType": "short",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc"
+  },
+  {
+    "cardType": "hero-resource-ally",
+    "id": "tw-307",
+    "name": "Quickbeam",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Quickbeam.jpg",
+    "text": "Unique. Playable at Wellinghall. May not be attacked by automatic-attacks or hazards keyed to his site.",
+    "alignment": "wizard",
+    "unique": true,
+    "prowess": 6,
+    "body": 9,
+    "mind": 3,
+    "marshallingPoints": 2,
+    "marshallingCategory": "ally",
+    "playableAt": []
+  },
+  {
+    "cardType": "hero-resource-event",
+    "id": "tw-315",
+    "name": "Rescue Prisoners",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/RescuePrisoners.jpg",
+    "text": "Playable at an already tapped Dark-hold [{D}] or Shadow-hold [{S}] during the site phase. The company faces a Spider attack (2 strikes with 7 prowess). If no characters are untapped after the attack, discard Rescue Prisoners . Otherwise, you may tap 1 character in the company and put Rescue Prisoners under his control. No marshalling points are received and that character may not untap until Rescue Prisoners is stored at a Haven [{H}], Border-hold [{B}], or Free-hold [{F}] during his organization phase. Cannot be duplicated at a given site.",
+    "alignment": "wizard",
+    "unique": false,
+    "eventType": "permanent",
+    "marshallingPoints": 2,
+    "marshallingCategory": "misc"
+  },
+  {
+    "cardType": "hero-resource-event",
+    "id": "tw-316",
+    "name": "Return of the King",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/ReturnoftheKing.jpg",
+    "text": "Unique. Aragorn II only. Only playable in Minas Tirith and only if Denethor II is not in play. Aragorn II’s direct influence is modified by +3. Keep this card with Aragorn II; discard if he leaves play.",
+    "alignment": "wizard",
+    "unique": true,
+    "eventType": "permanent",
+    "marshallingPoints": 3,
+    "marshallingCategory": "misc"
+  },
+  {
+    "cardType": "hero-resource-event",
+    "id": "tw-319",
+    "name": "Risky Blow",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/RiskyBlow.jpg",
+    "text": "Warrior only against one strike. +3 to prowess and -1 to body.",
+    "alignment": "wizard",
+    "unique": false,
+    "eventType": "short",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc"
+  },
+  {
+    "cardType": "hero-resource-event",
+    "id": "tw-342",
+    "name": "The Cock Crows",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/TheCockCrows.jpg",
+    "text": "Cancels a Troll attack. Alternatively, if Gates of Morning is in play, discard one hazard permanent-event.",
+    "alignment": "wizard",
+    "unique": false,
+    "eventType": "short",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc"
+  },
+  {
+    "cardType": "hero-resource-event",
+    "id": "tw-346",
+    "name": "The Old Thrush",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/TheOldThrush.jpg",
+    "text": "-3 to the prowess and body of a non-Nazgûl attack with a normal prowess of 13 or more. Cannot be duplicated on a given attack.",
+    "alignment": "wizard",
+    "unique": false,
+    "eventType": "short",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc"
+  },
+  {
+    "cardType": "hero-resource-event",
+    "id": "tw-349",
+    "name": "Thorough Search",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/ThoroughSearch.jpg",
+    "text": "Scout only. Playable during the site phase on an untapped scout. Tap the scout. Another character in his company may play a minor, major, or gold ring item normally playable at the site. This does not tap the site, and Thorough Search can be played at a site that is already tapped.",
+    "alignment": "wizard",
+    "unique": false,
+    "eventType": "short",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc"
+  },
+  {
+    "cardType": "hero-resource-faction",
+    "id": "tw-352",
+    "name": "Tower Guard of Minas Tirith",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/TowerGuardofMinasTirith.jpg",
+    "text": "Unique. Playable at Minas Tirith if the influence check is greater than 7. Standard Modifications: Dúnedain (+1).",
+    "alignment": "wizard",
+    "unique": true,
+    "marshallingPoints": 2,
+    "marshallingCategory": "faction",
+    "influenceNumber": 0,
+    "race": "dúnadan",
+    "playableAt": []
+  },
+  {
+    "cardType": "hero-resource-event",
+    "id": "tw-358",
+    "name": "Vilya",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Vilya.jpg",
+    "text": "Playable on Elrond. +4 prowess, +2 body, +6 direct influence until the end of the turn. If Elrond is at Rivendell and your play deck has at least 5 cards in it, you may take 3 resource cards of your choice from your discard pile and shuffle them into your play deck. Elrond makes a corruption check modified by -3. Cannot be duplicated on a given turn.",
+    "alignment": "wizard",
+    "unique": false,
+    "eventType": "short",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc"
   }
 ]
