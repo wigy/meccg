@@ -10,6 +10,8 @@
  * - `card.isCharacter` — whether this card is a character type
  * - `card.mind` — character's mind value (null for avatars)
  * - `card.unique` — whether the character is unique
+ * - `card.cannotBeStartingCharacter` — true if the character declares the
+ *   `not-starting-character` play-flag (e.g. Fram Framson)
  * - `ctx.opponentHasCard` — true if opponent already drafted this character
  * - `ctx.projectedMind` — currentMind + card.mind (pre-computed)
  * - `ctx.currentMind` — total mind of already-drafted characters
@@ -31,6 +33,11 @@ export const CHARACTER_DRAFT_RULES: RuleSet = {
       id: 'not-avatar',
       condition: { 'card.mind': { $ne: null } },
       failMessage: '{{card.name}} is an avatar and cannot be drafted as a starting character',
+    },
+    {
+      id: 'not-starting-character',
+      condition: { 'card.cannotBeStartingCharacter': false },
+      failMessage: '{{card.name}} may not be one of the starting characters',
     },
     {
       id: 'unique-available',

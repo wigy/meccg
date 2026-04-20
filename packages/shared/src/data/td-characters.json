@@ -41,7 +41,18 @@
     "marshallingCategory": "character",
     "corruptionModifier": 0,
     "homesite": "Framsburg",
-    "text": "Unique. He may not be one of the starting characters. He may only be brought into play at his home site. +3 prowess against Dragon and Drake attacks."
+    "effects": [
+      {
+        "type": "play-flag",
+        "flag": "not-starting-character"
+      },
+      {
+        "type": "play-flag",
+        "flag": "home-site-only"
+      }
+    ],
+    "text": "Unique. He may not be one of the starting characters. He may only be brought into play at his home site. +3 prowess against Dragon and Drake attacks.",
+    "certified": "2026-04-20"
   },
   {
     "cardType": "hero-character",
