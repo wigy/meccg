@@ -47,7 +47,7 @@
     "marshallingCategory": "item",
     "corruptionPoints": 2,
     "prowessModifier": 0,
-    "bodyModifier": 1,
+    "bodyModifier": 0,
     "playableAt": [
       "ruins-and-lairs",
       "shadow-hold",
@@ -61,14 +61,24 @@
       },
       {
         "type": "stat-modifier",
+        "stat": "body",
+        "value": 1,
+        "max": 9
+      },
+      {
+        "type": "stat-modifier",
         "stat": "prowess",
         "value": 1,
+        "max": 8,
         "when": {
-          "self.skill": "warrior"
+          "bearer.skills": {
+            "$includes": "warrior"
+          }
         }
       }
     ],
-    "text": "Unique. Helmet. +2 to direct influence. +1 to body to a maximum of 9. Warrior only: +1 to prowess to a maximum of 8."
+    "text": "Unique. Helmet. +2 to direct influence. +1 to body to a maximum of 9. Warrior only: +1 to prowess to a maximum of 8.",
+    "certified": "2026-04-20"
   },
   {
     "cardType": "minion-resource-item",
