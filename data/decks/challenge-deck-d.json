@@ -17,7 +17,7 @@
     },
     {
       "name": "Halbarad",
-      "card": null,
+      "card": "tw-162",
       "qty": 1,
       "favourite": true
     },
@@ -29,7 +29,7 @@
     },
     {
       "name": "Black Arrow",
-      "card": null,
+      "card": "tw-494",
       "qty": 1
     },
     {
@@ -39,7 +39,7 @@
     },
     {
       "name": "Brand",
-      "card": null,
+      "card": "td-90",
       "qty": 1
     },
     {
@@ -49,7 +49,7 @@
     },
     {
       "name": "Elrohir",
-      "card": null,
+      "card": "tw-144",
       "qty": 1
     },
     {
@@ -59,12 +59,12 @@
     },
     {
       "name": "Hama",
-      "card": null,
+      "card": "tw-165",
       "qty": 1
     },
     {
       "name": "Thranduil",
-      "card": null,
+      "card": "tw-184",
       "qty": 1
     }
   ],
@@ -72,14 +72,14 @@
     "characters": [
       {
         "name": "Radagast",
-        "card": null,
+        "card": "tw-178",
         "qty": 3
       }
     ],
     "hazards": [
       {
         "name": "Abductor",
-        "card": null,
+        "card": "tw-1",
         "qty": 1
       },
       {
@@ -99,52 +99,52 @@
       },
       {
         "name": "Brigands",
-        "card": null,
+        "card": "tw-17",
         "qty": 1
       },
       {
         "name": "Corsairs of Umbar",
-        "card": null,
+        "card": "tw-24",
         "qty": 2
       },
       {
         "name": "Ghosts",
-        "card": null,
+        "card": "tw-37",
         "qty": 3
       },
       {
         "name": "Lawless Men",
-        "card": null,
+        "card": "le-82",
         "qty": 3
       },
       {
         "name": "Rank upon Rank",
-        "card": null,
+        "card": "dm-80",
         "qty": 3
       },
       {
         "name": "Seized by Terror",
-        "card": null,
+        "card": "dm-88",
         "qty": 2
       },
       {
         "name": "Sellswords Between Charters",
-        "card": null,
+        "card": "le-89",
         "qty": 3
       },
       {
         "name": "Stout Men of Gondor",
-        "card": null,
+        "card": "as-21",
         "qty": 1
       },
       {
         "name": "Thrice Outnumbered",
-        "card": null,
+        "card": "le-142",
         "qty": 1
       },
       {
         "name": "Tidings of Bold Spies",
-        "card": null,
+        "card": "le-143",
         "qty": 2
       },
       {
@@ -161,12 +161,12 @@
       },
       {
         "name": "Beornings",
-        "card": null,
+        "card": "tw-197",
         "qty": 1
       },
       {
         "name": "Bow of the Galadhrim",
-        "card": null,
+        "card": "as-68",
         "qty": 1
       },
       {
@@ -176,22 +176,22 @@
       },
       {
         "name": "Easterlings",
-        "card": null,
+        "card": "tw-222",
         "qty": 1
       },
       {
         "name": "Flatter a Foe",
-        "card": null,
+        "card": "td-116",
         "qty": 2
       },
       {
         "name": "Forewarned is Forearmed",
-        "card": null,
+        "card": "dm-132",
         "qty": 1
       },
       {
         "name": "Iron Hill Dwarves",
-        "card": null,
+        "card": "tw-261",
         "qty": 1
       },
       {
@@ -201,42 +201,42 @@
       },
       {
         "name": "Men of Dorwinion",
-        "card": null,
+        "card": "tw-278",
         "qty": 1
       },
       {
         "name": "Muster",
-        "card": null,
+        "card": "tw-288",
         "qty": 1
       },
       {
         "name": "New Friendship",
-        "card": null,
+        "card": "tw-292",
         "qty": 3
       },
       {
         "name": "Noble Hound",
-        "card": null,
+        "card": "dm-179",
         "qty": 2
       },
       {
         "name": "Noble Steed",
-        "card": null,
+        "card": "wh-33",
         "qty": 3
       },
       {
         "name": "Orcrist",
-        "card": null,
+        "card": "tw-295",
         "qty": 1
       },
       {
         "name": "Risky Blow",
-        "card": null,
+        "card": "tw-319",
         "qty": 3
       },
       {
         "name": "Torque of Hues",
-        "card": null,
+        "card": "tw-351",
         "qty": 1
       },
       {
@@ -259,22 +259,22 @@
     },
     {
       "name": "Buhr Widu",
-      "card": null,
+      "card": "td-173",
       "qty": 1
     },
     {
       "name": "Dale",
-      "card": null,
+      "card": "td-174",
       "qty": 1
     },
     {
       "name": "Dead Marshes",
-      "card": null,
+      "card": "tw-384",
       "qty": 1
     },
     {
       "name": "Easterling Camp",
-      "card": null,
+      "card": "tw-392",
       "qty": 1
     },
     {
@@ -284,12 +284,12 @@
     },
     {
       "name": "Gobel Mirlond",
-      "card": null,
+      "card": "as-139",
       "qty": 1
     },
     {
       "name": "Iron Hill Dwarf-hold",
-      "card": null,
+      "card": "tw-403",
       "qty": 1
     },
     {
@@ -304,12 +304,12 @@
     },
     {
       "name": "Raider-hold",
-      "card": null,
+      "card": "as-141",
       "qty": 1
     },
     {
       "name": "Rhosgobel",
-      "card": null,
+      "card": "tw-420",
       "qty": 1
     },
     {
@@ -319,7 +319,7 @@
     },
     {
       "name": "Shrel-Kain",
-      "card": null,
+      "card": "tw-425",
       "qty": 1
     },
     {
@@ -336,7 +336,7 @@
     },
     {
       "name": "Forewarned is Forearmed",
-      "card": null,
+      "card": "dm-132",
       "qty": 1
     },
     {
@@ -351,12 +351,12 @@
     },
     {
       "name": "Glamour of Surpassing Excellance",
-      "card": null,
+      "card": "as-49",
       "qty": 2
     },
     {
       "name": "Great-shield of Rohan",
-      "card": null,
+      "card": "tw-250",
       "qty": 1
     },
     {
@@ -366,7 +366,7 @@
     },
     {
       "name": "Men of Dale",
-      "card": null,
+      "card": "td-138",
       "qty": 1
     },
     {
@@ -376,7 +376,7 @@
     },
     {
       "name": "Wain-easterlings",
-      "card": null,
+      "card": "as-60",
       "qty": 2
     },
     {
@@ -386,12 +386,12 @@
     },
     {
       "name": "Corsairs of Umbar",
-      "card": null,
+      "card": "tw-24",
       "qty": 1
     },
     {
       "name": "Horse-lords",
-      "card": null,
+      "card": "le-78",
       "qty": 1
     },
     {
@@ -401,12 +401,12 @@
     },
     {
       "name": "Scorba Ahunt",
-      "card": null,
+      "card": "td-64",
       "qty": 1
     },
     {
       "name": "Seized by Terror",
-      "card": null,
+      "card": "dm-88",
       "qty": 1
     },
     {

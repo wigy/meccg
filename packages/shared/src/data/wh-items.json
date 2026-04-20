@@ -1,0 +1,34 @@
+[
+  {
+    "cardType": "minion-resource-item",
+    "id": "wh-51",
+    "name": "Blasting Fire",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/wh/BlastingFire.jpg",
+    "text": "Technology. Playable at a tapped or untapped Shadow-hold [{S}] , Dark-hold [{D}] , or a site with a Dwarf automatic-attack. Discard to cancel all automatic-attacks at a site against the bearer’s company, any influence attempts against factions at the site this turn are modified by +2.",
+    "alignment": "ringwraith",
+    "unique": false,
+    "subtype": "special",
+    "marshallingPoints": 1,
+    "marshallingCategory": "item",
+    "corruptionPoints": 0,
+    "prowessModifier": 0,
+    "bodyModifier": 0,
+    "playableAt": []
+  },
+  {
+    "cardType": "minion-resource-item",
+    "id": "wh-54",
+    "name": "Vile Fumes",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/wh/VileFumes.jpg",
+    "text": "Technology. Playable at a tapped or untapped Shadow-hold [{S}] , Dark-hold [{D}] , or a site with a Dwarf automatic-attack. Discard during the site phase at a Border-hold [{B}] or Shadow-hold [{S}] to make all versions of the site Ruins & Lairs [{R}]. Its normal automatic-attacks are replaced with: Gas—each character faces 1 strike with 7 prowess (cannot be canceled). Keep Vile Fumes with the site until the site is discarded or returned to its location deck.",
+    "alignment": "ringwraith",
+    "unique": false,
+    "subtype": "special",
+    "marshallingPoints": 1,
+    "marshallingCategory": "item",
+    "corruptionPoints": 0,
+    "prowessModifier": 0,
+    "bodyModifier": 0,
+    "playableAt": []
+  }
+]

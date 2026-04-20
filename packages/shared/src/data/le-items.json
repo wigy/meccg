@@ -15,9 +15,19 @@
     "bodyModifier": 0,
     "playableAt": [],
     "effects": [
+      {
+        "type": "on-event",
+        "event": "untap-phase-end",
+        "apply": {
+          "type": "force-check",
+          "check": "corruption"
+        },
+        "target": "bearer"
+      },
       { "type": "storable-at", "sites": ["Dol Guldur", "Minas Morgul", "Carn Dûm"] }
     ],
-    "text": "Bearer must make a corruption check at the end of each of his untap phases. Discard this ring when tested. If tested, obtain a random value to determine which ring card may be immediately played: The One Ring (12+); a Dwarven Ring (10,11,12+); a Magic Ring (1,2,3,4,5,6,7); a Lesser Ring (any result)."
+    "text": "Bearer must make a corruption check at the end of each of his untap phases. Discard this ring when tested. If tested, obtain a random value to determine which ring card may be immediately played: The One Ring (12+); a Dwarven Ring (10,11,12+); a Magic Ring (1,2,3,4,5,6,7); a Lesser Ring (any result).",
+    "certified": "2026-04-19"
   },
   {
     "cardType": "minion-resource-item",
@@ -47,5 +57,85 @@
       }
     ],
     "text": "Unique. +5 to bearer’s direct influence against Dwarves and Dwarf factions. Each Dwarf in play has +1 mind. If the bearer of this item is at the same site as a Dwarf character, you may discard this item to force the discard of the Dwarf (and all non-follower cards he controls)."
+  },
+  {
+    "cardType": "minion-resource-item",
+    "id": "le-311",
+    "name": "Gleaming Gold Ring",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/GleamingGoldRing.jpg",
+    "text": "May only be played at a Border-hold [{B}] where gold rings are playable. Bearer must make a corruption check at the end of each of his untap phases. Discard this ring when tested. If tested, obtain a random value to determine which ring card may be immediately played: a Spirit Ring (10,11,12+); a Dwarven Ring (9,10,11,12+); a Magic Ring (1,2,3,4,5,6); a Lesser Ring (any result). You may search your play deck and discard pile for a Lesser Ring to be played.",
+    "alignment": "ringwraith",
+    "unique": false,
+    "subtype": "gold-ring",
+    "marshallingPoints": 2,
+    "marshallingCategory": "item",
+    "corruptionPoints": 0,
+    "prowessModifier": 0,
+    "bodyModifier": 0,
+    "playableAt": []
+  },
+  {
+    "cardType": "minion-resource-item",
+    "id": "le-324",
+    "name": "Minor Ring",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/MinorRing.jpg",
+    "text": "Lesser Ring. Playable only with a gold ring and after a test indicates a Lesser Ring. +2 to direct influence. Cannot be duplicated on a given character.",
+    "alignment": "ringwraith",
+    "unique": false,
+    "subtype": "special",
+    "marshallingPoints": 2,
+    "marshallingCategory": "item",
+    "corruptionPoints": 0,
+    "prowessModifier": 0,
+    "bodyModifier": 0,
+    "playableAt": []
+  },
+  {
+    "cardType": "minion-resource-item",
+    "id": "le-333",
+    "name": "Palantír of Minas Tirith",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/PalantirofMinasTirith.jpg",
+    "text": "Unique. Palantír. Playable at Minas Tirith. With its bearer able to use a Palantír, tap Palantír of Minas Tirith to look at the top five cards of your play deck; shuffle these 5 cards and return then to the top of your play deck. Do the same to your opponent’s play deck. Bearer then makes a corruption check.",
+    "alignment": "ringwraith",
+    "unique": true,
+    "subtype": "special",
+    "marshallingPoints": 3,
+    "marshallingCategory": "item",
+    "corruptionPoints": 0,
+    "prowessModifier": 0,
+    "bodyModifier": 0,
+    "playableAt": []
+  },
+  {
+    "cardType": "minion-resource-item",
+    "id": "le-341",
+    "name": "Sable Shield",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/SableShield.jpg",
+    "text": "Unique. Shield. If a strike against the bearer is successful, he is not wounded. Instead, the attacker makes a roll—if this result is greater than 6, discard Sable Shield.",
+    "alignment": "ringwraith",
+    "unique": true,
+    "subtype": "major",
+    "marshallingPoints": 2,
+    "marshallingCategory": "item",
+    "corruptionPoints": 0,
+    "prowessModifier": 0,
+    "bodyModifier": 0,
+    "playableAt": []
+  },
+  {
+    "cardType": "minion-resource-item",
+    "id": "le-345",
+    "name": "Strange Rations",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/StrangeRations.jpg",
+    "text": "Discard to untap bearer. Alternatively, discard during organization phase to allow its bearer’s company to play an additional region card.",
+    "alignment": "ringwraith",
+    "unique": false,
+    "subtype": "minor",
+    "marshallingPoints": 0,
+    "marshallingCategory": "item",
+    "corruptionPoints": 0,
+    "prowessModifier": 0,
+    "bodyModifier": 0,
+    "playableAt": []
   }
 ]

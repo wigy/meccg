@@ -223,7 +223,7 @@ Events:
 
 - `character-wounded-by-self` -- fires when a strike wounds a character, forcing a corruption check. Wounds enqueue a `corruption-check` pending resolution (see [Pending resolutions](#pending-resolutions) below) for the actor whose character was wounded; the resolution is scoped to the active company's MH or Site sub-phase, so it auto-clears at the company's sub-phase end. Implemented in `reducer-combat.ts`.
 - `self-enters-play` -- fires when this card enters play. Used by environment permanent events to discard opposing cards (implemented in reducer play handlers).
-- `untap-phase-at-haven` -- fires once per applicable card during the Untap → Organization transition. The reducer (`reducer-untap.ts`) scans every character at a haven for attached cards (items / hazards / allies) carrying this on-event, and enqueues a `corruption-check` pending resolution per match. Used by *Lure of the Senses*.
+- `untap-phase-end` -- fires once per applicable card during the Untap → Organization transition. The reducer (`reducer-untap.ts`) scans every character of the active player for attached cards (items / hazards / allies) carrying this on-event and enqueues a `corruption-check` pending resolution per match. An optional `when` condition is evaluated against the bearer context `{ bearer: { siteType, atHaven } }`, so cards that only fire at a haven (e.g. *Lure of the Senses*) express that as `"when": { "bearer.atHaven": true }`. Used by *Lure of the Senses* (at-haven only) and *The Least of Gold Rings* (any site).
 - `attack-not-defeated` -- fires after combat finalization when the creature's attack was not fully defeated (i.e. not all strikes were won by the defenders). The reducer (`reducer-combat.ts`) checks the creature card for this event and applies its constraint. Used by *Little Snuffler*.
 - `company-arrives-at-site` -- fires when a hazard short-event resolves against a company in M/H. The handler (`applyShortEventArrivalTrigger` in `chain-reducer.ts`) iterates every `add-constraint` effect on the card with this event, evaluates the optional `when` against the arrival context, and applies the first matching one. This allows a single card to declare multiple mutually-exclusive modes (e.g. *Choking Shadows*). The arrival context exposes `company.destinationSiteType`, `company.destinationSiteName`, `company.destinationRegionType`, `environment.doorsOfNightInPlay`, and the standard `inPlay` card-name list.
 - `end-of-company-mh` -- fires when a company's movement/hazard sub-phase ends (both players pass). For each character with an attached hazard carrying this event, enqueues one `corruption-check` pending resolution per region traversed in the site path. The `perRegion: true` flag on the effect enables the per-region behavior. Used by *Alone and Unadvised*. Implemented in `reducer-movement-hazard.ts`.
@@ -360,11 +360,37 @@ strings to chase through the engine.
   characters in the company to cancel attacks. The `maxCancels` field
   specifies the maximum number of attacks that can be canceled this way.
   (implemented in `reducer-combat.ts`, `legal-actions/combat.ts`)
+- `combat-detainment` — marks the attack as detainment (CoE §3.II).
+  Detainment strikes tap the character instead of wounding/eliminating,
+  suppress the character body check (rule 3.II.1), do not trigger
+  `on-wounded` passives (rule 3.II.1.1), and zero kill-MP for the
+  defeated creature (rule 3.II.3 — discarded instead of routed to the
+  attacked player's kill pile). Accepts the shared optional `when`
+  clause, evaluated against `{ defender: { alignment, covert } }` at
+  combat-initiation time; use it to express card text like "detainment
+  against hero companies" or "detainment against covert and hero
+  companies". (implemented in `engine/detainment.ts`,
+  `reducer-combat.ts`)
 
 ```json
 { "type": "combat-attacker-chooses-defenders" }
 { "type": "combat-multi-attack", "count": 3 }
 { "type": "combat-cancel-attack-by-tap", "maxCancels": 2 }
+{ "type": "combat-detainment" }
+{
+  "type": "combat-detainment",
+  "when": {
+    "$or": [
+      { "defender.alignment": "hero" },
+      {
+        "$and": [
+          { "defender.alignment": "fallen-wizard" },
+          { "defender.covert": true }
+        ]
+      }
+    ]
+  }
+}
 ```
 
 ### 13. `play-restriction`

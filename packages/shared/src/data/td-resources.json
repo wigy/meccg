@@ -15,15 +15,22 @@
         "target": "character",
         "filter": {
           "$and": [
-            { "target.status": "tapped" },
-            { "target.inAvatarCompany": true }
+            {
+              "target.status": "tapped"
+            },
+            {
+              "target.inAvatarCompany": true
+            }
           ]
         }
       },
       {
         "type": "play-option",
         "id": "untap",
-        "apply": { "type": "set-character-status", "status": "untapped" }
+        "apply": {
+          "type": "set-character-status",
+          "status": "untapped"
+        }
       }
     ],
     "text": "Untap a character in your Wizard's company.",
@@ -46,19 +53,42 @@
       {
         "type": "play-target",
         "target": "character",
-        "filter": { "target.skills": { "$includes": "sage" } },
-        "cost": { "tap": "character" }
+        "filter": {
+          "target.skills": {
+            "$includes": "sage"
+          }
+        },
+        "cost": {
+          "tap": "character"
+        }
       },
       {
         "type": "discard-in-play",
         "filter": {
           "$and": [
-            { "cardType": "hazard-event" },
-            { "eventType": { "$in": ["permanent", "long"] } },
-            { "$not": { "keywords": { "$includes": "environment" } } }
+            {
+              "cardType": "hazard-event"
+            },
+            {
+              "eventType": {
+                "$in": [
+                  "permanent",
+                  "long"
+                ]
+              }
+            },
+            {
+              "$not": {
+                "keywords": {
+                  "$includes": "environment"
+                }
+              }
+            }
           ]
         },
-        "corruptionCheck": { "modifier": -2 }
+        "corruptionCheck": {
+          "modifier": -2
+        }
       }
     ],
     "text": "Sage only. Ritual. Tap a sage to force the discard of a hazard non-environment permanent-event or long-event. Sage makes a corruption check modified by -2.",
@@ -78,17 +108,32 @@
       {
         "type": "cancel-attack",
         "requiredSkill": "ranger",
-        "when": { "enemy.race": { "$in": ["wolf", "spider", "animal", "undead"] } }
+        "when": {
+          "enemy.race": {
+            "$in": [
+              "wolf",
+              "spider",
+              "animal",
+              "undead"
+            ]
+          }
+        }
       },
       {
         "type": "play-target",
         "target": "character",
-        "filter": { "target.skills": { "$includes": "ranger" } }
+        "filter": {
+          "target.skills": {
+            "$includes": "ranger"
+          }
+        }
       },
       {
         "type": "play-option",
         "id": "decrease-hazard-limit",
-        "when": { "inPlay": "Gates of Morning" },
+        "when": {
+          "inPlay": "Gates of Morning"
+        },
         "apply": {
           "type": "add-constraint",
           "constraint": "hazard-limit-modifier",
@@ -117,14 +162,68 @@
       {
         "type": "play-target",
         "target": "character",
-        "filter": { "target.race": "wizard" }
+        "filter": {
+          "target.race": "wizard"
+        }
       },
       {
         "type": "bounce-hazard-events",
-        "corruptionCheck": { "modifier": -2 }
+        "corruptionCheck": {
+          "modifier": -2
+        }
       }
     ],
     "text": "Spell. Wizard only. Return all hazard permanent-events on characters in your Wizard's company to opponent's hand. Wizard makes a corruption check modified by -2.\n\nCannot be included in a Fallen-wizard's deck.",
     "certified": "2026-04-15"
+  },
+  {
+    "cardType": "hero-resource-event",
+    "id": "td-101",
+    "name": "Bounty of the Hoard",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/td/BountyoftheHoard.jpg",
+    "text": "Playable during the site phase. One minor or major item may be played at a tapped site that contains a hoard.",
+    "alignment": "wizard",
+    "unique": false,
+    "eventType": "short",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc"
+  },
+  {
+    "cardType": "hero-resource-event",
+    "id": "td-116",
+    "name": "Flatter a Foe",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/td/FlatteraFoe.jpg",
+    "text": "Flattery attempt. Playable on a character whose company is facing an attack of the type listed below. Character makes an influence check (modified by his unused direct influence and +2 if a diplomat). If successful, the attack is canceled and the hazard limit for the character’s company is decreased by two. This influence check is successful if the result is greater than: 10 against a Dragon; 11 against Men or Drakes; 12 against Trolls, Orcs, Elves and Giants.",
+    "alignment": "wizard",
+    "unique": false,
+    "eventType": "short",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc"
+  },
+  {
+    "cardType": "hero-resource-faction",
+    "id": "td-138",
+    "name": "Men of Dale",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/td/MenofDale.jpg",
+    "text": "Unique. Playable at Dale if the influence check is greater than 7. Standard Modifications: Men (+2), Dwarves (+1).",
+    "alignment": "wizard",
+    "unique": true,
+    "marshallingPoints": 2,
+    "marshallingCategory": "faction",
+    "influenceNumber": 0,
+    "race": "man",
+    "playableAt": []
+  },
+  {
+    "cardType": "hero-resource-event",
+    "id": "td-143",
+    "name": "Not at Home",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/td/NotatHome.jpg",
+    "text": "Cancel one Dragon, Drake, or Troll attack. This attack must be either an automatic-attack or keyed to a site. Alternatively, if Gates of Morning is in play, reduce the number of strikes of any automatic-attack by 2 (to a minimum of 1).",
+    "alignment": "wizard",
+    "unique": false,
+    "eventType": "short",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc"
   }
 ]

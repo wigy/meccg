@@ -510,6 +510,21 @@ export interface CombatCancelAttackByTapEffect extends EffectBase {
 }
 
 /**
+ * Marks the attack as detainment (see CoE §3.II). A detainment attack
+ * taps characters instead of wounding them, suppresses the character
+ * body-check, and zeros kill-MP for the defeated creature. Presence of
+ * this effect is the entire payload — no fields.
+ *
+ * Most detainment status is computed at combat-initiation time from the
+ * defending player's alignment and the attack's keying (rules 3.II.2 /
+ * 3.II.4); this effect covers the residual "or depends on an effect of
+ * the attack itself" clause of rule 3.II.2.
+ */
+export interface CombatDetainmentEffect extends EffectBase {
+  readonly type: 'combat-detainment';
+}
+
+/**
  * Closed set of presence-only flags that toggle uniform play-time
  * behaviors in the engine. Each flag is a single keyword, matched
  * exactly — no card-specific dispatch, just "does the card declare
@@ -1026,6 +1041,7 @@ export type CardEffect =
   | CombatAttackerChoosesDefendersEffect
   | CombatMultiAttackEffect
   | CombatCancelAttackByTapEffect
+  | CombatDetainmentEffect
   | PlayFlagEffect
   | DuplicationLimitEffect
   | PlayTargetEffect

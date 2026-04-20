@@ -5,7 +5,7 @@
   "pool": [
     {
       "name": "Ill-favoured Fellow",
-      "card": null,
+      "card": "wh-5",
       "qty": 1,
       "favourite": true
     },
@@ -17,19 +17,19 @@
     },
     {
       "name": "Lugdush",
-      "card": null,
+      "card": "wh-6",
       "qty": 1,
       "favourite": true
     },
     {
       "name": "Ufthak",
-      "card": null,
+      "card": "le-48",
       "qty": 1,
       "favourite": true
     },
     {
       "name": "Grishnakh",
-      "card": null,
+      "card": "le-12",
       "qty": 1,
       "favourite": true
     },
@@ -40,22 +40,22 @@
     },
     {
       "name": "Strange Rations",
-      "card": null,
+      "card": "le-345",
       "qty": 1
     },
     {
       "name": "Ill-favoured Fellow",
-      "card": null,
+      "card": "wh-5",
       "qty": 2
     },
     {
       "name": "Orc Tracker",
-      "card": null,
+      "card": "le-34",
       "qty": 2
     },
     {
       "name": "Sly Southerner",
-      "card": null,
+      "card": "wh-10",
       "qty": 3
     }
   ],
@@ -63,7 +63,7 @@
     "characters": [
       {
         "name": "Hoarmurath the Ringwraith",
-        "card": null,
+        "card": "le-53",
         "qty": 3
       }
     ],
@@ -80,7 +80,7 @@
       },
       {
         "name": "Chill Douser",
-        "card": null,
+        "card": "dm-106",
         "qty": 3
       },
       {
@@ -95,32 +95,32 @@
       },
       {
         "name": "Exhalation of Decay",
-        "card": null,
+        "card": "dm-55",
         "qty": 1
       },
       {
         "name": "Ghouls",
-        "card": null,
+        "card": "le-73",
         "qty": 3
       },
       {
         "name": "Plague of Wights",
-        "card": null,
+        "card": "le-130",
         "qty": 3
       },
       {
         "name": "Power Built by Waiting",
-        "card": null,
+        "card": "as-34",
         "qty": 1
       },
       {
         "name": "Stirring Bones",
-        "card": null,
+        "card": "le-92",
         "qty": 3
       },
       {
         "name": "The Moon Is Dead",
-        "card": null,
+        "card": "dm-71",
         "qty": 3
       },
       {
@@ -130,7 +130,7 @@
       },
       {
         "name": "Wisp of Pale Sheen",
-        "card": null,
+        "card": "dm-113",
         "qty": 3
       }
     ],
@@ -147,7 +147,7 @@
       },
       {
         "name": "Blasting Fire",
-        "card": null,
+        "card": "wh-51",
         "qty": 3
       },
       {
@@ -157,7 +157,7 @@
       },
       {
         "name": "Great Lord of Goblin-gate",
-        "card": null,
+        "card": "as-75",
         "qty": 1
       },
       {
@@ -177,12 +177,12 @@
       },
       {
         "name": "Records Unread",
-        "card": null,
+        "card": "as-130",
         "qty": 3
       },
       {
         "name": "Sable Shield",
-        "card": null,
+        "card": "le-341",
         "qty": 1
       },
       {
@@ -192,12 +192,12 @@
       },
       {
         "name": "Snaga-hai",
-        "card": null,
+        "card": "le-286",
         "qty": 2
       },
       {
         "name": "Sneakin'",
-        "card": null,
+        "card": "le-231",
         "qty": 1
       },
       {
@@ -207,17 +207,17 @@
       },
       {
         "name": "The Arkenstone",
-        "card": null,
+        "card": "le-418",
         "qty": 1
       },
       {
         "name": "Vile Fumes",
-        "card": null,
+        "card": "wh-54",
         "qty": 3
       },
       {
         "name": "War-wolf",
-        "card": null,
+        "card": "le-157",
         "qty": 3
       }
     ]
@@ -225,7 +225,7 @@
   "sites": [
     {
       "name": "Dead Marshes",
-      "card": null,
+      "card": "le-364",
       "qty": 1
     },
     {
@@ -235,37 +235,37 @@
     },
     {
       "name": "Mount Gram",
-      "card": null,
+      "card": "le-394",
       "qty": 1
     },
     {
       "name": "Mount Gundabad",
-      "card": null,
+      "card": "le-395",
       "qty": 1
     },
     {
       "name": "Sarn Goriwing",
-      "card": null,
+      "card": "le-401",
       "qty": 1
     },
     {
       "name": "Shelob's Lair",
-      "card": null,
+      "card": "le-402",
       "qty": 1
     },
     {
       "name": "Barad-dur",
-      "card": null,
+      "card": "le-352",
       "qty": 4
     },
     {
       "name": "Carn Dum",
-      "card": null,
+      "card": "le-359",
       "qty": 4
     },
     {
       "name": "Caves of Ulund",
-      "card": null,
+      "card": "le-360",
       "qty": 1
     },
     {
@@ -302,7 +302,7 @@
     },
     {
       "name": "Fell Rider",
-      "card": null,
+      "card": "le-183",
       "qty": 1
     },
     {
@@ -312,7 +312,7 @@
     },
     {
       "name": "Orcs of Mirkwood",
-      "card": null,
+      "card": "le-277",
       "qty": 1
     },
     {
@@ -342,12 +342,12 @@
     },
     {
       "name": "Ghosts",
-      "card": null,
+      "card": "le-72",
       "qty": 2
     },
     {
       "name": "Stench of Mordor",
-      "card": null,
+      "card": "le-141",
       "qty": 1
     },
     {

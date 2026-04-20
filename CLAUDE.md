@@ -153,6 +153,7 @@ Tests verify the **official CoE rules**, not internal implementation. There are 
 - **No utility tests**: If internal utilities (condition matcher, formatting) break, the rules tests catch it.
 - **NEVER put helpers in test files**: All helper functions must go in `test-helpers.ts`. Test files must only contain `describe`/`test` blocks and inline constants — no `function` declarations.
 - **Player-index convention**: Unless a test deliberately flips roles, player 0 is the resource (active) player and player 1 is the hazard (opponent) player. Use `RESOURCE_PLAYER` / `HAZARD_PLAYER` from `test-helpers.ts` instead of bare `0` / `1` when passing a player index to helpers like `charIdAt`, `getCharacter`, `attachHazardToChar`, etc.
+- **Match fixtures to the card's alignment**: When testing a minion card (effect, site, character), build the test state with minion characters and minion sites (AS/LE card IDs), not hero equivalents. Likewise for fallen-wizard and balrog cards. Using mismatched fixtures tests the wrong code paths and can mask bugs.
 - See `docs/testing-plan.md` for the full plan.
 - **All test changes must go through a PR** — never commit test modifications directly to master. Create a branch and open a pull request for review.
 

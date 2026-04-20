@@ -276,6 +276,10 @@ export const HENNETH_ANNUN = did('tw-400');
 export const OLD_FOREST = did('tw-417');
 /** Bag End — hero free-hold in The Shire, nearest haven Rivendell. */
 export const BAG_END = did('tw-372');
+/** Bag End (LE) — minion free-hold in The Shire, nearest haven Carn Dûm. */
+export const BAG_END_LE = did('le-350');
+/** Carn Dûm — minion haven in Angmar. */
+export const CARN_DUM = did('le-359');
 /** Bree — border-hold in Arthedain, nearest haven Rivendell. */
 export const BREE = did('tw-378');
 /** Pelargir — hero free-hold in Lebennin, nearest haven Edhellond. */

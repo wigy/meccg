@@ -66,6 +66,16 @@
         "name": "Foolish Words",
         "card": "td-25",
         "qty": 2
+      },
+      {
+        "name": "Wandering Eldar",
+        "card": "le-97",
+        "qty": 3
+      },
+      {
+        "name": "Elf-lord Revealed in Wrath",
+        "card": "le-69",
+        "qty": 2
       }
     ],
     "resources": [
@@ -78,16 +88,6 @@
         "name": "High Helm",
         "card": "le-313",
         "qty": 1
-      },
-      {
-        "name": "Blazon of the Eye",
-        "card": "le-302",
-        "qty": 3
-      },
-      {
-        "name": "Foul-smelling Paste",
-        "card": "le-310",
-        "qty": 3
       },
       {
         "name": "Goblins of Goblin-gate",

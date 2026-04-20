@@ -24,7 +24,9 @@
       }
     ],
     "effects": [
-      { "type": "combat-attacker-chooses-defenders" },
+      {
+        "type": "combat-attacker-chooses-defenders"
+      },
       {
         "type": "on-event",
         "event": "attack-not-defeated",
@@ -53,5 +55,47 @@
     "keyedTo": [],
     "effects": [],
     "text": "Drake. 3 attacks of 2 strikes each. A character can tap to cancel one of these attacks. Playable at any Under-deeps site. If Doors of Night is in play, also playable at an adjacent site of any Under-deeps site or keyed to a Coastal Sea [{c}]."
+  },
+  {
+    "cardType": "hazard-creature",
+    "id": "dm-106",
+    "name": "Chill Douser",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/dm/ChillDouser.jpg",
+    "text": "Undead. Three strikes. Unless Chill Douser’s attack is canceled, all other Undead attacks against the company for the rest of the turn receive +1 strike and +1 prowess.",
+    "unique": false,
+    "strikes": 3,
+    "prowess": 8,
+    "body": null,
+    "killMarshallingPoints": 1,
+    "race": "undead",
+    "keyedTo": []
+  },
+  {
+    "cardType": "hazard-creature",
+    "id": "dm-111",
+    "name": "Stirring Bones",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/dm/StirringBones.jpg",
+    "text": "Undead. Two strikes.",
+    "unique": false,
+    "strikes": 2,
+    "prowess": 9,
+    "body": null,
+    "killMarshallingPoints": 1,
+    "race": "undead",
+    "keyedTo": []
+  },
+  {
+    "cardType": "hazard-creature",
+    "id": "dm-113",
+    "name": "Wisp of Pale Sheen",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/dm/WispofPaleSheen.jpg",
+    "text": "Undead. One strike. Attacker chooses defending characters. Any character facing a strike whose mind is equal to or lower than the strike’s prowess must tap if untapped following the strike (unless the strike is canceled).",
+    "unique": false,
+    "strikes": 1,
+    "prowess": 6,
+    "body": null,
+    "killMarshallingPoints": 1,
+    "race": "undead",
+    "keyedTo": []
   }
 ]

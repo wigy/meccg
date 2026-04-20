@@ -1,0 +1,16 @@
+[
+  {
+    "cardType": "hazard-creature",
+    "id": "as-21",
+    "name": "Stout Men of Gondor",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/as/StoutMenofGondor.jpg",
+    "text": "Men. Six strikes. Detainment against hero and covert companies. May be played keyed to Old Pûkel-land, Old Pûkel Gap, Andrast, Anfalas, Lamedon, Belfalas, Lebennin, Anórien, or Rohan; or at sites in these regions.",
+    "unique": false,
+    "strikes": 6,
+    "prowess": 7,
+    "body": null,
+    "killMarshallingPoints": 1,
+    "race": "men",
+    "keyedTo": []
+  }
+]

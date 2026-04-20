@@ -14,8 +14,19 @@
         "target": "site",
         "filter": {
           "$and": [
-            { "siteType": { "$in": ["border-hold", "free-hold"] } },
-            { "automaticAttacks.length": { "$gt": 0 } }
+            {
+              "siteType": {
+                "$in": [
+                  "border-hold",
+                  "free-hold"
+                ]
+              }
+            },
+            {
+              "automaticAttacks.length": {
+                "$gt": 0
+              }
+            }
           ]
         }
       },
@@ -33,7 +44,12 @@
           "scope": "company-site-phase"
         },
         "when": {
-          "company.destinationSiteType": { "$in": ["border-hold", "free-hold"] }
+          "company.destinationSiteType": {
+            "$in": [
+              "border-hold",
+              "free-hold"
+            ]
+          }
         }
       }
     ],
@@ -86,8 +102,14 @@
           "scope": "company-site-phase",
           "cancelWhen": {
             "$and": [
-              { "actor.skills": { "$includes": "ranger" } },
-              { "actor.status": "untapped" }
+              {
+                "actor.skills": {
+                  "$includes": "ranger"
+                }
+              },
+              {
+                "actor.status": "untapped"
+              }
             ]
           }
         },
@@ -135,9 +157,21 @@
         "target": "character",
         "filter": {
           "$and": [
-            { "target.race": { "$ne": "wizard" } },
-            { "target.race": { "$ne": "ringwraith" } },
-            { "target.mind": { "$lte": 7 } }
+            {
+              "target.race": {
+                "$ne": "wizard"
+              }
+            },
+            {
+              "target.race": {
+                "$ne": "ringwraith"
+              }
+            },
+            {
+              "target.mind": {
+                "$lte": 7
+              }
+            }
           ]
         }
       },
@@ -153,11 +187,15 @@
       {
         "type": "grant-action",
         "action": "remove-self-on-roll",
-        "cost": { "tap": "bearer" },
+        "cost": {
+          "tap": "bearer"
+        },
         "apply": {
           "type": "roll-then-apply",
           "threshold": 8,
-          "onSuccess": { "type": "discard-self" }
+          "onSuccess": {
+            "type": "discard-self"
+          }
         }
       }
     ],
@@ -237,18 +275,28 @@
       },
       {
         "type": "on-event",
-        "event": "untap-phase-at-haven",
-        "apply": { "type": "force-check", "check": "corruption" },
+        "event": "untap-phase-end",
+        "when": {
+          "bearer.atHaven": true
+        },
+        "apply": {
+          "type": "force-check",
+          "check": "corruption"
+        },
         "target": "bearer"
       },
       {
         "type": "grant-action",
         "action": "remove-self-on-roll",
-        "cost": { "tap": "bearer" },
+        "cost": {
+          "tap": "bearer"
+        },
         "apply": {
           "type": "roll-then-apply",
           "threshold": 7,
-          "onSuccess": { "type": "discard-self" }
+          "onSuccess": {
+            "type": "discard-self"
+          }
         }
       }
     ],
@@ -264,5 +312,95 @@
     "eventType": "permanent",
     "effects": [],
     "text": "Corruption. Playable on a non-Ringwraith, non-Wizard, non-Hobbit character. Target character receives 2 corruption points and makes a corruption check each time a character in his company gains an item (including a ring special item). During his organization phase, the character may tap to attempt to remove this card. Make a roll—if the result is greater than 5, discard this card. Cannot be duplicated on a given character."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "le-107",
+    "name": "Covetous Thoughts",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/CovetousThoughts.jpg",
+    "text": "Corruption. Playable only on a minion. At the end of each of his turns, target minion makes a corruption check for each item his company bears that he does not bear. For each check, modify the roll by subtracting the corruption of that item. During his organization phase, the minion may tap to attempt to remove this card. Make a roll—if the result is greater than 5, discard this card. Cannot be duplicated on a given minion.",
+    "unique": false,
+    "eventType": "permanent"
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "le-117",
+    "name": "Long Winter",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/LongWinter.jpg",
+    "text": "Environment. Each moving company that has at least two Wildernesses [{w}] in its site path must return to its site of origin unless it contains a ranger. Additionally, if Doors of Night is in play, each non-Haven/non-Darkhaven site in play with at least two Wildernesses [{w}] in its site path is tapped. Cannot be duplicated.",
+    "unique": false,
+    "eventType": "long"
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "le-128",
+    "name": "Nothing to Eat or Drink",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/NothingtoEatorDrink.jpg",
+    "text": "Playable on a minion company at or moving to a Free-hold [{F}] or Border-hold [{B}] , or playable on a hero company at or moving to a Shadow-hold [{S}] or Dark-hold [{D}]. The prowess and body of each character in the company is modified by -1. Discard this card during its organization phase if the company is at a Haven/Darkhaven [{H}]. Cannot be duplicated on a given company.",
+    "unique": false,
+    "eventType": "permanent"
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "le-130",
+    "name": "Plague of Wights",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/PlagueofWights.jpg",
+    "text": "The prowess of all Undead attacks is increased by one. Additionally, if Doors of Night is in play, the number of strikes for each Undead attack is doubled. Cannot be duplicated.",
+    "unique": false,
+    "eventType": "long"
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "le-140",
+    "name": "Stay Her Appetite",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/StayHerAppetite.jpg",
+    "text": "Playable on an ally. Make a roll. If the result plus the ally’s mind is greater than your opponent’s unused general influence plus its controlling character’s unused direct influence plus 5, the ally attacks its controlling character (detainment attack against a hero). This attack has 1 strike and prowess equal to the ally’s normal prowess plus a dice roll. Discard the ally if it attacks and is not defeated.",
+    "unique": false,
+    "eventType": "short"
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "le-141",
+    "name": "Stench of Mordor",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/StenchofMordor.jpg",
+    "text": "Environment. At the start of its site phase, each company at a site in a Dark-domain [{d}] (or Shadow-land [{s}], if Doors of Night is in play) must tap one untapped character if available. Discard when any play deck is exhausted. Cannot be duplicated.",
+    "unique": false,
+    "eventType": "permanent"
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "le-142",
+    "name": "Thrice Outnumbered",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/ThriceOutnumbered.jpg",
+    "text": "Each player may take one Man hazard creature from his discard pile and shuffle it into his play deck at the end of each turn. Discard this card or a Man hazard creature from your hand at the end of opponent’s long-event phase. Discard when any play deck is exhausted. Cannot be duplicated.",
+    "unique": false,
+    "eventType": "permanent"
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "le-143",
+    "name": "Tidings of Bold Spies",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/TidingsofBoldSpies.jpg",
+    "text": "Playable on a company moving to a site with an automatic-attack. This card creates one or more attacks on the company, the total of which duplicates exactly (including modifications) all automatic-attacks at the site. These attacks must be faced immediately and are not considered automatic-attacks.",
+    "unique": false,
+    "eventType": "short"
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "le-146",
+    "name": "Veils Flung Away",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/VeilsFlungAway.jpg",
+    "text": "Playable on a company moving in a Wilderness [{w}] , Border-land [{b}] , or Free-domain [{f}] if Doors of Night is not in play; does not count against the hazard limit. Make a body check modified by -1 for each character. Determine if each Orc or Troll character is discarded as indicated on their cards. Otherwise, the body checks have no effect unless an untapped character fails his check, in which case he becomes tapped.",
+    "unique": false,
+    "eventType": "short"
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "le-149",
+    "name": "Weariness of the Heart",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/WearinessoftheHeart.jpg",
+    "text": "Playable on a character. The prowess of target character is modified by -1 until the end of the turn. This use cannot be duplicated on a given character. Alternatively, target character makes a corruption check.",
+    "unique": false,
+    "eventType": "short"
   }
 ]

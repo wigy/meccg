@@ -483,5 +483,37 @@
       }
     ],
     "text": "Unique. Hoard item. Armor. +1 body (to a maximum of 9). A stored Reforging may be placed with this item to “restore” it. Once restored, Belegennon gives 4 marshalling points and 3 corruption points. Warrior only (restored): If bearer chooses not to tap against a strike, he receives no prowess penalty."
+  },
+  {
+    "cardType": "hero-resource-item",
+    "id": "td-158",
+    "name": "Thrór’s Map",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/td/ThrorsMap.jpg",
+    "text": "Unique. Discard Thrór’s Map to untap a site with a Dragon automatic-attack.",
+    "alignment": "wizard",
+    "unique": true,
+    "subtype": "minor",
+    "marshallingPoints": 0,
+    "marshallingCategory": "item",
+    "corruptionPoints": 0,
+    "prowessModifier": 0,
+    "bodyModifier": 0,
+    "playableAt": []
+  },
+  {
+    "cardType": "hero-resource-item",
+    "id": "td-172",
+    "name": "Wormsbane",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/td/Wormsbane.jpg",
+    "text": "Unique. Weapon. +2 to prowess to a maximum of 9 (+4 to prowess to a maximum of 12 and -2 to strike’s body against a Dragon or Drake strike).",
+    "alignment": "wizard",
+    "unique": true,
+    "subtype": "greater",
+    "marshallingPoints": 4,
+    "marshallingCategory": "item",
+    "corruptionPoints": 0,
+    "prowessModifier": 0,
+    "bodyModifier": 0,
+    "playableAt": []
   }
 ]

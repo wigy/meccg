@@ -12,17 +12,32 @@
         "target": "character",
         "filter": {
           "$and": [
-            { "target.race": { "$ne": "wizard" } },
-            { "target.race": { "$ne": "ringwraith" } }
+            {
+              "target.race": {
+                "$ne": "wizard"
+              }
+            },
+            {
+              "target.race": {
+                "$ne": "ringwraith"
+              }
+            }
           ]
         },
         "maxCompanySize": 3
       },
-      { "type": "duplication-limit", "scope": "character", "max": 1 },
+      {
+        "type": "duplication-limit",
+        "scope": "character",
+        "max": 1
+      },
       {
         "type": "on-event",
         "event": "end-of-company-mh",
-        "apply": { "type": "force-check", "check": "corruption" },
+        "apply": {
+          "type": "force-check",
+          "check": "corruption"
+        },
         "target": "bearer",
         "perRegion": true
       },
@@ -34,18 +49,28 @@
       {
         "type": "grant-action",
         "action": "remove-self-on-roll",
-        "cost": { "tap": "bearer" },
+        "cost": {
+          "tap": "bearer"
+        },
         "apply": {
           "type": "roll-then-apply",
           "threshold": 7,
-          "onSuccess": { "type": "discard-self" }
+          "onSuccess": {
+            "type": "discard-self"
+          }
         }
       },
       {
         "type": "on-event",
         "event": "company-composition-changed",
-        "apply": { "type": "discard-self" },
-        "when": { "company.characterCount": { "$gte": 4 } }
+        "apply": {
+          "type": "discard-self"
+        },
+        "when": {
+          "company.characterCount": {
+            "$gte": 4
+          }
+        }
       }
     ],
     "text": "Corruption. Playable on a non-Wizard, non-Ringwraith character in a company with 3 or fewer characters. Target character makes a corruption check at the end of his movement/hazard phase for each region he moved through. All of his corruption checks are modified by adding the number of characters in his company. During his organization phase, the character may tap to attempt to remove this card. Make a roll—if the result is greater than 6, discard this card. Discard this card if his company has 4 or more characters. Cannot be duplicated on a given character.",
@@ -60,5 +85,23 @@
     "eventType": "permanent",
     "effects": [],
     "text": "This card reserves up to one Dragon or Drake hazard creature at a time. To reserve a Dragon or Drake creature, place it face up “off to the side” with this card (not counting against the hazard limit). You may play a reserved creature as though it were in your hand. Discard this card after the reserved creature attacks. A reserved Dragon or Drake receives +2 prowess when attacking."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "as-30",
+    "name": "Full of Froth and Rage",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/as/FullofFrothandRage.jpg",
+    "text": "All Spider and Animal attacks receive +2 prowess. Discard if a Spider or Animal attack is defeated. Cannot be duplicated.",
+    "unique": false,
+    "eventType": "permanent"
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "as-34",
+    "name": "Power Built by Waiting",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/as/PowerBuiltbyWaiting.jpg",
+    "text": "Tap during a company’s movement/hazard phase to increase the hazard limit against that company by one. This card does not untap during your untap phase. You may use two against a company’s hazard limit to untap this card.",
+    "unique": false,
+    "eventType": "permanent"
   }
 ]

@@ -187,5 +187,57 @@
     "resourceDraws": 1,
     "hazardDraws": 2,
     "text": "Nearest Haven: LórienPlayable: Items (minor)Automatic-attacks: When a company enters this site, opponent may play one creature from his hand that is treated in all ways as the site’s automatic-attack (if defeated, creature is discarded). It must normally be playable keyed to a Ruins & Lairs [{R}], Shadow-hold [{S}], single Wilderness [{w}], or Shadow-land [{s}].Special: Contains a hoard."
+  },
+  {
+    "cardType": "hero-site",
+    "id": "td-173",
+    "name": "Buhr Widu",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/td/BuhrWidu.jpg",
+    "text": "Nearest Haven: Lórien Playable: Items (minor, major) Automatic-attacks: Troll — 1 strike with 10 prowess Special: This site is always returned to the location deck, never to the discard pile.",
+    "alignment": "wizard",
+    "siteType": "ruins-and-lairs",
+    "sitePath": [
+      "wilderness",
+      "border",
+      "wilderness",
+      "wilderness",
+      "wilderness"
+    ],
+    "nearestHaven": "Lórien",
+    "region": "Southern Rhovanion",
+    "playableResources": [
+      "minor",
+      "major"
+    ],
+    "automaticAttacks": [
+      {
+        "creatureType": "Trolls",
+        "strikes": 1,
+        "prowess": 10
+      }
+    ],
+    "resourceDraws": 3,
+    "hazardDraws": 3
+  },
+  {
+    "cardType": "hero-site",
+    "id": "td-174",
+    "name": "Dale",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/td/Dale.jpg",
+    "text": "Nearest Haven: Lórien",
+    "alignment": "wizard",
+    "siteType": "border-hold",
+    "sitePath": [
+      "wilderness",
+      "border",
+      "border",
+      "wilderness"
+    ],
+    "nearestHaven": "Lórien",
+    "region": "Northern Rhovanion",
+    "playableResources": [],
+    "automaticAttacks": [],
+    "resourceDraws": 2,
+    "hazardDraws": 2
   }
 ]

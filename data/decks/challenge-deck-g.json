@@ -5,31 +5,31 @@
   "pool": [
     {
       "name": "Lagduf",
-      "card": null,
+      "card": "le-18",
       "qty": 1,
       "favourite": true
     },
     {
       "name": "Lieutenant of Morgul",
-      "card": null,
+      "card": "le-22",
       "qty": 1,
       "favourite": true
     },
     {
       "name": "Muzgash",
-      "card": null,
+      "card": "le-25",
       "qty": 1,
       "favourite": true
     },
     {
       "name": "Radbug",
-      "card": null,
+      "card": "le-38",
       "qty": 1,
       "favourite": true
     },
     {
       "name": "Tros Hesnef",
-      "card": null,
+      "card": "le-46",
       "qty": 1,
       "favourite": true
     },
@@ -40,7 +40,7 @@
     },
     {
       "name": "Burat",
-      "card": null,
+      "card": "as-1",
       "qty": 1
     },
     {
@@ -50,7 +50,7 @@
     },
     {
       "name": "Orc Veteran",
-      "card": null,
+      "card": "le-35",
       "qty": 2
     },
     {
@@ -60,12 +60,12 @@
     },
     {
       "name": "Tuma",
-      "card": null,
+      "card": "as-5",
       "qty": 1
     },
     {
       "name": "Wuluag",
-      "card": null,
+      "card": "as-6",
       "qty": 1
     }
   ],
@@ -73,7 +73,7 @@
     "characters": [
       {
         "name": "Dwar the Ringwraith",
-        "card": null,
+        "card": "le-52",
         "qty": 3
       }
     ],
@@ -90,7 +90,7 @@
       },
       {
         "name": "Dire Wolves",
-        "card": null,
+        "card": "le-68",
         "qty": 3
       },
       {
@@ -100,12 +100,12 @@
       },
       {
         "name": "Full of Froth and Rage",
-        "card": null,
+        "card": "as-30",
         "qty": 2
       },
       {
         "name": "Giant Spiders",
-        "card": null,
+        "card": "le-75",
         "qty": 3
       },
       {
@@ -115,7 +115,7 @@
       },
       {
         "name": "Stay Her Appetite",
-        "card": null,
+        "card": "le-140",
         "qty": 1
       },
       {
@@ -130,17 +130,17 @@
       },
       {
         "name": "Watcher in the Water",
-        "card": null,
+        "card": "le-99",
         "qty": 3
       },
       {
         "name": "Wargs",
-        "card": null,
+        "card": "le-98",
         "qty": 3
       },
       {
         "name": "Wolves",
-        "card": null,
+        "card": "tw-114",
         "qty": 2
       }
     ],
@@ -157,12 +157,12 @@
       },
       {
         "name": "Bold Thrust",
-        "card": null,
+        "card": "le-172",
         "qty": 3
       },
       {
         "name": "Burning Rick, Cot, and Tree",
-        "card": null,
+        "card": "le-173",
         "qty": 2
       },
       {
@@ -172,17 +172,17 @@
       },
       {
         "name": "Diversion",
-        "card": null,
+        "card": "le-180",
         "qty": 1
       },
       {
         "name": "Gleaming Gold Ring",
-        "card": null,
+        "card": "le-311",
         "qty": 1
       },
       {
         "name": "Grey Mountain Goblins",
-        "card": null,
+        "card": "le-266",
         "qty": 1
       },
       {
@@ -192,17 +192,17 @@
       },
       {
         "name": "I'll Report You",
-        "card": null,
+        "card": "le-196",
         "qty": 1
       },
       {
         "name": "Ice-orcs",
-        "card": null,
+        "card": "le-270",
         "qty": 1
       },
       {
         "name": "Orcs of Gundabad",
-        "card": null,
+        "card": "le-276",
         "qty": 1
       },
       {
@@ -212,27 +212,27 @@
       },
       {
         "name": "Swarm of Bats",
-        "card": null,
+        "card": "le-237",
         "qty": 1
       },
       {
         "name": "Swift Strokes",
-        "card": null,
+        "card": "le-238",
         "qty": 3
       },
       {
         "name": "The Arkenstone",
-        "card": null,
+        "card": "le-418",
         "qty": 1
       },
       {
         "name": "Thror's Map",
-        "card": null,
+        "card": "as-134",
         "qty": 1
       },
       {
         "name": "Under His Blow",
-        "card": null,
+        "card": "le-247",
         "qty": 3
       }
     ]
@@ -240,47 +240,47 @@
   "sites": [
     {
       "name": "Dancing Spire",
-      "card": null,
+      "card": "as-143",
       "qty": 1
     },
     {
       "name": "Gold Hill",
-      "card": null,
+      "card": "as-148",
       "qty": 1
     },
     {
       "name": "Gondmaeglom",
-      "card": null,
+      "card": "le-379",
       "qty": 1
     },
     {
       "name": "Irerock",
-      "card": null,
+      "card": "as-151",
       "qty": 1
     },
     {
       "name": "Mount Gundabad",
-      "card": null,
+      "card": "le-395",
       "qty": 1
     },
     {
       "name": "The Lonely Mountain",
-      "card": null,
+      "card": "le-387",
       "qty": 1
     },
     {
       "name": "Carn Dum",
-      "card": null,
+      "card": "le-359",
       "qty": 4
     },
     {
       "name": "Caves of Ulund",
-      "card": null,
+      "card": "le-360",
       "qty": 1
     },
     {
       "name": "Dale",
-      "card": null,
+      "card": "le-363",
       "qty": 1
     },
     {
@@ -300,14 +300,14 @@
     },
     {
       "name": "Raider-hold",
-      "card": null,
+      "card": "le-399",
       "qty": 1
     }
   ],
   "sideboard": [
     {
       "name": "Minor Ring",
-      "card": null,
+      "card": "le-324",
       "qty": 1
     },
     {
@@ -317,7 +317,7 @@
     },
     {
       "name": "Orders from Lugbúrz",
-      "card": null,
+      "card": "as-94",
       "qty": 1
     },
     {
@@ -332,7 +332,7 @@
     },
     {
       "name": "Sable Shield",
-      "card": null,
+      "card": "le-341",
       "qty": 1
     },
     {
@@ -367,7 +367,7 @@
     },
     {
       "name": "Stench of Mordor",
-      "card": null,
+      "card": "le-141",
       "qty": 1
     },
     {

@@ -5,19 +5,19 @@
   "pool": [
     {
       "name": "Hador",
-      "card": null,
+      "card": "le-14",
       "qty": 1,
       "favourite": true
     },
     {
       "name": "Horseman in the Night",
-      "card": null,
+      "card": "le-16",
       "qty": 1,
       "favourite": true
     },
     {
       "name": "Odoacer",
-      "card": null,
+      "card": "le-28",
       "qty": 1,
       "favourite": true
     },
@@ -34,22 +34,22 @@
     },
     {
       "name": "Strange Rations",
-      "card": null,
+      "card": "le-345",
       "qty": 1
     },
     {
       "name": "Ill-favoured Fellow",
-      "card": null,
+      "card": "wh-5",
       "qty": 3
     },
     {
       "name": "Jerrek",
-      "card": null,
+      "card": "le-17",
       "qty": 1
     },
     {
       "name": "Nevido Smod",
-      "card": null,
+      "card": "le-27",
       "qty": 1
     },
     {
@@ -62,7 +62,7 @@
     "characters": [
       {
         "name": "Indur the Ringwraith",
-        "card": null,
+        "card": "le-54",
         "qty": 3
       }
     ],
@@ -79,27 +79,27 @@
       },
       {
         "name": "Cave-worm",
-        "card": null,
+        "card": "le-65",
         "qty": 2
       },
       {
         "name": "Corpse-candle",
-        "card": null,
+        "card": "le-67",
         "qty": 3
       },
       {
         "name": "Covetous Thoughts",
-        "card": null,
+        "card": "le-107",
         "qty": 1
       },
       {
         "name": "Dragon-sickness",
-        "card": null,
+        "card": "td-18",
         "qty": 2
       },
       {
         "name": "Ghosts",
-        "card": null,
+        "card": "le-72",
         "qty": 2
       },
       {
@@ -124,7 +124,7 @@
       },
       {
         "name": "Sellswords Between Charters",
-        "card": null,
+        "card": "le-89",
         "qty": 1
       },
       {
@@ -134,7 +134,7 @@
       },
       {
         "name": "Weariness of the Heart",
-        "card": null,
+        "card": "le-149",
         "qty": 1
       }
     ],
@@ -146,22 +146,22 @@
       },
       {
         "name": "Balchoth",
-        "card": null,
+        "card": "le-260",
         "qty": 1
       },
       {
         "name": "Bold Thrust",
-        "card": null,
+        "card": "le-172",
         "qty": 3
       },
       {
         "name": "By the Ringwraith's Word",
-        "card": null,
+        "card": "le-174",
         "qty": 1
       },
       {
         "name": "Corsairs of Rhun",
-        "card": null,
+        "card": "as-114",
         "qty": 1
       },
       {
@@ -171,17 +171,17 @@
       },
       {
         "name": "Crooked Promptings",
-        "card": null,
+        "card": "le-178",
         "qty": 1
       },
       {
         "name": "Easterlings",
-        "card": null,
+        "card": "le-264",
         "qty": 1
       },
       {
         "name": "Haradrim",
-        "card": null,
+        "card": "as-63",
         "qty": 1
       },
       {
@@ -201,7 +201,7 @@
       },
       {
         "name": "Ready to His Will",
-        "card": null,
+        "card": "le-220",
         "qty": 1
       },
       {
@@ -211,12 +211,12 @@
       },
       {
         "name": "Secret Book",
-        "card": null,
+        "card": "as-131",
         "qty": 3
       },
       {
         "name": "Southrons",
-        "card": null,
+        "card": "le-287",
         "qty": 1
       },
       {
@@ -226,12 +226,12 @@
       },
       {
         "name": "The Arkenstone",
-        "card": null,
+        "card": "le-418",
         "qty": 1
       },
       {
         "name": "The Tormented Earth",
-        "card": null,
+        "card": "as-102",
         "qty": 3
       },
       {
@@ -241,7 +241,7 @@
       },
       {
         "name": "Wain-easterlings",
-        "card": null,
+        "card": "as-66",
         "qty": 1
       }
     ]
@@ -249,7 +249,7 @@
   "sites": [
     {
       "name": "Gondmaeglom",
-      "card": null,
+      "card": "le-379",
       "qty": 1
     },
     {
@@ -259,27 +259,27 @@
     },
     {
       "name": "Mount Gundabad",
-      "card": null,
+      "card": "le-395",
       "qty": 1
     },
     {
       "name": "Southron Oasis",
-      "card": null,
+      "card": "le-404",
       "qty": 1
     },
     {
       "name": "The Wind Throne",
-      "card": null,
+      "card": "le-413",
       "qty": 1
     },
     {
       "name": "Barad-dur",
-      "card": null,
+      "card": "le-352",
       "qty": 4
     },
     {
       "name": "Caves of Ulund",
-      "card": null,
+      "card": "le-360",
       "qty": 1
     },
     {
@@ -289,7 +289,7 @@
     },
     {
       "name": "Easterling Camp",
-      "card": null,
+      "card": "le-371",
       "qty": 1
     },
     {
@@ -309,7 +309,7 @@
     },
     {
       "name": "Raider-hold",
-      "card": null,
+      "card": "le-399",
       "qty": 1
     }
   ],
@@ -321,27 +321,27 @@
     },
     {
       "name": "Focus Palantír",
-      "card": null,
+      "card": "le-184",
       "qty": 1
     },
     {
       "name": "Great Bats",
-      "card": null,
+      "card": "as-74",
       "qty": 1
     },
     {
       "name": "Grey Mountain Goblins",
-      "card": null,
+      "card": "le-266",
       "qty": 1
     },
     {
       "name": "Hold Rebuilt and Repaired",
-      "card": null,
+      "card": "as-88",
       "qty": 1
     },
     {
       "name": "Orcs of Gundabad",
-      "card": null,
+      "card": "le-276",
       "qty": 1
     },
     {
@@ -361,7 +361,7 @@
     },
     {
       "name": "Skies of Fire",
-      "card": null,
+      "card": "le-228",
       "qty": 2
     },
     {
@@ -376,17 +376,17 @@
     },
     {
       "name": "Covetous Thoughts",
-      "card": null,
+      "card": "le-107",
       "qty": 2
     },
     {
       "name": "Lost in Free-domains",
-      "card": null,
+      "card": "le-119",
       "qty": 2
     },
     {
       "name": "River",
-      "card": null,
+      "card": "le-134",
       "qty": 2
     },
     {
