@@ -476,6 +476,24 @@ case "$REQUESTOR" in
 esac
 
 # ---------------------------------------------------------------------------
+# Step 2c: Guard against a polluted working tree.
+# ---------------------------------------------------------------------------
+# If a previous mail left uncommitted changes (e.g. a certify skill
+# exited without opening its PR), they would contaminate this run's
+# branch and cause it to commit unrelated files. Stash them — the
+# operator can recover them from `git stash list` if needed — so this
+# run always starts from a clean state.
+
+cd "$PROJECT_DIR"
+if [ -n "$(git status --porcelain)" ]; then
+  log "WARNING: working tree is dirty before handling $MSG_ID — pre-skill stash:"
+  git status --porcelain | sed 's/^/[handle-mail]   /'
+  git stash push -u -m "handle-mail pre-skill guard [before $MSG_ID]" \
+    > /dev/null 2>&1 || true
+  log "Stashed pre-skill. (See 'git stash list' to recover.)"
+fi
+
+# ---------------------------------------------------------------------------
 # Step 3: Mark as processing
 # ---------------------------------------------------------------------------
 
@@ -621,6 +639,24 @@ IMPORTANT: You MUST create a branch named certify-${CARD_ID}-<card-slug>, commit
       CARD_NAME=$(lookup_card_name "$CARD_ID")
       GIT_HASH=$(echo "$SKILL_OUTPUT" | grep -oP '[0-9a-f]{40}' | tail -1 || true)
 
+      # Safety net: the certify skill is required to leave the working
+      # tree clean (either no changes, or all changes committed on its
+      # certify-<cardId>-* branch). If it didn't, stash the leftovers
+      # so the NEXT mail doesn't inherit them, list the orphaned files
+      # in the failure reply so nothing is silently lost, and treat
+      # this as a certification failure regardless of anything else.
+      cd "$PROJECT_DIR"
+      DIRTY_FILES=""
+      DIRTY_STASH=""
+      if [ -n "$(git status --porcelain)" ]; then
+        DIRTY_FILES=$(git status --porcelain)
+        DIRTY_STASH="handle-mail post-skill rescue [$MSG_ID certify-$CARD_ID]"
+        git stash push -u -m "$DIRTY_STASH" > /dev/null 2>&1 || true
+        log "WARNING: skill left $(echo "$DIRTY_FILES" | wc -l) uncommitted file(s)."
+        echo "$DIRTY_FILES" | sed 's/^/[handle-mail]   /'
+        log "Stashed as: $DIRTY_STASH (recover with 'git stash list')."
+      fi
+
       # Look up the PR by its head branch. The skill creates the branch
       # certify-<cardId>-<slug>. We list PRs and match by headRefName
       # prefix client-side — safer than --head (exact match) or --search
@@ -632,11 +668,16 @@ IMPORTANT: You MUST create a branch named certify-${CARD_ID}-<card-slug>, commit
 
       # Artifact-based success detection. No prose parsing: we trust
       # (a) the stream-json terminal success marker captured by
-      # run_skill, and (b) the existence of a PR on the certify branch.
-      # Step 14 of the skill is mandatory on success, so a missing PR
-      # means the skill did not finish a clean certification.
+      # run_skill, (b) the existence of a PR on the certify branch,
+      # and (c) a clean working tree. Any uncommitted leftovers mean
+      # the skill abandoned its turn mid-step and the reply must say so.
       CERT_FAIL_REASON=""
-      if [ "${SKILL_STATUS:-}" != "success" ]; then
+      if [ -n "$DIRTY_FILES" ]; then
+        CERT_FAIL_REASON="Skill exited with uncommitted changes — it ended its turn before reaching step 14 (branch/commit/push/PR). The dirty files have been stashed as '$DIRTY_STASH'; no information is lost.
+
+Uncommitted files:
+$DIRTY_FILES"
+      elif [ "${SKILL_STATUS:-}" != "success" ]; then
         CERT_FAIL_REASON="Skill did not reach a successful terminal result (status=${SKILL_STATUS:-unknown})."
       elif [ -z "$PR_URL" ]; then
         CERT_FAIL_REASON="No PR was opened for certify-${CARD_ID}-* (skill step 14 not completed)."
@@ -910,6 +951,11 @@ log "Topic:    $TOPIC"
 log "Subject:  $SUBJECT"
 log "From:     $FROM"
 log "Success:  $SUCCESS"
+if ! $SUCCESS && [ -n "${CERT_FAIL_REASON:-}" ]; then
+  # Surface the first line of the failure reason in the terminal summary
+  # so operators reading the log don't have to open the reply to see why.
+  log "Reason:   $(echo "$CERT_FAIL_REASON" | head -1)"
+fi
 if [ -n "$REPLY_TOPIC" ]; then
   log "Reply:    $REPLY_TOPIC -> $REPLY_RECIPIENT"
 fi

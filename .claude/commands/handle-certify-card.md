@@ -87,7 +87,19 @@ Follow these steps:
 
     **NEVER write tautological tests.** Do NOT add test blocks that load a card definition via `pool[ID]` and then `expect` its fields (`cardType`, `id`, `name`, `strikes`, `prowess`, `body`, `unique`, `race`, `effects[i].type`, `keyedTo`, `extended`, etc.) to match values that are literally in the card JSON. Those assertions verify JSON data against itself and prove nothing. Every test must build a game state, drive the reducer or legal-action computation, and assert on resulting state/actions. Document card shape in the module-level JSDoc comment, not in tests.
 
-12. **Verify everything passes:** Run `npm run build`, `npm run lint`, `npm test`, and `npm run test:nightly` in parallel. Fix any type errors, lint violations, test failures, or new nightly test failures. Repeat until all four pass cleanly. If `npm run lint` fails, try `npm run lint:fix` first.
+12. **Verify tests pass (blocking, in-turn):** Run these checks **sequentially as foreground Bash calls**, waiting for each to finish before the next:
+
+    1. `npm run build` — type-check.
+    2. `npx vitest run packages/shared/src/tests/cards/<cardId>.test.ts` — the card's own test file.
+    3. `npm test` — full rules test suite.
+
+    ⚠️ **Do NOT use `run_in_background=true` for any of these.** Each one must complete within the tool call that started it.
+
+    ⚠️ **Do NOT end your turn while any of these is still running or unstarted.** If you post an interim message like "waiting for tests…" and stop calling tools, the hosting session ends and steps 13–14 never execute, leaving your work orphaned in the working tree.
+
+    Fix any failures and re-run until all three pass.
+
+    **Lint and nightly (`npm run lint`, `npm run test:nightly`) are NOT blocking for PR creation.** They run as CI checks on the branch. If you want to verify them locally, run them **after** step 14 (once the branch is pushed) and push any fix commits directly to the branch.
 
 13. **Certify on success:** If the result is **YES** (all effects fully implemented, or no effects) AND a complete card test exists with no `test.todo()` gaps, set the `certified` field on the card definition in its data JSON file to today's date (ISO 8601 format, e.g. `"2026-03-28"`). This records when the card was last verified as engine-compatible and fully tested. If the card was already certified, update the date. If the result is PARTIALLY or NO, or tests are incomplete, remove any existing `certified` field.
 
@@ -97,5 +109,9 @@ Follow these steps:
     - Push the branch to origin
     - Open a pull request using `gh pr create`
     - Report the PR URL and the git hash of the commit
+
+    ⚠️ **The working tree MUST be clean before your turn ends.** The mail handler checks `git status --porcelain` after your session and treats any uncommitted change as a certification failure — the user will be told you abandoned the work mid-step, and the stray files will be stashed.
+
+    If, despite the guidance above, you find yourself about to end the turn with uncommitted changes, commit them to the certify branch first (even if tests/lint haven't finished — a PR with follow-up commits is always recoverable; an orphaned diff on master is not).
 
     Never merge directly to master. This is a hard requirement.
