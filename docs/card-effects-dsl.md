@@ -809,7 +809,7 @@ The context carries everything relevant to the current calculation:
 - `reason` — what is being calculated (`"combat"`, `"faction-influence-check"`, `"corruption-check"`, etc.)
 - `bearer` / `character` — the character involved
 - `enemy` — the creature or hazard (in combat)
-- `faction` — the faction (in influence checks)
+- `faction` — the faction (in influence checks). Exposes `faction.name`, `faction.race`, and `faction.playableAt` — an array of the sites/site-types listed on the faction card's `playableAt`, enabling conditions like `{ "faction.playableAt": "Dunnish Clan-hold" }` (AS-4 Perchen).
 - `company` — all characters at the same site
 - `cardsInPlay` — all cards in play for both players
 - `inPlay` — names of all events/cards in play (for `target: "all-attacks"` and `"all-characters"` contexts)

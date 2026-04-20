@@ -17,7 +17,7 @@ import type { ResolverContext } from '../effects/index.js';
 import { logDetail, logHeading } from './log.js';
 import { availableDI, grantedActionActivations, ANY_PHASE_GRANT_ACTIONS, playResourceShortEventActions } from './organization.js';
 import { getActiveAutoAttacks } from '../manifestations.js';
-import { buildControllerInPlayNames } from '../recompute-derived.js';
+import { buildControllerInPlayNames, buildFactionPlayableAt } from '../recompute-derived.js';
 
 /**
  * Check whether a site satisfies a {@link PlayableAtEntry}.
@@ -848,7 +848,7 @@ function playResourcesActions(
             faction: {
               name: factionDef.name,
               race: factionDef.race,
-              playableAt: factionDef.playableAt.flatMap(e => 'site' in e ? [e.site] : []),
+              playableAt: buildFactionPlayableAt(factionDef),
             },
             controller: { inPlay: buildControllerInPlayNames(state, playerId) },
           };
