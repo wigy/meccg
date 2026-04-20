@@ -1020,6 +1020,42 @@ export interface BounceHazardEventsEffect extends EffectBase {
 }
 
 /**
+ * Triggers the "call the council" endgame transition — the card-based
+ * equivalent of the `call-free-council` action. Sets `freeCouncilCalled`
+ * on the caller, advances the turn, and marks who gets the final last
+ * turn before the Free Council phase begins.
+ *
+ * Per CoE rule 10.41, Ringwraith and Balrog players play Sudden Call
+ * (le-235) to trigger this instead of calling freely.
+ *
+ * - `lastTurnFor: 'opponent'` — resource-side play on the caller's own
+ *   turn; their opponent gets one last turn (same as `call-free-council`).
+ * - `lastTurnFor: 'self'` — hazard-side play during the opponent's
+ *   turn; the card's player gets one last turn.
+ */
+export interface CallCouncilEffect extends EffectBase {
+  readonly type: 'call-council';
+  readonly lastTurnFor: 'opponent' | 'self';
+}
+
+/**
+ * The card returns from the player's hand to their play deck, which is
+ * then reshuffled. "Show opponent" — the action is public via the game
+ * log, since the card is revealed as it moves.
+ *
+ * Used by Sudden Call (le-235), which is playable as either resource or
+ * hazard but can alternatively be reshuffled into the deck at any time
+ * it is in the player's hand — a safety valve to avoid being stuck with
+ * an unusable card when the endgame conditions never materialize.
+ *
+ * This ability is triggered by the `reshuffle-card-from-hand` action
+ * (see `types/actions.ts`), not as part of short-event play resolution.
+ */
+export interface ReshuffleSelfFromHandEffect extends EffectBase {
+  readonly type: 'reshuffle-self-from-hand';
+}
+
+/**
  * Discriminated union of all card effect types.
  * The `type` field serves as the discriminant for type narrowing.
  */
@@ -1060,4 +1096,6 @@ export type CardEffect =
   | AhuntAttackEffect
   | DragonAtHomeEffect
   | ControlRestrictionEffect
-  | BounceHazardEventsEffect;
+  | BounceHazardEventsEffect
+  | CallCouncilEffect
+  | ReshuffleSelfFromHandEffect;

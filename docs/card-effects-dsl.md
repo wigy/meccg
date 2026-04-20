@@ -758,6 +758,42 @@ types when a condition is met (typically Doors of Night in play).
 Implemented in `reducer-movement-hazard.ts` (`handleOrderEffects`,
 `collectMatchingAhuntAttacks`).
 
+### 26. `call-council`
+
+Triggers the "call the council" endgame transition from a card, as the
+card-based equivalent of the `call-free-council` action. Used by Sudden
+Call (le-235) per CoE rule 10.41: Ringwraith and Balrog players cannot
+freely call the endgame and must play Sudden Call instead.
+
+```json
+{ "type": "call-council", "lastTurnFor": "opponent" }
+{ "type": "call-council", "lastTurnFor": "self" }
+```
+
+- `lastTurnFor: "opponent"` — resource-side play on the card-player's
+  own turn; the opponent gets one last turn.
+- `lastTurnFor: "self"` — hazard-side play during the opponent's turn;
+  the card-player gets one last turn.
+
+Both modes set `freeCouncilCalled` on the caller, advance the turn, and
+set `state.lastTurnFor` accordingly. Implemented in `reducer-end-of-turn.ts`
+(`triggerCouncilCall`).
+
+### 27. `reshuffle-self-from-hand`
+
+The card returns from the player's hand to their play deck, which is
+then reshuffled. "Show opponent" — the action is public via the game log.
+Used by Sudden Call (le-235) as a safety valve for when the endgame
+conditions never materialize.
+
+```json
+{ "type": "reshuffle-self-from-hand" }
+```
+
+Triggered by the `reshuffle-card-from-hand` action, not by short-event
+play resolution. Implemented in `reducer-end-of-turn.ts`
+(`reshuffleCardFromHand`).
+
 ## Resolver Architecture
 
 The engine calls a resolver at each decision point:

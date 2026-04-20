@@ -8,6 +8,7 @@
 
 import type { GameState, EndOfTurnPhaseState, PlayerId, GameAction } from '../index.js';
 import { Phase, getPlayerIndex } from '../index.js';
+import { shuffle } from '../rng.js';
 import { resolveHandSize } from './effects/index.js';
 import { logHeading, logDetail } from './legal-actions/log.js';
 import type { ReducerResult } from './reducer-utils.js';
@@ -298,33 +299,86 @@ function handleEndOfTurnSignalEnd(state: GameState, action: GameAction): Reducer
   }
 
   if (action.type === 'call-free-council') {
-    const currentIndex = getPlayerIndex(state, state.activePlayer!);
-    const nextIndex = (currentIndex === 0 ? 1 : 0);
-    const nextPlayer = state.players[nextIndex].id;
-
-    const newPlayers = clonePlayers(state);
-    newPlayers[currentIndex] = { ...newPlayers[currentIndex], freeCouncilCalled: true };
-
-    logDetail(`End-of-Turn signal-end: ${action.player as string} called the Free Council — opponent ${nextPlayer as string} gets one last turn`);
-    return {
-      state: enterUntapPhase({
-        ...state,
-        players: newPlayers,
-        activePlayer: nextPlayer,
-        turnNumber: state.turnNumber + 1,
-        lastTurnFor: nextPlayer,
-      }),
-    };
+    logDetail(`End-of-Turn signal-end: ${action.player as string} called the Free Council — opponent gets one last turn`);
+    return { state: triggerCouncilCall(state, action.player, 'opponent') };
   }
 
   return { state, error: `Unexpected action '${action.type}' in end-of-turn signal-end step` };
 }
 
 /**
- * Creates the initial Free Council phase state. The player who took the last
- * turn performs corruption checks first.
+ * Trigger a call-the-council endgame event. Marks the caller's
+ * `freeCouncilCalled`, swaps the active player, increments the turn
+ * counter, and sets `lastTurnFor` per the `direction`:
+ *
+ * - `'opponent'` — the caller's opponent gets one last turn (normal free
+ *   call, or resource-side Sudden Call).
+ * - `'self'` — the caller gets one last turn (hazard-side Sudden Call
+ *   played during the opponent's turn — the caller has just finished
+ *   reacting, and per rule 10.41 it's the caller who gets one last turn).
+ *
+ * Extracted so that both the `call-free-council` action handler and the
+ * upcoming `call-council` DSL effect (used by Sudden Call) share the
+ * same state transition.
  */
+export function triggerCouncilCall(
+  state: GameState,
+  caller: PlayerId,
+  direction: 'opponent' | 'self',
+): GameState {
+  const callerIndex = getPlayerIndex(state, caller);
+  const opponentIndex = (callerIndex === 0 ? 1 : 0);
+  const opponent = state.players[opponentIndex].id;
 
+  const newPlayers = clonePlayers(state);
+  newPlayers[callerIndex] = { ...newPlayers[callerIndex], freeCouncilCalled: true };
+
+  const nextActive = opponent;
+  const lastTurnFor = direction === 'opponent' ? opponent : caller;
+
+  return enterUntapPhase({
+    ...state,
+    players: newPlayers,
+    activePlayer: nextActive,
+    turnNumber: state.turnNumber + 1,
+    lastTurnFor,
+  });
+}
+
+/**
+ * Remove a card from the given player's hand, return it to their play
+ * deck, and reshuffle the deck. Used by the `reshuffle-self-from-hand`
+ * DSL ability (Sudden Call) and any future cards with the same
+ * "show opponent, reshuffle into deck" mechanic.
+ *
+ * Returns `null` if the card is not in the player's hand. Callers should
+ * have already verified legality via the legal-actions computer.
+ */
+export function reshuffleCardFromHand(
+  state: GameState,
+  player: PlayerId,
+  cardInstanceId: import('../index.js').CardInstanceId,
+): GameState | null {
+  const playerIndex = getPlayerIndex(state, player);
+  const p = state.players[playerIndex];
+  const cardIdx = p.hand.findIndex(c => c.instanceId === cardInstanceId);
+  if (cardIdx < 0) return null;
+
+  const card = p.hand[cardIdx];
+  const newHand = [...p.hand.slice(0, cardIdx), ...p.hand.slice(cardIdx + 1)];
+
+  const [shuffled, rng] = shuffle([...p.playDeck, card], state.rng);
+
+  const newPlayers = clonePlayers(state);
+  newPlayers[playerIndex] = {
+    ...newPlayers[playerIndex],
+    hand: newHand,
+    playDeck: shuffled,
+  };
+
+  logDetail(`${p.name} reshuffled card ${cardInstanceId as string} (${card.definitionId as string}) from hand into play deck (shown to opponent)`);
+  return { ...state, players: newPlayers, rng };
+}
 
 /**
  * Creates the initial Free Council phase state. The player who took the last
