@@ -211,6 +211,50 @@ export function readCreditHistory(name: string): CreditHistoryEntry[] {
   }
 }
 
+/** Outcome of {@link updateCredits}. */
+export interface CreditUpdateResult {
+  /** Balance before the change. */
+  readonly previous: number;
+  /** Balance after the change. */
+  readonly balance: number;
+  /** Signed change applied (balance - previous). */
+  readonly delta: number;
+}
+
+/**
+ * Mutate a player's credit balance and append an audit entry to their
+ * history file. Mirrors the behavior of `bin/credits add|set` so remote
+ * AI workers can charge credits over the system API without shelling out
+ * to the script. Returns null if the player does not exist.
+ *
+ * @param mode  'add' applies a signed delta; 'set' replaces the balance outright
+ * @param amount  Signed integer (for 'add') or absolute value (for 'set')
+ * @param reason  Human-readable explanation recorded in credits.json
+ */
+export function updateCredits(
+  name: string,
+  mode: 'add' | 'set',
+  amount: number,
+  reason: string,
+): CreditUpdateResult | null {
+  const player = findPlayer(name);
+  if (!player) return null;
+  const previous = player.credits ?? DEFAULT_CREDITS;
+  const balance = mode === 'add' ? previous + amount : amount;
+  const delta = balance - previous;
+  updatePlayer(name, { ...player, credits: balance });
+  const entry: CreditHistoryEntry = {
+    datetime: new Date().toISOString(),
+    amount: delta,
+    balance,
+    explanation: reason,
+  };
+  const history = readCreditHistory(name);
+  history.push(entry);
+  fs.writeFileSync(creditsHistoryPath(name), JSON.stringify(history, null, 2));
+  return { previous, balance, delta };
+}
+
 // ---- Mail view tracking ----
 
 /** Get the player's last mail view timestamp, or null if never viewed. */

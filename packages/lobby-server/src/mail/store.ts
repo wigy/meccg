@@ -207,6 +207,58 @@ export function deleteMessage(playerName: string, msgId: string): boolean {
 }
 
 /**
+ * A pending request surfaced to the AI worker via the system API. This is
+ * the API-side equivalent of what `bin/requests` produces by grepping the
+ * on-disk inboxes directly.
+ */
+export interface UnhandledRequest {
+  /** Message ID. */
+  readonly id: string;
+  /** ISO 8601 timestamp. */
+  readonly timestamp: string;
+  /** Message topic. */
+  readonly topic: MailTopic;
+  /** Message status (always 'new' here, but surfaced for clarity). */
+  readonly status: MailStatus;
+  /** Subject line. */
+  readonly subject: string;
+  /** Sender display name. */
+  readonly from: string;
+  /** Keywords carried on the message. */
+  readonly keywords: Readonly<Record<string, string>>;
+  /** Inbox the request was found in (e.g. 'ai' or 'admin'). */
+  readonly inbox: string;
+}
+
+/**
+ * Collect every unhandled request across the given inboxes. A request is
+ * any message with status 'new' whose topic ends in '-request' or is
+ * exactly 'bug-report'. Results are ordered oldest-first so the caller
+ * (typically `bin/run-ai`) processes requests in FIFO order.
+ */
+export function listUnhandledRequests(inboxes: readonly string[]): UnhandledRequest[] {
+  const out: UnhandledRequest[] = [];
+  for (const inbox of inboxes) {
+    for (const msg of listInbox(inbox)) {
+      if (msg.status !== 'new') continue;
+      if (!(msg.topic.endsWith('-request') || msg.topic === 'bug-report')) continue;
+      out.push({
+        id: msg.id,
+        timestamp: msg.timestamp,
+        topic: msg.topic,
+        status: msg.status,
+        subject: msg.subject,
+        from: msg.from,
+        keywords: msg.keywords,
+        inbox,
+      });
+    }
+  }
+  out.sort((a, b) => a.timestamp.localeCompare(b.timestamp));
+  return out;
+}
+
+/**
  * Count messages in a player's inbox that need attention: status 'new', plus
  * review-requests in 'waiting' state (the reviewer still has to approve/decline).
  */

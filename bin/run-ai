@@ -9,6 +9,11 @@ Long-running worker loop that polls for unhandled ai requests and
 dispatches them to bin/handle-mail one at a time. Pulls master between
 iterations and skips feature-requests (which require human review).
 
+Environment:
+  MECCG_LOBBY_URL   Lobby base URL (default http://localhost:8080)
+  MECCG_MASTER_KEY  Lobby master key. Falls back to
+                    ~/.meccg/secrets.json when unset.
+
 Options:
   -h, --help      Show this help message.
 EOF
@@ -18,16 +23,38 @@ fi
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 LOG_DIR="$HOME/.meccg/logs"
 LOG_FILE="$LOG_DIR/ai.log"
+SECRETS="$HOME/.meccg/secrets.json"
+BASE_URL="${MECCG_LOBBY_URL:-http://localhost:8080}"
 
 mkdir -p "$LOG_DIR"
+
+master_key() {
+  if [ -n "${MECCG_MASTER_KEY:-}" ]; then
+    echo "$MECCG_MASTER_KEY"
+    return 0
+  fi
+  if [ -f "$SECRETS" ]; then
+    jq -r .masterKey "$SECRETS"
+    return 0
+  fi
+  echo "[run-ai] ERROR: no master key (set MECCG_MASTER_KEY or provide $SECRETS)" >&2
+  return 1
+}
+
+# Fetch unhandled requests from the lobby system API and print the first
+# non-feature-request message ID. Feature-requests need human review
+# (approve/decline) and cannot be auto-handled.
+next_request_id() {
+  curl -sf -X GET "$BASE_URL/api/system/ai-requests" \
+    -H "Authorization: Bearer $(master_key)" 2>/dev/null \
+    | jq -r '[.requests[] | select(.topic != "feature-request")][0].id // empty' 2>/dev/null
+}
 
 while true; do
   git checkout master 2>&1 | tee -a "$LOG_FILE"
   git pull 2>&1 | tee -a "$LOG_FILE"
 
-  # Check for unhandled requests. Skip feature-requests — those need
-  # human review (approve/decline) and cannot be handled by the AI.
-  MSG_ID=$("$SCRIPT_DIR/requests" | awk '$3 != "feature-request" {print $2; exit}')
+  MSG_ID=$(next_request_id)
 
   if [ -z "$MSG_ID" ]; then
     echo "=== No pending requests at $(date -Iseconds), sleeping ===" | tee -a "$LOG_FILE"

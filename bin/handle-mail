@@ -28,6 +28,11 @@ Arguments:
   <message-id>    ID of the mail message to handle. If omitted, lists all
                   unhandled requests.
 
+Environment:
+  MECCG_LOBBY_URL   Lobby base URL (default http://localhost:8080)
+  MECCG_MASTER_KEY  Lobby master key. Falls back to
+                    ~/.meccg/secrets.json when unset.
+
 Options:
   -h, --help      Show this help message.
 EOF
@@ -40,7 +45,7 @@ LOG_DIR="$HOME/.meccg/logs"
 SECRETS="$HOME/.meccg/secrets.json"
 PLAYERS_DIR="$HOME/.meccg/players"
 AI_INFO="$PLAYERS_DIR/ai/info.json"
-BASE_URL="http://localhost:8080"
+BASE_URL="${MECCG_LOBBY_URL:-http://localhost:8080}"
 COMMANDS_DIR="$PROJECT_DIR/.claude/commands"
 
 # ---------------------------------------------------------------------------
@@ -49,7 +54,21 @@ COMMANDS_DIR="$PROJECT_DIR/.claude/commands"
 
 log() { echo "[handle-mail] $*"; }
 
-master_key() { jq -r .masterKey "$SECRETS"; }
+# Resolve the lobby master key. Prefers $MECCG_MASTER_KEY (required for
+# remote workers that don't share the lobby's filesystem), falls back to
+# ~/.meccg/secrets.json for local co-located runs.
+master_key() {
+  if [ -n "${MECCG_MASTER_KEY:-}" ]; then
+    echo "$MECCG_MASTER_KEY"
+    return 0
+  fi
+  if [ -f "$SECRETS" ]; then
+    jq -r .masterKey "$SECRETS"
+    return 0
+  fi
+  log "ERROR: no master key available (set MECCG_MASTER_KEY or provide $SECRETS)" >&2
+  return 1
+}
 
 ai_display_name() { jq -r .displayName "$AI_INFO"; }
 
@@ -232,22 +251,25 @@ to_dir_name() {
   echo "$1" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9]/-/g'
 }
 
-# Read a player's current credit balance from
-# ~/.meccg/players/<dir>/info.json. Missing file or missing field is
-# treated as 0 (matching DEFAULT_CREDITS in bin/credits and store.ts).
+# Read a player's current credit balance via the lobby system API. The
+# endpoint returns 404 for unknown players — treat that as a 0 balance
+# (matches the legacy on-disk semantics where a missing info.json meant 0).
 # Prints the integer balance to stdout.
 get_player_credits() {
   local user="$1"
   if [ -z "$user" ]; then echo 0; return 0; fi
-  local dir info
+  local dir resp credits
   dir=$(to_dir_name "$user")
-  info="$PLAYERS_DIR/$dir/info.json"
-  if [ ! -f "$info" ]; then echo 0; return 0; fi
-  jq -r '.credits // 0' "$info" 2>/dev/null || echo 0
+  resp=$(curl -sf -X GET "$BASE_URL/api/system/players/$dir/credits" \
+    -H "Authorization: Bearer $(master_key)" 2>/dev/null || echo '')
+  if [ -z "$resp" ]; then echo 0; return 0; fi
+  credits=$(echo "$resp" | jq -r '.credits // 0' 2>/dev/null)
+  if [ -z "$credits" ] || [ "$credits" = "null" ]; then echo 0; return 0; fi
+  echo "$credits"
 }
 
-# Deduct credits from a player via bin/credits, recording an audit-log
-# entry with the supplied reason.
+# Deduct credits from a player via the lobby system API. The server
+# records the audit entry in credits.json, identical to `bin/credits`.
 #   $1=player  $2=amount(positive integer)  $3=reason(human-readable)
 # No-op for empty/system accounts or non-positive amounts.
 deduct_credits() {
@@ -256,8 +278,12 @@ deduct_credits() {
   case "$user" in
     ai|admin|server) return 0 ;;
   esac
-  local neg=$(( -amount ))
-  if "$SCRIPT_DIR/credits" add "$user" "$neg" "$reason" >/dev/null; then
+  local dir payload
+  dir=$(to_dir_name "$user")
+  payload=$(jq -nc --argjson amount "$(( -amount ))" --arg reason "$reason" \
+    '{mode: "add", amount: $amount, reason: $reason}')
+  if api_post "/api/system/players/$dir/credits" "$payload" \
+      | jq -e '.balance' >/dev/null 2>&1; then
     log "Deducted $amount credits from $user ($reason)"
   else
     log "WARNING: failed to deduct $amount credits from $user"

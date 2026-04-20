@@ -16,6 +16,9 @@
  * - POST /api/mail/bug-report — file a bug report (delivers to AI, copies to both players' sent)
  * - GET /api/saves/check?opponent=NAME — check if a saved game exists
  * - POST /api/saves/delete — delete saved game files for an opponent
+ * - GET /api/system/ai-requests — list unhandled AI requests (master key)
+ * - GET /api/system/players/:name/credits — read credit balance (master key)
+ * - POST /api/system/players/:name/credits — add/set credits with audit entry (master key)
  * - POST /api/system/notify — broadcast notification (master key)
  * - POST /api/system/reboot — announce, kill games, shut down (master key)
  * - POST /api/system/reload-clients — force all clients to reload (master key)
@@ -35,10 +38,10 @@ import { cardImageRawUrl, loadCardPool } from '@meccg/shared';
 import { DEV, MASTER_KEY, REVIEWER_PLAYERS } from '../config.js';
 import { broadcastNotification, broadcastForceReload } from '../lobby/lobby.js';
 import { shutdownAllGames } from '../games/launcher.js';
-import { sendMail, writeSentCopy, listInbox, listSent, readMessage, deleteMessage, updateMessageStatus, countUnread } from '../mail/store.js';
+import { sendMail, writeSentCopy, listInbox, listSent, readMessage, deleteMessage, updateMessageStatus, countUnread, listUnhandledRequests } from '../mail/store.js';
 import type { MailSender, MailStatus, MailTopic } from '../mail/types.js';
 import { lobbyLog } from '../lobby-log.js';
-import { findPlayer, findPlayerByEmail, createPlayer, listPlayerDecks, listCatalogDecks, findDeckById, savePlayerDeck, deletePlayerDeck, getCurrentDeck, setCurrentDeck, getDisplayName, setDisplayName, touchLastMailView, getCredits, readCreditHistory } from '../players/store.js';
+import { findPlayer, findPlayerByEmail, createPlayer, listPlayerDecks, listCatalogDecks, findDeckById, savePlayerDeck, deletePlayerDeck, getCurrentDeck, setCurrentDeck, getDisplayName, setDisplayName, touchLastMailView, getCredits, readCreditHistory, updateCredits } from '../players/store.js';
 import { hashPassword, verifyPassword } from '../auth/password.js';
 import { signLobbyToken } from '../auth/jwt.js';
 import { getSessionPlayer, setSessionCookie, clearSessionCookie } from '../auth/session.js';
@@ -823,6 +826,46 @@ export async function handleRequest(req: http.IncomingMessage, res: http.ServerR
       } catch (err) {
         lobbyLog.log('error', { context: 'system-mail-update', error: String(err) });
         sendJson(res, 500, { error: 'Failed to update message' });
+      }
+      return;
+    }
+
+    if (urlPath === '/api/system/ai-requests' && method === 'GET') {
+      try {
+        const requests = listUnhandledRequests(['ai', 'admin']);
+        sendJson(res, 200, { requests });
+      } catch (err) {
+        lobbyLog.log('error', { context: 'system-ai-requests', error: String(err) });
+        sendJson(res, 500, { error: 'Failed to list requests' });
+      }
+      return;
+    }
+
+    const systemCreditsMatch = urlPath.match(/^\/api\/system\/players\/([a-z0-9-]+)\/credits$/);
+    if (systemCreditsMatch && method === 'GET') {
+      const [, playerName] = systemCreditsMatch;
+      if (!findPlayer(playerName)) { sendJson(res, 404, { error: 'Player not found' }); return; }
+      sendJson(res, 200, { name: playerName, credits: getCredits(playerName) });
+      return;
+    }
+    if (systemCreditsMatch && method === 'POST') {
+      try {
+        const [, playerName] = systemCreditsMatch;
+        const body = JSON.parse(await readBody(req)) as { mode?: 'add' | 'set'; amount?: number; reason?: string };
+        if (body.mode !== 'add' && body.mode !== 'set') {
+          sendJson(res, 400, { error: "mode must be 'add' or 'set'" }); return;
+        }
+        if (typeof body.amount !== 'number' || !Number.isFinite(body.amount) || !Number.isInteger(body.amount)) {
+          sendJson(res, 400, { error: 'amount must be an integer' }); return;
+        }
+        const reason = body.reason && body.reason.trim() ? body.reason.trim() : 'Manual adjustment';
+        const result = updateCredits(playerName, body.mode, body.amount, reason);
+        if (!result) { sendJson(res, 404, { error: 'Player not found' }); return; }
+        lobbyLog.log('system-credits', { player: playerName, mode: body.mode, amount: body.amount, delta: result.delta, balance: result.balance, reason });
+        sendJson(res, 200, { name: playerName, ...result });
+      } catch (err) {
+        lobbyLog.log('error', { context: 'system-credits', error: String(err) });
+        sendJson(res, 500, { error: 'Failed to update credits' });
       }
       return;
     }
