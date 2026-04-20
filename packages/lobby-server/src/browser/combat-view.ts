@@ -452,15 +452,12 @@ function renderCombatCharacterColumn(
     img.style.cursor = 'pointer';
     const supportAction = supportActions.find(a => a.supportingCharacterId === char.instanceId);
     const cancelAction = cancelStrikeMap.get(charIdStr);
-    if (supportAction && cancelAction) {
+    // Cancel-strike always opens a confirmation menu so the player can see what
+    // strike they're canceling. Support-only is invoked directly on click.
+    if (cancelAction) {
       img.addEventListener('click', (e) => {
         e.stopPropagation();
         showCombatChoiceTooltip(img, supportAction, cancelAction, onAction);
-      });
-    } else if (cancelAction) {
-      img.addEventListener('click', (e) => {
-        e.stopPropagation();
-        onAction(cancelAction);
       });
     } else if (supportAction) {
       img.addEventListener('click', (e) => {
@@ -718,11 +715,14 @@ function combatButtonLabel(action: GameAction): string {
 
 /**
  * Show a tooltip letting the player choose between supporting a strike (+1 prowess)
- * and canceling it outright (e.g. Fatty Bolger's ability).
+ * and canceling it outright (e.g. Fatty Bolger's ability). When only one of the
+ * two options is available, the tooltip still opens so the player can see and
+ * confirm the action — making cancel-strike abilities discoverable even when
+ * the canceller cannot also support (e.g. because they have a strike assigned).
  */
 function showCombatChoiceTooltip(
   anchor: HTMLElement,
-  supportAction: SupportStrikeAction,
+  supportAction: SupportStrikeAction | undefined,
   cancelAction: CancelStrikeAction,
   onAction: (action: GameAction) => void,
 ): void {
@@ -731,15 +731,17 @@ function showCombatChoiceTooltip(
   const tooltip = document.createElement('div');
   tooltip.className = 'char-action-tooltip';
 
-  const supportBtn = document.createElement('button');
-  supportBtn.className = 'char-action-tooltip__btn';
-  supportBtn.textContent = 'Tap for +1 Support';
-  supportBtn.onclick = (e) => {
-    e.stopPropagation();
-    dismissTooltip();
-    onAction(supportAction);
-  };
-  tooltip.appendChild(supportBtn);
+  if (supportAction) {
+    const supportBtn = document.createElement('button');
+    supportBtn.className = 'char-action-tooltip__btn';
+    supportBtn.textContent = 'Tap for +1 Support';
+    supportBtn.onclick = (e) => {
+      e.stopPropagation();
+      dismissTooltip();
+      onAction(supportAction);
+    };
+    tooltip.appendChild(supportBtn);
+  }
 
   const cancelBtn = document.createElement('button');
   cancelBtn.className = 'char-action-tooltip__btn';
