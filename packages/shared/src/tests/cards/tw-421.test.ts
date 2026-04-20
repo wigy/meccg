@@ -51,6 +51,9 @@ import type { SiteCard, CardDefinitionId } from '../../index.js';
 const GOBLIN_GATE = 'tw-398' as CardDefinitionId;
 const THE_WORTHY_HILLS = 'as-142' as CardDefinitionId;
 const ZARAK_DUM_HERO = 'td-181' as CardDefinitionId;
+const CARN_DUM_HERO = 'tw-380' as CardDefinitionId;
+const LOSSADAN_CAIRN = 'tw-409' as CardDefinitionId;
+const MOUNT_GRAM_HERO = 'tw-415' as CardDefinitionId;
 
 // ─── Tests ───────────────────────────────────────────────────────────────────
 
@@ -111,6 +114,9 @@ describe('Rivendell (tw-421)', () => {
       pool[THE_WORTHY_HILLS as string],
       pool[DUNNISH_CLAN_HOLD as string],
       pool[ZARAK_DUM_HERO as string],
+      pool[CARN_DUM_HERO as string],
+      pool[LOSSADAN_CAIRN as string],
+      pool[MOUNT_GRAM_HERO as string],
     ].map(d => d.name).sort();
 
     expect(starterSites).toEqual(expectedSites);
@@ -160,18 +166,24 @@ describe('Rivendell (tw-421)', () => {
       "Eagles' Eyrie",
       'Ettenmoors',
       'Framsburg',
+      'Gladden Fields',
       'Glittering Caves',
       'Goblin-gate',
       'Gondmaeglom',
       'Grey Havens',
       'Isengard',
       'Isle of the Ulond',
+      'Lossadan Cairn',
       'Lórien',
       'Moria',
+      'Mount Gram',
+      'Mount Gundabad',
       'Old Forest',
       'Ovir Hollow',
+      'Rhosgobel',
       'The Under-gates',
       'The White Towers',
+      'The Wind Throne',
       'The Worthy Hills',
       "Thranduil's Halls",
       'Weathertop',
