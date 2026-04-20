@@ -237,7 +237,60 @@ export function collectCharacterEffects(
     if (hDef) collectFromDef(hDef, hazard.instanceId, context, results);
   }
 
+  // Company-scoped stat boosts applied via active constraints (e.g.
+  // Orc-draughts grants +1 prowess to every character in its bearer's
+  // company for the turn). Synthesise equivalent stat-modifier effects
+  // so they flow through the normal override/cap pipeline.
+  const companyConstraints = collectCompanyStatModifierEffects(state, char);
+  results.push(...companyConstraints);
+
   return results;
+}
+
+/**
+ * Synthesise {@link StatModifierEffect}s from active
+ * `company-stat-modifier` constraints whose target company contains the
+ * given character. Returns one entry per matching constraint so caps /
+ * overrides are evaluated uniformly with JSON-declared effects.
+ */
+function collectCompanyStatModifierEffects(
+  state: GameState,
+  char: CharacterInPlay,
+): CollectedEffect[] {
+  if (state.activeConstraints.length === 0) return [];
+  const results: CollectedEffect[] = [];
+  for (const constraint of state.activeConstraints) {
+    if (constraint.kind.type !== 'company-stat-modifier') continue;
+    if (constraint.target.kind !== 'company') continue;
+    const company = findCompanyById(state, constraint.target.companyId);
+    if (!company || !company.characters.includes(char.instanceId)) continue;
+    const sourceDef = state.cardPool[constraint.sourceDefinitionId as string];
+    if (!sourceDef) continue;
+    const synthesized: StatModifierEffect = {
+      type: 'stat-modifier',
+      stat: constraint.kind.stat,
+      value: constraint.kind.value,
+    };
+    results.push({
+      effect: synthesized,
+      sourceDef,
+      sourceInstance: constraint.source,
+    });
+  }
+  return results;
+}
+
+/** Locate a company by ID across all players. */
+function findCompanyById(
+  state: GameState,
+  companyId: import('../../types/common.js').CompanyId,
+): import('../../types/state-cards.js').Company | undefined {
+  for (const player of state.players) {
+    for (const company of player.companies) {
+      if (company.id === companyId) return company;
+    }
+  }
+  return undefined;
 }
 
 /**

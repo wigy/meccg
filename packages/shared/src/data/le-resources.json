@@ -142,8 +142,25 @@
       "dark-hold",
       "border-hold"
     ],
-    "effects": [],
-    "text": "Discard to give +1 prowess to all characters in bearer's company until the end of the turn."
+    "effects": [
+      {
+        "type": "grant-action",
+        "action": "company-prowess-boost",
+        "cost": {
+          "discard": "self"
+        },
+        "apply": {
+          "type": "add-constraint",
+          "constraint": "company-stat-modifier",
+          "stat": "prowess",
+          "value": 1,
+          "target": "bearer-company",
+          "scope": "turn"
+        }
+      }
+    ],
+    "text": "Discard to give +1 prowess to all characters in bearer's company until the end of the turn.",
+    "certified": "2026-04-20"
   },
   {
     "cardType": "minion-resource-item",
