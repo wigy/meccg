@@ -71,6 +71,11 @@
         "name": "Wandering Eldar",
         "card": "le-97",
         "qty": 3
+      },
+      {
+        "name": "Elf-lord Revealed in Wrath",
+        "card": "le-69",
+        "qty": 2
       }
     ],
     "resources": [

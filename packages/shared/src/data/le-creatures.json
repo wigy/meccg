@@ -281,6 +281,23 @@
   },
   {
     "cardType": "hazard-creature",
+    "id": "le-69",
+    "name": "Elf-lord Revealed in Wrath",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/ElflordRevealedinWrath.jpg",
+    "text": "Elf. One strike (detainment against hero companies). +4 prowess versus Ringwraiths. If Doors of Night is not in play, may also be played keyed to Shadow-lands [{s}].",
+    "unique": false,
+    "strikes": 1,
+    "prowess": 15,
+    "body": 9,
+    "killMarshallingPoints": 3,
+    "race": "elves",
+    "keyedTo": [],
+    "effects": [
+      { "type": "combat-detainment" }
+    ]
+  },
+  {
+    "cardType": "hazard-creature",
     "id": "le-97",
     "name": "Wandering Eldar",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/WanderingEldar.jpg",
@@ -291,7 +308,10 @@
     "body": null,
     "killMarshallingPoints": 1,
     "race": "elves",
-    "keyedTo": []
+    "keyedTo": [],
+    "effects": [
+      { "type": "combat-detainment" }
+    ]
   },
   {
     "cardType": "hazard-creature",
