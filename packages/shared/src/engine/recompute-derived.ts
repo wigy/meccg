@@ -23,6 +23,7 @@ import type {
   CardDefinition,
   CharacterCard,
   CardEffect,
+  FactionCard,
 } from '../index.js';
 import { MarshallingCategory, ZERO_MARSHALLING_POINTS, isCharacterCard, isItemCard } from '../index.js';
 import {
@@ -86,6 +87,17 @@ export function buildControllerInPlayNames(
     if (def && 'name' in def) names.push((def as { name: string }).name);
   }
   return names;
+}
+
+/**
+ * Flattens a faction's `playableAt` entries to a list of site names and
+ * site types. Site entries contribute their `site` name; site-type
+ * entries contribute their `siteType`. Conditions like
+ * `{ "faction.playableAt": "Dunnish Clan-hold" }` (AS-4 Perchen) match
+ * when the corresponding site name appears in this array.
+ */
+export function buildFactionPlayableAt(def: FactionCard): readonly string[] {
+  return def.playableAt.map(entry => 'site' in entry ? entry.site : entry.siteType);
 }
 
 /**
