@@ -94,7 +94,8 @@
     ],
     "resourceDraws": 1,
     "hazardDraws": 1,
-    "text": "Playable: Items (minor). Automatic-attacks (2): (1st) Troll — 1 strike with 9 prowess; (2nd) Wolves — 2 strikes with 8 prowess."
+    "text": "Playable: Items (minor). Automatic-attacks (2): (1st) Troll — 1 strike with 9 prowess; (2nd) Wolves — 2 strikes with 8 prowess.",
+    "certified": "2026-04-20"
   },
   {
     "cardType": "minion-site",
