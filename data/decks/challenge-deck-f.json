@@ -49,7 +49,7 @@
     },
     {
       "name": "Nevido Smod",
-      "card": null,
+      "card": "le-27",
       "qty": 1
     },
     {
@@ -84,7 +84,7 @@
       },
       {
         "name": "Cave-worm",
-        "card": null,
+        "card": "le-65",
         "qty": 3
       },
       {
@@ -151,7 +151,7 @@
       },
       {
         "name": "By the Ringwraith's Word",
-        "card": null,
+        "card": "le-174",
         "qty": 1
       },
       {
@@ -161,12 +161,12 @@
       },
       {
         "name": "Dwarven Ring of Thrar's Tribe",
-        "card": null,
+        "card": "as-124",
         "qty": 1
       },
       {
         "name": "Dwarven Ring of Thelor's Tribe",
-        "card": null,
+        "card": "as-123",
         "qty": 1
       },
       {
@@ -206,7 +206,7 @@
       },
       {
         "name": "That's Been Heard Before Tonight",
-        "card": null,
+        "card": "le-241",
         "qty": 2
       },
       {
@@ -231,7 +231,7 @@
       },
       {
         "name": "Well Preserved",
-        "card": null,
+        "card": "as-108",
         "qty": 1
       },
       {

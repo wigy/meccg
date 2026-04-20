@@ -11,13 +11,13 @@
     },
     {
       "name": "Erkenbrand",
-      "card": null,
+      "card": "tw-148",
       "qty": 1,
       "favourite": true
     },
     {
       "name": "Orophin",
-      "card": null,
+      "card": "tw-174",
       "qty": 1,
       "favourite": true
     },
@@ -34,27 +34,27 @@
     },
     {
       "name": "Shield of Iron-bound Ash",
-      "card": null,
+      "card": "tw-327",
       "qty": 1
     },
     {
       "name": "Beretar",
-      "card": null,
+      "card": "tw-128",
       "qty": 1
     },
     {
       "name": "Bofur",
-      "card": null,
+      "card": "tw-132",
       "qty": 1
     },
     {
       "name": "Elrohir",
-      "card": null,
+      "card": "tw-144",
       "qty": 1
     },
     {
       "name": "Gildor Inglorion",
-      "card": null,
+      "card": "tw-158",
       "qty": 1
     },
     {
@@ -94,22 +94,22 @@
       },
       {
         "name": "Chill Douser",
-        "card": null,
+        "card": "dm-106",
         "qty": 3
       },
       {
         "name": "Corpse-candle",
-        "card": null,
+        "card": "tw-23",
         "qty": 3
       },
       {
         "name": "Covetous Thoughts",
-        "card": null,
+        "card": "le-107",
         "qty": 1
       },
       {
         "name": "Dragon-sickness",
-        "card": null,
+        "card": "td-18",
         "qty": 1
       },
       {
@@ -124,12 +124,12 @@
       },
       {
         "name": "Stirring Bones",
-        "card": null,
+        "card": "dm-111",
         "qty": 2
       },
       {
         "name": "The Moon Is Dead",
-        "card": null,
+        "card": "dm-71",
         "qty": 3
       },
       {
@@ -141,12 +141,12 @@
     "resources": [
       {
         "name": "Book of Mazarbul",
-        "card": null,
+        "card": "tw-201",
         "qty": 1
       },
       {
         "name": "Crown of Flowers",
-        "card": null,
+        "card": "dm-121",
         "qty": 1
       },
       {
@@ -161,7 +161,7 @@
       },
       {
         "name": "Escape",
-        "card": null,
+        "card": "tw-229",
         "qty": 1
       },
       {
@@ -171,12 +171,12 @@
       },
       {
         "name": "Goldberry",
-        "card": null,
+        "card": "tw-245",
         "qty": 1
       },
       {
         "name": "Gollum",
-        "card": null,
+        "card": "tw-246",
         "qty": 1
       },
       {
@@ -186,12 +186,12 @@
       },
       {
         "name": "Muster",
-        "card": null,
+        "card": "tw-288",
         "qty": 1
       },
       {
         "name": "Orcrist",
-        "card": null,
+        "card": "tw-295",
         "qty": 1
       },
       {
@@ -201,17 +201,17 @@
       },
       {
         "name": "Rescue Prisoners",
-        "card": null,
+        "card": "tw-315",
         "qty": 3
       },
       {
         "name": "Risky Blow",
-        "card": null,
+        "card": "tw-319",
         "qty": 3
       },
       {
         "name": "Safe from the Shadow",
-        "card": null,
+        "card": "as-54",
         "qty": 1
       },
       {
@@ -221,22 +221,22 @@
       },
       {
         "name": "Sword of Gondolin",
-        "card": null,
+        "card": "tw-336",
         "qty": 1
       },
       {
         "name": "The Cock Crows",
-        "card": null,
+        "card": "tw-342",
         "qty": 2
       },
       {
         "name": "The Windlord Found Me",
-        "card": null,
+        "card": "dm-164",
         "qty": 1
       },
       {
         "name": "Vilya",
-        "card": null,
+        "card": "tw-358",
         "qty": 1
       }
     ]
@@ -259,7 +259,7 @@
     },
     {
       "name": "Carn Dum",
-      "card": null,
+      "card": "tw-380",
       "qty": 1
     },
     {
@@ -279,7 +279,7 @@
     },
     {
       "name": "Lossadan Cairn",
-      "card": null,
+      "card": "tw-409",
       "qty": 1
     },
     {
@@ -294,12 +294,12 @@
     },
     {
       "name": "Mount Gram",
-      "card": null,
+      "card": "tw-415",
       "qty": 1
     },
     {
       "name": "Mount Gundabad",
-      "card": null,
+      "card": "tw-416",
       "qty": 1
     },
     {
@@ -314,7 +314,7 @@
     },
     {
       "name": "Zarak Dum",
-      "card": null,
+      "card": "td-181",
       "qty": 1
     }
   ],
@@ -331,12 +331,12 @@
     },
     {
       "name": "Forewarned is Forearmed",
-      "card": null,
+      "card": "dm-132",
       "qty": 1
     },
     {
       "name": "Great-shield of Rohan",
-      "card": null,
+      "card": "tw-250",
       "qty": 1
     },
     {
@@ -351,12 +351,12 @@
     },
     {
       "name": "Radagast",
-      "card": null,
+      "card": "tw-178",
       "qty": 1
     },
     {
       "name": "The Cock Crows",
-      "card": null,
+      "card": "tw-342",
       "qty": 1
     },
     {
@@ -366,7 +366,7 @@
     },
     {
       "name": "Corsairs of Umbar",
-      "card": null,
+      "card": "tw-24",
       "qty": 2
     },
     {
@@ -376,17 +376,17 @@
     },
     {
       "name": "Ghosts",
-      "card": null,
+      "card": "tw-37",
       "qty": 2
     },
     {
       "name": "Seized by Terror",
-      "card": null,
+      "card": "dm-88",
       "qty": 1
     },
     {
       "name": "The Ring's Betrayal",
-      "card": null,
+      "card": "tw-99",
       "qty": 1
     },
     {
@@ -396,7 +396,7 @@
     },
     {
       "name": "Veils Flung Away",
-      "card": null,
+      "card": "le-146",
       "qty": 1
     }
   ]
