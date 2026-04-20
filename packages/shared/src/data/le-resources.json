@@ -375,8 +375,50 @@
     "eventType": "short",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
-    "text": "Sage only. Tap a sage to discard one non-environment hazard permanent-event or non-environment hazard long-event. Sage makes a corruption check modified by -2."
+    "effects": [
+      {
+        "type": "play-target",
+        "target": "character",
+        "filter": {
+          "target.skills": {
+            "$includes": "sage"
+          }
+        },
+        "cost": {
+          "tap": "character"
+        }
+      },
+      {
+        "type": "discard-in-play",
+        "filter": {
+          "$and": [
+            {
+              "cardType": "hazard-event"
+            },
+            {
+              "eventType": {
+                "$in": [
+                  "permanent",
+                  "long"
+                ]
+              }
+            },
+            {
+              "$not": {
+                "keywords": {
+                  "$includes": "environment"
+                }
+              }
+            }
+          ]
+        },
+        "corruptionCheck": {
+          "modifier": -2
+        }
+      }
+    ],
+    "text": "Sage only. Tap a sage to discard one non-environment hazard permanent-event or non-environment hazard long-event. Sage makes a corruption check modified by -2.",
+    "certified": "2026-04-20"
   },
   {
     "cardType": "minion-resource-faction",

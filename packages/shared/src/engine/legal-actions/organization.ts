@@ -18,12 +18,12 @@ import type {
   EvaluatedAction,
   CardInstanceId,
   CharacterCard,
-  HeroResourceEventCard,
+  ResourceEventCard,
   OrganizationPhaseState,
   GameAction,
   PlayerState,
 } from '../../index.js';
-import { isCharacterCard, CardStatus } from '../../index.js';
+import { isCharacterCard, isResourceEventCard, CardStatus } from '../../index.js';
 import type { PlayTargetEffect, PlayOptionEffect, Condition } from '../../types/effects.js';
 import { matchesCondition } from '../../effects/condition-matcher.js';
 import { logDetail, logHeading } from './log.js';
@@ -652,7 +652,7 @@ function rollThresholdFor(effect: import('../../types/effects.js').GrantActionEf
  * end-of-organization play (e.g. Stealth, with `play-window` phase
  * `organization`, step `end-of-org`).
  */
-export function isEndOfOrgPlay(def: HeroResourceEventCard): boolean {
+export function isEndOfOrgPlay(def: ResourceEventCard): boolean {
   const playWindow = def.effects?.find(
     e => e.type === 'play-window',
   ) as { phase?: string; step?: string } | undefined;
@@ -683,7 +683,7 @@ interface EndOfOrgEligibility {
 export function endOfOrgEligibility(
   state: GameState,
   player: PlayerState,
-  def: HeroResourceEventCard,
+  def: ResourceEventCard,
 ): EndOfOrgEligibility {
   const playTarget: PlayTargetEffect | undefined = def.effects?.find(
     (e): e is PlayTargetEffect => e.type === 'play-target',
@@ -751,7 +751,7 @@ export function endOfOrgEligibility(
  * Returns the {@link PlayTargetEffect} for the given resource event card,
  * or undefined when the card does not declare one.
  */
-export function getPlayTargetEffect(def: HeroResourceEventCard): PlayTargetEffect | undefined {
+export function getPlayTargetEffect(def: ResourceEventCard): PlayTargetEffect | undefined {
   return def.effects?.find((e): e is PlayTargetEffect => e.type === 'play-target');
 }
 
@@ -792,7 +792,7 @@ export function collectDiscardInPlayTargets(
 /**
  * Returns all {@link PlayOptionEffect}s declared on the given card.
  */
-export function getPlayOptionEffects(def: HeroResourceEventCard): readonly PlayOptionEffect[] {
+export function getPlayOptionEffects(def: ResourceEventCard): readonly PlayOptionEffect[] {
   return def.effects?.filter((e): e is PlayOptionEffect => e.type === 'play-option') ?? [];
 }
 
@@ -999,8 +999,8 @@ export function playResourceShortEventActions(
   const combatOnlyTypes = new Set(['cancel-attack', 'cancel-strike', 'halve-strikes', 'dodge-strike']);
 
   for (const handCard of player.hand) {
-    const def = state.cardPool[handCard.definitionId as string] as HeroResourceEventCard | undefined;
-    if (!def || def.cardType !== 'hero-resource-event' || def.eventType !== 'short') continue;
+    const def = state.cardPool[handCard.definitionId as string];
+    if (!isResourceEventCard(def) || def.eventType !== 'short') continue;
     if (alreadyEvaluated.has(handCard.instanceId as string)) continue;
     const playWindow = def.effects?.find(e => e.type === 'play-window') as { phase?: string; step?: string } | undefined;
     // Cards with a play-window restricting them to a different phase

@@ -16,9 +16,9 @@
  * cards and show reasons for non-playable ones.
  */
 
-import type { GameState, PlayerId, EvaluatedAction, HeroResourceEventCard, PlayTargetEffect, CardInstanceId, PlayerState } from '../../index.js';
+import type { GameState, PlayerId, EvaluatedAction, ResourceEventCard, PlayTargetEffect, CardInstanceId, PlayerState } from '../../index.js';
 import type { PlayOptionEffect } from '../../types/effects.js';
-import { matchesCondition, CardStatus } from '../../index.js';
+import { matchesCondition, CardStatus, isResourceEventCard } from '../../index.js';
 import { logHeading, logDetail } from './log.js';
 import { getPlayTargetEffect, getPlayOptionEffects, buildPlayOptionContext, grantedActionActivations, ANY_PHASE_GRANT_ACTIONS, collectDiscardInPlayTargets } from './organization.js';
 
@@ -52,8 +52,8 @@ export function longEventActions(state: GameState, playerId: PlayerId): Evaluate
   // Scan hand for resource events (long and short)
   for (const handCard of player.hand) {
     const cardInstanceId = handCard.instanceId;
-    const def = state.cardPool[handCard.definitionId as string] as HeroResourceEventCard | undefined;
-    if (!def || def.cardType !== 'hero-resource-event') continue;
+    const def = state.cardPool[handCard.definitionId as string];
+    if (!isResourceEventCard(def)) continue;
 
     if (def.eventType === 'long') {
       evaluatedInstances.add(cardInstanceId as string);
@@ -107,7 +107,7 @@ export function longEventActions(state: GameState, playerId: PlayerId): Evaluate
     }
   }
 
-  // Enumerate hero-resource-event short events playable during long-event phase.
+  // Enumerate resource short events playable during long-event phase.
   // Rule 2.1.1: resource short-events may be played during any phase of the
   // player's turn unless restricted (e.g. by a play-window DSL effect).
   const shortEventActions = heroResourceShortEventActions(state, playerId, 'long-event');
@@ -138,11 +138,11 @@ export function longEventActions(state: GameState, playerId: PlayerId): Evaluate
 }
 
 /**
- * Enumerates hero-resource-event short events in the active player's hand
- * that are playable during the given phase. Encodes rule 2.1.1: resource
- * short-events may be played during any phase of the player's turn unless
- * a DSL `play-window` restricts them, they are combat-only, or they
- * require targets that aren't present.
+ * Enumerates resource short events (hero or minion) in the active player's
+ * hand that are playable during the given phase. Encodes rule 2.1.1:
+ * resource short-events may be played during any phase of the player's
+ * turn unless a DSL `play-window` restricts them, they are combat-only,
+ * or they require targets that aren't present.
  *
  * Used by the long-event and movement-hazard phase handlers. Returns
  * both viable `play-short-event` actions and `not-playable` annotations
@@ -160,8 +160,8 @@ export function heroResourceShortEventActions(
 
   for (const handCard of player.hand) {
     const cardInstanceId = handCard.instanceId;
-    const def = state.cardPool[handCard.definitionId as string] as HeroResourceEventCard | undefined;
-    if (!def || def.cardType !== 'hero-resource-event' || def.eventType !== 'short') continue;
+    const def = state.cardPool[handCard.definitionId as string];
+    if (!isResourceEventCard(def) || def.eventType !== 'short') continue;
 
     // Skip cards that declare a play-window restricting them to a
     // different phase/step (e.g. Stealth plays only at end-of-org).

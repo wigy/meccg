@@ -7,7 +7,7 @@
  */
 
 import type { GameState, CardInstanceId, CharacterInPlay, CardInstance, OrganizationPhaseState, Company, SiteInPlay, GameAction, GameEffect } from '../index.js';
-import { Phase, shuffle, CardStatus, isSiteCard, SiteType, getPlayerIndex, ZERO_EFFECTIVE_STATS } from '../index.js';
+import { Phase, shuffle, CardStatus, isSiteCard, isResourceEventCard, SiteType, getPlayerIndex, ZERO_EFFECTIVE_STATS } from '../index.js';
 import { logDetail } from './legal-actions/log.js';
 import { isEndOfOrgPlay } from './legal-actions/organization.js';
 import { resolveInstanceId } from '../types/state.js';
@@ -90,7 +90,7 @@ export function handleOrganization(state: GameState, action: GameAction): Reduce
       const player = state.players.find(p => p.id === action.player);
       const card = player?.hand.find(c => c.instanceId === action.cardInstanceId);
       const def = card ? state.cardPool[card.definitionId as string] : undefined;
-      if (def && def.cardType === 'hero-resource-event') {
+      if (isResourceEventCard(def)) {
         endOfOrgPlay = isEndOfOrgPlay(def);
         result = handlePlayResourceShortEvent(state, action);
       } else {
