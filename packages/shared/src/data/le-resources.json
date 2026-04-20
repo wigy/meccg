@@ -23,14 +23,28 @@
       {
         "type": "stat-modifier",
         "stat": "prowess",
+        "value": 3,
+        "max": 10,
+        "id": "black-mace-prowess",
+        "when": {
+          "bearer.skills": { "$includes": "warrior" }
+        }
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "prowess",
         "value": 4,
+        "max": 10,
+        "overrides": "black-mace-prowess",
         "when": {
           "reason": "combat",
-          "enemy.race": "elf"
+          "enemy.race": "elf",
+          "bearer.skills": { "$includes": "warrior" }
         }
       }
     ],
-    "text": "Weapon. Warrior only: +3 prowess to a maximum of 10 (+4 to a maximum of 10 against Elves)."
+    "text": "Weapon. Warrior only: +3 prowess to a maximum of 10 (+4 to a maximum of 10 against Elves).",
+    "certified": "2026-04-20"
   },
   {
     "cardType": "minion-resource-item",
