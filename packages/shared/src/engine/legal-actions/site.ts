@@ -17,6 +17,7 @@ import type { ResolverContext } from '../effects/index.js';
 import { logDetail, logHeading } from './log.js';
 import { availableDI, grantedActionActivations, ANY_PHASE_GRANT_ACTIONS, playResourceShortEventActions } from './organization.js';
 import { getActiveAutoAttacks } from '../manifestations.js';
+import { buildControllerInPlayNames } from '../recompute-derived.js';
 
 /**
  * Check whether a site satisfies a {@link PlayableAtEntry}.
@@ -845,6 +846,7 @@ function playResourcesActions(
               baseDirectInfluence: charDef.directInfluence, name: charDef.name,
             },
             faction: { name: factionDef.name, race: factionDef.race },
+            controller: { inPlay: buildControllerInPlayNames(state, playerId) },
           };
           const charEffects = collectCharacterEffects(state, ch, resolverCtx);
           if (factionDef.effects) {

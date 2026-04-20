@@ -769,6 +769,7 @@ The context carries everything relevant to the current calculation:
 - `company` — all characters at the same site
 - `cardsInPlay` — all cards in play for both players
 - `inPlay` — names of all events/cards in play (for `target: "all-attacks"` and `"all-characters"` contexts)
+- `controller.inPlay` — names of cards in play controlled by the player performing the check (populated during faction-influence checks). Use this when an effect depends on the *same* player controlling another card, e.g. Standard Modifications like "Grey Mountain Goblins (+2)" on LE factions, which apply only when the controller has both factions in play: `{ "when": { "controller.inPlay": "Grey Mountain Goblins" } }`.
 - `enemy.race` — the creature's race (for `target: "all-attacks"` contexts, e.g. `"wolf"`, `"orc"`)
 
 The resolver:

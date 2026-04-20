@@ -207,11 +207,12 @@
         "check": "influence",
         "value": 2,
         "when": {
-          "controlsFaction": "Grey Mountain Goblins"
+          "controller.inPlay": "Grey Mountain Goblins"
         }
       }
     ],
-    "text": "Unique. Playable at Goblin-gate if the influence check is greater than 8. Standard Modifications: Grey Mountain Goblins (+2)."
+    "text": "Unique. Playable at Goblin-gate if the influence check is greater than 8. Once in play, the number required to influence this faction is 0. Standard Modifications: Grey Mountain Goblins (+2).",
+    "certified": "2026-04-20"
   },
   {
     "cardType": "minion-resource-ally",

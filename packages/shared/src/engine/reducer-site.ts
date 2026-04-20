@@ -18,7 +18,7 @@ import type { ReducerResult } from './reducer-utils.js';
 import { roll2d6, clonePlayers, cleanupEmptyCompanies } from './reducer-utils.js';
 import { handlePlayPermanentEvent, handlePlayResourceShortEvent } from './reducer-events.js';
 import { handleGrantActionApply } from './reducer-organization.js';
-import { buildInPlayNames } from './recompute-derived.js';
+import { buildInPlayNames, buildControllerInPlayNames } from './recompute-derived.js';
 import { sweepExpired, enqueueResolution, removeConstraint } from './pending.js';
 import { resolveEffective } from './effective.js';
 import { getActiveAutoAttacks } from './manifestations.js';
@@ -905,6 +905,7 @@ export function resolveInfluenceAttemptRoll(
         name: def.name,
         race: def.race,
       },
+      controller: { inPlay: buildControllerInPlayNames(state, entry.declaredBy) },
     };
 
     const charEffects = collectCharacterEffects(state, charInPlay, resolverCtx);

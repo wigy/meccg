@@ -33,6 +33,7 @@ import { resolveInstanceId } from '../../types/state.js';
 import { resolveDef, collectCharacterEffects, resolveCheckModifier, resolveStatModifiers } from '../effects/index.js';
 import type { ResolverContext, CollectedEffect } from '../effects/index.js';
 import { buildPlayOptionContext } from './organization.js';
+import { buildControllerInPlayNames } from '../recompute-derived.js';
 import { logDetail } from './log.js';
 
 /**
@@ -321,6 +322,7 @@ function factionInfluenceRollActions(
         name: def.name,
         race: def.race,
       },
+      controller: { inPlay: buildControllerInPlayNames(state, playerId) },
     };
 
     const charEffects = collectCharacterEffects(state, charInPlay, resolverCtx);
