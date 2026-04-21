@@ -248,6 +248,40 @@ export function collectCharacterEffects(
 }
 
 /**
+ * Collects effects from allies attached to any character in the same
+ * company as `char`. Used for company-wide ally abilities like The
+ * Warg-king's "+2 to any influence attempt by a character in his
+ * company against a Wolf faction" — the ally is attached to a single
+ * host but the bonus must be available to every influencing character
+ * in the company.
+ *
+ * Each ally's effects are filtered by its own `when` against the caller
+ * context, identical to {@link collectCharacterEffects}.
+ */
+export function collectCompanyAllyEffects(
+  state: GameState,
+  char: CharacterInPlay,
+  context: ResolverContext,
+): CollectedEffect[] {
+  const results: CollectedEffect[] = [];
+  for (const player of state.players) {
+    for (const company of player.companies) {
+      if (!company.characters.includes(char.instanceId)) continue;
+      for (const companyCharId of company.characters) {
+        const companyChar = player.characters[companyCharId as string];
+        if (!companyChar) continue;
+        for (const ally of companyChar.allies) {
+          const allyDef = resolveDef(state, ally.instanceId);
+          if (allyDef) collectFromDef(allyDef, ally.instanceId, context, results);
+        }
+      }
+      return results;
+    }
+  }
+  return results;
+}
+
+/**
  * Synthesise {@link StatModifierEffect}s from active
  * `company-stat-modifier` constraints whose target company contains the
  * given character. Returns one entry per matching constraint so caps /

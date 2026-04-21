@@ -260,28 +260,39 @@
       {
         "siteType": "ruins-and-lairs",
         "when": {
-          "site.autoAttack.race": "Wolf"
+          "site.autoAttack.race": "wolf"
         }
       }
     ],
     "effects": [
       {
-        "type": "grant-action",
-        "action": "cancel-attack",
+        "type": "cancel-attack",
         "cost": {
           "tap": "self"
         },
         "when": {
-          "attack.type": {
+          "enemy.race": {
             "$in": [
-              "Wolf",
-              "Animal"
+              "wolf",
+              "wolves",
+              "animal",
+              "animals"
             ]
           }
         }
+      },
+      {
+        "type": "check-modifier",
+        "check": "influence",
+        "value": 2,
+        "when": {
+          "reason": "faction-influence-check",
+          "faction.race": "wolf"
+        }
       }
     ],
-    "text": "Unique. Playable at any tapped or untapped Ruins & Lairs with a Wolf automatic-attack. Tap to cancel a Wolf or Animal attack against his company. +2 to any influence attempt by a character in his company against a Wolf faction."
+    "text": "Unique. Playable at any tapped or untapped Ruins & Lairs with a Wolf automatic-attack. Tap to cancel a Wolf or Animal attack against his company. +2 to any influence attempt by a character in his company against a Wolf faction.",
+    "certified": "2026-04-21"
   },
   {
     "cardType": "minion-resource-event",
@@ -1010,6 +1021,25 @@
     "playableAt": [
       {
         "site": "Variag Camp"
+      }
+    ]
+  },
+  {
+    "cardType": "minion-resource-faction",
+    "id": "le-293",
+    "name": "Wargs of the Forochel",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/WargsoftheForochel.jpg",
+    "text": "Unique. Playable at Lossadan Cairn if the influence check is greater than 10. Once in play, the number required to influence this faction is 0. Standard Modifications: Ice-orcs (+2), Misty Mountain Wargs (+2).",
+    "alignment": "ringwraith",
+    "unique": true,
+    "marshallingPoints": 3,
+    "marshallingCategory": "faction",
+    "influenceNumber": 10,
+    "inPlayInfluenceNumber": 0,
+    "race": "wolf",
+    "playableAt": [
+      {
+        "site": "Lossadan Cairn"
       }
     ]
   }

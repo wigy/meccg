@@ -516,9 +516,15 @@ function bodyCheckActions(
  * Generate cancel-attack actions for the defending player during the
  * pre-assignment window (assign-strikes phase before any strikes assigned).
  *
- * For each card in the defending player's hand that has a `cancel-attack`
- * effect, and for each untapped character in the defending company with the
- * required skill, generate a cancel-attack action.
+ * Scans two sources for `cancel-attack` effects:
+ * 1. Cards in the defending player's hand (short events like Concealment,
+ *    Dark Quarrels).
+ * 2. In-play allies attached to any character in the defending company
+ *    (e.g. The Warg-king's "tap to cancel a Wolf or Animal attack"). For
+ *    in-play sources the effect must declare `cost: { tap: "self" }`;
+ *    the ally must be untapped. The action emits `cardInstanceId` of the
+ *    ally itself — `handleCancelAttack` detects this and taps the ally
+ *    instead of discarding from hand.
  */
 function cancelAttackActions(
   state: GameState,
@@ -536,6 +542,43 @@ function cancelAttackActions(
   if (!company) return [];
 
   const actions: EvaluatedAction[] = [];
+
+  const whenContext = (): Record<string, unknown> => {
+    const ctx: Record<string, unknown> = {};
+    if (combat.creatureRace) {
+      ctx['enemy'] = { race: combat.creatureRace };
+    }
+    return ctx;
+  };
+
+  // In-play allies in the defending company with a cancel-attack effect
+  // and a "tap self" cost (e.g. The Warg-king).
+  for (const { ally } of findCompanyAllies(player, company.characters)) {
+    const allyDef = state.cardPool[ally.definitionId as string];
+    if (!allyDef || !('effects' in allyDef) || !allyDef.effects) continue;
+    const cancelEffect = allyDef.effects.find(
+      (e): e is CancelAttackEffect => e.type === 'cancel-attack',
+    );
+    if (!cancelEffect) continue;
+    if (cancelEffect.cost?.tap !== 'self') continue;
+    if (ally.status !== CardStatus.Untapped) {
+      logDetail(`Cancel-attack ${allyDef.name ?? ally.definitionId as string}: ally tapped, cannot activate`);
+      continue;
+    }
+    if (cancelEffect.when && !matchesCondition(cancelEffect.when, whenContext())) {
+      logDetail(`Cancel-attack ${allyDef.name ?? ally.definitionId as string}: when condition not met (creature race: ${combat.creatureRace ?? 'none'})`);
+      continue;
+    }
+    logDetail(`Cancel-attack available: tap ${allyDef.name ?? ally.definitionId as string} (in-play ally)`);
+    actions.push({
+      action: {
+        type: 'cancel-attack',
+        player: playerId,
+        cardInstanceId: ally.instanceId,
+      },
+      viable: true,
+    });
+  }
 
   for (const handCard of player.hand) {
     const cardDef = state.cardPool[handCard.definitionId as string];

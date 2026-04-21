@@ -729,6 +729,53 @@ function handleBodyCheckRoll(state: GameState, action: GameAction, combat: Comba
  * The card itself moves from hand to discard pile at declaration, matching
  * the behaviour of other short events.
  */
+/**
+ * Handle cancel-attack sourced from an in-play ally (e.g. The Warg-king's
+ * "tap to cancel a Wolf or Animal attack"). Unlike a hand-played short event,
+ * no chain entry is pushed — tapping the ally pays the cost and the
+ * cancellation applies immediately via {@link resolveCancelAttackEntry}.
+ */
+function handleCancelAttackByInPlayAlly(
+  state: GameState,
+  action: GameAction,
+  combat: CombatState,
+): ReducerResult {
+  if (action.type !== 'cancel-attack') return { state, error: 'Expected cancel-attack' };
+
+  const defPlayerIndex = state.players.findIndex(p => p.id === action.player);
+  const defPlayer = state.players[defPlayerIndex];
+  const company = defPlayer.companies.find(c => c.id === combat.companyId);
+  if (!company) return { state, error: 'Defending company not found' };
+
+  const found = findAllyInCompany(defPlayer, company.characters, action.cardInstanceId);
+  if (!found) return { state, error: 'Cancel-attack source not in hand or defending company allies' };
+  if (found.ally.status !== CardStatus.Untapped) {
+    return { state, error: 'Ally must be untapped to cancel attack' };
+  }
+
+  const allyDef = state.cardPool[found.ally.definitionId as string];
+  const allyName = allyDef && 'name' in allyDef ? allyDef.name : String(found.ally.definitionId);
+  logDetail(`Cancel-attack declared: tapping ${allyName} to cancel ${combat.creatureRace ?? 'attack'}`);
+
+  const newPlayers = clonePlayers(state);
+  const hostChar = newPlayers[defPlayerIndex].characters[found.hostCharId as string];
+  newPlayers[defPlayerIndex] = {
+    ...newPlayers[defPlayerIndex],
+    characters: {
+      ...newPlayers[defPlayerIndex].characters,
+      [found.hostCharId as string]: {
+        ...hostChar,
+        allies: hostChar.allies.map(a =>
+          a.instanceId === action.cardInstanceId ? { ...a, status: CardStatus.Tapped } : a,
+        ),
+      },
+    },
+  };
+
+  const tappedState: GameState = { ...state, players: newPlayers };
+  return { state: resolveCancelAttackEntry(tappedState) };
+}
+
 function handleCancelAttack(state: GameState, action: GameAction, combat: CombatState): ReducerResult {
   if (action.type !== 'cancel-attack') return { state, error: 'Expected cancel-attack' };
 
@@ -736,7 +783,10 @@ function handleCancelAttack(state: GameState, action: GameAction, combat: Combat
   const defPlayer = state.players[defPlayerIndex];
 
   const cardIndex = defPlayer.hand.findIndex(c => c.instanceId === action.cardInstanceId);
-  if (cardIndex < 0) return { state, error: 'Card not in hand' };
+  if (cardIndex < 0) {
+    // Source may be an in-play ally tapping to cancel (e.g. The Warg-king).
+    return handleCancelAttackByInPlayAlly(state, action, combat);
+  }
   const handCard = defPlayer.hand[cardIndex];
 
   const newPlayers = clonePlayers(state);

@@ -90,6 +90,13 @@ The resolver context includes `bearer` (influencing character) and `faction`
 array of site names from the faction's `playableAt` entries, enabling conditions
 like `{ "faction.playableAt": "Variag Camp" }`).
 
+For faction-influence checks the engine also collects `check-modifier` and
+`stat-modifier` (`direct-influence`) effects from every ally in the
+influencing character's company — e.g. The Warg-king's "+2 to any
+influence attempt by a character in his company against a Wolf
+faction" applies even when he is attached to a different host. Allies
+are not collected for combat or other check contexts.
+
 ### 2b. `attribute-modifier` active constraint
 
 Generic conditional override of an entity attribute. Produced by an
@@ -284,7 +291,9 @@ Both lists are owned by `engine/pending.ts`; reducers and on-event handlers must
 ### 9. `cancel-attack`
 
 Cancels an entire attack against a company. Only playable during combat
-before strikes are assigned. The card is played from hand and discarded.
+before strikes are assigned. The source is normally a short event card
+played from hand (and discarded), but the same effect type also covers
+in-play "tap to cancel" abilities on allies.
 
 When `cost` and `requiredSkill` are present, requires tapping a character
 with the named skill (e.g. Concealment — tap a scout). When `cost` and
@@ -295,6 +304,13 @@ be untapped (e.g. Vanishment — wizard makes corruption check -2). When
 both `requiredSkill` and `requiredRace` are absent, the card is simply
 played with no additional cost (e.g. Dark Quarrels — cancel one attack
 by Orcs, Trolls, or Men).
+
+When the effect is declared on an in-play ally with
+`cost: { "tap": "self" }`, the engine sources the ability from any
+untapped ally with this effect attached to a character in the defending
+company (e.g. The Warg-king's "tap to cancel a Wolf or Animal attack").
+Activating taps the ally and cancels the attack immediately — no chain
+entry is created.
 
 A `when` condition filters which attacks qualify (evaluated against
 the combat context including `enemy.race`).
@@ -308,6 +324,9 @@ the combat context including `enemy.race`).
   "cost": { "check": "corruption", "modifier": -2 } }
 { "type": "cancel-attack",
   "when": { "enemy.race": { "$in": ["orc", "troll", "men", "man"] } } }
+{ "type": "cancel-attack",
+  "cost": { "tap": "self" },
+  "when": { "enemy.race": { "$in": ["wolf", "wolves", "animal", "animals"] } } }
 ```
 
 ### 9a. `cancel-influence`
