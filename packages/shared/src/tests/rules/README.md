@@ -6,7 +6,7 @@
 
 | Total Rules | Implemented | Remaining | Progress |
 |:-----------:|:-----------:|:---------:|:--------:|
-| 306 | 47 | 259 | 15.4% |
+| 306 | 50 | 256 | 16.3% |
 
 ## Section Breakdown
 
@@ -15,7 +15,7 @@
 | 00 | [Engine](00-engine/) | 2 | 2 | 100.0% |
 | 01 | [Deck Construction & Setup](01-deck-construction/) | 59 | 2 | 3.4% |
 | 02 | [Untap Phase](02-untap-phase/) | 13 | 9 | 69.2% |
-| 03 | [Organization Phase](03-organization-phase/) | 48 | 6 | 12.5% |
+| 03 | [Organization Phase](03-organization-phase/) | 48 | 9 | 18.8% |
 | 04 | [Long-Event Phase](04-long-event-phase/) | 3 | 3 | 100.0% |
 | 05 | [Movement/Hazard Phase](05-movement-hazard-phase/) | 34 | 3 | 8.8% |
 | 06 | [Site Phase](06-site-phase/) | 21 | 4 | 19.0% |
@@ -130,9 +130,9 @@
 | 3.26 | Organization Phase | [Leader Restriction](03-organization-phase/rule-3.26-leader-restriction.test.ts) | ☐ |
 | 3.27 | Organization Phase | [Move To Follower](03-organization-phase/rule-3.27-move-to-follower.test.ts) | ☐ |
 | 3.28 | Organization Phase | [Move To Gi](03-organization-phase/rule-3.28-move-to-gi.test.ts) | ☐ |
-| 3.29 | Organization Phase | [Move Between Companies](03-organization-phase/rule-3.29-move-between-companies.test.ts) | ☐ |
-| 3.30 | Organization Phase | [Join Companies](03-organization-phase/rule-3.30-join-companies.test.ts) | ☐ |
-| 3.31 | Organization Phase | [Split Companies](03-organization-phase/rule-3.31-split-companies.test.ts) | ☐ |
+| 3.29 | Organization Phase | [Move Between Companies](03-organization-phase/rule-3.29-move-between-companies.test.ts) | ☑ |
+| 3.30 | Organization Phase | [Join Companies](03-organization-phase/rule-3.30-join-companies.test.ts) | ☑ |
+| 3.31 | Organization Phase | [Split Companies](03-organization-phase/rule-3.31-split-companies.test.ts) | ☑ |
 | 3.32 | Organization Phase | [Storing Cards](03-organization-phase/rule-3.32-storing-cards.test.ts) | ☐ |
 | 3.33 | Organization Phase | [Fw Stored Stage](03-organization-phase/rule-3.33-fw-stored-stage.test.ts) | ☐ |
 | 3.34 | Organization Phase | [Balrog No Store Barad Dur](03-organization-phase/rule-3.34-balrog-no-store-barad-dur.test.ts) | ☐ |
