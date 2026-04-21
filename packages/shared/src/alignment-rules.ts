@@ -48,3 +48,32 @@ const ALIGNMENT_RULES: { readonly [K in Alignment]: AlignmentRules } = {
 export function getAlignmentRules(alignment: Alignment): AlignmentRules {
   return ALIGNMENT_RULES[alignment];
 }
+
+/**
+ * Cross-alignment influence penalty per CoE rules 8.W1, 8.R1, 8.F1, 8.B1.
+ *
+ * When a player's character (not an agent hazard) makes an influence
+ * attempt against an opposing-alignment player's card, the attacker's
+ * roll is modified by -5:
+ *
+ * - Wizard vs Ringwraith / Balrog
+ * - Ringwraith vs Wizard / Fallen-wizard
+ * - Fallen-wizard vs Ringwraith / Balrog
+ * - Balrog vs Wizard / Fallen-wizard
+ *
+ * Returns -5 if the pairing incurs the penalty, 0 otherwise.
+ */
+export function crossAlignmentInfluencePenalty(
+  influencerAlignment: Alignment,
+  targetAlignment: Alignment,
+): number {
+  const W = Alignment.Wizard;
+  const R = Alignment.Ringwraith;
+  const F = Alignment.FallenWizard;
+  const B = Alignment.Balrog;
+  if (influencerAlignment === W && (targetAlignment === R || targetAlignment === B)) return -5;
+  if (influencerAlignment === R && (targetAlignment === W || targetAlignment === F)) return -5;
+  if (influencerAlignment === F && (targetAlignment === R || targetAlignment === B)) return -5;
+  if (influencerAlignment === B && (targetAlignment === W || targetAlignment === F)) return -5;
+  return 0;
+}

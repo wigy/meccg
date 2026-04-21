@@ -1154,6 +1154,8 @@ export function buildResolutionState(opts?: {
   p2Chars?: Parameters<typeof buildTestState>[0]['players'][0]['companies'][0]['characters'];
   p1Hand?: Parameters<typeof buildTestState>[0]['players'][0]['hand'];
   attackerCheatRoll?: number;
+  p1Alignment?: Alignment;
+  p2Alignment?: Alignment;
 }) {
   const state = buildTestState({
     activePlayer: PLAYER_1,
@@ -1163,6 +1165,7 @@ export function buildResolutionState(opts?: {
         companies: [{ site: MORIA, characters: opts?.p1Chars ?? [ARAGORN] }],
         hand: opts?.p1Hand ?? [],
         siteDeck: [MINAS_TIRITH],
+        alignment: opts?.p1Alignment,
       },
       {
         id: PLAYER_2,
@@ -1171,6 +1174,7 @@ export function buildResolutionState(opts?: {
         companies: [{ site: MORIA, characters: opts?.p2Chars ?? [LEGOLAS, GIMLI, BILBO] }],
         hand: [],
         siteDeck: [LORIEN],
+        alignment: opts?.p2Alignment,
       },
     ],
     phase: Phase.Site,
