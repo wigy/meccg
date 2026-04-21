@@ -19,6 +19,7 @@
     "marshallingCategory": "character",
     "corruptionModifier": 0,
     "homesite": "Barad-dûr",
+    "manifestId": "tw-65",
     "effects": [
       {
         "type": "stat-modifier",
