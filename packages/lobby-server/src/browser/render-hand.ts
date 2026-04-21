@@ -200,6 +200,31 @@ function findDodgeActions(
   );
 }
 
+/**
+ * When a `discard-in-play` target is a hazard attached to a character
+ * (stored in `character.hazards`), return the bearer character's display
+ * name. Used to disambiguate action labels when two identical-named
+ * hazards are attached to different characters — without the bearer name,
+ * both buttons render with the same text ("Tap Sage, discard Foolish Words").
+ * Returns null when the target is a non-attached in-play card (e.g. Eye of
+ * Sauron in `cardsInPlay`), in which case no bearer disambiguation is needed.
+ */
+function findHazardBearerName(
+  hazardInstanceId: CardInstanceId,
+  view: PlayerView,
+  cardPool: Readonly<Record<string, CardDefinition>>,
+): string | null {
+  for (const chars of [view.self.characters, view.opponent.characters]) {
+    for (const char of Object.values(chars)) {
+      if (char.hazards.some(h => h.instanceId === hazardInstanceId)) {
+        const charDef = cardPool[char.definitionId as string];
+        return charDef ? charDef.name : null;
+      }
+    }
+  }
+  return null;
+}
+
 // ---- Disambiguation tooltips ----
 
 /**
@@ -248,13 +273,18 @@ function showShortEventTargetMenu(
       const discardDefId = cachedInstanceLookup(action.discardTargetInstanceId);
       const discardDef = discardDefId ? cardPool[discardDefId as string] : undefined;
       const discardName = discardDef ? discardDef.name : '?';
+      // Two identical-named hazards (e.g. Foolish Words) can both be legal
+      // discard targets when attached to different characters. Append the
+      // bearer character's name so the two actions don't render as duplicates.
+      const bearerName = findHazardBearerName(action.discardTargetInstanceId, view, cardPool);
+      const discardLabel = bearerName ? `${discardName} (on ${bearerName})` : discardName;
       if (action.targetScoutInstanceId) {
         const scoutDefId = cachedInstanceLookup(action.targetScoutInstanceId);
         const scoutDef = scoutDefId ? cardPool[scoutDefId as string] : undefined;
         const scoutName = scoutDef ? scoutDef.name : '?';
-        label = `Tap ${scoutName}, discard ${discardName}`;
+        label = `Tap ${scoutName}, discard ${discardLabel}`;
       } else {
-        label = `Discard ${discardName}`;
+        label = `Discard ${discardLabel}`;
       }
     } else if (action.targetScoutInstanceId) {
       // Targeting a scout (e.g. Stealth)

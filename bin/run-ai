@@ -55,6 +55,19 @@ IDLE_BACKOFF=(60 120 240 480 960 1920 3600)
 idle_index=0
 
 while true; do
+  # Refuse to keep looping on a dirty tree. A previous skill that
+  # ended without committing would otherwise contaminate the next
+  # run's branch. Stashing hides the problem — bail instead so the
+  # operator has to convert the leftovers into a proper PR (or
+  # revert) before restarting.
+  cd "$SCRIPT_DIR/.."
+  if [ -n "$(git status --porcelain)" ]; then
+    echo "=== FATAL: working tree dirty at $(date -Iseconds). Stopping run-ai. ===" | tee -a "$LOG_FILE"
+    git status --porcelain | sed 's/^/[run-ai]   /' | tee -a "$LOG_FILE"
+    echo "[run-ai] Turn these files into a PR or revert them, then restart run-ai." | tee -a "$LOG_FILE"
+    exit 2
+  fi
+
   git checkout master 2>&1 | tee -a "$LOG_FILE"
   git pull 2>&1 | tee -a "$LOG_FILE"
 

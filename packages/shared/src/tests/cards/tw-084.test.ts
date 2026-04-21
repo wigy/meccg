@@ -221,6 +221,42 @@ describe('River (tw-84)', () => {
     }
   });
 
+  test('River adds no constraints when the target company is not moving', () => {
+    // Regression for a bug where River's site-phase-do-nothing constraint
+    // was applied to a stationary company. Card text: "A company moving
+    // to this site this turn must do nothing…" — no movement, no effect.
+    const base = buildTestState(MH_SCENARIO_WITH_HAND);
+
+    // Deliberately leave destinationSite null: the active company stays
+    // at Rivendell for this M/H phase.
+    const stateAtPlayHazards = { ...base, phaseState: makeMHState() };
+    const riverInstance = handCardId(stateAtPlayHazards, HAZARD_PLAYER);
+    const targetCompanyId = companyIdAt(stateAtPlayHazards, RESOURCE_PLAYER);
+
+    const playResult = reduce(stateAtPlayHazards, {
+      type: 'play-hazard',
+      player: PLAYER_2,
+      cardInstanceId: riverInstance,
+      targetCompanyId,
+    });
+    expect(playResult.error).toBeUndefined();
+
+    // Resolve the chain (both players pass priority).
+    let current = playResult.state;
+    for (let i = 0; i < 10 && current.chain !== null; i++) {
+      const r = reduce(current, { type: 'pass-chain-priority', player: current.chain.priority });
+      if (r.error) break;
+      current = r.state;
+    }
+    expect(current.chain).toBeNull();
+
+    // Short-event River went to discard as usual…
+    expectInDiscardPile(current, HAZARD_PLAYER, riverInstance);
+    // …but no River-sourced constraints were added on the stationary company.
+    const riverConstraints = current.activeConstraints.filter(c => c.source === riverInstance);
+    expect(riverConstraints).toHaveLength(0);
+  });
+
   test('tapping a ranger through reduce() removes the River constraint and taps the character', () => {
     const base = buildTestState(SITE_SCENARIO);
     const { state, riverInstance } = installRiverOnActiveCompany({ ...base, phaseState: ENTER_OR_SKIP }, RIVER);

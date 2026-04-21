@@ -350,6 +350,44 @@ describe('Voices of Malice (le-250)', () => {
     expect(action.discardTargetInstanceId).toBe(foolishWordsInPlay.instanceId);
   });
 
+  test('playing during MH phase play-hazards resolves: tap sage, discard hazard, discard Voices of Malice', () => {
+    // Regression: the MH reducer used to route every `play-short-event`
+    // to the hazard env-cancel handler, which called
+    // `resolveInstanceId(state, undefined)` and crashed (surfacing as
+    // "Invalid message format" to the client). Ensure the resource
+    // short-event path is taken and the card resolves inline.
+    const foolishWordsInPlay: CardInPlay = { instanceId: mint(), definitionId: FOOLISH_WORDS, status: CardStatus.Untapped };
+    const base = buildTestState({
+      phase: Phase.MovementHazard,
+      activePlayer: PLAYER_1,
+      recompute: true,
+      players: [
+        { id: PLAYER_1, companies: [{ site: DOL_GULDUR, characters: [LAYOS] }], hand: [VOICES_OF_MALICE], siteDeck: [MORIA_MINION] },
+        { id: PLAYER_2, companies: [{ site: MINAS_MORGUL, characters: [OSTISEN] }], hand: [], siteDeck: [MORIA_MINION], cardsInPlay: [foolishWordsInPlay] },
+      ],
+    });
+    const state = { ...base, phaseState: makeMHState() };
+
+    const voicesId = handCardId(state, RESOURCE_PLAYER);
+    const foolishWordsId = state.players[1].cardsInPlay[0].instanceId;
+    const layosId = Object.keys(state.players[0].characters)[0] as unknown as CardInstanceId;
+
+    const next = dispatch(state, {
+      type: 'play-short-event',
+      player: PLAYER_1,
+      cardInstanceId: voicesId,
+      targetScoutInstanceId: layosId,
+      discardTargetInstanceId: foolishWordsId,
+    });
+
+    expectCharStatus(next, RESOURCE_PLAYER, LAYOS, CardStatus.Tapped);
+    expect(next.players[1].cardsInPlay.map(c => c.instanceId)).not.toContain(foolishWordsId);
+    expect(next.players[1].discardPile.map(c => c.instanceId)).toContain(foolishWordsId);
+    expect(next.players[0].hand).toHaveLength(0);
+    expect(next.players[0].discardPile.map(c => c.instanceId)).toContain(voicesId);
+    expect(next.chain).toBeNull();
+  });
+
   test('not playable during MH phase when no hazard permanent/long events in play', () => {
     const base = buildTestState({
       phase: Phase.MovementHazard,
@@ -496,5 +534,51 @@ describe('Voices of Malice (le-250)', () => {
     expect(ciryaherAfter.hazards.map(h => h.instanceId)).not.toContain(firstTargetId);
     expect(ciryaherAfter.hazards).toHaveLength(1);
     expect(next.players[0].discardPile.map(c => c.instanceId)).toContain(firstTargetId);
+  });
+
+  test('emits distinct actions when the same hazard type is attached to characters of both players', () => {
+    // Regression: a game (mo8gx6ts-go9s38, state 168) had Foolish Words
+    // attached to a P1 character AND another Foolish Words attached to a P2
+    // character. Both are legal discard targets per the card text, so the
+    // engine must emit two distinct play actions — one per hazard instance.
+    // The UI disambiguation layer uses the bearer character to render the
+    // two actions differently; the engine's contract here is just that each
+    // action carries a unique `discardTargetInstanceId`.
+    const base = buildTestState({
+      phase: Phase.Organization,
+      activePlayer: PLAYER_1,
+      players: [
+        { id: PLAYER_1, companies: [{ site: DOL_GULDUR, characters: [LAYOS, CIRYAHER] }], hand: [VOICES_OF_MALICE], siteDeck: [MORIA_MINION] },
+        { id: PLAYER_2, companies: [{ site: MINAS_MORGUL, characters: [OSTISEN] }], hand: [], siteDeck: [MORIA_MINION] },
+      ],
+    });
+    const withP1Hazard = attachHazardToChar(base, RESOURCE_PLAYER, CIRYAHER, FOOLISH_WORDS);
+    const state = attachHazardToChar(withP1Hazard, 1, OSTISEN, FOOLISH_WORDS);
+
+    const playActions = viableActions(state, PLAYER_1, 'play-short-event');
+    // Two sages × two Foolish Words (one per player's character) = 4 actions.
+    expect(playActions).toHaveLength(4);
+
+    const discardTargetIds = playActions.map(a =>
+      actionAs<PlayShortEventAction>(a.action).discardTargetInstanceId,
+    );
+
+    // Each (sage, hazard) combination yields a unique action.
+    expect(new Set(discardTargetIds).size).toBe(2);
+    const uniquePairs = new Set(playActions.map(a => {
+      const action = actionAs<PlayShortEventAction>(a.action);
+      return `${action.targetScoutInstanceId}:${action.discardTargetInstanceId}`;
+    }));
+    expect(uniquePairs.size).toBe(4);
+
+    // The two hazard instance IDs must correspond to the two Foolish Words
+    // attached to characters on opposite sides of the table.
+    const p1Chars = state.players[0].characters;
+    const ciryaherKey = Object.keys(p1Chars).find(k => p1Chars[k].definitionId === CIRYAHER)!;
+    const p1HazardId = p1Chars[ciryaherKey].hazards[0].instanceId;
+    const p2Chars = state.players[1].characters;
+    const ostisenKey = Object.keys(p2Chars).find(k => p2Chars[k].definitionId === OSTISEN)!;
+    const p2HazardId = p2Chars[ostisenKey].hazards[0].instanceId;
+    expect(new Set(discardTargetIds)).toEqual(new Set([p1HazardId, p2HazardId]));
   });
 });

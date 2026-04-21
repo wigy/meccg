@@ -477,21 +477,21 @@ case "$REQUESTOR" in
 esac
 
 # ---------------------------------------------------------------------------
-# Step 2c: Guard against a polluted working tree.
+# Step 2c: Refuse to start on a polluted working tree.
 # ---------------------------------------------------------------------------
-# If a previous mail left uncommitted changes (e.g. a certify skill
-# exited without opening its PR), they would contaminate this run's
-# branch and cause it to commit unrelated files. Stash them — the
-# operator can recover them from `git stash list` if needed — so this
-# run always starts from a clean state.
+# A dirty tree almost always means a previous skill ended without
+# committing and pushing its work. Hiding that with `git stash` made
+# the problem invisible and let half-finished edits rot across runs.
+# Instead we bail loudly: the operator must convert the leftover work
+# into a proper PR (or revert it) before any new mail is handled.
 
 cd "$PROJECT_DIR"
 if [ -n "$(git status --porcelain)" ]; then
-  log "WARNING: working tree is dirty before handling $MSG_ID — pre-skill stash:"
+  log "FATAL: working tree is dirty before handling $MSG_ID. Refusing to proceed."
+  log "The previous run left uncommitted changes — these must become a PR or be"
+  log "reverted manually before run-ai can continue. Dirty files:"
   git status --porcelain | sed 's/^/[handle-mail]   /'
-  git stash push -u -m "handle-mail pre-skill guard [before $MSG_ID]" \
-    > /dev/null 2>&1 || true
-  log "Stashed pre-skill. (See 'git stash list' to recover.)"
+  exit 2
 fi
 
 # ---------------------------------------------------------------------------
@@ -642,20 +642,16 @@ IMPORTANT: You MUST create a branch named certify-${CARD_ID}-<card-slug>, commit
 
       # Safety net: the certify skill is required to leave the working
       # tree clean (either no changes, or all changes committed on its
-      # certify-<cardId>-* branch). If it didn't, stash the leftovers
-      # so the NEXT mail doesn't inherit them, list the orphaned files
-      # in the failure reply so nothing is silently lost, and treat
-      # this as a certification failure regardless of anything else.
+      # certify-<cardId>-* branch). If it didn't, we do NOT stash —
+      # stashing hid half-finished work across runs. Leave the dirty
+      # files in place so run-ai refuses to continue until the operator
+      # opens a PR for them or reverts.
       cd "$PROJECT_DIR"
       DIRTY_FILES=""
-      DIRTY_STASH=""
       if [ -n "$(git status --porcelain)" ]; then
         DIRTY_FILES=$(git status --porcelain)
-        DIRTY_STASH="handle-mail post-skill rescue [$MSG_ID certify-$CARD_ID]"
-        git stash push -u -m "$DIRTY_STASH" > /dev/null 2>&1 || true
         log "WARNING: skill left $(echo "$DIRTY_FILES" | wc -l) uncommitted file(s)."
         echo "$DIRTY_FILES" | sed 's/^/[handle-mail]   /'
-        log "Stashed as: $DIRTY_STASH (recover with 'git stash list')."
       fi
 
       # Look up the PR by its head branch. The skill creates the branch
@@ -674,7 +670,7 @@ IMPORTANT: You MUST create a branch named certify-${CARD_ID}-<card-slug>, commit
       # the skill abandoned its turn mid-step and the reply must say so.
       CERT_FAIL_REASON=""
       if [ -n "$DIRTY_FILES" ]; then
-        CERT_FAIL_REASON="Skill exited with uncommitted changes — it ended its turn before reaching step 14 (branch/commit/push/PR). The dirty files have been stashed as '$DIRTY_STASH'; no information is lost.
+        CERT_FAIL_REASON="Skill exited with uncommitted changes — it ended its turn before reaching step 14 (branch/commit/push/PR). The run-ai loop will refuse to handle more mail until these files are turned into a PR or reverted.
 
 Uncommitted files:
 $DIRTY_FILES"
@@ -738,12 +734,42 @@ $(echo "$SKILL_OUTPUT" | tail -40)"
     read_skill_stats
     log "Handler completed (exit $RC)."
 
+    # Post-skill dirty-tree check. These skills must either (a) commit +
+    # push + open a PR and leave the working tree clean, or (b) revert
+    # any edits they made and emit success:false. If the tree is dirty,
+    # the skill failed either way — override whatever it printed and
+    # report the real state. We do NOT stash: the leftover files must
+    # stay in place so run-ai refuses to continue until the operator
+    # turns them into a PR or reverts.
+    cd "$PROJECT_DIR"
+    SKILL_DIRTY_FILES=""
+    if [ -n "$(git status --porcelain)" ]; then
+      SKILL_DIRTY_FILES=$(git status --porcelain)
+      log "WARNING: $SKILL_FILE left $(echo "$SKILL_DIRTY_FILES" | wc -l) uncommitted file(s)."
+      echo "$SKILL_DIRTY_FILES" | sed 's/^/[handle-mail]   /'
+    fi
+
+    REPLY_RECIPIENT="$DEFAULT_RECIPIENT"
+    REPLY_TOPIC="${TOPIC/request/reply}"
+    REPLY_TOPIC="${REPLY_TOPIC/bug-report/bug-reply}"
+
     RESULT_JSON=$(extract_handler_result "$SKILL_OUTPUT")
-    if [ -z "$RESULT_JSON" ] || ! echo "$RESULT_JSON" | jq -e . >/dev/null 2>&1; then
+    HAS_VALID_RESULT=false
+    if [ -n "$RESULT_JSON" ] && echo "$RESULT_JSON" | jq -e . >/dev/null 2>&1; then
+      HAS_VALID_RESULT=true
+    fi
+
+    if [ -n "$SKILL_DIRTY_FILES" ]; then
+      # Dirty tree overrides whatever the skill said — it didn't finish.
+      log "ERROR: Skill left the working tree dirty — reporting as failure."
+      REPLY_SUBJECT="Failed: $SUBJECT"
+      REPLY_BODY="The handler for this request did not commit or push its work. It left $(echo "$SKILL_DIRTY_FILES" | wc -l) file(s) uncommitted in the working tree:
+
+$SKILL_DIRTY_FILES
+
+No PR was opened. The run-ai loop will refuse to handle more mail until these files are turned into a PR or reverted manually."
+    elif ! $HAS_VALID_RESULT; then
       log "ERROR: Skill did not produce a valid HANDLE_MAIL_RESULT block."
-      REPLY_RECIPIENT="$DEFAULT_RECIPIENT"
-      REPLY_TOPIC="${TOPIC/request/reply}"
-      REPLY_TOPIC="${REPLY_TOPIC/bug-report/bug-reply}"
       REPLY_SUBJECT="Failed: $SUBJECT"
       REPLY_BODY="The handler did not produce structured output. Output tail:
 $(echo "$SKILL_OUTPUT" | tail -20)"

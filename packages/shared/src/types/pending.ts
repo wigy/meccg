@@ -94,6 +94,13 @@ export interface OpponentInfluenceAttempt {
   /** Unused DI of the character controlling the target (0 if under GI). */
   readonly controllerDI: number;
   /**
+   * Cross-alignment penalty applied to the attacker's roll per CoE
+   * rules 8.W1, 8.R1, 8.F1, 8.B1 (typically -5 or 0). Subtracted from
+   * the attacker's roll during resolution in addition to the other
+   * modifiers — i.e. added as a negative term on the attacker side.
+   */
+  readonly crossAlignmentPenalty: number;
+  /**
    * The card instance revealed from hand for a comparison value of 0.
    * Null if no card was revealed.
    */

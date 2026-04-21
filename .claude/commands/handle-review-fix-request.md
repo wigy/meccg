@@ -2,6 +2,19 @@ Address review comments on a pull request. Read the review feedback, fix the iss
 
 **IMPORTANT:** This skill must run to completion autonomously. Do NOT stop to ask the user for confirmation at any step.
 
+## Working-tree contract — read before doing anything
+
+You MUST leave the repo working tree CLEAN when your turn ends. `git status --porcelain` must print nothing.
+
+- **Success path:** every edit is committed on the existing PR branch and pushed. Tree clean.
+- **Failure path:** if you cannot address the review — comments are ambiguous, fix requires architectural changes you can't make, tests won't pass, etc. — you MUST revert all edits before ending the turn: `git checkout -- .` and delete any new files/directories you created. Then emit the result block with `"success": false`.
+
+If you end the turn with uncommitted changes, `bin/handle-mail` overrides your result block, reports the job as failed, and run-ai refuses to handle any further mail until a human cleans up. Do not leave leftovers — they block every subsequent AI request, not just yours.
+
+## Result-block contract — also read
+
+The `===HANDLE_MAIL_RESULT_BEGIN===`…`===HANDLE_MAIL_RESULT_END===` block (step 9 below) is MANDATORY on every run, success or failure. It is how `bin/handle-mail` decides what reply to send. If you skip it, the requester gets a generic "handler did not produce structured output" error instead of a meaningful reply. On the failure path, use `"success": false`, omit `review`, and put the explanation in `reply.body`.
+
 The message ID argument is: $ARGUMENTS
 
 Follow these steps:
