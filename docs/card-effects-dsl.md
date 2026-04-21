@@ -667,6 +667,18 @@ Rules:
     "filter": { "enemy.race": { "$ne": "nazgul" } } }
   ```
 
+- `never-taps` — the site's status never transitions to `Tapped`. The two
+  normal tap-sites — a resource (item/ally) being played on a character at
+  this site, and an influence attempt resolving at this site — both skip
+  the tap when this rule is present. Characters, items, and influencing
+  characters still tap as usual; only the site itself is unaffected.
+  Consumed by `engine/reducer-site.ts`. Used by *The Worthy Hills*
+  (le-415): "This site never taps."
+
+  ```json
+  { "type": "site-rule", "rule": "never-taps" }
+  ```
+
 ### 20. `item-play-site`
 
 Restricts an item to be playable only where the company's current site

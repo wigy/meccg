@@ -715,7 +715,8 @@ export type SiteRuleEffect =
   | DenyItemSiteRule
   | CancelAttacksSiteRule
   | AutoTestGoldRingSiteRule
-  | AttacksNotDetainmentSiteRule;
+  | AttacksNotDetainmentSiteRule
+  | NeverTapsSiteRule;
 
 /** Wounded characters at this site heal during untap as if the site were a haven. */
 export interface HealingAffectsAllSiteRule extends EffectBase {
@@ -796,6 +797,19 @@ export interface AttacksNotDetainmentSiteRule extends EffectBase {
   readonly rule: 'attacks-not-detainment';
   /** Optional condition on the attacking creature (e.g. race ≠ nazgul). */
   readonly filter?: Condition;
+}
+
+/**
+ * Declares that this site never taps. Playing resources (items, allies) or
+ * making influence attempts at a company's current site normally taps the
+ * site, gating further resource plays and sending it to the discard pile on
+ * departure. When the site carries this rule, both tap-sites are skipped —
+ * the site's status stays `Untapped` no matter how many resources are played
+ * or influence attempts resolved there. Used by The Worthy Hills (le-415).
+ */
+export interface NeverTapsSiteRule extends EffectBase {
+  readonly type: 'site-rule';
+  readonly rule: 'never-taps';
 }
 
 /**
