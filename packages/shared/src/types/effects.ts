@@ -523,6 +523,17 @@ export interface CombatCancelAttackByTapEffect extends EffectBase {
 }
 
 /**
+ * The creature makes one strike per character in the defending company:
+ * `strikesTotal = company.characters.length`. Card text is typically
+ * "Each character in the company faces one strike". The card's raw
+ * `strikes` value is ignored when this effect is present. Mutually
+ * exclusive with `combat-multi-attack`.
+ */
+export interface CombatOneStrikePerCharacterEffect extends EffectBase {
+  readonly type: 'combat-one-strike-per-character';
+}
+
+/**
  * Marks the attack as detainment (see CoE §3.II). A detainment attack
  * taps characters instead of wounding them, suppresses the character
  * body-check, and zeros kill-MP for the defeated creature. Presence of
@@ -1120,6 +1131,7 @@ export type CardEffect =
   | CombatMultiAttackEffect
   | CombatCancelAttackByTapEffect
   | CombatDetainmentEffect
+  | CombatOneStrikePerCharacterEffect
   | PlayFlagEffect
   | DuplicationLimitEffect
   | PlayTargetEffect

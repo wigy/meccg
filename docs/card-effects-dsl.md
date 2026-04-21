@@ -394,6 +394,11 @@ strings to chase through the engine.
   characters in the company to cancel attacks. The `maxCancels` field
   specifies the maximum number of attacks that can be canceled this way.
   (implemented in `reducer-combat.ts`, `legal-actions/combat.ts`)
+- `combat-one-strike-per-character` — the creature makes one strike per
+  character in the defending company (`strikesTotal =
+  company.characters.length`), overriding the card's raw `strikes` value.
+  Card text is "Each character in the company faces one strike". Mutually
+  exclusive with `combat-multi-attack`. (implemented in `chain-reducer.ts`)
 - `combat-detainment` — marks the attack as detainment (CoE §3.II).
   Detainment strikes tap the character instead of wounding/eliminating,
   suppress the character body check (rule 3.II.1), do not trigger
@@ -410,6 +415,7 @@ strings to chase through the engine.
 { "type": "combat-attacker-chooses-defenders" }
 { "type": "combat-multi-attack", "count": 3 }
 { "type": "combat-cancel-attack-by-tap", "maxCancels": 2 }
+{ "type": "combat-one-strike-per-character" }
 { "type": "combat-detainment" }
 {
   "type": "combat-detainment",

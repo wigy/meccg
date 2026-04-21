@@ -1048,6 +1048,14 @@ function initiateCreatureCombat(state: GameState, entry: ChainEntry): GameState 
   );
   const multiAttackCount = multiAttackEffect?.count ?? 1;
 
+  // Check for one-strike-per-character combat rule (e.g. Wandering Eldar,
+  // Watcher in the Water — "Each character in the company faces one strike").
+  // When present, the creature's raw strikes value is ignored; total strikes
+  // equals the defending company's character count.
+  const oneStrikePerCharacter = creatureDef.effects?.some(
+    e => e.type === 'combat-one-strike-per-character',
+  ) ?? false;
+
   // Check for cancel-attack-by-tap combat rule (e.g. Assassin — tap to cancel attacks)
   const cancelByTapEffect = creatureDef.effects?.find(
     e => e.type === 'combat-cancel-attack-by-tap',
@@ -1070,10 +1078,19 @@ function initiateCreatureCombat(state: GameState, entry: ChainEntry): GameState 
   const effectiveProwess = resolveAttackProwess(state, creatureDef.prowess, inPlayNames, creatureRace, false, creatureSelf);
   const effectiveStrikes = resolveAttackStrikes(state, creatureDef.strikes, inPlayNames, creatureRace);
 
-  // Multi-attack: total strikes = count × effective strikes per attack
-  const totalStrikes = effectiveStrikes * multiAttackCount;
-  if (multiAttackCount > 1) {
-    logDetail(`Multi-attack: ${multiAttackCount} attacks × ${effectiveStrikes} strike(s) = ${totalStrikes} total strikes`);
+  // Total strikes resolution. Precedence:
+  //   1. combat-one-strike-per-character → strikes = company.characters.length
+  //   2. combat-multi-attack             → strikes = count × effectiveStrikes
+  //   3. default                         → strikes = effectiveStrikes
+  let totalStrikes: number;
+  if (oneStrikePerCharacter) {
+    totalStrikes = company.characters.length;
+    logDetail(`One strike per character: ${totalStrikes} character(s) in company → ${totalStrikes} total strikes`);
+  } else {
+    totalStrikes = effectiveStrikes * multiAttackCount;
+    if (multiAttackCount > 1) {
+      logDetail(`Multi-attack: ${multiAttackCount} attacks × ${effectiveStrikes} strike(s) = ${totalStrikes} total strikes`);
+    }
   }
 
   const combat: CombatState = {
