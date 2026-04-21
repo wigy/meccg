@@ -1093,6 +1093,9 @@ function initiateCreatureCombat(state: GameState, entry: ChainEntry): GameState 
     }
   }
 
+  const attackKeying = Array.from(new Set(
+    creatureDef.keyedTo.flatMap(k => k.regionTypes ?? []),
+  ));
   const combat: CombatState = {
     attackSource,
     companyId: company.id,
@@ -1102,6 +1105,7 @@ function initiateCreatureCombat(state: GameState, entry: ChainEntry): GameState 
     strikeProwess: effectiveProwess,
     creatureBody: creatureDef.body,
     creatureRace,
+    attackKeying: attackKeying.length > 0 ? attackKeying : undefined,
     strikeAssignments: [],
     currentStrikeIndex: 0,
     phase: 'assign-strikes',

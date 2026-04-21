@@ -328,8 +328,14 @@ company (e.g. The Warg-king's "tap to cancel a Wolf or Animal attack").
 Activating taps the ally and cancels the attack immediately — no chain
 entry is created.
 
-A `when` condition filters which attacks qualify (evaluated against
-the combat context including `enemy.race`).
+A `when` condition filters which attacks qualify, evaluated against a
+combat context that includes:
+
+- `enemy.race` — the attacking creature's lowercase race (e.g. `"orc"`).
+- `attack.keying` — array of region types the creature is keyed to
+  (e.g. `["wilderness", "shadow"]`); only populated for creature hazards.
+- `bearer.companySize` — the number of characters in the defending
+  company (host company of an in-play ally source).
 
 ```json
 { "type": "cancel-attack",
@@ -343,6 +349,13 @@ the combat context including `enemy.race`).
 { "type": "cancel-attack",
   "cost": { "tap": "self" },
   "when": { "enemy.race": { "$in": ["wolf", "wolves", "animal", "animals"] } } }
+{ "type": "cancel-attack",
+  "cost": { "tap": "self" },
+  "when": { "$and": [
+    { "bearer.companySize": { "$lt": 3 } },
+    { "$or": [
+      { "attack.keying": "wilderness" },
+      { "attack.keying": "shadow" } ] } ] } }
 ```
 
 ### 9a. `cancel-influence`
