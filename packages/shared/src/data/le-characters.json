@@ -424,7 +424,8 @@
     "corruptionModifier": 0,
     "homesite": "Vale of Erech",
     "effects": [],
-    "text": "Unique."
+    "text": "Unique.",
+    "certified": "2026-04-21"
   },
   {
     "cardType": "minion-character",
