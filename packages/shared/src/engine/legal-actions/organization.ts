@@ -525,6 +525,45 @@ export function grantedActionActivations(state: GameState, playerId: PlayerId, o
 
         const def = state.cardPool[item.definitionId as string];
         const costLabel = effect.cost.tap === 'self' ? 'tap' : 'discard';
+
+        // `heal-company-character` targets a wounded character in the bearer's
+        // company — emit one action per wounded (inverted) candidate, carrying
+        // the chosen target on `targetCardId`. If no one is wounded, the
+        // ability is not offered. Used by Foul-smelling Paste (le-310).
+        if (effect.action === 'heal-company-character') {
+          if (!company) {
+            logDetail(`Grant-action ${effect.action} on ${def?.name ?? '?'}: bearer not in any company`);
+            continue;
+          }
+          const wounded: import('../../index.js').CharacterInPlay[] = [];
+          for (const compCharId of company.characters) {
+            const compChar = player.characters[compCharId as string];
+            if (compChar && compChar.status === CardStatus.Inverted) wounded.push(compChar);
+          }
+          if (wounded.length === 0) {
+            logDetail(`Grant-action ${effect.action} on ${def?.name ?? '?'}: no wounded character in ${charDef?.name ?? '?'}'s company`);
+            continue;
+          }
+          for (const target of wounded) {
+            const targetDef = state.cardPool[target.definitionId as string];
+            logDetail(`Grant-action ${effect.action} available: ${charDef?.name ?? '?'} can ${costLabel} ${def?.name ?? '?'} to heal ${targetDef?.name ?? '?'}`);
+            actions.push({
+              action: {
+                type: 'activate-granted-action',
+                player: playerId,
+                characterId: charId,
+                sourceCardId: item.instanceId,
+                sourceCardDefinitionId: item.definitionId,
+                actionId: effect.action,
+                rollThreshold: rollThresholdFor(effect),
+                targetCardId: target.instanceId,
+              },
+              viable: true,
+            });
+          }
+          continue;
+        }
+
         logDetail(`Grant-action ${effect.action} available: ${charDef?.name ?? '?'} can ${costLabel} ${def?.name ?? '?'} to activate`);
 
         actions.push({
