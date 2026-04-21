@@ -6,7 +6,7 @@
 
 | Total Rules | Implemented | Remaining | Progress |
 |:-----------:|:-----------:|:---------:|:--------:|
-| 306 | 50 | 256 | 16.3% |
+| 306 | 51 | 255 | 16.7% |
 
 ## Section Breakdown
 
@@ -22,7 +22,7 @@
 | 07 | [End-of-Turn Phase](07-end-of-turn-phase/) | 2 | 1 | 50.0% |
 | 08 | [Combat](08-combat/) | 42 | 6 | 14.3% |
 | 09 | [Agents, Events, Items & Rings](09-agents-events-items/) | 29 | 7 | 24.1% |
-| 10 | [Corruption, Influence, Actions/Timing & Ending the Game](10-corruption-influence-endgame/) | 53 | 4 | 7.5% |
+| 10 | [Corruption, Influence, Actions/Timing & Ending the Game](10-corruption-influence-endgame/) | 53 | 5 | 9.4% |
 
 ## Detailed Test Matrix
 
@@ -295,7 +295,7 @@
 | 10.12 | Corruption, Influence, Actions/Timing & Ending the Game | [Influence Attempt Resolution](10-corruption-influence-endgame/rule-10.12-influence-attempt-resolution.test.ts) | ☑ |
 | 10.13 | Corruption, Influence, Actions/Timing & Ending the Game | [Influence Success Play](10-corruption-influence-endgame/rule-10.13-influence-success-play.test.ts) | ☐ |
 | 10.14 | Corruption, Influence, Actions/Timing & Ending the Game | [Agent Influence](10-corruption-influence-endgame/rule-10.14-agent-influence.test.ts) | ☐ |
-| 10.15 | Corruption, Influence, Actions/Timing & Ending the Game | [Cross Alignment Influence](10-corruption-influence-endgame/rule-10.15-cross-alignment-influence.test.ts) | ☐ |
+| 10.15 | Corruption, Influence, Actions/Timing & Ending the Game | [Cross Alignment Influence](10-corruption-influence-endgame/rule-10.15-cross-alignment-influence.test.ts) | ☑ |
 | 10.16 | Corruption, Influence, Actions/Timing & Ending the Game | [Fw Influence Alignment Match](10-corruption-influence-endgame/rule-10.16-fw-influence-alignment-match.test.ts) | ☐ |
 | 10.17 | Corruption, Influence, Actions/Timing & Ending the Game | [Actions Definition](10-corruption-influence-endgame/rule-10.17-actions-definition.test.ts) | ☐ |
 | 10.18 | Corruption, Influence, Actions/Timing & Ending the Game | [Resource Hazard Action Types](10-corruption-influence-endgame/rule-10.18-resource-hazard-action-types.test.ts) | ☐ |

@@ -19,31 +19,31 @@ A web-based implementation of the **Middle-Earth Collectible Card Game** (MECCG)
 
 | Metric | Done | Total | Progress |
 |:-------|-----:|------:|---------:|
-| Rule tests | 47 | 306 | 15.4% |
-| Card tests | 129 | 146 | 88.4% |
-| Cards created | 587 | 1683 | 34.9% |
-| Cards certified | 133 | 587 | 22.7% |
-| **Total** | **896** | **2722** | **32.9%** |
+| Rule tests | 51 | 306 | 16.7% |
+| Card tests | 148 | 159 | 93.1% |
+| Cards created | 593 | 1683 | 35.2% |
+| Cards certified | 151 | 593 | 25.5% |
+| **Total** | **943** | **2741** | **34.4%** |
 
 ### Deck Catalog
 
 | Deck | Alignment | Cards | Data Available | Certified |
 |:-----|:----------|------:|---------------:|----------:|
 | (A) Stewards of Gondor | hero | 117 | 117 (100.0%) | 116 (99.1%) |
-| (B) Release the Prisoners | hero | 119 | 119 (100.0%) | 45 (37.8%) |
-| (C) Dwarven Quest | hero | 120 | 120 (100.0%) | 40 (33.3%) |
+| (B) Release the Prisoners | hero | 119 | 119 (100.0%) | 46 (38.7%) |
+| (C) Dwarven Quest | hero | 120 | 120 (100.0%) | 41 (34.2%) |
 | (D) Bargain between Friends | hero | 119 | 119 (100.0%) | 37 (31.1%) |
 | (E) Return of the King | hero | 119 | 119 (100.0%) | 54 (45.4%) |
-| (F) Spies and Traitors | minion | 117 | 117 (100.0%) | 35 (29.9%) |
-| (G) Marauding Brood of Uglies | minion | 118 | 118 (100.0%) | 26 (22.0%) |
-| (H) Stealthy Tribe | minion | 122 | 122 (100.0%) | 28 (23.0%) |
-| (I) Morgul Rallying Cry | minion | 122 | 122 (100.0%) | 19 (15.6%) |
-| (J) Seducing Nations of Men | minion | 120 | 120 (100.0%) | 27 (22.5%) |
-| The Balrog (Development only) | balrog | 30 | 30 (100.0%) | 13 (43.3%) |
-| Dragons (Development only) | hero | 43 | 43 (100.0%) | 20 (46.5%) |
-| Fallen Wizard (Development only) | fallen-wizard | 35 | 35 (100.0%) | 19 (54.3%) |
+| (F) Spies and Traitors | minion | 117 | 117 (100.0%) | 38 (32.5%) |
+| (G) Marauding Brood of Uglies | minion | 118 | 118 (100.0%) | 32 (27.1%) |
+| (H) Stealthy Tribe | minion | 122 | 122 (100.0%) | 35 (28.7%) |
+| (I) Morgul Rallying Cry | minion | 122 | 122 (100.0%) | 24 (19.7%) |
+| (J) Seducing Nations of Men | minion | 120 | 120 (100.0%) | 34 (28.3%) |
+| The Balrog (Development only) | balrog | 30 | 30 (100.0%) | 20 (66.7%) |
+| Dragons (Development only) | hero | 57 | 57 (100.0%) | 28 (49.1%) |
+| Fallen Wizard (Development only) | fallen-wizard | 35 | 35 (100.0%) | 24 (68.6%) |
 | Hero (Development only) | hero | 69 | 69 (100.0%) | 69 (100.0%) |
-| Minion (Development only) | minion | 51 | 51 (100.0%) | 32 (62.7%) |
+| Minion (Development only) | minion | 51 | 51 (100.0%) | 51 (100.0%) |
 
 ## Getting Started
 

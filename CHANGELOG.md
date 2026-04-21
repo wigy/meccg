@@ -1,5 +1,41 @@
 # Changelog
 
+## 0.24.0 — 2026-04-21
+
+Minion Sample Deck
+
+### Game Engine
+
+- **Cross-alignment influence penalty (rule 10.15):** Apply the −3 influence penalty per CRF 8.W1/8.R1/8.F1/8.B1 when a player attempts to influence targets of an opposing alignment.
+- **Company-arrives-at-site triggers:** Skip short-event triggers for non-moving companies, fixing false triggers (including River) during the Movement/Hazard phase for companies that stayed in place.
+- **Discard-in-play label disambiguation:** Action labels for hazards with multiple instances now identify the specific bearer, preventing ambiguous menus (e.g. Voices of Malice).
+- **Voices of Malice crash:** Route resource short-events through the correct handler in the M/H phase, fixing a crash on play.
+- **Creature keying counts:** Fix wilderness keying counts for Cave-drake and Elf-lord Revealed in Wrath.
+- **Stinker (le-154) playable-at:** Match Goblin-gate or Moria per card text; implemented the combat cancel-attack ability as part of certification.
+
+### DSL & Engine Cleanup
+
+- **DSL consolidation (steps 2–4):** Single-card consolidation spec added; dead constraint dropped from docs.
+- **Grant-action ID cleanup:** Dropped fall-through dispatch in favour of a generic apply path with an `anyPhase` flag.
+
+### Cards & Data
+
+- **Certified this release (19 cards):**
+  - Minion characters — The Mouth (le-24), Shagrat (le-39), Gorbag (le-11), The Warg-king (le-158).
+  - Minion hazards / resources — Stinker (le-154, combat ability), Saw-toothed Blade (le-342), Orc-draughts (le-328), Wandering Eldar (le-97).
+  - Sites — Moria (le-392), The White Towers (le-412), Weathertop (as-169), Minas Morgul (le-390), Framsburg (td-175), Gold Hill (td-176), Gondmaeglom (td-177), Ovir Hollow (td-179), Zarak Dûm (td-181).
+  - Hazards — Mionid (as-3), Perchen (as-4).
+- **New cards added:** Dragon's Desolation (tw-29), Lucky Strike (tw-270).
+- **Dragons proto deck:** Fleshed out with combat cards and a Smaug payoff.
+- **Rules tests:** Implemented rules 3.29 / 3.30 / 3.31 (organisation-phase company composition).
+
+### Infrastructure & Tooling
+
+- **run-ai hardening:** Treat dirty trees as fatal (never stash leftovers); idle-sleep backs off exponentially.
+- **Certification skill:** Never leaves the working tree dirty on exit; tightened to refuse partial certifications.
+- **Lobby URL:** Strip trailing slash from `MECCG_LOBBY_URL` in `bin/run-ai` and `bin/handle-mail`.
+- **add-card:** Normalised card-name lookup and broadened deck-path search.
+
 ## 0.23.0 — 2026-04-20
 
 Detainment Attack
