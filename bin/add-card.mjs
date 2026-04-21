@@ -84,6 +84,24 @@ const SKILL_MAP = {
 // Helpers
 // ---------------------------------------------------------------------------
 
+/**
+ * Normalize a card name for comparison: folds curly punctuation to ASCII,
+ * strips diacritics, collapses whitespace, and lowercases. Used to make the
+ * CoE lookup tolerant of user input that types `Dragon's Desolation` when
+ * the database stores `Dragon’s Desolation`, and similarly for accented
+ * proper nouns (e.g. `Burat` vs `Bûrat`).
+ */
+function normalizeName(s) {
+  return String(s)
+    .replace(/[‘’‛]/g, "'")
+    .replace(/[“”‟]/g, '"')
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toLowerCase();
+}
+
 function stripHtml(html) {
   return html
     .replace(/<br\s*\/?>/gi, ' ')
@@ -679,11 +697,15 @@ function updateDeckFile(filePath, cardName, cardId) {
       ...(deck.deck && typeof deck.deck === 'object' ? [deck.deck] : []),
     ];
 
+    // Normalize the match so deck entries written with straight apostrophes
+    // still pair with canonical curly-apostrophe names from the CoE database
+    // (and vice versa).
+    const needle = normalizeName(cardName);
     for (const container of sectionContainers) {
       for (const section of ['pool', 'characters', 'hazards', 'resources', 'sites', 'sideboard']) {
         if (!Array.isArray(container[section])) continue;
         for (const entry of container[section]) {
-          if (entry.name === cardName && (!entry.card || entry.card === '')) {
+          if (normalizeName(entry.name) === needle && (!entry.card || entry.card === '')) {
             entry.card = cardId;
             changed = true;
           }
@@ -737,15 +759,31 @@ function main() {
 
   console.log(`Looking up card: "${cardName}" for deck: ${deckId}`);
 
-  // Step 1: Read the deck for context
-  const deckPath = join(PROJECT_DIR, 'data/decks', `${deckId}.json`);
+  // Step 1: Read the deck for context.
+  // Deck ids like `wigy-development-proto-dragons` may live under either
+  // `data/decks/<id>.json` (shared decks) or `~/.meccg/players/<player>/decks/<id>.json`
+  // (personal decks). If the first lookup fails and the id carries a
+  // `<player>-<rest>` prefix, also try the player-scoped path and the
+  // bare-suffix path before giving up.
+  const home = process.env.HOME || '';
+  const deckCandidates = [join(PROJECT_DIR, 'data/decks', `${deckId}.json`)];
+  const firstDash = deckId.indexOf('-');
+  if (firstDash > 0) {
+    const playerName = deckId.slice(0, firstDash);
+    const restId = deckId.slice(firstDash + 1);
+    deckCandidates.push(join(home, '.meccg/players', playerName, 'decks', `${deckId}.json`));
+    deckCandidates.push(join(PROJECT_DIR, 'data/decks', `${restId}.json`));
+  }
   let deckAlignment = 'hero';
-  if (existsSync(deckPath)) {
-    const deck = JSON.parse(readFileSync(deckPath, 'utf8'));
+  const foundDeckPath = deckCandidates.find((p) => existsSync(p));
+  if (foundDeckPath) {
+    const deck = JSON.parse(readFileSync(foundDeckPath, 'utf8'));
     deckAlignment = deck.alignment || 'hero';
-    console.log(`Deck alignment: ${deckAlignment}`);
+    console.log(`Deck alignment: ${deckAlignment} (from ${foundDeckPath})`);
   } else {
-    console.log(`Warning: deck file ${deckPath} not found, assuming hero alignment`);
+    console.log(
+      `Warning: deck file not found (tried ${deckCandidates.join(', ')}), assuming hero alignment`
+    );
   }
 
   // Step 2: Search CoE database
@@ -756,12 +794,16 @@ function main() {
   }
   const db = JSON.parse(readFileSync(dbPath, 'utf8'));
 
-  // Search all sets for matching card name
+  // Search all sets for matching card name. Comparison is normalized so
+  // curly/straight apostrophes and accented vs plain letters all match
+  // (e.g. a request for `Dragon's Desolation` resolves to the database's
+  // `Dragon’s Desolation`).
+  const needle = normalizeName(cardName);
   const matches = [];
   for (const [setCode, setData] of Object.entries(db)) {
     if (!setData.cards) continue;
     for (const [, card] of Object.entries(setData.cards)) {
-      if (card.name?.en === cardName) {
+      if (card.name?.en && normalizeName(card.name.en) === needle) {
         matches.push({ ...card, _setCode: setCode });
       }
     }
@@ -823,8 +865,10 @@ function main() {
   appendToDataFile(dataFile, cardDef);
   console.log(`Added to ${dataFile}`);
 
-  // Step 6: Update deck files
-  const updatedDecks = updateDeckFiles(cardName, cardDef.id);
+  // Step 6: Update deck files (use canonical name so the normalized
+  // match in updateDeckFile can pair against either spelling variant)
+  const canonicalName = coeCard.name.en;
+  const updatedDecks = updateDeckFiles(canonicalName, cardDef.id);
   if (updatedDecks.length > 0) {
     console.log(`Updated ${updatedDecks.length} deck file(s):`);
     updatedDecks.forEach((d) => console.log(`  - ${d}`));
@@ -859,7 +903,7 @@ function main() {
       cwd: PROJECT_DIR,
       stdio: 'pipe',
     });
-    const commitMsg = `Add ${cardName} (${cardDef.id}) from card request`;
+    const commitMsg = `Add ${canonicalName} (${cardDef.id}) from card request`;
     execSync(`git commit -m "${commitMsg}"`, { cwd: PROJECT_DIR, stdio: 'pipe' });
     execSync('git push', { cwd: PROJECT_DIR, stdio: 'pipe' });
 
@@ -867,7 +911,7 @@ function main() {
       .toString()
       .trim();
 
-    console.log(`\nCard ${cardName} (${cardDef.id}) successfully added and pushed.`);
+    console.log(`\nCard ${canonicalName} (${cardDef.id}) successfully added and pushed.`);
     console.log(`commit hash: ${commitHash}`);
     console.log(`card id: ${cardDef.id}`);
   } catch (e) {
