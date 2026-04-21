@@ -426,7 +426,8 @@
     "corruptionModifier": 0,
     "homesite": "Barad-dûr",
     "effects": [],
-    "text": "Unique. Can use shadow-magic."
+    "text": "Unique. Can use shadow-magic.",
+    "certified": "2026-04-21"
   },
   {
     "cardType": "minion-character",
