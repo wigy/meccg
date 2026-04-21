@@ -924,9 +924,13 @@
     "unique": true,
     "marshallingPoints": 2,
     "marshallingCategory": "faction",
-    "influenceNumber": 0,
+    "influenceNumber": 8,
     "race": "man",
-    "playableAt": []
+    "playableAt": [
+      {
+        "site": "Easterling Camp"
+      }
+    ]
   },
   {
     "cardType": "minion-resource-faction",
