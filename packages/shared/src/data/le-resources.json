@@ -190,8 +190,23 @@
       "dark-hold",
       "border-hold"
     ],
-    "effects": [],
-    "text": "The bearer can discard this item to heal a wounded character in his company\u2014change the character\u2019s status from wounded to well and untapped."
+    "effects": [
+      {
+        "type": "grant-action",
+        "action": "heal-company-character",
+        "anyPhase": true,
+        "cost": {
+          "discard": "self"
+        },
+        "apply": {
+          "type": "set-character-status",
+          "target": "target-character",
+          "status": "untapped"
+        }
+      }
+    ],
+    "text": "The bearer can discard this item to heal a wounded character in his company\u2014change the character\u2019s status from wounded to well and untapped.",
+    "certified": "2026-04-21"
   },
   {
     "cardType": "minion-resource-item",
