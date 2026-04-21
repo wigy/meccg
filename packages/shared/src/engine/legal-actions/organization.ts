@@ -573,13 +573,24 @@ function buildGrantActionContext(
       return itemDef && 'name' in itemDef && (itemDef as { name: string }).name === 'Align Palantír';
     });
 
+  const siteDef = company?.currentSite
+    ? state.cardPool[company.currentSite.definitionId as string]
+    : undefined;
+  const siteType = siteDef && 'siteType' in siteDef
+    ? (siteDef as { siteType: string }).siteType
+    : '';
+  const atHaven = siteType === 'haven';
+
   const bearer = {
     status: statusStr,
     name: charDef?.name ?? '',
     race: charDef?.race ?? '',
     skills: charDef?.skills ?? [],
     canUsePalantir: !!canUsePalantir,
+    siteType,
+    atHaven,
   };
+
   const companyCtx = company ? {
     size: computeCompanySize(state, company),
     hasPlannedMovement: company.destinationSite !== null || !!company.specialMovement,
@@ -588,7 +599,46 @@ function buildGrantActionContext(
   const playerCtx = player ? {
     playDeckSize: player.playDeck.length,
   } : null;
-  return { bearer, company: companyCtx, player: playerCtx };
+  const siteName = siteDef && 'name' in siteDef ? (siteDef as { name: string }).name : '';
+  const siteCtx = siteName ? {
+    hasOneRing: siteHasItemNamed(state, siteName, 'The One Ring'),
+  } : null;
+  return { bearer, company: companyCtx, player: playerCtx, site: siteCtx };
+}
+
+/**
+ * Returns true when any character in any company at the same site
+ * (matched by site *name* — so opposing-alignment copies of the same
+ * physical location count as co-located) holds an item whose card
+ * definition has the given name. Used by grant-action conditions to
+ * gate abilities on the presence of a specific named item at the
+ * ally's site (e.g. Stinker's ring-discard ability triggers when
+ * The One Ring is at the same site, typically in the opposing hero
+ * player's company).
+ */
+function siteHasItemNamed(
+  state: GameState,
+  siteName: string,
+  itemName: string,
+): boolean {
+  for (const p of state.players) {
+    for (const company of p.companies) {
+      const compSite = company.currentSite
+        ? state.cardPool[company.currentSite.definitionId as string]
+        : undefined;
+      const compSiteName = compSite && 'name' in compSite ? (compSite as { name: string }).name : '';
+      if (compSiteName !== siteName) continue;
+      for (const charInstId of company.characters) {
+        const char = p.characters[charInstId as string];
+        if (!char) continue;
+        for (const item of char.items) {
+          const def = state.cardPool[item.definitionId as string];
+          if (def && 'name' in def && (def as { name: string }).name === itemName) return true;
+        }
+      }
+    }
+  }
+  return false;
 }
 
 /**

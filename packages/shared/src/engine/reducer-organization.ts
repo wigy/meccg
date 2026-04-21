@@ -1139,6 +1139,78 @@ function runGrantApply(
     };
   }
 
+  if (apply.type === 'discard-named-card-from-company') {
+    const cardName = apply.cardName;
+    if (!cardName) {
+      return { error: `discard-named-card-from-company: missing cardName on ${ctx.sourceName}` };
+    }
+    const bearerPlayer = newPlayers[ctx.playerIndex];
+    const bearerCompany = bearerPlayer.companies.find(c => c.characters.includes(ctx.action.characterId));
+    if (!bearerCompany || !bearerCompany.currentSite) {
+      return { error: `${ctx.charName} is not in any company with a current site` };
+    }
+    const bearerSiteDef = state.cardPool[bearerCompany.currentSite.definitionId as string];
+    const bearerSiteName = bearerSiteDef && 'name' in bearerSiteDef
+      ? (bearerSiteDef as { name: string }).name
+      : '';
+
+    let ownerIndex = -1;
+    let hostCharId: CardInstanceId | null = null;
+    let targetInstanceId: CardInstanceId | null = null;
+    let targetDefId: import('../types/common.js').CardDefinitionId | null = null;
+
+    outer: for (let pIdx = 0; pIdx < newPlayers.length; pIdx++) {
+      const p = newPlayers[pIdx];
+      for (const company of p.companies) {
+        const compSiteDef = company.currentSite
+          ? state.cardPool[company.currentSite.definitionId as string]
+          : undefined;
+        const compSiteName = compSiteDef && 'name' in compSiteDef
+          ? (compSiteDef as { name: string }).name
+          : '';
+        if (!compSiteName || compSiteName !== bearerSiteName) continue;
+        for (const compCharId of company.characters) {
+          const compChar = p.characters[compCharId as string];
+          if (!compChar) continue;
+          const hit = compChar.items.find(i => {
+            const def = state.cardPool[i.definitionId as string];
+            return !!(def && 'name' in def && (def as { name: string }).name === cardName);
+          });
+          if (hit) {
+            ownerIndex = pIdx;
+            hostCharId = compCharId;
+            targetInstanceId = hit.instanceId;
+            targetDefId = hit.definitionId;
+            break outer;
+          }
+        }
+      }
+    }
+
+    if (ownerIndex < 0 || !hostCharId || !targetInstanceId || !targetDefId) {
+      return { error: `discard-named-card-from-company: no "${cardName}" at ${ctx.charName}'s site` };
+    }
+
+    const ownerPlayer = newPlayers[ownerIndex];
+    const hostChar = ownerPlayer.characters[hostCharId as string];
+    const updatedItems = hostChar.items.filter(i => i.instanceId !== targetInstanceId);
+    const discardedCard: CardInstance = { instanceId: targetInstanceId, definitionId: targetDefId };
+    logDetail(`Grant-action ${ctx.action.actionId}: discarding ${cardName} from ${state.cardPool[hostChar.definitionId as string]?.name ?? '?'} (owner: player ${ownerIndex})`);
+
+    newPlayers[ownerIndex] = {
+      ...ownerPlayer,
+      characters: {
+        ...ownerPlayer.characters,
+        [hostCharId as string]: { ...hostChar, items: updatedItems },
+      },
+      discardPile: [...ownerPlayer.discardPile, discardedCard],
+    };
+    const updatedChar = ownerIndex === ctx.playerIndex && hostCharId === ctx.action.characterId
+      ? { ...char, items: updatedItems }
+      : char;
+    return { updatedChar, effects: [], stateOps: [] };
+  }
+
   if (apply.type === 'move-target-from-discard-to-hand') {
     const targetCardId = ctx.action.targetCardId;
     if (!targetCardId) {

@@ -198,6 +198,14 @@ Actions:
   effects that force return to site of origin or tap the company's
   site. Bearer makes a corruption check (implemented in
   `reducer-organization.ts`)
+- `stinker-discard-with-ring` — discard the ally (Stinker) during
+  organization when the bearer's company is at a non-haven site and
+  some character at the same site holds *The One Ring*; the ring is
+  discarded alongside the ally (regardless of which player owns it).
+  Implemented via the `discard-named-card-from-company` apply (see
+  below). The `when` condition reads `bearer.atHaven` and
+  `site.hasOneRing` from the grant-action context (implemented in
+  `legal-actions/organization.ts` context builder).
 - `company-prowess-boost` — discard the source item to add a
   turn-scoped `company-stat-modifier` constraint giving `+value`
   prowess to every character in the bearer's company for the rest of
@@ -251,6 +259,14 @@ Apply types:
 - `discard-non-special-items` -- discard all non-special items (subtype ≠ `"special"`) from the wounded character. Items are moved to the defending player's discard pile. Implemented in `reducer-combat.ts` for the `character-wounded-by-self` event.
 - `add-constraint` -- add an {@link ActiveConstraint} of the named kind to the target. Reserves the entry's `constraint` field for the kind name (e.g. `"site-phase-do-nothing"`, `"site-phase-do-nothing-unless-ranger-taps"`, `"no-creature-hazards-on-company"`, `"deny-scout-resources"`, `"auto-attack-prowess-boost"`, `"auto-attack-duplicate"`, `"site-type-override"`, `"region-type-override"`, `"skip-automatic-attacks"`) and the `scope` field for the auto-clear boundary (e.g. `"company-site-phase"`, `"company-mh-phase"`, `"turn"`, `"until-cleared"`). Constraint-kind-specific fields include `value` + `siteType` for `auto-attack-prowess-boost`, `overrideType` for `site-type-override` (the site is the active company's current site during site phase, or the destination during M/H phase), and `overrideType` + `regionName` for `region-type-override` (use the token `"destination"` as the region name to target the destination region of the active company). The `skip-automatic-attacks` constraint removes all automatic attacks from the bound site (resolved from the active company's current site during site phase). The constraint filter in `legal-actions/pending.ts` rewrites legal actions for the affected target while the constraint lives.
 - `discard-self` -- discard the card carrying this effect (typically an ally or attached hazard) from its bearer to the owning player's discard pile. Used with `company-arrives-at-site` + a `when` condition on `site.region` to enforce region-based restrictions (e.g. Treebeard), and with `company-composition-changed` + a `when` condition on `company.characterCount` to discard on company size (e.g. Alone and Unadvised). Implemented in `reducer-movement-hazard.ts` `fireAllyArrivalEffects()` and `reducer-utils.ts` `sweepAutoDiscardHazards()`.
+- `discard-named-card-from-company` -- find an item attached to any
+  character in any company at the bearer's current site (matched by
+  site definition ID, so opposing companies co-located at the same
+  site are included) whose card definition has the given `cardName`,
+  and move it to that player's discard pile. Currently used by
+  Stinker's ring-discard grant-action to discard *The One Ring* —
+  potentially belonging to the opposing player — when the ally is
+  discarded. Implemented in `reducer-organization.ts` `runGrantApply()`.
 
 ### Pending resolutions
 
