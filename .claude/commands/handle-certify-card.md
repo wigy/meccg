@@ -10,6 +10,15 @@ Follow these steps:
 
 2. **Generate DSL effects from card text:** Read the card's `text` field (the official rules text). Using `docs/card-effects-dsl.md` as the reference for all supported effect types, conditions, and value expressions, generate the complete `effects` array that faithfully represents every rule and ability described in the card text. Compare the generated effects with the card's existing `effects` array. If the card has no `effects` array yet, or if the existing effects are missing rules from the text, update the card's data JSON file with the correct effects. Show what was added or changed.
 
+2a. **For hazard creatures, verify keying against the canonical `playable` string.** The card's *text* does not always repeat the cost; the authoritative cost is `attributes.playable` in `data/cards.json`. Look up the card there (IDs are uppercase, e.g. `LE-69`) and read `attributes.playable`. Each token is one keying requirement:
+
+   - Lowercase region tokens are **region types**: `{w}` wilderness, `{s}` shadow-land, `{d}` dark-domain, `{b}` border-land, `{f}` free-domain, `{c}` coastal-sea. **Count matters**: `{w}{w}` means two wildernesses in the path; `{w}{w}{w}` means three. Repeat the enum value in `regionTypes` once per token.
+   - Uppercase site tokens are **site types**: `{R}` ruins-and-lairs, `{S}` shadow-hold, `{D}` dark-hold, `{B}` border-hold, `{F}` free-hold, `{H}` haven.
+   - Text clauses like "may also be played keyed to Shadow-lands [{s}]", "If Doors of Night is in play, may also be played keyed to…" are **additional alternative entries** in `keyedTo`, each typically gated by a `when` condition. The *base* cost from `playable` must always appear as its own entry — do not drop or fold it into the alt clause.
+   - Named-region and named-site clauses ("keyed to Grey Mountain Narrows, Iron Hills…", "may also be played at Moria") map to `regionNames` / specific site lookups, not region/site types.
+
+   Cross-check the resulting `keyedTo` against `playable` token-by-token before proceeding. A common mistake is encoding `{w}{w}` as `regionTypes: ["wilderness"]` (a single wilderness instead of two) because the text only repeats the alt clause, not the base cost.
+
 3. **List the card's effects:** Show the card name, card type, and all effects defined in the card's `effects` array. For each effect, show its `type` and a brief summary of what it does (condition, value, etc.).
 
 4. **Check each effect against engine support:** For each effect, verify it is actually handled by the game engine. The current implementation status is:

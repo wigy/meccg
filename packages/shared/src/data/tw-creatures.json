@@ -12,6 +12,7 @@
     "keyedTo": [
       {
         "regionTypes": [
+          "wilderness",
           "wilderness"
         ],
         "siteTypes": [
