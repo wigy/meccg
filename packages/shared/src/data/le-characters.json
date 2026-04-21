@@ -19,6 +19,7 @@
     "marshallingCategory": "character",
     "corruptionModifier": 0,
     "homesite": "Barad-dûr",
+    "manifestId": "tw-65",
     "effects": [
       {
         "type": "stat-modifier",
@@ -27,9 +28,32 @@
         "when": {
           "reason": "faction-influence-check"
         }
+      },
+      {
+        "type": "grant-action",
+        "action": "recall-to-deck",
+        "cost": { "tap": "self" },
+        "apply": {
+          "type": "enqueue-pending-fetch",
+          "fetchFrom": ["discard-pile"],
+          "fetchCount": 1,
+          "fetchShuffle": true,
+          "filter": {
+            "cardType": {
+              "$in": [
+                "minion-character",
+                "minion-resource-item",
+                "minion-resource-ally",
+                "minion-resource-faction",
+                "minion-resource-event"
+              ]
+            }
+          }
+        }
       }
     ],
-    "text": "Unique. Manifestation of Mouth of Sauron. +2 direct influence against any faction. Tap during your organization phase to move one resource or character from your discard pile to your play deck and reshuffle."
+    "text": "Unique. Manifestation of Mouth of Sauron. +2 direct influence against any faction. Tap during your organization phase to move one resource or character from your discard pile to your play deck and reshuffle.",
+    "certified": "2026-04-21"
   },
   {
     "cardType": "minion-character",

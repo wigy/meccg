@@ -1164,6 +1164,7 @@ function runGrantApply(
     const fromSources = apply.fetchFrom ?? ['discard-pile'];
     const count = apply.fetchCount ?? 1;
     const shuffle = apply.fetchShuffle ?? true;
+    const filter = apply.filter ?? {};
     const characterId = ctx.action.characterId;
     const sourceId = ctx.action.sourceCardId;
     logDetail(`Grant-action ${ctx.action.actionId}: enqueueing fetch-to-deck from [${fromSources.join(', ')}] (count=${count}, shuffle=${shuffle}, postCorruptionCheck=${!!apply.postCorruptionCheck})`);
@@ -1181,7 +1182,7 @@ function runGrantApply(
               effect: {
                 type: 'fetch-to-deck' as const,
                 source: fromSources,
-                filter: {},
+                filter,
                 count,
                 shuffle,
               },

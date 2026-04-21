@@ -299,7 +299,11 @@ export interface TriggeredAction {
   readonly check?: string;
   /** Modifier to the forced check. */
   readonly modifier?: number;
-  /** Filter condition for 'discard-cards-in-play' — matches against card definitions. */
+  /**
+   * Filter condition for `discard-cards-in-play` and `enqueue-pending-fetch`
+   * — matches against card definitions. For fetch apply, restricts which
+   * discard-pile cards the player may pick (e.g. resource or character only).
+   */
   readonly filter?: Condition;
   /**
    * For `add-constraint` type: which active-constraint kind to add to

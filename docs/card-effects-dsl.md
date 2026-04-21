@@ -205,6 +205,13 @@ Actions:
   `reducer-organization.ts`, resolved through `collectCharacterEffects`
   in `engine/effects/resolver.ts`)
 
+Action-less activations may also be declared directly on a character
+card via `"apply"` on the grant-action effect, reusing the shared
+TriggeredAction apply dispatch. The character's `"cost": { "tap": "self" }`
+taps the character itself. Used by *The Mouth* to enqueue a
+`fetch-to-deck` sub-flow that moves one resource or character from the
+player's discard pile back to the play deck.
+
 ```json
 { "type": "grant-action", "action": "test-gold-ring",
   "cost": { "tap": "self" },
@@ -221,6 +228,19 @@ Actions:
   "cost": { "tap": "self" } }
 { "type": "grant-action", "action": "cancel-return-and-site-tap",
   "cost": { "tap": "bearer" } }
+{ "type": "grant-action", "action": "recall-to-deck",
+  "cost": { "tap": "self" },
+  "apply": {
+    "type": "enqueue-pending-fetch",
+    "fetchFrom": ["discard-pile"],
+    "fetchCount": 1,
+    "fetchShuffle": true,
+    "filter": { "cardType": { "$in": [
+      "minion-character", "minion-resource-item",
+      "minion-resource-ally", "minion-resource-faction",
+      "minion-resource-event"
+    ] } }
+  } }
 ```
 
 ### 8. `on-event`

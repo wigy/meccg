@@ -12,6 +12,7 @@ import type {
   Alignment,
   CardDefinitionId,
   Keyword,
+  ManifestId,
   Race,
   Skill,
   MarshallingCategory,
@@ -68,6 +69,11 @@ export interface HeroCharacterCard {
   readonly homesite: string;
   /** Game keywords (e.g. "environment", "weapon", "armor") that affect card interactions. */
   readonly keywords?: readonly Keyword[];
+  /**
+   * If this character is part of a manifestation chain, the chain id — by
+   * convention the base form's definition id (see {@link ManifestId}).
+   */
+  readonly manifestId?: ManifestId;
   /** Declarative effects describing this character's special abilities. */
   readonly effects?: readonly CardEffect[];
   /** Flavor/rules text describing special abilities. */
@@ -124,6 +130,12 @@ export interface MinionCharacterCard {
   readonly homesite: string;
   /** Game keywords (e.g. "environment", "weapon", "armor") that affect card interactions. */
   readonly keywords?: readonly Keyword[];
+  /**
+   * If this character is a manifestation in a chain (e.g. The Mouth
+   * manifesting Mouth of Sauron), the chain id — by convention the base
+   * form's definition id (see {@link ManifestId}).
+   */
+  readonly manifestId?: ManifestId;
   /** Declarative effects describing this character's special abilities. */
   readonly effects?: readonly CardEffect[];
   /** Flavor/rules text describing special abilities. */
