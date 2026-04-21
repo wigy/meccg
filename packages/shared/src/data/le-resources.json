@@ -212,8 +212,23 @@
       "dark-hold",
       "border-hold"
     ],
-    "effects": [],
-    "text": "+2 to direct influence against factions. Cannot be duplicated on a given character."
+    "effects": [
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": 2,
+        "when": {
+          "reason": "faction-influence-check"
+        }
+      },
+      {
+        "type": "duplication-limit",
+        "scope": "character",
+        "max": 1
+      }
+    ],
+    "text": "+2 to direct influence against factions. Cannot be duplicated on a given character.",
+    "certified": "2026-04-21"
   },
   {
     "cardType": "minion-resource-faction",
