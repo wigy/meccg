@@ -14,6 +14,7 @@ import type { ResolverContext } from './effects/index.js';
 import { matchesCondition } from '../effects/index.js';
 import { initiateChain } from './chain-reducer.js';
 import { availableDI } from './legal-actions/organization.js';
+import { crossAlignmentInfluencePenalty } from '../alignment-rules.js';
 import type { ReducerResult } from './reducer-utils.js';
 import { roll2d6, clonePlayers, cleanupEmptyCompanies } from './reducer-utils.js';
 import { handlePlayPermanentEvent, handlePlayResourceShortEvent } from './reducer-events.js';
@@ -1131,8 +1132,10 @@ function handleOpponentInfluenceAttempt(
   // Calculate modifiers
   const influencerDI = availableDI(state, charId, player);
   const opponentGI = GENERAL_INFLUENCE - opponent.generalInfluenceUsed;
+  // CoE rules 8.W1, 8.R1, 8.F1, 8.B1: cross-alignment influence penalty.
+  const crossAlignmentPenalty = crossAlignmentInfluencePenalty(player.alignment, opponent.alignment);
 
-  logDetail(`Opponent influence attempt: ${charName} rolls ${roll.die1} + ${roll.die2} = ${attackerRoll} (DI: ${influencerDI}, opponent GI: ${opponentGI}, target mind: ${effectiveTargetMind}${revealedCard ? ' [revealed]' : ''}, controller DI: ${controllerDI})`);
+  logDetail(`Opponent influence attempt: ${charName} rolls ${roll.die1} + ${roll.die2} = ${attackerRoll} (DI: ${influencerDI}, opponent GI: ${opponentGI}, target mind: ${effectiveTargetMind}${revealedCard ? ' [revealed]' : ''}, controller DI: ${controllerDI}, cross-alignment penalty: ${crossAlignmentPenalty})`);
 
   // Enqueue a pending opponent-influence-defend resolution for the
   // hazard player. The unified pending system replaces the old
@@ -1164,6 +1167,7 @@ function handleOpponentInfluenceAttempt(
           opponentGI,
           targetMind: effectiveTargetMind,
           controllerDI,
+          crossAlignmentPenalty,
           revealedCard,
         },
       },
@@ -1218,10 +1222,11 @@ export function resolveOpponentInfluenceDefend(
   };
 
   // Calculate final result:
-  // attacker roll + influencer DI - opponent GI - defender roll - controller DI
-  const finalResult = attempt.attackerRoll + attempt.influencerDI - attempt.opponentGI - defenderRoll - attempt.controllerDI;
+  // attacker roll + influencer DI - opponent GI - defender roll
+  //   - controller DI + cross-alignment penalty (non-positive; 0 or -5)
+  const finalResult = attempt.attackerRoll + attempt.influencerDI - attempt.opponentGI - defenderRoll - attempt.controllerDI + attempt.crossAlignmentPenalty;
 
-  logDetail(`Opponent influence resolution: ${attempt.attackerRoll} + ${attempt.influencerDI} - ${attempt.opponentGI} - ${defenderRoll} - ${attempt.controllerDI} = ${finalResult} vs mind ${attempt.targetMind}`);
+  logDetail(`Opponent influence resolution: ${attempt.attackerRoll} + ${attempt.influencerDI} - ${attempt.opponentGI} - ${defenderRoll} - ${attempt.controllerDI} + ${attempt.crossAlignmentPenalty} (cross-alignment) = ${finalResult} vs mind ${attempt.targetMind}`);
 
   const newPlayers = clonePlayers(state);
 

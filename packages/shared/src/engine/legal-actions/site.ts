@@ -16,6 +16,7 @@ import { collectCharacterEffects, collectCompanyAllyEffects, resolveCheckModifie
 import type { ResolverContext } from '../effects/index.js';
 import { logDetail, logHeading } from './log.js';
 import { availableDI, grantedActionActivations, ANY_PHASE_ONLY, playResourceShortEventActions } from './organization.js';
+import { crossAlignmentInfluencePenalty } from '../../alignment-rules.js';
 import { getActiveAutoAttacks } from '../manifestations.js';
 import { buildControllerInPlayNames, buildFactionPlayableAt } from '../recompute-derived.js';
 
@@ -1004,6 +1005,11 @@ function opponentInfluenceActions(
   const opponentIndex = 1 - playerIndex;
   const opponent = state.players[opponentIndex];
   const opponentGI = GENERAL_INFLUENCE - opponent.generalInfluenceUsed;
+  const attackerAlignment = state.players[playerIndex].alignment;
+  const crossAlignmentPenalty = crossAlignmentInfluencePenalty(attackerAlignment, opponent.alignment);
+  const crossAlignmentSuffix = crossAlignmentPenalty === 0
+    ? ''
+    : `, cross-alignment penalty: ${crossAlignmentPenalty}`;
 
   // Find opponent companies at the same site
   for (const oppCompany of opponent.companies) {
@@ -1053,7 +1059,7 @@ function opponentInfluenceActions(
         if (!charDef || !isCharacterCard(charDef)) continue;
 
         const influencerDI = availableDI(state, ch.instanceId, player);
-        const explanation = `Influencer DI: ${influencerDI}, opponent GI: ${opponentGI}, target mind: ${oppCharDef.mind}, controller DI: ${controllerDI}`;
+        const explanation = `Influencer DI: ${influencerDI}, opponent GI: ${opponentGI}, target mind: ${oppCharDef.mind}, controller DI: ${controllerDI}${crossAlignmentSuffix}`;
 
         logDetail(`Opponent influence: ${charDef.name} can target ${oppCharDef.name} (${explanation})`);
         // Base action (no reveal)
@@ -1109,7 +1115,7 @@ function opponentInfluenceActions(
           if (!charDef || !isCharacterCard(charDef)) continue;
 
           const influencerDI = availableDI(state, ch.instanceId, player);
-          const explanation = `Influencer DI: ${influencerDI}, opponent GI: ${opponentGI}, target mind: ${allyMind}, controller DI: ${allyControllerDI}`;
+          const explanation = `Influencer DI: ${influencerDI}, opponent GI: ${opponentGI}, target mind: ${allyMind}, controller DI: ${allyControllerDI}${crossAlignmentSuffix}`;
 
           logDetail(`Opponent influence: ${charDef.name} can target ally ${allyDef.name} (${explanation})`);
           // Base action (no reveal)
@@ -1175,7 +1181,7 @@ function opponentInfluenceActions(
       if (!charDef || !isCharacterCard(charDef)) continue;
 
       const influencerDI = availableDI(state, ch.instanceId, player);
-      const explanation = `Influencer DI: ${influencerDI}, opponent GI: ${opponentGI}, faction in-play influence #: ${targetValue}`;
+      const explanation = `Influencer DI: ${influencerDI}, opponent GI: ${opponentGI}, faction in-play influence #: ${targetValue}${crossAlignmentSuffix}`;
 
       logDetail(`Opponent influence: ${charDef.name} can re-influence faction ${factionDef.name} (${explanation})`);
       actions.push({

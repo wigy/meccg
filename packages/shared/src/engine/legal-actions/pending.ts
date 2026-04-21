@@ -211,6 +211,9 @@ function opponentInfluenceDefendActions(
     `Controller DI: ${attempt.controllerDI}`,
     `Target mind: ${attempt.targetMind}`,
   ];
+  if (attempt.crossAlignmentPenalty !== 0) {
+    parts.push(`Cross-alignment penalty: ${attempt.crossAlignmentPenalty}`);
+  }
 
   const explanation = `${influencerName} influences ${targetName}: ${parts.join(', ')}`;
 
