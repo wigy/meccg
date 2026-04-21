@@ -1218,5 +1218,18 @@
     "eventType": "short",
     "marshallingPoints": 0,
     "marshallingCategory": "misc"
+  },
+  {
+    "cardType": "hero-resource-event",
+    "alignment": "wizard",
+    "id": "tw-270",
+    "name": "Lucky Strike",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/LuckyStrike.jpg",
+    "unique": false,
+    "eventType": "short",
+    "marshallingPoints": 0,
+    "marshallingCategory": "misc",
+    "effects": [],
+    "text": "Warrior only. Make two rolls against a strike and choose one of the two results to use."
   }
 ]
