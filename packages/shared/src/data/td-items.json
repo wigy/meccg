@@ -17,6 +17,7 @@
       {
         "type": "grant-action",
         "action": "untap-bearer",
+        "anyPhase": true,
         "cost": {
           "discard": "self"
         },

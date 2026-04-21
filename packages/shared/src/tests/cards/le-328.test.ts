@@ -13,7 +13,7 @@
  * | 1 | Discard to grant company prowess boost     | IMPLEMENTED | grant-action company-prowess-boost, cost: discard |
  * | 2 | +1 prowess to every character in company   | IMPLEMENTED | add-constraint company-stat-modifier (turn scope) |
  * | 3 | Bonus isolated to bearer's company         | IMPLEMENTED | constraint target = bearer's company              |
- * | 4 | Activate during any phase (rule 2.1.1)     | IMPLEMENTED | action added to ANY_PHASE_GRANT_ACTIONS           |
+ * | 4 | Activate during any phase (rule 2.1.1)     | IMPLEMENTED | grant-action carries `anyPhase: true` in JSON     |
  *
  * Playable: YES
  *

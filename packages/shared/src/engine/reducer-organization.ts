@@ -689,41 +689,13 @@ function handleFetchFromSideboard(state: GameState, action: GameAction): Reducer
 }
 
 /**
- * Handle activation of a grant-action effect during organization.
- *
- * Dispatches to action-specific handlers based on `actionId`:
- * - `remove-self-on-roll` — Taps the character, rolls 2d6, and if the total
- *   meets the threshold, discards the source card (the attached hazard).
- * - `test-gold-ring` — Taps the character, rolls 2d6, and discards the target
- *   gold ring item. The roll result determines which special ring could replace
- *   it (Rule 9.21).
+ * Handle activation of a grant-action effect during organization. All
+ * cards that declare `grant-action` now carry an `apply` clause, so
+ * this entry point just delegates to the generic dispatcher — no
+ * per-`actionId` branching.
  */
 function handleActivateGrantedAction(state: GameState, action: GameAction): ReducerResult {
   if (action.type !== 'activate-granted-action') return { state, error: 'Expected activate-granted-action' };
-
-  // `test-gold-ring`, `gwaihir-special-movement` and `untap-bearer`
-  // all migrated to the generic apply dispatch — fall through.
-  if (
-    action.actionId === 'untap-bearer'
-    || action.actionId === 'gwaihir-special-movement'
-    || action.actionId === 'test-gold-ring'
-  ) {
-    return handleGrantActionApply(state, action);
-  }
-
-  // `extra-region-movement` (Cram) migrated — fall through to generic.
-  if (action.actionId === 'extra-region-movement') {
-    return handleGrantActionApply(state, action);
-  }
-
-  // `palantir-fetch-discard` migrated — fall through to generic.
-  if (action.actionId === 'palantir-fetch-discard') {
-    return handleGrantActionApply(state, action);
-  }
-
-  // `remove-self-on-roll` (Foolish Words and variants) and
-  // `cancel-return-and-site-tap` (Promptings of Wisdom) are migrated —
-  // fall through to the generic apply dispatch.
   return handleGrantActionApply(state, action);
 }
 

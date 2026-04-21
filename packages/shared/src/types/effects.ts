@@ -251,6 +251,14 @@ export interface GrantActionEffect extends EffectBase {
    */
   readonly rollThreshold?: number;
   /**
+   * When true, the ability may be activated during any phase of the
+   * controlling player's turn (CRF rule 2.1.1). Applies to
+   * discard-to-effect items like Cram and Orc-draughts. When absent
+   * or false, the ability is restricted to its natural phase (site /
+   * organization / end-of-turn / etc.).
+   */
+  readonly anyPhase?: boolean;
+  /**
    * Generic effect produced by the action. When present, the reducer
    * pays `cost` then dispatches on `apply.type` (reusing the existing
    * TriggeredAction apply dispatch shared with `on-event` and

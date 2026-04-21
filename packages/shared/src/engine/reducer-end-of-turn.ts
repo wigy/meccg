@@ -111,9 +111,10 @@ function handleEndOfTurnDiscard(
     return markDone({ ...state, players: newPlayers }, eotState);
   }
 
-  if (action.type === 'activate-granted-action' && action.actionId === 'saruman-fetch-spell') {
-    // Migrated to generic apply dispatch; re-use the organization-phase
-    // handler (shared across phases).
+  if (action.type === 'activate-granted-action') {
+    // Saruman's spell-fetch is the only grant-action offered in the
+    // end-of-turn discard step (see `legal-actions/end-of-turn.ts`).
+    // Delegate to the shared apply dispatcher.
     return handleGrantActionApply(state, action);
   }
 

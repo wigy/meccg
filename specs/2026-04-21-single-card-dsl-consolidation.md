@@ -126,64 +126,59 @@ Lesson for future audits: grep the JSON corpus manually — the
 subagent's "0 cards" report was wrong on four keywords. The forecast
 ~90 LOC win for this step was illusory.
 
-### Step 2 — Collapse `grant-action` ID enum
+### Step 2 — Collapse `grant-action` ID enum ✅ done
 
-Make `grant-action.apply` the only dispatch axis. The ID field
-becomes a display/log identifier only; the engine never compares it
-to a literal.
+Recon on 2026-04-21 found the migration was already ~95% complete
+from earlier PRs. Every card in the migration list already carries an
+explicit `apply` clause, and `GrantActionEffect.apply` is the actual
+dispatch axis in `handleGrantActionApply`. The primitives the earlier
+plan called for (`sequence`, `enqueue-pending-fetch` with full filter
+support, `set-character-status`, `set-company-special-movement`,
+`increment-company-extra-region-distance`, `roll-then-apply`,
+`discard-named-card-from-company` apply, etc.) already existed.
 
-Required primitive additions:
+What actually remained and was done in this PR:
 
-- **`sequence` apply kind** — executes an ordered list of inner
-  applies against the same context. Most single-card grant-actions
-  decompose into "spend cost + do thing + optional follow-up check",
-  and a sequence apply is the least invasive way to express that
-  without a dedicated effect type.
-- **`enqueue-pending-fetch` apply kind** — already present (The
-  Mouth). Confirm it accepts `filter`, `count`, `shuffle`, and
-  `sources` so it can cover Saruman's spell fetch and
-  `palantir-fetch-discard`.
-- **`discard-in-play-matching` apply kind** (see Step 3) — needed by
-  Stinker's ring discard.
+1. **Deleted fall-through cruft in `reducer-organization.ts`** —
+   ~30 LOC of `if (actionId === X)` branches that all routed to the
+   same `handleGrantActionApply`.
+2. **Converted `ANY_PHASE_GRANT_ACTIONS` hardcoded ID set to a
+   card-declared `anyPhase: boolean` flag** on `GrantActionEffect`.
+   Cram (td-105) and Orc-draughts (le-328) JSON now carry
+   `"anyPhase": true`. The filter in `grantedActionActivations` now
+   reads `effect.anyPhase` directly — no engine-side list of card IDs.
+3. **Simplified per-phase reducer guards** in `reducer-site.ts`,
+   `reducer-events.ts`, and `reducer-end-of-turn.ts`: each used to
+   match a specific `actionId` literal as a whitelist; now they
+   delegate any `activate-granted-action` to `handleGrantActionApply`
+   and rely on the legal-action layer (authoritative) for
+   phase-legality. Side benefit: fixes a latent bug where Orc-draughts'
+   site-phase activation would have been rejected (site-phase
+   reducer only accepted `untap-bearer` by literal match, but
+   Orc-draughts is also `anyPhase`).
 
-Migration order (one card per commit, each with its card test
-gating):
+Net engine diff: ~50 LOC removed, 3 files simplified, one latent
+reducer bug fixed. Card data gains one declared flag on two cards.
+Saruman's spell-fetch filter and Gandalf's gold-ring target
+enumeration still live in their respective legal-action emitters —
+generalizing them (filter-on-move-target-from-discard-to-hand) would
+be a speculative DSL extension and is deferred until a second card
+needs it.
 
-1. `untap-bearer` → `sequence(discard-self, set-character-status)`.
-2. `extra-region-movement` → `sequence(discard-self, add-constraint(extra-region))`.
-3. `gwaihir-special-movement` → `sequence(discard-self, add-constraint(movement-flag))`.
-4. `company-prowess-boost` → `sequence(discard-self, add-constraint(company-stat-modifier))`.
-5. `saruman-fetch-spell` → `sequence(tap-self, enqueue-pending-fetch(filter=spell))`.
-6. `cancel-return-and-site-tap` → `sequence(tap-bearer, add-constraint, force-check)`.
-7. `palantir-fetch-discard` → `sequence(tap-self, enqueue-pending-fetch, force-check)` (Palantír + The Mouth share JSON).
-8. `test-gold-ring` → `sequence(tap-self, enqueue-gold-ring-test)`.
-9. `stinker-discard-with-ring` → `sequence(discard-self, discard-in-play-matching(name="The One Ring", scope=bearer-site))`.
+### Step 3 — Generalize `discard-named-card-from-company` ❌ skipped
 
-Delete the per-ID switches in `reducer-organization.ts`,
-`legal-actions/organization.ts`, and `reducer-end-of-turn.ts` once all
-cards are migrated. Expected diff: ~80 LOC removed + ~30 LOC added
-for `sequence` apply = net ~50 LOC reduction, and future cards that
-want any of these shapes become pure JSON.
+Current apply already accepts a `cardName` string and performs the
+correct bearer-site cross-player search. A filter-based
+generalization was proposed but has no immediate consumer — Stinker
+is the only card that needs this behaviour today. Adding a `filter` +
+`scope` would increase DSL surface area for zero present benefit.
+Deferred until a second card demands it.
 
-### Step 3 — Generalize `discard-named-card-from-company`
-
-Replace with `discard-in-play-matching`, which takes the standard
-`filter` condition plus a `scope` selector:
-
-```json
-{ "type": "discard-in-play-matching",
-  "filter": { "name": "The One Ring" },
-  "scope": "bearer-site" }
-```
-
-Scopes: `"bearer"`, `"bearer-site"`, `"bearer-company"`, `"game"`.
-The existing `discard-cards-in-play` and `discard-non-special-items`
-apply types likely fold into the same primitive with different filter
-+ scope combinations — verify during implementation.
-
-Expected diff: ~50 LOC removed from `reducer-organization.ts`,
-~25 LOC added for the generic matcher. Net ~25 LOC reduction and
-three apply types collapse to one.
+The spec's claim that `discard-cards-in-play` and
+`discard-non-special-items` could fold into the same primitive is
+overstated: they live in different phase contexts (self-enters-play
+vs character-wounded) with different entity reachability constraints.
+Not worth unifying.
 
 ### Step 4 — Merge `end-of-company-mh` into `company-composition-changed`
 
@@ -206,18 +201,22 @@ card keywords (`bounce-hazard-events`, `call-council`,
 decompose. Do not generalize further without a second card demanding
 it — speculative DSL surface is worse than duplication.
 
-## Expected totals
+## Actual totals
 
-| Step | Engine LOC change | Card JSON churn |
-|---|---|---|
-| 1 | 0 (docs only; no dead code left) | 0 cards |
-| 2 | −50 (net) | 9 cards |
-| 3 | −25 (net) | 4 cards |
-| 4 | −15 | 1 card |
-| **Total** | **≈ −90 LOC** | **14 cards** |
+| Step | Engine LOC change | Card JSON churn | Status |
+|---|---|---|---|
+| 1 | 0 (docs only; prior migration already swept the code) | 0 | ✅ done |
+| 2 | −50 net (fall-through cruft + ID whitelist → card flag) | 2 (Cram, Orc-draughts gain `anyPhase`) | ✅ done |
+| 3 | 0 (current apply is already generic enough) | 0 | ❌ skipped |
+| 4 | 0 (events are semantically distinct) | 0 | ❌ skipped |
+| **Total** | **≈ −50 LOC** | **2 cards** | |
 
-Not counted: the long-term compounding benefit of future cards being
-certifiable as pure JSON against the widened apply/condition surface.
+Result was smaller than the forecast because prior PRs had already
+done most of the heavy lifting. The remaining Step 2 work was pure
+cleanup: removing fall-through dispatch, replacing a hardcoded ID
+set with a card-declared flag, and simplifying per-phase reducer
+guards that had drifted out of sync with the authoritative legal-
+action layer (fixing one latent bug as a side effect).
 
 ## Explicit non-goals
 

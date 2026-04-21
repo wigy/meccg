@@ -683,8 +683,10 @@ function handleSitePlayResources(
     return handleOpponentInfluenceAttempt(state, action, siteState);
   }
 
-  // Grant-action (e.g. Cram untap-bearer, rule 2.1.1)
-  if (action.type === 'activate-granted-action' && action.actionId === 'untap-bearer') {
+  // Rule 2.1.1: any-phase grant-actions (Cram, Orc-draughts). The
+  // legal-action emitter only offers activations flagged
+  // `anyPhase: true` during site phase, so we can delegate unconditionally.
+  if (action.type === 'activate-granted-action') {
     return handleGrantActionApply(state, action);
   }
 
