@@ -28,7 +28,7 @@
 
 import { describe, test, expect, beforeEach } from 'vitest';
 import {
-  buildTestState, resetMint, Phase,
+  buildTestState, buildSitePhaseState, resetMint, Phase,
   attachAllyToChar, attachItemToChar,
   viableActions, dispatch,
   findCharInstanceId,
@@ -38,7 +38,7 @@ import {
   RESOURCE_PLAYER, HAZARD_PLAYER,
   companyIdAt, makeMHState,
 } from '../test-helpers.js';
-import { Alignment, CardStatus } from '../../index.js';
+import { Alignment, CardStatus, computeLegalActions } from '../../index.js';
 import type {
   CardDefinitionId,
   ActivateGrantedAction,
@@ -47,6 +47,7 @@ import type {
   CardInstanceId,
   CombatState,
   GameState,
+  PlayHeroResourceAction,
   RegionType,
 } from '../../index.js';
 
@@ -120,6 +121,54 @@ function setupCombat(
 
 describe('Stinker (le-154)', () => {
   beforeEach(() => resetMint());
+
+  // ─── Playable-at: "Playable at Goblin-gate or Moria" ────────────────────────
+
+  test('Stinker IS playable from hand at Moria', () => {
+    // Regression for bug where `playableAt` was encoded as a single entry
+    // `{ site: "Goblin-gate or Moria" }`, which matches no real site name.
+    const state = buildSitePhaseState({
+      characters: [HORSEMAN_IN_THE_NIGHT],
+      site: MORIA_MINION,
+      hand: [STINKER],
+    });
+    const stinkerInstId = state.players[RESOURCE_PLAYER].hand[0].instanceId;
+    const playActions = computeLegalActions(state, PLAYER_1)
+      .filter(a => a.viable && a.action.type === 'play-hero-resource')
+      .map(a => a.action as PlayHeroResourceAction)
+      .filter(a => a.cardInstanceId === stinkerInstId);
+    expect(playActions.length).toBeGreaterThanOrEqual(1);
+  });
+
+  test('Stinker IS playable from hand at Goblin-gate', () => {
+    const state = buildSitePhaseState({
+      characters: [HORSEMAN_IN_THE_NIGHT],
+      site: GOBLIN_GATE_MINION,
+      hand: [STINKER],
+    });
+    const stinkerInstId = state.players[RESOURCE_PLAYER].hand[0].instanceId;
+    const playActions = computeLegalActions(state, PLAYER_1)
+      .filter(a => a.viable && a.action.type === 'play-hero-resource')
+      .map(a => a.action as PlayHeroResourceAction)
+      .filter(a => a.cardInstanceId === stinkerInstId);
+    expect(playActions.length).toBeGreaterThanOrEqual(1);
+  });
+
+  test('Stinker is NOT playable from hand at a different shadow-hold', () => {
+    // MINAS_MORGUL (le-390) is a Darkhaven — Stinker must not be playable here.
+    const MINAS_MORGUL = 'le-390' as CardDefinitionId;
+    const state = buildSitePhaseState({
+      characters: [HORSEMAN_IN_THE_NIGHT],
+      site: MINAS_MORGUL,
+      hand: [STINKER],
+    });
+    const stinkerInstId = state.players[RESOURCE_PLAYER].hand[0].instanceId;
+    const playActions = computeLegalActions(state, PLAYER_1)
+      .filter(a => a.viable && a.action.type === 'play-hero-resource')
+      .map(a => a.action as PlayHeroResourceAction)
+      .filter(a => a.cardInstanceId === stinkerInstId);
+    expect(playActions).toHaveLength(0);
+  });
 
   test('grant-action NOT offered when The One Ring is not at the same site', () => {
     // Stinker at Moria, no One Ring anywhere → ability should not fire.
