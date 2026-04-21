@@ -185,11 +185,17 @@
     ],
     "nearestHaven": "Lórien",
     "region": "Anduin Vales",
-    "playableResources": [],
+    "playableResources": [
+      "minor"
+    ],
     "automaticAttacks": [],
     "resourceDraws": 1,
     "hazardDraws": 2,
-    "text": "Nearest Haven: LórienPlayable: Items (minor)Automatic-attacks: When a company enters this site, opponent may play one creature from his hand that is treated in all ways as the site’s automatic-attack (if defeated, creature is discarded). It must normally be playable keyed to a Ruins & Lairs [{R}], Shadow-hold [{S}], single Wilderness [{w}], or Shadow-land [{s}].Special: Contains a hoard."
+    "text": "Nearest Haven: Lórien Playable: Items (minor) Automatic-attacks: When a company enters this site, opponent may play one creature from his hand that is treated in all ways as the site's automatic-attack (if defeated, creature is discarded). It must normally be playable keyed to a Ruins & Lairs [{R}], Shadow-hold [{S}], single Wilderness [{w}], or Shadow-land [{s}]. Special: Contains a hoard.",
+    "keywords": [
+      "hoard"
+    ],
+    "certified": "2026-04-21"
   },
   {
     "cardType": "hero-site",
