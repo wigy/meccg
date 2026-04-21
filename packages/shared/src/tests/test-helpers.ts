@@ -826,6 +826,23 @@ export function makeWildernessMHState(
   });
 }
 
+/**
+ * MH state describing arrival at Ruins-and-Lairs "Moria" via a path of two
+ * wilderness regions. For creatures keyed `{w}{w}` (Hobgoblins, Tom (Tûma),
+ * Elf-lord Revealed in Wrath, and Cave-drake's region-type option).
+ */
+export function makeDoubleWildernessMHState(
+  overrides?: Partial<MovementHazardPhaseState>,
+): MovementHazardPhaseState {
+  return makeMHState({
+    resolvedSitePath: [RegionType.Wilderness, RegionType.Wilderness],
+    resolvedSitePathNames: ['Rhudaur', 'Arthedain'],
+    destinationSiteType: SiteType.RuinsAndLairs,
+    destinationSiteName: 'Moria',
+    ...overrides,
+  });
+}
+
 /** Build a SitePhaseState at the play-resources step. */
 export function makeSitePhase(overrides?: Partial<SitePhaseState>): SitePhaseState {
   return {

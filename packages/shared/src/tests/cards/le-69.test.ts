@@ -34,7 +34,7 @@ import {
   DOORS_OF_NIGHT,
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
   buildTestState, resetMint,
-  makeMHState, makeWildernessMHState, makeShadowMHState,
+  makeMHState, makeShadowMHState, makeDoubleWildernessMHState,
   playCreatureHazardAndResolve,
   handCardId, companyIdAt,
   viableActions,
@@ -79,7 +79,7 @@ describe('Elf-lord Revealed in Wrath (le-69)', () => {
       ],
     });
 
-    const ready: GameState = { ...state, phaseState: makeWildernessMHState() };
+    const ready: GameState = { ...state, phaseState: makeDoubleWildernessMHState() };
     const elfLordId = handCardId(ready, HAZARD_PLAYER);
     const companyId = companyIdAt(ready, RESOURCE_PLAYER);
 
@@ -117,7 +117,7 @@ describe('Elf-lord Revealed in Wrath (le-69)', () => {
 
     // Wilderness keying avoids the rule 3.II.2.R1 keyed-to-dark-hold
     // detainment branch, isolating the card's own +4 prowess effect.
-    const ready: GameState = { ...state, phaseState: makeWildernessMHState() };
+    const ready: GameState = { ...state, phaseState: makeDoubleWildernessMHState() };
     const elfLordId = handCardId(ready, HAZARD_PLAYER);
     const companyId = companyIdAt(ready, RESOURCE_PLAYER);
 
@@ -152,7 +152,7 @@ describe('Elf-lord Revealed in Wrath (le-69)', () => {
       ],
     });
 
-    const ready: GameState = { ...state, phaseState: makeWildernessMHState() };
+    const ready: GameState = { ...state, phaseState: makeDoubleWildernessMHState() };
     const elfLordId = handCardId(ready, HAZARD_PLAYER);
     const companyId = companyIdAt(ready, RESOURCE_PLAYER);
 
@@ -189,7 +189,7 @@ describe('Elf-lord Revealed in Wrath (le-69)', () => {
         },
       ],
     });
-    const readyNoDoN: GameState = { ...stateNoDoN, phaseState: makeWildernessMHState() };
+    const readyNoDoN: GameState = { ...stateNoDoN, phaseState: makeDoubleWildernessMHState() };
 
     const playsNoDoN = viableActions(readyNoDoN, PLAYER_2, 'play-hazard');
     expect(playsNoDoN.some(p => {
@@ -224,7 +224,7 @@ describe('Elf-lord Revealed in Wrath (le-69)', () => {
         },
       ],
     });
-    const readyWithDoN: GameState = { ...stateWithDoN, phaseState: makeWildernessMHState() };
+    const readyWithDoN: GameState = { ...stateWithDoN, phaseState: makeDoubleWildernessMHState() };
 
     const playsWithDoN = viableActions(readyWithDoN, PLAYER_2, 'play-hazard');
     expect(playsWithDoN.some(p => {

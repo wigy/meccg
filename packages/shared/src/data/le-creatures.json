@@ -294,7 +294,7 @@
     "race": "elves",
     "keyedTo": [
       {
-        "regionTypes": ["wilderness"]
+        "regionTypes": ["wilderness", "wilderness"]
       },
       {
         "regionTypes": ["shadow"],
