@@ -695,13 +695,21 @@ function handleSitePlayResources(
 }
 
 /**
- * Handle playing a hero resource (item) at a site.
- *
- * Validates the card is in hand, is an item playable at this site type,
- * the target character is untapped and in the company, then attaches the
- * item and taps the character.
+ * Returns `true` when the given site definition carries the `never-taps`
+ * site-rule. Used to skip the otherwise-automatic site tap on resource
+ * play and influence-attempt resolution (e.g. The Worthy Hills / le-415).
  */
-
+function siteNeverTaps(
+  state: GameState,
+  site: { readonly definitionId: import('../index.js').CardDefinitionId } | null | undefined,
+): boolean {
+  if (!site) return false;
+  const def = state.cardPool[site.definitionId as string];
+  if (!def || !isSiteCard(def)) return false;
+  return (def.effects ?? []).some(
+    e => e.type === 'site-rule' && e.rule === 'never-taps',
+  );
+}
 
 /**
  * Handle playing a hero resource (item) at a site.
@@ -754,11 +762,16 @@ function handleSitePlayHeroResource(
   const newCharacters = { ...player.characters, [targetCharId as string]: updatedChar };
   const newPlayers = clonePlayers(state);
 
-  // Tap the site by updating company's currentSite status
+  // Tap the site by updating company's currentSite status, unless the
+  // site carries the `never-taps` site-rule (e.g. The Worthy Hills).
+  const neverTaps = siteNeverTaps(state, siteInPlay);
+  if (neverTaps) {
+    logDetail(`Site: ${def.name}'s site has never-taps — leaving site untapped`);
+  }
   const newCompanies = [...player.companies];
   newCompanies[siteState.activeCompanyIndex] = {
     ...company,
-    currentSite: { ...siteInPlay, status: CardStatus.Tapped },
+    currentSite: neverTaps ? siteInPlay : { ...siteInPlay, status: CardStatus.Tapped },
   };
 
   newPlayers[playerIndex] = { ...player, hand: newHand, characters: newCharacters, companies: newCompanies };
@@ -945,11 +958,16 @@ export function resolveInfluenceAttemptRoll(
 
   const newPlayers = clonePlayers(state);
 
-  // Tap the site
+  // Tap the site, unless it carries the `never-taps` site-rule
+  // (e.g. The Worthy Hills — influence attempts there do not tap the site).
+  const neverTaps = siteNeverTaps(state, siteInPlay);
+  if (neverTaps) {
+    logDetail(`Site: influence at ${def.name} — site has never-taps, leaving site untapped`);
+  }
   const newCompanies = [...player.companies];
   newCompanies[siteState.activeCompanyIndex] = {
     ...company,
-    currentSite: siteInPlay ? { ...siteInPlay, status: CardStatus.Tapped } : siteInPlay,
+    currentSite: siteInPlay && !neverTaps ? { ...siteInPlay, status: CardStatus.Tapped } : siteInPlay,
   };
 
   newPlayers[playerIndex] = { ...player, ...newPlayers[playerIndex], companies: newCompanies, lastDiceRoll: roll };

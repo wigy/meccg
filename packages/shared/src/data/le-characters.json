@@ -242,8 +242,20 @@
     "marshallingCategory": "character",
     "corruptionModifier": 0,
     "homesite": "Urlurtsu Nurn",
-    "effects": [],
-    "text": "Unique. Manifestation of Adûnaphel. Can use spirit-magic. +2 direct influence in Heralded Lord mode. -2 prowess in Fell Rider mode. As your Ringwraith, if at a Darkhaven, she may tap to cancel one hazard creature attack not played at a site against any one of your companies."
+    "effects": [
+      {
+        "type": "cancel-attack",
+        "cost": { "tap": "self" },
+        "when": {
+          "$and": [
+            { "bearer.atHaven": true },
+            { "attack.source": "creature" }
+          ]
+        }
+      }
+    ],
+    "text": "Unique. Manifestation of Adûnaphel. Can use spirit-magic. +2 direct influence in Heralded Lord mode. -2 prowess in Fell Rider mode. As your Ringwraith, if at a Darkhaven, she may tap to cancel one hazard creature attack not played at a site against any one of your companies.",
+    "certified": "2026-04-21"
   },
   {
     "cardType": "minion-character",
@@ -310,7 +322,8 @@
         }
       }
     ],
-    "text": "Leader. Discard on a body check result of 8. +3 direct influence against Orcs and Orc factions."
+    "text": "Leader. Discard on a body check result of 8. +3 direct influence against Orcs and Orc factions.",
+    "certified": "2026-04-21"
   },
   {
     "cardType": "minion-character",
@@ -333,7 +346,8 @@
     "corruptionModifier": 0,
     "homesite": "Sarn Goriwing",
     "effects": [],
-    "text": "Unique."
+    "text": "Unique.",
+    "certified": "2026-04-21"
   },
   {
     "cardType": "minion-character",
@@ -355,8 +369,19 @@
     "marshallingCategory": "character",
     "corruptionModifier": 0,
     "homesite": "Shrel-Kain",
-    "effects": [],
-    "text": "Unique. +2 direct influence against the Men of Dorwinion faction."
+    "effects": [
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": 2,
+        "when": {
+          "reason": "faction-influence-check",
+          "faction.name": "Men of Dorwinion"
+        }
+      }
+    ],
+    "text": "Unique. +2 direct influence against the Men of Dorwinion faction.",
+    "certified": "2026-04-21"
   },
   {
     "cardType": "minion-character",
@@ -597,7 +622,19 @@
     "marshallingPoints": 1,
     "marshallingCategory": "character",
     "corruptionModifier": 0,
-    "homesite": "Easterling Camp"
+    "homesite": "Easterling Camp",
+    "effects": [
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": 2,
+        "when": {
+          "reason": "faction-influence-check",
+          "faction.playableAt": "Easterling Camp"
+        }
+      }
+    ],
+    "certified": "2026-04-21"
   },
   {
     "cardType": "minion-character",

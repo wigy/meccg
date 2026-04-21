@@ -811,6 +811,81 @@ export function makeBodyCheckCombat(opts: {
 }
 
 /**
+ * Build a {@link CombatState} in the pre-assignment cancel window against
+ * the defending player's first company, for testing cancel-attack effects.
+ *
+ * Defaults: `attackSource.type === 'creature'` with a freshly minted
+ * instance added to the hazard player's `cardsInPlay`. Pass
+ * `attackSourceType: 'on-guard-creature'` or `'automatic-attack'` to
+ * exercise cancel-attack `when` filters on the attack's origin.
+ *
+ * Returns a new `GameState` with the combat attached and (when the source
+ * is a creature) the hazard player's `cardsInPlay` extended with the
+ * minted creature instance.
+ */
+export function makeCancelWindowCombat(
+  state: GameState,
+  opts: {
+    creatureDefId?: CardDefinitionId;
+    creatureRace?: string;
+    attackKeying?: readonly RegionType[];
+    attackSourceType?: 'creature' | 'on-guard-creature' | 'automatic-attack';
+    strikesTotal?: number;
+    strikeProwess?: number;
+  } = {},
+): GameState {
+  const sourceType = opts.attackSourceType ?? 'creature';
+  const creatureDefId = opts.creatureDefId ?? ('tw-074' as CardDefinitionId);
+  const creatureRace = opts.creatureRace ?? 'orc';
+
+  let players = state.players;
+  let attackSource: CombatState['attackSource'];
+
+  if (sourceType === 'creature') {
+    const creatureInstanceId = `creature-${creatureDefId as string}-${Date.now()}-${Math.random()}` as CardInstanceId;
+    const hazardPlayer = state.players[HAZARD_PLAYER];
+    const updatedHazardPlayer = {
+      ...hazardPlayer,
+      cardsInPlay: [
+        ...hazardPlayer.cardsInPlay,
+        { instanceId: creatureInstanceId, definitionId: creatureDefId, status: CardStatus.Untapped },
+      ],
+    };
+    players = [state.players[RESOURCE_PLAYER], updatedHazardPlayer] as unknown as typeof state.players;
+    attackSource = { type: 'creature', instanceId: creatureInstanceId };
+  } else if (sourceType === 'on-guard-creature') {
+    const creatureInstanceId = `on-guard-${creatureDefId as string}-${Date.now()}-${Math.random()}` as CardInstanceId;
+    attackSource = { type: 'on-guard-creature', cardInstanceId: creatureInstanceId };
+  } else {
+    attackSource = {
+      type: 'automatic-attack',
+      siteInstanceId: 'fake-site' as CardInstanceId,
+      attackIndex: 0,
+    };
+  }
+
+  const combat: CombatState = {
+    attackSource,
+    companyId: companyIdAt(state, RESOURCE_PLAYER),
+    defendingPlayerId: PLAYER_1,
+    attackingPlayerId: PLAYER_2,
+    strikesTotal: opts.strikesTotal ?? 2,
+    strikeProwess: opts.strikeProwess ?? 6,
+    creatureBody: null,
+    creatureRace,
+    attackKeying: opts.attackKeying && opts.attackKeying.length > 0 ? opts.attackKeying : undefined,
+    strikeAssignments: [],
+    currentStrikeIndex: 0,
+    phase: 'assign-strikes',
+    assignmentPhase: 'defender',
+    bodyCheckTarget: null,
+    detainment: false,
+  };
+
+  return { ...state, players, phaseState: makeMHState(), combat };
+}
+
+/**
  * MH state describing arrival at a Shadow-Hold "Moria" via an Imlad Morgul
  * shadow region. Mirrors the setup used by many combat rule tests.
  */

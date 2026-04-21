@@ -334,8 +334,22 @@ combat context that includes:
 - `enemy.race` — the attacking creature's lowercase race (e.g. `"orc"`).
 - `attack.keying` — array of region types the creature is keyed to
   (e.g. `["wilderness", "shadow"]`); only populated for creature hazards.
+- `attack.source` — discriminates where the attack originated:
+  `"creature"` (a hazard creature played during the movement/hazard
+  phase — "not played at a site"), `"on-guard-creature"` (a creature
+  placed on-guard at a site and revealed during the site phase), or
+  `"automatic-attack"` (the site's own listed attack).
 - `bearer.companySize` — the number of characters in the defending
-  company (host company of an in-play ally source).
+  company (host company of an in-play ally or character source).
+- `bearer.atHaven` — `true` when the defending company's current site
+  is a haven. Used by Darkhaven-tap abilities (e.g. Adûnaphel the
+  Ringwraith).
+
+The effect may be declared on in-play sources too: an ally attached
+to a company character (e.g. The Warg-king) or the character card
+itself (e.g. Adûnaphel the Ringwraith). For in-play sources the cost
+must be `cost: { "tap": "self" }` and the source must be untapped
+when activated.
 
 ```json
 { "type": "cancel-attack",
@@ -356,6 +370,11 @@ combat context that includes:
     { "$or": [
       { "attack.keying": "wilderness" },
       { "attack.keying": "shadow" } ] } ] } }
+{ "type": "cancel-attack",
+  "cost": { "tap": "self" },
+  "when": { "$and": [
+    { "bearer.atHaven": true },
+    { "attack.source": "creature" } ] } }
 ```
 
 ### 9a. `cancel-influence`
@@ -665,6 +684,18 @@ Rules:
   ```json
   { "type": "site-rule", "rule": "attacks-not-detainment",
     "filter": { "enemy.race": { "$ne": "nazgul" } } }
+  ```
+
+- `never-taps` — the site's status never transitions to `Tapped`. The two
+  normal tap-sites — a resource (item/ally) being played on a character at
+  this site, and an influence attempt resolving at this site — both skip
+  the tap when this rule is present. Characters, items, and influencing
+  characters still tap as usual; only the site itself is unaffected.
+  Consumed by `engine/reducer-site.ts`. Used by *The Worthy Hills*
+  (le-415): "This site never taps."
+
+  ```json
+  { "type": "site-rule", "rule": "never-taps" }
   ```
 
 - `heal-during-untap` — treats the site as a haven for the untap phase

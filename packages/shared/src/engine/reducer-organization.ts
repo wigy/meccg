@@ -825,6 +825,45 @@ function runGrantApply(
     return { updatedChar: { ...char, status: statusEnum }, effects: [], stateOps: [] };
   }
 
+  if (apply.type === 'set-character-status' && apply.target === 'target-character') {
+    if (apply.status === undefined) {
+      return { error: `set-character-status apply missing status on ${ctx.sourceName}` };
+    }
+    const targetCardId = ctx.action.targetCardId;
+    if (!targetCardId) {
+      return { error: `set-character-status target-character: action has no targetCardId on ${ctx.sourceName}` };
+    }
+    const bearerPlayer = newPlayers[ctx.playerIndex];
+    const company = bearerPlayer.companies.find(c => c.characters.includes(ctx.action.characterId));
+    if (!company) {
+      return { error: `${ctx.charName} is not in any company` };
+    }
+    if (!company.characters.includes(targetCardId)) {
+      return { error: `set-character-status target-character: target ${targetCardId as string} not in ${ctx.charName}'s company` };
+    }
+    const targetChar = bearerPlayer.characters[targetCardId as string];
+    if (!targetChar) {
+      return { error: `set-character-status target-character: target ${targetCardId as string} not found` };
+    }
+    const statusEnum = apply.status === 'untapped' ? CardStatus.Untapped
+      : apply.status === 'tapped' ? CardStatus.Tapped
+        : CardStatus.Inverted;
+    const targetDef = state.cardPool[targetChar.definitionId as string];
+    const targetName = targetDef && 'name' in targetDef ? (targetDef as { name: string }).name : '?';
+    logDetail(`Grant-action ${ctx.action.actionId}: ${targetName} → status ${apply.status}`);
+    newPlayers[ctx.playerIndex] = {
+      ...bearerPlayer,
+      characters: {
+        ...bearerPlayer.characters,
+        [targetCardId as string]: { ...targetChar, status: statusEnum },
+      },
+    };
+    const updatedChar = targetCardId === ctx.action.characterId
+      ? { ...char, status: statusEnum }
+      : char;
+    return { updatedChar, effects: [], stateOps: [] };
+  }
+
   if (apply.type === 'discard-self') {
     const result = detachAndDiscardSource(char, ctx.action.sourceCardId, ctx.sourceCardDefinitionId, ctx.playerIndex, newPlayers);
     if ('error' in result) return { error: result.error };
