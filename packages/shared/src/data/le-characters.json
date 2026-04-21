@@ -355,8 +355,19 @@
     "marshallingCategory": "character",
     "corruptionModifier": 0,
     "homesite": "Shrel-Kain",
-    "effects": [],
-    "text": "Unique. +2 direct influence against the Men of Dorwinion faction."
+    "effects": [
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": 2,
+        "when": {
+          "reason": "faction-influence-check",
+          "faction.name": "Men of Dorwinion"
+        }
+      }
+    ],
+    "text": "Unique. +2 direct influence against the Men of Dorwinion faction.",
+    "certified": "2026-04-21"
   },
   {
     "cardType": "minion-character",
