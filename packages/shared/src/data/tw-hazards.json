@@ -559,5 +559,15 @@
     "text": "The bearer of a Ring must make a corruption check modified by -2. If the bearer fails this corruption check, his Ring is discarded, but he remains in play.",
     "unique": false,
     "eventType": "short"
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "tw-29",
+    "name": "Dragon’s Desolation",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/DragonsDesolation.jpg",
+    "unique": false,
+    "eventType": "short",
+    "effects": [],
+    "text": "The prowess of one Dragon attack is modified by +2.Alternatively, it may be played on a Ruins & Lairs [{R}] site that has two Wildernesses [{w}] in its site path (only one Wilderness [{w}] is required if Doors of Night is in play)—one Dragon hazard creature may be played on a company at that site this turn.“… there was neither bush nor tree, and only broken and blackened stumps…” —Hob"
   }
 ]
