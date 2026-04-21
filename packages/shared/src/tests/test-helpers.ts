@@ -312,6 +312,14 @@ export type CharacterEntry = CharacterSetup | CardDefinitionId;
 export interface CompanySetup {
   site: CardDefinitionId;
   characters: CharacterEntry[];
+  /**
+   * If set, mark the company as moving to this site this turn. A separate
+   * site instance is minted and attached as `destinationSite`; tests that
+   * need a moving company for hazards gated on arrival (River, Choking
+   * Shadows, Incite Defenders) should use this instead of fabricating a
+   * destination in-line after buildTestState.
+   */
+  destinationSite?: CardDefinitionId;
 }
 
 /** Setup for one player's starting state. */
@@ -417,12 +425,20 @@ export function buildTestState(opts: BuildTestStateOpts): GameState {
         }
       }
 
+      const destDefId = companySetup.destinationSite;
+      const destinationSite = destDefId
+        ? (() => {
+          const destInst = mintFor(destDefId);
+          return { instanceId: destInst.instanceId, definitionId: destDefId, status: CardStatus.Untapped };
+        })()
+        : null;
+
       companies.push({
         id: `company-${setup.id as string}-${companies.length}` as CompanyId,
         characters: charInstIds,
         currentSite: { instanceId: siteInst.instanceId, definitionId: companySetup.site, status: CardStatus.Untapped },
         siteCardOwned: true,
-        destinationSite: null,
+        destinationSite,
         movementPath: [],
         moved: false,
         siteOfOrigin: null,
