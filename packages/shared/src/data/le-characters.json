@@ -346,7 +346,8 @@
     "corruptionModifier": 0,
     "homesite": "Sarn Goriwing",
     "effects": [],
-    "text": "Unique."
+    "text": "Unique.",
+    "certified": "2026-04-21"
   },
   {
     "cardType": "minion-character",
