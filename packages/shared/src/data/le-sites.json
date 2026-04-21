@@ -518,7 +518,14 @@
     ],
     "resourceDraws": 1,
     "hazardDraws": 2,
-    "text": "Playable: Information. Automatic-attacks: Men — each character faces 1 strike with 9 prowess (detainment against covert company). Special: This site never taps."
+    "effects": [
+      {
+        "type": "site-rule",
+        "rule": "never-taps"
+      }
+    ],
+    "text": "Playable: Information. Automatic-attacks: Men — each character faces 1 strike with 9 prowess (detainment against covert company). Special: This site never taps.",
+    "certified": "2026-04-21"
   },
   {
     "cardType": "minion-site",
