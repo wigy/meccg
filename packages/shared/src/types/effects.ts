@@ -428,6 +428,13 @@ export interface TriggeredAction {
    * grant-actions.
    */
   readonly postCorruptionCheck?: boolean;
+  /**
+   * For `discard-named-card-from-company` type: the name of the card to
+   * search for among the bearer's company's attached items/allies and
+   * move to the owner's discard pile. Used by Stinker / Gollum to discard
+   * The One Ring alongside the ally.
+   */
+  readonly cardName?: string;
 }
 
 /**
