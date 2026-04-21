@@ -2247,8 +2247,8 @@ export function setupCombatWithCaveDrake(opts: {
   });
 
   const mhState = makeMHState({
-    resolvedSitePath: [RegionType.Wilderness],
-    resolvedSitePathNames: ['Hollin'],
+    resolvedSitePath: [RegionType.Wilderness, RegionType.Wilderness],
+    resolvedSitePathNames: ['Hollin', 'Enedhwaith'],
     destinationSiteType: SiteType.ShadowHold,
     destinationSiteName: 'Moria',
   });

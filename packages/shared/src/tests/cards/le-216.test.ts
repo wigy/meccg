@@ -77,8 +77,8 @@ describe('Orc Quarrels (le-216)', () => {
 
     const mhState = makeMHState({
       activeCompanyIndex: 0,
-      resolvedSitePath: [RegionType.Wilderness],
-      resolvedSitePathNames: ['Hithaeglir'],
+      resolvedSitePath: [RegionType.Wilderness, RegionType.Wilderness],
+      resolvedSitePathNames: ['Hithaeglir', 'Eryn Vorn'],
       destinationSiteType: SiteType.ShadowHold,
       destinationSiteName: 'Moria',
     });
@@ -114,8 +114,8 @@ describe('Orc Quarrels (le-216)', () => {
 
     const mhState = makeMHState({
       activeCompanyIndex: 0,
-      resolvedSitePath: [RegionType.Wilderness],
-      resolvedSitePathNames: ['Hithaeglir'],
+      resolvedSitePath: [RegionType.Wilderness, RegionType.Wilderness],
+      resolvedSitePathNames: ['Hithaeglir', 'Eryn Vorn'],
       destinationSiteType: SiteType.ShadowHold,
       destinationSiteName: 'Moria',
     });
@@ -179,8 +179,8 @@ describe('Orc Quarrels (le-216)', () => {
 
     const mhState = makeMHState({
       activeCompanyIndex: 0,
-      resolvedSitePath: [RegionType.Wilderness],
-      resolvedSitePathNames: ['Hithaeglir'],
+      resolvedSitePath: [RegionType.Wilderness, RegionType.Wilderness],
+      resolvedSitePathNames: ['Hithaeglir', 'Eryn Vorn'],
       destinationSiteType: SiteType.ShadowHold,
       destinationSiteName: 'Moria',
     });
@@ -211,8 +211,8 @@ describe('Orc Quarrels (le-216)', () => {
 
     const mhState = makeMHState({
       activeCompanyIndex: 0,
-      resolvedSitePath: [RegionType.Wilderness],
-      resolvedSitePathNames: ['Hithaeglir'],
+      resolvedSitePath: [RegionType.Wilderness, RegionType.Wilderness],
+      resolvedSitePathNames: ['Hithaeglir', 'Eryn Vorn'],
       destinationSiteType: SiteType.ShadowHold,
       destinationSiteName: 'Moria',
     });
@@ -265,8 +265,8 @@ describe('Orc Quarrels (le-216)', () => {
 
     const mhState = makeMHState({
       activeCompanyIndex: 0,
-      resolvedSitePath: [RegionType.Wilderness],
-      resolvedSitePathNames: ['Hithaeglir'],
+      resolvedSitePath: [RegionType.Wilderness, RegionType.Wilderness],
+      resolvedSitePathNames: ['Hithaeglir', 'Eryn Vorn'],
       destinationSiteType: SiteType.ShadowHold,
       destinationSiteName: 'Moria',
     });
@@ -309,8 +309,8 @@ describe('Orc Quarrels (le-216)', () => {
 
     const mhState = makeMHState({
       activeCompanyIndex: 0,
-      resolvedSitePath: [RegionType.Wilderness],
-      resolvedSitePathNames: ['Hithaeglir'],
+      resolvedSitePath: [RegionType.Wilderness, RegionType.Wilderness],
+      resolvedSitePathNames: ['Hithaeglir', 'Eryn Vorn'],
       destinationSiteType: SiteType.ShadowHold,
       destinationSiteName: 'Moria',
     });
@@ -365,8 +365,8 @@ describe('Orc Quarrels (le-216)', () => {
 
     const mhState = makeMHState({
       activeCompanyIndex: 0,
-      resolvedSitePath: [RegionType.Wilderness],
-      resolvedSitePathNames: ['Hithaeglir'],
+      resolvedSitePath: [RegionType.Wilderness, RegionType.Wilderness],
+      resolvedSitePathNames: ['Hithaeglir', 'Eryn Vorn'],
       destinationSiteType: SiteType.ShadowHold,
       destinationSiteName: 'Moria',
     });
@@ -404,8 +404,8 @@ describe('Orc Quarrels (le-216)', () => {
 
     const mhState = makeMHState({
       activeCompanyIndex: 0,
-      resolvedSitePath: [RegionType.Wilderness],
-      resolvedSitePathNames: ['Hithaeglir'],
+      resolvedSitePath: [RegionType.Wilderness, RegionType.Wilderness],
+      resolvedSitePathNames: ['Hithaeglir', 'Eryn Vorn'],
       destinationSiteType: SiteType.ShadowHold,
       destinationSiteName: 'Moria',
     });
@@ -455,8 +455,8 @@ describe('Orc Quarrels (le-216)', () => {
 
     const mhState = makeMHState({
       activeCompanyIndex: 0,
-      resolvedSitePath: [RegionType.Wilderness],
-      resolvedSitePathNames: ['Hithaeglir'],
+      resolvedSitePath: [RegionType.Wilderness, RegionType.Wilderness],
+      resolvedSitePathNames: ['Hithaeglir', 'Eryn Vorn'],
       destinationSiteType: SiteType.ShadowHold,
       destinationSiteName: 'Moria',
     });
