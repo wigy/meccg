@@ -548,6 +548,10 @@ function cancelAttackActions(
     if (combat.creatureRace) {
       ctx['enemy'] = { race: combat.creatureRace };
     }
+    if (combat.attackKeying && combat.attackKeying.length > 0) {
+      ctx['attack'] = { keying: combat.attackKeying };
+    }
+    ctx['bearer'] = { companySize: company.characters.length };
     return ctx;
   };
 
