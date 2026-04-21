@@ -17,11 +17,12 @@
  * Engine Support:
  * | # | Feature                                              | Status      | Notes                                                    |
  * |---|------------------------------------------------------|-------------|----------------------------------------------------------|
- * | 1 | Grant-action: discard Stinker + The One Ring          | IMPLEMENTED | grant-action `stinker-discard-with-ring` (cost: discard)  |
- * | 2 | Gate on bearer at non-haven ("non-Darkhaven")        | IMPLEMENTED | `bearer.atHaven` context variable                        |
- * | 3 | Gate on The One Ring at the same site                | IMPLEMENTED | `site.hasOneRing` — name-matched across both players      |
- * | 4 | Discard ring even when held by opposing hero player  | IMPLEMENTED | `discard-named-card-from-company` scans all co-located    |
- * | 5 | Combat cancel-attack when company size < 3 (W/S key)  | IMPLEMENTED | `cancel-attack` with `attack.keying` + `bearer.companySize` |
+ * | 1 | Playable at Goblin-gate or Moria                      | IMPLEMENTED | `playableAt` with two `site` entries                     |
+ * | 2 | Grant-action: discard Stinker + The One Ring          | IMPLEMENTED | grant-action `stinker-discard-with-ring` (cost: discard)  |
+ * | 3 | Gate on bearer at non-haven ("non-Darkhaven")        | IMPLEMENTED | `bearer.atHaven` context variable                        |
+ * | 4 | Gate on The One Ring at the same site                | IMPLEMENTED | `site.hasOneRing` — name-matched across both players      |
+ * | 5 | Discard ring even when held by opposing hero player  | IMPLEMENTED | `discard-named-card-from-company` scans all co-located    |
+ * | 6 | Combat cancel-attack when company size < 3 (W/S key)  | IMPLEMENTED | `cancel-attack` with `attack.keying` + `bearer.companySize` |
  *
  * Playable: YES.
  */
@@ -33,6 +34,7 @@ import {
   viableActions, dispatch,
   findCharInstanceId,
   expectInDiscardPile,
+  makeSitePhase,
   PLAYER_1, PLAYER_2,
   ARAGORN,
   RESOURCE_PLAYER, HAZARD_PLAYER,
@@ -47,6 +49,7 @@ import type {
   CardInstanceId,
   CombatState,
   GameState,
+  PlayHeroResourceAction,
   RegionType,
 } from '../../index.js';
 
@@ -62,6 +65,7 @@ const LUITPRAND = 'le-23' as CardDefinitionId;
 const MORIA_MINION = 'le-392' as CardDefinitionId;   // shadow-hold (name "Moria")
 const MORIA_HERO = 'tw-413' as CardDefinitionId;     // shadow-hold (name "Moria")
 const GOBLIN_GATE_MINION = 'le-378' as CardDefinitionId; // shadow-hold (name "Goblin-gate")
+const DEAD_MARSHES = 'le-364' as CardDefinitionId;   // shadow-hold (name "Dead Marshes")
 const DOL_GULDUR = 'le-367' as CardDefinitionId;     // haven (minion "Darkhaven")
 const MINAS_TIRITH = 'tw-407' as CardDefinitionId;
 
@@ -120,6 +124,64 @@ function setupCombat(
 
 describe('Stinker (le-154)', () => {
   beforeEach(() => resetMint());
+
+  // ─── Playable-at restriction ─────────────────────────────────────────────────
+
+  test('Stinker IS playable at Goblin-gate (regression for game mo8gx6ts-go9s38)', () => {
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Site,
+      players: [
+        { id: PLAYER_1, alignment: Alignment.Ringwraith, companies: [{ site: GOBLIN_GATE_MINION, characters: [HORSEMAN_IN_THE_NIGHT] }], hand: [STINKER], siteDeck: [DOL_GULDUR] },
+        { id: PLAYER_2, alignment: Alignment.Wizard, companies: [{ site: MINAS_TIRITH, characters: [ARAGORN] }], hand: [], siteDeck: [] },
+      ],
+    });
+    const state = { ...base, phaseState: makeSitePhase() };
+    const stinkerInstanceId = state.players[0].hand[0].instanceId;
+
+    const playActions = viableActions(state, PLAYER_1, 'play-hero-resource')
+      .map(a => a.action as PlayHeroResourceAction)
+      .filter(a => a.cardInstanceId === stinkerInstanceId);
+    expect(playActions.length).toBeGreaterThanOrEqual(1);
+  });
+
+  test('Stinker IS playable at Moria', () => {
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Site,
+      players: [
+        { id: PLAYER_1, alignment: Alignment.Ringwraith, companies: [{ site: MORIA_MINION, characters: [HORSEMAN_IN_THE_NIGHT] }], hand: [STINKER], siteDeck: [DOL_GULDUR] },
+        { id: PLAYER_2, alignment: Alignment.Wizard, companies: [{ site: MINAS_TIRITH, characters: [ARAGORN] }], hand: [], siteDeck: [] },
+      ],
+    });
+    const state = { ...base, phaseState: makeSitePhase() };
+    const stinkerInstanceId = state.players[0].hand[0].instanceId;
+
+    const playActions = viableActions(state, PLAYER_1, 'play-hero-resource')
+      .map(a => a.action as PlayHeroResourceAction)
+      .filter(a => a.cardInstanceId === stinkerInstanceId);
+    expect(playActions.length).toBeGreaterThanOrEqual(1);
+  });
+
+  test('Stinker is NOT playable at a non-Goblin-gate/Moria shadow-hold (Dead Marshes)', () => {
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Site,
+      players: [
+        { id: PLAYER_1, alignment: Alignment.Ringwraith, companies: [{ site: DEAD_MARSHES, characters: [HORSEMAN_IN_THE_NIGHT] }], hand: [STINKER], siteDeck: [DOL_GULDUR] },
+        { id: PLAYER_2, alignment: Alignment.Wizard, companies: [{ site: MINAS_TIRITH, characters: [ARAGORN] }], hand: [], siteDeck: [] },
+      ],
+    });
+    const state = { ...base, phaseState: makeSitePhase() };
+    const stinkerInstanceId = state.players[0].hand[0].instanceId;
+
+    const playActions = viableActions(state, PLAYER_1, 'play-hero-resource')
+      .map(a => a.action as PlayHeroResourceAction)
+      .filter(a => a.cardInstanceId === stinkerInstanceId);
+    expect(playActions).toHaveLength(0);
+  });
+
+  // ─── Grant-action: discard Stinker + The One Ring ────────────────────────────
 
   test('grant-action NOT offered when The One Ring is not at the same site', () => {
     // Stinker at Moria, no One Ring anywhere → ability should not fire.

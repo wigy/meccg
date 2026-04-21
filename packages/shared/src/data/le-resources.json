@@ -390,9 +390,8 @@
     "marshallingPoints": 2,
     "marshallingCategory": "ally",
     "playableAt": [
-      {
-        "site": "Goblin-gate or Moria"
-      }
+      { "site": "Goblin-gate" },
+      { "site": "Moria" }
     ],
     "effects": [
       {
