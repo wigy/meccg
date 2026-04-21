@@ -10,7 +10,7 @@ import type { GameState, MovementHazardPhaseState, Company, CreatureCard, GameAc
 import type { AhuntAttackEffect, CallCouncilEffect } from '../types/effects.js';
 import { triggerCouncilCall } from './reducer-end-of-turn.js';
 import type { CardInstanceId } from '../types/common.js';
-import { Phase, CardStatus, isCharacterCard, isSiteCard, RegionType, Race, Skill, getPlayerIndex, BASE_MAX_REGION_DISTANCE, hasPlayFlag } from '../index.js';
+import { Phase, CardStatus, isCharacterCard, isSiteCard, isResourceEventCard, RegionType, Race, Skill, getPlayerIndex, BASE_MAX_REGION_DISTANCE, hasPlayFlag } from '../index.js';
 import { resolveHandSize, collectCharacterEffects, resolveDrawModifier } from './effects/index.js';
 import { resolveAttackProwess, resolveAttackStrikes } from './effects/resolver.js';
 import type { ResolverContext } from './effects/index.js';
@@ -20,7 +20,7 @@ import { initiateChain, pushChainEntry } from './chain-reducer.js';
 import { resolveInstanceId } from '../types/state.js';
 import type { ReducerResult } from './reducer-utils.js';
 import { clonePlayers, startDeckExhaust, completeDeckExhaust, handleExchangeSideboard, cleanupEmptyCompanies, autoMergeNonHavenCompanies } from './reducer-utils.js';
-import { handlePlayShortEvent } from './reducer-events.js';
+import { handlePlayShortEvent, handlePlayResourceShortEvent } from './reducer-events.js';
 import { handlePlayPermanentEvent } from './reducer-events.js';
 import { handleGrantActionApply } from './reducer-organization.js';
 import { sweepExpired, addConstraint, enqueueCorruptionCheck } from './pending.js';
@@ -150,8 +150,19 @@ function handlePlayHazards(
     return handlePlayPermanentEvent(state, action);
   }
 
-  // --- Short event (e.g. Twilight canceling an environment) ---
+  // --- Short event ---
+  // Route by card type: resource short-events (hero or minion, e.g.
+  // Marvels Told, Voices of Malice) go through the resource handler so
+  // their tap cost and discard-in-play target resolve inline. Hazard
+  // short-events (e.g. Twilight canceling an environment) go through
+  // the chain-initiating hazard handler.
   if (action.type === 'play-short-event') {
+    const actingPlayer = state.players.find(p => p.id === action.player);
+    const handCard = actingPlayer?.hand.find(c => c.instanceId === action.cardInstanceId);
+    const def = handCard ? state.cardPool[handCard.definitionId as string] : undefined;
+    if (isResourceEventCard(def)) {
+      return handlePlayResourceShortEvent(state, action);
+    }
     return handlePlayShortEvent(state, action);
   }
 

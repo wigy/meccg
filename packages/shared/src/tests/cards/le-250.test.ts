@@ -350,6 +350,44 @@ describe('Voices of Malice (le-250)', () => {
     expect(action.discardTargetInstanceId).toBe(foolishWordsInPlay.instanceId);
   });
 
+  test('playing during MH phase play-hazards resolves: tap sage, discard hazard, discard Voices of Malice', () => {
+    // Regression: the MH reducer used to route every `play-short-event`
+    // to the hazard env-cancel handler, which called
+    // `resolveInstanceId(state, undefined)` and crashed (surfacing as
+    // "Invalid message format" to the client). Ensure the resource
+    // short-event path is taken and the card resolves inline.
+    const foolishWordsInPlay: CardInPlay = { instanceId: mint(), definitionId: FOOLISH_WORDS, status: CardStatus.Untapped };
+    const base = buildTestState({
+      phase: Phase.MovementHazard,
+      activePlayer: PLAYER_1,
+      recompute: true,
+      players: [
+        { id: PLAYER_1, companies: [{ site: DOL_GULDUR, characters: [LAYOS] }], hand: [VOICES_OF_MALICE], siteDeck: [MORIA_MINION] },
+        { id: PLAYER_2, companies: [{ site: MINAS_MORGUL, characters: [OSTISEN] }], hand: [], siteDeck: [MORIA_MINION], cardsInPlay: [foolishWordsInPlay] },
+      ],
+    });
+    const state = { ...base, phaseState: makeMHState() };
+
+    const voicesId = handCardId(state, RESOURCE_PLAYER);
+    const foolishWordsId = state.players[1].cardsInPlay[0].instanceId;
+    const layosId = Object.keys(state.players[0].characters)[0] as unknown as CardInstanceId;
+
+    const next = dispatch(state, {
+      type: 'play-short-event',
+      player: PLAYER_1,
+      cardInstanceId: voicesId,
+      targetScoutInstanceId: layosId,
+      discardTargetInstanceId: foolishWordsId,
+    });
+
+    expectCharStatus(next, RESOURCE_PLAYER, LAYOS, CardStatus.Tapped);
+    expect(next.players[1].cardsInPlay.map(c => c.instanceId)).not.toContain(foolishWordsId);
+    expect(next.players[1].discardPile.map(c => c.instanceId)).toContain(foolishWordsId);
+    expect(next.players[0].hand).toHaveLength(0);
+    expect(next.players[0].discardPile.map(c => c.instanceId)).toContain(voicesId);
+    expect(next.chain).toBeNull();
+  });
+
   test('not playable during MH phase when no hazard permanent/long events in play', () => {
     const base = buildTestState({
       phase: Phase.MovementHazard,
