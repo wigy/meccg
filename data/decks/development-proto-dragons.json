@@ -27,6 +27,11 @@
       "name": "Thráin II",
       "card": "td-94",
       "qty": 1
+    },
+    {
+      "name": "Black Arrow",
+      "card": "tw-494",
+      "qty": 2
     }
   ],
   "deck": {
@@ -71,6 +76,16 @@
       {
         "name": "Doors of Night",
         "card": "tw-28",
+        "qty": 2
+      },
+      {
+        "name": "Dragon's Desolation",
+        "card": "tw-29",
+        "qty": 3
+      },
+      {
+        "name": "Smaug",
+        "card": "tw-90",
         "qty": 1
       }
     ],
@@ -104,6 +119,16 @@
         "name": "Wizard's Staff",
         "card": "td-170",
         "qty": 1
+      },
+      {
+        "name": "Risky Blow",
+        "card": "tw-319",
+        "qty": 2
+      },
+      {
+        "name": "Lucky Strike",
+        "card": "tw-270",
+        "qty": 2
       }
     ]
   },
@@ -159,5 +184,11 @@
       "qty": 1
     }
   ],
-  "sideboard": []
+  "sideboard": [
+    {
+      "name": "Twilight",
+      "card": "tw-106",
+      "qty": 3
+    }
+  ]
 }
