@@ -142,8 +142,8 @@ Follow these steps:
     - Open a pull request using `gh pr create`
     - Report the PR URL and the git hash of the commit
 
-    ⚠️ **The working tree MUST be clean before your turn ends.** The mail handler checks `git status --porcelain` after your session and treats any uncommitted change as a certification failure — the user will be told you abandoned the work mid-step, and the stray files will be stashed.
+    ⚠️ **The working tree MUST be clean before your turn ends.** The mail handler checks `git status --porcelain` after your session and treats any uncommitted change as a certification failure — the user will be told you abandoned the work mid-step. Nothing is stashed: the leftover files stay in place and the run-ai loop refuses to handle any further mail until a human either opens a PR for them or reverts. One aborted turn blocks every subsequent AI request, not just yours.
 
-    If, despite the guidance above, you find yourself about to end the turn with uncommitted changes, commit them to the certify branch first (even if tests/lint haven't finished — a PR with follow-up commits is always recoverable; an orphaned diff on master is not).
+    If, despite the guidance above, you find yourself about to end the turn with uncommitted changes, commit them to the certify branch first (even if tests/lint haven't finished — a PR with follow-up commits is always recoverable; an orphaned diff on master is not). If you genuinely cannot land the work (engine support missing, rules unclear, etc.), revert everything (`git checkout -- .`, delete any new files) before ending the turn and emit a certification-failure result.
 
     Never merge directly to master. This is a hard requirement.

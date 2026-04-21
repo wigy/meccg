@@ -2,6 +2,18 @@ Handle a feature planning request by reading the feature description and produci
 
 **IMPORTANT:** This skill must run to completion autonomously. Do NOT stop to ask the user for confirmation at any step.
 
+## Working-tree contract — read before doing anything
+
+This skill only reads the codebase to produce a plan — it should not edit any source files. `git status --porcelain` must print nothing when your turn ends.
+
+If you edited a file by mistake, or created scratch files during the analysis, revert/delete them before ending the turn (`git checkout -- .` for modifications; `rm` for new files).
+
+If you end the turn with uncommitted changes, `bin/handle-mail` overrides your result block, reports the job as failed, and run-ai refuses to handle any further mail until a human cleans up. Do not leave leftovers — they block every subsequent AI request, not just yours.
+
+## Result-block contract — also read
+
+The `===HANDLE_MAIL_RESULT_BEGIN===`…`===HANDLE_MAIL_RESULT_END===` block (step 5 below) is MANDATORY on every run, success or failure. It is how `bin/handle-mail` decides what reply to send. If you skip it, the requester gets a generic "handler did not produce structured output" error instead of a meaningful reply. On the failure path, use `"success": false` and put the explanation in `reply.body`.
+
 The message ID argument is: $ARGUMENTS
 
 Follow these steps:
