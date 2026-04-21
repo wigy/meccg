@@ -1,9 +1,19 @@
 /**
  * @module td-175.test
  *
- * Card test: Framsburg (td-175)
- * Type: hero-site (ruins-and-lairs) in Anduin Vales
- * Effects: 0 (special rule defers to an unimplemented engine mechanic)
+ * Card test: Framsburg (td-175) — NOT CERTIFIED.
+ *
+ * Framsburg's printed auto-attack ("When a company enters this site,
+ * opponent may play one creature from his hand that is treated in all
+ * ways as the site's automatic-attack, keyed to {R}/{S}/{w}/{s}") is a
+ * dynamic, player-authored auto-attack the engine does not yet support.
+ * Until that mechanic ships, the card is only partially playable and
+ * MUST NOT carry a `certified` date.
+ *
+ * This file covers only the engine features that DO work for Framsburg:
+ * item playability (minor, hoard-keyword gating) and haven/region
+ * movement. It is a regression guard for the partial state — it is not
+ * a certification.
  *
  * Text:
  *   Nearest Haven: Lórien.
@@ -15,39 +25,9 @@
  *     [{S}], single Wilderness [{w}], or Shadow-land [{s}].
  *   Special: Contains a hoard.
  *
- * Site Structural Checks:
- * | # | Property          | Status | Notes                                                       |
- * |---|-------------------|--------|-------------------------------------------------------------|
- * | 1 | siteType          | OK     | "ruins-and-lairs" — valid                                   |
- * | 2 | sitePath          | OK     | [wilderness, border] — matches {w}{b}                       |
- * | 3 | nearestHaven      | OK     | "Lórien" — valid haven in card pool                         |
- * | 4 | region            | OK     | "Anduin Vales" — valid region adjacent to Wold & Foothills  |
- * | 5 | playableResources | OK     | [minor] — matches card text                                 |
- * | 6 | automaticAttacks  | OK     | empty — dynamic auto-attack deferred (see special rule)     |
- * | 7 | resourceDraws     | OK     | 1                                                           |
- * | 8 | hazardDraws       | OK     | 2                                                           |
- * | 9 | keywords          | OK     | ["hoard"] — "Contains a hoard" / gates hoard items          |
- *
- * Engine Support:
- * | # | Feature                          | Status          | Notes                                                 |
- * |---|----------------------------------|-----------------|-------------------------------------------------------|
- * | 1 | Site phase flow                  | IMPLEMENTED     | select-company, enter-or-skip, play-resources         |
- * | 2 | Item playability (minor)         | IMPLEMENTED     | minor allowed; major/greater/gold-ring rejected       |
- * | 3 | Hoard keyword gating             | IMPLEMENTED     | site.keywords $includes "hoard" allows hoard items    |
- * | 4 | Haven path movement              | IMPLEMENTED     | movement-map.ts resolves nearestHaven ↔ Lórien        |
- * | 5 | Region movement                  | IMPLEMENTED     | Anduin Vales adjacent to Wold & Foothills → dist 2    |
- * | 6 | Card draws                       | IMPLEMENTED     | resourceDraws 1 / hazardDraws 2                       |
- * | 7 | Dynamic opponent-chosen          | NOT IMPLEMENTED | engine has no mechanic for the hazard player to       |
- * |   | auto-attack from hand            |                 | play a hand creature as the site's auto-attack with   |
- * |   |                                  |                 | the {R}/{S}/{w}/{s} keying filter. `automaticAttacks` |
- * |   |                                  |                 | is empty; company currently enters without a forced   |
- * |   |                                  |                 | attack. Revisit when the engine supports              |
- * |   |                                  |                 | player-authored auto-attacks from hand.               |
- *
- * Playable: YES — no DSL effects are required for the current engine.
- *   The dynamic auto-attack rule is deferred to a future engine feature.
- *
- * Certified: 2026-04-21
+ * Playable: PARTIALLY — dynamic opponent-chosen auto-attack from hand
+ *   is NOT IMPLEMENTED. Revisit when the engine supports player-authored
+ *   auto-attacks with a keying filter.
  */
 
 import { describe, test, expect, beforeEach } from 'vitest';
@@ -55,8 +35,8 @@ import {
   PLAYER_1, ARAGORN,
   DAGGER_OF_WESTERNESSE, GLAMDRING, THE_MITHRIL_COAT, PRECIOUS_GOLD_RING,
   resetMint, pool,
-  buildSitePhaseState, setupAutoAttackStep,
-  viableActions, dispatch,
+  buildSitePhaseState,
+  viableActions,
 } from '../test-helpers.js';
 import {
   LORIEN, RIVENDELL,
@@ -133,18 +113,10 @@ describe('Framsburg (td-175)', () => {
     expect(passActions).toHaveLength(1);
   });
 
-  // ─── Automatic attacks ──────────────────────────────────────────────────────
-
-  test('no fixed automatic attack fires at Framsburg (dynamic auto-attack unimplemented)', () => {
-    const state = buildSitePhaseState({
-      site: FRAMSBURG,
-      characters: [ARAGORN],
-    });
-    const readyState = setupAutoAttackStep(state);
-
-    const next = dispatch(readyState, { type: 'pass', player: PLAYER_1 });
-    expect(next.combat).toBeNull();
-  });
+  // Automatic attacks — the card's actual auto-attack rule (opponent plays
+  // a creature from hand as the site's auto-attack) is not implemented by
+  // the engine, so it is NOT tested here. This is why the card is not
+  // certified.
 
   // ─── Movement: Lórien → Framsburg ───────────────────────────────────────────
 
