@@ -409,9 +409,25 @@
           "type": "discard-named-card-from-company",
           "cardName": "The One Ring"
         }
+      },
+      {
+        "type": "cancel-attack",
+        "cost": { "tap": "self" },
+        "when": {
+          "$and": [
+            { "bearer.companySize": { "$lt": 3 } },
+            {
+              "$or": [
+                { "attack.keying": "wilderness" },
+                { "attack.keying": "shadow" }
+              ]
+            }
+          ]
+        }
       }
     ],
-    "text": "Unique. Playable at Goblin-gate or Moria. Manifestation of Gollum and My Precious. If his company's size is less than three, tap Stinker to cancel one attack against his company keyed to Wilderness [{w}] or Shadow-land [{s}]. You may tap Stinker if he is at the same non-Darkhaven site as The One Ring; then both Stinker and The One Ring are discarded."
+    "text": "Unique. Playable at Goblin-gate or Moria. Manifestation of Gollum and My Precious. If his company's size is less than three, tap Stinker to cancel one attack against his company keyed to Wilderness [{w}] or Shadow-land [{s}]. You may tap Stinker if he is at the same non-Darkhaven site as The One Ring; then both Stinker and The One Ring are discarded.",
+    "certified": "2026-04-21"
   },
   {
     "cardType": "minion-resource-event",

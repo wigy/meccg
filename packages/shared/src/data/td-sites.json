@@ -65,6 +65,7 @@
     "resourceDraws": 3,
     "hazardDraws": 3,
     "text": "Nearest Haven: Lórien Playable: Items (minor, major, greater, gold ring) Automatic-attacks: Dragon — 1 strike with 15 prowess",
+    "certified": "2026-04-21",
     "lairOf": "td-36",
     "keywords": [
       "hoard"
@@ -99,6 +100,7 @@
     "resourceDraws": 2,
     "hazardDraws": 2,
     "text": "Nearest Haven: Lórien Playable: Items (minor, major, gold ring) Automatic-attacks: Dragon — 1 strike with 14 prowess",
+    "certified": "2026-04-21",
     "lairOf": "td-60",
     "keywords": [
       "hoard"
@@ -135,7 +137,8 @@
     "lairOf": "td-3",
     "keywords": [
       "hoard"
-    ]
+    ],
+    "certified": "2026-04-21"
   },
   {
     "cardType": "hero-site",
@@ -164,6 +167,7 @@
     "resourceDraws": 2,
     "hazardDraws": 3,
     "text": "Nearest Haven: Rivendell Playable: Items (minor, major) Automatic-attacks: Dragon — 1 strike with 11 prowess",
+    "certified": "2026-04-21",
     "lairOf": "td-63",
     "keywords": [
       "hoard"

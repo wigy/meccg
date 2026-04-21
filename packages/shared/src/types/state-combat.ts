@@ -10,6 +10,7 @@ import {
   PlayerId,
   CardInstanceId,
   CompanyId,
+  RegionType,
 } from './common.js';
 import type { CardInstance, ItemInPlay } from './state-cards.js';
 import type { CardEffect } from './effects.js';
@@ -111,6 +112,13 @@ export interface CombatState {
   readonly creatureBody: number | null;
   /** The lowercase singular race of the attacking creature (e.g. "orc", "wolf"). Used to evaluate combat-conditional weapon effects like Glamdring's "max 9 against Orcs". */
   readonly creatureRace?: string;
+  /**
+   * The region types this attack is keyed to, flattened from the creature's
+   * `keyedTo` restrictions. Used to evaluate cancel-attack conditions like
+   * Stinker's "keyed to Wilderness or Shadow-land". Only populated for
+   * creature hazards; automatic attacks leave this empty.
+   */
+  readonly attackKeying?: readonly RegionType[];
   /** The assignment of each strike to a defending character, with resolution status. */
   readonly strikeAssignments: readonly StrikeAssignment[];
   /** Index into strikeAssignments for the strike currently being resolved. */
