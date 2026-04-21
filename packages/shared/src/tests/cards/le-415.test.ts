@@ -68,9 +68,7 @@ const LAGDUF = 'le-18' as CardDefinitionId;
 const SAW_TOOTHED_BLADE = 'le-342' as CardDefinitionId;     // minor minion item
 const LIEUTENANT_OF_MORGUL = 'le-22' as CardDefinitionId;
 
-const basePlayResourcesPhaseState = (
-  state: GameState,
-): SitePhaseState => ({
+const basePlayResourcesPhaseState = (): SitePhaseState => ({
   phase: Phase.Site,
   step: 'play-resources',
   activeCompanyIndex: 0,
@@ -107,7 +105,7 @@ function setupPlayResourcesAt(site: CardDefinitionId): GameState {
       },
     ],
   });
-  return { ...base, phaseState: basePlayResourcesPhaseState(base) };
+  return { ...base, phaseState: basePlayResourcesPhaseState() };
 }
 
 describe('The Worthy Hills (le-415)', () => {
@@ -234,7 +232,7 @@ describe('The Worthy Hills (le-415)', () => {
         },
       ],
     });
-    const state = { ...base, phaseState: basePlayResourcesPhaseState(base) };
+    const state = { ...base, phaseState: basePlayResourcesPhaseState() };
 
     const companyId = companyIdAt(state, RESOURCE_PLAYER);
     const firstCharId = charIdAt(state, RESOURCE_PLAYER, 0, 0);
