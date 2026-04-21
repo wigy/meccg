@@ -242,8 +242,20 @@
     "marshallingCategory": "character",
     "corruptionModifier": 0,
     "homesite": "Urlurtsu Nurn",
-    "effects": [],
-    "text": "Unique. Manifestation of Adûnaphel. Can use spirit-magic. +2 direct influence in Heralded Lord mode. -2 prowess in Fell Rider mode. As your Ringwraith, if at a Darkhaven, she may tap to cancel one hazard creature attack not played at a site against any one of your companies."
+    "effects": [
+      {
+        "type": "cancel-attack",
+        "cost": { "tap": "self" },
+        "when": {
+          "$and": [
+            { "bearer.atHaven": true },
+            { "attack.source": "creature" }
+          ]
+        }
+      }
+    ],
+    "text": "Unique. Manifestation of Adûnaphel. Can use spirit-magic. +2 direct influence in Heralded Lord mode. -2 prowess in Fell Rider mode. As your Ringwraith, if at a Darkhaven, she may tap to cancel one hazard creature attack not played at a site against any one of your companies.",
+    "certified": "2026-04-21"
   },
   {
     "cardType": "minion-character",

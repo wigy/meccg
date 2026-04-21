@@ -16,7 +16,7 @@ import type { GameState, PlayerId, EvaluatedAction, CombatState, CardInstanceId 
 import type { CancelAttackEffect, DodgeStrikeEffect, HalveStrikesEffect } from '../../types/effects.js';
 import type { AllyInPlay } from '../../types/state-cards.js';
 import type { PlayerState } from '../../types/state-player.js';
-import { CardStatus, isCharacterCard, isAllyCard, matchesCondition } from '../../index.js';
+import { CardStatus, isCharacterCard, isAllyCard, isSiteCard, matchesCondition, SiteType } from '../../index.js';
 import { logHeading, logDetail } from './log.js';
 import { computeCombatProwess } from '../recompute-derived.js';
 
@@ -543,17 +543,60 @@ function cancelAttackActions(
 
   const actions: EvaluatedAction[] = [];
 
+  // Resolve the defending company's site type so cancel-attack `when` clauses
+  // can gate on `bearer.atHaven` (used by cards like Adûnaphel the Ringwraith,
+  // which may tap to cancel only when at a Darkhaven).
+  const siteDef = company.currentSite ? state.cardPool[company.currentSite.definitionId] : undefined;
+  const siteType = siteDef && isSiteCard(siteDef) ? siteDef.siteType : null;
+  const atHaven = siteType === SiteType.Haven;
+
   const whenContext = (): Record<string, unknown> => {
     const ctx: Record<string, unknown> = {};
     if (combat.creatureRace) {
       ctx['enemy'] = { race: combat.creatureRace };
     }
+    // Always expose `attack.source` (the AttackSource discriminator) so
+    // cards can distinguish M/H creatures from on-guard reveals and site
+    // automatic attacks. `attack.keying` is additive when present.
+    const attackCtx: Record<string, unknown> = { source: combat.attackSource.type };
     if (combat.attackKeying && combat.attackKeying.length > 0) {
-      ctx['attack'] = { keying: combat.attackKeying };
+      attackCtx['keying'] = combat.attackKeying;
     }
-    ctx['bearer'] = { companySize: company.characters.length };
+    ctx['attack'] = attackCtx;
+    ctx['bearer'] = { companySize: company.characters.length, atHaven };
     return ctx;
   };
+
+  // In-play characters in the defending company with a cancel-attack effect
+  // and a "tap self" cost (e.g. Adûnaphel the Ringwraith's Darkhaven tap).
+  for (const charId of company.characters) {
+    const charData = player.characters[charId as string];
+    if (!charData) continue;
+    const charDef = state.cardPool[charData.definitionId as string];
+    if (!charDef || !('effects' in charDef) || !charDef.effects) continue;
+    const cancelEffect = charDef.effects.find(
+      (e): e is CancelAttackEffect => e.type === 'cancel-attack',
+    );
+    if (!cancelEffect) continue;
+    if (cancelEffect.cost?.tap !== 'self') continue;
+    if (charData.status !== CardStatus.Untapped) {
+      logDetail(`Cancel-attack ${charDef.name ?? charData.definitionId as string}: character tapped, cannot activate`);
+      continue;
+    }
+    if (cancelEffect.when && !matchesCondition(cancelEffect.when, whenContext())) {
+      logDetail(`Cancel-attack ${charDef.name ?? charData.definitionId as string}: when condition not met (attack source: ${combat.attackSource.type}, atHaven: ${atHaven})`);
+      continue;
+    }
+    logDetail(`Cancel-attack available: tap ${charDef.name ?? charData.definitionId as string} (in-play character)`);
+    actions.push({
+      action: {
+        type: 'cancel-attack',
+        player: playerId,
+        cardInstanceId: charId,
+      },
+      viable: true,
+    });
+  }
 
   // In-play allies in the defending company with a cancel-attack effect
   // and a "tap self" cost (e.g. The Warg-king).
