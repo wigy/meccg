@@ -15,7 +15,7 @@ import { buildInPlayNames } from '../recompute-derived.js';
 import { MovementType } from '../../types/common.js';
 import { logDetail, logHeading } from './log.js';
 import { playPermanentEventActions, playShortEventActions } from './organization-events.js';
-import { grantedActionActivations, ANY_PHASE_GRANT_ACTIONS } from './organization.js';
+import { grantedActionActivations, ANY_PHASE_ONLY } from './organization.js';
 import { heroResourceShortEventActions } from './long-event.js';
 import { emitGrantedActionConstraintActions } from './granted-action-constraints.js';
 import { currentHazardLimit } from '../reducer-movement-hazard.js';
@@ -893,7 +893,7 @@ function playHazardsActions(
         },
       }));
     }
-    actions.push(...grantedActionActivations(state, playerId, ANY_PHASE_GRANT_ACTIONS));
+    actions.push(...grantedActionActivations(state, playerId, ANY_PHASE_ONLY));
   }
 
   // Player who already passed gets no actions (waiting for opponent)

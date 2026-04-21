@@ -175,7 +175,10 @@ export function handleLongEvent(state: GameState, action: GameAction): ReducerRe
   if (action.type === 'play-short-event') {
     return handlePlayResourceShortEvent(state, action);
   }
-  if (action.type === 'activate-granted-action' && action.actionId === 'untap-bearer') {
+  // Rule 2.1.1: any-phase grant-actions (Cram, Orc-draughts). The
+  // legal-action emitter filters to `anyPhase: true` effects during
+  // long-event phase, so we delegate unconditionally.
+  if (action.type === 'activate-granted-action') {
     return handleGrantActionApply(state, action);
   }
   if (action.type === 'pass') {

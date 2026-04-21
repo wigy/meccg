@@ -15,7 +15,7 @@ import { resolveInstanceId } from '../../types/state.js';
 import { collectCharacterEffects, collectCompanyAllyEffects, resolveCheckModifier, resolveStatModifiers, normalizeCreatureRace } from '../effects/index.js';
 import type { ResolverContext } from '../effects/index.js';
 import { logDetail, logHeading } from './log.js';
-import { availableDI, grantedActionActivations, ANY_PHASE_GRANT_ACTIONS, playResourceShortEventActions } from './organization.js';
+import { availableDI, grantedActionActivations, ANY_PHASE_ONLY, playResourceShortEventActions } from './organization.js';
 import { getActiveAutoAttacks } from '../manifestations.js';
 import { buildControllerInPlayNames, buildFactionPlayableAt } from '../recompute-derived.js';
 
@@ -933,7 +933,7 @@ function playResourcesActions(
   }
 
   // Rule 2.1.1: resource player may activate any-phase grant-actions (e.g. Cram untap-bearer)
-  actions.push(...grantedActionActivations(state, playerId, ANY_PHASE_GRANT_ACTIONS));
+  actions.push(...grantedActionActivations(state, playerId, ANY_PHASE_ONLY));
 
   // Opponent influence attempts (rule 10.10)
   const oppInfluence = opponentInfluenceActions(state, playerId, siteState, company, player, untappedCharacters);
