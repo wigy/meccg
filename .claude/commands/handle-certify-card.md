@@ -4,6 +4,21 @@ The card ID argument is: $ARGUMENTS
 
 If no card ID is given, stop and ask for one (e.g. `/certify-card tw-156`).
 
+## Core principle — read before every certification
+
+**NEVER mark a card `certified` unless it is FULLY playable.** "Fully" means every sentence of the card's printed text is implemented in the engine AND exercised by the card test with real assertions. Partial certification does not exist.
+
+If **any** of the following are true, the card MUST NOT receive a `certified` date — land the partial work (data fixes, test scaffolding) under a PR description that explicitly says "NOT CERTIFIED", and stop:
+
+- A rule on the card text is not implemented in the engine.
+- A rule is "documented as deferred", "stubbed", "TODO", or "will be implemented later".
+- An effect in the `effects` array maps to a NOT-IMPLEMENTED or type-only entry in step 4.
+- For a site: the card text describes a special rule (auto-attack variant, playability override, hazard-limit tweak, hoard gate, etc.) that is not captured in `effects` AND not handled by existing engine code.
+- The test uses `test.todo()` for any rule, or skips a rule the card text describes.
+- You are tempted to write in the commit message that some mechanic is "deferred / not yet supported / engine-wide work".
+
+When in doubt: **do not certify**. A false-certified card poisons the certification signal for every other card. An uncertified card with a good partial test is always recoverable later.
+
 Follow these steps:
 
 1. **Load the card:** Read the card definition from the appropriate data file in `packages/shared/src/data/`. The card ID prefix indicates the set (tw-, le-, as-, wh-, ba-). If the card is not found, report it and stop.
@@ -62,11 +77,11 @@ Follow these steps:
    Playable: YES / PARTIALLY / NO
    ```
 
-   - **YES** — all effects are fully implemented
-   - **PARTIALLY** — some effects work, some don't (card is playable but some abilities won't function)
-   - **NO** — core effects (like play-restriction) are missing, card cannot work correctly
+   - **YES** — every effect is fully implemented AND every rule in the card's text is captured by an effect (or by structural engine support for sites). No deferred/stubbed pieces anywhere.
+   - **PARTIALLY** — some effects work, some don't, OR the card text describes rules not represented in the `effects` array / not covered by engine support. The card cannot be certified.
+   - **NO** — core effects (like play-restriction) are missing, card cannot work correctly. The card cannot be certified.
 
-   For partially/no cases, explain specifically what won't work and what would need to be implemented.
+   For partially/no cases, explain specifically what won't work and what would need to be implemented. **Only YES is eligible for certification in step 13.** If you are about to classify something as YES but also write "the X rule is deferred" or "engine doesn't support Y yet" anywhere in your report/commit — the correct classification is PARTIALLY, not YES.
 
 8. **If the card is a site** (hero-site, minion-site, fallen-wizard-site, balrog-site), check site-specific properties:
 
@@ -110,7 +125,15 @@ Follow these steps:
 
     **Lint and nightly (`npm run lint`, `npm run test:nightly`) are NOT blocking for PR creation.** They run as CI checks on the branch. If you want to verify them locally, run them **after** step 14 (once the branch is pushed) and push any fix commits directly to the branch.
 
-13. **Certify on success:** If the result is **YES** (all effects fully implemented, or no effects) AND a complete card test exists with no `test.todo()` gaps, set the `certified` field on the card definition in its data JSON file to today's date (ISO 8601 format, e.g. `"2026-03-28"`). This records when the card was last verified as engine-compatible and fully tested. If the card was already certified, update the date. If the result is PARTIALLY or NO, or tests are incomplete, remove any existing `certified` field.
+13. **Certify on success — strict gate:** Before writing `"certified": "<date>"` on a card, ALL of the following must hold. If any one fails, **do not add the field** (and remove it if it was already present):
+
+    - Step 7 classification is **YES** (not PARTIALLY, not NO).
+    - Every rule in the card's `text` is represented either by an implemented effect in `effects[]` or by structural engine support (for sites: siteType, playableResources, haven paths, basic auto-attack list, etc.).
+    - For sites specifically: no "unimplemented special rule" was identified in step 8. Dynamic auto-attack variants (e.g. "opponent plays a creature from hand as this site's auto-attack"), playability overrides, or hazard/corruption tweaks that the engine does not handle are **disqualifying** — even if the rest of the site data is correct.
+    - The card test covers every rule in the text with real assertions. No `test.todo()`, no skipped rule, no "future work" comment substituting for coverage.
+    - Your commit message does not contain words like "deferred", "stubbed", "not yet supported", "engine-wide work needed", or similar about any card rule. If it does, you are certifying something you shouldn't.
+
+    If all five hold, set the `certified` field to today's date (ISO 8601 format, e.g. `"2026-03-28"`). If the card was already certified, update the date. Otherwise remove any existing `certified` field and make sure the PR title/body says the card is **NOT CERTIFIED** and names the missing mechanic.
 
 14. **Create branch and open PR:** ⚠️ **MANDATORY — do NOT commit to master.** All certification changes include test files, and CLAUDE.md requires all test changes to go through a PR. You MUST:
     - Create a branch named `certify-<cardId>-<card-slug>` (e.g. `certify-tw-243-gates-of-morning`)
