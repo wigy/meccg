@@ -9,7 +9,7 @@
 import type { GameState, PlayerState, CardInstanceId, CompanyId, CharacterInPlay, CardInstance, SitePhaseState, CombatState, OnGuardCard, GameAction, GameEffect } from '../index.js';
 import { Phase, CardStatus, isCharacterCard, isItemCard, isAllyCard, isFactionCard, isSiteCard, getPlayerIndex, GENERAL_INFLUENCE, Race } from '../index.js';
 import { logDetail } from './legal-actions/log.js';
-import { collectCharacterEffects, resolveCheckModifier, resolveStatModifiers, resolveAttackProwess, resolveAttackStrikes, normalizeCreatureRace } from './effects/index.js';
+import { collectCharacterEffects, collectCompanyAllyEffects, resolveCheckModifier, resolveStatModifiers, resolveAttackProwess, resolveAttackStrikes, normalizeCreatureRace } from './effects/index.js';
 import type { ResolverContext } from './effects/index.js';
 import { matchesCondition } from '../effects/index.js';
 import { initiateChain } from './chain-reducer.js';
@@ -896,6 +896,7 @@ export function resolveInfluenceAttemptRoll(
     };
 
     const charEffects = collectCharacterEffects(state, charInPlay, resolverCtx);
+    charEffects.push(...collectCompanyAllyEffects(state, charInPlay, resolverCtx));
 
     if (def.effects) {
       for (const effect of def.effects) {

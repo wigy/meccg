@@ -12,7 +12,7 @@
 import type { GameState, PlayerId, GameAction, EvaluatedAction, SitePhaseState, HeroItemCard, HeroResourceEventCard, SiteCard, PlayableAtEntry, FactionCard, DenyItemSiteRule, ItemPlaySiteEffect } from '../../index.js';
 import { getPlayerIndex, isSiteCard, isItemCard, isAllyCard, isFactionCard, isCharacterCard, isAvatarCharacter, CardStatus, matchesCondition, GENERAL_INFLUENCE } from '../../index.js';
 import { resolveInstanceId } from '../../types/state.js';
-import { collectCharacterEffects, resolveCheckModifier, resolveStatModifiers } from '../effects/index.js';
+import { collectCharacterEffects, collectCompanyAllyEffects, resolveCheckModifier, resolveStatModifiers, normalizeCreatureRace } from '../effects/index.js';
 import type { ResolverContext } from '../effects/index.js';
 import { logDetail, logHeading } from './log.js';
 import { availableDI, grantedActionActivations, ANY_PHASE_GRANT_ACTIONS, playResourceShortEventActions } from './organization.js';
@@ -21,14 +21,28 @@ import { buildControllerInPlayNames, buildFactionPlayableAt } from '../recompute
 
 /**
  * Check whether a site satisfies a {@link PlayableAtEntry}.
- * Matches by exact site name (`site`) or by site type (`siteType`).
- * The optional `when` condition is not yet evaluated (future work).
+ * Matches by exact site name (`site`) or by site type (`siteType`),
+ * plus an optional `when` condition evaluated against a site context
+ * exposing `site.name`, `site.siteType`, and `site.autoAttack.race`
+ * (the array of normalized races across the site's automatic-attacks,
+ * e.g. `["wolf", "troll"]`). Enables DSL entries like
+ * `{ "siteType": "ruins-and-lairs", "when": { "site.autoAttack.race": "wolf" } }`.
  */
 function siteMatchesEntry(siteDef: SiteCard, entry: PlayableAtEntry): boolean {
-  if ('site' in entry) {
-    return siteDef.name === entry.site;
-  }
-  return siteDef.siteType === entry.siteType;
+  const baseMatches = 'site' in entry
+    ? siteDef.name === entry.site
+    : siteDef.siteType === entry.siteType;
+  if (!baseMatches) return false;
+  if (!entry.when) return true;
+  const autoAttackRaces = siteDef.automaticAttacks.map(a => normalizeCreatureRace(a.creatureType));
+  const ctx: Record<string, unknown> = {
+    site: {
+      name: siteDef.name,
+      siteType: siteDef.siteType,
+      autoAttack: { race: autoAttackRaces },
+    },
+  };
+  return matchesCondition(entry.when, ctx);
 }
 
 /** Wrap plain GameActions as viable EvaluatedActions. */
@@ -853,6 +867,7 @@ function playResourcesActions(
             controller: { inPlay: buildControllerInPlayNames(state, playerId) },
           };
           const charEffects = collectCharacterEffects(state, ch, resolverCtx);
+          charEffects.push(...collectCompanyAllyEffects(state, ch, resolverCtx));
           if (factionDef.effects) {
             for (const effect of factionDef.effects) {
               if (effect.when && !matchesCondition(effect.when, resolverCtx as unknown as Record<string, unknown>)) continue;

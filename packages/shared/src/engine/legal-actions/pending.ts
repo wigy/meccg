@@ -30,7 +30,7 @@ import type {
 import { isCharacterCard, isAllyCard, isFactionCard, Phase, CardStatus, matchesCondition, GENERAL_INFLUENCE } from '../../index.js';
 import type { PlayOptionEffect, PlayTargetEffect, CardEffect } from '../../types/effects.js';
 import { resolveInstanceId } from '../../types/state.js';
-import { resolveDef, collectCharacterEffects, resolveCheckModifier, resolveStatModifiers } from '../effects/index.js';
+import { resolveDef, collectCharacterEffects, collectCompanyAllyEffects, resolveCheckModifier, resolveStatModifiers } from '../effects/index.js';
 import type { ResolverContext, CollectedEffect } from '../effects/index.js';
 import { buildPlayOptionContext } from './organization.js';
 import { buildControllerInPlayNames, buildFactionPlayableAt } from '../recompute-derived.js';
@@ -327,6 +327,7 @@ function factionInfluenceRollActions(
     };
 
     const charEffects = collectCharacterEffects(state, charInPlay, resolverCtx);
+    charEffects.push(...collectCompanyAllyEffects(state, charInPlay, resolverCtx));
 
     if (def.effects) {
       for (const effect of def.effects) {

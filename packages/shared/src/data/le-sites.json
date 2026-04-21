@@ -578,6 +578,35 @@
   {
     "cardType": "minion-site",
     "alignment": "ringwraith",
+    "id": "le-388",
+    "name": "Lossadan Cairn",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/LossadanCairn.jpg",
+    "siteType": "ruins-and-lairs",
+    "sitePath": [
+      "shadow",
+      "wilderness"
+    ],
+    "nearestHaven": "Carn Dûm",
+    "region": "Forochel",
+    "playableResources": [
+      "minor",
+      "major",
+      "greater"
+    ],
+    "automaticAttacks": [
+      {
+        "creatureType": "Undead",
+        "strikes": 2,
+        "prowess": 8
+      }
+    ],
+    "resourceDraws": 1,
+    "hazardDraws": 1,
+    "text": "Nearest Darkhaven: Carn Dûm Playable: Items (minor, major, greater*) *—Palantíri only Automatic-attacks: Undead — 2 strikes with 8 prowess; each character wounded must make a corruption check modified by -2"
+  },
+  {
+    "cardType": "minion-site",
+    "alignment": "ringwraith",
     "id": "le-387",
     "name": "The Lonely Mountain",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/TheLonelyMountain.jpg",
