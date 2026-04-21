@@ -46,6 +46,7 @@ SECRETS="$HOME/.meccg/secrets.json"
 PLAYERS_DIR="$HOME/.meccg/players"
 AI_INFO="$PLAYERS_DIR/ai/info.json"
 BASE_URL="${MECCG_LOBBY_URL:-http://localhost:8080}"
+BASE_URL="${BASE_URL%/}"
 COMMANDS_DIR="$PROJECT_DIR/.claude/commands"
 
 # ---------------------------------------------------------------------------

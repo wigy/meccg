@@ -25,6 +25,7 @@ LOG_DIR="$HOME/.meccg/logs"
 LOG_FILE="$LOG_DIR/ai.log"
 SECRETS="$HOME/.meccg/secrets.json"
 BASE_URL="${MECCG_LOBBY_URL:-http://localhost:8080}"
+BASE_URL="${BASE_URL%/}"
 
 mkdir -p "$LOG_DIR"
 
