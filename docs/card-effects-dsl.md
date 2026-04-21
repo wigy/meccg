@@ -596,6 +596,23 @@ Rules:
   { "type": "site-rule", "rule": "auto-test-gold-ring", "rollModifier": -2 }
   ```
 
+- `attacks-not-detainment` — forces attacks against a company at this
+  site to be resolved as normal attacks rather than detainment,
+  overriding the default CoE §3.II.2 R1/R2/R3 and B1/B2/B3 rules and
+  any keying-based detainment. The optional `filter` is a standard DSL
+  condition evaluated against `{ enemy: { race } }`; the override only
+  applies when the attacking creature matches. A missing filter applies
+  the override to every attack at the site. Consumed by
+  `engine/detainment.ts` (both hazard-creature and automatic-attack call
+  sites). Used by *Moria* (le-392) and its twin shadow-holds whose text
+  reads "non-Nazgûl creatures played at this site attack normally, not
+  as detainment."
+
+  ```json
+  { "type": "site-rule", "rule": "attacks-not-detainment",
+    "filter": { "enemy.race": { "$ne": "nazgul" } } }
+  ```
+
 ### 20. `item-play-site`
 
 Restricts an item to be playable only where the company's current site

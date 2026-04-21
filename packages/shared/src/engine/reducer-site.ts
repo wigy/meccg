@@ -354,6 +354,7 @@ function handleSiteAutomaticAttacks(
         attackEffects: siteDef.effects,
         attackRace: creatureRace2 as Race | null,
         defendingAlignment: state.players[activePlayerIndex].alignment,
+        defendingSiteEffects: siteDef.effects,
       });
       const dupCombat: CombatState = {
         attackSource: { type: 'automatic-attack', siteInstanceId: company.currentSite!.instanceId, attackIndex: attackIndex },
@@ -440,6 +441,7 @@ function handleSiteAutomaticAttacks(
       attackEffects: siteDef.effects,
       attackRace: creatureRace as Race | null,
       defendingAlignment: state.players[activePlayerIndex].alignment,
+      defendingSiteEffects: siteDef.effects,
     }),
   };
 
