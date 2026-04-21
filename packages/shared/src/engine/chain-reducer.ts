@@ -456,6 +456,16 @@ function applyShortEventArrivalTrigger(state: GameState, entry: ChainEntry): Gam
   const targetCompany = state.players[activeIndex].companies[companyIndex];
   if (!targetCompany) return state;
 
+  // "company-arrives-at-site" triggers fire only when a company is
+  // actually moving. A non-moving company (no declared destination)
+  // never "arrives" at its current site for rules purposes, so cards
+  // like River — "A company moving to this site this turn must do
+  // nothing…" — have no target and fizzle.
+  if (!targetCompany.destinationSite) {
+    logDetail(`Short-event "${def.name}" on-event company-arrives-at-site skipped — active company is not moving`);
+    return state;
+  }
+
   // Build the context for `when` condition evaluation so each mode can
   // gate on destination site-type / region / environment (Doors of Night).
   const ctx = buildArrivalContext(state);
