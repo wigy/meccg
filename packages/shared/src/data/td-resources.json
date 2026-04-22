@@ -210,9 +210,31 @@
     "unique": true,
     "marshallingPoints": 2,
     "marshallingCategory": "faction",
-    "influenceNumber": 0,
+    "influenceNumber": 8,
     "race": "man",
-    "playableAt": []
+    "playableAt": [
+      {
+        "site": "Dale"
+      }
+    ],
+    "effects": [
+      {
+        "type": "check-modifier",
+        "check": "influence",
+        "value": 2,
+        "when": {
+          "bearer.race": "man"
+        }
+      },
+      {
+        "type": "check-modifier",
+        "check": "influence",
+        "value": 1,
+        "when": {
+          "bearer.race": "dwarf"
+        }
+      }
+    ]
   },
   {
     "cardType": "hero-resource-event",
