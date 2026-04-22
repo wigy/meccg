@@ -47,9 +47,22 @@
     "body": null,
     "killMarshallingPoints": 1,
     "race": "drake",
-    "keyedTo": [],
+    "keyedTo": [
+      {
+        "regionNames": [
+          "Númeriador",
+          "Forochel",
+          "Angmar",
+          "Gundabad",
+          "Grey Mountain Narrows",
+          "Withered Heath",
+          "Iron Hills"
+        ]
+      }
+    ],
     "effects": [],
-    "text": "Drake. Two strikes. May be played keyed to Númeriador, Forochel, Angmar, Gundabad, Grey Mountain Narrows, Withered Heath, and Iron Hills."
+    "text": "Drake. Two strikes. May be played keyed to Númeriador, Forochel, Angmar, Gundabad, Grey Mountain Narrows, Withered Heath, and Iron Hills.",
+    "certified": "2026-04-22"
   },
   {
     "cardType": "hazard-creature",
