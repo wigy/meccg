@@ -549,6 +549,52 @@ function resolveStrikeActions(
     }
   }
 
+  // Cancel-strike: scan items attached to the struck character for cancel-strike
+  // effects with `cost: { tap: "self" }` and `target` absent or "self" (item
+  // taps to protect its bearer — e.g. Enruned Shield's Warrior-only tap).
+  if (charData && charDef && isCharacterCard(charDef)) {
+    const bearerSkills = charDef.skills ?? [];
+    const bearerRace = charDef.race;
+    const bearerName = charDef.name;
+    for (const item of charData.items) {
+      if (item.status !== CardStatus.Untapped) continue;
+      const itemDef = state.cardPool[item.definitionId as string];
+      if (!itemDef || !('effects' in itemDef) || !itemDef.effects) continue;
+
+      for (const eff of itemDef.effects) {
+        if (eff.type !== 'cancel-strike') continue;
+        const csEff = eff;
+        if (csEff.cost?.tap !== 'self') continue;
+        if (csEff.target && csEff.target !== 'self') continue;
+
+        const itemName = 'name' in itemDef ? (itemDef as { name: string }).name : (item.definitionId as string);
+
+        // Evaluate `when` against a context carrying bearer + enemy facts.
+        if (csEff.when) {
+          const ctx: Record<string, unknown> = {
+            bearer: { skills: bearerSkills, race: bearerRace, name: bearerName },
+          };
+          if (combat.creatureRace) ctx.enemy = { race: combat.creatureRace };
+          if (!matchesCondition(csEff.when, ctx)) {
+            logDetail(`Cancel-strike ${itemName}: when condition not met for bearer ${bearerName}`);
+            continue;
+          }
+        }
+
+        logDetail(`Cancel-strike available: ${itemName} can tap to cancel strike against ${charName}`);
+        actions.push({
+          action: {
+            type: 'cancel-strike',
+            player: playerId,
+            cancellerInstanceId: item.instanceId,
+            targetCharacterId: currentStrike.characterId,
+          },
+          viable: true,
+        });
+      }
+    }
+  }
+
   return actions;
 }
 

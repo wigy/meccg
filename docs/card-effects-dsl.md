@@ -517,6 +517,13 @@ taps to cancel a strike against another character in the same company
 (e.g. Fatty Bolger). A `filter` condition selects which characters
 qualify as valid protection targets.
 
+The effect may be declared on an item attached to a character with
+`cost: { "tap": "self" }`. Tapping the item cancels a strike against
+its bearer; the `when` clause is evaluated against a context exposing
+`bearer.skills`, `bearer.race`, `bearer.name`, and `enemy.race`, so
+cards can gate the ability on the bearer's skill or race (e.g. Enruned
+Shield — Warrior only). The item must be untapped when activated.
+
 ```json
 { "type": "cancel-strike",
   "cost": { "check": "corruption", "modifier": -2 },
@@ -527,6 +534,9 @@ qualify as valid protection targets.
   "cost": { "tap": "self" },
   "target": "other-in-company",
   "filter": { "target.race": "hobbit" } }
+{ "type": "cancel-strike",
+  "cost": { "tap": "self" },
+  "when": { "bearer.skills": { "$includes": "warrior" } } }
 ```
 
 ### 12. Combat-rule effects
