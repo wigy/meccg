@@ -436,10 +436,19 @@ function playHazardsActions(
           continue;
         }
         const matches = findCreatureKeyingMatches(def, mhState, state, targetCompany);
-        if (matches.length === 0) {
+        const keyingBypassed = hasCreatureKeyingBypass(state, targetCompany.id, def.race);
+        if (matches.length === 0 && !keyingBypassed) {
           const keyError = describeKeyingRequirement(def);
           logDetail(`Creature "${def.name}" not keyable: ${keyError}`);
           actions.push({ action, viable: false, reason: keyError });
+          continue;
+        }
+        if (matches.length === 0 && keyingBypassed) {
+          logDetail(`Creature "${def.name}" keyable via keying-bypass constraint (race "${def.race}")`);
+          actions.push({
+            action: { ...action, keyedBy: { method: 'keying-bypass', value: def.race } },
+            viable: true,
+          });
           continue;
         }
         for (const match of matches) {
@@ -551,26 +560,37 @@ function playHazardsActions(
             (e): e is PlayConditionEffect => e.type === 'play-condition',
           );
           if (playCondition && playCondition.requires === 'site-path') {
-            if (!checkSitePathCondition(mhState, playCondition)) {
+            if (!checkSitePathCondition(mhState, playCondition, state)) {
               logDetail(`Hazard short-event "${def.name}": site path condition not met`);
               actions.push({ action, viable: false, reason: 'Site path condition not met' });
               continue;
             }
           }
 
-          // Creature-race-choice: generate one action per eligible race
+          // Creature-race-choice: generate one action per eligible race.
+          // When the effect declares a `fixedRace`, emit a single action
+          // with that race instead of offering a choice (e.g. Dragon's
+          // Desolation — always Dragon).
           const raceChoice = def.effects.find(
             (e): e is CreatureRaceChoiceEffect => e.type === 'creature-race-choice',
           );
           if (raceChoice) {
-            const excludedRaces = new Set(raceChoice.exclude);
-            const eligibleRaces = Object.values(Race).filter(r => !excludedRaces.has(r));
-            for (const race of eligibleRaces) {
-              logDetail(`Hazard short-event "${def.name}": playable with creature race "${race}"`);
+            if (raceChoice.fixedRace) {
+              logDetail(`Hazard short-event "${def.name}": playable with fixed race "${raceChoice.fixedRace}"`);
               actions.push({
-                action: { ...action, chosenCreatureRace: race },
+                action: { ...action, chosenCreatureRace: raceChoice.fixedRace as Race },
                 viable: true,
               });
+            } else {
+              const excludedRaces = new Set(raceChoice.exclude);
+              const eligibleRaces = Object.values(Race).filter(r => !excludedRaces.has(r));
+              for (const race of eligibleRaces) {
+                logDetail(`Hazard short-event "${def.name}": playable with creature race "${race}"`);
+                actions.push({
+                  action: { ...action, chosenCreatureRace: race },
+                  viable: true,
+                });
+              }
             }
             continue;
           }
@@ -1173,13 +1193,42 @@ function isCreatureRaceExemptFromLimit(
 }
 
 /**
+ * Check whether a creature's race is whitelisted by an active
+ * `creature-keying-bypass` constraint on the target company with at
+ * least one remaining use. Used by Dragon's Desolation Mode B to allow
+ * a Dragon creature that would otherwise fail its path-keying check.
+ */
+function hasCreatureKeyingBypass(
+  state: GameState,
+  companyId: CompanyId,
+  race: string,
+): boolean {
+  if (!state.activeConstraints) return false;
+  return state.activeConstraints.some(
+    c => c.target.kind === 'company'
+      && c.target.companyId === companyId
+      && c.kind.type === 'creature-keying-bypass'
+      && c.kind.race === race
+      && c.kind.remainingPlays > 0,
+  );
+}
+
+/**
  * Evaluate a play-condition effect with `requires: 'site-path'` against
- * the current M/H phase state. Builds a context with region-type counts
- * from the resolved site path.
+ * the current M/H phase state. Builds a context with:
+ *
+ * - `sitePath.*Count` — region-type counts from the resolved site path.
+ * - `destinationSiteType` — the site type of the destination (e.g.
+ *   `ruins-and-lairs`), enabling cards like Dragon's Desolation Mode B
+ *   that gate on both path composition and destination site type.
+ * - `inPlay` — names of all cards currently in play for both players,
+ *   matching the shared `inPlay` condition semantics (e.g. Doors of
+ *   Night as an alt-keying modifier).
  */
 function checkSitePathCondition(
   mhState: MovementHazardPhaseState,
   effect: PlayConditionEffect,
+  state?: GameState,
 ): boolean {
   const counts: Record<string, number> = {
     wildernessCount: 0, shadowCount: 0, darkCount: 0,
@@ -1196,6 +1245,19 @@ function checkSitePathCondition(
     }
   }
   const ctx: Record<string, unknown> = { sitePath: counts };
+  if (mhState.destinationSiteType) {
+    ctx['destinationSiteType'] = mhState.destinationSiteType;
+  }
+  if (state) {
+    const inPlayNames: string[] = [];
+    for (const p of state.players) {
+      for (const c of p.cardsInPlay) {
+        const d = state.cardPool[c.definitionId as string];
+        if (d && 'name' in d) inPlayNames.push((d as { name: string }).name);
+      }
+    }
+    ctx['inPlay'] = inPlayNames;
+  }
   return effect.condition ? matchesCondition(effect.condition, ctx) : true;
 }
 

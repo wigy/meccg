@@ -729,6 +729,11 @@ function applyOneConstraint(
       return applyGrantedActionConstraint(state, playerId, base, constraint);
     case 'creature-type-no-hazard-limit':
       return base;
+    case 'creature-keying-bypass':
+      // Consulted directly by the M/H creature-play emitter
+      // (see `legal-actions/movement-hazard.ts` `hasCreatureKeyingBypass`)
+      // — no broad legal-action filtering needed here.
+      return base;
     case 'auto-attack-duplicate':
       return base;
     case 'hazard-limit-modifier':

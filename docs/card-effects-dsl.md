@@ -507,6 +507,39 @@ the bearer is not a Man.
 Implemented in `engine/legal-actions/combat.ts` (`modifyAttackActions`)
 and `engine/reducer-combat.ts` (`handleModifyAttack`).
 
+### 10d. `modify-attack-from-hand`
+
+Played from hand as a short event during combat before strikes are
+assigned; the card is discarded after use. Modifies the current attack's
+strike prowess and/or creature body uniformly — same math as
+`modify-attack`, but the source is a hand card rather than an in-play
+item.
+
+The `player` field selects which side plays the effect:
+
+- `"attacker"` — the hazard player plays during their attack's
+  pre-assignment window (e.g. Dragon's Desolation Mode A).
+- `"defender"` — the resource player plays during the same window.
+
+The `when` clause is evaluated against the standard combat context
+(`enemy.race`, `attack.source`, `attack.keying`, `inPlay`).
+
+```json
+{ "type": "modify-attack-from-hand",
+  "player": "attacker",
+  "prowessModifier": 2,
+  "when": { "enemy.race": "dragon" } }
+```
+
+Example: Dragon's Desolation (tw-29) Mode A — hazard short event; +2
+strike prowess to one Dragon attack. Per CRF the card is playable even
+against automatic-attacks and does not count against the hazard limit
+(use `play-flag: no-hazard-limit`).
+
+Implemented in `engine/legal-actions/combat.ts`
+(`modifyAttackFromHandActions`) and `engine/reducer-combat.ts`
+(`handleModifyAttackFromHand`).
+
 ### 11. `cancel-strike`
 
 Pay a cost to cancel an incoming strike, with optional exclusions.
@@ -939,8 +972,17 @@ the context source.
 Requires:
 
 - `site-path` — the company's resolved site path during M/H. The
-  condition is evaluated against
-  `{ sitePath: { wildernessCount, shadowCount, darkCount, coastalCount, freeCount, borderCount } }`.
+  condition is evaluated against a context exposing:
+  - `sitePath.*Count` — region-type counts from the resolved site path
+    (`wildernessCount`, `shadowCount`, `darkCount`, `coastalCount`,
+    `freeCount`, `borderCount`).
+  - `destinationSiteType` — the site type of the destination
+    (`ruins-and-lairs`, `shadow-hold`, etc.), enabling cards that gate
+    on both path composition and destination site type (e.g. Dragon's
+    Desolation tw-29 Mode B: R&L destination + 2W in path).
+  - `inPlay` — names of all cards currently in play, matching the
+    shared `inPlay` condition semantics (e.g. *Doors of Night* as an
+    alt-keying relaxation).
 
 ```json
 { "type": "play-condition", "requires": "site-path",
@@ -979,6 +1021,24 @@ emitter produces one `play-hazard` action per eligible race, each
 carrying the chosen race on `chosenCreatureRace`. The `apply` clause
 describes the constraint added for the chosen race.
 
+When `fixedRace` is present no choice is offered: a single action is
+emitted with that race and the apply resolves directly. Used by
+Dragon's Desolation (tw-29) Mode B — always Dragon.
+
+Supported `apply.constraint` values:
+
+- `creature-type-no-hazard-limit` — creatures of the chosen race played
+  against the target company do not count against the hazard limit for
+  the constraint's scope (e.g. Two or Three Tribes Present).
+- `creature-keying-bypass` — ONE creature of the chosen race may be
+  played on the target company ignoring its normal keying. The
+  constraint carries a `remainingPlays` counter (default 1); each
+  creature of that race played against this company consumes one
+  charge, and the constraint clears at zero. The M/H legal-action
+  emitter treats a matching bypass as an extra `keyedBy` method
+  (`keying-bypass`) when path-based keying fails (Dragon's Desolation
+  tw-29 Mode B).
+
 ```json
 { "type": "creature-race-choice",
   "exclude": ["nazgul", "undead", "dragon"],
@@ -989,8 +1049,21 @@ describes the constraint added for the chosen race.
   } }
 ```
 
-Implemented in `legal-actions/movement-hazard.ts` (action generation),
-`reducer-movement-hazard.ts` (constraint creation).
+```json
+{ "type": "creature-race-choice",
+  "exclude": [],
+  "fixedRace": "dragon",
+  "apply": {
+    "type": "add-constraint",
+    "constraint": "creature-keying-bypass",
+    "scope": "company-mh-phase"
+  } }
+```
+
+Implemented in `legal-actions/movement-hazard.ts` (action generation,
+`hasCreatureKeyingBypass`, keying-bypass fallthrough),
+`reducer-movement-hazard.ts` (constraint creation + consumption via
+`consumeCreatureKeyingBypass`).
 
 ### 25. `ahunt-attack`
 

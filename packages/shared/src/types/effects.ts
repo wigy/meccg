@@ -1085,6 +1085,32 @@ export interface ModifyAttackEffect extends EffectBase {
 }
 
 /**
+ * Played from hand as a short event during combat before strikes are
+ * assigned; the card is discarded after use. Modifies the current
+ * attack's strike prowess and/or creature body uniformly (same windows
+ * and math as {@link ModifyAttackEffect}, but the source is a hand card
+ * rather than an in-play item).
+ *
+ * The `player` field selects who may play the effect — `attacker`
+ * (hazard player) or `defender` (resource player). The `when` clause is
+ * evaluated against the standard combat context
+ * (`enemy.race`, `attack.source`, `attack.keying`, `inPlay`,
+ * `company.size`) and gates availability per the card text.
+ *
+ * Example: Dragon's Desolation (tw-29, Mode A) — hazard short event;
+ * attacker plays to give +2 prowess to one Dragon attack.
+ */
+export interface ModifyAttackFromHandEffect extends EffectBase {
+  readonly type: 'modify-attack-from-hand';
+  /** Which side plays the card from hand. */
+  readonly player: 'attacker' | 'defender';
+  /** Amount added to the attack's strike prowess. */
+  readonly prowessModifier?: number;
+  /** Amount added to the creature's body value for the creature body check. */
+  readonly bodyModifier?: number;
+}
+
+/**
  * Declares that an item can be stored at specific named sites during the
  * Organization phase. Storing moves the item from the character to the
  * player's stored-items pile, where it earns marshalling points safely.
@@ -1146,6 +1172,10 @@ export interface PlayConditionEffect extends EffectBase {
  * The `exclude` array lists races that may not be chosen. The `apply`
  * clause describes the constraint added for the chosen race.
  *
+ * When `fixedRace` is set, no choice is offered: the card plays with the
+ * given race and the apply resolves against that race directly. Used by
+ * Dragon's Desolation (tw-29) Mode B — the race is always Dragon.
+ *
  * Used by Two or Three Tribes Present: announce a creature type (except
  * Nazgûl, Undead, or Dragons) — creatures of that type bypass the hazard
  * limit for the target company.
@@ -1154,6 +1184,8 @@ export interface CreatureRaceChoiceEffect extends EffectBase {
   readonly type: 'creature-race-choice';
   /** Races the player may NOT choose. */
   readonly exclude: readonly string[];
+  /** Fixed race used when no choice is offered (e.g. Dragon's Desolation). */
+  readonly fixedRace?: string;
   /** Constraint applied with the chosen race. */
   readonly apply: {
     readonly type: 'add-constraint';
@@ -1322,6 +1354,7 @@ export type CardEffect =
   | ModifyStrikeEffect
   | RerollStrikeEffect
   | ModifyAttackEffect
+  | ModifyAttackFromHandEffect
   | HalveStrikesEffect
   | CombatAttackerChoosesDefendersEffect
   | CombatMultiAttackEffect

@@ -13,7 +13,7 @@
  */
 
 import type { GameState, PlayerId, EvaluatedAction, CombatState, CardInstanceId } from '../../index.js';
-import type { CancelAttackEffect, DodgeStrikeEffect, HalveStrikesEffect, ModifyAttackEffect, ModifyStrikeEffect, RerollStrikeEffect } from '../../types/effects.js';
+import type { CancelAttackEffect, DodgeStrikeEffect, HalveStrikesEffect, ModifyAttackEffect, ModifyAttackFromHandEffect, ModifyStrikeEffect, RerollStrikeEffect } from '../../types/effects.js';
 import type { AllyInPlay } from '../../types/state-cards.js';
 import type { PlayerState } from '../../types/state-player.js';
 import { CardStatus, isCharacterCard, isAllyCard, isSiteCard, matchesCondition, SiteType } from '../../index.js';
@@ -72,10 +72,12 @@ export function combatActions(state: GameState, playerId: PlayerId): EvaluatedAc
 
   // Cancel-attack, halve-strikes, and modify-attack actions are available to
   // the defending player before any strikes have been assigned (pre-assignment
-  // window).
+  // window). Modify-attack-from-hand supports either side per the card
+  // declaration (e.g. hazard-side Dragon's Desolation Mode A).
   const cancelActions = cancelAttackActions(state, playerId, combat);
   const halveActions = halveStrikesActions(state, playerId, combat);
   const modifyActions = modifyAttackActions(state, playerId, combat);
+  const modifyFromHandActions = modifyAttackFromHandActions(state, playerId, combat);
 
   switch (combat.phase) {
     case 'assign-strikes':
@@ -92,10 +94,11 @@ export function combatActions(state: GameState, playerId: PlayerId): EvaluatedAc
           ...cancelActions,
           ...halveActions,
           ...modifyActions,
+          ...modifyFromHandActions,
           { action: { type: 'pass' as const, player: playerId }, viable: true },
         ];
       }
-      return [...cancelActions, ...halveActions, ...modifyActions, ...assignStrikeActions(state, playerId, combat)];
+      return [...cancelActions, ...halveActions, ...modifyActions, ...modifyFromHandActions, ...assignStrikeActions(state, playerId, combat)];
     case 'choose-strike-order':
       return chooseStrikeOrderActions(state, playerId, combat);
     case 'resolve-strike':
@@ -964,6 +967,83 @@ function modifyAttackActions(
         viable: true,
       });
     }
+  }
+
+  return actions;
+}
+
+/**
+ * Generate modify-attack-from-hand actions for the player declared on
+ * the effect (attacker or defender). For each matching card in the
+ * player's hand whose `when` condition matches the combat context,
+ * generate one action to discard-and-apply.
+ *
+ * Used by Dragon's Desolation (tw-29) Mode A — hazard player discards
+ * the card from hand to add +2 prowess to one Dragon attack.
+ */
+function modifyAttackFromHandActions(
+  state: GameState,
+  playerId: PlayerId,
+  combat: CombatState,
+): EvaluatedAction[] {
+  if (combat.phase !== 'assign-strikes') return [];
+  if (combat.strikeAssignments.length > 0) return [];
+
+  const playerIndex = state.players.findIndex(p => p.id === playerId);
+  if (playerIndex < 0) return [];
+  const player = state.players[playerIndex];
+
+  const inPlayNames = [
+    ...state.players[0].cardsInPlay.map(c => {
+      const d = state.cardPool[c.definitionId as string];
+      return d && 'name' in d ? (d as { name: string }).name : '';
+    }),
+    ...state.players[1].cardsInPlay.map(c => {
+      const d = state.cardPool[c.definitionId as string];
+      return d && 'name' in d ? (d as { name: string }).name : '';
+    }),
+  ];
+
+  const actions: EvaluatedAction[] = [];
+
+  for (const handCard of player.hand) {
+    const cardDef = state.cardPool[handCard.definitionId as string];
+    if (!cardDef || !('effects' in cardDef) || !cardDef.effects) continue;
+    const effect = cardDef.effects.find(
+      (e): e is ModifyAttackFromHandEffect => e.type === 'modify-attack-from-hand',
+    );
+    if (!effect) continue;
+
+    const expectedPlayerId = effect.player === 'attacker'
+      ? combat.attackingPlayerId
+      : combat.defendingPlayerId;
+    if (playerId !== expectedPlayerId) continue;
+
+    if (effect.when) {
+      const ctx: Record<string, unknown> = { inPlay: inPlayNames };
+      if (combat.creatureRace) {
+        ctx['enemy'] = { race: combat.creatureRace };
+      }
+      const attackCtx: Record<string, unknown> = { source: combat.attackSource.type };
+      if (combat.attackKeying && combat.attackKeying.length > 0) {
+        attackCtx['keying'] = combat.attackKeying;
+      }
+      ctx['attack'] = attackCtx;
+      if (!matchesCondition(effect.when, ctx)) {
+        logDetail(`Modify-attack-from-hand ${handCard.definitionId as string}: when condition not met`);
+        continue;
+      }
+    }
+
+    logDetail(`Modify-attack-from-hand available: ${handCard.definitionId as string} (prowess ${effect.prowessModifier ?? 0}, body ${effect.bodyModifier ?? 0})`);
+    actions.push({
+      action: {
+        type: 'modify-attack-from-hand',
+        player: playerId,
+        cardInstanceId: handCard.instanceId,
+      },
+      viable: true,
+    });
   }
 
   return actions;

@@ -414,6 +414,23 @@ export interface ActiveConstraint {
       }
     | {
         /**
+         * Dragon's Desolation (tw-29) Mode B: one hazard creature of the
+         * named race may be played on the target company ignoring its
+         * normal keying. The constraint is consumed when a creature of the
+         * matching race is played against this company — `remainingPlays`
+         * decrements by 1, and the constraint is removed when it hits 0.
+         * The Dragon played "is not considered keyed to anything" (CRF),
+         * so normal keying requirements (site-type, region-type) are
+         * waived for the single enabled play.
+         */
+        readonly type: 'creature-keying-bypass';
+        /** The creature race whose keying is bypassed. */
+        readonly race: string;
+        /** How many more creature plays this constraint permits. */
+        readonly remainingPlays: number;
+      }
+    | {
+        /**
          * Incite Defenders: the next time automatic-attacks are resolved
          * for the target company, one automatic-attack is duplicated
          * (faced a second time immediately after the original). Consumed
