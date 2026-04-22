@@ -80,9 +80,9 @@ export interface OrderEffectsAction {
  * Each match records the keying method and the specific value that matched.
  */
 export interface CreatureKeyingMatch {
-  /** How the creature was keyed: by region type, region name, or site type. */
-  readonly method: 'region-type' | 'region-name' | 'site-type';
-  /** The specific value that matched (e.g. "wilderness", "Arthedain", "ruins-and-lairs"). */
+  /** How the creature was keyed: by region type, region name, site type, or specific site name. */
+  readonly method: 'region-type' | 'region-name' | 'site-type' | 'site-name';
+  /** The specific value that matched (e.g. "wilderness", "Arthedain", "ruins-and-lairs", "The Lonely Mountain"). */
   readonly value: string;
 }
 
