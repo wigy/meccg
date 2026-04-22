@@ -12,7 +12,16 @@
 import type { GameAction } from '../../types/actions.js';
 import type { ActionEvaluator } from './types.js';
 import type { AiContext } from '../strategy.js';
-import { lookupDef, isCharacter, scoreDestinationSite, findSiteDef } from './common.js';
+import {
+  lookupDef,
+  isCharacter,
+  scoreDestinationSite,
+  findSiteDef,
+  isWounded,
+  woundedCharactersInCompany,
+  isHealingSite,
+  hasHealingAvailable,
+} from './common.js';
 
 export const organizationEvaluator: ActionEvaluator = {
   phases: ['organization', 'untap'],
@@ -50,9 +59,25 @@ export const organizationEvaluator: ActionEvaluator = {
         // penalty for the site type and traversed regions. Only move when
         // there is a concrete payoff — aimless travel wastes turns and
         // exposes the company to hazards for no gain.
+        //
+        // Wounded-routing: if the moving company carries a wounded
+        // character and has no healing item/spell available, steer the
+        // company toward a healing site (haven or heal-during-untap
+        // location). Prefer healing destinations; penalize non-healing
+        // ones to nudge the AI home before the wound compounds into a
+        // body-check loss.
         const destDef = findSiteDef(view, pool, action.destinationSite);
         if (!destDef) return 1;
-        return scoreDestinationSite(view, pool, destDef);
+        const base = scoreDestinationSite(view, pool, destDef);
+        const company = view.self.companies.find(c => c.id === action.companyId);
+        if (!company) return base;
+        const wounded = woundedCharactersInCompany(view, company);
+        if (wounded.length === 0) return base;
+        if (hasHealingAvailable(view, pool, company)) return base;
+        if (isHealingSite(destDef)) {
+          return Math.max(base, 30) + wounded.length * 20;
+        }
+        return Math.max(1, Math.floor(base / 2));
       }
 
       case 'cancel-movement':
@@ -70,11 +95,31 @@ export const organizationEvaluator: ActionEvaluator = {
         return 2;
       }
 
-      case 'split-company':
-        // Never split — the AI lacks the planning depth to evaluate whether
-        // two separate travel plans justify the split. Aimless splits just
-        // create weak companies that attract hazards without earning MP.
-        return 0;
+      case 'split-company': {
+        // Default: don't split — the AI lacks the planning depth to
+        // evaluate whether two separate travel plans justify the split.
+        //
+        // Exception: when the source company has wounded and healthy
+        // characters mixed, splitting lets the wounded group head to a
+        // haven for healing while the healthy group keeps earning MPs.
+        // Only enable the split if no in-company healing item/spell is
+        // already available (that path is strictly cheaper).
+        const source = view.self.companies.find(c => c.id === action.sourceCompanyId);
+        if (!source) return 0;
+        const wounded = woundedCharactersInCompany(view, source);
+        if (wounded.length === 0 || wounded.length === source.characters.length) return 0;
+        if (hasHealingAvailable(view, pool, source)) return 0;
+        const movingChar = view.self.characters[action.characterId];
+        if (!movingChar) return 0;
+        // Score proportional to how many wounded characters are being
+        // isolated from how many healthy ones. Only score the candidate
+        // actions that actually cleave the two groups — moving a solo
+        // wounded into a new company is the canonical heal-split.
+        const movingIsWounded = isWounded(movingChar);
+        const staying = source.characters.length - 1;
+        if (staying <= 0) return 0;
+        return movingIsWounded ? 15 : 10;
+      }
 
       case 'move-to-company':
         return 2;

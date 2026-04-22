@@ -22,6 +22,7 @@ import type {
   BalrogSiteCard,
 } from '../../types/cards.js';
 import type { CardInstanceId, RegionType } from '../../types/common.js';
+import { CardStatus } from '../../types/common.js';
 import type { CharacterInPlay, Company } from '../../types/state.js';
 import {
   isCharacterCard,
@@ -258,6 +259,151 @@ export function scoreDestinationSite(
   if (playableCount === 0) return 0;
 
   return Math.max(0, playableCount * 10 + resourceDraws * 2 - siteDanger - regionDanger);
+}
+
+/** Whether this character is wounded (inverted). */
+export function isWounded(character: CharacterInPlay): boolean {
+  return character.status === CardStatus.Inverted;
+}
+
+/** Whether this character is untapped (ready to act). */
+export function isUntapped(character: CharacterInPlay): boolean {
+  return character.status === CardStatus.Untapped;
+}
+
+/** IDs of wounded characters in a company (self side). */
+export function woundedCharactersInCompany(
+  view: PlayerView,
+  company: Company,
+): CardInstanceId[] {
+  const out: CardInstanceId[] = [];
+  for (const id of company.characters) {
+    const ch = view.self.characters[id];
+    if (ch && isWounded(ch)) out.push(id);
+  }
+  return out;
+}
+
+/** Whether any character in the company is currently untapped. */
+export function hasUntappedCharacter(view: PlayerView, company: Company): boolean {
+  for (const id of company.characters) {
+    const ch = view.self.characters[id];
+    if (ch && isUntapped(ch)) return true;
+  }
+  return false;
+}
+
+/**
+ * Whether a site heals wounded characters during untap.
+ * Covers havens and sites carrying the `heal-during-untap` site-rule
+ * effect (e.g. Barad-dûr as Darkhaven). Override constraints granted
+ * by separate cards (e.g. Sapling of the White Tree) are not visible
+ * from the site definition alone and are treated conservatively.
+ */
+export function isHealingSite(def: CardDefinition | undefined): boolean {
+  if (!isSite(def)) return false;
+  if (def.siteType === 'haven') return true;
+  const effects = (def as { effects?: readonly unknown[] }).effects;
+  if (!Array.isArray(effects)) return false;
+  for (const e of effects) {
+    if (!e || typeof e !== 'object') continue;
+    const eff = e as { type?: unknown; rule?: unknown };
+    if (eff.type === 'site-rule' && eff.rule === 'heal-during-untap') return true;
+  }
+  return false;
+}
+
+/**
+ * Scan a card's `effects` array for an effect that heals a wounded
+ * character (brings them back to well/untapped). Two patterns count:
+ * - Any effect (including `play-option` / `grant-action` wrappers) whose
+ *   `apply.type` is `set-character-status` with `status: 'untapped'`.
+ * - A `grant-action` effect whose `action` is `heal-company-character`.
+ */
+function effectsIncludeHeal(effects: readonly unknown[] | undefined): boolean {
+  if (!effects) return false;
+  for (const e of effects) {
+    if (!e || typeof e !== 'object') continue;
+    const eff = e as {
+      type?: unknown;
+      action?: unknown;
+      apply?: { type?: unknown; status?: unknown };
+    };
+    if (eff.type === 'grant-action' && eff.action === 'heal-company-character') return true;
+    const apply = eff.apply;
+    if (apply && apply.type === 'set-character-status' && apply.status === 'untapped') return true;
+  }
+  return false;
+}
+
+/**
+ * Whether the company has a way to heal a wounded character without
+ * traveling to a haven — an equipped healing item (e.g. Foul-smelling
+ * Paste) or a healing event in hand (e.g. Halfling Strength).
+ */
+export function hasHealingAvailable(
+  view: PlayerView,
+  pool: Readonly<Record<string, CardDefinition>>,
+  company: Company,
+): boolean {
+  for (const charId of company.characters) {
+    const ch = view.self.characters[charId];
+    if (!ch) continue;
+    for (const item of ch.items) {
+      const def = lookupDef(pool, item.definitionId);
+      if (!def) continue;
+      const effects = (def as { effects?: readonly unknown[] }).effects;
+      if (effectsIncludeHeal(effects)) return true;
+    }
+  }
+  for (const card of view.self.hand) {
+    const def = lookupDef(pool, card.definitionId);
+    if (!def) continue;
+    const effects = (def as { effects?: readonly unknown[] }).effects;
+    if (effectsIncludeHeal(effects)) return true;
+  }
+  return false;
+}
+
+/**
+ * Whether the company has access to an untap effect for a character —
+ * a hand card or item that toggles a character's status to `untapped`.
+ * Structurally identical to healing (both use `set-character-status` →
+ * `untapped`), which is fine: either outcome unblocks resource play at
+ * a site when all characters are currently tapped.
+ */
+export function hasUntapSource(
+  view: PlayerView,
+  pool: Readonly<Record<string, CardDefinition>>,
+  company: Company,
+): boolean {
+  return hasHealingAvailable(view, pool, company);
+}
+
+/**
+ * Whether the hand contains a card that can be played at the given site
+ * without needing to tap any character — currently permanent resource
+ * events that pass the site's play filters. Used to justify entering a
+ * site whose only visitors are already tapped.
+ */
+export function handHasNoTapPlayableAt(
+  view: PlayerView,
+  pool: Readonly<Record<string, CardDefinition>>,
+  site: AnySiteCard,
+): boolean {
+  for (const card of view.self.hand) {
+    const def = lookupDef(pool, card.definitionId);
+    if (!def) continue;
+    if (def.cardType !== 'hero-resource-event' && def.cardType !== 'minion-resource-event') continue;
+    const ev = def as { eventType?: string };
+    if (ev.eventType !== 'permanent') continue;
+    // A permanent event is considered a no-tap MP play here; more precise
+    // site filtering is done by the engine when computing legal actions.
+    // `site` is accepted but unused — reserved for future filter logic.
+    void site;
+    return true;
+  }
+  return false;
 }
 
 /**

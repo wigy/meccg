@@ -22,6 +22,9 @@ import {
   isSite,
   diceSuccessPct,
   resourcePlayableAt,
+  hasUntappedCharacter,
+  hasUntapSource,
+  handHasNoTapPlayableAt,
 } from './common.js';
 
 export const sitePhaseEvaluator: ActionEvaluator = {
@@ -39,11 +42,28 @@ export const sitePhaseEvaluator: ActionEvaluator = {
         if (!company?.currentSite) return 50;
         const siteDef = lookupDef(pool, company.currentSite.definitionId);
         if (!isSite(siteDef)) return 50;
+        let hasPlayable = false;
         for (const card of view.self.hand) {
           const def = lookupDef(pool, card.definitionId);
-          if (def && resourcePlayableAt(def, siteDef)) return 50;
+          if (def && resourcePlayableAt(def, siteDef)) {
+            hasPlayable = true;
+            break;
+          }
         }
-        return 0;
+        if (!hasPlayable) return 0;
+        // Items, factions, and allies all require tapping a character on
+        // play. If every character in the company is tapped and the
+        // company has no untap source (item / spell), the only MP plays
+        // that work are ones that don't need a tap — currently permanent
+        // resource events (e.g. "information"-typed ritual events).
+        // Otherwise entering just exposes the company to on-guard
+        // attacks without a payoff.
+        if (!hasUntappedCharacter(view, company)
+            && !hasUntapSource(view, pool, company)
+            && !handHasNoTapPlayableAt(view, pool, siteDef)) {
+          return 0;
+        }
+        return 50;
       }
 
       case 'play-hero-resource': {
