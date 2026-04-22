@@ -548,7 +548,7 @@ function handleCancelStrike(state: GameState, action: GameAction, combat: Combat
     const newItems = [...hostChar.items];
     newItems[itemIndex] = { ...item, status: CardStatus.Tapped };
     nextState = updatePlayer(state, defPlayerIndex, p =>
-      updateCharacter(p, hostCharId as string, c => ({ ...c, items: newItems })),
+      updateCharacter(p, hostCharId, c => ({ ...c, items: newItems })),
     );
   }
 
