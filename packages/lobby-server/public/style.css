@@ -1966,91 +1966,97 @@ h2 {
   gap: 0.5rem;
 }
 
-/* Dev buttons column — between the two score boards on the left. */
-#toolbar-left {
-  position: fixed;
-  left: 1rem;
-  top: 50%;
-  transform: translateY(-50%);
-  width: 8.5rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-  z-index: var(--z-hover);
+/* Icon-only toolbar buttons (view toggle, dev menu) match the
+   background:none/border:none/padding:4px inline style used on other
+   toolbar icons, so they sit flush alongside settings/bug/disconnect. */
+.toolbar-icon-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 4px;
+  vertical-align: middle;
 }
 
-#toolbar-dev {
+/* The view toggle button contains two SVGs; show only the one that
+   matches the current mode. Default (no class) shows visual icon. */
+#view-toggle-btn .view-icon-debug { display: none; }
+#view-toggle-btn.mode-debug .view-icon-visual { display: none; }
+#view-toggle-btn.mode-debug .view-icon-debug { display: inline; }
+
+/* Dev menu popup: a floating panel anchored under the toolbar icons. */
+#dev-menu-popup {
+  align-self: flex-end;
   display: flex;
   flex-direction: column;
   gap: 0.3rem;
-  align-items: stretch;
+  padding: 0.5rem;
+  background: #1e1e36;
+  border: 1px solid #444;
+  border-radius: 4px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+  min-width: 9rem;
 }
 
-#toolbar-view {
-  display: flex;
-  align-items: stretch;
+#dev-menu-popup.hidden {
+  display: none;
 }
 
-#toolbar-view button {
-  width: 100%;
-}
-
-#toolbar button, #toolbar-left button {
+#dev-menu-popup button {
   padding: 0.3rem 0.75rem;
   font-size: 0.8rem;
   background: transparent;
-  color: #888;
+  color: #d0d0d0;
   border: 1px solid #444;
   border-radius: 4px;
   cursor: pointer;
-  opacity: 0.5;
-  transition: opacity 0.2s, color 0.2s, border-color 0.2s;
+  text-align: left;
+  transition: color 0.2s, border-color 0.2s, background 0.2s;
 }
 
-#toolbar button:hover, #toolbar-left button:hover {
-  opacity: 1;
-  color: #e0e0e0;
+#dev-menu-popup button:hover {
+  color: #fff;
   border-color: #c4a35a;
+  background: rgba(196, 163, 90, 0.1);
 }
 
-/* Mousing anywhere into the left dev column lights up the whole cluster
-   so the user doesn't have to aim at a specific low-opacity button. */
-#toolbar-left:hover button,
-#toolbar-left:hover select {
-  opacity: 0.9;
-  color: #d0d0d0;
-  border-color: #8a7a4a;
-}
-
-#toolbar button:active, #toolbar-left button:active {
+#dev-menu-popup button:active {
   background: rgba(196, 163, 90, 0.3);
-  transform: scale(0.95);
+  transform: scale(0.98);
 }
 
-#toolbar select, #toolbar-left select {
-  padding: 0.3rem 0.4rem;
+#dev-menu-popup .dev-menu-row {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.2rem 0.1rem;
+}
+
+#dev-menu-popup .dev-menu-row label {
+  font-size: 0.8rem;
+  color: #d0d0d0;
+  flex: 1;
+}
+
+#dev-menu-popup select {
+  padding: 0.2rem 0.3rem;
   font-size: 0.8rem;
   background: #1e1e36;
   color: #e0e0e0;
   border: 1px solid #444;
   border-radius: 4px;
   cursor: pointer;
-  opacity: 0.5;
-  transition: opacity 0.2s, color 0.2s, border-color 0.2s;
 }
 
-#toolbar select:hover, #toolbar-left select:hover {
-  opacity: 1;
-  color: #e0e0e0;
+#dev-menu-popup select:hover {
   border-color: #c4a35a;
 }
 
-#toolbar select option, #toolbar-left select option {
+#dev-menu-popup select option {
   background: #1e1e36;
   color: #e0e0e0;
 }
 
-#toolbar button.btn-flash, #toolbar-left button.btn-flash {
+#dev-menu-popup button.btn-flash {
   animation: btn-flash 0.4s ease-out;
 }
 
@@ -2164,7 +2170,6 @@ h2 {
 #debug-view {
   display: flex;
   gap: 1rem;
-  padding-left: 10rem;
 }
 
 #left-panel {

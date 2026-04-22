@@ -89,7 +89,9 @@ document.addEventListener('DOMContentLoaded', () => {
   function setViewMode(visual: boolean): void {
     debugView.classList.toggle('hidden', visual);
     visualView.classList.toggle('hidden', !visual);
-    viewToggleBtn.textContent = visual ? 'Debug' : 'Visual';
+    viewToggleBtn.classList.toggle('mode-visual', visual);
+    viewToggleBtn.classList.toggle('mode-debug', !visual);
+    viewToggleBtn.title = visual ? 'Switch to debug view' : 'Switch to visual view';
     localStorage.setItem(VIEW_KEY, visual ? 'visual' : 'debug');
     if (!visual) {
       const log = document.getElementById('log')!;
@@ -459,14 +461,38 @@ document.addEventListener('DOMContentLoaded', () => {
   const cheatRollSelect = document.getElementById('cheat-roll-select') as HTMLSelectElement;
   const summonBtn = document.getElementById('summon-btn') as HTMLButtonElement;
   const swapHandBtn = document.getElementById('swap-hand-btn') as HTMLButtonElement;
-  const toolbarDev = document.getElementById('toolbar-dev') as HTMLElement;
-  const toolbarView = document.getElementById('toolbar-view') as HTMLElement;
+  const devMenuBtn = document.getElementById('dev-menu-btn') as HTMLButtonElement;
+  const devMenuPopup = document.getElementById('dev-menu-popup') as HTMLElement;
+
+  function closeDevMenu(): void {
+    devMenuPopup.classList.add('hidden');
+  }
 
   function applyDevMode(on: boolean): void {
-    toolbarDev.style.display = on ? '' : 'none';
-    toolbarView.style.display = on ? '' : 'none';
-    if (!on) setViewMode(true);
+    viewToggleBtn.style.display = on ? '' : 'none';
+    devMenuBtn.style.display = on ? '' : 'none';
+    if (!on) {
+      closeDevMenu();
+      setViewMode(true);
+    }
   }
+
+  devMenuBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    devMenuPopup.classList.toggle('hidden');
+  });
+
+  devMenuPopup.addEventListener('click', (e) => {
+    const target = e.target as HTMLElement;
+    if (target.closest('button')) closeDevMenu();
+  });
+
+  document.addEventListener('click', (e) => {
+    if (devMenuPopup.classList.contains('hidden')) return;
+    const target = e.target as HTMLElement;
+    if (devMenuPopup.contains(target) || devMenuBtn.contains(target)) return;
+    closeDevMenu();
+  });
 
   // When the server is not in dev mode, hide the dev mode toggle entirely
   if (!SERVER_DEV) {
