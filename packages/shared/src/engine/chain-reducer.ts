@@ -18,7 +18,7 @@ import { resolveInstanceId } from '../types/state.js';
 import { logHeading, logDetail } from './legal-actions/log.js';
 import { discardCardsInPlay } from './reducer.js';
 import type { ReducerResult } from './reducer.js';
-import { resolveAttackProwess, resolveAttackStrikes } from './effects/index.js';
+import { resolveAttackProwess, resolveAttackStrikes, isWardedAgainst } from './effects/index.js';
 import { buildInPlayNames } from './recompute-derived.js';
 import { addConstraint, enqueueResolution } from './pending.js';
 import { Phase } from '../index.js';
@@ -756,6 +756,21 @@ function resolvePermanentEvent(state: GameState, entry: ChainEntry): GameState {
     for (let pi = 0; pi < 2; pi++) {
       const charInPlay = state.players[pi].characters[targetCharId as string];
       if (charInPlay) {
+        // Ward check: a hazard permanent-event attaching to a character
+        // with a matching ward (e.g. Adamant Helmet vs. dark enchantments)
+        // is cancelled — the card goes straight to its owner's discard
+        // pile instead of ending up in `character.hazards`.
+        if (!isResource && def && isWardedAgainst(state, pi, targetCharId, def)) {
+          logDetail(`Ward on ${targetCharId as string} cancels incoming "${def.name}" — routing to owner's discard`);
+          newPlayers[playerIndex] = {
+            ...newPlayers[playerIndex],
+            discardPile: [
+              ...newPlayers[playerIndex].discardPile,
+              { instanceId: card.instanceId, definitionId: card.definitionId },
+            ],
+          };
+          break;
+        }
         logDetail(`Attaching "${def?.name ?? card.definitionId}" to character ${targetCharId as string} (${slot})`);
         newPlayers[pi] = {
           ...newPlayers[pi],

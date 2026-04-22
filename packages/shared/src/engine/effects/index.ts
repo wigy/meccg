@@ -25,3 +25,4 @@ export {
   resolveDef,
 } from './resolver.js';
 export type { ResolverContext, CollectedEffect, CreatureSelfContext } from './resolver.js';
+export { applyWardToBearer, collectBearerWardFilters, isWardedAgainst } from './ward.js';

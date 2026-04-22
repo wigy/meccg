@@ -1334,6 +1334,31 @@ export interface ReshuffleSelfFromHandEffect extends EffectBase {
 }
 
 /**
+ * Declares that the bearing card (an item on a character) cancels any
+ * hazard matching `filter` that either is already on bearer or tries to
+ * be played on bearer while the ward is in play.
+ *
+ * Semantics:
+ * - On entry: when the ward-bearing card attaches to a character, every
+ *   hazard currently on that character whose definition matches `filter`
+ *   is discarded to the hazard owner's discard pile.
+ * - Continuous: while the ward-bearing card is on the character, any
+ *   hazard matching `filter` that would attach to that character is
+ *   discarded instead (and the character is not offered as a play
+ *   target by the legal-action computer).
+ *
+ * The filter is a standard DSL condition evaluated against each hazard
+ * card definition (dot-path keys, `$and` / `$or` / `$not`), so wards can
+ * reference any data-model field — the common case is keyword-based,
+ * e.g. Adamant Helmet targets `{ "keywords": { "$includes": "dark-enchantment" } }`.
+ */
+export interface WardBearerEffect extends EffectBase {
+  readonly type: 'ward-bearer';
+  /** DSL condition evaluated against hazard card definitions. */
+  readonly filter: Condition;
+}
+
+/**
  * Discriminated union of all card effect types.
  * The `type` field serves as the discriminant for type narrowing.
  */
@@ -1381,4 +1406,5 @@ export type CardEffect =
   | ControlRestrictionEffect
   | BounceHazardEventsEffect
   | CallCouncilEffect
-  | ReshuffleSelfFromHandEffect;
+  | ReshuffleSelfFromHandEffect
+  | WardBearerEffect;

@@ -47,9 +47,22 @@
     "body": null,
     "killMarshallingPoints": 1,
     "race": "drake",
-    "keyedTo": [],
+    "keyedTo": [
+      {
+        "regionNames": [
+          "Númeriador",
+          "Forochel",
+          "Angmar",
+          "Gundabad",
+          "Grey Mountain Narrows",
+          "Withered Heath",
+          "Iron Hills"
+        ]
+      }
+    ],
     "effects": [],
-    "text": "Drake. Two strikes. May be played keyed to Númeriador, Forochel, Angmar, Gundabad, Grey Mountain Narrows, Withered Heath, and Iron Hills."
+    "text": "Drake. Two strikes. May be played keyed to Númeriador, Forochel, Angmar, Gundabad, Grey Mountain Narrows, Withered Heath, and Iron Hills.",
+    "certified": "2026-04-22"
   },
   {
     "cardType": "hazard-creature",
@@ -62,10 +75,28 @@
     "body": 7,
     "killMarshallingPoints": 3,
     "race": "dragon",
-    "keyedTo": [],
-    "effects": [],
+    "keyedTo": [
+      {
+        "siteNames": ["Ovir Hollow"]
+      },
+      {
+        "regionNames": [
+          "Withered Heath",
+          "Gundabad",
+          "Anduin Vales",
+          "Grey Mountain Narrows"
+        ],
+        "when": { "inPlay": "Doors of Night" }
+      }
+    ],
+    "effects": [
+      {
+        "type": "combat-attacker-chooses-defenders"
+      }
+    ],
     "text": "Unique. May be played at Ovir Hollow. Dragon. Two strikes. Attacker chooses defending characters. If Doors of Night is in play, may also be played keyed to Withered Heath, Gundabad, Anduin Vales, and Grey Mountain Narrows; may also be played at sites in these regions.",
-    "manifestId": "td-3"
+    "manifestId": "td-3",
+    "certified": "2026-04-22"
   },
   {
     "cardType": "hazard-creature",
@@ -110,10 +141,24 @@
     "body": 9,
     "killMarshallingPoints": 5,
     "race": "dragon",
-    "keyedTo": [],
+    "keyedTo": [
+      {
+        "siteNames": ["Gondmaeglom"]
+      },
+      {
+        "regionNames": [
+          "Withered Heath",
+          "Woodland Realm",
+          "Northern Rhovanion",
+          "Grey Mountain Narrows"
+        ],
+        "when": { "inPlay": "Doors of Night" }
+      }
+    ],
     "effects": [],
     "text": "Unique. May be played at Gondmaeglom. Dragon. Three strikes. If Doors of Night is in play, may also be played keyed to Withered Heath, Woodland Realm, Northern Rhovanion, and Grey Mountain Narrows; and may also be played at sites in these regions.",
-    "manifestId": "td-60"
+    "manifestId": "td-60",
+    "certified": "2026-04-22"
   },
   {
     "cardType": "hazard-creature",

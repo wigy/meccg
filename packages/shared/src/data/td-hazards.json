@@ -470,6 +470,13 @@
     ],
     "effects": [
       {
+        "type": "play-target",
+        "target": "character",
+        "filter": {
+          "$not": { "race": { "$in": ["wizard", "ringwraith", "balrog"] } }
+        }
+      },
+      {
         "type": "duplication-limit",
         "scope": "character",
         "max": 1
