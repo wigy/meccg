@@ -75,6 +75,12 @@
             "$includes": "hoard"
           }
         }
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "body",
+        "value": 1,
+        "max": 9
       }
     ],
     "text": "Hoard item. Helmet. +1 to body to a maximum of 9. Cancels all dark enchantments targetting bearer."
@@ -210,7 +216,7 @@
     "marshallingCategory": "item",
     "corruptionPoints": 2,
     "prowessModifier": 0,
-    "bodyModifier": 3,
+    "bodyModifier": 0,
     "playableAt": [],
     "effects": [
       {
@@ -220,9 +226,21 @@
             "$includes": "hoard"
           }
         }
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "body",
+        "value": 3,
+        "max": 10
+      },
+      {
+        "type": "cancel-strike",
+        "cost": { "tap": "self" },
+        "when": { "bearer.skills": { "$includes": "warrior" } }
       }
     ],
-    "text": "Unique. Hoard item. Shield. +3 to body to a maximum of 10. Warrior only: tap Enruned Shield to cause one strike against bearer to be ineffectual (i. e., it doesn’t fail and it is not successful)."
+    "text": "Unique. Hoard item. Shield. +3 to body to a maximum of 10. Warrior only: tap Enruned Shield to cause one strike against bearer to be ineffectual (i. e., it doesn’t fail and it is not successful).",
+    "certified": "2026-04-22"
   },
   {
     "cardType": "hero-resource-item",
