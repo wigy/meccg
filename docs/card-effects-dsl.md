@@ -429,6 +429,25 @@ If wounded, a body penalty applies to the resulting body check.
 The `bodyPenalty` modifies the character's body for the body check only
 (negative values reduce body, making elimination more likely).
 
+### 10a. `reroll-strike`
+
+Played from hand during strike resolution. Two 2d6 rolls are made and the
+better total is used; the strike otherwise resolves exactly like a normal
+tap-to-fight (full prowess, character taps on success/tie).
+
+An optional `filter` condition gates availability on the strike target
+character. It is evaluated against a `target.*` context carrying the
+target's race, skills, and name (same context shape as `cancel-strike`'s
+`filter`).
+
+```json
+{ "type": "reroll-strike",
+  "filter": { "target.skills": { "$includes": "warrior" } } }
+```
+
+Example: Lucky Strike — warrior only; make two rolls against a strike
+and choose one of the two results to use.
+
 ### 11. `cancel-strike`
 
 Pay a cost to cancel an incoming strike, with optional exclusions.

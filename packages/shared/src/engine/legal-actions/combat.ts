@@ -13,7 +13,7 @@
  */
 
 import type { GameState, PlayerId, EvaluatedAction, CombatState, CardInstanceId } from '../../index.js';
-import type { CancelAttackEffect, DodgeStrikeEffect, HalveStrikesEffect } from '../../types/effects.js';
+import type { CancelAttackEffect, DodgeStrikeEffect, HalveStrikesEffect, RerollStrikeEffect } from '../../types/effects.js';
 import type { AllyInPlay } from '../../types/state-cards.js';
 import type { PlayerState } from '../../types/state-player.js';
 import { CardStatus, isCharacterCard, isAllyCard, isSiteCard, matchesCondition, SiteType } from '../../index.js';
@@ -360,6 +360,47 @@ function resolveStrikeActions(
         cardInstanceId: handCard.instanceId,
         need: tapNeed,
         explanation: dodgeExplanation,
+      },
+      viable: true,
+    });
+  }
+
+  // Reroll-strike: scan hand for cards with reroll-strike effect (e.g. Lucky
+  // Strike). Two 2d6 rolls are made and the better total is used; the strike
+  // otherwise resolves like a normal tap-to-fight. An optional `filter`
+  // gates availability on the strike target character's race/skills/name.
+  for (const handCard of player0.hand) {
+    const cardDef = state.cardPool[handCard.definitionId as string];
+    if (!cardDef || !('effects' in cardDef)) continue;
+    const cardWithEffects = cardDef as { effects?: readonly import('../../types/effects.js').CardEffect[] };
+    if (!cardWithEffects.effects) continue;
+
+    const rerollEffect = cardWithEffects.effects.find(
+      (e): e is RerollStrikeEffect => e.type === 'reroll-strike',
+    );
+    if (!rerollEffect) continue;
+
+    if (rerollEffect.filter) {
+      if (!charDef) continue;
+      const targetObj: Record<string, unknown> = {};
+      if ('race' in charDef) targetObj.race = (charDef as { race: string }).race;
+      if ('skills' in charDef) targetObj.skills = (charDef as { skills: readonly string[] }).skills;
+      if ('name' in charDef) targetObj.name = (charDef as { name: string }).name;
+      if (!matchesCondition(rerollEffect.filter, { target: targetObj })) {
+        logDetail(`Reroll-strike ${handCard.definitionId as string}: filter not met for ${charName}`);
+        continue;
+      }
+    }
+
+    const rerollExplanation = `Reroll: need ${tapNeed}+ (prowess ${tapProwess} vs ${strikeProwess}, better of two rolls)`;
+    logDetail(`Reroll-strike available: ${handCard.definitionId as string} for ${charName}`);
+    actions.push({
+      action: {
+        type: 'play-reroll-strike',
+        player: playerId,
+        cardInstanceId: handCard.instanceId,
+        need: tapNeed,
+        explanation: rerollExplanation,
       },
       viable: true,
     });

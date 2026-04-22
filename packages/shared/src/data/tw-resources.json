@@ -1229,7 +1229,13 @@
     "eventType": "short",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
-    "text": "Warrior only. Make two rolls against a strike and choose one of the two results to use."
+    "effects": [
+      {
+        "type": "reroll-strike",
+        "filter": { "target.skills": { "$includes": "warrior" } }
+      }
+    ],
+    "text": "Warrior only. Make two rolls against a strike and choose one of the two results to use.",
+    "certified": "2026-04-22"
   }
 ]

@@ -1013,6 +1013,25 @@ export interface DodgeStrikeEffect extends EffectBase {
 }
 
 /**
+ * Played from hand during strike resolution. The strike is resolved by
+ * making two 2d6 rolls and using the better result. The character taps
+ * and resolves the strike like a normal tap-to-fight, but with a
+ * re-roll advantage.
+ *
+ * The optional `filter` restricts which strike targets may play the
+ * card — evaluated against a `target.*` context carrying the target
+ * character's race, skills, and name.
+ *
+ * Example: Lucky Strike — warrior only; make two rolls against a
+ * strike and choose one of the two results to use.
+ */
+export interface RerollStrikeEffect extends EffectBase {
+  readonly type: 'reroll-strike';
+  /** Constraint on the target character facing the strike. */
+  readonly filter?: Condition;
+}
+
+/**
  * Declares that an item can be stored at specific named sites during the
  * Organization phase. Storing moves the item from the character to the
  * player's stored-items pile, where it earns marshalling points safely.
@@ -1247,6 +1266,7 @@ export type CardEffect =
   | CancelAttackEffect
   | CancelInfluenceEffect
   | DodgeStrikeEffect
+  | RerollStrikeEffect
   | HalveStrikesEffect
   | CombatAttackerChoosesDefendersEffect
   | CombatMultiAttackEffect
