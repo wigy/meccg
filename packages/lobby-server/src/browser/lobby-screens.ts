@@ -206,7 +206,7 @@ export function connectLobbyWs(): void {
         break;
       }
       case 'system-notification': {
-        const container = document.getElementById('toast-container');
+        const container = document.getElementById('game-log-entries');
         if (container) {
           const toast = document.createElement('div');
           toast.className = 'toast toast--system';
