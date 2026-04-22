@@ -355,6 +355,8 @@ export function describeAction(
       return `Salvage ${instName(action.itemInstanceId)} to ${instName(action.recipientCharacterId)}`;
     case 'play-dodge':
       return `Dodge: play ${instName(action.cardInstanceId)} — ${action.explanation}`;
+    case 'play-strike-event':
+      return `Strike event: play ${instName(action.cardInstanceId)} — ${action.explanation}`;
     case 'play-reroll-strike':
       return `Reroll strike: play ${instName(action.cardInstanceId)} — ${action.explanation}`;
     case 'cancel-strike':

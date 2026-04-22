@@ -8,7 +8,7 @@
 import type { GameState, CombatState, StrikeAssignment, GameAction, GameEffect, CardInstanceId, CardDefinitionId } from '../index.js';
 import type { PlayerState } from '../types/state-player.js';
 import { CardStatus, Phase, isSiteCard, isCharacterCard, isAllyCard } from '../index.js';
-import type { OnEventEffect, DodgeStrikeEffect } from '../types/effects.js';
+import type { OnEventEffect, DodgeStrikeEffect, ModifyStrikeEffect } from '../types/effects.js';
 import { matchesCondition } from '../effects/condition-matcher.js';
 import type { MovementHazardPhaseState } from '../types/state-phases.js';
 import type { HeroItemCard, MinionItemCard } from '../types/cards-resources.js';
@@ -50,6 +50,8 @@ export function handleCombatAction(state: GameState, action: GameAction): Reduce
       return handleCancelByTap(state, action, combat);
     case 'play-dodge':
       return handlePlayDodge(state, action, combat);
+    case 'play-strike-event':
+      return handlePlayStrikeEvent(state, action, combat);
     case 'play-reroll-strike':
       return handlePlayRerollStrike(state, action, combat);
     case 'cancel-strike':
@@ -284,6 +286,11 @@ function resolveStrikeCore(
   if (strike.excessStrikes > 0) prowess -= strike.excessStrikes;
   const supportBonus = strike.supportCount ?? 0;
   prowess += supportBonus; // CoE rule 3.iv.4: +1 per supporting character/ally
+  const modifyStrikeBonus = strike.strikeProwessBonus ?? 0;
+  if (modifyStrikeBonus !== 0) {
+    logDetail(`Strike event prowess modifier: ${modifyStrikeBonus >= 0 ? '+' : ''}${modifyStrikeBonus}`);
+    prowess += modifyStrikeBonus;
+  }
 
   // Roll dice. Reroll mode makes two rolls and keeps the better total; the
   // discarded roll is logged and emitted as an effect so both rolls appear
@@ -557,6 +564,52 @@ function handlePlayDodge(state: GameState, action: GameAction, combat: CombatSta
 }
 
 /**
+ * Play a `modify-strike` short event (e.g. Risky Blow) from hand during
+ * resolve-strike. Discards the card and accumulates its prowess bonus
+ * and body penalty onto the current strike for the subsequent
+ * resolution / body check.
+ */
+function handlePlayStrikeEvent(state: GameState, action: GameAction, combat: CombatState): ReducerResult {
+  if (action.type !== 'play-strike-event') return { state, error: 'Expected play-strike-event' };
+
+  const defPlayerIndex = state.players.findIndex(p => p.id === combat.defendingPlayerId);
+  const defPlayer = state.players[defPlayerIndex];
+  const handIndex = defPlayer.hand.findIndex(c => c.instanceId === action.cardInstanceId);
+  if (handIndex < 0) return { state, error: 'Card not found in hand' };
+  const handCard = defPlayer.hand[handIndex];
+  const cardDef = state.cardPool[handCard.definitionId as string];
+  const effects = (cardDef as { effects?: readonly import('../types/effects.js').CardEffect[] } | undefined)?.effects ?? [];
+  const modifyEffect = effects.find((e): e is ModifyStrikeEffect => e.type === 'modify-strike');
+  if (!modifyEffect) return { state, error: 'Card has no modify-strike effect' };
+
+  const prowessBonus = modifyEffect.prowessBonus ?? 0;
+  const bodyPenalty = modifyEffect.bodyPenalty ?? 0;
+  const cardName = (cardDef as { name?: string } | undefined)?.name ?? (handCard.definitionId as string);
+  logDetail(`Playing strike event ${cardName}: prowess ${prowessBonus >= 0 ? '+' : ''}${prowessBonus}, body ${bodyPenalty >= 0 ? '+' : ''}${bodyPenalty}`);
+
+  // Discard the card from hand.
+  const stateAfterDiscard = updatePlayer(state, defPlayerIndex, p => ({
+    ...p,
+    hand: [...p.hand.slice(0, handIndex), ...p.hand.slice(handIndex + 1)],
+    discardPile: [...p.discardPile, { instanceId: handCard.instanceId, definitionId: handCard.definitionId }],
+  }));
+
+  // Accumulate the bonuses on the current strike assignment.
+  const newAssignments = combat.strikeAssignments.map((a, i) =>
+    i === combat.currentStrikeIndex
+      ? {
+          ...a,
+          strikeProwessBonus: (a.strikeProwessBonus ?? 0) + prowessBonus,
+          strikeBodyPenalty: (a.strikeBodyPenalty ?? 0) + bodyPenalty,
+        }
+      : a,
+  );
+  const newCombat: CombatState = { ...combat, strikeAssignments: newAssignments };
+
+  return { state: { ...stateAfterDiscard, combat: newCombat } };
+}
+
+/**
  * Play a reroll-strike card from hand during resolve-strike (e.g. Lucky
  * Strike). Discards the card and delegates to `resolveStrikeCore` in
  * reroll mode, which rolls 2d6 twice and resolves the strike using the
@@ -654,6 +707,11 @@ function handleBodyCheckRoll(state: GameState, action: GameAction, combat: Comba
     if (strike.dodged && strike.dodgeBodyPenalty) {
       logDetail(`Dodge body penalty: body ${body} + (${strike.dodgeBodyPenalty}) = ${body + strike.dodgeBodyPenalty}`);
       body = body + strike.dodgeBodyPenalty;
+    }
+    // Modify-strike body penalty (e.g. Risky Blow's -1).
+    if (strike.strikeBodyPenalty) {
+      logDetail(`Strike event body penalty: body ${body} + (${strike.strikeBodyPenalty}) = ${body + strike.strikeBodyPenalty}`);
+      body = body + strike.strikeBodyPenalty;
     }
     const woundedBonus = strike.wasAlreadyWounded ? 1 : 0;
     const effectiveRoll = rollTotal + woundedBonus;

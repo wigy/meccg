@@ -307,6 +307,24 @@ export interface PlayDodgeAction {
 }
 
 /**
+ * Play a modify-strike short event (e.g. Risky Blow) from hand during
+ * resolve-strike. The card is discarded and its prowess bonus /
+ * body penalty are accumulated onto the current strike.
+ */
+export interface PlayStrikeEventAction {
+  /** Action discriminant. */
+  readonly type: 'play-strike-event';
+  /** The defending player playing the card. */
+  readonly player: PlayerId;
+  /** The short-event card instance being played from hand. */
+  readonly cardInstanceId: CardInstanceId;
+  /** The 2d6 value needed after applying this card's prowess bonus. */
+  readonly need: number;
+  /** Human-readable breakdown of the modified prowess vs creature prowess. */
+  readonly explanation: string;
+}
+
+/**
  * Play a reroll-strike card from hand during resolve-strike. The target
  * character resolves the strike normally (tap-to-fight, full prowess)
  * but two 2d6 rolls are made and the better total is used.

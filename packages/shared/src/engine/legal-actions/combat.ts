@@ -13,7 +13,7 @@
  */
 
 import type { GameState, PlayerId, EvaluatedAction, CombatState, CardInstanceId } from '../../index.js';
-import type { CancelAttackEffect, DodgeStrikeEffect, HalveStrikesEffect, RerollStrikeEffect } from '../../types/effects.js';
+import type { CancelAttackEffect, DodgeStrikeEffect, HalveStrikesEffect, ModifyStrikeEffect, RerollStrikeEffect } from '../../types/effects.js';
 import type { AllyInPlay } from '../../types/state-cards.js';
 import type { PlayerState } from '../../types/state-player.js';
 import { CardStatus, isCharacterCard, isAllyCard, isSiteCard, matchesCondition, SiteType } from '../../index.js';
@@ -365,6 +365,49 @@ function resolveStrikeActions(
     });
   }
 
+  // Modify-strike short events (e.g. Risky Blow): scan hand for cards
+  // whose `modify-strike` effect's required skill matches the struck
+  // character. The card modifies the current strike's prowess/body when
+  // played.
+  if (charData && charDef && isCharacterCard(charDef)) {
+    const struckSkills = charDef.skills ?? [];
+    for (const handCard of player0.hand) {
+      const cardDef2 = state.cardPool[handCard.definitionId as string];
+      if (!cardDef2 || !('effects' in cardDef2)) continue;
+      const cardWithEffects = cardDef2 as { effects?: readonly import('../../types/effects.js').CardEffect[]; name?: string };
+      if (!cardWithEffects.effects) continue;
+
+      const modifyEffect = cardWithEffects.effects.find(
+        (e): e is ModifyStrikeEffect => e.type === 'modify-strike',
+      );
+      if (!modifyEffect) continue;
+
+      if (modifyEffect.requiredSkill && !struckSkills.some(s => s === modifyEffect.requiredSkill)) {
+        logDetail(`${cardWithEffects.name ?? handCard.definitionId as string}: ${charName} lacks required skill '${modifyEffect.requiredSkill}' — not playable`);
+        continue;
+      }
+
+      const bonus = modifyEffect.prowessBonus ?? 0;
+      const modifiedTapProwess = tapProwess + bonus;
+      const modifiedNeed = Math.max(2, strikeProwess - modifiedTapProwess + 1);
+      const bonusSign = bonus >= 0 ? '+' : '';
+      const bodyPenalty = modifyEffect.bodyPenalty ?? 0;
+      const bodyNote = bodyPenalty ? `, body ${bodyPenalty >= 0 ? '+' : ''}${bodyPenalty}` : '';
+      const explanation = `${cardWithEffects.name ?? 'Strike event'}: need ${modifiedNeed}+ (prowess ${modifiedTapProwess} vs ${strikeProwess}${bonus !== 0 ? `, ${bonusSign}${bonus}` : ''}${bodyNote})`;
+      logDetail(`Strike event available: ${cardWithEffects.name ?? handCard.definitionId as string} for ${charName} — ${explanation}`);
+      actions.push({
+        action: {
+          type: 'play-strike-event',
+          player: playerId,
+          cardInstanceId: handCard.instanceId,
+          need: modifiedNeed,
+          explanation,
+        },
+        viable: true,
+      });
+    }
+  }
+
   // Reroll-strike: scan hand for cards with reroll-strike effect (e.g. Lucky
   // Strike). Two 2d6 rolls are made and the better total is used; the strike
   // otherwise resolves like a normal tap-to-fight. An optional `filter`
@@ -530,6 +573,10 @@ function bodyCheckActions(
     // Dodge body penalty
     if (strike?.dodged && strike.dodgeBodyPenalty) {
       body = body + strike.dodgeBodyPenalty;
+    }
+    // Modify-strike body penalty (e.g. Risky Blow's -1)
+    if (strike?.strikeBodyPenalty) {
+      body = body + strike.strikeBodyPenalty;
     }
     targetLabel = charDef && 'name' in charDef ? (charDef as { name: string }).name : 'character';
   }

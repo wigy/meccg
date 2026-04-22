@@ -201,6 +201,20 @@ function findDodgeActions(
 }
 
 /**
+ * Find all play-strike-event actions for a given card instance
+ * (e.g. Risky Blow: modify the current strike's prowess/body).
+ */
+function findStrikeEventActions(
+  instanceId: CardInstanceId | null,
+  legalActions: readonly GameAction[],
+): GameAction[] {
+  if (!instanceId) return [];
+  return legalActions.filter(
+    a => a.type === 'play-strike-event' && a.cardInstanceId === instanceId,
+  );
+}
+
+/**
  * When a `discard-in-play` target is a hazard attached to a character
  * (stored in `character.hazards`), return the bearer character's display
  * name. Used to disambiguate action labels when two identical-named
@@ -754,10 +768,12 @@ export function renderHand(
     const isCancelAttack = cancelAttackActions.length > 0;
     const dodgeActions = findDodgeActions(cardInstanceId, viable);
     const isDodge = dodgeActions.length > 0;
+    const strikeEventActions = findStrikeEventActions(cardInstanceId, viable);
+    const isStrikeEvent = strikeEventActions.length > 0;
     const discardAction = cardInstanceId
       ? viable.find(a => a.type === 'discard-card' && a.cardInstanceId === cardInstanceId)
       : undefined;
-    const nonViableReason = !action && !isItemDraft && !isPlayChar && !isShortEvent && !isHazard && !isAlly && !isResource && !isInfluence && !isCancelAttack && !isDodge && !discardAction && !onGuardAction
+    const nonViableReason = !action && !isItemDraft && !isPlayChar && !isShortEvent && !isHazard && !isAlly && !isResource && !isInfluence && !isCancelAttack && !isDodge && !isStrikeEvent && !discardAction && !onGuardAction
       ? findNonViableReason(cardDefId, view.legalActions, cachedInstanceLookup)
       : undefined;
     const selectedItemDefId = getSelectedItemDefId();
@@ -993,6 +1009,11 @@ export function renderHand(
       img.className = 'hand-card hand-card-playable';
       if (onAction) {
         img.addEventListener('click', () => onAction(dodgeActions[0]));
+      }
+    } else if (isStrikeEvent) {
+      img.className = 'hand-card hand-card-playable';
+      if (onAction) {
+        img.addEventListener('click', () => onAction(strikeEventActions[0]));
       }
     } else if (action) {
       img.className = 'hand-card hand-card-playable';

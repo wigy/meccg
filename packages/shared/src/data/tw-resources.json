@@ -1150,12 +1150,21 @@
     "id": "tw-319",
     "name": "Risky Blow",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/RiskyBlow.jpg",
-    "text": "Warrior only against one strike. +3 to prowess and -1 to body.",
     "alignment": "wizard",
     "unique": false,
     "eventType": "short",
     "marshallingPoints": 0,
-    "marshallingCategory": "misc"
+    "marshallingCategory": "misc",
+    "effects": [
+      {
+        "type": "modify-strike",
+        "prowessBonus": 3,
+        "bodyPenalty": -1,
+        "requiredSkill": "warrior"
+      }
+    ],
+    "text": "Warrior only against one strike. +3 to prowess and -1 to body.",
+    "certified": "2026-04-22"
   },
   {
     "cardType": "hero-resource-event",
