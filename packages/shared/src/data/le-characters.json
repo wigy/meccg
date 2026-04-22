@@ -277,8 +277,19 @@
     "marshallingCategory": "character",
     "corruptionModifier": 0,
     "homesite": "Variag Camp",
-    "effects": [],
-    "text": "Unique. +2 direct influence against any faction playable at Variag Camp."
+    "effects": [
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": 2,
+        "when": {
+          "reason": "faction-influence-check",
+          "faction.playableAt": "Variag Camp"
+        }
+      }
+    ],
+    "text": "Unique. +2 direct influence against any faction playable at Variag Camp.",
+    "certified": "2026-04-21"
   },
   {
     "cardType": "minion-character",
