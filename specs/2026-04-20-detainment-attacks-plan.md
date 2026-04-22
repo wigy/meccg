@@ -194,7 +194,7 @@ top of each file stays; quote the new sub-sentences verbatim.
    §3.II.2.Rx/Bx condition flips `combat.detainment` at combat start (union
    anchor; individual branches covered in 8.33).
 
-#### `rule-8.33-minion-detainment-rules.test.ts` (§3.II.2.R* and §3.II.2.B*)
+#### `rule-8.33-minion-detainment-rules.test.ts` (§3.II.2.R`*` and §3.II.2.B`*`)
 
 1. **3.II.2.R1** `[MINION]` — Ringwraith company attacked by a creature
    keyed to Dark-domain / Dark-hold / Shadow-hold / Darkhaven →

@@ -96,7 +96,7 @@ Keep the existing flat `effects[]` array and tag each effect with a `when: 'reso
 
 **Constraint additions for hazard-side `call-council`:**
 
-3. **`play-context`** condition variant: `{ type: 'play-context', forbidden-when: { 'opponent.alignment': ['hero', 'fallen-wizard'] } }` — generic "cannot be played as hazard against player matching filter". This keeps the Wizard-immunity rule data-driven and reusable for any future card with the same restriction. Both Hero (Wizard) and Fallen-wizard alignments are immune — locked in per question 1. If a generic filter expression already exists per CLAUDE.md's "prefer DSL expressions over magic keywords" guidance, extend it instead.
+1. **`play-context`** condition variant: `{ type: 'play-context', forbidden-when: { 'opponent.alignment': ['hero', 'fallen-wizard'] } }` — generic "cannot be played as hazard against player matching filter". This keeps the Wizard-immunity rule data-driven and reusable for any future card with the same restriction. Both Hero (Wizard) and Fallen-wizard alignments are immune — locked in per question 1. If a generic filter expression already exists per CLAUDE.md's "prefer DSL expressions over magic keywords" guidance, extend it instead.
 
 **Tests added:**
 

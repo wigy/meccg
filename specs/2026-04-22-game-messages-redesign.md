@@ -27,7 +27,7 @@ Relevant files and elements (for implementation, not part of the design):
 
 ## Proposed Layout
 
-```
+```text
 ┌──────────────┐                                    ┌──────────────────┐
 │ #opponent-   │    #instruction-text (top-ctr)     │ #toolbar-main    │
 │ deck-box     │                                    │ (bug/set/disc)   │
