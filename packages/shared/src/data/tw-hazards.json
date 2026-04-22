@@ -567,7 +567,51 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/DragonsDesolation.jpg",
     "unique": false,
     "eventType": "short",
-    "effects": [],
+    "certified": "2026-04-22",
+    "effects": [
+      {
+        "type": "play-flag",
+        "flag": "no-hazard-limit"
+      },
+      {
+        "type": "modify-attack-from-hand",
+        "player": "attacker",
+        "prowessModifier": 2,
+        "when": {
+          "enemy.race": "dragon"
+        }
+      },
+      {
+        "type": "play-condition",
+        "requires": "site-path",
+        "condition": {
+          "$and": [
+            { "destinationSiteType": "ruins-and-lairs" },
+            {
+              "$or": [
+                { "sitePath.wildernessCount": { "$gte": 2 } },
+                {
+                  "$and": [
+                    { "sitePath.wildernessCount": { "$gte": 1 } },
+                    { "inPlay": "Doors of Night" }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "type": "creature-race-choice",
+        "exclude": [],
+        "fixedRace": "dragon",
+        "apply": {
+          "type": "add-constraint",
+          "constraint": "creature-keying-bypass",
+          "scope": "company-mh-phase"
+        }
+      }
+    ],
     "text": "The prowess of one Dragon attack is modified by +2.Alternatively, it may be played on a Ruins & Lairs [{R}] site that has two Wildernesses [{w}] in its site path (only one Wilderness [{w}] is required if Doors of Night is in play)—one Dragon hazard creature may be played on a company at that site this turn.“… there was neither bush nor tree, and only broken and blackened stumps…” —Hob"
   }
 ]
