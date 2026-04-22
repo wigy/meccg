@@ -292,7 +292,13 @@
     "automaticAttacks": [],
     "resourceDraws": 2,
     "hazardDraws": 1,
-    "text": "Treat this site as a Darkhaven during the untap phase. Any gold ring item at this site is automatically tested during the site phase (the site need not be entered). All ring tests at this site are modified by -3."
+    "text": "Treat this site as a Darkhaven during the untap phase. Any gold ring item at this site is automatically tested during the site phase (the site need not be entered). All ring tests at this site are modified by -3.",
+    "effects": [
+      {
+        "type": "site-rule",
+        "rule": "heal-during-untap"
+      }
+    ]
   },
   {
     "cardType": "minion-site",

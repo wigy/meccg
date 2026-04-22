@@ -715,6 +715,17 @@ Rules:
   { "type": "site-rule", "rule": "never-taps" }
   ```
 
+- `heal-during-untap` — treats the site as a haven for the untap phase
+  only: wounded (inverted) characters at this site heal to tapped as
+  they would at a haven. Nothing else about the site (site-type,
+  hazard-limit, attack rules, storage rules, …) is affected. Consumed
+  by `engine/reducer-untap.ts` during `performUntap`. Used by *Barad-dûr*
+  (le-352) — "Treat this site as a Darkhaven during the untap phase."
+
+  ```json
+  { "type": "site-rule", "rule": "heal-during-untap" }
+  ```
+
 ### 20. `item-play-site`
 
 Restricts an item to be playable only where the company's current site

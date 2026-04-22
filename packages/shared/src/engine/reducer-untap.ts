@@ -152,7 +152,9 @@ function performUntap(state: GameState): GameState {
 
   // Build a set of character IDs at havens for healing wounded characters.
   // Also check site-type-override constraints (e.g. The White Tree makes
-  // Minas Tirith a haven for healing purposes).
+  // Minas Tirith a haven for healing purposes) and the intrinsic
+  // `heal-during-untap` site-rule (e.g. Barad-dûr — Darkhaven during
+  // untap phase).
   const charsAtHaven = new Set<string>();
   for (const company of player.companies) {
     if (!company.currentSite) continue;
@@ -169,6 +171,11 @@ function performUntap(state: GameState): GameState {
         const filterSiteDefId = (c.kind.filter as { 'site.definitionId'?: string } | undefined)?.['site.definitionId'];
         return filterSiteDefId === siteDefId;
       });
+    }
+    if (!isHaven && siteDef.effects) {
+      isHaven = siteDef.effects.some(
+        e => e.type === 'site-rule' && e.rule === 'heal-during-untap',
+      );
     }
     if (isHaven) {
       for (const charId of company.characters) {

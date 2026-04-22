@@ -717,12 +717,29 @@ export type SiteRuleEffect =
   | CancelAttacksSiteRule
   | AutoTestGoldRingSiteRule
   | AttacksNotDetainmentSiteRule
-  | NeverTapsSiteRule;
+  | NeverTapsSiteRule
+  | HealDuringUntapSiteRule;
 
 /** Wounded characters at this site heal during untap as if the site were a haven. */
 export interface HealingAffectsAllSiteRule extends EffectBase {
   readonly type: 'site-rule';
   readonly rule: 'healing-affects-all';
+}
+
+/**
+ * Treats this site as a haven during the untap phase only: wounded
+ * characters at this site heal to tapped as they would at a haven.
+ * The rest of the game treats the site normally (site-type, hazard
+ * limit, attack rules, etc. are unchanged).
+ *
+ * Example — Barad-dûr (le-352): "Treat this site as a Darkhaven during
+ * the untap phase." The only observable effect of Darkhaven-during-
+ * untap is the healing of wounded characters, since the engine does
+ * not already restrict sideboard access by site.
+ */
+export interface HealDuringUntapSiteRule extends EffectBase {
+  readonly type: 'site-rule';
+  readonly rule: 'heal-during-untap';
 }
 
 /**
