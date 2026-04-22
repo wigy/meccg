@@ -27,7 +27,7 @@ import {
   makeMHState,
   actionAs, RESOURCE_PLAYER,
 } from '../test-helpers.js';
-import type { CardInstanceId, CardInPlay, PlayShortEventAction } from '../../index.js';
+import type { CardInstanceId, CardInPlay, PlayShortEventAction, EndOfTurnPhaseState } from '../../index.js';
 import { computeLegalActions, Phase, CardStatus } from '../../index.js';
 
 // ─── Tests ────────────────────────────────────────────────────────────────────
@@ -474,6 +474,103 @@ describe('Marvels Told (td-134)', () => {
     // The two actions must differ on the sage axis (Balin vs. Saruman).
     const sageTargets = playActions.map(a => actionAs<PlayShortEventAction>(a.action).targetScoutInstanceId);
     expect(new Set(sageTargets).size).toBe(2);
+  });
+
+  test('playable during site phase select-company step (CoE 2.1.1)', () => {
+    // Regression for bug 22fb5fd2f5acf7c8 (game mo8vm8nd-zh71f8, seq 105):
+    // during the site phase's `select-company` step the engine did not offer
+    // Marvels Told even though the active player had an untapped sage and a
+    // qualifying hazard in play. Rule 2.1.1 allows resource short-events
+    // during any phase of the active player's turn.
+    const foolishWordsInPlay: CardInPlay = { instanceId: mint(), definitionId: FOOLISH_WORDS, status: CardStatus.Untapped };
+    const base = buildTestState({
+      phase: Phase.Site,
+      activePlayer: PLAYER_1,
+      players: [
+        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [ELROND] }], hand: [MARVELS_TOLD], siteDeck: [MORIA] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [MINAS_TIRITH], cardsInPlay: [foolishWordsInPlay] },
+      ],
+    });
+    const state = {
+      ...base,
+      phaseState: makeSitePhase({ step: 'select-company', siteEntered: false }),
+    };
+
+    const playActions = viableActions(state, PLAYER_1, 'play-short-event');
+    expect(playActions).toHaveLength(1);
+    const action = actionAs<PlayShortEventAction>(playActions[0].action);
+    expect(action.targetScoutInstanceId).toBeDefined();
+    expect(action.discardTargetInstanceId).toBe(foolishWordsInPlay.instanceId);
+  });
+
+  test('playable during end-of-turn discard step (CoE 2.1.1)', () => {
+    // Regression for bug 22fb5fd2f5acf7c8 (game mo8vm8nd-zh71f8, seq 111):
+    // in the end-of-turn phase's `discard` step the engine did not offer
+    // Marvels Told, forcing the player to discard it instead of playing it.
+    // Rule 2.1.1 allows the active player's resource short-events during
+    // any phase of their turn; the voluntary discard step qualifies.
+    const foolishWordsInPlay: CardInPlay = { instanceId: mint(), definitionId: FOOLISH_WORDS, status: CardStatus.Untapped };
+    const state = buildTestState({
+      phase: Phase.EndOfTurn,
+      activePlayer: PLAYER_1,
+      players: [
+        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [ELROND] }], hand: [MARVELS_TOLD], siteDeck: [MORIA] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [MINAS_TIRITH], cardsInPlay: [foolishWordsInPlay] },
+      ],
+    });
+
+    const playActions = viableActions(state, PLAYER_1, 'play-short-event');
+    expect(playActions).toHaveLength(1);
+    const action = actionAs<PlayShortEventAction>(playActions[0].action);
+    expect(action.targetScoutInstanceId).toBeDefined();
+    expect(action.discardTargetInstanceId).toBe(foolishWordsInPlay.instanceId);
+  });
+
+  test('playable during end-of-turn signal-end step (CoE 2.1.1)', () => {
+    // After resetting hand size, the active player reaches the signal-end
+    // step. Resource short-events must remain playable here per rule 2.1.1
+    // so the player can still discard a qualifying hazard before the turn
+    // ends.
+    const foolishWordsInPlay: CardInPlay = { instanceId: mint(), definitionId: FOOLISH_WORDS, status: CardStatus.Untapped };
+    const base = buildTestState({
+      phase: Phase.EndOfTurn,
+      activePlayer: PLAYER_1,
+      players: [
+        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [ELROND] }], hand: [MARVELS_TOLD], siteDeck: [MORIA] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [MINAS_TIRITH], cardsInPlay: [foolishWordsInPlay] },
+      ],
+    });
+    const signalEndPhase: EndOfTurnPhaseState = {
+      phase: Phase.EndOfTurn,
+      step: 'signal-end',
+      discardDone: [true, true],
+      resetHandDone: [true, true],
+    };
+    const state = { ...base, phaseState: signalEndPhase };
+
+    const playActions = viableActions(state, PLAYER_1, 'play-short-event');
+    expect(playActions).toHaveLength(1);
+    const action = actionAs<PlayShortEventAction>(playActions[0].action);
+    expect(action.targetScoutInstanceId).toBeDefined();
+    expect(action.discardTargetInstanceId).toBe(foolishWordsInPlay.instanceId);
+  });
+
+  test('not offered to non-active player during end-of-turn discard step', () => {
+    // The hazard player still cannot play resource short-events during the
+    // opponent's end-of-turn phase, even if they hold Marvels Told and a
+    // qualifying hazard is in play.
+    const foolishWordsInPlay: CardInPlay = { instanceId: mint(), definitionId: FOOLISH_WORDS, status: CardStatus.Untapped };
+    const state = buildTestState({
+      phase: Phase.EndOfTurn,
+      activePlayer: PLAYER_1,
+      players: [
+        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [ELROND] }], hand: [], siteDeck: [MORIA] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [MARVELS_TOLD], siteDeck: [MINAS_TIRITH], cardsInPlay: [foolishWordsInPlay] },
+      ],
+    });
+
+    const playActions = viableActions(state, PLAYER_2, 'play-short-event');
+    expect(playActions).toHaveLength(0);
   });
 
   test('targets hazards attached to characters (Foolish Words, Lure of the Senses)', () => {
