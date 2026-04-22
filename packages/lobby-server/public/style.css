@@ -3050,7 +3050,7 @@ h2 {
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.6);
   opacity: 0;
   text-align: right;
-  animation: toast-in 0.3s ease forwards, toast-out 0.4s ease 9s forwards;
+  animation: toast-in 0.3s ease forwards, toast-out 0.8s ease 18s forwards;
 }
 
 .toast--history {
