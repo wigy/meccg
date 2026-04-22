@@ -74,7 +74,28 @@
     "marshallingCategory": "character",
     "corruptionModifier": 0,
     "homesite": "Grey Havens",
-    "text": "Unique. +1 direct influence against Elves and Elf factions."
+    "effects": [
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": 1,
+        "when": {
+          "reason": "influence-check",
+          "target.race": "elf"
+        }
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": 1,
+        "when": {
+          "reason": "faction-influence-check",
+          "faction.race": "elf"
+        }
+      }
+    ],
+    "text": "Unique. +1 direct influence against Elves and Elf factions.",
+    "certified": "2026-04-22"
   },
   {
     "cardType": "hero-character",
