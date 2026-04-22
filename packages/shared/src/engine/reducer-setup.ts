@@ -866,7 +866,7 @@ function handleInitiativeRoll(
     playerName: state.players[playerIndex].name,
     die1: roll.die1,
     die2: roll.die2,
-    label: 'Initiative',
+    label: 'First turn',
   };
 
   // Store the roll in the player's state

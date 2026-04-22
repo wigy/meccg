@@ -352,7 +352,7 @@ function renderState(input: RenderInput): string {
     'character-placement': 'Place Characters',
     'deck-shuffle': 'Shuffle Deck',
     'initial-draw': 'Draw Initial Hand',
-    'initiative-roll': 'Roll for Initiative',
+    'initiative-roll': 'Roll for First Turn',
   };
   const MH_STEP_LABELS: Record<string, string> = {
     'select-company': 'Select Company',

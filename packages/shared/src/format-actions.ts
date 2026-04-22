@@ -192,7 +192,7 @@ export function describeAction(
       return `Move ${instName(action.characterInstanceId)} to ${companyNum} company`;
     }
     case 'roll-initiative':
-      return 'Roll 2d6 for initiative';
+      return 'Roll 2d6 for first turn';
     case 'untap':
       return 'Untap all cards';
     case 'play-character':

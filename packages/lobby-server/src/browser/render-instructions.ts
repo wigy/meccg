@@ -91,7 +91,7 @@ function getInstructionText(
       case 'initial-draw':
         return 'Draw — Drawing initial hand.';
       case 'initiative-roll':
-        return 'Initiative — Roll dice to determine who goes first.';
+        return 'Who Goes First — Roll dice to determine who takes the first turn.';
     }
   }
 
