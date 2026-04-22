@@ -22,7 +22,7 @@ import type { ReducerResult } from './reducer-utils.js';
 import { dequeueResolution, enqueueResolution, enqueueCorruptionCheck, removeConstraint } from './pending.js';
 import { getPlayerIndex, isCharacterCard, isFactionCard, GENERAL_INFLUENCE } from '../index.js';
 import { resolveInstanceId } from '../types/state.js';
-import { roll2d6, clonePlayers, cleanupEmptyCompanies } from './reducer-utils.js';
+import { roll2d6, clonePlayers, cleanupEmptyCompanies, updatePlayer, wrongActionType } from './reducer-utils.js';
 import { logDetail } from './legal-actions/log.js';
 import {
   resolveInfluenceAttemptRoll,
@@ -382,7 +382,7 @@ function applyCancelInfluence(
   top: PendingResolution,
 ): ReducerResult {
   if (action.type !== 'cancel-influence') {
-    return { state, error: 'Expected cancel-influence action' };
+    return wrongActionType(state, action, 'cancel-influence');
   }
   if (top.kind.type !== 'opponent-influence-defend') {
     return { state, error: 'cancel-influence requires a pending opponent-influence-defend' };
@@ -392,8 +392,7 @@ function applyCancelInfluence(
   }
 
   const playerIndex = getPlayerIndex(state, action.player);
-  const players = clonePlayers(state);
-  const player = players[playerIndex];
+  const player = state.players[playerIndex];
 
   const handCards = [...player.hand];
   const cardIndex = handCards.findIndex(c => c.instanceId === action.cardInstanceId);
@@ -414,11 +413,10 @@ function applyCancelInfluence(
   }
 
   const newDiscard = [...player.discardPile, { instanceId: discardedCard.instanceId, definitionId: discardedCard.definitionId }];
-  players[playerIndex] = { ...player, hand: handCards, discardPile: newDiscard };
 
   logDetail(`Cancel-influence: ${cardDef.name} played, influence attempt auto-canceled`);
 
-  let resultState: GameState = { ...state, players: players as unknown as GameState['players'] };
+  let resultState: GameState = updatePlayer(state, playerIndex, p => ({ ...p, hand: handCards, discardPile: newDiscard }));
   resultState = dequeueResolution(resultState, top.id);
 
   if (cancelEffect.cost && 'check' in cancelEffect.cost && cancelEffect.cost.check === 'corruption') {
@@ -647,9 +645,8 @@ function applyCallOfHomeRollResolution(
   logDetail(`Call of Home on ${charName}: rolled ${total} + unused GI ${unusedGI} = ${checkValue} vs threshold ${threshold} → ${passed ? 'STAYS' : 'RETURNS TO HAND'}`);
 
   // Update RNG state and store the roll on the player
-  const playersAfterRoll = clonePlayers(state);
-  playersAfterRoll[actorIndex] = { ...playersAfterRoll[actorIndex], lastDiceRoll: roll };
-  let postRoll = dequeueResolution({ ...state, players: playersAfterRoll, rng, cheatRollTotal }, top.id);
+  const stateAfterRoll = updatePlayer(state, actorIndex, p => ({ ...p, lastDiceRoll: roll }));
+  let postRoll = dequeueResolution({ ...stateAfterRoll, rng, cheatRollTotal }, top.id);
 
   if (!passed) {
     postRoll = returnCharacterToHand(postRoll, actorIndex, targetCharacterId, charInPlay);
@@ -819,18 +816,17 @@ function applyGoldRingTestResolution(
 
   // Discard the gold ring from out-of-play regardless of the roll
   // (Rule 9.21: gold ring is immediately discarded when tested).
-  const newPlayers = clonePlayers(state);
   const newOutOfPlay = [...player.outOfPlayPile];
   newOutOfPlay.splice(ringIdx, 1);
-  newPlayers[actorIndex] = {
-    ...newPlayers[actorIndex],
+  const stateAfterRing = updatePlayer(state, actorIndex, p => ({
+    ...p,
     outOfPlayPile: newOutOfPlay,
-    discardPile: [...newPlayers[actorIndex].discardPile, ringCard],
+    discardPile: [...p.discardPile, ringCard],
     lastDiceRoll: roll,
-  };
+  }));
 
   const postRoll = dequeueResolution(
-    { ...state, players: newPlayers, rng, cheatRollTotal },
+    { ...stateAfterRing, rng, cheatRollTotal },
     top.id,
   );
 

@@ -16,7 +16,7 @@ import { logHeading, logDetail } from './legal-actions/log.js';
 import { computeTournamentScore } from '../state-utils.js';
 import { resolveInstanceId } from '../types/state.js';
 import type { ReducerResult } from './reducer-utils.js';
-import { roll2d6, clonePlayers, cleanupEmptyCompanies } from './reducer-utils.js';
+import { roll2d6, clonePlayers, cleanupEmptyCompanies, updatePlayer, updateCharacter } from './reducer-utils.js';
 
 
 /**
@@ -152,8 +152,6 @@ function handleSupportCorruptionCheck(
   if (action.type !== 'support-corruption-check') return { state, error: 'Expected support-corruption-check' };
 
   const playerIndex = getPlayerIndex(state, action.player);
-  const player = state.players[playerIndex];
-  const supporter = player.characters[action.supportingCharacterId as string];
   const supporterDefId = resolveInstanceId(state, action.supportingCharacterId);
   const supporterDef = supporterDefId ? state.cardPool[supporterDefId as string] : undefined;
   const supporterName = supporterDef?.name ?? (action.supportingCharacterId as string);
@@ -161,15 +159,13 @@ function handleSupportCorruptionCheck(
   logDetail(`Free Council: ${supporterName} taps to support corruption check — +1`);
 
   // Tap the supporter
-  const newPlayers = clonePlayers(state);
-  const newCharacters = { ...player.characters };
-  newCharacters[action.supportingCharacterId as string] = { ...supporter, status: CardStatus.Tapped };
-  newPlayers[playerIndex] = { ...player, characters: newCharacters };
+  const newState = updatePlayer(state, playerIndex, p =>
+    updateCharacter(p, action.supportingCharacterId, c => ({ ...c, status: CardStatus.Tapped })),
+  );
 
   return {
     state: {
-      ...state,
-      players: newPlayers,
+      ...newState,
       phaseState: {
         ...fcState,
         pendingCheck: {

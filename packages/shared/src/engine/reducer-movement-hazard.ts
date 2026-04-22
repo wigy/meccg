@@ -19,7 +19,7 @@ import { logDetail } from './legal-actions/log.js';
 import { initiateChain, pushChainEntry } from './chain-reducer.js';
 import { resolveInstanceId } from '../types/state.js';
 import type { ReducerResult } from './reducer-utils.js';
-import { clonePlayers, startDeckExhaust, completeDeckExhaust, handleExchangeSideboard, cleanupEmptyCompanies, autoMergeNonHavenCompanies } from './reducer-utils.js';
+import { clonePlayers, startDeckExhaust, completeDeckExhaust, handleExchangeSideboard, cleanupEmptyCompanies, autoMergeNonHavenCompanies, updatePlayer, updateCharacter, wrongActionType } from './reducer-utils.js';
 import { handlePlayShortEvent, handlePlayResourceShortEvent } from './reducer-events.js';
 import { handlePlayPermanentEvent } from './reducer-events.js';
 import { handleGrantActionApply } from './reducer-organization.js';
@@ -66,9 +66,7 @@ export function handleMovementHazard(state: GameState, action: GameAction): Redu
  * currentHazardLimit() rather than mutating it.
  */
 function handleSetHazardLimit(state: GameState, action: GameAction, mhState: MovementHazardPhaseState): ReducerResult {
-  if (action.type !== 'pass') {
-    return { state, error: `Expected 'pass' during set-hazard-limit step, got '${action.type}'` };
-  }
+  if (action.type !== 'pass') return wrongActionType(state, action, 'pass', 'set-hazard-limit step');
   const playerIndex = getPlayerIndex(state, action.player);
   const company = state.players[playerIndex].companies[mhState.activeCompanyIndex];
   const { limit, preRevealConstraintIds } = snapshotHazardLimit(state, company);
@@ -88,9 +86,7 @@ function handleSetHazardLimit(state: GameState, action: GameAction, mhState: Mov
 
 /** Advance from the order-effects step once the hazard player passes. */
 function handleOrderEffectsStep(state: GameState, action: GameAction, mhState: MovementHazardPhaseState): ReducerResult {
-  if (action.type !== 'pass') {
-    return { state, error: `Expected 'pass' during order-effects step, got '${action.type}'` };
-  }
+  if (action.type !== 'pass') return wrongActionType(state, action, 'pass', 'order-effects step');
   return handleOrderEffects(state, mhState);
 }
 
@@ -208,7 +204,7 @@ function handlePlayHazardCard(
   action: GameAction,
   mhState: MovementHazardPhaseState,
 ): ReducerResult {
-  if (action.type !== 'play-hazard') return { state, error: 'Expected play-hazard action' };
+  if (action.type !== 'play-hazard') return wrongActionType(state, action, 'play-hazard');
 
   const hazardIndex = getPlayerIndex(state, action.player);
   const hazardPlayer = state.players[hazardIndex];
@@ -232,13 +228,11 @@ function handlePlayHazardCard(
     logDetail(`Play-hazards: ${action.player as string} plays resource-as-hazard "${def.name}" → triggering endgame (caller gets last turn)`);
     const newHand = [...hazardPlayer.hand];
     newHand.splice(cardIdx, 1);
-    const newPlayers = clonePlayers(state);
-    newPlayers[hazardIndex] = {
-      ...hazardPlayer,
+    const afterDiscard = updatePlayer(state, hazardIndex, p => ({
+      ...p,
       hand: newHand,
-      discardPile: [...hazardPlayer.discardPile, handCard],
-    };
-    const afterDiscard: GameState = { ...state, players: newPlayers };
+      discardPile: [...p.discardPile, handCard],
+    }));
     return { state: triggerCouncilCall(afterDiscard, action.player, 'self') };
   }
 
@@ -254,12 +248,9 @@ function handlePlayHazardCard(
     // Remove card from hand — it resides on the chain entry until combat resolves
     const newHand = [...hazardPlayer.hand];
     newHand.splice(cardIdx, 1);
-    const newPlayers = clonePlayers(state);
-    newPlayers[hazardIndex] = { ...hazardPlayer, hand: newHand };
 
     let newState: GameState = {
-      ...state,
-      players: newPlayers,
+      ...updatePlayer(state, hazardIndex, p => ({ ...p, hand: newHand })),
       phaseState: {
         ...mhState,
         hazardsPlayedThisCompany: newHazardCount,
@@ -282,16 +273,13 @@ function handlePlayHazardCard(
     // Move card from hand to discard (short events are discarded after resolution)
     const newHand = [...hazardPlayer.hand];
     newHand.splice(cardIdx, 1);
-    const newPlayers = clonePlayers(state);
-    newPlayers[hazardIndex] = {
-      ...hazardPlayer,
-      hand: newHand,
-      discardPile: [...hazardPlayer.discardPile, handCard],
-    };
 
     let newState: GameState = {
-      ...state,
-      players: newPlayers,
+      ...updatePlayer(state, hazardIndex, p => ({
+        ...p,
+        hand: newHand,
+        discardPile: [...p.discardPile, handCard],
+      })),
       phaseState: {
         ...mhState,
         hazardsPlayedThisCompany: newHazardCount,
@@ -342,11 +330,8 @@ function handlePlayHazardCard(
     logDetail(`Play-hazards: hazard player plays corruption "${def.name}" (${mhState.hazardsPlayedThisCompany + 1}/${currentHazardLimit(state, mhState, action.targetCompanyId)}) → enters chain`);
     const newHand = [...hazardPlayer.hand];
     newHand.splice(cardIdx, 1);
-    const newPlayers = clonePlayers(state);
-    newPlayers[hazardIndex] = { ...hazardPlayer, hand: newHand };
     let newState: GameState = {
-      ...state,
-      players: newPlayers,
+      ...updatePlayer(state, hazardIndex, p => ({ ...p, hand: newHand })),
       phaseState: {
         ...mhState,
         hazardsPlayedThisCompany: mhState.hazardsPlayedThisCompany + 1,
@@ -377,12 +362,8 @@ function handlePlayHazardCard(
   const newHand = [...hazardPlayer.hand];
   newHand.splice(cardIdx, 1);
 
-  const newPlayers = clonePlayers(state);
-  newPlayers[hazardIndex] = { ...hazardPlayer, hand: newHand };
-
   let newState: GameState = {
-    ...state,
-    players: newPlayers,
+    ...updatePlayer(state, hazardIndex, p => ({ ...p, hand: newHand })),
     phaseState: {
       ...mhState,
       hazardsPlayedThisCompany: mhState.hazardsPlayedThisCompany + 1,
@@ -427,7 +408,7 @@ function handlePlaceOnGuard(
   action: GameAction,
   mhState: MovementHazardPhaseState,
 ): ReducerResult {
-  if (action.type !== 'place-on-guard') return { state, error: 'Expected place-on-guard action' };
+  if (action.type !== 'place-on-guard') return wrongActionType(state, action, 'place-on-guard');
 
   const hazardIndex = getPlayerIndex(state, action.player);
   const hazardPlayer = state.players[hazardIndex];
@@ -880,17 +861,11 @@ function fireAllyArrivalEffects(
           if (effect.when && !matchesCondition(effect.when, context)) continue;
 
           logDetail(`company-arrives-at-site: ally "${def.name}" discard-self triggered (site region: ${siteRegion})`);
-          const newPlayers = clonePlayers(newState);
           const updatedAllies = char.allies.filter(a => a.instanceId !== ally.instanceId);
-          newPlayers[pIdx] = {
-            ...newPlayers[pIdx],
-            characters: {
-              ...newPlayers[pIdx].characters,
-              [charInstId as string]: { ...newPlayers[pIdx].characters[charInstId as string], allies: updatedAllies },
-            },
-            discardPile: [...newPlayers[pIdx].discardPile, { instanceId: ally.instanceId, definitionId: ally.definitionId }],
-          };
-          newState = { ...newState, players: [newPlayers[0], newPlayers[1]] as unknown as typeof newState.players };
+          newState = updatePlayer(newState, pIdx, p => ({
+            ...updateCharacter(p, charInstId, c => ({ ...c, allies: updatedAllies })),
+            discardPile: [...p.discardPile, { instanceId: ally.instanceId, definitionId: ally.definitionId }],
+          }));
           break;
         }
       }
@@ -916,9 +891,7 @@ function handleResetHand(
   action: GameAction,
   mhState: MovementHazardPhaseState,
 ): ReducerResult {
-  if (action.type !== 'discard-card') {
-    return { state, error: `Expected 'discard-card' during reset-hand step, got '${action.type}'` };
-  }
+  if (action.type !== 'discard-card') return wrongActionType(state, action, 'discard-card', 'reset-hand step');
 
   const playerIndex = getPlayerIndex(state, action.player);
   const player = state.players[playerIndex];
@@ -927,19 +900,16 @@ function handleResetHand(
   const newHand = [...player.hand];
   newHand.splice(cardIdx, 1);
 
-  const newPlayers = clonePlayers(state);
-  newPlayers[playerIndex] = {
-    ...player,
+  const updatedState = updatePlayer(state, playerIndex, p => ({
+    ...p,
     hand: newHand,
-    discardPile: [...player.discardPile, discardedCard],
-  };
+    discardPile: [...p.discardPile, discardedCard],
+  }));
 
   logDetail(`Reset-hand: player ${player.name} discards 1 card (hand now ${newHand.length})`);
 
-  const updatedState = { ...state, players: newPlayers };
-
   // Check if both players are now at hand size
-  if (newPlayers.every((p, i) => p.hand.length <= resolveHandSize(updatedState, i))) {
+  if (updatedState.players.every((p, i) => p.hand.length <= resolveHandSize(updatedState, i))) {
     logDetail(`Reset-hand: all players at hand size → advancing`);
     return advanceAfterCompanyMH(updatedState, mhState);
   }
@@ -975,15 +945,12 @@ function advanceAfterCompanyMH(state: GameState, mhState: MovementHazardPhaseSta
     // so the merge sees the post-movement company layout.
     const mergedState = autoMergeNonHavenCompanies(state, activeIndex);
     // Reset moved flags so the site phase shows a clean slate
-    const newPlayers = clonePlayers(mergedState);
-    newPlayers[activeIndex] = {
-      ...newPlayers[activeIndex],
-      companies: newPlayers[activeIndex].companies.map(c => ({ ...c, moved: false, specialMovement: undefined, extraRegionDistance: undefined })),
-    };
     return {
       state: cleanupEmptyCompanies({
-        ...mergedState,
-        players: newPlayers,
+        ...updatePlayer(mergedState, activeIndex, p => ({
+          ...p,
+          companies: p.companies.map(c => ({ ...c, moved: false, specialMovement: undefined, extraRegionDistance: undefined })),
+        })),
         phaseState: {
           phase: Phase.Site,
           step: 'select-company',
@@ -1726,12 +1693,11 @@ function handleDrawCards(
   }
 
   const drawnCard = player.playDeck[0];
-  const newPlayers = clonePlayers(state);
-  newPlayers[actingIndex] = {
-    ...player,
-    hand: [...player.hand, drawnCard],
-    playDeck: player.playDeck.slice(1),
-  };
+  const drawnState = updatePlayer(state, actingIndex, p => ({
+    ...p,
+    hand: [...p.hand, drawnCard],
+    playDeck: p.playDeck.slice(1),
+  }));
 
   const newDrawCount = drawnSoFar + 1;
   logDetail(`Movement/Hazard draw-cards: ${playerLabel} player drew card ${newDrawCount}/${drawMax}`);
@@ -1753,8 +1719,7 @@ function handleDrawCards(
       logDetail(`Movement/Hazard draw-cards: both players done → advancing to play-hazards`);
       return {
         state: {
-          ...state,
-          players: newPlayers,
+          ...drawnState,
           phaseState: { ...newMhState, step: 'play-hazards' as const },
         },
       };
@@ -1763,8 +1728,7 @@ function handleDrawCards(
 
   return {
     state: {
-      ...state,
-      players: newPlayers,
+      ...drawnState,
       phaseState: newMhState,
     },
   };

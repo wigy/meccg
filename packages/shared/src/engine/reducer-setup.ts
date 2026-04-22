@@ -6,13 +6,13 @@
  * character placement, deck shuffle, initial draw, and initiative roll.
  */
 
-import type { GameState, DraftPlayerState, ItemDraftPlayerState, CharacterDeckDraftPlayerState, SetupStepState, CharacterInPlay, CardInstance, GameAction } from '../index.js';
+import type { GameState, DraftPlayerState, ItemDraftPlayerState, CharacterDeckDraftPlayerState, SetupStepState, CardInstance, GameAction } from '../index.js';
 import type { TwoDiceSix, GameEffect } from '../index.js';
 import { Phase, SetupStep, getAlignmentRules, shuffle, CardStatus, isCharacterCard, getPlayerIndex, MAX_STARTING_ITEMS } from '../index.js';
 import { logDetail } from './legal-actions/log.js';
 import { applyDraftResults, transitionAfterItemDraft, enterSiteSelection, startFirstTurn } from './init.js';
 import type { ReducerResult } from './reducer-utils.js';
-import { roll2d6, clonePlayers, cleanupEmptyCompanies, nextCompanyId } from './reducer-utils.js';
+import { roll2d6, clonePlayers, cleanupEmptyCompanies, nextCompanyId, updatePlayer, updateCharacter, wrongActionType } from './reducer-utils.js';
 
 
 export function handleSetup(state: GameState, action: GameAction): ReducerResult {
@@ -311,7 +311,7 @@ function handleItemDraft(
   }
 
   if (action.type !== 'assign-starting-item') {
-    return { state, error: `Unexpected action in item draft: ${action.type}` };
+    return wrongActionType(state, action, 'assign-starting-item', 'item draft');
   }
 
   // Enforce starting item limit
@@ -341,13 +341,6 @@ function handleItemDraft(
     return { state, error: 'Character not found' };
   }
 
-  const updatedChar: CharacterInPlay = {
-    ...existingChar,
-    items: [...existingChar.items, { instanceId: itemInstanceId, definitionId: itemCard.definitionId, status: CardStatus.Untapped }],
-  };
-  const updatedCharacters = { ...player.characters, [charKey]: updatedChar };
-  const updatedPlayer = { ...player, characters: updatedCharacters };
-
   // Remove item from unassigned list
   const newUnassigned = itemDraft.unassignedItems.filter(c => c.instanceId !== itemInstanceId);
   const newItemDraft: ItemDraftPlayerState = {
@@ -358,14 +351,16 @@ function handleItemDraft(
   const newItemDraftState = [...stepState.itemDraftState] as [ItemDraftPlayerState, ItemDraftPlayerState];
   newItemDraftState[playerIndex] = newItemDraft;
 
-  const newPlayers = clonePlayers(state);
-  newPlayers[playerIndex] = updatedPlayer;
+  const stateWithChar = updatePlayer(state, playerIndex, p => updateCharacter(p, charKey, c => ({
+    ...c,
+    items: [...c.items, { instanceId: itemInstanceId, definitionId: itemCard.definitionId, status: CardStatus.Untapped }],
+  })));
 
   // If both players are done, transition to character deck draft (or Untap)
   if (newItemDraftState[0].done && newItemDraftState[1].done) {
     return {
       state: transitionAfterItemDraft(
-        { ...state, players: newPlayers },
+        stateWithChar,
         stepState.remainingPool,
       ),
     };
@@ -373,8 +368,7 @@ function handleItemDraft(
 
   return {
     state: {
-      ...state,
-      players: newPlayers,
+      ...stateWithChar,
       phaseState: setupPhase({ ...stepState, itemDraftState: newItemDraftState }),
     },
   };
@@ -427,7 +421,7 @@ function handleCharacterDeckDraft(
   }
 
   if (action.type !== 'add-character-to-deck') {
-    return { state, error: `Unexpected action in character deck draft: ${action.type}` };
+    return wrongActionType(state, action, 'add-character-to-deck', 'character deck draft');
   }
 
   // Validate character is in remaining pool
@@ -456,11 +450,6 @@ function handleCharacterDeckDraft(
   // Instance IDs must remain stable for the lifetime of the game.
   if (!draftDefId) return { state, error: 'Invalid character instance' };
 
-  const player = state.players[playerIndex];
-  const newPlayDeck = [...player.playDeck, poolCard];
-  const newPlayers = clonePlayers(state);
-  newPlayers[playerIndex] = { ...player, playDeck: newPlayDeck };
-
   // Remove from remaining pool
   const newPool = deckDraft.remainingPool.filter(c => c.instanceId !== action.characterInstanceId);
   const newDeckDraftState = [...stepState.deckDraftState] as [CharacterDeckDraftPlayerState, CharacterDeckDraftPlayerState];
@@ -470,8 +459,7 @@ function handleCharacterDeckDraft(
   };
 
   const newState = {
-    ...state,
-    players: newPlayers,
+    ...updatePlayer(state, playerIndex, p => ({ ...p, playDeck: [...p.playDeck, poolCard] })),
     phaseState: setupPhase({ ...stepState, deckDraftState: newDeckDraftState }),
   };
 
@@ -531,7 +519,7 @@ function handleStartingSiteSelection(
   }
 
   if (action.type !== 'select-starting-site') {
-    return { state, error: `Unexpected action in site selection: ${action.type}` };
+    return wrongActionType(state, action, 'select-starting-site', 'site selection');
   }
 
   // Validate site is in player's site deck and not already selected
@@ -549,8 +537,6 @@ function handleStartingSiteSelection(
 
   // Remove site from site deck
   const newSiteDeck = player.siteDeck.filter(c => c.instanceId !== action.siteInstanceId);
-  const newPlayers = clonePlayers(state);
-  newPlayers[playerIndex] = { ...player, siteDeck: newSiteDeck };
 
   const newSiteSelectionState = [...stepState.siteSelectionState] as [SiteSelectionPlayerState, SiteSelectionPlayerState];
   newSiteSelectionState[playerIndex] = {
@@ -563,8 +549,7 @@ function handleStartingSiteSelection(
 
   return {
     state: {
-      ...state,
-      players: newPlayers,
+      ...updatePlayer(state, playerIndex, p => ({ ...p, siteDeck: newSiteDeck })),
       phaseState: setupPhase({ ...stepState, siteSelectionState: newSiteSelectionState }),
     },
   };
@@ -685,7 +670,7 @@ function handleCharacterPlacement(
   }
 
   if (action.type !== 'place-character') {
-    return { state, error: `Unexpected action in character placement: ${action.type}` };
+    return wrongActionType(state, action, 'place-character', 'character placement');
   }
 
   const player = state.players[playerIndex];
@@ -713,14 +698,8 @@ function handleCharacterPlacement(
     characters: [...newCompanies[targetIdx].characters, action.characterInstanceId],
   };
 
-  const newPlayers = clonePlayers(state);
-  newPlayers[playerIndex] = { ...player, companies: newCompanies };
-
   return {
-    state: {
-      ...state,
-      players: newPlayers,
-    },
+    state: updatePlayer(state, playerIndex, p => ({ ...p, companies: newCompanies })),
   };
 }
 
@@ -739,7 +718,7 @@ function handleDeckShuffle(
   }
 
   if (action.type !== 'shuffle-play-deck') {
-    return { state, error: `Unexpected action in deck shuffle: ${action.type}` };
+    return wrongActionType(state, action, 'shuffle-play-deck', 'deck shuffle');
   }
 
   const player = state.players[playerIndex];
@@ -747,8 +726,7 @@ function handleDeckShuffle(
   const [shuffled, nextRng] = shuffle([...player.playDeck], rng);
   rng = nextRng;
 
-  const newPlayers = clonePlayers(state);
-  newPlayers[playerIndex] = { ...player, playDeck: shuffled };
+  const stateWithShuffle = updatePlayer(state, playerIndex, p => ({ ...p, playDeck: shuffled }));
 
   const newShuffled = [...stepState.shuffled] as [boolean, boolean];
   newShuffled[playerIndex] = true;
@@ -757,8 +735,7 @@ function handleDeckShuffle(
   if (newShuffled[0] && newShuffled[1]) {
     return {
       state: {
-        ...state,
-        players: newPlayers,
+        ...stateWithShuffle,
         phaseState: setupPhase({ step: SetupStep.InitialDraw, drawn: [false, false] }),
         rng,
       },
@@ -767,8 +744,7 @@ function handleDeckShuffle(
 
   return {
     state: {
-      ...state,
-      players: newPlayers,
+      ...stateWithShuffle,
       phaseState: setupPhase({ ...stepState, shuffled: newShuffled }),
       rng,
     },
@@ -790,15 +766,14 @@ function handleInitialDraw(
   }
 
   if (action.type !== 'draw-cards') {
-    return { state, error: `Unexpected action in initial draw: ${action.type}` };
+    return wrongActionType(state, action, 'draw-cards', 'initial draw');
   }
 
   const player = state.players[playerIndex];
   const hand = player.playDeck.slice(0, action.count);
   const playDeck = player.playDeck.slice(action.count);
 
-  const newPlayers = clonePlayers(state);
-  newPlayers[playerIndex] = { ...player, hand, playDeck };
+  const stateWithDraw = updatePlayer(state, playerIndex, p => ({ ...p, hand, playDeck }));
 
   const newDrawn = [...stepState.drawn] as [boolean, boolean];
   newDrawn[playerIndex] = true;
@@ -807,10 +782,7 @@ function handleInitialDraw(
   if (newDrawn[0] && newDrawn[1]) {
     return {
       state: {
-        ...cleanupEmptyCompanies({
-          ...state,
-          players: newPlayers,
-        }),
+        ...cleanupEmptyCompanies(stateWithDraw),
         phaseState: setupPhase({
           step: SetupStep.InitiativeRoll,
           rolls: [null, null],
@@ -821,8 +793,7 @@ function handleInitialDraw(
 
   return {
     state: {
-      ...state,
-      players: newPlayers,
+      ...stateWithDraw,
       phaseState: setupPhase({ ...stepState, drawn: newDrawn }),
     },
   };
@@ -848,7 +819,7 @@ function handleInitiativeRoll(
   stepState: SetupStepState & { step: SetupStep.InitiativeRoll },
 ): ReducerResult {
   if (action.type !== 'roll-initiative') {
-    return { state, error: `Unexpected action in initiative roll: ${action.type}` };
+    return wrongActionType(state, action, 'roll-initiative', 'initiative roll');
   }
 
   const playerIndex = getPlayerIndex(state, action.player);
@@ -870,9 +841,11 @@ function handleInitiativeRoll(
   };
 
   // Store the roll in the player's state
-  const playersWithRoll = clonePlayers(state);
-  playersWithRoll[playerIndex] = { ...playersWithRoll[playerIndex], lastDiceRoll: roll };
-  const stateWithRoll: GameState = { ...state, players: playersWithRoll, rng, cheatRollTotal };
+  const stateWithRoll: GameState = {
+    ...updatePlayer(state, playerIndex, p => ({ ...p, lastDiceRoll: roll })),
+    rng,
+    cheatRollTotal,
+  };
 
   const newRolls = [...stepState.rolls] as [TwoDiceSix | null, TwoDiceSix | null];
   newRolls[playerIndex] = roll;

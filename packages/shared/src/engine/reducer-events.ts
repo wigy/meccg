@@ -12,7 +12,7 @@ import { logDetail } from './legal-actions/log.js';
 import { initiateChain, pushChainEntry } from './chain-reducer.js';
 import { resolveInstanceId } from '../types/state.js';
 import type { ReducerResult } from './reducer-utils.js';
-import { clonePlayers } from './reducer-utils.js';
+import { updatePlayer, updateCharacter, wrongActionType } from './reducer-utils.js';
 import { triggerCouncilCall } from './reducer-end-of-turn.js';
 import { addConstraint, enqueueCorruptionCheck } from './pending.js';
 import { handleGrantActionApply } from './reducer-organization.js';
@@ -24,7 +24,7 @@ import { handleGrantActionApply } from './reducer-organization.js';
  * a chain of effects. The card enters play upon resolution (see chain-reducer).
  */
 export function handlePlayPermanentEvent(state: GameState, action: GameAction): ReducerResult {
-  if (action.type !== 'play-permanent-event') return { state, error: 'Expected play-permanent-event action' };
+  if (action.type !== 'play-permanent-event') return wrongActionType(state, action, 'play-permanent-event');
 
   const playerIndex = getPlayerIndex(state, action.player);
   const player = state.players[playerIndex];
@@ -39,28 +39,23 @@ export function handlePlayPermanentEvent(state: GameState, action: GameAction): 
   const newHand = [...player.hand];
   newHand.splice(cardIdx, 1);
 
-  const newPlayers = clonePlayers(state);
-  newPlayers[playerIndex] = { ...player, hand: newHand };
+  let newState: GameState = updatePlayer(state, playerIndex, p => ({ ...p, hand: newHand }));
 
   // Discard a card as a play cost (e.g. Sapling of the White Tree for The White Tree)
   if (action.discardCardInstanceId) {
     logDetail(`Discarding ${action.discardCardInstanceId as string} as play cost for ${def.name}`);
     let found = false;
     // Check character items
-    for (const [charId, ch] of Object.entries(newPlayers[playerIndex].characters)) {
+    for (const [charId, ch] of Object.entries(newState.players[playerIndex].characters)) {
       const itemIdx = ch.items.findIndex(i => i.instanceId === action.discardCardInstanceId);
       if (itemIdx !== -1) {
         const item = ch.items[itemIdx];
         const newItems = [...ch.items];
         newItems.splice(itemIdx, 1);
-        newPlayers[playerIndex] = {
-          ...newPlayers[playerIndex],
-          characters: {
-            ...newPlayers[playerIndex].characters,
-            [charId]: { ...ch, items: newItems },
-          },
-          discardPile: [...newPlayers[playerIndex].discardPile, { instanceId: item.instanceId, definitionId: item.definitionId }],
-        };
+        newState = updatePlayer(newState, playerIndex, p => ({
+          ...updateCharacter(p, charId, c => ({ ...c, items: newItems })),
+          discardPile: [...p.discardPile, { instanceId: item.instanceId, definitionId: item.definitionId }],
+        }));
         logDetail(`Discarded item ${item.definitionId as string} from character ${charId}`);
         found = true;
         break;
@@ -68,24 +63,22 @@ export function handlePlayPermanentEvent(state: GameState, action: GameAction): 
     }
     // Check out-of-play pile (stored items)
     if (!found) {
-      const oopIdx = newPlayers[playerIndex].outOfPlayPile.findIndex(
+      const oopIdx = newState.players[playerIndex].outOfPlayPile.findIndex(
         c => c.instanceId === action.discardCardInstanceId,
       );
       if (oopIdx !== -1) {
-        const card = newPlayers[playerIndex].outOfPlayPile[oopIdx];
-        const newOop = [...newPlayers[playerIndex].outOfPlayPile];
+        const card = newState.players[playerIndex].outOfPlayPile[oopIdx];
+        const newOop = [...newState.players[playerIndex].outOfPlayPile];
         newOop.splice(oopIdx, 1);
-        newPlayers[playerIndex] = {
-          ...newPlayers[playerIndex],
+        newState = updatePlayer(newState, playerIndex, p => ({
+          ...p,
           outOfPlayPile: newOop,
-          discardPile: [...newPlayers[playerIndex].discardPile, { instanceId: card.instanceId, definitionId: card.definitionId }],
-        };
+          discardPile: [...p.discardPile, { instanceId: card.instanceId, definitionId: card.definitionId }],
+        }));
         logDetail(`Discarded stored card ${card.definitionId as string} from out-of-play pile`);
       }
     }
   }
-
-  let newState: GameState = { ...state, players: newPlayers };
 
   // Initiate or push onto chain — card enters play upon resolution.
   // Forward targetCharacterId (if any) through the payload so that
@@ -113,7 +106,7 @@ export function handlePlayPermanentEvent(state: GameState, action: GameAction): 
  * entry resolves — giving both players a chance to respond.
  */
 export function handlePlayShortEvent(state: GameState, action: GameAction): ReducerResult {
-  if (action.type !== 'play-short-event') return { state, error: 'Expected play-short-event action' };
+  if (action.type !== 'play-short-event') return wrongActionType(state, action, 'play-short-event');
 
   const playerIndex = getPlayerIndex(state, action.player);
   const player = state.players[playerIndex];
@@ -130,14 +123,11 @@ export function handlePlayShortEvent(state: GameState, action: GameAction): Redu
   const newHand = [...player.hand];
   newHand.splice(cardIdx, 1);
 
-  const newPlayers = clonePlayers(state);
-  newPlayers[playerIndex] = {
-    ...player,
+  let newState: GameState = updatePlayer(state, playerIndex, p => ({
+    ...p,
     hand: newHand,
-    discardPile: [...player.discardPile, handCard],
-  };
-
-  let newState: GameState = { ...state, players: newPlayers };
+    discardPile: [...p.discardPile, handCard],
+  }));
 
   // Initiate chain or push onto existing chain — target stored in payload
   const payload: ChainEntryPayload = { type: 'short-event', targetInstanceId: action.targetInstanceId };
@@ -197,25 +187,23 @@ export function handleLongEvent(state: GameState, action: GameAction): ReducerRe
       return true;
     });
 
-    const newPlayers = clonePlayers(state);
-    newPlayers[hazardPlayerIndex] = {
-      ...newPlayers[hazardPlayerIndex],
+    let afterPass = updatePlayer(state, hazardPlayerIndex, p => ({
+      ...p,
       cardsInPlay: remainingCards,
-      discardPile: [...newPlayers[hazardPlayerIndex].discardPile, ...discardedEvents],
-    };
+      discardPile: [...p.discardPile, ...discardedEvents],
+    }));
 
     // Reset moved flags on the active player's companies for the new M/H phase
     const activeIndex = getPlayerIndex(state, activePlayer);
-    newPlayers[activeIndex] = {
-      ...newPlayers[activeIndex],
-      companies: newPlayers[activeIndex].companies.map(c => ({ ...c, moved: false, specialMovement: undefined, extraRegionDistance: undefined })),
-    };
+    afterPass = updatePlayer(afterPass, activeIndex, p => ({
+      ...p,
+      companies: p.companies.map(c => ({ ...c, moved: false, specialMovement: undefined, extraRegionDistance: undefined })),
+    }));
 
     logDetail(`Long-event: active player ${action.player as string} passed → advancing to Movement/Hazard phase`);
     return {
       state: {
-        ...state,
-        players: newPlayers,
+        ...afterPass,
         phaseState: {
           phase: Phase.MovementHazard,
           step: 'select-company',
@@ -264,7 +252,7 @@ export function handleLongEvent(state: GameState, action: GameAction): ReducerRe
  * effect, sets up the pendingFetch sub-flow on the phase state.
  */
 export function handlePlayResourceShortEvent(state: GameState, action: GameAction): ReducerResult {
-  if (action.type !== 'play-short-event') return { state, error: 'Expected play-short-event action' };
+  if (action.type !== 'play-short-event') return wrongActionType(state, action, 'play-short-event');
 
   const playerIndex = getPlayerIndex(state, action.player);
   const player = state.players[playerIndex];
@@ -287,13 +275,11 @@ export function handlePlayResourceShortEvent(state: GameState, action: GameActio
       e.type === 'call-council' && e.lastTurnFor === 'opponent',
   );
   if (resourceCallCouncil) {
-    const newPlayers = clonePlayers(state);
-    newPlayers[playerIndex] = {
-      ...player,
+    const afterDiscard = updatePlayer(state, playerIndex, p => ({
+      ...p,
       hand: newHand,
-      discardPile: [...player.discardPile, handCard],
-    };
-    const afterDiscard: GameState = { ...state, players: newPlayers };
+      discardPile: [...p.discardPile, handCard],
+    }));
     return { state: triggerCouncilCall(afterDiscard, action.player, 'opponent') };
   }
 
@@ -378,12 +364,10 @@ export function handlePlayResourceShortEvent(state: GameState, action: GameActio
       ...(action.targetScoutInstanceId ? { targetCharacterId: action.targetScoutInstanceId } : {}),
     }));
 
-  const newPlayers = clonePlayers(state);
-  newPlayers[playerIndex] = { ...player, hand: newHand, characters: newCharacters };
+  let newState: GameState = updatePlayer(state, playerIndex, p => ({ ...p, hand: newHand, characters: newCharacters }));
 
   // Apply self-enters-play on-event effects (e.g. Stealth's add-constraint).
   // These are non-interactive and resolved immediately when the card is played.
-  let newState: GameState = { ...state, players: newPlayers };
   newState = applyShortEventOnEntersPlay(newState, def, handCard, action, playerIndex);
 
   // If the selected play-option is an `add-constraint` apply targeting the
@@ -425,17 +409,16 @@ export function handlePlayResourceShortEvent(state: GameState, action: GameActio
     }
     const owner = newState.players[foundOwnerIndex];
     let targetInstance: { instanceId: CardInstanceId; definitionId: import('../index.js').CardDefinitionId };
-    const updatedPlayers = clonePlayers(newState);
     if (foundCardsInPlayIdx !== -1) {
       const targetCard = owner.cardsInPlay[foundCardsInPlayIdx];
       targetInstance = { instanceId: targetCard.instanceId, definitionId: targetCard.definitionId };
       const newOwnerCardsInPlay = [...owner.cardsInPlay];
       newOwnerCardsInPlay.splice(foundCardsInPlayIdx, 1);
-      updatedPlayers[foundOwnerIndex] = {
-        ...owner,
+      newState = updatePlayer(newState, foundOwnerIndex, p => ({
+        ...p,
         cardsInPlay: newOwnerCardsInPlay,
-        discardPile: [...owner.discardPile, targetInstance],
-      };
+        discardPile: [...p.discardPile, targetInstance],
+      }));
     } else {
       const charId = foundCharId!;
       const char = owner.characters[charId];
@@ -443,18 +426,13 @@ export function handlePlayResourceShortEvent(state: GameState, action: GameActio
       targetInstance = { instanceId: haz.instanceId, definitionId: haz.definitionId };
       const newHazards = [...char.hazards];
       newHazards.splice(foundHazardIdx, 1);
-      updatedPlayers[foundOwnerIndex] = {
-        ...owner,
-        characters: {
-          ...owner.characters,
-          [charId]: { ...char, hazards: newHazards },
-        },
-        discardPile: [...owner.discardPile, targetInstance],
-      };
+      newState = updatePlayer(newState, foundOwnerIndex, p => ({
+        ...updateCharacter(p, charId, c => ({ ...c, hazards: newHazards })),
+        discardPile: [...p.discardPile, targetInstance],
+      }));
     }
     const targetDef = newState.cardPool[targetInstance.definitionId as string];
     logDetail(`${def.name} discards ${targetDef.name} from ${owner.id as string}'s in-play`);
-    newState = { ...newState, players: updatedPlayers };
 
     if (discardInPlay.corruptionCheck && action.targetScoutInstanceId) {
       newState = enqueueCorruptionCheck(newState, {
@@ -480,10 +458,9 @@ export function handlePlayResourceShortEvent(state: GameState, action: GameActio
     if (company) {
       const opponentIndex = (playerIndex + 1) % newState.players.length;
       const bouncedCards: CardInstance[] = [];
-      const updatedPlayers2 = clonePlayers(newState);
 
       for (const charId of company.characters) {
-        const char = updatedPlayers2[playerIndex].characters[charId as string];
+        const char = newState.players[playerIndex].characters[charId as string];
         if (!char) continue;
         const remaining: import('../index.js').CardInPlay[] = [];
         for (const haz of char.hazards) {
@@ -496,24 +473,19 @@ export function handlePlayResourceShortEvent(state: GameState, action: GameActio
           }
         }
         if (remaining.length !== char.hazards.length) {
-          updatedPlayers2[playerIndex] = {
-            ...updatedPlayers2[playerIndex],
-            characters: {
-              ...updatedPlayers2[playerIndex].characters,
-              [charId as string]: { ...char, hazards: remaining },
-            },
-          };
+          newState = updatePlayer(newState, playerIndex, p =>
+            updateCharacter(p, charId as string, c => ({ ...c, hazards: remaining })),
+          );
         }
       }
 
       if (bouncedCards.length > 0) {
-        updatedPlayers2[opponentIndex] = {
-          ...updatedPlayers2[opponentIndex],
-          hand: [...updatedPlayers2[opponentIndex].hand, ...bouncedCards],
-        };
+        newState = updatePlayer(newState, opponentIndex, p => ({
+          ...p,
+          hand: [...p.hand, ...bouncedCards],
+        }));
         logDetail(`${def.name}: returned ${bouncedCards.length} hazard permanent-event(s) to opponent's hand`);
       }
-      newState = { ...newState, players: updatedPlayers2 };
 
       // Enqueue corruption check on the wizard
       newState = enqueueCorruptionCheck(newState, {
@@ -530,27 +502,25 @@ export function handlePlayResourceShortEvent(state: GameState, action: GameActio
   if (interactiveEffects.length > 0) {
     // Card goes to player's cardsInPlay (visible on table) while effects resolve
     logDetail(`${def.name} → cardsInPlay, resolving ${interactiveEffects.length} effect(s)`);
-    const updatedPlayers = clonePlayers(newState);
-    updatedPlayers[playerIndex] = {
-      ...newState.players[playerIndex],
-      cardsInPlay: [...newState.players[playerIndex].cardsInPlay, { instanceId: handCard.instanceId, definitionId: handCard.definitionId, status: CardStatus.Untapped }],
-    };
+    const withCardInPlay = updatePlayer(newState, playerIndex, p => ({
+      ...p,
+      cardsInPlay: [...p.cardsInPlay, { instanceId: handCard.instanceId, definitionId: handCard.definitionId, status: CardStatus.Untapped }],
+    }));
     return {
       state: {
-        ...newState,
-        players: updatedPlayers,
-        pendingEffects: [...newState.pendingEffects, ...interactiveEffects],
+        ...withCardInPlay,
+        pendingEffects: [...withCardInPlay.pendingEffects, ...interactiveEffects],
       },
     };
   }
 
   // No interactive effects: discard immediately
-  const updatedPlayers = clonePlayers(newState);
-  updatedPlayers[playerIndex] = {
-    ...newState.players[playerIndex],
-    discardPile: [...newState.players[playerIndex].discardPile, handCard],
+  return {
+    state: updatePlayer(newState, playerIndex, p => ({
+      ...p,
+      discardPile: [...p.discardPile, handCard],
+    })),
   };
-  return { state: { ...newState, players: updatedPlayers } };
 }
 
 /**
@@ -771,7 +741,7 @@ function applyShortEventOnEntersPlay(
  * a chain of effects. The card enters play upon resolution (see chain-reducer).
  */
 function handlePlayLongEvent(state: GameState, action: GameAction): ReducerResult {
-  if (action.type !== 'play-long-event') return { state, error: 'Expected play-long-event action' };
+  if (action.type !== 'play-long-event') return wrongActionType(state, action, 'play-long-event');
 
   const playerIndex = getPlayerIndex(state, action.player);
   const player = state.players[playerIndex];
@@ -786,9 +756,7 @@ function handlePlayLongEvent(state: GameState, action: GameAction): ReducerResul
   const newHand = [...player.hand];
   newHand.splice(cardIdx, 1);
 
-  const newPlayers = clonePlayers(state);
-  newPlayers[playerIndex] = { ...player, hand: newHand };
-  let newState: GameState = { ...state, players: newPlayers };
+  let newState: GameState = updatePlayer(state, playerIndex, p => ({ ...p, hand: newHand }));
 
   // Initiate or push onto chain — card enters play upon resolution
   if (newState.chain === null) {

@@ -12,7 +12,7 @@ import { logDetail } from './legal-actions/log.js';
 import { isEndOfOrgPlay } from './legal-actions/organization.js';
 import { resolveInstanceId } from '../types/state.js';
 import type { ReducerResult } from './reducer-utils.js';
-import { roll2d6, clonePlayers, nextCompanyId, handleFetchFromPile, sweepAutoDiscardHazards, removeById, toCardInstance } from './reducer-utils.js';
+import { roll2d6, clonePlayers, nextCompanyId, handleFetchFromPile, sweepAutoDiscardHazards, removeById, toCardInstance, updatePlayer, updateCharacter, wrongActionType } from './reducer-utils.js';
 import { handlePlayPermanentEvent, handlePlayShortEvent, handlePlayResourceShortEvent } from './reducer-events.js';
 import { enqueueResolution, enqueueCorruptionCheck, addConstraint, removeConstraint } from './pending.js';
 import { recomputeDerived } from './recompute-derived.js';
@@ -63,7 +63,7 @@ export function handleOrganization(state: GameState, action: GameAction): Reduce
  * CoE rule 2.III.1).
  */
 function handleOrganizationPass(state: GameState, action: GameAction): ReducerResult {
-  if (action.type !== 'pass') return { state, error: 'Expected pass action' };
+  if (action.type !== 'pass') return wrongActionType(state, action, 'pass');
   const orgState = state.phaseState as OrganizationPhaseState;
   if (orgState.sideboardFetchDestination === 'discard') {
     logDetail(`Sideboard access: player ${action.player as string} done fetching to discard (${orgState.sideboardFetchedThisTurn} cards)`);
@@ -91,17 +91,13 @@ function handleOrganizationPass(state: GameState, action: GameAction): ReducerRe
     return true;
   });
 
-  const newPlayers = clonePlayers(state);
-  newPlayers[activeIndex] = {
-    ...newPlayers[activeIndex],
-    cardsInPlay: remainingCards,
-    discardPile: [...newPlayers[activeIndex].discardPile, ...discardedEvents],
-  };
-
   return {
     state: {
-      ...state,
-      players: newPlayers,
+      ...updatePlayer(state, activeIndex, p => ({
+        ...p,
+        cardsInPlay: remainingCards,
+        discardPile: [...p.discardPile, ...discardedEvents],
+      })),
       phaseState: { phase: Phase.LongEvent },
     },
   };
@@ -116,7 +112,7 @@ function handleOrganizationPass(state: GameState, action: GameAction): ReducerRe
  * actions this turn.
  */
 function handleOrganizationPlayShortEvent(state: GameState, action: GameAction): ReducerResult {
-  if (action.type !== 'play-short-event') return { state, error: 'Expected play-short-event action' };
+  if (action.type !== 'play-short-event') return wrongActionType(state, action, 'play-short-event');
   let result: ReducerResult;
   let endOfOrgPlay = false;
   if (action.cardInstanceId) {
@@ -165,7 +161,7 @@ function handleOrganizationPlayShortEvent(state: GameState, action: GameAction):
  * company (taking the site card from the site deck if needed).
  */
 function handlePlayCharacter(state: GameState, action: GameAction): ReducerResult {
-  if (action.type !== 'play-character') return { state, error: 'Expected play-character action' };
+  if (action.type !== 'play-character') return wrongActionType(state, action, 'play-character');
 
   const playerIndex = getPlayerIndex(state, action.player);
   const player = state.players[playerIndex];
@@ -246,19 +242,15 @@ function handlePlayCharacter(state: GameState, action: GameAction): ReducerResul
     };
   }
 
-  const newPlayers = clonePlayers(state);
-  newPlayers[playerIndex] = {
-    ...player,
-    hand: newHand,
-    siteDeck: newSiteDeck,
-    characters: newCharacters,
-    companies,
-  };
-
   return {
     state: sweepAutoDiscardHazards({
-      ...state,
-      players: newPlayers,
+      ...updatePlayer(state, playerIndex, p => ({
+        ...p,
+        hand: newHand,
+        siteDeck: newSiteDeck,
+        characters: newCharacters,
+        companies,
+      })),
       phaseState: { ...phaseState, characterPlayedThisTurn: true },
     }),
   };
@@ -281,7 +273,7 @@ function handlePlayCharacter(state: GameState, action: GameAction): ReducerResul
  * - To GI: removes from controller's followers, sets controlledBy to 'general'
  */
 function handleMoveToInfluence(state: GameState, action: GameAction): ReducerResult {
-  if (action.type !== 'move-to-influence') return { state, error: 'Expected move-to-influence action' };
+  if (action.type !== 'move-to-influence') return wrongActionType(state, action, 'move-to-influence');
 
   const playerIndex = getPlayerIndex(state, action.player);
   const player = state.players[playerIndex];
@@ -344,12 +336,6 @@ function handleMoveToInfluence(state: GameState, action: GameAction): ReducerRes
     };
   }
 
-  const newPlayers = clonePlayers(state);
-  newPlayers[playerIndex] = {
-    ...player,
-    characters: newCharacters,
-  };
-
   // Reverse: move the character back to their old influence controller
   const reverseAction: GameAction = {
     type: 'move-to-influence',
@@ -360,8 +346,7 @@ function handleMoveToInfluence(state: GameState, action: GameAction): ReducerRes
 
   return {
     state: {
-      ...state,
-      players: newPlayers,
+      ...updatePlayer(state, playerIndex, p => ({ ...p, characters: newCharacters })),
       reverseActions: [...state.reverseActions, reverseAction],
     },
   };
@@ -384,7 +369,7 @@ function handleMoveToInfluence(state: GameState, action: GameAction): ReducerRes
  * both characters are at the same site (not necessarily same company).
  */
 function handleTransferItem(state: GameState, action: GameAction): ReducerResult {
-  if (action.type !== 'transfer-item') return { state, error: 'Expected transfer-item action' };
+  if (action.type !== 'transfer-item') return wrongActionType(state, action, 'transfer-item');
 
   const playerIndex = getPlayerIndex(state, action.player);
   const player = state.players[playerIndex];
@@ -420,12 +405,6 @@ function handleTransferItem(state: GameState, action: GameAction): ReducerResult
     items: [...toChar.items, item],
   };
 
-  const newPlayers = clonePlayers(state);
-  newPlayers[playerIndex] = {
-    ...player,
-    characters: newCharacters,
-  };
-
   // Enqueue a corruption-check resolution for the character who gave away
   // the item. The unified pending system replaces the old per-phase
   // `pendingCorruptionCheck` field; the resolver in `pending-reducers.ts`
@@ -434,8 +413,7 @@ function handleTransferItem(state: GameState, action: GameAction): ReducerResult
   logDetail(`Enqueuing corruption check for ${fromDef?.name ?? '?'} after item transfer`);
 
   const stateAfterTransfer: GameState = {
-    ...state,
-    players: newPlayers,
+    ...updatePlayer(state, playerIndex, p => ({ ...p, characters: newCharacters })),
     reverseActions: [...state.reverseActions, {
       type: 'transfer-item' as const,
       player: action.player,
@@ -466,7 +444,7 @@ function handleTransferItem(state: GameState, action: GameAction): ReducerResult
  * `storable-at` effect); the initial bearer makes a corruption check.
  */
 function handleStoreItem(state: GameState, action: GameAction): ReducerResult {
-  if (action.type !== 'store-item') return { state, error: 'Expected store-item action' };
+  if (action.type !== 'store-item') return wrongActionType(state, action, 'store-item');
 
   const playerIndex = getPlayerIndex(state, action.player);
   const player = state.players[playerIndex];
@@ -493,19 +471,13 @@ function handleStoreItem(state: GameState, action: GameAction): ReducerResult {
     definitionId: item.definitionId,
   };
 
-  const newPlayers = clonePlayers(state);
-  newPlayers[playerIndex] = {
-    ...player,
-    characters: newCharacters,
-    outOfPlayPile: [...player.outOfPlayPile, storedCard],
-  };
-
   logDetail(`Enqueuing corruption check for ${charDef?.name ?? '?'} after item storage`);
 
-  const stateAfterStore: GameState = {
-    ...state,
-    players: newPlayers,
-  };
+  const stateAfterStore: GameState = updatePlayer(state, playerIndex, p => ({
+    ...p,
+    characters: newCharacters,
+    outOfPlayPile: [...p.outOfPlayPile, storedCard],
+  }));
 
   const stateAfterCheck = enqueueCorruptionCheck(stateAfterStore, {
     source: itemInstId,
@@ -595,21 +567,19 @@ function handleStartSideboard(state: GameState, action: GameAction): ReducerResu
   const destination = action.type === 'start-sideboard-to-deck' ? 'deck' : 'discard';
 
   // Tap the avatar
-  const newPlayers = clonePlayers(state);
   const avatarKey = action.characterInstanceId as string;
-  const avatarChar = newPlayers[playerIndex].characters[avatarKey];
+  const avatarChar = state.players[playerIndex].characters[avatarKey];
   if (avatarChar) {
     const charDef = state.cardPool[avatarChar.definitionId as string];
     logDetail(`Tapping avatar ${charDef?.name ?? '?'} for sideboard access (${destination})`);
-    const newChars = { ...newPlayers[playerIndex].characters };
-    newChars[avatarKey] = { ...avatarChar, status: CardStatus.Tapped };
-    newPlayers[playerIndex] = { ...newPlayers[playerIndex], characters: newChars };
   }
+  const newState = avatarChar
+    ? updatePlayer(state, playerIndex, p => updateCharacter(p, avatarKey, c => ({ ...c, status: CardStatus.Tapped })))
+    : state;
 
   return {
     state: {
-      ...state,
-      players: newPlayers,
+      ...newState,
       phaseState: { ...orgState, sideboardFetchDestination: destination },
     },
   };
@@ -632,7 +602,7 @@ function handleStartSideboard(state: GameState, action: GameAction): ReducerResu
  * destination, also shuffles and exits the sub-flow.
  */
 function handleFetchFromSideboard(state: GameState, action: GameAction): ReducerResult {
-  if (action.type !== 'fetch-from-sideboard') return { state, error: 'Expected fetch-from-sideboard action' };
+  if (action.type !== 'fetch-from-sideboard') return wrongActionType(state, action, 'fetch-from-sideboard');
 
   const playerIndex = getPlayerIndex(state, action.player);
   const player = state.players[playerIndex];
@@ -1587,7 +1557,7 @@ export function handleGrantActionApply(state: GameState, action: GameAction): Re
  * Validates that the source company retains at least one character.
  */
 function handleSplitCompany(state: GameState, action: GameAction): ReducerResult {
-  if (action.type !== 'split-company') return { state, error: 'Expected split-company action' };
+  if (action.type !== 'split-company') return wrongActionType(state, action, 'split-company');
 
   const playerIndex = getPlayerIndex(state, action.player);
   const player = state.players[playerIndex];
@@ -1656,9 +1626,6 @@ function handleSplitCompany(state: GameState, action: GameAction): ReducerResult
   );
   companies.push(newCompany);
 
-  const newPlayers = clonePlayers(state);
-  newPlayers[playerIndex] = { ...player, companies, siteDeck: newSiteDeck };
-
   // Reverse: merge the new company back into the source
   const reverseAction: GameAction = {
     type: 'merge-companies',
@@ -1669,8 +1636,7 @@ function handleSplitCompany(state: GameState, action: GameAction): ReducerResult
 
   return {
     state: {
-      ...state,
-      players: newPlayers,
+      ...updatePlayer(state, playerIndex, p => ({ ...p, companies, siteDeck: newSiteDeck })),
       reverseActions: [...state.reverseActions, reverseAction],
     },
   };
@@ -1693,7 +1659,7 @@ function handleSplitCompany(state: GameState, action: GameAction): ReducerResult
  * and both companies are at the same site.
  */
 function handleMoveToCompany(state: GameState, action: GameAction): ReducerResult {
-  if (action.type !== 'move-to-company') return { state, error: 'Expected move-to-company action' };
+  if (action.type !== 'move-to-company') return wrongActionType(state, action, 'move-to-company');
 
   const playerIndex = getPlayerIndex(state, action.player);
   const player = state.players[playerIndex];
@@ -1743,9 +1709,6 @@ function handleMoveToCompany(state: GameState, action: GameAction): ReducerResul
   // Remove empty companies (shouldn't happen due to validation, but be safe)
   const filteredCompanies = companies.filter(c => c.characters.length > 0);
 
-  const newPlayers = clonePlayers(state);
-  newPlayers[playerIndex] = { ...player, companies: filteredCompanies };
-
   // Reverse: move the character back to the source company
   const reverseAction: GameAction = {
     type: 'move-to-company',
@@ -1757,8 +1720,7 @@ function handleMoveToCompany(state: GameState, action: GameAction): ReducerResul
 
   return {
     state: sweepAutoDiscardHazards({
-      ...state,
-      players: newPlayers,
+      ...updatePlayer(state, playerIndex, p => ({ ...p, companies: filteredCompanies })),
       reverseActions: [...state.reverseActions, reverseAction],
     }),
   };
@@ -1781,7 +1743,7 @@ function handleMoveToCompany(state: GameState, action: GameAction): ReducerResul
  * If the source company owned the site card, ownership transfers to the target.
  */
 function handleMergeCompanies(state: GameState, action: GameAction): ReducerResult {
-  if (action.type !== 'merge-companies') return { state, error: 'Expected merge-companies action' };
+  if (action.type !== 'merge-companies') return wrongActionType(state, action, 'merge-companies');
 
   const playerIndex = getPlayerIndex(state, action.player);
   const player = state.players[playerIndex];
@@ -1816,9 +1778,6 @@ function handleMergeCompanies(state: GameState, action: GameAction): ReducerResu
       return c;
     });
 
-  const newPlayers = clonePlayers(state);
-  newPlayers[playerIndex] = { ...player, companies };
-
   // Reverse: split each GI character from the source back out of the target
   const reverses: GameAction[] = sourceCompany.characters
     .filter(id => {
@@ -1834,8 +1793,7 @@ function handleMergeCompanies(state: GameState, action: GameAction): ReducerResu
 
   return {
     state: sweepAutoDiscardHazards({
-      ...state,
-      players: newPlayers,
+      ...updatePlayer(state, playerIndex, p => ({ ...p, companies })),
       reverseActions: [...state.reverseActions, ...reverses],
     }),
   };
@@ -1858,7 +1816,7 @@ function handleMergeCompanies(state: GameState, action: GameAction): ReducerResu
  * returned on cancel-movement or discarded after movement resolves).
  */
 function handlePlanMovement(state: GameState, action: GameAction): ReducerResult {
-  if (action.type !== 'plan-movement') return { state, error: 'Expected plan-movement action' };
+  if (action.type !== 'plan-movement') return wrongActionType(state, action, 'plan-movement');
 
   const playerIndex = getPlayerIndex(state, action.player);
   const player = state.players[playerIndex];
@@ -1927,9 +1885,6 @@ function handlePlanMovement(state: GameState, action: GameAction): ReducerResult
     };
   }
 
-  const newPlayers = clonePlayers(state);
-  newPlayers[playerIndex] = { ...player, companies, siteDeck };
-
   // Reverse: cancel the movement we just planned
   const reverseAction: GameAction = {
     type: 'cancel-movement',
@@ -1937,7 +1892,7 @@ function handlePlanMovement(state: GameState, action: GameAction): ReducerResult
     companyId: action.companyId,
   };
 
-  return { state: { ...state, players: newPlayers, reverseActions: [...state.reverseActions, reverseAction] } };
+  return { state: { ...updatePlayer(state, playerIndex, p => ({ ...p, companies, siteDeck })), reverseActions: [...state.reverseActions, reverseAction] } };
 }
 
 /**
@@ -1955,7 +1910,7 @@ function handlePlanMovement(state: GameState, action: GameAction): ReducerResult
  * site card back to the player's site deck.
  */
 function handleCancelMovement(state: GameState, action: GameAction): ReducerResult {
-  if (action.type !== 'cancel-movement') return { state, error: 'Expected cancel-movement action' };
+  if (action.type !== 'cancel-movement') return wrongActionType(state, action, 'cancel-movement');
 
   const playerIndex = getPlayerIndex(state, action.player);
   const player = state.players[playerIndex];
@@ -1992,9 +1947,6 @@ function handleCancelMovement(state: GameState, action: GameAction): ReducerResu
     siteDeck = [...player.siteDeck, toCardInstance(company.destinationSite)];
   }
 
-  const newPlayers = clonePlayers(state);
-  newPlayers[playerIndex] = { ...player, companies, siteDeck };
-
   // Reverse: re-plan movement to the destination we just cancelled
   const reverseAction: GameAction = {
     type: 'plan-movement',
@@ -2003,7 +1955,7 @@ function handleCancelMovement(state: GameState, action: GameAction): ReducerResu
     destinationSite: company.destinationSite.instanceId,
   };
 
-  return { state: { ...state, players: newPlayers, reverseActions: [...state.reverseActions, reverseAction] } };
+  return { state: { ...updatePlayer(state, playerIndex, p => ({ ...p, companies, siteDeck })), reverseActions: [...state.reverseActions, reverseAction] } };
 }
 
 /**

@@ -16,7 +16,7 @@ import { initiateChain } from './chain-reducer.js';
 import { availableDI } from './legal-actions/organization.js';
 import { crossAlignmentInfluencePenalty } from '../alignment-rules.js';
 import type { ReducerResult } from './reducer-utils.js';
-import { roll2d6, clonePlayers, cleanupEmptyCompanies } from './reducer-utils.js';
+import { roll2d6, clonePlayers, cleanupEmptyCompanies, updatePlayer, wrongActionType } from './reducer-utils.js';
 import { handlePlayPermanentEvent, handlePlayResourceShortEvent } from './reducer-events.js';
 import { handleGrantActionApply } from './reducer-organization.js';
 import { buildInPlayNames, buildControllerInPlayNames, buildFactionPlayableAt } from './recompute-derived.js';
@@ -97,7 +97,7 @@ function handleSiteSelectCompany(
   siteState: SitePhaseState,
 ): ReducerResult {
   if (action.type !== 'select-company') {
-    return { state, error: `Expected 'select-company' action during select-company step, got '${action.type}'` };
+    return wrongActionType(state, action, 'select-company', 'select-company step');
   }
 
   const playerIndex = getPlayerIndex(state, state.activePlayer!);
@@ -317,10 +317,7 @@ function handleRevealOnGuardAttacks(
     const newCompanies = [...resourcePlayer.companies];
     newCompanies[siteState.activeCompanyIndex] = { ...company, onGuardCards: newOnGuardCards };
 
-    const newPlayers = clonePlayers(state);
-    newPlayers[activeIndex] = { ...resourcePlayer, companies: newCompanies };
-
-    return { state: { ...state, players: newPlayers } };
+    return { state: updatePlayer(state, activeIndex, p => ({ ...p, companies: newCompanies })) };
   }
 
   return { state, error: `Unexpected action '${action.type}' during reveal-on-guard-attacks step` };
@@ -533,16 +530,15 @@ function handleSitePlaySiteAutoAttack(
   // Remove creature from hand, move to hazard player's cardsInPlay for
   // the duration of combat (finalizeCombat routes it to discard).
   const newHand = hazardPlayer.hand.filter((_, i) => i !== creatureIdx);
-  const newPlayers = clonePlayers(state);
-  newPlayers[hazardIndex] = {
-    ...newPlayers[hazardIndex],
+  const stateAfterMove = updatePlayer(state, hazardIndex, p => ({
+    ...p,
     hand: newHand,
-    cardsInPlay: [...newPlayers[hazardIndex].cardsInPlay, {
+    cardsInPlay: [...p.cardsInPlay, {
       instanceId: creatureCard.instanceId,
       definitionId: creatureCard.definitionId,
       status: CardStatus.Untapped,
     }],
-  };
+  }));
 
   const inPlayNames = buildInPlayNames(state);
   const creatureRace = creatureDef.race;
@@ -581,8 +577,7 @@ function handleSitePlaySiteAutoAttack(
 
   return {
     state: {
-      ...state,
-      players: newPlayers,
+      ...stateAfterMove,
       combat,
       phaseState: { ...siteState, step: 'automatic-attacks' as const },
     },
@@ -644,13 +639,11 @@ function handleSiteResolveAttacks(
       // Update company, players
       const newCompanies = [...state.players[activePlayerIndex].companies];
       newCompanies[siteState.activeCompanyIndex] = { ...company, onGuardCards: newOnGuardCards };
-      const newPlayers = clonePlayers(state);
-      newPlayers[activePlayerIndex] = { ...state.players[activePlayerIndex], companies: newCompanies };
 
       // Initiate chain with CardInstance
       const hazardPlayerId = state.players.find(p => p.id !== state.activePlayer)!.id;
       const cardInstance: CardInstance = { instanceId: attackCard.instanceId, definitionId: attackCard.definitionId };
-      let newState: GameState = { ...state, players: newPlayers };
+      let newState: GameState = updatePlayer(state, activePlayerIndex, p => ({ ...p, companies: newCompanies }));
       newState = initiateChain(newState, hazardPlayerId, cardInstance, { type: 'creature' });
       return { state: newState };
     }
@@ -701,10 +694,7 @@ export function applyOnGuardRevealAtResource(
   const newCompanies = [...resourcePlayer.companies];
   newCompanies[siteState.activeCompanyIndex] = { ...company, onGuardCards: newOnGuardCards };
 
-  const newPlayers = clonePlayers(state);
-  newPlayers[activeIndex] = { ...resourcePlayer, companies: newCompanies };
-
-  let newState: GameState = { ...state, players: newPlayers };
+  let newState: GameState = updatePlayer(state, activeIndex, p => ({ ...p, companies: newCompanies }));
 
   // Initiate a nested chain for the on-guard event (rule 2.V.6.1)
   const isPermanent = def && 'eventType' in def && def.eventType === 'permanent';
@@ -857,7 +847,7 @@ function handleSitePlayHeroResource(
   action: GameAction,
   siteState: SitePhaseState,
 ): ReducerResult {
-  if (action.type !== 'play-hero-resource') return { state, error: 'Expected play-hero-resource action' };
+  if (action.type !== 'play-hero-resource') return wrongActionType(state, action, 'play-hero-resource');
 
   const playerIndex = getPlayerIndex(state, action.player);
   const player = state.players[playerIndex];
@@ -894,7 +884,6 @@ function handleSitePlayHeroResource(
   };
 
   const newCharacters = { ...player.characters, [targetCharId as string]: updatedChar };
-  const newPlayers = clonePlayers(state);
 
   // Tap the site by updating company's currentSite status, unless the
   // site carries the `never-taps` site-rule (e.g. The Worthy Hills).
@@ -908,12 +897,9 @@ function handleSitePlayHeroResource(
     currentSite: neverTaps ? siteInPlay : { ...siteInPlay, status: CardStatus.Tapped },
   };
 
-  newPlayers[playerIndex] = { ...player, hand: newHand, characters: newCharacters, companies: newCompanies };
-
   return {
     state: {
-      ...state,
-      players: newPlayers,
+      ...updatePlayer(state, playerIndex, p => ({ ...p, hand: newHand, characters: newCharacters, companies: newCompanies })),
       phaseState: {
         ...siteState,
         resourcePlayed: true,
@@ -956,7 +942,7 @@ function handleInfluenceAttemptDeclare(
   action: GameAction,
   _siteState: SitePhaseState,
 ): ReducerResult {
-  if (action.type !== 'influence-attempt') return { state, error: 'Expected influence-attempt action' };
+  if (action.type !== 'influence-attempt') return wrongActionType(state, action, 'influence-attempt');
 
   const playerIndex = getPlayerIndex(state, action.player);
   const player = state.players[playerIndex];
@@ -981,10 +967,8 @@ function handleInfluenceAttemptDeclare(
   };
 
   const newCharacters = { ...player.characters, [charId as string]: updatedChar };
-  const newPlayers = clonePlayers(state);
-  newPlayers[playerIndex] = { ...player, hand: newHand, characters: newCharacters };
 
-  const newState: GameState = { ...state, players: newPlayers };
+  const newState: GameState = updatePlayer(state, playerIndex, p => ({ ...p, hand: newHand, characters: newCharacters }));
 
   // Initiate chain — faction card is held by the chain entry, opponent gets priority
   const cardInstance: CardInstance = { instanceId: handCard.instanceId, definitionId: handCard.definitionId };
@@ -1164,7 +1148,7 @@ function handleOpponentInfluenceAttempt(
   action: GameAction,
   siteState: SitePhaseState,
 ): ReducerResult {
-  if (action.type !== 'opponent-influence-attempt') return { state, error: 'Expected opponent-influence-attempt action' };
+  if (action.type !== 'opponent-influence-attempt') return wrongActionType(state, action, 'opponent-influence-attempt');
 
   const playerIndex = getPlayerIndex(state, action.player);
   const player = state.players[playerIndex];
@@ -1262,12 +1246,11 @@ function handleOpponentInfluenceAttempt(
 
   // Tap the influencing character
   const updatedChar: CharacterInPlay = { ...charInPlay, status: CardStatus.Tapped };
-  const newPlayers = clonePlayers(state);
-  newPlayers[playerIndex] = {
-    ...player,
+  const stateAfterTap = updatePlayer(state, playerIndex, p => ({
+    ...p,
     hand: newHand,
-    characters: { ...player.characters, [charId as string]: updatedChar },
-  };
+    characters: { ...p.characters, [charId as string]: updatedChar },
+  }));
 
   // Roll attacker 2d6
   const { roll, rng, cheatRollTotal } = roll2d6(state);
@@ -1293,8 +1276,7 @@ function handleOpponentInfluenceAttempt(
   // hazard player. The unified pending system replaces the old
   // `pendingOpponentInfluence` field.
   const stateAfterAttempt: GameState = {
-    ...state,
-    players: newPlayers,
+    ...stateAfterTap,
     rng, cheatRollTotal,
     phaseState: {
       ...siteState,
@@ -1582,7 +1564,7 @@ function handleSitePassStep(
   markEntered?: boolean,
 ): ReducerResult {
   if (action.type !== 'pass') {
-    return { state, error: `Expected 'pass' during ${currentStep} step, got '${action.type}'` };
+    return wrongActionType(state, action, 'pass', `${currentStep} step`);
   }
   if (action.player !== state.activePlayer) {
     return { state, error: `Only the active player may pass during ${currentStep}` };

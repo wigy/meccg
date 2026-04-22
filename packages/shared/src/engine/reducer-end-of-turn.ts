@@ -12,7 +12,7 @@ import { shuffle } from '../rng.js';
 import { resolveHandSize } from './effects/index.js';
 import { logHeading, logDetail } from './legal-actions/log.js';
 import type { ReducerResult } from './reducer-utils.js';
-import { clonePlayers, startDeckExhaust, completeDeckExhaust, handleExchangeSideboard } from './reducer-utils.js';
+import { startDeckExhaust, completeDeckExhaust, handleExchangeSideboard, updatePlayer } from './reducer-utils.js';
 import { enterUntapPhase } from './reducer-untap.js';
 import { sweepExpired } from './pending.js';
 import { handleGrantActionApply } from './reducer-organization.js';
@@ -100,15 +100,14 @@ function handleEndOfTurnDiscard(
     const newHand = [...player.hand];
     newHand.splice(cardIdx, 1);
 
-    const newPlayers = clonePlayers(state);
-    newPlayers[playerIndex] = {
-      ...player,
+    const updatedState = updatePlayer(state, playerIndex, p => ({
+      ...p,
       hand: newHand,
-      discardPile: [...player.discardPile, discardedCard],
-    };
+      discardPile: [...p.discardPile, discardedCard],
+    }));
 
     logDetail(`End-of-Turn discard: player ${player.name} discarded 1 card (hand now ${newHand.length})`);
-    return markDone({ ...state, players: newPlayers }, eotState);
+    return markDone(updatedState, eotState);
   }
 
   if (action.type === 'activate-granted-action') {
@@ -191,16 +190,14 @@ function handleEndOfTurnResetHand(
     const newHand = [...player.hand];
     newHand.splice(cardIdx, 1);
 
-    const newPlayers = clonePlayers(state);
-    newPlayers[playerIndex] = {
-      ...player,
+    const updatedState = updatePlayer(state, playerIndex, p => ({
+      ...p,
       hand: newHand,
-      discardPile: [...player.discardPile, discardedCard],
-    };
+      discardPile: [...p.discardPile, discardedCard],
+    }));
 
     logDetail(`End-of-Turn reset-hand: player ${player.name} discards 1 card (${newHand.length}/${handSize})`);
 
-    const updatedState = { ...state, players: newPlayers };
     // At hand size after discarding → mark done
     if (newHand.length === handSize) {
       return markResetHandDone(updatedState, eotState, playerIndex);
@@ -234,16 +231,14 @@ function handleEndOfTurnResetHand(
     const newHand = [...player.hand, ...drawnCards];
     const newPlayDeck = player.playDeck.slice(cardsToDrawCount);
 
-    const newPlayers = clonePlayers(state);
-    newPlayers[playerIndex] = {
-      ...player,
+    const updatedState = updatePlayer(state, playerIndex, p => ({
+      ...p,
       hand: newHand,
       playDeck: newPlayDeck,
-    };
+    }));
 
     logDetail(`End-of-Turn reset-hand: player ${player.name} drew ${cardsToDrawCount} cards (${newHand.length}/${handSize})`);
 
-    const updatedState = { ...state, players: newPlayers };
     // At hand size after drawing → mark done
     if (newHand.length === handSize) {
       return markResetHandDone(updatedState, eotState, playerIndex);
@@ -331,15 +326,11 @@ export function triggerCouncilCall(
   const opponentIndex = (callerIndex === 0 ? 1 : 0);
   const opponent = state.players[opponentIndex].id;
 
-  const newPlayers = clonePlayers(state);
-  newPlayers[callerIndex] = { ...newPlayers[callerIndex], freeCouncilCalled: true };
-
   const nextActive = opponent;
   const lastTurnFor = direction === 'opponent' ? opponent : caller;
 
   return enterUntapPhase({
-    ...state,
-    players: newPlayers,
+    ...updatePlayer(state, callerIndex, p => ({ ...p, freeCouncilCalled: true })),
     activePlayer: nextActive,
     turnNumber: state.turnNumber + 1,
     lastTurnFor,
@@ -370,15 +361,8 @@ export function reshuffleCardFromHand(
 
   const [shuffled, rng] = shuffle([...p.playDeck, card], state.rng);
 
-  const newPlayers = clonePlayers(state);
-  newPlayers[playerIndex] = {
-    ...newPlayers[playerIndex],
-    hand: newHand,
-    playDeck: shuffled,
-  };
-
   logDetail(`${p.name} reshuffled card ${cardInstanceId as string} (${card.definitionId as string}) from hand into play deck (shown to opponent)`);
-  return { ...state, players: newPlayers, rng };
+  return { ...updatePlayer(state, playerIndex, up => ({ ...up, hand: newHand, playDeck: shuffled })), rng };
 }
 
 /**

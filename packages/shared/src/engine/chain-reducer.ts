@@ -22,7 +22,7 @@ import { resolveAttackProwess, resolveAttackStrikes } from './effects/index.js';
 import { buildInPlayNames } from './recompute-derived.js';
 import { addConstraint, enqueueResolution } from './pending.js';
 import { Phase } from '../index.js';
-import { clonePlayers } from './reducer-utils.js';
+import { updatePlayer, wrongActionType } from './reducer-utils.js';
 import { resolveCancelAttackEntry } from './reducer-combat.js';
 import { isDetainmentAttack, defenderAlignmentLabel } from './detainment.js';
 
@@ -214,7 +214,7 @@ function handlePassChainPriority(state: GameState, chain: ChainState, playerId: 
  * the chain's deferred passives, in the desired declaration order.
  */
 function handleOrderPassives(state: GameState, chain: ChainState, action: GameAction): ReducerResult {
-  if (action.type !== 'order-passives') return { state, error: 'Expected order-passives action' };
+  if (action.type !== 'order-passives') return wrongActionType(state, action, 'order-passives');
 
   if (chain.deferredPassives.length < 2) {
     return { state, error: 'No passives to order (fewer than 2 deferred)' };
@@ -256,7 +256,7 @@ function handleOrderPassives(state: GameState, chain: ChainState, action: GameAc
  * priority to the opponent.
  */
 function handleChainRevealOnGuard(state: GameState, chain: ChainState, action: GameAction): ReducerResult {
-  if (action.type !== 'reveal-on-guard') return { state, error: 'Expected reveal-on-guard action' };
+  if (action.type !== 'reveal-on-guard') return wrongActionType(state, action, 'reveal-on-guard');
   if (chain.mode !== 'declaring') return { state, error: 'Cannot reveal on-guard: chain is resolving' };
   if (action.player !== chain.priority) return { state, error: 'Cannot reveal on-guard: you do not have priority' };
 
@@ -721,16 +721,12 @@ function queueFetchToDecEffects(state: GameState, entry: ChainEntry): GameState 
   const newDiscard = [...player.discardPile];
   newDiscard.splice(discardIdx, 1);
 
-  const newPlayers = clonePlayers(state);
-  newPlayers[playerIndex] = {
-    ...player,
-    discardPile: newDiscard,
-    cardsInPlay: [...player.cardsInPlay, { instanceId: card.instanceId, definitionId: card.definitionId, status: CardStatus.Untapped }],
-  };
-
   return {
-    ...state,
-    players: newPlayers,
+    ...updatePlayer(state, playerIndex, p => ({
+      ...p,
+      discardPile: newDiscard,
+      cardsInPlay: [...p.cardsInPlay, { instanceId: card.instanceId, definitionId: card.definitionId, status: CardStatus.Untapped }],
+    })),
     pendingEffects: [...state.pendingEffects, ...fetchEffects],
   };
 }
