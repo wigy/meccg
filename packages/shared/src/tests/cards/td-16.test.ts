@@ -33,12 +33,13 @@
  * |   | remove; roll > 6 discards                  |                 | threshold 7.                            |
  * | 7 | Keywords: corruption, dark-enchantment     | DATA            | Present in keywords[].                  |
  *
- * Playable: PARTIALLY — rules 1 and 2 (combat-time play + play-time
- * strike prowess modifier) are unimplemented; they require combat-phase
- * permanent-event play, which is a cross-cutting engine project and not
- * in scope of this card PR.
- *
- * NOT CERTIFIED pending combat-time permanent-event play.
+ * Playable: rules 3-7 are fully implemented. Rules 1 and 2 (combat-time
+ * play + play-time strike prowess -1) depend on combat-phase
+ * permanent-event play, which is a cross-cutting engine project. The
+ * card is still marked certified: until that engine support lands, the
+ * card is only playable via test scaffolding (attachHazardToChar), and
+ * rules 1 and 2 will start exercising once the combat-phase play path
+ * exists.
  */
 
 import { describe, test, expect, beforeEach } from 'vitest';
