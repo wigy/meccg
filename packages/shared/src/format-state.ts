@@ -179,6 +179,12 @@ function formatCompany(
       for (const item of follower.items) {
         lines.push(`${indent}      ${formatItemLine(item, defOf, instOf)}`);
       }
+      for (const ally of follower.allies) {
+        lines.push(`${indent}      ${formatAllyLine(ally, defOf, instOf)}`);
+      }
+      for (const hazard of follower.hazards) {
+        lines.push(`${indent}      ${formatCorruptionCardLine(hazard.instanceId, defOf, instOf)}`);
+      }
     }
   }
 
@@ -242,6 +248,12 @@ function formatOpponentCompany(
       lines.push(`${indent}    ${formatCharacterLine(follower, defOf, instOf)} [follower]`);
       for (const item of follower.items) {
         lines.push(`${indent}      ${formatItemLine(item, defOf, instOf)}`);
+      }
+      for (const ally of follower.allies) {
+        lines.push(`${indent}      ${formatAllyLine(ally, defOf, instOf)}`);
+      }
+      for (const hazard of follower.hazards) {
+        lines.push(`${indent}      ${formatCorruptionCardLine(hazard.instanceId, defOf, instOf)}`);
       }
     }
   }

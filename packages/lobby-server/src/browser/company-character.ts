@@ -153,7 +153,7 @@ export function renderCharacterColumn(
         const followerCol = document.createElement('div');
         followerCol.className = 'follower-column';
 
-        const followerHasItems = follower.items.length > 0 || follower.allies.length > 0;
+        const followerHasItems = follower.items.length > 0 || follower.allies.length > 0 || follower.hazards.length > 0;
         const fWrap = document.createElement('div');
         fWrap.className = 'character-card-wrap';
         const fEl = createCardImage(follower.definitionId as string, fDef, fImg, 'company-card company-card--follower', follower.instanceId as string);
@@ -203,8 +203,8 @@ export function renderCharacterColumn(
 
         followerCol.appendChild(fWrap);
 
-        // Follower's own items and allies
-        const followerAttachments = [...follower.items, ...follower.allies];
+        // Follower's own items, allies, and hazards
+        const followerAttachments = [...follower.items, ...follower.allies, ...follower.hazards];
         if (followerAttachments.length > 0) {
           const fAttRow = document.createElement('div');
           fAttRow.className = 'character-attachments';
@@ -218,8 +218,9 @@ export function renderCharacterColumn(
               fAttEl.classList.add('company-card--tapped');
             }
             const fIsItem = follower.items.some(i => i.instanceId === fAtt.instanceId);
-            // Granted-action click handler for follower items
-            const fGrantedClick = fIsItem && hazardClickBuilder
+            const fIsHazard = follower.hazards.some(h => h.instanceId === fAtt.instanceId);
+            // Granted-action click handler for follower items and hazards
+            const fGrantedClick = (fIsItem || fIsHazard) && hazardClickBuilder
               ? hazardClickBuilder(fAtt.instanceId) : undefined;
             if (fGrantedClick) {
               if (fGrantedClick.cls) fAttEl.classList.add(fGrantedClick.cls);
