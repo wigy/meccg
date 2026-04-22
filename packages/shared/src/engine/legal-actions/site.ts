@@ -670,7 +670,13 @@ function playResourcesActions(
       const itemDef = def as HeroItemCard;
       evaluatedInstances.add(cardInstanceId as string);
 
-      if (siteIsTapped) {
+      // Rule 2.V.5: when a resource that tapped the site has already been
+      // successfully played, the resource player may attempt one additional
+      // minor item, even though the site is tapped and even if the site
+      // does not normally list "minor" in its playable resources.
+      const minorItemBonus = siteState.minorItemAvailable && itemDef.subtype === 'minor';
+
+      if (siteIsTapped && !minorItemBonus) {
         logDetail(`Item ${itemDef.name}: site is already tapped`);
         actions.push({
           action: { type: 'not-playable', player: playerId, cardInstanceId },
@@ -708,7 +714,7 @@ function playResourcesActions(
           });
           continue;
         }
-      } else if (!playableTypes.has(itemDef.subtype)) {
+      } else if (!playableTypes.has(itemDef.subtype) && !minorItemBonus) {
         logDetail(`Item ${itemDef.name} (${itemDef.subtype}): not playable at ${siteName}`);
         actions.push({
           action: { type: 'not-playable', player: playerId, cardInstanceId },
