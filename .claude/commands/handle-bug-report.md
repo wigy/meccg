@@ -38,11 +38,22 @@ Follow these steps:
 
 4. **Investigate the bug:** Use the investigation process from `/investigate`:
 
-   a. **Load card data:** Read `~/.meccg/logs/games/<gameId>-cards.json` to get instance-to-definition mappings and card definitions used in the game.
+   a. **Load card data:** Fetch the instance-to-definition mapping and card definitions used in this game from the lobby server:
+      ```
+      MASTER_KEY=$(jq -r .masterKey ~/.meccg/secrets.json)
+      curl -s -H "Authorization: Bearer $MASTER_KEY" \
+        "http://localhost:8080/api/system/games/<gameId>/cards" -o /tmp/<gameId>-cards.json
+      ```
+      Then Read `/tmp/<gameId>-cards.json`. If the request returns 404, the game log does not exist on the server — stop and emit `success: false`.
 
    b. **Verify card definitions:** Compare the definitions of cards relevant to the reported problem against the current card data in `packages/shared/src/data/`. If the game was played with stale definitions (e.g. missing DSL effects), the root cause may be data staleness.
 
-   c. **Load the game log:** Read `~/.meccg/logs/games/<gameId>.jsonl`. Each line is a state snapshot:
+   c. **Load the game log:** Fetch the JSONL state log from the lobby server:
+      ```
+      curl -s -H "Authorization: Bearer $MASTER_KEY" \
+        "http://localhost:8080/api/system/games/<gameId>/log" -o /tmp/<gameId>.jsonl
+      ```
+      Then Read `/tmp/<gameId>.jsonl`. Each line is a state snapshot:
       ```
       { "ts", "event": "state", "stateSeq": N, "reason": "action-type", "action": <full action>, "turn", "phase", "step", "activePlayer", "state": <GameState> }
       ```
@@ -61,9 +72,9 @@ Follow these steps:
 5. **Validate the bug against the log AND the rules:** Before proceeding to a fix, you must independently confirm two things: (a) the report describes something that actually happened in *this* game save, and (b) what the report claims is wrong is in fact wrong per the official rules. Do not skip either check.
 
    a. **Tight game-save correspondence.** The bug report must relate tightly to the specific game log identified by the report's game ID:
-      - The reported `gameId` must match a real log file at `~/.meccg/logs/games/<gameId>.jsonl`. If it does not, stop.
+      - The reported `gameId` must correspond to a log fetched successfully via `/api/system/games/<gameId>/log`. If the endpoint returns 404, stop.
       - The reported sequence number (or surrounding range) must exist in that log. If it does not, stop.
-      - The cards, players, phase, step, and actions named in the report must actually appear in the state at (or near) that sequence. Resolve instance IDs via `<gameId>-cards.json` and verify by name — do not accept the report's framing on faith.
+      - The cards, players, phase, step, and actions named in the report must actually appear in the state at (or near) that sequence. Resolve instance IDs via the fetched `<gameId>-cards.json` and verify by name — do not accept the report's framing on faith.
       - If the report references behavior that the log does not actually show (wrong card, wrong player, wrong phase, action never taken, state never reached), the report is **not corroborated by this save**. Stop and emit `success: false` with a `reply.body` explaining exactly what the log shows instead.
 
    b. **Rules validation against CoE rules and CRF 22.** Even if the log matches the report, the reported behavior might actually be *correct* per the rules. Before calling it a bug, verify the claim against the authoritative sources:
@@ -141,7 +152,7 @@ Follow these steps:
      },
      "review": {
        "topic": "review-request",
-       "recipients": ["wigy", "karmi", "admin"],
+       "recipients": ["admin"],
        "subject": "Review: <short bug fix description>",
        "body": "<markdown body — bug summary, root cause, fix summary, files changed, PR link>",
        "keywords": {

@@ -776,6 +776,49 @@ function handleCancelAttackByInPlayAlly(
   return { state: resolveCancelAttackEntry(tappedState) };
 }
 
+/**
+ * Handle cancel-attack sourced from an in-play character (e.g. Adûnaphel
+ * the Ringwraith's Darkhaven tap). Mirrors {@link handleCancelAttackByInPlayAlly}
+ * but taps the character directly.
+ */
+function handleCancelAttackByInPlayCharacter(
+  state: GameState,
+  action: GameAction,
+  combat: CombatState,
+): ReducerResult {
+  if (action.type !== 'cancel-attack') return { state, error: 'Expected cancel-attack' };
+
+  const defPlayerIndex = state.players.findIndex(p => p.id === action.player);
+  const defPlayer = state.players[defPlayerIndex];
+  const company = defPlayer.companies.find(c => c.id === combat.companyId);
+  if (!company) return { state, error: 'Defending company not found' };
+
+  const charData = defPlayer.characters[action.cardInstanceId as string];
+  if (!charData) return { state, error: 'Cancel-attack source character not found' };
+  if (!company.characters.includes(action.cardInstanceId)) {
+    return { state, error: 'Cancel-attack character is not in the defending company' };
+  }
+  if (charData.status !== CardStatus.Untapped) {
+    return { state, error: 'Character must be untapped to cancel attack' };
+  }
+
+  const charDef = state.cardPool[charData.definitionId as string];
+  const charName = charDef && 'name' in charDef ? charDef.name : String(charData.definitionId);
+  logDetail(`Cancel-attack declared: tapping ${charName} to cancel ${combat.creatureRace ?? 'attack'}`);
+
+  const newPlayers = clonePlayers(state);
+  newPlayers[defPlayerIndex] = {
+    ...newPlayers[defPlayerIndex],
+    characters: {
+      ...newPlayers[defPlayerIndex].characters,
+      [action.cardInstanceId as string]: { ...charData, status: CardStatus.Tapped },
+    },
+  };
+
+  const tappedState: GameState = { ...state, players: newPlayers };
+  return { state: resolveCancelAttackEntry(tappedState) };
+}
+
 function handleCancelAttack(state: GameState, action: GameAction, combat: CombatState): ReducerResult {
   if (action.type !== 'cancel-attack') return { state, error: 'Expected cancel-attack' };
 
@@ -784,7 +827,11 @@ function handleCancelAttack(state: GameState, action: GameAction, combat: Combat
 
   const cardIndex = defPlayer.hand.findIndex(c => c.instanceId === action.cardInstanceId);
   if (cardIndex < 0) {
-    // Source may be an in-play ally tapping to cancel (e.g. The Warg-king).
+    // Source may be an in-play character tapping to cancel (e.g. Adûnaphel
+    // the Ringwraith's Darkhaven tap) or an in-play ally (e.g. The Warg-king).
+    if (defPlayer.characters[action.cardInstanceId as string]) {
+      return handleCancelAttackByInPlayCharacter(state, action, combat);
+    }
     return handleCancelAttackByInPlayAlly(state, action, combat);
   }
   const handCard = defPlayer.hand[cardIndex];

@@ -599,7 +599,7 @@ Commit: https://github.com/wigy/meccg/commit/$GIT_HASH"
 **$CARD_NAME** ($CARD_ID) was added from a card request by $USER_NAME.
 
 Commit: https://github.com/wigy/meccg/commit/$GIT_HASH"
-        REVIEW_RECIPIENTS='["wigy","karmi","admin"]'
+        REVIEW_RECIPIENTS='["admin"]'
         REVIEW_KEYWORDS=$(jq -n \
           --arg cardName "$CARD_NAME" \
           --arg cardId "$CARD_ID" \
@@ -698,7 +698,7 @@ PR: $PR_URL"
         REVIEW_BODY="Card **$CARD_ID** ($CARD_NAME) has been certified.
 
 PR: $PR_URL"
-        REVIEW_RECIPIENTS='["wigy","karmi","admin"]'
+        REVIEW_RECIPIENTS='["admin"]'
         REVIEW_KEYWORDS=$(jq -n \
           --arg cardName "$CARD_NAME" \
           --arg cardId "$CARD_ID" \

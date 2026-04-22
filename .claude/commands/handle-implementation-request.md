@@ -86,7 +86,7 @@ Follow these steps:
      },
      "review": {
        "topic": "review-request",
-       "recipients": ["wigy", "karmi", "admin"],
+       "recipients": ["admin"],
        "subject": "Review: <short feature description>",
        "body": "<markdown body — summary, files changed, PR link, original plan in a quote/details block>",
        "keywords": {
