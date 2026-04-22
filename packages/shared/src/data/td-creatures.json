@@ -128,10 +128,24 @@
     "body": 9,
     "killMarshallingPoints": 5,
     "race": "dragon",
-    "keyedTo": [],
+    "keyedTo": [
+      {
+        "siteNames": ["Gondmaeglom"]
+      },
+      {
+        "regionNames": [
+          "Withered Heath",
+          "Woodland Realm",
+          "Northern Rhovanion",
+          "Grey Mountain Narrows"
+        ],
+        "when": { "inPlay": "Doors of Night" }
+      }
+    ],
     "effects": [],
     "text": "Unique. May be played at Gondmaeglom. Dragon. Three strikes. If Doors of Night is in play, may also be played keyed to Withered Heath, Woodland Realm, Northern Rhovanion, and Grey Mountain Narrows; and may also be played at sites in these regions.",
-    "manifestId": "td-60"
+    "manifestId": "td-60",
+    "certified": "2026-04-22"
   },
   {
     "cardType": "hazard-creature",
