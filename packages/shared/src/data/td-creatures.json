@@ -62,10 +62,28 @@
     "body": 7,
     "killMarshallingPoints": 3,
     "race": "dragon",
-    "keyedTo": [],
-    "effects": [],
+    "keyedTo": [
+      {
+        "siteNames": ["Ovir Hollow"]
+      },
+      {
+        "regionNames": [
+          "Withered Heath",
+          "Gundabad",
+          "Anduin Vales",
+          "Grey Mountain Narrows"
+        ],
+        "when": { "inPlay": "Doors of Night" }
+      }
+    ],
+    "effects": [
+      {
+        "type": "combat-attacker-chooses-defenders"
+      }
+    ],
     "text": "Unique. May be played at Ovir Hollow. Dragon. Two strikes. Attacker chooses defending characters. If Doors of Night is in play, may also be played keyed to Withered Heath, Gundabad, Anduin Vales, and Grey Mountain Narrows; may also be played at sites in these regions.",
-    "manifestId": "td-3"
+    "manifestId": "td-3",
+    "certified": "2026-04-22"
   },
   {
     "cardType": "hazard-creature",
