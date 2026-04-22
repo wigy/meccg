@@ -3061,7 +3061,7 @@ h2 {
   width: fit-content;
   max-width: 100%;
   align-self: flex-end;
-  animation: toast-in 0.3s ease forwards, toast-out 0.8s ease 18s forwards;
+  animation: toast-in 0.3s ease forwards, toast-out 1.5s ease 40s forwards;
 }
 
 .toast--history {
