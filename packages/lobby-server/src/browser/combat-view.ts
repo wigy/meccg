@@ -395,7 +395,7 @@ function renderCombatCharacterColumn(
   const wrap = document.createElement('div');
   wrap.className = 'character-card-wrap';
 
-  const hasAttachments = char.items.length > 0 || char.allies.length > 0;
+  const hasAttachments = char.items.length > 0 || char.allies.length > 0 || char.hazards.length > 0;
   const img = createCardImage(char.definitionId as string, def, imgPath, 'company-card', char.instanceId as string);
 
   const inner = document.createElement('div');
@@ -529,8 +529,11 @@ function renderCombatCharacterColumn(
   wrap.appendChild(inner);
   col.appendChild(wrap);
 
-  // Items and allies shown below
-  const items = [...char.items, ...char.allies];
+  // Items, allies, and hazards shown below — hazards (e.g. permanent corruption
+  // cards like Lure of the Senses) stay attached during combat and must remain
+  // visible to avoid confusion about the character's state.
+  const items = [...char.items, ...char.allies, ...char.hazards];
+  const hazardIds = new Set(char.hazards.map(h => h.instanceId as string));
   if (items.length > 0) {
     const attachments = document.createElement('div');
     attachments.className = 'character-attachments';
@@ -541,6 +544,12 @@ function renderCombatCharacterColumn(
       if (!itemImg) continue;
       const itemEl = createCardImage(item.definitionId as string, itemDef, itemImg, 'company-card company-card--item', item.instanceId as string);
       if (item.status === CardStatus.Tapped) itemEl.classList.add('company-card--tapped');
+
+      // Hazards are display-only in combat — skip combat click handlers and strike styling.
+      if (hazardIds.has(item.instanceId as string)) {
+        attachments.appendChild(itemEl);
+        continue;
+      }
 
       // Allies participate in combat: assign-strike, choose-strike-order, support, and status styling
       const allyIdStr = item.instanceId as string;
