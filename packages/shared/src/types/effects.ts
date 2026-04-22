@@ -1051,6 +1051,40 @@ export interface RerollStrikeEffect extends EffectBase {
 }
 
 /**
+ * Activated ability carried by an in-play item that modifies the whole
+ * attack (not a single strike). Available to the defending player during
+ * the pre-assignment window of combat (same window as `cancel-attack`).
+ * Tapping the item adds `prowessModifier` to {@link CombatState.strikeProwess}
+ * and `bodyModifier` to {@link CombatState.creatureBody}, so every strike
+ * in the attack and the creature's body check are affected uniformly.
+ *
+ * The `cost` must be `{ "tap": "self" }` — the item itself pays the cost.
+ * The `when` gate restricts availability (e.g. `bearer.skills` must
+ * include `"warrior"` for a Warrior-only item). Cards like Black Arrow
+ * additionally specify `discardIfBearerNot`: when the bearer's race is
+ * not in the listed set, tapping instead discards the item from play.
+ *
+ * Example: Black Arrow (tw-494) — Warrior only, tap to give -1 prowess
+ * and -1 body to one attack; discard if bearer is not a Man.
+ */
+export interface ModifyAttackEffect extends EffectBase {
+  readonly type: 'modify-attack';
+  /** Cost to activate; for items this is `{ tap: "self" }`. */
+  readonly cost: ActionCost;
+  /** Amount added to the attack's strike prowess (usually negative). */
+  readonly prowessModifier?: number;
+  /** Amount added to the creature's body value for the creature body check (usually negative). */
+  readonly bodyModifier?: number;
+  /**
+   * When set, the item is discarded instead of tapped if the bearer's
+   * race is NOT in `race`. The modifier still applies.
+   */
+  readonly discardIfBearerNot?: {
+    readonly race: readonly string[];
+  };
+}
+
+/**
  * Declares that an item can be stored at specific named sites during the
  * Organization phase. Storing moves the item from the character to the
  * player's stored-items pile, where it earns marshalling points safely.
@@ -1287,6 +1321,7 @@ export type CardEffect =
   | DodgeStrikeEffect
   | ModifyStrikeEffect
   | RerollStrikeEffect
+  | ModifyAttackEffect
   | HalveStrikesEffect
   | CombatAttackerChoosesDefendersEffect
   | CombatMultiAttackEffect

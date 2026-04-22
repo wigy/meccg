@@ -58,6 +58,8 @@ export function handleCombatAction(state: GameState, action: GameAction): Reduce
       return handleCancelStrike(state, action, combat);
     case 'halve-strikes':
       return handleHalveStrikes(state, action, combat);
+    case 'modify-attack':
+      return handleModifyAttack(state, action, combat);
     case 'salvage-item':
       return handleSalvageItem(state, action, combat);
     default:
@@ -1208,6 +1210,105 @@ function handleHalveStrikes(state: GameState, action: GameAction, combat: Combat
     state: {
       ...updatePlayer(state, defPlayerIndex, p => ({ ...p, hand: newHand, discardPile: newDiscard })),
       combat: { ...combat, strikesTotal: newStrikes },
+    },
+  };
+}
+
+/**
+ * Activate an in-play item's `modify-attack` effect to adjust the
+ * current attack's prowess and/or body. The item pays its `tap: "self"`
+ * cost by tapping — unless its `discardIfBearerNot` clause fires (bearer
+ * race mismatch), in which case the item is discarded instead. The
+ * modifiers are applied uniformly: prowess to every strike (via
+ * `combat.strikeProwess`) and body to the creature body check (via
+ * `combat.creatureBody`).
+ *
+ * Used by Black Arrow (tw-494).
+ */
+function handleModifyAttack(state: GameState, action: GameAction, combat: CombatState): ReducerResult {
+  if (action.type !== 'modify-attack') return wrongActionType(state, action, 'modify-attack');
+  if (combat.phase !== 'assign-strikes') return { state, error: 'Can only modify attack before strikes are assigned' };
+  if (combat.strikeAssignments.length > 0) return { state, error: 'Strikes already assigned — too late to modify attack' };
+  if (action.player !== combat.defendingPlayerId) return { state, error: 'Only defending player can modify attack' };
+
+  const defPlayerIndex = state.players.findIndex(p => p.id === action.player);
+  const defPlayer = state.players[defPlayerIndex];
+
+  const charData = defPlayer.characters[action.characterInstanceId as string];
+  if (!charData) return { state, error: 'Character not found' };
+
+  const itemIndex = charData.items.findIndex(it => it.instanceId === action.cardInstanceId);
+  if (itemIndex < 0) return { state, error: 'Item not found on character' };
+  const item = charData.items[itemIndex];
+  if (item.status !== CardStatus.Untapped) return { state, error: 'Item must be untapped to activate' };
+
+  const itemDef = state.cardPool[item.definitionId as string];
+  if (!itemDef || !('effects' in itemDef) || !itemDef.effects) return { state, error: 'Item has no effects' };
+  const effect = itemDef.effects.find(
+    (e): e is import('../types/effects.js').ModifyAttackEffect => e.type === 'modify-attack',
+  );
+  if (!effect) return { state, error: 'Item has no modify-attack effect' };
+
+  const charDef = state.cardPool[charData.definitionId as string];
+  if (!charDef || !isCharacterCard(charDef)) return { state, error: 'Bearer is not a character' };
+
+  const prowessModifier = effect.prowessModifier ?? 0;
+  const bodyModifier = effect.bodyModifier ?? 0;
+  const itemName = 'name' in itemDef ? (itemDef as { name: string }).name : item.definitionId as string;
+
+  const shouldDiscard = effect.discardIfBearerNot
+    ? !effect.discardIfBearerNot.race.includes(charDef.race as string)
+    : false;
+
+  let updatedChar;
+  if (shouldDiscard) {
+    logDetail(`Modify-attack: ${itemName} tapped — bearer ${charDef.name ?? ''} is not a ${effect.discardIfBearerNot?.race.join('/') ?? ''}, discarding item`);
+    updatedChar = {
+      ...charData,
+      items: charData.items.filter((_, i) => i !== itemIndex),
+    };
+  } else {
+    logDetail(`Modify-attack: tapping ${itemName} on ${charDef.name ?? ''} (prowess ${prowessModifier >= 0 ? '+' : ''}${prowessModifier}, body ${bodyModifier >= 0 ? '+' : ''}${bodyModifier})`);
+    updatedChar = {
+      ...charData,
+      items: charData.items.map((it, i) =>
+        i === itemIndex ? { ...it, status: CardStatus.Tapped } : it,
+      ),
+    };
+  }
+
+  const newPlayers = clonePlayers(state);
+  newPlayers[defPlayerIndex] = {
+    ...newPlayers[defPlayerIndex],
+    characters: {
+      ...newPlayers[defPlayerIndex].characters,
+      [action.characterInstanceId as string]: updatedChar,
+    },
+  };
+
+  if (shouldDiscard) {
+    newPlayers[defPlayerIndex] = {
+      ...newPlayers[defPlayerIndex],
+      discardPile: [
+        ...newPlayers[defPlayerIndex].discardPile,
+        { instanceId: item.instanceId, definitionId: item.definitionId },
+      ],
+    };
+  }
+
+  const newStrikeProwess = combat.strikeProwess + prowessModifier;
+  const newCreatureBody = combat.creatureBody === null ? null : combat.creatureBody + bodyModifier;
+  logDetail(`Modify-attack applied: strike prowess ${combat.strikeProwess} → ${newStrikeProwess}, creature body ${combat.creatureBody ?? 'n/a'} → ${newCreatureBody ?? 'n/a'}`);
+
+  return {
+    state: {
+      ...state,
+      players: newPlayers,
+      combat: {
+        ...combat,
+        strikeProwess: newStrikeProwess,
+        creatureBody: newCreatureBody,
+      },
     },
   };
 }

@@ -640,15 +640,35 @@
     "id": "tw-494",
     "name": "Black Arrow",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/BlackArrow.jpg",
-    "text": "Warrior only: Tap Black Arrow to give -1 to the prowess and body of any one attack against bearer’s company. When Black Arrow is tapped, discard it if its bearer is not a Man.",
+    "text": "Warrior only: Tap Black Arrow to give -1 to the prowess and body of any one attack against bearer's company. When Black Arrow is tapped, discard it if its bearer is not a Man.",
     "alignment": "wizard",
     "unique": false,
     "subtype": "minor",
+    "keywords": ["weapon"],
     "marshallingPoints": 0,
     "marshallingCategory": "item",
-    "corruptionPoints": 0,
+    "corruptionPoints": 1,
     "prowessModifier": 0,
     "bodyModifier": 0,
-    "playableAt": []
+    "playableAt": [
+      "ruins-and-lairs",
+      "shadow-hold",
+      "dark-hold"
+    ],
+    "effects": [
+      {
+        "type": "modify-attack",
+        "cost": { "tap": "self" },
+        "prowessModifier": -1,
+        "bodyModifier": -1,
+        "when": {
+          "bearer.skills": { "$includes": "warrior" }
+        },
+        "discardIfBearerNot": {
+          "race": ["man", "dunadan"]
+        }
+      }
+    ],
+    "certified": "2026-04-22"
   }
 ]

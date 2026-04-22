@@ -213,6 +213,24 @@ export interface CancelAttackAction {
 }
 
 /**
+ * Tap an in-play item attached to a character in the defending company to
+ * modify the current attack's prowess and/or body. The modifiers are
+ * applied uniformly to every strike (prowess) and to the creature body
+ * check (body). Only legal during assign-strikes before any strikes have
+ * been assigned.
+ */
+export interface ModifyAttackAction {
+  /** Action discriminant. */
+  readonly type: 'modify-attack';
+  /** The defending player activating the item. */
+  readonly player: PlayerId;
+  /** The in-play item paying its tap cost (or being discarded). */
+  readonly cardInstanceId: CardInstanceId;
+  /** The character whose item is being activated. */
+  readonly characterInstanceId: CardInstanceId;
+}
+
+/**
  * Halve the number of strikes in the current attack (rounded up) by
  * discarding a short event card from hand. Only legal during the
  * assign-strikes phase before any strikes have been assigned.
