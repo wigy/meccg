@@ -47,13 +47,38 @@ import {
 import { fetchFromSideboardActions } from './organization-sideboard.js';
 
 /**
- * Marker used by {@link grantedActionActivations} to request only the
- * grant-action effects flagged `anyPhase: true` — abilities that may be
- * activated during any phase of the player's turn (CRF rule 2.1.1,
- * e.g. Cram's "Discard to untap bearer" or Orc-draughts' "Discard for
- * +1 prowess to every character in the company").
+ * Filter mode for {@link grantedActionActivations}. Selects which subset
+ * of grant-action effects to emit:
+ *
+ *  - `'anyPhase'` — only effects flagged `anyPhase: true` (CRF rule
+ *    2.1.1). Used by legal-action entry points for phases other than
+ *    organization (site, M/H, end-of-turn) on the controller's own turn.
+ *  - `'opposingSitePhase'` — only effects flagged `opposingSitePhase:
+ *    true`. Emitted for the non-active (hazard) player during the
+ *    active player's site phase. Used by Magical Harp.
+ *  - `'freeCouncil'` — only effects flagged `freeCouncil: true`.
+ *    Emitted for either player during the Free Council's
+ *    corruption-checks step. Used by Magical Harp.
  */
-export const ANY_PHASE_ONLY = { anyPhase: true } as const;
+export type GrantActionPhaseFilter =
+  | 'anyPhase'
+  | 'opposingSitePhase'
+  | 'freeCouncil';
+
+/**
+ * Whether `effect` passes the given {@link GrantActionPhaseFilter}.
+ * Each filter mode requires the corresponding boolean flag on the
+ * effect (`anyPhase`, `opposingSitePhase`, or `freeCouncil`).
+ */
+function matchesPhaseFilter(
+  effect: import('../../types/effects.js').GrantActionEffect,
+  filter: GrantActionPhaseFilter,
+): boolean {
+  if (filter === 'anyPhase') return effect.anyPhase === true;
+  if (filter === 'opposingSitePhase') return effect.opposingSitePhase === true;
+  if (filter === 'freeCouncil') return effect.freeCouncil === true;
+  return false;
+}
 
 /**
  * Computes the available (unused) direct influence for a character in play,
@@ -309,7 +334,7 @@ export function organizationActions(state: GameState, playerId: PlayerId): Evalu
  * - `extra-region-movement` — discard an item during organization to grant
  *   the bearer's company +1 max region distance for movement this turn.
  */
-export function grantedActionActivations(state: GameState, playerId: PlayerId, onlyAnyPhase?: typeof ANY_PHASE_ONLY): EvaluatedAction[] {
+export function grantedActionActivations(state: GameState, playerId: PlayerId, phaseFilter?: GrantActionPhaseFilter): EvaluatedAction[] {
   const player = state.players.find(p => p.id === playerId);
   if (!player) return [];
 
@@ -322,7 +347,7 @@ export function grantedActionActivations(state: GameState, playerId: PlayerId, o
     for (const hazard of char.hazards) {
       const grantActions = extractGrantActions(state, hazard.definitionId);
       for (const effect of grantActions) {
-        if (onlyAnyPhase && !effect.anyPhase) continue;
+        if (phaseFilter && !matchesPhaseFilter(effect, phaseFilter)) continue;
         const hazardDef = state.cardPool[hazard.definitionId as string];
         const isCorruptionRemoval = effect.action === 'remove-self-on-roll'
           && hazardDef?.cardType === 'hazard-corruption';
@@ -406,7 +431,7 @@ export function grantedActionActivations(state: GameState, playerId: PlayerId, o
       if (charEffects) {
         for (const effect of charEffects) {
           if (effect.type !== 'grant-action') continue;
-          if (onlyAnyPhase && !effect.anyPhase) continue;
+          if (phaseFilter && !matchesPhaseFilter(effect, phaseFilter)) continue;
 
           // Check cost: if tap is "self", the character must be untapped
           if (effect.cost.tap === 'self' && char.status !== CardStatus.Untapped) {
@@ -463,7 +488,7 @@ export function grantedActionActivations(state: GameState, playerId: PlayerId, o
     for (const ally of char.allies) {
       const grantActions = extractGrantActions(state, ally.definitionId);
       for (const effect of grantActions) {
-        if (onlyAnyPhase && !effect.anyPhase) continue;
+        if (phaseFilter && !matchesPhaseFilter(effect, phaseFilter)) continue;
         const charDefForCtx = state.cardPool[char.definitionId as string];
         const charDefCard = charDefForCtx && isCharacterCard(charDefForCtx) ? charDefForCtx : undefined;
         const company = player.companies.find(c => c.characters.includes(charId));
@@ -499,7 +524,7 @@ export function grantedActionActivations(state: GameState, playerId: PlayerId, o
     for (const item of char.items) {
       const grantActions = extractGrantActions(state, item.definitionId);
       for (const effect of grantActions) {
-        if (onlyAnyPhase && !effect.anyPhase) continue;
+        if (phaseFilter && !matchesPhaseFilter(effect, phaseFilter)) continue;
         if (effect.cost.tap === 'self' && item.status !== CardStatus.Untapped) {
           const def = state.cardPool[item.definitionId as string];
           logDetail(`Grant-action ${effect.action} on ${def?.name ?? '?'}: item is tapped, cannot activate`);

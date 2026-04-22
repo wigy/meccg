@@ -186,6 +186,21 @@ path".
 Gives the card bearer a new activated ability. For roll-based actions,
 `rollThreshold` specifies the minimum 2d6 total for success.
 
+**Phase-window flags.** By default a grant-action is emitted only in
+its natural phase (organization for item-tap abilities, end-of-turn
+for Saruman's spell-fetch, etc.). The following optional booleans
+extend the emission window:
+
+- `anyPhase: true` — activatable during any phase of the controller's
+  turn (CRF 2.1.1). Used by Cram, Orc-draughts, and *Magical Harp*.
+- `opposingSitePhase: true` — the non-active player may activate this
+  ability during the active player's site phase (select-company,
+  enter-or-skip, play-resources steps). Used by *Magical Harp*.
+- `freeCouncil: true` — either player may activate during the Free
+  Council corruption-checks step. Used by *Magical Harp*.
+
+Multiple flags may coexist on the same effect.
+
 Actions:
 
 - `test-gold-ring` — tap to test a gold ring; rolls 2d6, discards gold ring
@@ -213,6 +228,16 @@ Actions:
   effects that force return to site of origin or tap the company's
   site. Bearer makes a corruption check (implemented in
   `reducer-organization.ts`)
+- `cancel-character-discard` — tap the source item (cost
+  `{ "tap": "self" }`) to add a turn-scoped
+  `cancel-character-discard` constraint to the bearer's company and
+  enqueue a corruption check on the bearer. The ability combines
+  `anyPhase: true`, `opposingSitePhase: true`, and `freeCouncil:
+  true` so the item is tappable during any of the owner's phases,
+  during the opponent's site phase, and during the Free Council
+  corruption-checks step. Used by *Magical Harp*. Implemented via
+  the generic `sequence` + `add-constraint` + `enqueue-corruption-check`
+  apply dispatch in `reducer-organization.ts`.
 - `stinker-discard-with-ring` — discard the ally (Stinker) during
   organization when the bearer's company is at a non-haven site and
   some character at the same site holds *The One Ring*; the ring is
@@ -251,6 +276,17 @@ player's discard pile back to the play deck.
   "cost": { "tap": "self" } }
 { "type": "grant-action", "action": "cancel-return-and-site-tap",
   "cost": { "tap": "bearer" } }
+{ "type": "grant-action", "action": "cancel-character-discard",
+  "cost": { "tap": "self" },
+  "anyPhase": true, "opposingSitePhase": true, "freeCouncil": true,
+  "apply": {
+    "type": "sequence",
+    "apps": [
+      { "type": "add-constraint",
+        "constraint": "cancel-character-discard",
+        "scope": "turn", "target": "bearer-company" },
+      { "type": "enqueue-corruption-check" }
+    ] } }
 { "type": "grant-action", "action": "recall-to-deck",
   "cost": { "tap": "self" },
   "apply": {
@@ -292,7 +328,7 @@ Apply types:
 - `force-check` -- force a check roll on the target. The dispatcher enqueues a {@link PendingResolution} of kind `corruption-check`; the resolver in `engine/pending-reducers.ts` runs the dice roll and applies the standard discard / eliminate consequences when the check fails.
 - `discard-cards-in-play` -- discard all cards in play that match the `filter` condition (evaluated against card definitions).
 - `discard-non-special-items` -- discard all non-special items (subtype ≠ `"special"`) from the wounded character. Items are moved to the defending player's discard pile. Implemented in `reducer-combat.ts` for the `character-wounded-by-self` event.
-- `add-constraint` -- add an {@link ActiveConstraint} of the named kind to the target. Reserves the entry's `constraint` field for the kind name (e.g. `"site-phase-do-nothing"`, `"no-creature-hazards-on-company"`, `"deny-scout-resources"`, `"auto-attack-prowess-boost"`, `"auto-attack-duplicate"`, `"site-type-override"`, `"region-type-override"`, `"skip-automatic-attacks"`) and the `scope` field for the auto-clear boundary (e.g. `"company-site-phase"`, `"company-mh-phase"`, `"turn"`, `"until-cleared"`). Constraint-kind-specific fields include `value` + `siteType` for `auto-attack-prowess-boost`, `overrideType` for `site-type-override` (the site is the active company's current site during site phase, or the destination during M/H phase), and `overrideType` + `regionName` for `region-type-override` (use the token `"destination"` as the region name to target the destination region of the active company). The `skip-automatic-attacks` constraint removes all automatic attacks from the bound site (resolved from the active company's current site during site phase). The constraint filter in `legal-actions/pending.ts` rewrites legal actions for the affected target while the constraint lives.
+- `add-constraint` -- add an {@link ActiveConstraint} of the named kind to the target. Reserves the entry's `constraint` field for the kind name (e.g. `"site-phase-do-nothing"`, `"no-creature-hazards-on-company"`, `"deny-scout-resources"`, `"auto-attack-prowess-boost"`, `"auto-attack-duplicate"`, `"site-type-override"`, `"region-type-override"`, `"skip-automatic-attacks"`, `"cancel-character-discard"`) and the `scope` field for the auto-clear boundary (e.g. `"company-site-phase"`, `"company-mh-phase"`, `"turn"`, `"until-cleared"`). Constraint-kind-specific fields include `value` + `siteType` for `auto-attack-prowess-boost`, `overrideType` for `site-type-override` (the site is the active company's current site during site phase, or the destination during M/H phase), and `overrideType` + `regionName` for `region-type-override` (use the token `"destination"` as the region name to target the destination region of the active company). The `skip-automatic-attacks` constraint removes all automatic attacks from the bound site (resolved from the active company's current site during site phase). The `cancel-character-discard` constraint is placed by *Magical Harp* on the bearer's company; any future character-discard effect should consult this constraint to short-circuit the discard for the rest of the turn. The constraint filter in `legal-actions/pending.ts` rewrites legal actions for the affected target while the constraint lives.
 - `discard-self` -- discard the card carrying this effect (typically an ally or attached hazard) from its bearer to the owning player's discard pile. Used with `company-arrives-at-site` + a `when` condition on `site.region` to enforce region-based restrictions (e.g. Treebeard), and with `company-composition-changed` + a `when` condition on `company.characterCount` to discard on company size (e.g. Alone and Unadvised). Implemented in `reducer-movement-hazard.ts` `fireAllyArrivalEffects()` and `reducer-utils.ts` `sweepAutoDiscardHazards()`.
 - `discard-named-card-from-company` -- find an item attached to any
   character in any company at the bearer's current site (matched by

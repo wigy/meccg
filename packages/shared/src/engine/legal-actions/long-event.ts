@@ -21,7 +21,7 @@ import type { PlayOptionEffect } from '../../types/effects.js';
 import { matchesCondition, CardStatus, isResourceEventCard } from '../../index.js';
 import { canCallEndgameNow } from '../../state-utils.js';
 import { logHeading, logDetail } from './log.js';
-import { getPlayTargetEffect, getPlayOptionEffects, buildPlayOptionContext, grantedActionActivations, ANY_PHASE_ONLY, collectDiscardInPlayTargets } from './organization.js';
+import { getPlayTargetEffect, getPlayOptionEffects, buildPlayOptionContext, grantedActionActivations, collectDiscardInPlayTargets } from './organization.js';
 
 /**
  * Computes the legal actions for the active player during the long-event phase.
@@ -130,7 +130,7 @@ export function longEventActions(state: GameState, playerId: PlayerId): Evaluate
   }
 
   // Rule 2.1.1: resource player may activate any-phase grant-actions (e.g. Cram untap-bearer)
-  actions.push(...grantedActionActivations(state, playerId, ANY_PHASE_ONLY));
+  actions.push(...grantedActionActivations(state, playerId, 'anyPhase'));
 
   actions.push({ action: { type: 'pass', player: playerId }, viable: true });
   const playableCount = actions.filter(a => a.viable).length - 1; // exclude pass

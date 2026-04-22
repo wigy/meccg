@@ -312,8 +312,31 @@
             "$includes": "hoard"
           }
         }
+      },
+      {
+        "type": "grant-action",
+        "action": "cancel-character-discard",
+        "cost": { "tap": "self" },
+        "anyPhase": true,
+        "opposingSitePhase": true,
+        "freeCouncil": true,
+        "apply": {
+          "type": "sequence",
+          "apps": [
+            {
+              "type": "add-constraint",
+              "constraint": "cancel-character-discard",
+              "scope": "turn",
+              "target": "bearer-company"
+            },
+            {
+              "type": "enqueue-corruption-check"
+            }
+          ]
+        }
       }
     ],
+    "certified": "2026-04-22",
     "text": "Unique. Hoard item. Tap Magical Harp to cancel all effects for the rest of the turn that discard a target character in bearer’s company. Bearer makes a corruption check. This item may also be so tapped during opponent’s site phase or the Free Council."
   },
   {
