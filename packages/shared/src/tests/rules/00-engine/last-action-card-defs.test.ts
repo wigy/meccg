@@ -22,19 +22,19 @@
 import { describe, test, expect, beforeEach } from 'vitest';
 import {
   PLAYER_1, PLAYER_2,
-  ELROND, LEGOLAS,
+  ELROND, LEGOLAS, ARAGORN,
   MARVELS_TOLD, FOOLISH_WORDS,
-  SUN,
+  SUN, BARROW_WIGHT,
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
   buildTestState, resetMint,
-  handCardId, dispatch,
+  handCardId, dispatch, makeMHState,
   addCardInPlay,
   runSimpleDraft,
   eotState,
   HAZARD_PLAYER, RESOURCE_PLAYER,
   pool,
 } from '../../test-helpers.js';
-import type { AddCharacterToDeckAction, CardInstanceId, DiscardCardAction, PlayShortEventAction } from '../../../index.js';
+import type { AddCharacterToDeckAction, CardInstanceId, DiscardCardAction, PlaceOnGuardAction, PlayShortEventAction } from '../../../index.js';
 import { Phase, SetupStep, describeAction, extractActionCardDefs, reduce } from '../../../index.js';
 
 describe('lastAction card defs — opponent toast naming', () => {
@@ -239,6 +239,63 @@ describe('discard-card — opponent must not learn the discarded card', () => {
     const audienceDesc = describeAction(action, pool, audienceLookup);
     expect(audienceDesc).toContain('a card');
     const realName = pool[SUN as string]?.name;
+    if (realName) expect(audienceDesc).not.toContain(realName);
+  });
+});
+
+describe('place-on-guard — resource player must not learn the placed card', () => {
+  beforeEach(() => resetMint());
+
+  /**
+   * Regression for bug d03bbc7ba2d97e1f (game moab9vqb-68zlad, seq 274):
+   * the hazard player places a card from hand face-down on-guard at the
+   * active company's site. Per CoE rule 5.23 the card is placed face-down
+   * (bluffing is allowed); the resource player only learns its identity
+   * if and when it is later revealed. Hand → unrevealed onGuardCards is
+   * a private-to-private transition under the engine's visibility model
+   * (projection.ts:64 redacts the resource player's view of unrevealed
+   * on-guards), so the instance must never enter `state.revealedInstances`
+   * and `extractActionCardDefs` must omit it — the resource player's
+   * toast renders "Place on-guard card a card" instead of leaking the
+   * actual card name.
+   */
+  test('extractActionCardDefs omits the on-guard card (hand → unrevealed onGuardCards is private→private)', () => {
+    const base = buildTestState({
+      phase: Phase.MovementHazard,
+      activePlayer: PLAYER_1,
+      players: [
+        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [ARAGORN] }], hand: [], siteDeck: [MORIA] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [BARROW_WIGHT], siteDeck: [MINAS_TIRITH] },
+      ],
+    });
+    const state = { ...base, phaseState: makeMHState() };
+    const cardId = handCardId(state, HAZARD_PLAYER);
+
+    const action: PlaceOnGuardAction = {
+      type: 'place-on-guard',
+      player: PLAYER_2,
+      cardInstanceId: cardId,
+    };
+    const after = dispatch(state, action);
+
+    // Precondition: the card moved from the hazard player's hand to the
+    // active company's onGuardCards face-down (revealed: false), and was
+    // never in a public location.
+    const onGuard = after.players[0].companies[0].onGuardCards.find(c => c.instanceId === cardId);
+    expect(onGuard?.revealed).toBe(false);
+    expect(after.revealedInstances[cardId as string]).toBeUndefined();
+
+    // The action map broadcast to the resource player omits the card's
+    // identity.
+    const defs = extractActionCardDefs(after, action);
+    expect(defs[cardId as string]).toBeUndefined();
+
+    // describeAction with only the resource-player audience map renders
+    // "a card" — bluffing is preserved.
+    const audienceLookup = (id: CardInstanceId) => defs[id as string];
+    const audienceDesc = describeAction(action, pool, audienceLookup);
+    expect(audienceDesc).toContain('a card');
+    const realName = pool[BARROW_WIGHT as string]?.name;
     if (realName) expect(audienceDesc).not.toContain(realName);
   });
 });
