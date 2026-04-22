@@ -220,13 +220,21 @@ export interface HandSizeModifierEffect extends EffectBase {
  * Modifies the number of cards drawn during the movement/hazard draw step.
  *
  * Example: Alatar reduces the opponent's hazard draws by 1 for his company.
+ * Example: Radagast adds +1 resource draw per Wilderness in the site path
+ * via the expression `"sitePath.wildernessCount"`.
  */
 export interface DrawModifierEffect extends EffectBase {
   readonly type: 'draw-modifier';
   /** Which draw pool to modify. */
   readonly draw: 'hazard' | 'resource';
-  /** The adjustment (negative = fewer draws). */
-  readonly value: number;
+  /**
+   * The adjustment (negative = fewer draws). Accepts a value expression
+   * evaluated against the resolver context, which exposes `sitePath`
+   * counts (`wildernessCount`, `shadowCount`, `darkCount`,
+   * `coastalCount`, `freeCount`, `borderCount`) derived from the
+   * moving company's resolved site path.
+   */
+  readonly value: ValueExpr;
   /** Floor for the modified draw count. */
   readonly min?: number;
 }

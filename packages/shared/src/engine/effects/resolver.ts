@@ -468,12 +468,17 @@ export function resolveCompanyModifier(
 export function resolveDrawModifier(
   effects: readonly CollectedEffect[],
   draw: 'hazard' | 'resource',
+  context?: Record<string, unknown>,
 ): { adjustment: number; min: number } {
   let adjustment = 0;
   let min = 0;
   for (const { effect } of effects) {
     if (effect.type === 'draw-modifier' && effect.draw === draw) {
-      adjustment += effect.value;
+      if (typeof effect.value === 'number') {
+        adjustment += effect.value;
+      } else if (typeof effect.value === 'string' && context) {
+        adjustment += evaluateExpr(effect.value, context);
+      }
       if (effect.min !== undefined && effect.min > min) {
         min = effect.min;
       }

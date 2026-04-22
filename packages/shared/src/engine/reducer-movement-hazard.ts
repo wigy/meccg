@@ -1610,20 +1610,36 @@ function transitionToDrawCards(state: GameState, mhState: MovementHazardPhaseSta
     }
   }
 
-  // Apply draw-modifier effects from company characters (e.g. Alatar reduces hazard draws)
-  const drawContext: ResolverContext = { reason: 'draw-modifier' };
+  // Apply draw-modifier effects from company characters (e.g. Alatar reduces
+  // hazard draws; Radagast adds one resource draw per Wilderness in the path)
+  const sitePathCounts = {
+    wildernessCount: 0, shadowCount: 0, darkCount: 0,
+    coastalCount: 0, freeCount: 0, borderCount: 0,
+  };
+  for (const rt of mhState.resolvedSitePath) {
+    switch (rt) {
+      case RegionType.Wilderness: sitePathCounts.wildernessCount++; break;
+      case RegionType.Shadow: sitePathCounts.shadowCount++; break;
+      case RegionType.Dark: sitePathCounts.darkCount++; break;
+      case RegionType.Coastal: sitePathCounts.coastalCount++; break;
+      case RegionType.Free: sitePathCounts.freeCount++; break;
+      case RegionType.Border: sitePathCounts.borderCount++; break;
+    }
+  }
+  const drawContext: ResolverContext = { reason: 'draw-modifier', sitePath: sitePathCounts };
   const allDrawEffects = company.characters.flatMap(charInstId => {
     const char = player.characters[charInstId as string];
     if (!char) return [];
     return collectCharacterEffects(state, char, drawContext);
   });
-  const hazardMod = resolveDrawModifier(allDrawEffects, 'hazard');
+  const exprContext = drawContext as unknown as Record<string, unknown>;
+  const hazardMod = resolveDrawModifier(allDrawEffects, 'hazard', exprContext);
   if (hazardMod.adjustment !== 0) {
     const before = hazardDrawMax;
     hazardDrawMax = Math.max(hazardMod.min, hazardDrawMax + hazardMod.adjustment);
     logDetail(`draw-modifier: hazard draws ${before} → ${hazardDrawMax} (adjustment ${hazardMod.adjustment}, min ${hazardMod.min})`);
   }
-  const resourceMod = resolveDrawModifier(allDrawEffects, 'resource');
+  const resourceMod = resolveDrawModifier(allDrawEffects, 'resource', exprContext);
   if (resourceMod.adjustment !== 0) {
     const before = resourceDrawMax;
     resourceDrawMax = Math.max(resourceMod.min, resourceDrawMax + resourceMod.adjustment);

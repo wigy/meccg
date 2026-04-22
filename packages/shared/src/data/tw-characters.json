@@ -868,7 +868,21 @@
     "marshallingCategory": "character",
     "corruptionModifier": 1,
     "homesite": "Rhosgobel",
-    "text": "Unique. When Radagast's new site is revealed, he may draw one additional card for each Wilderness in his company's site path. +1 to all of his corruption checks."
+    "effects": [
+      {
+        "type": "draw-modifier",
+        "draw": "resource",
+        "value": "sitePath.wildernessCount",
+        "min": 0
+      },
+      {
+        "type": "check-modifier",
+        "check": "corruption",
+        "value": 1
+      }
+    ],
+    "text": "Unique. When Radagast's new site is revealed, he may draw one additional card for each Wilderness in his company's site path. +1 to all of his corruption checks.",
+    "certified": "2026-04-22"
   },
   {
     "cardType": "hero-character",
