@@ -18,10 +18,11 @@
  *   Letters were chosen over digits so the hand shortcuts 1..9,0 stay free.
  * - Shift (held): overlay the assigned key on every shortcut target.
  * - PageUp / PageDown: browse the per-game message history in the top-right
- *   panel. End jumps back to live tail.
+ *   panel. End jumps back to live tail. Rolling the mouse wheel while the
+ *   cursor is over the panel scrolls the history in finer steps.
  */
 
-import { pageHistoryUp, pageHistoryDown, returnToLiveTail } from './render.js';
+import { pageHistoryUp, pageHistoryDown, scrollHistory, returnToLiveTail } from './render.js';
 
 /** Digit keys in the order 1..9,0 — first 10 hand-card slots. */
 const DIGIT_KEYS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0'];
@@ -761,4 +762,35 @@ export function installKeyboardShortcuts(): void {
   });
 
   window.addEventListener('blur', clearShortcutLabels);
+
+  // Wheel-over-panel scrolls the per-game message history. The panel has
+  // `pointer-events: none` in live-tail mode so wheel events bypass it
+  // entirely — we attach to `window` and hit-test against the panel's
+  // bounding rect instead. A single tick steps WHEEL_STEP messages, small
+  // enough to feel responsive but big enough that a handful of flicks
+  // traverse a full page.
+  window.addEventListener('wheel', handleGameLogWheel, { passive: false });
+}
+
+/** Messages advanced per wheel tick. */
+const WHEEL_STEP = 3;
+
+/**
+ * Scroll the game-log panel's history when the wheel ticks over it.
+ * Upward scroll walks back in time; downward scroll returns toward live tail.
+ * Events outside the panel rect (or when no game is active) pass through.
+ */
+function handleGameLogWheel(e: WheelEvent): void {
+  if (!isGameActive()) return;
+  const panel = document.getElementById('game-log-panel');
+  if (!panel) return;
+  const rect = panel.getBoundingClientRect();
+  if (rect.width === 0 || rect.height === 0) return;
+  if (
+    e.clientX < rect.left || e.clientX > rect.right ||
+    e.clientY < rect.top || e.clientY > rect.bottom
+  ) return;
+  if (e.deltaY === 0) return;
+  e.preventDefault();
+  scrollHistory(e.deltaY < 0 ? WHEEL_STEP : -WHEEL_STEP);
 }

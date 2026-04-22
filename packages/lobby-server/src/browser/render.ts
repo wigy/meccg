@@ -59,4 +59,4 @@ export { renderHand, renderOpponentHand } from './render-hand.js';
 export { renderChainPanel } from './render-chain.js';
 
 // Log and notifications
-export { renderLog, showNotification, clearGameMessageLog, pageHistoryUp, pageHistoryDown, returnToLiveTail } from './render-log.js';
+export { renderLog, showNotification, clearGameMessageLog, pageHistoryUp, pageHistoryDown, scrollHistory, returnToLiveTail } from './render-log.js';
