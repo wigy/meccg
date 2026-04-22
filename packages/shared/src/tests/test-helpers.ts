@@ -723,6 +723,58 @@ export function buildSitePhaseState(opts: {
   return { ...state, phaseState: sitePhaseState };
 }
 
+/**
+ * Build a state in the site phase at an arbitrary step with configurable
+ * hands for BOTH players. `buildSitePhaseState` only wires up the resource
+ * player's hand; this variant is used when tests need creatures in the
+ * hazard player's hand (e.g. Framsburg's dynamic auto-attack, where the
+ * hazard player plays a creature at site entry).
+ */
+export function buildDualHandSitePhaseState(opts: {
+  site: CardDefinitionId;
+  resourceCharacters?: CharacterEntry[];
+  resourceHand?: CardDefinitionId[];
+  hazardHand?: CardDefinitionId[];
+  step?: SitePhaseState['step'];
+  siteEntered?: boolean;
+}): GameState {
+  const state = buildTestState({
+    activePlayer: PLAYER_1,
+    players: [
+      {
+        id: PLAYER_1,
+        companies: [{ site: opts.site, characters: opts.resourceCharacters ?? [ARAGORN] }],
+        hand: opts.resourceHand ?? [],
+        siteDeck: [MORIA],
+      },
+      {
+        id: PLAYER_2,
+        companies: [{ site: LORIEN, characters: [LEGOLAS] }],
+        hand: opts.hazardHand ?? [],
+        siteDeck: [MINAS_TIRITH],
+      },
+    ],
+    phase: Phase.Site,
+  });
+
+  const sitePhaseState: SitePhaseState = {
+    phase: Phase.Site,
+    step: opts.step ?? 'enter-or-skip',
+    activeCompanyIndex: 0,
+    handledCompanyIds: [],
+    siteEntered: opts.siteEntered ?? false,
+    resourcePlayed: false,
+    minorItemAvailable: false,
+    declaredAgentAttack: null,
+    automaticAttacksResolved: 0,
+    awaitingOnGuardReveal: false,
+    pendingResourceAction: null,
+    opponentInteractionThisTurn: null,
+    pendingOpponentInfluence: null,
+  };
+  return { ...state, phaseState: sitePhaseState };
+}
+
 /** The company ID for PLAYER_1's first company (target of hazards). */
 export const P1_COMPANY = `company-${PLAYER_1 as string}-0` as CompanyId;
 

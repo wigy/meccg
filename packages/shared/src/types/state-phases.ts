@@ -479,6 +479,15 @@ export type SiteStep =
    */
   | 'reveal-on-guard-attacks'
   /**
+   * Dynamic automatic-attack window for sites carrying a
+   * `site-rule: dynamic-auto-attack` effect (e.g. Framsburg td-175). The
+   * hazard player may play one creature from their hand whose keying
+   * matches the site's filter; that creature is treated in all ways as
+   * the site's automatic-attack. Always follows `reveal-on-guard-attacks`
+   * and feeds into `automatic-attacks`. Passing skips without combat.
+   */
+  | 'play-site-auto-attack'
+  /**
    * Step 2 (CoE line 350): Automatic-attacks are initiated and resolved
    * one at a time in the order listed on the site card. Each triggers the
    * combat sub-state. Once all are faced (regardless of outcome), the

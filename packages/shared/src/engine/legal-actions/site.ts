@@ -93,6 +93,10 @@ export function siteActions(state: GameState, playerId: PlayerId): EvaluatedActi
     return viable(revealOnGuardAttacksActions(state, playerId, siteState));
   }
 
+  if (siteState.step === 'play-site-auto-attack') {
+    return viable(playSiteAutoAttackActions(state, playerId, siteState));
+  }
+
   if (siteState.step === 'automatic-attacks') {
     return viable(automaticAttacksActions(state, playerId));
   }
@@ -307,6 +311,78 @@ function automaticAttacksActions(
   }
   logDetail(`Automatic attacks — pass to advance`);
   return [{ type: 'pass', player: playerId }];
+}
+
+/**
+ * Dynamic automatic-attack step (e.g. Framsburg td-175).
+ *
+ * The hazard player may play one creature from their hand whose keying
+ * satisfies the site's `dynamic-auto-attack` filter; that creature
+ * initiates combat and is treated as the site's automatic-attack.
+ * Passing skips without combat (the site has no static auto-attack to
+ * fall through to).
+ */
+function playSiteAutoAttackActions(
+  state: GameState,
+  playerId: PlayerId,
+  siteState: SitePhaseState,
+): GameAction[] {
+  const isActive = state.activePlayer === playerId;
+  if (isActive) {
+    logDetail(`Active player waits during play-site-auto-attack step`);
+    return [];
+  }
+
+  const activeIndex = getPlayerIndex(state, state.activePlayer!);
+  const resourcePlayer = state.players[activeIndex];
+  const company = resourcePlayer.companies[siteState.activeCompanyIndex];
+  const siteDef = company?.currentSite
+    ? state.cardPool[company.currentSite.definitionId as string]
+    : undefined;
+
+  const dynamicRule = siteDef && isSiteCard(siteDef)
+    ? siteDef.effects?.find(e => e.type === 'site-rule' && e.rule === 'dynamic-auto-attack')
+    : undefined;
+
+  const actions: GameAction[] = [];
+
+  if (dynamicRule && dynamicRule.type === 'site-rule' && dynamicRule.rule === 'dynamic-auto-attack') {
+    const allowedSiteTypes = new Set(dynamicRule.keying.siteTypes ?? []);
+    const allowedRegionTypes = new Set(dynamicRule.keying.regionTypes ?? []);
+    const hazardIndex = getPlayerIndex(state, playerId);
+    const hazardPlayer = state.players[hazardIndex];
+
+    for (const card of hazardPlayer.hand) {
+      const def = state.cardPool[card.definitionId as string];
+      if (!def || def.cardType !== 'hazard-creature') continue;
+
+      let keyable = false;
+      for (const key of def.keyedTo) {
+        if (key.siteTypes && key.siteTypes.some(st => allowedSiteTypes.has(st))) {
+          keyable = true;
+          break;
+        }
+        if (key.regionTypes && key.regionTypes.some(rt => allowedRegionTypes.has(rt))) {
+          keyable = true;
+          break;
+        }
+      }
+      if (!keyable) {
+        logDetail(`Creature "${def.name}" keying does not match dynamic auto-attack filter — skipping`);
+        continue;
+      }
+
+      logDetail(`Creature "${def.name}" eligible as site's dynamic auto-attack`);
+      actions.push({
+        type: 'play-site-auto-attack',
+        player: playerId,
+        cardInstanceId: card.instanceId,
+      });
+    }
+  }
+
+  actions.push({ type: 'pass', player: playerId });
+  return actions;
 }
 
 // woundCorruptionCheckActions removed: wound corruption checks are

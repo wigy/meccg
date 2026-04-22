@@ -195,7 +195,18 @@
     "text": "Nearest Haven: Lórien Playable: Items (minor) Automatic-attacks: When a company enters this site, opponent may play one creature from his hand that is treated in all ways as the site's automatic-attack (if defeated, creature is discarded). It must normally be playable keyed to a Ruins & Lairs [{R}], Shadow-hold [{S}], single Wilderness [{w}], or Shadow-land [{s}]. Special: Contains a hoard.",
     "keywords": [
       "hoard"
-    ]
+    ],
+    "effects": [
+      {
+        "type": "site-rule",
+        "rule": "dynamic-auto-attack",
+        "keying": {
+          "siteTypes": ["ruins-and-lairs", "shadow-hold"],
+          "regionTypes": ["wilderness", "shadow"]
+        }
+      }
+    ],
+    "certified": "2026-04-22"
   },
   {
     "cardType": "hero-site",

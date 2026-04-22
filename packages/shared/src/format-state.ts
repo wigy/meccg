@@ -255,7 +255,7 @@ function formatOpponentCompany(
 function formatCombat(combat: CombatState, defOf: CardLookup, instOf: InstanceLookup, indent: string): string[] {
   const lines: string[] = [];
   let attackerName: string;
-  if (combat.attackSource.type === 'creature') {
+  if (combat.attackSource.type === 'creature' || combat.attackSource.type === 'played-auto-attack') {
     attackerName = formatInstanceName(combat.attackSource.instanceId, defOf, instOf);
   } else {
     attackerName = 'Automatic attack';

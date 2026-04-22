@@ -19,6 +19,8 @@
  * See `docs/card-effects-dsl.md` for the full design document with examples.
  */
 
+import type { RegionType, SiteType } from './common.js';
+
 // ---- Value Expressions ----
 
 /**
@@ -718,7 +720,8 @@ export type SiteRuleEffect =
   | AutoTestGoldRingSiteRule
   | AttacksNotDetainmentSiteRule
   | NeverTapsSiteRule
-  | HealDuringUntapSiteRule;
+  | HealDuringUntapSiteRule
+  | DynamicAutoAttackSiteRule;
 
 /** Wounded characters at this site heal during untap as if the site were a haven. */
 export interface HealingAffectsAllSiteRule extends EffectBase {
@@ -855,6 +858,42 @@ export interface AttacksNotDetainmentSiteRule extends EffectBase {
 export interface NeverTapsSiteRule extends EffectBase {
   readonly type: 'site-rule';
   readonly rule: 'never-taps';
+}
+
+/**
+ * Declares that when a company enters this site, the opponent may play one
+ * hazard creature from their hand as the site's automatic-attack. The
+ * creature uses its own prowess/strikes/body/race, but is treated in all
+ * ways as an automatic-attack (the hazard player does not pay keying cost
+ * and, regardless of outcome, the creature is discarded — the resource
+ * player does not gain kill-MP).
+ *
+ * The `keying` filter lists the site-types and region-types that the
+ * creature must be playable against. A creature is eligible iff at least
+ * one of its `keyedTo` entries lists a siteType or regionType named in
+ * this filter.
+ *
+ * Example — Framsburg (td-175): "opponent may play one creature from his
+ * hand that is treated in all ways as the site's automatic-attack. It
+ * must normally be playable keyed to a Ruins & Lairs [{R}], Shadow-hold
+ * [{S}], single Wilderness [{w}], or Shadow-land [{s}]."
+ *
+ * ```json
+ * { "type": "site-rule", "rule": "dynamic-auto-attack",
+ *   "keying": {
+ *     "siteTypes": ["ruins-and-lairs", "shadow-hold"],
+ *     "regionTypes": ["wilderness", "shadow"]
+ *   } }
+ * ```
+ */
+export interface DynamicAutoAttackSiteRule extends EffectBase {
+  readonly type: 'site-rule';
+  readonly rule: 'dynamic-auto-attack';
+  /** Site-types and region-types that satisfy the creature's keying for this attack. */
+  readonly keying: {
+    readonly siteTypes?: readonly SiteType[];
+    readonly regionTypes?: readonly RegionType[];
+  };
 }
 
 /**

@@ -69,6 +69,30 @@ export interface RevealOnGuardAction {
 }
 
 /**
+ * Play a hazard creature from the hazard player's hand as the site's
+ * automatic-attack. Used at sites with a `site-rule: dynamic-auto-attack`
+ * effect (e.g. Framsburg td-175).
+ *
+ * The creature is taken from the hazard player's hand and initiates combat
+ * using its own prowess/strikes/body. After combat resolves, the creature
+ * is placed in the hazard player's discard pile regardless of outcome
+ * (the resource player does not gain kill-MP for defeating a
+ * played-auto-attack creature).
+ *
+ * Only offered when the step is `play-site-auto-attack` and the creature's
+ * keying satisfies the site's filter. Follows the Step 2 auto-attack
+ * window in the CoE site phase.
+ */
+export interface PlaySiteAutoAttackAction {
+  /** Action discriminant. */
+  readonly type: 'play-site-auto-attack';
+  /** The hazard player playing the creature. */
+  readonly player: PlayerId;
+  /** The hazard-creature card instance in the hazard player's hand. */
+  readonly cardInstanceId: CardInstanceId;
+}
+
+/**
  * Declare that an agent hazard at the company's site will attack.
  *
  * Step 3 of entering a site (CoE line 358). The agent must be revealed
