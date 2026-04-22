@@ -460,6 +460,17 @@ export interface ActiveConstraint {
       }
     | {
         /**
+         * Magical Harp: cancels effects for the rest of the turn that
+         * discard a target character in the bearer's company. Placed when
+         * the item is tapped; scoped to the rest of the turn. Pass-through
+         * in `applyConstraint` — consumed directly by any future
+         * character-discard resolver by checking for an active
+         * `cancel-character-discard` constraint on the target company.
+         */
+        readonly type: 'cancel-character-discard';
+      }
+    | {
+        /**
          * Rebuild the Town: the company's current site has its automatic
          * attacks removed. When a company enters this site, automatic
          * attacks are skipped entirely. Scoped `until-cleared` — persists

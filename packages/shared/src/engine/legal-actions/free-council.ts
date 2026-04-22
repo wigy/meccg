@@ -12,28 +12,35 @@
  * +1 support each. This is handled via the `pendingCheck` sub-state.
  */
 
-import type { GameState, PlayerId, GameAction, CardInstanceId, FreeCouncilPhaseState } from '../../index.js';
+import type { GameState, PlayerId, GameAction, CardInstanceId, FreeCouncilPhaseState, EvaluatedAction } from '../../index.js';
 import { isCharacterCard, CardStatus } from '../../index.js';
 import { logDetail } from './log.js';
+import { grantedActionActivations } from './organization.js';
 
-export function freeCouncilActions(state: GameState, playerId: PlayerId): GameAction[] {
+export function freeCouncilActions(state: GameState, playerId: PlayerId): EvaluatedAction[] {
   const fcState = state.phaseState as FreeCouncilPhaseState;
 
   if (fcState.step === 'done') {
     return [];
   }
 
+  // Grant-actions flagged `freeCouncil: true` (e.g. Magical Harp) are
+  // available to both players during the corruption-checks step, not
+  // only the player currently running their checks. Collect them up
+  // front and append to every exit below.
+  const grantActions = grantedActionActivations(state, playerId, 'freeCouncil');
+
   // Only the current player performs corruption checks
   if (playerId !== fcState.currentPlayer) {
-    return [];
+    return grantActions;
   }
 
   const player = state.players.find(p => p.id === playerId);
-  if (!player) return [];
+  if (!player) return grantActions;
 
   // If a corruption check is pending (awaiting support), offer support actions
   if (fcState.pendingCheck) {
-    return supportActions(state, playerId, fcState);
+    return [...viable(supportActions(state, playerId, fcState)), ...grantActions];
   }
 
   const checked = new Set(fcState.checkedCharacters);
@@ -74,7 +81,11 @@ export function freeCouncilActions(state: GameState, playerId: PlayerId): GameAc
   } else {
     logDetail(`Free Council: ${actions.length} character(s) available for corruption checks`);
   }
-  return actions;
+  return [...viable(actions), ...grantActions];
+}
+
+function viable(actions: GameAction[]): EvaluatedAction[] {
+  return actions.map(action => ({ action, viable: true }));
 }
 
 /**

@@ -15,7 +15,7 @@ import { resolveInstanceId } from '../../types/state.js';
 import { collectCharacterEffects, collectCompanyAllyEffects, resolveCheckModifier, resolveStatModifiers, normalizeCreatureRace } from '../effects/index.js';
 import type { ResolverContext } from '../effects/index.js';
 import { logDetail, logHeading } from './log.js';
-import { availableDI, grantedActionActivations, ANY_PHASE_ONLY, playResourceShortEventActions } from './organization.js';
+import { availableDI, grantedActionActivations, playResourceShortEventActions } from './organization.js';
 import { heroResourceShortEventActions } from './long-event.js';
 import { crossAlignmentInfluencePenalty } from '../../alignment-rules.js';
 import { getActiveAutoAttacks } from '../manifestations.js';
@@ -75,6 +75,10 @@ export function siteActions(state: GameState, playerId: PlayerId): EvaluatedActi
     // any phase of their turn, including before selecting a company.
     if (isActive) {
       base.push(...heroResourceShortEventActions(state, playerId, 'site'));
+    } else {
+      // Non-active player may activate `opposingSitePhase: true`
+      // grant-actions (e.g. Magical Harp).
+      base.push(...grantedActionActivations(state, playerId, 'opposingSitePhase'));
     }
     return base;
   }
@@ -85,6 +89,8 @@ export function siteActions(state: GameState, playerId: PlayerId): EvaluatedActi
     // committing to enter or skip the current company's site.
     if (isActive) {
       base.push(...heroResourceShortEventActions(state, playerId, 'site'));
+    } else {
+      base.push(...grantedActionActivations(state, playerId, 'opposingSitePhase'));
     }
     return base;
   }
@@ -451,8 +457,16 @@ function playResourcesActions(
 ): EvaluatedAction[] {
   const isActive = state.activePlayer === playerId;
   if (!isActive) {
-    logDetail(`Not active player — no actions during play-resources step`);
-    return [];
+    // Non-active player may activate `opposingSitePhase: true`
+    // grant-actions (e.g. Magical Harp) while the resource player is
+    // playing resources at a site.
+    const opposing = grantedActionActivations(state, playerId, 'opposingSitePhase');
+    if (opposing.length > 0) {
+      logDetail(`Not active player — ${opposing.length} opposing-site-phase grant-action(s) available`);
+    } else {
+      logDetail(`Not active player — no actions during play-resources step`);
+    }
+    return opposing;
   }
 
   const playerIndex = getPlayerIndex(state, playerId);
@@ -1023,7 +1037,7 @@ function playResourcesActions(
   }
 
   // Rule 2.1.1: resource player may activate any-phase grant-actions (e.g. Cram untap-bearer)
-  actions.push(...grantedActionActivations(state, playerId, ANY_PHASE_ONLY));
+  actions.push(...grantedActionActivations(state, playerId, 'anyPhase'));
 
   // Opponent influence attempts (rule 10.10)
   const oppInfluence = opponentInfluenceActions(state, playerId, siteState, company, player, untappedCharacters);

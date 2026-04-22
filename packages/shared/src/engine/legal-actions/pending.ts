@@ -740,6 +740,8 @@ function applyOneConstraint(
       return base;
     case 'cancel-return-and-site-tap':
       return base;
+    case 'cancel-character-discard':
+      return base;
     case 'skip-automatic-attacks':
       return base;
     case 'corruption-removal-locked':

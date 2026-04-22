@@ -269,6 +269,21 @@ export interface GrantActionEffect extends EffectBase {
    */
   readonly anyPhase?: boolean;
   /**
+   * When true, the ability may additionally be activated during the
+   * opposing player's site phase (the bearer is the hazard / non-active
+   * player). Used by Magical Harp's "may also be so tapped during
+   * opponent's site phase" clause. Independent of {@link anyPhase},
+   * which covers only the bearer's own turn.
+   */
+  readonly opposingSitePhase?: boolean;
+  /**
+   * When true, the ability may additionally be activated during the
+   * Free Council (endgame) corruption-checks step, by either player.
+   * Used by Magical Harp's "may also be so tapped during ... the Free
+   * Council" clause.
+   */
+  readonly freeCouncil?: boolean;
+  /**
    * Generic effect produced by the action. When present, the reducer
    * pays `cost` then dispatches on `apply.type` (reusing the existing
    * TriggeredAction apply dispatch shared with `on-event` and

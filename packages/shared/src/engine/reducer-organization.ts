@@ -925,7 +925,14 @@ function runGrantApply(
     const actor = ctx.action.player;
     const sourceId = ctx.action.sourceCardId;
     const reason = ctx.sourceName;
-    logDetail(`Grant-action ${ctx.action.actionId}: enqueueing corruption check on ${ctx.charName} (reason: ${reason}, modifier ${modifier})`);
+    // The corruption check resolves in the phase in which the
+    // grant-action was activated. For Organization-only abilities
+    // (e.g. Promptings of Wisdom) this is `Phase.Organization`; for
+    // any-phase and cross-phase abilities (e.g. Magical Harp, which
+    // may fire during the owner's Site phase, the opponent's Site
+    // phase, or the Free Council) the current phase is correct.
+    const currentPhase = state.phaseState.phase;
+    logDetail(`Grant-action ${ctx.action.actionId}: enqueueing corruption check on ${ctx.charName} (reason: ${reason}, modifier ${modifier}, phase: ${currentPhase})`);
     return {
       updatedChar: char,
       effects: [],
@@ -933,7 +940,7 @@ function runGrantApply(
         s => enqueueCorruptionCheck(s, {
           source: sourceId,
           actor,
-          scope: { kind: 'phase', phase: Phase.Organization },
+          scope: { kind: 'phase', phase: currentPhase },
           characterId,
           modifier,
           reason,
@@ -1314,6 +1321,8 @@ function constraintKindWithoutPayload(
   switch (name) {
     case 'cancel-return-and-site-tap':
       return { type: 'cancel-return-and-site-tap' };
+    case 'cancel-character-discard':
+      return { type: 'cancel-character-discard' };
     case 'deny-scout-resources':
       return { type: 'deny-scout-resources' };
     case 'no-creature-hazards-on-company':

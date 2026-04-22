@@ -222,7 +222,7 @@ export function computeLegalActions(state: GameState, playerId: PlayerId): Evalu
     case 'movement-hazard':   evaluated = movementHazardActions(state, playerId); break;
     case 'site':              evaluated = siteActions(state, playerId); break;
     case 'end-of-turn':       evaluated = endOfTurnActions(state, playerId); break;
-    case 'free-council':      evaluated = asViable(freeCouncilActions(state, playerId)); break;
+    case 'free-council':      evaluated = freeCouncilActions(state, playerId); break;
     case 'game-over': {
       const goState = state.phaseState as { finishedPlayers: readonly string[] };
       evaluated = goState.finishedPlayers.includes(playerId as string)
