@@ -43,8 +43,8 @@ import { describe, test, expect, beforeEach } from 'vitest';
 import {
   PLAYER_1, PLAYER_2,
   RIVENDELL, LORIEN, MORIA,
-  ARAGORN, LEGOLAS,
-  resetMint, pool, buildTestState, Phase, CardStatus,
+  LEGOLAS,
+  resetMint, pool, buildTestState, Phase, Alignment, CardStatus,
   dispatch, expectCharStatus, RESOURCE_PLAYER,
 } from '../test-helpers.js';
 import {
@@ -55,6 +55,7 @@ import type { SiteCard, CardDefinitionId } from '../../index.js';
 const BARAD_DUR = 'le-352' as CardDefinitionId;
 const MINAS_MORGUL = 'le-390' as CardDefinitionId;
 const DOL_GULDUR = 'le-367' as CardDefinitionId;
+const MIONID = 'as-3' as CardDefinitionId; // minion-character, ringwraith
 
 describe('Barad-dûr (le-352)', () => {
   beforeEach(() => resetMint());
@@ -128,7 +129,8 @@ describe('Barad-dûr (le-352)', () => {
       players: [
         {
           id: PLAYER_1,
-          companies: [{ site: BARAD_DUR, characters: [{ defId: ARAGORN, status: CardStatus.Inverted }] }],
+          alignment: Alignment.Ringwraith,
+          companies: [{ site: BARAD_DUR, characters: [{ defId: MIONID, status: CardStatus.Inverted }] }],
           hand: [],
           siteDeck: [MINAS_MORGUL],
         },
@@ -144,7 +146,7 @@ describe('Barad-dûr (le-352)', () => {
     const nextState = dispatch(state, { type: 'untap', player: PLAYER_1 });
 
     // Wounded → tapped (same behavior as at a haven).
-    expectCharStatus(nextState, RESOURCE_PLAYER, ARAGORN, CardStatus.Tapped);
+    expectCharStatus(nextState, RESOURCE_PLAYER, MIONID, CardStatus.Tapped);
   });
 
   test('tapped character at Barad-dûr untaps normally during untap', () => {
@@ -154,7 +156,8 @@ describe('Barad-dûr (le-352)', () => {
       players: [
         {
           id: PLAYER_1,
-          companies: [{ site: BARAD_DUR, characters: [{ defId: ARAGORN, status: CardStatus.Tapped }] }],
+          alignment: Alignment.Ringwraith,
+          companies: [{ site: BARAD_DUR, characters: [{ defId: MIONID, status: CardStatus.Tapped }] }],
           hand: [],
           siteDeck: [MINAS_MORGUL],
         },
@@ -169,7 +172,7 @@ describe('Barad-dûr (le-352)', () => {
 
     const nextState = dispatch(state, { type: 'untap', player: PLAYER_1 });
 
-    expectCharStatus(nextState, RESOURCE_PLAYER, ARAGORN, CardStatus.Untapped);
+    expectCharStatus(nextState, RESOURCE_PLAYER, MIONID, CardStatus.Untapped);
   });
 
   test('regression: wounded character at a non-Barad-dûr dark-hold does NOT heal during untap', () => {
@@ -184,7 +187,8 @@ describe('Barad-dûr (le-352)', () => {
       players: [
         {
           id: PLAYER_1,
-          companies: [{ site: MORIA_LE, characters: [{ defId: ARAGORN, status: CardStatus.Inverted }] }],
+          alignment: Alignment.Ringwraith,
+          companies: [{ site: MORIA_LE, characters: [{ defId: MIONID, status: CardStatus.Inverted }] }],
           hand: [],
           siteDeck: [MINAS_MORGUL],
         },
@@ -199,7 +203,7 @@ describe('Barad-dûr (le-352)', () => {
 
     const nextState = dispatch(state, { type: 'untap', player: PLAYER_1 });
 
-    expectCharStatus(nextState, RESOURCE_PLAYER, ARAGORN, CardStatus.Inverted);
+    expectCharStatus(nextState, RESOURCE_PLAYER, MIONID, CardStatus.Inverted);
   });
 
   // ─── Site phase: special rules (NOT IMPLEMENTED) ────────────────────────────
