@@ -28,11 +28,20 @@ import {
   buildTestState, resetMint,
   handCardId, dispatch,
   addCardInPlay,
+  runSimpleDraft,
   HAZARD_PLAYER, RESOURCE_PLAYER,
   pool,
 } from '../../test-helpers.js';
-import type { CardInstanceId, PlayShortEventAction } from '../../../index.js';
-import { Phase, describeAction, extractActionCardDefs } from '../../../index.js';
+import type { AddCharacterToDeckAction, CardInstanceId, PlayShortEventAction } from '../../../index.js';
+import {
+  Phase,
+  SetupStep,
+  describeAction,
+  extractActionCardDefs,
+  extractActionCardDefsForAudience,
+  getActingPlayerPrivateInstanceIds,
+  reduce,
+} from '../../../index.js';
 
 describe('lastAction card defs — opponent toast naming', () => {
   beforeEach(() => resetMint());
@@ -120,5 +129,98 @@ describe('lastAction card defs — opponent toast naming', () => {
     const mergedLookup = (id: CardInstanceId) => defs[id as string] ?? viewLookup(id);
     const named = describeAction(action, pool, mergedLookup);
     expect(named).toContain('Marvels Told');
+  });
+});
+
+describe('add-character-to-deck — opponent must not learn the shuffled character', () => {
+  beforeEach(() => resetMint());
+
+  /**
+   * Regression for bug report ad5ae57b20698ba1 (game moab9vqb-68zlad, seq ~14):
+   * during character-deck-draft, the opponent's toast read the actual card name
+   * of each character the active player shuffled into their face-down play deck
+   * (e.g. "Add Frodo to play deck"). Per CoE rule 1.8, leftover pool characters
+   * shuffled into the play deck must stay hidden — the opponent may know the
+   * action was taken but not which character was chosen.
+   */
+  test('getActingPlayerPrivateInstanceIds flags the shuffled character', () => {
+    const action: AddCharacterToDeckAction = {
+      type: 'add-character-to-deck',
+      player: PLAYER_1,
+      characterInstanceId: 'p1-57' as CardInstanceId,
+    };
+    expect(getActingPlayerPrivateInstanceIds(action)).toEqual(['p1-57']);
+  });
+
+  test('audience-filtered defs strip the shuffled character so describeAction renders "a card"', () => {
+    // Drive setup to character-deck-draft so the action is applicable.
+    let state = runSimpleDraft();
+    expect(state.phaseState.phase).toBe(Phase.Setup);
+    if (state.phaseState.phase !== Phase.Setup) throw new Error('expected setup');
+
+    if (state.phaseState.setupStep.step === SetupStep.ItemDraft) {
+      const itemStep = state.phaseState.setupStep;
+      const p1Char = state.players[0].companies[0].characters[0];
+      const p2Char = state.players[1].companies[0].characters[0];
+      for (const item of itemStep.itemDraftState[0].unassignedItems) {
+        const r = reduce(state, {
+          type: 'assign-starting-item',
+          player: PLAYER_1,
+          itemDefId: item.definitionId,
+          characterInstanceId: p1Char,
+        });
+        if (r.error) throw new Error(r.error);
+        state = r.state;
+      }
+      for (const item of itemStep.itemDraftState[1].unassignedItems) {
+        const r = reduce(state, {
+          type: 'assign-starting-item',
+          player: PLAYER_2,
+          itemDefId: item.definitionId,
+          characterInstanceId: p2Char,
+        });
+        if (r.error) throw new Error(r.error);
+        state = r.state;
+      }
+    }
+
+    if (state.phaseState.phase !== Phase.Setup) throw new Error('expected setup');
+    expect(state.phaseState.setupStep.step).toBe(SetupStep.CharacterDeckDraft);
+    if (state.phaseState.setupStep.step !== SetupStep.CharacterDeckDraft) throw new Error('expected deck draft');
+
+    // Pick a concrete character to add to p1's deck from their remaining pool.
+    const p1Pool = state.phaseState.setupStep.deckDraftState[0].remainingPool;
+    expect(p1Pool.length).toBeGreaterThan(0);
+    const charInstance = p1Pool[0];
+
+    const action: AddCharacterToDeckAction = {
+      type: 'add-character-to-deck',
+      player: PLAYER_1,
+      characterInstanceId: charInstance.instanceId,
+    };
+    const after = reduce(state, action);
+    if (after.error) throw new Error(after.error);
+
+    // Full (acting-player) defs resolve the character's real definition.
+    const fullDefs = extractActionCardDefs(after.state, action);
+    expect(fullDefs[charInstance.instanceId as string]).toBe(charInstance.definitionId);
+
+    // Audience-filtered defs strip the private character entry.
+    const audienceDefs = extractActionCardDefsForAudience(after.state, action);
+    expect(audienceDefs[charInstance.instanceId as string]).toBeUndefined();
+
+    // describeAction with only the audience-filtered lookup renders "a card",
+    // matching how the opponent's toast / log should read.
+    const audienceLookup = (id: CardInstanceId) => audienceDefs[id as string];
+    const audienceDesc = describeAction(action, pool, audienceLookup);
+    expect(audienceDesc).toContain('a card');
+    // And the card name must not leak to the opponent.
+    const realName = pool[charInstance.definitionId as string]?.name;
+    if (realName) expect(audienceDesc).not.toContain(realName);
+
+    // The acting player still sees the card name, proving the split.
+    const actingLookup = (id: CardInstanceId) => fullDefs[id as string];
+    const actingDesc = describeAction(action, pool, actingLookup);
+    if (realName) expect(actingDesc).toContain(realName);
   });
 });

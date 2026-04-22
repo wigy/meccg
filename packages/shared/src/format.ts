@@ -21,4 +21,4 @@
 export { formatSignedNumber, stripCardMarkers, CARD_TYPE_CSS, getCardCss } from './format-helpers.js';
 export { formatCardName, formatCardList, formatDefName } from './format-cards.js';
 export { buildInstanceLookup, formatGameState, formatPlayerView } from './format-state.js';
-export { describeAction, extractActionCardDefs, getTitleCharacter, buildCompanyNames } from './format-actions.js';
+export { describeAction, extractActionCardDefs, extractActionCardDefsForAudience, getActingPlayerPrivateInstanceIds, getTitleCharacter, buildCompanyNames } from './format-actions.js';

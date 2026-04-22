@@ -140,6 +140,48 @@ export function extractActionCardDefs(
   return defs;
 }
 
+/**
+ * Returns the card instance IDs referenced inside an action whose identity
+ * is private to the acting player — i.e. the card is moving into (or
+ * remaining in) a pile that the opponent cannot see.
+ *
+ * These IDs must be stripped from {@link extractActionCardDefs}' output
+ * before broadcasting to any audience other than the acting player, so
+ * that {@link describeAction} renders "a card" instead of leaking the
+ * card's name through the opponent's action toast / log.
+ *
+ * Currently covers `add-character-to-deck`: during setup, players may
+ * shuffle leftover pool characters into their face-down play deck. Per
+ * CoE rule 1.8 the opponent must not learn which characters were
+ * shuffled in — only that the action was taken.
+ */
+export function getActingPlayerPrivateInstanceIds(action: GameAction): readonly CardInstanceId[] {
+  switch (action.type) {
+    case 'add-character-to-deck':
+      return [action.characterInstanceId];
+    default:
+      return [];
+  }
+}
+
+/**
+ * Build the {@link extractActionCardDefs} map filtered for a non-acting
+ * audience (the opponent, or a spectator). Card identities that are
+ * private to the acting player (see {@link getActingPlayerPrivateInstanceIds})
+ * are removed so the audience's client cannot resolve them to real names.
+ */
+export function extractActionCardDefsForAudience(
+  state: GameState,
+  action: GameAction,
+): Record<string, CardDefinitionId> {
+  const defs = extractActionCardDefs(state, action);
+  const privateIds = getActingPlayerPrivateInstanceIds(action);
+  if (privateIds.length === 0) return defs;
+  const filtered: Record<string, CardDefinitionId> = { ...defs };
+  for (const id of privateIds) delete filtered[id as string];
+  return filtered;
+}
+
 // ---- Action description ----
 
 /**

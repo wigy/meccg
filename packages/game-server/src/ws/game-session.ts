@@ -27,7 +27,7 @@ import type {
   StateMessage,
   ActionMessage,
 } from '@meccg/shared';
-import { loadCardPool, createRng, buildMovementMap, createGame, reduce, startCapture, flushCapture, Phase, computeTournamentBreakdown, computeLegalActions, canonicalActionKey, extractActionCardDefs } from '@meccg/shared';
+import { loadCardPool, createRng, buildMovementMap, createGame, reduce, startCapture, flushCapture, Phase, computeTournamentBreakdown, computeLegalActions, canonicalActionKey, extractActionCardDefs, extractActionCardDefsForAudience } from '@meccg/shared';
 import type { MovementMap, PlayerConfig, GameConfig } from '@meccg/shared';
 import { projectPlayerView, projectSpectatorView } from './projection.js';
 import { ServerLog, GameLog } from './game-log.js';
@@ -943,12 +943,20 @@ export class GameSession {
   private broadcastState(lastAction?: GameAction): void {
     if (!this.state) return;
 
-    // Computed once: identities of cards referenced in lastAction are public
-    // by virtue of the action itself, even when the card now sits in a
+    // Identities of cards referenced in lastAction are normally public by
+    // virtue of the action itself, even when the card sits in a
     // projection-redacted pile (e.g. a short event played into the owner's
     // face-down discard). The client merges this with its per-view lookup
     // so opponent-action toasts can name the played card.
-    const lastActionCardDefs = lastAction ? extractActionCardDefs(this.state, lastAction) : undefined;
+    //
+    // Exception: some actions move a private card into a pile that stays
+    // private to the acting player (e.g. add-character-to-deck shuffles a
+    // leftover pool character into the owner's face-down play deck).
+    // {@link extractActionCardDefsForAudience} builds a filtered map for
+    // non-acting audiences so the opponent's toast reads "a card" rather
+    // than leaking the card's name.
+    const actingDefs = lastAction ? extractActionCardDefs(this.state, lastAction) : undefined;
+    const audienceDefs = lastAction ? extractActionCardDefsForAudience(this.state, lastAction) : undefined;
 
     this.lastLegalActionsPerPlayer.clear();
     for (const [, { ws, playerId }] of this.players.entries()) {
@@ -959,8 +967,9 @@ export class GameSession {
         legalSet.set(ea.actionId, ea.action);
       }
       this.lastLegalActionsPerPlayer.set(playerId, legalSet);
+      const defs = lastAction && lastAction.player === playerId ? actingDefs : audienceDefs;
       const msg: StateMessage = lastAction
-        ? { type: 'state', view, lastAction, lastActionCardDefs }
+        ? { type: 'state', view, lastAction, lastActionCardDefs: defs }
         : { type: 'state', view };
       this.send(ws, msg);
     }
@@ -969,7 +978,7 @@ export class GameSession {
       const spectatorView = projectSpectatorView(this.state);
       for (const ws of this.spectators) {
         const msg: StateMessage = lastAction
-          ? { type: 'state', view: spectatorView, lastAction, lastActionCardDefs }
+          ? { type: 'state', view: spectatorView, lastAction, lastActionCardDefs: audienceDefs }
           : { type: 'state', view: spectatorView };
         this.send(ws, msg);
       }
