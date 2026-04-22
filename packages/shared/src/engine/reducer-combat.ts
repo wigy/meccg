@@ -50,6 +50,8 @@ export function handleCombatAction(state: GameState, action: GameAction): Reduce
       return handleCancelByTap(state, action, combat);
     case 'play-dodge':
       return handlePlayDodge(state, action, combat);
+    case 'play-reroll-strike':
+      return handlePlayRerollStrike(state, action, combat);
     case 'cancel-strike':
       return handleCancelStrike(state, action, combat);
     case 'halve-strikes':
@@ -225,14 +227,16 @@ function handleCombatPass(state: GameState, action: GameAction, combat: CombatSt
 }
 
 /**
- * Core strike resolution shared by `resolve-strike` and `play-dodge`.
+ * Core strike resolution shared by `resolve-strike`, `play-dodge`, and
+ * `play-reroll-strike`.
  *
  * Rolls 2d6 + prowess vs strike prowess, determines the outcome, applies
  * tap/wound to the character or ally, and advances combat to body-check or
- * the next strike. The three resolution modes differ only in:
- * - prowess modifier (stay-untapped takes -3, tap-to-fight and dodge are full)
- * - whether the character taps on success/tie
+ * the next strike. The four resolution modes differ only in:
+ * - prowess modifier (stay-untapped takes -3; tap, dodge, and reroll are full)
+ * - whether the character taps on success/tie (reroll taps like tap mode)
  * - dodge adds a body penalty for the resulting body check
+ * - reroll makes two 2d6 rolls and keeps the better total
  *
  * `preAppliedDefender` lets callers pre-mutate the defender (e.g. dodge
  * discards a card from hand before resolving); this must NOT alter
@@ -241,7 +245,7 @@ function handleCombatPass(state: GameState, action: GameAction, combat: CombatSt
 function resolveStrikeCore(
   state: GameState,
   combat: CombatState,
-  mode: 'tap' | 'untap' | 'dodge',
+  mode: 'tap' | 'untap' | 'dodge' | 'reroll',
   dodgeBodyPenalty: number,
   preAppliedDefender: PlayerState | null,
 ): ReducerResult {
@@ -278,19 +282,50 @@ function resolveStrikeCore(
   const supportBonus = strike.supportCount ?? 0;
   prowess += supportBonus; // CoE rule 3.iv.4: +1 per supporting character/ally
 
-  // Roll dice
-  const { roll, rng, cheatRollTotal } = roll2d6(state);
+  // Roll dice. Reroll mode makes two rolls and keeps the better total; the
+  // discarded roll is logged and emitted as an effect so both rolls appear
+  // in history.
+  let roll;
+  let rng;
+  let cheatRollTotal;
+  const rollLabel = mode === 'dodge' ? 'Strike (dodge)' : mode === 'reroll' ? 'Strike (reroll)' : 'Strike';
+  const charLabel = charDef && 'name' in charDef ? (charDef as { name: string }).name : (targetDefId as string);
+  const effects: GameEffect[] = [];
+
+  if (mode === 'reroll') {
+    const r1 = roll2d6(state);
+    const r2 = roll2d6({ ...state, rng: r1.rng, cheatRollTotal: r1.cheatRollTotal });
+    const t1 = r1.roll.die1 + r1.roll.die2;
+    const t2 = r2.roll.die1 + r2.roll.die2;
+    const firstBetter = t1 >= t2;
+    const kept = firstBetter ? r1 : r2;
+    const discarded = firstBetter ? r2 : r1;
+    roll = kept.roll;
+    rng = r2.rng;
+    cheatRollTotal = r2.cheatRollTotal;
+    logDetail(`${rollLabel}: rolled ${r1.roll.die1}+${r1.roll.die2}=${t1} and ${r2.roll.die1}+${r2.roll.die2}=${t2} → keeping ${kept.roll.die1}+${kept.roll.die2}=${kept.roll.die1 + kept.roll.die2}`);
+    effects.push({
+      effect: 'dice-roll', playerName: defPlayer.name,
+      die1: discarded.roll.die1, die2: discarded.roll.die2, label: `${rollLabel} (discarded): ${charLabel}`,
+    });
+    effects.push({
+      effect: 'dice-roll', playerName: defPlayer.name,
+      die1: kept.roll.die1, die2: kept.roll.die2, label: `${rollLabel}: ${charLabel}`,
+    });
+  } else {
+    const single = roll2d6(state);
+    roll = single.roll;
+    rng = single.rng;
+    cheatRollTotal = single.cheatRollTotal;
+    effects.push({
+      effect: 'dice-roll', playerName: defPlayer.name,
+      die1: roll.die1, die2: roll.die2, label: `${rollLabel}: ${charLabel}`,
+    });
+  }
+
   const rollTotal = roll.die1 + roll.die2;
   const characterTotal = rollTotal + prowess;
-
-  const rollLabel = mode === 'dodge' ? 'Strike (dodge)' : 'Strike';
   logDetail(`${rollLabel} resolution: ${targetDefId as string} rolls ${roll.die1}+${roll.die2}=${rollTotal} + prowess ${prowess} = ${characterTotal} vs creature prowess ${combat.strikeProwess}`);
-
-  const charLabel = charDef && 'name' in charDef ? (charDef as { name: string }).name : (targetDefId as string);
-  const effects: GameEffect[] = [{
-    effect: 'dice-roll', playerName: defPlayer.name,
-    die1: roll.die1, die2: roll.die2, label: `${rollLabel}: ${charLabel}`,
-  }];
 
   // Determine outcome
   let result: 'success' | 'wounded' | 'eliminated';
@@ -314,10 +349,12 @@ function resolveStrikeCore(
 
   // Whether the combatant taps on a non-wounded outcome:
   //  - tap:    always (success or tie)
+  //  - reroll: always (same as tap)
   //  - untap:  only on tie
   //  - dodge:  never
   const tapOnNonWounded =
     mode === 'tap' ||
+    mode === 'reroll' ||
     (mode === 'untap' && characterTotal === combat.strikeProwess);
 
   // Record strike assignment. Dodge tags the strike so the body check picks
@@ -517,6 +554,31 @@ function handlePlayDodge(state: GameState, action: GameAction, combat: CombatSta
   };
 
   return resolveStrikeCore(state, combat, 'dodge', dodgeEffect.bodyPenalty, preAppliedDefender);
+}
+
+/**
+ * Play a reroll-strike card from hand during resolve-strike (e.g. Lucky
+ * Strike). Discards the card and delegates to `resolveStrikeCore` in
+ * reroll mode, which rolls 2d6 twice and resolves the strike using the
+ * better total. The character taps as in normal tap-to-fight.
+ */
+function handlePlayRerollStrike(state: GameState, action: GameAction, combat: CombatState): ReducerResult {
+  if (action.type !== 'play-reroll-strike') return { state, error: 'Expected play-reroll-strike' };
+
+  const defPlayerIndex = state.players.findIndex(p => p.id === combat.defendingPlayerId);
+  const defPlayer = state.players[defPlayerIndex];
+  const handIndex = defPlayer.hand.findIndex(c => c.instanceId === action.cardInstanceId);
+  const handCard = defPlayer.hand[handIndex];
+
+  logDetail(`Playing reroll-strike card ${handCard.definitionId as string}`);
+
+  const preAppliedDefender: PlayerState = {
+    ...defPlayer,
+    hand: [...defPlayer.hand.slice(0, handIndex), ...defPlayer.hand.slice(handIndex + 1)],
+    discardPile: [...defPlayer.discardPile, { instanceId: handCard.instanceId, definitionId: handCard.definitionId }],
+  };
+
+  return resolveStrikeCore(state, combat, 'reroll', 0, preAppliedDefender);
 }
 
 /** Roll body check — attacker rolls 2d6 vs body value. */

@@ -1099,7 +1099,7 @@ export function playResourceShortEventActions(
   if (!player) return [];
 
   const actions: EvaluatedAction[] = [];
-  const combatOnlyTypes = new Set(['cancel-attack', 'cancel-strike', 'halve-strikes', 'dodge-strike']);
+  const combatOnlyTypes = new Set(['cancel-attack', 'cancel-strike', 'halve-strikes', 'dodge-strike', 'reroll-strike']);
 
   for (const handCard of player.hand) {
     const def = state.cardPool[handCard.definitionId as string];
