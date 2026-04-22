@@ -242,7 +242,7 @@
     "id": "tw-254",
     "name": "Hauberk of Bright Mail",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/HauberkofBrightMail.jpg",
-    "unique": true,
+    "unique": false,
     "subtype": "major",
     "keywords": [
       "armor"
@@ -335,7 +335,7 @@
     "id": "tw-322",
     "name": "Sapling of the White Tree",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/SaplingoftheWhiteTree.jpg",
-    "unique": true,
+    "unique": false,
     "subtype": "major",
     "marshallingPoints": 1,
     "marshallingCategory": "item",

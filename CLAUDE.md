@@ -130,7 +130,7 @@ Promoting every new card ID to `card-ids.ts` causes frequent merge conflicts as 
 
 - Unique cards: only 1 copy allowed per deck.
 - Non-unique cards: up to 3 copies allowed per deck.
-- All characters and major items in the current card pool are unique. Hazard creatures, minor items (Dagger of Westernesse, Horn of Anor) are non-unique.
+- Whether a card is unique is recorded per-card in the data files (`unique: true|false`); the authoritative source is `attributes.unique` in `data/cards.json`. Do not assume uniqueness from card type, subtype, or rarity.
 - Test fixtures (`makePlayDeck` etc.) must respect these limits.
 
 ### Debugging Game Issues
