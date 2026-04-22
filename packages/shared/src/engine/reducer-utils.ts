@@ -79,6 +79,61 @@ export function clonePlayers(state: GameState): [PlayerState, PlayerState] {
 }
 
 /**
+ * Immutably update a single player's state.
+ *
+ * Replaces the common 4-line pattern:
+ *   const newPlayers = clonePlayers(state);
+ *   newPlayers[i] = { ...player, field: value };
+ *   return { ...state, players: newPlayers };
+ * with:
+ *   return updatePlayer(state, i, p => ({ ...p, field: value }));
+ */
+export function updatePlayer(
+  state: GameState,
+  playerIndex: number,
+  updater: (p: PlayerState) => PlayerState,
+): GameState {
+  const players: [PlayerState, PlayerState] = [state.players[0], state.players[1]];
+  players[playerIndex] = updater(state.players[playerIndex]);
+  return { ...state, players };
+}
+
+/**
+ * Immutably update a single character in a player's `characters` map.
+ * Returns the player unchanged if `charId` is not found.
+ */
+export function updateCharacter(
+  player: PlayerState,
+  charId: CardInstanceId | string,
+  updater: (c: CharacterInPlay) => CharacterInPlay,
+): PlayerState {
+  const key = charId as string;
+  const char = player.characters[key];
+  if (!char) return player;
+  return {
+    ...player,
+    characters: { ...player.characters, [key]: updater(char) },
+  };
+}
+
+/**
+ * Produce a {@link ReducerResult} rejecting an action whose `type` did not
+ * match the expected value. When `context` is supplied the message names the
+ * step the rejection happened in (e.g. `during draw-cards step`).
+ */
+export function wrongActionType(
+  state: GameState,
+  action: GameAction,
+  expected: GameAction['type'],
+  context?: string,
+): ReducerResult {
+  const msg = context
+    ? `Expected '${expected}' during ${context}, got '${action.type}'`
+    : `Expected ${expected} action`;
+  return { state, error: msg };
+}
+
+/**
  * Extract the minimal `{ instanceId, definitionId }` tuple from any card-like
  * object (CardInstance, CardInPlay, CharacterInPlay, etc.). Used when moving
  * a card between piles — downstream piles only care about the tuple, not
