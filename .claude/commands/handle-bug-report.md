@@ -152,7 +152,7 @@ Follow these steps:
      },
      "review": {
        "topic": "review-request",
-       "recipients": ["wigy", "karmi", "admin"],
+       "recipients": ["admin"],
        "subject": "Review: <short bug fix description>",
        "body": "<markdown body — bug summary, root cause, fix summary, files changed, PR link>",
        "keywords": {

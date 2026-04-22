@@ -97,7 +97,7 @@ Follow these steps:
      },
      "review": {
        "topic": "review-request",
-       "recipients": ["wigy", "karmi", "admin"],
+       "recipients": ["admin"],
        "subject": "Re-review: <short description>",
        "body": "<markdown body — what was changed since last review, what review comments were addressed, PR link>",
        "keywords": {

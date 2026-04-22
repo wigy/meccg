@@ -64,7 +64,7 @@ const LOBBY_VERSION: string = (() => {
 })();
 
 /** Names that cannot be registered by players. Checked case-insensitively. */
-const RESTRICTED_NAMES = new Set(['ai', 'wigy', 'server', 'karmi', 'admin']);
+const RESTRICTED_NAMES = new Set(['ai', 'server', 'admin']);
 
 const MIME_TYPES: Record<string, string> = {
   '.html': 'text/html',

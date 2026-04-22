@@ -66,4 +66,4 @@ export const DEV = process.argv.includes('--dev') || process.env.DEV === '1';
 export const DECK_CATALOG_DIR = path.join(__dirname, '../../../data/decks');
 
 /** Reviewer player names who receive review requests and can approve changes. */
-export const REVIEWER_PLAYERS: readonly string[] = ['wigy', 'karmi', 'admin'];
+export const REVIEWER_PLAYERS: readonly string[] = ['admin'];
