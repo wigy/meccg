@@ -116,14 +116,14 @@ Follow these steps:
     1. `npm run build` — type-check.
     2. `npx vitest run packages/shared/src/tests/cards/<cardId>.test.ts` — the card's own test file.
     3. `npm test` — full rules test suite.
+    4. `npm run lint` — ESLint. If it fails, first try `npm run lint:fix`, re-run `npm run lint`, and only hand-fix what remains. The branch CI runs this exact command and will go red if you skip it.
+    5. `npm run test:nightly` — card tests. Must not introduce new failures compared to master. The branch CI runs this too.
 
-    ⚠️ **Do NOT use `run_in_background=true` for any of these.** Each one must complete within the tool call that started it.
+    ⚠️ **Do NOT use `run_in_background=true` for any of these.** Each one must complete within the tool call that started it. The nightly suite is the slowest — budget for it, don't skip it.
 
     ⚠️ **Do NOT end your turn while any of these is still running or unstarted.** If you post an interim message like "waiting for tests…" and stop calling tools, the hosting session ends and steps 13–14 never execute, leaving your work orphaned in the working tree.
 
-    Fix any failures and re-run until all three pass.
-
-    **Lint and nightly (`npm run lint`, `npm run test:nightly`) are NOT blocking for PR creation.** They run as CI checks on the branch. If you want to verify them locally, run them **after** step 14 (once the branch is pushed) and push any fix commits directly to the branch.
+    Fix any failures and re-run until all five pass. Do not open the PR until every one is green — a red CI on a freshly-opened certify PR blocks the whole inbox and wastes a human round-trip.
 
 13. **Certify on success — strict gate:** Before writing `"certified": "<date>"` on a card, ALL of the following must hold. If any one fails, **do not add the field** (and remove it if it was already present):
 
