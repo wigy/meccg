@@ -205,8 +205,11 @@ Actions:
 
 - `test-gold-ring` — tap to test a gold ring; rolls 2d6, discards gold ring
   (implemented in `reducer-organization.ts`)
-- `remove-self-on-roll` — tap bearer, roll 2d6, discard this card on
-  success (implemented in `reducer-organization.ts`)
+- `remove-self-on-roll` — roll 2d6, discard this card on success
+  (implemented in `reducer-organization.ts`). Supported cost variants:
+  `{ "tap": "bearer" }` (bearer taps, e.g. Lure of the Senses) and
+  `{ "tap": "sage-in-company" }` (an untapped sage in the bearer's
+  company taps — one activation per eligible sage; Dragon's Curse).
 - `gwaihir-special-movement` — discard this ally during organization to
   grant the company special movement to any non-Shadow-land/Dark-domain
   site. Only site-keyed hazard creatures may be played. Requires company
@@ -266,6 +269,12 @@ player's discard pile back to the play deck.
   "when": { "company.hasItem": { "subtype": "gold-ring" } } }
 { "type": "grant-action", "action": "remove-self-on-roll",
   "cost": { "tap": "bearer" }, "rollThreshold": 8 }
+{ "type": "grant-action", "action": "remove-self-on-roll",
+  "cost": { "tap": "sage-in-company" },
+  "apply": {
+    "type": "roll-then-apply", "threshold": 7,
+    "onSuccess": { "type": "discard-self" }
+  } }
 { "type": "grant-action", "action": "gwaihir-special-movement",
   "cost": { "discard": "self" } }
 { "type": "grant-action", "action": "untap-bearer",
