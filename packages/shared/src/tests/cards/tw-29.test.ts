@@ -38,7 +38,7 @@ import {
   makeCancelWindowCombat, makeMHState, addCardInPlay,
   PLAYER_1, PLAYER_2,
   ARAGORN, LEGOLAS, FRODO,
-  CAVE_DRAKE, ORC_PATROL,
+  ORC_PATROL,
   MORIA, LORIEN, RIVENDELL, MINAS_TIRITH,
   HAZARD_PLAYER,
 } from '../test-helpers.js';
@@ -47,6 +47,7 @@ import type { CardDefinitionId, GameState, MovementHazardPhaseState, ModifyAttac
 
 const DRAGONS_DESOLATION = 'tw-29' as CardDefinitionId;
 const DOORS_OF_NIGHT = 'tw-28' as CardDefinitionId;
+const SMAUG = 'tw-90' as CardDefinitionId;
 
 describe("Dragon's Desolation (tw-29)", () => {
   beforeEach(() => resetMint());
@@ -77,7 +78,7 @@ describe("Dragon's Desolation (tw-29)", () => {
     });
 
     const combat = makeCancelWindowCombat(base, {
-      creatureDefId: CAVE_DRAKE,
+      creatureDefId: SMAUG,
       creatureRace: 'dragon',
       attackSourceType: 'creature',
       strikesTotal: 2,
@@ -117,7 +118,7 @@ describe("Dragon's Desolation (tw-29)", () => {
     });
 
     const combat = makeCancelWindowCombat(base, {
-      creatureDefId: CAVE_DRAKE,
+      creatureDefId: SMAUG,
       creatureRace: 'dragon',
       attackSourceType: 'creature',
       strikesTotal: 2,
@@ -233,7 +234,7 @@ describe("Dragon's Desolation (tw-29)", () => {
     });
 
     const combat = makeCancelWindowCombat(base, {
-      creatureDefId: CAVE_DRAKE,
+      creatureDefId: SMAUG,
       creatureRace: 'dragon',
       attackSourceType: 'creature',
       strikesTotal: 2,
@@ -360,7 +361,7 @@ describe("Dragon's Desolation (tw-29)", () => {
       phase: Phase.MovementHazard,
       players: [
         { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [ARAGORN] }], hand: [], siteDeck: [MORIA] },
-        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [DRAGONS_DESOLATION, CAVE_DRAKE], siteDeck: [MINAS_TIRITH] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [DRAGONS_DESOLATION, SMAUG], siteDeck: [MINAS_TIRITH] },
       ],
     });
     // Put Doors of Night in play so Mode B plays with 1W, and also so
@@ -400,7 +401,7 @@ describe("Dragon's Desolation (tw-29)", () => {
     // Cave-drake is now offered (via normal R&L keying OR bypass). Find
     // the play-hazard action for cave-drake.
     const drakeInstance = afterDD.players[HAZARD_PLAYER].hand.find(
-      c => c.definitionId === CAVE_DRAKE,
+      c => c.definitionId === SMAUG,
     )!.instanceId;
     const actions = computeLegalActions(afterDD, PLAYER_2);
     const drakeActions = actions.filter(
@@ -420,7 +421,7 @@ describe("Dragon's Desolation (tw-29)", () => {
       phase: Phase.MovementHazard,
       players: [
         { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [ARAGORN] }], hand: [], siteDeck: [MORIA] },
-        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [CAVE_DRAKE], siteDeck: [MINAS_TIRITH] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [SMAUG], siteDeck: [MINAS_TIRITH] },
       ],
     });
     const mhState = makeMHState({
@@ -524,7 +525,7 @@ describe("Dragon's Desolation (tw-29)", () => {
       phase: Phase.MovementHazard,
       players: [
         { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [ARAGORN] }], hand: [], siteDeck: [MORIA] },
-        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [CAVE_DRAKE], siteDeck: [MINAS_TIRITH] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [SMAUG], siteDeck: [MINAS_TIRITH] },
       ],
     });
     const mhState = makeMHState({
