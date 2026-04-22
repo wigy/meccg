@@ -9,7 +9,13 @@
 
 import type { CardDefinition, CardDefinitionId, CardInstanceId, MarshallingPointTotals } from '@meccg/shared';
 import { cardImageProxyPath, buildInstanceLookup, getCardCss, computeTournamentScore } from '@meccg/shared';
+import { SERVER_DEV, DEV_MODE_KEY } from './app-state.js';
 import { createMiniDie } from './dice.js';
+
+/** True when the user currently has Developer Mode enabled in settings. */
+function isDevModeOn(): boolean {
+  return SERVER_DEV && localStorage.getItem(DEV_MODE_KEY) === 'true';
+}
 
 // ---- HTML escaping and card marker conversion ----
 
@@ -323,7 +329,8 @@ document.addEventListener('mouseover', (e) => {
   img.src = (target as HTMLElement).dataset.cardImage!;
   img.style.display = 'block';
 
-  // Show JSON panel with card data
+  // Show JSON panel with card data — only when Developer Mode is on.
+  if (!isDevModeOn()) return;
   const cardId = (target as HTMLElement).dataset.cardId;
   const def = cardId && debugCardPool ? debugCardPool[cardId] : undefined;
   if (def) {
