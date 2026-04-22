@@ -11,6 +11,7 @@ import { Phase, CardStatus, getPlayerIndex, BASE_MAX_REGION_DISTANCE } from '../
 import { logDetail } from './legal-actions/log.js';
 import { initiateChain, pushChainEntry } from './chain-reducer.js';
 import { resolveInstanceId } from '../types/state.js';
+import { revealInstances } from './visibility.js';
 import type { ReducerResult } from './reducer-utils.js';
 import { updatePlayer, updateCharacter, wrongActionType } from './reducer-utils.js';
 import { triggerCouncilCall } from './reducer-end-of-turn.js';
@@ -262,6 +263,12 @@ export function handlePlayResourceShortEvent(state: GameState, action: GameActio
   const def = state.cardPool[handCard.definitionId as string] as import('../types/cards-resources.js').HeroResourceEventCard;
 
   logDetail(`Playing resource short-event: ${def.name} (${action.cardInstanceId as string})`);
+
+  // Resource short events skip the chain today — the played card goes
+  // straight to the owner's face-down discard pile (see TODO in
+  // `visibility.ts`). Announce the identity explicitly so the opponent
+  // toast can name the card even though no public pile ever held it.
+  state = revealInstances(state, [handCard]);
 
   const newHand = [...player.hand];
   newHand.splice(cardIdx, 1);

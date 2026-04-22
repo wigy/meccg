@@ -283,6 +283,7 @@ import type {
 } from '../index.js';
 import { CardStatus, ZERO_EFFECTIVE_STATS, ZERO_MARSHALLING_POINTS } from '../index.js';
 import { recomputeDerived } from '../engine/recompute-derived.js';
+import { accrueRevealedInstances } from '../engine/visibility.js';
 
 let nextInstanceCounter = 1;
 
@@ -530,12 +531,14 @@ export function buildTestState(opts: BuildTestStateOpts): GameState {
     reverseActions: [],
     lastTurnFor: null,
     cheatRollTotal: null,
+    revealedInstances: {},
   } as unknown as GameState;
 
+  const seeded = accrueRevealedInstances(baseState);
   if (opts.recompute) {
-    return recomputeDerived(baseState);
+    return recomputeDerived(seeded);
   }
-  return baseState;
+  return seeded;
 }
 
 // ─── End-of-turn phase setup ───────────────────────────────────────────────
