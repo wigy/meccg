@@ -394,6 +394,21 @@
             "$includes": "hoard"
           }
         }
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "prowess",
+        "value": 2
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": 2
+      },
+      {
+        "type": "duplication-limit",
+        "scope": "character",
+        "max": 1
       }
     ],
     "text": "Hoard item. Weapon. Only a Wizard may bear this item. + 2 to direct influence and +2 to prowess. +2 to any corruption check required by a spell card. Tap bearer at the beginning of your end-of-turn phase to take one “spell,” “ritual,” or “light enchantment” from your discard pile into your hand. Bearer makes corruption check. Cannot be duplicated on a given Wizard."
