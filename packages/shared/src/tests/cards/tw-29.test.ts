@@ -37,7 +37,7 @@ import {
   viableActions, dispatch, reduce, resolveChain,
   makeCancelWindowCombat, makeMHState, addCardInPlay,
   PLAYER_1, PLAYER_2,
-  ARAGORN, LEGOLAS, FRODO,
+  ARAGORN, LEGOLAS,
   ORC_PATROL,
   MORIA, LORIEN, RIVENDELL, MINAS_TIRITH,
   HAZARD_PLAYER,
