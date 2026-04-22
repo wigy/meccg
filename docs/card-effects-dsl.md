@@ -475,6 +475,38 @@ target's race, skills, and name (same context shape as `cancel-strike`'s
 Example: Lucky Strike — warrior only; make two rolls against a strike
 and choose one of the two results to use.
 
+### 10c. `modify-attack`
+
+Activated ability on an in-play item that modifies the whole attack (not a
+single strike). Available to the defending player during the
+pre-assignment window of combat (same window as `cancel-attack`). Tapping
+the item adds `prowessModifier` to the creature's strike prowess and
+`bodyModifier` to its body value, so every strike in the attack and the
+creature body check are affected uniformly.
+
+The cost must be `{ "tap": "self" }` — the item itself pays the cost. The
+`when` clause gates availability (e.g. `bearer.skills` must include
+`"warrior"` for a Warrior-only item). An optional `discardIfBearerNot`
+lists the races whose bearers may tap the item safely; when the bearer's
+race is not in the list the item is discarded instead of tapped (the
+modifier still applies).
+
+```json
+{ "type": "modify-attack",
+  "cost": { "tap": "self" },
+  "prowessModifier": -1,
+  "bodyModifier": -1,
+  "when": { "bearer.skills": { "$includes": "warrior" } },
+  "discardIfBearerNot": { "race": ["man", "dunadan"] } }
+```
+
+Example: Black Arrow (tw-494) — Warrior only, tap to give -1 prowess and
+-1 body to one attack against the bearer's company; discard the arrow if
+the bearer is not a Man.
+
+Implemented in `engine/legal-actions/combat.ts` (`modifyAttackActions`)
+and `engine/reducer-combat.ts` (`handleModifyAttack`).
+
 ### 11. `cancel-strike`
 
 Pay a cost to cancel an incoming strike, with optional exclusions.

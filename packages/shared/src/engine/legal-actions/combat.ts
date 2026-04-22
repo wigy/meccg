@@ -13,7 +13,7 @@
  */
 
 import type { GameState, PlayerId, EvaluatedAction, CombatState, CardInstanceId } from '../../index.js';
-import type { CancelAttackEffect, DodgeStrikeEffect, HalveStrikesEffect, ModifyStrikeEffect, RerollStrikeEffect } from '../../types/effects.js';
+import type { CancelAttackEffect, DodgeStrikeEffect, HalveStrikesEffect, ModifyAttackEffect, ModifyStrikeEffect, RerollStrikeEffect } from '../../types/effects.js';
 import type { AllyInPlay } from '../../types/state-cards.js';
 import type { PlayerState } from '../../types/state-player.js';
 import { CardStatus, isCharacterCard, isAllyCard, isSiteCard, matchesCondition, SiteType } from '../../index.js';
@@ -70,10 +70,12 @@ export function combatActions(state: GameState, playerId: PlayerId): EvaluatedAc
 
   logHeading(`Combat actions (phase: ${combat.phase}, assignment: ${combat.assignmentPhase})`);
 
-  // Cancel-attack and halve-strikes actions are available to the defending
-  // player before any strikes have been assigned (pre-assignment window).
+  // Cancel-attack, halve-strikes, and modify-attack actions are available to
+  // the defending player before any strikes have been assigned (pre-assignment
+  // window).
   const cancelActions = cancelAttackActions(state, playerId, combat);
   const halveActions = halveStrikesActions(state, playerId, combat);
+  const modifyActions = modifyAttackActions(state, playerId, combat);
 
   switch (combat.phase) {
     case 'assign-strikes':
@@ -82,16 +84,18 @@ export function combatActions(state: GameState, playerId: PlayerId): EvaluatedAc
       }
       // Cancel-window: defender's pre-assignment window to cancel the attack
       // before the attacker assigns strikes (attacker-chooses-defenders).
-      // Only the defending player may act: cancel-attack, halve-strikes, or pass.
+      // Only the defending player may act: cancel-attack, halve-strikes,
+      // modify-attack, or pass.
       if (combat.assignmentPhase === 'cancel-window') {
         if (playerId !== combat.defendingPlayerId) return [];
         return [
           ...cancelActions,
           ...halveActions,
+          ...modifyActions,
           { action: { type: 'pass' as const, player: playerId }, viable: true },
         ];
       }
-      return [...cancelActions, ...halveActions, ...assignStrikeActions(state, playerId, combat)];
+      return [...cancelActions, ...halveActions, ...modifyActions, ...assignStrikeActions(state, playerId, combat)];
     case 'choose-strike-order':
       return chooseStrikeOrderActions(state, playerId, combat);
     case 'resolve-strike':
@@ -877,6 +881,89 @@ function halveStrikesActions(
       },
       viable: true,
     });
+  }
+
+  return actions;
+}
+
+/**
+ * Generate modify-attack actions for the defending player during the
+ * pre-assignment window. Scans items attached to every character in the
+ * defending company for a `modify-attack` effect whose `when` condition
+ * matches (e.g. Warrior-only items gate on `bearer.skills`). One action
+ * is emitted per eligible untapped item; activating it taps the item (or
+ * discards it, per `discardIfBearerNot`) and applies the prowess/body
+ * modifiers to the whole attack.
+ *
+ * Used by Black Arrow (tw-494).
+ */
+function modifyAttackActions(
+  state: GameState,
+  playerId: PlayerId,
+  combat: CombatState,
+): EvaluatedAction[] {
+  if (playerId !== combat.defendingPlayerId) return [];
+  if (combat.phase !== 'assign-strikes') return [];
+  if (combat.strikeAssignments.length > 0) return [];
+
+  const playerIndex = state.players.findIndex(p => p.id === playerId);
+  const player = state.players[playerIndex];
+  const company = player.companies.find(c => c.id === combat.companyId);
+  if (!company) return [];
+
+  const actions: EvaluatedAction[] = [];
+
+  for (const charId of company.characters) {
+    const charData = player.characters[charId as string];
+    if (!charData) continue;
+    const charDef = state.cardPool[charData.definitionId as string];
+    if (!charDef || !isCharacterCard(charDef)) continue;
+
+    for (const item of charData.items) {
+      if (item.status !== CardStatus.Untapped) continue;
+      const itemDef = state.cardPool[item.definitionId as string];
+      if (!itemDef || !('effects' in itemDef) || !itemDef.effects) continue;
+      const effect = itemDef.effects.find(
+        (e): e is ModifyAttackEffect => e.type === 'modify-attack',
+      );
+      if (!effect) continue;
+      if (effect.cost?.tap !== 'self') continue;
+
+      if (effect.when) {
+        const ctx: Record<string, unknown> = {
+          bearer: {
+            race: charDef.race,
+            skills: charDef.skills,
+            name: charDef.name,
+          },
+        };
+        if (combat.creatureRace) {
+          ctx['enemy'] = { race: combat.creatureRace };
+        }
+        const attackCtx: Record<string, unknown> = { source: combat.attackSource.type };
+        if (combat.attackKeying && combat.attackKeying.length > 0) {
+          attackCtx['keying'] = combat.attackKeying;
+        }
+        ctx['attack'] = attackCtx;
+        if (!matchesCondition(effect.when, ctx)) {
+          const itemName = 'name' in itemDef ? (itemDef as { name: string }).name : item.definitionId as string;
+          logDetail(`Modify-attack ${itemName}: when condition not met (bearer ${charDef.name ?? ''})`);
+          continue;
+        }
+      }
+
+      const itemName = 'name' in itemDef ? (itemDef as { name: string }).name : item.definitionId as string;
+      logDetail(`Modify-attack available: tap ${itemName} on ${charDef.name ?? ''} (prowess ${effect.prowessModifier ?? 0}, body ${effect.bodyModifier ?? 0})`);
+      actions.push({
+        action: {
+          type: 'modify-attack',
+          player: playerId,
+          cardInstanceId: item.instanceId,
+          characterInstanceId: charId,
+        },
+        viable: true,
+      });
+    }
   }
 
   return actions;
