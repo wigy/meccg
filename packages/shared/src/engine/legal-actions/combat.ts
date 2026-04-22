@@ -398,6 +398,11 @@ function resolveStrikeActions(
         continue;
       }
 
+      if (modifyEffect.requiredSkill && currentStrike.requiredSkillEventPlayed) {
+        logDetail(`${cardWithEffects.name ?? handCard.definitionId as string}: a skill-required resource has already been played against this strike (CoE 3.iv.5) — not playable`);
+        continue;
+      }
+
       const bonus = modifyEffect.prowessBonus ?? 0;
       const modifiedTapProwess = tapProwess + bonus;
       const modifiedNeed = Math.max(2, strikeProwess - modifiedTapProwess + 1);

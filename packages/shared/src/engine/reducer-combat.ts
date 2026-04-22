@@ -618,6 +618,11 @@ function handlePlayStrikeEvent(state: GameState, action: GameAction, combat: Com
   const modifyEffect = effects.find((e): e is ModifyStrikeEffect => e.type === 'modify-strike');
   if (!modifyEffect) return { state, error: 'Card has no modify-strike effect' };
 
+  const currentStrike = combat.strikeAssignments[combat.currentStrikeIndex];
+  if (modifyEffect.requiredSkill && currentStrike?.requiredSkillEventPlayed) {
+    return { state, error: 'Only one resource that requires a skill may be played per strike (CoE 3.iv.5)' };
+  }
+
   const prowessBonus = modifyEffect.prowessBonus ?? 0;
   const bodyPenalty = modifyEffect.bodyPenalty ?? 0;
   const cardName = (cardDef as { name?: string } | undefined)?.name ?? (handCard.definitionId as string);
@@ -630,13 +635,17 @@ function handlePlayStrikeEvent(state: GameState, action: GameAction, combat: Com
     discardPile: [...p.discardPile, { instanceId: handCard.instanceId, definitionId: handCard.definitionId }],
   }));
 
-  // Accumulate the bonuses on the current strike assignment.
+  // Accumulate the bonuses on the current strike assignment. If the
+  // played effect requires a skill, record it so that CoE rule 3.iv.5
+  // ("only one resource that requires a skill may be played during this
+  // step") blocks a second skill-required event on the same strike.
   const newAssignments = combat.strikeAssignments.map((a, i) =>
     i === combat.currentStrikeIndex
       ? {
           ...a,
           strikeProwessBonus: (a.strikeProwessBonus ?? 0) + prowessBonus,
           strikeBodyPenalty: (a.strikeBodyPenalty ?? 0) + bodyPenalty,
+          requiredSkillEventPlayed: a.requiredSkillEventPlayed || Boolean(modifyEffect.requiredSkill),
         }
       : a,
   );
