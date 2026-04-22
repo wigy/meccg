@@ -75,11 +75,17 @@ export function returnToLiveTail(): void {
 /**
  * Scroll the history view by `delta` messages (positive = older).
  * Clamps to valid range. Arms the browse window as a side effect.
+ * Paging down past the newest message drops out of browsing mode.
  */
 export function scrollHistory(delta: number): void {
-  armBrowseWindow();
   const max = Math.max(0, gameMessageLog.messages.length - HISTORY_PAGE_SIZE);
-  gameMessageLog.scrollOffset = Math.max(0, Math.min(max, gameMessageLog.scrollOffset + delta));
+  const next = Math.max(0, Math.min(max, gameMessageLog.scrollOffset + delta));
+  if (next === 0 && delta <= 0) {
+    returnToLiveTail();
+    return;
+  }
+  gameMessageLog.scrollOffset = next;
+  armBrowseWindow();
   renderGameLogPanel();
 }
 
@@ -104,7 +110,7 @@ function renderGameLogPanel(): void {
     const end = total - gameMessageLog.scrollOffset;
     const start = Math.max(0, end - HISTORY_PAGE_SIZE);
     header.classList.remove('hidden');
-    header.textContent = `◀ history (${start + 1}–${end} of ${total}) · browsing`;
+    header.textContent = `◀ history (${start + 1}–${end} of ${total}) · End to exit`;
     entries.replaceChildren();
     for (let i = start; i < end; i++) {
       const msg = gameMessageLog.messages[i];
