@@ -971,6 +971,29 @@
   },
   {
     "cardType": "minion-site",
+    "id": "le-403",
+    "name": "Shrel-Kain",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/ShrelKain.jpg",
+    "text": "Nearest Darkhaven: Dol Guldur Playable: Items (minor, major) — weapon, armor, shield, or helmet only Automatic-attacks: Men — each character faces 1 strike with 8 prowess (detainment against covert company)",
+    "alignment": "ringwraith",
+    "siteType": "border-hold",
+    "sitePath": [
+      "dark",
+      "wilderness",
+      "shadow"
+    ],
+    "nearestHaven": "Dol Guldur",
+    "region": "Dorwinion",
+    "playableResources": [
+      "minor",
+      "major"
+    ],
+    "automaticAttacks": [],
+    "resourceDraws": 1,
+    "hazardDraws": 2
+  },
+  {
+    "cardType": "minion-site",
     "id": "le-404",
     "name": "Southron Oasis",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/SouthronOasis.jpg",

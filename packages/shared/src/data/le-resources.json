@@ -962,6 +962,24 @@
   },
   {
     "cardType": "minion-resource-faction",
+    "id": "le-271",
+    "name": "Men of Dorwinion",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/MenofDorwinion.jpg",
+    "text": "Unique. Manifestation of hero Men of Dorwinion. Playable at Shrel-Kain if the influence check is greater than 10. Standard Modifications: Easterlings (-2), Balchoth (-2).",
+    "alignment": "ringwraith",
+    "unique": true,
+    "marshallingPoints": 3,
+    "marshallingCategory": "faction",
+    "influenceNumber": 10,
+    "race": "man",
+    "playableAt": [
+      {
+        "site": "Shrel-Kain"
+      }
+    ]
+  },
+  {
+    "cardType": "minion-resource-faction",
     "id": "le-273",
     "name": "N\u00fbrniags",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/Nurniags.jpg",
