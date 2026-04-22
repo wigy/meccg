@@ -2013,6 +2013,15 @@ h2 {
   border-color: #c4a35a;
 }
 
+/* Mousing anywhere into the left dev column lights up the whole cluster
+   so the user doesn't have to aim at a specific low-opacity button. */
+#toolbar-left:hover button,
+#toolbar-left:hover select {
+  opacity: 0.9;
+  color: #d0d0d0;
+  border-color: #8a7a4a;
+}
+
 #toolbar button:active, #toolbar-left button:active {
   background: rgba(196, 163, 90, 0.3);
   transform: scale(0.95);
