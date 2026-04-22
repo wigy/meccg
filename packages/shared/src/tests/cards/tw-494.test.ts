@@ -15,8 +15,8 @@
  * | 1 | Warrior-only gate on activation                     | IMPLEMENTED | `when: bearer.skills $includes warrior`                |
  * | 2 | Tap item → -1 attack prowess (every strike)         | IMPLEMENTED | `combat.strikeProwess += prowessModifier`              |
  * | 3 | Tap item → -1 creature body (body check)            | IMPLEMENTED | `combat.creatureBody += bodyModifier`                  |
- * | 4 | Man/Dúnadan bearer: item taps                       | IMPLEMENTED | `discardIfBearerNot.race` includes bearer's race       |
- * | 5 | Non-Man bearer: item is discarded instead of tapped | IMPLEMENTED | handler moves item to discard pile                     |
+ * | 4 | Man bearer: item taps                               | IMPLEMENTED | `discardIfBearerNot.race` includes `man`               |
+ * | 5 | Non-Man bearer (incl. Dúnadan): item is discarded   | IMPLEMENTED | handler moves item to discard pile                     |
  *
  * Playable: YES.
  */
@@ -146,9 +146,9 @@ describe('Black Arrow (tw-494)', () => {
     expect(discard.find(c => c.definitionId === BLACK_ARROW)).toBeUndefined();
   });
 
-  // ─── Positive: warrior Dúnadan bearer taps safely ────────────────────────
+  // ─── Positive: warrior Dúnadan bearer discards item (Dúnadan is NOT a Man) ─
 
-  test('modify-attack on a warrior Dúnadan taps the item (Dúnadan counts as Man)', () => {
+  test('modify-attack on a warrior Dúnadan discards the item (Dúnadan is NOT a Man)', () => {
     let base = buildTestState({
       activePlayer: PLAYER_1,
       phase: Phase.MovementHazard,
@@ -185,15 +185,14 @@ describe('Black Arrow (tw-494)', () => {
 
     const after = dispatch(combatState, modifyActions[0].action);
 
-    // Modifier applied.
+    // Modifier still applied — card text: "tap to give -1" first, then discard.
     expect(after.combat!.strikeProwess).toBe(5);
 
-    // Item tapped, not discarded.
+    // Item removed from Aragorn, placed in discard pile (Dúnadan is a distinct race from Man).
     const aragornId = findCharInstanceId(after, RESOURCE_PLAYER, ARAGORN);
     const aragorn = after.players[RESOURCE_PLAYER].characters[aragornId as string];
-    expect(aragorn.items).toHaveLength(1);
-    expect(aragorn.items[0].status).toBe(CardStatus.Tapped);
-    expect(after.players[RESOURCE_PLAYER].discardPile.find(c => c.definitionId === BLACK_ARROW)).toBeUndefined();
+    expect(aragorn.items).toHaveLength(0);
+    expect(after.players[RESOURCE_PLAYER].discardPile.find(c => c.definitionId === BLACK_ARROW)).toBeDefined();
   });
 
   // ─── Positive: warrior non-Man bearer discards item ──────────────────────

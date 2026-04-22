@@ -665,7 +665,7 @@
           "bearer.skills": { "$includes": "warrior" }
         },
         "discardIfBearerNot": {
-          "race": ["man", "dunadan"]
+          "race": ["man"]
         }
       }
     ],
