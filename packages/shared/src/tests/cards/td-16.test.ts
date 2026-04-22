@@ -374,6 +374,70 @@ describe("Dragon's Curse (td-16)", () => {
     expect(next.combat!.strikeAssignments[0].strikeProwessBonus ?? 0).toBe(0);
   });
 
+  test('defender cannot resolve the strike until the attacker passes Step 1 (CoE 3.iv.1)', () => {
+    // Regression: game moab9vqb-68zlad seq 337–341. The attacker (p1) had
+    // Dragon's Curse highlighted as playable, but the defender (p2) could
+    // resolve the strike concurrently, burning the attacker's window. Per
+    // CoE rule 3.iv.1, the hazard player has priority to declare hazards
+    // in Strike Sequence Step 1 before the strike resolves.
+    const { state } = makeDragonResolveStrikeState({ defender: ARAGORN });
+
+    // Attacker's window is open: defender has no legal actions.
+    expect(viableFor(state, PLAYER_1)).toHaveLength(0);
+
+    // Attacker sees the Dragon's Curse play + a pass to close Step 1.
+    const attackerActions = viableFor(state, PLAYER_2);
+    const attackerTypes = attackerActions.map(a => a.action.type).sort();
+    expect(attackerTypes).toEqual(['pass', 'play-hazard']);
+
+    // Attacker closes the Step 1 window by passing.
+    const afterPass = dispatch(state, { type: 'pass', player: PLAYER_2 });
+    expect(afterPass.combat?.attackerStep1Done).toBe(true);
+
+    // Defender now has the strike-resolution actions available.
+    const defenderResolve = viableActions(afterPass, PLAYER_1, 'resolve-strike');
+    expect(defenderResolve.length).toBeGreaterThan(0);
+  });
+
+  test('entering resolve-strike from choose-strike-order resets the attacker Step 1 window', () => {
+    // Two strikes, both assigned. The defender picks the order; entering
+    // each new strike sequence must re-open the attacker's Step 1 window
+    // so Dragon's Curse remains playable on the chosen target.
+    const { state } = makeDragonResolveStrikeState({ defender: ARAGORN, secondDefender: LEGOLAS });
+    const aragornId = findCharInstanceId(state, RESOURCE_PLAYER, ARAGORN);
+    const legolasId = findCharInstanceId(state, RESOURCE_PLAYER, LEGOLAS);
+    const combat: CombatState = {
+      ...state.combat!,
+      strikesTotal: 2,
+      strikeAssignments: [
+        { characterId: aragornId, excessStrikes: 0, resolved: false },
+        { characterId: legolasId, excessStrikes: 0, resolved: false },
+      ],
+      currentStrikeIndex: 0,
+      phase: 'choose-strike-order',
+      attackerStep1Done: true,
+    };
+    const multi = { ...state, combat };
+
+    // Defender picks Legolas to resolve first.
+    const afterChoose = dispatch(multi, {
+      type: 'choose-strike-order',
+      player: PLAYER_1,
+      strikeIndex: 1,
+      characterId: legolasId,
+      tapped: false,
+    });
+
+    expect(afterChoose.combat?.phase).toBe('resolve-strike');
+    expect(afterChoose.combat?.attackerStep1Done).toBe(false);
+
+    // Attacker still sees Dragon's Curse playable on the newly resolving
+    // target (Legolas); defender must wait.
+    expect(viableFor(afterChoose, PLAYER_1)).toHaveLength(0);
+    const plays = viableActions(afterChoose, PLAYER_2, 'play-hazard') as { action: PlayHazardAction }[];
+    expect(plays.filter(p => p.action.targetCharacterId === legolasId)).toHaveLength(1);
+  });
+
   test('combat play-window pins the card out of the M/H phase hazard menu', () => {
     // During movement-hazard phase, Dragon's Curse should not be offered
     // even though it has a play-target: its play-window ties it to combat.

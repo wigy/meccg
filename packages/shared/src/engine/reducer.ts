@@ -101,7 +101,7 @@ export function reduce(state: GameState, action: GameAction): ReducerResult {
 
   // Combat: dispatch combat-specific actions when combat is active
   const combatActionTypes = ['assign-strike', 'choose-strike-order', 'resolve-strike', 'support-strike', 'body-check-roll', 'cancel-attack', 'cancel-by-tap', 'cancel-strike', 'play-dodge', 'play-strike-event', 'play-reroll-strike', 'halve-strikes', 'modify-attack', 'modify-attack-from-hand', 'salvage-item', 'play-hazard'];
-  if (state.combat != null && (combatActionTypes.includes(action.type) || (action.type === 'pass' && (state.combat.phase === 'assign-strikes' || state.combat.phase === 'item-salvage')))) {
+  if (state.combat != null && (combatActionTypes.includes(action.type) || (action.type === 'pass' && (state.combat.phase === 'assign-strikes' || state.combat.phase === 'item-salvage' || state.combat.phase === 'resolve-strike')))) {
     logDetail(`Combat active — dispatching '${action.type}' to combat handler`);
     const combatResult = handleCombatAction(state, action);
     if (!combatResult.error) {
