@@ -366,11 +366,14 @@ export function connect(name: string): void {
         } else {
           clearSelectionState();
         }
-        // Auto-pass: if exactly one viable action, send it after a delay
+        // Auto-pass: if exactly one viable action, send it after a delay.
+        // Roll actions are excluded — the player must press Roll themselves
+        // so the dice-roll moment is a deliberate choice.
         if (appState.autoPassTimer) { clearTimeout(appState.autoPassTimer); appState.autoPassTimer = null; }
         if (localStorage.getItem(AUTO_PASS_KEY) === 'true') {
           const viable = msg.view.legalActions.filter(a => a.viable);
-          if (viable.length === 1) {
+          const isRoll = (t: string) => t === 'roll-initiative' || t.endsWith('-roll');
+          if (viable.length === 1 && !isRoll(viable[0].action.type)) {
             appState.autoPassTimer = setTimeout(() => {
               appState.autoPassTimer = null;
               sendAction(viable[0].action);
