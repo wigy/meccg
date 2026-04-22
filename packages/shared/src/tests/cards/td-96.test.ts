@@ -10,20 +10,17 @@
  *
  * Rule coverage:
  *
- * | # | Rule                                            | Status              |
- * |---|-------------------------------------------------|---------------------|
- * | 1 | Hoard item — playable only at hoard sites       | IMPLEMENTED (test)  |
- * | 2 | Bearer receives +1 body                         | IMPLEMENTED (test)  |
- * | 3 | Bearer body capped at 9                         | IMPLEMENTED (test)  |
- * | 4 | Cancels all dark enchantments targetting bearer | NOT IMPLEMENTED     |
+ * | # | Rule                                                  | Status         |
+ * |---|-------------------------------------------------------|----------------|
+ * | 1 | Hoard item — playable only at hoard sites             | IMPLEMENTED    |
+ * | 2 | Bearer receives +1 body                               | IMPLEMENTED    |
+ * | 3 | Bearer body capped at 9                               | IMPLEMENTED    |
+ * | 4 | Cancels existing dark enchantments on bearer          | IMPLEMENTED    |
+ * | 5 | Prevents new dark enchantments attaching to bearer    | IMPLEMENTED    |
  *
- * Rule 4 has no engine support: there is no DSL effect for cancelling
- * cards by keyword and no infrastructure for the "dark-enchantment"
- * keyword class to be cancelled. None of the dark enchantment hazards
- * (DM-54, DM-78, TD-16, TD-17, TD-48) are present in card data either,
- * so even a stub cancellation would have no targets to act on. This
- * card is therefore NOT certified pending engine support for hazard
- * cancellation by keyword.
+ * Rules 4 and 5 are implemented via the generic `ward-bearer` DSL effect
+ * (see docs/card-effects-dsl.md). The ward filter matches any hazard card
+ * tagged with the `dark-enchantment` keyword.
  *
  * "Helmet" is an italicized type classification on the printed card; it
  * does not grant a mechanical effect of its own, so no test is needed for
@@ -35,16 +32,20 @@ import {
   PLAYER_1, PLAYER_2,
   ARAGORN, THEODEN, LEGOLAS,
   MORIA, LORIEN, MINAS_TIRITH,
-  resetMint, pool,
+  resetMint, pool, dispatch,
   buildSitePhaseState, buildTestState,
   viableActions,
   getCharacter,
-  RESOURCE_PLAYER,
+  attachHazardToChar, attachItemToChar,
+  findCharInstanceId,
+  makeMHState,
+  RESOURCE_PLAYER, HAZARD_PLAYER,
 } from '../test-helpers.js';
-import type { CardDefinitionId, CharacterCard } from '../../index.js';
+import type { CardDefinitionId, CharacterCard, PlayHeroResourceAction } from '../../index.js';
 import { Phase } from '../../index.js';
 
 const ADAMANT_HELMET = 'td-96' as CardDefinitionId;
+const DRAGONS_CURSE = 'td-16' as CardDefinitionId; // dark-enchantment hazard
 const LONELY_MOUNTAIN = 'tw-428' as CardDefinitionId; // hoard site (Smaug's lair)
 
 describe('Adamant Helmet (td-96)', () => {
@@ -183,5 +184,102 @@ describe('Adamant Helmet (td-96)', () => {
 
     const aragorn = getCharacter(state, RESOURCE_PLAYER, ARAGORN);
     expect(aragorn.effectiveStats.prowess).toBe(baseDef.prowess);
+  });
+
+  // ─── Rule 4: cancels existing dark enchantments on entry ─────────────────
+
+  test('playing the Helmet discards a dark enchantment already on bearer', () => {
+    const base = buildSitePhaseState({
+      site: LONELY_MOUNTAIN,
+      characters: [ARAGORN],
+      hand: [ADAMANT_HELMET],
+    });
+    const state = attachHazardToChar(base, RESOURCE_PLAYER, ARAGORN, DRAGONS_CURSE);
+
+    const aragornIdBefore = findCharInstanceId(state, RESOURCE_PLAYER, ARAGORN);
+    const aragornBefore = state.players[RESOURCE_PLAYER].characters[aragornIdBefore as string];
+    expect(aragornBefore.hazards).toHaveLength(1);
+    expect(aragornBefore.hazards[0].definitionId).toBe(DRAGONS_CURSE);
+
+    const plays = viableActions(state, PLAYER_1, 'play-hero-resource') as { action: PlayHeroResourceAction }[];
+    const onAragorn = plays.find(p => p.action.attachToCharacterId === aragornIdBefore);
+    expect(onAragorn).toBeDefined();
+
+    const after = dispatch(state, onAragorn!.action);
+
+    const aragornAfter = after.players[RESOURCE_PLAYER].characters[aragornIdBefore as string];
+    expect(aragornAfter.hazards).toHaveLength(0);
+    expect(aragornAfter.items.map(i => i.definitionId)).toContain(ADAMANT_HELMET);
+
+    // Dragon's Curse lands in the hazard player's discard pile.
+    const hazardDiscardDefs = after.players[HAZARD_PLAYER].discardPile.map(c => c.definitionId);
+    expect(hazardDiscardDefs).toContain(DRAGONS_CURSE);
+  });
+
+  test('only discards hazards matching the ward filter (non-enchantment hazards stay)', () => {
+    // Drop a non-dark-enchantment hazard onto Aragorn (Foolish Words: td-25).
+    const FOOLISH_WORDS = 'td-25' as CardDefinitionId;
+    const base = buildSitePhaseState({
+      site: LONELY_MOUNTAIN,
+      characters: [ARAGORN],
+      hand: [ADAMANT_HELMET],
+    });
+    const state = attachHazardToChar(base, RESOURCE_PLAYER, ARAGORN, FOOLISH_WORDS);
+
+    const aragornId = findCharInstanceId(state, RESOURCE_PLAYER, ARAGORN);
+    const plays = viableActions(state, PLAYER_1, 'play-hero-resource') as { action: PlayHeroResourceAction }[];
+    const after = dispatch(state, plays[0].action);
+
+    const aragornAfter = after.players[RESOURCE_PLAYER].characters[aragornId as string];
+    // Foolish Words is a lore-based hazard, not a dark enchantment — it must survive.
+    expect(aragornAfter.hazards.map(h => h.definitionId)).toContain(FOOLISH_WORDS);
+  });
+
+  // ─── Rule 5: prevents new dark enchantments targeting bearer ─────────────
+
+  test('hazard player cannot target a warded bearer with a dark enchantment', () => {
+    // Build an M/H state where Aragorn already wears the Helmet and the
+    // hazard player holds Dragon's Curse. The Helmet's ward must remove
+    // Aragorn from the legal target list for Dragon's Curse.
+    let state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.MovementHazard,
+      recompute: true,
+      players: [
+        { id: PLAYER_1, companies: [{ site: MORIA, characters: [ARAGORN] }], hand: [], siteDeck: [MORIA] },
+        { id: PLAYER_2, companies: [{ site: MINAS_TIRITH, characters: [LEGOLAS] }], hand: [DRAGONS_CURSE], siteDeck: [LORIEN] },
+      ],
+    });
+    state = attachItemToChar(state, RESOURCE_PLAYER, ARAGORN, ADAMANT_HELMET);
+    state = { ...state, phaseState: makeMHState() };
+
+    const aragornId = findCharInstanceId(state, RESOURCE_PLAYER, ARAGORN);
+    const plays = viableActions(state, PLAYER_2, 'play-hazard') as { action: { targetCharacterId?: string } }[];
+    // No viable Dragon's Curse play against Aragorn.
+    const targetingAragorn = plays.filter(p => p.action.targetCharacterId === aragornId);
+    expect(targetingAragorn).toHaveLength(0);
+  });
+
+  test('ward is character-local: another non-warded character remains a legal target', () => {
+    // Aragorn wears the Helmet; Théoden does not. Dragon's Curse may still
+    // target Théoden.
+    let state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.MovementHazard,
+      recompute: true,
+      players: [
+        { id: PLAYER_1, companies: [{ site: MORIA, characters: [ARAGORN, THEODEN] }], hand: [], siteDeck: [MORIA] },
+        { id: PLAYER_2, companies: [{ site: MINAS_TIRITH, characters: [LEGOLAS] }], hand: [DRAGONS_CURSE], siteDeck: [LORIEN] },
+      ],
+    });
+    state = attachItemToChar(state, RESOURCE_PLAYER, ARAGORN, ADAMANT_HELMET);
+    state = { ...state, phaseState: makeMHState() };
+
+    const aragornId = findCharInstanceId(state, RESOURCE_PLAYER, ARAGORN);
+    const theodenId = findCharInstanceId(state, RESOURCE_PLAYER, THEODEN);
+    const plays = viableActions(state, PLAYER_2, 'play-hazard') as { action: { targetCharacterId?: string } }[];
+
+    expect(plays.some(p => p.action.targetCharacterId === aragornId)).toBe(false);
+    expect(plays.some(p => p.action.targetCharacterId === theodenId)).toBe(true);
   });
 });

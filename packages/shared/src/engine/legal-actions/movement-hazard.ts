@@ -10,7 +10,7 @@ import type { GameState, PlayerId, GameAction, EvaluatedAction, MovementHazardPh
 import { getPlayerIndex, isSiteCard, isCharacterCard, isFactionCard, buildMovementMap, findRegionPaths, RegionType, Race, hasPlayFlag, matchesCondition } from '../../index.js';
 import { canCallEndgameNow, isWizard } from '../../state-utils.js';
 import { resolveInstanceId } from '../../types/state.js';
-import { resolveHandSize } from '../effects/index.js';
+import { resolveHandSize, isWardedAgainst } from '../effects/index.js';
 import { buildInPlayNames } from '../recompute-derived.js';
 import { MovementType } from '../../types/common.js';
 import { logDetail, logHeading } from './log.js';
@@ -829,6 +829,21 @@ function playHazardsActions(
                 continue;
               }
             }
+          }
+          // Ward check: if the target character carries an item with a
+          // ward-bearer effect matching this hazard (e.g. Adamant Helmet
+          // vs. dark enchantments), the play is pointless — the engine
+          // would cancel it on resolution, so the legal-action computer
+          // doesn't offer the character as a target at all.
+          if (isWardedAgainst(state, activeIndex, charId, def)) {
+            const charName = state.cardPool[resourcePlayer.characters[charId as string]?.definitionId as string]?.name ?? (charId as string);
+            logDetail(`Hazard "${def.name}" cancelled by ward on ${charName}`);
+            actions.push({
+              action: { ...action, targetCharacterId: charId },
+              viable: false,
+              reason: `${charName} is warded against ${def.name}`,
+            });
+            continue;
           }
           logDetail(`Hazard "${def.name}" playable on character ${charId as string}`);
           actions.push({
