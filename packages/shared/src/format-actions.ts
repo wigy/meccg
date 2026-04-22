@@ -8,7 +8,8 @@
 
 import type { CardDefinition } from './types/cards.js';
 import { isAvatarCharacter, isCharacterCard } from './types/cards.js';
-import type { Company, CharacterInPlay } from './types/state.js';
+import type { Company, CharacterInPlay, GameState } from './types/state.js';
+import { resolveInstanceId } from './types/state.js';
 import type { GameAction } from './types/actions.js';
 import type { CardInstanceId, CardDefinitionId, CompanyId } from './types/common.js';
 import { UNKNOWN_CARD, UNKNOWN_SITE } from './card-ids.js';
@@ -96,6 +97,47 @@ export function buildCompanyNames(
     }
   }
   return names;
+}
+
+// ---- Action-referenced card definitions ----
+
+/**
+ * Extract a map from CardInstanceId to CardDefinitionId for every card
+ * instance referenced anywhere inside a GameAction, resolved against the
+ * authoritative GameState.
+ *
+ * Card plays are public even when the played card lands in a redacted pile
+ * (e.g. a short-event played from the hand immediately ends up face-down
+ * in the owner's discard pile, which the opponent cannot peruse per CoE
+ * glossary "discard pile"). The action's cardInstanceId on its own does
+ * not reveal the card's name, so the server pairs the broadcast
+ * lastAction with this map. The client merges it with its per-view
+ * instance lookup so `describeAction` can render "Marvels Told" rather
+ * than "a card" for an opponent's play. Fields that hold other string
+ * kinds (PlayerId, CompanyId) are harmless: resolveInstanceId returns
+ * undefined for them.
+ */
+export function extractActionCardDefs(
+  state: GameState,
+  action: GameAction,
+): Record<string, CardDefinitionId> {
+  const defs: Record<string, CardDefinitionId> = {};
+  const visit = (value: unknown): void => {
+    if (typeof value === 'string') {
+      const def = resolveInstanceId(state, value as CardInstanceId);
+      if (def !== undefined) defs[value] = def;
+      return;
+    }
+    if (Array.isArray(value)) {
+      for (const v of value) visit(v);
+      return;
+    }
+    if (value && typeof value === 'object') {
+      for (const v of Object.values(value)) visit(v);
+    }
+  };
+  visit(action);
+  return defs;
 }
 
 // ---- Action description ----

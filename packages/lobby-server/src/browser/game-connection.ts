@@ -7,7 +7,7 @@
  * dies and the lobby relaunches it.
  */
 
-import type { ClientMessage, GameAction, ServerMessage } from '@meccg/shared';
+import type { CardDefinitionId, CardInstanceId, ClientMessage, GameAction, ServerMessage } from '@meccg/shared';
 import { buildCompanyNames, buildInstanceLookup, canonicalActionKey, describeAction } from '@meccg/shared';
 import {
   appState, cardPool, LOBBY_MODE, buildJoinFromDeck,
@@ -309,10 +309,17 @@ export function connect(name: string): void {
           ...buildCompanyNames(msg.view.self.companies, msg.view.self.characters, cardPool),
           ...buildCompanyNames(msg.view.opponent.companies as never, msg.view.opponent.characters, cardPool),
         };
+        // Merge in action-referenced card defs from the server. A played
+        // card's identity is public via the action itself even when the
+        // card now sits in a redacted pile (e.g. short event sent to the
+        // opponent's face-down discard), so the prev/next view lookups
+        // alone would render "a card" in the toast.
+        const actionLookup = (id: CardInstanceId): CardDefinitionId | undefined =>
+          msg.lastActionCardDefs?.[id as string] ?? prevInstanceLookup(id);
         renderLog(`State update: turn ${msg.view.turnNumber}, phase ${msg.view.phaseState.phase}`);
         // Log opponent actions so the text log captures what the other player did
         if (msg.lastAction && msg.lastAction.player !== msg.view.self.id) {
-          const desc = describeAction(msg.lastAction, cardPool, prevInstanceLookup, prevCompanyNames);
+          const desc = describeAction(msg.lastAction, cardPool, actionLookup, prevCompanyNames);
           renderLog(`<< ${desc}`, cardPool);
         }
         // Snapshot card positions before clearing DOM for FLIP animation
@@ -346,7 +353,7 @@ export function connect(name: string): void {
         // Show notification describing what the opponent just did
         if (msg.lastAction && msg.lastAction.player !== msg.view.self.id
           && msg.lastAction.type !== 'pass' && msg.lastAction.type !== 'pass-chain-priority') {
-          const desc = describeAction(msg.lastAction, cardPool, prevInstanceLookup, prevCompanyNames);
+          const desc = describeAction(msg.lastAction, cardPool, actionLookup, prevCompanyNames);
           showNotification(desc, { cardPool, opponent: msg.view.opponent.name });
         }
         appState.lastPhase = msg.view.phaseState.phase;
