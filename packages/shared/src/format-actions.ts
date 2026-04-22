@@ -9,7 +9,6 @@
 import type { CardDefinition } from './types/cards.js';
 import { isAvatarCharacter, isCharacterCard } from './types/cards.js';
 import type { Company, CharacterInPlay, GameState } from './types/state.js';
-import { resolveInstanceId } from './types/state.js';
 import type { GameAction } from './types/actions.js';
 import type { CardInstanceId, CardDefinitionId, CompanyId } from './types/common.js';
 import { UNKNOWN_CARD, UNKNOWN_SITE } from './card-ids.js';
@@ -103,28 +102,36 @@ export function buildCompanyNames(
 
 /**
  * Extract a map from CardInstanceId to CardDefinitionId for every card
- * instance referenced anywhere inside a GameAction, resolved against the
- * authoritative GameState.
+ * instance referenced inside a GameAction whose identity has become
+ * publicly known — i.e. is recorded in {@link GameState.revealedInstances}.
  *
- * Card plays are public even when the played card lands in a redacted pile
- * (e.g. a short-event played from the hand immediately ends up face-down
- * in the owner's discard pile, which the opponent cannot peruse per CoE
- * glossary "discard pile"). The action's cardInstanceId on its own does
- * not reveal the card's name, so the server pairs the broadcast
- * lastAction with this map. The client merges it with its per-view
- * instance lookup so `describeAction` can render "Marvels Told" rather
- * than "a card" for an opponent's play. Fields that hold other string
- * kinds (PlayerId, CompanyId) are harmless: resolveInstanceId returns
- * undefined for them.
+ * An instance enters `revealedInstances` whenever it occupies a location
+ * classified public to the opponent (cards in play, the chain, a company
+ * site, a revealed on-guard slot, the post-draft `drafted` list, etc.).
+ * Instances that have only ever lived in private locations (hands, play
+ * decks, draft pools, face-down discards, unrevealed on-guard) are
+ * omitted — the audience will see "a card" rather than the real name.
+ *
+ * The server pairs the broadcast lastAction with this map; the client
+ * merges it with its per-view instance lookup so `describeAction` can
+ * render public identities correctly. The acting player additionally
+ * resolves their own private IDs through their view's lookup — e.g. a
+ * character being shuffled into their face-down play deck is visible
+ * to them but stays hidden from the opponent's toast, because the
+ * instance was never in a public location.
+ *
+ * Fields that hold other string kinds (PlayerId, CompanyId, etc.) are
+ * harmless: they will not be keys in `revealedInstances`.
  */
 export function extractActionCardDefs(
   state: GameState,
   action: GameAction,
 ): Record<string, CardDefinitionId> {
   const defs: Record<string, CardDefinitionId> = {};
+  const revealed = state.revealedInstances;
   const visit = (value: unknown): void => {
     if (typeof value === 'string') {
-      const def = resolveInstanceId(state, value as CardInstanceId);
+      const def = revealed[value];
       if (def !== undefined) defs[value] = def;
       return;
     }

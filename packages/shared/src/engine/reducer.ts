@@ -29,14 +29,16 @@ import { logHeading, logDetail } from './legal-actions/log.js';
 import { recomputeDerived } from './recompute-derived.js';
 import { applyManifestationCascade } from './manifestations.js';
 import { handleChainAction } from './chain-reducer.js';
+import { accrueRevealedInstances } from './visibility.js';
 
 /**
  * Post-action housekeeping: sweep manifestation cascades (METD §4.2)
  * before re-deriving aggregates so MP/influence totals reflect any
- * cards moved by the cascade.
+ * cards moved by the cascade, then record any newly-revealed card
+ * identities from public locations.
  */
 function postReduce(state: GameState): GameState {
-  return recomputeDerived(applyManifestationCascade(state));
+  return accrueRevealedInstances(recomputeDerived(applyManifestationCascade(state)));
 }
 
 export type { ReducerResult } from './reducer-utils.js';
@@ -72,6 +74,14 @@ export { discardCardsInPlay } from './reducer-utils.js';
  */
 export function reduce(state: GameState, action: GameAction): ReducerResult {
   logHeading(`Reducer: action '${action.type}' from player ${action.player as string} in phase '${state.phaseState.phase}'`);
+
+  // Capture any public-pile identities present in the input state before
+  // the handler runs. This matters when a card's public occupancy is
+  // about to change mid-reducer (e.g. Marvels Told moves a publicly-known
+  // Foolish Words from the opponent's cardsInPlay to their private
+  // discard in a single action). The postReduce accrual would otherwise
+  // only see the final state and miss the pre-action public tenure.
+  state = accrueRevealedInstances(state);
 
   const phase = state.phaseState.phase;
 

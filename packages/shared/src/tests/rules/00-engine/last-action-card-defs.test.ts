@@ -28,11 +28,12 @@ import {
   buildTestState, resetMint,
   handCardId, dispatch,
   addCardInPlay,
+  runSimpleDraft,
   HAZARD_PLAYER, RESOURCE_PLAYER,
   pool,
 } from '../../test-helpers.js';
-import type { CardInstanceId, PlayShortEventAction } from '../../../index.js';
-import { Phase, describeAction, extractActionCardDefs } from '../../../index.js';
+import type { AddCharacterToDeckAction, CardInstanceId, PlayShortEventAction } from '../../../index.js';
+import { Phase, SetupStep, describeAction, extractActionCardDefs, reduce } from '../../../index.js';
 
 describe('lastAction card defs — opponent toast naming', () => {
   beforeEach(() => resetMint());
@@ -120,5 +121,80 @@ describe('lastAction card defs — opponent toast naming', () => {
     const mergedLookup = (id: CardInstanceId) => defs[id as string] ?? viewLookup(id);
     const named = describeAction(action, pool, mergedLookup);
     expect(named).toContain('Marvels Told');
+  });
+});
+
+describe('add-character-to-deck — opponent must not learn the shuffled character', () => {
+  beforeEach(() => resetMint());
+
+  /**
+   * Regression for bug ad5ae57b20698ba1 (game moab9vqb-68zlad, seq ~14):
+   * during character-deck-draft, the opponent's toast read the actual card
+   * name of each character the active player shuffled into their face-down
+   * play deck (e.g. "Add Frodo to play deck"). Per CoE rule 1.8, leftover
+   * pool characters shuffled into the play deck must stay hidden — the
+   * opponent may know the action was taken but not which character was
+   * chosen. Under the generic visibility model the pool → playDeck move
+   * is private-to-private, so the instance never enters
+   * `state.revealedInstances` and `extractActionCardDefs` omits it.
+   */
+  test('extractActionCardDefs omits the shuffled character (pool → playDeck is private→private)', () => {
+    let state = runSimpleDraft();
+    if (state.phaseState.phase !== Phase.Setup) throw new Error('expected setup');
+
+    if (state.phaseState.setupStep.step === SetupStep.ItemDraft) {
+      const itemStep = state.phaseState.setupStep;
+      const p1Char = state.players[0].companies[0].characters[0];
+      const p2Char = state.players[1].companies[0].characters[0];
+      for (const item of itemStep.itemDraftState[0].unassignedItems) {
+        const r = reduce(state, {
+          type: 'assign-starting-item',
+          player: PLAYER_1,
+          itemDefId: item.definitionId,
+          characterInstanceId: p1Char,
+        });
+        if (r.error) throw new Error(r.error);
+        state = r.state;
+      }
+      for (const item of itemStep.itemDraftState[1].unassignedItems) {
+        const r = reduce(state, {
+          type: 'assign-starting-item',
+          player: PLAYER_2,
+          itemDefId: item.definitionId,
+          characterInstanceId: p2Char,
+        });
+        if (r.error) throw new Error(r.error);
+        state = r.state;
+      }
+    }
+
+    if (state.phaseState.phase !== Phase.Setup) throw new Error('expected setup');
+    expect(state.phaseState.setupStep.step).toBe(SetupStep.CharacterDeckDraft);
+    if (state.phaseState.setupStep.step !== SetupStep.CharacterDeckDraft) throw new Error('expected deck draft');
+
+    const p1Pool = state.phaseState.setupStep.deckDraftState[0].remainingPool;
+    expect(p1Pool.length).toBeGreaterThan(0);
+    const charInstance = p1Pool[0];
+
+    const action: AddCharacterToDeckAction = {
+      type: 'add-character-to-deck',
+      player: PLAYER_1,
+      characterInstanceId: charInstance.instanceId,
+    };
+    const result = reduce(state, action);
+    if (result.error) throw new Error(result.error);
+
+    // The shuffled character's identity is absent from the broadcast map —
+    // the character was never in a public pile (pool → playDeck are both
+    // private to the opponent), so it never entered revealedInstances.
+    const defs = extractActionCardDefs(result.state, action);
+    expect(defs[charInstance.instanceId as string]).toBeUndefined();
+
+    // describeAction therefore renders "a card" for the opponent's toast.
+    const audienceLookup = (id: CardInstanceId) => defs[id as string];
+    const audienceDesc = describeAction(action, pool, audienceLookup);
+    expect(audienceDesc).toContain('a card');
+    const realName = pool[charInstance.definitionId as string]?.name;
+    if (realName) expect(audienceDesc).not.toContain(realName);
   });
 });

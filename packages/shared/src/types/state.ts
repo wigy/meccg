@@ -134,6 +134,27 @@ export interface GameState {
    * sum to the target. Consumed (reset to null) after one roll.
    */
   readonly cheatRollTotal: number | null;
+  /**
+   * Identities (instanceId → definitionId) of every card instance whose
+   * definition has become publicly known at some point during the game.
+   *
+   * A card enters this map automatically when it lands in a location
+   * classified as public to the opponent (e.g. `cardsInPlay`, the chain,
+   * a company site, a revealed on-guard slot, the post-draft `drafted`
+   * list). Once in the map the entry persists even if the instance later
+   * moves back into a private pile (e.g. a played short event ends up
+   * face-down in its owner's discard): the opponent already saw the
+   * identity, so it remains part of the public record.
+   *
+   * Consumed by {@link extractActionCardDefs} to decide which identities
+   * from a just-applied action may be named in the opponent's toast / log.
+   * If an instance is absent from this map, its identity is private and
+   * the audience sees "a card" instead of the real name.
+   *
+   * Maintained as a single choke-point in the reducer's post-pass — no
+   * per-reducer-path instrumentation is required.
+   */
+  readonly revealedInstances: Readonly<Record<string, CardDefinitionId>>;
 }
 
 // ---- Instance resolution helpers ----

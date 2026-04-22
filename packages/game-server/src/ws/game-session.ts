@@ -943,11 +943,14 @@ export class GameSession {
   private broadcastState(lastAction?: GameAction): void {
     if (!this.state) return;
 
-    // Computed once: identities of cards referenced in lastAction are public
-    // by virtue of the action itself, even when the card now sits in a
-    // projection-redacted pile (e.g. a short event played into the owner's
-    // face-down discard). The client merges this with its per-view lookup
-    // so opponent-action toasts can name the played card.
+    // Identities of cards referenced in lastAction that have become public
+    // at some point during the game (see GameState.revealedInstances). The
+    // same map is broadcast to every recipient — cards private to the
+    // acting player (e.g. a character shuffled into their face-down play
+    // deck) are absent from the map and render as "a card" in the
+    // audience's toast. The acting player still sees the real name
+    // because their own projected view resolves instances in private
+    // piles they can see (their hand, their draft pool, etc.).
     const lastActionCardDefs = lastAction ? extractActionCardDefs(this.state, lastAction) : undefined;
 
     this.lastLegalActionsPerPlayer.clear();
