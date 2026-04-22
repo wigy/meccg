@@ -75,6 +75,12 @@
             "$includes": "hoard"
           }
         }
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "body",
+        "value": 1,
+        "max": 9
       }
     ],
     "text": "Hoard item. Helmet. +1 to body to a maximum of 9. Cancels all dark enchantments targetting bearer."
