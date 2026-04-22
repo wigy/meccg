@@ -16,7 +16,7 @@ import { logDetail } from './legal-actions/log.js';
 import { findAllyInCompany } from './legal-actions/combat.js';
 import { resolveInstanceId } from '../types/state.js';
 import type { ReducerResult } from './reducer-utils.js';
-import { roll2d6, clonePlayers } from './reducer-utils.js';
+import { roll2d6, clonePlayers, updatePlayer, updateCharacter, wrongActionType } from './reducer-utils.js';
 import { resolveEnemyBody } from './effects/index.js';
 import { computeCombatProwess, buildInPlayNames } from './recompute-derived.js';
 import { enqueueCorruptionCheck, addConstraint } from './pending.js';
@@ -52,6 +52,8 @@ export function handleCombatAction(state: GameState, action: GameAction): Reduce
       return handlePlayDodge(state, action, combat);
     case 'play-strike-event':
       return handlePlayStrikeEvent(state, action, combat);
+    case 'play-reroll-strike':
+      return handlePlayRerollStrike(state, action, combat);
     case 'cancel-strike':
       return handleCancelStrike(state, action, combat);
     case 'halve-strikes':
@@ -95,7 +97,7 @@ function nextStrikePhase(combat: CombatState): Partial<CombatState> | null {
 
 
 function handleChooseStrikeOrder(state: GameState, action: GameAction, combat: CombatState): ReducerResult {
-  if (action.type !== 'choose-strike-order') return { state, error: 'Expected choose-strike-order' };
+  if (action.type !== 'choose-strike-order') return wrongActionType(state, action, 'choose-strike-order');
 
   const idx = action.strikeIndex;
   logDetail(`Defender chose to resolve strike ${idx} (character ${combat.strikeAssignments[idx].characterId as string})`);
@@ -108,7 +110,7 @@ function handleChooseStrikeOrder(state: GameState, action: GameAction, combat: C
 
 
 function handleAssignStrike(state: GameState, action: GameAction, combat: CombatState): ReducerResult {
-  if (action.type !== 'assign-strike') return { state, error: 'Expected assign-strike' };
+  if (action.type !== 'assign-strike') return wrongActionType(state, action, 'assign-strike');
 
   const existingIdx = combat.strikeAssignments.findIndex(a => a.characterId === action.characterId);
 
@@ -173,21 +175,24 @@ function handleAssignStrike(state: GameState, action: GameAction, combat: Combat
 
 
 function handleCombatPass(state: GameState, action: GameAction, combat: CombatState): ReducerResult {
-  if (action.type !== 'pass') return { state, error: 'Expected pass' };
+  if (action.type !== 'pass') return wrongActionType(state, action, 'pass');
 
   // Pass during item-salvage: player declines further transfers, discard remaining items
   if (combat.phase === 'item-salvage') {
     logDetail('Defender passed item-salvage — discarding remaining items');
-    const newPlayers = clonePlayers(state);
     const defIdx = state.players.findIndex(p => p.id === combat.defendingPlayerId);
-    for (const item of combat.salvageItems ?? []) {
+    const salvageItems = combat.salvageItems ?? [];
+    for (const item of salvageItems) {
       logDetail(`Discarding unsalvaged item ${item.instanceId as string}`);
-      newPlayers[defIdx] = {
-        ...newPlayers[defIdx],
-        discardPile: [...newPlayers[defIdx].discardPile, { instanceId: item.instanceId, definitionId: item.definitionId }],
-      };
     }
-    return finishSalvage({ ...state, players: newPlayers }, combat);
+    const nextState = updatePlayer(state, defIdx, p => ({
+      ...p,
+      discardPile: [
+        ...p.discardPile,
+        ...salvageItems.map(item => ({ instanceId: item.instanceId, definitionId: item.definitionId })),
+      ],
+    }));
+    return finishSalvage(nextState, combat);
   }
 
   // Pass during cancel-by-tap sub-phase: proceed to strike resolution
@@ -227,14 +232,16 @@ function handleCombatPass(state: GameState, action: GameAction, combat: CombatSt
 }
 
 /**
- * Core strike resolution shared by `resolve-strike` and `play-dodge`.
+ * Core strike resolution shared by `resolve-strike`, `play-dodge`, and
+ * `play-reroll-strike`.
  *
  * Rolls 2d6 + prowess vs strike prowess, determines the outcome, applies
  * tap/wound to the character or ally, and advances combat to body-check or
- * the next strike. The three resolution modes differ only in:
- * - prowess modifier (stay-untapped takes -3, tap-to-fight and dodge are full)
- * - whether the character taps on success/tie
+ * the next strike. The four resolution modes differ only in:
+ * - prowess modifier (stay-untapped takes -3; tap, dodge, and reroll are full)
+ * - whether the character taps on success/tie (reroll taps like tap mode)
  * - dodge adds a body penalty for the resulting body check
+ * - reroll makes two 2d6 rolls and keeps the better total
  *
  * `preAppliedDefender` lets callers pre-mutate the defender (e.g. dodge
  * discards a card from hand before resolving); this must NOT alter
@@ -243,7 +250,7 @@ function handleCombatPass(state: GameState, action: GameAction, combat: CombatSt
 function resolveStrikeCore(
   state: GameState,
   combat: CombatState,
-  mode: 'tap' | 'untap' | 'dodge',
+  mode: 'tap' | 'untap' | 'dodge' | 'reroll',
   dodgeBodyPenalty: number,
   preAppliedDefender: PlayerState | null,
 ): ReducerResult {
@@ -285,19 +292,50 @@ function resolveStrikeCore(
     prowess += modifyStrikeBonus;
   }
 
-  // Roll dice
-  const { roll, rng, cheatRollTotal } = roll2d6(state);
+  // Roll dice. Reroll mode makes two rolls and keeps the better total; the
+  // discarded roll is logged and emitted as an effect so both rolls appear
+  // in history.
+  let roll;
+  let rng;
+  let cheatRollTotal;
+  const rollLabel = mode === 'dodge' ? 'Strike (dodge)' : mode === 'reroll' ? 'Strike (reroll)' : 'Strike';
+  const charLabel = charDef && 'name' in charDef ? (charDef as { name: string }).name : (targetDefId as string);
+  const effects: GameEffect[] = [];
+
+  if (mode === 'reroll') {
+    const r1 = roll2d6(state);
+    const r2 = roll2d6({ ...state, rng: r1.rng, cheatRollTotal: r1.cheatRollTotal });
+    const t1 = r1.roll.die1 + r1.roll.die2;
+    const t2 = r2.roll.die1 + r2.roll.die2;
+    const firstBetter = t1 >= t2;
+    const kept = firstBetter ? r1 : r2;
+    const discarded = firstBetter ? r2 : r1;
+    roll = kept.roll;
+    rng = r2.rng;
+    cheatRollTotal = r2.cheatRollTotal;
+    logDetail(`${rollLabel}: rolled ${r1.roll.die1}+${r1.roll.die2}=${t1} and ${r2.roll.die1}+${r2.roll.die2}=${t2} → keeping ${kept.roll.die1}+${kept.roll.die2}=${kept.roll.die1 + kept.roll.die2}`);
+    effects.push({
+      effect: 'dice-roll', playerName: defPlayer.name,
+      die1: discarded.roll.die1, die2: discarded.roll.die2, label: `${rollLabel} (discarded): ${charLabel}`,
+    });
+    effects.push({
+      effect: 'dice-roll', playerName: defPlayer.name,
+      die1: kept.roll.die1, die2: kept.roll.die2, label: `${rollLabel}: ${charLabel}`,
+    });
+  } else {
+    const single = roll2d6(state);
+    roll = single.roll;
+    rng = single.rng;
+    cheatRollTotal = single.cheatRollTotal;
+    effects.push({
+      effect: 'dice-roll', playerName: defPlayer.name,
+      die1: roll.die1, die2: roll.die2, label: `${rollLabel}: ${charLabel}`,
+    });
+  }
+
   const rollTotal = roll.die1 + roll.die2;
   const characterTotal = rollTotal + prowess;
-
-  const rollLabel = mode === 'dodge' ? 'Strike (dodge)' : 'Strike';
   logDetail(`${rollLabel} resolution: ${targetDefId as string} rolls ${roll.die1}+${roll.die2}=${rollTotal} + prowess ${prowess} = ${characterTotal} vs creature prowess ${combat.strikeProwess}`);
-
-  const charLabel = charDef && 'name' in charDef ? (charDef as { name: string }).name : (targetDefId as string);
-  const effects: GameEffect[] = [{
-    effect: 'dice-roll', playerName: defPlayer.name,
-    die1: roll.die1, die2: roll.die2, label: `${rollLabel}: ${charLabel}`,
-  }];
 
   // Determine outcome
   let result: 'success' | 'wounded' | 'eliminated';
@@ -321,10 +359,12 @@ function resolveStrikeCore(
 
   // Whether the combatant taps on a non-wounded outcome:
   //  - tap:    always (success or tie)
+  //  - reroll: always (same as tap)
   //  - untap:  only on tie
   //  - dodge:  never
   const tapOnNonWounded =
     mode === 'tap' ||
+    mode === 'reroll' ||
     (mode === 'untap' && characterTotal === combat.strikeProwess);
 
   // Record strike assignment. Dodge tags the strike so the body check picks
@@ -404,7 +444,7 @@ function resolveStrikeCore(
 
 /** Resolve the current strike — roll dice and determine outcome. */
 function handleResolveStrike(state: GameState, action: GameAction, combat: CombatState): ReducerResult {
-  if (action.type !== 'resolve-strike') return { state, error: 'Expected resolve-strike' };
+  if (action.type !== 'resolve-strike') return wrongActionType(state, action, 'resolve-strike');
   return resolveStrikeCore(state, combat, action.tapToFight ? 'tap' : 'untap', 0, null);
 }
 
@@ -412,7 +452,7 @@ function handleResolveStrike(state: GameState, action: GameAction, combat: Comba
 
 
 function handleSupportStrike(state: GameState, action: GameAction, combat: CombatState): ReducerResult {
-  if (action.type !== 'support-strike') return { state, error: 'Expected support-strike' };
+  if (action.type !== 'support-strike') return wrongActionType(state, action, 'support-strike');
 
   const defPlayerIndex = state.players.findIndex(p => p.id === combat.defendingPlayerId);
   const defPlayer = state.players[defPlayerIndex];
@@ -432,12 +472,11 @@ function handleSupportStrike(state: GameState, action: GameAction, combat: Comba
   // Check if supporter is a character
   const supporterChar = defPlayer.characters[action.supportingCharacterId as string];
   if (supporterChar) {
-    const newPlayers = clonePlayers(state);
-    const newCharacters = { ...defPlayer.characters };
-    newCharacters[action.supportingCharacterId as string] = { ...supporterChar, status: CardStatus.Tapped };
-    newPlayers[defPlayerIndex] = { ...defPlayer, characters: newCharacters };
+    const nextState = updatePlayer(state, defPlayerIndex, p =>
+      updateCharacter(p, action.supportingCharacterId, c => ({ ...c, status: CardStatus.Tapped })),
+    );
     logDetail(`${action.supportingCharacterId as string} taps to support — +1 prowess (total support: +${newSupportCount})`);
-    return { state: { ...state, players: newPlayers, combat: newCombat } };
+    return { state: { ...nextState, combat: newCombat } };
   }
 
   // Check if supporter is an ally
@@ -446,14 +485,13 @@ function handleSupportStrike(state: GameState, action: GameAction, combat: Comba
     const allyIndex = ch.allies.findIndex(a => a.instanceId === action.supportingCharacterId);
     if (allyIndex >= 0) {
       const ally = ch.allies[allyIndex];
-      const newPlayers = clonePlayers(state);
       const newAllies = [...ch.allies];
       newAllies[allyIndex] = { ...ally, status: CardStatus.Tapped };
-      const newCharacters = { ...defPlayer.characters };
-      newCharacters[charId] = { ...ch, allies: newAllies };
-      newPlayers[defPlayerIndex] = { ...defPlayer, characters: newCharacters };
+      const nextState = updatePlayer(state, defPlayerIndex, p =>
+        updateCharacter(p, charId, c => ({ ...c, allies: newAllies })),
+      );
       logDetail(`Ally ${action.supportingCharacterId as string} taps to support — +1 prowess (total support: +${newSupportCount})`);
-      return { state: { ...state, players: newPlayers, combat: newCombat } };
+      return { state: { ...nextState, combat: newCombat } };
     }
   }
 
@@ -466,7 +504,7 @@ function handleSupportStrike(state: GameState, action: GameAction, combat: Comba
  * advances to the next strike or finalizes.
  */
 function handleCancelStrike(state: GameState, action: GameAction, combat: CombatState): ReducerResult {
-  if (action.type !== 'cancel-strike') return { state, error: 'Expected cancel-strike' };
+  if (action.type !== 'cancel-strike') return wrongActionType(state, action, 'cancel-strike');
 
   const defPlayerIndex = state.players.findIndex(p => p.id === combat.defendingPlayerId);
   const defPlayer = state.players[defPlayerIndex];
@@ -478,10 +516,9 @@ function handleCancelStrike(state: GameState, action: GameAction, combat: Combat
   const cancellerName = cancellerDef && 'name' in cancellerDef ? (cancellerDef as { name: string }).name : (action.cancellerInstanceId as string);
   logDetail(`${cancellerName} taps to cancel strike against ${currentStrike.characterId as string}`);
 
-  const newPlayers = clonePlayers(state);
-  const newCharacters = { ...defPlayer.characters };
-  newCharacters[action.cancellerInstanceId as string] = { ...cancellerChar, status: CardStatus.Tapped };
-  newPlayers[defPlayerIndex] = { ...defPlayer, characters: newCharacters };
+  const nextState = updatePlayer(state, defPlayerIndex, p =>
+    updateCharacter(p, action.cancellerInstanceId, c => ({ ...c, status: CardStatus.Tapped })),
+  );
 
   const newAssignments = [...combat.strikeAssignments];
   newAssignments[combat.currentStrikeIndex] = { ...currentStrike, resolved: true, result: 'canceled' };
@@ -489,10 +526,10 @@ function handleCancelStrike(state: GameState, action: GameAction, combat: Combat
   const combatWithAssignments = { ...combat, strikeAssignments: newAssignments };
   const next = nextStrikePhase(combatWithAssignments);
   if (!next) {
-    return finalizeCombat({ ...state, players: newPlayers, combat: combatWithAssignments });
+    return finalizeCombat({ ...nextState, combat: combatWithAssignments });
   }
   return {
-    state: { ...state, players: newPlayers, combat: { ...combatWithAssignments, ...next } },
+    state: { ...nextState, combat: { ...combatWithAssignments, ...next } },
   };
 }
 
@@ -503,7 +540,7 @@ function handleCancelStrike(state: GameState, action: GameAction, combat: Combat
  * the dodge body penalty for a subsequent body check.
  */
 function handlePlayDodge(state: GameState, action: GameAction, combat: CombatState): ReducerResult {
-  if (action.type !== 'play-dodge') return { state, error: 'Expected play-dodge' };
+  if (action.type !== 'play-dodge') return wrongActionType(state, action, 'play-dodge');
 
   const defPlayerIndex = state.players.findIndex(p => p.id === combat.defendingPlayerId);
   const defPlayer = state.players[defPlayerIndex];
@@ -551,12 +588,11 @@ function handlePlayStrikeEvent(state: GameState, action: GameAction, combat: Com
   logDetail(`Playing strike event ${cardName}: prowess ${prowessBonus >= 0 ? '+' : ''}${prowessBonus}, body ${bodyPenalty >= 0 ? '+' : ''}${bodyPenalty}`);
 
   // Discard the card from hand.
-  const newPlayers = clonePlayers(state);
-  newPlayers[defPlayerIndex] = {
-    ...defPlayer,
-    hand: [...defPlayer.hand.slice(0, handIndex), ...defPlayer.hand.slice(handIndex + 1)],
-    discardPile: [...defPlayer.discardPile, { instanceId: handCard.instanceId, definitionId: handCard.definitionId }],
-  };
+  const stateAfterDiscard = updatePlayer(state, defPlayerIndex, p => ({
+    ...p,
+    hand: [...p.hand.slice(0, handIndex), ...p.hand.slice(handIndex + 1)],
+    discardPile: [...p.discardPile, { instanceId: handCard.instanceId, definitionId: handCard.definitionId }],
+  }));
 
   // Accumulate the bonuses on the current strike assignment.
   const newAssignments = combat.strikeAssignments.map((a, i) =>
@@ -570,14 +606,39 @@ function handlePlayStrikeEvent(state: GameState, action: GameAction, combat: Com
   );
   const newCombat: CombatState = { ...combat, strikeAssignments: newAssignments };
 
-  return { state: { ...state, players: newPlayers, combat: newCombat } };
+  return { state: { ...stateAfterDiscard, combat: newCombat } };
+}
+
+/**
+ * Play a reroll-strike card from hand during resolve-strike (e.g. Lucky
+ * Strike). Discards the card and delegates to `resolveStrikeCore` in
+ * reroll mode, which rolls 2d6 twice and resolves the strike using the
+ * better total. The character taps as in normal tap-to-fight.
+ */
+function handlePlayRerollStrike(state: GameState, action: GameAction, combat: CombatState): ReducerResult {
+  if (action.type !== 'play-reroll-strike') return { state, error: 'Expected play-reroll-strike' };
+
+  const defPlayerIndex = state.players.findIndex(p => p.id === combat.defendingPlayerId);
+  const defPlayer = state.players[defPlayerIndex];
+  const handIndex = defPlayer.hand.findIndex(c => c.instanceId === action.cardInstanceId);
+  const handCard = defPlayer.hand[handIndex];
+
+  logDetail(`Playing reroll-strike card ${handCard.definitionId as string}`);
+
+  const preAppliedDefender: PlayerState = {
+    ...defPlayer,
+    hand: [...defPlayer.hand.slice(0, handIndex), ...defPlayer.hand.slice(handIndex + 1)],
+    discardPile: [...defPlayer.discardPile, { instanceId: handCard.instanceId, definitionId: handCard.definitionId }],
+  };
+
+  return resolveStrikeCore(state, combat, 'reroll', 0, preAppliedDefender);
 }
 
 /** Roll body check — attacker rolls 2d6 vs body value. */
 
 
 function handleBodyCheckRoll(state: GameState, action: GameAction, combat: CombatState): ReducerResult {
-  if (action.type !== 'body-check-roll') return { state, error: 'Expected body-check-roll' };
+  if (action.type !== 'body-check-roll') return wrongActionType(state, action, 'body-check-roll');
 
   const { roll, rng, cheatRollTotal } = roll2d6(state);
   const rollTotal = roll.die1 + roll.die2;
@@ -588,9 +649,11 @@ function handleBodyCheckRoll(state: GameState, action: GameAction, combat: Comba
   }];
 
   // Update lastDiceRoll on the attacking player
-  const basePlayers = clonePlayers(state);
-  basePlayers[atkPlayerIndex] = { ...basePlayers[atkPlayerIndex], lastDiceRoll: roll };
-  const stateWithRoll: GameState = { ...state, players: basePlayers, rng, cheatRollTotal };
+  const stateWithRoll: GameState = {
+    ...updatePlayer(state, atkPlayerIndex, p => ({ ...p, lastDiceRoll: roll })),
+    rng,
+    cheatRollTotal,
+  };
 
   if (combat.bodyCheckTarget === 'creature') {
     // Body check against creature — apply enemy-modifier effects (e.g. Éowyn halves Nazgûl body)
@@ -799,7 +862,7 @@ function handleCancelAttackByInPlayAlly(
   action: GameAction,
   combat: CombatState,
 ): ReducerResult {
-  if (action.type !== 'cancel-attack') return { state, error: 'Expected cancel-attack' };
+  if (action.type !== 'cancel-attack') return wrongActionType(state, action, 'cancel-attack');
 
   const defPlayerIndex = state.players.findIndex(p => p.id === action.player);
   const defPlayer = state.players[defPlayerIndex];
@@ -816,22 +879,14 @@ function handleCancelAttackByInPlayAlly(
   const allyName = allyDef && 'name' in allyDef ? allyDef.name : String(found.ally.definitionId);
   logDetail(`Cancel-attack declared: tapping ${allyName} to cancel ${combat.creatureRace ?? 'attack'}`);
 
-  const newPlayers = clonePlayers(state);
-  const hostChar = newPlayers[defPlayerIndex].characters[found.hostCharId as string];
-  newPlayers[defPlayerIndex] = {
-    ...newPlayers[defPlayerIndex],
-    characters: {
-      ...newPlayers[defPlayerIndex].characters,
-      [found.hostCharId as string]: {
-        ...hostChar,
-        allies: hostChar.allies.map(a =>
-          a.instanceId === action.cardInstanceId ? { ...a, status: CardStatus.Tapped } : a,
-        ),
-      },
-    },
-  };
-
-  const tappedState: GameState = { ...state, players: newPlayers };
+  const tappedState = updatePlayer(state, defPlayerIndex, p =>
+    updateCharacter(p, found.hostCharId, c => ({
+      ...c,
+      allies: c.allies.map(a =>
+        a.instanceId === action.cardInstanceId ? { ...a, status: CardStatus.Tapped } : a,
+      ),
+    })),
+  );
   return { state: resolveCancelAttackEntry(tappedState) };
 }
 
@@ -845,7 +900,7 @@ function handleCancelAttackByInPlayCharacter(
   action: GameAction,
   combat: CombatState,
 ): ReducerResult {
-  if (action.type !== 'cancel-attack') return { state, error: 'Expected cancel-attack' };
+  if (action.type !== 'cancel-attack') return wrongActionType(state, action, 'cancel-attack');
 
   const defPlayerIndex = state.players.findIndex(p => p.id === action.player);
   const defPlayer = state.players[defPlayerIndex];
@@ -865,21 +920,14 @@ function handleCancelAttackByInPlayCharacter(
   const charName = charDef && 'name' in charDef ? charDef.name : String(charData.definitionId);
   logDetail(`Cancel-attack declared: tapping ${charName} to cancel ${combat.creatureRace ?? 'attack'}`);
 
-  const newPlayers = clonePlayers(state);
-  newPlayers[defPlayerIndex] = {
-    ...newPlayers[defPlayerIndex],
-    characters: {
-      ...newPlayers[defPlayerIndex].characters,
-      [action.cardInstanceId as string]: { ...charData, status: CardStatus.Tapped },
-    },
-  };
-
-  const tappedState: GameState = { ...state, players: newPlayers };
+  const tappedState = updatePlayer(state, defPlayerIndex, p =>
+    updateCharacter(p, action.cardInstanceId, c => ({ ...c, status: CardStatus.Tapped })),
+  );
   return { state: resolveCancelAttackEntry(tappedState) };
 }
 
 function handleCancelAttack(state: GameState, action: GameAction, combat: CombatState): ReducerResult {
-  if (action.type !== 'cancel-attack') return { state, error: 'Expected cancel-attack' };
+  if (action.type !== 'cancel-attack') return wrongActionType(state, action, 'cancel-attack');
 
   const defPlayerIndex = state.players.findIndex(p => p.id === action.player);
   const defPlayer = state.players[defPlayerIndex];
@@ -1045,7 +1093,7 @@ export function resolveCancelAttackEntry(state: GameState): GameState {
  * Removes one strike assignment and decrements cancelByTapRemaining.
  */
 function handleCancelByTap(state: GameState, action: GameAction, combat: CombatState): ReducerResult {
-  if (action.type !== 'cancel-by-tap') return { state, error: 'Expected cancel-by-tap' };
+  if (action.type !== 'cancel-by-tap') return wrongActionType(state, action, 'cancel-by-tap');
   if (combat.phase !== 'assign-strikes' || combat.assignmentPhase !== 'cancel-by-tap') {
     return { state, error: 'Can only cancel-by-tap during cancel-by-tap sub-phase' };
   }
@@ -1137,7 +1185,7 @@ function handleCancelByTap(state: GameState, action: GameAction, combat: CombatS
  * assign-strikes phase before any strikes have been assigned.
  */
 function handleHalveStrikes(state: GameState, action: GameAction, combat: CombatState): ReducerResult {
-  if (action.type !== 'halve-strikes') return { state, error: 'Expected halve-strikes' };
+  if (action.type !== 'halve-strikes') return wrongActionType(state, action, 'halve-strikes');
   if (combat.phase !== 'assign-strikes') return { state, error: 'Can only halve strikes before strikes are assigned' };
   if (combat.strikeAssignments.length > 0) return { state, error: 'Strikes already assigned — too late to halve' };
   if (action.player !== combat.defendingPlayerId) return { state, error: 'Only defending player can halve strikes' };
@@ -1152,21 +1200,13 @@ function handleHalveStrikes(state: GameState, action: GameAction, combat: Combat
   const newStrikes = Math.ceil(originalStrikes / 2);
   logDetail(`Strikes halved: ${originalStrikes} → ${newStrikes} (${defPlayer.hand[cardIndex].definitionId as string} played)`);
 
-  const newPlayers = clonePlayers(state);
   const newHand = [...defPlayer.hand];
   const [discardedCard] = newHand.splice(cardIndex, 1);
   const newDiscard = [...defPlayer.discardPile, { instanceId: discardedCard.instanceId, definitionId: discardedCard.definitionId }];
 
-  newPlayers[defPlayerIndex] = {
-    ...defPlayer,
-    hand: newHand,
-    discardPile: newDiscard,
-  };
-
   return {
     state: {
-      ...state,
-      players: newPlayers,
+      ...updatePlayer(state, defPlayerIndex, p => ({ ...p, hand: newHand, discardPile: newDiscard })),
       combat: { ...combat, strikesTotal: newStrikes },
     },
   };
@@ -1177,7 +1217,7 @@ function handleHalveStrikes(state: GameState, action: GameAction, combat: Combat
  * Available during the 'item-salvage' combat phase (CoE rule 3.I.2).
  */
 function handleSalvageItem(state: GameState, action: GameAction, combat: CombatState): ReducerResult {
-  if (action.type !== 'salvage-item') return { state, error: 'Expected salvage-item' };
+  if (action.type !== 'salvage-item') return wrongActionType(state, action, 'salvage-item');
   if (combat.phase !== 'item-salvage') return { state, error: 'Not in item-salvage phase' };
   if (action.player !== combat.defendingPlayerId) return { state, error: 'Only defending player can salvage items' };
 

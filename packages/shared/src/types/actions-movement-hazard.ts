@@ -325,6 +325,27 @@ export interface PlayStrikeEventAction {
 }
 
 /**
+ * Play a reroll-strike card from hand during resolve-strike. The target
+ * character resolves the strike normally (tap-to-fight, full prowess)
+ * but two 2d6 rolls are made and the better total is used.
+ *
+ * Example: Lucky Strike — warrior only; make two rolls against a strike
+ * and choose one of the two results to use.
+ */
+export interface PlayRerollStrikeAction {
+  /** Action discriminant. */
+  readonly type: 'play-reroll-strike';
+  /** The defending player playing the reroll card. */
+  readonly player: PlayerId;
+  /** The reroll card instance being played from hand. */
+  readonly cardInstanceId: CardInstanceId;
+  /** The unmodified 2d6 value needed to defeat the strike (tap prowess). */
+  readonly need: number;
+  /** Human-readable breakdown of character's prowess vs creature prowess. */
+  readonly explanation: string;
+}
+
+/**
  * Execute the dice roll for a Muster Disperses muster check.
  *
  * Created by the pending-resolution system when a faction-targeting

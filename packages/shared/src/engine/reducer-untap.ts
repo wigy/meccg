@@ -9,7 +9,7 @@ import type { GameState, CharacterInPlay, UntapPhaseState, GameAction } from '..
 import { Phase, shuffle, CardStatus, isSiteCard, SiteType, getPlayerIndex, matchesCondition } from '../index.js';
 import { logDetail } from './legal-actions/log.js';
 import type { ReducerResult } from './reducer-utils.js';
-import { clonePlayers } from './reducer-utils.js';
+import { clonePlayers, updatePlayer, wrongActionType } from './reducer-utils.js';
 import { enqueueCorruptionCheck } from './pending.js';
 import type { OnEventEffect, CardEffect } from '../types/effects.js';
 
@@ -52,12 +52,9 @@ export function handleUntap(state: GameState, action: GameAction): ReducerResult
   if (untapState.hazardSideboardDestination === 'discard') {
     logDetail(`Hazard sideboard: player ${action.player as string} done fetching to discard (${untapState.hazardSideboardFetched} cards)`);
     const hazardIndex = getPlayerIndex(state, action.player);
-    const newPlayers = clonePlayers(state);
-    newPlayers[hazardIndex] = { ...newPlayers[hazardIndex], sideboardAccessedDuringUntap: true };
     return {
       state: {
-        ...state,
-        players: newPlayers,
+        ...updatePlayer(state, hazardIndex, p => ({ ...p, sideboardAccessedDuringUntap: true })),
         phaseState: { ...untapState, hazardSideboardDestination: null },
       },
     };
@@ -77,7 +74,7 @@ export function handleUntap(state: GameState, action: GameAction): ReducerResult
 
 /** Handle fetch-hazard-from-sideboard during the untap hazard sideboard sub-flow. */
 function handleFetchHazardFromSideboard(state: GameState, action: GameAction): ReducerResult {
-  if (action.type !== 'fetch-hazard-from-sideboard') return { state, error: 'Expected fetch-hazard-from-sideboard action' };
+  if (action.type !== 'fetch-hazard-from-sideboard') return wrongActionType(state, action, 'fetch-hazard-from-sideboard');
 
   const untapState = state.phaseState as UntapPhaseState;
   const playerIndex = getPlayerIndex(state, action.player);
@@ -218,9 +215,7 @@ function performUntap(state: GameState): GameState {
   const tappedCharCount = Object.values(player.characters).filter(ch => ch.status === CardStatus.Tapped).length;
   logDetail(`Untap: untapping ${tappedCharCount} character(s), healing ${healedCount} wounded character(s) at havens/healing sites`);
 
-  const newPlayers = clonePlayers(state);
-  newPlayers[playerIndex] = { ...player, characters: newCharacters, cardsInPlay: newCardsInPlay };
-  return { ...state, players: newPlayers };
+  return updatePlayer(state, playerIndex, p => ({ ...p, characters: newCharacters, cardsInPlay: newCardsInPlay }));
 }
 
 /**
