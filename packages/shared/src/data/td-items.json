@@ -349,12 +349,13 @@
     "unique": false,
     "subtype": "major",
     "keywords": [
-      "hoard"
+      "hoard",
+      "weapon"
     ],
     "marshallingPoints": 2,
     "marshallingCategory": "item",
     "corruptionPoints": 2,
-    "prowessModifier": 2,
+    "prowessModifier": 0,
     "bodyModifier": 0,
     "playableAt": [],
     "effects": [
@@ -365,9 +366,27 @@
             "$includes": "hoard"
           }
         }
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "prowess",
+        "value": 2,
+        "max": 9
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "body",
+        "value": 1,
+        "max": 9,
+        "when": {
+          "bearer.skills": {
+            "$includes": "warrior"
+          }
+        }
       }
     ],
-    "text": "Hoard item. Weapon. +2 to bearer’s prowess to a maximum of 9. Warrior only: +1 to body to a maximum of 9."
+    "text": "Hoard item. Weapon. +2 to bearer’s prowess to a maximum of 9. Warrior only: +1 to body to a maximum of 9.",
+    "certified": "2026-04-22"
   },
   {
     "cardType": "hero-resource-item",
